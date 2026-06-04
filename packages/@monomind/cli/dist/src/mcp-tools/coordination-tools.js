@@ -1,13 +1,3 @@
-/**
- * Coordination MCP Tools for CLI
- *
- * V2 Compatibility - Swarm coordination and orchestration tools
- *
- * ⚠️ IMPORTANT: These tools provide LOCAL STATE MANAGEMENT.
- * - Topology/consensus state is tracked locally
- * - No actual distributed coordination
- * - Useful for single-machine workflow orchestration
- */
 import { getProjectCwd } from './types.js';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -82,8 +72,9 @@ export const coordinationTools = [
             },
         },
         handler: async (input) => {
+            const args = input;
             const store = loadCoordStore();
-            const action = input.action || 'get';
+            const action = args.action || 'get';
             if (action === 'get') {
                 return {
                     success: true,
@@ -93,14 +84,14 @@ export const coordinationTools = [
                 };
             }
             if (action === 'set') {
-                if (input.type)
-                    store.topology.type = input.type;
-                if (input.maxNodes)
-                    store.topology.maxNodes = input.maxNodes;
-                if (input.redundancy)
-                    store.topology.redundancy = input.redundancy;
-                if (input.consensusAlgorithm)
-                    store.topology.consensusAlgorithm = input.consensusAlgorithm;
+                if (args.type)
+                    store.topology.type = args.type;
+                if (args.maxNodes)
+                    store.topology.maxNodes = args.maxNodes;
+                if (args.redundancy)
+                    store.topology.redundancy = args.redundancy;
+                if (args.consensusAlgorithm)
+                    store.topology.consensusAlgorithm = args.consensusAlgorithm;
                 saveCoordStore(store);
                 return {
                     success: true,
@@ -150,8 +141,9 @@ export const coordinationTools = [
             },
         },
         handler: async (input) => {
+            const args = input;
             const store = loadCoordStore();
-            const action = input.action || 'get';
+            const action = args.action || 'get';
             if (action === 'get') {
                 const nodes = Object.values(store.nodes);
                 const avgLoad = nodes.length > 0
@@ -169,10 +161,10 @@ export const coordinationTools = [
                 };
             }
             if (action === 'set') {
-                if (input.algorithm)
-                    store.loadBalance.algorithm = input.algorithm;
-                if (input.weights)
-                    store.loadBalance.weights = input.weights;
+                if (args.algorithm)
+                    store.loadBalance.algorithm = args.algorithm;
+                if (args.weights)
+                    store.loadBalance.weights = args.weights;
                 saveCoordStore(store);
                 return {
                     success: true,
@@ -181,7 +173,7 @@ export const coordinationTools = [
                 };
             }
             if (action === 'distribute') {
-                const task = input.task;
+                const task = args.task;
                 const nodes = Object.values(store.nodes).filter(n => n.status === 'active');
                 if (nodes.length === 0) {
                     return { success: false, error: 'No active nodes available' };
@@ -228,8 +220,9 @@ export const coordinationTools = [
             },
         },
         handler: async (input) => {
+            const args = input;
             const store = loadCoordStore();
-            const action = input.action || 'status';
+            const action = args.action || 'status';
             if (action === 'status') {
                 const timeSinceSync = Date.now() - new Date(store.sync.lastSync).getTime();
                 return {
@@ -255,7 +248,7 @@ export const coordinationTools = [
                 };
             }
             if (action === 'resolve') {
-                const strategy = input.conflictResolution || 'latest';
+                const strategy = args.conflictResolution || 'latest';
                 if (store.sync.conflicts > 0) {
                     const resolved = store.sync.conflicts;
                     store.sync.conflicts = 0;
@@ -289,8 +282,9 @@ export const coordinationTools = [
             },
         },
         handler: async (input) => {
+            const args = input;
             const store = loadCoordStore();
-            const action = input.action || 'list';
+            const action = args.action || 'list';
             if (action === 'list') {
                 const nodes = Object.values(store.nodes);
                 return {
@@ -309,7 +303,7 @@ export const coordinationTools = [
             const MAX_NODES = 1000;
             const MAX_NODE_ID_LEN = 200;
             if (action === 'add') {
-                const nodeId = input.nodeId || `node-${Date.now()}`;
+                const nodeId = args.nodeId || `node-${Date.now()}`;
                 if (typeof nodeId !== 'string' || nodeId.length === 0 || nodeId.length > MAX_NODE_ID_LEN) {
                     return { success: false, error: 'Invalid nodeId' };
                 }
@@ -336,7 +330,7 @@ export const coordinationTools = [
                 };
             }
             if (action === 'remove') {
-                const nodeId = input.nodeId;
+                const nodeId = args.nodeId;
                 // Match the `add` denylist + Object.hasOwn so a tampered store.json
                 // can't have its inherited Object.prototype slots exposed via remove.
                 if (typeof nodeId !== 'string' || nodeId.length === 0 || nodeId.length > MAX_NODE_ID_LEN ||
@@ -356,7 +350,7 @@ export const coordinationTools = [
                 };
             }
             if (action === 'heartbeat') {
-                const nodeId = input.nodeId;
+                const nodeId = args.nodeId;
                 if (!nodeId || typeof nodeId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(nodeId)) {
                     return {
                         success: false,
@@ -398,9 +392,10 @@ export const coordinationTools = [
             },
         },
         handler: async (input) => {
+            const args = input;
             const store = loadCoordStore();
-            const action = input.action || 'status';
-            const strategy = input.strategy || 'raft';
+            const action = args.action || 'status';
+            const strategy = args.strategy || 'raft';
             const nodeCount = Object.keys(store.nodes).length || 1;
             // Initialize consensus storage in the coordination store if missing
             if (!store.consensus) {
@@ -421,9 +416,9 @@ export const coordinationTools = [
                 return Math.floor(total / 2) + 1;
             }
             if (action === 'status') {
-                if (input.proposalId) {
+                if (args.proposalId) {
                     // Status for specific proposal
-                    const p = consensus.pending.find(x => x.proposalId === input.proposalId);
+                    const p = consensus.pending.find(x => x.proposalId === args.proposalId);
                     if (p) {
                         const votesFor = Object.values(p.votes).filter(v => v).length;
                         const votesAgainst = Object.values(p.votes).filter(v => !v).length;
@@ -439,7 +434,7 @@ export const coordinationTools = [
                             resolved: false,
                         };
                     }
-                    const h = consensus.history.find(x => x.proposalId === input.proposalId);
+                    const h = consensus.history.find(x => x.proposalId === args.proposalId);
                     if (h)
                         return { success: true, ...h, resolved: true, historical: true };
                     return { success: false, error: 'Proposal not found' };
@@ -458,8 +453,8 @@ export const coordinationTools = [
             }
             if (action === 'propose') {
                 const proposalId = `proposal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-                const quorumPreset = input.quorumPreset || 'majority';
-                const term = input.term || 1;
+                const quorumPreset = args.quorumPreset || 'majority';
+                const term = args.term || 1;
                 const required = calcRequired(strategy, nodeCount, quorumPreset);
                 // Raft: one pending proposal per term
                 if (strategy === 'raft') {
@@ -478,12 +473,12 @@ export const coordinationTools = [
                 // Validate proposal size and shape — schema only declares object,
                 // so without these checks an attacker could submit a 10MB blob 200x
                 // and inflate store.json to 2GB on every saveCoordStore.
-                if (input.proposal === null || typeof input.proposal !== 'object' || Array.isArray(input.proposal)) {
+                if (args.proposal === null || typeof args.proposal !== 'object' || Array.isArray(args.proposal)) {
                     return { success: false, error: 'proposal must be a plain object' };
                 }
                 let proposalSerialized;
                 try {
-                    proposalSerialized = JSON.stringify(input.proposal);
+                    proposalSerialized = JSON.stringify(args.proposal);
                 }
                 catch {
                     return { success: false, error: 'proposal contains non-serializable values' };
@@ -494,8 +489,8 @@ export const coordinationTools = [
                 consensus.pending.push({
                     proposalId,
                     type: 'coordination',
-                    proposal: input.proposal,
-                    proposedBy: input.voterId || 'system',
+                    proposal: args.proposal,
+                    proposedBy: args.voterId || 'system',
                     proposedAt: new Date().toISOString(),
                     votes: {},
                     status: 'pending',
@@ -509,7 +504,7 @@ export const coordinationTools = [
                     success: true,
                     action: 'proposed',
                     proposalId,
-                    proposal: input.proposal,
+                    proposal: args.proposal,
                     strategy,
                     status: 'pending',
                     required,
@@ -518,13 +513,13 @@ export const coordinationTools = [
                 };
             }
             if (action === 'vote') {
-                const p = consensus.pending.find(x => x.proposalId === input.proposalId);
+                const p = consensus.pending.find(x => x.proposalId === args.proposalId);
                 if (!p)
                     return { success: false, error: 'Proposal not found or already resolved' };
-                const voterId = input.voterId;
+                const voterId = args.voterId;
                 if (!voterId)
                     return { success: false, error: 'voterId is required' };
-                const voteValue = input.vote === 'accept';
+                const voteValue = args.vote === 'accept';
                 const pStrategy = p.strategy || 'raft';
                 const required = calcRequired(pStrategy, nodeCount, p.quorumPreset);
                 // Double-vote prevention
@@ -607,7 +602,7 @@ export const coordinationTools = [
                     action: 'voted',
                     proposalId: p.proposalId,
                     voterId,
-                    vote: input.vote,
+                    vote: args.vote,
                     strategy: pStrategy,
                     votesFor,
                     votesAgainst,
@@ -620,13 +615,13 @@ export const coordinationTools = [
             }
             if (action === 'commit') {
                 // Commit is a no-op confirmation for already-resolved proposals
-                if (input.proposalId) {
-                    const h = consensus.history.find(x => x.proposalId === input.proposalId);
+                if (args.proposalId) {
+                    const h = consensus.history.find(x => x.proposalId === args.proposalId);
                     if (h) {
                         return {
                             success: true,
                             action: 'committed',
-                            proposalId: input.proposalId,
+                            proposalId: args.proposalId,
                             result: h.result,
                             committedAt: new Date().toISOString(),
                         };
@@ -653,10 +648,11 @@ export const coordinationTools = [
             required: ['task'],
         },
         handler: async (input) => {
+            const args = input;
             const store = loadCoordStore();
-            const task = input.task;
-            const agents = input.agents || Object.keys(store.nodes);
-            const strategy = input.strategy || 'parallel';
+            const task = args.task;
+            const agents = args.agents || Object.keys(store.nodes);
+            const strategy = args.strategy || 'parallel';
             const orchestrationId = `orch-${Date.now()}`;
             return {
                 success: true,
@@ -682,8 +678,9 @@ export const coordinationTools = [
             },
         },
         handler: async (input) => {
+            const args = input;
             const store = loadCoordStore();
-            const metric = input.metric || 'all';
+            const metric = args.metric || 'all';
             const nodes = Object.values(store.nodes);
             const activeNodes = nodes.filter(n => n.status === 'active');
             const metrics = {
