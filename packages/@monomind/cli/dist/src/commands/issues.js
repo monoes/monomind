@@ -17,6 +17,9 @@
  */
 import { output } from '../output.js';
 import { createClaimService } from '../services/claim-service.js';
+function getClaimService(cwd) {
+    return createClaimService(cwd);
+}
 // ============================================================================
 // Subcommands
 // ============================================================================
@@ -41,7 +44,7 @@ const listCommand = {
         },
     ],
     action: async (ctx) => {
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         const status = ctx.flags.status;
         const claims = status
@@ -125,7 +128,7 @@ const claimCommand = {
                 userId: userStr.split(':')[0],
                 name: userStr.split(':')[1] || userStr.split(':')[0],
             };
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         const result = await service.claim(issueId, claimant);
         if (result.success) {
@@ -184,7 +187,7 @@ const releaseCommand = {
                 userId: userStr.split(':')[0],
                 name: userStr.split(':')[1] || userStr.split(':')[0],
             };
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         try {
             await service.release(issueId, claimant);
@@ -220,7 +223,7 @@ const handoffCommand = {
             output.printError('Invalid --to format. Use agent:type:id or user:id:name');
             return { success: false, exitCode: 1 };
         }
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         // Get current claim to find "from"
         const claim = await service.getIssueStatus(issueId);
@@ -259,7 +262,7 @@ const statusCommand = {
             output.printError('Issue ID is required');
             return { success: false, exitCode: 1 };
         }
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         const newStatus = ctx.flags.set;
         const progress = ctx.flags.progress;
@@ -299,7 +302,7 @@ const stealableCommand = {
     ],
     action: async (ctx) => {
         const agentType = ctx.flags.type;
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         const stealable = await service.getStealable(agentType);
         if (stealable.length === 0) {
@@ -339,7 +342,7 @@ const stealCommand = {
             agentType: agentStr.split(':')[0],
             agentId: agentStr.split(':')[1] || `${agentStr.split(':')[0]}-1`,
         };
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         const result = await service.steal(issueId, stealer);
         if (result.success) {
@@ -366,7 +369,7 @@ const loadCommand = {
     ],
     action: async (ctx) => {
         const agentId = ctx.flags.agent;
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         if (agentId) {
             const load = await service.getAgentLoad(agentId);
@@ -416,7 +419,7 @@ const rebalanceCommand = {
     ],
     action: async (ctx) => {
         const apply = ctx.flags.apply;
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         const result = await service.rebalance('default');
         if (result.suggested.length === 0) {
@@ -442,7 +445,7 @@ const boardCommand = {
     name: 'board',
     description: 'Visual board view of claims',
     action: async (ctx) => {
-        const service = createClaimService(ctx.cwd);
+        const service = getClaimService(ctx.cwd);
         await service.initialize();
         const claims = await service.getAllClaims();
         const byStatus = {
@@ -471,7 +474,9 @@ const boardCommand = {
                 const item = byStatus[col][i];
                 if (!item)
                     return ''.padEnd(18);
-                const owner = item.claimant.type === 'agent' ? item.claimant.agentType.slice(0, 6) : item.claimant.name.slice(0, 6);
+                const owner = item.claimant.type === 'agent'
+                    ? item.claimant.agentType.slice(0, 6)
+                    : item.claimant.name.slice(0, 6);
                 return `#${item.issueId} (${owner})`.padEnd(18);
             });
             output.writeln(row.join(''));

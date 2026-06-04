@@ -45,7 +45,9 @@ function calculateDelay(attempt, config, strategy = 'exponential') {
             break;
         case 'exponential':
         default:
-            delay = config.initialDelayMs * Math.pow(config.backoffMultiplier, attempt - 1);
+            delay =
+                config.initialDelayMs *
+                    Math.pow(config.backoffMultiplier, attempt - 1);
     }
     // Apply max delay cap
     delay = Math.min(delay, config.maxDelayMs);
@@ -90,7 +92,7 @@ function shouldRetryError(error, attempt, config) {
  * Sleep for a given number of milliseconds
  */
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 /**
  * Execute a function with retry logic

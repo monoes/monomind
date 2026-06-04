@@ -19,9 +19,9 @@ const DEFAULT_CONFIG = {
     maxMetrics: 100000,
     samplingRate: 1.0,
     alertThresholds: {
-        'error_rate': { warning: 0.05, critical: 0.1 },
-        'response_time_ms': { warning: 1000, critical: 5000 },
-        'active_requests': { warning: 100, critical: 500 },
+        error_rate: { warning: 0.05, critical: 0.1 },
+        response_time_ms: { warning: 1000, critical: 5000 },
+        active_requests: { warning: 100, critical: 500 },
     },
     healthCheckIntervalMs: 30000,
     globalLabels: {},
@@ -190,9 +190,7 @@ export class MonitoringHooks {
             const index = Math.ceil(count * p) - 1;
             return sortedTimes[Math.min(index, count - 1)];
         };
-        const avgResponseTime = count > 0
-            ? sortedTimes.reduce((a, b) => a + b, 0) / count
-            : 0;
+        const avgResponseTime = count > 0 ? sortedTimes.reduce((a, b) => a + b, 0) / count : 0;
         return {
             requestCount: this.requestCount,
             errorCount: this.errorCount,
@@ -212,9 +210,9 @@ export class MonitoringHooks {
      * Get active alerts
      */
     getAlerts(level) {
-        let filtered = this.alerts.filter(a => !a.acknowledged);
+        let filtered = this.alerts.filter((a) => !a.acknowledged);
         if (level) {
-            filtered = filtered.filter(a => a.level === level);
+            filtered = filtered.filter((a) => a.level === level);
         }
         return filtered;
     }
@@ -222,7 +220,7 @@ export class MonitoringHooks {
      * Acknowledge an alert
      */
     acknowledgeAlert(alertId) {
-        const alert = this.alerts.find(a => a.id === alertId);
+        const alert = this.alerts.find((a) => a.id === alertId);
         if (alert) {
             alert.acknowledged = true;
             return true;
@@ -242,9 +240,9 @@ export class MonitoringHooks {
      * Get metrics for a specific name
      */
     getMetrics(name, since) {
-        let filtered = this.metrics.filter(m => m.name === name);
+        let filtered = this.metrics.filter((m) => m.name === name);
         if (since) {
-            filtered = filtered.filter(m => m.timestamp >= since);
+            filtered = filtered.filter((m) => m.timestamp >= since);
         }
         return filtered;
     }
@@ -302,7 +300,7 @@ export class MonitoringHooks {
         }
         if (level) {
             // Check if we already have a recent alert for this metric
-            const recentAlert = this.alerts.find(a => a.metric === name &&
+            const recentAlert = this.alerts.find((a) => a.metric === name &&
                 !a.acknowledged &&
                 Date.now() - a.timestamp < 60000);
             if (!recentAlert) {
@@ -323,13 +321,13 @@ export class MonitoringHooks {
         const now = Date.now();
         const cutoff = now - this.config.retentionMs;
         // Remove old metrics
-        this.metrics = this.metrics.filter(m => m.timestamp > cutoff);
+        this.metrics = this.metrics.filter((m) => m.timestamp > cutoff);
         // Limit total metrics
         if (this.metrics.length > this.config.maxMetrics) {
             this.metrics = this.metrics.slice(-this.config.maxMetrics);
         }
         // Remove old acknowledged alerts
-        this.alerts = this.alerts.filter(a => !a.acknowledged || Date.now() - a.timestamp < 300000);
+        this.alerts = this.alerts.filter((a) => !a.acknowledged || Date.now() - a.timestamp < 300000);
         // Cap total alerts to prevent unbounded growth
         const MAX_ALERTS = 500;
         if (this.alerts.length > MAX_ALERTS) {

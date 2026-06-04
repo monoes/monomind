@@ -8,9 +8,15 @@
  * - Health checks
  * - Alerting
  *
- * @module @monoes/cli/production/monitoring
+ * @module @monomind/cli/production/monitoring
  */
-export type MetricType = 'counter' | 'gauge' | 'histogram' | 'summary';
+/** Metric type discriminator. */
+export type MetricType = 'counter' | 'gauge' | 'histogram';
+/** Alert severity level. */
+export type AlertLevel = 'warning' | 'critical';
+/** Health check status discriminator. */
+export type HealthCheckStatus = 'healthy' | 'unhealthy';
+/** A single recorded metric event. */
 export interface MetricEvent {
     name: string;
     type: MetricType;
@@ -18,29 +24,53 @@ export interface MetricEvent {
     labels: Record<string, string>;
     timestamp: number;
 }
+/** Warning/critical thresholds for a single metric. */
+export interface AlertThreshold {
+    warning: number;
+    critical: number;
+}
+/** Configuration for the monitoring hooks. */
 export interface MonitorConfig {
     enabled: boolean;
     retentionMs: number;
     maxMetrics: number;
     samplingRate: number;
-    alertThresholds: Record<string, {
-        warning: number;
-        critical: number;
-    }>;
+    alertThresholds: Record<string, AlertThreshold>;
     healthCheckIntervalMs: number;
-    reportingEndpoint?: string;
     globalLabels: Record<string, string>;
 }
+/** An active or acknowledged alert. */
+export interface Alert {
+    id: string;
+    level: AlertLevel;
+    metric: string;
+    message: string;
+    value: number;
+    threshold: number;
+    timestamp: number;
+    acknowledged: boolean;
+}
+/** Result returned by a registered health check function. */
+export interface HealthCheckResult {
+    healthy: boolean;
+    message?: string;
+}
+/** A user-supplied health check. */
+export type HealthCheck = () => Promise<HealthCheckResult>;
+/** Per-check entry within an aggregated health status. */
+export interface HealthCheckEntry {
+    status: HealthCheckStatus;
+    message?: string;
+    lastCheck: number;
+    responseTimeMs: number;
+}
+/** Aggregated health status across all registered checks. */
 export interface HealthStatus {
     healthy: boolean;
-    checks: Record<string, {
-        status: 'healthy' | 'degraded' | 'unhealthy';
-        message?: string;
-        lastCheck: number;
-        responseTimeMs?: number;
-    }>;
+    checks: Record<string, HealthCheckEntry>;
     timestamp: number;
 }
+/** Snapshot of performance metrics derived from recorded data. */
 export interface PerformanceMetrics {
     requestCount: number;
     errorCount: number;
@@ -52,17 +82,14 @@ export interface PerformanceMetrics {
     activeRequests: number;
     uptime: number;
 }
-type AlertLevel = 'info' | 'warning' | 'critical';
-interface Alert {
-    id: string;
-    level: AlertLevel;
-    metric: string;
-    message: string;
-    value: number;
-    threshold: number;
-    timestamp: number;
-    acknowledged: boolean;
+/** Aggregated summary entry for a single metric name. */
+export interface MetricSummaryEntry {
+    count: number;
+    lastValue: number;
+    avgValue: number;
 }
+/** Function returned by {@link MonitoringHooks.startRequest} to end tracking. */
+export type EndRequest = () => void;
 export declare class MonitoringHooks {
     private config;
     private metrics;
@@ -90,11 +117,11 @@ export declare class MonitoringHooks {
     /**
      * Record a metric event
      */
-    private recordMetric;
+    recordMetric(name: string, type: MetricType, value: number, labels: Record<string, string>): void;
     /**
      * Start tracking a request
      */
-    startRequest(requestId: string): () => void;
+    startRequest(requestId?: string): EndRequest;
     /**
      * Record an error
      */
@@ -102,10 +129,7 @@ export declare class MonitoringHooks {
     /**
      * Register a health check
      */
-    registerHealthCheck(name: string, check: () => Promise<{
-        healthy: boolean;
-        message?: string;
-    }>): void;
+    registerHealthCheck(name: string, check: HealthCheck): void;
     /**
      * Run all health checks
      */
@@ -137,11 +161,7 @@ export declare class MonitoringHooks {
     /**
      * Get all metrics summary
      */
-    getMetricsSummary(): Record<string, {
-        count: number;
-        lastValue: number;
-        avgValue: number;
-    }>;
+    getMetricsSummary(): Record<string, MetricSummaryEntry>;
     /**
      * Reset all metrics
      */

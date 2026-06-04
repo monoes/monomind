@@ -8954,10 +8954,11 @@ async function loadMemoriesTab() {
     const detail = document.getElementById('mem-detail-pane');
     if (!_memFiles.length && detail) {
       detail.innerHTML = '<div style="color:var(--text-lo);font-size:12px;padding:16px 0;line-height:1.7">'
-        + '<div style="font-size:13px;color:var(--text-hi);margin-bottom:8px">No auto-memory files yet</div>'
-        + 'Auto-memory files are created automatically during Claude Code sessions<br>'
-        + 'at: <span style="font-family:var(--mono);font-size:11px;color:var(--accent)">' + esc(data.memDir || '') + '</span><br><br>'
-        + 'Use <span style="font-family:var(--mono);color:var(--accent)">/memory save</span> or complete tasks to populate.'
+        + '<div style="font-size:13px;color:var(--text-hi);margin-bottom:8px">No memories yet</div>'
+        + 'Memories are <strong>curated</strong> — saved as Markdown files in:<br>'
+        + '<span style="font-family:var(--mono);font-size:11px;color:var(--accent)">' + esc(data.memDir || '') + '</span><br><br>'
+        + 'Ask Claude to remember something, or click <span style="font-family:var(--mono);color:var(--accent)">+ New Memory</span> below.<br>'
+        + 'Entries recorded to the backend memory store also appear here automatically.'
         + '</div>';
     }
     _renderMemList();

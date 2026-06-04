@@ -51,7 +51,7 @@ export class RateLimiter {
             this.cleanupBuckets();
         }
         // Clean old requests from sliding window
-        bucket.requests = bucket.requests.filter(t => t > now - limits.windowMs);
+        bucket.requests = bucket.requests.filter((t) => t > now - limits.windowMs);
         // Calculate remaining — uses base maxRequests (consistent with getStatus())
         const remaining = limits.maxRequests - bucket.requests.length;
         if (remaining <= 0) {
@@ -100,7 +100,7 @@ export class RateLimiter {
             };
         }
         // Clean old requests
-        const validRequests = bucket.requests.filter(t => t > now - limits.windowMs);
+        const validRequests = bucket.requests.filter((t) => t > now - limits.windowMs);
         return {
             current: validRequests.length,
             limit: limits.maxRequests,
@@ -157,10 +157,10 @@ export class RateLimiter {
     // Private Methods
     // ============================================================================
     getLimits(operation) {
-        return this.config.operationLimits[operation] || {
+        return (this.config.operationLimits[operation] || {
             maxRequests: this.config.maxRequests,
             windowMs: this.config.windowMs,
-        };
+        });
     }
     createBucket() {
         return {
@@ -178,7 +178,7 @@ export class RateLimiter {
         for (const [key, bucket] of this.buckets) {
             if (this.buckets.size <= target)
                 break;
-            const recent = bucket.requests.filter(t => t > now - this.config.windowMs * 2);
+            const recent = bucket.requests.filter((t) => t > now - this.config.windowMs * 2);
             if (recent.length === 0)
                 this.buckets.delete(key);
         }

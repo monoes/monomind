@@ -7,25 +7,82 @@
  * - Burst allowance
  * - Sliding window tracking
  *
- * @module @monoes/cli/production/rate-limiter
+ * @module @monomind/cli/production/rate-limiter
+ */
+/**
+ * Per-operation rate limit override.
+ */
+export interface OperationLimit {
+    /** Maximum number of requests allowed within the window. */
+    maxRequests: number;
+    /** Window size in milliseconds. */
+    windowMs: number;
+}
+/**
+ * Rate limiter configuration. All fields are optional when constructing —
+ * unspecified values fall back to {@link DEFAULT_CONFIG}.
  */
 export interface RateLimiterConfig {
+    /** Default maximum requests per window. */
     maxRequests: number;
+    /** Default window size in milliseconds. */
     windowMs: number;
+    /** Multiplier applied for burst allowance. */
     burstMultiplier: number;
+    /** Operations that bypass rate limiting entirely. */
     whitelist: string[];
-    operationLimits: Record<string, {
-        maxRequests: number;
-        windowMs: number;
-    }>;
+    /** Per-operation limit overrides keyed by operation name. */
+    operationLimits: Record<string, OperationLimit>;
+    /** Whether to track limits per user/agent in addition to per operation. */
     perUserLimits: boolean;
+    /** Maximum number of distinct buckets to retain before eviction. */
     maxTrackedUsers: number;
 }
+/**
+ * Result of a rate limit check.
+ */
 export interface RateLimitResult {
+    /** Whether the request is permitted. */
     allowed: boolean;
+    /** Remaining requests in the current window. */
     remaining: number;
+    /** Epoch timestamp (ms) at which the window resets. */
     resetAt: number;
+    /** When rate limited, milliseconds to wait before retrying. */
     retryAfterMs?: number;
+}
+/**
+ * Snapshot of the current rate limit state for a key.
+ */
+export interface RateLimitStatus {
+    /** Number of requests counted in the current window. */
+    current: number;
+    /** Configured limit for the operation. */
+    limit: number;
+    /** Remaining requests in the current window. */
+    remaining: number;
+    /** Epoch timestamp (ms) at which the window resets. */
+    resetAt: number;
+}
+/**
+ * Aggregate operation usage entry used in statistics.
+ */
+export interface OperationStat {
+    /** Operation name. */
+    operation: string;
+    /** Total requests counted across buckets for the operation. */
+    requests: number;
+}
+/**
+ * Aggregate rate limiter statistics.
+ */
+export interface RateLimiterStats {
+    /** Total number of active buckets. */
+    totalBuckets: number;
+    /** Number of distinct users currently tracked. */
+    activeUsers: number;
+    /** Top operations by request volume. */
+    mostLimitedOperations: OperationStat[];
 }
 export declare class RateLimiter {
     private config;
@@ -43,12 +100,7 @@ export declare class RateLimiter {
     /**
      * Get current rate limit status
      */
-    getStatus(operation: string, userId?: string): {
-        current: number;
-        limit: number;
-        remaining: number;
-        resetAt: number;
-    };
+    getStatus(operation: string, userId?: string): RateLimitStatus;
     /**
      * Reset limits for a specific key
      */
@@ -60,14 +112,7 @@ export declare class RateLimiter {
     /**
      * Get statistics
      */
-    getStats(): {
-        totalBuckets: number;
-        activeUsers: number;
-        mostLimitedOperations: Array<{
-            operation: string;
-            requests: number;
-        }>;
-    };
+    getStats(): RateLimiterStats;
     private getLimits;
     private createBucket;
     private cleanupBuckets;

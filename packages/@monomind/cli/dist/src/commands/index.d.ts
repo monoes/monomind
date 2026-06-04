@@ -71,8 +71,8 @@ export declare const commandsByCategory: {
     primary: Command[];
     advanced: Command[];
     utility: Command[];
-    analysis: any[];
-    management: any[];
+    analysis: Command[];
+    management: Command[];
 };
 /**
  * Command registry map for quick lookup

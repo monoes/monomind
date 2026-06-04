@@ -4,6 +4,9 @@
  */
 import { output } from '../output.js';
 import { signCommand, publishCommand, updateAppCommand } from './appliance-advanced.js';
+// ============================================================================
+// Helpers
+// ============================================================================
 function fmtSize(bytes) {
     if (bytes < 1024)
         return `${bytes} B`;
@@ -52,7 +55,9 @@ async function runSteps(steps, delay = 300) {
         spinner.succeed(step);
     }
 }
+// ============================================================================
 // BUILD
+// ============================================================================
 const buildCommand = {
     name: 'build',
     description: 'Build a self-contained monomind.rvf appliance',
@@ -115,7 +120,9 @@ const buildCommand = {
         }
     },
 };
+// ============================================================================
 // INSPECT
+// ============================================================================
 const inspectCommand = {
     name: 'inspect',
     description: 'Show RVFA appliance header and section manifest',
@@ -185,7 +192,9 @@ const inspectCommand = {
         }
     },
 };
+// ============================================================================
 // VERIFY
+// ============================================================================
 const verifyCommand = {
     name: 'verify',
     description: 'Verify appliance integrity and run capability tests',
@@ -248,7 +257,9 @@ const verifyCommand = {
         }
     },
 };
+// ============================================================================
 // EXTRACT
+// ============================================================================
 const extractCommand = {
     name: 'extract',
     description: 'Extract all sections from an RVFA appliance',
@@ -310,7 +321,9 @@ const extractCommand = {
         }
     },
 };
+// ============================================================================
 // RUN
+// ============================================================================
 const runCommand = {
     name: 'run',
     description: 'Boot and run an RVFA appliance',
@@ -358,7 +371,9 @@ const runCommand = {
         }
     },
 };
+// ============================================================================
 // Main command
+// ============================================================================
 export const applianceCommand = {
     name: 'appliance',
     description: 'Self-contained RVFA appliance management (build, inspect, verify, extract, run)',

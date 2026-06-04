@@ -31,7 +31,7 @@ const checkCommand = {
         const spinner = output.createSpinner({ text: 'Checking v1 progress...' });
         try {
             spinner.start();
-            const result = await callMCPTool('progress_check', { detailed });
+            const result = (await callMCPTool('progress_check', { detailed }));
             spinner.stop();
             if (ctx.flags.format === 'json') {
                 output.printJson(result);
@@ -44,11 +44,16 @@ const checkCommand = {
             output.writeln(progressBar(progressValue, 30));
             output.writeln();
             if (detailed && result.cli) {
-                output.writeln(output.highlight('CLI Commands:') + `     ${result.cli.progress}% (${result.cli.commands}/${result.cli.target})`);
-                output.writeln(output.highlight('MCP Tools:') + `        ${result.mcp?.progress ?? 0}% (${result.mcp?.tools ?? 0}/${result.mcp?.target ?? 0})`);
-                output.writeln(output.highlight('Hooks:') + `            ${result.hooks?.progress ?? 0}% (${result.hooks?.subcommands ?? 0}/${result.hooks?.target ?? 0})`);
-                output.writeln(output.highlight('Packages:') + `         ${result.packages?.progress ?? 0}% (${result.packages?.total ?? 0}/${result.packages?.target ?? 0})`);
-                output.writeln(output.highlight('DDD Structure:') + `    ${result.ddd?.progress ?? 0}% (${result.packages?.withDDD ?? 0}/${result.packages?.total ?? 0})`);
+                output.writeln(output.highlight('CLI Commands:') +
+                    `     ${result.cli.progress}% (${result.cli.commands}/${result.cli.target})`);
+                output.writeln(output.highlight('MCP Tools:') +
+                    `        ${result.mcp?.progress ?? 0}% (${result.mcp?.tools ?? 0}/${result.mcp?.target ?? 0})`);
+                output.writeln(output.highlight('Hooks:') +
+                    `            ${result.hooks?.progress ?? 0}% (${result.hooks?.subcommands ?? 0}/${result.hooks?.target ?? 0})`);
+                output.writeln(output.highlight('Packages:') +
+                    `         ${result.packages?.progress ?? 0}% (${result.packages?.total ?? 0}/${result.packages?.target ?? 0})`);
+                output.writeln(output.highlight('DDD Structure:') +
+                    `    ${result.ddd?.progress ?? 0}% (${result.packages?.withDDD ?? 0}/${result.packages?.total ?? 0})`);
                 output.writeln();
                 if (result.codebase) {
                     output.writeln(output.dim(`Codebase: ${result.codebase.totalFiles} files, ${result.codebase.totalLines.toLocaleString()} lines`));
@@ -85,7 +90,7 @@ const syncCommand = {
         const spinner = output.createSpinner({ text: 'Syncing progress...' });
         try {
             spinner.start();
-            const result = await callMCPTool('progress_sync', {});
+            const result = (await callMCPTool('progress_sync', {}));
             spinner.stop();
             if (ctx.flags.format === 'json') {
                 output.printJson(result);
@@ -117,14 +122,14 @@ const summaryCommand = {
         const spinner = output.createSpinner({ text: 'Getting progress summary...' });
         try {
             spinner.start();
-            const result = await callMCPTool('progress_summary', {});
+            const result = (await callMCPTool('progress_summary', {}));
             spinner.stop();
             if (ctx.flags.format === 'json') {
                 output.printJson(result);
                 return { success: true, data: result };
             }
             output.writeln();
-            output.writeln(result.summary);
+            output.writeln(result.summary ?? '');
             return { success: true, data: result };
         }
         catch (error) {
@@ -159,7 +164,7 @@ const watchCommand = {
         let lastProgress = 0;
         const check = async () => {
             try {
-                const result = await callMCPTool('progress_check', {});
+                const result = (await callMCPTool('progress_check', {}));
                 const currentProgress = result.overall ?? result.progress ?? 0;
                 if (currentProgress !== lastProgress) {
                     output.writeln(`${output.warning('→')} Progress changed: ${lastProgress}% → ${output.success(currentProgress + '%')}`);
@@ -191,12 +196,7 @@ export const progressCommand = {
     name: 'progress',
     description: 'Check v1 implementation progress',
     aliases: ['prog'],
-    subcommands: [
-        checkCommand,
-        syncCommand,
-        summaryCommand,
-        watchCommand,
-    ],
+    subcommands: [checkCommand, syncCommand, summaryCommand, watchCommand],
     options: [
         {
             name: 'detailed',
