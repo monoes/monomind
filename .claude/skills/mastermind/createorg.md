@@ -68,7 +68,72 @@ Parse `roles_desc` (if provided) into a list of role titles. If not provided, de
 | product / product manager | `Product Manager` | Roadmap, prioritization |
 | qa / tester | `tester` | Quality assurance, testing |
 
-If a role doesn't match any keyword, use `general-purpose` and note it in the org config.
+If a role doesn't match any keyword **and the org's domain is far from software** (legal, medical, finance, creative, etc.), do NOT force a mismatched generic type whose instructions are about the wrong domain (e.g. a court reporter mapped to the code `reviewer`). Instead coin a role-specific `agent_type` slug from the role title (slugify: `Court Reporter` → `court-reporter`, `Prosecutor` → `prosecutor`) and generate a fitting definition for it in Step 2.5. Only fall back to `general-purpose` when no sensible slug applies.
+
+---
+
+## Step 2.5 — Complete Every Agent's Specification (generate what's missing)
+
+**This is the step that makes each created agent actually work.** A role is only usable if it has: skills, an instruction document (system prompt), an input contract, and an output contract. Most of these are missing from a bare role description — **generate them, tailored to the specific agent, rather than leaving them blank.**
+
+For **each** role, do the following:
+
+**1. Check whether a usable agent definition already exists.**
+```bash
+# Match by frontmatter `name:` first, then by filename slug, anywhere under .claude/agents
+at="<agent_type>"
+existing=$(grep -rils "^name:[[:space:]]*${at}\$" .claude/agents 2>/dev/null | head -1)
+[ -z "$existing" ] && existing=$(find .claude/agents -iname "${at}.md" 2>/dev/null | head -1)
+```
+A definition is **usable** only if it exists AND its domain fits this role. A curated def whose instructions are about a different domain (e.g. `reviewer.md` = code review, applied to a "Court Reporter") does **not** count as usable — treat it as missing and coin a role-specific `agent_type` (see Step 2 note).
+
+**2. If no usable definition exists, generate one** at `.claude/agents/generated/<agent_type>.md`. Author it specifically for this role and this org's goal — never a generic stub. Use this shape:
+
+```markdown
+---
+name: <agent_type>
+description: <one line — who this agent is and what it does>
+capability:
+  role: <agent_type>
+  goal: <one sentence: the agent's standing objective in this org>
+  version: "1.0.0"
+  expertise:            # 4–6 concrete SKILLS this role needs to do its job well
+    - <skill>
+    - <skill>
+  task_types:           # 3–5 kinds of work it performs
+    - <task-type>
+  input_type: <what this agent consumes — who/what it receives, derived from its inbound communication edges + responsibilities>
+  output_type: <what this agent produces — the artifact it hands off or reports, derived from its outbound edges + responsibilities>
+  model_preference: sonnet
+  termination: <the condition under which this agent's job is done>
+---
+
+# <Role Title>
+
+<1–2 sentences: the agent's identity and stance.>
+
+## Core Responsibilities
+<the role's responsibilities, expanded into numbered, actionable duties>
+
+## Operating Guidelines
+<3–6 concrete rules that keep this agent doing the right thing for its domain — what to always do, what never to do, how to handle missing inputs>
+
+## Communication
+- **Receives (input)**: <sources + what, from the inbound edges in Step 3>
+- **Sends (output)**: <targets + what, from the outbound edges in Step 3>
+- **Protocol**: <direct / via manager; who it reports to>
+
+## Quality Bar
+<one sentence defining "good output" for this role, so the agent can self-check>
+```
+
+Generate this content with real domain reasoning — the `expertise`, `input_type`, `output_type`, and instruction body must be specific to *this* agent (a prosecutor's skills are not a judge's). Reuse a generated def across roles of the same `agent_type` (don't regenerate if you just created it this run).
+
+**3. Populate the org role.** Set the role's `skills` array to the def's `expertise` list (so the org config is self-describing), and keep `agent_type` pointing at the (possibly newly coined) type. Never leave `skills: []` when expertise was generated.
+
+**4. Note generated files** for the Step 8 artifacts list.
+
+The dashboard agent drawer and `runorg` both read these definitions (matched by `agent_type`), so generating them here is what makes the Roles/Skills/instructions show up *and* what gives each spawned agent its real instructions at run time.
 
 ---
 
@@ -103,6 +168,15 @@ boss → middle_manager (feedback)
 
 Adjust for the actual roles in this run. Assign `reports_to` on each role using the derived topology.
 
+**Completeness rules (every role must be properly wired — no orphans):**
+- Every executor role has **≥1 inbound edge** (how work reaches it — usually a `command`) and **≥1 outbound edge** (how its output leaves — usually a `report` or `handoff`).
+- Where one role's output is another's input, connect them with a `handoff` in that direction (e.g. clerk → counsel; writer → editor). Make sequential producer→consumer chains explicit.
+- The coordinator/boss has an inbound `report` from each role it commands, so results flow back up.
+- Peer roles that critique each other get `feedback` edges; adversarial pairs (e.g. prosecutor ↔ defender) get reciprocal `handoff` edges.
+- After building edges, **derive each role's input/output contract from them**: a role's `input_type` summarizes who/what its inbound edges deliver; its `output_type` summarizes what its outbound edges carry. Feed these into the generated definition from Step 2.5 so the spec and the topology agree.
+
+A role that ends up with no inbound or no outbound edge is a bug — re-examine the topology before saving.
+
 ---
 
 ## Step 4 — Build Org Config
@@ -128,7 +202,7 @@ Ask the user (or infer from prompt) for the optional Paperclip-style fields:
       "agent_type": "<subagent_type slug from mapping table>",
       "responsibilities": ["<1-3 bullet responsibilities>"],
       "reports_to": "<role id or null>",
-      "skills": [],
+      "skills": ["<populated from the generated def's expertise in Step 2.5 — never left empty>"],
       "adapter_config": {
         "model": "<claude model id>",
         "max_tokens": 8192
@@ -332,6 +406,9 @@ status: complete
 artifacts:
   - path: .monomind/orgs/<org_name>.json
     type: config
+  - path: .claude/agents/generated/<agent_type>.md
+    type: agent-definition
+    note: "one per role whose agent_type lacked a usable definition (skills, instructions, input/output)"
 decisions:
   - what: "Org <org_name> created with N roles"
     why: "Role mapping derived from goal and user description"
