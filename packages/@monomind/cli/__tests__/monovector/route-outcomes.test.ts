@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import {
   recordRoute,
   joinOutcome,
+  joinLatestUnresolved,
   computeRoutingAccuracy,
+  computeAdherence,
   type RouteOutcomeRecord,
 } from '../../src/monovector/route-outcomes.js';
 
@@ -99,5 +101,108 @@ describe('computeRoutingAccuracy', () => {
     expect(acc.window).toBe(5);
     expect(acc.totalWithOutcome).toBe(5);
     expect(acc.accuracy).toBeCloseTo(1, 5);
+  });
+});
+
+describe('joinLatestUnresolved', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'route-auto-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('returns null when there is no route data at all', async () => {
+    const joined = await joinLatestUnresolved(dir, { measuredSuccess: true });
+    expect(joined).toBeNull();
+  });
+
+  it('auto-correlates the most recent unresolved route', async () => {
+    await recordRoute(dir, rec({ routeId: 'old' }));
+    await recordRoute(dir, rec({ routeId: 'latest' }));
+    const joined = await joinLatestUnresolved(dir, {
+      agentActuallyUsed: 'tester',
+      measuredSuccess: true,
+    });
+    expect(joined).toBe('latest');
+    // The joined outcome now counts toward accuracy (1/1).
+    const acc = await computeRoutingAccuracy(dir, 100);
+    expect(acc.totalWithOutcome).toBe(1);
+    expect(acc.accuracy).toBeCloseTo(1, 5);
+  });
+
+  it('skips already-joined records and joins the next unresolved one', async () => {
+    await recordRoute(dir, rec({ routeId: 'unresolved' }));
+    await recordRoute(dir, rec({ routeId: 'resolved' }));
+    await joinOutcome(dir, 'resolved', { measuredSuccess: true });
+    // The latest record (resolved) already has an outcome → fall through to 'unresolved'.
+    const joined = await joinLatestUnresolved(dir, { measuredSuccess: false });
+    expect(joined).toBe('unresolved');
+  });
+
+  it('does not correlate stale routes beyond the age window', async () => {
+    const stale = Date.now() - 700_000; // > 10 min ago
+    await recordRoute(dir, rec({ routeId: 'stale', ts: stale }));
+    const joined = await joinLatestUnresolved(dir, { measuredSuccess: true });
+    expect(joined).toBeNull();
+    // Nothing joined → no measured outcome counted.
+    const acc = await computeRoutingAccuracy(dir, 100);
+    expect(acc.totalWithOutcome).toBe(0);
+  });
+
+  it('honors a custom age window', async () => {
+    const ts = Date.now() - 5_000; // 5s ago
+    await recordRoute(dir, rec({ routeId: 'recent', ts }));
+    // 1ms window → too old to correlate
+    const tooOld = await joinLatestUnresolved(dir, { measuredSuccess: true }, 1);
+    expect(tooOld).toBeNull();
+    // generous window → correlates
+    const joined = await joinLatestUnresolved(dir, { measuredSuccess: true }, 60_000);
+    expect(joined).toBe('recent');
+  });
+});
+
+describe('computeAdherence', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'route-adh-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('returns null adherence with no joined data', async () => {
+    const adh = await computeAdherence(dir);
+    expect(adh.adherence).toBeNull();
+    expect(adh.sample).toBe(0);
+  });
+
+  it('ignores routes with no agentActuallyUsed', async () => {
+    await recordRoute(dir, rec({ routeId: 'r1', recommendedAgent: 'coder' }));
+    // never joined → no agentActuallyUsed
+    const adh = await computeAdherence(dir);
+    expect(adh.sample).toBe(0);
+    expect(adh.adherence).toBeNull();
+  });
+
+  it('computes the fraction where actual matched recommendation', async () => {
+    // match
+    await recordRoute(dir, rec({ routeId: 'm1', recommendedAgent: 'coder' }));
+    await joinOutcome(dir, 'm1', { agentActuallyUsed: 'coder', measuredSuccess: true });
+    // match
+    await recordRoute(dir, rec({ routeId: 'm2', recommendedAgent: 'tester' }));
+    await joinOutcome(dir, 'm2', { agentActuallyUsed: 'tester', measuredSuccess: true });
+    // mismatch
+    await recordRoute(dir, rec({ routeId: 'x1', recommendedAgent: 'coder' }));
+    await joinOutcome(dir, 'x1', { agentActuallyUsed: 'reviewer', measuredSuccess: false });
+
+    const adh = await computeAdherence(dir);
+    expect(adh.sample).toBe(3);
+    expect(adh.adherence).toBeCloseTo(2 / 3, 5);
   });
 });
