@@ -31,8 +31,19 @@ export async function tryLoad<T = Record<string, unknown>>(
     return (await _cache.get(specifier)) as T | null;
   }
 
+  // Native @monoes packages are CJS .node bindings. Under `await import()`,
+  // cjs-module-lexer can only statically expose named exports when the package's
+  // index does a direct top-level `module.exports = require(...)`. Our platform
+  // loaders assign through a conditional `let`, so the ESM namespace surfaces the
+  // binding only on `.default`. Normalize that here so consumers (the capability
+  // probes, neural features) read the real binding's named symbols uniformly,
+  // regardless of whether the package resolves to a workspace file or a published
+  // pnpm package. The fallback to `mod` preserves pure-ESM packages unchanged.
   const promise = import(specifier).then(
-    (mod) => mod as T,
+    (mod) => {
+      const m = mod as { default?: unknown } & T;
+      return (m?.default ?? m) as T;
+    },
     () => null
   );
   _cache.set(specifier, promise);
