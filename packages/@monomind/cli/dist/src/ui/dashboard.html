@@ -5136,6 +5136,7 @@ function v2RenderAgentDrawer(data) {
   if (role.reports_to) chars.push(['Reports to', role.reports_to]);
   if (model) chars.push(['Model', model]);
   if (role.adapter_config && role.adapter_config.max_tokens) chars.push(['Max tokens', String(role.adapter_config.max_tokens)]);
+  if (cap.input_type) chars.push(['Input', cap.input_type]);
   if (cap.output_type) chars.push(['Output', cap.output_type]);
   if (cap.termination) chars.push(['Done when', cap.termination]);
   if (cap.version) chars.push(['Version', cap.version]);
