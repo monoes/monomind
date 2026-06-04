@@ -1067,6 +1067,10 @@ export function getDaemon(projectRoot, config) {
  * Start daemon (for use in session-start hook)
  */
 export async function startDaemon(projectRoot, config) {
+    // A2: the daemon is a long-lived host — keep the SONA write-path enabled so
+    // trajectories accumulate across worker runs and reach the consolidation
+    // threshold (see startMCPServer for the one-shot-CLI rationale).
+    process.env.MONOMIND_PERSISTENT_HOST = '1';
     const daemon = getDaemon(projectRoot, config);
     await daemon.start();
     return daemon;

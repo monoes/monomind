@@ -821,25 +821,16 @@ export function topKIndices(scores, k) {
 }
 /**
  * Flash Attention-style search
- * Combines batch similarity, softmax, and top-k in one pass
- * Returns indices and attention weights
+ * Combines batch similarity, softmax, and top-k in one pass.
+ * Returns indices and attention weights.
  */
 export function flashAttentionSearch(query, vectors, options = {}) {
     const { k = 10, temperature = 1.0, threshold = 0 } = options;
-    // Compute batch similarity
     const scores = batchCosineSim(query, vectors);
-    // Get top-k indices
-    const indices = topKIndices(scores, k);
-    // Filter by threshold
-    const filtered = indices.filter(i => scores[i] >= threshold);
-    // Extract scores for filtered results
-    const topScores = new Float32Array(filtered.length);
-    for (let i = 0; i < filtered.length; i++) {
-        topScores[i] = scores[filtered[i]];
-    }
-    // Compute attention weights (softmax over top-k)
+    const indices = topKIndices(scores, k).filter(i => scores[i] >= threshold);
+    const topScores = new Float32Array(indices.map(i => scores[i]));
     const weights = softmaxAttention(topScores, temperature);
-    return { indices: filtered, scores: topScores, weights };
+    return { indices, scores: topScores, weights };
 }
 // ============================================================================
 // METADATA AND INITIALIZATION
