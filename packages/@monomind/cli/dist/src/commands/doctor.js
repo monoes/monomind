@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { execSync, exec } from 'child_process';
 import { homedir } from 'os';
 import { promisify } from 'util';
+import { getCapabilities } from '../monovector/capabilities.js';
 // Promisified exec with proper shell and env inheritance for cross-platform support
 const execAsync = promisify(exec);
 /**
@@ -531,6 +532,64 @@ async function checkAgenticFlow() {
         return { name: 'agentic-flow', status: 'warn', message: 'Check failed' };
     }
 }
+// Check @monoes native acceleration integration (sona/router/attention/learning-wasm)
+// Format a 0..1 accuracy as a whole-percent string, or 'n/a' when null.
+function fmtPct(v) {
+    return v === null ? 'n/a' : `${Math.round(v * 100)}%`;
+}
+// Render the windowed routing-accuracy metric (C1) as a one-line summary.
+// Tells an operator whether routing learning is actually helping.
+async function routingAccuracyLine() {
+    try {
+        const { computeRoutingAccuracy, computeAdherence } = await import('../monovector/route-outcomes.js');
+        const baseDir = join(process.cwd(), '.monomind');
+        const acc = await computeRoutingAccuracy(baseDir, 100);
+        const adh = await computeAdherence(baseDir);
+        const adhStr = ` | adherence ${fmtPct(adh.adherence)} (n=${adh.sample})`;
+        if (acc.accuracy === null) {
+            return `routing accuracy (last 100): no outcome data yet${adhStr}`;
+        }
+        const trend = acc.recentVsPrior === null
+            ? ''
+            : ` trend ${acc.recentVsPrior >= 0 ? '+' : ''}${Math.round(acc.recentVsPrior * 100)}%`;
+        return `routing accuracy (last ${acc.window}): ${fmtPct(acc.accuracy)} ` +
+            `[native ${fmtPct(acc.byMode.native)} / js ${fmtPct(acc.byMode.js)}]${trend}${adhStr}`;
+    }
+    catch {
+        return 'routing accuracy (last 100): no outcome data yet';
+    }
+}
+async function checkMonoesIntegration() {
+    try {
+        const caps = await getCapabilities();
+        const parts = [
+            `sona=${caps.sona ? 'native' : 'js'}`,
+            `router=${caps.router}`,
+            `attention=${caps.attention ? 'native' : 'js'}`,
+            `learningWasm=${caps.learningWasm ? 'wasm' : 'js'}`,
+        ];
+        const accLine = await routingAccuracyLine();
+        const nativeDisabled = process.env.MONOMIND_DISABLE_NATIVE === '1' || process.env.MONOMIND_FORCE_JS === '1';
+        const allJs = !caps.sona && caps.router !== 'native' && !caps.attention && !caps.learningWasm;
+        return {
+            name: 'monoes Integration',
+            status: nativeDisabled ? 'warn' : (allJs ? 'warn' : 'pass'),
+            message: nativeDisabled
+                ? `Native disabled via env — all JS fallback (${parts.join(' ')}) | ${accLine}`
+                : `@monoes: ${parts.join(' ')} | ${accLine}`,
+            fix: allJs && !nativeDisabled
+                ? 'npm install @monoes/sona @monoes/router @monoes/attention @monoes/learning-wasm'
+                : undefined,
+        };
+    }
+    catch (err) {
+        return {
+            name: 'monoes Integration',
+            status: 'warn',
+            message: `Could not probe @monoes capabilities: ${err instanceof Error ? err.message : String(err)}`,
+        };
+    }
+}
 // Format health check result
 function formatCheck(check) {
     const icon = check.status === 'pass' ? output.success('✓') :
@@ -560,7 +619,7 @@ export const doctorCommand = {
         {
             name: 'component',
             short: 'c',
-            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph)',
+            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, monoes)',
             type: 'string'
         },
         {
@@ -604,7 +663,8 @@ export const doctorCommand = {
             checkBuildTools,
             checkMonograph,
             checkHelpersFresh,
-            checkAgenticFlow
+            checkAgenticFlow,
+            checkMonoesIntegration
         ];
         const componentMap = {
             'version': checkVersionFreshness,
@@ -622,7 +682,8 @@ export const doctorCommand = {
             'typescript': checkBuildTools,
             'monograph': checkMonograph,
             'helpers': checkHelpersFresh,
-            'agentic-flow': checkAgenticFlow
+            'agentic-flow': checkAgenticFlow,
+            'monoes': checkMonoesIntegration
         };
         let checksToRun = allChecks;
         if (component && componentMap[component]) {

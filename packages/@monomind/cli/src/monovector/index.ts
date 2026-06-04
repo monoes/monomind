@@ -1,12 +1,13 @@
 /**
- * MonoVector Integration Module for Monomind CLI
+ * MonoVector Integration Module for Monomind CLI (lean)
  *
- * Provides integration with @monoes/* packages:
- * - Capability probing: getCapabilities(), getCachedCapabilities()
+ * After the SONA / native / WASM teardown this module provides only the
+ * lightweight surface:
+ * - Capability probing: getCapabilities() — stubbed, always reports JS-only
  * - Initialization state: createInitState()
  * - Keyword-based task routing: createKeywordRouter()
+ * - Route recommendation→outcome records: recordRoute(), joinOutcome(), accuracy
  * - AST diff classification: DiffClassifier
- * - Package loader: tryLoad() from ./pkg-loader
  *
  * @module @monomind/cli/monovector
  */

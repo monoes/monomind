@@ -52,6 +52,13 @@ const DEFAULT_CONFIG = {
         autoExecute: true,
         hooks: [],
     },
+    neural: {
+        enabled: true,
+        disableNative: false,
+        sona: {
+            mode: 'balanced',
+        },
+    },
 };
 export class ConfigFileManager {
     configPath = null;
@@ -116,7 +123,7 @@ export class ConfigFileManager {
      * drop the first writer's API key.
      */
     set(cwd, key, value) {
-        const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks']);
+        const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks', 'neural']);
         const topSection = String(key).split('.')[0];
         if (!KNOWN_SET_SECTIONS.has(topSection)) {
             throw new Error(`Unknown config section: "${topSection}". Allowed: ${[...KNOWN_SET_SECTIONS].join(', ')}`);

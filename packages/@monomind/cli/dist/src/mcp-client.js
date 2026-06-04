@@ -34,9 +34,6 @@ import { coordinationTools } from './mcp-tools/coordination-tools.js';
 import { browserTools } from './mcp-tools/browser-tools.js';
 // Phase 6: AgentDB v1 controller tools
 import { agentdbTools } from './mcp-tools/agentdb-tools.js';
-// MonoVector WASM tools
-import { ruvllmWasmTools } from './mcp-tools/ruvllm-tools.js';
-import { wasmAgentTools } from './mcp-tools/wasm-agent-tools.js';
 import { guidanceTools } from './mcp-tools/guidance-tools.js';
 import { autopilotTools } from './mcp-tools/autopilot-tools.js';
 // Knowledge graph tools (graphify — deprecated shims + monograph native)
@@ -91,9 +88,6 @@ registerTools([
     ...browserTools,
     // Phase 6: AgentDB v1 controller tools
     ...agentdbTools,
-    // MonoVector WASM tools
-    ...ruvllmWasmTools,
-    ...wasmAgentTools,
     // Guidance & discovery tools
     ...guidanceTools,
     // Autopilot persistent completion tools

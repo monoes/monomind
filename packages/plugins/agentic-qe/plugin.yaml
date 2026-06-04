@@ -38,8 +38,6 @@ dependencies:
     - "@monomind/embeddings": ">=3.0.0"
   optional:
     - "@monomind/browser": ">=3.0.0"  # For E2E/visual testing
-    - "@monoes/attention": ">=1.0.0"   # Enhanced pattern matching
-    - "@monoes/sona": ">=1.0.0"        # Self-optimizing learning
 
 # Bounded contexts and their agents
 contexts:

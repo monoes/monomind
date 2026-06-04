@@ -66,12 +66,6 @@
     },
     "@monomind/browser": {
       "optional": true
-    },
-    "@monoes/attention": {
-      "optional": true
-    },
-    "@monoes/sona": {
-      "optional": true
     }
   },
   "devDependencies": {

@@ -6,9 +6,14 @@
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
-import type { LearningWasmModule, AttentionModule } from '../monovector/monoes-types.js';
 import { getCapabilities } from '../monovector/capabilities.js';
 import { output } from '../output.js';
+
+// Lean teardown: the native @monoes/attention and @monoes/learning-wasm packages
+// have been removed. These loose structural aliases keep the (now dead, dynamic-
+// import-guarded) benchmark code paths compiling without the deleted type module.
+type AttentionModule = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+type LearningWasmModule = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // Train subcommand - REAL WASM training with MonoVector
 const trainCommand: Command = {
@@ -521,7 +526,7 @@ const statusCommand: Command = {
           },
           await (async () => {
             try {
-              await import('@monoes/attention');
+              await import('@monoes/attention' as string);
               return {
                 component: 'Flash Attention Ops',
                 status: output.success('Available'),
@@ -1699,7 +1704,7 @@ const benchmarkCommand: Command = {
       // @monoes/attention is a CJS .node binding; under `await import()` the
       // named symbols (FlashAttention, DotProductAttention, …) are surfaced only
       // on `.default`. Normalize so the constructors below resolve.
-      const attentionMod = await import('@monoes/attention') as unknown as { default?: AttentionModule };
+      const attentionMod = await import('@monoes/attention' as string) as unknown as { default?: AttentionModule };
       const attention = (attentionMod.default ?? attentionMod) as unknown as AttentionModule;
 
       // Manual benchmark since benchmarkAttention has a binding bug
@@ -1791,7 +1796,7 @@ const benchmarkCommand: Command = {
       spinner.start();
       spinner.setText('Benchmarking MicroLoRA adaptation...');
 
-      const learningWasm = await import('@monoes/learning-wasm') as unknown as LearningWasmModule;
+      const learningWasm = await import('@monoes/learning-wasm' as string) as unknown as LearningWasmModule;
 
       // Initialize WASM — try to load binary directly, fall back gracefully
       try {

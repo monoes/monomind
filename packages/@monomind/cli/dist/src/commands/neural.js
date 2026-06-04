@@ -4,6 +4,7 @@
  *
  * github.com/nokhodian/monomind
  */
+import { getCapabilities } from '../monovector/capabilities.js';
 import { output } from '../output.js';
 // Train subcommand - REAL WASM training with MonoVector
 const trainCommand = {
@@ -484,6 +485,22 @@ const statusCommand = {
                         status: hasLearnedState ? output.success('Saved') : output.dim('None'),
                         details: hasLearnedState ? `Weights persisted ${learnedStateAge}` : 'No prior session weights',
                     },
+                ],
+            });
+            // Package Availability table
+            const pkgCaps = await getCapabilities();
+            output.writeln();
+            output.writeln(output.highlight('Package Availability'));
+            output.printTable({
+                columns: [
+                    { key: 'pkg', header: 'Package', width: 30 },
+                    { key: 'status', header: 'Status', width: 20 },
+                ],
+                data: [
+                    { pkg: '@monoes/sona', status: pkgCaps.sona ? output.success('✓ native') : output.warning('JS fallback') },
+                    { pkg: '@monoes/router', status: pkgCaps.router === 'native' ? output.success('✓ native HNSW') : pkgCaps.router === 'js' ? output.warning('JS fallback') : output.error('not installed') },
+                    { pkg: '@monoes/attention', status: pkgCaps.attention ? output.success('✓ native') : output.warning('JS fallback') },
+                    { pkg: '@monoes/learning-wasm', status: pkgCaps.learningWasm ? output.success('✓ WASM') : output.warning('JS fallback') },
                 ],
             });
             if (verbose) {
@@ -1437,7 +1454,11 @@ const benchmarkCommand = {
         const spinner = output.createSpinner({ text: 'Running benchmarks...', spinner: 'dots' });
         spinner.start();
         try {
-            const attention = await import('@monoes/attention');
+            // @monoes/attention is a CJS .node binding; under `await import()` the
+            // named symbols (FlashAttention, DotProductAttention, …) are surfaced only
+            // on `.default`. Normalize so the constructors below resolve.
+            const attentionMod = await import('@monoes/attention');
+            const attention = (attentionMod.default ?? attentionMod);
             // Manual benchmark since benchmarkAttention has a binding bug
             const benchmarkMechanism = async (name, mechanism) => {
                 const query = new Float32Array(dim);
@@ -1511,42 +1532,58 @@ const benchmarkCommand = {
             // Also benchmark MicroLoRA
             spinner.start();
             spinner.setText('Benchmarking MicroLoRA adaptation...');
-            // Load WASM file directly (Node.js compatible)
-            const fs = await import('fs');
-            const { createRequire } = await import('module');
-            const require = createRequire(import.meta.url);
-            const wasmPath = require.resolve('@monoes/learning-wasm/monovector_learning_wasm_bg.wasm');
-            const wasmBuffer = fs.readFileSync(wasmPath);
             const learningWasm = await import('@monoes/learning-wasm');
-            learningWasm.initSync({ module: wasmBuffer });
-            const lora = new learningWasm.WasmMicroLoRA(dim, 0.1, 0.01);
-            const gradient = new Float32Array(dim);
-            for (let i = 0; i < dim; i++)
-                gradient[i] = Math.random() - 0.5;
-            const loraStart = performance.now();
-            for (let i = 0; i < iterations; i++) {
-                lora.adapt_array(gradient);
+            // Initialize WASM — try to load binary directly, fall back gracefully
+            try {
+                const { createRequire } = await import('module');
+                const req = createRequire(import.meta.url);
+                const wasmFile = (() => {
+                    try {
+                        return req.resolve('@monoes/learning-wasm/monovector_learning_wasm_bg.wasm');
+                    }
+                    catch {
+                        return null;
+                    }
+                })();
+                if (wasmFile) {
+                    const fsModule = await import('fs');
+                    const wasmBuffer = fsModule.readFileSync(wasmFile);
+                    learningWasm.initSync({ module: wasmBuffer });
+                }
             }
-            const loraTime = performance.now() - loraStart;
-            const loraAvg = loraTime / iterations;
-            spinner.succeed('MicroLoRA benchmark complete');
-            output.writeln();
-            output.printTable({
-                columns: [
-                    { key: 'metric', header: 'MicroLoRA Metric', width: 25 },
-                    { key: 'value', header: 'Value', width: 25 },
-                ],
-                data: [
-                    { metric: 'Dimension', value: String(dim) },
-                    { metric: 'Iterations', value: iterations.toLocaleString() },
-                    { metric: 'Total Time', value: `${loraTime.toFixed(2)}ms` },
-                    { metric: 'Avg Adaptation', value: `${(loraAvg * 1000).toFixed(2)}μs` },
-                    { metric: 'Adaptations/sec', value: Math.round(1000 / loraAvg).toLocaleString() },
-                    { metric: 'Target (<100μs)', value: loraAvg * 1000 < 100 ? output.success('✓ PASS') : output.warning('✗ FAIL') },
-                ],
-            });
-            lora.free();
-            return { success: true, data: { results, loraAvg } };
+            catch { /* already initialized by nodejs target auto-init, or binary unavailable */ }
+            const lora = new learningWasm.WasmMicroLoRA(dim, 0.1, 0.01);
+            try {
+                const gradient = new Float32Array(dim);
+                for (let i = 0; i < dim; i++)
+                    gradient[i] = Math.random() - 0.5;
+                const loraStart = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    lora.adapt_array(gradient);
+                }
+                const loraTime = performance.now() - loraStart;
+                const loraAvg = loraTime / iterations;
+                spinner.succeed('MicroLoRA benchmark complete');
+                output.writeln();
+                output.printTable({
+                    columns: [
+                        { key: 'metric', header: 'MicroLoRA Metric', width: 25 },
+                        { key: 'value', header: 'Value', width: 25 },
+                    ],
+                    data: [
+                        { metric: 'Dimension', value: String(dim) },
+                        { metric: 'Iterations', value: iterations.toLocaleString() },
+                        { metric: 'Total Time', value: `${loraTime.toFixed(2)}ms` },
+                        { metric: 'Avg Adaptation', value: `${(loraAvg * 1000).toFixed(2)}μs` },
+                        { metric: 'Adaptations/sec', value: Math.round(1000 / loraAvg).toLocaleString() },
+                        { metric: 'Target (<100μs)', value: loraAvg * 1000 < 100 ? output.success('✓ PASS') : output.warning('✗ FAIL') },
+                    ],
+                });
+                return { success: true, data: { results, loraAvg } };
+            }
+            finally {
+                lora.free(); // always release WASM memory, even if benchmark throws
+            }
         }
         catch (error) {
             spinner.fail('Benchmark failed');
