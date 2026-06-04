@@ -6,11 +6,11 @@ brand
 
 ## Users
 
-Senior developers and technical teams who use Claude Code daily and want to extend it into an autonomous, multi-agent orchestration layer. Users are comfortable with CLI tools, understand concepts like swarms, memory backends, and neural training, and expect a tool that operates at their level — precise, composable, and non-patronizing. They are evaluating whether Monomind can replace manual agent coordination and self-optimize over time.
+Senior developers and technical teams who use Claude Code daily and want to extend it into an autonomous, multi-agent orchestration layer. Users are comfortable with CLI tools, understand concepts like swarms, memory backends, and keyword routing, and expect a tool that operates at their level — precise, composable, and non-patronizing. They are evaluating whether Monomind can replace manual agent coordination and improve over time through outcome measurement.
 
 ## Product Purpose
 
-Monomind is a self-learning orchestration layer for Claude Code. It wraps Claude Code's raw agent power with persistent memory, multi-agent swarm topologies, a knowledge graph, neural training pipelines, and a command system that can run autonomously for hours. Success looks like: an engineer types `/mastermind:autodev --tillend` and walks away while Monomind researches, builds, reviews, and loops until the codebase is clean.
+Monomind is an orchestration layer for Claude Code. It wraps Claude Code's raw agent power with persistent memory, multi-agent swarm topologies, a knowledge graph, keyword routing with outcome measurement, and a command system that can run autonomously for hours. Success looks like: an engineer types `/mastermind:autodev --tillend` and walks away while Monomind researches, builds, reviews, and loops until the codebase is clean.
 
 ## Brand Personality
 

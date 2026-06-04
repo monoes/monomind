@@ -2242,10 +2242,10 @@ export const hooksInit: MCPTool = {
   },
 };
 
-// Intelligence hook - MonoVector intelligence system
+// Intelligence hook - JS pattern/trajectory logging
 export const hooksIntelligence: MCPTool = {
   name: 'hooks_intelligence',
-  description: 'MonoVector intelligence system status (shows REAL metrics from memory store)',
+  description: 'Intelligence status: pattern/trajectory logging metrics from the memory store',
   inputSchema: {
     type: 'object',
     properties: {
@@ -2268,10 +2268,6 @@ export const hooksIntelligence: MCPTool = {
 
     // Check actual implementation availability
     const sonaAvailable = (await getSONAOptimizer()) !== null;
-    const moeAvailable = (await getMoERouter()) !== null;
-    const flashAvailable = (await getFlashAttention()) !== null;
-    const ewcAvailable = (await getEWCConsolidator()) !== null;
-    const loraAvailable = false;
 
     return {
       mode,
@@ -2279,19 +2275,19 @@ export const hooksIntelligence: MCPTool = {
       components: {
         sona: {
           enabled: enableSona,
-          status: sonaAvailable ? 'active' : 'loading',
-          implemented: true, // NOW IMPLEMENTED in alpha.102
+          status: sonaAvailable ? 'active' : 'idle',
+          implemented: true,
           trajectoriesRecorded: realStats.trajectories.total,
           trajectoriesSuccessful: realStats.trajectories.successful,
           patternsLearned: realStats.patterns.learned,
-          note: sonaAvailable ? 'SONA optimizer active - learning from trajectories' : 'SONA loading...',
+          note: 'Trajectory + pattern logging (no neural training in the lean build)',
         },
         moe: {
-          enabled: enableMoe,
-          status: moeAvailable ? 'active' : 'loading',
-          implemented: true, // NOW IMPLEMENTED in alpha.102
+          enabled: false,
+          status: 'removed',
+          implemented: false,
           routingDecisions: realStats.routing.decisions,
-          note: moeAvailable ? 'MoE router with 8 experts (coder, tester, reviewer, architect, security, performance, researcher, coordinator)' : 'MoE loading...',
+          note: 'MoE removed in lean build; keyword routing is used instead (see monoes-full-loop)',
         },
         hnsw: {
           enabled: enableHnsw,
@@ -2299,25 +2295,25 @@ export const hooksIntelligence: MCPTool = {
           implemented: true,
           indexSize: realStats.memory.indexSize,
           memorySizeBytes: realStats.memory.memorySizeBytes,
-          note: 'HNSW vector indexing with 150x-12,500x speedup',
+          note: 'Pure-JS HNSW vector indexing (O(log n) vs O(n))',
         },
         flashAttention: {
-          enabled: true,
-          status: flashAvailable ? 'active' : 'loading',
-          implemented: true, // NOW IMPLEMENTED in alpha.102
-          note: flashAvailable ? 'Flash Attention with O(N) memory (2.49x-7.47x speedup)' : 'Flash Attention loading...',
+          enabled: false,
+          status: 'removed',
+          implemented: false,
+          note: 'Flash Attention removed in lean build; lives on monoes-full-loop branch',
         },
         ewc: {
-          enabled: true,
-          status: ewcAvailable ? 'active' : 'loading',
-          implemented: true, // NOW IMPLEMENTED in alpha.102
-          note: ewcAvailable ? 'EWC++ consolidation prevents catastrophic forgetting' : 'EWC++ loading...',
+          enabled: false,
+          status: 'removed',
+          implemented: false,
+          note: 'EWC++ removed in lean build; lives on monoes-full-loop branch',
         },
         lora: {
-          enabled: true,
-          status: loraAvailable ? 'active' : 'loading',
-          implemented: true, // NOW IMPLEMENTED in alpha.102
-          note: loraAvailable ? 'LoRA adapter with 128x memory compression (rank=8)' : 'LoRA loading...',
+          enabled: false,
+          status: 'removed',
+          implemented: false,
+          note: 'LoRA removed in lean build; lives on monoes-full-loop branch',
         },
         embeddings: {
           provider: 'transformers',
@@ -2336,11 +2332,13 @@ export const hooksIntelligence: MCPTool = {
       implementationStatus: {
         working: [
           'memory-store', 'embeddings', 'trajectory-recording', 'claims', 'swarm-coordination',
-          'hnsw-index', 'pattern-storage', 'sona-optimizer', 'ewc-consolidation', 'moe-routing',
-          'flash-attention', 'lora-adapter'
+          'hnsw-index', 'pattern-storage', 'keyword-routing'
         ],
         partial: [],
         notImplemented: [],
+        removed: [
+          'sona-optimizer', 'ewc-consolidation', 'moe-routing', 'flash-attention', 'lora-adapter'
+        ],
       },
       version: '3.0.0-alpha.102',
     };
@@ -2829,7 +2827,7 @@ export const hooksPatternSearch: MCPTool = {
 // Intelligence stats hook
 export const hooksIntelligenceStats: MCPTool = {
   name: 'hooks_intelligence_stats',
-  description: 'Get MonoVector intelligence layer statistics',
+  description: 'Get intelligence-layer statistics (pattern/trajectory logging)',
   inputSchema: {
     type: 'object',
     properties: {
@@ -3069,7 +3067,7 @@ export const hooksIntelligenceLearn: MCPTool = {
 // Intelligence attention hook
 export const hooksIntelligenceAttention: MCPTool = {
   name: 'hooks_intelligence_attention',
-  description: 'Compute attention-weighted similarity using MoE/Flash/Hyperbolic',
+  description: 'Compute attention-weighted similarity (pure-JS cosine/hyperbolic)',
   inputSchema: {
     type: 'object',
     properties: {
@@ -3173,10 +3171,8 @@ export const hooksIntelligenceAttention: MCPTool = {
       results,
       stats: {
         computeTimeMs,
-        speedup: implementation.startsWith('real-') ? (mode === 'flash' ? '2.49x-7.47x' : '1.5x-3x') : null,
-        memoryReduction: implementation.startsWith('real-') ? (mode === 'flash' ? '50-75%' : '25-40%') : null,
         _stub: implementation === 'none',
-        _note: implementation === 'none' ? 'No attention backend available. Install @monoes/attention for real computation.' : undefined,
+        _note: implementation === 'none' ? 'Pure-JS similarity only; native attention backends are not part of the lean build.' : undefined,
       },
       implementation,
     };

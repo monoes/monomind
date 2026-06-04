@@ -302,8 +302,8 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 - **Strategy**: specialized (clear roles)
 - **Consensus**: raft
 - **Memory**: hybrid
-- **HNSW**: Enabled
-- **Neural**: Enabled
+- **HNSW**: Pure-JS via AgentDB
+- **Routing**: keyword + route-outcomes
 
 ## 🚀 CLI Commands (41 Commands)
 
@@ -314,7 +314,7 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 | `init`      | 4           | Project initialization with wizard, presets, skills, hooks               |
 | `agent`     | 8           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health, logs) |
 | `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         |
-| `memory`    | 11          | AgentDB memory with vector search (150x-12,500x faster)                  |
+| `memory`    | 11          | AgentDB memory with pure-JS HNSW vector search                           |
 | `mcp`       | 9           | MCP server management and tool execution                                 |
 | `task`      | 6           | Task creation, assignment, and lifecycle                                 |
 | `session`   | 7           | Session state management and persistence                                 |
@@ -438,7 +438,7 @@ CVE remediation, input validation, path security:
 | `metrics`          | View learning metrics dashboard          | `--v1-dashboard`, `--format`                |
 | `transfer`         | Transfer patterns via IPFS registry      | `store`, `from-project`                     |
 | `list`             | List all registered hooks                | `--format`                                  |
-| `intelligence`     | MonoVector intelligence system             | `trajectory-*`, `pattern-*`, `stats`        |
+| `intelligence`     | JS pattern/trajectory logging              | `trajectory-*`, `pattern-*`, `stats`        |
 | `worker`           | Background worker management             | `list`, `dispatch`, `status`, `detect`      |
 | `progress`         | Check V1 implementation progress         | `--detailed`, `--format`                    |
 | `statusline`       | Generate dynamic statusline              | `--json`, `--compact`, `--no-color`         |
@@ -516,22 +516,17 @@ npx monomind@latest migrate rollback
 npx monomind@latest migrate validate
 ```
 
-## 🧠 Intelligence System (MonoVector)
+## 🧠 Intelligence System
 
-V1 includes the MonoVector Intelligence System:
+The lean build records what happens and measures whether routing helped — no neural training:
 
-- **SONA**: Self-Optimizing Neural Architecture (<0.05ms adaptation)
-- **MoE**: Mixture of Experts for specialized routing
-- **HNSW**: 150x-12,500x faster pattern search
-- **EWC++**: Elastic Weight Consolidation (prevents forgetting)
-- **Flash Attention**: 2.49x-7.47x speedup
+- **Keyword routing**: deterministic task→handler routing (`createKeywordRouter`)
+- **Route-outcome measurement**: correlates recommended routes with actual outcomes; accuracy/adherence surfaced by `doctor`
+- **Trajectory + outcome logging**: `intelligence.ts` records steps/trajectories; `command-outcomes.ts` tracks command results
+- **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
+- **HNSW**: pure-JS approximate nearest-neighbor via AgentDB / `@monomind/memory`
 
-The 4-step intelligence pipeline:
-
-1. **RETRIEVE** - Fetch relevant patterns via HNSW
-2. **JUDGE** - Evaluate with verdicts (success/failure)
-3. **DISTILL** - Extract key learnings via LoRA
-4. **CONSOLIDATE** - Prevent catastrophic forgetting via EWC++
+> The full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA) lives on the `monoes-full-loop` branch.
 
 ## 📦 Embeddings Package (V1.0.0-alpha.12)
 
@@ -542,7 +537,6 @@ Features:
 - **Normalization**: L2, L1, min-max, z-score
 - **Hyperbolic embeddings**: Poincaré ball model for hierarchical data
 - **75x faster**: With agentic-flow ONNX integration
-- **Neural substrate**: Integration with MonoVector
 
 ## 🐝 Hive-Mind Consensus
 
@@ -565,12 +559,9 @@ Features:
 
 | Metric           | Target                   |
 | ---------------- | ------------------------ |
-| Flash Attention  | 2.49x-7.47x speedup      |
-| HNSW Search      | 150x-12,500x faster      |
 | Memory Reduction | 50-75% with quantization |
 | MCP Response     | <100ms                   |
 | CLI Startup      | <500ms                   |
-| SONA Adaptation  | <0.05ms                  |
 
 ## 📊 Performance Optimization Protocol
 
@@ -597,13 +588,10 @@ Bash("npx monomind@latest session restore --latest")
 Bash("npx monomind@latest hooks session-end --generate-summary true --persist-state true --export-metrics true")
 ```
 
-### Neural Pattern Training
+### Pattern Logging & Prediction
 
 ```bash
-# Train on successful code patterns
-Bash("npx monomind@latest neural train --pattern-type coordination --epochs 10")
-
-# Predict optimal approach for new tasks
+# Predict optimal approach for new tasks (from logged patterns)
 Bash("npx monomind@latest neural predict --input '[task description]'")
 
 # View learned patterns
@@ -739,7 +727,7 @@ This includes:
 - All 60+ agent types with routing recommendations
 - All 26 CLI commands with 140+ subcommands
 - All 27 hooks + 12 background workers
-- MonoVector intelligence system details
+- Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, agentdb, ruv-swarm,  agentic-jujutsu)
 - Performance targets and status

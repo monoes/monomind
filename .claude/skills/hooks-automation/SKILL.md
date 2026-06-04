@@ -637,9 +637,6 @@ mcp__monomind__memory_store {
     linted: true
   })
 }
-
-// Train neural patterns:
-// npx monomind neural train --pattern coordination --data edit-patterns
 ```
 
 #### Session End Hook with State Persistence

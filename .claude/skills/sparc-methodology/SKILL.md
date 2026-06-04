@@ -830,11 +830,11 @@ npx monomind sparc pipeline "e-commerce checkout feature"
 
 ## Advanced Features
 
-### Neural Pattern Training
+### Pattern Logging
 
 ```bash
-# Train patterns from successful workflows
-npx monomind neural train --pattern-type coordination --epochs 50
+# Inspect logged patterns
+npx monomind neural patterns --action list
 ```
 
 ### Cross-Session Memory

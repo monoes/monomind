@@ -24,7 +24,7 @@ docker-compose up --build security-tests
 | Agents (54+) | 60+ | All agent types and spawn |
 | Swarm | 45+ | Topologies and coordination |
 | Hooks | 50+ | Self-learning and routing |
-| Plugins | 70+ | MonoVector WASM plugins |
+| Plugins | 70+ | IPFS/Pinata plugin registry |
 | Security | 55+ | Security features and CVE |
 | Memory | 50+ | AgentDB and HNSW |
 | Workers | 60+ | Background workers |

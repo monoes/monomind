@@ -21,7 +21,7 @@ npx monomind memory search [options]
 | `--limit` | `-l` | number | `10` | Maximum results to return |
 | `--threshold` | — | number | `0.7` | Minimum similarity threshold (0–1) |
 | `--type` | `-t` | string | `hybrid` | Search type: `semantic`, `keyword`, `hybrid` |
-| `--build-hnsw` | — | boolean | `false` | Build HNSW index before search (150x–12,500x speedup) |
+| `--build-hnsw` | — | boolean | `false` | Build pure-JS HNSW index before search (O(log n) vs O(n) linear) |
 | `--format` | — | string | — | Output format: `json` |
 
 ## Examples
@@ -56,7 +56,7 @@ npx monomind memory search -q "auth" --format json
 
 ## HNSW Index
 
-Use `--build-hnsw` when searching large memory stores (1,000+ entries). The HNSW index provides 150x–12,500x search speedup after the one-time build cost.
+Use `--build-hnsw` when searching large memory stores (1,000+ entries). The pure-JS HNSW index gives O(log n) approximate-nearest-neighbor queries (vs O(n) linear scan) after the one-time build cost.
 
 ## MCP Tool
 

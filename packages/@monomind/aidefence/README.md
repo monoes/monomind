@@ -41,7 +41,7 @@ Detection Time: 0.04ms | 50+ Patterns | Self-Learning | HNSW Vector Search
 - **50+ built-in patterns** for prompt injection, jailbreaks, and social engineering
 - **PII detection** for emails, SSNs, API keys, passwords, and credit cards
 - **Self-learning capabilities** using ReasoningBank patterns
-- **HNSW vector search** integration for 150x-12,500x faster pattern matching
+- **HNSW vector search** integration (pure-JS via AgentDB) for fast pattern matching
 
 ### Why AIDefence?
 
@@ -82,7 +82,7 @@ Detection Time: 0.04ms | 50+ Patterns | Self-Learning | HNSW Vector Search
 ### Security Integrations
 
 - **Claude Code** - CLI command and MCP tools
-- **AgentDB** - HNSW-indexed vector search (150x faster)
+- **AgentDB** - HNSW-indexed vector search (pure-JS)
 - **Swarm Coordination** - Multi-agent security consensus
 - **Hooks System** - Pre/post operation scanning
 
@@ -103,7 +103,7 @@ yarn add @monomind/aidefence
 
 ### Optional: AgentDB for HNSW Search
 
-For 150x-12,500x faster pattern search:
+For HNSW-accelerated pattern search:
 
 ```bash
 npm install agentdb
@@ -167,7 +167,7 @@ await aidefence.learnFromDetection(input, result, {
 import { createAIDefence } from '@monomind/aidefence';
 import { AgentDB } from 'agentdb';
 
-// Initialize with AgentDB for 150x faster search
+// Initialize with AgentDB for HNSW-accelerated search
 const agentdb = new AgentDB({ path: './data/security' });
 
 const aidefence = createAIDefence({
@@ -495,7 +495,7 @@ const result = await mcp.call('aidefence_scan', {
 ### Optimization Tips
 
 1. **Use `quickScan()` for high-volume screening**
-2. **Enable AgentDB for HNSW search** (150x faster)
+2. **Enable AgentDB for HNSW search** (pure-JS)
 3. **Batch similar inputs** for pattern caching
 4. **Disable learning** in read-only scenarios
 

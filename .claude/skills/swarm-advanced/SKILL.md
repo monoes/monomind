@@ -706,12 +706,9 @@ mcp__monomind__memory_backup({
 })
 ```
 
-### Neural Pattern Learning
+### Pattern Learning
 
 ```javascript
-// Train neural patterns from successful workflows
-// npx monomind neural train --pattern coordination --epochs 50
-
 // Adaptive learning from experience
 mcp__monomind__learning_adapt({
   "experience": {

@@ -38,8 +38,6 @@ npx monomind@latest hooks route --task "[task]"
 npx monomind@latest hooks worker list
 ```
 
-## Intelligence System (MonoVector)
+## Intelligence System
 
-4-step pipeline: RETRIEVE (HNSW) → JUDGE (verdicts) → DISTILL (LoRA) → CONSOLIDATE (EWC++)
-
-Components: SONA (<0.05ms), MoE (8 experts), HNSW (150x-12,500x), Flash Attention (2.49x-7.47x)
+Trajectory + outcome logging (`intelligence.ts`); keyword routing (`createKeywordRouter`) with route-outcome correlation measured by `doctor`. Memory search uses pure-JS HNSW via AgentDB.
