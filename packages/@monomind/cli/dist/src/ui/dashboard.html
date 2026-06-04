@@ -9004,15 +9004,21 @@ function selectMem(filename) {
     .replace(/\*\*(.+?)\*\*/g, (_, g) => '<strong>' + esc(g) + '</strong>')
     .replace(/^#{1,3} (.+)/gm, (_, g) => '<div style="font-weight:600;color:var(--text-hi);margin:6px 0 2px">' + esc(g) + '</div>')
     .replace(/^- (.+)/gm, (_, g) => '<div style="padding-left:12px">• ' + esc(g) + '</div>');
+  const srcBadge = f.source === 'backend'
+    ? '<span class="mem-badge" style="background:var(--text-lo)22;color:var(--text-lo);margin-left:6px" title="Stored in the AgentDB backend store, not as a file">backend</span>'
+    : '';
+  const actions = (f.readonly || f.source === 'backend')
+    ? '<div class="mem-actions"><span style="font-size:11px;color:var(--text-lo)">Read-only — stored in the backend memory store (not a file)</span></div>'
+    : '<div class="mem-actions">' +
+        '<button class="btn" onclick="openEditMemModal(' + JSON.stringify(filename) + ')">&#x270E; Edit</button>' +
+        '<button class="btn" style="color:var(--red);border-color:var(--red)" onclick="deleteMem(' + JSON.stringify(filename) + ')">&#x2715; Delete</button>' +
+      '</div>';
   detail.innerHTML =
-    '<span class="mem-badge" style="background:' + col + '22;color:' + col + '">' + esc(f.type || '?') + '</span>' +
+    '<span class="mem-badge" style="background:' + col + '22;color:' + col + '">' + esc(f.type || '?') + '</span>' + srcBadge +
     '<div style="font-size:15px;font-weight:600;color:var(--text-hi);margin-bottom:4px">' + esc(f.name || filename.replace('.md','')) + '</div>' +
     (f.description ? '<div style="font-size:12px;color:var(--text-lo);margin-bottom:12px">' + esc(f.description) + '</div>' : '') +
     '<div class="mem-body-render">' + bodyHtml + '</div>' +
-    '<div class="mem-actions">' +
-    '<button class="btn" onclick="openEditMemModal(' + JSON.stringify(filename) + ')">&#x270E; Edit</button>' +
-    '<button class="btn" style="color:var(--red);border-color:var(--red)" onclick="deleteMem(' + JSON.stringify(filename) + ')">&#x2715; Delete</button>' +
-    '</div>';
+    actions;
 }
 
 async function openEditMemModal(filename) {
