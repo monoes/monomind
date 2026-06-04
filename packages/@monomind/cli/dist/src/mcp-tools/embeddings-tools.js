@@ -472,7 +472,7 @@ export const embeddingsTools = [
     },
     {
         name: 'embeddings_neural',
-        description: 'Neural substrate operations (MonoVector integration)',
+        description: 'Embedding substrate operations (drift, memory physics, coherence)',
         category: 'embeddings',
         inputSchema: {
             type: 'object',
@@ -529,7 +529,7 @@ export const embeddingsTools = [
                         success: true,
                         action: 'init',
                         neural: config.neural,
-                        message: 'Neural substrate initialized with MonoVector integration',
+                        message: 'Embedding substrate initialized',
                     };
                 case 'drift':
                     // Get real drift metrics if available
@@ -586,7 +586,7 @@ export const embeddingsTools = [
                         };
                     }
                 case 'adapt':
-                    // Get real SONA adaptation metrics
+                    // Get real (JS) pattern-adaptation metrics
                     try {
                         const { benchmarkAdaptation, initializeIntelligence } = await import('../memory/intelligence.js');
                         await initializeIntelligence();
@@ -604,8 +604,8 @@ export const embeddingsTools = [
                                 },
                             },
                             message: benchmark.targetMet
-                                ? `SONA adaptation: ${(benchmark.avgMs * 1000).toFixed(2)}μs (target <50μs met)`
-                                : `SONA adaptation: ${(benchmark.avgMs * 1000).toFixed(2)}μs (target not met)`,
+                                ? `Pattern adaptation: ${(benchmark.avgMs * 1000).toFixed(2)}μs (target <50μs met)`
+                                : `Pattern adaptation: ${(benchmark.avgMs * 1000).toFixed(2)}μs (target not met)`,
                         };
                     }
                     catch {
@@ -642,7 +642,7 @@ export const embeddingsTools = [
                                 },
                             },
                             capabilities: [
-                                stats.sonaEnabled ? '✅ SONA Active' : '❌ SONA Inactive',
+                                stats.sonaEnabled ? '✅ Pattern logging active' : '❌ Pattern logging inactive',
                                 benchmark.targetMet ? '✅ <0.05ms Target Met' : '⚠️ Target Not Met',
                                 `${stats.patternsLearned} patterns learned`,
                                 `${stats.trajectoriesRecorded} trajectories recorded`,

@@ -8,7 +8,7 @@ import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { configManager } from '../services/config-file-manager.js';
 // Memory backends
 const BACKENDS = [
-    { value: 'agentdb', label: 'AgentDB', hint: 'Vector database with HNSW indexing (150x-12,500x faster)' },
+    { value: 'agentdb', label: 'AgentDB', hint: 'Vector database with pure-JS HNSW indexing' },
     { value: 'sqlite', label: 'SQLite', hint: 'Lightweight local storage' },
     { value: 'hybrid', label: 'Hybrid', hint: 'SQLite + AgentDB (recommended)' },
     { value: 'memory', label: 'In-Memory', hint: 'Fast but non-persistent' }
@@ -250,7 +250,7 @@ const searchCommand = {
         },
         {
             name: 'build-hnsw',
-            description: 'Build/rebuild HNSW index before searching (enables 150x-12,500x speedup)',
+            description: 'Build/rebuild pure-JS HNSW index before searching',
             type: 'boolean',
             default: false
         }
@@ -283,10 +283,10 @@ const searchCommand = {
                     const status = getHNSWStatus();
                     output.printSuccess(`HNSW index built (${status.entryCount} vectors, ${buildTime}ms)`);
                     output.writeln(output.dim(`  Dimensions: ${status.dimensions}, Metric: cosine`));
-                    output.writeln(output.dim(`  Search speedup: ${status.entryCount > 10000 ? '12,500x' : status.entryCount > 1000 ? '150x' : '10x'}`));
+                    output.writeln(output.dim(`  Complexity: O(log n) vs O(n) linear scan`));
                 }
                 else {
-                    output.printWarning('HNSW index not available (install @monoes/core for acceleration)');
+                    output.printWarning('HNSW index not available');
                 }
                 output.writeln();
             }
@@ -868,7 +868,7 @@ const statsCommand = {
                 ]
             });
             output.writeln();
-            output.printInfo('v1 Performance: 150x-12,500x faster search with HNSW indexing');
+            output.printInfo('v1 Performance: O(log n) pure-JS HNSW vector search');
             return { success: true, data: stats };
         }
         catch (error) {
@@ -1468,7 +1468,7 @@ const initMemoryCommand = {
                         { table: 'memory_entries', purpose: 'Core memory storage with embeddings' },
                         { table: 'patterns', purpose: 'Learned patterns with confidence scores' },
                         { table: 'pattern_history', purpose: 'Pattern versioning and evolution' },
-                        { table: 'trajectories', purpose: 'SONA learning trajectories' },
+                        { table: 'trajectories', purpose: 'Logged execution trajectories' },
                         { table: 'trajectory_steps', purpose: 'Individual trajectory steps' },
                         { table: 'migration_state', purpose: 'Migration progress tracking' },
                         { table: 'sessions', purpose: 'Context persistence' },

@@ -219,7 +219,7 @@ function hooksSystem() {
 | \`pre-edit\` / \`post-edit\` | File editing with neural training |
 | \`session-start\` / \`session-end\` | Session state persistence |
 | \`route\` | Route task to optimal agent |
-| \`intelligence\` | MonoVector intelligence system |
+| \`intelligence\` | Pattern-learning intelligence system |
 | \`worker\` | Background worker management |
 
 ### 12 Background Workers
@@ -328,7 +328,7 @@ function performanceSection() {
 - Always run benchmarks before and after performance changes
 - Always profile before optimizing — never guess at bottlenecks
 - Prefer algorithmic improvements over micro-optimizations
-- Keep HNSW search within 150x-12,500x faster target
+- Prefer indexed (HNSW) vector search over brute-force scans for pattern lookup
 - Keep memory reduction within 50-75% target with quantization
 
 ### Performance Tooling
@@ -344,18 +344,14 @@ npx monomind@latest performance metrics --format table
 - Use agent routing code 7 (hierarchical/specialized) for performance tasks`;
 }
 function intelligenceSystem() {
-    return `## Intelligence System (MonoVector)
+    return `## Intelligence System
 
-- **SONA**: Self-Optimizing Neural Architecture (<0.05ms adaptation)
-- **HNSW**: 150x-12,500x faster pattern search
-- **EWC++**: Elastic Weight Consolidation (prevents forgetting)
-- **Flash Attention**: 2.49x-7.47x speedup
+- **Keyword routing**: Deterministic task→agent routing via \`createKeywordRouter\`
+- **Outcome measurement**: Route and command outcomes are recorded and scored to surface routing accuracy over time
+- **Pattern search**: Pure-JS HNSW vector search via AgentDB for finding similar past patterns
 
-The 4-step intelligence pipeline:
-1. **RETRIEVE** - Fetch relevant patterns via HNSW
-2. **JUDGE** - Evaluate with verdicts (success/failure)
-3. **DISTILL** - Extract key learnings via LoRA
-4. **CONSOLIDATE** - Prevent catastrophic forgetting via EWC++`;
+Routing and learning are JS-only — no native engine is required. Outcomes
+feed back into the recorded metrics so routing quality is measured, not assumed.`;
 }
 function envVars() {
     return `## Environment Variables
