@@ -37,12 +37,33 @@ describe('command-outcomes store', () => {
     expect(await deriveRecentSuccess(dir)).toBe(true);
   });
 
-  it('deriveRecentSuccess returns false when any in-window command failed', async () => {
+  it('deriveRecentSuccess returns false when the task ends on a failing command', async () => {
     const now = Date.now();
     await recordCommand(dir, { command: 'tsc', exitCode: 0, ts: now });
     await recordCommand(dir, { command: 'vitest', exitCode: 2, ts: now });
 
     expect(await deriveRecentSuccess(dir)).toBe(false);
+  });
+
+  it('deriveRecentSuccess returns true for iterate-until-green (early failure, trailing success)', async () => {
+    const now = Date.now();
+    // Real workflow: tests fail, then get fixed, then pass. Final state is success.
+    await recordCommand(dir, { command: 'vitest', exitCode: 1, ts: now });        // first run fails
+    await recordCommand(dir, { command: 'edit', exitCode: 0, ts: now + 1 });        // fix
+    await recordCommand(dir, { command: 'vitest', exitCode: 0, ts: now + 2 });      // re-run passes
+
+    // Final-state semantics: the early failure does NOT mark the task failed.
+    expect(await deriveRecentSuccess(dir)).toBe(true);
+  });
+
+  it('deriveRecentSuccess tolerates a benign non-zero intermediate exit (grep no-match)', async () => {
+    const now = Date.now();
+    await recordCommand(dir, { command: 'grep TODO src', exitCode: 1, ts: now });   // no match → exit 1, benign
+    await recordCommand(dir, { command: 'tsc', exitCode: 0, ts: now + 1 });
+    await recordCommand(dir, { command: 'vitest', exitCode: 0, ts: now + 2 });
+
+    // The benign intermediate exit-1 is not in the trailing window → success.
+    expect(await deriveRecentSuccess(dir)).toBe(true);
   });
 
   it('deriveRecentSuccess returns null when there are no recent commands (no signal)', async () => {

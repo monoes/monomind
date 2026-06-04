@@ -31,12 +31,18 @@ export async function recordCommand(baseDir: string, cmd: { command: string; exi
 /**
  * Derive a measured success signal from recent command outcomes.
  * Returns:
- *   - true  if there are recent commands in-window and ALL succeeded
- *   - false if there are recent commands in-window and ANY failed
+ *   - true  if the most recent command(s) in-window ended in a good (final) state
+ *   - false if the task ended on a failing command
  *   - null  if there are no recent commands (no signal — caller should treat as unknown)
  *
- * Rationale: within a task, a failed command (test/build/lint exit != 0) is strong
- * evidence the task did not cleanly succeed. All-zero exit codes is evidence it did.
+ * Heuristic: FINAL-STATE, not "any failed". Within a task the dominant workflow is
+ * iterate-until-green (run tests → fail → fix → run tests → pass), so an intermediate
+ * non-zero exit is NOT evidence of task failure. Crucially, many benign commands exit
+ * non-zero in normal work (`grep` no-match → 1, `test -f`, `diff`), so "all must pass"
+ * produces pervasive false failures and would feed SONA noisy labels. Instead we look at
+ * the trailing command(s): the task is judged by the state it ended in. To avoid a single
+ * trailing benign command (e.g. `ls`) masking a real failure, we treat it as failure if
+ * EITHER of the last 2 in-window commands failed, otherwise success.
  */
 export async function deriveRecentSuccess(baseDir: string, windowMs = 300_000): Promise<boolean | null> {
   try {
@@ -51,7 +57,9 @@ export async function deriveRecentSuccess(baseDir: string, windowMs = 300_000): 
       } catch { /* skip malformed */ }
     }
     if (recent.length === 0) return null;
-    return recent.every(r => r.success);
+    // Final-state: judge by the trailing command(s), not the whole batch.
+    const tail = recent.slice(-2);
+    return tail.every(r => r.success);
   } catch {
     return null;
   }
