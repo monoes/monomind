@@ -333,102 +333,10 @@ async function getSemanticRouter() {
   // IC-5: Deduplicate concurrent callers — only one init runs at a time.
   if (_routerInitInFlight) return _routerInitInFlight;
   _routerInitInFlight = (async () => {
-  // STEP 1: Try native VectorDb from @monoes/router (HNSW-backed)
-  // Note: Native VectorDb uses a persistent database file which can have lock issues
-  // in concurrent environments. We try it first but fall back gracefully to pure JS.
-  // Use getCapabilities() to skip native init when @monoes/router is not installed.
-  const caps = await getCapabilities();
-  if (caps.router !== 'none') try {
-    // Use createRequire for ESM compatibility with native modules
-    const { createRequire } = await import('module');
-    const require = createRequire(import.meta.url);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const router = require('@monoes/router' as string) as any;
+  // Native HNSW (@monoes/router) and the monovector-upstream HnswBridge were removed in
+  // the lean teardown. Routing uses the pure-JS SemanticRouter over keyword embeddings.
 
-    if (router.VectorDb && router.DistanceMetric) {
-      // Try to create VectorDb - may fail with lock error in concurrent envs
-      const db = new router.VectorDb({
-        dimensions: 384,
-        distanceMetric: router.DistanceMetric.Cosine,
-        hnswM: 16,
-        hnswEfConstruction: 200,
-        hnswEfSearch: 100,
-      });
-
-      // Initialize with static + runtime-learned task patterns
-      for (const [patternName, { keywords }] of Object.entries(getMergedTaskPatterns())) {
-        for (const keyword of keywords) {
-          const embedding = generateSimpleEmbedding(keyword);
-          db.insert(`${patternName}:${keyword}`, embedding);
-          if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
-            TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
-          }
-        }
-      }
-
-      nativeVectorDb = db;
-      routerBackend = 'native';
-      _routerInitState.markReady();
-      return { router: null, backend: routerBackend, native: nativeVectorDb };
-    }
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    if (reason.includes('Cannot acquire lock')) {
-      // Transient lock collision — don't burn a retry slot; next call will try again
-    } else if (reason.includes('MODULE_NOT_FOUND') || reason.includes('Cannot find module')) {
-      // Permanent — exhaust retries immediately
-      _routerInitState.markPermanentlyFailed();
-    } else {
-      _routerInitState.markFailed();
-      console.debug('[hooks-tools] @monoes/router init failed:', reason);
-    }
-  }
-
-  // STEP 1.5: Try HnswBridge from @monomind/monovector-upstream as a fallback HNSW backend.
-  // Activated only when @monoes/router is absent. Uses direct factory import (not the
-  // WasmRegistry singleton, which is unpopulated at this point) so no registration ceremony
-  // is needed. An inline adapter bridges insert()/search() to the HnswBridge API.
-  try {
-    const upstreamMod = await import('@monomind/monovector-upstream' as string).catch(() => null) as any;
-    if (upstreamMod?.createHnswBridge) {
-      const bridge = upstreamMod.createHnswBridge({ dimensions: 384 });
-      await bridge.init();
-      if (bridge.isReady()) {
-        // Thin adapter: exposes the same insert()/search() surface used by the native VectorDb
-        // code path. insert() maps to bridge.add(); search() delegates directly and returns
-        // { id, score } tuples which the caller already handles with `1 - r.score` inversion.
-        const hnswAdapter = {
-          insert(id: string, embedding: Float32Array): void {
-            bridge.add(id, embedding);
-          },
-          search(query: Float32Array, k: number): { id: string; score: number }[] {
-            return bridge.search(query, k);
-          },
-        };
-
-        // Seed with the same merged task patterns used by the native backend
-        for (const [patternName, { keywords }] of Object.entries(getMergedTaskPatterns())) {
-          for (const keyword of keywords) {
-            const embedding = generateSimpleEmbedding(keyword);
-            hnswAdapter.insert(`${patternName}:${keyword}`, embedding);
-            if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
-              TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
-            }
-          }
-        }
-
-        nativeVectorDb = hnswAdapter;
-        routerBackend = 'native';
-        _routerInitState.markReady();
-        console.debug('[hooks-tools] Using HnswBridge (monovector-upstream) as HNSW backend');
-        return { router: null, backend: routerBackend, native: nativeVectorDb };
-      }
-    }
-  } catch {
-    // HnswBridge not available or failed to init — continue to pure-JS fallback
-  }
-
-  // STEP 2: Fall back to pure JS SemanticRouter
+  // Pure-JS SemanticRouter
   try {
     const { SemanticRouter } = await import('../monovector/semantic-router.js');
     semanticRouter = new SemanticRouter({ dimension: 384 });
