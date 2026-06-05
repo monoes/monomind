@@ -8,7 +8,7 @@
  * replay. readAll() merges status records into the base entries — the last status wins.
  * Compaction rewrites the file when status records exceed 20% of total lines.
  */
-import type { DLQReplayResult } from '../../../shared/src/types/dlq.js';
+import type { DLQReplayResult } from '../../../shared/dist/types/dlq.js';
 /** A function that attempts to call a tool with the original payload */
 export type ToolCaller = (toolName: string, payload: unknown) => Promise<void>;
 export declare class DLQReplayer {

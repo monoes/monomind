@@ -62,7 +62,7 @@ export class CLI {
                 this.showVersion();
                 return;
             }
-            if (flags.noColor) {
+            if (flags.color === false || flags.noColor) {
                 this.output.setColorEnabled(false);
             }
             // Set verbosity level based on flags

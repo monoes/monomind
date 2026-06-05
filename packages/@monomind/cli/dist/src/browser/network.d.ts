@@ -1,0 +1,32 @@
+import type { CdpClient } from './cdp.js';
+import type { CdpCookie, NetworkRoute } from './types.js';
+export declare function getCookies(client: CdpClient, sessionId: string): Promise<CdpCookie[]>;
+export declare function setCookies(client: CdpClient, sessionId: string, cookies: CdpCookie[]): Promise<void>;
+export declare function clearCookies(client: CdpClient, sessionId: string): Promise<void>;
+export declare function setExtraHeaders(client: CdpClient, sessionId: string, headers: Record<string, string>): Promise<void>;
+export declare function enableInterception(client: CdpClient, sessionId: string): Promise<void>;
+export declare function setupRoutes(client: CdpClient, sessionId: string, routes: NetworkRoute[]): Promise<void>;
+type CapturedRequest = {
+    id: string;
+    url: string;
+    method: string;
+    status?: number;
+    mimeType?: string;
+    requestHeaders?: Record<string, string>;
+    responseHeaders?: Record<string, string>;
+    startTime: number;
+    endTime?: number;
+    encodedSize?: number;
+};
+export declare function startRequestCapture(client: CdpClient, sessionId: string): void;
+export declare function stopRequestCapture(sessionId: string): void;
+export declare function getCapturedRequests(sessionId: string): CapturedRequest[];
+export declare function clearCapturedRequests(sessionId: string): void;
+export declare function disableInterception(client: CdpClient, sessionId: string): Promise<void>;
+export declare function teardownRouteInterception(sessionId: string): void;
+export declare function getLocalStorage(client: CdpClient, sessionId: string): Promise<Record<string, string>>;
+export declare function setLocalStorage(client: CdpClient, sessionId: string, data: Record<string, string>): Promise<void>;
+export declare function getSessionStorage(client: CdpClient, sessionId: string): Promise<Record<string, string>>;
+export declare function setSessionStorage(client: CdpClient, sessionId: string, data: Record<string, string>): Promise<void>;
+export {};
+//# sourceMappingURL=network.d.ts.map
