@@ -198,6 +198,7 @@ export declare function getSchemaResource(db: Db): {
 export declare function getGraphResource(db: Db): {
     nodes: unknown[];
     edges: unknown[];
+    capturedAt: string;
 };
 export declare function getMonographCypher(db: Db, query: string): {
     rows: Record<string, unknown>[];
