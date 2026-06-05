@@ -1424,7 +1424,16 @@ const preTaskCommand = {
                 output.writeln(output.bold('Recommendations'));
                 output.printList(result.recommendations);
             }
-            // Enhanced model routing module was never shipped — no recommendation to add.
+            // Monograph graph-first reminder — always surface before the agent starts grepping
+            if (description) {
+                output.writeln();
+                output.writeln(output.bold('[MONOGRAPH] Graph-first protocol:'));
+                output.printList([
+                    `mcp__monomind__monograph_suggest task="${description.slice(0, 80)}" — get relevant nodes ranked by task`,
+                    'mcp__monomind__monograph_query   — BM25 lookup before any grep/find via Bash',
+                    'mcp__monomind__monograph_impact  — blast radius before editing shared code',
+                ]);
+            }
             return { success: true, data: result };
         }
         catch (error) {

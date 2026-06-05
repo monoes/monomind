@@ -17,7 +17,9 @@ function behavioralRules() {
 - NEVER save working files, text/mds, or tests to the root folder
 - Never continuously check status after spawning a swarm — wait for results
 - ALWAYS read a file before editing it
-- NEVER commit secrets, credentials, or .env files`;
+- NEVER commit secrets, credentials, or .env files
+- ALWAYS call \`mcp__monomind__monograph_query\` BEFORE running grep/rg/find via Bash for code exploration — only fall back to Bash grep if monograph returns 0 results or the DB does not exist
+- When starting any task that touches 3+ files: call \`mcp__monomind__monograph_suggest\` first to get relevant nodes ranked by task relevance`;
 }
 function codingPrinciples() {
     return `## Coding Principles
@@ -365,28 +367,50 @@ MONOMIND_MEMORY_PATH=./data/memory
 \`\`\``;
 }
 function graphifySection() {
-    return `## Knowledge Graph (Monograph)
+    return `## Knowledge Graph — Monograph (Use Before Codebase Exploration)
 
-Built into monomind since v1.8.0 — no separate install needed. Pure TypeScript, no Python required.
+Built into monomind — no separate install. Pure TypeScript, parses TS/JS/Python/Go/Rust/C/C++/Java/Ruby/Swift into a SQLite graph with BM25 full-text search.
 
-### MCP Tools (prefix: \`mcp__monomind__\`)
+### MANDATORY: Graph-First, Grep-Last
 
-| Tool | Description |
-|------|-------------|
-| \`monograph_build\` | Build or refresh knowledge graph from codebase |
-| \`monograph_report\` | Generate GRAPH_REPORT.md with community breakdown |
-| \`monograph_suggest\` | Get refactoring/architecture suggestions from graph |
-| \`monograph_health\` | Check graph quality score and experiment status |
+**Before ANY grep/rg/find via Bash for code navigation:**
+1. Call \`mcp__monomind__monograph_query\` first — returns file path + line number
+2. Only fall back to Bash grep if monograph returns 0 results or reports DB missing
 
-### How It Works
+**When starting any task touching 3+ files:**
+1. \`mcp__monomind__monograph_suggest\` — relevant nodes ranked by task description
+2. \`mcp__monomind__monograph_context\` — 360° view of a symbol (callers, callees, imports)
+3. \`mcp__monomind__monograph_impact\` — blast radius before changing anything
 
-1. **AST extraction** — parses TypeScript/JS/Python/Go/Rust into nodes + edges
-2. **Community detection** — Louvain algorithm finds logical clusters
-3. **Quality metric** — \`graphQuality = avgCohesion × ln(1 + avgDegree)\`
-4. **Experiment loop** — tracks BASELINE/KEEP/DISCARD in \`results.tsv\`
-5. **BFD chunking** — efficient Anthropic API calls via bin-packing
+**If graph is empty:** call \`mcp__monomind__monograph_build\` (runs in background; proceed with grep while it builds).
 
-> If monograph tools are not available, run \`npx monomind@latest init --force\` then restart Claude Code.`;
+### Available Tools (prefix: \`mcp__monomind__\`)
+
+| Tool | Use when |
+|------|----------|
+| \`monograph_suggest\` | **Start every multi-file task** — ranked by task relevance |
+| \`monograph_query\` | **Primary code lookup** — BM25 search, returns file + line |
+| \`monograph_context\` | 360° symbol view: callers, callees, imports, community |
+| \`monograph_impact\` | Blast radius before a change — transitive callers + risk score |
+| \`monograph_build\` | Build/rebuild the index (codeOnly:true for code-only) |
+| \`monograph_god_nodes\` | High-centrality files — find the most connected internal nodes |
+| \`monograph_detect_changes\` | Git diff → affected symbols since base branch |
+| \`monograph_rename\` | Dry-run multi-file rename — all reference sites, never writes |
+| \`monograph_route_map\` | List all HTTP routes with handler info |
+| \`monograph_api_impact\` | Blast radius of an API route |
+| \`monograph_cypher\` | Single-hop MATCH query over the graph |
+| \`monograph_staleness\` | Git commits since last index build |
+| \`monograph_stats\` | Node/edge/community counts |
+| \`monograph_health\` | Index freshness vs current HEAD |
+| \`monograph_shortest_path\` | Shortest dependency path between two symbols |
+| \`monograph_community\` | All nodes in a community cluster |
+| \`monograph_export\` | Export graph: json, svg, graphml, cypher, obsidian |
+| \`monograph_augment\` | Graph-RAG context block for AI prompts |
+| \`monograph_doctor\` | Platform diagnostics (Node version, DB health) |
+| \`monograph_list_repos\` | Global registry of indexed repos |
+
+### Skip monograph for
+Single-file edits, doc/config changes, quick fixes where you already know the exact file.`;
 }
 function setupAndBoundary() {
     return `## Quick Setup
