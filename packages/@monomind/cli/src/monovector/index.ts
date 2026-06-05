@@ -56,18 +56,33 @@ export {
 } from './diff-classifier.js';
 
 // Stub types for removed modules (q-learning-router, moe-router, etc. removed by minimal cleanup)
+/** A single alternative route suggestion. */
+export interface RouteAlternative { route: string; score?: number; }
+
+/** Statistics surfaced by the keyword router (stub fields for CLI display). */
+export interface KeywordRouterStats {
+  updateCount: number;
+  qTableSize: number;
+  stepCount: number;
+  epsilon: number;
+  avgTDError: number;
+  useNative: number;
+  [key: string]: unknown;
+}
+
 export interface KeywordRouter {
-  route: (task: string, context?: unknown) => Promise<RouteDecision>;
-  initialize?: () => Promise<void>;
-  getStats?: () => Record<string, unknown>;
-  update?: (feedback: unknown) => void;
-  reset?: () => void;
-  export?: () => unknown;
-  import?: (data: unknown) => void;
+  route: (task: string, useExploration?: boolean) => Promise<RouteDecision>;
+  initialize: () => Promise<void>;
+  getStats: () => KeywordRouterStats;
+  /** Record feedback; returns the TD-error (0 in the lean keyword stub). */
+  update: (task: string, agentId: string, reward: number, nextTask?: string) => number;
+  reset: () => void;
+  export: () => unknown;
+  import: (data: unknown) => void;
 }
 
 
-export interface RouteDecision { agentType: string; confidence: number; reasoning?: string; route?: string; qValues?: number[]; explored?: boolean; alternatives?: string[]; }
+export interface RouteDecision { agentType: string; confidence: number; reasoning?: string; route: string; qValues?: number[]; explored?: boolean; alternatives?: RouteAlternative[]; }
 
 export interface KeywordRouterConfig { learningRate?: number; discountFactor?: number; }
 
@@ -86,11 +101,21 @@ export function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRoute
       else if (lower.includes('optim') || lower.includes('perform')) agentType = 'optimizer';
       else if (lower.includes('debug') || lower.includes('fix') || lower.includes('bug')) agentType = 'debugger';
       else if (lower.includes('doc')) agentType = 'documenter';
-      return { agentType, confidence: 0.75, reasoning: 'keyword-based routing', route: agentType, qValues: [], explored: false, alternatives: agentTypes.filter(a => a !== agentType).slice(0, 3) };
+      return {
+        agentType,
+        confidence: 0.75,
+        reasoning: 'keyword-based routing',
+        route: agentType,
+        qValues: [],
+        explored: false,
+        alternatives: agentTypes.filter(a => a !== agentType).slice(0, 3).map(a => ({ route: a, score: 0 })),
+      };
     },
     async initialize() {},
-    getStats() { return {}; },
-    update() {},
+    getStats(): KeywordRouterStats {
+      return { updateCount: 0, qTableSize: 0, stepCount: 0, epsilon: 0, avgTDError: 0, useNative: 0 };
+    },
+    update() { return 0; },
     reset() {},
     export() { return {}; },
     import() {},

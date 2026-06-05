@@ -11,7 +11,7 @@
 
 import { appendFileSync, existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'fs';
 import { randomUUID } from 'crypto';
-import type { DLQEntry, DLQReplayResult } from '../../../shared/src/types/dlq.js';
+import type { DLQEntry, DLQReplayResult } from '../../../shared/dist/types/dlq.js';
 import { parseJsonl } from '../utils/parse-jsonl.js';
 
 /** A function that attempts to call a tool with the original payload */
