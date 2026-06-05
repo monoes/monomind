@@ -1,0 +1,1 @@
+{"version":3,"file":"wait.d.ts","sourceRoot":"","sources":["../../../src/browser/wait.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,SAAS,EAAE,MAAM,UAAU,CAAC;AAC1C,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,YAAY,CAAC;AAO9C,wBAAsB,OAAO,CAC3B,MAAM,EAAE,SAAS,EACjB,SAAS,EAAE,MAAM,EACjB,OAAO,EAAE,WAAW,GACnB,OAAO,CAAC,IAAI,CAAC,CA0Bf"}
