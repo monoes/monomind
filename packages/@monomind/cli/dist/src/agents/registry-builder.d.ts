@@ -1,4 +1,4 @@
-import type { AgentRegistry } from '../../../shared/src/types/agent-registry.js';
+import type { AgentRegistry } from '../../../shared/dist/types/agent-registry.js';
 /**
  * Build the agent registry by scanning `.md` files under `agentsRoot`.
  *

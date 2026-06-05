@@ -532,7 +532,8 @@ export class MCPServerManager extends EventEmitter {
                     const uri = params.uri ?? '';
                     try {
                         const { join } = await import('path');
-                        const { openDb, closeDb, getProcessesResource, getCommunitiesResource, getSchemaResource, getGraphResource } = await import('@monoes/monograph');
+                        const { openDb, closeDb } = await import('@monoes/monograph');
+                        const { getProcessesResource, getCommunitiesResource, getSchemaResource, getGraphResource } = await import('./mcp-tools/monograph-compat.js');
                         const projectCwd = process.env['MONOMIND_CWD'] || process.cwd();
                         const dbPath = join(projectCwd, '.monomind', 'monograph.db');
                         const resDb = openDb(dbPath);

@@ -1,0 +1,137 @@
+/**
+ * Per-route outcome records — the join between a routing recommendation and
+ * what actually happened. This is the foundation for routing-accuracy metrics
+ * and for giving SONA a real training label.
+ */
+import { promises as fs } from 'node:fs';
+import { join } from 'node:path';
+function storePath(baseDir) {
+    return join(baseDir, 'route-outcomes.jsonl');
+}
+/** Append a route recommendation (pre-outcome). */
+export async function recordRoute(baseDir, rec) {
+    try {
+        await fs.mkdir(baseDir, { recursive: true });
+        await fs.appendFile(storePath(baseDir), JSON.stringify(rec) + '\n', 'utf8');
+    }
+    catch {
+        // Non-fatal — telemetry must never break routing
+    }
+}
+/** Join outcome data onto the most recent matching route record by routeId. */
+export async function joinOutcome(baseDir, routeId, outcome) {
+    try {
+        const path = storePath(baseDir);
+        const content = await fs.readFile(path, 'utf8').catch(() => '');
+        if (!content)
+            return;
+        const lines = content.trim().split('\n');
+        // Find the last record with this routeId and merge outcome
+        for (let i = lines.length - 1; i >= 0; i--) {
+            try {
+                const rec = JSON.parse(lines[i]);
+                if (rec.routeId === routeId) {
+                    lines[i] = JSON.stringify({ ...rec, ...outcome });
+                    break;
+                }
+            }
+            catch { /* skip malformed line */ }
+        }
+        await fs.writeFile(path, lines.join('\n') + '\n', 'utf8');
+    }
+    catch {
+        // Non-fatal
+    }
+}
+/**
+ * Join an outcome to the most recent route record that has no measured outcome yet.
+ * Used when the caller does not thread an explicit routeId — auto-correlates the
+ * latest recommendation to the next task completion. Returns the joined routeId or null.
+ */
+export async function joinLatestUnresolved(baseDir, outcome, maxAgeMs = 600_000 // only correlate within 10 minutes to avoid stale joins
+) {
+    try {
+        const path = storePath(baseDir);
+        const content = await fs.readFile(path, 'utf8').catch(() => '');
+        if (!content)
+            return null;
+        const lines = content.trim().split('\n');
+        const now = Date.now();
+        for (let i = lines.length - 1; i >= 0; i--) {
+            try {
+                const rec = JSON.parse(lines[i]);
+                // Skip already-joined records
+                if (typeof rec.measuredSuccess === 'boolean')
+                    continue;
+                // Skip stale records beyond the correlation window
+                if (now - rec.ts > maxAgeMs)
+                    return null;
+                lines[i] = JSON.stringify({ ...rec, ...outcome });
+                await fs.writeFile(path, lines.join('\n') + '\n', 'utf8');
+                return rec.routeId;
+            }
+            catch { /* skip malformed */ }
+        }
+        return null;
+    }
+    catch {
+        return null;
+    }
+}
+/** Read all outcome records (for metrics). */
+export async function readOutcomes(baseDir) {
+    try {
+        const content = await fs.readFile(storePath(baseDir), 'utf8').catch(() => '');
+        if (!content)
+            return [];
+        return content.trim().split('\n').map(l => {
+            try {
+                return JSON.parse(l);
+            }
+            catch {
+                return null;
+            }
+        }).filter((r) => r !== null);
+    }
+    catch {
+        return [];
+    }
+}
+/**
+ * Compute routing accuracy over the most recent N records that have a joined outcome.
+ * accuracy = fraction of records whose joined outcome reports measuredSuccess === true.
+ * (agentActuallyUsed is recorded per row but not required to match the recommendation;
+ * the success label already reflects whether the chosen routing worked out.)
+ */
+export async function computeRoutingAccuracy(baseDir, window = 100) {
+    const all = await readOutcomes(baseDir);
+    // Only records with a measured outcome count
+    const withOutcome = all.filter(r => typeof r.measuredSuccess === 'boolean').slice(-window);
+    const n = withOutcome.length;
+    if (n === 0) {
+        return { window, totalWithOutcome: 0, accuracy: null, byMode: { native: null, js: null }, recentVsPrior: null };
+    }
+    const succ = (recs) => recs.length ? recs.filter(r => r.measuredSuccess).length / recs.length : null;
+    const native = withOutcome.filter(r => r.learningMode === 'native');
+    const js = withOutcome.filter(r => r.learningMode === 'js');
+    const mid = Math.floor(n / 2);
+    const prior = succ(withOutcome.slice(0, mid));
+    const recent = succ(withOutcome.slice(mid));
+    return {
+        window,
+        totalWithOutcome: n,
+        accuracy: succ(withOutcome),
+        byMode: { native: succ(native), js: succ(js) },
+        recentVsPrior: (recent !== null && prior !== null) ? recent - prior : null,
+    };
+}
+/** Fraction of joined routes where the agent actually used matched the recommendation. */
+export async function computeAdherence(baseDir, window = 100) {
+    const all = await readOutcomes(baseDir);
+    const joined = all.filter(r => r.agentActuallyUsed && r.recommendedAgent).slice(-window);
+    if (joined.length === 0)
+        return { adherence: null, sample: 0 };
+    const matches = joined.filter(r => r.agentActuallyUsed === r.recommendedAgent).length;
+    return { adherence: matches / joined.length, sample: joined.length };
+}
+//# sourceMappingURL=route-outcomes.js.map
