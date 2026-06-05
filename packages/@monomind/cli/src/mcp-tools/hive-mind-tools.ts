@@ -868,7 +868,7 @@ export const hiveMindTools: MCPTool[] = [
               writer.record({
                 decisionId: proposal.proposalId,
                 swarmId: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
-                protocol: (proposalStrategy === 'bft' ? 'byzantine' : proposalStrategy === 'raft' ? 'raft' : 'quorum') as import('../../../../@monomind/shared/src/types/consensus-audit.js').ConsensusProtocol,
+                protocol: (proposalStrategy === 'bft' ? 'byzantine' : proposalStrategy === 'raft' ? 'raft' : 'quorum') as import('../../../../@monomind/shared/dist/types/consensus-audit.js').ConsensusProtocol,
                 topic: proposal.type,
                 decision: resolution,
                 votes: voteEntries,

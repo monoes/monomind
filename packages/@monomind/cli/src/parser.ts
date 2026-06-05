@@ -84,10 +84,10 @@ export class CommandParser {
         choices: ['text', 'json', 'table']
       },
       {
-        name: 'no-color',
-        description: 'Disable colored output',
+        name: 'color',
+        description: 'Enable colored output (use --no-color to disable)',
         type: 'boolean',
-        default: false
+        default: true
       },
       {
         name: 'interactive',
