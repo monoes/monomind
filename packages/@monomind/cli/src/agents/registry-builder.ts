@@ -10,7 +10,7 @@ import type {
   AgentRegistry,
   AgentRegistryEntry,
   TriggerPattern,
-} from '../../../shared/src/types/agent-registry.js';
+} from '../../../shared/dist/types/agent-registry.js';
 
 /** Parsed YAML frontmatter value: scalar string/boolean or a string array. */
 type FrontmatterValue = string | boolean | string[];

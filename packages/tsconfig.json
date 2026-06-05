@@ -8,19 +8,16 @@
       "@monomind/swarm": ["./@monomind/swarm/src"],
       "@monomind/performance": ["./@monomind/performance/src"],
       "@monomind/cli": ["./@monomind/cli/src"],
-      "@monomind/neural": ["./@monomind/neural/src"],
-      "@monomind/shared": ["./@monomind/shared/src"],
+      "@monomind/shared": ["./@monomind/shared/dist"],
       "@monomind/hooks": ["./@monomind/hooks/src"]
     }
   },
   "references": [
-    { "path": "./@monomind/shared" },
     { "path": "./@monomind/security" },
     { "path": "./@monomind/memory" },
     { "path": "./@monomind/swarm" },
     { "path": "./@monomind/performance" },
     { "path": "./@monomind/cli" },
-    { "path": "./@monomind/neural" },
     { "path": "./@monomind/hooks" }
   ],
   "include": [],

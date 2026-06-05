@@ -78,7 +78,7 @@ export class CLI {
         return;
       }
 
-      if (flags.noColor) {
+      if (flags.color === false || flags.noColor) {
         this.output.setColorEnabled(false);
       }
 
