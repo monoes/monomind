@@ -823,7 +823,25 @@ export async function injectAiContext(opts: {
   const { repoPath, targets = ['claude', 'agents-md'] } = opts;
   const SENTINEL_START = '<!-- monograph:start -->';
   const SENTINEL_END = '<!-- monograph:end -->';
-  const block = `${SENTINEL_START}\n## Monograph Knowledge Graph\n\nMonograph provides code intelligence via graph-based search.\nTools: monograph_query, monograph_context, monograph_impact, monograph_route_map, monograph_cypher.\n${SENTINEL_END}`;
+  const block = `${SENTINEL_START}
+## Knowledge Graph — Monograph (Use Before Codebase Exploration)
+
+**MANDATORY: Graph-First, Grep-Last.**
+Before ANY grep/rg/find via Bash for code navigation, call \`mcp__monomind__monograph_query\` first.
+Only fall back to Bash grep if monograph returns 0 results or the DB is missing.
+
+When starting any task touching 3+ files:
+1. \`mcp__monomind__monograph_suggest\` — relevant nodes ranked by task description
+2. \`mcp__monomind__monograph_context\` — 360° view of a symbol (callers, callees, imports)
+3. \`mcp__monomind__monograph_impact\` — blast radius before changing anything
+
+Key tools: monograph_query (BM25 search, file+line), monograph_context (symbol 360°),
+monograph_impact (blast radius), monograph_detect_changes (git diff → symbols),
+monograph_rename (dry-run multi-file rename), monograph_route_map (HTTP routes),
+monograph_cypher (single-hop graph query), monograph_augment (graph-RAG context).
+
+If graph is empty: call monograph_build (codeOnly:true) and proceed with grep while it builds.
+${SENTINEL_END}`;
 
   const updated: string[] = [];
   const fileMaps: Record<string, string> = {
