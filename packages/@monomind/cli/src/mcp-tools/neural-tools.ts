@@ -26,7 +26,7 @@ try {
   // Tier 1: agentic-flow v1 ReasoningBank (fastest — WASM-accelerated)
   const rb = await import('agentic-flow/reasoningbank').catch(() => null);
   if (rb?.computeEmbedding) {
-    realEmbeddings = { embed: (text: string) => rb.computeEmbedding(text) };
+    realEmbeddings = { embed: async (text: string) => Array.from(await rb.computeEmbedding(text)) };
     embeddingServiceName = 'agentic-flow/reasoningbank';
   }
 
