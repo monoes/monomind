@@ -308,12 +308,14 @@ export function detectMonographChanges(
   const seenIds = new Set<string>();
 
   for (const rel of changedFiles) {
-    const abs = join(repoPath, rel);
-    const nodes = getNodesForFile(db, abs);
+    // DB stores relative paths; try both relative and absolute to be safe
+    const nodes = getNodesForFile(db, rel).length > 0
+      ? getNodesForFile(db, rel)
+      : getNodesForFile(db, join(repoPath, rel));
     for (const n of nodes) {
       if (!seenIds.has(n.id)) {
         seenIds.add(n.id);
-        affectedSymbols.push({ id: n.id, name: n.name, label: n.label, filePath: n.filePath ?? abs });
+        affectedSymbols.push({ id: n.id, name: n.name, label: n.label, filePath: n.filePath ?? rel });
       }
     }
   }
@@ -453,7 +455,8 @@ export async function getMonographStaleness(repoPath: string): Promise<{
   if (existsSync(dbPath)) {
     const db = openDb(dbPath);
     try {
-      const meta = (db as any).prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get() as { value: string } | undefined;
+      // monomind's indexer writes ua_last_commit; published monograph@1.1.0 writes lastCommit
+      const meta = (db as any).prepare("SELECT value FROM index_meta WHERE key IN ('ua_last_commit','lastCommit') LIMIT 1").get() as { value: string } | undefined;
       lastCommit = meta?.value ?? null;
     } finally {
       closeDb(db);
@@ -482,7 +485,7 @@ export async function getMonographStaleness(repoPath: string): Promise<{
 
     if (commitsBehind > 0) {
       try {
-        firstDivergingCommitTime = execSync(`git show -s --format=%cI ${lastCommit}..HEAD -- | head -1`, {
+        firstDivergingCommitTime = execSync(`git log -1 --format=%cI ${lastCommit}..HEAD`, {
           cwd: repoPath, encoding: 'utf-8',
         }).trim() || undefined;
       } catch { /* skip */ }
@@ -624,19 +627,17 @@ export function getSchemaResource(db: Db): {
 }
 
 // 10d. getGraphResource
-export function getGraphResource(db: Db): { nodes: unknown[]; edges: unknown[] } {
-  let nodes: unknown[] = [];
-  let edges: unknown[] = [];
+export function getGraphResource(db: Db): { nodes: unknown[]; edges: unknown[]; capturedAt: string } {
   try {
     const snap = snapshotFromDb(db);
-    // snapshotFromDb returns a graphology graph; export via raw SQL for a stable shape
-    nodes = (db as any).prepare('SELECT * FROM nodes LIMIT 2000').all();
-    edges = (db as any).prepare('SELECT * FROM edges LIMIT 10000').all();
+    return {
+      nodes: snap.nodes.slice(0, 2000),
+      edges: snap.edges.slice(0, 10000),
+      capturedAt: snap.capturedAt,
+    };
   } catch {
-    nodes = (db as any).prepare('SELECT * FROM nodes LIMIT 2000').all();
-    edges = (db as any).prepare('SELECT * FROM edges LIMIT 10000').all();
+    return { nodes: [], edges: [], capturedAt: new Date().toISOString() };
   }
-  return { nodes, edges };
 }
 
 // ─── Tier 2: Best-effort / correctly-shaped degradation ───────────────────────
@@ -1079,7 +1080,7 @@ export async function getGroupList(
       try {
         const db = openDb(dbPath);
         nodeCount = countNodes(db);
-        const meta = (db as any).prepare("SELECT value FROM index_meta WHERE key = 'indexedAt'").get() as any;
+        const meta = (db as any).prepare("SELECT value FROM index_meta WHERE key IN ('ua_analyzed_at','indexedAt') LIMIT 1").get() as any;
         indexedAt = meta?.value ?? null;
         closeDb(db);
       } catch { /* skip */ }
@@ -1225,12 +1226,12 @@ export async function getGroupStatus(configPath: string): Promise<{
       const db = openDb(dbPath);
       const nc = countNodes(db);
       const contracts = (db as any).prepare("SELECT COUNT(*) as n FROM nodes WHERE label = 'Route'").get() as any;
-      const meta = (db as any).prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get() as any;
+      const meta = (db as any).prepare("SELECT value FROM index_meta WHERE key IN ('ua_last_commit','lastCommit') LIMIT 1").get() as any;
       closeDb(db);
       groups.push({
         name,
         indexed: nc > 0,
-        stale: false, // we'd need git to detect; default false
+        stale: false, // git-based staleness check requires repoPath; default false
         contractCount: (contracts?.n as number) ?? 0,
         ...(meta?.value ? { lastSync: meta.value } : {}),
       });
@@ -1262,9 +1263,9 @@ export async function serveMonograph(opts: {
     return { status: 'already_running', url: _serverUrl ?? `http://localhost:${port}` };
   }
 
-  const nodes = (opts.db as any).prepare('SELECT * FROM nodes LIMIT 500').all() as any[];
-  const edges = (opts.db as any).prepare('SELECT * FROM edges LIMIT 3000').all() as any[];
-  const html = toHtml(nodes, edges);
+  // snapshotFromDb returns camelCase nodes/edges as toHtml expects (filePath, communityId, sourceId, targetId)
+  const snap = snapshotFromDb(opts.db);
+  const html = toHtml(snap.nodes.slice(0, 500) as never[], snap.edges.slice(0, 3000) as never[]);
 
   _httpServer = createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

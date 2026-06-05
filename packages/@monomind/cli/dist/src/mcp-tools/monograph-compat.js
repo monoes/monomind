@@ -229,12 +229,14 @@ export function detectMonographChanges(db, opts, repoPath) {
     const affectedSymbols = [];
     const seenIds = new Set();
     for (const rel of changedFiles) {
-        const abs = join(repoPath, rel);
-        const nodes = getNodesForFile(db, abs);
+        // DB stores relative paths; try both relative and absolute to be safe
+        const nodes = getNodesForFile(db, rel).length > 0
+            ? getNodesForFile(db, rel)
+            : getNodesForFile(db, join(repoPath, rel));
         for (const n of nodes) {
             if (!seenIds.has(n.id)) {
                 seenIds.add(n.id);
-                affectedSymbols.push({ id: n.id, name: n.name, label: n.label, filePath: n.filePath ?? abs });
+                affectedSymbols.push({ id: n.id, name: n.name, label: n.label, filePath: n.filePath ?? rel });
             }
         }
     }
@@ -351,7 +353,8 @@ export async function getMonographStaleness(repoPath) {
     if (existsSync(dbPath)) {
         const db = openDb(dbPath);
         try {
-            const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get();
+            // monomind's indexer writes ua_last_commit; published monograph@1.1.0 writes lastCommit
+            const meta = db.prepare("SELECT value FROM index_meta WHERE key IN ('ua_last_commit','lastCommit') LIMIT 1").get();
             lastCommit = meta?.value ?? null;
         }
         finally {
@@ -379,7 +382,7 @@ export async function getMonographStaleness(repoPath) {
         catch { /* skip */ }
         if (commitsBehind > 0) {
             try {
-                firstDivergingCommitTime = execSync(`git show -s --format=%cI ${lastCommit}..HEAD -- | head -1`, {
+                firstDivergingCommitTime = execSync(`git log -1 --format=%cI ${lastCommit}..HEAD`, {
                     cwd: repoPath, encoding: 'utf-8',
                 }).trim() || undefined;
             }
@@ -503,19 +506,17 @@ export function getSchemaResource(db) {
 }
 // 10d. getGraphResource
 export function getGraphResource(db) {
-    let nodes = [];
-    let edges = [];
     try {
         const snap = snapshotFromDb(db);
-        // snapshotFromDb returns a graphology graph; export via raw SQL for a stable shape
-        nodes = db.prepare('SELECT * FROM nodes LIMIT 2000').all();
-        edges = db.prepare('SELECT * FROM edges LIMIT 10000').all();
+        return {
+            nodes: snap.nodes.slice(0, 2000),
+            edges: snap.edges.slice(0, 10000),
+            capturedAt: snap.capturedAt,
+        };
     }
     catch {
-        nodes = db.prepare('SELECT * FROM nodes LIMIT 2000').all();
-        edges = db.prepare('SELECT * FROM edges LIMIT 10000').all();
+        return { nodes: [], edges: [], capturedAt: new Date().toISOString() };
     }
-    return { nodes, edges };
 }
 // ─── Tier 2: Best-effort / correctly-shaped degradation ───────────────────────
 // 11. getMonographCypher — minimal single-hop MATCH evaluator
@@ -919,7 +920,7 @@ export async function getGroupList(configPath) {
             try {
                 const db = openDb(dbPath);
                 nodeCount = countNodes(db);
-                const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'indexedAt'").get();
+                const meta = db.prepare("SELECT value FROM index_meta WHERE key IN ('ua_analyzed_at','indexedAt') LIMIT 1").get();
                 indexedAt = meta?.value ?? null;
                 closeDb(db);
             }
@@ -1046,12 +1047,12 @@ export async function getGroupStatus(configPath) {
             const db = openDb(dbPath);
             const nc = countNodes(db);
             const contracts = db.prepare("SELECT COUNT(*) as n FROM nodes WHERE label = 'Route'").get();
-            const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get();
+            const meta = db.prepare("SELECT value FROM index_meta WHERE key IN ('ua_last_commit','lastCommit') LIMIT 1").get();
             closeDb(db);
             groups.push({
                 name,
                 indexed: nc > 0,
-                stale: false, // we'd need git to detect; default false
+                stale: false, // git-based staleness check requires repoPath; default false
                 contractCount: contracts?.n ?? 0,
                 ...(meta?.value ? { lastSync: meta.value } : {}),
             });
@@ -1073,9 +1074,9 @@ export async function serveMonograph(opts) {
     if (_httpServer) {
         return { status: 'already_running', url: _serverUrl ?? `http://localhost:${port}` };
     }
-    const nodes = opts.db.prepare('SELECT * FROM nodes LIMIT 500').all();
-    const edges = opts.db.prepare('SELECT * FROM edges LIMIT 3000').all();
-    const html = toHtml(nodes, edges);
+    // snapshotFromDb returns camelCase nodes/edges as toHtml expects (filePath, communityId, sourceId, targetId)
+    const snap = snapshotFromDb(opts.db);
+    const html = toHtml(snap.nodes.slice(0, 500), snap.edges.slice(0, 3000));
     _httpServer = createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html);
