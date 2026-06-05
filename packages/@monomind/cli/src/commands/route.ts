@@ -182,7 +182,7 @@ const routeTaskCommand: Command = {
           confidence: result.confidence,
           qValues: result.qValues,
           explored: result.explored,
-          alternatives: result.alternatives.map(a => ({
+          alternatives: (result.alternatives || []).map(a => ({
             agentId: a.route,
             agentName: getAgentType(a.route)?.name || a.route,
             score: a.score,

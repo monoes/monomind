@@ -115,7 +115,6 @@ describe('CLI', () => {
       expect(output).toContain('V1 FEATURES:');
       expect(output).toContain('15-agent');
       expect(output).toContain('AgentDB');
-      expect(output).toContain('Flash Attention');
     });
 
     it('should show examples in help', async () => {

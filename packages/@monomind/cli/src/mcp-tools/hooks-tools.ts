@@ -100,8 +100,6 @@ async function getEWCConsolidator() {
   return ewcConsolidator;
 }
 
-// MoE Router — module removed; stub always returns null
-async function getMoERouter(): Promise<null> { return null; }
 
 function generateSimpleEmbedding(text: string, dimension: number = 384): Float32Array {
   // Simple deterministic embedding based on character codes
@@ -295,8 +293,6 @@ const TASK_PATTERNS: Record<string, { keywords: string[]; agents: string[] }> = 
   },
 };
 
-// Flash Attention — module removed; stub always returns null
-async function getFlashAttention(): Promise<null> { return null; }
 
 // Trajectory storage for SONA learning
 interface TrajectoryStep {
@@ -2671,8 +2667,6 @@ export const hooksIntelligenceStats: MCPTool = {
     // Get REAL statistics from actual implementations
     const sona = await getSONAOptimizer();
     const ewc = await getEWCConsolidator();
-    const moe = await getMoERouter();
-    const flash = await getFlashAttention();
     // Fallback to memory store for legacy data
     const memoryStats = getIntelligenceStatsFromMemory();
 
@@ -2733,42 +2727,14 @@ export const hooksIntelligenceStats: MCPTool = {
       loadBalance: null as { giniCoefficient: number; coefficientOfVariation: number; expertUsage: Record<string, number> } | null,
       implementation: 'not-loaded' as string,
     };
-    if (moe) {
-      const loadBalance = moe.getLoadBalance();
-      const activeExperts = Object.values(loadBalance.routingCounts).filter((u: number) => u > 0).length;
-      // Calculate average utilization as proxy for confidence
-      const utilValues = Object.values(loadBalance.utilization) as number[];
-      const avgUtil = utilValues.length > 0 ? utilValues.reduce((a, b) => a + b, 0) / utilValues.length : 0;
-      moeStats = {
-        expertsTotal: 8,
-        expertsActive: activeExperts,
-        routingDecisions: loadBalance.totalRoutings,
-        avgRoutingTimeMs: 0.15, // Theoretical performance
-        avgConfidence: Math.round(avgUtil * 100) / 100,
-        loadBalance: {
-          giniCoefficient: Math.round(loadBalance.giniCoefficient * 1000) / 1000,
-          coefficientOfVariation: Math.round(loadBalance.coefficientOfVariation * 1000) / 1000,
-          expertUsage: loadBalance.routingCounts,
-        },
-        implementation: 'real-moe',
-      };
-    }
 
-    // Flash Attention stats from real implementation
-    let flashStats = {
+    // Flash Attention stats (native MoE/Flash removed in lean build — defaults only)
+    const flashStats = {
       speedup: 1.0,
       avgComputeTimeMs: 0,
       blockSize: 64,
       implementation: 'not-loaded' as string,
     };
-    if (flash) {
-      flashStats = {
-        speedup: Math.round(flash.getSpeedup() * 100) / 100,
-        avgComputeTimeMs: 0, // Would need benchmarking
-        blockSize: 64,
-        implementation: 'real-flash-attention',
-      };
-    }
 
     // LoRA Adapter removed — superseded by SONA instant adaptation
     const loraStats = {
@@ -2803,8 +2769,8 @@ export const hooksIntelligenceStats: MCPTool = {
         implementationStatus: {
           sona: sona ? 'loaded' : 'not-loaded',
           ewc: ewc ? 'loaded' : 'not-loaded',
-          moe: moe ? 'loaded' : 'not-loaded',
-          flash: flash ? 'loaded' : 'not-loaded',
+          moe: 'not-loaded',
+          flash: 'not-loaded',
           lora: 'not-loaded',
         },
         performance: {
@@ -2917,77 +2883,9 @@ export const hooksIntelligenceAttention: MCPTool = {
     let implementation = 'placeholder';
     const results: Array<{ index: number; weight: number; pattern: string; expert?: string }> = [];
 
-    if (mode === 'moe') {
-      // Try MoE routing
-      const moe = await getMoERouter();
-      if (moe) {
-        try {
-          // Generate a simple embedding from query (hash-based for demo)
-          const embedding = new Float32Array(384);
-          for (let i = 0; i < 384; i++) {
-            embedding[i] = Math.sin(query.charCodeAt(i % query.length) * (i + 1) * 0.01);
-          }
-
-          const routingResult = moe.route(embedding);
-          for (let i = 0; i < Math.min(topK, routingResult.experts.length); i++) {
-            const expert = routingResult.experts[i];
-            results.push({
-              index: i,
-              weight: expert.weight,
-              pattern: `Expert: ${expert.name}`,
-              expert: expert.name,
-            });
-          }
-          implementation = 'real-moe-router';
-        } catch {
-          // Fall back to placeholder
-        }
-      }
-    } else if (mode === 'flash') {
-      // Try Flash Attention
-      const flash = await getFlashAttention();
-      if (flash) {
-        try {
-          // Generate query/key/value embeddings
-          const q = new Float32Array(384);
-          const keys: Float32Array[] = [];
-          const values: Float32Array[] = [];
-
-          for (let i = 0; i < 384; i++) {
-            q[i] = Math.sin(query.charCodeAt(i % query.length) * (i + 1) * 0.01);
-          }
-
-          // Generate some keys/values
-          for (let k = 0; k < topK; k++) {
-            const key = new Float32Array(384);
-            const value = new Float32Array(384);
-            for (let i = 0; i < 384; i++) {
-              key[i] = Math.cos((k + 1) * (i + 1) * 0.01);
-              value[i] = k + 1;
-            }
-            keys.push(key);
-            values.push(value);
-          }
-
-          const attentionResult = flash.attention([q], keys, values);
-          // Compute softmax weights from output magnitudes
-          const outputMags = attentionResult.output[0]
-            ? Array.from(attentionResult.output[0]).slice(0, topK).map(v => Math.abs(v))
-            : new Array(topK).fill(1);
-          const sumMags = outputMags.reduce((a, b) => a + b, 0) || 1;
-          for (let i = 0; i < topK; i++) {
-            results.push({
-              index: i,
-              weight: outputMags[i] / sumMags,
-              pattern: `Flash attention target #${i + 1}`,
-            });
-          }
-          implementation = 'real-flash-attention';
-        } catch {
-          // Fall back to placeholder
-        }
-      }
-    }
+    // Native MoE-router / Flash-attention backends were removed in the lean build.
+    // Both modes degrade to the honest empty result handled below.
+    void mode;
 
     // If no real implementation worked, return empty with honest marker
     if (results.length === 0) {
@@ -3533,8 +3431,6 @@ export const hooksWorkerDetect: MCPTool = {
   },
 };
 
-// Model router — module removed; stub always returns null
-async function getModelRouterInstance(): Promise<null> { return null; }
 
 // Model route tool - intelligent model selection
 export const hooksModelRoute: MCPTool = {
@@ -3551,31 +3447,14 @@ export const hooksModelRoute: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const task = params.task as string;
-    const router = await getModelRouterInstance();
-
-    if (!router) {
-      // Fallback to simple heuristic
-      const complexity = analyzeComplexityFallback(task);
-      return {
-        model: complexity > 0.7 ? 'opus' : complexity > 0.4 ? 'sonnet' : 'haiku',
-        confidence: 0.7,
-        complexity,
-        reasoning: 'Fallback heuristic (model router not available)',
-        implementation: 'fallback',
-      };
-    }
-
-    const result = await router.route(task);
+    // Native neural model-router removed in the lean build — keyword complexity heuristic.
+    const complexity = analyzeComplexityFallback(task);
     return {
-      model: result.model,
-      confidence: result.confidence,
-      uncertainty: result.uncertainty,
-      complexity: result.complexity,
-      reasoning: result.reasoning,
-      alternatives: result.alternatives,
-      inferenceTimeUs: result.inferenceTimeUs,
-      costMultiplier: result.costMultiplier,
-      implementation: 'tiny-dancer-neural',
+      model: complexity > 0.7 ? 'opus' : complexity > 0.4 ? 'sonnet' : 'haiku',
+      confidence: 0.7,
+      complexity,
+      reasoning: 'Keyword complexity heuristic',
+      implementation: 'heuristic',
     };
   },
 };
@@ -3607,10 +3486,8 @@ export const hooksModelOutcome: MCPTool = {
       : params.outcome as 'success' | 'failure' | 'escalated';
     const outcome = effectiveOutcome;
 
-    const router = await getModelRouterInstance();
-    if (router) {
-      router.recordOutcome(task, model, outcome);
-    }
+    // Native model-router removed in the lean build — outcome is acknowledged but not
+    // fed to a neural learner (keyword routing has no online-learning store).
 
     return {
       recorded: true,
@@ -3631,19 +3508,10 @@ export const hooksModelStats: MCPTool = {
     properties: {},
   },
   handler: async () => {
-    const router = await getModelRouterInstance();
-    if (!router) {
-      return {
-        available: false,
-        message: 'Model router not initialized',
-      };
-    }
-
-    const stats = router.getStats();
+    // Native model-router removed in the lean build — no neural routing stats to report.
     return {
-      available: true,
-      ...stats,
-      timestamp: new Date().toISOString(),
+      available: false,
+      message: 'Model router not available in the lean build (keyword routing has no stats)',
     };
   },
 };

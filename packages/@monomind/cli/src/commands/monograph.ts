@@ -101,10 +101,10 @@ const buildCommand: Command = {
 
     try {
       const { buildAsync } = await import('@monoes/monograph');
+      // llmMaxSections is a UI variable only; not a valid BuildOptions key in @monoes/monograph@1.1.0
       await buildAsync(root, {
         codeOnly,
         force,
-        llmMaxSections,
         onProgress: (p: { phase: string; message?: string }) => {
           const msg = `[${p.phase}] ${p.message ?? ''}`;
           progressLines.push(msg);
@@ -207,10 +207,10 @@ const wikiCommand: Command = {
 
     try {
       const { buildAsync } = await import('@monoes/monograph');
+      // llmMaxSections is a UI variable only; not a valid BuildOptions key in @monoes/monograph@1.1.0
       await buildAsync(root, {
         codeOnly: false,
         force,
-        llmMaxSections,
         onProgress: (p: { phase: string; message?: string }) => {
           const msg = `[${p.phase}] ${p.message ?? ''}`;
           progressLines.push(msg);
@@ -291,7 +291,11 @@ const searchCommand: Command = {
     output.writeln();
 
     try {
-      const { openDb, closeDb, ftsSearch, semanticSearch } = await import('@monoes/monograph');
+      const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
+      // At @monoes/monograph@1.1.0, semanticSearch is not exported. Import from compat.
+      // With no embeddings at 1.1.0, --mode semantic and --mode hybrid both degrade to BM25
+      // (the RRF block merges bm25 with a sem list that is itself BM25 — harmless).
+      const { semanticSearch } = await import('../mcp-tools/monograph-compat.js');
       const db = openDb(dbPath);
 
       type SearchResult = { id: string; label: string; name: string; normLabel: string; filePath: string | null; score?: number; rank?: number };
@@ -411,22 +415,25 @@ const watchCommand: Command = {
     output.writeln();
 
     try {
-      const { watchAsync } = await import('@monoes/monograph');
+      // watchAsync is not exported in @monoes/monograph@1.1.0.
+      // Use MonographWatcher directly, mirroring the monograph_watch MCP tool.
+      const { MonographWatcher, buildAsync } = await import('@monoes/monograph');
 
-      const watcher = await watchAsync(root, {
-        codeOnly: false,
-        llmMaxSections,
-        onProgress: (p: { phase: string; message?: string }) => {
-          output.writeln(output.dim(`  [${p.phase}] ${p.message ?? ''}`));
-        },
+      const watcher = new MonographWatcher(root);
+      watcher.on('monograph:updated', () => {
+        output.writeln(output.dim('  [watch] File change detected, rebuilding…'));
+        buildAsync(root, { codeOnly: false }).catch((err: Error) => {
+          output.writeln(output.dim(`  [watch] Rebuild error: ${err.message}`));
+        });
       });
+      await watcher.start();
 
       output.printSuccess('Watching for changes…');
       output.writeln();
 
       await new Promise<void>(resolve => {
         process.on('SIGINT', () => {
-          watcher?.stop?.();
+          watcher.stop();
           output.writeln();
           output.writeln(output.dim('Watch stopped.'));
           resolve();
