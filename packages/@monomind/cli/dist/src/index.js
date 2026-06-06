@@ -565,10 +565,6 @@ export { initializeIntelligence, recordStep, recordTrajectory, findSimilarPatter
 endTrajectoryWithVerdict, distillLearning, 
 // Pattern persistence API
 getAllPatterns, getPatternsByType, flushPatterns, deletePattern, clearAllPatterns, getNeuralDataDir, getPersistenceStatus, } from './memory/intelligence.js';
-// EWC++ Consolidation (Prevents Catastrophic Forgetting)
-export { EWCConsolidator, getEWCConsolidator, resetEWCConsolidator, consolidatePatterns, recordPatternOutcome, getEWCStats, } from './memory/ewc-consolidation.js';
-// SONA Optimizer (Adaptive Routing via Trajectory Learning)
-export { SONAOptimizer, getSONAOptimizer, resetSONAOptimizer, processTrajectory, getSuggestion, getSONAStats, } from './memory/sona-optimizer.js';
 // Production Hardening
 export { ErrorHandler, withErrorHandling, } from './production/error-handler.js';
 export { RateLimiter, createRateLimiter, } from './production/rate-limiter.js';

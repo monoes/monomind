@@ -55,16 +55,10 @@ export function systemConfigToMonomindConfig(systemConfig) {
             autoExecute: false,
             hooks: [],
         },
-        // Neural / SONA learning configuration
+        // Neural pattern-learning configuration
         neural: {
             enabled: systemConfig.neural?.enabled ?? true,
             disableNative: systemConfig.neural?.disableNative ?? false,
-            sona: {
-                mode: systemConfig.neural?.sona?.mode ?? 'balanced',
-                learningRate: systemConfig.neural?.sona?.learningRate,
-                ewcLambda: systemConfig.neural?.sona?.ewcLambda,
-                embeddingDim: systemConfig.neural?.sona?.embeddingDim,
-            },
         },
     };
 }
@@ -143,19 +137,12 @@ export function configToSystemConfig(config) {
                 logging: true,
             },
         },
-        // Neural / SONA learning configuration — only emit when present so we don't
-        // synthesize a neural block for configs that never had one.
+        // Neural pattern-learning configuration — only emit when present
         ...(config.neural
             ? {
                 neural: {
                     enabled: config.neural.enabled ?? true,
                     disableNative: config.neural.disableNative ?? false,
-                    sona: {
-                        mode: config.neural.sona?.mode ?? 'balanced',
-                        learningRate: config.neural.sona?.learningRate,
-                        ewcLambda: config.neural.sona?.ewcLambda,
-                        embeddingDim: config.neural.sona?.embeddingDim,
-                    },
                 },
             }
             : {}),

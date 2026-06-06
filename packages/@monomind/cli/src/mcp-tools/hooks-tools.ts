@@ -1636,7 +1636,7 @@ export const hooksBuildAgents: MCPTool = {
     const persist = params.persist !== false; // Default to true
 
     const agents = [
-      { type: 'coder', configFile: join(outputDir, `coder.${format}`), capabilities: ['code-generation', 'refactoring', 'debugging'], optimizations: ['flash-attention', 'token-reduction'] },
+      { type: 'coder', configFile: join(outputDir, `coder.${format}`), capabilities: ['code-generation', 'refactoring', 'debugging'], optimizations: ['token-reduction', 'context-caching'] },
       { type: 'architect', configFile: join(outputDir, `architect.${format}`), capabilities: ['system-design', 'api-design', 'documentation'], optimizations: ['context-caching', 'memory-persistence'] },
       { type: 'tester', configFile: join(outputDir, `tester.${format}`), capabilities: ['unit-testing', 'integration-testing', 'coverage'], optimizations: ['parallel-execution'] },
       { type: 'security-architect', configFile: join(outputDir, `security-architect.${format}`), capabilities: ['threat-modeling', 'vulnerability-analysis', 'security-review'], optimizations: ['pattern-matching'] },
@@ -2164,7 +2164,8 @@ export const hooksIntelligence: MCPTool = {
         partial: [],
         notImplemented: [],
         removed: [
-          'sona-optimizer', 'ewc-consolidation', 'moe-routing', 'flash-attention', 'lora-adapter'
+          'moe-routing', 'flash-attention', 'lora-adapter',
+          'native-sona-engine', 'native-router', 'native-attention',
         ],
       },
       version: '3.0.0-alpha.102',

@@ -696,34 +696,6 @@ export {
   type IntelligenceStats,
 } from './memory/intelligence.js';
 
-// EWC++ Consolidation (Prevents Catastrophic Forgetting)
-export {
-  EWCConsolidator,
-  getEWCConsolidator,
-  resetEWCConsolidator,
-  consolidatePatterns,
-  recordPatternOutcome,
-  getEWCStats,
-  type PatternWeights,
-  type EWCConfig,
-  type ConsolidationResult,
-  type EWCStats,
-} from './memory/ewc-consolidation.js';
-
-// SONA Optimizer (Adaptive Routing via Trajectory Learning)
-export {
-  SONAOptimizer,
-  getSONAOptimizer,
-  resetSONAOptimizer,
-  processTrajectory,
-  getSuggestion,
-  getSONAStats,
-  type TrajectoryOutcome,
-  type LearnedPattern,
-  type RoutingSuggestion,
-  type SONAStats,
-} from './memory/sona-optimizer.js';
-
 // Production Hardening
 export {
   ErrorHandler,

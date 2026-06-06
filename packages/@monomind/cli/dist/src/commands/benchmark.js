@@ -13,7 +13,7 @@ import { BenchmarkRunner } from '../benchmarks/benchmark-runner.js';
 // ============================================================================
 const pretrainCommand = {
     name: 'pretrain',
-    description: 'Benchmark self-learning pre-training system (SONA, EWC++, MoE)',
+    description: 'Benchmark pattern-learning pre-training system',
     options: [
         { name: 'iterations', short: 'i', type: 'number', description: 'Benchmark iterations', default: '100' },
         { name: 'warmup', short: 'w', type: 'number', description: 'Warmup iterations', default: '10' },
@@ -554,7 +554,7 @@ export const benchmarkCommand = {
         output.writeln(output.dim('─'.repeat(50)));
         output.writeln();
         output.writeln('Available subcommands:');
-        output.writeln(`  ${output.highlight('pretrain')}    - Benchmark self-learning pre-training (SONA, EWC++, MoE)`);
+        output.writeln(`  ${output.highlight('pretrain')}    - Benchmark pattern-learning pre-training`);
         output.writeln(`  ${output.highlight('neural')}      - Benchmark neural operations (embeddings, WASM)`);
         output.writeln(`  ${output.highlight('memory')}      - Benchmark memory operations (HNSW, store, search)`);
         output.writeln(`  ${output.highlight('all')}         - Run all benchmark suites`);
