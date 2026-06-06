@@ -378,121 +378,13 @@ export async function getHNSWIndex(options) {
     }
     hnswInitializing = true;
     try {
-        // Lean teardown: the native @monoes/core HNSW backend (WASM VectorDb) has been
-        // removed. Callers of getHNSWIndex() already treat a null return as "no native
-        // index — use the pure-JS / brute-force fallback", so we short-circuit here.
-        const monovectorModule = await import('@monoes/core').catch(() => null);
-        if (!monovectorModule) {
-            hnswInitializing = false;
-            return null; // HNSW not available — pure-JS fallback path
-        }
-        // ESM returns { default: { VectorDb, ... } }, CJS returns { VectorDb, ... }
-        const monovectorCore = monovectorModule.default || monovectorModule;
-        if (!monovectorCore?.VectorDb) {
-            hnswInitializing = false;
-            return null; // VectorDb not found
-        }
-        const { VectorDb } = monovectorCore;
-        // Persistent storage paths — resolve to absolute to survive CWD changes
-        const swarmDir = path.resolve(process.cwd(), '.swarm');
-        if (!fs.existsSync(swarmDir)) {
-            fs.mkdirSync(swarmDir, { recursive: true });
-        }
-        const hnswPath = path.join(swarmDir, 'hnsw.index');
-        const metadataPath = path.join(swarmDir, 'hnsw.metadata.json');
-        const dbPath = options?.dbPath ? path.resolve(options.dbPath) : path.join(swarmDir, 'memory.db');
-        // Create HNSW index with persistent storage
-        // @monoes/core uses string enum for distanceMetric: 'Cosine', 'Euclidean', 'DotProduct', 'Manhattan'
-        const db = new VectorDb({
-            dimensions,
-            distanceMetric: 'Cosine',
-            storagePath: hnswPath // Persistent storage!
-        });
-        // Load metadata (entry info) if exists
-        const entries = new Map();
-        if (fs.existsSync(metadataPath)) {
-            try {
-                const metadataJson = fs.readFileSync(metadataPath, 'utf-8');
-                const metadata = JSON.parse(metadataJson);
-                for (const [key, value] of metadata) {
-                    entries.set(key, value);
-                }
-            }
-            catch {
-                // Metadata load failed, will rebuild
-            }
-        }
-        hnswIndex = {
-            db,
-            entries,
-            dimensions,
-            initialized: false
-        };
-        // Check if index already has data (from persistent storage)
-        const existingLen = await db.len();
-        if (existingLen > 0 && entries.size > 0) {
-            // Index loaded from disk, skip SQLite sync
-            hnswIndex.initialized = true;
-            hnswInitializing = false;
-            return hnswIndex;
-        }
-        if (fs.existsSync(dbPath)) {
-            try {
-                // Reject symlinks and oversized DB files. Without this a symlink at the
-                // dbPath pointing at /dev/zero or a 100GB sparse file would OOM the CLI
-                // on the next memory operation.
-                const stat = fs.lstatSync(dbPath);
-                if (stat.isSymbolicLink() || stat.size > 256 * 1024 * 1024) {
-                    return null;
-                }
-                const initSqlJs = (await import('sql.js')).default;
-                const SQL = await initSqlJs();
-                const fileBuffer = fs.readFileSync(dbPath);
-                const sqlDb = new SQL.Database(fileBuffer);
-                // Load all entries with embeddings
-                const result = sqlDb.exec(`
-          SELECT id, key, namespace, content, embedding
-          FROM memory_entries
-          WHERE status = 'active' AND embedding IS NOT NULL
-          LIMIT 10000
-        `);
-                if (result[0]?.values) {
-                    for (const row of result[0].values) {
-                        const [id, key, ns, content, embeddingJson] = row;
-                        if (embeddingJson) {
-                            try {
-                                const embedding = safeParseEmbeddingLocal(embeddingJson);
-                                if (!embedding)
-                                    continue;
-                                const vector = new Float32Array(embedding);
-                                await db.insert({
-                                    id: String(id),
-                                    vector
-                                });
-                                hnswIndex.entries.set(String(id), {
-                                    id: String(id),
-                                    key: key || String(id),
-                                    namespace: ns || 'default',
-                                    content: content || ''
-                                });
-                            }
-                            catch {
-                                // Skip invalid embeddings
-                            }
-                        }
-                    }
-                }
-                sqlDb.close();
-            }
-            catch {
-                // SQLite load failed, start with empty index
-            }
-        }
-        // initialized = true even on empty DB — absence of vectors is a valid ready state,
-        // not a failure. The concurrent-waiter null-check at line ~395 relies on this.
-        hnswIndex.initialized = true;
+        // Native @monoes/core HNSW (WASM VectorDb) was removed in the lean teardown.
+        // This function is kept for callers that check its return value — all callers
+        // already handle null by falling back to the pure-JS / brute-force path.
+        // The AgentDB bridge (memory-bridge.ts) provides HNSW via agentdb instead.
+        // Native backend removed — return null so callers use the pure-JS fallback.
         hnswInitializing = false;
-        return hnswIndex;
+        return null;
     }
     catch {
         hnswInitializing = false;
@@ -1329,6 +1221,48 @@ export async function loadEmbeddingModel(options) {
         }
     }
     try {
+        // Tier 0: @monomind/embeddings — bundles @xenova/transformers as a hard dep, so it
+        // resolves from the CLI even when a bare `import('@xenova/transformers')` does NOT
+        // (the CLI doesn't declare @xenova directly). Without this, the chain below falls
+        // straight through to the hash fallback and "semantic" search is lexical-only.
+        const embPkg = await import('@monomind/embeddings').catch(() => null);
+        if (embPkg && typeof embPkg.createEmbeddingService === 'function') {
+            try {
+                const service = embPkg.createEmbeddingService({
+                    provider: 'transformers',
+                    model: 'Xenova/all-MiniLM-L6-v2',
+                    normalization: 'l2',
+                    enableCache: true,
+                });
+                // Probe triggers the (lazy) model load and verifies real vectors come back.
+                const probe = await service.embed('probe');
+                const probeVec = probe?.embedding;
+                const dims = (probeVec && probeVec.length) || 384;
+                if (probeVec && dims > 1) {
+                    if (verbose) {
+                        console.log(`Loaded @monomind/embeddings (Transformers MiniLM-L6, ${dims}d)...`);
+                    }
+                    embeddingModelState = {
+                        loaded: true,
+                        // Match generateEmbedding's consumer: a callable returning a plain number[]
+                        // (it accepts either `{ data }` or an Array.isArray(...) result).
+                        model: async (text) => Array.from((await service.embed(String(text))).embedding),
+                        tokenizer: null,
+                        dimensions: dims,
+                    };
+                    return {
+                        success: true,
+                        dimensions: dims,
+                        modelName: '@monomind/embeddings (transformers/MiniLM-L6)',
+                        loadTime: Date.now() - startTime,
+                    };
+                }
+            }
+            catch {
+                // Embeddings package present but model load failed (offline / download error);
+                // fall through to the remaining providers and ultimately the hash fallback.
+            }
+        }
         // Try to import @xenova/transformers for ONNX embeddings
         const transformers = await import('@xenova/transformers').catch(() => null);
         if (transformers) {
