@@ -423,24 +423,7 @@ if should_run "rvf"; then
   rm -rf "$RVF_DIR"
 fi
 
-# ── 27. Local Model Inference (ruvLLM from RuVector) ──────────
-if should_run "ruvllm"; then
-  section 27 "Local Model Inference (ruvLLM / RuVector)"
-  if [ "${SKIP_MODELS:-0}" = "1" ]; then
-    check_skip "ruvllm: model load" "SKIP_MODELS=1"
-    check_skip "ruvllm: tokenize" "SKIP_MODELS=1"
-    check_skip "ruvllm: generate" "SKIP_MODELS=1"
-    check_skip "ruvllm: stream" "SKIP_MODELS=1"
-  elif command -v monomind-ruvllm >/dev/null 2>&1; then
-    check_warn "ruvllm: engine available" monomind-ruvllm --version
-    check_warn "ruvllm: model list" monomind-ruvllm models list
-    check_warn "ruvllm: tokenize" monomind-ruvllm tokenize --text "Hello world"
-    check_warn "ruvllm: generate" monomind-ruvllm generate --prompt "2+2=" --max-tokens 10
-  else
-    check_skip "ruvllm: engine" "monomind-ruvllm not installed (future: ADR-058 Phase 3)"
-    check_skip "ruvllm: inference" "monomind-ruvllm not installed"
-  fi
-fi
+# Section 27 (local model inference) was removed — native LLM module not in lean build
 
 # ── 28. API Key Vault ─────────────────────────────────────────
 if should_run "vault"; then

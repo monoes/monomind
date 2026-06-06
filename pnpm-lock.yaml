@@ -64,6 +64,18 @@ importers:
       '@monoes/monograph':
         specifier: ^1.1.0
         version: 1.1.0
+      '@monomind/aidefence':
+        specifier: workspace:*
+        version: link:../aidefence
+      '@monomind/embeddings':
+        specifier: workspace:*
+        version: link:../embeddings
+      '@monomind/guidance':
+        specifier: workspace:*
+        version: link:../guidance
+      '@monomind/mcp':
+        specifier: workspace:*
+        version: link:../mcp
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
