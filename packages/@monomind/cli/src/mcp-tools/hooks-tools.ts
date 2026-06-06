@@ -840,9 +840,6 @@ export const hooksRoute: MCPTool = {
           const agentdbConfidence = Math.round(agentdbRoute.confidence * 100) / 100;
           // Record the route recommendation so post-task can join the actual outcome
           const routeId = randomUUID();
-          const caps = await getCapabilities();
-          const learningMode: 'native' | 'js' =
-            (caps.sona || caps.router === 'native' || caps.attention) ? 'native' : 'js';
           await recordRoute(getRouteOutcomesBaseDir(), {
             routeId,
             ts: Date.now(),
@@ -850,7 +847,7 @@ export const hooksRoute: MCPTool = {
             recommendedAgent: agents[0],
             routingMethod: agentdbMethod,
             confidence: agentdbConfidence,
-            learningMode,
+            learningMode: 'js' as const,
           });
           return {
             routeId,
@@ -939,9 +936,6 @@ export const hooksRoute: MCPTool = {
     const primaryConfidence = Math.round(confidence * 100) / 100;
     // Record the route recommendation so post-task can join the actual outcome
     const routeId = randomUUID();
-    const caps = await getCapabilities();
-    const learningMode: 'native' | 'js' =
-      (caps.sona || caps.router === 'native' || caps.attention) ? 'native' : 'js';
     await recordRoute(getRouteOutcomesBaseDir(), {
       routeId,
       ts: Date.now(),
@@ -949,7 +943,7 @@ export const hooksRoute: MCPTool = {
       recommendedAgent: agents[0],
       routingMethod,
       confidence: primaryConfidence,
-      learningMode,
+      learningMode: 'js' as const,
     });
 
     return {
