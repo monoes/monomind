@@ -6,7 +6,7 @@
 set -e
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-PACKAGES=(learning-wasm exotic-wasm attention-wasm gnn-wasm ruvllm-wasm rvagent-wasm)
+PACKAGES=(learning-wasm exotic-wasm attention-wasm gnn-wasm)
 
 for pkg in "${PACKAGES[@]}"; do
   PKG_DIR="$REPO_ROOT/packages/@monoes/$pkg/pkg"
