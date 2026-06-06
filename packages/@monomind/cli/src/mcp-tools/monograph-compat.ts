@@ -308,10 +308,9 @@ export function detectMonographChanges(
   const seenIds = new Set<string>();
 
   for (const rel of changedFiles) {
-    // DB stores relative paths; try both relative and absolute to be safe
-    const nodes = getNodesForFile(db, rel).length > 0
-      ? getNodesForFile(db, rel)
-      : getNodesForFile(db, join(repoPath, rel));
+    // DB stores relative paths; try relative first, fall back to absolute
+    const relNodes = getNodesForFile(db, rel);
+    const nodes = relNodes.length > 0 ? relNodes : getNodesForFile(db, join(repoPath, rel));
     for (const n of nodes) {
       if (!seenIds.has(n.id)) {
         seenIds.add(n.id);
