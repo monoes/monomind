@@ -54,7 +54,7 @@ const pretrainCommand: Command = {
 
 const neuralCommand: Command = {
   name: 'neural',
-  description: 'Benchmark neural operations (embeddings, WASM, Flash Attention)',
+  description: 'Benchmark neural operations (embeddings, HNSW, cosine similarity)',
   options: [
     { name: 'iterations', short: 'i', type: 'number', description: 'Benchmark iterations', default: '100' },
     { name: 'dimension', short: 'd', type: 'number', description: 'Embedding dimension', default: '384' },
@@ -169,8 +169,8 @@ const neuralCommand: Command = {
         met: cosineMean <= 5.0,
       });
 
-      // 3. Flash Attention Search (if available)
-      spinner.setText('Benchmarking flash attention search...');
+      // 3. Softmax-weighted top-K search (pure-JS)
+      spinner.setText('Benchmarking softmax top-K search...');
       const flashTimes: number[] = [];
       try {
         const memory = await import('../memory/memory-initializer.js');
@@ -182,14 +182,14 @@ const neuralCommand: Command = {
           }
         }
       } catch {
-        // Flash attention not available
+        // not available
       }
 
       if (flashTimes.length > 0) {
         const flashMean = flashTimes.reduce((a, b) => a + b, 0) / flashTimes.length;
         const flashSorted = [...flashTimes].sort((a, b) => a - b);
         results.push({
-          name: 'Flash Attention Search',
+          name: 'Softmax Top-K Search',
           mean: flashMean,
           p95: percentile(flashSorted, 95),
           p99: percentile(flashSorted, 99),

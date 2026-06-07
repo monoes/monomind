@@ -6,7 +6,7 @@
 import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync, rmSync } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
-import { getCapabilities } from '../monovector/capabilities.js';
+
 import { randomUUID } from 'node:crypto';
 import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
 import { recordCommand, deriveRecentSuccess } from '../monovector/command-outcomes.js';

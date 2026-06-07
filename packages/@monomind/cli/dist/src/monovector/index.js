@@ -1,9 +1,7 @@
 /**
  * MonoVector Integration Module for Monomind CLI (lean)
  *
- * After the SONA / native / WASM teardown this module provides only the
- * lightweight surface:
- * - Capability probing: getCapabilities() — stubbed, always reports JS-only
+ * After the SONA / native / WASM teardown this module provides:
  * - Initialization state: createInitState()
  * - Keyword-based task routing: createKeywordRouter()
  * - Route recommendation→outcome records: recordRoute(), joinOutcome(), accuracy
@@ -11,8 +9,6 @@
  *
  * @module @monomind/cli/monovector
  */
-import { getCapabilities } from './capabilities.js';
-export { getCapabilities, getCachedCapabilities, resetCapabilitiesCache, refreshCapabilities } from './capabilities.js';
 export { createInitState } from './init-state.js';
 export { recordRoute, joinOutcome, joinLatestUnresolved, readOutcomes, computeRoutingAccuracy, computeAdherence, } from './route-outcomes.js';
 export { DiffClassifier, createDiffClassifier, analyzeDiff, analyzeDiffSync, assessFileRisk, assessOverallRisk, classifyDiff, suggestReviewers, getGitDiffNumstat, getGitDiffNumstatAsync, clearDiffCache, clearAllDiffCaches, } from './diff-classifier.js';
@@ -55,13 +51,5 @@ export function createKeywordRouter(_config) {
         export() { return {}; },
         import() { },
     };
-}
-/** @deprecated Use (await getCapabilities()).sona */
-export async function isMonovectorAvailable() {
-    return (await getCapabilities()).sona;
-}
-/** @deprecated Use (await getCapabilities()).learningWasm */
-export async function isWasmBackendAvailable() {
-    return (await getCapabilities()).learningWasm;
 }
 //# sourceMappingURL=index.js.map

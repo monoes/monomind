@@ -11,7 +11,7 @@
  * github.com/nokhodian/monomind
  */
 import { output } from '../output.js';
-import { createKeywordRouter, isMonovectorAvailable, } from '../monovector/index.js';
+import { createKeywordRouter, } from '../monovector/index.js';
 /**
  * Available agent types for routing
  */
@@ -86,7 +86,7 @@ const routeTaskCommand = {
     ],
     examples: [
         { command: 'monomind route task "implement authentication"', description: 'Route task to best agent' },
-        { command: 'monomind route task "write unit tests" --q-learning', description: 'Use Q-Learning routing' },
+        { command: 'monomind route task "write unit tests" --q-learning', description: 'Use keyword-based routing' },
         { command: 'monomind route task "review code" --agent reviewer', description: 'Force specific agent' },
     ],
     action: async (ctx) => {
@@ -103,7 +103,7 @@ const routeTaskCommand = {
         spinner.start();
         try {
             if (forceAgent) {
-                // Bypass Q-Learning, use specified agent
+                // Use specified agent directly
                 const agent = getAgentType(forceAgent) ||
                     AGENT_TYPES.find(a => a.name.toLowerCase() === forceAgent.toLowerCase());
                 if (!agent) {
@@ -134,7 +134,7 @@ const routeTaskCommand = {
                 }
                 return { success: true, data: { agentId: agent.id, agentName: agent.name } };
             }
-            // Use Q-Learning routing
+            // Use keyword-based routing
             const router = await getRouter();
             const result = await router.route(taskDescription, useExploration);
             const agent = getAgentType(result.route) || AGENT_TYPES[0];
@@ -177,7 +177,7 @@ const routeTaskCommand = {
                     ``,
                     `Description: ${agent.description}`,
                     `Capabilities: ${capabilities.join(', ')}`,
-                ].join('\n'), 'Q-Learning Routing');
+                ].join('\n'), 'Keyword Routing');
                 if (alternatives.length > 0) {
                     output.writeln();
                     output.writeln(output.bold('Alternatives:'));
@@ -263,7 +263,7 @@ const listAgentsCommand = {
 // ============================================================================
 const statsCommand = {
     name: 'stats',
-    description: 'Show Q-Learning router statistics',
+    description: 'Show keyword router statistics',
     options: [
         {
             name: 'json',
@@ -281,18 +281,12 @@ const statsCommand = {
         try {
             const router = await getRouter();
             const stats = router.getStats();
-            const monovectorAvailable = await isMonovectorAvailable();
-            const monovectorStatus = {
-                available: monovectorAvailable,
-                wasmAccelerated: stats.useNative === 1,
-                backend: stats.useNative === 1 ? 'monovector-native' : 'fallback',
-            };
             if (jsonOutput) {
-                output.printJson({ stats, monovector: monovectorStatus });
+                output.printJson({ stats, backend: 'keyword-routing-js' });
             }
             else {
                 output.writeln();
-                output.writeln(output.bold('Q-Learning Router Statistics'));
+                output.writeln(output.bold('Keyword Router Statistics'));
                 output.writeln();
                 output.printTable({
                     columns: [
@@ -301,22 +295,13 @@ const statsCommand = {
                     ],
                     data: [
                         { metric: 'Update Count', value: String(stats.updateCount) },
-                        { metric: 'Q-Table Size', value: String(stats.qTableSize) },
+                        { metric: 'Pattern Count', value: String(stats.qTableSize) },
                         { metric: 'Step Count', value: String(stats.stepCount) },
-                        { metric: 'Epsilon', value: stats.epsilon.toFixed(4) },
-                        { metric: 'Avg TD Error', value: stats.avgTDError.toFixed(4) },
-                        { metric: 'Native Backend', value: stats.useNative === 1 ? 'Yes' : 'No' },
+                        { metric: 'Backend', value: 'keyword-routing (JS)' },
                     ],
                 });
-                output.writeln();
-                output.writeln(output.bold('MonoVector Status'));
-                output.printList([
-                    `Available: ${monovectorStatus.available ? output.success('Yes') : output.warning('No (using fallback)')}`,
-                    `WASM Accelerated: ${monovectorStatus.wasmAccelerated ? output.success('Yes') : 'No'}`,
-                    `Backend: ${monovectorStatus.backend}`,
-                ]);
             }
-            return { success: true, data: { stats, monovector: monovectorStatus } };
+            return { success: true, data: { stats } };
         }
         catch (error) {
             output.printError(error instanceof Error ? error.message : String(error));
@@ -406,7 +391,7 @@ const feedbackCommand = {
 // ============================================================================
 const resetCommand = {
     name: 'reset',
-    description: 'Reset the Q-Learning router state',
+    description: 'Reset the keyword router state',
     options: [
         {
             name: 'force',
@@ -430,7 +415,7 @@ const resetCommand = {
         try {
             const router = await getRouter();
             router.reset();
-            output.printSuccess('Q-Learning router state has been reset');
+            output.printSuccess('Keyword router state has been reset');
             return { success: true };
         }
         catch (error) {
@@ -854,7 +839,7 @@ const semanticRouteCommand = {
 // ============================================================================
 export const routeCommand = {
     name: 'route',
-    description: 'Intelligent task-to-agent routing using Q-Learning',
+    description: 'Intelligent task-to-agent routing using keyword matching',
     subcommands: [
         routeTaskCommand,
         semanticRouteCommand,
@@ -870,7 +855,7 @@ export const routeCommand = {
         {
             name: 'q-learning',
             short: 'q',
-            description: 'Use Q-Learning for agent selection',
+            description: 'Use keyword-based agent selection',
             type: 'boolean',
             default: true,
         },
@@ -883,7 +868,7 @@ export const routeCommand = {
     ],
     examples: [
         { command: 'monomind route "implement feature"', description: 'Route task to best agent' },
-        { command: 'monomind route "write tests" --q-learning', description: 'Use Q-Learning routing' },
+        { command: 'monomind route "write tests" --q-learning', description: 'Use keyword-based routing' },
         { command: 'monomind route --agent coder "fix bug"', description: 'Force specific agent' },
         { command: 'monomind route list-agents', description: 'List available agents' },
         { command: 'monomind route stats', description: 'Show routing statistics' },
@@ -923,12 +908,10 @@ export const routeCommand = {
             'Provides confidence scores and alternatives',
         ]);
         output.writeln();
-        // Show quick status
-        const monovectorAvailable = await isMonovectorAvailable();
         output.writeln(output.bold('Backend Status:'));
         output.printList([
-            `MonoVector: ${monovectorAvailable ? output.success('Available') : output.warning('Fallback mode')}`,
-            `Backend: ${monovectorAvailable ? 'monovector-native' : 'JavaScript fallback'}`,
+            `Routing: ${output.success('keyword-based (JS)')}`,
+            `Learning: trajectory recording + outcome correlation`,
         ]);
         output.writeln();
         output.writeln(output.dim('Run "monomind route <subcommand> --help" for more info'));
