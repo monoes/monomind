@@ -23,7 +23,6 @@
     "build:watch": "tsc --watch",
     "clean": "rm -rf dist",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src/**/*.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
