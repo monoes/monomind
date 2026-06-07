@@ -92,12 +92,7 @@
     "@monomind/guidance": "workspace:*",
     "@monomind/mcp": "workspace:*",
     "graphology": "^0.25.4",
-    "graphology-communities-louvain": "^2.0.1",
     "graphology-metrics": "^2.4.0",
-    "graphology-shortest-path": "^2.0.2",
-    "graphology-traversal": "^0.3.1",
-    "graphology-types": "^0.24.7",
-    "chokidar": "^3.6.0",
     "semver": "^7.6.0"
   },
   "optionalDependencies": {
