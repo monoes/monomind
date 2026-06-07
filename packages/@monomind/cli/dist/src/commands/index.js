@@ -39,7 +39,6 @@ const commandLoaders = {
     plugins: () => import('./plugins.js'),
     deployment: () => import('./deployment.js'),
     claims: () => import('./claims.js'),
-    embeddings: () => import('./embeddings.js'),
     // P0 Commands
     completions: () => import('./completions.js'),
     doctor: () => import('./doctor.js'),
@@ -114,7 +113,6 @@ import { mcpCommand } from './mcp.js';
 import { hooksCommand } from './hooks.js';
 import { daemonCommand } from './daemon.js';
 import { doctorCommand } from './doctor.js';
-import { embeddingsCommand } from './embeddings.js';
 import { neuralCommand } from './neural.js';
 import { performanceCommand } from './performance.js';
 import { securityCommand } from './security.js';
@@ -157,7 +155,6 @@ loadedCommands.set('mcp', mcpCommand);
 loadedCommands.set('hooks', hooksCommand);
 loadedCommands.set('daemon', daemonCommand);
 loadedCommands.set('doctor', doctorCommand);
-loadedCommands.set('embeddings', embeddingsCommand);
 loadedCommands.set('neural', neuralCommand);
 loadedCommands.set('performance', performanceCommand);
 loadedCommands.set('security', securityCommand);
@@ -188,7 +185,6 @@ export { mcpCommand } from './mcp.js';
 export { hooksCommand } from './hooks.js';
 export { daemonCommand } from './daemon.js';
 export { doctorCommand } from './doctor.js';
-export { embeddingsCommand } from './embeddings.js';
 export { neuralCommand } from './neural.js';
 export { performanceCommand } from './performance.js';
 export { securityCommand } from './security.js';
@@ -214,7 +210,6 @@ export async function getProvidersCommand() { return loadCommand('providers'); }
 export async function getPluginsCommand() { return loadCommand('plugins'); }
 export async function getDeploymentCommand() { return loadCommand('deployment'); }
 export async function getClaimsCommand() { return loadCommand('claims'); }
-export async function getEmbeddingsCommand() { return loadCommand('embeddings'); }
 export async function getCompletionsCommand() { return loadCommand('completions'); }
 export async function getAnalyzeCommand() { return loadCommand('analyze'); }
 export async function getRouteCommand() { return loadCommand('route'); }
@@ -243,7 +238,6 @@ export const commands = [
     hooksCommand,
     daemonCommand,
     doctorCommand,
-    embeddingsCommand,
     neuralCommand,
     performanceCommand,
     securityCommand,
@@ -275,7 +269,6 @@ export const commandsByCategory = {
         neuralCommand,
         securityCommand,
         performanceCommand,
-        embeddingsCommand,
         hiveMindCommand,
         monovectorCommand,
         guidanceCommand,

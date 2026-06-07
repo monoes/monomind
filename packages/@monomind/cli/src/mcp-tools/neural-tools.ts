@@ -4,7 +4,7 @@
  * V2 Compatibility - Neural network and ML tools
  *
  * ✅ HYBRID Implementation:
- * - Uses @monomind/embeddings for REAL ML embeddings when available
+ * - Uses agentic-flow/reasoningbank for REAL ML embeddings when available
  * - Falls back to deterministic hash-based embeddings when ML model not installed
  * - Pattern storage and search with cosine similarity (real math in all tiers)
  * - Training stores patterns as searchable embeddings (not simulated)
@@ -19,41 +19,15 @@ import { join } from 'node:path';
 const MAX_NEURAL_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 const NEURAL_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-// Try to import real embeddings — prefer agentic-flow v1 ReasoningBank, then @monomind/embeddings
+// Try to import real embeddings — agentic-flow v1 ReasoningBank when available,
+// otherwise the deterministic hash fallback below.
 let realEmbeddings: { embed: (text: string) => Promise<number[]> } | null = null;
 let embeddingServiceName: string = 'none';
 try {
-  // Tier 1: agentic-flow v1 ReasoningBank (fastest — WASM-accelerated)
   const rb = await import('agentic-flow/reasoningbank').catch(() => null);
   if (rb?.computeEmbedding) {
     realEmbeddings = { embed: async (text: string) => Array.from(await rb.computeEmbedding(text)) };
     embeddingServiceName = 'agentic-flow/reasoningbank';
-  }
-
-  // Tier 2: @monomind/embeddings
-  if (!realEmbeddings) {
-    const embeddingsModule = await import('@monomind/embeddings').catch(() => null);
-    if (embeddingsModule?.createEmbeddingService) {
-      try {
-        const service = embeddingsModule.createEmbeddingService({ provider: 'agentic-flow' });
-        realEmbeddings = {
-          embed: async (text: string) => {
-            const result = await service.embed(text);
-            return Array.from(result.embedding);
-          },
-        };
-        embeddingServiceName = 'agentic-flow';
-      } catch {
-        const service = embeddingsModule.createEmbeddingService({ provider: 'mock' });
-        realEmbeddings = {
-          embed: async (text: string) => {
-            const result = await service.embed(text);
-            return Array.from(result.embedding);
-          },
-        };
-        embeddingServiceName = 'mock';
-      }
-    }
   }
 } catch {
   // No embedding provider available, will use fallback
@@ -713,7 +687,7 @@ export const neuralTools: MCPTool[] = [
 
       return {
         _realEmbeddings: !!realEmbeddings,
-        embeddingProvider: realEmbeddings ? `@monomind/embeddings (${embeddingServiceName})` : 'hash-based (deterministic)',
+        embeddingProvider: realEmbeddings ? embeddingServiceName : 'hash-based (deterministic)',
         models: {
           total: models.length,
           ready: models.filter(m => m.status === 'ready').length,
