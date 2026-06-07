@@ -383,13 +383,29 @@ export class TransformersEmbeddingService extends BaseEmbeddingService {
   private async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    try {
-      const { pipeline } = await import('@xenova/transformers');
-      this.pipeline = await pipeline('feature-extraction', this.modelName);
-      this.initialized = true;
-    } catch (error) {
-      throw new Error(`Failed to initialize transformers.js: ${error}`);
+    // Loader order: prefer @huggingface/transformers (v3) which dropped the eager
+    // `sharp` native dependency, then fall back to @xenova/transformers (v2). On many
+    // machines @xenova fails to *initialize* because sharp's prebuilt binary is missing
+    // (e.g. "Cannot find module sharp-<platform>.node"); v3 avoids that for text models.
+    // Strict superset — if v3 isn't installed, behaviour is identical to before.
+    const errors: string[] = [];
+    for (const mod of ['@huggingface/transformers', '@xenova/transformers']) {
+      try {
+        const transformers: any = await import(/* @vite-ignore */ mod);
+        const pipeline = transformers.pipeline ?? transformers.default?.pipeline;
+        if (typeof pipeline !== 'function') { errors.push(`${mod}: no pipeline export`); continue; }
+        this.pipeline = await pipeline('feature-extraction', this.modelName);
+        this.initialized = true;
+        return;
+      } catch (error) {
+        errors.push(`${mod}: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
+    throw new Error(
+      `Failed to initialize a transformers loader. Tried: ${errors.join(' | ')}. ` +
+      `If the error mentions "sharp", install @huggingface/transformers (sharp-free) ` +
+      `or rebuild sharp's native binary for this platform.`,
+    );
   }
 
   async embed(text: string): Promise<EmbeddingResult> {
