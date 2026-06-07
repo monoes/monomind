@@ -66,9 +66,9 @@ Algorithms, systems, and plugins removed during the cleanup (Apr 2026) that had 
 - **What:** Poincaré ball embeddings for hierarchical reasoning
 - **Algorithms:** Möbius transforms, LCA (Lowest Common Ancestor) computation, geodesic attention, taxonomy comparison, entailment graphs
 - **Why unique:** Standard embeddings lose hierarchy — hyperbolic space preserves tree structure naturally
-- **Note:** `@monomind/embeddings` still has basic hyperbolic mode; this plugin added the reasoning layer on top
+- **Note:** the `@monomind/embeddings` package (which had a basic hyperbolic mode) has since been removed; real embeddings are served by AgentDB
 - **Use case:** Ontology navigation, taxonomy-aware search, hierarchical classification
-- **Rebuild as:** Extension to `embeddings` MCP tools with `embeddings_hyperbolic_reason`
+- **Rebuild as:** a hyperbolic-reasoning layer over the AgentDB embedding path
 
 ---
 
