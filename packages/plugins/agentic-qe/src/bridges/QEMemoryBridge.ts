@@ -80,7 +80,7 @@ interface MemoryStats {
   memoryUsage: number;
 }
 
-// Embeddings types (would be imported from @monomind/embeddings in production)
+// Embeddings types (local definitions; provided by the host's embedding backend at runtime)
 interface IEmbeddingsService {
   embed(text: string): Promise<{ embedding: Float32Array }>;
 }
