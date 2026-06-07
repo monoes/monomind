@@ -29,10 +29,8 @@ import type {
   SimilarityMetric,
   SimilarityResult,
   NormalizationType,
-  PersistentCacheConfig,
 } from './types.js';
 import { normalize } from './normalization.js';
-import { PersistentEmbeddingCache } from './persistent-cache.js';
 import { RvfEmbeddingService } from './rvf-embedding-service.js';
 
 // ============================================================================
@@ -105,7 +103,6 @@ class LRUCache<K, V> {
 abstract class BaseEmbeddingService extends EventEmitter implements IEmbeddingService {
   abstract readonly provider: EmbeddingProvider;
   protected cache: LRUCache<string, Float32Array>;
-  protected persistentCache: PersistentEmbeddingCache | null = null;
   protected embeddingListeners: Set<EmbeddingEventListener> = new Set();
   protected normalizationType: NormalizationType;
 
@@ -113,16 +110,6 @@ abstract class BaseEmbeddingService extends EventEmitter implements IEmbeddingSe
     super();
     this.cache = new LRUCache(config.cacheSize ?? 1000);
     this.normalizationType = config.normalization ?? 'none';
-
-    // Initialize persistent cache if configured
-    if (config.persistentCache?.enabled) {
-      const pcConfig: PersistentCacheConfig = config.persistentCache;
-      this.persistentCache = new PersistentEmbeddingCache({
-        dbPath: pcConfig.dbPath ?? '.cache/embeddings.db',
-        maxSize: pcConfig.maxSize ?? 10000,
-        ttlMs: pcConfig.ttlMs,
-      });
-    }
   }
 
   abstract embed(text: string): Promise<EmbeddingResult>;
@@ -136,22 +123,6 @@ abstract class BaseEmbeddingService extends EventEmitter implements IEmbeddingSe
       return embedding;
     }
     return normalize(embedding, { type: this.normalizationType });
-  }
-
-  /**
-   * Check persistent cache for embedding
-   */
-  protected async checkPersistentCache(text: string): Promise<Float32Array | null> {
-    if (!this.persistentCache) return null;
-    return this.persistentCache.get(text);
-  }
-
-  /**
-   * Store embedding in persistent cache
-   */
-  protected async storePersistentCache(text: string, embedding: Float32Array): Promise<void> {
-    if (!this.persistentCache) return;
-    await this.persistentCache.set(text, embedding);
   }
 
   protected emitEvent(event: EmbeddingEvent): void {
@@ -1108,7 +1079,8 @@ export function cosineSimilarity(
     normB += b[i] * b[i];
   }
 
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  // One sqrt instead of two (sqrt(a)*sqrt(b) === sqrt(a*b)) — hottest path.
+  const denom = Math.sqrt(normA * normB);
   return denom > 0 ? dot / denom : 0;
 }
 
