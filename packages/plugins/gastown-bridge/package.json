@@ -95,7 +95,6 @@
     "@size-limit/preset-small-lib": "^11.0.0",
     "@types/node": "^20.0.0",
     "@types/uuid": "^9.0.0",
-    "esbuild": "^0.20.0",
     "size-limit": "^11.0.0",
     "tsup": "^8.0.0",
     "tsx": "^4.0.0",
