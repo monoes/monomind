@@ -28,7 +28,6 @@
     "graphology-metrics": "^2.4.0",
     "graphology-shortest-path": "^2.0.2",
     "graphology-traversal": "^0.3.1",
-    "graphology-types": "^0.24.7",
     "micromatch": "^4.0.8",
     "tree-sitter": "^0.22.0",
     "tree-sitter-c": "^0.24.1",
