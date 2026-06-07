@@ -93,19 +93,10 @@ export {
   type PersistentCacheStats,
 } from './persistent-cache.js';
 
-// Neural substrate integration
+// Embedding model management (list / download)
 export {
-  NeuralEmbeddingService,
-  createNeuralService,
-  isNeuralAvailable,
   listEmbeddingModels,
   downloadEmbeddingModel,
-  type DriftResult,
-  type MemoryEntry,
-  type AgentState,
-  type CoherenceResult,
-  type SubstrateHealth,
-  type NeuralSubstrateConfig,
 } from './neural-integration.js';
 
 export type {
