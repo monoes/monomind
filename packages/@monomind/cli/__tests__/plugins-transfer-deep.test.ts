@@ -1424,9 +1424,9 @@ describe('Update Validator', () => {
   it('should detect incompatible peer dependency', () => {
     const result = validateUpdate(
       '@monomind/cli', '3.0.0-alpha.50', '3.0.0-alpha.55',
-      { '@monomind/embeddings': '2.0.0' }
+      { '@monomind/security': '2.0.0' }
     );
-    // CLI requires embeddings >= 3.0.0-alpha.1
+    // CLI requires security >= 3.0.0-alpha.1
     expect(result.valid).toBe(false);
     expect(result.incompatibilities.length).toBeGreaterThan(0);
   });
@@ -1440,9 +1440,9 @@ describe('Update Validator', () => {
     const result = validateBulkUpdate(
       [
         { package: '@monomind/cli', from: '3.0.0-alpha.50', to: '3.0.0-alpha.55' },
-        { package: '@monomind/embeddings', from: '3.0.0-alpha.1', to: '3.0.0-alpha.5' },
+        { package: '@monomind/security', from: '3.0.0-alpha.1', to: '3.0.0-alpha.5' },
       ],
-      { '@monomind/cli': '3.0.0-alpha.50', '@monomind/embeddings': '3.0.0-alpha.1' }
+      { '@monomind/cli': '3.0.0-alpha.50', '@monomind/security': '3.0.0-alpha.1' }
     );
     expect(result.valid).toBe(true);
   });

@@ -6,7 +6,7 @@
  *
  * Features:
  * - Real HNSW indexing (M=16, efConstruction=200) for 150x+ faster search
- * - ONNX embeddings via @monomind/embeddings (MiniLM-L6 384-dim)
+ * - Embeddings via AgentDB's embedder; deterministic hash fallback otherwise
  * - AgentDB backend for persistence
  * - Pattern promotion from short-term to long-term memory
  *
@@ -299,11 +299,6 @@ export class ReasoningBank extends EventEmitter {
     if (memoryModule) {
       AgentDBAdapter = memoryModule.AgentDBAdapter;
       HNSWIndex = memoryModule.HNSWIndex;
-    }
-
-    const embeddingsModule = await dynamicImport('@monomind/embeddings');
-    if (embeddingsModule) {
-      EmbeddingServiceImpl = embeddingsModule.createEmbeddingService;
     }
   }
 
@@ -937,7 +932,8 @@ interface IEmbeddingService {
 }
 
 /**
- * Real embedding service using @monomind/embeddings
+ * Real embedding service (populated from an optional embeddings provider when present;
+ * otherwise unused — ReasoningBank falls back to FallbackEmbeddingService).
  */
 class RealEmbeddingService implements IEmbeddingService {
   private service: any = null;
