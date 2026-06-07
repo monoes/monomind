@@ -63,7 +63,6 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
       "${CLI_NM}/sharp" \
       "${CLI_NM}/@google" \
     && rm -rf \
-      "${CLI_NM}/@monomind/embeddings" \
       "${CLI_NM}/@monomind/memory" \
       "${CLI_NM}/@monomind/guidance" \
       "${CLI_NM}/@monomind/aidefence" \
