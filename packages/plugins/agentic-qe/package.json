@@ -54,14 +54,10 @@
     "zod": "^3.23.0"
   },
   "peerDependencies": {
-    "@monoes/memory": "workspace:*",
-    "@monomind/embeddings": "workspace:*"
+    "@monoes/memory": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@monoes/memory": {
-      "optional": true
-    },
-    "@monomind/embeddings": {
       "optional": true
     },
     "@monomind/browser": {
