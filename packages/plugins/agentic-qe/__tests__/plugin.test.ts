@@ -75,7 +75,6 @@ class MockAQEPlugin {
         '@monomind/plugins',
         '@monomind/memory',
         '@monomind/security',
-        '@monomind/embeddings',
       ],
       tags: ['testing', 'quality', 'coverage', 'security', 'tdd'],
       minCoreVersion: '3.0.0-alpha.50',
