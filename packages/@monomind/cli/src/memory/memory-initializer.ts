@@ -344,7 +344,7 @@ CREATE TABLE IF NOT EXISTS metadata (
 
 // ============================================================================
 // HNSW INDEX SINGLETON (150x faster vector search)
-// Uses @monoes/core from agentic-flow for WASM-accelerated HNSW
+// AgentDB bridge provides HNSW; getHNSWIndex() returns null → pure-JS fallback
 // ============================================================================
 
 interface HNSWEntry {
@@ -504,7 +504,7 @@ export async function searchHNSWIndex(
       }
 
       // Convert cosine distance to similarity score (1 - distance)
-      // Cosine distance from @monoes/core: 0 = identical, 2 = opposite
+      // Cosine distance convention: 0 = identical, 2 = opposite
       const score = 1 - (result.score / 2);
 
       filtered.push({

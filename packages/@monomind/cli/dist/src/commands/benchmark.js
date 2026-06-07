@@ -32,46 +32,18 @@ const pretrainCommand = {
         const outputFormat = ctx.flags.output || 'text';
         const saveFile = ctx.flags.save;
         const verbose = ctx.flags.verbose === true;
-        try {
-            // Dynamically import benchmark suite
-            const { runPretrainBenchmarkSuite } = await import('../benchmarks/pretrain/index.js');
-            const results = await runPretrainBenchmarkSuite({
-                iterations,
-                warmupIterations: warmup,
-                verbose,
-            });
-            // Output as JSON if requested
-            if (outputFormat === 'json') {
-                output.writeln(JSON.stringify(results, null, 2));
-            }
-            // Save to file if requested
-            if (saveFile) {
-                const resultsDir = join(process.cwd(), '.monomind', 'benchmarks');
-                if (!existsSync(resultsDir)) {
-                    mkdirSync(resultsDir, { recursive: true });
-                }
-                const savePath = saveFile.startsWith('/') ? saveFile : join(resultsDir, saveFile);
-                const saveTmp = savePath + '.tmp';
-                writeFileSync(saveTmp, JSON.stringify(results, null, 2));
-                renameSync(saveTmp, savePath);
-                output.writeln(output.success(`Results saved to ${savePath}`));
-            }
-            const allPassed = results.results.every(r => r.targetMet);
-            return {
-                success: true,
-                message: allPassed
-                    ? 'All benchmark targets met!'
-                    : `${results.results.filter(r => r.targetMet).length}/${results.results.length} targets met`,
-            };
-        }
-        catch (err) {
-            const errorMsg = err instanceof Error ? err.message : String(err);
-            output.writeln(output.error(`Benchmark failed: ${errorMsg}`));
-            return {
-                success: false,
-                message: `Benchmark failed: ${errorMsg}`,
-            };
-        }
+        void iterations;
+        void warmup;
+        void verbose;
+        void outputFormat;
+        void saveFile;
+        output.writeln();
+        output.writeln(output.bold('Pattern-Learning Benchmark'));
+        output.writeln(output.dim('─'.repeat(50)));
+        output.writeln(output.dim('  The native SONA/EWC++/MoE pre-training benchmark was removed in the lean build.'));
+        output.writeln(output.dim('  Use "monomind benchmark neural" to benchmark the active pure-JS intelligence layer.'));
+        output.writeln();
+        return { success: true };
     },
 };
 // ============================================================================
@@ -79,7 +51,7 @@ const pretrainCommand = {
 // ============================================================================
 const neuralCommand = {
     name: 'neural',
-    description: 'Benchmark neural operations (embeddings, WASM, Flash Attention)',
+    description: 'Benchmark neural operations (embeddings, HNSW, cosine similarity)',
     options: [
         { name: 'iterations', short: 'i', type: 'number', description: 'Benchmark iterations', default: '100' },
         { name: 'dimension', short: 'd', type: 'number', description: 'Embedding dimension', default: '384' },
@@ -182,8 +154,8 @@ const neuralCommand = {
                 target: 5.0,
                 met: cosineMean <= 5.0,
             });
-            // 3. Flash Attention Search (if available)
-            spinner.setText('Benchmarking flash attention search...');
+            // 3. Softmax-weighted top-K search (pure-JS)
+            spinner.setText('Benchmarking softmax top-K search...');
             const flashTimes = [];
             try {
                 const memory = await import('../memory/memory-initializer.js');
@@ -196,13 +168,13 @@ const neuralCommand = {
                 }
             }
             catch {
-                // Flash attention not available
+                // not available
             }
             if (flashTimes.length > 0) {
                 const flashMean = flashTimes.reduce((a, b) => a + b, 0) / flashTimes.length;
                 const flashSorted = [...flashTimes].sort((a, b) => a - b);
                 results.push({
-                    name: 'Flash Attention Search',
+                    name: 'Softmax Top-K Search',
                     mean: flashMean,
                     p95: percentile(flashSorted, 95),
                     p99: percentile(flashSorted, 99),

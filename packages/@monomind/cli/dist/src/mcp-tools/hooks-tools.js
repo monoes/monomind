@@ -5,7 +5,6 @@
 import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
 import { getProjectCwd } from './types.js';
-import { getCapabilities } from '../monovector/capabilities.js';
 import { randomUUID } from 'node:crypto';
 import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
 import { recordCommand, deriveRecentSuccess } from '../monovector/command-outcomes.js';
@@ -706,8 +705,6 @@ export const hooksRoute = {
                     const agentdbConfidence = Math.round(agentdbRoute.confidence * 100) / 100;
                     // Record the route recommendation so post-task can join the actual outcome
                     const routeId = randomUUID();
-                    const caps = await getCapabilities();
-                    const learningMode = (caps.sona || caps.router === 'native' || caps.attention) ? 'native' : 'js';
                     await recordRoute(getRouteOutcomesBaseDir(), {
                         routeId,
                         ts: Date.now(),
@@ -715,7 +712,7 @@ export const hooksRoute = {
                         recommendedAgent: agents[0],
                         routingMethod: agentdbMethod,
                         confidence: agentdbConfidence,
-                        learningMode,
+                        learningMode: 'js',
                     });
                     return {
                         routeId,
@@ -797,8 +794,6 @@ export const hooksRoute = {
         const primaryConfidence = Math.round(confidence * 100) / 100;
         // Record the route recommendation so post-task can join the actual outcome
         const routeId = randomUUID();
-        const caps = await getCapabilities();
-        const learningMode = (caps.sona || caps.router === 'native' || caps.attention) ? 'native' : 'js';
         await recordRoute(getRouteOutcomesBaseDir(), {
             routeId,
             ts: Date.now(),
@@ -806,7 +801,7 @@ export const hooksRoute = {
             recommendedAgent: agents[0],
             routingMethod,
             confidence: primaryConfidence,
-            learningMode,
+            learningMode: 'js',
         });
         return {
             routeId,

@@ -1,9 +1,7 @@
 /**
  * MonoVector Integration Module for Monomind CLI (lean)
  *
- * After the SONA / native / WASM teardown this module provides only the
- * lightweight surface:
- * - Capability probing: getCapabilities() — stubbed, always reports JS-only
+ * After the SONA / native / WASM teardown this module provides:
  * - Initialization state: createInitState()
  * - Keyword-based task routing: createKeywordRouter()
  * - Route recommendation→outcome records: recordRoute(), joinOutcome(), accuracy
@@ -11,7 +9,6 @@
  *
  * @module @monomind/cli/monovector
  */
-export { getCapabilities, getCachedCapabilities, resetCapabilitiesCache, refreshCapabilities, type MonoesCapabilities } from './capabilities.js';
 export { createInitState, type InitState, type InitStatus } from './init-state.js';
 export { recordRoute, joinOutcome, joinLatestUnresolved, readOutcomes, computeRoutingAccuracy, computeAdherence, type RouteOutcomeRecord, type RoutingAccuracy, } from './route-outcomes.js';
 export { DiffClassifier, createDiffClassifier, analyzeDiff, analyzeDiffSync, assessFileRisk, assessOverallRisk, classifyDiff, suggestReviewers, getGitDiffNumstat, getGitDiffNumstatAsync, clearDiffCache, clearAllDiffCaches, type DiffClassification, type DiffHunk, type DiffChange, type FileDiff, type DiffAnalysis, type DiffClassifierConfig, type DiffFile, type RiskLevel, type FileRisk, type OverallRisk, type DiffAnalysisResult, } from './diff-classifier.js';
@@ -54,8 +51,4 @@ export interface KeywordRouterConfig {
     discountFactor?: number;
 }
 export declare function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRouter;
-/** @deprecated Use (await getCapabilities()).sona */
-export declare function isMonovectorAvailable(): Promise<boolean>;
-/** @deprecated Use (await getCapabilities()).learningWasm */
-export declare function isWasmBackendAvailable(): Promise<boolean>;
 //# sourceMappingURL=index.d.ts.map

@@ -18,7 +18,7 @@ import { homedir } from 'os';
 import { execSync } from 'child_process';
 import { createServer } from 'http';
 import { performance } from 'perf_hooks';
-import { openDb, closeDb, ftsSearch, getNode, getNodesForFile, getEdgesForSource, getEdgesForTarget, countNodes, countEdges, snapshotFromDb, toHtml, MonographError, } from '@monoes/monograph';
+import { openDb, closeDb, ftsSearch, getNode, getNodesForFile, getEdgesForSource, getEdgesForTarget, countNodes, countEdges, snapshotFromDb, toHtml, } from '@monoes/monograph';
 // ─── Tier 1: Fully implementable from primitives ───────────────────────────────
 // 1. hybridQuery
 // BM25-only at monograph@1.1.0 (no vector storage). score = -rank (descending, .toFixed-safe).
@@ -878,7 +878,7 @@ export async function installSkillsForPlatform(repoPath, communities, opts) {
 }
 // 18. runEmbed — embeddings unsupported at 1.1.0; throws so handler catches gracefully
 export async function runEmbed(_db, _opts) {
-    throw new MonographError('Embeddings are not supported in @monoes/monograph@1.1.0 — upgrade to a version with native vector storage, or install @huggingface/transformers and a compat build.');
+    throw new Error('Embeddings are not supported in @monoes/monograph@1.1.0 — no vector storage in this schema version.');
 }
 // ─── Groups (Tier 2) ──────────────────────────────────────────────────────────
 // Helper: read group config (groups.json or group.yaml)

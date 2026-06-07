@@ -416,8 +416,7 @@ export declare function bridgeContextSynthesize(params: {
 }): Promise<any>;
 /**
  * Route via SemanticRouter.
- * Available since agentdb 3.0.0-alpha.10 — uses @monoes/router for
- * semantic matching with keyword fallback.
+ * Available since agentdb 3.0.0-alpha.10 — semantic matching with keyword fallback.
  */
 export declare function bridgeSemanticRoute(params: {
     input: string;

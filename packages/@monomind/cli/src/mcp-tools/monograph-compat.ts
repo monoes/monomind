@@ -32,7 +32,6 @@ import {
   countEdges,
   snapshotFromDb,
   toHtml,
-  MonographError,
 } from '@monoes/monograph';
 
 // Re-export type alias used internally
@@ -1035,7 +1034,7 @@ export async function runEmbed(
   _db: Db,
   _opts: { codeOnly?: boolean; force?: boolean },
 ): Promise<{ model: string; embedded: number; skipped: number }> {
-  throw new MonographError('Embeddings are not supported in @monoes/monograph@1.1.0 — upgrade to a version with native vector storage, or install @huggingface/transformers and a compat build.');
+  throw new Error('Embeddings are not supported in @monoes/monograph@1.1.0 — no vector storage in this schema version.');
 }
 
 // ─── Groups (Tier 2) ──────────────────────────────────────────────────────────
