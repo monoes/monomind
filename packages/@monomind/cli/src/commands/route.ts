@@ -346,16 +346,9 @@ const statsCommand: Command = {
           ],
         });
 
-        output.writeln();
-        output.writeln(output.bold('MonoVector Status'));
-        output.printList([
-          `Available: ${monovectorStatus.available ? output.success('Yes') : output.warning('No (using fallback)')}`,
-          `WASM Accelerated: ${monovectorStatus.wasmAccelerated ? output.success('Yes') : 'No'}`,
-          `Backend: ${monovectorStatus.backend}`,
-        ]);
       }
 
-      return { success: true, data: { stats, monovector: monovectorStatus } };
+      return { success: true, data: { stats } };
     } catch (error) {
       output.printError(error instanceof Error ? error.message : String(error));
       return { success: false, exitCode: 1 };

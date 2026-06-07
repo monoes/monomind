@@ -1671,8 +1671,7 @@ export async function bridgeContextSynthesize(params) {
 }
 /**
  * Route via SemanticRouter.
- * Available since agentdb 3.0.0-alpha.10 — uses @monoes/router for
- * semantic matching with keyword fallback.
+ * Available since agentdb 3.0.0-alpha.10 — semantic matching with keyword fallback.
  */
 export async function bridgeSemanticRoute(params) {
     const registry = await getRegistry();
