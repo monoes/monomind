@@ -468,7 +468,7 @@ export async function searchHNSWIndex(queryEmbedding, options) {
                 continue;
             }
             // Convert cosine distance to similarity score (1 - distance)
-            // Cosine distance from @monoes/core: 0 = identical, 2 = opposite
+            // Cosine distance convention: 0 = identical, 2 = opposite
             const score = 1 - (result.score / 2);
             filtered.push({
                 id: entry.id.substring(0, 12),

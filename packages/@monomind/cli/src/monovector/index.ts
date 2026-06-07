@@ -1,9 +1,7 @@
 /**
  * MonoVector Integration Module for Monomind CLI (lean)
  *
- * After the SONA / native / WASM teardown this module provides only the
- * lightweight surface:
- * - Capability probing: getCapabilities() — stubbed, always reports JS-only
+ * After the SONA / native / WASM teardown this module provides:
  * - Initialization state: createInitState()
  * - Keyword-based task routing: createKeywordRouter()
  * - Route recommendation→outcome records: recordRoute(), joinOutcome(), accuracy
@@ -11,10 +9,6 @@
  *
  * @module @monomind/cli/monovector
  */
-
-import { getCapabilities } from './capabilities.js';
-
-export { getCapabilities, getCachedCapabilities, resetCapabilitiesCache, refreshCapabilities, type MonoesCapabilities } from './capabilities.js';
 
 export { createInitState, type InitState, type InitStatus } from './init-state.js';
 
@@ -123,13 +117,4 @@ export function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRoute
 }
 
 
-/** @deprecated Use (await getCapabilities()).sona */
-export async function isMonovectorAvailable(): Promise<boolean> {
-  return (await getCapabilities()).sona;
-}
-
-/** @deprecated Use (await getCapabilities()).learningWasm */
-export async function isWasmBackendAvailable(): Promise<boolean> {
-  return (await getCapabilities()).learningWasm;
-}
 
