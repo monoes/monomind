@@ -72,9 +72,7 @@
       "optional": true
     }
   },
-  "dependencies": {
-    "eventemitter3": "^5.0.1"
-  },
+  "dependencies": {},
   "optionalDependencies": {
     "@nokhodian/bmssp": "^1.0.0"
   },
