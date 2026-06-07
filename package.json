@@ -51,7 +51,6 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:security": "vitest run packages/__tests__/security/",
-    "lint": "cd packages/@monomind/cli && npm run lint || true",
     "security:audit": "npm audit --audit-level high",
     "security:fix": "npm audit fix",
     "security:test": "npm run test:security",
@@ -77,9 +76,7 @@
     }
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
     "@types/node": "^20.0.0",
-    "eslint": "^8.0.0",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
     "vitest": "^4.1.4",
