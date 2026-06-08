@@ -26,6 +26,9 @@ const DEFAULT_ROUTING_MODEL = 'haiku';
  */
 const DEFAULT_TIMEOUT_MS = 45_000;
 
+/** Cap captured output so a runaway child can't grow parent memory unbounded. */
+const MAX_OUTPUT = 1024 * 1024; // 1 MB — a slug response is tiny
+
 let claudeAvailable: boolean | null = null;
 
 /** Cheap, cached check that the `claude` CLI is installed and on PATH. */
@@ -43,7 +46,7 @@ export function isClaudeCodeAvailable(): boolean {
 export interface ClaudeLLMCallerOptions {
   /** Routing model alias passed to `claude --model` (default: "haiku"). */
   model?: 'haiku' | 'sonnet' | 'opus';
-  /** Per-call timeout in milliseconds (default: 20s). */
+  /** Per-call timeout in milliseconds (default: 45s — see DEFAULT_TIMEOUT_MS). */
   timeoutMs?: number;
   /**
    * Working directory for the spawned process. Defaults to the OS temp dir so
@@ -102,14 +105,22 @@ export function createClaudeLLMCaller(
 
       const timer = setTimeout(() => {
         if (settled) return;
-        try { child.kill('SIGTERM'); } catch { /* may already be dead */ }
         settled = true;
+        // SIGTERM first, then SIGKILL if `claude` ignores it — otherwise a
+        // hung child is orphaned and keeps consuming resources.
+        try { child.kill('SIGTERM'); } catch { /* may already be dead */ }
+        const killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* dead */ } }, 2_000);
+        killTimer.unref?.();
         reject(new Error(`claude routing fallback timed out after ${timeoutMs}ms`));
       }, timeoutMs);
       timer.unref?.();
 
-      child.stdout?.on('data', (d: Buffer) => { stdout += d.toString(); });
-      child.stderr?.on('data', (d: Buffer) => { stderr += d.toString(); });
+      child.stdout?.on('data', (d: Buffer) => {
+        if (stdout.length < MAX_OUTPUT) stdout += d.toString();
+      });
+      child.stderr?.on('data', (d: Buffer) => {
+        if (stderr.length < MAX_OUTPUT) stderr += d.toString();
+      });
 
       child.on('error', (err: Error) => {
         if (settled) return;
