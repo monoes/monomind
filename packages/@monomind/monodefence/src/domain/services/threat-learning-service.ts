@@ -11,6 +11,8 @@
  * - Integration with Monomind attention mechanisms
  */
 
+import { createHash } from 'crypto';
+
 import type {
   Threat,
   ThreatType,
@@ -119,26 +121,55 @@ export class InMemoryVectorStore implements VectorStore {
     namespace: string;
     query: string | number[];
     k?: number;
+    minSimilarity?: number;
   }): Promise<Array<{ key: string; value: unknown; similarity: number }>> {
     const ns = this.storage.get(params.namespace);
     if (!ns) return [];
 
-    // Simple text-based search for in-memory version
-    const results: Array<{ key: string; value: unknown; similarity: number }> = [];
-    const queryStr = typeof params.query === 'string' ? params.query.toLowerCase() : '';
+    // Empty query with no vector → return all with similarity 0 (for count queries)
+    if (params.query === '' || (Array.isArray(params.query) && params.query.length === 0)) {
+      const all = Array.from(ns.entries()).map(([key, { value }]) => ({
+        key, value, similarity: 0,
+      }));
+      return all.slice(0, params.k ?? all.length);
+    }
 
-    for (const [key, { value }] of ns) {
-      const valueStr = JSON.stringify(value).toLowerCase();
-      if (queryStr && valueStr.includes(queryStr)) {
-        results.push({ key, value, similarity: 0.8 });
+    const queryStr = typeof params.query === 'string' ? params.query.toLowerCase() : '';
+    const minSim = params.minSimilarity ?? 0.6;
+    const results: Array<{ key: string; value: unknown; similarity: number }> = [];
+
+    for (const [key, { value, embedding }] of ns) {
+      let similarity: number;
+
+      if (Array.isArray(params.query) && embedding) {
+        similarity = this.cosineSimilarity(params.query, embedding);
+      } else if (queryStr) {
+        const valueStr = JSON.stringify(value).toLowerCase();
+        similarity = valueStr.includes(queryStr) ? 0.8 : 0.0;
       } else {
-        results.push({ key, value, similarity: 0.5 });
+        similarity = 0;
+      }
+
+      if (similarity >= minSim) {
+        results.push({ key, value, similarity });
       }
     }
 
     return results
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, params.k ?? 10);
+  }
+
+  private cosineSimilarity(a: number[], b: number[]): number {
+    const len = Math.min(a.length, b.length);
+    let dot = 0, magA = 0, magB = 0;
+    for (let i = 0; i < len; i++) {
+      dot += a[i] * b[i];
+      magA += a[i] * a[i];
+      magB += b[i] * b[i];
+    }
+    const denom = Math.sqrt(magA) * Math.sqrt(magB);
+    return denom === 0 ? 0 : dot / denom;
   }
 
   async get(namespace: string, key: string): Promise<unknown | null> {
@@ -190,42 +221,46 @@ export class ThreatLearningService {
     result: ThreatDetectionResult,
     feedback?: { wasAccurate: boolean; userVerdict?: string }
   ): Promise<void> {
-    // Calculate reward based on detection accuracy
-    let reward = result.safe ? 0.5 : 0.8; // Base reward
+    const reward = feedback
+      ? (feedback.wasAccurate ? 1.0 : 0.2)
+      : (result.safe ? 0.5 : 0.8);
 
-    if (feedback) {
-      if (feedback.wasAccurate) {
-        reward = 1.0;
-      } else {
-        reward = 0.2; // Penalize false positive/negative
-      }
-    }
-
-    // Store each detected threat as a learned pattern
     for (const threat of result.threats) {
-      const patternId = `learned-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const patternKey = createHash('sha256')
+        .update(threat.pattern)
+        .digest('hex')
+        .slice(0, 16);
 
-      const learnedPattern: LearnedThreatPattern = {
-        id: patternId,
-        pattern: threat.pattern,
-        type: threat.type,
-        severity: threat.severity,
-        effectiveness: reward,
-        detectionCount: 1,
-        falsePositiveCount: feedback?.wasAccurate === false ? 1 : 0,
-        lastUpdated: new Date(),
-        metadata: {
-          source: 'learned',
-          confidenceDecay: 0.99, // 1% decay per day
-          contextPatterns: this.extractContextPatterns(input),
-        },
-      };
+      const existing = await this.vectorStore.get(this.namespace, patternKey) as LearnedThreatPattern | null;
 
-      await this.vectorStore.store({
-        namespace: this.namespace,
-        key: patternId,
-        value: learnedPattern,
-      });
+      if (existing) {
+        const alpha = 0.1;
+        const updated: LearnedThreatPattern = {
+          ...existing,
+          detectionCount: existing.detectionCount + 1,
+          falsePositiveCount: existing.falsePositiveCount + (feedback?.wasAccurate === false ? 1 : 0),
+          effectiveness: alpha * reward + (1 - alpha) * existing.effectiveness,
+          lastUpdated: new Date(),
+        };
+        await this.vectorStore.store({ namespace: this.namespace, key: patternKey, value: updated });
+      } else {
+        const newPattern: LearnedThreatPattern = {
+          id: patternKey,
+          pattern: threat.pattern,
+          type: threat.type,
+          severity: threat.severity,
+          effectiveness: reward,
+          detectionCount: 1,
+          falsePositiveCount: feedback?.wasAccurate === false ? 1 : 0,
+          lastUpdated: new Date(),
+          metadata: {
+            source: 'learned',
+            confidenceDecay: 0.99,
+            contextPatterns: this.extractContextPatterns(input),
+          },
+        };
+        await this.vectorStore.store({ namespace: this.namespace, key: patternKey, value: newPattern });
+      }
     }
   }
 
