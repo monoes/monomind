@@ -38,6 +38,8 @@ export class ContextTracker {
       if (currentIndex > 0) {
         this.state.escalationState = ESCALATION_ORDER[currentIndex - 1];
       }
+      // Also decay cumulative score so computeNextState doesn't immediately re-escalate
+      this.state.cumulativeThreatScore = Math.max(0, this.state.cumulativeThreatScore * 0.5);
     }
     this.lastTurnAt = now;
 

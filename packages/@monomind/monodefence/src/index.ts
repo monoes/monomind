@@ -68,7 +68,7 @@ export {
 // New service exports
 export { EvasionDetector, createEvasionDetector } from './domain/services/evasion-detector.js';
 export { ContextTracker, createContextTracker } from './domain/services/context-tracker.js';
-export { OutputScanner } from './domain/services/output-scanner.js';
+export { OutputScanner, createOutputScanner } from './domain/services/output-scanner.js';
 export { Allowlist, createAllowlist } from './domain/services/allowlist.js';
 
 // Import for internal use
@@ -429,8 +429,11 @@ export function calculateSecurityConsensus(
     return { consensus: 'uncertain', confidence: 0, criticalThreats: [] };
   }
 
-  // Normalize weights
+  // Normalize weights — guard against all-zero weights
   const totalWeight = assessments.reduce((sum, a) => sum + a.weight, 0);
+  if (totalWeight === 0) {
+    return { consensus: 'uncertain', confidence: 0, criticalThreats: [] };
+  }
   const normalized = assessments.map(a => ({
     ...a,
     weight: a.weight / totalWeight,

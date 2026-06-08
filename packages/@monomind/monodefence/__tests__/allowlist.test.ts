@@ -5,8 +5,15 @@ describe('Allowlist', () => {
   describe('built-in rules', () => {
     const al = new Allowlist();
 
-    it('allows common greetings', () => {
-      expect(al.isAllowed('Hello! How can you help me today?')).toBe(true);
+    it('allows standalone greetings', () => {
+      expect(al.isAllowed('Hello!')).toBe(true);
+      expect(al.isAllowed('Hi')).toBe(true);
+      expect(al.isAllowed('Hey.')).toBe(true);
+    });
+
+    it('does NOT allow compound greeting+instruction (security)', () => {
+      // "Hello! How can you help me today?" is compound — should go through detection
+      expect(al.isAllowed('Hello! How can you help me today?')).toBe(false);
     });
 
     it('allows simple math questions', () => {
