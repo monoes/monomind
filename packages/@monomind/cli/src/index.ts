@@ -557,33 +557,12 @@ export class CLI {
       }
     } catch { /* optional */ }
 
-    // Task 01-03: SemanticRouteLayer + LLMFallbackRouting + KeywordRouting
-    try {
-      const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing' as string);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const routerConfig: any = { routes: ALL_ROUTES, enableKeywordFilter: true };
-
-      // Task 02: LLMFallback — wire Anthropic Haiku when API key is present
-      if (process.env.ANTHROPIC_API_KEY) {
-        const { default: Anthropic } = await import('@anthropic-ai/sdk' as string);
-        const anthropic = new Anthropic();
-        routerConfig.llmFallback = {
-          llmCaller: async (prompt: string) => {
-            const msg = await anthropic.messages.create({
-              model: 'claude-haiku-4-5-20251001',
-              max_tokens: 100,
-              messages: [{ role: 'user', content: prompt }],
-            });
-            return msg.content[0].type === 'text' ? msg.content[0].text : '';
-          },
-        };
-      }
-
-      const routeLayer = new RouteLayer(routerConfig);
-      await routeLayer.initialize();
-      // Expose for router.cjs via process global (router.cjs already checks __monomindRouteLayer)
-      (process as unknown as Record<string, unknown>).__monomindRouteLayer = routeLayer;
-    } catch { /* optional — @monomind/routing may not be installed */ }
+    // NOTE: Semantic routing (@monomind/routing) is constructed on-demand by
+    // its consumers — `monomind route` and `monomind agent --task` (see
+    // commands/route.ts and commands/agent.ts). It is intentionally NOT
+    // eagerly initialized here: building all route centroids and probing for
+    // the `claude` CLI on every CLI startup would regress the <500ms startup
+    // budget for zero benefit (nothing reads a process-global route layer).
   }
 
   /**
