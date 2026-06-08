@@ -30,12 +30,14 @@ Use orgs when the work is ongoing, not single-shot. A content team that ships 10
 **Options:**
 `--name <slug>` — org identifier used with `/mastermind:runorg` (derived from goal if omitted)
 `--roles <list>` — explicit role list (e.g. "boss, writer, reviewer, marketer")
+`--schedule <interval>` — make this a self-scheduling loop org (e.g. `"every 30 minutes"`, `"every hour"`, `"daily"`)
 `--auto` — skip confirmation, create immediately
 `--confirm` — always ask before saving (default)
 `--delete <name>` — delete a saved org and all associated data files
 `--list` — list all saved orgs with their status
 
 Once created, start the org with `/mastermind:runorg --org <name>`.
+For scheduled orgs: `runorg` activates the loop; `stoporg` stops it; `orgs` lists all.
 
 ---
 
@@ -48,6 +50,7 @@ Parse `$ARGUMENTS` for:
 - `--confirm` flag → mode = confirm
 - `--name <name>` → org_name = <name> (must match `^[a-z0-9][a-z0-9-]{0,63}$`; if omitted, derived from goal)
 - `--roles <desc>` → roles_desc = <desc> (explicit role list, e.g. "boss, writer, reviewer, marketer")
+- `--schedule <interval>` → schedule = <interval> (e.g. `"every 30 minutes"`, `"every hour"`, `"daily"`; triggers loop org generation)
 - `--delete <name>` → delete_mode = true, delete_name = <name>
 - `--list` flag → list_mode = true
 - Remaining text = prompt (goal description)
@@ -118,7 +121,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     '{type:"domain:dispatch",session:$session,domain:"ops",cmd:"Designing and saving org definition",ts:(now*1000|floor)}')" || true
 ```
 
-Invoke `Skill("mastermind:createorg")` passing: brain_context, prompt, org_name, roles_desc, mode, session_id: `$session_id`, caller: "command".
+Invoke `Skill("mastermind:createorg")` passing: brain_context, prompt, org_name, roles_desc, schedule, mode, session_id: `$session_id`, caller: "command".
 
 After skill returns: note the status (`complete`, `partial`, or `blocked`). Emit `session:complete`:
 ```bash

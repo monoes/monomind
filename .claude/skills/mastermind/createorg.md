@@ -1,6 +1,6 @@
 ---
 name: mastermind-createorg
-description: Mastermind createorg — design, configure, and persist an autonomous agent organization with named roles, hierarchy, and communication topology. Suggests org structure from a goal description and saves the definition for later use with runorg.
+description: Mastermind createorg — design, configure, and persist an autonomous agent organization with named roles, hierarchy, and communication topology. Supports optional --schedule flag for self-scheduling loop orgs.
 type: domain-skill
 default_mode: confirm
 ---
@@ -17,9 +17,31 @@ This skill is invoked by `mastermind:createorg` or directly via `/mastermind:cre
 - `prompt`: goal and/or role description for this org
 - `org_name`: desired name for the org (slug, e.g. `content-team`); constrained to `[a-z0-9-]`
 - `roles_desc`: optional explicit role list from user (e.g. "boss, content writer, reviewer, marketer, designer, middle manager")
+- `schedule`: optional schedule string, e.g. `"every 30 minutes"`, `"every hour"`, `"every 2 hours"`, `"daily"`. When provided, generates a self-scheduling loop org.
 - `mode`: auto | confirm
 - `session_id`: session ID passed by command wrapper (snake_case input)
 - `caller`: command | master
+
+### Schedule parsing (when `--schedule` is present)
+
+Convert the schedule string to `poll_interval_minutes`:
+
+| Schedule string | Minutes |
+|---|---|
+| `every N minutes` | N |
+| `every minute` | 1 |
+| `every hour` | 60 |
+| `every N hours` | N × 60 |
+| `daily` / `every day` | 1440 |
+| `every N days` | N × 1440 |
+
+```bash
+# Example: "every 30 minutes" → poll_interval_minutes=30
+# "every 2 hours" → poll_interval_minutes=120
+# "daily" → poll_interval_minutes=1440
+```
+
+Store the parsed value as `poll_interval_minutes` for use in Steps 4 and 6.7.
 
 ---
 
@@ -195,6 +217,7 @@ Ask the user (or infer from prompt) for the optional Paperclip-style fields:
   "created_at": "<ISO8601>",
   "mode": "daemon",
   "topology": "<mesh | star | hierarchical — from Step 3>",
+  "status": "<'stopped' if --schedule provided; omit otherwise>",
   "roles": [
     {
       "id": "<slug>",
@@ -234,9 +257,26 @@ Ask the user (or infer from prompt) for the optional Paperclip-style fields:
     "budget_tokens": "<number or 0 for unlimited>",
     "alert_threshold": 0.8,
     "ceo_adapter": "<model id>"
+  },
+  "loop": "<only included when --schedule was provided; see below>"
+}
+```
+
+**If `--schedule` was provided**, include these two additional top-level fields in the org config:
+
+```json
+{
+  "status": "stopped",
+  "loop": {
+    "poll_interval_minutes": "<parsed from schedule string>",
+    "last_run": null,
+    "next_run": null,
+    "run_prompt_file": ".monomind/loops/<org_name>.md"
   }
 }
 ```
+
+`status` starts as `"stopped"`. The org does not run until `/mastermind:runorg --org <org_name>` is called (which transitions it to `"active"`).
 
 ---
 
@@ -277,6 +317,8 @@ SETTINGS
 Topology: <derived>  |  Mode: persistent daemon
 Memory: org:<org_name>  |  Board: <org_name>/org-tasks
 Checkpoint every: 30 min  |  Max agents: 6
+Schedule: <"every <poll_interval_minutes> minutes" if --schedule; otherwise "manual (no auto-schedule)">
+Status: <"stopped (run /mastermind:runorg --org <org_name> to activate)" if --schedule; otherwise "—">
 
 Type "go" to save this org, or describe changes.
 ```
@@ -303,9 +345,10 @@ Write the confirmed org config as JSON using `jq` to guarantee valid encoding:
 ```bash
 # Build the config JSON from the confirmed org plan and write atomically.
 # Set shell variables from the confirmed plan before running this block:
-#   governance_policy  — "auto" | "board" | "strict"  (from Step 4)
-#   budget_tokens_val  — integer or 0 for unlimited     (from Step 4)
-#   ceo_adapter        — model id string                (from Step 4)
+#   governance_policy     — "auto" | "board" | "strict"  (from Step 4)
+#   budget_tokens_val     — integer or 0 for unlimited     (from Step 4)
+#   ceo_adapter           — model id string                (from Step 4)
+#   poll_interval_minutes — integer (from --schedule), or "" if no schedule
 jq -n \
   --arg name "$org_name" \
   --arg goal "$goal" \
@@ -328,6 +371,28 @@ jq -n \
       ceo_adapter:$ceo_adapter
     }}' \
   > "${orgJson}.tmp" && mv "${orgJson}.tmp" "$orgJson"
+```
+
+**If `--schedule` was provided**, patch the saved config with `status` and `loop`:
+
+```bash
+# Only run this block when poll_interval_minutes is set (i.e. --schedule was used)
+interval_seconds=$(( poll_interval_minutes * 60 ))
+tmp="${orgJson}.tmp"
+jq \
+  --argjson interval "$poll_interval_minutes" \
+  --argjson interval_s "$interval_seconds" \
+  --arg run_prompt_file ".monomind/loops/${org_name}.md" \
+  '. + {
+    status: "stopped",
+    loop: {
+      poll_interval_minutes: $interval,
+      last_run: null,
+      next_run: null,
+      run_prompt_file: $run_prompt_file
+    }
+  }' \
+  "$orgJson" > "$tmp" && mv "$tmp" "$orgJson"
 ```
 
 Create the monotask space, board, and default columns (space is required — abort before creating board if space fails):
@@ -360,6 +425,126 @@ jq --arg board_id "$board_id" \
    '. + {board_id:$board_id,todo_col_id:$todo_col_id,doing_col_id:$doing_col_id,done_col_id:$done_col_id}' \
    "$orgJson" > "$tmp" && mv "$tmp" "$orgJson"
 ```
+
+---
+
+## Step 6.7 — Generate Loop Prompt File (scheduled orgs only)
+
+**Skip this step if `--schedule` was NOT provided.**
+
+If `poll_interval_minutes` is set, generate the self-scheduling loop prompt at `.monomind/loops/<org_name>.md`.
+
+This file is the single source of truth for one scheduled iteration. It is passed verbatim as the `prompt` argument to `ScheduleWakeup` at the end of every iteration — the loop is self-perpetuating as long as `status == "active"`.
+
+**Loop prompt structure:**
+
+The file must follow this exact template (substitute actual values for all `<placeholders>`):
+
+````markdown
+# <org_name> — Loop Prompt
+
+**Controlled by:** `.monomind/orgs/<org_name>.json` → `status` field
+**Start:** `/mastermind:runorg --org <org_name>` (sets `status: "active"` and runs first iteration)
+**Stop:** `/mastermind:stoporg --org <org_name>` (sets `status: "stopped"` — next wakeup exits without rescheduling)
+**Pause (HIL):** set `status: "paused"` in `.monomind/orgs/<org_name>.json` — loop keeps waking up but skips work until status returns to `"active"`
+
+---
+
+## Step 0 — Status Gate (REQUIRED FIRST — do not skip)
+
+```bash
+ORG_FILE=".monomind/orgs/<org_name>.json"
+LOOP_STATUS=$(jq -r '.status // "stopped"' "$ORG_FILE" 2>/dev/null || echo "stopped")
+```
+
+- If `LOOP_STATUS == "active"` → continue to Step 1.
+- If `LOOP_STATUS == "paused"` → print "Org '<org_name>' is paused — skipping iteration. Jump directly to Schedule Next." Do NOT run Steps 1–N.
+- If anything else (including `"stopped"`) → print "Org '<org_name>' status is '$LOOP_STATUS' — exiting loop. **Do NOT call ScheduleWakeup.**" and stop.
+
+---
+
+## Step 1 — Record Iteration Start
+
+```bash
+ORG_FILE=".monomind/orgs/<org_name>.json"
+tmp="${ORG_FILE}.tmp"
+jq '.loop.last_run = (now|todate)' "$ORG_FILE" > "$tmp" && mv "$tmp" "$ORG_FILE"
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn --arg org "<org_name>" --arg proj "$REPO_ROOT" \
+    '{type:"org:loop:start",org:$org,project:$proj,ts:(now*1000|floor)}')" || true
+```
+
+---
+
+## [Org-specific iteration steps]
+
+<IMPORTANT: Generate the actual work steps here from the org's goal and roles. These are NOT generic placeholders — write real, actionable steps derived from the org's goal, roles, and communication topology.>
+
+<For a GitHub issue-resolver org, these would be: find next issue, claim it, implement, test, deploy, report.>
+<For a content org, these would be: check content calendar, assign writers, review drafts, publish.>
+<Derive from orgConfig.goal and orgConfig.roles[].responsibilities — be specific.>
+
+---
+
+## Schedule Next (ONLY if status is active or paused)
+
+Re-check org status before rescheduling:
+
+```bash
+ORG_FILE=".monomind/orgs/<org_name>.json"
+LOOP_STATUS=$(jq -r '.status // "stopped"' "$ORG_FILE" 2>/dev/null || echo "stopped")
+```
+
+If `LOOP_STATUS == "active"` or `LOOP_STATUS == "paused"`:
+
+1. Read this loop prompt file verbatim:
+   ```bash
+   LOOP_PROMPT=$(cat .monomind/loops/<org_name>.md)
+   ```
+
+2. Call `ScheduleWakeup` with:
+   - `delaySeconds`: `<poll_interval_minutes * 60>`
+   - `reason`: `"<org_name>: next scheduled poll (every <poll_interval_minutes> min)"`
+   - `prompt`: the full contents of `$LOOP_PROMPT`
+
+3. Update `next_run` in the org JSON:
+   ```bash
+   ORG_FILE=".monomind/orgs/<org_name>.json"
+   tmp="${ORG_FILE}.tmp"
+   next_ts=$(( $(date +%s) + <poll_interval_minutes * 60> ))
+   next_iso=$(date -u -r "$next_ts" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+     || date -u -d "@$next_ts" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+     || python3 -c "import datetime; print(datetime.datetime.utcfromtimestamp($next_ts).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+   jq --arg next "$next_iso" '.loop.next_run = $next' "$ORG_FILE" > "$tmp" && mv "$tmp" "$ORG_FILE"
+   ```
+
+4. Emit `org:loop:scheduled` event:
+   ```bash
+   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+     -H "Content-Type: application/json" \
+     -d "$(jq -cn --arg org "<org_name>" --arg next "$next_iso" --arg proj "$REPO_ROOT" \
+       '{type:"org:loop:scheduled",org:$org,next_run:$next,project:$proj,ts:(now*1000|floor)}')" || true
+   ```
+
+If `LOOP_STATUS` is anything else (e.g. `"stopped"`) → print "Org '<org_name>' loop ended — not rescheduling." and exit.
+````
+
+**Write this file to disk:**
+
+```bash
+mkdir -p .monomind/loops
+# Write the generated loop prompt (constructed above as a here-doc or Write tool)
+# to .monomind/loops/<org_name>.md
+```
+
+Use the Write tool (not Bash echo/cat) to write the file so the content is verbatim.
+
+The org-specific iteration steps (the block between Step 1 and "Schedule Next") must be **generated from the actual org** — goal, roles, responsibilities — not left as generic placeholders.
 
 ---
 
@@ -409,6 +594,9 @@ artifacts:
   - path: .claude/agents/generated/<agent_type>.md
     type: agent-definition
     note: "one per role whose agent_type lacked a usable definition (skills, instructions, input/output)"
+  - path: .monomind/loops/<org_name>.md
+    type: loop-prompt
+    note: "only present when --schedule was used; omit otherwise"
 decisions:
   - what: "Org <org_name> created with N roles"
     why: "Role mapping derived from goal and user description"
@@ -420,6 +608,8 @@ lessons:
 next_actions:
   - "Run /mastermind:runorg --org <org_name> to start the organization"
   - "Edit .monomind/orgs/<org_name>.json to customize roles or communication"
+  - "[scheduled orgs only] Run /mastermind:stoporg --org <org_name> to stop the loop"
+  - "[scheduled orgs only] Run /mastermind:orgs to see all org statuses"
 board_url: "monotask://<org_name>/org-tasks"
 run_id: "<current UTC datetime as ISO8601, e.g. via $(date -u +%Y-%m-%dT%H:%M:%SZ)>"
 ```
@@ -428,6 +618,18 @@ Print confirmation:
 ```
 ✓ Org "<org_name>" saved to .monomind/orgs/<org_name>.json
   → Run: /mastermind:runorg --org <org_name>
+```
+
+If `--schedule` was provided, also print:
+```
+✓ Loop prompt saved to .monomind/loops/<org_name>.md
+  Schedule: every <poll_interval_minutes> minutes
+  Status: stopped (org will not run until /mastermind:runorg --org <org_name>)
+
+  Lifecycle:
+    Start: /mastermind:runorg --org <org_name>
+    Stop:  /mastermind:stoporg --org <org_name>
+    List:  /mastermind:orgs
 ```
 
 ---

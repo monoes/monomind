@@ -44,6 +44,151 @@ Validate the config has at minimum: `name`, `goal`, `roles` (non-empty array), `
 
 ---
 
+## Step 1.5 — Detect Scheduled Org
+
+After loading the org config, check whether this is a scheduled (loop) org:
+
+```bash
+orgFile=".monomind/orgs/${org_name}.json"
+has_schedule=$(jq 'if .loop.poll_interval_minutes then "yes" else "no" end' "$orgFile")
+```
+
+If `has_schedule == "yes"`, this is a **scheduled org**. Follow the **Scheduled Org Path** below (Steps 1.6 onward) instead of the standard Steps 2–8.
+
+If `has_schedule == "no"`, skip to **Step 2** (standard persistent daemon path).
+
+---
+
+## Step 1.6 — Scheduled Org Path
+
+This section handles orgs created with `--schedule`. The loop is owned by the org — it starts with `runorg`, runs each iteration via the loop prompt file, and stops with `stoporg`.
+
+### 1.6.1 — Set status to "active"
+
+```bash
+orgFile=".monomind/orgs/${org_name}.json"
+tmp="${orgFile}.tmp"
+jq '.status = "active"' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
+```
+
+### 1.6.2 — Derive scheduled-org variables
+
+```bash
+orgName=$(jq -r '.name' "$orgFile")
+goal="${task:-$(jq -r '.goal' "$orgFile")}"
+sessionId="$session_id"
+poll_interval_minutes=$(jq -r '.loop.poll_interval_minutes' "$orgFile")
+poll_interval_seconds=$(( poll_interval_minutes * 60 ))
+run_prompt_file=$(jq -r '.loop.run_prompt_file' "$orgFile")
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+```
+
+### 1.6.3 — Emit org:start event
+
+```bash
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn \
+    --arg session "$sessionId" \
+    --arg org "$orgName" \
+    --arg goal "$goal" \
+    --arg proj "$REPO_ROOT" \
+    '{type:"org:start",session:$session,org:$org,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
+```
+
+### 1.6.4 — Execute first iteration inline
+
+Read the loop prompt file and execute its instructions directly (this IS the first iteration):
+
+```bash
+[ ! -f "$run_prompt_file" ] && {
+  echo "ERROR: Loop prompt file '${run_prompt_file}' not found."
+  echo "Re-run: /mastermind:createorg --name ${orgName} --schedule \"every ${poll_interval_minutes} minutes\" to regenerate it."
+  exit 1
+}
+```
+
+Execute the steps described in `$run_prompt_file` — the file contains the full iteration instructions for this org. Follow them exactly, starting from Step 0 (status gate) through the org-specific work steps.
+
+Since this is the first run and status was just set to "active", Step 0 will pass. The org-specific iteration steps run normally.
+
+### 1.6.5 — Schedule next iteration via ScheduleWakeup
+
+After the iteration completes, re-check status and schedule the next wakeup:
+
+```bash
+LOOP_STATUS=$(jq -r '.status // "stopped"' "$orgFile" 2>/dev/null || echo "stopped")
+```
+
+If `LOOP_STATUS == "active"` or `LOOP_STATUS == "paused"`:
+
+1. Read the loop prompt:
+   ```bash
+   LOOP_PROMPT=$(cat "$run_prompt_file")
+   ```
+
+2. Call `ScheduleWakeup` with:
+   - `delaySeconds`: `$poll_interval_seconds`
+   - `reason`: `"<orgName>: next scheduled poll (every <poll_interval_minutes> min)"`
+   - `prompt`: full contents of `$LOOP_PROMPT`
+
+3. Update `next_run` in org JSON:
+   ```bash
+   next_ts=$(( $(date +%s) + poll_interval_seconds ))
+   next_iso=$(date -u -r "$next_ts" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+     || date -u -d "@$next_ts" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+     || python3 -c "import datetime; print(datetime.datetime.utcfromtimestamp($next_ts).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+   tmp="${orgFile}.tmp"
+   jq --arg next "$next_iso" '.loop.next_run = $next' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+     -H "Content-Type: application/json" \
+     -d "$(jq -cn --arg org "$orgName" --arg next "$next_iso" --arg proj "$REPO_ROOT" \
+       '{type:"org:loop:scheduled",org:$org,next_run:$next,project:$proj,ts:(now*1000|floor)}')" || true
+   ```
+
+If `LOOP_STATUS` is anything else → print "Org was stopped during this run — loop will not continue." No ScheduleWakeup.
+
+### 1.6.6 — Report to user
+
+```
+╔══════════════════════════════════════════════════════════╗
+║  ORG STARTED: <orgName>                                  ║
+║  GOAL: <goal>                                            ║
+║  MODE: scheduled loop                                    ║
+╚══════════════════════════════════════════════════════════╝
+
+SCHEDULE
+────────
+  Interval: every <poll_interval_minutes> minutes
+  Status:   active
+  Next run: <next_iso (or "see .monomind/orgs/<orgName>.json")>
+
+To stop:  /mastermind:stoporg --org <orgName>
+Status:   /mastermind:orgstatus --org <orgName>
+All orgs: /mastermind:orgs
+```
+
+### 1.6.7 — Return (skip Steps 2–8)
+
+```yaml
+domain: ops
+status: complete
+decisions:
+  - what: "Scheduled org <orgName> activated, first iteration complete, next wakeup in <poll_interval_minutes> min"
+    why: "Loop started by runorg; ScheduleWakeup queued"
+    confidence: 0.9
+    outcome: pending
+next_actions:
+  - "Stop: /mastermind:stoporg --org <orgName>"
+  - "Status: /mastermind:orgstatus --org <orgName>"
+run_id: "<runId>"
+```
+
+**STOP HERE** — do not execute Steps 2–8 for scheduled orgs.
+
+---
+
 ## Step 2 — Derive Variables
 
 Before spawning any agents, derive all variables from the loaded config. These are used in Steps 3 and 4.

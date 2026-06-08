@@ -267,7 +267,7 @@ export const pluginMetadata = {
       '@monomind/security',
       '@monomind/coordination',
     ],
-    optional: ['@monomind/embeddings', '@monomind/aidefence'],
+    optional: ['@monomind/aidefence'],
   },
   capabilities: [
     'coherence-checking',

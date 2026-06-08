@@ -312,7 +312,6 @@ export const PLUGIN_METADATA = {
       '@monomind/plugins',
       '@monomind/memory',
       '@monomind/security',
-      '@monomind/embeddings',
     ],
     optional: [
       '@monomind/browser',

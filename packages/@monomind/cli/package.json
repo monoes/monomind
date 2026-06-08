@@ -100,7 +100,8 @@
     "sql.js": "^1.14.1",
     "@monoes/memory": "workspace:*",
     "@monomind/plugin-gastown-bridge": "^0.1.3",
-    "agentic-flow": "^3.0.0-alpha.1"
+    "agentic-flow": "^3.0.0-alpha.1",
+    "@huggingface/transformers": "^3.8.1"
   },
   "publishConfig": {
     "access": "public",
