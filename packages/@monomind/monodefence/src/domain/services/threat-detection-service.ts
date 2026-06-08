@@ -231,32 +231,32 @@ const PROMPT_INJECTION_PATTERNS: ThreatPattern[] = [
  */
 const PII_PATTERNS = [
   {
-    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/,
     type: 'email',
     description: 'Email address',
   },
   {
-    pattern: /\b\d{3}-\d{2}-\d{4}\b/g,
+    pattern: /\b\d{3}-\d{2}-\d{4}\b/,
     type: 'ssn',
     description: 'Social Security Number',
   },
   {
-    pattern: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,
+    pattern: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/,
     type: 'credit_card',
     description: 'Credit card number',
   },
   {
-    pattern: /\b(sk-[a-zA-Z0-9]{20,}|sk-ant-[a-zA-Z0-9-]{20,})\b/g,
+    pattern: /\b(sk-[a-zA-Z0-9]{20,}|sk-ant-[a-zA-Z0-9-]{20,})\b/,
     type: 'api_key',
     description: 'API key (OpenAI/Anthropic format)',
   },
   {
-    pattern: /\b(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82})\b/g,
+    pattern: /\b(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82})\b/,
     type: 'api_key',
     description: 'GitHub token',
   },
   {
-    pattern: /password\s*[:=]\s*["']?[^"'\s]{4,}["']?/gi,
+    pattern: /password\s*[:=]\s*["']?[^"'\s]{4,}["']?/i,
     type: 'password',
     description: 'Hardcoded password',
   },

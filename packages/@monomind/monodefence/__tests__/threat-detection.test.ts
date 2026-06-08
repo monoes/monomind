@@ -148,6 +148,25 @@ describe('ThreatDetectionService', () => {
   });
 });
 
+describe('PII detection consistency', () => {
+  it('should return piiFound=true on every consecutive call for the same input', () => {
+    const service = createThreatDetectionService();
+    const input = 'My email is test@example.com';
+    // Without fix, call 2 returns false due to stateful g-flag lastIndex
+    for (let i = 0; i < 5; i++) {
+      expect(service.detect(input).piiFound).toBe(true);
+    }
+  });
+
+  it('should return piiFound=true on every consecutive detectPII call', () => {
+    const service = createThreatDetectionService();
+    const input = '123-45-6789';
+    for (let i = 0; i < 5; i++) {
+      expect(service.detectPII(input)).toBe(true);
+    }
+  });
+});
+
 describe('Performance', () => {
   it('should detect threats in under 10ms', () => {
     const service = createThreatDetectionService();
