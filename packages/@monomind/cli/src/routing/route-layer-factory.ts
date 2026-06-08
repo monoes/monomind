@@ -13,6 +13,10 @@
  *   4. If the worker fails for any reason, degrade to the dependency-free
  *      hash-encoder RouteLayer (+ Claude fallback). Routing always returns.
  */
+// ⚠️ ISOLATION BOUNDARY: this module runs in the MAIN process. Do NOT import
+// `./embedder` or `@huggingface/transformers` here (directly or transitively) —
+// loading onnxruntime in-process deterministically SIGSEGVs. The model lives
+// ONLY in embed-worker.ts, reached via the spawn below.
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -21,6 +25,12 @@ const WORKER_PATH = join(dirname(fileURLToPath(import.meta.url)), 'embed-worker.
 
 /** Generous: the first-ever run computes + caches ~500 utterance embeddings. */
 const WORKER_TIMEOUT_MS = 90_000;
+
+/** Cap worker stdout so a runaway child can't grow parent memory unbounded. */
+const MAX_WORKER_OUTPUT = 4 * 1024 * 1024; // 4 MB
+
+/** Marker the worker prefixes its result line with (see embed-worker.ts). */
+const RESULT_MARKER = '__ROUTE_RESULT__';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RouteResult = any;
@@ -42,15 +52,31 @@ function runWorker(task: string): Promise<RouteResult> {
       reject(new Error('embed worker timed out'));
     }, WORKER_TIMEOUT_MS);
     timer.unref?.();
-    child.stdout?.on('data', (d: Buffer) => { stdout += d.toString(); });
-    child.stderr?.on('data', (d: Buffer) => { stderr += d.toString(); });
+    child.stdout?.on('data', (d: Buffer) => {
+      stdout += d.toString();
+      if (stdout.length > MAX_WORKER_OUTPUT) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try { child.kill('SIGKILL'); } catch { /* already dead */ }
+        reject(new Error('embed worker produced excessive output'));
+      }
+    });
+    child.stderr?.on('data', (d: Buffer) => { if (stderr.length < MAX_WORKER_OUTPUT) stderr += d.toString(); });
     child.on('error', (e: Error) => { if (!settled) { settled = true; clearTimeout(timer); reject(e); } });
     child.on('close', (code: number | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       if (code !== 0) { reject(new Error(stderr.trim() || `worker exited ${code}`)); return; }
-      try { resolve(JSON.parse(stdout.trim())); }
+      // Extract the marked result line — model-loader output may have written
+      // stray bytes to stdout, so don't assume the whole buffer is JSON.
+      const markedLine = stdout
+        .split('\n')
+        .reverse()
+        .find((l) => l.startsWith(RESULT_MARKER));
+      if (!markedLine) { reject(new Error('worker produced no result marker')); return; }
+      try { resolve(JSON.parse(markedLine.slice(RESULT_MARKER.length))); }
       catch { reject(new Error('worker produced invalid JSON')); }
     });
   });
@@ -80,7 +106,13 @@ export async function createConfiguredRouteLayer(
       let semantic: RouteResult | null = null;
       try {
         semantic = await runWorker(taskDescription);
-      } catch {
+      } catch (err) {
+        // Degradation must be visible: silently dropping to the hash encoder
+        // (~12% top-1 accuracy) would look like working semantic routing.
+        const reason = err instanceof Error ? err.message : String(err);
+        process.stderr.write(
+          `[route] semantic worker unavailable (${reason}); using keyword + hash fallback\n`,
+        );
         semantic = null; // fall through to degraded path
       }
 
