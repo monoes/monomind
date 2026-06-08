@@ -138,13 +138,9 @@ export function resetInstallAttempts(): void {
  * Optional package dependencies and their purposes
  */
 export const OPTIONAL_PACKAGES = {
-  '@monomind/aidefence': {
+  '@monomind/monodefence': {
     description: 'AI manipulation defense (prompt injection, PII detection)',
     tools: ['aidefence_scan', 'aidefence_analyze', 'aidefence_stats', 'aidefence_learn'],
-  },
-  '@monomind/embeddings': {
-    description: 'Vector embeddings with ONNX support',
-    tools: ['embeddings_generate', 'embeddings_search', 'embeddings_batch'],
   },
   'onnxruntime-node': {
     description: 'ONNX runtime for neural network inference',

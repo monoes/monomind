@@ -1,7 +1,7 @@
 {
-  "name": "@monomind/aidefence",
+  "name": "@monomind/monodefence",
   "version": "1.0.0",
-  "description": "AI Manipulation Defense System (AIMDS) with self-learning, prompt injection detection, and vector search integration",
+  "description": "AI Manipulation Defense System — evasion detection, multi-turn context, output scanning, hook wiring",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,6 +9,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./hooks": {
+      "import": "./dist/hooks/security-hook.js",
+      "types": "./dist/hooks/security-hook.d.ts"
     },
     "./detection": {
       "import": "./dist/domain/services/threat-detection-service.js",
@@ -19,24 +23,19 @@
       "types": "./dist/domain/services/threat-learning-service.d.ts"
     }
   },
-  "files": [
-    "dist",
-    "README.md"
-  ],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
     "test": "vitest",
-    "test:unit": "vitest run src",
+    "test:run": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "agentdb": ">=2.0.0-alpha.1"
   },
   "peerDependenciesMeta": {
-    "agentdb": {
-      "optional": true
-    }
+    "agentdb": { "optional": true }
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -44,33 +43,14 @@
     "vitest": "^4.1.4"
   },
   "keywords": [
-    "ai-security",
-    "prompt-injection",
-    "jailbreak-detection",
-    "threat-detection",
-    "pii-detection",
-    "monomind",
-    "vector-search",
-    "self-learning",
-    "aimds",
-    "llm-security"
+    "ai-security", "prompt-injection", "jailbreak-detection", "evasion-detection",
+    "context-tracking", "output-scanning", "monomind", "llm-security"
   ],
-  "author": "rUv <hello@ruv.io>",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nokhodian/monomind.git",
-    "directory": "packages/@monomind/aidefence"
+    "directory": "packages/@monomind/monodefence"
   },
-  "bugs": {
-    "url": "https://github.com/nokhodian/monomind/issues"
-  },
-  "homepage": "https://github.com/nokhodian/monomind/tree/main/packages/@monomind/aidefence#readme",
-  "publishConfig": {
-    "access": "public",
-    "tag": "alpha"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+  "engines": { "node": ">=18.0.0" }
 }
