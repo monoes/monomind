@@ -17,6 +17,10 @@
     "./learning": {
       "import": "./dist/domain/services/threat-learning-service.js",
       "types": "./dist/domain/services/threat-learning-service.d.ts"
+    },
+    "./hooks": {
+      "import": "./dist/hooks/security-hook.js",
+      "types": "./dist/hooks/security-hook.d.ts"
     }
   },
   "files": ["dist", "README.md"],

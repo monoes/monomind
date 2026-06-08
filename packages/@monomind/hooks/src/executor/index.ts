@@ -35,6 +35,23 @@ export class HookExecutor {
 
   constructor(registry?: HookRegistry) {
     this.registry = registry ?? defaultRegistry;
+    this._initSecurityHooks();
+  }
+
+  /**
+   * Lazily wire MonoDefence security hooks if the package is installed.
+   * Runs once per executor instance; failures are silently swallowed so that
+   * the hooks system works even without @monomind/monodefence present.
+   */
+  private _initSecurityHooks(): void {
+    // Fire-and-forget: do not await so the constructor stays synchronous.
+    import('@monomind/monodefence/hooks')
+      .then(({ registerSecurityHooks }) => {
+        registerSecurityHooks(this.registry);
+      })
+      .catch(() => {
+        // @monomind/monodefence not installed or hooks subpath unavailable — skip.
+      });
   }
 
   /**
