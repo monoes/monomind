@@ -1,0 +1,1 @@
+{"version":3,"file":"variables-phase.d.ts","sourceRoot":"","sources":["../../../../src/pipeline/phases/variables-phase.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,aAAa,EAAmB,MAAM,aAAa,CAAC;AAIlE,MAAM,WAAW,eAAe;IAC9B,aAAa,EAAE,MAAM,CAAC;CACvB;AAED,eAAO,MAAM,cAAc,EAAE,aAAa,CAAC,eAAe,CA2BzD,CAAC"}

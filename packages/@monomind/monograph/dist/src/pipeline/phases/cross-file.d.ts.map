@@ -1,0 +1,1 @@
+{"version":3,"file":"cross-file.d.ts","sourceRoot":"","sources":["../../../../src/pipeline/phases/cross-file.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,aAAa,EAAmB,MAAM,aAAa,CAAC;AAClE,OAAO,KAAK,EAAE,aAAa,EAAiB,MAAM,gBAAgB,CAAC;AAMnE,MAAM,WAAW,eAAe;IAC9B,aAAa,EAAE,aAAa,EAAE,CAAC;CAChC;AAED,eAAO,MAAM,cAAc,EAAE,aAAa,CAAC,eAAe,CAiEzD,CAAC"}

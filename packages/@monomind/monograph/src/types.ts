@@ -73,6 +73,7 @@ export interface MonographEdge {
   confidence: EdgeConfidence;
   confidenceScore: number;
   weight?: number;
+  reason?: string;
   evidence?: EvidenceEntry[];
 }
 
