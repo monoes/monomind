@@ -9,9 +9,11 @@ description: Start a saved org as a persistent autonomous agent organization. Th
 
 **MASTERMIND: RUN ORG**
 
-Running an org starts a persistent agent organization: a boss agent loads the org definition, assigns work to specialists, monitors progress, and keeps agents on task until you stop them. Agents pick up cards from a shared board — one role per agent, all running in parallel.
+Running an org starts an autonomous agent organization. There are two modes:
 
-This is continuous operation, not a one-shot run. The org loops: plan → execute → review → plan. Stop it explicitly with `/mastermind:ops --stop-org <name>`.
+**Persistent org** (no schedule): a boss agent loads the org definition, assigns work to specialists from a shared board, and loops indefinitely. Stop with `/mastermind:stoporg --org <name>`.
+
+**Scheduled org** (created with `--schedule`): sets the org to `active` and runs the first iteration immediately. Subsequent iterations are self-scheduled via ScheduleWakeup. The loop stops cleanly within one interval after `/mastermind:stoporg --org <name>`.
 
 **Your saved orgs:**
 

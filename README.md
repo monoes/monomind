@@ -342,7 +342,6 @@ The workspace ships 16 `@monomind/*` packages:
 | `@monomind/security` | Input validation, prompt injection detection, CVE remediation, gVisor sandbox |
 | `@monomind/mcp` | MCP server transport (stdio / http / WebSocket) |
 | `@monomind/routing` | Two-stage LLM + keyword agent routing, confidence scoring |
-| `@monomind/embeddings` | Vector embedding generation and management |
 | `@monomind/performance` | Profiling, benchmarking, latency tracking |
 | `@monomind/plugins` | IPFS/Pinata plugin registry, install/create/list |
 | `@monomind/claims` | Claims-based authorization for agent actions |

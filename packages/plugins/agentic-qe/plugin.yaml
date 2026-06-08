@@ -35,7 +35,6 @@ dependencies:
     - "@monomind/plugins": ">=3.0.0"
     - "@monomind/memory": ">=3.0.0"
     - "@monomind/security": ">=3.0.0"
-    - "@monomind/embeddings": ">=3.0.0"
   optional:
     - "@monomind/browser": ">=3.0.0"  # For E2E/visual testing
 
