@@ -88,6 +88,13 @@ export interface OutputScanResult {
 export interface AllowlistRule {
   readonly id: string;
   readonly pattern: RegExp | string;
+  /**
+   * Threat types this rule applies to.
+   * - Empty array `[]`: full bypass — matching inputs skip detection entirely.
+   * - Non-empty array: reserved for future per-type suppression.
+   *   Currently treated the same as empty (full bypass). Do not rely on
+   *   selective suppression behavior until a future release implements it.
+   */
   readonly types: ThreatType[];
   readonly context?: string;
   readonly reason: string;
