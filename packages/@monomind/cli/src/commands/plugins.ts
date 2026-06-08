@@ -809,7 +809,7 @@ const rateCommand: Command = {
     { name: 'rating', short: 'r', type: 'number', description: 'Rating (1-5)', required: true },
   ],
   examples: [
-    { command: 'monomind plugins rate -n @monomind/embeddings -r 5', description: 'Rate 5 stars' },
+    { command: 'monomind plugins rate -n my-plugin -r 5', description: 'Rate 5 stars' },
     { command: 'monomind plugins rate -n my-plugin -r 4', description: 'Rate 4 stars' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -891,7 +891,6 @@ export const pluginsCommand: Command = {
     output.writeln(output.bold('Official Plugins:'));
     output.printList([
       '@monomind/security            - Security scanning and CVE detection',
-      '@monomind/embeddings          - Vector embeddings with hyperbolic support',
       '@monomind/claims              - Claims-based authorization',
       '@monomind/performance         - Performance profiling and benchmarks',
       '@monomind/plugin-gastown-bridge - Gas Town orchestrator integration (WASM-accelerated)',

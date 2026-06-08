@@ -18,7 +18,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 // AIDefence instance type
-type AIDefenceInstance = ReturnType<typeof import('@monomind/aidefence').createAIDefence>;
+type AIDefenceInstance = ReturnType<typeof import('@monomind/monodefence').createAIDefence>;
 
 // Lazy-loaded AIDefence instance
 let aidefenceInstance: AIDefenceInstance | null = null;
@@ -34,7 +34,7 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
     return aidefenceInstance;
   }
 
-  const packageName = '@monomind/aidefence';
+  const packageName = '@monomind/monodefence';
 
   // First attempt - try to load via dynamic import (ESM)
   try {
@@ -56,7 +56,7 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
 
   // Don't attempt install more than once per session
   if (installAttempted) {
-    throw new Error('AIDefence package not available. Install with: npm install @monomind/aidefence');
+    throw new Error('AIDefence package not available. Install with: npm install @monomind/monodefence');
   }
   installAttempted = true;
 
@@ -65,7 +65,7 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
   const installed = await autoInstallPackage(packageName);
 
   if (!installed) {
-    throw new Error('AIDefence package not available. Install with: npm install @monomind/aidefence');
+    throw new Error('AIDefence package not available. Install with: npm install @monomind/monodefence');
   }
 
   // Retry with ESM cache busting via file:// URL + timestamp
@@ -393,7 +393,7 @@ const aidefenceIsSafeTool: MCPTool = {
     const input = args.input as string;
 
     try {
-      const { isSafe } = await import('@monomind/aidefence');
+      const { isSafe } = await import('@monomind/monodefence');
       const safe = isSafe(input);
 
       return {
