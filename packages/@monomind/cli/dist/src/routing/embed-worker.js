@@ -18,6 +18,10 @@
  * Claude must run in the parent's auth context).
  */
 import { createSemanticRouting } from './embedder.js';
+// Quiet the transformers/onnxruntime loader so model-load progress/banners
+// don't land on stdout and corrupt the single JSON result line the parent
+// parses. Must be set before the (lazy) transformers import in embedder.ts.
+process.env.TRANSFORMERS_VERBOSITY ??= 'error';
 async function main() {
     const task = process.argv[2];
     if (!task) {
@@ -40,7 +44,9 @@ async function main() {
         debug: true, // include allScores so the parent can run LLM fallback
     });
     const result = await layer.route(task);
-    process.stdout.write(JSON.stringify(result));
+    // Emit on its own line, prefixed, so the parent can unambiguously locate the
+    // result even if the model loader wrote stray bytes to stdout earlier.
+    process.stdout.write(`\n__ROUTE_RESULT__${JSON.stringify(result)}\n`);
 }
 main().catch((err) => {
     process.stderr.write(`embed-worker: ${err instanceof Error ? err.message : String(err)}\n`);

@@ -23,6 +23,8 @@ const DEFAULT_ROUTING_MODEL = 'haiku';
  * on timeout rather than blocking the caller.
  */
 const DEFAULT_TIMEOUT_MS = 45_000;
+/** Cap captured output so a runaway child can't grow parent memory unbounded. */
+const MAX_OUTPUT = 1024 * 1024; // 1 MB — a slug response is tiny
 let claudeAvailable = null;
 /** Cheap, cached check that the `claude` CLI is installed and on PATH. */
 export function isClaudeCodeAvailable() {
@@ -75,16 +77,29 @@ export function createClaudeLLMCaller(options = {}) {
         const timer = setTimeout(() => {
             if (settled)
                 return;
+            settled = true;
+            // SIGTERM first, then SIGKILL if `claude` ignores it — otherwise a
+            // hung child is orphaned and keeps consuming resources.
             try {
                 child.kill('SIGTERM');
             }
             catch { /* may already be dead */ }
-            settled = true;
+            const killTimer = setTimeout(() => { try {
+                child.kill('SIGKILL');
+            }
+            catch { /* dead */ } }, 2_000);
+            killTimer.unref?.();
             reject(new Error(`claude routing fallback timed out after ${timeoutMs}ms`));
         }, timeoutMs);
         timer.unref?.();
-        child.stdout?.on('data', (d) => { stdout += d.toString(); });
-        child.stderr?.on('data', (d) => { stderr += d.toString(); });
+        child.stdout?.on('data', (d) => {
+            if (stdout.length < MAX_OUTPUT)
+                stdout += d.toString();
+        });
+        child.stderr?.on('data', (d) => {
+            if (stderr.length < MAX_OUTPUT)
+                stderr += d.toString();
+        });
         child.on('error', (err) => {
             if (settled)
                 return;

@@ -5,7 +5,12 @@ export interface Route {
   agentSlug: string;
   /** 10–15 representative task descriptions for this agent */
   utterances: string[];
-  /** Minimum cosine similarity required for a confident match (default: 0.72) */
+  /**
+   * Minimum cosine similarity for a confident match in the hash-encoder space
+   * (default ~0.72). NOTE: when the host supplies a calibrated
+   * `RouteLayerConfig.globalThreshold` (as the real-embedding backend does),
+   * that single value overrides this per-route threshold — see route-layer.ts.
+   */
   threshold: number;
   /** If true and confidence < threshold, escalate to LLM classifier */
   fallbackToLLM: boolean;
