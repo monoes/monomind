@@ -64,7 +64,7 @@ export function compareWithRegressionBaseline(
   current: Record<string, number>,
   tolerance = 0,
 ): RegressionCompareResult {
-  const exceeded = [];
+  const exceeded: Array<{ metric: string; baseline: number; current: number; delta: number; tolerance: number }> = [];
   for (const [metric, baseVal] of Object.entries(baseline.counts)) {
     const curVal = current[metric] ?? 0;
     const delta = curVal - baseVal;

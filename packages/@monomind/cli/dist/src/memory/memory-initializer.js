@@ -1221,48 +1221,6 @@ export async function loadEmbeddingModel(options) {
         }
     }
     try {
-        // Tier 0: @monomind/embeddings — bundles @xenova/transformers as a hard dep, so it
-        // resolves from the CLI even when a bare `import('@xenova/transformers')` does NOT
-        // (the CLI doesn't declare @xenova directly). Without this, the chain below falls
-        // straight through to the hash fallback and "semantic" search is lexical-only.
-        const embPkg = await import('@monomind/embeddings').catch(() => null);
-        if (embPkg && typeof embPkg.createEmbeddingService === 'function') {
-            try {
-                const service = embPkg.createEmbeddingService({
-                    provider: 'transformers',
-                    model: 'Xenova/all-MiniLM-L6-v2',
-                    normalization: 'l2',
-                    enableCache: true,
-                });
-                // Probe triggers the (lazy) model load and verifies real vectors come back.
-                const probe = await service.embed('probe');
-                const probeVec = probe?.embedding;
-                const dims = (probeVec && probeVec.length) || 384;
-                if (probeVec && dims > 1) {
-                    if (verbose) {
-                        console.log(`Loaded @monomind/embeddings (Transformers MiniLM-L6, ${dims}d)...`);
-                    }
-                    embeddingModelState = {
-                        loaded: true,
-                        // Match generateEmbedding's consumer: a callable returning a plain number[]
-                        // (it accepts either `{ data }` or an Array.isArray(...) result).
-                        model: async (text) => Array.from((await service.embed(String(text))).embedding),
-                        tokenizer: null,
-                        dimensions: dims,
-                    };
-                    return {
-                        success: true,
-                        dimensions: dims,
-                        modelName: '@monomind/embeddings (transformers/MiniLM-L6)',
-                        loadTime: Date.now() - startTime,
-                    };
-                }
-            }
-            catch {
-                // Embeddings package present but model load failed (offline / download error);
-                // fall through to the remaining providers and ultimately the hash fallback.
-            }
-        }
         // Try to import @xenova/transformers for ONNX embeddings
         const transformers = await import('@xenova/transformers').catch(() => null);
         if (transformers) {

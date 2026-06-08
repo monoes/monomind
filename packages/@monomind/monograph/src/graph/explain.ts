@@ -1,11 +1,13 @@
 export interface RuleDef {
   id: string;               // e.g. 'god-node', 'unreachable-file', 'circular-deps'
-  name: string;             // human readable
+  name?: string;            // human readable
+  title?: string;           // display title (alias for name)
   description: string;      // what it detects
-  rationale: string;        // why it matters
-  remediation: string;      // how to fix
-  severity: 'error' | 'warning' | 'info';
+  rationale?: string;       // why it matters
+  remediation?: string;     // how to fix
+  severity?: 'error' | 'warning' | 'info';
   docsUrl?: string;
+  docs?: string;            // alias for docsUrl
 }
 
 export const CHECK_RULES: RuleDef[] = [
@@ -77,7 +79,7 @@ export function listRules(): RuleDef[] {
 
 export function getRulesByFinding(findingTitle: string): RuleDef[] {
   const lower = findingTitle.toLowerCase();
-  return CHECK_RULES.filter(r => lower.includes(r.id) || lower.includes(r.name.toLowerCase()));
+  return CHECK_RULES.filter(r => lower.includes(r.id) || (r.name && lower.includes(r.name.toLowerCase())));
 }
 
 // ── Round 10: health + duplication rule catalogs ──────────────────────────────

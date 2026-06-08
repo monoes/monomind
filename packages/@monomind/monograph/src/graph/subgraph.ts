@@ -36,7 +36,7 @@ export function extractInducedSubgraph(db: MonographDb, nodeIds: string[]): Indu
   }
 
   type RawNode = {
-    id: string; label: string; name: string; file_path: string | null;
+    id: string; label: string; name: string; norm_label?: string | null; file_path: string | null;
     start_line: number | null; end_line: number | null; community_id: number | null;
     is_exported: number; language: string | null; properties: string | null;
   };
@@ -66,6 +66,7 @@ export function extractInducedSubgraph(db: MonographDb, nodeIds: string[]): Indu
     id: n.id,
     label: n.label as MonographNode['label'],
     name: n.name,
+    normLabel: (n.norm_label ?? n.name ?? '').toLowerCase(),
     filePath: n.file_path ?? undefined,
     startLine: n.start_line ?? undefined,
     endLine: n.end_line ?? undefined,
@@ -79,7 +80,7 @@ export function extractInducedSubgraph(db: MonographDb, nodeIds: string[]): Indu
     id: e.id,
     sourceId: e.source_id,
     targetId: e.target_id,
-    relation: e.relation,
+    relation: e.relation as MonographEdge['relation'],
     confidence: e.confidence as MonographEdge['confidence'],
     confidenceScore: e.confidence_score,
     reason: e.reason ?? undefined,

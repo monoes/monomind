@@ -1,0 +1,1 @@
+{"version":3,"file":"prune.js","sourceRoot":"","sources":["../../../src/graph/prune.ts"],"names":[],"mappings":"AAEA;;;;;GAKG;AACH,MAAM,UAAU,kBAAkB,CAAC,EAAe;IAChD,gFAAgF;IAChF,0FAA0F;IAC1F,MAAM,MAAM,GAAG,EAAE,CAAC,OAAO,CAAC;;;;GAIzB,CAAC,CAAC,GAAG,EAAE,CAAC;IAET,OAAO,MAAM,CAAC,OAAO,CAAC;AACxB,CAAC"}

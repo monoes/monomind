@@ -1,0 +1,29 @@
+const ACCELERATING_RATIO = 1.5;
+const COOLING_RATIO = 0.67;
+export function computeChurnTrend(timestampsEpochSec) {
+    if (timestampsEpochSec.length < 2)
+        return 'stable';
+    const minTs = timestampsEpochSec.reduce((a, b) => (b < a ? b : a));
+    const maxTs = timestampsEpochSec.reduce((a, b) => (b > a ? b : a));
+    if (maxTs === minTs)
+        return 'stable';
+    const midpoint = minTs + (maxTs - minTs) / 2;
+    const recent = timestampsEpochSec.filter(ts => ts > midpoint).length;
+    const older = timestampsEpochSec.filter(ts => ts <= midpoint).length;
+    if (older < 1)
+        return 'stable';
+    const ratio = recent / older;
+    if (ratio > ACCELERATING_RATIO)
+        return 'accelerating';
+    if (ratio < COOLING_RATIO)
+        return 'cooling';
+    return 'stable';
+}
+export function churnTrendLabel(trend) {
+    return trend === 'accelerating' ? '↑ accelerating' : trend === 'cooling' ? '↓ cooling' : '→ stable';
+}
+export function churnTrendFromFileSeries(fileTimestamps) {
+    const all = fileTimestamps.flat();
+    return computeChurnTrend(all);
+}
+//# sourceMappingURL=churn-trend.js.map

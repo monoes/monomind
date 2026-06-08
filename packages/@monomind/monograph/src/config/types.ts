@@ -122,7 +122,7 @@ export const DEFAULT_MONOGRAPH_CONFIG: ResolvedMonographConfig = {
   boundaries: {},
   resolve: { paths: {}, alias: {}, conditions: [], extensions: ['.ts', '.tsx', '.mts', '.cts'] },
   health: { cyclomaticThreshold: 10, cognitiveThreshold: 15, crapThreshold: 30, minLines: 5 },
-  ownership: { emailMode: 'fullEmail' },
+  ownership: { emailMode: 'fullEmail', codeownersPath: 'CODEOWNERS' },
   plugins: [],
 };
 

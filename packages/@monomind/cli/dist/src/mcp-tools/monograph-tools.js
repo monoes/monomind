@@ -51,7 +51,7 @@ const monographQueryTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
-        const { hybridQuery } = await import('./monograph-compat.js');
+        const { hybridQuery } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const limit = input.limit ?? 20;
@@ -290,7 +290,7 @@ const monographSuggestTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { hybridQuery } = await import('./monograph-compat.js');
+        const { hybridQuery } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const limit = input.limit ?? 10;
@@ -460,7 +460,7 @@ const monographStalenessTool = {
         },
     },
     handler: async (input) => {
-        const { getMonographStaleness } = await import('./monograph-compat.js');
+        const { getMonographStaleness } = await import('@monoes/monograph');
         const repoPath = input.path ?? getProjectCwd();
         const report = await getMonographStaleness(repoPath);
         return text(JSON.stringify(report, null, 2));
@@ -548,7 +548,7 @@ const monographContextTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { getMonographContext } = await import('./monograph-compat.js');
+        const { getMonographContext } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = getMonographContext(db, {
@@ -577,7 +577,7 @@ const monographImpactTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { getMonographImpact } = await import('./monograph-compat.js');
+        const { getMonographImpact } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = getMonographImpact(db, {
@@ -605,7 +605,7 @@ const monographDetectChangesTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { detectMonographChanges } = await import('./monograph-compat.js');
+        const { detectMonographChanges } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = detectMonographChanges(db, {
@@ -635,7 +635,7 @@ const monographRenameTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { getMonographRename } = await import('./monograph-compat.js');
+        const { getMonographRename } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = getMonographRename(db, {
@@ -665,7 +665,7 @@ const monographRouteMapTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { getMonographRouteMap } = await import('./monograph-compat.js');
+        const { getMonographRouteMap } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = getMonographRouteMap(db, {
@@ -694,7 +694,7 @@ const monographApiImpactTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { getMonographApiImpact } = await import('./monograph-compat.js');
+        const { getMonographApiImpact } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = getMonographApiImpact(db, {
@@ -721,7 +721,7 @@ const monographEmbedTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { runEmbed } = await import('./monograph-compat.js');
+        const { runEmbed } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = await runEmbed(db, { codeOnly: input.codeOnly ?? false, force: input.force ?? false });
@@ -752,7 +752,7 @@ const monographCypherTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { getMonographCypher } = await import('./monograph-compat.js');
+        const { getMonographCypher } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = getMonographCypher(db, input.query);
@@ -780,7 +780,7 @@ const monographGroupListTool = {
         },
     },
     handler: async (input) => {
-        const { getGroupList } = await import('./monograph-compat.js');
+        const { getGroupList } = await import('@monoes/monograph');
         const configPath = input.configPath ?? join(getProjectCwd(), 'group.yaml');
         const result = await getGroupList(configPath);
         return text(JSON.stringify(result, null, 2));
@@ -800,7 +800,7 @@ const monographGroupQueryTool = {
         required: ['query'],
     },
     handler: async (input) => {
-        const { runGroupQuery } = await import('./monograph-compat.js');
+        const { runGroupQuery } = await import('@monoes/monograph');
         const configPath = input.configPath ?? join(getProjectCwd(), 'group.yaml');
         const results = await runGroupQuery(configPath, input.query, input.limit);
         if (results.length === 0)
@@ -821,7 +821,7 @@ const monographWikiTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { getWikiToolResult } = await import('./monograph-compat.js');
+        const { getWikiToolResult } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = getWikiToolResult(db, { communityId: input.communityId });
@@ -846,7 +846,7 @@ const monographWikiBuildTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { runWikiBuildTool } = await import('./monograph-compat.js');
+        const { runWikiBuildTool } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const result = await runWikiBuildTool(db, {
@@ -874,7 +874,7 @@ const monographServeTool = {
     },
     handler: async (input) => {
         const { openDb } = await import('@monoes/monograph');
-        const { serveMonograph } = await import('./monograph-compat.js');
+        const { serveMonograph } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         const result = await serveMonograph({
             port: input.port ?? 7374,
@@ -896,7 +896,7 @@ const monographToolMapTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { getToolMap } = await import('./monograph-compat.js');
+        const { getToolMap } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
             const results = getToolMap(db, { tool: input.tool });
@@ -922,7 +922,7 @@ const monographShapeCheckTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { getShapeCheck } = await import('./monograph-compat.js');
+        const { getShapeCheck } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         const repoPath = getProjectCwd();
         try {
@@ -948,7 +948,7 @@ const monographGroupSyncTool = {
         },
     },
     handler: async (input) => {
-        const { runGroupSync } = await import('./monograph-compat.js');
+        const { runGroupSync } = await import('@monoes/monograph');
         const configPath = input.configPath ?? join(getProjectCwd(), 'group.yaml');
         try {
             const result = await runGroupSync(configPath);
@@ -974,7 +974,7 @@ const monographAugmentTool = {
         required: ['query'],
     },
     handler: async (input) => {
-        const { augmentContext } = await import('./monograph-compat.js');
+        const { augmentContext } = await import('@monoes/monograph');
         const repoPath = getProjectCwd();
         const result = await augmentContext({
             query: input.query,
@@ -1000,7 +1000,7 @@ const monographInjectContextTool = {
         },
     },
     handler: async (input) => {
-        const { injectAiContext } = await import('./monograph-compat.js');
+        const { injectAiContext } = await import('@monoes/monograph');
         const repoPath = getProjectCwd();
         const result = await injectAiContext({
             repoPath,
@@ -1020,7 +1020,7 @@ const monographSkillGenTool = {
         },
     },
     handler: async (input) => {
-        const { generateSkillFiles } = await import('./monograph-compat.js');
+        const { generateSkillFiles } = await import('@monoes/monograph');
         const repoPath = getProjectCwd();
         const allowedRoot = resolve(repoPath);
         if (input.outputDir) {
@@ -1056,7 +1056,7 @@ const monographInstallSkillsTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const { installSkillsForPlatform } = await import('./monograph-compat.js');
+        const { installSkillsForPlatform } = await import('@monoes/monograph');
         const rawRepoPath = input.repoPath ?? getProjectCwd();
         const repoPath = resolve(rawRepoPath);
         const allowedRoot = resolve(getProjectCwd());
@@ -1149,7 +1149,7 @@ const monographDoctorTool = {
         properties: {},
     },
     handler: async (_input) => {
-        const { runDoctor } = await import('./monograph-compat.js');
+        const { runDoctor } = await import('@monoes/monograph');
         const repoPath = getProjectCwd();
         const result = await runDoctor(repoPath);
         const lines = result.checks.map(c => `${c.status === 'ok' ? '✅' : c.status === 'warn' ? '⚠️' : '❌'} ${c.name}: ${c.message}`);
@@ -1167,7 +1167,7 @@ const monographListReposTool = {
         properties: {},
     },
     handler: async (_input) => {
-        const { listRepos } = await import('./monograph-compat.js');
+        const { listRepos } = await import('@monoes/monograph');
         const repos = listRepos();
         if (repos.length === 0)
             return text('No repositories registered. Run monograph build in a repo to register it.');

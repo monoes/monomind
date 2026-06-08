@@ -38,7 +38,7 @@ export function createHealthReport(
   const report: HealthReport = { summary };
   for (const [key, value] of Object.entries(partials) as [keyof Omit<HealthReport, 'summary'>, unknown][]) {
     if (value !== undefined && value !== null) {
-      (report as Record<string, unknown>)[key] = value;
+      (report as unknown as Record<string, unknown>)[key] = value;
     }
   }
   return report;

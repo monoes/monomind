@@ -1,0 +1,66 @@
+import { classifyFile } from '../../analysis/file-classifier.js';
+const WEIGHTS = {
+    confidence: 0.30,
+    crossType: 0.20,
+    crossRepo: 0.15,
+    crossCommunity: 0.25,
+    peripheral: 0.10,
+};
+export const surprisesPhase = {
+    name: 'surprises',
+    deps: ['cross-file', 'communities', 'parse'],
+    async execute(_ctx, deps) {
+        const { allEdges, symbolNodes } = deps.get('parse');
+        const { resolvedEdges } = deps.get('cross-file');
+        const { memberships } = deps.get('communities');
+        const edges = [...allEdges, ...resolvedEdges];
+        const labelIndex = new Map(symbolNodes.map(n => [n.id, n.label]));
+        const inDeg = new Map();
+        for (const e of edges)
+            inDeg.set(e.targetId, (inDeg.get(e.targetId) ?? 0) + 1);
+        const maxDeg = [...inDeg.values()].reduce((a, b) => Math.max(a, b), 1);
+        const peripheralThreshold = maxDeg * 0.1;
+        const surprises = edges
+            .filter(e => e.confidence !== 'EXTRACTED')
+            .map(e => {
+            const reasons = [];
+            let score = 0;
+            const conf = 1 - e.confidenceScore;
+            score += WEIGHTS.confidence * conf;
+            if (conf > 0)
+                reasons.push(`${e.confidence} confidence`);
+            const srcLabel = labelIndex.get(e.sourceId);
+            const tgtLabel = labelIndex.get(e.targetId);
+            if (srcLabel && tgtLabel && srcLabel !== tgtLabel) {
+                score += WEIGHTS.crossType;
+                reasons.push(`cross-type (${srcLabel}→${tgtLabel})`);
+            }
+            const srcComm = memberships.get(e.sourceId);
+            const tgtComm = memberships.get(e.targetId);
+            if (srcComm !== undefined && tgtComm !== undefined && srcComm !== tgtComm) {
+                score += WEIGHTS.crossCommunity;
+                reasons.push('cross-community');
+            }
+            // Cross-filetype bonus: CODE↔DOCUMENT/PAPER edges get extra weight
+            const srcFilePath = symbolNodes.find(n => n.id === e.sourceId)?.filePath;
+            const tgtFilePath = symbolNodes.find(n => n.id === e.targetId)?.filePath;
+            if (srcFilePath && tgtFilePath) {
+                const srcFileType = classifyFile(srcFilePath);
+                const tgtFileType = classifyFile(tgtFilePath);
+                if (srcFileType !== tgtFileType) {
+                    score += WEIGHTS.crossRepo; // reuse unused crossRepo weight (0.15)
+                    reasons.push(`cross-filetype (${srcFileType}→${tgtFileType})`);
+                }
+            }
+            if ((inDeg.get(e.targetId) ?? 0) < peripheralThreshold) {
+                score += WEIGHTS.peripheral;
+                reasons.push('peripheral target');
+            }
+            return { edge: e, score, reasons };
+        })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 50);
+        return { surprises };
+    },
+};
+//# sourceMappingURL=surprises.js.map

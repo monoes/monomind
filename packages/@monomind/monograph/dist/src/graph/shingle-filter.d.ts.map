@@ -1,0 +1,1 @@
+{"version":3,"file":"shingle-filter.d.ts","sourceRoot":"","sources":["../../../src/graph/shingle-filter.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,aAAa;IAC5B,GAAG,CAAC,EAAE,EAAE,MAAM,EAAE,MAAM,EAAE,MAAM,EAAE,GAAG,IAAI,CAAC;IACxC,UAAU,CAAC,MAAM,EAAE,MAAM,EAAE,EAAE,IAAI,CAAC,EAAE,MAAM,GAAG,MAAM,EAAE,CAAC;CACvD;AAqDD,wBAAgB,mBAAmB,CAAC,CAAC,SAAI,EAAE,SAAS,SAAM,GAAG,aAAa,CAsFzE"}

@@ -50,10 +50,6 @@ export declare const OPTIONAL_PACKAGES: {
         readonly description: "AI manipulation defense (prompt injection, PII detection)";
         readonly tools: readonly ["aidefence_scan", "aidefence_analyze", "aidefence_stats", "aidefence_learn"];
     };
-    readonly '@monomind/embeddings': {
-        readonly description: "Vector embeddings with ONNX support";
-        readonly tools: readonly ["embeddings_generate", "embeddings_search", "embeddings_batch"];
-    };
     readonly 'onnxruntime-node': {
         readonly description: "ONNX runtime for neural network inference";
         readonly tools: readonly ["neural_*"];
@@ -68,10 +64,6 @@ declare const _default: {
         readonly '@monomind/aidefence': {
             readonly description: "AI manipulation defense (prompt injection, PII detection)";
             readonly tools: readonly ["aidefence_scan", "aidefence_analyze", "aidefence_stats", "aidefence_learn"];
-        };
-        readonly '@monomind/embeddings': {
-            readonly description: "Vector embeddings with ONNX support";
-            readonly tools: readonly ["embeddings_generate", "embeddings_search", "embeddings_batch"];
         };
         readonly 'onnxruntime-node': {
             readonly description: "ONNX runtime for neural network inference";

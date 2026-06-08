@@ -77,7 +77,7 @@ export function mergeClaudeCodeSettings(
   entry: Record<string, unknown>,
 ): Record<string, unknown> {
   const result = { $schema: '', ...existing, ...entry };
-  if (!result.$schema) delete result.$schema;
+  if (!result.$schema) { (result as Record<string, unknown>).$schema = undefined; }
   return result;
 }
 

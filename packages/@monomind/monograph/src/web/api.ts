@@ -57,7 +57,7 @@ export function rowToApiNode(row: Record<string, unknown>): ApiNode {
   };
 }
 
-export function queryGraph(db: Database.Database): GraphData {
+export function queryGraphData(db: Database.Database): GraphData {
   const nodeRows = db
     .prepare(
       'SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes LIMIT 2000',
@@ -334,7 +334,7 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
         }).then(() => res.end()).catch(() => res.end());
         return;
       }
-      res.json(queryGraph(db));
+      res.json(queryGraphData(db));
     } catch (err) {
       console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
     }

@@ -28,6 +28,8 @@ export interface CheckRuntimeCoverageParams {
   commitSha?: string;
   minInvocationsHot?: number;
   lowTrafficThreshold?: number;
+  reporter?: string;
+  minConfidence?: number;
 }
 
 export interface AuditParams extends AnalyzeParams {
@@ -37,13 +39,14 @@ export interface AuditParams extends AnalyzeParams {
   deadCodeBaselinePath?: string;
   duplicationBaselinePath?: string;
   complexityBaselinePath?: string;
+  reporter?: string;
 }
 
 export interface FindDupesParams extends AnalyzeParams {
   mode?: 'default' | 'aggressive' | 'lenient';
   minLines?: number;
   minTokens?: number;
-  groupBy?: 'owner' | 'directory' | 'package';
+  groupBy?: 'owner' | 'directory' | 'package' | 'section';
 }
 
 export interface TraceExportParams {
@@ -60,17 +63,21 @@ export interface TraceFileParams {
 export interface TraceDependencyParams {
   root: string;
   packageName: string;
+  from?: string;
+  to?: string;
 }
 
 export interface TraceCloneParams {
   root: string;
   filePath: string;
   line: number;
+  groupId?: string;
 }
 
 export interface ProjectInfoParams {
   root: string;
   includeWorkspaces?: boolean;
+  reporter?: string;
 }
 
 export interface FeatureFlagsParams extends AnalyzeParams {
@@ -79,12 +86,14 @@ export interface FeatureFlagsParams extends AnalyzeParams {
   includeSdkCalls?: boolean;
   includeConfigObjects?: boolean;
   crossReferenceDeadCode?: boolean;
+  reporter?: string;
 }
 
 export interface ListBoundariesParams extends AnalyzeParams {
   showEntryPoints?: boolean;
   showRules?: boolean;
   groupBy?: 'zone' | 'plugin';
+  reporter?: string;
 }
 
 export function isValidEmailMode(v: unknown): v is EmailModeParam {
@@ -135,12 +144,21 @@ export interface ExtendedAnalyzeParams extends AnalyzeParams {
   groupBy?: 'owner' | 'directory' | 'package' | 'section';
   file?: string;
   includeEntryExports?: boolean;
+  entryPatterns?: string[];
+  tsconfig?: string;
+  reporter?: string;
+  noGitignore?: boolean;
 }
 
 export interface ExtendedHealthParams extends HealthParams {
   maxCyclomatic?: number;
   maxCognitive?: number;
   maxCrap?: number;
+  complexityThreshold?: number;
+  crapThreshold?: number;
+  reporter?: string;
+  includeHotspots?: boolean;
+  coverageFile?: string;
   top?: number;
   sort?: 'crap' | 'cyclomatic' | 'cognitive' | 'mi';
   complexity?: boolean;
@@ -174,6 +192,7 @@ export interface ExtendedFindDupesParams extends FindDupesParams {
   saveBaseline?: boolean;
   changedSince?: string;
   groupBy?: 'owner' | 'directory' | 'package' | 'section';
+  reporter?: string;
 }
 
 export interface GetHotPathsMcpParams { root: string; minRequestsPerDay?: number; limit?: number }

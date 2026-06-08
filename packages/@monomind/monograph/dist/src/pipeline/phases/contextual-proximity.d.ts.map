@@ -1,0 +1,1 @@
+{"version":3,"file":"contextual-proximity.d.ts","sourceRoot":"","sources":["../../../../src/pipeline/phases/contextual-proximity.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,aAAa,EAAmB,MAAM,aAAa,CAAC;AAKlE,MAAM,WAAW,yBAAyB;IACxC,aAAa,EAAE,MAAM,CAAC;IACtB,cAAc,EAAE,MAAM,CAAC;CACxB;AAED,eAAO,MAAM,wBAAwB,EAAE,aAAa,CAAC,yBAAyB,CA4E7E,CAAC"}

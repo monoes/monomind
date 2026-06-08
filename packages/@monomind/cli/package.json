@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "1.11.6",
+  "version": "1.11.7",
   "type": "module",
   "description": "Monomind CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
@@ -87,10 +87,11 @@
   "dependencies": {
     "ws": "^8.18.0",
     "@noble/ed25519": "^2.1.0",
-    "@monoes/monograph": "^1.1.0",
+    "@monoes/monograph": "^1.2.0",
     "@monomind/aidefence": "workspace:*",
     "@monomind/guidance": "workspace:*",
     "@monomind/mcp": "workspace:*",
+    "@monomind/routing": "workspace:*",
     "graphology": "^0.25.4",
     "graphology-metrics": "^2.4.0",
     "semver": "^7.6.0"
@@ -99,8 +100,7 @@
     "sql.js": "^1.14.1",
     "@monoes/memory": "workspace:*",
     "@monomind/plugin-gastown-bridge": "^0.1.3",
-    "agentic-flow": "^3.0.0-alpha.1",
-    "@anthropic-ai/sdk": "*"
+    "agentic-flow": "^3.0.0-alpha.1"
   },
   "publishConfig": {
     "access": "public",

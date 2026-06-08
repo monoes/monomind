@@ -1,7 +1,11 @@
 import type Database from 'better-sqlite3';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { fingerprintFinding } from './analyzer.js';
+import { createHash } from 'crypto';
+
+function fingerprintFinding(type: string, ...parts: string[]): string {
+  return createHash('sha256').update([type, ...parts].join('::')).digest('hex').slice(0, 16);
+}
 
 export interface BaselineFinding {
   /** Stable identifier: e.g. "file:src/foo.ts:export:bar" or "community:12:orphan" */

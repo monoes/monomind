@@ -1,0 +1,1 @@
+{"version":3,"file":"loader.d.ts","sourceRoot":"","sources":["../../../src/graph/loader.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,YAAY,CAAC;AAC/B,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,aAAa,CAAC;AAEjD,wBAAgB,kBAAkB,CAAC,KAAK,EAAE,aAAa,EAAE,GAAG,KAAK,CAahE;AAED,wBAAgB,eAAe,CAAC,EAAE,EAAE,OAAO,kBAAkB,EAAE,WAAW,GAAG,KAAK,CAsBjF"}

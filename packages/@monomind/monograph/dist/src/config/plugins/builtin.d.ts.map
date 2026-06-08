@@ -1,0 +1,1 @@
+{"version":3,"file":"builtin.d.ts","sourceRoot":"","sources":["../../../../src/config/plugins/builtin.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,KAAK,aAAa,EAAE,KAAK,cAAc,EAAE,MAAM,YAAY,CAAC;AAGrE,eAAO,MAAM,eAAe,EAAE,aAAa,EA+U1C,CAAC;AAEF,eAAO,MAAM,uBAAuB,EAAE,cAAsD,CAAC;AAE7F,eAAO,MAAM,kBAAkB,EAAE,MAAM,EAoEtC,CAAC"}

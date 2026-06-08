@@ -1,0 +1,77 @@
+export const suggestPhase = {
+    name: 'suggest',
+    deps: ['parse', 'cross-file', 'mro', 'communities', 'god-nodes', 'surprises'],
+    async execute(_ctx, deps) {
+        const { allEdges, symbolNodes } = deps.get('parse');
+        const { memberships } = deps.get('communities');
+        const questions = [];
+        // Signal 1: ambiguous edges
+        for (const edge of allEdges) {
+            if (edge.confidence === 'AMBIGUOUS') {
+                questions.push({ type: 'ambiguous_edge', edge, reason: 'Dynamic dispatch or unresolved target' });
+            }
+        }
+        // Signal 2: bridge nodes
+        const nodeCommSet = new Map();
+        for (const edge of allEdges) {
+            const srcComm = memberships.get(edge.sourceId);
+            const tgtComm = memberships.get(edge.targetId);
+            if (srcComm !== undefined && tgtComm !== undefined && srcComm !== tgtComm) {
+                // Record the NEIGHBOR's community for each endpoint so a node accumulates
+                // the communities it bridges TO, enabling comms.size >= 2 to fire correctly.
+                for (const [nid, comm] of [[edge.sourceId, tgtComm], [edge.targetId, srcComm]]) {
+                    const s = nodeCommSet.get(nid) ?? new Set();
+                    s.add(comm);
+                    nodeCommSet.set(nid, s);
+                }
+            }
+        }
+        for (const [nodeId, comms] of nodeCommSet) {
+            if (comms.size >= 2) {
+                const node = symbolNodes.find(n => n.id === nodeId);
+                if (!node)
+                    continue;
+                const [commA, commB] = [...comms];
+                questions.push({ type: 'bridge_node', node, commA, commB });
+            }
+        }
+        // Signal 3: verify_inferred
+        for (const edge of allEdges) {
+            if (edge.confidence === 'INFERRED') {
+                questions.push({ type: 'verify_inferred', edge, inferredFrom: 'type inference / alias resolution' });
+            }
+        }
+        // Signal 4: isolated nodes
+        const connectedIds = new Set();
+        for (const e of allEdges) {
+            connectedIds.add(e.sourceId);
+            connectedIds.add(e.targetId);
+        }
+        const isolated = symbolNodes.filter(n => !connectedIds.has(n.id) && n.label !== 'File' && n.label !== 'Folder');
+        if (isolated.length > 0) {
+            questions.push({ type: 'isolated_nodes', nodes: isolated.slice(0, 10), reason: 'No edges found' });
+        }
+        // Signal 5: no_signal — AMBIGUOUS edges with very low confidence
+        for (const edge of allEdges) {
+            if (edge.confidence === 'AMBIGUOUS' && (edge.confidenceScore ?? 1) < 0.2) {
+                questions.push({ type: 'no_signal', edge, reason: 'Very low confidence — no supporting evidence found' });
+            }
+        }
+        // Signal 6: thin_community — communities with fewer than 3 members
+        const commMemberCount = new Map();
+        for (const [, commId] of memberships) {
+            commMemberCount.set(commId, (commMemberCount.get(commId) ?? 0) + 1);
+        }
+        for (const [commId, count] of commMemberCount) {
+            if (count < 3) {
+                questions.push({ type: 'thin_community', communityId: commId, memberCount: count, reason: `Community has only ${count} members — may need merging` });
+            }
+        }
+        const PRIORITY = {
+            bridge_node: 5, ambiguous_edge: 4, verify_inferred: 3, no_signal: 3, low_cohesion: 2, thin_community: 2, isolated_nodes: 1
+        };
+        questions.sort((a, b) => (PRIORITY[b.type] ?? 0) - (PRIORITY[a.type] ?? 0));
+        return { questions };
+    },
+};
+//# sourceMappingURL=suggest.js.map

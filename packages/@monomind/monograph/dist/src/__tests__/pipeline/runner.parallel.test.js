@@ -1,0 +1,66 @@
+import { describe, it, expect } from 'vitest';
+import { PipelineRunner } from '../../pipeline/runner.js';
+function makeCtx() {
+    return { repoPath: '/tmp', options: { ignore: [], codeOnly: false } };
+}
+describe('PipelineRunner parallel execution', () => {
+    it('runs independent phases concurrently', async () => {
+        const startTimes = {};
+        const endTimes = {};
+        function makeDelayPhase(name, deps, delayMs) {
+            return {
+                name,
+                deps,
+                async execute() {
+                    startTimes[name] = Date.now();
+                    await new Promise(r => setTimeout(r, delayMs));
+                    endTimes[name] = Date.now();
+                    return { name };
+                },
+            };
+        }
+        // a and b are independent, c depends on both
+        const phases = [
+            makeDelayPhase('a', [], 50),
+            makeDelayPhase('b', [], 50),
+            makeDelayPhase('c', ['a', 'b'], 10),
+        ];
+        const runner = new PipelineRunner(phases);
+        const t0 = Date.now();
+        await runner.run(makeCtx());
+        const elapsed = Date.now() - t0;
+        // Sequential would take 110ms+; parallel should finish in ~65ms
+        expect(elapsed).toBeLessThan(100);
+    });
+    it('respects deps — c starts only after a and b finish', async () => {
+        const endTimes = {};
+        let cStartTime = 0;
+        const phases = [
+            { name: 'a', deps: [], async execute() { await new Promise(r => setTimeout(r, 30)); endTimes['a'] = Date.now(); return {}; } },
+            { name: 'b', deps: [], async execute() { await new Promise(r => setTimeout(r, 30)); endTimes['b'] = Date.now(); return {}; } },
+            { name: 'c', deps: ['a', 'b'], async execute() { cStartTime = Date.now(); return {}; } },
+        ];
+        const runner = new PipelineRunner(phases);
+        await runner.run(makeCtx());
+        expect(cStartTime).toBeGreaterThanOrEqual(endTimes['a']);
+        expect(cStartTime).toBeGreaterThanOrEqual(endTimes['b']);
+    });
+    it('outputs map contains all phase results', async () => {
+        const phases = [
+            { name: 'x', deps: [], async execute() { return { val: 1 }; } },
+            { name: 'y', deps: ['x'], async execute(_ctx, deps) { const x = deps.get('x'); return { val: x.val + 1 }; } },
+        ];
+        const runner = new PipelineRunner(phases);
+        const outputs = await runner.run(makeCtx());
+        expect(outputs.get('x').val).toBe(1);
+        expect(outputs.get('y').val).toBe(2);
+    });
+    it('throws on cycle detection', () => {
+        const phases = [
+            { name: 'a', deps: ['b'], async execute() { return {}; } },
+            { name: 'b', deps: ['a'], async execute() { return {}; } },
+        ];
+        expect(() => new PipelineRunner(phases)).toThrow();
+    });
+});
+//# sourceMappingURL=runner.parallel.test.js.map

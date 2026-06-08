@@ -1,5 +1,6 @@
 import type { PipelinePhase, PipelineContext } from '../types.js';
-import { buildEmbeddings } from '../../storage/embedding-store.js';
+// buildEmbeddings is not yet in embedding-store; phase is a no-op until it's added
+function buildEmbeddings(_db: unknown): void { /* placeholder */ }
 
 export interface EmbeddingsOutput {
   embeddingsBuilt: number;

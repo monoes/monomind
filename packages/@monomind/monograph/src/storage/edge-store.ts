@@ -12,7 +12,7 @@ export function insertEdge(db: Database.Database, edge: MonographEdge): void {
     edge.relation,
     edge.confidence,
     edge.confidenceScore,
-    (edge.properties?.reason as string) ?? null,
+    edge.reason ?? null,
     edge.evidence != null ? JSON.stringify(edge.evidence) : null,
   );
 }
@@ -59,7 +59,7 @@ function rowToEdge(row: Record<string, unknown>): MonographEdge {
     relation: row.relation as MonographEdge['relation'],
     confidence: row.confidence as MonographEdge['confidence'],
     confidenceScore: row.confidence_score as number,
-    properties: row.reason ? { reason: row.reason } : undefined,
+    reason: row.reason as string | undefined,
     evidence: row.evidence ? JSON.parse(row.evidence as string) as EvidenceEntry[] : undefined,
   };
 }
