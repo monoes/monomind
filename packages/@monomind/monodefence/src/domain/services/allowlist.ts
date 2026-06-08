@@ -17,7 +17,7 @@ const BUILT_IN_RULES: AllowlistRule[] = [
   },
   {
     id: 'builtin-weather',
-    pattern: /\bweather\b/i,
+    pattern: /^\s*(?:what(?:'s|\s+is)\s+(?:the\s+)?weather|how(?:'s|\s+is)\s+(?:the\s+)?weather|weather\s+(?:in|for|at|today|tomorrow|forecast))/i,
     types: [],
     reason: 'Weather query — benign',
     source: 'builtin',
@@ -31,9 +31,9 @@ const BUILT_IN_RULES: AllowlistRule[] = [
   },
   {
     id: 'builtin-help',
-    pattern: /^\s*(?:can\s+you\s+)?help\s+me\b/i,
+    pattern: /^\s*(?:can\s+you\s+)?help\s+me\s*[.?!]?\s*$/i,
     types: [],
-    reason: 'Generic help request — benign',
+    reason: 'Short "help me" request — benign',
     source: 'builtin',
   },
 ];

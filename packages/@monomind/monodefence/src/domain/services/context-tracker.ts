@@ -23,7 +23,24 @@ export class ContextTracker {
     recentThreats: [],
   };
 
+  private lastTurnAt: number = 0;
+  private readonly idleDecayMs: number;
+
+  constructor(opts: { idleDecayMs?: number } = {}) {
+    this.idleDecayMs = opts.idleDecayMs ?? 30 * 60 * 1000; // 30 min default
+  }
+
   recordTurn(input: string, result: ThreatDetectionResult): void {
+    const now = Date.now();
+    // Decay escalation state if session has been idle
+    if (this.lastTurnAt > 0 && now - this.lastTurnAt > this.idleDecayMs) {
+      const currentIndex = ESCALATION_ORDER.indexOf(this.state.escalationState);
+      if (currentIndex > 0) {
+        this.state.escalationState = ESCALATION_ORDER[currentIndex - 1];
+      }
+    }
+    this.lastTurnAt = now;
+
     this.state.turnCount++;
 
     // Update cumulative score

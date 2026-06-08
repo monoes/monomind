@@ -96,7 +96,7 @@ export function registerSecurityHooks(
             success: false,
             abort: true,
             error: `[MonoDefence] Session in attack state — task blocked`,
-            message: `Task blocked: session has escalated to attack state (cumulative score: ${ctx.cumulativeThreatScore.toFixed(2)})`,
+            message: `Task blocked: session in attack state. Call defence.resetContext() to start a new session. (cumulative score: ${ctx.cumulativeThreatScore.toFixed(2)})`,
           };
         }
 
