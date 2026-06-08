@@ -214,21 +214,42 @@ export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
 
   return {
     async detect(input: string) {
-      // Short-circuit if the input matches an allowlist rule
-      if (allowlist.isAllowed(input)) {
-        return {
+      // Short-circuit only for full-bypass rules (types: []) so that
+      // rules with a types array still allow detection to run.
+      if (allowlist.getMatchingRules(input).some(r => r.types.length === 0)) {
+        const safeResult: ThreatDetectionResult = {
           safe: true,
-          isThreatDetected: false,
           threats: [],
           overallRisk: 0,
           detectionTimeMs: 0,
           inputHash: '',
           piiFound: false,
           wasObfuscated: false,
-        } as ThreatDetectionResult;
+        };
+        if (config.trackContext !== false) {
+          contextTracker.recordTurn(input, safeResult);
+        }
+        return safeResult;
       }
 
       let result = detectionService.detect(input);
+
+      // Apply confidence threshold — filter out threats below threshold
+      if (config.confidenceThreshold != null) {
+        const filtered = result.threats.filter(t => t.confidence >= config.confidenceThreshold!);
+        if (filtered.length !== result.threats.length) {
+          const newRisk = filtered.length > 0
+            ? Math.max(...filtered.map(t => t.confidence))
+            : 0;
+          result = { ...result, threats: filtered, overallRisk: newRisk, safe: filtered.length === 0 };
+        }
+      }
+
+      // Strip PII fields when PII detection is disabled
+      if (config.enablePIIDetection === false) {
+        const nonPiiThreats = result.threats.filter(t => t.type !== 'pii_exposure');
+        result = { ...result, threats: nonPiiThreats, piiFound: false };
+      }
 
       if (config.trackContext !== false) {
         contextTracker.recordTurn(input, result);
@@ -355,10 +376,15 @@ export function resetMonoDefence(): void {
 }
 
 /**
- * Convenience function for quick threat check (synchronous)
+ * Convenience function for quick threat check (synchronous).
+ * Checks the allowlist first for consistency with detect().
  */
 export function isSafe(input: string): boolean {
-  return getMonoDefence().quickScan(input).threat === false;
+  const instance = getMonoDefence();
+  if (instance.isAllowed(input)) {
+    return true;
+  }
+  return instance.quickScan(input).threat === false;
 }
 
 /**
