@@ -214,10 +214,30 @@ export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
 
   return {
     async detect(input: string) {
-      const result = detectionService.detect(input);
+      // Short-circuit if the input matches an allowlist rule
+      if (allowlist.isAllowed(input)) {
+        return {
+          safe: true,
+          isThreatDetected: false,
+          threats: [],
+          overallRisk: 0,
+          detectionTimeMs: 0,
+          inputHash: '',
+          piiFound: false,
+          wasObfuscated: false,
+        } as ThreatDetectionResult;
+      }
+
+      let result = detectionService.detect(input);
 
       if (config.trackContext !== false) {
         contextTracker.recordTurn(input, result);
+        const ctxState = contextTracker.getState();
+        if (ctxState.escalationState === 'attack' && result.safe) {
+          // A new input in an active attack session should be treated with suspicion
+          // even if this individual message seems clean
+          result = { ...result, overallRisk: Math.max(result.overallRisk, 0.5) };
+        }
       }
 
       // Auto-learn if enabled
@@ -317,8 +337,21 @@ let defaultInstance: MonoDefence | null = null;
 export function getMonoDefence(config?: MonoDefenceConfig): MonoDefence {
   if (!defaultInstance) {
     defaultInstance = createMonoDefence(config ?? { enableLearning: true });
+  } else if (config) {
+    console.warn(
+      '[MonoDefence] getMonoDefence() called with config after singleton is already initialized. ' +
+      'Config ignored — use createMonoDefence() for a separate instance, or call resetMonoDefence() first.'
+    );
   }
   return defaultInstance;
+}
+
+/**
+ * Reset the default singleton so the next getMonoDefence() call creates a fresh instance.
+ * Useful in tests or when reconfiguration is needed.
+ */
+export function resetMonoDefence(): void {
+  defaultInstance = null;
 }
 
 /**
