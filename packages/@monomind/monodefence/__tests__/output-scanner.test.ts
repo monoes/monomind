@@ -67,6 +67,13 @@ describe('OutputScanner', () => {
       });
       expect(result.contradictionSignal).toBe(false);
     });
+
+    it('does not flag a refusal followed by a helpful alternative', async () => {
+      const result = await scanner.scan({
+        output: 'I cannot access live data. However, here is some general information you might find useful.',
+      });
+      expect(result.contradictionSignal).toBe(false);
+    });
   });
 
   describe('safe field', () => {
