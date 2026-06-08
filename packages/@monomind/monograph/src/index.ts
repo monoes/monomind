@@ -32,7 +32,7 @@ export * from './groups/group-sync.js';
 export * from './mcp-tools/group-query.js';
 export * from './mcp-tools/group-list.js';
 export * from './mcp-tools/group-sync.js';
-// wiki/wiki-store.js re-exported via mcp-tools/wiki.js to avoid WikiPage duplicate
+// wiki/wiki-store.js intentionally not re-exported: its WikiPage conflicts with mcp-tools/wiki.ts's WikiPage
 export * from './wiki/prompt-builder.js';
 export * from './wiki/wiki-generator.js';
 export * from './wiki/gist-publisher.js';

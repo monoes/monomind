@@ -7,7 +7,7 @@
  */
 
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { openDb, closeDb, countNodes } from '@monoes/monograph';
 
 type Db = ReturnType<typeof openDb>;
@@ -19,7 +19,6 @@ interface GroupRepoEntry { name?: string; path?: string }
 function readGroupConfig(configPath: string): GroupRepoEntry[] {
   if (!existsSync(configPath)) return [];
   try {
-    const { readFileSync } = require('fs') as typeof import('fs');
     const raw = readFileSync(configPath, 'utf-8');
     return JSON.parse(raw) as GroupRepoEntry[];
   } catch { return []; }
