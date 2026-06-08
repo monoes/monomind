@@ -37,6 +37,8 @@ export interface ThreatDetectionResult {
   readonly piiFound: boolean;
   readonly inputHash: string;
   readonly wasObfuscated?: boolean;
+  /** Aggregate risk score [0, 1] derived from highest-confidence threat; boosted when obfuscation detected */
+  readonly overallRisk: number;
 }
 
 export interface BehavioralAnalysisResult {

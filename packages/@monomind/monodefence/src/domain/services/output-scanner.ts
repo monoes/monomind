@@ -35,11 +35,13 @@ const POLICY_PATTERNS: RegExp[] = [
 ];
 
 /**
- * Contradiction detection pattern: disclaimer sentence followed by substantial content
+ * Contradiction detection pattern: disclaimer sentence followed by procedural compliance.
+ * Only fires when the post-disclaimer content contains numbered steps or imperative action
+ * phrases — clear signs of complying after disclaiming.
  * No g flag — stateless .test() call
  */
 const CONTRADICTION_PATTERN =
-  /(i\s+(?:cannot|can't|am\s+unable\s+to|won't)\s+\S+[^.!?]*[.!?])\s+.{20,}/i;
+  /i\s+(?:cannot|can't|am\s+unable\s+to|won't)\s+\S+[^.!?]*[.!?]\s+(?:here\s+(?:is|are)\s+how|step\s*1|first[,:]|to\s+do\s+this)/i;
 
 /**
  * Build a set of character trigrams from text

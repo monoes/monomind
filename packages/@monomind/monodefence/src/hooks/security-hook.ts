@@ -88,6 +88,17 @@ export function registerSecurityHooks(
       try {
         const d = await getDefence();
         const result = await d.detect(input);
+        const ctx = d.getContextState();
+
+        // Abort on attack state regardless of individual confidence
+        if (ctx.escalationState === 'attack') {
+          return {
+            success: false,
+            abort: true,
+            error: `[MonoDefence] Session in attack state — task blocked`,
+            message: `Task blocked: session has escalated to attack state (cumulative score: ${ctx.cumulativeThreatScore.toFixed(2)})`,
+          };
+        }
 
         if (!result.safe && result.threats.length > 0) {
           const worst = result.threats.reduce(
@@ -138,6 +149,17 @@ export function registerSecurityHooks(
       try {
         const d = await getDefence();
         const result = await d.detect(input);
+        const ctx = d.getContextState();
+
+        // Abort on attack state regardless of individual confidence
+        if (ctx.escalationState === 'attack') {
+          return {
+            success: false,
+            abort: true,
+            error: `[MonoDefence] Session in attack state — command blocked`,
+            message: `Command blocked: session has escalated to attack state (cumulative score: ${ctx.cumulativeThreatScore.toFixed(2)})`,
+          };
+        }
 
         if (!result.safe && result.threats.length > 0) {
           const worst = result.threats.reduce(

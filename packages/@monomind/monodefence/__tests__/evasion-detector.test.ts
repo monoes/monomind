@@ -56,5 +56,15 @@ describe('EvasionDetector', () => {
       const result = detector.normalize('hello world');
       expect(result.wasObfuscated).toBe(false);
     });
+
+    it('does not flag email addresses as obfuscated', () => {
+      const result = detector.normalize('contact me at alice@example.com');
+      expect(result.wasObfuscated).toBe(false);
+    });
+
+    it('does not flag standalone numbers as obfuscated', () => {
+      const result = detector.normalize('I have 3 cats and 1 dog');
+      expect(result.wasObfuscated).toBe(false);
+    });
   });
 });

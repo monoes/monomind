@@ -330,7 +330,7 @@ export class ThreatDetectionService {
     this.totalDetectionTimeMs += detectionTimeMs;
 
     return {
-      safe: threats.length === 0,
+      safe: deduped.length === 0,
       threats: deduped,
       detectionTimeMs,
       piiFound,
@@ -341,11 +341,13 @@ export class ThreatDetectionService {
   }
 
   /**
-   * Quick scan - pattern matching only
+   * Quick scan - pattern matching only (with evasion normalization)
    * Target: <5ms latency
    */
   quickScan(input: string): { threat: boolean; confidence: number } {
-    const normalizedInput = this.normalizeInput(input);
+    // Run through evasion detector so obfuscated inputs are also caught
+    const evasionResult = this.evasionDetector.normalize(input);
+    const normalizedInput = this.normalizeInput(evasionResult.normalizedInput);
 
     let maxConfidence = 0;
     let threatFound = false;
