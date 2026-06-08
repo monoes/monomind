@@ -9,22 +9,26 @@
  * - ReasoningBank-style pattern learning
  * - Adaptive mitigation with effectiveness tracking
  * - Strange-loop meta-learning integration
+ * - Evasion detection (homoglyph, leetspeak, base64, spacing)
+ * - Multi-turn context tracking and escalation state machine
+ * - Output scanning for PII leakage, echo, policy violations
+ * - Allowlist for trusted input bypass
  *
  * @example
  * ```typescript
  * import { createMonoDefence } from '@monomind/monodefence';
  *
- * const aidefence = createMonoDefence({ enableLearning: true });
+ * const defence = createMonoDefence();
  *
  * // Detect threats
- * const result = await aidefence.detect('Ignore all previous instructions');
+ * const result = await defence.detect('Ignore all previous instructions');
  * console.log(result.safe); // false
  *
- * // Search similar patterns (uses HNSW when connected to AgentDB)
- * const similar = await aidefence.searchSimilarThreats('system prompt injection');
+ * // Scan output
+ * const scan = await defence.scanOutput(llmOutput, originalPrompt);
  *
- * // Learn from feedback
- * await aidefence.learnFromDetection(input, result, { wasAccurate: true });
+ * // Context tracking
+ * const state = defence.getContextState();
  * ```
  */
 
@@ -36,6 +40,11 @@ export type {
   ThreatDetectionResult,
   BehavioralAnalysisResult,
   PolicyVerificationResult,
+  EvasionResult,
+  ContextState,
+  OutputScanResult,
+  AllowlistRule,
+  EscalationState,
 } from './domain/entities/threat.js';
 
 export { createThreat } from './domain/entities/threat.js';
@@ -56,10 +65,19 @@ export {
   InMemoryVectorStore,
 } from './domain/services/threat-learning-service.js';
 
+// New service exports
+export { EvasionDetector, createEvasionDetector } from './domain/services/evasion-detector.js';
+export { ContextTracker, createContextTracker } from './domain/services/context-tracker.js';
+export { OutputScanner } from './domain/services/output-scanner.js';
+export { Allowlist, createAllowlist } from './domain/services/allowlist.js';
+
 // Import for internal use
 import { createThreatDetectionService } from './domain/services/threat-detection-service.js';
 import { createThreatLearningService } from './domain/services/threat-learning-service.js';
-import type { ThreatDetectionResult, ThreatType, Threat } from './domain/entities/threat.js';
+import { ContextTracker } from './domain/services/context-tracker.js';
+import { OutputScanner } from './domain/services/output-scanner.js';
+import { Allowlist } from './domain/services/allowlist.js';
+import type { ThreatDetectionResult, ThreatType, Threat, ContextState, OutputScanResult, AllowlistRule } from './domain/entities/threat.js';
 import type { LearnedThreatPattern, MitigationStrategy, VectorStore } from './domain/services/threat-learning-service.js';
 
 /**
@@ -74,6 +92,10 @@ export interface MonoDefenceConfig {
   confidenceThreshold?: number;
   /** Enable PII detection */
   enablePIIDetection?: boolean;
+  /** Allowlist rules to bypass detection */
+  allowlistRules?: AllowlistRule[];
+  /** Whether to use context tracking across turns (default: true) */
+  trackContext?: boolean;
 }
 
 /**
@@ -149,37 +171,54 @@ export interface MonoDefence {
     mitigationStrategies: number;
     avgMitigationEffectiveness: number;
   }>;
+
+  // ── New facade methods (Task 11) ──────────────────────────────────────────
+
+  /**
+   * Scan LLM output for leakage, echo, policy violations
+   */
+  scanOutput(output: string, originalPrompt?: string): Promise<OutputScanResult>;
+
+  /**
+   * Get current multi-turn context state
+   */
+  getContextState(): ContextState;
+
+  /**
+   * Reset multi-turn context (e.g., new conversation)
+   */
+  resetContext(): void;
+
+  /**
+   * Check whether an input is in the allowlist (bypasses detection)
+   */
+  isAllowed(input: string): boolean;
+
+  /**
+   * Add an allowlist rule at runtime
+   */
+  addAllowlistRule(rule: AllowlistRule): void;
 }
 
 /**
- * Create an AIDefence instance with optional learning capabilities
- *
- * @example
- * ```typescript
- * // Simple usage (detection only)
- * const simple = createMonoDefence();
- *
- * // With learning enabled
- * const learning = createMonoDefence({ enableLearning: true });
- *
- * // With AgentDB for HNSW search (150x-12,500x faster)
- * import { AgentDB } from 'agentdb';
- * const agentdb = new AgentDB({ path: './data/aidefence' });
- * const fast = createMonoDefence({
- *   enableLearning: true,
- *   vectorStore: agentdb
- * });
- * ```
+ * Create a MonoDefence instance
  */
 export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
   const detectionService = createThreatDetectionService();
   const learningService = config.enableLearning
     ? createThreatLearningService(config.vectorStore)
     : null;
+  const contextTracker = new ContextTracker();
+  const outputScanner = new OutputScanner();
+  const allowlist = new Allowlist(config.allowlistRules);
 
   return {
     async detect(input: string) {
       const result = detectionService.detect(input);
+
+      if (config.trackContext !== false) {
+        contextTracker.recordTurn(input, result);
+      }
 
       // Auto-learn if enabled
       if (learningService && result.threats.length > 0) {
@@ -206,7 +245,7 @@ export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
 
     async learnFromDetection(input, result, feedback) {
       if (!learningService) {
-        console.warn('Learning not enabled. Pass { enableLearning: true } to createAIDefence()');
+        console.warn('Learning not enabled. Pass { enableLearning: true } to createMonoDefence()');
         return;
       }
       await learningService.learnFromDetection(input, result, feedback);
@@ -244,6 +283,26 @@ export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
         avgMitigationEffectiveness: learningStats.avgEffectiveness,
       };
     },
+
+    async scanOutput(output: string, originalPrompt?: string): Promise<OutputScanResult> {
+      return outputScanner.scan({ output, originalPrompt });
+    },
+
+    getContextState(): ContextState {
+      return contextTracker.getState() as ContextState;
+    },
+
+    resetContext(): void {
+      contextTracker.reset();
+    },
+
+    isAllowed(input: string): boolean {
+      return allowlist.isAllowed(input);
+    },
+
+    addAllowlistRule(rule: AllowlistRule): void {
+      allowlist.addRule(rule);
+    },
   };
 }
 
@@ -255,22 +314,22 @@ let defaultInstance: MonoDefence | null = null;
 /**
  * Get the default MonoDefence instance (singleton, learning enabled)
  */
-export function getMonoDefence(): MonoDefence {
+export function getMonoDefence(config?: MonoDefenceConfig): MonoDefence {
   if (!defaultInstance) {
-    defaultInstance = createMonoDefence({ enableLearning: true });
+    defaultInstance = createMonoDefence(config ?? { enableLearning: true });
   }
   return defaultInstance;
 }
 
 /**
- * Convenience function for quick threat check
+ * Convenience function for quick threat check (synchronous)
  */
 export function isSafe(input: string): boolean {
   return getMonoDefence().quickScan(input).threat === false;
 }
 
 /**
- * Convenience function for quick threat check with details
+ * Convenience function for full threat detection with details
  */
 export async function checkThreats(input: string): Promise<ThreatDetectionResult> {
   return getMonoDefence().detect(input);
