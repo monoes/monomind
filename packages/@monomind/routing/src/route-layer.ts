@@ -1,6 +1,6 @@
 import { Route, RouteResult, RouteLayerConfig } from './types.js';
 import { cosineSimilarity, computeCentroid } from './cosine.js';
-import { LocalEncoder, Encoder } from './encoder.js';
+import { LocalEncoder, HNSWEncoder, Encoder } from './encoder.js';
 import { LLMFallbackRouter } from './llm-fallback.js';
 import { KeywordPreFilter } from './keyword-pre-filter.js';
 
@@ -19,7 +19,16 @@ export class RouteLayer {
 
   constructor(config: RouteLayerConfig) {
     this.config = config;
-    this.encoder = new LocalEncoder();
+    // A real injected embedder (or explicit 'hnsw') uses HNSWEncoder; otherwise
+    // the deterministic hash-based LocalEncoder. When embeddingGenerator is
+    // present, HNSWEncoder embeds with it exclusively (no dimension mixing).
+    if (config.embeddingGenerator) {
+      this.encoder = new HNSWEncoder(config.embeddingGenerator);
+    } else if (config.encoder === 'hnsw') {
+      this.encoder = new HNSWEncoder();
+    } else {
+      this.encoder = new LocalEncoder();
+    }
     if (config.llmFallback) {
       this.llmFallback = new LLMFallbackRouter(config.llmFallback);
     }
@@ -34,6 +43,19 @@ export class RouteLayer {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
+
+    // Fast path: host supplied precomputed centroids (e.g. from a disk cache),
+    // aligned 1:1 with routes. Skip the expensive per-utterance embedding.
+    const precomputed = this.config.centroids;
+    if (precomputed && precomputed.length === this.config.routes.length) {
+      this.centroids = this.config.routes.map((route, i) => ({
+        route,
+        centroid: precomputed[i],
+      }));
+      this.initialized = true;
+      return;
+    }
+
     this.centroids = await Promise.all(
       this.config.routes.map(async (route) => {
         const vectors = await this.encoder.encodeAll(route.utterances);

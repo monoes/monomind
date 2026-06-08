@@ -52,17 +52,36 @@ export class LocalEncoder implements Encoder {
 }
 
 /**
- * Production encoder backed by the monomind HNSW embedding infrastructure.
- * Falls back to LocalEncoder until the HNSW embedding backend is wired in Task 04.
+ * Production encoder backed by a real embedding model.
+ *
+ * The model is injected by the host (the CLI wires in a local
+ * `@huggingface/transformers` feature-extraction pipeline) so this package
+ * carries no model dependency. When no embedder is injected it degrades to the
+ * deterministic {@link LocalEncoder}.
  */
 export class HNSWEncoder implements Encoder {
   private fallback = new LocalEncoder();
+  private embed?: (text: string) => Promise<number[]>;
+
+  /**
+   * @param embed Optional real embedding function. When provided it is used
+   *   exclusively — the hash-based LocalEncoder is NOT mixed in, since combining
+   *   vectors of different dimensionality would break cosine comparison.
+   */
+  constructor(embed?: (text: string) => Promise<number[]>) {
+    this.embed = embed;
+  }
 
   async encode(text: string): Promise<number[]> {
-    return this.fallback.encode(text);
+    return this.embed ? this.embed(text) : this.fallback.encode(text);
   }
 
   async encodeAll(texts: string[]): Promise<number[][]> {
-    return this.fallback.encodeAll(texts);
+    if (!this.embed) return this.fallback.encodeAll(texts);
+    // Sequential: the underlying transformers pipeline is single-threaded, so
+    // Promise.all would not parallelise — it would only inflate peak memory.
+    const out: number[][] = [];
+    for (const t of texts) out.push(await this.embed(t));
+    return out;
   }
 }

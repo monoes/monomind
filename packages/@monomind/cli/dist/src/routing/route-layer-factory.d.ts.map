@@ -1,0 +1,1 @@
+{"version":3,"file":"route-layer-factory.d.ts","sourceRoot":"","sources":["../../../src/routing/route-layer-factory.ts"],"names":[],"mappings":"AAyBA,KAAK,WAAW,GAAG,GAAG,CAAC;AAiCvB,MAAM,WAAW,oBAAoB;IACnC,KAAK,EAAE,CAAC,eAAe,EAAE,MAAM,KAAK,OAAO,CAAC,WAAW,CAAC,CAAC;CAC1D;AAED,wBAAsB,0BAA0B,CAC9C,IAAI,GAAE;IAAE,KAAK,CAAC,EAAE,OAAO,CAAA;CAAO,GAC7B,OAAO,CAAC,oBAAoB,CAAC,CAgD/B"}
