@@ -248,7 +248,10 @@ export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
       // Strip PII fields when PII detection is disabled
       if (config.enablePIIDetection === false) {
         const nonPiiThreats = result.threats.filter(t => t.type !== 'pii_exposure');
-        result = { ...result, threats: nonPiiThreats, piiFound: false };
+        const newRisk = nonPiiThreats.length > 0
+          ? Math.max(...nonPiiThreats.map(t => t.confidence))
+          : 0;
+        result = { ...result, threats: nonPiiThreats, piiFound: false, overallRisk: newRisk, safe: nonPiiThreats.length === 0 };
       }
 
       if (config.trackContext !== false) {
