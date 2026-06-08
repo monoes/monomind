@@ -18,6 +18,7 @@ import {
   createThreat
 } from '../entities/threat.js';
 import { createHash } from 'crypto';
+import { EvasionDetector, createEvasionDetector } from './evasion-detector.js';
 
 /**
  * Threat pattern definition
@@ -267,11 +268,16 @@ const PII_PATTERNS = [
  */
 export class ThreatDetectionService {
   private readonly patterns: ThreatPattern[];
+  private readonly evasionDetector: EvasionDetector;
   private detectionCount = 0;
   private totalDetectionTimeMs = 0;
 
   constructor(customPatterns?: ThreatPattern[]) {
     this.patterns = customPatterns ?? PROMPT_INJECTION_PATTERNS;
+    this.evasionDetector = createEvasionDetector();
+    // Warm up JIT: run a no-op normalization so the first real detect() call
+    // does not pay regex-compilation cost inside the measured window
+    this.evasionDetector.normalize('warmup');
   }
 
   /**
@@ -282,10 +288,11 @@ export class ThreatDetectionService {
     const startTime = performance.now();
     const threats: Threat[] = [];
 
-    // Normalize input
-    const normalizedInput = this.normalizeInput(input);
+    // Evasion pre-pass: normalize and detect obfuscation techniques
+    const evasionResult = this.evasionDetector.normalize(input);
+    const normalizedInput = evasionResult.normalizedInput;
 
-    // Pattern matching
+    // Pattern matching against evasion-normalized input
     for (const pattern of this.patterns) {
       const match = pattern.pattern.exec(normalizedInput);
       if (match) {
@@ -306,8 +313,17 @@ export class ThreatDetectionService {
       }
     }
 
-    // PII detection
+    // PII detection uses original input to avoid false negatives on real PII
     const piiFound = this.detectPII(input);
+
+    // Calculate overallRisk from highest-confidence threat
+    const deduped = this.deduplicateThreats(threats);
+    const baseRisk = deduped.length > 0
+      ? Math.max(...deduped.map(t => t.confidence))
+      : 0;
+    const overallRisk = evasionResult.wasObfuscated
+      ? Math.min(1.0, baseRisk + 0.10)
+      : baseRisk;
 
     const detectionTimeMs = performance.now() - startTime;
     this.detectionCount++;
@@ -315,10 +331,12 @@ export class ThreatDetectionService {
 
     return {
       safe: threats.length === 0,
-      threats: this.deduplicateThreats(threats),
+      threats: deduped,
       detectionTimeMs,
       piiFound,
       inputHash: this.hashInput(input),
+      wasObfuscated: evasionResult.wasObfuscated,
+      overallRisk,
     };
   }
 
