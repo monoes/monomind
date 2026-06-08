@@ -45,6 +45,7 @@ export class HookExecutor {
    */
   private _initSecurityHooks(): void {
     // Fire-and-forget: do not await so the constructor stays synchronous.
+    // @ts-ignore — @monomind/monodefence is an optional peer dep; may not be installed.
     import('@monomind/monodefence/hooks')
       .then(({ registerSecurityHooks }) => {
         registerSecurityHooks(this.registry);
