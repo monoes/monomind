@@ -74,7 +74,7 @@ const ECHO_THRESHOLD = 0.4;
  * OutputScanner analyzes LLM output for security signals
  */
 export class OutputScanner {
-  async scan(opts: ScanOptions): Promise<OutputScanResult> {
+  scan(opts: ScanOptions): OutputScanResult {
     const startTime = Date.now();
     const { output, originalPrompt } = opts;
 
