@@ -75,7 +75,7 @@ export async function hybridQuery(
   // ── Embed the query ────────────────────────────────────────────────────────
   let queryVec: Float32Array;
   try {
-    const fn = embedder ?? (await import('./embedder.js').then((m) => m.getEmbedder()));
+    const fn: import('./embedder.js').EmbedderFn = embedder ?? (await import('./embedder.js').then((m) => m.getEmbedder()));
     queryVec = await embedText(normalizedQuery, fn);
   } catch {
     // Embedding failed — degrade gracefully to BM25

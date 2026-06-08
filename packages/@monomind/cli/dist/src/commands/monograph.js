@@ -278,7 +278,7 @@ const searchCommand = {
             // At @monoes/monograph@1.1.0, semanticSearch is not exported. Import from compat.
             // With no embeddings at 1.1.0, --mode semantic and --mode hybrid both degrade to BM25
             // (the RRF block merges bm25 with a sem list that is itself BM25 — harmless).
-            const { semanticSearch } = await import('../mcp-tools/monograph-compat.js');
+            const { hybridSearch: semanticSearch } = await import('@monoes/monograph');
             const db = openDb(dbPath);
             let results = [];
             const K = 60;

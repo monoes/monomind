@@ -127,7 +127,14 @@ const spawnCommand = {
         if (!agentType && taskDescription) {
             try {
                 const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing');
-                const layer = new RouteLayer({ routes: ALL_ROUTES });
+                // Delegate low-confidence fallback to a headless Claude Code (Haiku)
+                // agent when `claude` is available — no API key required.
+                const { createClaudeLLMCaller } = await import('../routing/llm-caller.js');
+                const llmCaller = createClaudeLLMCaller({ model: 'haiku' });
+                const layer = new RouteLayer({
+                    routes: ALL_ROUTES,
+                    ...(llmCaller ? { llmFallback: { llmCaller, model: 'haiku' } } : {}),
+                });
                 const routeResult = await layer.route(taskDescription);
                 agentType = routeResult.agentSlug;
                 process.stderr.write(`[route] ${routeResult.method}: "${agentType}" (confidence: ${(routeResult.confidence * 100).toFixed(1)}%)\n`);

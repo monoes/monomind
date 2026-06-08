@@ -1,0 +1,1 @@
+{"version":3,"file":"dot.d.ts","sourceRoot":"","sources":["../../../src/export/dot.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,aAAa,EAAE,aAAa,EAAE,MAAM,aAAa,CAAC;AAEhE,MAAM,WAAW,UAAU;IACzB,SAAS,CAAC,EAAE,MAAM,CAAC;CACpB;AAUD;;;;;;;GAOG;AACH,wBAAgB,KAAK,CACnB,KAAK,EAAE,aAAa,EAAE,EACtB,KAAK,EAAE,aAAa,EAAE,EACtB,OAAO,GAAE,UAAe,GACvB,MAAM,CAyBR"}
