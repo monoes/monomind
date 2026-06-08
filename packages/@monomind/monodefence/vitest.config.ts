@@ -9,7 +9,7 @@ export default defineConfig({
       enabled: true,
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['**/*.d.ts', '**/*.test.ts', '**/index.ts'],
+      exclude: ['**/*.d.ts', '**/*.test.ts'],
     },
     testTimeout: 10000,
     globals: true,
