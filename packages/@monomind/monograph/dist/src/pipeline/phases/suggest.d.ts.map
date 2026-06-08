@@ -1,0 +1,1 @@
+{"version":3,"file":"suggest.d.ts","sourceRoot":"","sources":["../../../../src/pipeline/phases/suggest.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,aAAa,EAAmB,MAAM,aAAa,CAAC;AAClE,OAAO,KAAK,EAAE,iBAAiB,EAAE,MAAM,gBAAgB,CAAC;AAIxD,MAAM,WAAW,aAAa;IAC5B,SAAS,EAAE,iBAAiB,EAAE,CAAC;CAChC;AAED,eAAO,MAAM,YAAY,EAAE,aAAa,CAAC,aAAa,CAiFrD,CAAC"}

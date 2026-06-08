@@ -17,7 +17,6 @@ const DEFAULT_CONFIG = {
     priority: {
         '@monomind/security': 'critical',
         '@monomind/cli': 'high',
-        '@monomind/embeddings': 'normal',
     },
     exclude: [],
 };

@@ -2,11 +2,16 @@
 // for all monograph CLI tools.
 
 import type {
-  AnalyzeParams, HealthParams, AuditParams, FindDupesParams,
+  ExtendedAnalyzeParams, ExtendedHealthParams, AuditParams, ExtendedFindDupesParams,
   TraceExportParams, TraceFileParams, TraceDependencyParams,
   TraceCloneParams, ProjectInfoParams, FeatureFlagsParams,
   ListBoundariesParams, CheckRuntimeCoverageParams,
 } from './params.js';
+
+// Alias for backward-compat internal use
+type AnalyzeParams = ExtendedAnalyzeParams;
+type HealthParams = ExtendedHealthParams;
+type FindDupesParams = ExtendedFindDupesParams;
 
 function flag(key: string, val: unknown): string[] {
   if (val === undefined || val === null || val === false) return [];

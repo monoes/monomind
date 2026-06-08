@@ -3945,6 +3945,31 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // POST /api/orgs/:name/copy — copy org config to another project directory
+    if (req.method === 'POST' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/copy$/i)) {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid org name' })); return; }
+        let payload = {};
+        try { payload = JSON.parse(body); } catch(_) {}
+        const destination = payload.destination ? String(payload.destination).trim() : '';
+        if (!destination) { res.writeHead(400); res.end(JSON.stringify({ error: 'destination is required' })); return; }
+        if (!path.isAbsolute(destination)) { res.writeHead(400); res.end(JSON.stringify({ error: 'destination must be an absolute path' })); return; }
+        const srcOrgsDir = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const srcFile = path.join(srcOrgsDir, `${orgName}.json`);
+        if (!fs.existsSync(srcFile)) { res.writeHead(404); res.end(JSON.stringify({ error: 'org not found' })); return; }
+        const destOrgsDir = path.join(path.resolve(destination), '.monomind', 'orgs');
+        try { fs.mkdirSync(destOrgsDir, { recursive: true }); } catch(_) {}
+        const destFile = path.join(destOrgsDir, `${orgName}.json`);
+        fs.copyFileSync(srcFile, destFile);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: true, destFile }));
+      } catch(e) { res.writeHead(500); res.end(JSON.stringify({ error: String(e.message || e) })); }
+      return;
+    }
+
     // ------------------------------------------------- Mastermind event system
     // POST /api/mastermind/event — ingest event from mastermind skill
     if (req.method === 'POST' && url === '/api/mastermind/event') {
