@@ -42,7 +42,6 @@ dependencies:
     - "@monomind/security": ">=3.0.0"
     - "@monomind/coordination": ">=3.0.0"
   optional:
-    - "@monomind/embeddings": ">=3.0.0"  # For embedding generation
     - "@monomind/aidefence": ">=3.0.0"   # For enhanced threat detection
 
 # Capabilities provided by this plugin
