@@ -63,10 +63,29 @@ If `has_schedule == "no"`, skip to **Step 2** (standard persistent daemon path).
 
 This section handles orgs created with `--schedule`. The loop is owned by the org — it starts with `runorg`, runs each iteration via the loop prompt file, and stops with `stoporg`.
 
-### 1.6.1 — Set status to "active"
+### 1.6.1 — Guard against double-activation, then set status to "active"
 
 ```bash
 orgFile=".monomind/orgs/${org_name}.json"
+current_loop_status=$(jq -r '.status // "stopped"' "$orgFile")
+```
+
+If `current_loop_status == "active"`:
+- Print:
+  ```
+  WARNING: Org '<org_name>' is already active. Starting a second instance would create parallel loop chains.
+  To restart cleanly: run /mastermind:stoporg --org <org_name> first, then /mastermind:runorg --org <org_name>.
+  To force restart anyway, set status to "stopped" in .monomind/orgs/<org_name>.json and re-run.
+  ```
+- Return `status: blocked`. **STOP — do not proceed.**
+
+If `current_loop_status == "paused"`:
+- Print: "Org '<org_name>' was paused. Reactivating..."
+- Proceed (set to "active" below).
+
+For all other statuses (stopped, or absent):
+
+```bash
 tmp="${orgFile}.tmp"
 jq '.status = "active"' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
 ```
