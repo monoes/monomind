@@ -4,7 +4,7 @@
  * V2 Compatibility - Neural network and ML tools
  *
  * ✅ HYBRID Implementation:
- * - Uses @monomind/embeddings for REAL ML embeddings when available
+ * - Uses agentic-flow/reasoningbank for REAL ML embeddings when available
  * - Falls back to deterministic hash-based embeddings when ML model not installed
  * - Pattern storage and search with cosine similarity (real math in all tiers)
  * - Training stores patterns as searchable embeddings (not simulated)

@@ -787,7 +787,15 @@ const semanticRouteCommand = {
         spinner.start();
         try {
             const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing');
-            const layer = new RouteLayer({ routes: ALL_ROUTES, debug });
+            // Delegate low-confidence fallback to a headless Claude Code (Haiku)
+            // agent when `claude` is available — no API key required.
+            const { createClaudeLLMCaller } = await import('../routing/llm-caller.js');
+            const llmCaller = createClaudeLLMCaller({ model: 'haiku' });
+            const layer = new RouteLayer({
+                routes: ALL_ROUTES,
+                debug,
+                ...(llmCaller ? { llmFallback: { llmCaller, model: 'haiku' } } : {}),
+            });
             const result = await layer.route(taskDescription);
             spinner.succeed(`Routed to ${result.agentSlug}`);
             if (jsonOutput) {

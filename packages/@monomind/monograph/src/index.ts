@@ -32,7 +32,7 @@ export * from './groups/group-sync.js';
 export * from './mcp-tools/group-query.js';
 export * from './mcp-tools/group-list.js';
 export * from './mcp-tools/group-sync.js';
-export * from './wiki/wiki-store.js';
+// wiki/wiki-store.js re-exported via mcp-tools/wiki.js to avoid WikiPage duplicate
 export * from './wiki/prompt-builder.js';
 export * from './wiki/wiki-generator.js';
 export * from './wiki/gist-publisher.js';
@@ -47,7 +47,7 @@ export * from './analysis/shape-extractor.js';
 export * from './mcp-tools/tool-map.js';
 export * from './mcp-tools/shape-check.js';
 export * from './mcp-tools/neighbors.js';
-export * from './mcp-tools/graph-query.js';
+// mcp-tools/graph-query.js re-exported via mcp-tools/index.js to avoid queryGraph duplicate
 export * from './mcp-tools/explain.js';
 export * from './security/sensitive-files.js';
 export * from './validation/extraction-validator.js';

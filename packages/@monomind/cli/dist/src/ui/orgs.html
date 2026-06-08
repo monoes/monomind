@@ -396,6 +396,115 @@ html, body {
 @keyframes nodepulse { 0%,100%{r:26;opacity:0.2} 50%{r:30;opacity:0.55} }
 
 /* Arrow markers are inline in the SVG */
+
+/* ── Copy button on org items ───────────────────────────────────── */
+.oi-copy-btn {
+  display: none;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.org-item:hover .oi-copy-btn { display: inline-block; }
+.oi-copy-btn:hover {
+  color: var(--teal);
+  border-color: var(--teal-dim);
+  background: var(--teal-glow);
+}
+
+/* ── Copy modal ─────────────────────────────────────────────────── */
+#copy-modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: oklch(5% 0.008 186 / 0.82);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  align-items: center; justify-content: center;
+}
+#copy-modal-overlay.open { display: flex; }
+
+#copy-modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  padding: 22px 24px 18px;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 40px oklch(0% 0 0 / 0.5);
+}
+
+#copy-modal-title {
+  font-size: 9px; letter-spacing: 3px; color: var(--teal);
+  margin-bottom: 4px;
+}
+#copy-modal-org {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  letter-spacing: 1px; margin-bottom: 16px;
+}
+
+.copy-modal-label {
+  font-size: 8px; letter-spacing: 2px; color: var(--dim);
+  margin-bottom: 6px;
+}
+
+#copy-dest-input {
+  width: 100%;
+  background: oklch(6% 0.008 186);
+  border: 1px solid var(--border-hi);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.12s;
+  margin-bottom: 6px;
+}
+#copy-dest-input:focus { border-color: var(--teal); }
+#copy-dest-input::placeholder { color: var(--dim); }
+
+#copy-modal-hint {
+  font-size: 9px; color: var(--dim); margin-bottom: 16px; line-height: 1.5;
+}
+
+#copy-modal-status {
+  font-size: 9px; min-height: 16px; margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+#copy-modal-status.ok   { color: var(--green); }
+#copy-modal-status.err  { color: var(--red); }
+
+.copy-modal-actions {
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+
+.cm-btn {
+  background: none;
+  border: 1px solid var(--border-hi);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: 1px;
+  padding: 5px 14px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.cm-btn:hover { color: var(--text); border-color: var(--muted); }
+.cm-btn.primary {
+  color: var(--teal); border-color: var(--teal-dim);
+}
+.cm-btn.primary:hover { background: var(--teal-glow); border-color: var(--teal); }
+.cm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -558,6 +667,26 @@ html, body {
   </div><!-- end main -->
 </div><!-- end app -->
 
+<!-- ── Copy-to-project modal ── -->
+<div id="copy-modal-overlay" onclick="if(event.target===this)closeCopyModal()">
+  <div id="copy-modal">
+    <div id="copy-modal-title">COPY ORG TO PROJECT</div>
+    <div id="copy-modal-org">—</div>
+    <div class="copy-modal-label">DESTINATION PROJECT PATH</div>
+    <input id="copy-dest-input" type="text" placeholder="/absolute/path/to/project"
+           onkeydown="if(event.key==='Enter')executeCopy(); if(event.key==='Escape')closeCopyModal()">
+    <div id="copy-modal-hint">
+      The org config will be written to<br>
+      <span style="color:var(--muted)">&lt;destination&gt;/.monomind/orgs/&lt;name&gt;.json</span>
+    </div>
+    <div id="copy-modal-status"></div>
+    <div class="copy-modal-actions">
+      <button class="cm-btn" onclick="closeCopyModal()">CANCEL</button>
+      <button class="cm-btn primary" id="copy-confirm-btn" onclick="executeCopy()">COPY</button>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -665,6 +794,7 @@ function renderSidebar() {
         <div class="oi-dot ${org.running ? 'running' : ''}"></div>
         <div class="oi-name">${esc(org.name)}</div>
         <span class="oi-badge ${org.running ? 'running' : 'idle'}">${org.running ? 'LIVE' : 'IDLE'}</span>
+        <button class="oi-copy-btn" title="Copy org to another project">COPY</button>
       </div>
       ${goalText ? `<div class="oi-goal">${esc(goalText)}</div>` : ''}
       <div class="oi-meta">
@@ -672,6 +802,10 @@ function renderSidebar() {
         <span class="oi-chip">${esc(topo)}</span>
       </div>`;
 
+    item.querySelector('.oi-copy-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      openCopyModal(org.name);
+    });
     item.addEventListener('click', () => selectOrg(org.name));
     list.appendChild(item);
   });
@@ -1161,6 +1295,61 @@ async function loadOrgs() {
     if (listOrg) updateHeader(listOrg, orgDetailData);
   }
 }
+
+// ── Copy org modal ────────────────────────────────────────────────
+let copyTargetOrg = null;
+
+window.openCopyModal = function(name) {
+  copyTargetOrg = name;
+  document.getElementById('copy-modal-org').textContent = name.toUpperCase();
+  document.getElementById('copy-dest-input').value = '';
+  document.getElementById('copy-modal-status').textContent = '';
+  document.getElementById('copy-modal-status').className = '';
+  document.getElementById('copy-confirm-btn').disabled = false;
+  document.getElementById('copy-modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('copy-dest-input').focus(), 60);
+};
+
+window.closeCopyModal = function() {
+  document.getElementById('copy-modal-overlay').classList.remove('open');
+  copyTargetOrg = null;
+};
+
+window.executeCopy = async function() {
+  if (!copyTargetOrg) return;
+  const destination = document.getElementById('copy-dest-input').value.trim();
+  const status = document.getElementById('copy-modal-status');
+  const btn = document.getElementById('copy-confirm-btn');
+  if (!destination) {
+    status.textContent = 'ENTER A DESTINATION PATH';
+    status.className = 'err';
+    return;
+  }
+  btn.disabled = true;
+  status.textContent = 'COPYING…';
+  status.className = '';
+  try {
+    const r = await fetch(`/api/orgs/${encodeURIComponent(copyTargetOrg)}/copy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ destination }),
+    });
+    const data = await r.json();
+    if (r.ok && data.ok) {
+      status.textContent = 'COPIED — ' + (data.destFile || destination);
+      status.className = 'ok';
+      setTimeout(closeCopyModal, 2000);
+    } else {
+      status.textContent = 'ERROR: ' + (data.error || r.statusText);
+      status.className = 'err';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    status.textContent = 'ERROR: ' + e.message;
+    status.className = 'err';
+    btn.disabled = false;
+  }
+};
 
 // ── Bootstrap ─────────────────────────────────────────────────────
 connectSSE();

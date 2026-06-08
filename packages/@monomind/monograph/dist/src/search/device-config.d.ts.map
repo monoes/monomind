@@ -1,0 +1,1 @@
+{"version":3,"file":"device-config.d.ts","sourceRoot":"","sources":["../../../src/search/device-config.ts"],"names":[],"mappings":"AAAA,MAAM,MAAM,WAAW,GAAG,KAAK,GAAG,MAAM,GAAG,KAAK,CAAC;AAEjD,MAAM,WAAW,iBAAiB;IAChC,MAAM,CAAC,EAAE,WAAW,CAAC;IACrB,OAAO,CAAC,EAAE,MAAM,CAAC;CAClB;AAED;;;;;;;;GAQG;AACH,wBAAgB,aAAa,CAAC,MAAM,CAAC,EAAE,iBAAiB,GAAG,WAAW,CAcrE"}
