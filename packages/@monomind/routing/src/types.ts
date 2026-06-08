@@ -41,6 +41,20 @@ export interface RouteLayerConfig {
   routes: Route[];
   /** Encoder type to use for embeddings */
   encoder?: 'hnsw' | 'local';
+  /**
+   * Injected real embedding function (e.g. a local transformers model supplied
+   * by the host). When provided, semantic routing uses it instead of the
+   * hash-based LocalEncoder — both the route utterances and the task are
+   * embedded with it. Must return a fixed-dimensional, L2-normalized vector.
+   */
+  embeddingGenerator?: (text: string) => Promise<number[]>;
+  /**
+   * Precomputed route centroids, aligned 1:1 with `routes`. When supplied,
+   * `initialize()` skips embedding the route utterances and uses these directly,
+   * letting the host cache the (expensive) centroid computation across runs.
+   * Must be produced by the SAME embedder as `embeddingGenerator`.
+   */
+  centroids?: number[][];
   /** If true, include all route scores in RouteResult */
   debug?: boolean;
   /** Global minimum threshold override */
