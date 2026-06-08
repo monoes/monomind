@@ -3,7 +3,7 @@ export declare function isClaudeCodeAvailable(): boolean;
 export interface ClaudeLLMCallerOptions {
     /** Routing model alias passed to `claude --model` (default: "haiku"). */
     model?: 'haiku' | 'sonnet' | 'opus';
-    /** Per-call timeout in milliseconds (default: 20s). */
+    /** Per-call timeout in milliseconds (default: 45s — see DEFAULT_TIMEOUT_MS). */
     timeoutMs?: number;
     /**
      * Working directory for the spawned process. Defaults to the OS temp dir so
