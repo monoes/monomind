@@ -36,6 +36,7 @@ export interface ThreatDetectionResult {
   readonly detectionTimeMs: number;
   readonly piiFound: boolean;
   readonly inputHash: string;
+  readonly wasObfuscated?: boolean;
 }
 
 export interface BehavioralAnalysisResult {
@@ -55,6 +56,40 @@ export interface PolicyVerificationResult {
   readonly violations: string[];
   readonly proofStatus: 'valid' | 'invalid' | 'timeout';
   readonly verificationTimeMs: number;
+}
+
+export type EscalationState = 'clean' | 'probing' | 'escalating' | 'attack';
+
+export interface EvasionResult {
+  readonly normalizedInput: string;
+  readonly wasObfuscated: boolean;
+  readonly techniqueDetected?: 'homoglyph' | 'leetspeak' | 'spacing' | 'base64' | 'zero_width';
+}
+
+export interface ContextState {
+  readonly escalationState: EscalationState;
+  readonly cumulativeThreatScore: number;
+  readonly turnCount: number;
+  readonly recentThreats: Threat[];
+}
+
+export interface OutputScanResult {
+  readonly safe: boolean;
+  readonly leakageFound: boolean;
+  readonly leakageTypes: string[];
+  readonly echoDetected: boolean;
+  readonly policyViolation: boolean;
+  readonly contradictionSignal: boolean;
+  readonly scanTimeMs: number;
+}
+
+export interface AllowlistRule {
+  readonly id: string;
+  readonly pattern: RegExp | string;
+  readonly types: ThreatType[];
+  readonly context?: string;
+  readonly reason: string;
+  readonly source: 'builtin' | 'user';
 }
 
 /**
