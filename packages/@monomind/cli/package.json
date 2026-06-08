@@ -88,7 +88,7 @@
     "ws": "^8.18.0",
     "@noble/ed25519": "^2.1.0",
     "@monoes/monograph": "^1.2.0",
-    "@monomind/aidefence": "workspace:*",
+    "@monomind/monodefence": "workspace:*",
     "@monomind/guidance": "workspace:*",
     "@monomind/mcp": "workspace:*",
     "@monomind/routing": "workspace:*",
