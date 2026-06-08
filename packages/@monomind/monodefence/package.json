@@ -10,10 +10,6 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./hooks": {
-      "import": "./dist/hooks/security-hook.js",
-      "types": "./dist/hooks/security-hook.d.ts"
-    },
     "./detection": {
       "import": "./dist/domain/services/threat-detection-service.js",
       "types": "./dist/domain/services/threat-detection-service.d.ts"
