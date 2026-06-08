@@ -377,11 +377,9 @@ jq -n \
 
 ```bash
 # Only run this block when poll_interval_minutes is set (i.e. --schedule was used)
-interval_seconds=$(( poll_interval_minutes * 60 ))
 tmp="${orgJson}.tmp"
 jq \
   --argjson interval "$poll_interval_minutes" \
-  --argjson interval_s "$interval_seconds" \
   --arg run_prompt_file ".monomind/loops/${org_name}.md" \
   '. + {
     status: "stopped",
