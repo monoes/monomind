@@ -12,9 +12,9 @@
  *
  * @example
  * ```typescript
- * import { createAIDefence } from '@monomind/monodefence';
+ * import { createMonoDefence } from '@monomind/monodefence';
  *
- * const aidefence = createAIDefence({ enableLearning: true });
+ * const aidefence = createMonoDefence({ enableLearning: true });
  *
  * // Detect threats
  * const result = await aidefence.detect('Ignore all previous instructions');
@@ -63,9 +63,9 @@ import type { ThreatDetectionResult, ThreatType, Threat } from './domain/entitie
 import type { LearnedThreatPattern, MitigationStrategy, VectorStore } from './domain/services/threat-learning-service.js';
 
 /**
- * Configuration for AIDefence
+ * Configuration for MonoDefence
  */
-export interface AIDefenceConfig {
+export interface MonoDefenceConfig {
   /** Enable self-learning from detections */
   enableLearning?: boolean;
   /** Custom vector store (defaults to in-memory, use AgentDB for production) */
@@ -77,9 +77,9 @@ export interface AIDefenceConfig {
 }
 
 /**
- * AIDefence - Unified threat detection and learning facade
+ * MonoDefence - Unified threat detection and learning facade
  */
-export interface AIDefence {
+export interface MonoDefence {
   /**
    * Detect threats in input text
    */
@@ -157,21 +157,21 @@ export interface AIDefence {
  * @example
  * ```typescript
  * // Simple usage (detection only)
- * const simple = createAIDefence();
+ * const simple = createMonoDefence();
  *
  * // With learning enabled
- * const learning = createAIDefence({ enableLearning: true });
+ * const learning = createMonoDefence({ enableLearning: true });
  *
  * // With AgentDB for HNSW search (150x-12,500x faster)
  * import { AgentDB } from 'agentdb';
  * const agentdb = new AgentDB({ path: './data/aidefence' });
- * const fast = createAIDefence({
+ * const fast = createMonoDefence({
  *   enableLearning: true,
  *   vectorStore: agentdb
  * });
  * ```
  */
-export function createAIDefence(config: AIDefenceConfig = {}): AIDefence {
+export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
   const detectionService = createThreatDetectionService();
   const learningService = config.enableLearning
     ? createThreatLearningService(config.vectorStore)
@@ -250,14 +250,14 @@ export function createAIDefence(config: AIDefenceConfig = {}): AIDefence {
 /**
  * Singleton instance for convenience
  */
-let defaultInstance: AIDefence | null = null;
+let defaultInstance: MonoDefence | null = null;
 
 /**
- * Get the default AIDefence instance (singleton, learning enabled)
+ * Get the default MonoDefence instance (singleton, learning enabled)
  */
-export function getAIDefence(): AIDefence {
+export function getMonoDefence(): MonoDefence {
   if (!defaultInstance) {
-    defaultInstance = createAIDefence({ enableLearning: true });
+    defaultInstance = createMonoDefence({ enableLearning: true });
   }
   return defaultInstance;
 }
@@ -266,17 +266,25 @@ export function getAIDefence(): AIDefence {
  * Convenience function for quick threat check
  */
 export function isSafe(input: string): boolean {
-  const service = createThreatDetectionService();
-  return service.detect(input).safe;
+  return getMonoDefence().quickScan(input).threat === false;
 }
 
 /**
  * Convenience function for quick threat check with details
  */
-export function checkThreats(input: string) {
-  const service = createThreatDetectionService();
-  return service.detect(input);
+export async function checkThreats(input: string): Promise<ThreatDetectionResult> {
+  return getMonoDefence().detect(input);
 }
+
+/** @deprecated Use createMonoDefence */
+export const createAIDefence = createMonoDefence;
+/** @deprecated Use getMonoDefence */
+export const getAIDefence = getMonoDefence;
+
+/** @deprecated Use MonoDefenceConfig */
+export type AIDefenceConfig = MonoDefenceConfig;
+/** @deprecated Use MonoDefence */
+export type AIDefence = MonoDefence;
 
 /**
  * Integration with Monomind attention mechanisms
