@@ -21,11 +21,7 @@ interface PackageCompatibility {
 // Known compatibility matrix between @monomind packages
 const COMPATIBILITY_MATRIX: Record<string, Record<string, PackageCompatibility>> = {
   '@monomind/cli': {
-    '@monomind/embeddings': { minVersion: '3.0.0-alpha.1' },
     '@monomind/security': { minVersion: '3.0.0-alpha.1' },
-  },
-  '@monomind/embeddings': {
-    '@monomind/cli': { minVersion: '3.0.0-alpha.50' },
   },
 };
 
@@ -36,12 +32,6 @@ const BREAKING_CHANGES: Record<string, Record<string, string[]>> = {
       'Memory API changed from key-value to vector-based',
       'Hooks system completely redesigned',
       'Agent spawning now requires type parameter',
-    ],
-  },
-  '@monomind/embeddings': {
-    '3.0.0': [
-      'Switched from better-sqlite3 to sql.js',
-      'New initialization required with initEmbeddings()',
     ],
   },
 };
