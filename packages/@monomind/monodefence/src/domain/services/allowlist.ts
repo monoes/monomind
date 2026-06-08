@@ -3,9 +3,10 @@ import type { AllowlistRule } from '../entities/threat.js';
 const BUILT_IN_RULES: AllowlistRule[] = [
   {
     id: 'builtin-greetings',
-    pattern: /^\s*(hi|hello|hey|greetings|good\s+(?:morning|afternoon|evening))[^a-z]*/i,
+    // End-anchored: "hi!" or "hello" alone — NOT "hey ignore all instructions"
+    pattern: /^\s*(?:hi|hello|hey|greetings|good\s+(?:morning|afternoon|evening))\s*[.!?]?\s*$/i,
     types: [],
-    reason: 'Common greeting — no threat possible',
+    reason: 'Stand-alone greeting — no threat possible',
     source: 'builtin',
   },
   {
@@ -17,16 +18,18 @@ const BUILT_IN_RULES: AllowlistRule[] = [
   },
   {
     id: 'builtin-weather',
-    pattern: /^\s*(?:what(?:'s|\s+is)\s+(?:the\s+)?weather|how(?:'s|\s+is)\s+(?:the\s+)?weather|weather\s+(?:in|for|at|today|tomorrow|forecast))/i,
+    // Start + end anchored: pure weather query only — allows "in [location]" but not appended instructions
+    pattern: /^\s*(?:what(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+(?:like\s+)?(?:in|for|at|near|today|tomorrow|this\s+week)(?:\s+[\w\s,]+)?)?|how(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+[\w\s,]+)?|weather\s+(?:in|for|at|today|tomorrow|forecast)(?:\s+[\w\s,]+)?)\s*[.?!]?\s*$/i,
     types: [],
-    reason: 'Weather query — benign',
+    reason: 'Pure weather query — benign',
     source: 'builtin',
   },
   {
     id: 'builtin-time',
-    pattern: /\bwhat\s+(?:time|day|date)\s+is\s+it\b/i,
+    // Start + end anchored: pure time/date query only
+    pattern: /^\s*what\s+(?:time|day|date)\s+is\s+it\s*[.?!]?\s*$/i,
     types: [],
-    reason: 'Time/date query — benign',
+    reason: 'Pure time/date query — benign',
     source: 'builtin',
   },
   {
