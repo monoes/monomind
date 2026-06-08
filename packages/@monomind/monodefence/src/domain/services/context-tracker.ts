@@ -71,6 +71,7 @@ export class ContextTracker {
       turnCount: 0,
       recentThreats: [],
     };
+    this.lastTurnAt = 0;
   }
 
   private computeNextState(result: ThreatDetectionResult): EscalationState {

@@ -62,6 +62,8 @@ export class Allowlist {
 
   private matches(rule: AllowlistRule, input: string): boolean {
     if (typeof rule.pattern === 'string') {
+      // String patterns use substring matching. For security-sensitive rules,
+      // prefer RegExp with ^ and $ anchors to avoid over-allowlisting.
       return input.toLowerCase().includes(rule.pattern.toLowerCase());
     }
     return rule.pattern.test(input);
