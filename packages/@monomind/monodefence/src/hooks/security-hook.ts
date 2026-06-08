@@ -87,6 +87,9 @@ export function registerSecurityHooks(
 
       try {
         const d = await getDefence();
+        // detect() records the turn first, potentially transitioning to 'attack' state.
+        // getContextState() reads post-update state — a turn crossing into 'attack' is
+        // caught on this same call (intentional ordering).
         const result = await d.detect(input);
         const ctx = d.getContextState();
 

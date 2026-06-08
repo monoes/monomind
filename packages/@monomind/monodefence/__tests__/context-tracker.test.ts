@@ -83,4 +83,32 @@ describe('ContextTracker', () => {
     expect(state.turnCount).toBe(0);
     expect(state.cumulativeThreatScore).toBe(0);
   });
+
+  it('TTL decay steps escalation down and halves cumulative score after idle', () => {
+    // Use a 1ms decay window so it fires immediately in tests
+    const shortDecayTracker = new ContextTracker({ idleDecayMs: 1 });
+    shortDecayTracker.recordTurn('probe', makeResult(0.95)); // → attack
+    expect(shortDecayTracker.getState().escalationState).toBe('attack');
+
+    // Wait >1ms then send a benign turn — decay fires, steps back to escalating
+    return new Promise<void>(resolve => setTimeout(() => {
+      shortDecayTracker.recordTurn('benign', makeResult(0.0));
+      const state = shortDecayTracker.getState();
+      // Should have stepped back at least one level from attack
+      expect(['clean', 'probing', 'escalating']).toContain(state.escalationState);
+      // Cumulative score should have been halved
+      expect(state.cumulativeThreatScore).toBeLessThan(0.95);
+      resolve();
+    }, 10));
+  });
+
+  it('reset() also clears lastTurnAt so decay does not fire on fresh session', () => {
+    const shortDecayTracker = new ContextTracker({ idleDecayMs: 1 });
+    shortDecayTracker.recordTurn('attack', makeResult(0.95));
+    shortDecayTracker.reset();
+    // After reset, a new turn should not trigger decay (lastTurnAt = 0)
+    shortDecayTracker.recordTurn('fresh', makeResult(0.95));
+    expect(shortDecayTracker.getState().escalationState).toBe('attack');
+    expect(shortDecayTracker.getState().turnCount).toBe(1);
+  });
 });

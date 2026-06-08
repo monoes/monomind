@@ -45,8 +45,18 @@ const HAS_HOMOGLYPH_RE = new RegExp(`[${Object.keys(HOMOGLYPHS).join('')}]`);
 // Matches a word-boundary token that mixes letters with leet chars (excludes standalone emails/numbers)
 const MIXED_LEET_TOKEN_RE = /\b(?=[^@$\r\n]*[a-zA-Z])(?=[^a-zA-Z\r\n]*[@$0-9])[a-zA-Z0-9@$]{2,}\b/;
 
+// Skip expensive transforms on inputs longer than this — real obfuscation payloads
+// are short; very large inputs are documents, not injections.
+const MAX_EVASION_CHARS = 2000;
+
 export class EvasionDetector {
   normalize(input: string): EvasionResult {
+    // For very long inputs, only do cheap NFKC normalization and zero-width stripping
+    if (input.length > MAX_EVASION_CHARS) {
+      const stripped = input.normalize('NFKC').replace(/[​-‏﻿⁠᠎]/g, '');
+      return { normalizedInput: stripped, wasObfuscated: stripped !== input, techniqueDetected: undefined };
+    }
+
     const afterNFKC = input.normalize('NFKC');
     let result = afterNFKC;
 
