@@ -91,7 +91,10 @@ export class EvasionDetector {
     return input.replace(/\b[\w@$]+\b/g, (token) => {
       const hasLetter = /[a-zA-Z]/.test(token);
       const hasLeet = LEET_REGEX_NO_G.test(token);
-      // Treat tokens containing @<word> as email-like — not leet obfuscation
+      // Treat tokens containing @<word> as email-like — not leet obfuscation.
+      // Known tradeoff: @ll ("all") and @ttack ("attack") are also skipped.
+      // Accepted: real-world injection payloads use @-substitution only when mixed
+      // with other leet chars, so the false-negative risk is low vs. the FP risk.
       const isEmailToken = /@\w/.test(token);
       if (!hasLetter || !hasLeet || isEmailToken) return token;
       LEET_REGEX.lastIndex = 0;

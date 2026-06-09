@@ -258,8 +258,9 @@ export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
         contextTracker.recordTurn(input, result);
         const ctxState = contextTracker.getState();
         if (ctxState.escalationState === 'attack' && result.safe) {
-          // A new input in an active attack session should be treated with suspicion
-          // even if this individual message seems clean
+          // Soft suspicion signal: input is individually clean but session is in attack state.
+          // Raises overallRisk to 0.5 while leaving safe=true and threats=[].
+          // Consumers should check both safe AND overallRisk when using context tracking.
           result = { ...result, overallRisk: Math.max(result.overallRisk, 0.5) };
         }
       }
