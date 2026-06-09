@@ -39,19 +39,19 @@ export class HookExecutor {
   }
 
   /**
-   * Lazily wire MonoDefence security hooks if the package is installed.
+   * Lazily wire MonoFence security hooks if the package is installed.
    * Runs once per executor instance; failures are silently swallowed so that
-   * the hooks system works even without @monomind/monodefence present.
+   * the hooks system works even without monofence-ai present.
    */
   private _initSecurityHooks(): void {
     // Fire-and-forget: do not await so the constructor stays synchronous.
-    // @ts-ignore — @monomind/monodefence is an optional peer dep; may not be installed.
-    import('@monomind/monodefence/hooks')
+    // @ts-ignore — monofence-ai is an optional peer dep; may not be installed.
+    import('monofence-ai/hooks')
       .then(({ registerSecurityHooks }) => {
         registerSecurityHooks(this.registry);
       })
       .catch(() => {
-        // @monomind/monodefence not installed or hooks subpath unavailable — skip.
+        // monofence-ai not installed or hooks subpath unavailable — skip.
       });
   }
 

@@ -18,7 +18,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 // AIDefence instance type
-type AIDefenceInstance = ReturnType<typeof import('@monomind/monodefence').createAIDefence>;
+type AIDefenceInstance = ReturnType<typeof import('monofence-ai').createMonoDefence>;
 
 // Lazy-loaded AIDefence instance
 let aidefenceInstance: AIDefenceInstance | null = null;
@@ -34,14 +34,14 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
     return aidefenceInstance;
   }
 
-  const packageName = '@monomind/monodefence';
+  const packageName = 'monofence-ai';
 
   // First attempt - try to load via dynamic import (ESM)
   try {
     const aidefence = await import(packageName);
-    const instance = aidefence.createAIDefence({ enableLearning: true });
+    const instance = aidefence.createMonoDefence({ enableLearning: true });
     if (!instance) {
-      throw new Error('createAIDefence returned null');
+      throw new Error('createMonoDefence returned null');
     }
     aidefenceInstance = instance;
     return instance;
@@ -56,7 +56,7 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
 
   // Don't attempt install more than once per session
   if (installAttempted) {
-    throw new Error('AIDefence package not available. Install with: npm install @monomind/monodefence');
+    throw new Error('AIDefence package not available. Install with: npm install monofence-ai');
   }
   installAttempted = true;
 
@@ -65,7 +65,7 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
   const installed = await autoInstallPackage(packageName);
 
   if (!installed) {
-    throw new Error('AIDefence package not available. Install with: npm install @monomind/monodefence');
+    throw new Error('AIDefence package not available. Install with: npm install monofence-ai');
   }
 
   // Retry with ESM cache busting via file:// URL + timestamp
@@ -73,9 +73,9 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
     const modulePath = require.resolve(packageName);
     const cacheBust = `?t=${Date.now()}`;
     const aidefence = await import(`file://${modulePath}${cacheBust}`);
-    const instance = aidefence.createAIDefence({ enableLearning: true });
+    const instance = aidefence.createMonoDefence({ enableLearning: true });
     if (!instance) {
-      throw new Error('createAIDefence returned null after install');
+      throw new Error('createMonoDefence returned null after install');
     }
     aidefenceInstance = instance;
     console.error(`[monomind] ${packageName} loaded successfully after install`);
@@ -393,7 +393,7 @@ const aidefenceIsSafeTool: MCPTool = {
     const input = args.input as string;
 
     try {
-      const { isSafe } = await import('@monomind/monodefence');
+      const { isSafe } = await import('monofence-ai');
       const safe = isSafe(input);
 
       return {

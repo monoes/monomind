@@ -1,5 +1,5 @@
 {
-  "name": "@monomind/monodefence",
+  "name": "monofence-ai",
   "version": "1.0.0",
   "description": "AI Manipulation Defense System — evasion detection, multi-turn context, output scanning, hook wiring",
   "type": "module",
