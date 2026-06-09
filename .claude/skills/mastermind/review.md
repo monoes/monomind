@@ -147,12 +147,26 @@ Run the test suite and adversarial probes against the live monofence-ai detector
 **If `monofence_deep = true`** — add an input-boundary scan step:
 ```
 MONOFENCE INPUT BOUNDARY SCAN (monofence_deep flag):
-Identify files in this project that handle user-facing LLM inputs (prompt templates,
-request handlers, chat endpoints). For each boundary:
-1. Extract representative input samples from the code
-2. Run them through monofence-ai's detect() API
-3. Report which threat vectors are covered vs. unprotected
-4. Flag any input path that bypasses monofence-ai entirely
+
+Step 1 — Find LLM input boundary files using these patterns:
+  grep -rl "detect\|isSafe\|prompt\|chat\|completion\|message" src/ --include="*.ts" --include="*.js"
+  find . -name "*.ts" -path "*/routes/*" -o -name "*.ts" -path "*/handlers/*" \
+         -o -name "*.ts" -path "*/controllers/*" -o -name "*.ts" -path "*/api/*" \
+         -o -name "prompt*.ts" -o -name "*chat*.ts" -o -name "*completion*.ts"
+
+Step 2 — For each boundary file found, extract string literals and template literals
+  that flow into LLM calls (look for openai/anthropic/fetch calls).
+
+Step 3 — Run representative samples through monofence-ai's detect() API:
+  import { createMonoDefence } from 'monofence-ai';
+  const d = createMonoDefence();
+  const result = await d.detect(sample);
+
+Step 4 — Report:
+  COVERED: input paths that pass through monofence-ai before the LLM call
+  UNPROTECTED: input paths that reach the LLM without any monofence-ai check
+  BYPASSED: inputs that trigger allowlist rules and skip detection entirely
+  MISSES: representative samples that return safe=true but contain injection patterns
 ```
 
 Also run /mastermind:do --board <board_id> to track execution.
