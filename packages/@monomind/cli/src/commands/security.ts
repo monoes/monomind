@@ -802,16 +802,16 @@ const defendCommand: Command = {
     output.writeln(output.dim('─'.repeat(55)));
 
     // Dynamic import of aidefence (allows package to be optional)
-    let createAIDefence: typeof import('@monomind/monodefence').createAIDefence;
+    let createMonoDefence: typeof import('monofence-ai').createMonoDefence;
     try {
-      const aidefence = await import('@monomind/monodefence');
-      createAIDefence = aidefence.createAIDefence;
+      const aidefence = await import('monofence-ai');
+      createMonoDefence = aidefence.createMonoDefence;
     } catch {
-      output.printError('AIDefence package not installed. Run: npm install @monomind/monodefence');
+      output.printError('AIDefence package not installed. Run: npm install monofence-ai');
       return { success: false, message: 'AIDefence not available' };
     }
 
-    const defender = createAIDefence({ enableLearning });
+    const defender = createMonoDefence({ enableLearning });
 
     // Show stats mode
     if (showStats) {
