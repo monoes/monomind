@@ -772,7 +772,7 @@ const secretsCommand: Command = {
   },
 };
 
-// Defend subcommand (AIDefence integration)
+// Defend subcommand (MonoFence integration)
 const defendCommand: Command = {
   name: 'defend',
   description: 'AI manipulation defense - detect prompt injection, jailbreaks, and PII',
@@ -798,7 +798,7 @@ const defendCommand: Command = {
     const enableLearning = ctx.flags.learn !== false;
 
     output.writeln();
-    output.writeln(output.bold('🛡️ AIDefence - AI Manipulation Defense System'));
+    output.writeln(output.bold('🛡️ MonoFence - AI Manipulation Defense System'));
     output.writeln(output.dim('─'.repeat(55)));
 
     // Dynamic import of aidefence (allows package to be optional)
@@ -807,8 +807,8 @@ const defendCommand: Command = {
       const aidefence = await import('monofence-ai');
       createMonoDefence = aidefence.createMonoDefence;
     } catch {
-      output.printError('AIDefence package not installed. Run: npm install monofence-ai');
-      return { success: false, message: 'AIDefence not available' };
+      output.printError('MonoFence package not installed. Run: npm install monofence-ai');
+      return { success: false, message: 'MonoFence not available' };
     }
 
     const defender = createMonoDefence({ enableLearning });

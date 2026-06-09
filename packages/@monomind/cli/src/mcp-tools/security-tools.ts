@@ -1,5 +1,5 @@
 /**
- * Security MCP Tools - AIDefence Integration
+ * Security MCP Tools - MonoFence Integration
  *
  * Provides MCP tools for AI manipulation defense:
  * - aidefence_scan: Scan input for threats
@@ -17,19 +17,19 @@ import { createRequire } from 'module';
 // Create require for resolving module paths
 const require = createRequire(import.meta.url);
 
-// AIDefence instance type
-type AIDefenceInstance = ReturnType<typeof import('monofence-ai').createMonoDefence>;
+// MonoFence instance type
+type MonoFenceInstance = ReturnType<typeof import('monofence-ai').createMonoDefence>;
 
-// Lazy-loaded AIDefence instance
-let aidefenceInstance: AIDefenceInstance | null = null;
+// Lazy-loaded MonoFence instance
+let aidefenceInstance: MonoFenceInstance | null = null;
 
 // Track if we've attempted install this session
 let installAttempted = false;
 
 /**
- * Get or create AIDefence instance (throws if unavailable)
+ * Get or create MonoFence instance (throws if unavailable)
  */
-async function getAIDefence(): Promise<AIDefenceInstance> {
+async function getMonoFence(): Promise<MonoFenceInstance> {
   if (aidefenceInstance) {
     return aidefenceInstance;
   }
@@ -50,13 +50,13 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
     const error = e as Error;
     if (!error.message?.includes('Cannot find package') && !error.message?.includes('ERR_MODULE_NOT_FOUND')) {
       // Different error - might be a real issue
-      throw new Error(`AIDefence failed to load: ${error.message}`);
+      throw new Error(`MonoFence failed to load: ${error.message}`);
     }
   }
 
   // Don't attempt install more than once per session
   if (installAttempted) {
-    throw new Error('AIDefence package not available. Install with: npm install monofence-ai');
+    throw new Error('MonoFence package not available. Install with: npm install monofence-ai');
   }
   installAttempted = true;
 
@@ -65,7 +65,7 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
   const installed = await autoInstallPackage(packageName);
 
   if (!installed) {
-    throw new Error('AIDefence package not available. Install with: npm install monofence-ai');
+    throw new Error('MonoFence package not available. Install with: npm install monofence-ai');
   }
 
   // Retry with ESM cache busting via file:// URL + timestamp
@@ -81,7 +81,7 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
     console.error(`[monomind] ${packageName} loaded successfully after install`);
     return instance;
   } catch (retryError) {
-    throw new Error(`AIDefence installed but failed to load: ${retryError}. Try restarting the MCP server.`);
+    throw new Error(`MonoFence installed but failed to load: ${retryError}. Try restarting the MCP server.`);
   }
 }
 
@@ -111,7 +111,7 @@ const aidefenceScanTool: MCPTool = {
     const quick = args.quick as boolean;
 
     try {
-      const defender = await getAIDefence();
+      const defender = await getMonoFence();
 
       if (quick) {
         const result = defender.quickScan(input);
@@ -189,7 +189,7 @@ const aidefenceAnalyzeTool: MCPTool = {
     const k = (args.k as number) || 5;
 
     try {
-      const defender = await getAIDefence();
+      const defender = await getMonoFence();
       const result = await defender.detect(input);
 
       const analysis: Record<string, unknown> = {
@@ -247,14 +247,14 @@ const aidefenceAnalyzeTool: MCPTool = {
  */
 const aidefenceStatsTool: MCPTool = {
   name: 'aidefence_stats',
-  description: 'Get AIDefence detection and learning statistics.',
+  description: 'Get MonoFence detection and learning statistics.',
   inputSchema: {
     type: 'object',
     properties: {},
   },
   handler: async (): Promise<MCPToolResult> => {
     try {
-      const defender = await getAIDefence();
+      const defender = await getMonoFence();
       const stats = await defender.getStats();
 
       return {
@@ -327,7 +327,7 @@ const aidefenceLearnTool: MCPTool = {
     const mitigationSuccess = args.mitigationSuccess as boolean | undefined;
 
     try {
-      const defender = await getAIDefence();
+      const defender = await getMonoFence();
 
       // Re-detect to get result for learning
       const result = await defender.detect(input);
@@ -434,7 +434,7 @@ const aidefenceHasPIITool: MCPTool = {
     const input = args.input as string;
 
     try {
-      const defender = await getAIDefence();
+      const defender = await getMonoFence();
       const hasPII = defender.hasPII(input);
 
       return {
