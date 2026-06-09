@@ -87,4 +87,24 @@ describe('Allowlist', () => {
       expect(al.isAllowed('please use the special allowed phrase here')).toBe(true);
     });
   });
+
+  describe('g-flag regex safety', () => {
+    it('g-flagged user rules return consistent results on repeated identical inputs', () => {
+      // A g-flag regex advances lastIndex after each .test() match, causing alternating
+      // true/false without the lastIndex reset. This test confirms the fix is in place.
+      const al = new Allowlist([
+        { id: 'g-flag', pattern: /status/gi, types: [], reason: 'test', source: 'user' },
+      ]);
+      const results = Array.from({ length: 6 }, () => al.isAllowed('status check'));
+      expect(results).toEqual([true, true, true, true, true, true]);
+    });
+
+    it('y-flagged user rules return consistent results on repeated identical inputs', () => {
+      const al = new Allowlist([
+        { id: 'y-flag', pattern: /^status/iy, types: [], reason: 'test', source: 'user' },
+      ]);
+      const results = Array.from({ length: 4 }, () => al.isAllowed('status check'));
+      expect(results).toEqual([true, true, true, true]);
+    });
+  });
 });

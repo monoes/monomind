@@ -66,6 +66,11 @@ export class Allowlist {
       // prefer RegExp with ^ and $ anchors to avoid over-allowlisting.
       return input.toLowerCase().includes(rule.pattern.toLowerCase());
     }
+    // Reset lastIndex before testing — g/y-flagged regexes advance lastIndex after each
+    // successful .test() call, causing alternating true/false on repeated identical inputs.
+    if (rule.pattern.global || rule.pattern.sticky) {
+      rule.pattern.lastIndex = 0;
+    }
     return rule.pattern.test(input);
   }
 }
