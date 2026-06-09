@@ -50,7 +50,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nokhodian/monomind.git",
-    "directory": "packages/@monomind/monodefence"
+    "directory": "packages/monofence-ai"
   },
   "engines": { "node": ">=18.0.0" }
 }
