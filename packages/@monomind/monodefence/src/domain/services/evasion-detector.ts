@@ -61,8 +61,10 @@ export class EvasionDetector {
     let result = afterNFKC;
 
     result = this.replaceHomoglyphs(result);
-    result = this.expandLeetspeak(result);
     result = this.collapseSpacedChars(result);
+    // Leet expansion runs after space collapsing so that spaced-leet combos like
+    // "i g n 0 r e" collapse to "ign0re" first, then "0" → "o" → "ignore".
+    result = this.expandLeetspeak(result);
     result = this.stripZeroWidth(result);
     result = this.appendDecodedBase64(input, result);
 
