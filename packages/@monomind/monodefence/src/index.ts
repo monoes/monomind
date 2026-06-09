@@ -456,6 +456,9 @@ export function calculateSecurityConsensus(
   // Determine consensus
   const criticalThreats = allThreats.filter(t => t.severity === 'critical');
 
+  // Critical threats short-circuit weighted scoring intentionally (fail-secure).
+  // A single critical threat — regardless of that agent's weight — means we cannot
+  // declare the input safe. Weight only governs uncertain/borderline cases.
   if (criticalThreats.length > 0) {
     return {
       consensus: 'threat',
