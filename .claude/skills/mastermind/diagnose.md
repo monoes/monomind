@@ -164,7 +164,7 @@ if [ -n "$issue_id" ]; then
   echo "ISSUE: $issue_id"
   echo "────────────────────────────────────────────────────────"
   if [ -f "$issuesFile" ]; then
-    jq --arg id "$issue_id" '.issues[] | select(.id == $id)' "$issuesFile" 2>/dev/null \
+    jq --arg id "$issue_id" '(.issues // [])[] | select(.id == $id)' "$issuesFile" 2>/dev/null \
       || echo "  Issue not found: $issue_id"
   fi
 fi
@@ -212,9 +212,9 @@ agentCount=$(jq '.roles | length' "$orgFile")
 echo "Org agents:  $agentCount"
 
 if [ -f "$issuesFile" ]; then
-  openCount=$(jq '[.issues[] | select(.status == "open")] | length' "$issuesFile")
-  inpCount=$(jq '[.issues[] | select(.status == "in_progress")] | length' "$issuesFile")
-  doneCount=$(jq '[.issues[] | select(.status == "done")] | length' "$issuesFile")
+  openCount=$(jq '[(.issues // [])[] | select(.status == "open")] | length' "$issuesFile")
+  inpCount=$(jq '[(.issues // [])[] | select(.status == "in_progress")] | length' "$issuesFile")
+  doneCount=$(jq '[(.issues // [])[] | select(.status == "done")] | length' "$issuesFile")
   echo "Issues:      open=$openCount  in_progress=$inpCount  done=$doneCount"
 fi
 

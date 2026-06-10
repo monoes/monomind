@@ -56,7 +56,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 wsFile=".monomind/orgs/${org_name}-workspaces.json"
 [ ! -f "$wsFile" ] && { echo "ERROR: No workspaces file for org '$org_name'. Create workspaces via /mastermind:workspaces."; exit 1; }
 
-wsDef=$(jq -r --arg id "$workspace_id" '.workspaces[] | select(.id == $id)' "$wsFile")
+wsDef=$(jq -r --arg id "$workspace_id" '(.workspaces // [])[] | select(.id == $id)' "$wsFile")
 [ -z "$wsDef" ] && { echo "ERROR: Workspace '$workspace_id' not found in org '$org_name'."; exit 1; }
 
 issuesFile=".monomind/orgs/${org_name}-issues.json"
@@ -145,7 +145,7 @@ else
       ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
       tmp="${wsFile}.tmp"
       jq --arg id "$workspace_id" --arg ts "$ts" \
-        '.workspaces = [.workspaces[] | if .id == $id then .last_provisioned = $ts else . end]' \
+        '.workspaces = [(.workspaces // [])[] | if .id == $id then .last_provisioned = $ts else . end]' \
         "$wsFile" > "$tmp" && mv "$tmp" "$wsFile"
       echo "  Provision complete."
     } || echo "  Provision command exited with error."
@@ -230,7 +230,7 @@ echo "────────────────────────�
 if [ ! -f "$issuesFile" ]; then
   echo "  No issues file found."
 else
-  jq -r --arg wid "$workspace_id" '.issues[] |
+  jq -r --arg wid "$workspace_id" '(.issues // [])[] |
     select(.workspace_id == $wid or (.assigned_workspace == $wid)) |
     [.id, (.status // "open"), (.priority // "medium"), (.title // "(no title)")] | @tsv' \
     "$issuesFile" | while IFS=$'\t' read -r id st pri title; do
@@ -250,7 +250,7 @@ if [ ! -f "$routinesFile" ]; then
 else
   # Show routines that have workspace-specific variable bindings
   jq -r --arg wid "$workspace_id" \
-    '.routines[] | select((.variables // {}) | to_entries[] | .key | startswith("WS_") or contains("workspace")) |
+    '(.routines // [])[] | select((.variables // {}) | to_entries[] | .key | startswith("WS_") or contains("workspace")) |
     "\(.id)  \(.name // "(no name)")  vars: \((.variables // {}) | keys | join(", "))"' \
     "$routinesFile" 2>/dev/null || echo "  No routines with workspace-specific variables."
 fi
@@ -279,7 +279,7 @@ if [ -n "$provision_command" ] || [ -n "$teardown_command" ] || [ -n "$cleanup_c
      --arg base "${base_ref:-}" \
      --arg branch "${branch_name:-}" \
      --arg ts "$ts" \
-    '.workspaces = [.workspaces[] | if .id == $id then
+    '.workspaces = [(.workspaces // [])[] | if .id == $id then
        if .config == null then .config = {} else . end |
        (if $prov != "" then .config.provisionCommand = $prov else . end) |
        (if $td != "" then .config.teardownCommand = $td else . end) |

@@ -31,7 +31,7 @@ If `caller` is not "command", load brain context following _protocol.md Brain Lo
 orgFile=".monomind/orgs/${org_name}.json"
 [ ! -f "$orgFile" ] && {
   echo "ERROR: Org '${org_name}' not found."
-  echo "Available orgs: $(ls .monomind/orgs/*.json 2>/dev/null | xargs -I{} basename {} .json | tr '\n' ' ')"
+  echo "Available orgs: $(ls .monomind/orgs/*.json 2>/dev/null | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments' | xargs -I{} basename {} .json | tr '\n' ' ')"
   exit 1
 }
 ```
@@ -39,15 +39,20 @@ orgFile=".monomind/orgs/${org_name}.json"
 Read current status:
 ```bash
 current_status=$(jq -r '.status // "no-schedule"' "$orgFile")
-has_schedule=$(jq 'if .loop.poll_interval_minutes then "yes" else "no" end' "$orgFile")
+has_schedule=$(jq -r 'if .loop.poll_interval_minutes then "yes" else "no" end' "$orgFile")
 ```
 
 If `has_schedule == "no"`:
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+# Write stop file so any running boss agent detects it at next loop iteration
+mkdir -p ".monomind/orgs/.stops"
+touch ".monomind/orgs/.stops/${org_name}.stop"
+# Also POST to the control server in case a dashboard-started instance is running
+curl -s -X POST "${CTRL_URL}/api/orgs/${org_name}/stop" >/dev/null 2>&1 || true
+echo "Stop signal sent to org '${org_name}' (non-scheduled). The boss agent will exit at the next loop checkpoint."
 ```
-- Print: "Org '<org_name>' does not have a scheduled loop. To stop a persistent (non-scheduled) org, use the dashboard STOP button or: `curl -X POST ${CTRL_URL}/api/orgs/<org_name>/stop`"
 - Exit.
 
 If `current_status == "stopped"`:

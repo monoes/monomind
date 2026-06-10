@@ -76,12 +76,12 @@ orgFile=".monomind/orgs/${org_name}.json"
 echo "SKILL MAP — org: $org_name"
 echo "────────────────────────────────────────────────────────"
 
-jq -r '.roles[] | "[\(.id)] \(.title)  agent_type=\(.agent_type)"' "$orgFile" | while IFS= read -r line; do
+jq -r '(.roles // [])[] | "[\(.id)] \(.title)  agent_type=\(.agent_type)"' "$orgFile" | while IFS= read -r line; do
   echo "$line"
   roleId=$(echo "$line" | grep -o '^\[[^]]*\]' | tr -d '[]')
   # Show skills configured for this role
   mappedSkills=$(jq -r --arg id "$roleId" \
-    '.roles[] | select(.id == $id) | .skills // [] | join(", ")' \
+    '(.roles // [])[] | select(.id == $id) | .skills // [] | join(", ")' \
     "$orgFile" 2>/dev/null)
   if [ -n "$mappedSkills" ] && [ "$mappedSkills" != "null" ]; then
     echo "  Skills: $mappedSkills"
@@ -126,12 +126,12 @@ orgFile=".monomind/orgs/${org_name}.json"
 tmp="${orgFile}.tmp"
 if [ "$action" = "enable" ]; then
   jq --arg id "$role_id" --arg skill "$skill_name" \
-    '.roles = [.roles[] | if .id == $id then .skills = ((.skills // []) + [$skill] | unique) else . end]' \
+    '.roles = [(.roles // [])[] | if .id == $id then .skills = ((.skills // []) + [$skill] | unique) else . end]' \
     "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
   echo "Enabled skill '$skill_name' for role '$role_id'"
 else
   jq --arg id "$role_id" --arg skill "$skill_name" \
-    '.roles = [.roles[] | if .id == $id then .skills = ((.skills // []) | map(select(. != $skill))) else . end]' \
+    '.roles = [(.roles // [])[] | if .id == $id then .skills = ((.skills // []) | map(select(. != $skill))) else . end]' \
     "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
   echo "Disabled skill '$skill_name' for role '$role_id'"
 fi

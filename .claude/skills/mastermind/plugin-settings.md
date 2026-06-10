@@ -65,14 +65,14 @@ If `caller` is not "command", load brain context following _protocol.md Brain Lo
 registryFile=".monomind/plugins/registry.json"
 [ ! -f "$registryFile" ] && { echo "ERROR: No plugin registry found. Install plugins via /mastermind:plugins."; exit 1; }
 
-pluginDef=$(jq -r --arg id "$plugin_id" '.plugins[] | select(.id == $id)' "$registryFile")
+pluginDef=$(jq -r --arg id "$plugin_id" '(.plugins // [])[] | select(.id == $id)' "$registryFile")
 [ -z "$pluginDef" ] && { echo "ERROR: Plugin '$plugin_id' not found. List plugins via /mastermind:plugins --action list."; exit 1; }
 
 # Load org-level overrides if org_name specified
 orgPluginsFile=""
 if [ -n "$org_name" ]; then
   orgPluginsFile=".monomind/orgs/${org_name}-plugins.json"
-  orgOverride=$([ -f "$orgPluginsFile" ] && jq -r --arg id "$plugin_id" '.plugins[] | select(.id == $id)' "$orgPluginsFile" || echo "")
+  orgOverride=$([ -f "$orgPluginsFile" ] && jq -r --arg id "$plugin_id" '(.plugins // [])[] | select(.id == $id)' "$orgPluginsFile" || echo "")
 fi
 ```
 
@@ -203,7 +203,7 @@ fi
 
 tmp="${registryFile}.tmp"
 jq --arg id "$plugin_id" --arg k "$config_key" --arg v "$config_value" \
-  '.plugins = [.plugins[] | if .id == $id then
+  '.plugins = [(.plugins // [])[] | if .id == $id then
      if .config == null then .config = {} else . end |
      .config[$k] = $v
    else . end]' \
@@ -229,7 +229,7 @@ esac
 
 tmp="${registryFile}.tmp"
 jq --arg id "$plugin_id" --arg path "$grant_path" --arg access "$access" \
-  '.plugins = [.plugins[] | if .id == $id then
+  '.plugins = [(.plugins // [])[] | if .id == $id then
      .grants = ((.grants // []) | map(select(.path != $path))) +
                [{"path":$path,"access":$access}]
    else . end]' \
@@ -245,7 +245,7 @@ echo "Grant added: $access → $grant_path"
 
 tmp="${registryFile}.tmp"
 jq --arg id "$plugin_id" --arg path "$grant_path" \
-  '.plugins = [.plugins[] | if .id == $id then
+  '.plugins = [(.plugins // [])[] | if .id == $id then
      .grants = [(.grants // [])[] | select(.path != $path)]
    else . end]' \
   "$registryFile" > "$tmp" && mv "$tmp" "$registryFile"

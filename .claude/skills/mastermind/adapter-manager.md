@@ -97,7 +97,7 @@ echo "────────────────────────�
 printf "%-20s %-22s %-10s %-8s %-8s %s\n" "TYPE" "LABEL" "SOURCE" "MODELS" "STATUS" "VERSION"
 echo "────────────────────────────────────────────────────────"
 
-jq -r '.adapters[] |
+jq -r '(.adapters // [])[] |
   [.type, (.label // .type), (.source // "built-in"),
    ((.modelsCount // 0) | tostring),
    (if .disabled then "disabled" else "enabled" end),
@@ -107,7 +107,7 @@ jq -r '.adapters[] |
 done
 
 total=$(jq '.adapters | length' "$adapterFile")
-enabled=$(jq '[.adapters[] | select(.disabled == false or .disabled == null)] | length' "$adapterFile")
+enabled=$(jq '[(.adapters // [])[] | select(.disabled == false or .disabled == null)] | length' "$adapterFile")
 echo ""
 echo "  Total: $total  |  Enabled: $enabled  |  Disabled: $((total - enabled))"
 echo ""
@@ -119,12 +119,12 @@ echo "  To add a custom HTTP adapter: --action add-http --http-url http://localh
 ```bash
 [ -z "$adapter_type" ] && { echo "ERROR: --adapter-type required."; exit 1; }
 
-exists=$(jq -r --arg t "$adapter_type" '[.adapters[] | select(.type == $t)] | length' "$adapterFile")
+exists=$(jq -r --arg t "$adapter_type" '[(.adapters // [])[] | select(.type == $t)] | length' "$adapterFile")
 [ "$exists" -eq 0 ] && { echo "ERROR: Adapter '$adapter_type' not found. Use --action list to see available adapters."; exit 1; }
 
 tmp="${adapterFile}.tmp"
 jq --arg t "$adapter_type" \
-  '.adapters = [.adapters[] | if .type == $t then .disabled = false else . end]' \
+  '.adapters = [(.adapters // [])[] | if .type == $t then .disabled = false else . end]' \
   "$adapterFile" > "$tmp" && mv "$tmp" "$adapterFile"
 
 echo "Adapter '$adapter_type' ENABLED — will appear in agent model menus."
@@ -135,11 +135,11 @@ echo "Adapter '$adapter_type' ENABLED — will appear in agent model menus."
 ```bash
 [ -z "$adapter_type" ] && { echo "ERROR: --adapter-type required."; exit 1; }
 
-isBuiltIn=$(jq -r --arg t "$adapter_type" '.adapters[] | select(.type == $t) | .isBuiltIn // false' "$adapterFile")
+isBuiltIn=$(jq -r --arg t "$adapter_type" '(.adapters // [])[] | select(.type == $t) | .isBuiltIn // false' "$adapterFile")
 
 tmp="${adapterFile}.tmp"
 jq --arg t "$adapter_type" \
-  '.adapters = [.adapters[] | if .type == $t then .disabled = true else . end]' \
+  '.adapters = [(.adapters // [])[] | if .type == $t then .disabled = true else . end]' \
   "$adapterFile" > "$tmp" && mv "$tmp" "$adapterFile"
 
 echo "Adapter '$adapter_type' DISABLED — hidden from model menus."
@@ -151,7 +151,7 @@ echo "Adapter '$adapter_type' DISABLED — hidden from model menus."
 ```bash
 [ -z "$adapter_type" ] && { echo "ERROR: --adapter-type required."; exit 1; }
 
-pkg=$(jq -r --arg t "$adapter_type" '.adapters[] | select(.type == $t) | .packageName // ""' "$adapterFile")
+pkg=$(jq -r --arg t "$adapter_type" '(.adapters // [])[] | select(.type == $t) | .packageName // ""' "$adapterFile")
 [ -z "$pkg" ] && { echo "ERROR: Adapter '$adapter_type' has no packageName — cannot reinstall. Only npm-installed adapters support reinstall."; exit 1; }
 
 echo "REINSTALL — $adapter_type from $pkg"
@@ -163,7 +163,7 @@ if npm install "$pkg" 2>&1 | tail -5; then
   ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   tmp="${adapterFile}.tmp"
   jq --arg t "$adapter_type" --arg v "$newVer" --arg ts "$ts" \
-    '.adapters = [.adapters[] | if .type == $t then .version = $v | .reinstalledAt = $ts else . end]' \
+    '.adapters = [(.adapters // [])[] | if .type == $t then .version = $v | .reinstalledAt = $ts else . end]' \
     "$adapterFile" > "$tmp" && mv "$tmp" "$adapterFile"
   echo "  Reinstalled: $adapter_type @ $newVer"
 else
@@ -185,7 +185,7 @@ slug=$(echo "${http_name}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | 
 slug="http-${slug}"
 
 # Check for duplicate
-dup=$(jq -r --arg t "$slug" '[.adapters[] | select(.type == $t)] | length' "$adapterFile")
+dup=$(jq -r --arg t "$slug" '[(.adapters // [])[] | select(.type == $t)] | length' "$adapterFile")
 [ "$dup" -gt 0 ] && { echo "ERROR: Adapter slug '$slug' already exists. Remove first: --action remove --adapter-type $slug"; exit 1; }
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -209,12 +209,12 @@ echo "  Status:  enabled"
 ```bash
 [ -z "$adapter_type" ] && { echo "ERROR: --adapter-type required."; exit 1; }
 
-isBuiltIn=$(jq -r --arg t "$adapter_type" '.adapters[] | select(.type == $t) | .isBuiltIn // false' "$adapterFile")
+isBuiltIn=$(jq -r --arg t "$adapter_type" '(.adapters // [])[] | select(.type == $t) | .isBuiltIn // false' "$adapterFile")
 [ "$isBuiltIn" = "true" ] && { echo "ERROR: Cannot remove built-in adapter '$adapter_type'. Use --action disable instead."; exit 1; }
 
 tmp="${adapterFile}.tmp"
 jq --arg t "$adapter_type" \
-  '.adapters = [.adapters[] | select(.type != $t)]' \
+  '.adapters = [(.adapters // [])[] | select(.type != $t)]' \
   "$adapterFile" > "$tmp" && mv "$tmp" "$adapterFile"
 
 echo "Adapter '$adapter_type' removed from registry."
@@ -226,7 +226,7 @@ echo "Adapter '$adapter_type' removed from registry."
 echo "CHECKING FOR ADAPTER UPDATES"
 echo "────────────────────────────────────────────────────────"
 
-jq -r '.adapters[] | select(.packageName != null and .packageName != "") |
+jq -r '(.adapters // [])[] | select(.packageName != null and .packageName != "") |
   [.type, .packageName, (.version // "unknown")] | @tsv' \
   "$adapterFile" | while IFS=$'\t' read -r type pkg ver; do
   latest=$(curl -sf "https://registry.npmjs.org/${pkg}/latest" 2>/dev/null | jq -r '.version // "?"' 2>/dev/null || echo "?")
@@ -237,7 +237,7 @@ jq -r '.adapters[] | select(.packageName != null and .packageName != "") |
   fi
 done
 
-npmCount=$(jq '[.adapters[] | select(.packageName != null)] | length' "$adapterFile")
+npmCount=$(jq '[(.adapters // [])[] | select(.packageName != null)] | length' "$adapterFile")
 [ "$npmCount" -eq 0 ] && echo "  No npm-installed adapters to check."
 ```
 
