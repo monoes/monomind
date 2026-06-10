@@ -64,8 +64,8 @@
   },
   "config": {
     "autoStart": false,
-    "logDir": "/Users/morteza/Desktop/tools/monomind/.monomind/logs",
-    "stateFile": "/Users/morteza/Desktop/tools/monomind/.monomind/daemon-state.json",
+    "logDir": ".monomind/logs",
+    "stateFile": ".monomind/daemon-state.json",
     "maxConcurrent": 2,
     "workerTimeoutMs": 960000,
     "resourceThresholds": {

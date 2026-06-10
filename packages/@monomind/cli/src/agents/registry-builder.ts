@@ -5,12 +5,15 @@
  * and produces a unified AgentRegistry JSON.
  */
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
-import { join, basename, relative, extname } from 'path';
-import type {
-  AgentRegistry,
-  AgentRegistryEntry,
-  TriggerPattern,
-} from '../../../shared/dist/types/agent-registry.js';
+import { join, basename, relative, extname, isAbsolute } from 'path';
+type TriggerPattern = { pattern: string; mode: 'glob' | 'regex' | 'exact' };
+type AgentRegistryEntry = {
+  slug: string; name: string; version: string; category: string;
+  capabilities: string[]; taskTypes: string[]; tools: string[];
+  triggers: TriggerPattern[]; deprecated: boolean; deprecatedBy?: string;
+  dependencies: string[]; filePath: string; registeredAt: string; lastUpdated: string;
+};
+type AgentRegistry = { version: string; generatedAt: string; totalAgents: number; agents: AgentRegistryEntry[] };
 
 /** Parsed YAML frontmatter value: scalar string/boolean or a string array. */
 type FrontmatterValue = string | boolean | string[];
@@ -194,7 +197,7 @@ export function buildUnifiedRegistry(roots: string[], outputPath?: string): Agen
         deprecatedBy:
           typeof fm.deprecatedBy === 'string' ? fm.deprecatedBy : undefined,
         dependencies: toStringArray(fm.dependencies),
-        filePath: file,
+        filePath: isAbsolute(file) ? relative(process.cwd(), file) : file,
         registeredAt: now,
         lastUpdated: now,
       });

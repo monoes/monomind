@@ -1,7 +1,7 @@
 {
-  "lastRun": "2026-06-04T16:27:03.674Z",
+  "lastRun": "2026-06-10T21:59:36.619Z",
   "mode": "incremental",
-  "file": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/hooks.ts",
+  "file": "packages/@monomind/cli/dist/src/ui/server.mjs",
   "pluginFound": true,
-  "graphFound": true
+  "graphFound": false
 }
