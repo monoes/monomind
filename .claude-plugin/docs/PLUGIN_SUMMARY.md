@@ -5,7 +5,7 @@
 **Version**: 2.5.0
 **License**: MIT
 **Author**: rUv
-**Repository**: https://github.com/nokhodian/monomind
+**Repository**: https://github.com/monoes/monomind
 
 ---
 
@@ -45,7 +45,7 @@ monomind/
 
 ```
 # Install plugin
-/plugin add nokhodian/monomind
+/plugin add monoes/monomind
 
 # Restart Claude Code
 /restart
@@ -219,7 +219,7 @@ All documentation follows official Claude Code plugin guidelines.
 
 ### Install
 ```
-/plugin add nokhodian/monomind
+/plugin add monoes/monomind
 ```
 
 ### Update
@@ -289,10 +289,10 @@ Should show `monomind` as active.
 
 ## 🤝 Support & Community
 
-- **Repository**: https://github.com/nokhodian/monomind
-- **Issues**: https://github.com/nokhodian/monomind/issues
-- **Discussions**: https://github.com/nokhodian/monomind/discussions
-- **Website**: https://github.com/nokhodian/monomind
+- **Repository**: https://github.com/monoes/monomind
+- **Issues**: https://github.com/monoes/monomind/issues
+- **Discussions**: https://github.com/monoes/monomind/discussions
+- **Website**: https://github.com/monoes/monomind
 
 ---
 
@@ -332,7 +332,7 @@ The plugin is configured via `.claude-plugin/plugin.json`:
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monomind.git"
+    "url": "https://github.com/monoes/monomind.git"
   },
   "mcpServers": {
     "monomind": {
@@ -347,7 +347,7 @@ Commands and agents are automatically discovered from `commands/` and `agents/` 
 
 Users install with:
 ```
-/plugin add nokhodian/monomind
+/plugin add monoes/monomind
 ```
 
 ---

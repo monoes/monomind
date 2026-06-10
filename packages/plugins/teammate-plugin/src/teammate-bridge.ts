@@ -299,6 +299,9 @@ export class TeammateBridge extends EventEmitter {
 
     // Initialize circuit breaker
     this.circuitBreaker = new CircuitBreaker(DEFAULT_CIRCUIT_BREAKER_CONFIG);
+
+    // Start message TTL cleanup
+    this.startMessageTTLCleanup();
   }
 
   /**
@@ -2384,6 +2387,65 @@ export class TeammateBridge extends EventEmitter {
     } catch {
       return undefined;
     }
+  }
+
+  private startMessageTTLCleanup(): void {
+    this.messageTTLTimer = setInterval(() => {
+      const now = Date.now();
+      for (const [teamName, team] of this.activeTeams) {
+        const config = this.getCachedTeamConfig(teamName);
+        const retentionMs = config?.messageRetention ?? 3600000;
+        const cutoff = now - retentionMs;
+
+        for (const teammate of team.teammates) {
+          try {
+            const mailboxPath = this.getMailboxPath(teamName, teammate.id);
+            if (!fs.existsSync(mailboxPath)) continue;
+
+            const content = fs.readFileSync(mailboxPath, 'utf-8');
+            const messages = safeJSONParse<MailboxMessage[]>(content);
+            const filtered = messages.filter(
+              m => new Date(m.timestamp).getTime() > cutoff
+            );
+
+            if (filtered.length < messages.length) {
+              fs.writeFileSync(
+                mailboxPath,
+                JSON.stringify(filtered, null, 2),
+                { encoding: 'utf-8', mode: 0o600 }
+              );
+            }
+          } catch {
+            // Ignore individual mailbox errors
+          }
+        }
+      }
+    }, this.messageTTLCheckIntervalMs);
+  }
+
+  /**
+   * Dispose the bridge — stops all background timers and clears state.
+   * Call when the bridge is no longer needed.
+   */
+  dispose(): void {
+    if (this.messageTTLTimer) {
+      clearInterval(this.messageTTLTimer);
+      this.messageTTLTimer = null;
+    }
+
+    for (const [teamName, poller] of this.mailboxPollers) {
+      clearInterval(poller);
+    }
+    this.mailboxPollers.clear();
+
+    for (const [teamName, timer] of this.memoryPersistTimers) {
+      clearInterval(timer);
+    }
+    this.memoryPersistTimers.clear();
+
+    this.flushPendingWrites();
+    this.healthChecker.stopAll();
+    this.activeTeams.clear();
   }
 }
 

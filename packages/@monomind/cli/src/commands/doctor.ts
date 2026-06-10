@@ -2,7 +2,7 @@
  * CLI Doctor Command
  * System diagnostics, dependency checks, config validation
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -594,6 +594,79 @@ async function checkMonoesIntegration(): Promise<HealthCheck> {
   }
 }
 
+async function checkGuidanceGates(): Promise<HealthCheck> {
+  const settingsPath = join(process.cwd(), '.claude', 'settings.json');
+  const gatesHandlerPath = join(process.cwd(), '.claude', 'helpers', 'handlers', 'gates-handler.cjs');
+
+  if (!existsSync(gatesHandlerPath)) {
+    return {
+      name: 'Guidance Gates',
+      status: 'warn',
+      message: 'gates-handler.cjs not found — enforcement gates not installed',
+      fix: 'monomind init  (then monomind guidance setup)',
+    };
+  }
+
+  if (!existsSync(settingsPath)) {
+    return {
+      name: 'Guidance Gates',
+      status: 'warn',
+      message: 'gates-handler.cjs present but .claude/settings.json missing — pre-write hook not registered',
+      fix: 'monomind guidance setup',
+    };
+  }
+
+  try {
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+    const preToolUse: Array<{ matcher?: string; hooks: Array<{ command: string }> }> =
+      settings?.hooks?.PreToolUse ?? [];
+    const hasPreWrite = preToolUse.some(
+      e => e.matcher === 'Write|Edit|MultiEdit' && e.hooks.some(h => h.command?.includes('pre-write'))
+    );
+    const hasPreBash = preToolUse.some(
+      e => e.matcher === 'Bash' && e.hooks.some(h => h.command?.includes('pre-bash'))
+    );
+
+    if (!hasPreWrite && !hasPreBash) {
+      return {
+        name: 'Guidance Gates',
+        status: 'warn',
+        message: 'gates-handler.cjs present but neither pre-bash nor pre-write hooks registered — no gates active',
+        fix: 'monomind guidance setup',
+      };
+    }
+    if (!hasPreWrite) {
+      return {
+        name: 'Guidance Gates',
+        status: 'warn',
+        message: 'gates-handler.cjs present but pre-write hook not in settings.json — secrets gate inactive',
+        fix: 'monomind guidance setup',
+      };
+    }
+    if (!hasPreBash) {
+      return {
+        name: 'Guidance Gates',
+        status: 'warn',
+        message: 'gates-handler.cjs present but pre-bash hook not in settings.json — destructive-ops gate inactive',
+        fix: 'monomind guidance setup',
+      };
+    }
+
+    return {
+      name: 'Guidance Gates',
+      status: 'pass',
+      message: 'destructive-ops (pre-bash) + secrets (pre-write) gates active',
+    };
+  } catch {
+    return {
+      name: 'Guidance Gates',
+      status: 'warn',
+      message: 'Could not parse .claude/settings.json',
+      fix: 'monomind guidance setup --force',
+    };
+  }
+}
+
 // Format health check result
 function formatCheck(check: HealthCheck): string {
   const icon = check.status === 'pass' ? output.success('✓') :
@@ -624,7 +697,7 @@ export const doctorCommand: Command = {
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, monoes)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, helpers, monoes, gates)',
       type: 'string'
     },
     {
@@ -671,7 +744,8 @@ export const doctorCommand: Command = {
       checkMonograph,
       checkHelpersFresh,
       checkAgenticFlow,
-      checkMonoesIntegration
+      checkMonoesIntegration,
+      checkGuidanceGates,
     ];
 
     const componentMap: Record<string, () => Promise<HealthCheck>> = {
@@ -691,7 +765,8 @@ export const doctorCommand: Command = {
       'monograph': checkMonograph,
       'helpers': checkHelpersFresh,
       'agentic-flow': checkAgenticFlow,
-      'monoes': checkMonoesIntegration
+      'monoes': checkMonoesIntegration,
+      'gates': checkGuidanceGates,
     };
 
     let checksToRun = allChecks;

@@ -73,9 +73,13 @@ module.exports = {
     try {
       var mgDbPath1 = path.join(CWD, '.monomind', 'monograph.db');
       if (fs.existsSync(mgDbPath1)) {
-        var execSync1 = require('child_process').execSync;
-        var changedFiles1 = '';
-        try { changedFiles1 = execSync1('git diff --name-only HEAD 2>/dev/null || git diff --name-only 2>/dev/null', { cwd: CWD, timeout: 3000, shell: true }).toString().trim(); } catch(e) {}
+        var changedFiles1 = await new Promise(function(resolve) {
+          require('child_process').exec(
+            'git diff --name-only HEAD 2>/dev/null || git diff --name-only 2>/dev/null',
+            { cwd: CWD, timeout: 3000 },
+            function(err, stdout) { resolve(err ? '' : (stdout || '').trim()); }
+          );
+        });
         if (changedFiles1) {
           var mgMod1 = null;
           mgMod1 = hCtx._requireMonograph();

@@ -90,7 +90,7 @@ mcp__monomind__memory_store {
 ```javascript
 // Coordinate feature implementation across packages
 mcp__github__push_files {
-  owner: "nokhodian",
+  owner: "monoes",
   repo: "monomind",
   branch: "feature/github-commands",
   files: [

@@ -10,7 +10,7 @@
  * - Performance benchmarking
  * - Migration management
  *
- * https://github.com/nokhodian/monomind
+ * https://github.com/monoes/monomind
  */
 import { output } from '../../output.js';
 // Import subcommands

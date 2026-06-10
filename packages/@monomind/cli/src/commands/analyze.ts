@@ -11,7 +11,7 @@
  * - Module communities using Louvain algorithm
  * - Circular dependency detection
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';

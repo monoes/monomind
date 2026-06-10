@@ -84,7 +84,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monomind.git",
+    "url": "https://github.com/monoes/monomind.git",
     "directory": "packages/@monomind/hooks"
   },
   "publishConfig": {

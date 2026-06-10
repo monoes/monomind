@@ -49,7 +49,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nokhodian/monomind.git",
+    "url": "git+https://github.com/monoes/monomind.git",
     "directory": "packages/monofence-ai"
   },
   "engines": { "node": ">=18.0.0" }

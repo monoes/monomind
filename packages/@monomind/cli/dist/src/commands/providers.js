@@ -2,7 +2,7 @@
  * CLI Providers Command
  * Manage AI providers, models, and configurations
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import { output } from '../output.js';
 import { configManager } from '../services/config-file-manager.js';
@@ -383,7 +383,7 @@ export const providersCommand = {
             'Agentic Flow (optimized ONNX with SIMD)',
         ]);
         output.writeln();
-        output.writeln(output.dim('github.com/nokhodian/monomind'));
+        output.writeln(output.dim('github.com/monoes/monomind'));
         return { success: true };
     },
 };

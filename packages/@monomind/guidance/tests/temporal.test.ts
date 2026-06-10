@@ -630,19 +630,19 @@ describe('TemporalStore - Supersession', () => {
       validFrom: times.past1h,
       validUntil: times.future1h,
     });
-    const v1 = store.supersede(v2!.id, 'v1', {
+    const v3 = store.supersede(v2!.id, 'v3', {
       validFrom: times.now,
       validUntil: times.future1h,
     });
 
     const retrievedV1 = store.get(v1.id);
     const retrievedV2 = store.get(v2!.id);
-    const retrievedV1 = store.get(v1!.id);
+    const retrievedV3 = store.get(v3!.id);
 
     expect(retrievedV1!.supersededBy).toBe(v2!.id);
-    expect(retrievedV2!.supersededBy).toBe(v1!.id);
+    expect(retrievedV2!.supersededBy).toBe(v3!.id);
     expect(retrievedV2!.supersedes).toBe(v1.id);
-    expect(retrievedV1!.supersedes).toBe(v2!.id);
+    expect(retrievedV3!.supersedes).toBe(v2!.id);
   });
 });
 
@@ -750,12 +750,12 @@ describe('TemporalStore - Timeline', () => {
       validFrom: times.past1h,
       validUntil: times.future1h,
     });
-    const v1 = store.supersede(v2!.id, 'v1', {
+    const v3 = store.supersede(v2!.id, 'v3', {
       validFrom: times.now,
       validUntil: times.future1h,
     });
 
-    const timeline = store.getTimeline(v1!.id);
+    const timeline = store.getTimeline(v3!.id);
 
     expect(timeline!.predecessors).toHaveLength(2);
     expect(timeline!.predecessors[0].id).toBe(v1.id);
@@ -772,7 +772,7 @@ describe('TemporalStore - Timeline', () => {
       validFrom: times.past1h,
       validUntil: times.future1h,
     });
-    const v1 = store.supersede(v2!.id, 'v1', {
+    const v3 = store.supersede(v2!.id, 'v3', {
       validFrom: times.now,
       validUntil: times.future1h,
     });
@@ -782,7 +782,7 @@ describe('TemporalStore - Timeline', () => {
     expect(timeline!.predecessors).toHaveLength(0);
     expect(timeline!.successors).toHaveLength(2);
     expect(timeline!.successors[0].id).toBe(v2!.id);
-    expect(timeline!.successors[1].id).toBe(v1!.id);
+    expect(timeline!.successors[1].id).toBe(v3!.id);
   });
 
   it('should get timeline with both predecessors and successors', () => {
@@ -794,7 +794,7 @@ describe('TemporalStore - Timeline', () => {
       validFrom: times.past1h,
       validUntil: times.future1h,
     });
-    const v1 = store.supersede(v2!.id, 'v1', {
+    const v3 = store.supersede(v2!.id, 'v3', {
       validFrom: times.now,
       validUntil: times.future1h,
     });
@@ -804,7 +804,7 @@ describe('TemporalStore - Timeline', () => {
     expect(timeline!.predecessors).toHaveLength(1);
     expect(timeline!.predecessors[0].id).toBe(v1.id);
     expect(timeline!.successors).toHaveLength(1);
-    expect(timeline!.successors[0].id).toBe(v1!.id);
+    expect(timeline!.successors[0].id).toBe(v3!.id);
   });
 
   it('should return undefined for non-existent assertion timeline', () => {

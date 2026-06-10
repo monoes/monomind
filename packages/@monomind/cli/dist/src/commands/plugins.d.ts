@@ -3,7 +3,7 @@
  * Plugin management, installation, and lifecycle
  * Now uses IPFS-based decentralized registry for discovery
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import type { Command } from '../types.js';
 export declare const pluginsCommand: Command;

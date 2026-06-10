@@ -123,8 +123,8 @@ describe('synthesizeWildcardImports', () => {
     ].join('\n');
 
     const nodes: MonographNode[] = [
-      makeNode({ id: 'fn:src/math.ts:add', name: 'add' }),
-      makeNode({ id: 'fn:src/math.ts:subtract', name: 'subtract' }),
+      makeNode({ id: 'fn:src/math.ts:add', name: 'add', filePath: 'src/math.ts' }),
+      makeNode({ id: 'fn:src/math.ts:subtract', name: 'subtract', filePath: 'src/math.ts' }),
     ];
 
     const result = synthesizeWildcardImports('file:src/calc.ts', src, nodes, []);
@@ -191,8 +191,8 @@ describe('synthesizeWildcardImports', () => {
     ].join('\n');
 
     const nodes: MonographNode[] = [
-      makeNode({ id: 'fn:src/module-a.ts:alpha', name: 'alpha' }),
-      makeNode({ id: 'fn:src/module-b.ts:beta', name: 'beta' }),
+      makeNode({ id: 'fn:src/module-a.ts:alpha', name: 'alpha', filePath: 'src/module-a.ts' }),
+      makeNode({ id: 'fn:src/module-b.ts:beta', name: 'beta', filePath: 'src/module-b.ts' }),
     ];
 
     const result = synthesizeWildcardImports('file:src/consumer.ts', src, nodes, []);

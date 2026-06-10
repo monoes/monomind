@@ -164,10 +164,12 @@ describe('cypherToSql', () => {
     const { parsed } = parseCypherQuery(
       'MATCH (n:Class {name: "UserService"}) RETURN n.name, n.filePath',
     );
-    const sql = cypherToSql(parsed!);
+    const { sql, params } = cypherToSql(parsed!);
     expect(sql).toContain('FROM nodes n');
-    expect(sql).toContain("n.label = 'Class'");
-    expect(sql).toContain("n.name = 'UserService'");
+    expect(sql).toContain('n.label = ?');
+    expect(sql).toContain('n.name = ?');
+    expect(params).toContain('Class');
+    expect(params).toContain('UserService');
     expect(sql).toContain('LIMIT 200');
     expect(sql).toContain('n.name AS "n_name"');
     expect(sql).toContain('n.file_path AS "n_filePath"');
@@ -177,11 +179,13 @@ describe('cypherToSql', () => {
     const { parsed } = parseCypherQuery(
       'MATCH (a:Function)-[:CALLS]->(b:Function {name: "authenticate"}) RETURN a.name, a.filePath',
     );
-    const sql = cypherToSql(parsed!);
+    const { sql, params } = cypherToSql(parsed!);
     expect(sql).toContain('FROM nodes a');
-    expect(sql).toContain("e.relation = 'CALLS'");
+    expect(sql).toContain('e.relation = ?');
+    expect(params).toContain('CALLS');
     expect(sql).toContain('JOIN nodes b ON b.id = e.target_id');
-    expect(sql).toContain("b.name = 'authenticate'");
+    expect(sql).toContain('b.name = ?');
+    expect(params).toContain('authenticate');
     expect(sql).toContain('LIMIT 200');
   });
 });

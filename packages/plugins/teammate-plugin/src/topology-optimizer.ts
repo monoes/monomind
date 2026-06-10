@@ -17,6 +17,7 @@ async function loadBMSSP(): Promise<void> {
   if (WasmGraph) return;
 
   try {
+    // @ts-ignore — @nokhodian/bmssp is an optional WASM dep; fallback activates when absent
     const bmssp = await import('@nokhodian/bmssp');
     await bmssp.default(); // Initialize WASM
     WasmGraph = bmssp.WasmGraph;

@@ -2,7 +2,7 @@
  * CLI Deployment Command
  * Deployment management, environments, rollbacks
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import { output } from '../output.js';
 import * as fs from 'fs';
@@ -683,7 +683,7 @@ export const deploymentCommand = {
             'Deployment previews for PRs',
         ]);
         output.writeln();
-        output.writeln(output.dim('github.com/nokhodian/monomind'));
+        output.writeln(output.dim('github.com/monoes/monomind'));
         return { success: true };
     },
 };
