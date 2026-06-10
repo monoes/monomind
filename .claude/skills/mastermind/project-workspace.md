@@ -69,7 +69,7 @@ projectsFile=".monomind/orgs/${org_name}-projects.json"
 [ ! -f "$projectsFile" ] && { echo "ERROR: No projects file for org '${org_name}'."; exit 1; }
 
 # Find project
-projDef=$(jq -r --arg pid "$project_id" '.projects[] | select(.id == $pid or .name == $pid)' "$projectsFile")
+projDef=$(jq -r --arg pid "$project_id" '(.projects // [])[] | select(.id == $pid or .name == $pid)' "$projectsFile")
 [ -z "$projDef" ] && { echo "ERROR: Project '$project_id' not found."; exit 1; }
 
 # Load project workspaces file
@@ -77,7 +77,7 @@ pwsFile=".monomind/orgs/${org_name}-project-workspaces.json"
 [ ! -f "$pwsFile" ] && echo '{"workspaces":[]}' > "$pwsFile"
 
 wsDef=$(jq -r --arg wid "$workspace_id" --arg pid "$project_id" \
-  '.workspaces[] | select(.id == $wid and (.project_id == $pid or .projectId == $pid))' \
+  '(.workspaces // [])[] | select(.id == $wid and (.project_id == $pid or .projectId == $pid))' \
   "$pwsFile")
 ```
 
@@ -144,7 +144,7 @@ jq \
   --arg remoteRef "${remote_workspace_ref:-}" \
   --arg sharedKey "${shared_workspace_key:-}" \
   --arg ts "$ts" \
-  '.workspaces = [.workspaces[] | if (.id == $wid and (.project_id == $pid or .projectId == $pid)) then
+  '.workspaces = [(.workspaces // [])[] | if (.id == $wid and (.project_id == $pid or .projectId == $pid)) then
     (if $name != "" then .name = $name else . end) |
     (if $st != "" then .sourceType = $st else . end) |
     (if $vis != "" then .visibility = $vis else . end) |
@@ -178,7 +178,7 @@ parsed=$(echo "$runtime_config" | python3 -c "import json,sys; d=json.load(sys.s
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${pwsFile}.tmp"
 jq --arg wid "$workspace_id" --arg pid "$project_id" --argjson rt "$parsed" --arg ts "$ts" \
-  '.workspaces = [.workspaces[] | if (.id == $wid and (.project_id == $pid or .projectId == $pid)) then
+  '.workspaces = [(.workspaces // [])[] | if (.id == $wid and (.project_id == $pid or .projectId == $pid)) then
     .runtimeConfig = {"workspaceRuntime": $rt} | .updatedAt = $ts
   else . end]' \
   "$pwsFile" > "$tmp" && mv "$tmp" "$pwsFile"

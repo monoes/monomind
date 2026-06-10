@@ -91,7 +91,7 @@ echo "CURRENT ROLES IN ORG: $org_name"
 echo "────────────────────────────────────────────────────────"
 printf "%-22s %-20s %-14s %s\n" "ID" "TITLE" "ADAPTER" "REPORTS TO"
 echo "────────────────────────────────────────────────────────"
-jq -r '.roles[] |
+jq -r '(.roles // [])[] |
   [.id, (.title // "-"), (.adapter.type // "claude-local"), (.reports_to // "(root)")] | @tsv' \
   "$orgFile" | while IFS=$'\t' read -r id title adapter rt; do
   printf "%-22s %-20s %-14s %s\n" "$id" "$title" "$adapter" "$rt"
@@ -165,13 +165,13 @@ if [ -z "$agent_id" ]; then
 fi
 
 # Check for duplicate id
-duplicate=$(jq -r --arg id "$agent_id" '[.roles[] | select(.id == $id)] | length' "$orgFile")
+duplicate=$(jq -r --arg id "$agent_id" '[(.roles // [])[] | select(.id == $id)] | length' "$orgFile")
 [ "$duplicate" -gt 0 ] && { echo "ERROR: Agent id '$agent_id' already exists in org '$org_name'. Use --agent-id to specify a unique id."; exit 1; }
 
 # Validate reports_to if set
 if [ -n "$reports_to" ]; then
-  parentExists=$(jq -r --arg pid "$reports_to" '[.roles[] | select(.id == $pid)] | length' "$orgFile")
-  [ "$parentExists" -eq 0 ] && echo "WARNING: Parent agent '$reports_to' not found in org. Setting anyway."
+  parentExists=$(jq -r --arg pid "$reports_to" '[(.roles // [])[] | select(.id == $pid)] | length' "$orgFile")
+  [ "$parentExists" -eq 0 ] && { echo "ERROR: Parent agent '$reports_to' not found in org '${org_name}'. Check the agent ID with /mastermind:org-chart --org ${org_name}."; exit 1; }
 fi
 
 # Build skills array

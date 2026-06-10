@@ -47,7 +47,7 @@ projectsFile=".monomind/orgs/${org_name}-projects.json"
 
 ```bash
 jq -r '
-  .projects[] |
+  (.projects // [])[] |
   "[\(.id)] \(.name)  lead=\(.lead_agent // "unassigned")  status=\(.status // "active")  tasks=\(.task_count // 0)\n  \(.description // "")"
 ' "$projectsFile" 2>/dev/null || echo "No projects yet."
 ```
@@ -89,7 +89,7 @@ Set the lead agent for a project:
 ```bash
 tmp="${projectsFile}.tmp"
 jq --arg id "$project_id" --arg agent "$agent_id" \
-   '.projects = [.projects[] | if .id == $id then .lead_agent = $agent | .updated_at = (now|todate) else . end]' \
+   '.projects = [(.projects // [])[] | if .id == $id then .lead_agent = $agent | .updated_at = (now|todate) else . end]' \
    "$projectsFile" > "$tmp" && mv "$tmp" "$projectsFile"
 echo "Assigned $agent_id as lead for project $project_id"
 ```
@@ -99,7 +99,7 @@ echo "Assigned $agent_id as lead for project $project_id"
 ```bash
 tmp="${projectsFile}.tmp"
 jq --arg id "$project_id" \
-   '.projects = [.projects[] | if .id == $id then .status = "archived" | .archived_at = (now|todate) else . end]' \
+   '.projects = [(.projects // [])[] | if .id == $id then .status = "archived" | .archived_at = (now|todate) else . end]' \
    "$projectsFile" > "$tmp" && mv "$tmp" "$projectsFile"
 echo "Project $project_id archived."
 ```
@@ -109,7 +109,7 @@ echo "Project $project_id archived."
 Show project summary with linked tasks from the board:
 
 ```bash
-project=$(jq --arg id "$project_id" '.projects[] | select(.id == $id)' "$projectsFile")
+project=$(jq --arg id "$project_id" '(.projects // [])[] | select(.id == $id)' "$projectsFile")
 echo "$project" | jq .
 
 # If board exists, count tasks tagged with this project

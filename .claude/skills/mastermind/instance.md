@@ -78,7 +78,7 @@ jq -r '
 
 echo ""
 echo "ORGS"
-orgs=$(ls .monomind/orgs/*.json 2>/dev/null | grep -v '\-state\|-goals\|-routines\|-approvals\|-projects\|-worktrees\|-secrets\|-members\|-adapters\|-plugins' | wc -l | tr -d ' ')
+orgs=$(ls .monomind/orgs/*.json 2>/dev/null | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments' | wc -l | tr -d ' ')
 echo "  Active orgs: $orgs"
 ```
 
@@ -96,14 +96,15 @@ found=0
 for orgF in .monomind/orgs/*.json; do
   [[ "$orgF" == *-state* || "$orgF" == *-goals* || "$orgF" == *-routines* || "$orgF" == *-approvals* ]] && continue
   [[ "$orgF" == *-projects* || "$orgF" == *-worktrees* || "$orgF" == *-members* || "$orgF" == *-adapters* ]] && continue
-  [[ "$orgF" == *-plugins* || "$orgF" == *-bootstrap* ]] && continue
+  [[ "$orgF" == *-plugins* || "$orgF" == *-bootstrap* || "$orgF" == *-activity* ]] && continue
+  [[ "$orgF" == *-issues* || "$orgF" == *-workspaces* || "$orgF" == *-environments* ]] && continue
 
   orgName=$(basename "$orgF" .json)
   [ -n "$org_name" ] && [ "$orgName" != "$org_name" ] && continue
 
   stateFile=".monomind/orgs/${orgName}-state.json"
   jq -r --arg org "$orgName" '
-    .roles[] |
+    (.roles // [])[] |
     select(.heartbeat.enabled == true or (.runtimeConfig.heartbeat.enabled == true)) |
     [$org, .id,
      ((.heartbeat.interval // .runtimeConfig.heartbeat.interval // "900") | tostring) + "s",
@@ -131,12 +132,12 @@ orgFile=".monomind/orgs/${org_name}.json"
 
 # Get current state
 current=$(jq -r --arg id "$agent_id" \
-  '.roles[] | select(.id == $id) | .heartbeat.enabled // false' "$orgFile" 2>/dev/null || echo "false")
+  '(.roles // [])[] | select(.id == $id) | .heartbeat.enabled // false' "$orgFile" 2>/dev/null || echo "false")
 newState=$([ "$current" = "true" ] && echo "false" || echo "true")
 
 tmp="${orgFile}.tmp"
 jq --arg id "$agent_id" --argjson enabled "$newState" \
-  '.roles = [.roles[] | if .id == $id then .heartbeat.enabled = $enabled else . end]' \
+  '.roles = [(.roles // [])[] | if .id == $id then .heartbeat.enabled = $enabled else . end]' \
   "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
 
 echo "Heartbeat for '$agent_id' → $([ "$newState" = "true" ] && echo 'ENABLED' || echo 'DISABLED')"
@@ -187,7 +188,8 @@ total_pending=0
 for orgF in .monomind/orgs/*.json; do
   [[ "$orgF" == *-state* || "$orgF" == *-goals* || "$orgF" == *-routines* || "$orgF" == *-approvals* ]] && continue
   [[ "$orgF" == *-projects* || "$orgF" == *-worktrees* || "$orgF" == *-members* || "$orgF" == *-adapters* ]] && continue
-  [[ "$orgF" == *-plugins* || "$orgF" == *-bootstrap* ]] && continue
+  [[ "$orgF" == *-plugins* || "$orgF" == *-bootstrap* || "$orgF" == *-activity* ]] && continue
+  [[ "$orgF" == *-issues* || "$orgF" == *-workspaces* || "$orgF" == *-environments* ]] && continue
 
   orgName=$(basename "$orgF" .json)
   total_orgs=$((total_orgs + 1))
@@ -199,7 +201,7 @@ for orgF in .monomind/orgs/*.json; do
     total_running=$((total_running + running))
   fi
   if [ -f "$approvalsFile" ]; then
-    pending=$(jq '[.approvals[] | select(.status == "pending")] | length' "$approvalsFile" 2>/dev/null || echo 0)
+    pending=$(jq '[(.approvals // [])[] | select(.status == "pending")] | length' "$approvalsFile" 2>/dev/null || echo 0)
     total_pending=$((total_pending + pending))
   fi
 done
