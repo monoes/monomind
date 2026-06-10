@@ -2,7 +2,7 @@
  * CLI Platforms Command
  * Install/uninstall Monograph context instructions for 14 AI coding platforms
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';

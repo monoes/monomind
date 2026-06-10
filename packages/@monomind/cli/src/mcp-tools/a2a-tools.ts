@@ -73,9 +73,9 @@ const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolV
   coder: {
     name: 'monomind/coder',
     description: 'Implementation specialist — writes clean, efficient code from specifications',
-    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+    provider: { organization: 'monomind', url: 'https://github.com/monoes/monomind' },
     version: '1.0.0',
-    documentationUrl: 'https://github.com/nokhodian/monomind#agents',
+    documentationUrl: 'https://github.com/monoes/monomind#agents',
     capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
     authentication: { schemes: ['bearer'] },
     defaultOutputModes: ['application/json', 'text/plain'],
@@ -89,7 +89,7 @@ const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolV
   reviewer: {
     name: 'monomind/reviewer',
     description: 'Code review specialist — correctness, security, performance, maintainability',
-    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+    provider: { organization: 'monomind', url: 'https://github.com/monoes/monomind' },
     version: '1.0.0',
     capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
     authentication: { schemes: ['bearer'] },
@@ -103,7 +103,7 @@ const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolV
   tester: {
     name: 'monomind/tester',
     description: 'QA specialist — test strategy, test writing, coverage analysis',
-    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+    provider: { organization: 'monomind', url: 'https://github.com/monoes/monomind' },
     version: '1.0.0',
     capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
     authentication: { schemes: ['bearer'] },
@@ -117,7 +117,7 @@ const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolV
   researcher: {
     name: 'monomind/researcher',
     description: 'Research specialist — web search, code exploration, information synthesis',
-    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+    provider: { organization: 'monomind', url: 'https://github.com/monoes/monomind' },
     version: '1.0.0',
     capabilities: { streaming: true, pushNotifications: true, stateTransitionHistory: true },
     authentication: { schemes: ['bearer'] },
@@ -131,7 +131,7 @@ const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolV
   'security-architect': {
     name: 'monomind/security-architect',
     description: 'Security architecture specialist — threat modelling, CVE remediation, secure design',
-    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+    provider: { organization: 'monomind', url: 'https://github.com/monoes/monomind' },
     version: '1.0.0',
     capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
     authentication: { schemes: ['bearer', 'mtls'] },

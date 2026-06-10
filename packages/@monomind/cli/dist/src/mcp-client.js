@@ -200,6 +200,13 @@ export function listMCPTools(category) {
     }));
 }
 /**
+ * Return all registered tools including their handler functions.
+ * Used by startHttpServer() to register tools with the HTTP/WS MCP server.
+ */
+export function getAllMCPTools() {
+    return Array.from(TOOL_REGISTRY.values());
+}
+/**
  * Check if an MCP tool exists
  *
  * @param toolName - Name of the MCP tool

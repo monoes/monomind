@@ -7,7 +7,7 @@
  *   npx monomind monovector setup --output /path/to/dir
  *   npx monomind monovector setup --print      # Print to stdout only
  *
- * https://github.com/nokhodian/monomind
+ * https://github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../../types.js';
@@ -651,7 +651,7 @@ docker-compose up -d
 
 ## Learn More
 - [MonoVector Docker Hub](https://hub.docker.com/r/nokhodian/monovector-postgres)
-- [Monomind Documentation](https://github.com/nokhodian/monomind)
+- [Monomind Documentation](https://github.com/monoes/monomind)
 `;
 
 /**

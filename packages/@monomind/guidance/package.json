@@ -142,6 +142,14 @@
   "dependencies": {
     "@monomind/hooks": "workspace:*"
   },
+  "peerDependencies": {
+    "ruvbot": ">=0.1.8"
+  },
+  "peerDependenciesMeta": {
+    "ruvbot": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "typescript": "^5.3.0",
@@ -186,7 +194,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monomind.git",
+    "url": "https://github.com/monoes/monomind.git",
     "directory": "packages/@monomind/guidance"
   },
   "publishConfig": {

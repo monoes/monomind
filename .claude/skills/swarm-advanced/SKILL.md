@@ -924,10 +924,10 @@ mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 4 })
 
 ## References
 
-- [Monomind Documentation](https://github.com/nokhodian/monomind)
-- [Swarm Orchestration Guide](https://github.com/nokhodian/monomind/wiki/swarm)
-- [MCP Tools Reference](https://github.com/nokhodian/monomind/wiki/mcp)
-- [Performance Optimization](https://github.com/nokhodian/monomind/wiki/performance)
+- [Monomind Documentation](https://github.com/monoes/monomind)
+- [Swarm Orchestration Guide](https://github.com/monoes/monomind/wiki/swarm)
+- [MCP Tools Reference](https://github.com/monoes/monomind/wiki/mcp)
+- [Performance Optimization](https://github.com/monoes/monomind/wiki/performance)
 
 ---
 

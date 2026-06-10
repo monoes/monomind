@@ -11,27 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-
-/**
- * Local validator for stored embeddings — rejects oversized JSON, NaN/Infinity
- * values, non-arrays, and out-of-bound dimensions before they reach cosineSim
- * or HNSW math (which would otherwise OOM or poison ranking with NaN).
- */
-const _MAX_EMBEDDING_DIMS = 8192;
-const _MAX_EMBEDDING_JSON_BYTES = _MAX_EMBEDDING_DIMS * 32;
-function safeParseEmbeddingLocal(raw: string | null | undefined): number[] | null {
-  if (typeof raw !== 'string' || raw.length === 0) return null;
-  if (raw.length > _MAX_EMBEDDING_JSON_BYTES) return null;
-  let parsed: unknown;
-  try { parsed = JSON.parse(raw); } catch { return null; }
-  if (!Array.isArray(parsed)) return null;
-  if (parsed.length === 0 || parsed.length > _MAX_EMBEDDING_DIMS) return null;
-  for (let i = 0; i < parsed.length; i++) {
-    const v = parsed[i];
-    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
-  }
-  return parsed as number[];
-}
+import { safeParseEmbedding } from './memory-bridge.js';
 
 // ADR-053: Lazy import of AgentDB v1 bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
@@ -2053,7 +2033,7 @@ export async function storeEntry(options: {
 
     // Add to HNSW index for faster future searches (validated to reject malformed embeddings)
     if (embeddingJson) {
-      const embResult = safeParseEmbeddingLocal(embeddingJson);
+      const embResult = safeParseEmbedding(embeddingJson);
       if (embResult) {
         await addToHNSWIndex(id, embResult, {
           id,
@@ -2177,7 +2157,7 @@ export async function searchEntries(options: {
         let score = 0;
 
         if (embeddingJson) {
-          const embedding = safeParseEmbeddingLocal(embeddingJson);
+          const embedding = safeParseEmbedding(embeddingJson);
           if (embedding && embedding.length === queryEmbedding.length) {
             score = cosineSim(queryEmbedding, embedding);
           }

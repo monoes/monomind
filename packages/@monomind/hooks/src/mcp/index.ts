@@ -580,7 +580,7 @@ export const evoAgentXTool: MCPTool = {
  */
 export const modelOutcomeTool: MCPTool = {
   name: 'hooks/model-outcome',
-  description: 'Record a verifiable agent outcome for RLVR reward learning. Runs tsc --noEmit and/or aidefence_scan pattern checks and stores the binary reward in ReasoningBank.',
+  description: 'Record a verifiable agent outcome for RLVR reward learning. Runs tsc --noEmit and/or monofence_scan pattern checks and stores the binary reward in ReasoningBank.',
   inputSchema: {
     type: 'object',
     properties: {

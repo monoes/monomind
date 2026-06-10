@@ -46,7 +46,7 @@ export declare function resetInstallAttempts(): void;
  * Optional package dependencies and their purposes
  */
 export declare const OPTIONAL_PACKAGES: {
-    readonly '@monomind/aidefence': {
+    readonly 'monofence-ai': {
         readonly description: "AI manipulation defense (prompt injection, PII detection)";
         readonly tools: readonly ["aidefence_scan", "aidefence_analyze", "aidefence_stats", "aidefence_learn"];
     };
@@ -61,7 +61,7 @@ declare const _default: {
     isPackageAvailable: typeof isPackageAvailable;
     resetInstallAttempts: typeof resetInstallAttempts;
     OPTIONAL_PACKAGES: {
-        readonly '@monomind/aidefence': {
+        readonly 'monofence-ai': {
             readonly description: "AI manipulation defense (prompt injection, PII detection)";
             readonly tools: readonly ["aidefence_scan", "aidefence_analyze", "aidefence_stats", "aidefence_learn"];
         };

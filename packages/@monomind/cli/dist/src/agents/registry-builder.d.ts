@@ -1,4 +1,29 @@
-import type { AgentRegistry } from '../../../shared/dist/types/agent-registry.js';
+type TriggerPattern = {
+    pattern: string;
+    mode: 'glob' | 'regex' | 'exact';
+};
+type AgentRegistryEntry = {
+    slug: string;
+    name: string;
+    version: string;
+    category: string;
+    capabilities: string[];
+    taskTypes: string[];
+    tools: string[];
+    triggers: TriggerPattern[];
+    deprecated: boolean;
+    deprecatedBy?: string;
+    dependencies: string[];
+    filePath: string;
+    registeredAt: string;
+    lastUpdated: string;
+};
+type AgentRegistry = {
+    version: string;
+    generatedAt: string;
+    totalAgents: number;
+    agents: AgentRegistryEntry[];
+};
 /**
  * Build the agent registry by scanning `.md` files under `agentsRoot`.
  *
@@ -27,4 +52,5 @@ export declare function buildRegistry(agentsRoot: string, outputPath?: string): 
  * @returns The deduplicated AgentRegistry.
  */
 export declare function buildUnifiedRegistry(roots: string[], outputPath?: string): AgentRegistry;
+export {};
 //# sourceMappingURL=registry-builder.d.ts.map

@@ -230,8 +230,8 @@ npx ts-node -e "
 
 ## Links
 
-- **GitHub**: [github.com/nokhodian/monomind](https://github.com/nokhodian/monomind)
+- **GitHub**: [github.com/monoes/monomind](https://github.com/monoes/monomind)
 - **npm**: [@monomind/guidance](https://www.npmjs.com/package/@monomind/guidance)
 - **npm**: [monomind](https://www.npmjs.com/package/monomind)
 - **npm**: [ruvbot](https://www.npmjs.com/package/ruvbot)
-- **GitHub**: [nokhodian/monomind](https://github.com/nokhodian/monomind)
+- **GitHub**: [monoes/monomind](https://github.com/monoes/monomind)

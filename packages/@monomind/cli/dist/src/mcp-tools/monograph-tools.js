@@ -229,7 +229,7 @@ const monographCommunityTool = {
     inputSchema: {
         type: 'object',
         properties: {
-            id: { type: 'string', description: 'Community ID (number)' },
+            id: { type: 'number', description: 'Community ID' },
         },
         required: ['id'],
     },
@@ -466,18 +466,81 @@ const monographStalenessTool = {
         return text(JSON.stringify(report, null, 2));
     },
 };
-// ── monograph_diff ────────────────────────────────────────────────────────────
-const monographDiffTool = {
-    name: 'monograph_diff',
-    description: 'Compare current graph against a previous snapshot.',
+// ── monograph_snapshot ────────────────────────────────────────────────────────
+const monographSnapshotTool = {
+    name: 'monograph_snapshot',
+    description: 'Save current graph state to a named JSON snapshot. Use with monograph_diff to compare before/after changes.',
     inputSchema: {
         type: 'object',
         properties: {
-            snapshotSha: { type: 'string', description: 'Git SHA of the snapshot to compare against' },
+            name: { type: 'string', description: 'Snapshot name (default: ISO timestamp). Used as the filename.' },
         },
     },
-    handler: async () => {
-        return text('Graph diff requires a saved snapshot. Run monograph_build to create one, then compare after changes.');
+    handler: async (input) => {
+        const { openDb, closeDb, snapshotFromDb } = await import('@monoes/monograph');
+        const { writeFileSync, mkdirSync } = await import('fs');
+        const db = openDb(getDbPath());
+        try {
+            const snapshot = snapshotFromDb(db);
+            const name = input.name ?? new Date().toISOString().replace(/[:.]/g, '-');
+            const snapshotDir = join(getProjectCwd(), '.monomind', 'snapshots');
+            mkdirSync(snapshotDir, { recursive: true });
+            const outPath = join(snapshotDir, `${name}.json`);
+            writeFileSync(outPath, JSON.stringify(snapshot, null, 2));
+            return text(`Snapshot saved: ${outPath}\n  nodes: ${snapshot.nodes.length}  edges: ${snapshot.edges.length}`);
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+// ── monograph_diff ────────────────────────────────────────────────────────────
+const monographDiffTool = {
+    name: 'monograph_diff',
+    description: 'Compare two named graph snapshots (saved via monograph_snapshot). Omit "after" to diff the "before" snapshot against the live graph.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            before: { type: 'string', description: 'Name of the before snapshot (without .json extension)' },
+            after: { type: 'string', description: 'Name of the after snapshot, or omit to compare against the live graph' },
+        },
+        required: ['before'],
+    },
+    handler: async (input) => {
+        const { openDb, closeDb, snapshotFromDb, diffSnapshots } = await import('@monoes/monograph');
+        const { readFileSync, existsSync } = await import('fs');
+        const snapshotDir = join(getProjectCwd(), '.monomind', 'snapshots');
+        const beforePath = join(snapshotDir, `${input.before}.json`);
+        if (!existsSync(beforePath)) {
+            return text(`Snapshot not found: ${beforePath}\nCreate one first with monograph_snapshot.`);
+        }
+        const before = JSON.parse(readFileSync(beforePath, 'utf-8'));
+        let after;
+        if (input.after) {
+            const afterPath = join(snapshotDir, `${input.after}.json`);
+            if (!existsSync(afterPath))
+                return text(`Snapshot not found: ${afterPath}`);
+            after = JSON.parse(readFileSync(afterPath, 'utf-8'));
+        }
+        else {
+            const db = openDb(getDbPath());
+            try {
+                after = snapshotFromDb(db);
+            }
+            finally {
+                closeDb(db);
+            }
+        }
+        const diff = diffSnapshots(before, after);
+        const section = (label, items) => items.length > 0 ? `\n${label} (${items.length}):\n${items.slice(0, 10).join('\n')}${items.length > 10 ? `\n  … ${items.length - 10} more` : ''}` : '';
+        const lines = [
+            `Diff: ${diff.summary}`,
+            section('New nodes', diff.newNodes.map(n => `  + [${n.label}] ${n.name}  ${n.filePath ?? ''}`)),
+            section('Removed nodes', diff.removedNodes.map(n => `  - [${n.label}] ${n.name}  ${n.filePath ?? ''}`)),
+            section('New edges', diff.newEdges.map(e => `  + ${e.sourceId} --[${e.relation}]--> ${e.targetId}`)),
+            section('Removed edges', diff.removedEdges.map(e => `  - ${e.sourceId} --[${e.relation}]--> ${e.targetId}`)),
+        ].join('');
+        return text(lines);
     },
 };
 // ── monograph_export ──────────────────────────────────────────────────────────
@@ -1221,6 +1284,43 @@ const monographGroupStatusTool = {
         return text(lines.join('\n'));
     },
 };
+// ── monograph_neighbors ───────────────────────────────────────────────────────
+const monographNeighborsTool = {
+    name: 'monograph_neighbors',
+    description: 'Show all directly connected nodes for a given symbol — outbound and optionally inbound edges, with relation types.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            name: { type: 'string', description: 'Symbol name to look up' },
+            relationFilter: { type: 'string', description: 'Filter by relation type, e.g. IMPORTS, CALLS' },
+            includeInbound: { type: 'boolean', description: 'Include inbound edges (default: false)' },
+        },
+        required: ['name'],
+    },
+    handler: async (input) => {
+        const { openDb, closeDb, getMonographNeighbors } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const result = getMonographNeighbors(db, {
+                name: input.name,
+                relationFilter: input.relationFilter,
+                includeInbound: input.includeInbound ?? false,
+            });
+            if (!result.node)
+                return text(`No node found with name: ${input.name}`);
+            const lines = [
+                `[${result.node.label}] ${result.node.name}  ${result.node.filePath ?? ''}`,
+                `Neighbors: ${result.neighbors.length}`,
+                '',
+                ...result.neighbors.map(n => `  ${n.direction === 'inbound' ? '←' : '→'} [${n.node.label}] ${n.node.name}  (${n.relation})  ${n.node.filePath ?? ''}`),
+            ];
+            return text(lines.join('\n'));
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
 // ── Export all tools ──────────────────────────────────────────────────────────
 export const monographTools = [
     monographBuildTool,
@@ -1238,7 +1338,9 @@ export const monographTools = [
     monographWatchStopTool,
     monographReportTool,
     monographStalenessTool,
+    monographSnapshotTool,
     monographDiffTool,
+    monographNeighborsTool,
     monographExportTool,
     monographContextTool,
     monographImpactTool,

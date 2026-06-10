@@ -228,7 +228,7 @@ const monographCommunityTool: MCPTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      id: { type: 'string', description: 'Community ID (number)' },
+      id: { type: 'number', description: 'Community ID' },
     },
     required: ['id'],
   },

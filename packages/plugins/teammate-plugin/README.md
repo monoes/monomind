@@ -663,7 +663,7 @@ This plugin is published to the Monomind Plugin Registry on IPFS for decentraliz
   "description": "Native TeammateTool integration for Claude Code v2.1.19+",
   "author": "Monomind Team",
   "license": "MIT",
-  "repository": "https://github.com/nokhodian/monomind",
+  "repository": "https://github.com/monoes/monomind",
   "keywords": ["claude-code", "teammate", "multi-agent", "swarm"],
   "requirements": {
     "claudeCode": ">=2.1.19",
@@ -708,6 +708,6 @@ MIT
 
 ## Related
 
-- [Monomind](https://github.com/nokhodian/monomind) - Multi-agent orchestration framework
+- [Monomind](https://github.com/monoes/monomind) - Multi-agent orchestration framework
 - [Claude Code](https://github.com/anthropics/claude-code) - Anthropic's CLI for Claude
 - [ADR-027](../implementation/adrs/ADR-027-teammate-tool-integration.md) - Architecture decision record

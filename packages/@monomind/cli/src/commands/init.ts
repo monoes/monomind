@@ -556,6 +556,28 @@ const wizardCommand: Command = {
         }
       }
 
+      // Enforcement gates opt-in
+      const enableGates = await confirm({
+        message: 'Enable enforcement gates? (blocks destructive commands + secrets in writes)',
+        default: true,
+      });
+
+      let gatesEnabled = false;
+      if (enableGates) {
+        try {
+          const { execFileSync } = await import('child_process');
+          execFileSync(
+            process.platform === 'win32' ? 'npx.cmd' : 'npx',
+            ['@monomind/cli@latest', 'guidance', 'setup', '--project-dir', ctx.cwd],
+            { stdio: 'pipe', cwd: ctx.cwd, timeout: 10000 }
+          );
+          gatesEnabled = true;
+          output.writeln(output.success('  ✓ Enforcement gates wired'));
+        } catch {
+          output.writeln(output.dim('  Gates setup skipped (run `monomind guidance setup` manually)'));
+        }
+      }
+
       output.writeln();
 
       // Summary table
@@ -577,6 +599,7 @@ const wizardCommand: Command = {
           { setting: 'Commands', value: `${result.summary.commandsCount} installed` },
           { setting: 'Agents', value: `${result.summary.agentsCount} installed` },
           { setting: 'Hooks', value: `${result.summary.hooksEnabled} enabled` },
+          { setting: 'Enforcement Gates', value: gatesEnabled ? 'Enabled' : 'Disabled' },
         ],
       });
 

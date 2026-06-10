@@ -352,7 +352,6 @@ export declare function bridgeHealthCheck(dbPath?: string): Promise<{
         hits: number;
         misses: number;
     };
-    sonaErrorCount?: number;
 } | null>;
 /**
  * Store to hierarchical memory with tier.

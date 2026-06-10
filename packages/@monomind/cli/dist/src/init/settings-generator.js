@@ -29,7 +29,7 @@ export function generateSettings(options) {
             'Bash(npx -y monomind *)',
             'Bash(npx monomind@*)',
             'Bash(node .claude/helpers/*)',
-            'mcp__monomind__:*',
+            'mcp__monomind__*',
         ],
         deny: [
             'Read(./.env)',
@@ -39,7 +39,7 @@ export function generateSettings(options) {
     // Add monomind attribution for git commits and PRs
     settings.attribution = {
         commit: 'Co-Authored-By: nokhodian <nokhodian@gmail.com>',
-        pr: '🤖 Generated with [monomind](https://github.com/nokhodian/monomind)',
+        pr: '🤖 Generated with [monomind](https://github.com/monoes/monomind)',
     };
     // Note: Claude Code expects 'model' to be a string, not an object
     // Model preferences are stored in monomind settings instead

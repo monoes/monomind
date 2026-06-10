@@ -901,8 +901,8 @@ mcp__monomind__token_usage {
 
 ## Support and Resources
 
-- **Documentation**: https://github.com/nokhodian/monomind
-- **Issues**: https://github.com/nokhodian/monomind/issues
+- **Documentation**: https://github.com/monoes/monomind
+- **Issues**: https://github.com/monoes/monomind/issues
 - **NPM Package**: https://www.npmjs.com/package/monomind
 - **Community**: Discord server (link in repository)
 

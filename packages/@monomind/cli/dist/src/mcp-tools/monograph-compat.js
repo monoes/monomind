@@ -6,13 +6,12 @@
  * moved to the real package.
  */
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { openDb, closeDb, countNodes } from '@monoes/monograph';
 function readGroupConfig(configPath) {
     if (!existsSync(configPath))
         return [];
     try {
-        const { readFileSync } = require('fs');
         const raw = readFileSync(configPath, 'utf-8');
         return JSON.parse(raw);
     }

@@ -59,6 +59,7 @@ const commandLoaders = {
     // Guidance Control Plane
     guidance: () => import('./guidance.js'),
     'transfer-store': () => import('./transfer-store.js'),
+    'store': () => import('./transfer-store.js'),
     cleanup: () => import('./cleanup.js'),
     autopilot: () => import('./autopilot.js'),
     tokens: () => import('./tokens.js'),
@@ -118,6 +119,7 @@ import { performanceCommand } from './performance.js';
 import { securityCommand } from './security.js';
 import { monovectorCommand } from './monovector/index.js';
 import { hiveMindCommand } from './hive-mind.js';
+import browseCommand from './browse.js';
 // Additional commands for categorized help display
 import { configCommand } from './config.js';
 import { completionsCommand } from './completions.js';
@@ -169,6 +171,7 @@ loadedCommands.set('benchmark', benchmarkCommand);
 loadedCommands.set('transfer-store', storeCommand);
 loadedCommands.set('tokens', tokensCommand);
 loadedCommands.set('platforms', platformsCommand);
+loadedCommands.set('browse', browseCommand);
 // =============================================================================
 // Exports (maintain backwards compatibility)
 // =============================================================================
@@ -302,6 +305,7 @@ export const commandsByCategory = {
         storeCommand,
         cleanupCommand,
         platformsCommand,
+        browseCommand,
     ],
 };
 /**

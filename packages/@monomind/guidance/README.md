@@ -2,11 +2,11 @@
 
 [![npm version](https://img.shields.io/npm/v/@monomind/guidance.svg?style=flat-square&label=npm)](https://www.npmjs.com/package/@monomind/guidance)
 [![npm downloads](https://img.shields.io/npm/dm/@monomind/guidance.svg?style=flat-square&label=downloads)](https://www.npmjs.com/package/@monomind/guidance)
-[![license](https://img.shields.io/npm/l/@monomind/guidance.svg?style=flat-square)](https://github.com/nokhodian/monomind/blob/main/LICENSE)
-[![tests](https://img.shields.io/badge/tests-1%2C328%20passing-brightgreen?style=flat-square)](https://github.com/nokhodian/monomind)
+[![license](https://img.shields.io/npm/l/@monomind/guidance.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
+[![tests](https://img.shields.io/badge/tests-1%2C328%20passing-brightgreen?style=flat-square)](https://github.com/monoes/monomind)
 [![node](https://img.shields.io/badge/node-%3E%3D20-blue?style=flat-square)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![GitHub stars](https://img.shields.io/github/stars/nokhodian/monomind?style=flat-square&logo=github)](https://github.com/nokhodian/monomind)
+[![GitHub stars](https://img.shields.io/github/stars/monoes/monomind?style=flat-square&logo=github)](https://github.com/monoes/monomind)
 [![monomind](https://img.shields.io/npm/v/monomind.svg?style=flat-square&label=monomind&color=blueviolet)](https://www.npmjs.com/package/monomind)
 
 **Long-horizon governance for Claude Code agents.**
@@ -1180,13 +1180,13 @@ Take 20 real Monomind tasks from repo history. Run A without control plane, run 
 
 | Resource | URL |
 |----------|-----|
-| **GitHub** | [github.com/nokhodian/monomind](https://github.com/nokhodian/monomind) |
+| **GitHub** | [github.com/monoes/monomind](https://github.com/monoes/monomind) |
 | **npm: @monomind/guidance** | [npmjs.com/package/@monomind/guidance](https://www.npmjs.com/package/@monomind/guidance) |
 | **npm: monomind** | [npmjs.com/package/monomind](https://www.npmjs.com/package/monomind) |
-| **Issues** | [github.com/nokhodian/monomind/issues](https://github.com/nokhodian/monomind/issues) |
+| **Issues** | [github.com/monoes/monomind/issues](https://github.com/monoes/monomind/issues) |
 | **API Reference** | [docs/reference/api-quick-reference.md](docs/reference/api-quick-reference.md) |
 | **ADR Index** | [docs/adrs/](docs/adrs/) |
 
 ## License
 
-MIT — see [LICENSE](https://github.com/nokhodian/monomind/blob/main/LICENSE) for details.
+MIT — see [LICENSE](https://github.com/monoes/monomind/blob/main/LICENSE) for details.

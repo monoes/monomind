@@ -6,10 +6,10 @@
     "name": "nokhodian",
     "email": "nokhodian@gmail.com"
   },
-  "homepage": "https://github.com/nokhodian/monomind",
-  "repository": "https://github.com/nokhodian/monomind.git",
+  "homepage": "https://github.com/monoes/monomind",
+  "repository": "https://github.com/monoes/monomind.git",
   "bugs": {
-    "url": "https://github.com/nokhodian/monomind/issues"
+    "url": "https://github.com/monoes/monomind/issues"
   },
   "license": "MIT",
   "keywords": [

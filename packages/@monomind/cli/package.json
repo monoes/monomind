@@ -11,13 +11,13 @@
     "monomind": "./bin/cli.js",
     "monomind-mcp": "./bin/mcp-server.js"
   },
-  "homepage": "https://github.com/nokhodian/monomind#readme",
+  "homepage": "https://github.com/monoes/monomind#readme",
   "bugs": {
-    "url": "https://github.com/nokhodian/monomind/issues"
+    "url": "https://github.com/monoes/monomind/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monomind.git",
+    "url": "https://github.com/monoes/monomind.git",
     "directory": "packages/@monomind/cli"
   },
   "keywords": [
@@ -87,19 +87,17 @@
   "dependencies": {
     "ws": "^8.18.0",
     "@noble/ed25519": "^2.1.0",
-    "@monoes/monograph": "^1.2.0",
+    "@monoes/monograph": "workspace:*",
     "monofence-ai": "workspace:*",
+    "@monomind/hooks": "workspace:*",
     "@monomind/guidance": "workspace:*",
     "@monomind/mcp": "workspace:*",
     "@monomind/routing": "workspace:*",
-    "graphology": "^0.25.4",
-    "graphology-metrics": "^2.4.0",
     "semver": "^7.6.0"
   },
   "optionalDependencies": {
     "sql.js": "^1.14.1",
     "@monoes/memory": "workspace:*",
-    "@monomind/plugin-gastown-bridge": "^0.1.3",
     "agentic-flow": "^3.0.0-alpha.1",
     "@huggingface/transformers": "^3.8.1"
   },

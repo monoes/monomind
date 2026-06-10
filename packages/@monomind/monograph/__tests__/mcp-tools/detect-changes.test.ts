@@ -9,11 +9,15 @@ import type { MonographNode } from '../../src/types.js';
 
 // vi.mock must be at the top level for Vitest to hoist it correctly
 vi.mock('child_process', () => ({
-  execSync: vi.fn(),
+  spawnSync: vi.fn(),
 }));
 
 // After the mock, import the mocked module to control it
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
+
+function mockGitOutput(stdout: string) {
+  vi.mocked(spawnSync).mockReturnValue({ stdout, stderr: '', status: 0, error: undefined } as any);
+}
 
 const dbPath = join(tmpdir(), `monograph-detect-${Date.now()}.db`);
 let db: ReturnType<typeof openDb>;
@@ -57,7 +61,7 @@ afterEach(() => {
 
 describe('detectMonographChanges', () => {
   it('returns affected symbols for a changed file', () => {
-    vi.mocked(execSync).mockReturnValue('src/auth.ts\n' as any);
+    mockGitOutput('src/auth.ts\n');
 
     const result = detectMonographChanges(db, { baseBranch: 'main' }, '/fake/repo');
 
@@ -67,7 +71,7 @@ describe('detectMonographChanges', () => {
   });
 
   it('filters out test files when includeTests=false', () => {
-    vi.mocked(execSync).mockReturnValue('src/auth.ts\nsrc/auth.test.ts\n' as any);
+    mockGitOutput('src/auth.ts\nsrc/auth.test.ts\n');
 
     const result = detectMonographChanges(db, { baseBranch: 'main', includeTests: false }, '/fake/repo');
 
@@ -76,7 +80,7 @@ describe('detectMonographChanges', () => {
   });
 
   it('returns empty result when no files changed', () => {
-    vi.mocked(execSync).mockReturnValue('' as any);
+    mockGitOutput('');
 
     const result = detectMonographChanges(db, { baseBranch: 'main' }, '/fake/repo');
 
@@ -86,9 +90,7 @@ describe('detectMonographChanges', () => {
   });
 
   it('handles git errors gracefully', () => {
-    vi.mocked(execSync).mockImplementation(() => {
-      throw new Error('git: not a repository');
-    });
+    vi.mocked(spawnSync).mockReturnValue({ stdout: '', stderr: 'git: not a repository', status: 128, error: undefined } as any);
 
     const result = detectMonographChanges(db, { baseBranch: 'main' }, '/fake/repo');
 
@@ -99,12 +101,13 @@ describe('detectMonographChanges', () => {
   });
 
   it('uses main as default base branch', () => {
-    vi.mocked(execSync).mockReturnValue('' as any);
+    mockGitOutput('');
 
     detectMonographChanges(db, {}, '/fake/repo');
 
-    expect(execSync).toHaveBeenCalledWith(
-      expect.stringContaining('main'),
+    expect(spawnSync).toHaveBeenCalledWith(
+      'git',
+      expect.arrayContaining(['main...HEAD']),
       expect.any(Object),
     );
   });

@@ -2,7 +2,7 @@
  * CLI Cleanup Command
  * Removes project artifacts created by monomind/monomind
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';

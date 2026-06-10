@@ -259,7 +259,7 @@ export const pluginMetadata = {
     'Mathematical AI interpretability with sheaf cohomology, spectral analysis, and causal inference',
   author: 'rUv',
   license: 'MIT',
-  repository: 'https://github.com/nokhodian/monomind',
+  repository: 'https://github.com/monoes/monomind',
   wasmSize: '92KB',
   dependencies: {
     required: [

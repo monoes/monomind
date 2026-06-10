@@ -2,14 +2,60 @@
  * CLI Security Command
  * Security scanning, CVE detection, threat modeling, vulnerability management
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import { output } from '../output.js';
-import { existsSync, statSync, readFileSync, writeFileSync, renameSync, mkdirSync, realpathSync } from 'fs';
-import { join } from 'path';
+import { statSync, readFileSync, readdirSync, writeFileSync, renameSync, mkdirSync, realpathSync } from 'fs';
+import { join, resolve, sep, relative } from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as https from 'https';
+// ─── Shared secret scanning ─────────────────────────────────────────────────
+const SECRET_PATTERNS = [
+    { pattern: /['"](?:sk-|sk_live_|sk_test_)[a-zA-Z0-9]{20,}['"]/g, type: 'API Key (Stripe/OpenAI)' },
+    { pattern: /['"]AKIA[A-Z0-9]{16}['"]/g, type: 'AWS Access Key' },
+    { pattern: /['"]ghp_[a-zA-Z0-9]{36}['"]/g, type: 'GitHub Token' },
+    { pattern: /['"]xox[baprs]-[a-zA-Z0-9-]+['"]/g, type: 'Slack Token' },
+    { pattern: /password\s*[:=]\s*['"][^'"]{8,}['"]/gi, type: 'Hardcoded Password' },
+];
+function findSecretsInDir(dir, depthLimit, baseDir, findings) {
+    if (depthLimit <= 0)
+        return;
+    try {
+        const entries = readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const isDotEnv = /^\.env(\..+)?$/.test(entry.name);
+            if ((entry.name.startsWith('.') && !isDotEnv) || entry.name === 'node_modules' || entry.name === 'dist')
+                continue;
+            const fullPath = join(dir, entry.name);
+            if (entry.isDirectory()) {
+                findSecretsInDir(fullPath, depthLimit - 1, baseDir, findings);
+            }
+            else if (entry.isFile() && (/\.(ts|js|json|yml|yaml)$/.test(entry.name) || isDotEnv) && !entry.name.endsWith('.d.ts')) {
+                try {
+                    const content = readFileSync(fullPath, 'utf-8');
+                    const lines = content.split('\n');
+                    for (let i = 0; i < lines.length; i++) {
+                        for (const { pattern, type } of SECRET_PATTERNS) {
+                            pattern.lastIndex = 0;
+                            let m;
+                            while ((m = pattern.exec(lines[i])) !== null) {
+                                findings.push({
+                                    severity: output.warning('HIGH'),
+                                    type: 'Hardcoded Secret',
+                                    location: `${relative(baseDir, fullPath)}:${i + 1}`,
+                                    description: type,
+                                });
+                            }
+                        }
+                    }
+                }
+                catch { /* file read error */ }
+            }
+        }
+    }
+    catch { /* dir read error */ }
+}
 // Scan subcommand
 const scanCommand = {
     name: 'scan',
@@ -30,6 +76,21 @@ const scanCommand = {
         const depth = ctx.flags.depth || 'standard';
         const scanType = ctx.flags.type || 'all';
         const fix = ctx.flags.fix;
+        // Guard: confine --target to cwd; execSync and scanDir run inside it
+        if (target !== '.') {
+            try {
+                const resolvedTgt = realpathSync(resolve(target));
+                const cwd = realpathSync(process.cwd());
+                if (!resolvedTgt.startsWith(cwd + sep) && resolvedTgt !== cwd) {
+                    output.printError('--target must be within the current working directory');
+                    return { success: false };
+                }
+            }
+            catch {
+                output.printError(`--target path does not exist or is not accessible: ${target}`);
+                return { success: false };
+            }
+        }
         output.writeln();
         output.writeln(output.bold('Security Scan'));
         output.writeln(output.dim('─'.repeat(50)));
@@ -95,53 +156,10 @@ const scanCommand = {
             // Phase 2: Scan for hardcoded secrets
             if (scanType === 'all' || scanType === 'code') {
                 spinner.setText('Scanning for hardcoded secrets...');
-                const secretPatterns = [
-                    { pattern: /['"](?:sk-|sk_live_|sk_test_)[a-zA-Z0-9]{20,}['"]/g, type: 'API Key (Stripe/OpenAI)' },
-                    { pattern: /['"]AKIA[A-Z0-9]{16}['"]/g, type: 'AWS Access Key' },
-                    { pattern: /['"]ghp_[a-zA-Z0-9]{36}['"]/g, type: 'GitHub Token' },
-                    { pattern: /['"]xox[baprs]-[a-zA-Z0-9-]+['"]/g, type: 'Slack Token' },
-                    { pattern: /password\s*[:=]\s*['"][^'"]{8,}['"]/gi, type: 'Hardcoded Password' },
-                ];
-                const scanDir = (dir, depthLimit) => {
-                    if (depthLimit <= 0)
-                        return;
-                    try {
-                        const entries = fs.readdirSync(dir, { withFileTypes: true });
-                        for (const entry of entries) {
-                            const isDotEnv = /^\.env(\..+)?$/.test(entry.name);
-                            if ((entry.name.startsWith('.') && !isDotEnv) || entry.name === 'node_modules' || entry.name === 'dist')
-                                continue;
-                            const fullPath = path.join(dir, entry.name);
-                            if (entry.isDirectory()) {
-                                scanDir(fullPath, depthLimit - 1);
-                            }
-                            else if (entry.isFile() && (/\.(ts|js|json|yml|yaml)$/.test(entry.name) || isDotEnv) && !entry.name.endsWith('.d.ts')) {
-                                try {
-                                    const content = fs.readFileSync(fullPath, 'utf-8');
-                                    const lines = content.split('\n');
-                                    for (let i = 0; i < lines.length; i++) {
-                                        for (const { pattern, type } of secretPatterns) {
-                                            if (pattern.test(lines[i])) {
-                                                highCount++;
-                                                findings.push({
-                                                    severity: output.warning('HIGH'),
-                                                    type: 'Hardcoded Secret',
-                                                    location: `${path.relative(target, fullPath)}:${i + 1}`,
-                                                    description: type,
-                                                });
-                                                pattern.lastIndex = 0;
-                                            }
-                                        }
-                                    }
-                                }
-                                catch { /* file read error */ }
-                            }
-                        }
-                    }
-                    catch { /* dir read error */ }
-                };
                 const scanDepth = depth === 'deep' ? 10 : depth === 'standard' ? 5 : 3;
-                scanDir(path.resolve(target), scanDepth);
+                const prevCount = findings.length;
+                findSecretsInDir(path.resolve(target), scanDepth, path.resolve(target), findings);
+                highCount += findings.length - prevCount;
             }
             // Phase 3: Check for common security issues in code
             if ((scanType === 'all' || scanType === 'code') && depth !== 'quick') {
@@ -171,7 +189,9 @@ const scanCommand = {
                                     const lines = content.split('\n');
                                     for (let i = 0; i < lines.length; i++) {
                                         for (const { pattern, type, severity, desc } of codePatterns) {
-                                            if (pattern.test(lines[i])) {
+                                            pattern.lastIndex = 0;
+                                            let m;
+                                            while ((m = pattern.exec(lines[i])) !== null) {
                                                 if (severity === 'high')
                                                     highCount++;
                                                 else
@@ -182,7 +202,6 @@ const scanCommand = {
                                                     location: `${path.relative(target, fullPath)}:${i + 1}`,
                                                     description: desc,
                                                 });
-                                                pattern.lastIndex = 0;
                                             }
                                         }
                                     }
@@ -264,12 +283,10 @@ const scanCommand = {
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 function getCveCache(cveId, cacheDir) {
     const filePath = join(cacheDir, `${cveId.toUpperCase()}.json`);
-    if (!existsSync(filePath))
-        return null;
-    const stat = statSync(filePath);
-    if (Date.now() - stat.mtimeMs > CACHE_TTL_MS)
-        return null;
     try {
+        const stat = statSync(filePath);
+        if (Date.now() - stat.mtimeMs > CACHE_TTL_MS)
+            return null;
         return JSON.parse(readFileSync(filePath, 'utf8'));
     }
     catch {
@@ -687,47 +704,65 @@ const auditCommand = {
 // Secrets subcommand
 const secretsCommand = {
     name: 'secrets',
-    description: 'Detect and manage secrets in codebase',
+    description: 'Detect hardcoded secrets in codebase',
     options: [
-        { name: 'action', short: 'a', type: 'string', description: 'Action: scan, list, rotate', default: 'scan' },
         { name: 'path', short: 'p', type: 'string', description: 'Path to scan', default: '.' },
-        { name: 'ignore', short: 'i', type: 'string', description: 'Patterns to ignore' },
+        { name: 'depth', short: 'd', type: 'string', description: 'Scan depth: quick, standard, deep', default: 'standard' },
     ],
     examples: [
-        { command: 'monomind security secrets --action scan', description: 'Scan for secrets' },
-        { command: 'monomind security secrets -a rotate', description: 'Rotate compromised secrets' },
+        { command: 'monomind security secrets', description: 'Scan current directory for secrets' },
+        { command: 'monomind security secrets -p ./src --depth deep', description: 'Deep scan of src directory' },
     ],
     action: async (ctx) => {
-        const path = ctx.flags.path || '.';
+        const targetPath = ctx.flags.path || '.';
+        const depth = ctx.flags.depth || 'standard';
+        // Guard: confine --path to cwd
+        if (targetPath !== '.') {
+            try {
+                const resolvedTgt = realpathSync(resolve(targetPath));
+                const cwd = realpathSync(process.cwd());
+                if (!resolvedTgt.startsWith(cwd + sep) && resolvedTgt !== cwd) {
+                    output.printError('--path must be within the current working directory');
+                    return { success: false };
+                }
+            }
+            catch {
+                output.printError(`--path does not exist or is not accessible: ${targetPath}`);
+                return { success: false };
+            }
+        }
         output.writeln();
         output.writeln(output.bold('Secret Detection'));
         output.writeln(output.dim('─'.repeat(50)));
-        const spinner = output.createSpinner({ text: 'Scanning for secrets...', spinner: 'dots' });
+        const spinner = output.createSpinner({ text: `Scanning ${targetPath}...`, spinner: 'dots' });
         spinner.start();
-        await new Promise(r => setTimeout(r, 800));
+        const findings = [];
+        const scanDepth = depth === 'deep' ? 10 : depth === 'standard' ? 5 : 3;
+        findSecretsInDir(resolve(targetPath), scanDepth, resolve(targetPath), findings);
         spinner.succeed('Scan complete');
         output.writeln();
-        output.writeln(output.warning('⚠ No real secrets scan performed. Showing example findings.'));
-        output.writeln(output.dim('Run "monomind security scan --depth full" for real secret detection.'));
+        if (findings.length === 0) {
+            output.writeln(output.success('No secrets found.'));
+        }
+        else {
+            output.printTable({
+                columns: [
+                    { key: 'severity', header: 'Severity', width: 12 },
+                    { key: 'description', header: 'Description', width: 25 },
+                    { key: 'location', header: 'Location', width: 40 },
+                ],
+                data: findings.slice(0, 20),
+            });
+            if (findings.length > 20) {
+                output.writeln(output.dim(`... and ${findings.length - 20} more`));
+            }
+        }
         output.writeln();
-        output.printTable({
-            columns: [
-                { key: 'type', header: 'Secret Type (Example)', width: 25 },
-                { key: 'location', header: 'Location', width: 30 },
-                { key: 'risk', header: 'Risk', width: 12 },
-                { key: 'action', header: 'Recommended', width: 20 },
-            ],
-            data: [
-                { type: 'AWS Access Key', location: 'example/config.ts:15', risk: output.error('Critical'), action: 'Rotate immediately' },
-                { type: 'GitHub Token', location: 'example/.env:8', risk: output.warning('High'), action: 'Remove from repo' },
-                { type: 'JWT Secret', location: 'example/auth.ts:42', risk: output.warning('High'), action: 'Use env variable' },
-                { type: 'DB Password', location: 'example/compose.yml:23', risk: output.warning('Medium'), action: 'Use secrets mgmt' },
-            ],
-        });
-        return { success: true };
+        output.writeln(output.bold('Summary: ') + `${findings.length} secret(s) found in ${targetPath}`);
+        return { success: findings.length === 0 };
     },
 };
-// Defend subcommand (AIDefence integration)
+// Defend subcommand (MonoFence integration)
 const defendCommand = {
     name: 'defend',
     description: 'AI manipulation defense - detect prompt injection, jailbreaks, and PII',
@@ -752,19 +787,19 @@ const defendCommand = {
         const outputFormat = ctx.flags.output || 'text';
         const enableLearning = ctx.flags.learn !== false;
         output.writeln();
-        output.writeln(output.bold('🛡️ AIDefence - AI Manipulation Defense System'));
+        output.writeln(output.bold('🛡️ MonoFence - AI Manipulation Defense System'));
         output.writeln(output.dim('─'.repeat(55)));
         // Dynamic import of aidefence (allows package to be optional)
-        let createAIDefence;
+        let createMonoDefence;
         try {
-            const aidefence = await import('@monomind/aidefence');
-            createAIDefence = aidefence.createAIDefence;
+            const aidefence = await import('monofence-ai');
+            createMonoDefence = aidefence.createMonoDefence;
         }
         catch {
-            output.printError('AIDefence package not installed. Run: npm install @monomind/aidefence');
-            return { success: false, message: 'AIDefence not available' };
+            output.printError('MonoFence package not installed. Run: npm install monofence-ai');
+            return { success: false, message: 'MonoFence not available' };
         }
-        const defender = createAIDefence({ enableLearning });
+        const defender = createMonoDefence({ enableLearning });
         // Show stats mode
         if (showStats) {
             const stats = await defender.getStats();
@@ -781,6 +816,19 @@ const defendCommand = {
         // Get input to scan
         let textToScan = inputText;
         if (filePath) {
+            // Guard: confine --file to cwd before any stat/read
+            try {
+                const resolvedFile = realpathSync(resolve(filePath));
+                const cwd = realpathSync(process.cwd());
+                if (!resolvedFile.startsWith(cwd + sep) && resolvedFile !== cwd) {
+                    output.printError('--file must be within the current working directory');
+                    return { success: false };
+                }
+            }
+            catch {
+                output.printError(`File not found: ${filePath}`);
+                return { success: false, message: 'File not found' };
+            }
             try {
                 const fs = await import('fs/promises');
                 const MAX_DEFEND_FILE_BYTES = 10 * 1024 * 1024;
@@ -814,8 +862,9 @@ const defendCommand = {
         spinner.start();
         // Perform scan
         const startTime = performance.now();
+        const qr = quickMode ? defender.quickScan(textToScan) : null;
         const result = quickMode
-            ? { ...defender.quickScan(textToScan), threats: [], piiFound: false, detectionTimeMs: 0, inputHash: '', safe: !defender.quickScan(textToScan).threat }
+            ? { ...qr, threats: [], piiFound: false, detectionTimeMs: 0, inputHash: '', safe: !qr.threat }
             : await defender.detect(textToScan);
         const scanTime = performance.now() - startTime;
         spinner.stop();
@@ -935,7 +984,7 @@ export const securityCommand = {
         output.writeln();
         output.writeln('Use --help with subcommands for more info');
         output.writeln();
-        output.writeln(output.dim('github.com/nokhodian/monomind'));
+        output.writeln(output.dim('github.com/monoes/monomind'));
         return { success: true };
     },
 };

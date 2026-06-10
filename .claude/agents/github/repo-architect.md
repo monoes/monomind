@@ -37,7 +37,7 @@ LS("packages/@monomind/hooks")
 
 // Search for related repositories
 mcp__github__search_repositories {
-  query: "user:nokhodian monomind",
+  query: "user:monoes monomind",
   sort: "updated",
   order: "desc"
 }
@@ -63,7 +63,7 @@ mcp__github__create_repository {
 
 // Push template structure
 mcp__github__push_files {
-  owner: "nokhodian",
+  owner: "monoes",
   repo: "monomind-project-template",
   branch: "main",
   files: [
@@ -136,7 +136,7 @@ const repositories = ["monomind", "monomind-docs", "monomind-examples"];
 
 repositories.forEach((repo) => {
   mcp__github__create_or_update_file({
-    owner: "nokhodian",
+    owner: "monoes",
     repo,
     path: ".github/workflows/integration.yml",
     content: `name: Integration Tests

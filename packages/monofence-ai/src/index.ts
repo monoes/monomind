@@ -1,5 +1,5 @@
 /**
- * @monomind/monodefence
+ * monofence-ai
  *
  * AI Manipulation Defense System with self-learning capabilities.
  *
@@ -16,7 +16,7 @@
  *
  * @example
  * ```typescript
- * import { createMonoDefence } from '@monomind/monodefence';
+ * import { createMonoDefence } from 'monofence-ai';
  *
  * const defence = createMonoDefence();
  *

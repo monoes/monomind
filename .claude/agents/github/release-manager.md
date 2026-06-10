@@ -34,7 +34,7 @@ mcp__monomind__agent_spawn { type: "analyst", name: "Deployment Analyst" }
 
 // Create release preparation branch
 mcp__github__create_branch {
-  owner: "nokhodian",
+  owner: "monoes",
   repo: "monomind",
   branch: "release/v1.8.0",
   from_branch: "main"
@@ -53,7 +53,7 @@ mcp__monomind__task_orchestrate {
 ```javascript
 // Update versions across packages
 mcp__github__push_files {
-  owner: "nokhodian",
+  owner: "monoes",
   repo: "monomind",
   branch: "release/v1.8.0",
   files: [
@@ -99,7 +99,7 @@ Bash("cd packages/@monomind/cli && npm run build")
 
 // Create release PR with validation results
 mcp__github__create_pull_request {
-  owner: "nokhodian",
+  owner: "monoes",
   repo: "monomind",
   title: "Release v1.8.0: GitHub Integration and Swarm Enhancements",
   head: "release/v1.8.0",

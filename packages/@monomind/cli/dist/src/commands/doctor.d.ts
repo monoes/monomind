@@ -2,7 +2,7 @@
  * CLI Doctor Command
  * System diagnostics, dependency checks, config validation
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import type { Command } from '../types.js';
 export declare const doctorCommand: Command;

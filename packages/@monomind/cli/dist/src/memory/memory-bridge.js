@@ -75,8 +75,17 @@ const MAX_INIT_ATTEMPTS = 3;
 let initAttempts = 0;
 /** Backpressure flag for A-MEM Zettelkasten linking — see bridgeStoreEntry. */
 let _amemInFlight = false;
-/** OR-3: Count SONA learning failures so callers can detect degraded state. */
-let _sonaErrorCount = 0;
+// In-process HNSW index — built lazily on first bridgeSearchHNSW call, updated on every write.
+// Keyed to the singleton registry: only one DB path is in use per MCP server process.
+let _hnswIndex = null;
+let _hnswIndexBuilt = false;
+let _hnswBuildFailedAt = 0;
+const HNSW_RETRY_INTERVAL_MS = 60_000;
+// Ghost-entry tracking: upserts (replace an existing row) and soft-deletes leave stale
+// ids in the HNSW graph that SQL filters drop at query time — wasting candidate slots.
+// When the dirty count crosses the rebuild threshold, the next search rebuilds from DB.
+let _hnswDirtyCount = 0;
+const HNSW_REBUILD_THRESHOLD = 50;
 /**
  * Resolve database path with path traversal protection.
  * Only allows paths within or below the project's .swarm directory,
@@ -153,6 +162,7 @@ async function getRegistry(dbPath) {
                             hierarchicalMemory: true,
                             memoryConsolidation: true,
                             memoryGraph: true, // issue #1214: enable MemoryGraph for graph-aware ranking
+                            causalGraph: true, // required by bridgeRecordCausalEdge for A-MEM edge storage
                         },
                     });
                 }
@@ -356,14 +366,74 @@ function getDb(registry) {
         db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
         db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
         db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_status ON memory_entries(status)`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_expires ON memory_entries(expires_at)`);
     }
     catch {
         // Table already exists or db is read-only — that's fine
     }
     _dbInitialized.add(db);
+    // Warn if any existing rows were written with a different embedding dimension.
+    // This degrades semantic search silently; warn once per DB open so operators know.
+    try {
+        const dimRow = db.prepare(`SELECT embedding_dimensions FROM memory_entries WHERE embedding_dimensions IS NOT NULL AND status = 'active' LIMIT 1`).get();
+        if (dimRow && dimRow.embedding_dimensions !== BRIDGE_EMBEDDING_DIMS) {
+            console.warn(`[MemoryBridge] Dimension mismatch: DB has ${dimRow.embedding_dimensions}-dim embeddings, bridge expects ${BRIDGE_EMBEDDING_DIMS}. Semantic search will skip mismatched rows.`);
+        }
+    }
+    catch { /* Non-fatal */ }
     return { db, agentdb };
 }
 // ===== Bridge functions — match memory-initializer.ts signatures =====
+/**
+ * Build or return the in-process HNSWIndex, populated from all active rows in the DB.
+ * Called lazily on first semantic search; subsequent calls return the cached index.
+ */
+async function getOrBuildHnswIndex(db) {
+    // Trigger a lazy rebuild when ghost-entry accumulation crosses the threshold.
+    // Ghosts come from: upsert-replace (old id stays in graph), soft-delete (id
+    // filtered by SQL but wastes candidate slots). Rebuild reads fresh rows from DB.
+    if (_hnswIndexBuilt && _hnswDirtyCount >= HNSW_REBUILD_THRESHOLD) {
+        _hnswIndexBuilt = false;
+        _hnswDirtyCount = 0;
+    }
+    if (_hnswIndexBuilt)
+        return _hnswIndex;
+    // Enforce retry cooldown after a build failure to avoid rapid retry loops
+    if (_hnswBuildFailedAt > 0 && Date.now() - _hnswBuildFailedAt < HNSW_RETRY_INTERVAL_MS)
+        return null;
+    _hnswIndexBuilt = true; // Lock prevents concurrent re-build
+    try {
+        const memPkg = await import('@monoes/memory');
+        if (!memPkg?.HNSWIndex)
+            return null;
+        const rows = db.prepare(`SELECT id, embedding FROM memory_entries WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) AND embedding IS NOT NULL`).all(Date.now());
+        const valid = [];
+        for (const row of rows) {
+            const emb = safeParseEmbedding(row.embedding);
+            if (emb && emb.length === BRIDGE_EMBEDDING_DIMS)
+                valid.push({ id: row.id, emb });
+        }
+        const index = new memPkg.HNSWIndex({
+            dimensions: BRIDGE_EMBEDDING_DIMS,
+            M: 16,
+            efConstruction: 200,
+            maxElements: Math.max(valid.length + 1000, 10000),
+            metric: 'cosine',
+        });
+        for (const { id, emb } of valid) {
+            await index.addPoint(id, new Float32Array(emb));
+        }
+        _hnswIndex = index;
+        _hnswBuildFailedAt = 0;
+        return index;
+    }
+    catch {
+        // Reset lock so the next caller can retry after the cooldown
+        _hnswIndexBuilt = false;
+        _hnswBuildFailedAt = Date.now();
+        return null;
+    }
+}
 /**
  * Store an entry via AgentDB v1.
  * Phase 2-5: Routes through MutationGuard → TieredCache → DB → AttestationLog.
@@ -414,6 +484,17 @@ export async function bridgeStoreEntry(options) {
                 // Embedding failed — store without
             }
         }
+        // If upserting, check whether an existing row will be replaced. INSERT OR REPLACE
+        // always generates a new id, so the old id becomes a ghost in the HNSW graph.
+        // Track that here so getOrBuildHnswIndex can trigger a lazy rebuild.
+        if (options.upsert) {
+            try {
+                const existing = ctx.db.prepare(`SELECT id FROM memory_entries WHERE key = ? AND namespace = ? AND status = 'active' LIMIT 1`).get(key, namespace);
+                if (existing)
+                    _hnswDirtyCount++;
+            }
+            catch { /* Non-fatal */ }
+        }
         // better-sqlite3 uses synchronous .run() with positional params
         const insertSql = options.upsert
             ? `INSERT OR REPLACE INTO memory_entries (
@@ -432,6 +513,17 @@ export async function bridgeStoreEntry(options) {
         // Phase 2: Write-through to TieredCache deferred — full entry populated on first read
         // Phase 4: AttestationLog write audit
         await logAttestation(registry, 'store', id, { key, namespace, hasEmbedding: !!embeddingJson });
+        // Update in-process HNSW index if built and embedding matches bridge dimensions.
+        // Skip if ID already indexed: HNSWIndex has no clean updatePoint and re-inserting
+        // an existing ID corrupts neighbor connections without removing the old ones.
+        if (_hnswIndex && embeddingJson && dimensions === BRIDGE_EMBEDDING_DIMS) {
+            try {
+                const emb = safeParseEmbedding(embeddingJson);
+                if (emb && !_hnswIndex.has(id))
+                    void _hnswIndex.addPoint(id, new Float32Array(emb));
+            }
+            catch { /* Non-fatal */ }
+        }
         const storeResult = {
             success: true,
             id,
@@ -526,10 +618,10 @@ export async function bridgeSearchEntries(options) {
             const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding
         FROM memory_entries
-        WHERE status = 'active' ${nsFilter}
-        LIMIT 1000
+        WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) ${nsFilter}
+        LIMIT 5000
       `);
-            rows = effectiveNamespace !== 'all' ? stmt.all(effectiveNamespace) : stmt.all();
+            rows = effectiveNamespace !== 'all' ? stmt.all(Date.now(), effectiveNamespace) : stmt.all(Date.now());
         }
         catch {
             return null;
@@ -613,8 +705,8 @@ export async function bridgeListEntries(options) {
         // Count
         let total = 0;
         try {
-            const countStmt = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active' ${nsFilter}`);
-            const countRow = countStmt.get(...nsParams);
+            const countStmt = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) ${nsFilter}`);
+            const countRow = countStmt.get(Date.now(), ...nsParams);
             total = countRow?.cnt ?? 0;
         }
         catch {
@@ -626,11 +718,11 @@ export async function bridgeListEntries(options) {
             const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at
         FROM memory_entries
-        WHERE status = 'active' ${nsFilter}
+        WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) ${nsFilter}
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?
       `);
-            const rows = stmt.all(...nsParams, limit, offset);
+            const rows = stmt.all(Date.now(), ...nsParams, limit, offset);
             for (const row of rows) {
                 entries.push({
                     id: String(row.id),
@@ -670,7 +762,8 @@ export async function bridgeGetEntry(options) {
         const safeNs = String(namespace).replace(/:/g, '_');
         const safeKey = String(key).replace(/:/g, '_');
         const cacheKey = `entry:${safeNs}:${safeKey}`;
-        const cached = await cacheGet(registry, cacheKey);
+        // Bypass cache when agentId is set so agent_reads tracking and collaborative promotion always fire.
+        const cached = options.agentId ? null : await cacheGet(registry, cacheKey);
         if (cached && cached.content) {
             return {
                 success: true,
@@ -684,7 +777,7 @@ export async function bridgeGetEntry(options) {
                     accessCount: cached.accessCount ?? 0,
                     createdAt: cached.createdAt || new Date().toISOString(),
                     updatedAt: cached.updatedAt || new Date().toISOString(),
-                    hasEmbedding: !!cached.embedding,
+                    hasEmbedding: cached.hasEmbedding ?? false,
                     tags: cached.tags || [],
                 },
             };
@@ -692,12 +785,12 @@ export async function bridgeGetEntry(options) {
         let row;
         try {
             const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags, expires_at
         FROM memory_entries
-        WHERE status = 'active' AND key = ? AND namespace = ?
+        WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) AND key = ? AND namespace = ?
         LIMIT 1
       `);
-            row = stmt.get(key, namespace);
+            row = stmt.get(Date.now(), key, namespace);
         }
         catch {
             return null;
@@ -738,6 +831,11 @@ export async function bridgeGetEntry(options) {
                     if (distinctAgents >= 3 && spread >= SPREAD_MS) {
                         ctx.db.prepare("UPDATE memory_entries SET access_level = 'team' WHERE id = ? AND access_level = 'private'").run(row.id);
                     }
+                    // Probabilistic prune: delete agent_reads rows older than the 24h window (~10% of reads).
+                    // Keeps the table bounded without per-read overhead.
+                    if (Math.random() < 0.1) {
+                        ctx.db.prepare('DELETE FROM agent_reads WHERE read_at < ?').run(cutoff);
+                    }
                 }
                 catch { /* non-critical */ }
             }
@@ -766,8 +864,10 @@ export async function bridgeGetEntry(options) {
             hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
             tags,
         };
-        // Phase 2: Populate cache for next read
-        await cacheSet(registry, cacheKey, entry);
+        // Phase 2: Populate cache for next read (skip TTL'd entries — cache has no expiry awareness)
+        if (!row.expires_at) {
+            await cacheSet(registry, cacheKey, entry);
+        }
         return { success: true, found: true, cacheHit: false, entry };
     }
     catch {
@@ -792,6 +892,13 @@ export async function bridgeDeleteEntry(options) {
         if (!guardResult.allowed) {
             return { success: false, deleted: false, key, namespace, remainingEntries: 0, error: `MutationGuard rejected: ${guardResult.reason}` };
         }
+        // Fetch id before soft-delete so we can clean up agent_reads for this entry.
+        let deletedEntryId;
+        try {
+            const existing = ctx.db.prepare(`SELECT id FROM memory_entries WHERE key = ? AND namespace = ? AND status = 'active' LIMIT 1`).get(key, namespace);
+            deletedEntryId = existing?.id;
+        }
+        catch { /* non-fatal */ }
         // Soft delete using parameterized query
         let changes = 0;
         try {
@@ -812,6 +919,16 @@ export async function bridgeDeleteEntry(options) {
         // Phase 4: AttestationLog delete audit
         if (changes > 0) {
             await logAttestation(registry, 'delete', key, { namespace });
+            // Soft-deleted entry's id stays in the HNSW graph but SQL filters it out.
+            // Track so the next search can trigger a lazy rebuild to clear ghost slots.
+            _hnswDirtyCount++;
+            // Clean up orphaned agent_reads rows for the deleted entry.
+            if (deletedEntryId) {
+                try {
+                    ctx.db.prepare('DELETE FROM agent_reads WHERE entry_id = ?').run(deletedEntryId);
+                }
+                catch { /* non-fatal */ }
+            }
         }
         let remaining = 0;
         try {
@@ -903,10 +1020,10 @@ export async function bridgeGetHNSWStatus(dbPath) {
         const ctx = getDb(registry);
         if (!ctx)
             return null;
-        // Count entries with embeddings
+        // Count entries with embeddings (exclude TTL-expired to match actual index contents)
         let entryCount = 0;
         try {
-            const row = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active' AND embedding IS NOT NULL`).get();
+            const row = ctx.db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) AND embedding IS NOT NULL`).get(Date.now());
             entryCount = row?.cnt ?? 0;
         }
         catch {
@@ -914,7 +1031,7 @@ export async function bridgeGetHNSWStatus(dbPath) {
         }
         return {
             available: true,
-            initialized: true,
+            initialized: _hnswIndexBuilt,
             entryCount,
             dimensions: BRIDGE_EMBEDDING_DIMS,
         };
@@ -938,49 +1055,83 @@ export async function bridgeSearchHNSW(queryEmbedding, options, dbPath) {
     try {
         const k = options?.k ?? 10;
         const threshold = options?.threshold ?? 0.3;
-        const nsFilter = options?.namespace && options.namespace !== 'all'
-            ? `AND namespace = ?`
-            : '';
+        const index = await getOrBuildHnswIndex(ctx.db);
+        if (!index) {
+            // HNSW unavailable — brute-force fallback (capped at 10000 rows)
+            const nsFilter = options?.namespace && options.namespace !== 'all' ? `AND namespace = ?` : '';
+            let rows;
+            try {
+                const stmt = ctx.db.prepare(`
+          SELECT id, key, namespace, content, embedding
+          FROM memory_entries
+          WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) AND embedding IS NOT NULL ${nsFilter}
+          LIMIT 10000
+        `);
+                rows = nsFilter ? stmt.all(Date.now(), options.namespace) : stmt.all(Date.now());
+            }
+            catch {
+                return null;
+            }
+            const fallback = [];
+            for (const row of rows) {
+                if (!row.embedding)
+                    continue;
+                try {
+                    const emb = safeParseEmbedding(row.embedding);
+                    if (!emb || emb.length !== queryEmbedding.length)
+                        continue;
+                    const score = cosineSim(queryEmbedding, emb);
+                    if (score >= threshold) {
+                        fallback.push({
+                            id: String(row.id),
+                            key: row.key || String(row.id).substring(0, 15),
+                            content: (row.content || '').substring(0, 60) + ((row.content || '').length > 60 ? '...' : ''),
+                            score,
+                            namespace: row.namespace || 'default',
+                        });
+                    }
+                }
+                catch { /* skip invalid */ }
+            }
+            fallback.sort((a, b) => b.score - a.score);
+            return fallback.slice(0, k);
+        }
+        // Real HNSW search: distance is cosine distance, similarity = 1 - distance.
+        // When a namespace filter is active, the global top-k*2 candidates may contain
+        // few in-namespace entries. Over-fetch by 50x so the SQL filter has enough
+        // candidates to fill k results from the target namespace.
+        const nsFilter = options?.namespace && options.namespace !== 'all';
+        const candidateCount = nsFilter ? Math.min(10000, k * 50) : k * 2;
+        const hnswResults = await index.search(new Float32Array(queryEmbedding), candidateCount);
+        if (!hnswResults.length)
+            return [];
+        const placeholders = hnswResults.map(() => '?').join(',');
+        const nsWhere = nsFilter ? `AND namespace = ?` : '';
+        const nsParam = nsFilter ? [options.namespace] : [];
         let rows;
         try {
-            const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding
-        FROM memory_entries
-        WHERE status = 'active' AND embedding IS NOT NULL ${nsFilter}
-        LIMIT 10000
-      `);
-            rows = nsFilter
-                ? stmt.all(options.namespace)
-                : stmt.all();
+            rows = ctx.db.prepare(`SELECT id, key, namespace, content FROM memory_entries WHERE id IN (${placeholders}) AND status = 'active' AND (expires_at IS NULL OR expires_at > ?) ${nsWhere}`).all(...hnswResults.map((r) => r.id), Date.now(), ...nsParam);
         }
         catch {
             return null;
         }
+        const rowMap = new Map(rows.map((r) => [r.id, r]));
         const results = [];
-        for (const row of rows) {
-            if (!row.embedding)
+        for (const { id, distance } of hnswResults) {
+            const row = rowMap.get(id);
+            if (!row)
                 continue;
-            try {
-                const emb = safeParseEmbedding(row.embedding);
-                if (!emb || emb.length !== queryEmbedding.length)
-                    continue;
-                const score = cosineSim(queryEmbedding, emb);
-                if (score >= threshold) {
-                    results.push({
-                        id: String(row.id),
-                        key: row.key || String(row.id).substring(0, 15),
-                        content: (row.content || '').substring(0, 60) +
-                            ((row.content || '').length > 60 ? '...' : ''),
-                        score,
-                        namespace: row.namespace || 'default',
-                    });
-                }
-            }
-            catch {
-                // Skip invalid embeddings
-            }
+            const score = 1 - distance;
+            if (score < threshold)
+                continue;
+            results.push({
+                id: row.id,
+                key: row.key || String(id).substring(0, 15),
+                content: (row.content || '').substring(0, 60) + ((row.content || '').length > 60 ? '...' : ''),
+                score,
+                namespace: row.namespace || 'default',
+            });
         }
-        results.sort((a, b) => b.score - a.score);
         return results.slice(0, k);
     }
     catch {
@@ -1008,6 +1159,17 @@ export async function bridgeAddToHNSW(id, embedding, entry, dbPath) {
         }
         const now = Date.now();
         const embeddingJson = JSON.stringify(embedding);
+        // Ghost-displacement check: INSERT OR REPLACE deletes any existing row with the same
+        // (namespace, key) but a different id, leaving that old id as a HNSW ghost without
+        // being tracked by _hnswDirtyCount.
+        if (_hnswIndex) {
+            try {
+                const existing = ctx.db.prepare(`SELECT id FROM memory_entries WHERE namespace = ? AND key = ? LIMIT 1`).get(entry.namespace, entry.key);
+                if (existing && existing.id !== id)
+                    _hnswDirtyCount++;
+            }
+            catch { /* Non-fatal */ }
+        }
         ctx.db.prepare(`
       INSERT OR REPLACE INTO memory_entries (
         id, key, namespace, content, type,
@@ -1015,6 +1177,17 @@ export async function bridgeAddToHNSW(id, embedding, entry, dbPath) {
         created_at, updated_at, status
       ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, 'active')
     `).run(id, entry.key, entry.namespace, entry.content, embeddingJson, embedding.length, BRIDGE_EMBEDDING_MODEL, now, now);
+        // Update in-process HNSW index if built and dimensions match.
+        // Skip re-insert for existing IDs (no clean updatePoint API on HNSWIndex).
+        if (_hnswIndex && embedding.length === BRIDGE_EMBEDDING_DIMS) {
+            try {
+                if (!_hnswIndex.has(id))
+                    void _hnswIndex.addPoint(id, new Float32Array(embedding));
+                else
+                    _hnswDirtyCount++;
+            }
+            catch { /* Non-fatal */ }
+        }
         return true;
     }
     catch {
@@ -1463,7 +1636,7 @@ export async function bridgeHealthCheck(dbPath) {
             const s = cache.stats();
             cacheStats = { size: s.size ?? 0, hits: s.hits ?? 0, misses: s.misses ?? 0 };
         }
-        return { available: true, controllers, attestationCount, cacheStats, sonaErrorCount: _sonaErrorCount };
+        return { available: true, controllers, attestationCount, cacheStats };
     }
     catch {
         return null;
@@ -1613,9 +1786,11 @@ export async function bridgeBatchOperation(params) {
                 break;
             }
             case 'update': {
-                // bulkUpdate(table, updates, conditions)
+                // bulkUpdate(table, updates, conditions) — cap content at 1 MB for parity with insert
+                const MAX_CONTENT_BYTES = 1024 * 1024;
                 for (const entry of params.entries) {
-                    await batch.bulkUpdate('episodes', { content: entry.value || entry.content }, { key: entry.key });
+                    const content = String(entry.value || entry.content || '').slice(0, MAX_CONTENT_BYTES);
+                    await batch.bulkUpdate('episodes', { content }, { key: entry.key });
                 }
                 result = { updated: params.entries.length };
                 break;

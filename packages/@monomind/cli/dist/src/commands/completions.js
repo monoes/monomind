@@ -2,7 +2,7 @@
  * CLI Completions Command
  * Shell completions for bash, zsh, fish, powershell
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import { output } from '../output.js';
 // Get all top-level commands for completions

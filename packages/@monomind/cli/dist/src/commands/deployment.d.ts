@@ -2,7 +2,7 @@
  * CLI Deployment Command
  * Deployment management, environments, rollbacks
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import type { Command } from '../types.js';
 export declare const deploymentCommand: Command;

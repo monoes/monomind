@@ -7,51 +7,6 @@ import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from '
 import { join } from 'node:path';
 import { getProjectCwd } from './types.js';
 import { weightedTally } from '../consensus/vote-signer.js';
-// Module-level QueenCoordinator singleton — persists for the lifetime of the
-// MCP server process so task routing and learning are stateful across calls.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let queenCoordinator = null;
-let queenCoordinatorHiveId = null;
-async function getOrCreateQueenCoordinator(hiveId) {
-    if (queenCoordinator && queenCoordinatorHiveId === hiveId)
-        return queenCoordinator;
-    try {
-        const swarmPkg = await import('@monomind/swarm').catch(() => null);
-        if (!swarmPkg?.createQueenCoordinatorWithNeural)
-            return null;
-        const realSwarm = {
-            getActiveAgents: async () => {
-                try {
-                    const store = loadAgentStore();
-                    return Object.entries(store.agents || {}).map(([id, agent]) => ({
-                        agentId: id,
-                        type: agent.type || 'coder',
-                        status: agent.status || 'active',
-                    }));
-                }
-                catch {
-                    return [];
-                }
-            },
-            spawnAgent: async (config) => {
-                const id = `queen-spawned-${Date.now()}`;
-                return { agentId: id };
-            },
-            terminateAgent: async (_agentId) => { },
-            broadcastMessage: async (_message) => { },
-        };
-        queenCoordinator = await swarmPkg.createQueenCoordinatorWithNeural(realSwarm, {
-            enableLearning: true,
-            patternRetrievalK: 3,
-        });
-        await queenCoordinator.initialize();
-        queenCoordinatorHiveId = hiveId;
-    }
-    catch {
-        queenCoordinator = null;
-    }
-    return queenCoordinator;
-}
 // Storage paths
 const STORAGE_DIR = '.monomind';
 const HIVE_DIR = 'hive-mind';
@@ -286,19 +241,13 @@ export const hiveMindTools = [
                 updatedAt: now,
             };
             saveHiveState(state);
-            // Start QueenCoordinator with neural learning when topology is hierarchical
-            let neuralEnabled = false;
-            if (state.topology === 'hierarchical' || state.topology === 'mesh') {
-                const queen = await getOrCreateQueenCoordinator(hiveId);
-                neuralEnabled = !!queen;
-            }
             return {
                 success: true,
                 hiveId,
                 topology: state.topology,
                 consensus: input.consensus || 'byzantine',
                 queenId,
-                neuralLearning: neuralEnabled ? 'active' : 'unavailable',
+                neuralLearning: 'unavailable',
                 status: 'initialized',
                 config: {
                     topology: state.topology,

@@ -2,7 +2,7 @@
  * CLI Performance Command
  * Performance profiling, benchmarking, optimization, metrics
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import type { Command } from '../types.js';
 export declare const performanceCommand: Command;

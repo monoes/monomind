@@ -2,7 +2,7 @@
  * CLI Smart Error Suggestions
  * Levenshtein distance and command suggestions
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 /**

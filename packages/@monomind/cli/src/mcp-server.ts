@@ -578,10 +578,16 @@ export class MCPServerManager extends EventEmitter {
           try {
             const result = await callMCPTool(toolName, toolParams, { sessionId });
             trackRequest(toolName, true);
+            // Handlers return MCPToolResult {content, isError} — pass through directly.
+            // Only wrap in a text envelope if the result is not already MCP-shaped.
+            const isMcpResult = result !== null && typeof result === 'object' &&
+              'content' in (result as object) && Array.isArray((result as any).content);
             return {
               jsonrpc: '2.0',
               id: message.id,
-              result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] },
+              result: isMcpResult
+                ? result
+                : { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] },
             };
           } catch (error) {
             trackRequest(toolName, false);
@@ -800,6 +806,16 @@ export class MCPServerManager extends EventEmitter {
     );
 
     await mcpServer.start();
+
+    // Register all CLI tools (monograph, agent, swarm, memory, etc.) with the HTTP/WS server.
+    // Without this the server only exposes its 4 built-in tools.
+    try {
+      const { getAllMCPTools } = await import('./mcp-client.js');
+      const registered = mcpServer.registerTools(getAllMCPTools() as Parameters<typeof mcpServer.registerTools>[0]);
+      console.error(`[monomind-mcp] HTTP/WS server registered ${registered.registered} tools`);
+    } catch (e) {
+      console.error(`[monomind-mcp] Warning: could not register CLI tools with HTTP/WS server: ${e}`);
+    }
 
     // Store reference for stopping
     (this as any)._mcpServer = mcpServer;

@@ -158,4 +158,4 @@ mcp__monomind__swarm_shutdown({})
 - `npx monomind hive-mind init` — Byzantine fault-tolerant consensus
 - `/mastermind` — Interactive swarm topology selection
 
-Documentation: https://github.com/nokhodian/monomind
+Documentation: https://github.com/monoes/monomind

@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v1
 
       - name: Initialize Swarm
-        uses: nokhodian/swarm-action@v1
+        uses: monoes/swarm-action@v1
         with:
           topology: mesh
           max-agents: 6

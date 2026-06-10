@@ -2,7 +2,7 @@
  * CLI Main Entry Point
  * Modernized CLI for Monomind
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -298,7 +298,7 @@ export class CLI {
         this.output.writeln();
         this.output.writeln(this.output.dim(`Run "${this.name} <command> --help" for command help`));
         this.output.writeln();
-        this.output.writeln(this.output.dim('github.com/nokhodian/monomind'));
+        this.output.writeln(this.output.dim('github.com/monoes/monomind'));
         this.output.writeln();
     }
     /**
@@ -385,22 +385,14 @@ export class CLI {
      */
     async loadConfig(configPath) {
         try {
-            // Import config utilities
-            const { loadConfig: loadSystemConfig } = await import('@monomind/shared');
-            const { systemConfigToMonomindConfig } = await import('./config-adapter.js');
-            // Load configuration
-            const loaded = await loadSystemConfig({
-                file: configPath,
-                paths: configPath ? undefined : [process.cwd()],
-            });
-            // Convert to MonomindConfig format
-            const config = systemConfigToMonomindConfig(loaded.config);
-            // Log warnings if any
-            if (loaded.warnings && loaded.warnings.length > 0) {
-                for (const warning of loaded.warnings) {
-                    this.output.printWarning(warning);
-                }
-            }
+            const { configManager } = await import('./services/config-file-manager.js');
+            const cwd = configPath
+                ? (await import('path')).dirname(configPath)
+                : process.cwd();
+            const raw = configManager.load(cwd);
+            if (!raw)
+                return undefined;
+            const config = raw;
             return config;
         }
         catch (error) {
@@ -417,14 +409,6 @@ export class CLI {
      * so that packages/@monomind/* actually contribute to the live runtime.
      */
     async initSubsystems() {
-        // GAP-003: TierManager
-        try {
-            const { TierManager, createPersistentService } = await import('@monoes/memory');
-            const backend = createPersistentService('.monomind/memory');
-            const _tierManager = new TierManager(backend, { shortTermCapacity: 1000 });
-            void _tierManager;
-        }
-        catch { /* optional — monomind/memory may not be installed */ }
         // GAP-004/005/006: Register background workers (EntityExtractor, EpisodeBinner, TraceCollector)
         try {
             const { initDefaultWorkers } = await import('@monomind/hooks');

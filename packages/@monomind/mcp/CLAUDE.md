@@ -712,8 +712,8 @@ npx @monomind/cli@latest memory init --force --verbose
 
 ## Support
 
-- Documentation: https://github.com/nokhodian/monomind
-- Issues: https://github.com/nokhodian/monomind/issues
+- Documentation: https://github.com/monoes/monomind
+- Issues: https://github.com/monoes/monomind/issues
 
 ---
 

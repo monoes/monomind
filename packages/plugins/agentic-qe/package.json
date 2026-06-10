@@ -42,12 +42,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monomind.git",
+    "url": "https://github.com/monoes/monomind.git",
     "directory": "packages/plugins/agentic-qe"
   },
-  "homepage": "https://github.com/nokhodian/monomind/tree/main/packages/plugins/agentic-qe",
+  "homepage": "https://github.com/monoes/monomind/tree/main/packages/plugins/agentic-qe",
   "bugs": {
-    "url": "https://github.com/nokhodian/monomind/issues"
+    "url": "https://github.com/monoes/monomind/issues"
   },
   "dependencies": {
     "zod": "^3.23.0"

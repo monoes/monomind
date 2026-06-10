@@ -149,7 +149,7 @@ const repositories = ["@monomind/cli", "@monomind/hooks", "@monomind/memory"];
 // Update common files across repositories
 repositories.forEach((repo) => {
   mcp__github__create_or_update_file({
-    owner: "nokhodian",
+    owner: "monoes",
     repo: "monomind",
     path: `${repo}/.github/workflows/integration.yml`,
     content: `name: Integration Tests

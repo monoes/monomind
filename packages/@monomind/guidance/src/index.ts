@@ -347,6 +347,7 @@ export {
   TrustSystem,
   getTrustBasedRateLimit,
   createTrustAccumulator,
+  createTrustLedger,
   createTrustSystem,
 } from './trust.js';
 export type {

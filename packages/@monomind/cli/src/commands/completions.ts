@@ -2,7 +2,7 @@
  * CLI Completions Command
  * Shell completions for bash, zsh, fish, powershell
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';

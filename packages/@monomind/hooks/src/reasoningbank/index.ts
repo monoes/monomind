@@ -295,7 +295,7 @@ export class ReasoningBank extends EventEmitter {
       }
     };
 
-    const memoryModule = await dynamicImport('@monomind/memory');
+    const memoryModule = await dynamicImport('@monoes/memory');
     if (memoryModule) {
       AgentDBAdapter = memoryModule.AgentDBAdapter;
       HNSWIndex = memoryModule.HNSWIndex;

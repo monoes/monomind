@@ -815,4 +815,4 @@ Add to your Claude settings (`~/.claude/settings.json`):
 
 ## License
 
-MIT © [Monomind Team](https://github.com/nokhodian/monomind)
+MIT © [Monomind Team](https://github.com/monoes/monomind)

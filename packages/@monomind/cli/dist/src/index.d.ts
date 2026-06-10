@@ -2,7 +2,7 @@
  * CLI Main Entry Point
  * Modernized CLI for Monomind
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 export declare const VERSION: string;
 export interface CLIOptions {

@@ -7,7 +7,7 @@
  *   npx monomind monovector import --from-memory
  *   npx monomind monovector import --input data.json --batch-size 100
  *
- * https://github.com/nokhodian/monomind
+ * https://github.com/monoes/monomind
  */
 import { output } from '../../output.js';
 import * as fs from 'fs';
