@@ -810,68 +810,103 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="page-header">
       <span class="page-tag">Reference</span>
       <h1 class="page-title">Slash Commands</h1>
-      <p class="page-desc">~110 executable commands across 22 categories. Invoke via <code>/command</code> inside Claude Code.</p>
+      <p class="page-desc">80+ executable commands across 9 categories. Invoke via <code>/command</code> inside Claude Code.</p>
     </div>
     <div class="search-bar reveal"><span class="search-icon">⌕</span><input type="text" id="slash-search" placeholder="Search slash commands..." aria-label="Search slash commands"></div>
     <div class="cmd-grid" id="slash-grid">
-      <div class="cmd-item" data-search="monobrowse browse browser testing automation"><div class="cmd-name">/monobrowse</div><div class="cmd-desc">UI testing via monomind browse CDP client</div></div>
-      <div class="cmd-item" data-search="mastermind swarm topology picker"><div class="cmd-name">/mastermind</div><div class="cmd-desc">Swarm topology picker — all 11 modes, one recommendation</div></div>
-      <div class="cmd-item" data-search="sparc methodology workflow"><div class="cmd-name">/sparc</div><div class="cmd-desc">Execute SPARC methodology workflows</div></div>
-      <div class="cmd-item" data-search="tokens usage cost dashboard"><div class="cmd-name">/tokens</div><div class="cmd-desc">Token usage dashboard: today/week/30days/month</div></div>
-      <div class="cmd-item" data-search="ts statusline toggle compact full"><div class="cmd-name">/ts</div><div class="cmd-desc">Toggle statusline between full and compact mode</div></div>
-      <div class="cmd-item" data-search="mastermind autodev build review loop autonomous tillend"><div class="cmd-name">/mastermind:autodev</div><div class="cmd-desc">Autonomous research→build→review loop</div></div>
-      <div class="cmd-item" data-search="mastermind build implement feature brief"><div class="cmd-name">/mastermind:build</div><div class="cmd-desc">Build a specific feature from a brief</div></div>
-      <div class="cmd-item" data-search="mastermind review audit code clean"><div class="cmd-name">/mastermind:review</div><div class="cmd-desc">Iterative code review until clean</div></div>
-      <div class="cmd-item" data-search="mastermind architect design system architecture"><div class="cmd-name">/mastermind:architect</div><div class="cmd-desc">System architecture and design</div></div>
-      <div class="cmd-item" data-search="mastermind research investigate deep"><div class="cmd-name">/mastermind:research</div><div class="cmd-desc">Deep research with structured output</div></div>
-      <div class="cmd-item" data-search="mastermind release version publish changelog"><div class="cmd-name">/mastermind:release</div><div class="cmd-desc">Manage a software release</div></div>
-      <div class="cmd-item" data-search="mastermind idea feature improvement generate"><div class="cmd-name">/mastermind:idea</div><div class="cmd-desc">Idea generation and evaluation</div></div>
-      <div class="cmd-item" data-search="mastermind ops operations planning tracking"><div class="cmd-name">/mastermind:ops</div><div class="cmd-desc">Operations planning and tracking</div></div>
-      <div class="cmd-item" data-search="mastermind finance model burn rate"><div class="cmd-name">/mastermind:finance</div><div class="cmd-desc">Financial modeling and analysis</div></div>
-      <div class="cmd-item" data-search="mastermind marketing strategy content launch"><div class="cmd-name">/mastermind:marketing</div><div class="cmd-desc">Marketing strategy and content</div></div>
-      <div class="cmd-item" data-search="mastermind brain context memory inspect"><div class="cmd-name">/mastermind:brain</div><div class="cmd-desc">Inspect and manage mastermind brain context</div></div>
-      <div class="cmd-item" data-search="mastermind techport technical portfolio assess"><div class="cmd-name">/mastermind:techport</div><div class="cmd-desc">Technical portfolio — assess project state</div></div>
-      <div class="cmd-item" data-search="mastermind master control high level"><div class="cmd-name">/mastermind:master</div><div class="cmd-desc">High-level project master control</div></div>
-      <div class="cmd-item" data-search="monomind do execute task board"><div class="cmd-name">/monomind:do</div><div class="cmd-desc">Execute tasks from monotask board</div></div>
-      <div class="cmd-item" data-search="monomind create task decompose ingest"><div class="cmd-name">/monomind:createtask</div><div class="cmd-desc">Decompose prompt into tasks on monotask board</div></div>
-      <div class="cmd-item" data-search="monomind improve component deep pipeline"><div class="cmd-name">/monomind:improve</div><div class="cmd-desc">Deep component improvement pipeline</div></div>
-      <div class="cmd-item" data-search="monomind review code security auto fix hil"><div class="cmd-name">/monomind:review</div><div class="cmd-desc">Multi-agent iterative review with auto-fix</div></div>
-      <div class="cmd-item" data-search="monomind repeat loop schedule every times"><div class="cmd-name">/monomind:repeat</div><div class="cmd-desc">Universal loop wrapper — repeat any command</div></div>
-      <div class="cmd-item" data-search="monomind understand semantic enrichment monograph"><div class="cmd-name">/monomind:understand</div><div class="cmd-desc">Semantic enrichment for monograph</div></div>
-      <div class="cmd-item" data-search="monomind adr architecture decision record draft"><div class="cmd-name">/monomind:adr</div><div class="cmd-desc">Draft Architecture Decision Record</div></div>
-      <div class="cmd-item" data-search="monomind budget tokens cost limits autotune"><div class="cmd-name">/monomind:budget</div><div class="cmd-desc">Budget status: today, month, limits, autotune</div></div>
-      <div class="cmd-item" data-search="monomind graph status nodes edges freshness"><div class="cmd-name">/monomind:graph-status</div><div class="cmd-desc">Single-line graph stats: nodes, edges, freshness</div></div>
-      <div class="cmd-item" data-search="monomind loops active running tillend repeat"><div class="cmd-name">/monomind:loops</div><div class="cmd-desc">List active --tillend/--repeat loops</div></div>
-      <div class="cmd-item" data-search="monomind swarm coordination reference agents"><div class="cmd-name">/monomind:swarm</div><div class="cmd-desc">Swarm coordination reference</div></div>
-      <div class="cmd-item" data-search="monomind help reference commands skills workflow"><div class="cmd-name">/monomind:help</div><div class="cmd-desc">Master quick-reference: all skills and commands</div></div>
-      <div class="cmd-item" data-search="swarm development hierarchical architect coder tester"><div class="cmd-name">/swarm:development</div><div class="cmd-desc">Hierarchical: architect→coder→tester flow</div></div>
-      <div class="cmd-item" data-search="swarm analysis mesh distributed codebase perf security"><div class="cmd-name">/swarm:analysis</div><div class="cmd-desc">Mesh + adaptive for codebase analysis</div></div>
-      <div class="cmd-item" data-search="swarm testing star parallel unit integration e2e"><div class="cmd-name">/swarm:testing</div><div class="cmd-desc">Star + parallel for all test types</div></div>
-      <div class="cmd-item" data-search="swarm optimization profiling bottleneck performance"><div class="cmd-name">/swarm:optimization</div><div class="cmd-desc">Profiling, bottleneck detection, optimization</div></div>
-      <div class="cmd-item" data-search="swarm modes topologies overview all"><div class="cmd-name">/swarm:swarm-modes</div><div class="cmd-desc">Overview of all swarm topologies</div></div>
-      <div class="cmd-item" data-search="swarm strategies selection decision matrix"><div class="cmd-name">/swarm:swarm-strategies</div><div class="cmd-desc">Decision matrix for strategy selection</div></div>
-      <div class="cmd-item" data-search="sparc architect design system"><div class="cmd-name">/sparc:architect</div><div class="cmd-desc">System architecture and design</div></div>
-      <div class="cmd-item" data-search="sparc code implement auto-coder"><div class="cmd-name">/sparc:code</div><div class="cmd-desc">Auto-coder implementation mode</div></div>
-      <div class="cmd-item" data-search="sparc tdd test driven development"><div class="cmd-name">/sparc:tdd</div><div class="cmd-desc">Test-driven development</div></div>
-      <div class="cmd-item" data-search="sparc debugger debug fix trace error"><div class="cmd-name">/sparc:debugger</div><div class="cmd-desc">Debug mode — trace + fix</div></div>
-      <div class="cmd-item" data-search="sparc reviewer code review audit"><div class="cmd-name">/sparc:reviewer</div><div class="cmd-desc">Code review mode</div></div>
-      <div class="cmd-item" data-search="sparc security audit hardening review"><div class="cmd-name">/sparc:security-review</div><div class="cmd-desc">Security audit and hardening</div></div>
-      <div class="cmd-item" data-search="sparc documenter docs api markdown"><div class="cmd-name">/sparc:documenter</div><div class="cmd-desc">Documentation generation</div></div>
-      <div class="cmd-item" data-search="github pr pull request manager lifecycle"><div class="cmd-name">/github:pr-manager</div><div class="cmd-desc">Full PR lifecycle with swarm coordination</div></div>
-      <div class="cmd-item" data-search="github issue tracker milestone creation"><div class="cmd-name">/github:issue-tracker</div><div class="cmd-desc">Issue creation and progress tracking</div></div>
-      <div class="cmd-item" data-search="github release manager version ci cd"><div class="cmd-name">/github:release-manager</div><div class="cmd-desc">Release coordination and CI/CD</div></div>
-      <div class="cmd-item" data-search="monodesign craft build ui feature shape"><div class="cmd-name">/monodesign craft</div><div class="cmd-desc">Shape + build a UI feature end-to-end</div></div>
-      <div class="cmd-item" data-search="monodesign shape plan ux brief design"><div class="cmd-name">/monodesign shape</div><div class="cmd-desc">Plan UX/UI before writing code</div></div>
-      <div class="cmd-item" data-search="monodesign audit technical quality a11y performance"><div class="cmd-name">/monodesign audit</div><div class="cmd-desc">Technical quality: a11y, perf, responsive</div></div>
-      <div class="cmd-item" data-search="monodesign critique heuristic review scoring"><div class="cmd-name">/monodesign critique</div><div class="cmd-desc">UX design review with heuristic scoring</div></div>
-      <div class="cmd-item" data-search="monodesign polish final quality ship"><div class="cmd-name">/monodesign polish</div><div class="cmd-desc">Final quality pass before shipping</div></div>
-      <div class="cmd-item" data-search="monomotion animation gsap motion scroll"><div class="cmd-name">/monomotion</div><div class="cmd-desc">GSAP animation skill — all motion work</div></div>
-      <div class="cmd-item" data-search="monograph build graph code knowledge codebase"><div class="cmd-name">/monograph:monograph-build</div><div class="cmd-desc">Build knowledge graph from codebase</div></div>
-      <div class="cmd-item" data-search="monograph search query find nodes edges"><div class="cmd-name">/monograph:monograph-search</div><div class="cmd-desc">BM25, semantic, hybrid graph search</div></div>
-      <div class="cmd-item" data-search="monograph watch incremental rebuild changes"><div class="cmd-name">/monograph:monograph-watch</div><div class="cmd-desc">Incremental rebuild on file changes</div></div>
-      <div class="cmd-item" data-search="hooks setup configure settings json"><div class="cmd-name">/hooks:setup</div><div class="cmd-desc">Configure hooks in settings.json</div></div>
-      <div class="cmd-item" data-search="hooks overview system wire claude code"><div class="cmd-name">/hooks:overview</div><div class="cmd-desc">How hooks wire into Claude Code</div></div>
-      <div class="cmd-item" data-search="memory readme reference cli subcommands mcp"><div class="cmd-name">/memory:README</div><div class="cmd-desc">Full memory CLI reference: all 14 subcommands</div></div>
+      <!-- Core / Root -->
+      <div class="cmd-item" data-search="mastermind swarm topology picker hive mind"><div class="cmd-name">/mastermind</div><div class="cmd-desc">Swarm topology picker — all 11 modes, one recommendation</div></div>
+      <div class="cmd-item" data-search="monobrowse browse browser testing automation cdp"><div class="cmd-name">/monobrowse</div><div class="cmd-desc">UI testing via monomind browse CDP client</div></div>
+      <div class="cmd-item" data-search="sparc methodology workflow orchestrate"><div class="cmd-name">/sparc</div><div class="cmd-desc">Execute SPARC methodology workflows</div></div>
+      <div class="cmd-item" data-search="tokens usage cost dashboard spend"><div class="cmd-name">/tokens</div><div class="cmd-desc">Token usage dashboard: today/week/30days/month</div></div>
+      <div class="cmd-item" data-search="ts statusline toggle compact full panel"><div class="cmd-name">/ts</div><div class="cmd-desc">Toggle statusline between full and compact mode</div></div>
+      <!-- mastermind: — dev commands -->
+      <div class="cmd-item" data-search="mastermind autodev build review loop autonomous tillend research"><div class="cmd-name">/mastermind:autodev</div><div class="cmd-desc">Autonomous research→build→review loop</div></div>
+      <div class="cmd-item" data-search="mastermind build implement feature brief spec"><div class="cmd-name">/mastermind:build</div><div class="cmd-desc">Build a specific feature from a brief</div></div>
+      <div class="cmd-item" data-search="mastermind review audit code clean iterative security"><div class="cmd-name">/mastermind:review</div><div class="cmd-desc">Iterative code review and security audit</div></div>
+      <div class="cmd-item" data-search="mastermind code-review multi agent auto fix hil findings"><div class="cmd-name">/mastermind:code-review</div><div class="cmd-desc">Multi-agent iterative review with auto-fix</div></div>
+      <div class="cmd-item" data-search="mastermind architect design system architecture file structure"><div class="cmd-name">/mastermind:architect</div><div class="cmd-desc">Architecture review and file structure design</div></div>
+      <div class="cmd-item" data-search="mastermind debug root cause systematic fix trace error"><div class="cmd-name">/mastermind:debug</div><div class="cmd-desc">Systematic root-cause debugging</div></div>
+      <div class="cmd-item" data-search="mastermind tdd test driven development red green refactor"><div class="cmd-name">/mastermind:tdd</div><div class="cmd-desc">Test-Driven Development: Red-Green-Refactor</div></div>
+      <div class="cmd-item" data-search="mastermind plan implementation comprehensive spec requirements"><div class="cmd-name">/mastermind:plan</div><div class="cmd-desc">Write a comprehensive implementation plan</div></div>
+      <div class="cmd-item" data-search="mastermind execute implementation plan step by step review"><div class="cmd-name">/mastermind:execute</div><div class="cmd-desc">Execute a written implementation plan step by step</div></div>
+      <div class="cmd-item" data-search="mastermind taskdev task by task fresh subagents pipeline"><div class="cmd-name">/mastermind:taskdev</div><div class="cmd-desc">Execute plan task-by-task with fresh subagents</div></div>
+      <div class="cmd-item" data-search="mastermind improve component deep pipeline analysis"><div class="cmd-name">/mastermind:improve</div><div class="cmd-desc">Deep component improvement pipeline</div></div>
+      <div class="cmd-item" data-search="mastermind verify verification gate complete fix checked"><div class="cmd-name">/mastermind:verify</div><div class="cmd-desc">Verification gate before claiming work complete</div></div>
+      <div class="cmd-item" data-search="mastermind finish integrate complete implementation decision"><div class="cmd-name">/mastermind:finish</div><div class="cmd-desc">Decide how to integrate completed implementation</div></div>
+      <div class="cmd-item" data-search="mastermind worktree git isolation feature branch"><div class="cmd-name">/mastermind:worktree</div><div class="cmd-desc">Start feature work in isolated git worktree</div></div>
+      <div class="cmd-item" data-search="mastermind receive review feedback evaluate implement"><div class="cmd-name">/mastermind:receive-review</div><div class="cmd-desc">Evaluate and implement code review feedback</div></div>
+      <!-- mastermind: — research & ideas -->
+      <div class="cmd-item" data-search="mastermind research deep market competitor analysis structured"><div class="cmd-name">/mastermind:research</div><div class="cmd-desc">Deep research with structured output</div></div>
+      <div class="cmd-item" data-search="mastermind idea feature improvement generate brainstorm"><div class="cmd-name">/mastermind:idea</div><div class="cmd-desc">Idea generation and evaluation</div></div>
+      <div class="cmd-item" data-search="mastermind ideate pm research evaluate ideas product"><div class="cmd-name">/mastermind:ideate</div><div class="cmd-desc">Research ideas, evaluate with PM lens</div></div>
+      <div class="cmd-item" data-search="mastermind design collaborative session ux requirements intent"><div class="cmd-name">/mastermind:design</div><div class="cmd-desc">Collaborative design session — explore intent and requirements</div></div>
+      <!-- mastermind: — task & project management -->
+      <div class="cmd-item" data-search="mastermind do execute task board docs tasks folder"><div class="cmd-name">/mastermind:do</div><div class="cmd-desc">Execute tasks from task file (docs/tasks/)</div></div>
+      <div class="cmd-item" data-search="mastermind createtask decompose ingest prompt file folder board"><div class="cmd-name">/mastermind:createtask</div><div class="cmd-desc">Decompose prompt into tasks on monotask board</div></div>
+      <div class="cmd-item" data-search="mastermind master orchestrator top level any business prompt"><div class="cmd-name">/mastermind:master</div><div class="cmd-desc">Top-level orchestrator — routes any business prompt</div></div>
+      <div class="cmd-item" data-search="mastermind release version publish changelog deployment"><div class="cmd-name">/mastermind:release</div><div class="cmd-desc">Release management: versioning, changelog, deployment</div></div>
+      <div class="cmd-item" data-search="mastermind adr architecture decision record draft document"><div class="cmd-name">/mastermind:adr</div><div class="cmd-desc">Draft Architecture Decision Record</div></div>
+      <!-- mastermind: — autonomous orgs -->
+      <div class="cmd-item" data-search="mastermind createorg define save autonomous agent organization roles hierarchy"><div class="cmd-name">/mastermind:createorg</div><div class="cmd-desc">Define and save an autonomous agent organization</div></div>
+      <div class="cmd-item" data-search="mastermind runorg start persistent autonomous agent loop scheduled"><div class="cmd-name">/mastermind:runorg</div><div class="cmd-desc">Start a saved org as a persistent autonomous agent loop</div></div>
+      <div class="cmd-item" data-search="mastermind stoporg stop scheduled org loop status stopped"><div class="cmd-name">/mastermind:stoporg</div><div class="cmd-desc">Stop a running scheduled org loop</div></div>
+      <div class="cmd-item" data-search="mastermind orgs list saved status schedule interval"><div class="cmd-name">/mastermind:orgs</div><div class="cmd-desc">List all saved orgs with status and schedule</div></div>
+      <div class="cmd-item" data-search="mastermind orgstatus detailed status lifecycle single org"><div class="cmd-name">/mastermind:orgstatus</div><div class="cmd-desc">Detailed status for a single org</div></div>
+      <div class="cmd-item" data-search="mastermind approve review pending approval agents running"><div class="cmd-name">/mastermind:approve</div><div class="cmd-desc">Review and action pending approval requests from running orgs</div></div>
+      <!-- mastermind: — utilities -->
+      <div class="cmd-item" data-search="mastermind brain context memory inspect compact refresh"><div class="cmd-name">/mastermind:brain</div><div class="cmd-desc">Inspect and manage mastermind brain context</div></div>
+      <div class="cmd-item" data-search="mastermind memory agentdb store search retrieve list delete"><div class="cmd-name">/mastermind:memory</div><div class="cmd-desc">AgentDB memory: store, search, retrieve, list, delete</div></div>
+      <div class="cmd-item" data-search="mastermind budget tokens cost limits autotune today month"><div class="cmd-name">/mastermind:budget</div><div class="cmd-desc">Budget status: today, month, limits, autotune</div></div>
+      <div class="cmd-item" data-search="mastermind graph status nodes edges freshness usage"><div class="cmd-name">/mastermind:graph-status</div><div class="cmd-desc">Single-line graph stats: nodes, edges, freshness</div></div>
+      <div class="cmd-item" data-search="mastermind loops active running tillend repeat command"><div class="cmd-name">/mastermind:loops</div><div class="cmd-desc">List active --tillend/--repeat loops</div></div>
+      <div class="cmd-item" data-search="mastermind repeat loop schedule every times command"><div class="cmd-name">/mastermind:repeat</div><div class="cmd-desc">Repeat any prompt or slash command on a schedule</div></div>
+      <div class="cmd-item" data-search="mastermind understand semantic enrichment monograph codebase"><div class="cmd-name">/mastermind:understand</div><div class="cmd-desc">Semantic enrichment for monograph</div></div>
+      <div class="cmd-item" data-search="mastermind swarm coordination init start status stop scale"><div class="cmd-name">/mastermind:swarm</div><div class="cmd-desc">Multi-agent swarm coordination</div></div>
+      <div class="cmd-item" data-search="mastermind help reference commands skills workflow quick"><div class="cmd-name">/mastermind:help</div><div class="cmd-desc">Quick-reference: all skills, commands, and CLI</div></div>
+      <div class="cmd-item" data-search="mastermind skill builder create edit verify skills"><div class="cmd-name">/mastermind:skill-builder</div><div class="cmd-desc">Create, edit, or verify mastermind skills</div></div>
+      <div class="cmd-item" data-search="mastermind specialagents specialist activate persona category"><div class="cmd-name">/mastermind:specialagents</div><div class="cmd-desc">Activate a specialist agent persona</div></div>
+      <!-- mastermind: — business domains -->
+      <div class="cmd-item" data-search="mastermind research deep market competitor analysis structured"><div class="cmd-name">/mastermind:techport</div><div class="cmd-desc">Technical portfolio — assess foreign project state</div></div>
+      <div class="cmd-item" data-search="mastermind ops operations planning workflow automation reporting"><div class="cmd-name">/mastermind:ops</div><div class="cmd-desc">Operations planning and workflow automation</div></div>
+      <div class="cmd-item" data-search="mastermind finance invoicing budget tracking financial model burn rate"><div class="cmd-name">/mastermind:finance</div><div class="cmd-desc">Financial modeling, invoicing, and budget tracking</div></div>
+      <div class="cmd-item" data-search="mastermind marketing campaigns copy seo social media content launch"><div class="cmd-name">/mastermind:marketing</div><div class="cmd-desc">Marketing strategy: campaigns, copy, SEO, social</div></div>
+      <div class="cmd-item" data-search="mastermind content blog threads docs newsletters copywriting"><div class="cmd-name">/mastermind:content</div><div class="cmd-desc">Blog posts, threads, docs, newsletters</div></div>
+      <div class="cmd-item" data-search="mastermind sales outreach proposals pipeline management strategy"><div class="cmd-name">/mastermind:sales</div><div class="cmd-desc">Sales strategy, outreach, and pipeline management</div></div>
+      <!-- swarm: -->
+      <div class="cmd-item" data-search="swarm development hierarchical architect coder tester flow"><div class="cmd-name">/swarm:development</div><div class="cmd-desc">Hierarchical: architect→coder→tester flow</div></div>
+      <div class="cmd-item" data-search="swarm analysis mesh distributed codebase perf security adaptive"><div class="cmd-name">/swarm:analysis</div><div class="cmd-desc">Mesh + adaptive for codebase analysis</div></div>
+      <div class="cmd-item" data-search="swarm testing star parallel unit integration e2e all types"><div class="cmd-name">/swarm:testing</div><div class="cmd-desc">Star + parallel for all test types</div></div>
+      <div class="cmd-item" data-search="swarm optimization profiling bottleneck performance detect"><div class="cmd-name">/swarm:optimization</div><div class="cmd-desc">Profiling, bottleneck detection, optimization</div></div>
+      <div class="cmd-item" data-search="swarm modes topologies overview all selection"><div class="cmd-name">/swarm:swarm-modes</div><div class="cmd-desc">Overview of all swarm topologies</div></div>
+      <div class="cmd-item" data-search="swarm strategies selection decision matrix guide"><div class="cmd-name">/swarm:swarm-strategies</div><div class="cmd-desc">Decision matrix for swarm strategy selection</div></div>
+      <!-- sparc: -->
+      <div class="cmd-item" data-search="sparc architect design system architecture"><div class="cmd-name">/sparc:architect</div><div class="cmd-desc">System architecture and design</div></div>
+      <div class="cmd-item" data-search="sparc code implement auto-coder feature"><div class="cmd-name">/sparc:code</div><div class="cmd-desc">Auto-coder implementation mode</div></div>
+      <div class="cmd-item" data-search="sparc tdd test driven development red green"><div class="cmd-name">/sparc:tdd</div><div class="cmd-desc">Test-driven development</div></div>
+      <div class="cmd-item" data-search="sparc debugger debug fix trace error systematic"><div class="cmd-name">/sparc:debugger</div><div class="cmd-desc">Debug mode — trace and fix</div></div>
+      <div class="cmd-item" data-search="sparc reviewer code review audit quality"><div class="cmd-name">/sparc:reviewer</div><div class="cmd-desc">Code review mode</div></div>
+      <div class="cmd-item" data-search="sparc security audit hardening review vulnerability"><div class="cmd-name">/sparc:security-review</div><div class="cmd-desc">Security audit and hardening</div></div>
+      <div class="cmd-item" data-search="sparc documenter docs api markdown generation"><div class="cmd-name">/sparc:documenter</div><div class="cmd-desc">Documentation generation</div></div>
+      <!-- github: -->
+      <div class="cmd-item" data-search="github pr pull request manager lifecycle swarm"><div class="cmd-name">/github:pr-manager</div><div class="cmd-desc">Full PR lifecycle with swarm coordination</div></div>
+      <div class="cmd-item" data-search="github issue tracker milestone creation progress"><div class="cmd-name">/github:issue-tracker</div><div class="cmd-desc">Issue creation and progress tracking</div></div>
+      <div class="cmd-item" data-search="github release manager version ci cd deploy"><div class="cmd-name">/github:release-manager</div><div class="cmd-desc">Release coordination and CI/CD</div></div>
+      <!-- monodesign / monomotion -->
+      <div class="cmd-item" data-search="monodesign craft build ui feature shape end to end"><div class="cmd-name">/monodesign craft</div><div class="cmd-desc">Shape + build a UI feature end-to-end</div></div>
+      <div class="cmd-item" data-search="monodesign shape plan ux brief design before code"><div class="cmd-name">/monodesign shape</div><div class="cmd-desc">Plan UX/UI before writing code</div></div>
+      <div class="cmd-item" data-search="monodesign audit technical quality a11y performance responsive"><div class="cmd-name">/monodesign audit</div><div class="cmd-desc">Technical quality: a11y, perf, responsive</div></div>
+      <div class="cmd-item" data-search="monodesign critique heuristic review scoring ux"><div class="cmd-name">/monodesign critique</div><div class="cmd-desc">UX design review with heuristic scoring</div></div>
+      <div class="cmd-item" data-search="monodesign polish final quality pass ship before"><div class="cmd-name">/monodesign polish</div><div class="cmd-desc">Final quality pass before shipping</div></div>
+      <div class="cmd-item" data-search="monomotion animation gsap motion scroll text intro"><div class="cmd-name">/monomotion</div><div class="cmd-desc">GSAP animation skill — all motion work</div></div>
+      <!-- monograph: -->
+      <div class="cmd-item" data-search="monograph build graph code knowledge codebase index"><div class="cmd-name">/monograph:monograph-build</div><div class="cmd-desc">Build knowledge graph from codebase</div></div>
+      <div class="cmd-item" data-search="monograph search query find nodes edges bm25 semantic hybrid"><div class="cmd-name">/monograph:monograph-search</div><div class="cmd-desc">BM25, semantic, hybrid graph search</div></div>
+      <div class="cmd-item" data-search="monograph watch incremental rebuild changes file"><div class="cmd-name">/monograph:monograph-watch</div><div class="cmd-desc">Incremental rebuild on file changes</div></div>
+      <!-- hooks: / memory: -->
+      <div class="cmd-item" data-search="hooks setup configure settings json claude code"><div class="cmd-name">/hooks:setup</div><div class="cmd-desc">Configure hooks in settings.json</div></div>
+      <div class="cmd-item" data-search="hooks overview system wire claude code how"><div class="cmd-name">/hooks:overview</div><div class="cmd-desc">How hooks wire into Claude Code</div></div>
+      <div class="cmd-item" data-search="memory readme reference cli subcommands mcp agentdb"><div class="cmd-name">/memory:README</div><div class="cmd-desc">Full memory CLI reference: all 14 subcommands</div></div>
     </div>
   </div>
 </div>
@@ -927,24 +962,58 @@ Session N: empty round (zero findings AND zero actions)
     <table class="doc-table">
       <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
       <tbody>
+        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Development —</td></tr>
         <tr><td class="mono">/mastermind:autodev</td><td>Autonomous research → build → review loop</td></tr>
         <tr><td class="mono">/mastermind:build</td><td>Build a specific feature from a brief</td></tr>
-        <tr><td class="mono">/mastermind:review</td><td>Iterative code review; auto-fixes findings</td></tr>
-        <tr><td class="mono">/mastermind:architect</td><td>System architecture design and review</td></tr>
+        <tr><td class="mono">/mastermind:review</td><td>Iterative code review and security audit</td></tr>
+        <tr><td class="mono">/mastermind:code-review</td><td>Multi-agent iterative review with auto-fix</td></tr>
+        <tr><td class="mono">/mastermind:architect</td><td>Architecture review and file structure design</td></tr>
+        <tr><td class="mono">/mastermind:debug</td><td>Systematic root-cause debugging</td></tr>
+        <tr><td class="mono">/mastermind:tdd</td><td>Test-Driven Development: Red-Green-Refactor</td></tr>
+        <tr><td class="mono">/mastermind:plan</td><td>Write a comprehensive implementation plan</td></tr>
+        <tr><td class="mono">/mastermind:execute</td><td>Execute a written implementation plan step by step</td></tr>
+        <tr><td class="mono">/mastermind:taskdev</td><td>Execute plan task-by-task with fresh subagents</td></tr>
+        <tr><td class="mono">/mastermind:improve</td><td>Deep component improvement pipeline</td></tr>
+        <tr><td class="mono">/mastermind:verify</td><td>Verification gate before claiming work complete</td></tr>
+        <tr><td class="mono">/mastermind:finish</td><td>Decide how to integrate completed implementation</td></tr>
+        <tr><td class="mono">/mastermind:worktree</td><td>Start feature work in isolated git worktree</td></tr>
+        <tr><td class="mono">/mastermind:receive-review</td><td>Evaluate and implement code review feedback</td></tr>
+        <tr><td class="mono">/mastermind:release</td><td>Release management: versioning, changelog, deployment</td></tr>
+        <tr><td class="mono">/mastermind:adr</td><td>Draft Architecture Decision Record</td></tr>
+        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Research &amp; Ideas —</td></tr>
         <tr><td class="mono">/mastermind:research</td><td>Deep research with structured output</td></tr>
-        <tr><td class="mono">/mastermind:techport</td><td>Technical portfolio — assess project state</td></tr>
         <tr><td class="mono">/mastermind:idea</td><td>Idea generation and evaluation</td></tr>
-        <tr><td class="mono">/mastermind:ops</td><td>Operations planning and tracking</td></tr>
-        <tr><td class="mono">/mastermind:finance</td><td>Financial modeling and analysis</td></tr>
-        <tr><td class="mono">/mastermind:marketing</td><td>Marketing strategy and content</td></tr>
-        <tr><td class="mono">/mastermind:sales</td><td>Sales strategy and pipeline</td></tr>
-        <tr><td class="mono">/mastermind:content</td><td>Content creation and strategy</td></tr>
-        <tr><td class="mono">/mastermind:createorg</td><td>Create and configure an organization structure</td></tr>
-        <tr><td class="mono">/mastermind:runorg</td><td>Run organization-level workflows</td></tr>
-        <tr><td class="mono">/mastermind:release</td><td>Manage a software release</td></tr>
-        <tr><td class="mono">/mastermind:master</td><td>High-level project master control</td></tr>
-        <tr><td class="mono">/mastermind:brain</td><td>Inspect and manage brain context</td></tr>
-        <tr><td class="mono">/mastermind:goals</td><td>Goal tracking and progress</td></tr>
+        <tr><td class="mono">/mastermind:ideate</td><td>Research ideas, evaluate with PM lens</td></tr>
+        <tr><td class="mono">/mastermind:design</td><td>Collaborative design session — explore intent and requirements</td></tr>
+        <tr><td class="mono">/mastermind:techport</td><td>Technical portfolio — assess foreign project state</td></tr>
+        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Task &amp; Org Management —</td></tr>
+        <tr><td class="mono">/mastermind:do</td><td>Execute tasks from task file (docs/tasks/)</td></tr>
+        <tr><td class="mono">/mastermind:createtask</td><td>Decompose prompt into tasks on monotask board</td></tr>
+        <tr><td class="mono">/mastermind:master</td><td>Top-level orchestrator — routes any business prompt</td></tr>
+        <tr><td class="mono">/mastermind:createorg</td><td>Define and save an autonomous agent organization</td></tr>
+        <tr><td class="mono">/mastermind:runorg</td><td>Start a saved org as a persistent autonomous agent loop</td></tr>
+        <tr><td class="mono">/mastermind:stoporg</td><td>Stop a running scheduled org loop</td></tr>
+        <tr><td class="mono">/mastermind:orgs</td><td>List all saved orgs with status and schedule</td></tr>
+        <tr><td class="mono">/mastermind:orgstatus</td><td>Detailed status for a single org</td></tr>
+        <tr><td class="mono">/mastermind:approve</td><td>Review and action pending approval requests from running orgs</td></tr>
+        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Utilities —</td></tr>
+        <tr><td class="mono">/mastermind:brain</td><td>Inspect and manage mastermind brain context</td></tr>
+        <tr><td class="mono">/mastermind:memory</td><td>AgentDB memory: store, search, retrieve, list, delete</td></tr>
+        <tr><td class="mono">/mastermind:budget</td><td>Budget status: today, month, limits, autotune</td></tr>
+        <tr><td class="mono">/mastermind:graph-status</td><td>Single-line graph stats: nodes, edges, freshness</td></tr>
+        <tr><td class="mono">/mastermind:loops</td><td>List active --tillend/--repeat loops</td></tr>
+        <tr><td class="mono">/mastermind:repeat</td><td>Repeat any prompt or slash command on a schedule</td></tr>
+        <tr><td class="mono">/mastermind:understand</td><td>Semantic enrichment for monograph</td></tr>
+        <tr><td class="mono">/mastermind:swarm</td><td>Multi-agent swarm coordination</td></tr>
+        <tr><td class="mono">/mastermind:help</td><td>Quick-reference: all skills, commands, and CLI</td></tr>
+        <tr><td class="mono">/mastermind:skill-builder</td><td>Create, edit, or verify mastermind skills</td></tr>
+        <tr><td class="mono">/mastermind:specialagents</td><td>Activate a specialist agent persona</td></tr>
+        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Business Domains —</td></tr>
+        <tr><td class="mono">/mastermind:ops</td><td>Operations planning and workflow automation</td></tr>
+        <tr><td class="mono">/mastermind:finance</td><td>Financial modeling, invoicing, and budget tracking</td></tr>
+        <tr><td class="mono">/mastermind:marketing</td><td>Marketing strategy: campaigns, copy, SEO, social</td></tr>
+        <tr><td class="mono">/mastermind:content</td><td>Blog posts, threads, docs, newsletters</td></tr>
+        <tr><td class="mono">/mastermind:sales</td><td>Sales strategy, outreach, and pipeline management</td></tr>
       </tbody>
     </table>
     </div>
