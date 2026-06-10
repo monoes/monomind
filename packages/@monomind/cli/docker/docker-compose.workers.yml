@@ -18,7 +18,7 @@ version: '3.8'
 services:
   # Worker Pool - Scalable headless worker containers
   worker-pool:
-    image: ghcr.io/nokhodian/monomind-headless:latest
+    image: ghcr.io/monoes/monomind-headless:latest
     build:
       context: .
       dockerfile: Dockerfile.headless
@@ -61,7 +61,7 @@ services:
 
   # Queue Manager - Coordinates task distribution
   queue-manager:
-    image: ghcr.io/nokhodian/monomind-headless:latest
+    image: ghcr.io/monoes/monomind-headless:latest
     build:
       context: .
       dockerfile: Dockerfile.headless

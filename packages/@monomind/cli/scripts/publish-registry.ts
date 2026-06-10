@@ -192,11 +192,8 @@ async function generateRegistry(): Promise<PluginRegistry> {
   const officialPackages = [
     '@monomind/plugin-agentic-qe',
     '@monomind/plugin-prime-radiant',
-    '@monomind/plugin-gastown-bridge',
     '@monomind/security',
     '@monomind/claims',
-    '@monomind/embeddings',
-    '@monomind/performance',
     '@monomind/plugins',
   ];
 
