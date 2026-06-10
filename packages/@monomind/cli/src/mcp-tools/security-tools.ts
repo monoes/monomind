@@ -2,12 +2,12 @@
  * Security MCP Tools - MonoFence Integration
  *
  * Provides MCP tools for AI manipulation defense:
- * - aidefence_scan: Scan input for threats
- * - aidefence_analyze: Deep analysis of threats
- * - aidefence_stats: Get detection statistics
- * - aidefence_learn: Learn from detection feedback
+ * - monofence_scan: Scan input for threats
+ * - monofence_analyze: Deep analysis of threats
+ * - monofence_stats: Get detection statistics
+ * - monofence_learn: Learn from detection feedback
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 import type { MCPTool, MCPToolResult } from './types.js';
@@ -21,7 +21,7 @@ const require = createRequire(import.meta.url);
 type MonoFenceInstance = ReturnType<typeof import('monofence-ai').createMonoDefence>;
 
 // Lazy-loaded MonoFence instance
-let aidefenceInstance: MonoFenceInstance | null = null;
+let monofenceInstance: MonoFenceInstance | null = null;
 
 // Track if we've attempted install this session
 let installAttempted = false;
@@ -30,20 +30,20 @@ let installAttempted = false;
  * Get or create MonoFence instance (throws if unavailable)
  */
 async function getMonoFence(): Promise<MonoFenceInstance> {
-  if (aidefenceInstance) {
-    return aidefenceInstance;
+  if (monofenceInstance) {
+    return monofenceInstance;
   }
 
   const packageName = 'monofence-ai';
 
   // First attempt - try to load via dynamic import (ESM)
   try {
-    const aidefence = await import(packageName);
-    const instance = aidefence.createMonoDefence({ enableLearning: true });
+    const monofence = await import(packageName);
+    const instance = monofence.createMonoDefence({ enableLearning: true });
     if (!instance) {
       throw new Error('createMonoDefence returned null');
     }
-    aidefenceInstance = instance;
+    monofenceInstance = instance;
     return instance;
   } catch (e) {
     // Package not found or failed to load
@@ -68,28 +68,15 @@ async function getMonoFence(): Promise<MonoFenceInstance> {
     throw new Error('MonoFence package not available. Install with: npm install monofence-ai');
   }
 
-  // Retry with ESM cache busting via file:// URL + timestamp
-  try {
-    const modulePath = require.resolve(packageName);
-    const cacheBust = `?t=${Date.now()}`;
-    const aidefence = await import(`file://${modulePath}${cacheBust}`);
-    const instance = aidefence.createMonoDefence({ enableLearning: true });
-    if (!instance) {
-      throw new Error('createMonoDefence returned null after install');
-    }
-    aidefenceInstance = instance;
-    console.error(`[monomind] ${packageName} loaded successfully after install`);
-    return instance;
-  } catch (retryError) {
-    throw new Error(`MonoFence installed but failed to load: ${retryError}. Try restarting the MCP server.`);
-  }
+  // The in-process ESM module cache cannot be invalidated after install; require a server restart.
+  throw new Error(`MonoFence installed successfully. Restart the MCP server to load it: npx monomind mcp start`);
 }
 
 /**
  * Scan input for AI manipulation threats
  */
-const aidefenceScanTool: MCPTool = {
-  name: 'aidefence_scan',
+const monofenceScanTool: MCPTool = {
+  name: 'monofence_scan',
   description: 'Scan input text for AI manipulation threats (prompt injection, jailbreaks, PII). Returns threat assessment with <10ms latency.',
   inputSchema: {
     type: 'object',
@@ -160,8 +147,8 @@ const aidefenceScanTool: MCPTool = {
 /**
  * Deep analysis of specific threat
  */
-const aidefenceAnalyzeTool: MCPTool = {
-  name: 'aidefence_analyze',
+const monofenceAnalyzeTool: MCPTool = {
+  name: 'monofence_analyze',
   description: 'Deep analysis of input for specific threat types with similar pattern search and mitigation recommendations.',
   inputSchema: {
     type: 'object',
@@ -245,8 +232,8 @@ const aidefenceAnalyzeTool: MCPTool = {
 /**
  * Get detection statistics
  */
-const aidefenceStatsTool: MCPTool = {
-  name: 'aidefence_stats',
+const monofenceStatsTool: MCPTool = {
+  name: 'monofence_stats',
   description: 'Get MonoFence detection and learning statistics.',
   inputSchema: {
     type: 'object',
@@ -284,8 +271,8 @@ const aidefenceStatsTool: MCPTool = {
 /**
  * Record detection feedback for learning
  */
-const aidefenceLearnTool: MCPTool = {
-  name: 'aidefence_learn',
+const monofenceLearnTool: MCPTool = {
+  name: 'monofence_learn',
   description: 'Record detection feedback for pattern learning. Improves future detection accuracy.',
   inputSchema: {
     type: 'object',
@@ -376,8 +363,8 @@ const aidefenceLearnTool: MCPTool = {
 /**
  * Check if input is safe (simple boolean check)
  */
-const aidefenceIsSafeTool: MCPTool = {
-  name: 'aidefence_is_safe',
+const monofenceIsSafeTool: MCPTool = {
+  name: 'monofence_is_safe',
   description: 'Quick boolean check if input is safe. Fastest option for simple validation.',
   inputSchema: {
     type: 'object',
@@ -393,6 +380,7 @@ const aidefenceIsSafeTool: MCPTool = {
     const input = args.input as string;
 
     try {
+      await getMonoFence(); // triggers auto-install if package is missing
       const { isSafe } = await import('monofence-ai');
       const safe = isSafe(input);
 
@@ -417,8 +405,8 @@ const aidefenceIsSafeTool: MCPTool = {
 /**
  * Check for PII in input
  */
-const aidefenceHasPIITool: MCPTool = {
-  name: 'aidefence_has_pii',
+const monofenceHasPIITool: MCPTool = {
+  name: 'monofence_has_pii',
   description: 'Check if input contains PII (emails, SSNs, API keys, passwords, etc.).',
   inputSchema: {
     type: 'object',
@@ -459,12 +447,12 @@ const aidefenceHasPIITool: MCPTool = {
  * Export all security tools
  */
 export const securityTools: MCPTool[] = [
-  aidefenceScanTool,
-  aidefenceAnalyzeTool,
-  aidefenceStatsTool,
-  aidefenceLearnTool,
-  aidefenceIsSafeTool,
-  aidefenceHasPIITool,
+  monofenceScanTool,
+  monofenceAnalyzeTool,
+  monofenceStatsTool,
+  monofenceLearnTool,
+  monofenceIsSafeTool,
+  monofenceHasPIITool,
 ];
 
 export default securityTools;

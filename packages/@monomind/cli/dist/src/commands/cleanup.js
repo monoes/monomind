@@ -2,7 +2,7 @@
  * CLI Cleanup Command
  * Removes project artifacts created by monomind/monomind
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import { output } from '../output.js';
 import { existsSync, statSync, rmSync, readdirSync } from 'fs';

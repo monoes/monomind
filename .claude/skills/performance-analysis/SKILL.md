@@ -547,9 +547,9 @@ npx monomind bottleneck detect --fix
 
 ## See Also
 
-- [Bottleneck Detection Guide](https://github.com/nokhodian/monomind/wiki/bottleneck-detect)
-- [Performance Report Guide](https://github.com/nokhodian/monomind/wiki/performance-report)
-- [Performance Bottlenecks Overview](https://github.com/nokhodian/monomind/wiki/performance-bottlenecks)
+- [Bottleneck Detection Guide](https://github.com/monoes/monomind/wiki/bottleneck-detect)
+- [Performance Report Guide](https://github.com/monoes/monomind/wiki/performance-report)
+- [Performance Bottlenecks Overview](https://github.com/monoes/monomind/wiki/performance-bottlenecks)
 - [Swarm Monitoring Documentation](../swarm-orchestration/SKILL.md)
 - [Memory Management Documentation](../memory-management/SKILL.md)
 

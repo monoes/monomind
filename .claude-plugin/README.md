@@ -1,6 +1,6 @@
 # 🚀 Monomind Plugin - Complete Enterprise AI Agent Orchestration
 
-[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/nokhodian/monomind)
+[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/monoes/monomind)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-%3E%3D2.0.0-purple.svg)](https://claude.com/code)
 
@@ -272,13 +272,13 @@ Monomind is the most comprehensive Claude Code plugin for enterprise AI agent or
 In Claude Code:
 
 ```
-/plugin add nokhodian/monomind
+/plugin add monoes/monomind
 ```
 
 Or from local directory:
 
 ```bash
-git clone https://github.com/nokhodian/monomind.git
+git clone https://github.com/monoes/monomind.git
 cd monomind
 ```
 
@@ -327,7 +327,7 @@ claude plugin list
 
 In Claude Code:
 ```
-/plugin add nokhodian/monomind
+/plugin add monoes/monomind
 /restart
 ```
 
@@ -335,7 +335,7 @@ In Claude Code:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nokhodian/monomind.git
+git clone https://github.com/monoes/monomind.git
 cd monomind/claude-plugin
 
 # Run installation script
@@ -629,10 +629,10 @@ Monomind integrates with 3 MCP servers providing 110+ tools:
 
 ## 🤝 Support
 
-- **Documentation**: [GitHub Wiki](https://github.com/nokhodian/monomind/wiki)
-- **Issues**: [GitHub Issues](https://github.com/nokhodian/monomind/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/nokhodian/monomind/discussions)
-- **Website**: [Monomind](https://github.com/nokhodian/monomind)
+- **Documentation**: [GitHub Wiki](https://github.com/monoes/monomind/wiki)
+- **Issues**: [GitHub Issues](https://github.com/monoes/monomind/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/monoes/monomind/discussions)
+- **Website**: [Monomind](https://github.com/monoes/monomind)
 
 ---
 
@@ -695,7 +695,7 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=nokhodian/monomind&type=Date)](https://star-history.com/#nokhodian/monomind&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=monoes/monomind&type=Date)](https://star-history.com/#monoes/monomind&Date)
 
 ---
 

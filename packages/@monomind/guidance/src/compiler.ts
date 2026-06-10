@@ -29,7 +29,7 @@ import type {
 const RULE_ID_PATTERN = /^(?:#{1,4}\s+)?(?:[-*]\s+)?\[?([A-Z]+-?\d{3,4})\]?[:\s]/;
 
 /** Matches risk class annotations: "(critical)", "[high-risk]", etc. */
-const RISK_PATTERN = /\(?(critical|high|medium|low|info)(?:-risk)?\)?/i;
+const RISK_PATTERN = /\b(critical|high|medium|low|info)(?:-risk)?\b/i;
 
 /** Matches domain tags: @security, @testing, etc. */
 const DOMAIN_TAG_PATTERN = /@(security|testing|performance|architecture|debugging|deployment|general)/gi;
@@ -100,6 +100,9 @@ export class GuidanceCompiler {
    * Compile guidance files into a policy bundle
    */
   compile(rootContent: string, localContent?: string): PolicyBundle {
+    // Reset auto-ID counter so repeated compile() calls produce stable IDs
+    this.nextAutoId = 1;
+
     // Parse both files into raw rules
     const rootRules = this.parseGuidanceFile(rootContent, 'root');
     const localRules = localContent
@@ -450,11 +453,15 @@ export class GuidanceCompiler {
       lines.push(`- [${rule.id}] ${rule.text}`);
     }
 
-    // Trim to max lines
-    const text = lines.slice(0, this.config.maxConstitutionLines).join('\n');
+    // Trim to max lines — keep rules consistent with what actually fits in text
+    const trimmedLines = lines.slice(0, this.config.maxConstitutionLines);
+    const text = trimmedLines.join('\n');
+    // Reconstruct the set of rule IDs that made it into the trimmed text
+    const includedIds = new Set(trimmedLines.join('\n').match(/\[([A-Z]+-?\d{3,4})\]/g)?.map(m => m.slice(1, -1)) ?? []);
+    const trimmedRules = sorted.filter(r => includedIds.has(r.id));
 
     return {
-      rules: sorted,
+      rules: trimmedRules,
       text,
       hash: this.hashContent(text),
     };

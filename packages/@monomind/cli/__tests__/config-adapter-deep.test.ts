@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { systemConfigToMonomindConfig, configToSystemConfig } from '../src/config-adapter.js';
-import type { SystemConfig } from '@monomind/shared';
+type SystemConfig = Record<string, unknown>;
 import type { MonomindConfig } from '../src/types.js';
 
 // ---------------------------------------------------------------------------

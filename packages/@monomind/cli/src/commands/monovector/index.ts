@@ -10,7 +10,7 @@
  * - Performance benchmarking
  * - Migration management
  *
- * https://github.com/nokhodian/monomind
+ * https://github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../../types.js';

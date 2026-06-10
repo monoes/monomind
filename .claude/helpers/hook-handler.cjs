@@ -272,6 +272,15 @@ const handlers = {
     var cmd = (hCtx.toolInput && (hCtx.toolInput.command || hCtx.toolInput.cmd)) || '';
     if (/\bgrep\b/.test(cmd)) _recordGraphTelemetry('bash_grep_call');
     else if (/\bfind\b/.test(cmd)) _recordGraphTelemetry('bash_find_call');
+    // Enforcement gate: destructive operations
+    var gates = require('./handlers/gates-handler.cjs');
+    gates.handlePreBash(hCtx);
+  },
+
+  'pre-write': () => {
+    // Enforcement gate: secrets detection before Write/Edit/MultiEdit lands on disk
+    var gates = require('./handlers/gates-handler.cjs');
+    gates.handlePreWrite(hCtx);
   },
 
   'pre-search': () => {
@@ -330,6 +339,6 @@ if (command && handlers[command]) {
 main().catch(function(e) {
   console.log('[WARN] Hook handler error: ' + e.message);
 }).finally(function() {
-  // Ensure clean exit for Claude Code hooks
-  process.exit(0);
+  // Use process.exitCode if a gate set it (exit 2 = block), otherwise clean exit
+  process.exit(process.exitCode || 0);
 });

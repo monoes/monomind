@@ -8,7 +8,7 @@
  * - Confidence scoring
  * - Learning from feedback
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import type { Command } from '../types.js';
 export declare const routeCommand: Command;

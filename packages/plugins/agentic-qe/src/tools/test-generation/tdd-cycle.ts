@@ -419,14 +419,13 @@ async function executeGreenPhase(
   };
 }
 
-async function verifyCoverage(targetPath: string, agent: AgentContribution): Promise<number> {
+async function verifyCoverage(_targetPath: string, agent: AgentContribution): Promise<number> {
   agent.tasksCompleted++;
-
-  // Simulated coverage calculation
-  const coverage = Math.min(85 + Math.random() * 10, 95);
-  agent.contributions.push(`Verified coverage: ${coverage.toFixed(1)}%`);
-
-  return coverage;
+  // Coverage can only be measured by running the test suite with a coverage reporter.
+  // This tool generates the test scaffold; run `npx vitest --coverage` after each cycle
+  // to get real numbers.
+  agent.contributions.push('Coverage check deferred — run test suite with --coverage to measure');
+  return 0;
 }
 
 async function executeRefactorPhase(

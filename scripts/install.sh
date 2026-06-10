@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
 # Monomind Installer (formerly Monomind)
-# https://github.com/nokhodian/monomind
+# https://github.com/monoes/monomind
 #
 # Usage:
-#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monomind@main/scripts/install.sh | bash
-#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monomind@main/scripts/install.sh | bash -s -- --full
-#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monomind@main/scripts/install.sh | bash -s -- --global
-#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monomind@main/scripts/install.sh | bash -s -- --minimal
+#   curl -fsSL https://cdn.jsdelivr.net/gh/monoes/monomind@main/scripts/install.sh | bash
+#   curl -fsSL https://cdn.jsdelivr.net/gh/monoes/monomind@main/scripts/install.sh | bash -s -- --full
+#   curl -fsSL https://cdn.jsdelivr.net/gh/monoes/monomind@main/scripts/install.sh | bash -s -- --global
+#   curl -fsSL https://cdn.jsdelivr.net/gh/monoes/monomind@main/scripts/install.sh | bash -s -- --minimal
 #
 # Options (via arguments):
 #   --global              Global install (npm install -g)
@@ -304,8 +304,8 @@ show_quickstart() {
     fi
 
     echo ""
-    echo -e "${DIM}Documentation: https://github.com/nokhodian/monomind${NC}"
-    echo -e "${DIM}Issues: https://github.com/nokhodian/monomind/issues${NC}"
+    echo -e "${DIM}Documentation: https://github.com/monoes/monomind${NC}"
+    echo -e "${DIM}Issues: https://github.com/monoes/monomind/issues${NC}"
     echo ""
 }
 

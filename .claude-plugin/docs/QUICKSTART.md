@@ -11,7 +11,7 @@ Get started with Monomind in 5 minutes!
 In Claude Code:
 
 ```
-/plugin add nokhodian/monomind
+/plugin add monoes/monomind
 /restart
 ```
 
@@ -19,7 +19,7 @@ In Claude Code:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nokhodian/monomind.git
+git clone https://github.com/monoes/monomind.git
 cd monomind
 ```
 

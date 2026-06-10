@@ -23,9 +23,30 @@ const FILE_CACHE_TTL = 30_000; // 30 seconds
 
 // Allowed worker names for input validation
 const ALLOWED_WORKERS = new Set([
+  // Canonical internal names
   'performance', 'health', 'security', 'adr', 'ddd',
-  'patterns', 'learning', 'cache', 'git', 'swarm', 'progress'
+  'patterns', 'learning', 'cache', 'git', 'swarm', 'progress',
+  // Documented aliases (CLAUDE.md worker names)
+  'ultralearn', 'optimize', 'consolidate', 'audit', 'map',
+  'preload', 'deepdive', 'document', 'refactor', 'benchmark',
+  'predict', 'testgaps',
 ]);
+
+// Map documented worker alias → canonical internal worker name
+const WORKER_ALIAS_MAP: Record<string, string> = {
+  ultralearn:  'learning',
+  optimize:    'performance',
+  consolidate: 'patterns',
+  audit:       'security',
+  map:         'ddd',
+  preload:     'cache',
+  deepdive:    'swarm',
+  document:    'adr',
+  refactor:    'git',
+  benchmark:   'performance',
+  predict:     'progress',
+  testgaps:    'health',
+};
 
 // ============================================================================
 // Security Utilities
@@ -891,16 +912,17 @@ export class WorkerManager extends EventEmitter {
    * Run a specific worker immediately
    */
   async runWorker(name: string): Promise<WorkerResult> {
-    const handler = this.workers.get(name);
-    const config = WORKER_CONFIGS[name];
-    const metrics = this.metrics.get(name);
+    const resolvedName = WORKER_ALIAS_MAP[name] ?? name;
+    const handler = this.workers.get(resolvedName);
+    const config = WORKER_CONFIGS[resolvedName];
+    const metrics = this.metrics.get(resolvedName);
 
     if (!handler || !config || !metrics) {
       return {
         worker: name,
         success: false,
         duration: 0,
-        error: `Worker '${name}' not found`,
+        error: `Worker '${name}' not found (resolved: '${resolvedName}')`,
         timestamp: new Date(),
       };
     }

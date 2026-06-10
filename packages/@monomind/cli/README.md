@@ -21,8 +21,8 @@
   <a href="https://monoes.github.io/monomind/"><img src="https://img.shields.io/badge/docs-monoes.github.io%2Fmonomind-00D2AA?style=flat-square" alt="Documentation" /></a>
   <a href="https://www.npmjs.com/package/monomind"><img src="https://img.shields.io/npm/v/monomind?color=%234F46E5&label=npm&style=flat-square" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/monomind"><img src="https://img.shields.io/npm/dm/monomind?color=%2310B981&style=flat-square" alt="downloads" /></a>
-  <a href="https://github.com/nokhodian/monomind/stargazers"><img src="https://img.shields.io/github/stars/nokhodian/monomind?color=%23F59E0B&style=flat-square" alt="stars" /></a>
-  <a href="https://github.com/nokhodian/monomind/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-%238B5CF6?style=flat-square" alt="license" /></a>
+  <a href="https://github.com/monoes/monomind/stargazers"><img src="https://img.shields.io/github/stars/monoes/monomind?color=%23F59E0B&style=flat-square" alt="stars" /></a>
+  <a href="https://github.com/monoes/monomind/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-%238B5CF6?style=flat-square" alt="license" /></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20-green?style=flat-square" alt="node" /></a>
 </p>
 
@@ -274,10 +274,10 @@ monomind daemon start                      # Start background workers
 | `/mastermind:build <brief>` | Build a specific feature with an agent chain |
 | `/mastermind:architect` | System architecture design and review |
 | `/mastermind:research` | Deep research with structured output |
-| `/monomind:createtask` | Decompose a spec into executable tasks |
-| `/monomind:idea` | Research → evaluate → create implementation tasks |
-| `/monomind:do` | Execute tasks from the board with parallel agents |
-| `/monomind:review` | Multi-agent iterative review with auto-fix |
+| `/mastermind:createtask` | Decompose a spec into executable tasks |
+| `/mastermind:idea` | Research → evaluate → create implementation tasks |
+| `/mastermind:do` | Execute tasks from the board with parallel agents |
+| `/mastermind:review` | Multi-agent iterative review with auto-fix |
 | `/mastermind` | Topology picker — recommends best swarm for your task |
 
 **[→ Full slash command reference](https://monoes.github.io/monomind/#slash)**
@@ -342,7 +342,6 @@ The workspace ships 16 `@monomind/*` packages:
 | `@monomind/security` | Input validation, prompt injection detection, CVE remediation, gVisor sandbox |
 | `@monomind/mcp` | MCP server transport (stdio / http / WebSocket) |
 | `@monomind/routing` | Two-stage LLM + keyword agent routing, confidence scoring |
-| `@monomind/embeddings` | Vector embedding generation and management |
 | `@monomind/performance` | Profiling, benchmarking, latency tracking |
 | `@monomind/plugins` | IPFS/Pinata plugin registry, install/create/list |
 | `@monomind/claims` | Claims-based authorization for agent actions |
@@ -395,7 +394,7 @@ The workspace ships 16 `@monomind/*` packages:
 ## Contributing
 
 ```bash
-git clone https://github.com/nokhodian/monomind.git
+git clone https://github.com/monoes/monomind.git
 cd monomind
 pnpm install
 monomind doctor --fix
@@ -418,8 +417,8 @@ MIT — See [LICENSE](LICENSE) for details.
 <p align="center">
   <a href="https://monoes.github.io/monomind/">📖 Docs</a> &nbsp;&bull;&nbsp;
   <a href="https://www.npmjs.com/package/monomind">npm</a> &nbsp;&bull;&nbsp;
-  <a href="https://github.com/nokhodian/monomind">GitHub</a> &nbsp;&bull;&nbsp;
-  <a href="https://github.com/nokhodian/monomind/issues">Issues</a>
+  <a href="https://github.com/monoes/monomind">GitHub</a> &nbsp;&bull;&nbsp;
+  <a href="https://github.com/monoes/monomind/issues">Issues</a>
 </p>
 
 ---

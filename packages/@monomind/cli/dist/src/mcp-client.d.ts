@@ -56,6 +56,11 @@ export declare function getToolMetadata(toolName: string): Omit<MCPTool, 'handle
  */
 export declare function listMCPTools(category?: string): Array<Omit<MCPTool, 'handler'>>;
 /**
+ * Return all registered tools including their handler functions.
+ * Used by startHttpServer() to register tools with the HTTP/WS MCP server.
+ */
+export declare function getAllMCPTools(): MCPTool[];
+/**
  * Check if an MCP tool exists
  *
  * @param toolName - Name of the MCP tool

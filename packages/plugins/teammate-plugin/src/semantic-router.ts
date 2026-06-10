@@ -17,6 +17,7 @@ async function loadNeuralBMSSP(): Promise<void> {
   if (WasmNeuralBMSSP) return;
 
   try {
+    // @ts-ignore — @nokhodian/bmssp is an optional WASM dep; fallback activates when absent
     const bmssp = await import('@nokhodian/bmssp');
     await bmssp.default(); // Initialize WASM
     WasmNeuralBMSSP = bmssp.WasmNeuralBMSSP;

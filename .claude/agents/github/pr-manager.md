@@ -29,7 +29,7 @@ mcp__monomind__agent_spawn { type: "coordinator", name: "PR Coordinator" }
 
 // Create PR and orchestrate review
 mcp__github__create_pull_request {
-  owner: "nokhodian",
+  owner: "monoes",
   repo: "monomind",
   title: "Integration: Monomind CLI and hooks",
   head: "integration/monomind-cli-hooks",
@@ -48,11 +48,11 @@ mcp__monomind__task_orchestrate {
 ### 2. Automated Multi-File Review
 ```javascript
 // Get PR files and create parallel review tasks
-mcp__github__get_pull_request_files { owner: "nokhodian", repo: "monomind", pull_number: 54 }
+mcp__github__get_pull_request_files { owner: "monoes", repo: "monomind", pull_number: 54 }
 
 // Create coordinated reviews
 mcp__github__create_pull_request_review {
-  owner: "nokhodian",
+  owner: "monoes",
   repo: "monomind", 
   pull_number: 54,
   body: "Automated swarm review with comprehensive analysis",
@@ -67,11 +67,11 @@ mcp__github__create_pull_request_review {
 ### 3. Merge Coordination with Testing
 ```javascript
 // Validate PR status and merge when ready
-mcp__github__get_pull_request_status { owner: "nokhodian", repo: "monomind", pull_number: 54 }
+mcp__github__get_pull_request_status { owner: "monoes", repo: "monomind", pull_number: 54 }
 
 // Merge with coordination
 mcp__github__merge_pull_request {
-  owner: "nokhodian",
+  owner: "monoes",
   repo: "monomind",
   pull_number: 54,
   merge_method: "squash",

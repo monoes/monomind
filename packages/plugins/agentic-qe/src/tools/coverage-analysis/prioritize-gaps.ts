@@ -241,15 +241,11 @@ interface InputGap {
   endLine: number;
 }
 
-async function generateGapsFromPath(targetPath: string): Promise<InputGap[]> {
-  // Simulated gap generation
-  return [
-    { id: 'gap-1', type: 'branch', file: targetPath, startLine: 25, endLine: 35 },
-    { id: 'gap-2', type: 'function', file: targetPath, startLine: 50, endLine: 70 },
-    { id: 'gap-3', type: 'line', file: targetPath, startLine: 100, endLine: 105 },
-    { id: 'gap-4', type: 'branch', file: targetPath, startLine: 120, endLine: 140 },
-    { id: 'gap-5', type: 'function', file: targetPath, startLine: 200, endLine: 250 },
-  ];
+async function generateGapsFromPath(_targetPath: string): Promise<InputGap[]> {
+  // Cannot derive real coverage gaps without running the test suite and collecting
+  // an lcov/json report. Pass a coverage report via the `gaps` input instead, or
+  // run `npx vitest --coverage` and feed the output to `analyze-coverage` first.
+  return [];
 }
 
 async function calculatePriorities(
@@ -377,10 +373,10 @@ function calculateComplexityScore(gap: InputGap): number {
 }
 
 function calculateChangeFrequency(gap: InputGap): number {
-  // Simulated change frequency based on file location
-  // In real implementation, would check git history
+  // Proxy: deeper paths in the tree tend to be more stable, shallower paths change more.
+  // A real implementation would query `git log --follow -n 30 -- <file>`.
   const pathDepth = gap.file.split('/').length;
-  return Math.min(pathDepth / 10, 1) * 0.8 + Math.random() * 0.2;
+  return Math.min(pathDepth / 10, 1) * 0.8;
 }
 
 async function calculateDefectHistory(
@@ -392,11 +388,11 @@ async function calculateDefectHistory(
       const patterns = await bridge.searchSimilarPatterns(`defect ${gap.file}`, 3);
       return Math.min(patterns.length / 5, 1);
     } catch {
-      // Fall through to simulated
+      // Fall through to neutral score
     }
   }
-  // Simulated defect history
-  return Math.random() * 0.5;
+  // No bridge and no historical data available — return neutral score.
+  return 0;
 }
 
 function calculateBusinessCriticality(gap: InputGap): number {
@@ -412,7 +408,8 @@ function calculateBusinessCriticality(gap: InputGap): number {
 }
 
 function calculateDependencyScore(gap: InputGap): number {
-  // Simulated dependency count
+  // Proxy: larger code blocks tend to have more callers. Real implementation would
+  // query the monograph dependency graph for actual dependent count.
   const lines = gap.endLine - gap.startLine;
   return Math.min(lines / 50, 1);
 }

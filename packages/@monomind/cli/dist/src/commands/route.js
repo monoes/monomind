@@ -8,7 +8,7 @@
  * - Confidence scoring
  * - Learning from feedback
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import { output } from '../output.js';
 import { createKeywordRouter, } from '../monovector/index.js';

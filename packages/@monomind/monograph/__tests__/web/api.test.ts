@@ -4,7 +4,7 @@ import { join } from 'path';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode } from '../../src/storage/node-store.js';
 import { insertEdge } from '../../src/storage/edge-store.js';
-import { queryGraph, queryNode, querySearch, queryStats } from '../../src/web/api.js';
+import { queryGraphData as queryGraph, queryNode, querySearch, queryStats } from '../../src/web/api.js';
 import { startServer } from '../../src/web/server.js';
 import type { MonographNode, MonographEdge } from '../../src/types.js';
 

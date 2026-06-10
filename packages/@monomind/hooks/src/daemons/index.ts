@@ -784,7 +784,7 @@ export async function initDefaultWorkers(): Promise<void> {
 
   // Task 45: ProceduralMemory — scan SkillRegistry at startup so learned skills are indexed
   try {
-    const { SkillRegistry } = await import('@monomind/memory');
+    const { SkillRegistry } = await import('@monoes/memory');
     const skillRegistry = new SkillRegistry('.monomind/skills.jsonl');
     const skills = skillRegistry.list();
     if (skills.length > 0) {
