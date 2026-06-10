@@ -6,6 +6,8 @@
  */
 
 import { z } from 'zod';
+import { readFileSync, statSync, existsSync, readdirSync } from 'node:fs';
+import { join, extname, relative } from 'node:path';
 
 // Input schema for detect-secrets tool
 export const DetectSecretsInputSchema = z.object({
@@ -20,12 +22,13 @@ export const DetectSecretsInputSchema = z.object({
         'connection-string',
         'certificate',
         'aws-key',
+        'aws-secret',
         'gcp-key',
         'azure-key',
         'generic',
       ])
     )
-    .default(['api-key', 'password', 'private-key', 'token', 'aws-key'])
+    .default(['api-key', 'password', 'private-key', 'token', 'aws-key', 'aws-secret'])
     .describe('Types of secrets to detect'),
   excludePatterns: z
     .array(z.string())
@@ -178,18 +181,13 @@ export async function handler(
     const validatedInput = DetectSecretsInputSchema.parse(input);
 
     // Scan for secrets
-    const findings = await scanForSecrets(
+    const { findings, scanStats } = await scanForSecrets(
       validatedInput.targetPath,
       validatedInput.secretTypes,
       validatedInput.excludePatterns,
       validatedInput.includeEntropy,
       validatedInput.entropyThreshold
     );
-
-    // Verify secrets if requested
-    if (validatedInput.verifySecrets) {
-      await verifySecrets(findings);
-    }
 
     // Calculate summary
     const summary = calculateSummary(findings);
@@ -210,8 +208,8 @@ export async function handler(
       metadata: {
         scannedAt: new Date().toISOString(),
         durationMs: Date.now() - startTime,
-        filesScanned: 50,
-        linesScanned: 5000,
+        filesScanned: scanStats.filesScanned,
+        linesScanned: scanStats.linesScanned,
         patternsUsed: validatedInput.secretTypes.length,
         entropyEnabled: validatedInput.includeEntropy,
       },
@@ -250,100 +248,132 @@ export async function handler(
   }
 }
 
+const SCANNABLE_EXTENSIONS = new Set([
+  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
+  '.json', '.yaml', '.yml', '.env', '.toml', '.ini',
+  '.sh', '.bash', '.zsh', '.py', '.rb', '.go',
+]);
+
+function collectFiles(targetPath: string, excludePatterns: string[]): string[] {
+  if (!existsSync(targetPath)) return [];
+
+  const stat = statSync(targetPath);
+  if (stat.isFile()) return [targetPath];
+
+  const results: string[] = [];
+
+  function walk(dir: string): void {
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = join(dir, entry);
+      const relPath = relative(targetPath, fullPath);
+      if (excludePatterns.some((p) => relPath.includes(p.replace('*.', '')) || entry === p)) continue;
+      let entryStat: ReturnType<typeof statSync>;
+      try {
+        entryStat = statSync(fullPath);
+      } catch {
+        continue;
+      }
+      if (entryStat.isDirectory()) {
+        walk(fullPath);
+      } else if (SCANNABLE_EXTENSIONS.has(extname(entry).toLowerCase())) {
+        results.push(fullPath);
+      }
+    }
+  }
+
+  walk(targetPath);
+  return results;
+}
+
+function shannonEntropy(value: string): number {
+  const freq: Record<string, number> = {};
+  for (const ch of value) {
+    freq[ch] = (freq[ch] ?? 0) + 1;
+  }
+  let entropy = 0;
+  for (const count of Object.values(freq)) {
+    const p = count / value.length;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
+
+function maskValue(raw: string): string {
+  if (raw.length <= 8) return '****';
+  return raw.slice(0, 4) + '*'.repeat(Math.max(4, Math.min(raw.length - 8, 20))) + raw.slice(-4);
+}
+
 async function scanForSecrets(
   targetPath: string,
   secretTypes: string[],
   excludePatterns: string[],
   includeEntropy: boolean,
   entropyThreshold: number
-): Promise<SecretFinding[]> {
+): Promise<{ findings: SecretFinding[]; scanStats: { filesScanned: number; linesScanned: number } }> {
   const findings: SecretFinding[] = [];
+  const files = collectFiles(targetPath, excludePatterns);
+  let totalLines = 0;
+  let findingIndex = 0;
 
-  // Simulate file scanning with pattern matching
-  for (const type of secretTypes) {
-    const pattern = SECRET_PATTERNS[type] || SECRET_PATTERNS.generic;
+  const activePatterns = secretTypes
+    .map((t) => ({ type: t, ...(SECRET_PATTERNS[t] ?? SECRET_PATTERNS.generic) }));
 
-    // Simulate finding secrets
-    const typeFindings = generateSimulatedFindings(type, pattern, targetPath, includeEntropy, entropyThreshold);
-    findings.push(...typeFindings);
+  for (const filePath of files) {
+    let content: string;
+    try {
+      content = readFileSync(filePath, 'utf8');
+    } catch {
+      continue;
+    }
+
+    const lines = content.split('\n');
+    totalLines += lines.length;
+
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+      const line = lines[lineIdx];
+      for (const patternInfo of activePatterns) {
+        let match: RegExpExecArray | null;
+        const regex = new RegExp(patternInfo.pattern.source, patternInfo.pattern.flags);
+        while ((match = regex.exec(line)) !== null) {
+          const rawValue = match[0];
+          const entropy = shannonEntropy(rawValue);
+          if (includeEntropy && entropy < entropyThreshold) continue;
+
+          findings.push({
+            id: `SEC-${patternInfo.type}-${findingIndex++}`,
+            type: patternInfo.type,
+            severity: patternInfo.severity,
+            location: {
+              file: filePath,
+              line: lineIdx + 1,
+              column: match.index + 1,
+              context: line.trim().slice(0, 120),
+              masked: maskValue(rawValue),
+            },
+            pattern: patternInfo.description,
+            entropy: Math.round(entropy * 100) / 100,
+            verified: null,
+            active: null,
+            exposureRisk: getExposureRisk(patternInfo.severity),
+            remediation: getRemediation(patternInfo.type),
+          });
+        }
+      }
+    }
   }
 
-  return findings.sort((a, b) => {
+  findings.sort((a, b) => {
     const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
     return severityOrder[a.severity] - severityOrder[b.severity];
   });
-}
 
-function generateSimulatedFindings(
-  type: string,
-  patternInfo: { pattern: RegExp; severity: 'critical' | 'high' | 'medium' | 'low'; description: string },
-  targetPath: string,
-  includeEntropy: boolean,
-  entropyThreshold: number
-): SecretFinding[] {
-  const findings: SecretFinding[] = [];
-
-  // Simulate 0-2 findings per type
-  const count = Math.floor(Math.random() * 3);
-
-  for (let i = 0; i < count; i++) {
-    const lineNumber = Math.floor(Math.random() * 200) + 10;
-    const entropy = includeEntropy ? 4 + Math.random() * 2 : 0;
-
-    // Skip if entropy is below threshold
-    if (includeEntropy && entropy < entropyThreshold) continue;
-
-    const secretValue = generateMaskedSecret(type);
-    const fileName = `${targetPath}/src/${type === 'aws-key' ? 'config' : 'handlers'}/file-${i}.ts`;
-
-    findings.push({
-      id: `SEC-${type}-${i}`,
-      type,
-      severity: patternInfo.severity,
-      location: {
-        file: fileName,
-        line: lineNumber,
-        column: 15,
-        context: generateContext(type, lineNumber),
-        masked: secretValue,
-      },
-      pattern: patternInfo.description,
-      entropy: Math.round(entropy * 100) / 100,
-      verified: null,
-      active: null,
-      exposureRisk: getExposureRisk(patternInfo.severity),
-      remediation: getRemediation(type),
-    });
-  }
-
-  return findings;
-}
-
-function generateMaskedSecret(type: string): string {
-  const masks: Record<string, string> = {
-    'api-key': 'api_key = "sk_**********************"',
-    'aws-key': 'AKIA****************',
-    'aws-secret': 'aws_secret = "************************"',
-    'private-key': '-----BEGIN PRIVATE KEY-----\n****\n-----END PRIVATE KEY-----',
-    password: 'password = "********"',
-    token: 'token = "eyJ***********************"',
-    'connection-string': 'mongodb://user:****@host:27017/db',
-    'gcp-key': '"private_key": "-----BEGIN PRIVATE KEY-----\\n****"',
-    'azure-key': 'azure_secret = "************************"',
-    generic: 'secret = "************************"',
-  };
-  return masks[type] || 'secret = "****"';
-}
-
-function generateContext(type: string, line: number): string {
-  const contexts: Record<string, string> = {
-    'api-key': `${line}: const apiKey = "sk_test_xxxx...";`,
-    'aws-key': `${line}: AWS_ACCESS_KEY_ID=AKIAXXXXXXXXXXXXXXXX`,
-    password: `${line}: const password = "hardcoded123";`,
-    token: `${line}: const authToken = "eyJhbGciOiJ...";`,
-    'connection-string': `${line}: const dbUrl = "mongodb://user:pass@localhost:27017";`,
-  };
-  return contexts[type] || `${line}: const secret = "value";`;
+  return { findings, scanStats: { filesScanned: files.length, linesScanned: totalLines } };
 }
 
 function getExposureRisk(severity: string): string {
@@ -372,15 +402,6 @@ function getRemediation(type: string): string {
   return remediations[type] || 'Remove secret from code and use secure storage';
 }
 
-async function verifySecrets(findings: SecretFinding[]): Promise<void> {
-  // Simulate secret verification
-  for (const finding of findings) {
-    // In real implementation, would attempt to verify if secret is active
-    // For safety, we just simulate results
-    finding.verified = Math.random() > 0.3;
-    finding.active = finding.verified && Math.random() > 0.5;
-  }
-}
 
 function calculateSummary(findings: SecretFinding[]): DetectionSummary {
   const counts = { critical: 0, high: 0, medium: 0, low: 0 };

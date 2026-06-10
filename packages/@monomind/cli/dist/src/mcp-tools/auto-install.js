@@ -106,7 +106,7 @@ export function resetInstallAttempts() {
  * Optional package dependencies and their purposes
  */
 export const OPTIONAL_PACKAGES = {
-    '@monomind/aidefence': {
+    'monofence-ai': {
         description: 'AI manipulation defense (prompt injection, PII detection)',
         tools: ['aidefence_scan', 'aidefence_analyze', 'aidefence_stats', 'aidefence_learn'],
     },

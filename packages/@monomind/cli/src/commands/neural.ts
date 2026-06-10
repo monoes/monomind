@@ -2,7 +2,7 @@
  * CLI Neural Command
  * Pattern learning, search, and prediction backed by the pure-JS intelligence layer
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -1154,7 +1154,7 @@ export const neuralCommand: Command = {
     output.writeln();
     output.writeln('Use --help with subcommands for more info');
     output.writeln();
-    output.writeln(output.dim('github.com/nokhodian/monomind'));
+    output.writeln(output.dim('github.com/monoes/monomind'));
     return { success: true };
   },
 };

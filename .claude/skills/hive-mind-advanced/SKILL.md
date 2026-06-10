@@ -696,10 +696,10 @@ npx monomind hive-mind spawn "Review PR #456" \
 
 ## References
 
-- [Hive Mind Documentation](https://github.com/nokhodian/monomind/docs/hive-mind)
-- [Collective Intelligence Patterns](https://github.com/nokhodian/monomind/docs/patterns)
-- [Byzantine Consensus](https://github.com/nokhodian/monomind/docs/consensus)
-- [Memory Optimization](https://github.com/nokhodian/monomind/docs/memory)
+- [Hive Mind Documentation](https://github.com/monoes/monomind/docs/hive-mind)
+- [Collective Intelligence Patterns](https://github.com/monoes/monomind/docs/patterns)
+- [Byzantine Consensus](https://github.com/monoes/monomind/docs/consensus)
+- [Memory Optimization](https://github.com/monoes/monomind/docs/memory)
 
 ---
 

@@ -2,7 +2,7 @@
  * CLI Performance Command
  * Performance profiling, benchmarking, optimization, metrics
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -664,7 +664,7 @@ export const performanceCommand: Command = {
       'Memory: 50-75% reduction with quantization',
     ]);
     output.writeln();
-    output.writeln(output.dim('github.com/nokhodian/monomind'));
+    output.writeln(output.dim('github.com/monoes/monomind'));
     return { success: true };
   },
 };

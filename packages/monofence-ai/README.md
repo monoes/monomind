@@ -261,7 +261,7 @@ Still exported for backward compatibility; will be removed in v2:
 ## Development
 
 ```bash
-git clone https://github.com/nokhodian/monomind.git
+git clone https://github.com/monoes/monomind.git
 cd monomind/packages/monofence-ai
 
 npm install
@@ -273,4 +273,4 @@ npm run build   # tsc
 
 ## License
 
-MIT — part of the [Monomind](https://github.com/nokhodian/monomind) ecosystem.
+MIT — part of the [Monomind](https://github.com/monoes/monomind) ecosystem.

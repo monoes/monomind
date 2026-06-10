@@ -33,7 +33,7 @@ On every `SessionStart`, the hook fires and outputs:
 
 ```
 [MEMORY_PALACE_L0] Identity:
-Project: monomind (nokhodian/monomind) ...
+Project: monomind (monoes/monomind) ...
 
 [MEMORY_PALACE_L1] Essential story (5 drawers):
 [tasks/coder/2026-04-14] Implemented session-restore wiring ...
@@ -100,11 +100,11 @@ The palace is wired into `hook-handler.cjs` at three hook events:
 Create or edit `.monomind/palace/identity.md` to define the project identity that appears at every session start:
 
 ```markdown
-Project: monomind (nokhodian/monomind)
+Project: monomind (monoes/monomind)
 Stack: Node.js/TypeScript monorepo, pnpm workspaces
 Key packages: @monomind/cli, @monomind/graph, @monomind/memory
 Working style: concurrent tool calls, CJS helpers in .claude/helpers/
-Git remote: git@github.com:nokhodian/monomind.git, main branch
+Git remote: git@github.com:monoes/monomind.git, main branch
 ```
 
 Keep it under ~300 characters — it is injected verbatim on every session start.
