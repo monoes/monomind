@@ -157,13 +157,15 @@ function _injectCompactGraphMap() {
       var recentEdits = _getRecentEdits();
       for (var ri = 0; ri < Math.min(recentEdits.length, 5); ri++) {
         var rfile = recentEdits[ri].file;
-        var rrel = (rfile.indexOf(CWD) === 0) ? rfile.slice(CWD.length + 1) : rfile;
+        // Resolve to absolute for DB lookup (DB stores absolute paths); also keep relative for OR clause
+        var rabs = path.isAbsolute(rfile) ? rfile : path.join(CWD, rfile);
+        var rrel = (rabs.indexOf(CWD) === 0) ? rabs.slice(CWD.length + 1) : rabs;
         try {
           var rnode = db.prepare(
             'SELECT n.name, n.label, n.file_path, ' +
             '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg ' +
             'FROM nodes n WHERE n.label=\'File\' AND (n.file_path=? OR n.file_path=?) LIMIT 1'
-          ).get(rfile, rrel);
+          ).get(rabs, rrel);
           if (rnode && !seenPaths[rnode.file_path]) {
             seenPaths[rnode.file_path] = 1;
             anchors.push({ name: rnode.name, label: rnode.label, file_path: rnode.file_path, deg: rnode.deg, tag: '✎' });
