@@ -102,6 +102,7 @@ coordination/subtasks/*
 coverage/
 dist-cjs/
 dist/
+!packages/@monomind/cli/dist/src/ui/server.mjs
 hive-mind-prompt-*.txt
 init-output.log
 lerna-debug.log*
