@@ -55,7 +55,7 @@ printf "%-24s %-12s %-10s %s\n" "ID" "STATUS" "PRIORITY" "TITLE"
 echo "────────────────────────────────────────────────────────"
 
 jq -r --arg uid "$assigneeFilter" --arg sf "$statusFilter" '
-  .issues[] |
+  (.issues // [])[] |
   select(
     (.assigneeId == $uid or .assigned_to == $uid) and
     (if $sf == "active" then (.status == "open" or .status == "in_progress")
@@ -69,7 +69,7 @@ jq -r --arg uid "$assigneeFilter" --arg sf "$statusFilter" '
 done
 
 total=$(jq -r --arg uid "$assigneeFilter" \
-  '[.issues[] | select(.assigneeId == $uid or .assigned_to == $uid)] | length' \
+  '[(.issues // [])[] | select(.assigneeId == $uid or .assigned_to == $uid)] | length' \
   "$issuesFile")
 echo ""
 echo "Total assigned: $total"
@@ -81,13 +81,13 @@ echo "Total assigned: $total"
 ```bash
 [ -z "$issue_id" ] && { echo "ERROR: --issue-id required."; exit 1; }
 
-exists=$(jq -r --arg id "$issue_id" '[.issues[] | select(.id == $id)] | length' "$issuesFile")
+exists=$(jq -r --arg id "$issue_id" '[(.issues // [])[] | select(.id == $id)] | length' "$issuesFile")
 [ "$exists" -eq 0 ] && { echo "ERROR: Issue '$issue_id' not found."; exit 1; }
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$issue_id" --arg uid "$assigneeFilter" --arg ts "$ts" \
-  '.issues = [.issues[] | if .id == $id then
+  '.issues = [(.issues // [])[] | if .id == $id then
      .assigneeId = $uid | .lastActivityAt = $ts
    else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
@@ -103,7 +103,7 @@ echo "Issue '$issue_id' assigned to '$assigneeFilter'."
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$issue_id" --arg ts "$ts" \
-  '.issues = [.issues[] | if .id == $id then
+  '.issues = [(.issues // [])[] | if .id == $id then
      .assigneeId = null | .lastActivityAt = $ts
    else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
@@ -119,7 +119,7 @@ echo "Issue '$issue_id' unassigned."
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$issue_id" --arg ts "$ts" \
-  '.issues = [.issues[] | if .id == $id then
+  '.issues = [(.issues // [])[] | if .id == $id then
      .status = "done" | .closedAt = $ts | .lastActivityAt = $ts
    else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"

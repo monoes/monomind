@@ -32,7 +32,7 @@ If `caller` is not "command", load brain context following _protocol.md Brain Lo
 If `org_name` is provided, load `.monomind/orgs/<org_name>.json`. Otherwise list all orgs:
 
 ```bash
-ls .monomind/orgs/*.json 2>/dev/null | xargs -I{} basename {} .json
+ls .monomind/orgs/*.json 2>/dev/null | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments' | xargs -I{} basename {} .json
 ```
 
 If no orgs exist, print: "No orgs found. Run /mastermind:createorg to define one."
@@ -49,7 +49,7 @@ Display all agents in the org with status from state file:
 orgFile=".monomind/orgs/${org_name}.json"
 stateFile=".monomind/orgs/${org_name}-state.json"
 
-jq -r '.roles[] | "• [\(.id)] \(.title)  agent=\(.agent_type)  reports_to=\(.reports_to // "none")"' "$orgFile"
+jq -r '(.roles // [])[] | "• [\(.id)] \(.title)  agent=\(.agent_type)  reports_to=\(.reports_to // "none")"' "$orgFile"
 
 # Overlay runtime status from state file if present
 if [ -f "$stateFile" ]; then
@@ -76,8 +76,8 @@ reviewer        Content Reviewer   reviewer            waiting       8 min ago
 Show full config + responsibilities + communication edges for a single agent:
 
 ```bash
-jq --arg id "$agent_id" '.roles[] | select(.id == $id)' "$orgFile"
-jq --arg id "$agent_id" '.communication[] | select(.from == $id or .to == $id)' "$orgFile"
+jq --arg id "$agent_id" '(.roles // [])[] | select(.id == $id)' "$orgFile"
+jq --arg id "$agent_id" '(.communication // [])[] | select(.from == $id or .to == $id)' "$orgFile"
 ```
 
 ### hire
@@ -153,7 +153,7 @@ Confirm with user, then remove role from org config:
 
 ```bash
 tmp="${orgFile}.tmp"
-jq --arg id "$agent_id" '.roles = [.roles[] | select(.id != $id)] | .communication = [.communication[] | select(.from != $id and .to != $id)]' \
+jq --arg id "$agent_id" '.roles = [(.roles // [])[] | select(.id != $id)] | .communication = [(.communication // [])[] | select(.from != $id and .to != $id)]' \
   "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
 ```
 

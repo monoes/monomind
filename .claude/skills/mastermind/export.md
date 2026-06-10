@@ -34,10 +34,13 @@ This skill is invoked by `mastermind:export` or directly via `/mastermind:export
 | `goals` | `<org>-goals.json` | ✓ |
 | `routines` | `<org>-routines.json` | ✓ |
 | `projects` | `<org>-projects.json` | ✓ |
+| `issues` | `<org>-issues.json` | ✓ |
 | `members` | `<org>-members.json` | ✓ |
 | `adapters` | `<org>-adapters.json` | ✓ |
 | `environments` | `<org>-environments.json` | ✓ |
 | `workspaces` | `<org>-workspaces.json` | ✓ |
+| `threads` | `<org>-threads.json` | ✓ |
+| `budgets` | `<org>-budgets.json` | ✓ |
 | `activity` | `<org>-activity.jsonl` (last 500 events) | ✓ |
 | `secrets-refs` | secret reference names only (NO values) | opt-in |
 
@@ -84,7 +87,7 @@ Show what would be included in an export without writing anything:
 echo "EXPORT PREVIEW — org: $org_name"
 echo "────────────────────────────────────────────────────────"
 
-allSections="config goals routines projects members adapters environments workspaces activity"
+allSections="config goals routines projects issues members adapters environments workspaces threads budgets activity"
 includeSections="${include:-$allSections}"
 
 for section in $allSections; do
@@ -94,10 +97,13 @@ for section in $allSections; do
     goals)       srcFile=".monomind/orgs/${org_name}-goals.json" ;;
     routines)    srcFile=".monomind/orgs/${org_name}-routines.json" ;;
     projects)    srcFile=".monomind/orgs/${org_name}-projects.json" ;;
+    issues)      srcFile=".monomind/orgs/${org_name}-issues.json" ;;
     members)     srcFile=".monomind/orgs/${org_name}-members.json" ;;
     adapters)    srcFile=".monomind/orgs/${org_name}-adapters.json" ;;
     environments) srcFile=".monomind/orgs/${org_name}-environments.json" ;;
     workspaces)  srcFile=".monomind/orgs/${org_name}-workspaces.json" ;;
+    threads)     srcFile=".monomind/orgs/${org_name}-threads.json" ;;
+    budgets)     srcFile=".monomind/orgs/${org_name}-budgets.json" ;;
     activity)    srcFile=".monomind/orgs/${org_name}-activity.jsonl" ;;
     secrets-refs) srcFile=".monomind/orgs/.secrets/${org_name}/" ;;
   esac
@@ -119,7 +125,7 @@ echo "Run with --action export to proceed."
 ```bash
 echo "Exporting org '$org_name'…"
 
-allSections="config goals routines projects members adapters environments workspaces activity"
+allSections="config goals routines projects issues members adapters environments workspaces threads budgets activity"
 includeSections="${include:-$allSections}"
 
 # Build list of files to include
@@ -135,10 +141,13 @@ for section in $allSections; do
     goals)        srcFile=".monomind/orgs/${org_name}-goals.json" ; dstName="${org_name}-goals.json" ;;
     routines)     srcFile=".monomind/orgs/${org_name}-routines.json" ; dstName="${org_name}-routines.json" ;;
     projects)     srcFile=".monomind/orgs/${org_name}-projects.json" ; dstName="${org_name}-projects.json" ;;
+    issues)       srcFile=".monomind/orgs/${org_name}-issues.json" ; dstName="${org_name}-issues.json" ;;
     members)      srcFile=".monomind/orgs/${org_name}-members.json" ; dstName="${org_name}-members.json" ;;
     adapters)     srcFile=".monomind/orgs/${org_name}-adapters.json" ; dstName="${org_name}-adapters.json" ;;
     environments) srcFile=".monomind/orgs/${org_name}-environments.json" ; dstName="${org_name}-environments.json" ;;
     workspaces)   srcFile=".monomind/orgs/${org_name}-workspaces.json" ; dstName="${org_name}-workspaces.json" ;;
+    threads)      srcFile=".monomind/orgs/${org_name}-threads.json" ; dstName="${org_name}-threads.json" ;;
+    budgets)      srcFile=".monomind/orgs/${org_name}-budgets.json" ; dstName="${org_name}-budgets.json" ;;
     activity)     srcFile=".monomind/orgs/${org_name}-activity.jsonl" ; dstName="${org_name}-activity.jsonl" ;;
     secrets-refs)
       # Export ONLY secret reference names — NO values
@@ -154,7 +163,7 @@ for section in $allSections; do
   if [ -f "$srcFile" ]; then
     # For environments: strip key material before including
     if [ "$section" = "environments" ]; then
-      jq '.environments = [.environments[] | del(.key_material,.private_key,.ssh_key,.password)]' \
+      jq '.environments = [(.environments // [])[] | del(.key_material,.private_key,.ssh_key,.password)]' \
         "$srcFile" > "${orgExportDir}/${dstName}"
     elif [ "$section" = "activity" ]; then
       # Only last 500 events

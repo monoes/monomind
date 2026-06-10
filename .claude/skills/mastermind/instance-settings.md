@@ -185,7 +185,7 @@ stalledCount=0
 for issuesFile in .monomind/orgs/*-issues.json; do
   [ -f "$issuesFile" ] || continue
   cnt=$(jq --arg cutoff "$cutoff" \
-    '[.issues[] | select(.status == "in_progress" and (.lastActivityAt // .createdAt // "") < $cutoff)] | length' \
+    '[(.issues // [])[] | select(.status == "in_progress" and (.lastActivityAt // .createdAt // "") < $cutoff)] | length' \
     "$issuesFile" 2>/dev/null || echo 0)
   stalledCount=$((stalledCount + cnt))
 done
@@ -235,12 +235,12 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${accessFile}.tmp"
 jq --arg uid "$user_id" --arg org "$org_name" --arg ts "$ts" \
   '.users = (
-    if any(.users[]; .id == $uid) then
-      [.users[] | if .id == $uid then
+    if any((.users // [])[]; .id == $uid) then
+      [(.users // [])[] | if .id == $uid then
         .companyAccess = ((.companyAccess // []) | if any(.[]; . == $org) then . else . + [$org] end)
       else . end]
     else
-      .users + [{"id": $uid, "companyAccess": [$org], "isInstanceAdmin": false, "grantedAt": $ts}]
+      (.users // []) + [{"id": $uid, "companyAccess": [$org], "isInstanceAdmin": false, "grantedAt": $ts}]
     end)' \
   "$accessFile" > "$tmp" && mv "$tmp" "$accessFile"
 
@@ -258,7 +258,7 @@ accessFile=".monomind/instance-access.json"
 
 tmp="${accessFile}.tmp"
 jq --arg uid "$user_id" --arg org "$org_name" \
-  '.users = [.users[] | if .id == $uid then
+  '.users = [(.users // [])[] | if .id == $uid then
      .companyAccess = [(.companyAccess // [])[] | select(. != $org)]
    else . end]' \
   "$accessFile" > "$tmp" && mv "$tmp" "$accessFile"
@@ -276,9 +276,9 @@ accessFile=".monomind/instance-access.json"
 
 tmp="${accessFile}.tmp"
 jq --arg uid "$user_id" \
-  '.users = (if any(.users[]; .id == $uid) then
-    [.users[] | if .id == $uid then .isInstanceAdmin = true else . end]
-  else .users + [{"id":$uid,"companyAccess":[],"isInstanceAdmin":true}] end)' \
+  '.users = (if any((.users // [])[]; .id == $uid) then
+    [(.users // [])[] | if .id == $uid then .isInstanceAdmin = true else . end]
+  else (.users // []) + [{"id":$uid,"companyAccess":[],"isInstanceAdmin":true}] end)' \
   "$accessFile" > "$tmp" && mv "$tmp" "$accessFile"
 
 echo "User '$user_id' granted instance admin role."
@@ -292,7 +292,7 @@ echo "User '$user_id' granted instance admin role."
 accessFile=".monomind/instance-access.json"
 tmp="${accessFile}.tmp"
 jq --arg uid "$user_id" \
-  '.users = [.users[] | if .id == $uid then .isInstanceAdmin = false else . end]' \
+  '.users = [(.users // [])[] | if .id == $uid then .isInstanceAdmin = false else . end]' \
   "$accessFile" > "$tmp" && mv "$tmp" "$accessFile"
 
 echo "Instance admin revoked for user '$user_id'."

@@ -29,7 +29,7 @@ If `caller` is not "command", load brain context following _protocol.md Brain Lo
 
 ```bash
 orgsDir=".monomind/orgs"
-orgFiles=$(ls "$orgsDir"/*.json 2>/dev/null | grep -v -- '-approvals\|-state\|-activity')
+orgFiles=$(ls "$orgsDir"/*.json 2>/dev/null | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments')
 
 if [ -z "$orgFiles" ]; then
   echo "No saved orgs found."
@@ -57,13 +57,17 @@ for f in $orgFiles; do
   last_run=$(jq -r '.loop.last_run // "—"' "$f" 2>/dev/null | sed 's/T/ /;s/Z//')
   next_run=$(jq -r '.loop.next_run // "—"' "$f" 2>/dev/null | sed 's/T/ /;s/Z//')
   
-  # Status indicator
-  case "$status" in
-    active)  indicator="● active" ;;
-    stopped) indicator="○ stopped" ;;
-    paused)  indicator="⏸ paused" ;;
-    *)       indicator="— no-loop" ;;
-  esac
+  # Status indicator — distinguish non-scheduled (manual) from scheduled loop states
+  if [ "$interval" = "manual" ]; then
+    indicator="■ persistent"
+  else
+    case "$status" in
+      active)  indicator="● active" ;;
+      stopped) indicator="○ stopped" ;;
+      paused)  indicator="⏸ paused" ;;
+      *)       indicator="— unknown" ;;
+    esac
+  fi
   
   printf "%-28s %-10s %-12s %-22s %-22s\n" "$name" "$indicator" "$interval" "$last_run" "$next_run"
   echo "  └ $goal"

@@ -65,9 +65,9 @@ echo "INVITES — org: $org_name"
 echo "────────────────────────────────────────────────────────"
 
 # Active invites (pending in join_requests with type=invite)
-activeInvites=$(jq '[.join_requests[] | select(.type == "invite" and .status == "pending")] | length' "$membersFile")
+activeInvites=$(jq '[(.join_requests // [])[] | select(.type == "invite" and .status == "pending")] | length' "$membersFile")
 totalMembers=$(jq '.members | length' "$membersFile")
-pendingJoins=$(jq '[.join_requests[] | select(.type != "invite" and .status == "pending_approval")] | length' "$membersFile")
+pendingJoins=$(jq '[(.join_requests // [])[] | select(.type != "invite" and .status == "pending_approval")] | length' "$membersFile")
 
 echo "  Members:          $totalMembers"
 echo "  Pending invites:  $activeInvites"
@@ -78,7 +78,7 @@ if [ "$activeInvites" -gt 0 ]; then
   echo "ACTIVE INVITES"
   printf "  %-28s %-10s %-20s %s\n" "TOKEN" "ROLE" "CREATED" "URL"
   echo "  ────────────────────────────────────────────────────────"
-  jq -r '.join_requests[] | select(.type == "invite" and .status == "pending") |
+  jq -r '(.join_requests // [])[] | select(.type == "invite" and .status == "pending") |
     [.token, (.role // "operator"), (.createdAt // "-"), (.inviteUrl // "-")] | @tsv' \
     "$membersFile" | while IFS=$'\t' read -r tok role ts url; do
     printf "  %-28s %-10s %-20s %s\n" "${tok:0:24}…" "$role" "$ts" "${url:0:40}…"
@@ -126,14 +126,14 @@ echo "To copy URL hint: --action copy-url --invite-id $token"
 
 # Find the invite
 inviteExists=$(jq -r --arg id "$invite_id" \
-  '[.join_requests[] | select((.id == $id or .token == $id) and .type == "invite")] | length' \
+  '[(.join_requests // [])[] | select((.id == $id or .token == $id) and .type == "invite")] | length' \
   "$membersFile")
 [ "$inviteExists" -eq 0 ] && { echo "ERROR: Invite '$invite_id' not found or already resolved."; exit 1; }
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${membersFile}.tmp"
 jq --arg id "$invite_id" --arg ts "$ts" \
-  '.join_requests = [.join_requests[] | if (.id == $id or .token == $id) then
+  '.join_requests = [(.join_requests // [])[] | if (.id == $id or .token == $id) then
      .status = "revoked" | .resolvedAt = $ts
    else . end]' \
   "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
@@ -148,7 +148,7 @@ echo "  Revoked at: $ts"
 [ -z "$invite_id" ] && { echo "ERROR: --invite-id required."; exit 1; }
 
 inviteUrl=$(jq -r --arg id "$invite_id" \
-  '.join_requests[] | select(.id == $id or .token == $id) | .inviteUrl // ""' \
+  '(.join_requests // [])[] | select(.id == $id or .token == $id) | .inviteUrl // ""' \
   "$membersFile")
 [ -z "$inviteUrl" ] && { echo "ERROR: Invite '$invite_id' not found."; exit 1; }
 
@@ -172,7 +172,7 @@ echo "  Filter: status=$statusFilter  type=$typeFilter"
 echo "────────────────────────────────────────────────────────"
 
 jq -r --arg st "$statusFilter" --arg type "$typeFilter" '
-  .join_requests[] |
+  (.join_requests // [])[] |
   select(
     (.status == $st) and
     (.type != "invite") and
@@ -190,7 +190,7 @@ jq -r --arg st "$statusFilter" --arg type "$typeFilter" '
   echo "  → reject:  --action reject-join  --request-id $id"
 done
 
-total=$(jq --arg st "$statusFilter" '[.join_requests[] | select(.status == $st and .type != "invite")] | length' "$membersFile")
+total=$(jq --arg st "$statusFilter" '[(.join_requests // [])[] | select(.status == $st and .type != "invite")] | length' "$membersFile")
 [ "$total" -eq 0 ] && echo "  No join requests with status='$statusFilter'."
 echo ""
 echo "Total ($statusFilter): $total"
@@ -202,13 +202,13 @@ echo "Total ($statusFilter): $total"
 [ -z "$request_id" ] && { echo "ERROR: --request-id required."; exit 1; }
 
 reqRole=$(jq -r --arg id "$request_id" \
-  '.join_requests[] | select(.id == $id) | .role // "viewer"' "$membersFile")
+  '(.join_requests // [])[] | select(.id == $id) | .role // "viewer"' "$membersFile")
 [ -z "$reqRole" ] && { echo "ERROR: Request '$request_id' not found."; exit 1; }
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${membersFile}.tmp"
 jq --arg id "$request_id" --arg role "$reqRole" --arg ts "$ts" \
-  '.join_requests = [.join_requests[] | if .id == $id then .status = "approved" | .resolvedAt = $ts else . end] |
+  '.join_requests = [(.join_requests // [])[] | if .id == $id then .status = "approved" | .resolvedAt = $ts else . end] |
    .members += [{"id":$id,"role":$role,"status":"active","grants":[],"joinedAt":$ts}]' \
   "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
 
@@ -222,13 +222,13 @@ echo "  Member added. View members: /mastermind:access --org $org_name --action 
 ```bash
 [ -z "$request_id" ] && { echo "ERROR: --request-id required."; exit 1; }
 
-exists=$(jq -r --arg id "$request_id" '[.join_requests[] | select(.id == $id)] | length' "$membersFile")
+exists=$(jq -r --arg id "$request_id" '[(.join_requests // [])[] | select(.id == $id)] | length' "$membersFile")
 [ "$exists" -eq 0 ] && { echo "ERROR: Request '$request_id' not found."; exit 1; }
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${membersFile}.tmp"
 jq --arg id "$request_id" --arg ts "$ts" \
-  '.join_requests = [.join_requests[] | if .id == $id then .status = "rejected" | .resolvedAt = $ts else . end]' \
+  '.join_requests = [(.join_requests // [])[] | if .id == $id then .status = "rejected" | .resolvedAt = $ts else . end]' \
   "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
 
 echo "Join request '$request_id' rejected."
