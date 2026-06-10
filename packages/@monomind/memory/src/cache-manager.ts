@@ -22,6 +22,8 @@ import {
 interface LRUNode<T> {
   key: string;
   value: CachedEntry<T>;
+  /** Size recorded at insertion so delete/evict use a consistent accounting value. */
+  sizeBytes: number;
   prev: LRUNode<T> | null;
   next: LRUNode<T> | null;
 }
@@ -112,7 +114,10 @@ export class CacheManager<T = MemoryEntry> extends EventEmitter {
     // Check if key already exists
     const existingNode = this.cache.get(key);
     if (existingNode) {
-      // Update existing entry
+      // Update existing entry and adjust memory accounting for size change
+      const newSize = this.estimateSize(data);
+      this.currentMemory += newSize - existingNode.sizeBytes;
+      existingNode.sizeBytes = newSize;
       existingNode.value.data = data;
       existingNode.value.cachedAt = now;
       existingNode.value.expiresAt = now + entryTtl;
@@ -153,6 +158,7 @@ export class CacheManager<T = MemoryEntry> extends EventEmitter {
     const node: LRUNode<T> = {
       key,
       value: cachedEntry,
+      sizeBytes: entryMemory,
       prev: null,
       next: null,
     };
@@ -177,7 +183,7 @@ export class CacheManager<T = MemoryEntry> extends EventEmitter {
 
     this.removeNode(node);
     this.cache.delete(key);
-    this.currentMemory -= this.estimateSize(node.value.data);
+    this.currentMemory -= node.sizeBytes;
 
     this.emit('cache:delete', { key });
     return true;
@@ -383,7 +389,7 @@ export class CacheManager<T = MemoryEntry> extends EventEmitter {
     if (!this.tail) return;
 
     const evictedKey = this.tail.key;
-    const evictedSize = this.estimateSize(this.tail.value.data);
+    const evictedSize = this.tail.sizeBytes;
 
     this.removeNode(this.tail);
     this.cache.delete(evictedKey);

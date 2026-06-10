@@ -212,10 +212,13 @@ export class MemoryGraph extends EventEmitter {
       if (!out || out.length === 0) danglingNodes.push(nodeId);
     }
 
+    // Pre-allocate a second ranks buffer and double-buffer between iterations
+    // to avoid allocating a new Map on each of up to 50 iterations.
+    let nextRanks = new Map<string, number>(this.pageRanks);
+
     let iterations = 0;
     for (let iter = 0; iter < this.config.pageRankIterations; iter++) {
       let maxDelta = 0;
-      const newRanks = new Map<string, number>();
 
       let danglingSum = 0;
       for (const nodeId of danglingNodes) {
@@ -232,11 +235,14 @@ export class MemoryGraph extends EventEmitter {
           }
         }
         const newRank = (1 - d) / N + d * (sum + danglingSum / N);
-        newRanks.set(nodeId, newRank);
+        nextRanks.set(nodeId, newRank);
         maxDelta = Math.max(maxDelta, Math.abs(newRank - (this.pageRanks.get(nodeId) || 0)));
       }
 
-      this.pageRanks = newRanks;
+      // Swap buffers — O(1) reference swap, no allocation
+      const tmp = this.pageRanks;
+      this.pageRanks = nextRanks;
+      nextRanks = tmp;
       iterations = iter + 1;
       if (maxDelta < this.config.pageRankConvergence) break;
     }
@@ -251,12 +257,16 @@ export class MemoryGraph extends EventEmitter {
     const labels = new Map<string, string>();
     for (const nodeId of this.nodes.keys()) labels.set(nodeId, nodeId);
 
+    // Pre-allocate reusable buffers to avoid per-node, per-iteration allocations
+    const nodeIds = [...this.nodes.keys()];
+    const labelCounts = new Map<string, number>();
+
     for (let iter = 0; iter < 20; iter++) {
       let changed = false;
-      const nodeIds = this.shuffleArray([...this.nodes.keys()]);
+      this.shuffleInPlace(nodeIds);
 
       for (const nodeId of nodeIds) {
-        const labelCounts = new Map<string, number>();
+        labelCounts.clear();
 
         for (const edge of this.edges.get(nodeId) || []) {
           const lbl = labels.get(edge.targetId);
@@ -485,5 +495,13 @@ export class MemoryGraph extends EventEmitter {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
+  }
+
+  /** Fisher-Yates shuffle in place — avoids allocating a new array. */
+  private shuffleInPlace<T>(arr: T[]): void {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
   }
 }
