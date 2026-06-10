@@ -34,7 +34,7 @@ If `caller` is not "command", load brain context following _protocol.md Brain Lo
 if [ -n "$org_name" ]; then
   orgs="$org_name"
 else
-  orgs=$(ls .monomind/orgs/*.json 2>/dev/null | grep -v '\-state\|-goals\|-routines\|-approvals\|-projects\|-worktrees\|-secrets' | xargs -I{} basename {} .json | sort)
+  orgs=$(ls .monomind/orgs/*.json 2>/dev/null | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments' | xargs -I{} basename {} .json | sort)
 fi
 [ -z "$orgs" ] && { echo "No orgs found. Run /mastermind:createorg first."; exit 0; }
 ```
@@ -61,7 +61,7 @@ for org in $orgs; do
   # ── Agents ────────────────────────────────────────
   if [ "$scope" = "all" ] || [ "$scope" = "agents" ]; then
     hits=$(jq -r --arg q "$query_lower" \
-      '.roles[] | select((.id + " " + .title + " " + (.responsibilities // [] | join(" "))) | ascii_downcase | test($q)) |
+      '(.roles // [])[] | select((.id + " " + .title + " " + (.responsibilities // [] | join(" "))) | ascii_downcase | test($q)) |
        "[AGENT] \(.id): \(.title)  type=\(.agent_type)"' \
       "$orgFile" 2>/dev/null | head -"$limit")
     if [ -n "$hits" ]; then
@@ -76,7 +76,7 @@ for org in $orgs; do
   goalsFile=".monomind/orgs/${org}-goals.json"
   if [ -f "$goalsFile" ] && { [ "$scope" = "all" ] || [ "$scope" = "goals" ]; }; then
     hits=$(jq -r --arg q "$query_lower" \
-      '.goals[] | select((.title + " " + (.description // "") + " " + (.status // "")) | ascii_downcase | test($q)) |
+      '(.goals // [])[] | select((.title + " " + (.description // "") + " " + (.status // "")) | ascii_downcase | test($q)) |
        "[GOAL] [\(.id)] \(.title)  status=\(.status // "open")"' \
       "$goalsFile" 2>/dev/null | head -"$limit")
     if [ -n "$hits" ]; then
@@ -91,7 +91,7 @@ for org in $orgs; do
   routinesFile=".monomind/orgs/${org}-routines.json"
   if [ -f "$routinesFile" ] && { [ "$scope" = "all" ] || [ "$scope" = "routines" ]; }; then
     hits=$(jq -r --arg q "$query_lower" \
-      '.routines[] | select((.name + " " + (.description // "") + " " + (.schedule // "")) | ascii_downcase | test($q)) |
+      '(.routines // [])[] | select((.name + " " + (.description // "") + " " + (.schedule // "")) | ascii_downcase | test($q)) |
        "[ROUTINE] \(.name)  schedule=\(.schedule // "-")"' \
       "$routinesFile" 2>/dev/null | head -"$limit")
     if [ -n "$hits" ]; then
@@ -106,7 +106,7 @@ for org in $orgs; do
   approvalsFile=".monomind/orgs/${org}-approvals.json"
   if [ -f "$approvalsFile" ] && { [ "$scope" = "all" ] || [ "$scope" = "approvals" ]; }; then
     hits=$(jq -r --arg q "$query_lower" \
-      '.approvals[] | select((.title + " " + (.action // "") + " " + (.agent_id // "")) | ascii_downcase | test($q)) |
+      '(.approvals // [])[] | select((.title + " " + (.action // "") + " " + (.agent_id // "")) | ascii_downcase | test($q)) |
        "[APPROVAL] [\(.id)] \(.agent_id): \(.title)  status=\(.status)"' \
       "$approvalsFile" 2>/dev/null | head -"$limit")
     if [ -n "$hits" ]; then
@@ -121,7 +121,7 @@ for org in $orgs; do
   projectsFile=".monomind/orgs/${org}-projects.json"
   if [ -f "$projectsFile" ] && { [ "$scope" = "all" ] || [ "$scope" = "projects" ]; }; then
     hits=$(jq -r --arg q "$query_lower" \
-      '.projects[] | select((.name + " " + (.description // "") + " " + (.lead // "")) | ascii_downcase | test($q)) |
+      '(.projects // [])[] | select((.name + " " + (.description // "") + " " + (.lead // "")) | ascii_downcase | test($q)) |
        "[PROJECT] \(.name)  status=\(.status // "active")  lead=\(.lead // "-")"' \
       "$projectsFile" 2>/dev/null | head -"$limit")
     if [ -n "$hits" ]; then

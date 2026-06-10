@@ -111,7 +111,7 @@ echo "────────────────────────�
 # Try to find in instance access file
 accessFile=".monomind/instance-access.json"
 if [ -f "$accessFile" ]; then
-  userEntry=$(jq -r --arg id "$targetId" '.users[] | select(.id == $id)' "$accessFile")
+  userEntry=$(jq -r --arg id "$targetId" '(.users // [])[] | select(.id == $id)' "$accessFile")
   if [ -n "$userEntry" ]; then
     isAdmin=$(echo "$userEntry" | jq -r '.isInstanceAdmin // false')
     orgs=$(echo "$userEntry" | jq -r '(.companyAccess // []) | join(", ")')
@@ -154,7 +154,7 @@ done
 if [ -n "$org_name" ]; then
   issuesFile=".monomind/orgs/${org_name}-issues.json"
   if [ -f "$issuesFile" ]; then
-    assigned=$(jq --arg uid "$targetId" '[.issues[] | select(.assigneeId == $uid)] | length' "$issuesFile")
+    assigned=$(jq --arg uid "$targetId" '[(.issues // [])[] | select(.assigneeId == $uid)] | length' "$issuesFile")
     echo "  Issues assigned (org $org_name): $assigned"
   fi
 fi

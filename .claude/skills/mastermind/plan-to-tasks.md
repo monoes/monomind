@@ -48,7 +48,7 @@ echo "PLAN-TO-TASKS — $org_name"
 echo "────────────────────────────────────────────────────────"
 echo ""
 echo "AGENTS IN ORG:"
-jq -r '.roles[] | "  \(.id)  \(.title // "-")  [\(.adapter.type // "?")]"' "$orgFile"
+jq -r '(.roles // [])[] | "  \(.id)  \(.title // "-")  [\(.adapter.type // "?")]"' "$orgFile"
 echo ""
 ```
 

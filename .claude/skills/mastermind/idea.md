@@ -157,7 +157,7 @@ user_market_agents=$(jq \
   --arg cats "$CATEGORIES" \
   --arg kw "$(echo "$PROMPT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')" \
   --argjson n "$TOP_N" \
-  '[ .agents[] | select(.deprecated != true)
+  '[ (.agents // [])[] | select(.deprecated != true)
      | select(.category as $c | ($cats | split(" ") | any(. == $c)))
      | {name: .name, slug: .slug, category: .category,
         score: (
@@ -175,7 +175,7 @@ CATEGORIES="engineering development architecture"
 tech_agents=$(jq \
   --arg cats "$CATEGORIES" \
   --argjson n 3 \
-  '[ .agents[] | select(.deprecated != true)
+  '[ (.agents // [])[] | select(.deprecated != true)
      | select(.category as $c | ($cats | split(" ") | any(. == $c)))
      | {name: .name, slug: .slug}
    ] | unique_by(.slug) | .[0:$n] | [.[].name]' \
@@ -715,7 +715,7 @@ REGISTRY=".monomind/registry.json"
 
 # Dev decomposition agent — pick the most relevant engineering/architecture specialist
 dev_decomp_agent=$(jq -r \
-  '[ .agents[] | select(.deprecated != true)
+  '[ (.agents // [])[] | select(.deprecated != true)
      | select(.category == "engineering" or .category == "architecture")
      | {name: .name,
         score: (.name | ascii_downcase |
@@ -733,7 +733,7 @@ dev_decomp_agent="${dev_decomp_agent:-Software Architect}"
 
 # Ops decomposition agent — pick the most relevant strategy/sales/product specialist
 ops_decomp_agent=$(jq -r \
-  '[ .agents[] | select(.deprecated != true)
+  '[ (.agents // [])[] | select(.deprecated != true)
      | select(.category == "strategy" or .category == "sales" or .category == "product" or .category == "marketing")
      | {name: .name,
         score: (.name | ascii_downcase |

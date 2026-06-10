@@ -79,7 +79,7 @@ count=$(jq '.members | length' "$membersFile")
 if [ "$count" -eq 0 ]; then
   echo "  No members. Use --action invite to add the first member."
 else
-  jq -r '.members[] |
+  jq -r '(.members // [])[] |
     [.id, (.role // "viewer"), (.status // "active"),
      ((.grants // []) | join(", ") | if . == "" then "(none)" else . end)]
     | @tsv' "$membersFile" | while IFS=$'\t' read -r id role status grants; do
@@ -88,7 +88,7 @@ else
 fi
 
 # Show pending join requests
-pending=$(jq '[.join_requests[] | select(.status == "pending")] | length' "$membersFile")
+pending=$(jq '[(.join_requests // [])[] | select(.status == "pending")] | length' "$membersFile")
 [ "$pending" -gt 0 ] && echo "" && echo "  ⚠ $pending pending join request(s). Run --action join-requests to review."
 ```
 
@@ -130,7 +130,7 @@ esac
 
 tmp="${membersFile}.tmp"
 jq --arg id "$member_id" --arg role "$role" \
-  '.members = [.members[] | if .id == $id then .role = $role else . end]' \
+  '.members = [(.members // [])[] | if .id == $id then .role = $role else . end]' \
   "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
 echo "Member '$member_id' role → $role"
 ```
@@ -147,12 +147,12 @@ echo "$validKeys" | grep -qw "$permission" || { echo "ERROR: Unknown permission 
 tmp="${membersFile}.tmp"
 if [ "$action" = "grant" ]; then
   jq --arg id "$member_id" --arg perm "$permission" \
-    '.members = [.members[] | if .id == $id then .grants = ((.grants // []) + [$perm] | unique) else . end]' \
+    '.members = [(.members // [])[] | if .id == $id then .grants = ((.grants // []) + [$perm] | unique) else . end]' \
     "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
   echo "Granted: $permission → $member_id"
 else
   jq --arg id "$member_id" --arg perm "$permission" \
-    '.members = [.members[] | if .id == $id then .grants = ((.grants // []) | map(select(. != $perm))) else . end]' \
+    '.members = [(.members // [])[] | if .id == $id then .grants = ((.grants // []) | map(select(. != $perm))) else . end]' \
     "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
   echo "Revoked: $permission from $member_id"
 fi
@@ -163,7 +163,7 @@ fi
 ```bash
 [ -z "$member_id" ] && { echo "ERROR: --member-id required."; exit 1; }
 tmp="${membersFile}.tmp"
-jq --arg id "$member_id" '.members = [.members[] | select(.id != $id)]' \
+jq --arg id "$member_id" '.members = [(.members // [])[] | select(.id != $id)]' \
   "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
 echo "Removed member: $member_id"
 ```
@@ -174,7 +174,7 @@ echo "Removed member: $member_id"
 [ -z "$member_id" ] && { echo "ERROR: --member-id required."; exit 1; }
 tmp="${membersFile}.tmp"
 jq --arg id "$member_id" \
-  '.members = [.members[] | if .id == $id then .status = "suspended" else . end]' \
+  '.members = [(.members // [])[] | if .id == $id then .status = "suspended" else . end]' \
   "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
 echo "Member '$member_id' suspended. They cannot perform org actions until reinstated."
 ```
@@ -186,7 +186,7 @@ List pending join requests:
 ```bash
 echo "JOIN REQUESTS — org: $org_name"
 echo "────────────────────────────────────────────────────────"
-jq -r '.join_requests[] | select(.status == "pending") |
+jq -r '(.join_requests // [])[] | select(.status == "pending") |
   "[\(.id)] type=\(.type // "join")  role=\(.role // "viewer")  created=\(.createdAt // "?")
    → /mastermind:access --org '"$org_name"' --action approve-join --request-id \(.id)
    → /mastermind:access --org '"$org_name"' --action reject-join  --request-id \(.id)"
@@ -202,15 +202,15 @@ newStatus=$([ "$action" = "approve-join" ] && echo "approved" || echo "rejected"
 tmp="${membersFile}.tmp"
 if [ "$action" = "approve-join" ]; then
   # Get role from request, create member record
-  requestRole=$(jq -r --arg id "$request_id" '.join_requests[] | select(.id == $id) | .role // "viewer"' "$membersFile")
+  requestRole=$(jq -r --arg id "$request_id" '(.join_requests // [])[] | select(.id == $id) | .role // "viewer"' "$membersFile")
   jq --arg id "$request_id" --arg status "$newStatus" --arg role "$requestRole" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '.join_requests = [.join_requests[] | if .id == $id then .status = $status | .resolvedAt = $ts else . end] |
+    '.join_requests = [(.join_requests // [])[] | if .id == $id then .status = $status | .resolvedAt = $ts else . end] |
      .members += [{"id":$id,"role":$role,"status":"active","grants":[],"joinedAt":$ts}]' \
     "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
   echo "Approved join request $request_id (role: $requestRole). Member added."
 else
   jq --arg id "$request_id" --arg status "$newStatus" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '.join_requests = [.join_requests[] | if .id == $id then .status = $status | .resolvedAt = $ts else . end]' \
+    '.join_requests = [(.join_requests // [])[] | if .id == $id then .status = $status | .resolvedAt = $ts else . end]' \
     "$membersFile" > "$tmp" && mv "$tmp" "$membersFile"
   echo "Rejected join request $request_id."
 fi

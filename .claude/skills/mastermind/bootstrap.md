@@ -88,11 +88,11 @@ Initialize org bootstrap: detect boss, generate token, write primer context:
 ```bash
 # Auto-detect boss (role with no reports_to or reports_to: null)
 if [ -z "$boss_role_id" ]; then
-  boss_role_id=$(jq -r '.roles[] | select(.reports_to == null or .reports_to == "") | .id' "$orgFile" | head -1)
+  boss_role_id=$(jq -r '(.roles // [])[] | select(.reports_to == null or .reports_to == "") | .id' "$orgFile" | head -1)
 fi
 [ -z "$boss_role_id" ] && { echo "ERROR: Could not detect boss role. Pass --boss-role-id <id>."; exit 1; }
 
-bossConfig=$(jq --arg id "$boss_role_id" '.roles[] | select(.id == $id)' "$orgFile")
+bossConfig=$(jq --arg id "$boss_role_id" '(.roles // [])[] | select(.id == $id)' "$orgFile")
 bossTitle=$(echo "$bossConfig" | jq -r '.title // "CEO"')
 orgGoal=$(jq -r '.goal // "No goal set"' "$orgFile")
 orgTopology=$(jq -r '.topology // "hierarchical"' "$orgFile")

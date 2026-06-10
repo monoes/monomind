@@ -59,7 +59,7 @@ for f in "$MONITOR_DIR"/*.json; do
   [ -f "$f" ] || continue
   jq -r '
     "[\(.name)]  status=\(.status // "active")  interval=\(.poll_interval)s  agent=\(.agent_type)
-    sources: \([.sources[].type] | join(", "))
+    sources: \([(.sources // [])[].type] | join(", "))
     last_tick: \(.last_tick // "never")  tasks_done: \(.stats.done // 0)  tasks_failed: \(.stats.failed // 0)"
   ' "$f"
   echo ""
@@ -162,7 +162,7 @@ jq -r '
   "Sources (\(.sources | length)):"
 ' "$cfg"
 
-jq -r '.sources[] | "  [\(.type)] \(.filter | to_entries | map("\(.key)=\(.value)") | join("  "))"' "$cfg"
+jq -r '(.sources // [])[] | "  [\(.type)] \(.filter | to_entries | map("\(.key)=\(.value)") | join("  "))"' "$cfg"
 
 if [ -f "$state_file" ]; then
   in_flight=$(jq '.in_flight // [] | length' "$state_file" 2>/dev/null || echo 0)
@@ -320,7 +320,7 @@ state_file="$MONITOR_DIR/${name}-state.json"
 # Load config
 [ ! -f "$cfg" ] && echo "Monitor '$name' not found — loop terminated." && exit 0
 
-monitor_status=$(jq -r '.status' "$cfg")
+monitor_status=$(jq -r '.status // "active"' "$cfg")
 [ "$monitor_status" = "stopped" ]  && echo "Monitor '$name' stopped — loop terminated." && exit 0
 [ "$monitor_status" = "paused" ]   && echo "Monitor '$name' paused — will not reschedule." && exit 0
 
@@ -353,7 +353,7 @@ If a previous task failed but has retry_count < 3, it remains in `in_flight` wit
 
 ```bash
 retry_task=$(jq -c '
-  .in_flight[] as $t |
+  (.in_flight // [])[] as $t |
   (.processed_ids[($t.source_type + ":" + $t.external_id)].status // "") |
   if . == "retry_pending" then $t else empty end' "$state_file" | head -1)
 ```
@@ -405,7 +405,7 @@ if [ -z "$retry_task" ]; then
         # === Linear adapter (below) ===
 ```
 
-> The `case` block continues through all adapters. After the Filesystem adapter closes its inner loop and `fi`, add `esac` → `done < <(jq -c '.sources[]' "$cfg")` → `fi` (closing the `if [ -z "$retry_task" ]` guard). After the outer `fi`, check `$task_claimed` to decide whether to run the "After claim" section.
+> The `case` block continues through all adapters. After the Filesystem adapter closes its inner loop and `fi`, add `esac` → `done < <(jq -c '(.sources // [])[]' "$cfg")` → `fi` (closing the `if [ -z "$retry_task" ]` guard). After the outer `fi`, check `$task_claimed` to decide whether to run the "After claim" section.
 
 ---
 
@@ -733,7 +733,7 @@ done <<< "$tasks"   # close per-file while loop (reached only if no file was cla
 fi                  # close 'if [ ! -d "$folder" ]' else block
       ;;  # end filesystem case branch
     esac
-  done < <(jq -c '.sources[]' "$cfg")
+  done < <(jq -c '(.sources // [])[]' "$cfg")
 fi  # close 'if [ -z "$retry_task" ]' guard
 # After: if $task_claimed=true, proceed to "After claim"; otherwise skip to Step 5
 ```
@@ -950,7 +950,7 @@ jq --arg key "${task_source_type}:${task_external_id}" \
    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
    '(.processed_ids[$key].status = "done") |
     (.processed_ids[$key].done_at  = $ts) |
-    (.in_flight = [.in_flight[] | select(.external_id != $eid or .source_type != $stype)])' \
+    (.in_flight = [(.in_flight // [])[] | select(.external_id != $eid or .source_type != $stype)])' \
    "$state_file" > "$tmp" && mv "$tmp" "$state_file"
 
 tmp="${cfg}.tmp"
@@ -991,7 +991,7 @@ if [ "$retry_count" -lt 3 ]; then
      '(.processed_ids[$key].retry_count = $r) |
       (.processed_ids[$key].last_failure = $ts) |
       (.processed_ids[$key].status = "retry_pending") |
-      (.in_flight = [.in_flight[] |
+      (.in_flight = [(.in_flight // [])[] |
         if (.external_id == $eid and .source_type == $stype)
         then .retry_count = $r | .last_failure = $ts
         else . end])' \
@@ -1064,7 +1064,7 @@ Last attempt: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
      --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      '(.processed_ids[$key].status = "failed") |
       (.processed_ids[$key].failed_at = $ts) |
-      (.in_flight = [.in_flight[] | select(.external_id != $eid or .source_type != $stype)])' \
+      (.in_flight = [(.in_flight // [])[] | select(.external_id != $eid or .source_type != $stype)])' \
      "$state_file" > "$tmp" && mv "$tmp" "$state_file"
 
   tmp="${cfg}.tmp"
@@ -1137,7 +1137,7 @@ If `caller` is not "command", follow `_protocol.md` Brain Write Procedure for do
     {
       "type": "github",
       "filter": {
-        "repo": "nokhodian/monomind",
+        "repo": "monoes/monomind",
         "assignee": "nokhodian",
         "labels": ["ai-agent"],
         "state": "open",
@@ -1214,7 +1214,7 @@ If `caller` is not "command", follow `_protocol.md` Brain Write Procedure for do
 ```bash
 # Create a monitor watching GitHub issues assigned to you
 /mastermind:monitor --action start --name dev-watcher \
-  --source github --project nokhodian/monomind --user nokhodian \
+  --source github --project monoes/monomind --user nokhodian \
   --label ai-agent --agent coder --interval 120
 
 # Add a Linear source to an existing monitor

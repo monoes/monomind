@@ -1,6 +1,6 @@
 ---
 name: mastermind-backup
-description: Mastermind backup — create, list, and restore compressed org backups. Archives org config, state, goals, routines, approvals, projects, and activity log into a timestamped tarball.
+description: Mastermind backup — create, list, and restore compressed org backups. Archives all org data files (config, goals, routines, approvals, projects, members, issues, workspaces, worktrees, environments, plugins, adapters, threads, budgets, bootstrap, and activity log) into a timestamped tarball.
 type: domain-skill
 default_mode: confirm
 ---
@@ -55,7 +55,7 @@ archivePath="${backupDir}/${archiveName}"
 
 # Collect files to back up
 filesToBackup=""
-for suffix in "" "-goals" "-routines" "-approvals" "-projects" "-worktrees" "-bootstrap"; do
+for suffix in "" "-goals" "-routines" "-approvals" "-projects" "-members" "-issues" "-workspaces" "-worktrees" "-environments" "-plugins" "-adapters" "-threads" "-budgets" "-project-workspaces" "-approval-comments" "-bootstrap" "-secrets"; do
   f=".monomind/orgs/${org_name}${suffix}.json"
   [ -f "$f" ] && filesToBackup="$filesToBackup $f"
 done

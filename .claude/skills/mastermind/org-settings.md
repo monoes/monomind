@@ -75,8 +75,30 @@ tmp="${orgFile}.tmp"
 
 case "$field" in
   name)
+    # Validate new name slug
+    echo "$value" | grep -qE '^[a-z0-9][a-z0-9-]{0,63}$' || { echo "ERROR: name must match ^[a-z0-9][a-z0-9-]{0,63}$"; exit 1; }
+    newOrgFile=".monomind/orgs/${value}.json"
+    [ -f "$newOrgFile" ] && { echo "ERROR: An org named '${value}' already exists."; exit 1; }
+    # Update the name field inside the JSON
     jq --arg v "$value" '.name = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
-    echo "Updated: name → $value"
+    # Rename the main config file
+    mv "$orgFile" "$newOrgFile"
+    # Rename all side-car data files
+    for suffix in -state -goals -routines -approvals -activity -issues -members -projects -workspaces -worktrees -environments -plugins -adapters -threads -budgets -project-workspaces -approval-comments -bootstrap -secrets; do
+      old_file=".monomind/orgs/${org_name}${suffix}.json"
+      [ -f "$old_file" ] && mv "$old_file" ".monomind/orgs/${value}${suffix}.json" || true
+      old_jsonl=".monomind/orgs/${org_name}${suffix}.jsonl"
+      [ -f "$old_jsonl" ] && mv "$old_jsonl" ".monomind/orgs/${value}${suffix}.jsonl" || true
+    done
+    # Rename loop prompt file if present (scheduled orgs)
+    old_loop=".monomind/loops/${org_name}.md"
+    [ -f "$old_loop" ] && mv "$old_loop" ".monomind/loops/${value}.md" || true
+    # Rename stop file if present
+    old_stop=".monomind/orgs/.stops/${org_name}.stop"
+    [ -f "$old_stop" ] && mv "$old_stop" ".monomind/orgs/.stops/${value}.stop" || true
+    echo "Renamed org '${org_name}' → '${value}'"
+    org_name="$value"
+    orgFile="$newOrgFile"
     ;;
   goal)
     jq --arg v "$value" '.goal = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
@@ -143,19 +165,24 @@ mkdir -p ".monomind/exports"
 timestamp=$(date +%Y%m%d-%H%M%S)
 outPath="${export_path:-.monomind/exports/${org_name}-${timestamp}.json}"
 
+# Pre-read optional side-car files (--slurpfile aborts jq when the file is missing)
+goals_json=$([ -f ".monomind/orgs/${org_name}-goals.json" ]    && jq -c '.' ".monomind/orgs/${org_name}-goals.json"    || echo 'null')
+routines_json=$([ -f ".monomind/orgs/${org_name}-routines.json" ] && jq -c '.' ".monomind/orgs/${org_name}-routines.json" || echo 'null')
+projects_json=$([ -f ".monomind/orgs/${org_name}-projects.json" ] && jq -c '.' ".monomind/orgs/${org_name}-projects.json" || echo 'null')
+
 # Merge all org data files into one export bundle
 jq -n \
   --slurpfile config "$orgFile" \
-  --slurpfile goals ".monomind/orgs/${org_name}-goals.json" 2>/dev/null \
-  --slurpfile routines ".monomind/orgs/${org_name}-routines.json" 2>/dev/null \
-  --slurpfile projects ".monomind/orgs/${org_name}-projects.json" 2>/dev/null \
+  --argjson goals     "$goals_json" \
+  --argjson routines  "$routines_json" \
+  --argjson projects  "$projects_json" \
   '{
     exported_at: (now|todate),
     format_version: "1.0",
     config: ($config[0] // {}),
-    goals: ($goals[0].goals // []),
-    routines: ($routines[0].routines // []),
-    projects: ($projects[0].projects // [])
+    goals: ($goals.goals // []),
+    routines: ($routines.routines // []),
+    projects: ($projects.projects // [])
   }' > "$outPath"
 
 echo "Exported: $outPath"
@@ -178,20 +205,30 @@ importedName=$(jq -r '.config.name // .config.org_name // "unnamed"' "$import_pa
 targetOrg="${org_name:-$importedName}"
 mkdir -p ".monomind/orgs"
 
-# Write config
-jq '.config' "$import_path" > ".monomind/orgs/${targetOrg}.json"
+# Write config — update the name field to match targetOrg (in case file was exported under a different name)
+tmpConfig=".monomind/orgs/${targetOrg}.json.tmp"
+jq --arg n "$targetOrg" '.config | .name = $n' "$import_path" > "$tmpConfig" && mv "$tmpConfig" ".monomind/orgs/${targetOrg}.json" || { rm -f "$tmpConfig"; echo "ERROR: Failed to write org config from import."; exit 1; }
 
-# Write goals if present
-goalsData=$(jq '.goals // []' "$import_path")
-[ "$goalsData" != "[]" ] && echo "{\"goals\":$goalsData}" > ".monomind/orgs/${targetOrg}-goals.json"
+# Write goals if present (atomic write)
+goalsData=$(jq -c '.goals // []' "$import_path" 2>/dev/null || echo '[]')
+if [ "$goalsData" != "[]" ]; then
+  tmp=".monomind/orgs/${targetOrg}-goals.json.tmp"
+  jq -n --argjson data "$goalsData" '{"goals":$data}' > "$tmp" && mv "$tmp" ".monomind/orgs/${targetOrg}-goals.json" || rm -f "$tmp"
+fi
 
-# Write routines if present
-routinesData=$(jq '.routines // []' "$import_path")
-[ "$routinesData" != "[]" ] && echo "{\"routines\":$routinesData}" > ".monomind/orgs/${targetOrg}-routines.json"
+# Write routines if present (atomic write)
+routinesData=$(jq -c '.routines // []' "$import_path" 2>/dev/null || echo '[]')
+if [ "$routinesData" != "[]" ]; then
+  tmp=".monomind/orgs/${targetOrg}-routines.json.tmp"
+  jq -n --argjson data "$routinesData" '{"routines":$data}' > "$tmp" && mv "$tmp" ".monomind/orgs/${targetOrg}-routines.json" || rm -f "$tmp"
+fi
 
-# Write projects if present
-projectsData=$(jq '.projects // []' "$import_path")
-[ "$projectsData" != "[]" ] && echo "{\"projects\":$projectsData}" > ".monomind/orgs/${targetOrg}-projects.json"
+# Write projects if present (atomic write)
+projectsData=$(jq -c '.projects // []' "$import_path" 2>/dev/null || echo '[]')
+if [ "$projectsData" != "[]" ]; then
+  tmp=".monomind/orgs/${targetOrg}-projects.json.tmp"
+  jq -n --argjson data "$projectsData" '{"projects":$data}' > "$tmp" && mv "$tmp" ".monomind/orgs/${targetOrg}-projects.json" || rm -f "$tmp"
+fi
 
 echo "Imported org '${targetOrg}' from ${import_path}"
 echo "Agents: $(jq '.config.roles | length' "$import_path")"

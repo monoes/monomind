@@ -88,13 +88,13 @@ else
 
   while IFS= read -r proj; do
     [ -z "$proj" ] && continue
-    projName=$([ -f "$projectsFile" ] && jq -r --arg pid "$proj" '.projects[] | select(.id == $pid) | .name // $pid' "$projectsFile" || echo "$proj")
+    projName=$([ -f "$projectsFile" ] && jq -r --arg pid "$proj" '(.projects // [])[] | select(.id == $pid) | .name // $pid' "$projectsFile" || echo "$proj")
     echo ""
     echo "  PROJECT: $projName"
     echo "  ──────────────────────────────────────────────────"
     printf "  %-18s %-14s %-18s %-12s %-6s %s\n" "ID" "STATUS" "AGENT" "BRANCH" "SVCS" "PATH"
 
-    jq -r --arg pid "$proj" '.workspaces[] | select(.project_id == $pid) |
+    jq -r --arg pid "$proj" '(.workspaces // [])[] | select(.project_id == $pid) |
       [.id, (.status // "unknown"), (.agent_id // "(none)"),
        (.branch // "?"), ((.services // []) | length | tostring),
        (.worktree_path // "-")]
@@ -112,7 +112,7 @@ echo "Total: $total workspace(s)"
 
 ```bash
 [ -z "$workspace_id" ] && { echo "ERROR: --workspace-id required."; exit 1; }
-wsDef=$(jq -r --arg id "$workspace_id" '.workspaces[] | select(.id == $id)' "$wsFile")
+wsDef=$(jq -r --arg id "$workspace_id" '(.workspaces // [])[] | select(.id == $id)' "$wsFile")
 [ -z "$wsDef" ] && { echo "ERROR: Workspace '$workspace_id' not found."; exit 1; }
 
 echo "WORKSPACE STATUS — $workspace_id"
@@ -186,7 +186,7 @@ echo "  Path:     $worktree_path"
 [ -z "$workspace_id" ] && { echo "ERROR: --workspace-id required."; exit 1; }
 tmp="${wsFile}.tmp"
 jq --arg id "$workspace_id" \
-  '.workspaces = [.workspaces[] | if .id == $id then .status = "detached" else . end]' \
+  '.workspaces = [(.workspaces // [])[] | if .id == $id then .status = "detached" else . end]' \
   "$wsFile" > "$tmp" && mv "$tmp" "$wsFile"
 echo "Workspace '$workspace_id' → detached. The worktree is preserved on disk."
 ```
@@ -195,7 +195,7 @@ echo "Workspace '$workspace_id' → detached. The worktree is preserved on disk.
 
 ```bash
 [ -z "$workspace_id" ] && { echo "ERROR: --workspace-id required."; exit 1; }
-wsDef=$(jq -r --arg id "$workspace_id" '.workspaces[] | select(.id == $id)' "$wsFile")
+wsDef=$(jq -r --arg id "$workspace_id" '(.workspaces // [])[] | select(.id == $id)' "$wsFile")
 [ -z "$wsDef" ] && { echo "ERROR: Workspace '$workspace_id' not found."; exit 1; }
 
 services=$(echo "$wsDef" | jq -r '(.services // [])[]')
@@ -208,7 +208,7 @@ fi
 
 tmp="${wsFile}.tmp"
 jq --arg id "$workspace_id" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  '.workspaces = [.workspaces[] | if .id == $id then .status = "stopped" | .services = [] | .lastActiveAt = $ts else . end]' \
+  '.workspaces = [(.workspaces // [])[] | if .id == $id then .status = "stopped" | .services = [] | .lastActiveAt = $ts else . end]' \
   "$wsFile" > "$tmp" && mv "$tmp" "$wsFile"
 
 echo "Workspace '$workspace_id' stopped."
@@ -224,7 +224,7 @@ removed=0
 orphaned=0
 
 tmp="${wsFile}.tmp"
-jq '.workspaces = [.workspaces[] | select(.status != "stopped" and .status != "detached")]' \
+jq '.workspaces = [(.workspaces // [])[] | select(.status != "stopped" and .status != "detached")]' \
   "$wsFile" > "$tmp" && mv "$tmp" "$wsFile"
 
 after=$(jq '.workspaces | length' "$wsFile")
@@ -232,9 +232,9 @@ removed=$((before - after))
 
 # Find orphaned worktrees (path gone)
 while IFS= read -r path; do
-  [ -z "$path" ] || [ "$path" = "null" ] && continue
+  { [ -z "$path" ] || [ "$path" = "null" ]; } && continue
   [ ! -d "$path" ] && orphaned=$((orphaned + 1))
-done < <(jq -r '.workspaces[].worktree_path // ""' "$wsFile")
+done < <(jq -r '(.workspaces // [])[].worktree_path // ""' "$wsFile")
 
 echo "  Removed $removed stopped/detached workspace record(s)."
 [ "$orphaned" -gt 0 ] && echo "  WARNING: $orphaned workspace(s) have missing worktree paths. Run --action status to investigate."

@@ -48,7 +48,7 @@ Show pending approval requests from agents:
 
 ```bash
 jq -r '
-  .approvals | map(select(.status == "pending")) |
+  (.approvals // []) | map(select(.status == "pending")) |
   if length == 0 then "No pending approvals." else
     .[] | "[\(.id)] \(.agent_id): \(.title)\n  Action: \(.action)\n  Risk: \(.risk_level // "low")\n  Requested: \(.requested_at)"
   end
@@ -77,7 +77,7 @@ PENDING APPROVALS — org: <org_name>
 Show full details of a single approval request:
 
 ```bash
-jq --arg id "$approval_id" '.approvals[] | select(.id == $id)' "$approvalsFile"
+jq --arg id "$approval_id" '(.approvals // [])[] | select(.id == $id)' "$approvalsFile"
 ```
 
 Print the agent's requested action, context, and any supporting evidence they provided.
@@ -89,11 +89,11 @@ Update approval status and notify the waiting agent via memory:
 ```bash
 tmp="${approvalsFile}.tmp"
 jq --arg id "$approval_id" \
-   '.approvals = [.approvals[] | if .id == $id then .status = "approved" | .resolved_at = (now|todate) | .resolved_by = "human" else . end]' \
+   '.approvals = [(.approvals // [])[] | if .id == $id then .status = "approved" | .resolved_at = (now|todate) | .resolved_by = "human" else . end]' \
    "$approvalsFile" > "$tmp" && mv "$tmp" "$approvalsFile"
 
 # Notify the agent via memory so it can proceed
-approval=$(jq --arg id "$approval_id" '.approvals[] | select(.id == $id)' "$approvalsFile")
+approval=$(jq --arg id "$approval_id" '(.approvals // [])[] | select(.id == $id)' "$approvalsFile")
 agent_id=$(echo "$approval" | jq -r '.agent_id')
 memNs="org:${org_name}"
 npx monomind@latest memory store \
@@ -111,10 +111,10 @@ Emit `org:approval:approved` event to dashboard.
 ```bash
 tmp="${approvalsFile}.tmp"
 jq --arg id "$approval_id" --arg reason "${reason:-No reason given}" \
-   '.approvals = [.approvals[] | if .id == $id then .status = "rejected" | .resolved_at = (now|todate) | .resolved_by = "human" | .rejection_reason = $reason else . end]' \
+   '.approvals = [(.approvals // [])[] | if .id == $id then .status = "rejected" | .resolved_at = (now|todate) | .resolved_by = "human" | .rejection_reason = $reason else . end]' \
    "$approvalsFile" > "$tmp" && mv "$tmp" "$approvalsFile"
 
-approval=$(jq --arg id "$approval_id" '.approvals[] | select(.id == $id)' "$approvalsFile")
+approval=$(jq --arg id "$approval_id" '(.approvals // [])[] | select(.id == $id)' "$approvalsFile")
 agent_id=$(echo "$approval" | jq -r '.agent_id')
 memNs="org:${org_name}"
 npx monomind@latest memory store \
@@ -137,7 +137,7 @@ Agents that need human approval before a sensitive action should:
 ```bash
 approvalsFile=".monomind/orgs/${orgName}-approvals.json"
 [ ! -f "$approvalsFile" ] && echo '{"approvals":[]}' > "$approvalsFile"
-approval_id="req-$(date +%s)"
+approval_id="req-$(date +%s)-$$-$RANDOM"
 tmp="${approvalsFile}.tmp"
 jq --arg id "$approval_id" \
    --arg agent "$role_id" \
@@ -155,10 +155,9 @@ jq --arg id "$approval_id" \
 approvalsFile=".monomind/orgs/${orgName}-approvals.json"
 while true; do
   # Check file first — dashboard approve/reject button only updates the file (not memory)
-  file_status=$(jq --arg id "$approval_id" '.approvals[] | select(.id == $id) | .status // ""' "$approvalsFile" 2>/dev/null || echo "")
+  file_status=$(jq --arg id "$approval_id" '(.approvals // [])[] | select(.id == $id) | .status // ""' "$approvalsFile" 2>/dev/null || echo "")
   if [ -z "$file_status" ] || [ "$file_status" = '"pending"' ] || [ "$file_status" = "pending" ]; then
-    mem_result=$(npx monomind@latest memory search --query "approval:${approval_id}" --namespace "${memNs}" 2>/dev/null)
-    mem_status=$(echo "$mem_result" | jq -r '.[0].value.status // ""' 2>/dev/null)
+    mem_status=$(npx monomind@latest memory get --key "approval:${approval_id}" --namespace "${memNs}" 2>/dev/null | jq -r '.status // ""' 2>/dev/null)
     [ -n "$mem_status" ] && [ "$mem_status" != "pending" ] && file_status="$mem_status"
   fi
   # Strip quotes from jq output

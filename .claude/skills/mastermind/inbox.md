@@ -34,7 +34,7 @@ If `caller` is not "command", load brain context following _protocol.md Brain Lo
 if [ -n "$org_name" ]; then
   orgs="$org_name"
 else
-  orgs=$(ls .monomind/orgs/*.json 2>/dev/null | grep -v '\-state\|-goals\|-routines\|-approvals\|-projects\|-worktrees\|-secrets' | xargs -I{} basename {} .json | sort)
+  orgs=$(ls .monomind/orgs/*.json 2>/dev/null | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments' | xargs -I{} basename {} .json | sort)
 fi
 ```
 
@@ -56,7 +56,7 @@ for org in $orgs; do
 
   # 1. Pending approvals
   if [ -f "$approvalsFile" ]; then
-    pending=$(jq '[.approvals[] | select(.status == "pending")] | length' "$approvalsFile" 2>/dev/null || echo 0)
+    pending=$(jq '[(.approvals // [])[] | select(.status == "pending")] | length' "$approvalsFile" 2>/dev/null || echo 0)
     total_approvals=$((total_approvals + pending))
   fi
 
@@ -103,7 +103,7 @@ for org in $orgs; do
 
   # Pending approvals
   if [ -f "$approvalsFile" ]; then
-    pending_approvals=$(jq -r '.approvals[] | select(.status == "pending") | "  [APPROVAL] [\(.id)] \(.agent_id): \(.title)  risk=\(.risk_level // "low")"' \
+    pending_approvals=$(jq -r '(.approvals // [])[] | select(.status == "pending") | "  [APPROVAL] [\(.id)] \(.agent_id): \(.title)  risk=\(.risk_level // "low")"' \
       "$approvalsFile" 2>/dev/null)
     [ -n "$pending_approvals" ] && { has_items=1; echo "ORG: $org"; echo "$pending_approvals"; }
   fi
@@ -132,7 +132,7 @@ for org in $orgs; do
   approvalsFile=".monomind/orgs/${org}-approvals.json"
   [ -f "$approvalsFile" ] || continue
   echo "=== $org ==="
-  jq -r '.approvals[] | select(.status == "pending") |
+  jq -r '(.approvals // [])[] | select(.status == "pending") |
     "[\(.id)] \(.agent_id): \(.title)\n  Action: \(.action)\n  Risk: \(.risk_level // "low")\n  → /mastermind:approve --org '"$org"' --action approve --approval-id \(.id)"
   ' "$approvalsFile" 2>/dev/null || echo "  No pending approvals."
   echo ""

@@ -59,7 +59,7 @@ count=$(jq '.plugins | length' "$registryFile")
 if [ "$count" -eq 0 ]; then
   echo "  No plugins installed. Use --action install --package-name <pkg> to add one."
 else
-  jq -r '.plugins[] |
+  jq -r '(.plugins // [])[] |
     [
       (.id // .packageName // "unknown"),
       (.version // "-"),
@@ -115,7 +115,7 @@ jq --arg id "$pluginId" \
    --arg pkg "$package_name" \
    --argjson local "$isLocal" \
    --arg ts "$ts" \
-   '.plugins = [.plugins[] | select(.id != $id)] +
+   '.plugins = [(.plugins // [])[] | select(.id != $id)] +
     [{"id":$id,"packageName":$pkg,"isLocalPath":$local,
       "status":"installed","version":"latest","category":"general",
       "installedAt":$ts,"lastError":null}]' \
@@ -143,7 +143,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 echo "Uninstalling plugin '$plugin_id'…"
 
 tmp="${registryFile}.tmp"
-jq --arg id "$plugin_id" '.plugins = [.plugins[] | select(.id != $id)]' \
+jq --arg id "$plugin_id" '.plugins = [(.plugins // [])[] | select(.id != $id)]' \
   "$registryFile" > "$tmp" && mv "$tmp" "$registryFile"
 echo "Uninstalled: $plugin_id"
 ```
@@ -156,7 +156,7 @@ newStatus=$([ "$action" = "enable" ] && echo "installed" || echo "disabled")
 
 tmp="${registryFile}.tmp"
 jq --arg id "$plugin_id" --arg s "$newStatus" \
-  '.plugins = [.plugins[] | if .id == $id then .status = $s else . end]' \
+  '.plugins = [(.plugins // [])[] | if .id == $id then .status = $s else . end]' \
   "$registryFile" > "$tmp" && mv "$tmp" "$registryFile"
 echo "Plugin '$plugin_id' → $newStatus"
 ```
@@ -167,7 +167,7 @@ Show detailed status for a specific plugin:
 
 ```bash
 [ -z "$plugin_id" ] && { echo "ERROR: --plugin-id required."; exit 1; }
-jq --arg id "$plugin_id" '.plugins[] | select(.id == $id)' "$registryFile"
+jq --arg id "$plugin_id" '(.plugins // [])[] | select(.id == $id)' "$registryFile"
 ```
 
 ---

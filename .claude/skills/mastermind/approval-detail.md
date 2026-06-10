@@ -63,7 +63,7 @@ approvalsFile=".monomind/orgs/${org_name}-approvals.json"
 
 # Find approval by full id or prefix
 approvalDef=$(jq -r --arg id "$approval_id" \
-  '.approvals[] | select(.id == $id or (.id | startswith($id)))' \
+  '(.approvals // [])[] | select(.id == $id or (.id | startswith($id)))' \
   "$approvalsFile" | head -1)
 [ -z "$approvalDef" ] && { echo "ERROR: Approval '${approval_id}' not found."; exit 1; }
 
@@ -144,7 +144,7 @@ if [ -z "$linkedIds" ]; then
 else
   if [ -f "$issuesFile" ]; then
     echo "$linkedIds" | while read -r iid; do
-      row=$(jq -r --arg id "$iid" '.issues[] | select(.id == $id) | [.id, (.status // "open"), (.title // "(no title)")] | @tsv' "$issuesFile")
+      row=$(jq -r --arg id "$iid" '(.issues // [])[] | select(.id == $id) | [.id, (.status // "open"), (.title // "(no title)")] | @tsv' "$issuesFile")
       [ -n "$row" ] && echo "$row" | while IFS=$'\t' read -r id st title; do
         printf "%-24s %-12s %s\n" "$id" "$st" "$title"
       done || printf "%-24s %-12s %s\n" "$iid" "(unknown)" "(not found)"
@@ -185,7 +185,7 @@ fi
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${approvalsFile}.tmp"
 jq --arg id "$approvalId" --arg ts "$ts" \
-  '.approvals = [.approvals[] | if .id == $id then
+  '.approvals = [(.approvals // [])[] | if .id == $id then
      .status = "approved" | .resolvedAt = $ts | .resolvedBy = "operator"
    else . end]' \
   "$approvalsFile" > "$tmp" && mv "$tmp" "$approvalsFile"
@@ -201,7 +201,7 @@ echo "  Agent will be notified to proceed."
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${approvalsFile}.tmp"
 jq --arg id "$approvalId" --arg ts "$ts" \
-  '.approvals = [.approvals[] | if .id == $id then
+  '.approvals = [(.approvals // [])[] | if .id == $id then
      .status = "rejected" | .resolvedAt = $ts | .resolvedBy = "operator"
    else . end]' \
   "$approvalsFile" > "$tmp" && mv "$tmp" "$approvalsFile"
@@ -216,7 +216,7 @@ echo "  Resolved at: $ts"
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${approvalsFile}.tmp"
 jq --arg id "$approvalId" --arg ts "$ts" \
-  '.approvals = [.approvals[] | if .id == $id then
+  '.approvals = [(.approvals // [])[] | if .id == $id then
      .status = "revision_requested" | .revisionRequestedAt = $ts
    else . end]' \
   "$approvalsFile" > "$tmp" && mv "$tmp" "$approvalsFile"
@@ -231,7 +231,7 @@ echo "  Agent will be notified to revise and resubmit."
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${approvalsFile}.tmp"
 jq --arg id "$approvalId" --arg ts "$ts" \
-  '.approvals = [.approvals[] | if .id == $id then
+  '.approvals = [(.approvals // [])[] | if .id == $id then
      .status = "pending" | .resubmittedAt = $ts
    else . end]' \
   "$approvalsFile" > "$tmp" && mv "$tmp" "$approvalsFile"

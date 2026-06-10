@@ -53,7 +53,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 projectsFile=".monomind/orgs/${org_name}-projects.json"
 [ ! -f "$projectsFile" ] && { echo "ERROR: No projects file for org '$org_name'. Create via /mastermind:projects."; exit 1; }
 
-projectDef=$(jq -r --arg id "$project_id" '.projects[] | select(.id == $id or .slug == $id)' "$projectsFile")
+projectDef=$(jq -r --arg id "$project_id" '(.projects // [])[] | select(.id == $id or .slug == $id)' "$projectsFile")
 [ -z "$projectDef" ] && { echo "ERROR: Project '$project_id' not found in org '$org_name'."; exit 1; }
 
 resolvedId=$(echo "$projectDef" | jq -r '.id')
@@ -84,10 +84,10 @@ echo "$projectDef" | jq -r '
 
 # Issues summary
 if [ -f "$issuesFile" ]; then
-  totalIssues=$(jq --arg pid "$resolvedId" '[.issues[] | select(.project_id == $pid)] | length' "$issuesFile")
-  openIssues=$(jq --arg pid "$resolvedId" '[.issues[] | select(.project_id == $pid and .status == "open")] | length' "$issuesFile")
-  inProgIssues=$(jq --arg pid "$resolvedId" '[.issues[] | select(.project_id == $pid and .status == "in_progress")] | length' "$issuesFile")
-  doneIssues=$(jq --arg pid "$resolvedId" '[.issues[] | select(.project_id == $pid and .status == "done")] | length' "$issuesFile")
+  totalIssues=$(jq --arg pid "$resolvedId" '[(.issues // [])[] | select(.project_id == $pid)] | length' "$issuesFile")
+  openIssues=$(jq --arg pid "$resolvedId" '[(.issues // [])[] | select(.project_id == $pid and .status == "open")] | length' "$issuesFile")
+  inProgIssues=$(jq --arg pid "$resolvedId" '[(.issues // [])[] | select(.project_id == $pid and .status == "in_progress")] | length' "$issuesFile")
+  doneIssues=$(jq --arg pid "$resolvedId" '[(.issues // [])[] | select(.project_id == $pid and .status == "done")] | length' "$issuesFile")
   echo ""
   echo "ISSUES"
   echo "  Total:       $totalIssues"
@@ -98,8 +98,8 @@ fi
 
 # Workspaces summary
 if [ -f "$wsFile" ]; then
-  wsCount=$(jq --arg pid "$resolvedId" '[.workspaces[] | select(.project_id == $pid)] | length' "$wsFile")
-  activeWs=$(jq --arg pid "$resolvedId" '[.workspaces[] | select(.project_id == $pid and .status == "active")] | length' "$wsFile")
+  wsCount=$(jq --arg pid "$resolvedId" '[(.workspaces // [])[] | select(.project_id == $pid)] | length' "$wsFile")
+  activeWs=$(jq --arg pid "$resolvedId" '[(.workspaces // [])[] | select(.project_id == $pid and .status == "active")] | length' "$wsFile")
   echo ""
   echo "WORKSPACES"
   echo "  Total:  $wsCount  |  Active: $activeWs"
@@ -122,7 +122,7 @@ if [ ! -f "$issuesFile" ]; then
   echo "  No issues file found."
 else
   count=0
-  jq -r --arg pid "$resolvedId" '.issues[] | select(.project_id == $pid) |
+  jq -r --arg pid "$resolvedId" '(.issues // [])[] | select(.project_id == $pid) |
     [.id, (.status // "open"), (.priority // "medium"), (.title // "(no title)")] | @tsv' \
     "$issuesFile" | while IFS=$'\t' read -r id st pri title; do
     printf "%-24s %-12s %-10s %s\n" "$id" "$st" "$pri" "$title"
@@ -156,7 +156,7 @@ if [ -n "$field" ]; then
   ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   tmp="${projectsFile}.tmp"
   jq --arg id "$resolvedId" --arg f "$field" --arg v "$value" --arg ts "$ts" \
-    '.projects = [.projects[] | if .id == $id then .[$f] = $v | .updated_at = $ts else . end]' \
+    '.projects = [(.projects // [])[] | if .id == $id then .[$f] = $v | .updated_at = $ts else . end]' \
     "$projectsFile" > "$tmp" && mv "$tmp" "$projectsFile"
   echo "Updated: $field = $value"
 else
@@ -172,7 +172,7 @@ echo "────────────────────────�
 
 [ ! -f "$budgetFile" ] && echo '{"budgets":[]}' > "$budgetFile"
 
-existing=$(jq -r --arg pid "$resolvedId" '.budgets[] | select(.project_id == $pid)' "$budgetFile")
+existing=$(jq -r --arg pid "$resolvedId" '(.budgets // [])[] | select(.project_id == $pid)' "$budgetFile")
 if [ -z "$existing" ]; then
   echo "  No budget policy set."
 else
@@ -197,7 +197,7 @@ if [ -n "$budget_policy" ]; then
      --argjson limit "${budget_limit:-0}" \
      --arg period "${budget_period:-daily}" \
      --arg ts "$ts" \
-    '.budgets = [.budgets[] | select(.project_id != $pid)] +
+    '.budgets = [(.budgets // [])[] | select(.project_id != $pid)] +
      [{"project_id":$pid,"policy":$policy,
        "limit_tokens":(if $policy != "none" then $limit else null end),
        "period":$period,"updatedAt":$ts}]' \
@@ -220,7 +220,7 @@ else
   printf "%-20s %-12s %-18s %-8s %s\n" "ID" "STATUS" "AGENT" "BRANCH" "PATH"
   echo "────────────────────────────────────────────────────────"
   count=0
-  jq -r --arg pid "$resolvedId" '.workspaces[] | select(.project_id == $pid) |
+  jq -r --arg pid "$resolvedId" '(.workspaces // [])[] | select(.project_id == $pid) |
     [.id, (.status // "unknown"), (.agent_id // "(none)"), (.branch // "?"), (.worktree_path // "-")] | @tsv' \
     "$wsFile" | while IFS=$'\t' read -r id st ag br path; do
     printf "%-20s %-12s %-18s %-8s %s\n" "$id" "$st" "$ag" "$br" "$path"

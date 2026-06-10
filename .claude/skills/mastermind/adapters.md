@@ -84,7 +84,7 @@ echo "────────────────────────�
 defaultAdap=$(jq -r '.default_adapter // "claude-sonnet-4-6"' "$adaptersFile")
 
 jq -r --arg def "$defaultAdap" '
-  .adapters[] |
+  (.adapters // [])[] |
   [.type, (.label // .type), (.source // "built-in"), (.modelsCount // 0 | tostring),
    (if .disabled then "DISABLED" else "ACTIVE" end),
    (if .type == $def then " ← default" else "" end)]
@@ -95,7 +95,7 @@ done
 
 echo ""
 echo "Default adapter: $defaultAdap"
-echo "External adapters: $(jq '[.adapters[] | select(.source == "external")] | length' "$adaptersFile")"
+echo "External adapters: $(jq '[(.adapters // [])[] | select(.source == "external")] | length' "$adaptersFile")"
 ```
 
 ### enable / disable
@@ -104,7 +104,7 @@ echo "External adapters: $(jq '[.adapters[] | select(.source == "external")] | l
 action_status=$([ "$action" = "enable" ] && echo "false" || echo "true")
 tmp="${adaptersFile}.tmp"
 jq --arg type "$adapter_type" --argjson dis "$action_status" \
-  '.adapters = [.adapters[] | if .type == $type then .disabled = $dis else . end]' \
+  '.adapters = [(.adapters // [])[] | if .type == $type then .disabled = $dis else . end]' \
   "$adaptersFile" > "$tmp" && mv "$tmp" "$adaptersFile"
 
 # If re-enabling, also check org config adapter_config for matching roles
@@ -126,7 +126,7 @@ tmp="${adaptersFile}.tmp"
 jq --arg type "$adapter_type" \
    --arg pkg "$package_name" \
    --argjson local "$isLocal" \
-   '.adapters = [.adapters[] | select(.type != $type)] +
+   '.adapters = [(.adapters // [])[] | select(.type != $type)] +
     [{"type":$type,"label":$pkg,"source":"external","packageName":$pkg,"isLocalPath":$local,
       "disabled":false,"modelsCount":0,"installedAt":(now|todate)}]' \
   "$adaptersFile" > "$tmp" && mv "$tmp" "$adaptersFile"
@@ -151,12 +151,12 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 [ -z "$adapter_type" ] && { echo "ERROR: --adapter-type required."; exit 1; }
 
 # Verify it's external
-src=$(jq -r --arg t "$adapter_type" '.adapters[] | select(.type == $t) | .source' "$adaptersFile" 2>/dev/null)
+src=$(jq -r --arg t "$adapter_type" '(.adapters // [])[] | select(.type == $t) | .source' "$adaptersFile" 2>/dev/null)
 [ "$src" = "built-in" ] && { echo "ERROR: Cannot remove built-in adapters. Use 'disable' instead."; exit 1; }
 [ -z "$src" ] && { echo "ERROR: Adapter '$adapter_type' not found."; exit 1; }
 
 tmp="${adaptersFile}.tmp"
-jq --arg type "$adapter_type" '.adapters = [.adapters[] | select(.type != $type)]' \
+jq --arg type "$adapter_type" '.adapters = [(.adapters // [])[] | select(.type != $type)]' \
   "$adaptersFile" > "$tmp" && mv "$tmp" "$adaptersFile"
 echo "Removed adapter: $adapter_type"
 ```
@@ -180,7 +180,7 @@ Force a reload hint (marks adapter as needing restart):
 ```bash
 tmp="${adaptersFile}.tmp"
 jq --arg type "$adapter_type" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  '.adapters = [.adapters[] | if .type == $type then .last_reload = $ts else . end]' \
+  '.adapters = [(.adapters // [])[] | if .type == $type then .last_reload = $ts else . end]' \
   "$adaptersFile" > "$tmp" && mv "$tmp" "$adaptersFile"
 echo "Marked adapter '$adapter_type' for reload. Restart the org run to apply."
 ```

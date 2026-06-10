@@ -73,7 +73,7 @@ count=$(jq '.environments | length' "$envFile")
 if [ "$count" -eq 0 ]; then
   echo "  No environments. Use --action create to add one."
 else
-  jq -r --arg def "$defaultEnv" '.environments[] |
+  jq -r --arg def "$defaultEnv" '(.environments // [])[] |
     [
       .id,
       (.kind // "local"),
@@ -116,7 +116,7 @@ jq --arg id "$envId" \
    --arg sref "${secret_ref:-}" \
    --arg wdir "${work_dir:-/tmp/monomind}" \
    --arg ts "$ts" \
-  '.environments = [.environments[] | select(.id != $id)] +
+  '.environments = [(.environments // [])[] | select(.id != $id)] +
    [{"id":$id,"name":$n,"kind":$kind,
      "host":(if $host != "" then $host else null end),
      "port":(if $host != "" then $port else null end),
@@ -135,7 +135,7 @@ echo "Run --action probe --env-id $envId to verify connectivity."
 
 ```bash
 [ -z "$env_id" ] && { echo "ERROR: --env-id required."; exit 1; }
-exists=$(jq --arg id "$env_id" '[.environments[] | select(.id == $id)] | length' "$envFile")
+exists=$(jq --arg id "$env_id" '[(.environments // [])[] | select(.id == $id)] | length' "$envFile")
 [ "$exists" -eq 0 ] && { echo "ERROR: Environment '$env_id' not found."; exit 1; }
 
 tmp="${envFile}.tmp"
@@ -145,7 +145,7 @@ jq --arg id "$env_id" \
    --arg user "${user:-}" \
    --arg sref "${secret_ref:-}" \
    --arg wdir "${work_dir:-}" \
-  '.environments = [.environments[] | if .id == $id then
+  '.environments = [(.environments // [])[] | if .id == $id then
      . *
      (if $host != "" then {"host":$host} else {} end) *
      (if $port > 0 then {"port":$port} else {} end) *
@@ -164,7 +164,7 @@ echo "Updated environment: $env_id"
 [ -z "$env_id" ] && { echo "ERROR: --env-id required."; exit 1; }
 tmp="${envFile}.tmp"
 jq --arg id "$env_id" \
-  '.environments = [.environments[] | select(.id != $id)] |
+  '.environments = [(.environments // [])[] | select(.id != $id)] |
    if .default_env == $id then .default_env = null else . end' \
   "$envFile" > "$tmp" && mv "$tmp" "$envFile"
 echo "Deleted environment: $env_id"
@@ -174,7 +174,7 @@ echo "Deleted environment: $env_id"
 
 ```bash
 [ -z "$env_id" ] && { echo "ERROR: --env-id required."; exit 1; }
-envData=$(jq -r --arg id "$env_id" '.environments[] | select(.id == $id)' "$envFile")
+envData=$(jq -r --arg id "$env_id" '(.environments // [])[] | select(.id == $id)' "$envFile")
 [ -z "$envData" ] && { echo "ERROR: Environment '$env_id' not found."; exit 1; }
 
 kind=$(echo "$envData" | jq -r '.kind')
@@ -212,7 +212,7 @@ esac
 
 tmp="${envFile}.tmp"
 jq --arg id "$env_id" --arg st "$status" --arg ts "$ts" \
-  '.environments = [.environments[] | if .id == $id then .probeStatus = $st | .lastProbe = $ts else . end]' \
+  '.environments = [(.environments // [])[] | if .id == $id then .probeStatus = $st | .lastProbe = $ts else . end]' \
   "$envFile" > "$tmp" && mv "$tmp" "$envFile"
 
 echo "Probe [$env_id]: $status  (checked at $ts)"
@@ -222,7 +222,7 @@ echo "Probe [$env_id]: $status  (checked at $ts)"
 
 ```bash
 [ -z "$env_id" ] && { echo "ERROR: --env-id required."; exit 1; }
-exists=$(jq --arg id "$env_id" '[.environments[] | select(.id == $id)] | length' "$envFile")
+exists=$(jq --arg id "$env_id" '[(.environments // [])[] | select(.id == $id)] | length' "$envFile")
 [ "$exists" -eq 0 ] && { echo "ERROR: Environment '$env_id' not found."; exit 1; }
 
 tmp="${envFile}.tmp"

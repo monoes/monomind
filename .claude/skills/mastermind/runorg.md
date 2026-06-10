@@ -31,7 +31,7 @@ If `caller` is not "command", load brain context following _protocol.md Brain Lo
 
 Read `.monomind/orgs/<org_name>.json`. If the file does not exist:
 ```bash
-orgs=$(ls .monomind/orgs/*.json 2>/dev/null | xargs -I{} basename {} .json)
+orgs=$(ls .monomind/orgs/*.json 2>/dev/null | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments' | xargs -I{} basename {} .json)
 if [ -z "$orgs" ]; then
   echo "No saved orgs found. Run /mastermind:createorg to define one."
 else
@@ -50,7 +50,7 @@ After loading the org config, check whether this is a scheduled (loop) org:
 
 ```bash
 orgFile=".monomind/orgs/${org_name}.json"
-has_schedule=$(jq 'if .loop.poll_interval_minutes then "yes" else "no" end' "$orgFile")
+has_schedule=$(jq -r 'if .loop.poll_interval_minutes then "yes" else "no" end' "$orgFile")
 ```
 
 If `has_schedule == "yes"`, this is a **scheduled org**. Follow the **Scheduled Org Path** below (Steps 1.6 onward) instead of the standard Steps 2–8.
@@ -255,9 +255,13 @@ stopFile=".monomind/orgs/.stops/${orgName}.stop"
 memNs="org:${orgName}"
 topology=$(jq -r '.topology' "$orgFile")
 checkpointMin=$(jq -r '.run_config.checkpoint_interval_min // 30' "$orgFile")
-bossRole_id=$(jq -r '[.roles[] | select(.reports_to == null)][0].id' "$orgFile")
-bossRole_title=$(jq -r '[.roles[] | select(.reports_to == null)][0].title' "$orgFile")
-bossRole_agent_type=$(jq -r '[.roles[] | select(.reports_to == null)][0].agent_type' "$orgFile")
+bossRole_id=$(jq -r '[(.roles // [])[] | select(.reports_to == null or .reports_to == "")][0].id' "$orgFile")
+bossRole_title=$(jq -r '[(.roles // [])[] | select(.reports_to == null or .reports_to == "")][0].title' "$orgFile")
+bossRole_agent_type=$(jq -r '[(.roles // [])[] | select(.reports_to == null or .reports_to == "")][0].agent_type' "$orgFile")
+if [ -z "$bossRole_id" ] || [ "$bossRole_id" = "null" ]; then
+  echo "ERROR: Org '${org_name}' has no root role (reports_to: null). Check the org config."
+  exit 1
+fi
 board_id=$(jq -r '.board_id // empty' "$orgFile")
 todo_col=$(jq -r '.todo_col_id // empty' "$orgFile")
 doing_col=$(jq -r '.doing_col_id // empty' "$orgFile")
@@ -274,8 +278,10 @@ runId=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 The board and column IDs were written into the org config by `createorg`. If missing, the org was not created correctly.
 
 ```bash
-[ -z "$board_id" ] && { echo "ERROR: org config missing board_id — re-run /mastermind:createorg --name ${orgName} to rebuild the org."; exit 1; }
+[ -z "$board_id" ]  && { echo "ERROR: org config missing board_id — re-run /mastermind:createorg --name ${orgName} to rebuild the org."; exit 1; }
 [ -z "$todo_col" ]  && { echo "ERROR: org config missing todo_col_id — re-run /mastermind:createorg --name ${orgName}."; exit 1; }
+[ -z "$doing_col" ] && { echo "ERROR: org config missing doing_col_id — re-run /mastermind:createorg --name ${orgName}."; exit 1; }
+[ -z "$done_col" ]  && { echo "ERROR: org config missing done_col_id — re-run /mastermind:createorg --name ${orgName}."; exit 1; }
 ```
 
 **Create stop-file and state directories:**
@@ -400,7 +406,7 @@ APPROVAL GATE (when governance.policy is "board" or "strict"):
   Before any external action (sending emails, posting content, making purchases, modifying infrastructure):
   approvalsFile=".monomind/orgs/${orgName}-approvals.json"
   [ ! -f "$approvalsFile" ] && echo '{"approvals":[]}' > "$approvalsFile"
-  approval_id="req-$(date +%s)"
+  approval_id="req-$(date +%s)-$$-$RANDOM"
   jq --arg id "$approval_id" --arg agent "<role_id>" --arg title "<action summary>" \
      --arg action "<full action description>" --arg risk "medium" \
      '.approvals += [{"id":$id,"agent_id":$agent,"title":$title,"action":$action,"risk_level":$risk,"status":"pending","requested_at":(now|todate)}]' \
@@ -413,9 +419,9 @@ APPROVAL GATE (when governance.policy is "board" or "strict"):
   # Check the approvals file first (updated by both dashboard UI and /mastermind:approve command),
   # then fall back to memory in case an external notifier wrote there.
   for i in $(seq 1 60); do
-    status=$(jq --arg id "$approval_id" '.approvals[] | select(.id == $id) | .status // ""' "$approvalsFile" 2>/dev/null || echo "")
+    status=$(jq -r --arg id "$approval_id" '(.approvals // [])[] | select(.id == $id) | .status // ""' "$approvalsFile" 2>/dev/null || echo "")
     if [ -z "$status" ] || [ "$status" = "pending" ]; then
-      mem_status=$(npx monomind@latest memory search --query "approval:${approval_id}" --namespace "${memNs}" 2>/dev/null | jq -r '.[0].value.status // ""' 2>/dev/null)
+      mem_status=$(npx monomind@latest memory get --key "approval:${approval_id}" --namespace "${memNs}" 2>/dev/null | jq -r '.status // ""' 2>/dev/null)
       [ -n "$mem_status" ] && status="$mem_status"
     fi
     [ "$status" = "approved" ] && break

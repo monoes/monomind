@@ -2970,7 +2970,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const orgsDir = path.join(path.resolve(_orgsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         let orgs = [];
         if (fs.existsSync(orgsDir)) {
-          const files = fs.readdirSync(orgsDir).filter(f => f.endsWith('.json'));
+          const _sidecarSuffixRe = /-(approvals|state|activity|goals|routines|projects|members|issues|workspaces|worktrees|environments|plugins|adapters|bootstrap|threads|budgets|project-workspaces|approval-comments|secrets)\.json$/;
+          const files = fs.readdirSync(orgsDir).filter(f => f.endsWith('.json') && !_sidecarSuffixRe.test(f));
           // Read events file once, outside the per-org loop
           let recentLines = [];
           try {
@@ -3000,7 +3001,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                 const stopTs = lastStop ? (JSON.parse(lastStop).ts || 0) : 0;
                 running = startTs > stopTs;
               }
-              orgs.push({ name: cfg.name, goal: cfg.goal, roles: cfg.roles?.length || 0, topology: cfg.topology, created_at: cfg.created_at, running });
+              orgs.push({ name: cfg.name, goal: cfg.goal, roles: cfg.roles?.length || 0, topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
             } catch(_) {}
           }
         }
@@ -3911,6 +3912,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         }
         // Remove stop file if present
         try { fs.unlinkSync(path.join(orgsDir, '.stops', `${orgName}.stop`)); } catch(_) {}
+        // Remove loop prompt file if present (created for scheduled orgs by createorg)
+        try { const lpf = path.join(path.resolve(projectDir || process.cwd()), '.monomind', 'loops', `${orgName}.md`); if (fs.existsSync(lpf)) fs.unlinkSync(lpf); } catch(_) {}
         // Emit org:delete event
         const deleteEvent = { type: 'org:delete', org: orgName, ts: Date.now() };
         try { fs.appendFileSync(path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl'), JSON.stringify(deleteEvent) + '\n'); } catch(_) {}

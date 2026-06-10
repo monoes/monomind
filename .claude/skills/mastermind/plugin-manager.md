@@ -72,14 +72,14 @@ if [ "$count" -eq 0 ]; then
   echo "  No plugins installed."
   echo "  Install one: --action install --package-name @monomind/plugin-github"
 else
-  jq -r '.plugins[] |
+  jq -r '(.plugins // [])[] |
     [.id, (.status // "installed"), (.version // "-"), (.category // "general"),
      (.packageName // "-")] | @tsv' \
     "$registryFile" | while IFS=$'\t' read -r id st ver cat pkg; do
     printf "%-24s %-10s %-10s %-14s %s\n" "$id" "$st" "$ver" "$cat" "$pkg"
   done
 
-  errCount=$(jq '[.plugins[] | select(.status == "error")] | length' "$registryFile")
+  errCount=$(jq '[(.plugins // [])[] | select(.status == "error")] | length' "$registryFile")
   [ "$errCount" -gt 0 ] && echo "" && echo "  WARNING: $errCount plugin(s) in error state. Run: --action list to inspect."
 fi
 
@@ -99,7 +99,7 @@ echo "────────────────────────�
 echo "  Running: npm install $package_name"
 
 # Check if already installed
-alreadyId=$(jq -r --arg pkg "$package_name" '.plugins[] | select(.packageName == $pkg) | .id' "$registryFile" | head -1)
+alreadyId=$(jq -r --arg pkg "$package_name" '(.plugins // [])[] | select(.packageName == $pkg) | .id' "$registryFile" | head -1)
 [ -n "$alreadyId" ] && {
   echo "  Plugin already installed as '$alreadyId'. Use --action enable/disable or reinstall via npm."
   exit 0
@@ -137,12 +137,12 @@ fi
 ```bash
 [ -z "$plugin_id" ] && { echo "ERROR: --plugin-id required."; exit 1; }
 
-exists=$(jq -r --arg id "$plugin_id" '[.plugins[] | select(.id == $id)] | length' "$registryFile")
+exists=$(jq -r --arg id "$plugin_id" '[(.plugins // [])[] | select(.id == $id)] | length' "$registryFile")
 [ "$exists" -eq 0 ] && { echo "ERROR: Plugin '$plugin_id' not found."; exit 1; }
 
 # Two-step confirmation
 if [ "${confirm:-}" != "yes" ]; then
-  pkg=$(jq -r --arg id "$plugin_id" '.plugins[] | select(.id == $id) | .packageName // $id' "$registryFile")
+  pkg=$(jq -r --arg id "$plugin_id" '(.plugins // [])[] | select(.id == $id) | .packageName // $id' "$registryFile")
   echo "UNINSTALL CONFIRMATION REQUIRED"
   echo "────────────────────────────────────────────────────────"
   echo "  Plugin:  $plugin_id  ($pkg)"
@@ -152,12 +152,12 @@ if [ "${confirm:-}" != "yes" ]; then
   exit 0
 fi
 
-pkg=$(jq -r --arg id "$plugin_id" '.plugins[] | select(.id == $id) | .packageName // ""' "$registryFile")
+pkg=$(jq -r --arg id "$plugin_id" '(.plugins // [])[] | select(.id == $id) | .packageName // ""' "$registryFile")
 
 # Remove from registry
 tmp="${registryFile}.tmp"
 jq --arg id "$plugin_id" \
-  '.plugins = [.plugins[] | select(.id != $id)]' \
+  '.plugins = [(.plugins // [])[] | select(.id != $id)]' \
   "$registryFile" > "$tmp" && mv "$tmp" "$registryFile"
 
 echo "Plugin '$plugin_id' removed from registry."
@@ -174,12 +174,12 @@ fi
 ```bash
 [ -z "$plugin_id" ] && { echo "ERROR: --plugin-id required."; exit 1; }
 
-exists=$(jq -r --arg id "$plugin_id" '[.plugins[] | select(.id == $id)] | length' "$registryFile")
+exists=$(jq -r --arg id "$plugin_id" '[(.plugins // [])[] | select(.id == $id)] | length' "$registryFile")
 [ "$exists" -eq 0 ] && { echo "ERROR: Plugin '$plugin_id' not found."; exit 1; }
 
 tmp="${registryFile}.tmp"
 jq --arg id "$plugin_id" \
-  '.plugins = [.plugins[] | if .id == $id then .status = "installed" | .disabledAt = null else . end]' \
+  '.plugins = [(.plugins // [])[] | if .id == $id then .status = "installed" | .disabledAt = null else . end]' \
   "$registryFile" > "$tmp" && mv "$tmp" "$registryFile"
 
 echo "Plugin '$plugin_id' ENABLED."
@@ -190,13 +190,13 @@ echo "Plugin '$plugin_id' ENABLED."
 ```bash
 [ -z "$plugin_id" ] && { echo "ERROR: --plugin-id required."; exit 1; }
 
-exists=$(jq -r --arg id "$plugin_id" '[.plugins[] | select(.id == $id)] | length' "$registryFile")
+exists=$(jq -r --arg id "$plugin_id" '[(.plugins // [])[] | select(.id == $id)] | length' "$registryFile")
 [ "$exists" -eq 0 ] && { echo "ERROR: Plugin '$plugin_id' not found."; exit 1; }
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${registryFile}.tmp"
 jq --arg id "$plugin_id" --arg ts "$ts" \
-  '.plugins = [.plugins[] | if .id == $id then .status = "disabled" | .disabledAt = $ts else . end]' \
+  '.plugins = [(.plugins // [])[] | if .id == $id then .status = "disabled" | .disabledAt = $ts else . end]' \
   "$registryFile" > "$tmp" && mv "$tmp" "$registryFile"
 
 echo "Plugin '$plugin_id' DISABLED — will not load on next startup."
@@ -211,7 +211,7 @@ echo "────────────────────────�
 count=$(jq '.plugins | length' "$registryFile")
 [ "$count" -eq 0 ] && { echo "  No plugins installed."; exit 0; }
 
-jq -r '.plugins[] | select(.packageName != null) |
+jq -r '(.plugins // [])[] | select(.packageName != null) |
   [.id, .packageName, (.version // "unknown")] | @tsv' \
   "$registryFile" | while IFS=$'\t' read -r id pkg ver; do
   latest=$(curl -sf "https://registry.npmjs.org/${pkg}/latest" 2>/dev/null | jq -r '.version // "?"' 2>/dev/null || echo "?")

@@ -90,8 +90,8 @@ elif [ "$fmt" = "json" ]; then
   cp "$archive_path" "$tmpDir/org.json"
 fi
 
-# Find the main org config file
-orgConfigFile=$(find "$tmpDir" -name "*.json" | grep -v '\-' | head -1)
+# Find the main org config file (exclude sidecar files and manifest)
+orgConfigFile=$(find "$tmpDir" -name "*.json" | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments|-secrets|/manifest\.json' | head -1)
 [ -z "$orgConfigFile" ] && orgConfigFile=$(find "$tmpDir" -name "org.json" -o -name "export.json" | head -1)
 
 if [ -z "$orgConfigFile" ]; then
@@ -125,11 +125,11 @@ fi
 # Preview agent plans
 echo "AGENT PLANS"
 echo "────────────────────────────────────────────────────────"
-jq -r --arg target "$targetOrgFile" '.roles[] |
+jq -r --arg target "$targetOrgFile" '(.roles // [])[] |
   [.id, (.title // "-"), (.adapter.type // "?"), (.adapter.model // "-")] | @tsv' \
   "$orgConfigFile" | while IFS=$'\t' read -r id title adapter model; do
   if [ -f "$targetOrgFile" ]; then
-    exists=$(jq -r --arg id "$id" '[.roles[] | select(.id == $id)] | length' "$targetOrgFile")
+    exists=$(jq -r --arg id "$id" '[(.roles // [])[] | select(.id == $id)] | length' "$targetOrgFile")
     action=$([ "$exists" -gt 0 ] && echo "UPDATE" || echo "CREATE")
   else
     action="CREATE"
@@ -157,7 +157,7 @@ elif [ "$fmt" = "json" ]; then
   cp "$archive_path" "$tmpDir/org.json"
 fi
 
-orgConfigFile=$(find "$tmpDir" -name "*.json" | grep -v '\-' | head -1)
+orgConfigFile=$(find "$tmpDir" -name "*.json" | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments|-secrets|/manifest\.json' | head -1)
 [ -z "$orgConfigFile" ] && orgConfigFile=$(find "$tmpDir" -name "org.json" -o -name "export.json" | head -1)
 [ -z "$orgConfigFile" ] && { echo "ERROR: Could not find org config file in archive."; exit 1; }
 
@@ -191,7 +191,7 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 if [ -n "$adapter_override" ]; then
   tmp="${orgConfigFile}.ovr"
   jq --arg a "$adapter_override" \
-    '.roles = [.roles[] | .adapter.type = $a]' \
+    '.roles = [(.roles // [])[] | .adapter.type = $a]' \
     "$orgConfigFile" > "$tmp" && mv "$tmp" "$orgConfigFile"
   echo "  Applied adapter override: $adapter_override to all agents"
 fi
@@ -216,7 +216,7 @@ else
 fi
 
 # Copy associated files (goals, routines, issues, etc.) from archive
-for suffix in members issues goals projects routines approvals adapters plugins environments workspaces activity threads budgets; do
+for suffix in members issues goals projects routines approvals adapters plugins environments workspaces worktrees activity threads budgets project-workspaces approval-comments bootstrap; do
   src=$(find "$tmpDir" -name "*-${suffix}.json" | head -1)
   [ -z "$src" ] && src=$(find "$tmpDir" -name "*-${suffix}.jsonl" | head -1)
   if [ -n "$src" ]; then
@@ -238,7 +238,7 @@ try:
 except Exception as e:
     print(json.dumps(json.load(open(dest_path))), file=__import__('sys').stdout)
 PYEOF
-      mv "${dest}.tmp" "$dest"
+      [ $? -eq 0 ] && mv "${dest}.tmp" "$dest" || rm -f "${dest}.tmp"
     else
       cp "$src" "$dest"
     fi

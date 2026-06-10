@@ -53,7 +53,7 @@ Show all routines with their schedule and status:
 
 ```bash
 jq -r '
-  .routines[] |
+  (.routines // [])[] |
   "[\(.id)] \(.name)  agent=\(.agent_id)  schedule=\"\(.schedule)\"  status=\(.status // "active")\n" +
   "  task: \(.task_title)\n  concurrency: \(.concurrency)  catchup: \(.catchup)\n  last_run: \(.last_run // "never")  next_run: \(.next_run // "unknown")"
 ' "$routinesFile" 2>/dev/null || echo "No routines defined."
@@ -114,7 +114,7 @@ After creating, use `ScheduleWakeup` to schedule the first trigger at the approp
 Manually trigger a routine immediately (same as a scheduled run):
 
 ```bash
-routine=$(jq --arg id "$routine_id" '.routines[] | select(.id == $id)' "$routinesFile")
+routine=$(jq --arg id "$routine_id" '(.routines // [])[] | select(.id == $id)' "$routinesFile")
 rt_agent=$(echo "$routine" | jq -r '.agent_id')
 rt_task=$(echo "$routine" | jq -r '.task_title')
 rt_context=$(echo "$routine" | jq -r '.context // ""')
@@ -122,7 +122,8 @@ rt_concurrency=$(echo "$routine" | jq -r '.concurrency')
 
 # Check concurrency policy
 stateFile=".monomind/orgs/${org_name}-state.json"
-agent_status=$(jq -r --arg a "$rt_agent" '.agents[$a].status // "idle"' "$stateFile" 2>/dev/null)
+[ ! -f "$stateFile" ] && echo '{"agents":{}}' > "$stateFile"
+agent_status=$(jq -r --arg a "$rt_agent" '.agents[$a].status // "idle"' "$stateFile")
 
 case "$rt_concurrency" in
   skip_if_active)
@@ -141,7 +142,7 @@ Update routine's `last_run` and schedule next wakeup:
 ```bash
 tmp="${routinesFile}.tmp"
 jq --arg id "$routine_id" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-   '.routines = [.routines[] | if .id == $id then .last_run = $ts else . end]' \
+   '.routines = [(.routines // [])[] | if .id == $id then .last_run = $ts else . end]' \
    "$routinesFile" > "$tmp" && mv "$tmp" "$routinesFile"
 ```
 
@@ -150,7 +151,7 @@ jq --arg id "$routine_id" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
 ```bash
 tmp="${routinesFile}.tmp"
 jq --arg id "$routine_id" --arg status "$action" \
-   '.routines = [.routines[] | if .id == $id then .status = $status else . end]' \
+   '.routines = [(.routines // [])[] | if .id == $id then .status = $status else . end]' \
    "$routinesFile" > "$tmp" && mv "$tmp" "$routinesFile"
 echo "Routine $routine_id set to: $action"
 ```
@@ -159,7 +160,7 @@ echo "Routine $routine_id set to: $action"
 
 ```bash
 tmp="${routinesFile}.tmp"
-jq --arg id "$routine_id" '.routines = [.routines[] | select(.id != $id)]' \
+jq --arg id "$routine_id" '.routines = [(.routines // [])[] | select(.id != $id)]' \
    "$routinesFile" > "$tmp" && mv "$tmp" "$routinesFile"
 echo "Routine $routine_id removed."
 ```

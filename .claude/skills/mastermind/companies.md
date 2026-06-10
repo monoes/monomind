@@ -35,7 +35,7 @@ orgsDir=".monomind/orgs"
 [ ! -d "$orgsDir" ] && { echo "No orgs directory found. Run /mastermind:createorg to create your first org."; exit 0; }
 
 # Collect all org names from .json files (not -members, -issues, etc.)
-orgNames=$(ls "$orgsDir"/*.json 2>/dev/null | grep -v '\-' | xargs -I{} basename {} .json | sort)
+orgNames=$(ls "$orgsDir"/*.json 2>/dev/null | grep -vE -- '-approvals|-state|-activity|-goals|-routines|-projects|-members|-issues|-workspaces|-worktrees|-environments|-plugins|-adapters|-bootstrap|-threads|-budgets|-project-workspaces|-approval-comments' | xargs -I{} basename {} .json | sort)
 
 # Track active org
 activeFile=".monomind/active-org"
@@ -61,7 +61,7 @@ echo "$orgNames" | while read -r name; do
   [ ! -f "$orgFile" ] && continue
 
   agents=$(jq -r '(.roles // []) | length' "$orgFile" 2>/dev/null || echo 0)
-  issues=$([ -f "$orgsDir/${name}-issues.json" ] && jq '[.issues[] | select(.status == "open" or .status == "in_progress")] | length' "$orgsDir/${name}-issues.json" 2>/dev/null || echo 0)
+  issues=$([ -f "$orgsDir/${name}-issues.json" ] && jq '[(.issues // [])[] | select(.status == "open" or .status == "in_progress")] | length' "$orgsDir/${name}-issues.json" 2>/dev/null || echo 0)
   members=$([ -f "$orgsDir/${name}-members.json" ] && jq '.members | length' "$orgsDir/${name}-members.json" 2>/dev/null || echo 0)
   status=$([ "$name" = "$activeOrg" ] && echo "● ACTIVE" || echo "")
 
@@ -113,7 +113,7 @@ orgFile="$orgsDir/${org_name}.json"
 mv "$orgFile" "$orgsDir/${new_name}.json"
 
 # Rename all associated files
-for suffix in members issues goals projects routines approvals adapters plugins environments workspaces activity threads budgets; do
+for suffix in state members issues goals projects routines approvals adapters plugins environments workspaces worktrees activity threads budgets project-workspaces approval-comments bootstrap secrets; do
   f="$orgsDir/${org_name}-${suffix}.json"
   [ -f "$f" ] && mv "$f" "$orgsDir/${new_name}-${suffix}.json"
   f2="$orgsDir/${org_name}-${suffix}.jsonl"
@@ -152,7 +152,7 @@ fi
 
 # Delete all org files
 rm -f "$orgsDir/${org_name}.json"
-for suffix in members issues goals projects routines approvals adapters plugins environments workspaces activity threads budgets project-workspaces approval-comments; do
+for suffix in state members issues goals projects routines approvals adapters plugins environments workspaces worktrees activity threads budgets project-workspaces approval-comments bootstrap secrets; do
   rm -f "$orgsDir/${org_name}-${suffix}.json"
   rm -f "$orgsDir/${org_name}-${suffix}.jsonl"
 done
@@ -184,8 +184,8 @@ echo "  Governance:    $gov"
 # Issues
 if [ -f "$orgsDir/${org_name}-issues.json" ]; then
   total=$(jq '.issues | length' "$orgsDir/${org_name}-issues.json")
-  open=$(jq '[.issues[] | select(.status == "open" or .status == "in_progress")] | length' "$orgsDir/${org_name}-issues.json")
-  done=$(jq '[.issues[] | select(.status == "done")] | length' "$orgsDir/${org_name}-issues.json")
+  open=$(jq '[(.issues // [])[] | select(.status == "open" or .status == "in_progress")] | length' "$orgsDir/${org_name}-issues.json")
+  done=$(jq '[(.issues // [])[] | select(.status == "done")] | length' "$orgsDir/${org_name}-issues.json")
   echo "  Issues:        $total total  ($open open, $done done)"
 fi
 
@@ -203,7 +203,7 @@ fi
 
 # Pending approvals
 if [ -f "$orgsDir/${org_name}-approvals.json" ]; then
-  pending=$(jq '[.approvals[] | select(.status == "pending")] | length' "$orgsDir/${org_name}-approvals.json")
+  pending=$(jq '[(.approvals // [])[] | select(.status == "pending")] | length' "$orgsDir/${org_name}-approvals.json")
   echo "  Pending approvals: $pending"
 fi
 ```

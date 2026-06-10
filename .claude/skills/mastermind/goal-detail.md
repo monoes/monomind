@@ -53,7 +53,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 goalsFile=".monomind/orgs/${org_name}-goals.json"
 [ ! -f "$goalsFile" ] && { echo "ERROR: No goals file for org '$org_name'. Create goals via /mastermind:goals."; exit 1; }
 
-goalDef=$(jq -r --arg id "$goal_id" '.goals[] | select(.id == $id or .slug == $id)' "$goalsFile")
+goalDef=$(jq -r --arg id "$goal_id" '(.goals // [])[] | select(.id == $id or .slug == $id)' "$goalsFile")
 [ -z "$goalDef" ] && { echo "ERROR: Goal '$goal_id' not found in org '$org_name'."; exit 1; }
 
 resolvedId=$(echo "$goalDef" | jq -r '.id')
@@ -81,8 +81,8 @@ echo "$goalDef" | jq -r '
 '
 
 # Sub-goals count
-subCount=$(jq --arg pid "$resolvedId" '[.goals[] | select(.parent_id == $pid)] | length' "$goalsFile" 2>/dev/null || echo 0)
-doneCount=$(jq --arg pid "$resolvedId" '[.goals[] | select(.parent_id == $pid and .status == "done")] | length' "$goalsFile" 2>/dev/null || echo 0)
+subCount=$(jq --arg pid "$resolvedId" '[(.goals // [])[] | select(.parent_id == $pid)] | length' "$goalsFile" 2>/dev/null || echo 0)
+doneCount=$(jq --arg pid "$resolvedId" '[(.goals // [])[] | select(.parent_id == $pid and .status == "done")] | length' "$goalsFile" 2>/dev/null || echo 0)
 echo "  Sub-goals:    $subCount total, $doneCount done"
 
 # Linked projects
@@ -109,7 +109,7 @@ function print_tree() {
   local pid="$1"
   local indent="$2"
   local children
-  children=$(jq -r --arg pid "$pid" '.goals[] | select(.parent_id == $pid) |
+  children=$(jq -r --arg pid "$pid" '(.goals // [])[] | select(.parent_id == $pid) |
     [.id, (.status // "open"), (.title // "(no title)")] | @tsv' "$goalsFile" 2>/dev/null)
   while IFS=$'\t' read -r cid cst ctitle; do
     [ -z "$cid" ] && continue
@@ -138,7 +138,7 @@ else
   while IFS= read -r pid; do
     [ -z "$pid" ] && continue
     if [ -f "$projectsFile" ]; then
-      projInfo=$(jq -r --arg id "$pid" '.projects[] | select(.id == $id) |
+      projInfo=$(jq -r --arg id "$pid" '(.projects // [])[] | select(.id == $id) |
         "  [\(.status // "active")] \(.name // $id) — \(.description // "")"' "$projectsFile" 2>/dev/null)
       [ -n "$projInfo" ] && echo "$projInfo" || echo "  [$pid] (project not found in projects file)"
     else
@@ -151,7 +151,7 @@ echo ""
 echo "Issues referencing this goal:"
 issuesFile=".monomind/orgs/${org_name}-issues.json"
 if [ -f "$issuesFile" ]; then
-  count=$(jq --arg gid "$resolvedId" '[.issues[] | select(.goal_id == $gid)] | length' "$issuesFile" 2>/dev/null || echo 0)
+  count=$(jq --arg gid "$resolvedId" '[(.issues // [])[] | select(.goal_id == $gid)] | length' "$issuesFile" 2>/dev/null || echo 0)
   echo "  $count issue(s) linked to this goal."
 fi
 ```
@@ -181,7 +181,7 @@ fi
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${goalsFile}.tmp"
 jq --arg id "$resolvedId" --arg field "$field" --arg val "$value" --arg ts "$ts" \
-  '.goals = [.goals[] | if .id == $id then .[$field] = $val | .updated_at = $ts else . end]' \
+  '.goals = [(.goals // [])[] | if .id == $id then .[$field] = $val | .updated_at = $ts else . end]' \
   "$goalsFile" > "$tmp" && mv "$tmp" "$goalsFile"
 
 echo "Goal '$goal_id' updated: $field = $value"
@@ -218,7 +218,7 @@ echo "  Parent: $goal_id"
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${goalsFile}.tmp"
 jq --arg id "$resolvedId" --arg ts "$ts" \
-  '.goals = [.goals[] | if .id == $id then .status = "done" | .updated_at = $ts | .closed_at = $ts else . end]' \
+  '.goals = [(.goals // [])[] | if .id == $id then .status = "done" | .updated_at = $ts | .closed_at = $ts else . end]' \
   "$goalsFile" > "$tmp" && mv "$tmp" "$goalsFile"
 echo "Goal '$goal_id' → done."
 ```
@@ -229,7 +229,7 @@ echo "Goal '$goal_id' → done."
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${goalsFile}.tmp"
 jq --arg id "$resolvedId" --arg ts "$ts" \
-  '.goals = [.goals[] | if .id == $id then .status = "open" | .updated_at = $ts | .closed_at = null else . end]' \
+  '.goals = [(.goals // [])[] | if .id == $id then .status = "open" | .updated_at = $ts | .closed_at = null else . end]' \
   "$goalsFile" > "$tmp" && mv "$tmp" "$goalsFile"
 echo "Goal '$goal_id' → reopened."
 ```

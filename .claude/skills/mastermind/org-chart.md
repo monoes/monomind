@@ -97,9 +97,9 @@ def render(nodes, prefix="", depth=0):
         child_prefix = prefix + ("    " if is_last else "│   ")
         rid = r.get("id", "?")
         title = r.get("title", rid)
-        adapter = r.get("adapter", {})
-        atype = adapter.get("type", "?") if isinstance(adapter, dict) else str(adapter)
+        adapter = r.get("adapter_config", r.get("adapter", {}))
         model = adapter.get("model", "") if isinstance(adapter, dict) else ""
+        atype = model.split("-")[0] if model else "?"
         hb_status = "♡" if rid not in hb or not hb[rid] else "♥"
         gov = r.get("governance") or ""
         gov_str = f" [{gov}]" if gov else ""
@@ -135,7 +135,8 @@ printf "%-24s %-20s %-16s %-20s %s\n" "ID" "TITLE" "ADAPTER" "MODEL" "REPORTS TO
 echo "────────────────────────────────────────────────────────"
 
 echo "$roles" | jq -r '.[] |
-  [.id, (.title // "-"), (.adapter.type // "?"), (.adapter.model // "-"),
+  (((.adapter_config.model // .adapter.model) // "") | split("-") | .[0] | if . == "" then "?" else . end) as $atype |
+  [.id, (.title // "-"), $atype, ((.adapter_config.model // .adapter.model) // "-"),
    (.reports_to // "(root)")] | @tsv' | \
 while IFS=$'\t' read -r id title adapter model rt; do
   printf "%-24s %-20s %-16s %-20s %s\n" "$id" "$title" "$adapter" "$model" "$rt"
@@ -157,13 +158,14 @@ echo "────────────────────────�
 
 ql=$(echo "$query" | tr '[:upper:]' '[:lower:]')
 echo "$roles" | jq -r --arg q "$ql" '.[] |
+  (((.adapter_config.model // .adapter.model) // "") | split("-") | .[0] | if . == "" then "?" else . end) as $atype |
   select(
     (.id | ascii_downcase | contains($q)) or
     (.title // "" | ascii_downcase | contains($q)) or
-    (.adapter.type // "" | ascii_downcase | contains($q)) or
-    (.adapter.model // "" | ascii_downcase | contains($q))
+    ((.adapter_config.model // .adapter.model) // "" | ascii_downcase | contains($q)) or
+    (.agent_type // "" | ascii_downcase | contains($q))
   ) |
-  [.id, (.title // "-"), (.adapter.type // "?"), (.reports_to // "(root)")] | @tsv' | \
+  [.id, (.title // "-"), $atype, (.reports_to // "(root)")] | @tsv' | \
 while IFS=$'\t' read -r id title adapter rt; do
   printf "%-24s %-20s %-16s %s\n" "$id" "$title" "$adapter" "$rt"
 done

@@ -49,7 +49,7 @@ memNs="org:${org_name}"
 ## Step 2 — Validate Agent
 
 ```bash
-agentConfig=$(jq --arg id "$agent_id" '.roles[] | select(.id == $id)' "$orgFile")
+agentConfig=$(jq --arg id "$agent_id" '(.roles // [])[] | select(.id == $id)' "$orgFile")
 [ -z "$agentConfig" ] && { echo "ERROR: Agent '$agent_id' not found in org '$org_name'."; exit 1; }
 
 agentTitle=$(echo "$agentConfig" | jq -r '.title')

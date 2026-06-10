@@ -54,7 +54,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 issuesFile=".monomind/orgs/${org_name}-issues.json"
 [ ! -f "$issuesFile" ] && { echo "ERROR: No issues file for org '$org_name'. Create tasks via /mastermind:tasks."; exit 1; }
 
-issueDef=$(jq -r --arg id "$issue_id" '.issues[] | select(.id == $id or .slug == $id)' "$issuesFile")
+issueDef=$(jq -r --arg id "$issue_id" '(.issues // [])[] | select(.id == $id or .slug == $id)' "$issuesFile")
 [ -z "$issueDef" ] && { echo "ERROR: Issue '$issue_id' not found in org '$org_name'."; exit 1; }
 
 resolvedId=$(echo "$issueDef" | jq -r '.id')
@@ -86,7 +86,7 @@ echo "$issueDef" | jq -r '
 '
 
 # Sub-issues
-subCount=$(jq --arg pid "$resolvedId" '[.issues[] | select(.parent_id == $pid)] | length' "$issuesFile" 2>/dev/null || echo 0)
+subCount=$(jq --arg pid "$resolvedId" '[(.issues // [])[] | select(.parent_id == $pid)] | length' "$issuesFile" 2>/dev/null || echo 0)
 echo "  Sub-issues:    $subCount"
 
 # Attachments
@@ -169,7 +169,7 @@ printf "%-24s %-12s %-10s %s\n" "ID" "STATUS" "PRIORITY" "TITLE"
 echo "────────────────────────────────────────────────────────"
 
 count=0
-jq -r --arg pid "$resolvedId" '.issues[] | select(.parent_id == $pid) |
+jq -r --arg pid "$resolvedId" '(.issues // [])[] | select(.parent_id == $pid) |
   [.id, (.status // "open"), (.priority // "medium"), (.title // "(no title)")] | @tsv' \
   "$issuesFile" 2>/dev/null | while IFS=$'\t' read -r id st pri title; do
   printf "%-24s %-12s %-10s %s\n" "$id" "$st" "$pri" "$title"
@@ -215,13 +215,13 @@ echo "  Time: $ts"
 [ -z "$assignee_id" ] && { echo "ERROR: --assignee-id required."; exit 1; }
 
 # Validate agent exists in org
-exists=$(jq --arg id "$assignee_id" '[.roles[] | select(.id == $id)] | length' "$orgFile")
+exists=$(jq --arg id "$assignee_id" '[(.roles // [])[] | select(.id == $id)] | length' "$orgFile")
 [ "$exists" -eq 0 ] && echo "WARNING: Agent '$assignee_id' not found in org '$org_name'. Assigning anyway."
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$resolvedId" --arg ag "$assignee_id" --arg ts "$ts" \
-  '.issues = [.issues[] | if .id == $id then .assignee_id = $ag | .updated_at = $ts else . end]' \
+  '.issues = [(.issues // [])[] | if .id == $id then .assignee_id = $ag | .updated_at = $ts else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 
 echo "Issue '$issue_id' assigned to '$assignee_id'."
@@ -233,7 +233,7 @@ echo "Issue '$issue_id' assigned to '$assignee_id'."
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$resolvedId" --arg ts "$ts" \
-  '.issues = [.issues[] | if .id == $id then .status = "done" | .updated_at = $ts | .closed_at = $ts else . end]' \
+  '.issues = [(.issues // [])[] | if .id == $id then .status = "done" | .updated_at = $ts | .closed_at = $ts else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 echo "Issue '$issue_id' → done (closed at $ts)."
 ```
@@ -244,7 +244,7 @@ echo "Issue '$issue_id' → done (closed at $ts)."
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$resolvedId" --arg ts "$ts" \
-  '.issues = [.issues[] | if .id == $id then .status = "open" | .updated_at = $ts | .closed_at = null else . end]' \
+  '.issues = [(.issues // [])[] | if .id == $id then .status = "open" | .updated_at = $ts | .closed_at = null else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 echo "Issue '$issue_id' → reopened."
 ```
@@ -262,7 +262,7 @@ newStatus=$([ "$recovery_action" = "accept" ] && echo "in_progress" || echo "can
 
 tmp="${issuesFile}.tmp"
 jq --arg id "$resolvedId" --arg st "$newStatus" --arg ts "$ts" --arg ra "$recovery_action" \
-  '.issues = [.issues[] | if .id == $id then
+  '.issues = [(.issues // [])[] | if .id == $id then
      .status = $st | .recovery_status = $ra | .updated_at = $ts
    else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"

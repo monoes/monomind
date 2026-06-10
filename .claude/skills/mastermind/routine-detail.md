@@ -72,7 +72,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 routinesFile=".monomind/orgs/${org_name}-routines.json"
 [ ! -f "$routinesFile" ] && { echo "ERROR: No routines file for org '$org_name'. Create routines first via /mastermind:runorg."; exit 1; }
 
-routineDef=$(jq -r --arg id "$routine_id" '.routines[] | select(.id == $id)' "$routinesFile")
+routineDef=$(jq -r --arg id "$routine_id" '(.routines // [])[] | select(.id == $id)' "$routinesFile")
 [ -z "$routineDef" ] && { echo "ERROR: Routine '$routine_id' not found in org '$org_name'."; exit 1; }
 
 stateFile=".monomind/orgs/${org_name}-state.json"
@@ -176,7 +176,7 @@ if [ -n "$var_key" ]; then
   [ -z "$var_value" ] && { echo "ERROR: --var-value required when setting a variable."; exit 1; }
   tmp="${routinesFile}.tmp"
   jq --arg id "$routine_id" --arg k "$var_key" --arg v "$var_value" \
-    '.routines = [.routines[] | if .id == $id then .variables[$k] = $v else . end]' \
+    '.routines = [(.routines // [])[] | if .id == $id then .variables[$k] = $v else . end]' \
     "$routinesFile" > "$tmp" && mv "$tmp" "$routinesFile"
   echo ""
   echo "Set variable: $var_key = $var_value"
@@ -195,7 +195,7 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 tmp="${routinesFile}.tmp"
 jq --arg id "$routine_id" --arg ep "$newEndpoint" --arg ts "$ts" \
-  '.routines = [.routines[] | if .id == $id then
+  '.routines = [(.routines // [])[] | if .id == $id then
      .trigger.endpoint = $ep | .trigger.rotated_at = $ts
    else . end]' \
   "$routinesFile" > "$tmp" && mv "$tmp" "$routinesFile"

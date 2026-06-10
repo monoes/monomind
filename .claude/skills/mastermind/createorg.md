@@ -217,7 +217,7 @@ Ask the user (or infer from prompt) for the optional Paperclip-style fields:
   "created_at": "<ISO8601>",
   "mode": "daemon",
   "topology": "<mesh | star | hierarchical — from Step 3>",
-  "status": "<'stopped' if --schedule provided; omit otherwise>",
+  "status": "<'stopped' if --schedule provided; 'active' otherwise>",
   "roles": [
     {
       "id": "<slug>",
@@ -358,7 +358,7 @@ jq -n \
   --arg gov_policy "${governance_policy:-auto}" \
   --argjson budget_tokens "${budget_tokens_val:-0}" \
   --arg ceo_adapter "${ceo_adapter:-claude-sonnet-4-6}" \
-  '{name:$name,goal:$goal,mode:"daemon",topology:$topology,
+  '{name:$name,goal:$goal,mode:"daemon",topology:$topology,status:"active",
     created_at:(now|todate),roles:$roles,communication:$communication,
     governance:{policy:$gov_policy,approvals_file:(".monomind/orgs/"+$name+"-approvals.json")},
     board_space:$name,board_name:"org-tasks",
@@ -408,9 +408,12 @@ board_id=$(monotask board create "org-tasks" --json | jq -r '.id // empty')
 monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
 
 # Step 4 — Columns
-todo_col_id=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
-doing_col_id=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
-done_col_id=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
+todo_col_id=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id // empty')
+doing_col_id=$(monotask column create "$board_id" "Doing" --json | jq -r '.id // empty')
+done_col_id=$(monotask column create "$board_id" "Done"  --json | jq -r '.id // empty')
+[ -z "$todo_col_id" ]  && { echo "ERROR: Failed to create 'Todo' column on board $board_id"; exit 1; }
+[ -z "$doing_col_id" ] && { echo "ERROR: Failed to create 'Doing' column on board $board_id"; exit 1; }
+[ -z "$done_col_id" ]  && { echo "ERROR: Failed to create 'Done' column on board $board_id"; exit 1; }
 ```
 
 Patch the saved org config with the board and column IDs:
@@ -532,12 +535,14 @@ If `LOOP_STATUS == "active"` or `LOOP_STATUS == "paused"`:
 If `LOOP_STATUS` is anything else (e.g. `"stopped"`) → print "Org '<org_name>' loop ended — not rescheduling." and exit.
 ````
 
+**Before writing: substitute ALL `<org_name>` tokens with the actual resolved org name string (the value from Step 1, e.g. `research-pod`), and all `<poll_interval_minutes>` tokens with the numeric value. These are template placeholders — the written file must contain no angle-bracket tokens. Every `ORG_FILE=".monomind/orgs/<org_name>.json"` becomes `ORG_FILE=".monomind/orgs/research-pod.json"`, every `cat .monomind/loops/<org_name>.md` becomes `cat .monomind/loops/research-pod.md`, etc. Leaving any `<...>` token unexpanded will cause shell failures at loop execution time.**
+
 **Write this file to disk:**
 
 ```bash
 mkdir -p .monomind/loops
-# Write the generated loop prompt (constructed above as a here-doc or Write tool)
-# to .monomind/loops/<org_name>.md
+# Write the generated loop prompt (with all placeholders substituted)
+# to .monomind/loops/<org_name>.md  (← substitute this path too)
 ```
 
 Use the Write tool (not Bash echo/cat) to write the file so the content is verbatim.

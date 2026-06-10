@@ -34,7 +34,7 @@ If `caller` is not "command", load brain context following _protocol.md Brain Lo
 orgFile=".monomind/orgs/${org_name}.json"
 [ ! -f "$orgFile" ] && { echo "ERROR: Org '${org_name}' not found."; exit 1; }
 
-agentDef=$(jq -r --arg id "$agent_id" '.roles[] | select(.id == $id)' "$orgFile")
+agentDef=$(jq -r --arg id "$agent_id" '(.roles // [])[] | select(.id == $id)' "$orgFile")
 [ -z "$agentDef" ] && { echo "ERROR: Agent '$agent_id' not found in org '$org_name'."; exit 1; }
 
 stateFile=".monomind/orgs/${org_name}-state.json"

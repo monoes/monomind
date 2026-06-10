@@ -25,7 +25,7 @@ REGISTRY="${REGISTRY:-.monomind/registry.json}"
 # 1. Extract candidates from the registry filtered by category
 candidates=$(jq -r \
   --arg cats "$CATEGORIES" \
-  '[ .agents[]
+  '[ (.agents // [])[]
      | select(.deprecated != true)
      | select(
          .category as $c |
@@ -95,7 +95,7 @@ CATS="engineering development"
 best_agent=$(jq -r \
   --arg cats "$CATS" \
   --arg task "$(echo "$TASK_DESC" | tr '[:upper:]' '[:lower:]')" \
-  '[ .agents[]
+  '[ (.agents // [])[]
      | select(.deprecated != true)
      | select(.category as $c | ($cats | split(" ") | any(. == $c)))
      | {name: .name, slug: .slug,
