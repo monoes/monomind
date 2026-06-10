@@ -52,7 +52,7 @@ if [ -z "$org_name" ]; then
   # Search all members files for a matching invite token
   for mf in .monomind/orgs/*-members.json; do
     [ -f "$mf" ] || continue
-    match=$(jq -r --arg t "$token" '.join_requests[] | select(.token == $t or .id == $t) | .id' "$mf" 2>/dev/null | head -1)
+    match=$(jq -r --arg t "$token" '(.join_requests // [])[] | select(.token == $t or .id == $t) | .id' "$mf" 2>/dev/null | head -1)
     if [ -n "$match" ]; then
       org_name=$(basename "$mf" "-members.json")
       break
@@ -65,7 +65,7 @@ membersFile=".monomind/orgs/${org_name}-members.json"
 [ ! -f "$membersFile" ] && { echo "ERROR: Org '$org_name' members file not found."; exit 1; }
 
 inviteDef=$(jq -r --arg t "$token" \
-  '.join_requests[] | select((.token == $t or .id == $t) and .type == "invite")' \
+  '(.join_requests // [])[] | select((.token == $t or .id == $t) and .type == "invite")' \
   "$membersFile" | head -c 4096)
 [ -z "$inviteDef" ] && { echo "ERROR: Invite token '$token' not found or already used."; exit 1; }
 
@@ -117,7 +117,7 @@ tmp="${membersFile}.tmp"
 # Mark invite accepted and add member record
 jq --arg token "$token" --arg mid "$memberId" --arg name "$display_name" \
    --arg email "$email" --arg role "$inviteRole" --arg ts "$ts" \
-  '.join_requests = [.join_requests[] | if (.token == $token or .id == $token) then
+  '.join_requests = [(.join_requests // [])[] | if (.token == $token or .id == $token) then
      .status = "accepted" | .acceptedAt = $ts | .acceptedAs = "human"
    else . end] |
    .members += [{"id":$mid,"displayName":$name,"email":$email,"role":$role,
@@ -167,7 +167,7 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${membersFile}.tmp"
 jq --arg token "$token" --arg mid "$agentId" --arg name "$agent_name" \
    --arg role "$inviteRole" --arg adapter "$adapterType" --arg model "$modelId" --arg ts "$ts" \
-  '.join_requests = [.join_requests[] | if (.token == $token or .id == $token) then
+  '.join_requests = [(.join_requests // [])[] | if (.token == $token or .id == $token) then
      .status = "accepted" | .acceptedAt = $ts | .acceptedAs = "agent"
    else . end] |
    .members += [{"id":$mid,"displayName":$name,"role":$role,
@@ -178,7 +178,7 @@ jq --arg token "$token" --arg mid "$agentId" --arg name "$agent_name" \
 # Also add to org roles file so the agent can run
 orgFile=".monomind/orgs/${org_name}.json"
 if [ -f "$orgFile" ]; then
-  dupCheck=$(jq -r --arg id "$agentId" '[.roles[] | select(.id == $id)] | length' "$orgFile")
+  dupCheck=$(jq -r --arg id "$agentId" '[(.roles // [])[] | select(.id == $id)] | length' "$orgFile")
   if [ "$dupCheck" -eq 0 ]; then
     tmp2="${orgFile}.tmp"
     jq --arg id "$agentId" --arg title "$agent_name" \

@@ -61,7 +61,7 @@ Show all registered secrets for this org (metadata only, masked values):
 
 ```bash
 jq -r '
-  .secrets[] |
+  (.secrets // [])[] |
   "[\(.name)]  provider=\(.provider)  hint=\(.masked_hint // "***")  set=\(.set_at // "unknown")  rotated=\(.rotated_at // "never")"
 ' "$secretsFile" 2>/dev/null || echo "No secrets registered."
 ```
@@ -108,7 +108,7 @@ jq --arg name "$secret_name" \
    --arg provider "${provider:-local}" \
    --arg hint "$hint" \
    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-   '.secrets = [.secrets[] | select(.name != $name)] +
+   '.secrets = [(.secrets // [])[] | select(.name != $name)] +
     [{"name":$name,"provider":$provider,"masked_hint":$hint,"set_at":$ts}]' \
    "$secretsFile" > "$tmp" && mv "$tmp" "$secretsFile"
 
@@ -128,7 +128,7 @@ Generate a new value from env var and update:
 # Same as set but also records rotated_at
 tmp="${secretsFile}.tmp"
 jq --arg name "$secret_name" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-   '.secrets = [.secrets[] | if .name == $name then .rotated_at = $ts | .set_at = $ts else . end]' \
+   '.secrets = [(.secrets // [])[] | if .name == $name then .rotated_at = $ts | .set_at = $ts else . end]' \
    "$secretsFile" > "$tmp" && mv "$tmp" "$secretsFile"
 # Then re-run the set logic above with new value
 ```
@@ -140,7 +140,7 @@ Remove secret value and registry entry:
 ```bash
 rm -f ".monomind/orgs/.secrets/${org_name}/${secret_name}"
 tmp="${secretsFile}.tmp"
-jq --arg name "$secret_name" '.secrets = [.secrets[] | select(.name != $name)]' \
+jq --arg name "$secret_name" '.secrets = [(.secrets // [])[] | select(.name != $name)]' \
    "$secretsFile" > "$tmp" && mv "$tmp" "$secretsFile"
 echo "Secret $secret_name revoked."
 ```
@@ -152,9 +152,9 @@ Show which agents reference each secret in their adapter_config or responsibilit
 ```bash
 orgFile=".monomind/orgs/${org_name}.json"
 echo "=== SECRET USAGE AUDIT — org: $org_name ==="
-jq -r '.roles[] | "\(.id): \(.responsibilities | join(", "))"' "$orgFile" | \
+jq -r '(.roles // [])[] | "\(.id): \((.responsibilities // []) | join(", "))"' "$orgFile" | \
   while IFS=: read -r role resp; do
-    refs=$(jq -r '.secrets[].name' "$secretsFile" | while read -r sname; do
+    refs=$(jq -r '(.secrets // [])[].name' "$secretsFile" | while read -r sname; do
       echo "$resp" | grep -q "$sname" && echo "    → $sname"
     done)
     [ -n "$refs" ] && echo "$role$refs"

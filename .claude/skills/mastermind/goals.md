@@ -55,7 +55,7 @@ jq -r '
     ("  " * (.depth // 0)) + "[\(.id)] \(.title)  [\(.status // "active")] \(.metric // "")" ,
     tree(gs; .id);
   .goals | tree(.; null)
-' "$goalsFile" 2>/dev/null || jq -r '.goals[] | "[\(.id)] \(.title)  [\(.status // "active")]"' "$goalsFile"
+' "$goalsFile" 2>/dev/null || jq -r '(.goals // [])[] | "[\(.id)] \(.title)  [\(.status // "active")]"' "$goalsFile"
 ```
 
 Render as:
@@ -95,7 +95,7 @@ tmp="${goalsFile}.tmp"
 jq --arg id "$goal_id" \
    --arg status "${status:-}" \
    --arg metric "${metric:-}" \
-   '.goals = [.goals[] | if .id == $id then
+   '.goals = [(.goals // [])[] | if .id == $id then
      (if $status != "" then .status = $status else . end) |
      (if $metric != "" then .metric = $metric else . end) |
      (.updated_at = (now|todate))
@@ -110,7 +110,7 @@ Link a task id to a goal (append to goal's tasks array):
 ```bash
 tmp="${goalsFile}.tmp"
 jq --arg id "$goal_id" --arg task "$task_id" \
-   '.goals = [.goals[] | if .id == $id then .tasks += [$task] else . end]' \
+   '.goals = [(.goals // [])[] | if .id == $id then .tasks += [$task] else . end]' \
    "$goalsFile" > "$tmp" && mv "$tmp" "$goalsFile"
 ```
 
@@ -121,7 +121,7 @@ Mark goal as achieved and timestamp:
 ```bash
 tmp="${goalsFile}.tmp"
 jq --arg id "$goal_id" \
-   '.goals = [.goals[] | if .id == $id then .status = "achieved" | .achieved_at = (now|todate) else . end]' \
+   '.goals = [(.goals // [])[] | if .id == $id then .status = "achieved" | .achieved_at = (now|todate) else . end]' \
    "$goalsFile" > "$tmp" && mv "$tmp" "$goalsFile"
 ```
 
