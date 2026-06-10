@@ -136,15 +136,11 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `monograph_detect_changes` | Map current git diff to affected graph nodes + dependents |
 | `monograph_shortest_path` | Understanding how two modules are connected |
 | `monograph_community` | Understanding which files form a cohesive module cluster |
-| `monograph_cohesion` | Community quality scores — ratio of internal to max possible edges |
-| `monograph_bridge` | Cross-community connectors — architectural coupling points |
 | `monograph_rename` | Dry-run multi-file rename — finds all graph + text occurrences |
 | `monograph_cypher` | Ad-hoc graph queries: MATCH (n:Class)-[:IMPORTS]->(b) RETURN n.name |
 | `monograph_snapshot` | Save current graph state to a named JSON snapshot for before/after diffing |
 | `monograph_diff` | Compare two named snapshots (or live graph vs snapshot) — added/removed nodes and edges |
-| `monograph_neighbors` | N-hop BFS neighborhood of a node — layered results by hop distance |
-| `monograph_add_fact` | Add a custom semantic edge (LLM annotation) — e.g. DEPENDS_ON, DOCUMENTS, CALLS |
-| `monograph_clear` | Wipe all graph data or nodes of a specific label (requires confirm="yes") |
+| `monograph_neighbors` | Show all directly connected nodes for a symbol — outbound and inbound edges |
 | `monograph_surprises` | Unexpected cross-community or low-confidence edges |
 | `monograph_stats` | Quick sanity check — node/edge counts |
 | `monograph_health` | Index staleness: commits behind HEAD |
@@ -282,8 +278,8 @@ See CLAUDE.local.md for registry maintenance procedures.
 
 ## Support
 
-- Documentation: https://github.com/nokhodian/monomind
-- Issues: https://github.com/nokhodian/monomind/issues
+- Documentation: https://github.com/monoes/monomind
+- Issues: https://github.com/monoes/monomind/issues
 
 ---
 

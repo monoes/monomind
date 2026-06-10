@@ -60,6 +60,8 @@ export interface ValidityWindow {
   assertedAt: number;
   /** Unix timestamp (ms) when the assertion was retracted, or null if still standing */
   retractedAt: number | null;
+  /** Unix timestamp (ms) when the assertion was superseded, or null if not superseded */
+  supersededAt: number | null;
 }
 
 /**
@@ -230,6 +232,7 @@ export class TemporalStore {
         validUntil: window.validUntil,
         assertedAt: now,
         retractedAt: null,
+        supersededAt: null,
       },
       status: 'active', // placeholder; computed below
       supersededBy: null,
@@ -405,6 +408,7 @@ export class TemporalStore {
     // Link the chain
     replacement.supersedes = oldId;
     old.supersededBy = replacement.id;
+    old.window.supersededAt = replacement.window.assertedAt;
     old.status = computeStatus(old, Date.now());
 
     return replacement;
@@ -870,13 +874,13 @@ export function createTemporalReasoner(
  * @returns The computed TemporalStatus
  */
 function computeStatus(assertion: TemporalAssertion, referenceTime: number): TemporalStatus {
-  // Retraction takes absolute priority
-  if (assertion.window.retractedAt !== null) {
+  // Retraction takes absolute priority — only if it had occurred by referenceTime
+  if (assertion.window.retractedAt !== null && referenceTime >= assertion.window.retractedAt) {
     return 'retracted';
   }
 
-  // Supersession takes next priority
-  if (assertion.supersededBy !== null) {
+  // Supersession takes next priority — only if it had occurred by referenceTime
+  if (assertion.supersededBy !== null && assertion.window.supersededAt !== null && referenceTime >= assertion.window.supersededAt) {
     return 'superseded';
   }
 

@@ -4,7 +4,7 @@
  * ASCII and DOT (Graphviz) renderers for communication flow edges.
  */
 
-import type { FlowEdge } from '../../../shared/dist/types/communication-flow.js';
+type FlowEdge = [string, string];
 
 /** Escape a slug for safe DOT identifier interpolation. */
 function dotEscape(s: string): string {

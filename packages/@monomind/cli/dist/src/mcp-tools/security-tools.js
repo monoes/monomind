@@ -1,5 +1,5 @@
 /**
- * Security MCP Tools - AIDefence Integration
+ * Security MCP Tools - MonoFence Integration
  *
  * Provides MCP tools for AI manipulation defense:
  * - aidefence_scan: Scan input for threats
@@ -7,30 +7,30 @@
  * - aidefence_stats: Get detection statistics
  * - aidefence_learn: Learn from detection feedback
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import { autoInstallPackage } from './auto-install.js';
 import { createRequire } from 'module';
 // Create require for resolving module paths
 const require = createRequire(import.meta.url);
-// Lazy-loaded AIDefence instance
+// Lazy-loaded MonoFence instance
 let aidefenceInstance = null;
 // Track if we've attempted install this session
 let installAttempted = false;
 /**
- * Get or create AIDefence instance (throws if unavailable)
+ * Get or create MonoFence instance (throws if unavailable)
  */
-async function getAIDefence() {
+async function getMonoFence() {
     if (aidefenceInstance) {
         return aidefenceInstance;
     }
-    const packageName = '@monomind/aidefence';
+    const packageName = 'monofence-ai';
     // First attempt - try to load via dynamic import (ESM)
     try {
         const aidefence = await import(packageName);
-        const instance = aidefence.createAIDefence({ enableLearning: true });
+        const instance = aidefence.createMonoDefence({ enableLearning: true });
         if (!instance) {
-            throw new Error('createAIDefence returned null');
+            throw new Error('createMonoDefence returned null');
         }
         aidefenceInstance = instance;
         return instance;
@@ -40,36 +40,22 @@ async function getAIDefence() {
         const error = e;
         if (!error.message?.includes('Cannot find package') && !error.message?.includes('ERR_MODULE_NOT_FOUND')) {
             // Different error - might be a real issue
-            throw new Error(`AIDefence failed to load: ${error.message}`);
+            throw new Error(`MonoFence failed to load: ${error.message}`);
         }
     }
     // Don't attempt install more than once per session
     if (installAttempted) {
-        throw new Error('AIDefence package not available. Install with: npm install @monomind/aidefence');
+        throw new Error('MonoFence package not available. Install with: npm install monofence-ai');
     }
     installAttempted = true;
     // Second attempt - auto-install and retry
     console.error(`[monomind] ${packageName} not found, attempting auto-install...`);
     const installed = await autoInstallPackage(packageName);
     if (!installed) {
-        throw new Error('AIDefence package not available. Install with: npm install @monomind/aidefence');
+        throw new Error('MonoFence package not available. Install with: npm install monofence-ai');
     }
-    // Retry with ESM cache busting via file:// URL + timestamp
-    try {
-        const modulePath = require.resolve(packageName);
-        const cacheBust = `?t=${Date.now()}`;
-        const aidefence = await import(`file://${modulePath}${cacheBust}`);
-        const instance = aidefence.createAIDefence({ enableLearning: true });
-        if (!instance) {
-            throw new Error('createAIDefence returned null after install');
-        }
-        aidefenceInstance = instance;
-        console.error(`[monomind] ${packageName} loaded successfully after install`);
-        return instance;
-    }
-    catch (retryError) {
-        throw new Error(`AIDefence installed but failed to load: ${retryError}. Try restarting the MCP server.`);
-    }
+    // The in-process ESM module cache cannot be invalidated after install; require a server restart.
+    throw new Error(`MonoFence installed successfully. Restart the MCP server to load it: npx monomind mcp start`);
 }
 /**
  * Scan input for AI manipulation threats
@@ -96,7 +82,7 @@ const aidefenceScanTool = {
         const input = args.input;
         const quick = args.quick;
         try {
-            const defender = await getAIDefence();
+            const defender = await getMonoFence();
             if (quick) {
                 const result = defender.quickScan(input);
                 return {
@@ -171,7 +157,7 @@ const aidefenceAnalyzeTool = {
         const searchSimilar = args.searchSimilar !== false;
         const k = args.k || 5;
         try {
-            const defender = await getAIDefence();
+            const defender = await getMonoFence();
             const result = await defender.detect(input);
             const analysis = {
                 detection: {
@@ -225,14 +211,14 @@ const aidefenceAnalyzeTool = {
  */
 const aidefenceStatsTool = {
     name: 'aidefence_stats',
-    description: 'Get AIDefence detection and learning statistics.',
+    description: 'Get MonoFence detection and learning statistics.',
     inputSchema: {
         type: 'object',
         properties: {},
     },
     handler: async () => {
         try {
-            const defender = await getAIDefence();
+            const defender = await getMonoFence();
             const stats = await defender.getStats();
             return {
                 content: [{
@@ -303,7 +289,7 @@ const aidefenceLearnTool = {
         const mitigationStrategy = args.mitigationStrategy;
         const mitigationSuccess = args.mitigationSuccess;
         try {
-            const defender = await getAIDefence();
+            const defender = await getMonoFence();
             // Re-detect to get result for learning
             const result = await defender.detect(input);
             // Learn from detection
@@ -360,7 +346,8 @@ const aidefenceIsSafeTool = {
     handler: async (args) => {
         const input = args.input;
         try {
-            const { isSafe } = await import('@monomind/aidefence');
+            await getMonoFence(); // triggers auto-install if package is missing
+            const { isSafe } = await import('monofence-ai');
             const safe = isSafe(input);
             return {
                 content: [{
@@ -399,7 +386,7 @@ const aidefenceHasPIITool = {
     handler: async (args) => {
         const input = args.input;
         try {
-            const defender = await getAIDefence();
+            const defender = await getMonoFence();
             const hasPII = defender.hasPII(input);
             return {
                 content: [{

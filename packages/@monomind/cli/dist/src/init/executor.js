@@ -1638,7 +1638,7 @@ async function writeCapabilitiesDoc(targetDir, options, result) {
     }
     const capabilities = `# Monomind - Complete Capabilities Reference
 > Generated: ${new Date().toISOString()}
-> Full documentation: https://github.com/nokhodian/monomind
+> Full documentation: https://github.com/monoes/monomind
 
 ## 📋 Table of Contents
 
@@ -2022,8 +2022,8 @@ npx monomind@latest hooks worker dispatch --trigger optimize
 
 ---
 
-**Full Documentation**: https://github.com/nokhodian/monomind
-**Issues**: https://github.com/nokhodian/monomind/issues
+**Full Documentation**: https://github.com/monoes/monomind
+**Issues**: https://github.com/monoes/monomind/issues
 `;
     atomicWriteFile(capabilitiesPath, capabilities);
     result.created.files.push('.monomind/CAPABILITIES.md');

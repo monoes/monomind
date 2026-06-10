@@ -67,8 +67,8 @@ export interface DefectPrediction {
 
 export interface CodeLocation {
   file: string;
-  startLine: number;
-  endLine: number;
+  startLine?: number;
+  endLine?: number;
   functionName?: string;
   codeSnippet?: string;
 }
@@ -383,20 +383,23 @@ function generateCategoryPredictions(
   const predictions: DefectPrediction[] = [];
   let predictionId = 0;
 
+  const CONFIDENCE_BY_SEVERITY: Record<string, number> = {
+    critical: 0.90,
+    high: 0.80,
+    medium: 0.70,
+    low: 0.60,
+  };
+
   for (const pattern of patterns.slice(0, depthMultiplier)) {
-    const confidence = 0.5 + Math.random() * 0.4;
-    const lineNumber = Math.floor(Math.random() * 200) + 10;
+    const confidence = CONFIDENCE_BY_SEVERITY[pattern.severity] ?? 0.70;
 
     const prediction: DefectPrediction = {
       id: `pred-${category}-${predictionId++}`,
       category,
       severity: pattern.severity,
-      confidence: Math.round(confidence * 100) / 100,
+      confidence,
       location: {
         file: targetPath,
-        startLine: lineNumber,
-        endLine: lineNumber + Math.floor(Math.random() * 5) + 1,
-        functionName: `process${category.charAt(0).toUpperCase()}${category.slice(1).replace(/-/g, '')}`,
       },
       description: pattern.description,
       suggestedFix: pattern.suggestedFix,
@@ -428,7 +431,7 @@ function generateCategoryPredictions(
           'Time pressure during development',
         ],
         codePattern: pattern.pattern,
-        historicalOccurrences: Math.floor(Math.random() * 10) + 1,
+        historicalOccurrences: 0,
       };
     }
 
@@ -456,7 +459,7 @@ async function findSimilarDefects(
         for (let i = 0; i < patterns.length && i < 2; i++) {
           similarDefects.push({
             id: `sim-${prediction.id}-${i}`,
-            similarity: 0.7 + Math.random() * 0.25,
+            similarity: 0.75,
             originalDefect: {
               category: prediction.category,
               description: `Historical ${prediction.category} defect`,
@@ -470,22 +473,6 @@ async function findSimilarDefects(
     } catch {
       // Continue without similar defects
     }
-  }
-
-  // Add simulated similar defects if none found
-  if (similarDefects.length === 0 && predictions.length > 0) {
-    const pred = predictions[0];
-    similarDefects.push({
-      id: `sim-${pred.id}-0`,
-      similarity: 0.82,
-      originalDefect: {
-        category: pred.category,
-        description: `Similar ${pred.category} defect resolved in Q3`,
-        resolution: pred.suggestedFix,
-        file: 'src/legacy/old-module.ts',
-      },
-      matchedPattern: pred.rootCause?.codePattern || 'Pattern match',
-    });
   }
 
   return similarDefects.sort((a, b) => b.similarity - a.similarity);

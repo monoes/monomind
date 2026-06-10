@@ -3,7 +3,7 @@
  * Plugin management, installation, and lifecycle
  * Now uses IPFS-based decentralized registry for discovery
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 import { output } from '../output.js';
 import { createPluginDiscoveryService, searchPlugins, getPluginSearchSuggestions, getFeaturedPlugins, getOfficialPlugins, } from '../plugins/store/index.js';
@@ -781,12 +781,10 @@ export const pluginsCommand = {
         output.printList([
             '@monomind/security            - Security scanning and CVE detection',
             '@monomind/claims              - Claims-based authorization',
-            '@monomind/performance         - Performance profiling and benchmarks',
-            '@monomind/plugin-gastown-bridge - Gas Town orchestrator integration (WASM-accelerated)',
         ]);
         output.writeln();
         output.writeln(output.dim('Run "monomind plugins list --official" to see all official plugins'));
-        output.writeln(output.dim('github.com/nokhodian/monomind'));
+        output.writeln(output.dim('github.com/monoes/monomind'));
         return { success: true };
     },
 };

@@ -53,13 +53,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monomind.git",
+    "url": "https://github.com/monoes/monomind.git",
     "directory": "packages/plugins/teammate-plugin"
   },
   "bugs": {
-    "url": "https://github.com/nokhodian/monomind/issues"
+    "url": "https://github.com/monoes/monomind/issues"
   },
-  "homepage": "https://github.com/nokhodian/monomind#readme",
+  "homepage": "https://github.com/monoes/monomind#readme",
   "engines": {
     "node": ">=18.0.0"
   },

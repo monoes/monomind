@@ -2,7 +2,7 @@
  * CLI Claims Command
  * Claims-based authorization, permissions, and access control
  *
- * github.com/nokhodian/monomind
+ * github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -681,7 +681,7 @@ export const claimsCommand: Command = {
       'admin:*   - Administrative operations',
     ]);
     output.writeln();
-    output.writeln(output.dim('github.com/nokhodian/monomind'));
+    output.writeln(output.dim('github.com/monoes/monomind'));
     return { success: true };
   },
 };

@@ -7,7 +7,7 @@
 In Claude Code:
 
 ```
-/plugin add nokhodian/monomind
+/plugin add monoes/monomind
 ```
 
 This will:
@@ -23,7 +23,7 @@ If you've cloned the repository:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nokhodian/monomind.git
+git clone https://github.com/monoes/monomind.git
 cd monomind
 
 # In Claude Code, install the plugin
@@ -174,7 +174,7 @@ Agents are automatically available for Claude Code to delegate to when appropria
 /plugin list
 
 # Try installing again
-/plugin add nokhodian/monomind
+/plugin add monoes/monomind
 ```
 
 ### Commands Not Showing
@@ -196,7 +196,7 @@ ls -la agents/
 
 ```
 # Try local installation
-git clone https://github.com/nokhodian/monomind.git
+git clone https://github.com/monoes/monomind.git
 cd monomind
 /plugin add .
 ```
@@ -207,8 +207,8 @@ cd monomind
 
 - **Documentation**: See README.md for complete documentation
 - **Quick Start**: See docs/QUICKSTART.md for 5-minute guide
-- **GitHub Issues**: https://github.com/nokhodian/monomind/issues
-- **Discussions**: https://github.com/nokhodian/monomind/discussions
+- **GitHub Issues**: https://github.com/monoes/monomind/issues
+- **Discussions**: https://github.com/monoes/monomind/discussions
 
 ---
 

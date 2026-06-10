@@ -364,12 +364,17 @@ export class EconomicGovernor {
       durationMs,
       timestamp: Date.now(),
     });
+    // Cap log to prevent unbounded growth on long-lived governor instances
+    if (this.toolCallLog.length > 1000) {
+      this.toolCallLog.splice(0, this.toolCallLog.length - 1000);
+    }
   }
 
   /**
    * Record storage usage in bytes.
    */
   recordStorageUsage(bytes: number): void {
+    if (bytes < 0) return;
     this.storageUsed += bytes;
   }
 
@@ -529,6 +534,6 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function safePercentage(used: number, limit: number): number {
-  if (limit <= 0) return 0;
+  if (limit <= 0) return 100;
   return (used / limit) * 100;
 }

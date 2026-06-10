@@ -55,7 +55,7 @@ monomind/
 Users install with:
 
 ```
-/plugin add nokhodian/monomind
+/plugin add monoes/monomind
 /restart
 ```
 

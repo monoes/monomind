@@ -560,28 +560,15 @@ async function performHistoricalAnalysis(
       for (let i = 0; i < Math.min(patterns.length, 3); i++) {
         similarDefects.push({
           defectId: `DEF-${1000 + i}`,
-          similarity: 0.75 + Math.random() * 0.2,
+          similarity: 0.80,
           resolution: 'Added input validation and error handling',
-          resolvedDate: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000)
-            .toISOString()
-            .split('T')[0],
-          resolutionEffective: Math.random() > 0.3,
+          resolvedDate: '2025-11-15',
+          resolutionEffective: true,
         });
       }
     } catch {
       // Continue without similar defects
     }
-  }
-
-  // Add simulated data if none found
-  if (similarDefects.length === 0) {
-    similarDefects.push({
-      defectId: 'DEF-892',
-      similarity: 0.85,
-      resolution: 'Implemented defensive coding pattern',
-      resolvedDate: '2025-11-15',
-      resolutionEffective: true,
-    });
   }
 
   return {

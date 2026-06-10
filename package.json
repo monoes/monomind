@@ -7,9 +7,9 @@
   "bin": {
     "monomind": "./bin/cli.js"
   },
-  "homepage": "https://github.com/nokhodian/monomind#readme",
+  "homepage": "https://github.com/monoes/monomind#readme",
   "bugs": {
-    "url": "https://github.com/nokhodian/monomind/issues",
+    "url": "https://github.com/monoes/monomind/issues",
     "email": "support@monoes.me"
   },
   "funding": {
@@ -29,10 +29,6 @@
     "packages/@monomind/cli/package.json",
     "scripts/*.mjs",
     "scripts/*.sh",
-    "packages/@monomind/shared/dist/**/*.js",
-    "packages/@monomind/shared/dist/**/*.d.ts",
-    "!packages/@monomind/shared/dist/**/*.map",
-    "packages/@monomind/shared/package.json",
     "packages/@monomind/guidance/dist/**/*.js",
     "packages/@monomind/guidance/dist/**/*.d.ts",
     "!packages/@monomind/guidance/dist/**/*.map",
@@ -87,7 +83,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monomind.git"
+    "url": "https://github.com/monoes/monomind.git"
   },
   "keywords": [
     "ruvflow",
