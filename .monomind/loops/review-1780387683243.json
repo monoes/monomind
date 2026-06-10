@@ -1,7 +1,0 @@
-{
-  "id": "review-1780387683243", "sessionId": "review-1780387683243", "type": "tillend",
-  "command": "/mastermind:review", "prompt": "review whatever is done on monograph",
-  "maxReps": 50, "interval": 1, "wait": 60, "currentRep": 2,
-  "startedAt": 1780387683243, "lastRunAt": 1780389528761, "nextRunAt": 1780389588761,
-  "status": "running", "source": "_repeat.md"
-}

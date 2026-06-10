@@ -191,7 +191,10 @@ export class HnswLite {
     }
 
     scored.sort((a, b) => b.score - a.score);
-    const keep = new Set(scored.slice(0, this.maxNeighbors).map(s => s.id));
+    // Build keep-set in a single pass — avoids .slice() + .map() intermediate arrays
+    const keep = new Set<string>();
+    const keepCount = Math.min(this.maxNeighbors, scored.length);
+    for (let i = 0; i < keepCount; i++) keep.add(scored[i].id);
 
     for (const nId of myNeighbors) {
       if (!keep.has(nId)) {

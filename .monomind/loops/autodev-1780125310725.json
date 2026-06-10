@@ -1,7 +1,0 @@
-{
-  "id": "autodev-1780125310725", "sessionId": "autodev-1780125310725", "type": "tillend",
-  "command": "/mastermind:autodev", "prompt": "--tillend graph",
-  "maxReps": 50, "interval": 1, "wait": 60, "currentRep": 4,
-  "startedAt": 1780125310725, "lastRunAt": 1780126633988, "nextRunAt": 1780126693988,
-  "status": "running", "source": "_repeat.md"
-}

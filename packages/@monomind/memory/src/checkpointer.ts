@@ -178,11 +178,15 @@ export class SwarmCheckpointer {
     const from = this.load(fromId);
     const to = this.load(toId);
 
-    const fromIds = new Set((from?.agentStates ?? []).map((a) => a.agentId));
-    const toIds = new Set((to?.agentStates ?? []).map((a) => a.agentId));
+    const fromIds = new Set<string>();
+    for (const a of from?.agentStates ?? []) fromIds.add(a.agentId);
+    const toIds = new Set<string>();
+    for (const a of to?.agentStates ?? []) toIds.add(a.agentId);
 
-    const addedAgents = [...toIds].filter((id) => !fromIds.has(id));
-    const removedAgents = [...fromIds].filter((id) => !toIds.has(id));
+    const addedAgents: string[] = [];
+    for (const id of toIds) if (!fromIds.has(id)) addedAgents.push(id);
+    const removedAgents: string[] = [];
+    for (const id of fromIds) if (!toIds.has(id)) removedAgents.push(id);
 
     const changedAgents: string[] = [];
     if (from && to) {
