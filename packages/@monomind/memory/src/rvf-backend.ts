@@ -190,23 +190,26 @@ export class RvfBackend implements IMemoryBackend {
 
   async query(q: MemoryQuery): Promise<MemoryEntry[]> {
     const start = performance.now();
-    let results = Array.from(this.entries.values());
+    // Compute expiry cutoff once outside the filter to avoid repeated Date.now() calls
+    const expiryCutoff = q.includeExpired ? 0 : Date.now();
 
-    if (q.namespace) results = results.filter(e => e.namespace === q.namespace);
-    if (q.key) results = results.filter(e => e.key === q.key);
-    if (q.keyPrefix) results = results.filter(e => e.key.startsWith(q.keyPrefix!));
-    if (q.tags?.length) results = results.filter(e => q.tags!.every(t => e.tags.includes(t)));
-    if (q.memoryType) results = results.filter(e => e.type === q.memoryType);
-    if (q.accessLevel) results = results.filter(e => e.accessLevel === q.accessLevel);
-    if (q.ownerId) results = results.filter(e => e.ownerId === q.ownerId);
-    if (q.createdAfter) results = results.filter(e => e.createdAt > q.createdAfter!);
-    if (q.createdBefore) results = results.filter(e => e.createdAt < q.createdBefore!);
-    if (q.updatedAfter) results = results.filter(e => e.updatedAt > q.updatedAfter!);
-    if (q.updatedBefore) results = results.filter(e => e.updatedAt < q.updatedBefore!);
-    if (!q.includeExpired) {
-      const now = Date.now();
-      results = results.filter(e => !e.expiresAt || e.expiresAt > now);
-    }
+    // Single-pass filter replaces up to 12 chained .filter() calls, each of which
+    // would allocate a new intermediate array.
+    let results = Array.from(this.entries.values()).filter(e => {
+      if (q.namespace && e.namespace !== q.namespace) return false;
+      if (q.key && e.key !== q.key) return false;
+      if (q.keyPrefix && !e.key.startsWith(q.keyPrefix)) return false;
+      if (q.tags?.length && !q.tags.every(t => e.tags.includes(t))) return false;
+      if (q.memoryType && e.type !== q.memoryType) return false;
+      if (q.accessLevel && e.accessLevel !== q.accessLevel) return false;
+      if (q.ownerId && e.ownerId !== q.ownerId) return false;
+      if (q.createdAfter && e.createdAt <= q.createdAfter) return false;
+      if (q.createdBefore && e.createdAt >= q.createdBefore) return false;
+      if (q.updatedAfter && e.updatedAt <= q.updatedAfter) return false;
+      if (q.updatedBefore && e.updatedAt >= q.updatedBefore) return false;
+      if (!q.includeExpired && e.expiresAt && e.expiresAt <= expiryCutoff) return false;
+      return true;
+    });
 
     if (q.type === 'semantic' && q.embedding && this.hnswIndex) {
       const searchResults = this.hnswIndex.search(q.embedding, q.limit, q.threshold);

@@ -140,12 +140,12 @@ export class EpisodicStore {
 
     this.append(episode);
 
-    // Reset state
+    // Reset state — clear existing containers to avoid unnecessary allocations
     this.currentEpisodeId = null;
-    this.currentRunIds = [];
-    this.currentAgentSlugs = new Set();
-    this.currentTaskTypes = new Set();
-    this.currentContent = [];
+    this.currentRunIds.length = 0;
+    this.currentAgentSlugs.clear();
+    this.currentTaskTypes.clear();
+    this.currentContent.length = 0;
     this.currentStartedAt = 0;
     this.currentSessionId = '';
 

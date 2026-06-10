@@ -883,11 +883,19 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
    * In-memory query fallback
    */
   private queryInMemory(query: MemoryQuery): MemoryEntry[] {
-    let results = Array.from(this.entries.values());
-
-    // Apply filters
+    // Use the namespace index when a namespace filter is active to avoid
+    // materialising the full entries map when only a subset is needed.
+    let results: MemoryEntry[];
     if (query.namespace) {
-      results = results.filter((e) => e.namespace === query.namespace);
+      const nsIds = this.namespaceIndex.get(query.namespace);
+      if (!nsIds || nsIds.size === 0) return [];
+      results = [];
+      for (const id of nsIds) {
+        const entry = this.entries.get(id);
+        if (entry) results.push(entry);
+      }
+    } else {
+      results = Array.from(this.entries.values());
     }
 
     if (query.key) {

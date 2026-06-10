@@ -88,6 +88,15 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     totalWriteTime: 0,
   };
 
+  // Cached prepared statements — prepared once in initialize() to avoid N+1 re-prepare
+  private stmtGetEmbedding: Database.Statement | null = null;
+  private stmtInsertEntry: Database.Statement | null = null;
+  private stmtInsertEmbedding: Database.Statement | null = null;
+  private stmtDeleteTags: Database.Statement | null = null;
+  private stmtInsertTag: Database.Statement | null = null;
+  // Debounce counter for checkAndPromoteEntry (H2: avoid full-table purge on every get)
+  private _readCount = 0;
+
   constructor(config: Partial<SQLiteBackendConfig> = {}) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -109,6 +118,9 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       this.db.pragma('journal_mode = WAL');
     }
 
+    // Enable FK enforcement — required for ON DELETE CASCADE to fire
+    this.db.pragma('foreign_keys = ON');
+
     // Performance optimizations
     if (this.config.optimize) {
       this.db.pragma('synchronous = NORMAL');
@@ -118,6 +130,27 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
 
     // Create schema
     this.createSchema();
+
+    // Pre-compile hot-path statements to avoid N+1 re-prepare
+    this.stmtGetEmbedding = this.db.prepare(
+      'SELECT embedding FROM memory_embeddings WHERE entry_id = ?'
+    );
+    this.stmtInsertEntry = this.db.prepare(`
+      INSERT OR REPLACE INTO memory_entries (
+        id, key, content, type, namespace, tags, metadata,
+        owner_id, access_level, created_at, updated_at, expires_at,
+        event_at, version, "references", access_count, last_accessed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    this.stmtInsertEmbedding = this.db.prepare(
+      'INSERT OR REPLACE INTO memory_embeddings (entry_id, embedding) VALUES (?, ?)'
+    );
+    this.stmtDeleteTags = this.db.prepare(
+      'DELETE FROM memory_entry_tags WHERE entry_id = ?'
+    );
+    this.stmtInsertTag = this.db.prepare(
+      'INSERT OR IGNORE INTO memory_entry_tags (entry_id, tag) VALUES (?, ?)'
+    );
 
     this.initialized = true;
     this.emit('initialized');
@@ -136,6 +169,11 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
 
     this.db.close();
     this.db = null;
+    this.stmtGetEmbedding = null;
+    this.stmtInsertEntry = null;
+    this.stmtInsertEmbedding = null;
+    this.stmtDeleteTags = null;
+    this.stmtInsertTag = null;
     this.initialized = false;
     this.emit('shutdown');
   }
@@ -147,42 +185,37 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     this.ensureInitialized();
     const startTime = performance.now();
 
-    const stmt = this.db!.prepare(`
-      INSERT OR REPLACE INTO memory_entries (
-        id, key, content, type, namespace, tags, metadata,
-        owner_id, access_level, created_at, updated_at, expires_at,
-        event_at, version, "references", access_count, last_accessed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    this.validateTags(entry.tags);
 
-    stmt.run(
-      entry.id,
-      entry.key,
-      entry.content,
-      entry.type,
-      entry.namespace,
-      JSON.stringify(entry.tags),
-      JSON.stringify(entry.metadata),
-      entry.ownerId || null,
-      entry.accessLevel,
-      entry.createdAt,
-      entry.updatedAt,
-      entry.expiresAt || null,
-      entry.eventAt ?? null,
-      entry.version,
-      JSON.stringify(entry.references),
-      entry.accessCount,
-      entry.lastAccessedAt
-    );
+    const doStore = this.db!.transaction((e: MemoryEntry) => {
+      // Read existing embedding BEFORE INSERT OR REPLACE fires CASCADE and deletes it
+      let embeddingToStore = e.embedding;
+      if (!embeddingToStore) {
+        const existingEmb = this.stmtGetEmbedding!.get(e.id) as any;
+        if (existingEmb?.embedding) {
+          embeddingToStore = new Float32Array(Buffer.from(existingEmb.embedding).buffer);
+        }
+      }
+      this.stmtInsertEntry!.run(
+        e.id, e.key, e.content, e.type, e.namespace,
+        JSON.stringify(e.tags), JSON.stringify(e.metadata),
+        e.ownerId || null, e.accessLevel,
+        e.createdAt, e.updatedAt, e.expiresAt || null, e.eventAt ?? null,
+        e.version, JSON.stringify(e.references), e.accessCount, e.lastAccessedAt
+      );
+      this.stmtDeleteTags!.run(e.id);
+      for (const tag of e.tags) {
+        this.stmtInsertTag!.run(e.id, tag);
+      }
+      if (embeddingToStore) {
+        this.stmtInsertEmbedding!.run(
+          e.id,
+          Buffer.from(embeddingToStore.buffer, embeddingToStore.byteOffset, embeddingToStore.byteLength),
+        );
+      }
+    });
 
-    // Store embedding separately (as BLOB)
-    if (entry.embedding) {
-      const embeddingStmt = this.db!.prepare(`
-        INSERT OR REPLACE INTO memory_embeddings (entry_id, embedding)
-        VALUES (?, ?)
-      `);
-      embeddingStmt.run(entry.id, Buffer.from(entry.embedding.buffer));
-    }
+    doStore(entry);
 
     const duration = performance.now() - startTime;
     this.stats.writeCount++;
@@ -210,7 +243,11 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
         this.db!.prepare(
           'INSERT OR IGNORE INTO agent_reads (entry_id, agent_id, read_at) VALUES (?, ?, ?)'
         ).run(id, agentId, Date.now());
-        void this.checkAndPromoteEntry(id);
+        // Debounce: run full-table purge only every 1000 reads (H2)
+        this._readCount++;
+        if (this._readCount % 1000 === 0) {
+          void this.checkAndPromoteEntry(id);
+        }
       } catch { /* non-critical */ }
     }
 
@@ -293,10 +330,10 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     this.ensureInitialized();
 
     const deleteEntry = this.db!.prepare('DELETE FROM memory_entries WHERE id = ?');
-    const deleteEmbedding = this.db!.prepare('DELETE FROM memory_embeddings WHERE entry_id = ?');
 
+    // Explicit tag cleanup before entry delete (belt-and-suspenders with CASCADE)
+    this.stmtDeleteTags!.run(id);
     const result = deleteEntry.run(id);
-    deleteEmbedding.run(id);
 
     if (result.changes > 0) {
       this.emit('entry:deleted', { id });
@@ -383,19 +420,13 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       params.push(Date.now());
     }
 
-    // Tag filtering (safe parameterized query)
+    // Tag filtering — uses indexed memory_entry_tags table (no json_each scan)
     if (query.tags && query.tags.length > 0) {
-      // Validate tags before using in query
-      for (const tag of query.tags) {
-        if (typeof tag !== 'string' || !/^[a-zA-Z0-9_\-.:]+$/.test(tag)) {
-          throw new Error(`Invalid tag format: ${tag}`);
-        }
-      }
-      // Use parameterized query with JSON functions
+      this.validateTags(query.tags);
       const tagPlaceholders = query.tags.map(() => '?').join(', ');
       sql += ` AND EXISTS (
-        SELECT 1 FROM json_each(tags) AS t
-        WHERE t.value IN (${tagPlaceholders})
+        SELECT 1 FROM memory_entry_tags t
+        WHERE t.entry_id = memory_entries.id AND t.tag IN (${tagPlaceholders})
       )`;
       params.push(...query.tags);
     }
@@ -473,13 +504,12 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     this.ensureInitialized();
 
     const deleteEntry = this.db!.prepare('DELETE FROM memory_entries WHERE id = ?');
-    const deleteEmbedding = this.db!.prepare('DELETE FROM memory_embeddings WHERE entry_id = ?');
 
     const transaction = this.db!.transaction((ids: string[]) => {
       let deleted = 0;
       for (const id of ids) {
+        this.stmtDeleteTags!.run(id);
         const result = deleteEntry.run(id);
-        deleteEmbedding.run(id);
         if (result.changes > 0) deleted++;
       }
       return deleted;
@@ -524,16 +554,24 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
   async clearNamespace(namespace: string): Promise<number> {
     this.ensureInitialized();
 
+    const deleteTags = this.db!.prepare(`
+      DELETE FROM memory_entry_tags
+      WHERE entry_id IN (SELECT id FROM memory_entries WHERE namespace = ?)
+    `);
     const deleteEntries = this.db!.prepare('DELETE FROM memory_entries WHERE namespace = ?');
-    const result = deleteEntries.run(namespace);
-
-    // Clean up orphaned embeddings
-    this.db!.prepare(`
+    const deleteOrphanEmbeddings = this.db!.prepare(`
       DELETE FROM memory_embeddings
       WHERE entry_id NOT IN (SELECT id FROM memory_entries)
-    `).run();
+    `);
 
-    return result.changes;
+    let changes = 0;
+    this.db!.transaction(() => {
+      deleteTags.run(namespace);
+      changes = deleteEntries.run(namespace).changes;
+      deleteOrphanEmbeddings.run();
+    })();
+
+    return changes;
   }
 
   /**
@@ -667,6 +705,16 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
 
   // ===== Private Methods =====
 
+  private static readonly TAG_RE = /^[a-zA-Z0-9_\-.:]+$/;
+
+  private validateTags(tags: string[]): void {
+    for (const tag of tags) {
+      if (typeof tag !== 'string' || !SQLiteBackend.TAG_RE.test(tag)) {
+        throw new Error(`Invalid tag format: "${tag}"`);
+      }
+    }
+  }
+
   private ensureInitialized(): void {
     if (!this.initialized || !this.db) {
       throw new Error('SQLiteBackend not initialized. Call initialize() first.');
@@ -721,18 +769,39 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       );
       CREATE INDEX IF NOT EXISTS idx_agent_reads_entry ON agent_reads(entry_id);
       CREATE INDEX IF NOT EXISTS idx_agent_reads_at ON agent_reads(read_at);
+
+      CREATE TABLE IF NOT EXISTS memory_entry_tags (
+        entry_id TEXT NOT NULL,
+        tag TEXT NOT NULL,
+        PRIMARY KEY (entry_id, tag),
+        FOREIGN KEY (entry_id) REFERENCES memory_entries(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_entry_tag ON memory_entry_tags(tag, entry_id);
     `);
+
+    // One-time backfill gated by user_version — wrapped in a transaction to hold
+    // a write lock and prevent double-backfill under concurrent process startup.
+    this.db.transaction(() => {
+      const schemaVersion = this.db!.pragma('user_version', { simple: true }) as number;
+      if (schemaVersion < 1) {
+        this.db!.exec(`
+          INSERT OR IGNORE INTO memory_entry_tags (entry_id, tag)
+            SELECT memory_entries.id, t.value
+            FROM memory_entries, json_each(tags) AS t
+            WHERE json_valid(tags) AND t.value IS NOT NULL AND t.value != '';
+        `);
+        this.db!.pragma('user_version = 1');
+      }
+    })();
   }
 
   private rowToEntry(row: any): MemoryEntry {
-    // Get embedding if exists
+    // Get embedding if exists — use pre-compiled statement to avoid N+1 re-prepare
     let embedding: Float32Array | undefined;
-    const embeddingStmt = this.db!.prepare(
-      'SELECT embedding FROM memory_embeddings WHERE entry_id = ?'
-    );
-    const embeddingRow = embeddingStmt.get(row.id) as any;
+    const embeddingRow = this.stmtGetEmbedding!.get(row.id) as any;
     if (embeddingRow && embeddingRow.embedding) {
-      embedding = new Float32Array(embeddingRow.embedding.buffer);
+      // Buffer.from() forces a non-pooled copy so .buffer spans only this embedding
+      embedding = new Float32Array(Buffer.from(embeddingRow.embedding).buffer);
     }
 
     return {
@@ -761,40 +830,31 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
    * Synchronous store for use in transactions
    */
   private storeSync(entry: MemoryEntry): void {
-    const stmt = this.db!.prepare(`
-      INSERT OR REPLACE INTO memory_entries (
-        id, key, content, type, namespace, tags, metadata,
-        owner_id, access_level, created_at, updated_at, expires_at,
-        event_at, version, "references", access_count, last_accessed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      entry.id,
-      entry.key,
-      entry.content,
-      entry.type,
-      entry.namespace,
-      JSON.stringify(entry.tags),
-      JSON.stringify(entry.metadata),
-      entry.ownerId || null,
-      entry.accessLevel,
-      entry.createdAt,
-      entry.updatedAt,
-      entry.expiresAt || null,
-      entry.eventAt ?? null,
-      entry.version,
-      JSON.stringify(entry.references),
-      entry.accessCount,
-      entry.lastAccessedAt
+    this.validateTags(entry.tags);
+    // Read existing embedding before INSERT OR REPLACE cascades-deletes it
+    let embeddingToStore = entry.embedding;
+    if (!embeddingToStore) {
+      const existingEmb = this.stmtGetEmbedding!.get(entry.id) as any;
+      if (existingEmb?.embedding) {
+        embeddingToStore = new Float32Array(Buffer.from(existingEmb.embedding).buffer);
+      }
+    }
+    this.stmtInsertEntry!.run(
+      entry.id, entry.key, entry.content, entry.type, entry.namespace,
+      JSON.stringify(entry.tags), JSON.stringify(entry.metadata),
+      entry.ownerId || null, entry.accessLevel,
+      entry.createdAt, entry.updatedAt, entry.expiresAt || null, entry.eventAt ?? null,
+      entry.version, JSON.stringify(entry.references), entry.accessCount, entry.lastAccessedAt
     );
-
-    if (entry.embedding) {
-      const embeddingStmt = this.db!.prepare(`
-        INSERT OR REPLACE INTO memory_embeddings (entry_id, embedding)
-        VALUES (?, ?)
-      `);
-      embeddingStmt.run(entry.id, Buffer.from(entry.embedding.buffer));
+    this.stmtDeleteTags!.run(entry.id);
+    for (const tag of entry.tags) {
+      this.stmtInsertTag!.run(entry.id, tag);
+    }
+    if (embeddingToStore) {
+      this.stmtInsertEmbedding!.run(
+        entry.id,
+        Buffer.from(embeddingToStore.buffer, embeddingToStore.byteOffset, embeddingToStore.byteLength),
+      );
     }
   }
 }

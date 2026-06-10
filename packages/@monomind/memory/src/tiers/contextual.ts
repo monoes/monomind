@@ -22,6 +22,8 @@ export class ContextualMemory {
   private summaries: Map<string, SessionSummary> = new Map();
   private readonly namespace: string;
   private warmed = false;
+  /** Cached newest-first sorted summary list. Invalidated on store. */
+  private sortedCache: SessionSummary[] | null = null;
 
   constructor(
     private readonly backend: IMemoryBackend,
@@ -59,6 +61,7 @@ export class ContextualMemory {
           createdAt: entry.createdAt,
         });
       }
+      this.sortedCache = null;
     } catch {
       // Backend unavailable — proceed with empty cache
     }
@@ -70,6 +73,7 @@ export class ContextualMemory {
    */
   async storeSummary(summary: SessionSummary): Promise<void> {
     this.summaries.set(summary.sessionId, summary);
+    this.sortedCache = null; // invalidate sort cache
 
     const input: MemoryEntryInput = {
       key: `ctx-summary:${summary.sessionId}`,
@@ -97,9 +101,12 @@ export class ContextualMemory {
   async retrieveContext(query: string, maxTokens = 2000): Promise<string> {
     await this.warm();
     const lowerQuery = query.toLowerCase();
-    const sorted = Array.from(this.summaries.values()).sort(
-      (a, b) => b.createdAt - a.createdAt,
-    );
+    if (!this.sortedCache) {
+      this.sortedCache = Array.from(this.summaries.values()).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      );
+    }
+    const sorted = this.sortedCache;
 
     const parts: string[] = [];
     let budget = maxTokens;

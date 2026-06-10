@@ -346,10 +346,15 @@ export class AutoMemoryBridge extends EventEmitter {
       const synced = buffered.length + entries.length;
       this.lastSyncTime = Date.now();
 
-      // Prevent unbounded growth of syncedInsightKeys
+      // Prevent unbounded growth of syncedInsightKeys (single-pass: no intermediate array)
       if (this.syncedInsightKeys.size > 10_000) {
-        const keys = [...this.syncedInsightKeys];
-        this.syncedInsightKeys = new Set(keys.slice(keys.length - 5_000));
+        const keep = new Set<string>();
+        const skip = this.syncedInsightKeys.size - 5_000;
+        let i = 0;
+        for (const key of this.syncedInsightKeys) {
+          if (i++ >= skip) keep.add(key);
+        }
+        this.syncedInsightKeys = keep;
       }
 
       const result: SyncResult = {

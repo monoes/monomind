@@ -667,8 +667,10 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
     const ids = this.namespaceIndex.get(namespace);
     if (!ids) return 0;
 
+    // Snapshot before iterating: this.delete() modifies the same Set
+    const idList = [...ids];
     let deleted = 0;
-    for (const id of ids) {
+    for (const id of idList) {
       if (await this.delete(id)) {
         deleted++;
       }

@@ -605,13 +605,13 @@ export function createHybridService(
   embeddingGenerator: EmbeddingGenerator,
   dimensions: number = 1536
 ): UnifiedMemoryService {
+  // Creates an AgentDB-backed UnifiedMemoryService with persistence.
+  // For SQLite+AgentDB hybrid storage, use HybridBackend directly (see hybrid-backend.ts).
   return new UnifiedMemoryService({
     embeddingGenerator,
     dimensions,
     autoEmbed: true,
     cacheEnabled: true,
-    // Note: This would require extending UnifiedMemoryService to support HybridBackend
-    // For now, this creates an AgentDB service with persistence
     persistenceEnabled: true,
     persistencePath: databasePath,
   });

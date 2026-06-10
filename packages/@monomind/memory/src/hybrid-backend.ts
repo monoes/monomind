@@ -937,11 +937,11 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     const seen = new Set<string>();
     const combined: MemoryEntry[] = [];
 
-    for (const entry of [...semanticResults, ...structuredResults]) {
-      if (!seen.has(entry.id)) {
-        seen.add(entry.id);
-        combined.push(entry);
-      }
+    for (const entry of semanticResults) {
+      if (!seen.has(entry.id)) { seen.add(entry.id); combined.push(entry); }
+    }
+    for (const entry of structuredResults) {
+      if (!seen.has(entry.id)) { seen.add(entry.id); combined.push(entry); }
     }
 
     return combined;
@@ -965,7 +965,8 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     semanticResults: MemoryEntry[],
     structuredResults: MemoryEntry[]
   ): MemoryEntry[] {
-    const semanticIds = new Set(semanticResults.map((e) => e.id));
+    const semanticIds = new Set<string>();
+    for (const e of semanticResults) semanticIds.add(e.id);
     const additional = structuredResults.filter((e) => !semanticIds.has(e.id));
     return [...semanticResults, ...additional];
   }
@@ -977,7 +978,8 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     semanticResults: MemoryEntry[],
     structuredResults: MemoryEntry[]
   ): MemoryEntry[] {
-    const structuredIds = new Set(structuredResults.map((e) => e.id));
+    const structuredIds = new Set<string>();
+    for (const e of structuredResults) structuredIds.add(e.id);
     const additional = semanticResults.filter((e) => !structuredIds.has(e.id));
     return [...structuredResults, ...additional];
   }

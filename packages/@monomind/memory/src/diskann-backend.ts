@@ -254,9 +254,10 @@ export class DiskAnnBackend implements IMemoryBackend {
 
     // Add reverse edges (backlinks) — keep outdegree bounded
     for (const nid of neighbors) {
-      const nEdges = this.graph.get(nid) ?? [];
+      let nEdges = this.graph.get(nid);
+      if (!nEdges) { nEdges = []; this.graph.set(nid, nEdges); }
       if (!nEdges.includes(entry.id) && nEdges.length < this.maxConnections * 2) {
-        this.graph.set(nid, [...nEdges, entry.id]);
+        nEdges.push(entry.id);
       }
     }
 
@@ -292,7 +293,10 @@ export class DiskAnnBackend implements IMemoryBackend {
       scored.push({ id, score: this.dotProduct(qvec, vec) });
     }
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, k).map(s => s.id);
+    const ids: string[] = [];
+    const returnCount = Math.min(k, scored.length);
+    for (let i = 0; i < returnCount; i++) ids.push(scored[i].id);
+    return ids;
   }
 
   /**
@@ -329,7 +333,10 @@ export class DiskAnnBackend implements IMemoryBackend {
     }
 
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, candidateCount).map(s => s.id);
+    const ids: string[] = [];
+    const returnCount = Math.min(candidateCount, scored.length);
+    for (let i = 0; i < returnCount; i++) ids.push(scored[i].id);
+    return ids;
   }
 
   // ----------------------------------------------------------------

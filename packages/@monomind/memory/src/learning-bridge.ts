@@ -118,7 +118,7 @@ const MS_PER_HOUR = 3_600_000;
  */
 interface NeuralSystem {
   beginTask(context: string, domain: string): string;
-  recordStep(id: string, action: string, reward: number, embedding: Float32Array): void;
+  recordStep(id: string, step: { action: string; reward: number; stateEmbedding?: Float32Array }): void;
   completeTask(id: string, quality?: number): Promise<void>;
   findPatterns(embedding: Float32Array, k: number): Promise<unknown[]>;
   cleanup(): Promise<void>;
@@ -196,12 +196,11 @@ export class LearningBridge extends EventEmitter {
         // V1: use real embeddings from the memory bridge rather than hash noise
         const dim = await this.getEmbeddingDim();
         const embedding = await this.createEmbedding(insight.summary, dim);
-        this.neural.recordStep(
-          trajectoryId,
-          `record:${insight.category}`,
-          insight.confidence,
-          embedding,
-        );
+        this.neural.recordStep(trajectoryId, {
+          action: `record:${insight.category}`,
+          reward: insight.confidence,
+          stateEmbedding: embedding,
+        });
       } catch {
         // Neural system failure is non-fatal
       }
@@ -237,14 +236,10 @@ export class LearningBridge extends EventEmitter {
     if (this.neural && this.activeTrajectories.has(entryId)) {
       try {
         const trajectoryId = this.activeTrajectories.get(entryId)!;
-        const dim = await this.getEmbeddingDim();
-        const accessEmbedding = await this.createEmbedding(`access:${entryId}`, dim);
-        this.neural.recordStep(
-          trajectoryId,
-          'access',
-          this.config.accessBoostAmount,
-          accessEmbedding,
-        );
+        this.neural.recordStep(trajectoryId, {
+          action: 'access',
+          reward: this.config.accessBoostAmount,
+        });
       } catch {
         // Non-fatal
       }
@@ -438,6 +433,7 @@ export class LearningBridge extends EventEmitter {
   destroy(): void {
     this.destroyed = true;
     this.activeTrajectories.clear();
+    this.trajectoryConfidence.clear();
 
     if (this.neural && typeof this.neural.cleanup === 'function') {
       try {

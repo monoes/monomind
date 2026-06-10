@@ -55,11 +55,11 @@ export class ShortTermMemory {
     const lowerQuery = query.toLowerCase();
     const results: MemoryEntry[] = [];
 
-    // Iterate in reverse insertion order (newest first)
-    const entries = Array.from(this.buffer.values()).reverse();
-
-    for (const entry of entries) {
+    // Iterate in reverse insertion order (newest first) without a full array copy
+    const entries = Array.from(this.buffer.values());
+    for (let i = entries.length - 1; i >= 0; i--) {
       if (results.length >= limit) break;
+      const entry = entries[i];
       const haystack = `${entry.key} ${entry.content}`.toLowerCase();
       if (haystack.includes(lowerQuery)) {
         results.push(entry);

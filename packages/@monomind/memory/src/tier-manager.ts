@@ -147,15 +147,19 @@ export class TierManager {
     }
 
     // Deduplicate by id: partitioned > short-term > long-term > diskann
+    // Iterate each source directly to avoid allocating a combined array and to
+    // enable early-exit between sources once the limit is reached.
     const seen = new Set<string>();
     const merged: MemoryEntry[] = [];
 
-    for (const entry of [...partitionedResults, ...shortResults, ...longResults, ...annEntries]) {
-      if (!seen.has(entry.id)) {
-        seen.add(entry.id);
-        merged.push(entry);
+    outer: for (const batch of [partitionedResults, shortResults, longResults, annEntries]) {
+      for (const entry of batch) {
+        if (!seen.has(entry.id)) {
+          seen.add(entry.id);
+          merged.push(entry);
+        }
+        if (merged.length >= limit) break outer;
       }
-      if (merged.length >= limit) break;
     }
 
     return merged;

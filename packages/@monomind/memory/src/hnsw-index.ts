@@ -614,65 +614,6 @@ export class HNSWIndex extends EventEmitter {
     }
   }
 
-  private async searchLayer(
-    query: Float32Array,
-    entryPoint: string,
-    ef: number,
-    level: number
-  ): Promise<Array<{ id: string; distance: number }>> {
-    const visited = new Set<string>([entryPoint]);
-    const candidates: Array<{ id: string; distance: number }> = [];
-    const results: Array<{ id: string; distance: number }> = [];
-
-    const entryDist = this.distance(query, this.nodes.get(entryPoint)!.vector);
-    candidates.push({ id: entryPoint, distance: entryDist });
-    results.push({ id: entryPoint, distance: entryDist });
-
-    while (candidates.length > 0) {
-      // Get closest candidate
-      candidates.sort((a, b) => a.distance - b.distance);
-      const current = candidates.shift()!;
-
-      // Check termination condition
-      const worstResult = results.length > 0
-        ? Math.max(...results.map((r) => r.distance))
-        : Infinity;
-      if (current.distance > worstResult && results.length >= ef) {
-        break;
-      }
-
-      // Explore neighbors
-      const node = this.nodes.get(current.id);
-      if (!node) continue;
-
-      const connections = node.connections.get(level);
-      if (!connections) continue;
-
-      for (const neighborId of connections) {
-        if (visited.has(neighborId)) continue;
-        visited.add(neighborId);
-
-        const neighborNode = this.nodes.get(neighborId);
-        if (!neighborNode) continue;
-
-        const distance = this.distance(query, neighborNode.vector);
-
-        if (results.length < ef || distance < worstResult) {
-          candidates.push({ id: neighborId, distance });
-          results.push({ id: neighborId, distance });
-
-          // Keep results bounded
-          if (results.length > ef) {
-            results.sort((a, b) => a.distance - b.distance);
-            results.pop();
-          }
-        }
-      }
-    }
-
-    return results.sort((a, b) => a.distance - b.distance);
-  }
-
   /**
    * OPTIMIZED searchLayer using heap-based priority queues
    * Performance: O(log n) per operation vs O(n log n) for Array.sort()
@@ -748,10 +689,10 @@ export class HNSWIndex extends EventEmitter {
     candidates: Array<{ id: string; distance: number }>,
     M: number
   ): Array<{ id: string; distance: number }> {
-    // Simple selection: take M closest
+    // candidates arrive distance-ascending from searchLayerOptimized/toSortedArray;
+    // filter preserves that order, so no additional sort is needed.
     return candidates
       .filter((c) => c.id !== nodeId)
-      .sort((a, b) => a.distance - b.distance)
       .slice(0, M);
   }
 
