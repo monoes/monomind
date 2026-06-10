@@ -174,6 +174,9 @@ export const INIT_LEVELS: InitLevel[] = [
   { level: 6, controllers: ['federatedSession', 'graphAdapter'] },
 ];
 
+/** Pre-computed reverse of INIT_LEVELS for shutdown ordering. */
+const SHUTDOWN_LEVELS = [...INIT_LEVELS].reverse();
+
 // ===== ControllerRegistry =====
 
 /**
@@ -284,10 +287,9 @@ export class ControllerRegistry extends EventEmitter {
   async shutdown(): Promise<void> {
     if (!this.initialized) return;
 
-    // Shutdown in reverse level order
-    const reverseLevels = [...INIT_LEVELS].reverse();
+    // Shutdown in reverse level order (SHUTDOWN_LEVELS is pre-computed at module load)
 
-    for (const level of reverseLevels) {
+    for (const level of SHUTDOWN_LEVELS) {
       const controllersToShutdown = level.controllers
         .filter((name) => {
           const entry = this.controllers.get(name);
