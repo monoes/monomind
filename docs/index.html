@@ -264,6 +264,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <button class="nav-link" data-page="memory"><span class="nav-dot"></span>Memory &amp; Knowledge</button>
     <button class="nav-link" data-page="hooks"><span class="nav-dot"></span>Hooks &amp; Workers</button>
     <button class="nav-link" data-page="neural"><span class="nav-dot"></span>Intelligence</button>
+    <button class="nav-link" data-page="security"><span class="nav-dot"></span>MonoFence AI</button>
   </div>
   <div class="sidebar-footer">
     <a class="sidebar-link" href="https://github.com/monoes/monomind" target="_blank" rel="noopener">
@@ -480,6 +481,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">@monomind/guidance</td><td class="mono">packages/@monomind/guidance/</td><td>Governance control plane</td></tr>
         <tr><td class="mono">@monomind/swarm</td><td class="mono">packages/@monomind/swarm/</td><td>Multi-agent swarm coordination</td></tr>
         <tr><td class="mono">@monomind/routing</td><td class="mono">packages/@monomind/routing/</td><td>Keyword routing, route-outcome measurement</td></tr>
+        <tr><td class="mono">monofence-ai</td><td class="mono">packages/monofence-ai/</td><td>AI manipulation defense — prompt injection, jailbreak, evasion detection</td></tr>
         <tr><td class="mono">monograph</td><td class="mono">packages/monograph/</td><td>Code knowledge graph, 23 MCP tools</td></tr>
         <tr><td class="mono">monomind</td><td class="mono">/ (root)</td><td>Umbrella package published to npm</td></tr>
       </tbody>
@@ -1862,6 +1864,154 @@ Session N: empty round (zero findings AND zero actions)
 </div>
 <!-- ══════════════ END ORGANIZATIONS PAGE ══════════════ -->
 
+<!-- MONOFENCE AI -->
+<div id="page-security" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Security</span>
+      <h1 class="page-title">MonoFence AI</h1>
+      <p class="page-desc">AI manipulation defense for LLM applications. Detects prompt injection, jailbreaks, role switching, context manipulation, encoding attacks, and PII exposure using 50+ patterns — sub-millisecond latency.</p>
+    </div>
+
+    <div class="section-title reveal">Install</div>
+    <div class="code-block reveal">
+<span class="comment"># Standalone package — works with any LLM stack</span>
+<span class="cmd">npm install monofence-ai</span></div>
+
+    <div class="section-title reveal">Quick Usage</div>
+    <div class="code-block reveal">
+<span class="keyword">import</span> { createMonoDefence } <span class="keyword">from</span> <span class="string">'monofence-ai'</span>;
+
+<span class="keyword">const</span> fence = createMonoDefence();
+
+<span class="comment">// Fast check — sub-millisecond, &gt;12,000 req/s</span>
+<span class="keyword">const</span> result = <span class="keyword">await</span> fence.detect(userInput);
+<span class="keyword">if</span> (!result.safe) {
+  console.log(result.threats);     <span class="comment">// threat types detected</span>
+  console.log(result.overallRisk); <span class="comment">// 0.0 – 1.0</span>
+}
+
+<span class="comment">// Scan LLM output for PII leakage or echo attacks</span>
+<span class="keyword">const</span> scan = <span class="keyword">await</span> fence.scanOutput(llmResponse, originalPrompt);
+
+<span class="comment">// Multi-turn context tracking</span>
+console.log(fence.getContextState()); <span class="comment">// 'clean' | 'probing' | 'escalating' | 'attack'</span>
+fence.resetContext();                 <span class="comment">// start a new conversation</span></div>
+
+    <div class="section-title reveal">Key Features</div>
+    <div class="card-grid reveal">
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <div class="card-title">EvasionDetector</div>
+        <div class="card-desc">Normalizes obfuscated inputs before pattern matching. Defeats homoglyph substitution (Cyrillic/Greek lookalikes), spaced characters (<code>i g n o r e</code>), leet substitution (<code>ign0re</code>), and base64 encoding. Applied automatically in every <code>detect()</code> call.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📈</div>
+        <div class="card-title">ContextTracker</div>
+        <div class="card-desc">Sliding-window escalation state machine for multi-turn conversations. States progress <code>clean → probing → escalating → attack</code>. In attack state, <code>overallRisk</code> is raised to at least 0.5 even on individually benign inputs. Enabled by default.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔎</div>
+        <div class="card-title">OutputScanner</div>
+        <div class="card-desc">Scans LLM output for PII leakage, echo attacks (output that mirrors injected instructions), policy violations, and contradictions with the original prompt. Call <code>fence.scanOutput(llmOutput, prompt)</code>.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <div class="card-title">Allowlist</div>
+        <div class="card-desc">5 built-in bypass rules plus user-defined runtime rules with TTL decay. Full-bypass rules short-circuit detection entirely; typed rules allow detection to run for other threat types. Narrows false positives for trusted inputs.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔒</div>
+        <div class="card-title">SecurityHook</div>
+        <div class="card-desc">Registers a pre-task and pre-command scanner with priority 1000. Aborts execution when escalation state reaches <code>attack</code>. Off by default — opt in via <code>SecurityHook.register()</code> or the CLI flag.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🤝</div>
+        <div class="card-title">SecurityConsensus</div>
+        <div class="card-desc">Aggregates threat assessments from multiple parallel agents with attention-based weighting. A single critical threat short-circuits scoring (fail-secure). Returns <code>consensus</code>, <code>confidence</code>, and <code>criticalThreats</code>.</div>
+      </div>
+    </div>
+
+    <div class="section-title reveal">CLI Integration</div>
+    <div class="code-block reveal">
+<span class="comment"># Wire MonoFence AI into the pre-task hook (blocks on 'attack' state)</span>
+<span class="cmd">npx monomind hooks pre-task --monofence-ai-check</span>
+
+<span class="comment"># Enable in mastermind:review — adds security pass to each review iteration</span>
+<span class="keyword">/mastermind:review</span> --monofence-ai-check
+
+<span class="comment"># Deep security scan (includes SecurityConsensus across parallel agents)</span>
+<span class="keyword">/mastermind:review</span> --monofence-ai-check --monofence-ai-security-deep</div>
+
+    <div class="section-title reveal">API Reference</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">fence.detect(input)</td><td class="mono">ThreatDetectionResult</td><td>Primary scan — returns <code>safe</code>, <code>threats</code>, <code>overallRisk</code>. ~0.04ms per call.</td></tr>
+        <tr><td class="mono">fence.scanOutput(output, prompt)</td><td class="mono">OutputScanResult</td><td>Scan LLM output for PII leakage, echo attacks, and policy violations.</td></tr>
+        <tr><td class="mono">fence.getContextState()</td><td class="mono">ContextState</td><td>Current escalation state: <code>clean | probing | escalating | attack</code>.</td></tr>
+        <tr><td class="mono">fence.resetContext()</td><td class="mono">void</td><td>Reset conversation context. Call at the start of each new conversation.</td></tr>
+        <tr><td class="mono">fence.addAllowlistRule(rule)</td><td class="mono">void</td><td>Add a runtime bypass rule with optional TTL decay.</td></tr>
+        <tr><td class="mono">fence.isAllowed(input)</td><td class="mono">boolean</td><td>Check if input matches an allowlist rule before running detection.</td></tr>
+        <tr><td class="mono">calculateSecurityConsensus(results)</td><td class="mono">ConsensusResult</td><td>Aggregate threat assessments from multiple agents. Import from <code>monofence-ai</code>.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="section-title reveal">Threat Types Detected</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Category</th><th>Examples</th></tr></thead>
+      <tbody>
+        <tr><td>Prompt Injection</td><td>Instruction overrides, system prompt leakage attempts</td></tr>
+        <tr><td>Jailbreak</td><td>DAN, developer mode, role-play bypass patterns</td></tr>
+        <tr><td>Role Switching</td><td>"Pretend you are…", "Act as…", persona hijacking</td></tr>
+        <tr><td>Context Manipulation</td><td>Memory poisoning, prior context overrides</td></tr>
+        <tr><td>Encoding Attacks</td><td>Base64, homoglyph, leet, spaced-character evasion</td></tr>
+        <tr><td>PII Exposure</td><td>Output-scanning for SSN, credit cards, email leakage</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="section-title reveal">Advanced: Multi-Agent Consensus</div>
+    <div class="code-block reveal">
+<span class="keyword">import</span> { createMonoDefence, calculateSecurityConsensus } <span class="keyword">from</span> <span class="string">'monofence-ai'</span>;
+
+<span class="comment">// Run detection on two independent agents in parallel</span>
+<span class="keyword">const</span> [resultA, resultB] = <span class="keyword">await</span> Promise.all([
+  agentA.detect(input),
+  agentB.detect(input),
+]);
+
+<span class="keyword">const</span> consensus = calculateSecurityConsensus([
+  { result: resultA, weight: 0.6 },
+  { result: resultB, weight: 0.4 },
+]);
+<span class="comment">// consensus.consensus  → 'safe' | 'threat' | 'uncertain'</span>
+<span class="comment">// consensus.confidence → 0.0 – 1.0</span>
+<span class="comment">// consensus.criticalThreats → string[]</span></div>
+
+    <div class="section-title reveal">Migration from @monomind/monodefence</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Old (deprecated)</th><th>New</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">@monomind/monodefence</td><td class="mono">monofence-ai</td></tr>
+        <tr><td class="mono">createAIDefence()</td><td class="mono">createMonoDefence()</td></tr>
+        <tr><td class="mono">getAIDefence()</td><td class="mono">getMonoDefence()</td></tr>
+        <tr><td class="mono">AIDefenceConfig</td><td class="mono">MonoDefenceConfig</td></tr>
+        <tr><td class="mono">AIDefence</td><td class="mono">MonoDefence</td></tr>
+        <tr><td class="mono">--security-check</td><td class="mono">--monofence-ai-check</td></tr>
+        <tr><td class="mono">--security-deep</td><td class="mono">--monofence-ai-security-deep</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="reveal" style="color:var(--text2);font-size:13.5px;margin-top:8px">Deprecated aliases (<code>createAIDefence</code>, <code>@monomind/monodefence</code> import) remain available until v2. Migrate before the next major release.</p>
+  </div>
+</div>
+<!-- ══════════════ END MONOFENCE AI PAGE ══════════════ -->
+
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
@@ -2106,6 +2256,7 @@ function initPage(name) {
   if (name==='architecture')     setTimeout(revealArch, 300);
   if (name==='commands')         setupSearch('cli-search','cli-grid');
   if (name==='slash')            setupSearch('slash-search','slash-grid');
+  if (name==='security')         {} /* reveals handled by setupReveals above */
   if (motionOK) ScrollTrigger.refresh();
 }
 
