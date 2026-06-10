@@ -29,7 +29,7 @@
  */
 
 import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync } from 'fs';
-import { resolve, join, dirname, basename } from 'path';
+import { resolve, join, dirname, basename, relative, isAbsolute } from 'path';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { execSync, spawnSync } from 'child_process';
@@ -209,10 +209,11 @@ async function main() {
   // ── Phase 4: Write enrichment status to .monomind/ ────────────────────────
   try {
     const statusPath = join(projectDir, '.monomind', 'ua-enrich-status.json');
+    const relFile = changedFile && isAbsolute(changedFile) ? relative(projectDir, changedFile) : (changedFile || null);
     writeFileSync(statusPath, JSON.stringify({
       lastRun: new Date().toISOString(),
       mode: changedFile ? 'incremental' : 'full',
-      file: changedFile || null,
+      file: relFile,
       pluginFound: !!pluginDir,
       graphFound: !!existingGraph,
     }, null, 2));
