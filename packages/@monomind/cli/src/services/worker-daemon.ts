@@ -867,7 +867,6 @@ export class WorkerDaemon extends EventEmitter {
 
     const map = {
       timestamp: new Date().toISOString(),
-      projectRoot: this.projectRoot,
       structure: {
         hasPackageJson: existsSync(join(this.projectRoot, 'package.json')),
         hasTsConfig: existsSync(join(this.projectRoot, 'tsconfig.json')),
