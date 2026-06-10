@@ -78,7 +78,6 @@ RUN GLOBAL_NM="$(npm config get prefix)/lib/node_modules" \
        "$GLOBAL_NM/monomind/node_modules/better-sqlite3" \
        "$GLOBAL_NM/monomind/node_modules/sharp" \
        "$GLOBAL_NM/monomind/node_modules/@google" \
-       "$GLOBAL_NM/monomind/node_modules/@monomind/embeddings" \
        "$GLOBAL_NM/monomind/node_modules/@monomind/guidance" \
        "$GLOBAL_NM/monomind/node_modules/@monomind/neural" \
        "$GLOBAL_NM/monomind/node_modules/@grpc" \
