@@ -52,6 +52,7 @@
 *~
 .monomind/sessions/
 .monomind/security/
+.monomind/loops/
 .monomind/*.tmp
 .monomind/*.log
 .monomind/daemon.pid
