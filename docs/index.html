@@ -1293,7 +1293,7 @@ Session N: empty round (zero findings AND zero actions)
     </div>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;margin-bottom:4px;"><strong>Routing tab:</strong> Routing data is collected automatically whenever Claude Code routes a task to an agent. No setup required. Use <code>/hooks:overview</code> to understand the routing hook.</p>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>ADRs tab:</strong> ADRs are created via the slash command or discovered automatically from existing ADR files:</p>
-    <div class="code-block reveal"><span class="cmd">/monomind:adr</span>    <span class="comment"># draft an ADR from accumulated decision markers in the codebase</span></div>
+    <div class="code-block reveal"><span class="cmd">/mastermind:adr</span>    <span class="comment"># draft an ADR from accumulated decision markers in the codebase</span></div>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Swarm tab:</strong> Swarm history is created when you run agent organizations:</p>
     <div class="code-block reveal"><span class="cmd">/mastermind:createorg</span>    <span class="comment"># create an org with roles and topology</span>
 <span class="cmd">/mastermind:runorg</span>       <span class="comment"># start the org — agents run and swarm data is recorded</span></div>
@@ -1301,7 +1301,7 @@ Session N: empty round (zero findings AND zero actions)
     <div class="code-block reveal"><span class="comment"># From the dashboard: click "⊕ Build Docs" in the Chunks tab</span>
 
 <span class="comment"># From Claude Code:</span>
-<span class="cmd">/monomind:understand</span>    <span class="comment"># semantic enrichment — indexes all .md/.txt files</span>
+<span class="cmd">/mastermind:understand</span>    <span class="comment"># semantic enrichment — indexes all .md/.txt files</span>
 <span class="cmd">monomind daemon start</span>   <span class="comment"># background daemon also indexes incrementally</span></div>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;"><strong>Agent Graph tab:</strong> The Agent Graph is populated automatically by sessions that spawn sub-agents. Spawn agents by running complex tasks via <code>/mastermind:build</code>, <code>/mastermind:autodev</code>, or any orchestration command.</p>
 
@@ -1375,7 +1375,7 @@ Session N: empty round (zero findings AND zero actions)
         </tbody>
       </table>
     </div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;">The Wiki tab shows code nodes immediately after a graph build. To also see documentation nodes (from .md/.mdx/.txt files), click <strong>BUILD DOCS</strong> inside the Wiki tab or run <code>/monomind:understand</code>.</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;">The Wiki tab shows code nodes immediately after a graph build. To also see documentation nodes (from .md/.mdx/.txt files), click <strong>BUILD DOCS</strong> inside the Wiki tab or run <code>/mastermind:understand</code>.</p>
 
     <!-- GLOBAL FEED -->
     <div class="section-title reveal">Global Feed</div>
