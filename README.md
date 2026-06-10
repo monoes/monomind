@@ -1,38 +1,30 @@
 <p align="center">
-  <img src="assets/hero-banner.png" alt="Monomind — Autonomous Claude Code Orchestration" width="100%" />
-</p>
-
-<p align="center">
-  <img src="assets/logo.png" alt="Monomind Logo" width="120" />
+  <img src="https://raw.githubusercontent.com/monoes/monomind/main/assets/mascot.png" alt="Monomind Mascot" width="160" />
 </p>
 
 <h1 align="center">Monomind</h1>
 
 <p align="center">
-  <strong>Build. Learn. Evolve. Without stopping.</strong>
+  <strong>The autonomous Claude Code orchestration layer.</strong><br/>
+  Research → Build → Review → Repeat. While you sleep.
 </p>
 
 <p align="center">
-  The self-learning orchestration layer that turns Claude Code<br/>
-  into an autonomous, multi-agent engineering team.
-</p>
-
-<p align="center">
-  <a href="https://monoes.github.io/monomind/"><img src="https://img.shields.io/badge/docs-monoes.github.io%2Fmonomind-00D2AA?style=flat-square" alt="Documentation" /></a>
-  <a href="https://www.npmjs.com/package/monomind"><img src="https://img.shields.io/npm/v/monomind?color=%234F46E5&label=npm&style=flat-square" alt="npm version" /></a>
+  <a href="https://monoes.github.io/monomind/"><img src="https://img.shields.io/badge/docs-monoes.github.io%2Fmonomind-00D2AA?style=flat-square" alt="Docs" /></a>
+  <a href="https://www.npmjs.com/package/monomind"><img src="https://img.shields.io/npm/v/monomind?color=%2300D2AA&label=monomind&style=flat-square" alt="npm" /></a>
   <a href="https://www.npmjs.com/package/monomind"><img src="https://img.shields.io/npm/dm/monomind?color=%2310B981&style=flat-square" alt="downloads" /></a>
   <a href="https://github.com/monoes/monomind/stargazers"><img src="https://img.shields.io/github/stars/monoes/monomind?color=%23F59E0B&style=flat-square" alt="stars" /></a>
   <a href="https://github.com/monoes/monomind/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-%238B5CF6?style=flat-square" alt="license" /></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20-green?style=flat-square" alt="node" /></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="node" /></a>
 </p>
 
 <p align="center">
-  <a href="https://monoes.github.io/monomind/">📖 Full Docs</a> &nbsp;&bull;&nbsp;
-  <a href="#quickstart">Quickstart</a> &nbsp;&bull;&nbsp;
-  <a href="#what-monomind-does">What It Does</a> &nbsp;&bull;&nbsp;
-  <a href="#features">Features</a> &nbsp;&bull;&nbsp;
-  <a href="#commands">Commands</a> &nbsp;&bull;&nbsp;
-  <a href="#memory--intelligence">Memory</a>
+  <a href="https://monoes.github.io/monomind/">📖 Docs</a> &nbsp;·&nbsp;
+  <a href="#quickstart">Quickstart</a> &nbsp;·&nbsp;
+  <a href="#what-it-does">What It Does</a> &nbsp;·&nbsp;
+  <a href="#commands">Commands</a> &nbsp;·&nbsp;
+  <a href="#packages">Packages</a> &nbsp;·&nbsp;
+  <a href="https://github.com/monoes/monomind">GitHub</a>
 </p>
 
 ---
@@ -41,453 +33,214 @@
 
 You already use Claude Code. Monomind makes it **autonomous**.
 
-Type one command. Walk away. Come back to a clean codebase.
+Give it a direction. Walk away. Come back to a finished feature.
 
 ```bash
 /mastermind:autodev --tillend --focus security
 ```
 
-Monomind researches your project, selects the highest-impact improvement, builds it with a coordinated agent chain, reviews until zero findings — then repeats. Indefinitely. Until there's nothing left to fix.
+Monomind researches your project, selects the highest-impact improvement, builds it with a coordinated agent chain, reviews until zero findings — then loops. Indefinitely. Until there is nothing left to fix.
 
-> **Without Monomind:** You prompt Claude, wait, review, iterate.  
-> **With Monomind:** You set a direction. Monomind executes.
+```
+Without Monomind   You prompt Claude → wait → review → iterate manually
+With Monomind      You set a direction → Monomind executes the entire loop
+```
 
 ---
 
 ## Quickstart
 
 ```bash
-# Install
+# Install globally
 npm install -g monomind
 
-# Initialize in your project
+# Initialise in your project
 cd your-project
 monomind init
 
-# Wire into Claude Code
+# Wire into Claude Code as an MCP server
 claude mcp add monomind npx monomind mcp start
 
 # Start the background daemon
 monomind daemon start
 ```
 
-That's it. Open Claude Code and start orchestrating.
+Open Claude Code and run your first autonomous loop:
+
+```bash
+/mastermind:autodev --tillend
+```
 
 **[→ Full setup guide](https://monoes.github.io/monomind/#getting-started)**
 
 ---
 
-## What Monomind Does
+## What It Does
 
-### Autonomous Build Loop — `/mastermind:autodev`
-
-The flagship command. Research → Build → Review → Repeat.
+### `/mastermind:autodev` — The Autonomous Build Loop
 
 ```
-Phase 1  Research     Parallel scan: git log, file analysis, TODO/FIXME grep,
-                      monograph god nodes, memory search for prior work.
-                      Returns ranked list of 3-5 improvement candidates.
+Phase 1  Research    Parallel scan: git log, file analysis, TODO/FIXME grep,
+                     monograph god nodes, memory search for prior work.
+                     Returns ranked list of 3–5 improvement candidates.
 
-Phase 2  Selection    Picks by feasibility × blast radius × focus alignment.
-                      Stores selection to memory. Avoids repeating past work.
+Phase 2  Select      Picks by feasibility × blast-radius × focus alignment.
+                     Stores selection to AgentDB. Avoids repeating past work.
 
-Phase 3  Build        Spawns architect → coder → tester → reviewer chain.
-                      Runs with concrete spec and acceptance criteria.
+Phase 3  Build       Spawns architect → coder → tester → reviewer chain.
+                     Runs with concrete spec and acceptance criteria.
 
-Phase 4  Review Loop  Code Reviewer + Security Engineer + Reality Checker
-                      run in parallel. Auto-fixes. Repeats up to 5× until clean.
+Phase 4  Review      Code Reviewer + Security Engineer + Reality Checker
+                     run in parallel. Auto-fixes. Repeats up to 5× until clean.
 
-Phase 5  Log          Records completion. Continues to next improvement.
-                      --tillend schedules the next session automatically.
+Phase 5  Loop        Records completion. Continues to next improvement.
+                     --tillend loops until zero findings remain.
 ```
-
-```bash
-/mastermind:autodev                     # 1 improvement
-/mastermind:autodev 5                   # 5 improvements in sequence
-/mastermind:autodev --tillend           # run until nothing is left
-/mastermind:autodev --focus security    # bias toward security work
-/mastermind:autodev --focus dx          # bias toward developer experience
-/mastermind:autodev --newfeature 3      # discover & fully deliver 3 brand-new features
-                                        # (build → review → document → stage each one)
-```
-
-### From Prompt to Coordinated Execution
-
-```
-You: "Add webhook delivery with retries and a dead-letter queue"
-
-Monomind:
-  1. Software Architect   → designs the system
-  2. backend-dev          → implements webhook dispatcher
-  3. backend-dev          → implements retry logic with exponential backoff
-  4. Database Optimizer   → designs dead-letter queue schema
-  5. tester               → writes integration tests
-  6. Code Reviewer        → reviews all changes before merge
-```
-
-**[→ See all 10 pages of documentation](https://monoes.github.io/monomind/)**
-
----
-
-## Features
-
-### 230+ Specialized Agents
-
-Not generic assistants — domain experts with targeted system prompts, each optimized for a specific class of work.
-
-| Category | Examples |
-|---|---|
-| **Engineering** | Backend Architect, Frontend Developer, Database Optimizer, SRE, Embedded Firmware Engineer |
-| **Security** | Security Engineer, Threat Detection Engineer, Blockchain Security Auditor |
-| **Architecture** | Software Architect, System Architect, Salesforce Architect |
-| **Game Dev** | Unity Architect, Unreal Systems Engineer, Godot Scripter, Roblox Systems Scripter |
-| **Marketing** | SEO Specialist, TikTok Strategist, Content Creator, Growth Hacker |
-| **Product** | Product Manager, Sprint Prioritizer, CRO Specialist, Launch Strategist |
-| **AI/ML** | AI Engineer, ML Developer, Data Engineer, Model QA Specialist |
-| **Swarm/Consensus** | Hierarchical Coordinator, Mesh Coordinator, CRDT Synchronizer, Quorum Manager |
 
 ### Swarm Topologies
 
-Coordinate multiple agents working in parallel on the same problem:
-
-<p align="center">
-  <img src="assets/swarm-topology.png" alt="Swarm Topology" width="70%" />
-</p>
-
-| Topology | Best For |
-|---|---|
-| **Hierarchical** | Feature development — coordinator delegates to specialists |
-| **Mesh** | Research — all agents share findings peer-to-peer |
-| **Hierarchical-Mesh** | Complex projects — structured delegation with cross-talk |
-| **Adaptive** | Unknown complexity — topology evolves based on task |
-| **Centralized** | Simple tasks — single coordinator, minimal overhead |
-| **Hybrid** | Mixed — star topology with selective mesh connections |
-
-**Consensus algorithms:** Raft (leader-based), Byzantine (fault-tolerant up to f < n/3), Gossip (eventually consistent), CRDT (conflict-free), Quorum (majority vote).
-
-```bash
-/mastermind          # topology picker — recommends the best option for your task
-monomind swarm init --topology hierarchical --agents 8 --strategy specialized
+```
+Hierarchical   Coordinator → specialists → reviewers. Best for features.
+Mesh           All-to-all communication. Best for codebase analysis.
+Adaptive       Changes topology based on task complexity.
+Hive-Mind      Byzantine fault-tolerant consensus across 6+ agents.
 ```
 
-### Self-Learning Memory — The Memory Palace
+### Memory & Intelligence
 
-Every interaction makes Monomind smarter:
-
-| Layer | What It Stores | Tech |
-|---|---|---|
-| **Short-term** | In-flight context (current session) | SQLite + in-memory cache |
-| **Long-term** | Persistent knowledge and patterns | AgentDB + HNSW |
-| **Contextual** | Summarized episode clusters | RAPTOR consolidation worker |
-| **Shared** | Cross-agent state and promotions | PartitionedHNSW |
-
-- **Pure-JS HNSW** semantic search via AgentDB indexing
-- **Hybrid backend** — SQLite for structured data + AgentDB for semantic
-- **BM25 + vector** hybrid retrieval — precision + recall
-- **Session continuity** — pick up exactly where you left off
-
-### Knowledge Graph — Monograph
-
-30 graph tools that build a full dependency map of your codebase:
-
-```bash
-monograph_suggest "add webhook retry logic"  # → ranked relevant files
-monograph_query "UserService dependencies"   # → file paths + line numbers
-monograph_god_nodes                          # → high-centrality files
-monograph_impact "auth.ts"                   # → blast radius before changing
-```
-
-Queried automatically before every task. No manual invocation needed.
-
-### Keyword Routing & Outcome Measurement
-
-Monomind routes tasks deterministically and measures whether the routing helped:
-
-- **Keyword routing** — `createKeywordRouter` maps tasks to handlers without an LLM call
-- **Route-outcome correlation** — recommended routes are auto-correlated with actual outcomes; `doctor` surfaces routing accuracy and recommended-vs-actual adherence
-- **Trajectory + outcome logging** — steps, trajectories, and command results are recorded for later analysis
-
-> The full neural learning loop (SONA modes, LoRA, EWC++, Reasoning Bank) lives on the `monoes-full-loop` branch.
-
-### 3-Tier Model Routing
-
-Monomind routes every task to the cheapest model that can handle it:
-
-| Tier | Handler | Latency | Cost | Use Cases |
-|---|---|---|---|---|
-| **1** | Agent Booster (WASM) | <1ms | $0 | Simple transforms — skip the LLM |
-| **2** | Haiku | ~500ms | $0.0002 | Low-complexity tasks (<30%) |
-| **3** | Sonnet / Opus | 2-5s | $0.003-0.015 | Complex reasoning, architecture |
-
-### 29+ Hooks + 12 Background Workers
-
-Monomind hooks into every phase of your Claude Code workflow:
-
-| Hook | What It Does |
-|---|---|
-| `pre-task` | Routes to the best agent, suggests topology |
-| `post-task` | Learns from outcomes, updates neural patterns |
-| `pre-edit` | Context suggestions, blast radius check |
-| `post-edit` | Indexes new code into the knowledge graph |
-| `session-start` | Restores context, preloads relevant memory |
-| `session-end` | Persists learnings, updates metrics |
-
-**Background workers** (12 total): ultralearn, optimize, consolidate, predict, audit, map, preload, deepdive, document, refactor, benchmark, testgaps — all autonomous.
-
----
-
-## Live Dashboard
-
-Real-time visibility into every project, session, agent, memory operation, route decision, and token spend.
-
-```bash
-monomind daemon start    # starts background workers and session tracking
-```
-
-Sessions are fully recorded and replayable — full conversation replay with tool breakdown, agent spawns, and memory operations.
+Every session writes to [AgentDB](https://github.com/monoes/monomind) — a hybrid SQLite + HNSW vector store. The next session reads it. Monomind learns which improvements it already shipped, which patterns failed, and which agents perform best on which tasks.
 
 ---
 
 ## Commands
 
-### 53+ CLI Commands
+### Core Loop Commands
 
-```bash
-monomind init                              # Project initialization wizard
-monomind agent spawn --type coder          # Spawn a specific agent
-monomind swarm init --topology mesh        # Initialize a swarm
-monomind memory search "auth patterns"     # Search vector memory
-monomind hooks route --task "fix bug"      # Route to best agent
-monomind neural status                      # Inspect pattern-learning status
-monomind doctor --fix                      # Diagnose and auto-fix issues
-monomind daemon start                      # Start background workers
-```
-
-**[→ Full CLI reference](https://monoes.github.io/monomind/#commands)**
-
-### 160+ Slash Commands (inside Claude Code)
-
-| Command | What It Does |
+| Command | What it does |
 |---|---|
 | `/mastermind:autodev` | Autonomous research → build → review loop |
-| `/mastermind:review --tillend` | Keep reviewing and auto-fixing until clean |
-| `/mastermind:build <brief>` | Build a specific feature with an agent chain |
-| `/mastermind:architect` | System architecture design and review |
+| `/mastermind:autodev --tillend` | Loops until zero findings remain |
+| `/mastermind:build` | Build a feature from a brief |
+| `/mastermind:review` | Iterative code review until clean |
+| `/mastermind:debug` | Systematic root-cause debugging |
+| `/mastermind:tdd` | Test-Driven Development: Red→Green→Refactor |
+| `/mastermind:plan` | Write a comprehensive implementation plan |
+
+### Research & Ideas
+
+| Command | What it does |
+|---|---|
 | `/mastermind:research` | Deep research with structured output |
-| `/mastermind:createtask` | Decompose a spec into executable tasks |
-| `/mastermind:idea` | Research → evaluate → create implementation tasks |
-| `/mastermind:do` | Execute tasks from the board with parallel agents |
-| `/mastermind:review` | Multi-agent iterative review with auto-fix |
-| `/mastermind` | Topology picker — recommends best swarm for your task |
+| `/mastermind:idea` | Idea generation and evaluation |
+| `/mastermind:architect` | Architecture review and design |
+| `/mastermind:techport` | Assess a foreign codebase |
 
-**[→ Full slash command reference](https://monoes.github.io/monomind/#slash)**
-
-### `--tillend` — Fully Autonomous Loops
-
-Any command can run autonomously until there's nothing left to do:
+### Autonomous Orgs
 
 ```bash
-/mastermind:autodev --tillend --focus security
-# → runs until every security issue is found and fixed
-
-/mastermind:review --tillend --auto
-# → reviews and fixes until zero findings
-
-/mastermind:autodev 5 --tillend --maxruns 20
-# → 5 improvements per session, up to 20 sessions
+/mastermind:createorg --schedule 1h   # define + schedule an agent org
+/mastermind:runorg                    # start the loop
+/mastermind:orgs                      # list all orgs + status
+/mastermind:stoporg                   # stop a running org
 ```
 
-The loop uses `ScheduleWakeup` to resume across sessions. A staleness guard prevents duplicate runs. Human-in-loop items pause and wait for your response before continuing.
+### Business Domains
 
 ```bash
-# Stop a loop at any time
-touch .monomind/loops/{loop-id}.stop
+/mastermind:marketing    /mastermind:content    /mastermind:sales
+/mastermind:finance      /mastermind:ops        /mastermind:release
+```
+
+**[→ Full command reference (80+ commands)](https://monoes.github.io/monomind/#slash)**
+
+---
+
+## CLI
+
+```bash
+monomind init                   # project setup wizard
+monomind daemon start           # start background workers
+monomind agent spawn <type>     # spawn a named agent
+monomind swarm init             # initialise a multi-agent swarm
+monomind memory store           # store to AgentDB
+monomind memory search          # semantic search over AgentDB
+monomind hooks pre-task         # run pre-task security scan
+monomind doctor                 # diagnose your setup
 ```
 
 ---
 
-## Architecture
+## Packages
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                           Monomind                              │
-├─────────────────┬───────────────┬──────────────┬───────────────┤
-│  230+ Agents    │  Swarm Engine  │ Memory Palace │  Intelligence │
-│                 │               │              │               │
-│  Specialized    │  6 topologies  │ AgentDB HNSW │  Keyword      │
-│  agent defs     │  5 consensus   │ Knowledge    │  routing +    │
-│  + 3-tier       │  algorithms    │ Graph        │  outcome      │
-│  routing        │               │ (Monograph)  │  measurement  │
-├─────────────────┴───────────────┴──────────────┴───────────────┤
-│                   29+ Hooks + 12 Background Workers             │
-├─────────────────────────────────────────────────────────────────┤
-│                  MCP Server (stdio / http / WebSocket)          │
-├─────────────────────────────────────────────────────────────────┤
-│                        Claude Code Runtime                      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Key Packages
-
-The workspace ships 15 `@monomind/*` packages plus `monofence-ai`:
-
-| Package | Purpose |
-|---|---|
-| `@monoes/monomindcli` | CLI entry point — 43 top-level commands, 230+ agent defs, 160+ slash commands, hooks, MCP server |
-| `@monomind/memory` | AgentDB + HNSW vector search, PartitionedHNSW, TierManager, hybrid SQLite backend |
-| `@monomind/hooks` | Lifecycle hook bridge, 12 background workers (ultralearn, optimize, consolidate, predict, audit, map, preload, deepdive, document, refactor, benchmark, testgaps) |
-| `@monomind/monograph` | Knowledge graph construction, 30 MCP tools, BM25 + semantic search |
-| `@monomind/graph` | AST-based node/edge extraction, community detection, RAPTOR consolidation |
-| `@monomind/swarm` | UnifiedSwarmCoordinator, 6 topologies, 5 consensus algorithms |
-| `@monomind/security` | Input validation, prompt injection detection, CVE remediation, gVisor sandbox |
-| `@monomind/mcp` | MCP server transport (stdio / http / WebSocket) |
-| `@monomind/routing` | Two-stage LLM + keyword agent routing, confidence scoring |
-| `@monomind/performance` | Profiling, benchmarking, latency tracking |
-| `@monomind/plugins` | IPFS/Pinata plugin registry, install/create/list |
-| `@monomind/claims` | Claims-based authorization for agent actions |
-| `monofence-ai` | AI manipulation defense: prompt injection, jailbreak, and evasion detection (50+ patterns, ~0.04ms/call); EvasionDetector (homoglyph, leet, spacing, base64), ContextTracker (multi-turn escalation state machine), OutputScanner (PII leakage, echo attacks, policy violations), Allowlist (5 built-in + user-defined TTL rules), SecurityHook (pre-task/pre-command auto-blocking), SecurityConsensus (multi-agent threat aggregation) |
-| `@monomind/guidance` | Governance control plane, workflow templates, budget management |
-| `@monomind/shared` | Shared types, constants, utilities |
-
----
-
-## Performance
-
-| Metric | Result | Notes |
+| Package | npm | Purpose |
 |---|---|---|
-| Vector search | Pure-JS HNSW via AgentDB | Approximate nearest-neighbor (Malkov & Yashunin 2018); implemented in `hnsw-index.ts` |
-| Agent routing (LLM) | <2s | Target; Haiku-based routing |
-| Agent routing (fallback) | <5ms | Keyword scoring path |
-| Session restore | <500ms cold start | Target |
-| Memory reduction | 50–75% vs baseline | Target |
+| `monomind` | [![npm](https://img.shields.io/npm/v/monomind?style=flat-square&color=00D2AA)](https://www.npmjs.com/package/monomind) | Umbrella — install this |
+| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (41 commands) |
+| `monofence-ai` | [![npm](https://img.shields.io/npm/v/monofence-ai?style=flat-square&color=EF4444)](https://www.npmjs.com/package/monofence-ai) | AI manipulation defence |
+| `@monoes/monograph` | [![npm](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square&color=F59E0B)](https://www.npmjs.com/package/@monoes/monograph) | Knowledge graph engine |
 
----
+### monofence-ai — AI Security
 
-## Who Uses Monomind?
+Protect your LLM pipelines from prompt injection, jailbreaks, and evasion attacks:
 
-- **Solo developers** — the power of a full engineering team from one terminal
-- **Startups** — ship features 10x faster with autonomous agent pipelines
-- **Enterprise teams** — coordinate complex multi-module changes without drift
-- **Security teams** — automate audit, CVE triage, and compliance workflows
-- **Game studios** — Unity, Unreal, Godot, and Roblox specialists on demand
-- **Marketing teams** — content operations with 27 domain-specific marketing agents
+```typescript
+import { isSafe, createMonoDefence } from 'monofence-ai';
 
----
+isSafe('Ignore all previous instructions');  // → false (~0.04ms)
 
-## Documentation
-
-**Full interactive documentation:** **[monoes.github.io/monomind](https://monoes.github.io/monomind/)**
-
-| Section | Description |
-|---|---|
-| [Getting Started](https://monoes.github.io/monomind/#getting-started) | Install, configure MCP, run first autonomous loop |
-| [Architecture](https://monoes.github.io/monomind/#architecture) | Package map, agent hierarchy, data flows |
-| [Memory & Knowledge](https://monoes.github.io/monomind/#memory) | Memory Palace tiers, AgentDB, Monograph graph tools |
-| [Hooks & Workers](https://monoes.github.io/monomind/#hooks) | 29+ hook events, 12 workers, settings.json wiring |
-| [Swarm Coordination](https://monoes.github.io/monomind/#swarm) | 6 topologies, 5 consensus algorithms, agent hierarchy |
-| [CLI Commands](https://monoes.github.io/monomind/#commands) | All 53+ commands with flags and examples |
-| [Slash Commands](https://monoes.github.io/monomind/#slash) | All 160+ slash commands across 22 categories |
-| [Mastermind](https://monoes.github.io/monomind/#mastermind) | autodev loop, --tillend mechanics, Brain protocol |
-
----
-
-## Contributing
-
-```bash
-git clone https://github.com/monoes/monomind.git
-cd monomind
-pnpm install
-monomind doctor --fix
+const fence = createMonoDefence({ enableContextTracking: true });
+const result = await fence.detect(userInput);
+// result.safe, result.threats, result.overallRisk
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Features: **EvasionDetector** (homoglyphs, leetspeak, base64) · **ContextTracker** (multi-turn escalation) · **OutputScanner** (PII leakage, echo attacks) · **Allowlist** (5 built-in + custom rules) · **SecurityHook** (pre-task blocking)
 
 ---
 
-## License
+## How the Agents Work
 
-MIT — See [LICENSE](LICENSE) for details.
+```
+Claude Code  ←→  MCP Server  ←→  Monomind Daemon
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    ▼                 ▼                 ▼
+               AgentDB           Monograph          Hooks
+            (vector memory)   (knowledge graph)   (17 hook types)
+                    │                 │                 │
+                    └─────────────────┼─────────────────┘
+                                      ▼
+                              Agent Swarm
+                    architect · coder · tester · reviewer
+                    security · perf · docs · researcher
+```
+
+Monomind coordinates. Claude Code creates. You ship.
+
+---
+
+## Why Monomind?
+
+- **80+ slash commands** wired directly into Claude Code
+- **60+ agent types** for every engineering task
+- **Self-learning routing** — agents improve with every session
+- **Monograph** — full codebase knowledge graph, always fresh
+- **AgentDB** — hybrid SQLite + HNSW vector memory
+- **17 hook types** — pre/post edit, task, command, session
+- **Security layer** — monofence-ai defends every agent boundary
+- **One command** to set direction. Nothing else needed.
+
+---
+
+## Resources
+
+- 📖 [Documentation](https://monoes.github.io/monomind/)
+- 🐛 [Issues](https://github.com/monoes/monomind/issues)
+- 💬 [Discussions](https://github.com/monoes/monomind/discussions)
+- 📦 [Changelog v1.11](https://github.com/monoes/monomind/blob/main/CHANGELOG-v1.11.md)
 
 ---
 
 <p align="center">
-  <strong>Stop prompting. Start orchestrating.</strong>
+  <img src="https://raw.githubusercontent.com/monoes/monomind/main/assets/mascot.png" alt="Monomind" width="80" /><br/>
+  <sub>Built with ♥ by <a href="https://github.com/monoes">monoes</a> · MIT License</sub>
 </p>
-
-<p align="center">
-  <a href="https://monoes.github.io/monomind/">📖 Docs</a> &nbsp;&bull;&nbsp;
-  <a href="https://www.npmjs.com/package/monomind">npm</a> &nbsp;&bull;&nbsp;
-  <a href="https://github.com/monoes/monomind">GitHub</a> &nbsp;&bull;&nbsp;
-  <a href="https://github.com/monoes/monomind/issues">Issues</a>
-</p>
-
----
-
-## Acknowledgements
-
-Monomind builds on ideas, patterns, and research from the following projects:
-
-| Repository | Used for |
-|---|---|
-| [ruvnet/ruflo](https://github.com/ruvnet/ruflo) | Original skeleton that provided the foundational hooks system, swarm coordination, and SPARC agent methodology. |
-| [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) | Informs the multi-agent instruction file layout and specialist agent catalog design. |
-| [microsoft/autogen](https://github.com/microsoft/autogen) | Provides the human-in-the-loop interrupt gate pattern and auto-retry tool logic in `@monomind/hooks`. |
-| [crewAIInc/crewAI](https://github.com/crewAIInc/crewAI) | Provides the multi-tier memory architecture (`ShortTermMemory`, `EntityMemory`, `ContextualMemory`, `LongTermMemory`) in `@monomind/memory`. |
-| [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | Provides the `SwarmCheckpointer` graph-checkpoint-and-resume pattern and fan-out/fan-in workflow DSL. |
-| [All-Hands-AI/OpenHands](https://github.com/All-Hands-AI/OpenHands) | Provides the per-agent `SandboxConfig` sandboxing model and EventStream session replay architecture. |
-| [agno-agi/agno](https://github.com/agno-agi/agno) | Provides the `AgentMemory` knowledge-base architecture and team-level agent coordination class. |
-| [huggingface/smolagents](https://github.com/huggingface/smolagents) | Provides the explicit planning-before-execution step in `LATSPlanner` and the `PlanStore` persistence layer. |
-| [pydantic/pydantic-ai](https://github.com/pydantic/pydantic-ai) | Provides typed agent I/O schema patterns and auto-retry-on-validation-failure used throughout agent contracts. |
-| [BerriAI/atomic-agents](https://github.com/KRunchPL/atomic-agents) | Provides `BaseIOSchema` typed agent contracts and `SystemPromptContextProvider` composition patterns. |
-| [stanfordnlp/dspy](https://github.com/stanfordnlp/dspy) | Provides the `BootstrapFewShot`/MIPRO prompt optimization pipeline and Bayesian exploration in `PromptOptimizer.optimize()`. |
-| [aurelio-labs/semantic-router](https://github.com/aurelio-labs/semantic-router) | Provides the utterance-based `RouteLayer` that replaced static routing codes in the agent dispatcher. |
-| [langfuse/langfuse](https://github.com/langfuse/langfuse) | Provides the trace/span/generation observability hierarchy and prompt version management in `@monomind/hooks`. |
-| [karpathy/autoresearch](https://github.com/karpathy/autoresearch) | Provides the BASELINE/KEEP/DISCARD experiment loop protocol and time-budget pattern used in `@monomind/graph`. |
-| [safishamsi/graphify](https://github.com/safishamsi/graphify) | Provides the AST-based knowledge graph construction, Louvain community detection, and `GRAPH_REPORT.md` format that form `@monomind/graph`. |
-| [google/gvisor](https://gvisor.dev) | Provides the `runsc` OCI runtime that reduces container syscall surface to ~50 interceptions, wired into `SandboxConfig.use_gvisor`. |
-| [Indirect Injection research](https://arxiv.org/abs/2302.12173) | `validateExternalContent()` in `@monomind/security` applies the injection pattern detection to all externally-sourced tool content. |
-| [FOREVER Forgetting Curve](https://arxiv.org/html/2601.03938v1) | `LearningBridge.decayConfidences()` implements the importance-weighted exponential forgetting curve (`importanceScore × e^(−λt)`). |
-| [Awesome RLVR](https://github.com/opendilab/awesome-RLVR) | `hooksModelOutcome` `verifier_type` field (tsc/vitest/eslint/llm_judge) provides grounded binary reward signals. |
-| [ERL — Experiential Reflective Learning](https://arxiv.org/abs/2603.24639) | Structured `{condition, action, confidence}` heuristics extracted at `hooks_post-task` and injected as ranked hints into `hooks_pre-task`. |
-| [A-MEM — Agentic Memory](https://arxiv.org/abs/2502.12110) | Auto-links top-3 HNSW neighbors via `bridgeRecordCausalEdge` after every `bridgeStoreEntry` call in `@monomind/memory`. |
-| [Collaborative Memory Promotion](https://arxiv.org/abs/2505.18279) | `checkAndPromoteEntry()` in `SQLiteBackend` auto-promotes entries from `private` to `team` scope after 3+ distinct agent reads within 24 h. |
-| [Zep / Graphiti — Bi-Temporal Knowledge Graph](https://arxiv.org/abs/2501.13956) | `MemoryEntry.eventAt` separates event time T from ingestion time T' for bi-temporal filtering without index rebuilds. |
-| [HippoRAG 2 — PPR Graph Retrieval](https://arxiv.org/abs/2405.14831) | `MemoryGraph.pprRerank()` expands HNSW candidates one hop via `MemoryEntry.references` edges. |
-| [RAPTOR — Recursive Abstractive Tree Indexing](https://arxiv.org/abs/2401.18059) | `RaptorWorker` clusters episodic entries, summarizes each cluster, and stores results as `contextual`-tier entries. |
-| [Multi-Agent Reflexion (MAR)](https://arxiv.org/html/2512.20845) | `hooks_post-task` returns `marReflection` on task failure via a Diagnoser/Critic/Aggregator reflection loop. |
-| [TextGrad](https://arxiv.org/abs/2406.07496) | Stores `textual_gradient` critiques to the `gradients` memory namespace for injection into the next prompt on failure. |
-| [CP-WBFT](https://arxiv.org/abs/2511.10400) | `weightedTally()` scales each agent's vote by confidence in `@monomind/hooks` hive-mind consensus (AAAI 2026). |
-| [GraphRAG](https://arxiv.org/abs/2404.16130) | `MemoryGraph.getCommunitySummaries()` prepends community-level descriptors to semantic search results. |
-| [MemPalace](https://github.com/nokhodian/mempalace) | Foundation of the memory palace system with BM25 verbatim retrieval, Wing/Room/Hall hierarchy, and temporal knowledge graph. |
-| [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser) | Native Rust CDP client architecture that powers `npx monomind browse`. |
-| [AgentSeal/codeburn](https://github.com/AgentSeal/codeburn) | Token cost attribution model tracking spend by task, tool, model, and project used in `features/codeburn.md`. |
-| [fallow-rs/fallow](https://github.com/fallow-rs/fallow) | Dead code detection patterns used in `monograph-tools.ts` via `deadCodePct()` and `unusedDepsPct()`. |
-| [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | 27-pattern HTML/CSS anti-pattern detection CLI integrated via `npx impeccable detect` in the `monodesign` skill. |
-| [hardikpandya/stop-slop](https://github.com/hardikpandya/stop-slop) | Directly integrated as the `stop-slop` skill for detecting and removing AI writing tells from prose. |
-| [obra/superpowers](https://github.com/obra/superpowers) | Forms the complete `superpowers` skill layer providing brainstorming, TDD, systematic debugging, and finishing workflows. |
-| [Lum1104/Understand-Anything](https://github.com/Lum1104/Understand-Anything) | Informs `monomind:understand` semantic enrichment and `@monomind/graph` knowledge graph traversal architecture. |
-| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | Provides the design system methodology and component-first craft approach that forms the `monodesign` skill. |
-| [paperclipai/paperclip](https://github.com/paperclipai/paperclip) | Autonomous business workflow patterns that informed `mastermind:ops`, `mastermind:finance`, and `mastermind:sales`. |
-
----
-
-## Research Acknowledgements
-
-Monomind implements techniques from peer-reviewed research across distributed systems, machine learning, and software engineering:
-
-| Technique | Paper | Applied In |
-|---|---|---|
-| HNSW approximate nearest neighbor | Malkov & Yashunin, 2018 — *Efficient and Robust ANN* | `HNSWIndex` and `HnswLite` in `@monomind/memory` vector search |
-| Byzantine fault tolerance | Castro & Liskov, 1999 — *Practical Byzantine Fault Tolerance* | `weightedTally()` in CP-WBFT hive-mind consensus |
-| Raft consensus | Ongaro & Ousterhout, 2014 — *In Search of an Understandable Consensus Algorithm* | `RaftManager` swarm coordinator state machine |
-| CRDT data structures | Shapiro et al., 2011 — *Conflict-Free Replicated Data Types* | `CrdtSynchronizer` for eventually consistent agent memory |
-| Gossip protocols | Demers et al., 1987 — *Epidemic Algorithms for Replicated Database Maintenance* | `GossipCoordinator` cross-agent state propagation |
-| Hyperbolic embeddings | Nickel & Kiela, 2017 — *Poincaré Embeddings for Learning Hierarchical Representations* | Code graph hierarchical vector space in `@monomind/memory` |
-| Int8 quantization | Dettmers et al., 2022 — *LLM.int8(): 8-bit Matrix Multiplication for Transformers* | Weight compression for neural pattern memory footprint reduction |
-| GOAP planning | Orkin, 2004 — *Applying Goal-Oriented Action Planning to Games* | `code-goal-planner` and `sublinear-goal-planner` agents |
-| Self-play RL | Silver et al., 2017 — *Mastering Chess and Shogi by Self-Play* | Pattern reinforcement loop in ReasoningBank |
-| Hierarchical memory | Tulving, 1972 — *Episodic and Semantic Memory* | AgentDB episodic/semantic namespace split in `@monomind/memory` |
-| PageRank influence | Page et al., 1998 — *The PageRank Citation Ranking* | `pagerank-analyzer` agent and `MemoryGraph` graph centrality scoring |
-| Hindsight Experience Replay | Andrychowicz et al., 2017 — *HER: Hindsight Experience Replay* | HER policy learner in the RL router |
-| SPARC methodology | Agile/TDD literature | `sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, and `refinement` agents |
-| Sublinear algorithms | Various — approximation theory | `sublinear-goal-planner`, `matrix-optimizer`, and `trading-predictor` agents |
