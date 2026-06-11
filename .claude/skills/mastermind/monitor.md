@@ -1128,7 +1128,7 @@ If `caller` is not "command", follow `_protocol.md` Brain Write Procedure for do
       "type": "linear",
       "filter": {
         "team": "ENG",
-        "assignees": ["morteza@agent-f.com"],
+        "assignees": ["your@email.com"],
         "states": ["Todo"],
         "labels": ["ai-agent"],
         "project": ""

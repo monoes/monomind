@@ -1343,8 +1343,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
 
         // Generate HTML on-the-fly from SQLite DB using the improved toHtml export
         if (fs.existsSync(dbPath)) {
-          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
-          const { toHtml } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/export/html.js');
+          const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
+          const { toHtml } = await import(new URL('../../../@monomind/monograph/dist/src/export/html.js', import.meta.url).href);
           const db = openDb(dbPath);
           let html;
           try {
@@ -1404,7 +1404,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let report = null, exists = false, stats = null;
         if (fs.existsSync(dbPath)) {
           exists = true;
-          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+          const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
           const db = openDb(dbPath);
           try {
             const nodeCount = db.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
@@ -1447,7 +1447,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         let nodes = [], edges = [];
         if (fs.existsSync(dbPath)) {
-          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+          const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
           const db = openDb(dbPath);
           try {
             const nodeLimit = Math.min(parseInt(qs.get('limit') || '500', 10), 5000);
@@ -1585,8 +1585,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
 
         // Run doc parsing in background
         (async () => {
-          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
-          const { isFileCached, updateFileCache, hashFileContent } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/file-cache.js');
+          const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
+          const { isFileCached, updateFileCache, hashFileContent } = await import(new URL('../../../@monomind/monograph/dist/src/storage/file-cache.js', import.meta.url).href);
           const { readFileSync, readdirSync, statSync } = fs;
 
           const docExts = new Set(['.md', '.mdx', '.txt', '.rst']);
@@ -1749,7 +1749,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!id) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?id=' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(404); res.end(JSON.stringify({ error: 'Graph not built' })); return; }
-        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+        const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
         const db = openDb(dbPath);
         let content = '', filePath = '', startLine = 0, endLine = 0, language = '', name = '', type = '';
         try {
@@ -1799,8 +1799,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!q) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?q=' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ nodes: [] })); return; }
-        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
-          const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
+        const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
+          const { ftsSearch } = await import(new URL('../../../@monomind/monograph/dist/src/storage/fts-store.js', import.meta.url).href);
         const db = openDb(dbPath);
         let nodes = [];
         try {
@@ -1831,7 +1831,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!id || !fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ related: [] })); return; }
-        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+        const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
         const db = openDb(dbPath);
         const related = [];
         try {
@@ -1872,7 +1872,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!id || !fs.existsSync(dbPath)) { res.writeHead(404); res.end(JSON.stringify({ error: 'Not found' })); return; }
-        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+        const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
         const db = openDb(dbPath);
         let result = { node: null, content: '', neighbors: [], markdown: '' };
         try {
@@ -1932,8 +1932,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!q) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?q= parameter' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, result: 'Graph not built yet. Run: monomind monograph build' })); return; }
-        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
-          const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
+        const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
+          const { ftsSearch } = await import(new URL('../../../@monomind/monograph/dist/src/storage/fts-store.js', import.meta.url).href);
         const db = openDb(dbPath);
         let result = '';
         try {
@@ -1969,8 +1969,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!nodeQ) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?node= parameter' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, explanation: 'Graph not built yet. Run: monomind monograph build' })); return; }
-        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
-          const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
+        const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
+          const { ftsSearch } = await import(new URL('../../../@monomind/monograph/dist/src/storage/fts-store.js', import.meta.url).href);
         const db = openDb(dbPath);
         let explanation = '';
         try {
@@ -2013,8 +2013,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         if (!from || !to) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?from= and ?to= parameters' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, path: 'Graph not built yet.' })); return; }
         // Import only graphology-free storage modules to avoid broken graphology dep
-        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
-        const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
+        const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
+        const { ftsSearch } = await import(new URL('../../../@monomind/monograph/dist/src/storage/fts-store.js', import.meta.url).href);
         // SQL-based BFS for shortest path (avoids graphology)
         const getShortestPath = (db, fromId, toId, maxDepth = 6) => {
           if (fromId === toId) return [fromId];
@@ -2141,10 +2141,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const dbPath2 = path.join(d2, '.monomind', 'monograph.db');
           if (!fs.existsSync(dbPath2)) { err('monograph.db not found — run monograph build first'); return; }
           // Import only graphology-free storage modules to avoid broken graphology dep
-          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
-          const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
-          const { countNodes } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/node-store.js');
-          const { countEdges } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/edge-store.js');
+          const { openDb, closeDb } = await import(new URL('../../../@monomind/monograph/dist/src/storage/db.js', import.meta.url).href);
+          const { ftsSearch } = await import(new URL('../../../@monomind/monograph/dist/src/storage/fts-store.js', import.meta.url).href);
+          const { countNodes } = await import(new URL('../../../@monomind/monograph/dist/src/storage/node-store.js', import.meta.url).href);
+          const { countEdges } = await import(new URL('../../../@monomind/monograph/dist/src/storage/edge-store.js', import.meta.url).href);
           const getShortestPath = (db, fromId, toId, maxDepth = 6) => {
             if (fromId === toId) return [fromId];
             const visited = new Set([fromId]);
