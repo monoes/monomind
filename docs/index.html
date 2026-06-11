@@ -2172,8 +2172,10 @@ const navLinks = document.querySelectorAll('.nav-link[data-page]');
 const overlay  = document.getElementById('overlay');
 let current = 'home';
 
-function go(name) {
-  if (name === current || !pages[name]) return;
+function go(name, skipHash) {
+  if (!pages[name]) return;
+  if (!skipHash) location.hash = name === 'home' ? '' : name;
+  if (name === current) return;
   if (motionOK) {
     overlay.style.transition = 'transform .32s cubic-bezier(.76,0,.24,1)';
     overlay.style.transformOrigin = 'bottom';
@@ -2195,6 +2197,11 @@ function go(name) {
 function updateNav(name) { navLinks.forEach(l => l.classList.toggle('active', l.dataset.page === name)); }
 navLinks.forEach(l => l.addEventListener('click', () => go(l.dataset.page)));
 document.addEventListener('click', e => { const b = e.target.closest('[data-page]'); if (b && !b.classList.contains('nav-link')) go(b.dataset.page); });
+
+// Hash-based routing: read hash on load and on back/forward
+function goHash() { const h = location.hash.replace('#',''); go(pages[h] ? h : 'home', true); }
+window.addEventListener('hashchange', goHash);
+goHash();
 
 // Progress bar
 const bar = document.getElementById('progress-bar');
