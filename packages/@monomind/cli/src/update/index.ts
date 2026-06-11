@@ -61,14 +61,11 @@ import * as semver from 'semver';
 export function getUpdateTagline(currentVersion: string): string {
   try {
     const cached = getCachedVersions();
-    // Use the umbrella package as the canonical version signal
-    const latest = cached['monomind'] || cached['@monoes/monomindcli'];
+    // Compare CLI version against its own cached version only — the umbrella package
+    // has a different version number and must not be used for this comparison.
+    const latest = cached['@monoes/monomindcli'];
     if (!latest || !semver.valid(latest) || !semver.valid(currentVersion)) return '';
     if (semver.lte(latest, currentVersion)) return '  ✓ up to date';
-    const type = semver.diff(currentVersion, latest);
-    if (type === 'patch' || type === 'minor') {
-      return `  ↑ v${latest} installing...`;
-    }
     return `  ↑ v${latest} available`;
   } catch {
     return '';

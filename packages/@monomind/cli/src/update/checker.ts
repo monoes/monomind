@@ -4,6 +4,7 @@
  */
 
 import { createRequire } from 'module';
+import { execFileSync } from 'child_process';
 import * as semver from 'semver';
 import { reserveCheck, recordCheck, getCachedVersions } from './rate-limiter.js';
 
@@ -133,8 +134,8 @@ function shouldAutoUpdate(
 ): boolean {
   if (updateType === 'none') return false;
 
-  // Critical security packages always auto-update patches
-  if (priority === 'critical' && updateType === 'patch') {
+  // Critical security packages always auto-update patches and minors
+  if (priority === 'critical' && (updateType === 'patch' || updateType === 'minor')) {
     return true;
   }
 
@@ -149,23 +150,35 @@ function shouldAutoUpdate(
 export function getInstalledVersion(packageName: string): string | null {
   if (!isValidNpmName(packageName)) return null;
   try {
-    // Try to find the package in node_modules
-    const possiblePaths = [
+    // Attempt 1: let Node resolve from any search path (covers local and global installs)
+    try {
+      const resolved = require.resolve(`${packageName}/package.json`);
+      const pkg = require(resolved);
+      if (pkg.version) return pkg.version;
+    } catch { /* not on default paths */ }
+
+    // Attempt 2: resolve from cwd (monorepo / workspace installs)
+    const cwdPaths = [
       `${packageName}/package.json`,
       `../../node_modules/${packageName}/package.json`,
       `../../../node_modules/${packageName}/package.json`,
     ];
-
-    for (const modulePath of possiblePaths) {
+    for (const modulePath of cwdPaths) {
       try {
-        // Use dynamic import with require for package.json
         const resolved = require.resolve(modulePath, { paths: [process.cwd()] });
         const pkg = require(resolved);
-        return pkg.version;
-      } catch {
-        continue;
-      }
+        if (pkg.version) return pkg.version;
+      } catch { continue; }
     }
+
+    // Attempt 3: npm global prefix (covers `npm i -g monomind`)
+    try {
+      const prefix = execFileSync('npm', ['prefix', '-g'], { encoding: 'utf8', timeout: 3000 }).trim();
+      const globalPkg = require(
+        require.resolve(`${packageName}/package.json`, { paths: [`${prefix}/lib/node_modules`] })
+      );
+      if (globalPkg.version) return globalPkg.version;
+    } catch { /* no global install or npm unavailable */ }
 
     return null;
   } catch {
