@@ -57,23 +57,23 @@ Every business function needs a team. Monomind lets you design that team in one 
 
 ```mermaid
 flowchart TD
-    U(["👤 You"])
+    U(["You"])
     CO["/mastermind:createorg\nDefine goal + roles"]
     RO["/mastermind:runorg\nStart daemon"]
-    BOSS["🎯 Boss Agent\n(coordinator)"]
-    W["✍️ Writer\nContent Creator"]
-    S["🔍 SEO Specialist"]
-    R["✅ Reviewer"]
-    M["📣 Growth Marketer"]
-    BOARD[("📋 Shared\nTask Board")]
-    MEM[("🧠 AgentDB\nMemory")]
+    BOSS["Boss Agent\ncoordinator"]
+    W["Writer\nContent Creator"]
+    S["SEO Specialist"]
+    R["Reviewer"]
+    M["Growth Marketer"]
+    BOARD[("Shared\nTask Board")]
+    MEM[("AgentDB\nMemory")]
 
     U --> CO --> RO --> BOSS
     BOSS -->|spawns| W
     BOSS -->|spawns| S
     BOSS -->|spawns| R
     BOSS -->|spawns| M
-    BOSS <-->|claims & reports| BOARD
+    BOSS <-->|claims + reports| BOARD
     W <-->|stores output| MEM
     S <-->|reads context| MEM
 
@@ -134,9 +134,9 @@ Type "go" to save, or describe changes.
 
 ```mermaid
 graph LR
-    A["1–3 roles"] -->|mesh| B["All-to-all\ndirect comms"]
-    C["4–6 roles"] -->|star| D["Boss → workers\nfan-out"]
-    E["7+ roles"] -->|hierarchical| F["Boss → leads → workers\nmiddle management"]
+    A["1-3 roles"] -->|mesh| B["All-to-all\ndirect comms"]
+    C["4-6 roles"] -->|star| D["Boss to workers\nfan-out"]
+    E["7+ roles"] -->|hierarchical| F["Boss to leads to workers\nmiddle management"]
 ```
 
 ### Pre-built org types
@@ -168,11 +168,11 @@ For code, `/mastermind:autodev` is the equivalent of Orgs — a loop that resear
 
 ```mermaid
 flowchart LR
-    R["🔍 Research\nParallel scan:\ngit log · files\nTODOs · graph\nmemory"] --> S
-    S["🎯 Select\nFeasibility ×\nblast-radius ×\nfocus"] --> B
-    B["🔨 Build\nArchitect →\nCoder →\nTester →\nReviewer"] --> V
-    V["✅ Review Loop\nCode + Security\n+ Reality\n≤5 iterations"] --> L
-    L["🔁 Log & Loop\nStore to memory\n--tillend:\nschedule next"]
+    R["Research\nParallel scan:\ngit log, files\nTODOs, graph\nmemory"] --> S
+    S["Select\nFeasibility x\nblast-radius x\nfocus"] --> B
+    B["Build\nArchitect\nCoder\nTester\nReviewer"] --> V
+    V["Review Loop\nCode + Security\n+ Reality\nmax 5 iterations"] --> L
+    L["Log + Loop\nStore to memory\n--tillend:\nschedule next"]
     L -->|"more to do"| R
 
     style R fill:#00D2AA22,stroke:#00D2AA
@@ -235,10 +235,10 @@ Every session, every agent, every org writes to **AgentDB** — a hybrid SQLite 
 
 ```mermaid
 graph TD
-    L0["L0 — In-flight\nCurrent session drawers\n(ephemeral)"]
-    L1["L1 — Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
-    L2["L2 — Long-term\nAgentDB · HNSW index\nSemantic search"]
-    L3["L3 — Shared\nCross-agent namespace\nFederated swarm reads"]
+    L0["L0 - In-flight\nCurrent session drawers\nephemeral"]
+    L1["L1 - Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
+    L2["L2 - Long-term\nAgentDB + HNSW index\nSemantic search"]
+    L3["L3 - Shared\nCross-agent namespace\nFederated swarm reads"]
 
     L0 -->|promoted| L1 --> L2 --> L3
 
@@ -281,12 +281,12 @@ Monomind wires 22 hook events into Claude Code. Every edit, task, command, and s
 flowchart LR
     CE["Claude Code\nEvent"] --> H["Hook Router"]
     H --> P["pre-edit\npre-task\npre-command"]
-    H --> S["session-start\nsession-end\nnotify"]
+    H --> SS["session-start\nsession-end\nnotify"]
     H --> I["route\nlearn\nbuild-agents"]
     H --> T["teammate-idle\ntask-completed"]
 
     I --> DB[("AgentDB\npatterns.json")]
-    DB -->|"next session"| CE
+    DB -->|next session| CE
 ```
 
 **12 background workers** run continuously: `security` · `health` · `swarm` · `learning` · `patterns` · `git` · `performance` and more.
@@ -362,10 +362,10 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 ```mermaid
 graph TD
     CC["Claude Code"]
-    MCP["MCP Server\n(monomind mcp start)"]
+    MCP["MCP Server\nmonomind mcp start"]
     D["Background Daemon\n12 workers"]
 
-    CC <-->|"tools: 23 monograph\n+ memory + swarm"| MCP
+    CC <-->|"23 tools: monograph, memory, swarm"| MCP
     MCP <--> D
 
     D --> ADB[("AgentDB\nSQLite + HNSW")]
@@ -373,8 +373,8 @@ graph TD
     D --> HK["Hooks\n22 event types"]
     D --> SW["Swarm\n6 topologies\n5 consensus algos"]
 
-    CC -->|"Task tool\nspawns agents"| AG["Agent Swarm\narchitect · coder\ntester · reviewer\nsecurity · perf"]
-    AG <-->|reads / writes| ADB
+    CC -->|"Task tool - spawns agents"| AG["Agent Swarm\narchitect, coder\ntester, reviewer\nsecurity, perf"]
+    AG <-->|reads and writes| ADB
 
     style CC fill:#00D2AA22,stroke:#00D2AA
     style AG fill:#8B5CF622,stroke:#8B5CF6
