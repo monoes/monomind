@@ -594,10 +594,18 @@ async function checkMonoesIntegration(): Promise<HealthCheck> {
   }
 }
 
-// Patterns that must be covered by .gitignore to prevent leaking session data / machine paths
+// Patterns that must be covered by .gitignore to prevent leaking session data / machine paths.
+// Uses the surgical approach: ignore specific sensitive subdirs and file globs inside .monomind/
+// rather than the entire directory, so safe content (orgs/, test-fixtures/) can still be tracked.
 const REQUIRED_GITIGNORE_PATTERNS = [
-  { pattern: '.monomind/', reason: 'runtime state (sessions, metrics, registry)' },
-  { pattern: '**/.monomind/', reason: 'nested runtime state in sub-packages' },
+  { pattern: '.monomind/sessions/', reason: 'session files contain cwd and machine paths' },
+  { pattern: '.monomind/data/', reason: 'intelligence data with edit file paths' },
+  { pattern: '.monomind/metrics/', reason: 'metrics with file path references' },
+  { pattern: '.monomind/knowledge/', reason: 'knowledge chunks with local file content' },
+  { pattern: '.monomind/*.json', reason: 'root-level runtime JSON (control, registry, routing)' },
+  { pattern: '.monomind/*.jsonl', reason: 'root-level event logs (decisions, routing-feedback)' },
+  { pattern: '**/.monomind/sessions/', reason: 'nested session files in sub-packages' },
+  { pattern: '**/.monomind/*.json', reason: 'nested runtime JSON in sub-packages' },
   { pattern: 'data/sessions/', reason: 'session files with machine paths' },
   { pattern: 'data/mastermind-*.json', reason: 'mastermind session data' },
   { pattern: 'data/mastermind-*.jsonl', reason: 'mastermind event logs' },
