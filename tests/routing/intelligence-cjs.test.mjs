@@ -12,7 +12,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 // Paths used by intelligence.cjs — relative to process.cwd() at module load time
-// Tests run from /Users/morteza/Desktop/tools/monomind
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const OUTCOMES_PATH = path.join(PROJECT_ROOT, '.monomind', 'data', 'intelligence-outcomes.jsonl');
 const RANKED_PATH = path.join(PROJECT_ROOT, '.monomind', 'data', 'ranked-context.json');

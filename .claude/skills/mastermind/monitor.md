@@ -1219,7 +1219,7 @@ If `caller` is not "command", follow `_protocol.md` Brain Write Procedure for do
 
 # Add a Linear source to an existing monitor
 /mastermind:monitor --action add-source --name dev-watcher \
-  --source linear --team ENG --user morteza@agent-f.com \
+  --source linear --team ENG --user your@email.com \
   --state Todo --label ai-agent
 
 # Add a monotask board source
