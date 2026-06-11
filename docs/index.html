@@ -2174,7 +2174,7 @@ let current = 'home';
 
 function go(name, skipHash) {
   if (!pages[name]) return;
-  if (!skipHash) location.hash = name === 'home' ? '' : name;
+  if (!skipHash) history.replaceState(null, '', name === 'home' ? location.pathname : '#' + name);
   if (name === current) return;
   if (motionOK) {
     overlay.style.transition = 'transform .32s cubic-bezier(.76,0,.24,1)';
