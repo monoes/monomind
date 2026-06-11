@@ -44,10 +44,36 @@ export {
 export type { UpdateHistoryEntry, UpdateExecutionResult } from './executor.js';
 
 // Re-export a convenience function for startup
-import { checkForUpdates, DEFAULT_CONFIG } from './checker.js';
+import { checkForUpdates, DEFAULT_CONFIG, getInstalledVersion } from './checker.js';
 import type { UpdateCheckResult } from './checker.js';
 import { executeMultipleUpdates } from './executor.js';
-import { getInstalledVersion } from './checker.js';
+import { getCachedVersions } from './rate-limiter.js';
+import * as semver from 'semver';
+
+/**
+ * Synchronous — reads cached state from last check.
+ * Returns a short inline string for the CLI version tagline, e.g.
+ *   "  ↑ v1.11.12 available"
+ *   "  ↑ v1.11.12 installing..."
+ *   "  ✓ up to date"
+ *   ""  (no cache yet)
+ */
+export function getUpdateTagline(currentVersion: string): string {
+  try {
+    const cached = getCachedVersions();
+    // Use the umbrella package as the canonical version signal
+    const latest = cached['monomind'] || cached['@monoes/monomindcli'];
+    if (!latest || !semver.valid(latest) || !semver.valid(currentVersion)) return '';
+    if (semver.lte(latest, currentVersion)) return '  ✓ up to date';
+    const type = semver.diff(currentVersion, latest);
+    if (type === 'patch' || type === 'minor') {
+      return `  ↑ v${latest} installing...`;
+    }
+    return `  ↑ v${latest} available`;
+  } catch {
+    return '';
+  }
+}
 
 /**
  * Run auto-update check on startup
@@ -56,6 +82,7 @@ import { getInstalledVersion } from './checker.js';
 export async function runStartupUpdateCheck(options: {
   verbose?: boolean;
   autoUpdate?: boolean;
+  onInstalling?: (packages: string[]) => void;
 }): Promise<{
   checked: boolean;
   updatesAvailable: UpdateCheckResult[];
@@ -85,6 +112,9 @@ export async function runStartupUpdateCheck(options: {
       const autoUpdateable = results.filter((r) => r.shouldAutoUpdate);
 
       if (autoUpdateable.length > 0) {
+        // Notify caller before installation begins
+        options.onInstalling?.(autoUpdateable.map(u => `${u.package}@${u.latestVersion}`));
+
         // Get current installed packages
         const installedPackages: Record<string, string> = {};
         for (const update of autoUpdateable) {
