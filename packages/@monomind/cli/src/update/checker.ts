@@ -36,20 +36,33 @@ const DEFAULT_CONFIG: UpdateConfig = {
   checkIntervalHours: 24,
   autoUpdate: {
     patch: true,
-    minor: false,
+    minor: true,
     major: false,
   },
   priority: {
-    '@monomind/security': 'critical',
-    '@monomind/cli': 'high',
+    'monofence-ai': 'critical',
+    '@monoes/monomindcli': 'high',
+    'monomind': 'high',
+    '@monoes/monograph': 'normal',
+    '@monoes/memory': 'normal',
+    '@monoes/monodesign': 'low',
   },
   exclude: [],
 };
 
-// Packages to check for updates
+// All monomind-ecosystem packages to check for updates.
+// getInstalledVersion() returns null for uninstalled packages — they are silently skipped.
 const MONOMIND_PACKAGES = [
   'monomind',
-  '@monomind/cli',
+  '@monoes/monomindcli',
+  'monofence-ai',
+  '@monoes/monograph',
+  '@monoes/memory',
+  '@monoes/monodesign',
+  '@monomind/guidance',
+  '@monomind/hooks',
+  '@monomind/mcp',
+  '@monomind/routing',
 ];
 
 // npm package name regex — covers plain names and @scope/name forms.
