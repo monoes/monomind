@@ -50,12 +50,9 @@
 *.tmp
 *.tsbuildinfo
 *~
-.monomind/sessions/
-.monomind/security/
-.monomind/loops/
-.monomind/*.tmp
-.monomind/*.log
-.monomind/daemon.pid
+# monomind runtime data — machine-specific, contains personal paths/sessions
+.monomind/
+**/.monomind/
 ./claude/checkpoints/
 .DS_Store
 .Python
@@ -170,6 +167,7 @@ data/known-projects.json
 data/memory.db
 data/memory.graph
 data/sessions/
+**/data/known-projects.json
 
 # Environment variables
 .env
