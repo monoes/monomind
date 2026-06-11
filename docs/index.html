@@ -843,7 +843,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="cmd-item" data-search="mastermind design collaborative session ux requirements intent"><div class="cmd-name">/mastermind:design</div><div class="cmd-desc">Collaborative design session — explore intent and requirements</div></div>
       <!-- mastermind: — task & project management -->
       <div class="cmd-item" data-search="mastermind do execute task board docs tasks folder"><div class="cmd-name">/mastermind:do</div><div class="cmd-desc">Execute tasks from task file (docs/tasks/)</div></div>
-      <div class="cmd-item" data-search="mastermind createtask decompose ingest prompt file folder board"><div class="cmd-name">/mastermind:createtask</div><div class="cmd-desc">Decompose prompt into tasks on monotask board</div></div>
+      <div class="cmd-item" data-search="mastermind createtask decompose ingest prompt file folder board"><div class="cmd-name">/mastermind:createtask</div><div class="cmd-desc">Decompose prompt into tasks (saved to docs/tasks/ by default; add --monotask for board)</div></div>
       <div class="cmd-item" data-search="mastermind master orchestrator top level any business prompt"><div class="cmd-name">/mastermind:master</div><div class="cmd-desc">Top-level orchestrator — routes any business prompt</div></div>
       <div class="cmd-item" data-search="mastermind release version publish changelog deployment"><div class="cmd-name">/mastermind:release</div><div class="cmd-desc">Release management: versioning, changelog, deployment</div></div>
       <div class="cmd-item" data-search="mastermind adr architecture decision record draft document"><div class="cmd-name">/mastermind:adr</div><div class="cmd-desc">Draft Architecture Decision Record</div></div>
@@ -988,7 +988,7 @@ Session N: empty round (zero findings AND zero actions)
         <tr><td class="mono">/mastermind:techport</td><td>Technical portfolio — assess foreign project state</td></tr>
         <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Task &amp; Org Management —</td></tr>
         <tr><td class="mono">/mastermind:do</td><td>Execute tasks from task file (docs/tasks/)</td></tr>
-        <tr><td class="mono">/mastermind:createtask</td><td>Decompose prompt into tasks on monotask board</td></tr>
+        <tr><td class="mono">/mastermind:createtask</td><td>Decompose prompt into tasks (saved to docs/tasks/ by default; add --monotask for board)</td></tr>
         <tr><td class="mono">/mastermind:master</td><td>Top-level orchestrator — routes any business prompt</td></tr>
         <tr><td class="mono">/mastermind:createorg</td><td>Define and save an autonomous agent organization</td></tr>
         <tr><td class="mono">/mastermind:runorg</td><td>Start a saved org as a persistent autonomous agent loop</td></tr>
@@ -2201,7 +2201,6 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-page
 // Hash-based routing: read hash on load and on back/forward
 function goHash() { const h = location.hash.replace('#',''); go(pages[h] ? h : 'home', true); }
 window.addEventListener('hashchange', goHash);
-goHash();
 
 // Progress bar
 const bar = document.getElementById('progress-bar');
@@ -2337,6 +2336,7 @@ function initPage(name) {
 }
 
 initPage('home');
+goHash(); // navigate to hash from URL on initial load
 
 // ── Organizations use-cases ──
 const OCASES = [
