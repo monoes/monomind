@@ -192,3 +192,4 @@ target/
 
 # Rust build output
 target/
+.playwright-mcp/
