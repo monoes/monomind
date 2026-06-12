@@ -201,6 +201,7 @@ monomind
 docs/*.md
 docs/adr/
 docs/superpowers/
+.superpowers/
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
 
