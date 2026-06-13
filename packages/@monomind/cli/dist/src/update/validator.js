@@ -3,19 +3,31 @@
  * Ensures updates don't break the ecosystem
  */
 import * as semver from 'semver';
-// Known compatibility matrix between @monomind packages
+// Known compatibility matrix between monomind packages
 const COMPATIBILITY_MATRIX = {
     '@monomind/cli': {
         '@monomind/security': { minVersion: '3.0.0-alpha.1' },
     },
+    '@monoes/monomindcli': {
+        'monofence-ai': { minVersion: '1.0.0' },
+    },
+    'monomind': {
+        '@monoes/monomindcli': { minVersion: '1.11.0' },
+    },
 };
 // Known breaking changes by version
 const BREAKING_CHANGES = {
-    '@monomind/cli': {
-        '3.0.0': [
+    'monomind': {
+        '2.0.0': [
+            'CLI commands renamed from monomind:* to mastermind:*',
             'Memory API changed from key-value to vector-based',
-            'Hooks system completely redesigned',
+            'Hooks system redesigned with 17 hook types',
+        ],
+    },
+    '@monoes/monomindcli': {
+        '2.0.0': [
             'Agent spawning now requires type parameter',
+            'Swarm topology options changed',
         ],
     },
 };
