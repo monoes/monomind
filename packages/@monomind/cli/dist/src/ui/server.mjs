@@ -3457,11 +3457,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const actPath = path.join(base, `${orgName}-activity.jsonl`);
           const lines = fs.readFileSync(actPath, 'utf8').split('\n').filter(Boolean);
-          const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const cutoffMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
           lines.forEach(line => {
             try {
               const ev = JSON.parse(line);
-              if (!ev.ts || ev.ts < cutoff) return;
+              const evMs = typeof ev.ts === 'number' ? ev.ts : (ev.ts ? Date.parse(ev.ts) : 0);
+              if (!evMs || evMs < cutoffMs) return;
               totalRuns++;
               if (ev.type && ev.type.includes('complete')) successRuns++;
             } catch(_) {}
