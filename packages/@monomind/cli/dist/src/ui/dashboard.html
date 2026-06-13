@@ -1936,7 +1936,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <div class="mg-query-section">
             <div class="mqs-title">Impact analysis</div>
             <div class="mg-query-row">
-              <input type="text" id="mg-q-impact-node" placeholder="Node ID / name…" style="flex:1;min-width:140px">
+              <input type="text" id="mg-q-impact-node" placeholder="Node ID / name…" style="flex:1;min-width:140px" onkeydown="if(event.key==='Enter')mgQueryImpact()">
               <select id="mg-q-impact-dir" style="width:120px">
                 <option value="both">Both</option>
                 <option value="upstream">Upstream</option>
@@ -1949,7 +1949,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <div class="mg-query-section">
             <div class="mqs-title">Context</div>
             <div class="mg-query-row">
-              <input type="text" id="mg-q-ctx-node" placeholder="Node ID / file path…" style="flex:1;min-width:200px">
+              <input type="text" id="mg-q-ctx-node" placeholder="Node ID / file path…" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')mgQueryContext()">
               <button class="btn" onclick="mgQueryContext()">Run</button>
             </div>
             <div id="mg-q-ctx-result" class="mg-query-result" style="display:none"></div>
@@ -1957,7 +1957,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <div class="mg-query-section">
             <div class="mqs-title">Shortest path</div>
             <div class="mg-query-row">
-              <input type="text" id="mg-q-path-from" placeholder="From node…" style="flex:1;min-width:120px">
+              <input type="text" id="mg-q-path-from" placeholder="From node…" style="flex:1;min-width:120px" onkeydown="if(event.key==='Enter')mgQueryPath()">
               <input type="text" id="mg-q-path-to" placeholder="To node…" style="flex:1;min-width:120px">
               <button class="btn" onclick="mgQueryPath()">Run</button>
             </div>
@@ -1974,7 +1974,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <div class="mg-query-section">
             <div class="mqs-title">Ask the graph</div>
             <div class="mg-query-row">
-              <input type="text" id="mg-q-ask" placeholder="Question or keyword…" style="flex:1;min-width:180px">
+              <input type="text" id="mg-q-ask" placeholder="Question or keyword…" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')mgQueryAsk()">
               <select id="mg-q-ask-mode" style="width:110px">
                 <option value="search">Search</option>
                 <option value="explain">Explain</option>
@@ -2006,8 +2006,8 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <div class="mg-query-section">
             <div class="mqs-title">Import chain <span style="font-size:10px;color:var(--text-xs);font-weight:400">all paths A → B</span></div>
             <div class="mg-query-row">
-              <input type="text" id="mg-q-chain-from" placeholder="From node…" style="flex:1;min-width:120px">
-              <input type="text" id="mg-q-chain-to" placeholder="To node…" style="flex:1;min-width:120px">
+              <input type="text" id="mg-q-chain-from" placeholder="From node…" style="flex:1;min-width:120px" onkeydown="if(event.key==='Enter')mgQueryImportChain()">
+              <input type="text" id="mg-q-chain-to" placeholder="To node…" style="flex:1;min-width:120px" onkeydown="if(event.key==='Enter')mgQueryImportChain()">
               <button class="btn" onclick="mgQueryImportChain()">Run</button>
             </div>
             <div id="mg-q-chain-result" class="mg-query-result" style="display:none"></div>
@@ -4457,7 +4457,7 @@ async function renderLoops() {
     if (hasRepeatLoops) loops = loops.filter(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
     document.getElementById('bdg-loops').textContent = loops.length || '—';
     if (!loops.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div></div>';
+      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div><div style="font-size:11px;color:var(--text-xs);margin-top:6px">Create one with + New Loop above or via <code>npx monomind autodev --tillend</code></div></div>';
       return;
     }
     el.innerHTML = loops.map((l, idx) => {
@@ -9902,9 +9902,9 @@ function mmSwitchTab(tab) {
   if (!body) return;
   if (tab === 'orgs')           mmRenderOrgs(body);
   else if (tab === 'skills')    mmRenderSkills(body);
-  else if (tab === 'loops')     mmRenderLoops(body);
+  else if (tab === 'loops')     { mmRenderLoops(body); body.insertAdjacentHTML('afterbegin', '<button class="btn" onclick="mmSwitchTab(\'loops\')" style="margin-bottom:10px;font-size:11px">↺ Refresh</button>'); }
   else if (tab === 'createorg') mmRenderCreateOrg(body);
-  else if (tab === 'metrics')   mmRenderMetrics(body);
+  else if (tab === 'metrics')   { mmRenderMetrics(body); body.insertAdjacentHTML('afterbegin', '<button class="btn" onclick="mmSwitchTab(\'metrics\')" style="margin-bottom:10px;font-size:11px">↺ Refresh</button>'); }
   else if (tab === 'graph')     mmRenderGraph(body);
 }
 
