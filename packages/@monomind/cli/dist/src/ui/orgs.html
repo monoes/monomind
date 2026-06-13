@@ -441,6 +441,21 @@ html, body {
   font-size: 10px; color: var(--dim); text-align: center;
   padding: 30px 0; line-height: 2;
 }
+#chat-agent-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 20px 7px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; flex-wrap: wrap;
+}
+#chat-agent-label { font-size: 8px; letter-spacing: 2px; color: var(--dim); flex-shrink: 0; }
+.chat-agent-pill {
+  font-size: 8px; padding: 2px 8px; border-radius: 10px;
+  border: 1px solid var(--border); color: var(--muted);
+  background: transparent; cursor: pointer; letter-spacing: 0.3px;
+  font-family: var(--mono); transition: border-color 0.15s, color 0.15s;
+}
+.chat-agent-pill:hover { border-color: var(--teal-dim); color: var(--text); }
+.chat-agent-pill.active { border-color: var(--teal); color: var(--teal); background: oklch(62% 0.20 186 / 0.07); }
 
 .cmsg { display: flex; flex-direction: column; max-width: 92%; }
 .cmsg.csys { align-self: center; max-width: 100%; }
@@ -858,6 +873,9 @@ html, body {
               <div id="chat-live-dot"></div>
               <span id="chat-live-label">OFFLINE</span>
             </div>
+            <div id="chat-agent-bar" style="display:none">
+              <span id="chat-agent-label">AGENT</span>
+            </div>
             <div id="chat-feed-wrap">
               <div id="chat-feed-empty">Select a session above to see agent communications.</div>
             </div>
@@ -1030,6 +1048,7 @@ function renderSidebar() {
 // ── Select and load an org ────────────────────────────────────────
 async function selectOrg(name) {
   selectedOrg = name;
+  chatCurrentId = null;  // reset chat session when org changes
   orgRunStartMs = null;
   if (lsUptimeTimer) { clearInterval(lsUptimeTimer); lsUptimeTimer = null; }
 
@@ -1458,6 +1477,7 @@ function renderHealth() {
 // ── CHAT TAB ──────────────────────────────────────────────────────
 let chatSessions = [];   // all sessions from /api/mastermind/sessions
 let chatCurrentId = null; // currently viewed session id
+let chatCurrentAgent = 'all'; // 'all' or an agent/role name
 let chatScrollLocked = false;
 let mmSse = null;
 
@@ -1470,43 +1490,128 @@ async function loadChatSessions() {
   } catch(_) {}
 }
 
+function orgSessionMatch(s) {
+  if (!selectedOrg) return true;
+  const orgLc = selectedOrg.toLowerCase();
+  const prompt = (s.prompt || '').toLowerCase();
+  if (prompt.includes('running org: ' + orgLc) || prompt.includes('org: ' + orgLc)) return true;
+  // Also check events for an org field
+  return (s.events || []).some(ev => (ev.org || '').toLowerCase() === orgLc);
+}
+
 function populateChatSelect() {
   const sel = document.getElementById('chat-sess-select');
   if (!sel) return;
   const prev = chatCurrentId || sel.value;
-  sel.innerHTML = '<option value="">— select a session —</option>';
-  chatSessions.forEach(s => {
+
+  // Filter to sessions for this org; fall back to all if none match
+  const orgSessions = chatSessions.filter(orgSessionMatch);
+  const list = orgSessions.length ? orgSessions : chatSessions;
+  const isFiltered = orgSessions.length > 0 && orgSessions.length < chatSessions.length;
+
+  const placeholder = isFiltered
+    ? `— ${orgSessions.length} session${orgSessions.length !== 1 ? 's' : ''} for ${selectedOrg} —`
+    : '— select a session —';
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+
+  list.forEach(s => {
     const d = new Date(s.ts);
     const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
-    const label = `${date} ${ts}  ${(s.prompt||'').slice(0,40)}${(s.prompt||'').length>40?'…':''}  [${s.status||'?'}]`;
+    const prompt = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0, 40);
+    const label = `${date} ${ts}  ${prompt}${prompt.length >= 40 ? '…' : ''}  [${s.status || '?'}]`;
     const opt = document.createElement('option');
     opt.value = s.id;
     opt.textContent = label;
     if (s.id === prev) opt.selected = true;
     sel.appendChild(opt);
   });
-  // Auto-select running session if none selected
+
+  // Auto-select most recent running session for this org
   if (!chatCurrentId) {
-    const running = chatSessions.find(s => s.status === 'running');
+    const running = list.find(s => s.status === 'running');
     if (running) { sel.value = running.id; selectChatSession(running.id); }
   }
 }
 
 window.selectChatSession = function(id) {
   chatCurrentId = id;
+  chatCurrentAgent = 'all';
   const feed = document.getElementById('chat-feed-wrap');
   const empty = document.getElementById('chat-feed-empty');
-  if (!id) { feed.querySelectorAll('.cmsg').forEach(e=>e.remove()); if(empty) empty.style.display='block'; return; }
+  const bar = document.getElementById('chat-agent-bar');
+  if (!id) {
+    feed.querySelectorAll('.cmsg').forEach(e=>e.remove());
+    if (empty) empty.style.display = 'block';
+    if (bar) bar.style.display = 'none';
+    return;
+  }
   const sess = chatSessions.find(s => s.id === id);
   if (!sess) return;
   feed.querySelectorAll('.cmsg').forEach(e=>e.remove());
   if (empty) empty.style.display = 'none';
+  populateChatAgentBar(sess.events || []);
   (sess.events || []).forEach(ev => appendChatEvent(ev, false));
   chatScrollFeed();
 };
 
+function chatAgentMatchesFilter(ev) {
+  if (chatCurrentAgent === 'all') return true;
+  return ev.agent === chatCurrentAgent || ev.from === chatCurrentAgent || ev.to === chatCurrentAgent;
+}
+
+function populateChatAgentBar(events) {
+  const bar = document.getElementById('chat-agent-bar');
+  if (!bar) return;
+  const agentSet = new Set();
+  (events || []).forEach(ev => {
+    if (ev.agent) agentSet.add(ev.agent);
+    if (ev.from && ev.from !== '?') agentSet.add(ev.from);
+    if (ev.to && ev.to !== '?') agentSet.add(ev.to);
+  });
+  // Add org roles even if not yet seen in events
+  if (orgDetailData && Array.isArray(orgDetailData.roles)) {
+    orgDetailData.roles.forEach(r => {
+      const n = typeof r === 'string' ? r : (r.role || r.name || r.id || '');
+      if (n) agentSet.add(n);
+    });
+  }
+  const agents = [...agentSet].sort();
+  if (!agents.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span id="chat-agent-label">AGENT</span>';
+  ['all', ...agents].forEach(name => {
+    const pill = document.createElement('button');
+    pill.className = 'chat-agent-pill' + (chatCurrentAgent === name ? ' active' : '');
+    pill.textContent = name === 'all' ? 'ALL' : name;
+    pill.dataset.agent = name;
+    pill.onclick = () => selectChatAgent(name);
+    bar.appendChild(pill);
+  });
+}
+
+window.selectChatAgent = function(name) {
+  chatCurrentAgent = name;
+  document.querySelectorAll('#chat-agent-bar .chat-agent-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.agent === name);
+  });
+  const feed = document.getElementById('chat-feed-wrap');
+  const empty = document.getElementById('chat-feed-empty');
+  const sess = chatSessions.find(s => s.id === chatCurrentId);
+  feed.querySelectorAll('.cmsg').forEach(e => e.remove());
+  if (!sess) return;
+  const visible = (sess.events || []).filter(ev => chatAgentMatchesFilter(ev));
+  if (!visible.length) {
+    if (empty) { empty.style.display = 'block'; empty.textContent = name === 'all' ? 'No events.' : `No events for "${name}"`; }
+  } else {
+    if (empty) empty.style.display = 'none';
+    visible.forEach(ev => appendChatEvent(ev, false));
+  }
+  chatScrollFeed();
+};
+
 function appendChatEvent(ev, animate) {
+  if (!chatAgentMatchesFilter(ev)) return;
   const feed = document.getElementById('chat-feed-wrap');
   const empty = document.getElementById('chat-feed-empty');
   if (!feed) return;
@@ -1571,7 +1676,10 @@ function chatScrollFeed() {
 }
 
 function renderChatTab() {
-  loadChatSessions();
+  if (chatSessions.length) {
+    populateChatSelect(); // re-filter immediately with current selectedOrg
+  }
+  loadChatSessions();    // then refresh from server
   connectMmSSE();
   const feed = document.getElementById('chat-feed-wrap');
   if (feed) {
@@ -1614,10 +1722,13 @@ function handleMmEvent(ev) {
       chatSessions.unshift({ id: ev.session, ts: ev.ts||Date.now(), prompt: ev.prompt||'', status:'running', domains:[], events:[ev] });
     }
     populateChatSelect();
-    // Auto-select if chat tab is active and nothing selected
+    // Auto-select if chat tab is active, nothing selected, and session matches this org
     if (currentTab === 'chat' && !chatCurrentId) {
-      const sel = document.getElementById('chat-sess-select');
-      if (sel) { sel.value = ev.session; selectChatSession(ev.session); }
+      const newSess = chatSessions.find(s => s.id === ev.session);
+      if (newSess && orgSessionMatch(newSess)) {
+        const sel = document.getElementById('chat-sess-select');
+        if (sel) { sel.value = ev.session; selectChatSession(ev.session); }
+      }
     }
     return;
   }
@@ -1628,6 +1739,10 @@ function handleMmEvent(ev) {
     if (ev.type === 'session:complete') { sess.status = ev.status || 'complete'; sess.endTs = ev.ts; populateChatSelect(); }
     // If this is the currently-viewed session and chat tab is visible, append bubble
     if (currentTab === 'chat' && chatCurrentId === ev.session) {
+      const hasNewAgent = (ev.agent && !document.querySelector(`[data-agent="${CSS.escape(ev.agent)}"]`))
+        || (ev.from && !document.querySelector(`[data-agent="${CSS.escape(ev.from)}"]`))
+        || (ev.to && !document.querySelector(`[data-agent="${CSS.escape(ev.to)}"]`));
+      if (hasNewAgent) populateChatAgentBar(sess.events);
       appendChatEvent(ev, true);
       chatScrollFeed();
     }
