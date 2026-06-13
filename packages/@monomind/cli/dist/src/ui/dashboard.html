@@ -1796,6 +1796,8 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <span class="odh-pill" id="odh-topo">—</span>
             <span class="odh-pill" id="odh-roles">0 roles</span>
             <div class="odh-right">
+              <button class="btn" onclick="v2ExportOrg()" title="Export org as JSON file" style="color:var(--text-lo);border-color:var(--border)">Export</button>
+              <button class="btn" onclick="v2ImportOrgTrigger()" title="Import org from JSON file" style="color:var(--text-lo);border-color:var(--border)">Import</button>
               <button class="btn" id="org-copy-btn" onclick="v2ShowCopyOrgDialog()" style="color:var(--accent);border-color:var(--accent)">Copy to…</button>
               <button class="btn" id="org-stop-btn" onclick="v2StopOrg()" style="display:none;color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Stop</button>
             </div>
@@ -1841,27 +1843,24 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-threads"></div>
           </div>
         </div>
-          <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:90;align-items:center;justify-content:center">
-            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:320px;display:flex;flex-direction:column;gap:14px">
-              <div style="font-size:13px;font-weight:600;color:var(--text-hi)">Copy org to project</div>
-              <div><input id="org-copy-dest" class="filter-input" placeholder="Destination project path…" style="width:100%"></div>
-              <div style="display:flex;gap:8px;justify-content:flex-end">
-                <button class="btn" onclick="document.getElementById('org-copy-dialog').style.display='none'">Cancel</button>
-                <button class="btn" onclick="v2DoCopyOrg()" style="color:var(--accent);border-color:var(--accent)">Copy</button>
-              </div>
-            </div>
-          </div>
-        <!-- agent detail drawer (node-click / role-card-click) -->
-        <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:90;align-items:center;justify-content:center">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:320px;display:flex;flex-direction:column;gap:14px">
+        <!-- copy / export / import dialogs -->
+        <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.72);z-index:90;align-items:center;justify-content:center">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:380px;max-width:96vw;display:flex;flex-direction:column;gap:12px">
             <div style="font-size:13px;font-weight:600;color:var(--text-hi)">Copy org to project</div>
-            <input id="org-copy-dest" class="filter-input" placeholder="Destination project path…" style="width:100%">
+            <div style="font-size:10px;color:var(--text-lo);letter-spacing:.05em;margin-bottom:2px">SELECT PROJECT</div>
+            <div id="org-copy-proj-list" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:var(--bg)"></div>
+            <div style="font-size:10px;color:var(--text-lo);letter-spacing:.05em;margin-top:2px">OR ENTER PATH</div>
+            <input id="org-copy-dest" class="filter-input" placeholder="Destination project path…" style="width:100%;box-sizing:border-box"
+                   oninput="document.querySelectorAll('#org-copy-proj-list .ocp-row').forEach(r=>r.classList.remove('ocp-sel'))"
+                   onkeydown="if(event.key==='Enter')v2DoCopyOrg();if(event.key==='Escape')document.getElementById('org-copy-dialog').style.display='none'">
+            <div id="org-copy-status" style="font-size:11px;min-height:16px"></div>
             <div style="display:flex;gap:8px;justify-content:flex-end">
               <button class="btn" onclick="document.getElementById('org-copy-dialog').style.display='none'">Cancel</button>
-              <button class="btn" onclick="v2DoCopyOrg()" style="color:var(--accent);border-color:var(--accent)">Copy</button>
+              <button class="btn" id="org-copy-confirm-btn" onclick="v2DoCopyOrg()" style="color:var(--accent);border-color:var(--accent)">Copy</button>
             </div>
           </div>
         </div>
+        <div id="org-import-input-wrap" style="display:none"><input type="file" id="org-import-file" accept=".json" style="display:none"></div>
         <div id="org-agent-drawer" aria-hidden="true">
           <div id="oad-head"></div>
           <div id="oad-body"></div>
@@ -6486,23 +6485,98 @@ window.v2StopOrg = async function() {
   setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
 };
 
-window.v2ShowCopyOrgDialog = function() {
+window.v2ShowCopyOrgDialog = async function() {
   const d = document.getElementById('org-copy-dialog');
-  if (d) { d.style.display = 'flex'; document.getElementById('org-copy-dest')?.focus(); }
+  if (!d) return;
+  d.style.display = 'flex';
+  document.getElementById('org-copy-dest').value = '';
+  document.getElementById('org-copy-status').textContent = '';
+  document.getElementById('org-copy-confirm-btn').disabled = false;
+  // Load project list
+  const listEl = document.getElementById('org-copy-proj-list');
+  listEl.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:var(--text-lo)">Loading projects…</div>';
+  try {
+    const data = await apiFetch('/api/projects');
+    const projects = (data?.projects || []);
+    if (!projects.length) { listEl.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:var(--text-lo)">No projects found</div>'; }
+    else {
+      listEl.innerHTML = projects.map(p => {
+        const label = p.name || p.slug || p.path?.split('/').pop() || p.path;
+        const shortP = (p.path || '').replace(/\/Users\/[^/]+\//, '~/');
+        return `<div class="ocp-row" title="${esc(p.path)}" onclick="document.querySelectorAll('.ocp-row').forEach(r=>r.classList.remove('ocp-sel'));this.classList.add('ocp-sel');document.getElementById('org-copy-dest').value='${esc(p.path).replace(/'/g,"\\'")}'" style="padding:7px 10px;font-size:12px;font-family:var(--mono);cursor:pointer;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:baseline">
+          <span style="color:var(--text-hi)">${esc(label)}</span>
+          <span style="color:var(--text-lo);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(shortP)}</span>
+        </div>`;
+      }).join('');
+    }
+  } catch(e) { listEl.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-lo)">Could not load projects</div>'; }
+  setTimeout(() => document.getElementById('org-copy-dest')?.focus(), 60);
 };
 window.v2DoCopyOrg = async function() {
   const dest = document.getElementById('org-copy-dest')?.value.trim();
-  if (!dest) { showToast('Required', 'Enter destination path', 'warn'); return; }
+  const statusEl = document.getElementById('org-copy-status');
+  const confirmBtn = document.getElementById('org-copy-confirm-btn');
+  if (!dest) { if (statusEl) { statusEl.textContent = 'Enter or select a destination'; statusEl.style.color = 'var(--red)'; } return; }
   if (!_v2SelOrg) return;
+  confirmBtn.disabled = true;
+  if (statusEl) { statusEl.textContent = 'Copying…'; statusEl.style.color = 'var(--text-lo)'; }
   try {
-    const r = await fetch('/api/org/' + enc(_v2SelOrg) + '/copy?dir=' + enc(DIR), {
+    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + '/copy', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ destination: dest }),
     });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    showToast('Copied', `Org "${_v2SelOrg}" copied to ${dest}`, 'ok');
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status);
+    showToast('Copied', `"${_v2SelOrg}" → ${dest}`, 'ok');
     document.getElementById('org-copy-dialog').style.display = 'none';
-  } catch (e) { showToast('Error', e.message, 'err'); }
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = e.message; statusEl.style.color = 'var(--red)'; }
+    confirmBtn.disabled = false;
+  }
+};
+
+window.v2ExportOrg = async function() {
+  if (!_v2SelOrg) return;
+  try {
+    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + (DIR ? '?dir=' + encodeURIComponent(DIR) : ''));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = _v2SelOrg + '.json'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Exported', `${_v2SelOrg}.json downloaded`, 'ok');
+  } catch(e) { showToast('Export failed', e.message, 'err'); }
+};
+
+window.v2ImportOrgTrigger = function() {
+  let inp = document.getElementById('org-import-file');
+  if (!inp) {
+    inp = document.createElement('input');
+    inp.type = 'file'; inp.id = 'org-import-file'; inp.accept = '.json'; inp.style.display = 'none';
+    document.body.appendChild(inp);
+  }
+  inp.onchange = v2HandleImportFile;
+  inp.click();
+};
+async function v2HandleImportFile(e) {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const name = data.name || file.name.replace(/\.json$/, '');
+    const r = await fetch('/api/orgs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, name, dir: DIR || undefined }),
+    });
+    if (!r.ok) { const d = await r.json().catch(()=>({})); throw new Error(d.error || 'HTTP ' + r.status); }
+    showToast('Imported', `Org "${name}" imported`, 'ok');
+    await renderOrgs();
+    if (name) v2SelectOrg(name);
+  } catch(e) { showToast('Import failed', e.message, 'err'); }
 };
 
 function filterLoopList(q) {
