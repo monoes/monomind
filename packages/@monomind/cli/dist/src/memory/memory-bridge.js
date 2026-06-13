@@ -918,7 +918,7 @@ export async function bridgeDeleteEntry(options) {
         await cacheInvalidate(registry, `entry:${safeNs}:${safeKey}`);
         // Phase 4: AttestationLog delete audit
         if (changes > 0) {
-            await logAttestation(registry, 'delete', key, { namespace });
+            await logAttestation(registry, 'delete', deletedEntryId ?? key, { namespace, key });
             // Soft-deleted entry's id stays in the HNSW graph but SQL filters it out.
             // Track so the next search can trigger a lazy rebuild to clear ghost slots.
             _hnswDirtyCount++;

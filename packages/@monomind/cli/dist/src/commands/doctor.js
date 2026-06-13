@@ -579,6 +579,58 @@ async function checkMonoesIntegration() {
         };
     }
 }
+// Patterns that must be covered by .gitignore to prevent leaking session data / machine paths.
+// Uses the surgical approach: ignore specific sensitive subdirs and file globs inside .monomind/
+// rather than the entire directory, so safe content (orgs/, test-fixtures/) can still be tracked.
+const REQUIRED_GITIGNORE_PATTERNS = [
+    { pattern: '.monomind/sessions/', reason: 'session files contain cwd and machine paths' },
+    { pattern: '.monomind/data/', reason: 'intelligence data with edit file paths' },
+    { pattern: '.monomind/metrics/', reason: 'metrics with file path references' },
+    { pattern: '.monomind/knowledge/', reason: 'knowledge chunks with local file content' },
+    { pattern: '.monomind/*.json', reason: 'root-level runtime JSON (control, registry, routing)' },
+    { pattern: '.monomind/*.jsonl', reason: 'root-level event logs (decisions, routing-feedback)' },
+    { pattern: '**/.monomind/sessions/', reason: 'nested session files in sub-packages' },
+    { pattern: '**/.monomind/*.json', reason: 'nested runtime JSON in sub-packages' },
+    { pattern: 'data/sessions/', reason: 'session files with machine paths' },
+    { pattern: 'data/mastermind-*.json', reason: 'mastermind session data' },
+    { pattern: 'data/mastermind-*.jsonl', reason: 'mastermind event logs' },
+    { pattern: '**/.claude-flow/', reason: 'claude-flow runtime data with paths' },
+    { pattern: '.hive-mind/', reason: 'hive-mind state with session info' },
+    { pattern: '.swarm/', reason: 'swarm state files' },
+];
+// Check whether a gitignore file covers all required monomind runtime patterns
+async function checkGitignoreCoverage() {
+    const gitignorePath = join(process.cwd(), '.gitignore');
+    if (!existsSync(gitignorePath)) {
+        return {
+            name: 'Gitignore Coverage',
+            status: 'warn',
+            message: 'No .gitignore found — all monomind runtime paths are unprotected',
+            fix: 'echo ".monomind/\\n**/.monomind/" >> .gitignore',
+        };
+    }
+    const content = readFileSync(gitignorePath, 'utf-8');
+    const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const missing = REQUIRED_GITIGNORE_PATTERNS.filter(({ pattern }) => {
+        // A pattern is "covered" if the gitignore contains it exactly, or a parent glob covers it
+        const base = pattern.replace(/\*\*\//g, '').replace(/\*/g, '');
+        return !lines.some(l => l === pattern ||
+            l === pattern.replace(/\/$/, '') ||
+            // e.g. "**/.monomind/" covers ".monomind/"
+            (l.includes('**') && base && l.replace(/\*\*\//g, '').replace(/\*/g, '') === base));
+    });
+    if (missing.length === 0) {
+        return { name: 'Gitignore Coverage', status: 'pass', message: 'All monomind runtime paths are gitignored' };
+    }
+    const missingList = missing.map(m => m.pattern).join(', ');
+    const fixLines = missing.map(m => m.pattern).join('\\n');
+    return {
+        name: 'Gitignore Coverage',
+        status: 'warn',
+        message: `${missing.length} runtime path(s) not in .gitignore: ${missingList}`,
+        fix: `printf "${fixLines}\\n" >> .gitignore`,
+    };
+}
 async function checkGuidanceGates() {
     const settingsPath = join(process.cwd(), '.claude', 'settings.json');
     const gatesHandlerPath = join(process.cwd(), '.claude', 'helpers', 'handlers', 'gates-handler.cjs');
@@ -671,7 +723,7 @@ export const doctorCommand = {
         {
             name: 'component',
             short: 'c',
-            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, helpers, monoes, gates)',
+            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, helpers, monoes, gates, gitignore)',
             type: 'string'
         },
         {
@@ -718,6 +770,7 @@ export const doctorCommand = {
             checkAgenticFlow,
             checkMonoesIntegration,
             checkGuidanceGates,
+            checkGitignoreCoverage,
         ];
         const componentMap = {
             'version': checkVersionFreshness,
@@ -738,6 +791,7 @@ export const doctorCommand = {
             'agentic-flow': checkAgenticFlow,
             'monoes': checkMonoesIntegration,
             'gates': checkGuidanceGates,
+            'gitignore': checkGitignoreCoverage,
         };
         let checksToRun = allChecks;
         if (component && componentMap[component]) {
