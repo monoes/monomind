@@ -20,6 +20,9 @@ interface PackageCompatibility {
 
 // Known compatibility matrix between monomind packages
 const COMPATIBILITY_MATRIX: Record<string, Record<string, PackageCompatibility>> = {
+  '@monomind/cli': {
+    '@monomind/security': { minVersion: '3.0.0-alpha.1' },
+  },
   '@monoes/monomindcli': {
     'monofence-ai': { minVersion: '1.0.0' },
   },
