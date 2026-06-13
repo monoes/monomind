@@ -566,6 +566,29 @@ html, body {
 }
 
 /* ── Copy modal ─────────────────────────────────────────────────── */
+#copy-project-list {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  margin: 4px 0 10px;
+  background: oklch(6% 0.008 186);
+}
+.copy-proj-row {
+  padding: 7px 10px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text-md);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.copy-proj-row:last-child { border-bottom: none; }
+.copy-proj-row:hover { background: var(--bg-hover); color: var(--text-hi); }
+.copy-proj-row.selected { background: color-mix(in srgb, var(--teal) 15%, transparent); color: var(--teal); border-left: 2px solid var(--teal); padding-left: 8px; }
+.copy-proj-loading { padding: 10px; font-size: 11px; color: var(--dim); text-align: center; }
 #copy-modal-overlay {
   display: none;
   position: fixed; inset: 0;
@@ -851,12 +874,14 @@ html, body {
   <div id="copy-modal">
     <div id="copy-modal-title">COPY ORG TO PROJECT</div>
     <div id="copy-modal-org">—</div>
-    <div class="copy-modal-label">DESTINATION PROJECT PATH</div>
+    <div class="copy-modal-label">SELECT DESTINATION PROJECT</div>
+    <div id="copy-project-list"><div class="copy-proj-loading">Loading projects…</div></div>
+    <div class="copy-modal-label" style="margin-top:4px">OR ENTER PATH MANUALLY</div>
     <input id="copy-dest-input" type="text" placeholder="/absolute/path/to/project"
-           onkeydown="if(event.key==='Enter')executeCopy(); if(event.key==='Escape')closeCopyModal()">
+           onkeydown="if(event.key==='Enter')executeCopy(); if(event.key==='Escape')closeCopyModal()"
+           oninput="document.querySelectorAll('.copy-proj-row').forEach(r=>r.classList.remove('selected'))">
     <div id="copy-modal-hint">
-      The org config will be written to<br>
-      <span style="color:var(--muted)">&lt;destination&gt;/.monomind/orgs/&lt;name&gt;.json</span>
+      Writes to <span style="color:var(--teal)">&lt;destination&gt;/.monomind/orgs/&lt;name&gt;.json</span>
     </div>
     <div id="copy-modal-status"></div>
     <div class="copy-modal-actions">
@@ -1784,7 +1809,28 @@ window.openCopyModal = function(name) {
   document.getElementById('copy-modal-status').className = '';
   document.getElementById('copy-confirm-btn').disabled = false;
   document.getElementById('copy-modal-overlay').classList.add('open');
+  // Load project list
+  const listEl = document.getElementById('copy-project-list');
+  listEl.innerHTML = '<div class="copy-proj-loading">Loading projects…</div>';
+  fetch('/api/projects').then(r => r.json()).then(data => {
+    const projects = data?.projects || [];
+    if (!projects.length) { listEl.innerHTML = '<div class="copy-proj-loading">No other projects found</div>'; return; }
+    listEl.innerHTML = projects.map(p => {
+      const label = p.name || p.slug || p.path?.split('/').pop() || p.path;
+      const isCurrentDir = p.path === (window._orgDir || '');
+      return `<div class="copy-proj-row${isCurrentDir ? ' selected' : ''}" title="${p.path}" onclick="selectCopyProject('${p.path.replace(/'/g,"\\'")}', this)">
+        <span style="color:var(--text-hi)">${label}</span>
+        <span style="color:var(--dim);font-size:10px;margin-left:6px">${p.path.replace(/\/Users\/[^/]+\//, '~/')}</span>
+      </div>`;
+    }).join('');
+  }).catch(() => { listEl.innerHTML = '<div class="copy-proj-loading">Could not load projects</div>'; });
   setTimeout(() => document.getElementById('copy-dest-input').focus(), 60);
+};
+
+window.selectCopyProject = function(path, el) {
+  document.querySelectorAll('.copy-proj-row').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('copy-dest-input').value = path;
 };
 
 window.closeCopyModal = function() {
