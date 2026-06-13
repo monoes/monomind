@@ -274,18 +274,127 @@ function collectAgents(projectDir) {
   };
 }
 
-function collectTokens(projectDir) {
+const _TOK_PRICES = {
+  'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
+  'claude-opus-4':     { in: 15e-6,   out: 75e-6,  cw: 18.75e-6,cr: 1.5e-6  },
+  'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
+  'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
+  'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
+  'claude-3-7-sonnet': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
+  'claude-3-5-sonnet': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
+  'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,   cw: 1.25e-6, cr: 0.1e-6  },
+  'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,   cw: 1e-6,    cr: 0.08e-6 },
+};
+function _tokPrice(model) {
+  const k = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  if (_TOK_PRICES[k]) return _TOK_PRICES[k];
+  for (const p of Object.keys(_TOK_PRICES)) { if (k.startsWith(p) || k.includes(p)) return _TOK_PRICES[p]; }
+  return { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 }; // sonnet default
+}
+function _tokCost(model, usage) {
+  const p = _tokPrice(model);
+  return (usage.input_tokens || 0) * p.in
+       + (usage.output_tokens || 0) * p.out
+       + (usage.cache_creation_input_tokens || 0) * p.cw
+       + (usage.cache_read_input_tokens || 0) * p.cr;
+}
+
+function collectTokens(projectDir, days = 14) {
   const base = path.join(projectDir, '.monomind', 'metrics');
   const summary = readJSON(path.join(base, 'token-summary.json')) || {};
-  const sessionsPath = path.join(base, 'token-sessions.json');
-  let sessions = [];
-  try {
-    const raw = readJSON(sessionsPath);
-    sessions = Array.isArray(raw) ? raw : [];
-  } catch {
-    sessions = [];
+
+  // Scan session JSONLs to build daily chart data and per-session rows
+  const sessionsDir = getClaudeProjectSessionsDir(projectDir);
+  const jsonlFiles = listDir(sessionsDir).filter(f => f.endsWith('.jsonl'));
+
+  const dailyMap = {};   // date-string → { cost, calls, tokensIn, tokensOut }
+  const rows = [];       // per-session summary
+  let totalTokensIn = 0, totalTokensOut = 0;
+
+  // Cutoff: look back `days` days
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  for (const fname of jsonlFiles) {
+    const fpath = path.join(sessionsDir, fname);
+    let stat;
+    try { stat = fs.statSync(fpath); } catch { continue; }
+    // Skip very old sessions for performance (mtime heuristic)
+    if (stat.mtimeMs < cutoff - 7 * 24 * 60 * 60 * 1000) continue;
+
+    let content;
+    try { content = fs.readFileSync(fpath, 'utf8'); } catch { continue; }
+
+    const lines = content.split('\n');
+    let sessTokensIn = 0, sessTokensOut = 0, sessCost = 0, sessCalls = 0;
+    let sessLastPrompt = '';
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let entry;
+      try { entry = JSON.parse(line); } catch { continue; }
+
+      // Capture last user prompt for session label
+      if (entry.type === 'user') {
+        const txt = Array.isArray(entry.message?.content)
+          ? (entry.message.content.find(b => b.type === 'text')?.text || '').slice(0, 60)
+          : String(entry.message?.content || '').slice(0, 60);
+        if (txt.trim()) sessLastPrompt = txt.trim();
+      }
+
+      if (entry.type === 'assistant' && entry.message?.usage) {
+        const usage = entry.message.usage;
+        const model = entry.message.model || '';
+        const cost = _tokCost(model, usage);
+        const tokIn = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+        const tokOut = usage.output_tokens || 0;
+        const ts = entry.timestamp || '';
+        const day = ts.slice(0, 10); // "YYYY-MM-DD"
+
+        if (day && day >= new Date(cutoff).toISOString().slice(0, 10)) {
+          if (!dailyMap[day]) dailyMap[day] = { cost: 0, calls: 0, tokensIn: 0, tokensOut: 0 };
+          dailyMap[day].cost += cost;
+          dailyMap[day].calls++;
+          dailyMap[day].tokensIn += tokIn;
+          dailyMap[day].tokensOut += tokOut;
+        }
+
+        sessTokensIn += tokIn;
+        sessTokensOut += tokOut;
+        sessCost += cost;
+        sessCalls++;
+        totalTokensIn += tokIn;
+        totalTokensOut += tokOut;
+      }
+    }
+
+    if (sessCalls > 0) {
+      rows.push({
+        id: fname.replace('.jsonl', ''),
+        session: sessLastPrompt || fname.replace('.jsonl', '').slice(0, 20),
+        calls: sessCalls,
+        tokens: sessTokensIn + sessTokensOut,
+        cost: sessCost,
+      });
+    }
   }
-  return { summary, sessions };
+
+  // Build sorted daily array
+  const daily = Object.keys(dailyMap).sort().slice(-days).map(d => ({
+    date: d,
+    label: d.slice(5), // "MM-DD"
+    cost: dailyMap[d].cost,
+    calls: dailyMap[d].calls,
+    tokensIn: dailyMap[d].tokensIn,
+    tokensOut: dailyMap[d].tokensOut,
+  }));
+
+  // Sort rows by cost descending
+  rows.sort((a, b) => b.cost - a.cost);
+
+  const totalTokens = totalTokensIn + totalTokensOut;
+  if (totalTokens > 0) summary.totalTokens = totalTokens;
+
+  return { summary, daily, rows };
 }
 
 function collectHooks(projectDir) {

@@ -9,6 +9,16 @@ default_mode: confirm
 
 This skill is invoked by `mastermind:master` or directly via `/mastermind:idea`.
 
+**Extract `--monotask` flag:** If present in `$ARGUMENTS`, set `USE_MONOTASK=true` and remove it from `$ARGUMENTS`. Default: `USE_MONOTASK=false`.
+
+**File mode (default, `USE_MONOTASK=false`):**
+
+Invoke `Skill("mastermind:ideate", $ARGUMENTS)` immediately — it provides the same research, evaluation, elaboration, and task-decomposition pipeline with file-first storage (`docs/ideas/` and `docs/tasks/`). The rest of this skill is skipped in file mode.
+
+**Board mode (`USE_MONOTASK=true`):**
+
+Continue with the full monotask board pipeline below (Steps 3-6).
+
 ---
 
 ## Inputs
