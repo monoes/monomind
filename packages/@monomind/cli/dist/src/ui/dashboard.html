@@ -4386,12 +4386,17 @@ function fmtInterval(minutes) {
 }
 
 // ── loops ──────────────────────────────────────────────────
+const LOOP_STALE_MS = 2 * 60 * 60 * 1000;
+
 async function renderLoops() {
   const el = document.getElementById('loops-content');
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
     const data = await apiFetch('/api/loops?dir=' + enc(DIR));
-    const loops = Array.isArray(data) ? data : (data.loops || []);
+    let loops = Array.isArray(data) ? data : (data.loops || []);
+    // Dedup: if real _repeat.md loops exist, hide scheduled_tasks_lock noise
+    const hasRepeatLoops = loops.some(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
+    if (hasRepeatLoops) loops = loops.filter(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
     document.getElementById('bdg-loops').textContent = loops.length || '—';
     if (!loops.length) {
       el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div></div>';
@@ -4401,9 +4406,13 @@ async function renderLoops() {
       const maxReps = l.maxReps || 0;
       const curRep  = l.currentRep || 0;
       const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
+      const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
+      const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
+      const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
       const isFinished = (maxReps > 0 && curRep >= maxReps)
         || ['finished','done','complete','completed','expired'].includes(l.status)
-        || (l.status === 'waiting' && l.nextRunAt && parseInt(l.nextRunAt) < Date.now() && !isTillend);
+        || isOverdue || isStaledActive;
       const isHil = l.status === 'hil:pending';
       const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
       const name = l.name || (l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
@@ -4413,7 +4422,6 @@ async function renderLoops() {
       const startedAt = l.startedAt ? new Date(l.startedAt).toLocaleString() : '—';
       const lastRun = l.lastRunAt ? relTime(l.lastRunAt) : (l.startedAt ? relTime(l.startedAt) : '—');
       const runs = curRep != null ? curRep : '—';
-      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
       const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
       const progBar = isTillend
         ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.capReps ? ' (cap: '+l.capReps+')' : ''}</span></div>`
@@ -4434,7 +4442,7 @@ async function renderLoops() {
         : '';
       const statusLabel = isFinished ? 'done' : isHil ? 'HIL' : running ? 'active' : 'stopped';
       const statusCls   = isFinished ? 'done' : isHil ? 'hil' : running ? 'active' : 'stopped';
-      return `<div class="loop-row${isHil ? ' hil' : ''}" onclick="toggleLoop(this)">
+      return `<div class="loop-row${isHil ? ' hil' : ''}" data-loop-status="${esc(l.status || '')}" onclick="toggleLoop(this)">
           <div class="loop-ico">${typeBadge}</div>
           <div class="loop-body">
             <div class="loop-name">${esc(name)}</div>
@@ -9814,11 +9822,14 @@ async function mmRenderLoops(body) {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
       const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
-      const isFinished = (maxReps > 0 && curRep >= maxReps) || ['finished','done','complete','completed','expired'].includes(l.status);
+      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
+      const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
+      const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
+      const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
+      const isFinished = (maxReps > 0 && curRep >= maxReps) || ['finished','done','complete','completed','expired'].includes(l.status) || isOverdue || isStaledActive;
       const isHil = l.status === 'hil:pending';
       const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
       const name = (l.name || l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
-      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
       const ms = nextAt ? nextAt - Date.now() : 0;
       const cdown = ms > 0 ? (Math.floor(ms/60000) + 'm ' + Math.floor((ms%60000)/1000) + 's') : (running ? 'running' : isFinished ? 'done' : 'stopped');
       const typeBadge = isTillend ? '∞' : '↺';
