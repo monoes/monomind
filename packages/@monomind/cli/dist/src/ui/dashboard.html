@@ -63,8 +63,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #view-title { font-size: 14px; font-weight: 600; color: var(--text-hi); }
 .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-lo); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px; }
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 2s ease-in-out infinite; }
+.live-dot.polling { background: oklch(78% 0.16 80); animation-duration: 3s; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+.live-dot.polling { background: oklch(78% 0.16 80); animation-duration: 2s; }
 #tb-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .btn { font-size: 11px; color: var(--text-lo); background: transparent; border: 1px solid var(--border); border-radius: var(--r); padding: 4px 10px; cursor: pointer; transition: color 0.1s, border-color 0.1s; }
 .btn:hover { color: var(--text-hi); border-color: var(--text-lo); }
@@ -1393,6 +1395,8 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <span id="topbar-activity"></span>
     <div id="tb-right">
       <button class="btn" onclick="openMastermind()" style="color:oklch(65% 0.16 295);border-color:oklch(65% 0.16 295 / 0.4)" title="Mastermind — orgs, skills, loops, metrics">⬡ Mastermind</button>
+      <button class="btn" onclick="switchView('orgs')" title="Manage autonomous organisations" style="color:oklch(70% 0.14 185);border-color:oklch(70% 0.14 185 / 0.4)">⬡ Orgs</button>
+      <button class="btn" onclick="switchView('orgs')" title="Manage autonomous organisations" style="color:oklch(70% 0.14 185);border-color:oklch(70% 0.14 185 / 0.4)">⬡ Orgs</button>
       <button class="btn" id="btn-budget" onclick="openBudgetModal()" title="Set daily/monthly cost budget">⚑ Budget</button>
       <button class="btn" onclick="openCmdPalette()">⌕ Search <kbd style="font-size:10px;opacity:0.6;margin-left:3px">⌘K</kbd></button>
       <button class="btn" onclick="openShortcutHelp()" title="Keyboard shortcuts (?)">? Help</button>
@@ -1587,6 +1591,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <table class="lb-table"><thead><tr>
             <th class="lb-rank">#</th><th>Session</th><th class="lb-cost">Cost</th><th class="lb-dur">Duration</th>
           </tr></thead><tbody id="lb-body"></tbody></table>
+          <div id="lb-overflow" style="font-size:10px;color:var(--text-xs);text-align:center;padding:6px 0"></div>
         </div>
         <div id="cost-histogram-panel"></div>
         <div id="timeline-panel"><div id="timeline-head">Session Timeline <span style="font-weight:400;font-size:10px;color:var(--text-xs)">— each bar = one session, width = duration, color = cost</span></div><div id="timeline-scroll"></div></div>
@@ -1637,6 +1642,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       <div class="vscroll">
         <div class="pg-title">Loops</div>
         <div class="pg-sub">Scheduled automation loops</div>
+        <input id="loop-list-filter" class="filter-input" placeholder="Filter loops…" oninput="filterLoopList(this.value)" style="margin-bottom:10px;width:100%;max-width:380px">
         <button id="btn-new-loop" onclick="showLoopForm()">+ New Loop</button>
         <div id="loop-create-form" style="display:none">
           <div class="lcf-title">Create Loop</div>
@@ -1762,6 +1768,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div id="orgs-list-head">
           <div class="orgs-view-title">Orgs <span id="orgs-proj-label" style="font-size:11px;font-weight:400;opacity:0.5;margin-left:6px;"></span></div>
           <div class="orgs-view-sub" id="orgs-view-sub">MASTERMIND organizations</div>
+          <input id="org-list-filter" class="filter-input" placeholder="Filter orgs…" oninput="filterOrgList(this.value)" style="width:100%;margin-top:8px">
         </div>
         <div id="orgs-list-scroll">
           <div class="loading-txt" id="orgs-list-content">Loading…</div>
@@ -1782,6 +1789,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <span class="odh-pill" id="odh-topo">—</span>
             <span class="odh-pill" id="odh-roles">0 roles</span>
             <div class="odh-right">
+              <button class="btn" id="org-copy-btn" onclick="v2ShowCopyOrgDialog()" style="color:var(--accent);border-color:var(--accent)">Copy to…</button>
               <button class="btn" id="org-stop-btn" onclick="v2StopOrg()" style="display:none;color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Stop</button>
             </div>
           </div>
@@ -1826,7 +1834,27 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-threads"></div>
           </div>
         </div>
+          <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:90;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:320px;display:flex;flex-direction:column;gap:14px">
+              <div style="font-size:13px;font-weight:600;color:var(--text-hi)">Copy org to project</div>
+              <div><input id="org-copy-dest" class="filter-input" placeholder="Destination project path…" style="width:100%"></div>
+              <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button class="btn" onclick="document.getElementById('org-copy-dialog').style.display='none'">Cancel</button>
+                <button class="btn" onclick="v2DoCopyOrg()" style="color:var(--accent);border-color:var(--accent)">Copy</button>
+              </div>
+            </div>
+          </div>
         <!-- agent detail drawer (node-click / role-card-click) -->
+        <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:90;align-items:center;justify-content:center">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:320px;display:flex;flex-direction:column;gap:14px">
+            <div style="font-size:13px;font-weight:600;color:var(--text-hi)">Copy org to project</div>
+            <input id="org-copy-dest" class="filter-input" placeholder="Destination project path…" style="width:100%">
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <button class="btn" onclick="document.getElementById('org-copy-dialog').style.display='none'">Cancel</button>
+              <button class="btn" onclick="v2DoCopyOrg()" style="color:var(--accent);border-color:var(--accent)">Copy</button>
+            </div>
+          </div>
+        </div>
         <div id="org-agent-drawer" aria-hidden="true">
           <div id="oad-head"></div>
           <div id="oad-body"></div>
@@ -2172,7 +2200,7 @@ let cmdFocusIdx = 0;
 let cmdItems = [];
 let liveTailMode = false;
 let liveTailTimer = null;
-let bookmarks = new Set(JSON.parse(localStorage.getItem('mm-bookmarks') || '[]'));
+let bookmarks; try { bookmarks = new Set(JSON.parse(localStorage.getItem('mm-bookmarks') || '[]')); } catch { bookmarks = new Set(); }
 let showStarredOnly = false;
 
 // ── nav ────────────────────────────────────────────────────
@@ -2192,6 +2220,9 @@ function switchView(v) {
     el.classList.toggle('active', el.id === 'view-' + v));
   const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', chat:'Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
+  const PROJECT = DIR ? shortPath(DIR) : 'monomind';
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed' };
+  document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   // Projects always re-fetches so onclick paths in cards stay current
   if (v === 'projects') { renderProjects(); return; }
   if (v === 'chat') { initChatView(); return; }
@@ -2267,7 +2298,16 @@ async function init() {
   initSSE();
 }
 
+function _setLiveMode(mode) {
+  const dot = document.querySelector('.live-dot');
+  if (!dot) return;
+  dot.classList.toggle('polling', mode === 'poll');
+  const pill = dot.closest('.pill');
+  if (pill) pill.childNodes.forEach(n => { if (n.nodeType === 3) n.textContent = mode === 'poll' ? ' polling' : ' live'; });
+}
+
 function startPolling() {
+  _setLiveMode('poll');
   clearInterval(pollTimer);
   pollTimer = setInterval(() => { if (currentView === 'now') refreshNowSilent(); }, 30000);
 }
@@ -2286,10 +2326,17 @@ function initSSE() {
   } catch { startPolling(); }
 }
 
-async function apiFetch(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(r.status);
-  return r.json();
+async function apiFetch(url, timeout = 15000) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}${r.statusText ? ' ' + r.statusText : ''}`);
+    return r.json();
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Request timed out');
+    throw e;
+  } finally { clearTimeout(tid); }
 }
 
 // ── project switching ──────────────────────────────────────
@@ -4066,10 +4113,8 @@ function toggleLeaderboard() {
 }
 
 function renderLeaderboard() {
-  const sorted = [...allSessions]
-    .filter(s => typeof s.totalCost === 'number' && s.totalCost > 0)
-    .sort((a, b) => b.totalCost - a.totalCost)
-    .slice(0, 15);
+  const all = [...allSessions].filter(s => typeof s.totalCost === 'number' && s.totalCost > 0).sort((a, b) => b.totalCost - a.totalCost);
+  const sorted = all.slice(0, 15);
   const body = document.getElementById('lb-body');
   if (!sorted.length) { body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-xs);padding:12px">No cost data yet</td></tr>'; return; }
   body.innerHTML = sorted.map((s, i) => {
@@ -4083,6 +4128,8 @@ function renderLeaderboard() {
       <td class="lb-dur">${dur}</td>
     </tr>`;
   }).join('');
+  const ov = document.getElementById('lb-overflow');
+  if (ov) ov.textContent = all.length > 15 ? `Showing top 15 of ${all.length} sessions` : '';
 }
 
 // ── feature 12: session diff ──────────────────────────────
@@ -4376,6 +4423,17 @@ function buildLoopSparkline(l) {
   return `<div class="le-spark"><span style="font-size:10px;color:var(--text-xs)">last ${runHistory.slice(-10).length} runs</span><div class="loop-sparkline">${bars}</div></div>`;
 }
 
+function fmtCountdown(nextAt) {
+  const ms = Number(nextAt) - Date.now();
+  if (ms <= 0) return 'overdue';
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `next in ${h}h ${m % 60}m`;
+  if (m > 0) return `next in ${m}m ${s % 60}s`;
+  return `next in ${s}s`;
+}
+
 function fmtInterval(minutes) {
   if (!minutes && minutes !== 0) return '—';
   const m = typeof minutes === 'string' ? parseFloat(minutes) : minutes;
@@ -4406,7 +4464,7 @@ async function renderLoops() {
       const maxReps = l.maxReps || 0;
       const curRep  = l.currentRep || 0;
       const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
-      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
+      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
       const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
@@ -4429,7 +4487,7 @@ async function renderLoops() {
           ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
           : '';
       const cdownSpan = (running && nextAt)
-        ? ` <span class="loop-cdown" data-nextat="${nextAt}">…</span>`
+        ? ` <span class="loop-cdown" data-nextat="${nextAt}">${fmtCountdown(nextAt)}</span>`
         : '';
       const stopBtn = (running || isHil)
         ? `<button class="loop-stop-btn" data-loop-id="${esc(l.id || l.name || String(idx))}" onclick="stopLoop(event, this.dataset.loopId)">■ Stop</button>`
@@ -4498,15 +4556,30 @@ function hideLoopForm() {
 
 async function stopLoop(evt, id) {
   evt.stopPropagation();
-  if (!confirm('Stop loop "' + id + '"?')) return;
+  const btn = evt.currentTarget;
+  if (!btn.dataset.confirming) {
+    btn.dataset.confirming = '1';
+    const orig = btn.textContent;
+    btn.textContent = '■ Confirm?';
+    btn._resetTimer = setTimeout(() => {
+      delete btn.dataset.confirming;
+      btn.textContent = orig;
+    }, 3000);
+    return;
+  }
+  clearTimeout(btn._resetTimer);
+  delete btn.dataset.confirming;
   try {
-    await fetch('/api/loops/stop?dir=' + enc(DIR), {
+    const r = await fetch('/api/loops/stop?dir=' + enc(DIR), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
+      body: JSON.stringify({ id }),
     });
-    showToast('Stopped', 'Loop stopped', 'ok');
-    renderLoops();
-  } catch (e) { showToast('Error', e.message, 'err'); }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    showToast('Stopped', 'Loop stop requested', 'ok');
+    setTimeout(() => renderLoops(), 400);
+  } catch (e) {
+    showToast('Error', e.message, 'err');
+  }
 }
 
 let _cdownInterval = null;
@@ -4516,14 +4589,8 @@ function startCountdowns() {
   _cdownInterval = setInterval(() => {
     document.querySelectorAll('.loop-cdown[data-nextat]').forEach(el => {
       const ms = parseInt(el.dataset.nextat) - Date.now();
-      if (ms <= 0) {
-        el.textContent = 'overdue';
-        el.classList.add('overdue');
-        return;
-      }
-      const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
-      el.textContent = m > 0 ? `next in ${m}m ${s}s` : `next in ${s}s`;
-      el.classList.remove('overdue');
+      el.textContent = fmtCountdown(el.dataset.nextat);
+      el.classList.toggle('overdue', ms <= 0);
     });
   }, 1000);
 }
@@ -6197,6 +6264,42 @@ window.v2StopOrg = async function() {
   setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
 };
 
+window.v2ShowCopyOrgDialog = function() {
+  const d = document.getElementById('org-copy-dialog');
+  if (d) { d.style.display = 'flex'; document.getElementById('org-copy-dest')?.focus(); }
+};
+window.v2DoCopyOrg = async function() {
+  const dest = document.getElementById('org-copy-dest')?.value.trim();
+  if (!dest) { showToast('Required', 'Enter destination path', 'warn'); return; }
+  if (!_v2SelOrg) return;
+  try {
+    const r = await fetch('/api/org/' + enc(_v2SelOrg) + '/copy?dir=' + enc(DIR), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ destination: dest }),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    showToast('Copied', `Org "${_v2SelOrg}" copied to ${dest}`, 'ok');
+    document.getElementById('org-copy-dialog').style.display = 'none';
+  } catch (e) { showToast('Error', e.message, 'err'); }
+};
+
+function filterLoopList(q) {
+  const query = q.trim().toLowerCase();
+  document.querySelectorAll('#loops-content .loop-row').forEach(row => {
+    const show = !query || (row.textContent || '').toLowerCase().includes(query);
+    row.style.display = show ? '' : 'none';
+    const expand = row.nextElementSibling;
+    if (expand && expand.classList.contains('loop-expand')) expand.style.display = show ? '' : 'none';
+  });
+}
+
+function filterOrgList(q) {
+  const query = q.trim().toLowerCase();
+  document.querySelectorAll('#orgs-list-content .org-item').forEach(item => {
+    item.style.display = (!query || (item.textContent || '').toLowerCase().includes(query)) ? '' : 'none';
+  });
+}
+
 // live SSE for org events
 (function v2OrgSSE() {
   let src;
@@ -6685,8 +6788,11 @@ document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (document.getElementById('cmd-palette').classList.contains('open')) return;
 
-  if (e.key === 'Escape') { closeDetail(); closeCmdPalette(); closeShortcutHelp(); if (document.getElementById('app').classList.contains('ambient')) toggleAmbient(); }
+  if (e.key === 'Escape') { closeDetail(); closeCmdPalette(); closeShortcutHelp(); closeMastermind(); closeBudgetModal(); if (document.getElementById('app').classList.contains('ambient')) toggleAmbient(); }
   if (e.key === '?') { e.preventDefault(); openShortcutHelp(); return; }
+  if (e.key === 'm' || e.key === 'M') { e.preventDefault(); openMastermind(); return; }
+  const _vkeys = { '1':'now','2':'sessions','3':'projects','4':'loops','5':'tokens','6':'memory','7':'orgs','8':'monograph','9':'global' };
+  if (_vkeys[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) { switchView(_vkeys[e.key]); return; }
   if (e.key === 'a' || e.key === 'A') { if (currentView === 'now') { e.preventDefault(); toggleAmbient(); } }
 
   if (currentView === 'now') {
@@ -6850,6 +6956,11 @@ function calcStreak() {
 // ── feature 25: notification toasts ──────────────────────
 let _toastLastBudgetKey = '';
 function showToast(title, msg, type = 'info', duration = 5000) {
+  const key = title + '|' + msg;
+  if (showToast._last === key && Date.now() - (showToast._lastTs || 0) < 2000) return;
+  showToast._last = key; showToast._lastTs = Date.now();
+  const existing = document.querySelectorAll('.toast');
+  if (existing.length >= 5) existing[0].remove();
   const rack = document.getElementById('toast-rack');
   if (!rack) return;
   const icoMap = { warn: '⚑', err: '⚠', ok: '✓', info: '◉' };
@@ -7494,7 +7605,7 @@ function buildHourlyHeatmap() {
 
 // ── feature 50: custom tag editor ─────────────────────────
 const _customTagsKey = 'mm-custom-tags';
-let _customTagsMap = new Map(Object.entries(JSON.parse(localStorage.getItem(_customTagsKey) || '{}')));
+let _customTagsMap; try { _customTagsMap = new Map(Object.entries(JSON.parse(localStorage.getItem(_customTagsKey) || '{}'))); } catch { _customTagsMap = new Map(); }
 
 function getCustomTags(sessId) {
   return _customTagsMap.get(sessId) || [];
@@ -7691,7 +7802,15 @@ function relTime(ts) {
   return Math.floor(h / 24) + 'd';
 }
 
+function shortPath(p) {
+  if (!p) return '';
+  const parts = p.replace(/\\/g, '/').split('/').filter(Boolean);
+  if (parts.length <= 2) return p;
+  return '…/' + parts.slice(-2).join('/');
+}
+
 function fmtDur(ms) {
+  if (ms > 0 && ms < 1000) return '<1s';
   const s = Math.floor(ms / 1000);
   if (s < 60) return s + 's';
   const m = Math.floor(s / 60);
@@ -9822,7 +9941,7 @@ async function mmRenderLoops(body) {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
       const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
-      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
+      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
       const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
