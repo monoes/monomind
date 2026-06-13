@@ -51,7 +51,7 @@ function categorizeTool(name) {
   if (['Read','Write','Edit','MultiEdit','Glob','Grep','LS'].includes(name)) return 'file';
   if (name === 'Bash') return 'bash';
   if (['Agent','Task'].includes(name)) return 'agent';
-  if (name.startsWith('mcp__monobrain__memory') || name.startsWith('mcp__monobrain__agentdb')) return 'memory';
+  if (name.startsWith('mcp__monomind__memory') || name.startsWith('mcp__monomind__agentdb')) return 'memory';
   if (['WebFetch','WebSearch'].includes(name)) return 'web';
   if (name === 'TodoWrite' || name === 'TodoRead') return 'task';
   if (name === 'Skill') return 'skill';
@@ -131,8 +131,8 @@ function buildToolLabel(name, input) {
   if (name === 'WebFetch') return `Fetch ${(input.url || '').slice(0, 50)}`;
   if (name === 'WebSearch') return `Search ${(input.query || '').slice(0, 40)}`;
   if (name === 'Skill') return `Skill: ${input.skill || '?'}`;
-  if (name.startsWith('mcp__monobrain__memory')) return name.replace('mcp__monobrain__memory_', 'mem:');
-  if (name.startsWith('mcp__')) return name.replace('mcp__monobrain__', '⬡ ').replace('mcp__', '⬡ ').slice(0, 40);
+  if (name.startsWith('mcp__monomind__memory')) return name.replace('mcp__monomind__memory_', 'mem:');
+  if (name.startsWith('mcp__')) return name.replace('mcp__monomind__', '⬡ ').replace('mcp__', '⬡ ').slice(0, 40);
   return name.slice(0, 40);
 }
 
@@ -2632,7 +2632,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           if (['Read','Write','Edit','MultiEdit','Glob','Grep','LS'].includes(name)) return 'file';
           if (name === 'Bash') return 'bash';
           if (['Agent','Task'].includes(name)) return 'agent';
-          if (name.startsWith('mcp__monobrain__memory') || name.startsWith('mcp__monobrain__agentdb')) return 'memory';
+          if (name.startsWith('mcp__monomind__memory') || name.startsWith('mcp__monomind__agentdb')) return 'memory';
           if (['WebFetch','WebSearch'].includes(name)) return 'web';
           if (name === 'Skill') return 'skill';
           return 'other';
