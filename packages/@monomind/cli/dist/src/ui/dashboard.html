@@ -312,6 +312,24 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #org-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 .odt-pane { display: none; }
 .odt-pane.active { display: block; }
+#odt-chat { display: none; }
+#odt-chat.active { display: flex; flex-direction: column; }
+#odt-chat-bar { display:flex; align-items:center; gap:8px; padding:10px 16px 8px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+#odt-chat-sess-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
+#odt-chat-sel { background:var(--surface); color:var(--text-mid); border:1px solid var(--border); border-radius:4px; font-size:10px; font-family:var(--mono); padding:3px 7px; cursor:pointer; max-width:320px; }
+#odt-chat-sel:focus { outline:none; border-color:var(--accent); }
+#odt-chat-live-dot { width:5px; height:5px; border-radius:50%; background:var(--text-xs); flex-shrink:0; margin-left:auto; transition:background 0.4s; }
+#odt-chat-live-dot.on { background:oklch(68% 0.20 150); animation:livepulse-cv 2.2s ease-in-out infinite; }
+#odt-chat-live-lbl { font-size:9px; color:var(--text-lo); }
+#odt-chat-agent-bar { display:flex; align-items:center; gap:6px; padding:5px 16px 6px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+#odt-chat-agent-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
+.odt-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
+.odt-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
+.odt-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
+#odt-chat-feed { flex:1; overflow-y:auto; padding:10px 16px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+#odt-chat-feed::-webkit-scrollbar { width:4px; }
+#odt-chat-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+#odt-chat-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
 
 /* agent detail drawer (slides in from right within the org detail pane) */
 #org-agent-drawer {
@@ -693,6 +711,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #chat-v-feed::-webkit-scrollbar { width:4px; }
 #chat-v-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
 #chat-v-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
+#chat-v-agent-bar { display:flex; align-items:center; gap:6px; padding:6px 18px 7px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+#chat-v-agent-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
+.cv-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
+.cv-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
+.cv-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
 .cv-msg { display:flex; flex-direction:column; max-width:90%; }
 .cv-msg.cv-sys { align-self:center; max-width:100%; }
 .cv-msg.cv-agent { align-self:flex-start; }
@@ -1367,9 +1390,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div class="nav-item" data-view="monograph">
           <span class="ico">⬡</span><span class="lbl">Monograph</span>
         </div>
-        <div class="nav-item" data-view="chat">
-          <span class="ico">⌘</span><span class="lbl">Agent Chat</span>
-        </div>
       </div>
     </div>
     <div class="nav-no-proj" id="nav-no-proj-hint">Select a project above</div>
@@ -1383,6 +1403,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       </div>
       <div class="nav-item" data-view="global-tokens" title="Token usage across all projects">
         <span class="ico">$</span><span class="lbl">Global Tokens</span>
+      </div>
+      <div class="nav-item" data-view="chat" title="All agent sessions across projects">
+        <span class="ico">⌘</span><span class="lbl">Global Agent Chat</span>
       </div>
     </div>
   </div>
@@ -1810,6 +1833,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn" data-tab="budgets"   onclick="v2SwitchOrgTab('budgets')">Budgets</button>
             <button class="odt-btn" data-tab="charts"       onclick="v2SwitchOrgTab('charts')">Charts</button>
             <button class="odt-btn" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
+            <button class="odt-btn" data-tab="chat"         onclick="v2SwitchOrgTab('chat')">Chat</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -1841,6 +1865,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-issues-full"></div>
             <div class="odt-pane" id="odt-join-requests"></div>
             <div class="odt-pane" id="odt-threads"></div>
+            <div class="odt-pane" id="odt-chat" style="display:none;flex-direction:column;height:100%;overflow:hidden;"></div>
           </div>
         </div>
         <!-- copy / export / import dialogs -->
@@ -2095,12 +2120,15 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <div class="view" id="view-chat">
       <div class="vscroll">
         <div id="chat-v-bar">
-          <span id="chat-v-bar-title">Agent Chat</span>
+          <span id="chat-v-bar-title">Global Agent Chat</span>
           <select id="chat-v-sel" onchange="chatVSelectSession(this.value)">
             <option value="">— select a session —</option>
           </select>
           <div id="chat-v-live-dot"></div>
           <span id="chat-v-live-lbl">OFFLINE</span>
+        </div>
+        <div id="chat-v-agent-bar" style="display:none">
+          <span id="chat-v-agent-lbl">AGENT</span>
         </div>
         <div id="chat-v-feed">
           <div id="chat-v-empty">Select a session above to see agent communications.<br>Agent messages, intercom signals, and system events appear here in real time.</div>
@@ -2247,7 +2275,7 @@ function switchView(v) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
   const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
@@ -3754,6 +3782,121 @@ function _deduplicateLoops(loops) {
   });
 }
 
+async function stopLoopInProject(evt, id, projDir) {
+  evt.stopPropagation();
+  const btn = evt.currentTarget;
+  if (!btn.dataset.confirming) {
+    btn.dataset.confirming = '1';
+    const orig = btn.textContent;
+    btn.textContent = '■ Confirm?';
+    btn._resetTimer = setTimeout(() => { delete btn.dataset.confirming; btn.textContent = orig; }, 3000);
+    return;
+  }
+  clearTimeout(btn._resetTimer);
+  delete btn.dataset.confirming;
+  try {
+    const r = await fetch('/api/loops/stop?dir=' + enc(projDir), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    showToast('Stopped', 'Loop stop requested', 'ok');
+    setTimeout(() => renderGlobalLoops(), 400);
+  } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+function _buildLoopRowHtml(l, idx, projDir) {
+  const maxReps = l.maxReps || 0;
+  const curRep  = l.currentRep || 0;
+  const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+  const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
+  const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
+  const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
+  const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
+  const isFinished = (maxReps > 0 && curRep >= maxReps)
+    || ['finished','done','complete','completed','expired'].includes(l.status)
+    || isOverdue || isStaledActive;
+  const isHil = l.status === 'hil:pending';
+  const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
+  const interval = fmtInterval(l.interval || l.schedule || '');
+  const _lp = (function(_l) {
+    if (_l.command) {
+      const flags = [];
+      if (_l.type && _l.type !== 'repeat') flags.push('--' + _l.type);
+      if (_l.maxReps) flags.push('--maxruns ' + _l.maxReps);
+      if (_l.interval) { const s = String(_l.interval).match(/^(\d+)s$/); if (s) flags.push('--wait ' + s[1]); }
+      if (_l.currentRep != null) flags.push('--rep ' + _l.currentRep);
+      if (_l.id) flags.push('--loop ' + _l.id);
+      return { userPrompt: _l.prompt || '', command: _l.command, flagsStr: flags.join(' ') };
+    }
+    const full = _l.prompt || '';
+    const cmdM = full.match(/^(\/\S+)/);
+    if (!cmdM) return { userPrompt: full, command: '', flagsStr: '' };
+    const tokens = full.slice(cmdM[1].length).trim().split(/\s+/);
+    let ti = 0, fp = [];
+    while (ti < tokens.length && tokens[ti] && tokens[ti].startsWith('--')) {
+      fp.push(tokens[ti++]);
+      if (ti < tokens.length && tokens[ti] && !tokens[ti].startsWith('--')) fp.push(tokens[ti++]);
+    }
+    return { userPrompt: tokens.slice(ti).join(' '), command: cmdM[1], flagsStr: fp.join(' ') };
+  })(l);
+  const userPrompt = _lp.userPrompt;
+  const cmdStr     = _lp.command;
+  const flagsStr   = _lp.flagsStr;
+  const name = (l.name || userPrompt || cmdStr || (l.prompt || 'loop').split('--')[0].trim()).slice(0, 60);
+  const startedAt = l.startedAt ? new Date(l.startedAt).toLocaleString() : '—';
+  const lastRun = l.lastRunAt ? relTime(l.lastRunAt) : (l.startedAt ? relTime(l.startedAt) : '—');
+  const runs = curRep != null ? curRep : '—';
+  const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
+  const progBar = isTillend
+    ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.capReps ? ' (cap: '+l.capReps+')' : ''}</span></div>`
+    : (maxReps > 0 && running)
+      ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
+      : '';
+  const cdownSpan = (running && nextAt)
+    ? ` <span class="loop-cdown" data-nextat="${nextAt}">${fmtCountdown(nextAt)}</span>`
+    : '';
+  const stopOnclick = projDir
+    ? `stopLoopInProject(event, this.dataset.loopId, ${JSON.stringify(projDir)})`
+    : `stopLoop(event, this.dataset.loopId)`;
+  const stopBtn = (running || isHil)
+    ? `<button class="loop-stop-btn" data-loop-id="${esc(l.id || l.name || String(idx))}" onclick="${stopOnclick}">■ Stop</button>`
+    : '';
+  const typeBadge = isTillend
+    ? `<span class="loop-type-badge" title="till-end loop">∞</span>`
+    : `<span class="loop-type-badge rep" title="repeat loop">↺</span>`;
+  const hilBanner = isHil
+    ? `<div class="loop-hil-banner">⚠ Human-in-the-loop confirmation required — check session for approval prompt</div>`
+    : '';
+  const statusLabel = isFinished ? 'done' : isHil ? 'HIL' : running ? 'active' : 'stopped';
+  const statusCls   = isFinished ? 'done' : isHil ? 'hil' : running ? 'active' : 'stopped';
+  return `<div class="loop-row${isHil ? ' hil' : ''}" data-loop-status="${esc(l.status || '')}" onclick="toggleLoop(this)">
+      <div class="loop-ico">${typeBadge}</div>
+      <div class="loop-body">
+        <div class="loop-name">${esc(name)}</div>
+        <div class="loop-meta">${interval !== '—' ? interval + ' · ' : ''}${esc([l.description].filter(Boolean).join('').slice(0, 80))}${cdownSpan}</div>
+        ${progBar}
+        ${hilBanner}
+      </div>
+      <div class="loop-status ${statusCls}">${statusLabel}${isHil ? ' ⚠' : ''}</div>
+      ${stopBtn}
+    </div>
+    <div class="loop-expand">
+      ${userPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="display:flex;align-items:flex-start;gap:8px"><span title="${esc(userPrompt)}">${esc(userPrompt.slice(0, 300))}${userPrompt.length > 300 ? '…' : ''}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy prompt" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(userPrompt)}).then(()=>showToast('Copied','Prompt copied','ok'))">⎘</button></div></div>` : ''}
+      ${cmdStr ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="display:flex;align-items:center;gap:8px"><span>${esc(cmdStr)}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy command" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(cmdStr)}).then(()=>showToast('Copied','Command copied','ok'))">⎘</button></div></div>` : ''}
+      ${flagsStr ? `<div class="le-row"><div class="le-lbl">Flags</div><div class="le-val mono" style="display:flex;align-items:flex-start;gap:8px"><span title="${esc(flagsStr)}">${esc(flagsStr.slice(0, 300))}${flagsStr.length > 300 ? '…' : ''}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy flags" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(flagsStr)}).then(()=>showToast('Copied','Flags copied','ok'))">⎘</button></div></div>` : ''}
+      <div class="le-row"><div class="le-lbl">Type</div><div class="le-val">${isTillend ? '∞ tillend' : '↺ repeat'}</div></div>
+      <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${interval}</div></div>
+      <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${isFinished ? '✓ done' : isHil ? '⚠ hil:pending' : running ? '● running' : '○ stopped'}</div></div>
+      ${isHil && l.id ? `<div class="le-row"><div class="le-lbl">HIL file</div><div class="le-val mono" style="color:oklch(75% 0.16 60);word-break:break-all">.monomind/loops/${esc(l.id)}-hil.md</div></div>` : ''}
+      <div class="le-row"><div class="le-lbl">Started</div><div class="le-val mono">${esc(startedAt)}</div></div>
+      ${running && l.startedAt ? `<div class="le-row"><div class="le-lbl">Running for</div><div class="le-val">${fmtDur(Date.now() - new Date(l.startedAt).getTime())}</div></div>` : ''}
+      <div class="le-row"><div class="le-lbl">Last run</div><div class="le-val">${esc(lastRun)}</div></div>
+      <div class="le-row"><div class="le-lbl">Run count</div><div class="le-val">${esc(String(runs))}${maxReps ? ' / ' + maxReps : isTillend ? ' / ∞' : ''}</div></div>
+      ${buildLoopSparkline(l)}
+    </div>`;
+}
+
 async function renderGlobalLoops() {
   const el = document.getElementById('gl-content');
   el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
@@ -3779,40 +3922,17 @@ async function renderGlobalLoops() {
       totalLoops += loops.length;
       hilCount += loops.filter(l => l.status === 'hil:pending').length;
       const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
-      const LOOP_STALE_MS = 10 * 60 * 1000;
-      const rows = loops.map(l => {
-        const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
-        const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
-        const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
-        const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
-        const maxReps = l.maxReps || 0;
-        const curRep = l.currentRep || 0;
-        const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
-        const isFinished = (maxReps > 0 && curRep >= maxReps) || ['finished','done','complete','completed','expired'].includes(l.status) || isOverdue || isStaledActive;
-        const isHil = l.status === 'hil:pending';
-        const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
-        const statusLabel = isFinished ? 'done' : isHil ? 'HIL' : running ? 'active' : 'stopped';
-        const statusCls = isFinished ? 'done' : isHil ? 'hil' : running ? 'active' : 'stopped';
-        const typeBadge = isTillend ? '<span class="loop-type-badge">∞</span>' : '<span class="loop-type-badge rep">↺</span>';
-        const name = (l.name || l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
-        const interval = fmtInterval(l.interval || l.schedule || '');
-        return `<div class="loop-row" onclick="switchProject('${esc(project.path)}');setTimeout(()=>switchView('loops'),150)">
-          <div class="loop-ico">${typeBadge}</div>
-          <div class="loop-body">
-            <div class="loop-name">${esc(name)}</div>
-            <div class="loop-meta">${interval !== '—' ? interval + ' · ' : ''}${esc(statusLabel)}</div>
-          </div>
-          <div class="loop-status ${statusCls}">${esc(statusLabel)}</div>
-        </div>`;
-      }).join('');
-      sections.push(`<div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:600;color:var(--text-lo);letter-spacing:.06em;margin-bottom:6px;padding-left:2px">${esc(projName)}</div>
-        ${rows}
+      const rows = loops.map((l, idx) => _buildLoopRowHtml(l, idx, project.path)).join('');
+      sections.push(`<div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:600;color:var(--text-lo);letter-spacing:.06em;margin-bottom:6px;padding-left:2px;text-transform:uppercase">${esc(projName)}</div>
+        <div class="loop-list">${rows}</div>
       </div>`);
     }
     document.getElementById('bdg-global-loops').textContent = totalLoops ? (hilCount ? totalLoops + '⚠' : totalLoops) : '—';
     document.getElementById('gl-sub').textContent = `${totalLoops} loop${totalLoops !== 1 ? 's' : ''} across ${sections.length} project${sections.length !== 1 ? 's' : ''}`;
     el.innerHTML = sections.length ? sections.join('') : '<div class="empty"><div class="empty-ico">↺</div><div>No loops found across any project</div></div>';
+    startCountdowns();
+    markLiveGlow('view-global-loops');
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
   }
@@ -3880,6 +4000,7 @@ async function renderGlobalTokens() {
 // ── agent chat view ────────────────────────────────────────
 let chatVSessions = {};
 let chatVCurrentId = null;
+let chatVCurrentAgent = 'all';
 let chatVSseSource = null;
 
 function initChatView() {
@@ -3914,22 +4035,77 @@ async function loadChatViewSessions() {
 
 function chatVSelectSession(id) {
   chatVCurrentId = id;
+  chatVCurrentAgent = 'all';
   const feed = document.getElementById('chat-v-feed');
   const empty = document.getElementById('chat-v-empty');
+  const bar = document.getElementById('chat-v-agent-bar');
   if (!id || !chatVSessions[id]) {
-    feed.innerHTML = '';
-    feed.appendChild(empty);
+    feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+    if (empty) empty.style.display = 'block';
+    if (bar) bar.style.display = 'none';
     return;
   }
-  feed.innerHTML = '';
+  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+  if (empty) empty.style.display = 'none';
   const session = chatVSessions[id];
   const events = session.events || [];
+  chatVPopulateAgentBar(events);
   events.forEach(ev => appendChatViewEvent(ev, false));
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function chatVAgentMatchesFilter(ev) {
+  if (chatVCurrentAgent === 'all') return true;
+  return ev.agent === chatVCurrentAgent || ev.from === chatVCurrentAgent || ev.to === chatVCurrentAgent;
+}
+
+function chatVPopulateAgentBar(events) {
+  const bar = document.getElementById('chat-v-agent-bar');
+  if (!bar) return;
+  const agentSet = new Set();
+  (events || []).forEach(ev => {
+    if (ev.agent) agentSet.add(ev.agent);
+    if (ev.from && ev.from !== '?') agentSet.add(ev.from);
+    if (ev.to && ev.to !== '?') agentSet.add(ev.to);
+  });
+  const agents = [...agentSet].sort();
+  if (!agents.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span id="chat-v-agent-lbl">AGENT</span>';
+  ['all', ...agents].forEach(name => {
+    const pill = document.createElement('button');
+    pill.className = 'cv-agent-pill' + (chatVCurrentAgent === name ? ' active' : '');
+    pill.textContent = name === 'all' ? 'ALL' : name;
+    pill.dataset.agent = name;
+    pill.onclick = () => chatVSelectAgent(name);
+    bar.appendChild(pill);
+  });
+}
+
+function chatVSelectAgent(name) {
+  chatVCurrentAgent = name;
+  document.querySelectorAll('#chat-v-agent-bar .cv-agent-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.agent === name);
+  });
+  const feed = document.getElementById('chat-v-feed');
+  const empty = document.getElementById('chat-v-empty');
+  const session = chatVSessions[chatVCurrentId];
+  // remove message bubbles only (preserve empty placeholder)
+  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+  if (!session) { if (empty) empty.style.display = 'block'; return; }
+  const visible = (session.events || []).filter(ev => chatVAgentMatchesFilter(ev));
+  if (!visible.length) {
+    if (empty) { empty.style.display = 'block'; empty.textContent = name === 'all' ? 'No events.' : `No events for "${name}"`; }
+  } else {
+    if (empty) empty.style.display = 'none';
+    visible.forEach(ev => appendChatViewEvent(ev, false));
+  }
   feed.scrollTop = feed.scrollHeight;
 }
 
 function appendChatViewEvent(ev, animate) {
   if (chatVCurrentId && ev.session && ev.session !== chatVCurrentId) return;
+  if (!chatVAgentMatchesFilter(ev)) return;
   const feed = document.getElementById('chat-v-feed');
   if (!feed) return;
   const empty = document.getElementById('chat-v-empty');
@@ -4020,7 +4196,13 @@ function handleChatViewEvent(ev) {
     s.events.push(ev);
     if (ev.type === 'session:complete') s.status = 'complete';
   }
-  if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
+  if (chatVCurrentId === ev.session) {
+    const hasNewAgent = (ev.agent && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.agent)}"]`))
+      || (ev.from && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
+      || (ev.to && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
+    if (hasNewAgent) chatVPopulateAgentBar(chatVSessions[ev.session]?.events || []);
+    appendChatViewEvent(ev, true);
+  }
 }
 
 // ── feature 4: budget cap + desktop notification ───────────
@@ -4682,97 +4864,7 @@ async function renderLoops() {
       el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div><div style="font-size:11px;color:var(--text-xs);margin-top:6px">Create one with + New Loop above or via <code>npx monomind autodev --tillend</code></div></div>';
       return;
     }
-    el.innerHTML = loops.map((l, idx) => {
-      const maxReps = l.maxReps || 0;
-      const curRep  = l.currentRep || 0;
-      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
-      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
-      const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
-      const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
-      const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
-      const isFinished = (maxReps > 0 && curRep >= maxReps)
-        || ['finished','done','complete','completed','expired'].includes(l.status)
-        || isOverdue || isStaledActive;
-      const isHil = l.status === 'hil:pending';
-      const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
-      const interval = fmtInterval(l.interval || l.schedule || '');
-      // Parse loop into consistent: userPrompt / command / flags
-      const _lp = (function(_l) {
-        if (_l.command) {
-          const flags = [];
-          if (_l.type && _l.type !== 'repeat') flags.push('--' + _l.type);
-          if (_l.maxReps) flags.push('--maxruns ' + _l.maxReps);
-          if (_l.interval) { const s = String(_l.interval).match(/^(\d+)s$/); if (s) flags.push('--wait ' + s[1]); }
-          if (_l.currentRep != null) flags.push('--rep ' + _l.currentRep);
-          if (_l.id) flags.push('--loop ' + _l.id);
-          return { userPrompt: _l.prompt || '', command: _l.command, flagsStr: flags.join(' ') };
-        }
-        const full = _l.prompt || '';
-        const cmdM = full.match(/^(\/\S+)/);
-        if (!cmdM) return { userPrompt: full, command: '', flagsStr: '' };
-        const tokens = full.slice(cmdM[1].length).trim().split(/\s+/);
-        let ti = 0, fp = [];
-        while (ti < tokens.length && tokens[ti] && tokens[ti].startsWith('--')) {
-          fp.push(tokens[ti++]);
-          if (ti < tokens.length && tokens[ti] && !tokens[ti].startsWith('--')) fp.push(tokens[ti++]);
-        }
-        return { userPrompt: tokens.slice(ti).join(' '), command: cmdM[1], flagsStr: fp.join(' ') };
-      })(l);
-      const userPrompt  = _lp.userPrompt;
-      const cmdStr      = _lp.command;
-      const flagsStr    = _lp.flagsStr;
-      const fullPrompt = l.prompt || '';
-      const command = l.command || '';
-      const name = (l.name || userPrompt || cmdStr || (l.prompt || 'loop').split('--')[0].trim()).slice(0, 60);
-      const startedAt = l.startedAt ? new Date(l.startedAt).toLocaleString() : '—';
-      const lastRun = l.lastRunAt ? relTime(l.lastRunAt) : (l.startedAt ? relTime(l.startedAt) : '—');
-      const runs = curRep != null ? curRep : '—';
-      const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
-      const progBar = isTillend
-        ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.capReps ? ' (cap: '+l.capReps+')' : ''}</span></div>`
-        : (maxReps > 0 && running)
-          ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
-          : '';
-      const cdownSpan = (running && nextAt)
-        ? ` <span class="loop-cdown" data-nextat="${nextAt}">${fmtCountdown(nextAt)}</span>`
-        : '';
-      const stopBtn = (running || isHil)
-        ? `<button class="loop-stop-btn" data-loop-id="${esc(l.id || l.name || String(idx))}" onclick="stopLoop(event, this.dataset.loopId)">■ Stop</button>`
-        : '';
-      const typeBadge = isTillend
-        ? `<span class="loop-type-badge" title="till-end loop">∞</span>`
-        : `<span class="loop-type-badge rep" title="repeat loop">↺</span>`;
-      const hilBanner = isHil
-        ? `<div class="loop-hil-banner">⚠ Human-in-the-loop confirmation required — check session for approval prompt</div>`
-        : '';
-      const statusLabel = isFinished ? 'done' : isHil ? 'HIL' : running ? 'active' : 'stopped';
-      const statusCls   = isFinished ? 'done' : isHil ? 'hil' : running ? 'active' : 'stopped';
-      return `<div class="loop-row${isHil ? ' hil' : ''}" data-loop-status="${esc(l.status || '')}" onclick="toggleLoop(this)">
-          <div class="loop-ico">${typeBadge}</div>
-          <div class="loop-body">
-            <div class="loop-name">${esc(name)}</div>
-            <div class="loop-meta">${interval !== '—' ? interval + ' · ' : ''}${esc([l.description].filter(Boolean).join('').slice(0, 80))}${cdownSpan}</div>
-            ${progBar}
-            ${hilBanner}
-          </div>
-          <div class="loop-status ${statusCls}">${statusLabel}${isHil ? ' ⚠' : ''}</div>
-          ${stopBtn}
-        </div>
-        <div class="loop-expand">
-          ${userPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="display:flex;align-items:flex-start;gap:8px"><span title="${esc(userPrompt)}">${esc(userPrompt.slice(0, 300))}${userPrompt.length > 300 ? '…' : ''}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy prompt" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(userPrompt)}).then(()=>showToast('Copied','Prompt copied','ok'))">⎘</button></div></div>` : ''}
-          ${cmdStr ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="display:flex;align-items:center;gap:8px"><span>${esc(cmdStr)}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy command" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(cmdStr)}).then(()=>showToast('Copied','Command copied','ok'))">⎘</button></div></div>` : ''}
-          ${flagsStr ? `<div class="le-row"><div class="le-lbl">Flags</div><div class="le-val mono" style="display:flex;align-items:flex-start;gap:8px"><span title="${esc(flagsStr)}">${esc(flagsStr.slice(0, 300))}${flagsStr.length > 300 ? '…' : ''}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy flags" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(flagsStr)}).then(()=>showToast('Copied','Flags copied','ok'))">⎘</button></div></div>` : ''}
-          <div class="le-row"><div class="le-lbl">Type</div><div class="le-val">${isTillend ? '∞ tillend' : '↺ repeat'}</div></div>
-          <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${interval}</div></div>
-          <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${isFinished ? '✓ done' : isHil ? '⚠ hil:pending' : running ? '● running' : '○ stopped'}</div></div>
-          ${isHil && l.id ? `<div class="le-row"><div class="le-lbl">HIL file</div><div class="le-val mono" style="color:oklch(75% 0.16 60);word-break:break-all">.monomind/loops/${esc(l.id)}-hil.md</div></div>` : ''}
-          <div class="le-row"><div class="le-lbl">Started</div><div class="le-val mono">${esc(startedAt)}</div></div>
-          ${running && l.startedAt ? `<div class="le-row"><div class="le-lbl">Running for</div><div class="le-val">${fmtDur(Date.now() - new Date(l.startedAt).getTime())}</div></div>` : ''}
-          <div class="le-row"><div class="le-lbl">Last run</div><div class="le-val">${esc(lastRun)}</div></div>
-          <div class="le-row"><div class="le-lbl">Run count</div><div class="le-val">${esc(String(runs))}${maxReps ? ' / ' + maxReps : isTillend ? ' / ∞' : ''}</div></div>
-          ${buildLoopSparkline(l)}
-        </div>`;
-    }).join('');
+    el.innerHTML = loops.map((l, idx) => _buildLoopRowHtml(l, idx, null)).join('');
     startCountdowns();
     markLiveGlow('view-loops');
   } catch (err) {
@@ -5280,6 +5372,7 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'issues-full')  v2RenderOrgIssuesFull();
   else if (tab === 'join-requests') v2RenderOrgJoinRequests();
   else if (tab === 'threads')      v2RenderOrgThreads();
+  else if (tab === 'chat')         v2RenderOrgChat();
 }
 
 // ── org chart ───────────────────────────────
@@ -6341,6 +6434,238 @@ async function v2RenderOrgSkills() {
       : '<div style="font-size:11px;color:var(--text-lo)">No skills listed</div>'}
     ${e.taskTypes.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px">${e.taskTypes.map(s => `<span class="oad-chip alt">${esc(s)}</span>`).join('')}</div>` : ''}
   </div>`).join('');
+}
+
+// ── ORG CHAT ───────────────────────────────────────────────
+let _odtChatSessions = [];
+let _odtChatCurrentId = null;
+let _odtChatCurrentAgent = 'all';
+let _odtChatSseSource = null;
+
+function _odtOrgSessionMatch(s) {
+  if (!_v2SelOrg) return true;
+  const orgLc = _v2SelOrg.toLowerCase();
+  const prompt = (s.prompt || '').toLowerCase();
+  if (prompt.includes('running org: ' + orgLc) || prompt.includes('org: ' + orgLc)) return true;
+  return (s.events || []).some(ev => (ev.org || '').toLowerCase() === orgLc);
+}
+
+function _odtChatAgentMatches(ev) {
+  if (_odtChatCurrentAgent === 'all') return true;
+  return ev.agent === _odtChatCurrentAgent || ev.from === _odtChatCurrentAgent || ev.to === _odtChatCurrentAgent;
+}
+
+async function v2RenderOrgChat() {
+  const pane = document.getElementById('odt-chat');
+  if (!pane) return;
+
+  // Build the pane HTML once
+  if (!pane.querySelector('#odt-chat-bar')) {
+    pane.innerHTML = `
+      <div id="odt-chat-bar">
+        <span id="odt-chat-sess-lbl">SESSION</span>
+        <select id="odt-chat-sel" onchange="odtChatSelectSession(this.value)">
+          <option value="">— loading sessions —</option>
+        </select>
+        <div id="odt-chat-live-dot"></div>
+        <span id="odt-chat-live-lbl">OFFLINE</span>
+      </div>
+      <div id="odt-chat-agent-bar" style="display:none">
+        <span id="odt-chat-agent-lbl">AGENT</span>
+      </div>
+      <div id="odt-chat-feed">
+        <div id="odt-chat-empty">Select a session to see agent communications.</div>
+      </div>`;
+  }
+
+  // Reset state when org changes
+  _odtChatCurrentId = null;
+  _odtChatCurrentAgent = 'all';
+  document.getElementById('odt-chat-agent-bar').style.display = 'none';
+  document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
+  const emptyEl = document.getElementById('odt-chat-empty');
+  if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a session to see agent communications.'; }
+
+  await _odtLoadChatSessions();
+  _odtConnectChatSSE();
+}
+
+async function _odtLoadChatSessions() {
+  try {
+    const r = await apiFetch('/api/mastermind/sessions');
+    const all = Array.isArray(r) ? r : Object.values(r.sessions || {});
+    _odtChatSessions = all.filter(_odtOrgSessionMatch);
+    _odtPopulateChatSel();
+  } catch(_) {}
+}
+
+function _odtPopulateChatSel() {
+  const sel = document.getElementById('odt-chat-sel');
+  if (!sel) return;
+  const prev = _odtChatCurrentId || sel.value;
+  const count = _odtChatSessions.length;
+  sel.innerHTML = `<option value="">${count ? `— ${count} session${count !== 1 ? 's' : ''} for ${_v2SelOrg} —` : '— no sessions yet —'}</option>`;
+  _odtChatSessions.forEach(s => {
+    const d = new Date(s.ts || s.startedAt || 0);
+    const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
+    const prompt = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0,40);
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${date} ${ts}  ${prompt}${prompt.length>=40?'…':''}  [${s.status||'?'}]`;
+    if (s.id === prev) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Auto-select running session
+  if (!_odtChatCurrentId) {
+    const running = _odtChatSessions.find(s => s.status === 'running');
+    if (running) { sel.value = running.id; odtChatSelectSession(running.id); }
+  }
+}
+
+window.odtChatSelectSession = function(id) {
+  _odtChatCurrentId = id;
+  _odtChatCurrentAgent = 'all';
+  const feed = document.getElementById('odt-chat-feed');
+  const emptyEl = document.getElementById('odt-chat-empty');
+  const bar = document.getElementById('odt-chat-agent-bar');
+  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+  if (!id) {
+    if (emptyEl) emptyEl.style.display = 'block';
+    if (bar) bar.style.display = 'none';
+    return;
+  }
+  const sess = _odtChatSessions.find(s => s.id === id);
+  if (!sess) return;
+  if (emptyEl) emptyEl.style.display = 'none';
+  _odtPopulateAgentBar(sess.events || []);
+  (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
+  feed.scrollTop = feed.scrollHeight;
+};
+
+function _odtPopulateAgentBar(events) {
+  const bar = document.getElementById('odt-chat-agent-bar');
+  if (!bar) return;
+  const agentSet = new Set();
+  (events || []).forEach(ev => {
+    if (ev.agent) agentSet.add(ev.agent);
+    if (ev.from && ev.from !== '?') agentSet.add(ev.from);
+    if (ev.to && ev.to !== '?') agentSet.add(ev.to);
+  });
+  // Seed with org roles
+  const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+  roles.forEach(r => { const n = typeof r === 'string' ? r : (r.role || r.name || r.id || ''); if (n) agentSet.add(n); });
+  const agents = [...agentSet].sort();
+  if (!agents.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span id="odt-chat-agent-lbl">AGENT</span>';
+  ['all', ...agents].forEach(name => {
+    const pill = document.createElement('button');
+    pill.className = 'odt-agent-pill' + (_odtChatCurrentAgent === name ? ' active' : '');
+    pill.textContent = name === 'all' ? 'ALL' : name;
+    pill.dataset.agent = name;
+    pill.onclick = () => odtChatSelectAgent(name);
+    bar.appendChild(pill);
+  });
+}
+
+window.odtChatSelectAgent = function(name) {
+  _odtChatCurrentAgent = name;
+  document.querySelectorAll('#odt-chat-agent-bar .odt-agent-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.agent === name);
+  });
+  const feed = document.getElementById('odt-chat-feed');
+  const emptyEl = document.getElementById('odt-chat-empty');
+  const sess = _odtChatSessions.find(s => s.id === _odtChatCurrentId);
+  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+  if (!sess) { if (emptyEl) emptyEl.style.display = 'block'; return; }
+  const visible = (sess.events || []).filter(ev => _odtChatAgentMatches(ev));
+  if (!visible.length) {
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = name === 'all' ? 'No events.' : `No events for "${name}"`; }
+  } else {
+    if (emptyEl) emptyEl.style.display = 'none';
+    visible.forEach(ev => _odtAppendEvent(ev, false));
+  }
+  feed.scrollTop = feed.scrollHeight;
+};
+
+function _odtAppendEvent(ev, animate) {
+  if (!_odtChatAgentMatches(ev)) return;
+  const feed = document.getElementById('odt-chat-feed');
+  if (!feed) return;
+  const emptyEl = document.getElementById('odt-chat-empty');
+  if (emptyEl) emptyEl.style.display = 'none';
+  const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+  let el;
+  if (ev.type === 'intercom') {
+    el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
+  } else if (ev.type === 'agent:message' || ev.type === 'agent:spawn') {
+    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || ev.task || ev.role || ev.type, ts, ev.type);
+  } else if (ev.type === 'session:start') {
+    el = mkCVSys('Session started' + (ev.prompt ? ': ' + esc(ev.prompt.replace(/^running org:\s*/i,'').slice(0,80)) : ''), ts);
+  } else if (ev.type === 'session:complete') {
+    el = mkCVSys('Session complete' + (ev.status ? ' — ' + esc(ev.status) : ''), ts);
+  } else if (ev.type === 'domain:dispatch') {
+    el = mkCVSys('→ ' + esc(ev.domain || '') + (ev.cmd ? ': ' + esc(ev.cmd.slice(0,80)) : ''), ts);
+  } else if (ev.type === 'domain:complete') {
+    el = mkCVSys('✓ ' + esc(ev.domain || '') + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+  } else if (ev.type === 'loop:start') {
+    el = mkCVSys('Loop: ' + esc(ev.command || ''), ts);
+  } else if (ev.type === 'loop:complete') {
+    el = mkCVSys('Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
+  } else {
+    el = mkCVSys(esc(ev.type || 'event'), ts);
+  }
+  if (animate) el.classList.add('cv-new');
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function _odtConnectChatSSE() {
+  if (_odtChatSseSource) return;
+  const dot = document.getElementById('odt-chat-live-dot');
+  const lbl = document.getElementById('odt-chat-live-lbl');
+  _odtChatSseSource = new EventSource('/api/mastermind-stream');
+  _odtChatSseSource.onopen = () => { dot?.classList.add('on'); if (lbl) lbl.textContent = 'LIVE'; };
+  _odtChatSseSource.onmessage = e => {
+    try { _odtHandleLiveEvent(JSON.parse(e.data)); } catch(_) {}
+  };
+  _odtChatSseSource.onerror = () => {
+    dot?.classList.remove('on');
+    if (lbl) lbl.textContent = 'OFFLINE';
+    _odtChatSseSource = null;
+    setTimeout(_odtConnectChatSSE, 5000);
+  };
+}
+
+function _odtHandleLiveEvent(ev) {
+  if (!ev?.session) return;
+  const isOrgSess = _odtOrgSessionMatch({ id: ev.session, prompt: ev.prompt || '', events: [ev] });
+  if (!isOrgSess) return;
+
+  let sess = _odtChatSessions.find(s => s.id === ev.session);
+  if (!sess && ev.type === 'session:start') {
+    sess = { id: ev.session, ts: ev.ts || Date.now(), prompt: ev.prompt || '', status: 'running', events: [ev] };
+    _odtChatSessions.unshift(sess);
+    _odtPopulateChatSel();
+    // Auto-select if nothing selected
+    if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
+      const sel = document.getElementById('odt-chat-sel');
+      if (sel) { sel.value = ev.session; odtChatSelectSession(ev.session); }
+    }
+    return;
+  }
+  if (sess) {
+    (sess.events = sess.events || []).push(ev);
+    if (ev.type === 'session:complete') { sess.status = ev.status || 'complete'; _odtPopulateChatSel(); }
+    if (_odtChatCurrentId === ev.session && _v2OrgTab === 'chat') {
+      const hasNewAgent = (ev.agent && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.agent)}"]`))
+        || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
+        || (ev.to && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
+      if (hasNewAgent) _odtPopulateAgentBar(sess.events);
+      _odtAppendEvent(ev, true);
+    }
+  }
 }
 
 // ── WORKSPACES ─────────────────────────────────────────────
@@ -10135,8 +10460,32 @@ async function loadAgentGraphTab() {
   const bar = document.getElementById('ag-summary-bar');
   if (bar) bar.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const data = await apiFetch('/api/graph?dir=' + enc(DIR));
-    _agData = data;
+    const raw = await apiFetch('/api/graph?dir=' + enc(DIR));
+    // Server returns {nodes, edges}; transform to the shape rendering expects
+    const sessionNodes = (raw.nodes || []).filter(n => n.type === 'session');
+    const agentTypeNodes = (raw.nodes || []).filter(n => n.type === 'agenttype');
+    const sessions = sessionNodes.map(n => ({
+      id: n.id,
+      file: n.id,
+      spawnCount: Object.values(n.agentSpawns || {}).reduce((a,b)=>a+b,0),
+      toolCount: n.totalTools || 0,
+      agentTypes: n.agentSpawns || {},
+      tools: n.toolCounts || {},
+      cost: n.cost || 0,
+      turns: n.turns || 0,
+      mtime: n.mtime,
+      truncated: n.truncated,
+    }));
+    _agData = {
+      sessions,
+      sessionCount: sessions.length,
+      agentTypes: agentTypeNodes.length,
+      totalSpawns: sessions.reduce((a,s)=>a+s.spawnCount,0),
+      totalToolCalls: sessions.reduce((a,s)=>a+s.toolCount,0),
+      totalCost: sessions.reduce((a,s)=>a+(s.cost||0),0),
+      nodes: raw.nodes,
+      edges: raw.edges,
+    };
     _renderAgSummary();
     _renderAgSessList();
   } catch (e) {
