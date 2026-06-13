@@ -1377,6 +1377,13 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       <div class="nav-item" data-view="global">
         <span class="ico">⊕</span><span class="lbl">Global Feed</span>
       </div>
+      <div class="nav-item" data-view="global-loops" title="Global Loops — loops across all projects">
+        <span class="ico">↺</span><span class="lbl">Global Loops</span>
+        <span class="bdg" id="bdg-global-loops">—</span>
+      </div>
+      <div class="nav-item" data-view="global-tokens" title="Global Tokens — token usage across all projects">
+        <span class="ico">$</span><span class="lbl">Global Tokens</span>
+      </div>
     </div>
   </div>
   <div id="sb-footer">
@@ -2064,6 +2071,28 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       </div>
     </div>
 
+    <!-- GLOBAL LOOPS -->
+    <div class="view" id="view-global-loops">
+      <div class="vscroll">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+          <div class="pg-title" style="margin-bottom:0">Global Loops</div>
+          <span class="pg-sub" id="gl-sub" style="margin-bottom:0">Loops across all projects</span>
+        </div>
+        <div id="gl-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- GLOBAL TOKENS -->
+    <div class="view" id="view-global-tokens">
+      <div class="vscroll">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+          <div class="pg-title" style="margin-bottom:0">Global Tokens</div>
+          <span class="pg-sub" id="gt-sub" style="margin-bottom:0">Token usage across all projects</span>
+        </div>
+        <div id="gt-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
+      </div>
+    </div>
+
     <div class="view" id="view-chat">
       <div class="vscroll">
         <div id="chat-v-bar">
@@ -2218,10 +2247,10 @@ function switchView(v) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', chat:'Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   // Projects always re-fetches so onclick paths in cards stay current
   if (v === 'projects') { renderProjects(); return; }
@@ -2239,6 +2268,8 @@ function renderView(v) {
   if (v === 'orgs') renderOrgs();
   if (v === 'monograph') loadMonograph();
   if (v === 'global') renderGlobalFeed();
+  if (v === 'global-loops') renderGlobalLoops();
+  if (v === 'global-tokens') renderGlobalTokens();
 }
 
 function refreshCurrent() {
@@ -2979,6 +3010,37 @@ function renderTokChart(daily, animated = true) {
   const max  = Math.max(...vals, 0.0001);
   const avg  = vals.reduce((a, b) => a + b, 0) / (vals.length || 1) || 0.0001;
   const bar  = Math.max(2, Math.floor((W - (vals.length - 1) * 2) / vals.length));
+  window._tokBarW = bar;
+
+  // attach hover tooltip once
+  if (!canvas._tokTipBound) {
+    canvas._tokTipBound = true;
+    canvas.parentNode.style.position = 'relative';
+    const tip = document.createElement('div');
+    tip.style.cssText = 'position:absolute;pointer-events:none;display:none;font-size:11px;font-family:var(--mono);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 8px;color:var(--text-hi);z-index:100;white-space:nowrap;box-shadow:0 2px 8px #0004';
+    canvas.parentNode.appendChild(tip);
+    canvas._tokTip = tip;
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const pitch = (window._tokBarW || 8) + 2;
+      const idx = Math.max(0, Math.min(Math.floor(mx / pitch), (window._tokDaily || []).length - 1));
+      const d = (window._tokDaily || [])[idx];
+      if (d) {
+        const label = d.label || d.date || d.day || ('Day ' + (idx + 1));
+        const cost = Number(d.cost ?? d.value ?? 0);
+        canvas._tokTip.textContent = label + ' — $' + (cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2));
+        canvas._tokTip.style.display = 'block';
+        const tipW = canvas._tokTip.offsetWidth || 120;
+        canvas._tokTip.style.left = Math.min(mx + 10, rect.width - tipW - 4) + 'px';
+        canvas._tokTip.style.top = '4px';
+      } else {
+        canvas._tokTip.style.display = 'none';
+      }
+    });
+    canvas.addEventListener('mouseleave', () => { canvas._tokTip.style.display = 'none'; });
+  }
+
   const targets = vals.map((v, i) => ({
     v, i,
     isToday: i === vals.length - 1,
@@ -3604,6 +3666,166 @@ function buildRecap(events, sess) {
 
   recap.innerHTML = `<div class="recap-text">${stats}</div>`;
   recap.className = 'show';
+}
+
+// ── global loops (multi-project) ───────────────────────────
+function deduplicateLoops(loops) {
+  const hasRepeat = loops.some(l => l.source === '_repeat.md');
+  const repeatPrompts = new Set(loops.filter(l => l.source === '_repeat.md').map(l => (l.prompt || '').trim()));
+  return loops.filter(l => {
+    if (l.source === 'scheduled_tasks_lock' && hasRepeat) return false;
+    if (l.source !== 'schedule_wakeup_hook') return true;
+    const m = (l.prompt || '').match(/--loop\s+\S+\s+(.+)$/s);
+    return !m || !repeatPrompts.has(m[1].trim());
+  });
+}
+
+async function renderGlobalLoops() {
+  const el = document.getElementById('gl-content');
+  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  try {
+    const data = await apiFetch('/api/projects');
+    const allProjects = data?.projects || [];
+    const projects = allProjects.slice(0, 20);
+    if (!projects.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No projects found</div></div>';
+      document.getElementById('bdg-global-loops').textContent = '—';
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      projects.map(p => apiFetch('/api/loops?dir=' + enc(p.path)).then(d => ({
+        project: p,
+        loops: deduplicateLoops(Array.isArray(d) ? d : (d.loops || []))
+      })))
+    );
+
+    let totalLoops = 0;
+    const sections = [];
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      const { project, loops } = r.value;
+      if (!loops.length) continue;
+      totalLoops += loops.length;
+      const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
+      const rows = loops.map(l => {
+        const isTillend = l.type === 'tillend';
+        const curRep = l.currentRep || 0;
+        const maxReps = l.maxReps || 0;
+        const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
+        const isHil = l.status === 'hil:pending';
+        const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
+        const isOverdue = !l.status?.startsWith('hil') && !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
+        const isFinished = isOverdue || (maxReps > 0 && curRep >= maxReps) ||
+          ['finished','done','complete','completed','expired'].includes(l.status);
+        const running = !isFinished && l.status !== 'stopped' && l.status !== 'paused';
+        const name = l.name || (l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
+        const intervalStr = fmtInterval(l.interval || l.schedule);
+        const type = esc(l.type || 'repeat');
+        const statusClass = isHil ? 'hil' : (running ? 'active' : 'stopped');
+        const statusLabel = isHil ? '⚠ HIL' : (running ? 'active' : (isFinished ? 'done' : 'stopped'));
+        const overdueSpan = isOverdue ? ' <span class="loop-cdown overdue">overdue</span>' : '';
+        const metaStr = intervalStr ? esc(intervalStr) + overdueSpan : overdueSpan;
+        return `<div class="loop-row" style="cursor:default">
+          <div class="loop-ico">${isTillend ? '∞' : '↺'}</div>
+          <div class="loop-body">
+            <div class="loop-name" title="${esc(l.name || l.prompt || '')}"><span class="loop-type-badge${isTillend ? ' tillend' : ''}">${type}</span>${esc(name)}</div>
+            <div class="loop-meta">${metaStr}</div>
+          </div>
+          <span class="gf-proj-tag">${esc(projName)}</span>
+          <div class="loop-status ${statusClass}">${statusLabel}</div>
+        </div>`;
+      }).join('');
+      sections.push(`<div style="margin-bottom:18px">
+        <div class="m-group-title" style="margin-bottom:6px">${esc(projName)}</div>
+        ${rows}
+      </div>`);
+    }
+
+    document.getElementById('bdg-global-loops').textContent = totalLoops || '—';
+    document.getElementById('gl-sub').textContent = `${totalLoops} loop${totalLoops !== 1 ? 's' : ''} across ${sections.length} project${sections.length !== 1 ? 's' : ''}`;
+
+    if (!sections.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops found across projects</div></div>';
+      return;
+    }
+    el.innerHTML = sections.join('');
+  } catch (err) {
+    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
+  }
+}
+
+// ── global tokens (multi-project) ──────────────────────────
+async function renderGlobalTokens() {
+  const el = document.getElementById('gt-content');
+  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  try {
+    const data = await apiFetch('/api/projects');
+    const allProjects = data?.projects || [];
+    const projects = allProjects.slice(0, 20);
+    if (!projects.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">$</div><div>No projects found</div></div>';
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      projects.map(p => apiFetch('/api/section?name=tokens&dir=' + enc(p.path)).then(d => ({
+        project: p,
+        tokens: d?.tokens?.summary || {}
+      })))
+    );
+
+    let aggTodayCost = 0, aggMonthCost = 0, aggTotalTokens = 0;
+    const rows = [];
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      const { project, tokens: s } = r.value;
+      const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
+      const todayCost = typeof s.todayCost === 'number' ? s.todayCost : 0;
+      const monthCost = typeof s.monthCost === 'number' ? s.monthCost : 0;
+      const totalTokens = s.totalTokens != null ? Number(s.totalTokens) : 0;
+      const totalCost = typeof s.totalCost === 'number' ? s.totalCost : (monthCost || todayCost);
+      aggTodayCost += todayCost;
+      aggMonthCost += monthCost;
+      aggTotalTokens += totalTokens;
+      rows.push({ projName, todayCost, monthCost, totalTokens, totalCost });
+    }
+    rows.sort((a, b) => b.totalCost - a.totalCost);
+
+    const cards = [
+      { label: 'Today Cost',    val: '$' + aggTodayCost.toFixed(2) },
+      { label: 'Month Cost',    val: '$' + aggMonthCost.toFixed(2) },
+      { label: 'Total Tokens',  val: aggTotalTokens > 0 ? Number(aggTotalTokens).toLocaleString() : '—' },
+    ].map(c => `<div class="tok-card"><div class="tc-label">${esc(c.label)}</div><div class="tc-val">${esc(c.val)}</div></div>`).join('');
+
+    const tableRows = rows.map(r => `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:4px 8px 4px 0;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.projName)}">${esc(r.projName)}</td>
+      <td style="padding:4px 8px;color:var(--accent)">$${r.todayCost.toFixed(2)}</td>
+      <td style="padding:4px 8px;color:var(--text-lo)">$${r.monthCost.toFixed(2)}</td>
+      <td style="padding:4px 8px;color:var(--text-lo)">${r.totalTokens > 0 ? Number(r.totalTokens).toLocaleString() : '—'}</td>
+      <td style="padding:4px 8px;color:var(--accent)">$${r.totalCost.toFixed(2)}</td>
+    </tr>`).join('');
+
+    const projectCount = rows.length;
+    document.getElementById('gt-sub').textContent = `Token usage across ${projectCount} project${projectCount !== 1 ? 's' : ''}`;
+
+    el.innerHTML = `<div id="gt-cards" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">${cards}</div>
+      <div id="gt-table">
+        <div class="m-group-title" style="margin-bottom:6px">Projects by cost</div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace">
+          <thead><tr style="color:var(--text-xs);text-align:left">
+            <th style="padding:4px 8px 4px 0">Project</th>
+            <th style="padding:4px 8px">Today</th>
+            <th style="padding:4px 8px">Month</th>
+            <th style="padding:4px 8px">Total Tokens</th>
+            <th style="padding:4px 8px">Total Cost</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table></div>
+      </div>`;
+  } catch (err) {
+    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
+  }
 }
 
 // ── feature 3: global feed ─────────────────────────────────
