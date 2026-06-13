@@ -492,8 +492,8 @@ html, body {
 
 /* Arrow markers are inline in the SVG */
 
-/* ── Copy button on org items ───────────────────────────────────── */
-.oi-copy-btn {
+/* ── Copy / Export / Import buttons on org items ────────────────── */
+.oi-copy-btn, .oi-export-btn, .oi-import-btn {
   display: none;
   flex-shrink: 0;
   background: none;
@@ -509,11 +509,23 @@ html, body {
   line-height: 1.4;
   white-space: nowrap;
 }
-.org-item:hover .oi-copy-btn { display: inline-block; }
+.org-item:hover .oi-copy-btn,
+.org-item:hover .oi-export-btn,
+.org-item:hover .oi-import-btn { display: inline-block; }
 .oi-copy-btn:hover {
   color: var(--teal);
   border-color: var(--teal-dim);
   background: var(--teal-glow);
+}
+.oi-export-btn:hover {
+  color: var(--green, #4ade80);
+  border-color: oklch(60% 0.15 145 / 0.4);
+  background: oklch(60% 0.15 145 / 0.08);
+}
+.oi-import-btn:hover {
+  color: var(--amber, #facc15);
+  border-color: oklch(70% 0.15 85 / 0.4);
+  background: oklch(70% 0.15 85 / 0.08);
 }
 
 /* ── Copy modal ─────────────────────────────────────────────────── */
@@ -910,6 +922,8 @@ function renderSidebar() {
         <div class="oi-name">${esc(org.name)}</div>
         <span class="oi-badge ${org.running ? 'running' : 'idle'}">${org.running ? 'LIVE' : 'IDLE'}</span>
         <button class="oi-copy-btn" title="Copy org to another project">COPY</button>
+        <button class="oi-export-btn" title="Export org as JSON file">EXPORT</button>
+        <button class="oi-import-btn" title="Import org from JSON file">IMPORT</button>
       </div>
       ${goalText ? `<div class="oi-goal">${esc(goalText)}</div>` : ''}
       <div class="oi-meta">
@@ -920,6 +934,14 @@ function renderSidebar() {
     item.querySelector('.oi-copy-btn').addEventListener('click', e => {
       e.stopPropagation();
       openCopyModal(org.name);
+    });
+    item.querySelector('.oi-export-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      exportOrg(org.name);
+    });
+    item.querySelector('.oi-import-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      triggerImportOrg(org.name);
     });
     item.addEventListener('click', () => selectOrg(org.name));
     list.appendChild(item);
@@ -1644,6 +1666,66 @@ window.executeCopy = async function() {
     btn.disabled = false;
   }
 };
+
+// ── Export org ────────────────────────────────────────────────────
+window.exportOrg = async function(name) {
+  try {
+    const r = await fetch(`/api/orgs/${encodeURIComponent(name)}`);
+    if (!r.ok) throw new Error(r.statusText);
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${name}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch(e) {
+    alert('EXPORT FAILED: ' + e.message);
+  }
+};
+
+// ── Import org ────────────────────────────────────────────────────
+let importTargetOrg = null;
+
+window.triggerImportOrg = function(name) {
+  importTargetOrg = name;
+  let inp = document.getElementById('oi-import-file-input');
+  if (!inp) {
+    inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.json,application/json';
+    inp.id = 'oi-import-file-input';
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+    inp.addEventListener('change', handleImportFile);
+  }
+  inp.value = '';
+  inp.click();
+};
+
+async function handleImportFile(e) {
+  const file = e.target.files[0];
+  if (!file || !importTargetOrg) return;
+  try {
+    const text = await file.text();
+    let data;
+    try { data = JSON.parse(text); } catch(_) { alert('IMPORT FAILED: invalid JSON'); return; }
+    const r = await fetch(`/api/orgs/${encodeURIComponent(importTargetOrg)}/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await r.json();
+    if (r.ok && result.ok) {
+      loadOrgs();
+    } else {
+      alert('IMPORT FAILED: ' + (result.error || r.statusText));
+    }
+  } catch(e) {
+    alert('IMPORT FAILED: ' + e.message);
+  } finally {
+    importTargetOrg = null;
+  }
+}
 
 // ── Bootstrap ─────────────────────────────────────────────────────
 connectSSE();
