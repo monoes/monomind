@@ -310,7 +310,7 @@ html, body {
   font-size: 8px; letter-spacing: 3px; color: var(--dim); padding: 6px 12px;
   border-bottom: 1px solid var(--border);
 }
-#clf-rows { max-height: 160px; overflow-y: auto; }
+#clf-rows { min-height: 48px; max-height: 160px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--teal-dim) transparent; }
 .clf-row {
   display: grid; grid-template-columns: 80px 70px 1fr;
   gap: 8px; padding: 5px 12px;
@@ -1741,7 +1741,15 @@ function initLiveStrip() {
   events.forEach(ev => appendLiveFeedRow(ev, false));
   // Detect running state from list data
   const listOrg = allOrgs.find(o => o.name === selectedOrg);
-  if (listOrg && listOrg.running) orgRunStartMs = Date.now();
+  if (listOrg && listOrg.running && !orgRunStartMs) {
+    const acts = orgDetailData._activity || [];
+    const startEv = acts.slice().reverse().find(e => e.type === 'org:start' || e.type === 'org:create');
+    if (startEv && startEv.ts) orgRunStartMs = startEv.ts;
+    else if (listOrg.running_since) orgRunStartMs = listOrg.running_since;
+    else orgRunStartMs = Date.now(); // fallback
+  } else if (listOrg && !listOrg.running) {
+    orgRunStartMs = null;
+  }
   updateLiveStrip();
   if (lsUptimeTimer) clearInterval(lsUptimeTimer);
   lsUptimeTimer = setInterval(updateLiveStrip, 1000);

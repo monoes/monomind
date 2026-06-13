@@ -2309,7 +2309,12 @@ function _setLiveMode(mode) {
 function startPolling() {
   _setLiveMode('poll');
   clearInterval(pollTimer);
-  pollTimer = setInterval(() => { if (currentView === 'now') refreshNowSilent(); }, 30000);
+  pollTimer = setInterval(() => {
+    if (currentView === 'now') refreshNowSilent();
+    else if (currentView === 'loops') renderLoops();
+    else viewRendered['loops'] = false; // loops data may be stale — re-fetch on next nav
+    loadLoopMetrics();
+  }, 30000);
 }
 
 let _sseSource = null;
@@ -4455,7 +4460,8 @@ async function renderLoops() {
     // Dedup: if real _repeat.md loops exist, hide scheduled_tasks_lock noise
     const hasRepeatLoops = loops.some(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
     if (hasRepeatLoops) loops = loops.filter(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
-    document.getElementById('bdg-loops').textContent = loops.length || '—';
+    const hilCountL = loops.filter(l => l.status === 'hil:pending').length;
+    document.getElementById('bdg-loops').textContent = loops.length ? (hilCountL ? loops.length + '⚠' : loops.length) : '—';
     if (!loops.length) {
       el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div><div style="font-size:11px;color:var(--text-xs);margin-top:6px">Create one with + New Loop above or via <code>npx monomind autodev --tillend</code></div></div>';
       return;
@@ -4473,10 +4479,35 @@ async function renderLoops() {
         || isOverdue || isStaledActive;
       const isHil = l.status === 'hil:pending';
       const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
-      const name = l.name || (l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
       const interval = fmtInterval(l.interval || l.schedule || '');
+      // Parse loop into consistent: userPrompt / command / flags
+      const _lp = (function(_l) {
+        if (_l.command) {
+          const flags = [];
+          if (_l.type && _l.type !== 'repeat') flags.push('--' + _l.type);
+          if (_l.maxReps) flags.push('--maxruns ' + _l.maxReps);
+          if (_l.interval) { const s = String(_l.interval).match(/^(\d+)s$/); if (s) flags.push('--wait ' + s[1]); }
+          if (_l.currentRep != null) flags.push('--rep ' + _l.currentRep);
+          if (_l.id) flags.push('--loop ' + _l.id);
+          return { userPrompt: _l.prompt || '', command: _l.command, flagsStr: flags.join(' ') };
+        }
+        const full = _l.prompt || '';
+        const cmdM = full.match(/^(\/\S+)/);
+        if (!cmdM) return { userPrompt: full, command: '', flagsStr: '' };
+        const tokens = full.slice(cmdM[1].length).trim().split(/\s+/);
+        let ti = 0, fp = [];
+        while (ti < tokens.length && tokens[ti] && tokens[ti].startsWith('--')) {
+          fp.push(tokens[ti++]);
+          if (ti < tokens.length && tokens[ti] && !tokens[ti].startsWith('--')) fp.push(tokens[ti++]);
+        }
+        return { userPrompt: tokens.slice(ti).join(' '), command: cmdM[1], flagsStr: fp.join(' ') };
+      })(l);
+      const userPrompt  = _lp.userPrompt;
+      const cmdStr      = _lp.command;
+      const flagsStr    = _lp.flagsStr;
       const fullPrompt = l.prompt || '';
       const command = l.command || '';
+      const name = (l.name || userPrompt || cmdStr || (l.prompt || 'loop').split('--')[0].trim()).slice(0, 60);
       const startedAt = l.startedAt ? new Date(l.startedAt).toLocaleString() : '—';
       const lastRun = l.lastRunAt ? relTime(l.lastRunAt) : (l.startedAt ? relTime(l.startedAt) : '—');
       const runs = curRep != null ? curRep : '—';
@@ -4512,8 +4543,9 @@ async function renderLoops() {
           ${stopBtn}
         </div>
         <div class="loop-expand">
-          ${fullPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(fullPrompt)}).then(()=>showToast('Copied','','ok'))">${esc(fullPrompt.slice(0, 300))}</div></div>` : ''}
-          ${command && command !== fullPrompt ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(command)}).then(()=>showToast('Copied','','ok'))">${esc(command.slice(0, 200))}</div></div>` : ''}
+          ${userPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="display:flex;align-items:flex-start;gap:8px"><span title="${esc(userPrompt)}">${esc(userPrompt.slice(0, 300))}${userPrompt.length > 300 ? '…' : ''}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy prompt" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(userPrompt)}).then(()=>showToast('Copied','Prompt copied','ok'))">⎘</button></div></div>` : ''}
+          ${cmdStr ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="display:flex;align-items:center;gap:8px"><span>${esc(cmdStr)}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy command" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(cmdStr)}).then(()=>showToast('Copied','Command copied','ok'))">⎘</button></div></div>` : ''}
+          ${flagsStr ? `<div class="le-row"><div class="le-lbl">Flags</div><div class="le-val mono" style="display:flex;align-items:flex-start;gap:8px"><span title="${esc(flagsStr)}">${esc(flagsStr.slice(0, 300))}${flagsStr.length > 300 ? '…' : ''}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy flags" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(flagsStr)}).then(()=>showToast('Copied','Flags copied','ok'))">⎘</button></div></div>` : ''}
           <div class="le-row"><div class="le-lbl">Type</div><div class="le-val">${isTillend ? '∞ tillend' : '↺ repeat'}</div></div>
           <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${interval}</div></div>
           <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${isFinished ? '✓ done' : isHil ? '⚠ hil:pending' : running ? '● running' : '○ stopped'}</div></div>
@@ -4589,8 +4621,32 @@ function startCountdowns() {
   _cdownInterval = setInterval(() => {
     document.querySelectorAll('.loop-cdown[data-nextat]').forEach(el => {
       const ms = parseInt(el.dataset.nextat) - Date.now();
+      if (ms <= 0) {
+        const row = el.closest('.loop-row');
+        const loopStatus = row ? (row.dataset.loopStatus || '') : '';
+        const isActiveStatus = loopStatus === 'running' || loopStatus === 'waiting' || loopStatus === 'active';
+        if (isActiveStatus) {
+          // Loop is between rounds or executing — not done, just waiting for next update
+          el.textContent = 'executing…';
+          el.classList.remove('overdue');
+        } else {
+          el.textContent = 'overdue';
+          el.classList.add('overdue');
+          if (row) {
+            const badge = row.querySelector('.loop-status');
+            if (badge && badge.classList.contains('active')) {
+              badge.classList.remove('active');
+              badge.classList.add('stopped');
+              badge.textContent = 'done';
+            }
+            const stopBtn = row.querySelector('.loop-stop-btn');
+            if (stopBtn) stopBtn.remove();
+          }
+        }
+        return;
+      }
       el.textContent = fmtCountdown(el.dataset.nextat);
-      el.classList.toggle('overdue', ms <= 0);
+      el.classList.remove('overdue');
     });
   }, 1000);
 }
@@ -6303,12 +6359,22 @@ function filterOrgList(q) {
 // live SSE for org events
 (function v2OrgSSE() {
   let src;
+  let _connectTime = 0;
   function connect() {
     if (src) src.close();
+    _connectTime = Date.now();
     src = new EventSource('/api/mastermind-stream');
     src.onmessage = e => {
       try {
         const ev = JSON.parse(e.data);
+        if (ev?.type?.startsWith('loop:')) {
+          // Skip replayed historical events (server replays last ~50 on reconnect)
+          if (ev.ts && ev.ts < _connectTime) return;
+          if (currentView === 'loops') renderLoops();
+          else viewRendered['loops'] = false; // stale — re-fetch on next switchView
+          loadLoopMetrics();
+          return;
+        }
         if (!ev?.org || !ev?.type?.startsWith('org:')) return;
         const n = ev.org;
         // Filter by project dir if the event carries one; skip events from other projects.
