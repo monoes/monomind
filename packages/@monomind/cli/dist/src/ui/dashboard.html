@@ -3277,17 +3277,24 @@ async function loadMemUsagePeriod(btn, period) {
       }).join('');
     }
 
-    const totalCost = typeof s.todayCost === 'number' ? s.todayCost : (typeof s.cost === 'number' ? s.cost : null);
-    const cacheEff = s.cacheTokens && s.totalTokensIn
-      ? Math.round(s.cacheTokens / s.totalTokensIn * 100) : null;
+    // /api/token-usage returns flat { totalCost, totalCalls, totalIn, totalOut, totalCR } at the top
+    // level — not nested under "summary". Fall back to those flat fields when s (summary) is empty.
+    const totalCost = typeof s.todayCost === 'number' ? s.todayCost
+      : (typeof s.cost === 'number' ? s.cost
+      : (typeof data?.totalCost === 'number' ? data.totalCost : null));
+    const totalCalls = s.todayCalls ?? s.calls ?? data?.totalCalls ?? null;
+    const tokIn  = s.totalTokensIn  ?? data?.totalIn  ?? null;
+    const tokOut = s.totalTokensOut ?? data?.totalOut ?? null;
+    const cacheR = s.cacheTokens ?? data?.totalCR ?? null;
+    const cacheEff = (cacheR != null && tokIn) ? Math.round(cacheR / tokIn * 100) : null;
 
     content.innerHTML = `
       <!-- Overview stats -->
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
         ${totalCost !== null ? `<div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--accent)">$${totalCost.toFixed(3)}</div><div class="chunk-stat-lbl">Total Cost</div></div>` : ''}
-        ${s.todayCalls != null || s.calls != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${(s.todayCalls ?? s.calls ?? 0).toLocaleString()}</div><div class="chunk-stat-lbl">API Calls</div></div>` : ''}
-        ${s.totalTokensIn != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(s.totalTokensIn).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens In</div></div>` : ''}
-        ${s.totalTokensOut != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(s.totalTokensOut).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens Out</div></div>` : ''}
+        ${totalCalls != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(totalCalls).toLocaleString()}</div><div class="chunk-stat-lbl">API Calls</div></div>` : ''}
+        ${tokIn != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(tokIn).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens In</div></div>` : ''}
+        ${tokOut != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(tokOut).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens Out</div></div>` : ''}
         ${cacheEff !== null ? `<div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--green)">${cacheEff}%</div><div class="chunk-stat-lbl">Cache Eff.</div></div>` : ''}
       </div>
 
