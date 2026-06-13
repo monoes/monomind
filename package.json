@@ -59,9 +59,26 @@
     "@monoes/monograph": "^1.1.0"
   },
   "overrides": {
-    "hono": ">=4.11.4"
+    "hono": ">=4.12.21",
+    "ws": ">=8.20.1",
+    "axios": ">=1.16.0",
+    "qs": ">=6.15.2",
+    "esbuild": ">=0.28.1",
+    "protobufjs": ">=7.5.8",
+    "@protobufjs/utf8": ">=1.1.1",
+    "@grpc/grpc-js": ">=1.14.4"
   },
   "pnpm": {
+    "overrides": {
+      "hono": ">=4.12.21",
+      "ws": ">=8.20.1",
+      "axios": ">=1.16.0",
+      "qs": ">=6.15.2",
+      "esbuild": ">=0.28.1",
+      "protobufjs": ">=7.5.8",
+      "@protobufjs/utf8": ">=1.1.1",
+      "@grpc/grpc-js": ">=1.14.4"
+    },
     "peerDependencyRules": {
       "allowedVersions": {
         "tree-sitter": "0.22.4",
