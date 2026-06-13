@@ -1031,7 +1031,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ---------------------------------------------------------- GET /api/loops
     if (req.method === 'GET' && url === '/api/loops') {
       try {
-        const cwd = projectDir || process.cwd();
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const cwd = qs.get('dir') || projectDir || process.cwd();
         const loopsDir = path.join(cwd, '.monomind', 'loops');
         let loops = [];
         let stopFiles = new Set();

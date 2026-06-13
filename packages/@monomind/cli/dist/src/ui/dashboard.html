@@ -246,6 +246,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .lp-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
 .loop-stop-btn { font-size: 11px; padding: 2px 8px; background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--text-lo); cursor: pointer; font-family: var(--sans); }
 .loop-stop-btn:hover { border-color: var(--red); color: var(--red); }
+.loop-status.done { background: var(--surface-hi); color: var(--text-xs); }
+.loop-status.hil { background: oklch(78% 0.18 80 / 0.15); color: oklch(78% 0.18 80); }
+.loop-row.hil { border-color: oklch(78% 0.18 80 / 0.3); }
+.loop-hil-banner { margin-top: 6px; padding: 5px 8px; background: oklch(78% 0.18 80 / 0.1); border: 1px solid oklch(78% 0.18 80 / 0.3); border-radius: 4px; font-size: 11px; color: oklch(78% 0.18 80); }
+.loop-type-badge { font-size: 15px; line-height: 1; color: var(--accent); }
+.loop-type-badge.rep { color: var(--text-lo); }
+.lp-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 5px; overflow: hidden; position: relative; }
 
 /* memory */
 .mem-section { margin-bottom: 22px; }
@@ -3691,8 +3698,16 @@ function appendChatViewEvent(ev, animate) {
     el = mkCVSys('✓ ' + esc(ev.domain || '') + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
   } else if (ev.type === 'loop:start') {
     el = mkCVSys('Loop started: ' + esc(ev.command || ''), ts);
+    if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'loop:complete') {
     el = mkCVSys('Loop complete: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
+    if (currentView === 'loops') renderLoops();
+  } else if (ev.type === 'loop:tick') {
+    el = mkCVSys('Loop tick: ' + esc(ev.command || ev.id || ''), ts);
+    if (currentView === 'loops') renderLoops();
+  } else if (ev.type === 'loop:hil') {
+    el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.id || ''), ts);
+    if (currentView === 'loops') renderLoops();
   } else {
     el = mkCVSys(esc(ev.type || 'event'), ts);
   }
@@ -4361,6 +4376,15 @@ function buildLoopSparkline(l) {
   return `<div class="le-spark"><span style="font-size:10px;color:var(--text-xs)">last ${runHistory.slice(-10).length} runs</span><div class="loop-sparkline">${bars}</div></div>`;
 }
 
+function fmtInterval(minutes) {
+  if (!minutes && minutes !== 0) return '—';
+  const m = typeof minutes === 'string' ? parseFloat(minutes) : minutes;
+  if (isNaN(m) || m <= 0) return String(minutes);
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60), rem = Math.round(m % 60);
+  return rem ? `${h}h ${rem}m` : `${h}h`;
+}
+
 // ── loops ──────────────────────────────────────────────────
 async function renderLoops() {
   const el = document.getElementById('loops-content');
@@ -4374,43 +4398,62 @@ async function renderLoops() {
       return;
     }
     el.innerHTML = loops.map((l, idx) => {
-      const running = l.status !== 'stopped' && l.status !== 'paused';
-      const name = l.name || (l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
-      const interval = l.interval || l.schedule || '';
-      const fullPrompt = l.prompt || l.command || '';
-      const startedAt = l.startedAt ? new Date(l.startedAt).toLocaleString() : '—';
-      const lastRun = l.lastRunAt ? relTime(l.lastRunAt) : (l.startedAt ? relTime(l.startedAt) : '—');
-      const runs = l.currentRep != null ? l.currentRep : '—';
-      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
       const maxReps = l.maxReps || 0;
       const curRep  = l.currentRep || 0;
+      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const isFinished = (maxReps > 0 && curRep >= maxReps)
+        || ['finished','done','complete','completed','expired'].includes(l.status)
+        || (l.status === 'waiting' && l.nextRunAt && parseInt(l.nextRunAt) < Date.now() && !isTillend);
+      const isHil = l.status === 'hil:pending';
+      const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
+      const name = l.name || (l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
+      const interval = fmtInterval(l.interval || l.schedule || '');
+      const fullPrompt = l.prompt || '';
+      const command = l.command || '';
+      const startedAt = l.startedAt ? new Date(l.startedAt).toLocaleString() : '—';
+      const lastRun = l.lastRunAt ? relTime(l.lastRunAt) : (l.startedAt ? relTime(l.startedAt) : '—');
+      const runs = curRep != null ? curRep : '—';
+      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
       const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
-      const progBar = (maxReps > 0 && running)
-        ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
-        : '';
+      const progBar = isTillend
+        ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.capReps ? ' (cap: '+l.capReps+')' : ''}</span></div>`
+        : (maxReps > 0 && running)
+          ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
+          : '';
       const cdownSpan = (running && nextAt)
         ? ` <span class="loop-cdown" data-nextat="${nextAt}">…</span>`
         : '';
-      const stopBtn = running
+      const stopBtn = (running || isHil)
         ? `<button class="loop-stop-btn" data-loop-id="${esc(l.id || l.name || String(idx))}" onclick="stopLoop(event, this.dataset.loopId)">■ Stop</button>`
         : '';
-      return `<div class="loop-row" onclick="toggleLoop(this)">
-          <div class="loop-ico">↺</div>
+      const typeBadge = isTillend
+        ? `<span class="loop-type-badge" title="till-end loop">∞</span>`
+        : `<span class="loop-type-badge rep" title="repeat loop">↺</span>`;
+      const hilBanner = isHil
+        ? `<div class="loop-hil-banner">⚠ Human-in-the-loop confirmation required — check session for approval prompt</div>`
+        : '';
+      const statusLabel = isFinished ? 'done' : isHil ? 'HIL' : running ? 'active' : 'stopped';
+      const statusCls   = isFinished ? 'done' : isHil ? 'hil' : running ? 'active' : 'stopped';
+      return `<div class="loop-row${isHil ? ' hil' : ''}" onclick="toggleLoop(this)">
+          <div class="loop-ico">${typeBadge}</div>
           <div class="loop-body">
             <div class="loop-name">${esc(name)}</div>
-            <div class="loop-meta">${esc([interval, l.description].filter(Boolean).join(' · ').slice(0, 80))}${cdownSpan}</div>
+            <div class="loop-meta">${interval !== '—' ? interval + ' · ' : ''}${esc([l.description].filter(Boolean).join('').slice(0, 80))}${cdownSpan}</div>
             ${progBar}
+            ${hilBanner}
           </div>
-          <div class="loop-status ${running ? 'active' : 'stopped'}">${running ? 'active' : 'stopped'}</div>
+          <div class="loop-status ${statusCls}">${statusLabel}${isHil ? ' ⚠' : ''}</div>
           ${stopBtn}
         </div>
         <div class="loop-expand">
-          ${fullPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono">${esc(fullPrompt.slice(0, 300))}</div></div>` : ''}
-          <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${esc(interval || '—')}</div></div>
-          <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${running ? '● running' : '○ stopped'}</div></div>
+          ${fullPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(fullPrompt)}).then(()=>showToast('Copied','','ok'))">${esc(fullPrompt.slice(0, 300))}</div></div>` : ''}
+          ${command && command !== fullPrompt ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(command)}).then(()=>showToast('Copied','','ok'))">${esc(command.slice(0, 200))}</div></div>` : ''}
+          <div class="le-row"><div class="le-lbl">Type</div><div class="le-val">${isTillend ? '∞ tillend' : '↺ repeat'}</div></div>
+          <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${interval}</div></div>
+          <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${isFinished ? '✓ done' : isHil ? '⚠ hil:pending' : running ? '● running' : '○ stopped'}</div></div>
           <div class="le-row"><div class="le-lbl">Started</div><div class="le-val mono">${esc(startedAt)}</div></div>
           <div class="le-row"><div class="le-lbl">Last run</div><div class="le-val">${esc(lastRun)}</div></div>
-          <div class="le-row"><div class="le-lbl">Run count</div><div class="le-val">${esc(String(runs))}</div></div>
+          <div class="le-row"><div class="le-lbl">Run count</div><div class="le-val">${esc(String(runs))}${maxReps ? ' / ' + maxReps : isTillend ? ' / ∞' : ''}</div></div>
           ${buildLoopSparkline(l)}
         </div>`;
     }).join('');
@@ -9768,18 +9811,26 @@ async function mmRenderLoops(body) {
     const loops = Array.isArray(data) ? data : (data.loops || []);
     if (!loops.length) { body.innerHTML = '<div class="empty">No active loops. Use /mastermind:autodev --tillend to start one.</div>'; return; }
     body.innerHTML = loops.map(l => {
-      const running = l.status !== 'stopped' && l.status !== 'paused';
+      const maxReps = l.maxReps || 0;
+      const curRep = l.currentRep || 0;
+      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const isFinished = (maxReps > 0 && curRep >= maxReps) || ['finished','done','complete','completed','expired'].includes(l.status);
+      const isHil = l.status === 'hil:pending';
+      const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
       const name = (l.name || l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
       const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
       const ms = nextAt ? nextAt - Date.now() : 0;
-      const cdown = ms > 0 ? (Math.floor(ms/60000) + 'm ' + Math.floor((ms%60000)/1000) + 's') : (running ? 'running' : 'stopped');
+      const cdown = ms > 0 ? (Math.floor(ms/60000) + 'm ' + Math.floor((ms%60000)/1000) + 's') : (running ? 'running' : isFinished ? 'done' : 'stopped');
+      const typeBadge = isTillend ? '∞' : '↺';
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--accent)">${typeBadge}</span>
           <span style="font-size:13px;color:var(--text-hi);flex:1">${esc(name)}</span>
-          <span class="ss-pill ${running ? 'on' : ''}">${running ? 'active' : 'stopped'}</span>
-          ${running ? `<button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red)" onclick="stopLoop(event,${JSON.stringify(l.id||l.name||'')});mmSwitchTab('loops')">■ Stop</button>` : ''}
+          ${isHil ? '<span style="color:oklch(78% 0.18 80);font-size:10px">⚠ HIL</span>' : ''}
+          <span class="ss-pill ${running ? 'on' : ''}">${running ? 'active' : isFinished ? 'done' : 'stopped'}</span>
+          ${(running || isHil) ? `<button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red)" onclick="stopLoop(event,${JSON.stringify(l.id||l.name||'')});mmSwitchTab('loops')">■ Stop</button>` : ''}
         </div>
-        <div style="font-size:11px;color:var(--text-lo);margin-top:4px;font-family:var(--mono)">${esc(l.interval||l.schedule||'')} ${cdown ? '· ' + cdown : ''} ${l.currentRep != null ? '· run ' + l.currentRep : ''}</div>
+        <div style="font-size:11px;color:var(--text-lo);margin-top:4px;font-family:var(--mono)">${esc(fmtInterval(l.interval||l.schedule||''))} ${cdown ? '· ' + cdown : ''} ${curRep != null ? '· run ' + curRep + (isTillend ? '/∞' : maxReps ? '/'+maxReps : '') : ''}</div>
       </div>`;
     }).join('');
   } catch (e) { body.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
