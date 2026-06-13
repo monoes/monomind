@@ -219,7 +219,7 @@ async function checkMcpServers(): Promise<HealthCheck> {
     }
   }
 
-  return { name: 'MCP Servers', status: 'warn', message: 'No MCP config found', fix: 'claude mcp add monomind npx @monomind/cli@v1alpha mcp start' };
+  return { name: 'MCP Servers', status: 'warn', message: 'No MCP config found', fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start' };
 }
 
 // Check disk space (async with proper env inheritance)
@@ -284,7 +284,7 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
             if (
               pkg.version &&
               typeof pkg.name === 'string' &&
-              (pkg.name === '@monomind/cli' || pkg.name === 'monomind')
+              (pkg.name === '@monomind/cli' || pkg.name === 'monomind' || pkg.name === '@monoes/monomindcli')
             ) {
               currentVersion = pkg.version;
               break;
@@ -307,10 +307,10 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
                   process.env.npm_execpath?.includes('npx') ||
                   process.cwd().includes('_npx');
 
-    // Query npm for latest version (using alpha tag since that's what we publish to)
+    // Query npm for latest version of the published umbrella package
     let latestVersion = currentVersion;
     try {
-      const npmInfo = await runCommand('npm view @monomind/cli@alpha version', 5000);
+      const npmInfo = await runCommand('npm view monomind version', 5000);
       latestVersion = npmInfo.trim();
     } catch {
       // Can't reach npm registry - skip check
@@ -346,8 +346,8 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
 
     if (isOutdated) {
       const fix = isNpx
-        ? 'rm -rf ~/.npm/_npx/* && npx -y @monomind/cli@latest'
-        : 'npm update @monomind/cli';
+        ? 'rm -rf ~/.npm/_npx/* && npx -y monomind@latest doctor'
+        : 'npm update -g monomind';
 
       return {
         name: 'Version Freshness',
@@ -413,26 +413,75 @@ async function installClaudeCode(): Promise<boolean> {
 async function checkMonograph(): Promise<HealthCheck> {
   try {
     const __filename = fileURLToPath(import.meta.url);
+    const _base = dirname(__filename);
+    let _globalRoot = '';
+    try { _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim(); } catch { /* no npm */ }
     const candidates = [
-      join(dirname(__filename), '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
-      join(dirname(__filename), '..', '..', '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
+      // local dev monorepo paths (both old @monomind and published @monoes scope)
+      join(_base, '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
+      join(_base, '..', '..', '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
+      join(_base, '..', '..', 'node_modules', '@monoes', 'monograph', 'package.json'),
+      join(_base, '..', '..', '..', '..', 'node_modules', '@monoes', 'monograph', 'package.json'),
+      // global install paths
+      ...(_globalRoot ? [
+        join(_globalRoot, '@monomind', 'monograph', 'package.json'),
+        join(_globalRoot, '@monoes', 'monograph', 'package.json'),
+      ] : []),
     ];
-    if (candidates.some(p => existsSync(p))) {
-      return { name: 'Monograph', status: 'pass', message: 'available (knowledge graph engine)' };
+    const found = candidates.find(p => existsSync(p));
+    if (found) {
+      try {
+        const pkg = JSON.parse(readFileSync(found, 'utf-8'));
+        return { name: 'Monograph', status: 'pass', message: `v${pkg.version || '?'} available (knowledge graph engine)` };
+      } catch {
+        return { name: 'Monograph', status: 'pass', message: 'available (knowledge graph engine)' };
+      }
     }
     return {
       name: 'Monograph',
       status: 'warn',
       message: 'Package not found (knowledge graph disabled)',
-      fix: 'npm install in project root'
+      fix: 'npm install -g monomind@latest  # reinstall to get @monoes/monograph'
     };
   } catch {
     return {
       name: 'Monograph',
       status: 'warn',
       message: 'Package check failed (knowledge graph may be unavailable)',
-      fix: 'npm install in project root'
+      fix: 'npm install -g monomind@latest'
     };
+  }
+}
+
+// Check @monoes/memory (optional HNSW vector search package)
+async function checkMonoesMemory(): Promise<HealthCheck> {
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const _base = dirname(__filename);
+    let _globalRoot = '';
+    try { _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim(); } catch { /* no npm */ }
+    const candidates = [
+      join(_base, '..', '..', 'node_modules', '@monoes', 'memory', 'package.json'),
+      join(_base, '..', '..', '..', '..', 'node_modules', '@monoes', 'memory', 'package.json'),
+      ...(_globalRoot ? [join(_globalRoot, '@monoes', 'memory', 'package.json')] : []),
+    ];
+    const found = candidates.find(p => existsSync(p));
+    if (found) {
+      try {
+        const pkg = JSON.parse(readFileSync(found, 'utf-8'));
+        return { name: 'Vector Memory', status: 'pass', message: `@monoes/memory v${pkg.version || '?'} (HNSW search enabled)` };
+      } catch {
+        return { name: 'Vector Memory', status: 'pass', message: '@monoes/memory available (HNSW search enabled)' };
+      }
+    }
+    return {
+      name: 'Vector Memory',
+      status: 'warn',
+      message: '@monoes/memory not installed (vector search disabled — using fallback)',
+      fix: 'npm install @monoes/memory'
+    };
+  } catch {
+    return { name: 'Vector Memory', status: 'warn', message: 'Vector memory check failed' };
   }
 }
 
@@ -757,7 +806,7 @@ export const doctorCommand: Command = {
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, helpers, monoes, gates, gitignore)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, memory-pkg, helpers, agentic-flow, monoes, gates, gitignore)',
       type: 'string'
     },
     {
@@ -802,6 +851,7 @@ export const doctorCommand: Command = {
       checkDiskSpace,
       checkBuildTools,
       checkMonograph,
+      checkMonoesMemory,
       checkHelpersFresh,
       checkAgenticFlow,
       checkMonoesIntegration,
@@ -824,6 +874,7 @@ export const doctorCommand: Command = {
       'disk': checkDiskSpace,
       'typescript': checkBuildTools,
       'monograph': checkMonograph,
+      'memory-pkg': checkMonoesMemory,
       'helpers': checkHelpersFresh,
       'agentic-flow': checkAgenticFlow,
       'monoes': checkMonoesIntegration,

@@ -432,7 +432,7 @@ Invoke `Skill("mastermind:build")` with:
 - `brain_context`: the loaded brain context
 - `project_name`: `$(basename "$PWD")`
 - `mode`: `auto`
-- `board_id`: the autodev board (create once at startup, reuse)
+- `board_id`: the autodev board (only if non-empty; omit if monotask was unavailable)
 
 The brief passed to build MUST include:
 - What to build (concrete spec, not vague)
@@ -490,11 +490,13 @@ If `N < count`: log `[autodev] Moving to improvement <N+1>/<count>...` and repea
 
 1. Extract flags (leading integer for count, --newfeature N, --focus, --auto/--confirm)
 2. Load brain context via _protocol.md Brain Load Procedure (namespace: `autodev`)
-3. Create monotask board:
+3. Create monotask board (optional — skip gracefully if monotask is not installed):
    ```bash
    project_name="${project_name:-$(basename "$PWD")}"
    board_id=$(monotask board create "autodev" --json 2>/dev/null | jq -r '.id // empty')
+   [ -z "$board_id" ] && echo "[autodev] monotask board unavailable — board tracking skipped."
    ```
+   Pass `board_id` to `mastermind:build` only if non-empty; omit the parameter otherwise.
 4. **If `--newfeature` was parsed:** run the Feature Pipeline (FP-0 through FP-End) and skip the improvement loop entirely.
    **Otherwise:** run the Loop section above for each improvement.
 5. At end: follow _protocol.md Brain Write Procedure (namespace: `autodev`)
