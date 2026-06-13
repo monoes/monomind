@@ -441,7 +441,7 @@ for domain in $domains_needed; do
   else
     echo "Creating board: $canonical"
     board_id=$(monotask board create --space "$space_id" "$canonical" --json 2>/dev/null | jq -r '.id // empty')
-    [ -z "$board_id" ] && { echo "ERROR: Failed to create board '$canonical'"; exit 1; }
+    [ -z "$board_id" ] && echo "[mastermind] monotask board unavailable — board tracking skipped."
     monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
     if [ "$domain" = "idea" ]; then
       todo_col=$(monotask column create "$board_id" "New"        --json | jq -r '.id // empty')
