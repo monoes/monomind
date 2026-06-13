@@ -1139,6 +1139,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
         } catch {}
 
+        // Dedup: suppress scheduled_tasks_lock noise when real repeat loops exist
+        const hasRepeatLoops = loops.some(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
+        if (hasRepeatLoops) loops = loops.filter(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
+
         loops.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ loops }));
