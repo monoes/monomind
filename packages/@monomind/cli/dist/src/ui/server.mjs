@@ -2675,8 +2675,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                     agentSpawns[sub] = (agentSpawns[sub] || 0) + 1;
                   }
                 }
+                if (e.message?.usage) totalCost += _sjCalcCost(e.message.model || '', e.message.usage);
               }
-              if (e.costUSD) totalCost += e.costUSD;
             }
           } catch {}
 
