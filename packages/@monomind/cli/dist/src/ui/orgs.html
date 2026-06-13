@@ -285,6 +285,43 @@ html, body {
 .meta-cell-label { font-size: 8px; letter-spacing: 2px; color: var(--dim); margin-bottom: 4px; }
 .meta-cell-value { font-size: 11px; color: var(--text); }
 
+/* ── Live status strip ─────────────────────────────────────────── */
+#live-strip {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: oklch(8% 0.01 186); border: 1px solid var(--border);
+  border-radius: 4px; padding: 8px 12px; font-size: 10px; color: var(--dim);
+  letter-spacing: 0.5px;
+}
+#ls-state { display: flex; align-items: center; gap: 5px; }
+.ls-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+.ls-dot.running { background: oklch(65% 0.20 150); }
+@media (prefers-reduced-motion: no-preference) { .ls-dot.running { animation: ls-pulse 2s ease-in-out infinite; } }
+@keyframes ls-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+#ls-label { font-size: 9px; letter-spacing: 2px; }
+.ls-metric { font-size: 10px; color: var(--muted); }
+.ls-sparkline-wrap { display: flex; align-items: flex-end; gap: 1px; height: 20px; margin-left: auto; }
+.ls-bar { width: 6px; border-radius: 1px; background: oklch(62% 0.20 186 / 0.4); min-height: 2px; }
+.ls-bar.active { background: oklch(62% 0.20 186 / 0.8); }
+#clf-wrap {
+  background: oklch(8% 0.01 186); border: 1px solid var(--border);
+  border-radius: 4px; overflow: hidden;
+}
+#clf-header {
+  font-size: 8px; letter-spacing: 3px; color: var(--dim); padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+#clf-rows { max-height: 160px; overflow-y: auto; }
+.clf-row {
+  display: grid; grid-template-columns: 80px 70px 1fr;
+  gap: 8px; padding: 5px 12px;
+  font-size: 10px; border-bottom: 1px solid oklch(100% 0 0 / 0.03);
+}
+.clf-row.new { animation: clf-fadein 0.3s ease; }
+@keyframes clf-fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.clf-time { color: var(--dim); font-variant-numeric: tabular-nums; }
+.clf-type { color: var(--accent); }
+.clf-msg { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ── Roles list ─────────────────────────────────────────────────── */
 #roles-pane { padding: 20px; }
 
@@ -726,6 +763,23 @@ html, body {
               </svg>
             </div>
 
+            <!-- Live status strip -->
+            <div id="live-strip">
+              <div id="ls-state">
+                <span id="ls-dot" class="ls-dot"></span>
+                <span id="ls-label">IDLE</span>
+              </div>
+              <div id="ls-uptime" class="ls-metric" title="Uptime">—</div>
+              <div id="ls-last" class="ls-metric" title="Last event">—</div>
+              <div id="ls-epm" class="ls-metric" title="Events / 5 min">—</div>
+              <div id="ls-sparkline" class="ls-sparkline-wrap"></div>
+            </div>
+            <!-- Live event feed -->
+            <div id="clf-wrap">
+              <div id="clf-header">LIVE EVENTS</div>
+              <div id="clf-rows"></div>
+            </div>
+
             <!-- Legend -->
             <div style="display:flex; gap:16px; flex-wrap:wrap; padding:0 2px;">
               <div style="display:flex; align-items:center; gap:5px; font-size:8px; color:var(--dim);">
@@ -951,6 +1005,8 @@ function renderSidebar() {
 // ── Select and load an org ────────────────────────────────────────
 async function selectOrg(name) {
   selectedOrg = name;
+  orgRunStartMs = null;
+  if (lsUptimeTimer) { clearInterval(lsUptimeTimer); lsUptimeTimer = null; }
 
   // Update sidebar active state
   document.querySelectorAll('.org-item').forEach(el => {
@@ -1016,7 +1072,7 @@ function updateHeader(listOrg, data) {
 // ── Tab renderers ─────────────────────────────────────────────────
 function renderTab(tab) {
   if (!orgDetailData) return;
-  if (tab === 'chart') renderChart();
+  if (tab === 'chart') { renderChart(); initLiveStrip(); }
   else if (tab === 'roles') renderRoles();
   else if (tab === 'activity') renderActivity();
   else if (tab === 'health') renderHealth();
@@ -1564,6 +1620,8 @@ window.stopCurrentOrg = async function() {
 
 // ── SSE org events ────────────────────────────────────────────────
 const orgEventLog = {};
+let orgRunStartMs = null;
+let lsUptimeTimer = null;
 
 let evtSource = null;
 function connectSSE() {
@@ -1575,7 +1633,7 @@ function connectSSE() {
       if (ev && typeof ev.org === 'string' && ev.type && ev.type.startsWith('org:')) {
         const name = ev.org;
         if (!orgEventLog[name]) orgEventLog[name] = [];
-        orgEventLog[name].push(ev);
+        orgEventLog[name].push({ ...ev, _ts: Date.now() });
         if (orgEventLog[name].length > 50) orgEventLog[name].shift();
 
         // Refresh if this org is selected
@@ -1586,12 +1644,107 @@ function connectSSE() {
         if (ev.type === 'org:start' || ev.type === 'org:stop') {
           setTimeout(loadOrgs, 400);
         }
+        // Update live strip for selected org on chart tab
+        if (name === selectedOrg && currentTab === 'chart') {
+          if (ev.type === 'org:start') orgRunStartMs = Date.now();
+          if (ev.type === 'org:stop') orgRunStartMs = null;
+          appendLiveFeedRow(ev, true);
+          updateLiveStrip();
+        }
       }
     } catch (_) {}
   };
   evtSource.onerror = () => {
     setTimeout(connectSSE, 5000);
   };
+}
+
+function updateLiveStrip() {
+  const events = orgEventLog[selectedOrg] || [];
+  const running = orgRunStartMs !== null;
+  const dot = document.getElementById('ls-dot');
+  const label = document.getElementById('ls-label');
+  if (!dot || !label) return;
+  dot.className = 'ls-dot' + (running ? ' running' : '');
+  label.textContent = running ? 'RUNNING' : 'IDLE';
+
+  // Uptime
+  const uptimeEl = document.getElementById('ls-uptime');
+  if (uptimeEl) {
+    if (running && orgRunStartMs) {
+      const s = Math.floor((Date.now() - orgRunStartMs) / 1000);
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      uptimeEl.textContent = h ? `up ${h}h ${m}m` : m ? `up ${m}m ${sec}s` : `up ${sec}s`;
+    } else {
+      uptimeEl.textContent = '—';
+    }
+  }
+
+  // Last event
+  const lastEl = document.getElementById('ls-last');
+  if (lastEl && events.length) {
+    const last = events[events.length - 1];
+    const ago = Math.round((Date.now() - (last._ts || Date.now())) / 1000);
+    lastEl.textContent = ago < 5 ? 'just now' : ago < 60 ? ago + 's ago' : Math.floor(ago/60) + 'm ago';
+  } else if (lastEl) {
+    lastEl.textContent = '—';
+  }
+
+  // Events per 5 min
+  const now = Date.now();
+  const epmEl = document.getElementById('ls-epm');
+  if (epmEl) {
+    const recent = events.filter(ev => ev._ts && now - ev._ts < 5 * 60 * 1000).length;
+    epmEl.textContent = recent + ' / 5m';
+  }
+
+  // 12-bar sparkline (25s buckets)
+  renderLiveSparkline(events);
+}
+
+function renderLiveSparkline(events) {
+  const wrap = document.getElementById('ls-sparkline');
+  if (!wrap) return;
+  const now = Date.now();
+  const buckets = Array.from({ length: 12 }, (_, i) => {
+    const start = now - (12 - i) * 25000;
+    return events.filter(ev => ev._ts && ev._ts >= start && ev._ts < start + 25000).length;
+  });
+  const max = Math.max(1, ...buckets);
+  wrap.innerHTML = buckets.map((count, i) => {
+    const h = Math.max(2, Math.round(count / max * 18));
+    return `<div class="ls-bar${i === 11 ? ' active' : ''}" style="height:${h}px" title="${count} events"></div>`;
+  }).join('');
+}
+
+function appendLiveFeedRow(ev, isNew) {
+  const rows = document.getElementById('clf-rows');
+  if (!rows) return;
+  const time = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const type = (ev.type || '').replace('org:', '');
+  const msg = ev.message || ev.agent || ev.role || ev.status || '';
+  const row = document.createElement('div');
+  row.className = 'clf-row' + (isNew ? ' new' : '');
+  row.title = msg;
+  row.innerHTML = `<span class="clf-time">${time}</span><span class="clf-type">${type}</span><span class="clf-msg">${msg}</span>`;
+  rows.appendChild(row);
+  if (rows.children.length > 30) rows.removeChild(rows.firstChild);
+  rows.scrollTop = rows.scrollHeight;
+}
+
+function initLiveStrip() {
+  orgRunStartMs = null;
+  const rows = document.getElementById('clf-rows');
+  if (rows) rows.innerHTML = '';
+  const events = orgEventLog[selectedOrg] || [];
+  // Seed from existing event history
+  events.forEach(ev => appendLiveFeedRow(ev, false));
+  // Detect running state from list data
+  const listOrg = allOrgs.find(o => o.name === selectedOrg);
+  if (listOrg && listOrg.running) orgRunStartMs = Date.now();
+  updateLiveStrip();
+  if (lsUptimeTimer) clearInterval(lsUptimeTimer);
+  lsUptimeTimer = setInterval(updateLiveStrip, 1000);
 }
 
 // ── Data loading ──────────────────────────────────────────────────
