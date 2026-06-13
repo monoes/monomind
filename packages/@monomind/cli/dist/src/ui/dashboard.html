@@ -2646,7 +2646,7 @@ function buildSparkline() {
   for (const s of allSessions) {
     const ts = s.lastTs || s.mtime;
     if (!ts) continue;
-    const age = now - (typeof ts === 'number' ? ts : new Date(ts).getTime());
+    const age = now - (typeof ts === 'number' ? ts : Number(ts) || new Date(ts).getTime() || 0);
     const idx = DAYS - 1 - Math.floor(age / DAY);
     if (idx >= 0 && idx < DAYS) buckets[idx]++;
   }
@@ -3305,7 +3305,7 @@ async function renderSessions() {
     const now = Date.now(); const DAY = 86400000;
     function sessDateGroup(s) {
       const t = s.lastTs || s.mtime; if (!t) return 'Older';
-      const age = now - (typeof t === 'number' ? t : new Date(t).getTime());
+      const age = now - (typeof t === 'number' ? t : Number(t) || new Date(t).getTime() || 0);
       if (age < DAY) return 'Today';
       if (age < 2 * DAY) return 'Yesterday';
       if (age < 8 * DAY) return 'This week';
@@ -3756,7 +3756,7 @@ function handleChatViewEvent(ev) {
 }
 
 // ── feature 4: budget cap + desktop notification ───────────
-let budget = JSON.parse(localStorage.getItem('mm-budget') || '{}');
+let budget = (function(){ try { return JSON.parse(localStorage.getItem('mm-budget') || '{}'); } catch { return {}; } })();
 
 function openBudgetModal() {
   const b = budget;
@@ -3885,7 +3885,7 @@ function computeHealthScore(p) {
   const DAY = 86400000;
   // recency: up to +30 points for activity in last 7 days
   if (p.lastActivity) {
-    const age = now - (typeof p.lastActivity === 'number' ? p.lastActivity : new Date(p.lastActivity).getTime());
+    const age = now - (typeof p.lastActivity === 'number' ? p.lastActivity : Number(p.lastActivity) || new Date(p.lastActivity).getTime() || 0);
     if (age < DAY)       score += 30;
     else if (age < 3*DAY) score += 20;
     else if (age < 7*DAY) score += 10;
@@ -6260,7 +6260,7 @@ function buildWowDelta() {
   for (const s of allSessions) {
     const ts = s.lastTs || s.mtime;
     if (!ts) continue;
-    const age = now - (typeof ts === 'number' ? ts : new Date(ts).getTime());
+    const age = now - (typeof ts === 'number' ? ts : Number(ts) || new Date(ts).getTime() || 0);
     if (age < 7 * DAY) thisWeek++;
     else if (age < 14 * DAY) lastWeek++;
   }
@@ -6815,7 +6815,7 @@ function showToast(title, msg, type = 'info', duration = 5000) {
 }
 
 function checkBudgetToast(todayCost, monthCost) {
-  const budget = JSON.parse(localStorage.getItem('mm-budget') || '{}');
+  const budget = (function(){ try { return JSON.parse(localStorage.getItem('mm-budget') || '{}'); } catch { return {}; } })();
   const daily = parseFloat(budget.daily) || 0;
   const monthly = parseFloat(budget.monthly) || 0;
   if (daily > 0 && todayCost >= daily * 0.9) {
@@ -6855,7 +6855,7 @@ function periodFilteredSessions() {
   if (w === Infinity) return allSessions;
   return allSessions.filter(s => {
     const t = s.firstTs || s.mtime; if (!t) return false;
-    const ts = typeof t === 'number' ? t : new Date(t).getTime();
+    const ts = typeof t === 'number' ? t : Number(t) || new Date(t).getTime() || 0;
     return (now - ts) <= w;
   });
 }
@@ -6875,7 +6875,7 @@ function buildSessionHeatmap(sessions) {
   }
   for (const s of sessions) {
     const ts = s.lastTs || s.mtime; if (!ts) continue;
-    const age = now - (typeof ts === 'number' ? ts : new Date(ts).getTime());
+    const age = now - (typeof ts === 'number' ? ts : Number(ts) || new Date(ts).getTime() || 0);
     const idx = DAYS - 1 - Math.floor(age / DAY);
     if (idx >= 0 && idx < DAYS) buckets[idx].count++;
   }
@@ -7001,7 +7001,7 @@ function buildTokenVelocity() {
   for (const s of filtered) {
     const t = s.firstTs || s.mtime;
     if (!t) continue;
-    const ts = typeof t === 'number' ? t : new Date(t).getTime();
+    const ts = typeof t === 'number' ? t : Number(t) || new Date(t).getTime() || 0;
     const hoursAgo = (now - ts) / HOUR;
     if (hoursAgo < 0 || hoursAgo >= 24) continue;
     const bucket = Math.min(23, Math.floor(23 - hoursAgo));
@@ -7197,7 +7197,7 @@ function showReportCard() {
   });
   const weekSess = allSessions.filter(s => {
     const t = s.firstTs || s.mtime; if (!t) return false;
-    return (typeof t === 'number' ? t : new Date(t).getTime()) >= weekAgo;
+    return (typeof t === 'number' ? t : Number(t) || new Date(t).getTime() || 0) >= weekAgo;
   });
 
   function summarize(sessions, label) {
@@ -7360,7 +7360,7 @@ function buildDailyCostTrend() {
   const dates = new Array(30).fill(null).map((_, i) => new Date(now - (29 - i) * DAY).toDateString());
   for (const s of allSessions) {
     const t = s.firstTs || s.mtime; if (!t) continue;
-    const ts = typeof t === 'number' ? t : new Date(t).getTime();
+    const ts = typeof t === 'number' ? t : Number(t) || new Date(t).getTime() || 0;
     const daysAgo = Math.floor((now - ts) / DAY);
     const idx = 29 - daysAgo;
     if (idx >= 0 && idx < 30) buckets[idx] += s.totalCost || 0;
@@ -7475,6 +7475,10 @@ function removeCustomTag(sessId, tag, event) {
   saveCustomTags(sessId, tags);
   const wrap = document.querySelector(`.sr-custom-tags[data-sess="${CSS.escape(sessId)}"]`);
   if (wrap) wrap.outerHTML = renderCustomTagsInline(sessId, tags);
+  const tfBar = document.querySelector('.tag-filter-bar');
+  const newBarHtml = buildTagFilterBar(allSessions);
+  if (tfBar) tfBar.outerHTML = newBarHtml;
+  else if (newBarHtml) renderSessions();
 }
 
 function showCustomTagInput(sessId, event) {
@@ -7625,7 +7629,7 @@ function esc(s) {
 
 function relTime(ts) {
   if (!ts) return '';
-  const diff = Date.now() - (typeof ts === 'number' ? ts : new Date(ts).getTime());
+  const diff = Date.now() - (typeof ts === 'number' ? ts : Number(ts) || new Date(ts).getTime() || 0);
   const s = Math.floor(diff / 1000);
   if (s < 5)  return 'now';
   if (s < 60) return s + 's';
