@@ -364,6 +364,101 @@ html, body {
 .hc-value.amber  { color: var(--amber); }
 .hc-value.red    { color: var(--red); }
 
+/* ── Chat tab ───────────────────────────────────────────────────── */
+#chat-pane {
+  display: flex; flex-direction: column; height: 100%;
+  overflow: hidden;
+}
+#chat-session-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 20px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; flex-wrap: wrap;
+}
+#chat-sess-label { font-size: 8px; letter-spacing: 2px; color: var(--dim); }
+#chat-sess-select {
+  background: var(--bg-panel); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 3px;
+  font-size: 9px; font-family: var(--mono); letter-spacing: 0.5px;
+  padding: 3px 6px; cursor: pointer; max-width: 260px;
+}
+#chat-sess-select:focus { outline: none; border-color: var(--teal-dim); }
+#chat-live-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--dim); margin-left: auto; flex-shrink: 0;
+  transition: background 0.4s;
+}
+#chat-live-dot.on { background: var(--green); animation: livepulse 2.2s ease-in-out infinite; }
+#chat-live-label { font-size: 8px; color: var(--dim); }
+
+#chat-feed-wrap {
+  flex: 1; overflow-y: auto; padding: 12px 20px;
+  display: flex; flex-direction: column; gap: 5px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--teal-dim) transparent;
+}
+#chat-feed-wrap::-webkit-scrollbar { width: 4px; }
+#chat-feed-wrap::-webkit-scrollbar-thumb { background: var(--teal-dim); border-radius: 2px; }
+
+#chat-feed-empty {
+  font-size: 10px; color: var(--dim); text-align: center;
+  padding: 30px 0; line-height: 2;
+}
+
+.cmsg { display: flex; flex-direction: column; max-width: 92%; }
+.cmsg.csys { align-self: center; max-width: 100%; }
+.cmsg.cagent { align-self: flex-start; }
+.cmsg.cic { align-self: flex-start; }
+
+@keyframes cmsg-in { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:none} }
+.cmsg.new { animation: cmsg-in 0.18s ease-out; }
+
+.cmsg.csys .cbubble {
+  background: oklch(10% 0.008 186);
+  border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 12px;
+  font-size: 9px; color: var(--dim); letter-spacing: 0.3px;
+  text-align: center;
+}
+.cmsg.cagent .cbubble {
+  background: oklch(11% 0.016 186);
+  border: 1px solid var(--teal-dim);
+  border-radius: 2px 8px 8px 8px;
+  padding: 7px 11px;
+  color: oklch(70% 0.010 186);
+  font-size: 11px; line-height: 1.6;
+  word-break: break-word; white-space: pre-wrap;
+}
+.cmsg.cic .cbubble {
+  background: oklch(10% 0.013 295);
+  border: 1px solid oklch(68% 0.18 295 / 0.22);
+  border-radius: 2px 8px 8px 8px;
+  padding: 7px 11px;
+  color: oklch(68% 0.010 295);
+  font-size: 11px; line-height: 1.6;
+  word-break: break-word; white-space: pre-wrap;
+}
+.cmsg-meta {
+  display: flex; align-items: center; gap: 5px;
+  margin-bottom: 3px; flex-wrap: wrap;
+}
+.cmsg.csys .cmsg-meta { display: none; }
+.ctag {
+  font-size: 8px; padding: 1px 6px; border-radius: 10px;
+  border: 1px solid var(--teal-dim); color: var(--teal);
+  letter-spacing: 0.4px; flex-shrink: 0;
+}
+.ctag.sender  { border-color: oklch(68% 0.18 295 / 0.35); color: oklch(68% 0.14 295); }
+.ctag.receiver{ border-color: oklch(78% 0.18 80 / 0.35);  color: var(--amber); }
+.cic-arrow { font-size: 9px; color: var(--dim); }
+.cts { font-size: 8px; color: var(--dim); margin-left: auto; }
+.cevtype {
+  font-size: 7px; padding: 1px 4px; border-radius: 2px;
+  background: oklch(62% 0.20 186 / 0.07);
+  border: 1px solid var(--border); color: var(--dim);
+  letter-spacing: 0.3px;
+}
+
 /* ── Communication edges (SVG in chart) ─────────────────────────── */
 .oc-edge { stroke: var(--teal); stroke-opacity: 0.25; stroke-width: 1; fill: none; }
 .oc-edge.command  { stroke: var(--teal); stroke-opacity: 0.4; }
@@ -571,6 +666,7 @@ html, body {
         <button class="tab-btn" onclick="switchTab('roles')">ROLES</button>
         <button class="tab-btn" onclick="switchTab('activity')">ACTIVITY</button>
         <button class="tab-btn" onclick="switchTab('health')">HEALTH</button>
+        <button class="tab-btn" onclick="switchTab('chat')">CHAT</button>
       </div>
 
       <div id="main-body">
@@ -662,6 +758,23 @@ html, body {
           </div>
         </div>
 
+        <!-- Chat tab -->
+        <div class="tab-pane" id="tab-chat">
+          <div id="chat-pane">
+            <div id="chat-session-bar">
+              <span id="chat-sess-label">SESSION</span>
+              <select id="chat-sess-select" onchange="selectChatSession(this.value)">
+                <option value="">— select a session —</option>
+              </select>
+              <div id="chat-live-dot"></div>
+              <span id="chat-live-label">OFFLINE</span>
+            </div>
+            <div id="chat-feed-wrap">
+              <div id="chat-feed-empty">Select a session above to see agent communications.</div>
+            </div>
+          </div>
+        </div>
+
       </div><!-- end main-body -->
     </div><!-- end org-detail -->
   </div><!-- end main -->
@@ -742,12 +855,14 @@ window.switchTab = function(tab) {
       (tab === 'chart' && b.textContent === 'ORG CHART') ||
       (tab === 'roles' && b.textContent === 'ROLES') ||
       (tab === 'activity' && b.textContent === 'ACTIVITY') ||
-      (tab === 'health' && b.textContent === 'HEALTH'));
+      (tab === 'health' && b.textContent === 'HEALTH') ||
+      (tab === 'chat' && b.textContent === 'CHAT'));
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   const pane = document.getElementById('tab-' + tab);
   if (pane) pane.classList.add('active');
-  if (orgDetailData) renderTab(tab);
+  if (tab === 'chat') renderChatTab();
+  else if (orgDetailData) renderTab(tab);
 };
 
 // ── Render all orgs in sidebar ────────────────────────────────────
@@ -1234,6 +1349,185 @@ function renderHealth() {
       <div style="margin-top:16px;font-size:9px;color:var(--dim);letter-spacing:1px;">
         HEALTH DATA UNAVAILABLE
       </div>`;
+  }
+}
+
+// ── CHAT TAB ──────────────────────────────────────────────────────
+let chatSessions = [];   // all sessions from /api/mastermind/sessions
+let chatCurrentId = null; // currently viewed session id
+let chatScrollLocked = false;
+let mmSse = null;
+
+async function loadChatSessions() {
+  try {
+    const r = await fetch('/api/mastermind/sessions');
+    if (!r.ok) return;
+    chatSessions = await r.json();
+    populateChatSelect();
+  } catch(_) {}
+}
+
+function populateChatSelect() {
+  const sel = document.getElementById('chat-sess-select');
+  if (!sel) return;
+  const prev = chatCurrentId || sel.value;
+  sel.innerHTML = '<option value="">— select a session —</option>';
+  chatSessions.forEach(s => {
+    const d = new Date(s.ts);
+    const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
+    const label = `${date} ${ts}  ${(s.prompt||'').slice(0,40)}${(s.prompt||'').length>40?'…':''}  [${s.status||'?'}]`;
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = label;
+    if (s.id === prev) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Auto-select running session if none selected
+  if (!chatCurrentId) {
+    const running = chatSessions.find(s => s.status === 'running');
+    if (running) { sel.value = running.id; selectChatSession(running.id); }
+  }
+}
+
+window.selectChatSession = function(id) {
+  chatCurrentId = id;
+  const feed = document.getElementById('chat-feed-wrap');
+  const empty = document.getElementById('chat-feed-empty');
+  if (!id) { feed.querySelectorAll('.cmsg').forEach(e=>e.remove()); if(empty) empty.style.display='block'; return; }
+  const sess = chatSessions.find(s => s.id === id);
+  if (!sess) return;
+  feed.querySelectorAll('.cmsg').forEach(e=>e.remove());
+  if (empty) empty.style.display = 'none';
+  (sess.events || []).forEach(ev => appendChatEvent(ev, false));
+  chatScrollFeed();
+};
+
+function appendChatEvent(ev, animate) {
+  const feed = document.getElementById('chat-feed-wrap');
+  const empty = document.getElementById('chat-feed-empty');
+  if (!feed) return;
+  if (empty) empty.style.display = 'none';
+  const ts = new Date(ev.ts || Date.now()).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const DCOLS = {build:'#60a5fa',idea:'#fbbf24',marketing:'#f472b6',review:'#34d399',research:'#a78bfa',content:'#fb923c',release:'#22d3ee',sales:'#f87171',ops:'#4ade80',finance:'#fde68a',orgs:'#c084fc'};
+  const dc = d => DCOLS[d] || 'oklch(62% 0.20 186)';
+  let el = null;
+
+  if (ev.type === 'session:start') {
+    el = mkSys(`🔵 Session started${ev.prompt ? ': ' + esc(ev.prompt.slice(0,80)) : ''}`, ts);
+  } else if (ev.type === 'session:complete') {
+    el = mkSys(`🏁 Session complete — ${esc((ev.domains||[]).join(', ') || 'done')}`, ts);
+  } else if (ev.type === 'domain:dispatch') {
+    el = mkSys(`<span style="color:${dc(ev.domain)}">⚙ [${esc((ev.domain||'').toUpperCase())}]</span> ${esc(ev.cmd||'dispatched')}`, ts);
+  } else if (ev.type === 'domain:complete') {
+    const arts = (ev.artifacts||[]).length ? ` · ${ev.artifacts.length} artifact${ev.artifacts.length!==1?'s':''}` : '';
+    el = mkSys(`<span style="color:${dc(ev.domain)}">✓ [${esc((ev.domain||'').toUpperCase())}]</span> ${esc(ev.status||'done')}${arts}`, ts);
+  } else if (ev.type === 'agent:spawn') {
+    const col = dc(ev.domain);
+    el = mkAgent(ev.agent||'agent', `spawned: ${esc(ev.task||'task')}`, ts, col, 'spawn');
+  } else if (ev.type === 'agent:message') {
+    el = mkAgent(ev.agent||'agent', esc(ev.text||''), ts, dc(ev.domain), null);
+  } else if (ev.type === 'intercom') {
+    el = mkIntercom(ev.from, ev.to, esc(ev.msg||''), ts);
+  } else if (ev.type === 'loop:start') {
+    el = mkSys(`🔁 Loop: ${esc(ev.command||'')} (${ev.repeat||'?'} runs)`, ts);
+  } else if (ev.type === 'loop:complete') {
+    el = mkSys(`🔁 Loop done: ${esc(ev.command||'')} — ${ev.ranReps||'?'} run(s)`, ts);
+  } else {
+    el = mkSys(`<span style="opacity:0.4">${esc(ev.type)}${ev.domain?' ['+esc(ev.domain)+']':''}</span>`, ts);
+  }
+  if (!el) return;
+  if (animate) el.classList.add('new');
+  feed.appendChild(el);
+}
+
+function mkSys(html, ts) {
+  const el = document.createElement('div');
+  el.className = 'cmsg csys';
+  el.innerHTML = `<div class="cbubble">${html} <span style="color:var(--dim);margin-left:8px">${ts}</span></div>`;
+  return el;
+}
+function mkAgent(name, text, ts, color, typeTag) {
+  const el = document.createElement('div');
+  el.className = 'cmsg cagent';
+  const tagStyle = color ? `style="border-color:${color}44;color:${color}"` : '';
+  const ttag = typeTag ? `<span class="cevtype">${esc(typeTag)}</span>` : '';
+  el.innerHTML = `<div class="cmsg-meta"><span class="ctag" ${tagStyle}>${esc(name)}</span>${ttag}<span class="cts">${ts}</span></div><div class="cbubble">${text}</div>`;
+  return el;
+}
+function mkIntercom(from, to, text, ts) {
+  const el = document.createElement('div');
+  el.className = 'cmsg cic';
+  el.innerHTML = `<div class="cmsg-meta"><span class="ctag sender">${esc(from||'?')}</span><span class="cic-arrow">→</span><span class="ctag receiver">${esc(to||'?')}</span><span class="cevtype">intercom</span><span class="cts">${ts}</span></div><div class="cbubble">${text}</div>`;
+  return el;
+}
+
+function chatScrollFeed() {
+  const feed = document.getElementById('chat-feed-wrap');
+  if (feed && !chatScrollLocked) feed.scrollTop = feed.scrollHeight;
+}
+
+function renderChatTab() {
+  loadChatSessions();
+  connectMmSSE();
+  const feed = document.getElementById('chat-feed-wrap');
+  if (feed) {
+    feed.addEventListener('scroll', () => {
+      chatScrollLocked = feed.scrollHeight - feed.scrollTop - feed.clientHeight > 80;
+    }, { passive: true });
+  }
+}
+
+function connectMmSSE() {
+  if (mmSse) return; // already connected
+  mmSse = new EventSource('/api/mastermind-stream');
+  mmSse.onopen = () => {
+    const dot = document.getElementById('chat-live-dot');
+    const lbl = document.getElementById('chat-live-label');
+    if (dot) dot.classList.add('on');
+    if (lbl) lbl.textContent = 'LIVE';
+  };
+  mmSse.onmessage = e => {
+    try {
+      const ev = JSON.parse(e.data);
+      handleMmEvent(ev);
+    } catch(_) {}
+  };
+  mmSse.onerror = () => {
+    const dot = document.getElementById('chat-live-dot');
+    const lbl = document.getElementById('chat-live-label');
+    if (dot) dot.classList.remove('on');
+    if (lbl) lbl.textContent = 'RECONNECTING';
+    mmSse = null;
+    setTimeout(connectMmSSE, 4000);
+  };
+}
+
+function handleMmEvent(ev) {
+  // Update in-memory sessions list
+  if (ev.type === 'session:start') {
+    const existing = chatSessions.find(s => s.id === ev.session);
+    if (!existing) {
+      chatSessions.unshift({ id: ev.session, ts: ev.ts||Date.now(), prompt: ev.prompt||'', status:'running', domains:[], events:[ev] });
+    }
+    populateChatSelect();
+    // Auto-select if chat tab is active and nothing selected
+    if (currentTab === 'chat' && !chatCurrentId) {
+      const sel = document.getElementById('chat-sess-select');
+      if (sel) { sel.value = ev.session; selectChatSession(ev.session); }
+    }
+    return;
+  }
+  const sess = chatSessions.find(s => s.id === ev.session);
+  if (sess) {
+    (sess.events = sess.events || []).push(ev);
+    if (ev.type === 'domain:dispatch' && ev.domain && !sess.domains.includes(ev.domain)) sess.domains.push(ev.domain);
+    if (ev.type === 'session:complete') { sess.status = ev.status || 'complete'; sess.endTs = ev.ts; populateChatSelect(); }
+    // If this is the currently-viewed session and chat tab is visible, append bubble
+    if (currentTab === 'chat' && chatCurrentId === ev.session) {
+      appendChatEvent(ev, true);
+      chatScrollFeed();
+    }
   }
 }
 

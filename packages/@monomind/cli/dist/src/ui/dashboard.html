@@ -670,6 +670,38 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #rp-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.15s; }
 #rp-counter { font-size:11px; color:var(--text-lo); font-family:var(--mono); white-space:nowrap; }
 
+/* ── agent chat view ─────────────────────────────────────── */
+#view-chat .vscroll { display:flex; flex-direction:column; height:100%; overflow:hidden; padding:0; }
+#chat-v-bar { display:flex; align-items:center; gap:8px; padding:14px 18px 10px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+#chat-v-bar-title { font-size:13px; font-weight:600; color:var(--text-hi); }
+#chat-v-sel { background:var(--surface); color:var(--text-mid); border:1px solid var(--border); border-radius:4px; font-size:11px; font-family:var(--mono); padding:3px 7px; cursor:pointer; max-width:300px; }
+#chat-v-sel:focus { outline:none; border-color:var(--accent); }
+#chat-v-live-dot { width:5px; height:5px; border-radius:50%; background:var(--text-xs); flex-shrink:0; margin-left:auto; transition:background 0.4s; }
+#chat-v-live-dot.on { background:oklch(68% 0.20 150); animation:livepulse-cv 2.2s ease-in-out infinite; }
+@keyframes livepulse-cv { 0%,100%{opacity:1} 50%{opacity:0.4} }
+#chat-v-live-lbl { font-size:9px; color:var(--text-lo); }
+#chat-v-feed { flex:1; overflow-y:auto; padding:12px 18px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+#chat-v-feed::-webkit-scrollbar { width:4px; }
+#chat-v-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+#chat-v-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
+.cv-msg { display:flex; flex-direction:column; max-width:90%; }
+.cv-msg.cv-sys { align-self:center; max-width:100%; }
+.cv-msg.cv-agent { align-self:flex-start; }
+.cv-msg.cv-ic { align-self:flex-start; }
+@keyframes cv-in { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:none} }
+.cv-msg.cv-new { animation:cv-in 0.18s ease-out; }
+.cv-msg.cv-sys .cv-bub { display:flex; align-items:center; gap:6px; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:4px 12px; font-size:10px; color:var(--text-lo); text-align:center; }
+.cv-msg.cv-agent .cv-bub { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; background:var(--surface-hi); border:1px solid oklch(62% 0.20 186 / 0.18); border-radius:2px 8px 8px 8px; padding:7px 11px; color:var(--text-mid); font-size:11px; line-height:1.6; word-break:break-word; white-space:pre-wrap; }
+.cv-msg.cv-ic .cv-bub { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; background:oklch(10% 0.013 295); border:1px solid oklch(68% 0.18 295 / 0.22); border-radius:2px 8px 8px 8px; padding:7px 11px; color:oklch(68% 0.010 295); font-size:11px; line-height:1.6; word-break:break-word; white-space:pre-wrap; }
+.cv-meta { display:flex; align-items:center; gap:5px; margin-bottom:3px; flex-wrap:wrap; }
+.cv-msg.cv-sys .cv-meta { display:none; }
+.cv-tag { font-size:8px; padding:1px 6px; border-radius:10px; border:1px solid oklch(62% 0.20 186 / 0.25); color:oklch(62% 0.20 186); letter-spacing:0.4px; flex-shrink:0; }
+.cv-tag.cv-sender  { border-color:oklch(68% 0.18 295 / 0.35); color:oklch(68% 0.14 295); }
+.cv-tag.cv-receiver{ border-color:oklch(78% 0.18 80 / 0.35);  color:oklch(78% 0.18 80); }
+.cv-arrow { font-size:9px; color:var(--text-xs); }
+.cv-ts { font-size:8px; color:var(--text-xs); margin-left:auto; }
+.cv-etype { font-size:7px; padding:1px 4px; border-radius:2px; background:var(--surface); border:1px solid var(--border); color:var(--text-xs); letter-spacing:0.3px; }
+
 /* ── global feed (multi-project) ─────────────────────────── */
 .gf-proj-tag { font-size:10px; padding:1px 6px; border-radius:6px; background:var(--surface-hi); color:var(--text-lo); white-space:nowrap; flex-shrink:0; margin-top:3px; }
 
@@ -1325,6 +1357,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         </div>
         <div class="nav-item" data-view="monograph">
           <span class="ico">⬡</span><span class="lbl">Monograph</span>
+        </div>
+        <div class="nav-item" data-view="chat">
+          <span class="ico">⌘</span><span class="lbl">Agent Chat</span>
         </div>
       </div>
     </div>
@@ -1994,6 +2029,22 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       </div>
     </div>
 
+    <div class="view" id="view-chat">
+      <div class="vscroll">
+        <div id="chat-v-bar">
+          <span id="chat-v-bar-title">Agent Chat</span>
+          <select id="chat-v-sel" onchange="chatVSelectSession(this.value)">
+            <option value="">— select a session —</option>
+          </select>
+          <div id="chat-v-live-dot"></div>
+          <span id="chat-v-live-lbl">OFFLINE</span>
+        </div>
+        <div id="chat-v-feed">
+          <div id="chat-v-empty">Select a session above to see agent communications.<br>Agent messages, intercom signals, and system events appear here in real time.</div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /view-wrap -->
 </div><!-- /main -->
 <div id="app-ambient-hint">Press A to exit ambient mode</div>
@@ -2132,10 +2183,11 @@ function switchView(v) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', chat:'Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   // Projects always re-fetches so onclick paths in cards stay current
   if (v === 'projects') { renderProjects(); return; }
+  if (v === 'chat') { initChatView(); return; }
   if (!viewRendered[v]) { renderView(v); viewRendered[v] = true; }
 }
 
@@ -3563,6 +3615,144 @@ async function renderGlobalFeed() {
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
   }
+}
+
+// ── agent chat view ────────────────────────────────────────
+let chatVSessions = {};
+let chatVCurrentId = null;
+let chatVSseSource = null;
+
+function initChatView() {
+  loadChatViewSessions();
+  if (!chatVSseSource) connectChatViewSSE();
+}
+
+async function loadChatViewSessions() {
+  try {
+    const data = await apiFetch('/api/mastermind/sessions');
+    chatVSessions = {};
+    const sel = document.getElementById('chat-v-sel');
+    const prev = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    const sessions = Object.values(data.sessions || {});
+    sessions.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+    sessions.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      const ts = s.startedAt ? new Date(s.startedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+      opt.textContent = (s.id.slice(0,16)) + (ts ? '  ' + ts : '') + (s.status === 'running' ? '  ●' : '');
+      sel.appendChild(opt);
+      chatVSessions[s.id] = s;
+    });
+    if (prev && chatVSessions[prev]) { sel.value = prev; }
+    else {
+      const running = sessions.find(s => s.status === 'running');
+      if (running) { sel.value = running.id; chatVSelectSession(running.id); }
+    }
+  } catch(e) { console.warn('chat sessions load failed', e); }
+}
+
+function chatVSelectSession(id) {
+  chatVCurrentId = id;
+  const feed = document.getElementById('chat-v-feed');
+  const empty = document.getElementById('chat-v-empty');
+  if (!id || !chatVSessions[id]) {
+    feed.innerHTML = '';
+    feed.appendChild(empty);
+    return;
+  }
+  feed.innerHTML = '';
+  const session = chatVSessions[id];
+  const events = session.events || [];
+  events.forEach(ev => appendChatViewEvent(ev, false));
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function appendChatViewEvent(ev, animate) {
+  if (chatVCurrentId && ev.session && ev.session !== chatVCurrentId) return;
+  const feed = document.getElementById('chat-v-feed');
+  if (!feed) return;
+  const empty = document.getElementById('chat-v-empty');
+  if (empty && feed.contains(empty)) feed.removeChild(empty);
+
+  let el;
+  const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+  if (ev.type === 'intercom') {
+    el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
+  } else if (ev.type === 'agent:message' || ev.type === 'agent:spawn') {
+    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || ev.role || ev.type, ts, ev.type);
+  } else if (ev.type === 'session:start') {
+    el = mkCVSys('Session started' + (ev.prompt ? ': ' + esc(ev.prompt.slice(0,80)) : ''), ts);
+  } else if (ev.type === 'session:complete') {
+    el = mkCVSys('Session complete' + (ev.status ? ' — ' + esc(ev.status) : ''), ts);
+  } else if (ev.type === 'domain:dispatch') {
+    el = mkCVSys('→ ' + esc(ev.domain || '') + (ev.cmd ? ': ' + esc(ev.cmd.slice(0,80)) : ''), ts);
+  } else if (ev.type === 'domain:complete') {
+    el = mkCVSys('✓ ' + esc(ev.domain || '') + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+  } else if (ev.type === 'loop:start') {
+    el = mkCVSys('Loop started: ' + esc(ev.command || ''), ts);
+  } else if (ev.type === 'loop:complete') {
+    el = mkCVSys('Loop complete: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
+  } else {
+    el = mkCVSys(esc(ev.type || 'event'), ts);
+  }
+  if (animate) el.classList.add('cv-new');
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function mkCVSys(html, ts) {
+  const d = document.createElement('div');
+  d.className = 'cv-msg cv-sys';
+  d.innerHTML = `<div class="cv-bub"><span class="cv-etype">SYS</span><span class="cv-text">${html}</span><span class="cv-ts">${ts}</span></div>`;
+  return d;
+}
+
+function mkCVAgent(name, text, ts, typeTag) {
+  const d = document.createElement('div');
+  d.className = 'cv-msg cv-agent';
+  const tag = typeTag === 'agent:spawn' ? 'SPAWN' : 'MSG';
+  d.innerHTML = `<div class="cv-bub"><span class="cv-tag">${esc(name)}</span><span class="cv-etype">${tag}</span><span class="cv-text">${esc(String(text).slice(0,200))}</span><span class="cv-ts">${ts}</span></div>`;
+  return d;
+}
+
+function mkCVIntercom(from, to, text, ts) {
+  const d = document.createElement('div');
+  d.className = 'cv-msg cv-ic';
+  d.innerHTML = `<div class="cv-bub"><span class="cv-tag cv-sender">${esc(from||'?')}</span><span class="cv-arrow">→</span><span class="cv-tag cv-receiver">${esc(to||'?')}</span><span class="cv-etype">IC</span><span class="cv-text">${esc(String(text).slice(0,200))}</span><span class="cv-ts">${ts}</span></div>`;
+  return d;
+}
+
+function connectChatViewSSE() {
+  if (chatVSseSource) return;
+  const dot = document.getElementById('chat-v-live-dot');
+  const lbl = document.getElementById('chat-v-live-lbl');
+  chatVSseSource = new EventSource('/api/mastermind-stream');
+  chatVSseSource.onopen = () => { dot && dot.classList.add('on'); lbl && (lbl.textContent = 'LIVE'); };
+  chatVSseSource.onmessage = e => {
+    try { handleChatViewEvent(JSON.parse(e.data)); } catch(_) {}
+  };
+  chatVSseSource.onerror = () => {
+    dot && dot.classList.remove('on');
+    lbl && (lbl.textContent = 'OFFLINE');
+    chatVSseSource.close();
+    chatVSseSource = null;
+    setTimeout(connectChatViewSSE, 5000);
+  };
+}
+
+function handleChatViewEvent(ev) {
+  if (!ev || !ev.session) return;
+  if (!chatVSessions[ev.session]) {
+    chatVSessions[ev.session] = { id: ev.session, events: [], startedAt: ev.ts, status: 'running' };
+    loadChatViewSessions();
+  } else {
+    const s = chatVSessions[ev.session];
+    s.events = s.events || [];
+    s.events.push(ev);
+    if (ev.type === 'session:complete') s.status = 'complete';
+  }
+  if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
 }
 
 // ── feature 4: budget cap + desktop notification ───────────
