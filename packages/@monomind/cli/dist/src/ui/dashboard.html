@@ -1377,6 +1377,13 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       <div class="nav-item" data-view="global">
         <span class="ico">⊕</span><span class="lbl">Global Feed</span>
       </div>
+      <div class="nav-item" data-view="global-loops" title="Loops across all projects">
+        <span class="ico">↺</span><span class="lbl">Global Loops</span>
+        <span class="bdg" id="bdg-global-loops">—</span>
+      </div>
+      <div class="nav-item" data-view="global-tokens" title="Token usage across all projects">
+        <span class="ico">$</span><span class="lbl">Global Tokens</span>
+      </div>
     </div>
   </div>
   <div id="sb-footer">
@@ -2064,6 +2071,28 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       </div>
     </div>
 
+    <!-- GLOBAL LOOPS -->
+    <div class="view" id="view-global-loops">
+      <div class="vscroll">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+          <div class="pg-title" style="margin-bottom:0">Global Loops</div>
+          <span class="pg-sub" id="gl-sub" style="margin-bottom:0">Loops across all projects</span>
+        </div>
+        <div id="gl-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- GLOBAL TOKENS -->
+    <div class="view" id="view-global-tokens">
+      <div class="vscroll">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+          <div class="pg-title" style="margin-bottom:0">Global Tokens</div>
+          <span class="pg-sub" id="gt-sub" style="margin-bottom:0">Token usage across all projects</span>
+        </div>
+        <div id="gt-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
+      </div>
+    </div>
+
     <div class="view" id="view-chat">
       <div class="vscroll">
         <div id="chat-v-bar">
@@ -2218,10 +2247,10 @@ function switchView(v) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', chat:'Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   // Projects always re-fetches so onclick paths in cards stay current
   if (v === 'projects') { renderProjects(); return; }
@@ -2239,6 +2268,8 @@ function renderView(v) {
   if (v === 'orgs') renderOrgs();
   if (v === 'monograph') loadMonograph();
   if (v === 'global') renderGlobalFeed();
+  if (v === 'global-loops') renderGlobalLoops();
+  if (v === 'global-tokens') renderGlobalTokens();
 }
 
 function refreshCurrent() {
@@ -3671,6 +3702,141 @@ async function renderGlobalFeed() {
         <div class="sr-meta">${esc(meta)}</div>
       </div>`;
     }).join('') + '</div>';
+  } catch (err) {
+    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
+  }
+}
+
+// ── global loops ───────────────────────────────────────────
+function _deduplicateLoops(loops) {
+  const hasRepeat = loops.some(l => l.source === '_repeat.md');
+  const repeatPrompts = new Set(loops.filter(l => l.source === '_repeat.md').map(l => (l.prompt || '').trim()));
+  return loops.filter(l => {
+    if (l.source === 'scheduled_tasks_lock' && hasRepeat) return false;
+    if (l.source !== 'schedule_wakeup_hook') return true;
+    const m = (l.prompt || '').match(/--loop\s+\S+\s+(.+)$/s);
+    return !m || !repeatPrompts.has(m[1].trim());
+  });
+}
+
+async function renderGlobalLoops() {
+  const el = document.getElementById('gl-content');
+  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  try {
+    const data = await apiFetch('/api/projects');
+    const projects = (data?.projects || []).slice(0, 20);
+    if (!projects.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No projects found</div></div>';
+      return;
+    }
+    const results = await Promise.allSettled(
+      projects.map(p => apiFetch('/api/loops?dir=' + enc(p.path)).then(d => ({
+        project: p,
+        loops: _deduplicateLoops(Array.isArray(d) ? d : (d.loops || []))
+      })))
+    );
+    let totalLoops = 0, hilCount = 0;
+    const sections = [];
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      const { project, loops } = r.value;
+      if (!loops.length) continue;
+      totalLoops += loops.length;
+      hilCount += loops.filter(l => l.status === 'hil:pending').length;
+      const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
+      const LOOP_STALE_MS = 10 * 60 * 1000;
+      const rows = loops.map(l => {
+        const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
+        const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
+        const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
+        const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
+        const maxReps = l.maxReps || 0;
+        const curRep = l.currentRep || 0;
+        const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+        const isFinished = (maxReps > 0 && curRep >= maxReps) || ['finished','done','complete','completed','expired'].includes(l.status) || isOverdue || isStaledActive;
+        const isHil = l.status === 'hil:pending';
+        const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
+        const statusLabel = isFinished ? 'done' : isHil ? 'HIL' : running ? 'active' : 'stopped';
+        const statusCls = isFinished ? 'done' : isHil ? 'hil' : running ? 'active' : 'stopped';
+        const typeBadge = isTillend ? '<span class="loop-type-badge">∞</span>' : '<span class="loop-type-badge rep">↺</span>';
+        const name = (l.name || l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
+        const interval = fmtInterval(l.interval || l.schedule || '');
+        return `<div class="loop-row" onclick="switchProject('${esc(project.path)}');setTimeout(()=>switchView('loops'),150)">
+          <div class="loop-ico">${typeBadge}</div>
+          <div class="loop-body">
+            <div class="loop-name">${esc(name)}</div>
+            <div class="loop-meta">${interval !== '—' ? interval + ' · ' : ''}${esc(statusLabel)}</div>
+          </div>
+          <div class="loop-status ${statusCls}">${esc(statusLabel)}</div>
+        </div>`;
+      }).join('');
+      sections.push(`<div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:600;color:var(--text-lo);letter-spacing:.06em;margin-bottom:6px;padding-left:2px">${esc(projName)}</div>
+        ${rows}
+      </div>`);
+    }
+    document.getElementById('bdg-global-loops').textContent = totalLoops ? (hilCount ? totalLoops + '⚠' : totalLoops) : '—';
+    document.getElementById('gl-sub').textContent = `${totalLoops} loop${totalLoops !== 1 ? 's' : ''} across ${sections.length} project${sections.length !== 1 ? 's' : ''}`;
+    el.innerHTML = sections.length ? sections.join('') : '<div class="empty"><div class="empty-ico">↺</div><div>No loops found across any project</div></div>';
+  } catch (err) {
+    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
+  }
+}
+
+// ── global tokens ──────────────────────────────────────────
+async function renderGlobalTokens() {
+  const el = document.getElementById('gt-content');
+  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  try {
+    const data = await apiFetch('/api/projects');
+    const projects = (data?.projects || []).slice(0, 20);
+    if (!projects.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">$</div><div>No projects found</div></div>';
+      return;
+    }
+    const results = await Promise.allSettled(
+      projects.map(p => apiFetch('/api/section?name=tokens&dir=' + enc(p.path)).then(d => ({
+        project: p,
+        tokens: d?.tokens || {}
+      })))
+    );
+    let aggTodayCost = 0, aggMonthCost = 0, aggTotalTokens = 0;
+    const rows = [];
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      const { project, tokens } = r.value;
+      const s = tokens?.summary || {};
+      const todayCost = s.todayCost || 0;
+      const monthCost = s.monthCost || 0;
+      const totalIn = s.totalInputTokens || s.totalIn || 0;
+      const totalOut = s.totalOutputTokens || s.totalOut || 0;
+      if (!todayCost && !monthCost) continue;
+      aggTodayCost += todayCost;
+      aggMonthCost += monthCost;
+      aggTotalTokens += totalIn + totalOut;
+      const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
+      rows.push({ projName, path: project.path, todayCost, monthCost, totalIn, totalOut });
+    }
+    rows.sort((a, b) => b.monthCost - a.monthCost);
+    document.getElementById('gt-sub').textContent = `${rows.length} project${rows.length !== 1 ? 's' : ''} with token data`;
+    const fmtC = c => c < 0.01 ? '$' + c.toFixed(4) : '$' + c.toFixed(2);
+    const summary = `<div style="display:flex;gap:24px;margin-bottom:20px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
+      <div><div style="font-size:11px;color:var(--text-lo);margin-bottom:2px">TODAY</div><div style="font-size:20px;font-weight:700;color:var(--text-hi)">${fmtC(aggTodayCost)}</div></div>
+      <div><div style="font-size:11px;color:var(--text-lo);margin-bottom:2px">THIS MONTH</div><div style="font-size:20px;font-weight:700;color:var(--accent)">${fmtC(aggMonthCost)}</div></div>
+    </div>`;
+    const table = rows.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-lo);font-size:10px;letter-spacing:.05em">
+        <th style="text-align:left;padding:4px 8px 8px 0">PROJECT</th>
+        <th style="text-align:right;padding:4px 8px 8px">TODAY</th>
+        <th style="text-align:right;padding:4px 0 8px">MONTH</th>
+      </tr></thead>
+      <tbody>${rows.map(r => `<tr style="border-top:1px solid var(--border);cursor:pointer" onclick="switchProject('${esc(r.path)}');setTimeout(()=>switchView('tokens'),150)">
+        <td style="padding:6px 8px 6px 0;color:var(--text-hi)">${esc(r.projName)}</td>
+        <td style="padding:6px 8px;text-align:right;color:var(--text-md)">${fmtC(r.todayCost)}</td>
+        <td style="padding:6px 0;text-align:right;color:var(--accent)">${fmtC(r.monthCost)}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : '<div class="empty" style="margin-top:0">No token data found across projects</div>';
+    el.innerHTML = summary + table;
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
   }
