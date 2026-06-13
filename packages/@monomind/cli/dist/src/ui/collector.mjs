@@ -276,6 +276,7 @@ function collectAgents(projectDir) {
 
 const _TOK_PRICES = {
   'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
+  'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
   'claude-opus-4':     { in: 15e-6,   out: 75e-6,  cw: 18.75e-6,cr: 1.5e-6  },
   'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
   'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
