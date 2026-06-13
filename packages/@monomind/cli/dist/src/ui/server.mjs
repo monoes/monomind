@@ -1100,11 +1100,15 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                     const timesFlag = (prompt).match(/--times\s+(\d+)/);
                     const finalRep = repFlag ? parseInt(repFlag[1]) : currentRep;
                     const finalMax = timesFlag ? parseInt(timesFlag[1]) : maxReps;
-                    const type = (finalMax > 0 || /repeat|loop/i.test(prompt)) ? 'repeat' : 'do';
+                    const isTillendPrompt = /--tillend/i.test(prompt);
+                    const type = isTillendPrompt ? 'tillend' : (finalMax > 0 || /repeat|loop/i.test(prompt)) ? 'repeat' : 'do';
+                    const cmdMatch = prompt.match(/^\s*(\/[\w:_-]+)/);
+                    const command = cmdMatch ? cmdMatch[1] : '';
                     loopEntry = {
                       id: sessionId,
                       sessionId,
                       type,
+                      command,
                       status: 'waiting',
                       prompt: prompt.slice(0, 300),
                       reason,
@@ -1179,7 +1183,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const loopsDir = path.join(projectDir || process.cwd(), '.monomind', 'loops');
           fs.mkdirSync(loopsDir, { recursive: true });
           const id = `loop-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-          const loop = { id, name: name || prompt.slice(0, 40), prompt, interval: interval || '1h', maxReps: maxReps || null, status: 'active', currentRep: 0, startedAt: new Date().toISOString(), lastRunAt: null };
+          const nowMs = Date.now();
+          const loop = { id, type: 'repeat', name: name || prompt.slice(0, 40), prompt, interval: interval || '1h', maxReps: maxReps || null, status: 'active', currentRep: 0, startedAt: nowMs, lastRunAt: null };
           fs.writeFileSync(path.join(loopsDir, `${id}.json`), JSON.stringify(loop, null, 2));
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ ok: true, id }));
