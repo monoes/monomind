@@ -287,7 +287,9 @@ const _TOK_PRICES = {
   'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,   cw: 1e-6,    cr: 0.08e-6 },
 };
 function _tokPrice(model) {
-  const k = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  const _ALIAS = { 'haiku': 'claude-haiku-4-5', 'opus': 'claude-opus-4-6', 'sonnet': 'claude-sonnet-4-6' };
+  let k = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  k = _ALIAS[k] || k;
   if (_TOK_PRICES[k]) return _TOK_PRICES[k];
   for (const p of Object.keys(_TOK_PRICES)) { if (k.startsWith(p) || k.includes(p)) return _TOK_PRICES[p]; }
   return { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 }; // sonnet default
