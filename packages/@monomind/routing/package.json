@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./routes": "./dist/routes/index.js"
+    "./routes": { "types": "./dist/routes/index.d.ts", "import": "./dist/routes/index.js" }
   },
   "scripts": {
     "build": "tsc",
