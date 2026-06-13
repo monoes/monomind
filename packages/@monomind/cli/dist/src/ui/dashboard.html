@@ -2222,6 +2222,7 @@ let userScrolled = false;
 let selectedEntryId = null;
 let allDrawers = [];
 let dismissedAlerts = new Set();
+let _cmdSearchTimer;
 let alertState = { todayCost: 0, errorCount: 0, longLoops: [], anomaly: null, budgetAlert: null, budgetCls: 'alert-warn' };
 let feedTimeFilter = 'all';
 let cmdFocusIdx = 0;
@@ -2640,8 +2641,10 @@ function expandGroup(el) {
 
 function renderFeedEntry(ev) {
   const ts = ev.ts ? relTime(ev.ts) : '';
+  const tsTitle = ev.ts ? new Date(ev.ts).toLocaleString() : '';
   let lbl = '', detail = '', id = ev.id || ev.uuid || '';
   let catCls, ico;
+  let lblTitle = '';
 
   if (ev.kind === 'tool') {
     ({ ico, catCls } = toolStyle(ev.cat, ev.name));
@@ -2650,6 +2653,7 @@ function renderFeedEntry(ev) {
   } else {
     ico = '↵'; catCls = 'cat-user';
     const t = (ev.text || '').trim();
+    lblTitle = t.length > 90 ? esc(t) : '';
     lbl = esc(t.length > 90 ? t.slice(0, 90) + '…' : t);
   }
 
@@ -2660,10 +2664,10 @@ function renderFeedEntry(ev) {
   return `<div class="feed-entry k-${ev.kind}${errClass}${selClass}" data-ev='${evData}' onclick="openDetail(this.dataset.ev)">
     <div class="feed-ico ${catCls}">${ico}</div>
     <div class="feed-body">
-      <div class="feed-lbl">${lbl}</div>
+      <div class="feed-lbl"${lblTitle ? ` title="${lblTitle}"` : ''}>${lbl}</div>
       ${detail ? `<div class="feed-detail">${detail}</div>` : ''}
     </div>
-    <div class="feed-ts">${ts}</div>
+    <div class="feed-ts"${tsTitle ? ` title="${tsTitle}"` : ''}>${ts}</div>
   </div>`;
 }
 
@@ -2705,13 +2709,13 @@ function openDetail(evJson) {
       <div class="d-row"><div class="d-lbl">Label</div><div class="d-val">${esc(ev.label || ev.name)}</div></div>
       ${ev.subagent ? `<div class="d-row"><div class="d-lbl">Subagent</div><div class="d-val">${esc(ev.subagent)}</div></div>` : ''}
       ${ev._errored ? `<div class="d-row"><div class="d-lbl">Status</div><div class="d-val error">Error</div></div>` : ''}
-      <div class="d-row"><div class="d-lbl">Time</div><div class="d-val">${ev.ts ? new Date(ev.ts).toLocaleTimeString() : '—'}</div></div>
+      <div class="d-row"><div class="d-lbl">Time</div><div class="d-val">${ev.ts ? new Date(ev.ts).toLocaleString() : '—'}</div></div>
       <div class="d-row"><div class="d-lbl">Tool ID</div><div class="d-val mono">${esc((ev.id || '').slice(0, 24))}</div></div>
     `;
   } else if (ev.kind === 'user') {
     title = 'User message';
     bodyHtml = `
-      <div class="d-row"><div class="d-lbl">Time</div><div class="d-val">${ev.ts ? new Date(ev.ts).toLocaleTimeString() : '—'}</div></div>
+      <div class="d-row"><div class="d-lbl">Time</div><div class="d-val">${ev.ts ? new Date(ev.ts).toLocaleString() : '—'}</div></div>
       <div class="d-row"><div class="d-lbl">Message</div><div class="d-val" style="white-space:pre-wrap">${esc(ev.text || '')}</div></div>
     `;
   }
@@ -2744,6 +2748,7 @@ function buildSparkline() {
   const todayDow = new Date().getDay(); // 0=Sun
   // pad start so column 0 begins on Monday
   const startOffset = todayDow === 0 ? 6 : todayDow - 1;
+  const paddingCells = Array.from({ length: startOffset }, () => '<div class="cal-cell cal-empty"></div>');
   const cells = buckets.map((v, i) => {
     const isToday = i === DAYS - 1;
     const level = v === 0 ? 0 : Math.min(4, Math.ceil(v / max * 4));
@@ -2752,7 +2757,7 @@ function buildSparkline() {
     const title = `${label}: ${v} session${v !== 1 ? 's' : ''}`;
     return `<div class="cal-cell cal-${level}${isToday ? ' cal-today' : ''}" title="${title}"></div>`;
   });
-  return `<div class="spark-wrap"><div class="spark-lbl">12-week activity ${buildWowDelta()}</div><div class="cal-grid">${cells.join('')}</div></div>`;
+  return `<div class="spark-wrap"><div class="spark-lbl">12-week activity ${buildWowDelta()}</div><div class="cal-grid">${paddingCells.join('')}${cells.join('')}</div></div>`;
 }
 
 // ── alerts rail ────────────────────────────────────────────
@@ -2887,7 +2892,7 @@ async function loadLoopMetrics() {
     const TWO_HOURS = 2 * 3600 * 1000;
     const now = Date.now();
     alertState.longLoops = loops
-      .filter(l => l.status !== 'stopped' && l.status !== 'paused' && l.startedAt && (now - new Date(l.startedAt).getTime()) > TWO_HOURS)
+      .filter(l => l.status !== 'stopped' && l.status !== 'paused' && l.status !== 'hil:pending' && l.startedAt && (now - new Date(l.startedAt).getTime()) > TWO_HOURS)
       .map(l => (l.name || l.prompt || 'loop').split('--')[0].trim().slice(0, 30));
     updateAlerts();
 
@@ -2902,7 +2907,11 @@ async function loadLoopMetrics() {
         <div class="ml-meta"><span class="ml-dot"></span>${esc(l.interval || l.schedule || 'running')}</div>
       </div>`;
     }).join('');
-    document.getElementById('m-loops').innerHTML = `<div class="m-group-title">Active Loops</div>${items}`;
+    const overflow = loops.length > 5 ? loops.length - 5 : 0;
+    const overflowNote = overflow > 0
+      ? `<div style="font-size:10px;color:var(--text-xs);padding:3px 0 0">+${overflow} more — open Loops tab</div>`
+      : '';
+    document.getElementById('m-loops').innerHTML = `<div class="m-group-title">Active Loops</div>${items}${overflowNote}`;
   } catch (_) {
     document.getElementById('m-loops').innerHTML = `<div class="m-group-title">Active Loops</div><div class="loading-txt">—</div>`;
   }
@@ -3014,6 +3023,33 @@ function renderTokChart(daily, animated = true) {
   const max  = Math.max(...vals, 0.0001);
   const avg  = vals.reduce((a, b) => a + b, 0) / (vals.length || 1) || 0.0001;
   const bar  = Math.max(2, Math.floor((W - (vals.length - 1) * 2) / vals.length));
+  window._tokBarW = bar;
+
+  // attach hover tooltip once
+  if (!canvas._tokTipBound) {
+    canvas._tokTipBound = true;
+    canvas.parentNode.style.position = 'relative';
+    const tip = document.createElement('div');
+    tip.style.cssText = 'position:absolute;pointer-events:none;display:none;font-size:11px;font-family:var(--font-mono,monospace);background:var(--bg2,#1e1e1e);border:1px solid var(--border,#333);border-radius:4px;padding:3px 7px;color:var(--text,#eee);white-space:nowrap;z-index:10';
+    canvas.parentNode.appendChild(tip);
+    canvas.addEventListener('mousemove', function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const bw = window._tokBarW || bar;
+      const idx = Math.floor(mx / (bw + 2));
+      const d = window._tokDaily;
+      if (!d || idx < 0 || idx >= d.length) { tip.style.display = 'none'; return; }
+      const item = d[idx];
+      const label = item.label || item.date || ('Day ' + (idx + 1));
+      const val = Number(item.cost ?? item.value ?? 0);
+      tip.textContent = `${label}: $${val.toFixed(4)}`;
+      tip.style.display = 'block';
+      tip.style.left = Math.min(mx + 8, W - tip.offsetWidth - 4) + 'px';
+      tip.style.top = '4px';
+    });
+    canvas.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
+  }
+
   const targets = vals.map((v, i) => ({
     v, i,
     isToday: i === vals.length - 1,
@@ -3344,7 +3380,7 @@ function renderProjectGrid(projects, query) {
       ${isCurrent ? '<div class="proj-card-badge">active</div>' : ''}
       <div class="proj-health ${hCls}" title="Health score: ${score}">${score}</div>
       <div class="proj-card-name">${esc(p.name || p.slug)}</div>
-      <div class="proj-card-path">${esc(p.path || '')}</div>
+      <div class="proj-card-path" title="${esc(p.path || '')}">${esc(shortPath(p.path || ''))}</div>
       <div class="proj-card-stats">
         <div class="proj-stat"><div class="ps-v">${p.sessionCount || 0}</div><div class="ps-l">sessions</div></div>
         <div class="proj-stat"><div class="ps-v">${p.memoryCount || 0}</div><div class="ps-l">memories</div></div>
@@ -4022,8 +4058,9 @@ function updateBudgetBtnStyle() {
 
 function checkBudget() {
   const cost = alertState.todayCost;
-  if (!cost) return;
-  if (budget.daily) {
+  const moCost = alertState.monthCost;
+  // Daily budget check
+  if (budget.daily && cost) {
     const pct = cost / budget.daily;
     if (pct >= 1 && !dismissedAlerts.has('budget-daily-over')) {
       alertState.budgetAlert = `Daily budget exceeded: $${cost.toFixed(2)} / $${budget.daily}`;
@@ -4035,8 +4072,22 @@ function checkBudget() {
     } else {
       alertState.budgetAlert = null;
     }
-    updateAlerts();
   }
+  // Monthly budget check
+  if (budget.monthly && moCost) {
+    const moPct = moCost / budget.monthly;
+    if (moPct >= 1 && !dismissedAlerts.has('budget-monthly-over')) {
+      alertState.budgetAlert = `Monthly budget exceeded: $${moCost.toFixed(2)} / $${budget.monthly}`;
+      alertState.budgetCls = 'alert-crit';
+    } else if (moPct >= 0.8 && !dismissedAlerts.has('budget-monthly-warn')) {
+      if (!alertState.budgetAlert) {
+        alertState.budgetAlert = `Approaching monthly budget: $${moCost.toFixed(2)} / $${budget.monthly}`;
+        alertState.budgetCls = 'alert-warn';
+      }
+      maybeNotify('monomind budget', `$${moCost.toFixed(2)} of $${budget.monthly} monthly budget used`);
+    }
+  }
+  updateAlerts();
 }
 
 function maybeNotify(title, body) {
@@ -4714,7 +4765,9 @@ async function renderLoops() {
           <div class="le-row"><div class="le-lbl">Type</div><div class="le-val">${isTillend ? '∞ tillend' : '↺ repeat'}</div></div>
           <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${interval}</div></div>
           <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${isFinished ? '✓ done' : isHil ? '⚠ hil:pending' : running ? '● running' : '○ stopped'}</div></div>
+          ${isHil && l.id ? `<div class="le-row"><div class="le-lbl">HIL file</div><div class="le-val mono" style="color:oklch(75% 0.16 60);word-break:break-all">.monomind/loops/${esc(l.id)}-hil.md</div></div>` : ''}
           <div class="le-row"><div class="le-lbl">Started</div><div class="le-val mono">${esc(startedAt)}</div></div>
+          ${running && l.startedAt ? `<div class="le-row"><div class="le-lbl">Running for</div><div class="le-val">${fmtDur(Date.now() - new Date(l.startedAt).getTime())}</div></div>` : ''}
           <div class="le-row"><div class="le-lbl">Last run</div><div class="le-val">${esc(lastRun)}</div></div>
           <div class="le-row"><div class="le-lbl">Run count</div><div class="le-val">${esc(String(runs))}${maxReps ? ' / ' + maxReps : isTillend ? ' / ∞' : ''}</div></div>
           ${buildLoopSparkline(l)}
@@ -5234,6 +5287,96 @@ function _v2OrgIsLeader(r) {
   return r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner';
 }
 
+function v2ComputeOrgLayout(roles, comms, topo, W, H) {
+  const R = 42, PAD_X = R + 20, PAD_Y = R + 24;
+  const roleIds = new Set(roles.map(r => r.id));
+  const leaders = roles.filter(_v2OrgIsLeader);
+  const hasSubs = leaders.length > 0 && roles.length > 1;
+
+  const pos = {};
+  let _layoutH = null;
+
+  const _hubAndSpoke = () => {
+    if (leaders.length > 0) {
+      leaders.forEach((r, i) => {
+        const x = leaders.length === 1 ? W / 2 : PAD_X + ((W - PAD_X * 2) / (leaders.length - 1)) * i;
+        pos[r.id] = { x, y: PAD_Y };
+      });
+    }
+    const subs = roles.filter(r => !_v2OrgIsLeader(r));
+    const usableW = W - PAD_X * 2;
+    const subY = leaders.length > 0 ? PAD_Y + 220 : PAD_Y;
+    subs.forEach((r, i) => {
+      const x = subs.length === 1 ? W / 2 : PAD_X + (usableW / (subs.length - 1)) * i;
+      pos[r.id] = { x, y: subY };
+    });
+    const _hasBothRows = leaders.length > 0 && subs.length > 0;
+    _layoutH = _hasBothRows ? PAD_Y + 220 + R + 8 : PAD_Y + R + 8;
+  };
+
+  if (!roles.length) {
+    // nothing
+  } else if (!hasSubs) {
+    pos[roles[0].id] = { x: W / 2, y: 90 };
+  } else if (topo === 'mesh') {
+    const n = roles.length, cx = W / 2;
+    const minRad = (2 * R + 6) * n / (2 * Math.PI);
+    const rad = Math.max(minRad, Math.min((W - PAD_X * 2) / 2, 130) * 0.82);
+    const cy = Math.max(170, rad + PAD_Y);
+    roles.forEach((r, i) => {
+      const a = (2 * Math.PI * i / n) - Math.PI / 2;
+      pos[r.id] = { x: cx + rad * Math.cos(a), y: cy + rad * Math.sin(a) };
+    });
+    _layoutH = Math.round(cy + rad + PAD_Y);
+  } else if (topo === 'ring' || topo === 'pipeline') {
+    const usableW = W - PAD_X * 2;
+    roles.forEach((r, i) => {
+      const x = roles.length === 1 ? W / 2 : PAD_X + (usableW / (roles.length - 1)) * i;
+      pos[r.id] = { x, y: 90 };
+    });
+    _layoutH = 180;
+  } else if (comms.length > 0) {
+    const fwdEdges = comms.filter(e => e.type !== 'report');
+    if (!fwdEdges.length) {
+      _hubAndSpoke();
+    } else {
+      const depth = {};
+      leaders.forEach(r => { depth[r.id] = 0; });
+      const queue = [...leaders.map(r => r.id)];
+      while (queue.length) {
+        const cur = queue.shift();
+        fwdEdges.forEach(e => {
+          if (e.from === cur && roleIds.has(e.to) && depth[e.to] === undefined) {
+            depth[e.to] = depth[cur] + 1;
+            queue.push(e.to);
+          }
+        });
+      }
+      roles.forEach(r => { if (depth[r.id] === undefined) depth[r.id] = 1; });
+      const minDepth = Math.min(...roles.map(r => depth[r.id]));
+      if (minDepth > 0) roles.forEach(r => { depth[r.id] -= minDepth; });
+      const maxDepth = Math.max(...roles.map(r => depth[r.id]));
+      const layerOf = {};
+      for (let d2 = 0; d2 <= maxDepth; d2++) layerOf[d2] = [];
+      roles.forEach(r => layerOf[depth[r.id]].push(r));
+      const LAYER_H = 110;
+      _layoutH = PAD_Y + maxDepth * LAYER_H + R + 24;
+      for (let d2 = 0; d2 <= maxDepth; d2++) {
+        const layer = layerOf[d2];
+        const usableW = W - PAD_X * 2;
+        layer.forEach((r, i) => {
+          const x = layer.length === 1 ? W / 2 : PAD_X + (usableW / (layer.length - 1)) * i;
+          pos[r.id] = { x, y: PAD_Y + d2 * LAYER_H };
+        });
+      }
+    }
+  } else {
+    _hubAndSpoke();
+  }
+
+  return { pos, H: _layoutH || (hasSubs ? 320 : 180) };
+}
+
 function v2RenderOrgChart() {
   if (!_v2SelOrg) return;
   const d = _v2OrgData;
@@ -5269,104 +5412,10 @@ function v2RenderOrgChart() {
   }
 
   // ── layout positions ──────────────────────────────────
-  const W = 720, R = 42, PAD_X = R + 20, PAD_Y = R + 24;
-  const roleIds = new Set(roles.map(r => r.id));
-  // all leaders at depth 0 (supports co-lead orgs)
-  const leaders = roles.filter(_v2OrgIsLeader);
-  const lr = leaders[0] || roles[0];
-  const hasSubs = lr && roles.length > 1;
-
-  const pos = {};
-  let _layoutH = null; // separate from pos to avoid key collision
-
-  const _hubAndSpoke = () => {
-    if (leaders.length > 0) {
-      leaders.forEach((r, i) => {
-        const x = leaders.length === 1 ? W / 2 : PAD_X + ((W - PAD_X * 2) / (leaders.length - 1)) * i;
-        pos[r.id] = { x, y: PAD_Y };
-      });
-    }
-    const subs = roles.filter(r => !_v2OrgIsLeader(r));
-    const usableW = W - PAD_X * 2;
-    // collapse to single row when no leaders — avoids blank 220px upper band
-    const subY = leaders.length > 0 ? PAD_Y + 220 : PAD_Y;
-    subs.forEach((r, i) => {
-      const x = subs.length === 1 ? W / 2 : PAD_X + (usableW / (subs.length - 1)) * i;
-      pos[r.id] = { x, y: subY };
-    });
-    const _hasBothRows = leaders.length > 0 && subs.length > 0;
-    _layoutH = _hasBothRows ? PAD_Y + 220 + R + 8 : PAD_Y + R + 8;
-  };
-
-  if (!roles.length) {
-    // nothing
-  } else if (!hasSubs) {
-    pos[roles[0].id] = { x: W / 2, y: 90 };
-  } else if (topo === 'mesh') {
-    // circular — radius and cy both scale with n to prevent overlap and top-clip
-    const n = roles.length, cx = W / 2;
-    const minRad = (2 * R + 6) * n / (2 * Math.PI);
-    const rad = Math.max(minRad, Math.min((W - PAD_X * 2) / 2, 130) * 0.82);
-    const cy = Math.max(170, rad + PAD_Y); // shift center down so top nodes stay in viewBox
-    roles.forEach((r, i) => {
-      const a = (2 * Math.PI * i / n) - Math.PI / 2;
-      pos[r.id] = { x: cx + rad * Math.cos(a), y: cy + rad * Math.sin(a) };
-    });
-    _layoutH = Math.round(cy + rad + PAD_Y);
-  } else if (topo === 'ring' || topo === 'pipeline') {
-    // linear sequence
-    const usableW = W - PAD_X * 2;
-    roles.forEach((r, i) => {
-      const x = roles.length === 1 ? W / 2 : PAD_X + (usableW / (roles.length - 1)) * i;
-      pos[r.id] = { x, y: 90 };
-    });
-    _layoutH = 180;
-  } else if (Array.isArray(d.communication) && d.communication.length > 0) {
-    // BFS multi-level layout — only traverse forward (non-report) edges
-    const fwdEdges = comms.filter(e => e.type !== 'report');
-    if (!fwdEdges.length) {
-      // all-report graph: render as hub-and-spoke
-      _hubAndSpoke();
-    } else {
-      const depth = {};
-      leaders.forEach(r => { depth[r.id] = 0; });
-      const queue = [...leaders.map(r => r.id)];
-      while (queue.length) {
-        const cur = queue.shift();
-        fwdEdges.forEach(e => {
-          // fix: skip ghost ids not present in roles
-          if (e.from === cur && roleIds.has(e.to) && depth[e.to] === undefined) {
-            depth[e.to] = depth[cur] + 1;
-            queue.push(e.to);
-          }
-        });
-      }
-      roles.forEach(r => { if (depth[r.id] === undefined) depth[r.id] = 1; });
-      // normalize: shift all depths so the shallowest layer is 0 — avoids blank top band when leaders=[]
-      const minDepth = Math.min(...roles.map(r => depth[r.id]));
-      if (minDepth > 0) roles.forEach(r => { depth[r.id] -= minDepth; });
-      const maxDepth = Math.max(...roles.map(r => depth[r.id]));
-      const layerOf = {};
-      for (let d2 = 0; d2 <= maxDepth; d2++) layerOf[d2] = [];
-      roles.forEach(r => layerOf[depth[r.id]].push(r));
-
-      const LAYER_H = 110;
-      _layoutH = PAD_Y + maxDepth * LAYER_H + R + 24; // bottom row center + radius + margin
-
-      for (let d2 = 0; d2 <= maxDepth; d2++) {
-        const layer = layerOf[d2];
-        const usableW = W - PAD_X * 2;
-        layer.forEach((r, i) => {
-          const x = layer.length === 1 ? W / 2 : PAD_X + (usableW / (layer.length - 1)) * i;
-          pos[r.id] = { x, y: PAD_Y + d2 * LAYER_H };
-        });
-      }
-    }
-  } else {
-    _hubAndSpoke();
-  }
-
-  const H = _layoutH || (hasSubs ? 320 : 180);
+  const W = 720, R = 42;
+  const positions = v2ComputeOrgLayout(roles, comms, topo, W, 0);
+  const pos = positions.pos;
+  const H = positions.H;
 
   // ── build edge SVG strings with offset parallel arrows ─
   let edgesHTML = '', particlesHTML = '';
@@ -6854,7 +6903,10 @@ function cmdSearch(q) {
     results.innerHTML = sq.length >= 2
       ? '<div class="cmd-empty">Searching sessions…</div>'
       : '<div class="cmd-empty">Type at least 2 chars after &gt; to search all sessions</div>';
-    if (sq.length >= 2) searchSessions(sq);
+    if (sq.length >= 2) {
+      clearTimeout(_cmdSearchTimer);
+      _cmdSearchTimer = setTimeout(() => searchSessions(sq), 300);
+    }
     return;
   }
 
@@ -7337,6 +7389,10 @@ function buildSessionHeatmap(sessions) {
   const DAY = 86400000;
   const now = Date.now();
   const WEEKS = 12; const DAYS = WEEKS * 7;
+  // Monday-align: compute how many days since last Monday so column 0 starts on Monday
+  const todayDow = new Date(now).getDay(); // 0=Sun,1=Mon,...,6=Sat
+  const shmOffset = (todayDow + 6) % 7;   // days since most-recent Monday (Mon=0)
+  const padShm = shmOffset;               // leading empty cells to prepend
   const buckets = new Array(DAYS).fill(null).map(() => ({ count:0, date:null }));
   for (let i = 0; i < DAYS; i++) {
     buckets[i].date = new Date(now - (DAYS - 1 - i) * DAY).toDateString();
@@ -7348,7 +7404,8 @@ function buildSessionHeatmap(sessions) {
     if (idx >= 0 && idx < DAYS) buckets[idx].count++;
   }
   const max = Math.max(...buckets.map(b => b.count), 1);
-  el.innerHTML = buckets.map(b => {
+  const shmPadding = Array.from({ length: padShm }, () => '<div class="shm-cell shm-0" style="opacity:0;pointer-events:none"></div>').join('');
+  el.innerHTML = shmPadding + buckets.map(b => {
     const level = b.count === 0 ? 0 : Math.min(4, Math.ceil(b.count / max * 4));
     const isActive = b.date === heatmapDateFilter;
     return `<div class="shm-cell shm-${level}${isActive ? ' shm-active' : ''}" title="${b.date}: ${b.count} session${b.count !== 1 ? 's' : ''}" onclick="setHeatmapFilter('${b.date}',${b.count})"></div>`;
@@ -8097,15 +8154,23 @@ function esc(s) {
 
 function relTime(ts) {
   if (!ts) return '';
-  const diff = Date.now() - (typeof ts === 'number' ? ts : Number(ts) || new Date(ts).getTime() || 0);
+  const abs = typeof ts === 'number' ? ts : new Date(ts).getTime();
+  const diff = Date.now() - abs;
   const s = Math.floor(diff / 1000);
   if (s < 5)  return 'now';
-  if (s < 60) return s + 's';
+  if (s < 60) return s + 's ago';
   const m = Math.floor(s / 60);
-  if (m < 60) return m + 'm';
+  if (m < 60) return m + 'm ago';
   const h = Math.floor(m / 60);
-  if (h < 24) return h + 'h';
-  return Math.floor(h / 24) + 'd';
+  if (h < 24) return h + 'h ago';
+  const d = Math.floor(h / 24);
+  if (d < 7) return d + 'd ago';
+  const absDate = new Date(abs);
+  const nowDate = new Date();
+  const sameYear = absDate.getFullYear() === nowDate.getFullYear();
+  return absDate.toLocaleDateString(undefined, sameYear
+    ? { month: 'short', day: 'numeric' }
+    : { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function shortPath(p) {
