@@ -51,8 +51,8 @@ If this skill is invoked directly (not by master):
    space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
    [ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
    [ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name'"; exit 1; }
-   board_id=$(monotask board create "ops" --json | jq -r '.id // empty')
-   [ -z "$board_id" ] && { echo "ERROR: Failed to create ops board"; exit 1; }
+   board_id=$(monotask board create "ops" --json 2>/dev/null | jq -r '.id // empty')
+   [ -z "$board_id" ] && echo "[ops] monotask board unavailable — board tracking skipped."
    monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
    todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
    doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
@@ -118,7 +118,7 @@ Spawn one Task agent per workstream (star topology — hub aggregates independen
 - Infrastructure automation: subagent_type "DevOps Automator"
 - CI/CD pipelines: subagent_type "cicd-engineer"
 
-Also run /mastermind:do --board <board_id> to track execution.
+Tasks are saved to `docs/tasks/` by default. To execute: `/mastermind:do --file <TASK_FILE>`. With monotask: `/mastermind:do --monotask --space $SPACE_ID --board $TASK_BOARD_ID`.
 
 STEP 4 — COLLECT AND RETURN
 Collect all agent outputs. Return to caller:

@@ -3,7 +3,14 @@
  * Queries npm registry and compares versions
  */
 import { createRequire } from 'module';
-import * as semver from 'semver';
+// Inline semver shim — avoids external dependency
+const semver = {
+  valid: (v) => /^\d+\.\d+\.\d+/.test(v || '') ? v : null,
+  eq: (a, b) => a === b,
+  major: (v) => parseInt((v || '0').split('.')[0], 10),
+  minor: (v) => parseInt((v || '0').split('.')[1] || '0', 10),
+  patch: (v) => parseInt(((v || '0').split('.')[2] || '0').replace(/[^0-9].*/, ''), 10),
+};
 import { reserveCheck, recordCheck, getCachedVersions } from './rate-limiter.js';
 const require = createRequire(import.meta.url);
 const DEFAULT_CONFIG = {

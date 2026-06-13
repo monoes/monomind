@@ -10,5 +10,9 @@
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "src/swarm/flow-visualizer.ts"],
-  "references": []
+  "references": [
+    { "path": "../guidance" },
+    { "path": "../mcp" },
+    { "path": "../routing" }
+  ]
 }
