@@ -26,7 +26,9 @@ const _SJ_PRICING = {
   'gemini-2.5-pro':    { in: 1.25e-6, out: 10e-6,   cw: 1.25e-6,  cr: 0.315e-6 },
 };
 function _sjGetPricing(model) {
-  const canonical = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  const _ALIAS = { 'haiku': 'claude-haiku-4-5', 'opus': 'claude-opus-4-6', 'sonnet': 'claude-sonnet-4-6' };
+  let canonical = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  canonical = _ALIAS[canonical] || canonical;
   if (_SJ_PRICING[canonical]) return _SJ_PRICING[canonical];
   for (const k of Object.keys(_SJ_PRICING)) { if (canonical.startsWith(k) || canonical.includes(k)) return _SJ_PRICING[k]; }
   return null;
