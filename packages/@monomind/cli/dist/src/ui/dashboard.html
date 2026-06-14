@@ -330,6 +330,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #odt-chat-feed::-webkit-scrollbar { width:4px; }
 #odt-chat-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
 #odt-chat-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
+.cv-excerpt-banner { flex-shrink:0; padding:7px 16px 8px; background:oklch(13% 0.01 295); border-bottom:1px solid var(--border); display:none; }
+.cv-excerpt-banner.visible { display:block; }
+.cv-excerpt-label { font-size:8px; letter-spacing:2px; color:var(--text-xs); text-transform:uppercase; margin-bottom:4px; }
+.cv-excerpt-items { display:flex; flex-direction:column; gap:2px; }
+.cv-excerpt-item { font-size:10px; color:var(--text-lo); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.cv-excerpt-item .cv-ex-tag { font-size:8px; color:var(--text-xs); margin-right:5px; display:inline-block; min-width:30px; }
 
 /* agent detail drawer (slides in from right within the org detail pane) */
 #org-agent-drawer {
@@ -707,6 +713,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #chat-v-live-dot.on { background:oklch(68% 0.20 150); animation:livepulse-cv 2.2s ease-in-out infinite; }
 @keyframes livepulse-cv { 0%,100%{opacity:1} 50%{opacity:0.4} }
 #chat-v-live-lbl { font-size:9px; color:var(--text-lo); }
+#chat-v-excerpt { flex-shrink:0; padding:7px 18px 8px; background:oklch(13% 0.01 295); border-bottom:1px solid var(--border); display:none; }
+#chat-v-excerpt.visible { display:block; }
 #chat-v-feed { flex:1; overflow-y:auto; padding:12px 18px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
 #chat-v-feed::-webkit-scrollbar { width:4px; }
 #chat-v-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
@@ -2134,6 +2142,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div id="chat-v-agent-bar" style="display:none">
           <span id="chat-v-agent-lbl">AGENT</span>
         </div>
+        <div id="chat-v-excerpt" class="cv-excerpt-banner"></div>
         <div id="chat-v-feed">
           <div id="chat-v-empty">Select a session above to see agent communications.<br>Agent messages, intercom signals, and system events appear here in real time.</div>
         </div>
@@ -3812,7 +3821,7 @@ async function stopLoopInProject(evt, id, projDir) {
 function _buildLoopRowHtml(l, idx, projDir) {
   const maxReps = l.maxReps || 0;
   const curRep  = l.currentRep || 0;
-  const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+  const isTillend = !maxReps || l.type === 'tillend' || String(l.command || '').includes('--tillend');
   const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
   const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
   const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
@@ -3828,7 +3837,7 @@ function _buildLoopRowHtml(l, idx, projDir) {
       const flags = [];
       if (_l.type && _l.type !== 'repeat') flags.push('--' + _l.type);
       if (_l.maxReps) flags.push('--maxruns ' + _l.maxReps);
-      if (_l.interval) { const s = String(_l.interval).match(/^(\d+)s$/); if (s) flags.push('--wait ' + s[1]); }
+      if (_l.wait) flags.push('--wait ' + _l.wait);
       if (_l.currentRep != null) flags.push('--rep ' + _l.currentRep);
       if (_l.id) flags.push('--loop ' + _l.id);
       return { userPrompt: _l.prompt || '', command: _l.command, flagsStr: flags.join(' ') };
@@ -3853,7 +3862,7 @@ function _buildLoopRowHtml(l, idx, projDir) {
   const runs = curRep != null ? curRep : '—';
   const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
   const progBar = isTillend
-    ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.capReps ? ' (cap: '+l.capReps+')' : ''}</span></div>`
+    ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.maxReps ? ' (cap: '+l.maxReps+')' : ''}</span></div>`
     : (maxReps > 0 && running)
       ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
       : '';
@@ -4054,6 +4063,7 @@ function chatVSelectSession(id) {
   const session = chatVSessions[id];
   const events = session.events || [];
   chatVPopulateAgentBar(events);
+  renderCvExcerptBanner('chat-v-excerpt', events, session);
   events.forEach(ev => appendChatViewEvent(ev, false));
   feed.scrollTop = feed.scrollHeight;
 }
@@ -4149,6 +4159,57 @@ function appendChatViewEvent(ev, animate) {
   feed.scrollTop = feed.scrollHeight;
 }
 
+function _cvExcerptText(ev) {
+  const t = ev.type || '';
+  if (t === 'intercom' || t === 'org:comms') return (ev.from || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'agent:spawn' || t === 'org:agent:online') return 'spawned ' + (ev.agent || ev.role || ev.title || '?');
+  if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.progress || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
+  if (t === 'org:start') return 'org started: ' + (ev.goal || '').slice(0, 80);
+  if (t === 'org:complete') return 'org complete';
+  if (t === 'session:start') return 'started: ' + (ev.prompt || '').replace(/^running org:\s*/i, '').slice(0, 80);
+  if (t === 'session:complete') return 'completed' + (ev.status ? ' [' + ev.status + ']' : '');
+  if (t === 'domain:dispatch') return '→ ' + (ev.domain || '') + (ev.cmd ? ': ' + ev.cmd.slice(0, 60) : '');
+  if (t === 'domain:complete') return '✓ ' + (ev.domain || '');
+  if (ev.msg) return (ev.msg || '').slice(0, 80);
+  return t.slice(0, 60);
+}
+
+function _cvExcerptTag(ev) {
+  const t = ev.type || '';
+  if (t === 'intercom' || t === 'org:comms') return 'IC';
+  if (t === 'agent:message') return 'MSG';
+  if (t === 'agent:spawn' || t === 'org:agent:online') return 'NEW';
+  if (t === 'org:checkpoint') return 'CHK';
+  if (t.startsWith('org:')) return 'ORG';
+  if (t.startsWith('session:')) return 'SES';
+  if (t.startsWith('domain:')) return 'DOM';
+  return 'EVT';
+}
+
+function renderCvExcerptBanner(bannerId, events, sessionMeta) {
+  const banner = document.getElementById(bannerId);
+  if (!banner) return;
+  const SKIP = new Set(['session:start']);
+  const meaningful = (events || []).filter(ev => !SKIP.has(ev.type)).slice(-5).reverse();
+  if (!meaningful.length) {
+    // Fallback: show session meta (prompt/goal) so banner is never blank when a session is selected
+    const prompt = sessionMeta && (sessionMeta.prompt || '');
+    const clean = prompt.replace(/^running org:\s*/i, '').slice(0, 120);
+    if (!clean) { banner.classList.remove('visible'); banner.innerHTML = ''; return; }
+    banner.innerHTML = `<div class="cv-excerpt-label">SESSION GOAL</div><div class="cv-excerpt-items"><div class="cv-excerpt-item"><span class="cv-ex-tag">ORG</span>${esc(clean)}</div></div>`;
+    banner.classList.add('visible');
+    return;
+  }
+  const items = meaningful.slice(0, 3).map(ev => {
+    const tag = _cvExcerptTag(ev);
+    const txt = _cvExcerptText(ev);
+    return `<div class="cv-excerpt-item"><span class="cv-ex-tag">${tag}</span>${esc(txt)}</div>`;
+  }).join('');
+  banner.innerHTML = `<div class="cv-excerpt-label">LAST ACTIVITY</div><div class="cv-excerpt-items">${items}</div>`;
+  banner.classList.add('visible');
+}
+
 function mkCVSys(html, ts) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-sys';
@@ -4205,6 +4266,7 @@ function handleChatViewEvent(ev) {
       || (ev.from && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
       || (ev.to && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
     if (hasNewAgent) chatVPopulateAgentBar(chatVSessions[ev.session]?.events || []);
+    renderCvExcerptBanner('chat-v-excerpt', chatVSessions[ev.session]?.events || [], chatVSessions[ev.session]);
     appendChatViewEvent(ev, true);
   }
 }
@@ -4841,11 +4903,23 @@ function fmtCountdown(nextAt) {
   return `next in ${s}s`;
 }
 
-function fmtInterval(minutes) {
-  if (!minutes && minutes !== 0) return '—';
-  const m = typeof minutes === 'string' ? parseFloat(minutes) : minutes;
-  if (isNaN(m) || m <= 0) return String(minutes);
-  if (m < 60) return m + 'm';
+function fmtInterval(val) {
+  if (!val && val !== 0) return '—';
+  let m;
+  if (typeof val === 'string') {
+    // Parse human-readable suffixes: '1h' → 60 min, '30m' → 30 min, '45s' → 0.75 min
+    const hMatch = val.match(/^(\d+(?:\.\d+)?)h$/i);
+    const mMatch = val.match(/^(\d+(?:\.\d+)?)m$/i);
+    const sMatch = val.match(/^(\d+(?:\.\d+)?)s$/i);
+    if (hMatch) m = parseFloat(hMatch[1]) * 60;
+    else if (mMatch) m = parseFloat(mMatch[1]);
+    else if (sMatch) m = parseFloat(sMatch[1]) / 60;
+    else m = parseFloat(val);
+  } else {
+    m = val;
+  }
+  if (isNaN(m) || m <= 0) return String(val);
+  if (m < 60) return Math.round(m) + 'm';
   const h = Math.floor(m / 60), rem = Math.round(m % 60);
   return rem ? `${h}h ${rem}m` : `${h}h`;
 }
@@ -6080,7 +6154,7 @@ function v2RenderOrgLive() {
     ${(_v2OrgData._activity || []).slice(-30).reverse().map(e => `<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">
       ${esc(relTime(e.ts || e.timestamp || e.created_at))}
       <span style="color:var(--text-mid);margin-left:6px">${esc(e.type || e.kind || e.event || '—')}</span>
-      ${e.message ? `<span style="color:var(--text-hi);margin-left:6px">${esc(e.message.toString().slice(0, 80))}</span>` : ''}
+      ${(e.message || e.msg) ? `<span style="color:var(--text-hi);margin-left:6px">${esc((e.message || e.msg).toString().slice(0, 80))}</span>` : ''}
     </div>`).join('')}
   </div>`;
   // auto-refresh every 5s while tab is active
@@ -6134,7 +6208,7 @@ async function orgApprovalAction(id, action) {
   if (!confirm(action + ' this request?')) return;
   try {
     const _enc = encodeURIComponent(_v2SelOrg);
-    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}`, {
+    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
     });
     showToast('Done', action + 'd', 'ok');
@@ -6156,7 +6230,7 @@ async function v2RenderOrgSecrets() {
         ? secrets.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
             <span style="font-family:var(--mono);color:var(--text-hi)">${esc(s.name || s.key || '—')}</span>
             ${s.purpose ? `<span style="color:var(--text-lo)">${esc(s.purpose)}</span>` : ''}
-            <span style="margin-left:auto;font-family:var(--mono);color:var(--border)">••••••••</span>
+            <span style="margin-left:auto;font-family:var(--mono);color:var(--border)">${esc(s.maskedRef || '••••••••')}</span>
           </div>`).join('')
         : '<div class="empty">No secrets configured</div>');
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
@@ -6225,8 +6299,8 @@ async function v2RenderOrgRoutines() {
       routines.map(r => `<tr style="border-top:1px solid var(--border)">
         <td style="padding:6px 8px;color:var(--text-hi)">${esc(r.name || '—')}</td>
         <td style="padding:6px 8px;font-family:var(--mono);color:var(--text-lo)">${esc(r.cron || r.schedule || '—')}</td>
-        <td style="padding:6px 8px;color:var(--text-lo)">${r.lastRun ? relTime(r.lastRun) : '—'}</td>
-        <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || '—')}</span></td>
+        <td style="padding:6px 8px;color:var(--text-lo)">${(r.lastRun || r.last_run) ? relTime(r.lastRun || r.last_run) : '—'}</td>
+        <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.enabled || r.status === 'active' ? 'on' : ''}">${esc(r.status || (r.enabled != null ? (r.enabled ? 'active' : 'inactive') : '—'))}</span></td>
       </tr>`).join('') + '</tbody></table>';
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
@@ -6267,9 +6341,9 @@ function v2RenderOrgBudgets() {
   const agents = Array.isArray(b.agents) ? b.agents : (_v2OrgData._agents || []);
   // Org-level budget limits live under org_budget in the budgets API response
   const orgBudget = b.org_budget || {};
-  const tokenUsed  = b.tokens      != null ? b.tokens  : null;
+  const tokenUsed  = b.tokens      != null ? b.tokens  : (agents.length ? agents.reduce((s,a) => s + (a.tokens_in != null ? a.tokens_in : (a.tokensIn||0)) + (a.tokens_out != null ? a.tokens_out : (a.tokensOut||0)), 0) : null);
   const tokenLimit = b.tokenLimit  != null ? b.tokenLimit  : (orgBudget.limit_tokens ?? null);
-  const usdUsed    = b.usd         != null ? b.usd     : null;
+  const usdUsed    = b.usd         != null ? b.usd     : (agents.length ? agents.reduce((s,a) => s + (a.total_cost_usd != null ? a.total_cost_usd : (a.cost||0)), 0) : null);
   const usdLimit   = b.usdLimit    != null ? b.usdLimit : (orgBudget.limit_usd    ?? null);
 
   function fillBar(used, limit) {
@@ -6489,6 +6563,7 @@ async function v2RenderOrgChat() {
       <div id="odt-chat-agent-bar" style="display:none">
         <span id="odt-chat-agent-lbl">AGENT</span>
       </div>
+      <div id="odt-chat-excerpt" class="cv-excerpt-banner"></div>
       <div id="odt-chat-feed">
         <div id="odt-chat-empty">Select a session to see agent communications.</div>
       </div>`;
@@ -6555,6 +6630,7 @@ window.odtChatSelectSession = function(id) {
   if (!sess) return;
   if (emptyEl) emptyEl.style.display = 'none';
   _odtPopulateAgentBar(sess.events || []);
+  renderCvExcerptBanner('odt-chat-excerpt', sess.events || [], sess);
   (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
   feed.scrollTop = feed.scrollHeight;
 };
@@ -6679,6 +6755,7 @@ function _odtHandleLiveEvent(ev) {
         || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
         || (ev.to && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
       if (hasNewAgent) _odtPopulateAgentBar(sess.events);
+      renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess);
       _odtAppendEvent(ev, true);
     }
   }
@@ -6790,40 +6867,112 @@ async function v2RenderOrgFiles() {
         '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead><tr style="color:var(--text-xs);font-size:9px;text-align:left"><th style="padding:4px 8px">File</th><th>Type</th><th>Size</th><th>Modified</th><th></th></tr></thead>'+
         '<tbody>'+g.items.map(f => {
-          const fp = JSON.stringify(f.path), fn = JSON.stringify(f.name);
-          return '<tr style="border-top:1px solid var(--border)">'+
-            '<td style="padding:6px 8px"><span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);cursor:pointer" onclick="v2ViewOrgFile('+fp+','+fn+')">'+esc(f.name)+'</span></td>'+
+          return '<tr style="border-top:1px solid var(--border)" data-fp="'+esc(f.path)+'" data-fn="'+esc(f.name)+'">'+
+            '<td style="padding:6px 8px"><span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);cursor:pointer" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">'+esc(f.name)+'</span></td>'+
             '<td style="padding:6px 8px">'+badge(f.type)+'</td>'+
             '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo);font-family:var(--mono)">'+fmtSize(f.size||0)+'</td>'+
             '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo)">'+fmtTime(f.mtime)+'</td>'+
-            '<td style="padding:6px 8px"><button class="btn" style="font-size:9px;padding:2px 7px" onclick="v2ViewOrgFile('+fp+','+fn+')">View</button></td></tr>';
+            '<td style="padding:6px 8px"><button class="btn" style="font-size:9px;padding:2px 7px" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">View</button></td></tr>';
         }).join('')+'</tbody></table></div>';
     }).join('')+'</div>';
   } catch(e) { el.innerHTML = '<div style="padding:20px;color:oklch(60% 0.22 25)">Error: '+e.message+'</div>'; }
 }
 
 let _ofModal = null;
+let _ofRawText = '';
+
+function _ofMdToHtml(md) {
+  return md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^#{6}\s+(.+)$/gm,'<h6 style="font-size:11px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h6>')
+    .replace(/^#{5}\s+(.+)$/gm,'<h5 style="font-size:12px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h5>')
+    .replace(/^#{4}\s+(.+)$/gm,'<h4 style="font-size:13px;font-weight:700;color:var(--text-hi);margin:12px 0 5px">$1</h4>')
+    .replace(/^#{3}\s+(.+)$/gm,'<h3 style="font-size:14px;font-weight:700;color:var(--text-hi);margin:14px 0 6px">$1</h3>')
+    .replace(/^#{2}\s+(.+)$/gm,'<h2 style="font-size:16px;font-weight:700;color:var(--accent);margin:16px 0 7px;padding-bottom:4px;border-bottom:1px solid var(--border)">$1</h2>')
+    .replace(/^#{1}\s+(.+)$/gm,'<h1 style="font-size:18px;font-weight:700;color:var(--accent);margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border)">$1</h1>')
+    .replace(/```[\w]*\n?([\s\S]*?)```/g,'<pre style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 12px;font-size:10px;overflow-x:auto;margin:8px 0;line-height:1.6">$1</pre>')
+    .replace(/`([^`]+)`/g,'<code style="background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;font-family:var(--mono)">$1</code>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/^---+$/gm,'<hr style="border:none;border-top:1px solid var(--border);margin:12px 0">')
+    .replace(/^\s*[-*]\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
+    .replace(/(<li.*<\/li>\n?)+/g,'<ul style="padding-left:18px;margin:6px 0">$&</ul>')
+    .replace(/^\d+\.\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" style="color:var(--accent);text-decoration:underline" target="_blank" rel="noopener">$1</a>')
+    .replace(/\n\n+/g,'</p><p style="margin:0 0 8px">')
+    .replace(/^(?!<[hupoli]|<pre|<hr)(.+)$/gm, '$1')
+    .replace(/\n/g,'<br>');
+}
+
 async function v2ViewOrgFile(filePath, fileName) {
   if (_ofModal) { _ofModal.remove(); _ofModal = null; }
+  const isMd = /\.(md|markdown)$/i.test(fileName);
+  const isJson = /\.json$/i.test(fileName);
+  _ofRawText = '';
   _ofModal = document.createElement('div');
-  _ofModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  _ofModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
   _ofModal.onclick = e => { if (e.target===_ofModal) { _ofModal.remove(); _ofModal=null; } };
-  _ofModal.innerHTML = '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;max-width:840px;width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden">'+
-    '<div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-shrink:0">'+
-    '<span style="font-family:var(--mono);font-size:12px;color:var(--text-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(fileName)+'</span>'+
-    '<button class="btn" style="font-size:10px;padding:2px 8px" onclick="navigator.clipboard.writeText(document.getElementById(\'of-content\').textContent)">Copy</button>'+
-    '<button class="btn" style="font-size:10px;padding:2px 8px" onclick="_ofModal&&(_ofModal.remove(),_ofModal=null)">Close</button></div>'+
-    '<div id="of-content" style="flex:1;overflow-y:auto;padding:14px 16px;font-family:var(--mono);font-size:11px;line-height:1.65;color:var(--text-mid);white-space:pre-wrap;word-break:break-word">Loading...</div></div>';
+  _ofModal.innerHTML =
+    '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;max-width:900px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6)">' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+        '<span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(filePath)+'">'+esc(fileName)+'</span>' +
+        (isMd ? '<button id="of-toggle" class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofToggleRender()">Raw</button>' : '') +
+        '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="navigator.clipboard.writeText(_ofRawText).then(()=>{ if(typeof showToast===\'function\') showToast(\'Copied\',\'\',\'ok\'); })">Copy</button>' +
+        '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveFile(\''+esc(fileName)+'\')">Save</button>' +
+        '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofModal&&(_ofModal.remove(),_ofModal=null)">✕</button>' +
+      '</div>' +
+      '<div id="of-content" style="flex:1;overflow-y:auto;padding:16px 18px;font-size:12px;line-height:1.7;color:var(--text-mid);scrollbar-width:thin;scrollbar-color:var(--border) transparent">' +
+        '<span style="color:var(--text-lo)">Loading…</span>' +
+      '</div>' +
+    '</div>';
   document.body.appendChild(_ofModal);
   try {
     const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
     const r = await fetch('/api/file-content?path='+encodeURIComponent(filePath)+dirParam);
     const el = document.getElementById('of-content');
-    if (el) el.textContent = r.ok ? await r.text() : 'Error '+r.status+': '+r.statusText;
+    if (!el) return;
+    if (!r.ok) { el.textContent = 'Error '+r.status+': '+r.statusText; return; }
+    _ofRawText = await r.text();
+    if (isMd) {
+      el.innerHTML = '<div style="max-width:720px">'+_ofMdToHtml(_ofRawText)+'</div>';
+      el.dataset.mode = 'rendered';
+    } else if (isJson) {
+      try { el.textContent = JSON.stringify(JSON.parse(_ofRawText), null, 2); } catch(_) { el.textContent = _ofRawText; }
+      el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
+    } else {
+      el.textContent = _ofRawText;
+      el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
+    }
   } catch(e) {
     const el = document.getElementById('of-content');
     if (el) el.textContent = 'Error: '+e.message;
   }
+}
+
+function _ofToggleRender() {
+  const el = document.getElementById('of-content');
+  const btn = document.getElementById('of-toggle');
+  if (!el || !_ofRawText) return;
+  if (el.dataset.mode === 'rendered') {
+    el.textContent = _ofRawText;
+    el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
+    el.dataset.mode = 'raw';
+    if (btn) btn.textContent = 'Preview';
+  } else {
+    el.innerHTML = '<div style="max-width:720px">'+_ofMdToHtml(_ofRawText)+'</div>';
+    el.style.fontFamily = ''; el.style.fontSize = '12px'; el.style.whiteSpace = '';
+    el.dataset.mode = 'rendered';
+    if (btn) btn.textContent = 'Raw';
+  }
+}
+
+function _ofSaveFile(defaultName) {
+  if (!_ofRawText) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([_ofRawText], { type: 'text/plain' }));
+  a.download = defaultName || 'file.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 // ── WORKSPACES ─────────────────────────────────────────────
@@ -7013,7 +7162,7 @@ async function v2RenderOrgThreads() {
 window.v2StopOrg = async function() {
   if (!_v2SelOrg) return;
   const stopped = _v2SelOrg;
-  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop`, {method:'POST'}); } catch(_) {}
+  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {method:'POST'}); } catch(_) {}
   setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
 };
 
@@ -7053,7 +7202,7 @@ window.v2DoCopyOrg = async function() {
   confirmBtn.disabled = true;
   if (statusEl) { statusEl.textContent = 'Copying…'; statusEl.style.color = 'var(--text-lo)'; }
   try {
-    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + '/copy', {
+    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + '/copy' + (DIR ? '?dir=' + encodeURIComponent(DIR) : ''), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ destination: dest }),
     });
@@ -10818,7 +10967,7 @@ async function mmRenderLoops(body) {
     body.innerHTML = loops.map(l => {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
-      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const isTillend = !maxReps || l.type === 'tillend' || String(l.command || '').includes('--tillend');
       const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
