@@ -12,6 +12,11 @@ const semver = {
   major: (v: string): number => parseInt((v || '0').split('.')[0], 10),
   minor: (v: string): number => parseInt((v || '0').split('.')[1] || '0', 10),
   patch: (v: string): number => parseInt(((v || '0').split('.')[2] || '0').replace(/[^0-9].*/, ''), 10),
+  gt: (a: string, b: string): boolean => {
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    return aMaj !== bMaj ? aMaj > bMaj : aMin !== bMin ? aMin > bMin : aPat > bPat;
+  },
 };
 import { reserveCheck, recordCheck, getCachedVersions } from './rate-limiter.js';
 
@@ -115,7 +120,8 @@ function getUpdateType(
     return 'none';
   }
 
-  if (semver.eq(current, latest)) {
+  // Not an upgrade (equal or downgrade)
+  if (!semver.gt(latest, current)) {
     return 'none';
   }
 
@@ -127,11 +133,7 @@ function getUpdateType(
     return 'minor';
   }
 
-  if (semver.patch(latest) > semver.patch(current)) {
-    return 'patch';
-  }
-
-  return 'none';
+  return 'patch';
 }
 
 function shouldAutoUpdate(
