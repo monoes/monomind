@@ -30,3 +30,4 @@
 - 7f25b297 — fix(update): inline semver shim in validator.ts — remove external semver import
 - bf0f6372 — fix(server): include purpose and maskedRef in /api/org/:name/secrets response
 - cc3d9612 — fix(server): /api/org/:name/members reads ?dir= query param
+- d2fedbf6 — fix(orgs): connectSSE uses /api/mastermind-stream not /api/events
