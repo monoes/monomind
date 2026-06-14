@@ -3081,6 +3081,32 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // POST /api/orgs/:name/import — import an org config by name (orgs.html upload flow)
+    if (req.method === 'POST' && /^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/import$/i.test(url)) {
+      let body = '';
+      req.on('data', c => { body += c; if (body.length > 2e6) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const urlParts = url.split('/');
+          const orgName = decodeURIComponent(urlParts[3]);
+          if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Invalid org name' })); return; }
+          const cfg = JSON.parse(body);
+          const _importQs = new URL(req.url, 'http://localhost').searchParams;
+          const dir = path.resolve(_importQs.get('dir') || projectDir || process.cwd());
+          const orgsDir = path.join(dir, '.monomind', 'orgs');
+          fs.mkdirSync(orgsDir, { recursive: true });
+          const destFile = path.join(orgsDir, `${orgName}.json`);
+          fs.writeFileSync(destFile, JSON.stringify({ ...cfg, name: orgName }, null, 2), 'utf8');
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ ok: true, name: orgName, file: destFile }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
+      return;
+    }
+
     // POST /api/orgs — import / create org from JSON body
     if (req.method === 'POST' && url === '/api/orgs') {
       let body = '';
