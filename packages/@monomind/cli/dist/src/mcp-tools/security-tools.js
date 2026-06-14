@@ -2,10 +2,10 @@
  * Security MCP Tools - MonoFence Integration
  *
  * Provides MCP tools for AI manipulation defense:
- * - aidefence_scan: Scan input for threats
- * - aidefence_analyze: Deep analysis of threats
- * - aidefence_stats: Get detection statistics
- * - aidefence_learn: Learn from detection feedback
+ * - monofence_scan: Scan input for threats
+ * - monofence_analyze: Deep analysis of threats
+ * - monofence_stats: Get detection statistics
+ * - monofence_learn: Learn from detection feedback
  *
  * github.com/monoes/monomind
  */
@@ -14,25 +14,25 @@ import { createRequire } from 'module';
 // Create require for resolving module paths
 const require = createRequire(import.meta.url);
 // Lazy-loaded MonoFence instance
-let aidefenceInstance = null;
+let monofenceInstance = null;
 // Track if we've attempted install this session
 let installAttempted = false;
 /**
  * Get or create MonoFence instance (throws if unavailable)
  */
 async function getMonoFence() {
-    if (aidefenceInstance) {
-        return aidefenceInstance;
+    if (monofenceInstance) {
+        return monofenceInstance;
     }
     const packageName = 'monofence-ai';
     // First attempt - try to load via dynamic import (ESM)
     try {
-        const aidefence = await import(packageName);
-        const instance = aidefence.createMonoDefence({ enableLearning: true });
+        const monofence = await import(packageName);
+        const instance = monofence.createMonoDefence({ enableLearning: true });
         if (!instance) {
             throw new Error('createMonoDefence returned null');
         }
-        aidefenceInstance = instance;
+        monofenceInstance = instance;
         return instance;
     }
     catch (e) {
@@ -60,8 +60,8 @@ async function getMonoFence() {
 /**
  * Scan input for AI manipulation threats
  */
-const aidefenceScanTool = {
-    name: 'aidefence_scan',
+const monofenceScanTool = {
+    name: 'monofence_scan',
     description: 'Scan input text for AI manipulation threats (prompt injection, jailbreaks, PII). Returns threat assessment with <10ms latency.',
     inputSchema: {
         type: 'object',
@@ -129,8 +129,8 @@ const aidefenceScanTool = {
 /**
  * Deep analysis of specific threat
  */
-const aidefenceAnalyzeTool = {
-    name: 'aidefence_analyze',
+const monofenceAnalyzeTool = {
+    name: 'monofence_analyze',
     description: 'Deep analysis of input for specific threat types with similar pattern search and mitigation recommendations.',
     inputSchema: {
         type: 'object',
@@ -209,8 +209,8 @@ const aidefenceAnalyzeTool = {
 /**
  * Get detection statistics
  */
-const aidefenceStatsTool = {
-    name: 'aidefence_stats',
+const monofenceStatsTool = {
+    name: 'monofence_stats',
     description: 'Get MonoFence detection and learning statistics.',
     inputSchema: {
         type: 'object',
@@ -247,8 +247,8 @@ const aidefenceStatsTool = {
 /**
  * Record detection feedback for learning
  */
-const aidefenceLearnTool = {
-    name: 'aidefence_learn',
+const monofenceLearnTool = {
+    name: 'monofence_learn',
     description: 'Record detection feedback for pattern learning. Improves future detection accuracy.',
     inputSchema: {
         type: 'object',
@@ -330,8 +330,8 @@ const aidefenceLearnTool = {
 /**
  * Check if input is safe (simple boolean check)
  */
-const aidefenceIsSafeTool = {
-    name: 'aidefence_is_safe',
+const monofenceIsSafeTool = {
+    name: 'monofence_is_safe',
     description: 'Quick boolean check if input is safe. Fastest option for simple validation.',
     inputSchema: {
         type: 'object',
@@ -370,8 +370,8 @@ const aidefenceIsSafeTool = {
 /**
  * Check for PII in input
  */
-const aidefenceHasPIITool = {
-    name: 'aidefence_has_pii',
+const monofenceHasPIITool = {
+    name: 'monofence_has_pii',
     description: 'Check if input contains PII (emails, SSNs, API keys, passwords, etc.).',
     inputSchema: {
         type: 'object',
@@ -410,12 +410,12 @@ const aidefenceHasPIITool = {
  * Export all security tools
  */
 export const securityTools = [
-    aidefenceScanTool,
-    aidefenceAnalyzeTool,
-    aidefenceStatsTool,
-    aidefenceLearnTool,
-    aidefenceIsSafeTool,
-    aidefenceHasPIITool,
+    monofenceScanTool,
+    monofenceAnalyzeTool,
+    monofenceStatsTool,
+    monofenceLearnTool,
+    monofenceIsSafeTool,
+    monofenceHasPIITool,
 ];
 export default securityTools;
 //# sourceMappingURL=security-tools.js.map

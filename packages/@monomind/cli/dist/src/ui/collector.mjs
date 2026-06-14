@@ -276,6 +276,7 @@ function collectAgents(projectDir) {
 
 const _TOK_PRICES = {
   'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
+  'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
   'claude-opus-4':     { in: 15e-6,   out: 75e-6,  cw: 18.75e-6,cr: 1.5e-6  },
   'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
   'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
@@ -286,7 +287,9 @@ const _TOK_PRICES = {
   'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,   cw: 1e-6,    cr: 0.08e-6 },
 };
 function _tokPrice(model) {
-  const k = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  const _ALIAS = { 'haiku': 'claude-haiku-4-5', 'opus': 'claude-opus-4-6', 'sonnet': 'claude-sonnet-4-6' };
+  let k = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  k = _ALIAS[k] || k;
   if (_TOK_PRICES[k]) return _TOK_PRICES[k];
   for (const p of Object.keys(_TOK_PRICES)) { if (k.startsWith(p) || k.includes(p)) return _TOK_PRICES[p]; }
   return { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 }; // sonnet default
@@ -313,13 +316,22 @@ function collectTokens(projectDir, days = 14) {
 
   // Cutoff: look back `days` days
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  // Month cutoff: first day of the current UTC month — needed to compute monthCost accurately
+  // even when the month started more than `days` days ago.
+  const now = new Date();
+  const monthStartMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+  // Effective scan floor is the earlier of the two cutoffs (broader window covers both needs).
+  const scanCutoff = Math.min(cutoff, monthStartMs);
+  const scanCutoffDate = new Date(scanCutoff).toISOString().slice(0, 10);
+  const monthPrefix = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
   for (const fname of jsonlFiles) {
     const fpath = path.join(sessionsDir, fname);
     let stat;
     try { stat = fs.statSync(fpath); } catch { continue; }
-    // Skip very old sessions for performance (mtime heuristic)
-    if (stat.mtimeMs < cutoff - 7 * 24 * 60 * 60 * 1000) continue;
+    // Skip very old sessions for performance (mtime heuristic).
+    // Use scanCutoff (which may reach back to month start) minus a 7-day buffer.
+    if (stat.mtimeMs < scanCutoff - 7 * 24 * 60 * 60 * 1000) continue;
 
     let content;
     try { content = fs.readFileSync(fpath, 'utf8'); } catch { continue; }
@@ -350,7 +362,7 @@ function collectTokens(projectDir, days = 14) {
         const ts = entry.timestamp || '';
         const day = ts.slice(0, 10); // "YYYY-MM-DD"
 
-        if (day && day >= new Date(cutoff).toISOString().slice(0, 10)) {
+        if (day && day >= scanCutoffDate) {
           if (!dailyMap[day]) dailyMap[day] = { cost: 0, calls: 0, tokensIn: 0, tokensOut: 0 };
           dailyMap[day].cost += cost;
           dailyMap[day].calls++;
@@ -393,6 +405,24 @@ function collectTokens(projectDir, days = 14) {
 
   const totalTokens = totalTokensIn + totalTokensOut;
   if (totalTokens > 0) summary.totalTokens = totalTokens;
+
+  // Overwrite stale cached todayCost/todayCalls with fresh JSONL-derived values.
+  // daily uses UTC date keys (entry.timestamp.slice(0,10)), so match that here.
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayEntry = dailyMap[todayKey];
+  summary.todayCost  = todayEntry ? todayEntry.cost  : 0;
+  summary.todayCalls = todayEntry ? todayEntry.calls : 0;
+
+  // Overwrite stale monthCost/monthCalls from fresh JSONL dailyMap entries.
+  // dailyMap now covers back to the start of the current month (scanCutoff), so
+  // summing entries whose key starts with the current "YYYY-MM" prefix gives the
+  // true month-to-date spend — no stale token-summary.json cache involved.
+  let monthCostAcc = 0, monthCallsAcc = 0;
+  for (const [d, v] of Object.entries(dailyMap)) {
+    if (d.startsWith(monthPrefix)) { monthCostAcc += v.cost; monthCallsAcc += v.calls; }
+  }
+  summary.monthCost  = monthCostAcc;
+  summary.monthCalls = monthCallsAcc;
 
   return { summary, daily, rows };
 }

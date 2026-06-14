@@ -26,7 +26,9 @@ const _SJ_PRICING = {
   'gemini-2.5-pro':    { in: 1.25e-6, out: 10e-6,   cw: 1.25e-6,  cr: 0.315e-6 },
 };
 function _sjGetPricing(model) {
-  const canonical = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  const _ALIAS = { 'haiku': 'claude-haiku-4-5', 'opus': 'claude-opus-4-6', 'sonnet': 'claude-sonnet-4-6' };
+  let canonical = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  canonical = _ALIAS[canonical] || canonical;
   if (_SJ_PRICING[canonical]) return _SJ_PRICING[canonical];
   for (const k of Object.keys(_SJ_PRICING)) { if (canonical.startsWith(k) || canonical.includes(k)) return _SJ_PRICING[k]; }
   return null;
@@ -51,7 +53,7 @@ function categorizeTool(name) {
   if (['Read','Write','Edit','MultiEdit','Glob','Grep','LS'].includes(name)) return 'file';
   if (name === 'Bash') return 'bash';
   if (['Agent','Task'].includes(name)) return 'agent';
-  if (name.startsWith('mcp__monobrain__memory') || name.startsWith('mcp__monobrain__agentdb')) return 'memory';
+  if (name.startsWith('mcp__monomind__memory') || name.startsWith('mcp__monomind__agentdb')) return 'memory';
   if (['WebFetch','WebSearch'].includes(name)) return 'web';
   if (name === 'TodoWrite' || name === 'TodoRead') return 'task';
   if (name === 'Skill') return 'skill';
@@ -131,8 +133,8 @@ function buildToolLabel(name, input) {
   if (name === 'WebFetch') return `Fetch ${(input.url || '').slice(0, 50)}`;
   if (name === 'WebSearch') return `Search ${(input.query || '').slice(0, 40)}`;
   if (name === 'Skill') return `Skill: ${input.skill || '?'}`;
-  if (name.startsWith('mcp__monobrain__memory')) return name.replace('mcp__monobrain__memory_', 'mem:');
-  if (name.startsWith('mcp__')) return name.replace('mcp__monobrain__', '⬡ ').replace('mcp__', '⬡ ').slice(0, 40);
+  if (name.startsWith('mcp__monomind__memory')) return name.replace('mcp__monomind__memory_', 'mem:');
+  if (name.startsWith('mcp__')) return name.replace('mcp__monomind__', '⬡ ').replace('mcp__', '⬡ ').slice(0, 40);
   return name.slice(0, 40);
 }
 
@@ -450,7 +452,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         for (const { f, mtime } of sessionFiles) {
           const fp = path.join(projectClaudeDir, f);
           const id = f.replace('.jsonl', '');
-          let lastPrompt = '', summaries = [], totalDurationMs = 0, totalMessages = 0, firstTs = null, lastTs = null, totalCost = 0, toolCalls = 0, userMessages = 0, cacheReadTokens = 0, totalInputTokens = 0;
+          let lastPrompt = '', summaries = [], totalDurationMs = 0, totalMessages = 0, firstTs = null, lastTs = null, totalCost = 0, toolCalls = 0, userMessages = 0, cacheReadTokens = 0, totalInputTokens = 0, errorCount = 0;
           const modelBreakdown = {};
           const filesTouchedSet = new Set();
           try {
@@ -460,7 +462,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               let e; try { e = JSON.parse(line); } catch { continue; }
               if (e.timestamp) { if (!firstTs) firstTs = e.timestamp; lastTs = e.timestamp; }
               if (e.type === 'last-prompt' && e.lastPrompt) lastPrompt = e.lastPrompt;
-              if (e.type === 'user') userMessages++;
+              if (e.type === 'user') {
+                userMessages++;
+                for (const b of (e.message?.content || [])) {
+                  if (b && b.type === 'tool_result' && b.is_error) errorCount++;
+                }
+              }
               if (e.type === 'system' && e.subtype === 'compact_boundary') pendingCompact = true;
               if (pendingCompact && e.type === 'user') {
                 const msg = e.message || {};
@@ -502,7 +509,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             }
           } catch {}
           const filesTouched = [...filesTouchedSet].slice(0, 20);
-          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, totalDurationMs, totalMessages, totalCost, toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
+          const compactCount = summaries.length;
+          const summary = summaries.length ? summaries[summaries.length - 1].text : null;
+          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, summary, compactCount, errorCount, totalDurationMs, totalMessages, totalCost, toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ sessions }));
@@ -1162,7 +1171,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const { id } = JSON.parse(body);
           if (!id) { res.writeHead(400); res.end(JSON.stringify({ error: 'id required' })); return; }
-          const loopsDir = path.join(projectDir || process.cwd(), '.monomind', 'loops');
+          const _stopQs = new URL(req.url, 'http://localhost').searchParams;
+          const _stopDir = path.resolve(_stopQs.get('dir') || projectDir || process.cwd());
+          const loopsDir = path.join(_stopDir, '.monomind', 'loops');
           fs.mkdirSync(loopsDir, { recursive: true });
           fs.writeFileSync(path.join(loopsDir, `${id}.stop`), `stop-requested-${Date.now()}`);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -2632,7 +2643,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           if (['Read','Write','Edit','MultiEdit','Glob','Grep','LS'].includes(name)) return 'file';
           if (name === 'Bash') return 'bash';
           if (['Agent','Task'].includes(name)) return 'agent';
-          if (name.startsWith('mcp__monobrain__memory') || name.startsWith('mcp__monobrain__agentdb')) return 'memory';
+          if (name.startsWith('mcp__monomind__memory') || name.startsWith('mcp__monomind__agentdb')) return 'memory';
           if (['WebFetch','WebSearch'].includes(name)) return 'web';
           if (name === 'Skill') return 'skill';
           return 'other';
@@ -2649,9 +2660,35 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           try { stat = fs.statSync(fp); } catch { continue; }
 
           // Skip files over size cap to avoid memory spikes on large sessions
+          // But still do a lightweight scan for agent spawns (tool_use blocks named Agent/Task)
           if (stat.size > JSONL_SIZE_CAP) {
+            const truncSpawns = {};
+            try {
+              const raw = fs.readFileSync(fp, 'utf8');
+              for (const line of raw.split('\n')) {
+                if (!line.includes('"tool_use"') || (!line.includes('"Agent"') && !line.includes('"Task"'))) continue;
+                let e; try { e = JSON.parse(line); } catch { continue; }
+                if (e.type !== 'assistant') continue;
+                for (const block of (e.message?.content || [])) {
+                  if (!block || block.type !== 'tool_use') continue;
+                  if (block.name !== 'Agent' && block.name !== 'Task') continue;
+                  const sub = block.input?.subagent_type || block.input?.description || '?';
+                  truncSpawns[sub] = (truncSpawns[sub] || 0) + 1;
+                }
+              }
+            } catch {}
             nodes.push({ id: sid, type: 'session', label: sid.slice(0,8), turns: 0, totalTools: 0,
-              toolCounts: {}, cost: 0, mtime: stat.mtimeMs, size: stat.size, agentSpawns: {}, truncated: true });
+              toolCounts: {}, cost: 0, mtime: stat.mtimeMs, size: stat.size, agentSpawns: truncSpawns, truncated: true });
+            for (const [subType, count] of Object.entries(truncSpawns)) {
+              const nodeId = 'agent::' + subType;
+              if (!agentTypeNodes[subType]) {
+                agentTypeNodes[subType] = true;
+                nodes.push({ id: nodeId, type: 'agenttype', label: subType, totalSpawns: 0 });
+              }
+              const aNode = nodes.find(n => n.id === nodeId);
+              if (aNode) aNode.totalSpawns = (aNode.totalSpawns || 0) + count;
+              edges.push({ source: sid, target: nodeId, weight: count, label: String(count) });
+            }
             continue;
           }
 
@@ -2664,7 +2701,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             const lines = raw.split('\n').filter(Boolean);
             for (const line of lines) {
               let e; try { e = JSON.parse(line); } catch { continue; }
-              if (e.type === 'user') turns++;
+              if (e.type === 'user') {
+                // Only count actual human turns, not tool-result responses
+                const ct = e.message?.content;
+                const isToolResult = Array.isArray(ct) && ct.length > 0 && ct.every(b => b && b.type === 'tool_result');
+                if (!isToolResult) turns++;
+              }
               if (e.type === 'assistant') {
                 for (const block of (e.message?.content || [])) {
                   if (!block || block.type !== 'tool_use') continue;
@@ -2675,8 +2717,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                     agentSpawns[sub] = (agentSpawns[sub] || 0) + 1;
                   }
                 }
+                if (e.message?.usage) totalCost += _sjCalcCost(e.message.model || '', e.message.usage);
               }
-              if (e.costUSD) totalCost += e.costUSD;
             }
           } catch {}
 
@@ -2785,7 +2827,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const fallback = () => {
           const summary = (() => { try { return JSON.parse(fs.readFileSync(path.join(dir, '.monomind', 'metrics', 'token-summary.json'), 'utf8')); } catch { return {}; } })();
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
-          res.end(JSON.stringify({ totalCost: summary.todayCost || 0, totalCalls: summary.todayCalls || 0, totalIn: 0, totalOut: 0, totalCR: 0, totalCW: 0, projects: [], modelBreakdown: {}, categoryBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, periodLabel: period }));
+          const fbSum = { todayCost: summary.todayCost || 0, cost: summary.todayCost || 0, todayCalls: summary.todayCalls || 0, calls: summary.todayCalls || 0, totalTokens: 0, totalTokensIn: 0, totalTokensOut: 0, cacheTokens: 0, modelCount: 0 };
+          res.end(JSON.stringify({ summary: fbSum, totalCost: summary.todayCost || 0, totalCalls: summary.todayCalls || 0, totalIn: 0, totalOut: 0, totalCR: 0, totalCW: 0, rows: [], models: [], categories: [], tools: [], mcpServers: [], projects: [], modelBreakdown: {}, categoryBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, periodLabel: period }));
         };
         if (!fs.existsSync(trackerPath)) { fallback(); return; }
         try {
@@ -2824,8 +2867,24 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               }
             }
           }
+          // Build client-friendly arrays from breakdown dicts
+          const models = Object.entries(modelBreakdown).map(([model, m]) => ({ model, cost: m.cost, calls: m.calls, tokens: m.tokens })).sort((a, b) => b.cost - a.cost);
+          const categories = Object.entries(categoryBreakdown).map(([category, c]) => ({ category, turns: c.turns, cost: c.cost })).sort((a, b) => b.turns - a.turns);
+          const tools = Object.entries(toolBreakdown).map(([tool, t]) => ({ tool, count: t.calls })).sort((a, b) => b.count - a.count);
+          const mcpServers = Object.entries(mcpBreakdown).map(([server, m]) => ({ server, count: m.calls })).sort((a, b) => b.count - a.count);
+          const projectRows = projects.map(p => ({ project: p.name || p.slug || p.dir || '?', cost: p.totalCost || 0 })).sort((a, b) => b.cost - a.cost);
+          // Build rows array from sessions for per-session table
+          const rows = [];
+          for (const p of projects) {
+            for (const s of (p.sessions || [])) {
+              rows.push({ id: s.id || '', session: s.lastPrompt || s.id || '', calls: s.apiCalls || 0, cost: s.totalCost || 0, tokens: (s.totalInputTokens || 0) + (s.totalOutputTokens || 0) });
+            }
+          }
+          rows.sort((a, b) => b.cost - a.cost);
+          // Summary object matching client expectations
+          const summary = { todayCost: totalCost, cost: totalCost, todayCalls: totalCalls, calls: totalCalls, totalTokens: totalIn + totalOut, totalTokensIn: totalIn, totalTokensOut: totalOut, cacheTokens: totalCR, modelCount: models.length };
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
-          res.end(JSON.stringify({ totalCost, totalCalls, totalIn, totalOut, totalCR, totalCW, projects, modelBreakdown, categoryBreakdown, toolBreakdown, mcpBreakdown, periodLabel: period }));
+          res.end(JSON.stringify({ summary, totalCost, totalCalls, totalIn, totalOut, totalCR, totalCW, rows, models, categories, tools, mcpServers, projects: projectRows, modelBreakdown, categoryBreakdown, toolBreakdown, mcpBreakdown, periodLabel: period }));
         } catch (e) { fallback(); }
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2980,7 +3039,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const orgsDir = path.join(path.resolve(_orgsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         let orgs = [];
         if (fs.existsSync(orgsDir)) {
-          const _sidecarSuffixRe = /-(approvals|state|activity|goals|routines|projects|members|issues|workspaces|worktrees|environments|plugins|adapters|bootstrap|threads|budgets|project-workspaces|approval-comments|secrets)\.json$/;
+          const _sidecarSuffixRe = /-(approvals|state|activity|goals|routines|projects|members|issues|workspaces|worktrees|environments|plugins|adapters|bootstrap|threads|budgets|project-workspaces|approval-comments|secrets|join-requests)\.json$/;
           const files = fs.readdirSync(orgsDir).filter(f => f.endsWith('.json') && !_sidecarSuffixRe.test(f));
           // Read events file once, outside the per-org loop
           let recentLines = [];
@@ -3011,7 +3070,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                 const stopTs = lastStop ? (JSON.parse(lastStop).ts || 0) : 0;
                 running = startTs > stopTs;
               }
-              orgs.push({ name: cfg.name, goal: cfg.goal, roles: cfg.roles?.length || 0, topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
+              orgs.push({ name: cfg.name, goal: cfg.goal, roles: Array.isArray(cfg.roles) ? cfg.roles : [], topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
             } catch(_) {}
           }
         }
@@ -3405,6 +3464,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           payload.issues = (raw.issues || []).map(i => ({
             id: i.id, slug: i.slug, title: i.title, status: i.status || 'open',
             priority: i.priority || 'medium', assignee_id: i.assignee_id || null,
+            assignee: i.assignee || i.assignee_id || null,
             project_id: i.project_id || null, parent_id: i.parent_id || null,
             created_at: i.created_at, updated_at: i.updated_at
           }));
@@ -3455,11 +3515,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const actPath = path.join(base, `${orgName}-activity.jsonl`);
           const lines = fs.readFileSync(actPath, 'utf8').split('\n').filter(Boolean);
-          const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const cutoffMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
           lines.forEach(line => {
             try {
               const ev = JSON.parse(line);
-              if (!ev.ts || ev.ts < cutoff) return;
+              const evMs = typeof ev.ts === 'number' ? ev.ts : (ev.ts ? Date.parse(ev.ts) : 0);
+              if (!evMs || evMs < cutoffMs) return;
               totalRuns++;
               if (ev.type && ev.type.includes('complete')) successRuns++;
             } catch(_) {}
@@ -3552,7 +3613,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const raw = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-members.json`), 'utf8'));
           const all = raw.join_requests || [];
           payload.invites = all.filter(r => r.type === 'invite' && r.status === 'pending')
-            .map(r => ({ id: r.id, token: r.token ? r.token.slice(0, 8) + '…' : r.id, role: r.role || 'operator', createdAt: r.createdAt || null, status: r.status }));
+            .map(r => ({ id: r.id, token: r.token ? r.token.slice(0, 8) + '…' : r.id, role: r.role || 'operator', createdAt: r.createdAt || null, expiresAt: r.expiresAt || null, status: r.status }));
           payload.join_requests = all.filter(r => r.type !== 'invite' && r.status === 'pending_approval')
             .map(r => ({ id: r.id, requestType: r.requestType || 'human', role: r.role || 'viewer', createdAt: r.createdAt || null, message: r.message || '' }));
         } catch(_) { /* members file missing */ }
@@ -3621,6 +3682,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               projectId: i.projectId || i.project_id || null,
               createdAt: i.createdAt || null,
               lastActivityAt: i.lastActivityAt || null,
+              updated_at: i.updated_at || i.lastActivityAt || i.updatedAt || i.ts || null,
+              ts: i.ts || i.updated_at || i.lastActivityAt || null,
             }));
         } catch(_) { /* issues file missing */ }
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -3647,8 +3710,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           return {
             id: r.id,
             title: r.title || r.id,
-            adapterType: (r.adapter && r.adapter.type) || null,
-            adapterModel: (r.adapter && r.adapter.model) || null,
+            adapterType: r.agent_type || r.type || null,
+            adapterModel: (r.adapter_config && r.adapter_config.model) || (r.adapter && r.adapter.model) || null,
             governance: r.governance || null,
             reportsTo: r.reports_to || null,
             status: s.status || 'idle',
@@ -3823,7 +3886,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const lines = fs.readFileSync(threadsFile, 'utf8').split('\n').filter(l => l.trim());
           threads = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
-          threads = threads.filter(t => t.type === 'thread' || !t.type);
+          threads = threads.filter(t => t.type === 'thread' || !t.type).map(t => ({
+            ...t,
+            author: t.author || t.authorName || t.createdBy || t.authorId || null,
+            messageCount: t.messageCount != null ? t.messageCount : (Array.isArray(t.messages) ? t.messages.length : (typeof t.messages === 'number' ? t.messages : null)),
+          }));
         } catch(_) {}
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ threads }));
