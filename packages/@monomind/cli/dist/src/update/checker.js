@@ -4,7 +4,15 @@
  */
 import { createRequire } from 'module';
 import { execFileSync } from 'child_process';
-import * as semver from 'semver';
+// Inline semver shim — avoids external dependency
+const semver = {
+    valid: (v) => /^\d+\.\d+\.\d+/.test(v || '') ? v : null,
+    eq: (a, b) => a === b,
+    major: (v) => parseInt((v || '0').split('.')[0], 10),
+    minor: (v) => parseInt((v || '0').split('.')[1] || '0', 10),
+    patch: (v) => parseInt(((v || '0').split('.')[2] || '0').replace(/[^0-9].*/, ''), 10),
+    gt: (a, b) => { const [aMaj,aMin,aPat]=(a||'0').split('.').map(n=>parseInt(n,10)||0); const [bMaj,bMin,bPat]=(b||'0').split('.').map(n=>parseInt(n,10)||0); return aMaj!==bMaj?aMaj>bMaj:aMin!==bMin?aMin>bMin:aPat>bPat; },
+};
 import { reserveCheck, recordCheck, getCachedVersions } from './rate-limiter.js';
 const require = createRequire(import.meta.url);
 const DEFAULT_CONFIG = {
