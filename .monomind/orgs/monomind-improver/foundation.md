@@ -1,5 +1,9 @@
 # monomind-improver foundation log
 
+- de83fc52 — fix(dashboard): read l.type (not l.loopType) in isTillend check so tillend loops show /∞ instead of the safety cap number
+- cbbf3f68 — fix(server): /api/org/:name/search also matches goals by text/goal fields (not just title) so goal search works regardless of field name used
+- 82f82a06 — fix(server): POST /api/orgs reads dir from request body when ?dir= query param absent so org import writes to the correct project directory
+- 4e865cdb — fix(server): classify routines sidecar as 'routines' type in /api/org/:name/files so ROUTINES section in Files tab shows data
 - a380defa — fix(agent-graph): exclude tool-result messages from turn count in /api/graph parser
 - 7e1d1987 — fix(agent-graph): count agent spawns in sessions exceeding size cap (lightweight line-filter scan)
 - da7b42b8 — fix(update): replace semver import with inline shim in src/checker.ts; add gt() to shim; remove 'semver' from package.json dependencies
