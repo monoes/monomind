@@ -16,3 +16,4 @@
 - 88b84adf — fix(dashboard): v2RenderOrgLive reads a.adapterModel (not a.adapter) so running agent model name shows in Live tab
 - 72e5c9d2 — fix(server): read adapter_config.model in /api/org/:name/agents so adapterModel is populated from actual org config field (was reading r.adapter.model which is always null)
 - 72e5c9d2 — fix(server): /api/org/:name/agents reads adapter_config.model for adapterModel (not r.adapter.model which was always undefined)
+- 3d530492 — fix(server): add join-requests to _sidecarSuffixRe in /api/orgs so join-requests.json sidecar files are not parsed as org configs
