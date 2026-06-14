@@ -48,7 +48,22 @@ import { checkForUpdates, DEFAULT_CONFIG, getInstalledVersion } from './checker.
 import type { UpdateCheckResult } from './checker.js';
 import { executeMultipleUpdates } from './executor.js';
 import { getCachedVersions } from './rate-limiter.js';
-import * as semver from 'semver';
+// Inline semver shim — avoids external dependency (semver is not listed in package.json)
+const semver = {
+  valid: (v: string | null | undefined): string | null => /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
+  gt: (a: string, b: string): boolean => {
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    return aMaj !== bMaj ? aMaj > bMaj : aMin !== bMin ? aMin > bMin : aPat > bPat;
+  },
+  lte: (a: string, b: string): boolean => {
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    if (aMaj !== bMaj) return aMaj < bMaj;
+    if (aMin !== bMin) return aMin < bMin;
+    return aPat <= bPat;
+  },
+};
 
 /**
  * Synchronous — reads cached state from last check.

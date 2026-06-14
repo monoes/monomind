@@ -1,5 +1,14 @@
 # monomind-improver foundation log
 
+- 01ef876a — fix(server): strip underscore-prefixed runtime fields (_activity/_agents/_budgets/_members/_issues) from org config before writing to disk so POST /api/orgs does not pollute saved JSON
+- 5d818617 — fix(dashboard): read l.maxReps (not l.capReps) in tillend progress bar so safety cap number is shown
+- 11049558 — fix(server): include description in /api/org/:name/issues response so board and full-issues views show issue text when title is absent
+- 3af1aedc — fix(dashboard): read _l.wait (not _l.interval regex) in loop command reconstruction so --wait N appears in expanded loop row
+- 595dc368 — fix(server): POST /api/org/:name/approvals/:id writes org:approval:resolved event to ?dir= project path so boss agent unblocks in the correct project
+- de83fc52 — fix(dashboard): read l.type (not l.loopType) in isTillend check so tillend loops show /∞ instead of the safety cap number
+- cbbf3f68 — fix(server): /api/org/:name/search also matches goals by text/goal fields (not just title) so goal search works regardless of field name used
+- 82f82a06 — fix(server): POST /api/orgs reads dir from request body when ?dir= query param absent so org import writes to the correct project directory
+- 4e865cdb — fix(server): classify routines sidecar as 'routines' type in /api/org/:name/files so ROUTINES section in Files tab shows data
 - a380defa — fix(agent-graph): exclude tool-result messages from turn count in /api/graph parser
 - 7e1d1987 — fix(agent-graph): count agent spawns in sessions exceeding size cap (lightweight line-filter scan)
 - da7b42b8 — fix(update): replace semver import with inline shim in src/checker.ts; add gt() to shim; remove 'semver' from package.json dependencies
@@ -17,3 +26,36 @@
 - 72e5c9d2 — fix(server): read adapter_config.model in /api/org/:name/agents so adapterModel is populated from actual org config field (was reading r.adapter.model which is always null)
 - 72e5c9d2 — fix(server): /api/org/:name/agents reads adapter_config.model for adapterModel (not r.adapter.model which was always undefined)
 - 3d530492 — fix(server): add join-requests to _sidecarSuffixRe in /api/orgs so join-requests.json sidecar files are not parsed as org configs
+- 45b83170 — fix(dashboard): v2RenderOrgRoutines reads r.last_run (not r.lastRun) and derives status from r.enabled when r.status absent
+- 4668a03d — fix(server): add description field to /api/org/:name/my-issues response so title fallback renders correctly in dashboard
+- 632de5e3 — fix(dashboard): Live tab activity feed reads e.msg fallback (server returns msg not message field)
+- ebe8f016 — fix(orgs): appendLiveFeedRow reads ev.msg fallback so live strip shows event text (orgs.html was still reading ev.message which is always undefined)
+- ed71d00e — fix(dashboard): v2RenderOrgBudgets aggregates tokens/usd from per-agent data when top-level b.tokens/b.usd are absent (server never returns those fields)
+- 5dea48e6 — fix(collector): include web_search_requests cost in _tokCost
+- 313ed105 — fix(server): populate org tasks from .monomind/tasks/store.json
+- a36a5b66 — fix(dashboard): fmtInterval correctly parses string suffixes (1h, 30m, 45s)
+- d51e2954 — fix(collector): add claude-haiku-4 to token price table so haiku-4 sessions are costed correctly instead of falling back to sonnet rate
+- 0bdb685b — fix(update): inline semver shim in index.ts — remove external semver import that would throw MODULE_NOT_FOUND in standalone installs
+- 7f25b297 — fix(update): inline semver shim in validator.ts — remove external semver import
+- bf0f6372 — fix(server): include purpose and maskedRef in /api/org/:name/secrets response
+- cc3d9612 — fix(server): /api/org/:name/members reads ?dir= query param
+- d2fedbf6 — fix(orgs): connectSSE uses /api/mastermind-stream not /api/events
+- 217f1f67 — fix(server): /api/org/:name/agents respects ?dir= query param
+- d1761103 — fix(server): POST /api/loops/create reads ?dir= query param so loops are written to correct project dir
+- da6b9685 — fix(server): /api/org/:name/issues reads ?dir= query param so issues are loaded from the correct project directory
+- 79db7dbc — fix(server): /api/org/:name/invites reads ?dir= query param so invites are loaded from the correct project directory
+- 364eb6a9 — fix(server): /api/org/:name/budgets — honour ?dir= query param
+- 3fd3517f — fix(server): /api/org/:name/threads — honour ?dir= query param
+- b9af09c0 — fix(server): /api/org/:name/my-issues and /api/org/:name/approvals honour ?dir= param
+- 9f79c3cd — fix(server): /api/org/:name/secrets — add ?dir= param support
+- ad0b04e8 — fix(server): honour ?dir= in environments, workspaces, plugins, goals, routines endpoints
+- 8b89bc39 — fix(server): honour ?dir= in join-requests and POST approvals endpoints
+- 19fcb388 — fix(server): honour ?dir= in orgs/:name, projects, adapters, skills, search, DELETE orgs/:name
+- f1f65f96 — fix(server): add /api/org/:name/files endpoint (Files tab always showed empty); fix stop/copy ?dir= params
+- e1879710 — fix(server): add GET /api/file-content endpoint (Files tab view was broken)
+- fbc0a0ae — fix(server): add POST /api/orgs/:name/import endpoint (org import was 404ing)
+- 95997aba — fix(server): /api/org/:name/search always returned empty (used stripped url, lost ?q= and ?dir=)
+- 53a7aa28 — fix(server): DELETE /api/orgs/:name left 7 sidecar file types undeleted (-budgets/-threads/-secrets/-join-requests/-bootstrap/-project-workspaces/-approval-comments/-skills)
+- 8d01dd5f — fix(collector): add claude-opus-4-8 to token price table so opus-4-8 sessions are costed at $5/$25 instead of falling back to the old opus-4 rate ($15/$75)
+- 5debcfd2 — fix(dashboard): add ?dir= to POST approvals/:id, orgs/:name/stop, and orgs/:name/copy so actions apply to the selected project instead of the server's cwd
+- 6f801d3d — fix(server): add skills to _sidecarSuffixRe in GET /api/orgs so ${orgName}-skills.json is not listed as an org config

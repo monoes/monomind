@@ -429,52 +429,80 @@ APPROVAL GATE (when governance.policy is "board" or "strict"):
     sleep 30
   done
 
+DASHBOARD EVENT HELPER — resolve once at startup, reuse in every step:
+  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+
+⚠️  DASHBOARD EVENTS ARE MANDATORY — run every curl below exactly as written.
+    Do NOT skip, defer, or summarize. These keep the human-visible dashboard current.
+    Use Bash tool for all curl calls. Never use WebFetch (it doesn't support POST).
+
 STOP DETECTION (check this FIRST in every loop iteration):
   [ -f "${stopFile}" ] && echo STOP_REQUESTED
-If the file exists: emit org:complete event, clean up with "rm -f ${stopFile}", then exit.
+If the file exists: run the org:complete curl below, then "rm -f ${stopFile}", then exit.
+  # REQUIRED — emit before exiting:
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+    -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
+      '{type:"org:complete",session:$s,org:$o,project:$p,ts:(now*1000|floor)}')" || true
 
 OPERATING LOOP:
-1. Check for stop signal (see above). Exit if found.
-2. List unclaimed Todo cards: monotask card list ${board_id} --col ${todo_col} --json | jq '[.[] | select(.labels | index("claimed") | not)]'
-3. For each Todo card without a "claimed" label, assign to the appropriate role based on its "role:<id>" label. Skip cards whose prerequisites (monotask card prerequisite list) are not yet in the Done column.
-4. Spawn the assigned role agent via Task tool (run_in_background: true) with:
-   - Full role briefing (title, responsibilities, who they report to, memory namespace)
-   - The specific card title and card_id to work on
-   - Move the card to Doing before spawning: monotask card move ${board_id} $CARD_ID ${doing_col}
-   - Add label "claimed" to the card
-   - Report output via: npx monomind@latest memory store --key "${memNs}:report:<card_id>" --namespace "${memNs}"
-   - When complete, move card to Done: monotask card move ${board_id} $CARD_ID ${done_col}
-   - Emit org:agent:online event to dashboard before starting (use curl, see below)
+1. Check for stop signal (above). Exit with org:complete event if found.
+
+2. List unclaimed Todo cards:
+   monotask card list ${board_id} --col ${todo_col} --json | jq '[.[] | select(.labels | index("claimed") | not)]'
+
+3. For each unclaimed Todo card, assign to the appropriate role based on its "role:<id>" label.
+   Skip cards whose prerequisites are not yet in the Done column.
+
+4. For EACH role agent you are about to spawn — do these steps in order:
+   a) Move card to Doing and mark claimed:
+      monotask card move ${board_id} $CARD_ID ${doing_col}
+      monotask card label add ${board_id} $CARD_ID "claimed"
+   b) REQUIRED — emit org:comms to dashboard (you briefing the agent):
+      curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+        -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
+          --arg role "<role_id>" --arg task "<card title>" \
+          '{type:"org:comms",session:$s,org:$o,from:"boss",to:$role,msg:("Assigning: "+$task),project:$p,ts:(now*1000|floor)}')" || true
+   c) REQUIRED — emit org:agent:online before spawning:
+      curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+        -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
+          --arg role "<role_id>" --arg title "<role title>" --arg at "<agent_type>" \
+          '{type:"org:agent:online",session:$s,org:$o,role:$role,title:$title,agent_type:$at,project:$p,ts:(now*1000|floor)}')" || true
+   d) Spawn the agent via Task tool (run_in_background: true) with:
+      - Full role briefing (title, responsibilities, who they report to, memory namespace)
+      - The specific card title and card_id to work on
+      - Report output via: npx monomind@latest memory store --key "${memNs}:report:<card_id>" --namespace "${memNs}"
+      - When complete, move card to Done: monotask card move ${board_id} $CARD_ID ${done_col}
+
 5. Collect completed results from memory (search "${memNs}:report:")
-6. Synthesize reports, make decisions, create new cards in Todo column based on progress toward goal
-7. Write a run-completion entry to the activity log (used by the health dashboard for 7-day success rate):
+
+6. Synthesize reports, make decisions, create new cards in Todo column based on progress toward goal.
+   REQUIRED — after each decision, emit org:comms summarising what you decided:
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+     -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
+       --arg msg "<one-sentence summary of decision or finding>" \
+       '{type:"org:comms",session:$s,org:$o,from:"boss",to:"all",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
+
+7. Write a run-completion entry to the activity log:
    activityFile=".monomind/orgs/${orgName}-activity.jsonl"
-   # Count Todo cards not yet claimed as the pending_tasks metric
    pending_count=$(monotask card list ${board_id} --col ${todo_col} --json 2>/dev/null | jq '[.[] | select(.labels | index("claimed") | not)] | length' 2>/dev/null || echo 0)
    echo "{\"type\":\"run:complete\",\"org\":\"${orgName}\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pending\":${pending_count:-0}}" >> "$activityFile"
-   (On error/exception, write: {"type":"run:error","ts":"...", "org":"..."})
-8. Emit org:checkpoint event with progress summary
-9. Wait ${checkpointMin} minutes, then loop back to step 1
+
+8. REQUIRED — emit org:checkpoint with a one-sentence progress summary:
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+     -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
+       --arg prog "<one sentence: what was done this cycle and what is next>" \
+       --argjson pend "${pending_count:-0}" \
+       '{type:"org:checkpoint",session:$s,org:$o,progress:$prog,pending_tasks:$pend,project:$p,ts:(now*1000|floor)}')" || true
+
+9. Wait ${checkpointMin} minutes, then loop back to step 1.
 
 AGENT TYPES FOR YOUR TEAM:
 ${orgConfig.roles.filter(r => r.id !== bossRole.id).map(r =>
   `• ${r.title}: subagent_type="${r.agent_type}"`
 ).join('\n')}
 
-DASHBOARD EVENTS — emit via curl (NOT WebFetch — WebFetch does not support POST):
-  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
-    -H "Content-Type: application/json" \
-    -d "$(jq -cn --arg type TYPE --arg session SESSION --arg org ORG --arg proj "$REPO_ROOT" '{type:$type,session:$session,org:$org,project:$proj,ts:(now*1000|floor)}')"
-Payloads:
-- org:agent:online → add fields: role, title, agent_type
-- org:comms → add fields: from, to, msg
-- org:checkpoint → add fields: progress, pending_tasks
-- org:complete → no additional fields
-Note: always include project:$REPO_ROOT in all event payloads for correct multi-project SSE filtering
-
-START NOW: check for stop signal, assess the board, create initial tasks if none exist, then begin the operating loop.`
+START NOW: resolve CTRL_URL, check for stop signal, assess the board, create initial tasks if none exist, then begin the operating loop.`
 })
 ```
 
