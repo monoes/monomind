@@ -6015,7 +6015,11 @@ function v2RenderOrgHealth() {
       <div class="hv2-cell"><div class="hv2-lbl">Topology</div><div class="hv2-val" style="font-size:14px">${esc((_v2OrgData?.topology||'—').toUpperCase())}</div></div>
       ${health?.agents_active!=null?`<div class="hv2-cell"><div class="hv2-lbl">Agents</div><div class="hv2-val ${health.agents_active>0?'green':''}">${health.agents_active}</div></div>`:''}
       ${health?.tasks_pending!=null?`<div class="hv2-cell"><div class="hv2-lbl">Tasks</div><div class="hv2-val ${health.tasks_pending>5?'amber':''}">${health.tasks_pending}</div></div>`:''}
+      ${health?.run_success_rate_7d!=null?`<div class="hv2-cell"><div class="hv2-lbl">7d Success</div><div class="hv2-val ${health.run_success_rate_7d>=80?'green':health.run_success_rate_7d<50?'amber':''}">${health.run_success_rate_7d}%</div></div>`:''}
+      ${health?.total_runs_7d!=null?`<div class="hv2-cell"><div class="hv2-lbl">7d Runs</div><div class="hv2-val">${health.total_runs_7d}</div></div>`:''}
+      ${health?.budget_used_pct!=null?`<div class="hv2-cell"><div class="hv2-lbl">Budget Used</div><div class="hv2-val ${health.budget_used_pct>=90?'amber':''}">${health.budget_used_pct}%</div></div>`:''}
     </div>
+    ${health?.budget_used_pct!=null&&health?.budget_max_tokens>0?`<div style="margin:10px 0 12px"><div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${Math.min(100,health.budget_used_pct)}%;height:100%;background:${health.budget_used_pct>=90?'var(--red)':health.budget_used_pct>=70?'oklch(70% 0.18 60)':'var(--accent)'};border-radius:2px"></div></div><div style="font-size:10px;color:var(--text-lo);margin-top:4px">${health.budget_used_tokens.toLocaleString()} / ${health.budget_max_tokens.toLocaleString()} tokens</div></div>`:''}
     ${health?.errors?.length?`<div style="margin-top:12px"><div class="m-group-title">Errors</div>${health.errors.slice(0,5).map(e=>`<div style="font-size:11px;color:var(--red);padding:4px 0;border-bottom:1px solid var(--border)">${esc(e)}</div>`).join('')}</div>`:`<div style="margin-top:10px;font-size:12px;color:var(--text-lo)">${listOrg.running?'Running — no errors detected':'Org is idle'}</div>`}
   `;
 }
@@ -6055,7 +6059,11 @@ function v2RenderOrgTasks() {
   if (Array.isArray(raw)) tasks = raw.slice();
   else if (raw && typeof raw === 'object') {
     for (const [col, items] of Object.entries(raw)) {
-      (Array.isArray(items) ? items : []).forEach(t => tasks.push({ ...t, status: t.status || col }));
+      (Array.isArray(items) ? items : []).forEach(t => {
+        const st = t.status || col;
+        const normalized = (col === 'done' && (st === 'completed' || st === 'failed' || st === 'cancelled')) ? 'done' : st;
+        tasks.push({ ...t, status: normalized });
+      });
     }
   }
   if (!tasks.length) { pane.innerHTML = '<div class="empty">No tasks</div>'; return; }
@@ -7161,7 +7169,7 @@ async function v2RenderOrgInvites() {
         <th style="padding:5px 8px">Token</th><th>Role</th><th>Expires</th><th>Created</th>
       </tr></thead>
       <tbody>${invites.map(i => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((i.token||i.id||'—').slice(0,16))}…</td>
+        <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((i.token||i.id||'—').slice(0,20))}</td>
         <td style="padding:5px 8px"><span class="ss-pill">${esc(i.role||'viewer')}</span></td>
         <td style="padding:5px 8px;color:var(--text-lo)">${i.expiresAt ? relTime(i.expiresAt) : '—'}</td>
         <td style="padding:5px 8px;color:var(--text-lo)">${i.createdAt ? relTime(i.createdAt) : '—'}</td>
@@ -7877,7 +7885,7 @@ function executeCmdItem() {
   else if (item.type === 'org') { switchView('orgs'); setTimeout(() => v2SelectOrg(item.data.name), 80); }
   else if (item.type === 'skill') switchView('memory');
   else if (item.type === 'action') { if (item.data.action) item.data.action(); }
-  else if (item.type === 'orgtab') { const btn = document.querySelector(`.odt-btn[data-tab="${item.data.tab}"]`); if (btn) btn.click(); }
+  else if (item.type === 'orgtab') { const btn = document.querySelector(`.odt-btn[data-tab="${item.data.tab}"]`); if (btn) btn.click(); else if (typeof v2SwitchOrgTab === 'function') v2SwitchOrgTab(item.data.tab); }
 }
 
 // ── cross-session search ───────────────────────────────────
