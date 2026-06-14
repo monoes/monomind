@@ -3130,7 +3130,15 @@ async function setTokPeriod(btn, period) {
   if (cards) cards.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
     const data = await apiFetch('/api/token-usage?period=' + enc(period) + '&dir=' + enc(DIR));
-    const s = data?.summary || data?.tokens?.summary || {};
+    // Server returns flat fields (totalCost, totalCalls, totalIn, totalOut, modelBreakdown…).
+    // Normalise into a summary object so all downstream field paths resolve correctly.
+    const s = data?.summary || data?.tokens?.summary || {
+      todayCost:   data?.totalCost   ?? null,
+      calls:       data?.totalCalls  ?? null,
+      totalTokens: (data?.totalIn != null || data?.totalOut != null)
+                     ? (data.totalIn || 0) + (data.totalOut || 0) : null,
+      modelCount:  data?.modelBreakdown ? Object.keys(data.modelBreakdown).length : null,
+    };
     const daily = Array.isArray(data?.daily) ? data.daily
       : Array.isArray(data?.tokens?.daily) ? data.tokens.daily : [];
     const rows  = Array.isArray(data?.rows)  ? data.rows
@@ -3252,13 +3260,23 @@ async function loadMemUsagePeriod(btn, period) {
   content.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
     const data = await apiFetch('/api/token-usage?period=' + enc(period) + '&dir=' + enc(DIR));
-    const s = data?.summary || data?.tokens?.summary || {};
+    // Server returns flat fields and object-keyed breakdowns — normalise for downstream consumers.
+    const s = data?.summary || data?.tokens?.summary || {
+      todayCost:   data?.totalCost   ?? null,
+      cost:        data?.totalCost   ?? null,
+      calls:       data?.totalCalls  ?? null,
+      totalTokensIn:  data?.totalIn  ?? null,
+      totalTokensOut: data?.totalOut ?? null,
+      cacheTokens:    data?.totalCR  ?? null,
+    };
     const rows = Array.isArray(data?.rows) ? data.rows : (data?.tokens?.rows || []);
-    const models = Array.isArray(data?.models) ? data.models : (data?.byModel || []);
-    const tools = Array.isArray(data?.tools) ? data.tools : (data?.topTools || []);
-    const mcps = Array.isArray(data?.mcpServers) ? data.mcpServers : (data?.mcp || []);
-    const categories = Array.isArray(data?.categories) ? data.categories : (data?.activity || []);
-    const projects = Array.isArray(data?.projects) ? data.projects : (data?.topProjects || []);
+    const _toArr = (obj, keyField, valFields) =>
+      obj ? Object.entries(obj).map(([k, v]) => ({ [keyField]: k, ...(typeof v === 'object' ? v : { count: v }) })) : [];
+    const models     = Array.isArray(data?.models)     ? data.models     : _toArr(data?.modelBreakdown,    'model',    ['calls','cost','tokens']);
+    const tools      = Array.isArray(data?.tools)      ? data.tools      : _toArr(data?.toolBreakdown,     'tool',     ['calls']).map(x => ({ ...x, count: x.calls || 0 }));
+    const mcps       = Array.isArray(data?.mcpServers) ? data.mcpServers : _toArr(data?.mcpBreakdown,      'server',   ['calls']).map(x => ({ ...x, count: x.calls || 0 }));
+    const categories = Array.isArray(data?.categories) ? data.categories : _toArr(data?.categoryBreakdown, 'category', ['turns','cost']);
+    const projects   = Array.isArray(data?.projects)   ? data.projects   : (data?.topProjects || []);
 
     function barChart(items, valKey, labelKey, color, maxItems) {
       if (!items.length) return '<div class="empty" style="font-size:12px">No data</div>';
