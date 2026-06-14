@@ -261,7 +261,7 @@ export const taskTools: MCPTool[] = [
           const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
           try {
             let agentStore: { agents: Record<string, Record<string, unknown>> } = { agents: {} };
-            if (existsSync(agentStorePath)) {
+            if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
               const agentRaw = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
               if (agentRaw && typeof agentRaw === 'object' && !Object.prototype.hasOwnProperty.call(agentRaw, '__proto__')) {
                 agentStore = agentRaw;
@@ -383,7 +383,7 @@ export const taskTools: MCPTool[] = [
       const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
       let agentStore: { agents: Record<string, Record<string, unknown>> } = { agents: {} };
       try {
-        if (existsSync(agentStorePath)) {
+        if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
           agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
         }
       } catch { /* ignore */ }
