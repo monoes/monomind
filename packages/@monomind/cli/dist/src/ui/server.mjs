@@ -3508,6 +3508,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
         }
 
+        // Issues
+        const issuesData = readJ(path.join(orgsDir, `${orgName}-issues.json`));
+        for (const i of (issuesData?.issues || [])) {
+          if (match(i.title) || match(i.description) || match(i.slug)) {
+            hits.push({ type: 'issue', id: i.id || i.slug, title: i.title || i.slug, meta: i.status || 'open' });
+          }
+        }
+
         // Recent activity events
         const eventsFile = path.join(d, 'data', 'mastermind-events.jsonl');
         if (fs.existsSync(eventsFile)) {
@@ -4192,8 +4200,18 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         }
         // Remove stop file if present
         try { fs.unlinkSync(path.join(orgsDir, '.stops', `${orgName}.stop`)); } catch(_) {}
-        // Remove org subdirectory (contains structured run files at orgs/<name>/runs/<runId>.jsonl)
+        // Remove org subdirectory under .monomind/orgs/ (legacy flat-file location)
         try { const orgWorkDir = path.join(orgsDir, orgName); if (fs.existsSync(orgWorkDir)) fs.rmSync(orgWorkDir, { recursive: true, force: true }); } catch(_) {}
+        // Remove org subdirectory under git-safe location (.git/monomind/orgs/<name>/) so run
+        // files written by the worktree-aware path (feat 880f034e) are also cleaned up on delete
+        try {
+          const _delWorkDir = path.resolve(_delOrgQs.get('dir') || projectDir || process.cwd());
+          const _delGitMonoDir = _getGitMonomindDir(_delWorkDir);
+          if (_delGitMonoDir) {
+            const gitOrgDir = path.join(_delGitMonoDir, 'orgs', orgName);
+            if (fs.existsSync(gitOrgDir)) fs.rmSync(gitOrgDir, { recursive: true, force: true });
+          }
+        } catch(_) {}
         // Remove loop prompt file if present (created for scheduled orgs by createorg)
         try { const lpf = path.join(path.resolve(projectDir || process.cwd()), '.monomind', 'loops', `${orgName}.md`); if (fs.existsSync(lpf)) fs.unlinkSync(lpf); } catch(_) {}
         // Emit org:delete event
