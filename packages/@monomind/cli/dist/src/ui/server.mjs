@@ -4070,7 +4070,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           [`${orgName}.json`]: 'config',
           [`${orgName}-state.json`]: 'state',
           [`${orgName}-goals.json`]: 'goals',
-          [`${orgName}-routines.json`]: 'generated',
+          [`${orgName}-routines.json`]: 'routines',
           [`${orgName}-approvals.json`]: 'approvals',
           [`${orgName}-issues.json`]: 'generated',
           [`${orgName}-members.json`]: 'generated',
