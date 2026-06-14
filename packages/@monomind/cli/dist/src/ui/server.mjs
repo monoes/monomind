@@ -3830,7 +3830,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const _secretsQs = new URL(req.url, 'http://localhost').searchParams;
+        const base = path.join(path.resolve(_secretsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         const secretsDir = path.join(base, '.secrets');
         const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
         // Read secrets index — NEVER expose actual values
