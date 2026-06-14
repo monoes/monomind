@@ -51,7 +51,10 @@
 *.tsbuildinfo
 *~
 # .monomind runtime subdirs — contain session paths, machine-specific data
-# Safe to track: orgs/, test-fixtures/
+# Safe to track: test-fixtures/
+# Orgs are runtime data — gitignored so branch switches don't delete them
+.monomind/orgs/*.json
+.monomind/orgs/*/
 .monomind/sessions/
 .monomind/data/
 .monomind/metrics/
