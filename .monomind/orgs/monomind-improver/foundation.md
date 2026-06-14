@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- a88121a1 — fix(dashboard): count org:checkpoint as cycle in live SSE handler so running-org cycleCount increments in real time (was always 0 because SSE handler only tracked run:cycle:complete which orgs never emit)
 - d3b08999 — fix(server): DELETE /api/orgs/:name removes orgs/<name>/ subdirectory so run history files (.jsonl) don't leak after org deletion
 - 7b9e48df — fix(dashboard): fetch supplemental org tab data in parallel (Promise.all) instead of sequentially so org detail load time is max(response) not sum
 - 01ef876a — fix(server): strip underscore-prefixed runtime fields (_activity/_agents/_budgets/_members/_issues) from org config before writing to disk so POST /api/orgs does not pollute saved JSON
@@ -62,3 +63,4 @@
 - 5debcfd2 — fix(dashboard): add ?dir= to POST approvals/:id, orgs/:name/stop, and orgs/:name/copy so actions apply to the selected project instead of the server's cwd
 - 6f801d3d — fix(server): add skills to _sidecarSuffixRe in GET /api/orgs so ${orgName}-skills.json is not listed as an org config
 - ca25560e — fix(server): DELETE /api/orgs/:name now also removes git-safe run dir (.git/monomind/orgs/<name>/) so run files from feat 880f034e are cleaned up on delete
+- ed34d1f4 — fix(server): /api/org/:name/search now includes issues in search results (title/description/slug) so issue search returns hits instead of always returning empty
