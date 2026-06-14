@@ -40,3 +40,4 @@
 - b9af09c0 — fix(server): /api/org/:name/my-issues and /api/org/:name/approvals honour ?dir= param
 - 9f79c3cd — fix(server): /api/org/:name/secrets — add ?dir= param support
 - ad0b04e8 — fix(server): honour ?dir= in environments, workspaces, plugins, goals, routines endpoints
+- 8b89bc39 — fix(server): honour ?dir= in join-requests and POST approvals endpoints
