@@ -1528,6 +1528,11 @@ export const hooksPretrain: MCPTool = {
             // For code files, count lines and extract imports
             if (['.ts', '.js', '.py', '.go', '.rs', '.java'].includes(ext)) {
               try {
+                // Skip very large files (minified bundles, generated code) to prevent OOM.
+                // 1 MB is generous for a source file; anything larger is unlikely to have
+                // useful import patterns in the first 30 lines anyway.
+                const MAX_CODE_FILE_BYTES = 1 * 1024 * 1024;
+                if (statSync(full).size > MAX_CODE_FILE_BYTES) continue;
                 const content = readFileSync(full, 'utf-8');
                 const lines = content.split('\n');
                 totalLines += lines.length;
