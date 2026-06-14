@@ -25,3 +25,4 @@
 - 5dea48e6 — fix(collector): include web_search_requests cost in _tokCost
 - 313ed105 — fix(server): populate org tasks from .monomind/tasks/store.json
 - a36a5b66 — fix(dashboard): fmtInterval correctly parses string suffixes (1h, 30m, 45s)
+- d51e2954 — fix(collector): add claude-haiku-4 to token price table so haiku-4 sessions are costed correctly instead of falling back to sonnet rate
