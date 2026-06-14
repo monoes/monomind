@@ -14,3 +14,4 @@
 - 0a91b3d7 — fix(server): add expiresAt field to /api/org/:name/invites response so dashboard Invites tab shows expiry column
 - 88b84adf — fix(dashboard): use adapterModel field in v2RenderOrgLive so running agent adapter/model name is shown (was reading a.adapter which is always undefined)
 - 88b84adf — fix(dashboard): v2RenderOrgLive reads a.adapterModel (not a.adapter) so running agent model name shows in Live tab
+- 72e5c9d2 — fix(server): read adapter_config.model in /api/org/:name/agents so adapterModel is populated from actual org config field (was reading r.adapter.model which is always null)
