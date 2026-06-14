@@ -1874,7 +1874,7 @@ function appendLiveFeedRow(ev, isNew) {
   if (!rows) return;
   const time = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const type = (ev.type || '').replace('org:', '');
-  const msg = ev.message || ev.agent || ev.role || ev.status || '';
+  const msg = ev.message || ev.msg || ev.agent || ev.role || ev.status || '';
   const row = document.createElement('div');
   row.className = 'clf-row' + (isNew ? ' new' : '');
   row.title = msg;
