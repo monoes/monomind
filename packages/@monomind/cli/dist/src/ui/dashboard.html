@@ -6269,6 +6269,13 @@ function v2RenderOrgBudgets() {
   // budgets endpoint provides agents with total_cost_usd/tokens_in/tokens_out; fall back to _agents
   const budgetAgents = Array.isArray(b.agents) && b.agents.length ? b.agents : (_v2OrgData._agents || []);
 
+  // Compute org-level totals by summing per-agent spend (no org-rollup in endpoint response)
+  const totalUsedTokens = budgetAgents.reduce((s, a) => {
+    const used = a.tokens_used != null ? a.tokens_used : ((a.tokens_in || a.tokensIn || 0) + (a.tokens_out || a.tokensOut || 0));
+    return s + Number(used || 0);
+  }, 0);
+  const totalUsedUsd = budgetAgents.reduce((s, a) => s + Number(a.total_cost_usd ?? a.cost ?? 0), 0);
+
   function fillBar(used, limit) {
     if (!limit) return '';
     const pct = Math.min(100, Math.round((used / limit) * 100));
@@ -6279,10 +6286,10 @@ function v2RenderOrgBudgets() {
 
   let html = '';
   if (orgBudget.limit_tokens != null) {
-    html += `<div class="m-group-title">Token Budget</div>${fillBar(0, orgBudget.limit_tokens)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">limit: ${Number(orgBudget.limit_tokens).toLocaleString()} tokens</div>`;
+    html += `<div class="m-group-title">Token Budget</div>${fillBar(totalUsedTokens, orgBudget.limit_tokens)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(totalUsedTokens).toLocaleString()} / ${Number(orgBudget.limit_tokens).toLocaleString()} tokens</div>`;
   }
   if (orgBudget.limit_usd != null) {
-    html += `<div class="m-group-title">USD Budget</div>${fillBar(0, orgBudget.limit_usd)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">limit: $${Number(orgBudget.limit_usd).toFixed(2)}</div>`;
+    html += `<div class="m-group-title">USD Budget</div>${fillBar(totalUsedUsd, orgBudget.limit_usd)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${totalUsedUsd.toFixed(4)} / $${Number(orgBudget.limit_usd).toFixed(2)}</div>`;
   }
   if (budgetAgents.length) {
     html += '<div class="m-group-title" style="margin-bottom:6px">Per Agent</div>' +
