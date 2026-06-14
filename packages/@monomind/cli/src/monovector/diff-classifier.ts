@@ -693,8 +693,11 @@ export function suggestReviewers(files: DiffFile[], fileRisks: FileRisk[]): stri
 }
 
 // Analysis result cache
+// FIFO eviction cap matches diffCache. Without a cap, repeated calls to analyzeDiff
+// with unique refs (e.g. HEAD~0...HEAD~N) would grow this Map to GBs.
 const analysisCache = new Map<string, { result: DiffAnalysisResult; timestamp: number }>();
 const ANALYSIS_CACHE_TTL_MS = 3000; // 3 seconds
+const ANALYSIS_CACHE_MAX_ENTRIES = 50;
 
 /**
  * Analyze a diff with full analysis (optimized with caching)
@@ -741,6 +744,10 @@ export async function analyzeDiff(options: {
   };
 
   // Cache the result
+  if (analysisCache.size >= ANALYSIS_CACHE_MAX_ENTRIES) {
+    const oldestKey = analysisCache.keys().next().value;
+    if (oldestKey !== undefined) analysisCache.delete(oldestKey);
+  }
   analysisCache.set(ref, { result, timestamp: Date.now() });
 
   return result;
@@ -781,6 +788,10 @@ export function analyzeDiffSync(options: {
     recommendedReviewers,
   };
 
+  if (analysisCache.size >= ANALYSIS_CACHE_MAX_ENTRIES) {
+    const oldestKey = analysisCache.keys().next().value;
+    if (oldestKey !== undefined) analysisCache.delete(oldestKey);
+  }
   analysisCache.set(ref, { result, timestamp: Date.now() });
   return result;
 }
