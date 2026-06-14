@@ -1,0 +1,271 @@
+{
+  "name": "monomind-growth",
+  "goal": "Continuously generate ideas, strategies, and executable content plans to promote Monomind across all relevant channels — technical communities, social media, developer forums, video, newsletters, and more.",
+  "created": "2026-06-12T14:42:06Z",
+  "updated": "2026-06-14T00:00:00Z",
+  "mode": "daemon",
+  "topology": "hierarchical",
+  "schedule": null,
+  "status": "active",
+  "first_run_complete": true,
+  "governance": {
+    "policy": "auto",
+    "approvals_file": ".monomind/orgs/monomind-growth-approvals.json"
+  },
+  "run_config": {
+    "checkpoint_interval_min": 30,
+    "max_concurrent_agents": 8,
+    "memory_namespace": "org:monomind-growth",
+    "budget_tokens": 0,
+    "alert_threshold": 0.8,
+    "boss_role": "chief-growth-officer",
+    "spawn_all_roles": true,
+    "ceo_adapter": "claude-sonnet-4-6"
+  },
+  "phases": [
+    {
+      "id": "channel-landscape",
+      "label": "Channel Landscape & Direction",
+      "description": "Map all promotion channels, score each by reach/effort/fit, produce master direction doc anchoring all subsequent work.",
+      "trigger": "once",
+      "completed": true
+    },
+    {
+      "id": "weekly-cycle",
+      "label": "Weekly Growth Cycle",
+      "description": "Each channel specialist produces a strategy update, fresh ideas, and an execution plan. Boss reviews and prioritizes.",
+      "trigger": "recurring"
+    }
+  ],
+  "communication": [
+    { "from": "chief-growth-officer", "to": "channel-intelligence-director", "type": "command", "protocol": "direct" },
+    { "from": "chief-growth-officer", "to": "developer-community-strategist", "type": "command", "protocol": "direct" },
+    { "from": "chief-growth-officer", "to": "social-media-strategist", "type": "command", "protocol": "direct" },
+    { "from": "chief-growth-officer", "to": "content-seo-strategist", "type": "command", "protocol": "direct" },
+    { "from": "chief-growth-officer", "to": "video-visual-strategist", "type": "command", "protocol": "direct" },
+    { "from": "chief-growth-officer", "to": "outreach-partnership-strategist", "type": "command", "protocol": "direct" },
+    { "from": "channel-intelligence-director", "to": "chief-growth-officer", "type": "report", "protocol": "direct" },
+    { "from": "developer-community-strategist", "to": "chief-growth-officer", "type": "report", "protocol": "direct" },
+    { "from": "social-media-strategist", "to": "chief-growth-officer", "type": "report", "protocol": "direct" },
+    { "from": "content-seo-strategist", "to": "chief-growth-officer", "type": "report", "protocol": "direct" },
+    { "from": "video-visual-strategist", "to": "chief-growth-officer", "type": "report", "protocol": "direct" },
+    { "from": "outreach-partnership-strategist", "to": "chief-growth-officer", "type": "report", "protocol": "direct" },
+    { "from": "video-visual-strategist", "to": "social-media-strategist", "type": "handoff", "protocol": "direct" }
+  ],
+  "roles": [
+    {
+      "id": "chief-growth-officer",
+      "title": "Chief Growth Officer",
+      "type": "boss",
+      "agent_type": "chief-growth-officer",
+      "reports_to": null,
+      "channels": ["all"],
+      "color": "#22d3ee",
+      "skills": [
+        "Growth strategy and channel prioritization",
+        "Developer tool marketing and positioning",
+        "Cross-functional team coordination",
+        "Performance metric interpretation and goal-setting",
+        "Brand voice and messaging governance"
+      ],
+      "responsibilities": [
+        "Load foundation.md at the start of every run and check channel weights against the 90-day roadmap",
+        "Spawn all 6 specialist agents and assign weekly tasks to each",
+        "Review output from all specialists and approve, reject, or redirect each item",
+        "Set the top 3 priority actions for the current week",
+        "Adjust channel allocation when performance deviates more than 20% from targets",
+        "Enforce brand voice — reject content that violates the tone-of-voice doc"
+      ],
+      "spawn_specialists": [
+        "channel-intelligence-director",
+        "developer-community-strategist",
+        "social-media-strategist",
+        "content-seo-strategist",
+        "video-visual-strategist",
+        "outreach-partnership-strategist"
+      ],
+      "instructions_file": ".claude/agents/generated/chief-growth-officer.md",
+      "adapter_config": { "model": "claude-sonnet-4-6", "max_tokens": 8192 }
+    },
+    {
+      "id": "channel-intelligence-director",
+      "title": "Channel Intelligence Director",
+      "type": "strategist",
+      "agent_type": "channel-intelligence-director",
+      "reports_to": "chief-growth-officer",
+      "channels": ["all — research and scoring"],
+      "color": "#a78bfa",
+      "skills": [
+        "Developer community landscape research",
+        "Channel scoring and ROI estimation",
+        "Competitive presence analysis",
+        "Audience density and intent evaluation",
+        "Trend detection in developer tooling adoption"
+      ],
+      "responsibilities": [
+        "Produce a weekly channel performance brief covering all active channels with quantitative signals",
+        "Run a weekly emerging opportunity scan for new developer communities and competitor moves",
+        "Update channel scores when performance deviates more than 20% from baseline",
+        "Track competitor presence (Claude Flow, LangGraph, CrewAI) across evaluated channels",
+        "Recommend channel weight adjustments to CGO with specific reasoning"
+      ],
+      "weekly_output": {
+        "channel_brief": "Quantitative performance brief for all active channels",
+        "opportunity_scan": "3-5 emerging opportunities ranked by dev density and effort",
+        "competitor_watch": "Competitor channel moves delta from last week"
+      },
+      "instructions_file": ".claude/agents/generated/channel-intelligence-director.md",
+      "adapter_config": { "model": "claude-sonnet-4-6", "max_tokens": 8192 }
+    },
+    {
+      "id": "developer-community-strategist",
+      "title": "Developer Community Strategist",
+      "type": "specialist",
+      "agent_type": "developer-community-strategist",
+      "reports_to": "chief-growth-officer",
+      "channels": ["GitHub", "Hacker News", "Reddit", "Discord", "Dev.to", "Lobsters"],
+      "color": "#34d399",
+      "skills": [
+        "Developer community culture and norms",
+        "Technical writing for developer audiences",
+        "Hacker News Show HN strategy and timing",
+        "Reddit community engagement and post format",
+        "GitHub presence building"
+      ],
+      "responsibilities": [
+        "Produce 3 community post ideas per week with platform, timing, title/framing, and draft",
+        "Create 1 engagement campaign plan per week for a specific community",
+        "Submit PRs to GitHub awesome lists and maintain accuracy",
+        "Draft Show HN posts with timing recommendations and response guide",
+        "Monitor r/ClaudeAI, r/LocalLLaMA for organic mentions — respond within 24 hours"
+      ],
+      "weekly_output": {
+        "post_ideas": "3 post ideas with platform, timing, hook, and full draft",
+        "campaign_plan": "1 engagement campaign for a specific community",
+        "awesome_list_targets": "Any new awesome lists to submit to this week"
+      },
+      "instructions_file": ".claude/agents/generated/developer-community-strategist.md",
+      "adapter_config": { "model": "claude-sonnet-4-6", "max_tokens": 8192 }
+    },
+    {
+      "id": "social-media-strategist",
+      "title": "Social Media Strategist",
+      "type": "specialist",
+      "agent_type": "social-media-strategist",
+      "reports_to": "chief-growth-officer",
+      "channels": ["X/Twitter", "LinkedIn", "Bluesky", "Mastodon"],
+      "color": "#f59e0b",
+      "skills": [
+        "X/Twitter growth mechanics and developer audience building",
+        "Thread writing and hook formulation for technical topics",
+        "LinkedIn content strategy for engineering audiences",
+        "Content calendar planning and cadence optimization",
+        "Social analytics and engagement interpretation"
+      ],
+      "responsibilities": [
+        "Produce a full 7-day X/Twitter content calendar with complete post drafts, scheduled times, and CTAs",
+        "Write one LinkedIn post per week using team standardization framing",
+        "Script 1-2 technical threads per month on architecture topics",
+        "Repurpose best-performing X/Twitter content for Bluesky",
+        "Write engagement response scripts for the 10 most common questions"
+      ],
+      "weekly_output": {
+        "twitter_calendar": "7-day post calendar with full drafts and scheduled times",
+        "linkedin_post": "1 LinkedIn post with angle and CTA",
+        "engagement_scripts": "Response templates for top 3 questions this week"
+      },
+      "instructions_file": ".claude/agents/generated/social-media-strategist.md",
+      "adapter_config": { "model": "claude-sonnet-4-6", "max_tokens": 8192 }
+    },
+    {
+      "id": "content-seo-strategist",
+      "title": "Content & SEO Strategist",
+      "type": "specialist",
+      "agent_type": "content-seo-strategist",
+      "reports_to": "chief-growth-officer",
+      "channels": ["Blog", "Newsletter", "Dev.to", "Medium", "Search/SEO"],
+      "color": "#fb923c",
+      "skills": [
+        "Technical SEO for developer tools and open source",
+        "Keyword research for developer intent queries",
+        "Long-form technical article structuring and briefs",
+        "Content calendar planning",
+        "Newsletter strategy for developer audiences"
+      ],
+      "responsibilities": [
+        "Produce 2 blog post briefs per month with target keyword, competitors to beat, and outline",
+        "Publish a monthly SEO keyword gap report for high-intent developer queries",
+        "Maintain a content calendar with articles queued 4 weeks ahead",
+        "Write or brief newsletter content that provides standalone value",
+        "Audit competitor content monthly for keyword gaps"
+      ],
+      "weekly_output": {
+        "seo_brief": "1 blog post brief every 2 weeks with keyword, outline, competitors",
+        "keyword_opportunities": "3 new high-intent keywords identified this week",
+        "newsletter_hook": "1 newsletter topic idea with angle and outline"
+      },
+      "instructions_file": ".claude/agents/generated/content-seo-strategist.md",
+      "adapter_config": { "model": "claude-sonnet-4-6", "max_tokens": 8192 }
+    },
+    {
+      "id": "video-visual-strategist",
+      "title": "Video & Visual Strategist",
+      "type": "specialist",
+      "agent_type": "video-visual-strategist",
+      "reports_to": "chief-growth-officer",
+      "channels": ["YouTube", "YouTube Shorts", "X/Twitter video", "Demo GIFs", "Loom"],
+      "color": "#f472b6",
+      "skills": [
+        "YouTube developer tutorial structure and retention mechanics",
+        "Short-form video concept development",
+        "Screen recording scripting for CLI tool demos",
+        "Demo GIF and animated capture planning",
+        "Video SEO (title, description, thumbnail copy)"
+      ],
+      "responsibilities": [
+        "Produce 1 YouTube tutorial concept per month with full script, recording instructions, and video SEO spec",
+        "Produce 3 short-form video or GIF concepts per week with 60-second scripts",
+        "Write production-ready screen recording scripts for CLI interactions",
+        "Provide demo asset specs to Social Media Strategist 3 days before scheduled post",
+        "Track YouTube video performance and report to CGO monthly"
+      ],
+      "weekly_output": {
+        "short_form_concepts": "3 short-form video or GIF concepts with scripts/briefs",
+        "demo_assets": "Asset specs for the week's social posts requiring visuals",
+        "youtube_pipeline": "Status update on monthly tutorial — outline or script progress"
+      },
+      "instructions_file": ".claude/agents/generated/video-visual-strategist.md",
+      "adapter_config": { "model": "claude-sonnet-4-6", "max_tokens": 8192 }
+    },
+    {
+      "id": "outreach-partnership-strategist",
+      "title": "Outreach & Partnership Strategist",
+      "type": "specialist",
+      "agent_type": "outreach-partnership-strategist",
+      "reports_to": "chief-growth-officer",
+      "channels": ["Newsletters", "Podcasts", "Product Hunt", "npm", "Awesome Lists", "AI directories"],
+      "color": "#60a5fa",
+      "skills": [
+        "Newsletter sponsorship sourcing and pitch writing",
+        "Podcast guest pitch strategy for technical shows",
+        "Product Hunt launch coordination",
+        "GitHub awesome list and directory submission",
+        "Developer influencer identification and outreach"
+      ],
+      "responsibilities": [
+        "Identify 5 outreach targets per week with personalized pitch angles",
+        "Draft pitches for CGO approval before sending",
+        "Maintain a pipeline tracker with all active outreach, status, and next action",
+        "Submit Monomind to all relevant directories and GitHub awesome lists",
+        "Lead Product Hunt launch coordination"
+      ],
+      "weekly_output": {
+        "outreach_targets": "5 new targets with pitch angle and contact",
+        "pipeline_update": "Status of all active outreach — open, replied, closed",
+        "placement_results": "Any confirmed placements or rejections this week"
+      },
+      "instructions_file": ".claude/agents/generated/outreach-partnership-strategist.md",
+      "adapter_config": { "model": "claude-sonnet-4-6", "max_tokens": 8192 }
+    }
+  ]
+}
