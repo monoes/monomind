@@ -3111,7 +3111,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const orgName = decodeURIComponent(url.slice('/api/orgs/'.length));
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const f = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}.json`);
+        const _orgsOneQs = new URL(req.url, 'http://localhost').searchParams;
+        const f = path.join(path.resolve(_orgsOneQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs', `${orgName}.json`);
         if (!fs.existsSync(f)) { res.writeHead(404); res.end('{"error":"not found"}'); return; }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(fs.readFileSync(f, 'utf8'));
@@ -3217,7 +3218,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const parts = url.split('/');
         const orgName = decodeURIComponent(parts[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('[]'); return; }
-        const d = projectDir || process.cwd();
+        const _projsQs = new URL(req.url, 'http://localhost').searchParams;
+        const d = path.resolve(_projsQs.get('dir') || projectDir || process.cwd());
         const projFile = path.join(d, '.monomind', 'orgs', `${orgName}-projects.json`);
         if (!fs.existsSync(projFile)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end('[]'); return; }
         const data = JSON.parse(fs.readFileSync(projFile, 'utf8'));
@@ -3254,7 +3256,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const parts = url.split('/');
         const orgName = decodeURIComponent(parts[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
-        const d = projectDir || process.cwd();
+        const _adaptersQs = new URL(req.url, 'http://localhost').searchParams;
+        const d = path.resolve(_adaptersQs.get('dir') || projectDir || process.cwd());
         const adaptersFile = path.join(d, '.monomind', 'orgs', `${orgName}-adapters.json`);
         if (!fs.existsSync(adaptersFile)) {
           // Return defaults derived from org config if available
@@ -3282,7 +3285,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const parts = url.split('/');
         const orgName = decodeURIComponent(parts[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
-        const d = projectDir || process.cwd();
+        const _skillsQs = new URL(req.url, 'http://localhost').searchParams;
+        const d = path.resolve(_skillsQs.get('dir') || projectDir || process.cwd());
         const skillsDir = path.join(d, '.claude', 'skills');
         const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
 
@@ -3395,7 +3399,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
         if (!q || q.length < 2) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end('{"hits":[]}'); return; }
 
-        const d = projectDir || process.cwd();
+        const d = path.resolve(urlObj.searchParams.get('dir') || projectDir || process.cwd());
         const orgsDir = path.join(d, '.monomind', 'orgs');
         const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
 
@@ -4029,11 +4033,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     }
 
     // DELETE /api/orgs/:name — delete an org config and all associated data files
-    if (req.method === 'DELETE' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}$/i)) {
+    if (req.method === 'DELETE' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}(\?.*)?$/i)) {
       try {
-        const orgName = decodeURIComponent(url.split('/')[3]);
+        const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const orgsDir = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const _delOrgQs = new URL(req.url, 'http://localhost').searchParams;
+        const orgsDir = path.join(path.resolve(_delOrgQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         const configFile = path.join(orgsDir, `${orgName}.json`);
         if (!fs.existsSync(configFile)) { res.writeHead(404); res.end('{"error":"org not found"}'); return; }
         // Remove all org-associated files (config + state + data)
