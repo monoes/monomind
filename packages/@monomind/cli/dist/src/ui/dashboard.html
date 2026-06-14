@@ -6059,7 +6059,11 @@ function v2RenderOrgTasks() {
   if (Array.isArray(raw)) tasks = raw.slice();
   else if (raw && typeof raw === 'object') {
     for (const [col, items] of Object.entries(raw)) {
-      (Array.isArray(items) ? items : []).forEach(t => tasks.push({ ...t, status: t.status || col }));
+      (Array.isArray(items) ? items : []).forEach(t => {
+        const st = t.status || col;
+        const normalized = (col === 'done' && (st === 'completed' || st === 'failed' || st === 'cancelled')) ? 'done' : st;
+        tasks.push({ ...t, status: normalized });
+      });
     }
   }
   if (!tasks.length) { pane.innerHTML = '<div class="empty">No tasks</div>'; return; }
