@@ -1171,7 +1171,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const { id } = JSON.parse(body);
           if (!id) { res.writeHead(400); res.end(JSON.stringify({ error: 'id required' })); return; }
-          const loopsDir = path.join(projectDir || process.cwd(), '.monomind', 'loops');
+          const _stopQs = new URL(req.url, 'http://localhost').searchParams;
+          const _stopDir = path.resolve(_stopQs.get('dir') || projectDir || process.cwd());
+          const loopsDir = path.join(_stopDir, '.monomind', 'loops');
           fs.mkdirSync(loopsDir, { recursive: true });
           fs.writeFileSync(path.join(loopsDir, `${id}.stop`), `stop-requested-${Date.now()}`);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
