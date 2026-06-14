@@ -3,14 +3,8 @@
  * Queries npm registry and compares versions
  */
 import { createRequire } from 'module';
-// Inline semver shim — avoids external dependency
-const semver = {
-  valid: (v) => /^\d+\.\d+\.\d+/.test(v || '') ? v : null,
-  eq: (a, b) => a === b,
-  major: (v) => parseInt((v || '0').split('.')[0], 10),
-  minor: (v) => parseInt((v || '0').split('.')[1] || '0', 10),
-  patch: (v) => parseInt(((v || '0').split('.')[2] || '0').replace(/[^0-9].*/, ''), 10),
-};
+import { execFileSync } from 'child_process';
+import * as semver from 'semver';
 import { reserveCheck, recordCheck, getCachedVersions } from './rate-limiter.js';
 const require = createRequire(import.meta.url);
 const DEFAULT_CONFIG = {
@@ -18,19 +12,32 @@ const DEFAULT_CONFIG = {
     checkIntervalHours: 24,
     autoUpdate: {
         patch: true,
-        minor: false,
+        minor: true,
         major: false,
     },
     priority: {
-        '@monomind/security': 'critical',
-        '@monomind/cli': 'high',
+        'monofence-ai': 'critical',
+        '@monoes/monomindcli': 'high',
+        'monomind': 'high',
+        '@monoes/monograph': 'normal',
+        '@monoes/memory': 'normal',
+        '@monoes/monodesign': 'low',
     },
     exclude: [],
 };
-// Packages to check for updates
+// All monomind-ecosystem packages to check for updates.
+// getInstalledVersion() returns null for uninstalled packages — they are silently skipped.
 const MONOMIND_PACKAGES = [
     'monomind',
-    '@monomind/cli',
+    '@monoes/monomindcli',
+    'monofence-ai',
+    '@monoes/monograph',
+    '@monoes/memory',
+    '@monoes/monodesign',
+    '@monomind/guidance',
+    '@monomind/hooks',
+    '@monomind/mcp',
+    '@monomind/routing',
 ];
 // npm package name regex — covers plain names and @scope/name forms.
 // Validates before using the name in URLs or filesystem paths.
@@ -59,7 +66,8 @@ function getUpdateType(current, latest) {
     if (!semver.valid(current) || !semver.valid(latest)) {
         return 'none';
     }
-    if (semver.eq(current, latest)) {
+    // Not an upgrade (equal or downgrade)
+    if (!semver.gt(latest, current)) {
         return 'none';
     }
     if (semver.major(latest) > semver.major(current)) {
@@ -68,16 +76,13 @@ function getUpdateType(current, latest) {
     if (semver.minor(latest) > semver.minor(current)) {
         return 'minor';
     }
-    if (semver.patch(latest) > semver.patch(current)) {
-        return 'patch';
-    }
-    return 'none';
+    return 'patch';
 }
 function shouldAutoUpdate(updateType, priority, config) {
     if (updateType === 'none')
         return false;
-    // Critical security packages always auto-update patches
-    if (priority === 'critical' && updateType === 'patch') {
+    // Critical security packages always auto-update patches and minors
+    if (priority === 'critical' && (updateType === 'patch' || updateType === 'minor')) {
         return true;
     }
     // Check config
@@ -93,23 +98,39 @@ export function getInstalledVersion(packageName) {
     if (!isValidNpmName(packageName))
         return null;
     try {
-        // Try to find the package in node_modules
-        const possiblePaths = [
+        // Attempt 1: let Node resolve from any search path (covers local and global installs)
+        try {
+            const resolved = require.resolve(`${packageName}/package.json`);
+            const pkg = require(resolved);
+            if (pkg.version)
+                return pkg.version;
+        }
+        catch { /* not on default paths */ }
+        // Attempt 2: resolve from cwd (monorepo / workspace installs)
+        const cwdPaths = [
             `${packageName}/package.json`,
             `../../node_modules/${packageName}/package.json`,
             `../../../node_modules/${packageName}/package.json`,
         ];
-        for (const modulePath of possiblePaths) {
+        for (const modulePath of cwdPaths) {
             try {
-                // Use dynamic import with require for package.json
                 const resolved = require.resolve(modulePath, { paths: [process.cwd()] });
                 const pkg = require(resolved);
-                return pkg.version;
+                if (pkg.version)
+                    return pkg.version;
             }
             catch {
                 continue;
             }
         }
+        // Attempt 3: npm global prefix (covers `npm i -g monomind`)
+        try {
+            const prefix = execFileSync('npm', ['prefix', '-g'], { encoding: 'utf8', timeout: 3000 }).trim();
+            const globalPkg = require(require.resolve(`${packageName}/package.json`, { paths: [`${prefix}/lib/node_modules`] }));
+            if (globalPkg.version)
+                return globalPkg.version;
+        }
+        catch { /* no global install or npm unavailable */ }
         return null;
     }
     catch {
