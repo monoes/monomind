@@ -24,3 +24,4 @@
 - ed71d00e — fix(dashboard): v2RenderOrgBudgets aggregates tokens/usd from per-agent data when top-level b.tokens/b.usd are absent (server never returns those fields)
 - 5dea48e6 — fix(collector): include web_search_requests cost in _tokCost
 - 313ed105 — fix(server): populate org tasks from .monomind/tasks/store.json
+- a36a5b66 — fix(dashboard): fmtInterval correctly parses string suffixes (1h, 30m, 45s)
