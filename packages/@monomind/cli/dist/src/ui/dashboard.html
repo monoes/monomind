@@ -4841,11 +4841,23 @@ function fmtCountdown(nextAt) {
   return `next in ${s}s`;
 }
 
-function fmtInterval(minutes) {
-  if (!minutes && minutes !== 0) return '—';
-  const m = typeof minutes === 'string' ? parseFloat(minutes) : minutes;
-  if (isNaN(m) || m <= 0) return String(minutes);
-  if (m < 60) return m + 'm';
+function fmtInterval(val) {
+  if (!val && val !== 0) return '—';
+  let m;
+  if (typeof val === 'string') {
+    // Parse human-readable suffixes: '1h' → 60 min, '30m' → 30 min, '45s' → 0.75 min
+    const hMatch = val.match(/^(\d+(?:\.\d+)?)h$/i);
+    const mMatch = val.match(/^(\d+(?:\.\d+)?)m$/i);
+    const sMatch = val.match(/^(\d+(?:\.\d+)?)s$/i);
+    if (hMatch) m = parseFloat(hMatch[1]) * 60;
+    else if (mMatch) m = parseFloat(mMatch[1]);
+    else if (sMatch) m = parseFloat(sMatch[1]) / 60;
+    else m = parseFloat(val);
+  } else {
+    m = val;
+  }
+  if (isNaN(m) || m <= 0) return String(val);
+  if (m < 60) return Math.round(m) + 'm';
   const h = Math.floor(m / 60), rem = Math.round(m % 60);
   return rem ? `${h}h ${rem}m` : `${h}h`;
 }
