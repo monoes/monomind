@@ -3682,6 +3682,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               projectId: i.projectId || i.project_id || null,
               createdAt: i.createdAt || null,
               lastActivityAt: i.lastActivityAt || null,
+              updated_at: i.updated_at || i.lastActivityAt || i.updatedAt || i.ts || null,
+              ts: i.ts || i.updated_at || i.lastActivityAt || null,
             }));
         } catch(_) { /* issues file missing */ }
         res.writeHead(200, { 'Content-Type': 'application/json' });
