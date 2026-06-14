@@ -3505,7 +3505,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const raw = JSON.parse(fs.readFileSync(issuesPath, 'utf8'));
           payload.issues = (raw.issues || []).map(i => ({
-            id: i.id, slug: i.slug, title: i.title, status: i.status || 'open',
+            id: i.id, slug: i.slug, title: i.title, description: i.description || null,
+            status: i.status || 'open',
             priority: i.priority || 'medium', assignee_id: i.assignee_id || null,
             assignee: i.assignee || i.assignee_id || null,
             project_id: i.project_id || null, parent_id: i.parent_id || null,
