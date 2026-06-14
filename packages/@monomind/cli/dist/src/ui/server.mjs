@@ -4192,6 +4192,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         }
         // Remove stop file if present
         try { fs.unlinkSync(path.join(orgsDir, '.stops', `${orgName}.stop`)); } catch(_) {}
+        // Remove org subdirectory (contains structured run files at orgs/<name>/runs/<runId>.jsonl)
+        try { const orgWorkDir = path.join(orgsDir, orgName); if (fs.existsSync(orgWorkDir)) fs.rmSync(orgWorkDir, { recursive: true, force: true }); } catch(_) {}
         // Remove loop prompt file if present (created for scheduled orgs by createorg)
         try { const lpf = path.join(path.resolve(projectDir || process.cwd()), '.monomind', 'loops', `${orgName}.md`); if (fs.existsSync(lpf)) fs.unlinkSync(lpf); } catch(_) {}
         // Emit org:delete event
