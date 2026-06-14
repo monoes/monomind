@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- 595dc368 — fix(server): POST /api/org/:name/approvals/:id writes org:approval:resolved event to ?dir= project path so boss agent unblocks in the correct project
 - de83fc52 — fix(dashboard): read l.type (not l.loopType) in isTillend check so tillend loops show /∞ instead of the safety cap number
 - cbbf3f68 — fix(server): /api/org/:name/search also matches goals by text/goal fields (not just title) so goal search works regardless of field name used
 - 82f82a06 — fix(server): POST /api/orgs reads dir from request body when ?dir= query param absent so org import writes to the correct project directory
