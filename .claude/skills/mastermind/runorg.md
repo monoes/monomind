@@ -507,6 +507,30 @@ OPERATING LOOP:
       - The specific card title and card_id to work on
       - Report output via: npx monomind@latest memory store --key "${memNs}:report:<card_id>" --namespace "${memNs}"
       - When complete, move card to Done: monotask card move ${board_id} $CARD_ID ${done_col}
+      - REQUIRED: Include the following DASHBOARD EVENTS block verbatim in every specialist prompt so
+        they can emit their own events to the dashboard:
+
+        DASHBOARD EVENTS — emit these at the start and end of your work (REQUIRED):
+          REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+          CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+          GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")
+          if [[ "$GIT_COMMON" != /* ]]; then GIT_COMMON="$REPO_ROOT/$GIT_COMMON"; fi
+          GIT_COMMON="${GIT_COMMON%/}"
+          MONO_DIR="${GIT_COMMON}/monomind"
+          runFile="${MONO_DIR}/orgs/${orgName}/runs/${runId}.jsonl"
+          # On start — announce you are working:
+          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+            -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
+              --arg from "<role_id>" --arg msg "Starting: <card title>" \
+              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
+          # On completion — report back:
+          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+            -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
+              --arg from "<role_id>" --arg msg "Completed: <one-sentence summary of output>" \
+              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
+
+        Fill in the literal values for orgName="${orgName}", runId="${runId}", sessionId="${sessionId}" — embed them
+        directly in the prompt string so the specialist doesn't need to resolve them.
 
 5. Collect completed results from memory (search "${memNs}:report:")
 
