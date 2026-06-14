@@ -2,10 +2,10 @@
  * Security MCP Tools - MonoFence Integration
  *
  * Provides MCP tools for AI manipulation defense:
- * - aidefence_scan: Scan input for threats
- * - aidefence_analyze: Deep analysis of threats
- * - aidefence_stats: Get detection statistics
- * - aidefence_learn: Learn from detection feedback
+ * - monofence_scan: Scan input for threats
+ * - monofence_analyze: Deep analysis of threats
+ * - monofence_stats: Get detection statistics
+ * - monofence_learn: Learn from detection feedback
  *
  * github.com/monoes/monomind
  */

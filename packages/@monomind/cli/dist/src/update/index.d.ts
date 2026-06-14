@@ -18,12 +18,22 @@ export { executeUpdate, executeMultipleUpdates, rollbackUpdate, getUpdateHistory
 export type { UpdateHistoryEntry, UpdateExecutionResult } from './executor.js';
 import type { UpdateCheckResult } from './checker.js';
 /**
+ * Synchronous — reads cached state from last check.
+ * Returns a short inline string for the CLI version tagline, e.g.
+ *   "  ↑ v1.11.12 available"
+ *   "  ↑ v1.11.12 installing..."
+ *   "  ✓ up to date"
+ *   ""  (no cache yet)
+ */
+export declare function getUpdateTagline(currentVersion: string): string;
+/**
  * Run auto-update check on startup
  * This is the main entry point for the auto-update system
  */
 export declare function runStartupUpdateCheck(options: {
     verbose?: boolean;
     autoUpdate?: boolean;
+    onInstalling?: (packages: string[]) => void;
 }): Promise<{
     checked: boolean;
     updatesAvailable: UpdateCheckResult[];
