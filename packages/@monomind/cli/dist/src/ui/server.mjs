@@ -3142,8 +3142,17 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const stopFile = path.join(orgsDir, '.stops', `${orgName}.stop`);
         const running = !fs.existsSync(stopFile) && Object.values(state.agents || {}).some(a => a.status === 'running');
 
+        // Read real tasks from the task store and group by status column
+        const taskStoreData = readJsonSafe(path.join(d, '.monomind', 'tasks', 'store.json'));
+        const allTasks = taskStoreData ? Object.values(taskStoreData.tasks || {}) : [];
+        const tasks = {
+          todo: allTasks.filter(t => t.status === 'pending').map(t => ({ id: t.taskId, description: t.description, status: 'todo', ts: t.createdAt })),
+          doing: allTasks.filter(t => t.status === 'in_progress').map(t => ({ id: t.taskId, description: t.description, status: 'doing', ts: t.startedAt || t.createdAt })),
+          done: allTasks.filter(t => t.status === 'completed' || t.status === 'failed' || t.status === 'cancelled').map(t => ({ id: t.taskId, description: t.description, status: t.status, ts: t.completedAt || t.createdAt })),
+        };
+
         const result = { config, state, goals: goalsData.goals, routines: routinesData.routines,
-          approvals: approvalsData.approvals, running, tasks: { todo: [], doing: [], done: [] } };
+          approvals: approvalsData.approvals, running, tasks };
 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(result));
