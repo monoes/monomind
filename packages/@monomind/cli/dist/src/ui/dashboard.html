@@ -6716,6 +6716,7 @@ window.odtChatSelectSession = async function(id) {
       const dirParam = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
       const evs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs/'+encodeURIComponent(id)+dirParam);
       sess.events = Array.isArray(evs) ? evs : [];
+      sess._seenKeys = new Set((sess.events).map(function(e){return e.ts+'-'+e.type+'-'+(e.from||e.role||'');}));
       sess._eventsLoaded = true;
     } catch(_) { sess.events = []; sess._eventsLoaded = true; }
     loadingEl.remove();
@@ -6856,7 +6857,7 @@ function _odtHandleLiveEvent(ev) {
   if (ev?.org && ev?.runId && ev.org === _v2SelOrg) {
     let runSess = _odtChatSessions.find(s => s.id === ev.runId);
     if (!runSess && ev.type === 'run:start') {
-      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || '', status: 'running', _isOrgRun: true, _eventsLoaded: true, _runMeta: { cycleCount: 0, eventCount: 0 }, events: [ev] };
+      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || '', status: 'running', _isOrgRun: true, _eventsLoaded: true, _runMeta: { cycleCount: 0, eventCount: 0 }, _seenKeys: new Set([ev.ts+'-'+ev.type+'-'+(ev.from||ev.role||'')]), events: [ev] };
       _odtChatSessions.unshift(runSess);
       _odtPopulateChatSel();
       if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
@@ -6864,12 +6865,17 @@ function _odtHandleLiveEvent(ev) {
         if (sel) { sel.value = ev.runId; odtChatSelectSession(ev.runId); }
       }
     } else if (runSess) {
-      (runSess.events = runSess.events || []).push(ev);
-      if (runSess._runMeta) runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1;
-      if (ev.type === 'run:cycle:complete') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
-      if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
-      if (_odtChatCurrentId === ev.runId && _v2OrgTab === 'chat') {
-        _odtAppendEvent(ev, true);
+      const _evKey = ev.ts+'-'+ev.type+'-'+(ev.from||ev.role||'');
+      runSess._seenKeys = runSess._seenKeys || new Set();
+      if (!runSess._seenKeys.has(_evKey)) {
+        runSess._seenKeys.add(_evKey);
+        (runSess.events = runSess.events || []).push(ev);
+        if (runSess._runMeta) runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1;
+        if (ev.type === 'run:cycle:complete' || ev.type === 'org:checkpoint') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
+        if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
+        if (_odtChatCurrentId === ev.runId && _v2OrgTab === 'chat') {
+          _odtAppendEvent(ev, true);
+        }
       }
     }
     return;
