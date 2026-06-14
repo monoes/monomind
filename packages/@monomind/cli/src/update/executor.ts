@@ -7,15 +7,19 @@ import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as semver from 'semver';
+import { UpdateCheckResult } from './checker.js';
+import { validateUpdate, ValidationResult } from './validator.js';
+
+// Inline semver shim — avoids external dependency (semver is not in package.json)
+const semver = {
+  valid: (v: string | null | undefined): string | null => /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
+};
 
 function execFileAsync(cmd: string, args: string[]): Promise<void> {
   return new Promise<void>((resolve, reject) =>
     execFile(cmd, args, (err) => (err ? reject(err) : resolve()))
   );
 }
-import { UpdateCheckResult } from './checker.js';
-import { validateUpdate, ValidationResult } from './validator.js';
 
 export interface UpdateHistoryEntry {
   timestamp: string;
