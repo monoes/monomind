@@ -2660,9 +2660,35 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           try { stat = fs.statSync(fp); } catch { continue; }
 
           // Skip files over size cap to avoid memory spikes on large sessions
+          // But still do a lightweight scan for agent spawns (tool_use blocks named Agent/Task)
           if (stat.size > JSONL_SIZE_CAP) {
+            const truncSpawns = {};
+            try {
+              const raw = fs.readFileSync(fp, 'utf8');
+              for (const line of raw.split('\n')) {
+                if (!line.includes('"tool_use"') || (!line.includes('"Agent"') && !line.includes('"Task"'))) continue;
+                let e; try { e = JSON.parse(line); } catch { continue; }
+                if (e.type !== 'assistant') continue;
+                for (const block of (e.message?.content || [])) {
+                  if (!block || block.type !== 'tool_use') continue;
+                  if (block.name !== 'Agent' && block.name !== 'Task') continue;
+                  const sub = block.input?.subagent_type || block.input?.description || '?';
+                  truncSpawns[sub] = (truncSpawns[sub] || 0) + 1;
+                }
+              }
+            } catch {}
             nodes.push({ id: sid, type: 'session', label: sid.slice(0,8), turns: 0, totalTools: 0,
-              toolCounts: {}, cost: 0, mtime: stat.mtimeMs, size: stat.size, agentSpawns: {}, truncated: true });
+              toolCounts: {}, cost: 0, mtime: stat.mtimeMs, size: stat.size, agentSpawns: truncSpawns, truncated: true });
+            for (const [subType, count] of Object.entries(truncSpawns)) {
+              const nodeId = 'agent::' + subType;
+              if (!agentTypeNodes[subType]) {
+                agentTypeNodes[subType] = true;
+                nodes.push({ id: nodeId, type: 'agenttype', label: subType, totalSpawns: 0 });
+              }
+              const aNode = nodes.find(n => n.id === nodeId);
+              if (aNode) aNode.totalSpawns = (aNode.totalSpawns || 0) + count;
+              edges.push({ source: sid, target: nodeId, weight: count, label: String(count) });
+            }
             continue;
           }
 
