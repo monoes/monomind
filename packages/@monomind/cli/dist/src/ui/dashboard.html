@@ -6866,7 +6866,7 @@ function _odtHandleLiveEvent(ev) {
     } else if (runSess) {
       (runSess.events = runSess.events || []).push(ev);
       if (runSess._runMeta) runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1;
-      if (ev.type === 'run:cycle:complete') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
+      if (ev.type === 'run:cycle:complete' || ev.type === 'org:checkpoint') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
       if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
       if (_odtChatCurrentId === ev.runId && _v2OrgTab === 'chat') {
         _odtAppendEvent(ev, true);
