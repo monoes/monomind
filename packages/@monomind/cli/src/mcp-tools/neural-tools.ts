@@ -270,7 +270,7 @@ export const neuralTools: MCPTool[] = [
         try {
           const patternsPath = join(getNeuralDir(), PATTERNS_FILE);
           let existing: Array<Record<string, unknown>> = [];
-          if (existsSync(patternsPath)) {
+          if (existsSync(patternsPath) && statSync(patternsPath).size <= MAX_NEURAL_STORE_BYTES) {
             const raw = readFileSync(patternsPath, 'utf-8');
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) existing = parsed;
@@ -358,7 +358,7 @@ export const neuralTools: MCPTool[] = [
       const cliPatternsRaw: Array<{ id?: string; type?: string; content?: string; name?: string; embedding?: number[] }> = [];
       try {
         const cliPath = join(getNeuralDir(), PATTERNS_FILE);
-        if (existsSync(cliPath)) {
+        if (existsSync(cliPath) && statSync(cliPath).size <= MAX_NEURAL_STORE_BYTES) {
           const raw = JSON.parse(readFileSync(cliPath, 'utf-8'));
           if (Array.isArray(raw)) {
             const mcpIds = new Set(mcpPatterns.map(p => p.id));
