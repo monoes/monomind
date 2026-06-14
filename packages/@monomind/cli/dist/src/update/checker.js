@@ -11,6 +11,7 @@ const semver = {
     major: (v) => parseInt((v || '0').split('.')[0], 10),
     minor: (v) => parseInt((v || '0').split('.')[1] || '0', 10),
     patch: (v) => parseInt(((v || '0').split('.')[2] || '0').replace(/[^0-9].*/, ''), 10),
+    gt: (a, b) => { const [aMaj,aMin,aPat]=(a||'0').split('.').map(n=>parseInt(n,10)||0); const [bMaj,bMin,bPat]=(b||'0').split('.').map(n=>parseInt(n,10)||0); return aMaj!==bMaj?aMaj>bMaj:aMin!==bMin?aMin>bMin:aPat>bPat; },
 };
 import { reserveCheck, recordCheck, getCachedVersions } from './rate-limiter.js';
 const require = createRequire(import.meta.url);
@@ -73,7 +74,8 @@ function getUpdateType(current, latest) {
     if (!semver.valid(current) || !semver.valid(latest)) {
         return 'none';
     }
-    if (semver.eq(current, latest)) {
+    // Not an upgrade (equal or downgrade)
+    if (!semver.gt(latest, current)) {
         return 'none';
     }
     if (semver.major(latest) > semver.major(current)) {
@@ -82,10 +84,7 @@ function getUpdateType(current, latest) {
     if (semver.minor(latest) > semver.minor(current)) {
         return 'minor';
     }
-    if (semver.patch(latest) > semver.patch(current)) {
-        return 'patch';
-    }
-    return 'none';
+    return 'patch';
 }
 function shouldAutoUpdate(updateType, priority, config) {
     if (updateType === 'none')
