@@ -6225,8 +6225,8 @@ async function v2RenderOrgRoutines() {
       routines.map(r => `<tr style="border-top:1px solid var(--border)">
         <td style="padding:6px 8px;color:var(--text-hi)">${esc(r.name || '—')}</td>
         <td style="padding:6px 8px;font-family:var(--mono);color:var(--text-lo)">${esc(r.cron || r.schedule || '—')}</td>
-        <td style="padding:6px 8px;color:var(--text-lo)">${r.lastRun ? relTime(r.lastRun) : '—'}</td>
-        <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || '—')}</span></td>
+        <td style="padding:6px 8px;color:var(--text-lo)">${(r.lastRun || r.last_run) ? relTime(r.lastRun || r.last_run) : '—'}</td>
+        <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.enabled || r.status === 'active' ? 'on' : ''}">${esc(r.status || (r.enabled != null ? (r.enabled ? 'active' : 'inactive') : '—'))}</span></td>
       </tr>`).join('') + '</tbody></table>';
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
@@ -6790,40 +6790,112 @@ async function v2RenderOrgFiles() {
         '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead><tr style="color:var(--text-xs);font-size:9px;text-align:left"><th style="padding:4px 8px">File</th><th>Type</th><th>Size</th><th>Modified</th><th></th></tr></thead>'+
         '<tbody>'+g.items.map(f => {
-          const fp = JSON.stringify(f.path), fn = JSON.stringify(f.name);
-          return '<tr style="border-top:1px solid var(--border)">'+
-            '<td style="padding:6px 8px"><span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);cursor:pointer" onclick="v2ViewOrgFile('+fp+','+fn+')">'+esc(f.name)+'</span></td>'+
+          return '<tr style="border-top:1px solid var(--border)" data-fp="'+esc(f.path)+'" data-fn="'+esc(f.name)+'">'+
+            '<td style="padding:6px 8px"><span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);cursor:pointer" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">'+esc(f.name)+'</span></td>'+
             '<td style="padding:6px 8px">'+badge(f.type)+'</td>'+
             '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo);font-family:var(--mono)">'+fmtSize(f.size||0)+'</td>'+
             '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo)">'+fmtTime(f.mtime)+'</td>'+
-            '<td style="padding:6px 8px"><button class="btn" style="font-size:9px;padding:2px 7px" onclick="v2ViewOrgFile('+fp+','+fn+')">View</button></td></tr>';
+            '<td style="padding:6px 8px"><button class="btn" style="font-size:9px;padding:2px 7px" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">View</button></td></tr>';
         }).join('')+'</tbody></table></div>';
     }).join('')+'</div>';
   } catch(e) { el.innerHTML = '<div style="padding:20px;color:oklch(60% 0.22 25)">Error: '+e.message+'</div>'; }
 }
 
 let _ofModal = null;
+let _ofRawText = '';
+
+function _ofMdToHtml(md) {
+  return md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^#{6}\s+(.+)$/gm,'<h6 style="font-size:11px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h6>')
+    .replace(/^#{5}\s+(.+)$/gm,'<h5 style="font-size:12px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h5>')
+    .replace(/^#{4}\s+(.+)$/gm,'<h4 style="font-size:13px;font-weight:700;color:var(--text-hi);margin:12px 0 5px">$1</h4>')
+    .replace(/^#{3}\s+(.+)$/gm,'<h3 style="font-size:14px;font-weight:700;color:var(--text-hi);margin:14px 0 6px">$1</h3>')
+    .replace(/^#{2}\s+(.+)$/gm,'<h2 style="font-size:16px;font-weight:700;color:var(--accent);margin:16px 0 7px;padding-bottom:4px;border-bottom:1px solid var(--border)">$1</h2>')
+    .replace(/^#{1}\s+(.+)$/gm,'<h1 style="font-size:18px;font-weight:700;color:var(--accent);margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border)">$1</h1>')
+    .replace(/```[\w]*\n?([\s\S]*?)```/g,'<pre style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 12px;font-size:10px;overflow-x:auto;margin:8px 0;line-height:1.6">$1</pre>')
+    .replace(/`([^`]+)`/g,'<code style="background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;font-family:var(--mono)">$1</code>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/^---+$/gm,'<hr style="border:none;border-top:1px solid var(--border);margin:12px 0">')
+    .replace(/^\s*[-*]\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
+    .replace(/(<li.*<\/li>\n?)+/g,'<ul style="padding-left:18px;margin:6px 0">$&</ul>')
+    .replace(/^\d+\.\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" style="color:var(--accent);text-decoration:underline" target="_blank" rel="noopener">$1</a>')
+    .replace(/\n\n+/g,'</p><p style="margin:0 0 8px">')
+    .replace(/^(?!<[hupoli]|<pre|<hr)(.+)$/gm, '$1')
+    .replace(/\n/g,'<br>');
+}
+
 async function v2ViewOrgFile(filePath, fileName) {
   if (_ofModal) { _ofModal.remove(); _ofModal = null; }
+  const isMd = /\.(md|markdown)$/i.test(fileName);
+  const isJson = /\.json$/i.test(fileName);
+  _ofRawText = '';
   _ofModal = document.createElement('div');
-  _ofModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  _ofModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
   _ofModal.onclick = e => { if (e.target===_ofModal) { _ofModal.remove(); _ofModal=null; } };
-  _ofModal.innerHTML = '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;max-width:840px;width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden">'+
-    '<div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-shrink:0">'+
-    '<span style="font-family:var(--mono);font-size:12px;color:var(--text-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(fileName)+'</span>'+
-    '<button class="btn" style="font-size:10px;padding:2px 8px" onclick="navigator.clipboard.writeText(document.getElementById(\'of-content\').textContent)">Copy</button>'+
-    '<button class="btn" style="font-size:10px;padding:2px 8px" onclick="_ofModal&&(_ofModal.remove(),_ofModal=null)">Close</button></div>'+
-    '<div id="of-content" style="flex:1;overflow-y:auto;padding:14px 16px;font-family:var(--mono);font-size:11px;line-height:1.65;color:var(--text-mid);white-space:pre-wrap;word-break:break-word">Loading...</div></div>';
+  _ofModal.innerHTML =
+    '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;max-width:900px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6)">' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+        '<span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(filePath)+'">'+esc(fileName)+'</span>' +
+        (isMd ? '<button id="of-toggle" class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofToggleRender()">Raw</button>' : '') +
+        '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="navigator.clipboard.writeText(_ofRawText).then(()=>{ if(typeof showToast===\'function\') showToast(\'Copied\',\'\',\'ok\'); })">Copy</button>' +
+        '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveFile(\''+esc(fileName)+'\')">Save</button>' +
+        '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofModal&&(_ofModal.remove(),_ofModal=null)">✕</button>' +
+      '</div>' +
+      '<div id="of-content" style="flex:1;overflow-y:auto;padding:16px 18px;font-size:12px;line-height:1.7;color:var(--text-mid);scrollbar-width:thin;scrollbar-color:var(--border) transparent">' +
+        '<span style="color:var(--text-lo)">Loading…</span>' +
+      '</div>' +
+    '</div>';
   document.body.appendChild(_ofModal);
   try {
     const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
     const r = await fetch('/api/file-content?path='+encodeURIComponent(filePath)+dirParam);
     const el = document.getElementById('of-content');
-    if (el) el.textContent = r.ok ? await r.text() : 'Error '+r.status+': '+r.statusText;
+    if (!el) return;
+    if (!r.ok) { el.textContent = 'Error '+r.status+': '+r.statusText; return; }
+    _ofRawText = await r.text();
+    if (isMd) {
+      el.innerHTML = '<div style="max-width:720px">'+_ofMdToHtml(_ofRawText)+'</div>';
+      el.dataset.mode = 'rendered';
+    } else if (isJson) {
+      try { el.textContent = JSON.stringify(JSON.parse(_ofRawText), null, 2); } catch(_) { el.textContent = _ofRawText; }
+      el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
+    } else {
+      el.textContent = _ofRawText;
+      el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
+    }
   } catch(e) {
     const el = document.getElementById('of-content');
     if (el) el.textContent = 'Error: '+e.message;
   }
+}
+
+function _ofToggleRender() {
+  const el = document.getElementById('of-content');
+  const btn = document.getElementById('of-toggle');
+  if (!el || !_ofRawText) return;
+  if (el.dataset.mode === 'rendered') {
+    el.textContent = _ofRawText;
+    el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
+    el.dataset.mode = 'raw';
+    if (btn) btn.textContent = 'Preview';
+  } else {
+    el.innerHTML = '<div style="max-width:720px">'+_ofMdToHtml(_ofRawText)+'</div>';
+    el.style.fontFamily = ''; el.style.fontSize = '12px'; el.style.whiteSpace = '';
+    el.dataset.mode = 'rendered';
+    if (btn) btn.textContent = 'Raw';
+  }
+}
+
+function _ofSaveFile(defaultName) {
+  if (!_ofRawText) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([_ofRawText], { type: 'text/plain' }));
+  a.download = defaultName || 'file.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 // ── WORKSPACES ─────────────────────────────────────────────
