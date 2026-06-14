@@ -22,3 +22,4 @@
 - 632de5e3 — fix(dashboard): Live tab activity feed reads e.msg fallback (server returns msg not message field)
 - ebe8f016 — fix(orgs): appendLiveFeedRow reads ev.msg fallback so live strip shows event text (orgs.html was still reading ev.message which is always undefined)
 - ed71d00e — fix(dashboard): v2RenderOrgBudgets aggregates tokens/usd from per-agent data when top-level b.tokens/b.usd are absent (server never returns those fields)
+- 5dea48e6 — fix(collector): include web_search_requests cost in _tokCost
