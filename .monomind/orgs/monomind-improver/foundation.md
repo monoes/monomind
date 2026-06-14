@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- 3af1aedc — fix(dashboard): read _l.wait (not _l.interval regex) in loop command reconstruction so --wait N appears in expanded loop row
 - 595dc368 — fix(server): POST /api/org/:name/approvals/:id writes org:approval:resolved event to ?dir= project path so boss agent unblocks in the correct project
 - de83fc52 — fix(dashboard): read l.type (not l.loopType) in isTillend check so tillend loops show /∞ instead of the safety cap number
 - cbbf3f68 — fix(server): /api/org/:name/search also matches goals by text/goal fields (not just title) so goal search works regardless of field name used
