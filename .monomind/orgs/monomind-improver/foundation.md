@@ -17,3 +17,4 @@
 - 72e5c9d2 — fix(server): read adapter_config.model in /api/org/:name/agents so adapterModel is populated from actual org config field (was reading r.adapter.model which is always null)
 - 72e5c9d2 — fix(server): /api/org/:name/agents reads adapter_config.model for adapterModel (not r.adapter.model which was always undefined)
 - 3d530492 — fix(server): add join-requests to _sidecarSuffixRe in /api/orgs so join-requests.json sidecar files are not parsed as org configs
+- 45b83170 — fix(dashboard): v2RenderOrgRoutines reads r.last_run (not r.lastRun) and derives status from r.enabled when r.status absent
