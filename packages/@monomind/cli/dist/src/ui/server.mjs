@@ -3850,7 +3850,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         fs.renameSync(tmp, approvalsFile);
         // Emit org:approval:resolved event so boss agent unblocks
         const event = { type: 'org:approval:resolved', org: orgName, approval_id: approvalId, status, ts: Date.now() };
-        try { fs.appendFileSync(path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch(_) {}
+        try { fs.appendFileSync(path.join(path.resolve(_postApprovalsQs.get('dir') || projectDir || process.cwd()), 'data', 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch(_) {}
         const msg = `data: ${JSON.stringify(event)}\n\n`;
         for (const c of mmSseClients) { try { c.write(msg); } catch(_) { mmSseClients.delete(c); } }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
