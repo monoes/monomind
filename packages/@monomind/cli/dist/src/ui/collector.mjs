@@ -284,6 +284,7 @@ const _TOK_PRICES = {
   'claude-3-7-sonnet': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
   'claude-3-5-sonnet': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
   'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,   cw: 1.25e-6, cr: 0.1e-6  },
+  'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,   cw: 1e-6,    cr: 0.08e-6 },
   'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,   cw: 1e-6,    cr: 0.08e-6 },
 };
 function _tokPrice(model) {
