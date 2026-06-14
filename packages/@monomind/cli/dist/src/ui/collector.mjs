@@ -397,6 +397,13 @@ function collectTokens(projectDir, days = 14) {
   const totalTokens = totalTokensIn + totalTokensOut;
   if (totalTokens > 0) summary.totalTokens = totalTokens;
 
+  // Overwrite stale cached todayCost/todayCalls with fresh JSONL-derived values.
+  // daily uses UTC date keys (entry.timestamp.slice(0,10)), so match that here.
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayEntry = dailyMap[todayKey];
+  summary.todayCost  = todayEntry ? todayEntry.cost  : 0;
+  summary.todayCalls = todayEntry ? todayEntry.calls : 0;
+
   return { summary, daily, rows };
 }
 
