@@ -1149,10 +1149,10 @@ function generateDashboard() {
 
   const hil = getHILPending();
   const hilStr = hil.pending > 0
-    ? \`\${x.coral}✨ \${x.bold}\${hil.pending}\${x.reset}\${x.coral} HIL pending\${x.reset}\`
-    : \`\${x.slate}✨ no pending HIL\${x.reset}\`;
+    ? \`   \${DIV}   \${x.coral}✨ \${x.bold}\${hil.pending}\${x.reset}\${x.coral} HIL pending\${x.reset}\`
+    : \`\`;
 
-  lines.push(\`\${x.teal}🧠  CONTEXT\${x.reset}  \${graphStr}   \${DIV}   \${hilStr}\`);
+  lines.push(\`\${x.teal}🧠  CONTEXT\${x.reset}  \${graphStr}\${hilStr}\`);
 
   return lines.join('\\n');
 }

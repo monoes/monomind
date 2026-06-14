@@ -5,7 +5,7 @@
  * and produces a unified AgentRegistry JSON.
  */
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
-import { join, basename, relative, extname } from 'path';
+import { join, basename, relative, extname, isAbsolute } from 'path';
 /** Directories to skip during recursive scan. */
 const SKIP_DIRS = new Set(['schemas', 'ephemeral']);
 /**
@@ -183,7 +183,7 @@ export function buildUnifiedRegistry(roots, outputPath) {
                 deprecated: fm.deprecated === true,
                 deprecatedBy: typeof fm.deprecatedBy === 'string' ? fm.deprecatedBy : undefined,
                 dependencies: toStringArray(fm.dependencies),
-                filePath: file,
+                filePath: isAbsolute(file) ? relative(process.cwd(), file) : file,
                 registeredAt: now,
                 lastUpdated: now,
             });
