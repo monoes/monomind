@@ -3708,7 +3708,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const _agentsQs = new URL(req.url, 'http://localhost').searchParams;
+        const d = path.resolve(_agentsQs.get('dir') || projectDir || process.cwd());
+        const base = path.join(d, '.monomind', 'orgs');
         const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
         const config = readJsonSafe(path.join(base, `${orgName}.json`)) || {};
         const stateData = readJsonSafe(path.join(base, `${orgName}-state.json`)) || {};
