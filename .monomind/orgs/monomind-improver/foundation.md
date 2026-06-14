@@ -7,3 +7,4 @@
 - 2f507250 — fix(server): add assignee field to /api/org/:name/issues response so dashboard Issues tab shows assignee name
 - aecf391d — fix(dashboard): use adapterType/adapterModel in agents-full tab so Type and Adapter columns show real data
 - aecf391d — fix(dashboard): read adapterType/adapterModel fields in v2RenderOrgAgentsFull (was reading a.type/a.adapter which don't exist in API response)
+- efa06639 — fix(server): normalise authorName/authorId and messageCount in /api/org/:name/threads response so dashboard Threads tab shows author and message count
