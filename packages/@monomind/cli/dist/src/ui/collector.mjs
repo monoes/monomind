@@ -275,6 +275,7 @@ function collectAgents(projectDir) {
 }
 
 const _TOK_PRICES = {
+  'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
   'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
   'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
   'claude-opus-4':     { in: 15e-6,   out: 75e-6,  cw: 18.75e-6,cr: 1.5e-6  },
@@ -284,6 +285,7 @@ const _TOK_PRICES = {
   'claude-3-7-sonnet': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
   'claude-3-5-sonnet': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
   'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,   cw: 1.25e-6, cr: 0.1e-6  },
+  'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,   cw: 1e-6,    cr: 0.08e-6 },
   'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,   cw: 1e-6,    cr: 0.08e-6 },
 };
 function _tokPrice(model) {
@@ -296,10 +298,12 @@ function _tokPrice(model) {
 }
 function _tokCost(model, usage) {
   const p = _tokPrice(model);
+  const webSearch = ((usage.server_tool_use || {}).web_search_requests || 0) * 0.01;
   return (usage.input_tokens || 0) * p.in
        + (usage.output_tokens || 0) * p.out
        + (usage.cache_creation_input_tokens || 0) * p.cw
-       + (usage.cache_read_input_tokens || 0) * p.cr;
+       + (usage.cache_read_input_tokens || 0) * p.cr
+       + webSearch;
 }
 
 function collectTokens(projectDir, days = 14) {
