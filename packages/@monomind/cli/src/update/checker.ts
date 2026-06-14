@@ -108,7 +108,8 @@ function getUpdateType(
     return 'none';
   }
 
-  if (semver.eq(current, latest)) {
+  // Not an upgrade (equal or downgrade)
+  if (!semver.gt(latest, current)) {
     return 'none';
   }
 
@@ -120,11 +121,7 @@ function getUpdateType(
     return 'minor';
   }
 
-  if (semver.patch(latest) > semver.patch(current)) {
-    return 'patch';
-  }
-
-  return 'none';
+  return 'patch';
 }
 
 function shouldAutoUpdate(
