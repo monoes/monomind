@@ -27,6 +27,7 @@ _(The boss appends one line here after each successful commit so future cycles d
 - [2026-06-14 00:10] 44b12044 — fix(server): emit compactCount and errorCount in /api/session-journal response; JSONL parser never tracked is_error tool_result blocks or derived compactCount from summaries.length, so both the "+N compacted" and "N err" session-list badges in the dashboard were permanently invisible
 - [2026-06-14 00:11] f6a5311c — fix(server): send roles array (not length number) in /api/orgs list endpoint; dashboard v2RenderOrgList() checks Array.isArray(o.roles) to build role avatar images but received a number so shownRoles was always [] — all org card avatars were permanently suppressed
 - [2026-06-14 00:12] aae231b6 — fix(dashboard): correct v2RenderOrgBudgets field name mismatches; renderer read b.tokens/b.tokenLimit/b.usd/b.usdLimit (non-existent) instead of b.org_budget.limit_tokens/limit_usd; per-agent cost read a.cost instead of a.total_cost_usd and used wrong agents source; budget tab always showed "No budget data" even when budgets.json existed
+- [2026-06-14 00:13] e040c46f — fix(dashboard): derive org budget used totals from per-agent spend in v2RenderOrgBudgets; fillBar() was always called with used=0 so token and USD budget bars permanently showed 0% utilization; fixed by summing tokens_used/tokens_in/tokens_out and total_cost_usd across budgetAgents; labels now show "used / limit" instead of just "limit: X"
 
 ## Off-Limits (do not re-implement)
 - Nothing yet
