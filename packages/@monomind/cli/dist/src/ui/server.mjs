@@ -3040,7 +3040,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const orgsDir = path.join(path.resolve(_orgsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         let orgs = [];
         if (fs.existsSync(orgsDir)) {
-          const _sidecarSuffixRe = /-(approvals|state|activity|goals|routines|projects|members|issues|workspaces|worktrees|environments|plugins|adapters|bootstrap|threads|budgets|project-workspaces|approval-comments|secrets|join-requests)\.json$/;
+          const _sidecarSuffixRe = /-(approvals|state|activity|goals|routines|projects|members|issues|workspaces|worktrees|environments|plugins|adapters|bootstrap|threads|budgets|project-workspaces|approval-comments|secrets|join-requests|skills)\.json$/;
           const files = fs.readdirSync(orgsDir).filter(f => f.endsWith('.json') && !_sidecarSuffixRe.test(f));
           // Read events file once, outside the per-org loop
           let recentLines = [];
