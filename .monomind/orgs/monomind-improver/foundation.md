@@ -23,3 +23,4 @@
 - ebe8f016 — fix(orgs): appendLiveFeedRow reads ev.msg fallback so live strip shows event text (orgs.html was still reading ev.message which is always undefined)
 - ed71d00e — fix(dashboard): v2RenderOrgBudgets aggregates tokens/usd from per-agent data when top-level b.tokens/b.usd are absent (server never returns those fields)
 - 5dea48e6 — fix(collector): include web_search_requests cost in _tokCost
+- 313ed105 — fix(server): populate org tasks from .monomind/tasks/store.json
