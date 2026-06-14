@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- 629a3f80 — fix(server): add claude-opus-4-8 and claude-haiku-4 to _SJ_PRICING table so sessions using those models report non-zero cost in the session cost tracker
 - a88121a1 — fix(dashboard): count org:checkpoint as cycle in live SSE handler so running-org cycleCount increments in real time (was always 0 because SSE handler only tracked run:cycle:complete which orgs never emit)
 - d3b08999 — fix(server): DELETE /api/orgs/:name removes orgs/<name>/ subdirectory so run history files (.jsonl) don't leak after org deletion
 - 7b9e48df — fix(dashboard): fetch supplemental org tab data in parallel (Promise.all) instead of sequentially so org detail load time is max(response) not sum
