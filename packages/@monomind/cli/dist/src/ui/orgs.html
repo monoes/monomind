@@ -1452,6 +1452,18 @@ function renderHealth() {
       <div class="hc-value ${health.tasks_pending > 5 ? 'amber' : ''}">${health.tasks_pending}</div>
       <div class="hc-sub">pending</div>
     </div>` : ''}
+    ${health?.run_success_rate_7d !== null && health?.run_success_rate_7d !== undefined ? `
+    <div class="health-cell">
+      <div class="hc-label">SUCCESS</div>
+      <div class="hc-value ${health.run_success_rate_7d >= 80 ? 'green' : health.run_success_rate_7d >= 50 ? 'amber' : 'red'}">${health.run_success_rate_7d}%</div>
+      <div class="hc-sub">7d rate (${health.total_runs_7d || 0} runs)</div>
+    </div>` : ''}
+    ${health?.budget_used_pct !== null && health?.budget_used_pct !== undefined ? `
+    <div class="health-cell">
+      <div class="hc-label">BUDGET</div>
+      <div class="hc-value ${health.budget_used_pct > 90 ? 'red' : health.budget_used_pct > 70 ? 'amber' : ''}">${health.budget_used_pct}%</div>
+      <div class="hc-sub">tokens used</div>
+    </div>` : ''}
   `;
 
   if (health?.errors && health.errors.length) {
