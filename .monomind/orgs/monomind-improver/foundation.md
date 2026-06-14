@@ -44,3 +44,4 @@
 - 19fcb388 — fix(server): honour ?dir= in orgs/:name, projects, adapters, skills, search, DELETE orgs/:name
 - f1f65f96 — fix(server): add /api/org/:name/files endpoint (Files tab always showed empty); fix stop/copy ?dir= params
 - e1879710 — fix(server): add GET /api/file-content endpoint (Files tab view was broken)
+- fbc0a0ae — fix(server): add POST /api/orgs/:name/import endpoint (org import was 404ing)
