@@ -266,7 +266,7 @@ board_id=$(jq -r '.board_id // empty' "$orgFile")
 todo_col=$(jq -r '.todo_col_id // empty' "$orgFile")
 doing_col=$(jq -r '.doing_col_id // empty' "$orgFile")
 done_col=$(jq -r '.done_col_id // empty' "$orgFile")
-runId=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+runId="run-$(date -u +%Y%m%dT%H%M%S)"
 ```
 
 ---
@@ -312,18 +312,41 @@ fi
 rm -f "$stopFile"
 ```
 
-**Emit `org:start` to dashboard:**
+**Resolve the git-safe monomind directory (shared across worktrees, survives branch switches):**
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+# Use git-common-dir so all worktrees write to the same place and branch switches don't reset data
+GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")
+# Resolve to absolute path (git returns relative ".git" for main checkout)
+if [[ "$GIT_COMMON" != /* ]]; then GIT_COMMON="$REPO_ROOT/$GIT_COMMON"; fi
+GIT_COMMON="${GIT_COMMON%/}"  # strip trailing slash if any
+MONO_DIR="${GIT_COMMON}/monomind"
+```
+
+**Create the run file and write `run:start`:**
+```bash
+runDir="${MONO_DIR}/orgs/${orgName}/runs"
+mkdir -p "$runDir"
+runFile="${runDir}/${runId}.jsonl"
+jq -cn \
+  --arg runId "$runId" --arg org "$orgName" --arg goal "$goal" \
+  --arg bossRole "$bossRole_id" --arg proj "$REPO_ROOT" \
+  '{type:"run:start",runId:$runId,org:$org,orgName:$org,goal:$goal,bossRole:$bossRole,project:$proj,ts:(now*1000|floor)}' \
+  >> "$runFile"
+```
+
+**Emit `org:start` to dashboard (includes runId for server-side routing):**
+```bash
 curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$sessionId" \
     --arg org "$orgName" \
+    --arg runId "$runId" \
     --arg goal "$goal" \
-    --arg proj "$(pwd)" \
-    '{type:"org:start",session:$session,org:$org,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
+    --arg proj "$REPO_ROOT" \
+    '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
 ---
@@ -432,21 +455,32 @@ APPROVAL GATE (when governance.policy is "board" or "strict"):
 DASHBOARD EVENT HELPER — resolve once at startup, reuse in every step:
   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  # Git-safe monomind dir — shared across all worktrees, survives branch switches:
+  GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")
+  # Resolve to absolute path (git returns relative ".git" for main checkout)
+  if [[ "$GIT_COMMON" != /* ]]; then GIT_COMMON="$REPO_ROOT/$GIT_COMMON"; fi
+  GIT_COMMON="${GIT_COMMON%/}"  # strip trailing slash if any
+  MONO_DIR="${GIT_COMMON}/monomind"
+  runFile="${MONO_DIR}/orgs/${orgName}/runs/${runId}.jsonl"
 
 ⚠️  DASHBOARD EVENTS ARE MANDATORY — run every curl below exactly as written.
     Do NOT skip, defer, or summarize. These keep the human-visible dashboard current.
     Use Bash tool for all curl calls. Never use WebFetch (it doesn't support POST).
+    EVERY event MUST include runId:"${runId}" and org:"${orgName}" so the server routes it to the run file.
 
 STOP DETECTION (check this FIRST in every loop iteration):
   [ -f "${stopFile}" ] && echo STOP_REQUESTED
-If the file exists: run the org:complete curl below, then "rm -f ${stopFile}", then exit.
-  # REQUIRED — emit before exiting:
+If the file exists: write run:complete to run file, emit org:complete via curl, then "rm -f ${stopFile}", then exit.
+  # REQUIRED — write run:complete directly to run file:
+  jq -cn --arg runId "${runId}" --arg org "${orgName}" \
+    '{type:"run:complete",runId:$runId,org:$org,status:"stopped",ts:(now*1000|floor)}' >> "${runFile}" || true
+  # REQUIRED — emit org:complete via curl (includes runId so it also gets appended):
   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
-    -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
-      '{type:"org:complete",session:$s,org:$o,project:$p,ts:(now*1000|floor)}')" || true
+    -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
+      '{type:"org:complete",session:$s,org:$o,runId:$rid,project:$p,ts:(now*1000|floor)}')" || true
 
 OPERATING LOOP:
-1. Check for stop signal (above). Exit with org:complete event if found.
+1. Check for stop signal (above). Exit with run:complete + org:complete events if found.
 
 2. List unclaimed Todo cards:
    monotask card list ${board_id} --col ${todo_col} --json | jq '[.[] | select(.labels | index("claimed") | not)]'
@@ -458,16 +492,16 @@ OPERATING LOOP:
    a) Move card to Doing and mark claimed:
       monotask card move ${board_id} $CARD_ID ${doing_col}
       monotask card label add ${board_id} $CARD_ID "claimed"
-   b) REQUIRED — emit org:comms to dashboard (you briefing the agent):
+   b) REQUIRED — emit org:comms to dashboard (include runId):
       curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
-        -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
+        -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
           --arg role "<role_id>" --arg task "<card title>" \
-          '{type:"org:comms",session:$s,org:$o,from:"boss",to:$role,msg:("Assigning: "+$task),project:$p,ts:(now*1000|floor)}')" || true
-   c) REQUIRED — emit org:agent:online before spawning:
+          '{type:"org:comms",session:$s,org:$o,runId:$rid,from:"boss",to:$role,msg:("Assigning: "+$task),project:$p,ts:(now*1000|floor)}')" || true
+   c) REQUIRED — emit org:agent:online before spawning (include runId):
       curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
-        -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
+        -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
           --arg role "<role_id>" --arg title "<role title>" --arg at "<agent_type>" \
-          '{type:"org:agent:online",session:$s,org:$o,role:$role,title:$title,agent_type:$at,project:$p,ts:(now*1000|floor)}')" || true
+          '{type:"org:agent:online",session:$s,org:$o,runId:$rid,role:$role,title:$title,agent_type:$at,project:$p,ts:(now*1000|floor)}')" || true
    d) Spawn the agent via Task tool (run_in_background: true) with:
       - Full role briefing (title, responsibilities, who they report to, memory namespace)
       - The specific card title and card_id to work on
@@ -477,23 +511,25 @@ OPERATING LOOP:
 5. Collect completed results from memory (search "${memNs}:report:")
 
 6. Synthesize reports, make decisions, create new cards in Todo column based on progress toward goal.
-   REQUIRED — after each decision, emit org:comms summarising what you decided:
+   REQUIRED — after each decision, emit org:comms (include runId):
    curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
-     -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
+     -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
        --arg msg "<one-sentence summary of decision or finding>" \
-       '{type:"org:comms",session:$s,org:$o,from:"boss",to:"all",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
+       '{type:"org:comms",session:$s,org:$o,runId:$rid,from:"boss",to:"all",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
 
-7. Write a run-completion entry to the activity log:
-   activityFile=".monomind/orgs/${orgName}-activity.jsonl"
+7. Write cycle-complete entry (directly to run file AND to activity log):
    pending_count=$(monotask card list ${board_id} --col ${todo_col} --json 2>/dev/null | jq '[.[] | select(.labels | index("claimed") | not)] | length' 2>/dev/null || echo 0)
-   echo "{\"type\":\"run:complete\",\"org\":\"${orgName}\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pending\":${pending_count:-0}}" >> "$activityFile"
+   jq -cn --arg runId "${runId}" --arg org "${orgName}" --argjson pend "${pending_count:-0}" \
+     '{type:"run:cycle:complete",runId:$runId,org:$org,pending:$pend,ts:(now*1000|floor)}' >> "${runFile}" || true
+   activityFile=".monomind/orgs/${orgName}-activity.jsonl"
+   echo "{\"type\":\"run:cycle:complete\",\"org\":\"${orgName}\",\"runId\":\"${runId}\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pending\":${pending_count:-0}}" >> "$activityFile" 2>/dev/null || true
 
-8. REQUIRED — emit org:checkpoint with a one-sentence progress summary:
+8. REQUIRED — emit org:checkpoint with a one-sentence progress summary (include runId):
    curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
-     -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg p "$REPO_ROOT" \
+     -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
        --arg prog "<one sentence: what was done this cycle and what is next>" \
        --argjson pend "${pending_count:-0}" \
-       '{type:"org:checkpoint",session:$s,org:$o,progress:$prog,pending_tasks:$pend,project:$p,ts:(now*1000|floor)}')" || true
+       '{type:"org:checkpoint",session:$s,org:$o,runId:$rid,progress:$prog,pending_tasks:$pend,project:$p,ts:(now*1000|floor)}')" || true
 
 9. Wait ${checkpointMin} minutes, then loop back to step 1.
 
@@ -513,21 +549,20 @@ START NOW: resolve CTRL_URL, check for stop signal, assess the board, create ini
 Emit `org:agent:online` for the boss role (team member events are emitted by the boss itself):
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$sessionId" \
     --arg org "$orgName" \
+    --arg runId "$runId" \
     --arg role "$bossRole_id" \
     --arg title "$bossRole_title" \
     --arg agent_type "$bossRole_agent_type" \
     --arg proj "$REPO_ROOT" \
-    '{type:"org:agent:online",session:$session,org:$org,role:$role,title:$title,agent_type:$agent_type,project:$proj,ts:(now*1000|floor)}')" || true
+    '{type:"org:agent:online",session:$session,org:$org,runId:$runId,role:$role,title:$title,agent_type:$agent_type,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
-(Use the scalar string variables `$bossRole_id`, `$bossRole_title`, `$bossRole_agent_type` derived by extracting fields from `bossRole` before constructing the curl call.)
+(Use the scalar string variables `$bossRole_id`, `$bossRole_title`, `$bossRole_agent_type` derived by extracting fields from `bossRole` before constructing the curl call. `CTRL_URL`, `MONO_DIR`, and `runId` were resolved in Step 3 — reuse those variables.)
 
 ---
 
