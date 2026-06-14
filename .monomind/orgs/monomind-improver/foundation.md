@@ -51,3 +51,4 @@ _(The boss appends one line here after each successful commit so future cycles d
 - Stay on `improve/auto` — never push to `main` directly
 
 - [2026-06-14 03:20] 26d7c964 — fix(dashboard): renamed "Top Tools" to "Tool Categories" in agent-graph selectAgSession(); the section rendered bar charts of n.toolCounts keys which are TOOL_CAT() categories (file/bash/agent/memory/web/skill/other) not individual tool names — the "Top Tools" heading falsely implied per-tool breakdown
+- [2026-06-14 04:00] 2738008a — fix(update): guard getUpdateType against false-positive update type for downgrade; component-level minor/patch comparisons could return 'minor' when latest < current (e.g. current=2.0.0 vs latest=1.9.9: semver.minor(1.9.9)=9 > 0); replaced semver.eq guard with semver.gt(latest, current), made patch the unconditional final branch
