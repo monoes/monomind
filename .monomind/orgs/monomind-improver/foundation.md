@@ -12,3 +12,4 @@
 - 1b6c4020 — fix(dashboard): read data.requests (not data.joinRequests) and r.requesterName in join-requests tab so requests are shown and names display correctly
 - 0a91b3d7 — fix(server): include expiresAt in /api/org/:name/invites response so dashboard Invites tab Expires column shows real data
 - 0a91b3d7 — fix(server): add expiresAt field to /api/org/:name/invites response so dashboard Invites tab shows expiry column
+- 88b84adf — fix(dashboard): use adapterModel field in v2RenderOrgLive so running agent adapter/model name is shown (was reading a.adapter which is always undefined)
