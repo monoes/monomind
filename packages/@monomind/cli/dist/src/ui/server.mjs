@@ -3996,7 +3996,76 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // DELETE /api/orgs/:name — delete an org config and all associated data files
+    // GET /api/org/:name/files — all files related to an org
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/files(\?.*)?$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{"error":"Invalid org name"}'); return; }
+        const d = projectDir || process.cwd();
+        const orgsDir = path.join(d, '.monomind', 'orgs');
+        const files = [];
+        const seen = new Set();
+        const addFile = (fp, type) => {
+          if (seen.has(fp)) return; seen.add(fp);
+          try { const st = fs.statSync(fp); files.push({ name: path.basename(fp), path: fp, type, size: st.size, mtime: st.mtime.toISOString() }); } catch (_) {}
+        };
+        addFile(path.join(orgsDir, orgName + '.json'), 'config');
+        for (const s of ['-state','-approvals','-goals','-routines','-projects','-members','-issues','-threads','-budgets']) {
+          const fp = path.join(orgsDir, orgName + s + '.json');
+          if (fs.existsSync(fp)) addFile(fp, s.slice(1));
+        }
+        const walkDir = (dir, depth) => {
+          if (depth > 3) return;
+          let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+          for (const e of entries) {
+            if (e.name.startsWith('.')) continue;
+            const fp = path.join(dir, e.name);
+            if (e.isDirectory()) walkDir(fp, depth + 1);
+            else addFile(fp, 'generated');
+          }
+        };
+        const orgWorkDir = path.join(orgsDir, orgName);
+        if (fs.existsSync(orgWorkDir)) walkDir(orgWorkDir, 0);
+        let orgCfg = null;
+        try { orgCfg = JSON.parse(fs.readFileSync(path.join(orgsDir, orgName + '.json'), 'utf8')); } catch (_) {}
+        if (orgCfg && Array.isArray(orgCfg.roles)) {
+          const agentsDir = path.join(d, '.claude', 'agents');
+          const walkAgents = (dir) => {
+            let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+            for (const e of entries) {
+              if (e.isDirectory()) { walkAgents(path.join(dir, e.name)); continue; }
+              if (!e.name.endsWith('.md')) continue;
+              const fp = path.join(dir, e.name);
+              const base = e.name.replace('.md', '').toLowerCase();
+              if (orgCfg.roles.some(r => base === (r.id||'').toLowerCase() || base === (r.agent_type||'').toLowerCase() || (r.instructions_file||'').endsWith(e.name))) addFile(fp, 'agent-definition');
+            }
+          };
+          if (fs.existsSync(agentsDir)) walkAgents(agentsDir);
+        }
+        files.sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify(files));
+      } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+      return;
+    }
+
+    // GET /api/file-content?path=<abs> — serve file content (restricted to projectDir)
+    if (req.method === 'GET' && url.startsWith('/api/file-content')) {
+      try {
+        const _fcQs = new URL(req.url, 'http://localhost').searchParams;
+        const _fcPath = _fcQs.get('path') || '';
+        const _fcBase = path.resolve(_fcQs.get('dir') || projectDir || process.cwd());
+        const _fcResolved = path.resolve(_fcPath);
+        if (!_fcResolved.startsWith(_fcBase + path.sep) && _fcResolved !== _fcBase) { res.writeHead(403); res.end('Forbidden'); return; }
+        if (!fs.existsSync(_fcResolved)) { res.writeHead(404); res.end('Not found'); return; }
+        const _fcContent = fs.readFileSync(_fcResolved, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(_fcContent);
+      } catch (e) { res.writeHead(500); res.end('Error: ' + e.message); }
+      return;
+    }
+
+        // DELETE /api/orgs/:name — delete an org config and all associated data files
     if (req.method === 'DELETE' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}$/i)) {
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
