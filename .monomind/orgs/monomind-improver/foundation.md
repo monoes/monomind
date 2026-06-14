@@ -46,3 +46,4 @@
 - e1879710 — fix(server): add GET /api/file-content endpoint (Files tab view was broken)
 - fbc0a0ae — fix(server): add POST /api/orgs/:name/import endpoint (org import was 404ing)
 - 95997aba — fix(server): /api/org/:name/search always returned empty (used stripped url, lost ?q= and ?dir=)
+- 53a7aa28 — fix(server): DELETE /api/orgs/:name left 7 sidecar file types undeleted (-budgets/-threads/-secrets/-join-requests/-bootstrap/-project-workspaces/-approval-comments/-skills)
