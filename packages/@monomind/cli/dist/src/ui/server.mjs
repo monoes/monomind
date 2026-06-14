@@ -2787,7 +2787,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const fallback = () => {
           const summary = (() => { try { return JSON.parse(fs.readFileSync(path.join(dir, '.monomind', 'metrics', 'token-summary.json'), 'utf8')); } catch { return {}; } })();
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
-          res.end(JSON.stringify({ totalCost: summary.todayCost || 0, totalCalls: summary.todayCalls || 0, totalIn: 0, totalOut: 0, totalCR: 0, totalCW: 0, projects: [], modelBreakdown: {}, categoryBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, periodLabel: period }));
+          const fbSum = { todayCost: summary.todayCost || 0, cost: summary.todayCost || 0, todayCalls: summary.todayCalls || 0, calls: summary.todayCalls || 0, totalTokens: 0, totalTokensIn: 0, totalTokensOut: 0, cacheTokens: 0, modelCount: 0 };
+          res.end(JSON.stringify({ summary: fbSum, totalCost: summary.todayCost || 0, totalCalls: summary.todayCalls || 0, totalIn: 0, totalOut: 0, totalCR: 0, totalCW: 0, rows: [], models: [], categories: [], tools: [], mcpServers: [], projects: [], modelBreakdown: {}, categoryBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, periodLabel: period }));
         };
         if (!fs.existsSync(trackerPath)) { fallback(); return; }
         try {
@@ -2826,8 +2827,24 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               }
             }
           }
+          // Build client-friendly arrays from breakdown dicts
+          const models = Object.entries(modelBreakdown).map(([model, m]) => ({ model, cost: m.cost, calls: m.calls, tokens: m.tokens })).sort((a, b) => b.cost - a.cost);
+          const categories = Object.entries(categoryBreakdown).map(([category, c]) => ({ category, turns: c.turns, cost: c.cost })).sort((a, b) => b.turns - a.turns);
+          const tools = Object.entries(toolBreakdown).map(([tool, t]) => ({ tool, count: t.calls })).sort((a, b) => b.count - a.count);
+          const mcpServers = Object.entries(mcpBreakdown).map(([server, m]) => ({ server, count: m.calls })).sort((a, b) => b.count - a.count);
+          const projectRows = projects.map(p => ({ project: p.name || p.slug || p.dir || '?', cost: p.totalCost || 0 })).sort((a, b) => b.cost - a.cost);
+          // Build rows array from sessions for per-session table
+          const rows = [];
+          for (const p of projects) {
+            for (const s of (p.sessions || [])) {
+              rows.push({ id: s.id || '', session: s.lastPrompt || s.id || '', calls: s.apiCalls || 0, cost: s.totalCost || 0, tokens: (s.totalInputTokens || 0) + (s.totalOutputTokens || 0) });
+            }
+          }
+          rows.sort((a, b) => b.cost - a.cost);
+          // Summary object matching client expectations
+          const summary = { todayCost: totalCost, cost: totalCost, todayCalls: totalCalls, calls: totalCalls, totalTokens: totalIn + totalOut, totalTokensIn: totalIn, totalTokensOut: totalOut, cacheTokens: totalCR, modelCount: models.length };
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
-          res.end(JSON.stringify({ totalCost, totalCalls, totalIn, totalOut, totalCR, totalCW, projects, modelBreakdown, categoryBreakdown, toolBreakdown, mcpBreakdown, periodLabel: period }));
+          res.end(JSON.stringify({ summary, totalCost, totalCalls, totalIn, totalOut, totalCR, totalCW, rows, models, categories, tools, mcpServers, projects: projectRows, modelBreakdown, categoryBreakdown, toolBreakdown, mcpBreakdown, periodLabel: period }));
         } catch (e) { fallback(); }
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
