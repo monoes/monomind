@@ -3232,7 +3232,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const parts = url.split('/');
         const orgName = decodeURIComponent(parts[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
-        const d = projectDir || process.cwd();
+        const _membersQs = new URL(req.url, 'http://localhost').searchParams;
+        const d = path.resolve(_membersQs.get('dir') || projectDir || process.cwd());
         const membersFile = path.join(d, '.monomind', 'orgs', `${orgName}-members.json`);
         if (!fs.existsSync(membersFile)) {
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
