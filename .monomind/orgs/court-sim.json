@@ -1,0 +1,204 @@
+{
+  "name": "court-sim",
+  "goal": "Simulate an adversarial legal trial: present evidence, argue prosecution versus defense, rule on objections, and reach a reasoned verdict",
+  "mode": "daemon",
+  "topology": "hierarchical",
+  "created_at": "2026-06-04T16:34:56.000Z",
+  "roles": [
+    {
+      "id": "judge",
+      "title": "Presiding Judge",
+      "agent_type": "judge",
+      "responsibilities": [
+        "Preside over the proceedings",
+        "Rule on objections and motions",
+        "Instruct the court on the law",
+        "Weigh arguments and deliver the verdict"
+      ],
+      "reports_to": null,
+      "skills": [
+        "courtroom procedure",
+        "evidentiary rulings",
+        "impartial adjudication",
+        "legal reasoning",
+        "verdict drafting"
+      ],
+      "adapter_config": {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 8192
+      }
+    },
+    {
+      "id": "prosecutor",
+      "title": "Prosecutor",
+      "agent_type": "prosecutor",
+      "responsibilities": [
+        "Present the case for the prosecution",
+        "Examine witnesses and submit evidence",
+        "Rebut the defense",
+        "Deliver the closing argument"
+      ],
+      "reports_to": "judge",
+      "skills": [
+        "case theory construction",
+        "evidence presentation",
+        "witness examination",
+        "legal argumentation",
+        "burden-of-proof reasoning"
+      ],
+      "adapter_config": {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 8192
+      }
+    },
+    {
+      "id": "defender",
+      "title": "Defense Attorney",
+      "agent_type": "defender",
+      "responsibilities": [
+        "Represent the defendant",
+        "Cross-examine witnesses",
+        "Raise objections",
+        "Argue reasonable doubt"
+      ],
+      "reports_to": "judge",
+      "skills": [
+        "defense strategy",
+        "cross-examination",
+        "reasonable-doubt argumentation",
+        "objection practice",
+        "client advocacy"
+      ],
+      "adapter_config": {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 8192
+      }
+    },
+    {
+      "id": "clerk",
+      "title": "Court Clerk",
+      "agent_type": "case-analyst",
+      "responsibilities": [
+        "Maintain the case file and exhibits",
+        "Retrieve precedent and statutes",
+        "Brief counsel on the facts on request"
+      ],
+      "reports_to": "judge",
+      "skills": [
+        "legal research",
+        "evidence cataloging",
+        "precedent retrieval",
+        "fact summarization",
+        "record-keeping"
+      ],
+      "adapter_config": {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 8192
+      }
+    },
+    {
+      "id": "court-reporter",
+      "title": "Court Reporter",
+      "agent_type": "court-reporter",
+      "responsibilities": [
+        "Record the proceedings verbatim",
+        "Validate the official transcript",
+        "Flag inconsistencies in the record"
+      ],
+      "reports_to": "judge",
+      "skills": [
+        "verbatim transcription",
+        "record integrity",
+        "timeline reconstruction",
+        "inconsistency detection",
+        "proceeding summarization"
+      ],
+      "adapter_config": {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 8192
+      }
+    }
+  ],
+  "communication": [
+    {
+      "from": "judge",
+      "to": "prosecutor",
+      "type": "command",
+      "protocol": "direct"
+    },
+    {
+      "from": "judge",
+      "to": "defender",
+      "type": "command",
+      "protocol": "direct"
+    },
+    {
+      "from": "judge",
+      "to": "clerk",
+      "type": "command",
+      "protocol": "direct"
+    },
+    {
+      "from": "judge",
+      "to": "court-reporter",
+      "type": "command",
+      "protocol": "direct"
+    },
+    {
+      "from": "prosecutor",
+      "to": "judge",
+      "type": "report",
+      "protocol": "direct"
+    },
+    {
+      "from": "defender",
+      "to": "judge",
+      "type": "report",
+      "protocol": "direct"
+    },
+    {
+      "from": "prosecutor",
+      "to": "defender",
+      "type": "handoff",
+      "protocol": "direct"
+    },
+    {
+      "from": "defender",
+      "to": "prosecutor",
+      "type": "handoff",
+      "protocol": "direct"
+    },
+    {
+      "from": "clerk",
+      "to": "prosecutor",
+      "type": "handoff",
+      "protocol": "direct"
+    },
+    {
+      "from": "clerk",
+      "to": "defender",
+      "type": "handoff",
+      "protocol": "direct"
+    },
+    {
+      "from": "court-reporter",
+      "to": "judge",
+      "type": "report",
+      "protocol": "direct"
+    }
+  ],
+  "governance": {
+    "policy": "auto",
+    "approvals_file": ".monomind/orgs/court-sim-approvals.json"
+  },
+  "board_space": "court-sim",
+  "board_name": "trial-docket",
+  "run_config": {
+    "checkpoint_interval_min": 30,
+    "max_concurrent_agents": 5,
+    "memory_namespace": "org:court-sim",
+    "budget_tokens": 0,
+    "alert_threshold": 0.8,
+    "ceo_adapter": "claude-sonnet-4-6"
+  }
+}
