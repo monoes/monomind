@@ -6264,7 +6264,10 @@ function v2RenderOrgBudgets() {
   const el = document.getElementById('odt-budgets');
   if (!el || !_v2OrgData) return;
   const b = _v2OrgData._budgets || _v2OrgData.budgets || {};
-  const agents = _v2OrgData._agents || [];
+  // /api/org/:name/budgets wraps org-level limits in org_budget: {limit_tokens, limit_usd}
+  const orgBudget = b.org_budget || {};
+  // budgets endpoint provides agents with total_cost_usd/tokens_in/tokens_out; fall back to _agents
+  const budgetAgents = Array.isArray(b.agents) && b.agents.length ? b.agents : (_v2OrgData._agents || []);
 
   function fillBar(used, limit) {
     if (!limit) return '';
@@ -6275,22 +6278,27 @@ function v2RenderOrgBudgets() {
   }
 
   let html = '';
-  if (b.tokens != null || b.tokenLimit != null) {
-    html += `<div class="m-group-title">Tokens</div>${fillBar(b.tokens || 0, b.tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(b.tokens || 0).toLocaleString()} / ${b.tokenLimit ? b.tokenLimit.toLocaleString() : '∞'}</div>`;
+  if (orgBudget.limit_tokens != null) {
+    html += `<div class="m-group-title">Token Budget</div>${fillBar(0, orgBudget.limit_tokens)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">limit: ${Number(orgBudget.limit_tokens).toLocaleString()} tokens</div>`;
   }
-  if (b.usd != null || b.usdLimit != null) {
-    html += `<div class="m-group-title">USD Budget</div>${fillBar(b.usd || 0, b.usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${Number(b.usd || 0).toFixed(4)} / ${b.usdLimit ? '$' + Number(b.usdLimit).toFixed(2) : '∞'}</div>`;
+  if (orgBudget.limit_usd != null) {
+    html += `<div class="m-group-title">USD Budget</div>${fillBar(0, orgBudget.limit_usd)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">limit: $${Number(orgBudget.limit_usd).toFixed(2)}</div>`;
   }
-  if (agents.length) {
+  if (budgetAgents.length) {
     html += '<div class="m-group-title" style="margin-bottom:6px">Per Agent</div>' +
       `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:4px 8px">Agent</th><th>Tokens In</th><th>Tokens Out</th><th>Cost</th></tr></thead><tbody>` +
-      agents.slice(0, 20).map(a => {
-        const over = a.budgetLimit && ((a.tokensIn || 0) + (a.tokensOut || 0)) > a.budgetLimit;
+      budgetAgents.slice(0, 20).map(a => {
+        // budgets endpoint uses snake_case; _agents endpoint uses camelCase — handle both
+        const tokIn  = a.tokens_in  != null ? a.tokens_in  : (a.tokensIn  || 0);
+        const tokOut = a.tokens_out != null ? a.tokens_out : (a.tokensOut || 0);
+        const cost   = a.total_cost_usd != null ? a.total_cost_usd : (a.cost || 0);
+        const agentLimit = (b.agent_budgets || {})[a.id]?.limit_usd;
+        const over = agentLimit && cost > agentLimit;
         return `<tr style="border-top:1px solid var(--border)${over ? ';color:var(--red)' : ''}">
           <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.id || a.title || '—').toString().slice(0, 14))}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensIn || 0).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensOut || 0).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--accent)">$${Number(a.cost || 0).toFixed(4)}${over ? ' ⚠' : ''}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(tokIn).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(tokOut).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--accent)">$${Number(cost).toFixed(4)}${over ? ' ⚠' : ''}</td>
         </tr>`;
       }).join('') + '</tbody></table>';
   }
