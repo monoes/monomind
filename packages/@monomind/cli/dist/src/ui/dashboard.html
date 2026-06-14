@@ -6267,9 +6267,9 @@ function v2RenderOrgBudgets() {
   const agents = Array.isArray(b.agents) ? b.agents : (_v2OrgData._agents || []);
   // Org-level budget limits live under org_budget in the budgets API response
   const orgBudget = b.org_budget || {};
-  const tokenUsed  = b.tokens      != null ? b.tokens  : null;
+  const tokenUsed  = b.tokens      != null ? b.tokens  : (agents.length ? agents.reduce((s,a) => s + (a.tokens_in != null ? a.tokens_in : (a.tokensIn||0)) + (a.tokens_out != null ? a.tokens_out : (a.tokensOut||0)), 0) : null);
   const tokenLimit = b.tokenLimit  != null ? b.tokenLimit  : (orgBudget.limit_tokens ?? null);
-  const usdUsed    = b.usd         != null ? b.usd     : null;
+  const usdUsed    = b.usd         != null ? b.usd     : (agents.length ? agents.reduce((s,a) => s + (a.total_cost_usd != null ? a.total_cost_usd : (a.cost||0)), 0) : null);
   const usdLimit   = b.usdLimit    != null ? b.usdLimit : (orgBudget.limit_usd    ?? null);
 
   function fillBar(used, limit) {
