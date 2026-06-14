@@ -6,3 +6,4 @@
 - 1a635132 — fix(dashboard): fix v2RenderOrgBudgets to read agent data from budgets endpoint (snake_case keys) and org limits from org_budget.limit_tokens/limit_usd
 - 2f507250 — fix(server): add assignee field to /api/org/:name/issues response so dashboard Issues tab shows assignee name
 - aecf391d — fix(dashboard): use adapterType/adapterModel in agents-full tab so Type and Adapter columns show real data
+- aecf391d — fix(dashboard): read adapterType/adapterModel fields in v2RenderOrgAgentsFull (was reading a.type/a.adapter which don't exist in API response)
