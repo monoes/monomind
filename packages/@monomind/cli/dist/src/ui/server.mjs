@@ -3680,7 +3680,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const _myIssuesQs = new URL(req.url, 'http://localhost').searchParams;
+        const base = path.join(path.resolve(_myIssuesQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         let payload = { issues: [] };
         try {
           const raw = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-issues.json`), 'utf8'));
@@ -3749,7 +3750,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const _approvalsQs = new URL(req.url, 'http://localhost').searchParams;
+        const base = path.join(path.resolve(_approvalsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
         const data = readJsonSafe(path.join(base, `${orgName}-approvals.json`)) || { approvals: [] };
         const approvals = (data.approvals || [])
