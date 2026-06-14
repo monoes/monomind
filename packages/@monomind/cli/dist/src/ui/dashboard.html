@@ -3828,7 +3828,7 @@ function _buildLoopRowHtml(l, idx, projDir) {
       const flags = [];
       if (_l.type && _l.type !== 'repeat') flags.push('--' + _l.type);
       if (_l.maxReps) flags.push('--maxruns ' + _l.maxReps);
-      if (_l.interval) { const s = String(_l.interval).match(/^(\d+)s$/); if (s) flags.push('--wait ' + s[1]); }
+      if (_l.wait) flags.push('--wait ' + _l.wait);
       if (_l.currentRep != null) flags.push('--rep ' + _l.currentRep);
       if (_l.id) flags.push('--loop ' + _l.id);
       return { userPrompt: _l.prompt || '', command: _l.command, flagsStr: flags.join(' ') };
