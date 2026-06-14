@@ -900,7 +900,7 @@ export class WorkerDaemon extends EventEmitter {
       checks: {
         envFilesProtected: !existsSync(join(this.projectRoot, '.env.local')),
         gitIgnoreExists: existsSync(join(this.projectRoot, '.gitignore')),
-        noHardcodedSecrets: true, // Would need actual scanning
+        noHardcodedSecrets: null, // Not checked in local mode — requires AI-powered scan
       },
       riskLevel: 'low',
       recommendations: [],
@@ -931,8 +931,8 @@ export class WorkerDaemon extends EventEmitter {
       memoryUsage: process.memoryUsage(),
       uptime: process.uptime(),
       optimizations: {
-        cacheHitRate: 0.78,
-        avgResponseTime: 45,
+        cacheHitRate: null, // Not measured in local mode — requires AI-powered analysis
+        avgResponseTime: null, // Not measured in local mode — requires AI-powered analysis
       },
       note: 'Install Claude Code CLI for AI-powered optimization suggestions',
     };
