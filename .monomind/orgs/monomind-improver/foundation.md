@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- 01ef876a — fix(server): strip underscore-prefixed runtime fields (_activity/_agents/_budgets/_members/_issues) from org config before writing to disk so POST /api/orgs does not pollute saved JSON
 - 5d818617 — fix(dashboard): read l.maxReps (not l.capReps) in tillend progress bar so safety cap number is shown
 - 11049558 — fix(server): include description in /api/org/:name/issues response so board and full-issues views show issue text when title is absent
 - 3af1aedc — fix(dashboard): read _l.wait (not _l.interval regex) in loop command reconstruction so --wait N appears in expanded loop row
