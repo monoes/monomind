@@ -430,7 +430,12 @@ async function getOrBuildHnswIndex(db: any): Promise<any | null> {
   _hnswIndexBuilt = true; // Lock prevents concurrent re-build
   try {
     const memPkg = await import('@monoes/memory' as string);
-    if (!memPkg?.HNSWIndex) return null;
+    if (!memPkg?.HNSWIndex) {
+      // Release the lock so a later retry can succeed if the package becomes available.
+      _hnswIndexBuilt = false;
+      _hnswBuildFailedAt = Date.now();
+      return null;
+    }
 
     const rows = db.prepare(
       `SELECT id, embedding FROM memory_entries WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) AND embedding IS NOT NULL`
