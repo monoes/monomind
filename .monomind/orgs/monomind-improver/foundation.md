@@ -36,3 +36,4 @@
 - da6b9685 — fix(server): /api/org/:name/issues reads ?dir= query param so issues are loaded from the correct project directory
 - 79db7dbc — fix(server): /api/org/:name/invites reads ?dir= query param so invites are loaded from the correct project directory
 - 364eb6a9 — fix(server): /api/org/:name/budgets — honour ?dir= query param
+- 3fd3517f — fix(server): /api/org/:name/threads — honour ?dir= query param
