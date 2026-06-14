@@ -3900,7 +3900,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const threadsFile = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-threads.jsonl`);
+        const _threadsQs = new URL(req.url, 'http://localhost').searchParams;
+        const threadsFile = path.join(path.resolve(_threadsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs', `${orgName}-threads.jsonl`);
         let threads = [];
         try {
           const lines = fs.readFileSync(threadsFile, 'utf8').split('\n').filter(l => l.trim());
