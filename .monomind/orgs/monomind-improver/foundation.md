@@ -68,3 +68,4 @@
 - ed34d1f4 — fix(server): /api/org/:name/search now includes issues in search results (title/description/slug) so issue search returns hits instead of always returning empty
 - 8da114f0 — fix(dashboard): deduplicate live SSE events so chat feed does not show repeated events on SSE reconnect
 - 96d5dd9a — fix(dashboard): remove double ellipsis in invites token display
+- 6d89fc5e — fix(dashboard): command palette orgtab falls back to v2SwitchOrgTab for hidden tabs so roles/members/goals/board/live/secrets/settings/routines/myissues/heartbeats/tasks/costs are reachable from the palette
