@@ -34,3 +34,4 @@
 - 217f1f67 — fix(server): /api/org/:name/agents respects ?dir= query param
 - d1761103 — fix(server): POST /api/loops/create reads ?dir= query param so loops are written to correct project dir
 - da6b9685 — fix(server): /api/org/:name/issues reads ?dir= query param so issues are loaded from the correct project directory
+- 79db7dbc — fix(server): /api/org/:name/invites reads ?dir= query param so invites are loaded from the correct project directory
