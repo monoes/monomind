@@ -3829,6 +3829,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const data = readJsonSafe(indexFile) || { secrets: [] };
         const secrets = (data.secrets || []).map(s => ({
           name: s.name,
+          purpose: s.purpose || null,
           maskedRef: s.maskedRef || `${(s.name||'').substring(0,4)}***`,
           status: s.status || 'active',
           createdAt: s.createdAt || null,
