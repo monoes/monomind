@@ -3121,7 +3121,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const orgsDir = path.join(path.resolve(dir), '.monomind', 'orgs');
           fs.mkdirSync(orgsDir, { recursive: true });
           const destFile = path.join(orgsDir, `${name}.json`);
-          fs.writeFileSync(destFile, JSON.stringify({ ...cfg, name }, null, 2), 'utf8');
+          const cleanCfg = Object.fromEntries(Object.entries({ ...cfg, name }).filter(([k]) => !k.startsWith('_')));
+          fs.writeFileSync(destFile, JSON.stringify(cleanCfg, null, 2), 'utf8');
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ ok: true, name, file: destFile }));
         } catch (e) {
