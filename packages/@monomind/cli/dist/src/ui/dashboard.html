@@ -4063,7 +4063,7 @@ function chatVSelectSession(id) {
   const session = chatVSessions[id];
   const events = session.events || [];
   chatVPopulateAgentBar(events);
-  renderCvExcerptBanner('chat-v-excerpt', events);
+  renderCvExcerptBanner('chat-v-excerpt', events, session);
   events.forEach(ev => appendChatViewEvent(ev, false));
   feed.scrollTop = feed.scrollHeight;
 }
@@ -4187,12 +4187,20 @@ function _cvExcerptTag(ev) {
   return 'EVT';
 }
 
-function renderCvExcerptBanner(bannerId, events) {
+function renderCvExcerptBanner(bannerId, events, sessionMeta) {
   const banner = document.getElementById(bannerId);
   if (!banner) return;
   const SKIP = new Set(['session:start']);
   const meaningful = (events || []).filter(ev => !SKIP.has(ev.type)).slice(-5).reverse();
-  if (!meaningful.length) { banner.classList.remove('visible'); banner.innerHTML = ''; return; }
+  if (!meaningful.length) {
+    // Fallback: show session meta (prompt/goal) so banner is never blank when a session is selected
+    const prompt = sessionMeta && (sessionMeta.prompt || '');
+    const clean = prompt.replace(/^running org:\s*/i, '').slice(0, 120);
+    if (!clean) { banner.classList.remove('visible'); banner.innerHTML = ''; return; }
+    banner.innerHTML = `<div class="cv-excerpt-label">SESSION GOAL</div><div class="cv-excerpt-items"><div class="cv-excerpt-item"><span class="cv-ex-tag">ORG</span>${esc(clean)}</div></div>`;
+    banner.classList.add('visible');
+    return;
+  }
   const items = meaningful.slice(0, 3).map(ev => {
     const tag = _cvExcerptTag(ev);
     const txt = _cvExcerptText(ev);
@@ -4258,7 +4266,7 @@ function handleChatViewEvent(ev) {
       || (ev.from && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
       || (ev.to && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
     if (hasNewAgent) chatVPopulateAgentBar(chatVSessions[ev.session]?.events || []);
-    renderCvExcerptBanner('chat-v-excerpt', chatVSessions[ev.session]?.events || []);
+    renderCvExcerptBanner('chat-v-excerpt', chatVSessions[ev.session]?.events || [], chatVSessions[ev.session]);
     appendChatViewEvent(ev, true);
   }
 }
@@ -6622,7 +6630,7 @@ window.odtChatSelectSession = function(id) {
   if (!sess) return;
   if (emptyEl) emptyEl.style.display = 'none';
   _odtPopulateAgentBar(sess.events || []);
-  renderCvExcerptBanner('odt-chat-excerpt', sess.events || []);
+  renderCvExcerptBanner('odt-chat-excerpt', sess.events || [], sess);
   (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
   feed.scrollTop = feed.scrollHeight;
 };
@@ -6747,7 +6755,7 @@ function _odtHandleLiveEvent(ev) {
         || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
         || (ev.to && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
       if (hasNewAgent) _odtPopulateAgentBar(sess.events);
-      renderCvExcerptBanner('odt-chat-excerpt', sess.events);
+      renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess);
       _odtAppendEvent(ev, true);
     }
   }
