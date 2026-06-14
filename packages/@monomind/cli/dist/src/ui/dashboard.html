@@ -6968,14 +6968,14 @@ async function v2RenderOrgJoinRequests() {
   try {
     const _enc = encodeURIComponent(_v2SelOrg);
     const data = await fetch(`/api/org/${_enc}/join-requests${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    const reqs = Array.isArray(data) ? data : (data.joinRequests || data.join_requests || []);
+    const reqs = Array.isArray(data) ? data : (data.requests || data.joinRequests || data.join_requests || []);
     if (!reqs.length) { el.innerHTML = '<div class="empty">No pending join requests</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="color:var(--text-xs);text-align:left">
         <th style="padding:5px 8px">Requester</th><th>Type</th><th>Status</th><th>Created</th>
       </tr></thead>
       <tbody>${reqs.map(r => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text-hi)">${esc(r.name||r.username||r.id||'—')}</td>
+        <td style="padding:5px 8px;color:var(--text-hi)">${esc(r.requesterName||r.name||r.username||r.id||'—')}</td>
         <td style="padding:5px 8px;color:var(--text-lo)">${r.type==='agent'?'🤖 agent':'👤 human'}</td>
         <td style="padding:5px 8px"><span class="ss-pill ${r.status==='approved'?'on':r.status==='rejected'?'warn':''}">${esc(r.status||'pending')}</span></td>
         <td style="padding:5px 8px;color:var(--text-lo)">${r.createdAt ? relTime(r.createdAt) : '—'}</td>
