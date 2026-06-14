@@ -7161,7 +7161,7 @@ async function v2RenderOrgInvites() {
         <th style="padding:5px 8px">Token</th><th>Role</th><th>Expires</th><th>Created</th>
       </tr></thead>
       <tbody>${invites.map(i => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((i.token||i.id||'—').slice(0,16))}…</td>
+        <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((i.token||i.id||'—').slice(0,20))}</td>
         <td style="padding:5px 8px"><span class="ss-pill">${esc(i.role||'viewer')}</span></td>
         <td style="padding:5px 8px;color:var(--text-lo)">${i.expiresAt ? relTime(i.expiresAt) : '—'}</td>
         <td style="padding:5px 8px;color:var(--text-lo)">${i.createdAt ? relTime(i.createdAt) : '—'}</td>
