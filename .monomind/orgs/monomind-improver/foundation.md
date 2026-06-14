@@ -25,6 +25,7 @@ _(The boss appends one line here after each successful commit so future cycles d
 - [2026-06-14 00:08] 1fbe2fae — fix(collector): derive monthCost/monthCalls from fresh JSONL dailyMap instead of stale token-summary.json; scan window extended back to month start (Math.min of 14-day cutoff and monthStartMs) so all days in billing period are included; Month Total card in topbar and Month Cost card in Tokens view now show correct data
 - [2026-06-14 00:09] 0066a2e2 — fix(dashboard): check l.type === 'tillend' for tillend loop detection in _buildLoopRowHtml() and mini-loops panel; server sends field name `type` but both renderers checked the nonexistent `loopType` field — tillend loops never showed ∞ badge or gradient progress bar unless they also lacked maxReps
 - [2026-06-14 00:10] 44b12044 — fix(server): emit compactCount and errorCount in /api/session-journal response; JSONL parser never tracked is_error tool_result blocks or derived compactCount from summaries.length, so both the "+N compacted" and "N err" session-list badges in the dashboard were permanently invisible
+- [2026-06-14 00:11] f6a5311c — fix(server): send roles array (not length number) in /api/orgs list endpoint; dashboard v2RenderOrgList() checks Array.isArray(o.roles) to build role avatar images but received a number so shownRoles was always [] — all org card avatars were permanently suppressed
 
 ## Off-Limits (do not re-implement)
 - Nothing yet
