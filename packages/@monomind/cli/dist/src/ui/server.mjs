@@ -452,7 +452,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         for (const { f, mtime } of sessionFiles) {
           const fp = path.join(projectClaudeDir, f);
           const id = f.replace('.jsonl', '');
-          let lastPrompt = '', summaries = [], totalDurationMs = 0, totalMessages = 0, firstTs = null, lastTs = null, totalCost = 0, toolCalls = 0, userMessages = 0, cacheReadTokens = 0, totalInputTokens = 0;
+          let lastPrompt = '', summaries = [], totalDurationMs = 0, totalMessages = 0, firstTs = null, lastTs = null, totalCost = 0, toolCalls = 0, userMessages = 0, cacheReadTokens = 0, totalInputTokens = 0, errorCount = 0;
           const modelBreakdown = {};
           const filesTouchedSet = new Set();
           try {
@@ -462,7 +462,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               let e; try { e = JSON.parse(line); } catch { continue; }
               if (e.timestamp) { if (!firstTs) firstTs = e.timestamp; lastTs = e.timestamp; }
               if (e.type === 'last-prompt' && e.lastPrompt) lastPrompt = e.lastPrompt;
-              if (e.type === 'user') userMessages++;
+              if (e.type === 'user') {
+                userMessages++;
+                for (const b of (e.message?.content || [])) {
+                  if (b && b.type === 'tool_result' && b.is_error) errorCount++;
+                }
+              }
               if (e.type === 'system' && e.subtype === 'compact_boundary') pendingCompact = true;
               if (pendingCompact && e.type === 'user') {
                 const msg = e.message || {};
@@ -504,7 +509,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             }
           } catch {}
           const filesTouched = [...filesTouchedSet].slice(0, 20);
-          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, totalDurationMs, totalMessages, totalCost, toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
+          const compactCount = summaries.length;
+          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, compactCount, errorCount, totalDurationMs, totalMessages, totalCost, toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ sessions }));
