@@ -6883,8 +6883,8 @@ function v2RenderOrgAgentsFull() {
     </tr></thead>
     <tbody>${agents.map(a => `<tr style="border-top:1px solid var(--border)">
       <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((a.id||'—').toString().slice(0,12))}</td>
-      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.type||a.title||'—')}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapter||'—')}</td>
+      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.adapterType||a.type||a.title||'—')}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapterModel||a.adapter||'—')}</td>
       <td style="padding:5px 8px"><span class="ss-pill ${(a.status==='running'||a.running)?'on':''}">${esc(a.status||'idle')}</span></td>
       <td style="padding:5px 8px;color:var(--text-lo)">${a.lastHeartbeat ? relTime(a.lastHeartbeat) : '—'}</td>
       <td style="padding:5px 8px;color:var(--text-lo)">${a.tokensIn != null ? Number(a.tokensIn).toLocaleString() : '—'}</td>
