@@ -48,3 +48,5 @@ _(The boss appends one line here after each successful commit so future cycles d
 - Co-Authored-By: nokhodian <nokhodian@gmail.com>
 - Never commit secrets, credentials, or .env files
 - Stay on `improve/auto` — never push to `main` directly
+
+- [2026-06-14 03:20] 26d7c964 — fix(dashboard): renamed "Top Tools" to "Tool Categories" in agent-graph selectAgSession(); the section rendered bar charts of n.toolCounts keys which are TOOL_CAT() categories (file/bash/agent/memory/web/skill/other) not individual tool names — the "Top Tools" heading falsely implied per-tool breakdown
