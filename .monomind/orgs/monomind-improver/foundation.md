@@ -21,3 +21,4 @@
 - 4668a03d — fix(server): add description field to /api/org/:name/my-issues response so title fallback renders correctly in dashboard
 - 632de5e3 — fix(dashboard): Live tab activity feed reads e.msg fallback (server returns msg not message field)
 - ebe8f016 — fix(orgs): appendLiveFeedRow reads ev.msg fallback so live strip shows event text (orgs.html was still reading ev.message which is always undefined)
+- ed71d00e — fix(dashboard): v2RenderOrgBudgets aggregates tokens/usd from per-agent data when top-level b.tokens/b.usd are absent (server never returns those fields)
