@@ -2675,7 +2675,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             const lines = raw.split('\n').filter(Boolean);
             for (const line of lines) {
               let e; try { e = JSON.parse(line); } catch { continue; }
-              if (e.type === 'user') turns++;
+              if (e.type === 'user') {
+                // Only count actual human turns, not tool-result responses
+                const ct = e.message?.content;
+                const isToolResult = Array.isArray(ct) && ct.length > 0 && ct.every(b => b && b.type === 'tool_result');
+                if (!isToolResult) turns++;
+              }
               if (e.type === 'assistant') {
                 for (const block of (e.message?.content || [])) {
                   if (!block || block.type !== 'tool_use') continue;
