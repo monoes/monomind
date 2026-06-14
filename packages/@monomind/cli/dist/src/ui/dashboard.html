@@ -1867,9 +1867,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-issues-full"></div>
             <div class="odt-pane" id="odt-join-requests"></div>
             <div class="odt-pane" id="odt-threads"></div>
-            <div class="odt-pane" id="odt-chat" style="flex-direction:column;height:100%;overflow:hidden;"></div>
-            <div class="odt-pane" id="odt-config"></div>
-            <div class="odt-pane" id="odt-files"></div>
+            <div class="odt-pane" id="odt-chat" style="display:none;flex-direction:column;height:100%;overflow:hidden;"></div>
+            <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
           </div>
         </div>
         <!-- copy / export / import dialogs -->
@@ -3134,15 +3134,7 @@ async function setTokPeriod(btn, period) {
   if (cards) cards.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
     const data = await apiFetch('/api/token-usage?period=' + enc(period) + '&dir=' + enc(DIR));
-    // Server returns flat fields (totalCost, totalCalls, totalIn, totalOut, modelBreakdown…).
-    // Normalise into a summary object so all downstream field paths resolve correctly.
-    const s = data?.summary || data?.tokens?.summary || {
-      todayCost:   data?.totalCost   ?? null,
-      calls:       data?.totalCalls  ?? null,
-      totalTokens: (data?.totalIn != null || data?.totalOut != null)
-                     ? (data.totalIn || 0) + (data.totalOut || 0) : null,
-      modelCount:  data?.modelBreakdown ? Object.keys(data.modelBreakdown).length : null,
-    };
+    const s = data?.summary || data?.tokens?.summary || {};
     const daily = Array.isArray(data?.daily) ? data.daily
       : Array.isArray(data?.tokens?.daily) ? data.tokens.daily : [];
     const rows  = Array.isArray(data?.rows)  ? data.rows
@@ -3264,23 +3256,13 @@ async function loadMemUsagePeriod(btn, period) {
   content.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
     const data = await apiFetch('/api/token-usage?period=' + enc(period) + '&dir=' + enc(DIR));
-    // Server returns flat fields and object-keyed breakdowns — normalise for downstream consumers.
-    const s = data?.summary || data?.tokens?.summary || {
-      todayCost:   data?.totalCost   ?? null,
-      cost:        data?.totalCost   ?? null,
-      calls:       data?.totalCalls  ?? null,
-      totalTokensIn:  data?.totalIn  ?? null,
-      totalTokensOut: data?.totalOut ?? null,
-      cacheTokens:    data?.totalCR  ?? null,
-    };
+    const s = data?.summary || data?.tokens?.summary || {};
     const rows = Array.isArray(data?.rows) ? data.rows : (data?.tokens?.rows || []);
-    const _toArr = (obj, keyField, valFields) =>
-      obj ? Object.entries(obj).map(([k, v]) => ({ [keyField]: k, ...(typeof v === 'object' ? v : { count: v }) })) : [];
-    const models     = Array.isArray(data?.models)     ? data.models     : _toArr(data?.modelBreakdown,    'model',    ['calls','cost','tokens']);
-    const tools      = Array.isArray(data?.tools)      ? data.tools      : _toArr(data?.toolBreakdown,     'tool',     ['calls']).map(x => ({ ...x, count: x.calls || 0 }));
-    const mcps       = Array.isArray(data?.mcpServers) ? data.mcpServers : _toArr(data?.mcpBreakdown,      'server',   ['calls']).map(x => ({ ...x, count: x.calls || 0 }));
-    const categories = Array.isArray(data?.categories) ? data.categories : _toArr(data?.categoryBreakdown, 'category', ['turns','cost']);
-    const projects   = Array.isArray(data?.projects)   ? data.projects   : (data?.topProjects || []);
+    const models = Array.isArray(data?.models) ? data.models : (data?.byModel || []);
+    const tools = Array.isArray(data?.tools) ? data.tools : (data?.topTools || []);
+    const mcps = Array.isArray(data?.mcpServers) ? data.mcpServers : (data?.mcp || []);
+    const categories = Array.isArray(data?.categories) ? data.categories : (data?.activity || []);
+    const projects = Array.isArray(data?.projects) ? data.projects : (data?.topProjects || []);
 
     function barChart(items, valKey, labelKey, color, maxItems) {
       if (!items.length) return '<div class="empty" style="font-size:12px">No data</div>';
@@ -3299,24 +3281,17 @@ async function loadMemUsagePeriod(btn, period) {
       }).join('');
     }
 
-    // /api/token-usage returns flat { totalCost, totalCalls, totalIn, totalOut, totalCR } at the top
-    // level — not nested under "summary". Fall back to those flat fields when s (summary) is empty.
-    const totalCost = typeof s.todayCost === 'number' ? s.todayCost
-      : (typeof s.cost === 'number' ? s.cost
-      : (typeof data?.totalCost === 'number' ? data.totalCost : null));
-    const totalCalls = s.todayCalls ?? s.calls ?? data?.totalCalls ?? null;
-    const tokIn  = s.totalTokensIn  ?? data?.totalIn  ?? null;
-    const tokOut = s.totalTokensOut ?? data?.totalOut ?? null;
-    const cacheR = s.cacheTokens ?? data?.totalCR ?? null;
-    const cacheEff = (cacheR != null && tokIn) ? Math.round(cacheR / tokIn * 100) : null;
+    const totalCost = typeof s.todayCost === 'number' ? s.todayCost : (typeof s.cost === 'number' ? s.cost : null);
+    const cacheEff = s.cacheTokens && s.totalTokensIn
+      ? Math.round(s.cacheTokens / s.totalTokensIn * 100) : null;
 
     content.innerHTML = `
       <!-- Overview stats -->
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
         ${totalCost !== null ? `<div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--accent)">$${totalCost.toFixed(3)}</div><div class="chunk-stat-lbl">Total Cost</div></div>` : ''}
-        ${totalCalls != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(totalCalls).toLocaleString()}</div><div class="chunk-stat-lbl">API Calls</div></div>` : ''}
-        ${tokIn != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(tokIn).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens In</div></div>` : ''}
-        ${tokOut != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(tokOut).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens Out</div></div>` : ''}
+        ${s.todayCalls != null || s.calls != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${(s.todayCalls ?? s.calls ?? 0).toLocaleString()}</div><div class="chunk-stat-lbl">API Calls</div></div>` : ''}
+        ${s.totalTokensIn != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(s.totalTokensIn).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens In</div></div>` : ''}
+        ${s.totalTokensOut != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(s.totalTokensOut).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens Out</div></div>` : ''}
         ${cacheEff !== null ? `<div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--green)">${cacheEff}%</div><div class="chunk-stat-lbl">Cache Eff.</div></div>` : ''}
       </div>
 
@@ -3837,7 +3812,7 @@ async function stopLoopInProject(evt, id, projDir) {
 function _buildLoopRowHtml(l, idx, projDir) {
   const maxReps = l.maxReps || 0;
   const curRep  = l.currentRep || 0;
-  const isTillend = !maxReps || l.type === 'tillend' || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+  const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
   const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
   const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
   const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
@@ -5402,8 +5377,6 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'join-requests') v2RenderOrgJoinRequests();
   else if (tab === 'threads')      v2RenderOrgThreads();
   else if (tab === 'chat')         v2RenderOrgChat();
-  else if (tab === 'config')       v2RenderOrgConfig();
-  else if (tab === 'files')        v2RenderOrgFiles();
 }
 
 // ── org chart ───────────────────────────────
@@ -6288,17 +6261,7 @@ function v2RenderOrgBudgets() {
   const el = document.getElementById('odt-budgets');
   if (!el || !_v2OrgData) return;
   const b = _v2OrgData._budgets || _v2OrgData.budgets || {};
-  // /api/org/:name/budgets wraps org-level limits in org_budget: {limit_tokens, limit_usd}
-  const orgBudget = b.org_budget || {};
-  // budgets endpoint provides agents with total_cost_usd/tokens_in/tokens_out; fall back to _agents
-  const budgetAgents = Array.isArray(b.agents) && b.agents.length ? b.agents : (_v2OrgData._agents || []);
-
-  // Compute org-level totals by summing per-agent spend (no org-rollup in endpoint response)
-  const totalUsedTokens = budgetAgents.reduce((s, a) => {
-    const used = a.tokens_used != null ? a.tokens_used : ((a.tokens_in || a.tokensIn || 0) + (a.tokens_out || a.tokensOut || 0));
-    return s + Number(used || 0);
-  }, 0);
-  const totalUsedUsd = budgetAgents.reduce((s, a) => s + Number(a.total_cost_usd ?? a.cost ?? 0), 0);
+  const agents = _v2OrgData._agents || [];
 
   function fillBar(used, limit) {
     if (!limit) return '';
@@ -6309,27 +6272,22 @@ function v2RenderOrgBudgets() {
   }
 
   let html = '';
-  if (orgBudget.limit_tokens != null) {
-    html += `<div class="m-group-title">Token Budget</div>${fillBar(totalUsedTokens, orgBudget.limit_tokens)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(totalUsedTokens).toLocaleString()} / ${Number(orgBudget.limit_tokens).toLocaleString()} tokens</div>`;
+  if (b.tokens != null || b.tokenLimit != null) {
+    html += `<div class="m-group-title">Tokens</div>${fillBar(b.tokens || 0, b.tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(b.tokens || 0).toLocaleString()} / ${b.tokenLimit ? b.tokenLimit.toLocaleString() : '∞'}</div>`;
   }
-  if (orgBudget.limit_usd != null) {
-    html += `<div class="m-group-title">USD Budget</div>${fillBar(totalUsedUsd, orgBudget.limit_usd)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${totalUsedUsd.toFixed(4)} / $${Number(orgBudget.limit_usd).toFixed(2)}</div>`;
+  if (b.usd != null || b.usdLimit != null) {
+    html += `<div class="m-group-title">USD Budget</div>${fillBar(b.usd || 0, b.usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${Number(b.usd || 0).toFixed(4)} / ${b.usdLimit ? '$' + Number(b.usdLimit).toFixed(2) : '∞'}</div>`;
   }
-  if (budgetAgents.length) {
+  if (agents.length) {
     html += '<div class="m-group-title" style="margin-bottom:6px">Per Agent</div>' +
       `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:4px 8px">Agent</th><th>Tokens In</th><th>Tokens Out</th><th>Cost</th></tr></thead><tbody>` +
-      budgetAgents.slice(0, 20).map(a => {
-        // budgets endpoint uses snake_case; _agents endpoint uses camelCase — handle both
-        const tokIn  = a.tokens_in  != null ? a.tokens_in  : (a.tokensIn  || 0);
-        const tokOut = a.tokens_out != null ? a.tokens_out : (a.tokensOut || 0);
-        const cost   = a.total_cost_usd != null ? a.total_cost_usd : (a.cost || 0);
-        const agentLimit = (b.agent_budgets || {})[a.id]?.limit_usd;
-        const over = agentLimit && cost > agentLimit;
+      agents.slice(0, 20).map(a => {
+        const over = a.budgetLimit && ((a.tokensIn || 0) + (a.tokensOut || 0)) > a.budgetLimit;
         return `<tr style="border-top:1px solid var(--border)${over ? ';color:var(--red)' : ''}">
           <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.id || a.title || '—').toString().slice(0, 14))}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(tokIn).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(tokOut).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--accent)">$${Number(cost).toFixed(4)}${over ? ' ⚠' : ''}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensIn || 0).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensOut || 0).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--accent)">$${Number(a.cost || 0).toFixed(4)}${over ? ' ⚠' : ''}</td>
         </tr>`;
       }).join('') + '</tbody></table>';
   }
@@ -6894,55 +6852,6 @@ async function v2RenderOrgThreads() {
         <td style="padding:5px 8px;color:var(--text-lo)">${t.createdAt ? relTime(t.createdAt) : '—'}</td>
       </tr>`).join('')}</tbody>
     </table>`;
-  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
-}
-
-// ── ORG CONFIG TAB ─────────────────────────────────────────
-function v2RenderOrgConfig() {
-  const el = document.getElementById('odt-config');
-  if (!el || !_v2OrgData) return;
-  const d = _v2OrgData;
-  const fields = [
-    ['Name',       d.name || d.id || '—'],
-    ['Topology',   d.topology || '—'],
-    ['Governance', (d.governance && typeof d.governance === 'object') ? (d.governance.policy || JSON.stringify(d.governance)) : (d.governance || '—')],
-    ['Max Agents', d.max_agents ?? d.maxAgents ?? '—'],
-    ['Strategy',   d.strategy || '—'],
-    ['Consensus',  d.consensus || '—'],
-    ['Budget (tokens)', d.run_config?.budget_tokens ?? d.budget_tokens ?? d.budgetTokens ?? '—'],
-    ['Goal',       d.goal || '—'],
-    ['Running',    d.running ? 'Yes' : 'No'],
-    ['Created',    d.created_at ? relTime(d.created_at) : '—'],
-    ['Updated',    d.updated_at ? relTime(d.updated_at) : '—'],
-  ];
-  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;font-size:12px;max-width:480px">
-    ${fields.map(([k, v]) => `<div style="display:flex;gap:12px;padding:5px 0;border-bottom:1px solid var(--border)">
-      <div style="width:130px;flex-shrink:0;color:var(--text-lo)">${esc(k)}</div>
-      <div style="color:var(--text-hi);word-break:break-all">${esc(String(v))}</div>
-    </div>`).join('')}
-  </div>`;
-}
-
-// ── ORG FILES TAB ──────────────────────────────────────────
-async function v2RenderOrgFiles() {
-  const el = document.getElementById('odt-files');
-  if (!el || !_v2SelOrg) return;
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const _enc = encodeURIComponent(_v2SelOrg);
-    const data = await fetch(`/api/org/${_enc}${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():{}).catch(()=>({}));
-    const paths = [];
-    if (data.foundation_file) paths.push({ label: 'Foundation', path: data.foundation_file });
-    if (data.config_file)     paths.push({ label: 'Config',     path: data.config_file });
-    if (data.issues_file)     paths.push({ label: 'Issues',     path: data.issues_file });
-    if (data.members_file)    paths.push({ label: 'Members',    path: data.members_file });
-    if (!paths.length) { el.innerHTML = '<div class="empty">No tracked files found for this org</div>'; return; }
-    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
-      ${paths.map(p => `<div style="display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border)">
-        <span style="width:90px;flex-shrink:0;color:var(--text-lo)">${esc(p.label)}</span>
-        <span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);word-break:break-all">${esc(p.path)}</span>
-      </div>`).join('')}
-    </div>`;
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
 
@@ -10648,7 +10557,7 @@ function selectAgSession(idx) {
           '<div style="width:22px;text-align:right;color:var(--text-lo);font-size:11px;font-family:var(--mono)">' + count + '</div>' +
         '</div>';
       }).join('') : '') +
-    (toolArr.length ? '<div class="m-group-title" style="margin-bottom:5px;margin-top:14px">Tool Categories</div>' +
+    (toolArr.length ? '<div class="m-group-title" style="margin-bottom:5px;margin-top:14px">Top Tools</div>' +
       toolArr.map(function(entry) {
         var tool = entry[0], count = entry[1];
         return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">' +
@@ -10755,7 +10664,7 @@ async function mmRenderLoops(body) {
     body.innerHTML = loops.map(l => {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
-      const isTillend = !maxReps || l.type === 'tillend' || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
       const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
