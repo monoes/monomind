@@ -296,10 +296,12 @@ function _tokPrice(model) {
 }
 function _tokCost(model, usage) {
   const p = _tokPrice(model);
+  const webSearch = ((usage.server_tool_use || {}).web_search_requests || 0) * 0.01;
   return (usage.input_tokens || 0) * p.in
        + (usage.output_tokens || 0) * p.out
        + (usage.cache_creation_input_tokens || 0) * p.cw
-       + (usage.cache_read_input_tokens || 0) * p.cr;
+       + (usage.cache_read_input_tokens || 0) * p.cr
+       + webSearch;
 }
 
 function collectTokens(projectDir, days = 14) {
