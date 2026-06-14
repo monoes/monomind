@@ -13,7 +13,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, readdirSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, unlinkSync, readdirSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import * as os from 'node:os';
 
@@ -66,10 +66,12 @@ function ensurePerfDir(): void {
   }
 }
 
+const MAX_PERF_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
+
 function loadPerfStore(): PerfStore {
   try {
     const path = getPerfPath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_PERF_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
   } catch {
