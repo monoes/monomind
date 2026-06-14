@@ -11,7 +11,7 @@ import { commandParser } from './parser.js';
 import { output } from './output.js';
 import { commands, commandsByCategory, getCommand, getCommandAsync, getCommandNames, hasCommand } from './commands/index.js';
 import { suggestCommand } from './suggest.js';
-import { runStartupUpdateCheck } from './update/index.js';
+import { runStartupUpdateCheck, getUpdateTagline } from './update/index.js';
 // Read version from package.json at runtime
 function getPackageVersion() {
     try {
@@ -223,7 +223,8 @@ export class CLI {
      */
     showHelp() {
         this.output.writeln();
-        this.output.writeln(this.output.bold(`${this.name} v${this.version}`));
+        const tagline = getUpdateTagline(this.version);
+        this.output.writeln(this.output.bold(`${this.name} v${this.version}`) + this.output.dim(tagline));
         this.output.writeln(this.output.dim(this.description));
         this.output.writeln();
         this.output.writeln(this.output.bold('USAGE:'));
@@ -355,7 +356,8 @@ export class CLI {
      * Show version
      */
     showVersion() {
-        this.output.writeln(`${this.name} v${this.version}`);
+        const tagline = getUpdateTagline(this.version);
+        this.output.writeln(`${this.name} v${this.version}${tagline}`);
     }
     /**
      * Check for updates on startup (non-blocking)
@@ -363,17 +365,20 @@ export class CLI {
      */
     async checkForUpdatesOnStartup() {
         try {
-            const result = await runStartupUpdateCheck({ autoUpdate: true });
-            // Show notifications for available updates that weren't auto-applied
-            if (result.checked && result.updatesAvailable.length > 0) {
-                const nonAutoUpdates = result.updatesAvailable.filter(u => !u.shouldAutoUpdate);
-                if (result.updatesApplied.length > 0) {
-                    this.output.writeln(this.output.dim(`Auto-updated: ${result.updatesApplied.join(', ')}`));
-                }
-                if (nonAutoUpdates.length > 0) {
-                    this.output.writeln(this.output.dim(`Updates available: ${nonAutoUpdates.map(u => `${u.package}@${u.latestVersion}`).join(', ')}`));
-                    this.output.writeln(this.output.dim(`Run '${this.name} update check' for details`));
-                }
+            const result = await runStartupUpdateCheck({
+                autoUpdate: true,
+                onInstalling: (pkgs) => {
+                    this.output.writeln(this.output.dim(`  ↑ installing ${pkgs.join(', ')}...`));
+                },
+            });
+            if (!result.checked)
+                return;
+            if (result.updatesApplied.length > 0) {
+                this.output.writeln(this.output.dim(`  ✓ updated ${result.updatesApplied.join(', ')}`));
+            }
+            const manual = result.updatesAvailable.filter(u => !u.shouldAutoUpdate);
+            if (manual.length > 0) {
+                this.output.writeln(this.output.dim(`  ↑ ${manual.map(u => `${u.package} v${u.latestVersion}`).join(', ')} available  →  run: ${this.name} update all`));
             }
         }
         catch {
