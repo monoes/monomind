@@ -11,7 +11,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { existsSync, mkdirSync, writeFileSync, renameSync, readFileSync, appendFileSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, renameSync, readFileSync, appendFileSync, unlinkSync, statSync } from 'fs';
 import { cpus } from 'os';
 import { join, resolve } from 'path';
 import {
@@ -1244,6 +1244,17 @@ export class WorkerDaemon extends EventEmitter {
     try {
       const logFile = join(this.config.logDir, 'daemon.log');
       appendFileSync(logFile, logMessage + '\n');
+      // Opportunistic rotation: keep the log under 10 MB. When exceeded,
+      // discard the oldest half so recent entries are always retained.
+      const MAX_LOG_BYTES = 10 * 1024 * 1024;
+      if (statSync(logFile).size > MAX_LOG_BYTES) {
+        const content = readFileSync(logFile, 'utf-8');
+        const lines = content.split('\n').filter(Boolean);
+        const trimmed = lines.slice(Math.floor(lines.length / 2)).join('\n') + '\n';
+        const tmp = `${logFile}.${process.pid}.${Date.now()}.tmp`;
+        writeFileSync(tmp, trimmed);
+        renameSync(tmp, logFile);
+      }
     } catch {
       // Ignore log write errors
     }
