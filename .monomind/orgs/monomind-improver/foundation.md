@@ -19,3 +19,4 @@
 - 3d530492 — fix(server): add join-requests to _sidecarSuffixRe in /api/orgs so join-requests.json sidecar files are not parsed as org configs
 - 45b83170 — fix(dashboard): v2RenderOrgRoutines reads r.last_run (not r.lastRun) and derives status from r.enabled when r.status absent
 - 4668a03d — fix(server): add description field to /api/org/:name/my-issues response so title fallback renders correctly in dashboard
+- 632de5e3 — fix(dashboard): Live tab activity feed reads e.msg fallback (server returns msg not message field)
