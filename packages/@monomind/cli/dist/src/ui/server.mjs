@@ -3616,11 +3616,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     }
 
     // GET /api/org/:name/invites — active invites + pending join requests
-    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/invites$/i)) {
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/invites(\?.*)?$/i)) {
       try {
-        const orgName = decodeURIComponent(url.split('/')[3]);
+        const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const _invitesQs = new URL(req.url, 'http://localhost').searchParams;
+        const base = path.join(path.resolve(_invitesQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         let payload = { invites: [], join_requests: [] };
         try {
           const raw = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-members.json`), 'utf8'));
