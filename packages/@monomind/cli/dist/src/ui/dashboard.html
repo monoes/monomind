@@ -6146,7 +6146,7 @@ async function orgApprovalAction(id, action) {
   if (!confirm(action + ' this request?')) return;
   try {
     const _enc = encodeURIComponent(_v2SelOrg);
-    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}`, {
+    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
     });
     showToast('Done', action + 'd', 'ok');
@@ -7097,7 +7097,7 @@ async function v2RenderOrgThreads() {
 window.v2StopOrg = async function() {
   if (!_v2SelOrg) return;
   const stopped = _v2SelOrg;
-  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop`, {method:'POST'}); } catch(_) {}
+  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {method:'POST'}); } catch(_) {}
   setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
 };
 
@@ -7137,7 +7137,7 @@ window.v2DoCopyOrg = async function() {
   confirmBtn.disabled = true;
   if (statusEl) { statusEl.textContent = 'Copying…'; statusEl.style.color = 'var(--text-lo)'; }
   try {
-    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + '/copy', {
+    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + '/copy' + (DIR ? '?dir=' + encodeURIComponent(DIR) : ''), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ destination: dest }),
     });
