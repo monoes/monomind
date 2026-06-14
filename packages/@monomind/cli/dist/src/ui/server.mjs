@@ -3613,7 +3613,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const raw = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-members.json`), 'utf8'));
           const all = raw.join_requests || [];
           payload.invites = all.filter(r => r.type === 'invite' && r.status === 'pending')
-            .map(r => ({ id: r.id, token: r.token ? r.token.slice(0, 8) + '…' : r.id, role: r.role || 'operator', createdAt: r.createdAt || null, status: r.status }));
+            .map(r => ({ id: r.id, token: r.token ? r.token.slice(0, 8) + '…' : r.id, role: r.role || 'operator', createdAt: r.createdAt || null, expiresAt: r.expiresAt || null, status: r.status }));
           payload.join_requests = all.filter(r => r.type !== 'invite' && r.status === 'pending_approval')
             .map(r => ({ id: r.id, requestType: r.requestType || 'human', role: r.role || 'viewer', createdAt: r.createdAt || null, message: r.message || '' }));
         } catch(_) { /* members file missing */ }
