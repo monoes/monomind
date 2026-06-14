@@ -32,3 +32,4 @@
 - cc3d9612 — fix(server): /api/org/:name/members reads ?dir= query param
 - d2fedbf6 — fix(orgs): connectSSE uses /api/mastermind-stream not /api/events
 - 217f1f67 — fix(server): /api/org/:name/agents respects ?dir= query param
+- d1761103 — fix(server): POST /api/loops/create reads ?dir= query param so loops are written to correct project dir
