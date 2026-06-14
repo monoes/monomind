@@ -4071,6 +4071,30 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // GET /api/file-content — return raw text content of a .monomind file
+    if (req.method === 'GET' && url === '/api/file-content') {
+      try {
+        const _fcQs = new URL(req.url, 'http://localhost').searchParams;
+        const rawPath = _fcQs.get('path');
+        const baseDir = path.resolve(_fcQs.get('dir') || projectDir || process.cwd());
+        if (!rawPath) { res.writeHead(400); res.end('Missing path'); return; }
+        const resolved = path.resolve(rawPath);
+        // Security: must be inside .monomind of the project dir
+        const monomindDir = path.join(baseDir, '.monomind');
+        if (!resolved.startsWith(monomindDir + path.sep) && resolved !== monomindDir) {
+          res.writeHead(403); res.end('Forbidden'); return;
+        }
+        if (!fs.existsSync(resolved)) { res.writeHead(404); res.end('Not found'); return; }
+        const stat = fs.statSync(resolved);
+        if (!stat.isFile()) { res.writeHead(400); res.end('Not a file'); return; }
+        if (stat.size > 524288) { res.writeHead(413); res.end('File too large'); return; }
+        const content = fs.readFileSync(resolved, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.end(content);
+      } catch(_) { res.writeHead(500); res.end('Internal error'); }
+      return;
+    }
+
     // DELETE /api/orgs/:name — delete an org config and all associated data files
     if (req.method === 'DELETE' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}(\?.*)?$/i)) {
       try {
