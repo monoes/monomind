@@ -4131,7 +4131,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const configFile = path.join(orgsDir, `${orgName}.json`);
         if (!fs.existsSync(configFile)) { res.writeHead(404); res.end('{"error":"org not found"}'); return; }
         // Remove all org-associated files (config + state + data)
-        const suffixes = ['', '-state', '-goals', '-routines', '-approvals', '-activity', '-issues', '-members', '-projects', '-workspaces', '-worktrees', '-environments', '-plugins', '-adapters'];
+        const suffixes = ['', '-state', '-goals', '-routines', '-approvals', '-activity', '-issues', '-members', '-projects', '-workspaces', '-worktrees', '-environments', '-plugins', '-adapters', '-budgets', '-threads', '-secrets', '-join-requests', '-bootstrap', '-project-workspaces', '-approval-comments', '-skills'];
         for (const suf of suffixes) {
           const f = path.join(orgsDir, `${orgName}${suf}.json`);
           try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch(_) {}
