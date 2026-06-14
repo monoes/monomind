@@ -1724,8 +1724,9 @@ export const hooksTransfer: MCPTool = {
     const sourceMemoryPath = join(resolvedSource, MEMORY_DIR, MEMORY_FILE);
     let sourceStore: MemoryStore = { entries: {}, version: '3.0.0' };
 
+    const MAX_SOURCE_STORE_BYTES = 50 * 1024 * 1024; // 50 MB — matches other store readers
     try {
-      if (existsSync(sourceMemoryPath)) {
+      if (existsSync(sourceMemoryPath) && statSync(sourceMemoryPath).size <= MAX_SOURCE_STORE_BYTES) {
         sourceStore = JSON.parse(readFileSync(sourceMemoryPath, 'utf-8'));
       }
     } catch {
