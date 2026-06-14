@@ -498,7 +498,7 @@ function _resolveBundledHelper(relativePath: string): string | null {
       if (existsSync(candidate)) {
         try {
           const pkg = JSON.parse(readFileSync(candidate, 'utf8'));
-          if (pkg.name === '@monomind/cli' || pkg.name === 'monomind') {
+          if (pkg.name === '@monomind/cli' || pkg.name === 'monomind' || pkg.name === '@monoes/monomindcli') {
             const helperPath = join(dir, relativePath);
             return existsSync(helperPath) ? helperPath : null;
           }
