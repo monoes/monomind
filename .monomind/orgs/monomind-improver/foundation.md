@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- 11049558 — fix(server): include description in /api/org/:name/issues response so board and full-issues views show issue text when title is absent
 - 3af1aedc — fix(dashboard): read _l.wait (not _l.interval regex) in loop command reconstruction so --wait N appears in expanded loop row
 - 595dc368 — fix(server): POST /api/org/:name/approvals/:id writes org:approval:resolved event to ?dir= project path so boss agent unblocks in the correct project
 - de83fc52 — fix(dashboard): read l.type (not l.loopType) in isTillend check so tillend loops show /∞ instead of the safety cap number
