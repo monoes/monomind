@@ -202,16 +202,17 @@ export class WorkerDaemon extends EventEmitter {
       if (this.headlessAvailable) {
         this.log('info', 'Claude Code headless mode available - AI workers enabled');
 
-        // Forward headless executor events
-        this.headlessExecutor.on('execution:start', (data) => {
+        // Forward headless executor events.
+        // The executor emits 'start', 'complete', 'error' (not 'execution:*').
+        this.headlessExecutor.on('start', (data) => {
           this.emit('headless:start', data);
         });
 
-        this.headlessExecutor.on('execution:complete', (data) => {
+        this.headlessExecutor.on('complete', (data) => {
           this.emit('headless:complete', data);
         });
 
-        this.headlessExecutor.on('execution:error', (data) => {
+        this.headlessExecutor.on('error', (data) => {
           this.emit('headless:error', data);
         });
 
