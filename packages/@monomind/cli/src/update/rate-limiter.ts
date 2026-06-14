@@ -111,16 +111,47 @@ export function shouldCheckForUpdates(
  * only after a successful reserveCheck, so that limit enforcement and
  * increment happen in the same synchronous turn (no await gap between
  * them), preventing two concurrent callers both seeing "allowed".
+ *
+ * IMPORTANT: performs a single loadState() → check → increment → saveState()
+ * cycle to eliminate the TOCTOU window that existed when this function
+ * delegated to shouldCheckForUpdates() (which called loadState() itself)
+ * and then called loadState() a second time to increment. Two callers
+ * sharing that gap could both see allowed=true and both increment.
  */
 export function reserveCheck(
   intervalHours: number = DEFAULT_INTERVAL_HOURS
 ): { allowed: boolean; reason?: string } {
-  const decision = shouldCheckForUpdates(intervalHours);
-  if (!decision.allowed) return decision;
+  // Fast-path: environment gates that don't need file I/O
+  if (process.env.CI === 'true' || process.env.CONTINUOUS_INTEGRATION === 'true') {
+    return { allowed: false, reason: 'CI environment detected' };
+  }
+  if (process.env.MONOMIND_AUTO_UPDATE === 'false') {
+    return { allowed: false, reason: 'Auto-update disabled via environment' };
+  }
 
-  // Increment immediately, before any async work, so concurrent callers
-  // see an updated count on their next tick.
+  // Single load — check and increment in one synchronous cycle
   const state = loadState();
+
+  if (process.env.MONOMIND_FORCE_UPDATE !== 'true') {
+    // Daily limit
+    if (state.checksToday >= MAX_CHECKS_PER_DAY) {
+      return { allowed: false, reason: `Daily check limit (${MAX_CHECKS_PER_DAY}) reached` };
+    }
+
+    // Time interval
+    if (state.lastCheck) {
+      const hoursSinceLastCheck = (Date.now() - new Date(state.lastCheck).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceLastCheck < intervalHours) {
+        const nextCheck = Math.ceil(intervalHours - hoursSinceLastCheck);
+        return {
+          allowed: false,
+          reason: `Last check was ${Math.floor(hoursSinceLastCheck)}h ago (next check in ~${nextCheck}h)`,
+        };
+      }
+    }
+  }
+
+  // Reserve the slot: increment and persist before any async work begins
   state.checksToday += 1;
   state.lastCheck = new Date().toISOString();
   saveState(state);
