@@ -38,3 +38,4 @@
 - 364eb6a9 — fix(server): /api/org/:name/budgets — honour ?dir= query param
 - 3fd3517f — fix(server): /api/org/:name/threads — honour ?dir= query param
 - b9af09c0 — fix(server): /api/org/:name/my-issues and /api/org/:name/approvals honour ?dir= param
+- 9f79c3cd — fix(server): /api/org/:name/secrets — add ?dir= param support
