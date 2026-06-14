@@ -1208,9 +1208,11 @@ export const hooksPostTask: MCPTool = {
     // derive a MEASURED success signal from the real command exit codes recorded by
     // post-command within a recent time window. post-command appends each exit code
     // to the command-outcome store keyed by timestamp; deriveRecentSuccess returns:
-    //   true  → recent commands exist and ALL exited 0
-    //   false → recent commands exist and ANY exited non-zero
+    //   true  → recent commands exist and the LAST command exited 0 (final-state heuristic)
+    //   false → recent commands exist and the LAST command exited non-zero
     //   null  → no recent commands (genuinely no signal → stays unknown)
+    // Note: "final-state" not "all must pass" — intermediate failures (e.g. grep no-match,
+    // test-then-fix cycles) are intentionally ignored; the last exit code decides.
     // Precedence: an explicit --success ALWAYS wins; the derived signal only fills
     // in when no explicit flag is given; only when there is also no recent command
     // signal does the outcome stay unknown (and excluded from SONA + route join,
