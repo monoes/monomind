@@ -3815,7 +3815,7 @@ async function stopLoopInProject(evt, id, projDir) {
 function _buildLoopRowHtml(l, idx, projDir) {
   const maxReps = l.maxReps || 0;
   const curRep  = l.currentRep || 0;
-  const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+  const isTillend = !maxReps || l.type === 'tillend' || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
   const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
   const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
   const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
@@ -10667,7 +10667,7 @@ async function mmRenderLoops(body) {
     body.innerHTML = loops.map(l => {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
-      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const isTillend = !maxReps || l.type === 'tillend' || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
       const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
