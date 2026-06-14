@@ -181,6 +181,41 @@ function pathToSections(filename) {
 const sseClients = new Set();
 // Mastermind real-time event stream clients
 const mmSseClients = new Set();
+// Active org run tracking: org -> runId (enables event routing for orgs without runId in payload)
+const activeOrgRuns = new Map();
+
+// Returns the shared git directory parent so run files survive branch switches and
+// are shared across all worktrees. In a worktree, .git is a FILE pointing to the
+// shared .git dir (e.g. /main/.git/worktrees/feat); we navigate up two levels to
+// reach /main/.git, then up one more to /main/ for the monomind data root.
+// Falls back to the working directory if git isn't available.
+const _gitMonomindCache = new Map();
+function _getGitMonomindDir(workDir) {
+  if (!workDir) return null;
+  if (_gitMonomindCache.has(workDir)) return _gitMonomindCache.get(workDir);
+  let result = null;
+  try {
+    const gitEntry = path.join(workDir, '.git');
+    const st = fs.statSync(gitEntry);
+    if (st.isDirectory()) {
+      // Regular repo: .git is a directory
+      result = path.join(gitEntry, 'monomind');
+    } else if (st.isFile()) {
+      // Worktree: .git is a text file "gitdir: /main/.git/worktrees/name"
+      const m = fs.readFileSync(gitEntry, 'utf8').trim().match(/^gitdir:\s*(.+)/);
+      if (m) {
+        // Resolve relative paths (gitdir can be relative to the worktree root)
+        const worktreeDir = path.resolve(workDir, m[1].trim());
+        // /main/.git/worktrees/name -> /main/.git -> /main/.git/monomind
+        const commonGitDir = path.dirname(path.dirname(worktreeDir));
+        result = path.join(commonGitDir, 'monomind');
+      }
+    }
+  } catch {}
+  if (!result) result = path.join(workDir, '.monomind'); // fallback
+  _gitMonomindCache.set(workDir, result);
+  return result;
+}
 
 // Server state
 let running = false;
@@ -4221,6 +4256,62 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // GET /api/org/:name/runs — list structured run files for an org
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/runs(\?.*)?$/i.test(url)) {
+      try {
+        const _rQs = new URL(req.url, 'http://localhost').searchParams;
+        const _rOrgName = decodeURIComponent(url.split('/')[3] || '');
+        const _rWorkDir = path.resolve(_rQs.get('dir') || projectDir || process.cwd());
+        const _rMonoDir = _getGitMonomindDir(_rWorkDir) || path.join(_rWorkDir, '.monomind');
+        const _rDir = path.join(_rMonoDir, 'orgs', _rOrgName, 'runs');
+        const runs = [];
+        if (fs.existsSync(_rDir)) {
+          const files = fs.readdirSync(_rDir).filter(f => f.endsWith('.jsonl')).sort().reverse();
+          for (const f of files.slice(0, 50)) {
+            try {
+              const raw = fs.readFileSync(path.join(_rDir, f), 'utf8');
+              const allLines = raw.split('\n').filter(Boolean);
+              const eventCount = allLines.length;
+              const parse = l => { try { return JSON.parse(l); } catch { return null; } };
+              const headEvents = allLines.slice(0, 5).map(parse).filter(Boolean);
+              const tailEvents = allLines.slice(-5).map(parse).filter(Boolean);
+              const first = headEvents.find(e => e.type === 'run:start') || headEvents[0];
+              const last = tailEvents.slice().reverse().find(e => e.type === 'run:complete' || e.type === 'org:complete');
+              const cycles = allLines.filter(l => l.includes('"org:checkpoint"')).length;
+              const lastEvent = tailEvents[tailEvents.length - 1] || headEvents[headEvents.length - 1];
+              const ageMs = lastEvent?.ts ? Date.now() - lastEvent.ts : Infinity;
+              const isStale = !last && ageMs > 30 * 60 * 1000;
+              runs.push({ runId: f.replace('.jsonl', ''), startedAt: first?.ts || 0, endedAt: last?.ts || 0,
+                status: last ? 'complete' : isStale ? 'stale' : 'running',
+                eventCount, cycleCount: cycles, goal: first?.goal || '', bossRole: first?.bossRole || '' });
+            } catch (_) {}
+          }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify(runs));
+      } catch (_) { res.writeHead(500); res.end('[]'); }
+      return;
+    }
+
+    // GET /api/org/:name/runs/:runId — get all events for a specific run
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/runs\/[a-z0-9][a-z0-9_-]{0,79}(\?.*)?$/i.test(url)) {
+      try {
+        const _rvQs = new URL(req.url, 'http://localhost').searchParams;
+        const _rvParts = url.replace(/\?.*$/, '').split('/');
+        const _rvOrgName = decodeURIComponent(_rvParts[3] || '');
+        const _rvRunId = decodeURIComponent(_rvParts[5] || '');
+        const _rvWorkDir = path.resolve(_rvQs.get('dir') || projectDir || process.cwd());
+        const _rvMonoDir = _getGitMonomindDir(_rvWorkDir) || path.join(_rvWorkDir, '.monomind');
+        const _rvFile = path.join(_rvMonoDir, 'orgs', _rvOrgName, 'runs', `${_rvRunId}.jsonl`);
+        if (!fs.existsSync(_rvFile)) { res.writeHead(404); res.end('{"error":"run not found"}'); return; }
+        const events = fs.readFileSync(_rvFile, 'utf8').split('\n').filter(Boolean)
+          .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify(events));
+      } catch (_) { res.writeHead(500); res.end('[]'); }
+      return;
+    }
+
     // ------------------------------------------------- Mastermind event system
     // POST /api/mastermind/event — ingest event from mastermind skill
     if (req.method === 'POST' && url === '/api/mastermind/event') {
@@ -4244,6 +4335,28 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         } catch (_) {}
       }
       try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
+      // Track active runs and route org events to run files
+      if (event.org) {
+        const _orgKey = String(event.org).trim();
+        // Any event with both org+runId updates the active run map (run:start written directly to file so org:start is first via curl)
+        if (event.runId) activeOrgRuns.set(_orgKey, String(event.runId).trim());
+        else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
+        if (event.type === 'run:complete' || event.type === 'org:complete') activeOrgRuns.delete(_orgKey);
+      }
+      // Persist to git-safe run file (survives branch switches + shared across worktrees)
+      if (event.org && event.runId) {
+        try {
+          const _orn = String(event.org).trim();
+          const _rid = String(event.runId).trim();
+          if (_orn.length > 0 && _orn.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_orn)
+              && _rid.length > 0 && _rid.length <= 80 && /^[a-z0-9][a-z0-9_-]*$/i.test(_rid)) {
+            const _monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
+            const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
+            fs.mkdirSync(_runDir, { recursive: true });
+            fs.appendFileSync(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
+          }
+        } catch (_) {}
+      }
       // Persist session
       try {
         const sessFile = path.join(dataDir, 'mastermind-sessions.json');
