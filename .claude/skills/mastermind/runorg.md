@@ -244,9 +244,10 @@ runId              = new Date().toISOString()
 
 Also validate that every role has non-empty `id`, `title`, `agent_type`, and `responsibilities` (array). Abort with `status: blocked` listing any malformed role — do this before Step 3 initializes infrastructure.
 
-After the conceptual derivations above, extract them as real shell variables so downstream bash blocks can reference `$orgName`, `$sessionId`, etc.:
+After the conceptual derivations above, **run the ENTIRE Step 2 + Step 3 setup as a SINGLE Bash tool call** so all variables persist through infrastructure creation. Copy the full script below into one Bash call — do NOT split it across multiple calls:
 
 ```bash
+# ── STEP 2+3 COMBINED (must run as one Bash call — variables must persist) ──
 orgFile=".monomind/orgs/${org_name}.json"
 orgName=$(jq -r '.name' "$orgFile")
 goal="${task:-$(jq -r '.goal' "$orgFile")}"
@@ -267,65 +268,37 @@ todo_col=$(jq -r '.todo_col_id // empty' "$orgFile")
 doing_col=$(jq -r '.doing_col_id // empty' "$orgFile")
 done_col=$(jq -r '.done_col_id // empty' "$orgFile")
 runId="run-$(date -u +%Y%m%dT%H%M%S)"
-```
 
----
-
-## Step 3 — Initialize Org Infrastructure
-
-**Validate board IDs from org config:**
-
-The board and column IDs were written into the org config by `createorg`. If missing, the org was not created correctly.
-
-```bash
+# Validate board IDs
 [ -z "$board_id" ]  && { echo "ERROR: org config missing board_id — re-run /mastermind:createorg --name ${orgName} to rebuild the org."; exit 1; }
-[ -z "$todo_col" ]  && { echo "ERROR: org config missing todo_col_id — re-run /mastermind:createorg --name ${orgName}."; exit 1; }
-[ -z "$doing_col" ] && { echo "ERROR: org config missing doing_col_id — re-run /mastermind:createorg --name ${orgName}."; exit 1; }
-[ -z "$done_col" ]  && { echo "ERROR: org config missing done_col_id — re-run /mastermind:createorg --name ${orgName}."; exit 1; }
-```
+[ -z "$todo_col" ]  && { echo "ERROR: org config missing todo_col_id."; exit 1; }
+[ -z "$doing_col" ] && { echo "ERROR: org config missing doing_col_id."; exit 1; }
+[ -z "$done_col" ]  && { echo "ERROR: org config missing done_col_id."; exit 1; }
 
-**Create stop-file and state directories:**
-```bash
+# Remove any stale stop file (MUST happen before boss spawns)
 mkdir -p .monomind/orgs/.stops
-```
+rm -f "$stopFile"
 
-**Initialize org state file** (tracks per-agent status, heartbeat timestamps, token usage):
-```bash
+# Initialize org state file
 stateFile=".monomind/orgs/${orgName}-state.json"
 if [ ! -f "$stateFile" ]; then
-  jq -n \
-    --arg org "$orgName" \
-    --arg runId "$runId" \
-    '{org:$org,run_id:$runId,started_at:(now|todate),agents:{}}' \
-    > "$stateFile"
+  jq -n --arg org "$orgName" --arg runId "$runId" \
+    '{org:$org,run_id:$runId,started_at:(now|todate),agents:{}}' > "$stateFile"
 else
-  # Update run_id and started_at for this run
   tmp="${stateFile}.tmp"
-  jq --arg runId "$runId" \
-     '.run_id = $runId | .started_at = (now|todate)' \
-     "$stateFile" > "$tmp" && mv "$tmp" "$stateFile"
+  jq --arg runId "$runId" '.run_id = $runId | .started_at = (now|todate)' \
+    "$stateFile" > "$tmp" && mv "$tmp" "$stateFile"
 fi
-```
 
-**Remove any stale stop file:**
-```bash
-rm -f "$stopFile"
-```
-
-**Resolve the git-safe monomind directory (shared across worktrees, survives branch switches):**
-```bash
+# Resolve git-safe monomind directory
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-# Use git-common-dir so all worktrees write to the same place and branch switches don't reset data
 GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")
-# Resolve to absolute path (git returns relative ".git" for main checkout)
 if [[ "$GIT_COMMON" != /* ]]; then GIT_COMMON="$REPO_ROOT/$GIT_COMMON"; fi
-GIT_COMMON="${GIT_COMMON%/}"  # strip trailing slash if any
+GIT_COMMON="${GIT_COMMON%/}"
 MONO_DIR="${GIT_COMMON}/monomind"
-```
 
-**Create the run file and write `run:start`:**
-```bash
+# Create run file and write run:start
 runDir="${MONO_DIR}/orgs/${orgName}/runs"
 mkdir -p "$runDir"
 runFile="${runDir}/${runId}.jsonl"
@@ -334,18 +307,28 @@ jq -cn \
   --arg bossRole "$bossRole_id" --arg proj "$REPO_ROOT" \
   '{type:"run:start",runId:$runId,org:$org,orgName:$org,goal:$goal,bossRole:$bossRole,project:$proj,ts:(now*1000|floor)}' \
   >> "$runFile"
+
+# Print resolved values so Step 4 can embed them in the boss prompt
+echo "ORG_VARS: orgName=${orgName} runId=${runId} sessionId=${sessionId} goal=${goal} bossRole_id=${bossRole_id} bossRole_title=${bossRole_title} bossRole_agent_type=${bossRole_agent_type} board_id=${board_id} todo_col=${todo_col} doing_col=${doing_col} done_col=${done_col} checkpointMin=${checkpointMin} memNs=${memNs} CTRL_URL=${CTRL_URL} MONO_DIR=${MONO_DIR} runFile=${runFile} REPO_ROOT=${REPO_ROOT}"
 ```
 
-**Emit `org:start` to dashboard (includes runId for server-side routing):**
+After running the script above, read the `ORG_VARS:` line from its output and hold those values for Step 4 (embed them into the boss prompt as literals — **do not re-run bash to look them up**).
+
+---
+
+## Step 3 — Emit org:start (separate Bash call, re-derives from output)
+
+After the combined Step 2+3 script runs, emit `org:start` using the values printed by `ORG_VARS:`. Replace each `<X>` with the literal value from that line:
+
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "<CTRL_URL>/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
-    --arg session "$sessionId" \
-    --arg org "$orgName" \
-    --arg runId "$runId" \
-    --arg goal "$goal" \
-    --arg proj "$REPO_ROOT" \
+    --arg session "<sessionId>" \
+    --arg org "<orgName>" \
+    --arg runId "<runId>" \
+    --arg goal "<goal>" \
+    --arg proj "<REPO_ROOT>" \
     '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
@@ -353,7 +336,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 
 ## Step 4 — Spawn Boss Agent
 
-Using the variables derived in Step 2, spawn the boss agent via Task tool:
+Using the literal values from the `ORG_VARS:` output (not shell variables — they don't persist), spawn the boss agent via Task tool:
 
 ```javascript
 Task({
@@ -374,9 +357,9 @@ FULL COMMUNICATION TOPOLOGY:
 ${orgConfig.communication.map(e => `${e.from} → ${e.to} (${e.type})`).join('\n')}
 
 SHARED INFRASTRUCTURE:
-- Task board (monotask): board_id=${board_id}
-  Columns: Todo=${todo_col}  Doing=${doing_col}  Done=${done_col}
-- Memory namespace: ${memNs} (use: npx monomind@latest memory store/search --namespace ${memNs})
+- Task board (monotask): board_id=<board_id>
+  Columns: Todo=<todo_col>  Doing=<doing_col>  Done=<done_col>
+- Memory namespace: <memNs> (use: npx monomind@latest memory store/search --namespace <memNs>)
 - Dashboard events: POST to mastermind control server via curl — see CTRL_URL resolution in DASHBOARD EVENTS section below
 - Session ID for all events: ${sessionId}
 
