@@ -202,7 +202,7 @@ async function checkMcpServers() {
             }
         }
     }
-    return { name: 'MCP Servers', status: 'warn', message: 'No MCP config found', fix: 'claude mcp add monomind npx @monomind/cli@v1alpha mcp start' };
+    return { name: 'MCP Servers', status: 'warn', message: 'No MCP config found', fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start' };
 }
 // Check disk space (async with proper env inheritance)
 async function checkDiskSpace() {
@@ -264,7 +264,7 @@ async function checkVersionFreshness() {
                         const pkg = JSON.parse(readFileSync(candidate, 'utf8'));
                         if (pkg.version &&
                             typeof pkg.name === 'string' &&
-                            (pkg.name === '@monomind/cli' || pkg.name === 'monomind')) {
+                            (pkg.name === '@monomind/cli' || pkg.name === 'monomind' || pkg.name === '@monoes/monomindcli')) {
                             currentVersion = pkg.version;
                             break;
                         }
@@ -287,10 +287,10 @@ async function checkVersionFreshness() {
         const isNpx = process.argv[1]?.includes('_npx') ||
             process.env.npm_execpath?.includes('npx') ||
             process.cwd().includes('_npx');
-        // Query npm for latest version (using alpha tag since that's what we publish to)
+        // Query npm for latest version of the published umbrella package
         let latestVersion = currentVersion;
         try {
-            const npmInfo = await runCommand('npm view @monomind/cli@alpha version', 5000);
+            const npmInfo = await runCommand('npm view monomind version', 5000);
             latestVersion = npmInfo.trim();
         }
         catch {
@@ -322,8 +322,8 @@ async function checkVersionFreshness() {
             (latest.major === current.major && latest.minor === current.minor && latest.patch === current.patch && latest.prerelease > current.prerelease));
         if (isOutdated) {
             const fix = isNpx
-                ? 'rm -rf ~/.npm/_npx/* && npx -y @monomind/cli@latest'
-                : 'npm update @monomind/cli';
+                ? 'rm -rf ~/.npm/_npx/* && npx -y monomind@latest doctor'
+                : 'npm update -g monomind';
             return {
                 name: 'Version Freshness',
                 status: 'warn',
@@ -387,18 +387,39 @@ async function installClaudeCode() {
 async function checkMonograph() {
     try {
         const __filename = fileURLToPath(import.meta.url);
+        const _base = dirname(__filename);
+        let _globalRoot = '';
+        try {
+            _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim();
+        }
+        catch { /* no npm */ }
         const candidates = [
-            join(dirname(__filename), '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
-            join(dirname(__filename), '..', '..', '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
+            // local dev monorepo paths (both old @monomind and published @monoes scope)
+            join(_base, '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
+            join(_base, '..', '..', '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
+            join(_base, '..', '..', 'node_modules', '@monoes', 'monograph', 'package.json'),
+            join(_base, '..', '..', '..', '..', 'node_modules', '@monoes', 'monograph', 'package.json'),
+            // global install paths
+            ...(_globalRoot ? [
+                join(_globalRoot, '@monomind', 'monograph', 'package.json'),
+                join(_globalRoot, '@monoes', 'monograph', 'package.json'),
+            ] : []),
         ];
-        if (candidates.some(p => existsSync(p))) {
-            return { name: 'Monograph', status: 'pass', message: 'available (knowledge graph engine)' };
+        const found = candidates.find(p => existsSync(p));
+        if (found) {
+            try {
+                const pkg = JSON.parse(readFileSync(found, 'utf-8'));
+                return { name: 'Monograph', status: 'pass', message: `v${pkg.version || '?'} available (knowledge graph engine)` };
+            }
+            catch {
+                return { name: 'Monograph', status: 'pass', message: 'available (knowledge graph engine)' };
+            }
         }
         return {
             name: 'Monograph',
             status: 'warn',
             message: 'Package not found (knowledge graph disabled)',
-            fix: 'npm install in project root'
+            fix: 'npm install -g monomind@latest  # reinstall to get @monoes/monograph'
         };
     }
     catch {
@@ -406,8 +427,44 @@ async function checkMonograph() {
             name: 'Monograph',
             status: 'warn',
             message: 'Package check failed (knowledge graph may be unavailable)',
-            fix: 'npm install in project root'
+            fix: 'npm install -g monomind@latest'
         };
+    }
+}
+// Check @monoes/memory (optional HNSW vector search package)
+async function checkMonoesMemory() {
+    try {
+        const __filename = fileURLToPath(import.meta.url);
+        const _base = dirname(__filename);
+        let _globalRoot = '';
+        try {
+            _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim();
+        }
+        catch { /* no npm */ }
+        const candidates = [
+            join(_base, '..', '..', 'node_modules', '@monoes', 'memory', 'package.json'),
+            join(_base, '..', '..', '..', '..', 'node_modules', '@monoes', 'memory', 'package.json'),
+            ...(_globalRoot ? [join(_globalRoot, '@monoes', 'memory', 'package.json')] : []),
+        ];
+        const found = candidates.find(p => existsSync(p));
+        if (found) {
+            try {
+                const pkg = JSON.parse(readFileSync(found, 'utf-8'));
+                return { name: 'Vector Memory', status: 'pass', message: `@monoes/memory v${pkg.version || '?'} (HNSW search enabled)` };
+            }
+            catch {
+                return { name: 'Vector Memory', status: 'pass', message: '@monoes/memory available (HNSW search enabled)' };
+            }
+        }
+        return {
+            name: 'Vector Memory',
+            status: 'warn',
+            message: '@monoes/memory not installed (vector search disabled — using fallback)',
+            fix: 'npm install @monoes/memory'
+        };
+    }
+    catch {
+        return { name: 'Vector Memory', status: 'warn', message: 'Vector memory check failed' };
     }
 }
 // Check agentic-flow v1 integration (filesystem-based to avoid slow WASM/DB init)
@@ -579,6 +636,58 @@ async function checkMonoesIntegration() {
         };
     }
 }
+// Patterns that must be covered by .gitignore to prevent leaking session data / machine paths.
+// Uses the surgical approach: ignore specific sensitive subdirs and file globs inside .monomind/
+// rather than the entire directory, so safe content (orgs/, test-fixtures/) can still be tracked.
+const REQUIRED_GITIGNORE_PATTERNS = [
+    { pattern: '.monomind/sessions/', reason: 'session files contain cwd and machine paths' },
+    { pattern: '.monomind/data/', reason: 'intelligence data with edit file paths' },
+    { pattern: '.monomind/metrics/', reason: 'metrics with file path references' },
+    { pattern: '.monomind/knowledge/', reason: 'knowledge chunks with local file content' },
+    { pattern: '.monomind/*.json', reason: 'root-level runtime JSON (control, registry, routing)' },
+    { pattern: '.monomind/*.jsonl', reason: 'root-level event logs (decisions, routing-feedback)' },
+    { pattern: '**/.monomind/sessions/', reason: 'nested session files in sub-packages' },
+    { pattern: '**/.monomind/*.json', reason: 'nested runtime JSON in sub-packages' },
+    { pattern: 'data/sessions/', reason: 'session files with machine paths' },
+    { pattern: 'data/mastermind-*.json', reason: 'mastermind session data' },
+    { pattern: 'data/mastermind-*.jsonl', reason: 'mastermind event logs' },
+    { pattern: '**/.claude-flow/', reason: 'claude-flow runtime data with paths' },
+    { pattern: '.hive-mind/', reason: 'hive-mind state with session info' },
+    { pattern: '.swarm/', reason: 'swarm state files' },
+];
+// Check whether a gitignore file covers all required monomind runtime patterns
+async function checkGitignoreCoverage() {
+    const gitignorePath = join(process.cwd(), '.gitignore');
+    if (!existsSync(gitignorePath)) {
+        return {
+            name: 'Gitignore Coverage',
+            status: 'warn',
+            message: 'No .gitignore found — all monomind runtime paths are unprotected',
+            fix: 'echo ".monomind/\\n**/.monomind/" >> .gitignore',
+        };
+    }
+    const content = readFileSync(gitignorePath, 'utf-8');
+    const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const missing = REQUIRED_GITIGNORE_PATTERNS.filter(({ pattern }) => {
+        // A pattern is "covered" if the gitignore contains it exactly, or a parent glob covers it
+        const base = pattern.replace(/\*\*\//g, '').replace(/\*/g, '');
+        return !lines.some(l => l === pattern ||
+            l === pattern.replace(/\/$/, '') ||
+            // e.g. "**/.monomind/" covers ".monomind/"
+            (l.includes('**') && base && l.replace(/\*\*\//g, '').replace(/\*/g, '') === base));
+    });
+    if (missing.length === 0) {
+        return { name: 'Gitignore Coverage', status: 'pass', message: 'All monomind runtime paths are gitignored' };
+    }
+    const missingList = missing.map(m => m.pattern).join(', ');
+    const fixLines = missing.map(m => m.pattern).join('\\n');
+    return {
+        name: 'Gitignore Coverage',
+        status: 'warn',
+        message: `${missing.length} runtime path(s) not in .gitignore: ${missingList}`,
+        fix: `printf "${fixLines}\\n" >> .gitignore`,
+    };
+}
 async function checkGuidanceGates() {
     const settingsPath = join(process.cwd(), '.claude', 'settings.json');
     const gatesHandlerPath = join(process.cwd(), '.claude', 'helpers', 'handlers', 'gates-handler.cjs');
@@ -671,7 +780,7 @@ export const doctorCommand = {
         {
             name: 'component',
             short: 'c',
-            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, helpers, monoes, gates)',
+            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, memory-pkg, helpers, agentic-flow, monoes, gates, gitignore)',
             type: 'string'
         },
         {
@@ -714,10 +823,12 @@ export const doctorCommand = {
             checkDiskSpace,
             checkBuildTools,
             checkMonograph,
+            checkMonoesMemory,
             checkHelpersFresh,
             checkAgenticFlow,
             checkMonoesIntegration,
             checkGuidanceGates,
+            checkGitignoreCoverage,
         ];
         const componentMap = {
             'version': checkVersionFreshness,
@@ -734,10 +845,12 @@ export const doctorCommand = {
             'disk': checkDiskSpace,
             'typescript': checkBuildTools,
             'monograph': checkMonograph,
+            'memory-pkg': checkMonoesMemory,
             'helpers': checkHelpersFresh,
             'agentic-flow': checkAgenticFlow,
             'monoes': checkMonoesIntegration,
             'gates': checkGuidanceGates,
+            'gitignore': checkGitignoreCoverage,
         };
         let checksToRun = allChecks;
         if (component && componentMap[component]) {
