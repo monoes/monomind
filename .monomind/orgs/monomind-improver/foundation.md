@@ -22,6 +22,7 @@ _(The boss appends one line here after each successful commit so future cycles d
 - [2026-06-14 00:05] 249fa1e7 — fix(ui): resolve missing token stats in Memory Usage period view; loadMemUsagePeriod() read s.totalTokensIn/totalTokensOut/todayCost/todayCalls from data.summary which is always undefined for /api/token-usage (flat response shape) — all four chunk-stat cards were permanently hidden
 - [2026-06-14 00:06] fadac7f4 — fix(collector): derive todayCost/todayCalls from fresh JSONL dailyMap instead of stale token-summary.json cache; token-summary.json is only updated when telemetry hooks fire so values could be weeks old — fixes topbar cost badge, per-project Tokens view "Today Cost" card, and Global Tokens view all at once
 - [2026-06-14 00:07] 5337667b — fix(server): align /api/token-usage response shape with dashboard client; endpoint returned flat fields + dict breakdowns but client expected summary:{} sub-object + array breakdowns (models[], categories[], tools[], mcpServers[], rows[]); Tokens view cards and Memory Usage bar charts were all permanently blank/showing "—"
+- [2026-06-14 00:08] 1fbe2fae — fix(collector): derive monthCost/monthCalls from fresh JSONL dailyMap instead of stale token-summary.json; scan window extended back to month start (Math.min of 14-day cutoff and monthStartMs) so all days in billing period are included; Month Total card in topbar and Month Cost card in Tokens view now show correct data
 
 ## Off-Limits (do not re-implement)
 - Nothing yet
