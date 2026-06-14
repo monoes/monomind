@@ -6168,7 +6168,7 @@ async function v2RenderOrgSecrets() {
         ? secrets.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
             <span style="font-family:var(--mono);color:var(--text-hi)">${esc(s.name || s.key || '—')}</span>
             ${s.purpose ? `<span style="color:var(--text-lo)">${esc(s.purpose)}</span>` : ''}
-            <span style="margin-left:auto;font-family:var(--mono);color:var(--border)">••••••••</span>
+            <span style="margin-left:auto;font-family:var(--mono);color:var(--border)">${esc(s.maskedRef || '••••••••')}</span>
           </div>`).join('')
         : '<div class="empty">No secrets configured</div>');
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
