@@ -3710,8 +3710,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           return {
             id: r.id,
             title: r.title || r.id,
-            adapterType: (r.adapter && r.adapter.type) || null,
-            adapterModel: (r.adapter && r.adapter.model) || null,
+            adapterType: r.agent_type || r.type || null,
+            adapterModel: (r.adapter_config && r.adapter_config.model) || (r.adapter && r.adapter.model) || null,
             governance: r.governance || null,
             reportsTo: r.reports_to || null,
             status: s.status || 'idle',
