@@ -3884,7 +3884,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const lines = fs.readFileSync(threadsFile, 'utf8').split('\n').filter(l => l.trim());
           threads = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
-          threads = threads.filter(t => t.type === 'thread' || !t.type);
+          threads = threads.filter(t => t.type === 'thread' || !t.type).map(t => ({
+            ...t,
+            author: t.author || t.authorName || t.createdBy || t.authorId || null,
+            messageCount: t.messageCount != null ? t.messageCount : (Array.isArray(t.messages) ? t.messages.length : (typeof t.messages === 'number' ? t.messages : null)),
+          }));
         } catch(_) {}
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ threads }));
