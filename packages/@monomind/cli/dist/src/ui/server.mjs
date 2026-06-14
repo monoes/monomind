@@ -3508,6 +3508,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
         }
 
+        // Issues
+        const issuesData = readJ(path.join(orgsDir, `${orgName}-issues.json`));
+        for (const i of (issuesData?.issues || [])) {
+          if (match(i.title) || match(i.description) || match(i.slug)) {
+            hits.push({ type: 'issue', id: i.id || i.slug, title: i.title || i.slug, meta: i.status || 'open' });
+          }
+        }
+
         // Recent activity events
         const eventsFile = path.join(d, 'data', 'mastermind-events.jsonl');
         if (fs.existsSync(eventsFile)) {
