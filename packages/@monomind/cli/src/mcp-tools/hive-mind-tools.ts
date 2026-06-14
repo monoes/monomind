@@ -4,7 +4,7 @@
  * Tool definitions for collective intelligence and swarm coordination.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { weightedTally } from '../consensus/vote-signer.js';
@@ -177,10 +177,12 @@ function ensureHiveDir(): void {
   }
 }
 
+const MAX_HIVE_STATE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 function loadHiveState(): HiveState {
   try {
     const path = getHivePath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_HIVE_STATE_BYTES) {
       const data = readFileSync(path, 'utf-8');
       return JSON.parse(data);
     }
@@ -381,7 +383,7 @@ export const hiveMindTools: MCPTool[] = [
       let activeTaskCount = 0;
       let completedTaskCount = 0;
       try {
-        if (existsSync(taskStorePath)) {
+        if (existsSync(taskStorePath) && statSync(taskStorePath).size <= MAX_HIVE_STATE_BYTES) {
           const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
           for (const task of Object.values(taskStore.tasks || {}) as Array<{ status: string }>) {
             if (task.status === 'pending') pendingTaskCount++;
