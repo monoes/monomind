@@ -61,3 +61,4 @@
 - 8d01dd5f — fix(collector): add claude-opus-4-8 to token price table so opus-4-8 sessions are costed at $5/$25 instead of falling back to the old opus-4 rate ($15/$75)
 - 5debcfd2 — fix(dashboard): add ?dir= to POST approvals/:id, orgs/:name/stop, and orgs/:name/copy so actions apply to the selected project instead of the server's cwd
 - 6f801d3d — fix(server): add skills to _sidecarSuffixRe in GET /api/orgs so ${orgName}-skills.json is not listed as an org config
+- ca25560e — fix(server): DELETE /api/orgs/:name now also removes git-safe run dir (.git/monomind/orgs/<name>/) so run files from feat 880f034e are cleaned up on delete
