@@ -522,10 +522,11 @@ export class CLI {
 
     // Task 04: CapabilityMetadata — validate agent registry at startup
     try {
-      const { readFileSync, existsSync } = await import('fs');
+      const { readFileSync, existsSync, statSync: statSyncReg } = await import('fs');
       const { join: pathJoin } = await import('path');
       const registryPath = pathJoin(process.cwd(), '.monomind', 'registry.json');
-      if (existsSync(registryPath)) {
+      const MAX_REGISTRY_BYTES = 10 * 1024 * 1024; // 10 MB
+      if (existsSync(registryPath) && statSyncReg(registryPath).size <= MAX_REGISTRY_BYTES) {
         const registry = JSON.parse(readFileSync(registryPath, 'utf-8')) as { agents?: Array<Record<string, unknown>> };
         const entries = registry.agents ?? [];
         const issues: string[] = [];
