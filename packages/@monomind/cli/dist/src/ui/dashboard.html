@@ -1834,6 +1834,8 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn" data-tab="charts"       onclick="v2SwitchOrgTab('charts')">Charts</button>
             <button class="odt-btn" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
             <button class="odt-btn" data-tab="chat"         onclick="v2SwitchOrgTab('chat')">Chat</button>
+            <button class="odt-btn" data-tab="config"       onclick="v2SwitchOrgTab('config')">Config</button>
+            <button class="odt-btn" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -1865,7 +1867,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-issues-full"></div>
             <div class="odt-pane" id="odt-join-requests"></div>
             <div class="odt-pane" id="odt-threads"></div>
-            <div class="odt-pane" id="odt-chat" style="display:none;flex-direction:column;height:100%;overflow:hidden;"></div>
+            <div class="odt-pane" id="odt-chat" style="flex-direction:column;height:100%;overflow:hidden;"></div>
+            <div class="odt-pane" id="odt-config"></div>
+            <div class="odt-pane" id="odt-files"></div>
           </div>
         </div>
         <!-- copy / export / import dialogs -->
@@ -5398,6 +5402,8 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'join-requests') v2RenderOrgJoinRequests();
   else if (tab === 'threads')      v2RenderOrgThreads();
   else if (tab === 'chat')         v2RenderOrgChat();
+  else if (tab === 'config')       v2RenderOrgConfig();
+  else if (tab === 'files')        v2RenderOrgFiles();
 }
 
 // ── org chart ───────────────────────────────
@@ -6888,6 +6894,55 @@ async function v2RenderOrgThreads() {
         <td style="padding:5px 8px;color:var(--text-lo)">${t.createdAt ? relTime(t.createdAt) : '—'}</td>
       </tr>`).join('')}</tbody>
     </table>`;
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ── ORG CONFIG TAB ─────────────────────────────────────────
+function v2RenderOrgConfig() {
+  const el = document.getElementById('odt-config');
+  if (!el || !_v2OrgData) return;
+  const d = _v2OrgData;
+  const fields = [
+    ['Name',       d.name || d.id || '—'],
+    ['Topology',   d.topology || '—'],
+    ['Governance', (d.governance && typeof d.governance === 'object') ? (d.governance.policy || JSON.stringify(d.governance)) : (d.governance || '—')],
+    ['Max Agents', d.max_agents ?? d.maxAgents ?? '—'],
+    ['Strategy',   d.strategy || '—'],
+    ['Consensus',  d.consensus || '—'],
+    ['Budget (tokens)', d.run_config?.budget_tokens ?? d.budget_tokens ?? d.budgetTokens ?? '—'],
+    ['Goal',       d.goal || '—'],
+    ['Running',    d.running ? 'Yes' : 'No'],
+    ['Created',    d.created_at ? relTime(d.created_at) : '—'],
+    ['Updated',    d.updated_at ? relTime(d.updated_at) : '—'],
+  ];
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;font-size:12px;max-width:480px">
+    ${fields.map(([k, v]) => `<div style="display:flex;gap:12px;padding:5px 0;border-bottom:1px solid var(--border)">
+      <div style="width:130px;flex-shrink:0;color:var(--text-lo)">${esc(k)}</div>
+      <div style="color:var(--text-hi);word-break:break-all">${esc(String(v))}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// ── ORG FILES TAB ──────────────────────────────────────────
+async function v2RenderOrgFiles() {
+  const el = document.getElementById('odt-files');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():{}).catch(()=>({}));
+    const paths = [];
+    if (data.foundation_file) paths.push({ label: 'Foundation', path: data.foundation_file });
+    if (data.config_file)     paths.push({ label: 'Config',     path: data.config_file });
+    if (data.issues_file)     paths.push({ label: 'Issues',     path: data.issues_file });
+    if (data.members_file)    paths.push({ label: 'Members',    path: data.members_file });
+    if (!paths.length) { el.innerHTML = '<div class="empty">No tracked files found for this org</div>'; return; }
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+      ${paths.map(p => `<div style="display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="width:90px;flex-shrink:0;color:var(--text-lo)">${esc(p.label)}</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);word-break:break-all">${esc(p.path)}</span>
+      </div>`).join('')}
+    </div>`;
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
 
