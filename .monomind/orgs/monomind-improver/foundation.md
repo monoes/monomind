@@ -2,3 +2,4 @@
 
 - a380defa — fix(agent-graph): exclude tool-result messages from turn count in /api/graph parser
 - 7e1d1987 — fix(agent-graph): count agent spawns in sessions exceeding size cap (lightweight line-filter scan)
+- da7b42b8 — fix(update): replace semver import with inline shim in src/checker.ts; add gt() to shim; remove 'semver' from package.json dependencies
