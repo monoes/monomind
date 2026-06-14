@@ -69,3 +69,4 @@
 - 8da114f0 — fix(dashboard): deduplicate live SSE events so chat feed does not show repeated events on SSE reconnect
 - 96d5dd9a — fix(dashboard): remove double ellipsis in invites token display
 - 6d89fc5e — fix(dashboard): command palette orgtab falls back to v2SwitchOrgTab for hidden tabs so roles/members/goals/board/live/secrets/settings/routines/myissues/heartbeats/tasks/costs are reachable from the palette
+- f225e323 — fix(dashboard): normalize completed/failed/cancelled task status to 'done' in v2RenderOrgTasks so done-column tasks sort correctly and render with green pill (was rank[undefined]=1, same as pending)
