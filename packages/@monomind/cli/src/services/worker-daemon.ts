@@ -678,6 +678,18 @@ export class WorkerDaemon extends EventEmitter {
     const workerId = `${workerConfig.type}_${Date.now()}`;
     const startTime = Date.now();
 
+    // Track the headless executionId assigned by HeadlessWorkerExecutor so we
+    // can cancel it precisely on timeout. The executor generates its own ID
+    // (format: `${type}_${ts}_${random}`) which never matches workerId, so we
+    // capture it from the 'start' event instead.
+    let headlessExecutionId: string | null = null;
+    const onHeadlessStart = (data: { executionId?: string }) => {
+      headlessExecutionId = data.executionId ?? null;
+    };
+    if (this.headlessExecutor) {
+      this.headlessExecutor.on('start', onHeadlessStart);
+    }
+
     // Track running worker
     this.runningWorkers.add(workerConfig.type);
     state.isRunning = true;
@@ -694,11 +706,13 @@ export class WorkerDaemon extends EventEmitter {
         `Worker ${workerConfig.type} timed out after ${this.config.workerTimeoutMs / 1000}s`,
         () => {
           if (this.headlessExecutor) {
-            // Try exact-ID cancel first; fall back to type-based cancel which
-            // avoids killing unrelated concurrent workers (cancelByType).
-            if (!this.headlessExecutor.cancel(workerId)) {
-              this.headlessExecutor.cancelByType(workerConfig.type);
+            // Use the exact executionId captured from the 'start' event.
+            // Fall back to cancelByType only if we didn't capture an ID yet
+            // (e.g. timeout fired before the executor emitted 'start').
+            if (headlessExecutionId && this.headlessExecutor.cancel(headlessExecutionId)) {
+              return;
             }
+            this.headlessExecutor.cancelByType(workerConfig.type);
           }
         }
       );
@@ -750,6 +764,10 @@ export class WorkerDaemon extends EventEmitter {
     } finally {
       // Remove from running set and process queue
       this.runningWorkers.delete(workerConfig.type);
+      // Unsubscribe the executionId capture listener regardless of outcome
+      if (this.headlessExecutor) {
+        this.headlessExecutor.off('start', onHeadlessStart);
+      }
       this.processPendingWorkers();
     }
   }
