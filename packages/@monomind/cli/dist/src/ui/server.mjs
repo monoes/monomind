@@ -4032,6 +4032,45 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // GET /api/org/:name/files — list org-related files from .monomind/orgs/
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/files$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('[]'); return; }
+        const _filesQs = new URL(req.url, 'http://localhost').searchParams;
+        const orgsDir = path.join(path.resolve(_filesQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
+        const files = [];
+        const TYPE_MAP = {
+          [`${orgName}.json`]: 'config',
+          [`${orgName}-state.json`]: 'state',
+          [`${orgName}-goals.json`]: 'goals',
+          [`${orgName}-routines.json`]: 'generated',
+          [`${orgName}-approvals.json`]: 'approvals',
+          [`${orgName}-issues.json`]: 'generated',
+          [`${orgName}-members.json`]: 'generated',
+          [`${orgName}-budgets.json`]: 'generated',
+          [`${orgName}-threads.json`]: 'generated',
+          [`${orgName}-activity.jsonl`]: 'generated',
+        };
+        if (fs.existsSync(orgsDir)) {
+          for (const f of fs.readdirSync(orgsDir)) {
+            if (!f.startsWith(orgName) && !f.startsWith(`${orgName}-`)) continue;
+            try {
+              const fullPath = path.join(orgsDir, f);
+              const stat = fs.statSync(fullPath);
+              if (!stat.isFile()) continue;
+              const type = TYPE_MAP[f] || (f.endsWith('-agent.json') ? 'agent-definition' : 'generated');
+              files.push({ name: f, path: fullPath, type, size: stat.size, mtime: stat.mtimeMs });
+            } catch(_) {}
+          }
+        }
+        files.sort((a, b) => { const tord = {config:0,state:1,goals:2,approvals:3,'agent-definition':4,generated:5}; return (tord[a.type]??9)-(tord[b.type]??9) || a.name.localeCompare(b.name); });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(files));
+      } catch(_) { res.writeHead(500); res.end('[]'); }
+      return;
+    }
+
     // DELETE /api/orgs/:name — delete an org config and all associated data files
     if (req.method === 'DELETE' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}(\?.*)?$/i)) {
       try {
@@ -4069,13 +4108,15 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const _stopOrgQs = new URL(req.url, 'http://localhost').searchParams;
+        const _stopOrgBase = path.resolve(_stopOrgQs.get('dir') || projectDir || process.cwd());
         const stopEvent = { type: 'org:stop', org: orgName, ts: Date.now() };
-        const dataDir = path.join(projectDir || process.cwd(), 'data');
+        const dataDir = path.join(_stopOrgBase, 'data');
         try { fs.mkdirSync(dataDir, { recursive: true }); } catch(_) {}
         try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(stopEvent) + '\n'); } catch(_) {}
         // Write stop marker file for boss agent to detect
         try {
-          const stopDir = path.join(projectDir || process.cwd(), '.monomind', 'orgs', '.stops');
+          const stopDir = path.join(_stopOrgBase, '.monomind', 'orgs', '.stops');
           fs.mkdirSync(stopDir, { recursive: true });
           fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
         } catch(_) {}
@@ -4099,7 +4140,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const destination = payload.destination ? String(payload.destination).trim() : '';
         if (!destination) { res.writeHead(400); res.end(JSON.stringify({ error: 'destination is required' })); return; }
         if (!path.isAbsolute(destination)) { res.writeHead(400); res.end(JSON.stringify({ error: 'destination must be an absolute path' })); return; }
-        const srcOrgsDir = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const _copyOrgQs = new URL(req.url, 'http://localhost').searchParams;
+        const srcOrgsDir = path.join(path.resolve(_copyOrgQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         const srcFile = path.join(srcOrgsDir, `${orgName}.json`);
         if (!fs.existsSync(srcFile)) { res.writeHead(404); res.end(JSON.stringify({ error: 'org not found' })); return; }
         const destOrgsDir = path.join(path.resolve(destination), '.monomind', 'orgs');
