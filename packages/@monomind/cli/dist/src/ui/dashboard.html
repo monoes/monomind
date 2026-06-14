@@ -1867,7 +1867,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-issues-full"></div>
             <div class="odt-pane" id="odt-join-requests"></div>
             <div class="odt-pane" id="odt-threads"></div>
-            <div class="odt-pane" id="odt-chat" style="display:none;flex-direction:column;height:100%;overflow:hidden;"></div>
+            <div class="odt-pane" id="odt-chat" style="flex-direction:column;height:100%;overflow:hidden;"></div>
             <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
           </div>
@@ -5377,6 +5377,8 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'join-requests') v2RenderOrgJoinRequests();
   else if (tab === 'threads')      v2RenderOrgThreads();
   else if (tab === 'chat')         v2RenderOrgChat();
+  else if (tab === 'config')       v2RenderOrgConfig();
+  else if (tab === 'files')        v2RenderOrgFiles();
 }
 
 // ── org chart ───────────────────────────────
@@ -6261,7 +6263,14 @@ function v2RenderOrgBudgets() {
   const el = document.getElementById('odt-budgets');
   if (!el || !_v2OrgData) return;
   const b = _v2OrgData._budgets || _v2OrgData.budgets || {};
-  const agents = _v2OrgData._agents || [];
+  // Per-agent spend comes from the budgets endpoint (snake_case fields), not the agents endpoint
+  const agents = Array.isArray(b.agents) ? b.agents : (_v2OrgData._agents || []);
+  // Org-level budget limits live under org_budget in the budgets API response
+  const orgBudget = b.org_budget || {};
+  const tokenUsed  = b.tokens      != null ? b.tokens  : null;
+  const tokenLimit = b.tokenLimit  != null ? b.tokenLimit  : (orgBudget.limit_tokens ?? null);
+  const usdUsed    = b.usd         != null ? b.usd     : null;
+  const usdLimit   = b.usdLimit    != null ? b.usdLimit : (orgBudget.limit_usd    ?? null);
 
   function fillBar(used, limit) {
     if (!limit) return '';
@@ -6272,22 +6281,25 @@ function v2RenderOrgBudgets() {
   }
 
   let html = '';
-  if (b.tokens != null || b.tokenLimit != null) {
-    html += `<div class="m-group-title">Tokens</div>${fillBar(b.tokens || 0, b.tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(b.tokens || 0).toLocaleString()} / ${b.tokenLimit ? b.tokenLimit.toLocaleString() : '∞'}</div>`;
+  if (tokenUsed != null || tokenLimit != null) {
+    html += `<div class="m-group-title">Tokens</div>${fillBar(tokenUsed || 0, tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(tokenUsed || 0).toLocaleString()} / ${tokenLimit ? tokenLimit.toLocaleString() : '∞'}</div>`;
   }
-  if (b.usd != null || b.usdLimit != null) {
-    html += `<div class="m-group-title">USD Budget</div>${fillBar(b.usd || 0, b.usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${Number(b.usd || 0).toFixed(4)} / ${b.usdLimit ? '$' + Number(b.usdLimit).toFixed(2) : '∞'}</div>`;
+  if (usdUsed != null || usdLimit != null) {
+    html += `<div class="m-group-title">USD Budget</div>${fillBar(usdUsed || 0, usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${Number(usdUsed || 0).toFixed(4)} / ${usdLimit ? '$' + Number(usdLimit).toFixed(2) : '∞'}</div>`;
   }
   if (agents.length) {
     html += '<div class="m-group-title" style="margin-bottom:6px">Per Agent</div>' +
       `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:4px 8px">Agent</th><th>Tokens In</th><th>Tokens Out</th><th>Cost</th></tr></thead><tbody>` +
       agents.slice(0, 20).map(a => {
-        const over = a.budgetLimit && ((a.tokensIn || 0) + (a.tokensOut || 0)) > a.budgetLimit;
+        const tIn  = a.tokens_in  != null ? a.tokens_in  : (a.tokensIn  || 0);
+        const tOut = a.tokens_out != null ? a.tokens_out : (a.tokensOut || 0);
+        const cost = a.total_cost_usd != null ? a.total_cost_usd : (a.cost || 0);
+        const over = a.budgetLimit && (tIn + tOut) > a.budgetLimit;
         return `<tr style="border-top:1px solid var(--border)${over ? ';color:var(--red)' : ''}">
           <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.id || a.title || '—').toString().slice(0, 14))}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensIn || 0).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensOut || 0).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--accent)">$${Number(a.cost || 0).toFixed(4)}${over ? ' ⚠' : ''}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(tIn).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(tOut).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--accent)">$${Number(cost).toFixed(4)}${over ? ' ⚠' : ''}</td>
         </tr>`;
       }).join('') + '</tbody></table>';
   }
@@ -6669,6 +6681,148 @@ function _odtHandleLiveEvent(ev) {
       if (hasNewAgent) _odtPopulateAgentBar(sess.events);
       _odtAppendEvent(ev, true);
     }
+  }
+}
+
+// ── ORG CONFIG ─────────────────────────────────────────────
+function v2RenderOrgConfig() {
+  const el = document.getElementById('odt-config');
+  if (!el || !_v2OrgData || !_v2SelOrg) return;
+  const d = _v2OrgData;
+  const rc = d.run_config || {};
+  const gov = (d.governance && typeof d.governance === 'object') ? d.governance : { policy: d.governance || 'auto' };
+  const topos = ['hierarchical','hierarchical-mesh','mesh','star','ring','adaptive','hybrid'];
+  const modes = ['daemon','once','scheduled'];
+  const statuses = ['active','paused','archived'];
+  const govPolicies = ['auto','board','strict'];
+  const inp = (id,val,type,extra) => '<input class="filter-input" id="'+id+'" type="'+(type||'text')+'" value="'+esc(String(val??''))+'" '+(extra||'')+' style="width:100%;box-sizing:border-box">';
+  const sel = (id,opts,cur) => '<select class="filter-input" id="'+id+'" style="width:100%;box-sizing:border-box;cursor:pointer">'+opts.map(o=>'<option'+(cur===o?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
+  const fld = (lbl,html) => '<div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:10px;color:var(--text-lo)">'+lbl+'</div>'+html+'</div>';
+  const sec = (title,inner) => '<div style="margin-bottom:22px"><div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)">'+title+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">'+inner+'</div></div>';
+  el.innerHTML = '<div style="padding:18px;overflow-y:auto;max-width:660px">'
+    +sec('GENERAL',
+      fld('Name', inp('oc-name', d.name||'','text','readonly style="opacity:0.5"'))
+      +fld('Status', sel('oc-status', statuses, d.status||'active'))
+      +'<div style="grid-column:1/-1">'+fld('Goal', '<textarea id="oc-goal" class="filter-input" rows="3" style="width:100%;box-sizing:border-box;resize:vertical;line-height:1.5">'+esc(d.goal||'')+'</textarea>')+'</div>'
+      +fld('Mode', sel('oc-mode', modes, d.mode||'daemon'))
+      +fld('Topology', sel('oc-topology', topos, d.topology||'hierarchical'))
+      +'<div style="grid-column:1/-1">'+fld('Schedule', inp('oc-schedule', d.schedule||''))+'</div>'
+    )
+    +sec('RUN CONFIG',
+      fld('Max Concurrent Agents', inp('oc-max-agents', rc.max_concurrent_agents??6,'number','min="1" max="32"'))
+      +fld('Checkpoint Interval (min)', inp('oc-checkpoint', rc.checkpoint_interval_min??30,'number','min="5"'))
+      +fld('Budget Tokens (0=unlimited)', inp('oc-budget', rc.budget_tokens??0,'number','min="0"'))
+      +fld('Alert Threshold (0-1)', inp('oc-alert', rc.alert_threshold??0.8,'number','step="0.05" min="0" max="1"'))
+      +fld('Boss Role ID', inp('oc-boss', rc.boss_role||''))
+      +fld('Memory Namespace', inp('oc-namespace', rc.memory_namespace||('org:'+d.name)))
+      +'<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-top:4px"><input type="checkbox" id="oc-spawn-all" '+(rc.spawn_all_roles?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer"><label for="oc-spawn-all" style="font-size:12px;color:var(--text-mid);cursor:pointer">Spawn all roles as separate agents</label></div>'
+    )
+    +sec('GOVERNANCE',
+      fld('Approval Policy', sel('oc-gov-policy', govPolicies, gov.policy||'auto'))
+      +fld('Approvals File', inp('oc-gov-file', gov.approvals_file||('.monomind/orgs/'+d.name+'-approvals.json')))
+    )
+    +'<div style="display:flex;align-items:center;gap:10px"><button class="btn" style="border-color:var(--accent);color:var(--accent)" onclick="v2SaveOrgConfig()">Save Config</button><span id="oc-status-msg" style="font-size:11px;color:var(--text-lo)"></span></div>'
+    +'</div>';
+}
+
+async function v2SaveOrgConfig() {
+  if (!_v2SelOrg || !_v2OrgData) return;
+  const g = id => document.getElementById(id);
+  const cfg = {
+    ..._v2OrgData,
+    status:   (g('oc-status')?.value)   || _v2OrgData.status,
+    goal:     (g('oc-goal')?.value)     || _v2OrgData.goal,
+    mode:     (g('oc-mode')?.value)     || _v2OrgData.mode,
+    topology: (g('oc-topology')?.value) || _v2OrgData.topology,
+    schedule: (g('oc-schedule')?.value||'').trim() || null,
+    run_config: { ...(_v2OrgData.run_config||{}),
+      max_concurrent_agents:   parseInt(g('oc-max-agents')?.value)||6,
+      checkpoint_interval_min: parseInt(g('oc-checkpoint')?.value)||30,
+      budget_tokens:           parseInt(g('oc-budget')?.value)||0,
+      alert_threshold:         parseFloat(g('oc-alert')?.value)||0.8,
+      boss_role:               (g('oc-boss')?.value||'').trim(),
+      memory_namespace:        (g('oc-namespace')?.value||'').trim()||('org:'+_v2SelOrg),
+      spawn_all_roles:         !!(g('oc-spawn-all')?.checked),
+    },
+    governance: {
+      policy:         (g('oc-gov-policy')?.value)||'auto',
+      approvals_file: (g('oc-gov-file')?.value||'').trim()||('.monomind/orgs/'+_v2SelOrg+'-approvals.json'),
+    },
+  };
+  const msg = document.getElementById('oc-status-msg');
+  if (msg) { msg.style.color='var(--text-lo)'; msg.textContent='Saving...'; }
+  try {
+    const qs = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
+    const r = await fetch('/api/orgs'+qs, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg) });
+    const json = await r.json();
+    if (json.ok) {
+      _v2OrgData = Object.assign({}, _v2OrgData, cfg);
+      if (msg) { msg.style.color='oklch(68% 0.20 150)'; msg.textContent='Saved'; setTimeout(()=>{ if(msg) msg.textContent=''; }, 2500); }
+      if (typeof showToast === 'function') showToast('Config saved','','ok');
+    } else { throw new Error(json.error||'Save failed'); }
+  } catch(e) {
+    if (msg) { msg.style.color='oklch(60% 0.22 25)'; msg.textContent='Error: '+e.message; }
+  }
+}
+
+// ── ORG FILES ──────────────────────────────────────────────
+async function v2RenderOrgFiles() {
+  const el = document.getElementById('odt-files');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">Loading files...</div>';
+  try {
+    const enc = encodeURIComponent(_v2SelOrg);
+    const qs = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
+    const files = await fetch('/api/org/'+enc+'/files'+qs).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (!files.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">No files found.</div>'; return; }
+    const fmtSize = b => b < 1024 ? b+'B' : b < 1048576 ? (b/1024).toFixed(1)+'K' : (b/1048576).toFixed(1)+'M';
+    const fmtTime = s => { const d = new Date(s); return d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); };
+    const typeColor = { config:'oklch(62% 0.20 186)', generated:'oklch(68% 0.20 150)', 'agent-definition':'oklch(65% 0.20 280)', approvals:'oklch(70% 0.18 60)', state:'oklch(70% 0.18 60)', goals:'oklch(70% 0.18 60)' };
+    const groupOrder = ['config','generated','agent-definition','approvals','state','goals','routines','other'];
+    const groups = {};
+    groupOrder.forEach(k => { groups[k] = { label: k==='agent-definition'?'AGENT DEFINITIONS':k.toUpperCase().replace(/-/g,' '), items:[] }; });
+    files.forEach(f => { const k = groups[f.type] ? f.type : 'other'; if (!groups[k]) groups[k]={label:f.type.toUpperCase(),items:[]}; groups[k].items.push(f); });
+    const color = t => typeColor[t]||'var(--text-lo)';
+    const badge = t => '<span style="font-size:9px;padding:1px 6px;border-radius:8px;border:1px solid '+color(t)+';color:'+color(t)+'">'+t+'</span>';
+    el.innerHTML = '<div style="padding:16px">'+groupOrder.filter(k => groups[k]&&groups[k].items.length).map(k => {
+      const g = groups[k];
+      return '<div style="margin-bottom:20px"><div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">'+g.label+' ('+g.items.length+')</div>'+
+        '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr style="color:var(--text-xs);font-size:9px;text-align:left"><th style="padding:4px 8px">File</th><th>Type</th><th>Size</th><th>Modified</th><th></th></tr></thead>'+
+        '<tbody>'+g.items.map(f => {
+          const fp = JSON.stringify(f.path), fn = JSON.stringify(f.name);
+          return '<tr style="border-top:1px solid var(--border)">'+
+            '<td style="padding:6px 8px"><span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);cursor:pointer" onclick="v2ViewOrgFile('+fp+','+fn+')">'+esc(f.name)+'</span></td>'+
+            '<td style="padding:6px 8px">'+badge(f.type)+'</td>'+
+            '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo);font-family:var(--mono)">'+fmtSize(f.size||0)+'</td>'+
+            '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo)">'+fmtTime(f.mtime)+'</td>'+
+            '<td style="padding:6px 8px"><button class="btn" style="font-size:9px;padding:2px 7px" onclick="v2ViewOrgFile('+fp+','+fn+')">View</button></td></tr>';
+        }).join('')+'</tbody></table></div>';
+    }).join('')+'</div>';
+  } catch(e) { el.innerHTML = '<div style="padding:20px;color:oklch(60% 0.22 25)">Error: '+e.message+'</div>'; }
+}
+
+let _ofModal = null;
+async function v2ViewOrgFile(filePath, fileName) {
+  if (_ofModal) { _ofModal.remove(); _ofModal = null; }
+  _ofModal = document.createElement('div');
+  _ofModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  _ofModal.onclick = e => { if (e.target===_ofModal) { _ofModal.remove(); _ofModal=null; } };
+  _ofModal.innerHTML = '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;max-width:840px;width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden">'+
+    '<div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-shrink:0">'+
+    '<span style="font-family:var(--mono);font-size:12px;color:var(--text-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(fileName)+'</span>'+
+    '<button class="btn" style="font-size:10px;padding:2px 8px" onclick="navigator.clipboard.writeText(document.getElementById(\'of-content\').textContent)">Copy</button>'+
+    '<button class="btn" style="font-size:10px;padding:2px 8px" onclick="_ofModal&&(_ofModal.remove(),_ofModal=null)">Close</button></div>'+
+    '<div id="of-content" style="flex:1;overflow-y:auto;padding:14px 16px;font-family:var(--mono);font-size:11px;line-height:1.65;color:var(--text-mid);white-space:pre-wrap;word-break:break-word">Loading...</div></div>';
+  document.body.appendChild(_ofModal);
+  try {
+    const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
+    const r = await fetch('/api/file-content?path='+encodeURIComponent(filePath)+dirParam);
+    const el = document.getElementById('of-content');
+    if (el) el.textContent = r.ok ? await r.text() : 'Error '+r.status+': '+r.statusText;
+  } catch(e) {
+    const el = document.getElementById('of-content');
+    if (el) el.textContent = 'Error: '+e.message;
   }
 }
 
