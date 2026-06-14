@@ -48,3 +48,4 @@
 - 95997aba — fix(server): /api/org/:name/search always returned empty (used stripped url, lost ?q= and ?dir=)
 - 53a7aa28 — fix(server): DELETE /api/orgs/:name left 7 sidecar file types undeleted (-budgets/-threads/-secrets/-join-requests/-bootstrap/-project-workspaces/-approval-comments/-skills)
 - 8d01dd5f — fix(collector): add claude-opus-4-8 to token price table so opus-4-8 sessions are costed at $5/$25 instead of falling back to the old opus-4 rate ($15/$75)
+- 5debcfd2 — fix(dashboard): add ?dir= to POST approvals/:id, orgs/:name/stop, and orgs/:name/copy so actions apply to the selected project instead of the server's cwd
