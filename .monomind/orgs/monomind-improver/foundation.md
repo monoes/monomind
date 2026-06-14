@@ -26,6 +26,7 @@ _(The boss appends one line here after each successful commit so future cycles d
 - [2026-06-14 00:09] 0066a2e2 — fix(dashboard): check l.type === 'tillend' for tillend loop detection in _buildLoopRowHtml() and mini-loops panel; server sends field name `type` but both renderers checked the nonexistent `loopType` field — tillend loops never showed ∞ badge or gradient progress bar unless they also lacked maxReps
 - [2026-06-14 00:10] 44b12044 — fix(server): emit compactCount and errorCount in /api/session-journal response; JSONL parser never tracked is_error tool_result blocks or derived compactCount from summaries.length, so both the "+N compacted" and "N err" session-list badges in the dashboard were permanently invisible
 - [2026-06-14 00:11] f6a5311c — fix(server): send roles array (not length number) in /api/orgs list endpoint; dashboard v2RenderOrgList() checks Array.isArray(o.roles) to build role avatar images but received a number so shownRoles was always [] — all org card avatars were permanently suppressed
+- [2026-06-14 00:12] aae231b6 — fix(dashboard): correct v2RenderOrgBudgets field name mismatches; renderer read b.tokens/b.tokenLimit/b.usd/b.usdLimit (non-existent) instead of b.org_budget.limit_tokens/limit_usd; per-agent cost read a.cost instead of a.total_cost_usd and used wrong agents source; budget tab always showed "No budget data" even when budgets.json existed
 
 ## Off-Limits (do not re-implement)
 - Nothing yet
