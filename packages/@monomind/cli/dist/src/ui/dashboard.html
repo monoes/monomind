@@ -330,6 +330,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #odt-chat-feed::-webkit-scrollbar { width:4px; }
 #odt-chat-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
 #odt-chat-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
+.cv-excerpt-banner { flex-shrink:0; padding:7px 16px 8px; background:oklch(13% 0.01 295); border-bottom:1px solid var(--border); display:none; }
+.cv-excerpt-banner.visible { display:block; }
+.cv-excerpt-label { font-size:8px; letter-spacing:2px; color:var(--text-xs); text-transform:uppercase; margin-bottom:4px; }
+.cv-excerpt-items { display:flex; flex-direction:column; gap:2px; }
+.cv-excerpt-item { font-size:10px; color:var(--text-lo); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.cv-excerpt-item .cv-ex-tag { font-size:8px; color:var(--text-xs); margin-right:5px; display:inline-block; min-width:30px; }
 
 /* agent detail drawer (slides in from right within the org detail pane) */
 #org-agent-drawer {
@@ -707,6 +713,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #chat-v-live-dot.on { background:oklch(68% 0.20 150); animation:livepulse-cv 2.2s ease-in-out infinite; }
 @keyframes livepulse-cv { 0%,100%{opacity:1} 50%{opacity:0.4} }
 #chat-v-live-lbl { font-size:9px; color:var(--text-lo); }
+#chat-v-excerpt { flex-shrink:0; padding:7px 18px 8px; background:oklch(13% 0.01 295); border-bottom:1px solid var(--border); display:none; }
+#chat-v-excerpt.visible { display:block; }
 #chat-v-feed { flex:1; overflow-y:auto; padding:12px 18px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
 #chat-v-feed::-webkit-scrollbar { width:4px; }
 #chat-v-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
@@ -2134,6 +2142,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div id="chat-v-agent-bar" style="display:none">
           <span id="chat-v-agent-lbl">AGENT</span>
         </div>
+        <div id="chat-v-excerpt" class="cv-excerpt-banner"></div>
         <div id="chat-v-feed">
           <div id="chat-v-empty">Select a session above to see agent communications.<br>Agent messages, intercom signals, and system events appear here in real time.</div>
         </div>
@@ -3853,7 +3862,7 @@ function _buildLoopRowHtml(l, idx, projDir) {
   const runs = curRep != null ? curRep : '—';
   const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
   const progBar = isTillend
-    ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.capReps ? ' (cap: '+l.capReps+')' : ''}</span></div>`
+    ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.maxReps ? ' (cap: '+l.maxReps+')' : ''}</span></div>`
     : (maxReps > 0 && running)
       ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
       : '';
@@ -4054,6 +4063,7 @@ function chatVSelectSession(id) {
   const session = chatVSessions[id];
   const events = session.events || [];
   chatVPopulateAgentBar(events);
+  renderCvExcerptBanner('chat-v-excerpt', events);
   events.forEach(ev => appendChatViewEvent(ev, false));
   feed.scrollTop = feed.scrollHeight;
 }
@@ -4149,6 +4159,49 @@ function appendChatViewEvent(ev, animate) {
   feed.scrollTop = feed.scrollHeight;
 }
 
+function _cvExcerptText(ev) {
+  const t = ev.type || '';
+  if (t === 'intercom' || t === 'org:comms') return (ev.from || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'agent:spawn' || t === 'org:agent:online') return 'spawned ' + (ev.agent || ev.role || ev.title || '?');
+  if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.progress || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
+  if (t === 'org:start') return 'org started: ' + (ev.goal || '').slice(0, 80);
+  if (t === 'org:complete') return 'org complete';
+  if (t === 'session:start') return 'started: ' + (ev.prompt || '').replace(/^running org:\s*/i, '').slice(0, 80);
+  if (t === 'session:complete') return 'completed' + (ev.status ? ' [' + ev.status + ']' : '');
+  if (t === 'domain:dispatch') return '→ ' + (ev.domain || '') + (ev.cmd ? ': ' + ev.cmd.slice(0, 60) : '');
+  if (t === 'domain:complete') return '✓ ' + (ev.domain || '');
+  if (ev.msg) return (ev.msg || '').slice(0, 80);
+  return t.slice(0, 60);
+}
+
+function _cvExcerptTag(ev) {
+  const t = ev.type || '';
+  if (t === 'intercom' || t === 'org:comms') return 'IC';
+  if (t === 'agent:message') return 'MSG';
+  if (t === 'agent:spawn' || t === 'org:agent:online') return 'NEW';
+  if (t === 'org:checkpoint') return 'CHK';
+  if (t.startsWith('org:')) return 'ORG';
+  if (t.startsWith('session:')) return 'SES';
+  if (t.startsWith('domain:')) return 'DOM';
+  return 'EVT';
+}
+
+function renderCvExcerptBanner(bannerId, events) {
+  const banner = document.getElementById(bannerId);
+  if (!banner) return;
+  const SKIP = new Set(['session:start']);
+  const meaningful = (events || []).filter(ev => !SKIP.has(ev.type)).slice(-5).reverse();
+  if (!meaningful.length) { banner.classList.remove('visible'); banner.innerHTML = ''; return; }
+  const items = meaningful.slice(0, 3).map(ev => {
+    const tag = _cvExcerptTag(ev);
+    const txt = _cvExcerptText(ev);
+    return `<div class="cv-excerpt-item"><span class="cv-ex-tag">${tag}</span>${esc(txt)}</div>`;
+  }).join('');
+  banner.innerHTML = `<div class="cv-excerpt-label">LAST ACTIVITY</div><div class="cv-excerpt-items">${items}</div>`;
+  banner.classList.add('visible');
+}
+
 function mkCVSys(html, ts) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-sys';
@@ -4205,6 +4258,7 @@ function handleChatViewEvent(ev) {
       || (ev.from && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
       || (ev.to && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
     if (hasNewAgent) chatVPopulateAgentBar(chatVSessions[ev.session]?.events || []);
+    renderCvExcerptBanner('chat-v-excerpt', chatVSessions[ev.session]?.events || []);
     appendChatViewEvent(ev, true);
   }
 }
@@ -6501,6 +6555,7 @@ async function v2RenderOrgChat() {
       <div id="odt-chat-agent-bar" style="display:none">
         <span id="odt-chat-agent-lbl">AGENT</span>
       </div>
+      <div id="odt-chat-excerpt" class="cv-excerpt-banner"></div>
       <div id="odt-chat-feed">
         <div id="odt-chat-empty">Select a session to see agent communications.</div>
       </div>`;
@@ -6567,6 +6622,7 @@ window.odtChatSelectSession = function(id) {
   if (!sess) return;
   if (emptyEl) emptyEl.style.display = 'none';
   _odtPopulateAgentBar(sess.events || []);
+  renderCvExcerptBanner('odt-chat-excerpt', sess.events || []);
   (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
   feed.scrollTop = feed.scrollHeight;
 };
@@ -6691,6 +6747,7 @@ function _odtHandleLiveEvent(ev) {
         || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
         || (ev.to && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
       if (hasNewAgent) _odtPopulateAgentBar(sess.events);
+      renderCvExcerptBanner('odt-chat-excerpt', sess.events);
       _odtAppendEvent(ev, true);
     }
   }
