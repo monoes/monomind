@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- 5d818617 — fix(dashboard): read l.maxReps (not l.capReps) in tillend progress bar so safety cap number is shown
 - 11049558 — fix(server): include description in /api/org/:name/issues response so board and full-issues views show issue text when title is absent
 - 3af1aedc — fix(dashboard): read _l.wait (not _l.interval regex) in loop command reconstruction so --wait N appears in expanded loop row
 - 595dc368 — fix(server): POST /api/org/:name/approvals/:id writes org:approval:resolved event to ?dir= project path so boss agent unblocks in the correct project
