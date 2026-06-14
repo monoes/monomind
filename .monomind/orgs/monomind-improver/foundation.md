@@ -42,3 +42,4 @@
 - ad0b04e8 — fix(server): honour ?dir= in environments, workspaces, plugins, goals, routines endpoints
 - 8b89bc39 — fix(server): honour ?dir= in join-requests and POST approvals endpoints
 - 19fcb388 — fix(server): honour ?dir= in orgs/:name, projects, adapters, skills, search, DELETE orgs/:name
+- f1f65f96 — fix(server): add /api/org/:name/files endpoint (Files tab always showed empty); fix stop/copy ?dir= params
