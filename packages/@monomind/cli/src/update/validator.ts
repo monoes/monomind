@@ -3,7 +3,21 @@
  * Ensures updates don't break the ecosystem
  */
 
-import * as semver from 'semver';
+// Inline semver shim — avoids external dependency (semver is not listed in package.json)
+const semver = {
+  valid: (v: string | null | undefined): string | null => /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
+  major: (v: string): number => parseInt((v || '0').split('.')[0], 10),
+  gt: (a: string, b: string): boolean => {
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    return aMaj !== bMaj ? aMaj > bMaj : aMin !== bMin ? aMin > bMin : aPat > bPat;
+  },
+  lt: (a: string, b: string): boolean => {
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    return aMaj !== bMaj ? aMaj < bMaj : aMin !== bMin ? aMin < bMin : aPat < bPat;
+  },
+};
 
 export interface ValidationResult {
   valid: boolean;
