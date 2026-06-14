@@ -3115,7 +3115,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const cfg = JSON.parse(body);
           const qs = new URL(req.url, 'http://localhost').searchParams;
-          const dir = qs.get('dir') || projectDir || process.cwd();
+          const dir = qs.get('dir') || cfg.dir || projectDir || process.cwd();
           const name = (cfg.name || '').toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
           if (!name) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Invalid org name' })); return; }
           const orgsDir = path.join(path.resolve(dir), '.monomind', 'orgs');
