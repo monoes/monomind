@@ -1778,7 +1778,7 @@ let lsUptimeTimer = null;
 let evtSource = null;
 function connectSSE() {
   if (evtSource) evtSource.close();
-  evtSource = new EventSource('/api/events');
+  evtSource = new EventSource('/api/mastermind-stream');
   evtSource.onmessage = e => {
     try {
       const ev = JSON.parse(e.data);
