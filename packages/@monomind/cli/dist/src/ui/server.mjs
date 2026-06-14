@@ -3856,7 +3856,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const _budgetsQs = new URL(req.url, 'http://localhost').searchParams;
+        const base = path.join(path.resolve(_budgetsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         let budgetData = { org_budget: {}, agent_budgets: {}, period: 'monthly', currency: 'USD' };
         try { budgetData = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-budgets.json`), 'utf8')); } catch(_) {}
         // Enrich with per-agent spend from state file.
