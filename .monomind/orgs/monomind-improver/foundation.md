@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- 1c6e00cb — fix(dashboard): surface budget usage and 7d success rate in org health tab so run_success_rate_7d, total_runs_7d, budget_used_pct, and token progress bar are rendered (fields were fetched but silently discarded)
 - 629a3f80 — fix(server): add claude-opus-4-8 and claude-haiku-4 to _SJ_PRICING table so sessions using those models report non-zero cost in the session cost tracker
 - a88121a1 — fix(dashboard): count org:checkpoint as cycle in live SSE handler so running-org cycleCount increments in real time (was always 0 because SSE handler only tracked run:cycle:complete which orgs never emit)
 - d3b08999 — fix(server): DELETE /api/orgs/:name removes orgs/<name>/ subdirectory so run history files (.jsonl) don't leak after org deletion
@@ -66,3 +67,6 @@
 - ca25560e — fix(server): DELETE /api/orgs/:name now also removes git-safe run dir (.git/monomind/orgs/<name>/) so run files from feat 880f034e are cleaned up on delete
 - ed34d1f4 — fix(server): /api/org/:name/search now includes issues in search results (title/description/slug) so issue search returns hits instead of always returning empty
 - 8da114f0 — fix(dashboard): deduplicate live SSE events so chat feed does not show repeated events on SSE reconnect
+- 96d5dd9a — fix(dashboard): remove double ellipsis in invites token display
+- 6d89fc5e — fix(dashboard): command palette orgtab falls back to v2SwitchOrgTab for hidden tabs so roles/members/goals/board/live/secrets/settings/routines/myissues/heartbeats/tasks/costs are reachable from the palette
+- f225e323 — fix(dashboard): normalize completed/failed/cancelled task status to 'done' in v2RenderOrgTasks so done-column tasks sort correctly and render with green pill (was rank[undefined]=1, same as pending)
