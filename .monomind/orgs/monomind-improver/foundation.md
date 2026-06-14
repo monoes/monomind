@@ -27,3 +27,4 @@
 - a36a5b66 — fix(dashboard): fmtInterval correctly parses string suffixes (1h, 30m, 45s)
 - d51e2954 — fix(collector): add claude-haiku-4 to token price table so haiku-4 sessions are costed correctly instead of falling back to sonnet rate
 - 0bdb685b — fix(update): inline semver shim in index.ts — remove external semver import that would throw MODULE_NOT_FOUND in standalone installs
+- 7f25b297 — fix(update): inline semver shim in validator.ts — remove external semver import
