@@ -64,3 +64,4 @@
 - 6f801d3d — fix(server): add skills to _sidecarSuffixRe in GET /api/orgs so ${orgName}-skills.json is not listed as an org config
 - ca25560e — fix(server): DELETE /api/orgs/:name now also removes git-safe run dir (.git/monomind/orgs/<name>/) so run files from feat 880f034e are cleaned up on delete
 - ed34d1f4 — fix(server): /api/org/:name/search now includes issues in search results (title/description/slug) so issue search returns hits instead of always returning empty
+- 8da114f0 — fix(dashboard): deduplicate live SSE events so chat feed does not show repeated events on SSE reconnect
