@@ -3443,8 +3443,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         // Goals
         const goals = readJ(path.join(orgsDir, `${orgName}-goals.json`));
         for (const g of (goals?.goals || [])) {
-          if (match(g.title) || match(g.description)) {
-            hits.push({ type: 'goal', id: g.id, title: g.title, meta: g.status || 'open' });
+          if (match(g.title) || match(g.text) || match(g.goal) || match(g.description)) {
+            hits.push({ type: 'goal', id: g.id, title: g.title || g.text || g.goal, meta: g.status || 'open' });
           }
         }
 
