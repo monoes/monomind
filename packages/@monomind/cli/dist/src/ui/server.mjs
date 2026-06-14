@@ -3419,7 +3419,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // GET /api/org/:name/search?q=<query> — fuzzy search across org data
     if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/search(\?.*)?$/i.test(url)) {
       try {
-        const urlObj = new URL(`http://x${url}`);
+        const urlObj = new URL(`http://x${req.url}`);
         const orgName = decodeURIComponent(urlObj.pathname.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
         const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
