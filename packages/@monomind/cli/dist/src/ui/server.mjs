@@ -3801,7 +3801,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         if (!['approve', 'reject', 'revision_requested'].includes(action)) {
           res.writeHead(400); res.end('{"error":"action must be approve, reject, or revision_requested"}'); return;
         }
-        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const _postApprovalsQs = new URL(req.url, 'http://localhost').searchParams;
+        const base = path.join(path.resolve(_postApprovalsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         const approvalsFile = path.join(base, `${orgName}-approvals.json`);
         let data = { approvals: [] };
         try { data = JSON.parse(fs.readFileSync(approvalsFile, 'utf8')); } catch(_) {}
@@ -3930,7 +3931,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
-        const joinFile = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-join-requests.json`);
+        const _joinQs = new URL(req.url, 'http://localhost').searchParams;
+        const joinFile = path.join(path.resolve(_joinQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs', `${orgName}-join-requests.json`);
         let requests = [];
         try {
           const raw = fs.readFileSync(joinFile, 'utf8');
