@@ -11,3 +11,4 @@
 - 349da223 — fix(server): add updated_at and ts fields to /api/org/:name/my-issues response so dashboard My Issues tab shows timestamps
 - 1b6c4020 — fix(dashboard): read data.requests (not data.joinRequests) and r.requesterName in join-requests tab so requests are shown and names display correctly
 - 0a91b3d7 — fix(server): include expiresAt in /api/org/:name/invites response so dashboard Invites tab Expires column shows real data
+- 0a91b3d7 — fix(server): add expiresAt field to /api/org/:name/invites response so dashboard Invites tab shows expiry column
