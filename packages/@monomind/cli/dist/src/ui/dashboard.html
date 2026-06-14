@@ -7881,7 +7881,7 @@ function executeCmdItem() {
   else if (item.type === 'org') { switchView('orgs'); setTimeout(() => v2SelectOrg(item.data.name), 80); }
   else if (item.type === 'skill') switchView('memory');
   else if (item.type === 'action') { if (item.data.action) item.data.action(); }
-  else if (item.type === 'orgtab') { const btn = document.querySelector(`.odt-btn[data-tab="${item.data.tab}"]`); if (btn) btn.click(); }
+  else if (item.type === 'orgtab') { const btn = document.querySelector(`.odt-btn[data-tab="${item.data.tab}"]`); if (btn) btn.click(); else if (typeof v2SwitchOrgTab === 'function') v2SwitchOrgTab(item.data.tab); }
 }
 
 // ── cross-session search ───────────────────────────────────
