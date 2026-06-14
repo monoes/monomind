@@ -3464,6 +3464,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           payload.issues = (raw.issues || []).map(i => ({
             id: i.id, slug: i.slug, title: i.title, status: i.status || 'open',
             priority: i.priority || 'medium', assignee_id: i.assignee_id || null,
+            assignee: i.assignee || i.assignee_id || null,
             project_id: i.project_id || null, parent_id: i.parent_id || null,
             created_at: i.created_at, updated_at: i.updated_at
           }));
