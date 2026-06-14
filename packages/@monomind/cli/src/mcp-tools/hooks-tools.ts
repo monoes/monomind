@@ -337,10 +337,14 @@ function getMemoryPath(): string {
   return join(getProjectCwd(), MEMORY_DIR, MEMORY_FILE);
 }
 
+// Maximum size of the legacy JSON memory store before reads are skipped.
+// Matches the guard in memory-tools.ts (loadLegacyStore) which loads the same file.
+const MAX_MEMORY_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
+
 function loadMemoryStore(): MemoryStore {
   try {
     const path = getMemoryPath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_MEMORY_STORE_BYTES) {
       const data = readFileSync(path, 'utf-8');
       return JSON.parse(data);
     }
