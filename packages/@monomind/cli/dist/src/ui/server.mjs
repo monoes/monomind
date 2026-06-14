@@ -1189,9 +1189,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       req.on('data', chunk => { body += chunk; });
       req.on('end', () => {
         try {
+          const _qs = new URL(req.url, 'http://localhost').searchParams;
           const { name, prompt, interval, maxReps } = JSON.parse(body);
           if (!prompt) { res.writeHead(400); res.end(JSON.stringify({ error: 'prompt required' })); return; }
-          const loopsDir = path.join(projectDir || process.cwd(), '.monomind', 'loops');
+          const loopsDir = path.join(path.resolve(_qs.get('dir') || projectDir || process.cwd()), '.monomind', 'loops');
           fs.mkdirSync(loopsDir, { recursive: true });
           const id = `loop-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
           const nowMs = Date.now();
