@@ -587,7 +587,7 @@ async function checkAgenticFlow(): Promise<HealthCheck> {
     return {
       name: 'agentic-flow',
       status: 'pass',
-      message: `v${version} (${features.join(', ')})`
+      message: `v${version}${features.length ? ' (' + features.join(', ') + ')' : ' (installed)'}`
     };
   } catch {
     return { name: 'agentic-flow', status: 'warn', message: 'Check failed' };
