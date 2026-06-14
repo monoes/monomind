@@ -10,7 +10,7 @@
  */
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Storage paths
@@ -104,10 +104,12 @@ function ensureCoordDir(): void {
   }
 }
 
+const MAX_COORD_STORE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 function loadCoordStore(): CoordStore {
   try {
     const path = getCoordPath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_COORD_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8')) as CoordStore;
     }
   } catch {
