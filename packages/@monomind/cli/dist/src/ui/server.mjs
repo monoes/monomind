@@ -510,7 +510,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           } catch {}
           const filesTouched = [...filesTouchedSet].slice(0, 20);
           const compactCount = summaries.length;
-          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, compactCount, errorCount, totalDurationMs, totalMessages, totalCost, toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
+          const summary = summaries.length ? summaries[summaries.length - 1].text : null;
+          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, summary, compactCount, errorCount, totalDurationMs, totalMessages, totalCost, toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ sessions }));
