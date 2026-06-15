@@ -598,6 +598,21 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 
 /* ── forecast row ────────────────────────────────────────── */
 .m-val.forecast { color:var(--text-lo); font-size:11px; font-weight:500; }
+/* ── recent activity panel ───────────────────────────────── */
+#m-activity { position:relative; }
+#m-activity-toggle { position:absolute; top:0; right:0; background:none; border:none; color:var(--text-lo); font-size:11px; cursor:pointer; padding:0 2px; line-height:1; }
+#m-activity-toggle:hover { color:var(--text-mid); }
+#m-activity-list { margin-top:4px; }
+#m-activity-list.collapsed { display:none; }
+.act-item { display:flex; align-items:flex-start; gap:6px; padding:3px 0; border-bottom:1px solid var(--border); }
+.act-item:last-child { border-bottom:none; }
+.act-kind { font-size:9px; font-weight:700; letter-spacing:0.05em; padding:1px 4px; border-radius:3px; flex-shrink:0; margin-top:1px; }
+.act-kind.tool { background:oklch(30% 0.08 240 / 0.5); color:oklch(75% 0.12 240); }
+.act-kind.user { background:oklch(30% 0.08 140 / 0.5); color:oklch(75% 0.12 140); }
+.act-body { flex:1; min-width:0; }
+.act-text { font-size:11px; color:var(--text-mid); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.act-text em { font-style:normal; color:var(--text-hi); font-family:var(--mono); }
+.act-ts { font-size:10px; color:var(--text-xs); flex-shrink:0; margin-top:1px; }
 
 /* ── session date groups ─────────────────────────────────── */
 .sg-section { margin-bottom:4px; }
@@ -1565,6 +1580,10 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div id="m-hourly-heatmap">
           <div class="m-group-title">Peak Work Hours</div>
           <div class="loading-txt">—</div>
+        </div>
+        <div id="m-activity">
+          <div class="m-group-title">Recent Activity <button id="m-activity-toggle" title="Collapse" onclick="toggleActivityPanel()">▾</button></div>
+          <div id="m-activity-list"><div class="loading-txt">—</div></div>
         </div>
       </div>
     </div>
@@ -2879,7 +2898,48 @@ function goLive() {
 // ── metrics ────────────────────────────────────────────────
 async function loadMetrics() {
   if (!DIR) return;
-  await Promise.allSettled([loadTodayMetrics(), loadLoopMetrics(), loadStatusStrip()]);
+  await Promise.allSettled([loadTodayMetrics(), loadLoopMetrics(), loadStatusStrip(), renderRecentActivity()]);
+}
+
+// ── recent activity panel ─────────────────────────────────
+let _activityCollapsed = false;
+function toggleActivityPanel() {
+  _activityCollapsed = !_activityCollapsed;
+  const list = document.getElementById('m-activity-list');
+  const btn = document.getElementById('m-activity-toggle');
+  if (list) list.classList.toggle('collapsed', _activityCollapsed);
+  if (btn) btn.textContent = _activityCollapsed ? '▸' : '▾';
+  if (btn) btn.title = _activityCollapsed ? 'Expand' : 'Collapse';
+}
+
+async function renderRecentActivity() {
+  const el = document.getElementById('m-activity-list');
+  if (!el || _activityCollapsed) return;
+  try {
+    const q = DIR ? '?dir=' + enc(DIR) + '&limit=20' : '?limit=20';
+    const data = await apiFetch('/api/recent-events' + q);
+    const events = Array.isArray(data) ? data : (data.events || []);
+    if (!events.length) {
+      el.innerHTML = '<div class="loading-txt" style="font-size:11px">No recent activity</div>';
+      return;
+    }
+    el.innerHTML = events.slice(0, 15).map(ev => {
+      const isUser = ev.kind === 'user';
+      const kindLabel = isUser ? 'USER' : 'TOOL';
+      const text = isUser
+        ? esc((ev.text || '').slice(0, 80))
+        : `<em>${esc((ev.tool || '').replace(/^mcp__[^_]+__/, ''))}</em>`;
+      const ts = ev.ts ? relTime(ev.ts) : '';
+      return `<div class="act-item">
+        <span class="act-kind ${ev.kind}">${kindLabel}</span>
+        <div class="act-body"><div class="act-text">${text}</div></div>
+        <span class="act-ts">${ts}</span>
+      </div>`;
+    }).join('');
+  } catch (_) {
+    const el2 = document.getElementById('m-activity-list');
+    if (el2) el2.innerHTML = '<div class="loading-txt" style="font-size:11px">—</div>';
+  }
 }
 
 async function loadTodayMetrics() {
