@@ -132,7 +132,7 @@ export class ConfigFileManager {
    * drop the first writer's API key.
    */
   set(cwd: string, key: string, value: unknown): void {
-    const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks', 'neural']);
+    const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
     const topSection = String(key).split('.')[0];
     if (!KNOWN_SET_SECTIONS.has(topSection)) {
       throw new Error(`Unknown config section: "${topSection}". Allowed: ${[...KNOWN_SET_SECTIONS].join(', ')}`);
@@ -222,7 +222,7 @@ export class ConfigFileManager {
     // KNOWN_SECTIONS only validates top-level keys, leaving nested
     // {agents:{providers:[{__proto__:{...}}]}} unsanitized.
     const imported = sanitizeConfigObject(importedRaw) as Record<string, unknown>;
-    const KNOWN_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks']);
+    const KNOWN_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
     for (const key of Object.keys(imported)) {
       if (!KNOWN_SECTIONS.has(key)) {
         throw new Error(`Unknown config section: "${key}"`);
