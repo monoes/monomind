@@ -145,12 +145,25 @@ export function crossReferenceWithDeadCode(
   flags: FeatureFlag[],
   deadExports: Array<{ filePath: string; name: string; line: number }>,
 ): FeatureFlag[] {
+  // Pregroup dead exports by filePath to avoid O(F*D) nested scan
+  const deadByFile = new Map<string, Array<{ name: string; line: number }>>();
+  for (const e of deadExports) {
+    let arr = deadByFile.get(e.filePath);
+    if (!arr) {
+      arr = [];
+      deadByFile.set(e.filePath, arr);
+    }
+    arr.push({ name: e.name, line: e.line });
+  }
+
   return flags.map(flag => {
     if (flag.guardLineStart == null || flag.guardLineEnd == null) return flag;
-    const guarded = deadExports
-      .filter(e => e.filePath === flag.filePath &&
-        e.line >= (flag.guardLineStart ?? 0) &&
-        e.line <= (flag.guardLineEnd ?? Infinity))
+    const fileDeads = deadByFile.get(flag.filePath);
+    if (!fileDeads) return flag;
+    const start = flag.guardLineStart ?? 0;
+    const end = flag.guardLineEnd ?? Infinity;
+    const guarded = fileDeads
+      .filter(e => e.line >= start && e.line <= end)
       .map(e => e.name);
     return guarded.length > 0 ? { ...flag, guardedDeadExports: guarded } : flag;
   });
@@ -179,20 +192,27 @@ export interface FlagsSummary {
 }
 
 export function summarizeFlags(flags: FeatureFlag[]): FlagsSummary {
+  // Single pass over flags instead of 7 separate filter/map passes
+  const byKind: Record<FlagKind, number> = { EnvironmentVariable: 0, SdkCall: 0, ConfigObject: 0 };
+  const byConfidence: Record<FlagConfidence, number> = { High: 0, Medium: 0, Low: 0 };
+  const flagNames = new Set<string>();
+  const filePaths = new Set<string>();
+  let deadCodeOverlaps = 0;
+
+  for (const f of flags) {
+    byKind[f.kind]++;
+    byConfidence[f.confidence]++;
+    flagNames.add(f.flagName);
+    filePaths.add(f.filePath);
+    if ((f.guardedDeadExports?.length ?? 0) > 0) deadCodeOverlaps++;
+  }
+
   return {
     totalFlags: flags.length,
-    byKind: {
-      EnvironmentVariable: flags.filter(f => f.kind === 'EnvironmentVariable').length,
-      SdkCall: flags.filter(f => f.kind === 'SdkCall').length,
-      ConfigObject: flags.filter(f => f.kind === 'ConfigObject').length,
-    },
-    byConfidence: {
-      High: flags.filter(f => f.confidence === 'High').length,
-      Medium: flags.filter(f => f.confidence === 'Medium').length,
-      Low: flags.filter(f => f.confidence === 'Low').length,
-    },
-    uniqueFlagNames: new Set(flags.map(f => f.flagName)).size,
-    filesWithFlags: new Set(flags.map(f => f.filePath)).size,
-    deadCodeOverlaps: flags.filter(f => (f.guardedDeadExports?.length ?? 0) > 0).length,
+    byKind,
+    byConfidence,
+    uniqueFlagNames: flagNames.size,
+    filesWithFlags: filePaths.size,
+    deadCodeOverlaps,
   };
 }
