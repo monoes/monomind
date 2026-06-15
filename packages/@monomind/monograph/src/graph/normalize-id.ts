@@ -87,8 +87,9 @@ export function reconcileEdges(
     let remapped = false;
 
     if (!nodeIds.has(src)) {
+      // Cache normalizeId result to avoid calling it twice for the same string
       const canonical = normToId.get(normalizeId(src));
-      if (canonical) {
+      if (canonical !== undefined) {
         src = canonical;
         remapped = true;
       }
@@ -96,7 +97,7 @@ export function reconcileEdges(
 
     if (!nodeIds.has(tgt)) {
       const canonical = normToId.get(normalizeId(tgt));
-      if (canonical) {
+      if (canonical !== undefined) {
         tgt = canonical;
         remapped = true;
       }
@@ -111,4 +112,27 @@ export function reconcileEdges(
   }
 
   return { resolved, dangling, remappedCount };
+}
+
+/**
+ * Format a ReconciliationResult as structured text for LLM consumption.
+ */
+export function formatReconciliationResult(result: ReconciliationResult): string {
+  const total = result.resolved.length + result.dangling.length;
+  const lines: string[] = [
+    `Edge reconciliation: ${result.resolved.length}/${total} resolved, ${result.remappedCount} remapped, ${result.dangling.length} dangling`,
+  ];
+  if (result.dangling.length > 0) {
+    lines.push('');
+    lines.push('Dangling edges (unresolvable endpoints):');
+    const limit = Math.min(result.dangling.length, 20);
+    for (let i = 0; i < limit; i++) {
+      const e = result.dangling[i]!;
+      lines.push(`  ${e.source} -> ${e.target}`);
+    }
+    if (result.dangling.length > limit) {
+      lines.push(`  ... and ${result.dangling.length - limit} more`);
+    }
+  }
+  return lines.join('\n');
 }
