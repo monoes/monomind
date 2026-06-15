@@ -234,12 +234,20 @@ const monographCommunityTool = {
         required: ['id'],
     },
     handler: async (input) => {
+        // Validate community ID — must be a finite integer. parseInt(NaN) or a float
+        // would silently become 0 in SQLite (NaN → NULL → 0 coercion), which would
+        // return all nodes in community 0 instead of an error.
+        const rawId = typeof input.id === 'number' ? input.id : parseInt(String(input.id), 10);
+        if (!Number.isFinite(rawId) || rawId !== Math.floor(rawId)) {
+            return text(`Invalid community ID: ${input.id} (must be an integer)`);
+        }
+        const communityId = rawId;
         const { openDb, closeDb } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const rows = db.prepare('SELECT * FROM nodes WHERE community_id = ?').all(parseInt(input.id, 10));
+            const rows = db.prepare('SELECT * FROM nodes WHERE community_id = ?').all(communityId);
             if (rows.length === 0)
-                return text(`No nodes in community ${input.id}`);
+                return text(`No nodes in community ${communityId}`);
             return text(rows.map(r => `[${r.label}] ${r.name}  ${r.file_path ?? ''}`).join('\n'));
         }
         finally {
@@ -479,13 +487,19 @@ const monographSnapshotTool = {
     handler: async (input) => {
         const { openDb, closeDb, snapshotFromDb } = await import('@monoes/monograph');
         const { writeFileSync, mkdirSync } = await import('fs');
+        const { resolve: resolvePath } = await import('path');
         const db = openDb(getDbPath());
         try {
             const snapshot = snapshotFromDb(db);
-            const name = input.name ?? new Date().toISOString().replace(/[:.]/g, '-');
-            const snapshotDir = join(getProjectCwd(), '.monomind', 'snapshots');
+            const rawName = input.name ?? new Date().toISOString().replace(/[:.]/g, '-');
+            const SAFE_NAME_RE = /^[a-zA-Z0-9_.\-]+$/;
+            if (!SAFE_NAME_RE.test(rawName))
+                return text(`Invalid snapshot name: ${rawName}`);
+            const snapshotDir = resolvePath(join(getProjectCwd(), '.monomind', 'snapshots'));
             mkdirSync(snapshotDir, { recursive: true });
-            const outPath = join(snapshotDir, `${name}.json`);
+            const outPath = join(snapshotDir, `${rawName}.json`);
+            if (!resolvePath(outPath).startsWith(snapshotDir))
+                return text(`Path traversal detected in snapshot name`);
             writeFileSync(outPath, JSON.stringify(snapshot, null, 2));
             return text(`Snapshot saved: ${outPath}\n  nodes: ${snapshot.nodes.length}  edges: ${snapshot.edges.length}`);
         }
@@ -508,18 +522,37 @@ const monographDiffTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb, snapshotFromDb, diffSnapshots } = await import('@monoes/monograph');
-        const { readFileSync, existsSync } = await import('fs');
-        const snapshotDir = join(getProjectCwd(), '.monomind', 'snapshots');
-        const beforePath = join(snapshotDir, `${input.before}.json`);
+        const { readFileSync, existsSync, statSync: statSyncSnap } = await import('fs');
+        const { resolve: resolvePath } = await import('path');
+        const MAX_SNAPSHOT_BYTES = 100 * 1024 * 1024; // 100 MB
+        const snapshotDir = resolvePath(join(getProjectCwd(), '.monomind', 'snapshots'));
+        // Reject snapshot names containing path separators or traversal sequences
+        const SAFE_SNAPSHOT_NAME = /^[a-zA-Z0-9_.\-]+$/;
+        const beforeName = input.before;
+        if (!SAFE_SNAPSHOT_NAME.test(beforeName))
+            return text(`Invalid snapshot name: ${beforeName}`);
+        const beforePath = join(snapshotDir, `${beforeName}.json`);
+        if (!resolvePath(beforePath).startsWith(snapshotDir))
+            return text(`Path traversal detected in snapshot name`);
         if (!existsSync(beforePath)) {
             return text(`Snapshot not found: ${beforePath}\nCreate one first with monograph_snapshot.`);
+        }
+        if (statSyncSnap(beforePath).size > MAX_SNAPSHOT_BYTES) {
+            return text(`Snapshot too large to diff: ${beforePath}`);
         }
         const before = JSON.parse(readFileSync(beforePath, 'utf-8'));
         let after;
         if (input.after) {
-            const afterPath = join(snapshotDir, `${input.after}.json`);
+            const afterName = input.after;
+            if (!SAFE_SNAPSHOT_NAME.test(afterName))
+                return text(`Invalid snapshot name: ${afterName}`);
+            const afterPath = join(snapshotDir, `${afterName}.json`);
+            if (!resolvePath(afterPath).startsWith(snapshotDir))
+                return text(`Path traversal detected in snapshot name`);
             if (!existsSync(afterPath))
                 return text(`Snapshot not found: ${afterPath}`);
+            if (statSyncSnap(afterPath).size > MAX_SNAPSHOT_BYTES)
+                return text(`Snapshot too large to diff: ${afterPath}`);
             after = JSON.parse(readFileSync(afterPath, 'utf-8'));
         }
         else {
