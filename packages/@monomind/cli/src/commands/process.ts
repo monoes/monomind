@@ -43,12 +43,20 @@ function writePidFile(pidFile: string, pid: number, port: number): void {
   }
 }
 
+const MAX_PID_FILE_BYTES = 4 * 1024; // 4 KB — a PID file should never be this large
+
 function readPidFile(pidFile: string): PidFileData | null {
   try {
     const path = resolve(pidFile);
     if (!existsSync(path)) return null;
+    // Guard against oversized PID files before reading into memory
+    if (statSync(path).size > MAX_PID_FILE_BYTES) return null;
     const data = readFileSync(path, 'utf-8');
-    return JSON.parse(data) as PidFileData;
+    return JSON.parse(data, (key, value) => {
+      // Prototype pollution guard
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
+      return value;
+    }) as PidFileData;
   } catch {
     return null;
   }
@@ -652,12 +660,23 @@ const logsCommand: Command = {
     { command: 'monomind process logs --since 1h --grep "error"', description: 'Search logs' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const source = (ctx.flags?.source as string) || 'all';
-    const tail = (ctx.flags?.tail as number) || 50;
+    const VALID_SOURCES = new Set(['daemon', 'workers', 'tasks', 'all']);
+    const VALID_LEVELS  = new Set(['debug', 'info', 'warn', 'error']);
+    const MAX_TAIL      = 10_000; // cap to prevent huge in-memory slice
+    const MAX_GREP_LEN  = 256;    // cap regex/pattern length
+    const MAX_SINCE_LEN = 64;     // cap timestamp/duration string
+
+    const rawSource = (ctx.flags?.source as string) || 'all';
+    const source = VALID_SOURCES.has(rawSource) ? rawSource : 'all';
+    const rawTail = Number(ctx.flags?.tail ?? 50);
+    const tail = Number.isFinite(rawTail) && rawTail > 0 ? Math.min(rawTail, MAX_TAIL) : 50;
     const follow = ctx.flags?.follow === true;
-    const level = (ctx.flags?.level as string) || 'info';
-    const since = ctx.flags?.since as string | undefined;
-    const grep = ctx.flags?.grep as string | undefined;
+    const rawLevel = (ctx.flags?.level as string) || 'info';
+    const level = VALID_LEVELS.has(rawLevel) ? rawLevel : 'info';
+    const rawSince = ctx.flags?.since as string | undefined;
+    const since = rawSince ? String(rawSince).slice(0, MAX_SINCE_LEN) : undefined;
+    const rawGrep = ctx.flags?.grep as string | undefined;
+    const grep = rawGrep ? String(rawGrep).slice(0, MAX_GREP_LEN) : undefined;
 
     console.log(`\n📜 Process Logs (${source})\n`);
     console.log(`  Level: ${level}+ | Lines: ${tail}${since ? ` | Since: ${since}` : ''}${grep ? ` | Filter: ${grep}` : ''}`);
