@@ -12,6 +12,54 @@
 
 import type { MCPTool } from './types.js';
 
+// ===== Input validation helpers =====
+
+const MAX_AGENT_TYPE_LEN = 64;   // slug length — catalogue keys are all < 30 chars
+const MAX_BASE_URL_LEN = 2048;   // typical browser URL limit
+const MAX_TASK_ID_LEN = 256;
+const MAX_SESSION_ID_LEN = 256;
+// Allowlist of URL schemes that are safe to embed in returned Agent Card urls.
+// Prevents javascript:, data:, file:// etc. from being reflected back to callers.
+const ALLOWED_URL_SCHEMES = new Set(['http:', 'https:']);
+
+/**
+ * Validate and return an agent type slug.
+ * Returns null when the value is not a string or exceeds the max length.
+ */
+function validateAgentType(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length === 0 || value.length > MAX_AGENT_TYPE_LEN) return null;
+  return value;
+}
+
+/**
+ * Validate and return a base URL.
+ * Accepts only http/https schemes and caps length to prevent oversized reflected values.
+ * Falls back to the default localhost URL on failure.
+ */
+function validateBaseUrl(value: unknown, fallback = 'http://localhost:3000'): string {
+  if (typeof value !== 'string' || value.length === 0) return fallback;
+  if (value.length > MAX_BASE_URL_LEN) return fallback;
+  try {
+    const parsed = new URL(value);
+    if (!ALLOWED_URL_SCHEMES.has(parsed.protocol)) return fallback;
+    // Reject URLs with credentials — they should never appear in Agent Card endpoints
+    if (parsed.username || parsed.password) return fallback;
+  } catch {
+    return fallback;
+  }
+  return value;
+}
+
+/**
+ * Validate an optional string ID (taskId / sessionId).
+ * Returns undefined when the value is absent; null when it is present but invalid.
+ */
+function validateOptionalId(value: unknown, maxLen: number): string | null | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string' || value.length === 0 || value.length > maxLen) return null;
+  return value;
+}
+
 // ===== A2A Protocol Types (a2a-protocol.org) =====
 
 interface A2AProvider {
@@ -176,14 +224,17 @@ export const a2aTools: MCPTool[] = [
       required: ['agentType'],
     },
     handler: async (input) => {
-      const agentType = input.agentType as string;
-      const baseUrl = (input.baseUrl as string) || 'http://localhost:3000';
+      const agentType = validateAgentType(input.agentType);
+      if (!agentType) {
+        return { success: false, error: 'agentType is required (non-empty string, max 64 chars)' };
+      }
+      const baseUrl = validateBaseUrl(input.baseUrl);
 
       const card = buildAgentCard(agentType, baseUrl);
       if (!card) {
         return {
           success: false,
-          error: `Unknown agent type: "${agentType}". Available: ${Object.keys(AGENT_CARD_CATALOGUE).join(', ')}`,
+          error: `Unknown agent type. Available: ${Object.keys(AGENT_CARD_CATALOGUE).join(', ')}`,
         };
       }
 
@@ -209,17 +260,32 @@ export const a2aTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const baseUrl = (input.baseUrl as string) || 'http://localhost:3000';
-      const capabilityFilter = input.capabilities as Partial<A2ACapabilities> | undefined;
+      const baseUrl = validateBaseUrl(input.baseUrl);
+      // Only accept a plain object capability filter to prevent prototype pollution.
+      // Object.create(null) maps and class instances are intentionally rejected.
+      const rawCap = input.capabilities;
+      const capabilityFilter: Partial<A2ACapabilities> | undefined =
+        rawCap !== null &&
+        typeof rawCap === 'object' &&
+        !Array.isArray(rawCap) &&
+        Object.getPrototypeOf(rawCap) === Object.prototype
+          ? (rawCap as Partial<A2ACapabilities>)
+          : undefined;
+
+      const KNOWN_CAPABILITY_KEYS: ReadonlySet<keyof A2ACapabilities> = new Set([
+        'streaming', 'pushNotifications', 'stateTransitionHistory',
+      ]);
 
       const cards = Object.keys(AGENT_CARD_CATALOGUE)
         .map(type => buildAgentCard(type, baseUrl))
         .filter((card): card is A2AAgentCard => {
           if (!card) return false;
           if (!capabilityFilter) return true;
-          // Apply capability filter
-          for (const [key, value] of Object.entries(capabilityFilter)) {
-            if (card.capabilities[key as keyof A2ACapabilities] !== value) return false;
+          // Apply capability filter — only iterate known keys to prevent
+          // prototype-chain access via attacker-controlled property names.
+          for (const key of KNOWN_CAPABILITY_KEYS) {
+            if (!(key in capabilityFilter)) continue;
+            if (card.capabilities[key] !== capabilityFilter[key]) return false;
           }
           return true;
         });
@@ -266,16 +332,34 @@ export const a2aTools: MCPTool[] = [
       required: ['agentType', 'message'],
     },
     handler: async (input) => {
-      const agentType = input.agentType as string;
+      const agentType = validateAgentType(input.agentType);
+      if (!agentType) {
+        return { success: false, error: 'agentType is required (non-empty string, max 64 chars)' };
+      }
       const message = input.message as { role: string; parts: Array<{ type: string; text?: string }> };
-      const taskId = (input.taskId as string) || `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const sessionId = input.sessionId as string | undefined;
-      const metadata = (input.metadata as Record<string, unknown>) || {};
+      const rawTaskId = validateOptionalId(input.taskId, MAX_TASK_ID_LEN);
+      if (rawTaskId === null) {
+        return { success: false, error: `taskId must be a non-empty string up to ${MAX_TASK_ID_LEN} chars` };
+      }
+      const taskId = rawTaskId ?? `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const rawSessionId = validateOptionalId(input.sessionId, MAX_SESSION_ID_LEN);
+      if (rawSessionId === null) {
+        return { success: false, error: `sessionId must be a non-empty string up to ${MAX_SESSION_ID_LEN} chars` };
+      }
+      const sessionId = rawSessionId;
+      // Only accept plain objects for metadata to prevent prototype pollution
+      const metadata: Record<string, unknown> =
+        input.metadata !== null &&
+        typeof input.metadata === 'object' &&
+        !Array.isArray(input.metadata) &&
+        Object.getPrototypeOf(input.metadata) === Object.prototype
+          ? (input.metadata as Record<string, unknown>)
+          : {};
 
       if (!AGENT_CARD_CATALOGUE[agentType]) {
         return {
           success: false,
-          error: `Unknown agent type: "${agentType}". Run a2a_discover to see available agents.`,
+          error: `Unknown agent type. Run a2a_discover to see available agents.`,
         };
       }
 
