@@ -889,6 +889,10 @@ export const doctorCommand = {
                     const result = settledResult.value;
                     results.push(result);
                     output.writeln(formatCheck(result));
+                    if (result.fix && result.status === 'fail') {
+                        // Always show fix inline for failures — no flag needed
+                        output.writeln(output.dim(`  Fix: ${result.fix}`));
+                    }
                     if (result.fix && (result.status === 'fail' || result.status === 'warn')) {
                         fixes.push(`${result.name}: ${result.fix}`);
                     }
@@ -949,9 +953,13 @@ export const doctorCommand = {
                 output.writeln(output.dim(`  ${fix}`));
             }
         }
-        else if (fixes.length > 0 && !showFix) {
-            output.writeln();
-            output.writeln(output.dim(`Run with --fix to see ${fixes.length} suggested fix${fixes.length > 1 ? 'es' : ''}`));
+        else if (!showFix) {
+            // Only nudge about --fix for warnings (failures already showed their fix inline)
+            const warnFixes = results.filter(r => r.status === 'warn' && r.fix).length;
+            if (warnFixes > 0) {
+                output.writeln();
+                output.writeln(output.dim(`Run with --fix to see ${warnFixes} suggested fix${warnFixes > 1 ? 'es' : ''} for warnings`));
+            }
         }
         // Overall result
         if (failed > 0) {
