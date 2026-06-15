@@ -36,6 +36,12 @@ function storePath(baseDir: string): string {
  *  the file size and keeping joinOutcome's full-file rewrite cheap. */
 const MAX_ROUTE_RECORDS = 500;
 
+/** Conservative estimate of bytes per record (capped fields + JSON overhead).
+ *  Used to gate whether a stat-only check can rule out a trim pass.
+ *  Actual records are ~200-400 bytes; 600 gives a 2× safety margin so we
+ *  never skip a needed trim, only unnecessary reads. */
+const APPROX_BYTES_PER_RECORD = 600;
+
 /** Append a route recommendation (pre-outcome). Opportunistically trims the
  *  file to MAX_ROUTE_RECORDS lines to prevent unbounded growth. */
 export async function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Promise<void> {
@@ -51,12 +57,17 @@ export async function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Pro
       routingMethod: rec.routingMethod.slice(0, 64),
     };
     await fs.appendFile(path, JSON.stringify(safeRec) + '\n', 'utf8');
-    // Opportunistic trim: rewrite only when the file exceeds the cap.
-    // Avoids an extra stat() on every call by catching the overcount lazily.
-    const content = await fs.readFile(path, 'utf8').catch(() => '');
-    const lines = content.trim().split('\n').filter(Boolean);
-    if (lines.length > MAX_ROUTE_RECORDS) {
-      await fs.writeFile(path, lines.slice(-MAX_ROUTE_RECORDS).join('\n') + '\n', 'utf8');
+    // Opportunistic trim: only read the file when it is large enough to
+    // plausibly contain more than MAX_ROUTE_RECORDS lines.  The stat() call
+    // is cheap (metadata-only); skipping the full read on the common path
+    // avoids O(file-size) I/O on every routing call.
+    const fileStat = await fs.stat(path).catch(() => null);
+    if (fileStat && fileStat.size > MAX_ROUTE_RECORDS * APPROX_BYTES_PER_RECORD) {
+      const content = await fs.readFile(path, 'utf8').catch(() => '');
+      const lines = content.trim().split('\n').filter(Boolean);
+      if (lines.length > MAX_ROUTE_RECORDS) {
+        await fs.writeFile(path, lines.slice(-MAX_ROUTE_RECORDS).join('\n') + '\n', 'utf8');
+      }
     }
   } catch {
     // Non-fatal — telemetry must never break routing
