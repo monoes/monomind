@@ -22,6 +22,7 @@ const monographBuildTool = {
             path: { type: 'string', description: 'Absolute path to the repo (defaults to project cwd)' },
             codeOnly: { type: 'boolean', description: 'Only index code files (skip docs, config)' },
             force: { type: 'boolean', description: 'Force full rebuild even if index is fresh' },
+            incremental: { type: 'boolean', description: 'Skip rebuild when index already matches HEAD (default false). Use when you want a no-op if the graph is fresh.' },
         },
     },
     handler: async (input) => {
@@ -31,9 +32,12 @@ const monographBuildTool = {
         await buildAsync(repoPath, {
             codeOnly: input.codeOnly ?? false,
             force: input.force ?? false,
+            incremental: input.incremental ?? false,
             onProgress: (p) => { progressLog += `[${p.phase}] ${p.message ?? ''}\n`; },
         });
-        return text(`Monograph build complete for ${repoPath}\n${progressLog}`);
+        const skipped = progressLog.includes('skipping rebuild');
+        const summary = skipped ? `Index was already fresh — no rebuild needed for ${repoPath}` : `Monograph build complete for ${repoPath}`;
+        return text(`${summary}\n${progressLog}`);
     },
 };
 // ── monograph_query ───────────────────────────────────────────────────────────
@@ -123,7 +127,9 @@ const monographHealthTool = {
         const { execSync } = await import('child_process');
         const db = openDb(getDbPath());
         try {
-            const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get();
+            // The orchestrator writes the key as 'last_commit_hash' (orchestrator.ts:68).
+            // Fall back to legacy 'lastCommit' for indexes built with older versions.
+            const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get() ?? db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get();
             const lastCommit = meta?.value ?? null;
             if (!lastCommit)
                 return text('Index has never been built. Run monograph_build first.');
@@ -312,7 +318,9 @@ const monographSurprisesTool = {
                 ? Math.min(Math.floor(rawSurprisesLimit), MAX_SURPRISES_LIMIT)
                 : 20;
             const rows = db.prepare(`
-        SELECT e.*, n1.name as src_name, n2.name as tgt_name
+        SELECT e.confidence, e.confidence_score, e.relation,
+               n1.name as src_name, n1.file_path as src_file, n1.start_line as src_line,
+               n2.name as tgt_name, n2.file_path as tgt_file, n2.start_line as tgt_line
         FROM edges e
         JOIN nodes n1 ON n1.id = e.source_id
         JOIN nodes n2 ON n2.id = e.target_id
@@ -321,7 +329,12 @@ const monographSurprisesTool = {
       `).all(limit);
             if (rows.length === 0)
                 return text('No surprising connections found.');
-            return text(rows.map(r => `[${r.confidence}] ${r.src_name} --${r.relation}--> ${r.tgt_name} (score: ${r.confidence_score})`).join('\n'));
+            return text(rows.map(r => {
+                const srcLoc = r.src_file ? (r.src_line != null ? `${r.src_file}:${r.src_line}` : r.src_file) : '';
+                const tgtLoc = r.tgt_file ? (r.tgt_line != null ? `${r.tgt_file}:${r.tgt_line}` : r.tgt_file) : '';
+                const locHint = srcLoc || tgtLoc ? `  [${srcLoc}${tgtLoc ? ` → ${tgtLoc}` : ''}]` : '';
+                return `[${r.confidence}] ${r.src_name} --${r.relation}--> ${r.tgt_name} (score: ${r.confidence_score})${locHint}`;
+            }).join('\n'));
         }
         finally {
             closeDb(db);
@@ -499,7 +512,7 @@ const monographReportTool = {
             const nodeCount = countNodes(db);
             const edgeCount = countEdges(db);
             const topNodes = db.prepare(`
-        SELECT n.name, n.label, n.file_path,
+        SELECT n.name, n.label, n.file_path, n.start_line,
                COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
         FROM nodes n
         LEFT JOIN edges e1 ON e1.source_id = n.id
@@ -512,7 +525,10 @@ const monographReportTool = {
                 `**Generated:** ${new Date().toISOString()}`,
                 `**Nodes:** ${nodeCount}  **Edges:** ${edgeCount}\n`,
                 '## Top 10 Most Connected Entities\n',
-                ...topNodes.map((n, i) => `${i + 1}. **${n.name}** (${n.label}) — degree ${n.degree}  \`${n.file_path ?? ''}\``),
+                ...topNodes.map((n, i) => {
+                    const loc = n.file_path ? (n.start_line != null ? `${n.file_path}:${n.start_line}` : n.file_path) : '';
+                    return `${i + 1}. **${n.name}** (${n.label}) — degree ${n.degree}${loc ? `  \`${loc}\`` : ''}`;
+                }),
             ].join('\n');
             const outPath = resolve(input.path ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md'));
             const allowedRoot = resolve(getProjectCwd());
@@ -521,7 +537,7 @@ const monographReportTool = {
             }
             mkdirSync(join(outPath, '..'), { recursive: true });
             writeFileSync(outPath, report);
-            return text(`Report written to ${outPath}`);
+            return text(`${report}\n\nReport written to ${outPath}`);
         }
         finally {
             closeDb(db);
@@ -541,8 +557,24 @@ const monographStalenessTool = {
     handler: async (input) => {
         const { getMonographStaleness } = await import('@monoes/monograph');
         const repoPath = input.path ?? getProjectCwd();
-        const report = await getMonographStaleness(repoPath);
-        return text(JSON.stringify(report, null, 2));
+        const r = await getMonographStaleness(repoPath);
+        if (!r.indexedCommit && !r.currentCommit) {
+            return text('Index has never been built or repo has no git history. Run monograph_build first.');
+        }
+        const statusLine = r.isStale
+            ? `STALE — index at ${r.indexedCommit}, HEAD at ${r.currentCommit}`
+            : `FRESH — index matches HEAD (${r.currentCommit})`;
+        const lines = [`Staleness: ${statusLine}`];
+        if (r.staleSince)
+            lines.push(`Stale since: ${r.staleSince}`);
+        if (r.changedSince.length > 0) {
+            const shown = r.changedSince.slice(0, 10);
+            const more = r.changedSince.length - shown.length;
+            lines.push(`Changed files (${r.changedSince.length}):${shown.map(f => `\n  ${f}`).join('')}${more > 0 ? `\n  … ${more} more` : ''}`);
+        }
+        if (r.isStale)
+            lines.push('Action: run monograph_build to re-index');
+        return text(lines.join('\n'));
     },
 };
 // ── monograph_snapshot ────────────────────────────────────────────────────────
@@ -636,13 +668,33 @@ const monographDiffTool = {
             }
         }
         const diff = diffSnapshots(before, after);
+        const nodeById = new Map();
+        const indexNodes = (nodes) => {
+            for (const n of nodes) {
+                if (n.id)
+                    nodeById.set(n.id, n);
+            }
+        };
+        indexNodes(before.nodes);
+        indexNodes(after.nodes);
+        const resolveEdgeEnd = (id) => {
+            const ref = nodeById.get(id);
+            if (!ref)
+                return id; // fallback to raw id if not found
+            const loc = ref.filePath ? (ref.startLine != null ? `${ref.filePath}:${ref.startLine}` : ref.filePath) : '';
+            return loc ? `${ref.name}  [${loc}]` : ref.name;
+        };
         const section = (label, items) => items.length > 0 ? `\n${label} (${items.length}):\n${items.slice(0, 10).join('\n')}${items.length > 10 ? `\n  … ${items.length - 10} more` : ''}` : '';
+        const formatNode = (n) => {
+            const loc = n.filePath ? (n.startLine != null ? `${n.filePath}:${n.startLine}` : n.filePath) : '';
+            return `  [${n.label ?? '?'}] ${n.name ?? '?'}${loc ? `  ${loc}` : ''}`;
+        };
         const lines = [
             `Diff: ${diff.summary}`,
-            section('New nodes', diff.newNodes.map(n => `  + [${n.label}] ${n.name}  ${n.filePath ?? ''}`)),
-            section('Removed nodes', diff.removedNodes.map(n => `  - [${n.label}] ${n.name}  ${n.filePath ?? ''}`)),
-            section('New edges', diff.newEdges.map(e => `  + ${e.sourceId} --[${e.relation}]--> ${e.targetId}`)),
-            section('Removed edges', diff.removedEdges.map(e => `  - ${e.sourceId} --[${e.relation}]--> ${e.targetId}`)),
+            section('New nodes', diff.newNodes.map(n => `  + ${formatNode(n)}`)),
+            section('Removed nodes', diff.removedNodes.map(n => `  - ${formatNode(n)}`)),
+            section('New edges', diff.newEdges.map(e => `  + ${resolveEdgeEnd(e.sourceId)} --[${e.relation}]--> ${resolveEdgeEnd(e.targetId)}`)),
+            section('Removed edges', diff.removedEdges.map(e => `  - ${resolveEdgeEnd(e.sourceId)} --[${e.relation}]--> ${resolveEdgeEnd(e.targetId)}`)),
         ].join('');
         return text(lines);
     },
@@ -967,7 +1019,17 @@ const monographRouteMapTool = {
                 method: input.method,
                 includeMiddleware: input.includeMiddleware,
             });
-            return text(JSON.stringify(result, null, 2));
+            if (result.routes.length === 0)
+                return text('No routes found. Run monograph_build first or adjust your filters.');
+            const lines = [`Routes (${result.total} total):`];
+            for (const r of result.routes) {
+                const loc = r.handlerFile
+                    ? (r.handlerLine != null ? `${r.handlerFile}:${r.handlerLine}` : r.handlerFile)
+                    : '';
+                const mw = r.middlewareChain.length > 0 ? `  middleware: ${r.middlewareChain.join(' → ')}` : '';
+                lines.push(`  ${r.method} ${r.path}${r.handlerName ? ` → ${r.handlerName}` : ''}${loc ? `  (${loc})` : ''}${mw}`);
+            }
+            return text(lines.join('\n'));
         }
         finally {
             closeDb(db);
@@ -995,7 +1057,33 @@ const monographApiImpactTool = {
                 routePath: input.routePath,
                 method: input.method,
             });
-            return text(JSON.stringify(result, null, 2));
+            if (!result.route)
+                return text(`Route not found: ${input.routePath}. Run monograph_build or check the path.`);
+            const riskLabel = result.riskScore >= 0.7 ? 'HIGH' : result.riskScore >= 0.4 ? 'MEDIUM' : 'LOW';
+            const lines = [
+                `Route: ${result.route.method} ${result.route.path}  risk=${riskLabel} (${result.riskScore.toFixed(2)})`,
+            ];
+            if (result.handler) {
+                const hLoc = result.handler.filePath
+                    ? (result.handler.startLine != null ? `${result.handler.filePath}:${result.handler.startLine}` : result.handler.filePath)
+                    : '';
+                lines.push(`Handler: ${result.handler.name}${hLoc ? `  ${hLoc}` : ''}`);
+            }
+            if (result.callees.length > 0) {
+                lines.push(`Callees (${result.callees.length}):`);
+                for (const c of result.callees.slice(0, 15)) {
+                    const loc = c.node.filePath
+                        ? (c.node.startLine != null ? `${c.node.filePath}:${c.node.startLine}` : c.node.filePath)
+                        : '';
+                    lines.push(`  ${'  '.repeat(c.depth)}→ ${c.node.name} [${c.node.label}]${loc ? `  ${loc}` : ''}`);
+                }
+                if (result.callees.length > 15)
+                    lines.push(`  … ${result.callees.length - 15} more`);
+            }
+            if (result.affectedProcesses.length > 0) {
+                lines.push(`Affected processes: ${result.affectedProcesses.map(p => p.name).join(', ')}`);
+            }
+            return text(lines.join('\n'));
         }
         finally {
             closeDb(db);
@@ -1084,7 +1172,15 @@ const monographGroupListTool = {
         const { getGroupList } = await import('@monoes/monograph');
         const configPath = input.configPath ?? join(getProjectCwd(), 'group.yaml');
         const result = await getGroupList(configPath);
-        return text(JSON.stringify(result, null, 2));
+        if (!result.repos || result.repos.length === 0) {
+            return text(`Group: ${result.group?.name ?? 'unknown'}\nNo repos configured. Check ${configPath}`);
+        }
+        const lines = [`Group: ${result.group?.name ?? 'unknown'}  (${result.repos.length} repos)`];
+        for (const r of result.repos) {
+            const indexed = r.indexedAt ? r.indexedAt.slice(0, 10) : 'never';
+            lines.push(`  ${r.name}  nodes=${r.nodeCount}  indexed=${indexed}  ${r.path}`);
+        }
+        return text(lines.join('\n'));
     },
 };
 // ── monograph_group_query ─────────────────────────────────────────────────────
@@ -1137,7 +1233,12 @@ const monographWikiTool = {
         const db = openDb(getDbPath());
         try {
             const result = getWikiToolResult(db, { communityId: input.communityId });
-            return text(JSON.stringify(result, null, 2));
+            if (result.pages.length === 0) {
+                return text('No wiki pages found. Run monograph_wiki_build to generate community wiki pages.');
+            }
+            // Return pages as readable prose — content is already LLM-generated markdown.
+            const sections = result.pages.map(p => `--- Community ${p.communityId} ---\n${p.content}`);
+            return text(sections.join('\n\n'));
         }
         finally {
             closeDb(db);
@@ -1166,7 +1267,16 @@ const monographWikiBuildTool = {
                 force: input.force,
                 model: input.model,
             });
-            return text(JSON.stringify(result, null, 2));
+            if (result.error)
+                return text(`Wiki build failed: ${result.error}`);
+            const parts = [];
+            if (result.generated != null)
+                parts.push(`${result.generated} page(s) generated`);
+            if (result.skipped != null && result.skipped > 0)
+                parts.push(`${result.skipped} skipped (already exist)`);
+            if (result.errors != null && result.errors > 0)
+                parts.push(`${result.errors} error(s)`);
+            return text(`Wiki build complete: ${parts.join(', ') || 'nothing to do'}. Use monograph_wiki to read the pages.`);
         }
         finally {
             closeDb(db);
@@ -1214,7 +1324,13 @@ const monographToolMapTool = {
             const results = getToolMap(db, { tool: input.tool });
             if (results.length === 0)
                 return text('No tools found. Run monograph_build first.');
-            return text(JSON.stringify(results, null, 2));
+            const lines = results.map(r => {
+                const loc = r.handlerFile
+                    ? (r.handlerLine != null ? `${r.handlerFile}:${r.handlerLine}` : r.handlerFile)
+                    : (r.filePath ?? '');
+                return `${r.name}${r.handlerName ? ` → ${r.handlerName}` : ''}${loc ? `  (${loc})` : ''}`;
+            });
+            return text(`Tools (${results.length}):\n${lines.join('\n')}`);
         }
         finally {
             closeDb(db);
@@ -1242,7 +1358,38 @@ const monographShapeCheckTool = {
                 route: input.route,
                 file: input.file,
             });
-            return text(JSON.stringify(result, null, 2));
+            // Render as structured text so LLMs can act on it directly without parsing JSON.
+            const lines = [];
+            lines.push(`Shape check: ${result.message}`);
+            if (result.route) {
+                const handlerLoc = result.route.handlerFile
+                    ? `  Handler: ${result.route.handlerName}  [${result.route.handlerFile}]`
+                    : `  Handler: ${result.route.handlerName}`;
+                lines.push(`Route: ${result.route.method} ${result.route.path}`);
+                lines.push(handlerLoc);
+            }
+            if (result.shape.returnedKeys.length > 0) {
+                lines.push(`  Returned keys: ${result.shape.returnedKeys.join(', ')}`);
+            }
+            if (result.shape.accessedKeys.length > 0) {
+                lines.push(`  Accessed keys: ${result.shape.accessedKeys.join(', ')}`);
+            }
+            if (result.shape.mismatches.length > 0) {
+                lines.push(`  Mismatches (accessed but not returned): ${result.shape.mismatches.join(', ')}`);
+            }
+            if (result.shape.extra.length > 0) {
+                lines.push(`  Unused returned keys: ${result.shape.extra.join(', ')}`);
+            }
+            if (result.consumers.length > 0) {
+                lines.push(`  Consumers (${result.consumers.length}):`);
+                for (const c of result.consumers.slice(0, 10)) {
+                    lines.push(`    - ${c.name}  [${c.filePath}]`);
+                }
+                if (result.consumers.length > 10) {
+                    lines.push(`    … ${result.consumers.length - 10} more`);
+                }
+            }
+            return text(lines.join('\n'));
         }
         finally {
             closeDb(db);
