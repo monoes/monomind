@@ -31,6 +31,31 @@ export interface MonographContextResult {
   inProcesses: Array<{ id: string; name: string }>;
 }
 
+// ── Shared helper: query related nodes by edge relation and direction ──────────
+
+function queryRelated(
+  db: Database.Database,
+  nodeId: string,
+  relation: string,
+  inbound: boolean,
+  limit = 50,
+): MonographNode[] {
+  // inbound=true  → this node is the target; source nodes are the result
+  // inbound=false → this node is the source; target nodes are the result
+  const [filterCol, joinCol] = inbound
+    ? ['target_id', 'source_id']
+    : ['source_id', 'target_id'];
+
+  const rows = db
+    .prepare(
+      `SELECT n.* FROM nodes n JOIN edges e ON n.id = e.${joinCol}
+       WHERE e.${filterCol} = ? AND e.relation = ? LIMIT ?`,
+    )
+    .all(nodeId, relation, limit) as Record<string, unknown>[];
+
+  return rows.map(rowToNode);
+}
+
 // ── Implementation ─────────────────────────────────────────────────────────────
 
 export function getMonographContext(
@@ -58,37 +83,11 @@ export function getMonographContext(
   const node = rowToNode(nodeRow);
   const nodeId = node.id;
 
-  // 2. Callers: nodes that CALL this node (inbound CALLS edges)
-  const callerRows = db
-    .prepare(
-      `SELECT n.* FROM nodes n JOIN edges e ON n.id = e.source_id
-       WHERE e.target_id = ? AND e.relation = 'CALLS' LIMIT ?`,
-    )
-    .all(nodeId, LIMIT) as Record<string, unknown>[];
-
-  // 3. Callees: nodes this node CALLS (outbound CALLS edges)
-  const calleeRows = db
-    .prepare(
-      `SELECT n.* FROM nodes n JOIN edges e ON n.id = e.target_id
-       WHERE e.source_id = ? AND e.relation = 'CALLS' LIMIT ?`,
-    )
-    .all(nodeId, LIMIT) as Record<string, unknown>[];
-
-  // 4. Imports: what this node imports (outbound IMPORTS edges)
-  const importRows = db
-    .prepare(
-      `SELECT n.* FROM nodes n JOIN edges e ON n.id = e.target_id
-       WHERE e.source_id = ? AND e.relation = 'IMPORTS' LIMIT ?`,
-    )
-    .all(nodeId, LIMIT) as Record<string, unknown>[];
-
-  // 5. ImportedBy: what imports this node (inbound IMPORTS edges)
-  const importedByRows = db
-    .prepare(
-      `SELECT n.* FROM nodes n JOIN edges e ON n.id = e.source_id
-       WHERE e.target_id = ? AND e.relation = 'IMPORTS' LIMIT ?`,
-    )
-    .all(nodeId, LIMIT) as Record<string, unknown>[];
+  // 2–5. Callers / callees / imports / importedBy via shared helper
+  const callers    = queryRelated(db, nodeId, 'CALLS',   true,  LIMIT);
+  const callees    = queryRelated(db, nodeId, 'CALLS',   false, LIMIT);
+  const imports    = queryRelated(db, nodeId, 'IMPORTS', false, LIMIT);
+  const importedBy = queryRelated(db, nodeId, 'IMPORTS', true,  LIMIT);
 
   // 6. Community: from node's community_id field
   let community: { id: number; label?: string } | null = null;
@@ -108,13 +107,5 @@ export function getMonographContext(
     )
     .all(nodeId, LIMIT) as Array<{ id: string; name: string }>;
 
-  return {
-    node,
-    callers: callerRows.map(rowToNode),
-    callees: calleeRows.map(rowToNode),
-    imports: importRows.map(rowToNode),
-    importedBy: importedByRows.map(rowToNode),
-    community,
-    inProcesses: processRows,
-  };
+  return { node, callers, callees, imports, importedBy, community, inProcesses: processRows };
 }
