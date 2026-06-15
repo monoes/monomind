@@ -40,7 +40,10 @@ export function explainNode(db: Database.Database, name: string): ExplainResult 
   ).all(node.id) as { name: string; relation: string }[];
 
   const connectionCount = outRows.length + inRows.length;
-  const fileLine = node.filePath ? ` defined in \`${node.filePath}\`` : '';
+  const fileRef = node.filePath
+    ? (node.startLine != null ? `${node.filePath}:${node.startLine}` : node.filePath)
+    : null;
+  const fileLine = fileRef ? ` defined in \`${fileRef}\`` : '';
 
   let explanation = `**${node.name}** is a ${node.label}${fileLine}.`;
 
