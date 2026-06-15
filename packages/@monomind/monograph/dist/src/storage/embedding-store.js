@@ -3,18 +3,42 @@
  *
  * Vectors are stored as BLOBs (raw Float32Array bytes) and reconstructed on read.
  */
-export function upsertEmbedding(db, nodeId, vector, contentHash) {
-    // Migrate existing DBs that may not have the content_hash column yet.
+/**
+ * Ensure the embeddings table has the content_hash column introduced in a later
+ * schema version. Call this ONCE before a batch of upserts rather than inside
+ * upsertEmbedding itself to avoid running ALTER TABLE on every row write.
+ */
+export function ensureEmbeddingSchema(db) {
     try {
         db.exec('ALTER TABLE embeddings ADD COLUMN content_hash TEXT');
     }
     catch {
         // Column already exists — ignore.
     }
+}
+export function upsertEmbedding(db, nodeId, vector, contentHash) {
     const buf = Buffer.from(vector.buffer, vector.byteOffset, vector.byteLength);
     db
         .prepare('INSERT OR REPLACE INTO embeddings (node_id, vector, content_hash) VALUES (?, ?, ?)')
         .run(nodeId, buf, contentHash ?? null);
+}
+/**
+ * Bulk-upsert multiple embeddings in a single transaction.
+ * Calls ensureEmbeddingSchema once before writing, then wraps all inserts in
+ * a transaction for 10-100x faster throughput vs per-row upsertEmbedding calls.
+ */
+export function batchUpsertEmbeddings(db, entries) {
+    if (entries.length === 0)
+        return;
+    ensureEmbeddingSchema(db);
+    const stmt = db.prepare('INSERT OR REPLACE INTO embeddings (node_id, vector, content_hash) VALUES (?, ?, ?)');
+    const insertMany = db.transaction((rows) => {
+        for (const e of rows) {
+            const buf = Buffer.from(e.vector.buffer, e.vector.byteOffset, e.vector.byteLength);
+            stmt.run(e.nodeId, buf, e.contentHash ?? null);
+        }
+    });
+    insertMany(entries);
 }
 export function getEmbeddingContentHash(db, nodeId) {
     const row = db
