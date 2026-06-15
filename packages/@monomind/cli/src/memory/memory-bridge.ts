@@ -708,6 +708,28 @@ export async function bridgeSearchEntries(options: {
       // Fall back to keyword search
     }
 
+    // HNSW fast path: when the in-process index is warm and we have a query embedding,
+    // use HNSW to get a small candidate set instead of loading all 5000 rows.
+    // We fetch limit*10 candidates (capped at 500) so BM25 re-ranking has enough
+    // material to surface lexically-strong results that HNSW might rank lower.
+    // Falls back to the full-scan path when HNSW is unavailable or cold.
+    let hnswCandidateIds: Set<string> | null = null;
+    if (queryEmbedding && _hnswIndexBuilt && _hnswIndex) {
+      try {
+        const candidateCount = Math.min(limit * 10, 500);
+        const nsFilter = effectiveNamespace !== 'all';
+        // Over-fetch when namespace filter is active (same logic as bridgeSearchHNSW)
+        const fetchCount = nsFilter ? Math.min(candidateCount * 5, 2500) : candidateCount;
+        const hnswResults = await _hnswIndex.search(new Float32Array(queryEmbedding), fetchCount);
+        if (hnswResults && hnswResults.length > 0) {
+          hnswCandidateIds = new Set<string>(hnswResults.map((r: any) => String(r.id)));
+        }
+      } catch {
+        // HNSW search failed — fall through to full scan
+        hnswCandidateIds = null;
+      }
+    }
+
     // better-sqlite3: .prepare().all() returns array of objects
     const nsFilter = effectiveNamespace !== 'all'
       ? `AND namespace = ?`
@@ -715,13 +737,29 @@ export async function bridgeSearchEntries(options: {
 
     let rows: any[];
     try {
-      const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding
-        FROM memory_entries
-        WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) ${nsFilter}
-        LIMIT 5000
-      `);
-      rows = effectiveNamespace !== 'all' ? stmt.all(Date.now(), effectiveNamespace) : stmt.all(Date.now());
+      if (hnswCandidateIds && hnswCandidateIds.size > 0) {
+        // Fetch only HNSW candidate rows — O(k) DB read instead of O(5000)
+        const placeholders = Array.from(hnswCandidateIds).map(() => '?').join(',');
+        const idList = Array.from(hnswCandidateIds);
+        const stmt = ctx.db.prepare(`
+          SELECT id, key, namespace, content, embedding
+          FROM memory_entries
+          WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?)
+            AND id IN (${placeholders}) ${nsFilter}
+        `);
+        rows = effectiveNamespace !== 'all'
+          ? stmt.all(Date.now(), ...idList, effectiveNamespace)
+          : stmt.all(Date.now(), ...idList);
+      } else {
+        // Full scan fallback (HNSW cold, unavailable, or BM25-only mode)
+        const stmt = ctx.db.prepare(`
+          SELECT id, key, namespace, content, embedding
+          FROM memory_entries
+          WHERE status = 'active' AND (expires_at IS NULL OR expires_at > ?) ${nsFilter}
+          LIMIT 5000
+        `);
+        rows = effectiveNamespace !== 'all' ? stmt.all(Date.now(), effectiveNamespace) : stmt.all(Date.now());
+      }
     } catch {
       return null;
     }
