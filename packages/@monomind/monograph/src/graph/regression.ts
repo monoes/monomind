@@ -86,6 +86,18 @@ const FINDING_TYPE_TO_METRIC: Record<string, string> = {
   ambiguous_edge: 'ambiguousEdgeCount',
 };
 
+/** Canonical metric names — defined once to avoid duplicating the same literal Set/Object. */
+const METRIC_NAMES = Object.values(FINDING_TYPE_TO_METRIC);
+const METRIC_NAME_SET = new Set(METRIC_NAMES);
+
+/** Module-level cache for parsed Tolerance objects — avoids re-parsing identical specs. */
+const toleranceCache = new Map<string, Tolerance>();
+function parseTolerance(spec: string): Tolerance {
+  let t = toleranceCache.get(spec);
+  if (!t) { t = Tolerance.parse(spec); toleranceCache.set(spec, t); }
+  return t;
+}
+
 // ── checkRegression ───────────────────────────────────────────────────────────
 
 /**
@@ -104,51 +116,39 @@ export function checkRegression(
 ): RegressionOutcome {
   const baseline: BaselineData | null = loadBaseline(baselinePath);
 
-  // Compute current counts from DB
+  // Compute current counts from DB using shared METRIC_NAMES init
   const currentFindings = extractFindingsFromDb(db, '');
-  const currentCounts: Record<string, number> = {
-    godNodeCount: 0,
-    surpriseCount: 0,
-    bridgeNodeCount: 0,
-    unreachableExportCount: 0,
-    ambiguousEdgeCount: 0,
-  };
+  const currentCounts: Record<string, number> = Object.fromEntries(METRIC_NAMES.map(m => [m, 0]));
   for (const f of currentFindings) {
     const metricName = FINDING_TYPE_TO_METRIC[f.type];
-    if (metricName && metricName in currentCounts) {
+    if (metricName && METRIC_NAME_SET.has(metricName)) {
       currentCounts[metricName]++;
     }
   }
 
-  // Compute baseline counts
-  const baselineCounts: Record<string, number> = {
-    godNodeCount: 0,
-    surpriseCount: 0,
-    bridgeNodeCount: 0,
-    unreachableExportCount: 0,
-    ambiguousEdgeCount: 0,
-  };
+  // Compute baseline counts using shared METRIC_NAMES init
+  const baselineCounts: Record<string, number> = Object.fromEntries(METRIC_NAMES.map(m => [m, 0]));
   if (baseline) {
     for (const f of baseline.findings) {
       const metricName = FINDING_TYPE_TO_METRIC[f.type];
-      if (metricName && metricName in baselineCounts) {
+      if (metricName && METRIC_NAME_SET.has(metricName)) {
         baselineCounts[metricName]++;
       }
     }
   }
 
-  // Default tolerance
-  const defaultTolerance = Tolerance.parse(toleranceSpec);
+  // Default tolerance — use cached parse to avoid rebuilding on repeated calls with same spec
+  const defaultTolerance = parseTolerance(toleranceSpec);
 
-  // Check each metric
+  // Check each metric — per-metric tolerances also cached
   const checkedMetrics: RegressionMetric[] = [];
-  for (const metric of Object.keys(currentCounts)) {
+  for (const metric of METRIC_NAMES) {
     const baselineVal = baselineCounts[metric] ?? 0;
     const currentVal = currentCounts[metric] ?? 0;
     const delta = currentVal - baselineVal;
 
     const metricSpec = metricTolerances?.[metric];
-    const tol = metricSpec ? Tolerance.parse(metricSpec) : defaultTolerance;
+    const tol = metricSpec ? parseTolerance(metricSpec) : defaultTolerance;
     const tolStr = tol.toString();
     const violated = tol.exceeded(baselineVal, currentVal);
 
@@ -171,4 +171,29 @@ export function checkRegression(
     : `Regression check FAILED — ${violations.length} violation(s) against baseline "${baselineName}" (tolerance: ${toleranceSpec})`;
 
   return { passed, violations, checkedMetrics, summary };
+}
+
+/**
+ * Format a RegressionOutcome as structured text for LLM consumption.
+ * Shows pass/fail status, per-metric results, and actionable violation details.
+ */
+export function formatRegressionOutcome(outcome: RegressionOutcome): string {
+  const lines: string[] = [outcome.summary];
+
+  lines.push('\nMetrics:');
+  for (const m of outcome.checkedMetrics) {
+    const sign = m.delta > 0 ? `+${m.delta}` : String(m.delta);
+    const status = m.violated ? 'VIOLATED' : 'ok';
+    lines.push(`  ${m.metric}: baseline=${m.baseline} current=${m.current} delta=${sign} tolerance=${m.tolerance} [${status}]`);
+  }
+
+  if (outcome.violations.length > 0) {
+    lines.push('\nViolations requiring attention:');
+    for (const v of outcome.violations) {
+      const sign = v.delta > 0 ? `+${v.delta}` : String(v.delta);
+      lines.push(`  ${v.metric} exceeded tolerance ${v.tolerance} (delta ${sign}): investigate new ${v.metric.replace(/Count$/, '')} introductions`);
+    }
+  }
+
+  return lines.join('\n');
 }

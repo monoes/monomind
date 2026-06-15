@@ -365,3 +365,86 @@ export function executeCypherQuery(db: Database.Database, query: string): Cypher
     };
   }
 }
+
+// ── Structured text formatter ──────────────────────────────────────────────────
+
+/**
+ * Format a CypherResult as structured text for LLM consumption.
+ *
+ * Rows that contain *_filePath and *_startLine fields are rendered with
+ * "file:line" navigation hints so LLMs can jump directly to the symbol.
+ * Plain key=value pairs are rendered for all other fields.
+ *
+ * @example
+ * ```
+ * monograph_cypher result (3 rows, 2ms)
+ *
+ * Row 1:
+ *   n.name = buildAsync
+ *   n.filePath = src/server.ts:42
+ *
+ * Row 2:
+ *   ...
+ * ```
+ */
+export function formatCypherResult(result: CypherResult): string {
+  if (result.error) {
+    return `monograph_cypher error: ${result.error}`;
+  }
+
+  if (result.rows.length === 0) {
+    return `monograph_cypher result (0 rows, ${result.queryTime}ms)\n\nNo results found.`;
+  }
+
+  const lines: string[] = [
+    `monograph_cypher result (${result.rows.length} row${result.rows.length === 1 ? '' : 's'}, ${result.queryTime}ms)`,
+    '',
+  ];
+
+  for (let i = 0; i < result.rows.length; i++) {
+    lines.push(`Row ${i + 1}:`);
+    const row = result.rows[i];
+
+    // Group fields by alias prefix (e.g., "n_name", "b_filePath")
+    // and reconstruct "alias.field = value" display, with file:line merging
+    const seen = new Set<string>();
+
+    for (const key of Object.keys(row)) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      // key format is aliasName_fieldName (e.g. n_filePath, n_startLine)
+      const sepIdx = key.indexOf('_');
+      if (sepIdx === -1) {
+        lines.push(`  ${key} = ${row[key] ?? 'null'}`);
+        continue;
+      }
+
+      const alias = key.slice(0, sepIdx);
+      const field = key.slice(sepIdx + 1);
+
+      // Merge filePath + startLine into a single file:line hint
+      if (field === 'filePath') {
+        const startLineKey = `${alias}_startLine`;
+        const startLine = row[startLineKey];
+        seen.add(startLineKey);
+        const filePath = row[key];
+        if (filePath != null && startLine != null) {
+          lines.push(`  ${alias}.filePath = ${filePath}:${startLine}`);
+        } else if (filePath != null) {
+          lines.push(`  ${alias}.filePath = ${filePath}`);
+        }
+        continue;
+      }
+
+      // Skip startLine — already consumed by filePath branch above
+      if (field === 'startLine') continue;
+
+      lines.push(`  ${alias}.${field} = ${row[key] ?? 'null'}`);
+    }
+
+    if (i < result.rows.length - 1) lines.push('');
+  }
+
+  return lines.join('\n');
+}
