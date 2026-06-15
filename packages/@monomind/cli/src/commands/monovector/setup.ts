@@ -691,7 +691,7 @@ export const setupCommand: Command = {
     { command: 'monomind monovector setup --force', description: 'Overwrite existing files' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const outputDir = (ctx.flags.output as string) || './monovector-postgres';
+    const rawOutputDir = (ctx.flags.output as string) || './monovector-postgres';
     const printOnly = ctx.flags.print as boolean;
     const force = ctx.flags.force as boolean;
 
@@ -699,6 +699,17 @@ export const setupCommand: Command = {
     output.writeln(output.bold('MonoVector PostgreSQL Setup'));
     output.writeln(output.dim('=' .repeat(50)));
     output.writeln();
+
+    // Guard against path traversal: resolve to absolute and ensure it stays within
+    // the current working directory or the user's home directory.
+    const resolvedOutput = path.resolve(rawOutputDir);
+    const safeBases = [process.cwd(), process.env.HOME || process.env.USERPROFILE || ''].filter(Boolean);
+    const withinSafeBase = safeBases.some(base => resolvedOutput.startsWith(base + path.sep) || resolvedOutput === base);
+    if (!withinSafeBase) {
+      output.printError(`Output path must be within the current directory or home directory: ${resolvedOutput}`);
+      return { success: false, exitCode: 1 };
+    }
+    const outputDir = resolvedOutput;
 
     if (printOnly) {
       // Print to stdout
