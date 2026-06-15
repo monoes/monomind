@@ -274,7 +274,13 @@ export const claimsTools: MCPTool[] = [
       const issueId = input.issueId as string;
       const fromStr = input.from as string;
       const toStr = input.to as string;
-      const reason = input.reason as string | undefined;
+      // Cap handoff reason: stored as claim.handoffReason in the claims JSON store on disk.
+      // Without a cap, an arbitrarily long reason inflates every write of the store file.
+      const MAX_HANDOFF_REASON_LEN = 1024;
+      const rawHandoffReason = input.reason as string | undefined;
+      const reason = typeof rawHandoffReason === 'string' && rawHandoffReason.length > MAX_HANDOFF_REASON_LEN
+        ? rawHandoffReason.slice(0, MAX_HANDOFF_REASON_LEN)
+        : rawHandoffReason;
       const progress = (input.progress as number) || 0;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -551,9 +557,22 @@ export const claimsTools: MCPTool[] = [
     },
     handler: async (input) => {
       const issueId = input.issueId as string;
-      const reason = input.reason as StealReason;
+      // Runtime-validate StealReason: JSON schema declares an enum, but callers
+      // that bypass schema validation (raw MCP calls) can pass arbitrary strings,
+      // which would be persisted verbatim in store.stealable[issueId].reason.
+      const VALID_STEAL_REASONS = new Set<string>(['overloaded', 'stale', 'blocked-timeout', 'voluntary']);
+      const rawStealReason = input.reason as string;
+      if (!rawStealReason || !VALID_STEAL_REASONS.has(rawStealReason)) {
+        return { success: false, error: `Invalid reason "${rawStealReason}". Must be one of: overloaded, stale, blocked-timeout, voluntary` };
+      }
+      const reason = rawStealReason as StealReason;
       const preferredTypes = input.preferredTypes as string[] | undefined;
-      const context = input.context as string | undefined;
+      // Cap context: stored verbatim in the stealable record on disk.
+      const MAX_STEAL_CONTEXT_LEN = 4 * 1024;
+      const rawStealContext = input.context as string | undefined;
+      const context = typeof rawStealContext === 'string' && rawStealContext.length > MAX_STEAL_CONTEXT_LEN
+        ? rawStealContext.slice(0, MAX_STEAL_CONTEXT_LEN)
+        : rawStealContext;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
       if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
