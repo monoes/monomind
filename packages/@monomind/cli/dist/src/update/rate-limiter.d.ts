@@ -20,6 +20,12 @@ export declare function shouldCheckForUpdates(intervalHours?: number): {
  * only after a successful reserveCheck, so that limit enforcement and
  * increment happen in the same synchronous turn (no await gap between
  * them), preventing two concurrent callers both seeing "allowed".
+ *
+ * IMPORTANT: performs a single loadState() → check → increment → saveState()
+ * cycle to eliminate the TOCTOU window that existed when this function
+ * delegated to shouldCheckForUpdates() (which called loadState() itself)
+ * and then called loadState() a second time to increment. Two callers
+ * sharing that gap could both see allowed=true and both increment.
  */
 export declare function reserveCheck(intervalHours?: number): {
     allowed: boolean;
