@@ -513,17 +513,22 @@ const monographDiffTool: MCPTool = {
   },
   handler: async (input) => {
     const { openDb, closeDb, snapshotFromDb, diffSnapshots } = await import('@monoes/monograph');
-    const { readFileSync, existsSync } = await import('fs');
+    const { readFileSync, existsSync, statSync: statSyncSnap } = await import('fs');
+    const MAX_SNAPSHOT_BYTES = 100 * 1024 * 1024; // 100 MB
     const snapshotDir = join(getProjectCwd(), '.monomind', 'snapshots');
     const beforePath = join(snapshotDir, `${input.before as string}.json`);
     if (!existsSync(beforePath)) {
       return text(`Snapshot not found: ${beforePath}\nCreate one first with monograph_snapshot.`);
+    }
+    if (statSyncSnap(beforePath).size > MAX_SNAPSHOT_BYTES) {
+      return text(`Snapshot too large to diff: ${beforePath}`);
     }
     const before = JSON.parse(readFileSync(beforePath, 'utf-8'));
     let after;
     if (input.after) {
       const afterPath = join(snapshotDir, `${input.after as string}.json`);
       if (!existsSync(afterPath)) return text(`Snapshot not found: ${afterPath}`);
+      if (statSyncSnap(afterPath).size > MAX_SNAPSHOT_BYTES) return text(`Snapshot too large to diff: ${afterPath}`);
       after = JSON.parse(readFileSync(afterPath, 'utf-8'));
     } else {
       const db = openDb(getDbPath());
