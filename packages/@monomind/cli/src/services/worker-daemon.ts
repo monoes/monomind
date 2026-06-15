@@ -295,6 +295,12 @@ export class WorkerDaemon extends EventEmitter {
       return {};
     }
     try {
+      // Guard against OOM from an oversized config file (tampered or corrupted).
+      const configSize = statSync(configPath).size;
+      if (configSize > 1_048_576 /* 1 MB */) {
+        this.log('warn', `config.json is unusually large (${configSize} bytes) — ignoring daemon config`);
+        return {};
+      }
       const raw = JSON.parse(readFileSync(configPath, 'utf-8'));
       // Support both flat keys at root and nested under scopes.project
       const cfg = raw?.scopes?.project ?? raw;
@@ -382,6 +388,12 @@ export class WorkerDaemon extends EventEmitter {
     // Try to restore state from file
     if (existsSync(this.config.stateFile)) {
       try {
+        // Guard against OOM from an oversized state file (tampered or corrupted).
+        const stateSize = statSync(this.config.stateFile).size;
+        if (stateSize > 5_242_880 /* 5 MB */) {
+          this.log('warn', `daemon-state.json is unusually large (${stateSize} bytes) — starting with fresh state`);
+          return;
+        }
         const saved = JSON.parse(readFileSync(this.config.stateFile, 'utf-8'));
 
         // CRITICAL: Restore worker config (including enabled flag) from saved state
