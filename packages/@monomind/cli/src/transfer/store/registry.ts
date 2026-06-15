@@ -325,10 +325,17 @@ export function mergeRegistries(
 ): PatternRegistry {
   const merged = createRegistry(local.ipnsName);
 
+  // Cap combined input sizes to prevent OOM when merging a large remote registry.
+  // A remote registry fetched from IPFS could contain hundreds of thousands of
+  // entries; without a hard cap, patternMap grows unboundedly in memory.
+  const MAX_MERGE_PATTERNS = 10_000;
+  const MAX_MERGE_AUTHORS = 1_000;
+
   // Combine patterns, preferring newer versions
   const patternMap = new Map<string, PatternEntry>();
 
   for (const pattern of [...local.patterns, ...remote.patterns]) {
+    if (patternMap.size >= MAX_MERGE_PATTERNS && !patternMap.has(pattern.name)) continue;
     const existing = patternMap.get(pattern.name);
     if (!existing || new Date(pattern.lastUpdated) > new Date(existing.lastUpdated)) {
       patternMap.set(pattern.name, pattern);
@@ -340,6 +347,7 @@ export function mergeRegistries(
   // Combine authors
   const authorMap = new Map<string, PatternAuthor>();
   for (const author of [...local.authors, ...remote.authors]) {
+    if (authorMap.size >= MAX_MERGE_AUTHORS && !authorMap.has(author.id)) continue;
     const existing = authorMap.get(author.id);
     if (!existing || author.patterns > existing.patterns) {
       authorMap.set(author.id, author);
@@ -359,7 +367,9 @@ export function mergeRegistries(
  * Generate pattern ID from name
  */
 export function generatePatternId(name: string): string {
-  const normalized = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-  const hash = crypto.createHash('sha256').update(name + Date.now()).digest('hex').slice(0, 8);
+  // Cap name before normalizing to prevent OOM from an extremely long input string
+  const safeName = typeof name === 'string' ? name.slice(0, 128) : '';
+  const normalized = safeName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const hash = crypto.createHash('sha256').update(safeName + Date.now()).digest('hex').slice(0, 8);
   return `${normalized}-${hash}`;
 }
