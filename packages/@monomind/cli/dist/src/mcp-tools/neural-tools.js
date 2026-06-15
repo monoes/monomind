@@ -147,7 +147,12 @@ export const neuralTools = [
         },
         handler: async (input) => {
             const store = loadNeuralStore();
-            const modelId = input.modelId || `model-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            // Cap modelId to prevent DoS via oversized object keys written to the neural store JSON.
+            const MAX_MODEL_ID_LEN = 256;
+            const rawModelId = input.modelId || `model-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            const modelId = typeof rawModelId === 'string' && rawModelId.length > MAX_MODEL_ID_LEN
+                ? rawModelId.slice(0, MAX_MODEL_ID_LEN)
+                : rawModelId;
             const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
             if (RESERVED_KEYS.has(modelId)) {
                 return { success: false, error: 'Invalid modelId' };
@@ -160,8 +165,19 @@ export const neuralTools = [
             if (Object.keys(store.models ?? {}).length >= MAX_MODELS) {
                 return { success: false, error: `Model store full (max ${MAX_MODELS}). Delete old models first.` };
             }
-            const modelType = input.modelType;
-            const epochs = input.epochs || 10;
+            // Runtime-validate modelType against the allowed enum. The JSON schema
+            // declares an enum but callers that bypass schema validation (e.g. direct
+            // MCP calls) can pass arbitrary strings, which would be stored verbatim.
+            const VALID_MODEL_TYPES = new Set(['moe', 'transformer', 'classifier', 'embedding']);
+            const rawModelType = input.modelType;
+            if (!rawModelType || !VALID_MODEL_TYPES.has(rawModelType)) {
+                return { success: false, error: `Invalid modelType "${rawModelType}". Must be one of: moe, transformer, classifier, embedding` };
+            }
+            const modelType = rawModelType;
+            // Cap epochs to prevent storing absurdly large numbers in the JSON store.
+            const MAX_EPOCHS = 10000;
+            const rawEpochs = typeof input.epochs === 'number' && Number.isFinite(input.epochs) ? input.epochs : 10;
+            const epochs = Math.max(1, Math.min(Math.floor(rawEpochs), MAX_EPOCHS));
             const model = {
                 id: modelId,
                 name: `${modelType}-model`,
@@ -282,7 +298,12 @@ export const neuralTools = [
         },
         handler: async (input) => {
             const store = loadNeuralStore();
-            const modelId = input.modelId;
+            // Cap modelId to prevent O(n) hash/compare cost on absurdly long keys.
+            const MAX_MODEL_ID_LEN_PRED = 256;
+            const rawModelIdPred = input.modelId;
+            const modelId = typeof rawModelIdPred === 'string' && rawModelIdPred.length > MAX_MODEL_ID_LEN_PRED
+                ? rawModelIdPred.slice(0, MAX_MODEL_ID_LEN_PRED)
+                : rawModelIdPred;
             const inputText = typeof input.input === 'string' ? input.input.slice(0, 16 * 1024) : '';
             const topK = Math.max(1, Math.min(input.topK || 3, 50));
             const RESERVED_KEYS_PRED = new Set(['__proto__', 'constructor', 'prototype']);
@@ -616,7 +637,11 @@ export const neuralTools = [
         handler: async (input) => {
             const store = loadNeuralStore();
             if (input.modelId) {
-                const modelId = input.modelId;
+                const MAX_MODEL_ID_LEN_STATUS = 256;
+                const rawModelIdStatus = input.modelId;
+                const modelId = typeof rawModelIdStatus === 'string' && rawModelIdStatus.length > MAX_MODEL_ID_LEN_STATUS
+                    ? rawModelIdStatus.slice(0, MAX_MODEL_ID_LEN_STATUS)
+                    : rawModelIdStatus;
                 if (NEURAL_RESERVED_KEYS.has(modelId)) {
                     return { success: false, error: 'Invalid modelId' };
                 }

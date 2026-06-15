@@ -227,7 +227,11 @@ export const performanceTools = [
         },
         handler: async (input) => {
             const store = loadPerfStore();
-            const suite = input.suite || 'all';
+            // Validate suite against enum to prevent uncapped string from being stored
+            // as a benchmark key on disk.
+            const VALID_SUITES = new Set(['all', 'memory', 'neural', 'swarm', 'io']);
+            const rawSuite = input.suite || 'all';
+            const suite = VALID_SUITES.has(rawSuite) ? rawSuite : 'all';
             // Cap iterations to prevent event-loop blocking DoS.  The `neural`
             // suite runs an O(n³) 64×64 matrix multiply per iteration; at 10 000
             // iterations it already completes in milliseconds.  Uncapped, a caller
@@ -365,7 +369,11 @@ export const performanceTools = [
             },
         },
         handler: async (input) => {
-            const target = input.target || 'all';
+            // Validate target against enum to prevent arbitrary string from being
+            // stored in the perf store and echoed in the response.
+            const VALID_PROFILE_TARGETS = new Set(['all', 'memory', 'io', 'cpu']);
+            const rawTarget = input.target || 'all';
+            const target = VALID_PROFILE_TARGETS.has(rawTarget) ? rawTarget : 'all';
             const durationSec = Math.min(input.duration || 1, 10);
             const durationMs = durationSec * 1000;
             const cpuBefore = process.cpuUsage();
@@ -466,7 +474,11 @@ export const performanceTools = [
             },
         },
         handler: async (input) => {
-            const target = input.target || 'all';
+            // Validate target against enum — the value is echoed in the response and
+            // stored to the perf store; an unvalidated string could inflate disk state.
+            const VALID_OPT_TARGETS = new Set(['all', 'memory', 'latency', 'throughput']);
+            const rawOptTarget = input.target || 'all';
+            const target = VALID_OPT_TARGETS.has(rawOptTarget) ? rawOptTarget : 'all';
             const aggressive = input.aggressive === true;
             // Snapshot system state BEFORE optimizations
             const loadBefore = os.loadavg();
@@ -568,8 +580,15 @@ export const performanceTools = [
             },
         },
         handler: async (input) => {
-            const metric = input.metric || 'all';
-            const aggregation = input.aggregation || 'avg';
+            // Validate metric and aggregation against their enums.  Both values are
+            // later used as property index keys on plain objects — an attacker who
+            // passes "__proto__" or "constructor" could cause prototype pollution.
+            const VALID_METRICS = new Set(['cpu', 'memory', 'latency', 'throughput', 'all']);
+            const VALID_AGGREGATIONS = new Set(['avg', 'min', 'max', 'p50', 'p95', 'p99']);
+            const rawMetric = input.metric || 'all';
+            const metric = VALID_METRICS.has(rawMetric) ? rawMetric : 'all';
+            const rawAggregation = input.aggregation || 'avg';
+            const aggregation = VALID_AGGREGATIONS.has(rawAggregation) ? rawAggregation : 'avg';
             // Get REAL system metrics
             const memUsage = process.memoryUsage();
             const loadAvg = os.loadavg();
@@ -650,11 +669,18 @@ export const performanceTools = [
                     timestamp: new Date().toISOString(),
                 };
             }
-            const selectedMetric = allMetrics[metric];
+            // Use Object.hasOwn to prevent prototype chain traversal when indexing
+            // by caller-supplied metric/aggregation strings.
+            const selectedMetric = Object.hasOwn(allMetrics, metric)
+                ? allMetrics[metric]
+                : allMetrics.cpu;
+            const aggValue = Object.hasOwn(selectedMetric, aggregation)
+                ? selectedMetric[aggregation]
+                : undefined;
             return {
                 _real: ['cpu', 'memory'].includes(metric),
                 metric,
-                value: selectedMetric[aggregation],
+                value: aggValue,
                 unit: selectedMetric.unit,
                 details: selectedMetric,
                 timestamp: new Date().toISOString(),

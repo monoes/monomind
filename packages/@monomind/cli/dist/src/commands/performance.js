@@ -20,14 +20,18 @@ const benchmarkCommand = {
         { command: 'monomind performance benchmark -i 1000', description: 'Run with 1000 iterations' },
     ],
     action: async (ctx) => {
-        const suite = ctx.flags.suite || 'all';
+        const suiteRaw = ctx.flags.suite || 'all';
+        const VALID_SUITES = new Set(['all', 'wasm', 'neural', 'memory', 'search']);
+        const suite = VALID_SUITES.has(suiteRaw) ? suiteRaw : 'all';
         const MAX_ITERATIONS = 10_000;
         const MAX_WARMUP = 500;
         const iterationsRaw = parseInt(ctx.flags.iterations || '100', 10);
         const warmupRaw = parseInt(ctx.flags.warmup || '10', 10);
         const iterations = Number.isFinite(iterationsRaw) ? Math.min(Math.max(1, iterationsRaw), MAX_ITERATIONS) : 100;
         const warmup = Number.isFinite(warmupRaw) ? Math.min(Math.max(0, warmupRaw), MAX_WARMUP) : 10;
-        const outputFormat = ctx.flags.output || 'text';
+        const outputFormatRaw = ctx.flags.output || 'text';
+        const VALID_OUTPUT_FORMATS = new Set(['text', 'json', 'csv']);
+        const outputFormat = VALID_OUTPUT_FORMATS.has(outputFormatRaw) ? outputFormatRaw : 'text';
         output.writeln();
         output.writeln(output.bold('Performance Benchmark (Real Measurements)'));
         output.writeln(output.dim('─'.repeat(60)));
@@ -235,8 +239,11 @@ const profileCommand = {
         { command: 'monomind performance profile -d 60', description: 'Profile for 60 seconds' },
     ],
     action: async (ctx) => {
-        const type = ctx.flags.type || 'all';
-        const duration = parseInt(ctx.flags.duration || '30', 10);
+        const typeRaw = ctx.flags.type || 'all';
+        const VALID_PROFILE_TYPES = new Set(['cpu', 'memory', 'io', 'all']);
+        const type = VALID_PROFILE_TYPES.has(typeRaw) ? typeRaw : 'all';
+        const durationRaw = parseInt(ctx.flags.duration || '30', 10);
+        const duration = Number.isFinite(durationRaw) ? Math.min(Math.max(1, durationRaw), 300) : 30;
         output.writeln();
         output.writeln(output.bold('Performance Profiler'));
         output.writeln(output.dim('─'.repeat(50)));
@@ -308,8 +315,12 @@ const metricsCommand = {
         { command: 'monomind performance metrics -f prometheus', description: 'Export as Prometheus format' },
     ],
     action: async (ctx) => {
-        const timeframe = ctx.flags.timeframe || '24h';
-        const format = ctx.flags.format || 'text';
+        const timeframeRaw = ctx.flags.timeframe || '24h';
+        const VALID_TIMEFRAMES = new Set(['1h', '24h', '7d', '30d']);
+        const timeframe = VALID_TIMEFRAMES.has(timeframeRaw) ? timeframeRaw : '24h';
+        const formatRaw = ctx.flags.format || 'text';
+        const VALID_FORMATS = new Set(['text', 'json', 'prometheus']);
+        const format = VALID_FORMATS.has(formatRaw) ? formatRaw : 'text';
         output.writeln();
         output.writeln(output.bold(`Performance Metrics (${timeframe})`));
         output.writeln(output.dim('─'.repeat(50)));
@@ -491,7 +502,9 @@ const optimizeCommand = {
         { command: 'monomind performance optimize --apply', description: 'Apply all optimizations' },
     ],
     action: async (ctx) => {
-        const target = ctx.flags.target || 'all';
+        const targetRaw = ctx.flags.target || 'all';
+        const VALID_TARGETS = new Set(['memory', 'cpu', 'latency', 'all']);
+        const target = VALID_TARGETS.has(targetRaw) ? targetRaw : 'all';
         if (ctx.flags.apply) {
             output.printWarning('Optimization application is not yet implemented. Showing recommendations only.');
         }
