@@ -8,6 +8,17 @@ import { output } from '../output.js';
 import { select, confirm, input, multiSelect } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 
+// Input length caps
+const MAX_TASK_ID_LEN = 128;
+const MAX_DESCRIPTION_LEN = 4_000;
+const MAX_REASON_LEN = 512;
+const MAX_TAGS = 20;
+const MAX_TAG_LEN = 64;
+const MAX_DEPS = 50;
+const MAX_DEP_LEN = 128;
+const MAX_ASSIGN_LEN = 128;
+const MAX_LIMIT = 1_000;
+
 // Task types
 const TASK_TYPES = [
   { value: 'implementation', label: 'Implementation', hint: 'Feature implementation' },
@@ -146,6 +157,9 @@ const createCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
+    // Cap description length
+    description = description.slice(0, MAX_DESCRIPTION_LEN);
+
     if (!priority && ctx.interactive) {
       priority = await select({
         message: 'Select priority:',
@@ -154,10 +168,12 @@ const createCommand: Command = {
       });
     }
 
-    // Parse tags and dependencies
-    const tags = ctx.flags.tags ? (ctx.flags.tags as string).split(',').map(t => t.trim()) : [];
+    // Parse and cap tags and dependencies
+    const tags = ctx.flags.tags
+      ? (ctx.flags.tags as string).split(',').map(t => t.trim().slice(0, MAX_TAG_LEN)).filter(Boolean).slice(0, MAX_TAGS)
+      : [];
     const dependencies = ctx.flags.dependencies
-      ? (ctx.flags.dependencies as string).split(',').map(d => d.trim())
+      ? (ctx.flags.dependencies as string).split(',').map(d => d.trim().slice(0, MAX_DEP_LEN)).filter(Boolean).slice(0, MAX_DEPS)
       : [];
 
     output.writeln();
@@ -177,7 +193,7 @@ const createCommand: Command = {
         type: taskType,
         description,
         priority: priority || 'normal',
-        assignedTo: ctx.flags.assign ? [ctx.flags.assign] : undefined,
+        assignedTo: ctx.flags.assign ? [(ctx.flags.assign as string).slice(0, MAX_ASSIGN_LEN)] : undefined,
         parentId: ctx.flags.parent,
         dependencies,
         tags,
@@ -272,7 +288,7 @@ const listCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const status = ctx.flags.all ? 'all' : (ctx.flags.status as string) || 'pending,running';
-    const limit = ctx.flags.limit as number;
+    const limit = Math.min(Math.max(1, (ctx.flags.limit as number) || 20), MAX_LIMIT);
 
     try {
       const result = await callMCPTool<{
@@ -365,13 +381,14 @@ const statusCommand: Command = {
     }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    let taskId = ctx.args[0] || ctx.flags.id as string;
+    let taskId = (ctx.args[0] || ctx.flags.id as string || '').slice(0, MAX_TASK_ID_LEN);
 
     if (!taskId && ctx.interactive) {
       taskId = await input({
         message: 'Enter task ID:',
         validate: (v) => v.length > 0 || 'Task ID is required'
       });
+      taskId = taskId.slice(0, MAX_TASK_ID_LEN);
     }
 
     if (!taskId) {
@@ -528,9 +545,9 @@ const cancelCommand: Command = {
     }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const taskId = ctx.args[0];
+    const taskId = (ctx.args[0] || '').slice(0, MAX_TASK_ID_LEN);
     const force = ctx.flags.force as boolean;
-    const reason = ctx.flags.reason as string;
+    const reason = typeof ctx.flags.reason === 'string' ? ctx.flags.reason.slice(0, MAX_REASON_LEN) : undefined;
 
     if (!taskId) {
       output.printError('Task ID is required');
@@ -599,7 +616,7 @@ const assignCommand: Command = {
     }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const taskId = ctx.args[0];
+    const taskId = (ctx.args[0] || '').slice(0, MAX_TASK_ID_LEN);
     const agentIds = ctx.flags.agent as string;
     const unassign = ctx.flags.unassign as boolean;
 
@@ -670,7 +687,7 @@ const assignCommand: Command = {
         previouslyAssigned: string[];
       }>('task_assign', {
         taskId,
-        agentIds: unassign ? [] : agentIds.split(',').map(id => id.trim()),
+        agentIds: unassign ? [] : agentIds.split(',').map(id => id.trim().slice(0, MAX_ASSIGN_LEN)).filter(Boolean).slice(0, 20),
         unassign
       });
 
@@ -711,7 +728,7 @@ const retryCommand: Command = {
     }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const taskId = ctx.args[0];
+    const taskId = (ctx.args[0] || '').slice(0, MAX_TASK_ID_LEN);
     const resetState = ctx.flags['reset-state'] as boolean;
 
     if (!taskId) {
