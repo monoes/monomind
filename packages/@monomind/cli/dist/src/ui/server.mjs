@@ -2305,12 +2305,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             } else if (tool === 'monograph_diff') {
               ok('Graph diff: compare two snapshots using monograph snapshot + monograph diff commands');
             } else if (tool === 'monograph_rename') {
-              const sym = input.symbolName || '';
+              // Cap sym to prevent O(n) FTS scan DoS via oversized query string.
+              const sym = String(input.symbolName || '').slice(0, 4096);
               if (!sym) { ok('Provide symbolName to rename'); return; }
               const hits = ftsSearch(db2, sym, 20);
               ok(`Found ${hits.length} occurrences of "${sym}":\n` + hits.map(h => `  ${h.filePath || '?'}:${h.startLine || '?'} — ${h.name}`).join('\n'));
             } else if (tool === 'monograph_impact') {
-              const target = input.target || '';
+              const target = String(input.target || '').slice(0, 4096);
               const dir3 = input.direction || 'both';
               const depth = input.maxDepth || 4;
               const hits = ftsSearch(db2, target, 5);
@@ -2827,8 +2828,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const swarmId = qs.get('swarmId') || undefined;
-        const agentId = qs.get('agentId') || undefined;
+        // Cap swarmId and agentId to prevent O(n×m) DoS: filter() compares
+        // each event against the query string, so a megabyte-scale ID causes
+        // O(events × m) string comparisons.
+        const _rawSwarmId = qs.get('swarmId') || undefined;
+        const _rawAgentId = qs.get('agentId') || undefined;
+        const swarmId = typeof _rawSwarmId === 'string' ? _rawSwarmId.slice(0, 256) : undefined;
+        const agentId = typeof _rawAgentId === 'string' ? _rawAgentId.slice(0, 256) : undefined;
         const last = qs.get('last') ? parseInt(qs.get('last')) : undefined;
         const events = collectSwarmEvents(path.resolve(dir), { swarmId, agentId, last });
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
