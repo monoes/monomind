@@ -140,7 +140,7 @@ const testCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const provider = (ctx.flags.provider as string) || (ctx.args && ctx.args[0]) || '';
+      const provider = ((ctx.flags.provider as string) || (ctx.args && ctx.args[0]) || '').slice(0, 64);
       const testAll = ctx.flags.all as boolean;
 
       output.writeln();
