@@ -15,6 +15,9 @@ export const NON_CORE_KINDS: SuppressionKind[] = [
   'code-duplication',
 ];
 
+// Set for O(1) membership check in findStale hot path
+const NON_CORE_KINDS_SET = new Set<SuppressionKind>(NON_CORE_KINDS);
+
 export interface Suppression {
   path: string;
   line: number;
@@ -58,7 +61,7 @@ export function findStale(ctx: SuppressionContext): StaleSuppression[] {
     .filter((s) => {
       const key = suppressionKey(s);
       const isConsumed = ctx.consumed.has(key);
-      const isNonCore = NON_CORE_KINDS.includes(s.kind);
+      const isNonCore = NON_CORE_KINDS_SET.has(s.kind);
       // Keep (return as stale) if NOT consumed AND NOT a non-core kind
       return !isConsumed && !isNonCore;
     })
