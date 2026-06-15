@@ -165,8 +165,18 @@ export const agentTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadAgentStore();
-      const agentId = (input.agentId as string) || `agent-${Date.now()}-${randomBytes(4).toString('hex')}`;
-      const agentType = input.agentType as string;
+      // Cap agentId: used as the JSON object key in store.agents[agentId].
+      // An oversized key inflates the on-disk store for every spawned agent.
+      // Cap agentType/domain: persisted as AgentRecord field values.
+      const MAX_AGENT_ID_LEN = 256;
+      const MAX_AGENT_TYPE_LEN = 128;
+      const MAX_AGENT_DOMAIN_LEN = 256;
+      const rawAgentId = (input.agentId as string) || `agent-${Date.now()}-${randomBytes(4).toString('hex')}`;
+      const agentId = typeof rawAgentId === 'string' && rawAgentId.length > MAX_AGENT_ID_LEN
+        ? rawAgentId.slice(0, MAX_AGENT_ID_LEN) : rawAgentId;
+      const rawAgentType = input.agentType as string;
+      const agentType = typeof rawAgentType === 'string' && rawAgentType.length > MAX_AGENT_TYPE_LEN
+        ? rawAgentType.slice(0, MAX_AGENT_TYPE_LEN) : rawAgentType;
 
       if (['__proto__', 'constructor', 'prototype'].includes(agentId)) {
         return { success: false, agentId, error: 'Forbidden agent ID' };
@@ -188,6 +198,9 @@ export const agentTools: MCPTool[] = [
 
       // Get task from either top-level or config (CLI passes it in config.task)
       const task = (input.task as string) || (config.task as string) || undefined;
+      const rawDomain = input.domain as string;
+      const domain = typeof rawDomain === 'string' && rawDomain.length > MAX_AGENT_DOMAIN_LEN
+        ? rawDomain.slice(0, MAX_AGENT_DOMAIN_LEN) : rawDomain;
 
       // Determine model using ADR-026 3-tier routing logic
       const routingResult = await determineAgentModel(
@@ -204,7 +217,7 @@ export const agentTools: MCPTool[] = [
         taskCount: 0,
         config,
         createdAt: new Date().toISOString(),
-        domain: input.domain as string,
+        domain,
         model: routingResult.model,
         modelRoutedBy: routingResult.routedBy,
       };
