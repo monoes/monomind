@@ -75,6 +75,25 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 .live-dot.polling { background: oklch(78% 0.16 80); animation-duration: 2s; }
+/* ── narrow viewport: icon-only sidebar ──────────────────── */
+@media (max-width: 700px) {
+  :root { --sidebar-w: 48px; }
+  #sb-logo .proj, #sb-logo .ver { display: none; }
+  #sb-logo .mark { font-size: 14px; text-align: center; padding: 0; }
+  #sb-logo { padding: 12px 6px; }
+  .nav-lbl, .nav-item .lbl, .nav-item .bdg, .nav-item .nav-key { display: none; }
+  .nav-item { padding: 9px; justify-content: center; border-radius: 8px; }
+  .nav-item .ico { width: auto; font-size: 14px; }
+  .nav-item:hover::after { content: attr(title); position: fixed; left: 52px; background: var(--surface-hi); color: var(--text-hi); font-size: 12px; padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); white-space: nowrap; z-index: 9999; pointer-events: none; }
+  #sb-footer, #sb-user, #sb-path, #sb-remote, #sb-branch { display: none !important; }
+  #nav-project-ctx { display: none !important; }
+  .nav-proj-items, .nav-proj-hdr { display: none; }
+  #sb-nav { padding: 6px 4px; }
+  #sb-logo svg { display: none; }
+  #topbar { padding: 0 10px; gap: 6px; }
+  #topbar .btn { display: none; }
+  #topbar .btn:first-of-type { display: inline-flex; }
+}
 #tb-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .btn { font-size: 11px; color: var(--text-lo); background: transparent; border: 1px solid var(--border); border-radius: var(--r); padding: 4px 10px; cursor: pointer; transition: color 0.1s, border-color 0.1s; }
 .btn:hover { color: var(--text-hi); border-color: var(--text-lo); }
@@ -1357,10 +1376,10 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
   </div>
   <div id="sb-nav">
     <div class="nav-sect">
-      <div class="nav-item active" data-view="now">
+      <div class="nav-item active" data-view="now" title="Now">
         <span class="ico">◉</span><span class="lbl">Now</span><span class="nav-key">1</span>
       </div>
-      <div class="nav-item" data-view="projects">
+      <div class="nav-item" data-view="projects" title="Projects">
         <span class="ico">⊞</span><span class="lbl">Projects</span>
         <span class="bdg" id="bdg-projects">—</span>
       </div>
@@ -1372,34 +1391,34 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div class="nav-proj-name" id="nav-proj-name">—</div>
       </div>
       <div class="nav-proj-items">
-        <div class="nav-item" data-view="sessions">
+        <div class="nav-item" data-view="sessions" title="Sessions">
           <span class="ico">◫</span><span class="lbl">Sessions</span>
           <span class="bdg" id="bdg-sessions">—</span><span class="nav-key">2</span>
         </div>
-        <div class="nav-item" data-view="loops">
+        <div class="nav-item" data-view="loops" title="Loops">
           <span class="ico">↺</span><span class="lbl">Loops</span>
           <span class="bdg" id="bdg-loops">—</span><span class="nav-key">4</span>
         </div>
-        <div class="nav-item" data-view="tokens">
+        <div class="nav-item" data-view="tokens" title="Tokens">
           <span class="ico">$</span><span class="lbl">Tokens</span><span class="nav-key">5</span>
         </div>
-        <div class="nav-item" data-view="memory">
+        <div class="nav-item" data-view="memory" title="Memory">
           <span class="ico">◈</span><span class="lbl">Memory</span><span class="nav-key">6</span>
         </div>
-        <div class="nav-item" data-view="orgs">
+        <div class="nav-item" data-view="orgs" title="Orgs">
           <span class="ico">⬡</span><span class="lbl">Orgs</span><span class="nav-key">7</span>
         </div>
-        <div class="nav-item" data-view="monograph">
+        <div class="nav-item" data-view="monograph" title="Monograph">
           <span class="ico">⬡</span><span class="lbl">Monograph</span><span class="nav-key">8</span>
         </div>
-        <div class="nav-item" data-view="chat">
+        <div class="nav-item" data-view="chat" title="Agent Chat">
           <span class="ico">⌘</span><span class="lbl">Agent Chat</span>
         </div>
       </div>
     </div>
     <div class="nav-no-proj" id="nav-no-proj-hint">Select a project above</div>
     <div class="nav-sect" style="margin-top:auto;padding-top:8px;">
-      <div class="nav-item" data-view="global">
+      <div class="nav-item" data-view="global" title="Global Feed">
         <span class="ico">⊕</span><span class="lbl">Global Feed</span><span class="nav-key">9</span>
       </div>
       <div class="nav-item" data-view="global-loops" title="Global Loops — loops across all projects">
