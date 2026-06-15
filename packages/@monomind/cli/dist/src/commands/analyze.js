@@ -1378,7 +1378,8 @@ const boundariesCommand = {
     ],
     action: async (ctx) => {
         const targetDir = ctx.args[0] || ctx.cwd;
-        const numPartitions = ctx.flags.partitions || 2;
+        const rawPartitions = ctx.flags.partitions || 2;
+        const numPartitions = Number.isFinite(rawPartitions) ? Math.max(1, Math.min(rawPartitions, 100)) : 2;
         const outputFile = ctx.flags.output;
         const format = ctx.flags.format || 'text';
         output.printInfo(`Analyzing code boundaries in: ${output.highlight(targetDir)}`);
@@ -1682,7 +1683,8 @@ const dependenciesCommand = {
         const format = ctx.flags.format || 'text';
         const include = (ctx.flags.include || '.ts,.tsx,.js,.jsx,.mjs,.cjs').split(',');
         const exclude = (ctx.flags.exclude || 'node_modules,dist,build,.git').split(',');
-        const maxDepth = ctx.flags.depth || 10;
+        const rawDepth = ctx.flags.depth || 10;
+        const maxDepth = Number.isFinite(rawDepth) ? Math.max(1, Math.min(rawDepth, 50)) : 10;
         output.printInfo(`Building dependency graph for: ${output.highlight(targetDir)}`);
         output.writeln();
         const spinner = output.createSpinner({ text: 'Scanning files...', spinner: 'dots' });
