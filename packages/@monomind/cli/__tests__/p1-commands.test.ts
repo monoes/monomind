@@ -16,6 +16,7 @@ import * as path from 'path';
 // Mock fs module
 vi.mock('fs', () => ({
   existsSync: vi.fn(),
+  statSync: vi.fn().mockReturnValue({ size: 0 }),
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
   readFileSync: vi.fn(),

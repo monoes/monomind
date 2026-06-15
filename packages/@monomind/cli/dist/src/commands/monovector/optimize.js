@@ -121,6 +121,17 @@ export const optimizeCommand = {
             output.printError('Database name is required. Use --database or -d flag, or set PGDATABASE env.');
             return { success: false, exitCode: 1 };
         }
+        // Validate schema identifier to prevent SQL injection
+        const IDENT_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/;
+        if (!IDENT_RE.test(config.schema)) {
+            output.printError('Invalid schema name. Only alphanumeric characters and underscores are allowed.');
+            return { success: false, exitCode: 1 };
+        }
+        // Validate --index flag if provided
+        if (specificIndex !== undefined && !IDENT_RE.test(specificIndex)) {
+            output.printError('Invalid index name. Only alphanumeric characters and underscores are allowed.');
+            return { success: false, exitCode: 1 };
+        }
         const spinner = output.createSpinner({ text: 'Connecting to PostgreSQL...', spinner: 'dots' });
         spinner.start();
         const recommendations = [];

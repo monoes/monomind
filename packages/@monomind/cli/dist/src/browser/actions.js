@@ -20,7 +20,8 @@ export async function clickElement(client, sessionId, ref, options = {}) {
 }
 export async function clickPoint(client, sessionId, x, y, options = {}) {
     const button = options.button ?? 'left';
-    const clickCount = options.clickCount ?? 1;
+    // Cap clickCount to prevent unbounded loop DoS
+    const clickCount = Math.min(Math.max(1, Math.floor(options.clickCount ?? 1)), 100);
     const modifiers = options.modifiers ?? 0;
     const shared = { x, y, button, modifiers };
     const buttonsMask = button === 'right' ? 2 : button === 'middle' ? 4 : 1;
@@ -69,7 +70,9 @@ export async function fillElement(client, sessionId, ref, value) {
     await typeText(client, sessionId, value);
 }
 export async function typeText(client, sessionId, text) {
-    await client.send('Input.insertText', { text }, sessionId);
+    // Cap to 100 KB to prevent OOM in CDP message serializer
+    const safeText = text.length > 102_400 ? text.slice(0, 102_400) : text;
+    await client.send('Input.insertText', { text: safeText }, sessionId);
 }
 export async function pressKeyCombo(client, sessionId, key, modifiers) {
     const { text: _text, ...keyInfo } = resolveKey(key);
@@ -184,6 +187,8 @@ function resolveKey(key) {
     return { key, code: key };
 }
 export async function scrollElement(client, sessionId, direction, amount = 300, ref) {
+    // Cap scroll amount to prevent extreme delta values
+    amount = Math.min(Math.max(1, Math.floor(amount)), 100_000);
     let x = 0;
     let y = 0;
     let deltaX = 0;
@@ -351,7 +356,9 @@ export async function readClipboard(client, sessionId) {
     return result;
 }
 export async function writeClipboard(client, sessionId, text) {
-    await evaluateJs(client, sessionId, `navigator.clipboard.writeText(${JSON.stringify(text)})`);
+    // Cap to 100 KB to prevent OOM when serializing the CDP expression
+    const safeText = text.length > 102_400 ? text.slice(0, 102_400) : text;
+    await evaluateJs(client, sessionId, `navigator.clipboard.writeText(${JSON.stringify(safeText)})`);
 }
 export async function pushState(client, sessionId, url) {
     // Try Next.js router first, then fallback to history.pushState

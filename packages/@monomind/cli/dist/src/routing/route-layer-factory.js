@@ -25,12 +25,20 @@ const WORKER_PATH = join(dirname(fileURLToPath(import.meta.url)), 'embed-worker.
 const WORKER_TIMEOUT_MS = 90_000;
 /** Cap worker stdout so a runaway child can't grow parent memory unbounded. */
 const MAX_WORKER_OUTPUT = 4 * 1024 * 1024; // 4 MB
+/** Cap the task string length to prevent OOM/DoS via oversized argv. */
+const MAX_TASK_LENGTH = 2_000;
+/** Cap stderr reflected in error messages to prevent log-inflation attacks. */
+const MAX_STDERR_IN_ERROR = 500;
+/** Cap allScores array passed to the LLM fallback to prevent downstream OOM. */
+const MAX_ALL_SCORES = 100;
 /** Marker the worker prefixes its result line with (see embed-worker.ts). */
 const RESULT_MARKER = '__ROUTE_RESULT__';
 /** Run the embedding worker for one task. Resolves the RouteResult, or rejects. */
 function runWorker(task) {
+    // Cap task length before passing as argv to prevent OOM/DoS via oversized args.
+    const safeTask = task.length > MAX_TASK_LENGTH ? task.slice(0, MAX_TASK_LENGTH) : task;
     return new Promise((resolve, reject) => {
-        const child = spawn(process.execPath, [WORKER_PATH, task], {
+        const child = spawn(process.execPath, [WORKER_PATH, safeTask], {
             stdio: ['ignore', 'pipe', 'pipe'],
             windowsHide: true,
         });
@@ -75,7 +83,10 @@ function runWorker(task) {
             settled = true;
             clearTimeout(timer);
             if (code !== 0) {
-                reject(new Error(stderr.trim() || `worker exited ${code}`));
+                // Truncate stderr before embedding in Error to prevent log-inflation via
+                // a malicious or runaway child writing oversized diagnostic output.
+                const stderrSnippet = stderr.trim().slice(0, MAX_STDERR_IN_ERROR);
+                reject(new Error(stderrSnippet || `worker exited ${code}`));
                 return;
             }
             // Extract the marked result line — model-loader output may have written
@@ -130,8 +141,12 @@ export async function createConfiguredRouteLayer(opts = {}) {
                 }
                 // 3. Below threshold → Claude fallback in the parent, reusing scores.
                 if (llmCaller && Array.isArray(semantic.allScores) && semantic.allScores.length) {
+                    // Cap allScores to prevent downstream OOM if the worker sends an oversized array.
+                    const scores = semantic.allScores.length > MAX_ALL_SCORES
+                        ? semantic.allScores.slice(0, MAX_ALL_SCORES)
+                        : semantic.allScores;
                     const fallback = new LLMFallbackRouter({ llmCaller, model: 'haiku' });
-                    return fallback.classify(taskDescription, ALL_ROUTES, semantic.allScores);
+                    return fallback.classify(taskDescription, ALL_ROUTES, scores);
                 }
                 if (!opts.debug)
                     delete semantic.allScores;
