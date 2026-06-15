@@ -291,8 +291,11 @@ module.exports = {
           daemonChild.on('error', function() {});
           daemonChild.unref();
           console.log('[DAEMON_AUTOSTART] Background daemon started (pid ' + daemonChild.pid + ')');
-        } else {
-          console.log('[DAEMON_STOPPED] Background daemon is not running. To auto-start, set daemon.autoStart=true in monomind.config.json or run: npx monomind daemon start');
+        }
+        // Daemon not running + no autoStart: emit only if this project has a config
+        // (i.e. daemon was intentionally set up). Avoids noisy output in daemon-less projects.
+        else if (fs.existsSync(path.join(CWD, 'monomind.config.json'))) {
+          console.log('[DAEMON_STOPPED] Run `npx monomind daemon start` to enable background workers');
         }
       }
     } catch (e) { /* non-fatal */ }
@@ -328,11 +331,13 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
-    // Monomind Control UI Status — only probe when a daemon has previously run
-    // (indicated by daemon.pid or monomind.config.json). Skips silently in fresh
-    // environments and test fixtures that have no daemon history.
-    var _controlUiShouldProbe = fs.existsSync(path.join(CWD, '.monomind', 'daemon.pid'))
-      || fs.existsSync(path.join(CWD, 'monomind.config.json'));
+    // Monomind Control UI Status — only probe when a daemon.pid file exists,
+    // meaning the daemon was intentionally started in this project. This avoids
+    // printing "[CONTROL_UI] offline" noise on every session in projects that
+    // never run the daemon.  The broader "monomind.config.json" check is dropped
+    // because that file is present in the dev repo itself and in any initialized
+    // project, making the old condition nearly always true.
+    var _controlUiShouldProbe = fs.existsSync(path.join(CWD, '.monomind', 'daemon.pid'));
     if (_controlUiShouldProbe) {
       try {
         var http = require('http');
@@ -344,7 +349,8 @@ module.exports = {
           res.resume();
         });
         req.on('error', function() {
-          console.log('[CONTROL_UI] offline — run: npx monomind mcp start');
+          // Only warn when daemon was previously running (pid file exists but server is gone)
+          console.log('[CONTROL_UI] offline — restart with: npx monomind mcp start');
         });
         req.setTimeout(800, function() { req.destroy(); });
       } catch (e) { /* non-fatal */ }
