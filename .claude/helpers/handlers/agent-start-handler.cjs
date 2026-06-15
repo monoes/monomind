@@ -27,10 +27,17 @@ module.exports = {
       const activityDir = path.join(CWD, '.monomind', 'metrics');
       fs.mkdirSync(activityDir, { recursive: true });
       const activityPath = path.join(activityDir, 'swarm-activity.json');
-      const active = fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length;
+      const MAX_AGENTS = 1000;
+      const active = Math.min(fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length, MAX_AGENTS);
       // Preserve lastActive (peak) so statusline shows non-zero after completion.
       let prevLastActive = 0;
-      try { prevLastActive = (JSON.parse(fs.readFileSync(activityPath, 'utf-8'))?.swarm?.lastActive) || 0; } catch { /* ignore */ }
+      try {
+        const MAX_ACTIVITY = 64 * 1024; // 64 KiB
+        var actStat = fs.statSync(activityPath);
+        if (actStat.size <= MAX_ACTIVITY) {
+          prevLastActive = (JSON.parse(fs.readFileSync(activityPath, 'utf-8'))?.swarm?.lastActive) || 0;
+        }
+      } catch { /* ignore */ }
       fs.writeFileSync(activityPath, JSON.stringify({
         timestamp: new Date().toISOString(),
         swarm: {
@@ -43,8 +50,10 @@ module.exports = {
 
       // Write last-dispatch.json so the route handler can suppress redundant
       // suggestions on the next turn when the same agent type is recommended.
-      const agentType = hookInput.subagent_type || hookInput.agentType || hookInput.agent_type || hookInput.agentSlug || 'unknown';
-      const agentDesc = hookInput.description || hookInput.prompt_description || '';
+      const MAX_TYPE_LEN = 128;
+      const MAX_DESC_LEN = 500;
+      const agentType = String(hookInput.subagent_type || hookInput.agentType || hookInput.agent_type || hookInput.agentSlug || 'unknown').slice(0, MAX_TYPE_LEN);
+      const agentDesc = String(hookInput.description || hookInput.prompt_description || '').slice(0, MAX_DESC_LEN);
       fs.writeFileSync(
         path.join(CWD, '.monomind', 'last-dispatch.json'),
         JSON.stringify({

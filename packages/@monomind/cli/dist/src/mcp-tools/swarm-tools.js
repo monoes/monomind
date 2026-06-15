@@ -64,7 +64,13 @@ export const swarmTools = [
         handler: async (input) => {
             const topology = input.topology || 'hierarchical-mesh';
             const maxAgents = Math.min(Math.max(input.maxAgents || 8, 1), 50);
-            const strategy = input.strategy || 'specialized';
+            // Cap strategy and config string fields: all are persisted in the swarm
+            // JSON store.  topology is already validated against VALID_TOPOLOGIES so
+            // an invalid long value is rejected; the others have no validation.
+            const MAX_SWARM_FIELD_LEN = 256;
+            const rawStrategy = input.strategy || 'specialized';
+            const strategy = typeof rawStrategy === 'string' && rawStrategy.length > MAX_SWARM_FIELD_LEN
+                ? rawStrategy.slice(0, MAX_SWARM_FIELD_LEN) : rawStrategy;
             const config = (input.config || {});
             if (!VALID_TOPOLOGIES.has(topology)) {
                 return {
@@ -85,9 +91,15 @@ export const swarmTools = [
                     topology,
                     maxAgents,
                     strategy,
-                    communicationProtocol: config.communicationProtocol || 'message-bus',
+                    communicationProtocol: (() => {
+                        const raw = config.communicationProtocol || 'message-bus';
+                        return typeof raw === 'string' && raw.length > MAX_SWARM_FIELD_LEN ? raw.slice(0, MAX_SWARM_FIELD_LEN) : raw;
+                    })(),
                     autoScaling: config.autoScaling ?? true,
-                    consensusMechanism: config.consensusMechanism || 'majority',
+                    consensusMechanism: (() => {
+                        const raw = config.consensusMechanism || 'majority';
+                        return typeof raw === 'string' && raw.length > MAX_SWARM_FIELD_LEN ? raw.slice(0, MAX_SWARM_FIELD_LEN) : raw;
+                    })(),
                 },
                 createdAt: now,
                 updatedAt: now,

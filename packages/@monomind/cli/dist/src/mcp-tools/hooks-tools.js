@@ -251,10 +251,13 @@ const MEMORY_FILE = 'store.json';
 function getMemoryPath() {
     return join(getProjectCwd(), MEMORY_DIR, MEMORY_FILE);
 }
+// Maximum size of the legacy JSON memory store before reads are skipped.
+// Matches the guard in memory-tools.ts (loadLegacyStore) which loads the same file.
+const MAX_MEMORY_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 function loadMemoryStore() {
     try {
         const path = getMemoryPath();
-        if (existsSync(path)) {
+        if (existsSync(path) && statSync(path).size <= MAX_MEMORY_STORE_BYTES) {
             const data = readFileSync(path, 'utf-8');
             return JSON.parse(data);
         }
@@ -511,8 +514,18 @@ export const hooksPreEdit = {
         required: ['filePath'],
     },
     handler: async (params) => {
-        const filePath = params.filePath;
-        const operation = params.operation || 'update';
+        // Cap filePath: passed to suggestAgentsForFile (O(n) regex) and reflected in
+        // response.  Cap operation to prevent oversized strings in recommendations.
+        const MAX_PRE_EDIT_PATH_LEN = 4 * 1024;
+        const MAX_PRE_EDIT_OP_LEN = 64;
+        const rawFilePath = params.filePath;
+        const filePath = typeof rawFilePath === 'string' && rawFilePath.length > MAX_PRE_EDIT_PATH_LEN
+            ? rawFilePath.slice(0, MAX_PRE_EDIT_PATH_LEN)
+            : rawFilePath;
+        const rawOperation = params.operation || 'update';
+        const operation = typeof rawOperation === 'string' && rawOperation.length > MAX_PRE_EDIT_OP_LEN
+            ? rawOperation.slice(0, MAX_PRE_EDIT_OP_LEN)
+            : rawOperation;
         const suggestedAgents = suggestAgentsForFile(filePath);
         const ext = getFileExtension(filePath);
         return {
@@ -548,9 +561,20 @@ export const hooksPostEdit = {
         required: ['filePath'],
     },
     handler: async (params) => {
-        const filePath = params.filePath;
+        // Cap filePath: interpolated into taskId and task text forwarded to
+        // bridgeRecordFeedback (which calls generateEmbedding — O(n) hash fallback).
+        // Cap agent: stored in feedback record and forwarded to bridge.
+        const MAX_POST_EDIT_PATH_LEN = 4 * 1024;
+        const MAX_POST_EDIT_AGENT_LEN = 256;
+        const rawFilePath = params.filePath;
+        const filePath = typeof rawFilePath === 'string' && rawFilePath.length > MAX_POST_EDIT_PATH_LEN
+            ? rawFilePath.slice(0, MAX_POST_EDIT_PATH_LEN)
+            : rawFilePath;
         const success = params.success !== false;
-        const agent = params.agent;
+        const rawAgent = params.agent;
+        const agent = typeof rawAgent === 'string' && rawAgent.length > MAX_POST_EDIT_AGENT_LEN
+            ? rawAgent.slice(0, MAX_POST_EDIT_AGENT_LEN)
+            : rawAgent;
         // Wire recordFeedback through bridge (issue #1209)
         let feedbackResult = null;
         try {
@@ -593,7 +617,14 @@ export const hooksPreCommand = {
         required: ['command'],
     },
     handler: async (params) => {
-        const command = params.command;
+        // Cap command length: assessCommandRisk runs O(n) string searches, and the
+        // raw command is reflected verbatim in the response.  Limit to 4 KB which
+        // is far beyond any realistic shell command.
+        const MAX_CMD_LEN = 4 * 1024;
+        const rawCommand = params.command;
+        const command = typeof rawCommand === 'string' && rawCommand.length > MAX_CMD_LEN
+            ? rawCommand.slice(0, MAX_CMD_LEN)
+            : rawCommand;
         const assessment = assessCommandRisk(command);
         const riskLevel = assessment.level >= 0.8 ? 'critical'
             : assessment.level >= 0.6 ? 'high'
@@ -627,7 +658,16 @@ export const hooksPostCommand = {
         required: ['command'],
     },
     handler: async (params) => {
-        const command = params.command;
+        // Cap command: it is stored in JSON memory store (line 824), forwarded to
+        // bridgeStoreEntry which calls generateEmbedding by default — O(n) hash
+        // fallback, and reflected verbatim in the response.  The recordCommand path
+        // already caps to 200 chars; apply a consistent 4 KB cap here that still
+        // covers any realistic shell command.
+        const MAX_POST_CMD_LEN = 4 * 1024;
+        const rawPostCommand = params.command;
+        const command = typeof rawPostCommand === 'string' && rawPostCommand.length > MAX_POST_CMD_LEN
+            ? rawPostCommand.slice(0, MAX_POST_CMD_LEN)
+            : rawPostCommand;
         const exitCode = params.exitCode || 0;
         const success = exitCode === 0;
         // Record the real exit code in the time-windowed command-outcome store so
@@ -690,8 +730,19 @@ export const hooksRoute = {
         required: ['task'],
     },
     handler: async (params) => {
-        const task = params.task;
-        const context = params.context;
+        // Cap task and context lengths: both are forwarded to generateEmbedding
+        // via bridgeRouteTask, and task is used in extractKeywords + stored in
+        // route-outcomes.jsonl.  16 KB matches the cap in hooksPatternSearch.
+        const MAX_ROUTE_TASK_LEN = 16 * 1024;
+        const MAX_ROUTE_CTX_LEN = 4 * 1024;
+        const rawTask = params.task;
+        const task = typeof rawTask === 'string' && rawTask.length > MAX_ROUTE_TASK_LEN
+            ? rawTask.slice(0, MAX_ROUTE_TASK_LEN)
+            : rawTask;
+        const rawContext = params.context;
+        const context = typeof rawContext === 'string' && rawContext.length > MAX_ROUTE_CTX_LEN
+            ? rawContext.slice(0, MAX_ROUTE_CTX_LEN)
+            : rawContext;
         const useSemanticRouter = params.useSemanticRouter !== false;
         // Phase 5: Try AgentDB's SemanticRouter / LearningSystem first
         if (useSemanticRouter) {
@@ -956,8 +1007,23 @@ export const hooksPreTask = {
         required: ['taskId', 'description'],
     },
     handler: async (params) => {
-        const taskId = params.taskId;
-        const description = params.description;
+        // Cap taskId: it is used as a suffix in SQLite memory keys (heuristic:${taskId},
+        // routing-decision:${taskId}, textual_gradient:${taskId}) and as sourceId/targetId
+        // in causal-graph edges persisted to SQLite. An uncapped ID can inflate the DB key
+        // column and every JSON payload that includes the ID.
+        const MAX_TASK_ID_LEN = 256;
+        const rawTaskId = params.taskId;
+        const taskId = typeof rawTaskId === 'string' && rawTaskId.length > MAX_TASK_ID_LEN
+            ? rawTaskId.slice(0, MAX_TASK_ID_LEN)
+            : rawTaskId;
+        // Cap description: it is forwarded to generateEmbedding twice (ERL heuristics
+        // + TextGrad gradient queries) and used in O(n) keyword extraction.
+        // 16 KB matches the cap applied in hooks_route and hooksPatternSearch.
+        const MAX_PRE_TASK_DESC_LEN = 16 * 1024;
+        const rawDescription = params.description;
+        const description = typeof rawDescription === 'string' && rawDescription.length > MAX_PRE_TASK_DESC_LEN
+            ? rawDescription.slice(0, MAX_PRE_TASK_DESC_LEN)
+            : rawDescription;
         const filePath = params.filePath;
         const suggestion = suggestAgentsForTask(description);
         // Determine complexity
@@ -1047,16 +1113,26 @@ export const hooksPostTask = {
         required: ['taskId'],
     },
     handler: async (params) => {
-        const taskId = params.taskId;
+        // Cap taskId for the same reason as hooks_pre_task: it flows into SQLite memory keys
+        // (heuristic:${taskId}, routing-decision:${taskId}, textual_gradient:${taskId}) and
+        // into causal-graph edge IDs persisted to the DB.  Without a cap an attacker can
+        // inflate every row that stores the raw ID.
+        const MAX_POST_TASK_ID_LEN = 256;
+        const rawPostTaskId = params.taskId;
+        const taskId = typeof rawPostTaskId === 'string' && rawPostTaskId.length > MAX_POST_TASK_ID_LEN
+            ? rawPostTaskId.slice(0, MAX_POST_TASK_ID_LEN)
+            : rawPostTaskId;
         // The success flag, when the caller asserts it (--success true), is taken as
         // ground truth. But callers usually do NOT pass it. Rather than treating every
         // unverified task as "unknown" (and thus excluding it from learning), we now
         // derive a MEASURED success signal from the real command exit codes recorded by
         // post-command within a recent time window. post-command appends each exit code
         // to the command-outcome store keyed by timestamp; deriveRecentSuccess returns:
-        //   true  → recent commands exist and ALL exited 0
-        //   false → recent commands exist and ANY exited non-zero
+        //   true  → recent commands exist and the LAST command exited 0 (final-state heuristic)
+        //   false → recent commands exist and the LAST command exited non-zero
         //   null  → no recent commands (genuinely no signal → stays unknown)
+        // Note: "final-state" not "all must pass" — intermediate failures (e.g. grep no-match,
+        // test-then-fix cycles) are intentionally ignored; the last exit code decides.
         // Precedence: an explicit --success ALWAYS wins; the derived signal only fills
         // in when no explicit flag is given; only when there is also no recent command
         // signal does the outcome stay unknown (and excluded from SONA + route join,
@@ -1073,9 +1149,23 @@ export const hooksPostTask = {
                 successSource = 'derived-commands';
             }
         }
-        const agent = params.agent;
+        // Cap agent: forwarded to bridgeRecordFeedback where it is stored in the
+        // feedback record and used as a tag string in the JSON store.  An uncapped
+        // agent value inflates the on-disk store entry.
+        const MAX_POST_TASK_AGENT_LEN = 256;
+        const rawPostTaskAgent = params.agent;
+        const agent = typeof rawPostTaskAgent === 'string' && rawPostTaskAgent.length > MAX_POST_TASK_AGENT_LEN
+            ? rawPostTaskAgent.slice(0, MAX_POST_TASK_AGENT_LEN)
+            : rawPostTaskAgent;
         const quality = params.quality || (success ? 0.85 : 0.3);
         const startTime = Date.now();
+        // Cap task description: passed to generateEmbedding via bridgeRecordFeedback
+        // and persisted to route-outcomes.jsonl.  16 KB matches hooks_route cap.
+        const MAX_POST_TASK_LEN = 16 * 1024;
+        const rawPostTask = params.task;
+        const cappedPostTask = typeof rawPostTask === 'string' && rawPostTask.length > MAX_POST_TASK_LEN
+            ? rawPostTask.slice(0, MAX_POST_TASK_LEN)
+            : rawPostTask;
         // Phase 3: Wire recordFeedback through bridge → LearningSystem + ReasoningBank
         let feedbackResult = null;
         try {
@@ -1087,7 +1177,7 @@ export const hooksPostTask = {
                 agent,
                 // B1.2: thread the real task description into the SONA trajectory so the
                 // embedder encodes meaning, not the opaque task ID.
-                task: params.task || undefined,
+                task: cappedPostTask || undefined,
                 // B1.3: only feed the SONA LoRA update when the outcome is actually known.
                 outcomeKnown,
                 duration: params.duration || undefined,
@@ -1114,7 +1204,7 @@ export const hooksPostTask = {
         // B1.3: also gate this sibling learning sink on a known outcome — an unverified
         // task must not train the router as a success either. When the caller did not
         // assert success, the outcome is unknown and we skip persisting a labeled sample.
-        const taskText = params.task || '';
+        const taskText = cappedPostTask || '';
         const outcomeKeywords = extractKeywords(taskText);
         let outcomePersisted = false;
         if (outcomeKnown && taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
@@ -1260,7 +1350,13 @@ export const hooksExplain = {
         required: ['task'],
     },
     handler: async (params) => {
-        const task = params.task;
+        // Cap task: forwarded to suggestAgentsForTask (O(n) keyword loop + extractKeywords),
+        // .toLowerCase() (O(n)), and reflected verbatim in the response.
+        const MAX_EXPLAIN_TASK_LEN = 16 * 1024;
+        const rawExplainTask = params.task;
+        const task = typeof rawExplainTask === 'string' && rawExplainTask.length > MAX_EXPLAIN_TASK_LEN
+            ? rawExplainTask.slice(0, MAX_EXPLAIN_TASK_LEN)
+            : rawExplainTask;
         const suggestion = suggestAgentsForTask(task);
         const taskLower = task.toLowerCase();
         // Determine matched patterns
@@ -1366,6 +1462,12 @@ export const hooksPretrain = {
                         // For code files, count lines and extract imports
                         if (['.ts', '.js', '.py', '.go', '.rs', '.java'].includes(ext)) {
                             try {
+                                // Skip very large files (minified bundles, generated code) to prevent OOM.
+                                // 1 MB is generous for a source file; anything larger is unlikely to have
+                                // useful import patterns in the first 30 lines anyway.
+                                const MAX_CODE_FILE_BYTES = 1 * 1024 * 1024;
+                                if (statSync(full).size > MAX_CODE_FILE_BYTES)
+                                    continue;
                                 const content = readFileSync(full, 'utf-8');
                                 const lines = content.split('\n');
                                 totalLines += lines.length;
@@ -1553,8 +1655,9 @@ export const hooksTransfer = {
         // Try to load patterns from source project's memory store
         const sourceMemoryPath = join(resolvedSource, MEMORY_DIR, MEMORY_FILE);
         let sourceStore = { entries: {}, version: '3.0.0' };
+        const MAX_SOURCE_STORE_BYTES = 50 * 1024 * 1024; // 50 MB — matches other store readers
         try {
-            if (existsSync(sourceMemoryPath)) {
+            if (existsSync(sourceMemoryPath) && statSync(sourceMemoryPath).size <= MAX_SOURCE_STORE_BYTES) {
                 sourceStore = JSON.parse(readFileSync(sourceMemoryPath, 'utf-8'));
             }
         }
@@ -2054,8 +2157,18 @@ export const hooksTrajectoryStart = {
         required: ['task'],
     },
     handler: async (params) => {
-        const task = params.task;
-        const agent = params.agent || 'coder';
+        // Cap task and agent lengths to prevent the trajectory map from accumulating
+        // large strings (up to MAX_TRAJECTORIES × uncapped length = potential GB of RAM).
+        const MAX_TASK_LEN = 4 * 1024; // 4 KB — same cap as trajectory-step fields
+        const MAX_AGENT_LEN = 256;
+        const rawTask = params.task;
+        const task = typeof rawTask === 'string' && rawTask.length > MAX_TASK_LEN
+            ? rawTask.slice(0, MAX_TASK_LEN)
+            : rawTask;
+        const rawAgent = params.agent || 'coder';
+        const agent = typeof rawAgent === 'string' && rawAgent.length > MAX_AGENT_LEN
+            ? rawAgent.slice(0, MAX_AGENT_LEN)
+            : rawAgent;
         const trajectoryId = `traj-${Date.now()}-${Math.random().toString(36).substring(7)}`;
         const startedAt = new Date().toISOString();
         // Create real trajectory entry in memory
@@ -2100,14 +2213,28 @@ export const hooksTrajectoryStep = {
     },
     handler: async (params) => {
         const trajectoryId = params.trajectoryId;
-        const action = params.action;
-        const result = params.result || 'success';
+        // Cap action and result strings to prevent unbounded in-memory growth when
+        // trajectory-step is called many times with large payloads.
+        const MAX_STEP_STRING_LEN = 4 * 1024; // 4 KB per field
+        const MAX_STEPS_PER_TRAJECTORY = 1000;
+        const rawAction = params.action;
+        const rawResult = params.result || 'success';
+        const action = typeof rawAction === 'string' && rawAction.length > MAX_STEP_STRING_LEN
+            ? rawAction.slice(0, MAX_STEP_STRING_LEN)
+            : rawAction;
+        const result = typeof rawResult === 'string' && rawResult.length > MAX_STEP_STRING_LEN
+            ? rawResult.slice(0, MAX_STEP_STRING_LEN)
+            : rawResult;
         const quality = params.quality || 0.85;
         const timestamp = new Date().toISOString();
         const stepId = `step-${Date.now()}`;
         // Add step to real trajectory if it exists
         const trajectory = activeTrajectories.get(trajectoryId);
         if (trajectory) {
+            if (trajectory.steps.length >= MAX_STEPS_PER_TRAJECTORY) {
+                // Drop the oldest step to keep the array bounded
+                trajectory.steps.shift();
+            }
             trajectory.steps.push({
                 action,
                 result,
@@ -2275,8 +2402,18 @@ export const hooksPatternStore = {
         required: ['pattern'],
     },
     handler: async (params) => {
-        const pattern = params.pattern;
-        const type = params.type || 'general';
+        // Cap pattern and type lengths to prevent DoS via large embedding generation
+        // and unbounded database writes.  16 KB matches the cap in neural_patterns store.
+        const MAX_PATTERN_LEN = 16 * 1024; // 16 KB
+        const MAX_TYPE_LEN = 256;
+        const rawPattern = params.pattern;
+        const pattern = typeof rawPattern === 'string' && rawPattern.length > MAX_PATTERN_LEN
+            ? rawPattern.slice(0, MAX_PATTERN_LEN)
+            : rawPattern;
+        const rawType = params.type || 'general';
+        const type = typeof rawType === 'string' && rawType.length > MAX_TYPE_LEN
+            ? rawType.slice(0, MAX_TYPE_LEN)
+            : rawType;
         const confidence = params.confidence || 0.8;
         const metadata = params.metadata;
         const timestamp = new Date().toISOString();
@@ -2342,8 +2479,18 @@ export const hooksPatternSearch = {
         required: ['query'],
     },
     handler: async (params) => {
-        const query = params.query;
-        const topK = params.topK || 5;
+        // Cap query length to prevent DoS via large embedding generation (same
+        // class of bug fixed in neural_patterns search and hooksPatternStore).
+        const MAX_SEARCH_QUERY_LEN = 16 * 1024; // 16 KB — matches neural_patterns cap
+        const MAX_TOP_K = 100;
+        const rawQuery = params.query;
+        const query = typeof rawQuery === 'string' && rawQuery.length > MAX_SEARCH_QUERY_LEN
+            ? rawQuery.slice(0, MAX_SEARCH_QUERY_LEN)
+            : rawQuery;
+        const rawTopK = params.topK;
+        const topK = Number.isFinite(rawTopK) && rawTopK > 0
+            ? Math.min(Math.floor(rawTopK), MAX_TOP_K)
+            : 5;
         const minConfidence = params.minConfidence || 0.3;
         const namespace = params.namespace || 'pattern';
         // Phase 3: Try ReasoningBank search via bridge first
@@ -3119,7 +3266,13 @@ export const hooksModelRoute = {
         required: ['task'],
     },
     handler: async (params) => {
-        const task = params.task;
+        // Cap task: analyzeComplexityFallback calls .toLowerCase() and O(n) .includes()
+        // for each keyword; an unbounded task string causes event-loop DoS.
+        const MAX_MODEL_ROUTE_TASK_LEN = 16 * 1024;
+        const rawTask = params.task;
+        const task = typeof rawTask === 'string' && rawTask.length > MAX_MODEL_ROUTE_TASK_LEN
+            ? rawTask.slice(0, MAX_MODEL_ROUTE_TASK_LEN)
+            : rawTask;
         // Native neural model-router removed in the lean build — keyword complexity heuristic.
         const complexity = analyzeComplexityFallback(task);
         return {
@@ -3147,7 +3300,13 @@ export const hooksModelOutcome = {
         required: ['task', 'model', 'outcome'],
     },
     handler: async (params) => {
-        const task = params.task;
+        // Cap task: even though the response only reflects task.slice(0, 50), an
+        // unbounded task string causes unnecessary memory allocation before the slice.
+        const MAX_MODEL_OUTCOME_TASK_LEN = 16 * 1024;
+        const rawOutcomeTask = params.task;
+        const task = typeof rawOutcomeTask === 'string' && rawOutcomeTask.length > MAX_MODEL_OUTCOME_TASK_LEN
+            ? rawOutcomeTask.slice(0, MAX_MODEL_OUTCOME_TASK_LEN)
+            : rawOutcomeTask;
         const model = params.model;
         // RLVR: derive effective outcome from verifier exit_code when provided
         // Source: https://github.com/opendilab/awesome-RLVR

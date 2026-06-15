@@ -13,6 +13,8 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const MAX_EXEC_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 /**
  * Atomic write helper — writes to a sibling .tmp file then renames into place.
  * SIGINT or crash during a partial write would otherwise corrupt user-critical
@@ -223,7 +225,7 @@ function cleanupLegacyTools(targetDir: string): string[] {
 
   // Clean ruv-swarm from .mcp.json and fix old MCP package name
   const mcpJsonPath = path.join(targetDir, '.mcp.json');
-  if (fs.existsSync(mcpJsonPath)) {
+  if (fs.existsSync(mcpJsonPath) && fs.statSync(mcpJsonPath).size <= MAX_EXEC_FILE_BYTES) {
     try {
       const mcp = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
       let mcpChanged = false;
@@ -244,7 +246,7 @@ function cleanupLegacyTools(targetDir: string): string[] {
 
   // Clean ruv-swarm from .claude/settings.json hooks and fix MCP package name
   const settingsPath = path.join(targetDir, '.claude', 'settings.json');
-  if (fs.existsSync(settingsPath)) {
+  if (fs.existsSync(settingsPath) && fs.statSync(settingsPath).size <= MAX_EXEC_FILE_BYTES) {
     try {
       const raw = fs.readFileSync(settingsPath, 'utf-8');
       const settings = JSON.parse(raw);
@@ -485,8 +487,8 @@ async function startDaemonBackground(targetDir: string, result: InitResult): Pro
     const { execSync } = await import('child_process');
     // Check if daemon is already running
     const pidFile = path.join(targetDir, '.monomind', 'daemon.pid');
-    const { existsSync, readFileSync } = await import('fs');
-    if (existsSync(pidFile)) {
+    const { existsSync, readFileSync, statSync: statSyncPid } = await import('fs');
+    if (existsSync(pidFile) && statSyncPid(pidFile).size <= 1024) {
       const pid = parseInt(readFileSync(pidFile, 'utf8').trim(), 10);
       try {
         process.kill(pid, 0);
@@ -860,7 +862,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
     // 3. Merge settings if requested
     if (upgradeSettings) {
       const settingsPath = path.join(targetDir, '.claude', 'settings.json');
-      if (fs.existsSync(settingsPath)) {
+      if (fs.existsSync(settingsPath) && fs.statSync(settingsPath).size <= MAX_EXEC_FILE_BYTES) {
         try {
           const existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
           const mergedSettings = mergeSettingsForUpgrade(existingSettings);
@@ -1038,7 +1040,7 @@ async function writeSettings(
   const settingsPath = path.join(targetDir, '.claude', 'settings.json');
   const generated = JSON.parse(generateSettingsJson(options));
 
-  if (fs.existsSync(settingsPath) && !options.force) {
+  if (fs.existsSync(settingsPath) && !options.force && fs.statSync(settingsPath).size <= MAX_EXEC_FILE_BYTES) {
     // Merge hooks/env/permissions into existing settings instead of skipping
     try {
       const existing = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
@@ -1632,7 +1634,7 @@ daemon.pid
   // A blanket ignore prevents config, metrics, and knowledge graph from being committed.
   // We remove any bare `.monomind/` or `**/.monomind/` lines and add specific excludes instead.
   const projectGitignorePath = path.join(targetDir, '.gitignore');
-  if (fs.existsSync(projectGitignorePath)) {
+  if (fs.existsSync(projectGitignorePath) && fs.statSync(projectGitignorePath).size <= MAX_EXEC_FILE_BYTES) {
     const existing = fs.readFileSync(projectGitignorePath, 'utf-8');
     const blanketPattern = /^(\*\*\/)?\.monomind\/?\s*$/gm;
     if (blanketPattern.test(existing)) {
@@ -2226,7 +2228,7 @@ async function writeClaudeMd(
       if (!fs.existsSync(globalClaudeDir)) {
         fs.mkdirSync(globalClaudeDir, { recursive: true });
       }
-      if (fs.existsSync(globalClaudeMd)) {
+      if (fs.existsSync(globalClaudeMd) && fs.statSync(globalClaudeMd).size <= MAX_EXEC_FILE_BYTES) {
         const existing = fs.readFileSync(globalClaudeMd, 'utf-8');
         if (!existing.includes('Monomind Integration')) {
           fs.appendFileSync(globalClaudeMd, monomindBlock);
@@ -2247,7 +2249,7 @@ async function writeClaudeMd(
         fs.mkdirSync(globalClaudeDir, { recursive: true });
       }
       let globalSettings: Record<string, unknown> = {};
-      if (fs.existsSync(globalSettingsPath)) {
+      if (fs.existsSync(globalSettingsPath) && fs.statSync(globalSettingsPath).size <= MAX_EXEC_FILE_BYTES) {
         try {
           globalSettings = JSON.parse(fs.readFileSync(globalSettingsPath, 'utf-8'));
         } catch { /* malformed JSON — start fresh */ }
@@ -2413,7 +2415,7 @@ function _registerMonomindProject(dir: string): void {
     const os = esmReq('os') as typeof import('os');
     const registryPath = path.join(os.homedir(), '.monomind-projects.json');
     let reg: { projects: string[] } = { projects: [] };
-    try { reg = JSON.parse(fs.readFileSync(registryPath, 'utf-8')); } catch {}
+    try { if (fs.existsSync(registryPath) && fs.statSync(registryPath).size <= MAX_EXEC_FILE_BYTES) { reg = JSON.parse(fs.readFileSync(registryPath, 'utf-8')); } } catch {}
     if (!Array.isArray(reg.projects)) reg.projects = [];
     const abs = path.resolve(dir);
     if (!reg.projects.includes(abs)) {
@@ -2444,7 +2446,7 @@ export function findMonomindProjects(maxDepth = 3): string[] {
 
   // Also check known-projects registry if it exists
   const registryPath = path.join(home, '.monomind-projects.json');
-  if (fs.existsSync(registryPath)) {
+  if (fs.existsSync(registryPath) && fs.statSync(registryPath).size <= MAX_EXEC_FILE_BYTES) {
     try {
       const reg = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
       if (Array.isArray(reg.projects)) {

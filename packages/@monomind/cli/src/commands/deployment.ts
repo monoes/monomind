@@ -52,9 +52,23 @@ function emptyState(): DeploymentState {
   return { environments: {}, history: [], activeDeployment: undefined };
 }
 
+const MAX_DEPLOYMENT_STATE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+// Input length caps to prevent DoS via unbounded strings stored to disk
+const MAX_ENV_NAME_LEN = 128;
+const MAX_VERSION_LEN = 64;
+const MAX_DESCRIPTION_LEN = 1024;
+const MAX_URL_LEN = 2048;
+const MAX_ENV_TYPE_LEN = 64;
+const MAX_HISTORY_LIMIT = 1000;
+const MAX_LOGS_LIMIT = 1000;
+
 function loadDeploymentState(cwd: string): DeploymentState {
   const filePath = getStatePath(cwd);
   if (!fs.existsSync(filePath)) {
+    return emptyState();
+  }
+  if (fs.statSync(filePath).size > MAX_DEPLOYMENT_STATE_BYTES) {
     return emptyState();
   }
   try {
@@ -99,6 +113,9 @@ function readProjectVersion(cwd: string): string | null {
   if (!fs.existsSync(pkgPath)) {
     return null;
   }
+  if (fs.statSync(pkgPath).size > 1024 * 1024) {
+    return null;
+  }
   try {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
     return pkg.version ?? null;
@@ -126,11 +143,11 @@ const deployCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const envName = String(ctx.flags['env'] || 'staging');
+      const envName = String(ctx.flags['env'] || 'staging').slice(0, MAX_ENV_NAME_LEN);
       const dryRun = Boolean(ctx.flags['dry-run']);
-      const description = ctx.flags['description'] ? String(ctx.flags['description']) : undefined;
+      const description = ctx.flags['description'] ? String(ctx.flags['description']).slice(0, MAX_DESCRIPTION_LEN) : undefined;
 
-      let version = ctx.flags['version'] ? String(ctx.flags['version']) : null;
+      let version = ctx.flags['version'] ? String(ctx.flags['version']).slice(0, MAX_VERSION_LEN) : null;
       if (!version) {
         version = readProjectVersion(ctx.cwd) || '0.0.0';
       }
@@ -224,7 +241,7 @@ const statusCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
       const state = loadDeploymentState(ctx.cwd);
-      const filterEnv = ctx.flags['env'] ? String(ctx.flags['env']) : null;
+      const filterEnv = ctx.flags['env'] ? String(ctx.flags['env']).slice(0, MAX_ENV_NAME_LEN) : null;
 
       output.writeln();
       output.writeln(output.bold('Deployment Status'));
@@ -323,14 +340,14 @@ const rollbackCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const envName = String(ctx.flags['env'] || '');
+      const envName = String(ctx.flags['env'] || '').slice(0, MAX_ENV_NAME_LEN);
       if (!envName) {
         output.printError('Environment is required', 'Use --env or -e to specify');
         return { success: false, exitCode: 1 };
       }
 
-      const targetVersion = ctx.flags['version'] ? String(ctx.flags['version']) : null;
-      const steps = parseInt(ctx.flags.steps as string || '1', 10);
+      const targetVersion = ctx.flags['version'] ? String(ctx.flags['version']).slice(0, MAX_VERSION_LEN) : null;
+      const steps = Math.min(Math.max(parseInt(ctx.flags.steps as string || '1', 10), 1), 100);
       if (steps > 1) {
         output.printWarning(`Multi-step rollback (--steps ${steps}) is not yet implemented. Rolling back 1 step only.`);
       }
@@ -426,8 +443,8 @@ const historyCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
       const state = loadDeploymentState(ctx.cwd);
-      const filterEnv = ctx.flags['env'] ? String(ctx.flags['env']) : null;
-      const limit = Number(ctx.flags['limit']) || 10;
+      const filterEnv = ctx.flags['env'] ? String(ctx.flags['env']).slice(0, MAX_ENV_NAME_LEN) : null;
+      const limit = Math.min(Math.max(Number(ctx.flags['limit']) || 10, 1), MAX_HISTORY_LIMIT);
 
       let records = [...state.history].reverse();
       if (filterEnv) {
@@ -525,7 +542,7 @@ const environmentsCommand: Command = {
       }
 
       if (action === 'add') {
-        const name = ctx.flags['name'] ? String(ctx.flags['name']) : null;
+        const name = ctx.flags['name'] ? String(ctx.flags['name']).slice(0, MAX_ENV_NAME_LEN) : null;
         if (!name) {
           output.printError('Environment name is required', 'Use --name or -n to specify');
           return { success: false, exitCode: 1 };
@@ -535,8 +552,8 @@ const environmentsCommand: Command = {
           return { success: false, exitCode: 1 };
         }
 
-        const envType = String(ctx.flags['type'] || 'local');
-        const url = ctx.flags['url'] ? String(ctx.flags['url']) : undefined;
+        const envType = String(ctx.flags['type'] || 'local').slice(0, MAX_ENV_TYPE_LEN);
+        const url = ctx.flags['url'] ? String(ctx.flags['url']).slice(0, MAX_URL_LEN) : undefined;
 
         state.environments[name] = {
           name,
@@ -555,7 +572,7 @@ const environmentsCommand: Command = {
       }
 
       if (action === 'remove') {
-        const name = ctx.flags['name'] ? String(ctx.flags['name']) : null;
+        const name = ctx.flags['name'] ? String(ctx.flags['name']).slice(0, MAX_ENV_NAME_LEN) : null;
         if (!name) {
           output.printError('Environment name is required', 'Use --name or -n to specify');
           return { success: false, exitCode: 1 };
@@ -602,9 +619,9 @@ const logsCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
       const state = loadDeploymentState(ctx.cwd);
-      const filterEnv = ctx.flags['env'] ? String(ctx.flags['env']) : null;
-      const deploymentId = ctx.flags['deployment'] ? String(ctx.flags['deployment']) : null;
-      const limit = Number(ctx.flags['lines']) || 50;
+      const filterEnv = ctx.flags['env'] ? String(ctx.flags['env']).slice(0, MAX_ENV_NAME_LEN) : null;
+      const deploymentId = ctx.flags['deployment'] ? String(ctx.flags['deployment']).slice(0, 64) : null;
+      const limit = Math.min(Math.max(Number(ctx.flags['lines']) || 50, 1), MAX_LOGS_LIMIT);
 
       output.writeln();
       output.writeln(output.bold('Deployment Logs'));
@@ -676,10 +693,10 @@ const releaseCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const envName = String(ctx.flags['env'] || 'production');
-      const description = ctx.flags['description'] ? String(ctx.flags['description']) : undefined;
+      const envName = String(ctx.flags['env'] || 'production').slice(0, MAX_ENV_NAME_LEN);
+      const description = ctx.flags['description'] ? String(ctx.flags['description']).slice(0, MAX_DESCRIPTION_LEN) : undefined;
 
-      let version = ctx.flags['version'] ? String(ctx.flags['version']) : null;
+      let version = ctx.flags['version'] ? String(ctx.flags['version']).slice(0, MAX_VERSION_LEN) : null;
       if (!version) {
         const pkgVersion = readProjectVersion(ctx.cwd);
         if (!pkgVersion) {
