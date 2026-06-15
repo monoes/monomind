@@ -251,10 +251,13 @@ const MEMORY_FILE = 'store.json';
 function getMemoryPath() {
     return join(getProjectCwd(), MEMORY_DIR, MEMORY_FILE);
 }
+// Maximum size of the legacy JSON memory store before reads are skipped.
+// Matches the guard in memory-tools.ts (loadLegacyStore) which loads the same file.
+const MAX_MEMORY_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 function loadMemoryStore() {
     try {
         const path = getMemoryPath();
-        if (existsSync(path)) {
+        if (existsSync(path) && statSync(path).size <= MAX_MEMORY_STORE_BYTES) {
             const data = readFileSync(path, 'utf-8');
             return JSON.parse(data);
         }
@@ -1054,9 +1057,11 @@ export const hooksPostTask = {
         // derive a MEASURED success signal from the real command exit codes recorded by
         // post-command within a recent time window. post-command appends each exit code
         // to the command-outcome store keyed by timestamp; deriveRecentSuccess returns:
-        //   true  → recent commands exist and ALL exited 0
-        //   false → recent commands exist and ANY exited non-zero
+        //   true  → recent commands exist and the LAST command exited 0 (final-state heuristic)
+        //   false → recent commands exist and the LAST command exited non-zero
         //   null  → no recent commands (genuinely no signal → stays unknown)
+        // Note: "final-state" not "all must pass" — intermediate failures (e.g. grep no-match,
+        // test-then-fix cycles) are intentionally ignored; the last exit code decides.
         // Precedence: an explicit --success ALWAYS wins; the derived signal only fills
         // in when no explicit flag is given; only when there is also no recent command
         // signal does the outcome stay unknown (and excluded from SONA + route join,
@@ -1366,6 +1371,12 @@ export const hooksPretrain = {
                         // For code files, count lines and extract imports
                         if (['.ts', '.js', '.py', '.go', '.rs', '.java'].includes(ext)) {
                             try {
+                                // Skip very large files (minified bundles, generated code) to prevent OOM.
+                                // 1 MB is generous for a source file; anything larger is unlikely to have
+                                // useful import patterns in the first 30 lines anyway.
+                                const MAX_CODE_FILE_BYTES = 1 * 1024 * 1024;
+                                if (statSync(full).size > MAX_CODE_FILE_BYTES)
+                                    continue;
                                 const content = readFileSync(full, 'utf-8');
                                 const lines = content.split('\n');
                                 totalLines += lines.length;
@@ -1553,8 +1564,9 @@ export const hooksTransfer = {
         // Try to load patterns from source project's memory store
         const sourceMemoryPath = join(resolvedSource, MEMORY_DIR, MEMORY_FILE);
         let sourceStore = { entries: {}, version: '3.0.0' };
+        const MAX_SOURCE_STORE_BYTES = 50 * 1024 * 1024; // 50 MB — matches other store readers
         try {
-            if (existsSync(sourceMemoryPath)) {
+            if (existsSync(sourceMemoryPath) && statSync(sourceMemoryPath).size <= MAX_SOURCE_STORE_BYTES) {
                 sourceStore = JSON.parse(readFileSync(sourceMemoryPath, 'utf-8'));
             }
         }
@@ -2100,14 +2112,28 @@ export const hooksTrajectoryStep = {
     },
     handler: async (params) => {
         const trajectoryId = params.trajectoryId;
-        const action = params.action;
-        const result = params.result || 'success';
+        // Cap action and result strings to prevent unbounded in-memory growth when
+        // trajectory-step is called many times with large payloads.
+        const MAX_STEP_STRING_LEN = 4 * 1024; // 4 KB per field
+        const MAX_STEPS_PER_TRAJECTORY = 1000;
+        const rawAction = params.action;
+        const rawResult = params.result || 'success';
+        const action = typeof rawAction === 'string' && rawAction.length > MAX_STEP_STRING_LEN
+            ? rawAction.slice(0, MAX_STEP_STRING_LEN)
+            : rawAction;
+        const result = typeof rawResult === 'string' && rawResult.length > MAX_STEP_STRING_LEN
+            ? rawResult.slice(0, MAX_STEP_STRING_LEN)
+            : rawResult;
         const quality = params.quality || 0.85;
         const timestamp = new Date().toISOString();
         const stepId = `step-${Date.now()}`;
         // Add step to real trajectory if it exists
         const trajectory = activeTrajectories.get(trajectoryId);
         if (trajectory) {
+            if (trajectory.steps.length >= MAX_STEPS_PER_TRAJECTORY) {
+                // Drop the oldest step to keep the array bounded
+                trajectory.steps.shift();
+            }
             trajectory.steps.push({
                 action,
                 result,
