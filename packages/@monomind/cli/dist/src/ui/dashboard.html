@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>monomind</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>⬡</text></svg>">
 <style>
 :root {
   --bg:          oklch(11% 0.009 55);
@@ -2272,13 +2273,19 @@ function switchView(v) {
     el.classList.toggle('active', el.id === 'view-' + v));
   const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
-  const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
-  document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
+  updateDocTitle();
   // Projects always re-fetches so onclick paths in cards stay current
   if (v === 'projects') { renderProjects(); return; }
   if (v === 'chat') { initChatView(); return; }
   if (!viewRendered[v]) { renderView(v); viewRendered[v] = true; }
+}
+
+function updateDocTitle() {
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', chat: 'Agent Chat' };
+  const PROJECT = DIR ? shortPath(DIR) : 'monomind';
+  const activeCount = allSessions.filter(s => s.status === 'running').length;
+  const countPart = activeCount > 0 ? ` · ${activeCount} active` : '';
+  document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[currentView] || currentView}${countPart}`;
 }
 
 function renderView(v) {
@@ -2489,6 +2496,7 @@ async function loadFeed() {
   try {
     const { sessions = [] } = await apiFetch('/api/session-journal?dir=' + enc(DIR));
     allSessions = sessions;
+    updateDocTitle();
     document.getElementById('bdg-sessions').textContent = sessions.length || '—';
     if (!sessions.length) {
       setFeedContent('<div class="feed-empty" style="text-align:center;padding:48px 24px"><div style="font-size:32px;margin-bottom:12px;opacity:0.25">◫</div><div style="font-size:14px;color:var(--text-hi);margin-bottom:8px">No sessions yet</div><div style="font-size:12px;color:var(--text-lo);line-height:1.8;max-width:340px;margin:0 auto">Start a Claude Code session in this project to see its live event feed here.<br><code style="font-size:11px;background:var(--surface-hi);padding:2px 7px;border-radius:4px;color:var(--accent)">claude</code>&ensp;then complete a task and return.</div></div>');
@@ -2512,6 +2520,7 @@ async function loadFeedSilent() {
   try {
     const { sessions = [] } = await apiFetch('/api/session-journal?dir=' + enc(DIR));
     allSessions = sessions;
+    updateDocTitle();
     if (!sessions.length) return;
     const currentSess = allSessions[sessionIdx] || sessions[0];
     if (!currentSess?.file) return;
