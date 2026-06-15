@@ -17,6 +17,21 @@ const require = createRequire(import.meta.url);
 let monofenceInstance = null;
 // Track if we've attempted install this session
 let installAttempted = false;
+// ── Security input bounds ─────────────────────────────────────────────────────
+// MonoFence runs multiple regex patterns over the entire input string (O(n × P)
+// complexity where P is the pattern count).  Uncapped input enables ReDoS-style
+// denial-of-service.  64 KB is more than enough for any real threat-scan
+// payload while preventing CPU exhaustion from megabyte-scale inputs.
+const MAX_SECURITY_INPUT_LEN = 64 * 1024; // 64 KB
+const MAX_SECURITY_K = 100;
+const MAX_SECURITY_VERDICT_LEN = 512;
+const MAX_SECURITY_THREAT_TYPE_LEN = 256;
+const MAX_SECURITY_MITIGATION_STRATEGY_LEN = 512;
+function capSecurityInput(raw, fieldName = 'input') {
+    if (typeof raw !== 'string')
+        throw new Error(`${fieldName} must be a string`);
+    return raw.length > MAX_SECURITY_INPUT_LEN ? raw.slice(0, MAX_SECURITY_INPUT_LEN) : raw;
+}
 /**
  * Get or create MonoFence instance (throws if unavailable)
  */
@@ -79,7 +94,13 @@ const monofenceScanTool = {
         required: ['input'],
     },
     handler: async (args) => {
-        const input = args.input;
+        let input;
+        try {
+            input = capSecurityInput(args.input);
+        }
+        catch (e) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: e.message }) }], isError: true };
+        }
         const quick = args.quick;
         try {
             const defender = await getMonoFence();
@@ -153,9 +174,16 @@ const monofenceAnalyzeTool = {
         required: ['input'],
     },
     handler: async (args) => {
-        const input = args.input;
+        let input;
+        try {
+            input = capSecurityInput(args.input);
+        }
+        catch (e) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: e.message }) }], isError: true };
+        }
         const searchSimilar = args.searchSimilar !== false;
-        const k = args.k || 5;
+        const rawK = args.k || 5;
+        const k = Number.isFinite(rawK) && rawK > 0 ? Math.min(Math.floor(rawK), MAX_SECURITY_K) : 5;
         try {
             const defender = await getMonoFence();
             const result = await defender.detect(input);
@@ -282,11 +310,23 @@ const monofenceLearnTool = {
         required: ['input', 'wasAccurate'],
     },
     handler: async (args) => {
-        const input = args.input;
+        let input;
+        try {
+            input = capSecurityInput(args.input);
+        }
+        catch (e) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: e.message }) }], isError: true };
+        }
         const wasAccurate = args.wasAccurate;
-        const verdict = args.verdict;
-        const threatType = args.threatType;
-        const mitigationStrategy = args.mitigationStrategy;
+        const rawVerdict = args.verdict;
+        const verdict = typeof rawVerdict === 'string' && rawVerdict.length > MAX_SECURITY_VERDICT_LEN
+            ? rawVerdict.slice(0, MAX_SECURITY_VERDICT_LEN) : rawVerdict;
+        const rawThreatType = args.threatType;
+        const threatType = typeof rawThreatType === 'string' && rawThreatType.length > MAX_SECURITY_THREAT_TYPE_LEN
+            ? rawThreatType.slice(0, MAX_SECURITY_THREAT_TYPE_LEN) : rawThreatType;
+        const rawMitigationStrategy = args.mitigationStrategy;
+        const mitigationStrategy = typeof rawMitigationStrategy === 'string' && rawMitigationStrategy.length > MAX_SECURITY_MITIGATION_STRATEGY_LEN
+            ? rawMitigationStrategy.slice(0, MAX_SECURITY_MITIGATION_STRATEGY_LEN) : rawMitigationStrategy;
         const mitigationSuccess = args.mitigationSuccess;
         try {
             const defender = await getMonoFence();
@@ -344,7 +384,13 @@ const monofenceIsSafeTool = {
         required: ['input'],
     },
     handler: async (args) => {
-        const input = args.input;
+        let input;
+        try {
+            input = capSecurityInput(args.input);
+        }
+        catch (e) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: e.message }) }], isError: true };
+        }
         try {
             await getMonoFence(); // triggers auto-install if package is missing
             const { isSafe } = await import('monofence-ai');
@@ -384,7 +430,13 @@ const monofenceHasPIITool = {
         required: ['input'],
     },
     handler: async (args) => {
-        const input = args.input;
+        let input;
+        try {
+            input = capSecurityInput(args.input);
+        }
+        catch (e) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: e.message }) }], isError: true };
+        }
         try {
             const defender = await getMonoFence();
             const hasPII = defender.hasPII(input);
