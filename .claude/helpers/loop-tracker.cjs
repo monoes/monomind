@@ -15,13 +15,20 @@ const path = require('path');
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const LOOPS_DIR = path.join(CWD, '.monomind', 'loops');
 
+const STDIN_MAX_BYTES = 1 * 1024 * 1024; // 1 MiB cap to prevent OOM
+
 async function readStdin() {
   if (process.stdin.isTTY) return '';
   return new Promise((resolve) => {
     let data = '';
+    let bytesRead = 0;
     const timer = setTimeout(() => { process.stdin.removeAllListeners(); resolve(data); }, 3000);
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', chunk => { data += chunk; });
+    process.stdin.on('data', chunk => {
+      bytesRead += Buffer.byteLength(chunk, 'utf8');
+      if (bytesRead > STDIN_MAX_BYTES) { clearTimeout(timer); resolve(''); return; }
+      data += chunk;
+    });
     process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
     process.stdin.on('error', () => { clearTimeout(timer); resolve(data); });
     process.stdin.resume();
@@ -60,7 +67,9 @@ async function main() {
   try { hookInput = JSON.parse(raw); } catch { process.exit(0); }
 
   const toolInput = hookInput.tool_input || hookInput.toolInput || {};
-  const sessionId = hookInput.session_id || hookInput.sessionId || hookInput.id || '';
+  const rawSessionId = hookInput.session_id || hookInput.sessionId || hookInput.id || '';
+  // Sanitize sessionId to prevent path traversal — allow only alphanumeric, dash, underscore, dot
+  const sessionId = String(rawSessionId).replace(/[^a-zA-Z0-9_.\-]/g, '').slice(0, 128);
 
   if (!sessionId) { process.exit(0); }
 
@@ -75,7 +84,10 @@ async function main() {
   let existing = {};
   try {
     if (fs.existsSync(loopFile)) {
-      existing = JSON.parse(fs.readFileSync(loopFile, 'utf-8'));
+      const stat = fs.statSync(loopFile);
+      if (stat.size <= 512 * 1024) { // 512 KiB guard to prevent OOM
+        existing = JSON.parse(fs.readFileSync(loopFile, 'utf-8'));
+      }
     }
   } catch { /* start fresh */ }
 
