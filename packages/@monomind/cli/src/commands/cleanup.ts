@@ -7,7 +7,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { existsSync, statSync, rmSync, readdirSync } from 'fs';
+import { existsSync, lstatSync, rmSync, readdirSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -36,11 +36,27 @@ const KEEP_CONFIG_PATHS = [
 ];
 
 /**
- * Calculate the total size of a path (file or directory) in bytes
+ * Maximum directory recursion depth for size calculation.
+ * Prevents stack overflow on deeply-nested or circular-symlink trees.
  */
-function getSize(fullPath: string): number {
+const MAX_SIZE_DEPTH = 20;
+
+/**
+ * Calculate the total size of a path (file or directory) in bytes.
+ *
+ * Uses lstatSync (not statSync) so that symlinks are never followed:
+ * a symlink counts only the size of the link itself, not its target.
+ * This prevents a crafted symlink (e.g. .claude -> /) from causing
+ * the cleanup command to recursively traverse the entire filesystem.
+ */
+function getSize(fullPath: string, depth = 0): number {
+  if (depth > MAX_SIZE_DEPTH) return 0;
   try {
-    const stat = statSync(fullPath);
+    const stat = lstatSync(fullPath);
+    if (stat.isSymbolicLink()) {
+      // Count only the symlink entry itself; never traverse the target.
+      return stat.size;
+    }
     if (stat.isFile()) {
       return stat.size;
     }
@@ -48,7 +64,11 @@ function getSize(fullPath: string): number {
       let total = 0;
       const entries = readdirSync(fullPath, { withFileTypes: true });
       for (const entry of entries) {
-        total += getSize(join(fullPath, entry.name));
+        // Skip symlinks at the entry level too — lstatSync below will still
+        // catch them, but checking here avoids unnecessary path joins.
+        if (!entry.isSymbolicLink()) {
+          total += getSize(join(fullPath, entry.name), depth + 1);
+        }
       }
       return total;
     }
