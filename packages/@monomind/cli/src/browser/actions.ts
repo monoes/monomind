@@ -38,7 +38,8 @@ export async function clickPoint(
   options: ClickOptions = {}
 ): Promise<void> {
   const button = options.button ?? 'left';
-  const clickCount = options.clickCount ?? 1;
+  // Cap clickCount to prevent unbounded loop DoS
+  const clickCount = Math.min(Math.max(1, Math.floor(options.clickCount ?? 1)), 100);
   const modifiers = options.modifiers ?? 0;
 
   const shared = { x, y, button, modifiers };
@@ -98,7 +99,9 @@ export async function fillElement(
 }
 
 export async function typeText(client: CdpClient, sessionId: string, text: string): Promise<void> {
-  await client.send('Input.insertText', { text }, sessionId);
+  // Cap to 100 KB to prevent OOM in CDP message serializer
+  const safeText = text.length > 102_400 ? text.slice(0, 102_400) : text;
+  await client.send('Input.insertText', { text: safeText }, sessionId);
 }
 
 export async function pressKeyCombo(
@@ -236,6 +239,8 @@ export async function scrollElement(
   amount = 300,
   ref?: ElementRef
 ): Promise<void> {
+  // Cap scroll amount to prevent extreme delta values
+  amount = Math.min(Math.max(1, Math.floor(amount)), 100_000);
   let x = 0;
   let y = 0;
   let deltaX = 0;
@@ -459,7 +464,9 @@ export async function readClipboard(client: CdpClient, sessionId: string): Promi
 }
 
 export async function writeClipboard(client: CdpClient, sessionId: string, text: string): Promise<void> {
-  await evaluateJs(client, sessionId, `navigator.clipboard.writeText(${JSON.stringify(text)})`);
+  // Cap to 100 KB to prevent OOM when serializing the CDP expression
+  const safeText = text.length > 102_400 ? text.slice(0, 102_400) : text;
+  await evaluateJs(client, sessionId, `navigator.clipboard.writeText(${JSON.stringify(safeText)})`);
 }
 
 export async function pushState(client: CdpClient, sessionId: string, url: string): Promise<void> {
