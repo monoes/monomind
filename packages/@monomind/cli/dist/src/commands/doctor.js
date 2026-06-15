@@ -892,6 +892,9 @@ export const doctorCommand = {
                     if (result.fix && result.status === 'fail') {
                         // Always show fix inline for failures — no flag needed
                         output.writeln(output.dim(`  Fix: ${result.fix}`));
+                    } else if (result.fix && result.status === 'warn') {
+                        // Show fix inline for warnings too, so users don't need --fix for common issues
+                        output.writeln(output.dim(`  Hint: ${result.fix}`));
                     }
                     if (result.fix && (result.status === 'fail' || result.status === 'warn')) {
                         fixes.push(`${result.name}: ${result.fix}`);
