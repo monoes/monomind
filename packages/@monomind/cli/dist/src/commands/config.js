@@ -203,10 +203,10 @@ const providersCommand = {
             { name: 'gemini', model: 'gemini-2.0-flash', priority: 4, enabled: false, status: 'Disabled' }
         ];
         // Handle mutation flags
-        const addProvider = ctx.flags.add;
-        const removeProvider = ctx.flags.remove;
-        const enableProvider = ctx.flags.enable;
-        const disableProvider = ctx.flags.disable;
+        const addProvider = ctx.flags.add?.slice(0, 64);
+        const removeProvider = ctx.flags.remove?.slice(0, 64);
+        const enableProvider = ctx.flags.enable?.slice(0, 64);
+        const disableProvider = ctx.flags.disable?.slice(0, 64);
         if (addProvider || removeProvider || enableProvider || disableProvider) {
             // Read current providers from config
             let currentProviders = configManager.get(ctx.cwd, 'providers') || [];
