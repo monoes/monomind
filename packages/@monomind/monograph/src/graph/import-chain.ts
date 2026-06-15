@@ -10,7 +10,9 @@ export interface ImportChainOptions {
 /**
  * Trace all import chains (paths) from `sourceId` to `targetId`.
  *
- * Uses BFS/DFS with cycle detection. Returns all simple paths up to `maxDepth`.
+ * Uses frontier-based BFS with lazy edge loading: only fetches outgoing edges
+ * for nodes as they are visited, avoiding loading the full edge table when
+ * the graph is large.  Returns all simple paths up to `maxDepth`.
  *
  * @param db - The MonographDb instance
  * @param sourceId - Starting node id
@@ -26,28 +28,27 @@ export function traceImportChain(
 ): string[][] {
   const { maxDepth = 10, maxPaths = 100 } = options;
 
-  const nodeRows = db.prepare('SELECT id FROM nodes').all() as { id: string }[];
-  if (nodeRows.length === 0) return [];
-
-  const nodeSet = new Set(nodeRows.map(r => r.id));
-  if (!nodeSet.has(sourceId) || !nodeSet.has(targetId)) return [];
+  // Quick existence check — avoids loading any edge data for invalid IDs
+  const exists = db.prepare('SELECT 1 FROM nodes WHERE id = ? LIMIT 1');
+  if (!exists.get(sourceId) || !exists.get(targetId)) return [];
   if (sourceId === targetId) return [[sourceId]];
 
-  const edgeRows = db.prepare('SELECT source_id, target_id FROM edges').all() as {
-    source_id: string;
-    target_id: string;
-  }[];
+  // Lazy adjacency cache: only loaded for nodes we actually visit
+  const adjCache = new Map<string, string[]>();
+  const edgeStmt = db.prepare(
+    'SELECT target_id FROM edges WHERE source_id = ? AND source_id != target_id',
+  );
 
-  // Build adjacency
-  const adj = new Map<string, string[]>();
-  for (const n of nodeSet) adj.set(n, []);
-  for (const { source_id: src, target_id: tgt } of edgeRows) {
-    if (src === tgt) continue;
-    if (!adj.has(src) || !adj.has(tgt)) continue;
-    adj.get(src)!.push(tgt);
+  function getNeighbors(nodeId: string): string[] {
+    let neighbors = adjCache.get(nodeId);
+    if (neighbors === undefined) {
+      neighbors = (edgeStmt.all(nodeId) as { target_id: string }[]).map(r => r.target_id);
+      adjCache.set(nodeId, neighbors);
+    }
+    return neighbors;
   }
 
-  // DFS with path tracking
+  // DFS with path tracking (iterative to avoid stack overflow on deep graphs)
   const results: string[][] = [];
   const stack: Array<{ node: string; path: string[]; visited: Set<string> }> = [
     { node: sourceId, path: [sourceId], visited: new Set([sourceId]) },
@@ -59,7 +60,7 @@ export function traceImportChain(
     // the target would require one more edge which would exceed maxDepth.
     if (path.length - 1 >= maxDepth) continue;
 
-    for (const neighbor of adj.get(node) ?? []) {
+    for (const neighbor of getNeighbors(node)) {
       if (visited.has(neighbor)) continue;
       if (neighbor === targetId) {
         results.push([...path, neighbor]);
@@ -75,4 +76,73 @@ export function traceImportChain(
   }
 
   return results;
+}
+
+// ---------------------------------------------------------------------------
+// Structured text formatter for LLM consumption
+// ---------------------------------------------------------------------------
+
+/**
+ * Format import-chain paths as structured text.
+ *
+ * Resolves node IDs to human-readable names (name + file_path) for LLM
+ * context injection.  Each path is printed as an arrow chain with file:line
+ * hints where available.
+ *
+ * @param db - The MonographDb instance (used for name resolution)
+ * @param paths - Result of traceImportChain()
+ * @param sourceId - Source node id (for summary line)
+ * @param targetId - Target node id (for summary line)
+ * @returns Structured text string
+ */
+export function formatImportChain(
+  db: MonographDb,
+  paths: string[][],
+  sourceId: string,
+  targetId: string,
+): string {
+  if (paths.length === 0) {
+    return `Import chain: no path found from ${sourceId} to ${targetId}.`;
+  }
+
+  // Batch-resolve all node IDs in the result set
+  const allIds = [...new Set(paths.flat())];
+  const placeholders = allIds.map(() => '?').join(',');
+  const nodeRows = db
+    .prepare(
+      `SELECT id, name, file_path, start_line FROM nodes WHERE id IN (${placeholders})`,
+    )
+    .all(...allIds) as {
+    id: string;
+    name: string;
+    file_path: string | null;
+    start_line: number | null;
+  }[];
+
+  const nodeInfo = new Map<string, { name: string; loc: string }>();
+  for (const row of nodeRows) {
+    const loc =
+      row.file_path != null
+        ? row.start_line != null
+          ? `${row.file_path}:${row.start_line}`
+          : row.file_path
+        : row.id;
+    nodeInfo.set(row.id, { name: row.name ?? row.id, loc });
+  }
+
+  const lines: string[] = [
+    `Import chain: ${paths.length} path${paths.length === 1 ? '' : 's'} from ${nodeInfo.get(sourceId)?.name ?? sourceId} to ${nodeInfo.get(targetId)?.name ?? targetId}`,
+    '',
+  ];
+
+  for (let i = 0; i < paths.length; i++) {
+    lines.push(`Path ${i + 1} (${paths[i].length} node${paths[i].length === 1 ? '' : 's'}):`);
+    for (const id of paths[i]) {
+      const info = nodeInfo.get(id);
+      lines.push(`  ${info?.name ?? id} — ${info?.loc ?? id}`);
+    }
+    if (i < paths.length - 1) lines.push('');
+  }
+
+  return lines.join('\n');
 }
