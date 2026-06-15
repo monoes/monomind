@@ -17,6 +17,8 @@ export interface SimilarNode {
 
 /**
  * Build an undirected neighbor map from an edge list.
+ * Callers that invoke findSimilarNodes for multiple nodes on the same edge set
+ * should build once and pass the map directly to findSimilarNodesFromMap.
  */
 export function buildNeighborMap(
   edges: SimilarityEdge[],
@@ -46,17 +48,19 @@ export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
 }
 
 /**
- * Find the k most similar nodes to `nodeId` by Jaccard neighbor overlap.
+ * Find the k most similar nodes to `nodeId` using a pre-built neighbor map.
+ *
+ * Use this variant when querying multiple nodes against the same edge set —
+ * build the map once with `buildNeighborMap` and reuse it across calls.
  *
  * Only nodes with score > 0 are returned (no shared neighbors → excluded).
  * Results are sorted descending by score.
  */
-export function findSimilarNodes(
+export function findSimilarNodesFromMap(
   nodeId: string,
-  edges: SimilarityEdge[],
+  neighborMap: Map<string, Set<string>>,
   k: number,
 ): SimilarNode[] {
-  const neighborMap = buildNeighborMap(edges);
   const targetNeighbors = neighborMap.get(nodeId);
   if (!targetNeighbors || targetNeighbors.size === 0) return [];
 
@@ -71,4 +75,41 @@ export function findSimilarNodes(
 
   results.sort((a, b) => b.score - a.score);
   return results.slice(0, k);
+}
+
+/**
+ * Find the k most similar nodes to `nodeId` by Jaccard neighbor overlap.
+ *
+ * Builds the neighbor map from `edges` on each call. For repeated queries
+ * over the same edge set, prefer `buildNeighborMap` + `findSimilarNodesFromMap`.
+ *
+ * Only nodes with score > 0 are returned (no shared neighbors → excluded).
+ * Results are sorted descending by score.
+ */
+export function findSimilarNodes(
+  nodeId: string,
+  edges: SimilarityEdge[],
+  k: number,
+): SimilarNode[] {
+  return findSimilarNodesFromMap(nodeId, buildNeighborMap(edges), k);
+}
+
+/**
+ * Format similar-node results as structured text for LLM consumption.
+ */
+export function formatSimilarNodes(
+  nodeId: string,
+  results: SimilarNode[],
+  nodeLabels?: Map<string, string>,
+): string {
+  if (results.length === 0) {
+    return `No structurally similar nodes found for: ${nodeId}`;
+  }
+  const lines: string[] = [`Similar nodes to ${nodeId} (Jaccard neighbor overlap):`];
+  for (const { nodeId: id, score } of results) {
+    const label = nodeLabels?.get(id);
+    const suffix = label ? ` [${label}]` : '';
+    lines.push(`  ${(score * 100).toFixed(1)}%  ${id}${suffix}`);
+  }
+  return lines.join('\n');
 }
