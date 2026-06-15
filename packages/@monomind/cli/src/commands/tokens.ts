@@ -20,6 +20,12 @@ function loadTracker() {
   return require(getTrackerPath());
 }
 
+const VALID_PERIODS = new Set(['today', 'week', '30days', 'month']);
+function validatePeriod(raw: unknown): string {
+  const s = typeof raw === 'string' ? raw : 'today';
+  return VALID_PERIODS.has(s) ? s : 'today';
+}
+
 const dashboardSubcommand: Command = {
   name: 'dashboard',
   description: 'Launch interactive token usage dashboard',
@@ -28,7 +34,7 @@ const dashboardSubcommand: Command = {
     { name: 'no-interactive', type: 'boolean', description: 'Render once and exit', default: false },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const period = (ctx.flags['period'] as string) || 'today';
+    const period = validatePeriod(ctx.flags['period']);
     const noInteractive = ctx.flags['no-interactive'] as boolean;
     try {
       const tracker = loadTracker();
@@ -53,7 +59,7 @@ const summarySubcommand: Command = {
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const period = (ctx.flags['period'] as string) || 'today';
+    const period = validatePeriod(ctx.flags['period']);
     const asJson = ctx.flags['json'] as boolean;
     try {
       const tracker = loadTracker();
