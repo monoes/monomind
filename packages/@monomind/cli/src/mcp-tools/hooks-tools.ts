@@ -727,7 +727,14 @@ export const hooksPreCommand: MCPTool = {
     required: ['command'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const command = params.command as string;
+    // Cap command length: assessCommandRisk runs O(n) string searches, and the
+    // raw command is reflected verbatim in the response.  Limit to 4 KB which
+    // is far beyond any realistic shell command.
+    const MAX_CMD_LEN = 4 * 1024;
+    const rawCommand = params.command as string;
+    const command = typeof rawCommand === 'string' && rawCommand.length > MAX_CMD_LEN
+      ? rawCommand.slice(0, MAX_CMD_LEN)
+      : rawCommand;
     const assessment = assessCommandRisk(command);
 
     const riskLevel = assessment.level >= 0.8 ? 'critical'
