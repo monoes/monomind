@@ -59,6 +59,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #sb-remote { font-size: 10px; color: var(--text-xs); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: none; }
 #sb-remote a { color: oklch(62% 0.14 220); text-decoration: none; }
 #sb-remote a:hover { color: oklch(72% 0.16 220); text-decoration: underline; }
+#sb-branch { font-size: 10px; color: var(--text-xs); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: none; font-family: var(--mono); }
+#sb-branch .sb-branch-name { color: oklch(68% 0.14 140); }
 
 /* ── main ────────────────────────────────────────────────── */
 #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
@@ -1395,6 +1397,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <div id="sb-user">—</div>
     <div id="sb-path">—</div>
     <div id="sb-remote"></div>
+    <div id="sb-branch"></div>
   </div>
 </nav>
 
@@ -2299,6 +2302,11 @@ async function init() {
       const label = gu.remoteUrl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
       remoteEl.innerHTML = '⎇ <a href="' + gu.remoteUrl + '" target="_blank" rel="noopener" title="Open remote repository">' + esc(label) + '</a>';
       remoteEl.style.display = '';
+    }
+    if (gu.branch) {
+      const branchEl = document.getElementById('sb-branch');
+      branchEl.innerHTML = '⌥ <span class="sb-branch-name">' + esc(gu.branch) + '</span>';
+      branchEl.style.display = '';
     }
     _showNavProjectCtx(DIR);
   } catch (_) {}
