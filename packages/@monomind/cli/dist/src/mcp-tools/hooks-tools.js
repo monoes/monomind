@@ -700,8 +700,19 @@ export const hooksRoute = {
         required: ['task'],
     },
     handler: async (params) => {
-        const task = params.task;
-        const context = params.context;
+        // Cap task and context lengths: both are forwarded to generateEmbedding
+        // via bridgeRouteTask, and task is used in extractKeywords + stored in
+        // route-outcomes.jsonl.  16 KB matches the cap in hooksPatternSearch.
+        const MAX_ROUTE_TASK_LEN = 16 * 1024;
+        const MAX_ROUTE_CTX_LEN = 4 * 1024;
+        const rawTask = params.task;
+        const task = typeof rawTask === 'string' && rawTask.length > MAX_ROUTE_TASK_LEN
+            ? rawTask.slice(0, MAX_ROUTE_TASK_LEN)
+            : rawTask;
+        const rawContext = params.context;
+        const context = typeof rawContext === 'string' && rawContext.length > MAX_ROUTE_CTX_LEN
+            ? rawContext.slice(0, MAX_ROUTE_CTX_LEN)
+            : rawContext;
         const useSemanticRouter = params.useSemanticRouter !== false;
         // Phase 5: Try AgentDB's SemanticRouter / LearningSystem first
         if (useSemanticRouter) {
@@ -1088,6 +1099,13 @@ export const hooksPostTask = {
         const agent = params.agent;
         const quality = params.quality || (success ? 0.85 : 0.3);
         const startTime = Date.now();
+        // Cap task description: passed to generateEmbedding via bridgeRecordFeedback
+        // and persisted to route-outcomes.jsonl.  16 KB matches hooks_route cap.
+        const MAX_POST_TASK_LEN = 16 * 1024;
+        const rawPostTask = params.task;
+        const cappedPostTask = typeof rawPostTask === 'string' && rawPostTask.length > MAX_POST_TASK_LEN
+            ? rawPostTask.slice(0, MAX_POST_TASK_LEN)
+            : rawPostTask;
         // Phase 3: Wire recordFeedback through bridge → LearningSystem + ReasoningBank
         let feedbackResult = null;
         try {
@@ -1099,7 +1117,7 @@ export const hooksPostTask = {
                 agent,
                 // B1.2: thread the real task description into the SONA trajectory so the
                 // embedder encodes meaning, not the opaque task ID.
-                task: params.task || undefined,
+                task: cappedPostTask || undefined,
                 // B1.3: only feed the SONA LoRA update when the outcome is actually known.
                 outcomeKnown,
                 duration: params.duration || undefined,
@@ -1126,7 +1144,7 @@ export const hooksPostTask = {
         // B1.3: also gate this sibling learning sink on a known outcome — an unverified
         // task must not train the router as a success either. When the caller did not
         // assert success, the outcome is unknown and we skip persisting a labeled sample.
-        const taskText = params.task || '';
+        const taskText = cappedPostTask || '';
         const outcomeKeywords = extractKeywords(taskText);
         let outcomePersisted = false;
         if (outcomeKnown && taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
