@@ -6,8 +6,8 @@
  * moved to the real package.
  */
 
-import { join } from 'path';
-import { existsSync, readFileSync } from 'fs';
+import { join, resolve, relative } from 'path';
+import { existsSync, readFileSync, statSync } from 'fs';
 import { openDb, closeDb, countNodes } from '@monoes/monograph';
 
 type Db = ReturnType<typeof openDb>;
@@ -16,9 +16,17 @@ type Db = ReturnType<typeof openDb>;
 
 interface GroupRepoEntry { name?: string; path?: string }
 
+const MAX_GROUP_CONFIG_BYTES = 1 * 1024 * 1024; // 1 MB
+
 function readGroupConfig(configPath: string): GroupRepoEntry[] {
   if (!existsSync(configPath)) return [];
   try {
+    // Guard: only allow paths within cwd to prevent traversal to /etc/passwd etc.
+    const resolved = resolve(configPath);
+    const rel = relative(process.cwd(), resolved);
+    if (rel.startsWith('..') || resolve(rel) === resolve('/')) return [];
+    // OOM guard: skip files larger than 1 MB
+    if (statSync(configPath).size > MAX_GROUP_CONFIG_BYTES) return [];
     const raw = readFileSync(configPath, 'utf-8');
     return JSON.parse(raw) as GroupRepoEntry[];
   } catch { return []; }
