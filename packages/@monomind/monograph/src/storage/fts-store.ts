@@ -7,6 +7,10 @@ export interface FtsResult {
   filePath: string | null;
   label: string;
   rank: number;
+  /** First line of the symbol in its source file (1-based, null if unknown). */
+  startLine: number | null;
+  /** Last line of the symbol in its source file (1-based, null if unknown). */
+  endLine: number | null;
 }
 
 export function ftsSearch(
@@ -25,7 +29,7 @@ export function ftsSearch(
 
   let matchSql = `
     SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
-           nodes_fts.rank
+           n.start_line, n.end_line, nodes_fts.rank
     FROM nodes_fts
     JOIN nodes n ON n.rowid = nodes_fts.rowid
     WHERE nodes_fts MATCH ?
@@ -55,7 +59,7 @@ export function ftsSearch(
     const likePattern = `%${escapedQuery}%`;
     let likeSql = `
       SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
-             0 AS rank
+             n.start_line, n.end_line, 0 AS rank
       FROM nodes n
       WHERE (n.name LIKE ? OR n.norm_label LIKE ? OR n.file_path LIKE ?)
     `;
@@ -89,6 +93,8 @@ export function ftsSearch(
     filePath: (r.file_path as string | null) ?? null,
     label: r.label as string,
     rank: r.rank as number,
+    startLine: (r.start_line as number | null) ?? null,
+    endLine: (r.end_line as number | null) ?? null,
   }));
 }
 
@@ -183,7 +189,8 @@ export function hybridSearch(
     const escapedSafeQuery = safeQuery.replace(/%/g, '\\%').replace(/_/g, '\\_');
     const likePattern = `%${escapedSafeQuery}%`;
     let likeSql = `
-      SELECT n.id, n.name, n.norm_label, n.file_path, n.label
+      SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
+             n.start_line, n.end_line
       FROM nodes n
       WHERE (n.name LIKE ? OR n.norm_label LIKE ?)
     `;
@@ -211,6 +218,8 @@ export function hybridSearch(
         filePath: (r.file_path as string | null) ?? null,
         label: lbl,
         rank: 0,
+        startLine: (r.start_line as number | null) ?? null,
+        endLine: (r.end_line as number | null) ?? null,
         combinedScore: combined,
         matchStrategy: 'like',
       });
