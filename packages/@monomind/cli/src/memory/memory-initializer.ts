@@ -13,6 +13,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { safeParseEmbedding } from './memory-bridge.js';
 
+/** Maximum SQLite database file size accepted before read (256 MB). */
+const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
+
 // ADR-053: Lazy import of AgentDB v1 bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
@@ -864,6 +867,12 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
+    // Guard against excessively large DB files to prevent OOM.
+    const ensureStat = fs.statSync(dbPath);
+    if (ensureStat.size > MAX_DB_FILE_BYTES) {
+      return { success: false, columnsAdded, error: `Database file too large: ${ensureStat.size} bytes` };
+    }
+
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);
 
@@ -950,6 +959,15 @@ export async function checkAndMigrateLegacy(options: {
       try {
         const initSqlJs = (await import('sql.js')).default;
         const SQL = await initSqlJs();
+
+        // Guard against excessively large legacy DB files to prevent OOM.
+        const legacyStat = fs.statSync(legacyPath);
+        if (legacyStat.size > MAX_DB_FILE_BYTES) {
+          if (verbose) {
+            console.warn(`[memory] Skipping legacy DB at ${legacyPath}: file too large (${legacyStat.size} bytes)`);
+          }
+          continue;
+        }
 
         const legacyBuffer = fs.readFileSync(legacyPath);
         const legacyDb = new SQL.Database(legacyBuffer);
@@ -1282,6 +1300,12 @@ export async function checkMemoryInitialization(dbPath?: string): Promise<{
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
+    // Guard against excessively large DB files to prevent OOM.
+    const checkStat = fs.statSync(path_);
+    if (checkStat.size > MAX_DB_FILE_BYTES) {
+      return { initialized: false };
+    }
+
     const fileBuffer = fs.readFileSync(path_);
     const db = new SQL.Database(fileBuffer);
 
@@ -1336,6 +1360,12 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
   try {
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
+
+    // Guard against excessively large DB files to prevent OOM.
+    const decayStat = fs.statSync(path_);
+    if (decayStat.size > MAX_DB_FILE_BYTES) {
+      return { success: false, patternsDecayed: 0, error: `Database file too large: ${decayStat.size} bytes` };
+    }
 
     const fileBuffer = fs.readFileSync(path_);
     const db = new SQL.Database(fileBuffer);
@@ -1750,6 +1780,12 @@ export async function verifyMemoryInit(dbPath: string, options?: {
     const SQL = await initSqlJs();
     const fs = await import('fs');
 
+    // Guard against excessively large DB files to prevent OOM.
+    const verifyStat = fs.statSync(dbPath);
+    if (verifyStat.size > MAX_DB_FILE_BYTES) {
+      return { success: false, tests: [{ name: 'Database access', passed: false, details: `File too large: ${verifyStat.size} bytes` }], summary: { passed: 0, failed: 1, total: 1 } };
+    }
+
     // Load database
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);
@@ -1978,6 +2014,12 @@ export async function storeEntry(options: {
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
+    // Guard against excessively large DB files to prevent OOM.
+    const storeStat = fs.statSync(dbPath);
+    if (storeStat.size > MAX_DB_FILE_BYTES) {
+      return { success: false, id: '', error: `Database file too large: ${storeStat.size} bytes` };
+    }
+
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);
 
@@ -2109,6 +2151,12 @@ export async function searchEntries(options: {
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
+    // Guard against excessively large DB files to prevent OOM.
+    const searchStat = fs.statSync(dbPath);
+    if (searchStat.size > MAX_DB_FILE_BYTES) {
+      return { success: false, results: [], searchTime: 0, error: `Database file too large: ${searchStat.size} bytes` };
+    }
+
     // Generate query embedding
     const queryEmb = await generateEmbedding(query);
     const queryEmbedding = queryEmb.embedding;
@@ -2128,6 +2176,12 @@ export async function searchEntries(options: {
     // Fall back to brute-force SQLite search
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
+
+    // Guard against excessively large DB files to prevent OOM.
+    const searchFbStat = fs.statSync(dbPath);
+    if (searchFbStat.size > MAX_DB_FILE_BYTES) {
+      return { success: false, results: [], searchTime: Date.now() - startTime, error: `Database file too large: ${searchFbStat.size} bytes` };
+    }
 
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);
@@ -2283,6 +2337,12 @@ export async function listEntries(options: {
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
+    // Guard against excessively large DB files to prevent OOM.
+    const listStat = fs.statSync(dbPath);
+    if (listStat.size > MAX_DB_FILE_BYTES) {
+      return { success: false, entries: [], total: 0, error: `Database file too large: ${listStat.size} bytes` };
+    }
+
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);
 
@@ -2418,6 +2478,12 @@ export async function getEntry(options: {
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
+    // Guard against excessively large DB files to prevent OOM.
+    const getStat = fs.statSync(dbPath);
+    if (getStat.size > MAX_DB_FILE_BYTES) {
+      return { success: false, found: false, error: `Database file too large: ${getStat.size} bytes` };
+    }
+
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);
 
@@ -2547,6 +2613,12 @@ export async function deleteEntry(options: {
 
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
+
+    // Guard against excessively large DB files to prevent OOM.
+    const deleteStat = fs.statSync(dbPath);
+    if (deleteStat.size > MAX_DB_FILE_BYTES) {
+      return { success: false, deleted: false, key, namespace, remainingEntries: 0, error: `Database file too large: ${deleteStat.size} bytes` };
+    }
 
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);

@@ -11,7 +11,7 @@
  * - Persists patterns to .swarm/sona-patterns.json
  * @module v1/cli/memory/sona-optimizer
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 // ============================================================================
 // Constants
@@ -473,6 +473,8 @@ export class SONAOptimizer {
             if (!existsSync(fullPath)) {
                 return false;
             }
+            if (statSync(fullPath).size > 50 * 1024 * 1024)
+                return false;
             const data = readFileSync(fullPath, 'utf-8');
             const state = JSON.parse(data);
             // Validate version
