@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 /** Config file search paths in priority order */
@@ -193,6 +194,17 @@ export class ConfigFileManager {
   /** Import config from a specific path */
   importFrom(cwd: string, importPath: string): void {
     const resolved = path.resolve(cwd, importPath);
+    // Guard against path traversal: the resolved path must be within the
+    // project cwd or the user's home directory.  Without this check an
+    // automated script can pass "/etc/passwd" or "../../.env" and exfiltrate
+    // files outside the project tree.
+    const projectRoot = path.resolve(cwd);
+    const home = os.homedir();
+    const isUnderProject = resolved === projectRoot || resolved.startsWith(projectRoot + path.sep);
+    const isUnderHome = resolved === home || resolved.startsWith(home + path.sep);
+    if (!isUnderProject && !isUnderHome) {
+      throw new Error(`Import path must be within the project directory or home directory: ${resolved}`);
+    }
     if (!fs.existsSync(resolved)) {
       throw new Error(`Import file not found: ${resolved}`);
     }
