@@ -20,6 +20,9 @@ const DEFAULT_PORT = 4242;
 function readStatus() {
   try {
     if (fs.existsSync(STATUS_FILE)) {
+      // Guard against OOM: control.json should never exceed 4 KiB
+      const stat = fs.statSync(STATUS_FILE);
+      if (stat.size > 4 * 1024) return null;
       return JSON.parse(fs.readFileSync(STATUS_FILE, 'utf-8'));
     }
   } catch { /* ignore */ }
@@ -27,6 +30,8 @@ function readStatus() {
 }
 
 function isPidAlive(pid) {
+  // Validate pid is a positive integer — negative or zero pid would signal the process group
+  if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
     return true;
