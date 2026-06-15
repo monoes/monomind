@@ -338,6 +338,15 @@ const monographSuggestTool: MCPTool = {
         ? rawTask.slice(0, MAX_SUGGEST_TASK_LEN)
         : rawTask;
 
+      // Format a suggestion row as a navigable string for LLM consumption.
+      // Includes file:line references so the LLM can jump directly to the code.
+      const formatSuggestion = (r: any): string => {
+        const srcLoc = r.src_file ? (r.src_line != null ? `${r.src_file}:${r.src_line}` : r.src_file) : '';
+        const tgtLoc = r.tgt_file ? (r.tgt_line != null ? `${r.tgt_file}:${r.tgt_line}` : r.tgt_file) : '';
+        const locHint = srcLoc ? `  [${srcLoc}${tgtLoc ? ` → ${tgtLoc}` : ''}]` : '';
+        return `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})${locHint}`;
+      };
+
       // When a task is provided and embeddings are enabled, use semantic search
       // to find relevant nodes and surface edge-level questions about them.
       if (task && process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
@@ -347,7 +356,9 @@ const monographSuggestTool: MCPTool = {
           return text('No suggestions for this task. Run monograph_build first or try a different query.');
         }
         const rows = db.prepare(`
-          SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt, n1.file_path as src_file
+          SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt,
+                 n1.file_path as src_file, n1.start_line as src_line,
+                 n2.file_path as tgt_file, n2.start_line as tgt_line
           FROM edges e
           JOIN nodes n1 ON n1.id = e.source_id
           JOIN nodes n2 ON n2.id = e.target_id
@@ -357,14 +368,14 @@ const monographSuggestTool: MCPTool = {
           LIMIT 100
         `).all(...[...hitIds], ...[...hitIds]) as any[];
 
-        const questions = rows.map(r =>
-          `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})`,
-        );
+        const questions = rows.map(formatSuggestion);
         return text(questions.slice(0, limit).join('\n') || 'No suggestions for this task. Run monograph_build first.');
       }
 
       const rows = db.prepare(`
-        SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt, n1.file_path as src_file
+        SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt,
+               n1.file_path as src_file, n1.start_line as src_line,
+               n2.file_path as tgt_file, n2.start_line as tgt_line
         FROM edges e
         JOIN nodes n1 ON n1.id = e.source_id
         JOIN nodes n2 ON n2.id = e.target_id
@@ -373,7 +384,7 @@ const monographSuggestTool: MCPTool = {
       `).all() as any[];
 
       let scored = rows.map(r => ({
-        q: `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})`,
+        q: formatSuggestion(r),
         relevance: task ? taskRelevance(task, r.src + ' ' + r.tgt + ' ' + (r.src_file ?? '')) : 0,
       }));
 
