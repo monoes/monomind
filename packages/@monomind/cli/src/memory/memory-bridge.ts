@@ -498,7 +498,22 @@ export async function bridgeStoreEntry(options: {
   if (!ctx) return null;
 
   try {
-    const { key, value, namespace = 'default', tags: rawTags = [], ttl } = options;
+    const rawKey = options.key;
+    const rawValue = options.value;
+    // SECURITY: defensive caps so no caller — current or future — can pass an
+    // unbounded string directly into embedder.embed (hash fallback is O(n)) or
+    // inflate the AgentDB row beyond practical limits.
+    // Memory-tools already validates to 1 MB; these caps are a last-resort
+    // backstop for any internal caller that forgets to pre-truncate.
+    const BRIDGE_MAX_KEY_LEN = 4 * 1024;       // 4 KB — generous for any realistic key
+    const BRIDGE_MAX_VALUE_LEN = 1024 * 1024;  // 1 MB — matches memory-tools validator
+    const key = typeof rawKey === 'string' && rawKey.length > BRIDGE_MAX_KEY_LEN
+      ? rawKey.slice(0, BRIDGE_MAX_KEY_LEN) : rawKey;
+    const value = typeof rawValue === 'string' && rawValue.length > BRIDGE_MAX_VALUE_LEN
+      ? rawValue.slice(0, BRIDGE_MAX_VALUE_LEN) : rawValue;
+    const namespace = options.namespace ?? 'default';
+    const rawTags = options.tags ?? [];
+    const ttl = options.ttl;
     // SECURITY: cap tags array length and per-tag length. Without these, any
     // memory_store caller (every spawned agent) could submit
     // tags: new Array(1e5).fill("x".repeat(1e4)) → ~1GB persisted blob,
