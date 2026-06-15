@@ -485,13 +485,17 @@ const monographSnapshotTool: MCPTool = {
   handler: async (input) => {
     const { openDb, closeDb, snapshotFromDb } = await import('@monoes/monograph');
     const { writeFileSync, mkdirSync } = await import('fs');
+    const { resolve: resolvePath } = await import('path');
     const db = openDb(getDbPath());
     try {
       const snapshot = snapshotFromDb(db);
-      const name = (input.name as string | undefined) ?? new Date().toISOString().replace(/[:.]/g, '-');
-      const snapshotDir = join(getProjectCwd(), '.monomind', 'snapshots');
+      const rawName = (input.name as string | undefined) ?? new Date().toISOString().replace(/[:.]/g, '-');
+      const SAFE_NAME_RE = /^[a-zA-Z0-9_.\-]+$/;
+      if (!SAFE_NAME_RE.test(rawName)) return text(`Invalid snapshot name: ${rawName}`);
+      const snapshotDir = resolvePath(join(getProjectCwd(), '.monomind', 'snapshots'));
       mkdirSync(snapshotDir, { recursive: true });
-      const outPath = join(snapshotDir, `${name}.json`);
+      const outPath = join(snapshotDir, `${rawName}.json`);
+      if (!resolvePath(outPath).startsWith(snapshotDir)) return text(`Path traversal detected in snapshot name`);
       writeFileSync(outPath, JSON.stringify(snapshot, null, 2));
       return text(`Snapshot saved: ${outPath}\n  nodes: ${snapshot.nodes.length}  edges: ${snapshot.edges.length}`);
     } finally { closeDb(db); }
