@@ -66,10 +66,10 @@ const configureCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const provider = (ctx.flags.provider as string) || (ctx.args && ctx.args[0]) || '';
-      const apiKey = ctx.flags.key as string | undefined;
-      const model = ctx.flags.model as string | undefined;
-      const endpoint = ctx.flags.endpoint as string | undefined;
+      const provider = ((ctx.flags.provider as string) || (ctx.args && ctx.args[0]) || '').slice(0, 64);
+      const apiKey = (ctx.flags.key as string | undefined)?.slice(0, 256);
+      const model = (ctx.flags.model as string | undefined)?.slice(0, 128);
+      const endpoint = (ctx.flags.endpoint as string | undefined)?.slice(0, 512);
 
       if (!provider) {
         output.printError('Provider name is required. Use -p <name> or pass as first argument.');
