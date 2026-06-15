@@ -641,6 +641,69 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ------------------------------------------------------- GET /api/recent-events
+    if (req.method === 'GET' && url === '/api/recent-events') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir || process.cwd();
+        const limit = Math.min(parseInt(qs.get('limit') || '50', 10), 200);
+        const d = path.resolve(dir || process.cwd());
+        const slug = d.replace(/\//g, '-');
+        const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
+        let sessionFiles = [];
+        try {
+          sessionFiles = fs.readdirSync(projectClaudeDir)
+            .filter(f => f.endsWith('.jsonl'))
+            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
+            .filter(Boolean)
+            .sort((a, b) => b.mtime - a.mtime)
+            .slice(0, 5); // check last 5 sessions
+        } catch {}
+
+        const events = [];
+        const HOOK_RE = /^<(local-command-|command-name>|command-message>)/;
+        for (const { f } of sessionFiles) {
+          const fp = path.join(projectClaudeDir, f);
+          const sessId = f.replace('.jsonl', '');
+          try {
+            const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean).slice(-200);
+            for (const line of lines) {
+              let e; try { e = JSON.parse(line); } catch { continue; }
+              if (e.type === 'assistant') {
+                const content = e.message?.content || [];
+                for (const block of content) {
+                  if (block?.type === 'tool_use') {
+                    events.push({ kind: 'tool', ts: e.timestamp, tool: block.name, session: sessId });
+                  }
+                }
+              } else if (e.type === 'user') {
+                const content = e.message?.content || [];
+                for (const block of content) {
+                  if (block?.type === 'text' && block.text?.trim() && !HOOK_RE.test(block.text.trim())) {
+                    events.push({ kind: 'user', ts: e.timestamp, text: block.text.slice(0, 120), session: sessId });
+                  }
+                }
+              }
+            }
+          } catch {}
+        }
+
+        // sort by ts desc, take limit
+        events.sort((a, b) => {
+          const ta = a.ts ? new Date(a.ts).getTime() : 0;
+          const tb = b.ts ? new Date(b.ts).getTime() : 0;
+          return tb - ta;
+        });
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ events: events.slice(0, limit) }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     // ------------------------------------------------------- GET /api/tool-errors
     if (req.method === 'GET' && url === '/api/tool-errors') {
       try {
