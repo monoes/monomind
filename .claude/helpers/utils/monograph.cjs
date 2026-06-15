@@ -56,7 +56,7 @@ function getMonographSuggestions(taskText, limit) {
     var rows = [];
     try {
       rows = db.prepare(
-        'SELECT n.id, n.name, n.label, n.file_path AS file, ' +
+        'SELECT n.id, n.name, n.label, n.file_path AS file, n.start_line AS startLine, ' +
         'bm25(nodes_fts) AS bm25_score, ' +
         '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg, ' +
         'CASE n.label WHEN \'File\' THEN 3 WHEN \'Function\' THEN 3 WHEN \'Class\' THEN 3 ' +
@@ -72,7 +72,7 @@ function getMonographSuggestions(taskText, limit) {
       var likeFrag = keys.map(function(){ return 'lower(n.name) LIKE ?'; }).join(' OR ');
       var likeArgs = keys.map(function(k){ return '%' + k + '%'; });
       var stmt = db.prepare(
-        'SELECT n.id, n.name, n.label, n.file_path AS file, ' +
+        'SELECT n.id, n.name, n.label, n.file_path AS file, n.start_line AS startLine, ' +
         '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg ' +
         'FROM nodes n WHERE (' + likeFrag + ') AND n.file_path IS NOT NULL AND n.file_path != \'\' ' +
         'AND n.label NOT IN (\'Concept\') ' +
