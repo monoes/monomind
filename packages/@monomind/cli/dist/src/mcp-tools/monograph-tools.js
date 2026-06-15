@@ -860,7 +860,35 @@ const monographDetectChangesTool = {
                 baseBranch: input.baseBranch,
                 includeTests: input.includeTests,
             }, getProjectCwd());
-            return text(JSON.stringify(result, null, 2));
+            // Format as structured text for direct LLM navigation instead of raw JSON
+            const r = result;
+            if (!r || (!r.changedFiles?.length && !r.affectedSymbols?.length)) {
+                return text('No changed files found relative to the base branch.');
+            }
+            const lines = [];
+            const base = r.baseBranch ?? 'main';
+            const changedFiles = r.changedFiles ?? [];
+            lines.push(`Changed files vs ${base}: ${changedFiles.length}`);
+            if (changedFiles.length > 0) {
+                for (const f of changedFiles.slice(0, 20))
+                    lines.push(`  ${f}`);
+                if (changedFiles.length > 20)
+                    lines.push(`  … ${changedFiles.length - 20} more`);
+            }
+            lines.push('');
+            const affected = r.affectedSymbols ?? r.affected ?? [];
+            if (affected.length > 0) {
+                lines.push(`Affected symbols (${affected.length}):`);
+                for (const sym of affected.slice(0, 30)) {
+                    const fp = sym.filePath ?? sym.file_path ?? '';
+                    const ln = sym.startLine ?? sym.start_line;
+                    const loc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+                    lines.push(`  [${sym.label ?? '?'}] ${sym.name ?? sym.id}  ${loc}`);
+                }
+                if (affected.length > 30)
+                    lines.push(`  … ${affected.length - 30} more`);
+            }
+            return text(lines.join('\n').trim());
         }
         finally {
             closeDb(db);
@@ -892,7 +920,25 @@ const monographRenameTool = {
                 filePath: input.filePath,
                 dryRun: input.dryRun ?? true,
             });
-            return text(JSON.stringify(result, null, 2));
+            // Format as structured text for direct LLM navigation instead of raw JSON
+            const rn = result;
+            if (!rn)
+                return text(`Symbol not found: ${input.oldName}`);
+            const occurrences = rn.occurrences ?? rn.references ?? [];
+            const lines = [
+                `Rename: ${input.oldName} → ${input.newName}  (dry-run)`,
+                `Occurrences: ${occurrences.length}`,
+                '',
+            ];
+            for (const occ of occurrences.slice(0, 30)) {
+                const fp = occ.filePath ?? occ.file_path ?? '';
+                const ln = occ.line ?? occ.startLine ?? occ.start_line;
+                const loc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+                lines.push(`  ${loc || occ}`);
+            }
+            if (occurrences.length > 30)
+                lines.push(`  … ${occurrences.length - 30} more`);
+            return text(lines.join('\n').trim());
         }
         finally {
             closeDb(db);
