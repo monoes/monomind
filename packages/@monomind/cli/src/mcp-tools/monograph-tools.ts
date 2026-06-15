@@ -711,7 +711,38 @@ const monographContextTool: MCPTool = {
         name: ctxName,
         filePath: ctxPath,
       });
-      return text(JSON.stringify(result, null, 2));
+      if (!result || !result.node) return text(`No symbol found: ${ctxName}`);
+
+      // Format context as structured text for direct LLM consumption
+      const n = result.node as any;
+      const loc = n.filePath ? (n.startLine != null ? `${n.filePath}:${n.startLine}` : n.filePath) : '';
+      const lines: string[] = [
+        `[${n.label ?? '?'}] ${n.name}  ${loc}`,
+        '',
+      ];
+
+      const formatNodes = (nodes: any[], label: string) => {
+        if (!Array.isArray(nodes) || nodes.length === 0) return;
+        lines.push(`${label} (${nodes.length}):`);
+        for (const node of nodes.slice(0, 20)) {
+          const fp = node.filePath ?? node.file_path ?? '';
+          const ln = node.startLine ?? node.start_line;
+          const nodeLoc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+          lines.push(`  [${node.label ?? '?'}] ${node.name ?? node.id}  ${nodeLoc}`);
+        }
+        if (nodes.length > 20) lines.push(`  … ${nodes.length - 20} more`);
+        lines.push('');
+      };
+
+      formatNodes(result.callers as any, 'Callers');
+      formatNodes(result.callees as any, 'Callees');
+      formatNodes(result.imports as any, 'Imports');
+      formatNodes(result.importedBy as any, 'ImportedBy');
+
+      if (result.community != null) lines.push(`Community: ${result.community}`);
+      if ((result as any).communityName) lines.push(`Community name: ${(result as any).communityName}`);
+
+      return text(lines.join('\n').trim());
     } finally { closeDb(db); }
   },
 };
@@ -752,7 +783,37 @@ const monographImpactTool: MCPTool = {
         filePath: impactPath,
         depth,
       });
-      return text(JSON.stringify(result, null, 2));
+      if (!result || !result.root) return text(`No symbol found: ${impactName}`);
+
+      // Format impact as structured text for direct LLM consumption
+      const root = result.root as any;
+      const rootLoc = root.filePath ? (root.startLine != null ? `${root.filePath}:${root.startLine}` : root.filePath) : '';
+      const lines: string[] = [
+        `[${root.label ?? '?'}] ${root.name}  ${rootLoc}`,
+        '',
+        `Blast radius: ${result.totalAffected ?? 0} symbols affected`,
+      ];
+
+      if (result.riskScore != null) {
+        const riskLabel = (result.riskScore as number) >= 0.8 ? 'HIGH' : (result.riskScore as number) >= 0.5 ? 'MEDIUM' : 'LOW';
+        lines.push(`Risk score: ${(result.riskScore as number).toFixed(2)} (${riskLabel})`);
+      }
+      lines.push('');
+
+      const affected = (result.affected ?? result.callers ?? []) as any[];
+      if (affected.length > 0) {
+        lines.push(`Affected callers (${affected.length}):`);
+        for (const sym of affected.slice(0, 20)) {
+          const fp = sym.filePath ?? sym.file_path ?? '';
+          const ln = sym.startLine ?? sym.start_line;
+          const symLoc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+          const depth_marker = sym.depth != null ? ` [depth ${sym.depth}]` : '';
+          lines.push(`  [${sym.label ?? '?'}] ${sym.name ?? sym.id}  ${symLoc}${depth_marker}`);
+        }
+        if (affected.length > 20) lines.push(`  … ${affected.length - 20} more`);
+      }
+
+      return text(lines.join('\n').trim());
     } finally { closeDb(db); }
   },
 };
