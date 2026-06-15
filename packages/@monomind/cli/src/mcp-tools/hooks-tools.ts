@@ -1289,7 +1289,14 @@ export const hooksPostTask: MCPTool = {
         successSource = 'derived-commands';
       }
     }
-    const agent = params.agent as string | undefined;
+    // Cap agent: forwarded to bridgeRecordFeedback where it is stored in the
+    // feedback record and used as a tag string in the JSON store.  An uncapped
+    // agent value inflates the on-disk store entry.
+    const MAX_POST_TASK_AGENT_LEN = 256;
+    const rawPostTaskAgent = params.agent as string | undefined;
+    const agent = typeof rawPostTaskAgent === 'string' && rawPostTaskAgent.length > MAX_POST_TASK_AGENT_LEN
+      ? rawPostTaskAgent.slice(0, MAX_POST_TASK_AGENT_LEN)
+      : rawPostTaskAgent;
     const quality = (params.quality as number) || (success ? 0.85 : 0.3);
     const startTime = Date.now();
     // Cap task description: passed to generateEmbedding via bridgeRecordFeedback
