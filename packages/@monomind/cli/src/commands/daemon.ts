@@ -373,6 +373,10 @@ async function killBackgroundDaemon(projectRoot: string): Promise<boolean> {
   }
 
   try {
+    if (fs.statSync(pidFile).size > 32) {
+      fs.unlinkSync(pidFile);
+      return false;
+    }
     const pid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim(), 10);
 
     if (isNaN(pid)) {
@@ -429,6 +433,7 @@ function getBackgroundDaemonPid(projectRoot: string): number | null {
   }
 
   try {
+    if (fs.statSync(pidFile).size > 32) return null;
     const pid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim(), 10);
     return isNaN(pid) ? null : pid;
   } catch {

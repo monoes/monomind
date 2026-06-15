@@ -4,7 +4,7 @@
  *
  * github.com/monoes/monomind
  */
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { commandParser } from './parser.js';
@@ -19,6 +19,9 @@ function getPackageVersion() {
         const __dirname = dirname(__filename);
         // Navigate from dist/src to package root
         const pkgPath = join(__dirname, '..', '..', 'package.json');
+        // Guard: skip if package.json is unexpectedly large (> 1 MB)
+        if (statSync(pkgPath).size > 1024 * 1024)
+            return '3.0.0';
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
         return pkg.version || '3.0.0';
     }
@@ -458,10 +461,11 @@ export class CLI {
         catch { /* optional — registry build failures must never block startup */ }
         // Task 04: CapabilityMetadata — validate agent registry at startup
         try {
-            const { readFileSync, existsSync } = await import('fs');
+            const { readFileSync, existsSync, statSync: statSyncReg } = await import('fs');
             const { join: pathJoin } = await import('path');
             const registryPath = pathJoin(process.cwd(), '.monomind', 'registry.json');
-            if (existsSync(registryPath)) {
+            const MAX_REGISTRY_BYTES = 10 * 1024 * 1024; // 10 MB
+            if (existsSync(registryPath) && statSyncReg(registryPath).size <= MAX_REGISTRY_BYTES) {
                 const registry = JSON.parse(readFileSync(registryPath, 'utf-8'));
                 const entries = registry.agents ?? [];
                 const issues = [];

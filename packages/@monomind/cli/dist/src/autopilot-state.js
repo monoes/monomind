@@ -19,6 +19,8 @@ export const LOG_FILE = `${STATE_DIR}/autopilot-log.json`;
 const MAX_HISTORY_ENTRIES = 50;
 /** Maximum entries kept in the event log */
 const MAX_LOG_ENTRIES = 1000;
+/** Maximum bytes before refusing to load a state/log JSON file (10 MB) */
+const MAX_STATE_FILE_BYTES = 10 * 1024 * 1024;
 /** Allowlist for valid task sources */
 export const VALID_TASK_SOURCES = new Set(['team-tasks', 'swarm-tasks', 'file-checklist']);
 /** Terminal task statuses */
@@ -91,7 +93,7 @@ export function loadState() {
     const filePath = path.resolve(STATE_FILE);
     const defaults = getDefaultState();
     try {
-        if (fs.existsSync(filePath)) {
+        if (fs.existsSync(filePath) && fs.statSync(filePath).size <= MAX_STATE_FILE_BYTES) {
             const raw = safeJsonParse(fs.readFileSync(filePath, 'utf-8'));
             const merged = { ...defaults, ...raw };
             // Re-validate fields that could be tampered with
@@ -190,7 +192,7 @@ function compactLog(filePath) {
 export function loadLog() {
     const filePath = path.resolve(LOG_FILE);
     try {
-        if (fs.existsSync(filePath)) {
+        if (fs.existsSync(filePath) && fs.statSync(filePath).size <= MAX_STATE_FILE_BYTES) {
             const raw = fs.readFileSync(filePath, 'utf-8');
             // Backward compatible: support both old JSON-array form and the new
             // append-only NDJSON form. Prefer NDJSON if the file looks line-based.
@@ -236,7 +238,10 @@ export function discoverTasks(sources) {
                         const files = fs.readdirSync(teamDir).filter((f) => f.endsWith('.json'));
                         for (const file of files) {
                             try {
-                                const data = safeJsonParse(fs.readFileSync(path.join(teamDir, file), 'utf-8'));
+                                const taskFilePath = path.join(teamDir, file);
+                                if (fs.statSync(taskFilePath).size > MAX_STATE_FILE_BYTES)
+                                    continue;
+                                const data = safeJsonParse(fs.readFileSync(taskFilePath, 'utf-8'));
                                 tasks.push({
                                     id: String(data.id || file.replace('.json', '')),
                                     subject: String(data.subject || data.title || file),
@@ -254,7 +259,7 @@ export function discoverTasks(sources) {
         if (source === 'swarm-tasks') {
             const swarmFile = path.resolve('.monomind/swarm-tasks.json');
             try {
-                if (fs.existsSync(swarmFile)) {
+                if (fs.existsSync(swarmFile) && fs.statSync(swarmFile).size <= MAX_STATE_FILE_BYTES) {
                     const data = safeJsonParse(fs.readFileSync(swarmFile, 'utf-8'));
                     const swarmTasks = Array.isArray(data) ? data : (data.tasks || []);
                     for (const t of swarmTasks) {
@@ -275,7 +280,7 @@ export function discoverTasks(sources) {
         if (source === 'file-checklist') {
             const checklistFile = path.resolve('.monomind/data/checklist.json');
             try {
-                if (fs.existsSync(checklistFile)) {
+                if (fs.existsSync(checklistFile) && fs.statSync(checklistFile).size <= MAX_STATE_FILE_BYTES) {
                     const data = safeJsonParse(fs.readFileSync(checklistFile, 'utf-8'));
                     const items = Array.isArray(data) ? data : (data.items || []);
                     for (const item of items) {

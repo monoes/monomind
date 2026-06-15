@@ -272,14 +272,29 @@ const searchCommand: Command = {
     { command: 'monomind monograph search -q "pipeline" --mode semantic', description: 'Semantic (embedding) search' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const query = ctx.flags.query as string;
-    const limit = parseInt(ctx.flags.limit as string || '15', 10);
-    const label = ctx.flags.label as string | undefined;
-    const mode = (ctx.flags.mode as string | undefined) ?? 'hybrid';
+    const rawQuery = ctx.flags.query as string;
+    const rawLimit = parseInt(ctx.flags.limit as string || '15', 10);
+    const rawLabel = ctx.flags.label as string | undefined;
+    const rawMode = (ctx.flags.mode as string | undefined) ?? 'hybrid';
     const root = resolve((ctx.flags.path as string | undefined) ?? process.cwd());
     const dbPath = getDbPath(root);
 
+    // Cap query to prevent SQLite FTS DoS from multi-MB query strings
+    const MAX_QUERY_LEN = 2048;
+    const query = typeof rawQuery === 'string' ? rawQuery.slice(0, MAX_QUERY_LEN) : '';
     if (!query) { output.printError('--query is required'); return { success: false, exitCode: 1 }; }
+
+    // Clamp limit to prevent huge result sets from causing OOM
+    const limit = isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 500) : 15;
+
+    // Validate mode to an explicit allowlist
+    const VALID_MODES = new Set(['bm25', 'semantic', 'hybrid']);
+    const mode = VALID_MODES.has(rawMode) ? rawMode : 'hybrid';
+
+    // Cap label to prevent oversized SQL filter values
+    const MAX_LABEL_LEN = 64;
+    const label = typeof rawLabel === 'string' ? rawLabel.slice(0, MAX_LABEL_LEN) : undefined;
+
     if (!existsSync(dbPath)) {
       output.printWarning('No knowledge graph found. Run: monomind monograph build');
       return { success: false, exitCode: 1 };
@@ -367,7 +382,9 @@ const statsCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const root = resolve((ctx.flags.path as string | undefined) ?? process.cwd());
-    const top = parseInt(ctx.flags.top as string || '10', 10);
+    const rawTop = parseInt(ctx.flags.top as string || '10', 10);
+    // Clamp top-N to prevent arbitrarily large SQL LIMIT values
+    const top = isFinite(rawTop) && rawTop > 0 ? Math.min(rawTop, 200) : 10;
     const dbPath = getDbPath(root);
 
     if (!existsSync(dbPath)) {

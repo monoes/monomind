@@ -10,7 +10,14 @@ import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { spawn as childSpawn, execSync } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve as resolvePath, sep } from 'path';
+// Input length caps
+const MAX_OBJECTIVE_LEN = 2_000;
+const MAX_TASK_DESC_LEN = 4_000;
+const MAX_MESSAGE_LEN = 2_000;
+const MAX_KEY_LEN = 256;
+const MAX_VALUE_LEN = 65_536;
+const MAX_AGENT_ID_LEN = 128;
 // Hive topologies
 const TOPOLOGIES = [
     { value: 'hierarchical', label: 'Hierarchical', hint: 'Queen-led with worker agents' },
@@ -177,11 +184,21 @@ async function spawnClaudeCodeInstance(swarmId, swarmName, objective, workers, f
             `Consensus: ${output.highlight(flags.consensus || 'byzantine')}`,
             `MCP Tools: ${output.success('Full Monomind integration enabled')}`
         ]);
-        // Ensure sessions directory exists
-        const sessionsDir = join('.hive-mind', 'sessions');
+        // Ensure sessions directory exists (anchor to process.cwd() so relative paths
+        // don't escape when the caller changes directory)
+        const baseDir = resolvePath(process.cwd());
+        const sessionsDir = resolvePath(baseDir, '.hive-mind', 'sessions');
+        // Guard: sessions directory must stay inside cwd
+        if (!sessionsDir.startsWith(baseDir + sep) && sessionsDir !== baseDir) {
+            throw new Error('Sessions directory path traversal detected');
+        }
         await mkdir(sessionsDir, { recursive: true });
         const safeSwarmId = swarmId.replace(/[^a-zA-Z0-9_-]/g, '_');
         const promptFile = join(sessionsDir, `hive-mind-prompt-${safeSwarmId}.txt`);
+        // Guard: prompt file must stay inside sessions directory
+        if (!resolvePath(promptFile).startsWith(sessionsDir + sep)) {
+            throw new Error('Prompt file path traversal detected');
+        }
         await writeFile(promptFile, hiveMindPrompt, 'utf8');
         output.writeln();
         output.printSuccess(`Hive Mind prompt saved to: ${promptFile}`);
@@ -295,10 +312,14 @@ async function spawnClaudeCodeInstance(swarmId, swarmName, objective, workers, f
         spinner.fail('Failed to prepare Claude Code coordination');
         const errorMessage = error instanceof Error ? error.message : String(error);
         output.printError(`Error: ${errorMessage}`);
-        // Try to save prompt as fallback
+        // Try to save prompt as fallback — write inside cwd to avoid path issues
         try {
             const safeSwarmIdFallback = swarmId.replace(/[^a-zA-Z0-9_-]/g, '_');
-            const promptFile = `hive-mind-prompt-${safeSwarmIdFallback}-fallback.txt`;
+            const fallbackDir = resolvePath(process.cwd());
+            const promptFile = join(fallbackDir, `hive-mind-prompt-${safeSwarmIdFallback}-fallback.txt`);
+            if (!resolvePath(promptFile).startsWith(fallbackDir + sep)) {
+                throw new Error('Fallback path traversal');
+            }
             const workerGroups = groupWorkersByType(workers);
             const hiveMindPrompt = generateHiveMindPrompt(swarmId, swarmName, objective, workers, workerGroups, flags);
             await writeFile(promptFile, hiveMindPrompt, 'utf8');
@@ -502,12 +523,13 @@ const spawnCommand = {
     ],
     action: async (ctx) => {
         // Parse count with fallback to default
-        const count = ctx.flags.count || 1;
+        const rawCount = ctx.flags.count || 1;
+        const count = Number.isFinite(rawCount) ? Math.max(1, Math.min(rawCount, 50)) : 1;
         const role = ctx.flags.role || 'worker';
         const agentType = ctx.flags.type || 'worker';
         const prefix = ctx.flags.prefix || 'hive-worker';
         const launchClaude = ctx.flags.claude;
-        let objective = ctx.flags.objective || ctx.args.join(' ');
+        let objective = (ctx.flags.objective || ctx.args.join(' ')).slice(0, MAX_OBJECTIVE_LEN);
         output.printInfo(`Spawning ${count} ${role} agent(s)...`);
         try {
             const result = await callMCPTool('hive-mind_spawn', {
@@ -761,12 +783,13 @@ const taskCommand = {
         { command: 'monomind hive-mind task -d "Security review" -p critical -c', description: 'Critical task with consensus' }
     ],
     action: async (ctx) => {
-        let description = ctx.flags.description || ctx.args.join(' ');
+        let description = (ctx.flags.description || ctx.args.join(' ')).slice(0, MAX_TASK_DESC_LEN);
         if (!description && ctx.interactive) {
             description = await input({
                 message: 'Task description:',
                 validate: (v) => v.length > 0 || 'Description is required'
             });
+            description = description.slice(0, MAX_TASK_DESC_LEN);
         }
         if (!description) {
             output.printError('Task description is required');
@@ -888,7 +911,7 @@ const joinCommand = {
         { name: 'role', short: 'r', description: 'Agent role (worker, specialist, scout)', type: 'string', default: 'worker' }
     ],
     action: async (ctx) => {
-        const agentId = ctx.args[0] || ctx.flags['agent-id'] || ctx.flags.agentId;
+        const agentId = (ctx.args[0] || ctx.flags['agent-id'] || ctx.flags.agentId || '').slice(0, MAX_AGENT_ID_LEN);
         if (!agentId) {
             output.printError('Agent ID is required. Use --agent-id or -a flag, or provide as argument.');
             return { success: false, exitCode: 1 };
@@ -914,7 +937,7 @@ const leaveCommand = {
     description: 'Remove an agent from the hive mind',
     options: [{ name: 'agent-id', short: 'a', description: 'Agent ID to remove', type: 'string' }],
     action: async (ctx) => {
-        const agentId = ctx.args[0] || ctx.flags['agent-id'] || ctx.flags.agentId;
+        const agentId = (ctx.args[0] || ctx.flags['agent-id'] || ctx.flags.agentId || '').slice(0, MAX_AGENT_ID_LEN);
         if (!agentId) {
             output.printError('Agent ID required.');
             return { success: false, exitCode: 1 };
@@ -986,13 +1009,13 @@ const broadcastCommand = {
         { name: 'from', short: 'f', description: 'Sender agent ID', type: 'string' }
     ],
     action: async (ctx) => {
-        const message = ctx.args.join(' ') || ctx.flags.message;
+        const message = (ctx.args.join(' ') || ctx.flags.message || '').slice(0, MAX_MESSAGE_LEN);
         if (!message) {
             output.printError('Message required. Use --message or -m flag.');
             return { success: false, exitCode: 1 };
         }
         try {
-            const result = await callMCPTool('hive-mind_broadcast', { message, priority: ctx.flags.priority, fromId: ctx.flags.from });
+            const result = await callMCPTool('hive-mind_broadcast', { message, priority: ctx.flags.priority, fromId: typeof ctx.flags.from === 'string' ? ctx.flags.from.slice(0, MAX_AGENT_ID_LEN) : undefined });
             if (!result.success) {
                 output.printError(result.error || 'Failed');
                 return { success: false, exitCode: 1 };
@@ -1017,8 +1040,8 @@ const memorySubCommand = {
     ],
     action: async (ctx) => {
         const action = ctx.flags.action || 'list';
-        const key = ctx.flags.key;
-        const value = ctx.flags.value;
+        const key = typeof ctx.flags.key === 'string' ? ctx.flags.key.slice(0, MAX_KEY_LEN) : undefined;
+        const value = typeof ctx.flags.value === 'string' ? ctx.flags.value.slice(0, MAX_VALUE_LEN) : undefined;
         if ((action === 'get' || action === 'delete') && !key) {
             output.printError('Key required for get/delete.');
             return { success: false, exitCode: 1 };

@@ -16,7 +16,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 const os = require('os');
 
 // Configuration
@@ -204,6 +204,8 @@ function getModelFromSessionJSONL() {
     if (files.length === 0) return null;
 
     const sessionFile = path.join(projectsDir, files[0].f);
+    // Guard against OOM: skip session files larger than 10 MB
+    try { if (fs.statSync(sessionFile).size > 10 * 1024 * 1024) return null; } catch { return null; }
     const raw = fs.readFileSync(sessionFile, 'utf-8');
     const lines = raw.split('\n').filter(Boolean);
 
@@ -922,7 +924,13 @@ function getGraphifyStats() {
 
   try {
     if (fs.existsSync(dbPath)) {
-      const out = safeExec(`sqlite3 "${dbPath}" "SELECT (SELECT COUNT(*) FROM nodes), (SELECT COUNT(*) FROM edges);"`, 1000);
+      // Use spawnSync array args to prevent shell injection via dbPath (CWD-derived)
+      const result = spawnSync(
+        'sqlite3',
+        [dbPath, 'SELECT (SELECT COUNT(*) FROM nodes), (SELECT COUNT(*) FROM edges);'],
+        { encoding: 'utf-8', timeout: 1000 }
+      );
+      const out = (result.stdout || '').trim();
       if (out) {
         const [n, e] = out.split('|').map(v => parseInt(v, 10) || 0);
         if (n > 0) return { nodes: n, edges: e, exists: true };

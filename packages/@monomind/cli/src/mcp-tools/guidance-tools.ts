@@ -8,7 +8,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -326,6 +326,7 @@ function discoverAgents(): string[] {
         if (entry.isDirectory()) {
           walk(full, depth + 1);
         } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name !== 'MIGRATION_SUMMARY.md') {
+          if (statSync(full).size > 512 * 1024) continue; // skip files > 512 KB
           const content = readFileSync(full, 'utf-8');
           const nameMatch = content.match(/^name:\s*(.+)$/m);
           if (nameMatch) agents.push(nameMatch[1].trim().replace(/^["']|["']$/g, ''));
@@ -377,14 +378,19 @@ const guidanceCapabilities: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const area = params.area as string | undefined;
+    // Cap area before any use — reflected verbatim in the error JSON if the
+    // key is unknown, which would allow a caller to embed an arbitrarily long
+    // string in the MCP response body.
+    const MAX_AREA_LEN = 128;
+    const rawArea = params.area;
+    const area = typeof rawArea === 'string' && rawArea.length <= MAX_AREA_LEN ? rawArea : undefined;
     const format = (params.format as string) || 'summary';
 
     if (area) {
       const cap = CAPABILITY_CATALOG[area];
       if (!cap) {
         const available = Object.keys(CAPABILITY_CATALOG).join(', ');
-        return { content: [{ type: 'text', text: JSON.stringify({ error: `Unknown area: ${area}`, available }, null, 2) }], isError: true };
+        return { content: [{ type: 'text', text: JSON.stringify({ error: 'Unknown capability area', available }, null, 2) }], isError: true };
       }
       return { content: [{ type: 'text', text: JSON.stringify(cap, null, 2) }] };
     }
@@ -421,7 +427,14 @@ const guidanceRecommend: MCPTool = {
     required: ['task'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const task = params.task as string;
+    // Cap task: iterated through 14 regex patterns via route.pattern.test(task).
+    // Each .test() call is O(n) on the input string; without a cap an attacker
+    // can make every routing call O(14n) on an arbitrary-length string.
+    const MAX_GUIDANCE_TASK_LEN = 16 * 1024;
+    const rawTask = params.task as string;
+    const task = typeof rawTask === 'string' && rawTask.length > MAX_GUIDANCE_TASK_LEN
+      ? rawTask.slice(0, MAX_GUIDANCE_TASK_LEN)
+      : rawTask;
     const matches: Array<{ area: string; capability: CapabilityArea; workflow: string; score: number }> = [];
 
     for (const route of TASK_ROUTES) {
@@ -539,15 +552,19 @@ const guidanceWorkflow: MCPTool = {
     required: ['type'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const type = params.type as string;
-    const template = WORKFLOW_TEMPLATES[type];
+    // Cap type before any use — reflected in the error JSON when the key is
+    // unknown, allowing an attacker to embed an arbitrarily long string.
+    const MAX_TYPE_LEN = 128;
+    const rawType = params.type;
+    const type = typeof rawType === 'string' && rawType.length <= MAX_TYPE_LEN ? rawType : '';
+    const template = type ? WORKFLOW_TEMPLATES[type] : undefined;
 
     if (!template) {
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
-            error: `Unknown workflow: ${type}`,
+            error: 'Unknown workflow type',
             available: Object.keys(WORKFLOW_TEMPLATES),
           }, null, 2),
         }],
@@ -588,7 +605,11 @@ const guidanceQuickRef: MCPTool = {
     required: ['domain'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const domain = params.domain as string;
+    // Cap domain before any use — reflected in the error JSON when the key is
+    // unknown, allowing an attacker to embed an arbitrarily long string.
+    const MAX_DOMAIN_LEN = 128;
+    const rawDomain = params.domain;
+    const domain = typeof rawDomain === 'string' && rawDomain.length <= MAX_DOMAIN_LEN ? rawDomain : '';
 
     const refs: Record<string, { title: string; commands: Array<{ cmd: string; desc: string }> }> = {
       'getting-started': {
@@ -650,9 +671,9 @@ const guidanceQuickRef: MCPTool = {
       },
     };
 
-    const ref = refs[domain];
+    const ref = domain ? refs[domain] : undefined;
     if (!ref) {
-      return { content: [{ type: 'text', text: JSON.stringify({ error: `Unknown domain: ${domain}`, available: Object.keys(refs) }, null, 2) }], isError: true };
+      return { content: [{ type: 'text', text: JSON.stringify({ error: 'Unknown quick-ref domain', available: Object.keys(refs) }, null, 2) }], isError: true };
     }
 
     return { content: [{ type: 'text', text: JSON.stringify(ref, null, 2) }] };

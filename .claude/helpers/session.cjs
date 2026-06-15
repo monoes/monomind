@@ -17,6 +17,8 @@ function ensureDir() {
 function restore() {
   try {
     if (!fs.existsSync(SESSION_FILE)) return null;
+    var st = fs.statSync(SESSION_FILE);
+    if (st.size > 1 * 1024 * 1024) return null; // 1 MiB guard
     var raw = fs.readFileSync(SESSION_FILE, 'utf-8');
     var data = JSON.parse(raw);
     if (!data || !data.sessionId) return null;

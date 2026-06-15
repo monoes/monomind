@@ -449,7 +449,23 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         return;
       }
       try {
-        const raw = fs.readFileSync(file, 'utf8');
+        // Security: validate that the requested file stays within the user's
+        // home directory. Without this, ?file=/etc/passwd discloses arbitrary
+        // system files to any process that can reach localhost:4242.
+        const _resolvedFile = path.resolve(file);
+        const _homeDir = os.homedir();
+        if (!_resolvedFile.startsWith(_homeDir + path.sep) && !_resolvedFile.startsWith(_homeDir)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Access denied: file must be within the home directory' }));
+          return;
+        }
+        // Only allow JSONL files (session logs).
+        if (!_resolvedFile.endsWith('.jsonl')) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Access denied: only .jsonl files are permitted' }));
+          return;
+        }
+        const raw = fs.readFileSync(_resolvedFile, 'utf8');
         const allLines = raw.split('\n').filter(Boolean);
         const lines = allLines.slice(-limit);
         const events = parseSessionLines(lines);
@@ -937,7 +953,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------------- PUT /api/memory-file
     if (req.method === 'PUT' && url === '/api/memory-file') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -971,7 +987,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------------- DELETE /api/memory-file
     if (req.method === 'DELETE' && url === '/api/memory-file') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -1203,7 +1219,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ---------------------------------------------------------- POST /api/loops/stop
     if (req.method === 'POST' && url === '/api/loops/stop') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const { id } = JSON.parse(body);
@@ -1223,17 +1239,27 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ---------------------------------------------------------- POST /api/loops/create
     if (req.method === 'POST' && url === '/api/loops/create') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const _qs = new URL(req.url, 'http://localhost').searchParams;
-          const { name, prompt, interval, maxReps } = JSON.parse(body);
+          const { name: _rawName, prompt: _rawPrompt, interval: _rawInterval, maxReps: _rawMaxReps } = JSON.parse(body);
+          // Cap field sizes to prevent individual large-field disk inflation.
+          // The 2MB body cap already limits total payload, but a single field
+          // near 2MB would produce a multi-MB loop config file per request.
+          const MAX_LOOP_PROMPT_LEN = 64 * 1024;  // 64 KB
+          const MAX_LOOP_NAME_LEN = 512;
+          const MAX_LOOP_INTERVAL_LEN = 64;
+          const prompt = typeof _rawPrompt === 'string' ? _rawPrompt.slice(0, MAX_LOOP_PROMPT_LEN) : null;
+          const name = typeof _rawName === 'string' ? _rawName.slice(0, MAX_LOOP_NAME_LEN) : null;
+          const interval = typeof _rawInterval === 'string' ? _rawInterval.slice(0, MAX_LOOP_INTERVAL_LEN) : null;
+          const maxReps = typeof _rawMaxReps === 'number' && Number.isFinite(_rawMaxReps) ? Math.max(1, Math.min(Math.floor(_rawMaxReps), 10000)) : null;
           if (!prompt) { res.writeHead(400); res.end(JSON.stringify({ error: 'prompt required' })); return; }
           const loopsDir = path.join(path.resolve(_qs.get('dir') || projectDir || process.cwd()), '.monomind', 'loops');
           fs.mkdirSync(loopsDir, { recursive: true });
           const id = `loop-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
           const nowMs = Date.now();
-          const loop = { id, type: 'repeat', name: name || prompt.slice(0, 40), prompt, interval: interval || '1h', maxReps: maxReps || null, status: 'active', currentRep: 0, startedAt: nowMs, lastRunAt: null };
+          const loop = { id, type: 'repeat', name: name || prompt.slice(0, 40), prompt, interval: interval || '1h', maxReps, status: 'active', currentRep: 0, startedAt: nowMs, lastRunAt: null };
           fs.writeFileSync(path.join(loopsDir, `${id}.json`), JSON.stringify(loop, null, 2));
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ ok: true, id }));
@@ -1246,7 +1272,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/api/session-errors') {
       const qs = new URL(req.url, 'http://localhost').searchParams;
       const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
-      const sessionId = qs.get('id') || '';
+      // Cap sessionId to prevent O(n×m) DoS via f.includes(sessionId) substring
+      // match against every filename when sessionId is a very long string.
+      const _rawSessId = qs.get('id') || '';
+      const sessionId = _rawSessId.slice(0, 256);
       const slug = d.replace(/\//g, '-');
       const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
       try {
@@ -1317,7 +1346,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------------- DELETE /api/knowledge-chunk
     if (req.method === 'DELETE' && url === '/api/knowledge-chunk') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -1356,7 +1385,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------------- PUT /api/knowledge-chunk
     if (req.method === 'PUT' && url === '/api/knowledge-chunk') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -1852,7 +1881,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const q = (qs.get('q') || '').trim();
+        // Cap ?q= to prevent DoS via megabyte FTS query strings.
+        const q = (qs.get('q') || '').trim().slice(0, 4096);
         const limit = Math.min(100, parseInt(qs.get('limit') || '50', 10));
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
@@ -1986,7 +2016,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const q = qs.get('q') || '';
+        const q = (qs.get('q') || '').trim().slice(0, 4096);
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!q) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?q= parameter' })); return; }
@@ -2023,7 +2053,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const nodeQ = qs.get('node') || '';
+        const nodeQ = (qs.get('node') || '').trim().slice(0, 4096);
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!nodeQ) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?node= parameter' })); return; }
@@ -2065,8 +2095,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const from = qs.get('from') || '';
-        const to = qs.get('to') || '';
+        const from = (qs.get('from') || '').trim().slice(0, 4096);
+        const to = (qs.get('to') || '').trim().slice(0, 4096);
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!from || !to) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?from= and ?to= parameters' })); return; }
@@ -2186,7 +2216,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // -------------------------------------------------- POST /api/mcp/call
     if (req.method === 'POST' && url === '/api/mcp/call') {
       let body = '';
-      req.on('data', c => body += c);
+      req.on('data', c => { body += c; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', async () => {
         const json = res => { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); };
         const ok = (data) => { json(res); res.end(JSON.stringify({ content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] })); };
@@ -2234,7 +2264,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               ok(`nodes: ${n}\nedges: ${e}`);
             } else if (tool === 'monograph_cypher') {
               // Translate basic MATCH (n:Label) queries to SQL
-              const q = (input.query || '').trim();
+              const q = (String(input.query || '')).trim().slice(0, 4096);
               const labelMatch = q.match(/MATCH\s+\(n:(\w+)\)/i);
               if (labelMatch) {
                 const label = labelMatch[1];
@@ -2292,12 +2322,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             } else if (tool === 'monograph_diff') {
               ok('Graph diff: compare two snapshots using monograph snapshot + monograph diff commands');
             } else if (tool === 'monograph_rename') {
-              const sym = input.symbolName || '';
+              // Cap sym to prevent O(n) FTS scan DoS via oversized query string.
+              const sym = String(input.symbolName || '').slice(0, 4096);
               if (!sym) { ok('Provide symbolName to rename'); return; }
               const hits = ftsSearch(db2, sym, 20);
               ok(`Found ${hits.length} occurrences of "${sym}":\n` + hits.map(h => `  ${h.filePath || '?'}:${h.startLine || '?'} — ${h.name}`).join('\n'));
             } else if (tool === 'monograph_impact') {
-              const target = input.target || '';
+              const target = String(input.target || '').slice(0, 4096);
               const dir3 = input.direction || 'both';
               const depth = input.maxDepth || 4;
               const hits = ftsSearch(db2, target, 5);
@@ -2324,7 +2355,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               }
               ok(`Impact of "${hits[0].name}" (${dir3}, depth=${depth}):\n` + (results.join('\n') || '  (no dependencies found)'));
             } else if (tool === 'monograph_context') {
-              const id = input.id || '';
+              const id = String(input.id || '').slice(0, 4096);
               const hits = ftsSearch(db2, id, 5);
               if (!hits.length) { ok(`Node not found: ${id}`); return; }
               const node = hits[0];
@@ -2332,7 +2363,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               const inEdges = db2.prepare('SELECT e.relation, n.name FROM edges e JOIN nodes n ON n.id = e.source_id WHERE e.target_id = ? LIMIT 20').all(node.id);
               ok(`# ${node.name} (${node.label})\nFile: ${node.filePath || '?'}\n\n**Imports / depends on (${outEdges.length}):**\n${outEdges.map(e => `  → ${e.name} [${e.relation}]`).join('\n') || '  (none)'}\n\n**Used by / depended on by (${inEdges.length}):**\n${inEdges.map(e => `  ← ${e.name} [${e.relation}]`).join('\n') || '  (none)'}`);
             } else if (tool === 'monograph_query' || tool === 'monograph_suggest') {
-              const q2 = input.query || input.task || '';
+              const q2 = String(input.query || input.task || '').slice(0, 4096);
               const hits2 = ftsSearch(db2, q2, 20);
               ok(hits2.map(h => `${h.name} (${h.label}) — ${h.filePath || '?'}:${h.startLine || '?'}`).join('\n') || 'No results');
 
@@ -2814,8 +2845,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const swarmId = qs.get('swarmId') || undefined;
-        const agentId = qs.get('agentId') || undefined;
+        // Cap swarmId and agentId to prevent O(n×m) DoS: filter() compares
+        // each event against the query string, so a megabyte-scale ID causes
+        // O(events × m) string comparisons.
+        const _rawSwarmId = qs.get('swarmId') || undefined;
+        const _rawAgentId = qs.get('agentId') || undefined;
+        const swarmId = typeof _rawSwarmId === 'string' ? _rawSwarmId.slice(0, 256) : undefined;
+        const agentId = typeof _rawAgentId === 'string' ? _rawAgentId.slice(0, 256) : undefined;
         const last = qs.get('last') ? parseInt(qs.get('last')) : undefined;
         const events = collectSwarmEvents(path.resolve(dir), { swarmId, agentId, last });
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
@@ -3866,7 +3902,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Body: { action: "approve" | "reject" | "revision_requested" }
     if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/approvals\/[^/]+$/i)) {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       try {
         const parts = url.split('/');
         const orgName = decodeURIComponent(parts[3]);
@@ -4065,7 +4101,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Body: { goals: [{id, title, description, status, priority, assignee_id, created_at}] }
     if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/goals$/i)) {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
@@ -4087,7 +4123,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Body: { routines: [{name, description, schedule, enabled, last_run, next_run}] }
     if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/routines$/i)) {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
@@ -4255,7 +4291,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // POST /api/orgs/:name/copy — copy org config to another project directory
     if (req.method === 'POST' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/copy$/i)) {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid org name' })); return; }
@@ -4338,12 +4374,27 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // POST /api/mastermind/event — ingest event from mastermind skill
     if (req.method === 'POST' && url === '/api/mastermind/event') {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       let event = {};
       try { event = JSON.parse(body); } catch (_) {}
       event.ts = event.ts || Date.now();
-      // Use project path from event if provided (multi-project support)
-      const eventProject = event.project && path.isAbsolute(event.project) ? event.project : null;
+      // Use project path from event if provided (multi-project support).
+      // Security: path.isAbsolute() alone is insufficient — an attacker can
+      // supply event.project="/etc" and cause writes to system directories.
+      // Only accept paths that resolve to an existing directory AND are not
+      // the filesystem root (/), AND are not obviously system paths.
+      // Cap to 4096 chars to prevent OOM from huge path strings.
+      const _rawProject = event.project;
+      let eventProject = null;
+      if (typeof _rawProject === 'string' && _rawProject.length > 0 && _rawProject.length <= 4096
+          && path.isAbsolute(_rawProject)) {
+        // Reject filesystem root and common system directories
+        const _norm = path.resolve(_rawProject);
+        const _systemPaths = ['/', '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/sys', '/proc', '/tmp'];
+        if (!_systemPaths.includes(_norm) && !_systemPaths.some(p => _norm.startsWith(p + '/'))) {
+          eventProject = _norm;
+        }
+      }
       const root = eventProject || projectDir || process.cwd();
       const dataDir = path.join(root, 'data');
       try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
@@ -4397,12 +4448,19 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
         }
         fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 50), null, 2));
-        // Also write individual session file for direct traceability
+        // Also write individual session file for direct traceability.
+        // Security: validate event.session before using it as a filename to
+        // prevent path traversal (e.g. "../../../etc/cron.d/payload").
         const sessionObj = sessions.find(s => s.id === event.session);
         if (sessionObj) {
           const sessDir = path.join(dataDir, 'sessions');
           try { fs.mkdirSync(sessDir, { recursive: true }); } catch (_) {}
-          try { fs.writeFileSync(path.join(sessDir, `${event.session}.json`), JSON.stringify(sessionObj, null, 2)); } catch (_) {}
+          try {
+            const _sid = String(event.session || '').trim();
+            if (_sid.length > 0 && _sid.length <= 128 && /^[a-zA-Z0-9_.-]+$/.test(_sid)) {
+              fs.writeFileSync(path.join(sessDir, `${_sid}.json`), JSON.stringify(sessionObj, null, 2));
+            }
+          } catch (_) {}
         }
       } catch (_) {}
       // For org:stop events, write a stop marker the boss agent can detect
