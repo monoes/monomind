@@ -422,8 +422,14 @@ export const workflowTools: MCPTool[] = [
       // Sort by creation date (newest first)
       workflows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      // Apply limit
-      const limit = (input.limit as number) || 20;
+      // Apply limit — cap to 1 000 to prevent returning the full (potentially
+      // large) in-memory workflow store in one response, which could cause OOM
+      // or excessive serialisation latency.
+      const MAX_WORKFLOW_LIMIT = 1_000;
+      const rawLimit = typeof input.limit === 'number' ? input.limit : 20;
+      const limit = Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), MAX_WORKFLOW_LIMIT)
+        : 20;
       const totalCount = workflows.length;
       workflows = workflows.slice(0, limit);
 
