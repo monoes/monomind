@@ -56,8 +56,10 @@ function readCoverageFromDisk(): CoverageData {
     const summaryPath = join(cwd, relPath);
     if (existsSync(summaryPath)) {
       try {
-        const raw = JSON.parse(readFileSync(summaryPath, 'utf-8'));
-        return parseCoverageSummaryJson(raw, relPath);
+        if (statSync(summaryPath).size <= 4_194_304) {
+          const raw = JSON.parse(readFileSync(summaryPath, 'utf-8'));
+          return parseCoverageSummaryJson(raw, relPath);
+        }
       } catch {
         // malformed, try next
       }
@@ -69,8 +71,10 @@ function readCoverageFromDisk(): CoverageData {
     const lcovPath = join(cwd, relPath);
     if (existsSync(lcovPath)) {
       try {
-        const raw = readFileSync(lcovPath, 'utf-8');
-        return parseLcovInfo(raw, relPath);
+        if (statSync(lcovPath).size <= 8_388_608) {
+          const raw = readFileSync(lcovPath, 'utf-8');
+          return parseLcovInfo(raw, relPath);
+        }
       } catch {
         // malformed, try next
       }
@@ -81,8 +85,10 @@ function readCoverageFromDisk(): CoverageData {
   const nycPath = join(cwd, '.nyc_output', 'out.json');
   if (existsSync(nycPath)) {
     try {
-      const raw = JSON.parse(readFileSync(nycPath, 'utf-8'));
-      return parseCoverageSummaryJson(raw, '.nyc_output/out.json');
+      if (statSync(nycPath).size <= 4_194_304) {
+        const raw = JSON.parse(readFileSync(nycPath, 'utf-8'));
+        return parseCoverageSummaryJson(raw, '.nyc_output/out.json');
+      }
     } catch {
       // malformed
     }
@@ -2167,8 +2173,10 @@ const intelligenceCommand: Command = {
         try {
           const pStat = statSync(persistence.patternsFile);
           patternsFileSize = pStat.size;
-          const pData = JSON.parse(readFileSync(persistence.patternsFile, 'utf-8'));
-          if (Array.isArray(pData)) patternsFileEntries = pData.length;
+          if (patternsFileSize <= 4_194_304) {
+            const pData = JSON.parse(readFileSync(persistence.patternsFile, 'utf-8'));
+            if (Array.isArray(pData)) patternsFileEntries = pData.length;
+          }
         } catch { /* ignore */ }
       }
 
@@ -2177,9 +2185,12 @@ const intelligenceCommand: Command = {
       let lastAdaptationFromDisk: number | null = null;
       if (persistence.statsExist) {
         try {
-          const sData = JSON.parse(readFileSync(persistence.statsFile, 'utf-8'));
-          trajectoriesFromDisk = sData?.trajectoriesRecorded ?? 0;
-          lastAdaptationFromDisk = sData?.lastAdaptation ?? null;
+          const sStat = statSync(persistence.statsFile);
+          if (sStat.size <= 524_288) {
+            const sData = JSON.parse(readFileSync(persistence.statsFile, 'utf-8'));
+            trajectoriesFromDisk = sData?.trajectoriesRecorded ?? 0;
+            lastAdaptationFromDisk = sData?.lastAdaptation ?? null;
+          }
         } catch { /* ignore */ }
       }
 
@@ -4069,10 +4080,12 @@ const statuslineCommand: Command = {
       for (const lPath of learningJsonPaths) {
         if (fs.existsSync(lPath)) {
           try {
-            const data = JSON.parse(fs.readFileSync(lPath, 'utf-8'));
-            if (data.intelligence?.score !== undefined) {
-              intelligencePct = Math.min(100, Math.floor(data.intelligence.score));
-              break;
+            if (fs.statSync(lPath).size <= 524_288) {
+              const data = JSON.parse(fs.readFileSync(lPath, 'utf-8'));
+              if (data.intelligence?.score !== undefined) {
+                intelligencePct = Math.min(100, Math.floor(data.intelligence.score));
+                break;
+              }
             }
           } catch { /* ignore */ }
         }
@@ -4201,9 +4214,11 @@ const statuslineCommand: Command = {
     const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
     if (fs.existsSync(settingsPath)) {
       try {
-        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-        if (settings.hooks) {
-          hooksStats.enabled = Object.values(settings.hooks).filter((h: unknown) => h && typeof h === 'object').length;
+        if (fs.statSync(settingsPath).size <= 524_288) {
+          const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+          if (settings.hooks) {
+            hooksStats.enabled = Object.values(settings.hooks).filter((h: unknown) => h && typeof h === 'object').length;
+          }
         }
       } catch { /* ignore */ }
     }
@@ -4286,11 +4301,13 @@ const statuslineCommand: Command = {
     const vectorsPath = path.join(process.cwd(), '.monomind', 'vectors.json');
     if (fs.existsSync(vectorsPath) && agentdbStats.vectorCount === 0) {
       try {
-        const data = JSON.parse(fs.readFileSync(vectorsPath, 'utf-8'));
-        if (Array.isArray(data)) {
-          agentdbStats.vectorCount = data.length;
-        } else if (data.vectors) {
-          agentdbStats.vectorCount = Object.keys(data.vectors).length;
+        if (fs.statSync(vectorsPath).size <= 8_388_608) {
+          const data = JSON.parse(fs.readFileSync(vectorsPath, 'utf-8'));
+          if (Array.isArray(data)) {
+            agentdbStats.vectorCount = data.length;
+          } else if (data.vectors) {
+            agentdbStats.vectorCount = Object.keys(data.vectors).length;
+          }
         }
       } catch { /* ignore */ }
     }
