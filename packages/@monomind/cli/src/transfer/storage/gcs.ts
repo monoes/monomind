@@ -219,6 +219,14 @@ export async function downloadFromGCS(
     if (cfg?.projectId) downloadArgs.push(`--project=${cfg.projectId}`);
     execFileSync('gcloud', downloadArgs, { encoding: 'utf-8', stdio: 'pipe' });
 
+    const MAX_GCS_DOWNLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
+    const fileSize = fs.statSync(tempFile).size;
+    if (fileSize > MAX_GCS_DOWNLOAD_BYTES) {
+      const resolvedTemp2 = path.resolve(tempFile);
+      if (resolvedTemp2.startsWith(path.resolve(tempDir))) fs.unlinkSync(tempFile);
+      console.error(`[GCS] Downloaded file exceeds size limit (${fileSize} > ${MAX_GCS_DOWNLOAD_BYTES} bytes)`);
+      return null;
+    }
     const content = fs.readFileSync(tempFile);
     const resolvedTemp = path.resolve(tempFile);
     if (resolvedTemp.startsWith(path.resolve(tempDir))) {
