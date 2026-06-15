@@ -3,8 +3,14 @@
  * what actually happened. This is the foundation for routing-accuracy metrics
  * and for giving SONA a real training label.
  */
-import { promises as fs } from 'node:fs';
+import { promises as fs, statSync } from 'node:fs';
 import { join } from 'node:path';
+
+/** Refuse to read files larger than this to prevent OOM. */
+const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+
+/** Cap string fields stored in each record to prevent file bloat. */
+const MAX_FIELD_LEN = 500;
 
 export interface RouteOutcomeRecord {
   routeId: string;
@@ -36,7 +42,15 @@ export async function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Pro
   try {
     await fs.mkdir(baseDir, { recursive: true });
     const path = storePath(baseDir);
-    await fs.appendFile(path, JSON.stringify(rec) + '\n', 'utf8');
+    // Cap string fields to prevent individual records from bloating the file.
+    const safeRec: RouteOutcomeRecord = {
+      ...rec,
+      routeId: rec.routeId.slice(0, MAX_FIELD_LEN),
+      task: rec.task.slice(0, MAX_FIELD_LEN),
+      recommendedAgent: rec.recommendedAgent.slice(0, MAX_FIELD_LEN),
+      routingMethod: rec.routingMethod.slice(0, 64),
+    };
+    await fs.appendFile(path, JSON.stringify(safeRec) + '\n', 'utf8');
     // Opportunistic trim: rewrite only when the file exceeds the cap.
     // Avoids an extra stat() on every call by catching the overcount lazily.
     const content = await fs.readFile(path, 'utf8').catch(() => '');
@@ -57,6 +71,7 @@ export async function joinOutcome(
 ): Promise<void> {
   try {
     const path = storePath(baseDir);
+    try { if (statSync(path).size > MAX_FILE_BYTES) return; } catch { /* file absent */ }
     const content = await fs.readFile(path, 'utf8').catch(() => '');
     if (!content) return;
     const lines = content.trim().split('\n');
@@ -88,6 +103,7 @@ export async function joinLatestUnresolved(
 ): Promise<string | null> {
   try {
     const path = storePath(baseDir);
+    try { if (statSync(path).size > MAX_FILE_BYTES) return null; } catch { /* file absent */ }
     const content = await fs.readFile(path, 'utf8').catch(() => '');
     if (!content) return null;
     const lines = content.trim().split('\n');
@@ -113,7 +129,9 @@ export async function joinLatestUnresolved(
 /** Read all outcome records (for metrics). */
 export async function readOutcomes(baseDir: string): Promise<RouteOutcomeRecord[]> {
   try {
-    const content = await fs.readFile(storePath(baseDir), 'utf8').catch(() => '');
+    const p = storePath(baseDir);
+    try { if (statSync(p).size > MAX_FILE_BYTES) return []; } catch { /* file absent */ }
+    const content = await fs.readFile(p, 'utf8').catch(() => '');
     if (!content) return [];
     return content.trim().split('\n').map(l => {
       try { return JSON.parse(l) as RouteOutcomeRecord; } catch { return null; }
