@@ -98,9 +98,14 @@ export const terminalTools = [
                 }
             }
             const id = `term-${Date.now()}-${randomBytes(4).toString('hex')}`;
+            // Cap session name: stored in terminal JSON store on disk.
+            const MAX_TERMINAL_NAME_LEN = 256;
+            const rawTerminalName = input.name || `Terminal ${Object.keys(store.sessions).length + 1}`;
+            const terminalName = typeof rawTerminalName === 'string' && rawTerminalName.length > MAX_TERMINAL_NAME_LEN
+                ? rawTerminalName.slice(0, MAX_TERMINAL_NAME_LEN) : rawTerminalName;
             const session = {
                 id,
-                name: input.name || `Terminal ${Object.keys(store.sessions).length + 1}`,
+                name: terminalName,
                 status: 'active',
                 createdAt: new Date().toISOString(),
                 lastActivity: new Date().toISOString(),
@@ -137,7 +142,13 @@ export const terminalTools = [
         handler: async (input) => {
             const store = loadTerminalStore();
             const sessionId = input.sessionId;
-            const command = input.command;
+            // Cap command: the metacharacter regex check at line 220 is O(n), and the
+            // raw command is stored verbatim in session history (up to 200 entries).
+            // A realistic shell command is well under 64 KB; cap there.
+            const MAX_TERMINAL_COMMAND_LEN = 64 * 1024;
+            const rawCommand = input.command;
+            const command = typeof rawCommand === 'string' && rawCommand.length > MAX_TERMINAL_COMMAND_LEN
+                ? rawCommand.slice(0, MAX_TERMINAL_COMMAND_LEN) : rawCommand;
             const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
             // Reject inherited keys (incl. toString/hasOwnProperty/etc.) so a tampered
             // store.json can't redirect bracket access into Object.prototype.
