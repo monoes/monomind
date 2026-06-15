@@ -1300,6 +1300,12 @@ Analyze the above codebase context and provide your response following the forma
       let stdout = '';
       let stderr = '';
       let resolved = false;
+      // Cap stdout + stderr to 10 MB each to prevent OOM if a spawned Claude
+      // Code process emits unexpectedly large output (e.g. a worker that dumps
+      // a large file listing).  Once the cap is reached we stop appending; the
+      // truncation marker lets callers detect that output was cut.
+      const MAX_HEADLESS_OUTPUT_BYTES = 10 * 1024 * 1024; // 10 MB
+      const TRUNCATION_MARKER = '\n[... output truncated at 10 MB ...]';
 
       const cleanup = () => {
         clearTimeout(timeoutHandle);
@@ -1309,7 +1315,12 @@ Analyze the above codebase context and provide your response following the forma
 
       child.stdout?.on('data', (data: Buffer) => {
         const chunk = data.toString();
-        stdout += chunk;
+        if (stdout.length < MAX_HEADLESS_OUTPUT_BYTES) {
+          stdout += chunk;
+          if (stdout.length >= MAX_HEADLESS_OUTPUT_BYTES) {
+            stdout = stdout.slice(0, MAX_HEADLESS_OUTPUT_BYTES) + TRUNCATION_MARKER;
+          }
+        }
         this.emit('output', {
           executionId: options.executionId,
           type: 'stdout',
@@ -1319,7 +1330,12 @@ Analyze the above codebase context and provide your response following the forma
 
       child.stderr?.on('data', (data: Buffer) => {
         const chunk = data.toString();
-        stderr += chunk;
+        if (stderr.length < MAX_HEADLESS_OUTPUT_BYTES) {
+          stderr += chunk;
+          if (stderr.length >= MAX_HEADLESS_OUTPUT_BYTES) {
+            stderr = stderr.slice(0, MAX_HEADLESS_OUTPUT_BYTES) + TRUNCATION_MARKER;
+          }
+        }
         this.emit('output', {
           executionId: options.executionId,
           type: 'stderr',
