@@ -2388,8 +2388,18 @@ export const hooksPatternSearch = {
         required: ['query'],
     },
     handler: async (params) => {
-        const query = params.query;
-        const topK = params.topK || 5;
+        // Cap query length to prevent DoS via large embedding generation (same
+        // class of bug fixed in neural_patterns search and hooksPatternStore).
+        const MAX_SEARCH_QUERY_LEN = 16 * 1024; // 16 KB — matches neural_patterns cap
+        const MAX_TOP_K = 100;
+        const rawQuery = params.query;
+        const query = typeof rawQuery === 'string' && rawQuery.length > MAX_SEARCH_QUERY_LEN
+            ? rawQuery.slice(0, MAX_SEARCH_QUERY_LEN)
+            : rawQuery;
+        const rawTopK = params.topK;
+        const topK = Number.isFinite(rawTopK) && rawTopK > 0
+            ? Math.min(Math.floor(rawTopK), MAX_TOP_K)
+            : 5;
         const minConfidence = params.minConfidence || 0.3;
         const namespace = params.namespace || 'pattern';
         // Phase 3: Try ReasoningBank search via bridge first
