@@ -127,7 +127,7 @@ const testCommand = {
     ],
     action: async (ctx) => {
         try {
-            const provider = ctx.flags.provider || (ctx.args && ctx.args[0]) || '';
+            const provider = (ctx.flags.provider || (ctx.args && ctx.args[0]) || '').slice(0, 64);
             const testAll = ctx.flags.all;
             output.writeln();
             output.writeln(output.bold('Provider Connectivity Test'));

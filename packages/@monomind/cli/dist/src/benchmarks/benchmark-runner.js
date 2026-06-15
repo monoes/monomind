@@ -23,9 +23,22 @@ export class BenchmarkRunner {
         if (!fs.existsSync(resolved)) {
             return benchmarks;
         }
+        const MAX_BENCH_FILE_SIZE = 1 * 1024 * 1024; // 1 MB per benchmark file
         const files = fs.readdirSync(resolved).filter((f) => f.endsWith('.json'));
         for (const file of files) {
             const filePath = path.join(resolved, file);
+            // Guard against OOM: reject symlinks and oversized files before reading
+            let stat;
+            try {
+                stat = fs.lstatSync(filePath);
+            }
+            catch {
+                continue;
+            }
+            if (stat.isSymbolicLink())
+                continue;
+            if (stat.size > MAX_BENCH_FILE_SIZE)
+                continue;
             const raw = fs.readFileSync(filePath, 'utf-8');
             try {
                 const parsed = JSON.parse(raw);
