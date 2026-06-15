@@ -1,5 +1,3 @@
-import * as path from 'node:path';
-
 export interface ProjectFile {
   fileId: number;
   path: string;
@@ -16,16 +14,25 @@ export interface WorkspaceEntry {
 export interface ProjectState {
   files: ProjectFile[];
   pathToId: Map<string, number>;
+  /** O(1) lookup by numeric fileId */
+  idToFile: Map<number, ProjectFile>;
   workspaces: WorkspaceEntry[];
 }
 
 export function makeProjectState(files: ProjectFile[], workspaces: WorkspaceEntry[]): ProjectState {
-  const pathToId = new Map(files.map(f => [f.path, f.fileId]));
-  return { files, pathToId, workspaces };
+  // Build both lookup maps in a single pass to avoid intermediate arrays
+  const pathToId = new Map<string, number>();
+  const idToFile = new Map<number, ProjectFile>();
+  for (const f of files) {
+    pathToId.set(f.path, f.fileId);
+    idToFile.set(f.fileId, f);
+  }
+  return { files, pathToId, idToFile, workspaces };
 }
 
 export function fileById(state: ProjectState, fileId: number): ProjectFile | undefined {
-  return state.files.find(f => f.fileId === fileId);
+  // O(1) lookup via idToFile map instead of O(N) linear scan
+  return state.idToFile.get(fileId);
 }
 
 export function idForPath(state: ProjectState, filePath: string): number | undefined {
@@ -62,10 +69,13 @@ export class PackageResolver {
   private entries: Array<{ root: string; name: string }>;
 
   constructor(workspaces: WorkspaceEntry[]) {
-    this.entries = workspaces
-      .filter(w => w.name)
-      .map(w => ({ root: w.root, name: w.name! }))
-      .sort((a, b) => b.root.length - a.root.length);
+    // Combine filter + map into a single for-of loop to avoid 2 intermediate arrays
+    const named: Array<{ root: string; name: string }> = [];
+    for (const w of workspaces) {
+      if (w.name) named.push({ root: w.root, name: w.name });
+    }
+    named.sort((a, b) => b.root.length - a.root.length);
+    this.entries = named;
   }
 
   resolvePackage(filePath: string): string | undefined {
