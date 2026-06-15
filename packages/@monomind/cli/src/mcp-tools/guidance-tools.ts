@@ -422,7 +422,14 @@ const guidanceRecommend: MCPTool = {
     required: ['task'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const task = params.task as string;
+    // Cap task: iterated through 14 regex patterns via route.pattern.test(task).
+    // Each .test() call is O(n) on the input string; without a cap an attacker
+    // can make every routing call O(14n) on an arbitrary-length string.
+    const MAX_GUIDANCE_TASK_LEN = 16 * 1024;
+    const rawTask = params.task as string;
+    const task = typeof rawTask === 'string' && rawTask.length > MAX_GUIDANCE_TASK_LEN
+      ? rawTask.slice(0, MAX_GUIDANCE_TASK_LEN)
+      : rawTask;
     const matches: Array<{ area: string; capability: CapabilityArea; workflow: string; score: number }> = [];
 
     for (const route of TASK_ROUTES) {
