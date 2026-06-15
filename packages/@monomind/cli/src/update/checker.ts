@@ -91,6 +91,14 @@ interface NpmPackageInfo {
   versions: Record<string, unknown>;
 }
 
+// Cap registry response at 5 MB. The full npm registry payload for a package
+// can include the entire `versions` object (dozens of version entries with
+// dist/scripts/dependencies for each). A spoofed or compromised registry
+// endpoint could stream an arbitrarily large body; AbortSignal.timeout(5000)
+// only enforces a wall-clock deadline and does NOT cap bytes. Without this
+// cap, fetchPackageInfo will buffer an unbounded body into memory (OOM).
+const MAX_REGISTRY_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 async function fetchPackageInfo(packageName: string): Promise<NpmPackageInfo | null> {
   if (!isValidNpmName(packageName)) return null;
   try {
@@ -106,7 +114,38 @@ async function fetchPackageInfo(packageName: string): Promise<NpmPackageInfo | n
       return null;
     }
 
-    return (await response.json()) as NpmPackageInfo;
+    // Reject immediately if Content-Length header exceeds cap
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) {
+      const declared = parseInt(contentLength, 10);
+      if (Number.isFinite(declared) && declared > MAX_REGISTRY_RESPONSE_BYTES) {
+        return null;
+      }
+    }
+
+    // Stream body and enforce byte cap — prevents OOM if the server streams
+    // a large body that evades the Content-Length check (missing/wrong header).
+    if (!response.body) return null;
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        totalBytes += value.byteLength;
+        if (totalBytes > MAX_REGISTRY_RESPONSE_BYTES) {
+          await reader.cancel();
+          return null;
+        }
+        chunks.push(value);
+      }
+    }
+    const buf = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) { buf.set(chunk, offset); offset += chunk.byteLength; }
+    const text = new TextDecoder('utf-8').decode(buf);
+    return JSON.parse(text) as NpmPackageInfo;
   } catch {
     return null;
   }

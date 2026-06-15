@@ -61,7 +61,7 @@ const statusCommand: Command = {
     let hasv1Config = false;
 
     try {
-      if (fs.existsSync(v2ConfigPath)) {
+      if (fs.existsSync(v2ConfigPath) && fs.statSync(v2ConfigPath).size <= MAX_MIGRATE_FILE_BYTES) {
         const raw = fs.readFileSync(v2ConfigPath, 'utf-8');
         const parsed = JSON.parse(raw);
         if (parsed.version === '2' || parsed.version === 2 || !parsed.version) {
@@ -124,7 +124,7 @@ const statusCommand: Command = {
     const migrationStatePath = path.join(cwd, '.monomind', 'migration-state.json');
     let migrationState: string | null = null;
     try {
-      if (fs.existsSync(migrationStatePath)) {
+      if (fs.existsSync(migrationStatePath) && fs.statSync(migrationStatePath).size <= MAX_MIGRATE_FILE_BYTES) {
         const raw = fs.readFileSync(migrationStatePath, 'utf-8');
         const parsed = JSON.parse(raw);
         migrationState = parsed.status || 'unknown';
@@ -238,7 +238,7 @@ const runCommand: Command = {
     if (!target || target === 'config') {
       const v2ConfigPath = path.join(cwd, 'monomind.config.json');
       try {
-        if (fs.existsSync(v2ConfigPath)) {
+        if (fs.existsSync(v2ConfigPath) && fs.statSync(v2ConfigPath).size <= MAX_MIGRATE_FILE_BYTES) {
           const raw = fs.readFileSync(v2ConfigPath, 'utf-8');
           const parsed = JSON.parse(raw);
           if (parsed.version === '2' || parsed.version === 2 || !parsed.version) {
@@ -442,7 +442,7 @@ const verifyCommand: Command = {
     // Check 1: Migration state file exists
     let migrationState: Record<string, unknown> | null = null;
     try {
-      if (fs.existsSync(migrationStatePath)) {
+      if (fs.existsSync(migrationStatePath) && fs.statSync(migrationStatePath).size <= MAX_MIGRATE_FILE_BYTES) {
         const raw = fs.readFileSync(migrationStatePath, 'utf-8');
         migrationState = JSON.parse(raw);
         checks.push({ check: 'Migration state file', result: 'passed' });
@@ -458,7 +458,7 @@ const verifyCommand: Command = {
     // Check 2: v1 config exists and is valid JSON
     const v1ConfigPath = path.join(v1Dir, 'config.json');
     try {
-      if (fs.existsSync(v1ConfigPath)) {
+      if (fs.existsSync(v1ConfigPath) && fs.statSync(v1ConfigPath).size <= MAX_MIGRATE_FILE_BYTES) {
         const raw = fs.readFileSync(v1ConfigPath, 'utf-8');
         JSON.parse(raw); // validate JSON
         checks.push({ check: 'v1 config (valid JSON)', result: 'passed' });

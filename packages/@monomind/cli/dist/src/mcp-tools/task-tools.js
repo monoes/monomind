@@ -71,15 +71,36 @@ export const taskTools = [
         handler: async (input) => {
             const store = loadTaskStore();
             const taskId = `task-${Date.now()}-${randomBytes(4).toString('hex')}`;
+            // Cap all string fields: they are persisted verbatim to the task JSON store.
+            const MAX_TASK_TYPE_LEN = 128;
+            const MAX_TASK_DESC_LEN = 64 * 1024; // 64 KB — realistic task descriptions
+            const MAX_TASK_ASSIGNEE_LEN = 256;
+            const MAX_TASK_ASSIGNEES = 100;
+            const MAX_TASK_TAG_LEN = 128;
+            const MAX_TASK_TAGS = 50;
+            const rawTaskType = input.type;
+            const taskType = typeof rawTaskType === 'string' && rawTaskType.length > MAX_TASK_TYPE_LEN
+                ? rawTaskType.slice(0, MAX_TASK_TYPE_LEN) : rawTaskType;
+            const rawTaskDesc = input.description;
+            const taskDesc = typeof rawTaskDesc === 'string' && rawTaskDesc.length > MAX_TASK_DESC_LEN
+                ? rawTaskDesc.slice(0, MAX_TASK_DESC_LEN) : rawTaskDesc;
+            const rawAssignTo = input.assignTo || [];
+            const assignedTo = Array.isArray(rawAssignTo)
+                ? rawAssignTo.slice(0, MAX_TASK_ASSIGNEES).map(a => typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN ? a.slice(0, MAX_TASK_ASSIGNEE_LEN) : a)
+                : [];
+            const rawTags = input.tags || [];
+            const tags = Array.isArray(rawTags)
+                ? rawTags.slice(0, MAX_TASK_TAGS).map(t => typeof t === 'string' && t.length > MAX_TASK_TAG_LEN ? t.slice(0, MAX_TASK_TAG_LEN) : t)
+                : [];
             const task = {
                 taskId,
-                type: input.type,
-                description: input.description,
+                type: taskType,
+                description: taskDesc,
                 priority: input.priority || 'normal',
                 status: 'pending',
                 progress: 0,
-                assignedTo: input.assignTo || [],
-                tags: input.tags || [],
+                assignedTo,
+                tags,
                 createdAt: new Date().toISOString(),
                 startedAt: null,
                 completedAt: null,
@@ -172,8 +193,13 @@ export const taskTools = [
             }
             // Sort by creation date (newest first)
             tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            // Apply limit
-            const limit = input.limit || 50;
+            // Apply limit — cap to 1 000 to prevent returning the entire task store
+            // in one response, which could cause OOM on large deployments.
+            const MAX_TASK_LIMIT = 1_000;
+            const rawLimit = typeof input.limit === 'number' ? input.limit : 50;
+            const limit = Number.isFinite(rawLimit) && rawLimit > 0
+                ? Math.min(Math.floor(rawLimit), MAX_TASK_LIMIT)
+                : 50;
             tasks = tasks.slice(0, limit);
             return {
                 tasks: tasks.map(t => ({
@@ -225,7 +251,7 @@ export const taskTools = [
                     const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
                     try {
                         let agentStore = { agents: {} };
-                        if (existsSync(agentStorePath)) {
+                        if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
                             const agentRaw = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
                             if (agentRaw && typeof agentRaw === 'object' && !Object.prototype.hasOwnProperty.call(agentRaw, '__proto__')) {
                                 agentStore = agentRaw;
@@ -298,7 +324,15 @@ export const taskTools = [
                     task.progress = Math.min(100, Math.max(0, input.progress));
                 }
                 if (input.assignTo) {
-                    task.assignedTo = input.assignTo;
+                    // Cap array and element lengths — task_create already does this;
+                    // task_update must apply the same guards so the on-disk store
+                    // cannot be inflated via the update path.
+                    const MAX_TASK_ASSIGNEE_LEN = 256;
+                    const MAX_TASK_ASSIGNEES = 100;
+                    const rawAssignTo = input.assignTo;
+                    task.assignedTo = Array.isArray(rawAssignTo)
+                        ? rawAssignTo.slice(0, MAX_TASK_ASSIGNEES).map(a => typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN ? a.slice(0, MAX_TASK_ASSIGNEE_LEN) : a)
+                        : task.assignedTo;
                 }
                 saveTaskStore(store);
                 return {
@@ -343,7 +377,7 @@ export const taskTools = [
             const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
             let agentStore = { agents: {} };
             try {
-                if (existsSync(agentStorePath)) {
+                if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
                     agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
                 }
             }
@@ -426,7 +460,15 @@ export const taskTools = [
             if (task) {
                 task.status = 'cancelled';
                 task.completedAt = new Date().toISOString();
-                task.result = { cancelReason: input.reason || 'Cancelled by user' };
+                // Cap reason: persisted verbatim to the task store on disk.
+                // Without a cap an attacker can inflate the store with an arbitrarily
+                // large cancellation reason string.
+                const MAX_CANCEL_REASON_LEN = 1024;
+                const rawReason = input.reason;
+                const cancelReason = typeof rawReason === 'string' && rawReason.length > MAX_CANCEL_REASON_LEN
+                    ? rawReason.slice(0, MAX_CANCEL_REASON_LEN)
+                    : (rawReason || 'Cancelled by user');
+                task.result = { cancelReason };
                 saveTaskStore(store);
                 return {
                     success: true,

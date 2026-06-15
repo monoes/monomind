@@ -215,15 +215,18 @@ const installCommand: Command = {
     { command: 'monomind plugins install -n ./my-plugin --dev', description: 'Install local plugin' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const name = ctx.flags.name as string;
+    const rawName = ctx.flags.name as string;
     const version = ctx.flags.version as string || 'latest';
     const registryName = ctx.flags.registry as string;
     const verify = ctx.flags.verify !== false;
 
-    if (!name) {
+    if (!rawName) {
       output.printError('Plugin name is required');
       return { success: false, exitCode: 1 };
     }
+
+    // Cap plugin name and version to prevent DoS/injection
+    const name = typeof rawName === 'string' ? rawName.slice(0, 214) : '';
 
     // Check if it's a local path
     const isLocalPath = name.startsWith('./') || name.startsWith('/') || name.startsWith('../');
@@ -713,17 +716,23 @@ const searchCommand: Command = {
     { command: 'monomind plugins search -q security --verified', description: 'Search verified security plugins' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const query = ctx.flags.query as string;
+    const rawQuery = ctx.flags.query as string;
     const category = ctx.flags.category as string;
     const type = ctx.flags.type as string;
     const verified = ctx.flags.verified as boolean;
-    const limit = (ctx.flags.limit as number) || 20;
+    const rawLimit = ctx.flags.limit as number;
     const registryName = ctx.flags.registry as string;
 
-    if (!query) {
+    if (!rawQuery) {
       output.printError('Search query is required');
       return { success: false, exitCode: 1 };
     }
+
+    // Cap query length and limit to prevent DoS
+    const query = typeof rawQuery === 'string' ? rawQuery.slice(0, 200) : '';
+    const limit = typeof rawLimit === 'number' && Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(Math.floor(rawLimit), 100))
+      : 20;
 
     const spinner = output.createSpinner({ text: 'Searching plugin registry...', spinner: 'dots' });
     spinner.start();

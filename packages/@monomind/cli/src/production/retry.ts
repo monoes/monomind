@@ -101,13 +101,15 @@ function calculateDelay(
 }
 
 /**
- * Fibonacci helper for fibonacci backoff
+ * Fibonacci helper for fibonacci backoff — capped at n=40 to prevent
+ * excessively long loops when maxAttempts is set to a large value.
  */
 function fibonacci(n: number): number {
-  if (n <= 1) return 1;
+  const capped = Math.min(n, 40);
+  if (capped <= 1) return 1;
   let a = 1,
     b = 1;
-  for (let i = 2; i <= n; i++) {
+  for (let i = 2; i <= capped; i++) {
     [a, b] = [b, a + b];
   }
   return b;
@@ -154,8 +156,12 @@ export async function withRetry<T>(
   strategy: RetryStrategy = 'exponential',
 ): Promise<RetryResult<T>> {
   const finalConfig: RetryConfig = { ...DEFAULT_CONFIG, ...config };
+  // Clamp maxAttempts and maxDelayMs to safe ranges to prevent runaway retry loops
+  finalConfig.maxAttempts = Math.min(Math.max(1, finalConfig.maxAttempts), 100);
+  finalConfig.maxDelayMs = Math.min(Math.max(0, finalConfig.maxDelayMs), 300_000); // 5 min ceiling
   const startTime = Date.now();
   const retryHistory: RetryResult<T>['retryHistory'] = [];
+  const MAX_RETRY_HISTORY = 100;
   let lastError: Error | undefined;
   let attempt = 0;
 
@@ -187,12 +193,14 @@ export async function withRetry<T>(
       // Calculate delay
       const delay = calculateDelay(attempt, finalConfig, strategy);
 
-      // Record retry
-      retryHistory.push({
-        attempt,
-        error: lastError.message,
-        delayMs: delay,
-      });
+      // Record retry (cap history size and error message length to prevent OOM)
+      if (retryHistory.length < MAX_RETRY_HISTORY) {
+        retryHistory.push({
+          attempt,
+          error: lastError.message.slice(0, 512),
+          delayMs: delay,
+        });
+      }
 
       // Call retry callback
       if (finalConfig.onRetry) {

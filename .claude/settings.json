@@ -65,6 +65,16 @@
             "timeout": 3000
           }
         ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" pre-tool",
+            "timeout": 2000
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -107,6 +117,27 @@
             "timeout": 2000
           }
         ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" post-tool",
+            "timeout": 2000
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" notification",
+            "timeout": 2000
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -116,6 +147,15 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" route",
             "timeout": 10000
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" user-prompt",
+            "timeout": 2000
           }
         ]
       }
@@ -142,6 +182,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/control-start.cjs\"",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" session-start",
+            "timeout": 2000
           }
         ]
       }
@@ -153,6 +198,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" session-end",
+            "timeout": 2000
           }
         ]
       }
@@ -164,6 +214,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" sync",
             "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" stop",
+            "timeout": 2000
           }
         ]
       }
@@ -180,6 +235,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" compact",
+            "timeout": 2000
           }
         ]
       },
@@ -194,6 +254,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 6000
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" compact",
+            "timeout": 2000
           }
         ]
       }
@@ -210,6 +275,22 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-task",
             "timeout": 3000
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" subagent-start",
+            "timeout": 2000
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" subagent-stop",
+            "timeout": 2000
           }
         ]
       }
@@ -221,6 +302,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-task",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" teammate-idle",
+            "timeout": 2000
           }
         ]
       }
@@ -232,6 +318,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-task",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" task-completed",
+            "timeout": 2000
           }
         ]
       }
@@ -239,7 +330,7 @@
   },
   "attribution": {
     "commit": "Co-Authored-By: nokhodian <nokhodian@gmail.com>",
-    "pr": "\ud83e\udd16 Generated with [monomind](https://github.com/monoes/monomind)"
+    "pr": "🤖 Generated with [monomind](https://github.com/monoes/monomind)"
   },
   "monomind": {
     "version": "3.5.2",

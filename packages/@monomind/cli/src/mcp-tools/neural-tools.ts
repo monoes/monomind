@@ -184,7 +184,12 @@ export const neuralTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadNeuralStore();
-      const modelId = (input.modelId as string) || `model-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      // Cap modelId to prevent DoS via oversized object keys written to the neural store JSON.
+      const MAX_MODEL_ID_LEN = 256;
+      const rawModelId = (input.modelId as string) || `model-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const modelId = typeof rawModelId === 'string' && rawModelId.length > MAX_MODEL_ID_LEN
+        ? rawModelId.slice(0, MAX_MODEL_ID_LEN)
+        : rawModelId;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
       if (RESERVED_KEYS.has(modelId)) {
@@ -201,8 +206,19 @@ export const neuralTools: MCPTool[] = [
         return { success: false, error: `Model store full (max ${MAX_MODELS}). Delete old models first.` };
       }
 
-      const modelType = input.modelType as NeuralModel['type'];
-      const epochs = (input.epochs as number) || 10;
+      // Runtime-validate modelType against the allowed enum. The JSON schema
+      // declares an enum but callers that bypass schema validation (e.g. direct
+      // MCP calls) can pass arbitrary strings, which would be stored verbatim.
+      const VALID_MODEL_TYPES = new Set<string>(['moe', 'transformer', 'classifier', 'embedding']);
+      const rawModelType = input.modelType as string;
+      if (!rawModelType || !VALID_MODEL_TYPES.has(rawModelType)) {
+        return { success: false, error: `Invalid modelType "${rawModelType}". Must be one of: moe, transformer, classifier, embedding` };
+      }
+      const modelType = rawModelType as NeuralModel['type'];
+      // Cap epochs to prevent storing absurdly large numbers in the JSON store.
+      const MAX_EPOCHS = 10000;
+      const rawEpochs = typeof input.epochs === 'number' && Number.isFinite(input.epochs) ? input.epochs : 10;
+      const epochs = Math.max(1, Math.min(Math.floor(rawEpochs), MAX_EPOCHS));
 
       const model: NeuralModel = {
         id: modelId,
@@ -270,7 +286,7 @@ export const neuralTools: MCPTool[] = [
         try {
           const patternsPath = join(getNeuralDir(), PATTERNS_FILE);
           let existing: Array<Record<string, unknown>> = [];
-          if (existsSync(patternsPath)) {
+          if (existsSync(patternsPath) && statSync(patternsPath).size <= MAX_NEURAL_STORE_BYTES) {
             const raw = readFileSync(patternsPath, 'utf-8');
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) existing = parsed;
@@ -326,7 +342,12 @@ export const neuralTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadNeuralStore();
-      const modelId = input.modelId as string;
+      // Cap modelId to prevent O(n) hash/compare cost on absurdly long keys.
+      const MAX_MODEL_ID_LEN_PRED = 256;
+      const rawModelIdPred = input.modelId as string;
+      const modelId = typeof rawModelIdPred === 'string' && rawModelIdPred.length > MAX_MODEL_ID_LEN_PRED
+        ? rawModelIdPred.slice(0, MAX_MODEL_ID_LEN_PRED)
+        : rawModelIdPred;
       const inputText = typeof input.input === 'string' ? input.input.slice(0, 16 * 1024) : '';
       const topK = Math.max(1, Math.min((input.topK as number) || 3, 50));
 
@@ -358,7 +379,7 @@ export const neuralTools: MCPTool[] = [
       const cliPatternsRaw: Array<{ id?: string; type?: string; content?: string; name?: string; embedding?: number[] }> = [];
       try {
         const cliPath = join(getNeuralDir(), PATTERNS_FILE);
-        if (existsSync(cliPath)) {
+        if (existsSync(cliPath) && statSync(cliPath).size <= MAX_NEURAL_STORE_BYTES) {
           const raw = JSON.parse(readFileSync(cliPath, 'utf-8'));
           if (Array.isArray(raw)) {
             const mcpIds = new Set(mcpPatterns.map(p => p.id));
@@ -464,7 +485,12 @@ export const neuralTools: MCPTool[] = [
         }
 
         const patternId = `pattern-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        const patternName = (input.name as string) || 'Unnamed pattern';
+        // Cap name length to prevent DoS in generateEmbedding (hash path is O(n))
+        const MAX_PATTERN_NAME_LENGTH = 16 * 1024; // 16 KB
+        const rawPatternName = (input.name as string) || 'Unnamed pattern';
+        const patternName = typeof rawPatternName === 'string' && rawPatternName.length > MAX_PATTERN_NAME_LENGTH
+          ? rawPatternName.slice(0, MAX_PATTERN_NAME_LENGTH)
+          : rawPatternName;
 
         // Generate embedding from pattern name/content
         const embedding = await generateEmbedding(patternName, 384);
@@ -494,7 +520,12 @@ export const neuralTools: MCPTool[] = [
       }
 
       if (action === 'search') {
-        const query = input.query as string;
+        // Cap query length to prevent DoS in generateEmbedding (hash path is O(n))
+        const MAX_SEARCH_QUERY_LENGTH = 16 * 1024; // 16 KB — matches neural_predict cap
+        const rawQuery = input.query as string;
+        const query = typeof rawQuery === 'string' && rawQuery.length > MAX_SEARCH_QUERY_LENGTH
+          ? rawQuery.slice(0, MAX_SEARCH_QUERY_LENGTH)
+          : rawQuery;
 
         // Generate query embedding for real similarity search
         const queryEmbedding = await generateEmbedding(query, 384);
@@ -671,7 +702,11 @@ export const neuralTools: MCPTool[] = [
       const store = loadNeuralStore();
 
       if (input.modelId) {
-        const modelId = input.modelId as string;
+        const MAX_MODEL_ID_LEN_STATUS = 256;
+        const rawModelIdStatus = input.modelId as string;
+        const modelId = typeof rawModelIdStatus === 'string' && rawModelIdStatus.length > MAX_MODEL_ID_LEN_STATUS
+          ? rawModelIdStatus.slice(0, MAX_MODEL_ID_LEN_STATUS)
+          : rawModelIdStatus;
         if (NEURAL_RESERVED_KEYS.has(modelId)) {
           return { success: false, error: 'Invalid modelId' };
         }

@@ -11,7 +11,7 @@
  * @module @monomind/cli/monovector/coverage-router
  */
 
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import { getProjectCwd } from '../mcp-tools/types.js';
 
@@ -109,6 +109,11 @@ const EMPTY: CoverageData = {
   },
 };
 
+/** Maximum bytes for a JSON coverage summary (20 MB). */
+const MAX_COVERAGE_JSON_BYTES = 20 * 1024 * 1024;
+/** Maximum bytes for an lcov.info file (50 MB). */
+const MAX_COVERAGE_LCOV_BYTES = 50 * 1024 * 1024;
+
 /**
  * Read coverage data from disk. Checks, in order:
  *  1. coverage/coverage-summary.json  (Jest/Istanbul)
@@ -120,7 +125,7 @@ const EMPTY: CoverageData = {
 export function readCoverage(cwd: string = getProjectCwd()): CoverageData {
   for (const rel of ['coverage/coverage-summary.json', 'coverage-summary.json']) {
     const p = join(cwd, rel);
-    if (existsSync(p)) {
+    if (existsSync(p) && statSync(p).size <= MAX_COVERAGE_JSON_BYTES) {
       try {
         return parseSummaryJson(JSON.parse(readFileSync(p, 'utf-8')), rel);
       } catch {
@@ -131,7 +136,7 @@ export function readCoverage(cwd: string = getProjectCwd()): CoverageData {
 
   for (const rel of ['coverage/lcov.info', 'lcov.info']) {
     const p = join(cwd, rel);
-    if (existsSync(p)) {
+    if (existsSync(p) && statSync(p).size <= MAX_COVERAGE_LCOV_BYTES) {
       try {
         return parseLcov(readFileSync(p, 'utf-8'), rel);
       } catch {
@@ -141,7 +146,7 @@ export function readCoverage(cwd: string = getProjectCwd()): CoverageData {
   }
 
   const nyc = join(cwd, '.nyc_output', 'out.json');
-  if (existsSync(nyc)) {
+  if (existsSync(nyc) && statSync(nyc).size <= MAX_COVERAGE_JSON_BYTES) {
     try {
       return parseSummaryJson(JSON.parse(readFileSync(nyc, 'utf-8')), '.nyc_output/out.json');
     } catch {

@@ -28,6 +28,19 @@ async function getASTAnalyzer() {
 async function getGraphAnalyzer() {
     return null;
 }
+/**
+ * Write analysis output to a file, constraining the path to the current working
+ * directory to prevent path traversal attacks via --output /etc/cron.d/x or
+ * similar. Throws if the resolved path escapes cwd.
+ */
+async function safeWriteOutputFile(outputFile, data) {
+    const projectRoot = path.resolve(process.cwd());
+    const fullPath = path.resolve(process.cwd(), outputFile);
+    if (!fullPath.startsWith(projectRoot + path.sep) && fullPath !== projectRoot) {
+        throw new Error(`Output path must resolve within the project directory: ${projectRoot}`);
+    }
+    await writeFile(fullPath, data);
+}
 // Diff subcommand
 const diffCommand = {
     name: 'diff',
@@ -557,7 +570,7 @@ const astCommand = {
             if (formatType === 'json') {
                 const jsonOutput = { files: results, totals };
                 if (outputFile) {
-                    await writeFile(outputFile, JSON.stringify(jsonOutput, null, 2));
+                    await safeWriteOutputFile(outputFile, JSON.stringify(jsonOutput, null, 2));
                     output.printSuccess(`Results written to ${outputFile}`);
                 }
                 else {
@@ -649,7 +662,7 @@ const astCommand = {
                 }
             }
             if (outputFile) {
-                await writeFile(outputFile, JSON.stringify({ files: results, totals }, null, 2));
+                await safeWriteOutputFile(outputFile, JSON.stringify({ files: results, totals }, null, 2));
                 output.printSuccess(`Results written to ${outputFile}`);
             }
             return { success: true, data: { files: results, totals } };
@@ -750,7 +763,7 @@ const complexityAstCommand = {
             if (formatType === 'json') {
                 const jsonOutput = { files: results, summary: { total: results.length, flagged: flaggedCount, avgComplexity, threshold } };
                 if (outputFile) {
-                    await writeFile(outputFile, JSON.stringify(jsonOutput, null, 2));
+                    await safeWriteOutputFile(outputFile, JSON.stringify(jsonOutput, null, 2));
                     output.printSuccess(`Results written to ${outputFile}`);
                 }
                 else {
@@ -800,7 +813,7 @@ const complexityAstCommand = {
                 output.writeln(output.dim(`  ... and ${results.length - 15} more files`));
             }
             if (outputFile) {
-                await writeFile(outputFile, JSON.stringify({ files: results, summary: { total: results.length, flagged: flaggedCount, avgComplexity, threshold } }, null, 2));
+                await safeWriteOutputFile(outputFile, JSON.stringify({ files: results, summary: { total: results.length, flagged: flaggedCount, avgComplexity, threshold } }, null, 2));
                 output.printSuccess(`Results written to ${outputFile}`);
             }
             return { success: true, data: { files: results, flaggedCount } };
@@ -907,7 +920,7 @@ const symbolsCommand = {
             symbols.sort((a, b) => a.file.localeCompare(b.file) || a.name.localeCompare(b.name));
             if (formatType === 'json') {
                 if (outputFile) {
-                    await writeFile(outputFile, JSON.stringify(symbols, null, 2));
+                    await safeWriteOutputFile(outputFile, JSON.stringify(symbols, null, 2));
                     output.printSuccess(`Results written to ${outputFile}`);
                 }
                 else {
@@ -941,7 +954,7 @@ const symbolsCommand = {
                 output.writeln(output.dim(`  ... and ${symbols.length - 30} more symbols`));
             }
             if (outputFile) {
-                await writeFile(outputFile, JSON.stringify(symbols, null, 2));
+                await safeWriteOutputFile(outputFile, JSON.stringify(symbols, null, 2));
                 output.printSuccess(`Results written to ${outputFile}`);
             }
             return { success: true, data: symbols };
@@ -1043,7 +1056,7 @@ const importsCommand = {
                     fileImports: Object.fromEntries(fileImports),
                 };
                 if (outputFile) {
-                    await writeFile(outputFile, JSON.stringify(jsonOutput, null, 2));
+                    await safeWriteOutputFile(outputFile, JSON.stringify(jsonOutput, null, 2));
                     output.printSuccess(`Results written to ${outputFile}`);
                 }
                 else {
@@ -1081,7 +1094,7 @@ const importsCommand = {
                 output.writeln(output.dim(`  ... and ${sortedImports.length - 20} more imports`));
             }
             if (outputFile) {
-                await writeFile(outputFile, JSON.stringify({
+                await safeWriteOutputFile(outputFile, JSON.stringify({
                     imports: Object.fromEntries(sortedImports),
                     fileImports: Object.fromEntries(fileImports),
                 }, null, 2));
@@ -1378,7 +1391,8 @@ const boundariesCommand = {
     ],
     action: async (ctx) => {
         const targetDir = ctx.args[0] || ctx.cwd;
-        const numPartitions = ctx.flags.partitions || 2;
+        const rawPartitions = ctx.flags.partitions || 2;
+        const numPartitions = Number.isFinite(rawPartitions) ? Math.max(1, Math.min(rawPartitions, 100)) : 2;
         const outputFile = ctx.flags.output;
         const format = ctx.flags.format || 'text';
         output.printInfo(`Analyzing code boundaries in: ${output.highlight(targetDir)}`);
@@ -1406,7 +1420,7 @@ const boundariesCommand = {
                     circularDependencies: result.circularDependencies,
                 };
                 if (outputFile) {
-                    await writeFile(outputFile, JSON.stringify(jsonOutput, null, 2));
+                    await safeWriteOutputFile(outputFile, JSON.stringify(jsonOutput, null, 2));
                     output.printSuccess(`Results written to ${outputFile}`);
                 }
                 else {
@@ -1420,7 +1434,7 @@ const boundariesCommand = {
                     highlightCycles: true,
                 });
                 if (outputFile) {
-                    await writeFile(outputFile, dotOutput);
+                    await safeWriteOutputFile(outputFile, dotOutput);
                     output.printSuccess(`DOT graph written to ${outputFile}`);
                     output.writeln(output.dim('Visualize with: dot -Tpng -o graph.png ' + outputFile));
                 }
@@ -1480,7 +1494,7 @@ const boundariesCommand = {
                 }
             }
             if (outputFile) {
-                await writeFile(outputFile, JSON.stringify(result, null, 2));
+                await safeWriteOutputFile(outputFile, JSON.stringify(result, null, 2));
                 output.printSuccess(`Full results written to ${outputFile}`);
             }
             return { success: true, data: result };
@@ -1558,7 +1572,7 @@ const modulesCommand = {
                     statistics: result.statistics,
                 };
                 if (outputFile) {
-                    await writeFile(outputFile, JSON.stringify(jsonOutput, null, 2));
+                    await safeWriteOutputFile(outputFile, JSON.stringify(jsonOutput, null, 2));
                     output.printSuccess(`Results written to ${outputFile}`);
                 }
                 else {
@@ -1573,7 +1587,7 @@ const modulesCommand = {
                     highlightCycles: true,
                 });
                 if (outputFile) {
-                    await writeFile(outputFile, dotOutput);
+                    await safeWriteOutputFile(outputFile, dotOutput);
                     output.printSuccess(`DOT graph written to ${outputFile}`);
                     output.writeln(output.dim('Visualize with: dot -Tpng -o modules.png ' + outputFile));
                 }
@@ -1614,7 +1628,7 @@ const modulesCommand = {
                 }
             }
             if (outputFile) {
-                await writeFile(outputFile, JSON.stringify(result, null, 2));
+                await safeWriteOutputFile(outputFile, JSON.stringify(result, null, 2));
                 output.printSuccess(`Full results written to ${outputFile}`);
             }
             return { success: true, data: result };
@@ -1682,7 +1696,8 @@ const dependenciesCommand = {
         const format = ctx.flags.format || 'text';
         const include = (ctx.flags.include || '.ts,.tsx,.js,.jsx,.mjs,.cjs').split(',');
         const exclude = (ctx.flags.exclude || 'node_modules,dist,build,.git').split(',');
-        const maxDepth = ctx.flags.depth || 10;
+        const rawDepth = ctx.flags.depth || 10;
+        const maxDepth = Number.isFinite(rawDepth) ? Math.max(1, Math.min(rawDepth, 50)) : 10;
         output.printInfo(`Building dependency graph for: ${output.highlight(targetDir)}`);
         output.writeln();
         const spinner = output.createSpinner({ text: 'Scanning files...', spinner: 'dots' });
@@ -1711,7 +1726,7 @@ const dependenciesCommand = {
                     circularDependencies: circularDeps,
                 };
                 if (outputFile) {
-                    await writeFile(outputFile, JSON.stringify(jsonOutput, null, 2));
+                    await safeWriteOutputFile(outputFile, JSON.stringify(jsonOutput, null, 2));
                     output.printSuccess(`Graph written to ${outputFile}`);
                 }
                 else {
@@ -1733,7 +1748,7 @@ const dependenciesCommand = {
                     highlightCycles: true,
                 });
                 if (outputFile) {
-                    await writeFile(outputFile, dotOutput);
+                    await safeWriteOutputFile(outputFile, dotOutput);
                     output.printSuccess(`DOT graph written to ${outputFile}`);
                     output.writeln(output.dim('Visualize with: dot -Tpng -o deps.png ' + outputFile));
                 }
@@ -1791,7 +1806,7 @@ const dependenciesCommand = {
                     metadata: graph.metadata,
                     circularDependencies: circularDeps,
                 };
-                await writeFile(outputFile, JSON.stringify(fullOutput, null, 2));
+                await safeWriteOutputFile(outputFile, JSON.stringify(fullOutput, null, 2));
                 output.printSuccess(`Full results written to ${outputFile}`);
             }
             return { success: true };
@@ -1865,7 +1880,7 @@ const circularCommand = {
             if (format === 'json') {
                 const jsonOutput = { cycles: filtered, total: cycles.length, filtered: filtered.length };
                 if (outputFile) {
-                    await writeFile(outputFile, JSON.stringify(jsonOutput, null, 2));
+                    await safeWriteOutputFile(outputFile, JSON.stringify(jsonOutput, null, 2));
                     output.printSuccess(`Results written to ${outputFile}`);
                 }
                 else {
@@ -1909,7 +1924,7 @@ const circularCommand = {
                 }
             }
             if (outputFile) {
-                await writeFile(outputFile, JSON.stringify({ cycles: filtered }, null, 2));
+                await safeWriteOutputFile(outputFile, JSON.stringify({ cycles: filtered }, null, 2));
                 output.printSuccess(`Results written to ${outputFile}`);
             }
             return { success: true, data: { cycles: filtered } };

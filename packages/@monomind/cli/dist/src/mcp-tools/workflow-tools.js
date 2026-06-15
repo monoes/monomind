@@ -98,7 +98,12 @@ export const workflowTools = [
         handler: async (input) => {
             const store = loadWorkflowStore();
             const template = input.template;
-            const task = input.task;
+            // Cap task description to prevent DoS via unbounded string stored in
+            // workflow record and serialised to disk.
+            const MAX_WORKFLOW_TASK_LEN = 16 * 1024;
+            const rawTask = input.task;
+            const task = typeof rawTask === 'string' && rawTask.length > MAX_WORKFLOW_TASK_LEN
+                ? rawTask.slice(0, MAX_WORKFLOW_TASK_LEN) : rawTask;
             const options = input.options || {};
             const dryRun = options.dryRun;
             // Build workflow from template or inline
@@ -192,7 +197,19 @@ export const workflowTools = [
         handler: async (input) => {
             const store = loadWorkflowStore();
             const workflowId = `workflow-${Date.now()}-${randomBytes(6).toString('hex')}`;
-            const steps = (input.steps || []).map((s, i) => ({
+            // Cap string fields before storing to disk.
+            const MAX_WF_NAME_LEN = 512;
+            const MAX_WF_DESC_LEN = 16 * 1024;
+            const MAX_WF_STEPS = 500;
+            const rawWfName = input.name;
+            const wfName = typeof rawWfName === 'string' && rawWfName.length > MAX_WF_NAME_LEN
+                ? rawWfName.slice(0, MAX_WF_NAME_LEN) : rawWfName;
+            const rawWfDesc = input.description;
+            const wfDesc = typeof rawWfDesc === 'string' && rawWfDesc.length > MAX_WF_DESC_LEN
+                ? rawWfDesc.slice(0, MAX_WF_DESC_LEN) : rawWfDesc;
+            const rawSteps = input.steps || [];
+            const cappedSteps = rawSteps.slice(0, MAX_WF_STEPS);
+            const steps = cappedSteps.map((s, i) => ({
                 stepId: `step-${i + 1}`,
                 name: s.name || `Step ${i + 1}`,
                 type: s.type || 'task',
@@ -201,8 +218,8 @@ export const workflowTools = [
             }));
             const workflow = {
                 workflowId,
-                name: input.name,
-                description: input.description,
+                name: wfName,
+                description: wfDesc,
                 steps,
                 status: steps.length > 0 ? 'ready' : 'draft',
                 currentStep: 0,
@@ -355,8 +372,14 @@ export const workflowTools = [
             }
             // Sort by creation date (newest first)
             workflows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            // Apply limit
-            const limit = input.limit || 20;
+            // Apply limit — cap to 1 000 to prevent returning the full (potentially
+            // large) in-memory workflow store in one response, which could cause OOM
+            // or excessive serialisation latency.
+            const MAX_WORKFLOW_LIMIT = 1_000;
+            const rawLimit = typeof input.limit === 'number' ? input.limit : 20;
+            const limit = Number.isFinite(rawLimit) && rawLimit > 0
+                ? Math.min(Math.floor(rawLimit), MAX_WORKFLOW_LIMIT)
+                : 20;
             const totalCount = workflows.length;
             workflows = workflows.slice(0, limit);
             return {

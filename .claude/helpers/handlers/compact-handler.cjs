@@ -18,6 +18,8 @@ module.exports = {
     try {
       var lastRoute = path.join(CWD, '.monomind', 'last-route.json');
       if (fs.existsSync(lastRoute)) {
+        var _lrSt = fs.statSync(lastRoute);
+        if (_lrSt.size > 65536) { return; }
         var route = JSON.parse(fs.readFileSync(lastRoute, 'utf-8'));
         console.log('[COMPACT_CONTEXT] Last route: ' + route.agent + ' (' + (route.confidence != null ? (route.confidence * 100).toFixed(0) : '?') + '%)');
       }

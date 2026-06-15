@@ -72,6 +72,8 @@ function loadConfig(cwd) {
     const configPath = path.join(cwd, '.monomind', 'config.yaml');
     if (!fs.existsSync(configPath))
         return null;
+    if (fs.statSync(configPath).size > 1024 * 1024)
+        return null; // skip files > 1 MB
     try {
         const content = fs.readFileSync(configPath, 'utf-8');
         return parseSimpleYaml(content);

@@ -72,6 +72,8 @@ function countFilesAndLines(dir: string, ext = '.ts'): { files: number; lines: n
         } else if (entry.isFile() && entry.name.endsWith(ext)) {
           files++;
           try {
+            // Skip files > 1 MB to avoid loading generated/minified bundles into memory.
+            if (statSync(fullPath).size > 1024 * 1024) continue;
             const content = readFileSync(fullPath, 'utf-8');
             lines += content.split('\n').length;
           } catch (_e) { /* ignore */ }
@@ -143,7 +145,7 @@ async function calculateProgress(): Promise<ProgressMetrics> {
   // Count CLI commands (from commands/index.ts)
   let cliCommands = 28; // Default to known count
   const commandsIndexPath = join(PACKAGES_DIR, '@monomind/cli/src/commands/index.ts');
-  if (existsSync(commandsIndexPath)) {
+  if (existsSync(commandsIndexPath) && statSync(commandsIndexPath).size <= 1024 * 1024) {
     try {
       const content = readFileSync(commandsIndexPath, 'utf-8');
       const matches = content.match(/export const commands.*\[([^\]]+)\]/s);
@@ -156,7 +158,7 @@ async function calculateProgress(): Promise<ProgressMetrics> {
   // Count MCP tools
   let mcpTools = 100; // Approximate
   const toolsIndexPath = join(PACKAGES_DIR, '@monomind/cli/src/mcp-tools/index.ts');
-  if (existsSync(toolsIndexPath)) {
+  if (existsSync(toolsIndexPath) && statSync(toolsIndexPath).size <= 1024 * 1024) {
     try {
       const content = readFileSync(toolsIndexPath, 'utf-8');
       mcpTools = (content.match(/export.*Tools/g) || []).length * 10 || 100;
@@ -166,7 +168,7 @@ async function calculateProgress(): Promise<ProgressMetrics> {
   // Count hooks subcommands (count const *Command definitions)
   let hooksSubcommands = 27; // Default to documented count
   const hooksPath = join(PACKAGES_DIR, '@monomind/cli/src/commands/hooks.ts');
-  if (existsSync(hooksPath)) {
+  if (existsSync(hooksPath) && statSync(hooksPath).size <= 1024 * 1024) {
     try {
       const content = readFileSync(hooksPath, 'utf-8');
       // Count command definitions like "const fooCommand: Command = {"

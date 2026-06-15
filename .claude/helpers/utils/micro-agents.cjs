@@ -77,15 +77,18 @@ function _triggerExtractFromFrontmatter(content, agentSlug) {
   return triggers;
 }
 
-function _triggerCollectMdFiles(dir) {
+function _triggerCollectMdFiles(dir, _depth) {
+  var depth = (_depth === undefined) ? 0 : _depth;
+  if (depth > 5) return []; // cap recursion depth to prevent stack overflow DoS
   var results = [];
   try {
     var entries = fs.readdirSync(dir);
     for (var i = 0; i < entries.length; i++) {
+      if (results.length >= 200) break; // cap total file count to prevent DoS
       var full = path.join(dir, entries[i]);
       try {
         var st = fs.lstatSync(full);
-        if (st.isDirectory()) results = results.concat(_triggerCollectMdFiles(full));
+        if (st.isDirectory()) results = results.concat(_triggerCollectMdFiles(full, depth + 1));
         else if (entries[i].endsWith('.md')) results.push(full);
       } catch (e) {}
     }
@@ -98,7 +101,11 @@ function _triggerBuildIndex(agentDir) {
   var files = _triggerCollectMdFiles(agentDir);
   for (var i = 0; i < files.length; i++) {
     var content;
-    try { content = fs.readFileSync(files[i], 'utf-8'); } catch (e) { continue; }
+    try {
+      var _fst = fs.statSync(files[i]);
+      if (_fst.size > 256 * 1024) continue; // skip files > 256 KiB to prevent OOM
+      content = fs.readFileSync(files[i], 'utf-8');
+    } catch (e) { continue; }
     var slug = files[i].split('/').pop().replace(/\.md$/i, '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
     patterns = patterns.concat(_triggerExtractFromFrontmatter(content, slug));
   }
@@ -114,6 +121,8 @@ function scanMicroAgentTriggers(prompt) {
 
   try {
     if (fs.existsSync(indexPath)) {
+      var _idxSt = fs.statSync(indexPath);
+      if (_idxSt.size > 512 * 1024) { throw new Error('trigger-index.json exceeds 512 KiB'); }
       var idx = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
       var age = Date.now() - new Date(idx.builtAt || 0).getTime();
       if (age < 3600000 && Array.isArray(idx.patterns)) {
@@ -140,6 +149,7 @@ function scanMicroAgentTriggers(prompt) {
     if (p.mode !== 'inject' && p.mode !== 'takeover') continue;
     if (seen[p.agentSlug]) continue;
     try {
+      if (typeof p.pattern !== 'string' || p.pattern.length > 500) continue; // cap pattern length to prevent ReDoS
       var re = new RegExp(p.pattern, 'i');
       var m = re.exec(prompt);
       if (m) {
@@ -164,6 +174,8 @@ function _buildKnowledgeSearchFn(knowledgeDir) {
     if (!fs.existsSync(chunksFile)) return [];
     var lines;
     try {
+      var _cSt = fs.statSync(chunksFile);
+      if (_cSt.size > 4 * 1024 * 1024) return []; // skip > 4 MiB to prevent OOM
       lines = fs.readFileSync(chunksFile, 'utf-8').trim().split('\n').filter(Boolean);
     } catch (e) { return []; }
 
@@ -209,6 +221,8 @@ function _autoIndexKnowledge(knowledgeDir) {
     } catch (e) {}
   }
   try {
+    var _sSt = fs.statSync(path.join(CWD, '.monomind', 'graph', 'stats.json'));
+    if (_sSt.size > 256 * 1024) { throw new Error('stats.json exceeds 256 KiB'); }
     var statsForHash = JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'graph', 'stats.json'), 'utf-8'));
     hashInput += 'monograph:' + (statsForHash.builtAt || 0) + ';';
   } catch(e) {}
@@ -220,7 +234,7 @@ function _autoIndexKnowledge(knowledgeDir) {
   try { existingHash = fs.readFileSync(hashFile, 'utf-8').trim(); } catch (e) {}
 
   var existingChunkCount = 0;
-  try { if (fs.existsSync(chunksFile)) { existingChunkCount = fs.readFileSync(chunksFile, 'utf-8').trim().split('\n').filter(Boolean).length; } } catch (e) {}
+  try { if (fs.existsSync(chunksFile)) { var _ecSt = fs.statSync(chunksFile); if (_ecSt.size <= 4 * 1024 * 1024) { existingChunkCount = fs.readFileSync(chunksFile, 'utf-8').trim().split('\n').filter(Boolean).length; } } } catch (e) {}
   if (existingHash === contentHash && existingChunkCount > 0) return 0;
 
   var newLines = [];
@@ -228,6 +242,8 @@ function _autoIndexKnowledge(knowledgeDir) {
     var src = sources[si];
     try {
       if (!fs.existsSync(src.filePath)) continue;
+      var _srcSt = fs.statSync(src.filePath);
+      if (_srcSt.size > 512 * 1024) continue; // skip > 512 KiB to prevent OOM
       var content = fs.readFileSync(src.filePath, 'utf-8');
       var sections = content.split(/\n{2,}|\n(?=#{1,3} )/);
       for (var ci = 0; ci < sections.length; ci++) {

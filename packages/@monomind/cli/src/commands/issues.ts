@@ -200,9 +200,9 @@ const claimCommand: Command = {
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const issueId = (ctx.flags.issue || ctx.args[0]) as string;
-    const agentStr = ctx.flags.agent as string | undefined;
-    const userStr = ctx.flags.user as string | undefined;
+    const issueId = ((ctx.flags.issue || ctx.args[0]) as string | undefined)?.slice(0, 256);
+    const agentStr = (ctx.flags.agent as string | undefined)?.slice(0, 256);
+    const userStr = (ctx.flags.user as string | undefined)?.slice(0, 256);
 
     if (!issueId) {
       output.printError('Issue ID is required');
@@ -217,13 +217,13 @@ const claimCommand: Command = {
     const claimant: Claimant = agentStr
       ? {
           type: 'agent',
-          agentType: agentStr.split(':')[0],
-          agentId: agentStr.split(':')[1] || `${agentStr.split(':')[0]}-1`,
+          agentType: agentStr.split(':')[0].slice(0, 64),
+          agentId: (agentStr.split(':')[1] || `${agentStr.split(':')[0]}-1`).slice(0, 128),
         }
       : {
           type: 'human',
-          userId: (userStr as string).split(':')[0],
-          name: (userStr as string).split(':')[1] || (userStr as string).split(':')[0],
+          userId: (userStr as string).split(':')[0].slice(0, 128),
+          name: ((userStr as string).split(':')[1] || (userStr as string).split(':')[0]).slice(0, 128),
         };
 
     const service = getClaimService(ctx.cwd);
@@ -265,9 +265,9 @@ const releaseCommand: Command = {
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const issueId = (ctx.flags.issue || ctx.args[0]) as string;
-    const agentStr = ctx.flags.agent as string | undefined;
-    const userStr = ctx.flags.user as string | undefined;
+    const issueId = ((ctx.flags.issue || ctx.args[0]) as string | undefined)?.slice(0, 256);
+    const agentStr = (ctx.flags.agent as string | undefined)?.slice(0, 256);
+    const userStr = (ctx.flags.user as string | undefined)?.slice(0, 256);
 
     if (!issueId) {
       output.printError('Issue ID is required');
@@ -282,13 +282,13 @@ const releaseCommand: Command = {
     const claimant: Claimant = agentStr
       ? {
           type: 'agent',
-          agentType: agentStr.split(':')[0],
-          agentId: agentStr.split(':')[1] || `${agentStr.split(':')[0]}-1`,
+          agentType: agentStr.split(':')[0].slice(0, 64),
+          agentId: (agentStr.split(':')[1] || `${agentStr.split(':')[0]}-1`).slice(0, 128),
         }
       : {
           type: 'human',
-          userId: (userStr as string).split(':')[0],
-          name: (userStr as string).split(':')[1] || (userStr as string).split(':')[0],
+          userId: (userStr as string).split(':')[0].slice(0, 128),
+          name: ((userStr as string).split(':')[1] || (userStr as string).split(':')[0]).slice(0, 128),
         };
 
     const service = getClaimService(ctx.cwd);
@@ -315,10 +315,10 @@ const handoffCommand: Command = {
     { name: 'reason', short: 'r', type: 'string', description: 'Handoff reason', default: 'Handoff requested' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const issueId = (ctx.flags.issue || ctx.args[0]) as string;
-    const toStr = ctx.flags.to as string | undefined;
-    const fromStr = ctx.flags.from as string | undefined;
-    const reason = ctx.flags.reason as string;
+    const issueId = ((ctx.flags.issue || ctx.args[0]) as string | undefined)?.slice(0, 256);
+    const toStr = (ctx.flags.to as string | undefined)?.slice(0, 256);
+    const fromStr = (ctx.flags.from as string | undefined)?.slice(0, 256);
+    const reason = ((ctx.flags.reason as string) || 'Handoff requested').slice(0, 512);
 
     if (!issueId || !toStr) {
       output.printError('Issue ID and --to are required');
@@ -368,7 +368,7 @@ const statusCommand: Command = {
     { name: 'note', short: 'n', type: 'string', description: 'Status note' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const issueId = (ctx.flags.issue || ctx.args[0]) as string;
+    const issueId = ((ctx.flags.issue || ctx.args[0]) as string | undefined)?.slice(0, 256);
 
     if (!issueId) {
       output.printError('Issue ID is required');
@@ -379,8 +379,11 @@ const statusCommand: Command = {
     await service.initialize();
 
     const newStatus = ctx.flags.set as ClaimStatus | undefined;
-    const progress = ctx.flags.progress as number | undefined;
-    const note = ctx.flags.note as string | undefined;
+    const rawProgress = ctx.flags.progress as number | undefined;
+    const progress = rawProgress !== undefined
+      ? Math.max(0, Math.min(100, Math.floor(rawProgress)))
+      : undefined;
+    const note = (ctx.flags.note as string | undefined)?.slice(0, 512);
 
     try {
       if (newStatus) {
@@ -419,7 +422,7 @@ const stealableCommand: Command = {
     { name: 'type', short: 't', type: 'string', description: 'Filter by agent type' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const agentType = ctx.flags.type as string | undefined;
+    const agentType = (ctx.flags.type as string | undefined)?.slice(0, 64);
     const service = getClaimService(ctx.cwd);
     await service.initialize();
 
@@ -455,8 +458,8 @@ const stealCommand: Command = {
     { name: 'agent', short: 'a', type: 'string', description: 'Steal as agent', required: true },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const issueId = (ctx.flags.issue || ctx.args[0]) as string;
-    const agentStr = ctx.flags.agent as string;
+    const issueId = ((ctx.flags.issue || ctx.args[0]) as string | undefined)?.slice(0, 256);
+    const agentStr = ((ctx.flags.agent as string) || '').slice(0, 256);
 
     if (!issueId) {
       output.printError('Issue ID is required');
@@ -465,8 +468,8 @@ const stealCommand: Command = {
 
     const stealer: Claimant = {
       type: 'agent',
-      agentType: agentStr.split(':')[0],
-      agentId: agentStr.split(':')[1] || `${agentStr.split(':')[0]}-1`,
+      agentType: agentStr.split(':')[0].slice(0, 64),
+      agentId: (agentStr.split(':')[1] || `${agentStr.split(':')[0]}-1`).slice(0, 128),
     };
 
     const service = getClaimService(ctx.cwd);
