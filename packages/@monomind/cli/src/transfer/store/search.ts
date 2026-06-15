@@ -10,6 +10,17 @@ import type {
   SearchResult,
 } from './types.js';
 
+/** Maximum query string length to prevent O(n*m) regex/includes DoS */
+const MAX_QUERY_LEN = 256;
+/** Hard cap on page size to prevent huge slice allocations */
+const MAX_PAGE_LIMIT = 200;
+/** Hard cap on offset to prevent absurdly large slice calculations */
+const MAX_OFFSET = 10_000;
+/** Hard cap on suggestion partial string length */
+const MAX_PARTIAL_LEN = 128;
+/** Hard cap on similar-pattern limit */
+const MAX_SIMILAR_LIMIT = 50;
+
 /**
  * Search patterns in registry
  */
@@ -21,7 +32,7 @@ export function searchPatterns(
 
   // Text search
   if (options.query) {
-    const query = options.query.toLowerCase();
+    const query = String(options.query).slice(0, MAX_QUERY_LEN).toLowerCase();
     patterns = patterns.filter(p =>
       p.name.toLowerCase().includes(query) ||
       p.displayName.toLowerCase().includes(query) ||
@@ -105,10 +116,12 @@ export function searchPatterns(
     return sortOrder === 'desc' ? -comparison : comparison;
   });
 
-  // Pagination
+  // Pagination — cap limit and offset to prevent huge slice allocations
   const total = patterns.length;
-  const limit = options.limit || 20;
-  const offset = options.offset || 0;
+  const rawLimit = typeof options.limit === 'number' && Number.isFinite(options.limit) ? options.limit : 20;
+  const limit = Math.min(Math.max(1, Math.floor(rawLimit)), MAX_PAGE_LIMIT);
+  const rawOffset = typeof options.offset === 'number' && Number.isFinite(options.offset) ? options.offset : 0;
+  const offset = Math.min(Math.max(0, Math.floor(rawOffset)), MAX_OFFSET);
   const page = Math.floor(offset / limit) + 1;
 
   patterns = patterns.slice(offset, offset + limit);
@@ -198,6 +211,7 @@ export function getSimilarPatterns(
   pattern: PatternEntry,
   limit: number = 5
 ): PatternEntry[] {
+  limit = Math.min(Math.max(1, Math.floor(limit)), MAX_SIMILAR_LIMIT);
   const scores = new Map<string, number>();
 
   for (const p of registry.patterns) {
@@ -275,7 +289,9 @@ export function getSearchSuggestions(
   limit: number = 10
 ): string[] {
   const suggestions = new Set<string>();
-  const query = partial.toLowerCase();
+  // Cap partial length to prevent O(n*m) DoS via enormous query strings
+  const query = String(partial).slice(0, MAX_PARTIAL_LEN).toLowerCase();
+  limit = Math.min(Math.max(1, Math.floor(limit)), MAX_SIMILAR_LIMIT);
 
   // Add matching pattern names
   for (const pattern of registry.patterns) {
