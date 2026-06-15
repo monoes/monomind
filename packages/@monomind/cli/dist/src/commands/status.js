@@ -259,7 +259,8 @@ function formatHealth(health) {
 // Main status action
 const statusAction = async (ctx) => {
     const watch = ctx.flags.watch;
-    const interval = ctx.flags.interval || DEFAULT_WATCH_INTERVAL / 1000;
+    const rawInterval = ctx.flags.interval || DEFAULT_WATCH_INTERVAL / 1000;
+    const interval = Number.isFinite(rawInterval) ? Math.max(1, Math.min(rawInterval, 3600)) : DEFAULT_WATCH_INTERVAL / 1000;
     const healthCheck = ctx.flags['health-check'];
     const cwd = ctx.cwd;
     // Check initialization
