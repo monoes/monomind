@@ -116,9 +116,11 @@ function safeExec(cmd, timeoutMs = 2000) {
 }
 
 // Safe JSON file reader (returns null on failure)
+// Refuses to load files > 10 MB to prevent OOM on corrupted/oversized stores.
+const MAX_JSON_READ_BYTES = 10 * 1024 * 1024;
 function readJSON(filePath) {
   try {
-    if (fs.existsSync(filePath)) {
+    if (fs.existsSync(filePath) && fs.statSync(filePath).size <= MAX_JSON_READ_BYTES) {
       return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
   } catch { /* ignore */ }
