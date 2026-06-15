@@ -258,9 +258,19 @@ export const hiveMindTools: MCPTool[] = [
       }
 
       const count = Math.min(Math.max(1, (input.count as number) || 1), 20); // Cap at 20
-      const role = (input.role as string) || 'worker';
-      const agentType = (input.agentType as string) || 'worker';
-      const prefix = (input.prefix as string) || 'hive-worker';
+      // Cap role/agentType/prefix: used as JSON keys and stored values in agentStore
+      // on disk; an oversized prefix inflates the generated agentId key and config.
+      const MAX_HIVE_ROLE_LEN = 256;
+      const MAX_HIVE_PREFIX_LEN = 128;
+      const rawRole = (input.role as string) || 'worker';
+      const role = typeof rawRole === 'string' && rawRole.length > MAX_HIVE_ROLE_LEN
+        ? rawRole.slice(0, MAX_HIVE_ROLE_LEN) : rawRole;
+      const rawAgentType = (input.agentType as string) || 'worker';
+      const agentType = typeof rawAgentType === 'string' && rawAgentType.length > MAX_HIVE_ROLE_LEN
+        ? rawAgentType.slice(0, MAX_HIVE_ROLE_LEN) : rawAgentType;
+      const rawPrefix = (input.prefix as string) || 'hive-worker';
+      const prefix = typeof rawPrefix === 'string' && rawPrefix.length > MAX_HIVE_PREFIX_LEN
+        ? rawPrefix.slice(0, MAX_HIVE_PREFIX_LEN) : rawPrefix;
       const agentStore = loadAgentStore();
 
       const spawnedWorkers: Array<{ agentId: string; role: string; joinedAt: string }> = [];
@@ -958,15 +968,34 @@ export const hiveMindTools: MCPTool[] = [
         return { success: false, error: 'Hive-mind not initialized' };
       }
 
+      // Cap inputs: message/fromId are stored directly in the shared-memory JSON
+      // state (up to 100 broadcasts kept).  An uncapped message lets an attacker
+      // inflate the on-disk hive state by up to 100 × message size per call.
+      const MAX_BROADCAST_MSG_LEN = 1024 * 1024; // 1 MB
+      const MAX_FROM_ID_LEN = 256;
+      const MAX_PRIORITY_LEN = 16;
+      const rawMessage = input.message as string;
+      const message = typeof rawMessage === 'string' && rawMessage.length > MAX_BROADCAST_MSG_LEN
+        ? rawMessage.slice(0, MAX_BROADCAST_MSG_LEN)
+        : rawMessage;
+      const rawFromId = (input.fromId as string) || 'system';
+      const fromId = typeof rawFromId === 'string' && rawFromId.length > MAX_FROM_ID_LEN
+        ? rawFromId.slice(0, MAX_FROM_ID_LEN)
+        : rawFromId;
+      const rawPriority = (input.priority as string) || 'normal';
+      const priority = typeof rawPriority === 'string' && rawPriority.length > MAX_PRIORITY_LEN
+        ? rawPriority.slice(0, MAX_PRIORITY_LEN)
+        : rawPriority;
+
       const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
       // Store in shared memory
       const messages = (state.sharedMemory.broadcasts as Array<unknown>) || [];
       messages.push({
         messageId,
-        message: input.message,
-        priority: input.priority || 'normal',
-        fromId: input.fromId || 'system',
+        message,
+        priority,
+        fromId,
         timestamp: new Date().toISOString(),
       });
 
@@ -978,7 +1007,7 @@ export const hiveMindTools: MCPTool[] = [
         success: true,
         messageId,
         recipients: state.workers.length,
-        priority: input.priority || 'normal',
+        priority,
         broadcastAt: new Date().toISOString(),
       };
     },
