@@ -81,13 +81,19 @@ const monographQueryTool: MCPTool = {
       if (process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
         const results = await hybridQuery(db, query, { limit, label });
         if (results.length === 0) return text('No results found.');
-        const lines = results.map(r => `[${r.label ?? '?'}] ${r.name ?? r.id}  ${r.filePath ?? ''}  (score: ${r.score.toFixed(4)})`);
+        const lines = results.map(r => {
+          const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
+          return `[${r.label ?? '?'}] ${r.name ?? r.id}  ${loc}  (score: ${r.score.toFixed(4)})`;
+        });
         return text(lines.join('\n'));
       }
 
       const results = ftsSearch(db, query, limit, label);
       if (results.length === 0) return text('No results found.');
-      const lines = results.map(r => `[${r.label}] ${r.name}  ${r.filePath ?? ''}  (score: ${r.rank.toFixed(3)})`);
+      const lines = results.map(r => {
+        const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
+        return `[${r.label}] ${r.name}  ${loc}  (score: ${r.rank.toFixed(3)})`;
+      });
       return text(lines.join('\n'));
     } finally { closeDb(db); }
   },
