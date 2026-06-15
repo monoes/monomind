@@ -686,9 +686,19 @@ const monographContextTool = {
         const { getMonographContext } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
+            // Cap name and filePath: forwarded to parameterized SQL via getMonographContext.
+            // Very long strings waste memory before the query even executes.
+            const MAX_CTX_NAME_LEN = 512;
+            const MAX_CTX_PATH_LEN = 4 * 1024;
+            const rawCtxName = input.name;
+            const ctxName = typeof rawCtxName === 'string' && rawCtxName.length > MAX_CTX_NAME_LEN
+                ? rawCtxName.slice(0, MAX_CTX_NAME_LEN) : rawCtxName;
+            const rawCtxPath = input.filePath;
+            const ctxPath = typeof rawCtxPath === 'string' && rawCtxPath.length > MAX_CTX_PATH_LEN
+                ? rawCtxPath.slice(0, MAX_CTX_PATH_LEN) : rawCtxPath;
             const result = getMonographContext(db, {
-                name: input.name,
-                filePath: input.filePath,
+                name: ctxName,
+                filePath: ctxPath,
             });
             return text(JSON.stringify(result, null, 2));
         }
@@ -715,10 +725,22 @@ const monographImpactTool = {
         const { getMonographImpact } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
+            // Cap name/filePath; enforce depth ≤ 6 as documented in the schema description.
+            const MAX_IMPACT_NAME_LEN = 512;
+            const MAX_IMPACT_PATH_LEN = 4 * 1024;
+            const rawImpactName = input.name;
+            const impactName = typeof rawImpactName === 'string' && rawImpactName.length > MAX_IMPACT_NAME_LEN
+                ? rawImpactName.slice(0, MAX_IMPACT_NAME_LEN) : rawImpactName;
+            const rawImpactPath = input.filePath;
+            const impactPath = typeof rawImpactPath === 'string' && rawImpactPath.length > MAX_IMPACT_PATH_LEN
+                ? rawImpactPath.slice(0, MAX_IMPACT_PATH_LEN) : rawImpactPath;
+            const rawDepth = input.depth;
+            const depth = typeof rawDepth === 'number' && Number.isFinite(rawDepth) && rawDepth > 0
+                ? Math.min(Math.floor(rawDepth), 6) : rawDepth;
             const result = getMonographImpact(db, {
-                name: input.name,
-                filePath: input.filePath,
-                depth: input.depth,
+                name: impactName,
+                filePath: impactPath,
+                depth,
             });
             return text(JSON.stringify(result, null, 2));
         }
@@ -1129,10 +1151,20 @@ const monographAugmentTool = {
     handler: async (input) => {
         const { augmentContext } = await import('@monoes/monograph');
         const repoPath = getProjectCwd();
+        // Cap query (forwarded to FTS/embedding in augmentContext) and topK
+        // (controls how many context nodes are retrieved).
+        const MAX_AUGMENT_QUERY_LEN = 16 * 1024;
+        const MAX_AUGMENT_TOP_K = 100;
+        const rawAugmentQuery = input.query;
+        const augmentQuery = typeof rawAugmentQuery === 'string' && rawAugmentQuery.length > MAX_AUGMENT_QUERY_LEN
+            ? rawAugmentQuery.slice(0, MAX_AUGMENT_QUERY_LEN) : rawAugmentQuery;
+        const rawTopK = input.topK ?? 10;
+        const topK = Number.isFinite(rawTopK) && rawTopK > 0
+            ? Math.min(Math.floor(rawTopK), MAX_AUGMENT_TOP_K) : 10;
         const result = await augmentContext({
-            query: input.query,
+            query: augmentQuery,
             repoPath,
-            topK: input.topK ?? 10,
+            topK,
             format: input.format ?? 'markdown',
         });
         return text(result);
