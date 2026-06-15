@@ -365,7 +365,17 @@ export const taskTools: MCPTool[] = [
           task.progress = Math.min(100, Math.max(0, input.progress as number));
         }
         if (input.assignTo) {
-          task.assignedTo = input.assignTo as string[];
+          // Cap array and element lengths — task_create already does this;
+          // task_update must apply the same guards so the on-disk store
+          // cannot be inflated via the update path.
+          const MAX_TASK_ASSIGNEE_LEN = 256;
+          const MAX_TASK_ASSIGNEES = 100;
+          const rawAssignTo = input.assignTo as string[];
+          task.assignedTo = Array.isArray(rawAssignTo)
+            ? rawAssignTo.slice(0, MAX_TASK_ASSIGNEES).map(a =>
+                typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN ? a.slice(0, MAX_TASK_ASSIGNEE_LEN) : a
+              )
+            : task.assignedTo;
         }
         saveTaskStore(store);
 
@@ -500,7 +510,15 @@ export const taskTools: MCPTool[] = [
       if (task) {
         task.status = 'cancelled';
         task.completedAt = new Date().toISOString();
-        task.result = { cancelReason: input.reason || 'Cancelled by user' };
+        // Cap reason: persisted verbatim to the task store on disk.
+        // Without a cap an attacker can inflate the store with an arbitrarily
+        // large cancellation reason string.
+        const MAX_CANCEL_REASON_LEN = 1024;
+        const rawReason = input.reason as string | undefined;
+        const cancelReason = typeof rawReason === 'string' && rawReason.length > MAX_CANCEL_REASON_LEN
+          ? rawReason.slice(0, MAX_CANCEL_REASON_LEN)
+          : (rawReason || 'Cancelled by user');
+        task.result = { cancelReason };
         saveTaskStore(store);
 
         return {
