@@ -41,8 +41,9 @@ export const coverageRouterTools: MCPTool[] = [
     },
     handler: async (input) => {
       try {
+        const rawPath = typeof input.path === 'string' ? input.path.slice(0, 512) : '';
         const result = await coverageRoute(
-          (input.path as string) || '',
+          rawPath,
           { threshold: (input.threshold as number) ?? 80 }
         );
         if (!result.found) {
@@ -75,7 +76,7 @@ export const coverageRouterTools: MCPTool[] = [
       try {
         const result = await coverageGaps({
           threshold: (input.threshold as number) ?? 80,
-          path: (input.path as string) || undefined,
+          path: typeof input.path === 'string' ? input.path.slice(0, 512) : undefined,
           groupByAgent: true,
         });
         if (!result.found) return text(result.summary);
@@ -104,9 +105,11 @@ export const coverageRouterTools: MCPTool[] = [
     },
     handler: async (input) => {
       try {
+        const rawPath = typeof input.path === 'string' ? input.path.slice(0, 512) : '.';
+        const rawLimit = typeof input.limit === 'number' ? Math.min(Math.max(1, input.limit), 200) : 20;
         const result = await coverageSuggest(
-          (input.path as string) || '.',
-          { threshold: (input.threshold as number) ?? 80, limit: (input.limit as number) ?? 20 }
+          rawPath,
+          { threshold: (input.threshold as number) ?? 80, limit: rawLimit }
         );
         if (!result.found) {
           return text('No coverage report found. Run your test suite with coverage enabled, then retry.');
