@@ -25,7 +25,12 @@ function canonicalCycle(cycle: number[], idToPath: Map<number, string>): number[
       minPos = i;
     }
   }
-  return [...cycle.slice(minPos), ...cycle.slice(0, minPos)];
+  if (minPos === 0) return cycle.slice(); // already canonical — single allocation
+  // Single-pass rotation without 3 intermediate arrays (2x slice + spread)
+  const n = cycle.length;
+  const result = new Array<number>(n);
+  for (let i = 0; i < n; i++) result[i] = cycle[(minPos + i) % n];
+  return result;
 }
 
 function tryRecordCycle(
@@ -103,7 +108,8 @@ function enumerateElementaryCycles(
   const cycles: number[][] = [];
   const seen = new Set<string>();
 
-  const sortedNodes = [...sccNodes].sort((a, b) => {
+  // Use slice() rather than spread to avoid the iterator allocation overhead
+  const sortedNodes = sccNodes.slice().sort((a, b) => {
     const pa = idToPath.get(a) ?? '';
     const pb = idToPath.get(b) ?? '';
     return pa < pb ? -1 : pa > pb ? 1 : 0;
@@ -284,9 +290,22 @@ export function findCycles(
   });
 
   return result.map(cycle => ({
-    files: [...cycle]
+    // slice() instead of spread to avoid iterator overhead
+    files: cycle.slice()
       .sort((a, b) => (idToPath.get(a) ?? '').localeCompare(idToPath.get(b) ?? ''))
       .map(id => idToPath.get(id) ?? String(id)),
     length: cycle.length,
   }));
+}
+
+/** Format cycle groups as structured text for LLM consumption. */
+export function formatCycleGroups(groups: CycleGroup[]): string {
+  if (groups.length === 0) return 'No import cycles detected.';
+  const lines: string[] = [`Import Cycles (${groups.length} total):`];
+  for (const g of groups.slice(0, 30)) {
+    lines.push(`\n  Cycle (length ${g.length}):`);
+    for (const f of g.files) lines.push(`    ${f}`);
+  }
+  if (groups.length > 30) lines.push(`\n  ... and ${groups.length - 30} more cycles`);
+  return lines.join('\n');
 }
