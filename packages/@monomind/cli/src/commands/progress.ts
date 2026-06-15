@@ -201,7 +201,8 @@ const watchCommand: Command = {
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult | void> => {
-    const interval = (ctx.flags.interval as number) || 5000;
+    const rawInterval = (ctx.flags.interval as number) || 5000;
+    const interval = Number.isFinite(rawInterval) ? Math.max(500, Math.min(rawInterval, 3_600_000)) : 5000; // min 500ms, max 1h
     output.writeln(
       output.highlight(`Watching progress (interval: ${interval}ms). Press Ctrl+C to stop.`),
     );
