@@ -5718,17 +5718,39 @@ function v2RenderOrgActivity() {
   const pane = document.getElementById('odt-activity');
   if (!pane) return;
   const fmtOrgEvType = t => {
-    const m={'org:start':'start','org:stop':'stop','org:complete':'done','org:create':'create','org:heartbeat':'hb','org:agent:online':'agent-on','org:comms':'comms'};
-    return m[t]||(t||'').replace(/^org:/,'');
+    const m={
+      'org:start':'start','org:stop':'stop','org:complete':'done','org:create':'create',
+      'org:heartbeat':'hb','org:agent:online':'agent-on','org:comms':'comms',
+      'org:checkpoint':'checkpoint','run:cycle:complete':'cycle','run:complete':'run-done',
+      'org:error':'error','org:agent:offline':'agent-off',
+    };
+    return m[t]||(t||'').replace(/^(?:org|run):/,'');
+  };
+  const fmtOrgEvDetail = ev => {
+    // org:comms — show "from → to: msg" for human readability
+    if (ev.type === 'org:comms' && (ev.from || ev.to || ev.msg)) {
+      const route = [ev.from, ev.to].filter(Boolean).join(' → ');
+      return route ? route + (ev.msg ? ': ' + ev.msg : '') : ev.msg || '';
+    }
+    // org:checkpoint — show progress field
+    if (ev.type === 'org:checkpoint' && ev.progress) return ev.progress;
+    // generic fallback
+    return ev.role||ev.msg||ev.progress||ev.agent||ev.status||'';
   };
   if (!events.length) {
     pane.innerHTML = '<div class="empty">No activity recorded</div>';
     return;
   }
   pane.innerHTML = `<div class="act-v2-list">${events.map(ev => {
-    const t = ev.ts ? new Date(ev.ts).toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-    const detail = ev.role||ev.msg||ev.agent||'';
-    return `<div class="av2-row"><span class="av2-time">${esc(t)}</span><span class="av2-type">${esc(fmtOrgEvType(ev.type))}</span><span class="av2-msg">${esc(detail)}</span></div>`;
+    const absTime = ev.ts ? new Date(ev.ts).toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+    const relT = ev.ts ? relTime(ev.ts) : '';
+    const detail = fmtOrgEvDetail(ev);
+    const typeLabel = fmtOrgEvType(ev.type);
+    const typeColor = ev.type === 'org:comms' ? 'color:var(--accent)' :
+                      ev.type === 'org:error'  ? 'color:var(--red)' :
+                      ev.type === 'org:checkpoint' ? 'color:var(--green)' :
+                      (ev.type === 'org:complete' || ev.type === 'run:complete') ? 'color:var(--green)' : '';
+    return `<div class="av2-row"><span class="av2-time" title="${esc(absTime)}">${esc(relT||absTime)}</span><span class="av2-type" style="${typeColor}">${esc(typeLabel)}</span><span class="av2-msg" title="${esc(detail)}">${esc(detail)}</span></div>`;
   }).join('')}</div>`;
 }
 
