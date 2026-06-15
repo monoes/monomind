@@ -937,7 +937,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------------- PUT /api/memory-file
     if (req.method === 'PUT' && url === '/api/memory-file') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -971,7 +971,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------------- DELETE /api/memory-file
     if (req.method === 'DELETE' && url === '/api/memory-file') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -1203,7 +1203,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ---------------------------------------------------------- POST /api/loops/stop
     if (req.method === 'POST' && url === '/api/loops/stop') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const { id } = JSON.parse(body);
@@ -1223,7 +1223,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ---------------------------------------------------------- POST /api/loops/create
     if (req.method === 'POST' && url === '/api/loops/create') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const _qs = new URL(req.url, 'http://localhost').searchParams;
@@ -1317,7 +1317,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------------- DELETE /api/knowledge-chunk
     if (req.method === 'DELETE' && url === '/api/knowledge-chunk') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -1356,7 +1356,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------------- PUT /api/knowledge-chunk
     if (req.method === 'PUT' && url === '/api/knowledge-chunk') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -2186,7 +2186,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // -------------------------------------------------- POST /api/mcp/call
     if (req.method === 'POST' && url === '/api/mcp/call') {
       let body = '';
-      req.on('data', c => body += c);
+      req.on('data', c => { body += c; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', async () => {
         const json = res => { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); };
         const ok = (data) => { json(res); res.end(JSON.stringify({ content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] })); };
@@ -3866,7 +3866,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Body: { action: "approve" | "reject" | "revision_requested" }
     if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/approvals\/[^/]+$/i)) {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       try {
         const parts = url.split('/');
         const orgName = decodeURIComponent(parts[3]);
@@ -4065,7 +4065,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Body: { goals: [{id, title, description, status, priority, assignee_id, created_at}] }
     if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/goals$/i)) {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
@@ -4087,7 +4087,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Body: { routines: [{name, description, schedule, enabled, last_run, next_run}] }
     if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/routines$/i)) {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
@@ -4255,7 +4255,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // POST /api/orgs/:name/copy — copy org config to another project directory
     if (req.method === 'POST' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/copy$/i)) {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid org name' })); return; }
@@ -4338,7 +4338,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // POST /api/mastermind/event — ingest event from mastermind skill
     if (req.method === 'POST' && url === '/api/mastermind/event') {
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
       let event = {};
       try { event = JSON.parse(body); } catch (_) {}
       event.ts = event.ts || Date.now();
