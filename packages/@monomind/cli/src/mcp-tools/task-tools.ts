@@ -206,8 +206,13 @@ export const taskTools: MCPTool[] = [
       // Sort by creation date (newest first)
       tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      // Apply limit
-      const limit = (input.limit as number) || 50;
+      // Apply limit — cap to 1 000 to prevent returning the entire task store
+      // in one response, which could cause OOM on large deployments.
+      const MAX_TASK_LIMIT = 1_000;
+      const rawLimit = typeof input.limit === 'number' ? input.limit : 50;
+      const limit = Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), MAX_TASK_LIMIT)
+        : 50;
       tasks = tasks.slice(0, limit);
 
       return {
