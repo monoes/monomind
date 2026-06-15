@@ -59,7 +59,13 @@ export const transferTools = [
         handler: async (input) => {
             try {
                 const { detectPII } = await import('../transfer/anonymization/index.js');
-                const result = detectPII(input.content);
+                // detectPII runs multiple PII regexes over the entire string — O(n × patterns).
+                // Cap to 1 MB to prevent ReDoS-style DoS from oversized content.
+                const MAX_PII_CONTENT_LEN = 1024 * 1024; // 1 MB
+                const rawContent = input.content;
+                const content = typeof rawContent === 'string' && rawContent.length > MAX_PII_CONTENT_LEN
+                    ? rawContent.slice(0, MAX_PII_CONTENT_LEN) : rawContent;
+                const result = detectPII(content);
                 return createResult(result);
             }
             catch (error) {
@@ -88,7 +94,13 @@ export const transferTools = [
         handler: async (input) => {
             try {
                 const { resolveIPNS } = await import('../transfer/ipfs/client.js');
-                const result = await resolveIPNS(input.name);
+                // Cap IPNS name length — uncapped strings may trigger O(n) path parsing
+                // inside the IPFS client or be reflected in error messages.
+                const MAX_IPNS_NAME_LEN = 512;
+                const rawName = input.name;
+                const name = typeof rawName === 'string' && rawName.length > MAX_IPNS_NAME_LEN
+                    ? rawName.slice(0, MAX_IPNS_NAME_LEN) : rawName;
+                const result = await resolveIPNS(name);
                 return createResult({ success: true, cid: result });
             }
             catch (error) {
@@ -132,7 +144,18 @@ export const transferTools = [
         handler: async (input) => {
             try {
                 const store = await getPatternStore();
-                const results = store.search(input);
+                // Cap query and limit to prevent DoS via large string or result set.
+                const MAX_TRANSFER_QUERY_LEN = 4 * 1024;
+                const MAX_TRANSFER_LIMIT = 500;
+                const inp = input;
+                const cappedInput = {
+                    ...inp,
+                    query: typeof inp.query === 'string' && inp.query.length > MAX_TRANSFER_QUERY_LEN
+                        ? inp.query.slice(0, MAX_TRANSFER_QUERY_LEN) : inp.query,
+                    limit: typeof inp.limit === 'number' && Number.isFinite(inp.limit)
+                        ? Math.min(Math.floor(Math.max(inp.limit, 1)), MAX_TRANSFER_LIMIT) : inp.limit,
+                };
+                const results = store.search(cappedInput);
                 return createResult(results);
             }
             catch (error) {
@@ -296,7 +319,17 @@ export const transferTools = [
                 if (!result.success || !result.registry) {
                     return createResult({ error: result.error || 'Failed to discover registry' }, true);
                 }
-                const opts = input;
+                // Cap query and limit before forwarding to searchPlugins.
+                const MAX_PLUGIN_QUERY_LEN = 4 * 1024;
+                const MAX_PLUGIN_LIMIT = 500;
+                const rawOpts = input;
+                const opts = {
+                    ...rawOpts,
+                    query: typeof rawOpts.query === 'string' && rawOpts.query.length > MAX_PLUGIN_QUERY_LEN
+                        ? rawOpts.query.slice(0, MAX_PLUGIN_QUERY_LEN) : rawOpts.query,
+                    limit: typeof rawOpts.limit === 'number' && Number.isFinite(rawOpts.limit)
+                        ? Math.min(Math.floor(Math.max(rawOpts.limit, 1)), MAX_PLUGIN_LIMIT) : rawOpts.limit,
+                };
                 const searchResult = searchPlugins(result.registry, opts);
                 return createResult(searchResult);
             }
