@@ -513,6 +513,10 @@ export class EWCConsolidator {
         if (!fs.existsSync(this.config.storagePath)) {
             throw new Error('No persisted state found');
         }
+        const fileSize = fs.statSync(this.config.storagePath).size;
+        if (fileSize > 50 * 1024 * 1024) {
+            throw new Error(`EWC state file too large (${fileSize} bytes); refusing to load`);
+        }
         const content = fs.readFileSync(this.config.storagePath, 'utf-8');
         const state = JSON.parse(content);
         // Validate version
