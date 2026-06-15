@@ -8,6 +8,8 @@ export interface QueryResult {
   label: string;
   name: string;
   filePath?: string;
+  /** Line number where the symbol is defined — enables direct file:line navigation. */
+  startLine?: number | null;
   score: number;
   isProcess: boolean;
 }
@@ -66,6 +68,7 @@ export const monographQueryTool = {
           label: h.label ?? 'Symbol',
           name: h.name ?? h.id,
           filePath: h.filePath ?? undefined,
+          startLine: h.startLine ?? null,
           score: h.score,
           isProcess: h.label === 'Process',
         }));
