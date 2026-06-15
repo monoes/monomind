@@ -10,14 +10,14 @@ const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 function _recordRecentEdit(filePath) {
   if (!filePath) return;
   try {
-    var relPath = path.isAbsolute(filePath) ? path.relative(CWD, filePath) : filePath;
+    var storedPath = filePath;
     var f = path.join(CWD, '.monomind', 'metrics', 'recent-edits.json');
     fs.mkdirSync(path.dirname(f), { recursive: true });
     var d = { edits: [] };
     try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (_) {}
     if (!Array.isArray(d.edits)) d.edits = [];
-    d.edits = d.edits.filter(function(e) { return e.file !== relPath; });
-    d.edits.unshift({ file: relPath, editedAt: Date.now() });
+    d.edits = d.edits.filter(function(e) { return e.file !== storedPath; });
+    d.edits.unshift({ file: storedPath, editedAt: Date.now() });
     if (d.edits.length > 10) d.edits = d.edits.slice(0, 10);
     fs.writeFileSync(f, JSON.stringify(d));
   } catch (e) { /* non-fatal */ }

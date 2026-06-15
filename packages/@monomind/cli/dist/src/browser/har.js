@@ -1,10 +1,29 @@
 import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { join, resolve, relative, isAbsolute } from 'path';
+import { tmpdir, homedir } from 'os';
+const MAX_CONCURRENT_SESSIONS = 100;
+const MAX_REQUESTS_PER_SESSION = 5_000;
 const _sessions = new Map();
+/** Validate output path is within cwd or home dir to prevent path traversal. */
+function safeOutputPath(p) {
+    const resolved = resolve(p);
+    const cwd = process.cwd();
+    const home = homedir();
+    const relCwd = relative(cwd, resolved);
+    const relHome = relative(home, resolved);
+    if ((!relCwd.startsWith('..') && !isAbsolute(relCwd)) ||
+        (!relHome.startsWith('..') && !isAbsolute(relHome))) {
+        return resolved;
+    }
+    // Reject out-of-scope paths — fall back to tmpdir
+    return join(tmpdir(), `monomind-har-${Date.now()}.har`);
+}
 export async function startHarRecording(client, sessionId) {
     if (_sessions.has(sessionId))
         throw new Error('HAR recording already in progress');
+    if (_sessions.size >= MAX_CONCURRENT_SESSIONS) {
+        throw new Error(`HAR recording limit reached (max ${MAX_CONCURRENT_SESSIONS} concurrent sessions)`);
+    }
     const requests = new Map();
     const startTime = Date.now();
     const startWallMs = startTime;
@@ -16,6 +35,9 @@ export async function startHarRecording(client, sessionId) {
     };
     const offReq = client.on('Network.requestWillBeSent', (params, sid) => {
         if (sid !== sessionId)
+            return;
+        // Cap to prevent unbounded memory growth on high-traffic pages
+        if (requests.size >= MAX_REQUESTS_PER_SESSION)
             return;
         const p = params;
         requests.set(p.requestId, {
@@ -78,9 +100,9 @@ export async function stopHarRecording(client, sessionId, outputPath, captureRes
         }
     }
     const har = buildHar(Array.from(state.requests.values()), state.startTime);
-    const path = outputPath ?? join(tmpdir(), `monomind-har-${Date.now()}.har`);
-    await writeFile(path, JSON.stringify(har, null, 2));
-    return path;
+    const safePath = outputPath ? safeOutputPath(outputPath) : join(tmpdir(), `monomind-har-${Date.now()}.har`);
+    await writeFile(safePath, JSON.stringify(har, null, 2));
+    return safePath;
 }
 export function getHarStatus(sessionId) {
     const state = _sessions.get(sessionId);

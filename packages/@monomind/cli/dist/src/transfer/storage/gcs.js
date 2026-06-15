@@ -105,7 +105,24 @@ export async function uploadToGCS(content, options = {}) {
         execFileSync('gcloud', uploadArgs, { encoding: 'utf-8', stdio: 'pipe', timeout: 60000 });
         // Set metadata if provided
         if (options.metadata && Object.keys(options.metadata).length > 0) {
-            const metadataJson = JSON.stringify(options.metadata);
+            // Cap metadata to prevent unbounded flag values; restrict key charset to
+            // alphanumeric/dash/underscore to avoid injection in --custom-metadata=<json>.
+            const MAX_META_KEY_LEN = 128;
+            const MAX_META_VAL_LEN = 512;
+            const MAX_META_ENTRIES = 20;
+            const safeMetadata = {};
+            let metaCount = 0;
+            for (const [k, v] of Object.entries(options.metadata)) {
+                if (metaCount >= MAX_META_ENTRIES)
+                    break;
+                if (typeof k !== 'string' || typeof v !== 'string')
+                    continue;
+                if (!/^[a-zA-Z0-9_-]+$/.test(k))
+                    continue;
+                safeMetadata[k.slice(0, MAX_META_KEY_LEN)] = v.slice(0, MAX_META_VAL_LEN);
+                metaCount++;
+            }
+            const metadataJson = JSON.stringify(safeMetadata);
             try {
                 const metaArgs = ['storage', 'objects', 'update', `gs://${config.bucket}/${objectPath}`, `--custom-metadata=${metadataJson}`];
                 if (config.projectId)
@@ -224,9 +241,17 @@ export async function listGCSObjects(prefix, config) {
         const listArgs = ['storage', 'ls', '-l', uri, '--format=json'];
         if (cfg.projectId)
             listArgs.push(`--project=${cfg.projectId}`);
-        const result = execFileSync('gcloud', listArgs, { encoding: 'utf-8', stdio: 'pipe' });
+        const result = execFileSync('gcloud', listArgs, { encoding: 'utf-8', stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 });
+        // Guard against gcloud returning a huge JSON payload that could OOM Node.
+        const MAX_LIST_BYTES = 10 * 1024 * 1024; // 10 MB
+        if (result.length > MAX_LIST_BYTES) {
+            console.error(`[GCS] listGCSObjects response too large (${result.length} bytes), truncating`);
+            return [];
+        }
         const objects = JSON.parse(result);
-        return objects.map((obj) => ({
+        if (!Array.isArray(objects))
+            return [];
+        return objects.slice(0, 10_000).map((obj) => ({
             name: obj.name,
             size: obj.size || 0,
             updated: obj.updated || new Date().toISOString(),

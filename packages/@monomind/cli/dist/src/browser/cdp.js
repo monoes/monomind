@@ -68,6 +68,11 @@ export class CdpClient {
                 reject(new Error('CDP not connected'));
                 return;
             }
+            // Cap in-flight commands to prevent unbounded Map growth
+            if (this.pendingCommands.size >= 1000) {
+                reject(new Error('CDP command queue full (>1000 in-flight commands)'));
+                return;
+            }
             const id = this.nextId++;
             const cmd = { id, method, params };
             if (sessionId)
@@ -88,7 +93,12 @@ export class CdpClient {
         if (!this.eventListeners.has(event)) {
             this.eventListeners.set(event, new Set());
         }
-        this.eventListeners.get(event).add(fn);
+        const listeners = this.eventListeners.get(event);
+        // Cap listeners per event to prevent unbounded Set growth
+        if (listeners.size >= 100) {
+            throw new Error(`CDP event listener limit reached for event: ${event}`);
+        }
+        listeners.add(fn);
         return () => this.eventListeners.get(event)?.delete(fn);
     }
     once(event, sessionId) {
@@ -120,16 +130,24 @@ export class CdpClient {
         return this.connected;
     }
 }
+const CDP_RESPONSE_SIZE_LIMIT = 10 * 1024 * 1024; // 10 MB
+async function readCdpJson(res) {
+    const text = await res.text();
+    if (text.length > CDP_RESPONSE_SIZE_LIMIT) {
+        throw new Error(`CDP response too large: ${text.length} bytes`);
+    }
+    return JSON.parse(text);
+}
 export async function fetchTargets(port) {
     const res = await fetch(`http://127.0.0.1:${port}/json/list`);
     if (!res.ok)
         throw new Error(`Failed to fetch targets: ${res.statusText}`);
-    return res.json();
+    return readCdpJson(res);
 }
 export async function fetchNewTarget(port, url) {
     const res = await fetch(`http://127.0.0.1:${port}/json/new?${url}`);
     if (!res.ok)
         throw new Error(`Failed to create target: ${res.statusText}`);
-    return res.json();
+    return readCdpJson(res);
 }
 //# sourceMappingURL=cdp.js.map
