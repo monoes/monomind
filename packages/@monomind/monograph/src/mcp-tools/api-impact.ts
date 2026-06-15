@@ -134,15 +134,22 @@ export function getMonographApiImpact(
   // 3. Forward BFS on CALLS edges from handler
   const bfsResults = forwardBfs(handler.id, db, MAX_DEPTH);
 
-  // 4. Resolve node details for each callee
+  // 4. Resolve node details for all callees in a single batch query (avoids N+1).
   const callees: Array<{ depth: number; node: MonographNode }> = [];
-  for (const { depth, nodeId } of bfsResults) {
-    const nodeRow = db
-      .prepare('SELECT * FROM nodes WHERE id = ?')
-      .get(nodeId) as Record<string, unknown> | undefined;
-    if (nodeRow) {
+  if (bfsResults.length > 0) {
+    const calleeIds = bfsResults.map((b) => b.nodeId);
+    const depthByNodeId = new Map(bfsResults.map((b) => [b.nodeId, b.depth]));
+    const placeholders = calleeIds.map(() => '?').join(',');
+    const nodeRows = db
+      .prepare(`SELECT * FROM nodes WHERE id IN (${placeholders})`)
+      .all(...calleeIds) as Record<string, unknown>[];
+    for (const nodeRow of nodeRows) {
+      const nodeId = nodeRow.id as string;
+      const depth = depthByNodeId.get(nodeId) ?? 0;
       callees.push({ depth, node: rowToNode(nodeRow) });
     }
+    // Restore BFS order (sort by depth ascending)
+    callees.sort((a, b) => a.depth - b.depth);
   }
 
   // 5. Find processes that include the handler or any callee via STEP_IN_PROCESS
