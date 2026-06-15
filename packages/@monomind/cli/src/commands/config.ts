@@ -218,10 +218,10 @@ const providersCommand: Command = {
     ];
 
     // Handle mutation flags
-    const addProvider = ctx.flags.add as string | undefined;
-    const removeProvider = ctx.flags.remove as string | undefined;
-    const enableProvider = ctx.flags.enable as string | undefined;
-    const disableProvider = ctx.flags.disable as string | undefined;
+    const addProvider = (ctx.flags.add as string | undefined)?.slice(0, 64);
+    const removeProvider = (ctx.flags.remove as string | undefined)?.slice(0, 64);
+    const enableProvider = (ctx.flags.enable as string | undefined)?.slice(0, 64);
+    const disableProvider = (ctx.flags.disable as string | undefined)?.slice(0, 64);
 
     if (addProvider || removeProvider || enableProvider || disableProvider) {
       // Read current providers from config
