@@ -1182,13 +1182,117 @@ export class WorkerDaemon extends EventEmitter {
    * Local deepdive worker (fallback when headless unavailable)
    */
   private async runDeepdiveWorkerLocal(): Promise<unknown> {
-    return {
+    const deepdiveFile = join(this.projectRoot, '.monomind', 'metrics', 'deepdive.json');
+    const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
+
+    if (!existsSync(metricsDir)) {
+      mkdirSync(metricsDir, { recursive: true });
+    }
+
+    const result: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       mode: 'local',
-      analysisDepth: 'shallow',
-      findings: [],
-      note: 'Install Claude Code CLI for AI-powered deep code analysis',
+      analysisDepth: 'graph',
+      findings: [] as unknown[],
     };
+
+    // Enrich with monograph god nodes and high-degree file analysis for LLM context injection.
+    // Lazy-import to avoid hard dependency; silently skip on any error.
+    try {
+      const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+      const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+      if (existsSync(dbPath)) {
+        const db = openDb(dbPath);
+        try {
+          const nodeCount = countNodes(db);
+          const edgeCount = countEdges(db);
+
+          // Top god nodes: high in+out degree internal symbols (not file/folder/community nodes)
+          type GodNodeRow = { name: string; file_path: string | null; label: string; degree: number };
+          const godNodeRows = db.prepare(`
+            SELECT n.name, n.file_path, n.label,
+                   COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label NOT IN ('File','Folder','Community','Concept')
+              AND (n.file_path IS NULL OR (
+                n.file_path NOT LIKE '%node_modules%'
+                AND n.file_path NOT LIKE '%/dist/%'
+                AND n.file_path NOT LIKE '%.test.%'
+                AND n.file_path NOT LIKE '%.spec.%'
+              ))
+            GROUP BY n.id
+            ORDER BY degree DESC
+            LIMIT 5
+          `).all() as GodNodeRow[];
+
+          const godNodes = godNodeRows.map(r => ({
+            name: r.name,
+            label: r.label,
+            file: r.file_path ?? '(unknown)',
+            degree: r.degree,
+          }));
+
+          // High-degree file nodes: files with the most incoming + outgoing edges
+          type FileRow = { file_path: string; in_deg: number; out_deg: number };
+          const fileRows = db.prepare(`
+            SELECT n.file_path,
+                   COUNT(DISTINCT e2.id) AS in_deg,
+                   COUNT(DISTINCT e1.id) AS out_deg
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label = 'File'
+              AND n.file_path NOT LIKE '%node_modules%'
+              AND n.file_path NOT LIKE '%/dist/%'
+              AND n.file_path NOT LIKE '%.test.%'
+              AND n.file_path NOT LIKE '%.spec.%'
+            GROUP BY n.id
+            ORDER BY (in_deg + out_deg) DESC
+            LIMIT 5
+          `).all() as FileRow[];
+
+          const highDegFiles = fileRows.map(r => ({
+            file: r.file_path
+              .replace(this.projectRoot + '/', '')
+              .replace(this.projectRoot + '\\', ''),
+            inDegree: r.in_deg,
+            outDegree: r.out_deg,
+            totalDegree: r.in_deg + r.out_deg,
+          }));
+
+          const findings: unknown[] = [];
+          if (godNodes.length > 0) {
+            findings.push({
+              category: 'god_nodes',
+              description: `Top ${godNodes.length} high-centrality symbols (most imported/referenced)`,
+              items: godNodes,
+            });
+          }
+          if (highDegFiles.length > 0) {
+            findings.push({
+              category: 'high_degree_files',
+              description: `Top ${highDegFiles.length} files by total edge degree (import + export connections)`,
+              items: highDegFiles,
+            });
+          }
+
+          result['graph'] = { nodes: nodeCount, edges: edgeCount };
+          result['findings'] = findings;
+          result['analysisDepth'] = 'graph';
+        } finally {
+          closeDb(db);
+        }
+      } else {
+        result['note'] = 'Monograph index not built — run `monomind monograph build` for deep analysis';
+      }
+    } catch { /* monograph unavailable — return minimal result */ }
+
+    const deepdiveFileTmp = deepdiveFile + '.tmp';
+    writeFileSync(deepdiveFileTmp, JSON.stringify(result, null, 2));
+    renameSync(deepdiveFileTmp, deepdiveFile);
+    return result;
   }
 
   /**
