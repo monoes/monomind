@@ -1385,9 +1385,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div class="nav-item" data-view="monograph">
           <span class="ico">⬡</span><span class="lbl">Monograph</span>
         </div>
-        <div class="nav-item" data-view="chat">
-          <span class="ico">⌘</span><span class="lbl">Agent Chat</span>
-        </div>
       </div>
     </div>
     <div class="nav-no-proj" id="nav-no-proj-hint">Select a project above</div>
@@ -1395,12 +1392,15 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       <div class="nav-item" data-view="global">
         <span class="ico">⊕</span><span class="lbl">Global Feed</span>
       </div>
-      <div class="nav-item" data-view="global-loops" title="Global Loops — loops across all projects">
+      <div class="nav-item" data-view="global-loops" title="Loops across all projects">
         <span class="ico">↺</span><span class="lbl">Global Loops</span>
         <span class="bdg" id="bdg-global-loops">—</span>
       </div>
-      <div class="nav-item" data-view="global-tokens" title="Global Tokens — token usage across all projects">
+      <div class="nav-item" data-view="global-tokens" title="Token usage across all projects">
         <span class="ico">$</span><span class="lbl">Global Tokens</span>
+      </div>
+      <div class="nav-item" data-view="chat" title="All agent sessions across projects">
+        <span class="ico">⌘</span><span class="lbl">Global Agent Chat</span>
       </div>
     </div>
   </div>
@@ -2271,7 +2271,7 @@ function switchView(v) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
   const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
