@@ -37,6 +37,7 @@ function findSecretsInDir(dir: string, depthLimit: number, baseDir: string, find
         findSecretsInDir(fullPath, depthLimit - 1, baseDir, findings);
       } else if (entry.isFile() && (/\.(ts|js|json|yml|yaml)$/.test(entry.name) || isDotEnv) && !entry.name.endsWith('.d.ts')) {
         try {
+          if (statSync(fullPath).size > 1024 * 1024) continue; // skip files > 1 MB
           const content = readFileSync(fullPath, 'utf-8');
           const lines = content.split('\n');
           for (let i = 0; i < lines.length; i++) {
@@ -188,6 +189,7 @@ const scanCommand: Command = {
                 scanCodeDir(fullPath, depthLimit - 1);
               } else if (entry.isFile() && /\.(ts|js|tsx|jsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
                 try {
+                  if (fs.statSync(fullPath).size > 1024 * 1024) continue; // skip files > 1 MB
                   const content = fs.readFileSync(fullPath, 'utf-8');
                   const lines = content.split('\n');
                   for (let i = 0; i < lines.length; i++) {
