@@ -105,6 +105,11 @@ export class CircuitBreaker {
         this.failures.push(now);
         // Clean old failures outside window
         this.failures = this.failures.filter(t => t > now - this.config.failureWindowMs);
+        // Hard cap: prevent unbounded growth under rapid-fire recordFailure() calls
+        // before the window filter prunes entries (e.g. clock skew or test hammering).
+        if (this.failures.length > 10_000) {
+            this.failures = this.failures.slice(-10_000);
+        }
         // Check if we should open the circuit
         if (this.state === 'closed' && this.failures.length >= this.config.failureThreshold) {
             this.transitionTo('open');
@@ -214,17 +219,26 @@ export class CircuitBreaker {
 // ============================================================================
 const circuitBreakers = new Map();
 const MAX_CIRCUIT_BREAKERS = 1000;
+const MAX_CIRCUIT_BREAKER_NAME_LEN = 256;
+const FORBIDDEN_CB_NAMES = new Set(['__proto__', 'constructor', 'prototype']);
 /**
  * Get or create a circuit breaker by name
  */
 export function getCircuitBreaker(name, config) {
-    if (!circuitBreakers.has(name)) {
+    // Sanitize name: cap length and block prototype-pollution keys
+    const safeName = typeof name === 'string'
+        ? name.slice(0, MAX_CIRCUIT_BREAKER_NAME_LEN)
+        : 'default';
+    if (FORBIDDEN_CB_NAMES.has(safeName)) {
+        throw new Error(`Invalid circuit breaker name: ${safeName}`);
+    }
+    if (!circuitBreakers.has(safeName)) {
         if (circuitBreakers.size >= MAX_CIRCUIT_BREAKERS) {
             throw new Error(`Circuit breaker registry full (max ${MAX_CIRCUIT_BREAKERS})`);
         }
-        circuitBreakers.set(name, new CircuitBreaker(config));
+        circuitBreakers.set(safeName, new CircuitBreaker(config));
     }
-    return circuitBreakers.get(name);
+    return circuitBreakers.get(safeName);
 }
 /**
  * Get all circuit breaker stats
