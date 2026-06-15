@@ -179,7 +179,11 @@ const configCommand: Command = {
 
     if (maxIter) state.maxIterations = validateNumber(maxIter, 1, 1000, state.maxIterations);
     if (timeout) state.timeoutMinutes = validateNumber(timeout, 1, 1440, state.timeoutMinutes);
-    if (sources) state.taskSources = validateTaskSources(sources.split(',').map(s => s.trim()).filter(Boolean));
+    if (sources) {
+      // Cap total sources string length before splitting to prevent O(n) split on huge input
+      const cappedSources = sources.length > 512 ? sources.slice(0, 512) : sources;
+      state.taskSources = validateTaskSources(cappedSources.split(',').map(s => s.trim()).filter(Boolean));
+    }
 
     saveState(state);
     appendLog({ ts: Date.now(), event: 'config-updated', maxIterations: state.maxIterations, timeoutMinutes: state.timeoutMinutes, taskSources: state.taskSources });
@@ -285,13 +289,18 @@ const historyCommand: Command = {
     { name: 'json', type: 'boolean', description: 'Output as JSON' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const query = (ctx.flags?.query || '') as string;
+    const rawQuery = (ctx.flags?.query || '') as string;
     const limit = validateNumber(ctx.flags?.limit, 1, 100, 10);
 
-    if (!query) {
+    if (!rawQuery) {
       output.writeln('Usage: autopilot history --query "search terms" [--limit N]');
       return { success: false, message: 'Missing --query' };
     }
+    if (rawQuery.length > 1024) {
+      output.writeln('Error: --query too long (max 1024 characters)');
+      return { success: false, message: 'Query too long' };
+    }
+    const query = rawQuery;
 
     const learning = await tryLoadLearning();
     if (!learning) {

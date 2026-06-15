@@ -15,6 +15,33 @@ import {
   type RiskLevel,
 } from '../monovector/diff-classifier.js';
 
+// ===== Shared validation helpers =====
+
+const MAX_REF_LEN = 256;      // git ref: branch/commit/tag names are bounded
+const MAX_PATH_LEN = 4096;    // OS path limit
+const MAX_LIMIT = 100;
+const VALID_FILE_STATUS = new Set(['added', 'modified', 'deleted', 'renamed']);
+// Strip filesystem paths from error messages to avoid leaking internal layout
+function sanitizeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+      .replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/')
+      .substring(0, 500);
+  }
+  return 'Internal error';
+}
+// Validate a git ref: non-empty string, bounded length, no shell metacharacters.
+// execFileSync already prevents shell injection but we still cap the length and
+// reject control chars / obvious injection patterns so error messages don't echo
+// attacker-supplied content back.
+const REF_SAFE_RE = /^[a-zA-Z0-9_./:@^~\-\.{}\[\]]+$/;
+function validateRef(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length === 0) return 'HEAD';
+  if (value.length > MAX_REF_LEN) return null;
+  if (!REF_SAFE_RE.test(value)) return null;
+  return value;
+}
+
 /**
  * Diff Analysis Tool
  * Analyzes git diffs for change risk assessment and classification
@@ -50,7 +77,8 @@ export const analyzeDiffTool: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const ref = (params.ref as string) || 'HEAD';
+    const ref = validateRef(params.ref);
+    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
     const includeFileRisks = params.includeFileRisks === true;
     const includeReviewers = params.includeReviewers !== false;
     const useMonoVector = params.useMonoVector !== false;
@@ -83,7 +111,7 @@ export const analyzeDiffTool: MCPTool = {
     } catch (error) {
       return {
         error: true,
-        message: error instanceof Error ? error.message : String(error),
+        message: sanitizeError(error),
         ref,
       };
     }
@@ -110,7 +138,8 @@ export const diffRiskTool: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const ref = (params.ref as string) || 'HEAD';
+    const ref = validateRef(params.ref);
+    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
 
     try {
       const files = getGitDiffNumstat(ref);
@@ -125,7 +154,7 @@ export const diffRiskTool: MCPTool = {
     } catch (error) {
       return {
         error: true,
-        message: error instanceof Error ? error.message : String(error),
+        message: sanitizeError(error),
         ref,
       };
     }
@@ -152,7 +181,8 @@ export const diffClassifyTool: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const ref = (params.ref as string) || 'HEAD';
+    const ref = validateRef(params.ref);
+    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
 
     try {
       const files = getGitDiffNumstat(ref);
@@ -166,7 +196,7 @@ export const diffClassifyTool: MCPTool = {
     } catch (error) {
       return {
         error: true,
-        message: error instanceof Error ? error.message : String(error),
+        message: sanitizeError(error),
         ref,
       };
     }
@@ -198,8 +228,12 @@ export const diffReviewersTool: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const ref = (params.ref as string) || 'HEAD';
-    const limit = (params.limit as number) || 5;
+    const ref = validateRef(params.ref);
+    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
+    const rawLimit = params.limit;
+    const limit = (typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit > 0)
+      ? Math.min(Math.floor(rawLimit), MAX_LIMIT)
+      : 5;
 
     try {
       const files = getGitDiffNumstat(ref);
@@ -214,7 +248,7 @@ export const diffReviewersTool: MCPTool = {
     } catch (error) {
       return {
         error: true,
-        message: error instanceof Error ? error.message : String(error),
+        message: sanitizeError(error),
         ref,
       };
     }
@@ -257,11 +291,34 @@ export const fileRiskTool: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     try {
+      const rawPath = params.path;
+      if (typeof rawPath !== 'string' || rawPath.length === 0) {
+        return { error: true, message: 'path is required (non-empty string)' };
+      }
+      if (rawPath.length > MAX_PATH_LEN) {
+        return { error: true, message: `path too long (max ${MAX_PATH_LEN} chars)` };
+      }
+      // Only use the path for regex matching (assessFileRisk); still reject
+      // control characters to prevent log injection.
+      if (/[\x00-\x1F]/.test(rawPath)) {
+        return { error: true, message: 'path must not contain control characters' };
+      }
+      const rawStatus = params.status;
+      const status: DiffFile['status'] = (typeof rawStatus === 'string' && VALID_FILE_STATUS.has(rawStatus))
+        ? rawStatus as DiffFile['status']
+        : 'modified';
+      const rawAdd = params.additions;
+      const additions = (typeof rawAdd === 'number' && Number.isFinite(rawAdd) && rawAdd >= 0)
+        ? Math.min(Math.floor(rawAdd), 1_000_000) : 0;
+      const rawDel = params.deletions;
+      const deletions = (typeof rawDel === 'number' && Number.isFinite(rawDel) && rawDel >= 0)
+        ? Math.min(Math.floor(rawDel), 1_000_000) : 0;
+
       const file: DiffFile = {
-        path: params.path as string,
-        status: (params.status as DiffFile['status']) || 'modified',
-        additions: (params.additions as number) || 0,
-        deletions: (params.deletions as number) || 0,
+        path: rawPath,
+        status,
+        additions,
+        deletions,
         hunks: 1,
         binary: false,
       };
@@ -277,8 +334,8 @@ export const fileRiskTool: MCPTool = {
     } catch (error) {
       return {
         error: true,
-        message: error instanceof Error ? error.message : String(error),
-        path: params.path,
+        message: sanitizeError(error),
+        path: typeof params.path === 'string' ? params.path.substring(0, 200) : '',
       };
     }
   },
@@ -304,7 +361,8 @@ export const diffStatsTool: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const ref = (params.ref as string) || 'HEAD';
+    const ref = validateRef(params.ref);
+    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
 
     try {
       const files = getGitDiffNumstat(ref);
@@ -334,7 +392,7 @@ export const diffStatsTool: MCPTool = {
     } catch (error) {
       return {
         error: true,
-        message: error instanceof Error ? error.message : String(error),
+        message: sanitizeError(error),
         ref,
       };
     }

@@ -77,6 +77,7 @@ function parseSimpleYaml(content: string): Record<string, unknown> {
 function loadConfig(cwd: string): Record<string, unknown> | null {
   const configPath = path.join(cwd, '.monomind', 'config.yaml');
   if (!fs.existsSync(configPath)) return null;
+  if (fs.statSync(configPath).size > 1024 * 1024) return null; // skip files > 1 MB
 
   try {
     const content = fs.readFileSync(configPath, 'utf-8');
@@ -106,10 +107,14 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const swarmConfig = (config?.swarm as Record<string, unknown>) || {};
   const mcpConfig = (config?.mcp as Record<string, unknown>) || {};
 
-  const finalTopology = topology || (swarmConfig.topology as string) || DEFAULT_TOPOLOGY;
-  const maxAgents = (swarmConfig.maxAgents as number) || DEFAULT_MAX_AGENTS;
+  const VALID_TOPOLOGIES = new Set(['hierarchical-mesh', 'mesh', 'hierarchical', 'ring', 'star']);
+  const rawTopology = topology || (swarmConfig.topology as string) || DEFAULT_TOPOLOGY;
+  const finalTopology = VALID_TOPOLOGIES.has(rawTopology) ? rawTopology : DEFAULT_TOPOLOGY;
+  const rawMaxAgents = Number((swarmConfig.maxAgents as number) || DEFAULT_MAX_AGENTS);
+  const maxAgents = Number.isFinite(rawMaxAgents) ? Math.max(1, Math.min(rawMaxAgents, 100)) : DEFAULT_MAX_AGENTS;
   const autoStartMcp = (mcpConfig.autoStart as boolean) !== false && !skipMcp;
-  const mcpPort = port || (mcpConfig.serverPort as number) || DEFAULT_PORT;
+  const rawMcpPort = port || Number(mcpConfig.serverPort) || DEFAULT_PORT;
+  const mcpPort = Number.isFinite(rawMcpPort) ? Math.max(1, Math.min(rawMcpPort, 65535)) : DEFAULT_PORT;
 
   output.writeln();
   output.writeln(output.bold('Starting Monomind'));
@@ -304,7 +309,8 @@ const stopCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const force = ctx.flags.force as boolean;
-    const timeout = ctx.flags.timeout as number;
+    const rawTimeout = ctx.flags.timeout as number;
+    const timeout = Number.isFinite(rawTimeout) ? Math.max(1, Math.min(rawTimeout, 300)) : 30;
 
     output.writeln();
     output.writeln(output.bold('Stopping MonoMind'));

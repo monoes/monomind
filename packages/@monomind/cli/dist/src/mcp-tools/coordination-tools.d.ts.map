@@ -1,1 +1,1 @@
-{"version":3,"file":"coordination-tools.d.ts","sourceRoot":"","sources":["../../../src/mcp-tools/coordination-tools.ts"],"names":[],"mappings":"AAAA;;;;;;;;;GASG;AACH,OAAO,KAAK,EAAE,OAAO,EAAE,MAAM,YAAY,CAAC;AAwI1C,eAAO,MAAM,iBAAiB,EAAE,OAAO,EAsrBtC,CAAC"}
+{"version":3,"file":"coordination-tools.d.ts","sourceRoot":"","sources":["../../../src/mcp-tools/coordination-tools.ts"],"names":[],"mappings":"AAAA;;;;;;;;;GASG;AACH,OAAO,KAAK,EAAE,OAAO,EAAE,MAAM,YAAY,CAAC;AA0I1C,eAAO,MAAM,iBAAiB,EAAE,OAAO,EAstBtC,CAAC"}

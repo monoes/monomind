@@ -13,7 +13,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, readdirSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, unlinkSync, readdirSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import * as os from 'node:os';
 
@@ -66,10 +66,12 @@ function ensurePerfDir(): void {
   }
 }
 
+const MAX_PERF_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
+
 function loadPerfStore(): PerfStore {
   try {
     const path = getPerfPath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_PERF_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
   } catch {
@@ -276,8 +278,20 @@ export const performanceTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadPerfStore();
-      const suite = (input.suite as string) || 'all';
-      const iterations = (input.iterations as number) || 100;
+      // Validate suite against enum to prevent uncapped string from being stored
+      // as a benchmark key on disk.
+      const VALID_SUITES = new Set(['all', 'memory', 'neural', 'swarm', 'io']);
+      const rawSuite = (input.suite as string) || 'all';
+      const suite = VALID_SUITES.has(rawSuite) ? rawSuite : 'all';
+      // Cap iterations to prevent event-loop blocking DoS.  The `neural`
+      // suite runs an O(n³) 64×64 matrix multiply per iteration; at 10 000
+      // iterations it already completes in milliseconds.  Uncapped, a caller
+      // could pass iterations=9_999_999 and block the process for minutes.
+      const MAX_BENCHMARK_ITERATIONS = 10_000;
+      const rawIterations = typeof input.iterations === 'number' ? input.iterations : 100;
+      const iterations = Number.isFinite(rawIterations) && rawIterations > 0
+        ? Math.min(Math.floor(rawIterations), MAX_BENCHMARK_ITERATIONS)
+        : 100;
       const warmup = input.warmup !== false;
 
       // REAL benchmark functions
@@ -416,7 +430,11 @@ export const performanceTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const target = (input.target as string) || 'all';
+      // Validate target against enum to prevent arbitrary string from being
+      // stored in the perf store and echoed in the response.
+      const VALID_PROFILE_TARGETS = new Set(['all', 'memory', 'io', 'cpu']);
+      const rawTarget = (input.target as string) || 'all';
+      const target = VALID_PROFILE_TARGETS.has(rawTarget) ? rawTarget : 'all';
       const durationSec = Math.min((input.duration as number) || 1, 10);
       const durationMs = durationSec * 1000;
 
@@ -508,7 +526,11 @@ export const performanceTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const target = (input.target as string) || 'all';
+      // Validate target against enum — the value is echoed in the response and
+      // stored to the perf store; an unvalidated string could inflate disk state.
+      const VALID_OPT_TARGETS = new Set(['all', 'memory', 'latency', 'throughput']);
+      const rawOptTarget = (input.target as string) || 'all';
+      const target = VALID_OPT_TARGETS.has(rawOptTarget) ? rawOptTarget : 'all';
       const aggressive = input.aggressive === true;
 
       // Snapshot system state BEFORE optimizations
@@ -609,8 +631,15 @@ export const performanceTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const metric = (input.metric as string) || 'all';
-      const aggregation = (input.aggregation as string) || 'avg';
+      // Validate metric and aggregation against their enums.  Both values are
+      // later used as property index keys on plain objects — an attacker who
+      // passes "__proto__" or "constructor" could cause prototype pollution.
+      const VALID_METRICS = new Set(['cpu', 'memory', 'latency', 'throughput', 'all']);
+      const VALID_AGGREGATIONS = new Set(['avg', 'min', 'max', 'p50', 'p95', 'p99']);
+      const rawMetric = (input.metric as string) || 'all';
+      const metric = VALID_METRICS.has(rawMetric) ? rawMetric : 'all';
+      const rawAggregation = (input.aggregation as string) || 'avg';
+      const aggregation = VALID_AGGREGATIONS.has(rawAggregation) ? rawAggregation : 'avg';
 
       // Get REAL system metrics
       const memUsage = process.memoryUsage();
@@ -698,11 +727,18 @@ export const performanceTools: MCPTool[] = [
         };
       }
 
-      const selectedMetric = allMetrics[metric as keyof typeof allMetrics];
+      // Use Object.hasOwn to prevent prototype chain traversal when indexing
+      // by caller-supplied metric/aggregation strings.
+      const selectedMetric = Object.hasOwn(allMetrics, metric)
+        ? allMetrics[metric as keyof typeof allMetrics]
+        : allMetrics.cpu;
+      const aggValue = Object.hasOwn(selectedMetric, aggregation)
+        ? selectedMetric[aggregation as keyof typeof selectedMetric]
+        : undefined;
       return {
         _real: ['cpu', 'memory'].includes(metric),
         metric,
-        value: selectedMetric[aggregation as keyof typeof selectedMetric],
+        value: aggValue,
         unit: selectedMetric.unit,
         details: selectedMetric,
         timestamp: new Date().toISOString(),

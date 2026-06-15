@@ -3,8 +3,14 @@
  * success signal from real command exit codes, instead of trusting a
  * caller-supplied --success flag.
  */
-import { promises as fs } from 'node:fs';
+import { promises as fs, statSync } from 'node:fs';
 import { join } from 'node:path';
+
+/** Refuse to read files larger than this to prevent OOM. */
+const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+
+/** Cap command string length to prevent file bloat. */
+const MAX_COMMAND_LEN = 500;
 
 export interface CommandOutcome {
   ts: number;
@@ -17,14 +23,29 @@ function storePath(baseDir: string): string {
   return join(baseDir, 'command-outcomes.jsonl');
 }
 
+/** Maximum number of command-outcome records to keep.
+ *  deriveRecentSuccess only uses records within a 5-minute window (typically < 50), so
+ *  anything older is dead weight. 500 gives a comfortable buffer. */
+const MAX_COMMAND_RECORDS = 500;
+
 /** Append a command outcome. Non-fatal on error. */
 export async function recordCommand(baseDir: string, cmd: { command: string; exitCode: number; ts: number }): Promise<void> {
   try {
     await fs.mkdir(baseDir, { recursive: true });
-    const rec: CommandOutcome = { ts: cmd.ts, command: cmd.command, exitCode: cmd.exitCode, success: cmd.exitCode === 0 };
-    await fs.appendFile(storePath(baseDir), JSON.stringify(rec) + '\n', 'utf8');
-    // Opportunistic trim: keep file bounded (last 500 lines) to avoid unbounded growth
-    // (cheap: only rewrite when it gets large)
+    const path = storePath(baseDir);
+    // Cap command length to prevent individual records from bloating the file.
+    const safeCommand = cmd.command.length > MAX_COMMAND_LEN ? cmd.command.slice(0, MAX_COMMAND_LEN) : cmd.command;
+    const rec: CommandOutcome = { ts: cmd.ts, command: safeCommand, exitCode: cmd.exitCode, success: cmd.exitCode === 0 };
+    await fs.appendFile(path, JSON.stringify(rec) + '\n', 'utf8');
+    // Opportunistic trim: rewrite only when the file exceeds the cap.
+    // Avoids an extra stat() on every call by catching the overcount lazily.
+    // Guard with size check first to prevent OOM on unexpectedly large files.
+    try { if (statSync(path).size > MAX_FILE_BYTES) return; } catch { return; }
+    const content = await fs.readFile(path, 'utf8').catch(() => '');
+    const lines = content.trim().split('\n').filter(Boolean);
+    if (lines.length > MAX_COMMAND_RECORDS) {
+      await fs.writeFile(path, lines.slice(-MAX_COMMAND_RECORDS).join('\n') + '\n', 'utf8');
+    }
   } catch { /* non-fatal */ }
 }
 
@@ -51,7 +72,9 @@ export async function recordCommand(baseDir: string, cmd: { command: string; exi
  */
 export async function deriveRecentSuccess(baseDir: string, windowMs = 300_000): Promise<boolean | null> {
   try {
-    const content = await fs.readFile(storePath(baseDir), 'utf8').catch(() => '');
+    const p = storePath(baseDir);
+    try { if (statSync(p).size > MAX_FILE_BYTES) return null; } catch { /* file absent */ }
+    const content = await fs.readFile(p, 'utf8').catch(() => '');
     if (!content) return null;
     const now = Date.now();
     const recent: CommandOutcome[] = [];
@@ -72,7 +95,9 @@ export async function deriveRecentSuccess(baseDir: string, windowMs = 300_000): 
 /** Read recent command outcomes (for diagnostics). */
 export async function readCommandOutcomes(baseDir: string, windowMs = 300_000): Promise<CommandOutcome[]> {
   try {
-    const content = await fs.readFile(storePath(baseDir), 'utf8').catch(() => '');
+    const p = storePath(baseDir);
+    try { if (statSync(p).size > MAX_FILE_BYTES) return []; } catch { /* file absent */ }
+    const content = await fs.readFile(p, 'utf8').catch(() => '');
     if (!content) return [];
     const now = Date.now();
     return content.trim().split('\n').map(l => {

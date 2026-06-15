@@ -99,15 +99,41 @@ export const taskTools: MCPTool[] = [
       const store = loadTaskStore();
       const taskId = `task-${Date.now()}-${randomBytes(4).toString('hex')}`;
 
+      // Cap all string fields: they are persisted verbatim to the task JSON store.
+      const MAX_TASK_TYPE_LEN = 128;
+      const MAX_TASK_DESC_LEN = 64 * 1024; // 64 KB — realistic task descriptions
+      const MAX_TASK_ASSIGNEE_LEN = 256;
+      const MAX_TASK_ASSIGNEES = 100;
+      const MAX_TASK_TAG_LEN = 128;
+      const MAX_TASK_TAGS = 50;
+      const rawTaskType = input.type as string;
+      const taskType = typeof rawTaskType === 'string' && rawTaskType.length > MAX_TASK_TYPE_LEN
+        ? rawTaskType.slice(0, MAX_TASK_TYPE_LEN) : rawTaskType;
+      const rawTaskDesc = input.description as string;
+      const taskDesc = typeof rawTaskDesc === 'string' && rawTaskDesc.length > MAX_TASK_DESC_LEN
+        ? rawTaskDesc.slice(0, MAX_TASK_DESC_LEN) : rawTaskDesc;
+      const rawAssignTo = (input.assignTo as string[]) || [];
+      const assignedTo = Array.isArray(rawAssignTo)
+        ? rawAssignTo.slice(0, MAX_TASK_ASSIGNEES).map(a =>
+            typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN ? a.slice(0, MAX_TASK_ASSIGNEE_LEN) : a
+          )
+        : [];
+      const rawTags = (input.tags as string[]) || [];
+      const tags = Array.isArray(rawTags)
+        ? rawTags.slice(0, MAX_TASK_TAGS).map(t =>
+            typeof t === 'string' && t.length > MAX_TASK_TAG_LEN ? t.slice(0, MAX_TASK_TAG_LEN) : t
+          )
+        : [];
+
       const task: TaskRecord = {
         taskId,
-        type: input.type as string,
-        description: input.description as string,
+        type: taskType,
+        description: taskDesc,
         priority: (input.priority as TaskRecord['priority']) || 'normal',
         status: 'pending',
         progress: 0,
-        assignedTo: (input.assignTo as string[]) || [],
-        tags: (input.tags as string[]) || [],
+        assignedTo,
+        tags,
         createdAt: new Date().toISOString(),
         startedAt: null,
         completedAt: null,
@@ -206,8 +232,13 @@ export const taskTools: MCPTool[] = [
       // Sort by creation date (newest first)
       tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      // Apply limit
-      const limit = (input.limit as number) || 50;
+      // Apply limit — cap to 1 000 to prevent returning the entire task store
+      // in one response, which could cause OOM on large deployments.
+      const MAX_TASK_LIMIT = 1_000;
+      const rawLimit = typeof input.limit === 'number' ? input.limit : 50;
+      const limit = Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), MAX_TASK_LIMIT)
+        : 50;
       tasks = tasks.slice(0, limit);
 
       return {
@@ -261,7 +292,7 @@ export const taskTools: MCPTool[] = [
           const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
           try {
             let agentStore: { agents: Record<string, Record<string, unknown>> } = { agents: {} };
-            if (existsSync(agentStorePath)) {
+            if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
               const agentRaw = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
               if (agentRaw && typeof agentRaw === 'object' && !Object.prototype.hasOwnProperty.call(agentRaw, '__proto__')) {
                 agentStore = agentRaw;
@@ -334,7 +365,17 @@ export const taskTools: MCPTool[] = [
           task.progress = Math.min(100, Math.max(0, input.progress as number));
         }
         if (input.assignTo) {
-          task.assignedTo = input.assignTo as string[];
+          // Cap array and element lengths — task_create already does this;
+          // task_update must apply the same guards so the on-disk store
+          // cannot be inflated via the update path.
+          const MAX_TASK_ASSIGNEE_LEN = 256;
+          const MAX_TASK_ASSIGNEES = 100;
+          const rawAssignTo = input.assignTo as string[];
+          task.assignedTo = Array.isArray(rawAssignTo)
+            ? rawAssignTo.slice(0, MAX_TASK_ASSIGNEES).map(a =>
+                typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN ? a.slice(0, MAX_TASK_ASSIGNEE_LEN) : a
+              )
+            : task.assignedTo;
         }
         saveTaskStore(store);
 
@@ -383,7 +424,7 @@ export const taskTools: MCPTool[] = [
       const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
       let agentStore: { agents: Record<string, Record<string, unknown>> } = { agents: {} };
       try {
-        if (existsSync(agentStorePath)) {
+        if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
           agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
         }
       } catch { /* ignore */ }
@@ -469,7 +510,15 @@ export const taskTools: MCPTool[] = [
       if (task) {
         task.status = 'cancelled';
         task.completedAt = new Date().toISOString();
-        task.result = { cancelReason: input.reason || 'Cancelled by user' };
+        // Cap reason: persisted verbatim to the task store on disk.
+        // Without a cap an attacker can inflate the store with an arbitrarily
+        // large cancellation reason string.
+        const MAX_CANCEL_REASON_LEN = 1024;
+        const rawReason = input.reason as string | undefined;
+        const cancelReason = typeof rawReason === 'string' && rawReason.length > MAX_CANCEL_REASON_LEN
+          ? rawReason.slice(0, MAX_CANCEL_REASON_LEN)
+          : (rawReason || 'Cancelled by user');
+        task.result = { cancelReason };
         saveTaskStore(store);
 
         return {

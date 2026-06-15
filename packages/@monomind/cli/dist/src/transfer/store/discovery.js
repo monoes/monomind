@@ -3,6 +3,46 @@
  * Secure discovery mechanism for finding patterns in decentralized environment
  */
 import * as crypto from 'crypto';
+/** Maximum bytes read from any IPFS gateway response to prevent OOM */
+const MAX_DISCOVERY_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
+/**
+ * Read a fetch response body with a hard byte cap.
+ * Aborts the stream early if the limit is exceeded.
+ */
+async function readBodyCapped(response, maxBytes = MAX_DISCOVERY_RESPONSE_BYTES) {
+    const lengthHeader = response.headers.get('content-length');
+    if (lengthHeader) {
+        const declared = parseInt(lengthHeader, 10);
+        if (Number.isFinite(declared) && declared > maxBytes) {
+            throw new Error(`Response too large: ${declared} bytes (max ${maxBytes})`);
+        }
+    }
+    const reader = response.body?.getReader();
+    if (!reader)
+        return '';
+    const chunks = [];
+    let total = 0;
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+            break;
+        if (value) {
+            total += value.byteLength;
+            if (total > maxBytes) {
+                await reader.cancel();
+                throw new Error(`Response too large: exceeded ${maxBytes} bytes`);
+            }
+            chunks.push(value);
+        }
+    }
+    const combined = new Uint8Array(total);
+    let offset = 0;
+    for (const c of chunks) {
+        combined.set(c, offset);
+        offset += c.byteLength;
+    }
+    return new TextDecoder('utf-8').decode(combined);
+}
 import { DEFAULT_STORE_CONFIG, } from './registry.js';
 /**
  * Pattern Store Discovery Service
@@ -136,7 +176,8 @@ export class PatternDiscovery {
                     signal: AbortSignal.timeout(10000),
                 });
                 if (response.ok) {
-                    const data = await response.json();
+                    const text = await readBodyCapped(response, 64 * 1024); // IPNS resolve is tiny
+                    const data = JSON.parse(text);
                     const cid = data.Path?.replace('/ipfs/', '') || '';
                     if (cid) {
                         const resolution = {
@@ -226,7 +267,7 @@ export class PatternDiscovery {
                 signal: AbortSignal.timeout(30000),
             });
             if (response.ok) {
-                const text = await response.text();
+                const text = await readBodyCapped(response);
                 try {
                     const registry = JSON.parse(text);
                     console.log(`[Discovery] Fetched registry with ${registry.patterns?.length || 0} patterns`);
@@ -257,7 +298,8 @@ export class PatternDiscovery {
                     signal: AbortSignal.timeout(15000),
                 });
                 if (response.ok) {
-                    const registry = await response.json();
+                    const altText = await readBodyCapped(response);
+                    const registry = JSON.parse(altText);
                     console.log(`[Discovery] Fetched registry from ${altGateway}`);
                     return registry;
                 }

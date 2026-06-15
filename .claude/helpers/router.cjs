@@ -35,13 +35,16 @@ const DEFAULT_RESULT = {
   extrasMatches: [],
 };
 
+var MAX_PROMPT = 2000;
+
 function routeTask(prompt) {
   if (!prompt || typeof prompt !== 'string') return DEFAULT_RESULT;
+  var safePrompt = prompt.slice(0, MAX_PROMPT);
 
   var best = null;
   for (var i = 0; i < KEYWORD_ROUTES.length; i++) {
     var rule = KEYWORD_ROUTES[i];
-    if (rule.pattern.test(prompt)) {
+    if (rule.pattern.test(safePrompt)) {
       if (!best || rule.confidence > best.confidence) {
         best = rule;
       }
@@ -54,7 +57,7 @@ function routeTask(prompt) {
     agent: best.agent,
     agentSlug: best.agent.toLowerCase().replace(/\s+/g, '-'),
     confidence: best.confidence,
-    reason: 'Keyword match: ' + best.pattern.toString().slice(1, 40),
+    reason: ('Keyword match: ' + best.pattern.toString()).slice(0, 80),
     semanticRouting: false,
     specificAgents: [],
     skillMatches: [],
