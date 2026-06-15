@@ -225,7 +225,7 @@ export const neuralTools = [
                 try {
                     const patternsPath = join(getNeuralDir(), PATTERNS_FILE);
                     let existing = [];
-                    if (existsSync(patternsPath)) {
+                    if (existsSync(patternsPath) && statSync(patternsPath).size <= MAX_NEURAL_STORE_BYTES) {
                         const raw = readFileSync(patternsPath, 'utf-8');
                         const parsed = JSON.parse(raw);
                         if (Array.isArray(parsed))
@@ -309,7 +309,7 @@ export const neuralTools = [
             const cliPatternsRaw = [];
             try {
                 const cliPath = join(getNeuralDir(), PATTERNS_FILE);
-                if (existsSync(cliPath)) {
+                if (existsSync(cliPath) && statSync(cliPath).size <= MAX_NEURAL_STORE_BYTES) {
                     const raw = JSON.parse(readFileSync(cliPath, 'utf-8'));
                     if (Array.isArray(raw)) {
                         const mcpIds = new Set(mcpPatterns.map(p => p.id));
@@ -412,7 +412,12 @@ export const neuralTools = [
                     return { success: false, error: `Pattern store full (max ${MAX_PATTERNS}). Run neural_compress first.` };
                 }
                 const patternId = `pattern-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-                const patternName = input.name || 'Unnamed pattern';
+                // Cap name length to prevent DoS in generateEmbedding (hash path is O(n))
+                const MAX_PATTERN_NAME_LENGTH = 16 * 1024; // 16 KB
+                const rawPatternName = input.name || 'Unnamed pattern';
+                const patternName = typeof rawPatternName === 'string' && rawPatternName.length > MAX_PATTERN_NAME_LENGTH
+                    ? rawPatternName.slice(0, MAX_PATTERN_NAME_LENGTH)
+                    : rawPatternName;
                 // Generate embedding from pattern name/content
                 const embedding = await generateEmbedding(patternName, 384);
                 const pattern = {
@@ -437,7 +442,12 @@ export const neuralTools = [
                 };
             }
             if (action === 'search') {
-                const query = input.query;
+                // Cap query length to prevent DoS in generateEmbedding (hash path is O(n))
+                const MAX_SEARCH_QUERY_LENGTH = 16 * 1024; // 16 KB — matches neural_predict cap
+                const rawQuery = input.query;
+                const query = typeof rawQuery === 'string' && rawQuery.length > MAX_SEARCH_QUERY_LENGTH
+                    ? rawQuery.slice(0, MAX_SEARCH_QUERY_LENGTH)
+                    : rawQuery;
                 // Generate query embedding for real similarity search
                 const queryEmbedding = await generateEmbedding(query, 384);
                 // Calculate REAL cosine similarity against stored patterns
