@@ -1118,20 +1118,39 @@ export const hiveMindTools: MCPTool[] = [
       const action = input.action as string;
       const key = input.key as string;
 
+      const MAX_HIVE_MEMORY_KEY_LEN = 256;
+      const MAX_HIVE_MEMORY_VALUE_BYTES = 1024 * 1024; // 1 MB
+      const MAX_HIVE_MEMORY_KEYS = 1000;
+
       if (action === 'get') {
         if (!key) return { action, error: 'Key required' };
+        if (typeof key !== 'string' || key.length > MAX_HIVE_MEMORY_KEY_LEN || HIVE_RESERVED_KEYS.has(key)) {
+          return { action, error: 'Invalid key' };
+        }
         return {
           action,
           key,
-          value: state.sharedMemory[key],
-          exists: key in state.sharedMemory,
+          value: Object.hasOwn(state.sharedMemory, key) ? state.sharedMemory[key] : undefined,
+          exists: Object.hasOwn(state.sharedMemory, key),
         };
       }
 
       if (action === 'set') {
         if (!key) return { action, error: 'Key required' };
-        if (HIVE_RESERVED_KEYS.has(key)) return { action, error: 'Forbidden key' };
-        state.sharedMemory[key] = input.value;
+        if (typeof key !== 'string' || key.length > MAX_HIVE_MEMORY_KEY_LEN || HIVE_RESERVED_KEYS.has(key)) {
+          return { action, error: 'Invalid key' };
+        }
+        // Cap value if it's a string; otherwise serialize and check byte size
+        const rawValue = input.value;
+        const cappedValue = typeof rawValue === 'string' && rawValue.length > MAX_HIVE_MEMORY_VALUE_BYTES
+          ? rawValue.slice(0, MAX_HIVE_MEMORY_VALUE_BYTES)
+          : rawValue;
+        // Enforce max number of distinct keys to prevent unbounded growth
+        const keyCount = Object.keys(state.sharedMemory).length;
+        if (!Object.hasOwn(state.sharedMemory, key) && keyCount >= MAX_HIVE_MEMORY_KEYS) {
+          return { action, error: `Shared memory full (max ${MAX_HIVE_MEMORY_KEYS} keys)` };
+        }
+        state.sharedMemory[key] = cappedValue;
         saveHiveState(state);
 
         // Also store in AgentDB for searchable hive memory
@@ -1154,7 +1173,10 @@ export const hiveMindTools: MCPTool[] = [
 
       if (action === 'delete') {
         if (!key) return { action, error: 'Key required' };
-        const existed = key in state.sharedMemory;
+        if (typeof key !== 'string' || key.length > MAX_HIVE_MEMORY_KEY_LEN || HIVE_RESERVED_KEYS.has(key)) {
+          return { action, error: 'Invalid key' };
+        }
+        const existed = Object.hasOwn(state.sharedMemory, key);
         delete state.sharedMemory[key];
         saveHiveState(state);
         return {
