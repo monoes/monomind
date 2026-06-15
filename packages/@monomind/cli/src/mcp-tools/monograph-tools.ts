@@ -660,14 +660,39 @@ const monographDiffTool: MCPTool = {
       try { after = snapshotFromDb(db); } finally { closeDb(db); }
     }
     const diff = diffSnapshots(before, after);
+
+    // Build id→{name,filePath,startLine} index from both snapshots so edge IDs can be
+    // resolved to human-readable symbol names and file:line hints in the diff output.
+    // The merged snapshot is the union of before+after nodes — covers all referenced IDs.
+    type NodeRef = { name: string; filePath?: string | null; startLine?: number | null };
+    const nodeById = new Map<string, NodeRef>();
+    const indexNodes = (nodes: NodeRef & { id?: string }[]) => {
+      for (const n of nodes) { if (n.id) nodeById.set(n.id as string, n); }
+    };
+    indexNodes(before.nodes as unknown as (NodeRef & { id?: string })[]);
+    indexNodes(after.nodes as unknown as (NodeRef & { id?: string })[]);
+
+    const resolveEdgeEnd = (id: string): string => {
+      const ref = nodeById.get(id);
+      if (!ref) return id; // fallback to raw id if not found
+      const loc = ref.filePath ? (ref.startLine != null ? `${ref.filePath}:${ref.startLine}` : ref.filePath) : '';
+      return loc ? `${ref.name}  [${loc}]` : ref.name;
+    };
+
     const section = (label: string, items: string[]) =>
       items.length > 0 ? `\n${label} (${items.length}):\n${items.slice(0, 10).join('\n')}${items.length > 10 ? `\n  … ${items.length - 10} more` : ''}` : '';
+
+    const formatNode = (n: { label?: string; name?: string; filePath?: string | null; startLine?: number | null }) => {
+      const loc = n.filePath ? (n.startLine != null ? `${n.filePath}:${n.startLine}` : n.filePath) : '';
+      return `  [${n.label ?? '?'}] ${n.name ?? '?'}${loc ? `  ${loc}` : ''}`;
+    };
+
     const lines = [
       `Diff: ${diff.summary}`,
-      section('New nodes', diff.newNodes.map(n => `  + [${n.label}] ${n.name}  ${n.filePath ?? ''}`)),
-      section('Removed nodes', diff.removedNodes.map(n => `  - [${n.label}] ${n.name}  ${n.filePath ?? ''}`)),
-      section('New edges', diff.newEdges.map(e => `  + ${e.sourceId} --[${e.relation}]--> ${e.targetId}`)),
-      section('Removed edges', diff.removedEdges.map(e => `  - ${e.sourceId} --[${e.relation}]--> ${e.targetId}`)),
+      section('New nodes', diff.newNodes.map(n => `  + ${formatNode(n)}`)),
+      section('Removed nodes', diff.removedNodes.map(n => `  - ${formatNode(n)}`)),
+      section('New edges', diff.newEdges.map(e => `  + ${resolveEdgeEnd(e.sourceId)} --[${e.relation}]--> ${resolveEdgeEnd(e.targetId)}`)),
+      section('Removed edges', diff.removedEdges.map(e => `  - ${resolveEdgeEnd(e.sourceId)} --[${e.relation}]--> ${resolveEdgeEnd(e.targetId)}`)),
     ].join('');
     return text(lines);
   },
