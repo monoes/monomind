@@ -1344,7 +1344,38 @@ const monographShapeCheckTool: MCPTool = {
         route: input.route as string | undefined,
         file: input.file as string | undefined,
       });
-      return text(JSON.stringify(result, null, 2));
+      // Render as structured text so LLMs can act on it directly without parsing JSON.
+      const lines: string[] = [];
+      lines.push(`Shape check: ${result.message}`);
+      if (result.route) {
+        const handlerLoc = result.route.handlerFile
+          ? `  Handler: ${result.route.handlerName}  [${result.route.handlerFile}]`
+          : `  Handler: ${result.route.handlerName}`;
+        lines.push(`Route: ${result.route.method} ${result.route.path}`);
+        lines.push(handlerLoc);
+      }
+      if (result.shape.returnedKeys.length > 0) {
+        lines.push(`  Returned keys: ${result.shape.returnedKeys.join(', ')}`);
+      }
+      if (result.shape.accessedKeys.length > 0) {
+        lines.push(`  Accessed keys: ${result.shape.accessedKeys.join(', ')}`);
+      }
+      if (result.shape.mismatches.length > 0) {
+        lines.push(`  Mismatches (accessed but not returned): ${result.shape.mismatches.join(', ')}`);
+      }
+      if (result.shape.extra.length > 0) {
+        lines.push(`  Unused returned keys: ${result.shape.extra.join(', ')}`);
+      }
+      if (result.consumers.length > 0) {
+        lines.push(`  Consumers (${result.consumers.length}):`);
+        for (const c of result.consumers.slice(0, 10)) {
+          lines.push(`    - ${c.name}  [${c.filePath}]`);
+        }
+        if (result.consumers.length > 10) {
+          lines.push(`    … ${result.consumers.length - 10} more`);
+        }
+      }
+      return text(lines.join('\n'));
     } finally { closeDb(db); }
   },
 };
