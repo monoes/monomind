@@ -282,7 +282,12 @@ const monographSurprisesTool: MCPTool = {
     const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const limit = (input.limit as number | undefined) ?? 20;
+      // Cap limit: passed directly to the SQL LIMIT clause.
+      const MAX_SURPRISES_LIMIT = 1_000;
+      const rawSurprisesLimit = (input.limit as number | undefined) ?? 20;
+      const limit = Number.isFinite(rawSurprisesLimit) && rawSurprisesLimit > 0
+        ? Math.min(Math.floor(rawSurprisesLimit), MAX_SURPRISES_LIMIT)
+        : 20;
       const rows = db.prepare(`
         SELECT e.*, n1.name as src_name, n2.name as tgt_name
         FROM edges e
@@ -395,7 +400,13 @@ const monographVisualizeTool: MCPTool = {
     const { openDb, closeDb, toJson, toHtml, toSvg } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const limit = (input.maxNodes as number | undefined) ?? 500;
+      // Cap maxNodes: passed to SQL LIMIT clause for both nodes (n) and edges
+      // (n*3).  Without a cap an attacker requests all rows from both tables.
+      const MAX_EXPORT_NODES = 10_000;
+      const rawMaxNodes = (input.maxNodes as number | undefined) ?? 500;
+      const limit = Number.isFinite(rawMaxNodes) && rawMaxNodes > 0
+        ? Math.min(Math.floor(rawMaxNodes), MAX_EXPORT_NODES)
+        : 500;
       const nodes = db.prepare('SELECT * FROM nodes LIMIT ?').all(limit) as any[];
       const edges = db.prepare('SELECT * FROM edges LIMIT ?').all(limit * 3) as any[];
       const fmt = (input.format as string | undefined) ?? 'html';
@@ -867,7 +878,14 @@ const monographCypherTool: MCPTool = {
     const { getMonographCypher } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const result = getMonographCypher(db, input.query as string);
+      // Cap query: forwarded to the Cypher query engine; very long strings
+      // waste parse time and can stress the query compiler.
+      const MAX_CYPHER_QUERY_LEN = 16 * 1024;
+      const rawCypherQuery = input.query as string;
+      const cypherQuery = typeof rawCypherQuery === 'string' && rawCypherQuery.length > MAX_CYPHER_QUERY_LEN
+        ? rawCypherQuery.slice(0, MAX_CYPHER_QUERY_LEN)
+        : rawCypherQuery;
+      const result = getMonographCypher(db, cypherQuery);
       if (result.error) return text(`Error: ${result.error}`);
       if (result.rows.length === 0) return text('No results found.');
       const header = Object.keys(result.rows[0]).join('\t');
@@ -913,7 +931,18 @@ const monographGroupQueryTool: MCPTool = {
   handler: async (input) => {
     const { runGroupQuery } = await import('@monoes/monograph');
     const configPath = (input.configPath as string | undefined) ?? join(getProjectCwd(), 'group.yaml');
-    const results = await runGroupQuery(configPath, input.query as string, input.limit as number | undefined);
+    // Cap query and limit forwarded to runGroupQuery.
+    const MAX_GROUP_QUERY_LEN = 16 * 1024;
+    const MAX_GROUP_LIMIT = 1_000;
+    const rawGroupQuery = input.query as string;
+    const groupQuery = typeof rawGroupQuery === 'string' && rawGroupQuery.length > MAX_GROUP_QUERY_LEN
+      ? rawGroupQuery.slice(0, MAX_GROUP_QUERY_LEN)
+      : rawGroupQuery;
+    const rawGroupLimit = input.limit as number | undefined;
+    const groupLimit = Number.isFinite(rawGroupLimit) && (rawGroupLimit ?? 0) > 0
+      ? Math.min(Math.floor(rawGroupLimit!), MAX_GROUP_LIMIT)
+      : rawGroupLimit;
+    const results = await runGroupQuery(configPath, groupQuery, groupLimit);
     if (results.length === 0) return text('No results found.');
     const lines = results.map(r => `[${r.label}] ${r.name}  ${r.filePath ?? ''}  repo:${r.repo}  (score: ${r.score.toFixed(4)})`);
     return text(lines.join('\n'));
