@@ -233,11 +233,19 @@ const monographCommunityTool: MCPTool = {
     required: ['id'],
   },
   handler: async (input) => {
+    // Validate community ID — must be a finite integer. parseInt(NaN) or a float
+    // would silently become 0 in SQLite (NaN → NULL → 0 coercion), which would
+    // return all nodes in community 0 instead of an error.
+    const rawId = typeof input.id === 'number' ? input.id : parseInt(String(input.id), 10);
+    if (!Number.isFinite(rawId) || rawId !== Math.floor(rawId)) {
+      return text(`Invalid community ID: ${input.id} (must be an integer)`);
+    }
+    const communityId = rawId;
     const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const rows = db.prepare('SELECT * FROM nodes WHERE community_id = ?').all(parseInt(input.id as string, 10)) as any[];
-      if (rows.length === 0) return text(`No nodes in community ${input.id}`);
+      const rows = db.prepare('SELECT * FROM nodes WHERE community_id = ?').all(communityId) as any[];
+      if (rows.length === 0) return text(`No nodes in community ${communityId}`);
       return text(rows.map(r => `[${r.label}] ${r.name}  ${r.file_path ?? ''}`).join('\n'));
     } finally { closeDb(db); }
   },
