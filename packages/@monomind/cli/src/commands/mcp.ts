@@ -102,7 +102,8 @@ const startCommand: Command = {
     { command: 'monomind mcp start -f', description: 'Force restart (kill existing)' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const port = (ctx.flags.port as number) ?? 3000;
+    const rawPort = (ctx.flags.port as number) ?? 3000;
+    const port = Number.isFinite(rawPort) && rawPort >= 1 && rawPort <= 65535 ? Math.floor(rawPort) : 3000;
     const host = (ctx.flags.host as string) ?? 'localhost';
     const transport = (ctx.flags.transport as 'stdio' | 'http' | 'websocket') ?? 'stdio';
     const tools = (ctx.flags.tools as string) || 'all';
