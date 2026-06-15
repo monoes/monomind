@@ -210,68 +210,119 @@ function extractCallSites(
   return sites;
 }
 
-// ── Stage 3: Build import map from DB ─────────────────────────────────────────
+// ── Stage 3: Build import maps from DB (batch) ────────────────────────────────
 
-/** Returns a map of imported name → source file path for a given file node */
-function buildImportMap(
+/**
+ * Load all IMPORTS edges once and return a map of fileNodeId → (name → filePath).
+ * Eliminates the N+1 pattern of querying per-file inside the main loop.
+ */
+function buildAllImportMaps(
   ctx: PipelineContext,
-  fileNodeId: string,
   symbolNodes: MonographNode[],
-): Map<string, string> {
-  const importMap = new Map<string, string>();
+): Map<string, Map<string, string>> {
+  const result = new Map<string, Map<string, string>>();
+  if (!ctx.db) return result;
 
-  if (!ctx.db) return importMap;
-
-  // Get IMPORTS edges for this file to find which modules it imports
-  const importsRows = ctx.db
-    .prepare(`SELECT target_id FROM edges WHERE source_id = ? AND relation = 'IMPORTS'`)
-    .all(fileNodeId) as { target_id: string }[];
-
-  for (const row of importsRows) {
-    const targetId = row.target_id;
-    // Find a File node that matches the resolved target
-    const fileNode = symbolNodes.find(
-      n => n.label === 'File' && (
-        n.id === targetId ||
-        makeId(n.filePath?.replace(/\//g, '_') ?? '', 'file') === targetId
-      ),
-    );
-    if (fileNode?.filePath) {
-      // Extract the module name from the last path segment without extension
-      const parts = fileNode.filePath.split('/');
-      const baseName = parts[parts.length - 1].replace(/\.\w+$/, '');
-      importMap.set(baseName, fileNode.filePath);
-      importMap.set(fileNode.filePath, fileNode.filePath);
+  // Build a lookup: fileNodeId → filePath from symbolNodes
+  const idToFilePath = new Map<string, string>();
+  for (const n of symbolNodes) {
+    if (n.label === 'File' && n.filePath) {
+      idToFilePath.set(n.id, n.filePath);
+      // Also register the alternate makeId form
+      const altId = makeId(n.filePath.replace(/\//g, '_'), 'file');
+      if (altId !== n.id) idToFilePath.set(altId, n.filePath);
     }
   }
 
-  return importMap;
+  // Load ALL IMPORTS edges in one query
+  const importsRows = ctx.db
+    .prepare(`SELECT source_id, target_id FROM edges WHERE relation = 'IMPORTS'`)
+    .all() as { source_id: string; target_id: string }[];
+
+  for (const row of importsRows) {
+    const targetPath = idToFilePath.get(row.target_id);
+    if (!targetPath) continue;
+    let fileMap = result.get(row.source_id);
+    if (!fileMap) {
+      fileMap = new Map();
+      result.set(row.source_id, fileMap);
+    }
+    const parts = targetPath.split('/');
+    const baseName = parts[parts.length - 1].replace(/\.\w+$/, '');
+    fileMap.set(baseName, targetPath);
+    fileMap.set(targetPath, targetPath);
+  }
+
+  return result;
 }
 
-// ── Stage 4 + 5: Resolve target node ─────────────────────────────────────────
+/** Returns the pre-built import map for a given file node (empty map if not found). */
+function getImportMap(
+  allImportMaps: Map<string, Map<string, string>>,
+  fileNodeId: string,
+): Map<string, string> {
+  return allImportMaps.get(fileNodeId) ?? new Map();
+}
+
+// ── Stage 4 helpers: preloaded function/method index ──────────────────────────
+
+/**
+ * Load all Function/Method/Constructor nodes once.
+ * Returns two indices:
+ * - byFilePath: filePath → name → id[] (for resolveTarget candidate lookup)
+ * - nameCounts: name → total occurrences across all files (for ambiguity check)
+ */
+function buildFunctionIndex(ctx: PipelineContext): {
+  byFilePath: Map<string, Map<string, string[]>>;
+  nameCounts: Map<string, number>;
+} {
+  const byFilePath = new Map<string, Map<string, string[]>>();
+  const nameCounts = new Map<string, number>();
+
+  if (!ctx.db) return { byFilePath, nameCounts };
+
+  const rows = ctx.db
+    .prepare(`SELECT id, name, file_path FROM nodes WHERE label IN ('Function', 'Method', 'Constructor') AND file_path IS NOT NULL`)
+    .all() as { id: string; name: string; file_path: string }[];
+
+  for (const row of rows) {
+    // byFilePath index
+    let fileMap = byFilePath.get(row.file_path);
+    if (!fileMap) {
+      fileMap = new Map();
+      byFilePath.set(row.file_path, fileMap);
+    }
+    let ids = fileMap.get(row.name);
+    if (!ids) {
+      ids = [];
+      fileMap.set(row.name, ids);
+    }
+    ids.push(row.id);
+
+    // global count for ambiguity detection
+    nameCounts.set(row.name, (nameCounts.get(row.name) ?? 0) + 1);
+  }
+
+  return { byFilePath, nameCounts };
+}
+
+// ── Stage 4 + 5: Resolve target node (index-based, no per-call DB query) ──────
 
 function resolveTarget(
-  ctx: PipelineContext,
   site: CallSite,
   callerFilePath: string,
   importMap: Map<string, string>,
+  fnIndex: Map<string, Map<string, string[]>>,
 ): { targetId: string } | null {
-  if (!ctx.db) return null;
-
   const methodName = site.methodName;
   if (!methodName) return null;
 
-  let candidateFilePaths: string[] = [];
+  let candidateFilePaths: string[];
 
   if (site.form === 'method' && site.receiverName) {
     // Stage 3: Infer receiver type — look up receiver in import map
     const receiverPath = importMap.get(site.receiverName);
-    if (receiverPath) {
-      candidateFilePaths = [receiverPath];
-    } else {
-      // Receiver not imported — look in same file only
-      candidateFilePaths = [callerFilePath];
-    }
+    candidateFilePaths = receiverPath ? [receiverPath] : [callerFilePath];
   } else if (site.form === 'direct') {
     // Direct call: same file first, then all imported files
     candidateFilePaths = [callerFilePath, ...importMap.values()];
@@ -279,22 +330,13 @@ function resolveTarget(
     return null;
   }
 
-  // Stage 5: Query nodes table for matching function/method/constructor
+  // Stage 5: O(1) lookup in preloaded index instead of per-call DB query
   for (const fp of candidateFilePaths) {
-    const rows = ctx.db
-      .prepare(`
-        SELECT id FROM nodes
-        WHERE name = ?
-          AND label IN ('Function', 'Method', 'Constructor')
-          AND file_path = ?
-        LIMIT 2
-      `)
-      .all(methodName, fp) as { id: string }[];
-
-    if (rows.length === 1) {
-      return { targetId: rows[0].id };
+    const ids = fnIndex.get(fp)?.get(methodName);
+    if (ids && ids.length === 1) {
+      return { targetId: ids[0] };
     }
-    // If > 1 match, it's ambiguous — skip this candidate file
+    // ids.length > 1 → ambiguous within this file — skip to next candidate
   }
 
   return null;
@@ -361,6 +403,8 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
     let skippedDynamic = 0;
     let ambiguous = 0;
 
+    // ── Batch preload: one query per table instead of one per file/call-site ──
+
     // Build a map from file_path → file node id using the parse output
     const fileNodesByPath = new Map<string, MonographNode>();
     for (const node of symbolNodes) {
@@ -388,6 +432,12 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
       }
     }
 
+    // Preload all IMPORTS edges → per-file import maps (one DB query total)
+    const allImportMaps = buildAllImportMaps(ctx, symbolNodes);
+
+    // Preload all Function/Method/Constructor nodes into indices (one DB query total)
+    const { byFilePath: fnIndex, nameCounts } = buildFunctionIndex(ctx);
+
     for (const [filePath, fileNode] of fileNodesByPath) {
       const ext = extname(filePath).toLowerCase();
       if (!isSupportedExt(ext)) continue;
@@ -403,8 +453,8 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
       // Stage 1+2: Extract call sites
       const callSites = extractCallSites(source, filePath, fileNode.id, ext);
 
-      // Stage 3: Build import map for this file
-      const importMap = buildImportMap(ctx, fileNode.id, symbolNodes);
+      // Stage 3: Get pre-built import map for this file (O(1))
+      const importMap = getImportMap(allImportMaps, fileNode.id);
 
       for (const site of callSites) {
         if (site.form === 'dynamic') {
@@ -412,29 +462,18 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
           continue;
         }
 
-        // Stage 4+5: Resolve target
-        const resolved = resolveTarget(ctx, site, filePath, importMap);
+        // Stage 4+5: Resolve target using preloaded indices (no DB query)
+        const resolved = resolveTarget(site, filePath, importMap, fnIndex);
 
         if (!resolved) {
-          // Could not resolve — treat as ambiguous if we had candidates
-          // (method calls with unresolvable receivers are simply skipped)
+          // Could not resolve — method calls with unresolvable receivers are simply skipped
           continue;
         }
 
-        // Check if the resolved target is actually in multiple places (ambiguity check)
-        if (ctx.db && site.methodName) {
-          const totalMatches = ctx.db
-            .prepare(`
-              SELECT COUNT(*) as cnt FROM nodes
-              WHERE name = ?
-                AND label IN ('Function', 'Method', 'Constructor')
-            `)
-            .get(site.methodName) as { cnt: number };
-          if (totalMatches.cnt > 1) {
-            ambiguous++;
-            // Still emit if we found exactly one in the candidate file — this is per-file ambiguity
-            // The resolve already picked one candidate, so proceed
-          }
+        // Ambiguity check using preloaded name counts (no DB query)
+        if (site.methodName && (nameCounts.get(site.methodName) ?? 0) > 1) {
+          ambiguous++;
+          // Still emit — we found exactly one candidate in the caller's context
         }
 
         // Stage 6: Emit edge (source is the file node of the caller)
