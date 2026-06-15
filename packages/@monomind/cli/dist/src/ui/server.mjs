@@ -4342,8 +4342,23 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       let event = {};
       try { event = JSON.parse(body); } catch (_) {}
       event.ts = event.ts || Date.now();
-      // Use project path from event if provided (multi-project support)
-      const eventProject = event.project && path.isAbsolute(event.project) ? event.project : null;
+      // Use project path from event if provided (multi-project support).
+      // Security: path.isAbsolute() alone is insufficient — an attacker can
+      // supply event.project="/etc" and cause writes to system directories.
+      // Only accept paths that resolve to an existing directory AND are not
+      // the filesystem root (/), AND are not obviously system paths.
+      // Cap to 4096 chars to prevent OOM from huge path strings.
+      const _rawProject = event.project;
+      let eventProject = null;
+      if (typeof _rawProject === 'string' && _rawProject.length > 0 && _rawProject.length <= 4096
+          && path.isAbsolute(_rawProject)) {
+        // Reject filesystem root and common system directories
+        const _norm = path.resolve(_rawProject);
+        const _systemPaths = ['/', '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/sys', '/proc', '/tmp'];
+        if (!_systemPaths.includes(_norm) && !_systemPaths.some(p => _norm.startsWith(p + '/'))) {
+          eventProject = _norm;
+        }
+      }
       const root = eventProject || projectDir || process.cwd();
       const dataDir = path.join(root, 'data');
       try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
@@ -4397,12 +4412,19 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
         }
         fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 50), null, 2));
-        // Also write individual session file for direct traceability
+        // Also write individual session file for direct traceability.
+        // Security: validate event.session before using it as a filename to
+        // prevent path traversal (e.g. "../../../etc/cron.d/payload").
         const sessionObj = sessions.find(s => s.id === event.session);
         if (sessionObj) {
           const sessDir = path.join(dataDir, 'sessions');
           try { fs.mkdirSync(sessDir, { recursive: true }); } catch (_) {}
-          try { fs.writeFileSync(path.join(sessDir, `${event.session}.json`), JSON.stringify(sessionObj, null, 2)); } catch (_) {}
+          try {
+            const _sid = String(event.session || '').trim();
+            if (_sid.length > 0 && _sid.length <= 128 && /^[a-zA-Z0-9_.-]+$/.test(_sid)) {
+              fs.writeFileSync(path.join(sessDir, `${_sid}.json`), JSON.stringify(sessionObj, null, 2));
+            }
+          } catch (_) {}
         }
       } catch (_) {}
       // For org:stop events, write a stop marker the boss agent can detect
