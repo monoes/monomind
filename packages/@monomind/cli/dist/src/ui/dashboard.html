@@ -2390,7 +2390,7 @@ function initSSE() {
   if (!DIR || !window.EventSource) { startPolling(); return; }
   try {
     const src = new EventSource('/api/events-stream?dir=' + enc(DIR));
-    src.addEventListener('update', () => { if (currentView === 'now') refreshNowSilent(); });
+    src.addEventListener('update', () => { if (currentView === 'now') refreshNowSilent(); updateDocTitle(); });
     src.addEventListener('connected', () => {});
     src.onerror = () => { src.close(); _sseSource = null; startPolling(); };
     _sseSource = src;
@@ -2502,6 +2502,8 @@ async function loadFeed() {
       setFeedContent('<div class="feed-empty" style="text-align:center;padding:48px 24px"><div style="font-size:32px;margin-bottom:12px;opacity:0.25">◫</div><div style="font-size:14px;color:var(--text-hi);margin-bottom:8px">No sessions yet</div><div style="font-size:12px;color:var(--text-lo);line-height:1.8;max-width:340px;margin:0 auto">Start a Claude Code session in this project to see its live event feed here.<br><code style="font-size:11px;background:var(--surface-hi);padding:2px 7px;border-radius:4px;color:var(--accent)">claude</code>&ensp;then complete a task and return.</div></div>');
       return;
     }
+    // After session list loads, update title with running count
+    updateDocTitle();
     sessionIdx = 0;
     await loadFeedForSession(sessions[0]);
     renderMiniSessions(sessions.slice(0, 6));
