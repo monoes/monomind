@@ -10,7 +10,7 @@
  *
  * @module v1/cli/intelligence
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 // ============================================================================
@@ -332,7 +332,7 @@ class LocalReasoningBank {
     loadFromDisk() {
         try {
             const path = getPatternsPath();
-            if (existsSync(path)) {
+            if (existsSync(path) && statSync(path).size <= 50 * 1024 * 1024) {
                 const data = JSON.parse(readFileSync(path, 'utf-8'));
                 if (Array.isArray(data)) {
                     // Validate each persisted pattern. The patterns file is part of the
@@ -548,7 +548,7 @@ let globalStats = {
 function loadPersistedStats() {
     try {
         const path = getStatsPath();
-        if (existsSync(path)) {
+        if (existsSync(path) && statSync(path).size <= 10 * 1024 * 1024) {
             const data = JSON.parse(readFileSync(path, 'utf-8'));
             if (data && typeof data === 'object') {
                 globalStats.trajectoriesRecorded = data.trajectoriesRecorded ?? 0;
@@ -599,7 +599,7 @@ async function _doInitializeIntelligence(config) {
         // Seed neural learned patterns from @monomind/neural's LearningBridge flush.
         // This is the A→B bridge reader: connects the automatic learning loop to routing.
         const neuralPatternsPath = join(getDataDir(), 'patterns.json');
-        if (existsSync(neuralPatternsPath)) {
+        if (existsSync(neuralPatternsPath) && statSync(neuralPatternsPath).size <= 50 * 1024 * 1024) {
             try {
                 const { generateEmbedding: genEmb } = await import('./memory-initializer.js').catch(() => ({ generateEmbedding: null }));
                 const raw = readFileSync(neuralPatternsPath, 'utf-8');
@@ -979,6 +979,8 @@ function loadSonaRoutingPatterns() {
     try {
         const sonaPath = join(process.cwd(), '.swarm', 'sona-patterns.json');
         if (!existsSync(sonaPath))
+            return [];
+        if (statSync(sonaPath).size > 10 * 1024 * 1024)
             return [];
         const raw = JSON.parse(readFileSync(sonaPath, 'utf-8'));
         const persisted = raw;
