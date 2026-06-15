@@ -514,9 +514,15 @@ const monographDiffTool: MCPTool = {
   handler: async (input) => {
     const { openDb, closeDb, snapshotFromDb, diffSnapshots } = await import('@monoes/monograph');
     const { readFileSync, existsSync, statSync: statSyncSnap } = await import('fs');
+    const { resolve: resolvePath } = await import('path');
     const MAX_SNAPSHOT_BYTES = 100 * 1024 * 1024; // 100 MB
-    const snapshotDir = join(getProjectCwd(), '.monomind', 'snapshots');
-    const beforePath = join(snapshotDir, `${input.before as string}.json`);
+    const snapshotDir = resolvePath(join(getProjectCwd(), '.monomind', 'snapshots'));
+    // Reject snapshot names containing path separators or traversal sequences
+    const SAFE_SNAPSHOT_NAME = /^[a-zA-Z0-9_.\-]+$/;
+    const beforeName = input.before as string;
+    if (!SAFE_SNAPSHOT_NAME.test(beforeName)) return text(`Invalid snapshot name: ${beforeName}`);
+    const beforePath = join(snapshotDir, `${beforeName}.json`);
+    if (!resolvePath(beforePath).startsWith(snapshotDir)) return text(`Path traversal detected in snapshot name`);
     if (!existsSync(beforePath)) {
       return text(`Snapshot not found: ${beforePath}\nCreate one first with monograph_snapshot.`);
     }
@@ -526,7 +532,10 @@ const monographDiffTool: MCPTool = {
     const before = JSON.parse(readFileSync(beforePath, 'utf-8'));
     let after;
     if (input.after) {
-      const afterPath = join(snapshotDir, `${input.after as string}.json`);
+      const afterName = input.after as string;
+      if (!SAFE_SNAPSHOT_NAME.test(afterName)) return text(`Invalid snapshot name: ${afterName}`);
+      const afterPath = join(snapshotDir, `${afterName}.json`);
+      if (!resolvePath(afterPath).startsWith(snapshotDir)) return text(`Path traversal detected in snapshot name`);
       if (!existsSync(afterPath)) return text(`Snapshot not found: ${afterPath}`);
       if (statSyncSnap(afterPath).size > MAX_SNAPSHOT_BYTES) return text(`Snapshot too large to diff: ${afterPath}`);
       after = JSON.parse(readFileSync(afterPath, 'utf-8'));
