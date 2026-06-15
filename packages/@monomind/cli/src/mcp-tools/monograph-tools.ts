@@ -129,7 +129,13 @@ const monographHealthTool: MCPTool = {
     const { execSync } = await import('child_process');
     const db = openDb(getDbPath());
     try {
-      const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get() as { value: string } | undefined;
+      // The orchestrator writes the key as 'last_commit_hash' (orchestrator.ts:68).
+      // Fall back to legacy 'lastCommit' for indexes built with older versions.
+      const meta = (
+        db.prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get() as { value: string } | undefined
+      ) ?? (
+        db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get() as { value: string } | undefined
+      );
       const lastCommit = meta?.value ?? null;
       if (!lastCommit) return text('Index has never been built. Run monograph_build first.');
       if (!/^[0-9a-f]{7,40}$/i.test(lastCommit)) {
@@ -541,8 +547,25 @@ const monographStalenessTool: MCPTool = {
   handler: async (input) => {
     const { getMonographStaleness } = await import('@monoes/monograph');
     const repoPath = (input.path as string | undefined) ?? getProjectCwd();
-    const report = await getMonographStaleness(repoPath);
-    return text(JSON.stringify(report, null, 2));
+    const r = await getMonographStaleness(repoPath);
+
+    if (!r.indexedCommit && !r.currentCommit) {
+      return text('Index has never been built or repo has no git history. Run monograph_build first.');
+    }
+
+    const statusLine = r.isStale
+      ? `STALE — index at ${r.indexedCommit}, HEAD at ${r.currentCommit}`
+      : `FRESH — index matches HEAD (${r.currentCommit})`;
+
+    const lines: string[] = [`Staleness: ${statusLine}`];
+    if (r.staleSince) lines.push(`Stale since: ${r.staleSince}`);
+    if (r.changedSince.length > 0) {
+      const shown = r.changedSince.slice(0, 10);
+      const more = r.changedSince.length - shown.length;
+      lines.push(`Changed files (${r.changedSince.length}):${shown.map(f => `\n  ${f}`).join('')}${more > 0 ? `\n  … ${more} more` : ''}`);
+    }
+    if (r.isStale) lines.push('Action: run monograph_build to re-index');
+    return text(lines.join('\n'));
   },
 };
 
