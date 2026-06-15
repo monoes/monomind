@@ -5,7 +5,7 @@
  */
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -63,10 +63,12 @@ function ensureTerminalDir(): void {
   }
 }
 
+const MAX_TERMINAL_STORE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 function loadTerminalStore(): TerminalStore {
   try {
     const path = getTerminalPath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_TERMINAL_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8')) as TerminalStore;
     }
   } catch {
