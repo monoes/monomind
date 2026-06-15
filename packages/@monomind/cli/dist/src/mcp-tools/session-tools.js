@@ -131,6 +131,19 @@ export const sessionTools = [
         },
         handler: async (input) => {
             const sessionId = `session-${Date.now()}-${randomBytes(6).toString('hex')}`;
+            // Cap name and description: both are persisted verbatim to the session
+            // JSON file on disk.  Without a cap, an attacker can inflate the session
+            // store by supplying a very long name or description.
+            const MAX_SESSION_NAME_LEN = 256;
+            const MAX_SESSION_DESC_LEN = 4 * 1024;
+            const rawSessionName = input.name;
+            const sessionName = typeof rawSessionName === 'string' && rawSessionName.length > MAX_SESSION_NAME_LEN
+                ? rawSessionName.slice(0, MAX_SESSION_NAME_LEN)
+                : rawSessionName;
+            const rawSessionDesc = input.description;
+            const sessionDesc = typeof rawSessionDesc === 'string' && rawSessionDesc.length > MAX_SESSION_DESC_LEN
+                ? rawSessionDesc.slice(0, MAX_SESSION_DESC_LEN)
+                : rawSessionDesc;
             // Load related data based on options
             const data = loadRelatedStores({
                 includeMemory: input.includeMemory,
@@ -146,8 +159,8 @@ export const sessionTools = [
             };
             const session = {
                 sessionId,
-                name: input.name,
-                description: input.description,
+                name: sessionName,
+                description: sessionDesc,
                 savedAt: new Date().toISOString(),
                 stats,
                 data: Object.keys(data).length > 0 ? data : undefined,
