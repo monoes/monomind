@@ -1007,7 +1007,15 @@ export const hooksPreTask = {
         required: ['taskId', 'description'],
     },
     handler: async (params) => {
-        const taskId = params.taskId;
+        // Cap taskId: it is used as a suffix in SQLite memory keys (heuristic:${taskId},
+        // routing-decision:${taskId}, textual_gradient:${taskId}) and as sourceId/targetId
+        // in causal-graph edges persisted to SQLite. An uncapped ID can inflate the DB key
+        // column and every JSON payload that includes the ID.
+        const MAX_TASK_ID_LEN = 256;
+        const rawTaskId = params.taskId;
+        const taskId = typeof rawTaskId === 'string' && rawTaskId.length > MAX_TASK_ID_LEN
+            ? rawTaskId.slice(0, MAX_TASK_ID_LEN)
+            : rawTaskId;
         // Cap description: it is forwarded to generateEmbedding twice (ERL heuristics
         // + TextGrad gradient queries) and used in O(n) keyword extraction.
         // 16 KB matches the cap applied in hooks_route and hooksPatternSearch.
@@ -1105,7 +1113,15 @@ export const hooksPostTask = {
         required: ['taskId'],
     },
     handler: async (params) => {
-        const taskId = params.taskId;
+        // Cap taskId for the same reason as hooks_pre_task: it flows into SQLite memory keys
+        // (heuristic:${taskId}, routing-decision:${taskId}, textual_gradient:${taskId}) and
+        // into causal-graph edge IDs persisted to the DB.  Without a cap an attacker can
+        // inflate every row that stores the raw ID.
+        const MAX_POST_TASK_ID_LEN = 256;
+        const rawPostTaskId = params.taskId;
+        const taskId = typeof rawPostTaskId === 'string' && rawPostTaskId.length > MAX_POST_TASK_ID_LEN
+            ? rawPostTaskId.slice(0, MAX_POST_TASK_ID_LEN)
+            : rawPostTaskId;
         // The success flag, when the caller asserts it (--success true), is taken as
         // ground truth. But callers usually do NOT pass it. Rather than treating every
         // unverified task as "unknown" (and thus excluding it from learning), we now

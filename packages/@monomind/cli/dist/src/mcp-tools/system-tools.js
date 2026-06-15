@@ -9,7 +9,7 @@
  * - os module for system information
  */
 import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as os from 'node:os';
@@ -43,10 +43,11 @@ function ensureSystemDir() {
         mkdirSync(dir, { recursive: true });
     }
 }
+const MAX_SYSTEM_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 function loadMetrics() {
     try {
         const path = getMetricsPath();
-        if (existsSync(path)) {
+        if (existsSync(path) && statSync(path).size <= MAX_SYSTEM_STORE_BYTES) {
             return JSON.parse(readFileSync(path, 'utf-8'));
         }
     }
@@ -128,7 +129,9 @@ export const systemTools = [
         },
         handler: async (input) => {
             const store = loadMetrics();
-            const category = input.category || 'all';
+            const VALID_CATEGORIES = new Set(['all', 'cpu', 'memory', 'agents', 'tasks', 'requests']);
+            const rawCategory = input.category || 'all';
+            const category = VALID_CATEGORIES.has(rawCategory) ? rawCategory : 'all';
             // Get REAL system metrics via Node.js APIs
             const memUsage = process.memoryUsage();
             const loadAvg = os.loadavg();
@@ -182,7 +185,7 @@ export const systemTools = [
             if (_metricsSource === 'none') {
                 try {
                     const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
-                    if (existsSync(agentStorePath)) {
+                    if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_SYSTEM_STORE_BYTES) {
                         const agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
                         const agents = Object.values(agentStore.agents || {});
                         agentCounts = {
@@ -195,7 +198,7 @@ export const systemTools = [
                 catch { /* agent store not available */ }
                 try {
                     const taskStorePath = join(getProjectCwd(), STORAGE_DIR, 'tasks', 'store.json');
-                    if (existsSync(taskStorePath)) {
+                    if (existsSync(taskStorePath) && statSync(taskStorePath).size <= MAX_SYSTEM_STORE_BYTES) {
                         const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
                         const tasks = Object.values(taskStore.tasks || {});
                         taskCounts = {
@@ -438,7 +441,11 @@ export const systemTools = [
             if (!input.confirm) {
                 return { success: false, error: 'Reset requires confirmation' };
             }
-            const component = input.component || 'metrics';
+            // Validate component against the allowed set to prevent unbounded string
+            // reflection in the response message.
+            const VALID_COMPONENTS = new Set(['all', 'metrics', 'agents', 'tasks']);
+            const rawComponent = input.component || 'metrics';
+            const component = VALID_COMPONENTS.has(rawComponent) ? rawComponent : 'metrics';
             // Reset metrics to defaults
             const defaultMetrics = {
                 startTime: new Date().toISOString(),
@@ -530,7 +537,7 @@ export const systemTools = [
             const storePath = join(getProjectCwd(), '.monomind', 'tasks', 'store.json');
             let tasks = [];
             try {
-                if (existsSync(storePath)) {
+                if (existsSync(storePath) && statSync(storePath).size <= MAX_SYSTEM_STORE_BYTES) {
                     const data = readFileSync(storePath, 'utf-8');
                     const store = JSON.parse(data);
                     tasks = Object.values(store.tasks || {});
