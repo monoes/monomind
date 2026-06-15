@@ -18,33 +18,60 @@ module.exports = {
     var _buildKnowledgeSearchFn = hCtx._buildKnowledgeSearchFn;
     var getMonographSuggestions = hCtx.getMonographSuggestions;
 
-    // Compact session header — branch, last commit, active orgs (most useful context at a glance)
+    // Compact session header — branch, last commit, graph freshness, active orgs
     try {
       var cp = require('child_process');
       var branch = '';
       var lastCommit = '';
       try { branch = cp.execSync('git rev-parse --abbrev-ref HEAD 2>/dev/null', { encoding: 'utf-8', timeout: 1500, cwd: CWD }).trim(); } catch (_) {}
       try { lastCommit = cp.execSync('git log -1 --format="%h %s" 2>/dev/null', { encoding: 'utf-8', timeout: 1500, cwd: CWD }).trim(); } catch (_) {}
-      var orgsDir = path.join(CWD, '.monomind', 'orgs');
+      // Graph freshness — compare monograph.db mtime to commits since then
+      var graphFreshTag = '';
+      try {
+        var dbPath = path.join(CWD, '.monomind', 'monograph.db');
+        var lockPath = path.join(CWD, '.monomind', 'graph', '.rebuild-lock');
+        var buildMs = 0;
+        try { buildMs = Math.max(fs.statSync(dbPath).mtimeMs || 0, 0); } catch (_) {}
+        try { buildMs = Math.max(buildMs, fs.statSync(lockPath).mtimeMs || 0); } catch (_) {}
+        if (buildMs > 0) {
+          var buildIso = new Date(buildMs).toISOString();
+          var behind = parseInt(cp.execSync("git rev-list --count --since='" + buildIso + "' HEAD 2>/dev/null", { encoding: 'utf-8', timeout: 1500, cwd: CWD }).trim(), 10) || 0;
+          graphFreshTag = behind === 0 ? 'graph:FRESH' : (behind > 5 ? 'graph:STALE(' + behind + ')' : 'graph:' + behind + '↓');
+        }
+      } catch (_) {}
+      // Active orgs from mastermind-events.jsonl
       var activeOrgs = [];
-      if (fs.existsSync(orgsDir)) {
-        try {
-          var orgDirs = fs.readdirSync(orgsDir).filter(function(d) { return !d.startsWith('.'); });
-          orgDirs.forEach(function(orgName) {
-            var stopFile = path.join(orgsDir, '.stops', orgName + '.stop');
-            var runsDir = path.join(orgsDir, orgName, 'runs');
-            if (!fs.existsSync(stopFile) && fs.existsSync(runsDir)) {
-              try {
-                var runFiles = fs.readdirSync(runsDir).filter(function(f) { return f.endsWith('.jsonl'); });
-                if (runFiles.length > 0) activeOrgs.push(orgName);
-              } catch (_) {}
-            }
+      try {
+        var evFile = path.join(CWD, 'data', 'mastermind-events.jsonl');
+        var SIDECAR_RE2 = /-(approvals|state|activity|goals|routines|projects|members|issues|workspaces|worktrees|environments|plugins|adapters|bootstrap|threads|budgets|project-workspaces|approval-comments|secrets|join-requests|skills)\.json$/;
+        var orgsDir2 = path.join(CWD, '.monomind', 'orgs');
+        if (fs.existsSync(evFile) && fs.existsSync(orgsDir2)) {
+          var evStat = fs.statSync(evFile);
+          var TAIL2 = 32768;
+          var evFd = fs.openSync(evFile, 'r');
+          var evBuf = Buffer.alloc(Math.min(TAIL2, evStat.size));
+          try { fs.readSync(evFd, evBuf, 0, evBuf.length, Math.max(0, evStat.size - evBuf.length)); } finally { fs.closeSync(evFd); }
+          var evLines = evBuf.toString('utf8').split('\n').filter(Boolean).reverse();
+          var orgFiles = fs.readdirSync(orgsDir2).filter(function(f) { return f.endsWith('.json') && !SIDECAR_RE2.test(f); });
+          orgFiles.forEach(function(f) {
+            try {
+              var cfg = JSON.parse(fs.readFileSync(path.join(orgsDir2, f), 'utf-8'));
+              var n = cfg.name; if (!n) return;
+              var lastStart = evLines.find(function(l) { try { var e = JSON.parse(l); return e.type === 'org:start' && e.org === n; } catch(_) { return false; } });
+              var lastStop = evLines.find(function(l) { try { var e = JSON.parse(l); return (e.type === 'org:stop' || e.type === 'org:complete') && e.org === n; } catch(_) { return false; } });
+              if (lastStart) {
+                var sTs = JSON.parse(lastStart).ts || 0;
+                var stTs = lastStop ? (JSON.parse(lastStop).ts || 0) : 0;
+                if (sTs > stTs) activeOrgs.push(n);
+              }
+            } catch(_) {}
           });
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
       var headerParts = [];
       if (branch) headerParts.push('branch: ' + branch);
       if (lastCommit) headerParts.push('last: ' + lastCommit);
+      if (graphFreshTag) headerParts.push(graphFreshTag);
       if (activeOrgs.length > 0) headerParts.push('orgs: ' + activeOrgs.slice(0, 3).join(', '));
       if (headerParts.length > 0) {
         console.log('[SESSION] ' + headerParts.join(' · '));
