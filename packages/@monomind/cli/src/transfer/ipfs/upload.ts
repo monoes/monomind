@@ -373,6 +373,24 @@ export async function unpinContent(
   return { success: true };
 }
 
+/** Allowlisted IPFS gateway hosts for SSRF prevention */
+const ALLOWED_GATEWAY_HOSTS_UPLOAD = new Set([
+  'w3s.link',
+  'gateway.pinata.cloud',
+  'cloudflare-ipfs.com',
+  'ipfs.io',
+  'dweb.link',
+]);
+
+function isAllowedGateway(gateway: string): boolean {
+  try {
+    const parsed = new URL(gateway);
+    return parsed.protocol === 'https:' && ALLOWED_GATEWAY_HOSTS_UPLOAD.has(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Check if content exists on IPFS
  */
@@ -380,11 +398,16 @@ export async function checkContent(
   cid: string,
   gateway: string = 'https://w3s.link'
 ): Promise<{ exists: boolean; size?: number }> {
+  if (!isAllowedGateway(gateway)) {
+    console.warn(`[IPFS] Blocked checkContent: gateway not in allowlist: ${gateway}`);
+    return { exists: false };
+  }
   console.log(`[IPFS] Checking ${cid}...`);
 
   try {
     const response = await fetch(`${gateway}/ipfs/${cid}`, {
       method: 'HEAD',
+      signal: AbortSignal.timeout(10000),
     });
 
     if (response.ok) {
