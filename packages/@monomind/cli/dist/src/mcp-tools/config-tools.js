@@ -173,9 +173,18 @@ export const configTools = [
         },
         handler: async (input) => {
             const store = loadConfigStore();
-            const key = input.key;
+            // Cap key and scope: both become JSON object keys in the on-disk config
+            // store (store.values[key] and store.scopes[scope][key]).  key is also
+            // split on '.' — O(n) — before the dangerous-key check.
+            const MAX_CONFIG_KEY_LEN = 512;
+            const MAX_CONFIG_SCOPE_LEN = 128;
+            const rawKey = input.key;
+            const key = typeof rawKey === 'string' && rawKey.length > MAX_CONFIG_KEY_LEN
+                ? rawKey.slice(0, MAX_CONFIG_KEY_LEN) : rawKey;
             const value = input.value;
-            const scope = input.scope || 'default';
+            const rawScope = input.scope || 'default';
+            const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+                ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
             for (const seg of key.split('.')) {
                 if (DANGEROUS_KEYS.has(seg)) {
                     return { success: false, error: `Forbidden key segment: "${seg}"` };
