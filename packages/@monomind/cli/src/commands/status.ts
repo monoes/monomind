@@ -333,7 +333,8 @@ function formatHealth(health: string): string {
 // Main status action
 const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const watch = ctx.flags.watch as boolean;
-  const interval = (ctx.flags.interval as number) || DEFAULT_WATCH_INTERVAL / 1000;
+  const rawInterval = (ctx.flags.interval as number) || DEFAULT_WATCH_INTERVAL / 1000;
+  const interval = Number.isFinite(rawInterval) ? Math.max(1, Math.min(rawInterval, 3600)) : DEFAULT_WATCH_INTERVAL / 1000;
   const healthCheck = ctx.flags['health-check'] as boolean;
   const cwd = ctx.cwd;
 
