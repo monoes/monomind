@@ -4,13 +4,37 @@ import type Graph from 'graphology';
 import type { MonographDb } from '../storage/db.js';
 import { loadGraphFromDb } from './loader.js';
 
+// ── TTL graph cache ───────────────────────────────────────────────────────────
+// Avoids loading the full graph from the DB multiple times in the same request
+// window (e.g. when getShortestPath and getBetweennessCentrality are called
+// back-to-back on the same DB instance).
+
+const GRAPH_CACHE_TTL_MS = 30_000;
+
+interface CachedGraph {
+  graph: Graph;
+  expiresAt: number;
+}
+
+const graphCache = new WeakMap<object, CachedGraph>();
+
+function getOrLoadGraph(db: MonographDb): Graph {
+  const cached = graphCache.get(db);
+  if (cached && Date.now() < cached.expiresAt) return cached.graph;
+  const graph = loadGraphFromDb(db);
+  graphCache.set(db, { graph, expiresAt: Date.now() + GRAPH_CACHE_TTL_MS });
+  return graph;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function getShortestPath(
   db: MonographDb,
   sourceId: string,
   targetId: string,
   maxDepth = 6,
 ): string[] | null {
-  const graph = loadGraphFromDb(db);
+  const graph = getOrLoadGraph(db);
   if (!graph.hasNode(sourceId) || !graph.hasNode(targetId)) return null;
   try {
     const path = bidirectional(graph, sourceId, targetId);
@@ -30,7 +54,7 @@ export function getShortestPath(
  * structural bridges — refactoring them has wide blast radius.
  */
 export function getBetweennessCentrality(db: MonographDb): Map<string, number> {
-  const graph = loadGraphFromDb(db);
+  const graph = getOrLoadGraph(db);
   if (graph.order === 0) return new Map();
   const scores = betweennessCentrality(graph, { normalized: true });
   return new Map(Object.entries(scores));
