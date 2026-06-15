@@ -24,12 +24,17 @@ import { createSemanticRouting } from './embedder.js';
 // parses. Must be set before the (lazy) transformers import in embedder.ts.
 process.env.TRANSFORMERS_VERBOSITY ??= 'error';
 
+/** Max task string length before it's silently truncated — prevents OOM in the embedding model. */
+const MAX_TASK_LENGTH = 2_000;
+
 async function main(): Promise<void> {
-  const task = process.argv[2];
-  if (!task) {
+  const rawTask = process.argv[2];
+  if (!rawTask) {
     process.stderr.write('embed-worker: missing task argument\n');
     process.exit(2);
   }
+  // Cap the task to prevent OOM when an oversized string is passed to the embedding model.
+  const task = rawTask.length > MAX_TASK_LENGTH ? rawTask.slice(0, MAX_TASK_LENGTH) : rawTask;
 
   const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing' as string);
 
