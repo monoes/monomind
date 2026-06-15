@@ -279,7 +279,15 @@ export const performanceTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadPerfStore();
       const suite = (input.suite as string) || 'all';
-      const iterations = (input.iterations as number) || 100;
+      // Cap iterations to prevent event-loop blocking DoS.  The `neural`
+      // suite runs an O(n³) 64×64 matrix multiply per iteration; at 10 000
+      // iterations it already completes in milliseconds.  Uncapped, a caller
+      // could pass iterations=9_999_999 and block the process for minutes.
+      const MAX_BENCHMARK_ITERATIONS = 10_000;
+      const rawIterations = typeof input.iterations === 'number' ? input.iterations : 100;
+      const iterations = Number.isFinite(rawIterations) && rawIterations > 0
+        ? Math.min(Math.floor(rawIterations), MAX_BENCHMARK_ITERATIONS)
+        : 100;
       const warmup = input.warmup !== false;
 
       // REAL benchmark functions
