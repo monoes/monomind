@@ -226,11 +226,21 @@ export const githubTools: MCPTool[] = [
       }
 
       if (action === 'create') {
+        // Cap PR fields: title/branch/baseBranch are passed as CLI args to gh
+        // (runSafe — no injection risk) and stored in the local JSON store on
+        // disk; body is also stored and can be very large.
+        const MAX_PR_TITLE_LEN = 256;
+        const MAX_PR_BRANCH_LEN = 256;
+        const MAX_PR_BODY_LEN = 64 * 1024; // 64 KB — typical PR body limit
+        const rawPrTitle = (input.title as string) || 'New PR';
+        const title = rawPrTitle.length > MAX_PR_TITLE_LEN ? rawPrTitle.slice(0, MAX_PR_TITLE_LEN) : rawPrTitle;
+        const rawHeadBranch = (input.branch as string) || run('git rev-parse --abbrev-ref HEAD') || 'feature';
+        const headBranch = rawHeadBranch.length > MAX_PR_BRANCH_LEN ? rawHeadBranch.slice(0, MAX_PR_BRANCH_LEN) : rawHeadBranch;
+        const rawBaseBranch = (input.baseBranch as string) || 'main';
+        const baseBranch = rawBaseBranch.length > MAX_PR_BRANCH_LEN ? rawBaseBranch.slice(0, MAX_PR_BRANCH_LEN) : rawBaseBranch;
+        const rawPrBody = (input.body as string) || '';
+        const body = rawPrBody.length > MAX_PR_BODY_LEN ? rawPrBody.slice(0, MAX_PR_BODY_LEN) : rawPrBody;
         if (gh) {
-          const title = (input.title as string) || 'New PR';
-          const headBranch = (input.branch as string) || run('git rev-parse --abbrev-ref HEAD') || 'feature';
-          const baseBranch = (input.baseBranch as string) || 'main';
-          const body = (input.body as string) || '';
           const result = runSafe('gh', ['pr', 'create', '--title', title, '--base', baseBranch, '--head', headBranch, '--body', body]);
           if (result) {
             return { success: true, _real: true, action: 'created', url: result };
@@ -238,7 +248,7 @@ export const githubTools: MCPTool[] = [
         }
         // Fallback: local store
         const prId = `pr-${Date.now()}`;
-        const pr = { id: prId, title: (input.title as string) || 'New PR', status: 'open', branch: (input.branch as string) || 'feature', baseBranch: (input.baseBranch as string) || 'main', createdAt: new Date().toISOString() };
+        const pr = { id: prId, title, status: 'open', branch: headBranch, baseBranch, createdAt: new Date().toISOString() };
         store.prs[prId] = pr;
         saveGitHubStore(store);
         return { success: true, source: 'local-store', action: 'created', pullRequest: pr };
@@ -327,9 +337,22 @@ export const githubTools: MCPTool[] = [
       }
 
       if (action === 'create') {
-        const title = (input.title as string) || 'New Issue';
-        const body = (input.body as string) || '';
-        const labels = (input.labels as string[]) || [];
+        // Cap issue fields: stored in local JSON store and passed as CLI args
+        // to gh (runSafe — no injection risk).
+        const MAX_ISSUE_TITLE_LEN = 256;
+        const MAX_ISSUE_BODY_LEN = 64 * 1024;
+        const MAX_ISSUE_LABELS = 20;
+        const MAX_ISSUE_LABEL_LEN = 128;
+        const rawIssueTitle = (input.title as string) || 'New Issue';
+        const title = rawIssueTitle.length > MAX_ISSUE_TITLE_LEN ? rawIssueTitle.slice(0, MAX_ISSUE_TITLE_LEN) : rawIssueTitle;
+        const rawIssueBody = (input.body as string) || '';
+        const body = rawIssueBody.length > MAX_ISSUE_BODY_LEN ? rawIssueBody.slice(0, MAX_ISSUE_BODY_LEN) : rawIssueBody;
+        const rawLabels = (input.labels as string[]) || [];
+        const labels = Array.isArray(rawLabels)
+          ? rawLabels.slice(0, MAX_ISSUE_LABELS).map(l =>
+              typeof l === 'string' && l.length > MAX_ISSUE_LABEL_LEN ? l.slice(0, MAX_ISSUE_LABEL_LEN) : l
+            )
+          : [];
         if (gh) {
           const issueArgs = ['issue', 'create', '--title', title, '--body', body];
           if (labels.length > 0) issueArgs.push('--label', labels.join(','));
@@ -349,7 +372,12 @@ export const githubTools: MCPTool[] = [
         const issueNumber = input.issueNumber as number;
         if (gh && issueNumber) {
           const editArgs = ['issue', 'edit', String(issueNumber)];
-          if (input.title) editArgs.push('--title', input.title as string);
+          // Cap title and labels to prevent inflating args and local store
+          const MAX_UPDATE_TITLE_LEN = 256;
+          if (input.title) {
+            const t = input.title as string;
+            editArgs.push('--title', t.length > MAX_UPDATE_TITLE_LEN ? t.slice(0, MAX_UPDATE_TITLE_LEN) : t);
+          }
           if (input.labels) editArgs.push('--add-label', (input.labels as string[]).join(','));
           if (editArgs.length > 3) {
             const result = runSafe('gh', editArgs);
@@ -358,7 +386,10 @@ export const githubTools: MCPTool[] = [
         }
         const issueKey = Object.keys(store.issues).find(k => k.includes(String(issueNumber)));
         if (issueKey && store.issues[issueKey]) {
-          if (input.title) store.issues[issueKey].title = input.title as string;
+          if (input.title) {
+            const t = input.title as string;
+            store.issues[issueKey].title = t.length > 256 ? t.slice(0, 256) : t;
+          }
           if (input.labels) store.issues[issueKey].labels = input.labels as string[];
           saveGitHubStore(store);
         }
