@@ -862,52 +862,6 @@ function getGraphFreshness() {
   return { commitsBehind, stale: commitsBehind > 5, fresh: commitsBehind === 0 };
 }
 
-// Active orgs — scan mastermind-events.jsonl for orgs with org:start after last org:stop
-function getActiveOrgNames() {
-  // Look in data/mastermind-events.jsonl (the canonical events file)
-  const evFile = path.join(CWD, 'data', 'mastermind-events.jsonl');
-  const altEvFile = path.join(CWD, '.monomind', 'mastermind-events.jsonl');
-  let lines = [];
-  for (const f of [evFile, altEvFile]) {
-    try {
-      if (!fs.existsSync(f)) continue;
-      const stat = fs.statSync(f);
-      const TAIL = 32768;
-      const fd = fs.openSync(f, 'r');
-      const buf = Buffer.alloc(Math.min(TAIL, stat.size));
-      try {
-        fs.readSync(fd, buf, 0, buf.length, Math.max(0, stat.size - buf.length));
-      } finally { fs.closeSync(fd); }
-      lines = buf.toString('utf8').split('\n').filter(Boolean).reverse();
-      break;
-    } catch { /* ignore */ }
-  }
-  if (!lines.length) return [];
-  // For each org in the orgs dir, check if last org:start > last org:stop
-  const orgsDir = path.join(CWD, '.monomind', 'orgs');
-  if (!fs.existsSync(orgsDir)) return [];
-  const active = [];
-  try {
-    const SIDECAR_RE = /-(approvals|state|activity|goals|routines|projects|members|issues|workspaces|worktrees|environments|plugins|adapters|bootstrap|threads|budgets|project-workspaces|approval-comments|secrets|join-requests|skills)\.json$/;
-    const files = fs.readdirSync(orgsDir).filter(f => f.endsWith('.json') && !SIDECAR_RE.test(f));
-    for (const f of files) {
-      try {
-        const cfg = JSON.parse(fs.readFileSync(path.join(orgsDir, f), 'utf-8'));
-        const name = cfg.name;
-        if (!name) continue;
-        const lastStart = lines.find(l => { try { const e = JSON.parse(l); return e.type === 'org:start' && e.org === name; } catch { return false; } });
-        const lastStop = lines.find(l => { try { const e = JSON.parse(l); return (e.type === 'org:stop' || e.type === 'org:complete') && e.org === name; } catch { return false; } });
-        if (lastStart) {
-          const startTs = JSON.parse(lastStart).ts || 0;
-          const stopTs = lastStop ? (JSON.parse(lastStop).ts || 0) : 0;
-          if (startTs > stopTs) active.push(name);
-        }
-      } catch { /* ignore */ }
-    }
-  } catch { /* ignore */ }
-  return active;
-}
-
 // Active loops — scan .monomind/loops/*.json, skip stale (>6h)
 function getLoopStatus() {
   const loopsDir = path.join(CWD, '.monomind', 'loops');
@@ -951,6 +905,60 @@ function getHILPending() {
     }
   } catch { /* ignore */ }
   return { pending };
+}
+
+// Active org runs — scan .monomind/orgs/*/runs/*.jsonl for recent activity
+// Also checks .git/monomind/orgs/ (git-safe path used by mastermind orgs).
+// An org is "active" if it has an events file modified within the last 10 minutes.
+function getActiveOrgs() {
+  // Try git-common-dir path first (mastermind orgs store run files there)
+  let orgsDir = path.join(CWD, '.monomind', 'orgs');
+  try {
+    const gitCommon = safeExec('git rev-parse --git-common-dir 2>/dev/null', 1000);
+    if (gitCommon) {
+      const candidate = path.isAbsolute(gitCommon)
+        ? path.join(gitCommon, 'monomind', 'orgs')
+        : path.join(CWD, gitCommon, 'monomind', 'orgs');
+      if (fs.existsSync(candidate)) orgsDir = candidate;
+    }
+  } catch { /* use default */ }
+  if (!fs.existsSync(orgsDir)) return { count: 0, orgs: [] };
+  const STALE_MS = 10 * 60 * 1000; // 10 min
+  const now = Date.now();
+  const active = [];
+  try {
+    const orgNames = fs.readdirSync(orgsDir).filter(f => !f.startsWith('.'));
+    for (const orgName of orgNames.slice(0, 20)) {
+      const runsDir = path.join(orgsDir, orgName, 'runs');
+      if (!fs.existsSync(runsDir)) continue;
+      try {
+        const files = fs.readdirSync(runsDir).filter(f => f.endsWith('.jsonl'));
+        if (!files.length) continue;
+        files.sort();
+        const latest = files[files.length - 1];
+        const stat = safeStat(path.join(runsDir, latest));
+        if (!stat) continue;
+        const age = now - stat.mtimeMs;
+        if (age < STALE_MS) {
+          // Check last event type to determine if still running
+          let isRunning = true;
+          try {
+            const MAX_RUN = 512 * 1024; // 512 KiB
+            if (stat.size <= MAX_RUN) {
+              const raw = fs.readFileSync(path.join(runsDir, latest), 'utf-8');
+              const lines = raw.trim().split('\n').filter(Boolean);
+              if (lines.length) {
+                const lastEv = JSON.parse(lines[lines.length - 1]);
+                if (lastEv.type === 'run:complete' || lastEv.type === 'org:complete') isRunning = false;
+              }
+            }
+          } catch { /* treat as running */ }
+          active.push({ name: orgName, runId: latest.replace('.jsonl', ''), ageMs: age, running: isRunning });
+        }
+      } catch { /* skip */ }
+    }
+  } catch { /* ignore */ }
+  return { count: active.length, orgs: active };
 }
 
 // Monograph knowledge graph stats
@@ -1071,37 +1079,22 @@ function generateStatusline() {
     parts.push(`${col}${icon} ${x.bold}${activeAgent.name}${x.reset}`);
   }
 
-  // Active orgs — show running org names (max 2)
-  const activeOrgNames = getActiveOrgNames();
-  if (activeOrgNames.length > 0) {
-    const label = activeOrgNames.slice(0, 2).map(n => n.replace(/-/g, '')).join('+');
-    const extra = activeOrgNames.length > 2 ? `+${activeOrgNames.length - 2}` : '';
-    parts.push(`${x.rose}⬡ ${x.bold}${label}${extra}${x.reset}`);
-  }
-
-  // Graph freshness — compact indicator (skip if no graph)
-  const gf = getGraphifyStats();
-  if (gf.exists) {
-    const freshness = getGraphFreshness();
-    let gTag;
-    if (freshness.fresh) {
-      gTag = `${x.green}🔗 FRESH${x.reset}`;
-    } else if (freshness.commitsBehind > 0) {
-      const col = freshness.stale ? x.coral : x.gold;
-      gTag = `${col}🔗 ${freshness.commitsBehind}↓${x.reset}`;
+  // Active org runs — high signal for users tracking autonomous orgs
+  const orgStatus = getActiveOrgs();
+  if (orgStatus.count > 0) {
+    const runningOrgs = orgStatus.orgs.filter(o => o.running);
+    const doneOrgs = orgStatus.orgs.filter(o => !o.running);
+    if (runningOrgs.length > 0) {
+      const names = runningOrgs.slice(0, 2).map(o => o.name).join(', ');
+      parts.push(`${x.green}🏛 ${x.bold}${names}${x.reset}${runningOrgs.length > 2 ? ` +${runningOrgs.length - 2}` : ''}`);
+    } else if (doneOrgs.length > 0) {
+      parts.push(`${x.slate}🏛 ${doneOrgs[0].name} done${x.reset}`);
     }
-    if (gTag) parts.push(gTag);
   }
 
-  // Intelligence — only show when it's from real data (not the fallback heuristic)
-  // The heuristic returns low values (≤45%) for new projects with only dir checks.
-  // Only emit when intelligencePct > 0 and came from real patterns/vectors.
-  const agentdb = getAgentDBStats();
-  const learningData = readJSON(path.join(CWD, '.monomind', 'metrics', 'learning.json'));
-  const hasRealIntelligence = learningData?.intelligence?.score !== undefined
-    || agentdb.vectorCount > 5;
-  if (hasRealIntelligence && system.intelligencePct > 0) {
-    const ic = pctColor(system.intelligencePct);
+  // Intelligence — only show when non-trivial (>15%) to avoid misleading 0%/noise
+  const ic = pctColor(system.intelligencePct);
+  if (system.intelligencePct > 15) {
     parts.push(`${ic}💡 ${system.intelligencePct}%${x.reset}`);
   }
 
@@ -1266,6 +1259,20 @@ function generateDashboard() {
     : `${x.slate}✨ no pending HIL${x.reset}`;
 
   lines.push(`${x.teal}🧠  CONTEXT${x.reset}  ${graphStr}   ${DIV}   ${hilStr}`);
+
+  // ── Row 3: Active org runs ───────────────────────────────────
+  const orgStatus = getActiveOrgs();
+  if (orgStatus.count > 0) {
+    lines.push(SEP);
+    const orgParts = orgStatus.orgs.slice(0, 5).map(o => {
+      const ageMin = Math.floor(o.ageMs / 60000);
+      const ageFmt = ageMin < 1 ? 'just now' : ageMin < 60 ? `${ageMin}m ago` : `${Math.floor(ageMin / 60)}h ago`;
+      const col = o.running ? x.green : x.slate;
+      const dot2 = o.running ? `${x.green}●${x.reset}` : `${x.slate}◌${x.reset}`;
+      return `${dot2} ${col}${x.bold}${o.name}${x.reset}  ${x.dim}${ageFmt}${x.reset}`;
+    });
+    lines.push(`${x.purple}🏛  ORGS${x.reset}     ${orgParts.join(`   ${DIV}   `)}`);
+  }
 
   return lines.join('\n');
 }
