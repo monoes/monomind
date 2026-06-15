@@ -354,7 +354,17 @@ export const daaTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadDAAStore();
       const sourceId = input.sourceAgentId as string;
-      const targetIds = input.targetAgentIds as string[];
+      // Cap targetIds to prevent a large array from inflating the JSON store
+      // entry and the AgentDB tags blob.  100 target agents is already very
+      // generous for any realistic swarm configuration.
+      const MAX_TARGET_IDS = 100;
+      const MAX_TARGET_ID_LEN = 256;
+      const rawTargetIds = input.targetAgentIds as string[];
+      const targetIds = Array.isArray(rawTargetIds)
+        ? rawTargetIds
+            .slice(0, MAX_TARGET_IDS)
+            .map(id => (typeof id === 'string' && id.length > MAX_TARGET_ID_LEN ? id.slice(0, MAX_TARGET_ID_LEN) : id))
+        : [];
       const domain = (input.knowledgeDomain as string) || 'general';
       const knowledgeId = `knowledge-${Date.now()}`;
       const knowledgeEntry: KnowledgeEntry = {
