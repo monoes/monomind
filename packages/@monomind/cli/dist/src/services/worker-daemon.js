@@ -761,6 +761,59 @@ export class WorkerDaemon extends EventEmitter {
             },
             scannedAt: Date.now(),
         };
+        // Enrich with monograph graph stats for LLM context injection.
+        // Lazy-import to avoid hard dependency; silently skip on any error.
+        try {
+            const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+            const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+            if (existsSync(dbPath)) {
+                const db = openDb(dbPath);
+                try {
+                    // Node/edge counts
+                    map['graph'] = {
+                        nodes: countNodes(db),
+                        edges: countEdges(db),
+                    };
+                    // Top 3 god nodes (high degree internal files) — same SQL as monograph_god_nodes tool
+                    const excluded = ['File', 'Folder', 'Community', 'Concept'];
+                    const rows = db.prepare(`
+            SELECT n.name, n.file_path, n.start_line,
+                   COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label NOT IN (${excluded.map(() => '?').join(',')})
+            GROUP BY n.id HAVING degree > 0
+            ORDER BY degree DESC LIMIT 3
+          `).all(...excluded);
+                    if (rows.length > 0) {
+                        map['topFiles'] = rows.map(r => ({
+                            ref: r.file_path
+                                ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path)
+                                : r.name,
+                            degree: r.degree,
+                        }));
+                    }
+                    // Index staleness via git — same approach as monograph_health tool
+                    try {
+                        const { execSync } = await import('child_process');
+                        const lastHash = db.prepare("SELECT value FROM meta WHERE key = 'last_commit_hash' LIMIT 1").get()?.value;
+                        if (lastHash) {
+                            const countOut = execSync(`git -C ${JSON.stringify(this.projectRoot)} rev-list --count ${lastHash}..HEAD`, { timeout: 5000 }).toString().trim();
+                            const commitsBehind = parseInt(countOut, 10);
+                            if (!isNaN(commitsBehind)) {
+                                map['graphStaleness'] = { commitsBehind };
+                            }
+                        }
+                    }
+                    catch { /* git unavailable — skip staleness */ }
+                }
+                finally {
+                    closeDb(db);
+                }
+            }
+        }
+        catch { /* monograph unavailable — skip graph enrichment */ }
         const metricsFileTmp1 = metricsFile + '.tmp';
         writeFileSync(metricsFileTmp1, JSON.stringify(map, null, 2));
         renameSync(metricsFileTmp1, metricsFile);
@@ -951,13 +1004,106 @@ export class WorkerDaemon extends EventEmitter {
      * Local deepdive worker (fallback when headless unavailable)
      */
     async runDeepdiveWorkerLocal() {
-        return {
+        const deepdiveFile = join(this.projectRoot, '.monomind', 'metrics', 'deepdive.json');
+        const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
+        if (!existsSync(metricsDir)) {
+            mkdirSync(metricsDir, { recursive: true });
+        }
+        const result = {
             timestamp: new Date().toISOString(),
             mode: 'local',
-            analysisDepth: 'shallow',
+            analysisDepth: 'graph',
             findings: [],
-            note: 'Install Claude Code CLI for AI-powered deep code analysis',
         };
+        // Enrich with monograph god nodes and high-degree file analysis for LLM context injection.
+        // Lazy-import to avoid hard dependency; silently skip on any error.
+        try {
+            const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+            const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+            if (existsSync(dbPath)) {
+                const db = openDb(dbPath);
+                try {
+                    const nodeCount = countNodes(db);
+                    const edgeCount = countEdges(db);
+                    const godNodeRows = db.prepare(`
+            SELECT n.name, n.file_path, n.label,
+                   COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label NOT IN ('File','Folder','Community','Concept')
+              AND (n.file_path IS NULL OR (
+                n.file_path NOT LIKE '%node_modules%'
+                AND n.file_path NOT LIKE '%/dist/%'
+                AND n.file_path NOT LIKE '%.test.%'
+                AND n.file_path NOT LIKE '%.spec.%'
+              ))
+            GROUP BY n.id
+            ORDER BY degree DESC
+            LIMIT 5
+          `).all();
+                    const godNodes = godNodeRows.map(r => ({
+                        name: r.name,
+                        label: r.label,
+                        file: r.file_path ?? '(unknown)',
+                        degree: r.degree,
+                    }));
+                    const fileRows = db.prepare(`
+            SELECT n.file_path,
+                   COUNT(DISTINCT e2.id) AS in_deg,
+                   COUNT(DISTINCT e1.id) AS out_deg
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label = 'File'
+              AND n.file_path NOT LIKE '%node_modules%'
+              AND n.file_path NOT LIKE '%/dist/%'
+              AND n.file_path NOT LIKE '%.test.%'
+              AND n.file_path NOT LIKE '%.spec.%'
+            GROUP BY n.id
+            ORDER BY (in_deg + out_deg) DESC
+            LIMIT 5
+          `).all();
+                    const highDegFiles = fileRows.map(r => ({
+                        file: r.file_path
+                            .replace(this.projectRoot + '/', '')
+                            .replace(this.projectRoot + '\\', ''),
+                        inDegree: r.in_deg,
+                        outDegree: r.out_deg,
+                        totalDegree: r.in_deg + r.out_deg,
+                    }));
+                    const findings = [];
+                    if (godNodes.length > 0) {
+                        findings.push({
+                            category: 'god_nodes',
+                            description: `Top ${godNodes.length} high-centrality symbols (most imported/referenced)`,
+                            items: godNodes,
+                        });
+                    }
+                    if (highDegFiles.length > 0) {
+                        findings.push({
+                            category: 'high_degree_files',
+                            description: `Top ${highDegFiles.length} files by total edge degree (import + export connections)`,
+                            items: highDegFiles,
+                        });
+                    }
+                    result['graph'] = { nodes: nodeCount, edges: edgeCount };
+                    result['findings'] = findings;
+                    result['analysisDepth'] = 'graph';
+                }
+                finally {
+                    closeDb(db);
+                }
+            }
+            else {
+                result['note'] = 'Monograph index not built — run `monomind monograph build` for deep analysis';
+            }
+        }
+        catch { /* monograph unavailable — return minimal result */ }
+        const deepdiveFileTmp = deepdiveFile + '.tmp';
+        writeFileSync(deepdiveFileTmp, JSON.stringify(result, null, 2));
+        renameSync(deepdiveFileTmp, deepdiveFile);
+        return result;
     }
     /**
      * Local benchmark worker
