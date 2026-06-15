@@ -583,7 +583,8 @@ const spawnCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Parse count with fallback to default
-    const count = (ctx.flags.count as number) || 1;
+    const rawCount = (ctx.flags.count as number) || 1;
+    const count = Number.isFinite(rawCount) ? Math.max(1, Math.min(rawCount, 50)) : 1;
     const role = (ctx.flags.role as string) || 'worker';
     const agentType = (ctx.flags.type as string) || 'worker';
     const prefix = (ctx.flags.prefix as string) || 'hive-worker';
