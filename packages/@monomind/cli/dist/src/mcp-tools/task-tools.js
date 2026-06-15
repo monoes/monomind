@@ -71,15 +71,36 @@ export const taskTools = [
         handler: async (input) => {
             const store = loadTaskStore();
             const taskId = `task-${Date.now()}-${randomBytes(4).toString('hex')}`;
+            // Cap all string fields: they are persisted verbatim to the task JSON store.
+            const MAX_TASK_TYPE_LEN = 128;
+            const MAX_TASK_DESC_LEN = 64 * 1024; // 64 KB — realistic task descriptions
+            const MAX_TASK_ASSIGNEE_LEN = 256;
+            const MAX_TASK_ASSIGNEES = 100;
+            const MAX_TASK_TAG_LEN = 128;
+            const MAX_TASK_TAGS = 50;
+            const rawTaskType = input.type;
+            const taskType = typeof rawTaskType === 'string' && rawTaskType.length > MAX_TASK_TYPE_LEN
+                ? rawTaskType.slice(0, MAX_TASK_TYPE_LEN) : rawTaskType;
+            const rawTaskDesc = input.description;
+            const taskDesc = typeof rawTaskDesc === 'string' && rawTaskDesc.length > MAX_TASK_DESC_LEN
+                ? rawTaskDesc.slice(0, MAX_TASK_DESC_LEN) : rawTaskDesc;
+            const rawAssignTo = input.assignTo || [];
+            const assignedTo = Array.isArray(rawAssignTo)
+                ? rawAssignTo.slice(0, MAX_TASK_ASSIGNEES).map(a => typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN ? a.slice(0, MAX_TASK_ASSIGNEE_LEN) : a)
+                : [];
+            const rawTags = input.tags || [];
+            const tags = Array.isArray(rawTags)
+                ? rawTags.slice(0, MAX_TASK_TAGS).map(t => typeof t === 'string' && t.length > MAX_TASK_TAG_LEN ? t.slice(0, MAX_TASK_TAG_LEN) : t)
+                : [];
             const task = {
                 taskId,
-                type: input.type,
-                description: input.description,
+                type: taskType,
+                description: taskDesc,
                 priority: input.priority || 'normal',
                 status: 'pending',
                 progress: 0,
-                assignedTo: input.assignTo || [],
-                tags: input.tags || [],
+                assignedTo,
+                tags,
                 createdAt: new Date().toISOString(),
                 startedAt: null,
                 completedAt: null,
