@@ -240,8 +240,11 @@ export class ErrorHandler {
     if (!this.config.sanitize) return input;
     if (_depth > 20) return { '[MAX_DEPTH]': true };
 
-    if (_seen.has(input as object)) return { '[CIRCULAR]': true };
-    _seen.add(input as object);
+    // Primitives and null cannot be stored in a WeakSet — return them as-is.
+    if (input === null || typeof input !== 'object') return input;
+
+    if (_seen.has(input)) return { '[CIRCULAR]': true };
+    _seen.add(input);
 
     const sanitized: Sanitizable = {};
 
