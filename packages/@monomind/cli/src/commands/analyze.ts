@@ -1589,7 +1589,8 @@ const boundariesCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetDir = ctx.args[0] || ctx.cwd;
-    const numPartitions = (ctx.flags.partitions as number) || 2;
+    const rawPartitions = (ctx.flags.partitions as number) || 2;
+    const numPartitions = Number.isFinite(rawPartitions) ? Math.max(1, Math.min(rawPartitions, 100)) : 2;
     const outputFile = ctx.flags.output as string | undefined;
     const format = (ctx.flags.format as string) || 'text';
 
@@ -1937,7 +1938,8 @@ const dependenciesCommand: Command = {
     const format = (ctx.flags.format as string) || 'text';
     const include = ((ctx.flags.include as string) || '.ts,.tsx,.js,.jsx,.mjs,.cjs').split(',');
     const exclude = ((ctx.flags.exclude as string) || 'node_modules,dist,build,.git').split(',');
-    const maxDepth = (ctx.flags.depth as number) || 10;
+    const rawDepth = (ctx.flags.depth as number) || 10;
+    const maxDepth = Number.isFinite(rawDepth) ? Math.max(1, Math.min(rawDepth, 50)) : 10;
 
     output.printInfo(`Building dependency graph for: ${output.highlight(targetDir)}`);
     output.writeln();
