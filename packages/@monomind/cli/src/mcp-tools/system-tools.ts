@@ -10,7 +10,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as os from 'node:os';
@@ -61,10 +61,12 @@ function ensureSystemDir(): void {
   }
 }
 
+const MAX_SYSTEM_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
+
 function loadMetrics(): SystemMetrics {
   try {
     const path = getMetricsPath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_SYSTEM_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
   } catch {
@@ -201,7 +203,7 @@ export const systemTools: MCPTool[] = [
       if (_metricsSource === 'none') {
         try {
           const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
-          if (existsSync(agentStorePath)) {
+          if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_SYSTEM_STORE_BYTES) {
             const agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
             const agents = Object.values(agentStore.agents || {}) as Array<{ status: string }>;
             agentCounts = {
@@ -213,7 +215,7 @@ export const systemTools: MCPTool[] = [
         } catch { /* agent store not available */ }
         try {
           const taskStorePath = join(getProjectCwd(), STORAGE_DIR, 'tasks', 'store.json');
-          if (existsSync(taskStorePath)) {
+          if (existsSync(taskStorePath) && statSync(taskStorePath).size <= MAX_SYSTEM_STORE_BYTES) {
             const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
             const tasks = Object.values(taskStore.tasks || {}) as Array<{ status: string }>;
             taskCounts = {
@@ -568,7 +570,7 @@ export const systemTools: MCPTool[] = [
       const storePath = join(getProjectCwd(), '.monomind', 'tasks', 'store.json');
       let tasks: Array<{ status: string }> = [];
       try {
-        if (existsSync(storePath)) {
+        if (existsSync(storePath) && statSync(storePath).size <= MAX_SYSTEM_STORE_BYTES) {
           const data = readFileSync(storePath, 'utf-8');
           const store = JSON.parse(data);
           tasks = Object.values(store.tasks || {});
