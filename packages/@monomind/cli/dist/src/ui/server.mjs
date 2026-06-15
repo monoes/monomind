@@ -1227,13 +1227,23 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       req.on('end', () => {
         try {
           const _qs = new URL(req.url, 'http://localhost').searchParams;
-          const { name, prompt, interval, maxReps } = JSON.parse(body);
+          const { name: _rawName, prompt: _rawPrompt, interval: _rawInterval, maxReps: _rawMaxReps } = JSON.parse(body);
+          // Cap field sizes to prevent individual large-field disk inflation.
+          // The 2MB body cap already limits total payload, but a single field
+          // near 2MB would produce a multi-MB loop config file per request.
+          const MAX_LOOP_PROMPT_LEN = 64 * 1024;  // 64 KB
+          const MAX_LOOP_NAME_LEN = 512;
+          const MAX_LOOP_INTERVAL_LEN = 64;
+          const prompt = typeof _rawPrompt === 'string' ? _rawPrompt.slice(0, MAX_LOOP_PROMPT_LEN) : null;
+          const name = typeof _rawName === 'string' ? _rawName.slice(0, MAX_LOOP_NAME_LEN) : null;
+          const interval = typeof _rawInterval === 'string' ? _rawInterval.slice(0, MAX_LOOP_INTERVAL_LEN) : null;
+          const maxReps = typeof _rawMaxReps === 'number' && Number.isFinite(_rawMaxReps) ? Math.max(1, Math.min(Math.floor(_rawMaxReps), 10000)) : null;
           if (!prompt) { res.writeHead(400); res.end(JSON.stringify({ error: 'prompt required' })); return; }
           const loopsDir = path.join(path.resolve(_qs.get('dir') || projectDir || process.cwd()), '.monomind', 'loops');
           fs.mkdirSync(loopsDir, { recursive: true });
           const id = `loop-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
           const nowMs = Date.now();
-          const loop = { id, type: 'repeat', name: name || prompt.slice(0, 40), prompt, interval: interval || '1h', maxReps: maxReps || null, status: 'active', currentRep: 0, startedAt: nowMs, lastRunAt: null };
+          const loop = { id, type: 'repeat', name: name || prompt.slice(0, 40), prompt, interval: interval || '1h', maxReps, status: 'active', currentRep: 0, startedAt: nowMs, lastRunAt: null };
           fs.writeFileSync(path.join(loopsDir, `${id}.json`), JSON.stringify(loop, null, 2));
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ ok: true, id }));
@@ -1246,7 +1256,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/api/session-errors') {
       const qs = new URL(req.url, 'http://localhost').searchParams;
       const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
-      const sessionId = qs.get('id') || '';
+      // Cap sessionId to prevent O(n×m) DoS via f.includes(sessionId) substring
+      // match against every filename when sessionId is a very long string.
+      const _rawSessId = qs.get('id') || '';
+      const sessionId = _rawSessId.slice(0, 256);
       const slug = d.replace(/\//g, '-');
       const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
       try {
