@@ -478,8 +478,16 @@ export const embeddingsTools: MCPTool[] = [
         };
       }
 
-      const query = input.query as string;
-      const topK = (input.topK as number) || 5;
+      // Cap query length: generateRealEmbedding has a hash-fallback that is
+      // O(n) over the text length, so an unbounded query is a DoS vector.
+      // Cap topK to prevent requesting a huge result set from searchEntries.
+      let query: string;
+      try { query = validateText(input.query, 'query'); }
+      catch (e) { return { success: false, error: (e as Error).message }; }
+      const MAX_SEARCH_TOP_K = 100;
+      const rawTopK = (input.topK as number) || 5;
+      const topK = Number.isFinite(rawTopK) && rawTopK > 0
+        ? Math.min(Math.floor(rawTopK), MAX_SEARCH_TOP_K) : 5;
       const threshold = (input.threshold as number) || 0.5;
       const namespace = input.namespace as string;
 
@@ -787,11 +795,12 @@ export const embeddingsTools: MCPTool[] = [
       const curvature = config.hyperbolic.curvature;
 
       switch (action) {
-        case 'convert':
-          const embedding = input.embedding as number[];
-          if (!embedding || !Array.isArray(embedding)) {
-            return { success: false, error: 'Embedding array required for convert action' };
-          }
+        case 'convert': {
+          // validateVector caps at MAX_VECTOR_DIM (8192) — prevents O(n) DoS
+          // in toPoincare (reduce + map over the full array).
+          let embedding: number[];
+          try { embedding = validateVector(input.embedding, 'embedding'); }
+          catch (e) { return { success: false, error: (e as Error).message }; }
           const poincare = toPoincare(embedding, curvature);
           return {
             success: true,
@@ -801,13 +810,14 @@ export const embeddingsTools: MCPTool[] = [
             curvature,
             poincareNorm: Math.sqrt(poincare.reduce((sum, x) => sum + x * x, 0)),
           };
+        }
 
-        case 'distance':
-          const emb1 = input.embedding1 as number[];
-          const emb2 = input.embedding2 as number[];
-          if (!emb1 || !emb2) {
-            return { success: false, error: 'embedding1 and embedding2 required for distance action' };
-          }
+        case 'distance': {
+          let emb1: number[], emb2: number[];
+          try {
+            emb1 = validateVector(input.embedding1, 'embedding1');
+            emb2 = validateVector(input.embedding2, 'embedding2');
+          } catch (e) { return { success: false, error: (e as Error).message }; }
           const dist = poincareDistance(emb1, emb2, curvature);
           return {
             success: true,
@@ -816,13 +826,14 @@ export const embeddingsTools: MCPTool[] = [
             curvature,
             interpretation: dist < 1 ? 'close' : dist < 2 ? 'moderate' : 'far',
           };
+        }
 
-        case 'midpoint':
-          const e1 = input.embedding1 as number[];
-          const e2 = input.embedding2 as number[];
-          if (!e1 || !e2) {
-            return { success: false, error: 'embedding1 and embedding2 required for midpoint action' };
-          }
+        case 'midpoint': {
+          let e1: number[], e2: number[];
+          try {
+            e1 = validateVector(input.embedding1, 'embedding1');
+            e2 = validateVector(input.embedding2, 'embedding2');
+          } catch (e) { return { success: false, error: (e as Error).message }; }
           // Simplified midpoint (proper Möbius midpoint is more complex)
           const mid = e1.map((_, i) => (e1[i] + e2[i]) / 2);
           const norm = Math.sqrt(mid.reduce((sum, x) => sum + x * x, 0));
@@ -833,6 +844,7 @@ export const embeddingsTools: MCPTool[] = [
             midpoint: scaledMid,
             curvature,
           };
+        }
 
         default: // status
           return {
