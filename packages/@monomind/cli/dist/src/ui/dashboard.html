@@ -1405,7 +1405,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <div id="tb-right">
       <button class="btn" onclick="openMastermind()" style="color:oklch(65% 0.16 295);border-color:oklch(65% 0.16 295 / 0.4)" title="Mastermind — orgs, skills, loops, metrics">⬡ Mastermind</button>
       <button class="btn" onclick="switchView('orgs')" title="Manage autonomous organisations" style="color:oklch(70% 0.14 185);border-color:oklch(70% 0.14 185 / 0.4)">⬡ Orgs</button>
-      <button class="btn" onclick="switchView('orgs')" title="Manage autonomous organisations" style="color:oklch(70% 0.14 185);border-color:oklch(70% 0.14 185 / 0.4)">⬡ Orgs</button>
       <button class="btn" id="btn-budget" onclick="openBudgetModal()" title="Set daily/monthly cost budget">⚑ Budget</button>
       <button class="btn" onclick="openCmdPalette()">⌕ Search <kbd style="font-size:10px;opacity:0.6;margin-left:3px">⌘K</kbd></button>
       <button class="btn" onclick="openShortcutHelp()" title="Keyboard shortcuts (?)">? Help</button>
@@ -3401,7 +3400,7 @@ async function renderSessions() {
     document.getElementById('sess-pg-sub').textContent =
       sessions.length + ' session' + (sessions.length !== 1 ? 's' : '') + ' · ' + (DIR.split('/').pop() || DIR);
     if (!sessions.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">◫</div><div>No sessions yet</div></div>';
+      el.innerHTML = '<div class="empty"><div class="empty-ico">◫</div><div style="font-size:14px;color:var(--text-hi);margin-bottom:8px">No sessions yet</div><div style="font-size:12px;color:var(--text-lo);line-height:1.7;max-width:360px;margin:0 auto">Start a Claude Code session in this project to see it here.<br><code style="font-size:11px;background:var(--surface-hi);padding:2px 7px;border-radius:4px;color:var(--accent)">claude</code> — then complete a task and return to this view.</div></div>';
       return;
     }
     let toShow = showStarredOnly ? sessions.filter(s => bookmarks.has(s.id)) : sessions;
