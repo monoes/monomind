@@ -312,19 +312,37 @@ export const browserTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const { session, interactive, compact, depth, selector } = input as {
-        session?: string;
+      const raw = input as {
+        session?: unknown;
         interactive?: boolean;
         compact?: boolean;
         depth?: number;
-        selector?: string;
+        selector?: unknown;
       };
+      let safeSession: string;
+      try {
+        safeSession = validateSessionId(raw.session);
+      } catch (e) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+          isError: true,
+        };
+      }
       const args = ['snapshot'];
-      if (interactive) args.push('-i');
-      if (compact) args.push('-c');
-      if (depth) args.push('-d', String(depth));
-      if (selector) args.push('-s', selector);
-      return execBrowserCommand(args, session);
+      if (raw.interactive) args.push('-i');
+      if (raw.compact) args.push('-c');
+      if (raw.depth) args.push('-d', String(raw.depth));
+      if (raw.selector !== undefined) {
+        try {
+          args.push('-s', rejectFlagLike(raw.selector, 'selector'));
+        } catch (e) {
+          return {
+            content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+            isError: true,
+          };
+        }
+      }
+      return execBrowserCommand(args, safeSession);
     },
   },
   {
@@ -507,8 +525,15 @@ export const browserTools: MCPTool[] = [
       required: ['target'],
     },
     handler: async (input) => {
-      const { target, session } = input as { target?: string; session?: string };
-      return execBrowserCommand(['check', target as string], session);
+      const { target, session } = input as { target?: unknown; session?: string };
+      try {
+        return execBrowserCommand(['check', rejectFlagLike(target, 'target')], session);
+      } catch (e) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+          isError: true,
+        };
+      }
     },
   },
   {
@@ -525,8 +550,15 @@ export const browserTools: MCPTool[] = [
       required: ['target'],
     },
     handler: async (input) => {
-      const { target, session } = input as { target?: string; session?: string };
-      return execBrowserCommand(['uncheck', target as string], session);
+      const { target, session } = input as { target?: unknown; session?: string };
+      try {
+        return execBrowserCommand(['uncheck', rejectFlagLike(target, 'target')], session);
+      } catch (e) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+          isError: true,
+        };
+      }
     },
   },
   {
@@ -567,8 +599,15 @@ export const browserTools: MCPTool[] = [
       required: ['target'],
     },
     handler: async (input) => {
-      const { target, session } = input as { target?: string; session?: string };
-      return execBrowserCommand(['get', 'text', target as string], session);
+      const { target, session } = input as { target?: unknown; session?: string };
+      try {
+        return execBrowserCommand(['get', 'text', rejectFlagLike(target, 'target')], session);
+      } catch (e) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+          isError: true,
+        };
+      }
     },
   },
   {
@@ -585,8 +624,15 @@ export const browserTools: MCPTool[] = [
       required: ['target'],
     },
     handler: async (input) => {
-      const { target, session } = input as { target?: string; session?: string };
-      return execBrowserCommand(['get', 'value', target as string], session);
+      const { target, session } = input as { target?: unknown; session?: string };
+      try {
+        return execBrowserCommand(['get', 'value', rejectFlagLike(target, 'target')], session);
+      } catch (e) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+          isError: true,
+        };
+      }
     },
   },
   {
@@ -640,19 +686,30 @@ export const browserTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const { selector, text, url, timeout, session } = input as {
-        selector?: string;
-        text?: string;
-        url?: string;
+      const raw = input as {
+        selector?: unknown;
+        text?: unknown;
+        url?: unknown;
         timeout?: number;
         session?: string;
       };
       const args = ['wait'];
-      if (selector) args.push(selector);
-      if (text) args.push('--text', text);
-      if (url) args.push('--url', url);
-      if (timeout) args.push(String(timeout));
-      return execBrowserCommand(args, session);
+      try {
+        if (raw.selector !== undefined) args.push(rejectFlagLike(raw.selector, 'selector'));
+        if (raw.text !== undefined) args.push('--text', rejectFlagLike(raw.text, 'text'));
+        if (raw.url !== undefined) args.push('--url', validateUrl(raw.url));
+      } catch (e) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+          isError: true,
+        };
+      }
+      // Cap timeout to prevent event-loop blocking via a huge value
+      if (raw.timeout !== undefined && typeof raw.timeout === 'number') {
+        const clampedTimeout = Math.min(Math.max(Math.floor(raw.timeout), 0), 60_000);
+        args.push(String(clampedTimeout));
+      }
+      return execBrowserCommand(args, raw.session);
     },
   },
   // ==========================================================================
