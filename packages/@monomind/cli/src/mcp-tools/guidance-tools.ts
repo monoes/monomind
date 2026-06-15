@@ -8,7 +8,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -326,6 +326,7 @@ function discoverAgents(): string[] {
         if (entry.isDirectory()) {
           walk(full, depth + 1);
         } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name !== 'MIGRATION_SUMMARY.md') {
+          if (statSync(full).size > 512 * 1024) continue; // skip files > 512 KB
           const content = readFileSync(full, 'utf-8');
           const nameMatch = content.match(/^name:\s*(.+)$/m);
           if (nameMatch) agents.push(nameMatch[1].trim().replace(/^["']|["']$/g, ''));
