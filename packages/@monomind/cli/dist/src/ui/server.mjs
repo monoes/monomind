@@ -409,12 +409,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const cwd = projectDir || process.cwd();
         const name = gitExec('git config user.name', { cwd, encoding: 'utf8' }).trim();
         const email = gitExec('git config user.email', { cwd, encoding: 'utf8' }).trim();
+        let remoteUrl = '';
+        try { remoteUrl = gitExec('git remote get-url origin', { cwd, encoding: 'utf8' }).trim(); } catch {}
+        // Normalise SSH remote to HTTPS URL for browser linking
+        if (remoteUrl.startsWith('git@')) {
+          remoteUrl = remoteUrl.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '');
+        } else if (remoteUrl.endsWith('.git')) {
+          remoteUrl = remoteUrl.slice(0, -4);
+        }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ name, email, cwd }));
+        res.end(JSON.stringify({ name, email, cwd, remoteUrl }));
       } catch (_) {
         const cwd2 = projectDir || process.cwd();
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ name: '', email: '', cwd: cwd2 }));
+        res.end(JSON.stringify({ name: '', email: '', cwd: cwd2, remoteUrl: '' }));
       }
       return;
     }
