@@ -3,8 +3,12 @@
  * success signal from real command exit codes, instead of trusting a
  * caller-supplied --success flag.
  */
-import { promises as fs } from 'node:fs';
+import { promises as fs, statSync } from 'node:fs';
 import { join } from 'node:path';
+/** Refuse to read files larger than this to prevent OOM. */
+const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+/** Cap command string length to prevent file bloat. */
+const MAX_COMMAND_LEN = 500;
 function storePath(baseDir) {
     return join(baseDir, 'command-outcomes.jsonl');
 }
@@ -17,10 +21,20 @@ export async function recordCommand(baseDir, cmd) {
     try {
         await fs.mkdir(baseDir, { recursive: true });
         const path = storePath(baseDir);
-        const rec = { ts: cmd.ts, command: cmd.command, exitCode: cmd.exitCode, success: cmd.exitCode === 0 };
+        // Cap command length to prevent individual records from bloating the file.
+        const safeCommand = cmd.command.length > MAX_COMMAND_LEN ? cmd.command.slice(0, MAX_COMMAND_LEN) : cmd.command;
+        const rec = { ts: cmd.ts, command: safeCommand, exitCode: cmd.exitCode, success: cmd.exitCode === 0 };
         await fs.appendFile(path, JSON.stringify(rec) + '\n', 'utf8');
         // Opportunistic trim: rewrite only when the file exceeds the cap.
         // Avoids an extra stat() on every call by catching the overcount lazily.
+        // Guard with size check first to prevent OOM on unexpectedly large files.
+        try {
+            if (statSync(path).size > MAX_FILE_BYTES)
+                return;
+        }
+        catch {
+            return;
+        }
         const content = await fs.readFile(path, 'utf8').catch(() => '');
         const lines = content.trim().split('\n').filter(Boolean);
         if (lines.length > MAX_COMMAND_RECORDS) {
@@ -52,7 +66,13 @@ export async function recordCommand(baseDir, cmd) {
  */
 export async function deriveRecentSuccess(baseDir, windowMs = 300_000) {
     try {
-        const content = await fs.readFile(storePath(baseDir), 'utf8').catch(() => '');
+        const p = storePath(baseDir);
+        try {
+            if (statSync(p).size > MAX_FILE_BYTES)
+                return null;
+        }
+        catch { /* file absent */ }
+        const content = await fs.readFile(p, 'utf8').catch(() => '');
         if (!content)
             return null;
         const now = Date.now();
@@ -77,7 +97,13 @@ export async function deriveRecentSuccess(baseDir, windowMs = 300_000) {
 /** Read recent command outcomes (for diagnostics). */
 export async function readCommandOutcomes(baseDir, windowMs = 300_000) {
     try {
-        const content = await fs.readFile(storePath(baseDir), 'utf8').catch(() => '');
+        const p = storePath(baseDir);
+        try {
+            if (statSync(p).size > MAX_FILE_BYTES)
+                return [];
+        }
+        catch { /* file absent */ }
+        const content = await fs.readFile(p, 'utf8').catch(() => '');
         if (!content)
             return [];
         const now = Date.now();

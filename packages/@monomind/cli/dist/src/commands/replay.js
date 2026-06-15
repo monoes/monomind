@@ -10,7 +10,8 @@ const showSubcommand = {
         { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
     ],
     action: async (ctx) => {
-        const sessionId = ctx.args[0];
+        // Cap session ID to prevent DoS via oversized string and unbounded output reflection.
+        const sessionId = (ctx.args[0] || '').slice(0, 128);
         if (!sessionId) {
             output.error('Session ID is required: replay show <sessionId>');
             return { success: false, message: 'Missing session ID' };

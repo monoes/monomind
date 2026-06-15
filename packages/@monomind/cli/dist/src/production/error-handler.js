@@ -134,6 +134,9 @@ export class ErrorHandler {
             return input;
         if (_depth > 20)
             return { '[MAX_DEPTH]': true };
+        // Primitives and null cannot be stored in a WeakSet — return them as-is.
+        if (input === null || typeof input !== 'object')
+            return input;
         if (_seen.has(input))
             return { '[CIRCULAR]': true };
         _seen.add(input);

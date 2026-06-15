@@ -145,7 +145,12 @@ export class EWCConsolidator {
             for (const newPattern of newPatterns) {
                 if (!newPattern.embedding || newPattern.embedding.length === 0)
                     continue;
-                const existingPattern = this.patterns.get(newPattern.id);
+                // Cap pattern ID length: unbounded IDs fill both the Map key and the
+                // modifiedPatterns/protectedPatterns result arrays without any limit.
+                const patternId = typeof newPattern.id === 'string'
+                    ? newPattern.id.slice(0, 256)
+                    : String(newPattern.id).slice(0, 256);
+                const existingPattern = this.patterns.get(patternId);
                 if (existingPattern) {
                     // Calculate EWC penalty for updating existing pattern
                     const penalty = this.getPenalty(existingPattern.weights, newPattern.embedding, fisher);
@@ -153,19 +158,19 @@ export class EWCConsolidator {
                     const importanceScore = this.calculateImportance(existingPattern);
                     if (importanceScore > this.config.importanceThreshold && penalty > this.config.lambda) {
                         // Protect high-importance patterns with high penalty
-                        result.protectedPatterns.push(newPattern.id);
+                        result.protectedPatterns.push(patternId);
                         // Apply constrained update: blend old and new based on importance
                         const blendFactor = 1 - importanceScore;
                         const blendedWeights = this.blendWeights(existingPattern.weights, newPattern.embedding, blendFactor, fisher);
                         existingPattern.weights = blendedWeights;
                         existingPattern.lastUpdated = Date.now();
-                        result.modifiedPatterns.push(newPattern.id);
+                        result.modifiedPatterns.push(patternId);
                     }
                     else {
                         // Low importance or low penalty: allow full update
                         existingPattern.weights = newPattern.embedding.slice(0, this.config.dimensions);
                         existingPattern.lastUpdated = Date.now();
-                        result.modifiedPatterns.push(newPattern.id);
+                        result.modifiedPatterns.push(patternId);
                     }
                     // Update Fisher diagonal for this pattern
                     existingPattern.fisherDiagonal = fisher;
@@ -174,7 +179,7 @@ export class EWCConsolidator {
                 else {
                     // New pattern: add directly
                     const weights = {
-                        id: newPattern.id,
+                        id: patternId,
                         weights: newPattern.embedding.slice(0, this.config.dimensions),
                         fisherDiagonal: fisher,
                         importance: 0.5,
@@ -184,8 +189,8 @@ export class EWCConsolidator {
                         type: newPattern.type,
                         description: newPattern.description
                     };
-                    this.patterns.set(newPattern.id, weights);
-                    result.modifiedPatterns.push(newPattern.id);
+                    this.patterns.set(patternId, weights);
+                    result.modifiedPatterns.push(patternId);
                 }
                 result.patternsConsolidated++;
             }
@@ -209,7 +214,10 @@ export class EWCConsolidator {
             return result;
         }
         catch (error) {
-            result.error = error instanceof Error ? error.message : String(error);
+            // Sanitize: strip filesystem paths and cap length so internal error
+            // messages are not reflected verbatim into CallerResult.error.
+            const rawMsg = error instanceof Error ? error.message : String(error);
+            result.error = rawMsg.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 500);
             result.duration = performance.now() - startTime;
             return result;
         }
@@ -555,8 +563,12 @@ export class EWCConsolidator {
                 this.patterns.set(id, pattern);
             }
         }
-        // Restore history
-        this.consolidationHistory = Array.isArray(state.consolidationHistory) ? state.consolidationHistory : [];
+        // Restore history — cap to last 100 entries so a crafted state file cannot
+        // bloat the in-memory array (each entry is a small object, but the array is
+        // summed on every getConsolidationStats() call which is O(n)).
+        this.consolidationHistory = Array.isArray(state.consolidationHistory)
+            ? state.consolidationHistory.slice(-100)
+            : [];
         // Update config from persisted values, clamped to a sensible range to
         // prevent negative/NaN lambda from inverting the regularization sign.
         if (state.config && typeof state.config.lambda === 'number'

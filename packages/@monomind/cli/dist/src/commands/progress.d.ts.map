@@ -1,1 +1,1 @@
-{"version":3,"file":"progress.d.ts","sourceRoot":"","sources":["../../../src/commands/progress.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AAEH,OAAO,KAAK,EAAE,OAAO,EAAiC,MAAM,aAAa,CAAC;AA6O1E,eAAO,MAAM,eAAe,EAAE,OA8D7B,CAAC;AAEF,eAAe,eAAe,CAAC"}
+{"version":3,"file":"progress.d.ts","sourceRoot":"","sources":["../../../src/commands/progress.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AAEH,OAAO,KAAK,EAAE,OAAO,EAAiC,MAAM,aAAa,CAAC;AA8O1E,eAAO,MAAM,eAAe,EAAE,OA8D7B,CAAC;AAEF,eAAe,eAAe,CAAC"}

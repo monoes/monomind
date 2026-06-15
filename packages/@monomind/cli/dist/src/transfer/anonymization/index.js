@@ -35,10 +35,15 @@ const REDACTIONS = {
 function hash(input) {
     return crypto.createHash('sha256').update(input).digest('hex');
 }
+/** Maximum content size for PII scanning/redaction (4 MB). */
+const MAX_SCAN_SIZE = 4 * 1024 * 1024;
 /**
  * Detect PII in a string
  */
 export function detectPII(content) {
+    if (content.length > MAX_SCAN_SIZE) {
+        throw new Error(`detectPII: content too large (${content.length} bytes; max ${MAX_SCAN_SIZE})`);
+    }
     const result = {
         found: false,
         count: 0,
@@ -85,6 +90,9 @@ function getSeverity(type) {
  * Redact PII from a string
  */
 export function redactPII(content) {
+    if (content.length > MAX_SCAN_SIZE) {
+        throw new Error(`redactPII: content too large (${content.length} bytes; max ${MAX_SCAN_SIZE})`);
+    }
     let result = content;
     for (const [type, pattern] of Object.entries(PII_PATTERNS)) {
         const replacement = REDACTIONS[type];
@@ -100,9 +108,16 @@ export function redactPII(content) {
 /**
  * Apply anonymization to CFP document
  */
+/** Maximum CFP payload size accepted for anonymization (10 MB). */
+const MAX_CFP_ANONYMIZE_SIZE = 10 * 1024 * 1024;
 export function anonymizeCFP(cfp, level) {
+    // Guard before deep clone to prevent OOM on a crafted large object
+    const serialized = JSON.stringify(cfp);
+    if (serialized.length > MAX_CFP_ANONYMIZE_SIZE) {
+        throw new Error(`anonymizeCFP: CFP payload too large (${serialized.length} bytes; max ${MAX_CFP_ANONYMIZE_SIZE})`);
+    }
     const transforms = [];
-    const anonymized = JSON.parse(JSON.stringify(cfp));
+    const anonymized = JSON.parse(serialized);
     // Level: Minimal
     if (['minimal', 'standard', 'strict', 'paranoid'].includes(level)) {
         // Redact author display name
