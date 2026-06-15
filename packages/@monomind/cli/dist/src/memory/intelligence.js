@@ -393,9 +393,10 @@ class LocalReasoningBank {
             renameSync(tmp, path);
             this.dirty = false;
         }
-        catch (error) {
+        catch {
             // Log but don't throw - persistence failures shouldn't break training
-            console.error('Failed to persist patterns:', error);
+            // Do not reflect raw error to avoid leaking internal paths
+            console.error('Failed to persist patterns');
         }
     }
     /**
@@ -804,6 +805,10 @@ export async function recordTrajectory(steps, verdict) {
     }
 }
 export async function findSimilarPatterns(query, options) {
+    // Cap query length to prevent OOM via embedding generation on unbounded input
+    if (typeof query === 'string' && query.length > 2000) {
+        query = query.slice(0, 2000);
+    }
     if (!reasoningBank) {
         const init = await initializeIntelligence();
         if (!init.success)
@@ -943,9 +948,11 @@ export function benchmarkAdaptation(iterations = 1000) {
     if (!sonaCoordinator) {
         return { totalMs: 0, avgMs: 0, minMs: 0, maxMs: 0, targetMet: false };
     }
+    // Cap iterations to prevent OOM/CPU exhaustion from unbounded caller input
+    const safeIterations = Math.min(Math.max(1, iterations >>> 0), 100_000);
     const times = [];
     const testEmbedding = Array.from({ length: 384 }, () => Math.random());
-    for (let i = 0; i < iterations; i++) {
+    for (let i = 0; i < safeIterations; i++) {
         const start = performance.now();
         sonaCoordinator.recordSignal({
             type: 'test',
@@ -956,7 +963,7 @@ export function benchmarkAdaptation(iterations = 1000) {
         times.push(performance.now() - start);
     }
     const totalMs = times.reduce((a, b) => a + b, 0);
-    const avgMs = totalMs / iterations;
+    const avgMs = totalMs / safeIterations;
     const minMs = Math.min(...times);
     const maxMs = Math.max(...times);
     return {

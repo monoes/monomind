@@ -7,6 +7,14 @@
  */
 import * as crypto from 'crypto';
 /**
+ * Sanitize a user-supplied filename before embedding it inside a multipart
+ * Content-Disposition header.  Strip all CR/LF characters (MIME header injection)
+ * and cap length to prevent oversized headers.
+ */
+function sanitizeFileName(name) {
+    return name.replace(/[\r\n]/g, '').slice(0, 200);
+}
+/**
  * Get web3.storage token from environment or config
  */
 function getWeb3StorageToken() {
@@ -42,7 +50,7 @@ async function uploadToWeb3Storage(content, options) {
             'Get a free token at: https://web3.storage');
     }
     const endpoint = options.endpoint || 'https://api.web3.storage';
-    const name = options.name || 'pattern.cfp.json';
+    const name = sanitizeFileName(options.name || 'pattern.cfp.json');
     console.log(`[IPFS] Uploading ${content.length} bytes to web3.storage...`);
     // Create FormData-like body for upload
     const boundary = '----WebKitFormBoundary' + crypto.randomBytes(16).toString('hex');
@@ -91,7 +99,7 @@ async function uploadToPinata(content, options) {
         throw new Error('Pinata API credentials not found. Set PINATA_API_KEY and PINATA_API_SECRET.\n' +
             'Get credentials at: https://pinata.cloud');
     }
-    const name = options.name || 'pattern.cfp.json';
+    const name = sanitizeFileName(options.name || 'pattern.cfp.json');
     console.log(`[IPFS] Uploading ${content.length} bytes to Pinata...`);
     const boundary = '----WebKitFormBoundary' + crypto.randomBytes(16).toString('hex');
     const metadata = JSON.stringify({ name });
@@ -337,7 +345,7 @@ export function getIPNSURL(name, gateway = 'https://w3s.link') {
  */
 async function uploadToLocalIPFS(content, options) {
     const apiUrl = process.env.IPFS_API_URL || 'http://localhost:5001';
-    const name = options.name || 'pattern.cfp.json';
+    const name = sanitizeFileName(options.name || 'pattern.cfp.json');
     console.log(`[IPFS] Uploading ${content.length} bytes to ${apiUrl}...`);
     const boundary = '----IPFSBoundary' + crypto.randomBytes(16).toString('hex');
     const body = Buffer.concat([

@@ -99,10 +99,14 @@ const startAction = async (ctx) => {
     const config = loadConfig(cwd);
     const swarmConfig = config?.swarm || {};
     const mcpConfig = config?.mcp || {};
-    const finalTopology = topology || swarmConfig.topology || DEFAULT_TOPOLOGY;
-    const maxAgents = swarmConfig.maxAgents || DEFAULT_MAX_AGENTS;
+    const VALID_TOPOLOGIES = new Set(['hierarchical-mesh', 'mesh', 'hierarchical', 'ring', 'star']);
+    const rawTopology = topology || swarmConfig.topology || DEFAULT_TOPOLOGY;
+    const finalTopology = VALID_TOPOLOGIES.has(rawTopology) ? rawTopology : DEFAULT_TOPOLOGY;
+    const rawMaxAgents = Number(swarmConfig.maxAgents || DEFAULT_MAX_AGENTS);
+    const maxAgents = Number.isFinite(rawMaxAgents) ? Math.max(1, Math.min(rawMaxAgents, 100)) : DEFAULT_MAX_AGENTS;
     const autoStartMcp = mcpConfig.autoStart !== false && !skipMcp;
-    const mcpPort = port || mcpConfig.serverPort || DEFAULT_PORT;
+    const rawMcpPort = port || Number(mcpConfig.serverPort) || DEFAULT_PORT;
+    const mcpPort = Number.isFinite(rawMcpPort) ? Math.max(1, Math.min(rawMcpPort, 65535)) : DEFAULT_PORT;
     output.writeln();
     output.writeln(output.bold('Starting Monomind'));
     output.writeln();
@@ -264,7 +268,8 @@ const stopCommand = {
     ],
     action: async (ctx) => {
         const force = ctx.flags.force;
-        const timeout = ctx.flags.timeout;
+        const rawTimeout = ctx.flags.timeout;
+        const timeout = Number.isFinite(rawTimeout) ? Math.max(1, Math.min(rawTimeout, 300)) : 30;
         output.writeln();
         output.writeln(output.bold('Stopping MonoMind'));
         output.writeln();
