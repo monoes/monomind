@@ -420,7 +420,10 @@ module.exports = {
             for (var si = 0; si < suggestions.length; si++) {
               var s = suggestions[si];
               var editTag = s._editBoost ? ' ✎' : '';
-              console.log('  · ' + s.name + ' [' + s.label + '] — ' + (s.file || '') + (s.deg ? ' (deg ' + s.deg + ')' : '') + editTag);
+              // Include :line suffix when available so LLM can navigate directly
+              var fileLoc = (s.file || '');
+              if (fileLoc && s.startLine != null) fileLoc = fileLoc + ':' + s.startLine;
+              console.log('  · ' + s.name + ' [' + s.label + '] — ' + fileLoc + (s.deg ? ' (deg ' + s.deg + ')' : '') + editTag);
             }
             console.log('  Use mcp__monomind__monograph_query / monograph_impact for deeper drill-down.');
             hCtx._recordGraphTelemetry('preresolve_hit');

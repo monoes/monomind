@@ -8,7 +8,7 @@ export function ftsSearch(db, query, limit, label) {
     const ftsQuery = safeQuery.split(/\s+/).join(' ');
     let matchSql = `
     SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
-           nodes_fts.rank
+           n.start_line, n.end_line, nodes_fts.rank
     FROM nodes_fts
     JOIN nodes n ON n.rowid = nodes_fts.rowid
     WHERE nodes_fts MATCH ?
@@ -34,7 +34,7 @@ export function ftsSearch(db, query, limit, label) {
         const likePattern = `%${escapedQuery}%`;
         let likeSql = `
       SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
-             0 AS rank
+             n.start_line, n.end_line, 0 AS rank
       FROM nodes n
       WHERE (n.name LIKE ? OR n.norm_label LIKE ? OR n.file_path LIKE ?)
     `;
@@ -62,6 +62,8 @@ export function ftsSearch(db, query, limit, label) {
         filePath: r.file_path ?? null,
         label: r.label,
         rank: r.rank,
+        startLine: r.start_line ?? null,
+        endLine: r.end_line ?? null,
     }));
 }
 /**
@@ -141,7 +143,8 @@ export function hybridSearch(db, query, limit, label) {
         const escapedSafeQuery = safeQuery.replace(/%/g, '\\%').replace(/_/g, '\\_');
         const likePattern = `%${escapedSafeQuery}%`;
         let likeSql = `
-      SELECT n.id, n.name, n.norm_label, n.file_path, n.label
+      SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
+             n.start_line, n.end_line
       FROM nodes n
       WHERE (n.name LIKE ? OR n.norm_label LIKE ?)
     `;
@@ -167,6 +170,8 @@ export function hybridSearch(db, query, limit, label) {
                 filePath: r.file_path ?? null,
                 label: lbl,
                 rank: 0,
+                startLine: r.start_line ?? null,
+                endLine: r.end_line ?? null,
                 combinedScore: combined,
                 matchStrategy: 'like',
             });

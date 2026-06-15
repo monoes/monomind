@@ -20,6 +20,8 @@ function rowToNode(row: Record<string, unknown>): MonographNode {
 export interface GraphQueryInput {
   query: string;
   mode?: 'bfs' | 'dfs';
+  /** Direction of edge traversal. 'both' includes incoming edges (callers) and outgoing (callees). Default: 'out' */
+  direction?: 'out' | 'in' | 'both';
   tokenBudget?: number;
   depth?: number;
 }
@@ -40,6 +42,7 @@ export function queryGraph(
   input: GraphQueryInput,
 ): GraphQueryResult {
   const mode = input.mode ?? 'bfs';
+  const direction = input.direction ?? 'out';
   const tokenBudget = input.tokenBudget ?? 2000;
   const maxDepth = input.depth ?? 3;
 
@@ -64,15 +67,33 @@ export function queryGraph(
   if (!truncated) {
     // BFS or DFS expansion
     const frontier: Array<{ id: string; depth: number }> = seeds.map(s => ({ id: s.id, depth: 0 }));
-    const edgeStmt = db.prepare(
+
+    // Prepare edge traversal statements for each direction.
+    // 'out' follows outgoing edges (what this node calls/imports/uses).
+    // 'in' follows incoming edges (what calls/imports/uses this node).
+    // 'both' follows both directions — needed for full context (callers + callees).
+    const outEdgeStmt = db.prepare(
       `SELECT n.* FROM nodes n JOIN edges e ON n.id = e.target_id WHERE e.source_id = ? LIMIT 20`
     );
+    const inEdgeStmt = db.prepare(
+      `SELECT n.* FROM nodes n JOIN edges e ON n.id = e.source_id WHERE e.target_id = ? LIMIT 20`
+    );
+    const getNeighbors = (id: string): Record<string, unknown>[] => {
+      if (direction === 'out') return outEdgeStmt.all(id) as Record<string, unknown>[];
+      if (direction === 'in') return inEdgeStmt.all(id) as Record<string, unknown>[];
+      // 'both': union of outgoing and incoming, deduplicated by id
+      const outRows = outEdgeStmt.all(id) as Record<string, unknown>[];
+      const inRows = inEdgeStmt.all(id) as Record<string, unknown>[];
+      const seen = new Set(outRows.map(r => r['id'] as string));
+      return [...outRows, ...inRows.filter(r => !seen.has(r['id'] as string))];
+    };
+
 
     if (mode === 'bfs') {
       while (frontier.length > 0 && !truncated) {
         const { id, depth } = frontier.shift()!;
         if (depth >= maxDepth) continue;
-        const neighbors = edgeStmt.all(id) as Record<string, unknown>[];
+        const neighbors = getNeighbors(id);
         for (const row of neighbors) {
           const node = rowToNode(row);
           if (visited.has(node.id)) continue;
@@ -89,7 +110,7 @@ export function queryGraph(
       while (stack.length > 0 && !truncated) {
         const { id, depth } = stack.pop()!;
         if (depth >= maxDepth) continue;
-        const neighbors = edgeStmt.all(id) as Record<string, unknown>[];
+        const neighbors = getNeighbors(id);
         for (let i = neighbors.length - 1; i >= 0; i--) {
           const node = rowToNode(neighbors[i]!);
           if (visited.has(node.id)) continue;

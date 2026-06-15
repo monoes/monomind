@@ -9,6 +9,11 @@ export interface FileCacheEntry {
 export declare function hashFileContent(content: string): string;
 export declare function isFileCached(db: MonographDb, filePath: string, contentHash: string): boolean;
 export declare function updateFileCache(db: MonographDb, entry: FileCacheEntry): void;
+/**
+ * Bulk-upsert multiple file cache entries in a single transaction.
+ * Prefer this over calling updateFileCache in a loop for pipeline batch writes.
+ */
+export declare function batchUpdateFileCache(db: MonographDb, entries: FileCacheEntry[]): void;
 export declare function getFileCacheStats(db: MonographDb): {
     totalCached: number;
     hitRate: number;

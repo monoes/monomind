@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import type Database from 'better-sqlite3';
 import {
@@ -24,8 +24,12 @@ export interface ShapeCheckResult {
 
 // ── Internal helpers ───────────────────────────────────────────────────────────
 
+const MAX_FILE_BYTES = 1_048_576; // 1 MiB guard
+
 function safeReadFile(absPath: string): string {
   try {
+    const st = statSync(absPath);
+    if (st.size > MAX_FILE_BYTES) return '';
     return readFileSync(absPath, 'utf-8');
   } catch {
     return '';
@@ -64,19 +68,19 @@ export function getShapeCheck(
       .prepare("SELECT * FROM nodes WHERE label = 'Route' AND file_path = ? LIMIT 1")
       .get(options.file) as Record<string, unknown> | undefined;
   } else if (options.route) {
-    // Search by name substring (name is like "GET /api/users")
-    // We match against path part of the name to avoid matching the method token
-    const allRoutes = db
-      .prepare("SELECT * FROM nodes WHERE label = 'Route'")
-      .all() as Record<string, unknown>[];
+    // Search by name substring (name is like "GET /api/users") using SQL LIKE to avoid full scan
+    // The route path follows the first space, so we match anywhere after it via a LIKE pattern.
+    const likeTerm = `% ${options.route.toLowerCase()}%`;
+    routeRow = db
+      .prepare("SELECT * FROM nodes WHERE label = 'Route' AND lower(name) LIKE ? LIMIT 1")
+      .get(likeTerm) as Record<string, unknown> | undefined;
 
-    const searchTerm = options.route.toLowerCase();
-    routeRow = allRoutes.find((row) => {
-      const name = (row.name as string).toLowerCase();
-      const spaceIdx = name.indexOf(' ');
-      const path = spaceIdx >= 0 ? name.slice(spaceIdx + 1) : name;
-      return path.includes(searchTerm);
-    });
+    // Fallback: match anywhere in the name (e.g. no space prefix)
+    if (!routeRow) {
+      routeRow = db
+        .prepare("SELECT * FROM nodes WHERE label = 'Route' AND lower(name) LIKE ? LIMIT 1")
+        .get(`%${options.route.toLowerCase()}%`) as Record<string, unknown> | undefined;
+    }
   }
 
   if (!routeRow) {

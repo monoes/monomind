@@ -74,6 +74,36 @@ export function propagateReExports(db: Database.Database): ReExportPropagationOu
     },
   );
 
+  // ── Preload: avoid per-iteration DB queries inside the BFS while-loop ─────────
+
+  // nodeId → file_path for all nodes (used to resolve importer file paths)
+  const nodeIdToFilePath = new Map<string, string>(
+    (db.prepare(`SELECT id, file_path FROM nodes WHERE file_path IS NOT NULL`)
+      .all() as { id: string; file_path: string }[]).map(r => [r.id, r.file_path]),
+  );
+
+  // barrelFilePath → Set<importerNodeId>: who IMPORTS any node from each barrel file
+  // Load all IMPORTS edges once and group by target file_path
+  const allImportEdges = db.prepare(`
+    SELECT e.source_id, n.file_path AS target_file_path
+    FROM edges e
+    JOIN nodes n ON n.id = e.target_id
+    WHERE e.relation = 'IMPORTS'
+      AND n.file_path IS NOT NULL
+  `).all() as { source_id: string; target_file_path: string }[];
+
+  const barrelImporters = new Map<string, Set<string>>();
+  for (const row of allImportEdges) {
+    let s = barrelImporters.get(row.target_file_path);
+    if (!s) {
+      s = new Set();
+      barrelImporters.set(row.target_file_path, s);
+    }
+    s.add(row.source_id);
+  }
+
+  // ── BFS fixed-point (all lookups now O(1) from preloaded maps) ────────────────
+
   let totalPropagated = 0;
   let changed = true;
 
@@ -85,24 +115,16 @@ export function propagateReExports(db: Database.Database): ReExportPropagationOu
       const barrelFilePath = fileIdToPath.get(barrelFileId);
       if (!barrelFilePath || !reachedFilePaths.has(barrelFilePath)) continue;
 
-      // Find who imports this barrel (via its File node or via its symbols)
-      const importers = db.prepare(`
-        SELECT DISTINCT e.source_id
-        FROM edges e
-        WHERE e.relation = 'IMPORTS'
-          AND e.target_id IN (
-            SELECT id FROM nodes
-            WHERE file_path = ?
-          )
-      `).all(barrelFilePath) as { source_id: string }[];
+      // O(1) lookup instead of per-barrel DB query
+      const importerNodeIds = barrelImporters.get(barrelFilePath);
+      if (!importerNodeIds) continue;
 
-      for (const { source_id: importerNodeId } of importers) {
-        // Walk up to the importing File node
-        const importerFilePath = (db.prepare(
-          `SELECT file_path FROM nodes WHERE id = ? AND file_path IS NOT NULL LIMIT 1`,
-        ).get(importerNodeId) as { file_path: string } | null)?.file_path;
+      for (const importerNodeId of importerNodeIds) {
+        // O(1) lookup instead of per-importer DB query
+        const importerFilePath = nodeIdToFilePath.get(importerNodeId);
+        if (!importerFilePath) continue;
 
-        const importerFileId = importerFilePath ? filePathToId.get(importerFilePath) : undefined;
+        const importerFileId = filePathToId.get(importerFilePath);
         if (!importerFileId) continue;
 
         for (const targetFileId of exportedFileIds) {
