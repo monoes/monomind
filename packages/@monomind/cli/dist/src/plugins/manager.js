@@ -73,7 +73,8 @@ export class PluginManager {
     }
     async loadManifest() {
         try {
-            if (fs.existsSync(this.config.manifestPath)) {
+            const MAX_MANIFEST_BYTES = 10 * 1024 * 1024; // 10 MB
+            if (fs.existsSync(this.config.manifestPath) && fs.statSync(this.config.manifestPath).size <= MAX_MANIFEST_BYTES) {
                 const content = fs.readFileSync(this.config.manifestPath, 'utf-8');
                 const parsed = JSON.parse(content);
                 if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
@@ -148,7 +149,8 @@ export class PluginManager {
             let installedVersion = version || 'latest';
             let commands = [];
             let hooks = [];
-            if (fs.existsSync(packageJsonPath)) {
+            const MAX_PKG_JSON_BYTES = 1024 * 1024; // 1 MB
+            if (fs.existsSync(packageJsonPath) && fs.statSync(packageJsonPath).size <= MAX_PKG_JSON_BYTES) {
                 const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
                 installedVersion = pkg.version;
                 // Check for monomind plugin metadata
@@ -204,6 +206,9 @@ export class PluginManager {
             const packageJsonPath = path.join(absolutePath, 'package.json');
             if (!fs.existsSync(packageJsonPath)) {
                 return { success: false, error: 'No package.json found at path' };
+            }
+            if (fs.statSync(packageJsonPath).size > 1024 * 1024) {
+                return { success: false, error: 'package.json exceeds size limit' };
             }
             const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
             const packageName = pkg.name;
@@ -423,7 +428,7 @@ export class PluginManager {
             // Update manifest
             const installDir = path.join(this.config.pluginsDir, 'node_modules');
             const packageJsonPath = path.join(installDir, packageName, 'package.json');
-            if (fs.existsSync(packageJsonPath)) {
+            if (fs.existsSync(packageJsonPath) && fs.statSync(packageJsonPath).size <= 1024 * 1024) {
                 const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
                 existing.version = pkg.version;
                 existing.commands = pkg['monomind']?.commands || existing.commands;

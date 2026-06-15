@@ -8,11 +8,25 @@ import { join } from 'node:path';
 function storePath(baseDir) {
     return join(baseDir, 'route-outcomes.jsonl');
 }
-/** Append a route recommendation (pre-outcome). */
+/** Maximum number of records to keep in route-outcomes.jsonl.
+ *  computeRoutingAccuracy only ever reads the last 100 records, so anything
+ *  older is dead weight. Keeping 500 gives a comfortable buffer while bounding
+ *  the file size and keeping joinOutcome's full-file rewrite cheap. */
+const MAX_ROUTE_RECORDS = 500;
+/** Append a route recommendation (pre-outcome). Opportunistically trims the
+ *  file to MAX_ROUTE_RECORDS lines to prevent unbounded growth. */
 export async function recordRoute(baseDir, rec) {
     try {
         await fs.mkdir(baseDir, { recursive: true });
-        await fs.appendFile(storePath(baseDir), JSON.stringify(rec) + '\n', 'utf8');
+        const path = storePath(baseDir);
+        await fs.appendFile(path, JSON.stringify(rec) + '\n', 'utf8');
+        // Opportunistic trim: rewrite only when the file exceeds the cap.
+        // Avoids an extra stat() on every call by catching the overcount lazily.
+        const content = await fs.readFile(path, 'utf8').catch(() => '');
+        const lines = content.trim().split('\n').filter(Boolean);
+        if (lines.length > MAX_ROUTE_RECORDS) {
+            await fs.writeFile(path, lines.slice(-MAX_ROUTE_RECORDS).join('\n') + '\n', 'utf8');
+        }
     }
     catch {
         // Non-fatal — telemetry must never break routing

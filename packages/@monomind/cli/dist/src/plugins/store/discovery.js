@@ -5,23 +5,67 @@
  */
 import * as crypto from 'crypto';
 import { resolveIPNS, fetchFromIPFS } from '../../transfer/ipfs/client.js';
+/** Maximum bytes accepted from npm API responses to prevent OOM. */
+const NPM_RESPONSE_MAX_BYTES = 256 * 1024; // 256 KB
+/**
+ * Read a fetch Response body up to maxBytes.  AbortSignal.timeout() only
+ * bounds wall-clock time, NOT response body size; a slow-drip or large
+ * response would otherwise buffer unbounded memory here.
+ */
+async function readBoundedJson(res, maxBytes) {
+    const lenHdr = res.headers.get('content-length');
+    if (lenHdr) {
+        const declared = parseInt(lenHdr, 10);
+        if (Number.isFinite(declared) && declared > maxBytes) {
+            throw new Error(`npm response too large: ${declared} bytes`);
+        }
+    }
+    if (!res.body)
+        return JSON.parse('');
+    const reader = res.body.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+            break;
+        if (value) {
+            total += value.byteLength;
+            if (total > maxBytes) {
+                await reader.cancel();
+                throw new Error(`npm response exceeded ${maxBytes} bytes`);
+            }
+            chunks.push(value);
+        }
+    }
+    const buf = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) {
+        buf.set(c, off);
+        off += c.byteLength;
+    }
+    return JSON.parse(new TextDecoder('utf-8').decode(buf));
+}
 /**
  * Fetch real npm download stats for a package
  */
 async function fetchNpmStats(packageName) {
+    // Validate package name length to avoid constructing huge URLs
+    if (!packageName || packageName.length > 214)
+        return null;
     try {
         // Fetch last week downloads
         const downloadsUrl = `https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(packageName)}`;
         const downloadsRes = await fetch(downloadsUrl, { signal: AbortSignal.timeout(3000) });
         if (!downloadsRes.ok)
             return null;
-        const downloadsData = await downloadsRes.json();
+        const downloadsData = await readBoundedJson(downloadsRes, NPM_RESPONSE_MAX_BYTES);
         // Fetch package info for version
         const packageUrl = `https://registry.npmjs.org/${encodeURIComponent(packageName)}/latest`;
         const packageRes = await fetch(packageUrl, { signal: AbortSignal.timeout(3000) });
         let version = 'unknown';
         if (packageRes.ok) {
-            const packageData = await packageRes.json();
+            const packageData = await readBoundedJson(packageRes, NPM_RESPONSE_MAX_BYTES);
             version = packageData.version || 'unknown';
         }
         return {

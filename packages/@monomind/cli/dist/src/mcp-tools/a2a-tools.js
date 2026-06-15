@@ -9,6 +9,57 @@
  *
  * @module v1/cli/mcp-tools/a2a-tools
  */
+// ===== Input validation helpers =====
+const MAX_AGENT_TYPE_LEN = 64; // slug length — catalogue keys are all < 30 chars
+const MAX_BASE_URL_LEN = 2048; // typical browser URL limit
+const MAX_TASK_ID_LEN = 256;
+const MAX_SESSION_ID_LEN = 256;
+// Allowlist of URL schemes that are safe to embed in returned Agent Card urls.
+// Prevents javascript:, data:, file:// etc. from being reflected back to callers.
+const ALLOWED_URL_SCHEMES = new Set(['http:', 'https:']);
+/**
+ * Validate and return an agent type slug.
+ * Returns null when the value is not a string or exceeds the max length.
+ */
+function validateAgentType(value) {
+    if (typeof value !== 'string' || value.length === 0 || value.length > MAX_AGENT_TYPE_LEN)
+        return null;
+    return value;
+}
+/**
+ * Validate and return a base URL.
+ * Accepts only http/https schemes and caps length to prevent oversized reflected values.
+ * Falls back to the default localhost URL on failure.
+ */
+function validateBaseUrl(value, fallback = 'http://localhost:3000') {
+    if (typeof value !== 'string' || value.length === 0)
+        return fallback;
+    if (value.length > MAX_BASE_URL_LEN)
+        return fallback;
+    try {
+        const parsed = new URL(value);
+        if (!ALLOWED_URL_SCHEMES.has(parsed.protocol))
+            return fallback;
+        // Reject URLs with credentials — they should never appear in Agent Card endpoints
+        if (parsed.username || parsed.password)
+            return fallback;
+    }
+    catch {
+        return fallback;
+    }
+    return value;
+}
+/**
+ * Validate an optional string ID (taskId / sessionId).
+ * Returns undefined when the value is absent; null when it is present but invalid.
+ */
+function validateOptionalId(value, maxLen) {
+    if (value === undefined || value === null)
+        return undefined;
+    if (typeof value !== 'string' || value.length === 0 || value.length > maxLen)
+        return null;
+    return value;
+}
 // ===== Agent type catalogue =====
 /** Well-known agent types and their A2A card metadata */
 const AGENT_CARD_CATALOGUE = {
@@ -116,13 +167,16 @@ export const a2aTools = [
             required: ['agentType'],
         },
         handler: async (input) => {
-            const agentType = input.agentType;
-            const baseUrl = input.baseUrl || 'http://localhost:3000';
+            const agentType = validateAgentType(input.agentType);
+            if (!agentType) {
+                return { success: false, error: 'agentType is required (non-empty string, max 64 chars)' };
+            }
+            const baseUrl = validateBaseUrl(input.baseUrl);
             const card = buildAgentCard(agentType, baseUrl);
             if (!card) {
                 return {
                     success: false,
-                    error: `Unknown agent type: "${agentType}". Available: ${Object.keys(AGENT_CARD_CATALOGUE).join(', ')}`,
+                    error: `Unknown agent type. Available: ${Object.keys(AGENT_CARD_CATALOGUE).join(', ')}`,
                 };
             }
             return { success: true, agentCard: card, protocol: 'a2a', source: 'https://a2a-protocol.org' };
@@ -146,8 +200,19 @@ export const a2aTools = [
             },
         },
         handler: async (input) => {
-            const baseUrl = input.baseUrl || 'http://localhost:3000';
-            const capabilityFilter = input.capabilities;
+            const baseUrl = validateBaseUrl(input.baseUrl);
+            // Only accept a plain object capability filter to prevent prototype pollution.
+            // Object.create(null) maps and class instances are intentionally rejected.
+            const rawCap = input.capabilities;
+            const capabilityFilter = rawCap !== null &&
+                typeof rawCap === 'object' &&
+                !Array.isArray(rawCap) &&
+                Object.getPrototypeOf(rawCap) === Object.prototype
+                ? rawCap
+                : undefined;
+            const KNOWN_CAPABILITY_KEYS = new Set([
+                'streaming', 'pushNotifications', 'stateTransitionHistory',
+            ]);
             const cards = Object.keys(AGENT_CARD_CATALOGUE)
                 .map(type => buildAgentCard(type, baseUrl))
                 .filter((card) => {
@@ -155,9 +220,12 @@ export const a2aTools = [
                     return false;
                 if (!capabilityFilter)
                     return true;
-                // Apply capability filter
-                for (const [key, value] of Object.entries(capabilityFilter)) {
-                    if (card.capabilities[key] !== value)
+                // Apply capability filter — only iterate known keys to prevent
+                // prototype-chain access via attacker-controlled property names.
+                for (const key of KNOWN_CAPABILITY_KEYS) {
+                    if (!(key in capabilityFilter))
+                        continue;
+                    if (card.capabilities[key] !== capabilityFilter[key])
                         return false;
                 }
                 return true;
@@ -203,15 +271,32 @@ export const a2aTools = [
             required: ['agentType', 'message'],
         },
         handler: async (input) => {
-            const agentType = input.agentType;
+            const agentType = validateAgentType(input.agentType);
+            if (!agentType) {
+                return { success: false, error: 'agentType is required (non-empty string, max 64 chars)' };
+            }
             const message = input.message;
-            const taskId = input.taskId || `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-            const sessionId = input.sessionId;
-            const metadata = input.metadata || {};
+            const rawTaskId = validateOptionalId(input.taskId, MAX_TASK_ID_LEN);
+            if (rawTaskId === null) {
+                return { success: false, error: `taskId must be a non-empty string up to ${MAX_TASK_ID_LEN} chars` };
+            }
+            const taskId = rawTaskId ?? `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const rawSessionId = validateOptionalId(input.sessionId, MAX_SESSION_ID_LEN);
+            if (rawSessionId === null) {
+                return { success: false, error: `sessionId must be a non-empty string up to ${MAX_SESSION_ID_LEN} chars` };
+            }
+            const sessionId = rawSessionId;
+            // Only accept plain objects for metadata to prevent prototype pollution
+            const metadata = input.metadata !== null &&
+                typeof input.metadata === 'object' &&
+                !Array.isArray(input.metadata) &&
+                Object.getPrototypeOf(input.metadata) === Object.prototype
+                ? input.metadata
+                : {};
             if (!AGENT_CARD_CATALOGUE[agentType]) {
                 return {
                     success: false,
-                    error: `Unknown agent type: "${agentType}". Run a2a_discover to see available agents.`,
+                    error: `Unknown agent type. Run a2a_discover to see available agents.`,
                 };
             }
             // Return the A2A-compliant task submission envelope

@@ -37,6 +37,14 @@ export declare function removePatternFromRegistry(registry: PatternRegistry, pat
 export declare function serializeRegistry(registry: PatternRegistry): string;
 /**
  * Deserialize registry from JSON
+ *
+ * Caps the input string length before parsing to prevent OOM on a malicious or
+ * oversized registry fetched from IPFS / Pinata. The in-flight body is already
+ * capped by readBodyWithLimit (50 MB), but deserializeRegistry is also called
+ * with locally-cached data, so we add a 10 MB guard here too.
+ *
+ * We also reject non-semver and suspiciously long version strings to prevent
+ * version fields being used as a side-channel for large-payload injection.
  */
 export declare function deserializeRegistry(json: string): PatternRegistry;
 /**
