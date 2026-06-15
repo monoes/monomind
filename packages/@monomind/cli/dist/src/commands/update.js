@@ -151,7 +151,11 @@ const allCommand = {
                 output.writeln();
                 output.printError(`${failed.length} package(s) failed:`);
                 for (const r of failed) {
-                    output.writeln(`  ${output.error('✗')} ${r.package}: ${r.error}`);
+                    // Sanitize error: strip filesystem paths and cap length before display
+                    const safeErr = typeof r.error === 'string'
+                        ? r.error.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)
+                        : 'update failed';
+                    output.writeln(`  ${output.error('✗')} ${r.package}: ${safeErr}`);
                 }
             }
             return { success: failed.length === 0 };
@@ -220,7 +224,13 @@ const rollbackCommand = {
     ],
     async action(ctx) {
         const { flags } = ctx;
-        const packageName = flags.package;
+        // Cap packageName to 200 chars — npm package names are at most 214 chars
+        // (npm spec), but a malicious value could otherwise flow into rollbackUpdate
+        // which may reflect it in error messages or use it to key lookup tables.
+        const rawPackageName = flags.package;
+        const packageName = typeof rawPackageName === 'string'
+            ? rawPackageName.slice(0, 200)
+            : undefined;
         output.printInfo(packageName ? `Rolling back ${packageName}...` : 'Rolling back last update...');
         const result = await rollbackUpdate(packageName);
         if (result.success) {
