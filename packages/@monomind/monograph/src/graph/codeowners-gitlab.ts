@@ -86,6 +86,12 @@ function pathMatchesPattern(filePath: string, pattern: string): boolean {
   return norm === pat || norm.endsWith('/' + pat) || norm.startsWith(pat + '/');
 }
 
+/** Single-call helper — avoids triple matchOwners invocations when callers need all three fields. */
+export function singleFileOwnership(entries: CodeownersEntry[], filePath: string): { section: string; owners: string[]; ownerCount: number } {
+  const { owners, section } = matchOwners(entries, filePath);
+  return { section: section ?? NO_SECTION_LABEL, owners, ownerCount: owners.length };
+}
+
 export function ownerCountOf(entries: CodeownersEntry[], filePath: string): number {
   return matchOwners(entries, filePath).owners.length;
 }
@@ -101,4 +107,44 @@ export function sectionAndOwnersOf(entries: CodeownersEntry[], filePath: string)
 
 export function hasSections(entries: CodeownersEntry[]): boolean {
   return entries.some(e => e.section !== undefined);
+}
+
+export interface CodeownersGitlabReport {
+  totalEntries: number;
+  hasSections: boolean;
+  sectionNames: string[];
+  ownershipSummary: Array<{ file: string; section: string; owners: string[] }>;
+}
+
+/**
+ * Format a batch file-ownership report for LLM consumption.
+ * Uses singleFileOwnership() to avoid N*3 matchOwners scans.
+ */
+export function formatCodeownersGitlab(entries: CodeownersEntry[], filePaths: string[]): string {
+  if (entries.length === 0) return 'No CODEOWNERS entries found.';
+
+  const sections = new Set<string>();
+  const rows: Array<{ file: string; section: string; owners: string[] }> = [];
+  for (const fp of filePaths) {
+    const { section, owners } = singleFileOwnership(entries, fp);
+    sections.add(section);
+    rows.push({ file: fp, section, owners });
+  }
+
+  const unowned = rows.filter(r => r.owners.length === 0);
+  const lines: string[] = [
+    `CODEOWNERS (GitLab) — ${entries.length} entries, ${sections.size} section(s)`,
+    `Sections: ${[...sections].join(', ') || '(none)'}`,
+    `Files scanned: ${filePaths.length}  Unowned: ${unowned.length}`,
+    '',
+  ];
+  for (const r of rows) {
+    const ownerStr = r.owners.length > 0 ? r.owners.join(' ') : UNOWNED_LABEL;
+    lines.push(`  ${r.file}  [${r.section}]  ${ownerStr}`);
+  }
+  if (unowned.length > 0) {
+    lines.push('', `Unowned files (${unowned.length}):`);
+    for (const r of unowned) lines.push(`  ${r.file}`);
+  }
+  return lines.join('\n');
 }
