@@ -87,17 +87,36 @@ export class RvfBackend implements IMemoryBackend {
     validatePath(this.config.databasePath);
   }
 
+  /** Lazily create the HNSW index with the given dimension (auto-detected from first embedding). */
+  private ensureHnsw(dim: number): void {
+    if (this.hnswIndex) return;
+    // If config.dimensions differs from actual embedding dim, prefer the embedding dim
+    const actualDim = this.config.dimensions !== 1536 && this.config.dimensions > 0
+      ? this.config.dimensions
+      : dim;
+    this.hnswIndex = new HnswLite(
+      actualDim,
+      this.config.hnswM,
+      this.config.hnswEfConstruction,
+      this.config.metric,
+    );
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
     const useNative = await this.tryNativeInit();
     if (!useNative) {
-      this.hnswIndex = new HnswLite(
-        this.config.dimensions,
-        this.config.hnswM,
-        this.config.hnswEfConstruction,
-        this.config.metric,
-      );
+      // HnswLite index is created lazily in store() when we know the embedding dimension.
+      // Pre-create with config.dimensions only when it differs from the default sentinel.
+      if (this.config.dimensions !== 1536) {
+        this.hnswIndex = new HnswLite(
+          this.config.dimensions,
+          this.config.hnswM,
+          this.config.hnswEfConstruction,
+          this.config.metric,
+        );
+      }
       await this.loadFromDisk();
     }
 
@@ -143,8 +162,9 @@ export class RvfBackend implements IMemoryBackend {
     const e = ns !== entry.namespace ? { ...entry, namespace: ns } : entry;
     this.entries.set(e.id, e);
     this.keyIndex.set(this.compositeKey(e.namespace, e.key), e.id);
-    if (e.embedding && this.hnswIndex) {
-      this.hnswIndex.add(e.id, e.embedding);
+    if (e.embedding) {
+      if (!this.hnswIndex) this.ensureHnsw(e.embedding.length);
+      if (this.hnswIndex) this.hnswIndex.add(e.id, e.embedding);
     }
     this.dirty = true;
   }
@@ -269,7 +289,10 @@ export class RvfBackend implements IMemoryBackend {
     for (const entry of entries) {
       this.entries.set(entry.id, entry);
       this.keyIndex.set(this.compositeKey(entry.namespace, entry.key), entry.id);
-      if (entry.embedding && this.hnswIndex) this.hnswIndex.add(entry.id, entry.embedding);
+      if (entry.embedding) {
+        if (!this.hnswIndex) this.ensureHnsw(entry.embedding.length);
+        if (this.hnswIndex) this.hnswIndex.add(entry.id, entry.embedding);
+      }
     }
     this.dirty = true;
   }
@@ -355,10 +378,6 @@ export class RvfBackend implements IMemoryBackend {
     const recommendations: string[] = [];
 
     if (!this.initialized) issues.push('Backend not initialized');
-    if (!this.hnswIndex && !this.nativeDb) {
-      issues.push('No vector index available');
-      recommendations.push('Enable HNSW index for native vector search performance');
-    }
     if (!this.nativeDb) {
       recommendations.push('Running in pure-TS HnswLite fallback — @monoes/rvf not installed');
     }
@@ -372,7 +391,7 @@ export class RvfBackend implements IMemoryBackend {
       mode: this.nativeDb ? 'native-rvf' : 'pure-ts-fallback',
       components: {
         storage: { status: this.initialized ? 'healthy' : 'unhealthy', latency: 0 },
-        index: { status: this.hnswIndex || this.nativeDb ? 'healthy' : 'degraded', latency: 0 },
+        index: { status: this.initialized ? 'healthy' : 'degraded', latency: 0 },
         cache: { status: 'healthy', latency: 0 },
       },
       timestamp: Date.now(),
@@ -453,7 +472,10 @@ export class RvfBackend implements IMemoryBackend {
         const entry: MemoryEntry = parsed;
         this.entries.set(entry.id, entry);
         this.keyIndex.set(this.compositeKey(entry.namespace, entry.key), entry.id);
-        if (entry.embedding && this.hnswIndex) this.hnswIndex.add(entry.id, entry.embedding);
+        if (entry.embedding) {
+          if (!this.hnswIndex) this.ensureHnsw(entry.embedding.length);
+          if (this.hnswIndex) this.hnswIndex.add(entry.id, entry.embedding);
+        }
       }
     } catch (err) {
       if (this.config.verbose) {

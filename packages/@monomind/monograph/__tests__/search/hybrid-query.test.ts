@@ -4,7 +4,7 @@ import { join } from 'path';
 import { unlinkSync, existsSync } from 'fs';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode } from '../../src/storage/node-store.js';
-import { upsertEmbedding } from '../../src/storage/embedding-store.js';
+import { upsertEmbedding, ensureEmbeddingSchema } from '../../src/storage/embedding-store.js';
 import { hybridQuery } from '../../src/search/hybrid-query.js';
 import type { MonographNode } from '../../src/types.js';
 
@@ -36,6 +36,8 @@ const nodes: MonographNode[] = [
 beforeAll(() => {
   db = openDb(dbPath);
   for (const node of nodes) insertNode(db, node);
+  // Ensure content_hash column exists before calling upsertEmbedding
+  ensureEmbeddingSchema(db);
   // Store embeddings (n1 gets seed=0, others get different seeds)
   upsertEmbedding(db, 'n1', makeVec(0));
   upsertEmbedding(db, 'n2', makeVec(1));

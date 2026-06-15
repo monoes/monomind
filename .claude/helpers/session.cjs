@@ -1,65 +1,122 @@
 'use strict';
 /**
  * Session state management for hook-handler.cjs
- * Persists session data to .monomind/session-state.json
+ * Persists session data to .monomind/sessions/current.json
+ *
+ * API: start(), restore(), end(), status(), metric(key), update(patch)
  */
 
 const path = require('path');
 const fs = require('fs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-const SESSION_FILE = path.join(CWD, '.monomind', 'session-state.json');
+const SESSIONS_DIR = path.join(CWD, '.monomind', 'sessions');
+const CURRENT_FILE = path.join(SESSIONS_DIR, 'current.json');
+
+var KNOWN_METRICS = new Set(['edits', 'commands', 'tasks', 'errors']);
 
 function ensureDir() {
-  try { fs.mkdirSync(path.dirname(SESSION_FILE), { recursive: true }); } catch (_) {}
+  try { fs.mkdirSync(SESSIONS_DIR, { recursive: true }); } catch (_) {}
 }
 
-function restore() {
+function readCurrent() {
   try {
-    if (!fs.existsSync(SESSION_FILE)) return null;
-    var st = fs.statSync(SESSION_FILE);
-    if (st.size > 1 * 1024 * 1024) return null; // 1 MiB guard
-    var raw = fs.readFileSync(SESSION_FILE, 'utf-8');
+    if (!fs.existsSync(CURRENT_FILE)) return null;
+    var st = fs.statSync(CURRENT_FILE);
+    if (st.size > 1 * 1024 * 1024) return null;
+    var raw = fs.readFileSync(CURRENT_FILE, 'utf-8');
     var data = JSON.parse(raw);
-    if (!data || !data.sessionId) return null;
-    console.log('[OK] Session restored: ' + data.sessionId);
+    if (!data || !data.id) return null;
     return data;
   } catch (_) {
     return null;
   }
 }
 
-function start() {
+function writeCurrent(data) {
   ensureDir();
-  var sessionId = 'session-' + Date.now();
-  var data = { sessionId: sessionId, startedAt: new Date().toISOString(), editCount: 0, taskCount: 0 };
   try {
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2), 'utf-8');
-    console.log('[OK] Session started: ' + sessionId);
+    fs.writeFileSync(CURRENT_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (_) {}
+}
+
+// ── start ──────────────────────────────────────────────────────────────────────
+
+function start() {
+  var sessionId = 'session-' + Date.now();
+  var sess = {
+    id: sessionId,
+    startedAt: new Date().toISOString(),
+    context: {},
+    metrics: { edits: 0, commands: 0, tasks: 0, errors: 0 },
+  };
+  writeCurrent(sess);
+  return sess;
+}
+
+// ── restore ────────────────────────────────────────────────────────────────────
+
+function restore() {
+  var data = readCurrent();
+  if (!data) return null;
+  data.restoredAt = new Date().toISOString();
+  writeCurrent(data);
   return data;
 }
 
-function update(patch) {
-  ensureDir();
-  try {
-    var existing = restore() || start();
-    var merged = Object.assign({}, existing, patch, { updatedAt: new Date().toISOString() });
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(merged, null, 2), 'utf-8');
-    return merged;
-  } catch (_) {
-    return null;
-  }
-}
+// ── end ────────────────────────────────────────────────────────────────────────
 
 function end() {
+  var data = readCurrent();
+  if (!data) return null;
+
+  var startTs = new Date(data.startedAt).getTime();
+  var endTs = Date.now();
+  var duration = endTs - startTs;
+
+  var archived = Object.assign({}, data, {
+    endedAt: new Date(endTs).toISOString(),
+    duration: duration,
+  });
+
+  // Archive to <session-id>.json
   try {
-    var data = restore();
-    if (data) {
-      update({ endedAt: new Date().toISOString() });
-      console.log('[OK] Session ended: ' + data.sessionId);
-    }
+    var archivePath = path.join(SESSIONS_DIR, data.id + '.json');
+    fs.writeFileSync(archivePath, JSON.stringify(archived, null, 2), 'utf-8');
   } catch (_) {}
+
+  // Remove current.json
+  try { fs.unlinkSync(CURRENT_FILE); } catch (_) {}
+
+  return archived;
 }
 
-module.exports = { restore, start, update, end };
+// ── status ─────────────────────────────────────────────────────────────────────
+
+function status() {
+  return readCurrent();
+}
+
+// ── metric ─────────────────────────────────────────────────────────────────────
+
+function metric(key) {
+  var data = readCurrent();
+  if (!data) return null;
+  if (!KNOWN_METRICS.has(key)) return data;
+
+  data.metrics[key] = (data.metrics[key] || 0) + 1;
+  writeCurrent(data);
+  return data;
+}
+
+// ── update ─────────────────────────────────────────────────────────────────────
+
+function update(patch) {
+  var existing = readCurrent();
+  if (!existing) return null;
+  var merged = Object.assign({}, existing, patch, { updatedAt: new Date().toISOString() });
+  writeCurrent(merged);
+  return merged;
+}
+
+module.exports = { start, restore, end, status, metric, update };
