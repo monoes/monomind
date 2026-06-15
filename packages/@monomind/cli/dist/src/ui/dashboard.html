@@ -312,6 +312,24 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #org-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 .odt-pane { display: none; }
 .odt-pane.active { display: block; }
+#odt-chat { display: none; }
+#odt-chat.active { display: flex; flex-direction: column; }
+#odt-chat-bar { display:flex; align-items:center; gap:8px; padding:10px 16px 8px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+#odt-chat-sess-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
+#odt-chat-sel { background:var(--surface); color:var(--text-mid); border:1px solid var(--border); border-radius:4px; font-size:10px; font-family:var(--mono); padding:3px 7px; cursor:pointer; max-width:320px; }
+#odt-chat-sel:focus { outline:none; border-color:var(--accent); }
+#odt-chat-live-dot { width:5px; height:5px; border-radius:50%; background:var(--text-xs); flex-shrink:0; margin-left:auto; transition:background 0.4s; }
+#odt-chat-live-dot.on { background:oklch(68% 0.20 150); animation:livepulse-cv 2.2s ease-in-out infinite; }
+#odt-chat-live-lbl { font-size:9px; color:var(--text-lo); }
+#odt-chat-agent-bar { display:flex; align-items:center; gap:6px; padding:5px 16px 6px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+#odt-chat-agent-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
+.odt-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
+.odt-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
+.odt-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
+#odt-chat-feed { flex:1; overflow-y:auto; padding:10px 16px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+#odt-chat-feed::-webkit-scrollbar { width:4px; }
+#odt-chat-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+#odt-chat-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
 
 /* agent detail drawer (slides in from right within the org detail pane) */
 #org-agent-drawer {
@@ -1808,6 +1826,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn" data-tab="budgets"   onclick="v2SwitchOrgTab('budgets')">Budgets</button>
             <button class="odt-btn" data-tab="charts"       onclick="v2SwitchOrgTab('charts')">Charts</button>
             <button class="odt-btn" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
+            <button class="odt-btn" data-tab="chat"         onclick="v2SwitchOrgTab('chat')">Chat</button>
+            <button class="odt-btn" data-tab="config"       onclick="v2SwitchOrgTab('config')">Config</button>
+            <button class="odt-btn" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -1834,6 +1855,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-workspaces"></div>
             <div class="odt-pane" id="odt-invites"></div>
             <div class="odt-pane" id="odt-agents-full"></div>
+            <div class="odt-pane" id="odt-chat" style="flex-direction:column;height:100%;overflow:hidden;"></div>
+            <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-environments"></div>
             <div class="odt-pane" id="odt-access"></div>
             <div class="odt-pane" id="odt-issues-full"></div>
@@ -5228,6 +5252,9 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'issues-full')  v2RenderOrgIssuesFull();
   else if (tab === 'join-requests') v2RenderOrgJoinRequests();
   else if (tab === 'threads')      v2RenderOrgThreads();
+  else if (tab === 'chat')         v2RenderOrgChat();
+  else if (tab === 'config')       v2RenderOrgConfig();
+  else if (tab === 'files')        v2RenderOrgFiles();
 }
 
 // ── org chart ───────────────────────────────
@@ -6293,6 +6320,552 @@ async function v2RenderOrgSkills() {
       : '<div style="font-size:11px;color:var(--text-lo)">No skills listed</div>'}
     ${e.taskTypes.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px">${e.taskTypes.map(s => `<span class="oad-chip alt">${esc(s)}</span>`).join('')}</div>` : ''}
   </div>`).join('');
+}
+
+// ── ORG CHAT ───────────────────────────────────────────────
+let _odtChatSessions = [];
+let _odtChatCurrentId = null;
+let _odtChatCurrentAgent = 'all';
+let _odtChatSseSource = null;
+
+function _odtOrgSessionMatch(s) {
+  if (!_v2SelOrg) return true;
+  const orgLc = _v2SelOrg.toLowerCase();
+  const prompt = (s.prompt || '').toLowerCase();
+  if (prompt.includes('running org: ' + orgLc) || prompt.includes('org: ' + orgLc)) return true;
+  return (s.events || []).some(ev => (ev.org || '').toLowerCase() === orgLc);
+}
+
+function _odtChatAgentMatches(ev) {
+  if (_odtChatCurrentAgent === 'all') return true;
+  // Structural events always show regardless of agent filter
+  const structural = new Set(['session:start','session:complete','file:write','run:start','run:complete','run:cycle:complete','org:start','org:complete','org:agent:online']);
+  if (structural.has(ev.type)) return true;
+  return ev.agent === _odtChatCurrentAgent || ev.from === _odtChatCurrentAgent || ev.to === _odtChatCurrentAgent || ev.role === _odtChatCurrentAgent;
+}
+
+async function v2RenderOrgChat() {
+  const pane = document.getElementById('odt-chat');
+  if (!pane) return;
+
+  // Build the pane HTML once
+  if (!pane.querySelector('#odt-chat-bar')) {
+    pane.innerHTML = `
+      <div id="odt-chat-bar">
+        <span id="odt-chat-sess-lbl">RUN</span>
+        <select id="odt-chat-sel" onchange="odtChatSelectSession(this.value)">
+          <option value="">— loading runs —</option>
+        </select>
+        <div id="odt-chat-live-dot"></div>
+        <span id="odt-chat-live-lbl">OFFLINE</span>
+      </div>
+      <div id="odt-chat-agent-bar" style="display:none">
+        <span id="odt-chat-agent-lbl">AGENT</span>
+      </div>
+      <div id="odt-chat-excerpt" class="cv-excerpt-banner"></div>
+      <div id="odt-chat-feed">
+        <div id="odt-chat-empty">Select a run to see agent communications.<br><span style="font-size:10px;opacity:0.5">Runs appear after the first /mastermind:runorg</span></div>
+      </div>`;
+  }
+
+  // Reset state when org changes
+  _odtChatCurrentId = null;
+  _odtChatCurrentAgent = 'all';
+  document.getElementById('odt-chat-agent-bar').style.display = 'none';
+  document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
+  const emptyEl = document.getElementById('odt-chat-empty');
+  if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a run to see agent communications.'; }
+
+  await _odtLoadChatSessions();
+  _odtConnectChatSSE();
+}
+
+async function _odtLoadChatSessions() {
+  if (!_v2SelOrg) return;
+  try {
+    const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
+    // Primary: structured org run files
+    const runs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs?x=1'+dirParam);
+    if (Array.isArray(runs) && runs.length) {
+      _odtChatSessions = runs.map(r => ({
+        id: r.runId,
+        ts: r.startedAt,
+        prompt: r.goal || r.runId,
+        status: r.status,
+        _isOrgRun: true,
+        _runMeta: r,
+        events: [], // loaded lazily in odtChatSelectSession
+      }));
+      _odtPopulateChatSel();
+      if (!_odtChatCurrentId && _odtChatSessions.length) {
+        const first = _odtChatSessions[0];
+        const sel = document.getElementById('odt-chat-sel');
+        if (sel) { sel.value = first.id; odtChatSelectSession(first.id); }
+      }
+      return;
+    }
+  } catch(_) {}
+  // Fallback: mastermind lifecycle events (pre-run-file era sessions)
+  try {
+    const r = await apiFetch('/api/mastermind/sessions');
+    const all = Array.isArray(r) ? r : Object.values(r.sessions || {});
+    _odtChatSessions = all.filter(_odtOrgSessionMatch);
+    _odtPopulateChatSel();
+  } catch(_) {}
+}
+
+function _odtPopulateChatSel() {
+  const sel = document.getElementById('odt-chat-sel');
+  if (!sel) return;
+  const prev = _odtChatCurrentId || sel.value;
+  const count = _odtChatSessions.length;
+  sel.innerHTML = `<option value="">${count ? `— ${count} run${count !== 1 ? 's' : ''} for ${_v2SelOrg} —` : '— no runs yet —'}</option>`;
+  _odtChatSessions.forEach(s => {
+    const d = new Date(s.ts || s.startedAt || 0);
+    const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
+    const prompt = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0,40);
+    const meta = s._runMeta;
+    const extra = meta ? ` · ${meta.cycleCount||0}cyc · ${meta.eventCount||0}ev` : '';
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${date} ${ts}  ${prompt}${prompt.length>=40?'…':''}${extra}  [${s.status||'?'}]`;
+    if (s.id === prev) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Auto-select running session
+  if (!_odtChatCurrentId) {
+    const running = _odtChatSessions.find(s => s.status === 'running');
+    if (running) { sel.value = running.id; odtChatSelectSession(running.id); }
+  }
+}
+
+window.odtChatSelectSession = async function(id) {
+  _odtChatCurrentId = id;
+  _odtChatCurrentAgent = 'all';
+  const feed = document.getElementById('odt-chat-feed');
+  const emptyEl = document.getElementById('odt-chat-empty');
+  const bar = document.getElementById('odt-chat-agent-bar');
+  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+  if (!id) {
+    if (emptyEl) emptyEl.style.display = 'block';
+    if (bar) bar.style.display = 'none';
+    return;
+  }
+  const sess = _odtChatSessions.find(s => s.id === id);
+  if (!sess) return;
+  if (emptyEl) emptyEl.style.display = 'none';
+  // Lazy-load events for org run sessions
+  if (sess._isOrgRun && !sess._eventsLoaded) {
+    const feed2 = document.getElementById('odt-chat-feed');
+    const loadingEl = Object.assign(document.createElement('div'), { id: 'odt-chat-loading', style: 'text-align:center;padding:24px 0;font-size:11px;opacity:0.5;color:var(--text-mid)' });
+    loadingEl.textContent = 'Loading run events…';
+    if (feed2) feed2.appendChild(loadingEl);
+    try {
+      const dirParam = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
+      const evs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs/'+encodeURIComponent(id)+dirParam);
+      sess.events = Array.isArray(evs) ? evs : [];
+      sess._eventsLoaded = true;
+    } catch(_) { sess.events = []; sess._eventsLoaded = true; }
+    loadingEl.remove();
+  }
+  // Agent pills from org config roles (authoritative list, not derived from events)
+  const orgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+  _odtPopulateAgentBar(sess.events || [], orgRoles);
+  // No excerpt banner for structured org run sessions
+  const ex = document.getElementById('odt-chat-excerpt');
+  if (ex) ex.innerHTML = '';
+  (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
+  feed.scrollTop = feed.scrollHeight;
+};
+
+function _odtPopulateAgentBar(events, orgRoles) {
+  const bar = document.getElementById('odt-chat-agent-bar');
+  if (!bar) return;
+  const agentSet = new Set();
+  // Org config roles are the authoritative agent list — always use them when available
+  const roles = Array.isArray(orgRoles) ? orgRoles : (Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
+  roles.forEach(r => { const n = typeof r === 'string' ? r : (r.id || r.role || r.name || ''); if (n) agentSet.add(n); });
+  // For runs without org config, derive from events (agent:online events are reliable)
+  if (!agentSet.size) {
+    (events || []).forEach(ev => {
+      if (ev.type === 'org:agent:online' && ev.role) agentSet.add(ev.role);
+      else if (ev.type === 'org:comms') {
+        if (ev.from && ev.from.length < 40) agentSet.add(ev.from);
+        if (ev.to && ev.to !== 'all' && ev.to.length < 40) agentSet.add(ev.to);
+      }
+    });
+  }
+  const agents = [...agentSet].sort();
+  if (!agents.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span id="odt-chat-agent-lbl">AGENT</span>';
+  ['all', ...agents].forEach(name => {
+    const pill = document.createElement('button');
+    pill.className = 'odt-agent-pill' + (_odtChatCurrentAgent === name ? ' active' : '');
+    pill.textContent = name === 'all' ? 'ALL' : name;
+    pill.dataset.agent = name;
+    pill.onclick = () => odtChatSelectAgent(name);
+    bar.appendChild(pill);
+  });
+}
+
+window.odtChatSelectAgent = function(name) {
+  _odtChatCurrentAgent = name;
+  document.querySelectorAll('#odt-chat-agent-bar .odt-agent-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.agent === name);
+  });
+  const feed = document.getElementById('odt-chat-feed');
+  const emptyEl = document.getElementById('odt-chat-empty');
+  const sess = _odtChatSessions.find(s => s.id === _odtChatCurrentId);
+  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+  if (!sess) { if (emptyEl) emptyEl.style.display = 'block'; return; }
+  const visible = (sess.events || []).filter(ev => _odtChatAgentMatches(ev));
+  if (!visible.length) {
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = name === 'all' ? 'No events.' : `No events for "${name}"`; }
+  } else {
+    if (emptyEl) emptyEl.style.display = 'none';
+    visible.forEach(ev => _odtAppendEvent(ev, false));
+  }
+  feed.scrollTop = feed.scrollHeight;
+};
+
+function _odtAppendEvent(ev, animate) {
+  if (!_odtChatAgentMatches(ev)) return;
+  const feed = document.getElementById('odt-chat-feed');
+  if (!feed) return;
+  const emptyEl = document.getElementById('odt-chat-empty');
+  if (emptyEl) emptyEl.style.display = 'none';
+  const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+  let el;
+  if (ev.type === 'run:start') {
+    el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + esc(ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + esc(ev.bossRole) : ''), ts);
+  } else if (ev.type === 'run:cycle:complete') {
+    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + ev.pending + ' tasks pending' : ''), ts);
+  } else if (ev.type === 'run:complete') {
+    el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+  } else if (ev.type === 'org:comms') {
+    if (ev.to && ev.to !== 'all' && ev.from) el = mkCVIntercom(ev.from || 'boss', ev.to, ev.msg || '', ts);
+    else el = mkCVAgent(ev.from || 'boss', ev.msg || '', ts, 'org:comms');
+  } else if (ev.type === 'org:agent:online') {
+    el = mkCVSys('◉ ' + esc(ev.title || ev.role || '?') + ' online', ts);
+  } else if (ev.type === 'org:checkpoint') {
+    el = mkCVAgent('boss', ev.progress || '', ts, 'org:checkpoint');
+  } else if (ev.type === 'org:start' || ev.type === 'org:complete') {
+    el = mkCVSys(ev.type === 'org:start' ? '▶ Org started' : '■ Org complete', ts);
+  } else if (ev.type === 'agent:spawn') {
+    el = mkCVSpawn(ev.from || 'orchestrator', ev.to || '?', ev.task || ev.briefing || '', ts);
+  } else if (ev.type === 'agent:result') {
+    el = mkCVResult(ev.agent || '?', ev.msg || '', ts);
+  } else if (ev.type === 'file:write') {
+    el = mkCVFileCard(ev.name || ev.path || '?', ev.path || '', ev.size || 0, ts);
+  } else if (ev.type === 'intercom') {
+    el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
+  } else if (ev.type === 'agent:message') {
+    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || '', ts, ev.type);
+  } else if (ev.type === 'session:start') {
+    el = mkCVSys('▶ ' + esc((ev.prompt || '').replace(/^running org:\s*/i,'').slice(0,80) || 'Session started'), ts);
+  } else if (ev.type === 'session:complete') {
+    el = mkCVSys('■ Complete' + (ev.status ? ' — ' + esc(ev.status) : ''), ts);
+  } else if (ev.type === 'domain:dispatch') {
+    el = mkCVSys('→ ' + esc(ev.domain || '') + (ev.cmd ? ': ' + esc(ev.cmd.slice(0,80)) : ''), ts);
+  } else if (ev.type === 'domain:complete') {
+    el = mkCVSys('✓ ' + esc(ev.domain || '') + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+  } else if (ev.type === 'loop:start') {
+    el = mkCVSys('Loop: ' + esc(ev.command || ''), ts);
+  } else if (ev.type === 'loop:complete') {
+    el = mkCVSys('Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
+  } else {
+    return; // skip unknown event types silently
+  }
+  if (animate) el.classList.add('cv-new');
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function _odtConnectChatSSE() {
+  if (_odtChatSseSource) return;
+  const dot = document.getElementById('odt-chat-live-dot');
+  const lbl = document.getElementById('odt-chat-live-lbl');
+  _odtChatSseSource = new EventSource('/api/mastermind-stream');
+  _odtChatSseSource.onopen = () => { dot?.classList.add('on'); if (lbl) lbl.textContent = 'LIVE'; };
+  _odtChatSseSource.onmessage = e => {
+    try { _odtHandleLiveEvent(JSON.parse(e.data)); } catch(_) {}
+  };
+  _odtChatSseSource.onerror = () => {
+    dot?.classList.remove('on');
+    if (lbl) lbl.textContent = 'OFFLINE';
+    _odtChatSseSource = null;
+    setTimeout(_odtConnectChatSSE, 5000);
+  };
+}
+
+function _odtHandleLiveEvent(ev) {
+  // Route org run events (have runId + org) to the active run session
+  if (ev?.org && ev?.runId && ev.org === _v2SelOrg) {
+    let runSess = _odtChatSessions.find(s => s.id === ev.runId);
+    if (!runSess && ev.type === 'run:start') {
+      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || '', status: 'running', _isOrgRun: true, _eventsLoaded: true, _runMeta: { cycleCount: 0, eventCount: 0 }, events: [ev] };
+      _odtChatSessions.unshift(runSess);
+      _odtPopulateChatSel();
+      if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
+        const sel = document.getElementById('odt-chat-sel');
+        if (sel) { sel.value = ev.runId; odtChatSelectSession(ev.runId); }
+      }
+    } else if (runSess) {
+      (runSess.events = runSess.events || []).push(ev);
+      if (runSess._runMeta) runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1;
+      if (ev.type === 'run:cycle:complete') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
+      if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
+      if (_odtChatCurrentId === ev.runId && _v2OrgTab === 'chat') {
+        _odtAppendEvent(ev, true);
+      }
+    }
+    return;
+  }
+
+  if (!ev?.session) return;
+  const isOrgSess = _odtOrgSessionMatch({ id: ev.session, prompt: ev.prompt || '', events: [ev] });
+  if (!isOrgSess) return;
+
+  let sess = _odtChatSessions.find(s => s.id === ev.session);
+  if (!sess && ev.type === 'session:start') {
+    sess = { id: ev.session, ts: ev.ts || Date.now(), prompt: ev.prompt || '', status: 'running', events: [ev] };
+    _odtChatSessions.unshift(sess);
+    _odtPopulateChatSel();
+    // Auto-select if nothing selected
+    if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
+      const sel = document.getElementById('odt-chat-sel');
+      if (sel) { sel.value = ev.session; odtChatSelectSession(ev.session); }
+    }
+    return;
+  }
+  if (sess) {
+    (sess.events = sess.events || []).push(ev);
+    if (ev.type === 'session:complete') { sess.status = ev.status || 'complete'; _odtPopulateChatSel(); }
+    if (_odtChatCurrentId === ev.session && _v2OrgTab === 'chat') {
+      const hasNewAgent = (ev.agent && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.agent)}"]`))
+        || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
+        || (ev.to && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
+      if (hasNewAgent) _odtPopulateAgentBar(sess.events, Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
+      if (!sess._isJsonl) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess);
+      _odtAppendEvent(ev, true);
+    }
+  }
+}
+
+// ── ORG CONFIG ─────────────────────────────────────────────
+function v2RenderOrgConfig() {
+  const el = document.getElementById('odt-config');
+  if (!el || !_v2OrgData || !_v2SelOrg) return;
+  const d = _v2OrgData;
+  const rc = d.run_config || {};
+  const gov = (d.governance && typeof d.governance === 'object') ? d.governance : { policy: d.governance || 'auto' };
+  const topos = ['hierarchical','hierarchical-mesh','mesh','star','ring','adaptive','hybrid'];
+  const modes = ['daemon','once','scheduled'];
+  const statuses = ['active','paused','archived'];
+  const govPolicies = ['auto','board','strict'];
+  const inp = (id,val,type,extra) => '<input class="filter-input" id="'+id+'" type="'+(type||'text')+'" value="'+esc(String(val??''))+'" '+(extra||'')+' style="width:100%;box-sizing:border-box">';
+  const sel = (id,opts,cur) => '<select class="filter-input" id="'+id+'" style="width:100%;box-sizing:border-box;cursor:pointer">'+opts.map(o=>'<option'+(cur===o?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
+  const fld = (lbl,html) => '<div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:10px;color:var(--text-lo)">'+lbl+'</div>'+html+'</div>';
+  const sec = (title,inner) => '<div style="margin-bottom:22px"><div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)">'+title+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">'+inner+'</div></div>';
+  el.innerHTML = '<div style="padding:18px;overflow-y:auto;max-width:660px">'
+    +sec('GENERAL',
+      fld('Name', inp('oc-name', d.name||'','text','readonly style="opacity:0.5"'))
+      +fld('Status', sel('oc-status', statuses, d.status||'active'))
+      +'<div style="grid-column:1/-1">'+fld('Goal', '<textarea id="oc-goal" class="filter-input" rows="3" style="width:100%;box-sizing:border-box;resize:vertical;line-height:1.5">'+esc(d.goal||'')+'</textarea>')+'</div>'
+      +fld('Mode', sel('oc-mode', modes, d.mode||'daemon'))
+      +fld('Topology', sel('oc-topology', topos, d.topology||'hierarchical'))
+      +'<div style="grid-column:1/-1">'+fld('Schedule', inp('oc-schedule', d.schedule||''))+'</div>'
+    )
+    +sec('RUN CONFIG',
+      fld('Max Concurrent Agents', inp('oc-max-agents', rc.max_concurrent_agents??6,'number','min="1" max="32"'))
+      +fld('Checkpoint Interval (min)', inp('oc-checkpoint', rc.checkpoint_interval_min??30,'number','min="5"'))
+      +fld('Budget Tokens (0=unlimited)', inp('oc-budget', rc.budget_tokens??0,'number','min="0"'))
+      +fld('Alert Threshold (0-1)', inp('oc-alert', rc.alert_threshold??0.8,'number','step="0.05" min="0" max="1"'))
+      +fld('Boss Role ID', inp('oc-boss', rc.boss_role||''))
+      +fld('Memory Namespace', inp('oc-namespace', rc.memory_namespace||('org:'+d.name)))
+      +'<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-top:4px"><input type="checkbox" id="oc-spawn-all" '+(rc.spawn_all_roles?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer"><label for="oc-spawn-all" style="font-size:12px;color:var(--text-mid);cursor:pointer">Spawn all roles as separate agents</label></div>'
+    )
+    +sec('GOVERNANCE',
+      fld('Approval Policy', sel('oc-gov-policy', govPolicies, gov.policy||'auto'))
+      +fld('Approvals File', inp('oc-gov-file', gov.approvals_file||('.monomind/orgs/'+d.name+'-approvals.json')))
+    )
+    +'<div style="display:flex;align-items:center;gap:10px"><button class="btn" style="border-color:var(--accent);color:var(--accent)" onclick="v2SaveOrgConfig()">Save Config</button><span id="oc-status-msg" style="font-size:11px;color:var(--text-lo)"></span></div>'
+    +'</div>';
+}
+
+async function v2SaveOrgConfig() {
+  if (!_v2SelOrg || !_v2OrgData) return;
+  const g = id => document.getElementById(id);
+  const cfg = {
+    ..._v2OrgData,
+    status:   (g('oc-status')?.value)   || _v2OrgData.status,
+    goal:     (g('oc-goal')?.value)     || _v2OrgData.goal,
+    mode:     (g('oc-mode')?.value)     || _v2OrgData.mode,
+    topology: (g('oc-topology')?.value) || _v2OrgData.topology,
+    schedule: (g('oc-schedule')?.value||'').trim() || null,
+    run_config: { ...(_v2OrgData.run_config||{}),
+      max_concurrent_agents:   parseInt(g('oc-max-agents')?.value)||6,
+      checkpoint_interval_min: parseInt(g('oc-checkpoint')?.value)||30,
+      budget_tokens:           parseInt(g('oc-budget')?.value)||0,
+      alert_threshold:         parseFloat(g('oc-alert')?.value)||0.8,
+      boss_role:               (g('oc-boss')?.value||'').trim(),
+      memory_namespace:        (g('oc-namespace')?.value||'').trim()||('org:'+_v2SelOrg),
+      spawn_all_roles:         !!(g('oc-spawn-all')?.checked),
+    },
+    governance: {
+      policy:         (g('oc-gov-policy')?.value)||'auto',
+      approvals_file: (g('oc-gov-file')?.value||'').trim()||('.monomind/orgs/'+_v2SelOrg+'-approvals.json'),
+    },
+  };
+  const msg = document.getElementById('oc-status-msg');
+  if (msg) { msg.style.color='var(--text-lo)'; msg.textContent='Saving...'; }
+  try {
+    const qs = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
+    const r = await fetch('/api/orgs'+qs, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg) });
+    const json = await r.json();
+    if (json.ok) {
+      _v2OrgData = Object.assign({}, _v2OrgData, cfg);
+      if (msg) { msg.style.color='oklch(68% 0.20 150)'; msg.textContent='Saved'; setTimeout(()=>{ if(msg) msg.textContent=''; }, 2500); }
+      if (typeof showToast === 'function') showToast('Config saved','','ok');
+    } else { throw new Error(json.error||'Save failed'); }
+  } catch(e) {
+    if (msg) { msg.style.color='oklch(60% 0.22 25)'; msg.textContent='Error: '+e.message; }
+  }
+}
+
+// ── ORG FILES ──────────────────────────────────────────────
+async function v2RenderOrgFiles() {
+  const el = document.getElementById('odt-files');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">Loading files...</div>';
+  try {
+    const enc = encodeURIComponent(_v2SelOrg);
+    const qs = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
+    const files = await fetch('/api/org/'+enc+'/files'+qs).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (!files.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">No files found.</div>'; return; }
+    const fmtSize = b => b < 1024 ? b+'B' : b < 1048576 ? (b/1024).toFixed(1)+'K' : (b/1048576).toFixed(1)+'M';
+    const fmtTime = s => { const d = new Date(s); return d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); };
+    const typeColor = { config:'oklch(62% 0.20 186)', generated:'oklch(68% 0.20 150)', 'agent-definition':'oklch(65% 0.20 280)', approvals:'oklch(70% 0.18 60)', state:'oklch(70% 0.18 60)', goals:'oklch(70% 0.18 60)' };
+    const groupOrder = ['config','generated','agent-definition','approvals','state','goals','routines','other'];
+    const groups = {};
+    groupOrder.forEach(k => { groups[k] = { label: k==='agent-definition'?'AGENT DEFINITIONS':k.toUpperCase().replace(/-/g,' '), items:[] }; });
+    files.forEach(f => { const k = groups[f.type] ? f.type : 'other'; if (!groups[k]) groups[k]={label:f.type.toUpperCase(),items:[]}; groups[k].items.push(f); });
+    const color = t => typeColor[t]||'var(--text-lo)';
+    const badge = t => '<span style="font-size:9px;padding:1px 6px;border-radius:8px;border:1px solid '+color(t)+';color:'+color(t)+'">'+t+'</span>';
+    el.innerHTML = '<div style="padding:16px">'+groupOrder.filter(k => groups[k]&&groups[k].items.length).map(k => {
+      const g = groups[k];
+      return '<div style="margin-bottom:20px"><div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">'+g.label+' ('+g.items.length+')</div>'+
+        '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr style="color:var(--text-xs);font-size:9px;text-align:left"><th style="padding:4px 8px">File</th><th>Type</th><th>Size</th><th>Modified</th><th></th></tr></thead>'+
+        '<tbody>'+g.items.map(f => {
+          return '<tr style="border-top:1px solid var(--border)" data-fp="'+esc(f.path)+'" data-fn="'+esc(f.name)+'">'+
+            '<td style="padding:6px 8px"><span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);cursor:pointer" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">'+esc(f.name)+'</span></td>'+
+            '<td style="padding:6px 8px">'+badge(f.type)+'</td>'+
+            '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo);font-family:var(--mono)">'+fmtSize(f.size||0)+'</td>'+
+            '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo)">'+fmtTime(f.mtime)+'</td>'+
+            '<td style="padding:6px 8px"><button class="btn" style="font-size:9px;padding:2px 7px" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">View</button></td></tr>';
+        }).join('')+'</tbody></table></div>';
+    }).join('')+'</div>';
+  } catch(e) { el.innerHTML = '<div style="padding:20px;color:oklch(60% 0.22 25)">Error: '+e.message+'</div>'; }
+}
+
+let _ofModal = null;
+let _ofRawText = '';
+
+function _ofMdToHtml(md) {
+  return md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^#{6}\s+(.+)$/gm,'<h6 style="font-size:11px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h6>')
+    .replace(/^#{5}\s+(.+)$/gm,'<h5 style="font-size:12px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h5>')
+    .replace(/^#{4}\s+(.+)$/gm,'<h4 style="font-size:13px;font-weight:700;color:var(--text-hi);margin:12px 0 5px">$1</h4>')
+    .replace(/^#{3}\s+(.+)$/gm,'<h3 style="font-size:14px;font-weight:700;color:var(--text-hi);margin:14px 0 6px">$1</h3>')
+    .replace(/^#{2}\s+(.+)$/gm,'<h2 style="font-size:16px;font-weight:700;color:var(--accent);margin:16px 0 7px;padding-bottom:4px;border-bottom:1px solid var(--border)">$1</h2>')
+    .replace(/^#{1}\s+(.+)$/gm,'<h1 style="font-size:18px;font-weight:700;color:var(--accent);margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border)">$1</h1>')
+    .replace(/```[\w]*\n?([\s\S]*?)```/g,'<pre style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 12px;font-size:10px;overflow-x:auto;margin:8px 0;line-height:1.6">$1</pre>')
+    .replace(/`([^`]+)`/g,'<code style="background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;font-family:var(--mono)">$1</code>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/^---+$/gm,'<hr style="border:none;border-top:1px solid var(--border);margin:12px 0">')
+    .replace(/^\s*[-*]\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
+    .replace(/(<li.*<\/li>\n?)+/g,'<ul style="padding-left:18px;margin:6px 0">$&</ul>')
+    .replace(/^\d+\.\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" style="color:var(--accent);text-decoration:underline" target="_blank" rel="noopener">$1</a>')
+    .replace(/\n\n+/g,'</p><p style="margin:0 0 8px">')
+    .replace(/^(?!<[hupoli]|<pre|<hr)(.+)$/gm, '$1')
+    .replace(/\n/g,'<br>');
+}
+
+async function v2ViewOrgFile(filePath, fileName) {
+  if (_ofModal) { _ofModal.remove(); _ofModal = null; }
+  const isMd = /\.(md|markdown)$/i.test(fileName);
+  const isJson = /\.json$/i.test(fileName);
+  _ofRawText = '';
+  _ofModal = document.createElement('div');
+  _ofModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  _ofModal.onclick = e => { if (e.target===_ofModal) { _ofModal.remove(); _ofModal=null; } };
+  _ofModal.innerHTML =
+    '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;max-width:900px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6)">' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+        '<span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(filePath)+'">'+esc(fileName)+'</span>' +
+        (isMd ? '<button id="of-toggle" class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofToggleRender()">Raw</button>' : '') +
+        '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="navigator.clipboard.writeText(_ofRawText).then(()=>{ if(typeof showToast===\'function\') showToast(\'Copied\',\'\',\'ok\'); })">Copy</button>' +
+        '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveFile(\''+esc(fileName)+'\')">Save</button>' +
+        '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofModal&&(_ofModal.remove(),_ofModal=null)">✕</button>' +
+      '</div>' +
+      '<div id="of-content" style="flex:1;overflow-y:auto;padding:16px 18px;font-size:12px;line-height:1.7;color:var(--text-mid);scrollbar-width:thin;scrollbar-color:var(--border) transparent">' +
+        '<span style="color:var(--text-lo)">Loading…</span>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(_ofModal);
+  try {
+    const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
+    const r = await fetch('/api/file-content?path='+encodeURIComponent(filePath)+dirParam);
+    const el = document.getElementById('of-content');
+    if (!el) return;
+    if (!r.ok) { el.textContent = 'Error '+r.status+': '+r.statusText; return; }
+    _ofRawText = await r.text();
+    if (isMd) {
+      el.innerHTML = '<div style="max-width:720px">'+_ofMdToHtml(_ofRawText)+'</div>';
+      el.dataset.mode = 'rendered';
+    } else if (isJson) {
+      try { el.textContent = JSON.stringify(JSON.parse(_ofRawText), null, 2); } catch(_) { el.textContent = _ofRawText; }
+      el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
+    } else {
+      el.textContent = _ofRawText;
+      el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
+    }
+  } catch(e) {
+    const el = document.getElementById('of-content');
+    if (el) el.textContent = 'Error: '+e.message;
+  }
+}
+
+function _ofToggleRender() {
+  const el = document.getElementById('of-content');
+  const btn = document.getElementById('of-toggle');
+  if (!el || !_ofRawText) return;
+  if (el.dataset.mode === 'rendered') {
+    el.textContent = _ofRawText;
+    el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
+    el.dataset.mode = 'raw';
+    if (btn) btn.textContent = 'Preview';
+  } else {
+    el.innerHTML = '<div style="max-width:720px">'+_ofMdToHtml(_ofRawText)+'</div>';
+    el.style.fontFamily = ''; el.style.fontSize = '12px'; el.style.whiteSpace = '';
+    el.dataset.mode = 'rendered';
+    if (btn) btn.textContent = 'Raw';
+  }
+}
+
+function _ofSaveFile(defaultName) {
+  if (!_ofRawText) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([_ofRawText], { type: 'text/plain' }));
+  a.download = defaultName || 'file.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 // ── WORKSPACES ─────────────────────────────────────────────
