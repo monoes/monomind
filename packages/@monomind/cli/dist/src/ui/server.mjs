@@ -449,7 +449,23 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         return;
       }
       try {
-        const raw = fs.readFileSync(file, 'utf8');
+        // Security: validate that the requested file stays within the user's
+        // home directory. Without this, ?file=/etc/passwd discloses arbitrary
+        // system files to any process that can reach localhost:4242.
+        const _resolvedFile = path.resolve(file);
+        const _homeDir = os.homedir();
+        if (!_resolvedFile.startsWith(_homeDir + path.sep) && !_resolvedFile.startsWith(_homeDir)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Access denied: file must be within the home directory' }));
+          return;
+        }
+        // Only allow JSONL files (session logs).
+        if (!_resolvedFile.endsWith('.jsonl')) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Access denied: only .jsonl files are permitted' }));
+          return;
+        }
+        const raw = fs.readFileSync(_resolvedFile, 'utf8');
         const allLines = raw.split('\n').filter(Boolean);
         const lines = allLines.slice(-limit);
         const events = parseSessionLines(lines);
