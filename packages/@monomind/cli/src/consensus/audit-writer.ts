@@ -95,14 +95,25 @@ export class AuditWriter {
    * and persist both the audit record and individual votes to JSONL.
    */
   record(input: RecordInput): ConsensusAuditRecord {
-    const key = deriveSigningKey(input.swarmId, input.sessionSecret);
+    // Cap string fields to prevent unbounded JSONL writes (OOM)
+    const MAX_STR = 256;
+    const decisionId = String(input.decisionId ?? '').slice(0, MAX_STR);
+    const swarmId = String(input.swarmId ?? '').slice(0, MAX_STR);
+    const topic = String(input.topic ?? '').slice(0, MAX_STR);
+    const sessionSecret = String(input.sessionSecret ?? '').slice(0, MAX_STR);
+
+    // Cap votes array to prevent JSONL record inflation
+    const MAX_VOTES = 500;
+    const votes = Array.isArray(input.votes) ? input.votes.slice(0, MAX_VOTES) : [];
+
+    const key = deriveSigningKey(swarmId, sessionSecret);
 
     // Sign each vote
-    const signedVotes: VoteRecord[] = input.votes.map((v) => ({
+    const signedVotes: VoteRecord[] = votes.map((v) => ({
       agentId: v.agentId,
       agentSlug: v.agentSlug,
       vote: v.vote,
-      signature: signVote(v.agentId, v.vote, input.decisionId, key),
+      signature: signVote(v.agentId, v.vote, decisionId, key),
       votedAt: v.votedAt,
     }));
 
@@ -121,10 +132,10 @@ export class AuditWriter {
     const durationMs = isNaN(startMs) || isNaN(endMs) ? null : endMs - startMs;
 
     const recordWithoutSig: ConsensusAuditRecord = {
-      decisionId: input.decisionId,
-      swarmId: input.swarmId,
+      decisionId,
+      swarmId,
       protocol: input.protocol,
-      topic: input.topic,
+      topic,
       decision: input.decision,
       votes: signedVotes,
       quorumProof,
@@ -160,7 +171,9 @@ export class AuditWriter {
   listDecisions(swarmId?: string, limit?: number): ConsensusAuditRecord[] {
     const records = this.readLines(this.auditPath);
     const filtered = swarmId ? records.filter((r) => r.swarmId === swarmId) : records;
-    return limit !== undefined ? filtered.slice(0, limit) : filtered;
+    // Cap at 10 000 to prevent unbounded memory return
+    const effectiveLimit = limit !== undefined ? Math.min(Math.max(0, limit), 10_000) : 10_000;
+    return filtered.slice(0, effectiveLimit);
   }
 
   /**
