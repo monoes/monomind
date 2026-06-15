@@ -130,10 +130,13 @@ const MIGRATIONS = [
     `,
     },
 ];
+const IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/;
 /**
  * Get PostgreSQL connection config from context
  */
 function getConnectionConfig(ctx) {
+    const rawSchema = ctx.flags.schema || 'monomind';
+    const schema = IDENTIFIER_RE.test(rawSchema) ? rawSchema : 'monomind';
     return {
         host: ctx.flags.host || process.env.PGHOST || 'localhost',
         port: parseInt(ctx.flags.port || process.env.PGPORT || '5432', 10),
@@ -141,7 +144,7 @@ function getConnectionConfig(ctx) {
         user: ctx.flags.user || process.env.PGUSER || 'postgres',
         password: ctx.flags.password || process.env.PGPASSWORD || '',
         ssl: ctx.flags.ssl || process.env.PGSSLMODE === 'require',
-        schema: ctx.flags.schema || 'monomind',
+        schema,
     };
 }
 /**

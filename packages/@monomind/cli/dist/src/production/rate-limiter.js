@@ -33,6 +33,11 @@ export class RateLimiter {
      * Check if a request is allowed
      */
     check(operation, userId) {
+        // Cap operation and userId lengths so bucket keys cannot inflate the Map
+        const safeOp = typeof operation === 'string' ? operation.slice(0, 256) : 'unknown';
+        const safeUserId = userId ? userId.slice(0, 256) : undefined;
+        operation = safeOp;
+        userId = safeUserId;
         // Check whitelist
         if (this.config.whitelist.includes(operation)) {
             return { allowed: true, remaining: Infinity, resetAt: 0 };
@@ -157,10 +162,14 @@ export class RateLimiter {
     // Private Methods
     // ============================================================================
     getLimits(operation) {
-        return (this.config.operationLimits[operation] || {
-            maxRequests: this.config.maxRequests,
-            windowMs: this.config.windowMs,
-        });
+        // Object.hasOwn guards against prototype-pollution: if someone passes
+        // '__proto__' as the operation name, falling through to the default is safe.
+        return (Object.hasOwn(this.config.operationLimits, operation)
+            ? this.config.operationLimits[operation]
+            : {
+                maxRequests: this.config.maxRequests,
+                windowMs: this.config.windowMs,
+            });
     }
     createBucket() {
         return {
