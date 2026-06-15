@@ -4009,6 +4009,100 @@ function appendChatViewEvent(ev, animate) {
   feed.scrollTop = feed.scrollHeight;
 }
 
+function _cvExcerptText(ev) {
+  const t = ev.type || '';
+  if (t === 'intercom' || t === 'org:comms') return (ev.from || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'agent:spawn' || t === 'org:agent:online') return 'spawned ' + (ev.agent || ev.role || ev.title || '?');
+  if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.progress || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
+  if (t === 'org:start') return 'org started: ' + (ev.goal || '').slice(0, 80);
+  if (t === 'org:complete') return 'org complete';
+  if (t === 'session:start') return 'started: ' + (ev.prompt || '').replace(/^running org:\s*/i, '').slice(0, 80);
+  if (t === 'session:complete') return 'completed' + (ev.status ? ' [' + ev.status + ']' : '');
+  if (t === 'domain:dispatch') return '→ ' + (ev.domain || '') + (ev.cmd ? ': ' + ev.cmd.slice(0, 60) : '');
+  if (t === 'domain:complete') return '✓ ' + (ev.domain || '');
+  if (ev.msg) return (ev.msg || '').slice(0, 80);
+  return t.slice(0, 60);
+}
+
+function _cvExcerptTag(ev) {
+  const t = ev.type || '';
+  if (t === 'intercom' || t === 'org:comms') return 'IC';
+  if (t === 'agent:message') return 'MSG';
+  if (t === 'agent:spawn' || t === 'org:agent:online') return 'NEW';
+  if (t === 'org:checkpoint') return 'CHK';
+  if (t.startsWith('org:')) return 'ORG';
+  if (t.startsWith('session:')) return 'SES';
+  if (t.startsWith('domain:')) return 'DOM';
+  return 'EVT';
+}
+
+function renderCvExcerptBanner(bannerId, events, sessionMeta) {
+  const banner = document.getElementById(bannerId);
+  if (!banner) return;
+  const SKIP = new Set(['session:start']);
+  const meaningful = (events || []).filter(ev => !SKIP.has(ev.type)).slice(-5).reverse();
+  if (!meaningful.length) {
+    const prompt = sessionMeta && (sessionMeta.prompt || '');
+    const clean = prompt.replace(/^running org:\s*/i, '').slice(0, 120);
+    if (!clean) { banner.classList.remove('visible'); banner.innerHTML = ''; return; }
+    banner.innerHTML = `<div class="cv-excerpt-label">SESSION GOAL</div><div class="cv-excerpt-items"><div class="cv-excerpt-item"><span class="cv-ex-tag">ORG</span>${esc(clean)}</div></div>`;
+    banner.classList.add('visible');
+    return;
+  }
+  const items = meaningful.slice(0, 3).map(ev => {
+    const tag = _cvExcerptTag(ev);
+    const txt = _cvExcerptText(ev);
+    return `<div class="cv-excerpt-item"><span class="cv-ex-tag">${tag}</span>${esc(txt)}</div>`;
+  }).join('');
+  banner.innerHTML = `<div class="cv-excerpt-label">LAST ACTIVITY</div><div class="cv-excerpt-items">${items}</div>`;
+  banner.classList.add('visible');
+}
+
+function mkCVSpawn(from, to, task, ts) {
+  const d = document.createElement('div');
+  d.className = 'cv-msg cv-spawn';
+  const short = task.replace(/\n/g,' ').slice(0,140);
+  d.innerHTML = `<div class="cv-bub" style="border-left:2px solid oklch(65% 0.18 280)">`+
+    `<span class="cv-tag" style="background:oklch(25% 0.10 280);color:oklch(80% 0.18 280)">${esc(from)}</span>`+
+    `<span class="cv-arrow" style="color:oklch(65% 0.18 280)">→</span>`+
+    `<span class="cv-tag" style="background:oklch(25% 0.15 160);color:oklch(75% 0.20 160)">${esc(to)}</span>`+
+    `<span class="cv-etype" style="color:oklch(65% 0.18 280)">SPAWN</span>`+
+    `<span class="cv-text">${esc(short)}${task.length>140?'…':''}</span>`+
+    `<span class="cv-ts">${ts}</span></div>`;
+  return d;
+}
+
+function mkCVResult(agent, text, ts) {
+  const d = document.createElement('div');
+  d.className = 'cv-msg cv-result';
+  const isLong = text.length > 300;
+  const preview = isLong ? text.slice(0, 300) + '…' : text;
+  const uid = 'res-' + Math.random().toString(36).slice(2,8);
+  d.innerHTML = `<div class="cv-bub" style="border-left:2px solid oklch(68% 0.20 150)">`+
+    `<span class="cv-tag" style="background:oklch(20% 0.10 150);color:oklch(72% 0.20 150)">${esc(agent)}</span>`+
+    `<span class="cv-etype" style="color:oklch(68% 0.20 150)">REPORT</span>`+
+    `<span class="cv-text" id="${uid}" style="white-space:pre-wrap;line-height:1.6">${esc(preview)}</span>`+
+    (isLong ? `<button class="btn" style="font-size:9px;padding:1px 6px;margin-left:6px;flex-shrink:0" onclick="(function(b,id,full){const el=document.getElementById(id);const show=el.dataset.expanded;el.textContent=show?full.slice(0,300)+'…':full;el.dataset.expanded=show?'':'1';b.textContent=show?'Expand':'Collapse';})(this,'${uid}',${JSON.stringify(text)})">Expand</button>` : '')+
+    `<span class="cv-ts">${ts}</span></div>`;
+  return d;
+}
+
+function mkCVFileCard(name, filePath, size, ts) {
+  const d = document.createElement('div');
+  d.className = 'cv-msg cv-file';
+  const sizeStr = size > 1024*1024 ? (size/1024/1024).toFixed(1)+'MB' : size > 1024 ? (size/1024).toFixed(1)+'KB' : (size||'?')+'B';
+  const isMd = /\.md$/i.test(name);
+  d.innerHTML = `<div class="cv-bub" style="border-left:2px solid oklch(65% 0.18 50);align-items:center;gap:8px">`+
+    `<span style="font-size:14px">${isMd?'📄':'📁'}</span>`+
+    `<span class="cv-tag" style="background:oklch(22% 0.10 50);color:oklch(78% 0.18 50)">FILE</span>`+
+    `<span class="cv-text" style="font-family:var(--mono);font-size:10px">${esc(name)}</span>`+
+    `<span style="font-size:9px;color:var(--text-lo);flex-shrink:0">${sizeStr}</span>`+
+    (filePath ? `<button class="btn" style="font-size:9px;padding:1px 6px;flex-shrink:0;border-color:oklch(65% 0.18 50);color:oklch(65% 0.18 50)" onclick="v2ViewOrgFile(${JSON.stringify(filePath)},${JSON.stringify(name)})">View</button>` : '')+
+    `<span class="cv-ts">${ts}</span></div>`;
+  return d;
+}
+
 function mkCVSys(html, ts) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-sys';
