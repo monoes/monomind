@@ -1,7 +1,7 @@
 import type { CdpClient } from './cdp.js';
 import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { join, resolve, relative, isAbsolute } from 'path';
+import { tmpdir, homedir } from 'os';
 
 interface HarRequest {
   id: string;
@@ -21,6 +21,9 @@ interface HarRequest {
   bodyEncoding?: 'base64';
 }
 
+const MAX_CONCURRENT_SESSIONS = 100;
+const MAX_REQUESTS_PER_SESSION = 5_000;
+
 const _sessions = new Map<string, {
   requests: Map<string, Partial<HarRequest>>;
   offReq: () => void;
@@ -30,8 +33,26 @@ const _sessions = new Map<string, {
   startWallMs: number;
 }>();
 
+/** Validate output path is within cwd or home dir to prevent path traversal. */
+function safeOutputPath(p: string): string {
+  const resolved = resolve(p);
+  const cwd = process.cwd();
+  const home = homedir();
+  const relCwd = relative(cwd, resolved);
+  const relHome = relative(home, resolved);
+  if ((!relCwd.startsWith('..') && !isAbsolute(relCwd)) ||
+      (!relHome.startsWith('..') && !isAbsolute(relHome))) {
+    return resolved;
+  }
+  // Reject out-of-scope paths — fall back to tmpdir
+  return join(tmpdir(), `monomind-har-${Date.now()}.har`);
+}
+
 export async function startHarRecording(client: CdpClient, sessionId: string): Promise<void> {
   if (_sessions.has(sessionId)) throw new Error('HAR recording already in progress');
+  if (_sessions.size >= MAX_CONCURRENT_SESSIONS) {
+    throw new Error(`HAR recording limit reached (max ${MAX_CONCURRENT_SESSIONS} concurrent sessions)`);
+  }
 
   const requests = new Map<string, Partial<HarRequest>>();
   const startTime = Date.now();
@@ -45,6 +66,8 @@ export async function startHarRecording(client: CdpClient, sessionId: string): P
 
   const offReq = client.on('Network.requestWillBeSent', (params, sid) => {
     if (sid !== sessionId) return;
+    // Cap to prevent unbounded memory growth on high-traffic pages
+    if (requests.size >= MAX_REQUESTS_PER_SESSION) return;
     const p = params as { requestId: string; request: { url: string; method: string; headers: Record<string, string> }; timestamp: number };
     requests.set(p.requestId, {
       id: p.requestId,
@@ -116,9 +139,9 @@ export async function stopHarRecording(
   }
 
   const har = buildHar(Array.from(state.requests.values()), state.startTime);
-  const path = outputPath ?? join(tmpdir(), `monomind-har-${Date.now()}.har`);
-  await writeFile(path, JSON.stringify(har, null, 2));
-  return path;
+  const safePath = outputPath ? safeOutputPath(outputPath) : join(tmpdir(), `monomind-har-${Date.now()}.har`);
+  await writeFile(safePath, JSON.stringify(har, null, 2));
+  return safePath;
 }
 
 export function getHarStatus(sessionId: string): { recording: boolean; requestCount: number } {
