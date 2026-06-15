@@ -6,6 +6,10 @@ export interface FtsResult {
     filePath: string | null;
     label: string;
     rank: number;
+    /** First line of the symbol in its source file (1-based, null if unknown). */
+    startLine: number | null;
+    /** Last line of the symbol in its source file (1-based, null if unknown). */
+    endLine: number | null;
 }
 export declare function ftsSearch(db: Database.Database, query: string, limit: number, label?: string): FtsResult[];
 export interface HybridSearchResult extends FtsResult {

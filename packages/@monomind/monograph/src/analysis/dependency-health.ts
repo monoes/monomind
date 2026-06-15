@@ -119,3 +119,28 @@ export function dependencyHealth(input: DependencyHealthInput): DependencyHealth
     details: { cyclePenalty, deadCodeRatio, fanSkew, godNodeConcentration },
   };
 }
+
+/**
+ * Format dependency health results as structured text for LLM consumption.
+ */
+export function formatDependencyHealth(result: DependencyHealthResult): string {
+  const { score, details } = result;
+  const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+  const grade = score >= 0.9 ? 'Excellent' : score >= 0.75 ? 'Good' : score >= 0.5 ? 'Fair' : 'Poor';
+  const lines: string[] = [
+    `Dependency health score: ${pct(score)} (${grade})`,
+    `  Cycle penalty       : ${pct(details.cyclePenalty)}  (fraction of nodes in cycles; weight 35%)`,
+    `  Dead-code ratio     : ${pct(details.deadCodeRatio)}  (fraction of unreachable nodes; weight 25%)`,
+    `  Fan-out skew        : ${pct(details.fanSkew)}  (out-degree coefficient of variation / 4; weight 20%)`,
+    `  God-node density    : ${pct(details.godNodeConcentration)}  (max in-degree / total edges; weight 20%)`,
+  ];
+  const advice: string[] = [];
+  if (details.cyclePenalty > 0.1) advice.push('reduce circular imports (cyclePenalty high)');
+  if (details.deadCodeRatio > 0.1) advice.push('remove unreachable exports (deadCodeRatio high)');
+  if (details.fanSkew > 0.25) advice.push('break up high-fan-out modules (fanSkew high)');
+  if (details.godNodeConcentration > 0.1) advice.push('distribute hub dependencies (godNodeConcentration high)');
+  if (advice.length > 0) {
+    lines.push('  Recommendations: ' + advice.join('; '));
+  }
+  return lines.join('\n');
+}

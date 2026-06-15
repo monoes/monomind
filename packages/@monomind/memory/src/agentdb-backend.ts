@@ -185,13 +185,18 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     }
 
     try {
-      // Initialize AgentDB with config
+      // Initialize AgentDB with config, including HNSW tuning parameters that
+      // were previously defined in DEFAULT_CONFIG but never forwarded to the
+      // constructor (making them dead code). Forwarding them ensures the HNSW
+      // index is built with the intended M and efConstruction values.
       this.agentdb = new AgentDB({
         dbPath: this.config.dbPath || ':memory:',
         namespace: this.config.namespace,
         forceWasm: this.config.forceWasm,
         vectorBackend: this.config.vectorBackend,
         vectorDimension: this.config.vectorDimension,
+        hnswM: this.config.hnswM,
+        hnswEfConstruction: this.config.hnswEfConstruction,
       });
 
       // Suppress agentdb's noisy console.log during init
@@ -808,6 +813,9 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
       const results = await hnsw.search(embedding, options.k, {
         threshold: options.threshold,
+        // Pass efSearch so the HNSW graph explores more candidates during
+        // query, improving recall at the cost of a small latency increase.
+        efSearch: this.config.hnswEfSearch,
       });
 
       const searchResults: SearchResult[] = [];

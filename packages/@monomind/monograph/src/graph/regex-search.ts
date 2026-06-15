@@ -21,14 +21,15 @@ export function regexSearchNodes(
   db: MonographDb,
   pattern: RegExp | string,
   fields: Array<'name' | 'filePath' | 'language' | 'label'> = ['name', 'filePath'],
+  limit = 200,
 ): RegexNodeMatch[] {
   const re = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
 
   const rows = db.prepare(
     `SELECT id, label, name, norm_label, file_path, start_line, end_line,
             community_id, is_exported, language, properties
-     FROM nodes`,
-  ).all() as {
+     FROM nodes LIMIT ?`,
+  ).all(limit) as {
     id: string;
     label: string;
     name: string;
@@ -96,13 +97,14 @@ export function regexSearchEdges(
   db: MonographDb,
   pattern: RegExp | string,
   fields: Array<'relation' | 'confidence' | 'reason'> = ['relation', 'reason'],
+  limit = 200,
 ): RegexEdgeMatch[] {
   const re = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
 
   const rows = db.prepare(
     `SELECT id, source_id, target_id, relation, confidence, confidence_score, reason
-     FROM edges`,
-  ).all() as {
+     FROM edges LIMIT ?`,
+  ).all(limit) as {
     id: string;
     source_id: string;
     target_id: string;
@@ -192,4 +194,36 @@ export function regexSearchEdgesInMemory(
   }
 
   return results;
+}
+
+// ── LLM formatters ─────────────────────────────────────────────────────────────
+
+/**
+ * Format node regex match results as structured text for LLM consumption.
+ */
+export function formatRegexNodeMatches(matches: RegexNodeMatch[], pattern: string): string {
+  if (matches.length === 0) return `No nodes matching /${pattern}/.`;
+  const lines: string[] = [`${matches.length} node(s) matching /${pattern}/:`];
+  for (const m of matches) {
+    const loc = m.node.filePath
+      ? ` ${m.node.filePath}${m.node.startLine != null ? `:${m.node.startLine}` : ''}`
+      : '';
+    lines.push(`  [${m.field}] ${m.node.label} ${m.node.name}${loc}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Format edge regex match results as structured text for LLM consumption.
+ */
+export function formatRegexEdgeMatches(matches: RegexEdgeMatch[], pattern: string): string {
+  if (matches.length === 0) return `No edges matching /${pattern}/.`;
+  const lines: string[] = [`${matches.length} edge(s) matching /${pattern}/:`];
+  for (const m of matches) {
+    lines.push(
+      `  [${m.field}] ${m.edge.sourceId} -[${m.edge.relation}]-> ${m.edge.targetId}` +
+      (m.edge.reason ? `  // ${m.edge.reason}` : ''),
+    );
+  }
+  return lines.join('\n');
 }

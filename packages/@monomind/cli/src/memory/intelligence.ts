@@ -538,14 +538,16 @@ class LocalReasoningBank {
     // Update or insert
     if (this.patterns.has(pattern.id)) {
       const existing = this.patterns.get(pattern.id)!;
+      // Preserve accumulated metadata from the existing entry
       stored.usageCount = existing.usageCount + 1;
       stored.createdAt = existing.createdAt;
 
-      // Update in list
-      const idx = this.patternList.findIndex(p => p.id === pattern.id);
-      if (idx >= 0) {
-        this.patternList[idx] = stored;
-      }
+      // Update in-place: both Map and patternList hold the same object reference,
+      // so mutating it here updates both without an O(n) list scan (no findIndex).
+      Object.assign(existing, stored);
+      // No need to re-insert into Map or patternList — reference unchanged.
+      this.saveToDisk();
+      return;
     } else {
       // Evict oldest if at capacity
       if (this.patterns.size >= this.maxSize) {
@@ -564,7 +566,12 @@ class LocalReasoningBank {
   }
 
   /**
-   * Find similar patterns by embedding
+   * Find similar patterns by embedding.
+   *
+   * This is a pure read operation: it does NOT mutate usageCount or
+   * lastUsedAt, so no disk save is triggered. Callers that need to record
+   * a usage hit should call `recordUsage(id)` explicitly after consuming
+   * the results.
    */
   findSimilar(
     queryEmbedding: number[],
@@ -573,27 +580,35 @@ class LocalReasoningBank {
     const { k = 5, threshold = 0.5, type } = options;
 
     // Filter by type if specified
-    let candidates = type
+    const candidates = type
       ? this.patternList.filter(p => p.type === type)
       : this.patternList;
 
-    // Compute similarities
-    const scored = candidates.map(pattern => ({
-      pattern,
-      score: this.cosineSim(queryEmbedding, pattern.embedding)
-    }));
+    // Compute similarities without mutating patterns
+    const scored: { pattern: StoredPattern; score: number }[] = [];
+    for (const pattern of candidates) {
+      const score = this.cosineSim(queryEmbedding, pattern.embedding);
+      if (score >= threshold) {
+        scored.push({ pattern, score });
+      }
+    }
 
-    // Filter by threshold and sort
-    return scored
-      .filter(s => s.score >= threshold)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, k)
-      .map(s => {
-        // Update usage
-        s.pattern.usageCount++;
-        s.pattern.lastUsedAt = Date.now();
-        return { ...s.pattern, confidence: s.score };
-      });
+    // Sort descending and slice, returning snapshot copies with confidence=score
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, k).map(s => ({ ...s.pattern, confidence: s.score }));
+  }
+
+  /**
+   * Record that a pattern was used, updating its usage metrics and scheduling
+   * a debounced disk save. Separated from findSimilar to keep searches pure.
+   */
+  recordUsage(id: string): void {
+    const pattern = this.patterns.get(id);
+    if (!pattern) return;
+    pattern.usageCount++;
+    pattern.lastUsedAt = Date.now();
+    // Update list entry in-place using the Map reference (already same object)
+    this.saveToDisk();
   }
 
   /**
@@ -1023,6 +1038,11 @@ export async function findSimilarPatterns(
       threshold: options?.threshold ?? defaultThreshold,
       type: options?.type
     });
+
+    // Record usage for each matched pattern (findSimilar is now a pure read)
+    for (const r of results) {
+      reasoningBank!.recordUsage(r.id);
+    }
 
     return results.map((r) => ({
       id: r.id,
