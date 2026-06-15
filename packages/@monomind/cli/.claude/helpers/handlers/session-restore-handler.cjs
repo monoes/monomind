@@ -18,6 +18,39 @@ module.exports = {
     var _buildKnowledgeSearchFn = hCtx._buildKnowledgeSearchFn;
     var getMonographSuggestions = hCtx.getMonographSuggestions;
 
+    // Compact session header — branch, last commit, active orgs (most useful context at a glance)
+    try {
+      var cp = require('child_process');
+      var branch = '';
+      var lastCommit = '';
+      try { branch = cp.execSync('git rev-parse --abbrev-ref HEAD 2>/dev/null', { encoding: 'utf-8', timeout: 1500, cwd: CWD }).trim(); } catch (_) {}
+      try { lastCommit = cp.execSync('git log -1 --format="%h %s" 2>/dev/null', { encoding: 'utf-8', timeout: 1500, cwd: CWD }).trim(); } catch (_) {}
+      var orgsDir = path.join(CWD, '.monomind', 'orgs');
+      var activeOrgs = [];
+      if (fs.existsSync(orgsDir)) {
+        try {
+          var orgDirs = fs.readdirSync(orgsDir).filter(function(d) { return !d.startsWith('.'); });
+          orgDirs.forEach(function(orgName) {
+            var stopFile = path.join(orgsDir, '.stops', orgName + '.stop');
+            var runsDir = path.join(orgsDir, orgName, 'runs');
+            if (!fs.existsSync(stopFile) && fs.existsSync(runsDir)) {
+              try {
+                var runFiles = fs.readdirSync(runsDir).filter(function(f) { return f.endsWith('.jsonl'); });
+                if (runFiles.length > 0) activeOrgs.push(orgName);
+              } catch (_) {}
+            }
+          });
+        } catch (_) {}
+      }
+      var headerParts = [];
+      if (branch) headerParts.push('branch: ' + branch);
+      if (lastCommit) headerParts.push('last: ' + lastCommit);
+      if (activeOrgs.length > 0) headerParts.push('orgs: ' + activeOrgs.slice(0, 3).join(', '));
+      if (headerParts.length > 0) {
+        console.log('[SESSION] ' + headerParts.join(' · '));
+      }
+    } catch (e) { /* non-fatal */ }
+
     // Session restore / start
     try {
       if (session) {
@@ -130,9 +163,7 @@ module.exports = {
     try {
       var knowledgeDir = path.join(CWD, '.monomind', 'knowledge');
       var indexed = _autoIndexKnowledge(knowledgeDir);
-      if (indexed > 0) {
-        console.log('[KNOWLEDGE_INDEXED] ' + indexed + ' chunks written from project sources');
-      }
+      // KNOWLEDGE_INDEXED suppressed — low-signal, knowledge is available implicitly
 
       var kSearchFn = _buildKnowledgeSearchFn(knowledgeDir);
       var sessionCtx = (hookInput && (hookInput.sessionId || hookInput.session_id))
@@ -146,14 +177,10 @@ module.exports = {
         var kStore = new memoryMod.KnowledgeStore(knowledgeDir);
         var kRetriever = new memoryMod.KnowledgeRetriever(kSearchFn, kStore);
         var kResult = await kRetriever.retrieveForTask('shared', sessionCtx, 5);
-        if (kResult.excerpts.length > 0) {
-          console.log('[KNOWLEDGE_PRELOADED] ' + kResult.excerpts.length + ' excerpts (KnowledgeRetriever)');
-        }
+        // KNOWLEDGE_PRELOADED suppressed — knowledge available without logging noise
       } else {
-        var directResults = await kSearchFn(sessionCtx, { namespace: 'knowledge:shared', limit: 5, minScore: 0.3 });
-        if (directResults.length > 0) {
-          console.log('[KNOWLEDGE_PRELOADED] ' + directResults.length + ' excerpts (direct keyword search)');
-        }
+        await kSearchFn(sessionCtx, { namespace: 'knowledge:shared', limit: 5, minScore: 0.3 });
+        // KNOWLEDGE_PRELOADED suppressed
       }
     } catch (e) { /* non-fatal */ }
 
@@ -309,9 +336,8 @@ module.exports = {
           daemonChild.on('error', function() {});
           daemonChild.unref();
           console.log('[DAEMON_AUTOSTART] Background daemon started (pid ' + daemonChild.pid + ')');
-        } else {
-          console.log('[DAEMON_STOPPED] Background daemon is not running. To auto-start, set daemon.autoStart=true in monomind.config.json or run: npx monomind daemon start');
         }
+        // DAEMON_STOPPED is suppressed — it's low-signal noise when autoStart is not set
       }
     } catch (e) { /* non-fatal */ }
 
@@ -356,13 +382,11 @@ module.exports = {
         var http = require('http');
         var controlPort = 4242;
         var req = http.get('http://localhost:' + controlPort + '/', function(res) {
-          if (res.statusCode === 200) {
-            console.log('[CONTROL_UI] UP — http://localhost:' + controlPort);
-          }
+          // CONTROL_UI UP suppressed — url is in SESSION header, not repeated here
           res.resume();
         });
         req.on('error', function() {
-          console.log('[CONTROL_UI] offline — run: npx monomind mcp start');
+          // CONTROL_UI offline suppressed — low-signal; user can run doctor if needed
         });
         req.setTimeout(800, function() { req.destroy(); });
       } catch (e) { /* non-fatal */ }
@@ -373,7 +397,8 @@ module.exports = {
       var dispatchDir = path.join(CWD, '.monomind', 'worker-dispatch');
       if (fs.existsSync(dispatchDir)) {
         var pendingFiles = fs.readdirSync(dispatchDir).filter(function(f) { return f.startsWith('pending-'); }).slice(0, 500);
-        if (pendingFiles.length > 0) {
+        if (pendingFiles.length > 5) {
+          // Only surface when there's a meaningful backlog (>5 items)
           console.log('[WORKER_RESUME] ' + pendingFiles.length + ' worker dispatch(es) pending from prior session');
         }
       }
