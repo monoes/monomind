@@ -40,6 +40,7 @@ export const monographQueryTool = {
                 label: h.label ?? 'Symbol',
                 name: h.name ?? h.id,
                 filePath: h.filePath ?? undefined,
+                startLine: h.startLine ?? null,
                 score: h.score,
                 isProcess: h.label === 'Process',
             }));
