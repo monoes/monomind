@@ -2311,8 +2311,18 @@ export const hooksPatternStore = {
         required: ['pattern'],
     },
     handler: async (params) => {
-        const pattern = params.pattern;
-        const type = params.type || 'general';
+        // Cap pattern and type lengths to prevent DoS via large embedding generation
+        // and unbounded database writes.  16 KB matches the cap in neural_patterns store.
+        const MAX_PATTERN_LEN = 16 * 1024; // 16 KB
+        const MAX_TYPE_LEN = 256;
+        const rawPattern = params.pattern;
+        const pattern = typeof rawPattern === 'string' && rawPattern.length > MAX_PATTERN_LEN
+            ? rawPattern.slice(0, MAX_PATTERN_LEN)
+            : rawPattern;
+        const rawType = params.type || 'general';
+        const type = typeof rawType === 'string' && rawType.length > MAX_TYPE_LEN
+            ? rawType.slice(0, MAX_TYPE_LEN)
+            : rawType;
         const confidence = params.confidence || 0.8;
         const metadata = params.metadata;
         const timestamp = new Date().toISOString();
