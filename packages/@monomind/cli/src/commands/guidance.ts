@@ -602,7 +602,7 @@ const setupCommand: Command = {
     output.writeln(output.dim('─'.repeat(50)));
     output.writeln();
 
-    const { readFileSync, writeFileSync, existsSync } = await import('node:fs');
+    const { readFileSync, writeFileSync, existsSync, statSync } = await import('node:fs');
     const { join } = await import('node:path');
 
     const settingsPath = join(projectDir, '.claude', 'settings.json');
@@ -616,7 +616,7 @@ const setupCommand: Command = {
 
     // Load or create settings.json
     let settings: Record<string, unknown> = {};
-    if (existsSync(settingsPath)) {
+    if (existsSync(settingsPath) && statSync(settingsPath).size <= 1024 * 1024) {
       try {
         settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
       } catch {
