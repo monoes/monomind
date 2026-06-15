@@ -43,18 +43,22 @@ export async function runClusterOnly(db: Database.Database): Promise<ClusterOnly
     }
   }
 
-  // Write community assignments back to DB
+  // Write community assignments back to DB and count in a single pass
   const updateStmt = db.prepare('UPDATE nodes SET community_id = ? WHERE id = ?');
+  const communityIds = new Set<number>();
+  let nodeCount = 0;
   const updateAll = db.transaction(() => {
-    for (const [nodeId, commId] of Object.entries(communities)) {
+    for (const nodeId in communities) {
+      const commId = communities[nodeId];
       updateStmt.run(commId, nodeId);
+      communityIds.add(commId);
+      nodeCount++;
     }
   });
   updateAll();
 
-  const communityIds = new Set(Object.values(communities));
   return {
     communityCount: communityIds.size,
-    nodeCount: Object.keys(communities).length,
+    nodeCount,
   };
 }
