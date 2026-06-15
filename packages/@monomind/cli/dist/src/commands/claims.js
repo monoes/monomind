@@ -153,11 +153,17 @@ const checkCommand = {
         { command: 'monomind claims check -c admin:delete -u user123', description: 'Check user permission' },
     ],
     action: async (ctx) => {
-        const claim = ctx.flags.claim;
-        const user = ctx.flags.user || 'current';
-        const resource = ctx.flags.resource;
+        const claim = (ctx.flags.claim || '').slice(0, 256);
+        const user = (ctx.flags.user || 'current').slice(0, 128);
+        const resource = (ctx.flags.resource || '').slice(0, 256);
         if (!claim) {
             output.printError('Claim is required');
+            return { success: false, exitCode: 1 };
+        }
+        // Block prototype-polluting user or resource keys.
+        const PROTO_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+        if (PROTO_KEYS.has(user)) {
+            output.printError(`Forbidden user key: "${user}"`);
             return { success: false, exitCode: 1 };
         }
         output.writeln();
@@ -283,15 +289,21 @@ const grantCommand = {
         { command: 'monomind claims grant -c agent:spawn -r developer', description: 'Grant to role' },
     ],
     action: async (ctx) => {
-        const claim = ctx.flags.claim;
-        const user = ctx.flags.user;
-        const role = ctx.flags.role;
+        const claim = (ctx.flags.claim || '').slice(0, 256);
+        const user = (ctx.flags.user || '').slice(0, 128);
+        const role = (ctx.flags.role || '').slice(0, 64);
         if (!claim) {
             output.printError('Claim is required');
             return { success: false, exitCode: 1 };
         }
         if (!user && !role) {
             output.printError('Either user or role is required');
+            return { success: false, exitCode: 1 };
+        }
+        // Block prototype-polluting user or role keys.
+        const PROTO_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+        if ((user && PROTO_KEYS.has(user)) || (role && PROTO_KEYS.has(role))) {
+            output.printError('Forbidden user or role key');
             return { success: false, exitCode: 1 };
         }
         try {
@@ -343,15 +355,21 @@ const revokeCommand = {
         { command: 'monomind claims revoke -c admin:* -r guest', description: 'Revoke from role' },
     ],
     action: async (ctx) => {
-        const claim = ctx.flags.claim;
-        const user = ctx.flags.user;
-        const role = ctx.flags.role;
+        const claim = (ctx.flags.claim || '').slice(0, 256);
+        const user = (ctx.flags.user || '').slice(0, 128);
+        const role = (ctx.flags.role || '').slice(0, 64);
         if (!claim) {
             output.printError('Claim is required');
             return { success: false, exitCode: 1 };
         }
         if (!user && !role) {
             output.printError('Either user or role is required');
+            return { success: false, exitCode: 1 };
+        }
+        // Block prototype-polluting user or role keys.
+        const PROTO_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+        if ((user && PROTO_KEYS.has(user)) || (role && PROTO_KEYS.has(role))) {
+            output.printError('Forbidden user or role key');
             return { success: false, exitCode: 1 };
         }
         try {

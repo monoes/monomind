@@ -185,13 +185,17 @@ module.exports = {
         var devAgentsForPersist = /^(coder|tester|reviewer|planner|researcher|system-architect|backend-dev|backend-architect|mobile-dev|ml-developer|cicd-engineer|api-docs|code-analyzer|production-validator|Technical Writer|Software Architect|Frontend Developer|AI Engineer|Data Engineer|Security Engineer|DevOps Automator|SRE)$/i;
         var persistedIsNonDev = !devAgentsForPersist.test(String(result.agent || '').trim());
         var resolvedAgent = result.agent;
+        var resolvedFromExtras = false;
         if (!resolvedAgent || resolvedAgent === 'extras') {
           var topExtra = result.extrasMatches && result.extrasMatches[0];
           resolvedAgent = topExtra ? topExtra.name : 'Specialist Agent';
+          resolvedFromExtras = true;
         }
         // If router was uncertain (< 90%) and picked a non-dev specialist,
         // show "AI selecting" in statusline rather than the wrong agent.
-        if (confForPersist < 0.90 && persistedIsNonDev && !String(result.reason || '').startsWith('Graph fallback')) {
+        // Exception: when agent was explicitly 'extras' and we resolved from extrasMatches,
+        // trust that resolution — the domain specialist was explicitly matched.
+        if (!resolvedFromExtras && confForPersist < 0.90 && persistedIsNonDev && !String(result.reason || '').startsWith('Graph fallback')) {
           resolvedAgent = 'AI selecting';
         }
         var routePayload = {

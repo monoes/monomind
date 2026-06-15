@@ -181,8 +181,9 @@ const watchCommand = {
         };
         await check();
         const timer = setInterval(check, interval);
-        // Handle Ctrl+C
-        process.on('SIGINT', () => {
+        // Handle Ctrl+C — use once so repeated calls don't accumulate SIGINT handlers
+        // (which would trigger MaxListenersExceededWarning and a memory leak).
+        process.once('SIGINT', () => {
             clearInterval(timer);
             output.writeln();
             output.writeln(output.dim('Stopped watching.'));

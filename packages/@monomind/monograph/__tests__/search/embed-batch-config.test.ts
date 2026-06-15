@@ -41,12 +41,12 @@ describe('embedBatch with remote config', () => {
 
 describe('embedBatch without remote config', () => {
   it('does not instantiate HttpEmbedder when no remote config', async () => {
-    // Local embedder may fail in test env — that's fine, we just check HttpEmbedder wasn't used
-    try {
-      await embedBatch(['hello']);
-    } catch {
-      // expected in test env without a real local model
-    }
+    // Local embedder may fail or hang in test env — race against a short timeout
+    // so we just verify HttpEmbedder was NOT instantiated regardless of outcome.
+    await Promise.race([
+      embedBatch(['hello']).catch(() => { /* expected in CI without a real local model */ }),
+      new Promise(resolve => setTimeout(resolve, 500)),
+    ]);
     expect(HttpEmbedder).not.toHaveBeenCalled();
-  });
+  }, 2000);
 });

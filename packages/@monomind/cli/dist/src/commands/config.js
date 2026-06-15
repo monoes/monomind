@@ -69,7 +69,7 @@ const getCommand = {
         { command: 'monomind config get -k memory.backend', description: 'Get memory backend' }
     ],
     action: async (ctx) => {
-        const key = ctx.flags.key || ctx.args[0];
+        const key = (ctx.flags.key || ctx.args[0] || '').slice(0, 256);
         if (!key) {
             // Show all config from actual config file (fall back to defaults)
             const config = configManager.getConfig(ctx.cwd);
@@ -101,6 +101,14 @@ const getCommand = {
                 data: Object.entries(flatEntries).map(([k, v]) => ({ key: k, value: String(v) }))
             });
             return { success: true, data: flatEntries };
+        }
+        // Prototype pollution guard — mirrors the same check in setCommand.
+        const FORBIDDEN_KEY_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+        for (const seg of key.split('.')) {
+            if (FORBIDDEN_KEY_SEGMENTS.has(seg)) {
+                output.printError(`Forbidden config key segment: "${seg}"`);
+                return { success: false, exitCode: 1 };
+            }
         }
         const value = configManager.get(ctx.cwd, key);
         if (value === undefined) {
@@ -141,8 +149,8 @@ const setCommand = {
         { command: 'monomind config set -k memory.backend -v agentdb', description: 'Set memory backend' }
     ],
     action: async (ctx) => {
-        const key = ctx.flags.key || ctx.args[0];
-        const value = ctx.flags.value || ctx.args[1];
+        const key = (ctx.flags.key || ctx.args[0] || '').slice(0, 256);
+        const value = (ctx.flags.value ?? ctx.args[1] ?? '');
         if (!key || value === undefined) {
             output.printError('Both key and value are required');
             return { success: false, exitCode: 1 };
