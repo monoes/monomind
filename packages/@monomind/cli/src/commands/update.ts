@@ -227,7 +227,9 @@ const historyCommand: Command = {
       return { success: true };
     }
 
-    const limit = parseInt(flags.limit as string || '20', 10);
+    const rawLimit = parseInt(flags.limit as string || '20', 10);
+    // Cap to prevent unbounded history reads
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 1000)) : 20;
     const history = getUpdateHistory(limit);
 
     if (history.length === 0) {
