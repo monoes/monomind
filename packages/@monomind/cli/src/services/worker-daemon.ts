@@ -896,7 +896,7 @@ export class WorkerDaemon extends EventEmitter {
       mkdirSync(metricsDir, { recursive: true });
     }
 
-    const map = {
+    const map: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       structure: {
         hasPackageJson: existsSync(join(this.projectRoot, 'package.json')),
@@ -906,6 +906,65 @@ export class WorkerDaemon extends EventEmitter {
       },
       scannedAt: Date.now(),
     };
+
+    // Enrich with monograph graph stats for LLM context injection.
+    // Lazy-import to avoid hard dependency; silently skip on any error.
+    try {
+      const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+      const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+      if (existsSync(dbPath)) {
+        const db = openDb(dbPath);
+        try {
+          // Node/edge counts
+          map['graph'] = {
+            nodes: countNodes(db),
+            edges: countEdges(db),
+          };
+
+          // Top 3 god nodes (high degree internal files) — same SQL as monograph_god_nodes tool
+          const excluded = ['File', 'Folder', 'Community', 'Concept'];
+          const rows = db.prepare(`
+            SELECT n.name, n.file_path, n.start_line,
+                   COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label NOT IN (${excluded.map(() => '?').join(',')})
+            GROUP BY n.id HAVING degree > 0
+            ORDER BY degree DESC LIMIT 3
+          `).all(...excluded) as Array<{ name: string; file_path?: string; start_line?: number; degree: number }>;
+
+          if (rows.length > 0) {
+            map['topFiles'] = rows.map(r => ({
+              ref: r.file_path
+                ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path)
+                : r.name,
+              degree: r.degree,
+            }));
+          }
+
+          // Index staleness via git — same approach as monograph_health tool
+          try {
+            const { execSync } = await import('child_process');
+            const lastHash = (db.prepare(
+              "SELECT value FROM meta WHERE key = 'last_commit_hash' LIMIT 1"
+            ).get() as { value?: string } | undefined)?.value;
+            if (lastHash) {
+              const countOut = execSync(
+                `git -C ${JSON.stringify(this.projectRoot)} rev-list --count ${lastHash}..HEAD`,
+                { timeout: 5000 }
+              ).toString().trim();
+              const commitsBehind = parseInt(countOut, 10);
+              if (!isNaN(commitsBehind)) {
+                map['graphStaleness'] = { commitsBehind };
+              }
+            }
+          } catch { /* git unavailable — skip staleness */ }
+        } finally {
+          closeDb(db);
+        }
+      }
+    } catch { /* monograph unavailable — skip graph enrichment */ }
 
     const metricsFileTmp1 = metricsFile + '.tmp';
     writeFileSync(metricsFileTmp1, JSON.stringify(map, null, 2));
