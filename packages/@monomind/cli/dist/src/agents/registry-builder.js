@@ -160,6 +160,8 @@ export function buildUnifiedRegistry(roots, outputPath) {
         for (const file of files) {
             let content;
             try {
+                if (statSync(file).size > 512 * 1024)
+                    continue; // skip files > 512 KB
                 content = readFileSync(file, 'utf-8');
             }
             catch {

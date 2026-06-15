@@ -113,8 +113,8 @@ const spawnCommand = {
         { command: 'monomind agent spawn -t researcher --task "Research React 19"', description: 'Spawn researcher with task' }
     ],
     action: async (ctx) => {
-        let agentType = ctx.flags.type;
-        let agentName = ctx.flags.name;
+        let agentType = ctx.flags.type?.slice(0, 64) ?? '';
+        let agentName = ctx.flags.name?.slice(0, 128) ?? '';
         // Interactive mode if type not specified
         if (!agentType && ctx.interactive) {
             agentType = await select({
@@ -123,7 +123,7 @@ const spawnCommand = {
             });
         }
         // Semantic routing: if --type absent but --task provided, use RouteLayer
-        const taskDescription = ctx.flags.task;
+        const taskDescription = ctx.flags.task?.slice(0, 2048);
         if (!agentType && taskDescription) {
             try {
                 // Builds a RouteLayer with a real local embedding model + headless
@@ -804,9 +804,9 @@ const logsCommand = {
         { command: 'monomind agent logs -l error --since 1h', description: 'Show errors from last hour' }
     ],
     action: async (ctx) => {
-        const agentId = ctx.args[0] || ctx.flags.id;
+        const agentId = ((ctx.args[0] || ctx.flags.id) ?? '').slice(0, 128);
         const tail = ctx.flags.tail;
-        const level = ctx.flags.level;
+        const level = ctx.flags.level?.slice(0, 32);
         if (!agentId) {
             output.printError('Agent ID is required. Use --id or -i');
             return { success: false, exitCode: 1 };

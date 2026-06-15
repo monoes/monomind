@@ -4,7 +4,7 @@
  *
  * github.com/monoes/monomind
  */
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { commandParser } from './parser.js';
@@ -19,6 +19,9 @@ function getPackageVersion() {
         const __dirname = dirname(__filename);
         // Navigate from dist/src to package root
         const pkgPath = join(__dirname, '..', '..', 'package.json');
+        // Guard: skip if package.json is unexpectedly large (> 1 MB)
+        if (statSync(pkgPath).size > 1024 * 1024)
+            return '3.0.0';
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
         return pkg.version || '3.0.0';
     }

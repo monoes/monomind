@@ -184,6 +184,21 @@ export const importCommand = {
                 output.printError(`Input file not found: ${inputFile}`);
                 return { success: false, message: 'File not found' };
             }
+            // Symlink guard: a symlink could redirect to /etc/passwd or a huge file.
+            // lstatSync checks the link itself, not the target — so symlinks are rejected
+            // regardless of what they point to (TOCTOU-safe for the check + read pair).
+            const lstat = fs.lstatSync(inputFile);
+            if (lstat.isSymbolicLink()) {
+                output.printError(`Symlinks are not allowed as input files: ${inputFile}`);
+                return { success: false, message: 'Symlink not allowed' };
+            }
+            // Size guard: without this, a user can pass a multi-GB file and exhaust the
+            // Node heap before JSON.parse ever runs, crashing the CLI with an OOM.
+            const MAX_IMPORT_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+            if (lstat.size > MAX_IMPORT_FILE_BYTES) {
+                output.printError(`Input file too large: ${inputFile} (max 50 MB)`);
+                return { success: false, message: 'Input file too large' };
+            }
             try {
                 output.printInfo(`Reading: ${inputFile}`);
                 const content = fs.readFileSync(inputFile, 'utf-8');
