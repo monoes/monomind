@@ -123,7 +123,11 @@ export const claimsTools: MCPTool[] = [
     handler: async (input) => {
       const issueId = input.issueId as string;
       const claimantStr = input.claimant as string;
-      const context = input.context as string | undefined;
+      // Cap context: stored verbatim in the claim JSON record on disk.
+      const MAX_CLAIM_CONTEXT_LEN = 4 * 1024;
+      const rawContext = input.context as string | undefined;
+      const context = typeof rawContext === 'string' && rawContext.length > MAX_CLAIM_CONTEXT_LEN
+        ? rawContext.slice(0, MAX_CLAIM_CONTEXT_LEN) : rawContext;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
       if (!issueId || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
@@ -415,7 +419,11 @@ export const claimsTools: MCPTool[] = [
       const issueId = input.issueId as string;
       const status = input.status as ClaimStatus;
       const claimantStr = input.claimant as string | undefined;
-      const note = input.note as string | undefined;
+      // Cap note: stored as claim.blockReason in the claims JSON store on disk.
+      const MAX_CLAIM_NOTE_LEN = 4 * 1024;
+      const rawNote = input.note as string | undefined;
+      const note = typeof rawNote === 'string' && rawNote.length > MAX_CLAIM_NOTE_LEN
+        ? rawNote.slice(0, MAX_CLAIM_NOTE_LEN) : rawNote;
       const progress = input.progress as number | undefined;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
