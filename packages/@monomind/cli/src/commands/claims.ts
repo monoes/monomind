@@ -47,7 +47,7 @@ function loadClaimsConfig(): { config: ClaimsConfig; path: string } {
   const configPaths = getClaimsConfigPaths();
 
   for (const configPath of configPaths) {
-    if (fs.existsSync(configPath)) {
+    if (fs.existsSync(configPath) && fs.statSync(configPath).size <= 1024 * 1024) {
       const content = fs.readFileSync(configPath, 'utf-8');
       return { config: safeParseJson(content) as ClaimsConfig, path: configPath };
     }
@@ -175,12 +175,19 @@ const checkCommand: Command = {
     { command: 'monomind claims check -c admin:delete -u user123', description: 'Check user permission' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const claim = ctx.flags.claim as string;
-    const user = ctx.flags.user as string || 'current';
-    const resource = ctx.flags.resource as string;
+    const claim = (ctx.flags.claim as string || '').slice(0, 256);
+    const user = (ctx.flags.user as string || 'current').slice(0, 128);
+    const resource = (ctx.flags.resource as string || '').slice(0, 256);
 
     if (!claim) {
       output.printError('Claim is required');
+      return { success: false, exitCode: 1 };
+    }
+
+    // Block prototype-polluting user or resource keys.
+    const PROTO_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+    if (PROTO_KEYS.has(user)) {
+      output.printError(`Forbidden user key: "${user}"`);
       return { success: false, exitCode: 1 };
     }
 
@@ -223,7 +230,7 @@ const checkCommand: Command = {
       };
 
       for (const configPath of claimsConfigPaths) {
-        if (fs.existsSync(configPath)) {
+        if (fs.existsSync(configPath) && fs.statSync(configPath).size <= 1024 * 1024) {
           const content = fs.readFileSync(configPath, 'utf-8');
           claimsConfig = { ...claimsConfig, ...safeParseJson(content) };
           policySource = configPath;
@@ -319,9 +326,9 @@ const grantCommand: Command = {
     { command: 'monomind claims grant -c agent:spawn -r developer', description: 'Grant to role' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const claim = ctx.flags.claim as string;
-    const user = ctx.flags.user as string;
-    const role = ctx.flags.role as string;
+    const claim = (ctx.flags.claim as string || '').slice(0, 256);
+    const user = (ctx.flags.user as string || '').slice(0, 128);
+    const role = (ctx.flags.role as string || '').slice(0, 64);
 
     if (!claim) {
       output.printError('Claim is required');
@@ -330,6 +337,13 @@ const grantCommand: Command = {
 
     if (!user && !role) {
       output.printError('Either user or role is required');
+      return { success: false, exitCode: 1 };
+    }
+
+    // Block prototype-polluting user or role keys.
+    const PROTO_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+    if ((user && PROTO_KEYS.has(user)) || (role && PROTO_KEYS.has(role))) {
+      output.printError('Forbidden user or role key');
       return { success: false, exitCode: 1 };
     }
 
@@ -381,9 +395,9 @@ const revokeCommand: Command = {
     { command: 'monomind claims revoke -c admin:* -r guest', description: 'Revoke from role' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const claim = ctx.flags.claim as string;
-    const user = ctx.flags.user as string;
-    const role = ctx.flags.role as string;
+    const claim = (ctx.flags.claim as string || '').slice(0, 256);
+    const user = (ctx.flags.user as string || '').slice(0, 128);
+    const role = (ctx.flags.role as string || '').slice(0, 64);
 
     if (!claim) {
       output.printError('Claim is required');
@@ -392,6 +406,13 @@ const revokeCommand: Command = {
 
     if (!user && !role) {
       output.printError('Either user or role is required');
+      return { success: false, exitCode: 1 };
+    }
+
+    // Block prototype-polluting user or role keys.
+    const PROTO_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+    if ((user && PROTO_KEYS.has(user)) || (role && PROTO_KEYS.has(role))) {
+      output.printError('Forbidden user or role key');
       return { success: false, exitCode: 1 };
     }
 

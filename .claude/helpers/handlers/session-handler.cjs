@@ -48,14 +48,16 @@ module.exports = {
     try {
       var feedbackPath = path.join(CWD, '.monomind', 'routing-feedback.jsonl');
       var lastRoutePath = path.join(CWD, '.monomind', 'last-route.json');
-      if (fs.existsSync(lastRoutePath)) {
+      var MAX_ROUTE = 64 * 1024; // 64 KiB
+      if (fs.existsSync(lastRoutePath) && (function() { try { return fs.statSync(lastRoutePath).size <= MAX_ROUTE; } catch(_) { return false; } }())) {
         var lastRoute = JSON.parse(fs.readFileSync(lastRoutePath, 'utf-8'));
 
         // Derive sessionSuccess from intelligence-outcomes.jsonl
         var sessionSuccess = true; // optimistic default when no signal exists
         try {
           var outcomesPath = path.join(CWD, '.monomind', 'intelligence-outcomes.jsonl');
-          if (fs.existsSync(outcomesPath)) {
+          var MAX_OUTCOMES = 512 * 1024; // 512 KiB
+          if (fs.existsSync(outcomesPath) && (function() { try { return fs.statSync(outcomesPath).size <= MAX_OUTCOMES; } catch(_) { return false; } }())) {
             var windowMs = 30 * 60 * 1000; // 30-minute session window
             var cutoff = Date.now() - windowMs;
             var outcomeLines = fs.readFileSync(outcomesPath, 'utf-8').trim().split('\n').filter(Boolean);
@@ -77,12 +79,17 @@ module.exports = {
           timestamp: new Date().toISOString(),
           suggestedAgent: lastRoute.agent,
           confidence: lastRoute.confidence,
-          sessionId: hookInput.sessionId || hookInput.session_id || '',
+          sessionId: String(hookInput.sessionId || hookInput.session_id || '').slice(0, 128),
           intelligenceFeedback: sessionSuccess,
         };
         fs.appendFileSync(feedbackPath, JSON.stringify(feedbackEntry) + '\n', 'utf-8');
         // Rotate: keep last 1000 lines to prevent unbounded growth
         try {
+          var MAX_FEEDBACK = 512 * 1024; // 512 KiB
+          if (fs.existsSync(feedbackPath) && fs.statSync(feedbackPath).size > MAX_FEEDBACK) {
+            // File too large — emergency trim without full read
+            throw new Error('skip-rotation');
+          }
           var raw = fs.readFileSync(feedbackPath, 'utf-8');
           var lines = raw.split('\n').filter(Boolean);
           if (lines.length > 1000) {
@@ -137,7 +144,7 @@ module.exports = {
     try {
       var dispatchDir = path.join(CWD, '.monomind', 'worker-dispatch');
       if (fs.existsSync(dispatchDir)) {
-        var pending = fs.readdirSync(dispatchDir).filter(function(f) { return f.startsWith('pending-'); });
+        var pending = fs.readdirSync(dispatchDir).filter(function(f) { return f.startsWith('pending-'); }).slice(0, 500);
         if (pending.length > 0) {
           console.log('[WORKER_CLEANUP] ' + pending.length + ' worker dispatch(es) pending from this session');
         }

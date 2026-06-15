@@ -54,16 +54,29 @@ const monographQueryTool = {
         const { hybridQuery } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const limit = input.limit ?? 20;
+            // Cap limit: passed directly to SQLite queries and hybridQuery; an
+            // unlimited value saturates memory with rows.
+            const MAX_QUERY_LIMIT = 1_000;
+            const rawLimit = input.limit ?? 20;
+            const limit = Number.isFinite(rawLimit) && rawLimit > 0
+                ? Math.min(Math.floor(rawLimit), MAX_QUERY_LIMIT)
+                : 20;
+            // Cap query: passed to FTS5 and hybridQuery; very long queries waste
+            // parse time and can stress the FTS tokenizer.
+            const MAX_MONOGRAPH_QUERY_LEN = 16 * 1024;
+            const rawQuery = input.query;
+            const query = typeof rawQuery === 'string' && rawQuery.length > MAX_MONOGRAPH_QUERY_LEN
+                ? rawQuery.slice(0, MAX_MONOGRAPH_QUERY_LEN)
+                : rawQuery;
             const label = input.label;
             if (process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
-                const results = await hybridQuery(db, input.query, { limit, label });
+                const results = await hybridQuery(db, query, { limit, label });
                 if (results.length === 0)
                     return text('No results found.');
                 const lines = results.map(r => `[${r.label ?? '?'}] ${r.name ?? r.id}  ${r.filePath ?? ''}  (score: ${r.score.toFixed(4)})`);
                 return text(lines.join('\n'));
             }
-            const results = ftsSearch(db, input.query, limit, label);
+            const results = ftsSearch(db, query, limit, label);
             if (results.length === 0)
                 return text('No results found.');
             const lines = results.map(r => `[${r.label}] ${r.name}  ${r.filePath ?? ''}  (score: ${r.rank.toFixed(3)})`);
@@ -141,7 +154,12 @@ const monographGodNodesTool = {
         const { openDb, closeDb } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const limit = input.limit ?? 20;
+            // Cap limit: passed directly to the SQL LIMIT clause.
+            const MAX_GOD_NODES_LIMIT = 1_000;
+            const rawGodLimit = input.limit ?? 20;
+            const limit = Number.isFinite(rawGodLimit) && rawGodLimit > 0
+                ? Math.min(Math.floor(rawGodLimit), MAX_GOD_NODES_LIMIT)
+                : 20;
             const excluded = ['File', 'Folder', 'Community', 'Concept'];
             const rows = db.prepare(`
         SELECT n.id, n.label, n.name, n.file_path,
@@ -234,12 +252,20 @@ const monographCommunityTool = {
         required: ['id'],
     },
     handler: async (input) => {
+        // Validate community ID — must be a finite integer. parseInt(NaN) or a float
+        // would silently become 0 in SQLite (NaN → NULL → 0 coercion), which would
+        // return all nodes in community 0 instead of an error.
+        const rawId = typeof input.id === 'number' ? input.id : parseInt(String(input.id), 10);
+        if (!Number.isFinite(rawId) || rawId !== Math.floor(rawId)) {
+            return text(`Invalid community ID: ${input.id} (must be an integer)`);
+        }
+        const communityId = rawId;
         const { openDb, closeDb } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const rows = db.prepare('SELECT * FROM nodes WHERE community_id = ?').all(parseInt(input.id, 10));
+            const rows = db.prepare('SELECT * FROM nodes WHERE community_id = ?').all(communityId);
             if (rows.length === 0)
-                return text(`No nodes in community ${input.id}`);
+                return text(`No nodes in community ${communityId}`);
             return text(rows.map(r => `[${r.label}] ${r.name}  ${r.file_path ?? ''}`).join('\n'));
         }
         finally {
@@ -259,7 +285,12 @@ const monographSurprisesTool = {
         const { openDb, closeDb } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const limit = input.limit ?? 20;
+            // Cap limit: passed directly to the SQL LIMIT clause.
+            const MAX_SURPRISES_LIMIT = 1_000;
+            const rawSurprisesLimit = input.limit ?? 20;
+            const limit = Number.isFinite(rawSurprisesLimit) && rawSurprisesLimit > 0
+                ? Math.min(Math.floor(rawSurprisesLimit), MAX_SURPRISES_LIMIT)
+                : 20;
             const rows = db.prepare(`
         SELECT e.*, n1.name as src_name, n2.name as tgt_name
         FROM edges e
@@ -293,8 +324,18 @@ const monographSuggestTool = {
         const { hybridQuery } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const limit = input.limit ?? 10;
-            const task = input.task ?? '';
+            // Cap limit and task: limit is passed directly to SQL LIMIT clause;
+            // task is forwarded to hybridQuery (embedding path) or FTS.
+            const MAX_SUGGEST_LIMIT = 1_000;
+            const MAX_SUGGEST_TASK_LEN = 16 * 1024;
+            const rawSuggestLimit = input.limit ?? 10;
+            const limit = Number.isFinite(rawSuggestLimit) && rawSuggestLimit > 0
+                ? Math.min(Math.floor(rawSuggestLimit), MAX_SUGGEST_LIMIT)
+                : 10;
+            const rawTask = input.task ?? '';
+            const task = typeof rawTask === 'string' && rawTask.length > MAX_SUGGEST_TASK_LEN
+                ? rawTask.slice(0, MAX_SUGGEST_TASK_LEN)
+                : rawTask;
             // When a task is provided and embeddings are enabled, use semantic search
             // to find relevant nodes and surface edge-level questions about them.
             if (task && process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
@@ -357,7 +398,13 @@ const monographVisualizeTool = {
         const { openDb, closeDb, toJson, toHtml, toSvg } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const limit = input.maxNodes ?? 500;
+            // Cap maxNodes: passed to SQL LIMIT clause for both nodes (n) and edges
+            // (n*3).  Without a cap an attacker requests all rows from both tables.
+            const MAX_EXPORT_NODES = 10_000;
+            const rawMaxNodes = input.maxNodes ?? 500;
+            const limit = Number.isFinite(rawMaxNodes) && rawMaxNodes > 0
+                ? Math.min(Math.floor(rawMaxNodes), MAX_EXPORT_NODES)
+                : 500;
             const nodes = db.prepare('SELECT * FROM nodes LIMIT ?').all(limit);
             const edges = db.prepare('SELECT * FROM edges LIMIT ?').all(limit * 3);
             const fmt = input.format ?? 'html';
@@ -479,13 +526,19 @@ const monographSnapshotTool = {
     handler: async (input) => {
         const { openDb, closeDb, snapshotFromDb } = await import('@monoes/monograph');
         const { writeFileSync, mkdirSync } = await import('fs');
+        const { resolve: resolvePath } = await import('path');
         const db = openDb(getDbPath());
         try {
             const snapshot = snapshotFromDb(db);
-            const name = input.name ?? new Date().toISOString().replace(/[:.]/g, '-');
-            const snapshotDir = join(getProjectCwd(), '.monomind', 'snapshots');
+            const rawName = input.name ?? new Date().toISOString().replace(/[:.]/g, '-');
+            const SAFE_NAME_RE = /^[a-zA-Z0-9_.\-]+$/;
+            if (!SAFE_NAME_RE.test(rawName))
+                return text(`Invalid snapshot name: ${rawName}`);
+            const snapshotDir = resolvePath(join(getProjectCwd(), '.monomind', 'snapshots'));
             mkdirSync(snapshotDir, { recursive: true });
-            const outPath = join(snapshotDir, `${name}.json`);
+            const outPath = join(snapshotDir, `${rawName}.json`);
+            if (!resolvePath(outPath).startsWith(snapshotDir))
+                return text(`Path traversal detected in snapshot name`);
             writeFileSync(outPath, JSON.stringify(snapshot, null, 2));
             return text(`Snapshot saved: ${outPath}\n  nodes: ${snapshot.nodes.length}  edges: ${snapshot.edges.length}`);
         }
@@ -508,18 +561,37 @@ const monographDiffTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb, snapshotFromDb, diffSnapshots } = await import('@monoes/monograph');
-        const { readFileSync, existsSync } = await import('fs');
-        const snapshotDir = join(getProjectCwd(), '.monomind', 'snapshots');
-        const beforePath = join(snapshotDir, `${input.before}.json`);
+        const { readFileSync, existsSync, statSync: statSyncSnap } = await import('fs');
+        const { resolve: resolvePath } = await import('path');
+        const MAX_SNAPSHOT_BYTES = 100 * 1024 * 1024; // 100 MB
+        const snapshotDir = resolvePath(join(getProjectCwd(), '.monomind', 'snapshots'));
+        // Reject snapshot names containing path separators or traversal sequences
+        const SAFE_SNAPSHOT_NAME = /^[a-zA-Z0-9_.\-]+$/;
+        const beforeName = input.before;
+        if (!SAFE_SNAPSHOT_NAME.test(beforeName))
+            return text(`Invalid snapshot name: ${beforeName}`);
+        const beforePath = join(snapshotDir, `${beforeName}.json`);
+        if (!resolvePath(beforePath).startsWith(snapshotDir))
+            return text(`Path traversal detected in snapshot name`);
         if (!existsSync(beforePath)) {
             return text(`Snapshot not found: ${beforePath}\nCreate one first with monograph_snapshot.`);
+        }
+        if (statSyncSnap(beforePath).size > MAX_SNAPSHOT_BYTES) {
+            return text(`Snapshot too large to diff: ${beforePath}`);
         }
         const before = JSON.parse(readFileSync(beforePath, 'utf-8'));
         let after;
         if (input.after) {
-            const afterPath = join(snapshotDir, `${input.after}.json`);
+            const afterName = input.after;
+            if (!SAFE_SNAPSHOT_NAME.test(afterName))
+                return text(`Invalid snapshot name: ${afterName}`);
+            const afterPath = join(snapshotDir, `${afterName}.json`);
+            if (!resolvePath(afterPath).startsWith(snapshotDir))
+                return text(`Path traversal detected in snapshot name`);
             if (!existsSync(afterPath))
                 return text(`Snapshot not found: ${afterPath}`);
+            if (statSyncSnap(afterPath).size > MAX_SNAPSHOT_BYTES)
+                return text(`Snapshot too large to diff: ${afterPath}`);
             after = JSON.parse(readFileSync(afterPath, 'utf-8'));
         }
         else {
@@ -614,9 +686,19 @@ const monographContextTool = {
         const { getMonographContext } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
+            // Cap name and filePath: forwarded to parameterized SQL via getMonographContext.
+            // Very long strings waste memory before the query even executes.
+            const MAX_CTX_NAME_LEN = 512;
+            const MAX_CTX_PATH_LEN = 4 * 1024;
+            const rawCtxName = input.name;
+            const ctxName = typeof rawCtxName === 'string' && rawCtxName.length > MAX_CTX_NAME_LEN
+                ? rawCtxName.slice(0, MAX_CTX_NAME_LEN) : rawCtxName;
+            const rawCtxPath = input.filePath;
+            const ctxPath = typeof rawCtxPath === 'string' && rawCtxPath.length > MAX_CTX_PATH_LEN
+                ? rawCtxPath.slice(0, MAX_CTX_PATH_LEN) : rawCtxPath;
             const result = getMonographContext(db, {
-                name: input.name,
-                filePath: input.filePath,
+                name: ctxName,
+                filePath: ctxPath,
             });
             return text(JSON.stringify(result, null, 2));
         }
@@ -643,10 +725,22 @@ const monographImpactTool = {
         const { getMonographImpact } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
+            // Cap name/filePath; enforce depth ≤ 6 as documented in the schema description.
+            const MAX_IMPACT_NAME_LEN = 512;
+            const MAX_IMPACT_PATH_LEN = 4 * 1024;
+            const rawImpactName = input.name;
+            const impactName = typeof rawImpactName === 'string' && rawImpactName.length > MAX_IMPACT_NAME_LEN
+                ? rawImpactName.slice(0, MAX_IMPACT_NAME_LEN) : rawImpactName;
+            const rawImpactPath = input.filePath;
+            const impactPath = typeof rawImpactPath === 'string' && rawImpactPath.length > MAX_IMPACT_PATH_LEN
+                ? rawImpactPath.slice(0, MAX_IMPACT_PATH_LEN) : rawImpactPath;
+            const rawDepth = input.depth;
+            const depth = typeof rawDepth === 'number' && Number.isFinite(rawDepth) && rawDepth > 0
+                ? Math.min(Math.floor(rawDepth), 6) : rawDepth;
             const result = getMonographImpact(db, {
-                name: input.name,
-                filePath: input.filePath,
-                depth: input.depth,
+                name: impactName,
+                filePath: impactPath,
+                depth,
             });
             return text(JSON.stringify(result, null, 2));
         }
@@ -818,7 +912,14 @@ const monographCypherTool = {
         const { getMonographCypher } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const result = getMonographCypher(db, input.query);
+            // Cap query: forwarded to the Cypher query engine; very long strings
+            // waste parse time and can stress the query compiler.
+            const MAX_CYPHER_QUERY_LEN = 16 * 1024;
+            const rawCypherQuery = input.query;
+            const cypherQuery = typeof rawCypherQuery === 'string' && rawCypherQuery.length > MAX_CYPHER_QUERY_LEN
+                ? rawCypherQuery.slice(0, MAX_CYPHER_QUERY_LEN)
+                : rawCypherQuery;
+            const result = getMonographCypher(db, cypherQuery);
             if (result.error)
                 return text(`Error: ${result.error}`);
             if (result.rows.length === 0)
@@ -865,7 +966,18 @@ const monographGroupQueryTool = {
     handler: async (input) => {
         const { runGroupQuery } = await import('@monoes/monograph');
         const configPath = input.configPath ?? join(getProjectCwd(), 'group.yaml');
-        const results = await runGroupQuery(configPath, input.query, input.limit);
+        // Cap query and limit forwarded to runGroupQuery.
+        const MAX_GROUP_QUERY_LEN = 16 * 1024;
+        const MAX_GROUP_LIMIT = 1_000;
+        const rawGroupQuery = input.query;
+        const groupQuery = typeof rawGroupQuery === 'string' && rawGroupQuery.length > MAX_GROUP_QUERY_LEN
+            ? rawGroupQuery.slice(0, MAX_GROUP_QUERY_LEN)
+            : rawGroupQuery;
+        const rawGroupLimit = input.limit;
+        const groupLimit = Number.isFinite(rawGroupLimit) && (rawGroupLimit ?? 0) > 0
+            ? Math.min(Math.floor(rawGroupLimit), MAX_GROUP_LIMIT)
+            : rawGroupLimit;
+        const results = await runGroupQuery(configPath, groupQuery, groupLimit);
         if (results.length === 0)
             return text('No results found.');
         const lines = results.map(r => `[${r.label}] ${r.name}  ${r.filePath ?? ''}  repo:${r.repo}  (score: ${r.score.toFixed(4)})`);
@@ -1039,10 +1151,20 @@ const monographAugmentTool = {
     handler: async (input) => {
         const { augmentContext } = await import('@monoes/monograph');
         const repoPath = getProjectCwd();
+        // Cap query (forwarded to FTS/embedding in augmentContext) and topK
+        // (controls how many context nodes are retrieved).
+        const MAX_AUGMENT_QUERY_LEN = 16 * 1024;
+        const MAX_AUGMENT_TOP_K = 100;
+        const rawAugmentQuery = input.query;
+        const augmentQuery = typeof rawAugmentQuery === 'string' && rawAugmentQuery.length > MAX_AUGMENT_QUERY_LEN
+            ? rawAugmentQuery.slice(0, MAX_AUGMENT_QUERY_LEN) : rawAugmentQuery;
+        const rawTopK = input.topK ?? 10;
+        const topK = Number.isFinite(rawTopK) && rawTopK > 0
+            ? Math.min(Math.floor(rawTopK), MAX_AUGMENT_TOP_K) : 10;
         const result = await augmentContext({
-            query: input.query,
+            query: augmentQuery,
             repoPath,
-            topK: input.topK ?? 10,
+            topK,
             format: input.format ?? 'markdown',
         });
         return text(result);

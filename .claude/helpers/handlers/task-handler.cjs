@@ -172,7 +172,7 @@ module.exports = {
         const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length;
         const _actPath = path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json');
         let _prevLastActive = 0;
-        try { _prevLastActive = (JSON.parse(fs.readFileSync(_actPath, 'utf-8'))?.swarm?.lastActive) || 0; } catch { /* ignore */ }
+        try { var _actSt = fs.statSync(_actPath); if (_actSt.size < 65536) { _prevLastActive = (JSON.parse(fs.readFileSync(_actPath, 'utf-8'))?.swarm?.lastActive) || 0; } } catch { /* ignore */ }
         fs.writeFileSync(_actPath, JSON.stringify({
           timestamp: new Date().toISOString(),
           swarm: {
@@ -217,7 +217,8 @@ module.exports = {
       try {
         var haltFile = path.join(CWD, 'data', 'halt-signals.jsonl');
         if (fs.existsSync(haltFile)) {
-          var haltLines = fs.readFileSync(haltFile, 'utf-8').trim().split('\n').filter(Boolean);
+          var haltSt = fs.statSync(haltFile);
+          var haltLines = haltSt.size < 1048576 ? fs.readFileSync(haltFile, 'utf-8').trim().split('\n').filter(Boolean) : [];
           if (haltLines.length > 0) {
             console.warn('[HALT_DETECTED] ' + haltLines.length + ' halt signal(s) present');
           }
@@ -298,8 +299,11 @@ module.exports = {
       var settingsPath = path.join(CWD, '.claude', 'settings.json');
       var adrCfg = {};
       if (fs.existsSync(settingsPath)) {
-        var s = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-        adrCfg = (s.monomind && s.monomind.adr) || {};
+        var settingsSt = fs.statSync(settingsPath);
+        if (settingsSt.size < 524288) {
+          var s = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+          adrCfg = (s.monomind && s.monomind.adr) || {};
+        }
       }
       if (adrCfg.autoGenerate) {
         var taskAgent = hookInput.agentSlug || hookInput.agent_slug || '';
@@ -307,7 +311,11 @@ module.exports = {
         var isArchitectLevel = ['architect', 'system-architect', 'software-architect'].includes(taskAgent)
           || /\b(architecture|design decision|adr|trade-?off|migration strategy)\b/.test(taskDescAdr);
         if (isArchitectLevel && taskDescAdr.length > 30) {
-          var adrDir = path.join(CWD, adrCfg.directory || 'docs/adrs');
+          // Guard adrCfg.directory against path traversal outside CWD
+          var rawAdrDir = typeof adrCfg.directory === 'string' ? adrCfg.directory : 'docs/adrs';
+          var resolvedAdrDir = path.resolve(CWD, rawAdrDir);
+          if (!resolvedAdrDir.startsWith(CWD + path.sep) && resolvedAdrDir !== CWD) { throw new Error('adr.directory outside project'); }
+          var adrDir = resolvedAdrDir;
           fs.mkdirSync(adrDir, { recursive: true });
           var adrNum = (fs.readdirSync(adrDir).filter(function(f) { return f.endsWith('.md'); }).length + 1)
             .toString().padStart(4, '0');

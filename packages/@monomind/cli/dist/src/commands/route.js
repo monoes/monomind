@@ -90,15 +90,20 @@ const routeTaskCommand = {
         { command: 'monomind route task "review code" --agent reviewer', description: 'Force specific agent' },
     ],
     action: async (ctx) => {
-        const taskDescription = ctx.args[0];
+        const rawTask = ctx.args[0];
         const forceAgent = ctx.flags.agent;
         const useExploration = ctx.flags.explore;
         const jsonOutput = ctx.flags.json;
-        if (!taskDescription) {
+        if (!rawTask) {
             output.printError('Task description is required');
             output.writeln(output.dim('Usage: monomind route task "task description"'));
             return { success: false, exitCode: 1 };
         }
+        if (rawTask.length > 4096) {
+            output.printError('Task description too long (max 4096 characters)');
+            return { success: false, exitCode: 1 };
+        }
+        const taskDescription = rawTask;
         const spinner = output.createSpinner({ text: 'Analyzing task...', spinner: 'dots' });
         spinner.start();
         try {
@@ -349,14 +354,24 @@ const feedbackCommand = {
         { command: 'monomind route feedback -t "write tests" -a tester -r -0.5', description: 'Negative feedback' },
     ],
     action: async (ctx) => {
-        const taskDescription = ctx.flags.task;
+        const rawFeedbackTask = ctx.flags.task;
         const agentId = ctx.flags.agent;
         const reward = ctx.flags.reward;
-        const nextTask = ctx.flags['next-task'];
-        if (!taskDescription || !agentId) {
+        const rawNextTask = ctx.flags['next-task'];
+        if (!rawFeedbackTask || !agentId) {
             output.printError('Task description and agent are required');
             return { success: false, exitCode: 1 };
         }
+        if (rawFeedbackTask.length > 4096) {
+            output.printError('Task description too long (max 4096 characters)');
+            return { success: false, exitCode: 1 };
+        }
+        if (agentId.length > 128) {
+            output.printError('Agent ID too long (max 128 characters)');
+            return { success: false, exitCode: 1 };
+        }
+        const taskDescription = rawFeedbackTask;
+        const nextTask = rawNextTask && rawNextTask.length > 4096 ? undefined : rawNextTask;
         // Validate agent
         const agent = getAgentType(agentId);
         if (!agent) {
@@ -776,13 +791,18 @@ const semanticRouteCommand = {
         { command: 'monomind route semantic -t "write unit tests" --debug', description: 'Show all route scores' },
     ],
     action: async (ctx) => {
-        const taskDescription = ctx.flags.task;
+        const rawSemanticTask = ctx.flags.task;
         const debug = ctx.flags.debug;
         const jsonOutput = ctx.flags.json;
-        if (!taskDescription) {
+        if (!rawSemanticTask) {
             output.printError('Task description is required. Use --task or -t flag.');
             return { success: false, exitCode: 1 };
         }
+        if (rawSemanticTask.length > 4096) {
+            output.printError('Task description too long (max 4096 characters)');
+            return { success: false, exitCode: 1 };
+        }
+        const taskDescription = rawSemanticTask;
         const spinner = output.createSpinner({ text: 'Computing semantic route...', spinner: 'dots' });
         spinner.start();
         try {

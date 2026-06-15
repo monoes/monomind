@@ -32,6 +32,26 @@ interface PackageCompatibility {
   peerDependencies?: Record<string, string>;
 }
 
+// Maximum number of updates accepted in a single validateBulkUpdate call.
+// Without this cap a caller can DoS the validator by passing thousands of
+// update entries — each entry triggers validateUpdate which iterates over
+// COMPATIBILITY_MATRIX and BREAKING_CHANGES.
+const MAX_BULK_UPDATES = 50;
+
+// Version strings must look like semver (major.minor.patch with optional pre-release)
+// before we use them in string interpolation or comparisons.
+const SEMVER_RE = /^\d+\.\d+\.\d+(-[\w.]+)?(\+[\w.]+)?$/;
+// Package names: scoped (@scope/name) or plain, no shell-special chars.
+const PKG_NAME_RE = /^(@[a-zA-Z0-9][a-zA-Z0-9_.-]*\/)?[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+
+function isSafeVersion(v: unknown): v is string {
+  return typeof v === 'string' && v.length <= 64 && SEMVER_RE.test(v);
+}
+
+function isSafePackageName(p: unknown): p is string {
+  return typeof p === 'string' && p.length <= 200 && PKG_NAME_RE.test(p);
+}
+
 // Known compatibility matrix between monomind packages
 const COMPATIBILITY_MATRIX: Record<string, Record<string, PackageCompatibility>> = {
   '@monomind/cli': {
@@ -74,6 +94,19 @@ export function validateUpdate(
     warnings: [],
     requiredPeerUpdates: [],
   };
+
+  // Guard inputs: reject untrusted or malformed strings before they flow into
+  // error messages or semver comparisons (which assume well-formed input).
+  if (!isSafePackageName(packageName)) {
+    result.valid = false;
+    result.incompatibilities.push('Invalid package name');
+    return result;
+  }
+  if (!isSafeVersion(fromVersion) || !isSafeVersion(toVersion)) {
+    result.valid = false;
+    result.incompatibilities.push('Invalid version string(s)');
+    return result;
+  }
 
   // Check if this is a major version bump
   if (semver.valid(fromVersion) && semver.valid(toVersion)) {
@@ -156,6 +189,15 @@ export function validateBulkUpdate(
     warnings: [],
     requiredPeerUpdates: [],
   };
+
+  // Cap the number of updates to prevent DoS via large arrays
+  if (!Array.isArray(updates) || updates.length > MAX_BULK_UPDATES) {
+    combinedResult.valid = false;
+    combinedResult.incompatibilities.push(
+      `Too many updates: max ${MAX_BULK_UPDATES} allowed per call`
+    );
+    return combinedResult;
+  }
 
   // Create a simulated state after all updates
   const simulatedPackages = { ...currentPackages };

@@ -461,6 +461,19 @@ const abTestCommand = {
                     output.writeln(output.error(`Tasks file not found: ${tasksPath}`));
                     return { success: false, message: `File not found: ${tasksPath}` };
                 }
+                // Size guard: a multi-MB tasks file would be buffered in full before
+                // JSON.parse runs. Cap at 10 MB — any legitimate task list is far smaller.
+                const { statSync, lstatSync } = await import('node:fs');
+                const tasksLstat = lstatSync(tasksPath);
+                if (tasksLstat.isSymbolicLink()) {
+                    output.writeln(output.error(`Symlinks are not allowed as task files: ${tasksPath}`));
+                    return { success: false, message: 'Symlink not allowed as tasks file' };
+                }
+                const MAX_TASKS_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+                if (tasksLstat.size > MAX_TASKS_FILE_BYTES) {
+                    output.writeln(output.error(`Tasks file too large (max 10 MB): ${tasksPath}`));
+                    return { success: false, message: 'Tasks file too large' };
+                }
                 const tasksJson = await readFile(tasksPath, 'utf-8');
                 customTasks = JSON.parse(tasksJson);
                 output.writeln(`  Custom tasks: ${output.bold(String(customTasks.length))} loaded from ${tasksPath}`);
@@ -542,7 +555,7 @@ const setupCommand = {
         output.writeln(output.bold('Guidance Gates Setup'));
         output.writeln(output.dim('─'.repeat(50)));
         output.writeln();
-        const { readFileSync, writeFileSync, existsSync } = await import('node:fs');
+        const { readFileSync, writeFileSync, existsSync, statSync } = await import('node:fs');
         const { join } = await import('node:path');
         const settingsPath = join(projectDir, '.claude', 'settings.json');
         const gatesHandlerPath = join(projectDir, '.claude', 'helpers', 'handlers', 'gates-handler.cjs');
@@ -553,7 +566,7 @@ const setupCommand = {
         }
         // Load or create settings.json
         let settings = {};
-        if (existsSync(settingsPath)) {
+        if (existsSync(settingsPath) && statSync(settingsPath).size <= 1024 * 1024) {
             try {
                 settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
             }

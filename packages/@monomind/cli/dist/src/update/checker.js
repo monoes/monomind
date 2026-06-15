@@ -11,7 +11,11 @@ const semver = {
     major: (v) => parseInt((v || '0').split('.')[0], 10),
     minor: (v) => parseInt((v || '0').split('.')[1] || '0', 10),
     patch: (v) => parseInt(((v || '0').split('.')[2] || '0').replace(/[^0-9].*/, ''), 10),
-    gt: (a, b) => { const [aMaj,aMin,aPat]=(a||'0').split('.').map(n=>parseInt(n,10)||0); const [bMaj,bMin,bPat]=(b||'0').split('.').map(n=>parseInt(n,10)||0); return aMaj!==bMaj?aMaj>bMaj:aMin!==bMin?aMin>bMin:aPat>bPat; },
+    gt: (a, b) => {
+        const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
+        const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+        return aMaj !== bMaj ? aMaj > bMaj : aMin !== bMin ? aMin > bMin : aPat > bPat;
+    },
 };
 import { reserveCheck, recordCheck, getCachedVersions } from './rate-limiter.js';
 const require = createRequire(import.meta.url);
@@ -53,6 +57,13 @@ const NPM_NAME_RE = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/i;
 function isValidNpmName(name) {
     return NPM_NAME_RE.test(name) && !name.includes('..') && name.length <= 214;
 }
+// Cap registry response at 5 MB. The full npm registry payload for a package
+// can include the entire `versions` object (dozens of version entries with
+// dist/scripts/dependencies for each). A spoofed or compromised registry
+// endpoint could stream an arbitrarily large body; AbortSignal.timeout(5000)
+// only enforces a wall-clock deadline and does NOT cap bytes. Without this
+// cap, fetchPackageInfo will buffer an unbounded body into memory (OOM).
+const MAX_REGISTRY_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
 async function fetchPackageInfo(packageName) {
     if (!isValidNpmName(packageName))
         return null;
@@ -64,7 +75,42 @@ async function fetchPackageInfo(packageName) {
         if (!response.ok) {
             return null;
         }
-        return (await response.json());
+        // Reject immediately if Content-Length header exceeds cap
+        const contentLength = response.headers.get('content-length');
+        if (contentLength) {
+            const declared = parseInt(contentLength, 10);
+            if (Number.isFinite(declared) && declared > MAX_REGISTRY_RESPONSE_BYTES) {
+                return null;
+            }
+        }
+        // Stream body and enforce byte cap — prevents OOM if the server streams
+        // a large body that evades the Content-Length check (missing/wrong header).
+        if (!response.body)
+            return null;
+        const reader = response.body.getReader();
+        const chunks = [];
+        let totalBytes = 0;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done)
+                break;
+            if (value) {
+                totalBytes += value.byteLength;
+                if (totalBytes > MAX_REGISTRY_RESPONSE_BYTES) {
+                    await reader.cancel();
+                    return null;
+                }
+                chunks.push(value);
+            }
+        }
+        const buf = new Uint8Array(totalBytes);
+        let offset = 0;
+        for (const chunk of chunks) {
+            buf.set(chunk, offset);
+            offset += chunk.byteLength;
+        }
+        const text = new TextDecoder('utf-8').decode(buf);
+        return JSON.parse(text);
     }
     catch {
         return null;

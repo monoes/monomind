@@ -121,7 +121,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         const { spawn } = await import('child_process');
         const pidFile = path.join(ctx.cwd, '.monomind', 'monograph-watch.pid');
         let alreadyRunning = false;
-        if (fs.existsSync(pidFile)) {
+        if (fs.existsSync(pidFile) && fs.statSync(pidFile).size <= 32) {
           const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
           if (!isNaN(existingPid)) {
             try { process.kill(existingPid, 0); alreadyRunning = true; } catch { /* process gone */ }
@@ -825,8 +825,14 @@ const upgradeCommand: Command = {
       // Try to read control URL for dashboard progress events (best-effort)
       let controlUrl = 'http://localhost:4242';
       try {
-        const ctrlCfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.monomind', 'control.json'), 'utf-8'));
-        if (ctrlCfg.url) controlUrl = ctrlCfg.url;
+        const ctrlPath = path.join(process.cwd(), '.monomind', 'control.json');
+        if (fs.existsSync(ctrlPath) && fs.statSync(ctrlPath).size <= 4096) {
+          const ctrlCfg = JSON.parse(fs.readFileSync(ctrlPath, 'utf-8'));
+          // Only allow localhost/127.0.0.1 URLs to prevent SSRF via attacker-controlled control.json
+          if (typeof ctrlCfg.url === 'string' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(ctrlCfg.url)) {
+            controlUrl = ctrlCfg.url;
+          }
+        }
       } catch {}
 
       const emitUpgradeProgress = async (projDir: string, status: 'success' | 'failed', current: number, total: number): Promise<void> => {

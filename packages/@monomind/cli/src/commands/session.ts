@@ -76,7 +76,11 @@ const listCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const activeOnly = ctx.flags.active as boolean;
     const includeArchived = ctx.flags.all as boolean;
-    const limit = ctx.flags.limit as number;
+    const rawLimit = ctx.flags.limit as number;
+    // Cap limit to prevent unbounded MCP calls
+    const limit = typeof rawLimit === 'number' && Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(Math.floor(rawLimit), 200))
+      : 20;
 
     try {
       const result = await callMCPTool<{
@@ -201,6 +205,14 @@ const saveCommand: Command = {
         message: 'Session description (optional):',
         default: ''
       });
+    }
+
+    // Cap name and description lengths to prevent DoS / oversized storage
+    if (typeof sessionName === 'string' && sessionName.length > 200) {
+      sessionName = sessionName.slice(0, 200);
+    }
+    if (typeof description === 'string' && description.length > 2000) {
+      description = description.slice(0, 2000);
     }
 
     const spinner = output.createSpinner({ text: 'Saving session...' });

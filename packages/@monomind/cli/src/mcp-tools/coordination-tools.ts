@@ -10,7 +10,7 @@
  */
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Storage paths
@@ -104,10 +104,12 @@ function ensureCoordDir(): void {
   }
 }
 
+const MAX_COORD_STORE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 function loadCoordStore(): CoordStore {
   try {
     const path = getCoordPath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_COORD_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8')) as CoordStore;
     }
   } catch {
@@ -529,6 +531,10 @@ export const coordinationTools: MCPTool[] = [
       }
       if (action === 'status') {
         if (args.proposalId) {
+          // Validate proposalId length before O(n) .find() scan.
+          if (typeof args.proposalId !== 'string' || args.proposalId.length > 256) {
+            return { success: false, error: 'proposalId must be a string (max 256 chars)' };
+          }
           // Status for specific proposal
           const p = consensus.pending.find(x => x.proposalId === args.proposalId);
           if (p) {
@@ -624,10 +630,34 @@ export const coordinationTools: MCPTool[] = [
         };
       }
       if (action === 'vote') {
-        const p = consensus.pending.find(x => x.proposalId === args.proposalId);
+        // Validate proposalId before using it in .find() to prevent DoS via
+        // oversized string comparisons across all pending proposals.
+        const rawProposalIdVote = args.proposalId;
+        if (typeof rawProposalIdVote !== 'string' || rawProposalIdVote.length === 0 || rawProposalIdVote.length > 256) {
+          return { success: false, error: 'proposalId must be a non-empty string (max 256 chars)' };
+        }
+        const p = consensus.pending.find(x => x.proposalId === rawProposalIdVote);
         if (!p)
           return { success: false, error: 'Proposal not found or already resolved' };
-        const voterId = args.voterId;
+        const rawVoterId = args.voterId;
+        // Validate voterId — it becomes a key in p.votes (a plain object).
+        // Without these checks an attacker can supply "__proto__", "constructor",
+        // or "prototype" to corrupt the object's inherited properties, or supply
+        // a very long string to cause O(n) comparisons, or flood the votes dict
+        // with thousands of unique IDs to inflate store.json indefinitely.
+        const FORBIDDEN_VOTER_IDS = new Set(['__proto__', 'constructor', 'prototype']);
+        const MAX_VOTER_ID_LEN = 256;
+        const MAX_VOTERS_PER_PROPOSAL = 10_000;
+        if (!rawVoterId || typeof rawVoterId !== 'string' || rawVoterId.length > MAX_VOTER_ID_LEN) {
+          return { success: false, error: `voterId must be a non-empty string (max ${MAX_VOTER_ID_LEN} chars)` };
+        }
+        if (FORBIDDEN_VOTER_IDS.has(rawVoterId)) {
+          return { success: false, error: 'Forbidden voterId' };
+        }
+        if (!Object.hasOwn(p.votes, rawVoterId) && Object.keys(p.votes).length >= MAX_VOTERS_PER_PROPOSAL) {
+          return { success: false, error: `Voter limit per proposal (${MAX_VOTERS_PER_PROPOSAL}) reached` };
+        }
+        const voterId = rawVoterId;
         if (!voterId)
           return { success: false, error: 'voterId is required' };
         const voteValue = args.vote === 'accept';
@@ -725,6 +755,10 @@ export const coordinationTools: MCPTool[] = [
       if (action === 'commit') {
         // Commit is a no-op confirmation for already-resolved proposals
         if (args.proposalId) {
+          // Validate proposalId length before O(n) .find() scan.
+          if (typeof args.proposalId !== 'string' || args.proposalId.length > 256) {
+            return { success: false, error: 'proposalId must be a string (max 256 chars)' };
+          }
           const h = consensus.history.find(x => x.proposalId === args.proposalId);
           if (h) {
             return {

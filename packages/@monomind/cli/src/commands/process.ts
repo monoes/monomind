@@ -3,7 +3,7 @@
  * Background process management, daemon mode, and monitoring
  */
 
-import { writeFileSync, readFileSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
+import { writeFileSync, readFileSync, statSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
@@ -43,12 +43,20 @@ function writePidFile(pidFile: string, pid: number, port: number): void {
   }
 }
 
+const MAX_PID_FILE_BYTES = 4 * 1024; // 4 KB — a PID file should never be this large
+
 function readPidFile(pidFile: string): PidFileData | null {
   try {
     const path = resolve(pidFile);
     if (!existsSync(path)) return null;
+    // Guard against oversized PID files before reading into memory
+    if (statSync(path).size > MAX_PID_FILE_BYTES) return null;
     const data = readFileSync(path, 'utf-8');
-    return JSON.parse(data) as PidFileData;
+    return JSON.parse(data, (key, value) => {
+      // Prototype pollution guard
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
+      return value;
+    }) as PidFileData;
   } catch {
     return null;
   }
@@ -291,9 +299,10 @@ const monitorCommand: Command = {
     // Try to read agent and task counts from local store files
     let agentCount = 0;
     const taskCounts = { running: 0, queued: 0, completed: 0, failed: 0 };
+    const MAX_PROCESS_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
     try {
       const agentStorePath = resolve('.monomind/agents/store.json');
-      if (existsSync(agentStorePath)) {
+      if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_PROCESS_STORE_BYTES) {
         const agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
         const agents = Array.isArray(agentStore) ? agentStore : Object.values(agentStore.agents || agentStore || {});
         agentCount = agents.length;
@@ -301,7 +310,7 @@ const monitorCommand: Command = {
     } catch { /* no agent store */ }
     try {
       const taskStorePath = resolve('.monomind/tasks/store.json');
-      if (existsSync(taskStorePath)) {
+      if (existsSync(taskStorePath) && statSync(taskStorePath).size <= MAX_PROCESS_STORE_BYTES) {
         const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
         const tasks = Array.isArray(taskStore) ? taskStore : Object.values(taskStore.tasks || taskStore || {});
         for (const t of tasks as Array<{ status?: string }>) {
@@ -651,12 +660,23 @@ const logsCommand: Command = {
     { command: 'monomind process logs --since 1h --grep "error"', description: 'Search logs' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const source = (ctx.flags?.source as string) || 'all';
-    const tail = (ctx.flags?.tail as number) || 50;
+    const VALID_SOURCES = new Set(['daemon', 'workers', 'tasks', 'all']);
+    const VALID_LEVELS  = new Set(['debug', 'info', 'warn', 'error']);
+    const MAX_TAIL      = 10_000; // cap to prevent huge in-memory slice
+    const MAX_GREP_LEN  = 256;    // cap regex/pattern length
+    const MAX_SINCE_LEN = 64;     // cap timestamp/duration string
+
+    const rawSource = (ctx.flags?.source as string) || 'all';
+    const source = VALID_SOURCES.has(rawSource) ? rawSource : 'all';
+    const rawTail = Number(ctx.flags?.tail ?? 50);
+    const tail = Number.isFinite(rawTail) && rawTail > 0 ? Math.min(rawTail, MAX_TAIL) : 50;
     const follow = ctx.flags?.follow === true;
-    const level = (ctx.flags?.level as string) || 'info';
-    const since = ctx.flags?.since as string | undefined;
-    const grep = ctx.flags?.grep as string | undefined;
+    const rawLevel = (ctx.flags?.level as string) || 'info';
+    const level = VALID_LEVELS.has(rawLevel) ? rawLevel : 'info';
+    const rawSince = ctx.flags?.since as string | undefined;
+    const since = rawSince ? String(rawSince).slice(0, MAX_SINCE_LEN) : undefined;
+    const rawGrep = ctx.flags?.grep as string | undefined;
+    const grep = rawGrep ? String(rawGrep).slice(0, MAX_GREP_LEN) : undefined;
 
     console.log(`\n📜 Process Logs (${source})\n`);
     console.log(`  Level: ${level}+ | Lines: ${tail}${since ? ` | Since: ${since}` : ''}${grep ? ` | Filter: ${grep}` : ''}`);
@@ -676,7 +696,9 @@ const logsCommand: Command = {
           .filter(f => source === 'all' || f.includes(source));
         for (const file of logFiles) {
           try {
-            const content = readFileSync(resolve(logsDir, file), 'utf-8');
+            const logFilePath = resolve(logsDir, file);
+            if (statSync(logFilePath).size > 10 * 1024 * 1024) continue; // skip files > 10 MB
+            const content = readFileSync(logFilePath, 'utf-8');
             const lines = content.split('\n').filter(l => l.trim());
             for (const line of lines) {
               // Filter by log level if detectable

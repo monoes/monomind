@@ -3,7 +3,7 @@
  *
  * Tool definitions for collective intelligence and swarm coordination.
  */
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { getProjectCwd } from './types.js';
 import { weightedTally } from '../consensus/vote-signer.js';
@@ -95,10 +95,11 @@ function ensureHiveDir() {
         mkdirSync(dir, { recursive: true });
     }
 }
+const MAX_HIVE_STATE_BYTES = 10 * 1024 * 1024; // 10 MB
 function loadHiveState() {
     try {
         const path = getHivePath();
-        if (existsSync(path)) {
+        if (existsSync(path) && statSync(path).size <= MAX_HIVE_STATE_BYTES) {
             const data = readFileSync(path, 'utf-8');
             return JSON.parse(data);
         }
@@ -168,9 +169,19 @@ export const hiveMindTools = [
                 return { success: false, error: 'Hive-mind not initialized. Run hive-mind/init first.' };
             }
             const count = Math.min(Math.max(1, input.count || 1), 20); // Cap at 20
-            const role = input.role || 'worker';
-            const agentType = input.agentType || 'worker';
-            const prefix = input.prefix || 'hive-worker';
+            // Cap role/agentType/prefix: used as JSON keys and stored values in agentStore
+            // on disk; an oversized prefix inflates the generated agentId key and config.
+            const MAX_HIVE_ROLE_LEN = 256;
+            const MAX_HIVE_PREFIX_LEN = 128;
+            const rawRole = input.role || 'worker';
+            const role = typeof rawRole === 'string' && rawRole.length > MAX_HIVE_ROLE_LEN
+                ? rawRole.slice(0, MAX_HIVE_ROLE_LEN) : rawRole;
+            const rawAgentType = input.agentType || 'worker';
+            const agentType = typeof rawAgentType === 'string' && rawAgentType.length > MAX_HIVE_ROLE_LEN
+                ? rawAgentType.slice(0, MAX_HIVE_ROLE_LEN) : rawAgentType;
+            const rawPrefix = input.prefix || 'hive-worker';
+            const prefix = typeof rawPrefix === 'string' && rawPrefix.length > MAX_HIVE_PREFIX_LEN
+                ? rawPrefix.slice(0, MAX_HIVE_PREFIX_LEN) : rawPrefix;
             const agentStore = loadAgentStore();
             const spawnedWorkers = [];
             for (let i = 0; i < count; i++) {
@@ -227,7 +238,11 @@ export const hiveMindTools = [
         },
         handler: async (input) => {
             const hiveId = `hive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-            const queenId = input.queenId || `queen-${Date.now()}`;
+            // Cap queenId: stored in hive state JSON as the queen's agentId field.
+            const MAX_QUEEN_ID_LEN = 256;
+            const rawQueenId = input.queenId || `queen-${Date.now()}`;
+            const queenId = typeof rawQueenId === 'string' && rawQueenId.length > MAX_QUEEN_ID_LEN
+                ? rawQueenId.slice(0, MAX_QUEEN_ID_LEN) : rawQueenId;
             const now = new Date().toISOString();
             const state = {
                 initialized: true,
@@ -281,7 +296,7 @@ export const hiveMindTools = [
             let activeTaskCount = 0;
             let completedTaskCount = 0;
             try {
-                if (existsSync(taskStorePath)) {
+                if (existsSync(taskStorePath) && statSync(taskStorePath).size <= MAX_HIVE_STATE_BYTES) {
                     const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
                     for (const task of Object.values(taskStore.tasks || {})) {
                         if (task.status === 'pending')
@@ -478,11 +493,29 @@ export const hiveMindTools = [
                 const minDivergenceRounds = typeof input.minDivergenceRounds === 'number'
                     ? Math.max(0, input.minDivergenceRounds)
                     : 0;
+                // Cap proposal fields: stored in state.consensus.pending and then
+                // state.consensus.history (up to 1000 entries).  An unbounded value
+                // inflates the on-disk hive state by up to 1000 × value size.
+                const MAX_PROPOSAL_TYPE_LEN = 128;
+                const MAX_PROPOSAL_VOTER_ID_LEN = 256;
+                const MAX_PROPOSAL_VALUE_BYTES = 64 * 1024; // 64 KB
+                const rawProposalType = input.type || 'general';
+                const proposalType = typeof rawProposalType === 'string' && rawProposalType.length > MAX_PROPOSAL_TYPE_LEN
+                    ? rawProposalType.slice(0, MAX_PROPOSAL_TYPE_LEN) : rawProposalType;
+                const rawVoterId = input.voterId || 'system';
+                const proposedBy = typeof rawVoterId === 'string' && rawVoterId.length > MAX_PROPOSAL_VOTER_ID_LEN
+                    ? rawVoterId.slice(0, MAX_PROPOSAL_VOTER_ID_LEN) : rawVoterId;
+                // Cap value if it's a string; leave non-string values as-is (they are
+                // JSON-serialised by saveHiveState which uses JSON.stringify — bounded
+                // objects are fine).
+                const rawValue = input.value;
+                const cappedValue = typeof rawValue === 'string' && rawValue.length > MAX_PROPOSAL_VALUE_BYTES
+                    ? rawValue.slice(0, MAX_PROPOSAL_VALUE_BYTES) : rawValue;
                 const proposal = {
                     proposalId,
-                    type: input.type || 'general',
-                    value: input.value,
-                    proposedBy: input.voterId || 'system',
+                    type: proposalType,
+                    value: cappedValue,
+                    proposedBy,
                     proposedAt: new Date().toISOString(),
                     votes: {},
                     status: 'pending',
@@ -801,14 +834,32 @@ export const hiveMindTools = [
             if (!state.initialized) {
                 return { success: false, error: 'Hive-mind not initialized' };
             }
+            // Cap inputs: message/fromId are stored directly in the shared-memory JSON
+            // state (up to 100 broadcasts kept).  An uncapped message lets an attacker
+            // inflate the on-disk hive state by up to 100 × message size per call.
+            const MAX_BROADCAST_MSG_LEN = 1024 * 1024; // 1 MB
+            const MAX_FROM_ID_LEN = 256;
+            const MAX_PRIORITY_LEN = 16;
+            const rawMessage = input.message;
+            const message = typeof rawMessage === 'string' && rawMessage.length > MAX_BROADCAST_MSG_LEN
+                ? rawMessage.slice(0, MAX_BROADCAST_MSG_LEN)
+                : rawMessage;
+            const rawFromId = input.fromId || 'system';
+            const fromId = typeof rawFromId === 'string' && rawFromId.length > MAX_FROM_ID_LEN
+                ? rawFromId.slice(0, MAX_FROM_ID_LEN)
+                : rawFromId;
+            const rawPriority = input.priority || 'normal';
+            const priority = typeof rawPriority === 'string' && rawPriority.length > MAX_PRIORITY_LEN
+                ? rawPriority.slice(0, MAX_PRIORITY_LEN)
+                : rawPriority;
             const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             // Store in shared memory
             const messages = state.sharedMemory.broadcasts || [];
             messages.push({
                 messageId,
-                message: input.message,
-                priority: input.priority || 'normal',
-                fromId: input.fromId || 'system',
+                message,
+                priority,
+                fromId,
                 timestamp: new Date().toISOString(),
             });
             // Keep only last 100 broadcasts
@@ -818,7 +869,7 @@ export const hiveMindTools = [
                 success: true,
                 messageId,
                 recipients: state.workers.length,
-                priority: input.priority || 'normal',
+                priority,
                 broadcastAt: new Date().toISOString(),
             };
         },
@@ -898,22 +949,39 @@ export const hiveMindTools = [
             const state = loadHiveState();
             const action = input.action;
             const key = input.key;
+            const MAX_HIVE_MEMORY_KEY_LEN = 256;
+            const MAX_HIVE_MEMORY_VALUE_BYTES = 1024 * 1024; // 1 MB
+            const MAX_HIVE_MEMORY_KEYS = 1000;
             if (action === 'get') {
                 if (!key)
                     return { action, error: 'Key required' };
+                if (typeof key !== 'string' || key.length > MAX_HIVE_MEMORY_KEY_LEN || HIVE_RESERVED_KEYS.has(key)) {
+                    return { action, error: 'Invalid key' };
+                }
                 return {
                     action,
                     key,
-                    value: state.sharedMemory[key],
-                    exists: key in state.sharedMemory,
+                    value: Object.hasOwn(state.sharedMemory, key) ? state.sharedMemory[key] : undefined,
+                    exists: Object.hasOwn(state.sharedMemory, key),
                 };
             }
             if (action === 'set') {
                 if (!key)
                     return { action, error: 'Key required' };
-                if (HIVE_RESERVED_KEYS.has(key))
-                    return { action, error: 'Forbidden key' };
-                state.sharedMemory[key] = input.value;
+                if (typeof key !== 'string' || key.length > MAX_HIVE_MEMORY_KEY_LEN || HIVE_RESERVED_KEYS.has(key)) {
+                    return { action, error: 'Invalid key' };
+                }
+                // Cap value if it's a string; otherwise serialize and check byte size
+                const rawValue = input.value;
+                const cappedValue = typeof rawValue === 'string' && rawValue.length > MAX_HIVE_MEMORY_VALUE_BYTES
+                    ? rawValue.slice(0, MAX_HIVE_MEMORY_VALUE_BYTES)
+                    : rawValue;
+                // Enforce max number of distinct keys to prevent unbounded growth
+                const keyCount = Object.keys(state.sharedMemory).length;
+                if (!Object.hasOwn(state.sharedMemory, key) && keyCount >= MAX_HIVE_MEMORY_KEYS) {
+                    return { action, error: `Shared memory full (max ${MAX_HIVE_MEMORY_KEYS} keys)` };
+                }
+                state.sharedMemory[key] = cappedValue;
                 saveHiveState(state);
                 // Also store in AgentDB for searchable hive memory
                 try {
@@ -935,7 +1003,10 @@ export const hiveMindTools = [
             if (action === 'delete') {
                 if (!key)
                     return { action, error: 'Key required' };
-                const existed = key in state.sharedMemory;
+                if (typeof key !== 'string' || key.length > MAX_HIVE_MEMORY_KEY_LEN || HIVE_RESERVED_KEYS.has(key)) {
+                    return { action, error: 'Invalid key' };
+                }
+                const existed = Object.hasOwn(state.sharedMemory, key);
                 delete state.sharedMemory[key];
                 saveHiveState(state);
                 return {

@@ -200,10 +200,19 @@ export class ClaimService extends EventEmitter {
     await this.loadClaims();
   }
 
+  // Hard cap on claims.json: a file larger than this is malformed or
+  // adversarially crafted (normal claim files are tiny).
+  private static readonly MAX_CLAIMS_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
   private async loadClaims(): Promise<void> {
     const claimsFile = path.join(this.storagePath, 'claims.json');
     if (fs.existsSync(claimsFile)) {
       try {
+        const fileSize = fs.statSync(claimsFile).size;
+        if (fileSize > ClaimService.MAX_CLAIMS_FILE_BYTES) {
+          // Oversized file — skip loading rather than OOM-ing the daemon
+          return;
+        }
         const data = JSON.parse(fs.readFileSync(claimsFile, 'utf-8')) as {
           claims?: Claim[];
         };

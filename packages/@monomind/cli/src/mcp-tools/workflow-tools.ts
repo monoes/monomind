@@ -138,7 +138,12 @@ export const workflowTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadWorkflowStore();
       const template = input.template as string | undefined;
-      const task = input.task as string | undefined;
+      // Cap task description to prevent DoS via unbounded string stored in
+      // workflow record and serialised to disk.
+      const MAX_WORKFLOW_TASK_LEN = 16 * 1024;
+      const rawTask = input.task as string | undefined;
+      const task = typeof rawTask === 'string' && rawTask.length > MAX_WORKFLOW_TASK_LEN
+        ? rawTask.slice(0, MAX_WORKFLOW_TASK_LEN) : rawTask;
       const options = (input.options as Record<string, unknown>) || {};
       const dryRun = options.dryRun as boolean | undefined;
 
@@ -240,7 +245,21 @@ export const workflowTools: MCPTool[] = [
       const store = loadWorkflowStore();
       const workflowId = `workflow-${Date.now()}-${randomBytes(6).toString('hex')}`;
 
-      const steps: WorkflowStep[] = ((input.steps as Array<{name?: string; type?: string; config?: Record<string, unknown>}>) || []).map((s, i) => ({
+      // Cap string fields before storing to disk.
+      const MAX_WF_NAME_LEN = 512;
+      const MAX_WF_DESC_LEN = 16 * 1024;
+      const MAX_WF_STEPS = 500;
+      const rawWfName = input.name as string;
+      const wfName = typeof rawWfName === 'string' && rawWfName.length > MAX_WF_NAME_LEN
+        ? rawWfName.slice(0, MAX_WF_NAME_LEN) : rawWfName;
+      const rawWfDesc = input.description as string;
+      const wfDesc = typeof rawWfDesc === 'string' && rawWfDesc.length > MAX_WF_DESC_LEN
+        ? rawWfDesc.slice(0, MAX_WF_DESC_LEN) : rawWfDesc;
+
+      const rawSteps = (input.steps as Array<{name?: string; type?: string; config?: Record<string, unknown>}>) || [];
+      const cappedSteps = rawSteps.slice(0, MAX_WF_STEPS);
+
+      const steps: WorkflowStep[] = cappedSteps.map((s, i) => ({
         stepId: `step-${i + 1}`,
         name: s.name || `Step ${i + 1}`,
         type: (s.type as WorkflowStep['type']) || 'task',
@@ -250,8 +269,8 @@ export const workflowTools: MCPTool[] = [
 
       const workflow: WorkflowRecord = {
         workflowId,
-        name: input.name as string,
-        description: input.description as string,
+        name: wfName,
+        description: wfDesc,
         steps,
         status: steps.length > 0 ? 'ready' : 'draft',
         currentStep: 0,
@@ -422,8 +441,14 @@ export const workflowTools: MCPTool[] = [
       // Sort by creation date (newest first)
       workflows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      // Apply limit
-      const limit = (input.limit as number) || 20;
+      // Apply limit — cap to 1 000 to prevent returning the full (potentially
+      // large) in-memory workflow store in one response, which could cause OOM
+      // or excessive serialisation latency.
+      const MAX_WORKFLOW_LIMIT = 1_000;
+      const rawLimit = typeof input.limit === 'number' ? input.limit : 20;
+      const limit = Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), MAX_WORKFLOW_LIMIT)
+        : 20;
       const totalCount = workflows.length;
       workflows = workflows.slice(0, limit);
 

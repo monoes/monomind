@@ -88,7 +88,8 @@ module.exports = {
     var neuralEnabled = true;
     try {
       var settingsPath = path.join(CWD, '.claude', 'settings.json');
-      if (fs.existsSync(settingsPath)) {
+      var MAX_SETTINGS = 256 * 1024; // 256 KiB
+      if (fs.existsSync(settingsPath) && (function() { try { return fs.statSync(settingsPath).size <= MAX_SETTINGS; } catch(_) { return false; } }())) {
         var settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         if (settingsData.monomind && settingsData.monomind.neural && settingsData.monomind.neural.enabled === false) {
           neuralEnabled = false;
@@ -215,7 +216,8 @@ module.exports = {
         fs.writeFileSync(updateCheckFile, JSON.stringify({ timestamp: new Date().toISOString() }), 'utf-8');
         try {
           var localPkg = path.join(CWD, 'packages/@monomind/cli/package.json');
-          if (fs.existsSync(localPkg)) {
+          var MAX_PKG = 64 * 1024; // 64 KiB
+          if (fs.existsSync(localPkg) && (function() { try { return fs.statSync(localPkg).size <= MAX_PKG; } catch(_) { return false; } }())) {
             var localVer = JSON.parse(fs.readFileSync(localPkg, 'utf-8')).version;
             if (localVer) {
               var spawnFn = require('child_process').spawn;
@@ -225,9 +227,9 @@ module.exports = {
               });
               child.on('error', function() {});
               var out = '';
-              child.stdout.on('data', function(d) { out += d; });
+              child.stdout.on('data', function(d) { if (out.length < 256) out += d; });
               child.on('close', function() {
-                var current = out.trim();
+                var current = out.trim().slice(0, 64);
                 var pendingUpdatePath = path.join(CWD, '.monomind', 'pending-update.json');
                 if (current && current !== localVer) {
                   try {
@@ -248,7 +250,8 @@ module.exports = {
       }
       try {
         var pendingUpdate = path.join(CWD, '.monomind', 'pending-update.json');
-        if (fs.existsSync(pendingUpdate)) {
+        var MAX_UPD = 4096; // 4 KiB
+        if (fs.existsSync(pendingUpdate) && (function() { try { return fs.statSync(pendingUpdate).size <= MAX_UPD; } catch(_) { return false; } }())) {
           var upd = JSON.parse(fs.readFileSync(pendingUpdate, 'utf-8'));
           if (upd && upd.from && upd.to && upd.from !== upd.to) {
             console.log('[UPDATE_AVAILABLE] @monomind/cli ' + upd.from + ' → ' + upd.to + ' (run: npx monomind update)');
@@ -263,16 +266,22 @@ module.exports = {
       var daemonRunning = false;
       if (fs.existsSync(daemonPid)) {
         try {
-          var pid = parseInt(fs.readFileSync(daemonPid, 'utf-8').trim(), 10);
-          process.kill(pid, 0);
-          daemonRunning = true;
+          var MAX_PID = 32; // 32 bytes — enough for any pid
+          if (fs.statSync(daemonPid).size <= MAX_PID) {
+            var pid = parseInt(fs.readFileSync(daemonPid, 'utf-8').trim(), 10);
+            if (Number.isInteger(pid) && pid > 0 && pid < 4194304) {
+              process.kill(pid, 0);
+              daemonRunning = true;
+            }
+          }
         } catch (e) { /* pid stale */ }
       }
       if (!daemonRunning) {
         var daemonCfg = {};
         try {
           var cfgPath = path.join(CWD, 'monomind.config.json');
-          if (fs.existsSync(cfgPath)) daemonCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8')).daemon || {};
+          var MAX_CFG = 256 * 1024; // 256 KiB
+          if (fs.existsSync(cfgPath) && fs.statSync(cfgPath).size <= MAX_CFG) daemonCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8')).daemon || {};
         } catch (e) {}
         if (daemonCfg.autoStart) {
           var spawn = require('child_process').spawn;
@@ -309,7 +318,8 @@ module.exports = {
     // Registry Surfacing (SR-001) — show agent count.
     try {
       var regPath = path.join(CWD, '.monomind', 'registry.json');
-      if (fs.existsSync(regPath)) {
+      var MAX_REG = 512 * 1024; // 512 KiB
+      if (fs.existsSync(regPath) && (function() { try { return fs.statSync(regPath).size <= MAX_REG; } catch(_) { return false; } }())) {
         var reg = JSON.parse(fs.readFileSync(regPath, 'utf-8'));
         var agentCount = (reg.agents || []).length;
         if (agentCount > 0) {
@@ -344,7 +354,7 @@ module.exports = {
     try {
       var dispatchDir = path.join(CWD, '.monomind', 'worker-dispatch');
       if (fs.existsSync(dispatchDir)) {
-        var pendingFiles = fs.readdirSync(dispatchDir).filter(function(f) { return f.startsWith('pending-'); });
+        var pendingFiles = fs.readdirSync(dispatchDir).filter(function(f) { return f.startsWith('pending-'); }).slice(0, 500);
         if (pendingFiles.length > 0) {
           console.log('[WORKER_RESUME] ' + pendingFiles.length + ' worker dispatch(es) pending from prior session');
         }

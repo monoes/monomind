@@ -3,6 +3,7 @@
  * Shared JSON config file persistence with atomic writes and Zod validation
  */
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 /** Config file search paths in priority order */
 const CONFIG_FILENAMES = [
@@ -123,7 +124,7 @@ export class ConfigFileManager {
      * drop the first writer's API key.
      */
     set(cwd, key, value) {
-        const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks', 'neural']);
+        const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
         const topSection = String(key).split('.')[0];
         if (!KNOWN_SET_SECTIONS.has(topSection)) {
             throw new Error(`Unknown config section: "${topSection}". Allowed: ${[...KNOWN_SET_SECTIONS].join(', ')}`);
@@ -181,6 +182,17 @@ export class ConfigFileManager {
     /** Import config from a specific path */
     importFrom(cwd, importPath) {
         const resolved = path.resolve(cwd, importPath);
+        // Guard against path traversal: the resolved path must be within the
+        // project cwd or the user's home directory.  Without this check an
+        // automated script can pass "/etc/passwd" or "../../.env" and exfiltrate
+        // files outside the project tree.
+        const projectRoot = path.resolve(cwd);
+        const home = os.homedir();
+        const isUnderProject = resolved === projectRoot || resolved.startsWith(projectRoot + path.sep);
+        const isUnderHome = resolved === home || resolved.startsWith(home + path.sep);
+        if (!isUnderProject && !isUnderHome) {
+            throw new Error(`Import path must be within the project directory or home directory: ${resolved}`);
+        }
         if (!fs.existsSync(resolved)) {
             throw new Error(`Import file not found: ${resolved}`);
         }
@@ -199,7 +211,7 @@ export class ConfigFileManager {
         // KNOWN_SECTIONS only validates top-level keys, leaving nested
         // {agents:{providers:[{__proto__:{...}}]}} unsanitized.
         const imported = sanitizeConfigObject(importedRaw);
-        const KNOWN_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks']);
+        const KNOWN_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
         for (const key of Object.keys(imported)) {
             if (!KNOWN_SECTIONS.has(key)) {
                 throw new Error(`Unknown config section: "${key}"`);
