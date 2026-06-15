@@ -24,6 +24,10 @@ export interface HybridResult extends RankedResult {
     filePath: string | null;
     label: string;
     score: number;
+    /** First line of the symbol in its source file (1-based, null if unknown). */
+    startLine?: number | null;
+    /** Last line of the symbol in its source file (1-based, null if unknown). */
+    endLine?: number | null;
 }
 /**
  * Run a hybrid BM25 + cosine search.
