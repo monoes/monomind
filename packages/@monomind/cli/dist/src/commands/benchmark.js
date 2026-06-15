@@ -5,7 +5,7 @@
  * @module v1/cli/commands/benchmark
  */
 import { output } from '../output.js';
-import { writeFileSync, renameSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { writeFileSync, renameSync, readFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { BenchmarkRunner } from '../benchmarks/benchmark-runner.js';
 // ============================================================================
@@ -63,9 +63,12 @@ const neuralCommand = {
         { command: 'monomind benchmark neural -d 768 -n 5000', description: 'Higher dimension, more vectors' },
     ],
     action: async (ctx) => {
-        const iterations = parseInt(ctx.flags.iterations || '100', 10);
-        const dimension = parseInt(ctx.flags.dimension || '384', 10);
-        const numVectors = parseInt(ctx.flags.vectors || '1000', 10);
+        const iterationsRaw = parseInt(ctx.flags.iterations || '100', 10);
+        const iterations = Number.isFinite(iterationsRaw) ? Math.max(1, Math.min(iterationsRaw, 10_000)) : 100;
+        const dimensionRaw = parseInt(ctx.flags.dimension || '384', 10);
+        const dimension = Number.isFinite(dimensionRaw) ? Math.max(1, Math.min(dimensionRaw, 4096)) : 384;
+        const numVectorsRaw = parseInt(ctx.flags.vectors || '1000', 10);
+        const numVectors = Number.isFinite(numVectorsRaw) ? Math.max(1, Math.min(numVectorsRaw, 100_000)) : 1000;
         const outputFormat = ctx.flags.output || 'text';
         output.writeln();
         output.writeln(output.bold('Neural Operations Benchmark'));
@@ -228,7 +231,8 @@ const memoryCommand = {
         { command: 'monomind benchmark memory', description: 'Run memory benchmarks' },
     ],
     action: async (ctx) => {
-        const iterations = parseInt(ctx.flags.iterations || '100', 10);
+        const iterationsRaw = parseInt(ctx.flags.iterations || '100', 10);
+        const iterations = Number.isFinite(iterationsRaw) ? Math.max(1, Math.min(iterationsRaw, 10_000)) : 100;
         const outputFormat = ctx.flags.output || 'text';
         output.writeln();
         output.writeln(output.bold('Memory Operations Benchmark'));
@@ -384,7 +388,15 @@ const allCommand = {
             if (!existsSync(resultsDir)) {
                 mkdirSync(resultsDir, { recursive: true });
             }
-            const savePath = saveFile.startsWith('/') ? saveFile : join(resultsDir, saveFile);
+            // Path traversal guard: resolve within resultsDir regardless of whether saveFile is absolute
+            const { resolve: resolvePath, basename } = await import('node:path');
+            const safeName = basename(saveFile);
+            const savePath = resolvePath(resultsDir, safeName);
+            const resolvedResultsDir = resolvePath(resultsDir);
+            if (!savePath.startsWith(resolvedResultsDir + '/') && savePath !== resolvedResultsDir) {
+                output.writeln(output.error(`Save path must be within ${resultsDir}`));
+                return { success: false, message: 'Invalid save path' };
+            }
             const saveTmp2 = savePath + '.tmp';
             writeFileSync(saveTmp2, JSON.stringify({
                 timestamp: new Date().toISOString(),
@@ -416,14 +428,30 @@ const regressionCommand = {
         { command: 'monomind benchmark regression -b agent-spawn -a output.txt --pin-baseline', description: 'Evaluate and pin results as new baseline' },
     ],
     action: async (ctx) => {
-        const suiteDir = ctx.flags.suite || '.monomind/benchmarks/definitions';
+        const suiteDirRaw = ctx.flags.suite || '.monomind/benchmarks/definitions';
         const benchmarkId = ctx.flags['benchmark-id'];
         const agentOutputFile = ctx.flags['agent-output'];
         const pinBaseline = ctx.flags['pin-baseline'] === true;
         const outputFormat = ctx.flags.output || 'text';
+        // Validate benchmarkId to prevent path traversal in baseline file names
+        if (benchmarkId !== undefined) {
+            if (!/^[a-zA-Z0-9_-]{1,128}$/.test(benchmarkId)) {
+                output.writeln(output.error('Invalid benchmark-id: must contain only alphanumeric, dash, or underscore characters (max 128).'));
+                return { success: false, message: 'Invalid benchmark-id' };
+            }
+        }
         const runner = new BenchmarkRunner();
         const baselinesDir = join(process.cwd(), '.monomind', 'benchmarks', 'baselines');
-        const definitions = runner.loadBenchmarks(join(process.cwd(), suiteDir));
+        // Path traversal guard for suiteDir
+        const { resolve: resolvePath2 } = await import('node:path');
+        const projectRoot = resolvePath2(process.cwd());
+        const resolvedSuiteDir = resolvePath2(process.cwd(), suiteDirRaw);
+        if (!resolvedSuiteDir.startsWith(projectRoot + '/') && resolvedSuiteDir !== projectRoot) {
+            output.writeln(output.error(`Suite directory must be within the project: ${projectRoot}`));
+            return { success: false, message: 'Invalid suite directory' };
+        }
+        const suiteDir = suiteDirRaw;
+        const definitions = runner.loadBenchmarks(resolvedSuiteDir);
         if (definitions.length === 0) {
             output.writeln(output.dim(`No benchmark definitions found in ${suiteDir}`));
             output.writeln(output.dim('Create JSON files there to define quality benchmarks.'));
@@ -446,6 +474,15 @@ const regressionCommand = {
             output.writeln(output.error(`Agent output file not found: ${agentOutputFile}`));
             return { success: false, message: 'Agent output file not found' };
         }
+        const MAX_AGENT_OUTPUT_BYTES = 10 * 1024 * 1024; // 10 MB
+        try {
+            const agentOutputStat = statSync(agentOutputFile);
+            if (agentOutputStat.size > MAX_AGENT_OUTPUT_BYTES) {
+                output.writeln(output.error(`Agent output file too large: ${agentOutputFile} (max 10 MB)`));
+                return { success: false, message: 'Agent output file too large' };
+            }
+        }
+        catch { /* existsSync already passed; ignore stat failure */ }
         const agentOutput = readFileSync(agentOutputFile, 'utf-8');
         const targetDefs = benchmarkId
             ? definitions.filter((d) => d.benchmarkId === benchmarkId)
@@ -473,8 +510,14 @@ const regressionCommand = {
             output.writeln();
         }
         // Baseline comparison
+        const MAX_BASELINE_BYTES = 5 * 1024 * 1024; // 5 MB
         const baselinePath = join(baselinesDir, `${benchmarkId ?? 'all'}.json`);
         if (existsSync(baselinePath)) {
+            const baselineStat = statSync(baselinePath);
+            if (baselineStat.size > MAX_BASELINE_BYTES) {
+                output.writeln(output.error(`Baseline file too large (max 5 MB)`));
+                return { success: false, message: 'Baseline file too large' };
+            }
             const baseline = JSON.parse(readFileSync(baselinePath, 'utf-8'));
             const hasRegression = runner.detectRegression(results, baseline);
             if (hasRegression) {

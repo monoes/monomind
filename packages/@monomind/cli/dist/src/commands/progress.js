@@ -158,7 +158,8 @@ const watchCommand = {
         },
     ],
     action: async (ctx) => {
-        const interval = ctx.flags.interval || 5000;
+        const rawInterval = ctx.flags.interval || 5000;
+        const interval = Number.isFinite(rawInterval) ? Math.max(500, Math.min(rawInterval, 3_600_000)) : 5000; // min 500ms, max 1h
         output.writeln(output.highlight(`Watching progress (interval: ${interval}ms). Press Ctrl+C to stop.`));
         output.writeln();
         let lastProgress = 0;

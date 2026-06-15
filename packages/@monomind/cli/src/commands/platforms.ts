@@ -5,8 +5,8 @@
  * github.com/monoes/monomind
  */
 
-import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { existsSync, writeFileSync, mkdirSync, readFileSync, statSync } from 'fs';
+import { join, dirname, resolve } from 'path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 
@@ -52,17 +52,66 @@ ${MONOMIND_BLOCK_END}
 `;
 }
 
+/**
+ * Maximum size for a platform config file we will read or append to.
+ * Platform config files (CLAUDE.md, .cursorrules, etc.) are never legitimately
+ * larger than a few hundred KB — a 1 MB cap prevents OOM when the flag points
+ * at an enormous file such as a binary or a DB dump.
+ */
+const MAX_CONFIG_FILE_BYTES = 1 * 1024 * 1024; // 1 MB
+
+/**
+ * Resolve and validate the user-supplied --path flag.
+ *
+ * SECURITY: the flag is attacker-controlled. Without validation an adversary can
+ *   pass --path /etc to overwrite system files, or --path "../../.." to escape
+ *   the project. We resolve to an absolute path and reject anything that isn't
+ *   a directory (or doesn't exist yet under a parent that does exist).
+ *   We do NOT further restrict the path to cwd because a legitimate use case is
+ *   "install into another repo at an absolute path", but we do require the
+ *   resolved path to be a directory (or the parent to exist) so that the caller
+ *   cannot aim the flag at a file.
+ */
+function resolveRepoPath(rawPath: string): string {
+  // Prevent shell-injection via null bytes or unusual separators
+  if (rawPath.includes('\0')) throw new Error('Invalid path: contains null byte');
+  const resolved = resolve(rawPath);
+  // If the path exists it must be a directory
+  if (existsSync(resolved)) {
+    const st = statSync(resolved);
+    if (!st.isDirectory()) throw new Error(`--path must be a directory, got a file: ${resolved}`);
+  }
+  return resolved;
+}
+
+/**
+ * Validate that fullPath is contained within repoRoot (path traversal defence).
+ * relPath comes from our own PLATFORM_CONFIG_FILES map, but we validate anyway
+ * to guard against future changes that introduce dynamic paths.
+ */
+function assertWithinRoot(fullPath: string, repoRoot: string): void {
+  if (!fullPath.startsWith(repoRoot + '/') && fullPath !== repoRoot) {
+    throw new Error(`Path escapes repository root: ${fullPath}`);
+  }
+}
+
 function installPlatform(platform: Platform, repoPath: string): string[] {
   const files = PLATFORM_CONFIG_FILES[platform];
   const instructions = getMonomindInstructions();
   const written: string[] = [];
 
   for (const relPath of files) {
-    const fullPath = join(repoPath, relPath);
+    const fullPath = resolve(join(repoPath, relPath));
+    assertWithinRoot(fullPath, repoPath);
     const dir = dirname(fullPath);
     mkdirSync(dir, { recursive: true });
 
     if (existsSync(fullPath)) {
+      // Guard against reading oversized files (e.g. the flag points at a data file)
+      const fileStat = statSync(fullPath);
+      if (fileStat.size > MAX_CONFIG_FILE_BYTES) {
+        throw new Error(`Config file too large to read (${fileStat.size} bytes): ${relPath}`);
+      }
       const existing = readFileSync(fullPath, 'utf8');
       if (existing.includes(MONOMIND_BLOCK_START)) continue;
       writeFileSync(fullPath, existing + '\n' + instructions, 'utf8');
@@ -83,8 +132,14 @@ function uninstallPlatform(platform: Platform, repoPath: string): string[] {
   const cleaned: string[] = [];
 
   for (const relPath of files) {
-    const fullPath = join(repoPath, relPath);
+    const fullPath = resolve(join(repoPath, relPath));
+    assertWithinRoot(fullPath, repoPath);
     if (!existsSync(fullPath)) continue;
+    // Guard against reading oversized files
+    const fileStat = statSync(fullPath);
+    if (fileStat.size > MAX_CONFIG_FILE_BYTES) {
+      throw new Error(`Config file too large to read (${fileStat.size} bytes): ${relPath}`);
+    }
     const content = readFileSync(fullPath, 'utf8');
     writeFileSync(fullPath, content.replace(blockRe, ''), 'utf8');
     cleaned.push(relPath);
@@ -96,7 +151,13 @@ function uninstallPlatform(platform: Platform, repoPath: string): string[] {
 async function handleInstall(ctx: CommandContext): Promise<CommandResult> {
   const platform = ctx.flags['platform'] as string | undefined;
   const all = ctx.flags['all'] as boolean | undefined;
-  const repoPath = (ctx.flags['path'] as string | undefined) ?? '.';
+  let repoPath: string;
+  try {
+    repoPath = resolveRepoPath((ctx.flags['path'] as string | undefined) ?? '.');
+  } catch (err) {
+    output.error(`Invalid --path: ${err instanceof Error ? err.message : String(err)}`);
+    return { success: false, exitCode: 1 };
+  }
 
   if (!platform && !all) {
     output.error('Specify --platform <name> or --all');
@@ -117,7 +178,13 @@ async function handleInstall(ctx: CommandContext): Promise<CommandResult> {
 
   let totalFiles = 0;
   for (const p of targets) {
-    const written = installPlatform(p, repoPath);
+    let written: string[];
+    try {
+      written = installPlatform(p, repoPath);
+    } catch (err) {
+      output.error(`[${p}] Install failed: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
     if (written.length > 0) {
       output.success(`[${p}] Installed Monograph context → ${written.join(', ')}`);
       totalFiles += written.length;
@@ -133,7 +200,13 @@ async function handleInstall(ctx: CommandContext): Promise<CommandResult> {
 async function handleUninstall(ctx: CommandContext): Promise<CommandResult> {
   const platform = ctx.flags['platform'] as string | undefined;
   const all = ctx.flags['all'] as boolean | undefined;
-  const repoPath = (ctx.flags['path'] as string | undefined) ?? '.';
+  let repoPath: string;
+  try {
+    repoPath = resolveRepoPath((ctx.flags['path'] as string | undefined) ?? '.');
+  } catch (err) {
+    output.error(`Invalid --path: ${err instanceof Error ? err.message : String(err)}`);
+    return { success: false, exitCode: 1 };
+  }
 
   if (!platform && !all) {
     output.error('Specify --platform <name> or --all');
@@ -154,7 +227,13 @@ async function handleUninstall(ctx: CommandContext): Promise<CommandResult> {
 
   let totalFiles = 0;
   for (const p of targets) {
-    const cleaned = uninstallPlatform(p, repoPath);
+    let cleaned: string[];
+    try {
+      cleaned = uninstallPlatform(p, repoPath);
+    } catch (err) {
+      output.error(`[${p}] Uninstall failed: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
     if (cleaned.length > 0) {
       output.success(`[${p}] Removed Monograph context from ${cleaned.join(', ')}`);
       totalFiles += cleaned.length;

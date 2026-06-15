@@ -511,6 +511,11 @@ const editCommand = {
             output.printError(`File not found: ${filePath}`);
             return { success: false, exitCode: 1 };
         }
+        const MAX_MEMORY_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+        if (fs.statSync(filePath).size > MAX_MEMORY_FILE_BYTES) {
+            output.printError(`Memory file too large (> 50 MB): ${filePath}`);
+            return { success: false, exitCode: 1 };
+        }
         let entries;
         try {
             const raw = fs.readFileSync(filePath, 'utf8');
@@ -761,6 +766,11 @@ const deleteCommand = {
             : path.join(process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl');
         if (!fs.existsSync(filePath)) {
             output.printError(`File not found: ${filePath}`);
+            return { success: false, exitCode: 1 };
+        }
+        const MAX_MEMORY_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+        if (fs.statSync(filePath).size > MAX_MEMORY_FILE_BYTES) {
+            output.printError(`Memory file too large (> 50 MB): ${filePath}`);
             return { success: false, exitCode: 1 };
         }
         let entries;
