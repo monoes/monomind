@@ -89,7 +89,13 @@ export const swarmTools: MCPTool[] = [
     handler: async (input) => {
       const topology = (input.topology as string) || 'hierarchical-mesh';
       const maxAgents = Math.min(Math.max((input.maxAgents as number) || 8, 1), 50);
-      const strategy = (input.strategy as string) || 'specialized';
+      // Cap strategy and config string fields: all are persisted in the swarm
+      // JSON store.  topology is already validated against VALID_TOPOLOGIES so
+      // an invalid long value is rejected; the others have no validation.
+      const MAX_SWARM_FIELD_LEN = 256;
+      const rawStrategy = (input.strategy as string) || 'specialized';
+      const strategy = typeof rawStrategy === 'string' && rawStrategy.length > MAX_SWARM_FIELD_LEN
+        ? rawStrategy.slice(0, MAX_SWARM_FIELD_LEN) : rawStrategy;
       const config = (input.config || {}) as Record<string, unknown>;
 
       if (!VALID_TOPOLOGIES.has(topology)) {
@@ -113,9 +119,15 @@ export const swarmTools: MCPTool[] = [
           topology,
           maxAgents,
           strategy,
-          communicationProtocol: (config.communicationProtocol as string) || 'message-bus',
+          communicationProtocol: (() => {
+            const raw = (config.communicationProtocol as string) || 'message-bus';
+            return typeof raw === 'string' && raw.length > MAX_SWARM_FIELD_LEN ? raw.slice(0, MAX_SWARM_FIELD_LEN) : raw;
+          })(),
           autoScaling: (config.autoScaling as boolean) ?? true,
-          consensusMechanism: (config.consensusMechanism as string) || 'majority',
+          consensusMechanism: (() => {
+            const raw = (config.consensusMechanism as string) || 'majority';
+            return typeof raw === 'string' && raw.length > MAX_SWARM_FIELD_LEN ? raw.slice(0, MAX_SWARM_FIELD_LEN) : raw;
+          })(),
         },
         createdAt: now,
         updatedAt: now,

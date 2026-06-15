@@ -9,15 +9,17 @@ type MetricResult = any;
  * Checks whether the output contains the expected substring.
  */
 export function containsExpected(output: string, config: { expected: string }): MetricResult {
-  const found = output.includes(config.expected);
+  // Cap expected to prevent huge strings from inflating returned objects
+  const expected = typeof config.expected === 'string' ? config.expected.slice(0, 200) : '';
+  const found = output.includes(expected);
   return {
     type: 'contains_expected',
     passed: found,
-    actual: found ? config.expected : null,
-    expected: config.expected,
+    actual: found ? expected : null,
+    expected,
     message: found
-      ? `Output contains expected string "${config.expected}"`
-      : `Output missing expected string "${config.expected}"`,
+      ? `Output contains expected string "${expected}"`
+      : `Output missing expected string "${expected}"`,
   };
 }
 
@@ -43,16 +45,22 @@ export function lengthRange(output: string, config: { min: number; max: number }
  */
 export function noHallucination(output: string, config: { forbidden: string[] }): MetricResult {
   const lowerOutput = output.toLowerCase();
-  const found = config.forbidden.filter((word) => lowerOutput.includes(word.toLowerCase()));
+  // Cap forbidden array to 200 entries to prevent unbounded O(n) scan
+  const forbidden = Array.isArray(config.forbidden) ? config.forbidden.slice(0, 200) : [];
+  const found = forbidden.filter((word) =>
+    typeof word === 'string' && lowerOutput.includes(word.toLowerCase()),
+  );
   const passed = found.length === 0;
+  // Truncate reflected words to avoid inflated messages
+  const truncatedFound = found.map((w) => w.slice(0, 50));
   return {
     type: 'no_hallucination',
     passed,
-    actual: found.length > 0 ? found : null,
+    actual: found.length > 0 ? truncatedFound : null,
     expected: null,
     message: passed
       ? 'No forbidden words found in output'
-      : `Forbidden words found: ${found.join(', ')}`,
+      : `Forbidden words found: ${truncatedFound.join(', ')}`,
   };
 }
 
@@ -62,8 +70,13 @@ export function noHallucination(output: string, config: { forbidden: string[] })
 export function jsonValid(output: string): MetricResult {
   let passed = false;
   let parsedType: string | null = null;
+  // Cap output before JSON.parse to prevent OOM on huge strings
+  const MAX_JSON_BYTES = 1 * 1024 * 1024; // 1 MB
+  const bounded = typeof output === 'string' && output.length > MAX_JSON_BYTES
+    ? output.slice(0, MAX_JSON_BYTES)
+    : output;
   try {
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(bounded);
     passed = true;
     parsedType = typeof parsed;
   } catch {

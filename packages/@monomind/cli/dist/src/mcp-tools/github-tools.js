@@ -64,6 +64,21 @@ function runSafe(cmd, args, cwd) {
 function hasGhCli() {
     return run('gh --version') !== null;
 }
+/**
+ * Validate that a MCP input value is a safe positive integer suitable for use
+ * as a GitHub PR/issue number in CLI arguments.  Returns the integer value on
+ * success, or null if the input is missing, non-finite, negative, zero, or
+ * non-integer.  Using this guard before string-interpolating the value into a
+ * command template prevents argument-injection attacks where an MCP client
+ * sends a non-numeric string (e.g. "1 --label evil") that gets split into
+ * extra CLI flags when `run()` tokenises the command on whitespace.
+ */
+function safeGitHubNumber(raw) {
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(n) || n <= 0 || n !== Math.floor(n))
+        return null;
+    return n;
+}
 export const githubTools = [
     {
         name: 'github_repo_analyze',
@@ -179,11 +194,21 @@ export const githubTools = [
                 return { success: true, source: 'local-store', pullRequests: prs, total: prs.length, open: prs.filter(pr => pr.status === 'open').length };
             }
             if (action === 'create') {
+                // Cap PR fields: title/branch/baseBranch are passed as CLI args to gh
+                // (runSafe — no injection risk) and stored in the local JSON store on
+                // disk; body is also stored and can be very large.
+                const MAX_PR_TITLE_LEN = 256;
+                const MAX_PR_BRANCH_LEN = 256;
+                const MAX_PR_BODY_LEN = 64 * 1024; // 64 KB — typical PR body limit
+                const rawPrTitle = input.title || 'New PR';
+                const title = rawPrTitle.length > MAX_PR_TITLE_LEN ? rawPrTitle.slice(0, MAX_PR_TITLE_LEN) : rawPrTitle;
+                const rawHeadBranch = input.branch || run('git rev-parse --abbrev-ref HEAD') || 'feature';
+                const headBranch = rawHeadBranch.length > MAX_PR_BRANCH_LEN ? rawHeadBranch.slice(0, MAX_PR_BRANCH_LEN) : rawHeadBranch;
+                const rawBaseBranch = input.baseBranch || 'main';
+                const baseBranch = rawBaseBranch.length > MAX_PR_BRANCH_LEN ? rawBaseBranch.slice(0, MAX_PR_BRANCH_LEN) : rawBaseBranch;
+                const rawPrBody = input.body || '';
+                const body = rawPrBody.length > MAX_PR_BODY_LEN ? rawPrBody.slice(0, MAX_PR_BODY_LEN) : rawPrBody;
                 if (gh) {
-                    const title = input.title || 'New PR';
-                    const headBranch = input.branch || run('git rev-parse --abbrev-ref HEAD') || 'feature';
-                    const baseBranch = input.baseBranch || 'main';
-                    const body = input.body || '';
                     const result = runSafe('gh', ['pr', 'create', '--title', title, '--base', baseBranch, '--head', headBranch, '--body', body]);
                     if (result) {
                         return { success: true, _real: true, action: 'created', url: result };
@@ -191,15 +216,17 @@ export const githubTools = [
                 }
                 // Fallback: local store
                 const prId = `pr-${Date.now()}`;
-                const pr = { id: prId, title: input.title || 'New PR', status: 'open', branch: input.branch || 'feature', baseBranch: input.baseBranch || 'main', createdAt: new Date().toISOString() };
+                const pr = { id: prId, title, status: 'open', branch: headBranch, baseBranch, createdAt: new Date().toISOString() };
                 store.prs[prId] = pr;
                 saveGitHubStore(store);
                 return { success: true, source: 'local-store', action: 'created', pullRequest: pr };
             }
             if (action === 'review') {
-                const prNumber = input.prNumber;
-                if (gh && prNumber) {
-                    const raw = run(`gh pr view ${prNumber} --json number,title,state,body,additions,deletions,changedFiles,reviews,mergeable,statusCheckRollup`);
+                const prNumber = safeGitHubNumber(input.prNumber);
+                if (!prNumber)
+                    return { success: false, error: 'prNumber is required and must be a positive integer for review.' };
+                if (gh) {
+                    const raw = runSafe('gh', ['pr', 'view', String(prNumber), '--json', 'number,title,state,body,additions,deletions,changedFiles,reviews,mergeable,statusCheckRollup']);
                     if (raw) {
                         try {
                             return { success: true, _real: true, action: 'review', pullRequest: JSON.parse(raw) };
@@ -207,12 +234,14 @@ export const githubTools = [
                         catch { /* fall through */ }
                     }
                 }
-                return { success: false, error: prNumber ? 'gh CLI not available or PR not found. Install gh: https://cli.github.com' : 'prNumber is required for review.' };
+                return { success: false, error: 'gh CLI not available or PR not found. Install gh: https://cli.github.com' };
             }
             if (action === 'merge') {
-                const prNumber = input.prNumber;
-                if (gh && prNumber) {
-                    const result = run(`gh pr merge ${prNumber} --merge`);
+                const prNumber = safeGitHubNumber(input.prNumber);
+                if (!prNumber)
+                    return { success: false, error: 'prNumber is required and must be a positive integer for merge.' };
+                if (gh) {
+                    const result = runSafe('gh', ['pr', 'merge', String(prNumber), '--merge']);
                     if (result !== null) {
                         return { success: true, _real: true, action: 'merged', prNumber, mergedAt: new Date().toISOString() };
                     }
@@ -226,9 +255,11 @@ export const githubTools = [
                 return { success: true, source: 'local-store', action: 'merged', prNumber, mergedAt: new Date().toISOString() };
             }
             if (action === 'close') {
-                const prNumber = input.prNumber;
-                if (gh && prNumber) {
-                    const result = run(`gh pr close ${prNumber}`);
+                const prNumber = safeGitHubNumber(input.prNumber);
+                if (!prNumber)
+                    return { success: false, error: 'prNumber is required and must be a positive integer for close.' };
+                if (gh) {
+                    const result = runSafe('gh', ['pr', 'close', String(prNumber)]);
                     if (result !== null) {
                         return { success: true, _real: true, action: 'closed', prNumber, closedAt: new Date().toISOString() };
                     }
@@ -279,9 +310,20 @@ export const githubTools = [
                 return { success: true, source: 'local-store', issues, total: issues.length, open: issues.filter(i => i.status === 'open').length };
             }
             if (action === 'create') {
-                const title = input.title || 'New Issue';
-                const body = input.body || '';
-                const labels = input.labels || [];
+                // Cap issue fields: stored in local JSON store and passed as CLI args
+                // to gh (runSafe — no injection risk).
+                const MAX_ISSUE_TITLE_LEN = 256;
+                const MAX_ISSUE_BODY_LEN = 64 * 1024;
+                const MAX_ISSUE_LABELS = 20;
+                const MAX_ISSUE_LABEL_LEN = 128;
+                const rawIssueTitle = input.title || 'New Issue';
+                const title = rawIssueTitle.length > MAX_ISSUE_TITLE_LEN ? rawIssueTitle.slice(0, MAX_ISSUE_TITLE_LEN) : rawIssueTitle;
+                const rawIssueBody = input.body || '';
+                const body = rawIssueBody.length > MAX_ISSUE_BODY_LEN ? rawIssueBody.slice(0, MAX_ISSUE_BODY_LEN) : rawIssueBody;
+                const rawLabels = input.labels || [];
+                const labels = Array.isArray(rawLabels)
+                    ? rawLabels.slice(0, MAX_ISSUE_LABELS).map(l => typeof l === 'string' && l.length > MAX_ISSUE_LABEL_LEN ? l.slice(0, MAX_ISSUE_LABEL_LEN) : l)
+                    : [];
                 if (gh) {
                     const issueArgs = ['issue', 'create', '--title', title, '--body', body];
                     if (labels.length > 0)
@@ -301,8 +343,12 @@ export const githubTools = [
                 const issueNumber = input.issueNumber;
                 if (gh && issueNumber) {
                     const editArgs = ['issue', 'edit', String(issueNumber)];
-                    if (input.title)
-                        editArgs.push('--title', input.title);
+                    // Cap title and labels to prevent inflating args and local store
+                    const MAX_UPDATE_TITLE_LEN = 256;
+                    if (input.title) {
+                        const t = input.title;
+                        editArgs.push('--title', t.length > MAX_UPDATE_TITLE_LEN ? t.slice(0, MAX_UPDATE_TITLE_LEN) : t);
+                    }
                     if (input.labels)
                         editArgs.push('--add-label', input.labels.join(','));
                     if (editArgs.length > 3) {
@@ -313,8 +359,10 @@ export const githubTools = [
                 }
                 const issueKey = Object.keys(store.issues).find(k => k.includes(String(issueNumber)));
                 if (issueKey && store.issues[issueKey]) {
-                    if (input.title)
-                        store.issues[issueKey].title = input.title;
+                    if (input.title) {
+                        const t = input.title;
+                        store.issues[issueKey].title = t.length > 256 ? t.slice(0, 256) : t;
+                    }
                     if (input.labels)
                         store.issues[issueKey].labels = input.labels;
                     saveGitHubStore(store);
@@ -322,9 +370,11 @@ export const githubTools = [
                 return { success: true, source: 'local-store', action: 'updated', issueNumber };
             }
             if (action === 'close') {
-                const issueNumber = input.issueNumber;
-                if (gh && issueNumber) {
-                    const result = run(`gh issue close ${issueNumber}`);
+                const issueNumber = safeGitHubNumber(input.issueNumber);
+                if (!issueNumber)
+                    return { success: false, error: 'issueNumber is required and must be a positive integer for close.' };
+                if (gh) {
+                    const result = runSafe('gh', ['issue', 'close', String(issueNumber)]);
                     if (result !== null)
                         return { success: true, _real: true, action: 'closed', issueNumber, closedAt: new Date().toISOString() };
                 }

@@ -129,6 +129,7 @@ export declare class ClaimService extends EventEmitter {
     private eventLog;
     constructor(projectRoot: string, config?: Partial<ClaimServiceConfig>);
     initialize(): Promise<void>;
+    private static readonly MAX_CLAIMS_FILE_BYTES;
     private loadClaims;
     private _saveQueue;
     private saveClaims;

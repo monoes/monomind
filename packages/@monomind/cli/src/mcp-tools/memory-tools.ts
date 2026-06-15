@@ -58,6 +58,10 @@ function ensureMemoryDir(): void {
 const MAX_KEY_LENGTH = 1024;
 const MAX_VALUE_SIZE = 1024 * 1024; // 1MB
 const MAX_QUERY_LENGTH = 4096;
+const MAX_NAMESPACE_LENGTH = 256;
+const MAX_AGENT_ID_LENGTH = 256;
+const MAX_TAGS_COUNT = 50;
+const MAX_TAG_LENGTH = 256;
 
 function validateMemoryInput(key?: string, value?: string, query?: string): void {
   if (key && key.length > MAX_KEY_LENGTH) {
@@ -207,10 +211,16 @@ export const memoryTools: MCPTool[] = [
       const { storeEntry } = await getMemoryFunctions();
 
       const key = input.key as string;
-      const namespace = (input.namespace as string) || 'default';
+      const rawNamespace = (input.namespace as string) || 'default';
+      const namespace = typeof rawNamespace === 'string' && rawNamespace.length > MAX_NAMESPACE_LENGTH
+        ? rawNamespace.slice(0, MAX_NAMESPACE_LENGTH) : rawNamespace;
       const rawValue = input.value;
       const value = typeof rawValue === 'string' ? rawValue : (rawValue !== undefined ? JSON.stringify(rawValue) : '');
-      const tags = (input.tags as string[]) || [];
+      const rawTags = (input.tags as string[]) || [];
+      // Cap tags count and individual tag length to prevent store inflation
+      const tags = rawTags.slice(0, MAX_TAGS_COUNT).map(t =>
+        typeof t === 'string' && t.length > MAX_TAG_LENGTH ? t.slice(0, MAX_TAG_LENGTH) : t
+      );
       const ttl = input.ttl as number | undefined;
       const upsert = (input.upsert as boolean) || false;
 
@@ -280,8 +290,12 @@ export const memoryTools: MCPTool[] = [
       const { getEntry } = await getMemoryFunctions();
 
       const key = input.key as string;
-      const namespace = (input.namespace as string) || 'default';
-      const agentId = input.agentId as string | undefined;
+      const rawNs = (input.namespace as string) || 'default';
+      const namespace = typeof rawNs === 'string' && rawNs.length > MAX_NAMESPACE_LENGTH
+        ? rawNs.slice(0, MAX_NAMESPACE_LENGTH) : rawNs;
+      const rawAgentId = input.agentId as string | undefined;
+      const agentId = typeof rawAgentId === 'string' && rawAgentId.length > MAX_AGENT_ID_LENGTH
+        ? rawAgentId.slice(0, MAX_AGENT_ID_LENGTH) : rawAgentId;
 
       validateMemoryInput(key);
 
@@ -347,7 +361,9 @@ export const memoryTools: MCPTool[] = [
       const { searchEntries } = await getMemoryFunctions();
 
       const query = input.query as string;
-      const namespace = (input.namespace as string) || 'default';
+      const rawSearchNs = (input.namespace as string) || 'default';
+      const namespace = typeof rawSearchNs === 'string' && rawSearchNs.length > MAX_NAMESPACE_LENGTH
+        ? rawSearchNs.slice(0, MAX_NAMESPACE_LENGTH) : rawSearchNs;
       const limit = Math.min(Math.max((input.limit as number) || 10, 1), 1000);
       const threshold = (input.threshold as number) || 0.3;
 
@@ -416,7 +432,9 @@ export const memoryTools: MCPTool[] = [
       const { deleteEntry } = await getMemoryFunctions();
 
       const key = input.key as string;
-      const namespace = (input.namespace as string) || 'default';
+      const rawDelNs = (input.namespace as string) || 'default';
+      const namespace = typeof rawDelNs === 'string' && rawDelNs.length > MAX_NAMESPACE_LENGTH
+        ? rawDelNs.slice(0, MAX_NAMESPACE_LENGTH) : rawDelNs;
 
       validateMemoryInput(key);
 
@@ -458,7 +476,9 @@ export const memoryTools: MCPTool[] = [
       await ensureInitialized();
       const { listEntries } = await getMemoryFunctions();
 
-      const namespace = input.namespace as string | undefined;
+      const rawListNs = input.namespace as string | undefined;
+      const namespace = typeof rawListNs === 'string' && rawListNs.length > MAX_NAMESPACE_LENGTH
+        ? rawListNs.slice(0, MAX_NAMESPACE_LENGTH) : rawListNs;
       const limit = Math.min(Math.max((input.limit as number) || 50, 1), 1000);
       const offset = (input.offset as number) || 0;
 

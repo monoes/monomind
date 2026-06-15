@@ -7,15 +7,38 @@ import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as semver from 'semver';
+import { UpdateCheckResult } from './checker.js';
+import { validateUpdate, ValidationResult } from './validator.js';
+
+// Inline semver shim — avoids external dependency (semver is not in package.json)
+const semver = {
+  valid: (v: string | null | undefined): string | null => /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
+};
+
+/**
+ * Validate a npm package name.
+ * Allows scoped (@scope/name) and unscoped names; rejects path-traversal,
+ * shell metacharacters, and names that are too long to be legitimate.
+ * See https://docs.npmjs.com/cli/v9/configuring-npm/package-json#name
+ */
+function isValidPackageName(name: string): boolean {
+  if (typeof name !== 'string' || name.length === 0 || name.length > 214) return false;
+  // Scoped: @scope/name — both parts: lowercase alnum + hyphens + underscores + dots
+  if (name.startsWith('@')) {
+    return /^@[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*$/.test(name);
+  }
+  // Unscoped: must not start with . or _ (legacy rule)
+  return /^[a-z0-9][a-z0-9_.-]*$/.test(name);
+}
+
+/** Max bytes we will read from the on-disk update history file. */
+const MAX_HISTORY_FILE_BYTES = 1 * 1024 * 1024; // 1 MB
 
 function execFileAsync(cmd: string, args: string[]): Promise<void> {
   return new Promise<void>((resolve, reject) =>
     execFile(cmd, args, (err) => (err ? reject(err) : resolve()))
   );
 }
-import { UpdateCheckResult } from './checker.js';
-import { validateUpdate, ValidationResult } from './validator.js';
 
 export interface UpdateHistoryEntry {
   timestamp: string;
@@ -48,8 +71,24 @@ function ensureDir(): void {
 export function loadHistory(): UpdateHistoryEntry[] {
   try {
     if (fs.existsSync(HISTORY_FILE)) {
+      // Guard against a bloated or attacker-crafted history file causing OOM.
+      const stat = fs.statSync(HISTORY_FILE);
+      if (stat.size > MAX_HISTORY_FILE_BYTES) {
+        return [];
+      }
       const content = fs.readFileSync(HISTORY_FILE, 'utf-8');
-      return JSON.parse(content) as UpdateHistoryEntry[];
+      const raw = JSON.parse(content);
+      if (!Array.isArray(raw)) return [];
+      // Sanitize each entry: reject any entry whose package name or version
+      // fails validation so that a tampered history file cannot inject
+      // arbitrary arguments into a subsequent npm install via rollbackUpdate().
+      return raw.filter((e): e is UpdateHistoryEntry => {
+        if (typeof e !== 'object' || e === null) return false;
+        if (typeof e.package !== 'string' || !isValidPackageName(e.package)) return false;
+        if (typeof e.fromVersion !== 'string' || !semver.valid(e.fromVersion)) return false;
+        if (typeof e.toVersion !== 'string' || !semver.valid(e.toVersion)) return false;
+        return true;
+      });
     }
   } catch {
     // Corrupted file
@@ -108,6 +147,11 @@ export async function executeUpdate(
     // Execute npm install — use execFile to avoid shell injection
     const pkg = update.package;
     const version = update.latestVersion;
+    // Validate both package name and version before constructing the npm arg
+    // to prevent argument injection via a crafted UpdateCheckResult.
+    if (!isValidPackageName(pkg)) {
+      throw new Error(`Invalid package name: ${pkg}`);
+    }
     if (!semver.valid(version)) {
       throw new Error(`Invalid version: ${version}`);
     }

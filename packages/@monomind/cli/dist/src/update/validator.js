@@ -6,9 +6,33 @@
 const semver = {
     valid: (v) => /^\d+\.\d+\.\d+/.test(v || '') ? v : null,
     major: (v) => parseInt((v || '0').split('.')[0], 10),
-    gt: (a, b) => { const [aMaj,aMin,aPat]=(a||'0').split('.').map(n=>parseInt(n,10)||0); const [bMaj,bMin,bPat]=(b||'0').split('.').map(n=>parseInt(n,10)||0); return aMaj!==bMaj?aMaj>bMaj:aMin!==bMin?aMin>bMin:aPat>bPat; },
-    lt: (a, b) => { const [aMaj,aMin,aPat]=(a||'0').split('.').map(n=>parseInt(n,10)||0); const [bMaj,bMin,bPat]=(b||'0').split('.').map(n=>parseInt(n,10)||0); return aMaj!==bMaj?aMaj<bMaj:aMin!==bMin?aMin<bMin:aPat<bPat; },
+    gt: (a, b) => {
+        const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
+        const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+        return aMaj !== bMaj ? aMaj > bMaj : aMin !== bMin ? aMin > bMin : aPat > bPat;
+    },
+    lt: (a, b) => {
+        const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
+        const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+        return aMaj !== bMaj ? aMaj < bMaj : aMin !== bMin ? aMin < bMin : aPat < bPat;
+    },
 };
+// Maximum number of updates accepted in a single validateBulkUpdate call.
+// Without this cap a caller can DoS the validator by passing thousands of
+// update entries — each entry triggers validateUpdate which iterates over
+// COMPATIBILITY_MATRIX and BREAKING_CHANGES.
+const MAX_BULK_UPDATES = 50;
+// Version strings must look like semver (major.minor.patch with optional pre-release)
+// before we use them in string interpolation or comparisons.
+const SEMVER_RE = /^\d+\.\d+\.\d+(-[\w.]+)?(\+[\w.]+)?$/;
+// Package names: scoped (@scope/name) or plain, no shell-special chars.
+const PKG_NAME_RE = /^(@[a-zA-Z0-9][a-zA-Z0-9_.-]*\/)?[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+function isSafeVersion(v) {
+    return typeof v === 'string' && v.length <= 64 && SEMVER_RE.test(v);
+}
+function isSafePackageName(p) {
+    return typeof p === 'string' && p.length <= 200 && PKG_NAME_RE.test(p);
+}
 // Known compatibility matrix between monomind packages
 const COMPATIBILITY_MATRIX = {
     '@monomind/cli': {
@@ -44,6 +68,18 @@ export function validateUpdate(packageName, fromVersion, toVersion, installedPac
         warnings: [],
         requiredPeerUpdates: [],
     };
+    // Guard inputs: reject untrusted or malformed strings before they flow into
+    // error messages or semver comparisons (which assume well-formed input).
+    if (!isSafePackageName(packageName)) {
+        result.valid = false;
+        result.incompatibilities.push('Invalid package name');
+        return result;
+    }
+    if (!isSafeVersion(fromVersion) || !isSafeVersion(toVersion)) {
+        result.valid = false;
+        result.incompatibilities.push('Invalid version string(s)');
+        return result;
+    }
     // Check if this is a major version bump
     if (semver.valid(fromVersion) && semver.valid(toVersion)) {
         const fromMajor = semver.major(fromVersion);
@@ -102,6 +138,12 @@ export function validateBulkUpdate(updates, currentPackages) {
         warnings: [],
         requiredPeerUpdates: [],
     };
+    // Cap the number of updates to prevent DoS via large arrays
+    if (!Array.isArray(updates) || updates.length > MAX_BULK_UPDATES) {
+        combinedResult.valid = false;
+        combinedResult.incompatibilities.push(`Too many updates: max ${MAX_BULK_UPDATES} allowed per call`);
+        return combinedResult;
+    }
     // Create a simulated state after all updates
     const simulatedPackages = { ...currentPackages };
     for (const update of updates) {

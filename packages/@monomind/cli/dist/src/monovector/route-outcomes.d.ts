@@ -10,7 +10,8 @@ export interface RouteOutcomeRecord {
     measuredSuccess?: boolean;
     quality?: number;
 }
-/** Append a route recommendation (pre-outcome). */
+/** Append a route recommendation (pre-outcome). Opportunistically trims the
+ *  file to MAX_ROUTE_RECORDS lines to prevent unbounded growth. */
 export declare function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Promise<void>;
 /** Join outcome data onto the most recent matching route record by routeId. */
 export declare function joinOutcome(baseDir: string, routeId: string, outcome: {

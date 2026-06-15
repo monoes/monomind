@@ -15,6 +15,8 @@ module.exports = {
       console.log('[ADR] No decisions recorded yet. Type prompts containing markers like "let\'s go with X", "we chose Y", "decision: Z" to populate the log.');
       return;
     }
+    var MAX_JSONL = 512 * 1024; // 512 KiB
+    try { if (fs.statSync(jsonl).size > MAX_JSONL) { console.error('[ADR] decisions.jsonl exceeds 512 KiB — skipping to prevent OOM'); return; } } catch (_) { return; }
     var lines = fs.readFileSync(jsonl, 'utf-8').trim().split('\n').filter(Boolean);
     if (lines.length === 0) {
       console.log('[ADR] decisions.jsonl is empty.');
@@ -22,18 +24,29 @@ module.exports = {
     }
     // Group decisions captured in the last 7 days.
     var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    var MAX_RECORDS = 200;
     var recent = lines
       .map(function(l) { try { return JSON.parse(l); } catch (_) { return null; } })
-      .filter(function(d) { return d && d.ts >= cutoff; });
+      .filter(function(d) { return d && d.ts >= cutoff; })
+      .slice(0, MAX_RECORDS);
     if (recent.length === 0) {
       console.log('[ADR] No decisions in the last 7 days. Older entries: ' + lines.length + '.');
       return;
     }
 
-    var adrsDir = path.join(CWD, 'docs', 'adrs');
+    var adrsDir = path.resolve(CWD, 'docs', 'adrs');
+    if (!adrsDir.startsWith(path.resolve(CWD) + path.sep) && adrsDir !== path.resolve(CWD)) {
+      console.error('[ADR] adrsDir resolved outside CWD — aborting'); return;
+    }
     try { fs.mkdirSync(adrsDir, { recursive: true }); } catch (_) {}
+    // Use lstatSync to avoid following symlinks when listing existing ADRs
     var existing = [];
-    try { existing = fs.readdirSync(adrsDir).filter(function(f) { return /^ADR-\d{4}/.test(f); }); } catch (_) {}
+    try {
+      existing = fs.readdirSync(adrsDir).filter(function(f) {
+        if (!/^ADR-\d{4}/.test(f)) return false;
+        try { var st = fs.lstatSync(path.join(adrsDir, f)); return st.isFile(); } catch (_) { return false; }
+      });
+    } catch (_) {}
     var nextNum = existing.length + 1;
     var num = String(nextNum).padStart(4, '0');
     var stamp = new Date().toISOString().slice(0, 10);
@@ -50,8 +63,9 @@ module.exports = {
       var d = recent[i];
       var date = new Date(d.ts).toISOString().slice(0, 16).replace('T', ' ');
       body += '### ' + (i + 1) + '. ' + date + '\n\n';
-      for (var j = 0; j < d.excerpts.length; j++) {
-        body += '> ' + d.excerpts[j].trim() + '\n\n';
+      var excerpts = Array.isArray(d.excerpts) ? d.excerpts.slice(0, 20) : [];
+      for (var j = 0; j < excerpts.length; j++) {
+        body += '> ' + String(excerpts[j]).slice(0, 500).trim() + '\n\n';
       }
       if (d.prompt) body += '_Prompt:_ ' + d.prompt.slice(0, 200) + (d.prompt.length > 200 ? '…' : '') + '\n\n';
     }

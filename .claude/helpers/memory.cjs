@@ -16,9 +16,13 @@ function ensureDir() {
   try { fs.mkdirSync(MEMORY_DIR, { recursive: true }); } catch (_) {}
 }
 
+var MAX_INDEX_SIZE = 50 * 1024 * 1024; // 50 MiB guard
+
 function loadIndex() {
   try {
     if (!fs.existsSync(MEMORY_INDEX)) return [];
+    var st = fs.statSync(MEMORY_INDEX);
+    if (st.size > MAX_INDEX_SIZE) return [];
     return JSON.parse(fs.readFileSync(MEMORY_INDEX, 'utf-8'));
   } catch (_) {
     return [];
@@ -36,7 +40,8 @@ function saveIndex(entries) {
 
 function store(key, value, namespace) {
   var entries = loadIndex();
-  var ns = namespace || 'default';
+  var ns = String(namespace || 'default').slice(0, 128);
+  key = String(key || '').slice(0, 512);
   // Remove existing entry with same key+namespace
   entries = entries.filter(function(e) { return !(e.key === key && e.namespace === ns); });
   entries.push({ key: key, value: value, namespace: ns, storedAt: new Date().toISOString() });

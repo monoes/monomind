@@ -102,10 +102,15 @@ const startCommand: Command = {
     { command: 'monomind mcp start -f', description: 'Force restart (kill existing)' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const port = (ctx.flags.port as number) ?? 3000;
-    const host = (ctx.flags.host as string) ?? 'localhost';
+    const rawPort = (ctx.flags.port as number) ?? 3000;
+    const port = Number.isFinite(rawPort) && rawPort >= 1 && rawPort <= 65535 ? Math.floor(rawPort) : 3000;
+    const rawHost = (ctx.flags.host as string) ?? 'localhost';
+    // Cap host length and reject control chars to prevent injection
+    const host = typeof rawHost === 'string' ? rawHost.slice(0, 253).replace(/[\x00-\x1f]/g, '') : 'localhost';
     const transport = (ctx.flags.transport as 'stdio' | 'http' | 'websocket') ?? 'stdio';
-    const tools = (ctx.flags.tools as string) || 'all';
+    const rawTools = (ctx.flags.tools as string) || 'all';
+    // Cap tools string to prevent DoS via oversized comma-separated lists
+    const tools = typeof rawTools === 'string' ? rawTools.slice(0, 2000) : 'all';
     const daemon = (ctx.flags.daemon as boolean) ?? false;
     const force = (ctx.flags.force as boolean) ?? false;
 
@@ -679,16 +684,17 @@ const logsCommand: Command = {
     const lines = (ctx.flags.lines as number) || 50;
 
     // Try to find and read the actual log file
-    const { existsSync, readFileSync } = await import('fs');
+    const { existsSync, readFileSync, statSync } = await import('fs');
     const { join } = await import('path');
 
+    const MAX_MCP_LOG_BYTES = 10 * 1024 * 1024; // 10 MB
     const logPaths = [
       join(ctx.cwd, '.monomind', 'logs', 'mcp-server.log'),
       join(ctx.cwd, '.monomind', 'logs', 'daemon.log'),
       join(ctx.cwd, '.monomind', 'mcp.log'),
     ];
 
-    const logFile = logPaths.find(p => existsSync(p));
+    const logFile = logPaths.find(p => existsSync(p) && statSync(p).size <= MAX_MCP_LOG_BYTES);
 
     output.writeln();
     output.writeln(output.bold('MCP Server Logs'));

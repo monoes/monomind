@@ -107,11 +107,17 @@ export function serializeToBuffer(cfp, format) {
             return Buffer.from(json, 'utf-8');
     }
 }
+/** Maximum CFP payload size (10 MB) — prevents OOM on crafted inputs. */
+const MAX_CFP_SIZE = 10 * 1024 * 1024;
 /**
  * Deserialize CFP from string/buffer
  */
 export function deserializeCFP(data) {
     const str = typeof data === 'string' ? data : data.toString('utf-8');
+    // Guard against OOM before parsing
+    if (str.length > MAX_CFP_SIZE) {
+        throw new Error(`CFP payload too large (${str.length} bytes; max ${MAX_CFP_SIZE})`);
+    }
     let parsed;
     try {
         parsed = JSON.parse(str);
@@ -119,9 +125,9 @@ export function deserializeCFP(data) {
     catch (e) {
         throw new Error(`Invalid CFP file: ${e instanceof Error ? e.message : String(e)}`);
     }
-    // Validate magic bytes
+    // Validate magic bytes — use a fixed message to avoid reflecting arbitrary input
     if (parsed.magic !== 'CFP1') {
-        throw new Error(`Invalid CFP format: expected magic 'CFP1', got '${parsed.magic}'`);
+        throw new Error('Invalid CFP format: unexpected magic bytes');
     }
     return parsed;
 }

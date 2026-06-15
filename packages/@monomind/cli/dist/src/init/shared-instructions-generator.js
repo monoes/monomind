@@ -8,8 +8,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
+const MAX_JSON_READ_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_TEXT_READ_BYTES = 2 * 1024 * 1024; // 2 MB for plain-text config files
 function readJSON(p) {
     try {
+        if (!fs.existsSync(p) || fs.statSync(p).size > MAX_JSON_READ_BYTES)
+            return null;
         return JSON.parse(fs.readFileSync(p, 'utf-8'));
     }
     catch {
@@ -166,7 +170,10 @@ export function detectProjectProfile(cwd) {
         profile.language = 'rust';
         profile.packageManager = 'cargo';
         try {
-            const cargo = fs.readFileSync(path.join(cwd, 'Cargo.toml'), 'utf-8');
+            const cargoPath = path.join(cwd, 'Cargo.toml');
+            if (fs.statSync(cargoPath).size > MAX_TEXT_READ_BYTES)
+                throw new Error('too large');
+            const cargo = fs.readFileSync(cargoPath, 'utf-8');
             const nameM = cargo.match(/^name\s*=\s*"([^"]+)"/m);
             if (nameM)
                 profile.name = nameM[1];
@@ -191,7 +198,10 @@ export function detectProjectProfile(cwd) {
         else
             profile.packageManager = 'pip';
         try {
-            const pp = fs.readFileSync(path.join(cwd, 'pyproject.toml'), 'utf-8');
+            const ppPath = path.join(cwd, 'pyproject.toml');
+            if (fs.existsSync(ppPath) && fs.statSync(ppPath).size > MAX_TEXT_READ_BYTES)
+                throw new Error('too large');
+            const pp = fs.readFileSync(ppPath, 'utf-8');
             if (pp.includes('fastapi') || pp.includes('FastAPI'))
                 profile.framework.push('fastapi');
             if (pp.includes('django'))
@@ -210,7 +220,10 @@ export function detectProjectProfile(cwd) {
         profile.language = 'go';
         profile.packageManager = 'unknown'; // go mod doesn't have a separate PM
         try {
-            const gomod = fs.readFileSync(path.join(cwd, 'go.mod'), 'utf-8');
+            const gomodPath = path.join(cwd, 'go.mod');
+            if (fs.statSync(gomodPath).size > MAX_TEXT_READ_BYTES)
+                throw new Error('too large');
+            const gomod = fs.readFileSync(gomodPath, 'utf-8');
             if (gomod.includes('gin-gonic/gin'))
                 profile.framework.push('gin');
             if (gomod.includes('labstack/echo'))
@@ -236,7 +249,10 @@ export function detectProjectProfile(cwd) {
     }
     // ── CLAUDE.md conventions extraction ──────────────────────────────────────
     try {
-        const claudeMd = fs.readFileSync(path.join(cwd, 'CLAUDE.md'), 'utf-8');
+        const claudeMdPath = path.join(cwd, 'CLAUDE.md');
+        if (fs.existsSync(claudeMdPath) && fs.statSync(claudeMdPath).size > MAX_TEXT_READ_BYTES)
+            throw new Error('too large');
+        const claudeMd = fs.readFileSync(claudeMdPath, 'utf-8');
         profile.maxFileLines = extractMaxFileLines(claudeMd);
     }
     catch { /* skip */ }

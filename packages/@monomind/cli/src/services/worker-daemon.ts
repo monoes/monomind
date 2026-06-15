@@ -11,7 +11,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { existsSync, mkdirSync, writeFileSync, renameSync, readFileSync, appendFileSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, renameSync, readFileSync, appendFileSync, unlinkSync, statSync } from 'fs';
 import { cpus } from 'os';
 import { join, resolve } from 'path';
 import {
@@ -202,16 +202,17 @@ export class WorkerDaemon extends EventEmitter {
       if (this.headlessAvailable) {
         this.log('info', 'Claude Code headless mode available - AI workers enabled');
 
-        // Forward headless executor events
-        this.headlessExecutor.on('execution:start', (data) => {
+        // Forward headless executor events.
+        // The executor emits 'start', 'complete', 'error' (not 'execution:*').
+        this.headlessExecutor.on('start', (data) => {
           this.emit('headless:start', data);
         });
 
-        this.headlessExecutor.on('execution:complete', (data) => {
+        this.headlessExecutor.on('complete', (data) => {
           this.emit('headless:complete', data);
         });
 
-        this.headlessExecutor.on('execution:error', (data) => {
+        this.headlessExecutor.on('error', (data) => {
           this.emit('headless:error', data);
         });
 
@@ -294,6 +295,12 @@ export class WorkerDaemon extends EventEmitter {
       return {};
     }
     try {
+      // Guard against OOM from an oversized config file (tampered or corrupted).
+      const configSize = statSync(configPath).size;
+      if (configSize > 1_048_576 /* 1 MB */) {
+        this.log('warn', `config.json is unusually large (${configSize} bytes) — ignoring daemon config`);
+        return {};
+      }
       const raw = JSON.parse(readFileSync(configPath, 'utf-8'));
       // Support both flat keys at root and nested under scopes.project
       const cfg = raw?.scopes?.project ?? raw;
@@ -381,6 +388,12 @@ export class WorkerDaemon extends EventEmitter {
     // Try to restore state from file
     if (existsSync(this.config.stateFile)) {
       try {
+        // Guard against OOM from an oversized state file (tampered or corrupted).
+        const stateSize = statSync(this.config.stateFile).size;
+        if (stateSize > 5_242_880 /* 5 MB */) {
+          this.log('warn', `daemon-state.json is unusually large (${stateSize} bytes) — starting with fresh state`);
+          return;
+        }
         const saved = JSON.parse(readFileSync(this.config.stateFile, 'utf-8'));
 
         // CRITICAL: Restore worker config (including enabled flag) from saved state
@@ -678,6 +691,18 @@ export class WorkerDaemon extends EventEmitter {
     const workerId = `${workerConfig.type}_${Date.now()}`;
     const startTime = Date.now();
 
+    // Track the headless executionId assigned by HeadlessWorkerExecutor so we
+    // can cancel it precisely on timeout. The executor generates its own ID
+    // (format: `${type}_${ts}_${random}`) which never matches workerId, so we
+    // capture it from the 'start' event instead.
+    let headlessExecutionId: string | null = null;
+    const onHeadlessStart = (data: { executionId?: string }) => {
+      headlessExecutionId = data.executionId ?? null;
+    };
+    if (this.headlessExecutor) {
+      this.headlessExecutor.on('start', onHeadlessStart);
+    }
+
     // Track running worker
     this.runningWorkers.add(workerConfig.type);
     state.isRunning = true;
@@ -694,11 +719,13 @@ export class WorkerDaemon extends EventEmitter {
         `Worker ${workerConfig.type} timed out after ${this.config.workerTimeoutMs / 1000}s`,
         () => {
           if (this.headlessExecutor) {
-            // Try exact-ID cancel first; fall back to type-based cancel which
-            // avoids killing unrelated concurrent workers (cancelByType).
-            if (!this.headlessExecutor.cancel(workerId)) {
-              this.headlessExecutor.cancelByType(workerConfig.type);
+            // Use the exact executionId captured from the 'start' event.
+            // Fall back to cancelByType only if we didn't capture an ID yet
+            // (e.g. timeout fired before the executor emitted 'start').
+            if (headlessExecutionId && this.headlessExecutor.cancel(headlessExecutionId)) {
+              return;
             }
+            this.headlessExecutor.cancelByType(workerConfig.type);
           }
         }
       );
@@ -750,6 +777,10 @@ export class WorkerDaemon extends EventEmitter {
     } finally {
       // Remove from running set and process queue
       this.runningWorkers.delete(workerConfig.type);
+      // Unsubscribe the executionId capture listener regardless of outcome
+      if (this.headlessExecutor) {
+        this.headlessExecutor.off('start', onHeadlessStart);
+      }
       this.processPendingWorkers();
     }
   }
@@ -900,7 +931,7 @@ export class WorkerDaemon extends EventEmitter {
       checks: {
         envFilesProtected: !existsSync(join(this.projectRoot, '.env.local')),
         gitIgnoreExists: existsSync(join(this.projectRoot, '.gitignore')),
-        noHardcodedSecrets: true, // Would need actual scanning
+        noHardcodedSecrets: null, // Not checked in local mode — requires AI-powered scan
       },
       riskLevel: 'low',
       recommendations: [],
@@ -931,8 +962,8 @@ export class WorkerDaemon extends EventEmitter {
       memoryUsage: process.memoryUsage(),
       uptime: process.uptime(),
       optimizations: {
-        cacheHitRate: 0.78,
-        avgResponseTime: 45,
+        cacheHitRate: null, // Not measured in local mode — requires AI-powered analysis
+        avgResponseTime: null, // Not measured in local mode — requires AI-powered analysis
       },
       note: 'Install Claude Code CLI for AI-powered optimization suggestions',
     };
@@ -1225,6 +1256,17 @@ export class WorkerDaemon extends EventEmitter {
     try {
       const logFile = join(this.config.logDir, 'daemon.log');
       appendFileSync(logFile, logMessage + '\n');
+      // Opportunistic rotation: keep the log under 10 MB. When exceeded,
+      // discard the oldest half so recent entries are always retained.
+      const MAX_LOG_BYTES = 10 * 1024 * 1024;
+      if (statSync(logFile).size > MAX_LOG_BYTES) {
+        const content = readFileSync(logFile, 'utf-8');
+        const lines = content.split('\n').filter(Boolean);
+        const trimmed = lines.slice(Math.floor(lines.length / 2)).join('\n') + '\n';
+        const tmp = `${logFile}.${process.pid}.${Date.now()}.tmp`;
+        writeFileSync(tmp, trimmed);
+        renameSync(tmp, logFile);
+      }
     } catch {
       // Ignore log write errors
     }

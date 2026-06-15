@@ -13,7 +13,8 @@ const showSubcommand: Command = {
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const sessionId = ctx.args[0];
+    // Cap session ID to prevent DoS via oversized string and unbounded output reflection.
+    const sessionId = (ctx.args[0] || '').slice(0, 128);
     if (!sessionId) {
       output.error('Session ID is required: replay show <sessionId>');
       return { success: false, message: 'Missing session ID' };
@@ -44,7 +45,12 @@ const listSubcommand: Command = {
     try {
       const { ReplayReader } = await import('../observability/replay-reader.js');
       const reader = new ReplayReader();
-      const data = await reader.list(ctx.flags['limit'] as number);
+      const rawLimit = ctx.flags['limit'] as number;
+      // Cap limit to prevent DoS
+      const limit = typeof rawLimit === 'number' && Number.isFinite(rawLimit)
+        ? Math.max(1, Math.min(Math.floor(rawLimit), 500))
+        : 20;
+      const data = await reader.list(limit);
       const asJson = ctx.flags['json'] as boolean;
       output.writeln(asJson ? JSON.stringify(data, null, 2) : 'Available replays listed');
       return { success: true, data };

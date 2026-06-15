@@ -323,9 +323,12 @@ module.exports = {
           // Persist trigger matches alongside route result
           try {
             var routeFile = path.join(CWD, '.monomind', 'last-route.json');
-            var existing = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
-            existing.microAgents = { injectAgents: triggerResult.injectAgents || [], takeoverAgent: triggerResult.takeoverAgent || null };
-            fs.writeFileSync(routeFile, JSON.stringify(existing), 'utf-8');
+            var routeSt = fs.statSync(routeFile);
+            if (routeSt.size <= 1024 * 1024) {
+              var existing = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
+              existing.microAgents = { injectAgents: triggerResult.injectAgents || [], takeoverAgent: triggerResult.takeoverAgent || null };
+              fs.writeFileSync(routeFile, JSON.stringify(existing), 'utf-8');
+            }
           } catch (e) {}
         }
       } catch (e) { /* non-fatal */ }
@@ -367,8 +370,11 @@ module.exports = {
         }
         if (nodeCount === 0 && fs.existsSync(legacyStats)) {
           try {
-            var gStats = JSON.parse(fs.readFileSync(legacyStats, 'utf-8'));
-            nodeCount = gStats.nodes || 0;
+            var legacyStatsSt = fs.statSync(legacyStats);
+            if (legacyStatsSt.size <= 1024 * 1024) {
+              var gStats = JSON.parse(fs.readFileSync(legacyStats, 'utf-8'));
+              nodeCount = gStats.nodes || 0;
+            }
           } catch (e) { /* ignore */ }
         }
         if (nodeCount > 100) {
@@ -434,7 +440,8 @@ module.exports = {
     try {
       var swarmCfgPath = path.join(CWD, '.monomind', 'swarm-config.json');
       if (fs.existsSync(swarmCfgPath)) {
-        var topology22 = JSON.parse(fs.readFileSync(swarmCfgPath, 'utf-8')).topology || 'mesh';
+        var swarmCfgSt = fs.statSync(swarmCfgPath);
+        var topology22 = swarmCfgSt.size <= 1024 * 1024 ? (JSON.parse(fs.readFileSync(swarmCfgPath, 'utf-8')).topology || 'mesh') : 'mesh';
         var mode22 = topology22 === 'hierarchical' ? 'route' : 'coordinate';
         console.log('[ROUTING_MODE] topology=' + topology22 + ' → mode=' + mode22);
       }

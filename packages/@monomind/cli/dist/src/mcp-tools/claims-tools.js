@@ -7,7 +7,7 @@
  * @module @monomind/cli/mcp-tools/claims
  */
 // File-based persistence
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 const CLAIMS_DIR = '.monomind/claims';
 const CLAIMS_FILE = 'claims.json';
@@ -20,10 +20,11 @@ function ensureClaimsDir() {
         mkdirSync(dir, { recursive: true });
     }
 }
+const MAX_CLAIMS_STORE_BYTES = 10 * 1024 * 1024; // 10 MB
 function loadClaims() {
     try {
         const path = getClaimsPath();
-        if (existsSync(path)) {
+        if (existsSync(path) && statSync(path).size <= MAX_CLAIMS_STORE_BYTES) {
             return JSON.parse(readFileSync(path, 'utf-8'));
         }
     }
@@ -80,7 +81,11 @@ export const claimsTools = [
         handler: async (input) => {
             const issueId = input.issueId;
             const claimantStr = input.claimant;
-            const context = input.context;
+            // Cap context: stored verbatim in the claim JSON record on disk.
+            const MAX_CLAIM_CONTEXT_LEN = 4 * 1024;
+            const rawContext = input.context;
+            const context = typeof rawContext === 'string' && rawContext.length > MAX_CLAIM_CONTEXT_LEN
+                ? rawContext.slice(0, MAX_CLAIM_CONTEXT_LEN) : rawContext;
             const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
             if (!issueId || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
                 return { success: false, error: 'Invalid issueId' };
@@ -211,7 +216,13 @@ export const claimsTools = [
             const issueId = input.issueId;
             const fromStr = input.from;
             const toStr = input.to;
-            const reason = input.reason;
+            // Cap handoff reason: stored as claim.handoffReason in the claims JSON store on disk.
+            // Without a cap, an arbitrarily long reason inflates every write of the store file.
+            const MAX_HANDOFF_REASON_LEN = 1024;
+            const rawHandoffReason = input.reason;
+            const reason = typeof rawHandoffReason === 'string' && rawHandoffReason.length > MAX_HANDOFF_REASON_LEN
+                ? rawHandoffReason.slice(0, MAX_HANDOFF_REASON_LEN)
+                : rawHandoffReason;
             const progress = input.progress || 0;
             const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
             if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
@@ -337,7 +348,11 @@ export const claimsTools = [
             const issueId = input.issueId;
             const status = input.status;
             const claimantStr = input.claimant;
-            const note = input.note;
+            // Cap note: stored as claim.blockReason in the claims JSON store on disk.
+            const MAX_CLAIM_NOTE_LEN = 4 * 1024;
+            const rawNote = input.note;
+            const note = typeof rawNote === 'string' && rawNote.length > MAX_CLAIM_NOTE_LEN
+                ? rawNote.slice(0, MAX_CLAIM_NOTE_LEN) : rawNote;
             const progress = input.progress;
             const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
             if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
@@ -450,9 +465,22 @@ export const claimsTools = [
         },
         handler: async (input) => {
             const issueId = input.issueId;
-            const reason = input.reason;
+            // Runtime-validate StealReason: JSON schema declares an enum, but callers
+            // that bypass schema validation (raw MCP calls) can pass arbitrary strings,
+            // which would be persisted verbatim in store.stealable[issueId].reason.
+            const VALID_STEAL_REASONS = new Set(['overloaded', 'stale', 'blocked-timeout', 'voluntary']);
+            const rawStealReason = input.reason;
+            if (!rawStealReason || !VALID_STEAL_REASONS.has(rawStealReason)) {
+                return { success: false, error: `Invalid reason "${rawStealReason}". Must be one of: overloaded, stale, blocked-timeout, voluntary` };
+            }
+            const reason = rawStealReason;
             const preferredTypes = input.preferredTypes;
-            const context = input.context;
+            // Cap context: stored verbatim in the stealable record on disk.
+            const MAX_STEAL_CONTEXT_LEN = 4 * 1024;
+            const rawStealContext = input.context;
+            const context = typeof rawStealContext === 'string' && rawStealContext.length > MAX_STEAL_CONTEXT_LEN
+                ? rawStealContext.slice(0, MAX_STEAL_CONTEXT_LEN)
+                : rawStealContext;
             const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
             if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
                 return { success: false, error: 'Invalid issueId' };

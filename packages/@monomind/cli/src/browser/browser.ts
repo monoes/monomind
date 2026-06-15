@@ -43,7 +43,12 @@ export async function isPortOpen(port: number): Promise<boolean> {
 }
 
 export async function launchBrowser(config: BrowserConfig = {}): Promise<number> {
-  const port = config.port ?? DEFAULT_PORT;
+  const rawPort = config.port ?? DEFAULT_PORT;
+  // Validate port is in a safe range for localhost CDP debugging
+  if (!Number.isInteger(rawPort) || rawPort < 1024 || rawPort > 65535) {
+    throw new Error(`Invalid port: ${rawPort}. Must be an integer between 1024 and 65535.`);
+  }
+  const port = rawPort;
 
   if (await isPortOpen(port)) {
     return port;
@@ -76,7 +81,9 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
     defaultArgs.push('--headless=new');
   }
 
-  const args = [...defaultArgs, ...(config.args ?? [])];
+  // Cap caller-supplied args to prevent memory exhaustion via huge argument arrays
+  const callerArgs = (config.args ?? []).slice(0, 50);
+  const args = [...defaultArgs, ...callerArgs];
   const child = spawn(chromePath, args, {
     detached: true,
     stdio: 'ignore',
@@ -134,6 +141,8 @@ export async function connectToTarget(port: number, targetId?: string): Promise<
 }
 
 export async function openUrl(client: CdpClient, sessionId: string, url: string): Promise<void> {
+  // Cap to 2 MB to prevent OOM in CDP message serializer (e.g. data: URI attacks)
+  if (url.length > 2_097_152) throw new Error('URL exceeds 2 MB limit');
   await client.send('Page.navigate', { url }, sessionId);
   await waitForNetworkIdle(client, sessionId, 500, 30_000);
 }

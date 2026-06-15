@@ -3,8 +3,14 @@
  * what actually happened. This is the foundation for routing-accuracy metrics
  * and for giving SONA a real training label.
  */
-import { promises as fs } from 'node:fs';
+import { promises as fs, statSync } from 'node:fs';
 import { join } from 'node:path';
+
+/** Refuse to read files larger than this to prevent OOM. */
+const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+
+/** Cap string fields stored in each record to prevent file bloat. */
+const MAX_FIELD_LEN = 500;
 
 export interface RouteOutcomeRecord {
   routeId: string;
@@ -24,11 +30,34 @@ function storePath(baseDir: string): string {
   return join(baseDir, 'route-outcomes.jsonl');
 }
 
-/** Append a route recommendation (pre-outcome). */
+/** Maximum number of records to keep in route-outcomes.jsonl.
+ *  computeRoutingAccuracy only ever reads the last 100 records, so anything
+ *  older is dead weight. Keeping 500 gives a comfortable buffer while bounding
+ *  the file size and keeping joinOutcome's full-file rewrite cheap. */
+const MAX_ROUTE_RECORDS = 500;
+
+/** Append a route recommendation (pre-outcome). Opportunistically trims the
+ *  file to MAX_ROUTE_RECORDS lines to prevent unbounded growth. */
 export async function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Promise<void> {
   try {
     await fs.mkdir(baseDir, { recursive: true });
-    await fs.appendFile(storePath(baseDir), JSON.stringify(rec) + '\n', 'utf8');
+    const path = storePath(baseDir);
+    // Cap string fields to prevent individual records from bloating the file.
+    const safeRec: RouteOutcomeRecord = {
+      ...rec,
+      routeId: rec.routeId.slice(0, MAX_FIELD_LEN),
+      task: rec.task.slice(0, MAX_FIELD_LEN),
+      recommendedAgent: rec.recommendedAgent.slice(0, MAX_FIELD_LEN),
+      routingMethod: rec.routingMethod.slice(0, 64),
+    };
+    await fs.appendFile(path, JSON.stringify(safeRec) + '\n', 'utf8');
+    // Opportunistic trim: rewrite only when the file exceeds the cap.
+    // Avoids an extra stat() on every call by catching the overcount lazily.
+    const content = await fs.readFile(path, 'utf8').catch(() => '');
+    const lines = content.trim().split('\n').filter(Boolean);
+    if (lines.length > MAX_ROUTE_RECORDS) {
+      await fs.writeFile(path, lines.slice(-MAX_ROUTE_RECORDS).join('\n') + '\n', 'utf8');
+    }
   } catch {
     // Non-fatal — telemetry must never break routing
   }
@@ -42,6 +71,7 @@ export async function joinOutcome(
 ): Promise<void> {
   try {
     const path = storePath(baseDir);
+    try { if (statSync(path).size > MAX_FILE_BYTES) return; } catch { /* file absent */ }
     const content = await fs.readFile(path, 'utf8').catch(() => '');
     if (!content) return;
     const lines = content.trim().split('\n');
@@ -73,6 +103,7 @@ export async function joinLatestUnresolved(
 ): Promise<string | null> {
   try {
     const path = storePath(baseDir);
+    try { if (statSync(path).size > MAX_FILE_BYTES) return null; } catch { /* file absent */ }
     const content = await fs.readFile(path, 'utf8').catch(() => '');
     if (!content) return null;
     const lines = content.trim().split('\n');
@@ -98,7 +129,9 @@ export async function joinLatestUnresolved(
 /** Read all outcome records (for metrics). */
 export async function readOutcomes(baseDir: string): Promise<RouteOutcomeRecord[]> {
   try {
-    const content = await fs.readFile(storePath(baseDir), 'utf8').catch(() => '');
+    const p = storePath(baseDir);
+    try { if (statSync(p).size > MAX_FILE_BYTES) return []; } catch { /* file absent */ }
+    const content = await fs.readFile(p, 'utf8').catch(() => '');
     if (!content) return [];
     return content.trim().split('\n').map(l => {
       try { return JSON.parse(l) as RouteOutcomeRecord; } catch { return null; }
