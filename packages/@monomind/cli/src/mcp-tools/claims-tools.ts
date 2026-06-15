@@ -42,7 +42,7 @@ interface ClaimsStore {
 }
 
 // File-based persistence
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 
 const CLAIMS_DIR = '.monomind/claims';
@@ -59,10 +59,12 @@ function ensureClaimsDir(): void {
   }
 }
 
+const MAX_CLAIMS_STORE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 function loadClaims(): ClaimsStore {
   try {
     const path = getClaimsPath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_CLAIMS_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
   } catch {
