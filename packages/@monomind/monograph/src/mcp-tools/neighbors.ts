@@ -30,6 +30,36 @@ export interface MonographNeighborsResult {
   neighbors: NeighborEntry[];
 }
 
+// ── Shared edge query helper ──────────────────────────────────────────────────
+
+function queryEdges(
+  db: Database.Database,
+  nodeId: string,
+  direction: 'outbound' | 'inbound',
+  relationFilter?: string,
+): NeighborEntry[] {
+  // outbound: source_id = nodeId → join target_id
+  // inbound:  target_id = nodeId → join source_id
+  const [idCol, joinCol] = direction === 'outbound'
+    ? ['source_id', 'target_id']
+    : ['target_id', 'source_id'];
+
+  const sql = relationFilter
+    ? `SELECT n.*, e.relation, e.confidence, e.confidence_score FROM nodes n JOIN edges e ON n.id = e.${joinCol} WHERE e.${idCol} = ? AND e.relation = ? LIMIT 50`
+    : `SELECT n.*, e.relation, e.confidence, e.confidence_score FROM nodes n JOIN edges e ON n.id = e.${joinCol} WHERE e.${idCol} = ? LIMIT 50`;
+
+  const params = relationFilter ? [nodeId, relationFilter] : [nodeId];
+  const rows = db.prepare(sql).all(...params) as Record<string, unknown>[];
+
+  return rows.map(row => ({
+    node: rowToNode(row),
+    relation: row['relation'] as string,
+    confidence: row['confidence'] as string,
+    confidenceScore: (row['confidence_score'] as number) ?? 1,
+    direction,
+  }));
+}
+
 export function getMonographNeighbors(
   db: Database.Database,
   input: { name: string; relationFilter?: string; includeInbound?: boolean },
@@ -41,45 +71,10 @@ export function getMonographNeighbors(
   if (!nodeRow) return { node: null, neighbors: [] };
 
   const node = rowToNode(nodeRow);
-  const neighbors: NeighborEntry[] = [];
-
-  // Outbound edges
-  const outboundSql = input.relationFilter
-    ? `SELECT n.*, e.relation, e.confidence, e.confidence_score FROM nodes n JOIN edges e ON n.id = e.target_id WHERE e.source_id = ? AND e.relation = ? LIMIT 50`
-    : `SELECT n.*, e.relation, e.confidence, e.confidence_score FROM nodes n JOIN edges e ON n.id = e.target_id WHERE e.source_id = ? LIMIT 50`;
-
-  const outboundParams = input.relationFilter ? [node.id, input.relationFilter] : [node.id];
-  const outboundRows = db.prepare(outboundSql).all(...outboundParams) as Record<string, unknown>[];
-
-  for (const row of outboundRows) {
-    neighbors.push({
-      node: rowToNode(row),
-      relation: row['relation'] as string,
-      confidence: row['confidence'] as string,
-      confidenceScore: (row['confidence_score'] as number) ?? 1,
-      direction: 'outbound',
-    });
-  }
-
-  // Inbound edges
-  if (input.includeInbound) {
-    const inboundSql = input.relationFilter
-      ? `SELECT n.*, e.relation, e.confidence, e.confidence_score FROM nodes n JOIN edges e ON n.id = e.source_id WHERE e.target_id = ? AND e.relation = ? LIMIT 50`
-      : `SELECT n.*, e.relation, e.confidence, e.confidence_score FROM nodes n JOIN edges e ON n.id = e.source_id WHERE e.target_id = ? LIMIT 50`;
-
-    const inboundParams = input.relationFilter ? [node.id, input.relationFilter] : [node.id];
-    const inboundRows = db.prepare(inboundSql).all(...inboundParams) as Record<string, unknown>[];
-
-    for (const row of inboundRows) {
-      neighbors.push({
-        node: rowToNode(row),
-        relation: row['relation'] as string,
-        confidence: row['confidence'] as string,
-        confidenceScore: (row['confidence_score'] as number) ?? 1,
-        direction: 'inbound',
-      });
-    }
-  }
+  const neighbors: NeighborEntry[] = [
+    ...queryEdges(db, node.id, 'outbound', input.relationFilter),
+    ...(input.includeInbound ? queryEdges(db, node.id, 'inbound', input.relationFilter) : []),
+  ];
 
   return { node, neighbors };
 }
