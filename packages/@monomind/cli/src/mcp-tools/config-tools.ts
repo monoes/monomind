@@ -153,13 +153,30 @@ export const configTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadConfigStore();
-      const key = input.key as string;
-      const scope = (input.scope as string) || 'default';
+      // Cap key and scope to prevent DoS via O(n) key.split('.') and to block
+      // prototype-pollution when key/scope are used as object property names.
+      const MAX_CONFIG_KEY_LEN = 512;
+      const MAX_CONFIG_SCOPE_LEN = 128;
+      const rawKey = input.key as string;
+      const key = typeof rawKey === 'string' && rawKey.length > MAX_CONFIG_KEY_LEN
+        ? rawKey.slice(0, MAX_CONFIG_KEY_LEN) : rawKey;
+      const rawScope = (input.scope as string) || 'default';
+      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
+
+      if (DANGEROUS_KEYS.has(scope)) {
+        return { key, value: undefined, scope, exists: false, source: 'none' };
+      }
+      for (const seg of key.split('.')) {
+        if (DANGEROUS_KEYS.has(seg)) {
+          return { key, value: undefined, scope, exists: false, source: 'none' };
+        }
+      }
 
       let value: unknown;
 
       // Check scope first, then default values
-      if (scope !== 'default' && store.scopes[scope]) {
+      if (scope !== 'default' && Object.hasOwn(store.scopes, scope)) {
         value = store.scopes[scope][key];
       }
       if (value === undefined) {
@@ -252,9 +269,19 @@ export const configTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadConfigStore();
-      const scope = (input.scope as string) || 'default';
-      const prefix = input.prefix as string;
+      const MAX_CONFIG_SCOPE_LEN = 128;
+      const MAX_PREFIX_LEN = 256;
+      const rawScope = (input.scope as string) || 'default';
+      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
+      const rawPrefix = input.prefix as string;
+      const prefix = typeof rawPrefix === 'string' && rawPrefix.length > MAX_PREFIX_LEN
+        ? rawPrefix.slice(0, MAX_PREFIX_LEN) : rawPrefix;
       const includeDefaults = input.includeDefaults !== false;
+
+      if (DANGEROUS_KEYS.has(scope)) {
+        return { configs: [], total: 0, scope, updatedAt: store.updatedAt };
+      }
 
       // Merge stored values with defaults
       let configs: Record<string, unknown> = {};
@@ -267,7 +294,7 @@ export const configTools: MCPTool[] = [
       Object.assign(configs, store.values);
 
       // Add scope-specific values
-      if (scope !== 'default' && store.scopes[scope]) {
+      if (scope !== 'default' && Object.hasOwn(store.scopes, scope)) {
         Object.assign(configs, store.scopes[scope]);
       }
 
@@ -305,19 +332,37 @@ export const configTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadConfigStore();
-      const scope = (input.scope as string) || 'default';
-      const key = input.key as string;
+      // Cap scope and key to prevent DoS and prototype pollution.
+      const MAX_CONFIG_KEY_LEN = 512;
+      const MAX_CONFIG_SCOPE_LEN = 128;
+      const rawScope = (input.scope as string) || 'default';
+      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
+      const rawKey = input.key as string;
+      const key = typeof rawKey === 'string' && rawKey.length > MAX_CONFIG_KEY_LEN
+        ? rawKey.slice(0, MAX_CONFIG_KEY_LEN) : rawKey;
+
+      if (DANGEROUS_KEYS.has(scope)) {
+        return { success: false, error: `Forbidden scope: "${scope}"` };
+      }
+      if (key) {
+        for (const seg of key.split('.')) {
+          if (DANGEROUS_KEYS.has(seg)) {
+            return { success: false, error: `Forbidden key segment: "${seg}"` };
+          }
+        }
+      }
 
       let resetKeys: string[] = [];
 
       if (key) {
         // Reset specific key
         if (scope === 'default') {
-          if (key in store.values) {
+          if (Object.hasOwn(store.values, key)) {
             delete store.values[key];
             resetKeys.push(key);
           }
-        } else if (store.scopes[scope] && key in store.scopes[scope]) {
+        } else if (Object.hasOwn(store.scopes, scope) && Object.hasOwn(store.scopes[scope], key)) {
           delete store.scopes[scope][key];
           resetKeys.push(key);
         }
@@ -326,7 +371,7 @@ export const configTools: MCPTool[] = [
         if (scope === 'default') {
           resetKeys = Object.keys(store.values);
           store.values = { ...DEFAULT_CONFIG };
-        } else if (store.scopes[scope]) {
+        } else if (Object.hasOwn(store.scopes, scope)) {
           resetKeys = Object.keys(store.scopes[scope]);
           delete store.scopes[scope];
         }
@@ -356,8 +401,16 @@ export const configTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadConfigStore();
-      const scope = (input.scope as string) || 'default';
+      // Cap scope to prevent DoS and prototype pollution.
+      const MAX_CONFIG_SCOPE_LEN = 128;
+      const rawScope = (input.scope as string) || 'default';
+      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
       const includeDefaults = input.includeDefaults !== false;
+
+      if (DANGEROUS_KEYS.has(scope)) {
+        return { config: {}, scope, version: store.version, exportedAt: new Date().toISOString(), count: 0 };
+      }
 
       let exportData: Record<string, unknown> = {};
 
@@ -367,7 +420,7 @@ export const configTools: MCPTool[] = [
 
       Object.assign(exportData, store.values);
 
-      if (scope !== 'default' && store.scopes[scope]) {
+      if (scope !== 'default' && Object.hasOwn(store.scopes, scope)) {
         Object.assign(exportData, store.scopes[scope]);
       }
 
@@ -396,8 +449,16 @@ export const configTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadConfigStore();
       const config = filterDangerousKeys(input.config as Record<string, unknown>);
-      const scope = (input.scope as string) || 'default';
+      // Cap scope to prevent DoS and prototype pollution.
+      const MAX_CONFIG_SCOPE_LEN = 128;
+      const rawScope = (input.scope as string) || 'default';
+      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
       const merge = input.merge !== false;
+
+      if (DANGEROUS_KEYS.has(scope)) {
+        return { success: false, error: `Forbidden scope: "${scope}"` };
+      }
 
       const importedKeys: string[] = Object.keys(config);
 
@@ -408,7 +469,7 @@ export const configTools: MCPTool[] = [
           store.values = { ...DEFAULT_CONFIG, ...config };
         }
       } else {
-        if (!store.scopes[scope] || !merge) {
+        if (!Object.hasOwn(store.scopes, scope) || !merge) {
           store.scopes[scope] = {};
         }
         Object.assign(store.scopes[scope], config);
