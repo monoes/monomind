@@ -1881,7 +1881,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const q = (qs.get('q') || '').trim();
+        // Cap ?q= to prevent DoS via megabyte FTS query strings.
+        const q = (qs.get('q') || '').trim().slice(0, 4096);
         const limit = Math.min(100, parseInt(qs.get('limit') || '50', 10));
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
