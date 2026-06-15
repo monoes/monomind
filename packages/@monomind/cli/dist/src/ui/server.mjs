@@ -417,12 +417,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         } else if (remoteUrl.endsWith('.git')) {
           remoteUrl = remoteUrl.slice(0, -4);
         }
+        let branch = '';
+        try { branch = gitExec('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf8' }).trim(); } catch {}
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ name, email, cwd, remoteUrl }));
+        res.end(JSON.stringify({ name, email, cwd, remoteUrl, branch }));
       } catch (_) {
         const cwd2 = projectDir || process.cwd();
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ name: '', email: '', cwd: cwd2, remoteUrl: '' }));
+        res.end(JSON.stringify({ name: '', email: '', cwd: cwd2, remoteUrl: '', branch: '' }));
       }
       return;
     }
