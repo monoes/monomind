@@ -679,16 +679,17 @@ const logsCommand: Command = {
     const lines = (ctx.flags.lines as number) || 50;
 
     // Try to find and read the actual log file
-    const { existsSync, readFileSync } = await import('fs');
+    const { existsSync, readFileSync, statSync } = await import('fs');
     const { join } = await import('path');
 
+    const MAX_MCP_LOG_BYTES = 10 * 1024 * 1024; // 10 MB
     const logPaths = [
       join(ctx.cwd, '.monomind', 'logs', 'mcp-server.log'),
       join(ctx.cwd, '.monomind', 'logs', 'daemon.log'),
       join(ctx.cwd, '.monomind', 'mcp.log'),
     ];
 
-    const logFile = logPaths.find(p => existsSync(p));
+    const logFile = logPaths.find(p => existsSync(p) && statSync(p).size <= MAX_MCP_LOG_BYTES);
 
     output.writeln();
     output.writeln(output.bold('MCP Server Logs'));
