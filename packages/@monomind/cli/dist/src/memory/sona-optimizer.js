@@ -482,9 +482,13 @@ export class SONAOptimizer {
                 console.error('[SONA] Incompatible state version, starting fresh');
                 return false;
             }
-            // Load patterns
+            // Load patterns — also cap key length so a crafted state file cannot
+            // store arbitrarily long keys that bloat the in-memory Map. The key is
+            // an agent:keyword string; 512 chars is ample for any real value.
             this.patterns.clear();
             for (const [key, pattern] of Object.entries(state.patterns)) {
+                if (typeof key !== 'string' || key.length > 512)
+                    continue;
                 if (this.validatePattern(pattern)) {
                     this.patterns.set(key, pattern);
                 }
@@ -499,7 +503,9 @@ export class SONAOptimizer {
             return true;
         }
         catch (err) {
-            console.error(`[SONA] Failed to load state: ${err}`);
+            // Strip filesystem paths from error before logging to prevent path disclosure
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(`[SONA] Failed to load state: ${msg.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)}`);
             return false;
         }
     }
@@ -534,7 +540,9 @@ export class SONAOptimizer {
             return true;
         }
         catch (err) {
-            console.error(`[SONA] Failed to save state: ${err}`);
+            // Strip filesystem paths from error before logging to prevent path disclosure
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(`[SONA] Failed to save state: ${msg.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)}`);
             return false;
         }
     }
