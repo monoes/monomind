@@ -312,30 +312,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #org-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 .odt-pane { display: none; }
 .odt-pane.active { display: block; }
-#odt-chat { display: none; }
-#odt-chat.active { display: flex; flex-direction: column; }
-#odt-chat-bar { display:flex; align-items:center; gap:8px; padding:10px 16px 8px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
-#odt-chat-sess-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
-#odt-chat-sel { background:var(--surface); color:var(--text-mid); border:1px solid var(--border); border-radius:4px; font-size:10px; font-family:var(--mono); padding:3px 7px; cursor:pointer; max-width:320px; }
-#odt-chat-sel:focus { outline:none; border-color:var(--accent); }
-#odt-chat-live-dot { width:5px; height:5px; border-radius:50%; background:var(--text-xs); flex-shrink:0; margin-left:auto; transition:background 0.4s; }
-#odt-chat-live-dot.on { background:oklch(68% 0.20 150); animation:livepulse-cv 2.2s ease-in-out infinite; }
-#odt-chat-live-lbl { font-size:9px; color:var(--text-lo); }
-#odt-chat-agent-bar { display:flex; align-items:center; gap:6px; padding:5px 16px 6px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
-#odt-chat-agent-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
-.odt-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
-.odt-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
-.odt-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
-#odt-chat-feed { flex:1; overflow-y:auto; padding:10px 16px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
-#odt-chat-feed::-webkit-scrollbar { width:4px; }
-#odt-chat-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
-#odt-chat-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
-.cv-excerpt-banner { flex-shrink:0; padding:7px 16px 8px; background:oklch(13% 0.01 295); border-bottom:1px solid var(--border); display:none; }
-.cv-excerpt-banner.visible { display:block; }
-.cv-excerpt-label { font-size:8px; letter-spacing:2px; color:var(--text-xs); text-transform:uppercase; margin-bottom:4px; }
-.cv-excerpt-items { display:flex; flex-direction:column; gap:2px; }
-.cv-excerpt-item { font-size:10px; color:var(--text-lo); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-.cv-excerpt-item .cv-ex-tag { font-size:8px; color:var(--text-xs); margin-right:5px; display:inline-block; min-width:30px; }
 
 /* agent detail drawer (slides in from right within the org detail pane) */
 #org-agent-drawer {
@@ -713,17 +689,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #chat-v-live-dot.on { background:oklch(68% 0.20 150); animation:livepulse-cv 2.2s ease-in-out infinite; }
 @keyframes livepulse-cv { 0%,100%{opacity:1} 50%{opacity:0.4} }
 #chat-v-live-lbl { font-size:9px; color:var(--text-lo); }
-#chat-v-excerpt { flex-shrink:0; padding:7px 18px 8px; background:oklch(13% 0.01 295); border-bottom:1px solid var(--border); display:none; }
-#chat-v-excerpt.visible { display:block; }
 #chat-v-feed { flex:1; overflow-y:auto; padding:12px 18px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
 #chat-v-feed::-webkit-scrollbar { width:4px; }
 #chat-v-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
 #chat-v-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
-#chat-v-agent-bar { display:flex; align-items:center; gap:6px; padding:6px 18px 7px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
-#chat-v-agent-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
-.cv-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
-.cv-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
-.cv-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
 .cv-msg { display:flex; flex-direction:column; max-width:90%; }
 .cv-msg.cv-sys { align-self:center; max-width:100%; }
 .cv-msg.cv-agent { align-self:flex-start; }
@@ -1398,6 +1367,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div class="nav-item" data-view="monograph">
           <span class="ico">⬡</span><span class="lbl">Monograph</span>
         </div>
+        <div class="nav-item" data-view="chat">
+          <span class="ico">⌘</span><span class="lbl">Agent Chat</span>
+        </div>
       </div>
     </div>
     <div class="nav-no-proj" id="nav-no-proj-hint">Select a project above</div>
@@ -1405,15 +1377,12 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       <div class="nav-item" data-view="global">
         <span class="ico">⊕</span><span class="lbl">Global Feed</span>
       </div>
-      <div class="nav-item" data-view="global-loops" title="Loops across all projects">
+      <div class="nav-item" data-view="global-loops" title="Global Loops — loops across all projects">
         <span class="ico">↺</span><span class="lbl">Global Loops</span>
         <span class="bdg" id="bdg-global-loops">—</span>
       </div>
-      <div class="nav-item" data-view="global-tokens" title="Token usage across all projects">
+      <div class="nav-item" data-view="global-tokens" title="Global Tokens — token usage across all projects">
         <span class="ico">$</span><span class="lbl">Global Tokens</span>
-      </div>
-      <div class="nav-item" data-view="chat" title="All agent sessions across projects">
-        <span class="ico">⌘</span><span class="lbl">Global Agent Chat</span>
       </div>
     </div>
   </div>
@@ -1827,8 +1796,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <span class="odh-pill" id="odh-topo">—</span>
             <span class="odh-pill" id="odh-roles">0 roles</span>
             <div class="odh-right">
-              <button class="btn" onclick="v2ExportOrg()" title="Export org as JSON file" style="color:var(--text-lo);border-color:var(--border)">Export</button>
-              <button class="btn" onclick="v2ImportOrgTrigger()" title="Import org from JSON file" style="color:var(--text-lo);border-color:var(--border)">Import</button>
               <button class="btn" id="org-copy-btn" onclick="v2ShowCopyOrgDialog()" style="color:var(--accent);border-color:var(--accent)">Copy to…</button>
               <button class="btn" id="org-stop-btn" onclick="v2StopOrg()" style="display:none;color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Stop</button>
             </div>
@@ -1841,9 +1808,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn" data-tab="budgets"   onclick="v2SwitchOrgTab('budgets')">Budgets</button>
             <button class="odt-btn" data-tab="charts"       onclick="v2SwitchOrgTab('charts')">Charts</button>
             <button class="odt-btn" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
-            <button class="odt-btn" data-tab="chat"         onclick="v2SwitchOrgTab('chat')">Chat</button>
-            <button class="odt-btn" data-tab="config"       onclick="v2SwitchOrgTab('config')">Config</button>
-            <button class="odt-btn" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -1875,29 +1839,29 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-issues-full"></div>
             <div class="odt-pane" id="odt-join-requests"></div>
             <div class="odt-pane" id="odt-threads"></div>
-            <div class="odt-pane" id="odt-chat" style="flex-direction:column;height:100%;overflow:hidden;"></div>
-            <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
           </div>
         </div>
-        <!-- copy / export / import dialogs -->
-        <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.72);z-index:90;align-items:center;justify-content:center">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:380px;max-width:96vw;display:flex;flex-direction:column;gap:12px">
+          <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:90;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:320px;display:flex;flex-direction:column;gap:14px">
+              <div style="font-size:13px;font-weight:600;color:var(--text-hi)">Copy org to project</div>
+              <div><input id="org-copy-dest" class="filter-input" placeholder="Destination project path…" style="width:100%"></div>
+              <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button class="btn" onclick="document.getElementById('org-copy-dialog').style.display='none'">Cancel</button>
+                <button class="btn" onclick="v2DoCopyOrg()" style="color:var(--accent);border-color:var(--accent)">Copy</button>
+              </div>
+            </div>
+          </div>
+        <!-- agent detail drawer (node-click / role-card-click) -->
+        <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:90;align-items:center;justify-content:center">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:320px;display:flex;flex-direction:column;gap:14px">
             <div style="font-size:13px;font-weight:600;color:var(--text-hi)">Copy org to project</div>
-            <div style="font-size:10px;color:var(--text-lo);letter-spacing:.05em;margin-bottom:2px">SELECT PROJECT</div>
-            <div id="org-copy-proj-list" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:var(--bg)"></div>
-            <div style="font-size:10px;color:var(--text-lo);letter-spacing:.05em;margin-top:2px">OR ENTER PATH</div>
-            <input id="org-copy-dest" class="filter-input" placeholder="Destination project path…" style="width:100%;box-sizing:border-box"
-                   oninput="document.querySelectorAll('#org-copy-proj-list .ocp-row').forEach(r=>r.classList.remove('ocp-sel'))"
-                   onkeydown="if(event.key==='Enter')v2DoCopyOrg();if(event.key==='Escape')document.getElementById('org-copy-dialog').style.display='none'">
-            <div id="org-copy-status" style="font-size:11px;min-height:16px"></div>
+            <input id="org-copy-dest" class="filter-input" placeholder="Destination project path…" style="width:100%">
             <div style="display:flex;gap:8px;justify-content:flex-end">
               <button class="btn" onclick="document.getElementById('org-copy-dialog').style.display='none'">Cancel</button>
-              <button class="btn" id="org-copy-confirm-btn" onclick="v2DoCopyOrg()" style="color:var(--accent);border-color:var(--accent)">Copy</button>
+              <button class="btn" onclick="v2DoCopyOrg()" style="color:var(--accent);border-color:var(--accent)">Copy</button>
             </div>
           </div>
         </div>
-        <div id="org-import-input-wrap" style="display:none"><input type="file" id="org-import-file" accept=".json" style="display:none"></div>
         <div id="org-agent-drawer" aria-hidden="true">
           <div id="oad-head"></div>
           <div id="oad-body"></div>
@@ -2132,17 +2096,13 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <div class="view" id="view-chat">
       <div class="vscroll">
         <div id="chat-v-bar">
-          <span id="chat-v-bar-title">Global Agent Chat</span>
+          <span id="chat-v-bar-title">Agent Chat</span>
           <select id="chat-v-sel" onchange="chatVSelectSession(this.value)">
             <option value="">— select a session —</option>
           </select>
           <div id="chat-v-live-dot"></div>
           <span id="chat-v-live-lbl">OFFLINE</span>
         </div>
-        <div id="chat-v-agent-bar" style="display:none">
-          <span id="chat-v-agent-lbl">AGENT</span>
-        </div>
-        <div id="chat-v-excerpt" class="cv-excerpt-banner"></div>
         <div id="chat-v-feed">
           <div id="chat-v-empty">Select a session above to see agent communications.<br>Agent messages, intercom signals, and system events appear here in real time.</div>
         </div>
@@ -2263,7 +2223,6 @@ let userScrolled = false;
 let selectedEntryId = null;
 let allDrawers = [];
 let dismissedAlerts = new Set();
-let _cmdSearchTimer;
 let alertState = { todayCost: 0, errorCount: 0, longLoops: [], anomaly: null, budgetAlert: null, budgetCls: 'alert-warn' };
 let feedTimeFilter = 'all';
 let cmdFocusIdx = 0;
@@ -2288,7 +2247,7 @@ function switchView(v) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
   const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
@@ -2381,12 +2340,7 @@ function _setLiveMode(mode) {
 function startPolling() {
   _setLiveMode('poll');
   clearInterval(pollTimer);
-  pollTimer = setInterval(() => {
-    if (currentView === 'now') refreshNowSilent();
-    else if (currentView === 'loops') renderLoops();
-    else viewRendered['loops'] = false; // loops data may be stale — re-fetch on next nav
-    loadLoopMetrics();
-  }, 30000);
+  pollTimer = setInterval(() => { if (currentView === 'now') refreshNowSilent(); }, 30000);
 }
 
 let _sseSource = null;
@@ -2682,10 +2636,8 @@ function expandGroup(el) {
 
 function renderFeedEntry(ev) {
   const ts = ev.ts ? relTime(ev.ts) : '';
-  const tsTitle = ev.ts ? new Date(ev.ts).toLocaleString() : '';
   let lbl = '', detail = '', id = ev.id || ev.uuid || '';
   let catCls, ico;
-  let lblTitle = '';
 
   if (ev.kind === 'tool') {
     ({ ico, catCls } = toolStyle(ev.cat, ev.name));
@@ -2694,7 +2646,6 @@ function renderFeedEntry(ev) {
   } else {
     ico = '↵'; catCls = 'cat-user';
     const t = (ev.text || '').trim();
-    lblTitle = t.length > 90 ? esc(t) : '';
     lbl = esc(t.length > 90 ? t.slice(0, 90) + '…' : t);
   }
 
@@ -2705,10 +2656,10 @@ function renderFeedEntry(ev) {
   return `<div class="feed-entry k-${ev.kind}${errClass}${selClass}" data-ev='${evData}' onclick="openDetail(this.dataset.ev)">
     <div class="feed-ico ${catCls}">${ico}</div>
     <div class="feed-body">
-      <div class="feed-lbl"${lblTitle ? ` title="${lblTitle}"` : ''}>${lbl}</div>
+      <div class="feed-lbl">${lbl}</div>
       ${detail ? `<div class="feed-detail">${detail}</div>` : ''}
     </div>
-    <div class="feed-ts"${tsTitle ? ` title="${tsTitle}"` : ''}>${ts}</div>
+    <div class="feed-ts">${ts}</div>
   </div>`;
 }
 
@@ -2750,13 +2701,13 @@ function openDetail(evJson) {
       <div class="d-row"><div class="d-lbl">Label</div><div class="d-val">${esc(ev.label || ev.name)}</div></div>
       ${ev.subagent ? `<div class="d-row"><div class="d-lbl">Subagent</div><div class="d-val">${esc(ev.subagent)}</div></div>` : ''}
       ${ev._errored ? `<div class="d-row"><div class="d-lbl">Status</div><div class="d-val error">Error</div></div>` : ''}
-      <div class="d-row"><div class="d-lbl">Time</div><div class="d-val">${ev.ts ? new Date(ev.ts).toLocaleString() : '—'}</div></div>
+      <div class="d-row"><div class="d-lbl">Time</div><div class="d-val">${ev.ts ? new Date(ev.ts).toLocaleTimeString() : '—'}</div></div>
       <div class="d-row"><div class="d-lbl">Tool ID</div><div class="d-val mono">${esc((ev.id || '').slice(0, 24))}</div></div>
     `;
   } else if (ev.kind === 'user') {
     title = 'User message';
     bodyHtml = `
-      <div class="d-row"><div class="d-lbl">Time</div><div class="d-val">${ev.ts ? new Date(ev.ts).toLocaleString() : '—'}</div></div>
+      <div class="d-row"><div class="d-lbl">Time</div><div class="d-val">${ev.ts ? new Date(ev.ts).toLocaleTimeString() : '—'}</div></div>
       <div class="d-row"><div class="d-lbl">Message</div><div class="d-val" style="white-space:pre-wrap">${esc(ev.text || '')}</div></div>
     `;
   }
@@ -2789,7 +2740,6 @@ function buildSparkline() {
   const todayDow = new Date().getDay(); // 0=Sun
   // pad start so column 0 begins on Monday
   const startOffset = todayDow === 0 ? 6 : todayDow - 1;
-  const paddingCells = Array.from({ length: startOffset }, () => '<div class="cal-cell cal-empty"></div>');
   const cells = buckets.map((v, i) => {
     const isToday = i === DAYS - 1;
     const level = v === 0 ? 0 : Math.min(4, Math.ceil(v / max * 4));
@@ -2798,7 +2748,7 @@ function buildSparkline() {
     const title = `${label}: ${v} session${v !== 1 ? 's' : ''}`;
     return `<div class="cal-cell cal-${level}${isToday ? ' cal-today' : ''}" title="${title}"></div>`;
   });
-  return `<div class="spark-wrap"><div class="spark-lbl">12-week activity ${buildWowDelta()}</div><div class="cal-grid">${paddingCells.join('')}${cells.join('')}</div></div>`;
+  return `<div class="spark-wrap"><div class="spark-lbl">12-week activity ${buildWowDelta()}</div><div class="cal-grid">${cells.join('')}</div></div>`;
 }
 
 // ── alerts rail ────────────────────────────────────────────
@@ -2933,7 +2883,7 @@ async function loadLoopMetrics() {
     const TWO_HOURS = 2 * 3600 * 1000;
     const now = Date.now();
     alertState.longLoops = loops
-      .filter(l => l.status !== 'stopped' && l.status !== 'paused' && l.status !== 'hil:pending' && l.startedAt && (now - new Date(l.startedAt).getTime()) > TWO_HOURS)
+      .filter(l => l.status !== 'stopped' && l.status !== 'paused' && l.startedAt && (now - new Date(l.startedAt).getTime()) > TWO_HOURS)
       .map(l => (l.name || l.prompt || 'loop').split('--')[0].trim().slice(0, 30));
     updateAlerts();
 
@@ -2948,11 +2898,7 @@ async function loadLoopMetrics() {
         <div class="ml-meta"><span class="ml-dot"></span>${esc(l.interval || l.schedule || 'running')}</div>
       </div>`;
     }).join('');
-    const overflow = loops.length > 5 ? loops.length - 5 : 0;
-    const overflowNote = overflow > 0
-      ? `<div style="font-size:10px;color:var(--text-xs);padding:3px 0 0">+${overflow} more — open Loops tab</div>`
-      : '';
-    document.getElementById('m-loops').innerHTML = `<div class="m-group-title">Active Loops</div>${items}${overflowNote}`;
+    document.getElementById('m-loops').innerHTML = `<div class="m-group-title">Active Loops</div>${items}`;
   } catch (_) {
     document.getElementById('m-loops').innerHTML = `<div class="m-group-title">Active Loops</div><div class="loading-txt">—</div>`;
   }
@@ -3071,24 +3017,28 @@ function renderTokChart(daily, animated = true) {
     canvas._tokTipBound = true;
     canvas.parentNode.style.position = 'relative';
     const tip = document.createElement('div');
-    tip.style.cssText = 'position:absolute;pointer-events:none;display:none;font-size:11px;font-family:var(--font-mono,monospace);background:var(--bg2,#1e1e1e);border:1px solid var(--border,#333);border-radius:4px;padding:3px 7px;color:var(--text,#eee);white-space:nowrap;z-index:10';
+    tip.style.cssText = 'position:absolute;pointer-events:none;display:none;font-size:11px;font-family:var(--mono);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 8px;color:var(--text-hi);z-index:100;white-space:nowrap;box-shadow:0 2px 8px #0004';
     canvas.parentNode.appendChild(tip);
-    canvas.addEventListener('mousemove', function(e) {
+    canvas._tokTip = tip;
+    canvas.addEventListener('mousemove', e => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
-      const bw = window._tokBarW || bar;
-      const idx = Math.floor(mx / (bw + 2));
-      const d = window._tokDaily;
-      if (!d || idx < 0 || idx >= d.length) { tip.style.display = 'none'; return; }
-      const item = d[idx];
-      const label = item.label || item.date || ('Day ' + (idx + 1));
-      const val = Number(item.cost ?? item.value ?? 0);
-      tip.textContent = `${label}: $${val.toFixed(4)}`;
-      tip.style.display = 'block';
-      tip.style.left = Math.min(mx + 8, W - tip.offsetWidth - 4) + 'px';
-      tip.style.top = '4px';
+      const pitch = (window._tokBarW || 8) + 2;
+      const idx = Math.max(0, Math.min(Math.floor(mx / pitch), (window._tokDaily || []).length - 1));
+      const d = (window._tokDaily || [])[idx];
+      if (d) {
+        const label = d.label || d.date || d.day || ('Day ' + (idx + 1));
+        const cost = Number(d.cost ?? d.value ?? 0);
+        canvas._tokTip.textContent = label + ' — $' + (cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2));
+        canvas._tokTip.style.display = 'block';
+        const tipW = canvas._tokTip.offsetWidth || 120;
+        canvas._tokTip.style.left = Math.min(mx + 10, rect.width - tipW - 4) + 'px';
+        canvas._tokTip.style.top = '4px';
+      } else {
+        canvas._tokTip.style.display = 'none';
+      }
     });
-    canvas.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
+    canvas.addEventListener('mouseleave', () => { canvas._tokTip.style.display = 'none'; });
   }
 
   const targets = vals.map((v, i) => ({
@@ -3421,7 +3371,7 @@ function renderProjectGrid(projects, query) {
       ${isCurrent ? '<div class="proj-card-badge">active</div>' : ''}
       <div class="proj-health ${hCls}" title="Health score: ${score}">${score}</div>
       <div class="proj-card-name">${esc(p.name || p.slug)}</div>
-      <div class="proj-card-path" title="${esc(p.path || '')}">${esc(shortPath(p.path || ''))}</div>
+      <div class="proj-card-path">${esc(p.path || '')}</div>
       <div class="proj-card-stats">
         <div class="proj-stat"><div class="ps-v">${p.sessionCount || 0}</div><div class="ps-l">sessions</div></div>
         <div class="proj-stat"><div class="ps-v">${p.memoryCount || 0}</div><div class="ps-l">memories</div></div>
@@ -3718,6 +3668,166 @@ function buildRecap(events, sess) {
   recap.className = 'show';
 }
 
+// ── global loops (multi-project) ───────────────────────────
+function deduplicateLoops(loops) {
+  const hasRepeat = loops.some(l => l.source === '_repeat.md');
+  const repeatPrompts = new Set(loops.filter(l => l.source === '_repeat.md').map(l => (l.prompt || '').trim()));
+  return loops.filter(l => {
+    if (l.source === 'scheduled_tasks_lock' && hasRepeat) return false;
+    if (l.source !== 'schedule_wakeup_hook') return true;
+    const m = (l.prompt || '').match(/--loop\s+\S+\s+(.+)$/s);
+    return !m || !repeatPrompts.has(m[1].trim());
+  });
+}
+
+async function renderGlobalLoops() {
+  const el = document.getElementById('gl-content');
+  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  try {
+    const data = await apiFetch('/api/projects');
+    const allProjects = data?.projects || [];
+    const projects = allProjects.slice(0, 20);
+    if (!projects.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No projects found</div></div>';
+      document.getElementById('bdg-global-loops').textContent = '—';
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      projects.map(p => apiFetch('/api/loops?dir=' + enc(p.path)).then(d => ({
+        project: p,
+        loops: deduplicateLoops(Array.isArray(d) ? d : (d.loops || []))
+      })))
+    );
+
+    let totalLoops = 0;
+    const sections = [];
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      const { project, loops } = r.value;
+      if (!loops.length) continue;
+      totalLoops += loops.length;
+      const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
+      const rows = loops.map(l => {
+        const isTillend = l.type === 'tillend';
+        const curRep = l.currentRep || 0;
+        const maxReps = l.maxReps || 0;
+        const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
+        const isHil = l.status === 'hil:pending';
+        const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
+        const isOverdue = !l.status?.startsWith('hil') && !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
+        const isFinished = isOverdue || (maxReps > 0 && curRep >= maxReps) ||
+          ['finished','done','complete','completed','expired'].includes(l.status);
+        const running = !isFinished && l.status !== 'stopped' && l.status !== 'paused';
+        const name = l.name || (l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
+        const intervalStr = fmtInterval(l.interval || l.schedule);
+        const type = esc(l.type || 'repeat');
+        const statusClass = isHil ? 'hil' : (running ? 'active' : 'stopped');
+        const statusLabel = isHil ? '⚠ HIL' : (running ? 'active' : (isFinished ? 'done' : 'stopped'));
+        const overdueSpan = isOverdue ? ' <span class="loop-cdown overdue">overdue</span>' : '';
+        const metaStr = intervalStr ? esc(intervalStr) + overdueSpan : overdueSpan;
+        return `<div class="loop-row" style="cursor:default">
+          <div class="loop-ico">${isTillend ? '∞' : '↺'}</div>
+          <div class="loop-body">
+            <div class="loop-name" title="${esc(l.name || l.prompt || '')}"><span class="loop-type-badge${isTillend ? ' tillend' : ''}">${type}</span>${esc(name)}</div>
+            <div class="loop-meta">${metaStr}</div>
+          </div>
+          <span class="gf-proj-tag">${esc(projName)}</span>
+          <div class="loop-status ${statusClass}">${statusLabel}</div>
+        </div>`;
+      }).join('');
+      sections.push(`<div style="margin-bottom:18px">
+        <div class="m-group-title" style="margin-bottom:6px">${esc(projName)}</div>
+        ${rows}
+      </div>`);
+    }
+
+    document.getElementById('bdg-global-loops').textContent = totalLoops || '—';
+    document.getElementById('gl-sub').textContent = `${totalLoops} loop${totalLoops !== 1 ? 's' : ''} across ${sections.length} project${sections.length !== 1 ? 's' : ''}`;
+
+    if (!sections.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops found across projects</div></div>';
+      return;
+    }
+    el.innerHTML = sections.join('');
+  } catch (err) {
+    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
+  }
+}
+
+// ── global tokens (multi-project) ──────────────────────────
+async function renderGlobalTokens() {
+  const el = document.getElementById('gt-content');
+  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  try {
+    const data = await apiFetch('/api/projects');
+    const allProjects = data?.projects || [];
+    const projects = allProjects.slice(0, 20);
+    if (!projects.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">$</div><div>No projects found</div></div>';
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      projects.map(p => apiFetch('/api/section?name=tokens&dir=' + enc(p.path)).then(d => ({
+        project: p,
+        tokens: d?.tokens?.summary || {}
+      })))
+    );
+
+    let aggTodayCost = 0, aggMonthCost = 0, aggTotalTokens = 0;
+    const rows = [];
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      const { project, tokens: s } = r.value;
+      const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
+      const todayCost = typeof s.todayCost === 'number' ? s.todayCost : 0;
+      const monthCost = typeof s.monthCost === 'number' ? s.monthCost : 0;
+      const totalTokens = s.totalTokens != null ? Number(s.totalTokens) : 0;
+      const totalCost = typeof s.totalCost === 'number' ? s.totalCost : (monthCost || todayCost);
+      aggTodayCost += todayCost;
+      aggMonthCost += monthCost;
+      aggTotalTokens += totalTokens;
+      rows.push({ projName, todayCost, monthCost, totalTokens, totalCost });
+    }
+    rows.sort((a, b) => b.totalCost - a.totalCost);
+
+    const cards = [
+      { label: 'Today Cost',    val: '$' + aggTodayCost.toFixed(2) },
+      { label: 'Month Cost',    val: '$' + aggMonthCost.toFixed(2) },
+      { label: 'Total Tokens',  val: aggTotalTokens > 0 ? Number(aggTotalTokens).toLocaleString() : '—' },
+    ].map(c => `<div class="tok-card"><div class="tc-label">${esc(c.label)}</div><div class="tc-val">${esc(c.val)}</div></div>`).join('');
+
+    const tableRows = rows.map(r => `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:4px 8px 4px 0;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.projName)}">${esc(r.projName)}</td>
+      <td style="padding:4px 8px;color:var(--accent)">$${r.todayCost.toFixed(2)}</td>
+      <td style="padding:4px 8px;color:var(--text-lo)">$${r.monthCost.toFixed(2)}</td>
+      <td style="padding:4px 8px;color:var(--text-lo)">${r.totalTokens > 0 ? Number(r.totalTokens).toLocaleString() : '—'}</td>
+      <td style="padding:4px 8px;color:var(--accent)">$${r.totalCost.toFixed(2)}</td>
+    </tr>`).join('');
+
+    const projectCount = rows.length;
+    document.getElementById('gt-sub').textContent = `Token usage across ${projectCount} project${projectCount !== 1 ? 's' : ''}`;
+
+    el.innerHTML = `<div id="gt-cards" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">${cards}</div>
+      <div id="gt-table">
+        <div class="m-group-title" style="margin-bottom:6px">Projects by cost</div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace">
+          <thead><tr style="color:var(--text-xs);text-align:left">
+            <th style="padding:4px 8px 4px 0">Project</th>
+            <th style="padding:4px 8px">Today</th>
+            <th style="padding:4px 8px">Month</th>
+            <th style="padding:4px 8px">Total Tokens</th>
+            <th style="padding:4px 8px">Total Cost</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table></div>
+      </div>`;
+  } catch (err) {
+    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
+  }
+}
+
 // ── feature 3: global feed ─────────────────────────────────
 async function renderGlobalFeed() {
   const el = document.getElementById('gf-content');
@@ -3783,237 +3893,9 @@ async function renderGlobalFeed() {
   }
 }
 
-// ── global loops ───────────────────────────────────────────
-function _deduplicateLoops(loops) {
-  const hasRepeat = loops.some(l => l.source === '_repeat.md');
-  const repeatPrompts = new Set(loops.filter(l => l.source === '_repeat.md').map(l => (l.prompt || '').trim()));
-  return loops.filter(l => {
-    if (l.source === 'scheduled_tasks_lock' && hasRepeat) return false;
-    if (l.source !== 'schedule_wakeup_hook') return true;
-    const m = (l.prompt || '').match(/--loop\s+\S+\s+(.+)$/s);
-    return !m || !repeatPrompts.has(m[1].trim());
-  });
-}
-
-async function stopLoopInProject(evt, id, projDir) {
-  evt.stopPropagation();
-  const btn = evt.currentTarget;
-  if (!btn.dataset.confirming) {
-    btn.dataset.confirming = '1';
-    const orig = btn.textContent;
-    btn.textContent = '■ Confirm?';
-    btn._resetTimer = setTimeout(() => { delete btn.dataset.confirming; btn.textContent = orig; }, 3000);
-    return;
-  }
-  clearTimeout(btn._resetTimer);
-  delete btn.dataset.confirming;
-  try {
-    const r = await fetch('/api/loops/stop?dir=' + enc(projDir), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    showToast('Stopped', 'Loop stop requested', 'ok');
-    setTimeout(() => renderGlobalLoops(), 400);
-  } catch (e) { showToast('Error', e.message, 'err'); }
-}
-
-function _buildLoopRowHtml(l, idx, projDir) {
-  const maxReps = l.maxReps || 0;
-  const curRep  = l.currentRep || 0;
-  const isTillend = !maxReps || l.type === 'tillend' || String(l.command || '').includes('--tillend');
-  const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
-  const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
-  const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
-  const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
-  const isFinished = (maxReps > 0 && curRep >= maxReps)
-    || ['finished','done','complete','completed','expired'].includes(l.status)
-    || isOverdue || isStaledActive;
-  const isHil = l.status === 'hil:pending';
-  const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
-  const interval = fmtInterval(l.interval || l.schedule || '');
-  const _lp = (function(_l) {
-    if (_l.command) {
-      const flags = [];
-      if (_l.type && _l.type !== 'repeat') flags.push('--' + _l.type);
-      if (_l.maxReps) flags.push('--maxruns ' + _l.maxReps);
-      if (_l.wait) flags.push('--wait ' + _l.wait);
-      if (_l.currentRep != null) flags.push('--rep ' + _l.currentRep);
-      if (_l.id) flags.push('--loop ' + _l.id);
-      return { userPrompt: _l.prompt || '', command: _l.command, flagsStr: flags.join(' ') };
-    }
-    const full = _l.prompt || '';
-    const cmdM = full.match(/^(\/\S+)/);
-    if (!cmdM) return { userPrompt: full, command: '', flagsStr: '' };
-    const tokens = full.slice(cmdM[1].length).trim().split(/\s+/);
-    let ti = 0, fp = [];
-    while (ti < tokens.length && tokens[ti] && tokens[ti].startsWith('--')) {
-      fp.push(tokens[ti++]);
-      if (ti < tokens.length && tokens[ti] && !tokens[ti].startsWith('--')) fp.push(tokens[ti++]);
-    }
-    return { userPrompt: tokens.slice(ti).join(' '), command: cmdM[1], flagsStr: fp.join(' ') };
-  })(l);
-  const userPrompt = _lp.userPrompt;
-  const cmdStr     = _lp.command;
-  const flagsStr   = _lp.flagsStr;
-  const name = (l.name || userPrompt || cmdStr || (l.prompt || 'loop').split('--')[0].trim()).slice(0, 60);
-  const startedAt = l.startedAt ? new Date(l.startedAt).toLocaleString() : '—';
-  const lastRun = l.lastRunAt ? relTime(l.lastRunAt) : (l.startedAt ? relTime(l.startedAt) : '—');
-  const runs = curRep != null ? curRep : '—';
-  const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
-  const progBar = isTillend
-    ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.maxReps ? ' (cap: '+l.maxReps+')' : ''}</span></div>`
-    : (maxReps > 0 && running)
-      ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
-      : '';
-  const cdownSpan = (running && nextAt)
-    ? ` <span class="loop-cdown" data-nextat="${nextAt}">${fmtCountdown(nextAt)}</span>`
-    : '';
-  const stopOnclick = projDir
-    ? `stopLoopInProject(event, this.dataset.loopId, ${JSON.stringify(projDir)})`
-    : `stopLoop(event, this.dataset.loopId)`;
-  const stopBtn = (running || isHil)
-    ? `<button class="loop-stop-btn" data-loop-id="${esc(l.id || l.name || String(idx))}" onclick="${stopOnclick}">■ Stop</button>`
-    : '';
-  const typeBadge = isTillend
-    ? `<span class="loop-type-badge" title="till-end loop">∞</span>`
-    : `<span class="loop-type-badge rep" title="repeat loop">↺</span>`;
-  const hilBanner = isHil
-    ? `<div class="loop-hil-banner">⚠ Human-in-the-loop confirmation required — check session for approval prompt</div>`
-    : '';
-  const statusLabel = isFinished ? 'done' : isHil ? 'HIL' : running ? 'active' : 'stopped';
-  const statusCls   = isFinished ? 'done' : isHil ? 'hil' : running ? 'active' : 'stopped';
-  return `<div class="loop-row${isHil ? ' hil' : ''}" data-loop-status="${esc(l.status || '')}" onclick="toggleLoop(this)">
-      <div class="loop-ico">${typeBadge}</div>
-      <div class="loop-body">
-        <div class="loop-name">${esc(name)}</div>
-        <div class="loop-meta">${interval !== '—' ? interval + ' · ' : ''}${esc([l.description].filter(Boolean).join('').slice(0, 80))}${cdownSpan}</div>
-        ${progBar}
-        ${hilBanner}
-      </div>
-      <div class="loop-status ${statusCls}">${statusLabel}${isHil ? ' ⚠' : ''}</div>
-      ${stopBtn}
-    </div>
-    <div class="loop-expand">
-      ${userPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="display:flex;align-items:flex-start;gap:8px"><span title="${esc(userPrompt)}">${esc(userPrompt.slice(0, 300))}${userPrompt.length > 300 ? '…' : ''}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy prompt" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(userPrompt)}).then(()=>showToast('Copied','Prompt copied','ok'))">⎘</button></div></div>` : ''}
-      ${cmdStr ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="display:flex;align-items:center;gap:8px"><span>${esc(cmdStr)}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy command" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(cmdStr)}).then(()=>showToast('Copied','Command copied','ok'))">⎘</button></div></div>` : ''}
-      ${flagsStr ? `<div class="le-row"><div class="le-lbl">Flags</div><div class="le-val mono" style="display:flex;align-items:flex-start;gap:8px"><span title="${esc(flagsStr)}">${esc(flagsStr.slice(0, 300))}${flagsStr.length > 300 ? '…' : ''}</span><button class="btn" style="flex-shrink:0;font-size:10px;padding:1px 6px" title="Copy flags" onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(flagsStr)}).then(()=>showToast('Copied','Flags copied','ok'))">⎘</button></div></div>` : ''}
-      <div class="le-row"><div class="le-lbl">Type</div><div class="le-val">${isTillend ? '∞ tillend' : '↺ repeat'}</div></div>
-      <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${interval}</div></div>
-      <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${isFinished ? '✓ done' : isHil ? '⚠ hil:pending' : running ? '● running' : '○ stopped'}</div></div>
-      ${isHil && l.id ? `<div class="le-row"><div class="le-lbl">HIL file</div><div class="le-val mono" style="color:oklch(75% 0.16 60);word-break:break-all">.monomind/loops/${esc(l.id)}-hil.md</div></div>` : ''}
-      <div class="le-row"><div class="le-lbl">Started</div><div class="le-val mono">${esc(startedAt)}</div></div>
-      ${running && l.startedAt ? `<div class="le-row"><div class="le-lbl">Running for</div><div class="le-val">${fmtDur(Date.now() - new Date(l.startedAt).getTime())}</div></div>` : ''}
-      <div class="le-row"><div class="le-lbl">Last run</div><div class="le-val">${esc(lastRun)}</div></div>
-      <div class="le-row"><div class="le-lbl">Run count</div><div class="le-val">${esc(String(runs))}${maxReps ? ' / ' + maxReps : isTillend ? ' / ∞' : ''}</div></div>
-      ${buildLoopSparkline(l)}
-    </div>`;
-}
-
-async function renderGlobalLoops() {
-  const el = document.getElementById('gl-content');
-  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
-  try {
-    const data = await apiFetch('/api/projects');
-    const projects = (data?.projects || []).slice(0, 20);
-    if (!projects.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No projects found</div></div>';
-      return;
-    }
-    const results = await Promise.allSettled(
-      projects.map(p => apiFetch('/api/loops?dir=' + enc(p.path)).then(d => ({
-        project: p,
-        loops: _deduplicateLoops(Array.isArray(d) ? d : (d.loops || []))
-      })))
-    );
-    let totalLoops = 0, hilCount = 0;
-    const sections = [];
-    for (const r of results) {
-      if (r.status !== 'fulfilled') continue;
-      const { project, loops } = r.value;
-      if (!loops.length) continue;
-      totalLoops += loops.length;
-      hilCount += loops.filter(l => l.status === 'hil:pending').length;
-      const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
-      const rows = loops.map((l, idx) => _buildLoopRowHtml(l, idx, project.path)).join('');
-      sections.push(`<div style="margin-bottom:20px">
-        <div style="font-size:11px;font-weight:600;color:var(--text-lo);letter-spacing:.06em;margin-bottom:6px;padding-left:2px;text-transform:uppercase">${esc(projName)}</div>
-        <div class="loop-list">${rows}</div>
-      </div>`);
-    }
-    document.getElementById('bdg-global-loops').textContent = totalLoops ? (hilCount ? totalLoops + '⚠' : totalLoops) : '—';
-    document.getElementById('gl-sub').textContent = `${totalLoops} loop${totalLoops !== 1 ? 's' : ''} across ${sections.length} project${sections.length !== 1 ? 's' : ''}`;
-    el.innerHTML = sections.length ? sections.join('') : '<div class="empty"><div class="empty-ico">↺</div><div>No loops found across any project</div></div>';
-    startCountdowns();
-    markLiveGlow('view-global-loops');
-  } catch (err) {
-    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
-  }
-}
-
-// ── global tokens ──────────────────────────────────────────
-async function renderGlobalTokens() {
-  const el = document.getElementById('gt-content');
-  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
-  try {
-    const data = await apiFetch('/api/projects');
-    const projects = (data?.projects || []).slice(0, 20);
-    if (!projects.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">$</div><div>No projects found</div></div>';
-      return;
-    }
-    const results = await Promise.allSettled(
-      projects.map(p => apiFetch('/api/section?name=tokens&dir=' + enc(p.path)).then(d => ({
-        project: p,
-        tokens: d?.tokens || {}
-      })))
-    );
-    let aggTodayCost = 0, aggMonthCost = 0, aggTotalTokens = 0;
-    const rows = [];
-    for (const r of results) {
-      if (r.status !== 'fulfilled') continue;
-      const { project, tokens } = r.value;
-      const s = tokens?.summary || {};
-      const todayCost = s.todayCost || 0;
-      const monthCost = s.monthCost || 0;
-      const totalIn = s.totalInputTokens || s.totalIn || 0;
-      const totalOut = s.totalOutputTokens || s.totalOut || 0;
-      if (!todayCost && !monthCost) continue;
-      aggTodayCost += todayCost;
-      aggMonthCost += monthCost;
-      aggTotalTokens += totalIn + totalOut;
-      const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
-      rows.push({ projName, path: project.path, todayCost, monthCost, totalIn, totalOut });
-    }
-    rows.sort((a, b) => b.monthCost - a.monthCost);
-    document.getElementById('gt-sub').textContent = `${rows.length} project${rows.length !== 1 ? 's' : ''} with token data`;
-    const fmtC = c => c < 0.01 ? '$' + c.toFixed(4) : '$' + c.toFixed(2);
-    const summary = `<div style="display:flex;gap:24px;margin-bottom:20px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
-      <div><div style="font-size:11px;color:var(--text-lo);margin-bottom:2px">TODAY</div><div style="font-size:20px;font-weight:700;color:var(--text-hi)">${fmtC(aggTodayCost)}</div></div>
-      <div><div style="font-size:11px;color:var(--text-lo);margin-bottom:2px">THIS MONTH</div><div style="font-size:20px;font-weight:700;color:var(--accent)">${fmtC(aggMonthCost)}</div></div>
-    </div>`;
-    const table = rows.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="color:var(--text-lo);font-size:10px;letter-spacing:.05em">
-        <th style="text-align:left;padding:4px 8px 8px 0">PROJECT</th>
-        <th style="text-align:right;padding:4px 8px 8px">TODAY</th>
-        <th style="text-align:right;padding:4px 0 8px">MONTH</th>
-      </tr></thead>
-      <tbody>${rows.map(r => `<tr style="border-top:1px solid var(--border);cursor:pointer" onclick="switchProject('${esc(r.path)}');setTimeout(()=>switchView('tokens'),150)">
-        <td style="padding:6px 8px 6px 0;color:var(--text-hi)">${esc(r.projName)}</td>
-        <td style="padding:6px 8px;text-align:right;color:var(--text-md)">${fmtC(r.todayCost)}</td>
-        <td style="padding:6px 0;text-align:right;color:var(--accent)">${fmtC(r.monthCost)}</td>
-      </tr>`).join('')}</tbody>
-    </table>` : '<div class="empty" style="margin-top:0">No token data found across projects</div>';
-    el.innerHTML = summary + table;
-  } catch (err) {
-    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
-  }
-}
-
 // ── agent chat view ────────────────────────────────────────
 let chatVSessions = {};
 let chatVCurrentId = null;
-let chatVCurrentAgent = 'all';
 let chatVSseSource = null;
 
 function initChatView() {
@@ -4048,78 +3930,22 @@ async function loadChatViewSessions() {
 
 function chatVSelectSession(id) {
   chatVCurrentId = id;
-  chatVCurrentAgent = 'all';
   const feed = document.getElementById('chat-v-feed');
   const empty = document.getElementById('chat-v-empty');
-  const bar = document.getElementById('chat-v-agent-bar');
   if (!id || !chatVSessions[id]) {
-    feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
-    if (empty) empty.style.display = 'block';
-    if (bar) bar.style.display = 'none';
+    feed.innerHTML = '';
+    feed.appendChild(empty);
     return;
   }
-  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
-  if (empty) empty.style.display = 'none';
+  feed.innerHTML = '';
   const session = chatVSessions[id];
   const events = session.events || [];
-  chatVPopulateAgentBar(events);
-  renderCvExcerptBanner('chat-v-excerpt', events, session);
   events.forEach(ev => appendChatViewEvent(ev, false));
-  feed.scrollTop = feed.scrollHeight;
-}
-
-function chatVAgentMatchesFilter(ev) {
-  if (chatVCurrentAgent === 'all') return true;
-  return ev.agent === chatVCurrentAgent || ev.from === chatVCurrentAgent || ev.to === chatVCurrentAgent;
-}
-
-function chatVPopulateAgentBar(events) {
-  const bar = document.getElementById('chat-v-agent-bar');
-  if (!bar) return;
-  const agentSet = new Set();
-  (events || []).forEach(ev => {
-    if (ev.agent) agentSet.add(ev.agent);
-    if (ev.from && ev.from !== '?') agentSet.add(ev.from);
-    if (ev.to && ev.to !== '?') agentSet.add(ev.to);
-  });
-  const agents = [...agentSet].sort();
-  if (!agents.length) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  bar.innerHTML = '<span id="chat-v-agent-lbl">AGENT</span>';
-  ['all', ...agents].forEach(name => {
-    const pill = document.createElement('button');
-    pill.className = 'cv-agent-pill' + (chatVCurrentAgent === name ? ' active' : '');
-    pill.textContent = name === 'all' ? 'ALL' : name;
-    pill.dataset.agent = name;
-    pill.onclick = () => chatVSelectAgent(name);
-    bar.appendChild(pill);
-  });
-}
-
-function chatVSelectAgent(name) {
-  chatVCurrentAgent = name;
-  document.querySelectorAll('#chat-v-agent-bar .cv-agent-pill').forEach(p => {
-    p.classList.toggle('active', p.dataset.agent === name);
-  });
-  const feed = document.getElementById('chat-v-feed');
-  const empty = document.getElementById('chat-v-empty');
-  const session = chatVSessions[chatVCurrentId];
-  // remove message bubbles only (preserve empty placeholder)
-  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
-  if (!session) { if (empty) empty.style.display = 'block'; return; }
-  const visible = (session.events || []).filter(ev => chatVAgentMatchesFilter(ev));
-  if (!visible.length) {
-    if (empty) { empty.style.display = 'block'; empty.textContent = name === 'all' ? 'No events.' : `No events for "${name}"`; }
-  } else {
-    if (empty) empty.style.display = 'none';
-    visible.forEach(ev => appendChatViewEvent(ev, false));
-  }
   feed.scrollTop = feed.scrollHeight;
 }
 
 function appendChatViewEvent(ev, animate) {
   if (chatVCurrentId && ev.session && ev.session !== chatVCurrentId) return;
-  if (!chatVAgentMatchesFilter(ev)) return;
   const feed = document.getElementById('chat-v-feed');
   if (!feed) return;
   const empty = document.getElementById('chat-v-empty');
@@ -4159,57 +3985,6 @@ function appendChatViewEvent(ev, animate) {
   feed.scrollTop = feed.scrollHeight;
 }
 
-function _cvExcerptText(ev) {
-  const t = ev.type || '';
-  if (t === 'intercom' || t === 'org:comms') return (ev.from || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
-  if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
-  if (t === 'agent:spawn' || t === 'org:agent:online') return 'spawned ' + (ev.agent || ev.role || ev.title || '?');
-  if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.progress || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
-  if (t === 'org:start') return 'org started: ' + (ev.goal || '').slice(0, 80);
-  if (t === 'org:complete') return 'org complete';
-  if (t === 'session:start') return 'started: ' + (ev.prompt || '').replace(/^running org:\s*/i, '').slice(0, 80);
-  if (t === 'session:complete') return 'completed' + (ev.status ? ' [' + ev.status + ']' : '');
-  if (t === 'domain:dispatch') return '→ ' + (ev.domain || '') + (ev.cmd ? ': ' + ev.cmd.slice(0, 60) : '');
-  if (t === 'domain:complete') return '✓ ' + (ev.domain || '');
-  if (ev.msg) return (ev.msg || '').slice(0, 80);
-  return t.slice(0, 60);
-}
-
-function _cvExcerptTag(ev) {
-  const t = ev.type || '';
-  if (t === 'intercom' || t === 'org:comms') return 'IC';
-  if (t === 'agent:message') return 'MSG';
-  if (t === 'agent:spawn' || t === 'org:agent:online') return 'NEW';
-  if (t === 'org:checkpoint') return 'CHK';
-  if (t.startsWith('org:')) return 'ORG';
-  if (t.startsWith('session:')) return 'SES';
-  if (t.startsWith('domain:')) return 'DOM';
-  return 'EVT';
-}
-
-function renderCvExcerptBanner(bannerId, events, sessionMeta) {
-  const banner = document.getElementById(bannerId);
-  if (!banner) return;
-  const SKIP = new Set(['session:start']);
-  const meaningful = (events || []).filter(ev => !SKIP.has(ev.type)).slice(-5).reverse();
-  if (!meaningful.length) {
-    // Fallback: show session meta (prompt/goal) so banner is never blank when a session is selected
-    const prompt = sessionMeta && (sessionMeta.prompt || '');
-    const clean = prompt.replace(/^running org:\s*/i, '').slice(0, 120);
-    if (!clean) { banner.classList.remove('visible'); banner.innerHTML = ''; return; }
-    banner.innerHTML = `<div class="cv-excerpt-label">SESSION GOAL</div><div class="cv-excerpt-items"><div class="cv-excerpt-item"><span class="cv-ex-tag">ORG</span>${esc(clean)}</div></div>`;
-    banner.classList.add('visible');
-    return;
-  }
-  const items = meaningful.slice(0, 3).map(ev => {
-    const tag = _cvExcerptTag(ev);
-    const txt = _cvExcerptText(ev);
-    return `<div class="cv-excerpt-item"><span class="cv-ex-tag">${tag}</span>${esc(txt)}</div>`;
-  }).join('');
-  banner.innerHTML = `<div class="cv-excerpt-label">LAST ACTIVITY</div><div class="cv-excerpt-items">${items}</div>`;
-  banner.classList.add('visible');
-}
-
 function mkCVSys(html, ts) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-sys';
@@ -4229,51 +4004,6 @@ function mkCVIntercom(from, to, text, ts) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-ic';
   d.innerHTML = `<div class="cv-bub"><span class="cv-tag cv-sender">${esc(from||'?')}</span><span class="cv-arrow">→</span><span class="cv-tag cv-receiver">${esc(to||'?')}</span><span class="cv-etype">IC</span><span class="cv-text">${esc(String(text).slice(0,200))}</span><span class="cv-ts">${ts}</span></div>`;
-  return d;
-}
-
-function mkCVSpawn(from, to, task, ts) {
-  const d = document.createElement('div');
-  d.className = 'cv-msg cv-spawn';
-  const short = task.replace(/\n/g,' ').slice(0,140);
-  d.innerHTML = `<div class="cv-bub" style="border-left:2px solid oklch(65% 0.18 280)">`+
-    `<span class="cv-tag" style="background:oklch(25% 0.10 280);color:oklch(80% 0.18 280)">${esc(from)}</span>`+
-    `<span class="cv-arrow" style="color:oklch(65% 0.18 280)">→</span>`+
-    `<span class="cv-tag" style="background:oklch(25% 0.15 160);color:oklch(75% 0.20 160)">${esc(to)}</span>`+
-    `<span class="cv-etype" style="color:oklch(65% 0.18 280)">SPAWN</span>`+
-    `<span class="cv-text">${esc(short)}${task.length>140?'…':''}</span>`+
-    `<span class="cv-ts">${ts}</span></div>`;
-  return d;
-}
-
-function mkCVResult(agent, text, ts) {
-  const d = document.createElement('div');
-  d.className = 'cv-msg cv-result';
-  // Collapse long results with expand button
-  const isLong = text.length > 300;
-  const preview = isLong ? text.slice(0, 300) + '…' : text;
-  const uid = 'res-' + Math.random().toString(36).slice(2,8);
-  d.innerHTML = `<div class="cv-bub" style="border-left:2px solid oklch(68% 0.20 150)">`+
-    `<span class="cv-tag" style="background:oklch(20% 0.10 150);color:oklch(72% 0.20 150)">${esc(agent)}</span>`+
-    `<span class="cv-etype" style="color:oklch(68% 0.20 150)">REPORT</span>`+
-    `<span class="cv-text" id="${uid}" style="white-space:pre-wrap;line-height:1.6">${esc(preview)}</span>`+
-    (isLong ? `<button class="btn" style="font-size:9px;padding:1px 6px;margin-left:6px;flex-shrink:0" onclick="(function(b,id,full){const el=document.getElementById(id);const show=el.dataset.expanded;el.textContent=show?full.slice(0,300)+'…':full;el.dataset.expanded=show?'':'1';b.textContent=show?'Expand':'Collapse';})(this,'${uid}',${JSON.stringify(text)})">Expand</button>` : '')+
-    `<span class="cv-ts">${ts}</span></div>`;
-  return d;
-}
-
-function mkCVFileCard(name, filePath, size, ts) {
-  const d = document.createElement('div');
-  d.className = 'cv-msg cv-file';
-  const sizeStr = size > 1024*1024 ? (size/1024/1024).toFixed(1)+'MB' : size > 1024 ? (size/1024).toFixed(1)+'KB' : (size||'?')+'B';
-  const isMd = /\.md$/i.test(name);
-  d.innerHTML = `<div class="cv-bub" style="border-left:2px solid oklch(65% 0.18 50);align-items:center;gap:8px">`+
-    `<span style="font-size:14px">${isMd?'📄':'📁'}</span>`+
-    `<span class="cv-tag" style="background:oklch(22% 0.10 50);color:oklch(78% 0.18 50)">FILE</span>`+
-    `<span class="cv-text" style="font-family:var(--mono);font-size:10px">${esc(name)}</span>`+
-    `<span style="font-size:9px;color:var(--text-lo);flex-shrink:0">${sizeStr}</span>`+
-    (filePath ? `<button class="btn" style="font-size:9px;padding:1px 6px;flex-shrink:0;border-color:oklch(65% 0.18 50);color:oklch(65% 0.18 50)" onclick="v2ViewOrgFile(${JSON.stringify(filePath)},${JSON.stringify(name)})">View</button>` : '')+
-    `<span class="cv-ts">${ts}</span></div>`;
   return d;
 }
 
@@ -4306,14 +4036,7 @@ function handleChatViewEvent(ev) {
     s.events.push(ev);
     if (ev.type === 'session:complete') s.status = 'complete';
   }
-  if (chatVCurrentId === ev.session) {
-    const hasNewAgent = (ev.agent && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.agent)}"]`))
-      || (ev.from && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
-      || (ev.to && !document.querySelector(`#chat-v-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
-    if (hasNewAgent) chatVPopulateAgentBar(chatVSessions[ev.session]?.events || []);
-    renderCvExcerptBanner('chat-v-excerpt', chatVSessions[ev.session]?.events || [], chatVSessions[ev.session]);
-    appendChatViewEvent(ev, true);
-  }
+  if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
 }
 
 // ── feature 4: budget cap + desktop notification ───────────
@@ -4351,9 +4074,8 @@ function updateBudgetBtnStyle() {
 
 function checkBudget() {
   const cost = alertState.todayCost;
-  const moCost = alertState.monthCost;
-  // Daily budget check
-  if (budget.daily && cost) {
+  if (!cost) return;
+  if (budget.daily) {
     const pct = cost / budget.daily;
     if (pct >= 1 && !dismissedAlerts.has('budget-daily-over')) {
       alertState.budgetAlert = `Daily budget exceeded: $${cost.toFixed(2)} / $${budget.daily}`;
@@ -4365,22 +4087,8 @@ function checkBudget() {
     } else {
       alertState.budgetAlert = null;
     }
+    updateAlerts();
   }
-  // Monthly budget check
-  if (budget.monthly && moCost) {
-    const moPct = moCost / budget.monthly;
-    if (moPct >= 1 && !dismissedAlerts.has('budget-monthly-over')) {
-      alertState.budgetAlert = `Monthly budget exceeded: $${moCost.toFixed(2)} / $${budget.monthly}`;
-      alertState.budgetCls = 'alert-crit';
-    } else if (moPct >= 0.8 && !dismissedAlerts.has('budget-monthly-warn')) {
-      if (!alertState.budgetAlert) {
-        alertState.budgetAlert = `Approaching monthly budget: $${moCost.toFixed(2)} / $${budget.monthly}`;
-        alertState.budgetCls = 'alert-warn';
-      }
-      maybeNotify('monomind budget', `$${moCost.toFixed(2)} of $${budget.monthly} monthly budget used`);
-    }
-  }
-  updateAlerts();
 }
 
 function maybeNotify(title, body) {
@@ -4948,23 +4656,11 @@ function fmtCountdown(nextAt) {
   return `next in ${s}s`;
 }
 
-function fmtInterval(val) {
-  if (!val && val !== 0) return '—';
-  let m;
-  if (typeof val === 'string') {
-    // Parse human-readable suffixes: '1h' → 60 min, '30m' → 30 min, '45s' → 0.75 min
-    const hMatch = val.match(/^(\d+(?:\.\d+)?)h$/i);
-    const mMatch = val.match(/^(\d+(?:\.\d+)?)m$/i);
-    const sMatch = val.match(/^(\d+(?:\.\d+)?)s$/i);
-    if (hMatch) m = parseFloat(hMatch[1]) * 60;
-    else if (mMatch) m = parseFloat(mMatch[1]);
-    else if (sMatch) m = parseFloat(sMatch[1]) / 60;
-    else m = parseFloat(val);
-  } else {
-    m = val;
-  }
-  if (isNaN(m) || m <= 0) return String(val);
-  if (m < 60) return Math.round(m) + 'm';
+function fmtInterval(minutes) {
+  if (!minutes && minutes !== 0) return '—';
+  const m = typeof minutes === 'string' ? parseFloat(minutes) : minutes;
+  if (isNaN(m) || m <= 0) return String(minutes);
+  if (m < 60) return m + 'm';
   const h = Math.floor(m / 60), rem = Math.round(m % 60);
   return rem ? `${h}h ${rem}m` : `${h}h`;
 }
@@ -4981,13 +4677,74 @@ async function renderLoops() {
     // Dedup: if real _repeat.md loops exist, hide scheduled_tasks_lock noise
     const hasRepeatLoops = loops.some(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
     if (hasRepeatLoops) loops = loops.filter(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
-    const hilCountL = loops.filter(l => l.status === 'hil:pending').length;
-    document.getElementById('bdg-loops').textContent = loops.length ? (hilCountL ? loops.length + '⚠' : loops.length) : '—';
+    document.getElementById('bdg-loops').textContent = loops.length || '—';
     if (!loops.length) {
       el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops scheduled</div><div style="font-size:11px;color:var(--text-xs);margin-top:6px">Create one with + New Loop above or via <code>npx monomind autodev --tillend</code></div></div>';
       return;
     }
-    el.innerHTML = loops.map((l, idx) => _buildLoopRowHtml(l, idx, null)).join('');
+    el.innerHTML = loops.map((l, idx) => {
+      const maxReps = l.maxReps || 0;
+      const curRep  = l.currentRep || 0;
+      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
+      const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
+      const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
+      const isStaledActive = isExplicitlyActive && nextAt > 0 && (Date.now() - nextAt) > LOOP_STALE_MS;
+      const isFinished = (maxReps > 0 && curRep >= maxReps)
+        || ['finished','done','complete','completed','expired'].includes(l.status)
+        || isOverdue || isStaledActive;
+      const isHil = l.status === 'hil:pending';
+      const running = !isFinished && !isHil && l.status !== 'stopped' && l.status !== 'paused';
+      const name = l.name || (l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
+      const interval = fmtInterval(l.interval || l.schedule || '');
+      const fullPrompt = l.prompt || '';
+      const command = l.command || '';
+      const startedAt = l.startedAt ? new Date(l.startedAt).toLocaleString() : '—';
+      const lastRun = l.lastRunAt ? relTime(l.lastRunAt) : (l.startedAt ? relTime(l.startedAt) : '—');
+      const runs = curRep != null ? curRep : '—';
+      const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
+      const progBar = isTillend
+        ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.capReps ? ' (cap: '+l.capReps+')' : ''}</span></div>`
+        : (maxReps > 0 && running)
+          ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
+          : '';
+      const cdownSpan = (running && nextAt)
+        ? ` <span class="loop-cdown" data-nextat="${nextAt}">${fmtCountdown(nextAt)}</span>`
+        : '';
+      const stopBtn = (running || isHil)
+        ? `<button class="loop-stop-btn" data-loop-id="${esc(l.id || l.name || String(idx))}" onclick="stopLoop(event, this.dataset.loopId)">■ Stop</button>`
+        : '';
+      const typeBadge = isTillend
+        ? `<span class="loop-type-badge" title="till-end loop">∞</span>`
+        : `<span class="loop-type-badge rep" title="repeat loop">↺</span>`;
+      const hilBanner = isHil
+        ? `<div class="loop-hil-banner">⚠ Human-in-the-loop confirmation required — check session for approval prompt</div>`
+        : '';
+      const statusLabel = isFinished ? 'done' : isHil ? 'HIL' : running ? 'active' : 'stopped';
+      const statusCls   = isFinished ? 'done' : isHil ? 'hil' : running ? 'active' : 'stopped';
+      return `<div class="loop-row${isHil ? ' hil' : ''}" data-loop-status="${esc(l.status || '')}" onclick="toggleLoop(this)">
+          <div class="loop-ico">${typeBadge}</div>
+          <div class="loop-body">
+            <div class="loop-name">${esc(name)}</div>
+            <div class="loop-meta">${interval !== '—' ? interval + ' · ' : ''}${esc([l.description].filter(Boolean).join('').slice(0, 80))}${cdownSpan}</div>
+            ${progBar}
+            ${hilBanner}
+          </div>
+          <div class="loop-status ${statusCls}">${statusLabel}${isHil ? ' ⚠' : ''}</div>
+          ${stopBtn}
+        </div>
+        <div class="loop-expand">
+          ${fullPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(fullPrompt)}).then(()=>showToast('Copied','','ok'))">${esc(fullPrompt.slice(0, 300))}</div></div>` : ''}
+          ${command && command !== fullPrompt ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(command)}).then(()=>showToast('Copied','','ok'))">${esc(command.slice(0, 200))}</div></div>` : ''}
+          <div class="le-row"><div class="le-lbl">Type</div><div class="le-val">${isTillend ? '∞ tillend' : '↺ repeat'}</div></div>
+          <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${interval}</div></div>
+          <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${isFinished ? '✓ done' : isHil ? '⚠ hil:pending' : running ? '● running' : '○ stopped'}</div></div>
+          <div class="le-row"><div class="le-lbl">Started</div><div class="le-val mono">${esc(startedAt)}</div></div>
+          <div class="le-row"><div class="le-lbl">Last run</div><div class="le-val">${esc(lastRun)}</div></div>
+          <div class="le-row"><div class="le-lbl">Run count</div><div class="le-val">${esc(String(runs))}${maxReps ? ' / ' + maxReps : isTillend ? ' / ∞' : ''}</div></div>
+          ${buildLoopSparkline(l)}
+        </div>`;
+    }).join('');
     startCountdowns();
     markLiveGlow('view-loops');
   } catch (err) {
@@ -5054,32 +4811,8 @@ function startCountdowns() {
   _cdownInterval = setInterval(() => {
     document.querySelectorAll('.loop-cdown[data-nextat]').forEach(el => {
       const ms = parseInt(el.dataset.nextat) - Date.now();
-      if (ms <= 0) {
-        const row = el.closest('.loop-row');
-        const loopStatus = row ? (row.dataset.loopStatus || '') : '';
-        const isActiveStatus = loopStatus === 'running' || loopStatus === 'waiting' || loopStatus === 'active';
-        if (isActiveStatus) {
-          // Loop is between rounds or executing — not done, just waiting for next update
-          el.textContent = 'executing…';
-          el.classList.remove('overdue');
-        } else {
-          el.textContent = 'overdue';
-          el.classList.add('overdue');
-          if (row) {
-            const badge = row.querySelector('.loop-status');
-            if (badge && badge.classList.contains('active')) {
-              badge.classList.remove('active');
-              badge.classList.add('stopped');
-              badge.textContent = 'done';
-            }
-            const stopBtn = row.querySelector('.loop-stop-btn');
-            if (stopBtn) stopBtn.remove();
-          }
-        }
-        return;
-      }
       el.textContent = fmtCountdown(el.dataset.nextat);
-      el.classList.remove('overdue');
+      el.classList.toggle('overdue', ms <= 0);
     });
   }, 1000);
 }
@@ -5414,13 +5147,11 @@ async function v2SelectOrg(name) {
     _v2OrgData = mainR.config ? { ...mainR, ...mainR.config, running: mainR.running } : mainR;
     _v2OrgData._activity = Array.isArray(actR) ? actR : [];
     _v2OrgData._health   = healthR;
-    // Fetch supplemental data for new tabs in parallel
-    const [agentsR, budgetsR, membersR, issuesR] = await Promise.all([
-      fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch(`/api/org/${_enc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch(`/api/org/${_enc}/members${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch(`/api/org/${_enc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
-    ]);
+    // Fetch supplemental data for new tabs
+    const agentsR  = await fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const budgetsR = await fetch(`/api/org/${_enc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():null).catch(()=>null);
+    const membersR = await fetch(`/api/org/${_enc}/members${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const issuesR  = await fetch(`/api/org/${_enc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
     _v2OrgData._agents  = Array.isArray(agentsR)  ? agentsR  : (agentsR?.agents  || []);
     _v2OrgData._budgets = budgetsR;
     _v2OrgData._members = Array.isArray(membersR) ? membersR : (membersR?.members || []);
@@ -5497,104 +5228,11 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'issues-full')  v2RenderOrgIssuesFull();
   else if (tab === 'join-requests') v2RenderOrgJoinRequests();
   else if (tab === 'threads')      v2RenderOrgThreads();
-  else if (tab === 'chat')         v2RenderOrgChat();
-  else if (tab === 'config')       v2RenderOrgConfig();
-  else if (tab === 'files')        v2RenderOrgFiles();
 }
 
 // ── org chart ───────────────────────────────
 function _v2OrgIsLeader(r) {
   return r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner';
-}
-
-function v2ComputeOrgLayout(roles, comms, topo, W, H) {
-  const R = 42, PAD_X = R + 20, PAD_Y = R + 24;
-  const roleIds = new Set(roles.map(r => r.id));
-  const leaders = roles.filter(_v2OrgIsLeader);
-  const hasSubs = leaders.length > 0 && roles.length > 1;
-
-  const pos = {};
-  let _layoutH = null;
-
-  const _hubAndSpoke = () => {
-    if (leaders.length > 0) {
-      leaders.forEach((r, i) => {
-        const x = leaders.length === 1 ? W / 2 : PAD_X + ((W - PAD_X * 2) / (leaders.length - 1)) * i;
-        pos[r.id] = { x, y: PAD_Y };
-      });
-    }
-    const subs = roles.filter(r => !_v2OrgIsLeader(r));
-    const usableW = W - PAD_X * 2;
-    const subY = leaders.length > 0 ? PAD_Y + 220 : PAD_Y;
-    subs.forEach((r, i) => {
-      const x = subs.length === 1 ? W / 2 : PAD_X + (usableW / (subs.length - 1)) * i;
-      pos[r.id] = { x, y: subY };
-    });
-    const _hasBothRows = leaders.length > 0 && subs.length > 0;
-    _layoutH = _hasBothRows ? PAD_Y + 220 + R + 8 : PAD_Y + R + 8;
-  };
-
-  if (!roles.length) {
-    // nothing
-  } else if (!hasSubs) {
-    pos[roles[0].id] = { x: W / 2, y: 90 };
-  } else if (topo === 'mesh') {
-    const n = roles.length, cx = W / 2;
-    const minRad = (2 * R + 6) * n / (2 * Math.PI);
-    const rad = Math.max(minRad, Math.min((W - PAD_X * 2) / 2, 130) * 0.82);
-    const cy = Math.max(170, rad + PAD_Y);
-    roles.forEach((r, i) => {
-      const a = (2 * Math.PI * i / n) - Math.PI / 2;
-      pos[r.id] = { x: cx + rad * Math.cos(a), y: cy + rad * Math.sin(a) };
-    });
-    _layoutH = Math.round(cy + rad + PAD_Y);
-  } else if (topo === 'ring' || topo === 'pipeline') {
-    const usableW = W - PAD_X * 2;
-    roles.forEach((r, i) => {
-      const x = roles.length === 1 ? W / 2 : PAD_X + (usableW / (roles.length - 1)) * i;
-      pos[r.id] = { x, y: 90 };
-    });
-    _layoutH = 180;
-  } else if (comms.length > 0) {
-    const fwdEdges = comms.filter(e => e.type !== 'report');
-    if (!fwdEdges.length) {
-      _hubAndSpoke();
-    } else {
-      const depth = {};
-      leaders.forEach(r => { depth[r.id] = 0; });
-      const queue = [...leaders.map(r => r.id)];
-      while (queue.length) {
-        const cur = queue.shift();
-        fwdEdges.forEach(e => {
-          if (e.from === cur && roleIds.has(e.to) && depth[e.to] === undefined) {
-            depth[e.to] = depth[cur] + 1;
-            queue.push(e.to);
-          }
-        });
-      }
-      roles.forEach(r => { if (depth[r.id] === undefined) depth[r.id] = 1; });
-      const minDepth = Math.min(...roles.map(r => depth[r.id]));
-      if (minDepth > 0) roles.forEach(r => { depth[r.id] -= minDepth; });
-      const maxDepth = Math.max(...roles.map(r => depth[r.id]));
-      const layerOf = {};
-      for (let d2 = 0; d2 <= maxDepth; d2++) layerOf[d2] = [];
-      roles.forEach(r => layerOf[depth[r.id]].push(r));
-      const LAYER_H = 110;
-      _layoutH = PAD_Y + maxDepth * LAYER_H + R + 24;
-      for (let d2 = 0; d2 <= maxDepth; d2++) {
-        const layer = layerOf[d2];
-        const usableW = W - PAD_X * 2;
-        layer.forEach((r, i) => {
-          const x = layer.length === 1 ? W / 2 : PAD_X + (usableW / (layer.length - 1)) * i;
-          pos[r.id] = { x, y: PAD_Y + d2 * LAYER_H };
-        });
-      }
-    }
-  } else {
-    _hubAndSpoke();
-  }
-
-  return { pos, H: _layoutH || (hasSubs ? 320 : 180) };
 }
 
 function v2RenderOrgChart() {
@@ -5632,10 +5270,104 @@ function v2RenderOrgChart() {
   }
 
   // ── layout positions ──────────────────────────────────
-  const W = 720, R = 42;
-  const positions = v2ComputeOrgLayout(roles, comms, topo, W, 0);
-  const pos = positions.pos;
-  const H = positions.H;
+  const W = 720, R = 42, PAD_X = R + 20, PAD_Y = R + 24;
+  const roleIds = new Set(roles.map(r => r.id));
+  // all leaders at depth 0 (supports co-lead orgs)
+  const leaders = roles.filter(_v2OrgIsLeader);
+  const lr = leaders[0] || roles[0];
+  const hasSubs = lr && roles.length > 1;
+
+  const pos = {};
+  let _layoutH = null; // separate from pos to avoid key collision
+
+  const _hubAndSpoke = () => {
+    if (leaders.length > 0) {
+      leaders.forEach((r, i) => {
+        const x = leaders.length === 1 ? W / 2 : PAD_X + ((W - PAD_X * 2) / (leaders.length - 1)) * i;
+        pos[r.id] = { x, y: PAD_Y };
+      });
+    }
+    const subs = roles.filter(r => !_v2OrgIsLeader(r));
+    const usableW = W - PAD_X * 2;
+    // collapse to single row when no leaders — avoids blank 220px upper band
+    const subY = leaders.length > 0 ? PAD_Y + 220 : PAD_Y;
+    subs.forEach((r, i) => {
+      const x = subs.length === 1 ? W / 2 : PAD_X + (usableW / (subs.length - 1)) * i;
+      pos[r.id] = { x, y: subY };
+    });
+    const _hasBothRows = leaders.length > 0 && subs.length > 0;
+    _layoutH = _hasBothRows ? PAD_Y + 220 + R + 8 : PAD_Y + R + 8;
+  };
+
+  if (!roles.length) {
+    // nothing
+  } else if (!hasSubs) {
+    pos[roles[0].id] = { x: W / 2, y: 90 };
+  } else if (topo === 'mesh') {
+    // circular — radius and cy both scale with n to prevent overlap and top-clip
+    const n = roles.length, cx = W / 2;
+    const minRad = (2 * R + 6) * n / (2 * Math.PI);
+    const rad = Math.max(minRad, Math.min((W - PAD_X * 2) / 2, 130) * 0.82);
+    const cy = Math.max(170, rad + PAD_Y); // shift center down so top nodes stay in viewBox
+    roles.forEach((r, i) => {
+      const a = (2 * Math.PI * i / n) - Math.PI / 2;
+      pos[r.id] = { x: cx + rad * Math.cos(a), y: cy + rad * Math.sin(a) };
+    });
+    _layoutH = Math.round(cy + rad + PAD_Y);
+  } else if (topo === 'ring' || topo === 'pipeline') {
+    // linear sequence
+    const usableW = W - PAD_X * 2;
+    roles.forEach((r, i) => {
+      const x = roles.length === 1 ? W / 2 : PAD_X + (usableW / (roles.length - 1)) * i;
+      pos[r.id] = { x, y: 90 };
+    });
+    _layoutH = 180;
+  } else if (Array.isArray(d.communication) && d.communication.length > 0) {
+    // BFS multi-level layout — only traverse forward (non-report) edges
+    const fwdEdges = comms.filter(e => e.type !== 'report');
+    if (!fwdEdges.length) {
+      // all-report graph: render as hub-and-spoke
+      _hubAndSpoke();
+    } else {
+      const depth = {};
+      leaders.forEach(r => { depth[r.id] = 0; });
+      const queue = [...leaders.map(r => r.id)];
+      while (queue.length) {
+        const cur = queue.shift();
+        fwdEdges.forEach(e => {
+          // fix: skip ghost ids not present in roles
+          if (e.from === cur && roleIds.has(e.to) && depth[e.to] === undefined) {
+            depth[e.to] = depth[cur] + 1;
+            queue.push(e.to);
+          }
+        });
+      }
+      roles.forEach(r => { if (depth[r.id] === undefined) depth[r.id] = 1; });
+      // normalize: shift all depths so the shallowest layer is 0 — avoids blank top band when leaders=[]
+      const minDepth = Math.min(...roles.map(r => depth[r.id]));
+      if (minDepth > 0) roles.forEach(r => { depth[r.id] -= minDepth; });
+      const maxDepth = Math.max(...roles.map(r => depth[r.id]));
+      const layerOf = {};
+      for (let d2 = 0; d2 <= maxDepth; d2++) layerOf[d2] = [];
+      roles.forEach(r => layerOf[depth[r.id]].push(r));
+
+      const LAYER_H = 110;
+      _layoutH = PAD_Y + maxDepth * LAYER_H + R + 24; // bottom row center + radius + margin
+
+      for (let d2 = 0; d2 <= maxDepth; d2++) {
+        const layer = layerOf[d2];
+        const usableW = W - PAD_X * 2;
+        layer.forEach((r, i) => {
+          const x = layer.length === 1 ? W / 2 : PAD_X + (usableW / (layer.length - 1)) * i;
+          pos[r.id] = { x, y: PAD_Y + d2 * LAYER_H };
+        });
+      }
+    }
+  } else {
+    _hubAndSpoke();
+  }
+
+  const H = _layoutH || (hasSubs ? 320 : 180);
 
   // ── build edge SVG strings with offset parallel arrows ─
   let edgesHTML = '', particlesHTML = '';
@@ -6015,11 +5747,7 @@ function v2RenderOrgHealth() {
       <div class="hv2-cell"><div class="hv2-lbl">Topology</div><div class="hv2-val" style="font-size:14px">${esc((_v2OrgData?.topology||'—').toUpperCase())}</div></div>
       ${health?.agents_active!=null?`<div class="hv2-cell"><div class="hv2-lbl">Agents</div><div class="hv2-val ${health.agents_active>0?'green':''}">${health.agents_active}</div></div>`:''}
       ${health?.tasks_pending!=null?`<div class="hv2-cell"><div class="hv2-lbl">Tasks</div><div class="hv2-val ${health.tasks_pending>5?'amber':''}">${health.tasks_pending}</div></div>`:''}
-      ${health?.run_success_rate_7d!=null?`<div class="hv2-cell"><div class="hv2-lbl">7d Success</div><div class="hv2-val ${health.run_success_rate_7d>=80?'green':health.run_success_rate_7d<50?'amber':''}">${health.run_success_rate_7d}%</div></div>`:''}
-      ${health?.total_runs_7d!=null?`<div class="hv2-cell"><div class="hv2-lbl">7d Runs</div><div class="hv2-val">${health.total_runs_7d}</div></div>`:''}
-      ${health?.budget_used_pct!=null?`<div class="hv2-cell"><div class="hv2-lbl">Budget Used</div><div class="hv2-val ${health.budget_used_pct>=90?'amber':''}">${health.budget_used_pct}%</div></div>`:''}
     </div>
-    ${health?.budget_used_pct!=null&&health?.budget_max_tokens>0?`<div style="margin:10px 0 12px"><div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${Math.min(100,health.budget_used_pct)}%;height:100%;background:${health.budget_used_pct>=90?'var(--red)':health.budget_used_pct>=70?'oklch(70% 0.18 60)':'var(--accent)'};border-radius:2px"></div></div><div style="font-size:10px;color:var(--text-lo);margin-top:4px">${health.budget_used_tokens.toLocaleString()} / ${health.budget_max_tokens.toLocaleString()} tokens</div></div>`:''}
     ${health?.errors?.length?`<div style="margin-top:12px"><div class="m-group-title">Errors</div>${health.errors.slice(0,5).map(e=>`<div style="font-size:11px;color:var(--red);padding:4px 0;border-bottom:1px solid var(--border)">${esc(e)}</div>`).join('')}</div>`:`<div style="margin-top:10px;font-size:12px;color:var(--text-lo)">${listOrg.running?'Running — no errors detected':'Org is idle'}</div>`}
   `;
 }
@@ -6059,11 +5787,7 @@ function v2RenderOrgTasks() {
   if (Array.isArray(raw)) tasks = raw.slice();
   else if (raw && typeof raw === 'object') {
     for (const [col, items] of Object.entries(raw)) {
-      (Array.isArray(items) ? items : []).forEach(t => {
-        const st = t.status || col;
-        const normalized = (col === 'done' && (st === 'completed' || st === 'failed' || st === 'cancelled')) ? 'done' : st;
-        tasks.push({ ...t, status: normalized });
-      });
+      (Array.isArray(items) ? items : []).forEach(t => tasks.push({ ...t, status: t.status || col }));
     }
   }
   if (!tasks.length) { pane.innerHTML = '<div class="empty">No tasks</div>'; return; }
@@ -6199,8 +5923,8 @@ function v2RenderOrgLive() {
     ${running.length
       ? running.map(a => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
           <span class="live-dot" style="flex-shrink:0"></span>
-          <span style="font-size:13px;color:var(--text-hi)">${esc(a.title || a.type || a.id || '—')}</span>
-          <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">${esc(a.adapterModel || a.adapter || '')}</span>
+          <span style="font-size:13px;color:var(--text-hi)">${esc(a.type || a.title || a.id || '—')}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">${esc(a.adapter || '')}</span>
         </div>`).join('')
       : '<div style="color:var(--text-lo);font-size:13px;padding:10px 0">No agents currently running</div>'}
   </div>
@@ -6209,7 +5933,7 @@ function v2RenderOrgLive() {
     ${(_v2OrgData._activity || []).slice(-30).reverse().map(e => `<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">
       ${esc(relTime(e.ts || e.timestamp || e.created_at))}
       <span style="color:var(--text-mid);margin-left:6px">${esc(e.type || e.kind || e.event || '—')}</span>
-      ${(e.message || e.msg) ? `<span style="color:var(--text-hi);margin-left:6px">${esc((e.message || e.msg).toString().slice(0, 80))}</span>` : ''}
+      ${e.message ? `<span style="color:var(--text-hi);margin-left:6px">${esc(e.message.toString().slice(0, 80))}</span>` : ''}
     </div>`).join('')}
   </div>`;
   // auto-refresh every 5s while tab is active
@@ -6263,7 +5987,7 @@ async function orgApprovalAction(id, action) {
   if (!confirm(action + ' this request?')) return;
   try {
     const _enc = encodeURIComponent(_v2SelOrg);
-    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {
+    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
     });
     showToast('Done', action + 'd', 'ok');
@@ -6285,7 +6009,7 @@ async function v2RenderOrgSecrets() {
         ? secrets.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
             <span style="font-family:var(--mono);color:var(--text-hi)">${esc(s.name || s.key || '—')}</span>
             ${s.purpose ? `<span style="color:var(--text-lo)">${esc(s.purpose)}</span>` : ''}
-            <span style="margin-left:auto;font-family:var(--mono);color:var(--border)">${esc(s.maskedRef || '••••••••')}</span>
+            <span style="margin-left:auto;font-family:var(--mono);color:var(--border)">••••••••</span>
           </div>`).join('')
         : '<div class="empty">No secrets configured</div>');
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
@@ -6354,8 +6078,8 @@ async function v2RenderOrgRoutines() {
       routines.map(r => `<tr style="border-top:1px solid var(--border)">
         <td style="padding:6px 8px;color:var(--text-hi)">${esc(r.name || '—')}</td>
         <td style="padding:6px 8px;font-family:var(--mono);color:var(--text-lo)">${esc(r.cron || r.schedule || '—')}</td>
-        <td style="padding:6px 8px;color:var(--text-lo)">${(r.lastRun || r.last_run) ? relTime(r.lastRun || r.last_run) : '—'}</td>
-        <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.enabled || r.status === 'active' ? 'on' : ''}">${esc(r.status || (r.enabled != null ? (r.enabled ? 'active' : 'inactive') : '—'))}</span></td>
+        <td style="padding:6px 8px;color:var(--text-lo)">${r.lastRun ? relTime(r.lastRun) : '—'}</td>
+        <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || '—')}</span></td>
       </tr>`).join('') + '</tbody></table>';
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
@@ -6392,14 +6116,7 @@ function v2RenderOrgBudgets() {
   const el = document.getElementById('odt-budgets');
   if (!el || !_v2OrgData) return;
   const b = _v2OrgData._budgets || _v2OrgData.budgets || {};
-  // Per-agent spend comes from the budgets endpoint (snake_case fields), not the agents endpoint
-  const agents = Array.isArray(b.agents) ? b.agents : (_v2OrgData._agents || []);
-  // Org-level budget limits live under org_budget in the budgets API response
-  const orgBudget = b.org_budget || {};
-  const tokenUsed  = b.tokens      != null ? b.tokens  : (agents.length ? agents.reduce((s,a) => s + (a.tokens_in != null ? a.tokens_in : (a.tokensIn||0)) + (a.tokens_out != null ? a.tokens_out : (a.tokensOut||0)), 0) : null);
-  const tokenLimit = b.tokenLimit  != null ? b.tokenLimit  : (orgBudget.limit_tokens ?? null);
-  const usdUsed    = b.usd         != null ? b.usd     : (agents.length ? agents.reduce((s,a) => s + (a.total_cost_usd != null ? a.total_cost_usd : (a.cost||0)), 0) : null);
-  const usdLimit   = b.usdLimit    != null ? b.usdLimit : (orgBudget.limit_usd    ?? null);
+  const agents = _v2OrgData._agents || [];
 
   function fillBar(used, limit) {
     if (!limit) return '';
@@ -6410,25 +6127,22 @@ function v2RenderOrgBudgets() {
   }
 
   let html = '';
-  if (tokenUsed != null || tokenLimit != null) {
-    html += `<div class="m-group-title">Tokens</div>${fillBar(tokenUsed || 0, tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(tokenUsed || 0).toLocaleString()} / ${tokenLimit ? tokenLimit.toLocaleString() : '∞'}</div>`;
+  if (b.tokens != null || b.tokenLimit != null) {
+    html += `<div class="m-group-title">Tokens</div>${fillBar(b.tokens || 0, b.tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(b.tokens || 0).toLocaleString()} / ${b.tokenLimit ? b.tokenLimit.toLocaleString() : '∞'}</div>`;
   }
-  if (usdUsed != null || usdLimit != null) {
-    html += `<div class="m-group-title">USD Budget</div>${fillBar(usdUsed || 0, usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${Number(usdUsed || 0).toFixed(4)} / ${usdLimit ? '$' + Number(usdLimit).toFixed(2) : '∞'}</div>`;
+  if (b.usd != null || b.usdLimit != null) {
+    html += `<div class="m-group-title">USD Budget</div>${fillBar(b.usd || 0, b.usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${Number(b.usd || 0).toFixed(4)} / ${b.usdLimit ? '$' + Number(b.usdLimit).toFixed(2) : '∞'}</div>`;
   }
   if (agents.length) {
     html += '<div class="m-group-title" style="margin-bottom:6px">Per Agent</div>' +
       `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:4px 8px">Agent</th><th>Tokens In</th><th>Tokens Out</th><th>Cost</th></tr></thead><tbody>` +
       agents.slice(0, 20).map(a => {
-        const tIn  = a.tokens_in  != null ? a.tokens_in  : (a.tokensIn  || 0);
-        const tOut = a.tokens_out != null ? a.tokens_out : (a.tokensOut || 0);
-        const cost = a.total_cost_usd != null ? a.total_cost_usd : (a.cost || 0);
-        const over = a.budgetLimit && (tIn + tOut) > a.budgetLimit;
+        const over = a.budgetLimit && ((a.tokensIn || 0) + (a.tokensOut || 0)) > a.budgetLimit;
         return `<tr style="border-top:1px solid var(--border)${over ? ';color:var(--red)' : ''}">
           <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.id || a.title || '—').toString().slice(0, 14))}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(tIn).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(tOut).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--accent)">$${Number(cost).toFixed(4)}${over ? ' ⚠' : ''}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensIn || 0).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensOut || 0).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--accent)">$${Number(a.cost || 0).toFixed(4)}${over ? ' ⚠' : ''}</td>
         </tr>`;
       }).join('') + '</tbody></table>';
   }
@@ -6581,558 +6295,6 @@ async function v2RenderOrgSkills() {
   </div>`).join('');
 }
 
-// ── ORG CHAT ───────────────────────────────────────────────
-let _odtChatSessions = [];
-let _odtChatCurrentId = null;
-let _odtChatCurrentAgent = 'all';
-let _odtChatSseSource = null;
-
-function _odtOrgSessionMatch(s) {
-  if (!_v2SelOrg) return true;
-  const orgLc = _v2SelOrg.toLowerCase();
-  const prompt = (s.prompt || '').toLowerCase();
-  if (prompt.includes('running org: ' + orgLc) || prompt.includes('org: ' + orgLc)) return true;
-  return (s.events || []).some(ev => (ev.org || '').toLowerCase() === orgLc);
-}
-
-function _odtChatAgentMatches(ev) {
-  if (_odtChatCurrentAgent === 'all') return true;
-  // Structural events always show regardless of agent filter
-  const structural = new Set(['session:start','session:complete','file:write','run:start','run:complete','run:cycle:complete','org:start','org:complete','org:agent:online']);
-  if (structural.has(ev.type)) return true;
-  return ev.agent === _odtChatCurrentAgent || ev.from === _odtChatCurrentAgent || ev.to === _odtChatCurrentAgent || ev.role === _odtChatCurrentAgent;
-}
-
-async function v2RenderOrgChat() {
-  const pane = document.getElementById('odt-chat');
-  if (!pane) return;
-
-  // Build the pane HTML once
-  if (!pane.querySelector('#odt-chat-bar')) {
-    pane.innerHTML = `
-      <div id="odt-chat-bar">
-        <span id="odt-chat-sess-lbl">RUN</span>
-        <select id="odt-chat-sel" onchange="odtChatSelectSession(this.value)">
-          <option value="">— loading runs —</option>
-        </select>
-        <div id="odt-chat-live-dot"></div>
-        <span id="odt-chat-live-lbl">OFFLINE</span>
-      </div>
-      <div id="odt-chat-agent-bar" style="display:none">
-        <span id="odt-chat-agent-lbl">AGENT</span>
-      </div>
-      <div id="odt-chat-excerpt" class="cv-excerpt-banner"></div>
-      <div id="odt-chat-feed">
-        <div id="odt-chat-empty">Select a run to see agent communications.<br><span style="font-size:10px;opacity:0.5">Runs appear after the first /mastermind:runorg</span></div>
-      </div>`;
-  }
-
-  // Reset state when org changes
-  _odtChatCurrentId = null;
-  _odtChatCurrentAgent = 'all';
-  document.getElementById('odt-chat-agent-bar').style.display = 'none';
-  document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
-  const emptyEl = document.getElementById('odt-chat-empty');
-  if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a run to see agent communications.'; }
-
-  await _odtLoadChatSessions();
-  _odtConnectChatSSE();
-}
-
-async function _odtLoadChatSessions() {
-  if (!_v2SelOrg) return;
-  try {
-    const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
-    // Primary: structured org run files
-    const runs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs?x=1'+dirParam);
-    if (Array.isArray(runs) && runs.length) {
-      _odtChatSessions = runs.map(r => ({
-        id: r.runId,
-        ts: r.startedAt,
-        prompt: r.goal || r.runId,
-        status: r.status,
-        _isOrgRun: true,
-        _runMeta: r,
-        events: [], // loaded lazily in odtChatSelectSession
-      }));
-      _odtPopulateChatSel();
-      if (!_odtChatCurrentId && _odtChatSessions.length) {
-        const first = _odtChatSessions[0];
-        const sel = document.getElementById('odt-chat-sel');
-        if (sel) { sel.value = first.id; odtChatSelectSession(first.id); }
-      }
-      return;
-    }
-  } catch(_) {}
-  // Fallback: mastermind lifecycle events (pre-run-file era sessions)
-  try {
-    const r = await apiFetch('/api/mastermind/sessions');
-    const all = Array.isArray(r) ? r : Object.values(r.sessions || {});
-    _odtChatSessions = all.filter(_odtOrgSessionMatch);
-    _odtPopulateChatSel();
-  } catch(_) {}
-}
-
-function _odtPopulateChatSel() {
-  const sel = document.getElementById('odt-chat-sel');
-  if (!sel) return;
-  const prev = _odtChatCurrentId || sel.value;
-  const count = _odtChatSessions.length;
-  sel.innerHTML = `<option value="">${count ? `— ${count} run${count !== 1 ? 's' : ''} for ${_v2SelOrg} —` : '— no runs yet —'}</option>`;
-  _odtChatSessions.forEach(s => {
-    const d = new Date(s.ts || s.startedAt || 0);
-    const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
-    const prompt = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0,40);
-    const meta = s._runMeta;
-    const extra = meta ? ` · ${meta.cycleCount||0}cyc · ${meta.eventCount||0}ev` : '';
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = `${date} ${ts}  ${prompt}${prompt.length>=40?'…':''}${extra}  [${s.status||'?'}]`;
-    if (s.id === prev) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  // Auto-select running session
-  if (!_odtChatCurrentId) {
-    const running = _odtChatSessions.find(s => s.status === 'running');
-    if (running) { sel.value = running.id; odtChatSelectSession(running.id); }
-  }
-}
-
-window.odtChatSelectSession = async function(id) {
-  _odtChatCurrentId = id;
-  _odtChatCurrentAgent = 'all';
-  const feed = document.getElementById('odt-chat-feed');
-  const emptyEl = document.getElementById('odt-chat-empty');
-  const bar = document.getElementById('odt-chat-agent-bar');
-  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
-  if (!id) {
-    if (emptyEl) emptyEl.style.display = 'block';
-    if (bar) bar.style.display = 'none';
-    return;
-  }
-  const sess = _odtChatSessions.find(s => s.id === id);
-  if (!sess) return;
-  if (emptyEl) emptyEl.style.display = 'none';
-  // Lazy-load events for org run sessions
-  if (sess._isOrgRun && !sess._eventsLoaded) {
-    const feed2 = document.getElementById('odt-chat-feed');
-    const loadingEl = Object.assign(document.createElement('div'), { id: 'odt-chat-loading', style: 'text-align:center;padding:24px 0;font-size:11px;opacity:0.5;color:var(--text-mid)' });
-    loadingEl.textContent = 'Loading run events…';
-    if (feed2) feed2.appendChild(loadingEl);
-    try {
-      const dirParam = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
-      const evs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs/'+encodeURIComponent(id)+dirParam);
-      sess.events = Array.isArray(evs) ? evs : [];
-      sess._seenKeys = new Set((sess.events).map(function(e){return e.ts+'-'+e.type+'-'+(e.from||e.role||'');}));
-      sess._eventsLoaded = true;
-    } catch(_) { sess.events = []; sess._eventsLoaded = true; }
-    loadingEl.remove();
-  }
-  // Agent pills from org config roles (authoritative list, not derived from events)
-  const orgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
-  _odtPopulateAgentBar(sess.events || [], orgRoles);
-  // No excerpt banner for structured org run sessions
-  const ex = document.getElementById('odt-chat-excerpt');
-  if (ex) ex.innerHTML = '';
-  (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
-  feed.scrollTop = feed.scrollHeight;
-};
-
-function _odtPopulateAgentBar(events, orgRoles) {
-  const bar = document.getElementById('odt-chat-agent-bar');
-  if (!bar) return;
-  const agentSet = new Set();
-  // Org config roles are the authoritative agent list — always use them when available
-  const roles = Array.isArray(orgRoles) ? orgRoles : (Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
-  roles.forEach(r => { const n = typeof r === 'string' ? r : (r.id || r.role || r.name || ''); if (n) agentSet.add(n); });
-  // For runs without org config, derive from events (agent:online events are reliable)
-  if (!agentSet.size) {
-    (events || []).forEach(ev => {
-      if (ev.type === 'org:agent:online' && ev.role) agentSet.add(ev.role);
-      else if (ev.type === 'org:comms') {
-        if (ev.from && ev.from.length < 40) agentSet.add(ev.from);
-        if (ev.to && ev.to !== 'all' && ev.to.length < 40) agentSet.add(ev.to);
-      }
-    });
-  }
-  const agents = [...agentSet].sort();
-  if (!agents.length) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  bar.innerHTML = '<span id="odt-chat-agent-lbl">AGENT</span>';
-  ['all', ...agents].forEach(name => {
-    const pill = document.createElement('button');
-    pill.className = 'odt-agent-pill' + (_odtChatCurrentAgent === name ? ' active' : '');
-    pill.textContent = name === 'all' ? 'ALL' : name;
-    pill.dataset.agent = name;
-    pill.onclick = () => odtChatSelectAgent(name);
-    bar.appendChild(pill);
-  });
-}
-
-window.odtChatSelectAgent = function(name) {
-  _odtChatCurrentAgent = name;
-  document.querySelectorAll('#odt-chat-agent-bar .odt-agent-pill').forEach(p => {
-    p.classList.toggle('active', p.dataset.agent === name);
-  });
-  const feed = document.getElementById('odt-chat-feed');
-  const emptyEl = document.getElementById('odt-chat-empty');
-  const sess = _odtChatSessions.find(s => s.id === _odtChatCurrentId);
-  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
-  if (!sess) { if (emptyEl) emptyEl.style.display = 'block'; return; }
-  const visible = (sess.events || []).filter(ev => _odtChatAgentMatches(ev));
-  if (!visible.length) {
-    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = name === 'all' ? 'No events.' : `No events for "${name}"`; }
-  } else {
-    if (emptyEl) emptyEl.style.display = 'none';
-    visible.forEach(ev => _odtAppendEvent(ev, false));
-  }
-  feed.scrollTop = feed.scrollHeight;
-};
-
-function _odtAppendEvent(ev, animate) {
-  if (!_odtChatAgentMatches(ev)) return;
-  const feed = document.getElementById('odt-chat-feed');
-  if (!feed) return;
-  const emptyEl = document.getElementById('odt-chat-empty');
-  if (emptyEl) emptyEl.style.display = 'none';
-  const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-  let el;
-  if (ev.type === 'run:start') {
-    el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + esc(ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + esc(ev.bossRole) : ''), ts);
-  } else if (ev.type === 'run:cycle:complete') {
-    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + ev.pending + ' tasks pending' : ''), ts);
-  } else if (ev.type === 'run:complete') {
-    el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
-  } else if (ev.type === 'org:comms') {
-    if (ev.to && ev.to !== 'all' && ev.from) el = mkCVIntercom(ev.from || 'boss', ev.to, ev.msg || '', ts);
-    else el = mkCVAgent(ev.from || 'boss', ev.msg || '', ts, 'org:comms');
-  } else if (ev.type === 'org:agent:online') {
-    el = mkCVSys('◉ ' + esc(ev.title || ev.role || '?') + ' online', ts);
-  } else if (ev.type === 'org:checkpoint') {
-    el = mkCVAgent('boss', ev.progress || '', ts, 'org:checkpoint');
-  } else if (ev.type === 'org:start' || ev.type === 'org:complete') {
-    el = mkCVSys(ev.type === 'org:start' ? '▶ Org started' : '■ Org complete', ts);
-  } else if (ev.type === 'agent:spawn') {
-    el = mkCVSpawn(ev.from || 'orchestrator', ev.to || '?', ev.task || ev.briefing || '', ts);
-  } else if (ev.type === 'agent:result') {
-    el = mkCVResult(ev.agent || '?', ev.msg || '', ts);
-  } else if (ev.type === 'file:write') {
-    el = mkCVFileCard(ev.name || ev.path || '?', ev.path || '', ev.size || 0, ts);
-  } else if (ev.type === 'intercom') {
-    el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
-  } else if (ev.type === 'agent:message') {
-    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || '', ts, ev.type);
-  } else if (ev.type === 'session:start') {
-    el = mkCVSys('▶ ' + esc((ev.prompt || '').replace(/^running org:\s*/i,'').slice(0,80) || 'Session started'), ts);
-  } else if (ev.type === 'session:complete') {
-    el = mkCVSys('■ Complete' + (ev.status ? ' — ' + esc(ev.status) : ''), ts);
-  } else if (ev.type === 'domain:dispatch') {
-    el = mkCVSys('→ ' + esc(ev.domain || '') + (ev.cmd ? ': ' + esc(ev.cmd.slice(0,80)) : ''), ts);
-  } else if (ev.type === 'domain:complete') {
-    el = mkCVSys('✓ ' + esc(ev.domain || '') + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
-  } else if (ev.type === 'loop:start') {
-    el = mkCVSys('Loop: ' + esc(ev.command || ''), ts);
-  } else if (ev.type === 'loop:complete') {
-    el = mkCVSys('Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
-  } else {
-    return; // skip unknown event types silently
-  }
-  if (animate) el.classList.add('cv-new');
-  feed.appendChild(el);
-  feed.scrollTop = feed.scrollHeight;
-}
-
-function _odtConnectChatSSE() {
-  if (_odtChatSseSource) return;
-  const dot = document.getElementById('odt-chat-live-dot');
-  const lbl = document.getElementById('odt-chat-live-lbl');
-  _odtChatSseSource = new EventSource('/api/mastermind-stream');
-  _odtChatSseSource.onopen = () => { dot?.classList.add('on'); if (lbl) lbl.textContent = 'LIVE'; };
-  _odtChatSseSource.onmessage = e => {
-    try { _odtHandleLiveEvent(JSON.parse(e.data)); } catch(_) {}
-  };
-  _odtChatSseSource.onerror = () => {
-    dot?.classList.remove('on');
-    if (lbl) lbl.textContent = 'OFFLINE';
-    _odtChatSseSource = null;
-    setTimeout(_odtConnectChatSSE, 5000);
-  };
-}
-
-function _odtHandleLiveEvent(ev) {
-  // Route org run events (have runId + org) to the active run session
-  if (ev?.org && ev?.runId && ev.org === _v2SelOrg) {
-    let runSess = _odtChatSessions.find(s => s.id === ev.runId);
-    if (!runSess && ev.type === 'run:start') {
-      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || '', status: 'running', _isOrgRun: true, _eventsLoaded: true, _runMeta: { cycleCount: 0, eventCount: 0 }, _seenKeys: new Set([ev.ts+'-'+ev.type+'-'+(ev.from||ev.role||'')]), events: [ev] };
-      _odtChatSessions.unshift(runSess);
-      _odtPopulateChatSel();
-      if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
-        const sel = document.getElementById('odt-chat-sel');
-        if (sel) { sel.value = ev.runId; odtChatSelectSession(ev.runId); }
-      }
-    } else if (runSess) {
-      const _evKey = ev.ts+'-'+ev.type+'-'+(ev.from||ev.role||'');
-      runSess._seenKeys = runSess._seenKeys || new Set();
-      if (!runSess._seenKeys.has(_evKey)) {
-        runSess._seenKeys.add(_evKey);
-        (runSess.events = runSess.events || []).push(ev);
-        if (runSess._runMeta) runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1;
-        if (ev.type === 'run:cycle:complete' || ev.type === 'org:checkpoint') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
-        if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
-        if (_odtChatCurrentId === ev.runId && _v2OrgTab === 'chat') {
-          _odtAppendEvent(ev, true);
-        }
-      }
-    }
-    return;
-  }
-
-  if (!ev?.session) return;
-  const isOrgSess = _odtOrgSessionMatch({ id: ev.session, prompt: ev.prompt || '', events: [ev] });
-  if (!isOrgSess) return;
-
-  let sess = _odtChatSessions.find(s => s.id === ev.session);
-  if (!sess && ev.type === 'session:start') {
-    sess = { id: ev.session, ts: ev.ts || Date.now(), prompt: ev.prompt || '', status: 'running', events: [ev] };
-    _odtChatSessions.unshift(sess);
-    _odtPopulateChatSel();
-    // Auto-select if nothing selected
-    if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
-      const sel = document.getElementById('odt-chat-sel');
-      if (sel) { sel.value = ev.session; odtChatSelectSession(ev.session); }
-    }
-    return;
-  }
-  if (sess) {
-    (sess.events = sess.events || []).push(ev);
-    if (ev.type === 'session:complete') { sess.status = ev.status || 'complete'; _odtPopulateChatSel(); }
-    if (_odtChatCurrentId === ev.session && _v2OrgTab === 'chat') {
-      const hasNewAgent = (ev.agent && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.agent)}"]`))
-        || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
-        || (ev.to && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
-      if (hasNewAgent) _odtPopulateAgentBar(sess.events, Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
-      if (!sess._isJsonl) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess);
-      _odtAppendEvent(ev, true);
-    }
-  }
-}
-
-// ── ORG CONFIG ─────────────────────────────────────────────
-function v2RenderOrgConfig() {
-  const el = document.getElementById('odt-config');
-  if (!el || !_v2OrgData || !_v2SelOrg) return;
-  const d = _v2OrgData;
-  const rc = d.run_config || {};
-  const gov = (d.governance && typeof d.governance === 'object') ? d.governance : { policy: d.governance || 'auto' };
-  const topos = ['hierarchical','hierarchical-mesh','mesh','star','ring','adaptive','hybrid'];
-  const modes = ['daemon','once','scheduled'];
-  const statuses = ['active','paused','archived'];
-  const govPolicies = ['auto','board','strict'];
-  const inp = (id,val,type,extra) => '<input class="filter-input" id="'+id+'" type="'+(type||'text')+'" value="'+esc(String(val??''))+'" '+(extra||'')+' style="width:100%;box-sizing:border-box">';
-  const sel = (id,opts,cur) => '<select class="filter-input" id="'+id+'" style="width:100%;box-sizing:border-box;cursor:pointer">'+opts.map(o=>'<option'+(cur===o?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
-  const fld = (lbl,html) => '<div style="display:flex;flex-direction:column;gap:4px"><div style="font-size:10px;color:var(--text-lo)">'+lbl+'</div>'+html+'</div>';
-  const sec = (title,inner) => '<div style="margin-bottom:22px"><div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)">'+title+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">'+inner+'</div></div>';
-  el.innerHTML = '<div style="padding:18px;overflow-y:auto;max-width:660px">'
-    +sec('GENERAL',
-      fld('Name', inp('oc-name', d.name||'','text','readonly style="opacity:0.5"'))
-      +fld('Status', sel('oc-status', statuses, d.status||'active'))
-      +'<div style="grid-column:1/-1">'+fld('Goal', '<textarea id="oc-goal" class="filter-input" rows="3" style="width:100%;box-sizing:border-box;resize:vertical;line-height:1.5">'+esc(d.goal||'')+'</textarea>')+'</div>'
-      +fld('Mode', sel('oc-mode', modes, d.mode||'daemon'))
-      +fld('Topology', sel('oc-topology', topos, d.topology||'hierarchical'))
-      +'<div style="grid-column:1/-1">'+fld('Schedule', inp('oc-schedule', d.schedule||''))+'</div>'
-    )
-    +sec('RUN CONFIG',
-      fld('Max Concurrent Agents', inp('oc-max-agents', rc.max_concurrent_agents??6,'number','min="1" max="32"'))
-      +fld('Checkpoint Interval (min)', inp('oc-checkpoint', rc.checkpoint_interval_min??30,'number','min="5"'))
-      +fld('Budget Tokens (0=unlimited)', inp('oc-budget', rc.budget_tokens??0,'number','min="0"'))
-      +fld('Alert Threshold (0-1)', inp('oc-alert', rc.alert_threshold??0.8,'number','step="0.05" min="0" max="1"'))
-      +fld('Boss Role ID', inp('oc-boss', rc.boss_role||''))
-      +fld('Memory Namespace', inp('oc-namespace', rc.memory_namespace||('org:'+d.name)))
-      +'<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-top:4px"><input type="checkbox" id="oc-spawn-all" '+(rc.spawn_all_roles?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer"><label for="oc-spawn-all" style="font-size:12px;color:var(--text-mid);cursor:pointer">Spawn all roles as separate agents</label></div>'
-    )
-    +sec('GOVERNANCE',
-      fld('Approval Policy', sel('oc-gov-policy', govPolicies, gov.policy||'auto'))
-      +fld('Approvals File', inp('oc-gov-file', gov.approvals_file||('.monomind/orgs/'+d.name+'-approvals.json')))
-    )
-    +'<div style="display:flex;align-items:center;gap:10px"><button class="btn" style="border-color:var(--accent);color:var(--accent)" onclick="v2SaveOrgConfig()">Save Config</button><span id="oc-status-msg" style="font-size:11px;color:var(--text-lo)"></span></div>'
-    +'</div>';
-}
-
-async function v2SaveOrgConfig() {
-  if (!_v2SelOrg || !_v2OrgData) return;
-  const g = id => document.getElementById(id);
-  const cfg = {
-    ..._v2OrgData,
-    status:   (g('oc-status')?.value)   || _v2OrgData.status,
-    goal:     (g('oc-goal')?.value)     || _v2OrgData.goal,
-    mode:     (g('oc-mode')?.value)     || _v2OrgData.mode,
-    topology: (g('oc-topology')?.value) || _v2OrgData.topology,
-    schedule: (g('oc-schedule')?.value||'').trim() || null,
-    run_config: { ...(_v2OrgData.run_config||{}),
-      max_concurrent_agents:   parseInt(g('oc-max-agents')?.value)||6,
-      checkpoint_interval_min: parseInt(g('oc-checkpoint')?.value)||30,
-      budget_tokens:           parseInt(g('oc-budget')?.value)||0,
-      alert_threshold:         parseFloat(g('oc-alert')?.value)||0.8,
-      boss_role:               (g('oc-boss')?.value||'').trim(),
-      memory_namespace:        (g('oc-namespace')?.value||'').trim()||('org:'+_v2SelOrg),
-      spawn_all_roles:         !!(g('oc-spawn-all')?.checked),
-    },
-    governance: {
-      policy:         (g('oc-gov-policy')?.value)||'auto',
-      approvals_file: (g('oc-gov-file')?.value||'').trim()||('.monomind/orgs/'+_v2SelOrg+'-approvals.json'),
-    },
-  };
-  const msg = document.getElementById('oc-status-msg');
-  if (msg) { msg.style.color='var(--text-lo)'; msg.textContent='Saving...'; }
-  try {
-    const qs = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
-    const r = await fetch('/api/orgs'+qs, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg) });
-    const json = await r.json();
-    if (json.ok) {
-      _v2OrgData = Object.assign({}, _v2OrgData, cfg);
-      if (msg) { msg.style.color='oklch(68% 0.20 150)'; msg.textContent='Saved'; setTimeout(()=>{ if(msg) msg.textContent=''; }, 2500); }
-      if (typeof showToast === 'function') showToast('Config saved','','ok');
-    } else { throw new Error(json.error||'Save failed'); }
-  } catch(e) {
-    if (msg) { msg.style.color='oklch(60% 0.22 25)'; msg.textContent='Error: '+e.message; }
-  }
-}
-
-// ── ORG FILES ──────────────────────────────────────────────
-async function v2RenderOrgFiles() {
-  const el = document.getElementById('odt-files');
-  if (!el || !_v2SelOrg) return;
-  el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">Loading files...</div>';
-  try {
-    const enc = encodeURIComponent(_v2SelOrg);
-    const qs = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
-    const files = await fetch('/api/org/'+enc+'/files'+qs).then(r => r.ok ? r.json() : []).catch(() => []);
-    if (!files.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">No files found.</div>'; return; }
-    const fmtSize = b => b < 1024 ? b+'B' : b < 1048576 ? (b/1024).toFixed(1)+'K' : (b/1048576).toFixed(1)+'M';
-    const fmtTime = s => { const d = new Date(s); return d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); };
-    const typeColor = { config:'oklch(62% 0.20 186)', generated:'oklch(68% 0.20 150)', 'agent-definition':'oklch(65% 0.20 280)', approvals:'oklch(70% 0.18 60)', state:'oklch(70% 0.18 60)', goals:'oklch(70% 0.18 60)' };
-    const groupOrder = ['config','generated','agent-definition','approvals','state','goals','routines','other'];
-    const groups = {};
-    groupOrder.forEach(k => { groups[k] = { label: k==='agent-definition'?'AGENT DEFINITIONS':k.toUpperCase().replace(/-/g,' '), items:[] }; });
-    files.forEach(f => { const k = groups[f.type] ? f.type : 'other'; if (!groups[k]) groups[k]={label:f.type.toUpperCase(),items:[]}; groups[k].items.push(f); });
-    const color = t => typeColor[t]||'var(--text-lo)';
-    const badge = t => '<span style="font-size:9px;padding:1px 6px;border-radius:8px;border:1px solid '+color(t)+';color:'+color(t)+'">'+t+'</span>';
-    el.innerHTML = '<div style="padding:16px">'+groupOrder.filter(k => groups[k]&&groups[k].items.length).map(k => {
-      const g = groups[k];
-      return '<div style="margin-bottom:20px"><div style="font-size:9px;letter-spacing:2px;color:var(--text-xs);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">'+g.label+' ('+g.items.length+')</div>'+
-        '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
-        '<thead><tr style="color:var(--text-xs);font-size:9px;text-align:left"><th style="padding:4px 8px">File</th><th>Type</th><th>Size</th><th>Modified</th><th></th></tr></thead>'+
-        '<tbody>'+g.items.map(f => {
-          return '<tr style="border-top:1px solid var(--border)" data-fp="'+esc(f.path)+'" data-fn="'+esc(f.name)+'">'+
-            '<td style="padding:6px 8px"><span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);cursor:pointer" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">'+esc(f.name)+'</span></td>'+
-            '<td style="padding:6px 8px">'+badge(f.type)+'</td>'+
-            '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo);font-family:var(--mono)">'+fmtSize(f.size||0)+'</td>'+
-            '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo)">'+fmtTime(f.mtime)+'</td>'+
-            '<td style="padding:6px 8px"><button class="btn" style="font-size:9px;padding:2px 7px" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">View</button></td></tr>';
-        }).join('')+'</tbody></table></div>';
-    }).join('')+'</div>';
-  } catch(e) { el.innerHTML = '<div style="padding:20px;color:oklch(60% 0.22 25)">Error: '+e.message+'</div>'; }
-}
-
-let _ofModal = null;
-let _ofRawText = '';
-
-function _ofMdToHtml(md) {
-  return md
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/^#{6}\s+(.+)$/gm,'<h6 style="font-size:11px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h6>')
-    .replace(/^#{5}\s+(.+)$/gm,'<h5 style="font-size:12px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h5>')
-    .replace(/^#{4}\s+(.+)$/gm,'<h4 style="font-size:13px;font-weight:700;color:var(--text-hi);margin:12px 0 5px">$1</h4>')
-    .replace(/^#{3}\s+(.+)$/gm,'<h3 style="font-size:14px;font-weight:700;color:var(--text-hi);margin:14px 0 6px">$1</h3>')
-    .replace(/^#{2}\s+(.+)$/gm,'<h2 style="font-size:16px;font-weight:700;color:var(--accent);margin:16px 0 7px;padding-bottom:4px;border-bottom:1px solid var(--border)">$1</h2>')
-    .replace(/^#{1}\s+(.+)$/gm,'<h1 style="font-size:18px;font-weight:700;color:var(--accent);margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border)">$1</h1>')
-    .replace(/```[\w]*\n?([\s\S]*?)```/g,'<pre style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 12px;font-size:10px;overflow-x:auto;margin:8px 0;line-height:1.6">$1</pre>')
-    .replace(/`([^`]+)`/g,'<code style="background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;font-family:var(--mono)">$1</code>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g,'<em>$1</em>')
-    .replace(/^---+$/gm,'<hr style="border:none;border-top:1px solid var(--border);margin:12px 0">')
-    .replace(/^\s*[-*]\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
-    .replace(/(<li.*<\/li>\n?)+/g,'<ul style="padding-left:18px;margin:6px 0">$&</ul>')
-    .replace(/^\d+\.\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" style="color:var(--accent);text-decoration:underline" target="_blank" rel="noopener">$1</a>')
-    .replace(/\n\n+/g,'</p><p style="margin:0 0 8px">')
-    .replace(/^(?!<[hupoli]|<pre|<hr)(.+)$/gm, '$1')
-    .replace(/\n/g,'<br>');
-}
-
-async function v2ViewOrgFile(filePath, fileName) {
-  if (_ofModal) { _ofModal.remove(); _ofModal = null; }
-  const isMd = /\.(md|markdown)$/i.test(fileName);
-  const isJson = /\.json$/i.test(fileName);
-  _ofRawText = '';
-  _ofModal = document.createElement('div');
-  _ofModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
-  _ofModal.onclick = e => { if (e.target===_ofModal) { _ofModal.remove(); _ofModal=null; } };
-  _ofModal.innerHTML =
-    '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;max-width:900px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6)">' +
-      '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0">' +
-        '<span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(filePath)+'">'+esc(fileName)+'</span>' +
-        (isMd ? '<button id="of-toggle" class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofToggleRender()">Raw</button>' : '') +
-        '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="navigator.clipboard.writeText(_ofRawText).then(()=>{ if(typeof showToast===\'function\') showToast(\'Copied\',\'\',\'ok\'); })">Copy</button>' +
-        '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveFile(\''+esc(fileName)+'\')">Save</button>' +
-        '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofModal&&(_ofModal.remove(),_ofModal=null)">✕</button>' +
-      '</div>' +
-      '<div id="of-content" style="flex:1;overflow-y:auto;padding:16px 18px;font-size:12px;line-height:1.7;color:var(--text-mid);scrollbar-width:thin;scrollbar-color:var(--border) transparent">' +
-        '<span style="color:var(--text-lo)">Loading…</span>' +
-      '</div>' +
-    '</div>';
-  document.body.appendChild(_ofModal);
-  try {
-    const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
-    const r = await fetch('/api/file-content?path='+encodeURIComponent(filePath)+dirParam);
-    const el = document.getElementById('of-content');
-    if (!el) return;
-    if (!r.ok) { el.textContent = 'Error '+r.status+': '+r.statusText; return; }
-    _ofRawText = await r.text();
-    if (isMd) {
-      el.innerHTML = '<div style="max-width:720px">'+_ofMdToHtml(_ofRawText)+'</div>';
-      el.dataset.mode = 'rendered';
-    } else if (isJson) {
-      try { el.textContent = JSON.stringify(JSON.parse(_ofRawText), null, 2); } catch(_) { el.textContent = _ofRawText; }
-      el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
-    } else {
-      el.textContent = _ofRawText;
-      el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
-    }
-  } catch(e) {
-    const el = document.getElementById('of-content');
-    if (el) el.textContent = 'Error: '+e.message;
-  }
-}
-
-function _ofToggleRender() {
-  const el = document.getElementById('of-content');
-  const btn = document.getElementById('of-toggle');
-  if (!el || !_ofRawText) return;
-  if (el.dataset.mode === 'rendered') {
-    el.textContent = _ofRawText;
-    el.style.fontFamily = 'var(--mono)'; el.style.fontSize = '11px'; el.style.whiteSpace = 'pre-wrap';
-    el.dataset.mode = 'raw';
-    if (btn) btn.textContent = 'Preview';
-  } else {
-    el.innerHTML = '<div style="max-width:720px">'+_ofMdToHtml(_ofRawText)+'</div>';
-    el.style.fontFamily = ''; el.style.fontSize = '12px'; el.style.whiteSpace = '';
-    el.dataset.mode = 'rendered';
-    if (btn) btn.textContent = 'Raw';
-  }
-}
-
-function _ofSaveFile(defaultName) {
-  if (!_ofRawText) return;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([_ofRawText], { type: 'text/plain' }));
-  a.download = defaultName || 'file.txt';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
 // ── WORKSPACES ─────────────────────────────────────────────
 async function v2RenderOrgWorkspaces() {
   const el = document.getElementById('odt-workspaces');
@@ -7169,7 +6331,7 @@ async function v2RenderOrgInvites() {
         <th style="padding:5px 8px">Token</th><th>Role</th><th>Expires</th><th>Created</th>
       </tr></thead>
       <tbody>${invites.map(i => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((i.token||i.id||'—').slice(0,20))}</td>
+        <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((i.token||i.id||'—').slice(0,16))}…</td>
         <td style="padding:5px 8px"><span class="ss-pill">${esc(i.role||'viewer')}</span></td>
         <td style="padding:5px 8px;color:var(--text-lo)">${i.expiresAt ? relTime(i.expiresAt) : '—'}</td>
         <td style="padding:5px 8px;color:var(--text-lo)">${i.createdAt ? relTime(i.createdAt) : '—'}</td>
@@ -7190,8 +6352,8 @@ function v2RenderOrgAgentsFull() {
     </tr></thead>
     <tbody>${agents.map(a => `<tr style="border-top:1px solid var(--border)">
       <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((a.id||'—').toString().slice(0,12))}</td>
-      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.adapterType||a.type||a.title||'—')}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapterModel||a.adapter||'—')}</td>
+      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.type||a.title||'—')}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapter||'—')}</td>
       <td style="padding:5px 8px"><span class="ss-pill ${(a.status==='running'||a.running)?'on':''}">${esc(a.status||'idle')}</span></td>
       <td style="padding:5px 8px;color:var(--text-lo)">${a.lastHeartbeat ? relTime(a.lastHeartbeat) : '—'}</td>
       <td style="padding:5px 8px;color:var(--text-lo)">${a.tokensIn != null ? Number(a.tokensIn).toLocaleString() : '—'}</td>
@@ -7275,14 +6437,14 @@ async function v2RenderOrgJoinRequests() {
   try {
     const _enc = encodeURIComponent(_v2SelOrg);
     const data = await fetch(`/api/org/${_enc}/join-requests${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    const reqs = Array.isArray(data) ? data : (data.requests || data.joinRequests || data.join_requests || []);
+    const reqs = Array.isArray(data) ? data : (data.joinRequests || data.join_requests || []);
     if (!reqs.length) { el.innerHTML = '<div class="empty">No pending join requests</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="color:var(--text-xs);text-align:left">
         <th style="padding:5px 8px">Requester</th><th>Type</th><th>Status</th><th>Created</th>
       </tr></thead>
       <tbody>${reqs.map(r => `<tr style="border-top:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text-hi)">${esc(r.requesterName||r.name||r.username||r.id||'—')}</td>
+        <td style="padding:5px 8px;color:var(--text-hi)">${esc(r.name||r.username||r.id||'—')}</td>
         <td style="padding:5px 8px;color:var(--text-lo)">${r.type==='agent'?'🤖 agent':'👤 human'}</td>
         <td style="padding:5px 8px"><span class="ss-pill ${r.status==='approved'?'on':r.status==='rejected'?'warn':''}">${esc(r.status||'pending')}</span></td>
         <td style="padding:5px 8px;color:var(--text-lo)">${r.createdAt ? relTime(r.createdAt) : '—'}</td>
@@ -7320,102 +6482,27 @@ async function v2RenderOrgThreads() {
 window.v2StopOrg = async function() {
   if (!_v2SelOrg) return;
   const stopped = _v2SelOrg;
-  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {method:'POST'}); } catch(_) {}
+  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop`, {method:'POST'}); } catch(_) {}
   setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
 };
 
-window.v2ShowCopyOrgDialog = async function() {
+window.v2ShowCopyOrgDialog = function() {
   const d = document.getElementById('org-copy-dialog');
-  if (!d) return;
-  d.style.display = 'flex';
-  document.getElementById('org-copy-dest').value = '';
-  document.getElementById('org-copy-status').textContent = '';
-  document.getElementById('org-copy-confirm-btn').disabled = false;
-  // Load project list
-  const listEl = document.getElementById('org-copy-proj-list');
-  listEl.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:var(--text-lo)">Loading projects…</div>';
-  try {
-    const data = await apiFetch('/api/projects');
-    const projects = (data?.projects || []);
-    if (!projects.length) { listEl.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:var(--text-lo)">No projects found</div>'; }
-    else {
-      listEl.innerHTML = projects.map(p => {
-        const label = p.name || p.slug || p.path?.split('/').pop() || p.path;
-        const shortP = (p.path || '').replace(/\/Users\/[^/]+\//, '~/');
-        return `<div class="ocp-row" title="${esc(p.path)}" onclick="document.querySelectorAll('.ocp-row').forEach(r=>r.classList.remove('ocp-sel'));this.classList.add('ocp-sel');document.getElementById('org-copy-dest').value='${esc(p.path).replace(/'/g,"\\'")}'" style="padding:7px 10px;font-size:12px;font-family:var(--mono);cursor:pointer;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:baseline">
-          <span style="color:var(--text-hi)">${esc(label)}</span>
-          <span style="color:var(--text-lo);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(shortP)}</span>
-        </div>`;
-      }).join('');
-    }
-  } catch(e) { listEl.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-lo)">Could not load projects</div>'; }
-  setTimeout(() => document.getElementById('org-copy-dest')?.focus(), 60);
+  if (d) { d.style.display = 'flex'; document.getElementById('org-copy-dest')?.focus(); }
 };
 window.v2DoCopyOrg = async function() {
   const dest = document.getElementById('org-copy-dest')?.value.trim();
-  const statusEl = document.getElementById('org-copy-status');
-  const confirmBtn = document.getElementById('org-copy-confirm-btn');
-  if (!dest) { if (statusEl) { statusEl.textContent = 'Enter or select a destination'; statusEl.style.color = 'var(--red)'; } return; }
+  if (!dest) { showToast('Required', 'Enter destination path', 'warn'); return; }
   if (!_v2SelOrg) return;
-  confirmBtn.disabled = true;
-  if (statusEl) { statusEl.textContent = 'Copying…'; statusEl.style.color = 'var(--text-lo)'; }
   try {
-    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + '/copy' + (DIR ? '?dir=' + encodeURIComponent(DIR) : ''), {
+    const r = await fetch('/api/org/' + enc(_v2SelOrg) + '/copy?dir=' + enc(DIR), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ destination: dest }),
     });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status);
-    showToast('Copied', `"${_v2SelOrg}" → ${dest}`, 'ok');
-    document.getElementById('org-copy-dialog').style.display = 'none';
-  } catch (e) {
-    if (statusEl) { statusEl.textContent = e.message; statusEl.style.color = 'var(--red)'; }
-    confirmBtn.disabled = false;
-  }
-};
-
-window.v2ExportOrg = async function() {
-  if (!_v2SelOrg) return;
-  try {
-    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + (DIR ? '?dir=' + encodeURIComponent(DIR) : ''));
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = _v2SelOrg + '.json'; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast('Exported', `${_v2SelOrg}.json downloaded`, 'ok');
-  } catch(e) { showToast('Export failed', e.message, 'err'); }
-};
-
-window.v2ImportOrgTrigger = function() {
-  let inp = document.getElementById('org-import-file');
-  if (!inp) {
-    inp = document.createElement('input');
-    inp.type = 'file'; inp.id = 'org-import-file'; inp.accept = '.json'; inp.style.display = 'none';
-    document.body.appendChild(inp);
-  }
-  inp.onchange = v2HandleImportFile;
-  inp.click();
-};
-async function v2HandleImportFile(e) {
-  const file = e.target.files?.[0];
-  e.target.value = '';
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    const name = data.name || file.name.replace(/\.json$/, '');
-    const r = await fetch('/api/orgs', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, name, dir: DIR || undefined }),
-    });
-    if (!r.ok) { const d = await r.json().catch(()=>({})); throw new Error(d.error || 'HTTP ' + r.status); }
-    showToast('Imported', `Org "${name}" imported`, 'ok');
-    await renderOrgs();
-    if (name) v2SelectOrg(name);
-  } catch(e) { showToast('Import failed', e.message, 'err'); }
+    showToast('Copied', `Org "${_v2SelOrg}" copied to ${dest}`, 'ok');
+    document.getElementById('org-copy-dialog').style.display = 'none';
+  } catch (e) { showToast('Error', e.message, 'err'); }
 };
 
 function filterLoopList(q) {
@@ -7438,22 +6525,12 @@ function filterOrgList(q) {
 // live SSE for org events
 (function v2OrgSSE() {
   let src;
-  let _connectTime = 0;
   function connect() {
     if (src) src.close();
-    _connectTime = Date.now();
     src = new EventSource('/api/mastermind-stream');
     src.onmessage = e => {
       try {
         const ev = JSON.parse(e.data);
-        if (ev?.type?.startsWith('loop:')) {
-          // Skip replayed historical events (server replays last ~50 on reconnect)
-          if (ev.ts && ev.ts < _connectTime) return;
-          if (currentView === 'loops') renderLoops();
-          else viewRendered['loops'] = false; // stale — re-fetch on next switchView
-          loadLoopMetrics();
-          return;
-        }
         if (!ev?.org || !ev?.type?.startsWith('org:')) return;
         const n = ev.org;
         // Filter by project dir if the event carries one; skip events from other projects.
@@ -7693,10 +6770,7 @@ function cmdSearch(q) {
     results.innerHTML = sq.length >= 2
       ? '<div class="cmd-empty">Searching sessions…</div>'
       : '<div class="cmd-empty">Type at least 2 chars after &gt; to search all sessions</div>';
-    if (sq.length >= 2) {
-      clearTimeout(_cmdSearchTimer);
-      _cmdSearchTimer = setTimeout(() => searchSessions(sq), 300);
-    }
+    if (sq.length >= 2) searchSessions(sq);
     return;
   }
 
@@ -7885,7 +6959,7 @@ function executeCmdItem() {
   else if (item.type === 'org') { switchView('orgs'); setTimeout(() => v2SelectOrg(item.data.name), 80); }
   else if (item.type === 'skill') switchView('memory');
   else if (item.type === 'action') { if (item.data.action) item.data.action(); }
-  else if (item.type === 'orgtab') { const btn = document.querySelector(`.odt-btn[data-tab="${item.data.tab}"]`); if (btn) btn.click(); else if (typeof v2SwitchOrgTab === 'function') v2SwitchOrgTab(item.data.tab); }
+  else if (item.type === 'orgtab') { const btn = document.querySelector(`.odt-btn[data-tab="${item.data.tab}"]`); if (btn) btn.click(); }
 }
 
 // ── cross-session search ───────────────────────────────────
@@ -8179,10 +7253,6 @@ function buildSessionHeatmap(sessions) {
   const DAY = 86400000;
   const now = Date.now();
   const WEEKS = 12; const DAYS = WEEKS * 7;
-  // Monday-align: compute how many days since last Monday so column 0 starts on Monday
-  const todayDow = new Date(now).getDay(); // 0=Sun,1=Mon,...,6=Sat
-  const shmOffset = (todayDow + 6) % 7;   // days since most-recent Monday (Mon=0)
-  const padShm = shmOffset;               // leading empty cells to prepend
   const buckets = new Array(DAYS).fill(null).map(() => ({ count:0, date:null }));
   for (let i = 0; i < DAYS; i++) {
     buckets[i].date = new Date(now - (DAYS - 1 - i) * DAY).toDateString();
@@ -8194,8 +7264,7 @@ function buildSessionHeatmap(sessions) {
     if (idx >= 0 && idx < DAYS) buckets[idx].count++;
   }
   const max = Math.max(...buckets.map(b => b.count), 1);
-  const shmPadding = Array.from({ length: padShm }, () => '<div class="shm-cell shm-0" style="opacity:0;pointer-events:none"></div>').join('');
-  el.innerHTML = shmPadding + buckets.map(b => {
+  el.innerHTML = buckets.map(b => {
     const level = b.count === 0 ? 0 : Math.min(4, Math.ceil(b.count / max * 4));
     const isActive = b.date === heatmapDateFilter;
     return `<div class="shm-cell shm-${level}${isActive ? ' shm-active' : ''}" title="${b.date}: ${b.count} session${b.count !== 1 ? 's' : ''}" onclick="setHeatmapFilter('${b.date}',${b.count})"></div>`;
@@ -8944,23 +8013,15 @@ function esc(s) {
 
 function relTime(ts) {
   if (!ts) return '';
-  const abs = typeof ts === 'number' ? ts : new Date(ts).getTime();
-  const diff = Date.now() - abs;
+  const diff = Date.now() - (typeof ts === 'number' ? ts : Number(ts) || new Date(ts).getTime() || 0);
   const s = Math.floor(diff / 1000);
   if (s < 5)  return 'now';
-  if (s < 60) return s + 's ago';
+  if (s < 60) return s + 's';
   const m = Math.floor(s / 60);
-  if (m < 60) return m + 'm ago';
+  if (m < 60) return m + 'm';
   const h = Math.floor(m / 60);
-  if (h < 24) return h + 'h ago';
-  const d = Math.floor(h / 24);
-  if (d < 7) return d + 'd ago';
-  const absDate = new Date(abs);
-  const nowDate = new Date();
-  const sameYear = absDate.getFullYear() === nowDate.getFullYear();
-  return absDate.toLocaleDateString(undefined, sameYear
-    ? { month: 'short', day: 'numeric' }
-    : { month: 'short', day: 'numeric', year: 'numeric' });
+  if (h < 24) return h + 'h';
+  return Math.floor(h / 24) + 'd';
 }
 
 function shortPath(p) {
@@ -10925,32 +9986,8 @@ async function loadAgentGraphTab() {
   const bar = document.getElementById('ag-summary-bar');
   if (bar) bar.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const raw = await apiFetch('/api/graph?dir=' + enc(DIR));
-    // Server returns {nodes, edges}; transform to the shape rendering expects
-    const sessionNodes = (raw.nodes || []).filter(n => n.type === 'session');
-    const agentTypeNodes = (raw.nodes || []).filter(n => n.type === 'agenttype');
-    const sessions = sessionNodes.map(n => ({
-      id: n.id,
-      file: n.id,
-      spawnCount: Object.values(n.agentSpawns || {}).reduce((a,b)=>a+b,0),
-      toolCount: n.totalTools || 0,
-      agentTypes: n.agentSpawns || {},
-      tools: n.toolCounts || {},
-      cost: n.cost || 0,
-      turns: n.turns || 0,
-      mtime: n.mtime,
-      truncated: n.truncated,
-    }));
-    _agData = {
-      sessions,
-      sessionCount: sessions.length,
-      agentTypes: agentTypeNodes.length,
-      totalSpawns: sessions.reduce((a,s)=>a+s.spawnCount,0),
-      totalToolCalls: sessions.reduce((a,s)=>a+s.toolCount,0),
-      totalCost: sessions.reduce((a,s)=>a+(s.cost||0),0),
-      nodes: raw.nodes,
-      edges: raw.edges,
-    };
+    const data = await apiFetch('/api/graph?dir=' + enc(DIR));
+    _agData = data;
     _renderAgSummary();
     _renderAgSessList();
   } catch (e) {
@@ -11125,7 +10162,7 @@ async function mmRenderLoops(body) {
     body.innerHTML = loops.map(l => {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
-      const isTillend = !maxReps || l.type === 'tillend' || String(l.command || '').includes('--tillend');
+      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
       const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
