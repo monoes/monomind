@@ -2262,8 +2262,18 @@ export const hooksTrajectoryStart: MCPTool = {
     required: ['task'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const task = params.task as string;
-    const agent = (params.agent as string) || 'coder';
+    // Cap task and agent lengths to prevent the trajectory map from accumulating
+    // large strings (up to MAX_TRAJECTORIES × uncapped length = potential GB of RAM).
+    const MAX_TASK_LEN = 4 * 1024; // 4 KB — same cap as trajectory-step fields
+    const MAX_AGENT_LEN = 256;
+    const rawTask = params.task as string;
+    const task = typeof rawTask === 'string' && rawTask.length > MAX_TASK_LEN
+      ? rawTask.slice(0, MAX_TASK_LEN)
+      : rawTask;
+    const rawAgent = (params.agent as string) || 'coder';
+    const agent = typeof rawAgent === 'string' && rawAgent.length > MAX_AGENT_LEN
+      ? rawAgent.slice(0, MAX_AGENT_LEN)
+      : rawAgent;
     const trajectoryId = `traj-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const startedAt = new Date().toISOString();
 

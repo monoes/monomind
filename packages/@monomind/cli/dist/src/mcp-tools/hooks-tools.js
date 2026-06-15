@@ -2066,8 +2066,18 @@ export const hooksTrajectoryStart = {
         required: ['task'],
     },
     handler: async (params) => {
-        const task = params.task;
-        const agent = params.agent || 'coder';
+        // Cap task and agent lengths to prevent the trajectory map from accumulating
+        // large strings (up to MAX_TRAJECTORIES × uncapped length = potential GB of RAM).
+        const MAX_TASK_LEN = 4 * 1024; // 4 KB — same cap as trajectory-step fields
+        const MAX_AGENT_LEN = 256;
+        const rawTask = params.task;
+        const task = typeof rawTask === 'string' && rawTask.length > MAX_TASK_LEN
+            ? rawTask.slice(0, MAX_TASK_LEN)
+            : rawTask;
+        const rawAgent = params.agent || 'coder';
+        const agent = typeof rawAgent === 'string' && rawAgent.length > MAX_AGENT_LEN
+            ? rawAgent.slice(0, MAX_AGENT_LEN)
+            : rawAgent;
         const trajectoryId = `traj-${Date.now()}-${Math.random().toString(36).substring(7)}`;
         const startedAt = new Date().toISOString();
         // Create real trajectory entry in memory
