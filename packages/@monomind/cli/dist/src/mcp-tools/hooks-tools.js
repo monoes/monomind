@@ -514,8 +514,18 @@ export const hooksPreEdit = {
         required: ['filePath'],
     },
     handler: async (params) => {
-        const filePath = params.filePath;
-        const operation = params.operation || 'update';
+        // Cap filePath: passed to suggestAgentsForFile (O(n) regex) and reflected in
+        // response.  Cap operation to prevent oversized strings in recommendations.
+        const MAX_PRE_EDIT_PATH_LEN = 4 * 1024;
+        const MAX_PRE_EDIT_OP_LEN = 64;
+        const rawFilePath = params.filePath;
+        const filePath = typeof rawFilePath === 'string' && rawFilePath.length > MAX_PRE_EDIT_PATH_LEN
+            ? rawFilePath.slice(0, MAX_PRE_EDIT_PATH_LEN)
+            : rawFilePath;
+        const rawOperation = params.operation || 'update';
+        const operation = typeof rawOperation === 'string' && rawOperation.length > MAX_PRE_EDIT_OP_LEN
+            ? rawOperation.slice(0, MAX_PRE_EDIT_OP_LEN)
+            : rawOperation;
         const suggestedAgents = suggestAgentsForFile(filePath);
         const ext = getFileExtension(filePath);
         return {
@@ -551,9 +561,20 @@ export const hooksPostEdit = {
         required: ['filePath'],
     },
     handler: async (params) => {
-        const filePath = params.filePath;
+        // Cap filePath: interpolated into taskId and task text forwarded to
+        // bridgeRecordFeedback (which calls generateEmbedding — O(n) hash fallback).
+        // Cap agent: stored in feedback record and forwarded to bridge.
+        const MAX_POST_EDIT_PATH_LEN = 4 * 1024;
+        const MAX_POST_EDIT_AGENT_LEN = 256;
+        const rawFilePath = params.filePath;
+        const filePath = typeof rawFilePath === 'string' && rawFilePath.length > MAX_POST_EDIT_PATH_LEN
+            ? rawFilePath.slice(0, MAX_POST_EDIT_PATH_LEN)
+            : rawFilePath;
         const success = params.success !== false;
-        const agent = params.agent;
+        const rawAgent = params.agent;
+        const agent = typeof rawAgent === 'string' && rawAgent.length > MAX_POST_EDIT_AGENT_LEN
+            ? rawAgent.slice(0, MAX_POST_EDIT_AGENT_LEN)
+            : rawAgent;
         // Wire recordFeedback through bridge (issue #1209)
         let feedbackResult = null;
         try {
@@ -3207,7 +3228,13 @@ export const hooksModelRoute = {
         required: ['task'],
     },
     handler: async (params) => {
-        const task = params.task;
+        // Cap task: analyzeComplexityFallback calls .toLowerCase() and O(n) .includes()
+        // for each keyword; an unbounded task string causes event-loop DoS.
+        const MAX_MODEL_ROUTE_TASK_LEN = 16 * 1024;
+        const rawTask = params.task;
+        const task = typeof rawTask === 'string' && rawTask.length > MAX_MODEL_ROUTE_TASK_LEN
+            ? rawTask.slice(0, MAX_MODEL_ROUTE_TASK_LEN)
+            : rawTask;
         // Native neural model-router removed in the lean build — keyword complexity heuristic.
         const complexity = analyzeComplexityFallback(task);
         return {
@@ -3235,7 +3262,13 @@ export const hooksModelOutcome = {
         required: ['task', 'model', 'outcome'],
     },
     handler: async (params) => {
-        const task = params.task;
+        // Cap task: even though the response only reflects task.slice(0, 50), an
+        // unbounded task string causes unnecessary memory allocation before the slice.
+        const MAX_MODEL_OUTCOME_TASK_LEN = 16 * 1024;
+        const rawOutcomeTask = params.task;
+        const task = typeof rawOutcomeTask === 'string' && rawOutcomeTask.length > MAX_MODEL_OUTCOME_TASK_LEN
+            ? rawOutcomeTask.slice(0, MAX_MODEL_OUTCOME_TASK_LEN)
+            : rawOutcomeTask;
         const model = params.model;
         // RLVR: derive effective outcome from verifier exit_code when provided
         // Source: https://github.com/opendilab/awesome-RLVR
