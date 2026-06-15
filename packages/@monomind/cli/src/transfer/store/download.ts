@@ -29,6 +29,7 @@ export type DownloadProgressCallback = (progress: {
  * Handles secure download and verification of patterns
  */
 const MAX_DOWNLOAD_CACHE = 500;
+const MAX_PATTERN_FILE_BYTES = 50 * 1024 * 1024; // 50 MB — matches client.ts MAX_IPFS_RESPONSE_BYTES
 
 const ALLOWED_GATEWAYS = new Set([
   'https://w3s.link',
@@ -434,6 +435,10 @@ export class PatternDownloader {
     console.log(`[Download] Importing pattern with strategy: ${strategy}`);
 
     try {
+      if (fs.statSync(filePath).size > MAX_PATTERN_FILE_BYTES) {
+        console.error(`[Download] Pattern file exceeds size limit (${MAX_PATTERN_FILE_BYTES} bytes)`);
+        return false;
+      }
       const content = fs.readFileSync(filePath, 'utf-8');
       const cfp: CFPFormat = JSON.parse(content);
 
