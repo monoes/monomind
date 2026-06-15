@@ -2603,8 +2603,18 @@ export const hooksPatternSearch: MCPTool = {
     required: ['query'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const query = params.query as string;
-    const topK = (params.topK as number) || 5;
+    // Cap query length to prevent DoS via large embedding generation (same
+    // class of bug fixed in neural_patterns search and hooksPatternStore).
+    const MAX_SEARCH_QUERY_LEN = 16 * 1024; // 16 KB — matches neural_patterns cap
+    const MAX_TOP_K = 100;
+    const rawQuery = params.query as string;
+    const query = typeof rawQuery === 'string' && rawQuery.length > MAX_SEARCH_QUERY_LEN
+      ? rawQuery.slice(0, MAX_SEARCH_QUERY_LEN)
+      : rawQuery;
+    const rawTopK = params.topK as number;
+    const topK = Number.isFinite(rawTopK) && rawTopK > 0
+      ? Math.min(Math.floor(rawTopK), MAX_TOP_K)
+      : 5;
     const minConfidence = (params.minConfidence as number) || 0.3;
     const namespace = (params.namespace as string) || 'pattern';
 
