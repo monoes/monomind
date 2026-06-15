@@ -658,7 +658,16 @@ export const hooksPostCommand = {
         required: ['command'],
     },
     handler: async (params) => {
-        const command = params.command;
+        // Cap command: it is stored in JSON memory store (line 824), forwarded to
+        // bridgeStoreEntry which calls generateEmbedding by default — O(n) hash
+        // fallback, and reflected verbatim in the response.  The recordCommand path
+        // already caps to 200 chars; apply a consistent 4 KB cap here that still
+        // covers any realistic shell command.
+        const MAX_POST_CMD_LEN = 4 * 1024;
+        const rawPostCommand = params.command;
+        const command = typeof rawPostCommand === 'string' && rawPostCommand.length > MAX_POST_CMD_LEN
+            ? rawPostCommand.slice(0, MAX_POST_CMD_LEN)
+            : rawPostCommand;
         const exitCode = params.exitCode || 0;
         const success = exitCode === 0;
         // Record the real exit code in the time-windowed command-outcome store so
