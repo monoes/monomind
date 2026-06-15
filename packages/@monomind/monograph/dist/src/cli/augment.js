@@ -58,13 +58,20 @@ export async function augmentContext(options) {
             })),
         }, null, 2);
     }
-    // Markdown format
+    // Markdown format — include file:line navigation hints so LLMs can jump directly to code.
     const lines = ['## Relevant Code Context', ''];
     for (const r of results) {
         const label = r.label ?? 'Symbol';
         const name = r.name ?? r.id;
-        const location = r.filePath ? `${r.filePath}` : null;
-        const heading = location ? `### ${label}: \`${name}\` (${location})` : `### ${label}: \`${name}\``;
+        // Build a file:line reference when available so the LLM can navigate directly.
+        let location = null;
+        if (r.filePath) {
+            location = r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath;
+        }
+        const scoreHint = `score=${r.score.toFixed(3)}`;
+        const heading = location
+            ? `### ${label}: \`${name}\` — \`${location}\` (${scoreHint})`
+            : `### ${label}: \`${name}\` (${scoreHint})`;
         lines.push(heading);
         lines.push('');
     }

@@ -25,6 +25,30 @@ function _requireMonograph() {
 // Memoized at module scope — opening monograph.db can take 7-10s.
 // Callers MUST NOT close the returned handle.
 var _cachedMonographDb = undefined;
+
+// LRU cache for getMonographSuggestions: avoids re-querying the DB for
+// the same task text within a single hook execution process lifetime.
+// Max 20 entries; evicts the least-recently-used on overflow.
+var _suggestCache = { _map: Object.create(null), _order: [], _max: 20 };
+function _suggestCacheGet(key) {
+  if (key in _suggestCache._map) {
+    // Move to end (most recently used)
+    var idx = _suggestCache._order.indexOf(key);
+    if (idx !== -1) { _suggestCache._order.splice(idx, 1); _suggestCache._order.push(key); }
+    return _suggestCache._map[key];
+  }
+  return undefined;
+}
+function _suggestCacheSet(key, value) {
+  if (!(key in _suggestCache._map)) {
+    if (_suggestCache._order.length >= _suggestCache._max) {
+      var evict = _suggestCache._order.shift();
+      delete _suggestCache._map[evict];
+    }
+    _suggestCache._order.push(key);
+  }
+  _suggestCache._map[key] = value;
+}
 function _openMonographDb() {
   if (_cachedMonographDb !== undefined) return _cachedMonographDb;
   try {
@@ -39,6 +63,10 @@ function _openMonographDb() {
 
 function getMonographSuggestions(taskText, limit) {
   if (!taskText || typeof taskText !== 'string') return [];
+  // Fast path: return cached result for repeated identical queries.
+  var cacheKey = taskText.slice(0, 200) + '|' + (limit || 5);
+  var cached = _suggestCacheGet(cacheKey);
+  if (cached !== undefined) return cached;
   var db = _openMonographDb();
   if (!db) return [];
   try {
@@ -56,7 +84,7 @@ function getMonographSuggestions(taskText, limit) {
     var rows = [];
     try {
       rows = db.prepare(
-        'SELECT n.id, n.name, n.label, n.file_path AS file, ' +
+        'SELECT n.id, n.name, n.label, n.file_path AS file, n.start_line AS startLine, ' +
         'bm25(nodes_fts) AS bm25_score, ' +
         '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg, ' +
         'CASE n.label WHEN \'File\' THEN 3 WHEN \'Function\' THEN 3 WHEN \'Class\' THEN 3 ' +
@@ -72,7 +100,7 @@ function getMonographSuggestions(taskText, limit) {
       var likeFrag = keys.map(function(){ return 'lower(n.name) LIKE ?'; }).join(' OR ');
       var likeArgs = keys.map(function(k){ return '%' + k + '%'; });
       var stmt = db.prepare(
-        'SELECT n.id, n.name, n.label, n.file_path AS file, ' +
+        'SELECT n.id, n.name, n.label, n.file_path AS file, n.start_line AS startLine, ' +
         '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg ' +
         'FROM nodes n WHERE (' + likeFrag + ') AND n.file_path IS NOT NULL AND n.file_path != \'\' ' +
         'AND n.label NOT IN (\'Concept\') ' +
@@ -80,7 +108,9 @@ function getMonographSuggestions(taskText, limit) {
       );
       rows = stmt.all.apply(stmt, likeArgs.concat([lim]));
     }
-    return rows || [];
+    var result = rows || [];
+    _suggestCacheSet(cacheKey, result);
+    return result;
   } catch (e) { return []; }
   finally { /* db is shared/cached; do not close */ }
 }
@@ -287,8 +317,13 @@ function injectGodNodesContext(CWD) {
       // Staleness indicator: compare stored commit hash with current HEAD.
       var staleIndicator = '';
       try {
+        // The orchestrator writes 'last_commit_hash'; fall back to legacy keys.
         var lastCommitRow = null;
-        try { lastCommitRow = db.prepare("SELECT value FROM index_meta WHERE key='ua_last_commit'").get(); } catch (_) {}
+        try {
+          lastCommitRow = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get() ||
+                          db.prepare("SELECT value FROM index_meta WHERE key='lastCommit'").get() ||
+                          db.prepare("SELECT value FROM index_meta WHERE key='ua_last_commit'").get();
+        } catch (_) {}
         if (lastCommitRow && lastCommitRow.value) {
           var { execFileSync: execSync } = require('child_process');
           var currentHead = '';
