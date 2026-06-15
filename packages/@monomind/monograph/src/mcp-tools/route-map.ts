@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import type Database from 'better-sqlite3';
 import { extractMiddlewareChain } from '../pipeline/phases/middleware-extractor.js';
 
@@ -19,39 +19,34 @@ export interface MonographRouteMapResult {
   total: number;
 }
 
+const MAX_FILE_BYTES = 1_048_576; // 1 MiB guard for middleware source reads
+
 // ── Implementation ─────────────────────────────────────────────────────────────
 
 export function getMonographRouteMap(
   db: Database.Database,
   input: { prefix?: string; method?: string; includeMiddleware?: boolean; repoPath?: string },
 ): MonographRouteMapResult {
-  // 1. Query all Route nodes
-  let routeRows = db
-    .prepare("SELECT * FROM nodes WHERE label = 'Route'")
-    .all() as Record<string, unknown>[];
+  // 1. Build SQL-level filters to avoid loading the whole Route table into JS
+  const conditions: string[] = ["label = 'Route'"];
+  const params: unknown[] = [];
 
-  // 2. Apply prefix filter
   if (input.prefix) {
-    const prefix = input.prefix;
-    routeRows = routeRows.filter((row) => {
-      const name = row.name as string;
-      // name is like "GET /api/users" — find the path part
-      const spaceIdx = name.indexOf(' ');
-      const path = spaceIdx >= 0 ? name.slice(spaceIdx + 1) : name;
-      return path.startsWith(prefix);
-    });
+    // Route name format: "METHOD /path" — prefix applies to path portion after first space
+    conditions.push("name LIKE ?");
+    params.push(`% ${input.prefix}%`);
   }
 
-  // 3. Apply method filter
   if (input.method) {
     const methodUpper = input.method.toUpperCase();
-    routeRows = routeRows.filter((row) => {
-      const name = row.name as string;
-      return name.startsWith(methodUpper + ' ') || name.startsWith('ANY ');
-    });
+    conditions.push("(name LIKE ? OR name LIKE ?)");
+    params.push(`${methodUpper} %`, 'ANY %');
   }
 
-  // 4. For each route, find handler via HANDLES_ROUTE edge
+  const sql = `SELECT * FROM nodes WHERE ${conditions.join(' AND ')}`;
+  const routeRows = db.prepare(sql).all(...params) as Record<string, unknown>[];
+
+  // 2. For each route, find handler via HANDLES_ROUTE edge (prepared once)
   const handlerStmt = db.prepare(
     `SELECT n.name, n.file_path, n.start_line FROM nodes n
      JOIN edges e ON n.id = e.target_id
@@ -78,10 +73,13 @@ export function getMonographRouteMap(
     if (input.includeMiddleware && input.repoPath && handlerRow?.name && handlerRow?.file_path) {
       try {
         const absPath = `${input.repoPath}/${handlerRow.file_path}`;
-        const source = readFileSync(absPath, 'utf-8');
-        middlewareChain = extractMiddlewareChain(source, handlerRow.name).middlewareNames;
+        const st = statSync(absPath);
+        if (st.size <= MAX_FILE_BYTES) {
+          const source = readFileSync(absPath, 'utf-8');
+          middlewareChain = extractMiddlewareChain(source, handlerRow.name).middlewareNames;
+        }
       } catch {
-        // File not found or unreadable — leave middlewareChain as []
+        // File not found, unreadable, or too large — leave middlewareChain as []
       }
     }
 
