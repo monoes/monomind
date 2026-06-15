@@ -6,7 +6,8 @@
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
 import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 
@@ -121,6 +122,26 @@ export const terminalTools: MCPTool[] = [
           safeEnv[k] = String(v);
         }
       }
+      // Validate workingDir: must exist, be a directory, and not escape to
+      // system-sensitive paths. Fall back to project cwd if invalid.
+      let resolvedWorkingDir = getProjectCwd();
+      if (input.workingDir && typeof input.workingDir === 'string') {
+        const candidate = resolve(input.workingDir);
+        const projectCwd = getProjectCwd();
+        const home = homedir();
+        // Allow paths under project cwd or user home directory only.
+        const isUnderProject = candidate === projectCwd || candidate.startsWith(projectCwd + '/') || candidate.startsWith(projectCwd + '\\');
+        const isUnderHome = candidate === home || candidate.startsWith(home + '/') || candidate.startsWith(home + '\\');
+        if ((isUnderProject || isUnderHome) && existsSync(candidate)) {
+          try {
+            if (statSync(candidate).isDirectory()) {
+              resolvedWorkingDir = candidate;
+            }
+          } catch {
+            // Leave resolvedWorkingDir as default
+          }
+        }
+      }
       const id = `term-${Date.now()}-${randomBytes(4).toString('hex')}`;
       const session: TerminalSession = {
         id,
@@ -128,7 +149,7 @@ export const terminalTools: MCPTool[] = [
         status: 'active',
         createdAt: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
-        workingDir: (input.workingDir as string) || getProjectCwd(),
+        workingDir: resolvedWorkingDir,
         history: [],
         env: safeEnv,
       };
