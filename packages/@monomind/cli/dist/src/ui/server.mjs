@@ -4637,6 +4637,75 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // GET /api/status — live system snapshot for dashboard polling
+    if (req.method === 'GET' && url === '/api/status') {
+      try {
+        const root = projectDir || process.cwd();
+        // Active org runs: { orgName -> runId }
+        const orgRuns = {};
+        activeOrgRuns.forEach((runId, org) => { orgRuns[org] = runId; });
+        // Recent events (last 10)
+        let recentEvents = [];
+        try {
+          const evPath = path.join(root, 'data', 'mastermind-events.jsonl');
+          const lines = fs.readFileSync(evPath, 'utf8').split('\n').filter(l => l.trim()).slice(-10);
+          recentEvents = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
+        } catch(_) {}
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({
+          ts: Date.now(),
+          uptime: process.uptime(),
+          sseClients: mmSseClients.size,
+          activeOrgs: Object.keys(orgRuns).length,
+          orgRuns,
+          recentEvents,
+        }));
+      } catch(err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // GET /api/orgs/:name/runs/current — events from the active run file for an org
+    if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/runs\/current$/.test(url)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        const root = projectDir || process.cwd();
+        // Validate orgName
+        if (!orgName || orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+          res.writeHead(400); res.end('{"error":"invalid org name"}'); return;
+        }
+        const runId = activeOrgRuns.get(orgName);
+        const monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
+        // Try active run first, then fall back to most recent run file
+        let runFile = null;
+        if (runId) {
+          const candidate = path.join(monoDir, 'orgs', orgName, 'runs', `${runId}.jsonl`);
+          if (fs.existsSync(candidate)) runFile = candidate;
+        }
+        if (!runFile) {
+          const runsDir = path.join(monoDir, 'orgs', orgName, 'runs');
+          if (fs.existsSync(runsDir)) {
+            const files = fs.readdirSync(runsDir).filter(f => f.endsWith('.jsonl'));
+            if (files.length) {
+              files.sort();
+              runFile = path.join(runsDir, files[files.length - 1]);
+            }
+          }
+        }
+        if (!runFile) { res.writeHead(404); res.end('{"events":[],"runId":null}'); return; }
+        const detectedRunId = path.basename(runFile, '.jsonl');
+        const lines = fs.readFileSync(runFile, 'utf8').split('\n').filter(l => l.trim()).slice(-100);
+        const events = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ runId: detectedRunId, events, active: activeOrgRuns.has(orgName) }));
+      } catch(err) {
+        res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     // GET /api/mastermind/metrics — aggregate system metrics from token-summary and swarm-activity
     if (req.method === 'GET' && url === '/api/mastermind/metrics') {
       try {
