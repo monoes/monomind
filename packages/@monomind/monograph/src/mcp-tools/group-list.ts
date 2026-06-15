@@ -14,6 +14,7 @@ export interface GroupRepoInfo {
   path: string;
   indexedAt: string | null;
   nodeCount: number;
+  error?: string;
 }
 
 export interface GroupListResult {
@@ -29,13 +30,12 @@ function getRepoDbPath(repoPath: string): string {
   return join(repoPath, '.monomind', 'monograph.db');
 }
 
-function readRepStats(
-  repoName: string,
+function readRepoStats(
   repoPath: string,
-): { indexedAt: string | null; nodeCount: number } {
+): { indexedAt: string | null; nodeCount: number; error?: string } {
   const dbPath = getRepoDbPath(repoPath);
   if (!existsSync(dbPath)) {
-    return { indexedAt: null, nodeCount: 0 };
+    return { indexedAt: null, nodeCount: 0, error: 'index not found' };
   }
 
   let db: Database.Database | null = null;
@@ -48,13 +48,10 @@ function readRepStats(
 
     const countRow = db.prepare(`SELECT COUNT(*) as cnt FROM nodes`).get() as { cnt: number };
 
-    return {
-      indexedAt: metaRow?.value ?? null,
-      nodeCount: countRow.cnt,
-    };
+    return { indexedAt: metaRow?.value ?? null, nodeCount: countRow.cnt };
   } catch (err) {
-    console.warn(`[group-list] Error reading repo "${repoName}": ${err}`);
-    return { indexedAt: null, nodeCount: 0 };
+    const message = err instanceof Error ? err.message : String(err);
+    return { indexedAt: null, nodeCount: 0, error: message };
   } finally {
     db?.close();
   }
@@ -70,12 +67,13 @@ export async function getGroupList(configPath?: string): Promise<GroupListResult
   const config = parseGroupConfig(resolvedPath);
 
   const repos: GroupRepoInfo[] = config.repos.map((repo) => {
-    const { indexedAt, nodeCount } = readRepStats(repo.name, repo.path);
+    const { indexedAt, nodeCount, error } = readRepoStats(repo.path);
     return {
       name: repo.name,
       path: repo.path,
       indexedAt,
       nodeCount,
+      ...(error ? { error } : {}),
     };
   });
 
