@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
@@ -107,7 +106,11 @@ function parseGitLog(stdout: string): ChurnCache {
     files.get(path)!.push({ timestamp: currentTs, linesAdded: added, linesDeleted: deleted, authorIdx: currentAuthorIdx });
   }
 
-  return { version: CHURN_CACHE_VERSION, lastIndexedSha: '', gitAfter: '', shallowClone: false, authorPool, files: Array.from(files.entries()).map(([path, events]) => ({ path, events })) };
+  // Build files array without intermediate Array.from allocation
+  const filesArr: CachedFileChurn[] = [];
+  for (const [path, events] of files) filesArr.push({ path, events });
+
+  return { version: CHURN_CACHE_VERSION, lastIndexedSha: '', gitAfter: '', shallowClone: false, authorPool, files: filesArr };
 }
 
 function mergeChurnCaches(base: ChurnCache, delta: ChurnCache): ChurnCache {
@@ -118,25 +121,33 @@ function mergeChurnCaches(base: ChurnCache, delta: ChurnCache): ChurnCache {
     if (!baseIndex.has(email)) { baseIndex.set(email, base.authorPool.length); base.authorPool.push(email); }
     authorMap.set(i, baseIndex.get(email)!);
   }
-  const fileMap = new Map(base.files.map(f => [f.path, f]));
+  // Build fileMap without intermediate array from base.files.map()
+  const fileMap = new Map<string, CachedFileChurn>();
+  for (const f of base.files) fileMap.set(f.path, f);
   for (const df of delta.files) {
     const remapped = df.events.map(e => ({ ...e, authorIdx: e.authorIdx !== null ? (authorMap.get(e.authorIdx) ?? null) : null }));
     if (fileMap.has(df.path)) fileMap.get(df.path)!.events.push(...remapped);
     else fileMap.set(df.path, { path: df.path, events: remapped });
   }
-  return { ...base, files: Array.from(fileMap.values()) };
+  // Build result array without intermediate Array.from allocation
+  const mergedFiles: CachedFileChurn[] = [];
+  for (const f of fileMap.values()) mergedFiles.push(f);
+  return { ...base, files: mergedFiles };
 }
 
+// Precomputed constant: -Math.LN2 / HALF_LIFE_DAYS avoids per-call division in hot loop
+const DECAY_FACTOR = -Math.LN2 / 90;
+const SECS_PER_DAY = 86400;
+
 function buildChurnResult(cache: ChurnCache): Omit<CachedChurnResult, 'cacheHit'> {
-  const HALF_LIFE_DAYS = 90;
-  const SECS_PER_DAY = 86400;
   const now = Math.floor(Date.now() / 1000);
   const files = new Map<string, { commits: number; linesAdded: number; linesDeleted: number; weightedCommits: number }>();
   for (const { path, events } of cache.files) {
     let commits = 0, linesAdded = 0, linesDeleted = 0, weightedCommits = 0;
     for (const e of events) {
       const ageDays = (now - e.timestamp) / SECS_PER_DAY;
-      weightedCommits += Math.pow(0.5, ageDays / HALF_LIFE_DAYS);
+      // Math.exp is faster than Math.pow(0.5, x) for recency decay in hot loop
+      weightedCommits += Math.exp(DECAY_FACTOR * ageDays);
       commits++; linesAdded += e.linesAdded; linesDeleted += e.linesDeleted;
     }
     files.set(path, { commits, linesAdded, linesDeleted, weightedCommits: Math.round(weightedCommits * 100) / 100 });
