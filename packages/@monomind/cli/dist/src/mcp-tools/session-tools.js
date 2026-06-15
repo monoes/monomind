@@ -131,6 +131,19 @@ export const sessionTools = [
         },
         handler: async (input) => {
             const sessionId = `session-${Date.now()}-${randomBytes(6).toString('hex')}`;
+            // Cap name and description: both are persisted verbatim to the session
+            // JSON file on disk.  Without a cap, an attacker can inflate the session
+            // store by supplying a very long name or description.
+            const MAX_SESSION_NAME_LEN = 256;
+            const MAX_SESSION_DESC_LEN = 4 * 1024;
+            const rawSessionName = input.name;
+            const sessionName = typeof rawSessionName === 'string' && rawSessionName.length > MAX_SESSION_NAME_LEN
+                ? rawSessionName.slice(0, MAX_SESSION_NAME_LEN)
+                : rawSessionName;
+            const rawSessionDesc = input.description;
+            const sessionDesc = typeof rawSessionDesc === 'string' && rawSessionDesc.length > MAX_SESSION_DESC_LEN
+                ? rawSessionDesc.slice(0, MAX_SESSION_DESC_LEN)
+                : rawSessionDesc;
             // Load related data based on options
             const data = loadRelatedStores({
                 includeMemory: input.includeMemory,
@@ -146,8 +159,8 @@ export const sessionTools = [
             };
             const session = {
                 sessionId,
-                name: input.name,
-                description: input.description,
+                name: sessionName,
+                description: sessionDesc,
                 savedAt: new Date().toISOString(),
                 stats,
                 data: Object.keys(data).length > 0 ? data : undefined,
@@ -211,17 +224,25 @@ export const sessionTools = [
                         const { storeEntry } = await import('../memory/memory-initializer.js');
                         const memoryData = session.data.memory;
                         if (memoryData.entries) {
+                            // Cap individual key and value lengths before writing to the DB.
+                            // A malicious or corrupted session file could contain arbitrarily
+                            // long strings; without caps these flow straight into the HNSW
+                            // embedder and SQL layer, causing OOM or DoS.
+                            const MAX_RESTORE_KEY = 1_000;
+                            const MAX_RESTORE_VALUE = 100_000;
+                            const MAX_RESTORE_NS = 200;
                             for (const entry of Object.values(memoryData.entries)) {
-                                const key = entry.key || entry.id || '';
-                                const value = entry.value || entry.content || '';
-                                if (key && value) {
-                                    await storeEntry({
-                                        key,
-                                        value,
-                                        namespace: entry.namespace || 'restored',
-                                        upsert: true,
-                                    });
-                                }
+                                let key = entry.key || entry.id || '';
+                                let value = entry.value || entry.content || '';
+                                if (!key || !value)
+                                    continue;
+                                if (key.length > MAX_RESTORE_KEY)
+                                    key = key.slice(0, MAX_RESTORE_KEY);
+                                if (value.length > MAX_RESTORE_VALUE)
+                                    value = value.slice(0, MAX_RESTORE_VALUE);
+                                const rawNs = entry.namespace || 'restored';
+                                const namespace = rawNs.length > MAX_RESTORE_NS ? rawNs.slice(0, MAX_RESTORE_NS) : rawNs;
+                                await storeEntry({ key, value, namespace, upsert: true });
                             }
                         }
                     }
@@ -353,14 +374,24 @@ export const sessionTools = [
             const session = loadSession(sessionId);
             if (session) {
                 const path = getSessionPath(sessionId);
-                const stat = statSync(path);
+                // Guard against TOCTOU: the file could be deleted between loadSession()
+                // and statSync().  Catch ENOENT (and any other fs error) so the MCP
+                // handler never throws an unhandled exception; callers get a clean
+                // response instead of a server-side crash.
+                let fileSize = 0;
+                try {
+                    fileSize = statSync(path).size;
+                }
+                catch {
+                    // File deleted or inaccessible after loadSession succeeded
+                }
                 return {
                     sessionId: session.sessionId,
                     name: session.name,
                     description: session.description,
                     savedAt: session.savedAt,
                     stats: session.stats,
-                    fileSize: stat.size,
+                    fileSize,
                     hasData: {
                         memory: !!session.data?.memory,
                         tasks: !!session.data?.tasks,

@@ -24,7 +24,7 @@ function updateSwarmActivityMetrics(agentCountDelta: number): void {
       swarm: { active: false, agent_count: 0, coordination_active: false },
     };
 
-    if (fs.existsSync(activityPath)) {
+    if (fs.existsSync(activityPath) && fs.statSync(activityPath).size <= 10 * 1024 * 1024) {
       data = JSON.parse(fs.readFileSync(activityPath, 'utf-8'));
     } else {
       fs.mkdirSync(metricsDir, { recursive: true });
@@ -121,8 +121,8 @@ const spawnCommand: Command = {
     { command: 'monomind agent spawn -t researcher --task "Research React 19"', description: 'Spawn researcher with task' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    let agentType = ctx.flags.type as string;
-    let agentName = ctx.flags.name as string;
+    let agentType = (ctx.flags.type as string | undefined)?.slice(0, 64) ?? '';
+    let agentName = (ctx.flags.name as string | undefined)?.slice(0, 128) ?? '';
 
     // Interactive mode if type not specified
     if (!agentType && ctx.interactive) {
@@ -133,7 +133,7 @@ const spawnCommand: Command = {
     }
 
     // Semantic routing: if --type absent but --task provided, use RouteLayer
-    const taskDescription = ctx.flags.task as string | undefined;
+    const taskDescription = (ctx.flags.task as string | undefined)?.slice(0, 2048);
     if (!agentType && taskDescription) {
       try {
         // Builds a RouteLayer with a real local embedding model + headless
@@ -532,7 +532,9 @@ const metricsCommand: Command = {
         const files = readdirSync(agentsDir).filter(f => f.endsWith('.json'));
         for (const file of files) {
           try {
-            const data = JSON.parse(readFileSync(join(agentsDir, file), 'utf-8'));
+            const agentFilePath = join(agentsDir, file);
+            if (statSync(agentFilePath).size > 512 * 1024) continue; // skip files > 512 KB
+            const data = JSON.parse(readFileSync(agentFilePath, 'utf-8'));
             totalAgents++;
             const agType = data.type || 'unknown';
             if (!typeCounts[agType]) typeCounts[agType] = { count: 0, tasks: 0, success: 0 };
@@ -550,7 +552,7 @@ const metricsCommand: Command = {
 
     // Read swarm activity for additional state
     const activityFile = join(swarmDir, 'swarm-activity.json');
-    if (existsSync(activityFile)) {
+    if (existsSync(activityFile) && statSync(activityFile).size <= 10 * 1024 * 1024) {
       try {
         const activity = JSON.parse(readFileSync(activityFile, 'utf-8'));
         if (activity.totalAgents && totalAgents === 0) totalAgents = activity.totalAgents;
@@ -924,9 +926,9 @@ const logsCommand: Command = {
     { command: 'monomind agent logs -l error --since 1h', description: 'Show errors from last hour' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const agentId = ctx.args[0] || ctx.flags.id as string;
+    const agentId = ((ctx.args[0] || ctx.flags.id as string) ?? '').slice(0, 128);
     const tail = ctx.flags.tail as number;
-    const level = ctx.flags.level as string;
+    const level = (ctx.flags.level as string | undefined)?.slice(0, 32);
 
     if (!agentId) {
       output.printError('Agent ID is required. Use --id or -i');

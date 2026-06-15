@@ -25,7 +25,10 @@ function getSwarmStatus(swarmId?: string) {
 
   if (fs.existsSync(swarmStateFile)) {
     try {
-      swarmState = JSON.parse(fs.readFileSync(swarmStateFile, 'utf-8'));
+      const swarmStatSz = fs.statSync(swarmStateFile).size;
+      if (swarmStatSz <= 1_048_576) {
+        swarmState = JSON.parse(fs.readFileSync(swarmStateFile, 'utf-8'));
+      }
     } catch {
       // Ignore parse errors
     }
@@ -41,9 +44,13 @@ function getSwarmStatus(swarmId?: string) {
       totalAgents = agentFiles.length;
       for (const file of agentFiles) {
         try {
-          const agent = JSON.parse(fs.readFileSync(path.join(agentsDir, file), 'utf-8'));
-          if (agent.status === 'active' || agent.status === 'running') {
-            activeAgents++;
+          const agentFilePath = path.join(agentsDir, file);
+          const agentSz = fs.statSync(agentFilePath).size;
+          if (agentSz <= 524_288) {
+            const agent = JSON.parse(fs.readFileSync(agentFilePath, 'utf-8'));
+            if (agent.status === 'active' || agent.status === 'running') {
+              activeAgents++;
+            }
           }
         } catch {
           // Ignore
@@ -87,13 +94,17 @@ function getSwarmStatus(swarmId?: string) {
       const taskFiles = fs.readdirSync(tasksDir).filter(f => f.endsWith('.json'));
       for (const file of taskFiles) {
         try {
-          const task = JSON.parse(fs.readFileSync(path.join(tasksDir, file), 'utf-8'));
-          if (task.status === 'completed' || task.status === 'done') {
-            completedTasks++;
-          } else if (task.status === 'in_progress' || task.status === 'running') {
-            inProgressTasks++;
-          } else {
-            pendingTasks++;
+          const taskFilePath = path.join(tasksDir, file);
+          const taskSz = fs.statSync(taskFilePath).size;
+          if (taskSz <= 524_288) {
+            const task = JSON.parse(fs.readFileSync(taskFilePath, 'utf-8'));
+            if (task.status === 'completed' || task.status === 'done') {
+              completedTasks++;
+            } else if (task.status === 'in_progress' || task.status === 'running') {
+              inProgressTasks++;
+            } else {
+              pendingTasks++;
+            }
           }
         } catch {
           // Ignore
@@ -635,6 +646,8 @@ const stopCommand: Command = {
       const swarmStateFile = path.join(process.cwd(), '.swarm', 'state.json');
       if (fs.existsSync(swarmStateFile)) {
         try {
+          const stopStatSz = fs.statSync(swarmStateFile).size;
+          if (stopStatSz > 1_048_576) throw new Error('swarm state file too large');
           const state = JSON.parse(fs.readFileSync(swarmStateFile, 'utf-8'));
           state.status = 'stopped';
           state.stoppedAt = new Date().toISOString();

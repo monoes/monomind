@@ -214,13 +214,16 @@ const waitCommand = {
         const { client, sessionId } = await ensureConnected(_port);
         const browser = await getBrowser();
         if (ctx.flags.ms) {
-            await new Promise((r) => setTimeout(r, ctx.flags.ms));
+            const rawMs = ctx.flags.ms;
+            const waitMs = Number.isFinite(rawMs) ? Math.max(0, Math.min(rawMs, 60_000)) : 0; // cap at 60s
+            await new Promise((r) => setTimeout(r, waitMs));
             output.printSuccess(`Waited ${ctx.flags.ms}ms`);
             return { success: true };
         }
         if (ctx.flags.fn) {
             const expr = ctx.flags.fn;
-            const timeout = ctx.flags.timeout ?? 30000;
+            const rawTimeout = ctx.flags.timeout ?? 30000;
+            const timeout = Number.isFinite(rawTimeout) ? Math.max(100, Math.min(rawTimeout, 300_000)) : 30000; // cap at 5min
             const interval = 200;
             const deadline = Date.now() + timeout;
             while (Date.now() < deadline) {

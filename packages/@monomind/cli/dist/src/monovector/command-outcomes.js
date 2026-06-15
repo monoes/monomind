@@ -8,14 +8,24 @@ import { join } from 'node:path';
 function storePath(baseDir) {
     return join(baseDir, 'command-outcomes.jsonl');
 }
+/** Maximum number of command-outcome records to keep.
+ *  deriveRecentSuccess only uses records within a 5-minute window (typically < 50), so
+ *  anything older is dead weight. 500 gives a comfortable buffer. */
+const MAX_COMMAND_RECORDS = 500;
 /** Append a command outcome. Non-fatal on error. */
 export async function recordCommand(baseDir, cmd) {
     try {
         await fs.mkdir(baseDir, { recursive: true });
+        const path = storePath(baseDir);
         const rec = { ts: cmd.ts, command: cmd.command, exitCode: cmd.exitCode, success: cmd.exitCode === 0 };
-        await fs.appendFile(storePath(baseDir), JSON.stringify(rec) + '\n', 'utf8');
-        // Opportunistic trim: keep file bounded (last 500 lines) to avoid unbounded growth
-        // (cheap: only rewrite when it gets large)
+        await fs.appendFile(path, JSON.stringify(rec) + '\n', 'utf8');
+        // Opportunistic trim: rewrite only when the file exceeds the cap.
+        // Avoids an extra stat() on every call by catching the overcount lazily.
+        const content = await fs.readFile(path, 'utf8').catch(() => '');
+        const lines = content.trim().split('\n').filter(Boolean);
+        if (lines.length > MAX_COMMAND_RECORDS) {
+            await fs.writeFile(path, lines.slice(-MAX_COMMAND_RECORDS).join('\n') + '\n', 'utf8');
+        }
     }
     catch { /* non-fatal */ }
 }

@@ -65,6 +65,8 @@ function getVersion() {
   ];
   for (const p of walkCandidates) {
     try {
+      const pkgStat = safeStat(p);
+      if (!pkgStat || pkgStat.size > 1024 * 1024) continue;
       const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
       if (pkg.version && (pkg.name === 'monomind' || pkg.name === '@monomind/cli' || (pkg.name || '').startsWith('@monomind'))) {
         return \`v\${pkg.version}\`;
@@ -75,7 +77,10 @@ function getVersion() {
   try {
     const { execSync } = require('child_process');
     const prefix = execSync('npm config get prefix', { encoding: 'utf-8', timeout: 2000 }).trim();
-    const pkg = JSON.parse(fs.readFileSync(path.join(prefix, 'lib', 'node_modules', 'monomind', 'package.json'), 'utf-8'));
+    const globalPkgPath = path.join(prefix, 'lib', 'node_modules', 'monomind', 'package.json');
+    const globalPkgStat = safeStat(globalPkgPath);
+    if (!globalPkgStat || globalPkgStat.size > 1024 * 1024) throw new Error('too large');
+    const pkg = JSON.parse(fs.readFileSync(globalPkgPath, 'utf-8'));
     if (pkg.version) return \`v\${pkg.version}\`;
   } catch { /* ignore */ }
   return 'v1.0.6';
@@ -116,9 +121,11 @@ function safeExec(cmd, timeoutMs = 2000) {
 }
 
 // Safe JSON file reader (returns null on failure)
+// Refuses to load files > 10 MB to prevent OOM on corrupted/oversized stores.
+const MAX_JSON_READ_BYTES = 10 * 1024 * 1024;
 function readJSON(filePath) {
   try {
-    if (fs.existsSync(filePath)) {
+    if (fs.existsSync(filePath) && fs.statSync(filePath).size <= MAX_JSON_READ_BYTES) {
       return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
   } catch { /* ignore */ }
@@ -230,6 +237,8 @@ function getModelFromSessionJSONL() {
     if (files.length === 0) return null;
 
     const sessionFile = path.join(projectsDir, files[0].f);
+    const sessionStat = safeStat(sessionFile);
+    if (!sessionStat || sessionStat.size > 50 * 1024 * 1024) return null; // skip > 50 MB
     const raw = fs.readFileSync(sessionFile, 'utf-8');
     const lines = raw.split('\\n').filter(Boolean);
 
@@ -560,7 +569,8 @@ function getHooksStatus() {
 function getActiveAgent() {
   const routeFile = path.join(CWD, '.monomind', 'last-route.json');
   try {
-    if (!fs.existsSync(routeFile)) return null;
+    const routeStat = safeStat(routeFile);
+    if (!routeStat || routeStat.size > MAX_JSON_READ_BYTES) return null;
     const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
     if (!data || !data.agent) return null;
 
@@ -593,7 +603,7 @@ function getAgentDBStats() {
   // 1. Count real entries from auto-memory-store.json
   const storePath = path.join(CWD, '.monomind', 'data', 'auto-memory-store.json');
   const storeStat = safeStat(storePath);
-  if (storeStat) {
+  if (storeStat && storeStat.size <= MAX_JSON_READ_BYTES) {
     dbSizeKB += storeStat.size / 1024;
     try {
       const store = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
@@ -807,12 +817,14 @@ function getKnowledgeStats() {
   const skillsPath = path.join(CWD, '.monomind', 'skills.jsonl');
   let chunks = 0, skills = 0;
   try {
-    if (fs.existsSync(chunksPath)) {
+    const chunksStat = safeStat(chunksPath);
+    if (chunksStat && chunksStat.size <= MAX_JSON_READ_BYTES) {
       chunks = fs.readFileSync(chunksPath, 'utf-8').split('\\n').filter(Boolean).length;
     }
   } catch { /* ignore */ }
   try {
-    if (fs.existsSync(skillsPath)) {
+    const skillsStat = safeStat(skillsPath);
+    if (skillsStat && skillsStat.size <= MAX_JSON_READ_BYTES) {
       skills = fs.readFileSync(skillsPath, 'utf-8').split('\\n').filter(Boolean).length;
     }
   } catch { /* ignore */ }
@@ -822,7 +834,8 @@ function getKnowledgeStats() {
 function getTriggerStats() {
   const indexPath = path.join(CWD, '.monomind', 'trigger-index.json');
   try {
-    if (!fs.existsSync(indexPath)) return { triggers: 0, agents: 0 };
+    const idxStat = safeStat(indexPath);
+    if (!idxStat || idxStat.size > MAX_JSON_READ_BYTES) return { triggers: 0, agents: 0 };
     const raw = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
     const idx = raw.index || raw;
     const triggers = Object.keys(idx).length;
@@ -835,7 +848,8 @@ function getTriggerStats() {
 function getHookLatency() {
   const p = path.join(CWD, '.monomind', 'metrics', 'hook-latency.json');
   try {
-    if (!fs.existsSync(p)) return null;
+    const latStat = safeStat(p);
+    if (!latStat || latStat.size > MAX_JSON_READ_BYTES) return null;
     const d = JSON.parse(fs.readFileSync(p, 'utf-8'));
     const perPrompt = ['route'];
     let totalMs = 0; let count = 0;
@@ -857,7 +871,8 @@ function getHookLatency() {
 function getGraphUsage() {
   const usagePath = path.join(CWD, '.monomind', 'metrics', 'graph-usage.json');
   try {
-    if (!fs.existsSync(usagePath)) return null;
+    const usageStat = safeStat(usagePath);
+    if (!usageStat || usageStat.size > MAX_JSON_READ_BYTES) return null;
     const d = JSON.parse(fs.readFileSync(usagePath, 'utf-8'));
     const graphWins = (d.monograph_call || 0) + (d.preresolve_hit || 0)
                     + (d.graph_assist_search || 0) + (d.graph_assist_neighbors || 0);
@@ -922,7 +937,10 @@ function getHILPending() {
     const files = fs.readdirSync(loopsDir).filter(f => f.endsWith('-hil.md'));
     for (const f of files) {
       try {
-        const txt = fs.readFileSync(path.join(loopsDir, f), 'utf-8');
+        const hilPath = path.join(loopsDir, f);
+        const hilStat = safeStat(hilPath);
+        if (!hilStat || hilStat.size > 512 * 1024) continue; // skip > 512 KB
+        const txt = fs.readFileSync(hilPath, 'utf-8');
         const answered = /^[ \\t]*>[ \\t]+\\S/m.test(txt);
         if (!answered) pending++;
       } catch { /* ignore */ }
@@ -972,7 +990,9 @@ function getSIBudget() {
   const SI_LIMIT = 1500;
   const siPath = path.join(CWD, '.agents', 'shared_instructions.md');
   try {
-    if (!fs.existsSync(siPath)) return null;
+    const siStat = safeStat(siPath);
+    if (!siStat) return null;
+    if (siStat.size > 2 * 1024 * 1024) return null; // skip > 2 MB
     const len = fs.readFileSync(siPath, 'utf-8').length;
     return { len, pct: Math.round((len / SI_LIMIT) * 100), limit: SI_LIMIT };
   } catch { return null; }
@@ -1183,7 +1203,8 @@ const MODE_FILE = path.join(CWD, '.monomind', 'statusline-mode.txt');
 
 function readMode() {
   try {
-    if (fs.existsSync(MODE_FILE)) {
+    const modeStat = safeStat(MODE_FILE);
+    if (modeStat && modeStat.size <= 1024) {
       return fs.readFileSync(MODE_FILE, 'utf-8').trim();
     }
   } catch { /* ignore */ }

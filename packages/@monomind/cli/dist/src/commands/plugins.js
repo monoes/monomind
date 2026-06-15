@@ -187,14 +187,16 @@ const installCommand = {
         { command: 'monomind plugins install -n ./my-plugin --dev', description: 'Install local plugin' },
     ],
     action: async (ctx) => {
-        const name = ctx.flags.name;
+        const rawName = ctx.flags.name;
         const version = ctx.flags.version || 'latest';
         const registryName = ctx.flags.registry;
         const verify = ctx.flags.verify !== false;
-        if (!name) {
+        if (!rawName) {
             output.printError('Plugin name is required');
             return { success: false, exitCode: 1 };
         }
+        // Cap plugin name and version to prevent DoS/injection
+        const name = typeof rawName === 'string' ? rawName.slice(0, 214) : '';
         // Check if it's a local path
         const isLocalPath = name.startsWith('./') || name.startsWith('/') || name.startsWith('../');
         output.writeln();
@@ -620,16 +622,21 @@ const searchCommand = {
         { command: 'monomind plugins search -q security --verified', description: 'Search verified security plugins' },
     ],
     action: async (ctx) => {
-        const query = ctx.flags.query;
+        const rawQuery = ctx.flags.query;
         const category = ctx.flags.category;
         const type = ctx.flags.type;
         const verified = ctx.flags.verified;
-        const limit = ctx.flags.limit || 20;
+        const rawLimit = ctx.flags.limit;
         const registryName = ctx.flags.registry;
-        if (!query) {
+        if (!rawQuery) {
             output.printError('Search query is required');
             return { success: false, exitCode: 1 };
         }
+        // Cap query length and limit to prevent DoS
+        const query = typeof rawQuery === 'string' ? rawQuery.slice(0, 200) : '';
+        const limit = typeof rawLimit === 'number' && Number.isFinite(rawLimit)
+            ? Math.max(1, Math.min(Math.floor(rawLimit), 100))
+            : 20;
         const spinner = output.createSpinner({ text: 'Searching plugin registry...', spinner: 'dots' });
         spinner.start();
         try {

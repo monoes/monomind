@@ -940,7 +940,7 @@ const importCommand = {
             }
             const patternsFile = path.join(memoryDir, 'patterns.json');
             let existingPatterns = [];
-            if (merge && fs.existsSync(patternsFile)) {
+            if (merge && fs.existsSync(patternsFile) && fs.statSync(patternsFile).size <= 50 * 1024 * 1024) {
                 existingPatterns = JSON.parse(fs.readFileSync(patternsFile, 'utf8'));
             }
             // Merge or replace

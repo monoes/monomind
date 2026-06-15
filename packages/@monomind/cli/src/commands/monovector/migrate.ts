@@ -145,10 +145,14 @@ const MIGRATIONS: Migration[] = [
   },
 ];
 
+const IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/;
+
 /**
  * Get PostgreSQL connection config from context
  */
 function getConnectionConfig(ctx: CommandContext) {
+  const rawSchema = (ctx.flags.schema as string) || 'monomind';
+  const schema = IDENTIFIER_RE.test(rawSchema) ? rawSchema : 'monomind';
   return {
     host: (ctx.flags.host as string) || process.env.PGHOST || 'localhost',
     port: parseInt((ctx.flags.port as string) || process.env.PGPORT || '5432', 10),
@@ -156,7 +160,7 @@ function getConnectionConfig(ctx: CommandContext) {
     user: (ctx.flags.user as string) || process.env.PGUSER || 'postgres',
     password: (ctx.flags.password as string) || process.env.PGPASSWORD || '',
     ssl: (ctx.flags.ssl as boolean) || process.env.PGSSLMODE === 'require',
-    schema: (ctx.flags.schema as string) || 'monomind',
+    schema,
   };
 }
 

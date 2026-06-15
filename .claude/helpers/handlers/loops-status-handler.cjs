@@ -11,13 +11,16 @@ module.exports = {
     if (!fs.existsSync(loopsDir)) { console.log('No loops directory.'); return; }
     var files = fs.readdirSync(loopsDir).filter(function(f) {
       return f.endsWith('.json') && !f.includes('-hil') && !f.endsWith('.stop');
-    });
+    }).slice(0, 200); // cap to prevent DoS via many files
     var STALE_MS = 6 * 60 * 60 * 1000;
     var now = Date.now();
     var active = [], stale = [];
     files.forEach(function(f) {
       try {
-        var d = JSON.parse(fs.readFileSync(path.join(loopsDir, f), 'utf-8'));
+        var fPath = path.join(loopsDir, f);
+        var fSt = fs.statSync(fPath);
+        if (fSt.size > 65536) { return; } // skip oversized loop files
+        var d = JSON.parse(fs.readFileSync(fPath, 'utf-8'));
         var last = d.lastRunAt || d.startedAt || 0;
         var ageMs = last ? (now - last) : Infinity;
         if (ageMs > STALE_MS) stale.push({ d: d, ageH: Math.round(ageMs / 3600000) });

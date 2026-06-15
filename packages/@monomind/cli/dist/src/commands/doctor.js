@@ -7,6 +7,11 @@
 import { output } from '../output.js';
 import { existsSync, readFileSync, statSync } from 'fs';
 import { join, dirname } from 'path';
+const MAX_DOCTOR_PKG_BYTES = 1024 * 1024; // 1 MB — package.json / settings.json
+const MAX_DOCTOR_CONFIG_BYTES = 10 * 1024 * 1024; // 10 MB — monomind.config.json / MCP configs
+const MAX_DOCTOR_GITIGNORE_BYTES = 512 * 1024; // 512 KB — .gitignore
+const MAX_DOCTOR_PID_BYTES = 64; // 64 bytes — daemon PID file
+const MAX_DOCTOR_HELPER_BYTES = 2 * 1024 * 1024; // 2 MB — hook helper .cjs bundles
 import { fileURLToPath } from 'url';
 import { execSync, exec } from 'child_process';
 import { homedir } from 'os';
@@ -67,7 +72,7 @@ async function checkConfigFile() {
         '.monomind.json'
     ];
     for (const configPath of jsonPaths) {
-        if (existsSync(configPath)) {
+        if (existsSync(configPath) && statSync(configPath).size <= MAX_DOCTOR_CONFIG_BYTES) {
             try {
                 const content = readFileSync(configPath, 'utf8');
                 JSON.parse(content);
@@ -95,7 +100,7 @@ async function checkConfigFile() {
 async function checkDaemonStatus() {
     try {
         const pidFile = '.monomind/daemon.pid';
-        if (existsSync(pidFile)) {
+        if (existsSync(pidFile) && statSync(pidFile).size <= MAX_DOCTOR_PID_BYTES) {
             const pid = readFileSync(pidFile, 'utf8').trim();
             try {
                 process.kill(parseInt(pid, 10), 0); // Check if process exists
@@ -184,7 +189,7 @@ async function checkMcpServers() {
         '.mcp.json'
     ];
     for (const configPath of mcpConfigPaths) {
-        if (existsSync(configPath)) {
+        if (existsSync(configPath) && statSync(configPath).size <= MAX_DOCTOR_CONFIG_BYTES) {
             try {
                 const content = JSON.parse(readFileSync(configPath, 'utf8'));
                 const servers = content.mcpServers || content.servers || {};
@@ -260,7 +265,7 @@ async function checkVersionFreshness() {
             for (;;) {
                 const candidate = join(dir, 'package.json');
                 try {
-                    if (existsSync(candidate)) {
+                    if (existsSync(candidate) && statSync(candidate).size <= MAX_DOCTOR_PKG_BYTES) {
                         const pkg = JSON.parse(readFileSync(candidate, 'utf8'));
                         if (pkg.version &&
                             typeof pkg.name === 'string' &&
@@ -405,7 +410,7 @@ async function checkMonograph() {
                 join(_globalRoot, '@monoes', 'monograph', 'package.json'),
             ] : []),
         ];
-        const found = candidates.find(p => existsSync(p));
+        const found = candidates.find(p => existsSync(p) && statSync(p).size <= MAX_DOCTOR_PKG_BYTES);
         if (found) {
             try {
                 const pkg = JSON.parse(readFileSync(found, 'utf-8'));
@@ -446,7 +451,7 @@ async function checkMonoesMemory() {
             join(_base, '..', '..', '..', '..', 'node_modules', '@monoes', 'memory', 'package.json'),
             ...(_globalRoot ? [join(_globalRoot, '@monoes', 'memory', 'package.json')] : []),
         ];
-        const found = candidates.find(p => existsSync(p));
+        const found = candidates.find(p => existsSync(p) && statSync(p).size <= MAX_DOCTOR_PKG_BYTES);
         if (found) {
             try {
                 const pkg = JSON.parse(readFileSync(found, 'utf-8'));
@@ -477,10 +482,10 @@ function _resolveBundledHelper(relativePath) {
         let dir = dirname(thisFile);
         for (;;) {
             const candidate = join(dir, 'package.json');
-            if (existsSync(candidate)) {
+            if (existsSync(candidate) && statSync(candidate).size <= MAX_DOCTOR_PKG_BYTES) {
                 try {
                     const pkg = JSON.parse(readFileSync(candidate, 'utf8'));
-                    if (pkg.name === '@monomind/cli' || pkg.name === 'monomind') {
+                    if (pkg.name === '@monomind/cli' || pkg.name === 'monomind' || pkg.name === '@monoes/monomindcli') {
                         const helperPath = join(dir, relativePath);
                         return existsSync(helperPath) ? helperPath : null;
                     }
@@ -508,11 +513,15 @@ async function _detectStaleHelpers() {
         const local = join(process.cwd(), '.claude', 'helpers', name);
         if (!existsSync(local))
             continue;
+        if (statSync(local).size > MAX_DOCTOR_HELPER_BYTES)
+            continue; // skip oversized helper
         const bundled = _resolveBundledHelper(join('.claude', 'helpers', name));
         if (!bundled) {
             missing.push(name);
             continue;
         }
+        if (statSync(bundled).size > MAX_DOCTOR_HELPER_BYTES)
+            continue; // skip oversized bundled
         try {
             const hashLocal = crypto.createHash('sha256').update(readFileSync(local)).digest('hex');
             const hashBundled = crypto.createHash('sha256').update(readFileSync(bundled)).digest('hex');
@@ -569,6 +578,9 @@ async function checkAgenticFlow() {
                 message: 'Not installed (optional — embeddings/routing will use fallbacks)',
                 fix: 'npm install agentic-flow@latest'
             };
+        }
+        if (statSync(pkgJsonPath).size > MAX_DOCTOR_PKG_BYTES) {
+            return { name: 'agentic-flow', status: 'warn', message: 'package.json too large to parse' };
         }
         const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'));
         const version = pkg.version || 'unknown';
@@ -666,6 +678,9 @@ async function checkGitignoreCoverage() {
             fix: 'echo ".monomind/\\n**/.monomind/" >> .gitignore',
         };
     }
+    if (statSync(gitignorePath).size > MAX_DOCTOR_GITIGNORE_BYTES) {
+        return { name: 'Gitignore Coverage', status: 'warn', message: '.gitignore too large to parse' };
+    }
     const content = readFileSync(gitignorePath, 'utf-8');
     const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
     const missing = REQUIRED_GITIGNORE_PATTERNS.filter(({ pattern }) => {
@@ -708,6 +723,9 @@ async function checkGuidanceGates() {
         };
     }
     try {
+        if (statSync(settingsPath).size > MAX_DOCTOR_CONFIG_BYTES) {
+            return { name: 'Guidance Gates', status: 'warn', message: 'settings.json too large to parse' };
+        }
         const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
         const preToolUse = settings?.hooks?.PreToolUse ?? [];
         const hasPreWrite = preToolUse.some(e => e.matcher === 'Write|Edit|MultiEdit' && e.hooks.some(h => h.command?.includes('pre-write')));

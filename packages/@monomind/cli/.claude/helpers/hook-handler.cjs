@@ -99,17 +99,33 @@ const [,, command, ...args] = process.argv;
 // Read stdin — Claude Code sends hook data as JSON via stdin
 // Uses a timeout to prevent hanging when stdin is in an ambiguous state
 // (not TTY, not a proper pipe) which happens with Claude Code hook invocations.
+// Hard cap at 1 MiB: a legitimate hook payload (tool name + input) is at most
+// a few KB; anything larger is either a bug or an adversarial OOM attempt.
+const MAX_STDIN_BYTES = 1 * 1024 * 1024; // 1 MiB
 async function readStdin() {
   if (process.stdin.isTTY) return '';
   return new Promise((resolve) => {
     let data = '';
+    let byteCount = 0;
+    let truncated = false;
     const timer = setTimeout(() => {
       process.stdin.removeAllListeners();
       process.stdin.pause();
       resolve(data);
     }, 500);
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => { data += chunk; });
+    process.stdin.on('data', (chunk) => {
+      if (truncated) return;
+      byteCount += Buffer.byteLength(chunk, 'utf8');
+      if (byteCount > MAX_STDIN_BYTES) {
+        truncated = true;
+        process.stdin.pause();
+        clearTimeout(timer);
+        resolve(''); // discard oversized input to prevent OOM
+        return;
+      }
+      data += chunk;
+    });
     process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
     process.stdin.on('error', () => { clearTimeout(timer); resolve(data); });
     process.stdin.resume();

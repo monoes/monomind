@@ -201,7 +201,8 @@ const watchCommand: Command = {
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult | void> => {
-    const interval = (ctx.flags.interval as number) || 5000;
+    const rawInterval = (ctx.flags.interval as number) || 5000;
+    const interval = Number.isFinite(rawInterval) ? Math.max(500, Math.min(rawInterval, 3_600_000)) : 5000; // min 500ms, max 1h
     output.writeln(
       output.highlight(`Watching progress (interval: ${interval}ms). Press Ctrl+C to stop.`),
     );
@@ -229,8 +230,9 @@ const watchCommand: Command = {
     };
     await check();
     const timer = setInterval(check, interval);
-    // Handle Ctrl+C
-    process.on('SIGINT', () => {
+    // Handle Ctrl+C — use once so repeated calls don't accumulate SIGINT handlers
+    // (which would trigger MaxListenersExceededWarning and a memory leak).
+    process.once('SIGINT', () => {
       clearInterval(timer);
       output.writeln();
       output.writeln(output.dim('Stopped watching.'));

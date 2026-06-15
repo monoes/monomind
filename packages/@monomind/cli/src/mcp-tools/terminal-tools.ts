@@ -5,8 +5,9 @@
  */
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 
@@ -63,10 +64,12 @@ function ensureTerminalDir(): void {
   }
 }
 
+const MAX_TERMINAL_STORE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 function loadTerminalStore(): TerminalStore {
   try {
     const path = getTerminalPath();
-    if (existsSync(path)) {
+    if (existsSync(path) && statSync(path).size <= MAX_TERMINAL_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8')) as TerminalStore;
     }
   } catch {
@@ -119,14 +122,39 @@ export const terminalTools: MCPTool[] = [
           safeEnv[k] = String(v);
         }
       }
+      // Validate workingDir: must exist, be a directory, and not escape to
+      // system-sensitive paths. Fall back to project cwd if invalid.
+      let resolvedWorkingDir = getProjectCwd();
+      if (input.workingDir && typeof input.workingDir === 'string') {
+        const candidate = resolve(input.workingDir);
+        const projectCwd = getProjectCwd();
+        const home = homedir();
+        // Allow paths under project cwd or user home directory only.
+        const isUnderProject = candidate === projectCwd || candidate.startsWith(projectCwd + '/') || candidate.startsWith(projectCwd + '\\');
+        const isUnderHome = candidate === home || candidate.startsWith(home + '/') || candidate.startsWith(home + '\\');
+        if ((isUnderProject || isUnderHome) && existsSync(candidate)) {
+          try {
+            if (statSync(candidate).isDirectory()) {
+              resolvedWorkingDir = candidate;
+            }
+          } catch {
+            // Leave resolvedWorkingDir as default
+          }
+        }
+      }
       const id = `term-${Date.now()}-${randomBytes(4).toString('hex')}`;
+      // Cap session name: stored in terminal JSON store on disk.
+      const MAX_TERMINAL_NAME_LEN = 256;
+      const rawTerminalName = (input.name as string) || `Terminal ${Object.keys(store.sessions).length + 1}`;
+      const terminalName = typeof rawTerminalName === 'string' && rawTerminalName.length > MAX_TERMINAL_NAME_LEN
+        ? rawTerminalName.slice(0, MAX_TERMINAL_NAME_LEN) : rawTerminalName;
       const session: TerminalSession = {
         id,
-        name: (input.name as string) || `Terminal ${Object.keys(store.sessions).length + 1}`,
+        name: terminalName,
         status: 'active',
         createdAt: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
-        workingDir: (input.workingDir as string) || getProjectCwd(),
+        workingDir: resolvedWorkingDir,
         history: [],
         env: safeEnv,
       };
@@ -159,7 +187,13 @@ export const terminalTools: MCPTool[] = [
     handler: async (input: Record<string, unknown>) => {
       const store = loadTerminalStore();
       const sessionId = input.sessionId as string | undefined;
-      const command = input.command as string;
+      // Cap command: the metacharacter regex check at line 220 is O(n), and the
+      // raw command is stored verbatim in session history (up to 200 entries).
+      // A realistic shell command is well under 64 KB; cap there.
+      const MAX_TERMINAL_COMMAND_LEN = 64 * 1024;
+      const rawCommand = input.command as string;
+      const command = typeof rawCommand === 'string' && rawCommand.length > MAX_TERMINAL_COMMAND_LEN
+        ? rawCommand.slice(0, MAX_TERMINAL_COMMAND_LEN) : rawCommand;
       const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
       // Reject inherited keys (incl. toString/hasOwnProperty/etc.) so a tampered
       // store.json can't redirect bracket access into Object.prototype.

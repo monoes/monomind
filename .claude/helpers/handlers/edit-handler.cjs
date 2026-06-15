@@ -86,7 +86,7 @@ module.exports = {
         var lockFile = path.join(CWD, '.monomind', 'graph', '.rebuild-lock');
         var now = Date.now();
         var lastBuild = 0;
-        try { lastBuild = parseInt(fs.readFileSync(lockFile, 'utf-8').trim(), 10) || 0; } catch (e) {}
+        try { var _lkSt = fs.statSync(lockFile); if (_lkSt.size <= 32) { lastBuild = parseInt(fs.readFileSync(lockFile, 'utf-8').trim(), 10) || 0; } } catch (e) {}
         var COOLDOWN_MS = 5000; // 5-second debounce
         if (now - lastBuild > COOLDOWN_MS) {
           fs.writeFileSync(lockFile, String(now), 'utf-8');

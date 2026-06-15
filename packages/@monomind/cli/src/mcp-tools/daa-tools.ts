@@ -138,16 +138,47 @@ export const daaTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadDAAStore();
-      const id = input.id as string;
+      // Cap all string inputs before storing to disk and before they flow into
+      // bridgeStoreEntry → generateEmbedding (hash fallback is O(n)).
+      const MAX_DAA_ID_LEN = 256;
+      const MAX_DAA_NAME_LEN = 512;
+      const MAX_DAA_TYPE_LEN = 128;
+      const MAX_DAA_CAPABILITIES = 50;
+      const MAX_DAA_CAPABILITY_LEN = 128;
+      const MAX_DAA_AGENTS = 10_000;
+
+      const rawId = input.id as string;
+      const id = typeof rawId === 'string' && rawId.length > MAX_DAA_ID_LEN
+        ? rawId.slice(0, MAX_DAA_ID_LEN) : rawId;
+
+      if (Object.keys(store.agents ?? {}).length >= MAX_DAA_AGENTS && !Object.hasOwn(store.agents, id)) {
+        return { success: false, error: `Agent store full (max ${MAX_DAA_AGENTS})` };
+      }
+
+      const rawName = (input.name as string) || `DAA-${id}`;
+      const agentName = typeof rawName === 'string' && rawName.length > MAX_DAA_NAME_LEN
+        ? rawName.slice(0, MAX_DAA_NAME_LEN) : rawName;
+
+      const rawType = (input.type as string) || 'autonomous';
+      const agentType = typeof rawType === 'string' && rawType.length > MAX_DAA_TYPE_LEN
+        ? rawType.slice(0, MAX_DAA_TYPE_LEN) : rawType;
+
+      const rawCaps = (input.capabilities as string[]) || ['reasoning', 'learning'];
+      const capabilities = Array.isArray(rawCaps)
+        ? rawCaps
+            .slice(0, MAX_DAA_CAPABILITIES)
+            .map(c => typeof c === 'string' && c.length > MAX_DAA_CAPABILITY_LEN ? c.slice(0, MAX_DAA_CAPABILITY_LEN) : c)
+        : ['reasoning', 'learning'];
+
       const agent: DAAAgent = {
         id,
-        name: (input.name as string) || `DAA-${id}`,
-        type: (input.type as string) || 'autonomous',
+        name: agentName,
+        type: agentType,
         status: 'active',
         cognitivePattern: (input.cognitivePattern as CognitivePattern) || 'adaptive',
         learningRate: (input.learningRate as number) || 0.01,
         memory: (input.enableMemory as boolean) ?? true,
-        capabilities: (input.capabilities as string[]) || ['reasoning', 'learning'],
+        capabilities,
         metrics: {
           tasksCompleted: 0,
           successRate: 1.0,
@@ -265,12 +296,22 @@ export const daaTools: MCPTool[] = [
         ['__proto__', 'constructor', 'prototype'].includes(id)) {
         return { success: false, error: 'Invalid workflow id' };
       }
+      const MAX_DAA_WF_NAME_LEN = 512;
+      const MAX_DAA_WF_STEPS = 500;
       const store = loadDAAStore();
+
+      const rawWfName = input.name as string;
+      const wfName = typeof rawWfName === 'string' && rawWfName.length > MAX_DAA_WF_NAME_LEN
+        ? rawWfName.slice(0, MAX_DAA_WF_NAME_LEN) : rawWfName;
+
+      const rawSteps = (input.steps as unknown[] | undefined) || [];
+      const cappedSteps = Array.isArray(rawSteps) ? rawSteps.slice(0, MAX_DAA_WF_STEPS) : [];
+
       const workflow: DAAWorkflow = {
         id,
-        name: input.name as string,
+        name: wfName,
         status: 'pending',
-        steps: ((input.steps as unknown[] | undefined) || []).map((s, i) => ({
+        steps: cappedSteps.map((s, i) => ({
           name: typeof s === 'string' ? s : `Step ${i + 1}`,
           status: 'pending',
         })),
@@ -354,7 +395,17 @@ export const daaTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadDAAStore();
       const sourceId = input.sourceAgentId as string;
-      const targetIds = input.targetAgentIds as string[];
+      // Cap targetIds to prevent a large array from inflating the JSON store
+      // entry and the AgentDB tags blob.  100 target agents is already very
+      // generous for any realistic swarm configuration.
+      const MAX_TARGET_IDS = 100;
+      const MAX_TARGET_ID_LEN = 256;
+      const rawTargetIds = input.targetAgentIds as string[];
+      const targetIds = Array.isArray(rawTargetIds)
+        ? rawTargetIds
+            .slice(0, MAX_TARGET_IDS)
+            .map(id => (typeof id === 'string' && id.length > MAX_TARGET_ID_LEN ? id.slice(0, MAX_TARGET_ID_LEN) : id))
+        : [];
       const domain = (input.knowledgeDomain as string) || 'general';
       const knowledgeId = `knowledge-${Date.now()}`;
       const knowledgeEntry: KnowledgeEntry = {

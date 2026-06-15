@@ -49,6 +49,14 @@ export async function exportPatterns(cfp, options = {}) {
         // Write to file
         const ext = getFileExtension(format);
         outputPath = output.endsWith(ext) ? output : output + ext;
+        // Path traversal guard — output must resolve within the current working
+        // directory to prevent callers from writing to arbitrary filesystem paths.
+        const projectRoot = path.resolve(process.cwd());
+        const resolvedOutputPath = path.resolve(process.cwd(), outputPath);
+        if (!resolvedOutputPath.startsWith(projectRoot + path.sep) && resolvedOutputPath !== projectRoot) {
+            throw new Error(`Output path must resolve within the project directory: ${projectRoot}`);
+        }
+        outputPath = resolvedOutputPath;
         // Ensure directory exists
         const dir = path.dirname(outputPath);
         if (!fs.existsSync(dir)) {

@@ -562,6 +562,11 @@ const editCommand: Command = {
       output.printError(`File not found: ${filePath}`);
       return { success: false, exitCode: 1 };
     }
+    const MAX_MEMORY_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+    if (fs.statSync(filePath).size > MAX_MEMORY_FILE_BYTES) {
+      output.printError(`Memory file too large (> 50 MB): ${filePath}`);
+      return { success: false, exitCode: 1 };
+    }
 
     let entries: any[];
     try {
@@ -819,6 +824,11 @@ const deleteCommand: Command = {
 
     if (!fs.existsSync(filePath)) {
       output.printError(`File not found: ${filePath}`);
+      return { success: false, exitCode: 1 };
+    }
+    const MAX_MEMORY_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+    if (fs.statSync(filePath).size > MAX_MEMORY_FILE_BYTES) {
+      output.printError(`Memory file too large (> 50 MB): ${filePath}`);
       return { success: false, exitCode: 1 };
     }
 

@@ -299,17 +299,36 @@ export const browserTools = [
             },
         },
         handler: async (input) => {
-            const { session, interactive, compact, depth, selector } = input;
+            const raw = input;
+            let safeSession;
+            try {
+                safeSession = validateSessionId(raw.session);
+            }
+            catch (e) {
+                return {
+                    content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }) }],
+                    isError: true,
+                };
+            }
             const args = ['snapshot'];
-            if (interactive)
+            if (raw.interactive)
                 args.push('-i');
-            if (compact)
+            if (raw.compact)
                 args.push('-c');
-            if (depth)
-                args.push('-d', String(depth));
-            if (selector)
-                args.push('-s', selector);
-            return execBrowserCommand(args, session);
+            if (raw.depth)
+                args.push('-d', String(raw.depth));
+            if (raw.selector !== undefined) {
+                try {
+                    args.push('-s', rejectFlagLike(raw.selector, 'selector'));
+                }
+                catch (e) {
+                    return {
+                        content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }) }],
+                        isError: true,
+                    };
+                }
+            }
+            return execBrowserCommand(args, safeSession);
         },
     },
     {
@@ -489,7 +508,15 @@ export const browserTools = [
         },
         handler: async (input) => {
             const { target, session } = input;
-            return execBrowserCommand(['check', target], session);
+            try {
+                return execBrowserCommand(['check', rejectFlagLike(target, 'target')], session);
+            }
+            catch (e) {
+                return {
+                    content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }) }],
+                    isError: true,
+                };
+            }
         },
     },
     {
@@ -507,7 +534,15 @@ export const browserTools = [
         },
         handler: async (input) => {
             const { target, session } = input;
-            return execBrowserCommand(['uncheck', target], session);
+            try {
+                return execBrowserCommand(['uncheck', rejectFlagLike(target, 'target')], session);
+            }
+            catch (e) {
+                return {
+                    content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }) }],
+                    isError: true,
+                };
+            }
         },
     },
     {
@@ -550,7 +585,15 @@ export const browserTools = [
         },
         handler: async (input) => {
             const { target, session } = input;
-            return execBrowserCommand(['get', 'text', target], session);
+            try {
+                return execBrowserCommand(['get', 'text', rejectFlagLike(target, 'target')], session);
+            }
+            catch (e) {
+                return {
+                    content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }) }],
+                    isError: true,
+                };
+            }
         },
     },
     {
@@ -568,7 +611,15 @@ export const browserTools = [
         },
         handler: async (input) => {
             const { target, session } = input;
-            return execBrowserCommand(['get', 'value', target], session);
+            try {
+                return execBrowserCommand(['get', 'value', rejectFlagLike(target, 'target')], session);
+            }
+            catch (e) {
+                return {
+                    content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }) }],
+                    isError: true,
+                };
+            }
         },
     },
     {
@@ -622,17 +673,28 @@ export const browserTools = [
             },
         },
         handler: async (input) => {
-            const { selector, text, url, timeout, session } = input;
+            const raw = input;
             const args = ['wait'];
-            if (selector)
-                args.push(selector);
-            if (text)
-                args.push('--text', text);
-            if (url)
-                args.push('--url', url);
-            if (timeout)
-                args.push(String(timeout));
-            return execBrowserCommand(args, session);
+            try {
+                if (raw.selector !== undefined)
+                    args.push(rejectFlagLike(raw.selector, 'selector'));
+                if (raw.text !== undefined)
+                    args.push('--text', rejectFlagLike(raw.text, 'text'));
+                if (raw.url !== undefined)
+                    args.push('--url', validateUrl(raw.url));
+            }
+            catch (e) {
+                return {
+                    content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }) }],
+                    isError: true,
+                };
+            }
+            // Cap timeout to prevent event-loop blocking via a huge value
+            if (raw.timeout !== undefined && typeof raw.timeout === 'number') {
+                const clampedTimeout = Math.min(Math.max(Math.floor(raw.timeout), 0), 60_000);
+                args.push(String(clampedTimeout));
+            }
+            return execBrowserCommand(args, raw.session);
         },
     },
     // ==========================================================================
