@@ -1600,6 +1600,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <button class="lb-toggle" id="btn-report" onclick="showReportCard()" title="Generate daily/weekly report card">✦ Report</button>
         </div>
         <div class="pg-sub" id="sess-pg-sub">Recent Claude Code sessions for this project</div>
+        <div id="sess-stats-bar" style="display:none;gap:16px;margin-bottom:10px;font-size:11px;color:var(--text-lo);font-variant-numeric:tabular-nums;flex-wrap:wrap"></div>
         <div id="diff-panel">
           <div class="diff-header"><span class="diff-title">Session Comparison</span><button class="diff-clear" onclick="clearDiff()" title="Clear">✕</button></div>
           <div class="diff-hint" id="diff-hint">Click two sessions below to compare them</div>
@@ -3441,6 +3442,25 @@ async function renderSessions() {
     document.getElementById('bdg-sessions').textContent = sessions.length || '—';
     document.getElementById('sess-pg-sub').textContent =
       sessions.length + ' session' + (sessions.length !== 1 ? 's' : '') + ' · ' + (DIR.split('/').pop() || DIR);
+    // Populate sessions stats bar
+    try {
+      const statsBar = document.getElementById('sess-stats-bar');
+      if (statsBar && sessions.length > 0) {
+        const totalCost = sessions.reduce((a, s) => a + (s.totalCost || 0), 0);
+        const totalDur  = sessions.reduce((a, s) => a + (s.totalDurationMs || 0), 0);
+        const totalMsgs = sessions.reduce((a, s) => a + (s.totalMessages || 0), 0);
+        const avgCost   = totalCost / sessions.length;
+        const runningN  = sessions.filter(s => s.status === 'running').length;
+        const parts = [];
+        if (totalCost > 0) parts.push(`<span title="Total cost across all sessions">$${totalCost.toFixed(2)} total</span>`);
+        if (avgCost > 0)   parts.push(`<span title="Average cost per session">$${avgCost.toFixed(2)} avg</span>`);
+        if (totalDur > 0)  parts.push(`<span title="Total time across all sessions">${fmtDur(totalDur)} total time</span>`);
+        if (totalMsgs > 0) parts.push(`<span title="Total messages">${totalMsgs.toLocaleString()} msgs</span>`);
+        if (runningN > 0)  parts.push(`<span style="color:var(--green)" title="${runningN} active session(s)">● ${runningN} active</span>`);
+        statsBar.innerHTML = parts.join('<span style="color:var(--border);margin:0 2px">·</span>');
+        statsBar.style.display = parts.length ? 'flex' : 'none';
+      }
+    } catch (_) {}
     if (!sessions.length) {
       el.innerHTML = '<div class="empty"><div class="empty-ico">◫</div><div style="font-size:14px;color:var(--text-hi);margin-bottom:8px">No sessions yet</div><div style="font-size:12px;color:var(--text-lo);line-height:1.7;max-width:360px;margin:0 auto">Start a Claude Code session in this project to see it here.<br><code style="font-size:11px;background:var(--surface-hi);padding:2px 7px;border-radius:4px;color:var(--accent)">claude</code> — then complete a task and return to this view.</div></div>';
       return;
