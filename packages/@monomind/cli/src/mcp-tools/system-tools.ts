@@ -152,7 +152,9 @@ export const systemTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadMetrics();
-      const category = (input.category as string) || 'all';
+      const VALID_CATEGORIES = new Set(['all', 'cpu', 'memory', 'agents', 'tasks', 'requests']);
+      const rawCategory = (input.category as string) || 'all';
+      const category = VALID_CATEGORIES.has(rawCategory) ? rawCategory : 'all';
 
       // Get REAL system metrics via Node.js APIs
       const memUsage = process.memoryUsage();
@@ -473,7 +475,11 @@ export const systemTools: MCPTool[] = [
         return { success: false, error: 'Reset requires confirmation' };
       }
 
-      const component = (input.component as string) || 'metrics';
+      // Validate component against the allowed set to prevent unbounded string
+      // reflection in the response message.
+      const VALID_COMPONENTS = new Set(['all', 'metrics', 'agents', 'tasks']);
+      const rawComponent = (input.component as string) || 'metrics';
+      const component = VALID_COMPONENTS.has(rawComponent) ? rawComponent : 'metrics';
 
       // Reset metrics to defaults
       const defaultMetrics: SystemMetrics = {
