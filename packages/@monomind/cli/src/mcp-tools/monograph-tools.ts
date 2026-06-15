@@ -62,17 +62,30 @@ const monographQueryTool: MCPTool = {
     const { hybridQuery } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const limit = (input.limit as number | undefined) ?? 20;
+      // Cap limit: passed directly to SQLite queries and hybridQuery; an
+      // unlimited value saturates memory with rows.
+      const MAX_QUERY_LIMIT = 1_000;
+      const rawLimit = (input.limit as number | undefined) ?? 20;
+      const limit = Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), MAX_QUERY_LIMIT)
+        : 20;
+      // Cap query: passed to FTS5 and hybridQuery; very long queries waste
+      // parse time and can stress the FTS tokenizer.
+      const MAX_MONOGRAPH_QUERY_LEN = 16 * 1024;
+      const rawQuery = input.query as string;
+      const query = typeof rawQuery === 'string' && rawQuery.length > MAX_MONOGRAPH_QUERY_LEN
+        ? rawQuery.slice(0, MAX_MONOGRAPH_QUERY_LEN)
+        : rawQuery;
       const label = input.label as string | undefined;
 
       if (process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
-        const results = await hybridQuery(db, input.query as string, { limit, label });
+        const results = await hybridQuery(db, query, { limit, label });
         if (results.length === 0) return text('No results found.');
         const lines = results.map(r => `[${r.label ?? '?'}] ${r.name ?? r.id}  ${r.filePath ?? ''}  (score: ${r.score.toFixed(4)})`);
         return text(lines.join('\n'));
       }
 
-      const results = ftsSearch(db, input.query as string, limit, label);
+      const results = ftsSearch(db, query, limit, label);
       if (results.length === 0) return text('No results found.');
       const lines = results.map(r => `[${r.label}] ${r.name}  ${r.filePath ?? ''}  (score: ${r.rank.toFixed(3)})`);
       return text(lines.join('\n'));
@@ -144,7 +157,12 @@ const monographGodNodesTool: MCPTool = {
     const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const limit = (input.limit as number | undefined) ?? 20;
+      // Cap limit: passed directly to the SQL LIMIT clause.
+      const MAX_GOD_NODES_LIMIT = 1_000;
+      const rawGodLimit = (input.limit as number | undefined) ?? 20;
+      const limit = Number.isFinite(rawGodLimit) && rawGodLimit > 0
+        ? Math.min(Math.floor(rawGodLimit), MAX_GOD_NODES_LIMIT)
+        : 20;
       const excluded = ['File', 'Folder', 'Community', 'Concept'];
       const rows = db.prepare(`
         SELECT n.id, n.label, n.name, n.file_path,
@@ -296,8 +314,18 @@ const monographSuggestTool: MCPTool = {
     const { hybridQuery } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const limit = (input.limit as number | undefined) ?? 10;
-      const task = (input.task as string | undefined) ?? '';
+      // Cap limit and task: limit is passed directly to SQL LIMIT clause;
+      // task is forwarded to hybridQuery (embedding path) or FTS.
+      const MAX_SUGGEST_LIMIT = 1_000;
+      const MAX_SUGGEST_TASK_LEN = 16 * 1024;
+      const rawSuggestLimit = (input.limit as number | undefined) ?? 10;
+      const limit = Number.isFinite(rawSuggestLimit) && rawSuggestLimit > 0
+        ? Math.min(Math.floor(rawSuggestLimit), MAX_SUGGEST_LIMIT)
+        : 10;
+      const rawTask = (input.task as string | undefined) ?? '';
+      const task = typeof rawTask === 'string' && rawTask.length > MAX_SUGGEST_TASK_LEN
+        ? rawTask.slice(0, MAX_SUGGEST_TASK_LEN)
+        : rawTask;
 
       // When a task is provided and embeddings are enabled, use semantic search
       // to find relevant nodes and surface edge-level questions about them.
