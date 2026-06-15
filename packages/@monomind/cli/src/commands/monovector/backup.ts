@@ -502,7 +502,14 @@ const restoreSubcommand: Command = {
         return { success: false, exitCode: 1 };
       }
 
-      // Read file
+      // Read file — check size first to avoid OOM on a runaway or corrupt file.
+      const fileSize = fs.statSync(inputPath).size;
+      const MAX_BACKUP_BYTES = 500 * 1024 * 1024; // 500 MB
+      if (fileSize > MAX_BACKUP_BYTES) {
+        spinner.fail('Backup file too large');
+        output.printError(`Backup file exceeds size limit (${formatBytes(fileSize)} > ${formatBytes(MAX_BACKUP_BYTES)})`);
+        return { success: false, exitCode: 1 };
+      }
       let content: string;
       if (inputPath.endsWith('.gz')) {
         const zlib = await import('zlib');
@@ -513,8 +520,6 @@ const restoreSubcommand: Command = {
       } else {
         content = fs.readFileSync(inputPath, 'utf-8');
       }
-
-      const fileSize = fs.statSync(inputPath).size;
       spinner.succeed(`Read backup file (${formatBytes(fileSize)})`);
 
       // Determine format
