@@ -960,6 +960,36 @@ function getSIBudget() {
   } catch { return null; }
 }
 
+// Token cost summary — reads cached .monomind/metrics/token-summary.json (no JSONL scanning).
+// Returns null if file absent, stale (cachedAt is not today in UTC), or cost is zero.
+// All costs are aggregated across ALL Claude Code projects, not just this repo.
+function getTokenCostSummary() {
+  const summaryPath = path.join(CWD, '.monomind', 'metrics', 'token-summary.json');
+  const d = readJSON(summaryPath);
+  if (!d) return null;
+
+  // Staleness guard: only show "today" figures when cachedAt is today (UTC)
+  const todayUtc = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const cachedDate = (d.cachedAt || '').slice(0, 10);
+  const isFresh = cachedDate === todayUtc;
+
+  const todayCost  = isFresh ? (d.todayCost  || 0) : 0;
+  const monthCost  = d.monthCost  || 0;
+  const todayCalls = isFresh ? (d.todayCalls || 0) : 0;
+
+  if (monthCost === 0 && todayCost === 0) return null;
+
+  return { todayCost, monthCost, todayCalls, isFresh };
+}
+
+// Format a dollar amount compactly: $0.0023, $1.23, $228.87
+function fmtCost(n) {
+  if (n >= 100)  return '$' + n.toFixed(0);
+  if (n >= 1)    return '$' + n.toFixed(2);
+  if (n >= 0.01) return '$' + n.toFixed(3);
+  return '$' + n.toFixed(4);
+}
+
 // ── Single-line statusline (compact) ─────────────────────────────
 function generateStatusline() {
   const git       = getGitInfo();
@@ -1019,6 +1049,17 @@ function generateStatusline() {
     parts.push(`${x.mint}⚡ ${hooks.enabled}h${x.reset}`);
   }
 
+  // Token cost — today's spend across all projects (from cached summary)
+  const tokenCost = getTokenCostSummary();
+  if (tokenCost) {
+    if (tokenCost.isFresh && tokenCost.todayCost > 0) {
+      const col = tokenCost.todayCost > 50 ? x.coral : tokenCost.todayCost > 10 ? x.gold : x.mint;
+      parts.push(`${col}${fmtCost(tokenCost.todayCost)} today${x.reset}`);
+    } else if (tokenCost.monthCost > 0) {
+      parts.push(`${x.slate}${fmtCost(tokenCost.monthCost)} mo${x.reset}`);
+    }
+  }
+
   return parts.join(`  ${DIV}  `);
 }
 
@@ -1060,6 +1101,17 @@ function generateDashboard() {
 
   hdr += `  ${DIV}  🤖 ${x.violet}${x.bold}${modelName}${x.reset}`;
   if (session.duration) hdr += `  ${x.dim}⏱ ${session.duration}${x.reset}`;
+
+  // Token cost in dashboard header — today's spend (all projects)
+  const tokenCost = getTokenCostSummary();
+  if (tokenCost) {
+    if (tokenCost.isFresh && tokenCost.todayCost > 0) {
+      const col = tokenCost.todayCost > 50 ? x.coral : tokenCost.todayCost > 10 ? x.gold : x.mint;
+      hdr += `  ${DIV}  ${col}${fmtCost(tokenCost.todayCost)} today${x.reset}${x.dim} · ${fmtCost(tokenCost.monthCost)} mo${x.reset}`;
+    } else if (tokenCost.monthCost > 0) {
+      hdr += `  ${DIV}  ${x.slate}${fmtCost(tokenCost.monthCost)} mo${x.reset}`;
+    }
+  }
 
   lines.push(hdr);
   lines.push(SEP);
@@ -1156,6 +1208,7 @@ function generateJSON() {
     agentdb:    getAgentDBStats(),
     tests:      getTestStats(),
     git:        { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
+    tokenCost:  getTokenCostSummary(),
     lastUpdated: new Date().toISOString(),
   };
 }
