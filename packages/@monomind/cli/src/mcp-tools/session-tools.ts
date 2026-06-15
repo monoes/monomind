@@ -262,17 +262,22 @@ export const sessionTools: MCPTool[] = [
             const { storeEntry } = await import('../memory/memory-initializer.js');
             const memoryData = session.data.memory as { entries?: Record<string, { key?: string; id?: string; value?: string; content?: string; namespace?: string }> };
             if (memoryData.entries) {
+              // Cap individual key and value lengths before writing to the DB.
+              // A malicious or corrupted session file could contain arbitrarily
+              // long strings; without caps these flow straight into the HNSW
+              // embedder and SQL layer, causing OOM or DoS.
+              const MAX_RESTORE_KEY = 1_000;
+              const MAX_RESTORE_VALUE = 100_000;
+              const MAX_RESTORE_NS = 200;
               for (const entry of Object.values(memoryData.entries)) {
-                const key = entry.key || entry.id || '';
-                const value = entry.value || entry.content || '';
-                if (key && value) {
-                  await storeEntry({
-                    key,
-                    value,
-                    namespace: entry.namespace || 'restored',
-                    upsert: true,
-                  });
-                }
+                let key = entry.key || entry.id || '';
+                let value = entry.value || entry.content || '';
+                if (!key || !value) continue;
+                if (key.length > MAX_RESTORE_KEY) key = key.slice(0, MAX_RESTORE_KEY);
+                if (value.length > MAX_RESTORE_VALUE) value = value.slice(0, MAX_RESTORE_VALUE);
+                const rawNs = entry.namespace || 'restored';
+                const namespace = rawNs.length > MAX_RESTORE_NS ? rawNs.slice(0, MAX_RESTORE_NS) : rawNs;
+                await storeEntry({ key, value, namespace, upsert: true });
               }
             }
           } catch {
@@ -407,7 +412,16 @@ export const sessionTools: MCPTool[] = [
 
       if (session) {
         const path = getSessionPath(sessionId);
-        const stat = statSync(path);
+        // Guard against TOCTOU: the file could be deleted between loadSession()
+        // and statSync().  Catch ENOENT (and any other fs error) so the MCP
+        // handler never throws an unhandled exception; callers get a clean
+        // response instead of a server-side crash.
+        let fileSize = 0;
+        try {
+          fileSize = statSync(path).size;
+        } catch {
+          // File deleted or inaccessible after loadSession succeeded
+        }
 
         return {
           sessionId: session.sessionId,
@@ -415,7 +429,7 @@ export const sessionTools: MCPTool[] = [
           description: session.description,
           savedAt: session.savedAt,
           stats: session.stats,
-          fileSize: stat.size,
+          fileSize,
           hasData: {
             memory: !!session.data?.memory,
             tasks: !!session.data?.tasks,
