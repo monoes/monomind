@@ -49,7 +49,7 @@ export interface CloneTrace {
   groupId?: number;
 }
 
-interface GraphNode {
+export interface GraphNode {
   id: string;
   filePath?: string;
   name: string;
@@ -68,12 +68,27 @@ interface Graph {
   edges: GraphEdge[];
 }
 
-export function traceExport(graph: Graph, file: string, exportName: string): ExportTrace {
+/** Build an O(1) id→node index. Pass to the trace functions when calling multiple times on the same graph. */
+export function buildNodeIndex(graph: Graph): Map<string, GraphNode> {
+  const index = new Map<string, GraphNode>();
+  for (const n of graph.nodes) index.set(n.id, n);
+  return index;
+}
+
+export function traceExport(
+  graph: Graph,
+  file: string,
+  exportName: string,
+  nodeIndex?: Map<string, GraphNode>,
+): ExportTrace {
+  // Build index once if not supplied — O(N) amortised when caller reuses it
+  const idx = nodeIndex ?? buildNodeIndex(graph);
+
   // Find nodes in the target file matching exportName
-  const targetNodes = graph.nodes.filter(
-    (n) => n.filePath === file && n.name === exportName,
-  );
-  const targetIds = new Set(targetNodes.map((n) => n.id));
+  const targetIds = new Set<string>();
+  for (const n of graph.nodes) {
+    if (n.filePath === file && n.name === exportName) targetIds.add(n.id);
+  }
 
   // Find CALLS or IMPORTS edges pointing to these nodes from other files
   const directReferences: ReferenceLocation[] = [];
@@ -82,7 +97,7 @@ export function traceExport(graph: Graph, file: string, exportName: string): Exp
   for (const edge of graph.edges) {
     if (!targetIds.has(edge.targetId)) continue;
 
-    const sourceNode = graph.nodes.find((n) => n.id === edge.sourceId);
+    const sourceNode = idx.get(edge.sourceId);
     if (!sourceNode) continue;
 
     // Skip self-references (same file)
@@ -127,65 +142,69 @@ export function traceExport(graph: Graph, file: string, exportName: string): Exp
   };
 }
 
-export function traceFile(graph: Graph, file: string): FileTrace {
+export function traceFile(
+  graph: Graph,
+  file: string,
+  nodeIndex?: Map<string, GraphNode>,
+): FileTrace {
+  // Build index once if not supplied
+  const idx = nodeIndex ?? buildNodeIndex(graph);
+
   // Find all nodes in this file
   const fileNodes = graph.nodes.filter((n) => n.filePath === file);
   const fileNodeIds = new Set(fileNodes.map((n) => n.id));
 
-  // Build exports list
+  // Pre-compute which target node ids have external references in one edge pass
+  // to avoid O(exported_nodes * edges) in the map below.
+  const externallyReferenced = new Set<string>();
+  const importsFromSet = new Set<string>();
+  const importedBySet = new Set<string>();
+  const reExports: Array<{ name: string; fromFile: string }> = [];
+
+  for (const edge of graph.edges) {
+    const srcInFile = fileNodeIds.has(edge.sourceId);
+    const tgtInFile = fileNodeIds.has(edge.targetId);
+
+    if (edge.relation === 'IMPORTS') {
+      if (srcInFile) {
+        const targetNode = idx.get(edge.targetId);
+        if (targetNode?.filePath && targetNode.filePath !== file) {
+          importsFromSet.add(targetNode.filePath);
+        }
+      }
+      if (tgtInFile) {
+        const sourceNode = idx.get(edge.sourceId);
+        if (sourceNode?.filePath && sourceNode.filePath !== file) {
+          importedBySet.add(sourceNode.filePath);
+        }
+      }
+      // External IMPORTS into a file node → that node is externally referenced
+      if (tgtInFile && !srcInFile) {
+        externallyReferenced.add(edge.targetId);
+      }
+    }
+
+    if (edge.relation === 'CALLS' && tgtInFile && !srcInFile) {
+      externallyReferenced.add(edge.targetId);
+    }
+
+    if (edge.relation === 'RE_EXPORTS' && srcInFile) {
+      const sourceNode = idx.get(edge.sourceId);
+      const targetNode = idx.get(edge.targetId);
+      if (sourceNode && targetNode?.filePath) {
+        reExports.push({ name: sourceNode.name, fromFile: targetNode.filePath });
+      }
+    }
+  }
+
+  // Build exports list using pre-computed set — O(exported_nodes) not O(exported_nodes * edges)
   const exports = fileNodes
     .filter((n) => n.isExported)
-    .map((n) => {
-      // Check if any external node references this node
-      const hasReferences = graph.edges.some(
-        (e) =>
-          e.targetId === n.id &&
-          (e.relation === 'CALLS' || e.relation === 'IMPORTS') &&
-          !fileNodeIds.has(e.sourceId),
-      );
-      return {
-        name: n.name,
-        isUsed: hasReferences,
-        line: n.startLine ?? 0,
-      };
-    });
-
-  // Find files this file imports from (outgoing IMPORTS edges from file nodes)
-  const importsFromSet = new Set<string>();
-  for (const edge of graph.edges) {
-    if (!fileNodeIds.has(edge.sourceId)) continue;
-    if (edge.relation !== 'IMPORTS') continue;
-    const targetNode = graph.nodes.find((n) => n.id === edge.targetId);
-    if (targetNode?.filePath && targetNode.filePath !== file) {
-      importsFromSet.add(targetNode.filePath);
-    }
-  }
-
-  // Find files that import this file (incoming IMPORTS edges to file nodes)
-  const importedBySet = new Set<string>();
-  for (const edge of graph.edges) {
-    if (!fileNodeIds.has(edge.targetId)) continue;
-    if (edge.relation !== 'IMPORTS') continue;
-    const sourceNode = graph.nodes.find((n) => n.id === edge.sourceId);
-    if (sourceNode?.filePath && sourceNode.filePath !== file) {
-      importedBySet.add(sourceNode.filePath);
-    }
-  }
-
-  // Find re-exports (RE_EXPORTS edges going out from file nodes)
-  const reExports: Array<{ name: string; fromFile: string }> = [];
-  for (const edge of graph.edges) {
-    if (!fileNodeIds.has(edge.sourceId)) continue;
-    if (edge.relation !== 'RE_EXPORTS') continue;
-    const sourceNode = graph.nodes.find((n) => n.id === edge.sourceId);
-    const targetNode = graph.nodes.find((n) => n.id === edge.targetId);
-    if (sourceNode && targetNode?.filePath) {
-      reExports.push({
-        name: sourceNode.name,
-        fromFile: targetNode.filePath,
-      });
-    }
-  }
+    .map((n) => ({
+      name: n.name,
+      isUsed: externallyReferenced.has(n.id),
+      line: n.startLine ?? 0,
+    }));
 
   return {
     file,
