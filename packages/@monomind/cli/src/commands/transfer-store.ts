@@ -33,12 +33,12 @@ export const storeListCommand: Command = {
     { command: 'monomind hooks transfer store list --featured', description: 'List featured patterns' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const registryName = ctx.flags.registry as string;
-    const category = ctx.flags.category as string;
+    const registryName = (ctx.flags.registry as string | undefined)?.slice(0, 128);
+    const category = (ctx.flags.category as string | undefined)?.slice(0, 128);
     const featured = ctx.flags.featured as boolean;
     const trending = ctx.flags.trending as boolean;
     const newest = ctx.flags.newest as boolean;
-    const limit = (ctx.flags.limit as number) || 20;
+    const limit = Math.max(1, Math.min(200, (ctx.flags.limit as number) || 20));
 
     const spinner = output.createSpinner({ text: 'Discovering registry...', spinner: 'dots' });
     spinner.start();
@@ -139,7 +139,7 @@ export const storeSearchCommand: Command = {
     { command: 'monomind hooks transfer store search -q "react" --language typescript', description: 'Search with filters' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const query = (ctx.args[0] || ctx.flags.query) as string;
+    const query = ((ctx.args[0] || ctx.flags.query) as string | undefined)?.slice(0, 256);
 
     if (!query) {
       output.printError('Search query is required. Use --query or -q flag.');
@@ -160,13 +160,13 @@ export const storeSearchCommand: Command = {
 
       const searchOptions: SearchOptions = {
         query,
-        category: ctx.flags.category as string,
-        language: ctx.flags.language as string,
-        framework: ctx.flags.framework as string,
-        tags: ctx.flags.tags ? (ctx.flags.tags as string).split(',') : undefined,
+        category: (ctx.flags.category as string | undefined)?.slice(0, 128),
+        language: (ctx.flags.language as string | undefined)?.slice(0, 64),
+        framework: (ctx.flags.framework as string | undefined)?.slice(0, 64),
+        tags: ctx.flags.tags ? (ctx.flags.tags as string).slice(0, 512).split(',').map(t => t.trim().slice(0, 64)).slice(0, 20) : undefined,
         minRating: ctx.flags['min-rating'] as number,
         verified: ctx.flags.verified as boolean,
-        limit: (ctx.flags.limit as number) || 20,
+        limit: Math.max(1, Math.min(200, (ctx.flags.limit as number) || 20)),
       };
 
       const searchResult = searchPatterns(result.registry, searchOptions);
@@ -217,7 +217,7 @@ export const storeDownloadCommand: Command = {
     { command: 'monomind hooks transfer store download -n seraphine-genesis --import', description: 'Download and import' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const patternName = (ctx.args[0] || ctx.flags.name) as string;
+    const patternName = ((ctx.args[0] || ctx.flags.name) as string | undefined)?.slice(0, 256);
 
     if (!patternName) {
       output.printError('Pattern name is required. Use --name or -n flag.');
@@ -304,8 +304,8 @@ export const storePublishCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const inputPath = ctx.flags.input as string;
-    const name = ctx.flags.name as string;
-    const description = ctx.flags.description as string;
+    const name = (ctx.flags.name as string | undefined)?.slice(0, 128);
+    const description = (ctx.flags.description as string | undefined)?.slice(0, 1024);
 
     if (!inputPath || !name || !description) {
       output.printError('Input path, name, and description are required.');
@@ -316,14 +316,28 @@ export const storePublishCommand: Command = {
     spinner.start();
 
     try {
-      // Read and parse CFP file
+      // Read and parse CFP file with path containment and size cap.
+      // Without this, --input /etc/passwd leaks arbitrary files and a
+      // multi-GB planted CFP OOM-kills the process.
+      const nodePath = await import('node:path');
+      const projectRoot = nodePath.resolve(process.cwd());
+      const fullInputPath = nodePath.resolve(process.cwd(), inputPath);
+      if (!fullInputPath.startsWith(projectRoot + nodePath.sep) && fullInputPath !== projectRoot) {
+        spinner.fail(`Input path must resolve within the project directory: ${projectRoot}`);
+        return { success: false, exitCode: 1 };
+      }
       const fs = await import('fs');
-      if (!fs.existsSync(inputPath)) {
-        spinner.fail(`File not found: ${inputPath}`);
+      if (!fs.existsSync(fullInputPath)) {
+        spinner.fail(`File not found: ${fullInputPath}`);
+        return { success: false, exitCode: 1 };
+      }
+      const stat = fs.statSync(fullInputPath);
+      if (stat.size > 50 * 1024 * 1024) {
+        spinner.fail(`CFP file too large: ${stat.size} bytes (max 50MB)`);
         return { success: false, exitCode: 1 };
       }
 
-      const content = fs.readFileSync(inputPath, 'utf-8');
+      const content = fs.readFileSync(fullInputPath, 'utf-8');
       const cfp = JSON.parse(content);
 
       spinner.setText('Publishing to IPFS...');
@@ -333,12 +347,12 @@ export const storePublishCommand: Command = {
         name,
         displayName: name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
         description,
-        categories: (ctx.flags.categories as string).split(',').map(s => s.trim()),
-        tags: (ctx.flags.tags as string).split(',').map(s => s.trim()),
-        license: ctx.flags.license as string || 'MIT',
+        categories: (ctx.flags.categories as string).slice(0, 512).split(',').map(s => s.trim().slice(0, 64)).slice(0, 20),
+        tags: (ctx.flags.tags as string).slice(0, 512).split(',').map(s => s.trim().slice(0, 64)).slice(0, 20),
+        license: ((ctx.flags.license as string) || 'MIT').slice(0, 64),
         anonymize: (ctx.flags.anonymize as 'minimal' | 'standard' | 'strict' | 'paranoid') || 'strict',
-        language: ctx.flags.language as string,
-        framework: ctx.flags.framework as string,
+        language: (ctx.flags.language as string | undefined)?.slice(0, 64),
+        framework: (ctx.flags.framework as string | undefined)?.slice(0, 64),
       });
 
       if (!result.success) {
@@ -379,7 +393,7 @@ export const storeInfoCommand: Command = {
     { command: 'monomind hooks transfer store info -n seraphine-genesis', description: 'Show pattern info' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const patternName = (ctx.args[0] || ctx.flags.name) as string;
+    const patternName = ((ctx.args[0] || ctx.flags.name) as string | undefined)?.slice(0, 256);
 
     if (!patternName) {
       output.printError('Pattern name is required. Use --name or -n flag.');
