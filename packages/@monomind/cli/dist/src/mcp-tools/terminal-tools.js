@@ -1,6 +1,7 @@
 import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 // Storage paths
@@ -19,10 +20,11 @@ function ensureTerminalDir() {
         mkdirSync(dir, { recursive: true });
     }
 }
+const MAX_TERMINAL_STORE_BYTES = 10 * 1024 * 1024; // 10 MB
 function loadTerminalStore() {
     try {
         const path = getTerminalPath();
-        if (existsSync(path)) {
+        if (existsSync(path) && statSync(path).size <= MAX_TERMINAL_STORE_BYTES) {
             return JSON.parse(readFileSync(path, 'utf-8'));
         }
     }
@@ -74,6 +76,27 @@ export const terminalTools = [
                     safeEnv[k] = String(v);
                 }
             }
+            // Validate workingDir: must exist, be a directory, and not escape to
+            // system-sensitive paths. Fall back to project cwd if invalid.
+            let resolvedWorkingDir = getProjectCwd();
+            if (input.workingDir && typeof input.workingDir === 'string') {
+                const candidate = resolve(input.workingDir);
+                const projectCwd = getProjectCwd();
+                const home = homedir();
+                // Allow paths under project cwd or user home directory only.
+                const isUnderProject = candidate === projectCwd || candidate.startsWith(projectCwd + '/') || candidate.startsWith(projectCwd + '\\');
+                const isUnderHome = candidate === home || candidate.startsWith(home + '/') || candidate.startsWith(home + '\\');
+                if ((isUnderProject || isUnderHome) && existsSync(candidate)) {
+                    try {
+                        if (statSync(candidate).isDirectory()) {
+                            resolvedWorkingDir = candidate;
+                        }
+                    }
+                    catch {
+                        // Leave resolvedWorkingDir as default
+                    }
+                }
+            }
             const id = `term-${Date.now()}-${randomBytes(4).toString('hex')}`;
             const session = {
                 id,
@@ -81,7 +104,7 @@ export const terminalTools = [
                 status: 'active',
                 createdAt: new Date().toISOString(),
                 lastActivity: new Date().toISOString(),
-                workingDir: input.workingDir || getProjectCwd(),
+                workingDir: resolvedWorkingDir,
                 history: [],
                 env: safeEnv,
             };
