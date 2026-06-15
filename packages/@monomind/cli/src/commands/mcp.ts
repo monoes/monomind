@@ -104,9 +104,13 @@ const startCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const rawPort = (ctx.flags.port as number) ?? 3000;
     const port = Number.isFinite(rawPort) && rawPort >= 1 && rawPort <= 65535 ? Math.floor(rawPort) : 3000;
-    const host = (ctx.flags.host as string) ?? 'localhost';
+    const rawHost = (ctx.flags.host as string) ?? 'localhost';
+    // Cap host length and reject control chars to prevent injection
+    const host = typeof rawHost === 'string' ? rawHost.slice(0, 253).replace(/[\x00-\x1f]/g, '') : 'localhost';
     const transport = (ctx.flags.transport as 'stdio' | 'http' | 'websocket') ?? 'stdio';
-    const tools = (ctx.flags.tools as string) || 'all';
+    const rawTools = (ctx.flags.tools as string) || 'all';
+    // Cap tools string to prevent DoS via oversized comma-separated lists
+    const tools = typeof rawTools === 'string' ? rawTools.slice(0, 2000) : 'all';
     const daemon = (ctx.flags.daemon as boolean) ?? false;
     const force = (ctx.flags.force as boolean) ?? false;
 

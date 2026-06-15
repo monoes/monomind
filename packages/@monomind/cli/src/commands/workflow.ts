@@ -78,12 +78,36 @@ const runCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let template = ctx.flags.template as string;
-    const file = ctx.flags.file as string;
-    const task = ctx.flags.task as string || ctx.args[0];
+    const rawFile = ctx.flags.file as string;
+    const rawTask = ctx.flags.task as string || ctx.args[0];
     const parallel = ctx.flags.parallel as boolean;
-    const maxAgents = ctx.flags['max-agents'] as number;
-    const timeout = ctx.flags.timeout as number;
+    const rawMaxAgents = ctx.flags['max-agents'] as number;
+    const rawTimeout = ctx.flags.timeout as number;
     const dryRun = ctx.flags['dry-run'] as boolean;
+
+    // Cap/validate inputs to prevent DoS and injection
+    const task = typeof rawTask === 'string' ? rawTask.slice(0, 4000) : undefined;
+    const maxAgents = typeof rawMaxAgents === 'number' && Number.isFinite(rawMaxAgents)
+      ? Math.max(1, Math.min(Math.floor(rawMaxAgents), 50))
+      : 5;
+    const timeout = typeof rawTimeout === 'number' && Number.isFinite(rawTimeout)
+      ? Math.max(1, Math.min(Math.floor(rawTimeout), 1440))
+      : 30;
+
+    // Validate file path to prevent path traversal when a file is given
+    let file: string | undefined;
+    if (rawFile) {
+      const pathMod = await import('path');
+      const effectiveCwd = ctx.cwd || process.cwd();
+      const absFile = pathMod.isAbsolute(rawFile) ? rawFile : pathMod.resolve(effectiveCwd, rawFile);
+      const resolvedFile = pathMod.resolve(absFile);
+      const resolvedCwd = pathMod.resolve(effectiveCwd);
+      if (!resolvedFile.startsWith(resolvedCwd + pathMod.sep) && resolvedFile !== resolvedCwd) {
+        output.printError('Workflow file path must be within the working directory.');
+        return { success: false, exitCode: 1 };
+      }
+      file = resolvedFile;
+    }
 
     if (!template && !file && ctx.interactive) {
       template = await select({
@@ -217,13 +241,25 @@ const validateCommand: Command = {
     { command: 'monomind workflow validate -f ./workflow.json --strict', description: 'Strict validation' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const file = ctx.flags.file as string || ctx.args[0];
+    const rawFile = ctx.flags.file as string || ctx.args[0];
     const strict = ctx.flags.strict as boolean;
 
-    if (!file) {
+    if (!rawFile) {
       output.printError('Workflow file is required. Use --file or -f');
       return { success: false, exitCode: 1 };
     }
+
+    // Path traversal guard: file must stay within working directory
+    const pathMod = await import('path');
+    const effectiveCwd = ctx.cwd || process.cwd();
+    const absFile = pathMod.isAbsolute(rawFile) ? rawFile : pathMod.resolve(effectiveCwd, rawFile);
+    const resolvedFile = pathMod.resolve(absFile);
+    const resolvedCwd = pathMod.resolve(effectiveCwd);
+    if (!resolvedFile.startsWith(resolvedCwd + pathMod.sep) && resolvedFile !== resolvedCwd) {
+      output.printError('Workflow file path must be within the working directory.');
+      return { success: false, exitCode: 1 };
+    }
+    const file = resolvedFile;
 
     output.printInfo(`Validating: ${file}`);
 
