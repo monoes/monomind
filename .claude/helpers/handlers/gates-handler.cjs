@@ -120,6 +120,9 @@ function handlePreWrite(hCtx) {
     content = toolInput.edits.map(function(e) { return e.new_string || ''; }).join('\n');
   }
   if (!content || typeof content !== 'string') return;
+  // Cap content at 512 KiB before regex scanning to prevent DoS
+  var MAX_SCAN = 524288;
+  if (content.length > MAX_SCAN) content = content.slice(0, MAX_SCAN);
 
   var result = checkSecrets(content);
   if (result.triggered) {
