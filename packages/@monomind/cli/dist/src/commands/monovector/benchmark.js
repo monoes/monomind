@@ -151,13 +151,26 @@ export const benchmarkCommand = {
     ],
     action: async (ctx) => {
         const config = getConnectionConfig(ctx);
-        const numVectors = parseInt(ctx.flags.vectors || '10000', 10);
-        const dimensions = parseInt(ctx.flags.dimensions || '1536', 10);
-        const numQueries = parseInt(ctx.flags.queries || '100', 10);
-        const topK = parseInt(ctx.flags.k || '10', 10);
-        const metric = ctx.flags.metric || 'cosine';
-        const indexType = ctx.flags.index || 'hnsw';
-        const batchSize = parseInt(ctx.flags['batch-size'] || '1000', 10);
+        // Clamp numeric inputs to safe ranges to prevent DoS via OOM
+        const numVectors = Math.min(Math.max(1, parseInt(ctx.flags.vectors || '10000', 10)), 1_000_000);
+        const dimensions = Math.min(Math.max(1, parseInt(ctx.flags.dimensions || '1536', 10)), 65536);
+        const numQueries = Math.min(Math.max(1, parseInt(ctx.flags.queries || '100', 10)), 10_000);
+        const topK = Math.min(Math.max(1, parseInt(ctx.flags.k || '10', 10)), 10_000);
+        // Validate metric and indexType against allowlists to prevent SQL injection
+        const VALID_METRICS = ['cosine', 'l2', 'inner'];
+        const VALID_INDEX_TYPES = ['hnsw', 'ivfflat', 'none'];
+        const rawMetric = ctx.flags.metric || 'cosine';
+        const rawIndexType = ctx.flags.index || 'hnsw';
+        const metric = VALID_METRICS.includes(rawMetric) ? rawMetric : 'cosine';
+        const indexType = VALID_INDEX_TYPES.includes(rawIndexType) ? rawIndexType : 'hnsw';
+        const batchSize = Math.min(Math.max(1, parseInt(ctx.flags['batch-size'] || '1000', 10)), 100_000);
+        // Validate schema identifier against safe pattern to prevent SQL injection
+        const rawSchema = config.schema || 'monomind';
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/.test(rawSchema)) {
+            output.printError('Invalid schema name. Only alphanumeric characters and underscores are allowed.');
+            return { success: false, exitCode: 1 };
+        }
+        config.schema = rawSchema;
         const cleanup = ctx.flags.cleanup !== false;
         output.writeln();
         output.writeln(output.bold('MonoVector Performance Benchmark'));
