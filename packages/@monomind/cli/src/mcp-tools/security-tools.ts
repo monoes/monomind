@@ -26,6 +26,22 @@ let monofenceInstance: MonoFenceInstance | null = null;
 // Track if we've attempted install this session
 let installAttempted = false;
 
+// ── Security input bounds ─────────────────────────────────────────────────────
+// MonoFence runs multiple regex patterns over the entire input string (O(n × P)
+// complexity where P is the pattern count).  Uncapped input enables ReDoS-style
+// denial-of-service.  64 KB is more than enough for any real threat-scan
+// payload while preventing CPU exhaustion from megabyte-scale inputs.
+const MAX_SECURITY_INPUT_LEN = 64 * 1024; // 64 KB
+const MAX_SECURITY_K = 100;
+const MAX_SECURITY_VERDICT_LEN = 512;
+const MAX_SECURITY_THREAT_TYPE_LEN = 256;
+const MAX_SECURITY_MITIGATION_STRATEGY_LEN = 512;
+
+function capSecurityInput(raw: unknown, fieldName = 'input'): string {
+  if (typeof raw !== 'string') throw new Error(`${fieldName} must be a string`);
+  return raw.length > MAX_SECURITY_INPUT_LEN ? raw.slice(0, MAX_SECURITY_INPUT_LEN) : raw;
+}
+
 /**
  * Get or create MonoFence instance (throws if unavailable)
  */
@@ -94,7 +110,8 @@ const monofenceScanTool: MCPTool = {
     required: ['input'],
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
-    const input = args.input as string;
+    let input: string;
+    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
     const quick = args.quick as boolean;
 
     try {
@@ -171,9 +188,11 @@ const monofenceAnalyzeTool: MCPTool = {
     required: ['input'],
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
-    const input = args.input as string;
+    let input: string;
+    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
     const searchSimilar = args.searchSimilar !== false;
-    const k = (args.k as number) || 5;
+    const rawK = (args.k as number) || 5;
+    const k = Number.isFinite(rawK) && rawK > 0 ? Math.min(Math.floor(rawK), MAX_SECURITY_K) : 5;
 
     try {
       const defender = await getMonoFence();
@@ -306,11 +325,18 @@ const monofenceLearnTool: MCPTool = {
     required: ['input', 'wasAccurate'],
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
-    const input = args.input as string;
+    let input: string;
+    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
     const wasAccurate = args.wasAccurate as boolean;
-    const verdict = args.verdict as string | undefined;
-    const threatType = args.threatType as string | undefined;
-    const mitigationStrategy = args.mitigationStrategy as string | undefined;
+    const rawVerdict = args.verdict as string | undefined;
+    const verdict = typeof rawVerdict === 'string' && rawVerdict.length > MAX_SECURITY_VERDICT_LEN
+      ? rawVerdict.slice(0, MAX_SECURITY_VERDICT_LEN) : rawVerdict;
+    const rawThreatType = args.threatType as string | undefined;
+    const threatType = typeof rawThreatType === 'string' && rawThreatType.length > MAX_SECURITY_THREAT_TYPE_LEN
+      ? rawThreatType.slice(0, MAX_SECURITY_THREAT_TYPE_LEN) : rawThreatType;
+    const rawMitigationStrategy = args.mitigationStrategy as string | undefined;
+    const mitigationStrategy = typeof rawMitigationStrategy === 'string' && rawMitigationStrategy.length > MAX_SECURITY_MITIGATION_STRATEGY_LEN
+      ? rawMitigationStrategy.slice(0, MAX_SECURITY_MITIGATION_STRATEGY_LEN) : rawMitigationStrategy;
     const mitigationSuccess = args.mitigationSuccess as boolean | undefined;
 
     try {
@@ -377,7 +403,8 @@ const monofenceIsSafeTool: MCPTool = {
     required: ['input'],
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
-    const input = args.input as string;
+    let input: string;
+    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
 
     try {
       await getMonoFence(); // triggers auto-install if package is missing
@@ -419,7 +446,8 @@ const monofenceHasPIITool: MCPTool = {
     required: ['input'],
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
-    const input = args.input as string;
+    let input: string;
+    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
 
     try {
       const defender = await getMonoFence();
