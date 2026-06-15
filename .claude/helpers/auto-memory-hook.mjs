@@ -11,7 +11,7 @@
  *   node auto-memory-hook.mjs status   # Show bridge status
  */
 
-import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, readFileSync, writeFileSync, renameSync } from 'fs';
+import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, readFileSync, writeFileSync, renameSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -78,6 +78,8 @@ class JsonFileBackend {
   async initialize() {
     if (existsSync(this.filePath)) {
       try {
+        const MAX_STORE_BYTES = 50 * 1024 * 1024; // 50 MiB
+        if (statSync(this.filePath).size > MAX_STORE_BYTES) return;
         const data = JSON.parse(readFileSync(this.filePath, 'utf-8'));
         if (Array.isArray(data)) {
           for (const entry of data) this.entries.set(entry.id, entry);
@@ -218,6 +220,8 @@ function readConfig() {
   if (!existsSync(configPath)) return defaults;
 
   try {
+    const MAX_CONFIG_BYTES = 1 * 1024 * 1024; // 1 MiB
+    if (statSync(configPath).size > MAX_CONFIG_BYTES) return defaults;
     const yaml = readFileSync(configPath, 'utf-8');
     // Simple YAML parser for the memory section
     const getBool = (key) => {
@@ -369,8 +373,13 @@ async function doStatus() {
 
   if (existsSync(STORE_PATH)) {
     try {
-      const data = JSON.parse(readFileSync(STORE_PATH, 'utf-8'));
-      console.log(`  Entries:        ${Array.isArray(data) ? data.length : 0}`);
+      const MAX_STORE_BYTES = 50 * 1024 * 1024; // 50 MiB
+      if (statSync(STORE_PATH).size <= MAX_STORE_BYTES) {
+        const data = JSON.parse(readFileSync(STORE_PATH, 'utf-8'));
+        console.log(`  Entries:        ${Array.isArray(data) ? data.length : 0}`);
+      } else {
+        console.log(`  Entries:        (store too large to count)`);
+      }
     } catch { /* ignore */ }
   }
 
@@ -385,7 +394,7 @@ const command = process.argv[2] || 'status';
 
 // Suppress unhandled rejection warnings from dynamic import() failures
 // which can cause non-zero exit codes even when caught
-process.on('unhandledRejection', () => {});
+process.once('unhandledRejection', () => {});
 
 try {
   switch (command) {
