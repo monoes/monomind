@@ -1,8 +1,15 @@
 import type { MonographDb } from '../storage/db.js';
 
+export interface DuplicateExportLocation {
+  nodeId: string;
+  filePath: string | null;
+  startLine: number | null;
+  label: string;
+}
+
 export interface DuplicateExportGroup {
   exportName: string;
-  locations: Array<{ nodeId: string; filePath: string | null; label: string }>;
+  locations: DuplicateExportLocation[];
   count: number;
 }
 
@@ -16,6 +23,7 @@ interface ExportedRow {
   id: string;
   name: string;
   file_path: string | null;
+  start_line: number | null;
   label: string;
 }
 
@@ -24,14 +32,14 @@ const GENERIC_NAMES = new Set(['default', 'index', 'module']);
 
 export function detectDuplicateExports(db: MonographDb): DuplicateExportsResult {
   const rows = db.prepare(
-    `SELECT id, name, file_path, label
+    `SELECT id, name, file_path, start_line, label
      FROM nodes
      WHERE is_exported = 1
        AND label IN ('Function','Class','Method','Interface','Const','TypeAlias','Enum','Variable')`
   ).all() as ExportedRow[];
 
   // Group by normalized name
-  const groups = new Map<string, Array<{ nodeId: string; filePath: string | null; label: string }>>();
+  const groups = new Map<string, DuplicateExportLocation[]>();
 
   for (const row of rows) {
     const normalized = row.name.toLowerCase().trim();
@@ -42,7 +50,7 @@ export function detectDuplicateExports(db: MonographDb): DuplicateExportsResult 
       list = [];
       groups.set(normalized, list);
     }
-    list.push({ nodeId: row.id, filePath: row.file_path, label: row.label });
+    list.push({ nodeId: row.id, filePath: row.file_path, startLine: row.start_line ?? null, label: row.label });
   }
 
   // Filter to duplicates only (count > 1)
@@ -71,4 +79,32 @@ export function detectDuplicateExports(db: MonographDb): DuplicateExportsResult 
     totalDuplicates: duplicateGroups.length,
     affectedFiles: affectedFileSet.size,
   };
+}
+
+/** Format DuplicateExportsResult as structured text with file:line hints for LLM navigation. */
+export function formatDuplicateExports(result: DuplicateExportsResult): string {
+  if (result.totalDuplicates === 0) {
+    return 'Duplicate exports: none detected.';
+  }
+
+  const lines: string[] = [
+    `Duplicate exports: ${result.totalDuplicates} name(s) exported from multiple files (${result.affectedFiles} file(s) affected).`,
+    '',
+  ];
+
+  for (const group of result.groups) {
+    lines.push(`  ${group.exportName} (${group.count} locations):`);
+    for (const loc of group.locations) {
+      const ref = loc.filePath
+        ? loc.startLine != null
+          ? `${loc.filePath}:${loc.startLine}`
+          : loc.filePath
+        : '(unknown)';
+      lines.push(`    ${loc.label}  ${ref}`);
+    }
+  }
+
+  lines.push('');
+  lines.push('Fix: consolidate duplicate exports into a single canonical location or rename to avoid conflicts.');
+  return lines.join('\n').trimEnd();
 }
