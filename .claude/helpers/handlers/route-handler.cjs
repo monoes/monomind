@@ -382,9 +382,10 @@ module.exports = {
           } catch (e) { /* ignore */ }
         }
         if (nodeCount > 100) {
-          // Pre-resolve top-5 relevant files for the user's prompt — the LLM
+          // Pre-resolve top-3 relevant files for the user's prompt — the LLM
           // sees the answer inline instead of being told to call a tool.
-          var suggestions = hCtx.getMonographSuggestions(prompt, 5);
+          // 3 is enough signal; more files inflate token cost on every prompt.
+          var suggestions = hCtx.getMonographSuggestions(prompt, 3);
 
           // Boost recently-edited files to the top of pre-resolve suggestions.
           // Even when the FTS index hasn't caught up to the latest edits, the
@@ -414,25 +415,24 @@ module.exports = {
                 }
               }
               if (editBoosts.length > 0) {
-                suggestions = editBoosts.concat(suggestions).slice(0, 5);
+                suggestions = editBoosts.concat(suggestions).slice(0, 3);
               }
             }
           } catch (e) { /* non-fatal */ }
 
           if (suggestions.length > 0) {
-            console.log('\n[MONOGRAPH] ' + nodeCount + ' nodes indexed. Top files for this task (pre-resolved from graph):');
-            for (var si = 0; si < suggestions.length; si++) {
-              var s = suggestions[si];
+            // Compact single-line format: "[MONOGRAPH] N nodes. Top files: name [Label] — path:line, ..."
+            // Matches the agent-start-handler pattern — keeps per-prompt token cost minimal.
+            var hintParts = suggestions.map(function(s) {
               var editTag = s._editBoost ? ' ✎' : '';
-              // Include :line suffix when available so LLM can navigate directly
               var fileLoc = (s.file || '');
               if (fileLoc && s.startLine != null) fileLoc = fileLoc + ':' + s.startLine;
-              console.log('  · ' + s.name + ' [' + s.label + '] — ' + fileLoc + (s.deg ? ' (deg ' + s.deg + ')' : '') + editTag);
-            }
-            console.log('  Use mcp__monomind__monograph_query / monograph_impact for deeper drill-down.');
+              return s.name + ' [' + s.label + '] — ' + fileLoc + editTag;
+            });
+            console.log('[MONOGRAPH] ' + nodeCount + ' nodes. Top files: ' + hintParts.join(' · '));
             hCtx._recordGraphTelemetry('preresolve_hit');
           } else {
-            console.log('\n[MONOGRAPH] ' + nodeCount + ' nodes indexed. Call mcp__monomind__monograph_suggest first to find relevant files without grepping.');
+            console.log('[MONOGRAPH] ' + nodeCount + ' nodes. Call mcp__monomind__monograph_suggest to find relevant files.');
             hCtx._recordGraphTelemetry('preresolve_miss');
           }
         }
