@@ -10,6 +10,15 @@ import * as crypto from 'crypto';
 import type { IPFSConfig, PinningService } from '../types.js';
 
 /**
+ * Sanitize a user-supplied filename before embedding it inside a multipart
+ * Content-Disposition header.  Strip all CR/LF characters (MIME header injection)
+ * and cap length to prevent oversized headers.
+ */
+function sanitizeFileName(name: string): string {
+  return name.replace(/[\r\n]/g, '').slice(0, 200);
+}
+
+/**
  * IPFS upload options
  */
 export interface IPFSUploadOptions {
@@ -87,7 +96,7 @@ async function uploadToWeb3Storage(
   }
 
   const endpoint = options.endpoint || 'https://api.web3.storage';
-  const name = options.name || 'pattern.cfp.json';
+  const name = sanitizeFileName(options.name || 'pattern.cfp.json');
 
   console.log(`[IPFS] Uploading ${content.length} bytes to web3.storage...`);
 
@@ -150,7 +159,7 @@ async function uploadToPinata(
     );
   }
 
-  const name = options.name || 'pattern.cfp.json';
+  const name = sanitizeFileName(options.name || 'pattern.cfp.json');
   console.log(`[IPFS] Uploading ${content.length} bytes to Pinata...`);
 
   const boundary = '----WebKitFormBoundary' + crypto.randomBytes(16).toString('hex');
@@ -445,7 +454,7 @@ async function uploadToLocalIPFS(
   options: IPFSUploadOptions
 ): Promise<IPFSUploadResult> {
   const apiUrl = process.env.IPFS_API_URL || 'http://localhost:5001';
-  const name = options.name || 'pattern.cfp.json';
+  const name = sanitizeFileName(options.name || 'pattern.cfp.json');
 
   console.log(`[IPFS] Uploading ${content.length} bytes to ${apiUrl}...`);
 
