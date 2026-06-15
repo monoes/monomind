@@ -333,7 +333,11 @@ export const hiveMindTools: MCPTool[] = [
     },
     handler: async (input) => {
       const hiveId = `hive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const queenId = (input.queenId as string) || `queen-${Date.now()}`;
+      // Cap queenId: stored in hive state JSON as the queen's agentId field.
+      const MAX_QUEEN_ID_LEN = 256;
+      const rawQueenId = (input.queenId as string) || `queen-${Date.now()}`;
+      const queenId = typeof rawQueenId === 'string' && rawQueenId.length > MAX_QUEEN_ID_LEN
+        ? rawQueenId.slice(0, MAX_QUEEN_ID_LEN) : rawQueenId;
       const now = new Date().toISOString();
 
       const state: HiveState = {
@@ -604,11 +608,30 @@ export const hiveMindTools: MCPTool[] = [
           ? Math.max(0, input.minDivergenceRounds as number)
           : 0;
 
+        // Cap proposal fields: stored in state.consensus.pending and then
+        // state.consensus.history (up to 1000 entries).  An unbounded value
+        // inflates the on-disk hive state by up to 1000 × value size.
+        const MAX_PROPOSAL_TYPE_LEN = 128;
+        const MAX_PROPOSAL_VOTER_ID_LEN = 256;
+        const MAX_PROPOSAL_VALUE_BYTES = 64 * 1024; // 64 KB
+        const rawProposalType = (input.type as string) || 'general';
+        const proposalType = typeof rawProposalType === 'string' && rawProposalType.length > MAX_PROPOSAL_TYPE_LEN
+          ? rawProposalType.slice(0, MAX_PROPOSAL_TYPE_LEN) : rawProposalType;
+        const rawVoterId = (input.voterId as string) || 'system';
+        const proposedBy = typeof rawVoterId === 'string' && rawVoterId.length > MAX_PROPOSAL_VOTER_ID_LEN
+          ? rawVoterId.slice(0, MAX_PROPOSAL_VOTER_ID_LEN) : rawVoterId;
+        // Cap value if it's a string; leave non-string values as-is (they are
+        // JSON-serialised by saveHiveState which uses JSON.stringify — bounded
+        // objects are fine).
+        const rawValue = input.value;
+        const cappedValue = typeof rawValue === 'string' && rawValue.length > MAX_PROPOSAL_VALUE_BYTES
+          ? rawValue.slice(0, MAX_PROPOSAL_VALUE_BYTES) : rawValue;
+
         const proposal: ConsensusProposal = {
           proposalId,
-          type: (input.type as string) || 'general',
-          value: input.value,
-          proposedBy: (input.voterId as string) || 'system',
+          type: proposalType,
+          value: cappedValue,
+          proposedBy,
           proposedAt: new Date().toISOString(),
           votes: {},
           status: 'pending',
