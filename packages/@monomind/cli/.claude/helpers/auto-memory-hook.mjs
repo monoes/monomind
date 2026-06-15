@@ -1,0 +1,450 @@
+#!/usr/bin/env node
+/**
+ * Auto Memory Bridge Hook (ADR-048/049)
+ *
+ * Wires AutoMemoryBridge + LearningBridge + MemoryGraph into Claude Code
+ * session lifecycle. Called by settings.json SessionStart/SessionEnd hooks.
+ *
+ * Usage:
+ *   node auto-memory-hook.mjs import   # SessionStart: import auto memory files into backend
+ *   node auto-memory-hook.mjs sync     # SessionEnd: sync insights back to MEMORY.md
+ *   node auto-memory-hook.mjs status   # Show bridge status
+ */
+
+import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, readFileSync, writeFileSync, renameSync, statSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PROJECT_ROOT = join(__dirname, '../..');
+const DATA_DIR = join(PROJECT_ROOT, '.monomind', 'data');
+const STORE_PATH = join(DATA_DIR, 'auto-memory-store.json');
+
+// Colors
+const GREEN = '\x1b[0;32m';
+const CYAN = '\x1b[0;36m';
+const DIM = '\x1b[2m';
+const RESET = '\x1b[0m';
+
+const log = (msg) => console.log(`${CYAN}[AutoMemory] ${msg}${RESET}`);
+const success = (msg) => console.log(`${GREEN}[AutoMemory] ✓ ${msg}${RESET}`);
+const dim = (msg) => console.log(`  ${DIM}${msg}${RESET}`);
+
+// Ensure data dir
+if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+
+// ============================================================================
+// File-lock helper for concurrent hook coordination
+// Uses O_EXCL exclusive-create as a spin lock.
+// A 10ms synchronous wait (via Atomics.wait) is used between retries to avoid
+// pegging the CPU. Acceptable for low-contention hook processes.
+// ============================================================================
+
+function withFileLock(lockPath, fn, timeoutMs = 5000) {
+  const start = Date.now();
+  const sharedBuf = new Int32Array(new SharedArrayBuffer(4));
+  while (true) {
+    try {
+      // O_EXCL: exclusive create — fails atomically if file already exists
+      const fd = openSync(lockPath, 'wx');
+      closeSync(fd);
+      break; // acquired lock
+    } catch {
+      if (Date.now() - start > timeoutMs) {
+        // Timeout: proceed without lock rather than deadlocking hook processes
+        try { fn(); } catch { /* best effort */ }
+        return;
+      }
+      // Synchronous 10ms sleep via Atomics.wait (avoids busy-spin CPU peg)
+      Atomics.wait(sharedBuf, 0, 0, 10);
+    }
+  }
+  try { fn(); } finally {
+    try { unlinkSync(lockPath); } catch { /* ignore */ }
+  }
+}
+
+// ============================================================================
+// Simple JSON File Backend (implements IMemoryBackend interface)
+// ============================================================================
+
+class JsonFileBackend {
+  constructor(filePath) {
+    this.filePath = filePath;
+    this.entries = new Map();
+    // Debounce state: avoid a full JSON serialization + disk write per entry
+    // during bulk imports. A single flush is scheduled 50ms after the last
+    // mutation; shutdown() forces an immediate flush.
+    this._dirty = false;
+    this._flushTimer = null;
+  }
+
+  async initialize() {
+    if (existsSync(this.filePath)) {
+      try {
+        const MAX_STORE_BYTES = 50 * 1024 * 1024; // 50 MiB
+        if (statSync(this.filePath).size > MAX_STORE_BYTES) return;
+        const data = JSON.parse(readFileSync(this.filePath, 'utf-8'));
+        if (Array.isArray(data)) {
+          // Deduplicate on load: last entry with a given id wins, keeping the
+          // store consistent even if a previous crash left duplicates on disk.
+          for (const entry of data) {
+            if (entry && typeof entry.id === 'string') this.entries.set(entry.id, entry);
+          }
+        }
+      } catch { /* start fresh */ }
+    }
+  }
+
+  async shutdown() { this._flushNow(); }
+  async store(entry) {
+    if (!entry || typeof entry.id !== 'string') return;
+    this.entries.set(entry.id, entry);
+    this._schedulePersist();
+  }
+  async get(id) { return this.entries.get(id) ?? null; }
+  async getByKey(key, ns) {
+    for (const e of this.entries.values()) {
+      if (e.key === key && (!ns || e.namespace === ns)) return e;
+    }
+    return null;
+  }
+  async update(id, updates) {
+    const e = this.entries.get(id);
+    if (!e) return null;
+    if (updates.metadata) Object.assign(e.metadata, updates.metadata);
+    if (updates.content !== undefined) e.content = updates.content;
+    if (updates.tags) e.tags = updates.tags;
+    e.updatedAt = Date.now();
+    this._schedulePersist();
+    return e;
+  }
+  async delete(id) {
+    const deleted = this.entries.delete(id);
+    if (deleted) this._schedulePersist();
+    return deleted;
+  }
+  async query(opts) {
+    let results = [...this.entries.values()];
+    if (opts?.namespace) results = results.filter(e => e.namespace === opts.namespace);
+    if (opts?.type) results = results.filter(e => e.type === opts.type);
+    if (opts?.limit) results = results.slice(0, opts.limit);
+    return results;
+  }
+  async search() { return []; } // No vector search in JSON backend
+  async bulkInsert(entries) {
+    for (const e of entries) if (e && typeof e.id === 'string') this.entries.set(e.id, e);
+    this._schedulePersist();
+  }
+  async bulkDelete(ids) {
+    let n = 0;
+    for (const id of ids) { if (this.entries.delete(id)) n++; }
+    if (n > 0) this._schedulePersist();
+    return n;
+  }
+  async count() { return this.entries.size; }
+  async listNamespaces() {
+    const ns = new Set();
+    for (const e of this.entries.values()) ns.add(e.namespace || 'default');
+    return [...ns];
+  }
+  async clearNamespace(ns) {
+    let n = 0;
+    for (const [id, e] of this.entries) {
+      if (e.namespace === ns) { this.entries.delete(id); n++; }
+    }
+    this._persist();
+    return n;
+  }
+  async getStats() {
+    return {
+      totalEntries: this.entries.size,
+      entriesByNamespace: {},
+      entriesByType: { semantic: 0, episodic: 0, procedural: 0, working: 0, cache: 0 },
+      memoryUsage: 0, avgQueryTime: 0, avgSearchTime: 0,
+    };
+  }
+  async healthCheck() {
+    return {
+      status: 'healthy',
+      components: {
+        storage: { status: 'healthy', latency: 0 },
+        index: { status: 'healthy', latency: 0 },
+        cache: { status: 'healthy', latency: 0 },
+      },
+      timestamp: Date.now(), issues: [], recommendations: [],
+    };
+  }
+
+  _schedulePersist() {
+    this._dirty = true;
+    if (this._flushTimer) return; // already scheduled
+    this._flushTimer = setTimeout(() => {
+      this._flushTimer = null;
+      this._flushNow();
+    }, 50);
+  }
+
+  _flushNow() {
+    if (this._flushTimer) { clearTimeout(this._flushTimer); this._flushTimer = null; }
+    if (!this._dirty) return;
+    this._dirty = false;
+    const lockPath = this.filePath + '.lock';
+    withFileLock(lockPath, () => {
+      const data = JSON.stringify([...this.entries.values()], null, 2);
+      const tmpPath = this.filePath + '.tmp';
+      writeFileSync(tmpPath, data, 'utf-8');
+      renameSync(tmpPath, this.filePath);
+    });
+  }
+}
+
+// ============================================================================
+// Resolve memory package path (local dev or npm installed)
+// ============================================================================
+
+async function loadMemoryPackage() {
+  // Strategy 1: Local dev (built dist)
+  const localDist = join(PROJECT_ROOT, 'packages/@monomind/memory/dist/index.js');
+  if (existsSync(localDist)) {
+    try {
+      return await import(`file://${localDist}`);
+    } catch { /* fall through */ }
+  }
+
+  // Strategy 2: Use createRequire for CJS-style resolution (handles nested node_modules
+  // when installed as a transitive dependency via npx monomind / npx monomind)
+  try {
+    const { createRequire } = await import('module');
+    const require = createRequire(join(PROJECT_ROOT, 'package.json'));
+    return require('@monomind/memory');
+  } catch { /* fall through */ }
+
+  // Strategy 3: ESM import (works when @monomind/memory is a direct dependency)
+  try {
+    return await import('@monomind/memory');
+  } catch { /* fall through */ }
+
+  // Strategy 4: Walk up from PROJECT_ROOT looking for @monomind/memory in any node_modules
+  let searchDir = PROJECT_ROOT;
+  const { parse } = await import('path');
+  while (searchDir !== parse(searchDir).root) {
+    const candidate = join(searchDir, 'node_modules', '@monomind', 'memory', 'dist', 'index.js');
+    if (existsSync(candidate)) {
+      try {
+        return await import(`file://${candidate}`);
+      } catch { /* fall through */ }
+    }
+    searchDir = dirname(searchDir);
+  }
+
+  return null;
+}
+
+// ============================================================================
+// Read config from .monomind/config.yaml
+// ============================================================================
+
+function readConfig() {
+  const configPath = join(PROJECT_ROOT, '.monomind', 'config.yaml');
+  const defaults = {
+    learningBridge: { enabled: true, sonaMode: 'balanced', confidenceDecayRate: 0.005, accessBoostAmount: 0.03, consolidationThreshold: 10 },
+    memoryGraph: { enabled: true, pageRankDamping: 0.85, maxNodes: 5000, similarityThreshold: 0.8 },
+    agentScopes: { enabled: true, defaultScope: 'project' },
+  };
+
+  if (!existsSync(configPath)) return defaults;
+
+  try {
+    const MAX_CONFIG_BYTES = 1 * 1024 * 1024; // 1 MiB
+    if (statSync(configPath).size > MAX_CONFIG_BYTES) return defaults;
+    const yaml = readFileSync(configPath, 'utf-8');
+    // Simple YAML parser for the memory section
+    const getBool = (key) => {
+      const match = yaml.match(new RegExp(`${key}:\\s*(true|false)`, 'i'));
+      return match ? match[1] === 'true' : undefined;
+    };
+
+    const lbEnabled = getBool('learningBridge[\\s\\S]*?enabled');
+    if (lbEnabled !== undefined) defaults.learningBridge.enabled = lbEnabled;
+
+    const mgEnabled = getBool('memoryGraph[\\s\\S]*?enabled');
+    if (mgEnabled !== undefined) defaults.memoryGraph.enabled = mgEnabled;
+
+    const asEnabled = getBool('agentScopes[\\s\\S]*?enabled');
+    if (asEnabled !== undefined) defaults.agentScopes.enabled = asEnabled;
+
+    return defaults;
+  } catch {
+    return defaults;
+  }
+}
+
+// ============================================================================
+// Commands
+// ============================================================================
+
+async function doImport() {
+  log('Importing auto memory files into bridge...');
+
+  const memPkg = await loadMemoryPackage();
+  if (!memPkg || !memPkg.AutoMemoryBridge) {
+    dim('Memory package not available — skipping auto memory import');
+    return;
+  }
+
+  const config = readConfig();
+  const backend = new JsonFileBackend(STORE_PATH);
+  await backend.initialize();
+
+  const bridgeConfig = {
+    workingDir: PROJECT_ROOT,
+    syncMode: 'on-session-end',
+  };
+
+  // Wire learning if enabled and available
+  if (config.learningBridge.enabled && memPkg.LearningBridge) {
+    bridgeConfig.learning = {
+      sonaMode: config.learningBridge.sonaMode,
+      confidenceDecayRate: config.learningBridge.confidenceDecayRate,
+      accessBoostAmount: config.learningBridge.accessBoostAmount,
+      consolidationThreshold: config.learningBridge.consolidationThreshold,
+    };
+  }
+
+  // Wire graph if enabled and available
+  if (config.memoryGraph.enabled && memPkg.MemoryGraph) {
+    bridgeConfig.graph = {
+      pageRankDamping: config.memoryGraph.pageRankDamping,
+      maxNodes: config.memoryGraph.maxNodes,
+      similarityThreshold: config.memoryGraph.similarityThreshold,
+    };
+  }
+
+  const bridge = new memPkg.AutoMemoryBridge(backend, bridgeConfig);
+
+  try {
+    const result = await bridge.importFromAutoMemory();
+    success(`Imported ${result.imported} entries (${result.skipped} skipped)`);
+    dim(`├─ Backend entries: ${await backend.count()}`);
+    dim(`├─ Learning: ${config.learningBridge.enabled ? 'active' : 'disabled'}`);
+    dim(`├─ Graph: ${config.memoryGraph.enabled ? 'active' : 'disabled'}`);
+    dim(`└─ Agent scopes: ${config.agentScopes.enabled ? 'active' : 'disabled'}`);
+  } catch (err) {
+    dim(`Import failed (non-critical): ${err.message}`);
+  }
+
+  await backend.shutdown();
+}
+
+async function doSync() {
+  log('Syncing insights to auto memory files...');
+
+  const memPkg = await loadMemoryPackage();
+  if (!memPkg || !memPkg.AutoMemoryBridge) {
+    dim('Memory package not available — skipping sync');
+    return;
+  }
+
+  const config = readConfig();
+  const backend = new JsonFileBackend(STORE_PATH);
+  await backend.initialize();
+
+  const entryCount = await backend.count();
+  if (entryCount === 0) {
+    dim('No entries to sync');
+    await backend.shutdown();
+    return;
+  }
+
+  const bridgeConfig = {
+    workingDir: PROJECT_ROOT,
+    syncMode: 'on-session-end',
+  };
+
+  if (config.learningBridge.enabled && memPkg.LearningBridge) {
+    bridgeConfig.learning = {
+      sonaMode: config.learningBridge.sonaMode,
+      confidenceDecayRate: config.learningBridge.confidenceDecayRate,
+      consolidationThreshold: config.learningBridge.consolidationThreshold,
+    };
+  }
+
+  if (config.memoryGraph.enabled && memPkg.MemoryGraph) {
+    bridgeConfig.graph = {
+      pageRankDamping: config.memoryGraph.pageRankDamping,
+      maxNodes: config.memoryGraph.maxNodes,
+    };
+  }
+
+  const bridge = new memPkg.AutoMemoryBridge(backend, bridgeConfig);
+
+  try {
+    const syncResult = await bridge.syncToAutoMemory();
+    success(`Synced ${syncResult.synced} entries to auto memory`);
+    dim(`├─ Categories updated: ${syncResult.categories?.join(', ') || 'none'}`);
+    dim(`└─ Backend entries: ${entryCount}`);
+
+    // Curate MEMORY.md index with graph-aware ordering
+    await bridge.curateIndex();
+    success('Curated MEMORY.md index');
+  } catch (err) {
+    dim(`Sync failed (non-critical): ${err.message}`);
+  }
+
+  if (bridge.destroy) bridge.destroy();
+  await backend.shutdown();
+}
+
+async function doStatus() {
+  const memPkg = await loadMemoryPackage();
+  const config = readConfig();
+
+  console.log('\n=== Auto Memory Bridge Status ===\n');
+  console.log(`  Package:        ${memPkg ? '✅ Available' : '❌ Not found'}`);
+  console.log(`  Store:          ${existsSync(STORE_PATH) ? '✅ ' + STORE_PATH : '⏸ Not initialized'}`);
+  console.log(`  LearningBridge: ${config.learningBridge.enabled ? '✅ Enabled' : '⏸ Disabled'}`);
+  console.log(`  MemoryGraph:    ${config.memoryGraph.enabled ? '✅ Enabled' : '⏸ Disabled'}`);
+  console.log(`  AgentScopes:    ${config.agentScopes.enabled ? '✅ Enabled' : '⏸ Disabled'}`);
+
+  if (existsSync(STORE_PATH)) {
+    try {
+      const MAX_STORE_BYTES = 50 * 1024 * 1024; // 50 MiB
+      if (statSync(STORE_PATH).size <= MAX_STORE_BYTES) {
+        const data = JSON.parse(readFileSync(STORE_PATH, 'utf-8'));
+        console.log(`  Entries:        ${Array.isArray(data) ? data.length : 0}`);
+      } else {
+        console.log(`  Entries:        (store too large to count)`);
+      }
+    } catch { /* ignore */ }
+  }
+
+  console.log('');
+}
+
+// ============================================================================
+// Main
+// ============================================================================
+
+const command = process.argv[2] || 'status';
+
+// Suppress unhandled rejection warnings from dynamic import() failures
+// which can cause non-zero exit codes even when caught
+process.once('unhandledRejection', () => {});
+
+try {
+  switch (command) {
+    case 'import': await doImport(); break;
+    case 'sync': await doSync(); break;
+    case 'status': await doStatus(); break;
+    default:
+      console.log('Usage: auto-memory-hook.mjs <import|sync|status>');
+      process.exit(1);
+  }
+} catch (err) {
+  // Hooks must never crash Claude Code - fail silently
+  dim(`Error (non-critical): ${err.message}`);
+}
+// Ensure clean exit for Claude Code hooks (exit 0 = success, no stderr = no error)
+process.exit(0);
