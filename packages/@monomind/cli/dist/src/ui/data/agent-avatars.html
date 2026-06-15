@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Agent Avatars — 120 Characters</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1117; color: #e2e8f0; font-family: system-ui, sans-serif; padding: 32px; }
+  h1 { font-size: 1.5rem; margin-bottom: 8px; }
+  .subtitle { color: #94a3b8; font-size: 0.875rem; margin-bottom: 32px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 16px; }
+  .card { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+  .card img { width: 80px; height: 80px; border-radius: 50%; transition: transform 0.2s; }
+  .card:hover img { transform: scale(1.15); }
+  .card span { font-size: 0.62rem; color: #94a3b8; text-align: center; line-height: 1.3; max-width: 90px; }
+  .cat-badge { font-size: 0.5rem; background: #1e293b; border-radius: 4px; padding: 1px 4px; color: #64748b; }
+  input[type=search] { background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0;
+    padding: 8px 14px; width: 280px; font-size: 0.875rem; margin-bottom: 24px; outline: none; }
+  input[type=search]:focus { border-color: #3B7DD8; }
+</style>
+</head>
+<body>
+<h1>Agent Avatars</h1>
+<p class="subtitle">120 unique character SVGs — transparent background, scale-free</p>
+<input type="search" placeholder="Search agents…" oninput="filter(this.value)" id="q"/>
+<div class="grid" id="grid">
+  <div class="card" data-label="coder" data-cat="core"
+    onclick="copy('coder')">
+    <img src="avatars/coder.svg" alt="Coder" loading="lazy"/>
+    <span>Coder</span>
+    <span class="cat-badge">core</span>
+  </div>
+  <div class="card" data-label="senior developer" data-cat="core"
+    onclick="copy('senior-developer')">
+    <img src="avatars/senior-developer.svg" alt="Senior Developer" loading="lazy"/>
+    <span>Senior Developer</span>
+    <span class="cat-badge">core</span>
+  </div>
+  <div class="card" data-label="code reviewer" data-cat="core"
+    onclick="copy('reviewer')">
+    <img src="avatars/reviewer.svg" alt="Code Reviewer" loading="lazy"/>
+    <span>Code Reviewer</span>
+    <span class="cat-badge">core</span>
+  </div>
+  <div class="card" data-label="tester" data-cat="core"
+    onclick="copy('tester')">
+    <img src="avatars/tester.svg" alt="Tester" loading="lazy"/>
+    <span>Tester</span>
+    <span class="cat-badge">core</span>
+  </div>
+  <div class="card" data-label="planner" data-cat="core"
+    onclick="copy('planner')">
+    <img src="avatars/planner.svg" alt="Planner" loading="lazy"/>
+    <span>Planner</span>
+    <span class="cat-badge">core</span>
+  </div>
+  <div class="card" data-label="researcher" data-cat="core"
+    onclick="copy('researcher')">
+    <img src="avatars/researcher.svg" alt="Researcher" loading="lazy"/>
+    <span>Researcher</span>
+    <span class="cat-badge">core</span>
+  </div>
+  <div class="card" data-label="security architect" data-cat="security"
+    onclick="copy('security-architect')">
+    <img src="avatars/security-architect.svg" alt="Security Architect" loading="lazy"/>
+    <span>Security Architect</span>
+    <span class="cat-badge">security</span>
+  </div>
+  <div class="card" data-label="security auditor" data-cat="security"
+    onclick="copy('security-auditor')">
+    <img src="avatars/security-auditor.svg" alt="Security Auditor" loading="lazy"/>
+    <span>Security Auditor</span>
+    <span class="cat-badge">security</span>
+  </div>
+  <div class="card" data-label="threat detection" data-cat="security"
+    onclick="copy('threat-detection')">
+    <img src="avatars/threat-detection.svg" alt="Threat Detection" loading="lazy"/>
+    <span>Threat Detection</span>
+    <span class="cat-badge">security</span>
+  </div>
+  <div class="card" data-label="input validator" data-cat="security"
+    onclick="copy('input-validator')">
+    <img src="avatars/input-validator.svg" alt="Input Validator" loading="lazy"/>
+    <span>Input Validator</span>
+    <span class="cat-badge">security</span>
+  </div>
+  <div class="card" data-label="path validator" data-cat="security"
+    onclick="copy('path-validator')">
+    <img src="avatars/path-validator.svg" alt="Path Validator" loading="lazy"/>
+    <span>Path Validator</span>
+    <span class="cat-badge">security</span>
+  </div>
+  <div class="card" data-label="safe executor" data-cat="security"
+    onclick="copy('safe-executor')">
+    <img src="avatars/safe-executor.svg" alt="Safe Executor" loading="lazy"/>
+    <span>Safe Executor</span>
+    <span class="cat-badge">security</span>
+  </div>
+  <div class="card" data-label="hierarchical coord." data-cat="swarm"
+    onclick="copy('hierarchical-coord')">
+    <img src="avatars/hierarchical-coord.svg" alt="Hierarchical Coord." loading="lazy"/>
+    <span>Hierarchical Coord.</span>
+    <span class="cat-badge">swarm</span>
+  </div>
+  <div class="card" data-label="mesh coordinator" data-cat="swarm"
+    onclick="copy('mesh-coordinator')">
+    <img src="avatars/mesh-coordinator.svg" alt="Mesh Coordinator" loading="lazy"/>
+    <span>Mesh Coordinator</span>
+    <span class="cat-badge">swarm</span>
+  </div>
+  <div class="card" data-label="adaptive coordinator" data-cat="swarm"
+    onclick="copy('adaptive-coordinator')">
+    <img src="avatars/adaptive-coordinator.svg" alt="Adaptive Coordinator" loading="lazy"/>
+    <span>Adaptive Coordinator</span>
+    <span class="cat-badge">swarm</span>
+  </div>
+  <div class="card" data-label="collective intel." data-cat="swarm"
+    onclick="copy('collective-coord')">
+    <img src="avatars/collective-coord.svg" alt="Collective Intel." loading="lazy"/>
+    <span>Collective Intel.</span>
+    <span class="cat-badge">swarm</span>
+  </div>
+  <div class="card" data-label="queen coordinator" data-cat="swarm"
+    onclick="copy('queen-coordinator')">
+    <img src="avatars/queen-coordinator.svg" alt="Queen Coordinator" loading="lazy"/>
+    <span>Queen Coordinator</span>
+    <span class="cat-badge">swarm</span>
+  </div>
+  <div class="card" data-label="worker specialist" data-cat="swarm"
+    onclick="copy('worker-specialist')">
+    <img src="avatars/worker-specialist.svg" alt="Worker Specialist" loading="lazy"/>
+    <span>Worker Specialist</span>
+    <span class="cat-badge">swarm</span>
+  </div>
+  <div class="card" data-label="byzantine coord." data-cat="consensus"
+    onclick="copy('byzantine-coord')">
+    <img src="avatars/byzantine-coord.svg" alt="Byzantine Coord." loading="lazy"/>
+    <span>Byzantine Coord.</span>
+    <span class="cat-badge">consensus</span>
+  </div>
+  <div class="card" data-label="raft manager" data-cat="consensus"
+    onclick="copy('raft-manager')">
+    <img src="avatars/raft-manager.svg" alt="Raft Manager" loading="lazy"/>
+    <span>Raft Manager</span>
+    <span class="cat-badge">consensus</span>
+  </div>
+  <div class="card" data-label="gossip coordinator" data-cat="consensus"
+    onclick="copy('gossip-coordinator')">
+    <img src="avatars/gossip-coordinator.svg" alt="Gossip Coordinator" loading="lazy"/>
+    <span>Gossip Coordinator</span>
+    <span class="cat-badge">consensus</span>
+  </div>
+  <div class="card" data-label="crdt synchronizer" data-cat="consensus"
+    onclick="copy('crdt-synchronizer')">
+    <img src="avatars/crdt-synchronizer.svg" alt="CRDT Synchronizer" loading="lazy"/>
+    <span>CRDT Synchronizer</span>
+    <span class="cat-badge">consensus</span>
+  </div>
+  <div class="card" data-label="quorum manager" data-cat="consensus"
+    onclick="copy('quorum-manager')">
+    <img src="avatars/quorum-manager.svg" alt="Quorum Manager" loading="lazy"/>
+    <span>Quorum Manager</span>
+    <span class="cat-badge">consensus</span>
+  </div>
+  <div class="card" data-label="consensus coord." data-cat="consensus"
+    onclick="copy('consensus-coordinator')">
+    <img src="avatars/consensus-coordinator.svg" alt="Consensus Coord." loading="lazy"/>
+    <span>Consensus Coord.</span>
+    <span class="cat-badge">consensus</span>
+  </div>
+  <div class="card" data-label="perf analyzer" data-cat="perf"
+    onclick="copy('perf-analyzer')">
+    <img src="avatars/perf-analyzer.svg" alt="Perf Analyzer" loading="lazy"/>
+    <span>Perf Analyzer</span>
+    <span class="cat-badge">perf</span>
+  </div>
+  <div class="card" data-label="benchmarker" data-cat="perf"
+    onclick="copy('benchmarker')">
+    <img src="avatars/benchmarker.svg" alt="Benchmarker" loading="lazy"/>
+    <span>Benchmarker</span>
+    <span class="cat-badge">perf</span>
+  </div>
+  <div class="card" data-label="task orchestrator" data-cat="perf"
+    onclick="copy('task-orchestrator')">
+    <img src="avatars/task-orchestrator.svg" alt="Task Orchestrator" loading="lazy"/>
+    <span>Task Orchestrator</span>
+    <span class="cat-badge">perf</span>
+  </div>
+  <div class="card" data-label="memory coordinator" data-cat="perf"
+    onclick="copy('memory-coordinator')">
+    <img src="avatars/memory-coordinator.svg" alt="Memory Coordinator" loading="lazy"/>
+    <span>Memory Coordinator</span>
+    <span class="cat-badge">perf</span>
+  </div>
+  <div class="card" data-label="load balancer" data-cat="perf"
+    onclick="copy('load-balancer')">
+    <img src="avatars/load-balancer.svg" alt="Load Balancer" loading="lazy"/>
+    <span>Load Balancer</span>
+    <span class="cat-badge">perf</span>
+  </div>
+  <div class="card" data-label="resource allocator" data-cat="perf"
+    onclick="copy('resource-allocator')">
+    <img src="avatars/resource-allocator.svg" alt="Resource Allocator" loading="lazy"/>
+    <span>Resource Allocator</span>
+    <span class="cat-badge">perf</span>
+  </div>
+  <div class="card" data-label="pr manager" data-cat="github"
+    onclick="copy('pr-manager')">
+    <img src="avatars/pr-manager.svg" alt="PR Manager" loading="lazy"/>
+    <span>PR Manager</span>
+    <span class="cat-badge">github</span>
+  </div>
+  <div class="card" data-label="code review swarm" data-cat="github"
+    onclick="copy('code-review-swarm')">
+    <img src="avatars/code-review-swarm.svg" alt="Code Review Swarm" loading="lazy"/>
+    <span>Code Review Swarm</span>
+    <span class="cat-badge">github</span>
+  </div>
+  <div class="card" data-label="issue tracker" data-cat="github"
+    onclick="copy('issue-tracker')">
+    <img src="avatars/issue-tracker.svg" alt="Issue Tracker" loading="lazy"/>
+    <span>Issue Tracker</span>
+    <span class="cat-badge">github</span>
+  </div>
+  <div class="card" data-label="release manager" data-cat="github"
+    onclick="copy('release-manager')">
+    <img src="avatars/release-manager.svg" alt="Release Manager" loading="lazy"/>
+    <span>Release Manager</span>
+    <span class="cat-badge">github</span>
+  </div>
+  <div class="card" data-label="repo architect" data-cat="github"
+    onclick="copy('repo-architect')">
+    <img src="avatars/repo-architect.svg" alt="Repo Architect" loading="lazy"/>
+    <span>Repo Architect</span>
+    <span class="cat-badge">github</span>
+  </div>
+  <div class="card" data-label="workflow automation" data-cat="github"
+    onclick="copy('workflow-automation')">
+    <img src="avatars/workflow-automation.svg" alt="Workflow Automation" loading="lazy"/>
+    <span>Workflow Automation</span>
+    <span class="cat-badge">github</span>
+  </div>
+  <div class="card" data-label="sparc coordinator" data-cat="sparc"
+    onclick="copy('sparc-coord')">
+    <img src="avatars/sparc-coord.svg" alt="SPARC Coordinator" loading="lazy"/>
+    <span>SPARC Coordinator</span>
+    <span class="cat-badge">sparc</span>
+  </div>
+  <div class="card" data-label="sparc coder" data-cat="sparc"
+    onclick="copy('sparc-coder')">
+    <img src="avatars/sparc-coder.svg" alt="SPARC Coder" loading="lazy"/>
+    <span>SPARC Coder</span>
+    <span class="cat-badge">sparc</span>
+  </div>
+  <div class="card" data-label="specification" data-cat="sparc"
+    onclick="copy('specification')">
+    <img src="avatars/specification.svg" alt="Specification" loading="lazy"/>
+    <span>Specification</span>
+    <span class="cat-badge">sparc</span>
+  </div>
+  <div class="card" data-label="pseudocode" data-cat="sparc"
+    onclick="copy('pseudocode')">
+    <img src="avatars/pseudocode.svg" alt="Pseudocode" loading="lazy"/>
+    <span>Pseudocode</span>
+    <span class="cat-badge">sparc</span>
+  </div>
+  <div class="card" data-label="architecture" data-cat="sparc"
+    onclick="copy('architecture')">
+    <img src="avatars/architecture.svg" alt="Architecture" loading="lazy"/>
+    <span>Architecture</span>
+    <span class="cat-badge">sparc</span>
+  </div>
+  <div class="card" data-label="refinement" data-cat="sparc"
+    onclick="copy('refinement')">
+    <img src="avatars/refinement.svg" alt="Refinement" loading="lazy"/>
+    <span>Refinement</span>
+    <span class="cat-badge">sparc</span>
+  </div>
+  <div class="card" data-label="backend dev" data-cat="core"
+    onclick="copy('backend-dev')">
+    <img src="avatars/backend-dev.svg" alt="Backend Dev" loading="lazy"/>
+    <span>Backend Dev</span>
+    <span class="cat-badge">core</span>
+  </div>
+  <div class="card" data-label="frontend developer" data-cat="frontend"
+    onclick="copy('frontend-developer')">
+    <img src="avatars/frontend-developer.svg" alt="Frontend Developer" loading="lazy"/>
+    <span>Frontend Developer</span>
+    <span class="cat-badge">frontend</span>
+  </div>
+  <div class="card" data-label="mobile developer" data-cat="frontend"
+    onclick="copy('mobile-dev')">
+    <img src="avatars/mobile-dev.svg" alt="Mobile Developer" loading="lazy"/>
+    <span>Mobile Developer</span>
+    <span class="cat-badge">frontend</span>
+  </div>
+  <div class="card" data-label="ml developer" data-cat="ai"
+    onclick="copy('ml-developer')">
+    <img src="avatars/ml-developer.svg" alt="ML Developer" loading="lazy"/>
+    <span>ML Developer</span>
+    <span class="cat-badge">ai</span>
+  </div>
+  <div class="card" data-label="ci/cd engineer" data-cat="devops"
+    onclick="copy('cicd-engineer')">
+    <img src="avatars/cicd-engineer.svg" alt="CI/CD Engineer" loading="lazy"/>
+    <span>CI/CD Engineer</span>
+    <span class="cat-badge">devops</span>
+  </div>
+  <div class="card" data-label="system architect" data-cat="core"
+    onclick="copy('system-architect')">
+    <img src="avatars/system-architect.svg" alt="System Architect" loading="lazy"/>
+    <span>System Architect</span>
+    <span class="cat-badge">core</span>
+  </div>
+  <div class="card" data-label="ai engineer" data-cat="ai"
+    onclick="copy('ai-engineer')">
+    <img src="avatars/ai-engineer.svg" alt="AI Engineer" loading="lazy"/>
+    <span>AI Engineer</span>
+    <span class="cat-badge">ai</span>
+  </div>
+  <div class="card" data-label="model qa specialist" data-cat="ai"
+    onclick="copy('model-qa')">
+    <img src="avatars/model-qa.svg" alt="Model QA Specialist" loading="lazy"/>
+    <span>Model QA Specialist</span>
+    <span class="cat-badge">ai</span>
+  </div>
+  <div class="card" data-label="data engineer" data-cat="data"
+    onclick="copy('data-engineer')">
+    <img src="avatars/data-engineer.svg" alt="Data Engineer" loading="lazy"/>
+    <span>Data Engineer</span>
+    <span class="cat-badge">data</span>
+  </div>
+  <div class="card" data-label="analytics reporter" data-cat="data"
+    onclick="copy('analytics-reporter')">
+    <img src="avatars/analytics-reporter.svg" alt="Analytics Reporter" loading="lazy"/>
+    <span>Analytics Reporter</span>
+    <span class="cat-badge">data</span>
+  </div>
+  <div class="card" data-label="experiment tracker" data-cat="ai"
+    onclick="copy('experiment-tracker')">
+    <img src="avatars/experiment-tracker.svg" alt="Experiment Tracker" loading="lazy"/>
+    <span>Experiment Tracker</span>
+    <span class="cat-badge">ai</span>
+  </div>
+  <div class="card" data-label="data consolidator" data-cat="data"
+    onclick="copy('data-consolidator')">
+    <img src="avatars/data-consolidator.svg" alt="Data Consolidator" loading="lazy"/>
+    <span>Data Consolidator</span>
+    <span class="cat-badge">data</span>
+  </div>
+  <div class="card" data-label="devops automator" data-cat="devops"
+    onclick="copy('devops-automator')">
+    <img src="avatars/devops-automator.svg" alt="DevOps Automator" loading="lazy"/>
+    <span>DevOps Automator</span>
+    <span class="cat-badge">devops</span>
+  </div>
+  <div class="card" data-label="sre" data-cat="devops"
+    onclick="copy('sre')">
+    <img src="avatars/sre.svg" alt="SRE" loading="lazy"/>
+    <span>SRE</span>
+    <span class="cat-badge">devops</span>
+  </div>
+  <div class="card" data-label="incident commander" data-cat="devops"
+    onclick="copy('incident-commander')">
+    <img src="avatars/incident-commander.svg" alt="Incident Commander" loading="lazy"/>
+    <span>Incident Commander</span>
+    <span class="cat-badge">devops</span>
+  </div>
+  <div class="card" data-label="infrastructure" data-cat="infra"
+    onclick="copy('infrastructure')">
+    <img src="avatars/infrastructure.svg" alt="Infrastructure" loading="lazy"/>
+    <span>Infrastructure</span>
+    <span class="cat-badge">infra</span>
+  </div>
+  <div class="card" data-label="database optimizer" data-cat="infra"
+    onclick="copy('database-optimizer')">
+    <img src="avatars/database-optimizer.svg" alt="Database Optimizer" loading="lazy"/>
+    <span>Database Optimizer</span>
+    <span class="cat-badge">infra</span>
+  </div>
+  <div class="card" data-label="cloud architect" data-cat="infra"
+    onclick="copy('cloud-architect')">
+    <img src="avatars/cloud-architect.svg" alt="Cloud Architect" loading="lazy"/>
+    <span>Cloud Architect</span>
+    <span class="cat-badge">infra</span>
+  </div>
+  <div class="card" data-label="prosecutor" data-cat="legal"
+    onclick="copy('prosecutor')">
+    <img src="avatars/prosecutor.svg" alt="Prosecutor" loading="lazy"/>
+    <span>Prosecutor</span>
+    <span class="cat-badge">legal</span>
+  </div>
+  <div class="card" data-label="defender" data-cat="legal"
+    onclick="copy('defender')">
+    <img src="avatars/defender.svg" alt="Defender" loading="lazy"/>
+    <span>Defender</span>
+    <span class="cat-badge">legal</span>
+  </div>
+  <div class="card" data-label="judge" data-cat="legal"
+    onclick="copy('judge')">
+    <img src="avatars/judge.svg" alt="Judge" loading="lazy"/>
+    <span>Judge</span>
+    <span class="cat-badge">legal</span>
+  </div>
+  <div class="card" data-label="case analyst" data-cat="legal"
+    onclick="copy('case-analyst')">
+    <img src="avatars/case-analyst.svg" alt="Case Analyst" loading="lazy"/>
+    <span>Case Analyst</span>
+    <span class="cat-badge">legal</span>
+  </div>
+  <div class="card" data-label="trial director" data-cat="legal"
+    onclick="copy('trial-director')">
+    <img src="avatars/trial-director.svg" alt="Trial Director" loading="lazy"/>
+    <span>Trial Director</span>
+    <span class="cat-badge">legal</span>
+  </div>
+  <div class="card" data-label="legal compliance" data-cat="legal"
+    onclick="copy('legal-compliance')">
+    <img src="avatars/legal-compliance.svg" alt="Legal Compliance" loading="lazy"/>
+    <span>Legal Compliance</span>
+    <span class="cat-badge">legal</span>
+  </div>
+  <div class="card" data-label="technical writer" data-cat="content"
+    onclick="copy('technical-writer')">
+    <img src="avatars/technical-writer.svg" alt="Technical Writer" loading="lazy"/>
+    <span>Technical Writer</span>
+    <span class="cat-badge">content</span>
+  </div>
+  <div class="card" data-label="content creator" data-cat="content"
+    onclick="copy('content-creator')">
+    <img src="avatars/content-creator.svg" alt="Content Creator" loading="lazy"/>
+    <span>Content Creator</span>
+    <span class="cat-badge">content</span>
+  </div>
+  <div class="card" data-label="seo specialist" data-cat="content"
+    onclick="copy('seo-specialist')">
+    <img src="avatars/seo-specialist.svg" alt="SEO Specialist" loading="lazy"/>
+    <span>SEO Specialist</span>
+    <span class="cat-badge">content</span>
+  </div>
+  <div class="card" data-label="social media" data-cat="content"
+    onclick="copy('social-media')">
+    <img src="avatars/social-media.svg" alt="Social Media" loading="lazy"/>
+    <span>Social Media</span>
+    <span class="cat-badge">content</span>
+  </div>
+  <div class="card" data-label="email marketing" data-cat="content"
+    onclick="copy('email-marketing')">
+    <img src="avatars/email-marketing.svg" alt="Email Marketing" loading="lazy"/>
+    <span>Email Marketing</span>
+    <span class="cat-badge">content</span>
+  </div>
+  <div class="card" data-label="ai citation" data-cat="content"
+    onclick="copy('ai-citation')">
+    <img src="avatars/ai-citation.svg" alt="AI Citation" loading="lazy"/>
+    <span>AI Citation</span>
+    <span class="cat-badge">content</span>
+  </div>
+  <div class="card" data-label="product manager" data-cat="product"
+    onclick="copy('product-manager')">
+    <img src="avatars/product-manager.svg" alt="Product Manager" loading="lazy"/>
+    <span>Product Manager</span>
+    <span class="cat-badge">product</span>
+  </div>
+  <div class="card" data-label="sprint prioritizer" data-cat="product"
+    onclick="copy('sprint-prioritizer')">
+    <img src="avatars/sprint-prioritizer.svg" alt="Sprint Prioritizer" loading="lazy"/>
+    <span>Sprint Prioritizer</span>
+    <span class="cat-badge">product</span>
+  </div>
+  <div class="card" data-label="launch strategist" data-cat="product"
+    onclick="copy('launch-strategist')">
+    <img src="avatars/launch-strategist.svg" alt="Launch Strategist" loading="lazy"/>
+    <span>Launch Strategist</span>
+    <span class="cat-badge">product</span>
+  </div>
+  <div class="card" data-label="pricing strategist" data-cat="product"
+    onclick="copy('pricing-strategist')">
+    <img src="avatars/pricing-strategist.svg" alt="Pricing Strategist" loading="lazy"/>
+    <span>Pricing Strategist</span>
+    <span class="cat-badge">product</span>
+  </div>
+  <div class="card" data-label="feedback synthesizer" data-cat="product"
+    onclick="copy('feedback-synthesizer')">
+    <img src="avatars/feedback-synthesizer.svg" alt="Feedback Synthesizer" loading="lazy"/>
+    <span>Feedback Synthesizer</span>
+    <span class="cat-badge">product</span>
+  </div>
+  <div class="card" data-label="cro specialist" data-cat="product"
+    onclick="copy('cro-specialist')">
+    <img src="avatars/cro-specialist.svg" alt="CRO Specialist" loading="lazy"/>
+    <span>CRO Specialist</span>
+    <span class="cat-badge">product</span>
+  </div>
+  <div class="card" data-label="sales engineer" data-cat="sales"
+    onclick="copy('sales-engineer')">
+    <img src="avatars/sales-engineer.svg" alt="Sales Engineer" loading="lazy"/>
+    <span>Sales Engineer</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="deal strategist" data-cat="sales"
+    onclick="copy('deal-strategist')">
+    <img src="avatars/deal-strategist.svg" alt="Deal Strategist" loading="lazy"/>
+    <span>Deal Strategist</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="account strategist" data-cat="sales"
+    onclick="copy('account-strategist')">
+    <img src="avatars/account-strategist.svg" alt="Account Strategist" loading="lazy"/>
+    <span>Account Strategist</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="outbound strategist" data-cat="sales"
+    onclick="copy('outbound-strategist')">
+    <img src="avatars/outbound-strategist.svg" alt="Outbound Strategist" loading="lazy"/>
+    <span>Outbound Strategist</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="pipeline analyst" data-cat="sales"
+    onclick="copy('pipeline-analyst')">
+    <img src="avatars/pipeline-analyst.svg" alt="Pipeline Analyst" loading="lazy"/>
+    <span>Pipeline Analyst</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="sales coach" data-cat="sales"
+    onclick="copy('sales-coach')">
+    <img src="avatars/sales-coach.svg" alt="Sales Coach" loading="lazy"/>
+    <span>Sales Coach</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="support responder" data-cat="content"
+    onclick="copy('support-responder')">
+    <img src="avatars/support-responder.svg" alt="Support Responder" loading="lazy"/>
+    <span>Support Responder</span>
+    <span class="cat-badge">content</span>
+  </div>
+  <div class="card" data-label="discovery coach" data-cat="sales"
+    onclick="copy('discovery-coach')">
+    <img src="avatars/discovery-coach.svg" alt="Discovery Coach" loading="lazy"/>
+    <span>Discovery Coach</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="proposal strategist" data-cat="sales"
+    onclick="copy('proposal-strategist')">
+    <img src="avatars/proposal-strategist.svg" alt="Proposal Strategist" loading="lazy"/>
+    <span>Proposal Strategist</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="game designer" data-cat="creative"
+    onclick="copy('game-designer')">
+    <img src="avatars/game-designer.svg" alt="Game Designer" loading="lazy"/>
+    <span>Game Designer</span>
+    <span class="cat-badge">creative</span>
+  </div>
+  <div class="card" data-label="narrative designer" data-cat="creative"
+    onclick="copy('narrative-designer')">
+    <img src="avatars/narrative-designer.svg" alt="Narrative Designer" loading="lazy"/>
+    <span>Narrative Designer</span>
+    <span class="cat-badge">creative</span>
+  </div>
+  <div class="card" data-label="level designer" data-cat="creative"
+    onclick="copy('level-designer')">
+    <img src="avatars/level-designer.svg" alt="Level Designer" loading="lazy"/>
+    <span>Level Designer</span>
+    <span class="cat-badge">creative</span>
+  </div>
+  <div class="card" data-label="game audio engineer" data-cat="creative"
+    onclick="copy('game-audio-engineer')">
+    <img src="avatars/game-audio-engineer.svg" alt="Game Audio Engineer" loading="lazy"/>
+    <span>Game Audio Engineer</span>
+    <span class="cat-badge">creative</span>
+  </div>
+  <div class="card" data-label="technical artist" data-cat="creative"
+    onclick="copy('technical-artist')">
+    <img src="avatars/technical-artist.svg" alt="Technical Artist" loading="lazy"/>
+    <span>Technical Artist</span>
+    <span class="cat-badge">creative</span>
+  </div>
+  <div class="card" data-label="unity architect" data-cat="creative"
+    onclick="copy('unity-architect')">
+    <img src="avatars/unity-architect.svg" alt="Unity Architect" loading="lazy"/>
+    <span>Unity Architect</span>
+    <span class="cat-badge">creative</span>
+  </div>
+  <div class="card" data-label="blockchain auditor" data-cat="blockchain"
+    onclick="copy('blockchain-auditor')">
+    <img src="avatars/blockchain-auditor.svg" alt="Blockchain Auditor" loading="lazy"/>
+    <span>Blockchain Auditor</span>
+    <span class="cat-badge">blockchain</span>
+  </div>
+  <div class="card" data-label="solidity engineer" data-cat="blockchain"
+    onclick="copy('solidity-engineer')">
+    <img src="avatars/solidity-engineer.svg" alt="Solidity Engineer" loading="lazy"/>
+    <span>Solidity Engineer</span>
+    <span class="cat-badge">blockchain</span>
+  </div>
+  <div class="card" data-label="zk steward" data-cat="blockchain"
+    onclick="copy('zk-steward')">
+    <img src="avatars/zk-steward.svg" alt="ZK Steward" loading="lazy"/>
+    <span>ZK Steward</span>
+    <span class="cat-badge">blockchain</span>
+  </div>
+  <div class="card" data-label="studio producer" data-cat="management"
+    onclick="copy('studio-producer')">
+    <img src="avatars/studio-producer.svg" alt="Studio Producer" loading="lazy"/>
+    <span>Studio Producer</span>
+    <span class="cat-badge">management</span>
+  </div>
+  <div class="card" data-label="project shepherd" data-cat="management"
+    onclick="copy('project-shepherd')">
+    <img src="avatars/project-shepherd.svg" alt="Project Shepherd" loading="lazy"/>
+    <span>Project Shepherd</span>
+    <span class="cat-badge">management</span>
+  </div>
+  <div class="card" data-label="senior pm" data-cat="management"
+    onclick="copy('senior-pm')">
+    <img src="avatars/senior-pm.svg" alt="Senior PM" loading="lazy"/>
+    <span>Senior PM</span>
+    <span class="cat-badge">management</span>
+  </div>
+  <div class="card" data-label="studio operations" data-cat="management"
+    onclick="copy('studio-operations')">
+    <img src="avatars/studio-operations.svg" alt="Studio Operations" loading="lazy"/>
+    <span>Studio Operations</span>
+    <span class="cat-badge">management</span>
+  </div>
+  <div class="card" data-label="workflow architect" data-cat="management"
+    onclick="copy('workflow-architect')">
+    <img src="avatars/workflow-architect.svg" alt="Workflow Architect" loading="lazy"/>
+    <span>Workflow Architect</span>
+    <span class="cat-badge">management</span>
+  </div>
+  <div class="card" data-label="adaptive coord. ii" data-cat="management"
+    onclick="copy('adaptive-coordinator2')">
+    <img src="avatars/adaptive-coordinator2.svg" alt="Adaptive Coord. II" loading="lazy"/>
+    <span>Adaptive Coord. II</span>
+    <span class="cat-badge">management</span>
+  </div>
+  <div class="card" data-label="api tester" data-cat="testing"
+    onclick="copy('api-tester')">
+    <img src="avatars/api-tester.svg" alt="API Tester" loading="lazy"/>
+    <span>API Tester</span>
+    <span class="cat-badge">testing</span>
+  </div>
+  <div class="card" data-label="evidence collector" data-cat="testing"
+    onclick="copy('evidence-collector')">
+    <img src="avatars/evidence-collector.svg" alt="Evidence Collector" loading="lazy"/>
+    <span>Evidence Collector</span>
+    <span class="cat-badge">testing</span>
+  </div>
+  <div class="card" data-label="reality checker" data-cat="testing"
+    onclick="copy('reality-checker')">
+    <img src="avatars/reality-checker.svg" alt="Reality Checker" loading="lazy"/>
+    <span>Reality Checker</span>
+    <span class="cat-badge">testing</span>
+  </div>
+  <div class="card" data-label="production validator" data-cat="testing"
+    onclick="copy('production-validator')">
+    <img src="avatars/production-validator.svg" alt="Production Validator" loading="lazy"/>
+    <span>Production Validator</span>
+    <span class="cat-badge">testing</span>
+  </div>
+  <div class="card" data-label="finance tracker" data-cat="sales"
+    onclick="copy('finance-tracker')">
+    <img src="avatars/finance-tracker.svg" alt="Finance Tracker" loading="lazy"/>
+    <span>Finance Tracker</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="accounts payable" data-cat="sales"
+    onclick="copy('accounts-payable')">
+    <img src="avatars/accounts-payable.svg" alt="Accounts Payable" loading="lazy"/>
+    <span>Accounts Payable</span>
+    <span class="cat-badge">sales</span>
+  </div>
+  <div class="card" data-label="recruitment" data-cat="management"
+    onclick="copy('recruitment')">
+    <img src="avatars/recruitment.svg" alt="Recruitment" loading="lazy"/>
+    <span>Recruitment</span>
+    <span class="cat-badge">management</span>
+  </div>
+  <div class="card" data-label="visionos engineer" data-cat="frontend"
+    onclick="copy('visionos-engineer')">
+    <img src="avatars/visionos-engineer.svg" alt="visionOS Engineer" loading="lazy"/>
+    <span>visionOS Engineer</span>
+    <span class="cat-badge">frontend</span>
+  </div>
+  <div class="card" data-label="embedded firmware" data-cat="infra"
+    onclick="copy('embedded-firmware')">
+    <img src="avatars/embedded-firmware.svg" alt="Embedded Firmware" loading="lazy"/>
+    <span>Embedded Firmware</span>
+    <span class="cat-badge">infra</span>
+  </div>
+  <div class="card" data-label="ios developer" data-cat="frontend"
+    onclick="copy('ios-developer')">
+    <img src="avatars/ios-developer.svg" alt="iOS Developer" loading="lazy"/>
+    <span>iOS Developer</span>
+    <span class="cat-badge">frontend</span>
+  </div>
+  <div class="card" data-label="mobile app builder" data-cat="frontend"
+    onclick="copy('mobile-app-builder')">
+    <img src="avatars/mobile-app-builder.svg" alt="Mobile App Builder" loading="lazy"/>
+    <span>Mobile App Builder</span>
+    <span class="cat-badge">frontend</span>
+  </div>
+  <div class="card" data-label="mcp builder" data-cat="core"
+    onclick="copy('mcp-builder')">
+    <img src="avatars/mcp-builder.svg" alt="MCP Builder" loading="lazy"/>
+    <span>MCP Builder</span>
+    <span class="cat-badge">core</span>
+  </div>
+  <div class="card" data-label="automation governance" data-cat="devops"
+    onclick="copy('automation-governance')">
+    <img src="avatars/automation-governance.svg" alt="Automation Governance" loading="lazy"/>
+    <span>Automation Governance</span>
+    <span class="cat-badge">devops</span>
+  </div>
+  <div class="card" data-label="payment agent" data-cat="blockchain"
+    onclick="copy('payment-agent')">
+    <img src="avatars/payment-agent.svg" alt="Payment Agent" loading="lazy"/>
+    <span>Payment Agent</span>
+    <span class="cat-badge">blockchain</span>
+  </div>
+  <div class="card" data-label="compliance auditor" data-cat="security"
+    onclick="copy('compliance-auditor')">
+    <img src="avatars/compliance-auditor.svg" alt="Compliance Auditor" loading="lazy"/>
+    <span>Compliance Auditor</span>
+    <span class="cat-badge">security</span>
+  </div>
+  <div class="card" data-label="trend researcher" data-cat="ai"
+    onclick="copy('trend-researcher')">
+    <img src="avatars/trend-researcher.svg" alt="Trend Researcher" loading="lazy"/>
+    <span>Trend Researcher</span>
+    <span class="cat-badge">ai</span>
+  </div>
+  <div class="card" data-label="scout explorer" data-cat="swarm"
+    onclick="copy('scout-explorer')">
+    <img src="avatars/scout-explorer.svg" alt="Scout Explorer" loading="lazy"/>
+    <span>Scout Explorer</span>
+    <span class="cat-badge">swarm</span>
+  </div>
+  <div class="card" data-label="coder ii" data-cat="core"
+    onclick="copy('coder-v119')">
+    <img src="avatars/coder-v119.svg" alt="Coder II" loading="lazy"/>
+    <span>Coder II</span>
+    <span class="cat-badge">core</span>
+  </div>
+</div>
+<script>
+function filter(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.card').forEach(c => {
+    c.style.display = (c.dataset.label.includes(q) || c.dataset.cat.includes(q)) ? '' : 'none';
+  });
+}
+function copy(id) {
+  navigator.clipboard?.writeText('avatars/' + id + '.svg').catch(()=>{});
+  const el = event.currentTarget.querySelector('img');
+  el.style.outline = '3px solid #3B7DD8';
+  setTimeout(() => el.style.outline = '', 1200);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <clipPath id="circ">
+      <circle cx="60" cy="60" r="58"/>
+    </clipPath>
+    <clipPath id="headClip">
+      <ellipse cx="60" cy="42" rx="24" ry="28"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="60" cy="60" r="58" fill="#FFFBEC"/>
+  <circle cx="60" cy="60" r="58" fill="none" stroke="#8B6914" stroke-width="3"/>
+
+  <g clip-path="url(#circ)">
+    
+  <!-- body -->
+  <ellipse cx="60" cy="112" rx="26" ry="36" fill="#8B6914"/>
+  <ellipse cx="60" cy="110" rx="22" ry="32" fill="#6B4F10"/>
+  <!-- collar -->
+  <path d="M44,96 Q60,108 76,96" fill="#FFFBEC"/>
+  <!-- neck -->
+  <rect x="54" y="70" width="12" height="10" rx="4" fill="#E8A977"/>
+  
+    <!-- head base -->
+    <ellipse cx="60" cy="44" rx="22" ry="26" fill="#E8A977"/>
+    
+  <circle cx="38" cy="46" r="5" fill="#E8A977"/>
+  <circle cx="38" cy="46" r="3" fill="#E8A977" opacity="0.5"/>
+  <circle cx="82" cy="46" r="5" fill="#E8A977"/>
+  <circle cx="82" cy="46" r="3" fill="#E8A977" opacity="0.5"/>
+  
+    <!-- hair -->
+    <ellipse cx="60" cy="22" rx="20" ry="10" fill="#B8860B"/>
+  <rect x="40" y="22" width="40" height="8" rx="4" fill="#B8860B"/>
+    <!-- face features -->
+    <ellipse cx="51" cy="44" rx="5.5" ry="4" fill="white"/>
+  <ellipse cx="69" cy="44" rx="5.5" ry="4" fill="white"/>
+  <circle cx="51" cy="44" r="3" fill="#2E8B57"/>
+  <circle cx="69" cy="44" r="3" fill="#2E8B57"/>
+  <circle cx="52.5" cy="43" r="1.2" fill="white"/>
+  <circle cx="70.5" cy="43" r="1.2" fill="white"/>
+    <ellipse cx="60" cy="52" rx="2.5" ry="1.8" fill="#E8A977" opacity="0.7" stroke="#E8A977" stroke-width="0.5"/>
+    <path d="M54,60 L66,60" stroke="#C4726A" stroke-width="2" stroke-linecap="round"/>
+    
+    <!-- accessory -->
+    <path d="M43,44 Q51,50 59,44" stroke="#555" stroke-width="2" fill="none"/>
+  <path d="M61,44 Q69,50 77,44" stroke="#555" stroke-width="2" fill="none"/>
+  <line x1="59" y1="44" x2="61" y2="44" stroke="#555" stroke-width="1.5"/>
+  <line x1="43" y1="44" x2="41" y2="46" stroke="#555" stroke-width="1.5"/>
+  <line x1="77" y1="44" x2="79" y2="46" stroke="#555" stroke-width="1.5"/>
+  </g>
+
+  <!-- role badge -->
+  <circle cx="88" cy="88" r="16" fill="#8B6914" opacity="0.95"/>
+  <text x="88" y="93" text-anchor="middle" font-size="14" fill="white" font-family="sans-serif">📂</text>
+</svg>
