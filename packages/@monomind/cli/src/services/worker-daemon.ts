@@ -1156,13 +1156,105 @@ export class WorkerDaemon extends EventEmitter {
    * Local ultralearn worker (fallback when headless unavailable)
    */
   private async runUltralearnWorkerLocal(): Promise<unknown> {
-    return {
+    const result: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       mode: 'local',
       patternsLearned: 0,
-      insightsGained: [],
-      note: 'Install Claude Code CLI for AI-powered deep learning',
+      insightsGained: [] as unknown[],
     };
+
+    // Enrich with monograph community clusters and bridge-node patterns for LLM context injection.
+    // Bridge nodes (symbols that cross community boundaries) are architecturally significant —
+    // they represent coupling points an LLM should be aware of when reasoning about change impact.
+    try {
+      const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+      const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+      if (existsSync(dbPath)) {
+        const db = openDb(dbPath);
+        try {
+          const nodeCount = countNodes(db);
+          const edgeCount = countEdges(db);
+
+          // Community summary: count of nodes per community (top 5 by size)
+          type CommunityRow = { community_id: string; member_count: number };
+          const communityRows = db.prepare(`
+            SELECT community_id, COUNT(*) AS member_count
+            FROM nodes
+            WHERE community_id IS NOT NULL
+              AND label NOT IN ('File','Folder','Community','Concept')
+            GROUP BY community_id
+            ORDER BY member_count DESC
+            LIMIT 5
+          `).all() as CommunityRow[];
+
+          // Bridge nodes: symbols that have edges crossing into a different community_id
+          // (source community_id != target community_id) — high knowledge-transfer value
+          type BridgeRow = { name: string; label: string; file_path: string | null; start_line: number | null; cross_edges: number };
+          const bridgeRows = db.prepare(`
+            SELECT n.name, n.label, n.file_path, n.start_line,
+                   COUNT(DISTINCT e.id) AS cross_edges
+            FROM nodes n
+            JOIN edges e ON (e.source_id = n.id OR e.target_id = n.id)
+            JOIN nodes n2 ON (
+              CASE WHEN e.source_id = n.id THEN e.target_id ELSE e.source_id END = n2.id
+            )
+            WHERE n.community_id IS NOT NULL
+              AND n2.community_id IS NOT NULL
+              AND n.community_id != n2.community_id
+              AND n.label NOT IN ('File','Folder','Community','Concept')
+              AND (n.file_path IS NULL OR (
+                n.file_path NOT LIKE '%node_modules%'
+                AND n.file_path NOT LIKE '%/dist/%'
+                AND n.file_path NOT LIKE '%.test.%'
+                AND n.file_path NOT LIKE '%.spec.%'
+              ))
+            GROUP BY n.id
+            ORDER BY cross_edges DESC
+            LIMIT 5
+          `).all() as BridgeRow[];
+
+          const insights: unknown[] = result['insightsGained'] as unknown[];
+
+          if (communityRows.length > 0) {
+            insights.push({
+              category: 'community_clusters',
+              description: `Top ${communityRows.length} community clusters by size`,
+              items: communityRows.map(r => ({
+                communityId: r.community_id,
+                memberCount: r.member_count,
+              })),
+            });
+          }
+
+          if (bridgeRows.length > 0) {
+            insights.push({
+              category: 'bridge_nodes',
+              description: `Top ${bridgeRows.length} bridge nodes crossing community boundaries (high coupling risk)`,
+              items: bridgeRows.map(r => {
+                const loc = r.file_path
+                  ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path)
+                  : '(unknown)';
+                return {
+                  name: r.name,
+                  label: r.label,
+                  location: loc,
+                  crossCommunityEdges: r.cross_edges,
+                };
+              }),
+            });
+            result['patternsLearned'] = bridgeRows.length + communityRows.length;
+          }
+
+          result['graph'] = { nodes: nodeCount, edges: edgeCount };
+        } finally {
+          closeDb(db);
+        }
+      } else {
+        result['note'] = 'Monograph index not built — run `monomind monograph build` for deep learning';
+      }
+    } catch { /* monograph unavailable — return minimal result */ }
+
+    return result;
   }
 
   /**
