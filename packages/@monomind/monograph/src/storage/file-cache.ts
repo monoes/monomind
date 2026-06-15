@@ -27,34 +27,48 @@ export function updateFileCache(db: MonographDb, entry: FileCacheEntry): void {
   `).run(entry.filePath, entry.contentHash, entry.lastParsed, entry.nodeCount, entry.edgeCount);
 }
 
+/**
+ * Bulk-upsert multiple file cache entries in a single transaction.
+ * Prefer this over calling updateFileCache in a loop for pipeline batch writes.
+ */
+export function batchUpdateFileCache(db: MonographDb, entries: FileCacheEntry[]): void {
+  if (entries.length === 0) return;
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO file_cache (file_path, content_hash, last_parsed, node_count, edge_count)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  const insertMany = db.transaction((rows: FileCacheEntry[]) => {
+    for (const e of rows) {
+      stmt.run(e.filePath, e.contentHash, e.lastParsed, e.nodeCount, e.edgeCount);
+    }
+  });
+  insertMany(entries);
+}
+
 export function getFileCacheStats(db: MonographDb): {
   totalCached: number;
   hitRate: number;
   stalePaths: string[];
 } {
-  const totalCached = (db.prepare('SELECT COUNT(*) as c FROM file_cache').get() as { c: number }).c;
+  // Single query: count cached entries and distinct indexed file paths in one pass.
+  const counts = db.prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM file_cache) AS total_cached,
+      (SELECT COUNT(DISTINCT file_path) FROM nodes WHERE file_path IS NOT NULL) AS total_indexed
+  `).get() as { total_cached: number; total_indexed: number };
 
-  const totalNodes = (db.prepare(
-    "SELECT COUNT(DISTINCT file_path) as c FROM nodes WHERE file_path IS NOT NULL"
-  ).get() as { c: number }).c;
+  const totalCached = counts.total_cached;
+  const hitRate = counts.total_indexed > 0 ? totalCached / counts.total_indexed : 0;
 
-  const hitRate = totalNodes > 0 ? totalCached / totalNodes : 0;
-
-  // Find stale paths: cached entries whose file no longer exists in nodes table
-  const cachedPaths = db.prepare('SELECT file_path, content_hash FROM file_cache').all() as {
-    file_path: string;
-    content_hash: string;
-  }[];
-
-  const indexedPaths = new Set<string>(
-    (db.prepare("SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL").all() as {
-      file_path: string;
-    }[]).map(r => r.file_path)
-  );
-
-  const stalePaths = cachedPaths
-    .filter(r => !indexedPaths.has(r.file_path))
-    .map(r => r.file_path);
+  // Find stale paths via SQL LEFT JOIN — avoids loading all rows into JS memory.
+  const stalePaths = (db.prepare(`
+    SELECT fc.file_path
+    FROM file_cache fc
+    LEFT JOIN (
+      SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL
+    ) n ON fc.file_path = n.file_path
+    WHERE n.file_path IS NULL
+  `).all() as { file_path: string }[]).map(r => r.file_path);
 
   return { totalCached, hitRate, stalePaths };
 }
