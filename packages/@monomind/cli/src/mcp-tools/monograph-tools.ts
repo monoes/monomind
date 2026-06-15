@@ -316,7 +316,9 @@ const monographSurprisesTool: MCPTool = {
         ? Math.min(Math.floor(rawSurprisesLimit), MAX_SURPRISES_LIMIT)
         : 20;
       const rows = db.prepare(`
-        SELECT e.*, n1.name as src_name, n2.name as tgt_name
+        SELECT e.confidence, e.confidence_score, e.relation,
+               n1.name as src_name, n1.file_path as src_file, n1.start_line as src_line,
+               n2.name as tgt_name, n2.file_path as tgt_file, n2.start_line as tgt_line
         FROM edges e
         JOIN nodes n1 ON n1.id = e.source_id
         JOIN nodes n2 ON n2.id = e.target_id
@@ -324,7 +326,12 @@ const monographSurprisesTool: MCPTool = {
         ORDER BY e.confidence_score ASC LIMIT ?
       `).all(limit) as any[];
       if (rows.length === 0) return text('No surprising connections found.');
-      return text(rows.map(r => `[${r.confidence}] ${r.src_name} --${r.relation}--> ${r.tgt_name} (score: ${r.confidence_score})`).join('\n'));
+      return text(rows.map(r => {
+        const srcLoc = r.src_file ? (r.src_line != null ? `${r.src_file}:${r.src_line}` : r.src_file) : '';
+        const tgtLoc = r.tgt_file ? (r.tgt_line != null ? `${r.tgt_file}:${r.tgt_line}` : r.tgt_file) : '';
+        const locHint = srcLoc || tgtLoc ? `  [${srcLoc}${tgtLoc ? ` → ${tgtLoc}` : ''}]` : '';
+        return `[${r.confidence}] ${r.src_name} --${r.relation}--> ${r.tgt_name} (score: ${r.confidence_score})${locHint}`;
+      }).join('\n'));
     } finally { closeDb(db); }
   },
 };
@@ -508,7 +515,7 @@ const monographReportTool: MCPTool = {
       const nodeCount = countNodes(db);
       const edgeCount = countEdges(db);
       const topNodes = db.prepare(`
-        SELECT n.name, n.label, n.file_path,
+        SELECT n.name, n.label, n.file_path, n.start_line,
                COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
         FROM nodes n
         LEFT JOIN edges e1 ON e1.source_id = n.id
@@ -522,7 +529,10 @@ const monographReportTool: MCPTool = {
         `**Generated:** ${new Date().toISOString()}`,
         `**Nodes:** ${nodeCount}  **Edges:** ${edgeCount}\n`,
         '## Top 10 Most Connected Entities\n',
-        ...topNodes.map((n: any, i: number) => `${i + 1}. **${n.name}** (${n.label}) — degree ${n.degree}  \`${n.file_path ?? ''}\``),
+        ...topNodes.map((n: any, i: number) => {
+          const loc = n.file_path ? (n.start_line != null ? `${n.file_path}:${n.start_line}` : n.file_path) : '';
+          return `${i + 1}. **${n.name}** (${n.label}) — degree ${n.degree}${loc ? `  \`${loc}\`` : ''}`;
+        }),
       ].join('\n');
 
       const outPath = resolve((input.path as string | undefined) ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md'));
@@ -532,7 +542,7 @@ const monographReportTool: MCPTool = {
       }
       mkdirSync(join(outPath, '..'), { recursive: true });
       writeFileSync(outPath, report);
-      return text(`Report written to ${outPath}`);
+      return text(`${report}\n\nReport written to ${outPath}`);
     } finally { closeDb(db); }
   },
 };
