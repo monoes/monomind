@@ -1133,7 +1133,14 @@ export const hooksPostTask = {
                 successSource = 'derived-commands';
             }
         }
-        const agent = params.agent;
+        // Cap agent: forwarded to bridgeRecordFeedback where it is stored in the
+        // feedback record and used as a tag string in the JSON store.  An uncapped
+        // agent value inflates the on-disk store entry.
+        const MAX_POST_TASK_AGENT_LEN = 256;
+        const rawPostTaskAgent = params.agent;
+        const agent = typeof rawPostTaskAgent === 'string' && rawPostTaskAgent.length > MAX_POST_TASK_AGENT_LEN
+            ? rawPostTaskAgent.slice(0, MAX_POST_TASK_AGENT_LEN)
+            : rawPostTaskAgent;
         const quality = params.quality || (success ? 0.85 : 0.3);
         const startTime = Date.now();
         // Cap task description: passed to generateEmbedding via bridgeRecordFeedback
