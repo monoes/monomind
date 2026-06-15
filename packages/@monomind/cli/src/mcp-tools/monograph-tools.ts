@@ -171,7 +171,7 @@ const monographGodNodesTool: MCPTool = {
         : 20;
       const excluded = ['File', 'Folder', 'Community', 'Concept'];
       const rows = db.prepare(`
-        SELECT n.id, n.label, n.name, n.file_path,
+        SELECT n.id, n.label, n.name, n.file_path, n.start_line,
                COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree,
                COUNT(DISTINCT e2.id) AS in_degree,
                COUNT(DISTINCT e1.id) AS out_degree
@@ -184,9 +184,10 @@ const monographGodNodesTool: MCPTool = {
       `).all(...excluded, limit) as any[];
 
       if (rows.length === 0) return text('No god nodes found. Run monograph_build first.');
-      const lines = rows.map(r =>
-        `[${r.label}] ${r.name}  degree=${r.degree} (↑${r.out_degree} ↓${r.in_degree})  ${r.file_path ?? ''}`
-      );
+      const lines = rows.map(r => {
+        const loc = r.file_path ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path) : '';
+        return `[${r.label}] ${r.name}  degree=${r.degree} (↑${r.out_degree} ↓${r.in_degree})  ${loc}`;
+      });
       return text(lines.join('\n'));
     } finally { closeDb(db); }
   },
@@ -239,7 +240,14 @@ const monographShortestPathTool: MCPTool = {
     try {
       const path = getShortestPath(db, input.source as string, input.target as string, (input.maxDepth as number | undefined) ?? 6);
       if (!path) return text(`No path found between ${input.source} and ${input.target}`);
-      return text(`Path (${path.length - 1} hops):\n${path.join(' → ')}`);
+      // Enrich each node ID with file:line for direct LLM navigation
+      const enriched = path.map(nodeId => {
+        const row = db.prepare('SELECT label, name, file_path, start_line FROM nodes WHERE id = ? OR name = ? LIMIT 1').get(nodeId, nodeId) as any;
+        if (!row) return nodeId;
+        const loc = row.file_path ? (row.start_line != null ? `${row.file_path}:${row.start_line}` : row.file_path) : '';
+        return loc ? `${row.name ?? nodeId}  [${loc}]` : (row.name ?? nodeId);
+      });
+      return text(`Path (${path.length - 1} hops):\n${enriched.join(' → ')}`);
     } finally { closeDb(db); }
   },
 };
@@ -268,9 +276,12 @@ const monographCommunityTool: MCPTool = {
     const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const rows = db.prepare('SELECT * FROM nodes WHERE community_id = ?').all(communityId) as any[];
+      const rows = db.prepare('SELECT id, label, name, file_path, start_line FROM nodes WHERE community_id = ?').all(communityId) as any[];
       if (rows.length === 0) return text(`No nodes in community ${communityId}`);
-      return text(rows.map(r => `[${r.label}] ${r.name}  ${r.file_path ?? ''}`).join('\n'));
+      return text(rows.map(r => {
+        const loc = r.file_path ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path) : '';
+        return `[${r.label}] ${r.name}  ${loc}`;
+      }).join('\n'));
     } finally { closeDb(db); }
   },
 };
@@ -1515,13 +1526,19 @@ const monographNeighborsTool: MCPTool = {
         includeInbound: (input.includeInbound as boolean | undefined) ?? false,
       });
       if (!result.node) return text(`No node found with name: ${input.name as string}`);
+      const nodeFilePath = (result.node as any).filePath ?? '';
+      const nodeStartLine = (result.node as any).startLine ?? (result.node as any).start_line;
+      const nodeLoc = nodeFilePath ? (nodeStartLine != null ? `${nodeFilePath}:${nodeStartLine}` : nodeFilePath) : '';
       const lines = [
-        `[${result.node.label}] ${result.node.name}  ${result.node.filePath ?? ''}`,
+        `[${result.node.label}] ${result.node.name}  ${nodeLoc}`,
         `Neighbors: ${result.neighbors.length}`,
         '',
-        ...result.neighbors.map(n =>
-          `  ${n.direction === 'inbound' ? '←' : '→'} [${n.node.label}] ${n.node.name}  (${n.relation})  ${n.node.filePath ?? ''}`
-        ),
+        ...result.neighbors.map(n => {
+          const fp = (n.node as any).filePath ?? (n.node as any).file_path ?? '';
+          const ln = (n.node as any).startLine ?? (n.node as any).start_line;
+          const loc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+          return `  ${n.direction === 'inbound' ? '←' : '→'} [${n.node.label}] ${n.node.name}  (${n.relation})  ${loc}`;
+        }),
       ];
       return text(lines.join('\n'));
     } finally { closeDb(db); }
