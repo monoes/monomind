@@ -118,8 +118,8 @@ module.exports = {
       } catch (e) {}
 
       var output = [];
-      output.push('[INFO] Routing task: ' + (prompt.substring(0, 80) || '(no prompt)'));
-      output.push('');
+      // Skip the noisy "[INFO] Routing task: ..." prefix — it repeats the user's
+      // own words back and adds token overhead without helping Claude.
       // Routing panel strategy:
       //   conf >= 0.90 → show primary recommendation (router is confident, trust it)
       //   conf  < 0.90 → show category picker so Claude uses its own context to
