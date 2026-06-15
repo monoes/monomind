@@ -2311,8 +2311,18 @@ export const hooksTrajectoryStep: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const trajectoryId = params.trajectoryId as string;
-    const action = params.action as string;
-    const result = (params.result as string) || 'success';
+    // Cap action and result strings to prevent unbounded in-memory growth when
+    // trajectory-step is called many times with large payloads.
+    const MAX_STEP_STRING_LEN = 4 * 1024; // 4 KB per field
+    const MAX_STEPS_PER_TRAJECTORY = 1000;
+    const rawAction = params.action as string;
+    const rawResult = (params.result as string) || 'success';
+    const action = typeof rawAction === 'string' && rawAction.length > MAX_STEP_STRING_LEN
+      ? rawAction.slice(0, MAX_STEP_STRING_LEN)
+      : rawAction;
+    const result = typeof rawResult === 'string' && rawResult.length > MAX_STEP_STRING_LEN
+      ? rawResult.slice(0, MAX_STEP_STRING_LEN)
+      : rawResult;
     const quality = (params.quality as number) || 0.85;
     const timestamp = new Date().toISOString();
     const stepId = `step-${Date.now()}`;
@@ -2320,6 +2330,10 @@ export const hooksTrajectoryStep: MCPTool = {
     // Add step to real trajectory if it exists
     const trajectory = activeTrajectories.get(trajectoryId);
     if (trajectory) {
+      if (trajectory.steps.length >= MAX_STEPS_PER_TRAJECTORY) {
+        // Drop the oldest step to keep the array bounded
+        trajectory.steps.shift();
+      }
       trajectory.steps.push({
         action,
         result,
