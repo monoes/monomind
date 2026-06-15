@@ -294,11 +294,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .orgs-no-sel { color: var(--text-lo); font-size: 13px; text-align: center; }
 .orgs-no-sel-ico { font-size: 28px; margin-bottom: 10px; opacity: 0.3; }
 
-#org-detail-head { padding: 12px 18px 11px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+#org-detail-head { padding: 12px 18px 11px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+.odh-top { display: flex; align-items: center; gap: 10px; }
 .odh-name { font-size: 16px; font-weight: 600; color: var(--text-hi); }
 .odh-badge { font-size: 11px; padding: 2px 8px; border-radius: 8px; }
 .odh-badge.idle { background: var(--surface-hi); color: var(--text-lo); }
 .odh-badge.live { background: oklch(65% 0.15 150 / 0.12); color: var(--green); }
+.odh-goal { font-size: 12px; color: var(--text-mid); line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-width: 680px; }
 .odh-pill { font-size: 11px; padding: 2px 8px; border-radius: 8px; background: var(--surface); color: var(--text-lo); border: 1px solid var(--border); }
 .odh-right { margin-left: auto; display: flex; gap: 6px; }
 
@@ -1789,16 +1791,18 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         </div>
         <div id="org-detail-inner" style="display:none;width:100%;height:100%;display:none;flex-direction:column;overflow:hidden;">
           <div id="org-detail-head">
-            <div>
+            <div class="odh-top">
               <div class="odh-name" id="odh-name">—</div>
+              <span class="odh-badge idle" id="odh-badge">IDLE</span>
+              <span class="odh-pill" id="odh-topo">—</span>
+              <span class="odh-pill" id="odh-roles">0 roles</span>
+              <span class="odh-pill" id="odh-run-id" style="display:none;font-family:var(--mono);font-size:10px"></span>
+              <div class="odh-right">
+                <button class="btn" id="org-copy-btn" onclick="v2ShowCopyOrgDialog()" style="color:var(--accent);border-color:var(--accent)">Copy to…</button>
+                <button class="btn" id="org-stop-btn" onclick="v2StopOrg()" style="display:none;color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Stop</button>
+              </div>
             </div>
-            <span class="odh-badge idle" id="odh-badge">IDLE</span>
-            <span class="odh-pill" id="odh-topo">—</span>
-            <span class="odh-pill" id="odh-roles">0 roles</span>
-            <div class="odh-right">
-              <button class="btn" id="org-copy-btn" onclick="v2ShowCopyOrgDialog()" style="color:var(--accent);border-color:var(--accent)">Copy to…</button>
-              <button class="btn" id="org-stop-btn" onclick="v2StopOrg()" style="display:none;color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Stop</button>
-            </div>
+            <div class="odh-goal" id="odh-goal" style="display:none"></div>
           </div>
           <div id="org-detail-tabs">
             <button class="odt-btn active" data-tab="chart" onclick="v2SwitchOrgTab('chart')">Chart</button>
@@ -5176,6 +5180,30 @@ function v2UpdateOrgHeader(listOrg, data) {
   document.getElementById('odh-roles').textContent = roles + ' role' + (roles !== 1 ? 's' : '');
   document.getElementById('odh-topo').textContent = (data?.topology || listOrg.topology || '—');
   document.getElementById('org-stop-btn').style.display = running ? '' : 'none';
+
+  // Goal line — show the org's goal/description so users know what this org does
+  const goalEl = document.getElementById('odh-goal');
+  const goal = data?.goal || listOrg.goal || data?.description || listOrg.description || '';
+  if (goalEl) {
+    if (goal) {
+      goalEl.textContent = goal;
+      goalEl.style.display = '';
+    } else {
+      goalEl.style.display = 'none';
+    }
+  }
+
+  // Active run ID pill — show run ID when org is live so users can correlate logs
+  const runIdEl = document.getElementById('odh-run-id');
+  const runId = data?.runId || data?.run_id || listOrg.runId || null;
+  if (runIdEl) {
+    if (running && runId) {
+      runIdEl.textContent = 'run: ' + String(runId).slice(0, 24);
+      runIdEl.style.display = '';
+    } else {
+      runIdEl.style.display = 'none';
+    }
+  }
 }
 
 window.v2SwitchOrgTab = function(tab) {
