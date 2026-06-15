@@ -11,9 +11,6 @@ export declare function detectPII(content: string): PIIDetectionResult;
  * Redact PII from a string
  */
 export declare function redactPII(content: string): string;
-/**
- * Apply anonymization to CFP document
- */
 export declare function anonymizeCFP(cfp: CFPFormat, level: AnonymizationLevel): {
     cfp: CFPFormat;
     transforms: string[];

@@ -9,7 +9,7 @@ export function searchPlugins(registry, options = {}) {
     let plugins = [...registry.plugins];
     // Text search (name, displayName, description, tags)
     if (options.query) {
-        const query = options.query.toLowerCase();
+        const query = options.query.slice(0, 256).toLowerCase();
         plugins = plugins.filter(p => p.name.toLowerCase().includes(query) ||
             p.displayName.toLowerCase().includes(query) ||
             p.description.toLowerCase().includes(query) ||
@@ -88,8 +88,8 @@ export function searchPlugins(registry, options = {}) {
     });
     // Pagination
     const total = plugins.length;
-    const limit = options.limit || 20;
-    const offset = options.offset || 0;
+    const limit = Math.min(Math.max(1, options.limit || 20), 200);
+    const offset = Math.max(0, Math.min(options.offset || 0, 100_000));
     const page = Math.floor(offset / limit) + 1;
     plugins = plugins.slice(offset, offset + limit);
     return {
@@ -105,7 +105,8 @@ export function searchPlugins(registry, options = {}) {
  * Get search suggestions based on partial query
  */
 export function getPluginSearchSuggestions(registry, partialQuery, limit = 10) {
-    const query = partialQuery.toLowerCase();
+    const query = partialQuery.slice(0, 256).toLowerCase();
+    limit = Math.min(Math.max(1, limit), 100);
     const suggestions = new Set();
     // Search in plugin names
     for (const plugin of registry.plugins) {

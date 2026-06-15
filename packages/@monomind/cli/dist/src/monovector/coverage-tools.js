@@ -35,7 +35,8 @@ export const coverageRouterTools = [
         },
         handler: async (input) => {
             try {
-                const result = await coverageRoute(input.path || '', { threshold: input.threshold ?? 80 });
+                const rawPath = typeof input.path === 'string' ? input.path.slice(0, 512) : '';
+                const result = await coverageRoute(rawPath, { threshold: input.threshold ?? 80 });
                 if (!result.found) {
                     return text('No coverage report found. Run your test suite with coverage enabled (e.g. `vitest run --coverage`), then retry.');
                 }
@@ -66,7 +67,7 @@ export const coverageRouterTools = [
             try {
                 const result = await coverageGaps({
                     threshold: input.threshold ?? 80,
-                    path: input.path || undefined,
+                    path: typeof input.path === 'string' ? input.path.slice(0, 512) : undefined,
                     groupByAgent: true,
                 });
                 if (!result.found)
@@ -96,7 +97,9 @@ export const coverageRouterTools = [
         },
         handler: async (input) => {
             try {
-                const result = await coverageSuggest(input.path || '.', { threshold: input.threshold ?? 80, limit: input.limit ?? 20 });
+                const rawPath = typeof input.path === 'string' ? input.path.slice(0, 512) : '.';
+                const rawLimit = typeof input.limit === 'number' ? Math.min(Math.max(1, input.limit), 200) : 20;
+                const result = await coverageSuggest(rawPath, { threshold: input.threshold ?? 80, limit: rawLimit });
                 if (!result.found) {
                     return text('No coverage report found. Run your test suite with coverage enabled, then retry.');
                 }

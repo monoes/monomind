@@ -78,11 +78,25 @@ export class MonitoringHooks {
         // Apply sampling
         if (Math.random() > this.config.samplingRate)
             return;
+        // Cap metric name and label keys/values to prevent DoS
+        const safeName = String(name).slice(0, 256);
+        const safeLabels = {};
+        let labelCount = 0;
+        for (const [k, v] of Object.entries(labels)) {
+            if (!Object.hasOwn(labels, k))
+                continue;
+            if (++labelCount > 20)
+                break;
+            // Block prototype pollution keys
+            if (k === '__proto__' || k === 'constructor' || k === 'prototype')
+                continue;
+            safeLabels[String(k).slice(0, 64)] = String(v).slice(0, 512);
+        }
         const event = {
-            name,
+            name: safeName,
             type,
             value,
-            labels: { ...this.config.globalLabels, ...labels },
+            labels: { ...this.config.globalLabels, ...safeLabels },
             timestamp: Date.now(),
         };
         this.metrics.push(event);
@@ -131,7 +145,8 @@ export class MonitoringHooks {
      * Register a health check
      */
     registerHealthCheck(name, check) {
-        this.healthChecks.set(name, check);
+        // Cap name length to prevent map-key inflation
+        this.healthChecks.set(String(name).slice(0, 128), check);
     }
     /**
      * Run all health checks
@@ -285,6 +300,8 @@ export class MonitoringHooks {
     // Private Methods
     // ============================================================================
     checkAlerts(name, value) {
+        if (!Object.hasOwn(this.config.alertThresholds, name))
+            return;
         const thresholds = this.config.alertThresholds[name];
         if (!thresholds)
             return;
