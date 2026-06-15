@@ -6581,7 +6581,10 @@ function filterOrgList(q) {
     src.onmessage = e => {
       try {
         const ev = JSON.parse(e.data);
-        if (!ev?.org || !ev?.type?.startsWith('org:')) return;
+        // Accept org: events AND run: events (run:cycle:complete, run:complete) —
+        // both carry org context and both should appear in the activity feed.
+        const _evType = ev?.type || '';
+        if (!ev?.org || (!_evType.startsWith('org:') && !_evType.startsWith('run:'))) return;
         const n = ev.org;
         // Filter by project dir if the event carries one; skip events from other projects.
         // Events without a project field are treated as belonging to the current project.
@@ -6591,6 +6594,19 @@ function filterOrgList(q) {
         _v2OrgEventLog[n].push(ev);
         if (_v2OrgEventLog[n].length > 50) _v2OrgEventLog[n].shift();
         if (n === _v2SelOrg && _v2OrgTab === 'activity') v2RenderOrgActivity();
+        // Pulse the org list dot on comms/checkpoint events so the user can see the org is active
+        // without switching to the activity tab
+        if (_evType === 'org:comms' || _evType === 'org:checkpoint') {
+          const _orgDot = document.querySelector(`.org-item[data-org="${CSS.escape(n)}"] .oi-dot`);
+          if (_orgDot) {
+            _orgDot.classList.add('running');
+            // Brief flash to indicate activity — class stays if org is running
+            setTimeout(() => {
+              const _listOrg = _v2Orgs.find(o => o.name === n) || {};
+              if (!_listOrg.running) _orgDot.classList.remove('running');
+            }, 2000);
+          }
+        }
         if (ev.type === 'org:start' || ev.type === 'org:stop' || ev.type === 'org:delete' || ev.type === 'org:create') {
           setTimeout(async () => {
             await renderOrgs();
