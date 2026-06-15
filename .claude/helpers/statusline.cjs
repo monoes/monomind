@@ -907,6 +907,60 @@ function getHILPending() {
   return { pending };
 }
 
+// Active org runs — scan .monomind/orgs/*/runs/*.jsonl for recent activity
+// Also checks .git/monomind/orgs/ (git-safe path used by mastermind orgs).
+// An org is "active" if it has an events file modified within the last 10 minutes.
+function getActiveOrgs() {
+  // Try git-common-dir path first (mastermind orgs store run files there)
+  let orgsDir = path.join(CWD, '.monomind', 'orgs');
+  try {
+    const gitCommon = safeExec('git rev-parse --git-common-dir 2>/dev/null', 1000);
+    if (gitCommon) {
+      const candidate = path.isAbsolute(gitCommon)
+        ? path.join(gitCommon, 'monomind', 'orgs')
+        : path.join(CWD, gitCommon, 'monomind', 'orgs');
+      if (fs.existsSync(candidate)) orgsDir = candidate;
+    }
+  } catch { /* use default */ }
+  if (!fs.existsSync(orgsDir)) return { count: 0, orgs: [] };
+  const STALE_MS = 10 * 60 * 1000; // 10 min
+  const now = Date.now();
+  const active = [];
+  try {
+    const orgNames = fs.readdirSync(orgsDir).filter(f => !f.startsWith('.'));
+    for (const orgName of orgNames.slice(0, 20)) {
+      const runsDir = path.join(orgsDir, orgName, 'runs');
+      if (!fs.existsSync(runsDir)) continue;
+      try {
+        const files = fs.readdirSync(runsDir).filter(f => f.endsWith('.jsonl'));
+        if (!files.length) continue;
+        files.sort();
+        const latest = files[files.length - 1];
+        const stat = safeStat(path.join(runsDir, latest));
+        if (!stat) continue;
+        const age = now - stat.mtimeMs;
+        if (age < STALE_MS) {
+          // Check last event type to determine if still running
+          let isRunning = true;
+          try {
+            const MAX_RUN = 512 * 1024; // 512 KiB
+            if (stat.size <= MAX_RUN) {
+              const raw = fs.readFileSync(path.join(runsDir, latest), 'utf-8');
+              const lines = raw.trim().split('\n').filter(Boolean);
+              if (lines.length) {
+                const lastEv = JSON.parse(lines[lines.length - 1]);
+                if (lastEv.type === 'run:complete' || lastEv.type === 'org:complete') isRunning = false;
+              }
+            }
+          } catch { /* treat as running */ }
+          active.push({ name: orgName, runId: latest.replace('.jsonl', ''), ageMs: age, running: isRunning });
+        }
+      } catch { /* skip */ }
+    }
+  } catch { /* ignore */ }
+  return { count: active.length, orgs: active };
+}
+
 // Monograph knowledge graph stats
 // Sources, in priority order:
 //   1. .monomind/graph/stats.json     — explicit cached stats
@@ -1025,9 +1079,24 @@ function generateStatusline() {
     parts.push(`${col}${icon} ${x.bold}${activeAgent.name}${x.reset}`);
   }
 
-  // Intelligence
+  // Active org runs — high signal for users tracking autonomous orgs
+  const orgStatus = getActiveOrgs();
+  if (orgStatus.count > 0) {
+    const runningOrgs = orgStatus.orgs.filter(o => o.running);
+    const doneOrgs = orgStatus.orgs.filter(o => !o.running);
+    if (runningOrgs.length > 0) {
+      const names = runningOrgs.slice(0, 2).map(o => o.name).join(', ');
+      parts.push(`${x.green}🏛 ${x.bold}${names}${x.reset}${runningOrgs.length > 2 ? ` +${runningOrgs.length - 2}` : ''}`);
+    } else if (doneOrgs.length > 0) {
+      parts.push(`${x.slate}🏛 ${doneOrgs[0].name} done${x.reset}`);
+    }
+  }
+
+  // Intelligence — only show when non-trivial (>15%) to avoid misleading 0%/noise
   const ic = pctColor(system.intelligencePct);
-  parts.push(`${ic}💡 ${system.intelligencePct}%${x.reset}`);
+  if (system.intelligencePct > 15) {
+    parts.push(`${ic}💡 ${system.intelligencePct}%${x.reset}`);
+  }
 
   // Knowledge chunks (Task 28) — show when populated
   if (knowledge.chunks > 0) {
@@ -1190,6 +1259,20 @@ function generateDashboard() {
     : `${x.slate}✨ no pending HIL${x.reset}`;
 
   lines.push(`${x.teal}🧠  CONTEXT${x.reset}  ${graphStr}   ${DIV}   ${hilStr}`);
+
+  // ── Row 3: Active org runs ───────────────────────────────────
+  const orgStatus = getActiveOrgs();
+  if (orgStatus.count > 0) {
+    lines.push(SEP);
+    const orgParts = orgStatus.orgs.slice(0, 5).map(o => {
+      const ageMin = Math.floor(o.ageMs / 60000);
+      const ageFmt = ageMin < 1 ? 'just now' : ageMin < 60 ? `${ageMin}m ago` : `${Math.floor(ageMin / 60)}h ago`;
+      const col = o.running ? x.green : x.slate;
+      const dot2 = o.running ? `${x.green}●${x.reset}` : `${x.slate}◌${x.reset}`;
+      return `${dot2} ${col}${x.bold}${o.name}${x.reset}  ${x.dim}${ageFmt}${x.reset}`;
+    });
+    lines.push(`${x.purple}🏛  ORGS${x.reset}     ${orgParts.join(`   ${DIV}   `)}`);
+  }
 
   return lines.join('\n');
 }
