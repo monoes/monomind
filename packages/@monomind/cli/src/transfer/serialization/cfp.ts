@@ -171,7 +171,7 @@ export function validateCFP(cfp: CFPFormat): { valid: boolean; errors: string[] 
   const errors: string[] = [];
 
   if (cfp.magic !== 'CFP1') {
-    errors.push('Invalid magic bytes');
+    errors.push(`Invalid magic bytes: ${cfp.magic}`);
   }
 
   if (!cfp.version) {
