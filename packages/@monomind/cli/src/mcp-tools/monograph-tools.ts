@@ -1223,7 +1223,12 @@ const monographWikiBuildTool: MCPTool = {
         force: input.force as boolean | undefined,
         model: input.model as string | undefined,
       });
-      return text(JSON.stringify(result, null, 2));
+      if (result.error) return text(`Wiki build failed: ${result.error}`);
+      const parts: string[] = [];
+      if (result.generated != null) parts.push(`${result.generated} page(s) generated`);
+      if (result.skipped != null && result.skipped > 0) parts.push(`${result.skipped} skipped (already exist)`);
+      if (result.errors != null && result.errors > 0) parts.push(`${result.errors} error(s)`);
+      return text(`Wiki build complete: ${parts.join(', ') || 'nothing to do'}. Use monograph_wiki to read the pages.`);
     } finally { closeDb(db); }
   },
 };
@@ -1271,7 +1276,13 @@ const monographToolMapTool: MCPTool = {
     try {
       const results = getToolMap(db, { tool: input.tool as string | undefined });
       if (results.length === 0) return text('No tools found. Run monograph_build first.');
-      return text(JSON.stringify(results, null, 2));
+      const lines = results.map(r => {
+        const loc = r.handlerFile
+          ? (r.handlerLine != null ? `${r.handlerFile}:${r.handlerLine}` : r.handlerFile)
+          : (r.filePath ?? '');
+        return `${r.name}${r.handlerName ? ` → ${r.handlerName}` : ''}${loc ? `  (${loc})` : ''}`;
+      });
+      return text(`Tools (${results.length}):\n${lines.join('\n')}`);
     } finally { closeDb(db); }
   },
 };
