@@ -73,16 +73,41 @@ export const daaTools = [
         },
         handler: async (input) => {
             const store = loadDAAStore();
-            const id = input.id;
+            // Cap all string inputs before storing to disk and before they flow into
+            // bridgeStoreEntry → generateEmbedding (hash fallback is O(n)).
+            const MAX_DAA_ID_LEN = 256;
+            const MAX_DAA_NAME_LEN = 512;
+            const MAX_DAA_TYPE_LEN = 128;
+            const MAX_DAA_CAPABILITIES = 50;
+            const MAX_DAA_CAPABILITY_LEN = 128;
+            const MAX_DAA_AGENTS = 10_000;
+            const rawId = input.id;
+            const id = typeof rawId === 'string' && rawId.length > MAX_DAA_ID_LEN
+                ? rawId.slice(0, MAX_DAA_ID_LEN) : rawId;
+            if (Object.keys(store.agents ?? {}).length >= MAX_DAA_AGENTS && !Object.hasOwn(store.agents, id)) {
+                return { success: false, error: `Agent store full (max ${MAX_DAA_AGENTS})` };
+            }
+            const rawName = input.name || `DAA-${id}`;
+            const agentName = typeof rawName === 'string' && rawName.length > MAX_DAA_NAME_LEN
+                ? rawName.slice(0, MAX_DAA_NAME_LEN) : rawName;
+            const rawType = input.type || 'autonomous';
+            const agentType = typeof rawType === 'string' && rawType.length > MAX_DAA_TYPE_LEN
+                ? rawType.slice(0, MAX_DAA_TYPE_LEN) : rawType;
+            const rawCaps = input.capabilities || ['reasoning', 'learning'];
+            const capabilities = Array.isArray(rawCaps)
+                ? rawCaps
+                    .slice(0, MAX_DAA_CAPABILITIES)
+                    .map(c => typeof c === 'string' && c.length > MAX_DAA_CAPABILITY_LEN ? c.slice(0, MAX_DAA_CAPABILITY_LEN) : c)
+                : ['reasoning', 'learning'];
             const agent = {
                 id,
-                name: input.name || `DAA-${id}`,
-                type: input.type || 'autonomous',
+                name: agentName,
+                type: agentType,
                 status: 'active',
                 cognitivePattern: input.cognitivePattern || 'adaptive',
                 learningRate: input.learningRate || 0.01,
                 memory: input.enableMemory ?? true,
-                capabilities: input.capabilities || ['reasoning', 'learning'],
+                capabilities,
                 metrics: {
                     tasksCompleted: 0,
                     successRate: 1.0,
@@ -202,12 +227,19 @@ export const daaTools = [
                 ['__proto__', 'constructor', 'prototype'].includes(id)) {
                 return { success: false, error: 'Invalid workflow id' };
             }
+            const MAX_DAA_WF_NAME_LEN = 512;
+            const MAX_DAA_WF_STEPS = 500;
             const store = loadDAAStore();
+            const rawWfName = input.name;
+            const wfName = typeof rawWfName === 'string' && rawWfName.length > MAX_DAA_WF_NAME_LEN
+                ? rawWfName.slice(0, MAX_DAA_WF_NAME_LEN) : rawWfName;
+            const rawSteps = input.steps || [];
+            const cappedSteps = Array.isArray(rawSteps) ? rawSteps.slice(0, MAX_DAA_WF_STEPS) : [];
             const workflow = {
                 id,
-                name: input.name,
+                name: wfName,
                 status: 'pending',
-                steps: (input.steps || []).map((s, i) => ({
+                steps: cappedSteps.map((s, i) => ({
                     name: typeof s === 'string' ? s : `Step ${i + 1}`,
                     status: 'pending',
                 })),
