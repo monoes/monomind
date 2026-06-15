@@ -322,7 +322,9 @@ const handlers = {
         }
         var cachedHint = hCtx._preSearchCache[cacheKey];
         if (cachedHint) {
-          console.log('[MONOGRAPH_HINT] ' + grepPattern + ' found in graph: ' + cachedHint + ' (consider using monograph_context instead of Grep)');
+          // Use the correct MCP tool name — monograph_context does not exist;
+          // the callable tool is mcp__monomind__monograph_query
+          console.log('[MONOGRAPH_HINT] ' + grepPattern + ' found at ' + cachedHint + ' — use mcp__monomind__monograph_query instead of Grep for better results');
         }
       }
     } catch (e) { /* non-fatal — telemetry always proceeds */ }
