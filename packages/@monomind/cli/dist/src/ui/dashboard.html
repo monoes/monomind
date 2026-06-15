@@ -44,6 +44,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .nav-item .lbl { font-size: 13px; }
 .nav-item .bdg { margin-left: auto; font-size: 10px; background: var(--surface-hi); color: var(--text-lo); border-radius: 8px; padding: 1px 6px; min-width: 18px; text-align: center; }
 .nav-item.active .bdg { background: var(--accent-dim); color: var(--accent); }
+.nav-item .nav-key { margin-left: auto; font-size: 10px; font-family: var(--mono); background: var(--surface-hi); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; color: var(--text-xs); opacity: 0; transition: opacity 0.15s; }
+.nav-item:hover .nav-key { opacity: 1; }
 /* project context section */
 #nav-project-ctx { display: none; }
 #nav-project-ctx.visible { display: block; }
@@ -1340,7 +1342,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
   <div id="sb-nav">
     <div class="nav-sect">
       <div class="nav-item active" data-view="now">
-        <span class="ico">◉</span><span class="lbl">Now</span>
+        <span class="ico">◉</span><span class="lbl">Now</span><span class="nav-key">1</span>
       </div>
       <div class="nav-item" data-view="projects">
         <span class="ico">⊞</span><span class="lbl">Projects</span>
@@ -1356,23 +1358,23 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       <div class="nav-proj-items">
         <div class="nav-item" data-view="sessions">
           <span class="ico">◫</span><span class="lbl">Sessions</span>
-          <span class="bdg" id="bdg-sessions">—</span>
+          <span class="bdg" id="bdg-sessions">—</span><span class="nav-key">2</span>
         </div>
         <div class="nav-item" data-view="loops">
           <span class="ico">↺</span><span class="lbl">Loops</span>
-          <span class="bdg" id="bdg-loops">—</span>
+          <span class="bdg" id="bdg-loops">—</span><span class="nav-key">4</span>
         </div>
         <div class="nav-item" data-view="tokens">
-          <span class="ico">$</span><span class="lbl">Tokens</span>
+          <span class="ico">$</span><span class="lbl">Tokens</span><span class="nav-key">5</span>
         </div>
         <div class="nav-item" data-view="memory">
-          <span class="ico">◈</span><span class="lbl">Memory</span>
+          <span class="ico">◈</span><span class="lbl">Memory</span><span class="nav-key">6</span>
         </div>
         <div class="nav-item" data-view="orgs">
-          <span class="ico">⬡</span><span class="lbl">Orgs</span>
+          <span class="ico">⬡</span><span class="lbl">Orgs</span><span class="nav-key">7</span>
         </div>
         <div class="nav-item" data-view="monograph">
-          <span class="ico">⬡</span><span class="lbl">Monograph</span>
+          <span class="ico">⬡</span><span class="lbl">Monograph</span><span class="nav-key">8</span>
         </div>
         <div class="nav-item" data-view="chat">
           <span class="ico">⌘</span><span class="lbl">Agent Chat</span>
@@ -1382,7 +1384,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <div class="nav-no-proj" id="nav-no-proj-hint">Select a project above</div>
     <div class="nav-sect" style="margin-top:auto;padding-top:8px;">
       <div class="nav-item" data-view="global">
-        <span class="ico">⊕</span><span class="lbl">Global Feed</span>
+        <span class="ico">⊕</span><span class="lbl">Global Feed</span><span class="nav-key">9</span>
       </div>
       <div class="nav-item" data-view="global-loops" title="Global Loops — loops across all projects">
         <span class="ico">↺</span><span class="lbl">Global Loops</span>
@@ -2194,8 +2196,19 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <div class="sk-row"><span class="sk-desc">Toggle ambient mode</span><span class="sk-keys"><kbd>A</kbd></span></div>
     <div class="sk-section">Global</div>
     <div class="sk-row"><span class="sk-desc">Command palette</span><span class="sk-keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Open Mastermind</span><span class="sk-keys"><kbd>M</kbd></span></div>
     <div class="sk-row"><span class="sk-desc">Close / dismiss</span><span class="sk-keys"><kbd>Esc</kbd></span></div>
     <div class="sk-row"><span class="sk-desc">This help</span><span class="sk-keys"><kbd>?</kbd></span></div>
+    <div class="sk-section">View navigation</div>
+    <div class="sk-row"><span class="sk-desc">Now (live feed)</span><span class="sk-keys"><kbd>1</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Sessions</span><span class="sk-keys"><kbd>2</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Projects</span><span class="sk-keys"><kbd>3</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Loops</span><span class="sk-keys"><kbd>4</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Tokens</span><span class="sk-keys"><kbd>5</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Memory</span><span class="sk-keys"><kbd>6</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Orgs</span><span class="sk-keys"><kbd>7</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Monograph</span><span class="sk-keys"><kbd>8</kbd></span></div>
+    <div class="sk-row"><span class="sk-desc">Global feed</span><span class="sk-keys"><kbd>9</kbd></span></div>
   </div>
 </div>
 
