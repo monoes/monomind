@@ -979,7 +979,16 @@ const monographRouteMapTool: MCPTool = {
         method: input.method as string | undefined,
         includeMiddleware: input.includeMiddleware as boolean | undefined,
       });
-      return text(JSON.stringify(result, null, 2));
+      if (result.routes.length === 0) return text('No routes found. Run monograph_build first or adjust your filters.');
+      const lines = [`Routes (${result.total} total):`];
+      for (const r of result.routes) {
+        const loc = r.handlerFile
+          ? (r.handlerLine != null ? `${r.handlerFile}:${r.handlerLine}` : r.handlerFile)
+          : '';
+        const mw = r.middlewareChain.length > 0 ? `  middleware: ${r.middlewareChain.join(' → ')}` : '';
+        lines.push(`  ${r.method} ${r.path}${r.handlerName ? ` → ${r.handlerName}` : ''}${loc ? `  (${loc})` : ''}${mw}`);
+      }
+      return text(lines.join('\n'));
     } finally { closeDb(db); }
   },
 };
@@ -1006,7 +1015,31 @@ const monographApiImpactTool: MCPTool = {
         routePath: input.routePath as string,
         method: input.method as string | undefined,
       });
-      return text(JSON.stringify(result, null, 2));
+      if (!result.route) return text(`Route not found: ${input.routePath as string}. Run monograph_build or check the path.`);
+      const riskLabel = result.riskScore >= 0.7 ? 'HIGH' : result.riskScore >= 0.4 ? 'MEDIUM' : 'LOW';
+      const lines: string[] = [
+        `Route: ${result.route.method} ${result.route.path}  risk=${riskLabel} (${result.riskScore.toFixed(2)})`,
+      ];
+      if (result.handler) {
+        const hLoc = result.handler.filePath
+          ? (result.handler.startLine != null ? `${result.handler.filePath}:${result.handler.startLine}` : result.handler.filePath)
+          : '';
+        lines.push(`Handler: ${result.handler.name}${hLoc ? `  ${hLoc}` : ''}`);
+      }
+      if (result.callees.length > 0) {
+        lines.push(`Callees (${result.callees.length}):`)
+        for (const c of result.callees.slice(0, 15)) {
+          const loc = c.node.filePath
+            ? (c.node.startLine != null ? `${c.node.filePath}:${c.node.startLine}` : c.node.filePath)
+            : '';
+          lines.push(`  ${'  '.repeat(c.depth)}→ ${c.node.name} [${c.node.label}]${loc ? `  ${loc}` : ''}`);
+        }
+        if (result.callees.length > 15) lines.push(`  … ${result.callees.length - 15} more`);
+      }
+      if (result.affectedProcesses.length > 0) {
+        lines.push(`Affected processes: ${result.affectedProcesses.map(p => p.name).join(', ')}`);
+      }
+      return text(lines.join('\n'));
     } finally { closeDb(db); }
   },
 };
