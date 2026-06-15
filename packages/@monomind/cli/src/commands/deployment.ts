@@ -52,9 +52,14 @@ function emptyState(): DeploymentState {
   return { environments: {}, history: [], activeDeployment: undefined };
 }
 
+const MAX_DEPLOYMENT_STATE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 function loadDeploymentState(cwd: string): DeploymentState {
   const filePath = getStatePath(cwd);
   if (!fs.existsSync(filePath)) {
+    return emptyState();
+  }
+  if (fs.statSync(filePath).size > MAX_DEPLOYMENT_STATE_BYTES) {
     return emptyState();
   }
   try {
@@ -97,6 +102,9 @@ function generateId(): string {
 function readProjectVersion(cwd: string): string | null {
   const pkgPath = path.join(cwd, 'package.json');
   if (!fs.existsSync(pkgPath)) {
+    return null;
+  }
+  if (fs.statSync(pkgPath).size > 1024 * 1024) {
     return null;
   }
   try {
