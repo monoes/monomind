@@ -2062,6 +2062,7 @@ async function handleImportFile(e) {
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────
+fetch('/api/status').then(r => r.json()).then(d => { if (d.dir) window._orgDir = d.dir; }).catch(() => {});
 connectSSE();
 loadOrgs();
 setInterval(loadOrgs, 8000);
