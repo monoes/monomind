@@ -2016,7 +2016,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const q = qs.get('q') || '';
+        const q = (qs.get('q') || '').trim().slice(0, 4096);
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!q) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?q= parameter' })); return; }
@@ -2053,7 +2053,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const nodeQ = qs.get('node') || '';
+        const nodeQ = (qs.get('node') || '').trim().slice(0, 4096);
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!nodeQ) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?node= parameter' })); return; }
@@ -2095,8 +2095,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const from = qs.get('from') || '';
-        const to = qs.get('to') || '';
+        const from = (qs.get('from') || '').trim().slice(0, 4096);
+        const to = (qs.get('to') || '').trim().slice(0, 4096);
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!from || !to) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?from= and ?to= parameters' })); return; }
@@ -2264,7 +2264,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               ok(`nodes: ${n}\nedges: ${e}`);
             } else if (tool === 'monograph_cypher') {
               // Translate basic MATCH (n:Label) queries to SQL
-              const q = (input.query || '').trim();
+              const q = (String(input.query || '')).trim().slice(0, 4096);
               const labelMatch = q.match(/MATCH\s+\(n:(\w+)\)/i);
               if (labelMatch) {
                 const label = labelMatch[1];
@@ -2355,7 +2355,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               }
               ok(`Impact of "${hits[0].name}" (${dir3}, depth=${depth}):\n` + (results.join('\n') || '  (no dependencies found)'));
             } else if (tool === 'monograph_context') {
-              const id = input.id || '';
+              const id = String(input.id || '').slice(0, 4096);
               const hits = ftsSearch(db2, id, 5);
               if (!hits.length) { ok(`Node not found: ${id}`); return; }
               const node = hits[0];
@@ -2363,7 +2363,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               const inEdges = db2.prepare('SELECT e.relation, n.name FROM edges e JOIN nodes n ON n.id = e.source_id WHERE e.target_id = ? LIMIT 20').all(node.id);
               ok(`# ${node.name} (${node.label})\nFile: ${node.filePath || '?'}\n\n**Imports / depends on (${outEdges.length}):**\n${outEdges.map(e => `  → ${e.name} [${e.relation}]`).join('\n') || '  (none)'}\n\n**Used by / depended on by (${inEdges.length}):**\n${inEdges.map(e => `  ← ${e.name} [${e.relation}]`).join('\n') || '  (none)'}`);
             } else if (tool === 'monograph_query' || tool === 'monograph_suggest') {
-              const q2 = input.query || input.task || '';
+              const q2 = String(input.query || input.task || '').slice(0, 4096);
               const hits2 = ftsSearch(db2, q2, 20);
               ok(hits2.map(h => `${h.name} (${h.label}) — ${h.filePath || '?'}:${h.startLine || '?'}`).join('\n') || 'No results');
 
