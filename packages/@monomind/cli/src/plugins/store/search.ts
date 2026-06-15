@@ -21,7 +21,7 @@ export function searchPlugins(
 
   // Text search (name, displayName, description, tags)
   if (options.query) {
-    const query = options.query.toLowerCase();
+    const query = options.query.slice(0, 256).toLowerCase();
     plugins = plugins.filter(p =>
       p.name.toLowerCase().includes(query) ||
       p.displayName.toLowerCase().includes(query) ||
@@ -125,8 +125,8 @@ export function searchPlugins(
 
   // Pagination
   const total = plugins.length;
-  const limit = options.limit || 20;
-  const offset = options.offset || 0;
+  const limit = Math.min(Math.max(1, options.limit || 20), 200);
+  const offset = Math.max(0, Math.min(options.offset || 0, 100_000));
   const page = Math.floor(offset / limit) + 1;
 
   plugins = plugins.slice(offset, offset + limit);
@@ -149,7 +149,8 @@ export function getPluginSearchSuggestions(
   partialQuery: string,
   limit: number = 10
 ): string[] {
-  const query = partialQuery.toLowerCase();
+  const query = partialQuery.slice(0, 256).toLowerCase();
+  limit = Math.min(Math.max(1, limit), 100);
   const suggestions = new Set<string>();
 
   // Search in plugin names
