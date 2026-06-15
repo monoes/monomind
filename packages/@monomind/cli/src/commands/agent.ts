@@ -24,7 +24,7 @@ function updateSwarmActivityMetrics(agentCountDelta: number): void {
       swarm: { active: false, agent_count: 0, coordination_active: false },
     };
 
-    if (fs.existsSync(activityPath)) {
+    if (fs.existsSync(activityPath) && fs.statSync(activityPath).size <= 10 * 1024 * 1024) {
       data = JSON.parse(fs.readFileSync(activityPath, 'utf-8'));
     } else {
       fs.mkdirSync(metricsDir, { recursive: true });
@@ -532,7 +532,9 @@ const metricsCommand: Command = {
         const files = readdirSync(agentsDir).filter(f => f.endsWith('.json'));
         for (const file of files) {
           try {
-            const data = JSON.parse(readFileSync(join(agentsDir, file), 'utf-8'));
+            const agentFilePath = join(agentsDir, file);
+            if (statSync(agentFilePath).size > 512 * 1024) continue; // skip files > 512 KB
+            const data = JSON.parse(readFileSync(agentFilePath, 'utf-8'));
             totalAgents++;
             const agType = data.type || 'unknown';
             if (!typeCounts[agType]) typeCounts[agType] = { count: 0, tasks: 0, success: 0 };
@@ -550,7 +552,7 @@ const metricsCommand: Command = {
 
     // Read swarm activity for additional state
     const activityFile = join(swarmDir, 'swarm-activity.json');
-    if (existsSync(activityFile)) {
+    if (existsSync(activityFile) && statSync(activityFile).size <= 10 * 1024 * 1024) {
       try {
         const activity = JSON.parse(readFileSync(activityFile, 'utf-8'));
         if (activity.totalAgents && totalAgents === 0) totalAgents = activity.totalAgents;
