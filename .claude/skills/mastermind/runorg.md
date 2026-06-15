@@ -269,11 +269,8 @@ doing_col=$(jq -r '.doing_col_id // empty' "$orgFile")
 done_col=$(jq -r '.done_col_id // empty' "$orgFile")
 runId="run-$(date -u +%Y%m%dT%H%M%S)"
 
-# Validate board IDs
-[ -z "$board_id" ]  && { echo "ERROR: org config missing board_id — re-run /mastermind:createorg --name ${orgName} to rebuild the org."; exit 1; }
-[ -z "$todo_col" ]  && { echo "ERROR: org config missing todo_col_id."; exit 1; }
-[ -z "$doing_col" ] && { echo "ERROR: org config missing doing_col_id."; exit 1; }
-[ -z "$done_col" ]  && { echo "ERROR: org config missing done_col_id."; exit 1; }
+# Validate board IDs (warning only — boss can still scan/fix code without a board)
+[ -z "$board_id" ] && echo "WARN: board_id missing from org config — task board commands will be skipped by boss"
 
 # Remove any stale stop file (MUST happen before boss spawns)
 mkdir -p .monomind/orgs/.stops

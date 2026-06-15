@@ -35,6 +35,10 @@ function ensureMemoryDir() {
 const MAX_KEY_LENGTH = 1024;
 const MAX_VALUE_SIZE = 1024 * 1024; // 1MB
 const MAX_QUERY_LENGTH = 4096;
+const MAX_NAMESPACE_LENGTH = 256;
+const MAX_AGENT_ID_LENGTH = 256;
+const MAX_TAGS_COUNT = 50;
+const MAX_TAG_LENGTH = 256;
 function validateMemoryInput(key, value, query) {
     if (key && key.length > MAX_KEY_LENGTH) {
         throw new Error(`Key exceeds maximum length of ${MAX_KEY_LENGTH} characters`);
@@ -166,10 +170,14 @@ export const memoryTools = [
             await ensureInitialized();
             const { storeEntry } = await getMemoryFunctions();
             const key = input.key;
-            const namespace = input.namespace || 'default';
+            const rawNamespace = input.namespace || 'default';
+            const namespace = typeof rawNamespace === 'string' && rawNamespace.length > MAX_NAMESPACE_LENGTH
+                ? rawNamespace.slice(0, MAX_NAMESPACE_LENGTH) : rawNamespace;
             const rawValue = input.value;
             const value = typeof rawValue === 'string' ? rawValue : (rawValue !== undefined ? JSON.stringify(rawValue) : '');
-            const tags = input.tags || [];
+            const rawTags = input.tags || [];
+            // Cap tags count and individual tag length to prevent store inflation
+            const tags = rawTags.slice(0, MAX_TAGS_COUNT).map(t => typeof t === 'string' && t.length > MAX_TAG_LENGTH ? t.slice(0, MAX_TAG_LENGTH) : t);
             const ttl = input.ttl;
             const upsert = input.upsert || false;
             if (!value) {
@@ -233,8 +241,12 @@ export const memoryTools = [
             await ensureInitialized();
             const { getEntry } = await getMemoryFunctions();
             const key = input.key;
-            const namespace = input.namespace || 'default';
-            const agentId = input.agentId;
+            const rawNs = input.namespace || 'default';
+            const namespace = typeof rawNs === 'string' && rawNs.length > MAX_NAMESPACE_LENGTH
+                ? rawNs.slice(0, MAX_NAMESPACE_LENGTH) : rawNs;
+            const rawAgentId = input.agentId;
+            const agentId = typeof rawAgentId === 'string' && rawAgentId.length > MAX_AGENT_ID_LENGTH
+                ? rawAgentId.slice(0, MAX_AGENT_ID_LENGTH) : rawAgentId;
             validateMemoryInput(key);
             try {
                 const result = await getEntry({ key, namespace, agentId });
@@ -296,7 +308,9 @@ export const memoryTools = [
             await ensureInitialized();
             const { searchEntries } = await getMemoryFunctions();
             const query = input.query;
-            const namespace = input.namespace || 'default';
+            const rawSearchNs = input.namespace || 'default';
+            const namespace = typeof rawSearchNs === 'string' && rawSearchNs.length > MAX_NAMESPACE_LENGTH
+                ? rawSearchNs.slice(0, MAX_NAMESPACE_LENGTH) : rawSearchNs;
             const limit = Math.min(Math.max(input.limit || 10, 1), 1000);
             const threshold = input.threshold || 0.3;
             validateMemoryInput(undefined, undefined, query);
@@ -359,7 +373,9 @@ export const memoryTools = [
             await ensureInitialized();
             const { deleteEntry } = await getMemoryFunctions();
             const key = input.key;
-            const namespace = input.namespace || 'default';
+            const rawDelNs = input.namespace || 'default';
+            const namespace = typeof rawDelNs === 'string' && rawDelNs.length > MAX_NAMESPACE_LENGTH
+                ? rawDelNs.slice(0, MAX_NAMESPACE_LENGTH) : rawDelNs;
             validateMemoryInput(key);
             try {
                 const result = await deleteEntry({ key, namespace });
@@ -398,7 +414,9 @@ export const memoryTools = [
         handler: async (input) => {
             await ensureInitialized();
             const { listEntries } = await getMemoryFunctions();
-            const namespace = input.namespace;
+            const rawListNs = input.namespace;
+            const namespace = typeof rawListNs === 'string' && rawListNs.length > MAX_NAMESPACE_LENGTH
+                ? rawListNs.slice(0, MAX_NAMESPACE_LENGTH) : rawListNs;
             const limit = Math.min(Math.max(input.limit || 50, 1), 1000);
             const offset = input.offset || 0;
             try {

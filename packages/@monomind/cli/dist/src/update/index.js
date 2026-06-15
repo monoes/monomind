@@ -27,8 +27,10 @@ const semver = {
     lte: (a, b) => {
         const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
         const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
-        if (aMaj !== bMaj) return aMaj < bMaj;
-        if (aMin !== bMin) return aMin < bMin;
+        if (aMaj !== bMaj)
+            return aMaj < bMaj;
+        if (aMin !== bMin)
+            return aMin < bMin;
         return aPat <= bPat;
     },
 };
