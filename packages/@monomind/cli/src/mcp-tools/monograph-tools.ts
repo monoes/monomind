@@ -28,6 +28,7 @@ const monographBuildTool: MCPTool = {
       path: { type: 'string', description: 'Absolute path to the repo (defaults to project cwd)' },
       codeOnly: { type: 'boolean', description: 'Only index code files (skip docs, config)' },
       force: { type: 'boolean', description: 'Force full rebuild even if index is fresh' },
+      incremental: { type: 'boolean', description: 'Skip rebuild when index already matches HEAD (default false). Use when you want a no-op if the graph is fresh.' },
     },
   },
   handler: async (input) => {
@@ -37,9 +38,12 @@ const monographBuildTool: MCPTool = {
     await buildAsync(repoPath, {
       codeOnly: (input.codeOnly as boolean | undefined) ?? false,
       force: (input.force as boolean | undefined) ?? false,
+      incremental: (input.incremental as boolean | undefined) ?? false,
       onProgress: (p) => { progressLog += `[${p.phase}] ${p.message ?? ''}\n`; },
     });
-    return text(`Monograph build complete for ${repoPath}\n${progressLog}`);
+    const skipped = progressLog.includes('skipping rebuild');
+    const summary = skipped ? `Index was already fresh — no rebuild needed for ${repoPath}` : `Monograph build complete for ${repoPath}`;
+    return text(`${summary}\n${progressLog}`);
   },
 };
 
