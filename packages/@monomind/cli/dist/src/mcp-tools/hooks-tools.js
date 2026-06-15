@@ -1318,7 +1318,13 @@ export const hooksExplain = {
         required: ['task'],
     },
     handler: async (params) => {
-        const task = params.task;
+        // Cap task: forwarded to suggestAgentsForTask (O(n) keyword loop + extractKeywords),
+        // .toLowerCase() (O(n)), and reflected verbatim in the response.
+        const MAX_EXPLAIN_TASK_LEN = 16 * 1024;
+        const rawExplainTask = params.task;
+        const task = typeof rawExplainTask === 'string' && rawExplainTask.length > MAX_EXPLAIN_TASK_LEN
+            ? rawExplainTask.slice(0, MAX_EXPLAIN_TASK_LEN)
+            : rawExplainTask;
         const suggestion = suggestAgentsForTask(task);
         const taskLower = task.toLowerCase();
         // Determine matched patterns
