@@ -47,7 +47,7 @@ function loadClaimsConfig(): { config: ClaimsConfig; path: string } {
   const configPaths = getClaimsConfigPaths();
 
   for (const configPath of configPaths) {
-    if (fs.existsSync(configPath)) {
+    if (fs.existsSync(configPath) && fs.statSync(configPath).size <= 1024 * 1024) {
       const content = fs.readFileSync(configPath, 'utf-8');
       return { config: safeParseJson(content) as ClaimsConfig, path: configPath };
     }
@@ -223,7 +223,7 @@ const checkCommand: Command = {
       };
 
       for (const configPath of claimsConfigPaths) {
-        if (fs.existsSync(configPath)) {
+        if (fs.existsSync(configPath) && fs.statSync(configPath).size <= 1024 * 1024) {
           const content = fs.readFileSync(configPath, 'utf-8');
           claimsConfig = { ...claimsConfig, ...safeParseJson(content) };
           policySource = configPath;
