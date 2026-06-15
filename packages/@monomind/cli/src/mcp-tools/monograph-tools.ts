@@ -1124,7 +1124,15 @@ const monographGroupListTool: MCPTool = {
     const { getGroupList } = await import('@monoes/monograph');
     const configPath = (input.configPath as string | undefined) ?? join(getProjectCwd(), 'group.yaml');
     const result = await getGroupList(configPath);
-    return text(JSON.stringify(result, null, 2));
+    if (!result.repos || result.repos.length === 0) {
+      return text(`Group: ${result.group?.name ?? 'unknown'}\nNo repos configured. Check ${configPath}`);
+    }
+    const lines = [`Group: ${result.group?.name ?? 'unknown'}  (${result.repos.length} repos)`];
+    for (const r of result.repos) {
+      const indexed = r.indexedAt ? r.indexedAt.slice(0, 10) : 'never';
+      lines.push(`  ${r.name}  nodes=${r.nodeCount}  indexed=${indexed}  ${r.path}`);
+    }
+    return text(lines.join('\n'));
   },
 };
 
@@ -1180,7 +1188,14 @@ const monographWikiTool: MCPTool = {
     const db = openDb(getDbPath());
     try {
       const result = getWikiToolResult(db, { communityId: input.communityId as string | undefined });
-      return text(JSON.stringify(result, null, 2));
+      if (result.pages.length === 0) {
+        return text('No wiki pages found. Run monograph_wiki_build to generate community wiki pages.');
+      }
+      // Return pages as readable prose — content is already LLM-generated markdown.
+      const sections = result.pages.map(p =>
+        `--- Community ${p.communityId} ---\n${p.content}`
+      );
+      return text(sections.join('\n\n'));
     } finally { closeDb(db); }
   },
 };
