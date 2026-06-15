@@ -409,12 +409,22 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const cwd = projectDir || process.cwd();
         const name = gitExec('git config user.name', { cwd, encoding: 'utf8' }).trim();
         const email = gitExec('git config user.email', { cwd, encoding: 'utf8' }).trim();
+        let remoteUrl = '';
+        try { remoteUrl = gitExec('git remote get-url origin', { cwd, encoding: 'utf8' }).trim(); } catch {}
+        // Normalise SSH remote to HTTPS URL for browser linking
+        if (remoteUrl.startsWith('git@')) {
+          remoteUrl = remoteUrl.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '');
+        } else if (remoteUrl.endsWith('.git')) {
+          remoteUrl = remoteUrl.slice(0, -4);
+        }
+        let branch = '';
+        try { branch = gitExec('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf8' }).trim(); } catch {}
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ name, email, cwd }));
+        res.end(JSON.stringify({ name, email, cwd, remoteUrl, branch }));
       } catch (_) {
         const cwd2 = projectDir || process.cwd();
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ name: '', email: '', cwd: cwd2 }));
+        res.end(JSON.stringify({ name: '', email: '', cwd: cwd2, remoteUrl: '', branch: '' }));
       }
       return;
     }
@@ -624,6 +634,69 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ results, q }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------------- GET /api/recent-events
+    if (req.method === 'GET' && url === '/api/recent-events') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir || process.cwd();
+        const limit = Math.min(parseInt(qs.get('limit') || '50', 10), 200);
+        const d = path.resolve(dir || process.cwd());
+        const slug = d.replace(/\//g, '-');
+        const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
+        let sessionFiles = [];
+        try {
+          sessionFiles = fs.readdirSync(projectClaudeDir)
+            .filter(f => f.endsWith('.jsonl'))
+            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
+            .filter(Boolean)
+            .sort((a, b) => b.mtime - a.mtime)
+            .slice(0, 5); // check last 5 sessions
+        } catch {}
+
+        const events = [];
+        const HOOK_RE = /^<(local-command-|command-name>|command-message>)/;
+        for (const { f } of sessionFiles) {
+          const fp = path.join(projectClaudeDir, f);
+          const sessId = f.replace('.jsonl', '');
+          try {
+            const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean).slice(-200);
+            for (const line of lines) {
+              let e; try { e = JSON.parse(line); } catch { continue; }
+              if (e.type === 'assistant') {
+                const content = e.message?.content || [];
+                for (const block of content) {
+                  if (block?.type === 'tool_use') {
+                    events.push({ kind: 'tool', ts: e.timestamp, tool: block.name, session: sessId });
+                  }
+                }
+              } else if (e.type === 'user') {
+                const content = e.message?.content || [];
+                for (const block of content) {
+                  if (block?.type === 'text' && block.text?.trim() && !HOOK_RE.test(block.text.trim())) {
+                    events.push({ kind: 'user', ts: e.timestamp, text: block.text.slice(0, 120), session: sessId });
+                  }
+                }
+              }
+            }
+          } catch {}
+        }
+
+        // sort by ts desc, take limit
+        events.sort((a, b) => {
+          const ta = a.ts ? new Date(a.ts).getTime() : 0;
+          const tb = b.ts ? new Date(b.ts).getTime() : 0;
+          return tb - ta;
+        });
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ events: events.slice(0, limit) }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -4634,6 +4707,75 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ loops }));
       } catch(_) { res.writeHead(500); res.end('{"loops":[]}'); }
+      return;
+    }
+
+    // GET /api/status — live system snapshot for dashboard polling
+    if (req.method === 'GET' && url === '/api/status') {
+      try {
+        const root = projectDir || process.cwd();
+        // Active org runs: { orgName -> runId }
+        const orgRuns = {};
+        activeOrgRuns.forEach((runId, org) => { orgRuns[org] = runId; });
+        // Recent events (last 10)
+        let recentEvents = [];
+        try {
+          const evPath = path.join(root, 'data', 'mastermind-events.jsonl');
+          const lines = fs.readFileSync(evPath, 'utf8').split('\n').filter(l => l.trim()).slice(-10);
+          recentEvents = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
+        } catch(_) {}
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({
+          ts: Date.now(),
+          uptime: process.uptime(),
+          sseClients: mmSseClients.size,
+          activeOrgs: Object.keys(orgRuns).length,
+          orgRuns,
+          recentEvents,
+        }));
+      } catch(err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // GET /api/orgs/:name/runs/current — events from the active run file for an org
+    if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/runs\/current$/.test(url)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        const root = projectDir || process.cwd();
+        // Validate orgName
+        if (!orgName || orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+          res.writeHead(400); res.end('{"error":"invalid org name"}'); return;
+        }
+        const runId = activeOrgRuns.get(orgName);
+        const monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
+        // Try active run first, then fall back to most recent run file
+        let runFile = null;
+        if (runId) {
+          const candidate = path.join(monoDir, 'orgs', orgName, 'runs', `${runId}.jsonl`);
+          if (fs.existsSync(candidate)) runFile = candidate;
+        }
+        if (!runFile) {
+          const runsDir = path.join(monoDir, 'orgs', orgName, 'runs');
+          if (fs.existsSync(runsDir)) {
+            const files = fs.readdirSync(runsDir).filter(f => f.endsWith('.jsonl'));
+            if (files.length) {
+              files.sort();
+              runFile = path.join(runsDir, files[files.length - 1]);
+            }
+          }
+        }
+        if (!runFile) { res.writeHead(404); res.end('{"events":[],"runId":null}'); return; }
+        const detectedRunId = path.basename(runFile, '.jsonl');
+        const lines = fs.readFileSync(runFile, 'utf8').split('\n').filter(l => l.trim()).slice(-100);
+        const events = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ runId: detectedRunId, events, active: activeOrgRuns.has(orgName) }));
+      } catch(err) {
+        res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+      }
       return;
     }
 
