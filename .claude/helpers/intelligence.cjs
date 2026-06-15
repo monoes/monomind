@@ -20,9 +20,13 @@ function ensureDir() {
   try { fs.mkdirSync(INTEL_DIR, { recursive: true }); } catch (_) {}
 }
 
+var MAX_PATTERNS_SIZE = 10 * 1024 * 1024; // 10 MiB guard
+
 function loadPatterns() {
   try {
     if (fs.existsSync(PATTERNS_FILE)) {
+      var st = fs.statSync(PATTERNS_FILE);
+      if (st.size > MAX_PATTERNS_SIZE) { _patterns = []; return; }
       _patterns = JSON.parse(fs.readFileSync(PATTERNS_FILE, 'utf-8'));
     }
   } catch (_) { _patterns = []; }
@@ -77,8 +81,9 @@ function feedback(success) {
 function storePattern(pattern) {
   ensureDir();
   loadPatterns();
-  _patterns = _patterns.filter(function(p) { return p.id !== pattern.id; });
-  _patterns.push(Object.assign({ storedAt: new Date().toISOString() }, pattern));
+  var safeId = String(pattern.id || '').slice(0, 256);
+  _patterns = _patterns.filter(function(p) { return p.id !== safeId; });
+  _patterns.push(Object.assign({ storedAt: new Date().toISOString() }, pattern, { id: safeId }));
   try {
     fs.writeFileSync(PATTERNS_FILE, JSON.stringify(_patterns.slice(-500), null, 2), 'utf-8');
   } catch (_) {}
