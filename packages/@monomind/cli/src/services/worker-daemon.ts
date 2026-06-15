@@ -896,7 +896,7 @@ export class WorkerDaemon extends EventEmitter {
       mkdirSync(metricsDir, { recursive: true });
     }
 
-    const map = {
+    const map: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       structure: {
         hasPackageJson: existsSync(join(this.projectRoot, 'package.json')),
@@ -906,6 +906,65 @@ export class WorkerDaemon extends EventEmitter {
       },
       scannedAt: Date.now(),
     };
+
+    // Enrich with monograph graph stats for LLM context injection.
+    // Lazy-import to avoid hard dependency; silently skip on any error.
+    try {
+      const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+      const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+      if (existsSync(dbPath)) {
+        const db = openDb(dbPath);
+        try {
+          // Node/edge counts
+          map['graph'] = {
+            nodes: countNodes(db),
+            edges: countEdges(db),
+          };
+
+          // Top 3 god nodes (high degree internal files) — same SQL as monograph_god_nodes tool
+          const excluded = ['File', 'Folder', 'Community', 'Concept'];
+          const rows = db.prepare(`
+            SELECT n.name, n.file_path, n.start_line,
+                   COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label NOT IN (${excluded.map(() => '?').join(',')})
+            GROUP BY n.id HAVING degree > 0
+            ORDER BY degree DESC LIMIT 3
+          `).all(...excluded) as Array<{ name: string; file_path?: string; start_line?: number; degree: number }>;
+
+          if (rows.length > 0) {
+            map['topFiles'] = rows.map(r => ({
+              ref: r.file_path
+                ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path)
+                : r.name,
+              degree: r.degree,
+            }));
+          }
+
+          // Index staleness via git — same approach as monograph_health tool
+          try {
+            const { execSync } = await import('child_process');
+            const lastHash = (db.prepare(
+              "SELECT value FROM meta WHERE key = 'last_commit_hash' LIMIT 1"
+            ).get() as { value?: string } | undefined)?.value;
+            if (lastHash) {
+              const countOut = execSync(
+                `git -C ${JSON.stringify(this.projectRoot)} rev-list --count ${lastHash}..HEAD`,
+                { timeout: 5000 }
+              ).toString().trim();
+              const commitsBehind = parseInt(countOut, 10);
+              if (!isNaN(commitsBehind)) {
+                map['graphStaleness'] = { commitsBehind };
+              }
+            }
+          } catch { /* git unavailable — skip staleness */ }
+        } finally {
+          closeDb(db);
+        }
+      }
+    } catch { /* monograph unavailable — skip graph enrichment */ }
 
     const metricsFileTmp1 = metricsFile + '.tmp';
     writeFileSync(metricsFileTmp1, JSON.stringify(map, null, 2));
@@ -925,7 +984,7 @@ export class WorkerDaemon extends EventEmitter {
       mkdirSync(metricsDir, { recursive: true });
     }
 
-    const audit = {
+    const audit: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       mode: 'local',
       checks: {
@@ -934,9 +993,76 @@ export class WorkerDaemon extends EventEmitter {
         noHardcodedSecrets: null, // Not checked in local mode — requires AI-powered scan
       },
       riskLevel: 'low',
-      recommendations: [],
+      recommendations: [] as string[],
       note: 'Install Claude Code CLI for AI-powered security analysis',
     };
+
+    // Enrich with monograph high-centrality files and surprising cross-community edges.
+    // God-node files are high-value targets for security review: they are imported by
+    // many consumers, so a vulnerability there has the largest blast radius.
+    // Cross-community edges reveal unexpected coupling that may indicate hidden attack surfaces.
+    try {
+      const { openDb, closeDb } = await import('@monoes/monograph');
+      const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+      if (existsSync(dbPath)) {
+        const db = openDb(dbPath);
+        try {
+          // Top 5 high-centrality (god-node) files — largest security blast radius
+          type GodFileRow = { file_path: string; degree: number };
+          const godFileRows = db.prepare(`
+            SELECT n.file_path,
+                   COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label NOT IN ('File','Folder','Community','Concept')
+              AND n.file_path IS NOT NULL
+              AND n.file_path NOT LIKE '%node_modules%'
+              AND n.file_path NOT LIKE '%/dist/%'
+              AND n.file_path NOT LIKE '%.test.%'
+              AND n.file_path NOT LIKE '%.spec.%'
+            GROUP BY n.file_path
+            ORDER BY degree DESC
+            LIMIT 5
+          `).all() as GodFileRow[];
+
+          // Top 5 surprising cross-community edges — potential hidden coupling / attack surface
+          type SurpriseRow = { src_name: string; tgt_name: string; relation: string; confidence_score: number; src_file: string | null; tgt_file: string | null };
+          const surpriseRows = db.prepare(`
+            SELECT n1.name as src_name, n2.name as tgt_name, e.relation, e.confidence_score,
+                   n1.file_path as src_file, n2.file_path as tgt_file
+            FROM edges e
+            JOIN nodes n1 ON n1.id = e.source_id
+            JOIN nodes n2 ON n2.id = e.target_id
+            WHERE e.confidence != 'EXTRACTED'
+              AND n1.community_id IS NOT NULL
+              AND n2.community_id IS NOT NULL
+              AND n1.community_id != n2.community_id
+            ORDER BY e.confidence_score ASC
+            LIMIT 5
+          `).all() as SurpriseRow[];
+
+          if (godFileRows.length > 0) {
+            audit['priorityScanTargets'] = godFileRows.map(r => ({
+              file: r.file_path.replace(this.projectRoot + '/', '').replace(this.projectRoot + '\\', ''),
+              degree: r.degree,
+              reason: 'high-centrality: vulnerability here affects the most consumers',
+            }));
+          }
+          if (surpriseRows.length > 0) {
+            audit['unexpectedCoupling'] = surpriseRows.map(r => ({
+              edge: `${r.src_name} --${r.relation}--> ${r.tgt_name}`,
+              srcFile: r.src_file ?? '(unknown)',
+              tgtFile: r.tgt_file ?? '(unknown)',
+              confidenceScore: r.confidence_score,
+              reason: 'cross-community edge: may indicate hidden dependency or attack surface',
+            }));
+          }
+        } finally {
+          closeDb(db);
+        }
+      }
+    } catch { /* monograph unavailable — skip graph enrichment */ }
 
     const auditFileTmp = auditFile + '.tmp';
     writeFileSync(auditFileTmp, JSON.stringify(audit, null, 2));
@@ -1097,13 +1223,105 @@ export class WorkerDaemon extends EventEmitter {
    * Local ultralearn worker (fallback when headless unavailable)
    */
   private async runUltralearnWorkerLocal(): Promise<unknown> {
-    return {
+    const result: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       mode: 'local',
       patternsLearned: 0,
-      insightsGained: [],
-      note: 'Install Claude Code CLI for AI-powered deep learning',
+      insightsGained: [] as unknown[],
     };
+
+    // Enrich with monograph community clusters and bridge-node patterns for LLM context injection.
+    // Bridge nodes (symbols that cross community boundaries) are architecturally significant —
+    // they represent coupling points an LLM should be aware of when reasoning about change impact.
+    try {
+      const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+      const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+      if (existsSync(dbPath)) {
+        const db = openDb(dbPath);
+        try {
+          const nodeCount = countNodes(db);
+          const edgeCount = countEdges(db);
+
+          // Community summary: count of nodes per community (top 5 by size)
+          type CommunityRow = { community_id: string; member_count: number };
+          const communityRows = db.prepare(`
+            SELECT community_id, COUNT(*) AS member_count
+            FROM nodes
+            WHERE community_id IS NOT NULL
+              AND label NOT IN ('File','Folder','Community','Concept')
+            GROUP BY community_id
+            ORDER BY member_count DESC
+            LIMIT 5
+          `).all() as CommunityRow[];
+
+          // Bridge nodes: symbols that have edges crossing into a different community_id
+          // (source community_id != target community_id) — high knowledge-transfer value
+          type BridgeRow = { name: string; label: string; file_path: string | null; start_line: number | null; cross_edges: number };
+          const bridgeRows = db.prepare(`
+            SELECT n.name, n.label, n.file_path, n.start_line,
+                   COUNT(DISTINCT e.id) AS cross_edges
+            FROM nodes n
+            JOIN edges e ON (e.source_id = n.id OR e.target_id = n.id)
+            JOIN nodes n2 ON (
+              CASE WHEN e.source_id = n.id THEN e.target_id ELSE e.source_id END = n2.id
+            )
+            WHERE n.community_id IS NOT NULL
+              AND n2.community_id IS NOT NULL
+              AND n.community_id != n2.community_id
+              AND n.label NOT IN ('File','Folder','Community','Concept')
+              AND (n.file_path IS NULL OR (
+                n.file_path NOT LIKE '%node_modules%'
+                AND n.file_path NOT LIKE '%/dist/%'
+                AND n.file_path NOT LIKE '%.test.%'
+                AND n.file_path NOT LIKE '%.spec.%'
+              ))
+            GROUP BY n.id
+            ORDER BY cross_edges DESC
+            LIMIT 5
+          `).all() as BridgeRow[];
+
+          const insights: unknown[] = result['insightsGained'] as unknown[];
+
+          if (communityRows.length > 0) {
+            insights.push({
+              category: 'community_clusters',
+              description: `Top ${communityRows.length} community clusters by size`,
+              items: communityRows.map(r => ({
+                communityId: r.community_id,
+                memberCount: r.member_count,
+              })),
+            });
+          }
+
+          if (bridgeRows.length > 0) {
+            insights.push({
+              category: 'bridge_nodes',
+              description: `Top ${bridgeRows.length} bridge nodes crossing community boundaries (high coupling risk)`,
+              items: bridgeRows.map(r => {
+                const loc = r.file_path
+                  ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path)
+                  : '(unknown)';
+                return {
+                  name: r.name,
+                  label: r.label,
+                  location: loc,
+                  crossCommunityEdges: r.cross_edges,
+                };
+              }),
+            });
+            result['patternsLearned'] = bridgeRows.length + communityRows.length;
+          }
+
+          result['graph'] = { nodes: nodeCount, edges: edgeCount };
+        } finally {
+          closeDb(db);
+        }
+      } else {
+        result['note'] = 'Monograph index not built — run `monomind monograph build` for deep learning';
+      }
+    } catch { /* monograph unavailable — return minimal result */ }
+
+    return result;
   }
 
   /**
@@ -1123,13 +1341,117 @@ export class WorkerDaemon extends EventEmitter {
    * Local deepdive worker (fallback when headless unavailable)
    */
   private async runDeepdiveWorkerLocal(): Promise<unknown> {
-    return {
+    const deepdiveFile = join(this.projectRoot, '.monomind', 'metrics', 'deepdive.json');
+    const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
+
+    if (!existsSync(metricsDir)) {
+      mkdirSync(metricsDir, { recursive: true });
+    }
+
+    const result: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       mode: 'local',
-      analysisDepth: 'shallow',
-      findings: [],
-      note: 'Install Claude Code CLI for AI-powered deep code analysis',
+      analysisDepth: 'graph',
+      findings: [] as unknown[],
     };
+
+    // Enrich with monograph god nodes and high-degree file analysis for LLM context injection.
+    // Lazy-import to avoid hard dependency; silently skip on any error.
+    try {
+      const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+      const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+      if (existsSync(dbPath)) {
+        const db = openDb(dbPath);
+        try {
+          const nodeCount = countNodes(db);
+          const edgeCount = countEdges(db);
+
+          // Top god nodes: high in+out degree internal symbols (not file/folder/community nodes)
+          type GodNodeRow = { name: string; file_path: string | null; label: string; degree: number };
+          const godNodeRows = db.prepare(`
+            SELECT n.name, n.file_path, n.label,
+                   COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label NOT IN ('File','Folder','Community','Concept')
+              AND (n.file_path IS NULL OR (
+                n.file_path NOT LIKE '%node_modules%'
+                AND n.file_path NOT LIKE '%/dist/%'
+                AND n.file_path NOT LIKE '%.test.%'
+                AND n.file_path NOT LIKE '%.spec.%'
+              ))
+            GROUP BY n.id
+            ORDER BY degree DESC
+            LIMIT 5
+          `).all() as GodNodeRow[];
+
+          const godNodes = godNodeRows.map(r => ({
+            name: r.name,
+            label: r.label,
+            file: r.file_path ?? '(unknown)',
+            degree: r.degree,
+          }));
+
+          // High-degree file nodes: files with the most incoming + outgoing edges
+          type FileRow = { file_path: string; in_deg: number; out_deg: number };
+          const fileRows = db.prepare(`
+            SELECT n.file_path,
+                   COUNT(DISTINCT e2.id) AS in_deg,
+                   COUNT(DISTINCT e1.id) AS out_deg
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label = 'File'
+              AND n.file_path NOT LIKE '%node_modules%'
+              AND n.file_path NOT LIKE '%/dist/%'
+              AND n.file_path NOT LIKE '%.test.%'
+              AND n.file_path NOT LIKE '%.spec.%'
+            GROUP BY n.id
+            ORDER BY (in_deg + out_deg) DESC
+            LIMIT 5
+          `).all() as FileRow[];
+
+          const highDegFiles = fileRows.map(r => ({
+            file: r.file_path
+              .replace(this.projectRoot + '/', '')
+              .replace(this.projectRoot + '\\', ''),
+            inDegree: r.in_deg,
+            outDegree: r.out_deg,
+            totalDegree: r.in_deg + r.out_deg,
+          }));
+
+          const findings: unknown[] = [];
+          if (godNodes.length > 0) {
+            findings.push({
+              category: 'god_nodes',
+              description: `Top ${godNodes.length} high-centrality symbols (most imported/referenced)`,
+              items: godNodes,
+            });
+          }
+          if (highDegFiles.length > 0) {
+            findings.push({
+              category: 'high_degree_files',
+              description: `Top ${highDegFiles.length} files by total edge degree (import + export connections)`,
+              items: highDegFiles,
+            });
+          }
+
+          result['graph'] = { nodes: nodeCount, edges: edgeCount };
+          result['findings'] = findings;
+          result['analysisDepth'] = 'graph';
+        } finally {
+          closeDb(db);
+        }
+      } else {
+        result['note'] = 'Monograph index not built — run `monomind monograph build` for deep analysis';
+      }
+    } catch { /* monograph unavailable — return minimal result */ }
+
+    const deepdiveFileTmp = deepdiveFile + '.tmp';
+    writeFileSync(deepdiveFileTmp, JSON.stringify(result, null, 2));
+    renameSync(deepdiveFileTmp, deepdiveFile);
+    return result;
   }
 
   /**

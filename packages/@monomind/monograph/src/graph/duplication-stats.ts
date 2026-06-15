@@ -39,11 +39,15 @@ export function computeDuplicationStats(
   }
 
   const filesWithClones = fileLines.size;
-  const duplicatedLines = [...fileLines.values()].reduce((s, set) => s + set.size, 0);
-  const duplicatedTokens = Math.min(
-    totalTokens,
-    groups.reduce((s, g) => s + g.instances.reduce((t, i) => t + (i.tokenCount ?? 0), 0), 0),
-  );
+  // Single-pass line count — avoids spread allocation over all file Sets
+  let duplicatedLines = 0;
+  for (const set of fileLines.values()) duplicatedLines += set.size;
+  // Single-pass token sum — avoids nested reduce and intermediate arrays
+  let rawTokens = 0;
+  for (const group of groups) {
+    for (const inst of group.instances) rawTokens += inst.tokenCount ?? 0;
+  }
+  const duplicatedTokens = Math.min(totalTokens, rawTokens);
 
   return {
     totalFiles: allFilePaths.length,
@@ -59,10 +63,17 @@ export function computeDuplicationStats(
 }
 
 export function formatDuplicationStats(stats: DuplicationStats): string {
+  const pct = stats.duplicationPct;
+  const grade = pct < 5 ? 'A' : pct < 10 ? 'B' : pct < 20 ? 'C' : pct < 30 ? 'D' : 'F';
+  const tokenPct = stats.totalTokens > 0
+    ? ((stats.duplicatedTokens / stats.totalTokens) * 100).toFixed(1)
+    : '0.0';
   return [
+    `Duplication grade: ${grade} (${pct.toFixed(1)}% duplicated lines)`,
     `Clone groups:      ${stats.cloneGroups}`,
     `Clone instances:   ${stats.cloneInstances}`,
     `Files with clones: ${stats.filesWithClones} / ${stats.totalFiles}`,
-    `Duplicated lines:  ${stats.duplicatedLines} / ${stats.totalLines} (${stats.duplicationPct.toFixed(1)}%)`,
+    `Duplicated lines:  ${stats.duplicatedLines} / ${stats.totalLines} (${pct.toFixed(1)}%)`,
+    `Duplicated tokens: ${stats.duplicatedTokens} / ${stats.totalTokens} (${tokenPct}%)`,
   ].join('\n');
 }

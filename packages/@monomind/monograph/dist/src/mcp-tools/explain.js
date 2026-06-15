@@ -23,7 +23,10 @@ export function explainNode(db, name) {
     // Get inbound connections
     const inRows = db.prepare(`SELECT n.name, e.relation FROM nodes n JOIN edges e ON n.id = e.source_id WHERE e.target_id = ? LIMIT 10`).all(node.id);
     const connectionCount = outRows.length + inRows.length;
-    const fileLine = node.filePath ? ` defined in \`${node.filePath}\`` : '';
+    const fileRef = node.filePath
+        ? (node.startLine != null ? `${node.filePath}:${node.startLine}` : node.filePath)
+        : null;
+    const fileLine = fileRef ? ` defined in \`${fileRef}\`` : '';
     let explanation = `**${node.name}** is a ${node.label}${fileLine}.`;
     if (outRows.length > 0) {
         const outList = outRows.map(r => `\`${r.name}\` (${r.relation})`).join(', ');

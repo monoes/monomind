@@ -288,6 +288,44 @@ const handlers = {
     var tool = hCtx.toolName || '';
     if (tool === 'Grep') _recordGraphTelemetry('grep_call');
     else if (tool === 'Glob') _recordGraphTelemetry('glob_call');
+
+    // Monograph symbol hint: when the Grep pattern looks like a plain symbol name
+    // (no regex metacharacters), look it up directly in the graph index and print
+    // the file:line so the LLM may skip or narrow the Grep.
+    // Session-level cache prevents repeated identical DB lookups across Grep bursts.
+    try {
+      var grepPattern = (typeof toolInput === 'object' && toolInput !== null)
+        ? (toolInput.pattern || toolInput.query || '')
+        : '';
+      // Only attempt lookup for clean identifiers — skip regexes and paths
+      var isCleanSymbol = grepPattern.length >= 3 && grepPattern.length <= 80
+        && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(grepPattern);
+      if (isCleanSymbol) {
+        if (!hCtx._preSearchCache) hCtx._preSearchCache = {};
+        var cacheKey = 'presearch:' + grepPattern;
+        if (!(cacheKey in hCtx._preSearchCache)) {
+          var db = _openMonographDb();
+          var hint = null;
+          if (db) {
+            try {
+              var row = db.prepare(
+                'SELECT n.name, n.label, n.file_path, n.start_line FROM nodes n ' +
+                'WHERE n.name = ? AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+                'AND n.file_path IS NOT NULL LIMIT 1'
+              ).get(grepPattern);
+              if (row) {
+                hint = row.file_path + (row.start_line != null ? ':' + row.start_line : '');
+              }
+            } catch (e) { /* non-fatal */ }
+          }
+          hCtx._preSearchCache[cacheKey] = hint;
+        }
+        var cachedHint = hCtx._preSearchCache[cacheKey];
+        if (cachedHint) {
+          console.log('[MONOGRAPH_HINT] ' + grepPattern + ' found in graph: ' + cachedHint + ' (consider using monograph_context instead of Grep)');
+        }
+      }
+    } catch (e) { /* non-fatal — telemetry always proceeds */ }
   },
 
   'post-graph-tool': () => {

@@ -38,9 +38,16 @@ export function isClassMemberSuppressed(
   return false;
 }
 
+// Cache compiled glob regexes to avoid re-compilation on repeated allowlist checks
+const _globReCache = new Map<string, RegExp>();
+
 function memberGlobMatch(name: string, pattern: string): boolean {
   if (!pattern.includes('*')) return name === pattern;
-  const re = new RegExp('^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+  let re = _globReCache.get(pattern);
+  if (!re) {
+    re = new RegExp('^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+    _globReCache.set(pattern, re);
+  }
   return re.test(name);
 }
 

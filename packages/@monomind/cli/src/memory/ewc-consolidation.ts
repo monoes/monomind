@@ -168,6 +168,12 @@ export class EWCConsolidator {
   private globalFisher: number[] = [];
   private consolidationHistory: { timestamp: number; penalty: number; patterns: number }[] = [];
   private initialized: boolean = false;
+  /** Dirty flag: true when in-memory state diverges from disk */
+  private dirty = false;
+  /** Pending debounced write timer */
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Debounce window for disk writes (ms) */
+  private static readonly SAVE_DEBOUNCE_MS = 2_000;
 
   constructor(config?: Partial<EWCConfig>) {
     this.config = { ...DEFAULT_EWC_CONFIG, ...config };
@@ -355,8 +361,8 @@ export class EWCConsolidator {
         this.consolidationHistory = this.consolidationHistory.slice(-100);
       }
 
-      // Persist to disk
-      this.saveToDisk();
+      // Schedule debounced disk flush
+      this.scheduleSave();
 
       result.success = true;
       result.duration = performance.now() - startTime;
@@ -486,6 +492,9 @@ export class EWCConsolidator {
         this.globalFisher[i] = (1 - decay) * this.globalFisher[i] + decay * gradients[i] * gradients[i];
       }
     }
+
+    // Schedule debounced flush so importance/Fisher updates are persisted
+    this.scheduleSave();
   }
 
   /**
@@ -568,7 +577,7 @@ export class EWCConsolidator {
       this.globalFisher[i] = alpha * this.globalFisher[i] + (1 - alpha) * currentFisher[i];
     }
 
-    this.saveToDisk();
+    this.scheduleSave();
   }
 
   /**
@@ -596,6 +605,9 @@ export class EWCConsolidator {
    * Clear all patterns and history (full reset)
    */
   clear(): void {
+    // Cancel any pending debounced write before clearing
+    if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; }
+    this.dirty = false;
     this.patterns.clear();
     this.gradientHistory = [];
     this.globalFisher = new Array(this.config.dimensions).fill(0);
@@ -679,6 +691,25 @@ export class EWCConsolidator {
     for (let i = 0; i < toRemove; i++) {
       this.patterns.delete(sortedPatterns[i].id);
     }
+  }
+
+  /**
+   * Schedule a debounced disk flush.
+   * Multiple calls within SAVE_DEBOUNCE_MS coalesce into one write,
+   * preventing blocking I/O on every consolidation or gradient event.
+   */
+  private scheduleSave(): void {
+    this.dirty = true;
+    if (this.saveTimer) return; // already scheduled
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      if (this.dirty) {
+        this.dirty = false;
+        this.saveToDisk();
+      }
+    }, EWCConsolidator.SAVE_DEBOUNCE_MS);
+    // Allow the process to exit without waiting for the timer
+    if (this.saveTimer.unref) this.saveTimer.unref();
   }
 
   /**
