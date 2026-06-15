@@ -1870,9 +1870,13 @@ export async function listEntries(options) {
         countStmt.free();
         const countResult = countRows.length > 0 ? [{ values: countRows }] : [];
         const total = countResult[0]?.values?.[0]?.[0] || 0;
-        // Get entries
-        const safeLimit = parseInt(String(limit), 10) || 100;
-        const safeOffset = parseInt(String(offset), 10) || 0;
+        // Get entries — cap limit to 10 000 to prevent full-table loads that OOM
+        // the sql.js in-memory database on large datasets.
+        const MAX_LIST_LIMIT = 10_000;
+        const rawLimit = parseInt(String(limit), 10);
+        const safeLimit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_LIST_LIMIT) : 100;
+        const rawOffset = parseInt(String(offset), 10);
+        const safeOffset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
         const listStmt = namespace
             ? db.prepare(`SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at FROM memory_entries WHERE status = 'active' AND namespace = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`)
             : db.prepare(`SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at FROM memory_entries WHERE status = 'active' ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
