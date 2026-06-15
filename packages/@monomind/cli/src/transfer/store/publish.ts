@@ -166,13 +166,17 @@ export class PatternPublisher {
       };
     } catch (error) {
       console.error(`[Publish] Failed:`, error);
+      // Sanitize error message: strip control chars and cap length to prevent
+      // internal paths / stack traces from leaking into CLI output or logs.
+      const rawMsg = error instanceof Error ? error.message : String(error);
+      const safeMsg = rawMsg.replace(/[\x00-\x1f\x7f]/g, '?').slice(0, 256);
       return {
         success: false,
         patternId: '',
         cid: '',
         registryCid: '',
         gatewayUrl: '',
-        message: `Publish failed: ${error}`,
+        message: `Publish failed: ${safeMsg}`,
       };
     }
   }
@@ -185,6 +189,14 @@ export class PatternPublisher {
     privateKeyPath: string
   ): Promise<{ signature: string; publicKey: string }> {
     const ed = await import('@noble/ed25519');
+    // Guard: cap key file size to prevent OOM on oversized or malicious files.
+    // A valid 32-byte Ed25519 seed encoded as hex is 64 chars; even with a
+    // newline and BOM the file should never exceed a few hundred bytes.
+    const MAX_KEY_FILE_BYTES = 4 * 1024; // 4 KB — generous upper bound
+    const keyFileStat = fs.statSync(privateKeyPath);
+    if (keyFileStat.size > MAX_KEY_FILE_BYTES) {
+      throw new Error(`Private key file exceeds size limit (${MAX_KEY_FILE_BYTES} bytes)`);
+    }
     const keyHex = fs.readFileSync(privateKeyPath, 'utf-8').trim();
     // Accept 64-char hex (32-byte seed) directly; otherwise derive via SHA-256
     const privKeyBytes = keyHex.length === 64
