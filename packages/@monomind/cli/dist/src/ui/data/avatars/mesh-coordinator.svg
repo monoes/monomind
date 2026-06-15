@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <clipPath id="circ">
+      <circle cx="60" cy="60" r="58"/>
+    </clipPath>
+    <clipPath id="headClip">
+      <ellipse cx="60" cy="42" rx="24" ry="28"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="60" cy="60" r="58" fill="#F3EEFF"/>
+  <circle cx="60" cy="60" r="58" fill="none" stroke="#7B5EA7" stroke-width="3"/>
+
+  <g clip-path="url(#circ)">
+    
+  <!-- body -->
+  <ellipse cx="60" cy="112" rx="26" ry="36" fill="#7B5EA7"/>
+  <ellipse cx="60" cy="110" rx="22" ry="32" fill="#5B3E87"/>
+  <!-- collar -->
+  <path d="M44,96 Q60,108 76,96" fill="#F3EEFF"/>
+  <!-- neck -->
+  <rect x="54" y="70" width="12" height="10" rx="4" fill="#A0693A"/>
+  
+    <!-- head base -->
+    <ellipse cx="60" cy="44" rx="22" ry="26" fill="#A0693A"/>
+    
+  <circle cx="38" cy="46" r="5" fill="#A0693A"/>
+  <circle cx="38" cy="46" r="3" fill="#A0693A" opacity="0.5"/>
+  <circle cx="82" cy="46" r="5" fill="#A0693A"/>
+  <circle cx="82" cy="46" r="3" fill="#A0693A" opacity="0.5"/>
+  
+    <!-- hair -->
+    <ellipse cx="60" cy="22" rx="20" ry="10" fill="#D4D4D4"/>
+  <rect x="40" y="22" width="40" height="8" rx="4" fill="#D4D4D4"/>
+    <!-- face features -->
+    <circle cx="51" cy="44" r="4.5" fill="white"/>
+  <circle cx="69" cy="44" r="4.5" fill="white"/>
+  <circle cx="51" cy="44" r="3" fill="#2E8B57"/>
+  <circle cx="69" cy="44" r="3" fill="#2E8B57"/>
+  <circle cx="52" cy="43" r="1.2" fill="white"/>
+  <circle cx="70" cy="43" r="1.2" fill="white"/>
+    <ellipse cx="60" cy="52" rx="2.5" ry="1.8" fill="#A0693A" opacity="0.7" stroke="#A0693A" stroke-width="0.5"/>
+    <path d="M53,61 Q60,65 67,61" stroke="#C4726A" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    
+    <!-- accessory -->
+    <path d="M38,36 Q38,22 60,22 Q82,22 82,36" stroke="#444" stroke-width="3" fill="none"/>
+  <rect x="33" y="34" width="9" height="12" rx="4" fill="#444"/>
+  <rect x="78" y="34" width="9" height="12" rx="4" fill="#444"/>
+  </g>
+
+  <!-- role badge -->
+  <circle cx="88" cy="88" r="16" fill="#7B5EA7" opacity="0.95"/>
+  <text x="88" y="93" text-anchor="middle" font-size="14" fill="white" font-family="sans-serif">🕸️</text>
+</svg>
