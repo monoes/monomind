@@ -200,6 +200,12 @@ export class SONAOptimizer {
   private failedRoutings = 0;
   private lastUpdate: number | null = null;
   private persistencePath: string;
+  /** Set when in-memory state diverges from disk — triggers next debounced write */
+  private dirty = false;
+  /** NodeJS timeout handle for debounced disk flush */
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Debounce window for disk writes (ms) — batches rapid trajectory bursts */
+  private static readonly SAVE_DEBOUNCE_MS = 2_000;
 
   constructor(options?: { persistencePath?: string }) {
     this.persistencePath = options?.persistencePath || DEFAULT_PERSISTENCE_PATH;
@@ -285,8 +291,8 @@ export class SONAOptimizer {
     // Prune old patterns if needed
     this.prunePatterns();
 
-    // Persist to disk (debounced)
-    this.saveToDisk();
+    // Mark dirty and schedule a debounced write
+    this.scheduleSave();
 
     return {
       learned: true,
@@ -382,7 +388,7 @@ export class SONAOptimizer {
     }
 
     if (decayed > 0) {
-      this.saveToDisk();
+      this.scheduleSave();
     }
 
     return decayed;
@@ -398,6 +404,9 @@ export class SONAOptimizer {
     this.failedRoutings = 0;
     this.lastUpdate = null;
 
+    // Flush immediately on explicit reset (don't wait for debounce)
+    if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; }
+    this.dirty = false;
     this.saveToDisk();
   }
 
@@ -423,7 +432,7 @@ export class SONAOptimizer {
         imported++;
       }
     }
-    this.saveToDisk();
+    if (imported > 0) this.scheduleSave();
     return imported;
   }
 
@@ -682,6 +691,25 @@ export class SONAOptimizer {
       console.error(`[SONA] Failed to load state: ${msg.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)}`);
       return false;
     }
+  }
+
+  /**
+   * Schedule a debounced disk flush.
+   * Multiple calls within SAVE_DEBOUNCE_MS coalesce into a single write,
+   * preventing blocking I/O on every trajectory event during swarm bursts.
+   */
+  private scheduleSave(): void {
+    this.dirty = true;
+    if (this.saveTimer) return; // already pending
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      if (this.dirty) {
+        this.dirty = false;
+        this.saveToDisk();
+      }
+    }, SONAOptimizer.SAVE_DEBOUNCE_MS);
+    // Allow the process to exit without waiting for the timer
+    if (this.saveTimer.unref) this.saveTimer.unref();
   }
 
   /**

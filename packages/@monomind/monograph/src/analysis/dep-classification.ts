@@ -131,3 +131,37 @@ export function classifyDependencies(db: MonographDb): DepClassificationResult {
     valueOnlyCount,
   };
 }
+
+/** Format DepClassificationResult as structured text for LLM navigation and actionable guidance. */
+export function formatDepClassification(result: DepClassificationResult): string {
+  if (result.packages.length === 0) {
+    return 'Dependency classification: no external packages detected.';
+  }
+
+  const lines: string[] = [
+    `Dependency classification: ${result.packages.length} external package(s).`,
+    `  type-only: ${result.typeOnlyCount}  mixed: ${result.mixedCount}  value-only: ${result.valueOnlyCount}`,
+    '',
+  ];
+
+  const groups: Array<[PackageDepClassification['recommendation'], string, string]> = [
+    ['type-only', 'Type-only (move to devDependencies or use @types)', 'Move to devDependencies — not needed at runtime.'],
+    ['unused', 'Unused', 'Remove from dependencies — no imports detected.'],
+    ['move-to-devdeps', 'Move to devDependencies', 'Only used in non-production code paths.'],
+    ['keep-as-dep', 'Keep as dependency', 'Used as runtime value imports — keep in dependencies.'],
+  ];
+
+  for (const [rec, heading, advice] of groups) {
+    const pkgs = result.packages.filter(p => p.recommendation === rec);
+    if (pkgs.length === 0) continue;
+    lines.push(`${heading} (${pkgs.length}):`);
+    for (const p of pkgs) {
+      const typeNote = p.typeOnlyImportCount > 0 ? ` (${p.typeOnlyImportCount} type-only)` : '';
+      lines.push(`  ${p.packageName}  imports:${p.importCount}${typeNote}`);
+    }
+    lines.push(`  → ${advice}`);
+    lines.push('');
+  }
+
+  return lines.join('\n').trimEnd();
+}

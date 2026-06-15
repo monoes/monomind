@@ -4,6 +4,8 @@ export interface QueryResult {
     label: string;
     name: string;
     filePath?: string;
+    /** Line number where the symbol is defined — enables direct file:line navigation. */
+    startLine?: number | null;
     score: number;
     isProcess: boolean;
 }

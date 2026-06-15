@@ -111,3 +111,29 @@ export function crossReferenceDuplicatesAndDeadCode(db: MonographDb): CrossRefer
     crossCount: crossIds.length,
   };
 }
+
+/**
+ * Format a CrossReferenceReport as structured text for LLM consumption.
+ */
+export function formatCrossReferenceReport(report: CrossReferenceReport): string {
+  const lines: string[] = [
+    `Cross-reference analysis: dead code × structural duplicates`,
+    `  Dead (unreachable) file nodes : ${report.deadCount}`,
+    `  Duplicated file nodes         : ${report.duplicateCount}`,
+    `  Both dead AND duplicated      : ${report.crossCount}  (highest-confidence safe-delete candidates)`,
+  ];
+
+  if (report.crossCount === 0) {
+    lines.push('  No cross-referenced candidates found.');
+    return lines.join('\n');
+  }
+
+  lines.push('');
+  lines.push('Safe-delete candidates:');
+  for (const f of report.findings) {
+    const loc = f.filePath ? `  ${f.filePath}` : `  (no path) ${f.nodeName}`;
+    lines.push(loc);
+    lines.push(`    ${f.description}`);
+  }
+  return lines.join('\n');
+}

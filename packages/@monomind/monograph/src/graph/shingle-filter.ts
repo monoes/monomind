@@ -29,26 +29,29 @@ function hashString(s: string): number {
   return h;
 }
 
+const MINHASH_PRIME = BigInt(4294967311); // first prime > 2^32
+
 /**
  * Compute a MinHash signature for a set of shingles using
- * numHashes linear hash functions: h_i(x) = (a_i * x + b_i) % prime
+ * numHashes linear hash functions: h_i(x) = (a_i * x + b_i) % prime.
+ *
+ * @param seedsA  Precomputed BigInt a-coefficients (length numHashes)
+ * @param seedsB  Precomputed BigInt b-constants   (length numHashes)
  */
-function minHashSignature(shingles: string[], numHashes: number): Uint32Array {
-  const PRIME = 4294967311; // first prime > 2^32
+function minHashSignature(
+  shingles: string[],
+  numHashes: number,
+  seedsA: BigInt64Array,
+  seedsB: BigInt64Array,
+): Uint32Array {
   const sig = new Uint32Array(numHashes).fill(0xffffffff);
 
-  // Deterministic seeds derived from hash index
   for (const shingle of shingles) {
-    const x = hashString(shingle);
+    const x = BigInt(hashString(shingle));
     for (let i = 0; i < numHashes; i++) {
-      // Deterministic a, b per hash function — use index-based seeds
-      const a = ((i * 2654435761 + 0x9e3779b9) >>> 0);
-      const b = ((i * 2246822519 + 0x85ebca6b) >>> 0);
-      // Linear hash modulo prime (BigInt for correctness)
-      const hashVal = Number((BigInt(a) * BigInt(x) + BigInt(b)) % BigInt(PRIME)) >>> 0;
-      if (hashVal < sig[i]) {
-        sig[i] = hashVal;
-      }
+      // Precomputed seeds avoid recomputing the same (a, b) per shingle per call.
+      const hashVal = Number((seedsA[i]! * x + seedsB[i]!) % MINHASH_PRIME) >>> 0;
+      if (hashVal < sig[i]!) sig[i] = hashVal;
     }
   }
   return sig;
@@ -65,11 +68,20 @@ export function createShingleFilter(k = 5, numHashes = 128): ShingleFilter {
   const numBands = Math.round(Math.sqrt(numHashes));
   const numRows = Math.floor(numHashes / numBands);
 
-  function getBandKey(id: string, band: number, sig: Uint32Array): string {
+  // Precompute MinHash seeds once per filter instance to avoid recomputing
+  // (a, b) inside the hot inner loop of minHashSignature().
+  const seedsA = new BigInt64Array(numHashes);
+  const seedsB = new BigInt64Array(numHashes);
+  for (let i = 0; i < numHashes; i++) {
+    seedsA[i] = BigInt(((i * 2654435761 + 0x9e3779b9) >>> 0));
+    seedsB[i] = BigInt(((i * 2246822519 + 0x85ebca6b) >>> 0));
+  }
+
+  function getBandKey(band: number, sig: Uint32Array): string {
     const parts: number[] = [];
     for (let r = 0; r < numRows; r++) {
       const idx = band * numRows + r;
-      if (idx < numHashes) parts.push(sig[idx]);
+      if (idx < numHashes) parts.push(sig[idx]!);
     }
     return `b${band}:${parts.join(',')}`;
   }
@@ -80,12 +92,12 @@ export function createShingleFilter(k = 5, numHashes = 128): ShingleFilter {
   return {
     add(id: string, tokens: string[]): void {
       const shingles = kShingles(tokens, k);
-      const sig = minHashSignature(shingles, numHashes);
+      const sig = minHashSignature(shingles, numHashes, seedsA, seedsB);
       index.set(id, sig);
 
       // Insert into LSH band buckets
       for (let band = 0; band < numBands; band++) {
-        const key = getBandKey(id, band, sig);
+        const key = getBandKey(band, sig);
         const bucket = bandBuckets.get(key);
         if (bucket) {
           bucket.push(id);
@@ -97,20 +109,14 @@ export function createShingleFilter(k = 5, numHashes = 128): ShingleFilter {
 
     candidates(tokens: string[], topK = 10): string[] {
       const shingles = kShingles(tokens, k);
-      const querySig = minHashSignature(shingles, numHashes);
+      const querySig = minHashSignature(shingles, numHashes, seedsA, seedsB);
 
-      // Collect candidate IDs via LSH band matching
+      // Collect candidate IDs via LSH band matching.
+      // Use getBandKey() consistently — eliminates the duplicate inline computation.
       const candidateScores = new Map<string, number>();
 
       for (let band = 0; band < numBands; band++) {
-        const key = getBandKey('__query__', band, querySig);
-        // Manually compute the key for the query signature
-        const parts: number[] = [];
-        for (let r = 0; r < numRows; r++) {
-          const idx = band * numRows + r;
-          if (idx < numHashes) parts.push(querySig[idx]);
-        }
-        const queryKey = `b${band}:${parts.join(',')}`;
+        const queryKey = getBandKey(band, querySig);
         const bucket = bandBuckets.get(queryKey);
         if (bucket) {
           for (const id of bucket) {
