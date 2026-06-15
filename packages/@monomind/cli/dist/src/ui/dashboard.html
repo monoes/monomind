@@ -56,6 +56,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #sb-footer { padding: 10px 14px; border-top: 1px solid var(--border); }
 #sb-user { font-size: 12px; font-weight: 500; color: var(--text-mid); }
 #sb-path { font-size: 10px; color: var(--text-lo); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
+#sb-remote { font-size: 10px; color: var(--text-xs); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: none; }
+#sb-remote a { color: oklch(62% 0.14 220); text-decoration: none; }
+#sb-remote a:hover { color: oklch(72% 0.16 220); text-decoration: underline; }
 
 /* ── main ────────────────────────────────────────────────── */
 #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
@@ -1391,6 +1394,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
   <div id="sb-footer">
     <div id="sb-user">—</div>
     <div id="sb-path">—</div>
+    <div id="sb-remote"></div>
   </div>
 </nav>
 
@@ -2290,6 +2294,12 @@ async function init() {
     document.getElementById('sb-user').textContent = gu.name || gu.email || '—';
     document.getElementById('sb-path').textContent = DIR;
     document.getElementById('sb-proj').textContent = DIR.split('/').filter(Boolean).pop() || '—';
+    if (gu.remoteUrl) {
+      const remoteEl = document.getElementById('sb-remote');
+      const label = gu.remoteUrl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+      remoteEl.innerHTML = '⎇ <a href="' + gu.remoteUrl + '" target="_blank" rel="noopener" title="Open remote repository">' + esc(label) + '</a>';
+      remoteEl.style.display = '';
+    }
     _showNavProjectCtx(DIR);
   } catch (_) {}
   // deep-link: ?sess=<id>&proj=<path>
