@@ -459,6 +459,73 @@ async function checkMonograph(): Promise<HealthCheck> {
   }
 }
 
+// Check monograph graph freshness (is the graph built? how stale?)
+async function checkMonographFreshness(): Promise<HealthCheck> {
+  try {
+    const cwd = process.cwd();
+    const dbPath = join(cwd, '.monomind', 'monograph.db');
+    const lockPath = join(cwd, '.monomind', 'graph', '.rebuild-lock');
+    const statsPath = join(cwd, '.monomind', 'graph', 'stats.json');
+
+    // Check if graph exists at all
+    const hasDb = existsSync(dbPath);
+    const hasLock = existsSync(lockPath);
+    const hasStats = existsSync(statsPath);
+
+    if (!hasDb && !hasStats) {
+      return {
+        name: 'Graph freshness',
+        status: 'warn',
+        message: 'No monograph graph built yet',
+        fix: 'mcp__monomind__monograph_build codeOnly:true  — or run npx monomind@latest hooks graph-status',
+      };
+    }
+
+    // Determine last build time
+    let buildMs = 0;
+    if (hasDb) { try { buildMs = Math.max(buildMs, statSync(dbPath).mtimeMs); } catch { /* ignore */ } }
+    if (hasLock) { try { buildMs = Math.max(buildMs, statSync(lockPath).mtimeMs); } catch { /* ignore */ } }
+    if (hasStats) { try { buildMs = Math.max(buildMs, statSync(statsPath).mtimeMs); } catch { /* ignore */ } }
+
+    if (buildMs === 0) {
+      return { name: 'Graph freshness', status: 'warn', message: 'Graph exists but build time unknown' };
+    }
+
+    // Count commits since last build
+    const buildIso = new Date(buildMs).toISOString();
+    let commitsBehind = 0;
+    try {
+      const out = execSync(`git rev-list --count --since='${buildIso}' HEAD 2>/dev/null`, {
+        encoding: 'utf8', timeout: 2000, cwd,
+      }).trim();
+      commitsBehind = parseInt(out, 10) || 0;
+    } catch { /* git not available or not a git repo */ }
+
+    const ageMinutes = Math.floor((Date.now() - buildMs) / 60000);
+    const ageStr = ageMinutes < 60 ? `${ageMinutes}m ago` : `${Math.floor(ageMinutes / 60)}h ago`;
+
+    if (commitsBehind === 0) {
+      return { name: 'Graph freshness', status: 'pass', message: `FRESH — built ${ageStr}, 0 commits behind` };
+    } else if (commitsBehind <= 5) {
+      return {
+        name: 'Graph freshness',
+        status: 'warn',
+        message: `${commitsBehind} commit(s) behind — built ${ageStr}`,
+        fix: 'mcp__monomind__monograph_build codeOnly:true',
+      };
+    } else {
+      return {
+        name: 'Graph freshness',
+        status: 'fail',
+        message: `STALE — ${commitsBehind} commits behind (built ${ageStr})`,
+        fix: 'mcp__monomind__monograph_build codeOnly:true',
+      };
+    }
+  } catch {
+    return { name: 'Graph freshness', status: 'warn', message: 'Could not check graph freshness' };
+  }
+}
+
 // Check @monoes/memory (optional HNSW vector search package)
 async function checkMonoesMemory(): Promise<HealthCheck> {
   try {
@@ -823,7 +890,7 @@ export const doctorCommand: Command = {
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, memory-pkg, helpers, agentic-flow, monoes, gates, gitignore)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, agentic-flow, monoes, gates, gitignore)',
       type: 'string'
     },
     {
@@ -868,6 +935,7 @@ export const doctorCommand: Command = {
       checkDiskSpace,
       checkBuildTools,
       checkMonograph,
+      checkMonographFreshness,
       checkMonoesMemory,
       checkHelpersFresh,
       checkAgenticFlow,
@@ -891,6 +959,7 @@ export const doctorCommand: Command = {
       'disk': checkDiskSpace,
       'typescript': checkBuildTools,
       'monograph': checkMonograph,
+      'graph-freshness': checkMonographFreshness,
       'memory-pkg': checkMonoesMemory,
       'helpers': checkHelpersFresh,
       'agentic-flow': checkAgenticFlow,
@@ -923,6 +992,13 @@ export const doctorCommand: Command = {
           results.push(result);
           output.writeln(formatCheck(result));
 
+          if (result.fix && result.status === 'fail') {
+            // Always show fix inline for failures — no flag needed
+            output.writeln(output.dim(`  Fix: ${result.fix}`));
+          } else if (result.fix && result.status === 'warn') {
+            // Show fix inline for warnings too, so users don't need --fix for common issues
+            output.writeln(output.dim(`  Hint: ${result.fix}`));
+          }
           if (result.fix && (result.status === 'fail' || result.status === 'warn')) {
             fixes.push(`${result.name}: ${result.fix}`);
           }
@@ -987,9 +1063,13 @@ export const doctorCommand: Command = {
       for (const fix of fixes) {
         output.writeln(output.dim(`  ${fix}`));
       }
-    } else if (fixes.length > 0 && !showFix) {
-      output.writeln();
-      output.writeln(output.dim(`Run with --fix to see ${fixes.length} suggested fix${fixes.length > 1 ? 'es' : ''}`));
+    } else if (!showFix) {
+      // Only nudge about --fix for warnings (failures already showed their fix inline)
+      const warnFixes = results.filter(r => r.status === 'warn' && r.fix).length;
+      if (warnFixes > 0) {
+        output.writeln();
+        output.writeln(output.dim(`Run with --fix to see ${warnFixes} suggested fix${warnFixes > 1 ? 'es' : ''} for warnings`));
+      }
     }
 
     // Overall result
