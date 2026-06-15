@@ -83,7 +83,12 @@ const HNSW_RETRY_INTERVAL_MS = 60_000;
 // ids in the HNSW graph that SQL filters drop at query time — wasting candidate slots.
 // When the dirty count crosses the rebuild threshold, the next search rebuilds from DB.
 let _hnswDirtyCount = 0;
-const HNSW_REBUILD_THRESHOLD = 50;
+// Ghost entries (from upserts and soft-deletes) are already filtered at query
+// time via SQL WHERE clauses, so they don't corrupt results — they only waste
+// candidate slots. Raising the threshold from 50→200 avoids frequent full
+// rebuilds during busy write sessions while keeping the ghost-slot overhead
+// bounded (at 200 ghosts the index wastes at most ~1 extra HNSW hop on average).
+const HNSW_REBUILD_THRESHOLD = 200;
 
 
 /**
