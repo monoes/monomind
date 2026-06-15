@@ -18,6 +18,9 @@ import { tmpdir } from 'os';
 /** Default model for routing fallback — Haiku is fast and cheap for slug classification. */
 const DEFAULT_ROUTING_MODEL = 'haiku';
 
+/** Runtime-validated set of allowed model aliases. */
+const ALLOWED_MODELS = new Set<string>(['haiku', 'sonnet', 'opus']);
+
 /**
  * Max time to wait for a single classification before giving up.
  * `claude --print` is a full headless session (cold start ~10s, can spike),
@@ -25,6 +28,9 @@ const DEFAULT_ROUTING_MODEL = 'haiku';
  * on timeout rather than blocking the caller.
  */
 const DEFAULT_TIMEOUT_MS = 45_000;
+
+/** Hard upper cap on caller-supplied timeoutMs — prevents disabling the SIGTERM/SIGKILL guard. */
+const MAX_TIMEOUT_MS = 120_000;
 
 /** Cap captured output so a runaway child can't grow parent memory unbounded. */
 const MAX_OUTPUT = 1024 * 1024; // 1 MB — a slug response is tiny
@@ -69,8 +75,20 @@ export function createClaudeLLMCaller(
 ): ((prompt: string) => Promise<string>) | null {
   if (!isClaudeCodeAvailable()) return null;
 
-  const model = options.model ?? DEFAULT_ROUTING_MODEL;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // Runtime enum guard — TypeScript union is compile-time only; JS callers
+  // could otherwise inject an arbitrary string into the --model flag.
+  const rawModel = options.model ?? DEFAULT_ROUTING_MODEL;
+  const model: string = ALLOWED_MODELS.has(rawModel) ? rawModel : DEFAULT_ROUTING_MODEL;
+
+  // Cap caller-supplied timeout so a huge value can't disable the SIGTERM/SIGKILL guard.
+  const rawTimeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = Math.min(
+    typeof rawTimeout === 'number' && Number.isFinite(rawTimeout) && rawTimeout > 0
+      ? rawTimeout
+      : DEFAULT_TIMEOUT_MS,
+    MAX_TIMEOUT_MS,
+  );
+
   const cwd = options.cwd ?? tmpdir();
 
   return (prompt: string): Promise<string> =>
