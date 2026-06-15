@@ -12,7 +12,7 @@
  * Note: Some optimization suggestions are illustrative
  */
 import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, readdirSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, renameSync, unlinkSync, readdirSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import * as os from 'node:os';
 // Storage paths
@@ -32,10 +32,11 @@ function ensurePerfDir() {
         mkdirSync(dir, { recursive: true });
     }
 }
+const MAX_PERF_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 function loadPerfStore() {
     try {
         const path = getPerfPath();
-        if (existsSync(path)) {
+        if (existsSync(path) && statSync(path).size <= MAX_PERF_STORE_BYTES) {
             return JSON.parse(readFileSync(path, 'utf-8'));
         }
     }
@@ -227,7 +228,15 @@ export const performanceTools = [
         handler: async (input) => {
             const store = loadPerfStore();
             const suite = input.suite || 'all';
-            const iterations = input.iterations || 100;
+            // Cap iterations to prevent event-loop blocking DoS.  The `neural`
+            // suite runs an O(n³) 64×64 matrix multiply per iteration; at 10 000
+            // iterations it already completes in milliseconds.  Uncapped, a caller
+            // could pass iterations=9_999_999 and block the process for minutes.
+            const MAX_BENCHMARK_ITERATIONS = 10_000;
+            const rawIterations = typeof input.iterations === 'number' ? input.iterations : 100;
+            const iterations = Number.isFinite(rawIterations) && rawIterations > 0
+                ? Math.min(Math.floor(rawIterations), MAX_BENCHMARK_ITERATIONS)
+                : 100;
             const warmup = input.warmup !== false;
             // REAL benchmark functions
             const benchmarkFunctions = {
