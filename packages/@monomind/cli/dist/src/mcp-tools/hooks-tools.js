@@ -978,7 +978,14 @@ export const hooksPreTask = {
     },
     handler: async (params) => {
         const taskId = params.taskId;
-        const description = params.description;
+        // Cap description: it is forwarded to generateEmbedding twice (ERL heuristics
+        // + TextGrad gradient queries) and used in O(n) keyword extraction.
+        // 16 KB matches the cap applied in hooks_route and hooksPatternSearch.
+        const MAX_PRE_TASK_DESC_LEN = 16 * 1024;
+        const rawDescription = params.description;
+        const description = typeof rawDescription === 'string' && rawDescription.length > MAX_PRE_TASK_DESC_LEN
+            ? rawDescription.slice(0, MAX_PRE_TASK_DESC_LEN)
+            : rawDescription;
         const filePath = params.filePath;
         const suggestion = suggestAgentsForTask(description);
         // Determine complexity
