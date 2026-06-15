@@ -3,7 +3,7 @@
  * Background process management, daemon mode, and monitoring
  */
 
-import { writeFileSync, readFileSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
+import { writeFileSync, readFileSync, statSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
@@ -291,9 +291,10 @@ const monitorCommand: Command = {
     // Try to read agent and task counts from local store files
     let agentCount = 0;
     const taskCounts = { running: 0, queued: 0, completed: 0, failed: 0 };
+    const MAX_PROCESS_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
     try {
       const agentStorePath = resolve('.monomind/agents/store.json');
-      if (existsSync(agentStorePath)) {
+      if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_PROCESS_STORE_BYTES) {
         const agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
         const agents = Array.isArray(agentStore) ? agentStore : Object.values(agentStore.agents || agentStore || {});
         agentCount = agents.length;
@@ -301,7 +302,7 @@ const monitorCommand: Command = {
     } catch { /* no agent store */ }
     try {
       const taskStorePath = resolve('.monomind/tasks/store.json');
-      if (existsSync(taskStorePath)) {
+      if (existsSync(taskStorePath) && statSync(taskStorePath).size <= MAX_PROCESS_STORE_BYTES) {
         const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
         const tasks = Array.isArray(taskStore) ? taskStore : Object.values(taskStore.tasks || taskStore || {});
         for (const t of tasks as Array<{ status?: string }>) {
@@ -676,7 +677,9 @@ const logsCommand: Command = {
           .filter(f => source === 'all' || f.includes(source));
         for (const file of logFiles) {
           try {
-            const content = readFileSync(resolve(logsDir, file), 'utf-8');
+            const logFilePath = resolve(logsDir, file);
+            if (statSync(logFilePath).size > 10 * 1024 * 1024) continue; // skip files > 10 MB
+            const content = readFileSync(logFilePath, 'utf-8');
             const lines = content.split('\n').filter(l => l.trim());
             for (const line of lines) {
               // Filter by log level if detectable
