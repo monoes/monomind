@@ -1129,7 +1129,14 @@ export const hooksPreTask: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const taskId = params.taskId as string;
-    const description = params.description as string;
+    // Cap description: it is forwarded to generateEmbedding twice (ERL heuristics
+    // + TextGrad gradient queries) and used in O(n) keyword extraction.
+    // 16 KB matches the cap applied in hooks_route and hooksPatternSearch.
+    const MAX_PRE_TASK_DESC_LEN = 16 * 1024;
+    const rawDescription = params.description as string;
+    const description = typeof rawDescription === 'string' && rawDescription.length > MAX_PRE_TASK_DESC_LEN
+      ? rawDescription.slice(0, MAX_PRE_TASK_DESC_LEN)
+      : rawDescription;
     const filePath = params.filePath as string | undefined;
     const suggestion = suggestAgentsForTask(description);
 
