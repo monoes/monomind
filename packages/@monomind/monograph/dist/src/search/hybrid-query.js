@@ -35,6 +35,8 @@ export async function hybridQuery(db, query, options = {}) {
         filePath: r.filePath,
         label: r.label,
         score: r.rank,
+        startLine: r.startLine,
+        endLine: r.endLine,
     }));
     // ── Decide whether to add vector results ──────────────────────────────────
     const embeddingsEnabled = embedder !== undefined || process.env['MONOGRAPH_EMBEDDINGS'] === 'true';
@@ -85,7 +87,7 @@ export async function hybridQuery(db, query, options = {}) {
     if (unknownIds.length > 0) {
         const placeholders = unknownIds.map(() => '?').join(',');
         const rows = db
-            .prepare(`SELECT id, name, norm_label, file_path, label FROM nodes WHERE id IN (${placeholders})`)
+            .prepare(`SELECT id, name, norm_label, file_path, label, start_line, end_line FROM nodes WHERE id IN (${placeholders})`)
             .all(...unknownIds);
         const rowMap = new Map(rows.map((r) => [r.id, r]));
         for (const item of enrichable) {
@@ -96,6 +98,8 @@ export async function hybridQuery(db, query, options = {}) {
                     item.normLabel = row.norm_label;
                     item.filePath = row.file_path;
                     item.label = row.label;
+                    item.startLine = row.start_line;
+                    item.endLine = row.end_line;
                 }
             }
         }

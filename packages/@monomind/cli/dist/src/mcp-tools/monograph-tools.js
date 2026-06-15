@@ -73,13 +73,19 @@ const monographQueryTool = {
                 const results = await hybridQuery(db, query, { limit, label });
                 if (results.length === 0)
                     return text('No results found.');
-                const lines = results.map(r => `[${r.label ?? '?'}] ${r.name ?? r.id}  ${r.filePath ?? ''}  (score: ${r.score.toFixed(4)})`);
+                const lines = results.map(r => {
+                    const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
+                    return `[${r.label ?? '?'}] ${r.name ?? r.id}  ${loc}  (score: ${r.score.toFixed(4)})`;
+                });
                 return text(lines.join('\n'));
             }
             const results = ftsSearch(db, query, limit, label);
             if (results.length === 0)
                 return text('No results found.');
-            const lines = results.map(r => `[${r.label}] ${r.name}  ${r.filePath ?? ''}  (score: ${r.rank.toFixed(3)})`);
+            const lines = results.map(r => {
+                const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
+                return `[${r.label}] ${r.name}  ${loc}  (score: ${r.rank.toFixed(3)})`;
+            });
             return text(lines.join('\n'));
         }
         finally {
@@ -162,7 +168,7 @@ const monographGodNodesTool = {
                 : 20;
             const excluded = ['File', 'Folder', 'Community', 'Concept'];
             const rows = db.prepare(`
-        SELECT n.id, n.label, n.name, n.file_path,
+        SELECT n.id, n.label, n.name, n.file_path, n.start_line,
                COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree,
                COUNT(DISTINCT e2.id) AS in_degree,
                COUNT(DISTINCT e1.id) AS out_degree
@@ -175,7 +181,10 @@ const monographGodNodesTool = {
       `).all(...excluded, limit);
             if (rows.length === 0)
                 return text('No god nodes found. Run monograph_build first.');
-            const lines = rows.map(r => `[${r.label}] ${r.name}  degree=${r.degree} (↑${r.out_degree} ↓${r.in_degree})  ${r.file_path ?? ''}`);
+            const lines = rows.map(r => {
+                const loc = r.file_path ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path) : '';
+                return `[${r.label}] ${r.name}  degree=${r.degree} (↑${r.out_degree} ↓${r.in_degree})  ${loc}`;
+            });
             return text(lines.join('\n'));
         }
         finally {
@@ -233,7 +242,15 @@ const monographShortestPathTool = {
             const path = getShortestPath(db, input.source, input.target, input.maxDepth ?? 6);
             if (!path)
                 return text(`No path found between ${input.source} and ${input.target}`);
-            return text(`Path (${path.length - 1} hops):\n${path.join(' → ')}`);
+            // Enrich each node ID with file:line for direct LLM navigation
+            const enriched = path.map(nodeId => {
+                const row = db.prepare('SELECT label, name, file_path, start_line FROM nodes WHERE id = ? OR name = ? LIMIT 1').get(nodeId, nodeId);
+                if (!row)
+                    return nodeId;
+                const loc = row.file_path ? (row.start_line != null ? `${row.file_path}:${row.start_line}` : row.file_path) : '';
+                return loc ? `${row.name ?? nodeId}  [${loc}]` : (row.name ?? nodeId);
+            });
+            return text(`Path (${path.length - 1} hops):\n${enriched.join(' → ')}`);
         }
         finally {
             closeDb(db);
@@ -263,10 +280,13 @@ const monographCommunityTool = {
         const { openDb, closeDb } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const rows = db.prepare('SELECT * FROM nodes WHERE community_id = ?').all(communityId);
+            const rows = db.prepare('SELECT id, label, name, file_path, start_line FROM nodes WHERE community_id = ?').all(communityId);
             if (rows.length === 0)
                 return text(`No nodes in community ${communityId}`);
-            return text(rows.map(r => `[${r.label}] ${r.name}  ${r.file_path ?? ''}`).join('\n'));
+            return text(rows.map(r => {
+                const loc = r.file_path ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path) : '';
+                return `[${r.label}] ${r.name}  ${loc}`;
+            }).join('\n'));
         }
         finally {
             closeDb(db);
@@ -336,6 +356,14 @@ const monographSuggestTool = {
             const task = typeof rawTask === 'string' && rawTask.length > MAX_SUGGEST_TASK_LEN
                 ? rawTask.slice(0, MAX_SUGGEST_TASK_LEN)
                 : rawTask;
+            // Format a suggestion row as a navigable string for LLM consumption.
+            // Includes file:line references so the LLM can jump directly to the code.
+            const formatSuggestion = (r) => {
+                const srcLoc = r.src_file ? (r.src_line != null ? `${r.src_file}:${r.src_line}` : r.src_file) : '';
+                const tgtLoc = r.tgt_file ? (r.tgt_line != null ? `${r.tgt_file}:${r.tgt_line}` : r.tgt_file) : '';
+                const locHint = srcLoc ? `  [${srcLoc}${tgtLoc ? ` → ${tgtLoc}` : ''}]` : '';
+                return `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})${locHint}`;
+            };
             // When a task is provided and embeddings are enabled, use semantic search
             // to find relevant nodes and surface edge-level questions about them.
             if (task && process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
@@ -345,7 +373,9 @@ const monographSuggestTool = {
                     return text('No suggestions for this task. Run monograph_build first or try a different query.');
                 }
                 const rows = db.prepare(`
-          SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt, n1.file_path as src_file
+          SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt,
+                 n1.file_path as src_file, n1.start_line as src_line,
+                 n2.file_path as tgt_file, n2.start_line as tgt_line
           FROM edges e
           JOIN nodes n1 ON n1.id = e.source_id
           JOIN nodes n2 ON n2.id = e.target_id
@@ -354,11 +384,13 @@ const monographSuggestTool = {
           AND e.confidence IN ('AMBIGUOUS', 'INFERRED')
           LIMIT 100
         `).all(...[...hitIds], ...[...hitIds]);
-                const questions = rows.map(r => `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})`);
+                const questions = rows.map(formatSuggestion);
                 return text(questions.slice(0, limit).join('\n') || 'No suggestions for this task. Run monograph_build first.');
             }
             const rows = db.prepare(`
-        SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt, n1.file_path as src_file
+        SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt,
+               n1.file_path as src_file, n1.start_line as src_line,
+               n2.file_path as tgt_file, n2.start_line as tgt_line
         FROM edges e
         JOIN nodes n1 ON n1.id = e.source_id
         JOIN nodes n2 ON n2.id = e.target_id
@@ -366,7 +398,7 @@ const monographSuggestTool = {
         LIMIT 100
       `).all();
             let scored = rows.map(r => ({
-                q: `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})`,
+                q: formatSuggestion(r),
                 relevance: task ? taskRelevance(task, r.src + ' ' + r.tgt + ' ' + (r.src_file ?? '')) : 0,
             }));
             if (task)
@@ -700,7 +732,38 @@ const monographContextTool = {
                 name: ctxName,
                 filePath: ctxPath,
             });
-            return text(JSON.stringify(result, null, 2));
+            if (!result || !result.node)
+                return text(`No symbol found: ${ctxName}`);
+            // Format context as structured text for direct LLM consumption
+            const n = result.node;
+            const loc = n.filePath ? (n.startLine != null ? `${n.filePath}:${n.startLine}` : n.filePath) : '';
+            const lines = [
+                `[${n.label ?? '?'}] ${n.name}  ${loc}`,
+                '',
+            ];
+            const formatNodes = (nodes, label) => {
+                if (!Array.isArray(nodes) || nodes.length === 0)
+                    return;
+                lines.push(`${label} (${nodes.length}):`);
+                for (const node of nodes.slice(0, 20)) {
+                    const fp = node.filePath ?? node.file_path ?? '';
+                    const ln = node.startLine ?? node.start_line;
+                    const nodeLoc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+                    lines.push(`  [${node.label ?? '?'}] ${node.name ?? node.id}  ${nodeLoc}`);
+                }
+                if (nodes.length > 20)
+                    lines.push(`  … ${nodes.length - 20} more`);
+                lines.push('');
+            };
+            formatNodes(result.callers, 'Callers');
+            formatNodes(result.callees, 'Callees');
+            formatNodes(result.imports, 'Imports');
+            formatNodes(result.importedBy, 'ImportedBy');
+            if (result.community != null)
+                lines.push(`Community: ${result.community}`);
+            if (result.communityName)
+                lines.push(`Community name: ${result.communityName}`);
+            return text(lines.join('\n').trim());
         }
         finally {
             closeDb(db);
@@ -742,7 +805,35 @@ const monographImpactTool = {
                 filePath: impactPath,
                 depth,
             });
-            return text(JSON.stringify(result, null, 2));
+            if (!result || !result.root)
+                return text(`No symbol found: ${impactName}`);
+            // Format impact as structured text for direct LLM consumption
+            const root = result.root;
+            const rootLoc = root.filePath ? (root.startLine != null ? `${root.filePath}:${root.startLine}` : root.filePath) : '';
+            const lines = [
+                `[${root.label ?? '?'}] ${root.name}  ${rootLoc}`,
+                '',
+                `Blast radius: ${result.totalAffected ?? 0} symbols affected`,
+            ];
+            if (result.riskScore != null) {
+                const riskLabel = result.riskScore >= 0.8 ? 'HIGH' : result.riskScore >= 0.5 ? 'MEDIUM' : 'LOW';
+                lines.push(`Risk score: ${result.riskScore.toFixed(2)} (${riskLabel})`);
+            }
+            lines.push('');
+            const affected = (result.affected ?? result.callers ?? []);
+            if (affected.length > 0) {
+                lines.push(`Affected callers (${affected.length}):`);
+                for (const sym of affected.slice(0, 20)) {
+                    const fp = sym.filePath ?? sym.file_path ?? '';
+                    const ln = sym.startLine ?? sym.start_line;
+                    const symLoc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+                    const depth_marker = sym.depth != null ? ` [depth ${sym.depth}]` : '';
+                    lines.push(`  [${sym.label ?? '?'}] ${sym.name ?? sym.id}  ${symLoc}${depth_marker}`);
+                }
+                if (affected.length > 20)
+                    lines.push(`  … ${affected.length - 20} more`);
+            }
+            return text(lines.join('\n').trim());
         }
         finally {
             closeDb(db);
@@ -769,7 +860,35 @@ const monographDetectChangesTool = {
                 baseBranch: input.baseBranch,
                 includeTests: input.includeTests,
             }, getProjectCwd());
-            return text(JSON.stringify(result, null, 2));
+            // Format as structured text for direct LLM navigation instead of raw JSON
+            const r = result;
+            if (!r || (!r.changedFiles?.length && !r.affectedSymbols?.length)) {
+                return text('No changed files found relative to the base branch.');
+            }
+            const lines = [];
+            const base = r.baseBranch ?? 'main';
+            const changedFiles = r.changedFiles ?? [];
+            lines.push(`Changed files vs ${base}: ${changedFiles.length}`);
+            if (changedFiles.length > 0) {
+                for (const f of changedFiles.slice(0, 20))
+                    lines.push(`  ${f}`);
+                if (changedFiles.length > 20)
+                    lines.push(`  … ${changedFiles.length - 20} more`);
+            }
+            lines.push('');
+            const affected = r.affectedSymbols ?? r.affected ?? [];
+            if (affected.length > 0) {
+                lines.push(`Affected symbols (${affected.length}):`);
+                for (const sym of affected.slice(0, 30)) {
+                    const fp = sym.filePath ?? sym.file_path ?? '';
+                    const ln = sym.startLine ?? sym.start_line;
+                    const loc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+                    lines.push(`  [${sym.label ?? '?'}] ${sym.name ?? sym.id}  ${loc}`);
+                }
+                if (affected.length > 30)
+                    lines.push(`  … ${affected.length - 30} more`);
+            }
+            return text(lines.join('\n').trim());
         }
         finally {
             closeDb(db);
@@ -801,7 +920,25 @@ const monographRenameTool = {
                 filePath: input.filePath,
                 dryRun: input.dryRun ?? true,
             });
-            return text(JSON.stringify(result, null, 2));
+            // Format as structured text for direct LLM navigation instead of raw JSON
+            const rn = result;
+            if (!rn)
+                return text(`Symbol not found: ${input.oldName}`);
+            const occurrences = rn.occurrences ?? rn.references ?? [];
+            const lines = [
+                `Rename: ${input.oldName} → ${input.newName}  (dry-run)`,
+                `Occurrences: ${occurrences.length}`,
+                '',
+            ];
+            for (const occ of occurrences.slice(0, 30)) {
+                const fp = occ.filePath ?? occ.file_path ?? '';
+                const ln = occ.line ?? occ.startLine ?? occ.start_line;
+                const loc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+                lines.push(`  ${loc || occ}`);
+            }
+            if (occurrences.length > 30)
+                lines.push(`  … ${occurrences.length - 30} more`);
+            return text(lines.join('\n').trim());
         }
         finally {
             closeDb(db);
@@ -1430,11 +1567,19 @@ const monographNeighborsTool = {
             });
             if (!result.node)
                 return text(`No node found with name: ${input.name}`);
+            const nodeFilePath = result.node.filePath ?? '';
+            const nodeStartLine = result.node.startLine ?? result.node.start_line;
+            const nodeLoc = nodeFilePath ? (nodeStartLine != null ? `${nodeFilePath}:${nodeStartLine}` : nodeFilePath) : '';
             const lines = [
-                `[${result.node.label}] ${result.node.name}  ${result.node.filePath ?? ''}`,
+                `[${result.node.label}] ${result.node.name}  ${nodeLoc}`,
                 `Neighbors: ${result.neighbors.length}`,
                 '',
-                ...result.neighbors.map(n => `  ${n.direction === 'inbound' ? '←' : '→'} [${n.node.label}] ${n.node.name}  (${n.relation})  ${n.node.filePath ?? ''}`),
+                ...result.neighbors.map(n => {
+                    const fp = n.node.filePath ?? n.node.file_path ?? '';
+                    const ln = n.node.startLine ?? n.node.start_line;
+                    const loc = fp ? (ln != null ? `${fp}:${ln}` : fp) : '';
+                    return `  ${n.direction === 'inbound' ? '←' : '→'} [${n.node.label}] ${n.node.name}  (${n.relation})  ${loc}`;
+                }),
             ];
             return text(lines.join('\n'));
         }

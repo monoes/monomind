@@ -1,7 +1,7 @@
 /**
  * Batch-embed all symbol nodes that don't yet have an embedding stored.
  */
-import { upsertEmbedding, countEmbeddings } from '../storage/embedding-store.js';
+import { upsertEmbedding, ensureEmbeddingSchema, countEmbeddings } from '../storage/embedding-store.js';
 import { embedText } from './embedder.js';
 const BATCH_SIZE = 32;
 /**
@@ -65,6 +65,9 @@ export async function embedAll(db, embedder, force = false, codeOnly = false) {
     // Filter to only rows that need embedding
     const toEmbed = filteredRows.filter((r) => !existingIds.has(r.id));
     skipped = filteredRows.length - toEmbed.length;
+    // Ensure schema migration runs once before any upsert — not per-row.
+    if (toEmbed.length > 0)
+        ensureEmbeddingSchema(db);
     // Process in batches
     for (let i = 0; i < toEmbed.length; i += BATCH_SIZE) {
         const batch = toEmbed.slice(i, i + BATCH_SIZE);

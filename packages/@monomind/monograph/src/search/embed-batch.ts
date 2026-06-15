@@ -6,7 +6,7 @@ import type Database from 'better-sqlite3';
 import type { EmbedderFn } from './embedder.js';
 import type { EmbedDeviceConfig } from './device-config.js';
 import type { HttpEmbedderConfig } from './http-embedder.js';
-import { upsertEmbedding, countEmbeddings } from '../storage/embedding-store.js';
+import { upsertEmbedding, ensureEmbeddingSchema, countEmbeddings } from '../storage/embedding-store.js';
 import { embedText } from './embedder.js';
 
 const BATCH_SIZE = 32;
@@ -109,6 +109,9 @@ export async function embedAll(
   // Filter to only rows that need embedding
   const toEmbed = filteredRows.filter((r) => !existingIds.has(r.id));
   skipped = filteredRows.length - toEmbed.length;
+
+  // Ensure schema migration runs once before any upsert — not per-row.
+  if (toEmbed.length > 0) ensureEmbeddingSchema(db);
 
   // Process in batches
   for (let i = 0; i < toEmbed.length; i += BATCH_SIZE) {

@@ -76,16 +76,22 @@ export function computeAuthorAnalytics(repoPath: string, db: MonographDb): Autho
   if (commitCount.size === 0) return EMPTY_REPORT;
 
   // ── File ownership ─────────────────────────────────────────────────────────
-  // Get File nodes with degree > 2
+  // Get File nodes with degree > 2 — use JOIN+GROUP BY instead of correlated subquery
   const fileRows = db.prepare(`
     SELECT n.id, n.name, n.file_path
     FROM nodes n
+    JOIN (
+      SELECT id, COUNT(*) AS deg
+      FROM (
+        SELECT source_id AS id FROM edges
+        UNION ALL
+        SELECT target_id AS id FROM edges
+      )
+      GROUP BY id
+      HAVING COUNT(*) > 2
+    ) deg_tbl ON deg_tbl.id = n.id
     WHERE n.label = 'File'
       AND n.file_path IS NOT NULL
-      AND (
-        SELECT COUNT(*) FROM edges e
-        WHERE e.source_id = n.id OR e.target_id = n.id
-      ) > 2
     LIMIT 200
   `).all() as { id: string; name: string; file_path: string }[];
 
@@ -174,4 +180,38 @@ export function computeAuthorAnalytics(repoPath: string, db: MonographDb): Autho
   const topOwners = authors.filter(a => !a.isBot).slice(0, 5);
 
   return { authors, topOwners, botAuthors, unownedFiles };
+}
+
+/** Format AuthorAnalyticsReport as structured text for LLM navigation. */
+export function formatAuthorAnalytics(report: AuthorAnalyticsReport): string {
+  if (report.authors.length === 0) {
+    return 'Author analytics: no commit history found.';
+  }
+
+  const lines: string[] = [
+    `Author analytics: ${report.authors.length} contributor(s), ${report.unownedFiles} unowned file(s).`,
+    '',
+  ];
+
+  if (report.topOwners.length > 0) {
+    lines.push('Top file owners (non-bot):');
+    for (const a of report.topOwners) {
+      const trend = a.churnTrend === 'accelerating' ? ' [↑ accelerating]'
+        : a.churnTrend === 'declining' ? ' [↓ declining]' : '';
+      lines.push(`  ${a.author}  files:${a.filesOwned}  commits:${a.commitCount}  recent30d:${a.recentCommits}${trend}`);
+    }
+    lines.push('');
+  }
+
+  if (report.botAuthors.length > 0) {
+    lines.push(`Bot/automation authors (${report.botAuthors.length}): ${report.botAuthors.join(', ')}`);
+    lines.push('');
+  }
+
+  if (report.unownedFiles > 0) {
+    lines.push(`Unowned files: ${report.unownedFiles} file(s) have no majority author (> 50% commits).`);
+    lines.push('Consider adding CODEOWNERS entries for these files.');
+  }
+
+  return lines.join('\n').trimEnd();
 }

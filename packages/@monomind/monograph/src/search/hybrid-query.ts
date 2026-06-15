@@ -31,6 +31,10 @@ export interface HybridResult extends RankedResult {
   filePath: string | null;
   label: string;
   score: number;
+  /** First line of the symbol in its source file (1-based, null if unknown). */
+  startLine?: number | null;
+  /** Last line of the symbol in its source file (1-based, null if unknown). */
+  endLine?: number | null;
 }
 
 /**
@@ -61,6 +65,8 @@ export async function hybridQuery(
     filePath: r.filePath,
     label: r.label,
     score: r.rank,
+    startLine: r.startLine,
+    endLine: r.endLine,
   }));
 
   // ── Decide whether to add vector results ──────────────────────────────────
@@ -121,7 +127,7 @@ export async function hybridQuery(
     const placeholders = unknownIds.map(() => '?').join(',');
     const rows = db
       .prepare(
-        `SELECT id, name, norm_label, file_path, label FROM nodes WHERE id IN (${placeholders})`,
+        `SELECT id, name, norm_label, file_path, label, start_line, end_line FROM nodes WHERE id IN (${placeholders})`,
       )
       .all(...unknownIds) as {
       id: string;
@@ -129,6 +135,8 @@ export async function hybridQuery(
       norm_label: string;
       file_path: string | null;
       label: string;
+      start_line: number | null;
+      end_line: number | null;
     }[];
 
     const rowMap = new Map(rows.map((r) => [r.id, r]));
@@ -140,6 +148,8 @@ export async function hybridQuery(
           item.normLabel = row.norm_label;
           item.filePath = row.file_path;
           item.label = row.label;
+          (item as HybridResult).startLine = row.start_line;
+          (item as HybridResult).endLine = row.end_line;
         }
       }
     }
