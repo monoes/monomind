@@ -1,0 +1,966 @@
+{
+  "version": 1,
+  "count": 120,
+  "agents": [
+    {
+      "id": "coder",
+      "label": "Coder",
+      "category": "core",
+      "icon": "💻",
+      "file": "avatars/coder.svg",
+      "index": 0
+    },
+    {
+      "id": "senior-developer",
+      "label": "Senior Developer",
+      "category": "core",
+      "icon": "⚡",
+      "file": "avatars/senior-developer.svg",
+      "index": 1
+    },
+    {
+      "id": "reviewer",
+      "label": "Code Reviewer",
+      "category": "core",
+      "icon": "🔍",
+      "file": "avatars/reviewer.svg",
+      "index": 2
+    },
+    {
+      "id": "tester",
+      "label": "Tester",
+      "category": "core",
+      "icon": "🧪",
+      "file": "avatars/tester.svg",
+      "index": 3
+    },
+    {
+      "id": "planner",
+      "label": "Planner",
+      "category": "core",
+      "icon": "📋",
+      "file": "avatars/planner.svg",
+      "index": 4
+    },
+    {
+      "id": "researcher",
+      "label": "Researcher",
+      "category": "core",
+      "icon": "📚",
+      "file": "avatars/researcher.svg",
+      "index": 5
+    },
+    {
+      "id": "security-architect",
+      "label": "Security Architect",
+      "category": "security",
+      "icon": "🛡️",
+      "file": "avatars/security-architect.svg",
+      "index": 6
+    },
+    {
+      "id": "security-auditor",
+      "label": "Security Auditor",
+      "category": "security",
+      "icon": "🔒",
+      "file": "avatars/security-auditor.svg",
+      "index": 7
+    },
+    {
+      "id": "threat-detection",
+      "label": "Threat Detection",
+      "category": "security",
+      "icon": "⚠️",
+      "file": "avatars/threat-detection.svg",
+      "index": 8
+    },
+    {
+      "id": "input-validator",
+      "label": "Input Validator",
+      "category": "security",
+      "icon": "✅",
+      "file": "avatars/input-validator.svg",
+      "index": 9
+    },
+    {
+      "id": "path-validator",
+      "label": "Path Validator",
+      "category": "security",
+      "icon": "🗂️",
+      "file": "avatars/path-validator.svg",
+      "index": 10
+    },
+    {
+      "id": "safe-executor",
+      "label": "Safe Executor",
+      "category": "security",
+      "icon": "🔐",
+      "file": "avatars/safe-executor.svg",
+      "index": 11
+    },
+    {
+      "id": "hierarchical-coord",
+      "label": "Hierarchical Coord.",
+      "category": "swarm",
+      "icon": "🏛️",
+      "file": "avatars/hierarchical-coord.svg",
+      "index": 12
+    },
+    {
+      "id": "mesh-coordinator",
+      "label": "Mesh Coordinator",
+      "category": "swarm",
+      "icon": "🕸️",
+      "file": "avatars/mesh-coordinator.svg",
+      "index": 13
+    },
+    {
+      "id": "adaptive-coordinator",
+      "label": "Adaptive Coordinator",
+      "category": "swarm",
+      "icon": "🔄",
+      "file": "avatars/adaptive-coordinator.svg",
+      "index": 14
+    },
+    {
+      "id": "collective-coord",
+      "label": "Collective Intel.",
+      "category": "swarm",
+      "icon": "🧠",
+      "file": "avatars/collective-coord.svg",
+      "index": 15
+    },
+    {
+      "id": "queen-coordinator",
+      "label": "Queen Coordinator",
+      "category": "swarm",
+      "icon": "👑",
+      "file": "avatars/queen-coordinator.svg",
+      "index": 16
+    },
+    {
+      "id": "worker-specialist",
+      "label": "Worker Specialist",
+      "category": "swarm",
+      "icon": "⚙️",
+      "file": "avatars/worker-specialist.svg",
+      "index": 17
+    },
+    {
+      "id": "byzantine-coord",
+      "label": "Byzantine Coord.",
+      "category": "consensus",
+      "icon": "⚖️",
+      "file": "avatars/byzantine-coord.svg",
+      "index": 18
+    },
+    {
+      "id": "raft-manager",
+      "label": "Raft Manager",
+      "category": "consensus",
+      "icon": "🚣",
+      "file": "avatars/raft-manager.svg",
+      "index": 19
+    },
+    {
+      "id": "gossip-coordinator",
+      "label": "Gossip Coordinator",
+      "category": "consensus",
+      "icon": "💬",
+      "file": "avatars/gossip-coordinator.svg",
+      "index": 20
+    },
+    {
+      "id": "crdt-synchronizer",
+      "label": "CRDT Synchronizer",
+      "category": "consensus",
+      "icon": "🔗",
+      "file": "avatars/crdt-synchronizer.svg",
+      "index": 21
+    },
+    {
+      "id": "quorum-manager",
+      "label": "Quorum Manager",
+      "category": "consensus",
+      "icon": "🗳️",
+      "file": "avatars/quorum-manager.svg",
+      "index": 22
+    },
+    {
+      "id": "consensus-coordinator",
+      "label": "Consensus Coord.",
+      "category": "consensus",
+      "icon": "🤝",
+      "file": "avatars/consensus-coordinator.svg",
+      "index": 23
+    },
+    {
+      "id": "perf-analyzer",
+      "label": "Perf Analyzer",
+      "category": "perf",
+      "icon": "📊",
+      "file": "avatars/perf-analyzer.svg",
+      "index": 24
+    },
+    {
+      "id": "benchmarker",
+      "label": "Benchmarker",
+      "category": "perf",
+      "icon": "⏱️",
+      "file": "avatars/benchmarker.svg",
+      "index": 25
+    },
+    {
+      "id": "task-orchestrator",
+      "label": "Task Orchestrator",
+      "category": "perf",
+      "icon": "🎯",
+      "file": "avatars/task-orchestrator.svg",
+      "index": 26
+    },
+    {
+      "id": "memory-coordinator",
+      "label": "Memory Coordinator",
+      "category": "perf",
+      "icon": "🧮",
+      "file": "avatars/memory-coordinator.svg",
+      "index": 27
+    },
+    {
+      "id": "load-balancer",
+      "label": "Load Balancer",
+      "category": "perf",
+      "icon": "⚖️",
+      "file": "avatars/load-balancer.svg",
+      "index": 28
+    },
+    {
+      "id": "resource-allocator",
+      "label": "Resource Allocator",
+      "category": "perf",
+      "icon": "📦",
+      "file": "avatars/resource-allocator.svg",
+      "index": 29
+    },
+    {
+      "id": "pr-manager",
+      "label": "PR Manager",
+      "category": "github",
+      "icon": "🔀",
+      "file": "avatars/pr-manager.svg",
+      "index": 30
+    },
+    {
+      "id": "code-review-swarm",
+      "label": "Code Review Swarm",
+      "category": "github",
+      "icon": "👁️",
+      "file": "avatars/code-review-swarm.svg",
+      "index": 31
+    },
+    {
+      "id": "issue-tracker",
+      "label": "Issue Tracker",
+      "category": "github",
+      "icon": "🐛",
+      "file": "avatars/issue-tracker.svg",
+      "index": 32
+    },
+    {
+      "id": "release-manager",
+      "label": "Release Manager",
+      "category": "github",
+      "icon": "🚀",
+      "file": "avatars/release-manager.svg",
+      "index": 33
+    },
+    {
+      "id": "repo-architect",
+      "label": "Repo Architect",
+      "category": "github",
+      "icon": "🏗️",
+      "file": "avatars/repo-architect.svg",
+      "index": 34
+    },
+    {
+      "id": "workflow-automation",
+      "label": "Workflow Automation",
+      "category": "github",
+      "icon": "⚡",
+      "file": "avatars/workflow-automation.svg",
+      "index": 35
+    },
+    {
+      "id": "sparc-coord",
+      "label": "SPARC Coordinator",
+      "category": "sparc",
+      "icon": "⚡",
+      "file": "avatars/sparc-coord.svg",
+      "index": 36
+    },
+    {
+      "id": "sparc-coder",
+      "label": "SPARC Coder",
+      "category": "sparc",
+      "icon": "💡",
+      "file": "avatars/sparc-coder.svg",
+      "index": 37
+    },
+    {
+      "id": "specification",
+      "label": "Specification",
+      "category": "sparc",
+      "icon": "📝",
+      "file": "avatars/specification.svg",
+      "index": 38
+    },
+    {
+      "id": "pseudocode",
+      "label": "Pseudocode",
+      "category": "sparc",
+      "icon": "🔤",
+      "file": "avatars/pseudocode.svg",
+      "index": 39
+    },
+    {
+      "id": "architecture",
+      "label": "Architecture",
+      "category": "sparc",
+      "icon": "📐",
+      "file": "avatars/architecture.svg",
+      "index": 40
+    },
+    {
+      "id": "refinement",
+      "label": "Refinement",
+      "category": "sparc",
+      "icon": "✨",
+      "file": "avatars/refinement.svg",
+      "index": 41
+    },
+    {
+      "id": "backend-dev",
+      "label": "Backend Dev",
+      "category": "core",
+      "icon": "🗄️",
+      "file": "avatars/backend-dev.svg",
+      "index": 42
+    },
+    {
+      "id": "frontend-developer",
+      "label": "Frontend Developer",
+      "category": "frontend",
+      "icon": "🎨",
+      "file": "avatars/frontend-developer.svg",
+      "index": 43
+    },
+    {
+      "id": "mobile-dev",
+      "label": "Mobile Developer",
+      "category": "frontend",
+      "icon": "📱",
+      "file": "avatars/mobile-dev.svg",
+      "index": 44
+    },
+    {
+      "id": "ml-developer",
+      "label": "ML Developer",
+      "category": "ai",
+      "icon": "🤖",
+      "file": "avatars/ml-developer.svg",
+      "index": 45
+    },
+    {
+      "id": "cicd-engineer",
+      "label": "CI/CD Engineer",
+      "category": "devops",
+      "icon": "🔄",
+      "file": "avatars/cicd-engineer.svg",
+      "index": 46
+    },
+    {
+      "id": "system-architect",
+      "label": "System Architect",
+      "category": "core",
+      "icon": "🏛️",
+      "file": "avatars/system-architect.svg",
+      "index": 47
+    },
+    {
+      "id": "ai-engineer",
+      "label": "AI Engineer",
+      "category": "ai",
+      "icon": "🧠",
+      "file": "avatars/ai-engineer.svg",
+      "index": 48
+    },
+    {
+      "id": "model-qa",
+      "label": "Model QA Specialist",
+      "category": "ai",
+      "icon": "🔬",
+      "file": "avatars/model-qa.svg",
+      "index": 49
+    },
+    {
+      "id": "data-engineer",
+      "label": "Data Engineer",
+      "category": "data",
+      "icon": "🗃️",
+      "file": "avatars/data-engineer.svg",
+      "index": 50
+    },
+    {
+      "id": "analytics-reporter",
+      "label": "Analytics Reporter",
+      "category": "data",
+      "icon": "📈",
+      "file": "avatars/analytics-reporter.svg",
+      "index": 51
+    },
+    {
+      "id": "experiment-tracker",
+      "label": "Experiment Tracker",
+      "category": "ai",
+      "icon": "🧫",
+      "file": "avatars/experiment-tracker.svg",
+      "index": 52
+    },
+    {
+      "id": "data-consolidator",
+      "label": "Data Consolidator",
+      "category": "data",
+      "icon": "🔧",
+      "file": "avatars/data-consolidator.svg",
+      "index": 53
+    },
+    {
+      "id": "devops-automator",
+      "label": "DevOps Automator",
+      "category": "devops",
+      "icon": "⚙️",
+      "file": "avatars/devops-automator.svg",
+      "index": 54
+    },
+    {
+      "id": "sre",
+      "label": "SRE",
+      "category": "devops",
+      "icon": "🔭",
+      "file": "avatars/sre.svg",
+      "index": 55
+    },
+    {
+      "id": "incident-commander",
+      "label": "Incident Commander",
+      "category": "devops",
+      "icon": "🚨",
+      "file": "avatars/incident-commander.svg",
+      "index": 56
+    },
+    {
+      "id": "infrastructure",
+      "label": "Infrastructure",
+      "category": "infra",
+      "icon": "🏗️",
+      "file": "avatars/infrastructure.svg",
+      "index": 57
+    },
+    {
+      "id": "database-optimizer",
+      "label": "Database Optimizer",
+      "category": "infra",
+      "icon": "🗄️",
+      "file": "avatars/database-optimizer.svg",
+      "index": 58
+    },
+    {
+      "id": "cloud-architect",
+      "label": "Cloud Architect",
+      "category": "infra",
+      "icon": "☁️",
+      "file": "avatars/cloud-architect.svg",
+      "index": 59
+    },
+    {
+      "id": "prosecutor",
+      "label": "Prosecutor",
+      "category": "legal",
+      "icon": "⚡",
+      "file": "avatars/prosecutor.svg",
+      "index": 60
+    },
+    {
+      "id": "defender",
+      "label": "Defender",
+      "category": "legal",
+      "icon": "🛡️",
+      "file": "avatars/defender.svg",
+      "index": 61
+    },
+    {
+      "id": "judge",
+      "label": "Judge",
+      "category": "legal",
+      "icon": "⚖️",
+      "file": "avatars/judge.svg",
+      "index": 62
+    },
+    {
+      "id": "case-analyst",
+      "label": "Case Analyst",
+      "category": "legal",
+      "icon": "📂",
+      "file": "avatars/case-analyst.svg",
+      "index": 63
+    },
+    {
+      "id": "trial-director",
+      "label": "Trial Director",
+      "category": "legal",
+      "icon": "🎬",
+      "file": "avatars/trial-director.svg",
+      "index": 64
+    },
+    {
+      "id": "legal-compliance",
+      "label": "Legal Compliance",
+      "category": "legal",
+      "icon": "📜",
+      "file": "avatars/legal-compliance.svg",
+      "index": 65
+    },
+    {
+      "id": "technical-writer",
+      "label": "Technical Writer",
+      "category": "content",
+      "icon": "✍️",
+      "file": "avatars/technical-writer.svg",
+      "index": 66
+    },
+    {
+      "id": "content-creator",
+      "label": "Content Creator",
+      "category": "content",
+      "icon": "🎭",
+      "file": "avatars/content-creator.svg",
+      "index": 67
+    },
+    {
+      "id": "seo-specialist",
+      "label": "SEO Specialist",
+      "category": "content",
+      "icon": "🔎",
+      "file": "avatars/seo-specialist.svg",
+      "index": 68
+    },
+    {
+      "id": "social-media",
+      "label": "Social Media",
+      "category": "content",
+      "icon": "📣",
+      "file": "avatars/social-media.svg",
+      "index": 69
+    },
+    {
+      "id": "email-marketing",
+      "label": "Email Marketing",
+      "category": "content",
+      "icon": "📧",
+      "file": "avatars/email-marketing.svg",
+      "index": 70
+    },
+    {
+      "id": "ai-citation",
+      "label": "AI Citation",
+      "category": "content",
+      "icon": "🔗",
+      "file": "avatars/ai-citation.svg",
+      "index": 71
+    },
+    {
+      "id": "product-manager",
+      "label": "Product Manager",
+      "category": "product",
+      "icon": "🗺️",
+      "file": "avatars/product-manager.svg",
+      "index": 72
+    },
+    {
+      "id": "sprint-prioritizer",
+      "label": "Sprint Prioritizer",
+      "category": "product",
+      "icon": "🎯",
+      "file": "avatars/sprint-prioritizer.svg",
+      "index": 73
+    },
+    {
+      "id": "launch-strategist",
+      "label": "Launch Strategist",
+      "category": "product",
+      "icon": "🚀",
+      "file": "avatars/launch-strategist.svg",
+      "index": 74
+    },
+    {
+      "id": "pricing-strategist",
+      "label": "Pricing Strategist",
+      "category": "product",
+      "icon": "💰",
+      "file": "avatars/pricing-strategist.svg",
+      "index": 75
+    },
+    {
+      "id": "feedback-synthesizer",
+      "label": "Feedback Synthesizer",
+      "category": "product",
+      "icon": "📥",
+      "file": "avatars/feedback-synthesizer.svg",
+      "index": 76
+    },
+    {
+      "id": "cro-specialist",
+      "label": "CRO Specialist",
+      "category": "product",
+      "icon": "📊",
+      "file": "avatars/cro-specialist.svg",
+      "index": 77
+    },
+    {
+      "id": "sales-engineer",
+      "label": "Sales Engineer",
+      "category": "sales",
+      "icon": "🤝",
+      "file": "avatars/sales-engineer.svg",
+      "index": 78
+    },
+    {
+      "id": "deal-strategist",
+      "label": "Deal Strategist",
+      "category": "sales",
+      "icon": "♟️",
+      "file": "avatars/deal-strategist.svg",
+      "index": 79
+    },
+    {
+      "id": "account-strategist",
+      "label": "Account Strategist",
+      "category": "sales",
+      "icon": "📊",
+      "file": "avatars/account-strategist.svg",
+      "index": 80
+    },
+    {
+      "id": "outbound-strategist",
+      "label": "Outbound Strategist",
+      "category": "sales",
+      "icon": "📡",
+      "file": "avatars/outbound-strategist.svg",
+      "index": 81
+    },
+    {
+      "id": "pipeline-analyst",
+      "label": "Pipeline Analyst",
+      "category": "sales",
+      "icon": "📉",
+      "file": "avatars/pipeline-analyst.svg",
+      "index": 82
+    },
+    {
+      "id": "sales-coach",
+      "label": "Sales Coach",
+      "category": "sales",
+      "icon": "🏋️",
+      "file": "avatars/sales-coach.svg",
+      "index": 83
+    },
+    {
+      "id": "support-responder",
+      "label": "Support Responder",
+      "category": "content",
+      "icon": "💬",
+      "file": "avatars/support-responder.svg",
+      "index": 84
+    },
+    {
+      "id": "discovery-coach",
+      "label": "Discovery Coach",
+      "category": "sales",
+      "icon": "🔭",
+      "file": "avatars/discovery-coach.svg",
+      "index": 85
+    },
+    {
+      "id": "proposal-strategist",
+      "label": "Proposal Strategist",
+      "category": "sales",
+      "icon": "📋",
+      "file": "avatars/proposal-strategist.svg",
+      "index": 86
+    },
+    {
+      "id": "game-designer",
+      "label": "Game Designer",
+      "category": "creative",
+      "icon": "🎮",
+      "file": "avatars/game-designer.svg",
+      "index": 87
+    },
+    {
+      "id": "narrative-designer",
+      "label": "Narrative Designer",
+      "category": "creative",
+      "icon": "📖",
+      "file": "avatars/narrative-designer.svg",
+      "index": 88
+    },
+    {
+      "id": "level-designer",
+      "label": "Level Designer",
+      "category": "creative",
+      "icon": "🗺️",
+      "file": "avatars/level-designer.svg",
+      "index": 89
+    },
+    {
+      "id": "game-audio-engineer",
+      "label": "Game Audio Engineer",
+      "category": "creative",
+      "icon": "🎵",
+      "file": "avatars/game-audio-engineer.svg",
+      "index": 90
+    },
+    {
+      "id": "technical-artist",
+      "label": "Technical Artist",
+      "category": "creative",
+      "icon": "🎨",
+      "file": "avatars/technical-artist.svg",
+      "index": 91
+    },
+    {
+      "id": "unity-architect",
+      "label": "Unity Architect",
+      "category": "creative",
+      "icon": "🕹️",
+      "file": "avatars/unity-architect.svg",
+      "index": 92
+    },
+    {
+      "id": "blockchain-auditor",
+      "label": "Blockchain Auditor",
+      "category": "blockchain",
+      "icon": "⛓️",
+      "file": "avatars/blockchain-auditor.svg",
+      "index": 93
+    },
+    {
+      "id": "solidity-engineer",
+      "label": "Solidity Engineer",
+      "category": "blockchain",
+      "icon": "💎",
+      "file": "avatars/solidity-engineer.svg",
+      "index": 94
+    },
+    {
+      "id": "zk-steward",
+      "label": "ZK Steward",
+      "category": "blockchain",
+      "icon": "🔏",
+      "file": "avatars/zk-steward.svg",
+      "index": 95
+    },
+    {
+      "id": "studio-producer",
+      "label": "Studio Producer",
+      "category": "management",
+      "icon": "🎬",
+      "file": "avatars/studio-producer.svg",
+      "index": 96
+    },
+    {
+      "id": "project-shepherd",
+      "label": "Project Shepherd",
+      "category": "management",
+      "icon": "🐑",
+      "file": "avatars/project-shepherd.svg",
+      "index": 97
+    },
+    {
+      "id": "senior-pm",
+      "label": "Senior PM",
+      "category": "management",
+      "icon": "📌",
+      "file": "avatars/senior-pm.svg",
+      "index": 98
+    },
+    {
+      "id": "studio-operations",
+      "label": "Studio Operations",
+      "category": "management",
+      "icon": "🏢",
+      "file": "avatars/studio-operations.svg",
+      "index": 99
+    },
+    {
+      "id": "workflow-architect",
+      "label": "Workflow Architect",
+      "category": "management",
+      "icon": "🌐",
+      "file": "avatars/workflow-architect.svg",
+      "index": 100
+    },
+    {
+      "id": "adaptive-coordinator2",
+      "label": "Adaptive Coord. II",
+      "category": "management",
+      "icon": "♻️",
+      "file": "avatars/adaptive-coordinator2.svg",
+      "index": 101
+    },
+    {
+      "id": "api-tester",
+      "label": "API Tester",
+      "category": "testing",
+      "icon": "🔌",
+      "file": "avatars/api-tester.svg",
+      "index": 102
+    },
+    {
+      "id": "evidence-collector",
+      "label": "Evidence Collector",
+      "category": "testing",
+      "icon": "📸",
+      "file": "avatars/evidence-collector.svg",
+      "index": 103
+    },
+    {
+      "id": "reality-checker",
+      "label": "Reality Checker",
+      "category": "testing",
+      "icon": "🔍",
+      "file": "avatars/reality-checker.svg",
+      "index": 104
+    },
+    {
+      "id": "production-validator",
+      "label": "Production Validator",
+      "category": "testing",
+      "icon": "✅",
+      "file": "avatars/production-validator.svg",
+      "index": 105
+    },
+    {
+      "id": "finance-tracker",
+      "label": "Finance Tracker",
+      "category": "sales",
+      "icon": "💹",
+      "file": "avatars/finance-tracker.svg",
+      "index": 106
+    },
+    {
+      "id": "accounts-payable",
+      "label": "Accounts Payable",
+      "category": "sales",
+      "icon": "💳",
+      "file": "avatars/accounts-payable.svg",
+      "index": 107
+    },
+    {
+      "id": "recruitment",
+      "label": "Recruitment",
+      "category": "management",
+      "icon": "🎯",
+      "file": "avatars/recruitment.svg",
+      "index": 108
+    },
+    {
+      "id": "visionos-engineer",
+      "label": "visionOS Engineer",
+      "category": "frontend",
+      "icon": "👓",
+      "file": "avatars/visionos-engineer.svg",
+      "index": 109
+    },
+    {
+      "id": "embedded-firmware",
+      "label": "Embedded Firmware",
+      "category": "infra",
+      "icon": "🔌",
+      "file": "avatars/embedded-firmware.svg",
+      "index": 110
+    },
+    {
+      "id": "ios-developer",
+      "label": "iOS Developer",
+      "category": "frontend",
+      "icon": "📱",
+      "file": "avatars/ios-developer.svg",
+      "index": 111
+    },
+    {
+      "id": "mobile-app-builder",
+      "label": "Mobile App Builder",
+      "category": "frontend",
+      "icon": "🏗️",
+      "file": "avatars/mobile-app-builder.svg",
+      "index": 112
+    },
+    {
+      "id": "mcp-builder",
+      "label": "MCP Builder",
+      "category": "core",
+      "icon": "🔧",
+      "file": "avatars/mcp-builder.svg",
+      "index": 113
+    },
+    {
+      "id": "automation-governance",
+      "label": "Automation Governance",
+      "category": "devops",
+      "icon": "🏛️",
+      "file": "avatars/automation-governance.svg",
+      "index": 114
+    },
+    {
+      "id": "payment-agent",
+      "label": "Payment Agent",
+      "category": "blockchain",
+      "icon": "💸",
+      "file": "avatars/payment-agent.svg",
+      "index": 115
+    },
+    {
+      "id": "compliance-auditor",
+      "label": "Compliance Auditor",
+      "category": "security",
+      "icon": "📋",
+      "file": "avatars/compliance-auditor.svg",
+      "index": 116
+    },
+    {
+      "id": "trend-researcher",
+      "label": "Trend Researcher",
+      "category": "ai",
+      "icon": "📡",
+      "file": "avatars/trend-researcher.svg",
+      "index": 117
+    },
+    {
+      "id": "scout-explorer",
+      "label": "Scout Explorer",
+      "category": "swarm",
+      "icon": "🧭",
+      "file": "avatars/scout-explorer.svg",
+      "index": 118
+    },
+    {
+      "id": "coder-v119",
+      "label": "Coder II",
+      "category": "core",
+      "icon": "💻",
+      "file": "avatars/coder-v119.svg",
+      "index": 119
+    }
+  ]
+}
