@@ -83,3 +83,5 @@
 - 60ec4245 — fix(server): /api/org/:name running detection also checks activeOrgRuns in-memory map so orgs show LIVE immediately after launch instead of IDLE until the state file is updated by the boss agent
 - 269a9a1f — fix(dashboard): sort and timestamp sessions by s.ts fallback in loadChatViewSessions so Chat tab session dropdown shows chronological order and timestamps (server stores ts not startedAt)
 - 2d59601b — fix(dashboard): update _v2OrgData._agents status on org:agent:online/org:complete SSE events so Live tab running-agents section reflects reality; also refresh agents in 5s poll alongside activity
+- a83e7974 — fix(control-start): poll actual port after spawn and update control.json so CTRL_URL is correct when port 4242 is already in use and server.mjs auto-increments
+- TBD — fix(dashboard): v2DoCopyOrg calls /api/orgs/:name/copy (plural) not /api/org/:name/copy so Copy Org button no longer 404s
