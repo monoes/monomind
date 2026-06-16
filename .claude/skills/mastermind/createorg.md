@@ -67,7 +67,7 @@ Reject any `org_name` that does not match `^[a-z0-9][a-z0-9-]{0,63}$`.
 
 Parse `roles_desc` (if provided) into a list of role titles. If not provided, derive a set of roles from `prompt` by identifying the human functions needed to achieve the goal.
 
-**Required roles to always include** (if the prompt implies a team):
+**Required roles to always include** (if the prompt implies a team — **skip this rule for persona-based orgs** where the characters themselves define the structure; do not inject a generic coordinator into a celebrity panel):
 - A coordinator/boss role that owns the goal and makes final decisions
 - At least one executor role that does the primary work
 - A reviewer or QA role if quality output is implied
