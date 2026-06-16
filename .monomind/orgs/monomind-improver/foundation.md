@@ -79,3 +79,5 @@
 - a20e1bb8 — fix(dashboard): v2StopOrg adds ?dir= param; v2RenderOrgRoutines reads r.last_run fallback; v2RenderOrgAgentsFull reads adapterType/adapterModel (not a.type/a.adapter which are always undefined)
 - 215c2714 — fix(dashboard): add ?dir= to orgApprovalAction so approve/reject targets correct project dir; read a.adapterModel in Live tab running-agent row (a.adapter is always undefined)
 - 8b2ebc91 — fix(dashboard): v2OrgSSE handler pushes incoming org events into _v2OrgData._activity and re-renders Live tab so org:comms appear in real-time without waiting for the 5s poll
+- 8b72b39d — fix(dashboard): v2RenderOrgBudgets reads org_budget.limit_tokens/limit_usd and uses b.agents[].total_cost_usd so Budgets tab shows real token/USD usage and per-agent cost (was reading b.tokens/b.tokenLimit which server never returns, and a.cost which is always 0)
+- 3e63fcd1 — fix(server): /api/org/:name running detection also checks activeOrgRuns in-memory map so orgs show LIVE immediately after launch instead of IDLE until the state file is updated by the boss agent
