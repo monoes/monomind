@@ -89,3 +89,5 @@
 - dc7a19b9 — fix(dashboard): remove duplicate org-copy-dialog HTML block so Copy Org button targets correct dialog (duplicate IDs org-copy-dialog and org-copy-dest caused getElementById to always hit the first copy, making the second stale input unreadable)
 - 5e822666 — fix(server): honour ?dir= in GET /api/orgs/:name/runs/current so run events load from the selected project instead of always the server cwd
 - 7522c6fb — fix(server): restore session caps 50→500 and 100→500 on improve/auto (regressed from main's 2fbe3669 fix; both mastermind-sessions.json write and GET /api/mastermind/sessions response were silently truncating session history)
+- 92a9d313 — fix(dashboard): replace l.loopType with l.type in renderLoops/mmRenderLoops so tillend badge (∞) shows correctly; replace l.capReps with l.maxReps in progress bar label (loop files store type/maxReps fields, not loopType/capReps)
+- 97a13ee1 — fix(control-start): add __dirname-relative and npm root -g server resolution to package helper so monomind dashboard starts correctly on fresh global npm installs (npm install -g monomind); add port-confirmation polling to detect auto-incremented port
