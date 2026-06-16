@@ -5987,7 +5987,10 @@ function v2RenderOrgActivity() {
   if (!_v2SelOrg) return;
   const activity = _v2OrgData?._activity || [];
   const orgEvents = _v2OrgEventLog[_v2SelOrg] || [];
-  const events = [...activity, ...orgEvents].sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
+  const _actSeen = new Set();
+  const events = [...activity, ...orgEvents]
+    .filter(e => { const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')+'|'+(e.from||'')+'|'+(e.msg||'').slice(0,20); return _actSeen.has(k)?false:(_actSeen.add(k),true); })
+    .sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
   const pane = document.getElementById('odt-activity');
   if (!pane) return;
   const fmtOrgEvType = t => {
