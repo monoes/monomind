@@ -6668,11 +6668,13 @@ async function v2RenderOrgChat() {
 
 async function _odtLoadChatSessions() {
   if (!_v2SelOrg) return;
+  const _loadedForOrg = _v2SelOrg;
   _odtChatSessions = [];
   try {
     const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
     // Primary: structured org run files
-    const runs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs?x=1'+dirParam);
+    const runs = await apiFetch('/api/org/'+encodeURIComponent(_loadedForOrg)+'/runs?x=1'+dirParam);
+    if (_v2SelOrg !== _loadedForOrg) return;
     if (Array.isArray(runs) && runs.length) {
       _odtChatSessions = runs.map(r => ({
         id: r.runId,
@@ -6692,9 +6694,11 @@ async function _odtLoadChatSessions() {
       return;
     }
   } catch(_) {}
+  if (_v2SelOrg !== _loadedForOrg) return;
   // Fallback: mastermind lifecycle events (pre-run-file era sessions)
   try {
     const r = await apiFetch('/api/mastermind/sessions');
+    if (_v2SelOrg !== _loadedForOrg) return;
     const all = Array.isArray(r) ? r : Object.values(r.sessions || {});
     _odtChatSessions = all.filter(_odtOrgSessionMatch);
     _odtPopulateChatSel();
