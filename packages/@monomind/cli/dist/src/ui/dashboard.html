@@ -4254,7 +4254,6 @@ function connectChatViewSSE() {
   if (chatVSseSource) return;
   const dot = document.getElementById('chat-v-live-dot');
   const lbl = document.getElementById('chat-v-live-lbl');
-  chatVSeenKeys = new Set();
   chatVSseSource = new EventSource('/api/mastermind-stream');
   chatVSseSource.onopen = () => { dot && dot.classList.add('on'); lbl && (lbl.textContent = 'LIVE'); };
   chatVSseSource.onmessage = e => {
@@ -4272,7 +4271,7 @@ function connectChatViewSSE() {
 function handleChatViewEvent(ev) {
   if (!ev) return;
   // Deduplicate SSE reconnect replays (server replays last 50 events on every reconnect)
-  const dedupKey = (ev.ts||'') + '-' + (ev.type||'') + '-' + (ev.from||ev.role||ev.session||'');
+  const dedupKey = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.from||ev.role||'') + '|' + (ev.session||ev.runId||'') + '|' + (ev.msg||'').slice(0,20);
   if (chatVSeenKeys.has(dedupKey)) return;
   chatVSeenKeys.add(dedupKey);
   // Org events (org:comms, org:agent:online, org:checkpoint, etc.) may carry a session field
