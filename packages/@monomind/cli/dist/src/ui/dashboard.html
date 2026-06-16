@@ -4091,6 +4091,11 @@ async function chatVSelectOrgRun(value) {
   const empty = document.getElementById('chat-v-empty');
   if (!feed) return;
   feed.innerHTML = '';
+  // Clear session selection — org run replay is a different mode;
+  // also set chatVCurrentId=null so appendChatViewEvent session-guard doesn't filter events
+  chatVCurrentId = null;
+  const sessEl = document.getElementById('chat-v-sel');
+  if (sessEl) sessEl.value = '';
   try {
     const dir = window._orgDir ? `?dir=${encodeURIComponent(window._orgDir)}` : '';
     const events = await apiFetch(`/api/org/${encodeURIComponent(org)}/runs/${encodeURIComponent(runId)}${dir}`);
