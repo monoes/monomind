@@ -4166,7 +4166,7 @@ function appendChatViewEvent(ev, animate) {
   } else if (ev.type === 'org:agent:online') {
     el = mkCVSys('[' + esc(ev.org || '') + '] ' + esc(ev.role || ev.title || '?') + ' online' + (ev.title && ev.role && ev.title !== ev.role ? ' (' + esc(ev.title) + ')' : ''), ts);
   } else if (ev.type === 'org:checkpoint') {
-    el = mkCVSys('[checkpoint] ' + esc(ev.progress || ev.msg || ''), ts);
+    el = mkCVSys('[checkpoint] ' + esc(ev.summary || ev.progress || ev.msg || ''), ts);
   } else if (ev.type === 'org:start') {
     el = mkCVSys('[org:start] ' + esc(ev.org || ''), ts);
   } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
@@ -5982,8 +5982,8 @@ function v2RenderOrgActivity() {
       const route = [ev.from, ev.to].filter(Boolean).join(' → ');
       return route ? route + (ev.msg ? ': ' + ev.msg : '') : ev.msg || '';
     }
-    // org:checkpoint — show progress field
-    if (ev.type === 'org:checkpoint' && ev.progress) return ev.progress;
+    // org:checkpoint — show summary (boss agent) or progress (runorg.md) field
+    if (ev.type === 'org:checkpoint') return ev.summary || ev.progress || '';
     // generic fallback
     return ev.role||ev.msg||ev.progress||ev.agent||ev.status||'';
   };
