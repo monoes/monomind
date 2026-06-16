@@ -5974,6 +5974,15 @@ function v2RenderMarkdown(md) {
 }
 
 // ── org activity ────────────────────────────
+function fmtOrgEvDetail(ev) {
+  if (ev.type === 'org:comms' && (ev.from || ev.to || ev.msg)) {
+    const route = [ev.from, ev.to].filter(Boolean).join(' → ');
+    return route ? route + (ev.msg ? ': ' + ev.msg : '') : ev.msg || '';
+  }
+  if (ev.type === 'org:checkpoint') return ev.summary || ev.progress || '';
+  return ev.role||ev.msg||ev.progress||ev.agent||ev.status||'';
+}
+
 function v2RenderOrgActivity() {
   if (!_v2SelOrg) return;
   const activity = _v2OrgData?._activity || [];
@@ -5989,17 +5998,6 @@ function v2RenderOrgActivity() {
       'org:error':'error','org:agent:offline':'agent-off',
     };
     return m[t]||(t||'').replace(/^(?:org|run):/,'');
-  };
-  const fmtOrgEvDetail = ev => {
-    // org:comms — show "from → to: msg" for human readability
-    if (ev.type === 'org:comms' && (ev.from || ev.to || ev.msg)) {
-      const route = [ev.from, ev.to].filter(Boolean).join(' → ');
-      return route ? route + (ev.msg ? ': ' + ev.msg : '') : ev.msg || '';
-    }
-    // org:checkpoint — show summary (boss agent) or progress (runorg.md) field
-    if (ev.type === 'org:checkpoint') return ev.summary || ev.progress || '';
-    // generic fallback
-    return ev.role||ev.msg||ev.progress||ev.agent||ev.status||'';
   };
   if (!events.length) {
     pane.innerHTML = '<div class="empty">No activity recorded</div>';
@@ -6217,7 +6215,7 @@ function v2RenderOrgLive() {
     ${(_v2OrgData._activity || []).slice(-30).reverse().map(e => `<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">
       ${esc(relTime(e.ts || e.timestamp || e.created_at))}
       <span style="color:var(--text-mid);margin-left:6px">${esc(e.type || e.kind || e.event || '—')}</span>
-      ${(e.msg || e.message) ? `<span style="color:var(--text-hi);margin-left:6px">${esc((e.msg || e.message).toString().slice(0, 80))}</span>` : ''}
+      ${fmtOrgEvDetail(e) ? `<span style="color:var(--text-hi);margin-left:6px">${esc(fmtOrgEvDetail(e).slice(0, 80))}</span>` : ''}
     </div>`).join('')}
   </div>`;
   // auto-refresh every 5s while tab is active
