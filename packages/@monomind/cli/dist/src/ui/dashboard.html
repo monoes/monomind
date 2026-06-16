@@ -6890,7 +6890,7 @@ function _odtConnectChatSSE() {
 
 function _odtHandleLiveEvent(ev) {
   // Deduplicate SSE reconnect replays (server replays last 50 events on every reconnect)
-  const _odtDedupKey = (ev?.ts||'') + '-' + (ev?.type||'') + '-' + (ev?.runId||ev?.session||'');
+  const _odtDedupKey = (ev?.ts||'') + '|' + (ev?.type||'') + '|' + (ev?.runId||ev?.session||'') + '|' + (ev?.from||'') + '|' + (ev?.msg||'').slice(0,20);
   if (_odtChatSeenKeys.has(_odtDedupKey)) return;
   _odtChatSeenKeys.add(_odtDedupKey);
   // Route org run events (have runId + org) to the active run session
@@ -7478,7 +7478,7 @@ function filterOrgList(q) {
       try {
         const ev = JSON.parse(e.data);
         if (!ev?.org || !ev?.type?.startsWith('org:')) return;
-        const _sk = (ev.ts||'') + '-' + (ev.type||'') + '-' + (ev.org||'') + '-' + (ev.runId||ev.session||'');
+        const _sk = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.org||'') + '|' + (ev.runId||ev.session||'') + '|' + (ev.from||'') + '|' + (ev.msg||'').slice(0,20);
         if (seenKeys.has(_sk)) return;
         seenKeys.add(_sk);
         const n = ev.org;
