@@ -1064,9 +1064,21 @@ Follow _protocol.md Brain Write Procedure (namespace: `idea`).
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
+_get_mono_dir() {
+  local w="${1:-$(pwd)}"
+  if [ -d "$w/.git" ]; then echo "$w/.git/monomind"; return; fi
+  if [ -f "$w/.git" ]; then
+    local m; m=$(grep '^gitdir:' "$w/.git" | sed 's/gitdir: *//')
+    [ -z "$m" ] && { echo "$w/.monomind"; return; }
+    [[ "$m" != /* ]] && m="$w/$m"
+    echo "$(dirname "$(dirname "$m")")/monomind"; return
+  fi
+  echo "$w/.monomind"
+}
+MONO_DIR=$(_get_mono_dir "$REPO_ROOT")
+SESSION_ID=$(jq -r '.sessionId // empty' "$MONO_DIR/sessions/current.json" 2>/dev/null)
 if [ -n "$SESSION_ID" ]; then
-  mkdir -p "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"
+  mkdir -p "$MONO_DIR/sessions/${SESSION_ID}"
   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
   # LLM: substitute <status>: complete (all steps ran), partial (some skipped), blocked (critical error)
   # LLM: substitute next_actions with actual suggestions derived from this run's top ideas
@@ -1076,7 +1088,7 @@ if [ -n "$SESSION_ID" ]; then
     --argjson artifacts '[]' \
     --argjson next_actions '["<next_action_1>","<next_action_2>"]' \
     '{domain:$domain,status:$status,artifacts:$artifacts,next_actions:$next_actions}' \
-    > "$REPO_ROOT/.monomind/sessions/${SESSION_ID}/idea.json"
+    > "$MONO_DIR/sessions/${SESSION_ID}/idea.json"
   curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
     -H "Content-Type: application/json" \
     -d "$(jq -cn --arg sid "$SESSION_ID" --arg status "<status>" \

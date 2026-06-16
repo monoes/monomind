@@ -13,7 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { MCPTool } from './types.js';
-import { getProjectCwd } from './types.js';
+import { getMonomindDataRoot } from './types.js';
 
 // Legacy JSON store interface (for migration)
 interface LegacyMemoryEntry {
@@ -30,21 +30,21 @@ interface LegacyMemoryStore {
   version: string;
 }
 
-// Paths
-const MEMORY_DIR = '.monomind/memory';
+// Paths — relative to the git-safe data root
+const MEMORY_SUBDIR = 'memory';
 const LEGACY_MEMORY_FILE = 'store.json';
 const MIGRATION_MARKER = '.migrated-to-sqlite';
 
 function getMemoryDir(): string {
-  return join(getProjectCwd(), MEMORY_DIR);
+  return join(getMonomindDataRoot(), MEMORY_SUBDIR);
 }
 
 function getLegacyPath(): string {
-  return join(getProjectCwd(), MEMORY_DIR, LEGACY_MEMORY_FILE);
+  return join(getMonomindDataRoot(), MEMORY_SUBDIR, LEGACY_MEMORY_FILE);
 }
 
 function getMigrationMarkerPath(): string {
-  return join(getProjectCwd(), MEMORY_DIR, MIGRATION_MARKER);
+  return join(getMonomindDataRoot(), MEMORY_SUBDIR, MIGRATION_MARKER);
 }
 
 function ensureMemoryDir(): void {
