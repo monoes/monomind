@@ -4500,6 +4500,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
             fs.mkdirSync(_runDir, { recursive: true });
             fs.appendFileSync(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
+            // Solution 3: dedicated conversation log — org:comms only, for easy replay
+            if (event.type === 'org:comms') {
+              const _conv = { ts: event.ts, run_id: _rid, from: event.from, to: event.to, msg: event.msg };
+              fs.appendFileSync(path.join(_runDir, `${_rid}.convs.jsonl`), JSON.stringify(_conv) + '\n');
+            }
           }
         } catch (_) {}
       }
