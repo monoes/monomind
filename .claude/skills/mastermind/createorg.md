@@ -259,7 +259,7 @@ Ask the user (or infer from prompt) for the optional Paperclip-style fields:
     {
       "id": "<slug>",
       "title": "<display title>",
-      "agent_type": "<subagent_type slug from mapping table>",
+      "agent_type": "<subagent_type slug — from Step 2.3 character slug for persona roles, or from mapping table for functional roles>",
       "responsibilities": ["<1-3 bullet responsibilities>"],
       "reports_to": "<role id or null>",
       "skills": ["<populated from the generated def's expertise in Step 2.5 — never left empty>"],
