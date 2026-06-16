@@ -61,6 +61,37 @@ function findCliPath() {
   const local = path.join(CWD, 'packages', '@monomind', 'cli', 'bin', 'cli.js');
   if (fs.existsSync(local)) return { cmd: process.execPath, args: [local], usePort: false };
 
+  // Try __dirname-relative path — works when this file is still inside the npm package
+  // (e.g. running directly from node_modules/.bin or a global install).
+  // From .claude/helpers/ -> ../../dist/src/ui/server.mjs
+  const pkgServerMjs = path.resolve(__dirname, '..', '..', 'dist', 'src', 'ui', 'server.mjs');
+  if (fs.existsSync(pkgServerMjs)) return { cmd: process.execPath, args: [pkgServerMjs], usePort: true };
+
+  const pkgBinCli = path.resolve(__dirname, '..', '..', 'bin', 'cli.js');
+  if (fs.existsSync(pkgBinCli)) return { cmd: process.execPath, args: [pkgBinCli], usePort: false };
+
+  // Try global npm install paths for both package names
+  const globalCandidates = [];
+  try {
+    const { execSync } = require('child_process');
+    const npmRoot = execSync('npm root -g', { timeout: 3000, encoding: 'utf-8' }).trim();
+    if (npmRoot) {
+      globalCandidates.push(
+        path.join(npmRoot, 'monomind', 'packages', '@monomind', 'cli', 'dist', 'src', 'ui', 'server.mjs'),
+        path.join(npmRoot, '@monoes', 'monomindcli', 'dist', 'src', 'ui', 'server.mjs'),
+        path.join(npmRoot, 'monomind', 'packages', '@monomind', 'cli', 'bin', 'cli.js'),
+        path.join(npmRoot, '@monoes', 'monomindcli', 'bin', 'cli.js'),
+      );
+    }
+  } catch { /* npm root -g failed — skip */ }
+
+  for (const candidate of globalCandidates) {
+    if (fs.existsSync(candidate)) {
+      const usePort = candidate.endsWith('server.mjs');
+      return { cmd: process.execPath, args: [candidate], usePort };
+    }
+  }
+
   // Try npx monomind as last resort
   return { cmd: 'npx', args: ['monomind@latest'], usePort: false };
 }
@@ -88,9 +119,45 @@ function main() {
 
   child.unref();
 
+  // Write optimistic status with DEFAULT_PORT immediately so dependent scripts
+  // (hooks, boss agents) have something to read while the server starts up.
   writeStatus(child.pid, DEFAULT_PORT);
   process.stdout.write(`[control] started Neural Control Room on port ${DEFAULT_PORT} (pid ${child.pid})\n`);
-  process.exit(0);
+
+  // If port 4242 was in use, server.mjs auto-increments (up to +10).
+  // Poll a few ports to find where it actually bound and update control.json.
+  const http = require('http');
+  function probePort(p) {
+    return new Promise((resolve) => {
+      const req = http.get({ hostname: 'localhost', port: p, path: '/api/status', timeout: 1000 }, (res) => {
+        res.resume();
+        resolve(res.statusCode < 500);
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+    });
+  }
+
+  // Give the server up to ~3 s to start, then confirm the actual port.
+  async function confirmPort() {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      await new Promise(r => setTimeout(r, 500));
+      for (let delta = 0; delta <= 10; delta++) {
+        const p = DEFAULT_PORT + delta;
+        if (await probePort(p)) {
+          if (p !== DEFAULT_PORT) {
+            writeStatus(child.pid, p);
+            process.stdout.write(`[control] server bound to port ${p} (updated control.json)\n`);
+          }
+          return;
+        }
+      }
+    }
+    // Server didn't respond in time — leave control.json as-is (best-effort)
+    process.stdout.write('[control] server did not respond within 3 s — control.json may have wrong port\n');
+  }
+
+  confirmPort().catch(() => {}).finally(() => process.exit(0));
 }
 
 main();
