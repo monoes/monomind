@@ -6205,7 +6205,7 @@ function v2RenderOrgLive() {
     ${(_v2OrgData._activity || []).slice(-30).reverse().map(e => `<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">
       ${esc(relTime(e.ts || e.timestamp || e.created_at))}
       <span style="color:var(--text-mid);margin-left:6px">${esc(e.type || e.kind || e.event || '—')}</span>
-      ${e.message ? `<span style="color:var(--text-hi);margin-left:6px">${esc(e.message.toString().slice(0, 80))}</span>` : ''}
+      ${(e.msg || e.message) ? `<span style="color:var(--text-hi);margin-left:6px">${esc((e.msg || e.message).toString().slice(0, 80))}</span>` : ''}
     </div>`).join('')}
   </div>`;
   // auto-refresh every 5s while tab is active
