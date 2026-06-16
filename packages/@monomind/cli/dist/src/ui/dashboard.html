@@ -2152,6 +2152,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <select id="chat-v-sel" onchange="chatVSelectSession(this.value)">
             <option value="">— select a session —</option>
           </select>
+          <select id="chat-v-org-run-sel" style="display:none" onchange="chatVSelectOrgRun(this.value)" title="Select org run to replay communications">
+            <option value="">— org run history —</option>
+          </select>
           <div id="chat-v-live-dot"></div>
           <span id="chat-v-live-lbl">OFFLINE</span>
         </div>
@@ -4044,7 +4047,60 @@ let chatVSseSource = null;
 
 function initChatView() {
   loadChatViewSessions();
+  loadChatViewOrgRuns();
   if (!chatVSseSource) connectChatViewSSE();
+}
+
+async function loadChatViewOrgRuns() {
+  // Populate the org run history selector with recent org runs
+  const runSel = document.getElementById('chat-v-org-run-sel');
+  if (!runSel) return;
+  try {
+    const dir = window._orgDir ? `?dir=${encodeURIComponent(window._orgDir)}` : '';
+    const orgs = await apiFetch('/api/orgs' + dir).catch(() => []);
+    const orgList = Array.isArray(orgs) ? orgs : (orgs.orgs || []);
+    const runEntries = [];
+    await Promise.all(orgList.slice(0, 10).map(async org => {
+      const name = org.name || org;
+      if (!name) return;
+      try {
+        const runs = await apiFetch(`/api/org/${encodeURIComponent(name)}/runs${dir}`);
+        (Array.isArray(runs) ? runs : (runs.runs || [])).slice(0, 5).forEach(r => {
+          runEntries.push({ org: name, runId: r.runId || r.id, startedAt: r.startedAt || 0 });
+        });
+      } catch (_) {}
+    }));
+    runEntries.sort((a, b) => b.startedAt - a.startedAt);
+    while (runSel.options.length > 1) runSel.remove(1);
+    runEntries.slice(0, 20).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify({ org: r.org, runId: r.runId });
+      const ts = r.startedAt ? new Date(r.startedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+      opt.textContent = r.org + '/' + (r.runId || '').slice(0, 12) + (ts ? '  ' + ts : '');
+      runSel.appendChild(opt);
+    });
+    runSel.style.display = runEntries.length ? '' : 'none';
+  } catch(e) { console.warn('chat org runs load failed', e); }
+}
+
+async function chatVSelectOrgRun(value) {
+  if (!value) return;
+  let org, runId;
+  try { ({ org, runId } = JSON.parse(value)); } catch { return; }
+  const feed = document.getElementById('chat-v-feed');
+  const empty = document.getElementById('chat-v-empty');
+  if (!feed) return;
+  feed.innerHTML = '';
+  try {
+    const dir = window._orgDir ? `?dir=${encodeURIComponent(window._orgDir)}` : '';
+    const events = await apiFetch(`/api/org/${encodeURIComponent(org)}/runs/${encodeURIComponent(runId)}${dir}`);
+    const evArr = Array.isArray(events) ? events : (events.events || []);
+    if (!evArr.length) { feed.appendChild(empty || document.createTextNode('No events in this run.')); return; }
+    evArr.forEach(ev => appendChatViewEvent(ev, false));
+    feed.scrollTop = feed.scrollHeight;
+  } catch(e) {
+    feed.textContent = 'Failed to load run events: ' + e.message;
+  }
 }
 
 async function loadChatViewSessions() {
@@ -4054,7 +4110,8 @@ async function loadChatViewSessions() {
     const sel = document.getElementById('chat-v-sel');
     const prev = sel.value;
     while (sel.options.length > 1) sel.remove(1);
-    const sessions = Object.values(data.sessions || {});
+    // API returns a plain array (not {sessions:{...}}) — handle both shapes for safety
+    const sessions = Array.isArray(data) ? data : Object.values(data.sessions || data || {});
     sessions.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
     sessions.forEach(s => {
       const opt = document.createElement('option');
