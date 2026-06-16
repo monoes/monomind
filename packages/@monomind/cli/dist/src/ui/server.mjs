@@ -4744,7 +4744,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/runs\/current$/.test(url)) {
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
-        const root = projectDir || process.cwd();
+        const _curQs = new URL(req.url, 'http://localhost').searchParams;
+        const root = path.resolve(_curQs.get('dir') || projectDir || process.cwd());
         // Validate orgName
         if (!orgName || orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
           res.writeHead(400); res.end('{"error":"invalid org name"}'); return;
