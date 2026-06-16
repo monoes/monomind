@@ -4520,7 +4520,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             if (event.type === 'session:complete') { s.status = event.status || 'complete'; s.endTs = event.ts; }
           }
         }
-        fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 50), null, 2));
+        fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 500), null, 2));
         // Also write individual session file for direct traceability.
         // Security: validate event.session before using it as a filename to
         // prevent path traversal (e.g. "../../../etc/cron.d/payload").
@@ -4603,10 +4603,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             allSessions = allSessions.concat(s);
           } catch (_) {}
         }
-        // Sort by ts descending, cap at 100
+        // Sort by ts descending, cap at 500
         allSessions.sort((a,b) => (b.ts||0)-(a.ts||0));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify(allSessions.slice(0,100)));
+        res.end(JSON.stringify(allSessions.slice(0,500)));
       } catch (_) { res.writeHead(200); res.end('[]'); }
       return;
     }
