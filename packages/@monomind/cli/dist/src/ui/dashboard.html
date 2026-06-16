@@ -7500,6 +7500,7 @@ function filterOrgList(q) {
           } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
             _v2OrgData._agents.forEach(a => { a.status = 'idle'; });
           }
+          if (_v2OrgTab === 'agents-full') v2RenderOrgAgentsFull();
         }
         // Also push live org:comms / org:checkpoint events directly into the Live tab
         // activity feed so they appear in real-time without waiting for the 5s poll.
