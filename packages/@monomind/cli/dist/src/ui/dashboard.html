@@ -6818,6 +6818,13 @@ function filterOrgList(q) {
         _v2OrgEventLog[n].push(ev);
         if (_v2OrgEventLog[n].length > 50) _v2OrgEventLog[n].shift();
         if (n === _v2SelOrg && _v2OrgTab === 'activity') v2RenderOrgActivity();
+        // Also push live org:comms / org:checkpoint events directly into the Live tab
+        // activity feed so they appear in real-time without waiting for the 5s poll.
+        if (n === _v2SelOrg && _v2OrgTab === 'live' && _v2OrgData) {
+          if (!Array.isArray(_v2OrgData._activity)) _v2OrgData._activity = [];
+          _v2OrgData._activity.push(ev);
+          v2RenderOrgLive();
+        }
         // Pulse the org list dot on comms/checkpoint events so the user can see the org is active
         // without switching to the activity tab
         if (_evType === 'org:comms' || _evType === 'org:checkpoint') {

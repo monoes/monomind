@@ -77,3 +77,5 @@
 - 4ab34e4d — fix(dashboard): read ev.summary in org:checkpoint handler so Activity and Chat tabs show checkpoint text (boss agents use summary field; fmtOrgEvDetail read ev.progress which was always undefined)
 - 00897411 — fix(dashboard): re-apply parallel fetch for 4 supplemental org tab requests (agentsR/budgetsR/membersR/issuesR) so org selection load time is max(response) not sum (~3x speedup)
 - a20e1bb8 — fix(dashboard): v2StopOrg adds ?dir= param; v2RenderOrgRoutines reads r.last_run fallback; v2RenderOrgAgentsFull reads adapterType/adapterModel (not a.type/a.adapter which are always undefined)
+- 215c2714 — fix(dashboard): add ?dir= to orgApprovalAction so approve/reject targets correct project dir; read a.adapterModel in Live tab running-agent row (a.adapter is always undefined)
+- 8b2ebc91 — fix(dashboard): v2OrgSSE handler pushes incoming org events into _v2OrgData._activity and re-renders Live tab so org:comms appear in real-time without waiting for the 5s poll
