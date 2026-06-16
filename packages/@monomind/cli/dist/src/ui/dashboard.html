@@ -3953,7 +3953,7 @@ async function loadChatViewOrgRuns() {
   const runSel = document.getElementById('chat-v-org-run-sel');
   if (!runSel) return;
   try {
-    const dir = window._orgDir ? `?dir=${encodeURIComponent(window._orgDir)}` : '';
+    const dir = DIR ? `?dir=${encodeURIComponent(DIR)}` : '';
     const orgs = await apiFetch('/api/orgs' + dir).catch(() => []);
     const orgList = Array.isArray(orgs) ? orgs : (orgs.orgs || []);
     const runEntries = [];
@@ -3994,7 +3994,7 @@ async function chatVSelectOrgRun(value) {
   const sessEl = document.getElementById('chat-v-sel');
   if (sessEl) sessEl.value = '';
   try {
-    const dir = window._orgDir ? `?dir=${encodeURIComponent(window._orgDir)}` : '';
+    const dir = DIR ? `?dir=${encodeURIComponent(DIR)}` : '';
     const events = await apiFetch(`/api/org/${encodeURIComponent(org)}/runs/${encodeURIComponent(runId)}${dir}`);
     const evArr = Array.isArray(events) ? events : (events.events || []);
     if (!evArr.length) { feed.appendChild(empty || document.createTextNode('No events in this run.')); return; }
