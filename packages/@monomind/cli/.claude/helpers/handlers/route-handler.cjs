@@ -118,6 +118,8 @@ module.exports = {
       } catch (e) {}
 
       var output = [];
+      // Skip the noisy "[INFO] Routing task: ..." prefix — it repeats the user's
+      // own words back and adds token overhead without helping Claude.
       // Routing panel strategy:
       //   conf >= 0.90 → show primary recommendation (router is confident, trust it)
       //   conf  < 0.90 → show category picker so Claude uses its own context to
@@ -183,13 +185,17 @@ module.exports = {
         var devAgentsForPersist = /^(coder|tester|reviewer|planner|researcher|system-architect|backend-dev|backend-architect|mobile-dev|ml-developer|cicd-engineer|api-docs|code-analyzer|production-validator|Technical Writer|Software Architect|Frontend Developer|AI Engineer|Data Engineer|Security Engineer|DevOps Automator|SRE)$/i;
         var persistedIsNonDev = !devAgentsForPersist.test(String(result.agent || '').trim());
         var resolvedAgent = result.agent;
+        var resolvedFromExtras = false;
         if (!resolvedAgent || resolvedAgent === 'extras') {
           var topExtra = result.extrasMatches && result.extrasMatches[0];
           resolvedAgent = topExtra ? topExtra.name : 'Specialist Agent';
+          resolvedFromExtras = true;
         }
         // If router was uncertain (< 90%) and picked a non-dev specialist,
         // show "AI selecting" in statusline rather than the wrong agent.
-        if (confForPersist < 0.90 && persistedIsNonDev && !String(result.reason || '').startsWith('Graph fallback')) {
+        // Exception: when agent was explicitly 'extras' and we resolved from extrasMatches,
+        // trust that resolution — the domain specialist was explicitly matched.
+        if (!resolvedFromExtras && confForPersist < 0.90 && persistedIsNonDev && !String(result.reason || '').startsWith('Graph fallback')) {
           resolvedAgent = 'AI selecting';
         }
         var routePayload = {
@@ -331,7 +337,7 @@ module.exports = {
         }
       } catch (e) { /* non-fatal */ }
 
-      if (output.length > 0) console.log(output.join('\n'));
+      console.log(output.join('\n'));
 
       // Record any decision markers in this prompt (auto-ADR pipeline).
       try { hCtx._recordDecisionMarkers(prompt); } catch (e) {}
@@ -378,7 +384,7 @@ module.exports = {
         if (nodeCount > 100) {
           // Pre-resolve top-5 relevant files for the user's prompt — the LLM
           // sees the answer inline instead of being told to call a tool.
-          var suggestions = hCtx.getMonographSuggestions(prompt, 3);
+          var suggestions = hCtx.getMonographSuggestions(prompt, 5);
 
           // Boost recently-edited files to the top of pre-resolve suggestions.
           // Even when the FTS index hasn't caught up to the latest edits, the
@@ -408,23 +414,25 @@ module.exports = {
                 }
               }
               if (editBoosts.length > 0) {
-                suggestions = editBoosts.concat(suggestions).slice(0, 3);
+                suggestions = editBoosts.concat(suggestions).slice(0, 5);
               }
             }
           } catch (e) { /* non-fatal */ }
 
           if (suggestions.length > 0) {
-            // Compact format: single line with top-3 file paths (edited files marked with ✎)
-            var hintParts = [];
+            console.log('\n[MONOGRAPH] ' + nodeCount + ' nodes indexed. Top files for this task (pre-resolved from graph):');
             for (var si = 0; si < suggestions.length; si++) {
               var s = suggestions[si];
-              var fileLoc = (s.file || s.name || '');
+              var editTag = s._editBoost ? ' ✎' : '';
+              // Include :line suffix when available so LLM can navigate directly
+              var fileLoc = (s.file || '');
               if (fileLoc && s.startLine != null) fileLoc = fileLoc + ':' + s.startLine;
-              hintParts.push(fileLoc + (s._editBoost ? '✎' : ''));
+              console.log('  · ' + s.name + ' [' + s.label + '] — ' + fileLoc + (s.deg ? ' (deg ' + s.deg + ')' : '') + editTag);
             }
-            console.log('[MONOGRAPH_HINT] ' + hintParts.join(' · '));
+            console.log('  Use mcp__monomind__monograph_query / monograph_impact for deeper drill-down.');
             hCtx._recordGraphTelemetry('preresolve_hit');
           } else {
+            console.log('\n[MONOGRAPH] ' + nodeCount + ' nodes indexed. Call mcp__monomind__monograph_suggest first to find relevant files without grepping.');
             hCtx._recordGraphTelemetry('preresolve_miss');
           }
         }
