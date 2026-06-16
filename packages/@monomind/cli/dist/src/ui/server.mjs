@@ -3217,6 +3217,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                 const stopTs = lastStop ? (JSON.parse(lastStop).ts || 0) : 0;
                 running = startTs > stopTs;
               }
+              // Also check in-memory activeOrgRuns so the list reflects LIVE immediately after launch
+              const _lOrgName = cfg.name || '';
+              if (!running && _lOrgName && activeOrgRuns.has(_lOrgName)) running = true;
               orgs.push({ name: cfg.name, goal: cfg.goal, roles: Array.isArray(cfg.roles) ? cfg.roles : [], topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
             } catch(_) {}
           }
