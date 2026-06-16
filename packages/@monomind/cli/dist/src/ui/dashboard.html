@@ -7458,11 +7458,11 @@ function filterOrgList(q) {
         // Update in-memory agent status so Live tab running-agents section reflects reality.
         // org:agent:online → mark that agent running; org:complete/run:complete → reset all to idle.
         if (n === _v2SelOrg && _v2OrgData && Array.isArray(_v2OrgData._agents)) {
-          if (_evType === 'org:agent:online' && ev.role) {
+          if (ev.type === 'org:agent:online' && ev.role) {
             const _liveAgent = _v2OrgData._agents.find(a => a.id === ev.role);
             if (_liveAgent) { _liveAgent.status = 'running'; _liveAgent.title = _liveAgent.title || ev.title || ev.role; }
             else _v2OrgData._agents.push({ id: ev.role, title: ev.title || ev.role, adapterType: ev.agent_type || null, status: 'running' });
-          } else if (_evType === 'org:complete' || _evType === 'run:complete') {
+          } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
             _v2OrgData._agents.forEach(a => { a.status = 'idle'; });
           }
         }
@@ -7475,7 +7475,7 @@ function filterOrgList(q) {
         }
         // Pulse the org list dot on comms/checkpoint events so the user can see the org is active
         // without switching to the activity tab
-        if (_evType === 'org:comms' || _evType === 'org:checkpoint') {
+        if (ev.type === 'org:comms' || ev.type === 'org:checkpoint') {
           const _orgDot = document.querySelector(`.org-item[data-org="${CSS.escape(n)}"] .oi-dot`);
           if (_orgDot) {
             _orgDot.classList.add('running');
