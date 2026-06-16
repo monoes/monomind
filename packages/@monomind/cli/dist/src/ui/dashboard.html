@@ -5373,11 +5373,13 @@ async function v2SelectOrg(name) {
     _v2OrgData = mainR.config ? { ...mainR, ...mainR.config, running: mainR.running } : mainR;
     _v2OrgData._activity = Array.isArray(actR) ? actR : [];
     _v2OrgData._health   = healthR;
-    // Fetch supplemental data for new tabs
-    const agentsR  = await fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    const budgetsR = await fetch(`/api/org/${_enc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():null).catch(()=>null);
-    const membersR = await fetch(`/api/org/${_enc}/members${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    const issuesR  = await fetch(`/api/org/${_enc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    // Fetch supplemental data for new tabs in parallel
+    const [agentsR, budgetsR, membersR, issuesR] = await Promise.all([
+      fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`/api/org/${_enc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`/api/org/${_enc}/members${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`/api/org/${_enc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]);
     _v2OrgData._agents  = Array.isArray(agentsR)  ? agentsR  : (agentsR?.agents  || []);
     _v2OrgData._budgets = budgetsR;
     _v2OrgData._members = Array.isArray(membersR) ? membersR : (membersR?.members || []);
