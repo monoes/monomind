@@ -5365,6 +5365,7 @@ function v2RenderOrgList() {
 async function v2SelectOrg(name) {
   _v2SelOrg = name;
   if (typeof v2CloseAgent === 'function') v2CloseAgent();
+  if (_orgLiveInterval) { clearInterval(_orgLiveInterval); _orgLiveInterval = null; }
   const requested = name;
   const requestedDir = DIR;
   document.querySelectorAll('.org-item').forEach(el => {
@@ -6000,7 +6001,7 @@ function v2RenderOrgActivity() {
   }
   pane.innerHTML = `<div class="act-v2-list">${events.map(ev => {
     const t = ev.ts ? new Date(ev.ts).toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-    const detail = ev.role||ev.msg||ev.agent||'';
+    const detail = fmtOrgEvDetail(ev) || ev.role || ev.agent || '';
     return `<div class="av2-row"><span class="av2-time">${esc(t)}</span><span class="av2-type">${esc(fmtOrgEvType(ev.type))}</span><span class="av2-msg">${esc(detail)}</span></div>`;
   }).join('')}</div>`;
 }
@@ -6200,7 +6201,7 @@ function v2RenderOrgLive() {
     ${running.length
       ? running.map(a => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
           <span class="live-dot" style="flex-shrink:0"></span>
-          <span style="font-size:13px;color:var(--text-hi)">${esc(a.type || a.title || a.id || '—')}</span>
+          <span style="font-size:13px;color:var(--text-hi)">${esc(a.title || a.id || '—')}</span>${a.adapterType?`<span style="font-size:10px;color:var(--text-lo);margin-left:4px">[${esc(a.adapterType)}]</span>`:''}
           <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">${esc(a.adapterModel || a.adapter || '')}</span>
         </div>`).join('')
       : '<div style="color:var(--text-lo);font-size:13px;padding:10px 0">No agents currently running</div>'}
@@ -6226,7 +6227,11 @@ function v2RenderOrgLive() {
         if (_v2OrgData) {
           _v2OrgData._activity = Array.isArray(actData) ? actData : [];
           const freshAgents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || []);
-          if (freshAgents.length) _v2OrgData._agents = freshAgents;
+          if (freshAgents.length) {
+            // Preserve SSE-driven running status: state file lags behind real-time SSE updates
+            const sseRunning = new Set((_v2OrgData._agents || []).filter(a => a.status === 'running').map(a => a.id));
+            _v2OrgData._agents = freshAgents.map(a => sseRunning.has(a.id) ? { ...a, status: 'running' } : a);
+          }
           v2RenderOrgLive();
         }
       } catch (_) {}
