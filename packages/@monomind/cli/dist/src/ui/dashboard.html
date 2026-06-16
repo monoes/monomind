@@ -6756,6 +6756,7 @@ window.odtChatSelectSession = async function(id) {
       sess._eventsLoaded = true;
     } catch(_) { sess.events = []; sess._eventsLoaded = true; }
     loadingEl.remove();
+    if (_odtChatCurrentId !== id) return; // user switched sessions during fetch
   }
   // Agent pills from org config roles (authoritative list, not derived from events)
   const orgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
