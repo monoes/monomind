@@ -73,6 +73,8 @@ Parse `roles_desc` (if provided) into a list of role titles. If not provided, de
 - A reviewer or QA role if quality output is implied
 - A communication layer (middle manager) if team size ≥ 4
 
+> ⚠ **Check Step 2.3 (Persona / Character Detection) BEFORE applying this table.** If the org is persona-based (roles are named real people, celebrities, or fictional characters), skip this table for those roles and follow Step 2.3 instead.
+
 **Role → Agent Type mapping table** (use exact `subagent_type` slug for Task tool):
 
 | User role keyword | Agent type slug | Specialty |
@@ -94,7 +96,7 @@ If a role doesn't match any keyword **and the org's domain is far from software*
 
 ---
 
-## Step 2.3 — Persona / Character Detection (run BEFORE Step 2.5)
+## Step 2.3 — Persona / Character Detection (run BEFORE the mapping table above)
 
 **Before applying the mapping table above, detect whether this org is persona-based:**
 
