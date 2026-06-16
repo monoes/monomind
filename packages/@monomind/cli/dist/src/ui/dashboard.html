@@ -6788,7 +6788,7 @@ window.v2DoCopyOrg = async function() {
   if (!dest) { showToast('Required', 'Enter destination path', 'warn'); return; }
   if (!_v2SelOrg) return;
   try {
-    const r = await fetch('/api/org/' + enc(_v2SelOrg) + '/copy?dir=' + enc(DIR), {
+    const r = await fetch('/api/orgs/' + enc(_v2SelOrg) + '/copy?dir=' + enc(DIR), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ destination: dest }),
     });
