@@ -841,6 +841,68 @@ export class WorkerDaemon extends EventEmitter {
             recommendations: [],
             note: 'Install Claude Code CLI for AI-powered security analysis',
         };
+        // Enrich with monograph high-centrality files and surprising cross-community edges.
+        // God-node files are high-value targets for security review: they are imported by
+        // many consumers, so a vulnerability there has the largest blast radius.
+        // Cross-community edges reveal unexpected coupling that may indicate hidden attack surfaces.
+        try {
+            const { openDb, closeDb } = await import('@monoes/monograph');
+            const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+            if (existsSync(dbPath)) {
+                const db = openDb(dbPath);
+                try {
+                    const godFileRows = db.prepare(`
+            SELECT n.file_path,
+                   COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
+            FROM nodes n
+            LEFT JOIN edges e1 ON e1.source_id = n.id
+            LEFT JOIN edges e2 ON e2.target_id = n.id
+            WHERE n.label NOT IN ('File','Folder','Community','Concept')
+              AND n.file_path IS NOT NULL
+              AND n.file_path NOT LIKE '%node_modules%'
+              AND n.file_path NOT LIKE '%/dist/%'
+              AND n.file_path NOT LIKE '%.test.%'
+              AND n.file_path NOT LIKE '%.spec.%'
+            GROUP BY n.file_path
+            ORDER BY degree DESC
+            LIMIT 5
+          `).all();
+                    const surpriseRows = db.prepare(`
+            SELECT n1.name as src_name, n2.name as tgt_name, e.relation, e.confidence_score,
+                   n1.file_path as src_file, n2.file_path as tgt_file
+            FROM edges e
+            JOIN nodes n1 ON n1.id = e.source_id
+            JOIN nodes n2 ON n2.id = e.target_id
+            WHERE e.confidence != 'EXTRACTED'
+              AND n1.community_id IS NOT NULL
+              AND n2.community_id IS NOT NULL
+              AND n1.community_id != n2.community_id
+            ORDER BY e.confidence_score ASC
+            LIMIT 5
+          `).all();
+                    if (godFileRows.length > 0) {
+                        audit['priorityScanTargets'] = godFileRows.map(r => ({
+                            file: r.file_path.replace(this.projectRoot + '/', '').replace(this.projectRoot + '\\', ''),
+                            degree: r.degree,
+                            reason: 'high-centrality: vulnerability here affects the most consumers',
+                        }));
+                    }
+                    if (surpriseRows.length > 0) {
+                        audit['unexpectedCoupling'] = surpriseRows.map(r => ({
+                            edge: `${r.src_name} --${r.relation}--> ${r.tgt_name}`,
+                            srcFile: r.src_file ?? '(unknown)',
+                            tgtFile: r.tgt_file ?? '(unknown)',
+                            confidenceScore: r.confidence_score,
+                            reason: 'cross-community edge: may indicate hidden dependency or attack surface',
+                        }));
+                    }
+                }
+                finally {
+                    closeDb(db);
+                }
+            }
+        }
+        catch { /* monograph unavailable — skip graph enrichment */ }
         const auditFileTmp = auditFile + '.tmp';
         writeFileSync(auditFileTmp, JSON.stringify(audit, null, 2));
         renameSync(auditFileTmp, auditFile);
@@ -980,13 +1042,95 @@ export class WorkerDaemon extends EventEmitter {
      * Local ultralearn worker (fallback when headless unavailable)
      */
     async runUltralearnWorkerLocal() {
-        return {
+        const result = {
             timestamp: new Date().toISOString(),
             mode: 'local',
             patternsLearned: 0,
             insightsGained: [],
-            note: 'Install Claude Code CLI for AI-powered deep learning',
         };
+        // Enrich with monograph community clusters and bridge-node patterns for LLM context injection.
+        // Bridge nodes (symbols that cross community boundaries) are architecturally significant —
+        // they represent coupling points an LLM should be aware of when reasoning about change impact.
+        try {
+            const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+            const dbPath = join(this.projectRoot, '.monomind', 'monograph.db');
+            if (existsSync(dbPath)) {
+                const db = openDb(dbPath);
+                try {
+                    const nodeCount = countNodes(db);
+                    const edgeCount = countEdges(db);
+                    const communityRows = db.prepare(`
+            SELECT community_id, COUNT(*) AS member_count
+            FROM nodes
+            WHERE community_id IS NOT NULL
+              AND label NOT IN ('File','Folder','Community','Concept')
+            GROUP BY community_id
+            ORDER BY member_count DESC
+            LIMIT 5
+          `).all();
+                    const bridgeRows = db.prepare(`
+            SELECT n.name, n.label, n.file_path, n.start_line,
+                   COUNT(DISTINCT e.id) AS cross_edges
+            FROM nodes n
+            JOIN edges e ON (e.source_id = n.id OR e.target_id = n.id)
+            JOIN nodes n2 ON (
+              CASE WHEN e.source_id = n.id THEN e.target_id ELSE e.source_id END = n2.id
+            )
+            WHERE n.community_id IS NOT NULL
+              AND n2.community_id IS NOT NULL
+              AND n.community_id != n2.community_id
+              AND n.label NOT IN ('File','Folder','Community','Concept')
+              AND (n.file_path IS NULL OR (
+                n.file_path NOT LIKE '%node_modules%'
+                AND n.file_path NOT LIKE '%/dist/%'
+                AND n.file_path NOT LIKE '%.test.%'
+                AND n.file_path NOT LIKE '%.spec.%'
+              ))
+            GROUP BY n.id
+            ORDER BY cross_edges DESC
+            LIMIT 5
+          `).all();
+                    const insights = result['insightsGained'];
+                    if (communityRows.length > 0) {
+                        insights.push({
+                            category: 'community_clusters',
+                            description: `Top ${communityRows.length} community clusters by size`,
+                            items: communityRows.map(r => ({
+                                communityId: r.community_id,
+                                memberCount: r.member_count,
+                            })),
+                        });
+                    }
+                    if (bridgeRows.length > 0) {
+                        insights.push({
+                            category: 'bridge_nodes',
+                            description: `Top ${bridgeRows.length} bridge nodes crossing community boundaries (high coupling risk)`,
+                            items: bridgeRows.map(r => {
+                                const loc = r.file_path
+                                    ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path)
+                                    : '(unknown)';
+                                return {
+                                    name: r.name,
+                                    label: r.label,
+                                    location: loc,
+                                    crossCommunityEdges: r.cross_edges,
+                                };
+                            }),
+                        });
+                        result['patternsLearned'] = bridgeRows.length + communityRows.length;
+                    }
+                    result['graph'] = { nodes: nodeCount, edges: edgeCount };
+                }
+                finally {
+                    closeDb(db);
+                }
+            }
+            else {
+                result['note'] = 'Monograph index not built — run `monomind monograph build` for deep learning';
+            }
+        }
+        catch { /* monograph unavailable — return minimal result */ }
+        return result;
     }
     /**
      * Local refactor worker (fallback when headless unavailable)

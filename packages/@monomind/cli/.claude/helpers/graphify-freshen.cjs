@@ -88,21 +88,18 @@ const dbPathStr = JSON.stringify(path.join(projectDir, '.monomind', 'monograph.d
 const script = `
 import { buildAsync } from ${JSON.stringify(pathToFileURL(entryPoint).href)};
 import { unlinkSync, statSync } from 'fs';
-import { spawnSync } from 'child_process';
+import { execSync } from 'child_process';
 try {
   await buildAsync(${JSON.stringify(projectDir)});
   // Vacuum if bloat ratio is high — keeps openDb fast over time.
   try {
     const dbPath = ${dbPathStr};
     const fileMB = statSync(dbPath).size / 1024 / 1024;
-    // Use spawnSync with array args to prevent shell injection via dbPath.
-    // execSync('sqlite3 "' + dbPath + '"...') is vulnerable if dbPath contains
-    // quotes or shell metacharacters (e.g. via a crafted CLAUDE_PROJECT_DIR).
-    const sizeResult = spawnSync('sqlite3', [dbPath, 'SELECT SUM(pgsize)/1024/1024 FROM dbstat;'],
-      { encoding: 'utf-8', timeout: 15000, shell: false });
-    const liveMB = parseInt((sizeResult.stdout || '').trim(), 10);
+    const liveMB = parseInt(
+      execSync('sqlite3 "' + dbPath + '" "SELECT SUM(pgsize)/1024/1024 FROM dbstat;"',
+        { encoding: 'utf-8' }).trim(), 10);
     if (fileMB > 100 && liveMB / fileMB < 0.5) {
-      spawnSync('sqlite3', [dbPath, 'VACUUM;'], { timeout: 120000, shell: false });
+      execSync('sqlite3 "' + dbPath + '" "VACUUM;"', { timeout: 120000 });
     }
   } catch (_) {}
 } finally {
