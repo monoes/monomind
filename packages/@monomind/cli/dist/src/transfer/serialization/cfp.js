@@ -137,7 +137,7 @@ export function deserializeCFP(data) {
 export function validateCFP(cfp) {
     const errors = [];
     if (cfp.magic !== 'CFP1') {
-        errors.push('Invalid magic bytes');
+        errors.push(`Invalid magic bytes: ${cfp.magic}`);
     }
     if (!cfp.version) {
         errors.push('Missing version');
