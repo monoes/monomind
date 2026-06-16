@@ -75,3 +75,4 @@
 - 6d89fc5e — fix(dashboard): command palette orgtab falls back to v2SwitchOrgTab for hidden tabs so roles/members/goals/board/live/secrets/settings/routines/myissues/heartbeats/tasks/costs are reachable from the palette
 - f225e323 — fix(dashboard): normalize completed/failed/cancelled task status to 'done' in v2RenderOrgTasks so done-column tasks sort correctly and render with green pill (was rank[undefined]=1, same as pending)
 - 4ab34e4d — fix(dashboard): read ev.summary in org:checkpoint handler so Activity and Chat tabs show checkpoint text (boss agents use summary field; fmtOrgEvDetail read ev.progress which was always undefined)
+- 00897411 — fix(dashboard): re-apply parallel fetch for 4 supplemental org tab requests (agentsR/budgetsR/membersR/issuesR) so org selection load time is max(response) not sum (~3x speedup)
