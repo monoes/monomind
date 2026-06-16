@@ -8,8 +8,12 @@
   "schedule": "60s-after-last-run",
   "loop_interval_seconds": 60,
   "loop_type": "tillend",
+  "loop": {
+    "poll_interval_minutes": 1,
+    "run_prompt_file": ".monomind/orgs/monomind-improver-run.md"
+  },
   "branch": "improve/auto",
-  "status": "active",
+  "status": "stopped",
   "first_run_complete": false,
   "governance": {
     "policy": "auto",
