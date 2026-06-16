@@ -6987,8 +6987,14 @@ function v2RenderOrgConfig() {
 async function v2SaveOrgConfig() {
   if (!_v2SelOrg || !_v2OrgData) return;
   const g = id => document.getElementById(id);
+  // Only include org config fields — exclude runtime data (state, goals, routines, approvals,
+  // running, tasks, config nested copy) that would corrupt the org .json file.
+  const _RUNTIME_KEYS = new Set(['config','state','goals','routines','approvals','running','tasks']);
+  const _baseConfig = Object.fromEntries(
+    Object.entries(_v2OrgData).filter(([k]) => !k.startsWith('_') && !_RUNTIME_KEYS.has(k))
+  );
   const cfg = {
-    ..._v2OrgData,
+    ..._baseConfig,
     status:   (g('oc-status')?.value)   || _v2OrgData.status,
     goal:     (g('oc-goal')?.value)     || _v2OrgData.goal,
     mode:     (g('oc-mode')?.value)     || _v2OrgData.mode,
