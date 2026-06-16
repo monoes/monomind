@@ -6065,11 +6065,16 @@ function v2RenderOrgTasks() {
   if (!pane) return;
   // Normalize: API returns {todo:[],doing:[],done:[]} (columns) or a flat array
   const raw = _v2OrgData?.tasks;
+  // Server puts completed/failed/cancelled in the 'done' column but keeps original status string
+  const _normTaskStatus = (st, col) => {
+    if (st === 'completed' || st === 'failed' || st === 'cancelled') return 'done';
+    return st || col;
+  };
   let tasks = [];
-  if (Array.isArray(raw)) tasks = raw.slice();
+  if (Array.isArray(raw)) tasks = raw.map(t => ({ ...t, status: _normTaskStatus(t.status, 'todo') }));
   else if (raw && typeof raw === 'object') {
     for (const [col, items] of Object.entries(raw)) {
-      (Array.isArray(items) ? items : []).forEach(t => tasks.push({ ...t, status: t.status || col }));
+      (Array.isArray(items) ? items : []).forEach(t => tasks.push({ ...t, status: _normTaskStatus(t.status, col) }));
     }
   }
   if (!tasks.length) { pane.innerHTML = '<div class="empty">No tasks</div>'; return; }
