@@ -4117,11 +4117,12 @@ async function loadChatViewSessions() {
     while (sel.options.length > 1) sel.remove(1);
     // API returns a plain array (not {sessions:{...}}) — handle both shapes for safety
     const sessions = Array.isArray(data) ? data : Object.values(data.sessions || data || {});
-    sessions.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+    sessions.sort((a, b) => (b.startedAt || b.ts || 0) - (a.startedAt || a.ts || 0));
     sessions.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id;
-      const ts = s.startedAt ? new Date(s.startedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+      const tsVal = s.startedAt || s.ts || 0;
+      const ts = tsVal ? new Date(tsVal).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
       opt.textContent = (s.id.slice(0,16)) + (ts ? '  ' + ts : '') + (s.status === 'running' ? '  ●' : '');
       sel.appendChild(opt);
       chatVSessions[s.id] = s;
