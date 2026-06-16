@@ -73,11 +73,6 @@ class JsonFileBackend {
   constructor(filePath) {
     this.filePath = filePath;
     this.entries = new Map();
-    // Debounce state: avoid a full JSON serialization + disk write per entry
-    // during bulk imports. A single flush is scheduled 50ms after the last
-    // mutation; shutdown() forces an immediate flush.
-    this._dirty = false;
-    this._flushTimer = null;
   }
 
   async initialize() {
@@ -87,22 +82,14 @@ class JsonFileBackend {
         if (statSync(this.filePath).size > MAX_STORE_BYTES) return;
         const data = JSON.parse(readFileSync(this.filePath, 'utf-8'));
         if (Array.isArray(data)) {
-          // Deduplicate on load: last entry with a given id wins, keeping the
-          // store consistent even if a previous crash left duplicates on disk.
-          for (const entry of data) {
-            if (entry && typeof entry.id === 'string') this.entries.set(entry.id, entry);
-          }
+          for (const entry of data) this.entries.set(entry.id, entry);
         }
       } catch { /* start fresh */ }
     }
   }
 
-  async shutdown() { this._flushNow(); }
-  async store(entry) {
-    if (!entry || typeof entry.id !== 'string') return;
-    this.entries.set(entry.id, entry);
-    this._schedulePersist();
-  }
+  async shutdown() { this._persist(); }
+  async store(entry) { this.entries.set(entry.id, entry); this._persist(); }
   async get(id) { return this.entries.get(id) ?? null; }
   async getByKey(key, ns) {
     for (const e of this.entries.values()) {
@@ -117,14 +104,10 @@ class JsonFileBackend {
     if (updates.content !== undefined) e.content = updates.content;
     if (updates.tags) e.tags = updates.tags;
     e.updatedAt = Date.now();
-    this._schedulePersist();
+    this._persist();
     return e;
   }
-  async delete(id) {
-    const deleted = this.entries.delete(id);
-    if (deleted) this._schedulePersist();
-    return deleted;
-  }
+  async delete(id) { return this.entries.delete(id); }
   async query(opts) {
     let results = [...this.entries.values()];
     if (opts?.namespace) results = results.filter(e => e.namespace === opts.namespace);
@@ -133,16 +116,8 @@ class JsonFileBackend {
     return results;
   }
   async search() { return []; } // No vector search in JSON backend
-  async bulkInsert(entries) {
-    for (const e of entries) if (e && typeof e.id === 'string') this.entries.set(e.id, e);
-    this._schedulePersist();
-  }
-  async bulkDelete(ids) {
-    let n = 0;
-    for (const id of ids) { if (this.entries.delete(id)) n++; }
-    if (n > 0) this._schedulePersist();
-    return n;
-  }
+  async bulkInsert(entries) { for (const e of entries) this.entries.set(e.id, e); this._persist(); }
+  async bulkDelete(ids) { let n = 0; for (const id of ids) { if (this.entries.delete(id)) n++; } this._persist(); return n; }
   async count() { return this.entries.size; }
   async listNamespaces() {
     const ns = new Set();
@@ -177,19 +152,7 @@ class JsonFileBackend {
     };
   }
 
-  _schedulePersist() {
-    this._dirty = true;
-    if (this._flushTimer) return; // already scheduled
-    this._flushTimer = setTimeout(() => {
-      this._flushTimer = null;
-      this._flushNow();
-    }, 50);
-  }
-
-  _flushNow() {
-    if (this._flushTimer) { clearTimeout(this._flushTimer); this._flushTimer = null; }
-    if (!this._dirty) return;
-    this._dirty = false;
+  _persist() {
     const lockPath = this.filePath + '.lock';
     withFileLock(lockPath, () => {
       const data = JSON.stringify([...this.entries.values()], null, 2);

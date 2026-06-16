@@ -4728,6 +4728,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         res.end(JSON.stringify({
           ts: Date.now(),
           uptime: process.uptime(),
+          dir: root,
           sseClients: mmSseClients.size,
           activeOrgs: Object.keys(orgRuns).length,
           orgRuns,

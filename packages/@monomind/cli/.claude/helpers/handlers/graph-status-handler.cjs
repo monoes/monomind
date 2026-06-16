@@ -40,42 +40,6 @@ module.exports = {
       console.log('Usage: ' + pct + '% graph · ' + (100 - pct) + '% grep · ' +
                   'wins=' + wins + ' search=' + search +
                   (saved > 0 ? ' · saved $' + saved.toFixed(2) : ''));
-
-      // Top god nodes — surface the highest-degree symbols so LLMs know which
-      // files are the most critical entry points to explore.
-      try {
-        var excluded = ['File', 'Folder', 'Community', 'Concept'];
-        var placeholders = excluded.map(function(){ return '?'; }).join(',');
-        var godStmt = db.prepare(
-          'SELECT n.name, n.label, n.file_path, ' +
-          '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg ' +
-          'FROM nodes n WHERE n.label NOT IN (' + placeholders + ') ' +
-          'GROUP BY n.id HAVING deg > 0 ORDER BY deg DESC LIMIT 3'
-        );
-        var godRows = godStmt.all(excluded[0], excluded[1], excluded[2], excluded[3]);
-        if (godRows && godRows.length > 0) {
-          console.log('Top nodes: ' + godRows.map(function(r) {
-            return '[' + r.label + '] ' + r.name + ' (deg=' + r.deg + ')' +
-                   (r.file_path ? '  ' + r.file_path : '');
-          }).join(' | '));
-        }
-      } catch (_) { /* non-fatal */ }
-
-      // Index staleness — tell LLMs whether the graph is fresh or needs rebuild.
-      try {
-        var metaRow = db.prepare("SELECT value FROM index_meta WHERE key='lastCommit'").get();
-        if (metaRow && metaRow.value && /^[0-9a-f]{7,40}$/i.test(metaRow.value)) {
-          var cp = require('child_process');
-          var behind = parseInt(
-            cp.execSync('git rev-list --count ' + metaRow.value + '..HEAD 2>/dev/null', { cwd: CWD, encoding: 'utf-8', timeout: 2000 }).trim(),
-            10
-          );
-          if (Number.isFinite(behind)) {
-            console.log('Index: ' + (behind === 0 ? 'FRESH' : 'STALE — ' + behind + ' commit(s) behind HEAD (run monograph_build to refresh)'));
-          }
-        }
-      } catch (_) { /* non-fatal */ }
-
     } catch (err) { console.log('Error: ' + String(err.message || err).slice(0, 200)); }
   },
 };

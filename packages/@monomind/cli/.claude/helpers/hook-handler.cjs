@@ -288,6 +288,15 @@ const handlers = {
     var cmd = (hCtx.toolInput && (hCtx.toolInput.command || hCtx.toolInput.cmd)) || '';
     if (/\bgrep\b/.test(cmd)) _recordGraphTelemetry('bash_grep_call');
     else if (/\bfind\b/.test(cmd)) _recordGraphTelemetry('bash_find_call');
+    // Enforcement gate: destructive operations
+    var gates = require('./handlers/gates-handler.cjs');
+    gates.handlePreBash(hCtx);
+  },
+
+  'pre-write': () => {
+    // Enforcement gate: secrets detection before Write/Edit/MultiEdit lands on disk
+    var gates = require('./handlers/gates-handler.cjs');
+    gates.handlePreWrite(hCtx);
   },
 
   'pre-search': () => {
@@ -295,6 +304,46 @@ const handlers = {
     var tool = hCtx.toolName || '';
     if (tool === 'Grep') _recordGraphTelemetry('grep_call');
     else if (tool === 'Glob') _recordGraphTelemetry('glob_call');
+
+    // Monograph symbol hint: when the Grep pattern looks like a plain symbol name
+    // (no regex metacharacters), look it up directly in the graph index and print
+    // the file:line so the LLM may skip or narrow the Grep.
+    // Session-level cache prevents repeated identical DB lookups across Grep bursts.
+    try {
+      var grepPattern = (typeof toolInput === 'object' && toolInput !== null)
+        ? (toolInput.pattern || toolInput.query || '')
+        : '';
+      // Only attempt lookup for clean identifiers — skip regexes and paths
+      var isCleanSymbol = grepPattern.length >= 3 && grepPattern.length <= 80
+        && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(grepPattern);
+      if (isCleanSymbol) {
+        if (!hCtx._preSearchCache) hCtx._preSearchCache = {};
+        var cacheKey = 'presearch:' + grepPattern;
+        if (!(cacheKey in hCtx._preSearchCache)) {
+          var db = _openMonographDb();
+          var hint = null;
+          if (db) {
+            try {
+              var row = db.prepare(
+                'SELECT n.name, n.label, n.file_path, n.start_line FROM nodes n ' +
+                'WHERE n.name = ? AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+                'AND n.file_path IS NOT NULL LIMIT 1'
+              ).get(grepPattern);
+              if (row) {
+                hint = row.file_path + (row.start_line != null ? ':' + row.start_line : '');
+              }
+            } catch (e) { /* non-fatal */ }
+          }
+          hCtx._preSearchCache[cacheKey] = hint;
+        }
+        var cachedHint = hCtx._preSearchCache[cacheKey];
+        if (cachedHint) {
+          // Use the correct MCP tool name — monograph_context does not exist;
+          // the callable tool is mcp__monomind__monograph_query
+          console.log('[MONOGRAPH_HINT] ' + grepPattern + ' found at ' + cachedHint + ' — use mcp__monomind__monograph_query instead of Grep for better results');
+        }
+      }
+    } catch (e) { /* non-fatal — telemetry always proceeds */ }
   },
 
   'post-graph-tool': () => {
@@ -346,6 +395,6 @@ if (command && handlers[command]) {
 main().catch(function(e) {
   console.log('[WARN] Hook handler error: ' + e.message);
 }).finally(function() {
-  // Ensure clean exit for Claude Code hooks
-  process.exit(0);
+  // Use process.exitCode if a gate set it (exit 2 = block), otherwise clean exit
+  process.exit(process.exitCode || 0);
 });
