@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- 5675e92e — fix(dashboard): show session prompt + metadata header in Chat tab; selector shows goal text + event count instead of raw truncated ID; selected session injects header with full ID, status, start time, agent names, event count
 - d5a92328 — fix(dashboard): v2RenderOrgLive activity feed reads e.msg fallback so message text is shown in Live tab (was always blank because server events use msg not message)
 - ea781cbc — fix(dashboard): clear chatVCurrentId in chatVSelectOrgRun so org:comms replay events are not filtered by session guard mismatch
 - 3919aeee — fix(dashboard): add org run history to Chat tab; fix sessions array shape; fix runorg.md activity echo safety (echo→jq -cn)
@@ -92,3 +93,16 @@
 - 92a9d313 — fix(dashboard): replace l.loopType with l.type in renderLoops/mmRenderLoops so tillend badge (∞) shows correctly; replace l.capReps with l.maxReps in progress bar label (loop files store type/maxReps fields, not loopType/capReps)
 - 97a13ee1 — fix(control-start): add __dirname-relative and npm root -g server resolution to package helper so monomind dashboard starts correctly on fresh global npm installs (npm install -g monomind); add port-confirmation polling to detect auto-incremented port
 - 4aa8cb3d — fix(dashboard): read ev.summary in org:checkpoint for v2 org Chat tab (_odtAppendEvent) and _cvExcerptText so checkpoint text is shown instead of blank (ev.progress is undefined for boss-agent checkpoints); also persist org:comms to .convs.jsonl sidecar per run
+- b8f23ad8 — fix(dashboard): replace _evType with ev.type in v2OrgSSE handler so agent online/idle status updates in Live tab and org list dot pulses on org:comms/org:checkpoint events (_evType was undefined in this scope — all three SSE-driven status updates were silently no-ops)
+- cbd5f1d1 — fix(dashboard): preserve SSE-tracked agent running status in v2RenderOrgLive 5s refresh (merge not replace), so agents stay RUNNING during active runs instead of flickering back to idle
+- cbd5f1d1 — fix(dashboard): v2RenderOrgActivity now calls fmtOrgEvDetail(ev) instead of ignoring it; checkpoint summary and org:comms from→to:msg now appear in Activity tab
+- cbd5f1d1 — fix(dashboard): v2SelectOrg clears _orgLiveInterval on org switch; prevents stale interval from running for new org without creating a new one
+- cbd5f1d1 — fix(dashboard): v2RenderOrgLive running-agent row shows title (role name) with [adapterType] badge; a.type was always undefined for SSE-pushed agents
+- cbd5f1d1 — fix(server): GET /api/orgs list checks activeOrgRuns in-memory map so org list shows LIVE immediately matching detail view (was lag-behind on disk scan only)
+- 9eceece5 — fix(dashboard): clear stale org chat sessions on org switch (_odtLoadChatSessions now resets _odtChatSessions=[] before fetching so previous org's sessions don't bleed through when both fetches throw)
+- 9eceece5 — fix(dashboard): deduplicate global chat SSE replays via chatVSeenKeys Set (server replays last 50 events on every reconnect; global chat lacked the guard that org chat has since 8da114f0; set is reset on each new SSE connection)
+- 87f56ffc — fix(dashboard): deduplicate SSE replays in _odtHandleLiveEvent via _odtChatSeenKeys (org chat feed showed duplicate events on reconnect; reset on each new connection)
+- 87f56ffc — fix(dashboard): deduplicate SSE replays in v2OrgSSE via closure seenKeys (org activity log accumulated duplicate events on reconnect; set reset in connect())
+- 78c531fb — fix(dashboard): hoist fmtOrgEvDetail to module scope so Live tab activity feed can use it (was local to v2RenderOrgActivity; Live tab read e.msg||e.message only, missing org:checkpoint summary and org:comms routing text)
+- 5705604a — fix(dashboard): normalize completed/failed/cancelled task status to 'done' in v2RenderOrgTasks (server keeps original status string in done column; pill renderer only checked ===done so those tasks showed gray + sorted to middle instead of bottom)
+- [REP_8_PLACEHOLDER] — fix(dashboard): read r.enabled (not r.active) in v2RenderOrgRoutines pill; derive status text from r.enabled boolean (r.active was never set by server; enabled routines showed gray pill with '—' text)
