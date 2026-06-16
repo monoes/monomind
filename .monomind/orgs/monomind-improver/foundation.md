@@ -85,3 +85,4 @@
 - 2d59601b — fix(dashboard): update _v2OrgData._agents status on org:agent:online/org:complete SSE events so Live tab running-agents section reflects reality; also refresh agents in 5s poll alongside activity
 - a83e7974 — fix(control-start): poll actual port after spawn and update control.json so CTRL_URL is correct when port 4242 is already in use and server.mjs auto-increments
 - a0a776f3 — fix(dashboard): v2DoCopyOrg calls /api/orgs/:name/copy (plural) not /api/org/:name/copy so Copy Org button no longer 404s
+- ad2b21a4 — fix(dashboard): restore run_success_rate_7d / total_runs_7d / budget_used_pct + token progress bar in v2RenderOrgHealth so health tab shows real org performance data (fields exist in server response but were clobbered in a past file rewrite)
