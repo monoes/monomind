@@ -3940,6 +3940,7 @@ async function renderGlobalFeed() {
 let chatVSessions = {};
 let chatVCurrentId = null;
 let chatVSseSource = null;
+let chatVSeenKeys = new Set();
 
 function initChatView() {
   loadChatViewSessions();
@@ -4253,6 +4254,7 @@ function connectChatViewSSE() {
   if (chatVSseSource) return;
   const dot = document.getElementById('chat-v-live-dot');
   const lbl = document.getElementById('chat-v-live-lbl');
+  chatVSeenKeys = new Set();
   chatVSseSource = new EventSource('/api/mastermind-stream');
   chatVSseSource.onopen = () => { dot && dot.classList.add('on'); lbl && (lbl.textContent = 'LIVE'); };
   chatVSseSource.onmessage = e => {
@@ -4269,6 +4271,10 @@ function connectChatViewSSE() {
 
 function handleChatViewEvent(ev) {
   if (!ev) return;
+  // Deduplicate SSE reconnect replays (server replays last 50 events on every reconnect)
+  const dedupKey = (ev.ts||'') + '-' + (ev.type||'') + '-' + (ev.from||ev.role||ev.session||'');
+  if (chatVSeenKeys.has(dedupKey)) return;
+  chatVSeenKeys.add(dedupKey);
   // Org events (org:comms, org:agent:online, org:checkpoint, etc.) may carry a session field
   // from the org run's session ID — route them directly to the feed if the session matches,
   // or append them unconditionally when the chat view is showing the "live" placeholder.
@@ -6655,6 +6661,7 @@ async function v2RenderOrgChat() {
 
 async function _odtLoadChatSessions() {
   if (!_v2SelOrg) return;
+  _odtChatSessions = [];
   try {
     const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
     // Primary: structured org run files
