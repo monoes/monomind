@@ -4902,7 +4902,7 @@ async function renderLoops() {
     el.innerHTML = loops.map((l, idx) => {
       const maxReps = l.maxReps || 0;
       const curRep  = l.currentRep || 0;
-      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const isTillend = !maxReps || l.type === 'tillend' || String(l.command || '').includes('--tillend');
       const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
@@ -4921,7 +4921,7 @@ async function renderLoops() {
       const runs = curRep != null ? curRep : '—';
       const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
       const progBar = isTillend
-        ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.capReps ? ' (cap: '+l.capReps+')' : ''}</span></div>`
+        ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${maxReps ? ' (cap: '+maxReps+')' : ''}</span></div>`
         : (maxReps > 0 && running)
           ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
           : '';
@@ -10483,7 +10483,7 @@ async function mmRenderLoops(body) {
     body.innerHTML = loops.map(l => {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
-      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const isTillend = !maxReps || l.type === 'tillend' || String(l.command || '').includes('--tillend');
       const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
