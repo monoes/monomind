@@ -76,3 +76,4 @@
 - f225e323 — fix(dashboard): normalize completed/failed/cancelled task status to 'done' in v2RenderOrgTasks so done-column tasks sort correctly and render with green pill (was rank[undefined]=1, same as pending)
 - 4ab34e4d — fix(dashboard): read ev.summary in org:checkpoint handler so Activity and Chat tabs show checkpoint text (boss agents use summary field; fmtOrgEvDetail read ev.progress which was always undefined)
 - 00897411 — fix(dashboard): re-apply parallel fetch for 4 supplemental org tab requests (agentsR/budgetsR/membersR/issuesR) so org selection load time is max(response) not sum (~3x speedup)
+- a20e1bb8 — fix(dashboard): v2StopOrg adds ?dir= param; v2RenderOrgRoutines reads r.last_run fallback; v2RenderOrgAgentsFull reads adapterType/adapterModel (not a.type/a.adapter which are always undefined)
