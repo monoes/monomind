@@ -61,6 +61,29 @@ function findCliPath() {
   const local = path.join(CWD, 'packages', '@monomind', 'cli', 'bin', 'cli.js');
   if (fs.existsSync(local)) return { cmd: process.execPath, args: [local], usePort: false };
 
+  // Try global npm install paths for both package names
+  // npm root -g is slow; probe known conventional paths instead
+  const globalCandidates = [];
+  try {
+    const { execSync } = require('child_process');
+    const npmRoot = execSync('npm root -g', { timeout: 3000, encoding: 'utf-8' }).trim();
+    if (npmRoot) {
+      globalCandidates.push(
+        path.join(npmRoot, 'monomind', 'packages', '@monomind', 'cli', 'dist', 'src', 'ui', 'server.mjs'),
+        path.join(npmRoot, '@monoes', 'monomindcli', 'dist', 'src', 'ui', 'server.mjs'),
+        path.join(npmRoot, 'monomind', 'packages', '@monomind', 'cli', 'bin', 'cli.js'),
+        path.join(npmRoot, '@monoes', 'monomindcli', 'bin', 'cli.js'),
+      );
+    }
+  } catch { /* npm root -g failed — skip */ }
+
+  for (const candidate of globalCandidates) {
+    if (fs.existsSync(candidate)) {
+      const usePort = candidate.endsWith('server.mjs');
+      return { cmd: process.execPath, args: [candidate], usePort };
+    }
+  }
+
   // Try npx monomind as last resort
   return { cmd: 'npx', args: ['monomind@latest'], usePort: false };
 }
