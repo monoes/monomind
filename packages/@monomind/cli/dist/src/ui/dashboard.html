@@ -4099,6 +4099,16 @@ function appendChatViewEvent(ev, animate) {
   const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
   if (ev.type === 'intercom') {
     el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
+  } else if (ev.type === 'org:comms') {
+    el = mkCVIntercom(ev.from || ev.org || '?', ev.to || '?', ev.msg || '', ts);
+  } else if (ev.type === 'org:agent:online') {
+    el = mkCVSys('[' + esc(ev.org || '') + '] ' + esc(ev.role || ev.title || '?') + ' online' + (ev.title && ev.role && ev.title !== ev.role ? ' (' + esc(ev.title) + ')' : ''), ts);
+  } else if (ev.type === 'org:checkpoint') {
+    el = mkCVSys('[checkpoint] ' + esc(ev.progress || ev.msg || ''), ts);
+  } else if (ev.type === 'org:start') {
+    el = mkCVSys('[org:start] ' + esc(ev.org || ''), ts);
+  } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
+    el = mkCVSys('[' + esc(ev.type) + '] ' + esc(ev.org || ev.msg || ''), ts);
   } else if (ev.type === 'agent:message' || ev.type === 'agent:spawn') {
     el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || ev.role || ev.type, ts, ev.type);
   } else if (ev.type === 'session:start') {
@@ -4170,17 +4180,27 @@ function connectChatViewSSE() {
 }
 
 function handleChatViewEvent(ev) {
-  if (!ev || !ev.session) return;
-  if (!chatVSessions[ev.session]) {
-    chatVSessions[ev.session] = { id: ev.session, events: [], startedAt: ev.ts, status: 'running' };
-    loadChatViewSessions();
-  } else {
-    const s = chatVSessions[ev.session];
-    s.events = s.events || [];
-    s.events.push(ev);
-    if (ev.type === 'session:complete') s.status = 'complete';
+  if (!ev) return;
+  // Org events (org:comms, org:agent:online, org:checkpoint, etc.) may carry a session field
+  // from the org run's session ID — route them directly to the feed if the session matches,
+  // or append them unconditionally when the chat view is showing the "live" placeholder.
+  const isOrgEvent = ev.type && (ev.type.startsWith('org:') || ev.type.startsWith('run:'));
+  if (!ev.session && !isOrgEvent) return;
+  if (ev.session) {
+    if (!chatVSessions[ev.session]) {
+      chatVSessions[ev.session] = { id: ev.session, events: [], startedAt: ev.ts, status: 'running' };
+      loadChatViewSessions();
+    } else {
+      const s = chatVSessions[ev.session];
+      s.events = s.events || [];
+      s.events.push(ev);
+      if (ev.type === 'session:complete') s.status = 'complete';
+    }
+    if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
+  } else if (isOrgEvent && currentView === 'chat') {
+    // Org events without a Claude session ID — show in chat feed regardless of selection
+    appendChatViewEvent(ev, true);
   }
-  if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
 }
 
 // ── feature 4: budget cap + desktop notification ───────────
