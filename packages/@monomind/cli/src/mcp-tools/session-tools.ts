@@ -7,10 +7,9 @@
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { type MCPTool, getProjectCwd } from './types.js';
+import { type MCPTool, getMonomindDataRoot } from './types.js';
 
-// Storage paths
-const STORAGE_DIR = '.monomind';
+// Storage paths — SESSION_DIR is relative to the git-safe data root
 const SESSION_DIR = 'sessions';
 
 interface SessionRecord {
@@ -32,7 +31,7 @@ interface SessionRecord {
 }
 
 function getSessionDir(): string {
-  return join(getProjectCwd(), STORAGE_DIR, SESSION_DIR);
+  return join(getMonomindDataRoot(), SESSION_DIR);
 }
 
 function getSessionPath(sessionId: string): string {
@@ -112,7 +111,7 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
 
   if (options.includeMemory) {
     try {
-      const memoryPath = join(getProjectCwd(), STORAGE_DIR, 'memory', 'store.json');
+      const memoryPath = join(getMonomindDataRoot(), 'memory', 'store.json');
       if (existsSync(memoryPath) && statSync(memoryPath).size <= MAX_SESSION_BYTES) {
         data.memory = JSON.parse(readFileSync(memoryPath, 'utf-8'));
       }
@@ -121,7 +120,7 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
 
   if (options.includeTasks) {
     try {
-      const taskPath = join(getProjectCwd(), STORAGE_DIR, 'tasks', 'store.json');
+      const taskPath = join(getMonomindDataRoot(), 'tasks', 'store.json');
       if (existsSync(taskPath) && statSync(taskPath).size <= MAX_SESSION_BYTES) {
         data.tasks = JSON.parse(readFileSync(taskPath, 'utf-8'));
       }
@@ -130,7 +129,7 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
 
   if (options.includeAgents) {
     try {
-      const agentPath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
+      const agentPath = join(getMonomindDataRoot(), 'agents', 'store.json');
       if (existsSync(agentPath) && statSync(agentPath).size <= MAX_SESSION_BYTES) {
         data.agents = JSON.parse(readFileSync(agentPath, 'utf-8'));
       }
@@ -248,7 +247,7 @@ export const sessionTools: MCPTool[] = [
       if (session) {
         // Restore data to respective stores (legacy JSON for backward compat)
         if (session.data?.memory) {
-          const memoryDir = join(getProjectCwd(), STORAGE_DIR, 'memory');
+          const memoryDir = join(getMonomindDataRoot(), 'memory');
           if (!existsSync(memoryDir)) mkdirSync(memoryDir, { recursive: true });
           const memoryStorePath = join(memoryDir, 'store.json');
           {
@@ -285,7 +284,7 @@ export const sessionTools: MCPTool[] = [
           }
         }
         if (session.data?.tasks) {
-          const taskDir = join(getProjectCwd(), STORAGE_DIR, 'tasks');
+          const taskDir = join(getMonomindDataRoot(), 'tasks');
           if (!existsSync(taskDir)) mkdirSync(taskDir, { recursive: true });
           const taskStorePath = join(taskDir, 'store.json');
           {
@@ -295,7 +294,7 @@ export const sessionTools: MCPTool[] = [
           }
         }
         if (session.data?.agents) {
-          const agentDir = join(getProjectCwd(), STORAGE_DIR, 'agents');
+          const agentDir = join(getMonomindDataRoot(), 'agents');
           if (!existsSync(agentDir)) mkdirSync(agentDir, { recursive: true });
           const agentStorePath = join(agentDir, 'store.json');
           {
