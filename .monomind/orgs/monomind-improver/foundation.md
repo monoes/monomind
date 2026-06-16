@@ -88,3 +88,4 @@
 - ad2b21a4 — fix(dashboard): restore run_success_rate_7d / total_runs_7d / budget_used_pct + token progress bar in v2RenderOrgHealth so health tab shows real org performance data (fields exist in server response but were clobbered in a past file rewrite)
 - dc7a19b9 — fix(dashboard): remove duplicate org-copy-dialog HTML block so Copy Org button targets correct dialog (duplicate IDs org-copy-dialog and org-copy-dest caused getElementById to always hit the first copy, making the second stale input unreadable)
 - 5e822666 — fix(server): honour ?dir= in GET /api/orgs/:name/runs/current so run events load from the selected project instead of always the server cwd
+- 7522c6fb — fix(server): restore session caps 50→500 and 100→500 on improve/auto (regressed from main's 2fbe3669 fix; both mastermind-sessions.json write and GET /api/mastermind/sessions response were silently truncating session history)
