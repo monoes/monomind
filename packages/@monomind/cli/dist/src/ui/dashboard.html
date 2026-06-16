@@ -6654,6 +6654,7 @@ async function v2RenderOrgChat() {
   // Reset state when org changes
   _odtChatCurrentId = null;
   _odtChatCurrentAgent = 'all';
+  _odtChatSeenKeys = new Set();
   document.getElementById('odt-chat-agent-bar').style.display = 'none';
   document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
   const emptyEl = document.getElementById('odt-chat-empty');
@@ -6871,7 +6872,6 @@ function _odtConnectChatSSE() {
   if (_odtChatSseSource) return;
   const dot = document.getElementById('odt-chat-live-dot');
   const lbl = document.getElementById('odt-chat-live-lbl');
-  _odtChatSeenKeys = new Set();
   _odtChatSseSource = new EventSource('/api/mastermind-stream');
   _odtChatSseSource.onopen = () => { dot?.classList.add('on'); if (lbl) lbl.textContent = 'LIVE'; };
   _odtChatSseSource.onmessage = e => {
