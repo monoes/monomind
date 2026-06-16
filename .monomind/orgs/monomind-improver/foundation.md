@@ -1,5 +1,6 @@
 # monomind-improver foundation log
 
+- d5a92328 — fix(dashboard): v2RenderOrgLive activity feed reads e.msg fallback so message text is shown in Live tab (was always blank because server events use msg not message)
 - ea781cbc — fix(dashboard): clear chatVCurrentId in chatVSelectOrgRun so org:comms replay events are not filtered by session guard mismatch
 - 3919aeee — fix(dashboard): add org run history to Chat tab; fix sessions array shape; fix runorg.md activity echo safety (echo→jq -cn)
 - 6f398d41 — fix(dashboard): render org:comms as intercom, agent:online/checkpoint as sys in Chat tab; fix findCliPath global npm path
@@ -73,3 +74,4 @@
 - 96d5dd9a — fix(dashboard): remove double ellipsis in invites token display
 - 6d89fc5e — fix(dashboard): command palette orgtab falls back to v2SwitchOrgTab for hidden tabs so roles/members/goals/board/live/secrets/settings/routines/myissues/heartbeats/tasks/costs are reachable from the palette
 - f225e323 — fix(dashboard): normalize completed/failed/cancelled task status to 'done' in v2RenderOrgTasks so done-column tasks sort correctly and render with green pill (was rank[undefined]=1, same as pending)
+- 4ab34e4d — fix(dashboard): read ev.summary in org:checkpoint handler so Activity and Chat tabs show checkpoint text (boss agents use summary field; fmtOrgEvDetail read ev.progress which was always undefined)
