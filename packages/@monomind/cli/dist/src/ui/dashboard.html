@@ -6198,7 +6198,7 @@ function v2RenderOrgLive() {
       ? running.map(a => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
           <span class="live-dot" style="flex-shrink:0"></span>
           <span style="font-size:13px;color:var(--text-hi)">${esc(a.type || a.title || a.id || '—')}</span>
-          <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">${esc(a.adapter || '')}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">${esc(a.adapterModel || a.adapter || '')}</span>
         </div>`).join('')
       : '<div style="color:var(--text-lo);font-size:13px;padding:10px 0">No agents currently running</div>'}
   </div>
@@ -6261,7 +6261,7 @@ async function orgApprovalAction(id, action) {
   if (!confirm(action + ' this request?')) return;
   try {
     const _enc = encodeURIComponent(_v2SelOrg);
-    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}`, {
+    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
     });
     showToast('Done', action + 'd', 'ok');
