@@ -4098,7 +4098,7 @@ function _cvExcerptText(ev) {
   if (t === 'intercom' || t === 'org:comms') return (ev.from || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
   if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
   if (t === 'agent:spawn' || t === 'org:agent:online') return 'spawned ' + (ev.agent || ev.role || ev.title || '?');
-  if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.progress || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
+  if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.summary || ev.progress || ev.msg || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
   if (t === 'org:start') return 'org started: ' + (ev.goal || '').slice(0, 80);
   if (t === 'org:complete') return 'org complete';
   if (t === 'session:start') return 'started: ' + (ev.prompt || '').replace(/^running org:\s*/i, '').slice(0, 80);
@@ -6778,7 +6778,7 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'org:agent:online') {
     el = mkCVSys('◉ ' + esc(ev.title || ev.role || '?') + ' online', ts);
   } else if (ev.type === 'org:checkpoint') {
-    el = mkCVAgent('boss', ev.progress || '', ts, 'org:checkpoint');
+    el = mkCVAgent('boss', ev.summary || ev.progress || ev.msg || '', ts, 'org:checkpoint');
   } else if (ev.type === 'org:start' || ev.type === 'org:complete') {
     el = mkCVSys(ev.type === 'org:start' ? '▶ Org started' : '■ Org complete', ts);
   } else if (ev.type === 'agent:spawn') {
