@@ -1904,16 +1904,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             </div>
           </div>
         <!-- agent detail drawer (node-click / role-card-click) -->
-        <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:90;align-items:center;justify-content:center">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:320px;display:flex;flex-direction:column;gap:14px">
-            <div style="font-size:13px;font-weight:600;color:var(--text-hi)">Copy org to project</div>
-            <input id="org-copy-dest" class="filter-input" placeholder="Destination project path…" style="width:100%">
-            <div style="display:flex;gap:8px;justify-content:flex-end">
-              <button class="btn" onclick="document.getElementById('org-copy-dialog').style.display='none'">Cancel</button>
-              <button class="btn" onclick="v2DoCopyOrg()" style="color:var(--accent);border-color:var(--accent)">Copy</button>
-            </div>
-          </div>
-        </div>
         <div id="org-agent-drawer" aria-hidden="true">
           <div id="oad-head"></div>
           <div id="oad-body"></div>
