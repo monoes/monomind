@@ -6390,7 +6390,14 @@ function v2RenderOrgBudgets() {
   const el = document.getElementById('odt-budgets');
   if (!el || !_v2OrgData) return;
   const b = _v2OrgData._budgets || _v2OrgData.budgets || {};
-  const agents = _v2OrgData._agents || [];
+  // Server returns { org_budget: {limit_tokens, limit_usd}, agents: [{id, title, tokens_in, tokens_out, total_cost_usd}] }
+  const orgBudget = b.org_budget || {};
+  const tokenLimit = orgBudget.limit_tokens || b.tokenLimit || null;
+  const usdLimit   = orgBudget.limit_usd   || b.usdLimit   || null;
+  // Per-agent data comes from the budgets endpoint (has cost); fall back to agents roster
+  const budgetAgents = Array.isArray(b.agents) && b.agents.length ? b.agents : [];
+  const usedTokens = budgetAgents.reduce((s, a) => s + (a.tokens_in || 0) + (a.tokens_out || 0), 0);
+  const usedUsd    = budgetAgents.reduce((s, a) => s + (a.total_cost_usd || 0), 0);
 
   function fillBar(used, limit) {
     if (!limit) return '';
@@ -6401,22 +6408,25 @@ function v2RenderOrgBudgets() {
   }
 
   let html = '';
-  if (b.tokens != null || b.tokenLimit != null) {
-    html += `<div class="m-group-title">Tokens</div>${fillBar(b.tokens || 0, b.tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(b.tokens || 0).toLocaleString()} / ${b.tokenLimit ? b.tokenLimit.toLocaleString() : '∞'}</div>`;
+  if (tokenLimit != null || usedTokens > 0) {
+    html += `<div class="m-group-title">Tokens</div>${fillBar(usedTokens, tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${usedTokens.toLocaleString()} / ${tokenLimit ? tokenLimit.toLocaleString() : '∞'}</div>`;
   }
-  if (b.usd != null || b.usdLimit != null) {
-    html += `<div class="m-group-title">USD Budget</div>${fillBar(b.usd || 0, b.usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${Number(b.usd || 0).toFixed(4)} / ${b.usdLimit ? '$' + Number(b.usdLimit).toFixed(2) : '∞'}</div>`;
+  if (usdLimit != null || usedUsd > 0) {
+    html += `<div class="m-group-title">USD Budget</div>${fillBar(usedUsd, usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${usedUsd.toFixed(4)} / ${usdLimit ? '$' + Number(usdLimit).toFixed(2) : '∞'}</div>`;
   }
-  if (agents.length) {
+  if (budgetAgents.length) {
     html += '<div class="m-group-title" style="margin-bottom:6px">Per Agent</div>' +
       `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:4px 8px">Agent</th><th>Tokens In</th><th>Tokens Out</th><th>Cost</th></tr></thead><tbody>` +
-      agents.slice(0, 20).map(a => {
-        const over = a.budgetLimit && ((a.tokensIn || 0) + (a.tokensOut || 0)) > a.budgetLimit;
+      budgetAgents.slice(0, 20).map(a => {
+        const tIn = a.tokens_in || 0, tOut = a.tokens_out || 0;
+        const cost = a.total_cost_usd || 0;
+        const limit = a.limit_usd || orgBudget.limit_usd || 0;
+        const over = limit && cost > limit;
         return `<tr style="border-top:1px solid var(--border)${over ? ';color:var(--red)' : ''}">
-          <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.id || a.title || '—').toString().slice(0, 14))}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensIn || 0).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensOut || 0).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--accent)">$${Number(a.cost || 0).toFixed(4)}${over ? ' ⚠' : ''}</td>
+          <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.title || a.id || '—').toString().slice(0, 14))}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${tIn.toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${tOut.toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--accent)">$${cost.toFixed(4)}${over ? ' ⚠' : ''}</td>
         </tr>`;
       }).join('') + '</tbody></table>';
   }
