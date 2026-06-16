@@ -6352,7 +6352,7 @@ async function v2RenderOrgRoutines() {
       routines.map(r => `<tr style="border-top:1px solid var(--border)">
         <td style="padding:6px 8px;color:var(--text-hi)">${esc(r.name || '—')}</td>
         <td style="padding:6px 8px;font-family:var(--mono);color:var(--text-lo)">${esc(r.cron || r.schedule || '—')}</td>
-        <td style="padding:6px 8px;color:var(--text-lo)">${r.lastRun ? relTime(r.lastRun) : '—'}</td>
+        <td style="padding:6px 8px;color:var(--text-lo)">${(r.lastRun || r.last_run) ? relTime(r.lastRun || r.last_run) : '—'}</td>
         <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || '—')}</span></td>
       </tr>`).join('') + '</tbody></table>';
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
@@ -6626,8 +6626,8 @@ function v2RenderOrgAgentsFull() {
     </tr></thead>
     <tbody>${agents.map(a => `<tr style="border-top:1px solid var(--border)">
       <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((a.id||'—').toString().slice(0,12))}</td>
-      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.type||a.title||'—')}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapter||'—')}</td>
+      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.adapterType||a.type||a.title||'—')}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapterModel||a.adapter||'—')}</td>
       <td style="padding:5px 8px"><span class="ss-pill ${(a.status==='running'||a.running)?'on':''}">${esc(a.status||'idle')}</span></td>
       <td style="padding:5px 8px;color:var(--text-lo)">${a.lastHeartbeat ? relTime(a.lastHeartbeat) : '—'}</td>
       <td style="padding:5px 8px;color:var(--text-lo)">${a.tokensIn != null ? Number(a.tokensIn).toLocaleString() : '—'}</td>
@@ -6756,7 +6756,7 @@ async function v2RenderOrgThreads() {
 window.v2StopOrg = async function() {
   if (!_v2SelOrg) return;
   const stopped = _v2SelOrg;
-  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop`, {method:'POST'}); } catch(_) {}
+  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {method:'POST'}); } catch(_) {}
   setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
 };
 
