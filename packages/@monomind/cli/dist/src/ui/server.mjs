@@ -3313,9 +3313,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const routinesData = readJsonSafe(path.join(orgsDir, `${orgName}-routines.json`)) || { routines: [] };
         const approvalsData = readJsonSafe(path.join(orgsDir, `${orgName}-approvals.json`)) || { approvals: [] };
 
-        // Check running status from stop file absence + state
+        // Check running status: stop file absence AND (in-memory activeOrgRuns OR state-file agents)
         const stopFile = path.join(orgsDir, '.stops', `${orgName}.stop`);
-        const running = !fs.existsSync(stopFile) && Object.values(state.agents || {}).some(a => a.status === 'running');
+        const running = !fs.existsSync(stopFile) && (activeOrgRuns.has(orgName) || Object.values(state.agents || {}).some(a => a.status === 'running'));
 
         // Read real tasks from the task store and group by status column
         const taskStoreData = readJsonSafe(path.join(d, '.monomind', 'tasks', 'store.json'));
