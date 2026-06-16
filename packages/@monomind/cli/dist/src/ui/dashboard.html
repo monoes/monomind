@@ -6378,7 +6378,7 @@ async function v2RenderOrgRoutines() {
         <td style="padding:6px 8px;color:var(--text-hi)">${esc(r.name || '—')}</td>
         <td style="padding:6px 8px;font-family:var(--mono);color:var(--text-lo)">${esc(r.cron || r.schedule || '—')}</td>
         <td style="padding:6px 8px;color:var(--text-lo)">${(r.lastRun || r.last_run) ? relTime(r.lastRun || r.last_run) : '—'}</td>
-        <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || '—')}</span></td>
+        <td style="padding:6px 8px"><span class="ss-pill ${r.enabled || r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || (r.enabled != null ? (r.enabled ? 'active' : 'inactive') : '—'))}</span></td>
       </tr>`).join('') + '</tbody></table>';
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
