@@ -1,5 +1,8 @@
 # monomind-improver foundation log
 
+- ea781cbc — fix(dashboard): clear chatVCurrentId in chatVSelectOrgRun so org:comms replay events are not filtered by session guard mismatch
+- 3919aeee — fix(dashboard): add org run history to Chat tab; fix sessions array shape; fix runorg.md activity echo safety (echo→jq -cn)
+- 6f398d41 — fix(dashboard): render org:comms as intercom, agent:online/checkpoint as sys in Chat tab; fix findCliPath global npm path
 - 1c6e00cb — fix(dashboard): surface budget usage and 7d success rate in org health tab so run_success_rate_7d, total_runs_7d, budget_used_pct, and token progress bar are rendered (fields were fetched but silently discarded)
 - 629a3f80 — fix(server): add claude-opus-4-8 and claude-haiku-4 to _SJ_PRICING table so sessions using those models report non-zero cost in the session cost tracker
 - a88121a1 — fix(dashboard): count org:checkpoint as cycle in live SSE handler so running-org cycleCount increments in real time (was always 0 because SSE handler only tracked run:cycle:complete which orgs never emit)
