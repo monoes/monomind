@@ -724,6 +724,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .cv-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
 .cv-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
 .cv-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
+.cv-session-hdr { padding:10px 18px 8px; border-bottom:1px solid var(--border); margin-bottom:4px; background:oklch(13% 0.01 295); }
+.cv-shdr-prompt { font-size:12px; color:var(--text-mid); margin-bottom:4px; font-weight:500; }
+.cv-shdr-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:9px; color:var(--text-lo); font-family:var(--mono); }
+.cv-shdr-id { color:var(--text-xs); font-size:8px; }
+.cv-shdr-sep { color:var(--border); }
 .cv-msg { display:flex; flex-direction:column; max-width:90%; }
 .cv-msg.cv-sys { align-self:center; max-width:100%; }
 .cv-msg.cv-agent { align-self:flex-start; }
@@ -4014,7 +4019,11 @@ async function loadChatViewSessions() {
       opt.value = s.id;
       const tsVal = s.startedAt || s.ts || 0;
       const ts = tsVal ? new Date(tsVal).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
-      opt.textContent = (s.id.slice(0,16)) + (ts ? '  ' + ts : '') + (s.status === 'running' ? '  ●' : '');
+      // Show prompt (session goal) instead of raw ID — fall back to truncated ID when prompt absent
+      const label = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0, 40) || s.id.slice(0, 16);
+      const evCount = (s.events || []).length;
+      const msgPart = evCount ? '  ' + evCount + ' ev' : '';
+      opt.textContent = label + (ts ? '  ' + ts : '') + msgPart + (s.status === 'running' ? '  ●' : '');
       sel.appendChild(opt);
       chatVSessions[s.id] = s;
     });
@@ -4037,6 +4046,37 @@ function chatVSelectSession(id) {
   }
   feed.innerHTML = '';
   const session = chatVSessions[id];
+  // Inject session metadata header so user can see ID, start time, status, agents, message count
+  const tsVal = session.startedAt || session.ts || 0;
+  const tsStr = tsVal ? new Date(tsVal).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  const domains = (session.domains || []);
+  const agents = domains.length ? domains.join(', ') : '—';
+  const evCount = (session.events || []).length;
+  const agentNames = (() => {
+    const names = new Set();
+    (session.events || []).forEach(ev => {
+      if (ev.agent) names.add(ev.agent);
+      if (ev.from && ev.from !== 'system') names.add(ev.from);
+    });
+    return names.size ? [...names].join(', ') : agents;
+  })();
+  const prompt = (session.prompt || '').replace(/^running org:\s*/i, '').slice(0, 120) || id;
+  const statusCls = session.status === 'running' ? 'color:oklch(65% 0.20 145)' : session.status === 'complete' ? 'color:var(--text-lo)' : 'color:oklch(65% 0.20 25)';
+  const hdr = document.createElement('div');
+  hdr.className = 'cv-session-hdr';
+  hdr.innerHTML = `<div class="cv-shdr-prompt">${esc(prompt)}</div>`+
+    `<div class="cv-shdr-meta">`+
+      `<span class="cv-shdr-id" title="${esc(id)}">${esc(id)}</span>`+
+      `<span class="cv-shdr-sep">·</span>`+
+      `<span style="${statusCls}">${esc(session.status || 'unknown')}</span>`+
+      `<span class="cv-shdr-sep">·</span>`+
+      `<span title="started">${esc(tsStr)}</span>`+
+      `<span class="cv-shdr-sep">·</span>`+
+      `<span title="agents">${esc(agentNames)}</span>`+
+      `<span class="cv-shdr-sep">·</span>`+
+      `<span title="event count">${evCount} events</span>`+
+    `</div>`;
+  feed.appendChild(hdr);
   const events = session.events || [];
   events.forEach(ev => appendChatViewEvent(ev, false));
   feed.scrollTop = feed.scrollHeight;
