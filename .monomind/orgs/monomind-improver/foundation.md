@@ -142,3 +142,21 @@
 - 77753319 — fix(dashboard): add domain:dispatch/complete to agent filter structural set
 - 32be08b7 — fix(dashboard): preserve scroll position when user has scrolled up in chat feed
 - c5451cb2 — fix(dashboard): harden v2OrgSSE reconnect — close zombie, prevent timer stacking
+
+- e3ced99a — fix(dashboard): show empty-state message when selected run has no renderable events; odtChatSelectSession hid emptyEl unconditionally but never restored it when events=[] or all events were unknown type, leaving a blank feed; now checks feed.querySelector('.cv-msg') after forEach and shows contextual message
+
+- 93160c5c — fix(dashboard): cap _odtChatSeenKeys Set at 2000 entries to prevent memory leak; Set only reset on org-change so long-running repeat loops accumulated thousands of entries indefinitely; pruning drops oldest 1000 when exceeded, safe because server replays only last ~50 events on reconnect
+
+- f8070fbb — fix(dashboard): guard run-selector dropdown rebuild when focused; SSE-triggered _odtPopulateChatSel collapsed the open dropdown mid-interaction; added document.activeElement===sel early-return. Also removed dead hasAnyMsg variable that was computed but never used.
+
+- e8a43943 — fix(dashboard): collapse loop:tick entries — each rep emitted a loop:tick to chat causing feed flooding in long-running loops; added data-ev-type=loop:tick tagging + lastElementChild collapse so only the most recent tick shows; improved label to show rep N→N+1 countdown
+
+- 0c768fd9 — fix(dashboard): XSS: escape ev.pending in run:cycle:complete handler; mkCVSys injects raw HTML so callers must esc() all server-sourced values; ev.pending was raw-concatenated. Also hardened loop:tick label numeric fields with defensive esc(String()) wrappers.
+
+- 2f5323ca — fix(dashboard): repair mkCVResult Expand button; JSON.stringify(text) in onclick attribute closed the HTML attribute at the first outer quote, making the button silently broken for all non-empty agent result messages; fixed with data-full/data-uid attributes read via b.dataset
+
+- aceab788 — fix(dashboard): repair mkCVFileCard View button; same JSON.stringify-in-onclick XSS/broken-attribute bug as rep 42; fixed with data-fp/data-fn attributes matching the already-correct pattern used in the file table at lines 7201/7205
+
+- 08edd482 — fix(dashboard): v2OrgSSE seenKeys reset on reconnect caused duplicate activity entries; removed Set reset from connect(), persists across reconnects like _odtChatSeenKeys; added same cap-at-2000 pruning from rep 38; Live tab activity feed no longer shows repeat events after SSE reconnect
+
+- f6af765e — fix(dashboard): cap chatVSeenKeys Set at 2000 entries (same leak as reps 38+44, third SSE dedup Set without pruning); add run:start and run:cycle:complete handlers to appendChatViewEvent so org run events show formatted messages instead of raw type names in main Chat view
