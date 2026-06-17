@@ -4250,7 +4250,7 @@ function mkCVFileCard(name, filePath, size, ts) {
     `<span class="cv-tag" style="background:oklch(22% 0.10 50);color:oklch(78% 0.18 50)">FILE</span>`+
     `<span class="cv-text" style="font-family:var(--mono);font-size:10px">${esc(name)}</span>`+
     `<span style="font-size:9px;color:var(--text-lo);flex-shrink:0">${sizeStr}</span>`+
-    (filePath ? `<button class="btn" style="font-size:9px;padding:1px 6px;flex-shrink:0;border-color:oklch(65% 0.18 50);color:oklch(65% 0.18 50)" onclick="v2ViewOrgFile(${JSON.stringify(filePath)},${JSON.stringify(name)})">View</button>` : '')+
+    (filePath ? `<button class="btn" style="font-size:9px;padding:1px 6px;flex-shrink:0;border-color:oklch(65% 0.18 50);color:oklch(65% 0.18 50)" data-fp="${esc(filePath)}" data-fn="${esc(name)}" onclick="v2ViewOrgFile(this.dataset.fp,this.dataset.fn)">View</button>` : '')+
     `<span class="cv-ts">${ts}</span></div>`;
   return d;
 }
