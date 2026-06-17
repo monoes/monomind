@@ -7,10 +7,10 @@
   "maxReps": 9999,
   "interval": 5,
   "wait": 300,
-  "currentRep": 36,
+  "currentRep": 37,
   "startedAt": 1781644804843,
-  "lastRunAt": 1781717441106,
-  "nextRunAt": 1781717741106,
+  "lastRunAt": 1781717854325,
+  "nextRunAt": 1781718154325,
   "status": "running",
   "source": "_repeat.md"
 }
