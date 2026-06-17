@@ -6651,6 +6651,7 @@ let _odtChatCurrentId = null;
 let _odtChatCurrentAgent = 'all';
 let _odtChatSseSource = null;
 let _odtChatSeenKeys = new Set();
+let _odtChatForOrg = '';
 
 function _odtOrgSessionMatch(s) {
   if (!_v2SelOrg) return true;
@@ -6692,14 +6693,17 @@ async function v2RenderOrgChat() {
       </div>`;
   }
 
-  // Reset state when org changes
-  _odtChatCurrentId = null;
-  _odtChatCurrentAgent = 'all';
-  _odtChatSeenKeys = new Set();
-  document.getElementById('odt-chat-agent-bar').style.display = 'none';
-  document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
-  const emptyEl = document.getElementById('odt-chat-empty');
-  if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a run to see agent communications.'; }
+  // Reset state only when org changes (not on every tab-switch)
+  if (_odtChatForOrg !== _v2SelOrg) {
+    _odtChatForOrg = _v2SelOrg;
+    _odtChatCurrentId = null;
+    _odtChatCurrentAgent = 'all';
+    _odtChatSeenKeys = new Set();
+    document.getElementById('odt-chat-agent-bar').style.display = 'none';
+    document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
+    const emptyEl = document.getElementById('odt-chat-empty');
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a run to see agent communications.'; }
+  }
 
   await _odtLoadChatSessions();
   _odtConnectChatSSE();
