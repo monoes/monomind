@@ -306,7 +306,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #org-detail-tabs::-webkit-scrollbar { display: none; }
 .odt-btn { font-size: 12px; padding: 8px 12px; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; color: var(--text-lo); font-family: var(--sans); transition: color 0.1s; }
 .odt-btn:hover { color: var(--text-hi); }
-.odt-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.odt-btn.active { color: var(--accent); border-bottom-color: var(--accent); opacity: 1; }
+.odt-btn.secondary { opacity: 0.6; }
+.odt-tab-sep { width: 1px; background: var(--border); margin: 6px 4px; flex-shrink: 0; align-self: stretch; }
 
 #org-detail-body { flex: 1; overflow-y: auto; padding: 18px 20px; }
 #org-detail-body::-webkit-scrollbar { width: 3px; }
@@ -1847,32 +1849,33 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn" data-tab="live" onclick="v2SwitchOrgTab('live')">Live</button>
             <button class="odt-btn" data-tab="chat"         onclick="v2SwitchOrgTab('chat')">Chat</button>
             <button class="odt-btn" data-tab="agents-full"  onclick="v2SwitchOrgTab('agents-full')">Agents</button>
-            <button class="odt-btn" data-tab="heartbeats" onclick="v2SwitchOrgTab('heartbeats')">Heartbeats</button>
-            <button class="odt-btn" data-tab="members" onclick="v2SwitchOrgTab('members')">Members</button>
-            <button class="odt-btn" data-tab="goals" onclick="v2SwitchOrgTab('goals')">Goals</button>
-            <button class="odt-btn" data-tab="board" onclick="v2SwitchOrgTab('board')">Board</button>
-            <button class="odt-btn" data-tab="tasks"      onclick="v2SwitchOrgTab('tasks')">Tasks</button>
-            <button class="odt-btn" data-tab="health" onclick="v2SwitchOrgTab('health')">Health</button>
-            <button class="odt-btn" data-tab="budgets"   onclick="v2SwitchOrgTab('budgets')">Budgets</button>
-            <button class="odt-btn" data-tab="costs"     onclick="v2SwitchOrgTab('costs')">Costs</button>
-            <button class="odt-btn" data-tab="approvals" onclick="v2SwitchOrgTab('approvals')">Approvals</button>
-            <button class="odt-btn" data-tab="routines"  onclick="v2SwitchOrgTab('routines')">Routines</button>
-            <button class="odt-btn" data-tab="settings"  onclick="v2SwitchOrgTab('settings')">Settings</button>
-            <button class="odt-btn" data-tab="secrets"   onclick="v2SwitchOrgTab('secrets')">Secrets</button>
-            <button class="odt-btn" data-tab="threads"   onclick="v2SwitchOrgTab('threads')">Threads</button>
-            <button class="odt-btn" data-tab="invites"   onclick="v2SwitchOrgTab('invites')">Invites</button>
-            <button class="odt-btn" data-tab="access"    onclick="v2SwitchOrgTab('access')">Access</button>
-            <button class="odt-btn" data-tab="environments" onclick="v2SwitchOrgTab('environments')">Envs</button>
-            <button class="odt-btn" data-tab="issues-full"  onclick="v2SwitchOrgTab('issues-full')">Issues</button>
-            <button class="odt-btn" data-tab="myissues"     onclick="v2SwitchOrgTab('myissues')">My Issues</button>
-            <button class="odt-btn" data-tab="charts"       onclick="v2SwitchOrgTab('charts')">Charts</button>
-            <button class="odt-btn" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
-            <button class="odt-btn" data-tab="projects"     onclick="v2SwitchOrgTab('projects')">Projects</button>
-            <button class="odt-btn" data-tab="workspaces"   onclick="v2SwitchOrgTab('workspaces')">Workspaces</button>
-            <button class="odt-btn" data-tab="join-requests" onclick="v2SwitchOrgTab('join-requests')">Join Reqs</button>
-            <button class="odt-btn" data-tab="plugins"      onclick="v2SwitchOrgTab('plugins')">Plugins</button>
-            <button class="odt-btn" data-tab="config"       onclick="v2SwitchOrgTab('config')">Config</button>
-            <button class="odt-btn" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
+            <div class="odt-tab-sep" title="Secondary tabs"></div>
+            <button class="odt-btn secondary" data-tab="heartbeats" onclick="v2SwitchOrgTab('heartbeats')">Heartbeats</button>
+            <button class="odt-btn secondary" data-tab="members" onclick="v2SwitchOrgTab('members')">Members</button>
+            <button class="odt-btn secondary" data-tab="goals" onclick="v2SwitchOrgTab('goals')">Goals</button>
+            <button class="odt-btn secondary" data-tab="board" onclick="v2SwitchOrgTab('board')">Board</button>
+            <button class="odt-btn secondary" data-tab="tasks"      onclick="v2SwitchOrgTab('tasks')">Tasks</button>
+            <button class="odt-btn secondary" data-tab="health" onclick="v2SwitchOrgTab('health')">Health</button>
+            <button class="odt-btn secondary" data-tab="budgets"   onclick="v2SwitchOrgTab('budgets')">Budgets</button>
+            <button class="odt-btn secondary" data-tab="costs"     onclick="v2SwitchOrgTab('costs')">Costs</button>
+            <button class="odt-btn secondary" data-tab="approvals" onclick="v2SwitchOrgTab('approvals')">Approvals</button>
+            <button class="odt-btn secondary" data-tab="routines"  onclick="v2SwitchOrgTab('routines')">Routines</button>
+            <button class="odt-btn secondary" data-tab="settings"  onclick="v2SwitchOrgTab('settings')">Settings</button>
+            <button class="odt-btn secondary" data-tab="secrets"   onclick="v2SwitchOrgTab('secrets')">Secrets</button>
+            <button class="odt-btn secondary" data-tab="threads"   onclick="v2SwitchOrgTab('threads')">Threads</button>
+            <button class="odt-btn secondary" data-tab="invites"   onclick="v2SwitchOrgTab('invites')">Invites</button>
+            <button class="odt-btn secondary" data-tab="access"    onclick="v2SwitchOrgTab('access')">Access</button>
+            <button class="odt-btn secondary" data-tab="environments" onclick="v2SwitchOrgTab('environments')">Envs</button>
+            <button class="odt-btn secondary" data-tab="issues-full"  onclick="v2SwitchOrgTab('issues-full')">Issues</button>
+            <button class="odt-btn secondary" data-tab="myissues"     onclick="v2SwitchOrgTab('myissues')">My Issues</button>
+            <button class="odt-btn secondary" data-tab="charts"       onclick="v2SwitchOrgTab('charts')">Charts</button>
+            <button class="odt-btn secondary" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
+            <button class="odt-btn secondary" data-tab="projects"     onclick="v2SwitchOrgTab('projects')">Projects</button>
+            <button class="odt-btn secondary" data-tab="workspaces"   onclick="v2SwitchOrgTab('workspaces')">Workspaces</button>
+            <button class="odt-btn secondary" data-tab="join-requests" onclick="v2SwitchOrgTab('join-requests')">Join Reqs</button>
+            <button class="odt-btn secondary" data-tab="plugins"      onclick="v2SwitchOrgTab('plugins')">Plugins</button>
+            <button class="odt-btn secondary" data-tab="config"       onclick="v2SwitchOrgTab('config')">Config</button>
+            <button class="odt-btn secondary" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -4263,14 +4266,14 @@ function mkCVAgent(name, text, ts, typeTag) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-agent';
   const tag = typeTag === 'agent:spawn' ? 'SPAWN' : 'MSG';
-  d.innerHTML = `<div class="cv-bub"><span class="cv-tag">${esc(name)}</span><span class="cv-etype">${tag}</span><span class="cv-text">${esc(String(text).slice(0,200))}</span><span class="cv-ts">${ts}</span></div>`;
+  d.innerHTML = `<div class="cv-bub"><span class="cv-tag">${esc(name)}</span><span class="cv-etype">${tag}</span><span class="cv-text">${esc(String(text).slice(0,800))}</span><span class="cv-ts">${ts}</span></div>`;
   return d;
 }
 
 function mkCVIntercom(from, to, text, ts) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-ic';
-  d.innerHTML = `<div class="cv-bub"><span class="cv-tag cv-sender">${esc(from||'?')}</span><span class="cv-arrow">→</span><span class="cv-tag cv-receiver">${esc(to||'?')}</span><span class="cv-etype">IC</span><span class="cv-text">${esc(String(text).slice(0,200))}</span><span class="cv-ts">${ts}</span></div>`;
+  d.innerHTML = `<div class="cv-bub"><span class="cv-tag cv-sender">${esc(from||'?')}</span><span class="cv-arrow">→</span><span class="cv-tag cv-receiver">${esc(to||'?')}</span><span class="cv-etype">IC</span><span class="cv-text">${esc(String(text).slice(0,800))}</span><span class="cv-ts">${ts}</span></div>`;
   return d;
 }
 
