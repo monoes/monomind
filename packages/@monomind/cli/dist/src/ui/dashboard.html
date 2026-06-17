@@ -4340,7 +4340,7 @@ function handleChatViewEvent(ev) {
   // Org events (org:comms, org:agent:online, org:checkpoint, etc.) may carry a session field
   // from the org run's session ID — route them directly to the feed if the session matches,
   // or append them unconditionally when the chat view is showing the "live" placeholder.
-  const isOrgEvent = ev.type && (ev.type.startsWith('org:') || ev.type.startsWith('run:'));
+  const isOrgEvent = ev.type && (ev.type.startsWith('org:') || ev.type.startsWith('run:') || ev.type.startsWith('loop:'));
   if (!ev.session && !isOrgEvent) return;
   if (ev.session) {
     if (!chatVSessions[ev.session]) {
