@@ -5023,8 +5023,8 @@ async function renderLoops() {
           ${stopBtn}
         </div>
         <div class="loop-expand">
-          ${fullPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(fullPrompt)}).then(()=>showToast('Copied','','ok'))">${esc(fullPrompt.slice(0, 300))}</div></div>` : ''}
-          ${command && command !== fullPrompt ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(command)}).then(()=>showToast('Copied','','ok'))">${esc(command.slice(0, 200))}</div></div>` : ''}
+          ${fullPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="cursor:pointer" data-cp="${esc(fullPrompt)}" onclick="navigator.clipboard.writeText(this.dataset.cp).then(()=>showToast('Copied','','ok'))">${esc(fullPrompt.slice(0, 300))}</div></div>` : ''}
+          ${command && command !== fullPrompt ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="cursor:pointer" data-cp="${esc(command)}" onclick="navigator.clipboard.writeText(this.dataset.cp).then(()=>showToast('Copied','','ok'))">${esc(command.slice(0, 200))}</div></div>` : ''}
           <div class="le-row"><div class="le-lbl">Type</div><div class="le-val">${isTillend ? '∞ tillend' : '↺ repeat'}</div></div>
           <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${interval}</div></div>
           <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${isFinished ? '✓ done' : isHil ? '⚠ hil:pending' : running ? '● running' : '○ stopped'}</div></div>
@@ -6312,8 +6312,8 @@ async function v2RenderOrgApprovals() {
           <td style="padding:6px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(a.created_at || a.ts)}</td>
           <td style="padding:6px 8px;white-space:nowrap">
             ${pending
-              ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" title="Approve" aria-label="Approve" onclick="orgApprovalAction(${JSON.stringify(aid)},'approve')">✓</button>
-                 <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" title="Reject" aria-label="Reject" onclick="orgApprovalAction(${JSON.stringify(aid)},'reject')">✕</button>`
+              ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" title="Approve" aria-label="Approve" data-aid="${esc(aid)}" onclick="orgApprovalAction(this.dataset.aid,'approve')">✓</button>
+                 <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" title="Reject" aria-label="Reject" data-aid="${esc(aid)}" onclick="orgApprovalAction(this.dataset.aid,'reject')">✕</button>`
               : ''}
           </td>
         </tr>`;
@@ -10732,8 +10732,8 @@ function selectMem(filename) {
   const actions = (f.readonly || f.source === 'backend')
     ? '<div class="mem-actions"><span style="font-size:11px;color:var(--text-lo)">Read-only — stored in the backend memory store (not a file)</span></div>'
     : '<div class="mem-actions">' +
-        '<button class="btn" onclick="openEditMemModal(' + JSON.stringify(filename) + ')">&#x270E; Edit</button>' +
-        '<button class="btn" style="color:var(--red);border-color:var(--red)" onclick="deleteMem(' + JSON.stringify(filename) + ')">&#x2715; Delete</button>' +
+        '<button class="btn" data-fn="' + esc(filename) + '" onclick="openEditMemModal(this.dataset.fn)">&#x270E; Edit</button>' +
+        '<button class="btn" style="color:var(--red);border-color:var(--red)" data-fn="' + esc(filename) + '" onclick="deleteMem(this.dataset.fn)">&#x2715; Delete</button>' +
       '</div>';
   detail.innerHTML =
     '<span class="mem-badge" style="background:' + col + '22;color:' + col + '">' + esc(f.type || '?') + '</span>' + srcBadge +
@@ -11287,7 +11287,7 @@ function mmRenderOrgs(body) {
   if (!orgs.length) { body.innerHTML = '<div class="empty">No orgs found. Run /mastermind:createorg to create one.</div>'; return; }
   body.innerHTML = orgs.map(o => {
     const running = o.running;
-    return `<div class="mm-skill-item" onclick="closeMastermind();v2SelectOrg(${JSON.stringify(o.name)});switchView('orgs')">
+    return `<div class="mm-skill-item" data-org="${esc(o.name)}" onclick="closeMastermind();v2SelectOrg(this.dataset.org);switchView('orgs')">
       <span class="mm-skill-name">${esc(o.name)}</span>
       <span class="mm-skill-desc">${esc((o.goal || '').slice(0, 60))} ${running ? '⬤ LIVE' : ''}</span>
     </div>`;
@@ -11299,7 +11299,7 @@ function mmRenderSkills(body) {
   const q = _mmSkillFilter.toLowerCase();
   const filtered = q ? _MM_SKILLS_CATALOG.filter(s => s.name.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q)) : _MM_SKILLS_CATALOG;
   body.innerHTML = `<div class="filter-bar" style="margin-bottom:12px"><input class="filter-input" type="text" placeholder="Search skills…" value="${esc(_mmSkillFilter)}" oninput="_mmSkillFilter=this.value;mmRenderSkills(document.getElementById('mm-body'))"></div>` +
-    filtered.map(s => `<div class="mm-skill-item" onclick="navigator.clipboard.writeText(${JSON.stringify(s.name)}).then(()=>showToast('Copied',${JSON.stringify(s.name)},'ok'))">
+    filtered.map(s => `<div class="mm-skill-item" data-sn="${esc(s.name)}" onclick="navigator.clipboard.writeText(this.dataset.sn).then(()=>showToast('Copied',this.dataset.sn,'ok'))">
       <span class="mm-skill-name">${esc(s.name)}</span>
       <span class="mm-skill-desc">${esc(s.desc)}</span>
     </div>`).join('');
@@ -11332,7 +11332,7 @@ async function mmRenderLoops(body) {
           <span style="font-size:13px;color:var(--text-hi);flex:1">${esc(name)}</span>
           ${isHil ? '<span style="color:oklch(78% 0.18 80);font-size:10px">⚠ HIL</span>' : ''}
           <span class="ss-pill ${running ? 'on' : ''}">${running ? 'active' : isFinished ? 'done' : 'stopped'}</span>
-          ${(running || isHil) ? `<button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red)" onclick="stopLoop(event,${JSON.stringify(l.id||l.name||'')});mmSwitchTab('loops')">■ Stop</button>` : ''}
+          ${(running || isHil) ? `<button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red)" data-lid="${esc(l.id||l.name||'')}" onclick="stopLoop(event,this.dataset.lid);mmSwitchTab('loops')">■ Stop</button>` : ''}
         </div>
         <div style="font-size:11px;color:var(--text-lo);margin-top:4px;font-family:var(--mono)">${esc(fmtInterval(l.interval||l.schedule||''))} ${cdown ? '· ' + cdown : ''} ${curRep != null ? '· run ' + curRep + (isTillend ? '/∞' : maxReps ? '/'+maxReps : '') : ''}</div>
       </div>`;
