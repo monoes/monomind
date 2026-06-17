@@ -140,3 +140,4 @@
 - 4dcac9d7 — fix(dashboard): close SSE source before nulling to prevent zombie connections
 - de6691ec — fix(dashboard): preserve SSE-injected sessions during chat load async window
 - 77753319 — fix(dashboard): add domain:dispatch/complete to agent filter structural set
+- 32be08b7 — fix(dashboard): preserve scroll position when user has scrolled up in chat feed
