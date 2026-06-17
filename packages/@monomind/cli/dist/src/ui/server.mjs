@@ -4865,6 +4865,32 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
   const boundPort = await bindServer(server, port);
   const url = `http://localhost:${boundPort}`;
 
+  // Rebuild activeOrgRuns from disk so event enrichment (runId injection) still works
+  // after a server restart. Without this, org events emitted mid-run that lack runId
+  // are broadcast without it and _odtHandleLiveEvent drops them.
+  try {
+    const _rbOrgsDir = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+    if (fs.existsSync(_rbOrgsDir)) {
+      for (const _rbOrg of fs.readdirSync(_rbOrgsDir)) {
+        if (!_rbOrg || _rbOrg.startsWith('.') || !/^[a-z0-9][a-z0-9_-]*$/i.test(_rbOrg)) continue;
+        const _rbRunsDir = path.join(_rbOrgsDir, _rbOrg, 'runs');
+        if (!fs.existsSync(_rbRunsDir)) continue;
+        const _rbFiles = fs.readdirSync(_rbRunsDir)
+          .filter(f => f.endsWith('.jsonl') && !f.endsWith('.convs.jsonl'))
+          .sort().reverse();
+        for (const _rbF of _rbFiles.slice(0, 5)) {
+          try {
+            const _rbId = _rbF.replace('.jsonl', '');
+            const _rbContent = fs.readFileSync(path.join(_rbRunsDir, _rbF), 'utf8');
+            const _rbLast = _rbContent.trim().split('\n').filter(Boolean).slice(-10);
+            const _rbDone = _rbLast.some(l => { try { const e = JSON.parse(l); return e.type === 'run:complete' || e.type === 'org:complete'; } catch { return false; } });
+            if (!_rbDone) { activeOrgRuns.set(_rbOrg, _rbId); break; }
+          } catch (_) {}
+        }
+      }
+    }
+  } catch (_) {}
+
   // ---------------------------------------------------------------- Watchers
   let debounceTimer = null;
   let pendingSections = new Set();
