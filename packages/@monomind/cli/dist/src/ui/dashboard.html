@@ -7119,6 +7119,26 @@ window.odtChatSelectAgent = function(name) {
     if (emptyEl) emptyEl.style.display = 'none';
     visible.forEach(ev => _odtAppendEvent(ev, false));
   }
+  if (!sess._isOrgRun) {
+    const _linkedRunId = 'run-' + (sess.id || '').replace(/^mm-/, '');
+    const _linkedRun = _odtChatSessions.find(s => s._isOrgRun && s.id === _linkedRunId);
+    if (_linkedRun) {
+      const _linkEl = document.createElement('div');
+      _linkEl.className = 'cv-msg cv-sys';
+      const _lrGoal = (_linkedRun.prompt || '').slice(0, 60) || _linkedRunId;
+      _linkEl.innerHTML = `<div class="cv-bub" style="cursor:pointer;border-left:2px solid var(--accent);background:oklch(15% 0.05 220)">`+
+        `<span class="cv-etype" style="color:var(--accent)">RUN</span>`+
+        `<span class="cv-text">→ ${esc(_lrGoal)}${_lrGoal.length >= 60 ? '…' : ''}</span>`+
+        `<span class="cv-ts" style="color:var(--accent)">[${esc(_linkedRun.status||'?')}]</span></div>`;
+      _linkEl.title = 'Click to view the org run triggered by this session';
+      _linkEl.onclick = () => {
+        const _lSel = document.getElementById('odt-chat-sel');
+        if (_lSel) { _lSel.value = _linkedRunId; odtChatSelectSession(_linkedRunId); }
+      };
+      feed.appendChild(_linkEl);
+      if (emptyEl) emptyEl.style.display = 'none';
+    }
+  }
   feed.scrollTop = feed.scrollHeight;
 };
 
