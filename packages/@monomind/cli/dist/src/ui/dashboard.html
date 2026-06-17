@@ -5895,16 +5895,18 @@ async function v2OpenAgent(roleId) {
   const bodyEl = document.getElementById('oad-body');
   const headEl = document.getElementById('oad-head');
   if (!drawer || !bodyEl || !headEl) return;
+  const _agentOrg = _v2SelOrg, _agentRole = roleId;
   drawer.classList.add('open'); drawer.setAttribute('aria-hidden', 'false');
   v2HighlightAgentNode(roleId);
   headEl.innerHTML = '<button class="oad-close" onclick="v2CloseAgent()" aria-label="Close">✕</button>';
   bodyEl.innerHTML = '<div class="oad-loading">Loading agent…</div>';
   try {
-    const r = await fetch(`/api/org/${encodeURIComponent(_v2SelOrg)}/agent/${encodeURIComponent(roleId)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`);
+    const r = await fetch(`/api/org/${encodeURIComponent(_agentOrg)}/agent/${encodeURIComponent(_agentRole)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`);
     if (!r.ok) throw new Error('not found');
+    if (_v2SelOrg !== _agentOrg) return;
     v2RenderAgentDrawer(await r.json());
   } catch (_) {
-    bodyEl.innerHTML = '<div class="oad-loading">Could not load agent detail.</div>';
+    if (_v2SelOrg === _agentOrg) bodyEl.innerHTML = '<div class="oad-loading">Could not load agent detail.</div>';
   }
 }
 function v2RenderAgentDrawer(data) {
@@ -6251,23 +6253,23 @@ function v2RenderOrgLive() {
   // auto-refresh every 5s while tab is active
   if (!_orgLiveInterval) {
     _orgLiveInterval = setInterval(async () => {
-      if (_v2OrgTab !== 'live' || !_v2SelOrg) { clearInterval(_orgLiveInterval); _orgLiveInterval = null; return; }
-      const _enc = encodeURIComponent(_v2SelOrg);
+      if (_v2OrgTab !== 'live' || !_v2SelOrg || currentView !== 'orgs') { clearInterval(_orgLiveInterval); _orgLiveInterval = null; return; }
+      const _liveOrg = _v2SelOrg;
+      const _enc = encodeURIComponent(_liveOrg);
       try {
         const [actData, agentsData] = await Promise.all([
           fetch(`/api/org/${_enc}/activity${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []),
           fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : {}).catch(() => {}),
         ]);
-        if (_v2OrgData) {
-          _v2OrgData._activity = Array.isArray(actData) ? actData : [];
-          const freshAgents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || []);
-          if (freshAgents.length) {
-            // Preserve SSE-driven running status: state file lags behind real-time SSE updates
-            const sseRunning = new Set((_v2OrgData._agents || []).filter(a => a.status === 'running').map(a => a.id));
-            _v2OrgData._agents = freshAgents.map(a => sseRunning.has(a.id) ? { ...a, status: 'running' } : a);
-          }
-          v2RenderOrgLive();
+        if (_v2SelOrg !== _liveOrg || !_v2OrgData) return;
+        _v2OrgData._activity = Array.isArray(actData) ? actData : [];
+        const freshAgents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || []);
+        if (freshAgents.length) {
+          // Preserve SSE-driven running status: state file lags behind real-time SSE updates
+          const sseRunning = new Set((_v2OrgData._agents || []).filter(a => a.status === 'running').map(a => a.id));
+          _v2OrgData._agents = freshAgents.map(a => sseRunning.has(a.id) ? { ...a, status: 'running' } : a);
         }
+        v2RenderOrgLive();
       } catch (_) {}
     }, 5000);
   }
