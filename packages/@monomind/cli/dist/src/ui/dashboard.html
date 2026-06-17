@@ -5434,6 +5434,7 @@ async function v2SelectOrg(name) {
       fetch(`/api/org/${_enc}/members${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch(`/api/org/${_enc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
     ]);
+    if (_v2SelOrg !== requested || DIR !== requestedDir) return;
     _v2OrgData._agents  = Array.isArray(agentsR)  ? agentsR  : (agentsR?.agents  || []);
     _v2OrgData._budgets = budgetsR;
     _v2OrgData._members = Array.isArray(membersR) ? membersR : (membersR?.members || []);
