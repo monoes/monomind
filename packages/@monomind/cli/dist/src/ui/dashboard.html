@@ -6667,7 +6667,7 @@ function _odtOrgSessionMatch(s) {
 function _odtChatAgentMatches(ev) {
   if (_odtChatCurrentAgent === 'all') return true;
   // Structural events always show regardless of agent filter
-  const structural = new Set(['session:start','session:complete','file:write','run:start','run:complete','run:cycle:complete','org:start','org:complete','org:agent:online','org:agent:offline','org:checkpoint','org:error','loop:start','loop:complete','loop:tick','loop:hil','loop:hil:waiting','loop:hil:resolved']);
+  const structural = new Set(['session:start','session:complete','domain:dispatch','domain:complete','file:write','run:start','run:complete','run:cycle:complete','org:start','org:complete','org:agent:online','org:agent:offline','org:checkpoint','org:error','loop:start','loop:complete','loop:tick','loop:hil','loop:hil:waiting','loop:hil:resolved']);
   if (structural.has(ev.type)) return true;
   return ev.agent === _odtChatCurrentAgent || ev.from === _odtChatCurrentAgent || ev.to === _odtChatCurrentAgent || ev.role === _odtChatCurrentAgent;
 }
