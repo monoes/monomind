@@ -7030,16 +7030,22 @@ function _odtHandleLiveEvent(ev) {
   // Route org run events (have runId + org) to the active run session
   if (ev?.org && ev?.runId && ev.org === _v2SelOrg) {
     let runSess = _odtChatSessions.find(s => s.id === ev.runId);
-    if (!runSess && ev.type === 'run:start') {
-      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || '', status: 'running', _isOrgRun: true, _eventsLoaded: true, _runMeta: { cycleCount: 0, eventCount: 0 }, events: [ev] };
+    if (!runSess) {
+      // Create a session placeholder for any unknown runId so SSE events aren't dropped
+      // while _odtLoadChatSessions fetch is still in-flight (opening Chat tab mid-run).
+      // For run:start: full setup + auto-switch. For other types: minimal placeholder
+      // with _eventsLoaded:false so lazy-load fetches full history when selected.
+      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || ev.runId, status: 'running', _isOrgRun: true, _eventsLoaded: ev.type === 'run:start', _runMeta: { cycleCount: 0, eventCount: 0 }, events: [ev] };
       _odtChatSessions.unshift(runSess);
-      _odtPopulateChatSel();
-      // Auto-switch to the new run whenever Chat tab is active — new runs supersede old ones.
-      // Without this, org:comms from the new run are buffered but never displayed since
-      // _odtChatCurrentId still points to the previous run.
-      if (_v2OrgTab === 'chat') {
-        const sel = document.getElementById('odt-chat-sel');
-        if (sel) { sel.value = ev.runId; odtChatSelectSession(ev.runId); }
+      if (ev.type === 'run:start') {
+        _odtPopulateChatSel();
+        // Auto-switch to the new run whenever Chat tab is active — new runs supersede old ones.
+        // Without this, org:comms from the new run are buffered but never displayed since
+        // _odtChatCurrentId still points to the previous run.
+        if (_v2OrgTab === 'chat') {
+          const sel = document.getElementById('odt-chat-sel');
+          if (sel) { sel.value = ev.runId; odtChatSelectSession(ev.runId); }
+        }
       }
     } else if (runSess) {
       (runSess.events = runSess.events || []).push(ev);
