@@ -6277,10 +6277,12 @@ function v2RenderOrgLive() {
 async function v2RenderOrgApprovals() {
   const el = document.getElementById('odt-approvals');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/approvals${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const approvals = Array.isArray(data) ? data : (data.approvals || []);
     if (!approvals.length) { el.innerHTML = '<div class="empty">No pending approvals</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -6323,10 +6325,12 @@ async function orgApprovalAction(id, action) {
 async function v2RenderOrgSecrets() {
   const el = document.getElementById('odt-secrets');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/secrets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const secrets = Array.isArray(data) ? data : (data.secrets || []);
     el.innerHTML = '<div style="font-size:11px;color:var(--text-lo);margin-bottom:10px">Secret values are never transmitted or displayed.</div>' +
       (secrets.length
@@ -6389,10 +6393,12 @@ function generateOrgSettingsCmd() {
 async function v2RenderOrgRoutines() {
   const el = document.getElementById('odt-routines');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/routines${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const routines = Array.isArray(data) ? data : (data.routines || _v2OrgData?.config?.routines || []);
     if (!routines.length) { el.innerHTML = '<div class="empty">No routines configured</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -6412,10 +6418,12 @@ async function v2RenderOrgRoutines() {
 async function v2RenderOrgMyIssues() {
   const el = document.getElementById('odt-myissues');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/my-issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const issues = Array.isArray(data) ? data : (data.issues || []);
     if (!issues.length) { el.innerHTML = '<div class="empty">No issues assigned to you</div>'; return; }
     const PRIORITY = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
@@ -6487,10 +6495,12 @@ function v2RenderOrgBudgets() {
 async function v2RenderOrgPlugins() {
   const el = document.getElementById('odt-plugins');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/plugins${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const plugins = Array.isArray(data) ? data : (data.plugins || []);
     if (!plugins.length) { el.innerHTML = '<div class="empty">No plugins installed</div>'; return; }
     el.innerHTML = `<div class="proj-grid">` +
@@ -6578,10 +6588,12 @@ function v2RenderOrgCharts() {
 async function v2RenderOrgProjects() {
   const el = document.getElementById('odt-projects');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/projects${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const projects = Array.isArray(data) ? data : (data.projects || []);
     if (!projects.length) { el.innerHTML = '<div class="empty">No projects configured</div>'; return; }
     el.innerHTML = `<div class="proj-grid">${projects.map(p => `<div class="proj-card">
@@ -7064,11 +7076,13 @@ async function v2SaveOrgConfig() {
 async function v2RenderOrgFiles() {
   const el = document.getElementById('odt-files');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">Loading files...</div>';
   try {
-    const enc = encodeURIComponent(_v2SelOrg);
+    const enc = encodeURIComponent(_rendOrg);
     const qs = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
     const files = await fetch('/api/org/'+enc+'/files'+qs).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     if (!files.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">No files found.</div>'; return; }
     const fmtSize = b => b < 1024 ? b+'B' : b < 1048576 ? (b/1024).toFixed(1)+'K' : (b/1048576).toFixed(1)+'M';
     const fmtTime = s => { const d = new Date(s); return d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); };
@@ -7197,10 +7211,12 @@ function _ofSaveFile(defaultName) {
 async function v2RenderOrgWorkspaces() {
   const el = document.getElementById('odt-workspaces');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/workspaces${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const ws = Array.isArray(data) ? data : (data.workspaces || []);
     if (!ws.length) { el.innerHTML = '<div class="empty">No workspaces configured</div>'; return; }
     el.innerHTML = ws.map(w => `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
@@ -7218,10 +7234,12 @@ async function v2RenderOrgWorkspaces() {
 async function v2RenderOrgInvites() {
   const el = document.getElementById('odt-invites');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/invites${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const invites = Array.isArray(data) ? data : (data.invites || []);
     if (!invites.length) { el.innerHTML = '<div class="empty">No active invite tokens</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -7264,10 +7282,12 @@ function v2RenderOrgAgentsFull() {
 async function v2RenderOrgEnvironments() {
   const el = document.getElementById('odt-environments');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/environments${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const envs = Array.isArray(data) ? data : (data.environments || []);
     if (!envs.length) { el.innerHTML = '<div class="empty">No environments configured</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -7331,10 +7351,12 @@ function v2RenderOrgIssuesFull() {
 async function v2RenderOrgJoinRequests() {
   const el = document.getElementById('odt-join-requests');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/join-requests${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const reqs = Array.isArray(data) ? data : (data.joinRequests || data.join_requests || []);
     if (!reqs.length) { el.innerHTML = '<div class="empty">No pending join requests</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -7355,10 +7377,12 @@ async function v2RenderOrgJoinRequests() {
 async function v2RenderOrgThreads() {
   const el = document.getElementById('odt-threads');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/threads${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const threads = Array.isArray(data) ? data : (data.threads || []);
     if (!threads.length) { el.innerHTML = '<div class="empty">No threads found</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
