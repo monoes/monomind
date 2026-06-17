@@ -6872,7 +6872,10 @@ function _odtPopulateChatSel() {
     const d = new Date(s.ts || s.startedAt || 0);
     const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
-    const prompt = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0,38);
+    // Strip generic prefix and fall back to "(auto-run)" when prompt is just the run/session ID
+    const _rawPrompt = (s.prompt || '').replace(/^running org:\s*/i, '');
+    const _isJustId = !_rawPrompt || _rawPrompt === s.id || /^(run|mm)-\d{8}T\d{6}/.test(_rawPrompt);
+    const prompt = _isJustId ? '(auto-run)' : _rawPrompt.slice(0, 38);
     const meta = s._runMeta;
     const extra = meta ? ` · ${meta.cycleCount||0}cyc · ${meta.eventCount||0}ev` : (Array.isArray(s.events) && s.events.length > 0 ? ` · ${s.events.length}ev` : '');
     const typeTag = s._isOrgRun ? '[R]' : '[S]';
@@ -7184,7 +7187,7 @@ function _odtHandleLiveEvent(ev) {
       // while _odtLoadChatSessions fetch is still in-flight (opening Chat tab mid-run).
       // For run:start: full setup + auto-switch. For other types: minimal placeholder
       // with _eventsLoaded:false so lazy-load fetches full history when selected.
-      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || ev.runId, status: 'running', _isOrgRun: true, _eventsLoaded: ev.type === 'run:start', _runMeta: { cycleCount: 0, eventCount: 1 }, events: [ev] };
+      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || '', status: 'running', _isOrgRun: true, _eventsLoaded: ev.type === 'run:start', _runMeta: { cycleCount: 0, eventCount: 1 }, events: [ev] };
       _odtChatSessions.unshift(runSess);
       // Always update the dropdown so the run is selectable even when opened mid-run
       _odtPopulateChatSel();
@@ -7199,6 +7202,11 @@ function _odtHandleLiveEvent(ev) {
       (runSess.events = runSess.events || []).push(ev);
       if (runSess._runMeta) runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1;
       if (ev.type === 'run:cycle:complete') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
+      // Backfill prompt from first boss directive when run:start had no goal field
+      if (!runSess.prompt && ev.type === 'org:comms' && (ev.from === 'boss' || ev.role === 'boss') && ev.msg) {
+        runSess.prompt = ev.msg.slice(0, 80);
+        _odtPopulateChatSel();
+      }
       if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
       if (_odtChatCurrentId === ev.runId && !runSess._loading) {
         // Refresh agent bar when a new agent comes online mid-run (mirrors session-based branch)
