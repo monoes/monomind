@@ -6753,6 +6753,25 @@ async function v2RenderOrgChat() {
           _catchFeed.appendChild(_cHdr);
         }
         (_catchSess.events || []).filter(ev => _odtChatAgentMatches(ev)).forEach(ev => _odtAppendEvent(ev, false));
+        // Re-inject [S]→[R] link card on tab-return (same as first-select path)
+        if (!_catchSess._isOrgRun) {
+          const _crLinkedId = 'run-' + (_catchSess.id || '').replace(/^mm-/, '');
+          const _crLinked = _odtChatSessions.find(s => s._isOrgRun && s.id === _crLinkedId);
+          if (_crLinked) {
+            const _crLinkEl = document.createElement('div');
+            _crLinkEl.className = 'cv-msg cv-sys';
+            const _crGoal = (_crLinked.prompt || '').slice(0, 60) || _crLinkedId;
+            _crLinkEl.innerHTML = `<div class="cv-bub" style="cursor:pointer;border-left:2px solid var(--accent);background:oklch(15% 0.05 220)">`+
+              `<span class="cv-etype" style="color:var(--accent)">RUN</span>`+
+              `<span class="cv-text">→ ${esc(_crGoal)}${_crGoal.length >= 60 ? '…' : ''}</span>`+
+              `<span class="cv-ts" style="color:var(--accent)">[${esc(_crLinked.status||'?')}]</span></div>`;
+            _crLinkEl.onclick = () => {
+              const _crSel = document.getElementById('odt-chat-sel');
+              if (_crSel) { _crSel.value = _crLinkedId; odtChatSelectSession(_crLinkedId); }
+            };
+            _catchFeed.appendChild(_crLinkEl);
+          }
+        }
         _catchFeed.scrollTop = _catchFeed.scrollHeight;
       }
       // Refresh agent bar — new agents may have come online while on another tab
@@ -6996,6 +7015,29 @@ window.odtChatSelectSession = async function(id) {
     else if (ex) ex.innerHTML = '';
   }
   (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
+  // For [S] sessions (mastermind wrappers that triggered an org run), show a link card to the
+  // corresponding [R] run so users can navigate there directly. The runId is always
+  // "run-" + same timestamp suffix as the session ID (e.g. mm-20260617T235959 → run-20260617T235959).
+  if (!sess._isOrgRun) {
+    const _linkedRunId = 'run-' + (sess.id || '').replace(/^mm-/, '');
+    const _linkedRun = _odtChatSessions.find(s => s._isOrgRun && s.id === _linkedRunId);
+    if (_linkedRun) {
+      const _linkEl = document.createElement('div');
+      _linkEl.className = 'cv-msg cv-sys';
+      const _lrGoal = (_linkedRun.prompt || '').slice(0, 60) || _linkedRunId;
+      _linkEl.innerHTML = `<div class="cv-bub" style="cursor:pointer;border-left:2px solid var(--accent);background:oklch(15% 0.05 220)">`+
+        `<span class="cv-etype" style="color:var(--accent)">RUN</span>`+
+        `<span class="cv-text">→ ${esc(_lrGoal)}${_lrGoal.length >= 60 ? '…' : ''}</span>`+
+        `<span class="cv-ts" style="color:var(--accent)">[${esc(_linkedRun.status||'?')}]</span></div>`;
+      _linkEl.title = 'Click to view the org run triggered by this session';
+      _linkEl.onclick = () => {
+        const _lSel = document.getElementById('odt-chat-sel');
+        if (_lSel) { _lSel.value = _linkedRunId; odtChatSelectSession(_linkedRunId); }
+      };
+      feed.appendChild(_linkEl);
+      if (emptyEl) emptyEl.style.display = 'none';
+    }
+  }
   // If nothing was rendered (empty run or all events unknown type), show a clear empty state
   // instead of leaving the user with a blank white feed and no feedback.
   if (!feed.querySelector('.cv-msg') && emptyEl) {
