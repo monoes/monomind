@@ -138,3 +138,4 @@
 - b8593387 — fix(dashboard): refresh agent bar pills live for org-run SSE events
 - 0af4ee63 — fix(dashboard): prevent duplicate chat messages during org-run lazy-load
 - 4dcac9d7 — fix(dashboard): close SSE source before nulling to prevent zombie connections
+- de6691ec — fix(dashboard): preserve SSE-injected sessions during chat load async window
