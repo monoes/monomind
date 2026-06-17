@@ -160,3 +160,5 @@
 - 08edd482 — fix(dashboard): v2OrgSSE seenKeys reset on reconnect caused duplicate activity entries; removed Set reset from connect(), persists across reconnects like _odtChatSeenKeys; added same cap-at-2000 pruning from rep 38; Live tab activity feed no longer shows repeat events after SSE reconnect
 
 - f6af765e — fix(dashboard): cap chatVSeenKeys Set at 2000 entries (same leak as reps 38+44, third SSE dedup Set without pruning); add run:start and run:cycle:complete handlers to appendChatViewEvent so org run events show formatted messages instead of raw type names in main Chat view
+
+- 21836b79 — fix(dashboard): buffer org run SSE events when Chat tab opens mid-run; _odtHandleLiveEvent only created a session for run:start — any org:comms/org:agent:online arriving for unknown runId during the _odtLoadChatSessions in-flight fetch was silently dropped; fixed by creating a placeholder session for ANY unknown runId (with _eventsLoaded:false so lazy-load runs on select); the existing _sseDuringFetch infra in _odtLoadChatSessions enriches the placeholder when fetch completes
