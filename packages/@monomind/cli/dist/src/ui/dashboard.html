@@ -6984,7 +6984,10 @@ function _odtHandleLiveEvent(ev) {
       runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || '', status: 'running', _isOrgRun: true, _eventsLoaded: true, _runMeta: { cycleCount: 0, eventCount: 0 }, events: [ev] };
       _odtChatSessions.unshift(runSess);
       _odtPopulateChatSel();
-      if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
+      // Auto-switch to the new run whenever Chat tab is active — new runs supersede old ones.
+      // Without this, org:comms from the new run are buffered but never displayed since
+      // _odtChatCurrentId still points to the previous run.
+      if (_v2OrgTab === 'chat') {
         const sel = document.getElementById('odt-chat-sel');
         if (sel) { sel.value = ev.runId; odtChatSelectSession(ev.runId); }
       }
