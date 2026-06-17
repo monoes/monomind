@@ -6837,6 +6837,14 @@ window.odtChatSelectSession = async function(id) {
   const ex = document.getElementById('odt-chat-excerpt');
   if (ex) ex.innerHTML = '';
   (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
+  // If nothing was rendered (empty run or all events unknown type), show a clear empty state
+  // instead of leaving the user with a blank white feed and no feedback.
+  if (!feed.querySelector('.cv-msg') && emptyEl) {
+    emptyEl.style.display = 'block';
+    emptyEl.textContent = (sess.events && sess.events.length)
+      ? 'No displayable events for this run.'
+      : 'No events for this run yet.';
+  }
   feed.scrollTop = feed.scrollHeight;
 };
 
