@@ -7541,7 +7541,8 @@ function filterOrgList(q) {
     src.onmessage = e => {
       try {
         const ev = JSON.parse(e.data);
-        if (!ev?.org || !ev?.type?.startsWith('org:')) return;
+        if (!ev?.org) return;
+        if (!ev?.type?.startsWith('org:') && ev?.type !== 'run:start' && ev?.type !== 'run:complete') return;
         const _sk = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.org||'') + '|' + (ev.runId||ev.session||'') + '|' + (ev.from||'') + '|' + (ev.msg||'').slice(0,20);
         if (seenKeys.has(_sk)) return;
         seenKeys.add(_sk);
@@ -7586,7 +7587,7 @@ function filterOrgList(q) {
             }, 2000);
           }
         }
-        if (ev.type === 'org:start' || ev.type === 'org:stop' || ev.type === 'org:delete' || ev.type === 'org:create') {
+        if (ev.type === 'org:start' || ev.type === 'org:stop' || ev.type === 'org:delete' || ev.type === 'org:create' || ev.type === 'run:start' || ev.type === 'run:complete') {
           setTimeout(async () => {
             await renderOrgs();
             if (_v2SelOrg === n) {
