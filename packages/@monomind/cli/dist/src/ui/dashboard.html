@@ -7623,7 +7623,8 @@ function filterOrgList(q) {
   function connect() {
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     if (src) src.close();
-    seenKeys = new Set();
+    // Do NOT reset seenKeys here — the server replays ~50 events on every reconnect and
+    // clearing the set lets all replays through, duplicating _v2OrgEventLog and _activity entries.
     src = new EventSource('/api/mastermind-stream');
     src.onmessage = e => {
       try {
@@ -7633,6 +7634,7 @@ function filterOrgList(q) {
         const _sk = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.org||'') + '|' + (ev.runId||ev.session||'') + '|' + (ev.from||'') + '|' + (ev.msg||'').slice(0,20);
         if (seenKeys.has(_sk)) return;
         seenKeys.add(_sk);
+        if (seenKeys.size > 2000) { const _a = [...seenKeys]; seenKeys = new Set(_a.slice(1000)); }
         const n = ev.org;
         // Filter by project dir if the event carries one; skip events from other projects.
         // Events without a project field are treated as belonging to the current project.
