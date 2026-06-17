@@ -4235,7 +4235,7 @@ function mkCVResult(agent, text, ts) {
     `<span class="cv-tag" style="background:oklch(20% 0.10 150);color:oklch(72% 0.20 150)">${esc(agent)}</span>`+
     `<span class="cv-etype" style="color:oklch(68% 0.20 150)">REPORT</span>`+
     `<span class="cv-text" id="${uid}" style="white-space:pre-wrap;line-height:1.6">${esc(preview)}</span>`+
-    (isLong ? `<button class="btn" style="font-size:9px;padding:1px 6px;margin-left:6px;flex-shrink:0" onclick="(function(b,id,full){const el=document.getElementById(id);const show=el.dataset.expanded;el.textContent=show?full.slice(0,300)+'…':full;el.dataset.expanded=show?'':'1';b.textContent=show?'Expand':'Collapse';})(this,'${uid}',${JSON.stringify(text)})">Expand</button>` : '')+
+    (isLong ? `<button class="btn" style="font-size:9px;padding:1px 6px;margin-left:6px;flex-shrink:0" data-uid="${uid}" data-full="${esc(text)}" onclick="(function(b){const el=document.getElementById(b.dataset.uid);const full=b.dataset.full;const show=el.dataset.expanded;el.textContent=show?full.slice(0,300)+'…':full;el.dataset.expanded=show?'':'1';b.textContent=show?'Expand':'Collapse';})(this)">Expand</button>` : '')+
     `<span class="cv-ts">${ts}</span></div>`;
   return d;
 }
