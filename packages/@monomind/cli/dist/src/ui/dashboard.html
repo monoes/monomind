@@ -6772,6 +6772,9 @@ async function _odtLoadChatSessions() {
 function _odtPopulateChatSel() {
   const sel = document.getElementById('odt-chat-sel');
   if (!sel) return;
+  // Skip rebuild while the user has the dropdown open — innerHTML replacement dismisses it.
+  // The next SSE-triggered call (when they close it) will apply the update.
+  if (document.activeElement === sel) return;
   const prev = _odtChatCurrentId || sel.value;
   const count = _odtChatSessions.length;
   sel.innerHTML = `<option value="">${count ? `— ${count} run${count !== 1 ? 's' : ''} for ${_v2SelOrg} —` : '— no runs yet —'}</option>`;
@@ -6874,8 +6877,6 @@ function _odtPopulateAgentBar(events, orgRoles) {
     }
   });
   const agents = [...agentSet].sort();
-  // Only show bar if at least one agent has actual messages (not just config roles)
-  const hasAnyMsg = agents.some(n => msgCount[n] > 0);
   if (!agents.length) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   bar.innerHTML = '<span id="odt-chat-agent-lbl">AGENT</span>';
