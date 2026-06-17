@@ -4119,7 +4119,11 @@ function appendChatViewEvent(ev, animate) {
 
   let el;
   const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-  if (ev.type === 'intercom') {
+  if (ev.type === 'run:start') {
+    el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + esc(ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + esc(ev.bossRole) : ''), ts);
+  } else if (ev.type === 'run:cycle:complete') {
+    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + esc(String(ev.pending)) + ' tasks pending' : ''), ts);
+  } else if (ev.type === 'intercom') {
     el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
   } else if (ev.type === 'org:comms') {
     el = mkCVIntercom(ev.from || ev.org || '?', ev.to || '?', ev.msg || '', ts);
@@ -4301,6 +4305,7 @@ function handleChatViewEvent(ev) {
   const dedupKey = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.from||ev.role||'') + '|' + (ev.session||ev.runId||'') + '|' + (ev.msg||'').slice(0,20);
   if (chatVSeenKeys.has(dedupKey)) return;
   chatVSeenKeys.add(dedupKey);
+  if (chatVSeenKeys.size > 2000) { const _a = [...chatVSeenKeys]; chatVSeenKeys = new Set(_a.slice(1000)); }
   // Org events (org:comms, org:agent:online, org:checkpoint, etc.) may carry a session field
   // from the org run's session ID — route them directly to the feed if the session matches,
   // or append them unconditionally when the chat view is showing the "live" placeholder.
