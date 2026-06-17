@@ -6997,6 +6997,11 @@ function _odtHandleLiveEvent(ev) {
       if (ev.type === 'run:cycle:complete') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
       if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
       if (_odtChatCurrentId === ev.runId && _v2OrgTab === 'chat') {
+        // Refresh agent bar when a new agent comes online mid-run (mirrors session-based branch)
+        const hasNewRunAgent = (ev.role && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.role)}"]`))
+          || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
+          || (ev.to && ev.to !== 'all' && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
+        if (hasNewRunAgent) _odtPopulateAgentBar(runSess.events, Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
         _odtAppendEvent(ev, true);
       }
     }
