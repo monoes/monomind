@@ -6972,7 +6972,12 @@ function _odtConnectChatSSE() {
   _odtChatSseSource.onerror = () => {
     dot?.classList.remove('on');
     if (lbl) lbl.textContent = 'OFFLINE';
+    // Close before nulling: EventSource has built-in auto-retry, so without close()
+    // the browser keeps reconnecting the old source. We'd then create a second one
+    // via setTimeout → two SSE connections delivering the same events simultaneously.
+    const _src = _odtChatSseSource;
     _odtChatSseSource = null;
+    if (_src) _src.close();
     setTimeout(_odtConnectChatSSE, 5000);
   };
 }
