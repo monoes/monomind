@@ -6716,6 +6716,20 @@ async function v2RenderOrgChat() {
   }
 
   await _odtLoadChatSessions();
+  // Returning to chat tab (same org, session already selected): re-render feed to catch
+  // up on events buffered in sess.events while user was on another tab. _odtLoadChatSessions
+  // refreshes the run list but won't re-render the feed when _odtChatCurrentId is already set.
+  if (_odtChatCurrentId) {
+    const _catchSess = _odtChatSessions.find(s => s.id === _odtChatCurrentId);
+    if (_catchSess && (_catchSess._eventsLoaded || !_catchSess._isOrgRun)) {
+      const _catchFeed = document.getElementById('odt-chat-feed');
+      if (_catchFeed) {
+        _catchFeed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+        (_catchSess.events || []).filter(ev => _odtChatAgentMatches(ev)).forEach(ev => _odtAppendEvent(ev, false));
+        _catchFeed.scrollTop = _catchFeed.scrollHeight;
+      }
+    }
+  }
   _odtConnectChatSSE();
 }
 
@@ -7068,7 +7082,7 @@ function _odtHandleLiveEvent(ev) {
       if (runSess._runMeta) runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1;
       if (ev.type === 'run:cycle:complete') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
       if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
-      if (_odtChatCurrentId === ev.runId && _v2OrgTab === 'chat' && !runSess._loading) {
+      if (_odtChatCurrentId === ev.runId && !runSess._loading) {
         // Refresh agent bar when a new agent comes online mid-run (mirrors session-based branch)
         const hasNewRunAgent = (ev.role && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.role)}"]`))
           || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
@@ -7103,7 +7117,7 @@ function _odtHandleLiveEvent(ev) {
   if (sess) {
     (sess.events = sess.events || []).push(ev);
     if (ev.type === 'session:complete') { sess.status = 'complete'; _odtPopulateChatSel(); }
-    if (_odtChatCurrentId === ev.session && _v2OrgTab === 'chat') {
+    if (_odtChatCurrentId === ev.session) {
       const hasNewAgent = (ev.agent && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.agent)}"]`))
         || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
         || (ev.to && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
