@@ -6752,8 +6752,11 @@ async function v2RenderOrgChat() {
         (_catchSess.events || []).filter(ev => _odtChatAgentMatches(ev)).forEach(ev => _odtAppendEvent(ev, false));
         _catchFeed.scrollTop = _catchFeed.scrollHeight;
       }
-      // Refresh excerpt banner so last-activity summary stays current after tab-return
-      if (!_catchSess._isOrgRun && (_catchSess.events || []).length) {
+      // Refresh agent bar — new agents may have come online while on another tab
+      const _catchOrgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+      _odtPopulateAgentBar(_catchSess.events || [], _catchOrgRoles);
+      // Refresh excerpt banner for all session types so last-activity stays current after tab-return
+      if ((_catchSess.events || []).length) {
         renderCvExcerptBanner('odt-chat-excerpt', _catchSess.events, _catchSess);
       }
     }
@@ -6981,7 +6984,10 @@ window.odtChatSelectSession = async function(id) {
     // Populate excerpt banner to show last activity for historical sessions
     if (ex) { if ((sess.events || []).length) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess); else ex.innerHTML = ''; }
   } else {
-    if (ex) ex.innerHTML = '';
+    // Org run sessions: populate excerpt with last activity (mirrors non-_isOrgRun path).
+    // Previous code always cleared this, leaving the banner permanently blank for org runs.
+    if (ex && (sess.events || []).length > 0) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess);
+    else if (ex) ex.innerHTML = '';
   }
   (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
   // If nothing was rendered (empty run or all events unknown type), show a clear empty state
@@ -7197,6 +7203,10 @@ function _odtHandleLiveEvent(ev) {
           || (ev.to && ev.to !== 'all' && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
         if (hasNewRunAgent) _odtPopulateAgentBar(runSess.events, Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
         _odtAppendEvent(ev, true);
+        // Keep excerpt banner current for org runs — same as non-org-run path.
+        // Previously org run SSE events never called renderCvExcerptBanner, so the
+        // "LAST ACTIVITY" banner stayed permanently blank during live runs.
+        renderCvExcerptBanner('odt-chat-excerpt', runSess.events, runSess);
       }
     }
     return;
