@@ -6712,6 +6712,8 @@ async function v2RenderOrgChat() {
 async function _odtLoadChatSessions() {
   if (!_v2SelOrg) return;
   const _loadedForOrg = _v2SelOrg;
+  // Snapshot existing sessions so we can preserve cached events across refreshes
+  const _prevSessions = _odtChatSessions.slice();
   _odtChatSessions = [];
   try {
     const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
@@ -6719,15 +6721,23 @@ async function _odtLoadChatSessions() {
     const runs = await apiFetch('/api/org/'+encodeURIComponent(_loadedForOrg)+'/runs?x=1'+dirParam);
     if (_v2SelOrg !== _loadedForOrg) return;
     if (Array.isArray(runs) && runs.length) {
-      _odtChatSessions = runs.map(r => ({
-        id: r.runId,
-        ts: r.startedAt,
-        prompt: r.goal || r.runId,
-        status: r.status,
-        _isOrgRun: true,
-        _runMeta: r,
-        events: [], // loaded lazily in odtChatSelectSession
-      }));
+      _odtChatSessions = runs.map(r => {
+        const prev = _prevSessions.find(s => s.id === r.runId);
+        return {
+          id: r.runId,
+          ts: r.startedAt,
+          prompt: r.goal || r.runId,
+          status: r.status,
+          _isOrgRun: true,
+          _runMeta: r,
+          events: prev ? prev.events : [],
+          _eventsLoaded: prev ? prev._eventsLoaded : false,
+        };
+      });
+      // Re-attach any SSE-only sessions not yet in server response
+      _prevSessions.forEach(ps => {
+        if (!_odtChatSessions.find(s => s.id === ps.id)) _odtChatSessions.push(ps);
+      });
       _odtPopulateChatSel();
       if (!_odtChatCurrentId && _odtChatSessions.length) {
         const first = _odtChatSessions[0];
