@@ -4133,8 +4133,10 @@ function appendChatViewEvent(ev, animate) {
     el = mkCVSys('[checkpoint] ' + esc(ev.summary || ev.progress || ev.msg || ''), ts);
   } else if (ev.type === 'org:start') {
     el = mkCVSys('[org:start] ' + esc(ev.org || ''), ts);
-  } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
-    el = mkCVSys('[' + esc(ev.type) + '] ' + esc(ev.org || ev.msg || ''), ts);
+  } else if (ev.type === 'run:complete') {
+    el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+  } else if (ev.type === 'org:complete') {
+    el = mkCVSys('■ Org complete' + (ev.org ? ' — ' + esc(ev.org) : ''), ts);
   } else if (ev.type === 'agent:message' || ev.type === 'agent:spawn') {
     el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || ev.role || ev.type, ts, ev.type);
   } else if (ev.type === 'session:start') {
@@ -4146,16 +4148,24 @@ function appendChatViewEvent(ev, animate) {
   } else if (ev.type === 'domain:complete') {
     el = mkCVSys('✓ ' + esc(ev.domain || '') + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
   } else if (ev.type === 'loop:start') {
-    el = mkCVSys('Loop started: ' + esc(ev.command || ''), ts);
+    el = mkCVSys('◎ Loop: ' + esc(ev.command || '') + (ev.repeat ? ' ×' + esc(String(ev.repeat)) : ''), ts);
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'loop:complete') {
-    el = mkCVSys('Loop complete: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
+    el = mkCVSys('■ Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + esc(String(ev.ranReps)) + ' runs)' : ''), ts);
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'loop:tick') {
-    el = mkCVSys('Loop tick: ' + esc(ev.command || ev.id || ''), ts);
+    const _tickLbl = ev.rep != null
+      ? 'rep ' + esc(String(ev.rep)) + ' done' + (ev.wait != null ? ' → next in ' + esc(String(ev.wait)) + 's' : '')
+      : esc(ev.command || ev.loopId || ev.id || '');
+    el = mkCVSys('◷ ' + _tickLbl, ts);
+    el.dataset.evType = 'loop:tick';
+    if (feed.lastElementChild?.dataset?.evType === 'loop:tick') feed.lastElementChild.remove();
     if (currentView === 'loops') renderLoops();
-  } else if (ev.type === 'loop:hil') {
-    el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.id || ''), ts);
+  } else if (ev.type === 'loop:hil' || ev.type === 'loop:hil:waiting') {
+    el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.loopId || ev.id || ''), ts);
+    if (currentView === 'loops') renderLoops();
+  } else if (ev.type === 'loop:hil:resolved') {
+    el = mkCVSys('✓ Loop HIL resolved: ' + esc(ev.loopId || ev.command || ''), ts);
     if (currentView === 'loops') renderLoops();
   } else {
     el = mkCVSys(esc(ev.type || 'event'), ts);
