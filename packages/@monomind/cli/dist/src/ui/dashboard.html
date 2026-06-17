@@ -326,6 +326,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #odt-chat-agent-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
 .odt-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
 .odt-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
+.odt-agent-pill.dim { opacity:0.35; }
+.odt-agent-pill.dim:hover { opacity:0.6; }
 .odt-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
 #odt-chat-feed { flex:1; overflow-y:auto; padding:10px 16px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
 #odt-chat-feed::-webkit-scrollbar { width:4px; }
@@ -6825,15 +6827,28 @@ function _odtPopulateAgentBar(events, orgRoles) {
       }
     });
   }
+  // Count messages per agent so pills can show activity level
+  const msgCount = {};
+  (events || []).forEach(ev => {
+    if (ev.type === 'org:comms' || ev.type === 'agent:message') {
+      const sender = ev.from || ev.agent || '';
+      if (sender) msgCount[sender] = (msgCount[sender] || 0) + 1;
+    }
+  });
   const agents = [...agentSet].sort();
+  // Only show bar if at least one agent has actual messages (not just config roles)
+  const hasAnyMsg = agents.some(n => msgCount[n] > 0);
   if (!agents.length) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   bar.innerHTML = '<span id="odt-chat-agent-lbl">AGENT</span>';
   ['all', ...agents].forEach(name => {
     const pill = document.createElement('button');
-    pill.className = 'odt-agent-pill' + (_odtChatCurrentAgent === name ? ' active' : '');
-    pill.textContent = name === 'all' ? 'ALL' : name;
+    const cnt = name === 'all' ? null : (msgCount[name] || 0);
+    const active = _odtChatCurrentAgent === name;
+    pill.className = 'odt-agent-pill' + (active ? ' active' : '') + (cnt === 0 ? ' dim' : '');
+    pill.textContent = name === 'all' ? 'ALL' : (cnt > 0 ? `${name} (${cnt})` : name);
     pill.dataset.agent = name;
+    pill.title = name === 'all' ? 'Show all events' : (cnt > 0 ? `${cnt} message${cnt!==1?'s':''} from ${name}` : `${name} was online but sent no messages`);
     pill.onclick = () => odtChatSelectAgent(name);
     bar.appendChild(pill);
   });
@@ -6851,7 +6866,7 @@ window.odtChatSelectAgent = function(name) {
   if (!sess) { if (emptyEl) emptyEl.style.display = 'block'; return; }
   const visible = (sess.events || []).filter(ev => _odtChatAgentMatches(ev));
   if (!visible.length) {
-    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = name === 'all' ? 'No events.' : `No events for "${name}"`; }
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = name === 'all' ? 'No events.' : `${name} was online in this run but sent no messages.`; }
   } else {
     if (emptyEl) emptyEl.style.display = 'none';
     visible.forEach(ev => _odtAppendEvent(ev, false));
