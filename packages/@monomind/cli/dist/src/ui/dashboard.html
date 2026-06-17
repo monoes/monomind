@@ -6791,6 +6791,14 @@ async function _odtLoadChatSessions() {
       return s;
     });
     _odtPopulateChatSel();
+    // Auto-select most recent session when nothing is running (mirrors primary path behaviour).
+    // _odtPopulateChatSel only picks running sessions; for all-complete orgs the feed stays
+    // blank without this.
+    if (!_odtChatCurrentId && _odtChatSessions.length) {
+      const _fbFirst = _odtChatSessions[0];
+      const _fbSel = document.getElementById('odt-chat-sel');
+      if (_fbSel) { _fbSel.value = _fbFirst.id; odtChatSelectSession(_fbFirst.id); }
+    }
   } catch(_) {}
 }
 
@@ -6838,6 +6846,24 @@ window.odtChatSelectSession = async function(id) {
   const sess = _odtChatSessions.find(s => s.id === id);
   if (!sess) return;
   if (emptyEl) emptyEl.style.display = 'none';
+  // Lazy-load events for fallback (non-_isOrgRun) sessions from /api/mastermind/session/:id
+  if (!sess._isOrgRun && !sess._eventsLoaded) {
+    const _fbFeed = document.getElementById('odt-chat-feed');
+    const _fbLoader = Object.assign(document.createElement('div'), { id: 'odt-chat-loading', style: 'text-align:center;padding:24px 0;font-size:11px;opacity:0.5;color:var(--text-mid)' });
+    _fbLoader.textContent = 'Loading session events…';
+    if (_fbFeed) _fbFeed.appendChild(_fbLoader);
+    sess._loading = true;
+    try {
+      const _fbData = await apiFetch('/api/mastermind/session/'+encodeURIComponent(id));
+      sess.events = Array.isArray(_fbData.events) ? _fbData.events : (sess.events || []);
+      sess._eventsLoaded = true;
+    } catch(_) {
+      sess._eventsLoaded = true;
+    }
+    sess._loading = false;
+    _fbLoader.remove();
+    if (_odtChatCurrentId !== id) return;
+  }
   // Lazy-load events for org run sessions
   if (sess._isOrgRun && !sess._eventsLoaded) {
     const feed2 = document.getElementById('odt-chat-feed');
