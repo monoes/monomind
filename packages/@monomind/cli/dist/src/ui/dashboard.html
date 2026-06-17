@@ -7069,13 +7069,11 @@ function _odtHandleLiveEvent(ev) {
       // Always update the dropdown so the run is selectable even when opened mid-run
       _odtPopulateChatSel();
       if (ev.type === 'run:start') {
-        // Auto-switch to the new run whenever Chat tab is active — new runs supersede old ones.
-        // Without this, org:comms from the new run are buffered but never displayed since
-        // _odtChatCurrentId still points to the previous run.
-        if (_v2OrgTab === 'chat') {
-          const sel = document.getElementById('odt-chat-sel');
-          if (sel) { sel.value = ev.runId; odtChatSelectSession(ev.runId); }
-        }
+        // Always auto-switch to the new run regardless of active tab.
+        // The feed is in the DOM even when hidden; odtChatSelectSession pre-loads events
+        // so the catch-up re-render in v2RenderOrgChat can display them on tab return.
+        const _rsSel = document.getElementById('odt-chat-sel');
+        if (_rsSel) { _rsSel.value = ev.runId; odtChatSelectSession(ev.runId); }
       }
     } else if (runSess) {
       (runSess.events = runSess.events || []).push(ev);
@@ -7107,8 +7105,8 @@ function _odtHandleLiveEvent(ev) {
     sess = { id: ev.session, ts: ev.ts || Date.now(), prompt: ev.prompt || '', status: 'running', events: [ev] };
     _odtChatSessions.unshift(sess);
     _odtPopulateChatSel();
-    // Auto-select if nothing selected
-    if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
+    // Auto-select if nothing selected (tab-guard removed: feed is in DOM regardless of active tab)
+    if (!_odtChatCurrentId) {
       const sel = document.getElementById('odt-chat-sel');
       if (sel) { sel.value = ev.session; odtChatSelectSession(ev.session); }
     }
