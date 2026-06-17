@@ -4525,8 +4525,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           if (!known.includes(eventProject)) { known.push(eventProject); fs.writeFileSync(knownFile, JSON.stringify(known)); }
         } catch (_) {}
       }
-      try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
-      // Track active runs and route org events to run files
+      // Track active runs and enrich event with runId BEFORE persisting so the JSONL replay
+      // on SSE reconnect contains the same enriched event that live clients received.
+      // Previously this was done AFTER the appendFileSync, causing org:comms events stored in
+      // mastermind-events.jsonl to lack runId — _odtHandleLiveEvent dropped them on reconnect.
       if (event.org) {
         const _orgKey = String(event.org).trim();
         // Any event with both org+runId updates the active run map (run:start written directly to file so org:start is first via curl)
@@ -4534,6 +4536,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
         if (event.type === 'run:complete' || event.type === 'org:complete') activeOrgRuns.delete(_orgKey);
       }
+      try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
       // Persist to git-safe run file (survives branch switches + shared across worktrees)
       if (event.org && event.runId) {
         try {
