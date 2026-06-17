@@ -4034,10 +4034,15 @@ async function loadChatViewSessions() {
         sel.appendChild(opt);
       }
     });
-    if (prev && chatVSessions[prev]) { sel.value = prev; }
-    else {
+    if (prev && chatVSessions[prev]) {
+      sel.value = prev;
+      // Re-render feed if it was emptied (e.g. view re-enter) and no session is live.
+      if (!chatVCurrentId) chatVSelectSession(prev);
+    } else {
       const running = sessions.find(s => s.status === 'running');
       if (running) { sel.value = running.id; chatVSelectSession(running.id); }
+      // No running session — auto-select the most recent one so feed isn't blank.
+      else if (sessions.length) { sel.value = sessions[0].id; chatVSelectSession(sessions[0].id); }
     }
   } catch(e) { console.warn('chat sessions load failed', e); }
 }
@@ -7142,7 +7147,10 @@ function _odtHandleLiveEvent(ev) {
   if (sess) {
     (sess.events = sess.events || []).push(ev);
     if (ev.type === 'session:complete') { sess.status = 'complete'; _odtPopulateChatSel(); }
-    if (_odtChatCurrentId === ev.session) {
+    if (_odtChatCurrentId === ev.session && !sess._loading) {
+      // sess._loading is true while odtChatSelectSession's lazy-load fetch is in-flight.
+      // Blocking DOM writes here (while still pushing to sess.events above) ensures SSE
+      // events are preserved but not double-rendered when the fetch replay runs.
       const hasNewAgent = (ev.agent && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.agent)}"]`))
         || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
         || (ev.to && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
