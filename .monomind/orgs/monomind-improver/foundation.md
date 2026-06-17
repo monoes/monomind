@@ -137,3 +137,4 @@
 - 072ad998 — fix(dashboard): auto-switch chat to new run on run:start so live comms are always visible
 - b8593387 — fix(dashboard): refresh agent bar pills live for org-run SSE events
 - 0af4ee63 — fix(dashboard): prevent duplicate chat messages during org-run lazy-load
+- 4dcac9d7 — fix(dashboard): close SSE source before nulling to prevent zombie connections
