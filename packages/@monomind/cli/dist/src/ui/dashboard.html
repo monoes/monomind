@@ -4110,7 +4110,10 @@ function appendChatViewEvent(ev, animate) {
   } else if (ev.type === 'intercom') {
     el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
   } else if (ev.type === 'org:comms') {
-    el = mkCVIntercom(ev.from || ev.role || ev.org || '?', ev.to || '?', ev.msg || '', ts);
+    const _cvCommsFrom = ev.from || ev.role || ev.org || '?';
+    // Directed messages (to set, not broadcast) → intercom bubble; broadcasts → agent bubble
+    if (ev.to && ev.to !== 'all') el = mkCVIntercom(_cvCommsFrom, ev.to, ev.msg || '', ts);
+    else el = mkCVAgent(_cvCommsFrom, ev.msg || '', ts, 'org:comms');
   } else if (ev.type === 'org:agent:online') {
     el = mkCVSys('[' + esc(ev.org || '') + '] ' + esc(ev.role || ev.title || '?') + ' online' + (ev.title && ev.role && ev.title !== ev.role ? ' (' + esc(ev.title) + ')' : ''), ts);
   } else if (ev.type === 'org:checkpoint') {
@@ -7089,7 +7092,7 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'org:comms') {
     // Some older runs use ev.role instead of ev.from — normalise before rendering
     const _commsFrom = ev.from || ev.role || 'boss';
-    if (ev.to && ev.to !== 'all' && ev.from) el = mkCVIntercom(_commsFrom, ev.to, ev.msg || '', ts);
+    if (ev.to && ev.to !== 'all') el = mkCVIntercom(_commsFrom, ev.to, ev.msg || '', ts);
     else el = mkCVAgent(_commsFrom, ev.msg || '', ts, 'org:comms');
   } else if (ev.type === 'org:agent:online') {
     el = mkCVSys('◉ ' + esc(ev.title || ev.role || '?') + ' online', ts);
