@@ -6707,6 +6707,11 @@ async function v2RenderOrgChat() {
     _odtChatCurrentId = null;
     _odtChatCurrentAgent = 'all';
     _odtChatSeenKeys = new Set();
+    // Clear sessions from the previous org so _odtLoadChatSessions doesn't snapshot them
+    // into _prevSessions and risk contaminating the new org's event buffers. SSE-injected
+    // sessions for the NEW org arriving during the upcoming fetch are still captured via
+    // _sseDuringFetch in _odtLoadChatSessions.
+    _odtChatSessions = [];
     document.getElementById('odt-chat-agent-bar').style.display = 'none';
     document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
     const emptyEl = document.getElementById('odt-chat-empty');
@@ -6826,14 +6831,24 @@ window.odtChatSelectSession = async function(id) {
     if (feed2) feed2.appendChild(loadingEl);
     // Guard SSE handler: prevent it from appending to the feed while fetch is in-flight.
     // Without this, SSE events get appended immediately AND replayed by the bulk render
-    // at line 6826 (since they were also pushed to sess.events) → duplicate messages.
+    // below (since they were also pushed to sess.events) → duplicate messages.
+    const _preLoadEvents = (sess.events || []).slice();
     sess._loading = true;
     try {
       const dirParam = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
       const evs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs/'+encodeURIComponent(id)+dirParam);
-      sess.events = Array.isArray(evs) ? evs : [];
+      // Merge: SSE events pushed to sess.events DURING the fetch are not in the API response
+      // (they haven't been flushed to disk yet). Re-attach them so they aren't overwritten.
+      const _sseDuringLoad = (sess.events || []).filter(e => !_preLoadEvents.find(p => p === e));
+      sess.events = Array.isArray(evs) ? evs : _preLoadEvents;
+      _sseDuringLoad.forEach(e => {
+        if (!sess.events.find(s => s.ts === e.ts && s.type === e.type && (s.from||'') === (e.from||''))) sess.events.push(e);
+      });
       sess._eventsLoaded = true;
-    } catch(_) { sess.events = []; sess._eventsLoaded = true; }
+    } catch(_) {
+      // On failure keep whatever was buffered so SSE events aren't lost
+      sess._eventsLoaded = true;
+    }
     sess._loading = false;
     loadingEl.remove();
     if (_odtChatCurrentId !== id) return; // user switched sessions during fetch
