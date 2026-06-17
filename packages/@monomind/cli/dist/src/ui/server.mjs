@@ -4486,7 +4486,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               const allLines = raw.split('\n').filter(Boolean);
               const eventCount = allLines.length;
               const parse = l => { try { return JSON.parse(l); } catch { return null; } };
-              const headEvents = allLines.slice(0, 5).map(parse).filter(Boolean);
+              const headEvents = allLines.slice(0, 10).map(parse).filter(Boolean);
               const tailEvents = allLines.slice(-5).map(parse).filter(Boolean);
               const first = headEvents.find(e => e.type === 'run:start') || headEvents[0];
               const last = tailEvents.slice().reverse().find(e => e.type === 'run:complete' || e.type === 'org:complete');
@@ -4494,9 +4494,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               const lastEvent = tailEvents[tailEvents.length - 1] || headEvents[headEvents.length - 1];
               const ageMs = lastEvent?.ts ? Date.now() - lastEvent.ts : Infinity;
               const isStale = !last && ageMs > 30 * 60 * 1000;
+              // Derive a human-readable goal from the first boss directive when run:start lacks one
+              const firstBossComms = headEvents.find(e => e.type === 'org:comms' && (e.from === 'boss' || e.role === 'boss') && e.msg);
+              const derivedGoal = first?.goal || firstBossComms?.msg?.slice(0, 80) || '';
               runs.push({ runId: f.replace('.jsonl', ''), startedAt: first?.ts || 0, endedAt: last?.ts || 0,
                 status: last ? 'complete' : isStale ? 'stale' : 'running',
-                eventCount, cycleCount: cycles, goal: first?.goal || '', bossRole: first?.bossRole || '' });
+                eventCount, cycleCount: cycles, goal: derivedGoal, bossRole: first?.bossRole || '' });
             } catch (_) {}
           }
         }
