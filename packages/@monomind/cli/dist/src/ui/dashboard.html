@@ -6963,7 +6963,14 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'loop:complete') {
     el = mkCVSys('Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
   } else if (ev.type === 'loop:tick') {
-    el = mkCVSys('Loop tick: ' + esc(ev.command || ev.loopId || ''), ts);
+    const tickLabel = ev.rep != null
+      ? 'rep ' + ev.rep + ' done' + (ev.nextRep != null ? ' → rep ' + ev.nextRep + ' in ' + (ev.wait || '?') + 's' : '')
+      : esc(ev.command || ev.loopId || '');
+    el = mkCVSys('◷ ' + tickLabel, ts);
+    el.dataset.evType = 'loop:tick';
+    // Collapse: replace the previous loop:tick if it's the last element — prevents the
+    // feed from flooding with one entry per rep in long-running loops (e.g. --repeat 9999).
+    if (feed.lastElementChild?.dataset?.evType === 'loop:tick') feed.lastElementChild.remove();
   } else if (ev.type === 'loop:hil' || ev.type === 'loop:hil:waiting') {
     el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.loopId || ''), ts);
   } else if (ev.type === 'loop:hil:resolved') {
