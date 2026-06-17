@@ -1,5 +1,21 @@
 # monomind-improver foundation log
 
+- 12963ce7 — feat(dashboard): expose all hidden org tabs; 21 tabs had full render functions and pane divs but NO tab buttons — Live, Agents, Heartbeats, Members, Goals, Board, Tasks, Costs, Routines, Settings, Secrets, Threads, Invites, Access, Environments, Issues, My Issues, Charts, Skills, Projects, Workspaces, Join Reqs, Plugins were all inaccessible; also made tab bar horizontally scrollable with hidden scrollbar
+
+- 3d15cd3c — fix(dashboard): guard org chat session loader against org-switch race condition; _odtLoadChatSessions snapshotted _v2SelOrg before any await and checked it after each fetch — prevents stale org's sessions from overwriting the current org's session list when the user switches orgs while a fetch is in-flight
+
+- 8f1bc061 — fix(dashboard): re-render agents-full tab on SSE agent status changes; org:agent:online and org:complete/run:complete events updated _v2OrgData._agents in memory but never re-rendered the agents-full tab — users saw stale statuses until they switched away and back
+
+- 5fec78cb — fix(dashboard): prevent global chat event duplication on SSE reconnect and strengthen dedup key; removed chatVSeenKeys reset from connectChatViewSSE (it was cleared on every reconnect, causing server's 50-event replay to duplicate all events); also strengthened dedup key from ts|type|(from||role||session) to ts|type|from|session|msg[:20] matching the fix applied to org chat in rep 13
+
+- 0d425cc4 — fix(dashboard): guard org chat lazy-load against session-switch race condition; if the user selected a different session while the run-events fetch was in-flight, old session events were rendered into the new session's feed
+
+- 1e5ef65e — fix(dashboard): strengthen SSE dedup keys in org chat and live tab; added |from|msg[:20] to ts|type|runId key so same-millisecond org:comms events from different agents are no longer silently dropped
+
+- 2b3316e5 — fix(dashboard): deduplicate org Activity tab events; server-polled _activity and SSE-buffered _v2OrgEventLog both contained the same events, causing every entry to show twice in the Activity tab
+
+- e18c1464 — fix(dashboard): prevent org chat event duplication on SSE reconnect; moved _odtChatSeenKeys reset to v2RenderOrgChat (org-change) instead of _odtConnectChatSSE so server's last-50-event replay on reconnect no longer re-appends events to the feed
+
 - 5675e92e — fix(dashboard): show session prompt + metadata header in Chat tab; selector shows goal text + event count instead of raw truncated ID; selected session injects header with full ID, status, start time, agent names, event count
 - d5a92328 — fix(dashboard): v2RenderOrgLive activity feed reads e.msg fallback so message text is shown in Live tab (was always blank because server events use msg not message)
 - ea781cbc — fix(dashboard): clear chatVCurrentId in chatVSelectOrgRun so org:comms replay events are not filtered by session guard mismatch
@@ -105,4 +121,19 @@
 - 87f56ffc — fix(dashboard): deduplicate SSE replays in v2OrgSSE via closure seenKeys (org activity log accumulated duplicate events on reconnect; set reset in connect())
 - 78c531fb — fix(dashboard): hoist fmtOrgEvDetail to module scope so Live tab activity feed can use it (was local to v2RenderOrgActivity; Live tab read e.msg||e.message only, missing org:checkpoint summary and org:comms routing text)
 - 5705604a — fix(dashboard): normalize completed/failed/cancelled task status to 'done' in v2RenderOrgTasks (server keeps original status string in done column; pill renderer only checked ===done so those tasks showed gray + sorted to middle instead of bottom)
-- [REP_8_PLACEHOLDER] — fix(dashboard): read r.enabled (not r.active) in v2RenderOrgRoutines pill; derive status text from r.enabled boolean (r.active was never set by server; enabled routines showed gray pill with '—' text)
+- 815af02c — fix(dashboard): read r.enabled (not r.active) in v2RenderOrgRoutines pill; derive status text from r.enabled boolean (r.active was never set by server; enabled routines showed gray pill with '—' text)
+- 5b74372c — fix(dashboard): use DIR (not window._orgDir) in global chat org run loader; window._orgDir is never set so loadChatViewOrgRuns and chatVSelectOrgRun always fetched from server cwd ignoring user's selected project
+- a25cc890 — fix(dashboard): v2SaveOrgConfig strips runtime fields (state/goals/routines/approvals/running/tasks/config-copy) before POST; spreading _v2OrgData was writing runtime data into the org .json config file, corrupting it on next load
+- 40327721 — fix(dashboard): guard supplemental org fetch against org-switch race condition — agents/budgets/members/issues from wrong org silently overwrote current org's _v2OrgData (no guard after second Promise.all in v2SelectOrg)
+- 4c63b149 — fix(dashboard): add org-switch staleness guards to all 11 async tab renders — approvals/secrets/routines/my-issues/plugins/projects/files/workspaces/invites/environments/join-requests/threads all missing _rendOrg snapshot + guard after await
+- 226d95db — fix(dashboard): stop live-tab interval on view-switch; guard _orgLiveInterval org-switch race; guard v2OpenAgent agent-drawer stale fetch
+- 5eefc084 — fix(dashboard): render org:error, org:agent:offline, loop:tick, loop:hil in org chat feed — these event types were silently dropped by _odtAppendEvent while the global chat rendered them; org errors were completely invisible in org detail Chat tab
+- 7418f8a8 — fix(dashboard): include org:error/checkpoint/offline and loop events in structural set of _odtChatAgentMatches — these events were hidden when user filtered by a specific agent since they are not agent-scoped; org:error in particular must always be visible
+- 0eda585f — fix(dashboard): pass run:start/run:complete through v2OrgSSE filter so LIVE badge and stop button update in real-time — boss emits run:start/run:complete (not org:start/org:stop); the type.startsWith('org:') filter blocked them so the org detail header and org list never showed LIVE when a run began or IDLE when it ended
+- 4c47a625 — fix(dashboard): show agent message counts on chat pills; dim silent agents; improve empty-filter message
+- 5ab290f1 — fix(dashboard): preserve chat session across tab switches — only reset on org-change
+- 0ad94b7d — fix(dashboard): preserve session event cache across chat tab refreshes
+- 33188257 — fix(dashboard): raise chat msg truncation 200→800 chars; visually group secondary org tabs
+- 072ad998 — fix(dashboard): auto-switch chat to new run on run:start so live comms are always visible
+- b8593387 — fix(dashboard): refresh agent bar pills live for org-run SSE events
+- 0af4ee63 — fix(dashboard): prevent duplicate chat messages during org-run lazy-load
