@@ -4110,7 +4110,7 @@ function appendChatViewEvent(ev, animate) {
   } else if (ev.type === 'intercom') {
     el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
   } else if (ev.type === 'org:comms') {
-    el = mkCVIntercom(ev.from || ev.org || '?', ev.to || '?', ev.msg || '', ts);
+    el = mkCVIntercom(ev.from || ev.role || ev.org || '?', ev.to || '?', ev.msg || '', ts);
   } else if (ev.type === 'org:agent:online') {
     el = mkCVSys('[' + esc(ev.org || '') + '] ' + esc(ev.role || ev.title || '?') + ' online' + (ev.title && ev.role && ev.title !== ev.role ? ' (' + esc(ev.title) + ')' : ''), ts);
   } else if (ev.type === 'org:checkpoint') {
@@ -4161,7 +4161,7 @@ function appendChatViewEvent(ev, animate) {
 
 function _cvExcerptText(ev) {
   const t = ev.type || '';
-  if (t === 'intercom' || t === 'org:comms') return (ev.from || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'intercom' || t === 'org:comms') return (ev.from || ev.role || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
   if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
   if (t === 'agent:spawn' || t === 'org:agent:online') return 'spawned ' + (ev.agent || ev.role || ev.title || '?');
   if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.summary || ev.progress || ev.msg || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
@@ -7013,7 +7013,9 @@ function _odtPopulateAgentBar(events, orgRoles) {
     (events || []).forEach(ev => {
       if (ev.type === 'org:agent:online' && ev.role) agentSet.add(ev.role);
       else if (ev.type === 'org:comms') {
-        if (ev.from && ev.from.length < 40) agentSet.add(ev.from);
+        // Support both ev.from (new format) and ev.role (old format) as sender
+        const _sf = ev.from || ev.role || '';
+        if (_sf && _sf.length < 40) agentSet.add(_sf);
         if (ev.to && ev.to !== 'all' && ev.to.length < 40) agentSet.add(ev.to);
       }
     });
@@ -7022,7 +7024,7 @@ function _odtPopulateAgentBar(events, orgRoles) {
   const msgCount = {};
   (events || []).forEach(ev => {
     if (ev.type === 'org:comms' || ev.type === 'agent:message') {
-      const sender = ev.from || ev.agent || '';
+      const sender = ev.from || ev.role || ev.agent || '';
       if (sender) msgCount[sender] = (msgCount[sender] || 0) + 1;
     }
   });
@@ -7082,8 +7084,10 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'run:complete') {
     el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
   } else if (ev.type === 'org:comms') {
-    if (ev.to && ev.to !== 'all' && ev.from) el = mkCVIntercom(ev.from || 'boss', ev.to, ev.msg || '', ts);
-    else el = mkCVAgent(ev.from || 'boss', ev.msg || '', ts, 'org:comms');
+    // Some older runs use ev.role instead of ev.from — normalise before rendering
+    const _commsFrom = ev.from || ev.role || 'boss';
+    if (ev.to && ev.to !== 'all' && ev.from) el = mkCVIntercom(_commsFrom, ev.to, ev.msg || '', ts);
+    else el = mkCVAgent(_commsFrom, ev.msg || '', ts, 'org:comms');
   } else if (ev.type === 'org:agent:online') {
     el = mkCVSys('◉ ' + esc(ev.title || ev.role || '?') + ' online', ts);
   } else if (ev.type === 'org:checkpoint') {
