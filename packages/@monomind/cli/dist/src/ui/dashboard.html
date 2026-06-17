@@ -1851,6 +1851,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn" data-tab="agents-full"  onclick="v2SwitchOrgTab('agents-full')">Agents</button>
             <div class="odt-tab-sep" title="Secondary tabs"></div>
             <button class="odt-btn secondary" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
+            <button class="odt-btn secondary" data-tab="costs"        onclick="v2SwitchOrgTab('costs')">Costs</button>
+            <button class="odt-btn secondary" data-tab="config"       onclick="v2SwitchOrgTab('config')">Config</button>
+            <button class="odt-btn secondary" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -1860,6 +1863,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-agents-full"></div>
             <div class="odt-pane" id="odt-chat" style="flex-direction:column;height:100%;overflow:hidden;"></div>
             <div class="odt-pane" id="odt-skills"></div>
+            <div class="odt-pane" id="odt-costs"></div>
+            <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
           </div>
         </div>
           <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.72);z-index:90;align-items:center;justify-content:center">
