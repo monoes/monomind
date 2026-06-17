@@ -4306,9 +4306,9 @@ function handleChatViewEvent(ev) {
       // runs before the event is flushed to disk (disk write and SSE broadcast race).
       chatVSessions[ev.session] = { id: ev.session, events: [ev], startedAt: ev.ts, status: 'running', prompt: ev.prompt || '' };
       loadChatViewSessions();
-      // Auto-switch to new session on session:start — mirrors org detail view's run:start
-      // auto-switch so users see new runs immediately without manually picking from dropdown.
-      if (ev.type === 'session:start' && currentView === 'chat') {
+      // Auto-switch to new session on session:start regardless of active view —
+      // #chat-v-feed is in the DOM even when hidden so chatVSelectSession pre-loads.
+      if (ev.type === 'session:start') {
         const _cvSel = document.getElementById('chat-v-sel');
         if (_cvSel) { _cvSel.value = ev.session; chatVSelectSession(ev.session); }
       }
@@ -4319,8 +4319,9 @@ function handleChatViewEvent(ev) {
       if (ev.type === 'session:complete') s.status = 'complete';
     }
     if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
-  } else if (isOrgEvent && currentView === 'chat') {
-    // Org events without a Claude session ID — show in chat feed regardless of selection
+  } else if (isOrgEvent) {
+    // Org events without a Claude session ID — append to feed regardless of active view;
+    // #chat-v-feed is in the DOM even when hidden, so events accumulate correctly.
     appendChatViewEvent(ev, true);
   }
 }
