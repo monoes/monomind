@@ -6799,6 +6799,23 @@ async function _odtLoadChatSessions() {
         if (!_odtChatSessions.find(s => s.id === ss.id)) _odtChatSessions.push(ss);
       });
       _odtPopulateChatSel();
+      // Also merge mastermind sessions matching this org — they are distinct from org
+      // runs (no runId/JSONL file) but contain lifecycle events the user needs to see.
+      // Orgs running via _repeat loops emit session:start/complete events to the mastermind
+      // event store; these never appear in the run list and are otherwise invisible.
+      try {
+        const _mmSessR = await apiFetch('/api/mastermind/sessions');
+        if (_v2SelOrg === _loadedForOrg) {
+          const _mmAll = Array.isArray(_mmSessR) ? _mmSessR : Object.values(_mmSessR.sessions || {});
+          const _mmMatch = _mmAll.filter(_odtOrgSessionMatch).filter(s => !_odtChatSessions.find(x => x.id === s.id));
+          if (_mmMatch.length) {
+            _mmMatch.forEach(s => { if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete'; });
+            _odtChatSessions = _odtChatSessions.concat(_mmMatch);
+            _odtChatSessions.sort((a, b) => (b.ts || b.startedAt || 0) - (a.ts || a.startedAt || 0));
+            _odtPopulateChatSel();
+          }
+        }
+      } catch(_) {}
       if (!_odtChatCurrentId && _odtChatSessions.length) {
         const first = _odtChatSessions[0];
         const sel = document.getElementById('odt-chat-sel');
