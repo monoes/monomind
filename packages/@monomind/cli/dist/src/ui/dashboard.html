@@ -6904,6 +6904,17 @@ function _odtAppendEvent(ev, animate) {
     el = mkCVSys('Loop: ' + esc(ev.command || ''), ts);
   } else if (ev.type === 'loop:complete') {
     el = mkCVSys('Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
+  } else if (ev.type === 'loop:tick') {
+    el = mkCVSys('Loop tick: ' + esc(ev.command || ev.loopId || ''), ts);
+  } else if (ev.type === 'loop:hil' || ev.type === 'loop:hil:waiting') {
+    el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.loopId || ''), ts);
+  } else if (ev.type === 'loop:hil:resolved') {
+    el = mkCVSys('✓ Loop HIL resolved: ' + esc(ev.loopId || ''), ts);
+  } else if (ev.type === 'org:error') {
+    el = mkCVSys('⚠ Error: ' + esc(ev.msg || ev.error || ev.message || ''), ts);
+    el.classList.add('cv-err');
+  } else if (ev.type === 'org:agent:offline') {
+    el = mkCVSys('◌ ' + esc(ev.title || ev.role || '?') + ' offline', ts);
   } else {
     return; // skip unknown event types silently
   }
