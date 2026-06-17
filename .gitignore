@@ -68,6 +68,7 @@
 .monomind/graph/
 .monomind/logs/
 .monomind/loops/
+.monomind/events/
 .monomind/traces/
 .monomind/security/
 .monomind/worker-dispatch/
