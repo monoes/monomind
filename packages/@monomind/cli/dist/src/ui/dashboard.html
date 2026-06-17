@@ -6908,6 +6908,10 @@ function _odtAppendEvent(ev, animate) {
   if (!_odtChatAgentMatches(ev)) return;
   const feed = document.getElementById('odt-chat-feed');
   if (!feed) return;
+  // Capture scroll position BEFORE appending: only auto-scroll for live events when
+  // the user is already at (or near) the bottom. If they scrolled up to read earlier
+  // messages a new event must not forcibly jump them back to the bottom.
+  const atBottom = !animate || (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80);
   const emptyEl = document.getElementById('odt-chat-empty');
   if (emptyEl) emptyEl.style.display = 'none';
   const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
@@ -6965,7 +6969,7 @@ function _odtAppendEvent(ev, animate) {
   }
   if (animate) el.classList.add('cv-new');
   feed.appendChild(el);
-  feed.scrollTop = feed.scrollHeight;
+  if (atBottom) feed.scrollTop = feed.scrollHeight;
 }
 
 function _odtConnectChatSSE() {
