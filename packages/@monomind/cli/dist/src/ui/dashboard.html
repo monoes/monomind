@@ -4034,6 +4034,10 @@ async function chatVSelectOrgRun(value) {
 
 async function loadChatViewSessions() {
   try {
+    // Snapshot SSE-seeded sessions before the async fetch — the API response may not yet
+    // include events that arrived via SSE right before the fetch, so we preserve their
+    // buffered events and merge them back after (same pattern as _odtLoadChatSessions).
+    const _prevChatSessions = { ...chatVSessions };
     const data = await apiFetch('/api/mastermind/sessions');
     chatVSessions = {};
     const sel = document.getElementById('chat-v-sel');
@@ -4049,11 +4053,28 @@ async function loadChatViewSessions() {
       const ts = tsVal ? new Date(tsVal).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
       // Show prompt (session goal) instead of raw ID — fall back to truncated ID when prompt absent
       const label = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0, 40) || s.id.slice(0, 16);
+      // Preserve SSE-seeded events that may not have been written to disk yet
+      if (_prevChatSessions[s.id] && (_prevChatSessions[s.id].events || []).length > (s.events || []).length) {
+        s.events = _prevChatSessions[s.id].events;
+      }
       const evCount = (s.events || []).length;
       const msgPart = evCount ? '  ' + evCount + ' ev' : '';
       opt.textContent = label + (ts ? '  ' + ts : '') + msgPart + (s.status === 'running' ? '  ●' : '');
       sel.appendChild(opt);
       chatVSessions[s.id] = s;
+    });
+    // Re-attach SSE-only sessions not yet in the API response (arrived during fetch)
+    Object.values(_prevChatSessions).forEach(ps => {
+      if (!chatVSessions[ps.id]) {
+        chatVSessions[ps.id] = ps;
+        const opt = document.createElement('option');
+        opt.value = ps.id;
+        const tsVal = ps.startedAt || 0;
+        const ts = tsVal ? new Date(tsVal).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+        const label = (ps.prompt || '').replace(/^running org:\s*/i, '').slice(0, 40) || ps.id.slice(0, 16);
+        opt.textContent = label + (ts ? '  ' + ts : '') + '  ●';
+        sel.appendChild(opt);
+      }
     });
     if (prev && chatVSessions[prev]) { sel.value = prev; }
     else {
@@ -4323,13 +4344,15 @@ function handleChatViewEvent(ev) {
   if (!ev.session && !isOrgEvent) return;
   if (ev.session) {
     if (!chatVSessions[ev.session]) {
-      chatVSessions[ev.session] = { id: ev.session, events: [], startedAt: ev.ts, status: 'running' };
+      // Seed events with the triggering event so it isn't lost if loadChatViewSessions
+      // runs before the event is flushed to disk (disk write and SSE broadcast race).
+      chatVSessions[ev.session] = { id: ev.session, events: [ev], startedAt: ev.ts, status: 'running', prompt: ev.prompt || '' };
       loadChatViewSessions();
     } else {
       const s = chatVSessions[ev.session];
       s.events = s.events || [];
       s.events.push(ev);
-      if (ev.type === 'session:complete') s.status = 'complete';
+      if (ev.type === 'session:complete') s.status = ev.status || 'complete';
     }
     if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
   } else if (isOrgEvent && currentView === 'chat') {
