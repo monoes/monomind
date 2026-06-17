@@ -509,10 +509,33 @@ tmp="${ORG_FILE}.tmp"
 jq '.loop.last_run = (now|todate)' "$ORG_FILE" > "$tmp" && mv "$tmp" "$ORG_FILE"
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+# Unique run ID — used to thread all events in the Chat tab under one session
+RUN_ID="run-$(date -u +%Y%m%dT%H%M%S)"
+# Capture Claude project dir for per-agent token tracking
+CLAUDE_PROJECT_DIR="$HOME/.claude/projects/$(echo "$REPO_ROOT" | tr '/' '-' | sed 's/^-//')"
+
+# Comm helper — emits org:comms so Chat tab shows agent-to-agent messages
+_comm() {
+  local _from="$1" _to="$2" _msg="$3"
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+    -H "Content-Type: application/json" \
+    -d "$(jq -cn \
+      --arg org "<org_name>" \
+      --arg runId "$RUN_ID" \
+      --arg from "$_from" \
+      --arg to "$_to" \
+      --arg msg "$_msg" \
+      '{type:"org:comms",org:$org,runId:$runId,from:$from,to:$to,msg:$msg,ts:(now*1000|floor)}')" || true
+}
+
+# Register this run with the server — creates run file and enables Chat tab dropdown
 curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
-  -d "$(jq -cn --arg org "<org_name>" --arg proj "$REPO_ROOT" \
-    '{type:"org:loop:start",org:$org,project:$proj,ts:(now*1000|floor)}')" || true
+  -d "$(jq -cn \
+    --arg org "<org_name>" \
+    --arg runId "$RUN_ID" \
+    --arg goal "<goal>" \
+    '{type:"run:start",org:$org,runId:$runId,goal:$goal,ts:(now*1000|floor)}')" || true
 ```
 
 ---
@@ -524,6 +547,55 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 <For a GitHub issue-resolver org, these would be: find next issue, claim it, implement, test, deploy, report.>
 <For a content org, these would be: check content calendar, assign writers, review drafts, publish.>
 <Derive from orgConfig.goal and orgConfig.roles[].responsibilities — be specific.>
+
+**REQUIRED — include these patterns at every agent handoff:**
+
+1. **Before spawning each agent**, snapshot the Claude project JSONL files and emit a `_comm` from the dispatching role to the receiving role describing the task:
+   ```bash
+   JSONL_SNAP_<N>=$(ls -t "$CLAUDE_PROJECT_DIR"/*.jsonl 2>/dev/null | head -20 | sort)
+   _comm "<dispatcher-role-id>" "<agent-role-id>" "Task: <what the agent is being asked to do>"
+   ```
+
+2. **After the agent returns**, emit a `_comm` from that agent back to its caller with the result summary, then emit its token usage:
+   ```bash
+   JSONL_SNAP_<N+1>=$(ls -t "$CLAUDE_PROJECT_DIR"/*.jsonl 2>/dev/null | head -20 | sort)
+   NEW_JSONL=$(comm -13 <(echo "$JSONL_SNAP_<N>") <(echo "$JSONL_SNAP_<N+1>") | head -1)
+   _comm "<agent-role-id>" "<dispatcher-role-id>" "Result: <one-sentence summary of what the agent returned>"
+   if [ -n "$NEW_JSONL" ] && [ -f "$NEW_JSONL" ]; then
+     USAGE=$(python3 -c "
+   import json, sys
+   tin=tout=0
+   for l in open(sys.argv[1]):
+     try:
+       d=json.loads(l)
+       u=d.get('message',{}).get('usage',{})
+       tin+=u.get('input_tokens',0); tout+=u.get('output_tokens',0)
+     except: pass
+   cost=tin*3e-6+tout*15e-6
+   print(json.dumps({'tokens_in':tin,'tokens_out':tout,'cost_usd':round(cost,6)}))
+   " "$NEW_JSONL" 2>/dev/null || echo '{"tokens_in":0,"tokens_out":0,"cost_usd":0}')
+     curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+       -H "Content-Type: application/json" \
+       -d "$(echo "$USAGE" | jq \
+         --arg org "<org_name>" \
+         --arg role "<agent-role-id>" \
+         --arg runId "$RUN_ID" \
+         '. + {type:"agent:usage",org:$org,role:$role,runId:$runId,ts:(now*1000|floor|tostring|tonumber)}')" || true
+   fi
+   ```
+
+3. Use the actual content from the agent's return value in the `_comm` `msg` field — not a generic placeholder. The Chat tab shows this text verbatim.
+
+4. At cycle end (before Schedule Next), emit the completion comms and event:
+   ```bash
+   _comm "<boss-role-id>" "sys" "Cycle complete: <one-line summary of what was accomplished>"
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+     -H "Content-Type: application/json" \
+     -d "$(jq -cn \
+       --arg org "<org_name>" \
+       --arg runId "$RUN_ID" \
+       '{type:"org:cycle:complete",org:$org,runId:$runId,ts:(now*1000|floor)}')" || true
+   ```
 
 ---
 
