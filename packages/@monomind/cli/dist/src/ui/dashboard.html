@@ -7596,7 +7596,9 @@ function filterOrgList(q) {
 (function v2OrgSSE() {
   let src;
   let seenKeys = new Set();
+  let reconnectTimer = null;
   function connect() {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     if (src) src.close();
     seenKeys = new Set();
     src = new EventSource('/api/mastermind-stream');
@@ -7671,7 +7673,13 @@ function filterOrgList(q) {
         }
       } catch(_) {}
     };
-    src.onerror = () => setTimeout(connect, 5000);
+    src.onerror = () => {
+      // Close immediately to stop browser's built-in auto-retry (zombie window).
+      // Guard reconnectTimer so multiple onerror firings don't stack timers that
+      // would then cancel each other's freshly-created connections.
+      const _s = src; src = null; if (_s) _s.close();
+      if (!reconnectTimer) reconnectTimer = setTimeout(connect, 5000);
+    };
   }
   connect();
 })();
