@@ -6809,7 +6809,14 @@ async function _odtLoadChatSessions() {
           const _mmAll = Array.isArray(_mmSessR) ? _mmSessR : Object.values(_mmSessR.sessions || {});
           const _mmMatch = _mmAll.filter(_odtOrgSessionMatch).filter(s => !_odtChatSessions.find(x => x.id === s.id));
           if (_mmMatch.length) {
-            _mmMatch.forEach(s => { if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete'; });
+            _mmMatch.forEach(s => {
+              if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete';
+              // Mark events as loaded for complete sessions that already carry the full events[]
+              // from /api/mastermind/sessions — avoids a redundant /api/mastermind/session/:id
+              // fetch (and the "Loading session events…" spinner) on first select.
+              // Running sessions are NOT marked loaded so they still get a fresh fetch.
+              if (s.status !== 'running' && Array.isArray(s.events) && s.events.length > 0) s._eventsLoaded = true;
+            });
             _odtChatSessions = _odtChatSessions.concat(_mmMatch);
             _odtChatSessions.sort((a, b) => (b.ts || b.startedAt || 0) - (a.ts || a.startedAt || 0));
             _odtPopulateChatSel();
@@ -6854,23 +6861,27 @@ function _odtPopulateChatSel() {
   if (document.activeElement === sel) return;
   const prev = _odtChatCurrentId || sel.value;
   const count = _odtChatSessions.length;
-  sel.innerHTML = `<option value="">${count ? `— ${count} run${count !== 1 ? 's' : ''} for ${_v2SelOrg} —` : '— no runs yet —'}</option>`;
+  const hasRuns = _odtChatSessions.some(s => s._isOrgRun);
+  const hasSess = _odtChatSessions.some(s => !s._isOrgRun);
+  const entryLabel = (hasRuns && hasSess) ? 'entries' : hasRuns ? `run${count !== 1 ? 's' : ''}` : `session${count !== 1 ? 's' : ''}`;
+  sel.innerHTML = `<option value="">${count ? `— ${count} ${entryLabel} for ${_v2SelOrg} —` : '— no runs yet —'}</option>`;
   _odtChatSessions.forEach(s => {
     const d = new Date(s.ts || s.startedAt || 0);
     const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
-    const prompt = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0,40);
+    const prompt = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0,38);
     const meta = s._runMeta;
-    const extra = meta ? ` · ${meta.cycleCount||0}cyc · ${meta.eventCount||0}ev` : '';
+    const extra = meta ? ` · ${meta.cycleCount||0}cyc · ${meta.eventCount||0}ev` : (Array.isArray(s.events) && s.events.length > 0 ? ` · ${s.events.length}ev` : '');
+    const typeTag = s._isOrgRun ? '[R]' : '[S]';
     const opt = document.createElement('option');
     opt.value = s.id;
-    opt.textContent = `${date} ${ts}  ${prompt}${prompt.length>=40?'…':''}${extra}  [${s.status||'?'}]`;
+    opt.textContent = `${typeTag} ${date} ${ts}  ${prompt}${prompt.length>=38?'…':''}${extra}  [${s.status||'?'}]`;
     if (s.id === prev) opt.selected = true;
     sel.appendChild(opt);
   });
-  // Update label to reflect whether this org uses structured runs or mastermind sessions
+  // Update label: HISTORY when both runs and sessions exist, else RUN or SESSION
   const _lblEl = document.getElementById('odt-chat-sess-lbl');
-  if (_lblEl) _lblEl.textContent = _odtChatSessions.some(s => s._isOrgRun) ? 'RUN' : 'SESSION';
+  if (_lblEl) _lblEl.textContent = (hasRuns && hasSess) ? 'HISTORY' : hasRuns ? 'RUN' : 'SESSION';
   // Auto-select running session
   if (!_odtChatCurrentId) {
     const running = _odtChatSessions.find(s => s.status === 'running');
