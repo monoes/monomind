@@ -4102,11 +4102,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const lines = fs.readFileSync(threadsFile, 'utf8').split('\n').filter(l => l.trim());
           threads = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
+          // Group 'message' entries (from org:comms) by run_id into synthetic thread objects
+          const msgsByRun = {};
+          threads.filter(t => t.type === 'message').forEach(m => {
+            const rid = m.run_id || 'unknown';
+            if (!msgsByRun[rid]) msgsByRun[rid] = { id: `thread-${rid}`, type: 'thread', subject: `Run ${rid}`, run_id: rid, createdAt: m.ts, messages: [] };
+            msgsByRun[rid].messages.push({ from: m.from, to: m.to, msg: m.msg, ts: m.ts });
+          });
+          const syntheticThreads = Object.values(msgsByRun).map(t => ({ ...t, messageCount: t.messages.length, author: t.messages[0]?.from || null }));
           threads = threads.filter(t => t.type === 'thread' || !t.type).map(t => ({
             ...t,
             author: t.author || t.authorName || t.createdBy || t.authorId || null,
             messageCount: t.messageCount != null ? t.messageCount : (Array.isArray(t.messages) ? t.messages.length : (typeof t.messages === 'number' ? t.messages : null)),
           }));
+          threads = [...threads, ...syntheticThreads];
         } catch(_) {}
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ threads }));
@@ -4158,15 +4167,48 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // GET /api/org/:name/routines — read org routines
+    // GET /api/org/:name/routines — read org routines (falls back to synthesizing from org config's loop object)
     if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/routines$/i)) {
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
         const _routinesQs = new URL(req.url, 'http://localhost').searchParams;
-        const routinesFile = path.join(path.resolve(_routinesQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs', `${orgName}-routines.json`);
+        const _routinesBase = path.resolve(_routinesQs.get('dir') || projectDir || process.cwd());
+        const routinesFile = path.join(_routinesBase, '.monomind', 'orgs', `${orgName}-routines.json`);
         let data = { routines: [] };
         try { data = JSON.parse(fs.readFileSync(routinesFile, 'utf8')); } catch(_) {}
+        // Synthesize routines from org config's loop/schedule settings when no explicit routines are defined
+        if (!data.routines || !data.routines.length) {
+          try {
+            const orgCfg = JSON.parse(fs.readFileSync(path.join(_routinesBase, '.monomind', 'orgs', `${orgName}.json`), 'utf8'));
+            const loop = orgCfg.loop;
+            if (loop && (loop.poll_interval_minutes || loop.interval_minutes)) {
+              const intervalMin = loop.poll_interval_minutes || loop.interval_minutes;
+              data.routines = [{
+                name: `${orgName}-cycle`,
+                description: orgCfg.goal ? orgCfg.goal.slice(0, 120) : 'Org iteration cycle',
+                schedule: `every ${intervalMin}m`,
+                cron: null,
+                enabled: orgCfg.status === 'active',
+                status: orgCfg.status || 'stopped',
+                prompt_file: loop.run_prompt_file || null,
+                source: 'loop-config',
+                lastRun: null,
+              }];
+            } else if (orgCfg.schedule) {
+              data.routines = [{
+                name: `${orgName}-schedule`,
+                description: orgCfg.goal ? orgCfg.goal.slice(0, 120) : 'Org scheduled run',
+                schedule: String(orgCfg.schedule),
+                cron: null,
+                enabled: orgCfg.status === 'active',
+                status: orgCfg.status || 'stopped',
+                source: 'schedule-config',
+                lastRun: null,
+              }];
+            }
+          } catch(_) {}
+        }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ routines: data.routines || [] }));
       } catch(_) { res.writeHead(500); res.end('{"routines":[]}'); }
@@ -4507,6 +4549,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             if (event.type === 'org:comms') {
               const _conv = { ts: event.ts, run_id: _rid, from: event.from, to: event.to, msg: event.msg };
               fs.appendFileSync(path.join(_runDir, `${_rid}.convs.jsonl`), JSON.stringify(_conv) + '\n');
+              // Also write to org-level threads.jsonl so the dashboard Threads tab shows agent conversations
+              const _orgThreadsFile = path.join(root, '.monomind', 'orgs', `${_orn}-threads.jsonl`);
+              const _thread = { type: 'message', id: `${_rid}-${event.ts}`, run_id: _rid, ts: event.ts, from: event.from, to: event.to, msg: event.msg, subject: `Run ${_rid}` };
+              try { fs.appendFileSync(_orgThreadsFile, JSON.stringify(_thread) + '\n'); } catch(_) {}
             }
           }
         } catch (_) {}
