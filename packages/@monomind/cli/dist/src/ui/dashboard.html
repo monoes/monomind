@@ -6771,7 +6771,10 @@ async function _odtLoadChatSessions() {
     const r = await apiFetch('/api/mastermind/sessions');
     if (_v2SelOrg !== _loadedForOrg) return;
     const all = Array.isArray(r) ? r : Object.values(r.sessions || {});
-    _odtChatSessions = all.filter(_odtOrgSessionMatch);
+    _odtChatSessions = all.filter(_odtOrgSessionMatch).map(s => {
+      if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete';
+      return s;
+    });
     _odtPopulateChatSel();
   } catch(_) {}
 }
@@ -7099,7 +7102,7 @@ function _odtHandleLiveEvent(ev) {
   }
   if (sess) {
     (sess.events = sess.events || []).push(ev);
-    if (ev.type === 'session:complete') { sess.status = ev.status || 'complete'; _odtPopulateChatSel(); }
+    if (ev.type === 'session:complete') { sess.status = 'complete'; _odtPopulateChatSel(); }
     if (_odtChatCurrentId === ev.session && _v2OrgTab === 'chat') {
       const hasNewAgent = (ev.agent && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.agent)}"]`))
         || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
