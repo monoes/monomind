@@ -6700,7 +6700,7 @@ async function v2RenderOrgChat() {
       </div>
       <div id="odt-chat-excerpt" class="cv-excerpt-banner"></div>
       <div id="odt-chat-feed">
-        <div id="odt-chat-empty">Select a run to see agent communications.<br><span style="font-size:10px;opacity:0.5">Runs appear after the first /mastermind:runorg</span></div>
+        <div id="odt-chat-empty">Select a session to see agent communications.<br><span style="font-size:10px;opacity:0.5">Sessions appear after the first /mastermind:runorg</span></div>
       </div>`;
   }
 
@@ -6718,7 +6718,7 @@ async function v2RenderOrgChat() {
     document.getElementById('odt-chat-agent-bar').style.display = 'none';
     document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
     const emptyEl = document.getElementById('odt-chat-empty');
-    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a run to see agent communications.'; }
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a session to see agent communications.'; }
   }
 
   await _odtLoadChatSessions();
@@ -6730,9 +6730,13 @@ async function v2RenderOrgChat() {
     if (_catchSess && (_catchSess._eventsLoaded || !_catchSess._isOrgRun)) {
       const _catchFeed = document.getElementById('odt-chat-feed');
       if (_catchFeed) {
-        _catchFeed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+        _catchFeed.querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
         (_catchSess.events || []).filter(ev => _odtChatAgentMatches(ev)).forEach(ev => _odtAppendEvent(ev, false));
         _catchFeed.scrollTop = _catchFeed.scrollHeight;
+      }
+      // Refresh excerpt banner so last-activity summary stays current after tab-return
+      if (!_catchSess._isOrgRun && (_catchSess.events || []).length) {
+        renderCvExcerptBanner('odt-chat-excerpt', _catchSess.events, _catchSess);
       }
     }
   }
@@ -6829,6 +6833,9 @@ function _odtPopulateChatSel() {
     if (s.id === prev) opt.selected = true;
     sel.appendChild(opt);
   });
+  // Update label to reflect whether this org uses structured runs or mastermind sessions
+  const _lblEl = document.getElementById('odt-chat-sess-lbl');
+  if (_lblEl) _lblEl.textContent = _odtChatSessions.some(s => s._isOrgRun) ? 'RUN' : 'SESSION';
   // Auto-select running session
   if (!_odtChatCurrentId) {
     const running = _odtChatSessions.find(s => s.status === 'running');
@@ -6842,7 +6849,7 @@ window.odtChatSelectSession = async function(id) {
   const feed = document.getElementById('odt-chat-feed');
   const emptyEl = document.getElementById('odt-chat-empty');
   const bar = document.getElementById('odt-chat-agent-bar');
-  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+  feed.querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
   if (!id) {
     if (emptyEl) emptyEl.style.display = 'block';
     if (bar) bar.style.display = 'none';
@@ -6902,17 +6909,42 @@ window.odtChatSelectSession = async function(id) {
   // Agent pills from org config roles (authoritative list, not derived from events)
   const orgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
   _odtPopulateAgentBar(sess.events || [], orgRoles);
-  // No excerpt banner for structured org run sessions
+  // Inject session metadata header for session-based (non-_isOrgRun) sessions so the
+  // user can see prompt, ID, start time, and status without opening a separate tab.
+  // Org run sessions already get a summary header from the dropdown label + run meta.
   const ex = document.getElementById('odt-chat-excerpt');
-  if (ex) ex.innerHTML = '';
+  if (!sess._isOrgRun) {
+    const _shdrTs = sess.ts || sess.startedAt || 0;
+    const _shdrTsStr = _shdrTs ? new Date(_shdrTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    const _shdrPrompt = (sess.prompt || '').replace(/^running org:\s*/i, '').slice(0, 100) || id;
+    const _shdrSt = sess.status || 'unknown';
+    const _shdrStCls = _shdrSt === 'running' ? 'color:oklch(65% 0.20 145)' : _shdrSt === 'complete' ? 'color:var(--text-lo)' : 'color:var(--text-xs)';
+    const _shdr = document.createElement('div');
+    _shdr.className = 'cv-session-hdr';
+    _shdr.innerHTML = `<div class="cv-shdr-prompt">${esc(_shdrPrompt)}</div>`+
+      `<div class="cv-shdr-meta">`+
+        `<span class="cv-shdr-id" title="${esc(id)}">${esc(id.slice(0,22))}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span style="${_shdrStCls}">${esc(_shdrSt)}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span>${esc(_shdrTsStr)}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span>${(sess.events || []).length} events</span>`+
+      `</div>`;
+    feed.appendChild(_shdr);
+    // Populate excerpt banner to show last activity for historical sessions
+    if (ex) { if ((sess.events || []).length) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess); else ex.innerHTML = ''; }
+  } else {
+    if (ex) ex.innerHTML = '';
+  }
   (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
   // If nothing was rendered (empty run or all events unknown type), show a clear empty state
   // instead of leaving the user with a blank white feed and no feedback.
   if (!feed.querySelector('.cv-msg') && emptyEl) {
     emptyEl.style.display = 'block';
     emptyEl.textContent = (sess.events && sess.events.length)
-      ? 'No displayable events for this run.'
-      : 'No events for this run yet.';
+      ? 'No displayable events.'
+      : 'No events yet.';
   }
   feed.scrollTop = feed.scrollHeight;
 };
