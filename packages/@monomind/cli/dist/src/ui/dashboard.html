@@ -6731,6 +6731,24 @@ async function v2RenderOrgChat() {
       const _catchFeed = document.getElementById('odt-chat-feed');
       if (_catchFeed) {
         _catchFeed.querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
+        // Re-inject session header for session-based (non-_isOrgRun) sessions — was removed above
+        if (!_catchSess._isOrgRun) {
+          const _cTs = _catchSess.ts || _catchSess.startedAt || 0;
+          const _cTsStr = _cTs ? new Date(_cTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+          const _cPrompt = (_catchSess.prompt || '').replace(/^running org:\s*/i, '').slice(0, 100) || _odtChatCurrentId;
+          const _cSt = _catchSess.status || 'unknown';
+          const _cStCls = _cSt === 'running' ? 'color:oklch(65% 0.20 145)' : _cSt === 'complete' ? 'color:var(--text-lo)' : 'color:var(--text-xs)';
+          const _cHdr = document.createElement('div');
+          _cHdr.className = 'cv-session-hdr';
+          _cHdr.innerHTML = `<div class="cv-shdr-prompt">${esc(_cPrompt)}</div>`+
+            `<div class="cv-shdr-meta">`+
+              `<span class="cv-shdr-id" title="${esc(_odtChatCurrentId)}">${esc(_odtChatCurrentId.slice(0,22))}</span>`+
+              `<span class="cv-shdr-sep">·</span><span style="${_cStCls}">${esc(_cSt)}</span>`+
+              `<span class="cv-shdr-sep">·</span><span>${esc(_cTsStr)}</span>`+
+              `<span class="cv-shdr-sep">·</span><span>${(_catchSess.events||[]).length} events</span>`+
+            `</div>`;
+          _catchFeed.appendChild(_cHdr);
+        }
         (_catchSess.events || []).filter(ev => _odtChatAgentMatches(ev)).forEach(ev => _odtAppendEvent(ev, false));
         _catchFeed.scrollTop = _catchFeed.scrollHeight;
       }
