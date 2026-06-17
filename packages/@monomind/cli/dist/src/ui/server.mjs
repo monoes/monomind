@@ -4077,7 +4077,44 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             total_cost_usd: s.total_cost_usd || 0,
           }));
         } catch(_) {}
-        // Also include roles from org config if state is empty
+        // Scan org run jsonl files for agent:usage events (fallback when state.json has no token data)
+        const _hasTokenData = agents.some(a => a.tokens_in > 0 || a.tokens_out > 0 || a.total_cost_usd > 0);
+        if (!_hasTokenData) {
+          try {
+            const _runsDir = path.join(base, orgName, 'runs');
+            if (fs.existsSync(_runsDir)) {
+              const _usageByRole = {};
+              for (const f of fs.readdirSync(_runsDir)) {
+                if (!f.endsWith('.jsonl')) continue;
+                const lines = fs.readFileSync(path.join(_runsDir, f), 'utf8').split('\n').filter(Boolean);
+                for (const l of lines) {
+                  try {
+                    const ev = JSON.parse(l);
+                    if (ev.type === 'agent:usage' && ev.role) {
+                      const role = String(ev.role).trim();
+                      if (!_usageByRole[role]) _usageByRole[role] = { tokens_in: 0, tokens_out: 0, total_cost_usd: 0 };
+                      _usageByRole[role].tokens_in += Number(ev.tokens_in) || 0;
+                      _usageByRole[role].tokens_out += Number(ev.tokens_out) || 0;
+                      _usageByRole[role].total_cost_usd += Number(ev.cost_usd) || 0;
+                    }
+                  } catch(_) {}
+                }
+              }
+              if (Object.keys(_usageByRole).length > 0) {
+                // Merge usage into agents list; preserve role titles
+                agents = agents.map(a => {
+                  const u = _usageByRole[a.id] || {};
+                  return { ...a, tokens_in: u.tokens_in || 0, tokens_out: u.tokens_out || 0, total_cost_usd: u.total_cost_usd || 0 };
+                });
+                // Add any roles that appeared in events but aren't in config
+                for (const [role, u] of Object.entries(_usageByRole)) {
+                  if (!agents.find(a => a.id === role)) agents.push({ id: role, title: role, ...u });
+                }
+              }
+            }
+          } catch(_) {}
+        }
+        // Populate roles from org config if agents list is still empty
         if (!agents.length) {
           try {
             const org = JSON.parse(fs.readFileSync(path.join(base, `${orgName}.json`), 'utf8'));
@@ -4548,6 +4585,27 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
             fs.mkdirSync(_runDir, { recursive: true });
             fs.appendFileSync(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
+            // agent:usage — persist per-role token/cost data to state.json (accumulated across runs)
+            if (event.type === 'agent:usage' && event.role) {
+              try {
+                const _arole = String(event.role).trim();
+                if (_arole.length > 0 && _arole.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_arole)) {
+                  const _stateFile = path.join(root, '.monomind', 'orgs', `${_orn}-state.json`);
+                  let _st = {};
+                  try { _st = JSON.parse(fs.readFileSync(_stateFile, 'utf8')); } catch(_e) {}
+                  if (!_st.agents) _st.agents = {};
+                  const _ex = _st.agents[_arole] || {};
+                  _st.agents[_arole] = {
+                    ..._ex,
+                    tokens_in: (_ex.tokens_in || 0) + (Number(event.tokens_in) || 0),
+                    tokens_out: (_ex.tokens_out || 0) + (Number(event.tokens_out) || 0),
+                    total_cost_usd: (_ex.total_cost_usd || 0) + (Number(event.cost_usd) || 0),
+                    lastUpdated: event.ts,
+                  };
+                  fs.writeFileSync(_stateFile, JSON.stringify(_st, null, 2));
+                }
+              } catch(_e) {}
+            }
             // Solution 3: dedicated conversation log — org:comms only, for easy replay
             if (event.type === 'org:comms') {
               const _conv = { ts: event.ts, run_id: _rid, from: event.from, to: event.to, msg: event.msg };
