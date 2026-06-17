@@ -7882,8 +7882,8 @@ function filterOrgList(q) {
       try {
         const ev = JSON.parse(e.data);
         if (!ev?.org) return;
-        if (!ev?.type?.startsWith('org:') && ev?.type !== 'run:start' && ev?.type !== 'run:complete') return;
-        const _sk = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.org||'') + '|' + (ev.runId||ev.session||'') + '|' + (ev.from||'') + '|' + (ev.msg||'').slice(0,20);
+        if (!ev?.type?.startsWith('org:') && ev?.type !== 'run:start' && ev?.type !== 'run:complete' && ev?.type !== 'run:cycle:complete') return;
+        const _sk = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.org||'') + '|' + (ev.runId||ev.session||'') + '|' + (ev.from||ev.role||'') + '|' + (ev.msg||'').slice(0,20);
         if (seenKeys.has(_sk)) return;
         seenKeys.add(_sk);
         if (seenKeys.size > 2000) { const _a = [...seenKeys]; seenKeys = new Set(_a.slice(1000)); }
