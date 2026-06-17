@@ -278,6 +278,11 @@
           },
           {
             "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" subagent-start",
+            "timeout": 4000
+          },
+          {
+            "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" subagent-start",
             "timeout": 2000
           }
@@ -287,6 +292,11 @@
     "SubagentStop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" subagent-stop",
+            "timeout": 8000
+          },
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" subagent-stop",

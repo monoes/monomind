@@ -4572,6 +4572,17 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         if (event.runId) activeOrgRuns.set(_orgKey, String(event.runId).trim());
         else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
         if (event.type === 'run:complete' || event.type === 'org:complete') activeOrgRuns.delete(_orgKey);
+        // Persist active-run.json so capture-handler.cjs can find the current org/runId without HTTP calls
+        try {
+          const _captureDir = path.join(root, '.monomind', 'capture');
+          const _activeRunFile = path.join(_captureDir, 'active-run.json');
+          if (event.type === 'run:start' && event.org && event.runId) {
+            fs.mkdirSync(_captureDir, { recursive: true });
+            fs.writeFileSync(_activeRunFile, JSON.stringify({ org: String(event.org).trim(), runId: String(event.runId).trim(), ts: Date.now() }));
+          } else if ((event.type === 'run:complete' || event.type === 'org:complete') && fs.existsSync(_activeRunFile)) {
+            fs.unlinkSync(_activeRunFile);
+          }
+        } catch(_e) {}
       }
       try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
       // Persist to git-safe run file (survives branch switches + shared across worktrees)
