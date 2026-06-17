@@ -6928,7 +6928,7 @@ function _odtAppendEvent(ev, animate) {
   if (ev.type === 'run:start') {
     el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + esc(ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + esc(ev.bossRole) : ''), ts);
   } else if (ev.type === 'run:cycle:complete') {
-    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + ev.pending + ' tasks pending' : ''), ts);
+    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + esc(String(ev.pending)) + ' tasks pending' : ''), ts);
   } else if (ev.type === 'run:complete') {
     el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
   } else if (ev.type === 'org:comms') {
@@ -6964,7 +6964,7 @@ function _odtAppendEvent(ev, animate) {
     el = mkCVSys('Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
   } else if (ev.type === 'loop:tick') {
     const tickLabel = ev.rep != null
-      ? 'rep ' + ev.rep + ' done' + (ev.nextRep != null ? ' → rep ' + ev.nextRep + ' in ' + (ev.wait || '?') + 's' : '')
+      ? 'rep ' + esc(String(ev.rep)) + ' done' + (ev.nextRep != null ? ' → rep ' + esc(String(ev.nextRep)) + ' in ' + esc(String(ev.wait || '?')) + 's' : '')
       : esc(ev.command || ev.loopId || '');
     el = mkCVSys('◷ ' + tickLabel, ts);
     el.dataset.evType = 'loop:tick';
