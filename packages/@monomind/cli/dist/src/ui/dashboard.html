@@ -7035,10 +7035,11 @@ function _odtHandleLiveEvent(ev) {
       // while _odtLoadChatSessions fetch is still in-flight (opening Chat tab mid-run).
       // For run:start: full setup + auto-switch. For other types: minimal placeholder
       // with _eventsLoaded:false so lazy-load fetches full history when selected.
-      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || ev.runId, status: 'running', _isOrgRun: true, _eventsLoaded: ev.type === 'run:start', _runMeta: { cycleCount: 0, eventCount: 0 }, events: [ev] };
+      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || ev.runId, status: 'running', _isOrgRun: true, _eventsLoaded: ev.type === 'run:start', _runMeta: { cycleCount: 0, eventCount: 1 }, events: [ev] };
       _odtChatSessions.unshift(runSess);
+      // Always update the dropdown so the run is selectable even when opened mid-run
+      _odtPopulateChatSel();
       if (ev.type === 'run:start') {
-        _odtPopulateChatSel();
         // Auto-switch to the new run whenever Chat tab is active — new runs supersede old ones.
         // Without this, org:comms from the new run are buffered but never displayed since
         // _odtChatCurrentId still points to the previous run.
@@ -7065,10 +7066,14 @@ function _odtHandleLiveEvent(ev) {
   }
 
   if (!ev?.session) return;
-  const isOrgSess = _odtOrgSessionMatch({ id: ev.session, prompt: ev.prompt || '', events: [ev] });
-  if (!isOrgSess) return;
-
+  // Find existing session first — if already in our list it's been validated as belonging to
+  // this org, so skip the prompt-based org check that would falsely drop events whose
+  // individual payloads don't carry an ev.org field (e.g. intercom, agent:message).
   let sess = _odtChatSessions.find(s => s.id === ev.session);
+  if (!sess) {
+    const isOrgSess = _odtOrgSessionMatch({ id: ev.session, prompt: ev.prompt || '', events: [ev] });
+    if (!isOrgSess) return;
+  }
   if (!sess && ev.type === 'session:start') {
     sess = { id: ev.session, ts: ev.ts || Date.now(), prompt: ev.prompt || '', status: 'running', events: [ev] };
     _odtChatSessions.unshift(sess);
