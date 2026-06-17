@@ -4013,6 +4013,8 @@ async function loadChatViewSessions() {
       if (_prevChatSessions[s.id] && (_prevChatSessions[s.id].events || []).length > (s.events || []).length) {
         s.events = _prevChatSessions[s.id].events;
       }
+      // Normalize completed status — API may store 'ok'/'success' instead of 'complete'
+      if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete';
       const evCount = (s.events || []).length;
       const msgPart = evCount ? '  ' + evCount + ' ev' : '';
       opt.textContent = label + (ts ? '  ' + ts : '') + msgPart + (s.status === 'running' ? '  ●' : '');
@@ -4304,11 +4306,17 @@ function handleChatViewEvent(ev) {
       // runs before the event is flushed to disk (disk write and SSE broadcast race).
       chatVSessions[ev.session] = { id: ev.session, events: [ev], startedAt: ev.ts, status: 'running', prompt: ev.prompt || '' };
       loadChatViewSessions();
+      // Auto-switch to new session on session:start — mirrors org detail view's run:start
+      // auto-switch so users see new runs immediately without manually picking from dropdown.
+      if (ev.type === 'session:start' && currentView === 'chat') {
+        const _cvSel = document.getElementById('chat-v-sel');
+        if (_cvSel) { _cvSel.value = ev.session; chatVSelectSession(ev.session); }
+      }
     } else {
       const s = chatVSessions[ev.session];
       s.events = s.events || [];
       s.events.push(ev);
-      if (ev.type === 'session:complete') s.status = ev.status || 'complete';
+      if (ev.type === 'session:complete') s.status = 'complete';
     }
     if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
   } else if (isOrgEvent && currentView === 'chat') {
