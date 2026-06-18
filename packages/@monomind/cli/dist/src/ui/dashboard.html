@@ -5876,9 +5876,12 @@ function v2RenderOrgRoles() {
   // Determine leader: explicit reports_to=undefined + type=planner/coordinator, or first role, or id=boss
   const leaderIds = new Set(roles.filter(r => r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner').map(r => r.id));
   if (!leaderIds.size) leaderIds.add(roles[0]?.id);
+  // Overlay live running status from in-memory agent SSE state
+  const _rolesRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
   pane.innerHTML = `<div class="roles-v2-grid">${roles.map((r, i) => {
     const color = V2_ROLE_COLORS[i % V2_ROLE_COLORS.length];
     const isLeader = leaderIds.has(r.id);
+    const isRunning = _rolesRunning.has(r.id);
     const resps = Array.isArray(r.responsibilities) ? r.responsibilities : [];
     const displayName = r.name || r.title || r.id;
     const roleType = r.type || r.agent_type || '';
@@ -5887,7 +5890,7 @@ function v2RenderOrgRoles() {
       <div class="rv2-head">
         <img class="rv2-avatar" src="${avatarSrc}" alt="${esc(displayName)}" loading="lazy" onerror="this.src='data/avatars/coder.svg'"/>
         <div class="rv2-info">
-          <div class="rv2-title">${esc(displayName)}${isLeader ? ' <span style="font-size:10px;color:var(--accent);font-weight:400;opacity:0.8">lead</span>' : ''}</div>
+          <div class="rv2-title">${esc(displayName)}${isLeader ? ' <span style="font-size:10px;color:var(--accent);font-weight:400;opacity:0.8">lead</span>' : ''}${isRunning ? ' <span class="live-dot" style="display:inline-block;vertical-align:middle;margin-left:4px"></span>' : ''}</div>
           ${roleType ? `<span class="rv2-agent">${esc(roleType)}</span>` : ''}
         </div>
       </div>
@@ -7952,6 +7955,7 @@ function filterOrgList(q) {
           else if (_v2OrgTab === 'live' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgLive();
           else if (_v2OrgTab === 'heartbeats' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgHeartbeats();
           else if (_v2OrgTab === 'members' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgMembers();
+          else if (_v2OrgTab === 'roles' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgRoles();
         }
         // Also push live org:comms / org:checkpoint events directly into the Live tab
         // activity feed so they appear in real-time without waiting for the 5s poll.
