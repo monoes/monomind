@@ -4317,13 +4317,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             }
           } catch(_) {}
         }
-        // Populate roles from org config if agents list is still empty
-        if (!agents.length) {
-          try {
-            const org = JSON.parse(fs.readFileSync(path.join(base, `${orgName}.json`), 'utf8'));
-            agents = (org.roles || []).map(r => ({ id: r.id, title: r.title, tokens_in: 0, tokens_out: 0, total_cost_usd: 0 }));
-          } catch(_) {}
-        }
+        // Do NOT fall back to zero-value role stubs — empty agents array is the honest signal
+        // that no usage has been tracked yet; the UI shows "No cost data" rather than $0.0000 rows.
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ...budgetData, agents }));
       } catch(_) { res.writeHead(500); res.end('{"org_budget":{},"agent_budgets":{},"agents":[]}'); }
