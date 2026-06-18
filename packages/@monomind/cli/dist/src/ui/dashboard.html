@@ -6266,11 +6266,7 @@ function v2RenderOrgLive() {
   </div>
   <div class="m-group-title" style="margin-bottom:6px">Activity Feed</div>
   <div style="max-height:240px;overflow-y:auto;font-size:11px;font-family:var(--mono)">
-    ${(_v2OrgData._activity || []).slice(-30).reverse().map(e => `<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">
-      ${esc(relTime(e.ts || e.timestamp || e.created_at))}
-      <span style="color:var(--text-mid);margin-left:6px">${esc(e.type || e.kind || e.event || '—')}</span>
-      ${fmtOrgEvDetail(e) ? `<span style="color:var(--text-hi);margin-left:6px">${esc(fmtOrgEvDetail(e).slice(0, 80))}</span>` : ''}
-    </div>`).join('')}
+    ${(()=>{const _la=_v2OrgData._activity||[];const _ls=_v2OrgEventLog[_v2SelOrg]||[];const _lseen=new Set();const _lmerged=[..._la,..._ls].filter(e=>{const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')+'|'+(e.from||e.role||'')+'|'+(e.msg||'').slice(0,20);return _lseen.has(k)?false:(_lseen.add(k),true);}).sort((a,b)=>(a.ts||0)-(b.ts||0));return _lmerged.slice(-30).reverse().map(e=>`<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">${esc(relTime(e.ts||e.timestamp||e.created_at))}<span style="color:var(--text-mid);margin-left:6px">${esc(e.type||e.kind||e.event||'—')}</span>${fmtOrgEvDetail(e)?`<span style="color:var(--text-hi);margin-left:6px">${esc(fmtOrgEvDetail(e).slice(0,80))}</span>`:''}</div>`).join('');})()}
   </div>`;
   // auto-refresh every 5s while tab is active
   if (!_orgLiveInterval) {
@@ -6284,7 +6280,13 @@ function v2RenderOrgLive() {
           fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : {}).catch(() => {}),
         ]);
         if (_v2SelOrg !== _liveOrg || !_v2OrgData) return;
-        _v2OrgData._activity = Array.isArray(actData) ? actData : [];
+        // Merge fresh API data with SSE-pushed events to avoid clobbering live events
+        // that haven't flushed to the JSONL file yet when this poll ran.
+        const _freshAct = Array.isArray(actData) ? actData : [];
+        const _sseAct = (_v2OrgData._activity || []).filter(e => e._sseOnly);
+        const _mergeSeen = new Set(_freshAct.map(e => (e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')));
+        _sseAct.forEach(e => { const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||''); if (!_mergeSeen.has(k)) _freshAct.push(e); });
+        _v2OrgData._activity = _freshAct.sort((a,b)=>(a.ts||0)-(b.ts||0));
         const freshAgents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || []);
         if (freshAgents.length) {
           // Preserve SSE-driven running status: state file lags behind real-time SSE updates
@@ -7933,7 +7935,7 @@ function filterOrgList(q) {
         // activity feed so they appear in real-time without waiting for the 5s poll.
         if (n === _v2SelOrg && _v2OrgTab === 'live' && _v2OrgData) {
           if (!Array.isArray(_v2OrgData._activity)) _v2OrgData._activity = [];
-          _v2OrgData._activity.push(ev);
+          _v2OrgData._activity.push({ ...ev, _sseOnly: true });
           v2RenderOrgLive();
         }
         // Pulse the org list dot on comms/checkpoint events so the user can see the org is active
