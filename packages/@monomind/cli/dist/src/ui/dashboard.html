@@ -7375,7 +7375,7 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'org:agent:offline') {
     el = mkCVSys('◌ ' + esc(ev.title || ev.role || '?') + ' offline', ts);
   } else {
-    return; // skip unknown event types silently
+    el = mkCVSys(esc(ev.type || 'event'), ts);
   }
   if (animate) el.classList.add('cv-new');
   feed.appendChild(el);
