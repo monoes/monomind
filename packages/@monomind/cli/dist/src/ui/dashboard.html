@@ -6816,13 +6816,21 @@ async function _odtLoadChatSessions() {
       const _sseDuringFetch = _odtChatSessions.filter(s => !_prevSessions.find(p => p.id === s.id));
       _odtChatSessions = runs.map(r => {
         const prev = _prevSessions.find(s => s.id === r.runId) || _sseDuringFetch.find(s => s.id === r.runId);
+        // Preserve the SSE-incremented cycleCount/eventCount when they exceed the disk-based API values.
+        // The JSONL file may not have flushed the latest checkpoint yet when this fetch resolves,
+        // so the API count can be lower than what SSE has already observed — causing a visible
+        // backwards jump in the "Ncyc" label if we blindly replace with the API value.
+        const _prevMeta = prev?._runMeta;
+        const _mergedMeta = _prevMeta
+          ? { ...r, cycleCount: Math.max(r.cycleCount || 0, _prevMeta.cycleCount || 0), eventCount: Math.max(r.eventCount || 0, _prevMeta.eventCount || 0) }
+          : r;
         return {
           id: r.runId,
           ts: r.startedAt,
           prompt: r.goal || r.runId,
           status: r.status,
           _isOrgRun: true,
-          _runMeta: r,
+          _runMeta: _mergedMeta,
           events: prev ? prev.events : [],
           _eventsLoaded: prev ? prev._eventsLoaded : false,
         };
