@@ -4124,6 +4124,8 @@ function appendChatViewEvent(ev, animate) {
     el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
   } else if (ev.type === 'org:complete') {
     el = mkCVSys('■ Org complete' + (ev.org ? ' — ' + esc(ev.org) : ''), ts);
+  } else if (ev.type === 'agent:result') {
+    el = mkCVResult(ev.agent || ev.from || '?', ev.result || ev.msg || ev.message || ev.summary || '', ts);
   } else if (ev.type === 'agent:message' || ev.type === 'agent:spawn') {
     el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || ev.role || ev.type, ts, ev.type);
   } else if (ev.type === 'session:start') {
@@ -7015,10 +7017,15 @@ window.odtChatSelectSession = async function(id) {
     const _fbLoader = Object.assign(document.createElement('div'), { id: 'odt-chat-loading', style: 'text-align:center;padding:24px 0;font-size:11px;opacity:0.5;color:var(--text-mid)' });
     _fbLoader.textContent = 'Loading session events…';
     if (_fbFeed) _fbFeed.appendChild(_fbLoader);
+    const _fbPreLoad = (sess.events || []).slice();
     sess._loading = true;
     try {
       const _fbData = await apiFetch('/api/mastermind/session/'+encodeURIComponent(id));
-      sess.events = Array.isArray(_fbData.events) ? _fbData.events : (sess.events || []);
+      const _fbSseDuring = (sess.events || []).filter(e => !_fbPreLoad.find(p => p === e));
+      sess.events = Array.isArray(_fbData.events) ? _fbData.events : _fbPreLoad;
+      _fbSseDuring.forEach(e => {
+        if (!sess.events.find(s => s.ts === e.ts && s.type === e.type && (s.from||'') === (e.from||''))) sess.events.push(e);
+      });
       sess._eventsLoaded = true;
     } catch(_) {
       sess._eventsLoaded = true;
@@ -7255,7 +7262,7 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'agent:spawn') {
     el = mkCVSpawn(ev.from || 'orchestrator', ev.to || '?', ev.task || ev.briefing || '', ts);
   } else if (ev.type === 'agent:result') {
-    el = mkCVResult(ev.agent || '?', ev.msg || '', ts);
+    el = mkCVResult(ev.agent || ev.from || '?', ev.result || ev.msg || ev.message || ev.summary || '', ts);
   } else if (ev.type === 'file:write') {
     el = mkCVFileCard(ev.name || ev.path || '?', ev.path || '', ev.size || 0, ts);
   } else if (ev.type === 'intercom') {
