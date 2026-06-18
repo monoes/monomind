@@ -6,13 +6,12 @@
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { getProjectCwd } from './types.js';
-// Storage paths
-const STORAGE_DIR = '.monomind';
+import { getMonomindDataRoot } from './types.js';
+// Storage paths — relative to the git-safe data root
 const TASK_DIR = 'tasks';
 const TASK_FILE = 'store.json';
 function getTaskDir() {
-    return join(getProjectCwd(), STORAGE_DIR, TASK_DIR);
+    return join(getMonomindDataRoot(), TASK_DIR);
 }
 function getTaskPath() {
     return join(getTaskDir(), TASK_FILE);
@@ -248,7 +247,7 @@ export const taskTools = [
                 saveTaskStore(store);
                 // Sync assigned agents back to idle and increment taskCount
                 if (task.assignedTo.length > 0) {
-                    const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
+                    const agentStorePath = join(getMonomindDataRoot(), 'agents', 'store.json');
                     try {
                         let agentStore = { agents: {} };
                         if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
@@ -267,7 +266,7 @@ export const taskTools = [
                                     (agentStore.agents[agentId].taskCount || 0) + 1;
                             }
                         }
-                        const agentDir = join(getProjectCwd(), STORAGE_DIR, 'agents');
+                        const agentDir = join(getMonomindDataRoot(), 'agents');
                         if (!existsSync(agentDir))
                             mkdirSync(agentDir, { recursive: true });
                         const tmpAgent1 = `${agentStorePath}.${process.pid}.${Date.now()}.tmp`;
@@ -374,7 +373,7 @@ export const taskTools = [
             }
             const previouslyAssigned = [...task.assignedTo];
             // Load agent store to sync worker state
-            const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
+            const agentStorePath = join(getMonomindDataRoot(), 'agents', 'store.json');
             let agentStore = { agents: {} };
             try {
                 if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
@@ -424,7 +423,7 @@ export const taskTools = [
             }
             saveTaskStore(store);
             // Save agent store
-            const agentDir = join(getProjectCwd(), STORAGE_DIR, 'agents');
+            const agentDir = join(getMonomindDataRoot(), 'agents');
             if (!existsSync(agentDir)) {
                 mkdirSync(agentDir, { recursive: true });
             }

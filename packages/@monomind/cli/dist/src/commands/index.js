@@ -68,6 +68,8 @@ const commandLoaders = {
     // Native browser automation (TypeScript CDP client)
     browse: () => import('./browse.js'),
     platforms: () => import('./platforms.js'),
+    // Org management (list, delete)
+    org: () => import('./org.js'),
 };
 // Cache for loaded commands
 const loadedCommands = new Map();

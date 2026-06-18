@@ -11,19 +11,19 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { getProjectCwd } from './types.js';
-// Paths
-const MEMORY_DIR = '.monomind/memory';
+import { getMonomindDataRoot } from './types.js';
+// Paths — relative to the git-safe data root
+const MEMORY_SUBDIR = 'memory';
 const LEGACY_MEMORY_FILE = 'store.json';
 const MIGRATION_MARKER = '.migrated-to-sqlite';
 function getMemoryDir() {
-    return join(getProjectCwd(), MEMORY_DIR);
+    return join(getMonomindDataRoot(), MEMORY_SUBDIR);
 }
 function getLegacyPath() {
-    return join(getProjectCwd(), MEMORY_DIR, LEGACY_MEMORY_FILE);
+    return join(getMonomindDataRoot(), MEMORY_SUBDIR, LEGACY_MEMORY_FILE);
 }
 function getMigrationMarkerPath() {
-    return join(getProjectCwd(), MEMORY_DIR, MIGRATION_MARKER);
+    return join(getMonomindDataRoot(), MEMORY_SUBDIR, MIGRATION_MARKER);
 }
 function ensureMemoryDir() {
     const dir = getMemoryDir();

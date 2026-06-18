@@ -291,14 +291,28 @@ Then generate `SESSION_ID` and persist it so iteration cycles can retrieve it ac
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+# Resolve git-safe monomind data root — shared across worktrees and branch-agnostic.
+# In a worktree .git is a pointer file; we navigate to the common .git directory.
+_get_mono_dir() {
+  local w="${1:-$(pwd)}"
+  if [ -d "$w/.git" ]; then echo "$w/.git/monomind"; return; fi
+  if [ -f "$w/.git" ]; then
+    local m; m=$(grep '^gitdir:' "$w/.git" | sed 's/gitdir: *//')
+    [ -z "$m" ] && { echo "$w/.monomind"; return; }
+    [[ "$m" != /* ]] && m="$w/$m"
+    echo "$(dirname "$(dirname "$m")")/monomind"; return
+  fi
+  echo "$w/.monomind"
+}
+MONO_DIR=$(_get_mono_dir "$REPO_ROOT")
 SESSION_ID="mm-$(date -u +%Y%m%dT%H%M%S)"
-mkdir -p "$REPO_ROOT/.monomind/sessions"
+mkdir -p "$MONO_DIR/sessions"
 # Persist SESSION_ID and project context so Step 12 can restore it in a new shell
 jq -n --arg sid "$SESSION_ID" --arg proj "$project_name" --arg prompt "$resolved_prompt" \
   '{sessionId:$sid,project_name:$proj,prompt:$prompt}' \
-  > "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
-  && mv "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
-        "$REPO_ROOT/.monomind/sessions/current.json"
+  > "$MONO_DIR/sessions/current.json.tmp" \
+  && mv "$MONO_DIR/sessions/current.json.tmp" \
+        "$MONO_DIR/sessions/current.json"
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
@@ -324,7 +338,19 @@ Complexity threshold for manager agent: any of these is true:
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+_get_mono_dir() {
+  local w="${1:-$(pwd)}"
+  if [ -d "$w/.git" ]; then echo "$w/.git/monomind"; return; fi
+  if [ -f "$w/.git" ]; then
+    local m; m=$(grep '^gitdir:' "$w/.git" | sed 's/gitdir: *//')
+    [ -z "$m" ] && { echo "$w/.monomind"; return; }
+    [[ "$m" != /* ]] && m="$w/$m"
+    echo "$(dirname "$(dirname "$m")")/monomind"; return
+  fi
+  echo "$w/.monomind"
+}
+MONO_DIR=$(_get_mono_dir "$REPO_ROOT")
+SESSION_STATE="$MONO_DIR/sessions/current.json"
 [ -f "$SESSION_STATE" ] || { echo "ERROR: current.json not found"; exit 1; }
 
 # LLM: write the extracted goals JSON object to the temp file below.
@@ -333,7 +359,7 @@ SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 # One JSON object, keys = domain names, values = one-sentence goals.
 SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing in current.json — run Step 3 first"; exit 1; }
-GOALS_FILE="$REPO_ROOT/.monomind/sessions/${SESSION_ID}_goals.json"
+GOALS_FILE="$MONO_DIR/sessions/${SESSION_ID}_goals.json"
 cat > "$GOALS_FILE" << 'GOALS_EOF'
 <domain_goals_json>
 GOALS_EOF
@@ -383,7 +409,7 @@ If `use_monotask` is true: follow the Monotask Space+Board Setup Procedure from 
 ```bash
 # Compatible with macOS bash 3.2 — no associative arrays, uses jq accumulation instead
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+SESSION_STATE="$MONO_DIR/sessions/current.json"
 
 # monotask availability guard — all card/board operations below require it
 if ! command -v monotask >/dev/null 2>&1; then
@@ -483,7 +509,7 @@ echo "Session state saved to current.json"
 
 ### Step 7 — Spawn Domain Managers
 
-**BEFORE THIS STEP:** If `idea` is in `domains_needed`, invoke `Skill("mastermind:idea")` directly now (master context has Skill tool access). Pass the resolved prompt, project path, and mode. The idea skill's Step 7 writes its output to `.monomind/sessions/<SESSION_ID>/idea.json` automatically — do not write it again. Mark the `idea` domain as handled. Do NOT include `idea` in the Task spawning below.
+**BEFORE THIS STEP:** If `idea` is in `domains_needed`, invoke `Skill("mastermind:idea")` directly now (master context has Skill tool access). Pass the resolved prompt, project path, and mode. The idea skill's Step 7 writes its output to `$MONO_DIR/sessions/<SESSION_ID>/idea.json` automatically — do not write it again. Mark the `idea` domain as handled. Do NOT include `idea` in the Task spawning below.
 
 **IDEA PIPELINE REQUIREMENT:** `mastermind:idea` runs a multi-step pipeline (Steps 3–6 inside idea.md). You MUST follow all of those steps — do NOT shortcut to manually creating cards. The full pipeline is:
 - Step 3: Board setup — find-or-create `<project_name>-idea` board (master's Step 6 already created it with correct columns: New → Evaluated → Elaborated → Tasked → Iced → Rejected). Load column IDs from existing board.
@@ -507,7 +533,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 REGISTRY="$REPO_ROOT/.monomind/registry.json"
 
 # Reload state from current.json — this is a new shell; no inherited variables
-SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+SESSION_STATE="$MONO_DIR/sessions/current.json"
 [ -f "$SESSION_STATE" ] || { echo "ERROR: current.json not found — run from Step 3"; exit 1; }
 # If Step 6 skipped due to missing monotask, board_ids are empty — skip Task agent spawning
 if [ "$(jq -r '.monotask_available // true' "$SESSION_STATE")" = "false" ]; then
@@ -593,7 +619,7 @@ done
 Phase B:
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+SESSION_STATE="$MONO_DIR/sessions/current.json"
 SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID not found in current.json"; exit 1; }
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
@@ -615,7 +641,7 @@ Spawn ALL domain manager agents in ONE message using the Task tool (parallel exe
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+SESSION_STATE="$MONO_DIR/sessions/current.json"
 SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing"; exit 1; }
 
@@ -697,13 +723,15 @@ Task({
     "6. Collect all agent outputs\n\n" +
     "7. BEFORE returning, write your output schema to disk AND emit domain:complete:\n" +
     "   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)\n" +
+    "   _mm() { local w=\"$1\"; if [ -d \"$w/.git\" ]; then echo \"$w/.git/monomind\"; elif [ -f \"$w/.git\" ]; then local m; m=$(grep '^gitdir:' \"$w/.git\" | sed 's/gitdir: *//'); [ -z \"$m\" ] && { echo \"$w/.monomind\"; return; }; [[ \"$m\" != /* ]] && m=\"$w/$m\"; echo \"$(dirname \"$(dirname \"$m\")\")/monomind\"; else echo \"$w/.monomind\"; fi; }\n" +
+    "   MONO_DIR=$(_mm \"$REPO_ROOT\")\n" +
     "   CTRL_URL=$(jq -r '.url // \"http://localhost:4242\"' \"$REPO_ROOT/.monomind/control.json\" 2>/dev/null || echo \"http://localhost:4242\")\n" +
-    "   mkdir -p \"$REPO_ROOT/.monomind/sessions/<SESSION_ID>\"\n" +
+    "   mkdir -p \"$MONO_DIR/sessions/<SESSION_ID>\"\n" +
     "   jq -n --arg domain 'build' --arg status '<status>' \\\n" +
     "     --argjson artifacts '[\"<path1>\",\"<path2>\"]' \\\n" +
     "     --argjson next_actions '[\"<action1>\"]' \\\n" +
     "     '{domain:$domain,status:$status,artifacts:$artifacts,next_actions:$next_actions}' \\\n" +
-    "     > \"$REPO_ROOT/.monomind/sessions/<SESSION_ID>/build.json\"\n" +
+    "     > \"$MONO_DIR/sessions/<SESSION_ID>/build.json\"\n" +
     "   curl -s -o /dev/null -X POST ${CTRL_URL}/api/mastermind/event \\\n" +
     "     -H 'Content-Type: application/json' \\\n" +
     "     -d \"$(jq -cn --arg sid '<SESSION_ID>' --arg status '<status>' \\\n" +
@@ -722,7 +750,7 @@ Task({
 
 ### Step 8 — Collect Reports
 
-Domain managers run in foreground (no `run_in_background`), so their unified output schemas are returned synchronously as each Task call completes. Each domain manager writes its canonical output schema to `.monomind/sessions/<SESSION_ID>/<domain>.json` before returning — that file is the source of truth for Step 9 aggregation. The Task tool's text return value is informational only; do not attempt to parse it as JSON. If a manager reports `status: blocked`, record it but continue collecting from all others — do not abort the run.
+Domain managers run in foreground (no `run_in_background`), so their unified output schemas are returned synchronously as each Task call completes. Each domain manager writes its canonical output schema to `$MONO_DIR/sessions/<SESSION_ID>/<domain>.json` before returning — that file is the source of truth for Step 9 aggregation. The Task tool's text return value is informational only; do not attempt to parse it as JSON. If a manager reports `status: blocked`, record it but continue collecting from all others — do not abort the run.
 
 ### Step 9 — Synthesize
 
@@ -734,14 +762,26 @@ Domain managers run in foreground (no `run_in_background`), so their unified out
 # (variables don't persist between Bash tool calls — keep aggregation and curl together)
 # Compatible with macOS bash 3.2 — only uses indexed arrays
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
+_get_mono_dir() {
+  local w="${1:-$(pwd)}"
+  if [ -d "$w/.git" ]; then echo "$w/.git/monomind"; return; fi
+  if [ -f "$w/.git" ]; then
+    local m; m=$(grep '^gitdir:' "$w/.git" | sed 's/gitdir: *//')
+    [ -z "$m" ] && { echo "$w/.monomind"; return; }
+    [[ "$m" != /* ]] && m="$w/$m"
+    echo "$(dirname "$(dirname "$m")")/monomind"; return
+  fi
+  echo "$w/.monomind"
+}
+MONO_DIR=$(_get_mono_dir "$REPO_ROOT")
+SESSION_ID=$(jq -r '.sessionId // empty' "$MONO_DIR/sessions/current.json" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing"; exit 1; }
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 
 overall_status="complete"
 completed_domains=()
 found_domain_files=0
-for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
+for domain_file in "$MONO_DIR/sessions/${SESSION_ID}"/*.json; do
   [ -f "$domain_file" ] || continue
   domain=$(jq -r '.domain // ""' "$domain_file")
   [ -z "$domain" ] && continue  # skip auxiliary files that aren't domain output schemas
@@ -814,7 +854,19 @@ Show the action summary (Step 9). If any compaction ran during Step 10, append:
 ```bash
 # Compatible with macOS bash 3.2 — only uses indexed arrays
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+_get_mono_dir() {
+  local w="${1:-$(pwd)}"
+  if [ -d "$w/.git" ]; then echo "$w/.git/monomind"; return; fi
+  if [ -f "$w/.git" ]; then
+    local m; m=$(grep '^gitdir:' "$w/.git" | sed 's/gitdir: *//')
+    [ -z "$m" ] && { echo "$w/.monomind"; return; }
+    [[ "$m" != /* ]] && m="$w/$m"
+    echo "$(dirname "$(dirname "$m")")/monomind"; return
+  fi
+  echo "$w/.monomind"
+}
+MONO_DIR=$(_get_mono_dir "$REPO_ROOT")
+SESSION_STATE="$MONO_DIR/sessions/current.json"
 
 # Restore variables from current.json (this is a fresh shell)
 SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
@@ -829,7 +881,7 @@ all_next_actions=()
 completed_domains=()
 overall_status="complete"
 found_domain_files=0
-for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
+for domain_file in "$MONO_DIR/sessions/${SESSION_ID}"/*.json; do
   [ -f "$domain_file" ] || continue
   domain=$(jq -r '.domain // ""' "$domain_file")
   [ -z "$domain" ] && continue  # skip auxiliary files that aren't domain output schemas
@@ -863,9 +915,9 @@ jq -n \
   '{sessionId:$sessionId,prompt:$prompt,project_name:$project_name,status:$status,
     completed_domains:$completed_domains,artifacts:$artifacts,next_actions:$next_actions,
     run_id:$run_id}' \
-  > "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json.tmp" \
-  && mv "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json.tmp" \
-        "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json"
+  > "$MONO_DIR/sessions/${SESSION_ID}.json.tmp" \
+  && mv "$MONO_DIR/sessions/${SESSION_ID}.json.tmp" \
+        "$MONO_DIR/sessions/${SESSION_ID}.json"
 ```
 
 ---
@@ -882,12 +934,24 @@ Load fresh brain context (repeat Brain Load Procedure from `_protocol.md`). Load
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+_get_mono_dir() {
+  local w="${1:-$(pwd)}"
+  if [ -d "$w/.git" ]; then echo "$w/.git/monomind"; return; fi
+  if [ -f "$w/.git" ]; then
+    local m; m=$(grep '^gitdir:' "$w/.git" | sed 's/gitdir: *//')
+    [ -z "$m" ] && { echo "$w/.monomind"; return; }
+    [[ "$m" != /* ]] && m="$w/$m"
+    echo "$(dirname "$(dirname "$m")")/monomind"; return
+  fi
+  echo "$w/.monomind"
+}
+MONO_DIR=$(_get_mono_dir "$REPO_ROOT")
 # Restore SESSION_ID — may be in a new shell context
-SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
+SESSION_ID=$(jq -r '.sessionId // empty' "$MONO_DIR/sessions/current.json" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID not found in current.json — cannot continue iteration."; exit 1; }
 
-SESSION_FILE="$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json"
-SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+SESSION_FILE="$MONO_DIR/sessions/${SESSION_ID}.json"
+SESSION_STATE="$MONO_DIR/sessions/current.json"
 # Echo to stdout — bash variables don't survive tool call boundaries; only stdout is visible to the LLM
 # Emit run summary (artifacts, next_actions, project_name) from the session file
 jq '{artifacts:.artifacts,next_actions:.next_actions,project_name:.project_name}' "$SESSION_FILE" 2>/dev/null \
