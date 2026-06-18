@@ -2285,17 +2285,23 @@ function switchView(v, { updateHash = true } = {}) {
 
 // ── Hash-based routing ────────────────────────────────────────────────────────
 // Format: #<view>  or  #orgs/<orgName>/<tab>
+let _suppressHashChange = false;
+
 function _pushHash() {
-  let hash = currentView;
-  if (currentView === 'orgs' && _v2SelOrg) {
-    hash = 'orgs/' + encodeURIComponent(_v2SelOrg) + '/' + (_v2OrgTab || 'chart');
+  let hash = currentView || 'now';
+  if (currentView === 'orgs' && typeof _v2SelOrg !== 'undefined' && _v2SelOrg) {
+    const tab = (typeof _v2OrgTab !== 'undefined' && _v2OrgTab) ? _v2OrgTab : 'chart';
+    hash = 'orgs/' + encodeURIComponent(_v2SelOrg) + '/' + tab;
   }
-  history.replaceState(null, '', '#' + hash);
+  _suppressHashChange = true;
+  location.hash = '#' + hash;
+  setTimeout(() => { _suppressHashChange = false; }, 50);
 }
 
 function _restoreFromHash() {
-  const raw = location.hash.slice(1);
-  if (!raw) { _pushHash(); return; }  // write hash for current view if none present
+  if (_suppressHashChange) return;
+  const raw = location.hash.replace(/^#/, '');
+  if (!raw) { _pushHash(); return; }
   const parts = raw.split('/');
   const view = parts[0];
   if (!view) return;
@@ -2306,10 +2312,10 @@ function _restoreFromHash() {
     if (orgName) {
       // _v2Orgs is populated async by renderOrgs(); retry until available
       const _trySelect = (attempts) => {
-        if (_v2Orgs && _v2Orgs.length > 0) {
+        if (typeof _v2Orgs !== 'undefined' && _v2Orgs && _v2Orgs.length > 0) {
           v2SelectOrg(orgName).then(() => { if (tab !== 'chart') v2SwitchOrgTab(tab); });
         } else if (attempts > 0) {
-          setTimeout(() => _trySelect(attempts - 1), 200);
+          setTimeout(() => _trySelect(attempts - 1), 250);
         }
       };
       _trySelect(20);
