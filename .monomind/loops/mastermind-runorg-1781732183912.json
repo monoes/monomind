@@ -1,0 +1,16 @@
+{
+  "id": "mastermind-runorg-1781732183912",
+  "sessionId": "mastermind-runorg-1781732183912",
+  "type": "repeat",
+  "command": "/mastermind:runorg",
+  "prompt": "focus on session data, agent data of the org and its presentation, on chat box to be 100% accurate and working, then start to expand in all other org feature and its presentation",
+  "maxReps": 9999,
+  "interval": 1,
+  "wait": 60,
+  "currentRep": 74,
+  "startedAt": 1781732183912,
+  "lastRunAt": 1781759940935,
+  "nextRunAt": 1781760000935,
+  "status": "paused",
+  "source": "_repeat.md"
+}
