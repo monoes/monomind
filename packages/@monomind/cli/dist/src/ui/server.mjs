@@ -510,7 +510,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
             .filter(Boolean)
             .sort((a, b) => b.mtime - a.mtime)
-            .slice(0, 15);
+            .slice(0, 50);
         } catch {}
 
         const sessions = [];
