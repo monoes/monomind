@@ -93,7 +93,8 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -d "$(jq -cn \
     --arg session "$session_id" \
     --arg org "$org_name" \
-    '{type:"domain:dispatch",session:$session,domain:"ops",cmd:("Starting org "+$org+" as persistent daemon"),ts:(now*1000|floor)}')" || true
+    --arg proj "$(pwd)" \
+    '{type:"domain:dispatch",session:$session,domain:"ops",cmd:("Starting org "+$org+" as persistent daemon"),project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
 Invoke `Skill("mastermind:runorg")` passing: brain_context, org_name: `$org_name`, session_id: `$session_id`, task: task_override, caller: "command".
@@ -105,7 +106,8 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -d "$(jq -cn \
     --arg session "$session_id" \
     --arg status "<status>" \
-    '{type:"session:complete",session:$session,domain:"ops",status:$status,domains:["ops"],ts:(now*1000|floor)}')" || true
+    --arg proj "$(pwd)" \
+    '{type:"session:complete",session:$session,domain:"ops",status:$status,domains:["ops"],project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
 Follow _protocol.md Brain Write Procedure for domain `ops`.
