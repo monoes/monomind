@@ -6927,10 +6927,12 @@ async function v2RenderOrgChat() {
       if ((_catchSess.events || []).length) {
         renderCvExcerptBanner('odt-chat-excerpt', _catchSess.events, _catchSess);
       }
-    } else if (_catchSess && _catchSess._isOrgRun && !_catchSess._eventsLoaded) {
+    } else if (_catchSess && _catchSess._isOrgRun && !_catchSess._eventsLoaded && !_catchSess._loading) {
       // Session selected but events not yet loaded (object reference may have been replaced by
       // _odtLoadChatSessions while lazy-load was in-flight). Retrigger select to lazy-load events
       // so returning to Chat tab never shows a permanently empty feed.
+      // Guard _loading: if a fetch is already in-flight (user tabbed away/back during the fetch)
+      // do NOT fire a second parallel fetch — it would race and overwrite sess.events on settle.
       odtChatSelectSession(_odtChatCurrentId);
     }
   }
