@@ -185,6 +185,8 @@ const sseClients = new Set();
 const mmSseClients = new Set();
 // Active org run tracking: org -> runId (enables event routing for orgs without runId in payload)
 const activeOrgRuns = new Map();
+// Active session tracking: org -> {sessionId, ts} (enables linking agent events to sessions)
+const activeSessionsByOrg = new Map();
 
 // Returns the shared git directory parent so run files survive branch switches and
 // are shared across all worktrees. In a worktree, .git is a FILE pointing to the
@@ -4632,38 +4634,81 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
         } catch (_) {}
       }
-      // Persist session
+      // ── Active session tracking: link org:comms / agent:usage events to current session ──
+      // This must run BEFORE session persistence so events without session get enriched.
+      try {
+        const _evOrg = event.org ? String(event.org).trim() : null;
+        if (event.type === 'session:start' && event.session && _evOrg) {
+          activeSessionsByOrg.set(_evOrg, { sessionId: String(event.session), ts: event.ts || Date.now() });
+          // Write active-session.json so capture-handler.cjs can read it without HTTP
+          try {
+            const _captureDir = path.join(root, '.monomind', 'capture');
+            fs.mkdirSync(_captureDir, { recursive: true });
+            fs.writeFileSync(path.join(_captureDir, 'active-session.json'),
+              JSON.stringify({ org: _evOrg, sessionId: String(event.session), ts: Date.now() }));
+          } catch(_) {}
+        } else if (event.type === 'session:complete' && _evOrg) {
+          activeSessionsByOrg.delete(_evOrg);
+          try { fs.unlinkSync(path.join(root, '.monomind', 'capture', 'active-session.json')); } catch(_) {}
+        }
+        // Enrich events that have org but no session (agent:usage, org:comms, agent:spawn, intercom)
+        if (_evOrg && !event.session && activeSessionsByOrg.has(_evOrg)) {
+          event.session = activeSessionsByOrg.get(_evOrg).sessionId;
+        }
+      } catch(_) {}
+      // ── Per-session JSONL persistence (append-only, O(1) per event) ──────────
+      // Replaces the old monolithic mastermind-sessions.json (O(N) read+write per event).
+      // Format: data/sessions/<sessionId>.jsonl  +  data/sessions/_index.json
+      try {
+        const _sid = String(event.session || '').trim();
+        if (_sid.length > 0 && _sid.length <= 128 && /^[a-zA-Z0-9_.-]+$/.test(_sid)) {
+          const sessDir = path.join(dataDir, 'sessions');
+          fs.mkdirSync(sessDir, { recursive: true });
+          // Append event to per-session JSONL (O(1), no read)
+          fs.appendFileSync(path.join(sessDir, `${_sid}.jsonl`), JSON.stringify(event) + '\n');
+          // Update lightweight index (id, ts, prompt, status, org, startedAt, endedAt, domains only)
+          const indexFile = path.join(sessDir, '_index.json');
+          let _idx = [];
+          try { _idx = JSON.parse(fs.readFileSync(indexFile, 'utf8')); } catch(_) {}
+          const _entry = _idx.find(e => e.id === _sid);
+          if (event.type === 'session:start') {
+            if (!_entry) {
+              _idx.unshift({ id: _sid, ts: event.ts, prompt: event.prompt || '', status: 'running',
+                org: event.org || '', startedAt: event.ts, domains: [] });
+              if (_idx.length > 2000) _idx = _idx.slice(0, 2000);
+            }
+          } else if (_entry) {
+            if (event.type === 'session:complete') { _entry.status = event.status || 'complete'; _entry.endedAt = event.ts; }
+            if (event.type === 'domain:dispatch' && event.domain) {
+              _entry.domains = _entry.domains || [];
+              if (!_entry.domains.includes(event.domain)) _entry.domains.push(event.domain);
+            }
+            if (event.type === 'agent:usage' || event.type === 'agent:spawn' || event.type === 'agent:complete') {
+              _entry.hasAgents = true;
+            }
+          }
+          fs.writeFileSync(indexFile, JSON.stringify(_idx));
+        }
+      } catch (_) {}
+      // ── Legacy mastermind-sessions.json (kept for backwards compat, read by old clients) ──
       try {
         const sessFile = path.join(dataDir, 'mastermind-sessions.json');
         let sessions = [];
         try { sessions = JSON.parse(fs.readFileSync(sessFile, 'utf8')); } catch (_) {}
-        if (event.type === 'session:start') {
-          sessions.unshift({ id: event.session, ts: event.ts, prompt: event.prompt || '',
-            status: 'running', domains: [], events: [event], project: root });
-        } else {
+        if (event.type === 'session:start' && event.session) {
+          if (!sessions.find(s => s.id === event.session)) {
+            sessions.unshift({ id: event.session, ts: event.ts, prompt: event.prompt || '',
+              status: 'running', org: event.org || '', domains: [], startedAt: event.ts });
+          }
+        } else if (event.session) {
           const s = sessions.find(s => s.id === event.session);
           if (s) {
-            (s.events = s.events || []).push(event);
-            if (event.type === 'domain:dispatch' && event.domain && !s.domains.includes(event.domain))
-              s.domains.push(event.domain);
-            if (event.type === 'session:complete') { s.status = event.status || 'complete'; s.endTs = event.ts; }
+            if (event.type === 'session:complete') { s.status = event.status || 'complete'; s.endedAt = event.ts; }
+            if (event.type === 'domain:dispatch' && event.domain && !s.domains?.includes(event.domain))
+              (s.domains = s.domains || []).push(event.domain);
           }
         }
-        fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 500), null, 2));
-        // Also write individual session file for direct traceability.
-        // Security: validate event.session before using it as a filename to
-        // prevent path traversal (e.g. "../../../etc/cron.d/payload").
-        const sessionObj = sessions.find(s => s.id === event.session);
-        if (sessionObj) {
-          const sessDir = path.join(dataDir, 'sessions');
-          try { fs.mkdirSync(sessDir, { recursive: true }); } catch (_) {}
-          try {
-            const _sid = String(event.session || '').trim();
-            if (_sid.length > 0 && _sid.length <= 128 && /^[a-zA-Z0-9_.-]+$/.test(_sid)) {
-              fs.writeFileSync(path.join(sessDir, `${_sid}.json`), JSON.stringify(sessionObj, null, 2));
-            }
-          } catch (_) {}
-        }
+        fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 500)));
       } catch (_) {}
       // For org:stop events, write a stop marker the boss agent can detect
       if (event.type === 'org:stop' && event.org) {
@@ -4712,6 +4757,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qp = new URL('http://x' + req.url).searchParams;
         const filterProject = qp.get('project');
+        const limitParam = Math.min(parseInt(qp.get('limit') || '200', 10) || 200, 500);
         const serverRoot = projectDir || process.cwd();
         // Collect all project dirs to aggregate
         const projectDirs = new Set([serverRoot]);
@@ -4719,23 +4765,44 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const known = JSON.parse(fs.readFileSync(path.join(serverRoot, 'data', 'known-projects.json'), 'utf8'));
           known.forEach(p => projectDirs.add(p));
         } catch (_) {}
-        // Load and merge sessions from all dirs
         let allSessions = [];
         for (const pd of projectDirs) {
           if (filterProject && pd !== filterProject) continue;
-          const f = path.join(pd, 'data', 'mastermind-sessions.json');
-          if (!fs.existsSync(f)) continue;
-          try {
-            const s = JSON.parse(fs.readFileSync(f, 'utf8'));
-            // Tag each session with its project if not already tagged
-            s.forEach(sess => { if (!sess.project) sess.project = pd; });
-            allSessions = allSessions.concat(s);
-          } catch (_) {}
+          const sessDir = path.join(pd, 'data', 'sessions');
+          const indexFile = path.join(sessDir, '_index.json');
+          // ── New format: per-session JSONL + _index.json ──
+          if (fs.existsSync(indexFile)) {
+            try {
+              const idx = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+              const top = idx.slice(0, limitParam);
+              for (const entry of top) {
+                const _sid = String(entry.id || '').trim();
+                if (!_sid || !/^[a-zA-Z0-9_.-]+$/.test(_sid)) continue;
+                let events = [];
+                try {
+                  const jl = fs.readFileSync(path.join(sessDir, `${_sid}.jsonl`), 'utf8');
+                  events = jl.trim().split('\n').filter(Boolean)
+                    .map(l => { try { return JSON.parse(l); } catch { return null; } })
+                    .filter(Boolean);
+                } catch(_) {}
+                allSessions.push({ ...entry, events, project: pd });
+              }
+            } catch(_) {}
+          } else {
+            // ── Legacy fallback: mastermind-sessions.json ──
+            const f = path.join(pd, 'data', 'mastermind-sessions.json');
+            if (fs.existsSync(f)) {
+              try {
+                const s = JSON.parse(fs.readFileSync(f, 'utf8'));
+                s.forEach(sess => { if (!sess.project) sess.project = pd; });
+                allSessions = allSessions.concat(s);
+              } catch (_) {}
+            }
+          }
         }
-        // Sort by ts descending, cap at 500
-        allSessions.sort((a,b) => (b.ts||0)-(a.ts||0));
+        allSessions.sort((a,b) => (b.ts||b.startedAt||0)-(a.ts||a.startedAt||0));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify(allSessions.slice(0,500)));
+        res.end(JSON.stringify(allSessions.slice(0, limitParam)));
       } catch (_) { res.writeHead(200); res.end('[]'); }
       return;
     }
@@ -4936,6 +5003,37 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
   // Bind to available port
   const boundPort = await bindServer(server, port);
   const url = `http://localhost:${boundPort}`;
+
+  // ── One-time migration: mastermind-sessions.json → per-session JSONL ─────
+  // Runs once on startup. Existing sessions in the old monolithic format are
+  // split into individual JSONL files + _index.json for O(1) event writes.
+  try {
+    const _migDataDir = path.join(projectDir || process.cwd(), 'data');
+    const _migOldFile = path.join(_migDataDir, 'mastermind-sessions.json');
+    const _migSessDir = path.join(_migDataDir, 'sessions');
+    const _migIndexFile = path.join(_migSessDir, '_index.json');
+    if (fs.existsSync(_migOldFile) && !fs.existsSync(_migIndexFile)) {
+      try {
+        const _migOld = JSON.parse(fs.readFileSync(_migOldFile, 'utf8'));
+        fs.mkdirSync(_migSessDir, { recursive: true });
+        const _migIndex = [];
+        for (const sess of (_migOld || [])) {
+          const _msid = String(sess.id || '').trim();
+          if (!_msid || !/^[a-zA-Z0-9_.-]+$/.test(_msid)) continue;
+          // Write per-session JSONL
+          const _mEvts = (sess.events || []);
+          const _mLines = _mEvts.map(e => JSON.stringify(e)).join('\n');
+          fs.writeFileSync(path.join(_migSessDir, `${_msid}.jsonl`), _mLines + (_mLines ? '\n' : ''));
+          _migIndex.push({ id: _msid, ts: sess.ts, prompt: sess.prompt || '',
+            status: sess.status || 'complete', org: sess.org || '',
+            startedAt: sess.ts || sess.startedAt, endedAt: sess.endTs || sess.endedAt,
+            domains: sess.domains || [] });
+        }
+        fs.writeFileSync(_migIndexFile, JSON.stringify(_migIndex));
+        console.log('[server] migrated ' + _migIndex.length + ' sessions to per-session JSONL format');
+      } catch(_me) { console.warn('[server] session migration failed:', _me.message); }
+    }
+  } catch (_) {}
 
   // Rebuild activeOrgRuns from disk so event enrichment (runId injection) still works
   // after a server restart. Without this, org events emitted mid-run that lack runId
