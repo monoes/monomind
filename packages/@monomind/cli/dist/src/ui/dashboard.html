@@ -1443,9 +1443,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <span id="live-cost-ticker" title="Current session accumulated cost"></span>
     <span id="topbar-activity"></span>
     <div id="tb-right">
-      <button class="btn" onclick="openMastermind()" style="color:oklch(65% 0.16 295);border-color:oklch(65% 0.16 295 / 0.4)" title="Mastermind — orgs, skills, loops, metrics">⬡ Mastermind</button>
-      <button class="btn" onclick="switchView('orgs')" title="Manage autonomous organisations" style="color:oklch(70% 0.14 185);border-color:oklch(70% 0.14 185 / 0.4)">⬡ Orgs</button>
-      <button class="btn" onclick="switchView('orgs')" title="Manage autonomous organisations" style="color:oklch(70% 0.14 185);border-color:oklch(70% 0.14 185 / 0.4)">⬡ Orgs</button>
       <button class="btn" id="btn-budget" onclick="openBudgetModal()" title="Set daily/monthly cost budget">⚑ Budget</button>
       <button class="btn" onclick="openCmdPalette()">⌕ Search <kbd style="font-size:10px;opacity:0.6;margin-left:3px">⌘K</kbd></button>
       <button class="btn" onclick="openShortcutHelp()" title="Keyboard shortcuts (?)">? Help</button>
@@ -4271,7 +4268,7 @@ function appendChatViewEvent(ev, animate) {
     const _auTok = (ev.tokens_in || ev.tokens_out) ? ((ev.tokens_in||0)).toLocaleString() + '↑ ' + ((ev.tokens_out||0)).toLocaleString() + '↓' : '';
     el = mkCVSys('◈ ' + esc(_auAgent) + (_auTok ? ' · ' + _auTok : '') + (_auCost ? ' · ' + _auCost : ''), ts);
   } else if (ev.type === 'agent:message') {
-    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || '', ts, ev.type);
+    el = mkCVAgent(ev.agent || ev.name || ev.role || '?', ev.msg || ev.message || ev.content || '', ts, ev.type);
   } else if (ev.type === 'session:start') {
     el = mkCVSys('Session started' + (ev.prompt ? ': ' + esc(ev.prompt.slice(0,80)) : ''), ts);
   } else if (ev.type === 'session:complete') {
@@ -4318,7 +4315,7 @@ function appendChatViewEvent(ev, animate) {
 function _cvExcerptText(ev) {
   const t = ev.type || '';
   if (t === 'intercom' || t === 'org:comms') return (ev.from || ev.role || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
-  if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'agent:message') return (ev.agent || ev.name || ev.role || '?') + ': ' + (ev.msg || ev.message || ev.content || '').slice(0, 80);
   if (t === 'agent:result') return (ev.agent || ev.from || '?') + ': ' + (ev.result || ev.msg || ev.message || ev.summary || '').slice(0, 80);
   if (t === 'agent:spawn') return 'spawned ' + (ev.to || ev.agent || ev.role || '?') + (ev.task || ev.briefing ? ': ' + (ev.task || ev.briefing || '').slice(0, 50) : '');
   if (t === 'org:agent:online') return (ev.title || ev.role || '?') + ' online';
@@ -7699,7 +7696,7 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'intercom') {
     el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
   } else if (ev.type === 'agent:message') {
-    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || '', ts, ev.type);
+    el = mkCVAgent(ev.agent || ev.name || ev.role || '?', ev.msg || ev.message || ev.content || '', ts, ev.type);
   } else if (ev.type === 'session:start') {
     el = mkCVSys('▶ ' + esc((ev.prompt || '').replace(/^running org:\s*/i,'').slice(0,80) || 'Session started'), ts);
   } else if (ev.type === 'session:complete') {
