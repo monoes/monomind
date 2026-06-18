@@ -94,15 +94,6 @@ Parse `roles_desc` (if provided) into a list of role titles. If not provided, de
 
 If a role doesn't match any keyword **and the org's domain is far from software** (legal, medical, finance, creative, etc.), do NOT force a mismatched generic type whose instructions are about the wrong domain (e.g. a court reporter mapped to the code `reviewer`). Instead coin a role-specific `agent_type` slug from the role title (slugify: `Court Reporter` → `court-reporter`, `Prosecutor` → `prosecutor`) and generate a fitting definition for it in Step 2.5. Only fall back to `general-purpose` when no sensible slug applies.
 
-**For technical/engineering orgs** (DevBot, code quality, CI/CD, data pipelines, etc.), coin a precise domain slug for every specialized role rather than forcing it into a generic category:
-- `Churn Analyst` → `churn-analyst` (git churn analysis, not a financial analyst)
-- `Complexity Scanner` → `complexity-scanner` (static analysis, cyclomatic complexity)
-- `Impact Assessor` → `impact-assessor` (code change blast-radius scoring)
-- `Validator` → `code-validator` (applies patches, runs tests, enforces kill switch)
-- `Orchestrator` (in a devbot) → `devbot-orchestrator` (4-phase pipeline boss, not generic coordinator)
-
-The coined slug + a generated definition at `.claude/agents/generated/<slug>.md` is always better than a generic type whose system prompt talks about a completely different job.
-
 ---
 
 ## Step 2.3 — Persona / Character Detection (run BEFORE the mapping table above)
@@ -205,35 +196,6 @@ The dashboard agent drawer and `runorg` both read these definitions (matched by 
 
 ---
 
-## Step 2.6 — COMPLETENESS GATE (BLOCKING — do not proceed to Step 3 until all checks pass)
-
-This gate prevents saving an org where the dashboard will show "No instruction document" or blank skills. **Run these checks now — one Bash call per role:**
-
-For each role in the org:
-
-```bash
-# Check 1 — agent_type is set
-role_id="<role_id>"
-agent_type="<agent_type>"
-[ -z "$agent_type" ] && echo "FAIL: role '$role_id' has no agent_type" && exit 1
-
-# Check 2 — definition file exists on disk
-def_file=".claude/agents/generated/${agent_type}.md"
-# Also check non-generated paths
-fallback=$(find .claude/agents -iname "${agent_type}.md" 2>/dev/null | head -1)
-if [ ! -f "$def_file" ] && [ -z "$fallback" ]; then
-  echo "FAIL: no agent definition file for '$agent_type' — generate it now before continuing"
-  exit 1
-fi
-echo "OK: $role_id → $agent_type ✓"
-```
-
-If any check fails: go back to Step 2.5 and generate the missing file before proceeding. Do not skip this check.
-
-**Also verify the `skills` array for each role is non-empty (≥3 items).** If `skills: []` for any role, pull the expertise from the generated definition file and populate it now.
-
----
-
 ## Step 3 — Suggest Communication Topology
 
 Determine topology from team size:
@@ -273,32 +235,6 @@ Adjust for the actual roles in this run. Assign `reports_to` on each role using 
 - After building edges, **derive each role's input/output contract from them**: a role's `input_type` summarizes who/what its inbound edges deliver; its `output_type` summarizes what its outbound edges carry. Feed these into the generated definition from Step 2.5 so the spec and the topology agree.
 
 A role that ends up with no inbound or no outbound edge is a bug — re-examine the topology before saving.
-
----
-
-## Step 3.5 — TOPOLOGY VALIDATION GATE (BLOCKING — do not proceed to Step 4 until all checks pass)
-
-Build the communication array now, then validate it with these checks:
-
-```bash
-# Check 1 — at least one edge exists
-edges='<communication_json_array>'
-edge_count=$(echo "$edges" | jq 'length')
-[ "$edge_count" -eq 0 ] && echo "FAIL: communication array is empty — define edges now" && exit 1
-
-# Check 2 — every role has at least one inbound OR outbound edge
-role_ids=("<id1>" "<id2>" ... )  # all role IDs
-for rid in "${role_ids[@]}"; do
-  has_edge=$(echo "$edges" | jq --arg r "$rid" '[.[] | select(.from==$r or .to==$r)] | length')
-  [ "$has_edge" -eq 0 ] && echo "FAIL: role '$rid' has no communication edges — it is an orphan" && exit 1
-done
-
-# Check 3 — every non-boss executor role has at least one inbound edge (receives work)
-# and at least one outbound edge (delivers output)
-echo "OK: topology validated — $edge_count edges, all roles wired"
-```
-
-If any check fails: go back to Step 3 and add the missing edges. **The `communication` array must be non-empty in the saved JSON** — the dashboard Chart tab draws its arrows from this array; an empty array means a blank chart with isolated nodes and no connection lines.
 
 ---
 
@@ -391,32 +327,27 @@ Render the org plan in a clear human-readable format:
 ║  GOAL: <goal>                                    ║
 ╚══════════════════════════════════════════════════╝
 
-ROLES  (N roles — all must have agent_type + skills before "go")
+ROLES
 ─────
 • [boss] CEO / Boss
-    Agent type:      coordinator
-    Skills:          strategic oversight, decision-making, org management
-    Reports to:      (none — top of hierarchy)
+    Agent: coordinator
+    Reports to: (none — top of hierarchy)
     Responsibilities: Strategic oversight, final approval
-    Definition file: .claude/agents/coordinator.md ✓
 
 • [middle_manager] Middle Manager
-    Agent type:      project-shepherd
-    Skills:          sprint planning, cross-team coordination, status tracking
-    Reports to:      boss
+    Agent: Project Shepherd
+    Reports to: boss
     Responsibilities: Sprint planning, cross-team coordination
-    Definition file: .claude/agents/generated/project-shepherd.md ✓
 
-  ... (all roles — each showing agent_type, skills, and definition file status)
+  ... (all roles)
 
-COMMUNICATION TOPOLOGY  (N edges — must be non-zero)
+COMMUNICATION TOPOLOGY
 ──────────────────────
-boss → middle_manager           (command)
-middle_manager → content_writer (command)
-content_writer → content_reviewer (handoff)
-content_reviewer → middle_manager (report)
-middle_manager → boss           (report)
-  ... (all edges — every role must appear here at least once)
+boss → middle_manager  (command)
+middle_manager → content_writer  (command)
+content_writer → content_reviewer  (handoff)
+content_reviewer → middle_manager  (report)
+  ... (all edges)
 
 SETTINGS
 ────────
@@ -531,39 +462,6 @@ jq --arg board_id "$board_id" \
    --arg done_col_id "$done_col_id" \
    '. + {board_id:$board_id,todo_col_id:$todo_col_id,doing_col_id:$doing_col_id,done_col_id:$done_col_id}' \
    "$orgJson" > "$tmp" && mv "$tmp" "$orgJson"
-```
-
-**POST-SAVE VALIDATION (run immediately after saving — abort if either check fails):**
-
-```bash
-# Check 1 — communication array is non-empty (dashboard Chart tab requires this for arrows)
-comm_count=$(jq '.communication | length' "$orgJson" 2>/dev/null || echo 0)
-if [ "$comm_count" -eq 0 ]; then
-  echo "ERROR: Saved org has empty communication array — dashboard Chart will show isolated nodes with no arrows."
-  echo "Fix: go back to Step 3 and Step 3.5, define edges, then re-save."
-  exit 1
-fi
-echo "✓ Communication: $comm_count edges saved"
-
-# Check 2 — every role has agent_type set
-bad_roles=$(jq -r '.roles[] | select((.agent_type // "") == "") | .id' "$orgJson" 2>/dev/null)
-if [ -n "$bad_roles" ]; then
-  echo "ERROR: These roles have no agent_type — dashboard will show '?' for each:"
-  echo "$bad_roles"
-  echo "Fix: go back to Step 2 / Step 2.5 and set agent_type for each role, then re-save."
-  exit 1
-fi
-echo "✓ All roles have agent_type set"
-
-# Check 3 — every role has skills (non-empty array)
-empty_skills=$(jq -r '.roles[] | select((.skills // []) | length == 0) | .id' "$orgJson" 2>/dev/null)
-if [ -n "$empty_skills" ]; then
-  echo "WARNING: These roles have empty skills arrays — dashboard Skills tab will show nothing:"
-  echo "$empty_skills"
-  echo "Fix: populate skills from each role's generated agent definition."
-fi
-
-echo "✓ Org config validated — org is ready to run"
 ```
 
 ---
