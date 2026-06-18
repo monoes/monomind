@@ -8055,6 +8055,18 @@ function filterOrgList(q) {
                     .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._issues = Array.isArray(d) ? d : (d?.issues || []); _v2OrgTab === 'board' ? v2RenderOrgBoard() : v2RenderOrgIssuesFull(); } })
                     .catch(() => { _v2OrgTab === 'board' ? v2RenderOrgBoard() : v2RenderOrgIssuesFull(); });
                 }
+                if (_v2OrgTab === 'goals') {
+                  // Re-fetch org data after run events so goal progress (filled/total/status) reflects current state
+                  const _glEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_glEnc}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.goals !== undefined) { _v2OrgData.goals = d.goals; v2RenderOrgGoals(); } })
+                    .catch(() => { v2RenderOrgGoals(); });
+                }
+                if (_v2OrgTab === 'chat') {
+                  // Re-load chat run list after run events so cycleCount/eventCount in dropdown reflect disk state
+                  _odtLoadChatSessions().catch(() => {});
+                }
               }
             }
           }, 400);
