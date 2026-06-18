@@ -5741,7 +5741,7 @@ function v2RenderOrgChart() {
     const nameText = displayName.length > MAX_LBL ? displayName.slice(0, MAX_LBL - 1) + '…' : displayName;
     const subTypeText = subType.length > MAX_LBL ? subType.slice(0, MAX_LBL - 1) + '…' : subType;
     const outerRing = leader ? `<circle r="${R + 9}" fill="none" stroke="${color}" stroke-width="0.6" opacity="0.18"/>` : '';
-    const runningDot = isRunning ? `<circle r="5.5" cx="${(R * 0.65).toFixed(1)}" cy="${(-R * 0.65).toFixed(1)}" fill="oklch(68% 0.20 150)" stroke="oklch(12% 0.008 55)" stroke-width="1.5" style="animation:blink 2s ease-in-out infinite"/>` : '';
+    const runningDot = isRunning ? `<circle class="v2-chart-running-dot" r="5.5" cx="${(R * 0.65).toFixed(1)}" cy="${(-R * 0.65).toFixed(1)}" fill="oklch(68% 0.20 150)" stroke="oklch(12% 0.008 55)" stroke-width="1.5" style="animation:blink 2s ease-in-out infinite"/>` : '';
     const nameY = subType ? (R * 0.55 + 2).toFixed(0) : (R * 0.55 + 8).toFixed(0);
     const avR = Math.round(R * 0.52);
     const avatarSrc = v2RoleAvatar(role);
@@ -5813,6 +5813,31 @@ function v2RenderOrgChart() {
   }
 }
 
+
+// ── in-place running dot updater (avoids full re-render + GSAP flicker on SSE events) ──
+function v2UpdateChartRunningDots() {
+  if (!_v2OrgData) return;
+  const R = 42;
+  const running = new Set((_v2OrgData._agents || []).filter(a => a.status === 'running').map(a => a.id));
+  document.querySelectorAll('#v2oc-nodes .v2oc-node[data-role]').forEach(g => {
+    const roleId = g.dataset.role;
+    const existing = g.querySelector('.v2-chart-running-dot');
+    if (running.has(roleId) && !existing) {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('class', 'v2-chart-running-dot');
+      c.setAttribute('r', '5.5');
+      c.setAttribute('cx', (R * 0.65).toFixed(1));
+      c.setAttribute('cy', (-R * 0.65).toFixed(1));
+      c.setAttribute('fill', 'oklch(68% 0.20 150)');
+      c.setAttribute('stroke', 'oklch(12% 0.008 55)');
+      c.setAttribute('stroke-width', '1.5');
+      c.style.animation = 'blink 2s ease-in-out infinite';
+      g.insertBefore(c, g.firstChild);
+    } else if (!running.has(roleId) && existing) {
+      existing.remove();
+    }
+  });
+}
 
 // ── avatar lookup ────────────────────────────
 const _v2AvatarKnown = new Set([
@@ -7961,7 +7986,7 @@ function filterOrgList(q) {
           else if (_v2OrgTab === 'heartbeats' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgHeartbeats();
           else if (_v2OrgTab === 'members' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgMembers();
           else if (_v2OrgTab === 'roles' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgRoles();
-          else if (_v2OrgTab === 'chart' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgChart();
+          else if (_v2OrgTab === 'chart' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2UpdateChartRunningDots();
         }
         // Also push live org:comms / org:checkpoint events directly into the Live tab
         // activity feed so they appear in real-time without waiting for the 5s poll.
