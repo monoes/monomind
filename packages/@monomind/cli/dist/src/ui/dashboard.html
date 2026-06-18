@@ -6189,7 +6189,9 @@ function v2RenderOrgMembers() {
   const joinReqs = Array.isArray(_v2OrgData?._joinRequests) ? _v2OrgData._joinRequests : [];
   if (!list.length) { pane.innerHTML = '<div class="empty">No members</div>'; return; }
   const src = members.length ? 'joined members' : 'defined roles';
-  const active = (r) => r.running || r.active || r.status === 'active';
+  // Overlay live running status from in-memory agent SSE state (updated by org:agent:online/offline events)
+  const _liveRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
+  const active = (r) => r.running || r.active || r.status === 'active' || _liveRunning.has(r.id || r.name || r.user);
   pane.innerHTML = `<div class="m-group-title">Members (${list.length}) · ${src}</div>` +
     list.map(r => `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
       <span style="width:28px;height:28px;border-radius:50%;background:var(--surface-hi);display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">◈</span>
@@ -7949,6 +7951,7 @@ function filterOrgList(q) {
           if (_v2OrgTab === 'agents-full' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgAgentsFull();
           else if (_v2OrgTab === 'live' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgLive();
           else if (_v2OrgTab === 'heartbeats' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgHeartbeats();
+          else if (_v2OrgTab === 'members' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgMembers();
         }
         // Also push live org:comms / org:checkpoint events directly into the Live tab
         // activity feed so they appear in real-time without waiting for the 5s poll.
