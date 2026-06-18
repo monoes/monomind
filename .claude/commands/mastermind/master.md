@@ -316,7 +316,7 @@ jq -n --arg sid "$SESSION_ID" --arg proj "$project_name" --arg prompt "$resolved
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
-  -d "$(jq -cn --arg sid "$SESSION_ID" --arg prompt "$resolved_prompt" --arg mode "$mode" --arg proj "$(pwd)" \
+  -d "$(jq -cn --arg sid "$SESSION_ID" --arg prompt "$resolved_prompt" --arg mode "$mode" --arg proj "$REPO_ROOT" \
     '{type:"session:start",session:$sid,prompt:$prompt,mode:$mode,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
