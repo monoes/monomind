@@ -37,7 +37,7 @@ function readStdin() {
 }
 
 function getClaudeProjectDir() {
-  const encoded = CWD.replace(/\//g, '-').replace(/^-/, '');
+  const encoded = CWD.replace(/\//g, '-');
   return path.join(os.homedir(), '.claude', 'projects', encoded);
 }
 
