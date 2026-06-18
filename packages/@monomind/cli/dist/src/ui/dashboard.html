@@ -7974,6 +7974,14 @@ function filterOrgList(q) {
                     .then(h => { if (h && _v2OrgData && _v2SelOrg === n) { _v2OrgData._health = h; v2RenderOrgHealth(); } })
                     .catch(() => { v2RenderOrgHealth(); });
                 }
+                if (_v2OrgTab === 'tasks') {
+                  // Re-fetch org data after run events so tasks (todo/doing/done) reflect current store state
+                  const _tEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_tEnc}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.tasks !== undefined) { _v2OrgData.tasks = d.tasks; v2RenderOrgTasks(); } })
+                    .catch(() => { v2RenderOrgTasks(); });
+                }
               }
             }
           }, 400);
