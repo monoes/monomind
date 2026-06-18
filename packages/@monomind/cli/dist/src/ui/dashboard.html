@@ -4168,7 +4168,12 @@ function _cvExcerptText(ev) {
   const t = ev.type || '';
   if (t === 'intercom' || t === 'org:comms') return (ev.from || ev.role || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
   if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
-  if (t === 'agent:spawn' || t === 'org:agent:online') return 'spawned ' + (ev.agent || ev.role || ev.title || '?');
+  if (t === 'agent:result') return (ev.agent || ev.from || '?') + ': ' + (ev.result || ev.msg || ev.message || ev.summary || '').slice(0, 80);
+  if (t === 'agent:spawn') return 'spawned ' + (ev.to || ev.agent || ev.role || '?') + (ev.task || ev.briefing ? ': ' + (ev.task || ev.briefing || '').slice(0, 50) : '');
+  if (t === 'org:agent:online') return (ev.title || ev.role || '?') + ' online';
+  if (t === 'org:agent:offline') return (ev.title || ev.role || '?') + ' offline';
+  if (t === 'org:error') return 'error: ' + (ev.msg || ev.error || ev.message || '').slice(0, 80);
+  if (t === 'file:write') return (ev.name || ev.path || '?') + (ev.size ? ' (' + (ev.size > 1048576 ? (ev.size/1048576).toFixed(1)+'MB' : ev.size > 1024 ? (ev.size/1024).toFixed(1)+'KB' : ev.size+'B') + ')' : '');
   if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.summary || ev.progress || ev.msg || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
   if (t === 'run:complete') return 'run complete' + (ev.status ? ' [' + ev.status + ']' : '');
   if (t === 'run:cycle:complete') return 'cycle done' + (ev.pending != null ? ' · ' + ev.pending + ' pending' : '');
@@ -4178,7 +4183,11 @@ function _cvExcerptText(ev) {
   if (t === 'session:complete') return 'completed' + (ev.status ? ' [' + ev.status + ']' : '');
   if (t === 'domain:dispatch') return '→ ' + (ev.domain || '') + (ev.cmd ? ': ' + ev.cmd.slice(0, 60) : '');
   if (t === 'domain:complete') return '✓ ' + (ev.domain || '');
-  if (ev.msg) return (ev.msg || '').slice(0, 80);
+  if (t === 'loop:tick') { const _r = ev.rep ?? ev.fromRep; return _r != null ? 'rep ' + _r + ' done' : (ev.command || ev.loopId || t); }
+  if (t === 'loop:start') return 'loop: ' + (ev.command || '');
+  if (t === 'loop:complete') return 'loop done: ' + (ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : '');
+  const _content = ev.result || ev.msg || ev.message || ev.error || ev.summary || '';
+  if (_content) return _content.slice(0, 80);
   return t.slice(0, 60);
 }
 
@@ -4186,13 +4195,18 @@ function _cvExcerptTag(ev) {
   const t = ev.type || '';
   if (t === 'intercom' || t === 'org:comms') return 'IC';
   if (t === 'agent:message') return 'MSG';
+  if (t === 'agent:result') return 'RESULT';
   if (t === 'agent:spawn' || t === 'org:agent:online') return 'NEW';
+  if (t === 'org:agent:offline') return 'OFF';
+  if (t === 'org:error') return 'ERR';
   if (t === 'org:checkpoint') return 'CHK';
+  if (t === 'file:write') return 'FILE';
   if (t.startsWith('org:')) return 'ORG';
   if (t.startsWith('run:')) return 'RUN';
   if (t.startsWith('session:')) return 'SES';
   if (t.startsWith('domain:')) return 'DOM';
   if (t.startsWith('loop:')) return 'LOOP';
+  if (t.startsWith('agent:')) return 'AGT';
   return 'EVT';
 }
 
@@ -6809,7 +6823,7 @@ async function v2RenderOrgChat() {
         }
         (_catchSess.events || []).forEach(ev => {
           _odtAppendEvent(ev, false);
-          const _ck = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||'')+'|'+(ev?.msg||'').slice(0,20);
+          const _ck = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
           _odtChatSeenKeys.add(_ck);
         });
         // Re-inject [S]→[R] link card on tab-return (same as first-select path)
@@ -7109,7 +7123,7 @@ window.odtChatSelectSession = async function(id) {
     // Pre-seed dedup set so SSE reconnect replays of these historical events are swallowed
     // rather than appended again. Without this, a reconnect replays ~50 events from the server
     // and they all pass _odtChatSeenKeys (which only tracks events that arrived via SSE).
-    const _hk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||'')+'|'+(ev?.msg||'').slice(0,20);
+    const _hk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
     _odtChatSeenKeys.add(_hk);
   });
   // For [S] sessions (mastermind wrappers that triggered an org run), show a link card to the
@@ -7333,7 +7347,7 @@ function _odtConnectChatSSE() {
 
 function _odtHandleLiveEvent(ev) {
   // Deduplicate SSE reconnect replays (server replays last 50 events on every reconnect)
-  const _odtDedupKey = (ev?.ts||'') + '|' + (ev?.type||'') + '|' + (ev?.runId||ev?.session||'') + '|' + (ev?.from||ev?.role||'') + '|' + (ev?.msg||'').slice(0,20);
+  const _odtDedupKey = (ev?.ts||'') + '|' + (ev?.type||'') + '|' + (ev?.runId||ev?.session||'') + '|' + (ev?.from||ev?.role||ev?.agent||'') + '|' + (ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
   if (_odtChatSeenKeys.has(_odtDedupKey)) return;
   _odtChatSeenKeys.add(_odtDedupKey);
   // Cap the dedup Set to prevent unbounded memory growth in long-running sessions.
