@@ -2129,6 +2129,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <div id="chat-v-live-dot"></div>
           <span id="chat-v-live-lbl">OFFLINE</span>
         </div>
+        <div id="chat-v-excerpt" class="cv-excerpt-banner"></div>
         <div id="chat-v-feed">
           <div id="chat-v-empty">Select a session above to see agent communications.<br>Agent messages, intercom signals, and system events appear here in real time.</div>
         </div>
@@ -4090,7 +4091,15 @@ function chatVSelectSession(id) {
     `</div>`;
   feed.appendChild(hdr);
   const events = session.events || [];
-  events.forEach(ev => appendChatViewEvent(ev, false));
+  events.forEach(ev => {
+    appendChatViewEvent(ev, false);
+    // Pre-seed dedup set so SSE reconnect replays of historical events are swallowed
+    const _cvhk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.session||ev?.runId||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
+    chatVSeenKeys.add(_cvhk);
+  });
+  // Populate excerpt banner with last activity for the selected session
+  const _cvExEl = document.getElementById('chat-v-excerpt');
+  if (_cvExEl) { if (events.length) renderCvExcerptBanner('chat-v-excerpt', events, session); else _cvExEl.innerHTML = ''; }
   feed.scrollTop = feed.scrollHeight;
 }
 
@@ -4353,7 +4362,12 @@ function handleChatViewEvent(ev) {
       s.events.push(ev);
       if (ev.type === 'session:complete') s.status = 'complete';
     }
-    if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
+    if (chatVCurrentId === ev.session) {
+      appendChatViewEvent(ev, true);
+      // Keep excerpt banner current for live sessions (mirrors org-detail chat path)
+      const _cvSess = chatVSessions[ev.session];
+      if (_cvSess) renderCvExcerptBanner('chat-v-excerpt', _cvSess.events || [], _cvSess);
+    }
   } else if (isOrgEvent) {
     // Org events without a Claude session ID — append to feed regardless of active view;
     // #chat-v-feed is in the DOM even when hidden, so events accumulate correctly.
