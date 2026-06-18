@@ -7959,7 +7959,14 @@ function filterOrgList(q) {
                 const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
                 if (_v2OrgData) _v2OrgData.running = listOrg.running;
                 v2UpdateOrgHeader(listOrg, _v2OrgData);
-                if (_v2OrgTab === 'health') v2RenderOrgHealth();
+                if (_v2OrgTab === 'health') {
+                  // Re-fetch health after run events so stats (agents_active, success_rate, total_runs) are current
+                  const _hEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_hEnc}/health${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(h => { if (h && _v2OrgData && _v2SelOrg === n) { _v2OrgData._health = h; v2RenderOrgHealth(); } })
+                    .catch(() => { v2RenderOrgHealth(); });
+                }
               }
             }
           }, 400);
