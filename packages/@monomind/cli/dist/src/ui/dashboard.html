@@ -6848,7 +6848,7 @@ async function v2RenderOrgChat() {
     // _sseDuringFetch in _odtLoadChatSessions.
     _odtChatSessions = [];
     document.getElementById('odt-chat-agent-bar').style.display = 'none';
-    document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
+    document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
     const emptyEl = document.getElementById('odt-chat-empty');
     if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a session to see agent communications.'; }
   }
