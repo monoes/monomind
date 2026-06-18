@@ -124,28 +124,85 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 **Why:** The knowledge graph encodes full dependency relationships, import chains, and architectural topology. It lets you understand the blast radius of a change and find all affected files without grepping the entire codebase.
 
-**Available monograph tools (23 total):**
+**Available monograph tools (43 total):**
+
+### Core Navigation (use these first)
 
 | Tool | Use when |
 |---|---|
 | `monograph_suggest` | **Start every task** — returns ambiguous edges, bridge nodes, isolated nodes ranked by task relevance |
 | `monograph_query` | **Primary lookup** — BM25 keyword search; returns file + line number |
 | `monograph_god_nodes` | Finding high-centrality internal files (external/test filtered) |
+| `monograph_augment` | Graph-RAG: retrieve relevant code context for a natural-language query |
+| `monograph_get_node` | Get a specific node by exact ID or name |
+| `monograph_neighbors` | Show all directly connected nodes for a symbol — outbound and inbound edges |
+
+### Change Impact & Analysis
+
+| Tool | Use when |
+|---|---|
 | `monograph_impact` | **Before changing anything** — find all upstream dependents + downstream dependencies (blast radius) |
+| `monograph_api_impact` | Blast radius of an HTTP route — finds handler, BFS through CALLS edges, risk score |
 | `monograph_context` | 360° view of a file: importers, imports, parent, community siblings |
 | `monograph_detect_changes` | Map current git diff to affected graph nodes + dependents |
 | `monograph_shortest_path` | Understanding how two modules are connected |
+| `monograph_shape_check` | Validate API route response shapes — handler return keys vs consumer property accesses |
+| `monograph_route_map` | List all HTTP routes with handler info; filter by URL prefix or method |
+
+### Graph Exploration
+
+| Tool | Use when |
+|---|---|
 | `monograph_community` | Understanding which files form a cohesive module cluster |
-| `monograph_rename` | Dry-run multi-file rename — finds all graph + text occurrences |
-| `monograph_cypher` | Ad-hoc graph queries: MATCH (n:Class)-[:IMPORTS]->(b) RETURN n.name |
-| `monograph_snapshot` | Save current graph state to a named JSON snapshot for before/after diffing |
-| `monograph_diff` | Compare two named snapshots (or live graph vs snapshot) — added/removed nodes and edges |
-| `monograph_neighbors` | Show all directly connected nodes for a symbol — outbound and inbound edges |
+| `monograph_cypher` | Ad-hoc read-only Cypher MATCH queries against the graph |
 | `monograph_surprises` | Unexpected cross-community or low-confidence edges |
-| `monograph_stats` | Quick sanity check — node/edge counts |
+| `monograph_rename` | Dry-run multi-file rename — finds all graph + text occurrences |
+| `monograph_tool_map` | List MCP/RPC tool definitions with handler associations |
+
+### Index Lifecycle
+
+| Tool | Use when |
+|---|---|
+| `monograph_build` | Full build (or rebuild) — parses code via tree-sitter, indexes into SQLite |
 | `monograph_health` | Index staleness: commits behind HEAD |
+| `monograph_staleness` | Git staleness details — isStale, changed files, first diverging commit timestamp |
+| `monograph_stats` | Quick sanity check — node/edge/community counts |
+| `monograph_watch` | Start incremental file watcher — rebuilds on change (3s debounce) |
+| `monograph_watch_stop` | Stop the file watcher |
+| `monograph_doctor` | Platform diagnostics — Node version, SQLite health, node count, disk space |
+| `monograph_embed` | Embed all symbol nodes (384D, requires `@huggingface/transformers`) — enables hybrid BM25+vector search |
+
+### Snapshots & Export
+
+| Tool | Use when |
+|---|---|
+| `monograph_snapshot` | Save current graph state to a named JSON snapshot for before/after diffing |
+| `monograph_diff` | Compare two named snapshots (or live graph vs snapshot) |
 | `monograph_report` | Generate GRAPH_REPORT.md with top nodes |
-| `monograph_export` | Export: json, svg, graphml, cypher |
+| `monograph_export` | Export: json, svg, graphml, cypher, obsidian, canvas |
+| `monograph_visualize` | Render interactive HTML graph (Sigma.js), SVG, or JSON |
+| `monograph_serve` | Start web UI server for interactive graph visualization |
+
+### Wiki & AI Docs
+
+| Tool | Use when |
+|---|---|
+| `monograph_wiki` | Retrieve LLM-generated wiki pages for code communities |
+| `monograph_wiki_build` | Generate wiki pages for communities using Anthropic API |
+| `monograph_skill_gen` | Generate per-community skill files for AI navigation |
+| `monograph_inject_context` | Inject monograph capabilities into AGENTS.md / CLAUDE.md |
+| `monograph_install_skills` | Install skill files for IDE/platform (claude, cursor, vscode, zed) |
+
+### Multi-Repo / Group
+
+| Tool | Use when |
+|---|---|
+| `monograph_list_repos` | List all repos tracked in the global monograph registry |
+| `monograph_group_list` | List repos in a group.yaml with index metadata |
+| `monograph_group_query` | BM25 search merged across all repos in a group (RRF-ranked) |
+| `monograph_group_contracts` | List public API contracts (exported symbols/interfaces/types) for a group |
+| `monograph_group_status` | Health status for all groups: indexed, has contracts, recently synced |
+| `monograph_group_sync` | Scan and rebuild all repos in a group |
 
 **Skip monograph for:** single-file edits, doc/config changes, quick fixes where you already know the file.
 
