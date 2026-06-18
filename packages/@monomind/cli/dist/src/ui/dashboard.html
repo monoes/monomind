@@ -2265,7 +2265,7 @@ document.getElementById('feed-scroll').addEventListener('scroll', () => {
   userScrolled = document.getElementById('feed-scroll').scrollTop > 50;
 });
 
-function switchView(v) {
+function switchView(v, { updateHash = true } = {}) {
   currentView = v;
   document.querySelectorAll('.nav-item[data-view]').forEach(el =>
     el.classList.toggle('active', el.dataset.view === v));
@@ -2276,10 +2276,47 @@ function switchView(v) {
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
   const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
+  if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
   if (v === 'projects') { renderProjects(); return; }
   if (v === 'chat') { initChatView(); return; }
   if (!viewRendered[v]) { renderView(v); viewRendered[v] = true; }
+}
+
+// ── Hash-based routing ────────────────────────────────────────────────────────
+// Format: #<view>  or  #orgs/<orgName>/<tab>
+function _pushHash() {
+  let hash = currentView;
+  if (currentView === 'orgs' && _v2SelOrg) {
+    hash = 'orgs/' + encodeURIComponent(_v2SelOrg) + '/' + (_v2OrgTab || 'chart');
+  }
+  history.replaceState(null, '', '#' + hash);
+}
+
+function _restoreFromHash() {
+  const raw = location.hash.slice(1);
+  if (!raw) return;
+  const parts = raw.split('/');
+  const view = parts[0];
+  if (!view) return;
+  if (view === 'orgs') {
+    switchView('orgs', { updateHash: false });
+    const orgName = parts[1] ? decodeURIComponent(parts[1]) : null;
+    const tab = parts[2] || 'chart';
+    if (orgName) {
+      // Wait for orgs list to render then select
+      const _trySelect = (attempts) => {
+        if (typeof v2SelectOrg === 'function' && (window._v2Orgs || []).length > 0) {
+          v2SelectOrg(orgName).then(() => { if (tab !== 'chart') v2SwitchOrgTab(tab); });
+        } else if (attempts > 0) {
+          setTimeout(() => _trySelect(attempts - 1), 200);
+        }
+      };
+      _trySelect(15);
+    }
+  } else {
+    switchView(view, { updateHash: false });
+  }
 }
 
 function renderView(v) {
@@ -2351,6 +2388,9 @@ async function init() {
   await refreshNow();
   if (sessParam) setTimeout(() => jumpToSession(sessParam), 300);
   initSSE();
+  // Restore view from URL hash (after initial data load so orgs list is ready)
+  _restoreFromHash();
+  window.addEventListener('hashchange', () => _restoreFromHash());
 }
 
 function _setLiveMode(mode) {
@@ -5449,6 +5489,7 @@ function v2RenderOrgList() {
 
 async function v2SelectOrg(name) {
   _v2SelOrg = name;
+  _pushHash();
   if (typeof v2CloseAgent === 'function') v2CloseAgent();
   if (_orgLiveInterval) { clearInterval(_orgLiveInterval); _orgLiveInterval = null; }
   const requested = name;
@@ -5531,6 +5572,7 @@ window.v2SwitchOrgTab = function(tab) {
   });
   document.querySelectorAll('.odt-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('odt-' + tab)?.classList.add('active');
+  _pushHash();
   v2RenderOrgTab(tab);
 };
 
