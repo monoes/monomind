@@ -7820,8 +7820,8 @@ function v2RenderOrgAgentsFull() {
       <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapterModel||a.adapter||'—')}</td>
       <td style="padding:5px 8px"><span class="ss-pill ${(a.status==='running'||a.running)?'on':''}">${esc(a.status||'idle')}</span></td>
       <td style="padding:5px 8px;color:var(--text-lo)">${a.lastHeartbeat ? relTime(a.lastHeartbeat) : '—'}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${a.tokensIn != null ? Number(a.tokensIn).toLocaleString() : '—'}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${a.tokensOut != null ? Number(a.tokensOut).toLocaleString() : '—'}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${(a.tokensIn ?? a.tokens_in) != null ? Number(a.tokensIn ?? a.tokens_in).toLocaleString() : '—'}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${(a.tokensOut ?? a.tokens_out) != null ? Number(a.tokensOut ?? a.tokens_out).toLocaleString() : '—'}</td>
     </tr>`).join('')}</tbody>
   </table>`;
 }
