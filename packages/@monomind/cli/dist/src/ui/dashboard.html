@@ -3964,8 +3964,11 @@ async function renderGlobalFeed() {
 }
 
 // ── agent chat view ────────────────────────────────────────
-let chatVSessions = {};
+let chatVSessions = {};       // sessionId or groupId → session/group object
+let chatVGroupMap = {};        // groupId → group object
+let chatVSessionGroupMap = {}; // sessionId → groupId (for sessions inside a group)
 let chatVCurrentId = null;
+let chatVCurrentGroupSessions = new Set(); // session IDs belonging to the currently selected group
 let chatVSseSource = null;
 let chatVSeenKeys = new Set();
 
@@ -4040,31 +4043,81 @@ async function loadChatViewSessions() {
     const _prevChatSessions = { ...chatVSessions };
     const data = await apiFetch('/api/mastermind/sessions');
     chatVSessions = {};
+    chatVGroupMap = {};
+    chatVSessionGroupMap = {};
     const sel = document.getElementById('chat-v-sel');
     const prev = sel.value;
     while (sel.options.length > 1) sel.remove(1);
     // API returns a plain array (not {sessions:{...}}) — handle both shapes for safety
     const sessions = Array.isArray(data) ? data : Object.values(data.sessions || data || {});
-    sessions.sort((a, b) => (b.startedAt || b.ts || 0) - (a.startedAt || a.ts || 0));
+
+    // Normalize and merge SSE-seeded events before grouping
     sessions.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      const tsVal = s.startedAt || s.ts || 0;
-      const ts = tsVal ? new Date(tsVal).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
-      // Show prompt (session goal) instead of raw ID — fall back to truncated ID when prompt absent
-      const label = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0, 40) || s.id.slice(0, 16);
-      // Preserve SSE-seeded events that may not have been written to disk yet
       if (_prevChatSessions[s.id] && (_prevChatSessions[s.id].events || []).length > (s.events || []).length) {
         s.events = _prevChatSessions[s.id].events;
       }
-      // Normalize completed status — API may store 'ok'/'success' instead of 'complete'
       if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete';
-      const evCount = (s.events || []).length;
-      const msgPart = evCount ? '  ' + evCount + ' ev' : '';
-      opt.textContent = label + (ts ? '  ' + ts : '') + msgPart + (s.status === 'running' ? '  ●' : '');
-      sel.appendChild(opt);
-      chatVSessions[s.id] = s;
     });
+
+    // Group consecutive sessions with same normalized prompt + gap < 20 min → loop group
+    const _CV_MAX_LOOP_GAP = 20 * 60 * 1000;
+    const _cvNormPrompt = p => (p || '').replace(/^running org:\s*/i, '').toLowerCase().replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 40);
+    const sessAsc = [...sessions].sort((a, b) => (a.startedAt || a.ts || 0) - (b.startedAt || b.ts || 0));
+    const cvGroups = []; // [{id, sessions, events, totalEvents, status, prompt, startedAt, _newestAt, _normKey, _isGroup}]
+    sessAsc.forEach(s => {
+      const key = _cvNormPrompt(s.prompt);
+      const sAt = s.startedAt || s.ts || 0;
+      const last = cvGroups[cvGroups.length - 1];
+      if (last && last._normKey === key && key && (sAt - last._newestAt) < _CV_MAX_LOOP_GAP) {
+        last.sessions.push(s);
+        last._newestAt = sAt;
+        last.totalEvents += (s.events || []).length;
+        if (s.status === 'running') last.status = 'running';
+        (s.events || []).forEach(ev => last.events.push(ev));
+      } else {
+        cvGroups.push({
+          id: s.id,
+          sessions: [s],
+          _normKey: key,
+          _newestAt: sAt,
+          totalEvents: (s.events || []).length,
+          status: s.status || 'complete',
+          prompt: s.prompt,
+          startedAt: sAt,
+          domains: s.domains || [],
+          events: [...(s.events || [])],
+          _isGroup: false
+        });
+      }
+    });
+    // Finalize groups
+    cvGroups.forEach(g => {
+      if (g.sessions.length > 1) {
+        g._isGroup = true;
+        g.id = 'grp:' + g.sessions[0].id;
+        g.events.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      }
+    });
+    // Sort groups newest first, register
+    cvGroups.sort((a, b) => b._newestAt - a._newestAt);
+    cvGroups.forEach(g => {
+      chatVSessions[g.id] = g;
+      chatVGroupMap[g.id] = g;
+      g.sessions.forEach(s => {
+        chatVSessions[s.id] = g; // session ID also routes to group
+        if (g._isGroup) chatVSessionGroupMap[s.id] = g.id;
+      });
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      const ts = g._newestAt ? new Date(g._newestAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+      const label = (g.prompt || '').replace(/^running org:\s*/i, '').replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 30) || g.id.slice(0, 16);
+      const evCount = g.totalEvents || (g.events || []).length;
+      const msgPart = evCount ? '  ' + evCount + 'ev' : '';
+      const repPart = g._isGroup ? '  ' + g.sessions.length + 'reps' : '';
+      opt.textContent = label + (ts ? '  ' + ts : '') + repPart + msgPart + (g.status === 'running' ? '  ●' : '');
+      sel.appendChild(opt);
+    });
+
     // Re-attach SSE-only sessions not yet in the API response (arrived during fetch)
     Object.values(_prevChatSessions).forEach(ps => {
       if (!chatVSessions[ps.id]) {
@@ -4078,21 +4131,23 @@ async function loadChatViewSessions() {
         sel.appendChild(opt);
       }
     });
-    if (prev && chatVSessions[prev]) {
-      sel.value = prev;
-      // Re-render feed if it was emptied (e.g. view re-enter) and no session is live.
-      if (!chatVCurrentId) chatVSelectSession(prev);
+
+    // Resolve prev selection: may be a sessionId inside a group now
+    const prevResolved = prev ? (chatVSessionGroupMap[prev] || (chatVSessions[prev] ? prev : null)) : null;
+    if (prevResolved && chatVSessions[prevResolved]) {
+      sel.value = prevResolved;
+      if (!chatVCurrentId) chatVSelectSession(prevResolved);
     } else {
-      const running = sessions.find(s => s.status === 'running');
-      if (running) { sel.value = running.id; chatVSelectSession(running.id); }
-      // No running session — auto-select the most recent one so feed isn't blank.
-      else if (sessions.length) { sel.value = sessions[0].id; chatVSelectSession(sessions[0].id); }
+      const runningGroup = cvGroups.find(g => g.status === 'running');
+      if (runningGroup) { sel.value = runningGroup.id; chatVSelectSession(runningGroup.id); }
+      else if (cvGroups.length) { sel.value = cvGroups[0].id; chatVSelectSession(cvGroups[0].id); }
     }
   } catch(e) { console.warn('chat sessions load failed', e); }
 }
 
 function chatVSelectSession(id) {
   chatVCurrentId = id;
+  chatVCurrentGroupSessions.clear();
   const feed = document.getElementById('chat-v-feed');
   const empty = document.getElementById('chat-v-empty');
   if (!id || !chatVSessions[id]) {
@@ -4102,12 +4157,16 @@ function chatVSelectSession(id) {
   }
   feed.innerHTML = '';
   const session = chatVSessions[id];
-  // Inject session metadata header so user can see ID, start time, status, agents, message count
+  // Populate group session set so live SSE events from any rep appear in feed
+  if (session._isGroup && session.sessions) {
+    session.sessions.forEach(s => chatVCurrentGroupSessions.add(s.id));
+  }
+  // Inject session metadata header
   const tsVal = session.startedAt || session.ts || 0;
   const tsStr = tsVal ? new Date(tsVal).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
   const domains = (session.domains || []);
   const agents = domains.length ? domains.join(', ') : '—';
-  const evCount = (session.events || []).length;
+  const evCount = session._isGroup ? (session.totalEvents || (session.events || []).length) : (session.events || []).length;
   const agentNames = (() => {
     const names = new Set();
     (session.events || []).forEach(ev => {
@@ -4116,11 +4175,12 @@ function chatVSelectSession(id) {
     });
     return names.size ? [...names].join(', ') : agents;
   })();
-  const prompt = (session.prompt || '').replace(/^running org:\s*/i, '').slice(0, 120) || id;
+  const prompt = (session.prompt || '').replace(/^running org:\s*/i, '').replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 120) || id;
+  const repInfo = session._isGroup ? ' · ' + session.sessions.length + ' reps' : '';
   const statusCls = session.status === 'running' ? 'color:oklch(65% 0.20 145)' : session.status === 'complete' ? 'color:var(--text-lo)' : 'color:oklch(65% 0.20 25)';
   const hdr = document.createElement('div');
   hdr.className = 'cv-session-hdr';
-  hdr.innerHTML = `<div class="cv-shdr-prompt">${esc(prompt)}</div>`+
+  hdr.innerHTML = `<div class="cv-shdr-prompt">${esc(prompt)}${repInfo ? '<span style="color:var(--text-lo);font-size:10px"> ' + esc(repInfo) + '</span>' : ''}</div>`+
     `<div class="cv-shdr-meta">`+
       `<span class="cv-shdr-id" title="${esc(id)}">${esc(id)}</span>`+
       `<span class="cv-shdr-sep">·</span>`+
@@ -4147,7 +4207,7 @@ function chatVSelectSession(id) {
 }
 
 function appendChatViewEvent(ev, animate) {
-  if (chatVCurrentId && ev.session && ev.session !== chatVCurrentId) return;
+  if (chatVCurrentId && ev.session && ev.session !== chatVCurrentId && !chatVCurrentGroupSessions.has(ev.session)) return;
   const feed = document.getElementById('chat-v-feed');
   if (!feed) return;
   const empty = document.getElementById('chat-v-empty');
@@ -4392,27 +4452,42 @@ function handleChatViewEvent(ev) {
   const isOrgEvent = ev.type && (ev.type.startsWith('org:') || ev.type.startsWith('run:') || ev.type.startsWith('loop:'));
   if (!ev.session && !isOrgEvent) return;
   if (ev.session) {
-    if (!chatVSessions[ev.session]) {
+    const existingEntry = chatVSessions[ev.session]; // may be a group object
+    if (!existingEntry) {
       // Seed events with the triggering event so it isn't lost if loadChatViewSessions
       // runs before the event is flushed to disk (disk write and SSE broadcast race).
       chatVSessions[ev.session] = { id: ev.session, events: [ev], startedAt: ev.ts, status: 'running', prompt: ev.prompt || '' };
       loadChatViewSessions();
-      // Auto-switch to new session on session:start regardless of active view —
-      // #chat-v-feed is in the DOM even when hidden so chatVSelectSession pre-loads.
+      // Auto-switch to new session on session:start — after loadChatViewSessions it may be grouped
       if (ev.type === 'session:start') {
+        const _cvGroupId = chatVSessionGroupMap[ev.session] || ev.session;
         const _cvSel = document.getElementById('chat-v-sel');
-        if (_cvSel) { _cvSel.value = ev.session; chatVSelectSession(ev.session); }
+        if (_cvSel) { _cvSel.value = _cvGroupId; chatVSelectSession(_cvGroupId); }
       }
     } else {
-      const s = chatVSessions[ev.session];
-      s.events = s.events || [];
-      s.events.push(ev);
-      if (ev.type === 'session:complete') s.status = 'complete';
+      // existingEntry may be a group — push event to it and update status
+      const target = existingEntry;
+      target.events = target.events || [];
+      target.events.push(ev);
+      if (ev.type === 'session:complete') {
+        // Mark this individual session complete; group stays running until all sessions done
+        if (!target._isGroup) target.status = 'complete';
+        else {
+          // Update the underlying session in group
+          const sub = (target.sessions || []).find(s => s.id === ev.session);
+          if (sub) sub.status = 'complete';
+          // Group stays running if any session is still running
+          if (!(target.sessions || []).some(s => s.status === 'running')) target.status = 'complete';
+        }
+      }
+      if (target._isGroup) target.totalEvents = (target.totalEvents || 0) + 1;
     }
-    if (chatVCurrentId === ev.session) {
+    // Show event in feed if this session (or its group) is currently selected
+    const _cvGroupId = chatVSessionGroupMap[ev.session];
+    const _cvIsSelected = chatVCurrentId === ev.session || (_cvGroupId && chatVCurrentId === _cvGroupId) || chatVCurrentGroupSessions.has(ev.session);
+    if (_cvIsSelected) {
       appendChatViewEvent(ev, true);
-      // Keep excerpt banner current for live sessions (mirrors org-detail chat path)
-      const _cvSess = chatVSessions[ev.session];
+      const _cvSess = chatVSessions[_cvGroupId || ev.session];
       if (_cvSess) renderCvExcerptBanner('chat-v-excerpt', _cvSess.events || [], _cvSess);
     }
   } else if (isOrgEvent) {
