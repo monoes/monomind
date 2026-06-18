@@ -6360,9 +6360,10 @@ function v2RenderOrgBoard() {
   if (!issues.length) { el.innerHTML = '<div class="empty">No issues</div>'; return; }
   const cols = ['open', 'in_progress', 'blocked', 'done', 'cancelled'];
   const PRIORITY = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+  const _normIssueStatus = s => (s === 'closed' || s === 'resolved') ? 'done' : (s || 'open');
   el.innerHTML = `<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px">` +
     cols.map(col => {
-      const cards = issues.filter(i => (i.status || i.state || 'open') === col);
+      const cards = issues.filter(i => _normIssueStatus(i.status || i.state) === col);
       return `<div style="min-width:160px;flex:1">
         <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-lo);padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:8px">${esc(col.replace('_', ' '))} <span style="background:var(--surface-hi);padding:1px 6px;border-radius:8px">${cards.length}</span></div>
         ${cards.slice(0, 15).map(i => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:5px;font-size:12px">
@@ -6583,7 +6584,7 @@ async function v2RenderOrgMyIssues() {
         <th style="padding:5px 4px">P</th><th style="padding:5px 8px">Title</th><th>Status</th><th>Updated</th>
       </tr></thead><tbody>` +
       issues.slice(0, 50).map(i => {
-        const cls = i.status === 'done' ? 'on' : i.status === 'blocked' ? 'warn' : '';
+        const cls = i.status === 'done' || i.status === 'closed' || i.status === 'resolved' ? 'on' : (i.status === 'blocked' || i.status === 'in_progress') ? 'warn' : '';
         return `<tr style="border-top:1px solid var(--border)">
           <td style="padding:5px 4px">${PRIORITY[i.priority] || '·'}</td>
           <td style="padding:5px 8px;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((i.title || i.description || '—').slice(0, 80))}</td>
@@ -7888,7 +7889,7 @@ function v2RenderOrgIssuesFull() {
       <td style="padding:5px 4px">${PRIORITY[i.priority]||'·'}</td>
       <td style="padding:5px 8px;color:var(--text-hi);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((i.title||i.description||'—').slice(0,80))}</td>
       <td style="padding:5px 8px;color:var(--text-lo)">${esc(i.assignee||'—')}</td>
-      <td style="padding:5px 8px"><span class="ss-pill ${i.status==='done'?'on':i.status==='blocked'?'warn':''}">${esc(i.status||'open')}</span></td>
+      <td style="padding:5px 8px"><span class="ss-pill ${i.status==='done'||i.status==='closed'||i.status==='resolved'?'on':(i.status==='blocked'||i.status==='in_progress')?'warn':''}">${esc(i.status||'open')}</span></td>
       <td style="padding:5px 8px;color:var(--text-xs);font-family:var(--mono);font-size:11px">${relTime(i.updated_at||i.ts)}</td>
     </tr>`).join('')}</tbody>
   </table>`;
