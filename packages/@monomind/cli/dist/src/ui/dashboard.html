@@ -6679,7 +6679,17 @@ function _odtOrgSessionMatch(s) {
   if (!_v2SelOrg) return true;
   const orgLc = _v2SelOrg.toLowerCase();
   const prompt = (s.prompt || '').toLowerCase();
-  if (prompt.includes('running org: ' + orgLc) || prompt.includes('org: ' + orgLc)) return true;
+  // Use a word-boundary check so "monomind-improver" doesn't match sessions for
+  // "monomind-improver-state" (the shorter name is a prefix of the longer one).
+  // After the matched org name, the next char must be end-of-string or a character
+  // that cannot be part of an org name (not alphanumeric, hyphen, or underscore).
+  const _orgBound = (str, prefix) => {
+    const idx = str.indexOf(prefix);
+    if (idx === -1) return false;
+    const after = str[idx + prefix.length];
+    return after === undefined || !/[a-z0-9_-]/.test(after);
+  };
+  if (_orgBound(prompt, 'running org: ' + orgLc) || _orgBound(prompt, 'org: ' + orgLc)) return true;
   return (s.events || []).some(ev => (ev.org || '').toLowerCase() === orgLc);
 }
 
