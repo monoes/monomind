@@ -501,13 +501,13 @@ OPERATING LOOP:
           # On start — announce you are working:
           curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
-              --arg from "<role_id>" --arg msg "Starting: <card title>" \
-              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
+              --arg from "<role_id>" --arg msg "Starting: <card title>" --arg p "$REPO_ROOT" \
+              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
           # On completion — report back:
           curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
-              --arg from "<role_id>" --arg msg "Completed: <one-sentence summary of output>" \
-              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
+              --arg from "<role_id>" --arg msg "Completed: <one-sentence summary of output>" --arg p "$REPO_ROOT" \
+              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
 
         Fill in the literal values for orgName="${orgName}", runId="${runId}", sessionId="${sessionId}" — embed them
         directly in the prompt string so the specialist doesn't need to resolve them.
