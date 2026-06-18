@@ -6754,7 +6754,11 @@ async function v2RenderOrgChat() {
             `</div>`;
           _catchFeed.appendChild(_cHdr);
         }
-        (_catchSess.events || []).filter(ev => _odtChatAgentMatches(ev)).forEach(ev => _odtAppendEvent(ev, false));
+        (_catchSess.events || []).forEach(ev => {
+          _odtAppendEvent(ev, false);
+          const _ck = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||'')+'|'+(ev?.msg||'').slice(0,20);
+          _odtChatSeenKeys.add(_ck);
+        });
         // Re-inject [S]→[R] link card on tab-return (same as first-select path)
         if (!_catchSess._isOrgRun) {
           const _crLinkedId = 'run-' + (_catchSess.id || '').replace(/^mm-/, '');
