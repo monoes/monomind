@@ -2295,7 +2295,7 @@ function _pushHash() {
 
 function _restoreFromHash() {
   const raw = location.hash.slice(1);
-  if (!raw) return;
+  if (!raw) { _pushHash(); return; }  // write hash for current view if none present
   const parts = raw.split('/');
   const view = parts[0];
   if (!view) return;
@@ -2304,15 +2304,15 @@ function _restoreFromHash() {
     const orgName = parts[1] ? decodeURIComponent(parts[1]) : null;
     const tab = parts[2] || 'chart';
     if (orgName) {
-      // Wait for orgs list to render then select
+      // _v2Orgs is populated async by renderOrgs(); retry until available
       const _trySelect = (attempts) => {
-        if (typeof v2SelectOrg === 'function' && (window._v2Orgs || []).length > 0) {
+        if (_v2Orgs && _v2Orgs.length > 0) {
           v2SelectOrg(orgName).then(() => { if (tab !== 'chart') v2SwitchOrgTab(tab); });
         } else if (attempts > 0) {
           setTimeout(() => _trySelect(attempts - 1), 200);
         }
       };
-      _trySelect(15);
+      _trySelect(20);
     }
   } else {
     switchView(view, { updateHash: false });
