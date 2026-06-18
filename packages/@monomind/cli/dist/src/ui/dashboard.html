@@ -1855,6 +1855,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn secondary" data-tab="board"        onclick="v2SwitchOrgTab('board')">Board</button>
             <button class="odt-btn secondary" data-tab="goals"        onclick="v2SwitchOrgTab('goals')">Goals</button>
             <button class="odt-btn secondary" data-tab="budgets"      onclick="v2SwitchOrgTab('budgets')">Budgets</button>
+            <button class="odt-btn secondary" data-tab="roles"        onclick="v2SwitchOrgTab('roles')">Roles</button>
+            <button class="odt-btn secondary" data-tab="members"     onclick="v2SwitchOrgTab('members')">Members</button>
+            <button class="odt-btn secondary" data-tab="heartbeats"  onclick="v2SwitchOrgTab('heartbeats')">Heartbeats</button>
             <button class="odt-btn secondary" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
             <button class="odt-btn secondary" data-tab="costs"        onclick="v2SwitchOrgTab('costs')">Costs</button>
             <button class="odt-btn secondary" data-tab="config"       onclick="v2SwitchOrgTab('config')">Config</button>
@@ -8171,13 +8174,14 @@ function filterOrgList(q) {
                   // Re-load chat run list after run events so cycleCount/eventCount in dropdown reflect disk state
                   _odtLoadChatSessions().catch(() => {});
                 }
-                if (_v2OrgTab === 'agents-full') {
+                if (_v2OrgTab === 'agents-full' || _v2OrgTab === 'heartbeats') {
                   // Re-fetch agents after run events to get fresh tokensIn/tokensOut/lastHeartbeat
+                  // Heartbeats tab derives from _v2OrgData._agents so shares this re-fetch.
                   const _agEnc = encodeURIComponent(_v2SelOrg);
                   fetch(`/api/org/${_agEnc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
                     .then(r => r.ok ? r.json() : null)
-                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._agents = Array.isArray(d) ? d : (d?.agents || []); v2RenderOrgAgentsFull(); } })
-                    .catch(() => { v2RenderOrgAgentsFull(); });
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._agents = Array.isArray(d) ? d : (d?.agents || []); _v2OrgTab === 'agents-full' ? v2RenderOrgAgentsFull() : v2RenderOrgHeartbeats(); } })
+                    .catch(() => { _v2OrgTab === 'agents-full' ? v2RenderOrgAgentsFull() : v2RenderOrgHeartbeats(); });
                 }
                 if (_v2OrgTab === 'myissues') {
                   // Re-render myissues after run events — it fetches its own data on every render
