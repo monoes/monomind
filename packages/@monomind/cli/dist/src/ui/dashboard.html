@@ -7209,8 +7209,10 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'loop:complete') {
     el = mkCVSys('Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
   } else if (ev.type === 'loop:tick') {
-    const tickLabel = ev.rep != null
-      ? 'rep ' + esc(String(ev.rep)) + ' done' + (ev.nextRep != null ? ' → rep ' + esc(String(ev.nextRep)) + ' in ' + esc(String(ev.wait || '?')) + 's' : '')
+    const _trep = ev.rep ?? ev.fromRep;
+    const _tnext = ev.nextRep ?? ev.toRep;
+    const tickLabel = _trep != null
+      ? 'rep ' + esc(String(_trep)) + ' done' + (_tnext != null ? ' → rep ' + esc(String(_tnext)) + ' in ' + esc(String(ev.wait || '?')) + 's' : '')
       : esc(ev.command || ev.loopId || '');
     el = mkCVSys('◷ ' + tickLabel, ts);
     el.dataset.evType = 'loop:tick';
