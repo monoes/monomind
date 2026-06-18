@@ -1842,6 +1842,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
               <button class="btn" onclick="v2ImportOrgTrigger()" title="Import org from JSON file" style="color:var(--text-lo);border-color:var(--border)">Import</button>
               <button class="btn" id="org-copy-btn" onclick="v2ShowCopyOrgDialog()" style="color:var(--accent);border-color:var(--accent)">Copy to…</button>
               <button class="btn" id="org-stop-btn" onclick="v2StopOrg()" style="display:none;color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Stop</button>
+              <button class="btn" id="org-delete-btn" onclick="v2DeleteOrg()" title="Permanently delete this org and all its data" style="color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Delete</button>
             </div>
           </div>
           <div id="org-detail-tabs">
@@ -8288,6 +8289,28 @@ window.v2StopOrg = async function() {
   const stopped = _v2SelOrg;
   try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {method:'POST'}); } catch(_) {}
   setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
+};
+
+window.v2DeleteOrg = async function() {
+  if (!_v2SelOrg) return;
+  const name = _v2SelOrg;
+  if (!confirm(`Delete org "${name}"?\n\nThis removes the config and all associated data files. This cannot be undone.`)) return;
+  const btn = document.getElementById('org-delete-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  try {
+    const r = await fetch(`/api/orgs/${encodeURIComponent(name)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, { method: 'DELETE' });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'HTTP ' + r.status); }
+    showToast('Deleted', `Org "${name}" deleted`, 'ok');
+    _v2SelOrg = null;
+    const inner = document.getElementById('org-detail-inner');
+    if (inner) inner.style.display = 'none';
+    const noSel = document.querySelector('.orgs-no-sel');
+    if (noSel) noSel.style.display = '';
+    await renderOrgs();
+  } catch(e) {
+    showToast('Error', String(e.message || e), 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
+  }
 };
 
 window.v2ShowCopyOrgDialog = async function() {
