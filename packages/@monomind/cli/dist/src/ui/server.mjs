@@ -365,6 +365,207 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     return out;
   }
 
+  // ── handleMastermindEvent ─────────────────────────────────────────────────
+  // Extracted from the request dispatcher to reduce cyclomatic complexity.
+  // Handles POST /api/mastermind/event: parses body, enriches with runId/session,
+  // persists to JSONL files, broadcasts to SSE clients, returns {ok:true}.
+  async function handleMastermindEvent(req, res) {
+    let body = '';
+    for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
+    let event = {};
+    try { event = JSON.parse(body); } catch (_) {}
+    event.ts = event.ts || Date.now();
+    // Use project path from event if provided (multi-project support).
+    // Security: path.isAbsolute() alone is insufficient — an attacker can
+    // supply event.project="/etc" and cause writes to system directories.
+    // Only accept paths that resolve to an existing directory AND are not
+    // the filesystem root (/), AND are not obviously system paths.
+    // Cap to 4096 chars to prevent OOM from huge path strings.
+    const _rawProject = event.project;
+    let eventProject = null;
+    if (typeof _rawProject === 'string' && _rawProject.length > 0 && _rawProject.length <= 4096
+        && path.isAbsolute(_rawProject)) {
+      // Reject filesystem root and common system directories
+      const _norm = path.resolve(_rawProject);
+      const _systemPaths = ['/', '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/sys', '/proc', '/tmp'];
+      if (!_systemPaths.includes(_norm) && !_systemPaths.some(p => _norm.startsWith(p + '/'))) {
+        eventProject = _norm;
+      }
+    }
+    const root = eventProject || projectDir || process.cwd();
+    const dataDir = path.join(root, 'data');
+    try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
+    // Track known project dirs for aggregated session listing
+    if (eventProject) {
+      const knownFile = path.join(projectDir || process.cwd(), 'data', 'known-projects.json');
+      try {
+        let known = [];
+        try { known = JSON.parse(fs.readFileSync(knownFile, 'utf8')); } catch (_) {}
+        if (!known.includes(eventProject)) { known.push(eventProject); fs.writeFileSync(knownFile, JSON.stringify(known)); }
+      } catch (_) {}
+    }
+    // Track active runs and enrich event with runId BEFORE persisting so the JSONL replay
+    // on SSE reconnect contains the same enriched event that live clients received.
+    // Previously this was done AFTER the appendFileSync, causing org:comms events stored in
+    // mastermind-events.jsonl to lack runId — _odtHandleLiveEvent dropped them on reconnect.
+    if (event.org) {
+      const _orgKey = String(event.org).trim();
+      // Any event with both org+runId updates the active run map (run:start written directly to file so org:start is first via curl)
+      if (event.runId) activeOrgRuns.set(_orgKey, String(event.runId).trim());
+      else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
+      if (event.type === 'run:complete' || event.type === 'org:complete') activeOrgRuns.delete(_orgKey);
+      // Persist active-run.json so capture-handler.cjs can find the current org/runId without HTTP calls
+      try {
+        const _captureDir = path.join(root, '.monomind', 'capture');
+        const _activeRunFile = path.join(_captureDir, 'active-run.json');
+        if (event.type === 'run:start' && event.org && event.runId) {
+          fs.mkdirSync(_captureDir, { recursive: true });
+          fs.writeFileSync(_activeRunFile, JSON.stringify({ org: String(event.org).trim(), runId: String(event.runId).trim(), ts: Date.now() }));
+        } else if ((event.type === 'run:complete' || event.type === 'org:complete') && fs.existsSync(_activeRunFile)) {
+          fs.unlinkSync(_activeRunFile);
+        }
+      } catch(_e) {}
+    }
+    try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
+    // Persist to git-safe run file (survives branch switches + shared across worktrees)
+    if (event.org && event.runId) {
+      try {
+        const _orn = String(event.org).trim();
+        const _rid = String(event.runId).trim();
+        if (_orn.length > 0 && _orn.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_orn)
+            && _rid.length > 0 && _rid.length <= 80 && /^[a-z0-9][a-z0-9_-]*$/i.test(_rid)) {
+          const _monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
+          const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
+          fs.mkdirSync(_runDir, { recursive: true });
+          fs.appendFileSync(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
+          // agent:usage — persist per-role token/cost data to state.json (accumulated across runs)
+          if (event.type === 'agent:usage' && event.role) {
+            try {
+              const _arole = String(event.role).trim();
+              if (_arole.length > 0 && _arole.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_arole)) {
+                const _stateFile = path.join(root, '.monomind', 'orgs', `${_orn}-state.json`);
+                let _st = {};
+                try { _st = JSON.parse(fs.readFileSync(_stateFile, 'utf8')); } catch(_e) {}
+                if (!_st.agents) _st.agents = {};
+                const _ex = _st.agents[_arole] || {};
+                _st.agents[_arole] = {
+                  ..._ex,
+                  tokens_in: (_ex.tokens_in || 0) + (Number(event.tokens_in) || 0),
+                  tokens_out: (_ex.tokens_out || 0) + (Number(event.tokens_out) || 0),
+                  total_cost_usd: (_ex.total_cost_usd || 0) + (Number(event.cost_usd) || 0),
+                  lastUpdated: event.ts,
+                };
+                fs.writeFileSync(_stateFile, JSON.stringify(_st, null, 2));
+              }
+            } catch(_e) {}
+          }
+          // Solution 3: dedicated conversation log — org:comms only, for easy replay
+          if (event.type === 'org:comms') {
+            const _conv = { ts: event.ts, run_id: _rid, from: event.from, to: event.to, msg: event.msg };
+            fs.appendFileSync(path.join(_runDir, `${_rid}.convs.jsonl`), JSON.stringify(_conv) + '\n');
+            // Also write to org-level threads.jsonl so the dashboard Threads tab shows agent conversations
+            const _orgThreadsFile = path.join(root, '.monomind', 'orgs', `${_orn}-threads.jsonl`);
+            const _thread = { type: 'message', id: `${_rid}-${event.ts}`, run_id: _rid, ts: event.ts, from: event.from, to: event.to, msg: event.msg, subject: `Run ${_rid}` };
+            try { fs.appendFileSync(_orgThreadsFile, JSON.stringify(_thread) + '\n'); } catch(_) {}
+          }
+        }
+      } catch (_) {}
+    }
+    // ── Active session tracking: link org:comms / agent:usage events to current session ──
+    // This must run BEFORE session persistence so events without session get enriched.
+    try {
+      const _evOrg = event.org ? String(event.org).trim() : null;
+      if (event.type === 'session:start' && event.session && _evOrg) {
+        activeSessionsByOrg.set(_evOrg, { sessionId: String(event.session), ts: event.ts || Date.now() });
+        // Write active-session.json so capture-handler.cjs can read it without HTTP
+        try {
+          const _captureDir = path.join(root, '.monomind', 'capture');
+          fs.mkdirSync(_captureDir, { recursive: true });
+          fs.writeFileSync(path.join(_captureDir, 'active-session.json'),
+            JSON.stringify({ org: _evOrg, sessionId: String(event.session), ts: Date.now() }));
+        } catch(_) {}
+      } else if (event.type === 'session:complete' && _evOrg) {
+        activeSessionsByOrg.delete(_evOrg);
+        try { fs.unlinkSync(path.join(root, '.monomind', 'capture', 'active-session.json')); } catch(_) {}
+      }
+      // Enrich events that have org but no session (agent:usage, org:comms, agent:spawn, intercom)
+      if (_evOrg && !event.session && activeSessionsByOrg.has(_evOrg)) {
+        event.session = activeSessionsByOrg.get(_evOrg).sessionId;
+      }
+    } catch(_) {}
+    // ── Per-session JSONL persistence (append-only, O(1) per event) ──────────
+    // Replaces the old monolithic mastermind-sessions.json (O(N) read+write per event).
+    // Format: data/sessions/<sessionId>.jsonl  +  data/sessions/_index.json
+    try {
+      const _sid = String(event.session || '').trim();
+      if (_sid.length > 0 && _sid.length <= 128 && /^[a-zA-Z0-9_.-]+$/.test(_sid)) {
+        const sessDir = path.join(dataDir, 'sessions');
+        fs.mkdirSync(sessDir, { recursive: true });
+        // Append event to per-session JSONL (O(1), no read)
+        fs.appendFileSync(path.join(sessDir, `${_sid}.jsonl`), JSON.stringify(event) + '\n');
+        // Update lightweight index (id, ts, prompt, status, org, startedAt, endedAt, domains only)
+        const indexFile = path.join(sessDir, '_index.json');
+        let _idx = [];
+        try { _idx = JSON.parse(fs.readFileSync(indexFile, 'utf8')); } catch(_) {}
+        const _entry = _idx.find(e => e.id === _sid);
+        if (event.type === 'session:start') {
+          if (!_entry) {
+            _idx.unshift({ id: _sid, ts: event.ts, prompt: event.prompt || '', status: 'running',
+              org: event.org || '', startedAt: event.ts, domains: [] });
+            if (_idx.length > 2000) _idx = _idx.slice(0, 2000);
+          }
+        } else if (_entry) {
+          if (event.type === 'session:complete') { _entry.status = event.status || 'complete'; _entry.endedAt = event.ts; }
+          if (event.type === 'domain:dispatch' && event.domain) {
+            _entry.domains = _entry.domains || [];
+            if (!_entry.domains.includes(event.domain)) _entry.domains.push(event.domain);
+          }
+          if (event.type === 'agent:usage' || event.type === 'agent:spawn' || event.type === 'agent:complete') {
+            _entry.hasAgents = true;
+          }
+        }
+        fs.writeFileSync(indexFile, JSON.stringify(_idx));
+      }
+    } catch (_) {}
+    // ── Legacy mastermind-sessions.json (kept for backwards compat, read by old clients) ──
+    try {
+      const sessFile = path.join(dataDir, 'mastermind-sessions.json');
+      let sessions = [];
+      try { sessions = JSON.parse(fs.readFileSync(sessFile, 'utf8')); } catch (_) {}
+      if (event.type === 'session:start' && event.session) {
+        if (!sessions.find(s => s.id === event.session)) {
+          sessions.unshift({ id: event.session, ts: event.ts, prompt: event.prompt || '',
+            status: 'running', org: event.org || '', domains: [], startedAt: event.ts });
+        }
+      } else if (event.session) {
+        const s = sessions.find(s => s.id === event.session);
+        if (s) {
+          if (event.type === 'session:complete') { s.status = event.status || 'complete'; s.endedAt = event.ts; }
+          if (event.type === 'domain:dispatch' && event.domain && !s.domains?.includes(event.domain))
+            (s.domains = s.domains || []).push(event.domain);
+        }
+      }
+      fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 500)));
+    } catch (_) {}
+    // For org:stop events, write a stop marker the boss agent can detect
+    if (event.type === 'org:stop' && event.org) {
+      try {
+        const orgName = String(event.org).trim();
+        // Validate before any filesystem use — reject rather than strip
+        if (orgName.length > 0 && orgName.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+          const stopDir = path.join(root, '.monomind', 'orgs', '.stops');
+          fs.mkdirSync(stopDir, { recursive: true });
+          fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
+        }
+      } catch (_) {}
+    }
+    // Broadcast to all mastermind SSE clients
+    const msg = `data: ${JSON.stringify(event)}\n\n`;
+    for (const c of mmSseClients) { try { c.write(msg); } catch (_) { mmSseClients.delete(c); } }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end('{"ok":true}');
+  }
+
   const server = http.createServer(async (req, res) => {
     const url = req.url.split('?')[0];
 
@@ -4533,201 +4734,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------- Mastermind event system
     // POST /api/mastermind/event — ingest event from mastermind skill
     if (req.method === 'POST' && url === '/api/mastermind/event') {
-      let body = '';
-      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
-      let event = {};
-      try { event = JSON.parse(body); } catch (_) {}
-      event.ts = event.ts || Date.now();
-      // Use project path from event if provided (multi-project support).
-      // Security: path.isAbsolute() alone is insufficient — an attacker can
-      // supply event.project="/etc" and cause writes to system directories.
-      // Only accept paths that resolve to an existing directory AND are not
-      // the filesystem root (/), AND are not obviously system paths.
-      // Cap to 4096 chars to prevent OOM from huge path strings.
-      const _rawProject = event.project;
-      let eventProject = null;
-      if (typeof _rawProject === 'string' && _rawProject.length > 0 && _rawProject.length <= 4096
-          && path.isAbsolute(_rawProject)) {
-        // Reject filesystem root and common system directories
-        const _norm = path.resolve(_rawProject);
-        const _systemPaths = ['/', '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/sys', '/proc', '/tmp'];
-        if (!_systemPaths.includes(_norm) && !_systemPaths.some(p => _norm.startsWith(p + '/'))) {
-          eventProject = _norm;
-        }
-      }
-      const root = eventProject || projectDir || process.cwd();
-      const dataDir = path.join(root, 'data');
-      try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
-      // Track known project dirs for aggregated session listing
-      if (eventProject) {
-        const knownFile = path.join(projectDir || process.cwd(), 'data', 'known-projects.json');
-        try {
-          let known = [];
-          try { known = JSON.parse(fs.readFileSync(knownFile, 'utf8')); } catch (_) {}
-          if (!known.includes(eventProject)) { known.push(eventProject); fs.writeFileSync(knownFile, JSON.stringify(known)); }
-        } catch (_) {}
-      }
-      // Track active runs and enrich event with runId BEFORE persisting so the JSONL replay
-      // on SSE reconnect contains the same enriched event that live clients received.
-      // Previously this was done AFTER the appendFileSync, causing org:comms events stored in
-      // mastermind-events.jsonl to lack runId — _odtHandleLiveEvent dropped them on reconnect.
-      if (event.org) {
-        const _orgKey = String(event.org).trim();
-        // Any event with both org+runId updates the active run map (run:start written directly to file so org:start is first via curl)
-        if (event.runId) activeOrgRuns.set(_orgKey, String(event.runId).trim());
-        else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
-        if (event.type === 'run:complete' || event.type === 'org:complete') activeOrgRuns.delete(_orgKey);
-        // Persist active-run.json so capture-handler.cjs can find the current org/runId without HTTP calls
-        try {
-          const _captureDir = path.join(root, '.monomind', 'capture');
-          const _activeRunFile = path.join(_captureDir, 'active-run.json');
-          if (event.type === 'run:start' && event.org && event.runId) {
-            fs.mkdirSync(_captureDir, { recursive: true });
-            fs.writeFileSync(_activeRunFile, JSON.stringify({ org: String(event.org).trim(), runId: String(event.runId).trim(), ts: Date.now() }));
-          } else if ((event.type === 'run:complete' || event.type === 'org:complete') && fs.existsSync(_activeRunFile)) {
-            fs.unlinkSync(_activeRunFile);
-          }
-        } catch(_e) {}
-      }
-      try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
-      // Persist to git-safe run file (survives branch switches + shared across worktrees)
-      if (event.org && event.runId) {
-        try {
-          const _orn = String(event.org).trim();
-          const _rid = String(event.runId).trim();
-          if (_orn.length > 0 && _orn.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_orn)
-              && _rid.length > 0 && _rid.length <= 80 && /^[a-z0-9][a-z0-9_-]*$/i.test(_rid)) {
-            const _monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
-            const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
-            fs.mkdirSync(_runDir, { recursive: true });
-            fs.appendFileSync(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
-            // agent:usage — persist per-role token/cost data to state.json (accumulated across runs)
-            if (event.type === 'agent:usage' && event.role) {
-              try {
-                const _arole = String(event.role).trim();
-                if (_arole.length > 0 && _arole.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_arole)) {
-                  const _stateFile = path.join(root, '.monomind', 'orgs', `${_orn}-state.json`);
-                  let _st = {};
-                  try { _st = JSON.parse(fs.readFileSync(_stateFile, 'utf8')); } catch(_e) {}
-                  if (!_st.agents) _st.agents = {};
-                  const _ex = _st.agents[_arole] || {};
-                  _st.agents[_arole] = {
-                    ..._ex,
-                    tokens_in: (_ex.tokens_in || 0) + (Number(event.tokens_in) || 0),
-                    tokens_out: (_ex.tokens_out || 0) + (Number(event.tokens_out) || 0),
-                    total_cost_usd: (_ex.total_cost_usd || 0) + (Number(event.cost_usd) || 0),
-                    lastUpdated: event.ts,
-                  };
-                  fs.writeFileSync(_stateFile, JSON.stringify(_st, null, 2));
-                }
-              } catch(_e) {}
-            }
-            // Solution 3: dedicated conversation log — org:comms only, for easy replay
-            if (event.type === 'org:comms') {
-              const _conv = { ts: event.ts, run_id: _rid, from: event.from, to: event.to, msg: event.msg };
-              fs.appendFileSync(path.join(_runDir, `${_rid}.convs.jsonl`), JSON.stringify(_conv) + '\n');
-              // Also write to org-level threads.jsonl so the dashboard Threads tab shows agent conversations
-              const _orgThreadsFile = path.join(root, '.monomind', 'orgs', `${_orn}-threads.jsonl`);
-              const _thread = { type: 'message', id: `${_rid}-${event.ts}`, run_id: _rid, ts: event.ts, from: event.from, to: event.to, msg: event.msg, subject: `Run ${_rid}` };
-              try { fs.appendFileSync(_orgThreadsFile, JSON.stringify(_thread) + '\n'); } catch(_) {}
-            }
-          }
-        } catch (_) {}
-      }
-      // ── Active session tracking: link org:comms / agent:usage events to current session ──
-      // This must run BEFORE session persistence so events without session get enriched.
-      try {
-        const _evOrg = event.org ? String(event.org).trim() : null;
-        if (event.type === 'session:start' && event.session && _evOrg) {
-          activeSessionsByOrg.set(_evOrg, { sessionId: String(event.session), ts: event.ts || Date.now() });
-          // Write active-session.json so capture-handler.cjs can read it without HTTP
-          try {
-            const _captureDir = path.join(root, '.monomind', 'capture');
-            fs.mkdirSync(_captureDir, { recursive: true });
-            fs.writeFileSync(path.join(_captureDir, 'active-session.json'),
-              JSON.stringify({ org: _evOrg, sessionId: String(event.session), ts: Date.now() }));
-          } catch(_) {}
-        } else if (event.type === 'session:complete' && _evOrg) {
-          activeSessionsByOrg.delete(_evOrg);
-          try { fs.unlinkSync(path.join(root, '.monomind', 'capture', 'active-session.json')); } catch(_) {}
-        }
-        // Enrich events that have org but no session (agent:usage, org:comms, agent:spawn, intercom)
-        if (_evOrg && !event.session && activeSessionsByOrg.has(_evOrg)) {
-          event.session = activeSessionsByOrg.get(_evOrg).sessionId;
-        }
-      } catch(_) {}
-      // ── Per-session JSONL persistence (append-only, O(1) per event) ──────────
-      // Replaces the old monolithic mastermind-sessions.json (O(N) read+write per event).
-      // Format: data/sessions/<sessionId>.jsonl  +  data/sessions/_index.json
-      try {
-        const _sid = String(event.session || '').trim();
-        if (_sid.length > 0 && _sid.length <= 128 && /^[a-zA-Z0-9_.-]+$/.test(_sid)) {
-          const sessDir = path.join(dataDir, 'sessions');
-          fs.mkdirSync(sessDir, { recursive: true });
-          // Append event to per-session JSONL (O(1), no read)
-          fs.appendFileSync(path.join(sessDir, `${_sid}.jsonl`), JSON.stringify(event) + '\n');
-          // Update lightweight index (id, ts, prompt, status, org, startedAt, endedAt, domains only)
-          const indexFile = path.join(sessDir, '_index.json');
-          let _idx = [];
-          try { _idx = JSON.parse(fs.readFileSync(indexFile, 'utf8')); } catch(_) {}
-          const _entry = _idx.find(e => e.id === _sid);
-          if (event.type === 'session:start') {
-            if (!_entry) {
-              _idx.unshift({ id: _sid, ts: event.ts, prompt: event.prompt || '', status: 'running',
-                org: event.org || '', startedAt: event.ts, domains: [] });
-              if (_idx.length > 2000) _idx = _idx.slice(0, 2000);
-            }
-          } else if (_entry) {
-            if (event.type === 'session:complete') { _entry.status = event.status || 'complete'; _entry.endedAt = event.ts; }
-            if (event.type === 'domain:dispatch' && event.domain) {
-              _entry.domains = _entry.domains || [];
-              if (!_entry.domains.includes(event.domain)) _entry.domains.push(event.domain);
-            }
-            if (event.type === 'agent:usage' || event.type === 'agent:spawn' || event.type === 'agent:complete') {
-              _entry.hasAgents = true;
-            }
-          }
-          fs.writeFileSync(indexFile, JSON.stringify(_idx));
-        }
-      } catch (_) {}
-      // ── Legacy mastermind-sessions.json (kept for backwards compat, read by old clients) ──
-      try {
-        const sessFile = path.join(dataDir, 'mastermind-sessions.json');
-        let sessions = [];
-        try { sessions = JSON.parse(fs.readFileSync(sessFile, 'utf8')); } catch (_) {}
-        if (event.type === 'session:start' && event.session) {
-          if (!sessions.find(s => s.id === event.session)) {
-            sessions.unshift({ id: event.session, ts: event.ts, prompt: event.prompt || '',
-              status: 'running', org: event.org || '', domains: [], startedAt: event.ts });
-          }
-        } else if (event.session) {
-          const s = sessions.find(s => s.id === event.session);
-          if (s) {
-            if (event.type === 'session:complete') { s.status = event.status || 'complete'; s.endedAt = event.ts; }
-            if (event.type === 'domain:dispatch' && event.domain && !s.domains?.includes(event.domain))
-              (s.domains = s.domains || []).push(event.domain);
-          }
-        }
-        fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 500)));
-      } catch (_) {}
-      // For org:stop events, write a stop marker the boss agent can detect
-      if (event.type === 'org:stop' && event.org) {
-        try {
-          const orgName = String(event.org).trim();
-          // Validate before any filesystem use — reject rather than strip
-          if (orgName.length > 0 && orgName.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-            const stopDir = path.join(root, '.monomind', 'orgs', '.stops');
-            fs.mkdirSync(stopDir, { recursive: true });
-            fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
-          }
-        } catch (_) {}
-      }
-      // Broadcast to all mastermind SSE clients
-      const msg = `data: ${JSON.stringify(event)}\n\n`;
-      for (const c of mmSseClients) { try { c.write(msg); } catch (_) { mmSseClients.delete(c); } }
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end('{"ok":true}');
-      return;
+      return handleMastermindEvent(req, res);
     }
 
     // GET /api/mastermind-stream — SSE for real-time events
