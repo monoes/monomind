@@ -8160,6 +8160,24 @@ function filterOrgList(q) {
             }
           }, 400);
         }
+        // run:cycle:complete: lightweight re-fetch for budgets/costs/tasks without renderOrgs()
+        // — cycles fire frequently and only affect token counters and task state, not org-list status.
+        if (ev.type === 'run:cycle:complete' && _v2SelOrg === n && _v2OrgData) {
+          if (_v2OrgTab === 'budgets' || _v2OrgTab === 'costs') {
+            const _bcEnc = encodeURIComponent(_v2SelOrg);
+            fetch(`/api/org/${_bcEnc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(b => { if (b && _v2OrgData && _v2SelOrg === n) { _v2OrgData._budgets = b; _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); } })
+              .catch(() => { _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); });
+          }
+          if (_v2OrgTab === 'tasks') {
+            const _tcEnc = encodeURIComponent(_v2SelOrg);
+            fetch(`/api/org/${_tcEnc}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.tasks !== undefined) { _v2OrgData.tasks = d.tasks; v2RenderOrgTasks(); } })
+              .catch(() => { v2RenderOrgTasks(); });
+          }
+        }
       } catch(_) {}
     };
     src.onerror = () => {
