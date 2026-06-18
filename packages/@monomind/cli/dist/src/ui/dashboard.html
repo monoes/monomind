@@ -8000,6 +8000,14 @@ function filterOrgList(q) {
                     .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.tasks !== undefined) { _v2OrgData.tasks = d.tasks; v2RenderOrgTasks(); } })
                     .catch(() => { v2RenderOrgTasks(); });
                 }
+                if (_v2OrgTab === 'budgets' || _v2OrgTab === 'costs') {
+                  // Re-fetch budgets after run events so token/cost counters stay current
+                  const _bEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_bEnc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(b => { if (b && _v2OrgData && _v2SelOrg === n) { _v2OrgData._budgets = b; _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); } })
+                    .catch(() => { _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); });
+                }
               }
             }
           }, 400);
