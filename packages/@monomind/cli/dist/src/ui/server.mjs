@@ -4778,9 +4778,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       });
       res.write(': connected\n\n');
       mmSseClients.add(res);
-      // Replay last 50 events from disk
+      // Replay last 50 events from disk (use ?project= param if provided)
       try {
-        const root2 = projectDir || process.cwd();
+        const _sseQp = new URL('http://x' + req.url).searchParams;
+        const _sseProj = _sseQp.get('project');
+        const root2 = _sseProj || projectDir || process.cwd();
         const evFile = path.join(root2, 'data', 'mastermind-events.jsonl');
         const lines = fs.readFileSync(evFile, 'utf8').trim().split('\n').filter(Boolean).slice(-50);
         for (const l of lines) res.write(`data: ${l}\n\n`);
