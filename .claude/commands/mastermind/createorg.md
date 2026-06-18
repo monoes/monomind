@@ -108,7 +108,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     --arg session "$session_id" \
     --arg prompt "$prompt" \
     --arg mode "$mode" \
-    --arg proj "$(pwd)" \
+    --arg proj "$REPO_ROOT" \
     '{type:"session:start",session:$session,domain:"ops",prompt:$prompt,mode:$mode,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
