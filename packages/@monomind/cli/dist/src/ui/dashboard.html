@@ -6386,7 +6386,7 @@ function v2RenderOrgCosts() {
       ? c.map(r => ({ label: r.label ?? r.name ?? '—', cost: Number(r.value ?? r.cost ?? 0), tin: 0, tout: 0 }))
       : Object.entries(c).map(([k, v]) => ({ label: k, cost: Number(v) || 0, tin: 0, tout: 0 }));
   }
-  if (!rows.length) { pane.innerHTML = '<div class="empty">No cost data</div>'; return; }
+  if (!rows.length) { pane.innerHTML = '<div class="empty" style="text-align:center;padding:24px 16px"><div style="font-size:13px;color:var(--text-lo);margin-bottom:6px">No cost data tracked yet</div><div style="font-size:11px;color:var(--text-lo);opacity:0.7">Agents must emit <code>agent:usage</code> events to populate this tab</div></div>'; return; }
   const cur = (b && b.currency) || 'USD';
   const period = (b && b.period) || '';
   const total = rows.reduce((s, r) => s + r.cost, 0);
