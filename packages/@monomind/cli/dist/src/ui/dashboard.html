@@ -302,10 +302,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .odh-pill { font-size: 11px; padding: 2px 8px; border-radius: 8px; background: var(--surface); color: var(--text-lo); border: 1px solid var(--border); }
 .odh-right { margin-left: auto; display: flex; gap: 6px; }
 
-#org-detail-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0; padding: 0 16px; }
+#org-detail-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0; padding: 0 16px; overflow-x: auto; overflow-y: visible; scrollbar-width: none; }
+#org-detail-tabs::-webkit-scrollbar { display: none; }
 .odt-btn { font-size: 12px; padding: 8px 12px; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; color: var(--text-lo); font-family: var(--sans); transition: color 0.1s; }
 .odt-btn:hover { color: var(--text-hi); }
-.odt-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.odt-btn.active { color: var(--accent); border-bottom-color: var(--accent); opacity: 1; }
+.odt-btn.secondary { opacity: 0.6; }
+.odt-btn.secondary.active { opacity: 1; }
+.odt-tab-sep { width: 1px; background: var(--border); margin: 6px 4px; flex-shrink: 0; align-self: stretch; }
 
 #org-detail-body { flex: 1; overflow-y: auto; padding: 18px 20px; }
 #org-detail-body::-webkit-scrollbar { width: 3px; }
@@ -325,6 +329,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #odt-chat-agent-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
 .odt-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
 .odt-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
+.odt-agent-pill.dim { opacity:0.35; }
+.odt-agent-pill.dim:hover { opacity:0.6; }
 .odt-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
 #odt-chat-feed { flex:1; overflow-y:auto; padding:10px 16px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
 #odt-chat-feed::-webkit-scrollbar { width:4px; }
@@ -724,6 +730,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .cv-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
 .cv-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
 .cv-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
+.cv-session-hdr { padding:10px 18px 8px; border-bottom:1px solid var(--border); margin-bottom:4px; background:oklch(13% 0.01 295); }
+.cv-shdr-prompt { font-size:12px; color:var(--text-mid); margin-bottom:4px; font-weight:500; }
+.cv-shdr-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:9px; color:var(--text-lo); font-family:var(--mono); }
+.cv-shdr-id { color:var(--text-xs); font-size:8px; }
+.cv-shdr-sep { color:var(--border); }
 .cv-msg { display:flex; flex-direction:column; max-width:90%; }
 .cv-msg.cv-sys { align-self:center; max-width:100%; }
 .cv-msg.cv-agent { align-self:flex-start; }
@@ -1831,53 +1842,30 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
               <button class="btn" onclick="v2ImportOrgTrigger()" title="Import org from JSON file" style="color:var(--text-lo);border-color:var(--border)">Import</button>
               <button class="btn" id="org-copy-btn" onclick="v2ShowCopyOrgDialog()" style="color:var(--accent);border-color:var(--accent)">Copy to…</button>
               <button class="btn" id="org-stop-btn" onclick="v2StopOrg()" style="display:none;color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Stop</button>
+              <button class="btn" id="org-delete-btn" onclick="v2DeleteOrg()" title="Permanently delete this org and all its data" style="color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Delete</button>
             </div>
           </div>
           <div id="org-detail-tabs">
             <button class="odt-btn active" data-tab="chart" onclick="v2SwitchOrgTab('chart')">Chart</button>
-            <button class="odt-btn" data-tab="activity" onclick="v2SwitchOrgTab('activity')">Activity</button>
-            <button class="odt-btn" data-tab="health" onclick="v2SwitchOrgTab('health')">Health</button>
-            <button class="odt-btn" data-tab="approvals" onclick="v2SwitchOrgTab('approvals')">Approvals</button>
-            <button class="odt-btn" data-tab="budgets"   onclick="v2SwitchOrgTab('budgets')">Budgets</button>
-            <button class="odt-btn" data-tab="charts"       onclick="v2SwitchOrgTab('charts')">Charts</button>
-            <button class="odt-btn" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
             <button class="odt-btn" data-tab="chat"         onclick="v2SwitchOrgTab('chat')">Chat</button>
-            <button class="odt-btn" data-tab="config"       onclick="v2SwitchOrgTab('config')">Config</button>
-            <button class="odt-btn" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
+            <button class="odt-btn" data-tab="agents-full"  onclick="v2SwitchOrgTab('agents-full')">Agents</button>
+            <button class="odt-btn" data-tab="activity"     onclick="v2SwitchOrgTab('activity')">Activity</button>
+            <div class="odt-tab-sep" title="Secondary tabs"></div>
+            <button class="odt-btn secondary" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
+
+            <button class="odt-btn secondary" data-tab="costs"        onclick="v2SwitchOrgTab('costs')">Costs</button>
+            <button class="odt-btn secondary" data-tab="config"        onclick="v2SwitchOrgTab('config')">Config</button>
+            <button class="odt-btn secondary" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
-            <div class="odt-pane" id="odt-roles"></div>
-            <div class="odt-pane" id="odt-activity"></div>
-            <div class="odt-pane" id="odt-health"></div>
-            <div class="odt-pane" id="odt-heartbeats"></div>
-            <div class="odt-pane" id="odt-tasks"></div>
-            <div class="odt-pane" id="odt-costs"></div>
-            <div class="odt-pane" id="odt-members"></div>
-            <div class="odt-pane" id="odt-goals"></div>
-            <div class="odt-pane" id="odt-board"></div>
-            <div class="odt-pane" id="odt-live"></div>
-            <div class="odt-pane" id="odt-approvals"></div>
-            <div class="odt-pane" id="odt-secrets"></div>
-            <div class="odt-pane" id="odt-settings"></div>
-            <div class="odt-pane" id="odt-routines"></div>
-            <div class="odt-pane" id="odt-myissues"></div>
-            <div class="odt-pane" id="odt-budgets"></div>
-            <div class="odt-pane" id="odt-plugins"></div>
-            <div class="odt-pane" id="odt-charts"></div>
-            <div class="odt-pane" id="odt-projects"></div>
-            <div class="odt-pane" id="odt-skills"></div>
-            <div class="odt-pane" id="odt-workspaces"></div>
-            <div class="odt-pane" id="odt-invites"></div>
             <div class="odt-pane" id="odt-agents-full"></div>
+            <div class="odt-pane" id="odt-activity"></div>
             <div class="odt-pane" id="odt-chat" style="flex-direction:column;height:100%;overflow:hidden;"></div>
+            <div class="odt-pane" id="odt-skills"></div>
+            <div class="odt-pane" id="odt-costs"></div>
             <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-environments"></div>
-            <div class="odt-pane" id="odt-access"></div>
-            <div class="odt-pane" id="odt-issues-full"></div>
-            <div class="odt-pane" id="odt-join-requests"></div>
-            <div class="odt-pane" id="odt-threads"></div>
           </div>
         </div>
           <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.72);z-index:90;align-items:center;justify-content:center">
@@ -2135,9 +2123,13 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <select id="chat-v-sel" onchange="chatVSelectSession(this.value)">
             <option value="">— select a session —</option>
           </select>
+          <select id="chat-v-org-run-sel" style="display:none" onchange="chatVSelectOrgRun(this.value)" title="Select org run to replay communications">
+            <option value="">— org run history —</option>
+          </select>
           <div id="chat-v-live-dot"></div>
           <span id="chat-v-live-lbl">OFFLINE</span>
         </div>
+        <div id="chat-v-excerpt" class="cv-excerpt-banner"></div>
         <div id="chat-v-feed">
           <div id="chat-v-empty">Select a session above to see agent communications.<br>Agent messages, intercom signals, and system events appear here in real time.</div>
         </div>
@@ -2276,7 +2268,7 @@ document.getElementById('feed-scroll').addEventListener('scroll', () => {
   userScrolled = document.getElementById('feed-scroll').scrollTop > 50;
 });
 
-function switchView(v) {
+function switchView(v, { updateHash = true } = {}) {
   currentView = v;
   document.querySelectorAll('.nav-item[data-view]').forEach(el =>
     el.classList.toggle('active', el.dataset.view === v));
@@ -2287,10 +2279,53 @@ function switchView(v) {
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
   const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
+  if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
   if (v === 'projects') { renderProjects(); return; }
   if (v === 'chat') { initChatView(); return; }
   if (!viewRendered[v]) { renderView(v); viewRendered[v] = true; }
+}
+
+// ── Hash-based routing ────────────────────────────────────────────────────────
+// Format: #<view>  or  #orgs/<orgName>/<tab>
+let _suppressHashChange = false;
+
+function _pushHash() {
+  let hash = currentView || 'now';
+  if (currentView === 'orgs' && typeof _v2SelOrg !== 'undefined' && _v2SelOrg) {
+    const tab = (typeof _v2OrgTab !== 'undefined' && _v2OrgTab) ? _v2OrgTab : 'chart';
+    hash = 'orgs/' + encodeURIComponent(_v2SelOrg) + '/' + tab;
+  }
+  _suppressHashChange = true;
+  location.hash = '#' + hash;
+  setTimeout(() => { _suppressHashChange = false; }, 50);
+}
+
+function _restoreFromHash() {
+  if (_suppressHashChange) return;
+  const raw = location.hash.replace(/^#/, '');
+  if (!raw) { _pushHash(); return; }
+  const parts = raw.split('/');
+  const view = parts[0];
+  if (!view) return;
+  if (view === 'orgs') {
+    switchView('orgs', { updateHash: false });
+    const orgName = parts[1] ? decodeURIComponent(parts[1]) : null;
+    const tab = parts[2] || 'chart';
+    if (orgName) {
+      // _v2Orgs is populated async by renderOrgs(); retry until available
+      const _trySelect = (attempts) => {
+        if (typeof _v2Orgs !== 'undefined' && _v2Orgs && _v2Orgs.length > 0) {
+          v2SelectOrg(orgName).then(() => { if (tab !== 'chart') v2SwitchOrgTab(tab); });
+        } else if (attempts > 0) {
+          setTimeout(() => _trySelect(attempts - 1), 250);
+        }
+      };
+      _trySelect(20);
+    }
+  } else {
+    switchView(view, { updateHash: false });
+  }
 }
 
 function renderView(v) {
@@ -2362,6 +2397,9 @@ async function init() {
   await refreshNow();
   if (sessParam) setTimeout(() => jumpToSession(sessParam), 300);
   initSSE();
+  // Restore view from URL hash (after initial data load so orgs list is ready)
+  _restoreFromHash();
+  window.addEventListener('hashchange', () => _restoreFromHash());
 }
 
 function _setLiveMode(mode) {
@@ -3929,42 +3967,190 @@ async function renderGlobalFeed() {
 }
 
 // ── agent chat view ────────────────────────────────────────
-let chatVSessions = {};
+let chatVSessions = {};       // sessionId or groupId → session/group object
+let chatVGroupMap = {};        // groupId → group object
+let chatVSessionGroupMap = {}; // sessionId → groupId (for sessions inside a group)
 let chatVCurrentId = null;
+let chatVCurrentGroupSessions = new Set(); // session IDs belonging to the currently selected group
 let chatVSseSource = null;
+let chatVSeenKeys = new Set();
 
 function initChatView() {
   loadChatViewSessions();
+  loadChatViewOrgRuns();
   if (!chatVSseSource) connectChatViewSSE();
+}
+
+async function loadChatViewOrgRuns() {
+  // Populate the org run history selector with recent org runs
+  const runSel = document.getElementById('chat-v-org-run-sel');
+  if (!runSel) return;
+  try {
+    const dir = DIR ? `?dir=${encodeURIComponent(DIR)}` : '';
+    const orgs = await apiFetch('/api/orgs' + dir).catch(() => []);
+    const orgList = Array.isArray(orgs) ? orgs : (orgs.orgs || []);
+    const runEntries = [];
+    await Promise.all(orgList.slice(0, 10).map(async org => {
+      const name = org.name || org;
+      if (!name) return;
+      try {
+        const runs = await apiFetch(`/api/org/${encodeURIComponent(name)}/runs${dir}`);
+        (Array.isArray(runs) ? runs : (runs.runs || [])).slice(0, 5).forEach(r => {
+          runEntries.push({ org: name, runId: r.runId || r.id, startedAt: r.startedAt || 0 });
+        });
+      } catch (_) {}
+    }));
+    runEntries.sort((a, b) => b.startedAt - a.startedAt);
+    while (runSel.options.length > 1) runSel.remove(1);
+    runEntries.slice(0, 20).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify({ org: r.org, runId: r.runId });
+      const ts = r.startedAt ? new Date(r.startedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+      opt.textContent = r.org + '/' + (r.runId || '').slice(0, 12) + (ts ? '  ' + ts : '');
+      runSel.appendChild(opt);
+    });
+    runSel.style.display = runEntries.length ? '' : 'none';
+  } catch(e) { console.warn('chat org runs load failed', e); }
+}
+
+async function chatVSelectOrgRun(value) {
+  if (!value) return;
+  let org, runId;
+  try { ({ org, runId } = JSON.parse(value)); } catch { return; }
+  const feed = document.getElementById('chat-v-feed');
+  const empty = document.getElementById('chat-v-empty');
+  if (!feed) return;
+  feed.innerHTML = '';
+  // Clear session selection — org run replay is a different mode;
+  // also set chatVCurrentId=null so appendChatViewEvent session-guard doesn't filter events
+  chatVCurrentId = null;
+  const sessEl = document.getElementById('chat-v-sel');
+  if (sessEl) sessEl.value = '';
+  try {
+    const dir = DIR ? `?dir=${encodeURIComponent(DIR)}` : '';
+    const events = await apiFetch(`/api/org/${encodeURIComponent(org)}/runs/${encodeURIComponent(runId)}${dir}`);
+    const evArr = Array.isArray(events) ? events : (events.events || []);
+    if (!evArr.length) { feed.appendChild(empty || document.createTextNode('No events in this run.')); return; }
+    evArr.forEach(ev => appendChatViewEvent(ev, false));
+    feed.scrollTop = feed.scrollHeight;
+  } catch(e) {
+    feed.textContent = 'Failed to load run events: ' + e.message;
+  }
 }
 
 async function loadChatViewSessions() {
   try {
+    // Snapshot SSE-seeded sessions before the async fetch — the API response may not yet
+    // include events that arrived via SSE right before the fetch, so we preserve their
+    // buffered events and merge them back after (same pattern as _odtLoadChatSessions).
+    const _prevChatSessions = { ...chatVSessions };
     const data = await apiFetch('/api/mastermind/sessions');
     chatVSessions = {};
+    chatVGroupMap = {};
+    chatVSessionGroupMap = {};
     const sel = document.getElementById('chat-v-sel');
     const prev = sel.value;
     while (sel.options.length > 1) sel.remove(1);
-    const sessions = Object.values(data.sessions || {});
-    sessions.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+    // API returns a plain array (not {sessions:{...}}) — handle both shapes for safety
+    const sessions = Array.isArray(data) ? data : Object.values(data.sessions || data || {});
+
+    // Normalize and merge SSE-seeded events before grouping
     sessions.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      const ts = s.startedAt ? new Date(s.startedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
-      opt.textContent = (s.id.slice(0,16)) + (ts ? '  ' + ts : '') + (s.status === 'running' ? '  ●' : '');
-      sel.appendChild(opt);
-      chatVSessions[s.id] = s;
+      if (_prevChatSessions[s.id] && (_prevChatSessions[s.id].events || []).length > (s.events || []).length) {
+        s.events = _prevChatSessions[s.id].events;
+      }
+      if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete';
     });
-    if (prev && chatVSessions[prev]) { sel.value = prev; }
-    else {
-      const running = sessions.find(s => s.status === 'running');
-      if (running) { sel.value = running.id; chatVSelectSession(running.id); }
+
+    // Group consecutive sessions with same normalized prompt + gap < 20 min → loop group
+    const _CV_MAX_LOOP_GAP = 20 * 60 * 1000;
+    const _cvNormPrompt = p => (p || '').replace(/^running org:\s*/i, '').toLowerCase().replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 40);
+    const sessAsc = [...sessions].sort((a, b) => (a.startedAt || a.ts || 0) - (b.startedAt || b.ts || 0));
+    const cvGroups = []; // [{id, sessions, events, totalEvents, status, prompt, startedAt, _newestAt, _normKey, _isGroup}]
+    sessAsc.forEach(s => {
+      const key = _cvNormPrompt(s.prompt);
+      const sAt = s.startedAt || s.ts || 0;
+      const last = cvGroups[cvGroups.length - 1];
+      if (last && last._normKey === key && key && (sAt - last._newestAt) < _CV_MAX_LOOP_GAP) {
+        last.sessions.push(s);
+        last._newestAt = sAt;
+        last.totalEvents += (s.events || []).length;
+        if (s.status === 'running') last.status = 'running';
+        (s.events || []).forEach(ev => last.events.push(ev));
+      } else {
+        cvGroups.push({
+          id: s.id,
+          sessions: [s],
+          _normKey: key,
+          _newestAt: sAt,
+          totalEvents: (s.events || []).length,
+          status: s.status || 'complete',
+          prompt: s.prompt,
+          startedAt: sAt,
+          domains: s.domains || [],
+          events: [...(s.events || [])],
+          _isGroup: false
+        });
+      }
+    });
+    // Finalize groups
+    cvGroups.forEach(g => {
+      if (g.sessions.length > 1) {
+        g._isGroup = true;
+        g.id = 'grp:' + g.sessions[0].id;
+        g.events.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      }
+    });
+    // Sort groups newest first, register
+    cvGroups.sort((a, b) => b._newestAt - a._newestAt);
+    cvGroups.forEach(g => {
+      chatVSessions[g.id] = g;
+      chatVGroupMap[g.id] = g;
+      g.sessions.forEach(s => {
+        chatVSessions[s.id] = g; // session ID also routes to group
+        if (g._isGroup) chatVSessionGroupMap[s.id] = g.id;
+      });
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      const ts = g._newestAt ? new Date(g._newestAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+      const label = (g.prompt || '').replace(/^running org:\s*/i, '').replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 30) || g.id.slice(0, 16);
+      const evCount = g.totalEvents || (g.events || []).length;
+      const msgPart = evCount ? '  ' + evCount + 'ev' : '';
+      const repPart = g._isGroup ? '  ' + g.sessions.length + 'reps' : '';
+      opt.textContent = label + (ts ? '  ' + ts : '') + repPart + msgPart + (g.status === 'running' ? '  ●' : '');
+      sel.appendChild(opt);
+    });
+
+    // Re-attach SSE-only sessions not yet in the API response (arrived during fetch)
+    Object.values(_prevChatSessions).forEach(ps => {
+      if (!chatVSessions[ps.id]) {
+        chatVSessions[ps.id] = ps;
+        const opt = document.createElement('option');
+        opt.value = ps.id;
+        const tsVal = ps.startedAt || 0;
+        const ts = tsVal ? new Date(tsVal).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+        const label = (ps.prompt || '').replace(/^running org:\s*/i, '').slice(0, 40) || ps.id.slice(0, 16);
+        opt.textContent = label + (ts ? '  ' + ts : '') + '  ●';
+        sel.appendChild(opt);
+      }
+    });
+
+    // Resolve prev selection: may be a sessionId inside a group now
+    const prevResolved = prev ? (chatVSessionGroupMap[prev] || (chatVSessions[prev] ? prev : null)) : null;
+    if (prevResolved && chatVSessions[prevResolved]) {
+      sel.value = prevResolved;
+      if (!chatVCurrentId) chatVSelectSession(prevResolved);
+    } else {
+      const runningGroup = cvGroups.find(g => g.status === 'running');
+      if (runningGroup) { sel.value = runningGroup.id; chatVSelectSession(runningGroup.id); }
+      else if (cvGroups.length) { sel.value = cvGroups[0].id; chatVSelectSession(cvGroups[0].id); }
     }
   } catch(e) { console.warn('chat sessions load failed', e); }
 }
 
 function chatVSelectSession(id) {
   chatVCurrentId = id;
+  chatVCurrentGroupSessions.clear();
   const feed = document.getElementById('chat-v-feed');
   const empty = document.getElementById('chat-v-empty');
   if (!id || !chatVSessions[id]) {
@@ -3974,24 +4160,118 @@ function chatVSelectSession(id) {
   }
   feed.innerHTML = '';
   const session = chatVSessions[id];
+  // Populate group session set so live SSE events from any rep appear in feed
+  if (session._isGroup && session.sessions) {
+    session.sessions.forEach(s => chatVCurrentGroupSessions.add(s.id));
+  }
+  // Inject session metadata header
+  const tsVal = session.startedAt || session.ts || 0;
+  const tsStr = tsVal ? new Date(tsVal).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  const domains = (session.domains || []);
+  const agents = domains.length ? domains.join(', ') : '—';
+  const evCount = session._isGroup ? (session.totalEvents || (session.events || []).length) : (session.events || []).length;
+  const agentNames = (() => {
+    const names = new Set();
+    (session.events || []).forEach(ev => {
+      if (ev.agent) names.add(ev.agent);
+      if (ev.from && ev.from !== 'system') names.add(ev.from);
+    });
+    return names.size ? [...names].join(', ') : agents;
+  })();
+  const prompt = (session.prompt || '').replace(/^running org:\s*/i, '').replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 120) || id;
+  const repInfo = session._isGroup ? ' · ' + session.sessions.length + ' reps' : '';
+  const statusCls = session.status === 'running' ? 'color:oklch(65% 0.20 145)' : session.status === 'complete' ? 'color:var(--text-lo)' : 'color:oklch(65% 0.20 25)';
+  // Compute cost + duration from events
+  const _allEvs = session.events || [];
+  const _totalCost = _allEvs.reduce((acc, ev) => acc + (Number(ev.cost_usd) || 0), 0);
+  const _costStr = _totalCost > 0 ? '$' + _totalCost.toFixed(4) : '';
+  const _startTs = session.startedAt || session.ts || 0;
+  const _endTs = session.endedAt || (_allEvs[_allEvs.length-1]?.ts) || 0;
+  const _durMs = _endTs > _startTs ? _endTs - _startTs : 0;
+  const _durStr = _durMs > 60000 ? Math.round(_durMs/60000) + 'm' : _durMs > 0 ? Math.round(_durMs/1000) + 's' : '';
+  const hdr = document.createElement('div');
+  hdr.className = 'cv-session-hdr';
+  hdr.innerHTML = `<div class="cv-shdr-prompt">${esc(prompt)}${repInfo ? '<span style="color:var(--text-lo);font-size:10px"> ' + esc(repInfo) + '</span>' : ''}</div>`+
+    `<div class="cv-shdr-meta">`+
+      `<span class="cv-shdr-id" title="${esc(id)}">${esc(id)}</span>`+
+      `<span class="cv-shdr-sep">·</span>`+
+      `<span style="${statusCls}">${esc(session.status || 'unknown')}</span>`+
+      `<span class="cv-shdr-sep">·</span>`+
+      `<span title="started">${esc(tsStr)}</span>`+
+      (_durStr ? `<span class="cv-shdr-sep">·</span><span title="duration">${esc(_durStr)}</span>` : '')+
+      `<span class="cv-shdr-sep">·</span>`+
+      `<span title="agents">${esc(agentNames)}</span>`+
+      `<span class="cv-shdr-sep">·</span>`+
+      `<span title="event count">${evCount} events</span>`+
+      (_costStr ? `<span class="cv-shdr-sep">·</span><span style="color:oklch(65% 0.18 50)" title="total cost">${esc(_costStr)}</span>` : '')+
+    `</div>`;
+  feed.appendChild(hdr);
   const events = session.events || [];
-  events.forEach(ev => appendChatViewEvent(ev, false));
+  events.forEach(ev => {
+    appendChatViewEvent(ev, false);
+    // Pre-seed dedup set so SSE reconnect replays of historical events are swallowed
+    const _cvhk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.session||ev?.runId||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
+    chatVSeenKeys.add(_cvhk);
+  });
+  // Populate excerpt banner with last activity for the selected session
+  const _cvExEl = document.getElementById('chat-v-excerpt');
+  if (_cvExEl) { if (events.length) renderCvExcerptBanner('chat-v-excerpt', events, session); else _cvExEl.innerHTML = ''; }
   feed.scrollTop = feed.scrollHeight;
 }
 
 function appendChatViewEvent(ev, animate) {
-  if (chatVCurrentId && ev.session && ev.session !== chatVCurrentId) return;
+  if (chatVCurrentId && ev.session && ev.session !== chatVCurrentId && !chatVCurrentGroupSessions.has(ev.session)) return;
   const feed = document.getElementById('chat-v-feed');
   if (!feed) return;
   const empty = document.getElementById('chat-v-empty');
   if (empty && feed.contains(empty)) feed.removeChild(empty);
 
   let el;
+  const atBottom = !animate || (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80);
   const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-  if (ev.type === 'intercom') {
+  if (ev.type === 'run:start') {
+    el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + esc(ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + esc(ev.bossRole) : ''), ts);
+  } else if (ev.type === 'run:cycle:complete') {
+    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + esc(String(ev.pending)) + ' tasks pending' : ''), ts);
+  } else if (ev.type === 'intercom') {
     el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
-  } else if (ev.type === 'agent:message' || ev.type === 'agent:spawn') {
-    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || ev.role || ev.type, ts, ev.type);
+  } else if (ev.type === 'org:comms') {
+    const _cvCommsFrom = ev.from || ev.role || ev.org || '?';
+    // Directed messages (to set, not broadcast) → intercom bubble; broadcasts → agent bubble
+    if (ev.to && ev.to !== 'all') el = mkCVIntercom(_cvCommsFrom, ev.to, ev.msg || '', ts);
+    else el = mkCVAgent(_cvCommsFrom, ev.msg || '', ts, 'org:comms');
+  } else if (ev.type === 'org:agent:online') {
+    el = mkCVSys('[' + esc(ev.org || '') + '] ' + esc(ev.role || ev.title || '?') + ' online' + (ev.title && ev.role && ev.title !== ev.role ? ' (' + esc(ev.title) + ')' : ''), ts);
+  } else if (ev.type === 'org:checkpoint') {
+    el = mkCVSys('[checkpoint] ' + esc(ev.summary || ev.progress || ev.msg || ''), ts);
+  } else if (ev.type === 'org:start') {
+    el = mkCVSys('[org:start] ' + esc(ev.org || ''), ts);
+  } else if (ev.type === 'run:complete') {
+    el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+  } else if (ev.type === 'org:complete') {
+    el = mkCVSys('■ Org complete' + (ev.org ? ' — ' + esc(ev.org) : ''), ts);
+  } else if (ev.type === 'agent:result') {
+    el = mkCVResult(ev.agent || ev.from || '?', ev.result || ev.msg || ev.message || ev.summary || '', ts);
+  } else if (ev.type === 'agent:spawn') {
+    const _spawnTo = ev.to || ev.agentType || '?';
+    const _spawnTask = ev.task || ev.briefing || '';
+    el = mkCVSpawn(ev.from || 'orchestrator', _spawnTo, _spawnTask, ts);
+  } else if (ev.type === 'agent:complete') {
+    // Rich completion event from capture-handler (replaces/supplements org:comms)
+    const _acAgent = ev.agentType || ev.role || ev.from || '?';
+    const _acResult = ev.result || '';
+    const _acCost = ev.cost_usd != null ? ' $' + Number(ev.cost_usd).toFixed(4) : '';
+    const _acTok = (ev.tokens_in || ev.tokens_out) ? ' · ' + ((ev.tokens_in||0)+(ev.tokens_out||0)).toLocaleString() + ' tok' : '';
+    const _acTools = (ev.toolCalls || []).length ? ' · [' + ev.toolCalls.slice(0,5).map(t => esc(t)).join(', ') + ']' : '';
+    el = mkCVResult(_acAgent + _acCost + _acTok + _acTools, _acResult, ts);
+  } else if (ev.type === 'agent:usage') {
+    // Token/cost accounting event — show as compact system line
+    const _auAgent = ev.role || ev.agentType || '?';
+    const _auCost = ev.cost_usd != null ? '$' + Number(ev.cost_usd).toFixed(4) : '';
+    const _auTok = (ev.tokens_in || ev.tokens_out) ? ((ev.tokens_in||0)).toLocaleString() + '↑ ' + ((ev.tokens_out||0)).toLocaleString() + '↓' : '';
+    el = mkCVSys('◈ ' + esc(_auAgent) + (_auTok ? ' · ' + _auTok : '') + (_auCost ? ' · ' + _auCost : ''), ts);
+  } else if (ev.type === 'agent:message') {
+    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || '', ts, ev.type);
   } else if (ev.type === 'session:start') {
     el = mkCVSys('Session started' + (ev.prompt ? ': ' + esc(ev.prompt.slice(0,80)) : ''), ts);
   } else if (ev.type === 'session:complete') {
@@ -4001,38 +4281,64 @@ function appendChatViewEvent(ev, animate) {
   } else if (ev.type === 'domain:complete') {
     el = mkCVSys('✓ ' + esc(ev.domain || '') + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
   } else if (ev.type === 'loop:start') {
-    el = mkCVSys('Loop started: ' + esc(ev.command || ''), ts);
+    el = mkCVSys('◎ Loop: ' + esc(ev.command || '') + (ev.repeat ? ' ×' + esc(String(ev.repeat)) : ''), ts);
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'loop:complete') {
-    el = mkCVSys('Loop complete: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
+    el = mkCVSys('■ Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + esc(String(ev.ranReps)) + ' runs)' : ''), ts);
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'loop:tick') {
-    el = mkCVSys('Loop tick: ' + esc(ev.command || ev.id || ''), ts);
+    const _tickLbl = ev.rep != null
+      ? 'rep ' + esc(String(ev.rep)) + ' done' + (ev.wait != null ? ' → next in ' + esc(String(ev.wait)) + 's' : '')
+      : esc(ev.command || ev.loopId || ev.id || '');
+    el = mkCVSys('◷ ' + _tickLbl, ts);
+    el.dataset.evType = 'loop:tick';
+    if (feed.lastElementChild?.dataset?.evType === 'loop:tick') feed.lastElementChild.remove();
     if (currentView === 'loops') renderLoops();
-  } else if (ev.type === 'loop:hil') {
-    el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.id || ''), ts);
+  } else if (ev.type === 'loop:hil' || ev.type === 'loop:hil:waiting') {
+    el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.loopId || ev.id || ''), ts);
     if (currentView === 'loops') renderLoops();
+  } else if (ev.type === 'loop:hil:resolved') {
+    el = mkCVSys('✓ Loop HIL resolved: ' + esc(ev.loopId || ev.command || ''), ts);
+    if (currentView === 'loops') renderLoops();
+  } else if (ev.type === 'file:write') {
+    el = mkCVFileCard(ev.name || ev.path || '?', ev.path || '', ev.size || 0, ts);
+  } else if (ev.type === 'org:agent:offline') {
+    el = mkCVSys('◌ ' + esc(ev.title || ev.role || '?') + ' offline' + (ev.org ? ' [' + esc(ev.org) + ']' : ''), ts);
+  } else if (ev.type === 'org:error') {
+    el = mkCVSys('⚠ Error: ' + esc(ev.msg || ev.error || ev.message || ''), ts);
+    el.classList.add('cv-err');
   } else {
     el = mkCVSys(esc(ev.type || 'event'), ts);
   }
   if (animate) el.classList.add('cv-new');
   feed.appendChild(el);
-  feed.scrollTop = feed.scrollHeight;
+  if (atBottom) feed.scrollTop = feed.scrollHeight;
 }
 
 function _cvExcerptText(ev) {
   const t = ev.type || '';
-  if (t === 'intercom' || t === 'org:comms') return (ev.from || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'intercom' || t === 'org:comms') return (ev.from || ev.role || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
   if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
-  if (t === 'agent:spawn' || t === 'org:agent:online') return 'spawned ' + (ev.agent || ev.role || ev.title || '?');
-  if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.progress || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
+  if (t === 'agent:result') return (ev.agent || ev.from || '?') + ': ' + (ev.result || ev.msg || ev.message || ev.summary || '').slice(0, 80);
+  if (t === 'agent:spawn') return 'spawned ' + (ev.to || ev.agent || ev.role || '?') + (ev.task || ev.briefing ? ': ' + (ev.task || ev.briefing || '').slice(0, 50) : '');
+  if (t === 'org:agent:online') return (ev.title || ev.role || '?') + ' online';
+  if (t === 'org:agent:offline') return (ev.title || ev.role || '?') + ' offline';
+  if (t === 'org:error') return 'error: ' + (ev.msg || ev.error || ev.message || '').slice(0, 80);
+  if (t === 'file:write') return (ev.name || ev.path || '?') + (ev.size ? ' (' + (ev.size > 1048576 ? (ev.size/1048576).toFixed(1)+'MB' : ev.size > 1024 ? (ev.size/1024).toFixed(1)+'KB' : ev.size+'B') + ')' : '');
+  if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.summary || ev.progress || ev.msg || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
+  if (t === 'run:complete') return 'run complete' + (ev.status ? ' [' + ev.status + ']' : '');
+  if (t === 'run:cycle:complete') return 'cycle done' + (ev.pending != null ? ' · ' + ev.pending + ' pending' : '');
   if (t === 'org:start') return 'org started: ' + (ev.goal || '').slice(0, 80);
   if (t === 'org:complete') return 'org complete';
   if (t === 'session:start') return 'started: ' + (ev.prompt || '').replace(/^running org:\s*/i, '').slice(0, 80);
   if (t === 'session:complete') return 'completed' + (ev.status ? ' [' + ev.status + ']' : '');
   if (t === 'domain:dispatch') return '→ ' + (ev.domain || '') + (ev.cmd ? ': ' + ev.cmd.slice(0, 60) : '');
   if (t === 'domain:complete') return '✓ ' + (ev.domain || '');
-  if (ev.msg) return (ev.msg || '').slice(0, 80);
+  if (t === 'loop:tick') { const _r = ev.rep ?? ev.fromRep; return _r != null ? 'rep ' + _r + ' done' : (ev.command || ev.loopId || t); }
+  if (t === 'loop:start') return 'loop: ' + (ev.command || '');
+  if (t === 'loop:complete') return 'loop done: ' + (ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : '');
+  const _content = ev.result || ev.msg || ev.message || ev.error || ev.summary || '';
+  if (_content) return _content.slice(0, 80);
   return t.slice(0, 60);
 }
 
@@ -4040,18 +4346,25 @@ function _cvExcerptTag(ev) {
   const t = ev.type || '';
   if (t === 'intercom' || t === 'org:comms') return 'IC';
   if (t === 'agent:message') return 'MSG';
+  if (t === 'agent:result') return 'RESULT';
   if (t === 'agent:spawn' || t === 'org:agent:online') return 'NEW';
+  if (t === 'org:agent:offline') return 'OFF';
+  if (t === 'org:error') return 'ERR';
   if (t === 'org:checkpoint') return 'CHK';
+  if (t === 'file:write') return 'FILE';
   if (t.startsWith('org:')) return 'ORG';
+  if (t.startsWith('run:')) return 'RUN';
   if (t.startsWith('session:')) return 'SES';
   if (t.startsWith('domain:')) return 'DOM';
+  if (t.startsWith('loop:')) return 'LOOP';
+  if (t.startsWith('agent:')) return 'AGT';
   return 'EVT';
 }
 
 function renderCvExcerptBanner(bannerId, events, sessionMeta) {
   const banner = document.getElementById(bannerId);
   if (!banner) return;
-  const SKIP = new Set(['session:start']);
+  const SKIP = new Set(['session:start', 'run:start', 'org:start']);
   const meaningful = (events || []).filter(ev => !SKIP.has(ev.type)).slice(-5).reverse();
   if (!meaningful.length) {
     const prompt = sessionMeta && (sessionMeta.prompt || '');
@@ -4094,7 +4407,7 @@ function mkCVResult(agent, text, ts) {
     `<span class="cv-tag" style="background:oklch(20% 0.10 150);color:oklch(72% 0.20 150)">${esc(agent)}</span>`+
     `<span class="cv-etype" style="color:oklch(68% 0.20 150)">REPORT</span>`+
     `<span class="cv-text" id="${uid}" style="white-space:pre-wrap;line-height:1.6">${esc(preview)}</span>`+
-    (isLong ? `<button class="btn" style="font-size:9px;padding:1px 6px;margin-left:6px;flex-shrink:0" onclick="(function(b,id,full){const el=document.getElementById(id);const show=el.dataset.expanded;el.textContent=show?full.slice(0,300)+'…':full;el.dataset.expanded=show?'':'1';b.textContent=show?'Expand':'Collapse';})(this,'${uid}',${JSON.stringify(text)})">Expand</button>` : '')+
+    (isLong ? `<button class="btn" style="font-size:9px;padding:1px 6px;margin-left:6px;flex-shrink:0" data-uid="${uid}" data-full="${esc(text)}" onclick="(function(b){const el=document.getElementById(b.dataset.uid);const full=b.dataset.full;const show=el.dataset.expanded;el.textContent=show?full.slice(0,300)+'…':full;el.dataset.expanded=show?'':'1';b.textContent=show?'Expand':'Collapse';})(this)">Expand</button>` : '')+
     `<span class="cv-ts">${ts}</span></div>`;
   return d;
 }
@@ -4109,7 +4422,7 @@ function mkCVFileCard(name, filePath, size, ts) {
     `<span class="cv-tag" style="background:oklch(22% 0.10 50);color:oklch(78% 0.18 50)">FILE</span>`+
     `<span class="cv-text" style="font-family:var(--mono);font-size:10px">${esc(name)}</span>`+
     `<span style="font-size:9px;color:var(--text-lo);flex-shrink:0">${sizeStr}</span>`+
-    (filePath ? `<button class="btn" style="font-size:9px;padding:1px 6px;flex-shrink:0;border-color:oklch(65% 0.18 50);color:oklch(65% 0.18 50)" onclick="v2ViewOrgFile(${JSON.stringify(filePath)},${JSON.stringify(name)})">View</button>` : '')+
+    (filePath ? `<button class="btn" style="font-size:9px;padding:1px 6px;flex-shrink:0;border-color:oklch(65% 0.18 50);color:oklch(65% 0.18 50)" data-fp="${esc(filePath)}" data-fn="${esc(name)}" onclick="v2ViewOrgFile(this.dataset.fp,this.dataset.fn)">View</button>` : '')+
     `<span class="cv-ts">${ts}</span></div>`;
   return d;
 }
@@ -4125,14 +4438,14 @@ function mkCVAgent(name, text, ts, typeTag) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-agent';
   const tag = typeTag === 'agent:spawn' ? 'SPAWN' : 'MSG';
-  d.innerHTML = `<div class="cv-bub"><span class="cv-tag">${esc(name)}</span><span class="cv-etype">${tag}</span><span class="cv-text">${esc(String(text).slice(0,200))}</span><span class="cv-ts">${ts}</span></div>`;
+  d.innerHTML = `<div class="cv-bub"><span class="cv-tag">${esc(name)}</span><span class="cv-etype">${tag}</span><span class="cv-text">${esc(String(text).slice(0,800))}</span><span class="cv-ts">${ts}</span></div>`;
   return d;
 }
 
 function mkCVIntercom(from, to, text, ts) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-ic';
-  d.innerHTML = `<div class="cv-bub"><span class="cv-tag cv-sender">${esc(from||'?')}</span><span class="cv-arrow">→</span><span class="cv-tag cv-receiver">${esc(to||'?')}</span><span class="cv-etype">IC</span><span class="cv-text">${esc(String(text).slice(0,200))}</span><span class="cv-ts">${ts}</span></div>`;
+  d.innerHTML = `<div class="cv-bub"><span class="cv-tag cv-sender">${esc(from||'?')}</span><span class="cv-arrow">→</span><span class="cv-tag cv-receiver">${esc(to||'?')}</span><span class="cv-etype">IC</span><span class="cv-text">${esc(String(text).slice(0,800))}</span><span class="cv-ts">${ts}</span></div>`;
   return d;
 }
 
@@ -4148,24 +4461,69 @@ function connectChatViewSSE() {
   chatVSseSource.onerror = () => {
     dot && dot.classList.remove('on');
     lbl && (lbl.textContent = 'OFFLINE');
-    chatVSseSource.close();
+    const _cvSrc = chatVSseSource;
     chatVSseSource = null;
+    if (_cvSrc) _cvSrc.close();
     setTimeout(connectChatViewSSE, 5000);
   };
 }
 
 function handleChatViewEvent(ev) {
-  if (!ev || !ev.session) return;
-  if (!chatVSessions[ev.session]) {
-    chatVSessions[ev.session] = { id: ev.session, events: [], startedAt: ev.ts, status: 'running' };
-    loadChatViewSessions();
-  } else {
-    const s = chatVSessions[ev.session];
-    s.events = s.events || [];
-    s.events.push(ev);
-    if (ev.type === 'session:complete') s.status = 'complete';
+  if (!ev) return;
+  // Deduplicate SSE reconnect replays (server replays last 50 events on every reconnect)
+  const dedupKey = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.from||ev.role||ev.agent||'') + '|' + (ev.session||ev.runId||'') + '|' + (ev.result||ev.msg||ev.message||ev.summary||'').slice(0,20);
+  if (chatVSeenKeys.has(dedupKey)) return;
+  chatVSeenKeys.add(dedupKey);
+  if (chatVSeenKeys.size > 2000) { const _a = [...chatVSeenKeys]; chatVSeenKeys = new Set(_a.slice(1000)); }
+  // Org events (org:comms, org:agent:online, org:checkpoint, etc.) may carry a session field
+  // from the org run's session ID — route them directly to the feed if the session matches,
+  // or append them unconditionally when the chat view is showing the "live" placeholder.
+  const isOrgEvent = ev.type && (ev.type.startsWith('org:') || ev.type.startsWith('run:') || ev.type.startsWith('loop:'));
+  if (!ev.session && !isOrgEvent) return;
+  if (ev.session) {
+    const existingEntry = chatVSessions[ev.session]; // may be a group object
+    if (!existingEntry) {
+      // Seed events with the triggering event so it isn't lost if loadChatViewSessions
+      // runs before the event is flushed to disk (disk write and SSE broadcast race).
+      chatVSessions[ev.session] = { id: ev.session, events: [ev], startedAt: ev.ts, status: 'running', prompt: ev.prompt || '' };
+      loadChatViewSessions();
+      // Auto-switch to new session on session:start — after loadChatViewSessions it may be grouped
+      if (ev.type === 'session:start') {
+        const _cvGroupId = chatVSessionGroupMap[ev.session] || ev.session;
+        const _cvSel = document.getElementById('chat-v-sel');
+        if (_cvSel) { _cvSel.value = _cvGroupId; chatVSelectSession(_cvGroupId); }
+      }
+    } else {
+      // existingEntry may be a group — push event to it and update status
+      const target = existingEntry;
+      target.events = target.events || [];
+      target.events.push(ev);
+      if (ev.type === 'session:complete') {
+        // Mark this individual session complete; group stays running until all sessions done
+        if (!target._isGroup) target.status = 'complete';
+        else {
+          // Update the underlying session in group
+          const sub = (target.sessions || []).find(s => s.id === ev.session);
+          if (sub) sub.status = 'complete';
+          // Group stays running if any session is still running
+          if (!(target.sessions || []).some(s => s.status === 'running')) target.status = 'complete';
+        }
+      }
+      if (target._isGroup) target.totalEvents = (target.totalEvents || 0) + 1;
+    }
+    // Show event in feed if this session (or its group) is currently selected
+    const _cvGroupId = chatVSessionGroupMap[ev.session];
+    const _cvIsSelected = chatVCurrentId === ev.session || (_cvGroupId && chatVCurrentId === _cvGroupId) || chatVCurrentGroupSessions.has(ev.session);
+    if (_cvIsSelected) {
+      appendChatViewEvent(ev, true);
+      const _cvSess = chatVSessions[_cvGroupId || ev.session];
+      if (_cvSess) renderCvExcerptBanner('chat-v-excerpt', _cvSess.events || [], _cvSess);
+    }
+  } else if (isOrgEvent) {
+    // Org events without a Claude session ID — append to feed regardless of active view;
+    // #chat-v-feed is in the DOM even when hidden, so events accumulate correctly.
+    appendChatViewEvent(ev, true);
   }
-  if (chatVCurrentId === ev.session) appendChatViewEvent(ev, true);
 }
 
 // ── feature 4: budget cap + desktop notification ───────────
@@ -4814,7 +5172,7 @@ async function renderLoops() {
     el.innerHTML = loops.map((l, idx) => {
       const maxReps = l.maxReps || 0;
       const curRep  = l.currentRep || 0;
-      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const isTillend = !maxReps || l.type === 'tillend' || String(l.command || '').includes('--tillend');
       const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
@@ -4833,7 +5191,7 @@ async function renderLoops() {
       const runs = curRep != null ? curRep : '—';
       const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
       const progBar = isTillend
-        ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${l.capReps ? ' (cap: '+l.capReps+')' : ''}</span></div>`
+        ? `<div class="lp-bar" title="tillend loop"><div class="lp-fill lp-fill-inf" style="width:100%;opacity:0.3;background:linear-gradient(90deg,var(--accent),transparent)"></div><span style="position:absolute;left:6px;top:0;font-size:9px;color:var(--text-lo)">run ${curRep} / ∞${maxReps ? ' (cap: '+maxReps+')' : ''}</span></div>`
         : (maxReps > 0 && running)
           ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
           : '';
@@ -4863,8 +5221,8 @@ async function renderLoops() {
           ${stopBtn}
         </div>
         <div class="loop-expand">
-          ${fullPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(fullPrompt)}).then(()=>showToast('Copied','','ok'))">${esc(fullPrompt.slice(0, 300))}</div></div>` : ''}
-          ${command && command !== fullPrompt ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="cursor:pointer" onclick="navigator.clipboard.writeText(${JSON.stringify(command)}).then(()=>showToast('Copied','','ok'))">${esc(command.slice(0, 200))}</div></div>` : ''}
+          ${fullPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono" style="cursor:pointer" data-cp="${esc(fullPrompt)}" onclick="navigator.clipboard.writeText(this.dataset.cp).then(()=>showToast('Copied','','ok'))">${esc(fullPrompt.slice(0, 300))}</div></div>` : ''}
+          ${command && command !== fullPrompt ? `<div class="le-row"><div class="le-lbl">Command</div><div class="le-val mono" style="cursor:pointer" data-cp="${esc(command)}" onclick="navigator.clipboard.writeText(this.dataset.cp).then(()=>showToast('Copied','','ok'))">${esc(command.slice(0, 200))}</div></div>` : ''}
           <div class="le-row"><div class="le-lbl">Type</div><div class="le-val">${isTillend ? '∞ tillend' : '↺ repeat'}</div></div>
           <div class="le-row"><div class="le-lbl">Interval</div><div class="le-val">${interval}</div></div>
           <div class="le-row"><div class="le-lbl">Status</div><div class="le-val">${isFinished ? '✓ done' : isHil ? '⚠ hil:pending' : running ? '● running' : '○ stopped'}</div></div>
@@ -5241,7 +5599,9 @@ function v2RenderOrgList() {
 
 async function v2SelectOrg(name) {
   _v2SelOrg = name;
+  _pushHash();
   if (typeof v2CloseAgent === 'function') v2CloseAgent();
+  if (_orgLiveInterval) { clearInterval(_orgLiveInterval); _orgLiveInterval = null; }
   const requested = name;
   const requestedDir = DIR;
   document.querySelectorAll('.org-item').forEach(el => {
@@ -5276,11 +5636,14 @@ async function v2SelectOrg(name) {
     _v2OrgData = mainR.config ? { ...mainR, ...mainR.config, running: mainR.running } : mainR;
     _v2OrgData._activity = Array.isArray(actR) ? actR : [];
     _v2OrgData._health   = healthR;
-    // Fetch supplemental data for new tabs
-    const agentsR  = await fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    const budgetsR = await fetch(`/api/org/${_enc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():null).catch(()=>null);
-    const membersR = await fetch(`/api/org/${_enc}/members${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
-    const issuesR  = await fetch(`/api/org/${_enc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    // Fetch supplemental data for new tabs in parallel
+    const [agentsR, budgetsR, membersR, issuesR] = await Promise.all([
+      fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`/api/org/${_enc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`/api/org/${_enc}/members${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`/api/org/${_enc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]);
+    if (_v2SelOrg !== requested || DIR !== requestedDir) return;
     _v2OrgData._agents  = Array.isArray(agentsR)  ? agentsR  : (agentsR?.agents  || []);
     _v2OrgData._budgets = budgetsR;
     _v2OrgData._members = Array.isArray(membersR) ? membersR : (membersR?.members || []);
@@ -5319,6 +5682,7 @@ window.v2SwitchOrgTab = function(tab) {
   });
   document.querySelectorAll('.odt-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('odt-' + tab)?.classList.add('active');
+  _pushHash();
   v2RenderOrgTab(tab);
 };
 
@@ -5364,7 +5728,8 @@ function v2RenderOrgTab(tab) {
 
 // ── org chart ───────────────────────────────
 function _v2OrgIsLeader(r) {
-  return r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner';
+  return r.isBoss === true || r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner'
+    || r.agent_type === 'coordinator' || r.agent_type === 'devbot-orchestrator';
 }
 
 function v2RenderOrgChart() {
@@ -5552,22 +5917,27 @@ function v2RenderOrgChart() {
     `<clipPath id="${nodeClipIds[i]}"><circle r="${Math.round(R * 0.52)}"/></clipPath>`
   ).join('');
 
+  // Overlay live running status from in-memory agent SSE state for chart node indicators
+  const _chartRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
   let nodesHTML = '';
   roles.forEach((role, i) => {
     const p = pos[role.id];
     if (!p) return;
     const leader = _v2OrgIsLeader(role);
     const color = colorOf(role, i);
+    const isRunning = _chartRunning.has(role.id);
     const displayName = role.name || role.title || role.id;
     const subType = role.type || role.agent_type || '';
     const MAX_LBL = Math.floor(R / 4.2);
     const nameText = displayName.length > MAX_LBL ? displayName.slice(0, MAX_LBL - 1) + '…' : displayName;
     const subTypeText = subType.length > MAX_LBL ? subType.slice(0, MAX_LBL - 1) + '…' : subType;
     const outerRing = leader ? `<circle r="${R + 9}" fill="none" stroke="${color}" stroke-width="0.6" opacity="0.18"/>` : '';
+    const runningDot = isRunning ? `<circle class="v2-chart-running-dot" r="5.5" cx="${(R * 0.65).toFixed(1)}" cy="${(-R * 0.65).toFixed(1)}" fill="oklch(68% 0.20 150)" stroke="oklch(12% 0.008 55)" stroke-width="1.5" style="animation:blink 2s ease-in-out infinite"/>` : '';
     const nameY = subType ? (R * 0.55 + 2).toFixed(0) : (R * 0.55 + 8).toFixed(0);
     const avR = Math.round(R * 0.52);
     const avatarSrc = v2RoleAvatar(role);
     nodesHTML += `<g class="v2oc-node" data-role="${esc(role.id)}" onclick="v2OpenAgent('${String(role.id).replace(/['\\]/g,'\\$&')}')" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
+      ${runningDot}
       <title>${esc(displayName)}${subType ? ` · ${esc(subType)}` : ''} — click for details</title>
       ${outerRing}
       <circle r="${R}" fill="oklch(12% 0.008 55)" stroke="${color}" stroke-width="${leader ? 2.5 : 1.8}" filter="url(#v2glow)"/>
@@ -5634,6 +6004,31 @@ function v2RenderOrgChart() {
   }
 }
 
+
+// ── in-place running dot updater (avoids full re-render + GSAP flicker on SSE events) ──
+function v2UpdateChartRunningDots() {
+  if (!_v2OrgData) return;
+  const R = 42;
+  const running = new Set((_v2OrgData._agents || []).filter(a => a.status === 'running').map(a => a.id));
+  document.querySelectorAll('#v2oc-nodes .v2oc-node[data-role]').forEach(g => {
+    const roleId = g.dataset.role;
+    const existing = g.querySelector('.v2-chart-running-dot');
+    if (running.has(roleId) && !existing) {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('class', 'v2-chart-running-dot');
+      c.setAttribute('r', '5.5');
+      c.setAttribute('cx', (R * 0.65).toFixed(1));
+      c.setAttribute('cy', (-R * 0.65).toFixed(1));
+      c.setAttribute('fill', 'oklch(68% 0.20 150)');
+      c.setAttribute('stroke', 'oklch(12% 0.008 55)');
+      c.setAttribute('stroke-width', '1.5');
+      c.style.animation = 'blink 2s ease-in-out infinite';
+      g.insertBefore(c, g.firstChild);
+    } else if (!running.has(roleId) && existing) {
+      existing.remove();
+    }
+  });
+}
 
 // ── avatar lookup ────────────────────────────
 const _v2AvatarKnown = new Set([
@@ -5702,9 +6097,12 @@ function v2RenderOrgRoles() {
   // Determine leader: explicit reports_to=undefined + type=planner/coordinator, or first role, or id=boss
   const leaderIds = new Set(roles.filter(r => r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner').map(r => r.id));
   if (!leaderIds.size) leaderIds.add(roles[0]?.id);
+  // Overlay live running status from in-memory agent SSE state
+  const _rolesRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
   pane.innerHTML = `<div class="roles-v2-grid">${roles.map((r, i) => {
     const color = V2_ROLE_COLORS[i % V2_ROLE_COLORS.length];
     const isLeader = leaderIds.has(r.id);
+    const isRunning = _rolesRunning.has(r.id);
     const resps = Array.isArray(r.responsibilities) ? r.responsibilities : [];
     const displayName = r.name || r.title || r.id;
     const roleType = r.type || r.agent_type || '';
@@ -5713,7 +6111,7 @@ function v2RenderOrgRoles() {
       <div class="rv2-head">
         <img class="rv2-avatar" src="${avatarSrc}" alt="${esc(displayName)}" loading="lazy" onerror="this.src='data/avatars/coder.svg'"/>
         <div class="rv2-info">
-          <div class="rv2-title">${esc(displayName)}${isLeader ? ' <span style="font-size:10px;color:var(--accent);font-weight:400;opacity:0.8">lead</span>' : ''}</div>
+          <div class="rv2-title">${esc(displayName)}${isLeader ? ' <span style="font-size:10px;color:var(--accent);font-weight:400;opacity:0.8">lead</span>' : ''}${isRunning ? ' <span class="live-dot" style="display:inline-block;vertical-align:middle;margin-left:4px"></span>' : ''}</div>
           ${roleType ? `<span class="rv2-agent">${esc(roleType)}</span>` : ''}
         </div>
       </div>
@@ -5741,16 +6139,18 @@ async function v2OpenAgent(roleId) {
   const bodyEl = document.getElementById('oad-body');
   const headEl = document.getElementById('oad-head');
   if (!drawer || !bodyEl || !headEl) return;
+  const _agentOrg = _v2SelOrg, _agentRole = roleId;
   drawer.classList.add('open'); drawer.setAttribute('aria-hidden', 'false');
   v2HighlightAgentNode(roleId);
   headEl.innerHTML = '<button class="oad-close" onclick="v2CloseAgent()" aria-label="Close">✕</button>';
   bodyEl.innerHTML = '<div class="oad-loading">Loading agent…</div>';
   try {
-    const r = await fetch(`/api/org/${encodeURIComponent(_v2SelOrg)}/agent/${encodeURIComponent(roleId)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`);
+    const r = await fetch(`/api/org/${encodeURIComponent(_agentOrg)}/agent/${encodeURIComponent(_agentRole)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`);
     if (!r.ok) throw new Error('not found');
+    if (_v2SelOrg !== _agentOrg) return;
     v2RenderAgentDrawer(await r.json());
   } catch (_) {
-    bodyEl.innerHTML = '<div class="oad-loading">Could not load agent detail.</div>';
+    if (_v2SelOrg === _agentOrg) bodyEl.innerHTML = '<div class="oad-loading">Could not load agent detail.</div>';
   }
 }
 function v2RenderAgentDrawer(data) {
@@ -5842,16 +6242,38 @@ function v2RenderMarkdown(md) {
 }
 
 // ── org activity ────────────────────────────
+function fmtOrgEvDetail(ev) {
+  if (ev.type === 'org:comms' && (ev.from || ev.role || ev.to || ev.msg)) {
+    const sender = ev.from || ev.role || '';
+    const route = [sender, ev.to].filter(Boolean).join(' → ');
+    return route ? route + (ev.msg ? ': ' + ev.msg : '') : ev.msg || '';
+  }
+  if (ev.type === 'org:checkpoint') return ev.summary || ev.progress || '';
+  if (ev.type === 'agent:result') return (ev.agent || ev.from || '') + (ev.result || ev.msg || ev.message || ev.summary ? ': ' + (ev.result || ev.msg || ev.message || ev.summary) : '');
+  if (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline') return ev.title || ev.role || ev.agent || ev.id || ev.from || '';
+  if (ev.type === 'org:error') return ev.error || ev.msg || ev.message || '';
+  if (ev.type === 'file:write') return ev.path || ev.file || ev.msg || '';
+  return ev.role||ev.result||ev.msg||ev.message||ev.progress||ev.agent||ev.status||'';
+}
+
 function v2RenderOrgActivity() {
   if (!_v2SelOrg) return;
   const activity = _v2OrgData?._activity || [];
   const orgEvents = _v2OrgEventLog[_v2SelOrg] || [];
-  const events = [...activity, ...orgEvents].sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
+  const _actSeen = new Set();
+  const events = [...activity, ...orgEvents]
+    .filter(e => { const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')+'|'+(e.from||e.role||e.agent||'')+'|'+(e.result||e.msg||e.message||e.summary||'').slice(0,20); return _actSeen.has(k)?false:(_actSeen.add(k),true); })
+    .sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
   const pane = document.getElementById('odt-activity');
   if (!pane) return;
   const fmtOrgEvType = t => {
-    const m={'org:start':'start','org:stop':'stop','org:complete':'done','org:create':'create','org:heartbeat':'hb','org:agent:online':'agent-on','org:comms':'comms'};
-    return m[t]||(t||'').replace(/^org:/,'');
+    const m={
+      'org:start':'start','org:stop':'stop','org:complete':'done','org:create':'create',
+      'org:heartbeat':'hb','org:agent:online':'agent-on','org:comms':'comms',
+      'org:checkpoint':'checkpoint','run:cycle:complete':'cycle','run:complete':'run-done',
+      'org:error':'error','org:agent:offline':'agent-off',
+    };
+    return m[t]||(t||'').replace(/^(?:org|run):/,'');
   };
   if (!events.length) {
     pane.innerHTML = '<div class="empty">No activity recorded</div>';
@@ -5859,7 +6281,7 @@ function v2RenderOrgActivity() {
   }
   pane.innerHTML = `<div class="act-v2-list">${events.map(ev => {
     const t = ev.ts ? new Date(ev.ts).toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-    const detail = ev.role||ev.msg||ev.agent||'';
+    const detail = fmtOrgEvDetail(ev) || ev.role || ev.agent || '';
     return `<div class="av2-row"><span class="av2-time">${esc(t)}</span><span class="av2-type">${esc(fmtOrgEvType(ev.type))}</span><span class="av2-msg">${esc(detail)}</span></div>`;
   }).join('')}</div>`;
 }
@@ -5879,7 +6301,11 @@ function v2RenderOrgHealth() {
       <div class="hv2-cell"><div class="hv2-lbl">Topology</div><div class="hv2-val" style="font-size:14px">${esc((_v2OrgData?.topology||'—').toUpperCase())}</div></div>
       ${health?.agents_active!=null?`<div class="hv2-cell"><div class="hv2-lbl">Agents</div><div class="hv2-val ${health.agents_active>0?'green':''}">${health.agents_active}</div></div>`:''}
       ${health?.tasks_pending!=null?`<div class="hv2-cell"><div class="hv2-lbl">Tasks</div><div class="hv2-val ${health.tasks_pending>5?'amber':''}">${health.tasks_pending}</div></div>`:''}
+      ${health?.run_success_rate_7d!=null?`<div class="hv2-cell"><div class="hv2-lbl">7d Success</div><div class="hv2-val ${health.run_success_rate_7d>=80?'green':health.run_success_rate_7d<50?'amber':''}">${health.run_success_rate_7d}%</div></div>`:''}
+      ${health?.total_runs_7d!=null?`<div class="hv2-cell"><div class="hv2-lbl">7d Runs</div><div class="hv2-val">${health.total_runs_7d}</div></div>`:''}
+      ${health?.budget_used_pct!=null?`<div class="hv2-cell"><div class="hv2-lbl">Budget Used</div><div class="hv2-val ${health.budget_used_pct>=90?'amber':''}">${health.budget_used_pct}%</div></div>`:''}
     </div>
+    ${health?.budget_used_pct!=null&&health?.budget_max_tokens>0?`<div style="margin:10px 0 12px"><div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${Math.min(100,health.budget_used_pct)}%;height:100%;background:${health.budget_used_pct>=90?'var(--red)':health.budget_used_pct>=70?'oklch(70% 0.18 60)':'var(--accent)'};border-radius:2px"></div></div><div style="font-size:10px;color:var(--text-lo);margin-top:4px">${(health.budget_used_tokens??0).toLocaleString()} / ${health.budget_max_tokens.toLocaleString()} tokens</div></div>`:''}
     ${health?.errors?.length?`<div style="margin-top:12px"><div class="m-group-title">Errors</div>${health.errors.slice(0,5).map(e=>`<div style="font-size:11px;color:var(--red);padding:4px 0;border-bottom:1px solid var(--border)">${esc(e)}</div>`).join('')}</div>`:`<div style="margin-top:10px;font-size:12px;color:var(--text-lo)">${listOrg.running?'Running — no errors detected':'Org is idle'}</div>`}
   `;
 }
@@ -5915,11 +6341,17 @@ function v2RenderOrgTasks() {
   if (!pane) return;
   // Normalize: API returns {todo:[],doing:[],done:[]} (columns) or a flat array
   const raw = _v2OrgData?.tasks;
+  // Server puts completed/failed/cancelled in the 'done' column but keeps original status string
+  const _normTaskStatus = (st, col) => {
+    if (st === 'completed' || st === 'failed' || st === 'cancelled') return 'done';
+    if (st === 'in_progress') return 'doing';
+    return st || col;
+  };
   let tasks = [];
-  if (Array.isArray(raw)) tasks = raw.slice();
+  if (Array.isArray(raw)) tasks = raw.map(t => ({ ...t, status: _normTaskStatus(t.status, 'todo') }));
   else if (raw && typeof raw === 'object') {
     for (const [col, items] of Object.entries(raw)) {
-      (Array.isArray(items) ? items : []).forEach(t => tasks.push({ ...t, status: t.status || col }));
+      (Array.isArray(items) ? items : []).forEach(t => tasks.push({ ...t, status: _normTaskStatus(t.status, col) }));
     }
   }
   if (!tasks.length) { pane.innerHTML = '<div class="empty">No tasks</div>'; return; }
@@ -5954,7 +6386,7 @@ function v2RenderOrgCosts() {
       ? c.map(r => ({ label: r.label ?? r.name ?? '—', cost: Number(r.value ?? r.cost ?? 0), tin: 0, tout: 0 }))
       : Object.entries(c).map(([k, v]) => ({ label: k, cost: Number(v) || 0, tin: 0, tout: 0 }));
   }
-  if (!rows.length) { pane.innerHTML = '<div class="empty">No cost data</div>'; return; }
+  if (!rows.length) { pane.innerHTML = '<div class="empty" style="text-align:center;padding:24px 16px"><div style="font-size:13px;color:var(--text-lo);margin-bottom:6px">No cost data tracked yet</div><div style="font-size:11px;color:var(--text-lo);opacity:0.7">Agents must emit <code>agent:usage</code> events to populate this tab</div></div>'; return; }
   const cur = (b && b.currency) || 'USD';
   const period = (b && b.period) || '';
   const total = rows.reduce((s, r) => s + r.cost, 0);
@@ -5985,7 +6417,9 @@ function v2RenderOrgMembers() {
   const joinReqs = Array.isArray(_v2OrgData?._joinRequests) ? _v2OrgData._joinRequests : [];
   if (!list.length) { pane.innerHTML = '<div class="empty">No members</div>'; return; }
   const src = members.length ? 'joined members' : 'defined roles';
-  const active = (r) => r.running || r.active || r.status === 'active';
+  // Overlay live running status from in-memory agent SSE state (updated by org:agent:online/offline events)
+  const _liveRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
+  const active = (r) => r.running || r.active || r.status === 'active' || _liveRunning.has(r.id || r.name || r.user);
   pane.innerHTML = `<div class="m-group-title">Members (${list.length}) · ${src}</div>` +
     list.map(r => `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
       <span style="width:28px;height:28px;border-radius:50%;background:var(--surface-hi);display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">◈</span>
@@ -6010,7 +6444,7 @@ function v2RenderOrgGoals() {
     const indent = depth * 20;
     const pct = g.total > 0 ? Math.min(100, Math.round(g.filled / g.total * 100)) : 0;
     const status = g.status || 'pending';
-    const statusCls = status === 'done' ? 'on' : status === 'blocked' ? 'warn' : '';
+    const statusCls = status === 'done' ? 'on' : (status === 'blocked' || status === 'in_progress') ? 'warn' : '';
     return `<div style="padding:8px 0;border-bottom:1px solid var(--border);padding-left:${indent}px">
       <div style="display:flex;align-items:center;gap:10px">
         <span style="flex:1;font-size:13px;color:var(--text-hi)">${esc(g.text || g.goal || g.title || '—')}</span>
@@ -6031,9 +6465,10 @@ function v2RenderOrgBoard() {
   if (!issues.length) { el.innerHTML = '<div class="empty">No issues</div>'; return; }
   const cols = ['open', 'in_progress', 'blocked', 'done', 'cancelled'];
   const PRIORITY = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+  const _normIssueStatus = s => (s === 'closed' || s === 'resolved') ? 'done' : (s || 'open');
   el.innerHTML = `<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px">` +
     cols.map(col => {
-      const cards = issues.filter(i => (i.status || i.state || 'open') === col);
+      const cards = issues.filter(i => _normIssueStatus(i.status || i.state) === col);
       return `<div style="min-width:160px;flex:1">
         <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-lo);padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:8px">${esc(col.replace('_', ' '))} <span style="background:var(--surface-hi);padding:1px 6px;border-radius:8px">${cards.length}</span></div>
         ${cards.slice(0, 15).map(i => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:5px;font-size:12px">
@@ -6055,27 +6490,41 @@ function v2RenderOrgLive() {
     ${running.length
       ? running.map(a => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
           <span class="live-dot" style="flex-shrink:0"></span>
-          <span style="font-size:13px;color:var(--text-hi)">${esc(a.type || a.title || a.id || '—')}</span>
-          <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">${esc(a.adapter || '')}</span>
+          <span style="font-size:13px;color:var(--text-hi)">${esc(a.title || a.id || '—')}</span>${a.adapterType?`<span style="font-size:10px;color:var(--text-lo);margin-left:4px">[${esc(a.adapterType)}]</span>`:''}
+          <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">${esc(a.adapterModel || a.adapter || '')}</span>
         </div>`).join('')
       : '<div style="color:var(--text-lo);font-size:13px;padding:10px 0">No agents currently running</div>'}
   </div>
   <div class="m-group-title" style="margin-bottom:6px">Activity Feed</div>
   <div style="max-height:240px;overflow-y:auto;font-size:11px;font-family:var(--mono)">
-    ${(_v2OrgData._activity || []).slice(-30).reverse().map(e => `<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">
-      ${esc(relTime(e.ts || e.timestamp || e.created_at))}
-      <span style="color:var(--text-mid);margin-left:6px">${esc(e.type || e.kind || e.event || '—')}</span>
-      ${e.message ? `<span style="color:var(--text-hi);margin-left:6px">${esc(e.message.toString().slice(0, 80))}</span>` : ''}
-    </div>`).join('')}
+    ${(()=>{const _la=_v2OrgData._activity||[];const _ls=_v2OrgEventLog[_v2SelOrg]||[];const _lseen=new Set();const _lmerged=[..._la,..._ls].filter(e=>{const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')+'|'+(e.from||e.role||e.agent||'')+'|'+(e.result||e.msg||e.message||e.summary||'').slice(0,20);return _lseen.has(k)?false:(_lseen.add(k),true);}).sort((a,b)=>(a.ts||0)-(b.ts||0));return _lmerged.slice(-30).reverse().map(e=>`<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">${esc(relTime(e.ts||e.timestamp||e.created_at))}<span style="color:var(--text-mid);margin-left:6px">${esc(e.type||e.kind||e.event||'—')}</span>${fmtOrgEvDetail(e)?`<span style="color:var(--text-hi);margin-left:6px">${esc(fmtOrgEvDetail(e).slice(0,80))}</span>`:''}</div>`).join('');})()}
   </div>`;
   // auto-refresh every 5s while tab is active
   if (!_orgLiveInterval) {
     _orgLiveInterval = setInterval(async () => {
-      if (_v2OrgTab !== 'live' || !_v2SelOrg) { clearInterval(_orgLiveInterval); _orgLiveInterval = null; return; }
-      const _enc = encodeURIComponent(_v2SelOrg);
+      if (_v2OrgTab !== 'live' || !_v2SelOrg || currentView !== 'orgs') { clearInterval(_orgLiveInterval); _orgLiveInterval = null; return; }
+      const _liveOrg = _v2SelOrg;
+      const _enc = encodeURIComponent(_liveOrg);
       try {
-        const data = await fetch(`/api/org/${_enc}/activity${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []);
-        if (_v2OrgData) { _v2OrgData._activity = Array.isArray(data) ? data : []; v2RenderOrgLive(); }
+        const [actData, agentsData] = await Promise.all([
+          fetch(`/api/org/${_enc}/activity${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []),
+          fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : {}).catch(() => {}),
+        ]);
+        if (_v2SelOrg !== _liveOrg || !_v2OrgData) return;
+        // Merge fresh API data with SSE-pushed events to avoid clobbering live events
+        // that haven't flushed to the JSONL file yet when this poll ran.
+        const _freshAct = Array.isArray(actData) ? actData : [];
+        const _sseAct = (_v2OrgData._activity || []).filter(e => e._sseOnly);
+        const _mergeSeen = new Set(_freshAct.map(e => (e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')));
+        _sseAct.forEach(e => { const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||''); if (!_mergeSeen.has(k)) _freshAct.push(e); });
+        _v2OrgData._activity = _freshAct.sort((a,b)=>(a.ts||0)-(b.ts||0));
+        const freshAgents = Array.isArray(agentsData) ? agentsData : (agentsData?.agents || []);
+        if (freshAgents.length) {
+          // Preserve SSE-driven running status: state file lags behind real-time SSE updates
+          const sseRunning = new Set((_v2OrgData._agents || []).filter(a => a.status === 'running').map(a => a.id));
+          _v2OrgData._agents = freshAgents.map(a => sseRunning.has(a.id) ? { ...a, status: 'running' } : a);
+        }
+        v2RenderOrgLive();
       } catch (_) {}
     }, 5000);
   }
@@ -6085,10 +6534,12 @@ function v2RenderOrgLive() {
 async function v2RenderOrgApprovals() {
   const el = document.getElementById('odt-approvals');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/approvals${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const approvals = Array.isArray(data) ? data : (data.approvals || []);
     if (!approvals.length) { el.innerHTML = '<div class="empty">No pending approvals</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -6106,8 +6557,8 @@ async function v2RenderOrgApprovals() {
           <td style="padding:6px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(a.created_at || a.ts)}</td>
           <td style="padding:6px 8px;white-space:nowrap">
             ${pending
-              ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" title="Approve" aria-label="Approve" onclick="orgApprovalAction(${JSON.stringify(aid)},'approve')">✓</button>
-                 <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" title="Reject" aria-label="Reject" onclick="orgApprovalAction(${JSON.stringify(aid)},'reject')">✕</button>`
+              ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" title="Approve" aria-label="Approve" data-aid="${esc(aid)}" onclick="orgApprovalAction(this.dataset.aid,'approve')">✓</button>
+                 <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" title="Reject" aria-label="Reject" data-aid="${esc(aid)}" onclick="orgApprovalAction(this.dataset.aid,'reject')">✕</button>`
               : ''}
           </td>
         </tr>`;
@@ -6119,7 +6570,7 @@ async function orgApprovalAction(id, action) {
   if (!confirm(action + ' this request?')) return;
   try {
     const _enc = encodeURIComponent(_v2SelOrg);
-    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}`, {
+    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
     });
     showToast('Done', action + 'd', 'ok');
@@ -6131,10 +6582,12 @@ async function orgApprovalAction(id, action) {
 async function v2RenderOrgSecrets() {
   const el = document.getElementById('odt-secrets');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/secrets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const secrets = Array.isArray(data) ? data : (data.secrets || []);
     el.innerHTML = '<div style="font-size:11px;color:var(--text-lo);margin-bottom:10px">Secret values are never transmitted or displayed.</div>' +
       (secrets.length
@@ -6197,10 +6650,12 @@ function generateOrgSettingsCmd() {
 async function v2RenderOrgRoutines() {
   const el = document.getElementById('odt-routines');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/routines${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const routines = Array.isArray(data) ? data : (data.routines || _v2OrgData?.config?.routines || []);
     if (!routines.length) { el.innerHTML = '<div class="empty">No routines configured</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -6210,8 +6665,8 @@ async function v2RenderOrgRoutines() {
       routines.map(r => `<tr style="border-top:1px solid var(--border)">
         <td style="padding:6px 8px;color:var(--text-hi)">${esc(r.name || '—')}</td>
         <td style="padding:6px 8px;font-family:var(--mono);color:var(--text-lo)">${esc(r.cron || r.schedule || '—')}</td>
-        <td style="padding:6px 8px;color:var(--text-lo)">${r.lastRun ? relTime(r.lastRun) : '—'}</td>
-        <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || '—')}</span></td>
+        <td style="padding:6px 8px;color:var(--text-lo)">${(r.lastRun || r.last_run) ? relTime(r.lastRun || r.last_run) : '—'}</td>
+        <td style="padding:6px 8px"><span class="ss-pill ${r.enabled || r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || (r.enabled != null ? (r.enabled ? 'active' : 'inactive') : '—'))}</span></td>
       </tr>`).join('') + '</tbody></table>';
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
@@ -6220,10 +6675,12 @@ async function v2RenderOrgRoutines() {
 async function v2RenderOrgMyIssues() {
   const el = document.getElementById('odt-myissues');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/my-issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const issues = Array.isArray(data) ? data : (data.issues || []);
     if (!issues.length) { el.innerHTML = '<div class="empty">No issues assigned to you</div>'; return; }
     const PRIORITY = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
@@ -6232,7 +6689,7 @@ async function v2RenderOrgMyIssues() {
         <th style="padding:5px 4px">P</th><th style="padding:5px 8px">Title</th><th>Status</th><th>Updated</th>
       </tr></thead><tbody>` +
       issues.slice(0, 50).map(i => {
-        const cls = i.status === 'done' ? 'on' : i.status === 'blocked' ? 'warn' : '';
+        const cls = i.status === 'done' || i.status === 'closed' || i.status === 'resolved' ? 'on' : (i.status === 'blocked' || i.status === 'in_progress') ? 'warn' : '';
         return `<tr style="border-top:1px solid var(--border)">
           <td style="padding:5px 4px">${PRIORITY[i.priority] || '·'}</td>
           <td style="padding:5px 8px;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((i.title || i.description || '—').slice(0, 80))}</td>
@@ -6248,7 +6705,14 @@ function v2RenderOrgBudgets() {
   const el = document.getElementById('odt-budgets');
   if (!el || !_v2OrgData) return;
   const b = _v2OrgData._budgets || _v2OrgData.budgets || {};
-  const agents = _v2OrgData._agents || [];
+  // Server returns { org_budget: {limit_tokens, limit_usd}, agents: [{id, title, tokens_in, tokens_out, total_cost_usd}] }
+  const orgBudget = b.org_budget || {};
+  const tokenLimit = orgBudget.limit_tokens || b.tokenLimit || null;
+  const usdLimit   = orgBudget.limit_usd   || b.usdLimit   || null;
+  // Per-agent data comes from the budgets endpoint (has cost); fall back to agents roster
+  const budgetAgents = Array.isArray(b.agents) && b.agents.length ? b.agents : [];
+  const usedTokens = budgetAgents.reduce((s, a) => s + (a.tokens_in || 0) + (a.tokens_out || 0), 0);
+  const usedUsd    = budgetAgents.reduce((s, a) => s + (a.total_cost_usd || 0), 0);
 
   function fillBar(used, limit) {
     if (!limit) return '';
@@ -6259,22 +6723,25 @@ function v2RenderOrgBudgets() {
   }
 
   let html = '';
-  if (b.tokens != null || b.tokenLimit != null) {
-    html += `<div class="m-group-title">Tokens</div>${fillBar(b.tokens || 0, b.tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(b.tokens || 0).toLocaleString()} / ${b.tokenLimit ? b.tokenLimit.toLocaleString() : '∞'}</div>`;
+  if (tokenLimit != null || usedTokens > 0) {
+    html += `<div class="m-group-title">Tokens</div>${fillBar(usedTokens, tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${usedTokens.toLocaleString()} / ${tokenLimit ? tokenLimit.toLocaleString() : '∞'}</div>`;
   }
-  if (b.usd != null || b.usdLimit != null) {
-    html += `<div class="m-group-title">USD Budget</div>${fillBar(b.usd || 0, b.usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${Number(b.usd || 0).toFixed(4)} / ${b.usdLimit ? '$' + Number(b.usdLimit).toFixed(2) : '∞'}</div>`;
+  if (usdLimit != null || usedUsd > 0) {
+    html += `<div class="m-group-title">USD Budget</div>${fillBar(usedUsd, usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${usedUsd.toFixed(4)} / ${usdLimit ? '$' + Number(usdLimit).toFixed(2) : '∞'}</div>`;
   }
-  if (agents.length) {
+  if (budgetAgents.length) {
     html += '<div class="m-group-title" style="margin-bottom:6px">Per Agent</div>' +
       `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:4px 8px">Agent</th><th>Tokens In</th><th>Tokens Out</th><th>Cost</th></tr></thead><tbody>` +
-      agents.slice(0, 20).map(a => {
-        const over = a.budgetLimit && ((a.tokensIn || 0) + (a.tokensOut || 0)) > a.budgetLimit;
+      budgetAgents.slice(0, 20).map(a => {
+        const tIn = a.tokens_in || 0, tOut = a.tokens_out || 0;
+        const cost = a.total_cost_usd || 0;
+        const limit = a.limit_usd || orgBudget.limit_usd || 0;
+        const over = limit && cost > limit;
         return `<tr style="border-top:1px solid var(--border)${over ? ';color:var(--red)' : ''}">
-          <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.id || a.title || '—').toString().slice(0, 14))}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensIn || 0).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensOut || 0).toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--accent)">$${Number(a.cost || 0).toFixed(4)}${over ? ' ⚠' : ''}</td>
+          <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.title || a.id || '—').toString().slice(0, 14))}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${tIn.toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${tOut.toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--accent)">$${cost.toFixed(4)}${over ? ' ⚠' : ''}</td>
         </tr>`;
       }).join('') + '</tbody></table>';
   }
@@ -6285,10 +6752,12 @@ function v2RenderOrgBudgets() {
 async function v2RenderOrgPlugins() {
   const el = document.getElementById('odt-plugins');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/plugins${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     const plugins = Array.isArray(data) ? data : (data.plugins || []);
     if (!plugins.length) { el.innerHTML = '<div class="empty">No plugins installed</div>'; return; }
     el.innerHTML = `<div class="proj-grid">` +
@@ -6316,7 +6785,7 @@ function v2RenderOrgCharts() {
   const DAY = 86400000;
   const buckets = Array.from({length: 14}, (_, i) => ({
     day: new Date(now - (13 - i) * DAY).toLocaleDateString('en', {month:'short', day:'numeric'}),
-    ts:  now - (13 - i) * DAY,
+    ts:  now - (14 - i) * DAY,
     events: 0, errors: 0,
   }));
   activity.forEach(e => {
@@ -6376,10 +6845,12 @@ function v2RenderOrgCharts() {
 async function v2RenderOrgProjects() {
   const el = document.getElementById('odt-projects');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/projects${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const projects = Array.isArray(data) ? data : (data.projects || []);
     if (!projects.length) { el.innerHTML = '<div class="empty">No projects configured</div>'; return; }
     el.innerHTML = `<div class="proj-grid">${projects.map(p => `<div class="proj-card">
@@ -6432,19 +6903,37 @@ let _odtChatSessions = [];
 let _odtChatCurrentId = null;
 let _odtChatCurrentAgent = 'all';
 let _odtChatSseSource = null;
+let _odtChatSeenKeys = new Set();
+let _odtChatForOrg = '';
+// Loop grouping: [S] sessions with same prompt + <20 min gap → one entry
+let _odtSessionGroups = {};    // groupId → {sessions, events, status, ts, _isGroup}
+let _odtSessionGroupMap = {};  // sessionId → groupId
+// Run grouping: [R] runs with same goal (or no goal) + <30 min gap → one entry
+let _odtRunGroups = {};        // groupId → {runs, status, ts, _isRunGroup}
+let _odtRunGroupMap = {};      // runId → groupId
 
 function _odtOrgSessionMatch(s) {
   if (!_v2SelOrg) return true;
   const orgLc = _v2SelOrg.toLowerCase();
   const prompt = (s.prompt || '').toLowerCase();
-  if (prompt.includes('running org: ' + orgLc) || prompt.includes('org: ' + orgLc)) return true;
+  // Use a word-boundary check so "monomind-improver" doesn't match sessions for
+  // "monomind-improver-state" (the shorter name is a prefix of the longer one).
+  // After the matched org name, the next char must be end-of-string or a character
+  // that cannot be part of an org name (not alphanumeric, hyphen, or underscore).
+  const _orgBound = (str, prefix) => {
+    const idx = str.indexOf(prefix);
+    if (idx === -1) return false;
+    const after = str[idx + prefix.length];
+    return after === undefined || !/[a-z0-9_-]/.test(after);
+  };
+  if (_orgBound(prompt, 'running org: ' + orgLc) || _orgBound(prompt, 'org: ' + orgLc)) return true;
   return (s.events || []).some(ev => (ev.org || '').toLowerCase() === orgLc);
 }
 
 function _odtChatAgentMatches(ev) {
   if (_odtChatCurrentAgent === 'all') return true;
   // Structural events always show regardless of agent filter
-  const structural = new Set(['session:start','session:complete','file:write','run:start','run:complete','run:cycle:complete','org:start','org:complete','org:agent:online']);
+  const structural = new Set(['session:start','session:complete','domain:dispatch','domain:complete','file:write','run:start','run:complete','run:cycle:complete','org:start','org:complete','org:agent:online','org:agent:offline','org:checkpoint','org:error','loop:start','loop:complete','loop:tick','loop:hil','loop:hil:waiting','loop:hil:resolved']);
   if (structural.has(ev.type)) return true;
   return ev.agent === _odtChatCurrentAgent || ev.from === _odtChatCurrentAgent || ev.to === _odtChatCurrentAgent || ev.role === _odtChatCurrentAgent;
 }
@@ -6469,39 +6958,172 @@ async function v2RenderOrgChat() {
       </div>
       <div id="odt-chat-excerpt" class="cv-excerpt-banner"></div>
       <div id="odt-chat-feed">
-        <div id="odt-chat-empty">Select a run to see agent communications.<br><span style="font-size:10px;opacity:0.5">Runs appear after the first /mastermind:runorg</span></div>
+        <div id="odt-chat-empty">Select a session to see agent communications.<br><span style="font-size:10px;opacity:0.5">Sessions appear after the first /mastermind:runorg</span></div>
       </div>`;
   }
 
-  // Reset state when org changes
-  _odtChatCurrentId = null;
-  _odtChatCurrentAgent = 'all';
-  document.getElementById('odt-chat-agent-bar').style.display = 'none';
-  document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg').forEach(e => e.remove());
-  const emptyEl = document.getElementById('odt-chat-empty');
-  if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a run to see agent communications.'; }
+  // Reset state only when org changes (not on every tab-switch)
+  if (_odtChatForOrg !== _v2SelOrg) {
+    _odtChatForOrg = _v2SelOrg;
+    _odtChatCurrentId = null;
+    _odtChatCurrentAgent = 'all';
+    _odtChatSeenKeys = new Set();
+    // Clear sessions from the previous org so _odtLoadChatSessions doesn't snapshot them
+    // into _prevSessions and risk contaminating the new org's event buffers. SSE-injected
+    // sessions for the NEW org arriving during the upcoming fetch are still captured via
+    // _sseDuringFetch in _odtLoadChatSessions.
+    _odtChatSessions = [];
+    document.getElementById('odt-chat-agent-bar').style.display = 'none';
+    document.getElementById('odt-chat-feed').querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
+    const emptyEl = document.getElementById('odt-chat-empty');
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a session to see agent communications.'; }
+  }
 
   await _odtLoadChatSessions();
+  // Returning to chat tab (same org, session already selected): re-render feed to catch
+  // up on events buffered in sess.events while user was on another tab. _odtLoadChatSessions
+  // refreshes the run list but won't re-render the feed when _odtChatCurrentId is already set.
+  if (_odtChatCurrentId) {
+    const _catchSess = _odtChatSessions.find(s => s.id === _odtChatCurrentId);
+    if (_catchSess && (_catchSess._eventsLoaded || !_catchSess._isOrgRun)) {
+      const _catchFeed = document.getElementById('odt-chat-feed');
+      if (_catchFeed) {
+        _catchFeed.querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
+        // Re-inject session header for session-based (non-_isOrgRun) sessions — was removed above
+        if (!_catchSess._isOrgRun) {
+          const _cTs = _catchSess.ts || _catchSess.startedAt || 0;
+          const _cTsStr = _cTs ? new Date(_cTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+          const _cPrompt = (_catchSess.prompt || '').replace(/^running org:\s*/i, '').slice(0, 100) || _odtChatCurrentId;
+          const _cSt = _catchSess.status || 'unknown';
+          const _cStCls = _cSt === 'running' ? 'color:oklch(65% 0.20 145)' : _cSt === 'complete' ? 'color:var(--text-lo)' : 'color:var(--text-xs)';
+          const _cHdr = document.createElement('div');
+          _cHdr.className = 'cv-session-hdr';
+          _cHdr.innerHTML = `<div class="cv-shdr-prompt">${esc(_cPrompt)}</div>`+
+            `<div class="cv-shdr-meta">`+
+              `<span class="cv-shdr-id" title="${esc(_odtChatCurrentId)}">${esc(_odtChatCurrentId.slice(0,22))}</span>`+
+              `<span class="cv-shdr-sep">·</span><span style="${_cStCls}">${esc(_cSt)}</span>`+
+              `<span class="cv-shdr-sep">·</span><span>${esc(_cTsStr)}</span>`+
+              `<span class="cv-shdr-sep">·</span><span class="cv-shdr-evcount">${(_catchSess.events||[]).length} events</span>`+
+            `</div>`;
+          _catchFeed.appendChild(_cHdr);
+        }
+        (_catchSess.events || []).forEach(ev => {
+          _odtAppendEvent(ev, false);
+          const _ck = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
+          _odtChatSeenKeys.add(_ck);
+        });
+        // Re-inject [S]→[R] link card on tab-return (same as first-select path)
+        if (!_catchSess._isOrgRun) {
+          const _crLinkedId = 'run-' + (_catchSess.id || '').replace(/^mm-/, '');
+          const _crLinked = _odtChatSessions.find(s => s._isOrgRun && s.id === _crLinkedId);
+          if (_crLinked) {
+            const _crLinkEl = document.createElement('div');
+            _crLinkEl.className = 'cv-msg cv-sys';
+            const _crGoal = (_crLinked.prompt || '').slice(0, 60) || _crLinkedId;
+            _crLinkEl.innerHTML = `<div class="cv-bub" style="cursor:pointer;border-left:2px solid var(--accent);background:oklch(15% 0.05 220)">`+
+              `<span class="cv-etype" style="color:var(--accent)">RUN</span>`+
+              `<span class="cv-text">→ ${esc(_crGoal)}${_crGoal.length >= 60 ? '…' : ''}</span>`+
+              `<span class="cv-ts" style="color:var(--accent)">[${esc(_crLinked.status||'?')}]</span></div>`;
+            _crLinkEl.onclick = () => {
+              const _crSel = document.getElementById('odt-chat-sel');
+              if (_crSel) { _crSel.value = _crLinkedId; odtChatSelectSession(_crLinkedId); }
+            };
+            _catchFeed.appendChild(_crLinkEl);
+          }
+        }
+        _catchFeed.scrollTop = _catchFeed.scrollHeight;
+      }
+      // Refresh agent bar — new agents may have come online while on another tab
+      const _catchOrgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+      _odtPopulateAgentBar(_catchSess.events || [], _catchOrgRoles);
+      // Refresh excerpt banner for all session types so last-activity stays current after tab-return
+      if ((_catchSess.events || []).length) {
+        renderCvExcerptBanner('odt-chat-excerpt', _catchSess.events, _catchSess);
+      }
+    } else if (_catchSess && _catchSess._isOrgRun && !_catchSess._eventsLoaded && !_catchSess._loading) {
+      // Session selected but events not yet loaded (object reference may have been replaced by
+      // _odtLoadChatSessions while lazy-load was in-flight). Retrigger select to lazy-load events
+      // so returning to Chat tab never shows a permanently empty feed.
+      // Guard _loading: if a fetch is already in-flight (user tabbed away/back during the fetch)
+      // do NOT fire a second parallel fetch — it would race and overwrite sess.events on settle.
+      odtChatSelectSession(_odtChatCurrentId);
+    }
+  }
   _odtConnectChatSSE();
 }
 
 async function _odtLoadChatSessions() {
   if (!_v2SelOrg) return;
+  const _loadedForOrg = _v2SelOrg;
+  // Snapshot existing sessions to preserve event caches across refreshes.
+  // Do NOT reset _odtChatSessions to [] here — SSE handlers may inject new
+  // sessions into the live array during the await below, and a reset would
+  // cause them to be lost when we overwrite with the API response.
+  const _prevSessions = _odtChatSessions.slice();
   try {
     const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
     // Primary: structured org run files
-    const runs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs?x=1'+dirParam);
+    const runs = await apiFetch('/api/org/'+encodeURIComponent(_loadedForOrg)+'/runs?x=1'+dirParam);
+    if (_v2SelOrg !== _loadedForOrg) return;
     if (Array.isArray(runs) && runs.length) {
-      _odtChatSessions = runs.map(r => ({
-        id: r.runId,
-        ts: r.startedAt,
-        prompt: r.goal || r.runId,
-        status: r.status,
-        _isOrgRun: true,
-        _runMeta: r,
-        events: [], // loaded lazily in odtChatSelectSession
-      }));
+      // Capture any sessions SSE-injected DURING the await (not in pre-fetch snapshot)
+      const _sseDuringFetch = _odtChatSessions.filter(s => !_prevSessions.find(p => p.id === s.id));
+      _odtChatSessions = runs.map(r => {
+        const prev = _prevSessions.find(s => s.id === r.runId) || _sseDuringFetch.find(s => s.id === r.runId);
+        // Preserve the SSE-incremented cycleCount/eventCount when they exceed the disk-based API values.
+        // The JSONL file may not have flushed the latest checkpoint yet when this fetch resolves,
+        // so the API count can be lower than what SSE has already observed — causing a visible
+        // backwards jump in the "Ncyc" label if we blindly replace with the API value.
+        const _prevMeta = prev?._runMeta;
+        const _mergedMeta = _prevMeta
+          ? { ...r, cycleCount: Math.max(r.cycleCount || 0, _prevMeta.cycleCount || 0), eventCount: Math.max(r.eventCount || 0, _prevMeta.eventCount || 0) }
+          : r;
+        return {
+          id: r.runId,
+          ts: r.startedAt,
+          prompt: r.goal || r.runId,
+          status: r.status,
+          _isOrgRun: true,
+          _runMeta: _mergedMeta,
+          events: prev ? prev.events : [],
+          _eventsLoaded: prev ? prev._eventsLoaded : false,
+        };
+      });
+      // Re-attach SSE-only sessions from original snapshot not in API response
+      _prevSessions.forEach(ps => {
+        if (!_odtChatSessions.find(s => s.id === ps.id)) _odtChatSessions.push(ps);
+      });
+      // Re-attach sessions SSE-injected DURING the fetch (not in snapshot, not in API)
+      _sseDuringFetch.forEach(ss => {
+        if (!_odtChatSessions.find(s => s.id === ss.id)) _odtChatSessions.push(ss);
+      });
+      // Sort most-recent-first so SSE-injected new runs (appended above) appear at top of dropdown
+      _odtChatSessions.sort((a, b) => (b.ts || b.startedAt || 0) - (a.ts || a.startedAt || 0));
       _odtPopulateChatSel();
+      // Also merge mastermind sessions matching this org — they are distinct from org
+      // runs (no runId/JSONL file) but contain lifecycle events the user needs to see.
+      // Orgs running via _repeat loops emit session:start/complete events to the mastermind
+      // event store; these never appear in the run list and are otherwise invisible.
+      try {
+        const _mmSessR = await apiFetch('/api/mastermind/sessions');
+        if (_v2SelOrg === _loadedForOrg) {
+          const _mmAll = Array.isArray(_mmSessR) ? _mmSessR : Object.values(_mmSessR.sessions || {});
+          const _mmMatch = _mmAll.filter(_odtOrgSessionMatch).filter(s => !_odtChatSessions.find(x => x.id === s.id));
+          if (_mmMatch.length) {
+            _mmMatch.forEach(s => {
+              if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete';
+              // Mark events as loaded for complete sessions that already carry the full events[]
+              // from /api/mastermind/sessions — avoids a redundant /api/mastermind/session/:id
+              // fetch (and the "Loading session events…" spinner) on first select.
+              // Running sessions are NOT marked loaded so they still get a fresh fetch.
+              if (s.status !== 'running' && Array.isArray(s.events) && s.events.length > 0) s._eventsLoaded = true;
+            });
+            _odtChatSessions = _odtChatSessions.concat(_mmMatch);
+            _odtChatSessions.sort((a, b) => (b.ts || b.startedAt || 0) - (a.ts || a.startedAt || 0));
+            _odtPopulateChatSel();
+          }
+        }
+      } catch(_) {}
       if (!_odtChatCurrentId && _odtChatSessions.length) {
         const first = _odtChatSessions[0];
         const sel = document.getElementById('odt-chat-sel');
@@ -6510,38 +7132,190 @@ async function _odtLoadChatSessions() {
       return;
     }
   } catch(_) {}
+  if (_v2SelOrg !== _loadedForOrg) return;
   // Fallback: mastermind lifecycle events (pre-run-file era sessions)
   try {
     const r = await apiFetch('/api/mastermind/sessions');
+    if (_v2SelOrg !== _loadedForOrg) return;
     const all = Array.isArray(r) ? r : Object.values(r.sessions || {});
-    _odtChatSessions = all.filter(_odtOrgSessionMatch);
+    _odtChatSessions = all.filter(_odtOrgSessionMatch).map(s => {
+      if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete';
+      // Mark complete sessions with events already loaded — avoids redundant lazy-load fetch
+      if (s.status !== 'running' && Array.isArray(s.events) && s.events.length > 0) s._eventsLoaded = true;
+      return s;
+    });
+    // Re-attach SSE-injected org run placeholders that aren't in the mastermind sessions API.
+    // These are created by _odtHandleLiveEvent when a run:start arrives before the JSONL file
+    // flushes to disk — without this, switching to the fallback path drops them.
+    _prevSessions.forEach(ps => {
+      if (ps._isOrgRun && !_odtChatSessions.find(s => s.id === ps.id)) _odtChatSessions.push(ps);
+    });
+    _odtChatSessions.sort((a, b) => (b.ts || b.startedAt || 0) - (a.ts || a.startedAt || 0));
     _odtPopulateChatSel();
+    // Auto-select most recent session when nothing is running (mirrors primary path behaviour).
+    // _odtPopulateChatSel only picks running sessions; for all-complete orgs the feed stays
+    // blank without this.
+    if (!_odtChatCurrentId && _odtChatSessions.length) {
+      const _fbFirst = _odtChatSessions[0];
+      const _fbSel = document.getElementById('odt-chat-sel');
+      if (_fbSel) { _fbSel.value = _fbFirst.id; odtChatSelectSession(_fbFirst.id); }
+    }
   } catch(_) {}
+}
+
+function _odtRebuildRunGroups() {
+  // Group consecutive [R] runs within 30 min with the same goal (or both without a goal).
+  const _ODT_RUN_GAP = 30 * 60 * 1000;
+  const _norm = p => (p || '').toLowerCase().trim().slice(0, 40);
+  _odtRunGroups = {};
+  _odtRunGroupMap = {};
+  const runs = _odtChatSessions.filter(s => s._isOrgRun)
+    .slice().sort((a, b) => (a.ts||a.startedAt||0) - (b.ts||b.startedAt||0));
+  const groups = [];
+  runs.forEach(s => {
+    // No-goal runs (prompt === id) get key '' — group all consecutive ones
+    const key = (s.prompt && s.prompt !== s.id) ? _norm(s.prompt) : '';
+    const sAt = s.ts || s.startedAt || 0;
+    const last = groups[groups.length - 1];
+    if (last && last._normKey === key && (sAt - last._newestAt) < _ODT_RUN_GAP) {
+      last.runs.push(s);
+      last._newestAt = sAt;
+      if (s.status === 'running') last.status = 'running';
+      else if (s.status === 'stale' && last.status !== 'running' && last.status !== 'complete') last.status = 'stale';
+      else if (s.status === 'complete' && last.status !== 'running') last.status = 'complete';
+    } else {
+      groups.push({ id: s.id, runs: [s], _normKey: key, _newestAt: sAt,
+        status: s.status || 'complete', prompt: s.prompt, ts: sAt, _isRunGroup: false });
+    }
+  });
+  groups.forEach(g => {
+    if (g.runs.length > 1) {
+      g._isRunGroup = true;
+      g.id = 'rgrp:' + g.runs[0].id;
+      g.ts = g._newestAt;
+      // Use the most informative goal among sub-runs
+      const withGoal = g.runs.find(r => r.prompt && r.prompt !== r.id);
+      if (withGoal) g.prompt = withGoal.prompt;
+    }
+    _odtRunGroups[g.id] = g;
+    g.runs.forEach(r => { _odtRunGroupMap[r.id] = g.id; });
+  });
+}
+
+function _odtGetMergedRunGroupEvents(group) {
+  const all = [];
+  (group.runs || []).forEach(r => (r.events || []).forEach(ev => all.push(ev)));
+  all.sort((a, b) => (a.ts||0) - (b.ts||0));
+  return all;
+}
+
+function _odtRebuildSessionGroups() {
+  // Group [S] sessions (loop reps) that share same prompt + gap <20 min into one entry.
+  // [R] runs are never grouped — each is its own run.
+  const _ODT_MAX_GAP = 20 * 60 * 1000;
+  const _odtNorm = p => (p || '').replace(/^running org:\s*/i, '').toLowerCase().replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 40);
+  _odtSessionGroups = {};
+  _odtSessionGroupMap = {};
+  // Process [S] sessions only, sorted oldest first
+  const sSessions = _odtChatSessions.filter(s => !s._isOrgRun)
+    .slice().sort((a, b) => (a.ts||a.startedAt||0) - (b.ts||b.startedAt||0));
+  const groups = [];
+  sSessions.forEach(s => {
+    const key = _odtNorm(s.prompt);
+    const sAt = s.ts || s.startedAt || 0;
+    const last = groups[groups.length - 1];
+    if (last && last._normKey === key && key && (sAt - last._newestAt) < _ODT_MAX_GAP) {
+      last.sessions.push(s);
+      last._newestAt = sAt;
+      last.totalEvents += (s.events || []).length;
+      if (s.status === 'running') last.status = 'running';
+    } else {
+      groups.push({ id: s.id, sessions: [s], _normKey: key, _newestAt: sAt,
+        totalEvents: (s.events || []).length, status: s.status || 'complete',
+        prompt: s.prompt, ts: sAt, _isGroup: false });
+    }
+  });
+  // Finalize: multi-session groups get a virtual ID + merged events
+  groups.forEach(g => {
+    if (g.sessions.length > 1) {
+      g._isGroup = true;
+      g.id = 'grp:' + g.sessions[0].id;
+      g.ts = g._newestAt; // show newest timestamp in dropdown
+    }
+    _odtSessionGroups[g.id] = g;
+    g.sessions.forEach(s => { _odtSessionGroupMap[s.id] = g.id; });
+  });
+}
+
+function _odtGetMergedGroupEvents(group) {
+  // Merge events from all sessions in a group, time-sorted
+  const all = [];
+  (group.sessions || []).forEach(s => (s.events || []).forEach(ev => all.push(ev)));
+  all.sort((a, b) => (a.ts||0) - (b.ts||0));
+  return all;
 }
 
 function _odtPopulateChatSel() {
   const sel = document.getElementById('odt-chat-sel');
   if (!sel) return;
+  if (document.activeElement === sel) return;
+  // Rebuild groups from current sessions + runs
+  _odtRebuildSessionGroups();
+  _odtRebuildRunGroups();
   const prev = _odtChatCurrentId || sel.value;
-  const count = _odtChatSessions.length;
-  sel.innerHTML = `<option value="">${count ? `— ${count} run${count !== 1 ? 's' : ''} for ${_v2SelOrg} —` : '— no runs yet —'}</option>`;
-  _odtChatSessions.forEach(s => {
-    const d = new Date(s.ts || s.startedAt || 0);
+  const runGroups = Object.values(_odtRunGroups).sort((a, b) => b.ts - a.ts);
+  const sessGroups = Object.values(_odtSessionGroups).sort((a, b) => b.ts - a.ts);
+  const totalEntries = runGroups.length + sessGroups.length;
+  const hasRuns = runGroups.length > 0;
+  const hasSess = sessGroups.length > 0;
+  const entryLabel = (hasRuns && hasSess) ? 'entries' : hasRuns ? 'run' + (runGroups.length !== 1 ? 's' : '') : 'loop' + (sessGroups.length !== 1 ? 's' : '');
+  sel.innerHTML = `<option value="">${totalEntries ? `— ${totalEntries} ${entryLabel} for ${_v2SelOrg} —` : '— no runs yet —'}</option>`;
+
+  // Render [R] run groups
+  runGroups.forEach(g => {
+    const d = new Date(g.ts || 0);
     const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
-    const prompt = (s.prompt || '').replace(/^running org:\s*/i, '').slice(0,40);
-    const meta = s._runMeta;
-    const extra = meta ? ` · ${meta.cycleCount||0}cyc · ${meta.eventCount||0}ev` : '';
+    const _rawPrompt = (g.prompt || '').replace(/^running org:\s*/i, '').trim();
+    const prompt = (_rawPrompt && _rawPrompt !== g.runs[0]?.id) ? _rawPrompt.slice(0, 30) : '(auto-run)';
+    const runsPart = g._isRunGroup ? ` · ${g.runs.length} runs` : '';
+    // Total event count from run metadata
+    const totalEvs = g.runs.reduce((sum, r) => sum + ((r._runMeta?.eventCount || 0) || (r.events || []).length), 0);
+    const totalCyc = g.runs.reduce((sum, r) => sum + (r._runMeta?.cycleCount || 0), 0);
+    const evPart = totalEvs > 0 ? ` · ${totalCyc}cyc · ${totalEvs}ev` : '';
     const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = `${date} ${ts}  ${prompt}${prompt.length>=40?'…':''}${extra}  [${s.status||'?'}]`;
-    if (s.id === prev) opt.selected = true;
+    opt.value = g.id;
+    opt.textContent = `[R] ${date} ${ts}  ${prompt}${_rawPrompt.length>30?'…':''}${runsPart}${evPart}  [${g.status||'?'}]`;
+    if (g.id === prev || g.runs.some(r => r.id === prev)) opt.selected = true;
     sel.appendChild(opt);
   });
-  // Auto-select running session
+
+  // Render [S] groups (collapsed loop reps)
+  groups.forEach(g => {
+    const d = new Date(g.ts || 0);
+    const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
+    const _rawPrompt = (g.prompt || '').replace(/^running org:\s*/i, '').replace(/\s*rep\s+\d+.*$/i, '').trim();
+    const prompt = _rawPrompt.slice(0, 28) || '(loop)';
+    const repPart = g._isGroup ? ` · ${g.sessions.length} reps` : '';
+    const evPart = g.totalEvents > 0 ? ` · ${g.totalEvents}ev` : '';
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = `[S] ${date} ${ts}  ${prompt}${_rawPrompt.length>28?'…':''}${repPart}${evPart}  [${g.status||'?'}]`;
+    // Selection match: group ID OR any session in the group
+    if (g.id === prev || g.sessions.some(s => s.id === prev)) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  // Update label
+  const _lblEl = document.getElementById('odt-chat-sess-lbl');
+  if (_lblEl) _lblEl.textContent = (hasRuns && hasSess) ? 'HISTORY' : hasRuns ? 'RUN' : 'SESSION';
+  // Auto-select running entry
   if (!_odtChatCurrentId) {
-    const running = _odtChatSessions.find(s => s.status === 'running');
-    if (running) { sel.value = running.id; odtChatSelectSession(running.id); }
+    const runningRunGrp = runGroups.find(g => g.status === 'running');
+    const runningSessGrp = sessGroups.find(g => g.status === 'running');
+    const first = runningRunGrp || runningSessGrp || runGroups[0] || sessGroups[0];
+    if (first) { sel.value = first.id; odtChatSelectSession(first.id); }
   }
 }
 
@@ -6551,36 +7325,254 @@ window.odtChatSelectSession = async function(id) {
   const feed = document.getElementById('odt-chat-feed');
   const emptyEl = document.getElementById('odt-chat-empty');
   const bar = document.getElementById('odt-chat-agent-bar');
-  feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
+  feed.querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
   if (!id) {
     if (emptyEl) emptyEl.style.display = 'block';
     if (bar) bar.style.display = 'none';
     return;
   }
+
+  // ── Run group path: render merged events from all runs in the group ──
+  if (id.startsWith('rgrp:') && _odtRunGroups[id]) {
+    const rgrp = _odtRunGroups[id];
+    if (emptyEl) emptyEl.style.display = 'none';
+    // Lazy-load each sub-run's events that haven't been loaded yet
+    for (const r of rgrp.runs) {
+      if (!r._eventsLoaded && !r._loading) {
+        const _ldr = Object.assign(document.createElement('div'), { id: 'odt-chat-loading', style: 'text-align:center;padding:24px 0;font-size:11px;opacity:0.5;color:var(--text-mid)' });
+        _ldr.textContent = `Loading ${rgrp.runs.length} runs…`;
+        if (feed) feed.appendChild(_ldr);
+        r._loading = true;
+        try {
+          const _dp = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
+          const evs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs/'+encodeURIComponent(r.id)+_dp);
+          r.events = Array.isArray(evs) ? evs : (r.events || []);
+          r._eventsLoaded = true;
+        } catch(_) { r._eventsLoaded = true; }
+        r._loading = false;
+        _ldr.remove();
+        if (_odtChatCurrentId !== id) return;
+      }
+    }
+    // Re-render from scratch (all runs now loaded)
+    feed.querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
+    const mergedEvs = _odtGetMergedRunGroupEvents(rgrp);
+    const _rgrpLabel = (rgrp.prompt && rgrp.prompt !== rgrp.runs[0]?.id)
+      ? (rgrp.prompt || '').replace(/^running org:\s*/i, '').trim().slice(0, 80)
+      : '(auto-run)';
+    const _rgrpTs = rgrp.ts || 0;
+    const _rgrpTsStr = _rgrpTs ? new Date(_rgrpTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    const _rShdr = document.createElement('div');
+    _rShdr.className = 'cv-session-hdr';
+    _rShdr.innerHTML = `<div class="cv-shdr-prompt">${esc(_rgrpLabel)}</div>`+
+      `<div class="cv-shdr-meta">`+
+        `<span class="cv-shdr-id">${rgrp.runs.length} run${rgrp.runs.length!==1?'s':''}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span>${esc(_rgrpTsStr)}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span class="cv-shdr-evcount">${mergedEvs.length} events</span>`+
+      `</div>`;
+    feed.appendChild(_rShdr);
+    const orgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+    _odtPopulateAgentBar(mergedEvs, orgRoles);
+    mergedEvs.forEach(ev => {
+      _odtAppendEvent(ev, false);
+      const _hk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
+      _odtChatSeenKeys.add(_hk);
+    });
+    const ex = document.getElementById('odt-chat-excerpt');
+    if (ex && mergedEvs.length) renderCvExcerptBanner('odt-chat-excerpt', mergedEvs, rgrp);
+    if (!feed.querySelector('.cv-msg') && emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'No events yet.'; }
+    feed.scrollTop = feed.scrollHeight;
+    return;
+  }
+
+  // ── Group path: render merged events from all sessions in the group ──
+  if (id.startsWith('grp:') && _odtSessionGroups[id]) {
+    const grp = _odtSessionGroups[id];
+    if (emptyEl) emptyEl.style.display = 'none';
+    // Lazy-load each session's events that haven't been loaded yet
+    for (const s of grp.sessions) {
+      if (!s._eventsLoaded) {
+        const _fbLoader = Object.assign(document.createElement('div'), { id: 'odt-chat-loading', style: 'text-align:center;padding:24px 0;font-size:11px;opacity:0.5;color:var(--text-mid)' });
+        _fbLoader.textContent = `Loading ${grp.sessions.length} loop sessions…`;
+        if (feed) feed.appendChild(_fbLoader);
+        s._loading = true;
+        try {
+          const _fbData = await apiFetch('/api/mastermind/session/'+encodeURIComponent(s.id));
+          s.events = Array.isArray(_fbData.events) ? _fbData.events : (s.events || []);
+          s._eventsLoaded = true;
+        } catch(_) { s._eventsLoaded = true; }
+        s._loading = false;
+        _fbLoader.remove();
+        if (_odtChatCurrentId !== id) return;
+        break; // Load one at a time; subsequent repaint will finish others
+      }
+    }
+    const mergedEvs = _odtGetMergedGroupEvents(grp);
+    const _normKey = (grp.prompt || '').replace(/^running org:\s*/i, '').replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 80) || id;
+    const _shdrTs = grp.ts || 0;
+    const _shdrTsStr = _shdrTs ? new Date(_shdrTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    const _shdr = document.createElement('div');
+    _shdr.className = 'cv-session-hdr';
+    _shdr.innerHTML = `<div class="cv-shdr-prompt">${esc(_normKey)}</div>`+
+      `<div class="cv-shdr-meta">`+
+        `<span class="cv-shdr-id" title="${esc(id)}">${grp.sessions.length} reps</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span>${esc(_shdrTsStr)}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span class="cv-shdr-evcount">${mergedEvs.length} events</span>`+
+      `</div>`;
+    feed.appendChild(_shdr);
+    const orgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+    _odtPopulateAgentBar(mergedEvs, orgRoles);
+    mergedEvs.forEach(ev => {
+      _odtAppendEvent(ev, false);
+      const _hk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
+      _odtChatSeenKeys.add(_hk);
+    });
+    const ex = document.getElementById('odt-chat-excerpt');
+    if (ex && mergedEvs.length) renderCvExcerptBanner('odt-chat-excerpt', mergedEvs, grp);
+    if (!feed.querySelector('.cv-msg') && emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'No events yet.'; }
+    feed.scrollTop = feed.scrollHeight;
+    return;
+  }
+
   const sess = _odtChatSessions.find(s => s.id === id);
   if (!sess) return;
   if (emptyEl) emptyEl.style.display = 'none';
+  // Lazy-load events for fallback (non-_isOrgRun) sessions from /api/mastermind/session/:id
+  if (!sess._isOrgRun && !sess._eventsLoaded) {
+    const _fbFeed = document.getElementById('odt-chat-feed');
+    const _fbLoader = Object.assign(document.createElement('div'), { id: 'odt-chat-loading', style: 'text-align:center;padding:24px 0;font-size:11px;opacity:0.5;color:var(--text-mid)' });
+    _fbLoader.textContent = 'Loading session events…';
+    if (_fbFeed) _fbFeed.appendChild(_fbLoader);
+    const _fbPreLoad = (sess.events || []).slice();
+    sess._loading = true;
+    try {
+      const _fbData = await apiFetch('/api/mastermind/session/'+encodeURIComponent(id));
+      const _fbSseDuring = (sess.events || []).filter(e => !_fbPreLoad.find(p => p === e));
+      sess.events = Array.isArray(_fbData.events) ? _fbData.events : _fbPreLoad;
+      _fbSseDuring.forEach(e => {
+        if (!sess.events.find(s => s.ts === e.ts && s.type === e.type && (s.from||'') === (e.from||''))) sess.events.push(e);
+      });
+      sess._eventsLoaded = true;
+    } catch(_) {
+      sess._eventsLoaded = true;
+    }
+    sess._loading = false;
+    // Sync back — _odtLoadChatSessions may have replaced the object reference during the await
+    const _fbLive = _odtChatSessions.find(s => s.id === id);
+    if (_fbLive && _fbLive !== sess) { _fbLive._eventsLoaded = true; _fbLive._loading = false; _fbLive.events = sess.events; }
+    _fbLoader.remove();
+    if (_odtChatCurrentId !== id) return;
+  }
   // Lazy-load events for org run sessions
   if (sess._isOrgRun && !sess._eventsLoaded) {
     const feed2 = document.getElementById('odt-chat-feed');
     const loadingEl = Object.assign(document.createElement('div'), { id: 'odt-chat-loading', style: 'text-align:center;padding:24px 0;font-size:11px;opacity:0.5;color:var(--text-mid)' });
     loadingEl.textContent = 'Loading run events…';
     if (feed2) feed2.appendChild(loadingEl);
+    // Guard SSE handler: prevent it from appending to the feed while fetch is in-flight.
+    // Without this, SSE events get appended immediately AND replayed by the bulk render
+    // below (since they were also pushed to sess.events) → duplicate messages.
+    const _preLoadEvents = (sess.events || []).slice();
+    sess._loading = true;
     try {
       const dirParam = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
       const evs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs/'+encodeURIComponent(id)+dirParam);
-      sess.events = Array.isArray(evs) ? evs : [];
+      // Merge: SSE events pushed to sess.events DURING the fetch are not in the API response
+      // (they haven't been flushed to disk yet). Re-attach them so they aren't overwritten.
+      const _sseDuringLoad = (sess.events || []).filter(e => !_preLoadEvents.find(p => p === e));
+      sess.events = Array.isArray(evs) ? evs : _preLoadEvents;
+      _sseDuringLoad.forEach(e => {
+        if (!sess.events.find(s => s.ts === e.ts && s.type === e.type && (s.from||'') === (e.from||''))) sess.events.push(e);
+      });
       sess._eventsLoaded = true;
-    } catch(_) { sess.events = []; sess._eventsLoaded = true; }
+    } catch(_) {
+      // On failure keep whatever was buffered so SSE events aren't lost
+      sess._eventsLoaded = true;
+    }
+    sess._loading = false;
+    // Sync back — _odtLoadChatSessions may have replaced the object reference during the await
+    const _runLive = _odtChatSessions.find(s => s.id === id);
+    if (_runLive && _runLive !== sess) { _runLive._eventsLoaded = true; _runLive._loading = false; _runLive.events = sess.events; }
     loadingEl.remove();
+    if (_odtChatCurrentId !== id) return; // user switched sessions during fetch
   }
   // Agent pills from org config roles (authoritative list, not derived from events)
   const orgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
   _odtPopulateAgentBar(sess.events || [], orgRoles);
-  // No excerpt banner for structured org run sessions
+  // Inject session metadata header for session-based (non-_isOrgRun) sessions so the
+  // user can see prompt, ID, start time, and status without opening a separate tab.
+  // Org run sessions already get a summary header from the dropdown label + run meta.
   const ex = document.getElementById('odt-chat-excerpt');
-  if (ex) ex.innerHTML = '';
-  (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
+  if (!sess._isOrgRun) {
+    const _shdrTs = sess.ts || sess.startedAt || 0;
+    const _shdrTsStr = _shdrTs ? new Date(_shdrTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    const _shdrPrompt = (sess.prompt || '').replace(/^running org:\s*/i, '').slice(0, 100) || id;
+    const _shdrSt = sess.status || 'unknown';
+    const _shdrStCls = _shdrSt === 'running' ? 'color:oklch(65% 0.20 145)' : _shdrSt === 'complete' ? 'color:var(--text-lo)' : 'color:var(--text-xs)';
+    const _shdr = document.createElement('div');
+    _shdr.className = 'cv-session-hdr';
+    _shdr.innerHTML = `<div class="cv-shdr-prompt">${esc(_shdrPrompt)}</div>`+
+      `<div class="cv-shdr-meta">`+
+        `<span class="cv-shdr-id" title="${esc(id)}">${esc(id.slice(0,22))}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span style="${_shdrStCls}">${esc(_shdrSt)}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span>${esc(_shdrTsStr)}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span class="cv-shdr-evcount">${(sess.events || []).length} events</span>`+
+      `</div>`;
+    feed.appendChild(_shdr);
+    // Populate excerpt banner to show last activity for historical sessions
+    if (ex) { if ((sess.events || []).length) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess); else ex.innerHTML = ''; }
+  } else {
+    // Org run sessions: populate excerpt with last activity (mirrors non-_isOrgRun path).
+    // Previous code always cleared this, leaving the banner permanently blank for org runs.
+    if (ex && (sess.events || []).length > 0) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess);
+    else if (ex) ex.innerHTML = '';
+  }
+  (sess.events || []).forEach(ev => {
+    _odtAppendEvent(ev, false);
+    // Pre-seed dedup set so SSE reconnect replays of these historical events are swallowed
+    // rather than appended again. Without this, a reconnect replays ~50 events from the server
+    // and they all pass _odtChatSeenKeys (which only tracks events that arrived via SSE).
+    const _hk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
+    _odtChatSeenKeys.add(_hk);
+  });
+  // For [S] sessions (mastermind wrappers that triggered an org run), show a link card to the
+  // corresponding [R] run so users can navigate there directly. The runId is always
+  // "run-" + same timestamp suffix as the session ID (e.g. mm-20260617T235959 → run-20260617T235959).
+  if (!sess._isOrgRun) {
+    const _linkedRunId = 'run-' + (sess.id || '').replace(/^mm-/, '');
+    const _linkedRun = _odtChatSessions.find(s => s._isOrgRun && s.id === _linkedRunId);
+    if (_linkedRun) {
+      const _linkEl = document.createElement('div');
+      _linkEl.className = 'cv-msg cv-sys';
+      const _lrGoal = (_linkedRun.prompt || '').slice(0, 60) || _linkedRunId;
+      _linkEl.innerHTML = `<div class="cv-bub" style="cursor:pointer;border-left:2px solid var(--accent);background:oklch(15% 0.05 220)">`+
+        `<span class="cv-etype" style="color:var(--accent)">RUN</span>`+
+        `<span class="cv-text">→ ${esc(_lrGoal)}${_lrGoal.length >= 60 ? '…' : ''}</span>`+
+        `<span class="cv-ts" style="color:var(--accent)">[${esc(_linkedRun.status||'?')}]</span></div>`;
+      _linkEl.title = 'Click to view the org run triggered by this session';
+      _linkEl.onclick = () => {
+        const _lSel = document.getElementById('odt-chat-sel');
+        if (_lSel) { _lSel.value = _linkedRunId; odtChatSelectSession(_linkedRunId); }
+      };
+      feed.appendChild(_linkEl);
+      if (emptyEl) emptyEl.style.display = 'none';
+    }
+  }
+  // If nothing was rendered (empty run or all events unknown type), show a clear empty state
+  // instead of leaving the user with a blank white feed and no feedback.
+  if (!feed.querySelector('.cv-msg') && emptyEl) {
+    emptyEl.style.display = 'block';
+    emptyEl.textContent = (sess.events && sess.events.length)
+      ? 'No displayable events.'
+      : 'No events yet.';
+  }
   feed.scrollTop = feed.scrollHeight;
 };
 
@@ -6596,20 +7588,33 @@ function _odtPopulateAgentBar(events, orgRoles) {
     (events || []).forEach(ev => {
       if (ev.type === 'org:agent:online' && ev.role) agentSet.add(ev.role);
       else if (ev.type === 'org:comms') {
-        if (ev.from && ev.from.length < 40) agentSet.add(ev.from);
+        // Support both ev.from (new format) and ev.role (old format) as sender
+        const _sf = ev.from || ev.role || '';
+        if (_sf && _sf.length < 40) agentSet.add(_sf);
         if (ev.to && ev.to !== 'all' && ev.to.length < 40) agentSet.add(ev.to);
       }
     });
   }
+  // Count messages per agent so pills can show activity level
+  const msgCount = {};
+  (events || []).forEach(ev => {
+    if (ev.type === 'org:comms' || ev.type === 'agent:message') {
+      const sender = ev.from || ev.role || ev.agent || '';
+      if (sender) msgCount[sender] = (msgCount[sender] || 0) + 1;
+    }
+  });
   const agents = [...agentSet].sort();
   if (!agents.length) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   bar.innerHTML = '<span id="odt-chat-agent-lbl">AGENT</span>';
   ['all', ...agents].forEach(name => {
     const pill = document.createElement('button');
-    pill.className = 'odt-agent-pill' + (_odtChatCurrentAgent === name ? ' active' : '');
-    pill.textContent = name === 'all' ? 'ALL' : name;
+    const cnt = name === 'all' ? null : (msgCount[name] || 0);
+    const active = _odtChatCurrentAgent === name;
+    pill.className = 'odt-agent-pill' + (active ? ' active' : '') + (cnt === 0 ? ' dim' : '');
+    pill.textContent = name === 'all' ? 'ALL' : (cnt > 0 ? `${name} (${cnt})` : name);
     pill.dataset.agent = name;
+    pill.title = name === 'all' ? 'Show all events' : (cnt > 0 ? `${cnt} message${cnt!==1?'s':''} from ${name}` : `${name} was online but sent no messages`);
     pill.onclick = () => odtChatSelectAgent(name);
     bar.appendChild(pill);
   });
@@ -6627,10 +7632,30 @@ window.odtChatSelectAgent = function(name) {
   if (!sess) { if (emptyEl) emptyEl.style.display = 'block'; return; }
   const visible = (sess.events || []).filter(ev => _odtChatAgentMatches(ev));
   if (!visible.length) {
-    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = name === 'all' ? 'No events.' : `No events for "${name}"`; }
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = name === 'all' ? 'No events.' : `${name} was online in this run but sent no messages.`; }
   } else {
     if (emptyEl) emptyEl.style.display = 'none';
     visible.forEach(ev => _odtAppendEvent(ev, false));
+  }
+  if (!sess._isOrgRun) {
+    const _linkedRunId = 'run-' + (sess.id || '').replace(/^mm-/, '');
+    const _linkedRun = _odtChatSessions.find(s => s._isOrgRun && s.id === _linkedRunId);
+    if (_linkedRun) {
+      const _linkEl = document.createElement('div');
+      _linkEl.className = 'cv-msg cv-sys';
+      const _lrGoal = (_linkedRun.prompt || '').slice(0, 60) || _linkedRunId;
+      _linkEl.innerHTML = `<div class="cv-bub" style="cursor:pointer;border-left:2px solid var(--accent);background:oklch(15% 0.05 220)">`+
+        `<span class="cv-etype" style="color:var(--accent)">RUN</span>`+
+        `<span class="cv-text">→ ${esc(_lrGoal)}${_lrGoal.length >= 60 ? '…' : ''}</span>`+
+        `<span class="cv-ts" style="color:var(--accent)">[${esc(_linkedRun.status||'?')}]</span></div>`;
+      _linkEl.title = 'Click to view the org run triggered by this session';
+      _linkEl.onclick = () => {
+        const _lSel = document.getElementById('odt-chat-sel');
+        if (_lSel) { _lSel.value = _linkedRunId; odtChatSelectSession(_linkedRunId); }
+      };
+      feed.appendChild(_linkEl);
+      if (emptyEl) emptyEl.style.display = 'none';
+    }
   }
   feed.scrollTop = feed.scrollHeight;
 };
@@ -6639,6 +7664,10 @@ function _odtAppendEvent(ev, animate) {
   if (!_odtChatAgentMatches(ev)) return;
   const feed = document.getElementById('odt-chat-feed');
   if (!feed) return;
+  // Capture scroll position BEFORE appending: only auto-scroll for live events when
+  // the user is already at (or near) the bottom. If they scrolled up to read earlier
+  // messages a new event must not forcibly jump them back to the bottom.
+  const atBottom = !animate || (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80);
   const emptyEl = document.getElementById('odt-chat-empty');
   if (emptyEl) emptyEl.style.display = 'none';
   const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
@@ -6646,22 +7675,24 @@ function _odtAppendEvent(ev, animate) {
   if (ev.type === 'run:start') {
     el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + esc(ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + esc(ev.bossRole) : ''), ts);
   } else if (ev.type === 'run:cycle:complete') {
-    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + ev.pending + ' tasks pending' : ''), ts);
+    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + esc(String(ev.pending)) + ' tasks pending' : ''), ts);
   } else if (ev.type === 'run:complete') {
     el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
   } else if (ev.type === 'org:comms') {
-    if (ev.to && ev.to !== 'all' && ev.from) el = mkCVIntercom(ev.from || 'boss', ev.to, ev.msg || '', ts);
-    else el = mkCVAgent(ev.from || 'boss', ev.msg || '', ts, 'org:comms');
+    // Some older runs use ev.role instead of ev.from — normalise before rendering
+    const _commsFrom = ev.from || ev.role || 'boss';
+    if (ev.to && ev.to !== 'all') el = mkCVIntercom(_commsFrom, ev.to, ev.msg || '', ts);
+    else el = mkCVAgent(_commsFrom, ev.msg || '', ts, 'org:comms');
   } else if (ev.type === 'org:agent:online') {
     el = mkCVSys('◉ ' + esc(ev.title || ev.role || '?') + ' online', ts);
   } else if (ev.type === 'org:checkpoint') {
-    el = mkCVAgent('boss', ev.progress || '', ts, 'org:checkpoint');
+    el = mkCVAgent('boss', ev.summary || ev.progress || ev.msg || '', ts, 'org:checkpoint');
   } else if (ev.type === 'org:start' || ev.type === 'org:complete') {
     el = mkCVSys(ev.type === 'org:start' ? '▶ Org started' : '■ Org complete', ts);
   } else if (ev.type === 'agent:spawn') {
     el = mkCVSpawn(ev.from || 'orchestrator', ev.to || '?', ev.task || ev.briefing || '', ts);
   } else if (ev.type === 'agent:result') {
-    el = mkCVResult(ev.agent || '?', ev.msg || '', ts);
+    el = mkCVResult(ev.agent || ev.from || '?', ev.result || ev.msg || ev.message || ev.summary || '', ts);
   } else if (ev.type === 'file:write') {
     el = mkCVFileCard(ev.name || ev.path || '?', ev.path || '', ev.size || 0, ts);
   } else if (ev.type === 'intercom') {
@@ -6680,12 +7711,32 @@ function _odtAppendEvent(ev, animate) {
     el = mkCVSys('Loop: ' + esc(ev.command || ''), ts);
   } else if (ev.type === 'loop:complete') {
     el = mkCVSys('Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
+  } else if (ev.type === 'loop:tick') {
+    const _trep = ev.rep ?? ev.fromRep;
+    const _tnext = ev.nextRep ?? ev.toRep;
+    const tickLabel = _trep != null
+      ? 'rep ' + esc(String(_trep)) + ' done' + (_tnext != null ? ' → rep ' + esc(String(_tnext)) + (ev.wait != null ? ' in ' + esc(String(ev.wait)) + 's' : '') : '')
+      : esc(ev.command || ev.loopId || '');
+    el = mkCVSys('◷ ' + tickLabel, ts);
+    el.dataset.evType = 'loop:tick';
+    // Collapse: replace the previous loop:tick if it's the last element — prevents the
+    // feed from flooding with one entry per rep in long-running loops (e.g. --repeat 9999).
+    if (feed.lastElementChild?.dataset?.evType === 'loop:tick') feed.lastElementChild.remove();
+  } else if (ev.type === 'loop:hil' || ev.type === 'loop:hil:waiting') {
+    el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.loopId || ''), ts);
+  } else if (ev.type === 'loop:hil:resolved') {
+    el = mkCVSys('✓ Loop HIL resolved: ' + esc(ev.loopId || ''), ts);
+  } else if (ev.type === 'org:error') {
+    el = mkCVSys('⚠ Error: ' + esc(ev.msg || ev.error || ev.message || ''), ts);
+    el.classList.add('cv-err');
+  } else if (ev.type === 'org:agent:offline') {
+    el = mkCVSys('◌ ' + esc(ev.title || ev.role || '?') + ' offline', ts);
   } else {
-    return; // skip unknown event types silently
+    el = mkCVSys(esc(ev.type || 'event'), ts);
   }
   if (animate) el.classList.add('cv-new');
   feed.appendChild(el);
-  feed.scrollTop = feed.scrollHeight;
+  if (atBottom) feed.scrollTop = feed.scrollHeight;
 }
 
 function _odtConnectChatSSE() {
@@ -6700,46 +7751,98 @@ function _odtConnectChatSSE() {
   _odtChatSseSource.onerror = () => {
     dot?.classList.remove('on');
     if (lbl) lbl.textContent = 'OFFLINE';
+    // Close before nulling: EventSource has built-in auto-retry, so without close()
+    // the browser keeps reconnecting the old source. We'd then create a second one
+    // via setTimeout → two SSE connections delivering the same events simultaneously.
+    const _src = _odtChatSseSource;
     _odtChatSseSource = null;
+    if (_src) _src.close();
     setTimeout(_odtConnectChatSSE, 5000);
   };
 }
 
 function _odtHandleLiveEvent(ev) {
+  // Deduplicate SSE reconnect replays (server replays last 50 events on every reconnect)
+  const _odtDedupKey = (ev?.ts||'') + '|' + (ev?.type||'') + '|' + (ev?.runId||ev?.session||'') + '|' + (ev?.from||ev?.role||ev?.agent||'') + '|' + (ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
+  if (_odtChatSeenKeys.has(_odtDedupKey)) return;
+  _odtChatSeenKeys.add(_odtDedupKey);
+  // Cap the dedup Set to prevent unbounded memory growth in long-running sessions.
+  // Server replays only the last ~50 events on reconnect, so pruning entries older
+  // than 1000 events never risks a false-pass through the dedup check.
+  if (_odtChatSeenKeys.size > 2000) {
+    const _arr = [..._odtChatSeenKeys];
+    _odtChatSeenKeys = new Set(_arr.slice(1000));
+  }
   // Route org run events (have runId + org) to the active run session
   if (ev?.org && ev?.runId && ev.org === _v2SelOrg) {
     let runSess = _odtChatSessions.find(s => s.id === ev.runId);
-    if (!runSess && ev.type === 'run:start') {
-      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || '', status: 'running', _isOrgRun: true, _eventsLoaded: true, _runMeta: { cycleCount: 0, eventCount: 0 }, events: [ev] };
+    if (!runSess) {
+      // Create a session placeholder for any unknown runId so SSE events aren't dropped
+      // while _odtLoadChatSessions fetch is still in-flight (opening Chat tab mid-run).
+      // For run:start: full setup + auto-switch. For other types: minimal placeholder
+      // with _eventsLoaded:false so lazy-load fetches full history when selected.
+      runSess = { id: ev.runId, ts: ev.ts || Date.now(), prompt: ev.goal || '', status: 'running', _isOrgRun: true, _eventsLoaded: ev.type === 'run:start', _runMeta: { cycleCount: 0, eventCount: 1 }, events: [ev] };
       _odtChatSessions.unshift(runSess);
+      // Always update the dropdown so the run is selectable even when opened mid-run
       _odtPopulateChatSel();
-      if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
-        const sel = document.getElementById('odt-chat-sel');
-        if (sel) { sel.value = ev.runId; odtChatSelectSession(ev.runId); }
+      if (ev.type === 'run:start') {
+        // After _odtPopulateChatSel above rebuilt groups, check if the new run joined
+        // the currently-selected group. If so, keep the group selected. Otherwise switch.
+        const _newGrpId = _odtRunGroupMap[ev.runId];
+        const _alreadySelected = _newGrpId && _odtChatCurrentId === _newGrpId;
+        if (!_alreadySelected) {
+          const _rsSel = document.getElementById('odt-chat-sel');
+          // Switch to the run's group if it has one, otherwise to the individual run
+          const _switchId = _newGrpId || ev.runId;
+          if (_rsSel) { _rsSel.value = _switchId; odtChatSelectSession(_switchId); }
+        }
       }
     } else if (runSess) {
       (runSess.events = runSess.events || []).push(ev);
       if (runSess._runMeta) runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1;
-      if (ev.type === 'run:cycle:complete') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; }
+      if (ev.type === 'run:cycle:complete' || ev.type === 'org:checkpoint') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; _odtPopulateChatSel(); }
+      // Backfill prompt from first boss directive when run:start had no goal field
+      if (!runSess.prompt && ev.type === 'org:comms' && (ev.from === 'boss' || ev.role === 'boss') && ev.msg) {
+        runSess.prompt = ev.msg.slice(0, 80);
+        _odtPopulateChatSel();
+      }
       if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
-      if (_odtChatCurrentId === ev.runId && _v2OrgTab === 'chat') {
+      // Check if this run's group (or the run itself) is currently selected
+      const _evRunGrpId = _odtRunGroupMap[ev.runId];
+      const _isSelRun = _odtChatCurrentId === ev.runId;
+      const _isSelRunGrp = _evRunGrpId && _odtChatCurrentId === _evRunGrpId;
+      if ((_isSelRun || _isSelRunGrp) && !runSess._loading) {
+        const hasNewRunAgent = (ev.role && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.role)}"]`))
+          || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
+          || (ev.to && ev.to !== 'all' && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
+        if (hasNewRunAgent) _odtPopulateAgentBar(runSess.events, Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
         _odtAppendEvent(ev, true);
+        renderCvExcerptBanner('odt-chat-excerpt', runSess.events, runSess);
+        const _rEvCnt = document.querySelector('#odt-chat-feed .cv-session-hdr .cv-shdr-evcount');
+        if (_rEvCnt) {
+          const _rgrpEvs = _isSelRunGrp ? _odtGetMergedRunGroupEvents(_odtRunGroups[_evRunGrpId]) : runSess.events;
+          _rEvCnt.textContent = _rgrpEvs.length + ' events';
+        }
       }
     }
     return;
   }
 
   if (!ev?.session) return;
-  const isOrgSess = _odtOrgSessionMatch({ id: ev.session, prompt: ev.prompt || '', events: [ev] });
-  if (!isOrgSess) return;
-
+  // Find existing session first — if already in our list it's been validated as belonging to
+  // this org, so skip the prompt-based org check that would falsely drop events whose
+  // individual payloads don't carry an ev.org field (e.g. intercom, agent:message).
   let sess = _odtChatSessions.find(s => s.id === ev.session);
+  if (!sess) {
+    const isOrgSess = _odtOrgSessionMatch({ id: ev.session, prompt: ev.prompt || '', events: [ev] });
+    if (!isOrgSess) return;
+  }
   if (!sess && ev.type === 'session:start') {
     sess = { id: ev.session, ts: ev.ts || Date.now(), prompt: ev.prompt || '', status: 'running', events: [ev] };
     _odtChatSessions.unshift(sess);
     _odtPopulateChatSel();
-    // Auto-select if nothing selected
-    if (!_odtChatCurrentId && _v2OrgTab === 'chat') {
+    // Auto-select if nothing selected (tab-guard removed: feed is in DOM regardless of active tab)
+    if (!_odtChatCurrentId) {
       const sel = document.getElementById('odt-chat-sel');
       if (sel) { sel.value = ev.session; odtChatSelectSession(ev.session); }
     }
@@ -6747,14 +7850,23 @@ function _odtHandleLiveEvent(ev) {
   }
   if (sess) {
     (sess.events = sess.events || []).push(ev);
-    if (ev.type === 'session:complete') { sess.status = ev.status || 'complete'; _odtPopulateChatSel(); }
-    if (_odtChatCurrentId === ev.session && _v2OrgTab === 'chat') {
+    if (ev.type === 'session:complete') { sess.status = 'complete'; _odtPopulateChatSel(); }
+    // Determine if a group containing this session is currently selected
+    const _evGrpId = _odtSessionGroupMap[ev.session];
+    const _isCurrentSess = _odtChatCurrentId === ev.session;
+    const _isCurrentGrp = _evGrpId && _odtChatCurrentId === _evGrpId;
+    const _notLoading = !sess._loading && (!_evGrpId || !(_odtSessionGroups[_evGrpId]?.sessions || []).some(s => s._loading));
+    if ((_isCurrentSess || _isCurrentGrp) && _notLoading) {
+      // sess._loading is true while odtChatSelectSession's lazy-load fetch is in-flight.
       const hasNewAgent = (ev.agent && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.agent)}"]`))
         || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
         || (ev.to && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
       if (hasNewAgent) _odtPopulateAgentBar(sess.events, Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
       if (!sess._isJsonl) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess);
       _odtAppendEvent(ev, true);
+      // Keep event count in session header current (frozen at load time otherwise)
+      const _sEvCnt = document.querySelector('#odt-chat-feed .cv-session-hdr .cv-shdr-evcount');
+      if (_sEvCnt) _sEvCnt.textContent = ((_isCurrentGrp ? _odtGetMergedGroupEvents(_odtSessionGroups[_evGrpId]) : sess.events).length) + ' events';
     }
   }
 }
@@ -6803,8 +7915,14 @@ function v2RenderOrgConfig() {
 async function v2SaveOrgConfig() {
   if (!_v2SelOrg || !_v2OrgData) return;
   const g = id => document.getElementById(id);
+  // Only include org config fields — exclude runtime data (state, goals, routines, approvals,
+  // running, tasks, config nested copy) that would corrupt the org .json file.
+  const _RUNTIME_KEYS = new Set(['config','state','goals','routines','approvals','running','tasks']);
+  const _baseConfig = Object.fromEntries(
+    Object.entries(_v2OrgData).filter(([k]) => !k.startsWith('_') && !_RUNTIME_KEYS.has(k))
+  );
   const cfg = {
-    ..._v2OrgData,
+    ..._baseConfig,
     status:   (g('oc-status')?.value)   || _v2OrgData.status,
     goal:     (g('oc-goal')?.value)     || _v2OrgData.goal,
     mode:     (g('oc-mode')?.value)     || _v2OrgData.mode,
@@ -6844,11 +7962,13 @@ async function v2SaveOrgConfig() {
 async function v2RenderOrgFiles() {
   const el = document.getElementById('odt-files');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">Loading files...</div>';
   try {
-    const enc = encodeURIComponent(_v2SelOrg);
+    const enc = encodeURIComponent(_rendOrg);
     const qs = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
     const files = await fetch('/api/org/'+enc+'/files'+qs).then(r => r.ok ? r.json() : []).catch(() => []);
+    if (_v2SelOrg !== _rendOrg) return;
     if (!files.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-lo)">No files found.</div>'; return; }
     const fmtSize = b => b < 1024 ? b+'B' : b < 1048576 ? (b/1024).toFixed(1)+'K' : (b/1048576).toFixed(1)+'M';
     const fmtTime = s => { const d = new Date(s); return d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); };
@@ -6977,10 +8097,12 @@ function _ofSaveFile(defaultName) {
 async function v2RenderOrgWorkspaces() {
   const el = document.getElementById('odt-workspaces');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/workspaces${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const ws = Array.isArray(data) ? data : (data.workspaces || []);
     if (!ws.length) { el.innerHTML = '<div class="empty">No workspaces configured</div>'; return; }
     el.innerHTML = ws.map(w => `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
@@ -6998,10 +8120,12 @@ async function v2RenderOrgWorkspaces() {
 async function v2RenderOrgInvites() {
   const el = document.getElementById('odt-invites');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/invites${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const invites = Array.isArray(data) ? data : (data.invites || []);
     if (!invites.length) { el.innerHTML = '<div class="empty">No active invite tokens</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -7030,12 +8154,12 @@ function v2RenderOrgAgentsFull() {
     </tr></thead>
     <tbody>${agents.map(a => `<tr style="border-top:1px solid var(--border)">
       <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((a.id||'—').toString().slice(0,12))}</td>
-      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.type||a.title||'—')}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapter||'—')}</td>
+      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.adapterType||a.type||a.title||'—')}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapterModel||a.adapter||'—')}</td>
       <td style="padding:5px 8px"><span class="ss-pill ${(a.status==='running'||a.running)?'on':''}">${esc(a.status||'idle')}</span></td>
       <td style="padding:5px 8px;color:var(--text-lo)">${a.lastHeartbeat ? relTime(a.lastHeartbeat) : '—'}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${a.tokensIn != null ? Number(a.tokensIn).toLocaleString() : '—'}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${a.tokensOut != null ? Number(a.tokensOut).toLocaleString() : '—'}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${(a.tokensIn ?? a.tokens_in) != null ? Number(a.tokensIn ?? a.tokens_in).toLocaleString() : '—'}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${(a.tokensOut ?? a.tokens_out) != null ? Number(a.tokensOut ?? a.tokens_out).toLocaleString() : '—'}</td>
     </tr>`).join('')}</tbody>
   </table>`;
 }
@@ -7044,10 +8168,12 @@ function v2RenderOrgAgentsFull() {
 async function v2RenderOrgEnvironments() {
   const el = document.getElementById('odt-environments');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/environments${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const envs = Array.isArray(data) ? data : (data.environments || []);
     if (!envs.length) { el.innerHTML = '<div class="empty">No environments configured</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -7101,7 +8227,7 @@ function v2RenderOrgIssuesFull() {
       <td style="padding:5px 4px">${PRIORITY[i.priority]||'·'}</td>
       <td style="padding:5px 8px;color:var(--text-hi);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((i.title||i.description||'—').slice(0,80))}</td>
       <td style="padding:5px 8px;color:var(--text-lo)">${esc(i.assignee||'—')}</td>
-      <td style="padding:5px 8px"><span class="ss-pill ${i.status==='done'?'on':i.status==='blocked'?'warn':''}">${esc(i.status||'open')}</span></td>
+      <td style="padding:5px 8px"><span class="ss-pill ${i.status==='done'||i.status==='closed'||i.status==='resolved'?'on':(i.status==='blocked'||i.status==='in_progress')?'warn':''}">${esc(i.status||'open')}</span></td>
       <td style="padding:5px 8px;color:var(--text-xs);font-family:var(--mono);font-size:11px">${relTime(i.updated_at||i.ts)}</td>
     </tr>`).join('')}</tbody>
   </table>`;
@@ -7111,10 +8237,12 @@ function v2RenderOrgIssuesFull() {
 async function v2RenderOrgJoinRequests() {
   const el = document.getElementById('odt-join-requests');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/join-requests${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const reqs = Array.isArray(data) ? data : (data.joinRequests || data.join_requests || []);
     if (!reqs.length) { el.innerHTML = '<div class="empty">No pending join requests</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -7135,10 +8263,12 @@ async function v2RenderOrgJoinRequests() {
 async function v2RenderOrgThreads() {
   const el = document.getElementById('odt-threads');
   if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
   el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const _enc = encodeURIComponent(_v2SelOrg);
+    const _enc = encodeURIComponent(_rendOrg);
     const data = await fetch(`/api/org/${_enc}/threads${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    if (_v2SelOrg !== _rendOrg) return;
     const threads = Array.isArray(data) ? data : (data.threads || []);
     if (!threads.length) { el.innerHTML = '<div class="empty">No threads found</div>'; return; }
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -7160,8 +8290,30 @@ async function v2RenderOrgThreads() {
 window.v2StopOrg = async function() {
   if (!_v2SelOrg) return;
   const stopped = _v2SelOrg;
-  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop`, {method:'POST'}); } catch(_) {}
+  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {method:'POST'}); } catch(_) {}
   setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
+};
+
+window.v2DeleteOrg = async function() {
+  if (!_v2SelOrg) return;
+  const name = _v2SelOrg;
+  if (!confirm(`Delete org "${name}"?\n\nThis removes the config and all associated data files. This cannot be undone.`)) return;
+  const btn = document.getElementById('org-delete-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  try {
+    const r = await fetch(`/api/orgs/${encodeURIComponent(name)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, { method: 'DELETE' });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'HTTP ' + r.status); }
+    showToast('Deleted', `Org "${name}" deleted`, 'ok');
+    _v2SelOrg = null;
+    const inner = document.getElementById('org-detail-inner');
+    if (inner) inner.style.display = 'none';
+    const noSel = document.querySelector('.orgs-no-sel');
+    if (noSel) noSel.style.display = '';
+    await renderOrgs();
+  } catch(e) {
+    showToast('Error', String(e.message || e), 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
+  }
 };
 
 window.v2ShowCopyOrgDialog = async function() {
@@ -7200,7 +8352,7 @@ window.v2DoCopyOrg = async function() {
   confirmBtn.disabled = true;
   if (statusEl) { statusEl.textContent = 'Copying…'; statusEl.style.color = 'var(--text-lo)'; }
   try {
-    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + '/copy' + (DIR ? '?dir=' + encodeURIComponent(DIR) : ''), {
+    const r = await fetch('/api/orgs/' + enc(_v2SelOrg) + '/copy?dir=' + enc(DIR), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ destination: dest }),
     });
@@ -7276,13 +8428,23 @@ function filterOrgList(q) {
 // live SSE for org events
 (function v2OrgSSE() {
   let src;
+  let seenKeys = new Set();
+  let reconnectTimer = null;
   function connect() {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     if (src) src.close();
+    // Do NOT reset seenKeys here — the server replays ~50 events on every reconnect and
+    // clearing the set lets all replays through, duplicating _v2OrgEventLog and _activity entries.
     src = new EventSource('/api/mastermind-stream');
     src.onmessage = e => {
       try {
         const ev = JSON.parse(e.data);
-        if (!ev?.org || !ev?.type?.startsWith('org:')) return;
+        if (!ev?.org) return;
+        if (!ev?.type?.startsWith('org:') && ev?.type !== 'run:start' && ev?.type !== 'run:complete' && ev?.type !== 'run:cycle:complete') return;
+        const _sk = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.org||'') + '|' + (ev.runId||ev.session||'') + '|' + (ev.from||ev.role||ev.agent||'') + '|' + (ev.result||ev.msg||ev.message||ev.summary||'').slice(0,20);
+        if (seenKeys.has(_sk)) return;
+        seenKeys.add(_sk);
+        if (seenKeys.size > 2000) { const _a = [...seenKeys]; seenKeys = new Set(_a.slice(1000)); }
         const n = ev.org;
         // Filter by project dir if the event carries one; skip events from other projects.
         // Events without a project field are treated as belonging to the current project.
@@ -7292,7 +8454,63 @@ function filterOrgList(q) {
         _v2OrgEventLog[n].push(ev);
         if (_v2OrgEventLog[n].length > 50) _v2OrgEventLog[n].shift();
         if (n === _v2SelOrg && _v2OrgTab === 'activity') v2RenderOrgActivity();
-        if (ev.type === 'org:start' || ev.type === 'org:stop' || ev.type === 'org:delete' || ev.type === 'org:create') {
+        // Update in-memory agent status so Live tab running-agents section reflects reality.
+        // org:agent:online → mark that agent running; org:complete/run:complete → reset all to idle.
+        if (n === _v2SelOrg && _v2OrgData && Array.isArray(_v2OrgData._agents)) {
+          if (ev.type === 'org:agent:online' && ev.role) {
+            const _liveAgent = _v2OrgData._agents.find(a => a.id === ev.role);
+            if (_liveAgent) { _liveAgent.status = 'running'; _liveAgent.title = _liveAgent.title || ev.title || ev.role; }
+            else _v2OrgData._agents.push({ id: ev.role, title: ev.title || ev.role, adapterType: ev.agent_type || null, status: 'running' });
+          } else if (ev.type === 'org:agent:offline' && ev.role) {
+            const _offAgent = _v2OrgData._agents.find(a => a.id === ev.role);
+            if (_offAgent) _offAgent.status = 'idle';
+          } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
+            _v2OrgData._agents.forEach(a => { a.status = 'idle'; });
+          }
+          if (_v2OrgTab === 'agents-full' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgAgentsFull();
+          else if (_v2OrgTab === 'live' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgLive();
+          else if (_v2OrgTab === 'heartbeats' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgHeartbeats();
+          else if (_v2OrgTab === 'members' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgMembers();
+          else if (_v2OrgTab === 'roles' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgRoles();
+          else if (_v2OrgTab === 'chart' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2UpdateChartRunningDots();
+          // Health tab: update KPI counters live from SSE events so agents_active and
+          // tasks_pending reflect current state without waiting for a run-event re-fetch.
+          if (_v2OrgTab === 'health' && _v2OrgData._health) {
+            if (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete') {
+              _v2OrgData._health.agents_active = _v2OrgData._agents.filter(a => a.status === 'running').length;
+              v2RenderOrgHealth();
+            }
+            if (ev.type === 'org:checkpoint' && ev.pending_tasks != null) {
+              _v2OrgData._health.tasks_pending = ev.pending_tasks;
+              v2RenderOrgHealth();
+            }
+            if (ev.type === 'run:cycle:complete' && ev.pending != null) {
+              _v2OrgData._health.tasks_pending = ev.pending;
+              v2RenderOrgHealth();
+            }
+          }
+        }
+        // Also push live org:comms / org:checkpoint events directly into the Live tab
+        // activity feed so they appear in real-time without waiting for the 5s poll.
+        if (n === _v2SelOrg && _v2OrgTab === 'live' && _v2OrgData) {
+          if (!Array.isArray(_v2OrgData._activity)) _v2OrgData._activity = [];
+          _v2OrgData._activity.push({ ...ev, _sseOnly: true });
+          v2RenderOrgLive();
+        }
+        // Pulse the org list dot on comms/checkpoint events so the user can see the org is active
+        // without switching to the activity tab
+        if (ev.type === 'org:comms' || ev.type === 'org:checkpoint') {
+          const _orgDot = document.querySelector(`.org-item[data-org="${CSS.escape(n)}"] .oi-dot`);
+          if (_orgDot) {
+            _orgDot.classList.add('running');
+            // Brief flash to indicate activity — class stays if org is running
+            setTimeout(() => {
+              const _listOrg = _v2Orgs.find(o => o.name === n) || {};
+              if (!_listOrg.running) _orgDot.classList.remove('running');
+            }, 2000);
+          }
+        }
+        if (ev.type === 'org:start' || ev.type === 'org:stop' || ev.type === 'org:delete' || ev.type === 'org:create' || ev.type === 'run:start' || ev.type === 'run:complete') {
           setTimeout(async () => {
             await renderOrgs();
             if (_v2SelOrg === n) {
@@ -7307,14 +8525,102 @@ function filterOrgList(q) {
                 const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
                 if (_v2OrgData) _v2OrgData.running = listOrg.running;
                 v2UpdateOrgHeader(listOrg, _v2OrgData);
-                if (_v2OrgTab === 'health') v2RenderOrgHealth();
+                if (_v2OrgTab === 'health') {
+                  // Re-fetch health after run events so stats (agents_active, success_rate, total_runs) are current
+                  const _hEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_hEnc}/health${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(h => { if (h && _v2OrgData && _v2SelOrg === n) { _v2OrgData._health = h; v2RenderOrgHealth(); } })
+                    .catch(() => { v2RenderOrgHealth(); });
+                }
+                if (_v2OrgTab === 'tasks') {
+                  // Re-fetch org data after run events so tasks (todo/doing/done) reflect current store state
+                  const _tEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_tEnc}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.tasks !== undefined) { _v2OrgData.tasks = d.tasks; v2RenderOrgTasks(); } })
+                    .catch(() => { v2RenderOrgTasks(); });
+                }
+                if (_v2OrgTab === 'budgets' || _v2OrgTab === 'costs') {
+                  // Re-fetch budgets after run events so token/cost counters stay current
+                  const _bEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_bEnc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(b => { if (b && _v2OrgData && _v2SelOrg === n) { _v2OrgData._budgets = b; _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); } })
+                    .catch(() => { _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); });
+                }
+                if (_v2OrgTab === 'board' || _v2OrgTab === 'issues-full') {
+                  // Re-fetch issues after run events so board/issues-full reflect current state
+                  const _iEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_iEnc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._issues = Array.isArray(d) ? d : (d?.issues || []); _v2OrgTab === 'board' ? v2RenderOrgBoard() : v2RenderOrgIssuesFull(); } })
+                    .catch(() => { _v2OrgTab === 'board' ? v2RenderOrgBoard() : v2RenderOrgIssuesFull(); });
+                }
+                if (_v2OrgTab === 'goals') {
+                  // Re-fetch org data after run events so goal progress (filled/total/status) reflects current state
+                  const _glEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_glEnc}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.goals !== undefined) { _v2OrgData.goals = d.goals; v2RenderOrgGoals(); } })
+                    .catch(() => { v2RenderOrgGoals(); });
+                }
+                if (_v2OrgTab === 'chat') {
+                  // Re-load chat run list after run events so cycleCount/eventCount in dropdown reflect disk state
+                  _odtLoadChatSessions().catch(() => {});
+                }
+                if (_v2OrgTab === 'agents-full' || _v2OrgTab === 'heartbeats') {
+                  // Re-fetch agents after run events to get fresh tokensIn/tokensOut/lastHeartbeat
+                  // Heartbeats tab derives from _v2OrgData._agents so shares this re-fetch.
+                  const _agEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_agEnc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._agents = Array.isArray(d) ? d : (d?.agents || []); _v2OrgTab === 'agents-full' ? v2RenderOrgAgentsFull() : v2RenderOrgHeartbeats(); } })
+                    .catch(() => { _v2OrgTab === 'agents-full' ? v2RenderOrgAgentsFull() : v2RenderOrgHeartbeats(); });
+                }
+                if (_v2OrgTab === 'myissues') {
+                  // Re-render myissues after run events — it fetches its own data on every render
+                  v2RenderOrgMyIssues();
+                }
+                if (_v2OrgTab === 'charts') {
+                  // Re-fetch activity after run events so the 14-day heatmap reflects the completed run
+                  const _chEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_chEnc}/activity${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : [])
+                    .then(d => { if (_v2OrgData && _v2SelOrg === n) { _v2OrgData._activity = Array.isArray(d) ? d : []; v2RenderOrgCharts(); } })
+                    .catch(() => { v2RenderOrgCharts(); });
+                }
               }
             }
           }, 400);
         }
+        // run:cycle:complete: lightweight re-fetch for budgets/costs/tasks without renderOrgs()
+        // — cycles fire frequently and only affect token counters and task state, not org-list status.
+        if (ev.type === 'run:cycle:complete' && _v2SelOrg === n && _v2OrgData) {
+          if (_v2OrgTab === 'budgets' || _v2OrgTab === 'costs') {
+            const _bcEnc = encodeURIComponent(_v2SelOrg);
+            fetch(`/api/org/${_bcEnc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(b => { if (b && _v2OrgData && _v2SelOrg === n) { _v2OrgData._budgets = b; _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); } })
+              .catch(() => { _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); });
+          }
+          if (_v2OrgTab === 'tasks') {
+            const _tcEnc = encodeURIComponent(_v2SelOrg);
+            fetch(`/api/org/${_tcEnc}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.tasks !== undefined) { _v2OrgData.tasks = d.tasks; v2RenderOrgTasks(); } })
+              .catch(() => { v2RenderOrgTasks(); });
+          }
+        }
       } catch(_) {}
     };
-    src.onerror = () => setTimeout(connect, 5000);
+    src.onerror = () => {
+      // Close immediately to stop browser's built-in auto-retry (zombie window).
+      // Guard reconnectTimer so multiple onerror firings don't stack timers that
+      // would then cancel each other's freshly-created connections.
+      const _s = src; src = null; if (_s) _s.close();
+      if (!reconnectTimer) reconnectTimer = setTimeout(connect, 5000);
+    };
   }
   connect();
 })();
@@ -10331,8 +11637,8 @@ function selectMem(filename) {
   const actions = (f.readonly || f.source === 'backend')
     ? '<div class="mem-actions"><span style="font-size:11px;color:var(--text-lo)">Read-only — stored in the backend memory store (not a file)</span></div>'
     : '<div class="mem-actions">' +
-        '<button class="btn" onclick="openEditMemModal(' + JSON.stringify(filename) + ')">&#x270E; Edit</button>' +
-        '<button class="btn" style="color:var(--red);border-color:var(--red)" onclick="deleteMem(' + JSON.stringify(filename) + ')">&#x2715; Delete</button>' +
+        '<button class="btn" data-fn="' + esc(filename) + '" onclick="openEditMemModal(this.dataset.fn)">&#x270E; Edit</button>' +
+        '<button class="btn" style="color:var(--red);border-color:var(--red)" data-fn="' + esc(filename) + '" onclick="deleteMem(this.dataset.fn)">&#x2715; Delete</button>' +
       '</div>';
   detail.innerHTML =
     '<span class="mem-badge" style="background:' + col + '22;color:' + col + '">' + esc(f.type || '?') + '</span>' + srcBadge +
@@ -10886,7 +12192,7 @@ function mmRenderOrgs(body) {
   if (!orgs.length) { body.innerHTML = '<div class="empty">No orgs found. Run /mastermind:createorg to create one.</div>'; return; }
   body.innerHTML = orgs.map(o => {
     const running = o.running;
-    return `<div class="mm-skill-item" onclick="closeMastermind();v2SelectOrg(${JSON.stringify(o.name)});switchView('orgs')">
+    return `<div class="mm-skill-item" data-org="${esc(o.name)}" onclick="closeMastermind();v2SelectOrg(this.dataset.org);switchView('orgs')">
       <span class="mm-skill-name">${esc(o.name)}</span>
       <span class="mm-skill-desc">${esc((o.goal || '').slice(0, 60))} ${running ? '⬤ LIVE' : ''}</span>
     </div>`;
@@ -10898,7 +12204,7 @@ function mmRenderSkills(body) {
   const q = _mmSkillFilter.toLowerCase();
   const filtered = q ? _MM_SKILLS_CATALOG.filter(s => s.name.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q)) : _MM_SKILLS_CATALOG;
   body.innerHTML = `<div class="filter-bar" style="margin-bottom:12px"><input class="filter-input" type="text" placeholder="Search skills…" value="${esc(_mmSkillFilter)}" oninput="_mmSkillFilter=this.value;mmRenderSkills(document.getElementById('mm-body'))"></div>` +
-    filtered.map(s => `<div class="mm-skill-item" onclick="navigator.clipboard.writeText(${JSON.stringify(s.name)}).then(()=>showToast('Copied',${JSON.stringify(s.name)},'ok'))">
+    filtered.map(s => `<div class="mm-skill-item" data-sn="${esc(s.name)}" onclick="navigator.clipboard.writeText(this.dataset.sn).then(()=>showToast('Copied',this.dataset.sn,'ok'))">
       <span class="mm-skill-name">${esc(s.name)}</span>
       <span class="mm-skill-desc">${esc(s.desc)}</span>
     </div>`).join('');
@@ -10913,7 +12219,7 @@ async function mmRenderLoops(body) {
     body.innerHTML = loops.map(l => {
       const maxReps = l.maxReps || 0;
       const curRep = l.currentRep || 0;
-      const isTillend = !maxReps || l.loopType === 'tillend' || String(l.command || '').includes('--tillend');
+      const isTillend = !maxReps || l.type === 'tillend' || String(l.command || '').includes('--tillend');
       const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
       const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
       const isOverdue = !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
@@ -10931,7 +12237,7 @@ async function mmRenderLoops(body) {
           <span style="font-size:13px;color:var(--text-hi);flex:1">${esc(name)}</span>
           ${isHil ? '<span style="color:oklch(78% 0.18 80);font-size:10px">⚠ HIL</span>' : ''}
           <span class="ss-pill ${running ? 'on' : ''}">${running ? 'active' : isFinished ? 'done' : 'stopped'}</span>
-          ${(running || isHil) ? `<button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red)" onclick="stopLoop(event,${JSON.stringify(l.id||l.name||'')});mmSwitchTab('loops')">■ Stop</button>` : ''}
+          ${(running || isHil) ? `<button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red)" data-lid="${esc(l.id||l.name||'')}" onclick="stopLoop(event,this.dataset.lid);mmSwitchTab('loops')">■ Stop</button>` : ''}
         </div>
         <div style="font-size:11px;color:var(--text-lo);margin-top:4px;font-family:var(--mono)">${esc(fmtInterval(l.interval||l.schedule||''))} ${cdown ? '· ' + cdown : ''} ${curRep != null ? '· run ' + curRep + (isTillend ? '/∞' : maxReps ? '/'+maxReps : '') : ''}</div>
       </div>`;

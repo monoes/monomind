@@ -1,7 +1,8 @@
 'use strict';
 /**
  * Session state management for hook-handler.cjs
- * Persists session data to .monomind/sessions/current.json
+ * Persists session data to .git/monomind/sessions/current.json (branch-agnostic,
+ * shared across git worktrees). Falls back to .monomind/sessions/ if not in a git repo.
  *
  * API: start(), restore(), end(), status(), metric(key), update(patch)
  */
@@ -10,7 +11,24 @@ const path = require('path');
 const fs = require('fs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-const SESSIONS_DIR = path.join(CWD, '.monomind', 'sessions');
+
+function getMonoDir(workDir) {
+  try {
+    const gitEntry = path.join(workDir, '.git');
+    const st = fs.statSync(gitEntry);
+    if (st.isDirectory()) return path.join(gitEntry, 'monomind');
+    if (st.isFile()) {
+      const m = fs.readFileSync(gitEntry, 'utf8').match(/^gitdir:\s*(.+)/m);
+      if (m) {
+        const worktreeDir = path.resolve(workDir, m[1].trim());
+        return path.join(path.dirname(path.dirname(worktreeDir)), 'monomind');
+      }
+    }
+  } catch {}
+  return path.join(workDir, '.monomind');
+}
+
+const SESSIONS_DIR = path.join(getMonoDir(CWD), 'sessions');
 const CURRENT_FILE = path.join(SESSIONS_DIR, 'current.json');
 
 var KNOWN_METRICS = new Set(['edits', 'commands', 'tasks', 'errors']);

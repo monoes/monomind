@@ -23,6 +23,7 @@ export interface MCPToolResult {
  * where process.cwd() may resolve to '/') over the real process.cwd().
  */
 export declare function getProjectCwd(): string;
+export declare function getMonomindDataRoot(cwd?: string): string;
 export interface MCPTool {
     name: string;
     description: string;
