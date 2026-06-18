@@ -6890,7 +6890,7 @@ async function v2RenderOrgChat() {
               `<span class="cv-shdr-id" title="${esc(_odtChatCurrentId)}">${esc(_odtChatCurrentId.slice(0,22))}</span>`+
               `<span class="cv-shdr-sep">·</span><span style="${_cStCls}">${esc(_cSt)}</span>`+
               `<span class="cv-shdr-sep">·</span><span>${esc(_cTsStr)}</span>`+
-              `<span class="cv-shdr-sep">·</span><span>${(_catchSess.events||[]).length} events</span>`+
+              `<span class="cv-shdr-sep">·</span><span class="cv-shdr-evcount">${(_catchSess.events||[]).length} events</span>`+
             `</div>`;
           _catchFeed.appendChild(_cHdr);
         }
@@ -7191,7 +7191,7 @@ window.odtChatSelectSession = async function(id) {
         `<span class="cv-shdr-sep">·</span>`+
         `<span>${esc(_shdrTsStr)}</span>`+
         `<span class="cv-shdr-sep">·</span>`+
-        `<span>${(sess.events || []).length} events</span>`+
+        `<span class="cv-shdr-evcount">${(sess.events || []).length} events</span>`+
       `</div>`;
     feed.appendChild(_shdr);
     // Populate excerpt banner to show last activity for historical sessions
@@ -7481,6 +7481,9 @@ function _odtHandleLiveEvent(ev) {
         // Previously org run SSE events never called renderCvExcerptBanner, so the
         // "LAST ACTIVITY" banner stayed permanently blank during live runs.
         renderCvExcerptBanner('odt-chat-excerpt', runSess.events, runSess);
+        // Keep event count in session header current (frozen at load time otherwise)
+        const _rEvCnt = document.querySelector('#odt-chat-feed .cv-session-hdr .cv-shdr-evcount');
+        if (_rEvCnt) _rEvCnt.textContent = runSess.events.length + ' events';
       }
     }
     return;
@@ -7519,6 +7522,9 @@ function _odtHandleLiveEvent(ev) {
       if (hasNewAgent) _odtPopulateAgentBar(sess.events, Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
       if (!sess._isJsonl) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess);
       _odtAppendEvent(ev, true);
+      // Keep event count in session header current (frozen at load time otherwise)
+      const _sEvCnt = document.querySelector('#odt-chat-feed .cv-session-hdr .cv-shdr-evcount');
+      if (_sEvCnt) _sEvCnt.textContent = sess.events.length + ' events';
     }
   }
 }
