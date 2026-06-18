@@ -3519,9 +3519,22 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const routinesData = readJsonSafe(path.join(orgsDir, `${orgName}-routines.json`)) || { routines: [] };
         const approvalsData = readJsonSafe(path.join(orgsDir, `${orgName}-approvals.json`)) || { approvals: [] };
 
-        // Check running status: stop file absence AND (in-memory activeOrgRuns OR state-file agents)
+        // Check running status: stop file absence AND (in-memory activeOrgRuns OR state-file agents OR active loop file)
         const stopFile = path.join(orgsDir, '.stops', `${orgName}.stop`);
-        const running = !fs.existsSync(stopFile) && (activeOrgRuns.has(orgName) || Object.values(state.agents || {}).some(a => a.status === 'running'));
+        const _loopsDir = path.join(d, '.monomind', 'loops');
+        const _loopRunning = (() => {
+          try {
+            if (!fs.existsSync(_loopsDir)) return false;
+            return fs.readdirSync(_loopsDir).some(f => {
+              if (!f.endsWith('.json') || f.endsWith('.stop')) return false;
+              try {
+                const lp = JSON.parse(fs.readFileSync(path.join(_loopsDir, f), 'utf8'));
+                return lp.status === 'running' && lp.command && lp.command.includes('runorg') && (lp.prompt || '').includes(orgName);
+              } catch { return false; }
+            });
+          } catch { return false; }
+        })();
+        const running = !fs.existsSync(stopFile) && (activeOrgRuns.has(orgName) || Object.values(state.agents || {}).some(a => a.status === 'running') || _loopRunning);
 
         // Read real tasks from the task store and group by status column
         const taskStoreData = readJsonSafe(path.join(d, '.monomind', 'tasks', 'store.json'));

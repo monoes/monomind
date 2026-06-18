@@ -7291,7 +7291,7 @@ function _odtPopulateChatSel() {
   });
 
   // Render [S] groups (collapsed loop reps)
-  groups.forEach(g => {
+  sessGroups.forEach(g => {
     const d = new Date(g.ts || 0);
     const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
