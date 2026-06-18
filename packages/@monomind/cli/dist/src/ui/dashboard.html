@@ -8048,11 +8048,21 @@ function filterOrgList(q) {
           else if (_v2OrgTab === 'members' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgMembers();
           else if (_v2OrgTab === 'roles' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgRoles();
           else if (_v2OrgTab === 'chart' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2UpdateChartRunningDots();
-          // Health tab: update agents_active counter live from in-memory agent state so
-          // the "Agents" KPI cell reflects current running count without waiting for re-fetch.
-          if (_v2OrgTab === 'health' && _v2OrgData._health && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) {
-            _v2OrgData._health.agents_active = _v2OrgData._agents.filter(a => a.status === 'running').length;
-            v2RenderOrgHealth();
+          // Health tab: update KPI counters live from SSE events so agents_active and
+          // tasks_pending reflect current state without waiting for a run-event re-fetch.
+          if (_v2OrgTab === 'health' && _v2OrgData._health) {
+            if (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete') {
+              _v2OrgData._health.agents_active = _v2OrgData._agents.filter(a => a.status === 'running').length;
+              v2RenderOrgHealth();
+            }
+            if (ev.type === 'org:checkpoint' && ev.pending_tasks != null) {
+              _v2OrgData._health.tasks_pending = ev.pending_tasks;
+              v2RenderOrgHealth();
+            }
+            if (ev.type === 'run:cycle:complete' && ev.pending != null) {
+              _v2OrgData._health.tasks_pending = ev.pending;
+              v2RenderOrgHealth();
+            }
           }
         }
         // Also push live org:comms / org:checkpoint events directly into the Live tab
