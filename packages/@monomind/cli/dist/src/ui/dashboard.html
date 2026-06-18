@@ -6069,13 +6069,16 @@ function v2RenderMarkdown(md) {
 // ── org activity ────────────────────────────
 function fmtOrgEvDetail(ev) {
   if (ev.type === 'org:comms' && (ev.from || ev.role || ev.to || ev.msg)) {
-    // Normalize old-format events (ev.role as sender) alongside new-format (ev.from)
     const sender = ev.from || ev.role || '';
     const route = [sender, ev.to].filter(Boolean).join(' → ');
     return route ? route + (ev.msg ? ': ' + ev.msg : '') : ev.msg || '';
   }
   if (ev.type === 'org:checkpoint') return ev.summary || ev.progress || '';
-  return ev.role||ev.msg||ev.progress||ev.agent||ev.status||'';
+  if (ev.type === 'agent:result') return (ev.agent || ev.from || '') + (ev.result || ev.msg || ev.message || ev.summary ? ': ' + (ev.result || ev.msg || ev.message || ev.summary) : '');
+  if (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline') return ev.agent || ev.id || ev.from || '';
+  if (ev.type === 'org:error') return ev.error || ev.msg || ev.message || '';
+  if (ev.type === 'file:write') return ev.path || ev.file || ev.msg || '';
+  return ev.role||ev.result||ev.msg||ev.message||ev.progress||ev.agent||ev.status||'';
 }
 
 function v2RenderOrgActivity() {
@@ -6084,7 +6087,7 @@ function v2RenderOrgActivity() {
   const orgEvents = _v2OrgEventLog[_v2SelOrg] || [];
   const _actSeen = new Set();
   const events = [...activity, ...orgEvents]
-    .filter(e => { const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')+'|'+(e.from||e.role||'')+'|'+(e.msg||'').slice(0,20); return _actSeen.has(k)?false:(_actSeen.add(k),true); })
+    .filter(e => { const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')+'|'+(e.from||e.role||e.agent||'')+'|'+(e.result||e.msg||e.message||e.summary||'').slice(0,20); return _actSeen.has(k)?false:(_actSeen.add(k),true); })
     .sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
   const pane = document.getElementById('odt-activity');
   if (!pane) return;
@@ -6317,7 +6320,7 @@ function v2RenderOrgLive() {
   </div>
   <div class="m-group-title" style="margin-bottom:6px">Activity Feed</div>
   <div style="max-height:240px;overflow-y:auto;font-size:11px;font-family:var(--mono)">
-    ${(()=>{const _la=_v2OrgData._activity||[];const _ls=_v2OrgEventLog[_v2SelOrg]||[];const _lseen=new Set();const _lmerged=[..._la,..._ls].filter(e=>{const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')+'|'+(e.from||e.role||'')+'|'+(e.msg||'').slice(0,20);return _lseen.has(k)?false:(_lseen.add(k),true);}).sort((a,b)=>(a.ts||0)-(b.ts||0));return _lmerged.slice(-30).reverse().map(e=>`<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">${esc(relTime(e.ts||e.timestamp||e.created_at))}<span style="color:var(--text-mid);margin-left:6px">${esc(e.type||e.kind||e.event||'—')}</span>${fmtOrgEvDetail(e)?`<span style="color:var(--text-hi);margin-left:6px">${esc(fmtOrgEvDetail(e).slice(0,80))}</span>`:''}</div>`).join('');})()}
+    ${(()=>{const _la=_v2OrgData._activity||[];const _ls=_v2OrgEventLog[_v2SelOrg]||[];const _lseen=new Set();const _lmerged=[..._la,..._ls].filter(e=>{const k=(e.ts||'')+'|'+(e.type||'')+'|'+(e.runId||e.session||'')+'|'+(e.from||e.role||e.agent||'')+'|'+(e.result||e.msg||e.message||e.summary||'').slice(0,20);return _lseen.has(k)?false:(_lseen.add(k),true);}).sort((a,b)=>(a.ts||0)-(b.ts||0));return _lmerged.slice(-30).reverse().map(e=>`<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">${esc(relTime(e.ts||e.timestamp||e.created_at))}<span style="color:var(--text-mid);margin-left:6px">${esc(e.type||e.kind||e.event||'—')}</span>${fmtOrgEvDetail(e)?`<span style="color:var(--text-hi);margin-left:6px">${esc(fmtOrgEvDetail(e).slice(0,80))}</span>`:''}</div>`).join('');})()}
   </div>`;
   // auto-refresh every 5s while tab is active
   if (!_orgLiveInterval) {
