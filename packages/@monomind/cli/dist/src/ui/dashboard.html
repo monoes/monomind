@@ -6838,6 +6838,11 @@ async function v2RenderOrgChat() {
       if ((_catchSess.events || []).length) {
         renderCvExcerptBanner('odt-chat-excerpt', _catchSess.events, _catchSess);
       }
+    } else if (_catchSess && _catchSess._isOrgRun && !_catchSess._eventsLoaded) {
+      // Session selected but events not yet loaded (object reference may have been replaced by
+      // _odtLoadChatSessions while lazy-load was in-flight). Retrigger select to lazy-load events
+      // so returning to Chat tab never shows a permanently empty feed.
+      odtChatSelectSession(_odtChatCurrentId);
     }
   }
   _odtConnectChatSSE();
@@ -7019,6 +7024,9 @@ window.odtChatSelectSession = async function(id) {
       sess._eventsLoaded = true;
     }
     sess._loading = false;
+    // Sync back — _odtLoadChatSessions may have replaced the object reference during the await
+    const _fbLive = _odtChatSessions.find(s => s.id === id);
+    if (_fbLive && _fbLive !== sess) { _fbLive._eventsLoaded = true; _fbLive._loading = false; _fbLive.events = sess.events; }
     _fbLoader.remove();
     if (_odtChatCurrentId !== id) return;
   }
@@ -7049,6 +7057,9 @@ window.odtChatSelectSession = async function(id) {
       sess._eventsLoaded = true;
     }
     sess._loading = false;
+    // Sync back — _odtLoadChatSessions may have replaced the object reference during the await
+    const _runLive = _odtChatSessions.find(s => s.id === id);
+    if (_runLive && _runLive !== sess) { _runLive._eventsLoaded = true; _runLive._loading = false; _runLive.events = sess.events; }
     loadingEl.remove();
     if (_odtChatCurrentId !== id) return; // user switched sessions during fetch
   }
