@@ -8128,6 +8128,18 @@ function filterOrgList(q) {
                   // Re-load chat run list after run events so cycleCount/eventCount in dropdown reflect disk state
                   _odtLoadChatSessions().catch(() => {});
                 }
+                if (_v2OrgTab === 'agents-full') {
+                  // Re-fetch agents after run events to get fresh tokensIn/tokensOut/lastHeartbeat
+                  const _agEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_agEnc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._agents = Array.isArray(d) ? d : (d?.agents || []); v2RenderOrgAgentsFull(); } })
+                    .catch(() => { v2RenderOrgAgentsFull(); });
+                }
+                if (_v2OrgTab === 'myissues') {
+                  // Re-render myissues after run events — it fetches its own data on every render
+                  v2RenderOrgMyIssues();
+                }
               }
             }
           }, 400);
