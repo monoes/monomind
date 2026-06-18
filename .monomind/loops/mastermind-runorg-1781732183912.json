@@ -12,5 +12,6 @@
   "lastRunAt": 1781759940935,
   "nextRunAt": 1781760000935,
   "status": "paused",
-  "source": "_repeat.md"
+  "source": "_repeat.md",
+  "orgName": "monomind-devbot"
 }
