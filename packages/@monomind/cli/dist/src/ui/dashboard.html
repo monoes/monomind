@@ -4156,6 +4156,13 @@ function appendChatViewEvent(ev, animate) {
   } else if (ev.type === 'loop:hil:resolved') {
     el = mkCVSys('✓ Loop HIL resolved: ' + esc(ev.loopId || ev.command || ''), ts);
     if (currentView === 'loops') renderLoops();
+  } else if (ev.type === 'file:write') {
+    el = mkCVFileCard(ev.name || ev.path || '?', ev.path || '', ev.size || 0, ts);
+  } else if (ev.type === 'org:agent:offline') {
+    el = mkCVSys('◌ ' + esc(ev.title || ev.role || '?') + ' offline' + (ev.org ? ' [' + esc(ev.org) + ']' : ''), ts);
+  } else if (ev.type === 'org:error') {
+    el = mkCVSys('⚠ Error: ' + esc(ev.msg || ev.error || ev.message || ''), ts);
+    el.classList.add('cv-err');
   } else {
     el = mkCVSys(esc(ev.type || 'event'), ts);
   }
@@ -4319,7 +4326,7 @@ function connectChatViewSSE() {
 function handleChatViewEvent(ev) {
   if (!ev) return;
   // Deduplicate SSE reconnect replays (server replays last 50 events on every reconnect)
-  const dedupKey = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.from||ev.role||'') + '|' + (ev.session||ev.runId||'') + '|' + (ev.msg||'').slice(0,20);
+  const dedupKey = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.from||ev.role||ev.agent||'') + '|' + (ev.session||ev.runId||'') + '|' + (ev.result||ev.msg||ev.message||ev.summary||'').slice(0,20);
   if (chatVSeenKeys.has(dedupKey)) return;
   chatVSeenKeys.add(dedupKey);
   if (chatVSeenKeys.size > 2000) { const _a = [...chatVSeenKeys]; chatVSeenKeys = new Set(_a.slice(1000)); }
