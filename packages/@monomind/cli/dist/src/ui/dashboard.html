@@ -7023,7 +7023,14 @@ window.odtChatSelectSession = async function(id) {
     if (ex && (sess.events || []).length > 0) renderCvExcerptBanner('odt-chat-excerpt', sess.events, sess);
     else if (ex) ex.innerHTML = '';
   }
-  (sess.events || []).forEach(ev => _odtAppendEvent(ev, false));
+  (sess.events || []).forEach(ev => {
+    _odtAppendEvent(ev, false);
+    // Pre-seed dedup set so SSE reconnect replays of these historical events are swallowed
+    // rather than appended again. Without this, a reconnect replays ~50 events from the server
+    // and they all pass _odtChatSeenKeys (which only tracks events that arrived via SSE).
+    const _hk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||'')+'|'+(ev?.msg||'').slice(0,20);
+    _odtChatSeenKeys.add(_hk);
+  });
   // For [S] sessions (mastermind wrappers that triggered an org run), show a link card to the
   // corresponding [R] run so users can navigate there directly. The runId is always
   // "run-" + same timestamp suffix as the session ID (e.g. mm-20260617T235959 → run-20260617T235959).
