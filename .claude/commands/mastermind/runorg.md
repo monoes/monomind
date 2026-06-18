@@ -112,3 +112,20 @@ Follow _protocol.md Brain Write Procedure for domain `ops`.
 
 
 Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+
+After the REPEAT POSTAMBLE completes, if a loop was started or continued (LOOP_ID is set), write the org name into the loop state file so the dashboard can detect running status:
+```bash
+if [ -n "${LOOP_ID:-}" ]; then
+  LOOP_FILE=".monomind/loops/${LOOP_ID}.json"
+  if [ -f "$LOOP_FILE" ]; then
+    python3 -c "
+import json, sys
+f = sys.argv[1]; org = sys.argv[2]
+d = json.load(open(f))
+if 'orgName' not in d:
+    d['orgName'] = org
+    open(f, 'w').write(json.dumps(d, indent=2))
+" "$LOOP_FILE" "${org_name}" 2>/dev/null || true
+  fi
+fi
+```
