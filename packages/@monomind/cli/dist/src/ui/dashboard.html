@@ -6904,6 +6904,9 @@ let _odtChatForOrg = '';
 // Loop grouping: [S] sessions with same prompt + <20 min gap → one entry
 let _odtSessionGroups = {};    // groupId → {sessions, events, status, ts, _isGroup}
 let _odtSessionGroupMap = {};  // sessionId → groupId
+// Run grouping: [R] runs with same goal (or no goal) + <30 min gap → one entry
+let _odtRunGroups = {};        // groupId → {runs, status, ts, _isRunGroup}
+let _odtRunGroupMap = {};      // runId → groupId
 
 function _odtOrgSessionMatch(s) {
   if (!_v2SelOrg) return true;
@@ -7156,6 +7159,52 @@ async function _odtLoadChatSessions() {
   } catch(_) {}
 }
 
+function _odtRebuildRunGroups() {
+  // Group consecutive [R] runs within 30 min with the same goal (or both without a goal).
+  const _ODT_RUN_GAP = 30 * 60 * 1000;
+  const _norm = p => (p || '').toLowerCase().trim().slice(0, 40);
+  _odtRunGroups = {};
+  _odtRunGroupMap = {};
+  const runs = _odtChatSessions.filter(s => s._isOrgRun)
+    .slice().sort((a, b) => (a.ts||a.startedAt||0) - (b.ts||b.startedAt||0));
+  const groups = [];
+  runs.forEach(s => {
+    // No-goal runs (prompt === id) get key '' — group all consecutive ones
+    const key = (s.prompt && s.prompt !== s.id) ? _norm(s.prompt) : '';
+    const sAt = s.ts || s.startedAt || 0;
+    const last = groups[groups.length - 1];
+    if (last && last._normKey === key && (sAt - last._newestAt) < _ODT_RUN_GAP) {
+      last.runs.push(s);
+      last._newestAt = sAt;
+      if (s.status === 'running') last.status = 'running';
+      else if (s.status === 'stale' && last.status !== 'running' && last.status !== 'complete') last.status = 'stale';
+      else if (s.status === 'complete' && last.status !== 'running') last.status = 'complete';
+    } else {
+      groups.push({ id: s.id, runs: [s], _normKey: key, _newestAt: sAt,
+        status: s.status || 'complete', prompt: s.prompt, ts: sAt, _isRunGroup: false });
+    }
+  });
+  groups.forEach(g => {
+    if (g.runs.length > 1) {
+      g._isRunGroup = true;
+      g.id = 'rgrp:' + g.runs[0].id;
+      g.ts = g._newestAt;
+      // Use the most informative goal among sub-runs
+      const withGoal = g.runs.find(r => r.prompt && r.prompt !== r.id);
+      if (withGoal) g.prompt = withGoal.prompt;
+    }
+    _odtRunGroups[g.id] = g;
+    g.runs.forEach(r => { _odtRunGroupMap[r.id] = g.id; });
+  });
+}
+
+function _odtGetMergedRunGroupEvents(group) {
+  const all = [];
+  (group.runs || []).forEach(r => (r.events || []).forEach(ev => all.push(ev)));
+  all.sort((a, b) => (a.ts||0) - (b.ts||0));
+  return all;
+}
+
 function _odtRebuildSessionGroups() {
   // Group [S] sessions (loop reps) that share same prompt + gap <20 min into one entry.
   // [R] runs are never grouped — each is its own run.
@@ -7206,30 +7255,34 @@ function _odtPopulateChatSel() {
   const sel = document.getElementById('odt-chat-sel');
   if (!sel) return;
   if (document.activeElement === sel) return;
-  // Rebuild groups from current sessions
+  // Rebuild groups from current sessions + runs
   _odtRebuildSessionGroups();
+  _odtRebuildRunGroups();
   const prev = _odtChatCurrentId || sel.value;
-  const runs = _odtChatSessions.filter(s => s._isOrgRun);
-  const groups = Object.values(_odtSessionGroups).sort((a, b) => b.ts - a.ts);
-  const totalEntries = runs.length + groups.length;
-  const hasRuns = runs.length > 0;
-  const hasSess = groups.length > 0;
-  const entryLabel = (hasRuns && hasSess) ? 'entries' : hasRuns ? 'run' + (runs.length !== 1 ? 's' : '') : 'loop' + (groups.length !== 1 ? 's' : '');
+  const runGroups = Object.values(_odtRunGroups).sort((a, b) => b.ts - a.ts);
+  const sessGroups = Object.values(_odtSessionGroups).sort((a, b) => b.ts - a.ts);
+  const totalEntries = runGroups.length + sessGroups.length;
+  const hasRuns = runGroups.length > 0;
+  const hasSess = sessGroups.length > 0;
+  const entryLabel = (hasRuns && hasSess) ? 'entries' : hasRuns ? 'run' + (runGroups.length !== 1 ? 's' : '') : 'loop' + (sessGroups.length !== 1 ? 's' : '');
   sel.innerHTML = `<option value="">${totalEntries ? `— ${totalEntries} ${entryLabel} for ${_v2SelOrg} —` : '— no runs yet —'}</option>`;
 
-  // Render [R] runs (individual, unchanged)
-  runs.forEach(s => {
-    const d = new Date(s.ts || s.startedAt || 0);
+  // Render [R] run groups
+  runGroups.forEach(g => {
+    const d = new Date(g.ts || 0);
     const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
-    const _rawPrompt = (s.prompt || '').replace(/^running org:\s*/i, '');
-    const prompt = _rawPrompt.slice(0, 38) || '(run)';
-    const meta = s._runMeta;
-    const extra = meta ? ` · ${meta.cycleCount||0}cyc · ${meta.eventCount||0}ev` : (Array.isArray(s.events) && s.events.length > 0 ? ` · ${s.events.length}ev` : '');
+    const _rawPrompt = (g.prompt || '').replace(/^running org:\s*/i, '').trim();
+    const prompt = (_rawPrompt && _rawPrompt !== g.runs[0]?.id) ? _rawPrompt.slice(0, 30) : '(auto-run)';
+    const runsPart = g._isRunGroup ? ` · ${g.runs.length} runs` : '';
+    // Total event count from run metadata
+    const totalEvs = g.runs.reduce((sum, r) => sum + ((r._runMeta?.eventCount || 0) || (r.events || []).length), 0);
+    const totalCyc = g.runs.reduce((sum, r) => sum + (r._runMeta?.cycleCount || 0), 0);
+    const evPart = totalEvs > 0 ? ` · ${totalCyc}cyc · ${totalEvs}ev` : '';
     const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = `[R] ${date} ${ts}  ${prompt}${_rawPrompt.length>38?'…':''}${extra}  [${s.status||'?'}]`;
-    if (s.id === prev || _odtSessionGroupMap[prev] === s.id) opt.selected = s.id === prev;
+    opt.value = g.id;
+    opt.textContent = `[R] ${date} ${ts}  ${prompt}${_rawPrompt.length>30?'…':''}${runsPart}${evPart}  [${g.status||'?'}]`;
+    if (g.id === prev || g.runs.some(r => r.id === prev)) opt.selected = true;
     sel.appendChild(opt);
   });
 
@@ -7255,9 +7308,9 @@ function _odtPopulateChatSel() {
   if (_lblEl) _lblEl.textContent = (hasRuns && hasSess) ? 'HISTORY' : hasRuns ? 'RUN' : 'SESSION';
   // Auto-select running entry
   if (!_odtChatCurrentId) {
-    const runningGroup = groups.find(g => g.status === 'running');
-    const runningRun = runs.find(s => s.status === 'running');
-    const first = runningGroup || runningRun || groups[0] || runs[0];
+    const runningRunGrp = runGroups.find(g => g.status === 'running');
+    const runningSessGrp = sessGroups.find(g => g.status === 'running');
+    const first = runningRunGrp || runningSessGrp || runGroups[0] || sessGroups[0];
     if (first) { sel.value = first.id; odtChatSelectSession(first.id); }
   }
 }
@@ -7272,6 +7325,61 @@ window.odtChatSelectSession = async function(id) {
   if (!id) {
     if (emptyEl) emptyEl.style.display = 'block';
     if (bar) bar.style.display = 'none';
+    return;
+  }
+
+  // ── Run group path: render merged events from all runs in the group ──
+  if (id.startsWith('rgrp:') && _odtRunGroups[id]) {
+    const rgrp = _odtRunGroups[id];
+    if (emptyEl) emptyEl.style.display = 'none';
+    // Lazy-load each sub-run's events that haven't been loaded yet
+    for (const r of rgrp.runs) {
+      if (!r._eventsLoaded && !r._loading) {
+        const _ldr = Object.assign(document.createElement('div'), { id: 'odt-chat-loading', style: 'text-align:center;padding:24px 0;font-size:11px;opacity:0.5;color:var(--text-mid)' });
+        _ldr.textContent = `Loading ${rgrp.runs.length} runs…`;
+        if (feed) feed.appendChild(_ldr);
+        r._loading = true;
+        try {
+          const _dp = (typeof DIR !== 'undefined' && DIR) ? '?dir='+encodeURIComponent(DIR) : '';
+          const evs = await apiFetch('/api/org/'+encodeURIComponent(_v2SelOrg)+'/runs/'+encodeURIComponent(r.id)+_dp);
+          r.events = Array.isArray(evs) ? evs : (r.events || []);
+          r._eventsLoaded = true;
+        } catch(_) { r._eventsLoaded = true; }
+        r._loading = false;
+        _ldr.remove();
+        if (_odtChatCurrentId !== id) return;
+      }
+    }
+    // Re-render from scratch (all runs now loaded)
+    feed.querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
+    const mergedEvs = _odtGetMergedRunGroupEvents(rgrp);
+    const _rgrpLabel = (rgrp.prompt && rgrp.prompt !== rgrp.runs[0]?.id)
+      ? (rgrp.prompt || '').replace(/^running org:\s*/i, '').trim().slice(0, 80)
+      : '(auto-run)';
+    const _rgrpTs = rgrp.ts || 0;
+    const _rgrpTsStr = _rgrpTs ? new Date(_rgrpTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    const _rShdr = document.createElement('div');
+    _rShdr.className = 'cv-session-hdr';
+    _rShdr.innerHTML = `<div class="cv-shdr-prompt">${esc(_rgrpLabel)}</div>`+
+      `<div class="cv-shdr-meta">`+
+        `<span class="cv-shdr-id">${rgrp.runs.length} run${rgrp.runs.length!==1?'s':''}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span>${esc(_rgrpTsStr)}</span>`+
+        `<span class="cv-shdr-sep">·</span>`+
+        `<span class="cv-shdr-evcount">${mergedEvs.length} events</span>`+
+      `</div>`;
+    feed.appendChild(_rShdr);
+    const orgRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+    _odtPopulateAgentBar(mergedEvs, orgRoles);
+    mergedEvs.forEach(ev => {
+      _odtAppendEvent(ev, false);
+      const _hk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.runId||ev?.session||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
+      _odtChatSeenKeys.add(_hk);
+    });
+    const ex = document.getElementById('odt-chat-excerpt');
+    if (ex && mergedEvs.length) renderCvExcerptBanner('odt-chat-excerpt', mergedEvs, rgrp);
+    if (!feed.querySelector('.cv-msg') && emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'No events yet.'; }
+    feed.scrollTop = feed.scrollHeight;
     return;
   }
 
@@ -7674,11 +7782,16 @@ function _odtHandleLiveEvent(ev) {
       // Always update the dropdown so the run is selectable even when opened mid-run
       _odtPopulateChatSel();
       if (ev.type === 'run:start') {
-        // Always auto-switch to the new run regardless of active tab.
-        // The feed is in the DOM even when hidden; odtChatSelectSession pre-loads events
-        // so the catch-up re-render in v2RenderOrgChat can display them on tab return.
-        const _rsSel = document.getElementById('odt-chat-sel');
-        if (_rsSel) { _rsSel.value = ev.runId; odtChatSelectSession(ev.runId); }
+        // After _odtPopulateChatSel above rebuilt groups, check if the new run joined
+        // the currently-selected group. If so, keep the group selected. Otherwise switch.
+        const _newGrpId = _odtRunGroupMap[ev.runId];
+        const _alreadySelected = _newGrpId && _odtChatCurrentId === _newGrpId;
+        if (!_alreadySelected) {
+          const _rsSel = document.getElementById('odt-chat-sel');
+          // Switch to the run's group if it has one, otherwise to the individual run
+          const _switchId = _newGrpId || ev.runId;
+          if (_rsSel) { _rsSel.value = _switchId; odtChatSelectSession(_switchId); }
+        }
       }
     } else if (runSess) {
       (runSess.events = runSess.events || []).push(ev);
@@ -7690,20 +7803,22 @@ function _odtHandleLiveEvent(ev) {
         _odtPopulateChatSel();
       }
       if (ev.type === 'run:complete' || ev.type === 'org:complete') { runSess.status = 'complete'; _odtPopulateChatSel(); }
-      if (_odtChatCurrentId === ev.runId && !runSess._loading) {
-        // Refresh agent bar when a new agent comes online mid-run (mirrors session-based branch)
+      // Check if this run's group (or the run itself) is currently selected
+      const _evRunGrpId = _odtRunGroupMap[ev.runId];
+      const _isSelRun = _odtChatCurrentId === ev.runId;
+      const _isSelRunGrp = _evRunGrpId && _odtChatCurrentId === _evRunGrpId;
+      if ((_isSelRun || _isSelRunGrp) && !runSess._loading) {
         const hasNewRunAgent = (ev.role && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.role)}"]`))
           || (ev.from && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.from)}"]`))
           || (ev.to && ev.to !== 'all' && !document.querySelector(`#odt-chat-agent-bar [data-agent="${CSS.escape(ev.to)}"]`));
         if (hasNewRunAgent) _odtPopulateAgentBar(runSess.events, Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : []);
         _odtAppendEvent(ev, true);
-        // Keep excerpt banner current for org runs — same as non-org-run path.
-        // Previously org run SSE events never called renderCvExcerptBanner, so the
-        // "LAST ACTIVITY" banner stayed permanently blank during live runs.
         renderCvExcerptBanner('odt-chat-excerpt', runSess.events, runSess);
-        // Keep event count in session header current (frozen at load time otherwise)
         const _rEvCnt = document.querySelector('#odt-chat-feed .cv-session-hdr .cv-shdr-evcount');
-        if (_rEvCnt) _rEvCnt.textContent = runSess.events.length + ' events';
+        if (_rEvCnt) {
+          const _rgrpEvs = _isSelRunGrp ? _odtGetMergedRunGroupEvents(_odtRunGroups[_evRunGrpId]) : runSess.events;
+          _rEvCnt.textContent = _rgrpEvs.length + ' events';
+        }
       }
     }
     return;
