@@ -4375,8 +4375,9 @@ function connectChatViewSSE() {
   chatVSseSource.onerror = () => {
     dot && dot.classList.remove('on');
     lbl && (lbl.textContent = 'OFFLINE');
-    chatVSseSource.close();
+    const _cvSrc = chatVSseSource;
     chatVSseSource = null;
+    if (_cvSrc) _cvSrc.close();
     setTimeout(connectChatViewSSE, 5000);
   };
 }
