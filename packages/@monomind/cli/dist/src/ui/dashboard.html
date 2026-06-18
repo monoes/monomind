@@ -7920,11 +7920,14 @@ function filterOrgList(q) {
             const _liveAgent = _v2OrgData._agents.find(a => a.id === ev.role);
             if (_liveAgent) { _liveAgent.status = 'running'; _liveAgent.title = _liveAgent.title || ev.title || ev.role; }
             else _v2OrgData._agents.push({ id: ev.role, title: ev.title || ev.role, adapterType: ev.agent_type || null, status: 'running' });
+          } else if (ev.type === 'org:agent:offline' && ev.role) {
+            const _offAgent = _v2OrgData._agents.find(a => a.id === ev.role);
+            if (_offAgent) _offAgent.status = 'idle';
           } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
             _v2OrgData._agents.forEach(a => { a.status = 'idle'; });
           }
-          if (_v2OrgTab === 'agents-full' && (ev.type === 'org:agent:online' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgAgentsFull();
-          else if (_v2OrgTab === 'live' && (ev.type === 'org:agent:online' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgLive();
+          if (_v2OrgTab === 'agents-full' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgAgentsFull();
+          else if (_v2OrgTab === 'live' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgLive();
         }
         // Also push live org:comms / org:checkpoint events directly into the Live tab
         // activity feed so they appear in real-time without waiting for the 5s poll.
