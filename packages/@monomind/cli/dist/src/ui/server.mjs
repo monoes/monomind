@@ -185,6 +185,8 @@ const sseClients = new Set();
 const mmSseClients = new Set();
 // Active org run tracking: org -> runId (enables event routing for orgs without runId in payload)
 const activeOrgRuns = new Map();
+// Active session tracking: org -> {sessionId, ts} (enables linking agent events to sessions)
+const activeSessionsByOrg = new Map();
 
 // Returns the shared git directory parent so run files survive branch switches and
 // are shared across all worktrees. In a worktree, .git is a FILE pointing to the
@@ -363,6 +365,207 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     return out;
   }
 
+  // ── handleMastermindEvent ─────────────────────────────────────────────────
+  // Extracted from the request dispatcher to reduce cyclomatic complexity.
+  // Handles POST /api/mastermind/event: parses body, enriches with runId/session,
+  // persists to JSONL files, broadcasts to SSE clients, returns {ok:true}.
+  async function handleMastermindEvent(req, res) {
+    let body = '';
+    for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
+    let event = {};
+    try { event = JSON.parse(body); } catch (_) {}
+    event.ts = event.ts || Date.now();
+    // Use project path from event if provided (multi-project support).
+    // Security: path.isAbsolute() alone is insufficient — an attacker can
+    // supply event.project="/etc" and cause writes to system directories.
+    // Only accept paths that resolve to an existing directory AND are not
+    // the filesystem root (/), AND are not obviously system paths.
+    // Cap to 4096 chars to prevent OOM from huge path strings.
+    const _rawProject = event.project;
+    let eventProject = null;
+    if (typeof _rawProject === 'string' && _rawProject.length > 0 && _rawProject.length <= 4096
+        && path.isAbsolute(_rawProject)) {
+      // Reject filesystem root and common system directories
+      const _norm = path.resolve(_rawProject);
+      const _systemPaths = ['/', '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/sys', '/proc', '/tmp'];
+      if (!_systemPaths.includes(_norm) && !_systemPaths.some(p => _norm.startsWith(p + '/'))) {
+        eventProject = _norm;
+      }
+    }
+    const root = eventProject || projectDir || process.cwd();
+    const dataDir = path.join(root, 'data');
+    try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
+    // Track known project dirs for aggregated session listing
+    if (eventProject) {
+      const knownFile = path.join(projectDir || process.cwd(), 'data', 'known-projects.json');
+      try {
+        let known = [];
+        try { known = JSON.parse(fs.readFileSync(knownFile, 'utf8')); } catch (_) {}
+        if (!known.includes(eventProject)) { known.push(eventProject); fs.writeFileSync(knownFile, JSON.stringify(known)); }
+      } catch (_) {}
+    }
+    // Track active runs and enrich event with runId BEFORE persisting so the JSONL replay
+    // on SSE reconnect contains the same enriched event that live clients received.
+    // Previously this was done AFTER the appendFileSync, causing org:comms events stored in
+    // mastermind-events.jsonl to lack runId — _odtHandleLiveEvent dropped them on reconnect.
+    if (event.org) {
+      const _orgKey = String(event.org).trim();
+      // Any event with both org+runId updates the active run map (run:start written directly to file so org:start is first via curl)
+      if (event.runId) activeOrgRuns.set(_orgKey, String(event.runId).trim());
+      else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
+      if (event.type === 'run:complete' || event.type === 'org:complete') activeOrgRuns.delete(_orgKey);
+      // Persist active-run.json so capture-handler.cjs can find the current org/runId without HTTP calls
+      try {
+        const _captureDir = path.join(root, '.monomind', 'capture');
+        const _activeRunFile = path.join(_captureDir, 'active-run.json');
+        if (event.type === 'run:start' && event.org && event.runId) {
+          fs.mkdirSync(_captureDir, { recursive: true });
+          fs.writeFileSync(_activeRunFile, JSON.stringify({ org: String(event.org).trim(), runId: String(event.runId).trim(), ts: Date.now() }));
+        } else if ((event.type === 'run:complete' || event.type === 'org:complete') && fs.existsSync(_activeRunFile)) {
+          fs.unlinkSync(_activeRunFile);
+        }
+      } catch(_e) {}
+    }
+    try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
+    // Persist to git-safe run file (survives branch switches + shared across worktrees)
+    if (event.org && event.runId) {
+      try {
+        const _orn = String(event.org).trim();
+        const _rid = String(event.runId).trim();
+        if (_orn.length > 0 && _orn.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_orn)
+            && _rid.length > 0 && _rid.length <= 80 && /^[a-z0-9][a-z0-9_-]*$/i.test(_rid)) {
+          const _monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
+          const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
+          fs.mkdirSync(_runDir, { recursive: true });
+          fs.appendFileSync(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
+          // agent:usage — persist per-role token/cost data to state.json (accumulated across runs)
+          if (event.type === 'agent:usage' && event.role) {
+            try {
+              const _arole = String(event.role).trim();
+              if (_arole.length > 0 && _arole.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_arole)) {
+                const _stateFile = path.join(root, '.monomind', 'orgs', `${_orn}-state.json`);
+                let _st = {};
+                try { _st = JSON.parse(fs.readFileSync(_stateFile, 'utf8')); } catch(_e) {}
+                if (!_st.agents) _st.agents = {};
+                const _ex = _st.agents[_arole] || {};
+                _st.agents[_arole] = {
+                  ..._ex,
+                  tokens_in: (_ex.tokens_in || 0) + (Number(event.tokens_in) || 0),
+                  tokens_out: (_ex.tokens_out || 0) + (Number(event.tokens_out) || 0),
+                  total_cost_usd: (_ex.total_cost_usd || 0) + (Number(event.cost_usd) || 0),
+                  lastUpdated: event.ts,
+                };
+                fs.writeFileSync(_stateFile, JSON.stringify(_st, null, 2));
+              }
+            } catch(_e) {}
+          }
+          // Solution 3: dedicated conversation log — org:comms only, for easy replay
+          if (event.type === 'org:comms') {
+            const _conv = { ts: event.ts, run_id: _rid, from: event.from, to: event.to, msg: event.msg };
+            fs.appendFileSync(path.join(_runDir, `${_rid}.convs.jsonl`), JSON.stringify(_conv) + '\n');
+            // Also write to org-level threads.jsonl so the dashboard Threads tab shows agent conversations
+            const _orgThreadsFile = path.join(root, '.monomind', 'orgs', `${_orn}-threads.jsonl`);
+            const _thread = { type: 'message', id: `${_rid}-${event.ts}`, run_id: _rid, ts: event.ts, from: event.from, to: event.to, msg: event.msg, subject: `Run ${_rid}` };
+            try { fs.appendFileSync(_orgThreadsFile, JSON.stringify(_thread) + '\n'); } catch(_) {}
+          }
+        }
+      } catch (_) {}
+    }
+    // ── Active session tracking: link org:comms / agent:usage events to current session ──
+    // This must run BEFORE session persistence so events without session get enriched.
+    try {
+      const _evOrg = event.org ? String(event.org).trim() : null;
+      if (event.type === 'session:start' && event.session && _evOrg) {
+        activeSessionsByOrg.set(_evOrg, { sessionId: String(event.session), ts: event.ts || Date.now() });
+        // Write active-session.json so capture-handler.cjs can read it without HTTP
+        try {
+          const _captureDir = path.join(root, '.monomind', 'capture');
+          fs.mkdirSync(_captureDir, { recursive: true });
+          fs.writeFileSync(path.join(_captureDir, 'active-session.json'),
+            JSON.stringify({ org: _evOrg, sessionId: String(event.session), ts: Date.now() }));
+        } catch(_) {}
+      } else if (event.type === 'session:complete' && _evOrg) {
+        activeSessionsByOrg.delete(_evOrg);
+        try { fs.unlinkSync(path.join(root, '.monomind', 'capture', 'active-session.json')); } catch(_) {}
+      }
+      // Enrich events that have org but no session (agent:usage, org:comms, agent:spawn, intercom)
+      if (_evOrg && !event.session && activeSessionsByOrg.has(_evOrg)) {
+        event.session = activeSessionsByOrg.get(_evOrg).sessionId;
+      }
+    } catch(_) {}
+    // ── Per-session JSONL persistence (append-only, O(1) per event) ──────────
+    // Replaces the old monolithic mastermind-sessions.json (O(N) read+write per event).
+    // Format: data/sessions/<sessionId>.jsonl  +  data/sessions/_index.json
+    try {
+      const _sid = String(event.session || '').trim();
+      if (_sid.length > 0 && _sid.length <= 128 && /^[a-zA-Z0-9_.-]+$/.test(_sid)) {
+        const sessDir = path.join(dataDir, 'sessions');
+        fs.mkdirSync(sessDir, { recursive: true });
+        // Append event to per-session JSONL (O(1), no read)
+        fs.appendFileSync(path.join(sessDir, `${_sid}.jsonl`), JSON.stringify(event) + '\n');
+        // Update lightweight index (id, ts, prompt, status, org, startedAt, endedAt, domains only)
+        const indexFile = path.join(sessDir, '_index.json');
+        let _idx = [];
+        try { _idx = JSON.parse(fs.readFileSync(indexFile, 'utf8')); } catch(_) {}
+        const _entry = _idx.find(e => e.id === _sid);
+        if (event.type === 'session:start') {
+          if (!_entry) {
+            _idx.unshift({ id: _sid, ts: event.ts, prompt: event.prompt || '', status: 'running',
+              org: event.org || '', startedAt: event.ts, domains: [] });
+            if (_idx.length > 2000) _idx = _idx.slice(0, 2000);
+          }
+        } else if (_entry) {
+          if (event.type === 'session:complete') { _entry.status = event.status || 'complete'; _entry.endedAt = event.ts; }
+          if (event.type === 'domain:dispatch' && event.domain) {
+            _entry.domains = _entry.domains || [];
+            if (!_entry.domains.includes(event.domain)) _entry.domains.push(event.domain);
+          }
+          if (event.type === 'agent:usage' || event.type === 'agent:spawn' || event.type === 'agent:complete') {
+            _entry.hasAgents = true;
+          }
+        }
+        fs.writeFileSync(indexFile, JSON.stringify(_idx));
+      }
+    } catch (_) {}
+    // ── Legacy mastermind-sessions.json (kept for backwards compat, read by old clients) ──
+    try {
+      const sessFile = path.join(dataDir, 'mastermind-sessions.json');
+      let sessions = [];
+      try { sessions = JSON.parse(fs.readFileSync(sessFile, 'utf8')); } catch (_) {}
+      if (event.type === 'session:start' && event.session) {
+        if (!sessions.find(s => s.id === event.session)) {
+          sessions.unshift({ id: event.session, ts: event.ts, prompt: event.prompt || '',
+            status: 'running', org: event.org || '', domains: [], startedAt: event.ts });
+        }
+      } else if (event.session) {
+        const s = sessions.find(s => s.id === event.session);
+        if (s) {
+          if (event.type === 'session:complete') { s.status = event.status || 'complete'; s.endedAt = event.ts; }
+          if (event.type === 'domain:dispatch' && event.domain && !s.domains?.includes(event.domain))
+            (s.domains = s.domains || []).push(event.domain);
+        }
+      }
+      fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 500)));
+    } catch (_) {}
+    // For org:stop events, write a stop marker the boss agent can detect
+    if (event.type === 'org:stop' && event.org) {
+      try {
+        const orgName = String(event.org).trim();
+        // Validate before any filesystem use — reject rather than strip
+        if (orgName.length > 0 && orgName.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+          const stopDir = path.join(root, '.monomind', 'orgs', '.stops');
+          fs.mkdirSync(stopDir, { recursive: true });
+          fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
+        }
+      } catch (_) {}
+    }
+    // Broadcast to all mastermind SSE clients
+    const msg = `data: ${JSON.stringify(event)}\n\n`;
+    for (const c of mmSseClients) { try { c.write(msg); } catch (_) { mmSseClients.delete(c); } }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end('{"ok":true}');
+  }
+
   const server = http.createServer(async (req, res) => {
     const url = req.url.split('?')[0];
 
@@ -508,7 +711,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
             .filter(Boolean)
             .sort((a, b) => b.mtime - a.mtime)
-            .slice(0, 15);
+            .slice(0, 50);
         } catch {}
 
         const sessions = [];
@@ -3217,6 +3420,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                 const stopTs = lastStop ? (JSON.parse(lastStop).ts || 0) : 0;
                 running = startTs > stopTs;
               }
+              // Also check in-memory activeOrgRuns so the list reflects LIVE immediately after launch
+              const _lOrgName = cfg.name || '';
+              if (!running && _lOrgName && activeOrgRuns.has(_lOrgName)) running = true;
               orgs.push({ name: cfg.name, goal: cfg.goal, roles: Array.isArray(cfg.roles) ? cfg.roles : [], topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
             } catch(_) {}
           }
@@ -3313,9 +3519,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const routinesData = readJsonSafe(path.join(orgsDir, `${orgName}-routines.json`)) || { routines: [] };
         const approvalsData = readJsonSafe(path.join(orgsDir, `${orgName}-approvals.json`)) || { approvals: [] };
 
-        // Check running status from stop file absence + state
+        // Check running status: stop file absence AND (in-memory activeOrgRuns OR state-file agents)
         const stopFile = path.join(orgsDir, '.stops', `${orgName}.stop`);
-        const running = !fs.existsSync(stopFile) && Object.values(state.agents || {}).some(a => a.status === 'running');
+        const running = !fs.existsSync(stopFile) && (activeOrgRuns.has(orgName) || Object.values(state.agents || {}).some(a => a.status === 'running'));
 
         // Read real tasks from the task store and group by status column
         const taskStoreData = readJsonSafe(path.join(d, '.monomind', 'tasks', 'store.json'));
@@ -4074,13 +4280,45 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             total_cost_usd: s.total_cost_usd || 0,
           }));
         } catch(_) {}
-        // Also include roles from org config if state is empty
-        if (!agents.length) {
+        // Scan org run jsonl files for agent:usage events (fallback when state.json has no token data)
+        const _hasTokenData = agents.some(a => a.tokens_in > 0 || a.tokens_out > 0 || a.total_cost_usd > 0);
+        if (!_hasTokenData) {
           try {
-            const org = JSON.parse(fs.readFileSync(path.join(base, `${orgName}.json`), 'utf8'));
-            agents = (org.roles || []).map(r => ({ id: r.id, title: r.title, tokens_in: 0, tokens_out: 0, total_cost_usd: 0 }));
+            const _runsDir = path.join(base, orgName, 'runs');
+            if (fs.existsSync(_runsDir)) {
+              const _usageByRole = {};
+              for (const f of fs.readdirSync(_runsDir)) {
+                if (!f.endsWith('.jsonl')) continue;
+                const lines = fs.readFileSync(path.join(_runsDir, f), 'utf8').split('\n').filter(Boolean);
+                for (const l of lines) {
+                  try {
+                    const ev = JSON.parse(l);
+                    if (ev.type === 'agent:usage' && ev.role) {
+                      const role = String(ev.role).trim();
+                      if (!_usageByRole[role]) _usageByRole[role] = { tokens_in: 0, tokens_out: 0, total_cost_usd: 0 };
+                      _usageByRole[role].tokens_in += Number(ev.tokens_in) || 0;
+                      _usageByRole[role].tokens_out += Number(ev.tokens_out) || 0;
+                      _usageByRole[role].total_cost_usd += Number(ev.cost_usd) || 0;
+                    }
+                  } catch(_) {}
+                }
+              }
+              if (Object.keys(_usageByRole).length > 0) {
+                // Merge usage into agents list; preserve role titles
+                agents = agents.map(a => {
+                  const u = _usageByRole[a.id] || {};
+                  return { ...a, tokens_in: u.tokens_in || 0, tokens_out: u.tokens_out || 0, total_cost_usd: u.total_cost_usd || 0 };
+                });
+                // Add any roles that appeared in events but aren't in config
+                for (const [role, u] of Object.entries(_usageByRole)) {
+                  if (!agents.find(a => a.id === role)) agents.push({ id: role, title: role, ...u });
+                }
+              }
+            }
           } catch(_) {}
         }
+        // Do NOT fall back to zero-value role stubs — empty agents array is the honest signal
+        // that no usage has been tracked yet; the UI shows "No cost data" rather than $0.0000 rows.
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ...budgetData, agents }));
       } catch(_) { res.writeHead(500); res.end('{"org_budget":{},"agent_budgets":{},"agents":[]}'); }
@@ -4099,11 +4337,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try {
           const lines = fs.readFileSync(threadsFile, 'utf8').split('\n').filter(l => l.trim());
           threads = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
+          // Group 'message' entries (from org:comms) by run_id into synthetic thread objects
+          const msgsByRun = {};
+          threads.filter(t => t.type === 'message').forEach(m => {
+            const rid = m.run_id || 'unknown';
+            if (!msgsByRun[rid]) msgsByRun[rid] = { id: `thread-${rid}`, type: 'thread', subject: `Run ${rid}`, run_id: rid, createdAt: m.ts, messages: [] };
+            msgsByRun[rid].messages.push({ from: m.from, to: m.to, msg: m.msg, ts: m.ts });
+          });
+          const syntheticThreads = Object.values(msgsByRun).map(t => ({ ...t, messageCount: t.messages.length, author: t.messages[0]?.from || null }));
           threads = threads.filter(t => t.type === 'thread' || !t.type).map(t => ({
             ...t,
             author: t.author || t.authorName || t.createdBy || t.authorId || null,
             messageCount: t.messageCount != null ? t.messageCount : (Array.isArray(t.messages) ? t.messages.length : (typeof t.messages === 'number' ? t.messages : null)),
           }));
+          threads = [...threads, ...syntheticThreads];
         } catch(_) {}
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ threads }));
@@ -4155,15 +4402,48 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // GET /api/org/:name/routines — read org routines
+    // GET /api/org/:name/routines — read org routines (falls back to synthesizing from org config's loop object)
     if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/routines$/i)) {
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
         const _routinesQs = new URL(req.url, 'http://localhost').searchParams;
-        const routinesFile = path.join(path.resolve(_routinesQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs', `${orgName}-routines.json`);
+        const _routinesBase = path.resolve(_routinesQs.get('dir') || projectDir || process.cwd());
+        const routinesFile = path.join(_routinesBase, '.monomind', 'orgs', `${orgName}-routines.json`);
         let data = { routines: [] };
         try { data = JSON.parse(fs.readFileSync(routinesFile, 'utf8')); } catch(_) {}
+        // Synthesize routines from org config's loop/schedule settings when no explicit routines are defined
+        if (!data.routines || !data.routines.length) {
+          try {
+            const orgCfg = JSON.parse(fs.readFileSync(path.join(_routinesBase, '.monomind', 'orgs', `${orgName}.json`), 'utf8'));
+            const loop = orgCfg.loop;
+            if (loop && (loop.poll_interval_minutes || loop.interval_minutes)) {
+              const intervalMin = loop.poll_interval_minutes || loop.interval_minutes;
+              data.routines = [{
+                name: `${orgName}-cycle`,
+                description: orgCfg.goal ? orgCfg.goal.slice(0, 120) : 'Org iteration cycle',
+                schedule: `every ${intervalMin}m`,
+                cron: null,
+                enabled: orgCfg.status === 'active',
+                status: orgCfg.status || 'stopped',
+                prompt_file: loop.run_prompt_file || null,
+                source: 'loop-config',
+                lastRun: null,
+              }];
+            } else if (orgCfg.schedule) {
+              data.routines = [{
+                name: `${orgName}-schedule`,
+                description: orgCfg.goal ? orgCfg.goal.slice(0, 120) : 'Org scheduled run',
+                schedule: String(orgCfg.schedule),
+                cron: null,
+                enabled: orgCfg.status === 'active',
+                status: orgCfg.status || 'stopped',
+                source: 'schedule-config',
+                lastRun: null,
+              }];
+            }
+          } catch(_) {}
+        }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ routines: data.routines || [] }));
       } catch(_) { res.writeHead(500); res.end('{"routines":[]}'); }
@@ -4404,7 +4684,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               const allLines = raw.split('\n').filter(Boolean);
               const eventCount = allLines.length;
               const parse = l => { try { return JSON.parse(l); } catch { return null; } };
-              const headEvents = allLines.slice(0, 5).map(parse).filter(Boolean);
+              const headEvents = allLines.slice(0, 10).map(parse).filter(Boolean);
               const tailEvents = allLines.slice(-5).map(parse).filter(Boolean);
               const first = headEvents.find(e => e.type === 'run:start') || headEvents[0];
               const last = tailEvents.slice().reverse().find(e => e.type === 'run:complete' || e.type === 'org:complete');
@@ -4412,9 +4692,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               const lastEvent = tailEvents[tailEvents.length - 1] || headEvents[headEvents.length - 1];
               const ageMs = lastEvent?.ts ? Date.now() - lastEvent.ts : Infinity;
               const isStale = !last && ageMs > 30 * 60 * 1000;
+              // Derive a human-readable goal from the first boss directive when run:start lacks one
+              const firstBossComms = headEvents.find(e => e.type === 'org:comms' && (e.from === 'boss' || e.role === 'boss') && e.msg);
+              const derivedGoal = first?.goal || firstBossComms?.msg?.slice(0, 80) || '';
               runs.push({ runId: f.replace('.jsonl', ''), startedAt: first?.ts || 0, endedAt: last?.ts || 0,
                 status: last ? 'complete' : isStale ? 'stale' : 'running',
-                eventCount, cycleCount: cycles, goal: first?.goal || '', bossRole: first?.bossRole || '' });
+                eventCount, cycleCount: cycles, goal: derivedGoal, bossRole: first?.bossRole || '' });
             } catch (_) {}
           }
         }
@@ -4446,114 +4729,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ------------------------------------------------- Mastermind event system
     // POST /api/mastermind/event — ingest event from mastermind skill
     if (req.method === 'POST' && url === '/api/mastermind/event') {
-      let body = '';
-      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
-      let event = {};
-      try { event = JSON.parse(body); } catch (_) {}
-      event.ts = event.ts || Date.now();
-      // Use project path from event if provided (multi-project support).
-      // Security: path.isAbsolute() alone is insufficient — an attacker can
-      // supply event.project="/etc" and cause writes to system directories.
-      // Only accept paths that resolve to an existing directory AND are not
-      // the filesystem root (/), AND are not obviously system paths.
-      // Cap to 4096 chars to prevent OOM from huge path strings.
-      const _rawProject = event.project;
-      let eventProject = null;
-      if (typeof _rawProject === 'string' && _rawProject.length > 0 && _rawProject.length <= 4096
-          && path.isAbsolute(_rawProject)) {
-        // Reject filesystem root and common system directories
-        const _norm = path.resolve(_rawProject);
-        const _systemPaths = ['/', '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/sys', '/proc', '/tmp'];
-        if (!_systemPaths.includes(_norm) && !_systemPaths.some(p => _norm.startsWith(p + '/'))) {
-          eventProject = _norm;
-        }
-      }
-      const root = eventProject || projectDir || process.cwd();
-      const dataDir = path.join(root, 'data');
-      try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
-      // Track known project dirs for aggregated session listing
-      if (eventProject) {
-        const knownFile = path.join(projectDir || process.cwd(), 'data', 'known-projects.json');
-        try {
-          let known = [];
-          try { known = JSON.parse(fs.readFileSync(knownFile, 'utf8')); } catch (_) {}
-          if (!known.includes(eventProject)) { known.push(eventProject); fs.writeFileSync(knownFile, JSON.stringify(known)); }
-        } catch (_) {}
-      }
-      try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
-      // Track active runs and route org events to run files
-      if (event.org) {
-        const _orgKey = String(event.org).trim();
-        // Any event with both org+runId updates the active run map (run:start written directly to file so org:start is first via curl)
-        if (event.runId) activeOrgRuns.set(_orgKey, String(event.runId).trim());
-        else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
-        if (event.type === 'run:complete' || event.type === 'org:complete') activeOrgRuns.delete(_orgKey);
-      }
-      // Persist to git-safe run file (survives branch switches + shared across worktrees)
-      if (event.org && event.runId) {
-        try {
-          const _orn = String(event.org).trim();
-          const _rid = String(event.runId).trim();
-          if (_orn.length > 0 && _orn.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_orn)
-              && _rid.length > 0 && _rid.length <= 80 && /^[a-z0-9][a-z0-9_-]*$/i.test(_rid)) {
-            const _monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
-            const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
-            fs.mkdirSync(_runDir, { recursive: true });
-            fs.appendFileSync(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
-          }
-        } catch (_) {}
-      }
-      // Persist session
-      try {
-        const sessFile = path.join(dataDir, 'mastermind-sessions.json');
-        let sessions = [];
-        try { sessions = JSON.parse(fs.readFileSync(sessFile, 'utf8')); } catch (_) {}
-        if (event.type === 'session:start') {
-          sessions.unshift({ id: event.session, ts: event.ts, prompt: event.prompt || '',
-            status: 'running', domains: [], events: [event], project: root });
-        } else {
-          const s = sessions.find(s => s.id === event.session);
-          if (s) {
-            (s.events = s.events || []).push(event);
-            if (event.type === 'domain:dispatch' && event.domain && !s.domains.includes(event.domain))
-              s.domains.push(event.domain);
-            if (event.type === 'session:complete') { s.status = event.status || 'complete'; s.endTs = event.ts; }
-          }
-        }
-        fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 500), null, 2));
-        // Also write individual session file for direct traceability.
-        // Security: validate event.session before using it as a filename to
-        // prevent path traversal (e.g. "../../../etc/cron.d/payload").
-        const sessionObj = sessions.find(s => s.id === event.session);
-        if (sessionObj) {
-          const sessDir = path.join(dataDir, 'sessions');
-          try { fs.mkdirSync(sessDir, { recursive: true }); } catch (_) {}
-          try {
-            const _sid = String(event.session || '').trim();
-            if (_sid.length > 0 && _sid.length <= 128 && /^[a-zA-Z0-9_.-]+$/.test(_sid)) {
-              fs.writeFileSync(path.join(sessDir, `${_sid}.json`), JSON.stringify(sessionObj, null, 2));
-            }
-          } catch (_) {}
-        }
-      } catch (_) {}
-      // For org:stop events, write a stop marker the boss agent can detect
-      if (event.type === 'org:stop' && event.org) {
-        try {
-          const orgName = String(event.org).trim();
-          // Validate before any filesystem use — reject rather than strip
-          if (orgName.length > 0 && orgName.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-            const stopDir = path.join(root, '.monomind', 'orgs', '.stops');
-            fs.mkdirSync(stopDir, { recursive: true });
-            fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
-          }
-        } catch (_) {}
-      }
-      // Broadcast to all mastermind SSE clients
-      const msg = `data: ${JSON.stringify(event)}\n\n`;
-      for (const c of mmSseClients) { try { c.write(msg); } catch (_) { mmSseClients.delete(c); } }
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end('{"ok":true}');
-      return;
+      return handleMastermindEvent(req, res);
     }
 
     // GET /api/mastermind-stream — SSE for real-time events
@@ -4583,6 +4759,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const qp = new URL('http://x' + req.url).searchParams;
         const filterProject = qp.get('project');
+        const limitParam = Math.min(parseInt(qp.get('limit') || '200', 10) || 200, 500);
         const serverRoot = projectDir || process.cwd();
         // Collect all project dirs to aggregate
         const projectDirs = new Set([serverRoot]);
@@ -4590,23 +4767,44 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const known = JSON.parse(fs.readFileSync(path.join(serverRoot, 'data', 'known-projects.json'), 'utf8'));
           known.forEach(p => projectDirs.add(p));
         } catch (_) {}
-        // Load and merge sessions from all dirs
         let allSessions = [];
         for (const pd of projectDirs) {
           if (filterProject && pd !== filterProject) continue;
-          const f = path.join(pd, 'data', 'mastermind-sessions.json');
-          if (!fs.existsSync(f)) continue;
-          try {
-            const s = JSON.parse(fs.readFileSync(f, 'utf8'));
-            // Tag each session with its project if not already tagged
-            s.forEach(sess => { if (!sess.project) sess.project = pd; });
-            allSessions = allSessions.concat(s);
-          } catch (_) {}
+          const sessDir = path.join(pd, 'data', 'sessions');
+          const indexFile = path.join(sessDir, '_index.json');
+          // ── New format: per-session JSONL + _index.json ──
+          if (fs.existsSync(indexFile)) {
+            try {
+              const idx = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+              const top = idx.slice(0, limitParam);
+              for (const entry of top) {
+                const _sid = String(entry.id || '').trim();
+                if (!_sid || !/^[a-zA-Z0-9_.-]+$/.test(_sid)) continue;
+                let events = [];
+                try {
+                  const jl = fs.readFileSync(path.join(sessDir, `${_sid}.jsonl`), 'utf8');
+                  events = jl.trim().split('\n').filter(Boolean)
+                    .map(l => { try { return JSON.parse(l); } catch { return null; } })
+                    .filter(Boolean);
+                } catch(_) {}
+                allSessions.push({ ...entry, events, project: pd });
+              }
+            } catch(_) {}
+          } else {
+            // ── Legacy fallback: mastermind-sessions.json ──
+            const f = path.join(pd, 'data', 'mastermind-sessions.json');
+            if (fs.existsSync(f)) {
+              try {
+                const s = JSON.parse(fs.readFileSync(f, 'utf8'));
+                s.forEach(sess => { if (!sess.project) sess.project = pd; });
+                allSessions = allSessions.concat(s);
+              } catch (_) {}
+            }
+          }
         }
-        // Sort by ts descending, cap at 500
-        allSessions.sort((a,b) => (b.ts||0)-(a.ts||0));
+        allSessions.sort((a,b) => (b.ts||b.startedAt||0)-(a.ts||a.startedAt||0));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify(allSessions.slice(0,500)));
+        res.end(JSON.stringify(allSessions.slice(0, limitParam)));
       } catch (_) { res.writeHead(200); res.end('[]'); }
       return;
     }
@@ -4745,7 +4943,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/runs\/current$/.test(url)) {
       try {
         const orgName = decodeURIComponent(url.split('/')[3]);
-        const root = projectDir || process.cwd();
+        const _curQs = new URL(req.url, 'http://localhost').searchParams;
+        const root = path.resolve(_curQs.get('dir') || projectDir || process.cwd());
         // Validate orgName
         if (!orgName || orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
           res.writeHead(400); res.end('{"error":"invalid org name"}'); return;
@@ -4806,6 +5005,63 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
   // Bind to available port
   const boundPort = await bindServer(server, port);
   const url = `http://localhost:${boundPort}`;
+
+  // ── One-time migration: mastermind-sessions.json → per-session JSONL ─────
+  // Runs once on startup. Existing sessions in the old monolithic format are
+  // split into individual JSONL files + _index.json for O(1) event writes.
+  try {
+    const _migDataDir = path.join(projectDir || process.cwd(), 'data');
+    const _migOldFile = path.join(_migDataDir, 'mastermind-sessions.json');
+    const _migSessDir = path.join(_migDataDir, 'sessions');
+    const _migIndexFile = path.join(_migSessDir, '_index.json');
+    if (fs.existsSync(_migOldFile) && !fs.existsSync(_migIndexFile)) {
+      try {
+        const _migOld = JSON.parse(fs.readFileSync(_migOldFile, 'utf8'));
+        fs.mkdirSync(_migSessDir, { recursive: true });
+        const _migIndex = [];
+        for (const sess of (_migOld || [])) {
+          const _msid = String(sess.id || '').trim();
+          if (!_msid || !/^[a-zA-Z0-9_.-]+$/.test(_msid)) continue;
+          // Write per-session JSONL
+          const _mEvts = (sess.events || []);
+          const _mLines = _mEvts.map(e => JSON.stringify(e)).join('\n');
+          fs.writeFileSync(path.join(_migSessDir, `${_msid}.jsonl`), _mLines + (_mLines ? '\n' : ''));
+          _migIndex.push({ id: _msid, ts: sess.ts, prompt: sess.prompt || '',
+            status: sess.status || 'complete', org: sess.org || '',
+            startedAt: sess.ts || sess.startedAt, endedAt: sess.endTs || sess.endedAt,
+            domains: sess.domains || [] });
+        }
+        fs.writeFileSync(_migIndexFile, JSON.stringify(_migIndex));
+        console.log('[server] migrated ' + _migIndex.length + ' sessions to per-session JSONL format');
+      } catch(_me) { console.warn('[server] session migration failed:', _me.message); }
+    }
+  } catch (_) {}
+
+  // Rebuild activeOrgRuns from disk so event enrichment (runId injection) still works
+  // after a server restart. Without this, org events emitted mid-run that lack runId
+  // are broadcast without it and _odtHandleLiveEvent drops them.
+  try {
+    const _rbOrgsDir = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+    if (fs.existsSync(_rbOrgsDir)) {
+      for (const _rbOrg of fs.readdirSync(_rbOrgsDir)) {
+        if (!_rbOrg || _rbOrg.startsWith('.') || !/^[a-z0-9][a-z0-9_-]*$/i.test(_rbOrg)) continue;
+        const _rbRunsDir = path.join(_rbOrgsDir, _rbOrg, 'runs');
+        if (!fs.existsSync(_rbRunsDir)) continue;
+        const _rbFiles = fs.readdirSync(_rbRunsDir)
+          .filter(f => f.endsWith('.jsonl') && !f.endsWith('.convs.jsonl'))
+          .sort().reverse();
+        for (const _rbF of _rbFiles.slice(0, 5)) {
+          try {
+            const _rbId = _rbF.replace('.jsonl', '');
+            const _rbContent = fs.readFileSync(path.join(_rbRunsDir, _rbF), 'utf8');
+            const _rbLast = _rbContent.trim().split('\n').filter(Boolean).slice(-10);
+            const _rbDone = _rbLast.some(l => { try { const e = JSON.parse(l); return e.type === 'run:complete' || e.type === 'org:complete'; } catch { return false; } });
+            if (!_rbDone) { activeOrgRuns.set(_rbOrg, _rbId); break; }
+          } catch (_) {}
+        }
+      }
+    }
+  } catch (_) {}
 
   // ---------------------------------------------------------------- Watchers
   let debounceTimer = null;
