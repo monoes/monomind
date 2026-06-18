@@ -7016,6 +7016,12 @@ async function _odtLoadChatSessions() {
       if (s.status !== 'running' && Array.isArray(s.events) && s.events.length > 0) s._eventsLoaded = true;
       return s;
     });
+    // Re-attach SSE-injected org run placeholders that aren't in the mastermind sessions API.
+    // These are created by _odtHandleLiveEvent when a run:start arrives before the JSONL file
+    // flushes to disk — without this, switching to the fallback path drops them.
+    _prevSessions.forEach(ps => {
+      if (ps._isOrgRun && !_odtChatSessions.find(s => s.id === ps.id)) _odtChatSessions.push(ps);
+    });
     _odtChatSessions.sort((a, b) => (b.ts || b.startedAt || 0) - (a.ts || a.startedAt || 0));
     _odtPopulateChatSel();
     // Auto-select most recent session when nothing is running (mirrors primary path behaviour).
