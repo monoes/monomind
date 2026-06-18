@@ -8209,6 +8209,14 @@ function filterOrgList(q) {
                   // Re-render myissues after run events — it fetches its own data on every render
                   v2RenderOrgMyIssues();
                 }
+                if (_v2OrgTab === 'charts') {
+                  // Re-fetch activity after run events so the 14-day heatmap reflects the completed run
+                  const _chEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_chEnc}/activity${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : [])
+                    .then(d => { if (_v2OrgData && _v2SelOrg === n) { _v2OrgData._activity = Array.isArray(d) ? d : []; v2RenderOrgCharts(); } })
+                    .catch(() => { v2RenderOrgCharts(); });
+                }
               }
             }
           }, 400);
