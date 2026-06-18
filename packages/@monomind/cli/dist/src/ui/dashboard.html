@@ -8009,6 +8009,14 @@ function filterOrgList(q) {
                     .then(b => { if (b && _v2OrgData && _v2SelOrg === n) { _v2OrgData._budgets = b; _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); } })
                     .catch(() => { _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); });
                 }
+                if (_v2OrgTab === 'board' || _v2OrgTab === 'issues-full') {
+                  // Re-fetch issues after run events so board/issues-full reflect current state
+                  const _iEnc = encodeURIComponent(_v2SelOrg);
+                  fetch(`/api/org/${_iEnc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._issues = Array.isArray(d) ? d : (d?.issues || []); _v2OrgTab === 'board' ? v2RenderOrgBoard() : v2RenderOrgIssuesFull(); } })
+                    .catch(() => { _v2OrgTab === 'board' ? v2RenderOrgBoard() : v2RenderOrgIssuesFull(); });
+                }
               }
             }
           }, 400);
