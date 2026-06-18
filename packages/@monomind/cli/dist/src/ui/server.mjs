@@ -3525,16 +3525,39 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const _loopRunning = (() => {
           try {
             if (!fs.existsSync(_loopsDir)) return false;
+            // Get the org's state file mtime to correlate with loop activity
+            const orgStateMtime = (() => {
+              try { return fs.statSync(path.join(orgsDir, `${orgName}-state.json`)).mtimeMs; } catch { return 0; }
+            })();
+            // Also check org's most recent run file mtime
+            const orgRunsDir = path.join(d, '.monomind', 'orgs', orgName, 'runs');
+            const orgLastRunMtime = (() => {
+              try {
+                if (!fs.existsSync(orgRunsDir)) return 0;
+                const runFiles = fs.readdirSync(orgRunsDir).filter(f => f.endsWith('.jsonl'));
+                if (!runFiles.length) return 0;
+                return Math.max(...runFiles.map(f => { try { return fs.statSync(path.join(orgRunsDir, f)).mtimeMs; } catch { return 0; } }));
+              } catch { return 0; }
+            })();
+            const orgLastActivity = Math.max(orgStateMtime, orgLastRunMtime);
             return fs.readdirSync(_loopsDir).some(f => {
               if (!f.endsWith('.json') || f.endsWith('.stop')) return false;
               try {
                 const lp = JSON.parse(fs.readFileSync(path.join(_loopsDir, f), 'utf8'));
-                return lp.status === 'running' && lp.command && lp.command.includes('runorg') && (lp.prompt || '').includes(orgName);
+                if (!lp.command || !lp.command.includes('runorg')) return false;
+                if (!['running', 'paused'].includes(lp.status)) return false;
+                // Primary match: explicit orgName field (written by runorg command since v1.14.2)
+                if (lp.orgName === orgName) return true;
+                // Fallback: org name in prompt (early loop files that preserved --org flag)
+                if ((lp.prompt || '').includes(orgName)) return true;
+                // Heuristic: if loop's lastRunAt is within 3x wait interval of org's last activity
+                const waitMs = (lp.wait || 60) * 3 * 1000;
+                return orgLastActivity > 0 && Math.abs(orgLastActivity - (lp.lastRunAt || 0)) < waitMs;
               } catch { return false; }
             });
           } catch { return false; }
         })();
-        const running = !fs.existsSync(stopFile) && (activeOrgRuns.has(orgName) || Object.values(state.agents || {}).some(a => a.status === 'running') || _loopRunning);
+        const running = !fs.existsSync(stopFile) && (activeOrgRuns.has(orgName) || ['running','active'].includes(state.status) || Object.values(state.agents || {}).some(a => a.status === 'running') || _loopRunning);
 
         // Read real tasks from the task store and group by status column
         const taskStoreData = readJsonSafe(path.join(d, '.monomind', 'tasks', 'store.json'));
