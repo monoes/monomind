@@ -1851,37 +1851,14 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn" data-tab="chat"         onclick="v2SwitchOrgTab('chat')">Chat</button>
             <button class="odt-btn" data-tab="agents-full"  onclick="v2SwitchOrgTab('agents-full')">Agents</button>
             <div class="odt-tab-sep" title="Secondary tabs"></div>
-            <button class="odt-btn secondary" data-tab="health"       onclick="v2SwitchOrgTab('health')">Health</button>
-            <button class="odt-btn secondary" data-tab="tasks"        onclick="v2SwitchOrgTab('tasks')">Tasks</button>
-            <button class="odt-btn secondary" data-tab="board"        onclick="v2SwitchOrgTab('board')">Board</button>
-            <button class="odt-btn secondary" data-tab="goals"        onclick="v2SwitchOrgTab('goals')">Goals</button>
-            <button class="odt-btn secondary" data-tab="budgets"      onclick="v2SwitchOrgTab('budgets')">Budgets</button>
-            <button class="odt-btn secondary" data-tab="roles"        onclick="v2SwitchOrgTab('roles')">Roles</button>
-            <button class="odt-btn secondary" data-tab="members"     onclick="v2SwitchOrgTab('members')">Members</button>
-            <button class="odt-btn secondary" data-tab="heartbeats"  onclick="v2SwitchOrgTab('heartbeats')">Heartbeats</button>
             <button class="odt-btn secondary" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
             <button class="odt-btn secondary" data-tab="costs"        onclick="v2SwitchOrgTab('costs')">Costs</button>
             <button class="odt-btn secondary" data-tab="config"        onclick="v2SwitchOrgTab('config')">Config</button>
             <button class="odt-btn secondary" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
-            <button class="odt-btn secondary" data-tab="approvals"    onclick="v2SwitchOrgTab('approvals')">Approvals</button>
-            <button class="odt-btn secondary" data-tab="settings"     onclick="v2SwitchOrgTab('settings')">Settings</button>
-            <button class="odt-btn secondary" data-tab="issues-full"  onclick="v2SwitchOrgTab('issues-full')">Issues</button>
-            <button class="odt-btn secondary" data-tab="projects"     onclick="v2SwitchOrgTab('projects')">Projects</button>
-            <button class="odt-btn secondary" data-tab="environments" onclick="v2SwitchOrgTab('environments')">Envs</button>
-            <button class="odt-btn secondary" data-tab="access"       onclick="v2SwitchOrgTab('access')">Access</button>
-            <button class="odt-btn secondary" data-tab="secrets"      onclick="v2SwitchOrgTab('secrets')">Secrets</button>
-            <button class="odt-btn secondary" data-tab="routines"     onclick="v2SwitchOrgTab('routines')">Routines</button>
-            <button class="odt-btn secondary" data-tab="myissues"     onclick="v2SwitchOrgTab('myissues')">My Issues</button>
-            <button class="odt-btn secondary" data-tab="plugins"      onclick="v2SwitchOrgTab('plugins')">Plugins</button>
-            <button class="odt-btn secondary" data-tab="charts"       onclick="v2SwitchOrgTab('charts')">Heatmap</button>
-            <button class="odt-btn secondary" data-tab="workspaces"   onclick="v2SwitchOrgTab('workspaces')">Workspaces</button>
-            <button class="odt-btn secondary" data-tab="invites"      onclick="v2SwitchOrgTab('invites')">Invites</button>
-            <button class="odt-btn secondary" data-tab="join-requests" onclick="v2SwitchOrgTab('join-requests')">Join Requests</button>
             <button class="odt-btn secondary" data-tab="threads"      onclick="v2SwitchOrgTab('threads')">Threads</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
-            <div class="odt-pane" id="odt-roles"></div>
             <div class="odt-pane" id="odt-activity"></div>
             <div class="odt-pane" id="odt-live"></div>
             <div class="odt-pane" id="odt-agents-full"></div>
@@ -1890,27 +1867,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-costs"></div>
             <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-health" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-heartbeats" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-tasks" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-members" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-goals" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-board" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-approvals" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-secrets" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-settings" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-routines" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-myissues" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-budgets" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-plugins" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-charts" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-projects" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-workspaces" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-invites" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-environments" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-access" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-issues-full" style="overflow-y:auto"></div>
-            <div class="odt-pane" id="odt-join-requests" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-threads" style="overflow-y:auto"></div>
           </div>
         </div>
