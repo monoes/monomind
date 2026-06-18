@@ -4181,8 +4181,10 @@ function appendChatViewEvent(ev, animate) {
     el = mkCVSys('■ Org complete' + (ev.org ? ' — ' + esc(ev.org) : ''), ts);
   } else if (ev.type === 'agent:result') {
     el = mkCVResult(ev.agent || ev.from || '?', ev.result || ev.msg || ev.message || ev.summary || '', ts);
-  } else if (ev.type === 'agent:message' || ev.type === 'agent:spawn') {
-    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || ev.role || ev.type, ts, ev.type);
+  } else if (ev.type === 'agent:spawn') {
+    el = mkCVSpawn(ev.from || 'orchestrator', ev.to || '?', ev.task || ev.briefing || '', ts);
+  } else if (ev.type === 'agent:message') {
+    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || '', ts, ev.type);
   } else if (ev.type === 'session:start') {
     el = mkCVSys('Session started' + (ev.prompt ? ': ' + esc(ev.prompt.slice(0,80)) : ''), ts);
   } else if (ev.type === 'session:complete') {
@@ -6675,7 +6677,7 @@ function v2RenderOrgCharts() {
   const DAY = 86400000;
   const buckets = Array.from({length: 14}, (_, i) => ({
     day: new Date(now - (13 - i) * DAY).toLocaleDateString('en', {month:'short', day:'numeric'}),
-    ts:  now - (13 - i) * DAY,
+    ts:  now - (14 - i) * DAY,
     events: 0, errors: 0,
   }));
   activity.forEach(e => {
