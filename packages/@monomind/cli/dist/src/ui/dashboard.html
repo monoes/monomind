@@ -5726,7 +5726,8 @@ function v2RenderOrgTab(tab) {
 
 // ── org chart ───────────────────────────────
 function _v2OrgIsLeader(r) {
-  return r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner';
+  return r.isBoss === true || r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner'
+    || r.agent_type === 'coordinator' || r.agent_type === 'devbot-orchestrator';
 }
 
 function v2RenderOrgChart() {
