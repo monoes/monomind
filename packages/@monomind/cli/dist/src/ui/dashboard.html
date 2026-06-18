@@ -1866,6 +1866,28 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-costs"></div>
             <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-health" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-heartbeats" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-tasks" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-members" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-goals" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-board" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-approvals" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-secrets" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-settings" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-routines" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-myissues" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-budgets" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-plugins" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-charts" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-projects" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-workspaces" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-invites" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-environments" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-access" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-issues-full" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-join-requests" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-threads" style="overflow-y:auto"></div>
           </div>
         </div>
           <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.72);z-index:90;align-items:center;justify-content:center">
@@ -6619,7 +6641,7 @@ async function v2RenderOrgPlugins() {
 
 // ── CHARTS ─────────────────────────────────────────────────
 function v2RenderOrgCharts() {
-  const el = document.getElementById('odt-chart');
+  const el = document.getElementById('odt-charts');
   if (!el || !_v2OrgData) return;
   const activity = _v2OrgData._activity || [];
   const agents   = _v2OrgData._agents   || [];
