@@ -7387,7 +7387,7 @@ function _odtAppendEvent(ev, animate) {
     const _trep = ev.rep ?? ev.fromRep;
     const _tnext = ev.nextRep ?? ev.toRep;
     const tickLabel = _trep != null
-      ? 'rep ' + esc(String(_trep)) + ' done' + (_tnext != null ? ' → rep ' + esc(String(_tnext)) + ' in ' + esc(String(ev.wait || '?')) + 's' : '')
+      ? 'rep ' + esc(String(_trep)) + ' done' + (_tnext != null ? ' → rep ' + esc(String(_tnext)) + (ev.wait != null ? ' in ' + esc(String(ev.wait)) + 's' : '') : '')
       : esc(ev.command || ev.loopId || '');
     el = mkCVSys('◷ ' + tickLabel, ts);
     el.dataset.evType = 'loop:tick';
