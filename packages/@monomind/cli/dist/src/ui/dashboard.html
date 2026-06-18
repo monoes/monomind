@@ -4168,6 +4168,8 @@ function _cvExcerptText(ev) {
   if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
   if (t === 'agent:spawn' || t === 'org:agent:online') return 'spawned ' + (ev.agent || ev.role || ev.title || '?');
   if (t === 'org:checkpoint') return 'checkpoint: ' + (ev.summary || ev.progress || ev.msg || '').slice(0, 80) + (ev.pending_tasks != null ? ' · ' + ev.pending_tasks + ' pending' : '');
+  if (t === 'run:complete') return 'run complete' + (ev.status ? ' [' + ev.status + ']' : '');
+  if (t === 'run:cycle:complete') return 'cycle done' + (ev.pending != null ? ' · ' + ev.pending + ' pending' : '');
   if (t === 'org:start') return 'org started: ' + (ev.goal || '').slice(0, 80);
   if (t === 'org:complete') return 'org complete';
   if (t === 'session:start') return 'started: ' + (ev.prompt || '').replace(/^running org:\s*/i, '').slice(0, 80);
@@ -4185,15 +4187,17 @@ function _cvExcerptTag(ev) {
   if (t === 'agent:spawn' || t === 'org:agent:online') return 'NEW';
   if (t === 'org:checkpoint') return 'CHK';
   if (t.startsWith('org:')) return 'ORG';
+  if (t.startsWith('run:')) return 'RUN';
   if (t.startsWith('session:')) return 'SES';
   if (t.startsWith('domain:')) return 'DOM';
+  if (t.startsWith('loop:')) return 'LOOP';
   return 'EVT';
 }
 
 function renderCvExcerptBanner(bannerId, events, sessionMeta) {
   const banner = document.getElementById(bannerId);
   if (!banner) return;
-  const SKIP = new Set(['session:start']);
+  const SKIP = new Set(['session:start', 'run:start', 'org:start']);
   const meaningful = (events || []).filter(ev => !SKIP.has(ev.type)).slice(-5).reverse();
   if (!meaningful.length) {
     const prompt = sessionMeta && (sessionMeta.prompt || '');
