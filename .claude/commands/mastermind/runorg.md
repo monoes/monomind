@@ -44,7 +44,26 @@ No orgs yet? Run `/mastermind:createorg` to define one.
 
 ---
 
-Parse `$ARGUMENTS` for:
+**STEP 0 — Extract loop-control flags (do this FIRST, before any other parsing)**
+
+Scan `$ARGUMENTS` for these flags and store their values. Remove them from the argument string before Step 1:
+
+| Flag | Variable | Default |
+|---|---|---|
+| `--rep <N>` | `current_rep = N` | absent |
+| `--loop <id>` | `LOOP_ID = id` | absent |
+| `--tillend` | `tillend_mode = true` | false |
+| `--maxruns <N>` | `tillend_maxruns = N` | 50 |
+| `--wait <N>` | `wait_seconds = N` | 60 |
+| `--repeat <N>` | `repeat_count = N` | 0 |
+
+⚠️ **CRITICAL — CONTINUATION RUNS DO NOT SKIP WORK.** When `--rep N` is present, this is a scheduled continuation triggered by ScheduleWakeup. The org's FULL work cycle MUST still execute every time: session variables → session:start event → Skill("mastermind:runorg") → session:complete event. NEVER short-circuit or skip the org work because `--rep` is present. The `--rep` / `--loop` flags are only consumed by `Skill("mastermind:_repeat")` at the end.
+
+---
+
+**STEP 1 — Parse org-specific flags**
+
+From the remaining `$ARGUMENTS` (after loop flags removed in Step 0):
 - `--org <name>` → org_name = <name>
 - `--task <task>` → task_override = <task> (if omitted, task_override = null — the skill uses org's stored goal)
 - Remaining text = additional context passed to the boss agent
@@ -68,11 +87,15 @@ If the file does not exist, stop and suggest running `/mastermind:createorg --na
 
 Load brain context for the `ops` domain (follow _protocol.md Brain Load Procedure, namespace: `ops`).
 
-Generate a session ID as a real shell variable:
+Resolve session ID and project root:
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-session_id="mm-$(date -u +%Y%m%dT%H%M%S)"
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+# Reuse the loop's original sessionId for continuation runs (keeps all reps under one session)
+if [ -n "${LOOP_ID:-}" ] && [ -f ".monomind/loops/${LOOP_ID}.json" ]; then
+  session_id=$(jq -r '.sessionId // empty' ".monomind/loops/${LOOP_ID}.json" 2>/dev/null)
+fi
+session_id="${session_id:-mm-$(date -u +%Y%m%dT%H%M%S)}"
 ```
 
 Emit `session:start` to dashboard:
@@ -82,7 +105,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -d "$(jq -cn \
     --arg session "$session_id" \
     --arg org "$org_name" \
-    --arg proj "$(pwd)" \
+    --arg proj "$REPO_ROOT" \
     '{type:"session:start",session:$session,domain:"ops",prompt:("Running org: "+$org),mode:"auto",project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
@@ -93,7 +116,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -d "$(jq -cn \
     --arg session "$session_id" \
     --arg org "$org_name" \
-    --arg proj "$(pwd)" \
+    --arg proj "$REPO_ROOT" \
     '{type:"domain:dispatch",session:$session,domain:"ops",cmd:("Starting org "+$org+" as persistent daemon"),project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
@@ -106,7 +129,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -d "$(jq -cn \
     --arg session "$session_id" \
     --arg status "<status>" \
-    --arg proj "$(pwd)" \
+    --arg proj "$REPO_ROOT" \
     '{type:"session:complete",session:$session,domain:"ops",status:$status,domains:["ops"],project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
