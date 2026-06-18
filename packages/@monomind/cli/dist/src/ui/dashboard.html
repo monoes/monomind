@@ -4178,6 +4178,14 @@ function chatVSelectSession(id) {
   const prompt = (session.prompt || '').replace(/^running org:\s*/i, '').replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 120) || id;
   const repInfo = session._isGroup ? ' · ' + session.sessions.length + ' reps' : '';
   const statusCls = session.status === 'running' ? 'color:oklch(65% 0.20 145)' : session.status === 'complete' ? 'color:var(--text-lo)' : 'color:oklch(65% 0.20 25)';
+  // Compute cost + duration from events
+  const _allEvs = session.events || [];
+  const _totalCost = _allEvs.reduce((acc, ev) => acc + (Number(ev.cost_usd) || 0), 0);
+  const _costStr = _totalCost > 0 ? '$' + _totalCost.toFixed(4) : '';
+  const _startTs = session.startedAt || session.ts || 0;
+  const _endTs = session.endedAt || (_allEvs[_allEvs.length-1]?.ts) || 0;
+  const _durMs = _endTs > _startTs ? _endTs - _startTs : 0;
+  const _durStr = _durMs > 60000 ? Math.round(_durMs/60000) + 'm' : _durMs > 0 ? Math.round(_durMs/1000) + 's' : '';
   const hdr = document.createElement('div');
   hdr.className = 'cv-session-hdr';
   hdr.innerHTML = `<div class="cv-shdr-prompt">${esc(prompt)}${repInfo ? '<span style="color:var(--text-lo);font-size:10px"> ' + esc(repInfo) + '</span>' : ''}</div>`+
@@ -4187,10 +4195,12 @@ function chatVSelectSession(id) {
       `<span style="${statusCls}">${esc(session.status || 'unknown')}</span>`+
       `<span class="cv-shdr-sep">·</span>`+
       `<span title="started">${esc(tsStr)}</span>`+
+      (_durStr ? `<span class="cv-shdr-sep">·</span><span title="duration">${esc(_durStr)}</span>` : '')+
       `<span class="cv-shdr-sep">·</span>`+
       `<span title="agents">${esc(agentNames)}</span>`+
       `<span class="cv-shdr-sep">·</span>`+
       `<span title="event count">${evCount} events</span>`+
+      (_costStr ? `<span class="cv-shdr-sep">·</span><span style="color:oklch(65% 0.18 50)" title="total cost">${esc(_costStr)}</span>` : '')+
     `</div>`;
   feed.appendChild(hdr);
   const events = session.events || [];
@@ -4240,7 +4250,23 @@ function appendChatViewEvent(ev, animate) {
   } else if (ev.type === 'agent:result') {
     el = mkCVResult(ev.agent || ev.from || '?', ev.result || ev.msg || ev.message || ev.summary || '', ts);
   } else if (ev.type === 'agent:spawn') {
-    el = mkCVSpawn(ev.from || 'orchestrator', ev.to || '?', ev.task || ev.briefing || '', ts);
+    const _spawnTo = ev.to || ev.agentType || '?';
+    const _spawnTask = ev.task || ev.briefing || '';
+    el = mkCVSpawn(ev.from || 'orchestrator', _spawnTo, _spawnTask, ts);
+  } else if (ev.type === 'agent:complete') {
+    // Rich completion event from capture-handler (replaces/supplements org:comms)
+    const _acAgent = ev.agentType || ev.role || ev.from || '?';
+    const _acResult = ev.result || '';
+    const _acCost = ev.cost_usd != null ? ' $' + Number(ev.cost_usd).toFixed(4) : '';
+    const _acTok = (ev.tokens_in || ev.tokens_out) ? ' · ' + ((ev.tokens_in||0)+(ev.tokens_out||0)).toLocaleString() + ' tok' : '';
+    const _acTools = (ev.toolCalls || []).length ? ' · [' + ev.toolCalls.slice(0,5).map(t => esc(t)).join(', ') + ']' : '';
+    el = mkCVResult(_acAgent + _acCost + _acTok + _acTools, _acResult, ts);
+  } else if (ev.type === 'agent:usage') {
+    // Token/cost accounting event — show as compact system line
+    const _auAgent = ev.role || ev.agentType || '?';
+    const _auCost = ev.cost_usd != null ? '$' + Number(ev.cost_usd).toFixed(4) : '';
+    const _auTok = (ev.tokens_in || ev.tokens_out) ? ((ev.tokens_in||0)).toLocaleString() + '↑ ' + ((ev.tokens_out||0)).toLocaleString() + '↓' : '';
+    el = mkCVSys('◈ ' + esc(_auAgent) + (_auTok ? ' · ' + _auTok : '') + (_auCost ? ' · ' + _auCost : ''), ts);
   } else if (ev.type === 'agent:message') {
     el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || '', ts, ev.type);
   } else if (ev.type === 'session:start') {
