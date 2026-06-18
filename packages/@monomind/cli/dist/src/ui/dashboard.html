@@ -6239,6 +6239,7 @@ function v2RenderOrgTasks() {
   // Server puts completed/failed/cancelled in the 'done' column but keeps original status string
   const _normTaskStatus = (st, col) => {
     if (st === 'completed' || st === 'failed' || st === 'cancelled') return 'done';
+    if (st === 'in_progress') return 'doing';
     return st || col;
   };
   let tasks = [];
