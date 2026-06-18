@@ -7921,7 +7921,7 @@ function filterOrgList(q) {
           } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
             _v2OrgData._agents.forEach(a => { a.status = 'idle'; });
           }
-          if (_v2OrgTab === 'agents-full') v2RenderOrgAgentsFull();
+          if (_v2OrgTab === 'agents-full' && (ev.type === 'org:agent:online' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgAgentsFull();
           else if (_v2OrgTab === 'live' && (ev.type === 'org:agent:online' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgLive();
         }
         // Also push live org:comms / org:checkpoint events directly into the Live tab
