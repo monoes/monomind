@@ -6909,6 +6909,8 @@ async function _odtLoadChatSessions() {
       _sseDuringFetch.forEach(ss => {
         if (!_odtChatSessions.find(s => s.id === ss.id)) _odtChatSessions.push(ss);
       });
+      // Sort most-recent-first so SSE-injected new runs (appended above) appear at top of dropdown
+      _odtChatSessions.sort((a, b) => (b.ts || b.startedAt || 0) - (a.ts || a.startedAt || 0));
       _odtPopulateChatSel();
       // Also merge mastermind sessions matching this org — they are distinct from org
       // runs (no runId/JSONL file) but contain lifecycle events the user needs to see.
@@ -6950,8 +6952,11 @@ async function _odtLoadChatSessions() {
     const all = Array.isArray(r) ? r : Object.values(r.sessions || {});
     _odtChatSessions = all.filter(_odtOrgSessionMatch).map(s => {
       if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete';
+      // Mark complete sessions with events already loaded — avoids redundant lazy-load fetch
+      if (s.status !== 'running' && Array.isArray(s.events) && s.events.length > 0) s._eventsLoaded = true;
       return s;
     });
+    _odtChatSessions.sort((a, b) => (b.ts || b.startedAt || 0) - (a.ts || a.startedAt || 0));
     _odtPopulateChatSel();
     // Auto-select most recent session when nothing is running (mirrors primary path behaviour).
     // _odtPopulateChatSel only picks running sessions; for all-complete orgs the feed stays
