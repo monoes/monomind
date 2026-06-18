@@ -61,16 +61,8 @@ function findCliPath() {
   const local = path.join(CWD, 'packages', '@monomind', 'cli', 'bin', 'cli.js');
   if (fs.existsSync(local)) return { cmd: process.execPath, args: [local], usePort: false };
 
-  // Try __dirname-relative path — works when this file is still inside the npm package
-  // (e.g. running directly from node_modules/.bin or a global install).
-  // From .claude/helpers/ -> ../../dist/src/ui/server.mjs
-  const pkgServerMjs = path.resolve(__dirname, '..', '..', 'dist', 'src', 'ui', 'server.mjs');
-  if (fs.existsSync(pkgServerMjs)) return { cmd: process.execPath, args: [pkgServerMjs], usePort: true };
-
-  const pkgBinCli = path.resolve(__dirname, '..', '..', 'bin', 'cli.js');
-  if (fs.existsSync(pkgBinCli)) return { cmd: process.execPath, args: [pkgBinCli], usePort: false };
-
   // Try global npm install paths for both package names
+  // npm root -g is slow; probe known conventional paths instead
   const globalCandidates = [];
   try {
     const { execSync } = require('child_process');
