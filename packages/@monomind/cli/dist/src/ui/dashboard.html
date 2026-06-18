@@ -4157,6 +4157,7 @@ function appendChatViewEvent(ev, animate) {
   if (empty && feed.contains(empty)) feed.removeChild(empty);
 
   let el;
+  const atBottom = !animate || (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80);
   const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
   if (ev.type === 'run:start') {
     el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + esc(ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + esc(ev.bossRole) : ''), ts);
@@ -4225,7 +4226,7 @@ function appendChatViewEvent(ev, animate) {
   }
   if (animate) el.classList.add('cv-new');
   feed.appendChild(el);
-  feed.scrollTop = feed.scrollHeight;
+  if (atBottom) feed.scrollTop = feed.scrollHeight;
 }
 
 function _cvExcerptText(ev) {
