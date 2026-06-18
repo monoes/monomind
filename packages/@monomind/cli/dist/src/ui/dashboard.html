@@ -5726,22 +5726,27 @@ function v2RenderOrgChart() {
     `<clipPath id="${nodeClipIds[i]}"><circle r="${Math.round(R * 0.52)}"/></clipPath>`
   ).join('');
 
+  // Overlay live running status from in-memory agent SSE state for chart node indicators
+  const _chartRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
   let nodesHTML = '';
   roles.forEach((role, i) => {
     const p = pos[role.id];
     if (!p) return;
     const leader = _v2OrgIsLeader(role);
     const color = colorOf(role, i);
+    const isRunning = _chartRunning.has(role.id);
     const displayName = role.name || role.title || role.id;
     const subType = role.type || role.agent_type || '';
     const MAX_LBL = Math.floor(R / 4.2);
     const nameText = displayName.length > MAX_LBL ? displayName.slice(0, MAX_LBL - 1) + '…' : displayName;
     const subTypeText = subType.length > MAX_LBL ? subType.slice(0, MAX_LBL - 1) + '…' : subType;
     const outerRing = leader ? `<circle r="${R + 9}" fill="none" stroke="${color}" stroke-width="0.6" opacity="0.18"/>` : '';
+    const runningDot = isRunning ? `<circle r="5.5" cx="${(R * 0.65).toFixed(1)}" cy="${(-R * 0.65).toFixed(1)}" fill="oklch(68% 0.20 150)" stroke="oklch(12% 0.008 55)" stroke-width="1.5" style="animation:blink 2s ease-in-out infinite"/>` : '';
     const nameY = subType ? (R * 0.55 + 2).toFixed(0) : (R * 0.55 + 8).toFixed(0);
     const avR = Math.round(R * 0.52);
     const avatarSrc = v2RoleAvatar(role);
     nodesHTML += `<g class="v2oc-node" data-role="${esc(role.id)}" onclick="v2OpenAgent('${String(role.id).replace(/['\\]/g,'\\$&')}')" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
+      ${runningDot}
       <title>${esc(displayName)}${subType ? ` · ${esc(subType)}` : ''} — click for details</title>
       ${outerRing}
       <circle r="${R}" fill="oklch(12% 0.008 55)" stroke="${color}" stroke-width="${leader ? 2.5 : 1.8}" filter="url(#v2glow)"/>
@@ -7956,6 +7961,7 @@ function filterOrgList(q) {
           else if (_v2OrgTab === 'heartbeats' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgHeartbeats();
           else if (_v2OrgTab === 'members' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgMembers();
           else if (_v2OrgTab === 'roles' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgRoles();
+          else if (_v2OrgTab === 'chart' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgChart();
         }
         // Also push live org:comms / org:checkpoint events directly into the Live tab
         // activity feed so they appear in real-time without waiting for the 5s poll.
