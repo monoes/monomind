@@ -6142,7 +6142,7 @@ function fmtOrgEvDetail(ev) {
   }
   if (ev.type === 'org:checkpoint') return ev.summary || ev.progress || '';
   if (ev.type === 'agent:result') return (ev.agent || ev.from || '') + (ev.result || ev.msg || ev.message || ev.summary ? ': ' + (ev.result || ev.msg || ev.message || ev.summary) : '');
-  if (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline') return ev.agent || ev.id || ev.from || '';
+  if (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline') return ev.title || ev.role || ev.agent || ev.id || ev.from || '';
   if (ev.type === 'org:error') return ev.error || ev.msg || ev.message || '';
   if (ev.type === 'file:write') return ev.path || ev.file || ev.msg || '';
   return ev.role||ev.result||ev.msg||ev.message||ev.progress||ev.agent||ev.status||'';
