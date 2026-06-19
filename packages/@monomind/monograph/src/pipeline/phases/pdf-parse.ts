@@ -107,8 +107,25 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
       }
     }
 
-    if (sectionNodes.length > 0) insertNodes(ctx.db, sectionNodes);
-    if (allEdges.length > 0) insertEdges(ctx.db, allEdges);
+    if (sectionNodes.length > 0) {
+      // File nodes are not persisted by structure/parse phases for non-code files —
+      // insert them here before edges to satisfy the FK constraint.
+      const seenFileIds = new Set<string>();
+      const fileNodes: MonographNode[] = [];
+      for (const edge of allEdges) {
+        if (!seenFileIds.has(edge.sourceId)) {
+          seenFileIds.add(edge.sourceId);
+          const relPath = sectionNodes.find(n => n.id === edge.targetId)?.filePath ?? '';
+          fileNodes.push({
+            id: edge.sourceId, label: 'File',
+            name: basename(relPath), normLabel: toNormLabel(basename(relPath)),
+            filePath: relPath, isExported: false,
+          });
+        }
+      }
+      insertNodes(ctx.db, [...fileNodes, ...sectionNodes]);
+      insertEdges(ctx.db, allEdges);
+    }
 
     ctx.onProgress?.({ phase: 'pdf-parse', message: `Parsed ${pdfPaths.length} PDF files → ${sectionNodes.length} chunks` });
     return { sectionNodes, pdfFiles: pdfPaths.length };
