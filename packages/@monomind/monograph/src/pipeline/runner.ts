@@ -39,8 +39,12 @@ export class PipelineRunner {
       return p;
     };
 
-    // Kick off all phases in topo order — each self-manages its dep wait via lazy promise creation
-    await Promise.all(this.sortedNames.map(name => getOrCreatePromise(name)));
+    // Use allSettled so every in-flight phase completes before we return.
+    // This ensures the DB is not closed while phases are still writing to it,
+    // which would otherwise cause unhandled rejections that hang the process.
+    const results = await Promise.allSettled(this.sortedNames.map(name => getOrCreatePromise(name)));
+    const failed = results.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
+    if (failed) throw failed.reason;
     return outputs;
   }
 }
