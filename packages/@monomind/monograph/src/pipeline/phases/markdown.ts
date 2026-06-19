@@ -25,6 +25,7 @@ export const markdownPhase: PipelinePhase<MarkdownOutput> = {
   // Runs before communities so REFERENCES edges are visible to graph analyses.
   deps: ['parse', 'structure'],
   async execute(ctx, deps) {
+    if (ctx.options.codeOnly) return { documentNodes: [], referencesEdges: [] };
     const { fileNodes } = deps.get('structure') as StructureOutput;
     const documentNodes: MonographNode[] = [];
     const referencesEdges: MonographEdge[] = [];
