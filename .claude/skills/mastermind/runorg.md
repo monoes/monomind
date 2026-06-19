@@ -40,7 +40,7 @@ fi
 ```
 Return `status: blocked` with message: "Org '<org_name>' not found. Run /mastermind:createorg to define it."
 
-Validate the config has at minimum: `name`, `goal`, `roles` (non-empty array), `communication`.
+Validate the config has at minimum: `name`, `goal`, `roles` (non-empty array). The `communication` field is optional; fall back to `edges` if absent (both have the same schema: `from`, `to`, `type`).
 
 ---
 
@@ -351,7 +351,7 @@ YOUR TEAM (direct reports):
 ${directReports.map(r => `• ${r.title} (subagent_type="${r.agent_type}") — ${r.responsibilities.join(', ')}`).join('\n')}
 
 FULL COMMUNICATION TOPOLOGY:
-${orgConfig.communication.map(e => `${e.from} → ${e.to} (${e.type})`).join('\n')}
+${(orgConfig.communication || orgConfig.edges || []).map(e => `${e.from} → ${e.to} (${e.type})`).join('\n')}
 
 SHARED INFRASTRUCTURE:
 - Task board (monotask): board_id=<board_id>
@@ -501,16 +501,27 @@ OPERATING LOOP:
           # On start — announce you are working:
           curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
-              --arg from "<role_id>" --arg msg "Starting: <card title>" --arg p "$REPO_ROOT" \
-              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
+              --arg from "<role_id>" --arg msg "Starting: <card title>" \
+              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
           # On completion — report back:
           curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
-              --arg from "<role_id>" --arg msg "Completed: <one-sentence summary of output>" --arg p "$REPO_ROOT" \
-              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
+              --arg from "<role_id>" --arg msg "Completed: <one-sentence summary of output>" \
+              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
+          # TOKEN TRACKING — estimate and persist token usage to state.json for the Budgets dashboard:
+          # Count approximate output tokens from your work (1 word ≈ 1.3 tokens):
+          _tok_out=$(echo -n "<paste a representative sample of your final output here>" | wc -w)
+          _tok_out=$(( _tok_out * 13 / 10 ))
+          _tok_in=8000  # fixed estimate for task context
+          stateFile="$REPO_ROOT/.monomind/orgs/${orgName}-state.json"
+          [ -f "$stateFile" ] && jq --arg id "<role_id>" --argjson in $_tok_in --argjson out $_tok_out \
+            '.agents[$id].tokens_in = ((.agents[$id].tokens_in // 0) + $in) | .agents[$id].tokens_out = ((.agents[$id].tokens_out // 0) + $out)' \
+            "$stateFile" > "${stateFile}.tmp" && mv "${stateFile}.tmp" "$stateFile" || true
 
         Fill in the literal values for orgName="${orgName}", runId="${runId}", sessionId="${sessionId}" — embed them
         directly in the prompt string so the specialist doesn't need to resolve them.
+        For token tracking: set _tok_out to the actual word count of your output text (use wc -w on your
+        output), and replace <role_id> with the literal role id string.
 
 5. Collect completed results from memory (search "${memNs}:report:")
 
@@ -526,8 +537,7 @@ OPERATING LOOP:
    jq -cn --arg runId "${runId}" --arg org "${orgName}" --argjson pend "${pending_count:-0}" \
      '{type:"run:cycle:complete",runId:$runId,org:$org,pending:$pend,ts:(now*1000|floor)}' >> "${runFile}" || true
    activityFile=".monomind/orgs/${orgName}-activity.jsonl"
-   jq -cn --arg org "${orgName}" --arg runId "${runId}" --argjson pend "${pending_count:-0}" \
-     '{type:"run:cycle:complete",org:$org,runId:$runId,ts:(now*1000|floor),pending:$pend}' >> "$activityFile" 2>/dev/null || true
+   echo "{\"type\":\"run:cycle:complete\",\"org\":\"${orgName}\",\"runId\":\"${runId}\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pending\":${pending_count:-0}}" >> "$activityFile" 2>/dev/null || true
 
 8. REQUIRED — emit org:checkpoint with a one-sentence progress summary (include runId):
    curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
@@ -551,23 +561,25 @@ START NOW: resolve CTRL_URL, check for stop signal, assess the board, create ini
 
 ## Step 5 — Emit Boss Online Event
 
-Emit `org:agent:online` for the boss role (team member events are emitted by the boss itself):
+Emit `org:agent:online` for the boss role (team member events are emitted by the boss itself).
+
+**IMPORTANT**: Shell variables do NOT persist across separate Bash tool calls. Read the `ORG_VARS:` line printed in Step 2+3 and substitute each literal value directly into the curl command before running it. Do NOT use `$variableName` syntax — replace each placeholder with its literal string from `ORG_VARS:`.
 
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+# Replace <CTRL_URL>, <sessionId>, <orgName>, <runId>, <bossRole_id>, <bossRole_title>, <bossRole_agent_type>, <REPO_ROOT>
+# with the LITERAL values from the ORG_VARS: line printed in Step 2+3.
+curl -s -X POST "<CTRL_URL>/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
-    --arg session "$sessionId" \
-    --arg org "$orgName" \
-    --arg runId "$runId" \
-    --arg role "$bossRole_id" \
-    --arg title "$bossRole_title" \
-    --arg agent_type "$bossRole_agent_type" \
-    --arg proj "$REPO_ROOT" \
+    --arg session "<sessionId>" \
+    --arg org "<orgName>" \
+    --arg runId "<runId>" \
+    --arg role "<bossRole_id>" \
+    --arg title "<bossRole_title>" \
+    --arg agent_type "<bossRole_agent_type>" \
+    --arg proj "<REPO_ROOT>" \
     '{type:"org:agent:online",session:$session,org:$org,runId:$runId,role:$role,title:$title,agent_type:$agent_type,project:$proj,ts:(now*1000|floor)}')" || true
 ```
-
-(Use the scalar string variables `$bossRole_id`, `$bossRole_title`, `$bossRole_agent_type` derived by extracting fields from `bossRole` before constructing the curl call. `CTRL_URL`, `MONO_DIR`, and `runId` were resolved in Step 3 — reuse those variables.)
 
 ---
 
