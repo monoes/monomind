@@ -108,7 +108,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 
   Current status: stopped
   The loop will exit at its next scheduled wakeup without rescheduling.
-  Loop fully dead within: ≤<poll_interval_minutes> minutes
+  Loop fully dead within: ≤$(jq -r '.loop.poll_interval_minutes // "?"' "$orgFile") minutes
 
   To restart: /mastermind:runorg --org <org_name>
   Status:     /mastermind:orgstatus --org <org_name>
