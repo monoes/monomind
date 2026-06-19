@@ -1068,7 +1068,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             memoryCount = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md').length;
           } catch {}
           return { slug, path: projPath, name, sessionCount, memoryCount, lastActivity: lastActivity || null };
-        }).filter(p => p.sessionCount > 0).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+        }).filter(p => p.sessionCount > 0 || fs.existsSync(path.join(p.path, '.monomind'))).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ projects }));
       } catch (err) {
