@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { readWorkflow, listRuns, writeRunRecord } from '../browser/workflow/store.js';
 import { runWorkflow } from '../browser/workflow/engine.js';
 import { startDashboard } from '../browser/dashboard/server.js';
+import { createBuiltinHandlers } from '../browser/workflow/builtin-handlers.js';
 import type { WorkflowDef } from '../browser/workflow/types.js';
 
 export function createWorkflowCommand(): Command {
@@ -37,7 +38,9 @@ export function createWorkflowCommand(): Command {
   cmd
     .command('run <file>')
     .description('Execute a workflow and open the dashboard')
-    .action(async (file: string) => {
+    .option('--port <number>', 'Dashboard port (default: MONOBROWSE_DASHBOARD_PORT or 4243)', '4243')
+    .option('--no-keep', 'Exit immediately after run instead of keeping dashboard alive')
+    .action(async (file: string, opts: { port: string; keep: boolean }) => {
       const filePath = resolve(file);
       let def: WorkflowDef;
       try {
@@ -47,11 +50,13 @@ export function createWorkflowCommand(): Command {
         process.exit(1);
       }
 
-      const dashboard = startDashboard();
+      const port = parseInt(process.env['MONOBROWSE_DASHBOARD_PORT'] ?? opts.port, 10);
+      const dashboard = startDashboard(port);
       console.log(`Dashboard: http://localhost:${dashboard.port}`);
       console.log(`Running: ${def.name}`);
 
       const record = await runWorkflow(def, {
+        handlers: createBuiltinHandlers(),
         onEvent: event => {
           dashboard.broadcast(event);
           if (event.eventType === 'step_completed' || event.eventType === 'step_failed') {
@@ -66,7 +71,15 @@ export function createWorkflowCommand(): Command {
       await writeRunRecord(record);
       console.log(`\nCompleted: ${record.status} — ${record.itemsProcessed} items`);
       if (record.error) console.error(`Error: ${record.error}`);
-      process.exit(record.status === 'completed' ? 0 : 1);
+
+      if (opts.keep !== false) {
+        console.log(`\nDashboard kept alive at http://localhost:${dashboard.port} — press Ctrl+C to exit`);
+        // Keep process alive; SIGINT/SIGTERM will close cleanly
+        process.on('SIGINT', () => { dashboard.close(); process.exit(0); });
+        process.on('SIGTERM', () => { dashboard.close(); process.exit(0); });
+      } else {
+        process.exit(record.status === 'completed' ? 0 : 1);
+      }
     });
 
   cmd
