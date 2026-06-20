@@ -24,7 +24,7 @@ const DEFAULT_CONFIG = {
     checkIntervalHours: 24,
     autoUpdate: {
         patch: true,
-        minor: true,
+        minor: false,
         major: false,
     },
     priority: {
