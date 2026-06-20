@@ -1,0 +1,11 @@
+#!/bin/bash
+# Reject commits on improve/auto that don't follow the sprint-review format
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ "$BRANCH" = "improve/auto" ]; then
+  MSG=$(cat "$1")
+  if echo "$MSG" | grep -qiE "^(wip|fix|update|changes|misc|temp|checkpoint):"; then
+    echo "ERROR: Commit message rejected — use format: fix(sprint-review): [ITEM-ID] description"
+    exit 1
+  fi
+fi
+exit 0
