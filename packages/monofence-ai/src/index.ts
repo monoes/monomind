@@ -234,6 +234,21 @@ export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
 
       let result = detectionService.detect(input);
 
+      // Apply per-type suppression from allowlist rules with non-empty types arrays.
+      // Rules with types: [] already caused full bypass above; here we handle the selective case:
+      // for each matching rule whose types is non-empty, remove detected threats of those types.
+      const selectiveRules = allowlist.getMatchingRules(input).filter(r => r.types.length > 0);
+      if (selectiveRules.length > 0) {
+        const suppressedTypes = new Set(selectiveRules.flatMap(r => r.types));
+        const filtered = result.threats.filter(t => !suppressedTypes.has(t.type));
+        if (filtered.length !== result.threats.length) {
+          const newRisk = filtered.length > 0
+            ? Math.max(...filtered.map(t => t.confidence))
+            : 0;
+          result = { ...result, threats: filtered, overallRisk: newRisk, safe: filtered.length === 0 };
+        }
+      }
+
       // Apply confidence threshold — filter out threats below threshold
       if (config.confidenceThreshold != null) {
         const filtered = result.threats.filter(t => t.confidence >= config.confidenceThreshold!);
