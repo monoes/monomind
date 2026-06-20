@@ -10,6 +10,7 @@ export const instagramAdapter: PlatformAdapter = {
     return page.evaluate<boolean>('!!document.querySelector(\'svg[aria-label="Home"]\')');
   },
   async extractUsername(page: PageInterface): Promise<string> {
-    return page.evaluate<string>("document.querySelector('a[href^=\"/\"]')?.href?.split('/').filter(Boolean)[0] ?? ''");
+    // Use getAttribute to get the raw path-relative href (not the resolved absolute URL)
+    return page.evaluate<string>("document.querySelector('a[href^=\"/\"]')?.getAttribute('href')?.split('/').filter(Boolean)[0] ?? ''");
   },
 };
