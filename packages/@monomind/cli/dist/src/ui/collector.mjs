@@ -274,19 +274,29 @@ function collectAgents(projectDir) {
   };
 }
 
+// Single source-of-truth for all model pricing (canonical list from src/pricing/model-pricing.ts).
+// server.mjs imports _tokPrice and _tokCost from here instead of duplicating this table.
 const _TOK_PRICES = {
-  'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
-  'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
-  'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,  cw: 6.25e-6, cr: 0.5e-6  },
-  'claude-opus-4':     { in: 15e-6,   out: 75e-6,  cw: 18.75e-6,cr: 1.5e-6  },
-  'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
-  'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
-  'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
-  'claude-3-7-sonnet': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
-  'claude-3-5-sonnet': { in: 3e-6,    out: 15e-6,  cw: 3.75e-6, cr: 0.3e-6  },
-  'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,   cw: 1.25e-6, cr: 0.1e-6  },
-  'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,   cw: 1e-6,    cr: 0.08e-6 },
-  'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,   cw: 1e-6,    cr: 0.08e-6 },
+  // Opus
+  'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
+  'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
+  'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
+  'claude-opus-4':     { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6   },
+  // Sonnet
+  'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
+  'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
+  'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
+  'claude-3-7-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
+  'claude-3-5-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
+  // Haiku
+  'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,    cw: 1.25e-6,  cr: 0.1e-6   },
+  'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6  },
+  'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6  },
+  // OpenAI
+  'gpt-4o':            { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6  },
+  'gpt-4o-mini':       { in: 0.15e-6, out: 0.6e-6,  cw: 0.15e-6,  cr: 0.075e-6 },
+  // Google
+  'gemini-2.5-pro':    { in: 1.25e-6, out: 10e-6,   cw: 1.25e-6,  cr: 0.315e-6 },
 };
 function _tokPrice(model) {
   const _ALIAS = { 'haiku': 'claude-haiku-4-5', 'opus': 'claude-opus-4-6', 'sonnet': 'claude-sonnet-4-6' };
@@ -744,7 +754,7 @@ export function collectAll(projectDir) {
   };
 }
 
-export { collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem };
+export { collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem, _tokPrice, _tokCost };
 
 export function getWatchPaths(projectDir) {
   const resolvedDir = path.resolve(projectDir);
