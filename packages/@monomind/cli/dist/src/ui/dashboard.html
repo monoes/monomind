@@ -1339,6 +1339,27 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 #mem-modal-ta:focus { border-color: var(--accent); }
 .mem-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
 
+/* ── workflow view tabs ────────────────────────────────────── */
+.wf-pane { display: none; }
+.wf-pane.active { display: block; }
+
+/* ── systems grid ──────────────────────────────────────────── */
+#wf-systems-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.sys-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.15s; }
+.sys-card.connected { border-color: oklch(65% 0.15 150 / 0.5); }
+.sys-card-top { display: flex; align-items: center; gap: 10px; }
+.sys-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; background: var(--surface-hi); }
+.sys-name { font-size: 13px; font-weight: 600; color: var(--text-hi); }
+.sys-type { font-size: 10px; color: var(--text-xs); margin-top: 1px; letter-spacing: 0.04em; text-transform: uppercase; }
+.sys-status { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.sys-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sys-dot.on  { background: var(--green); box-shadow: 0 0 6px oklch(65% 0.15 150 / 0.6); }
+.sys-dot.off { background: var(--border); }
+.sys-user { font-size: 11px; color: var(--text-lo); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sys-age { font-size: 10px; color: var(--text-xs); }
+.sys-cmd { font-size: 10px; color: var(--accent); font-family: var(--mono); background: var(--accent-dim); border-radius: 4px; padding: 3px 7px; display: inline-block; cursor: pointer; word-break: break-all; }
+.sys-api-badge { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: oklch(72% 0.18 75 / 0.1); color: var(--accent); border: 1px solid var(--accent-dim); }
+
 /* ── workflow runs view ────────────────────────────────────── */
 .wf-run-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
 .wf-run-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -1354,7 +1375,18 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 .wf-run-error { font-size: 11px; color: var(--red); margin-top: 6px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wf-progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
 .wf-progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
-#wf-runs-list .loading-txt { padding: 40px 0; text-align: center; color: var(--text-lo); }
+#wf-runs-list .loading-txt, #wf-defs-list .loading-txt { padding: 40px 0; text-align: center; color: var(--text-lo); }
+.wf-def-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 14px; cursor: default; transition: border-color 0.12s; }
+.wf-def-card:hover { border-color: var(--accent); }
+.wf-def-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+.wf-def-body { flex: 1; min-width: 0; }
+.wf-def-name { font-size: 13px; font-weight: 600; color: var(--text-hi); margin-bottom: 2px; }
+.wf-def-desc { font-size: 12px; color: var(--text-lo); margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-def-meta { display: flex; gap: 10px; flex-wrap: wrap; }
+.wf-def-tag { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: var(--surface-hi); color: var(--text-lo); font-family: var(--mono); }
+.wf-def-run-btn { font-size: 11px; padding: 4px 10px; background: var(--accent-dim); color: var(--accent); border: 1px solid oklch(72% 0.18 75 / 0.3); border-radius: 5px; cursor: pointer; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+.wf-def-run-btn:hover { background: oklch(72% 0.18 75 / 0.2); }
+#wf-lib-empty { padding: 40px 0; text-align: center; color: var(--text-lo); font-size: 13px; }
 #wf-empty { padding: 40px 0; text-align: center; color: var(--text-lo); font-size: 13px; }
 
 /* Mastermind overlay */
@@ -2109,19 +2141,47 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <div class="view" id="view-workflows">
       <div class="vscroll">
         <div class="pg-title">Workflows</div>
-        <div class="pg-sub" style="margin-bottom:16px">Browser automation workflow runs — live &amp; historical</div>
-        <div id="wf-toolbar" style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
-          <button class="btn" onclick="loadWorkflowRuns()">↺ Refresh</button>
-          <select id="wf-status-filter" class="filter-select" onchange="renderWorkflowRuns()" style="background:var(--surface);color:var(--text-hi);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px">
-            <option value="">All statuses</option>
-            <option value="running">Running</option>
-            <option value="completed">Completed</option>
-            <option value="failed">Failed</option>
-            <option value="stopped">Stopped</option>
-          </select>
-          <span id="wf-count" style="color:var(--text-lo);font-size:12px"></span>
+        <div class="pg-sub">Browser automation — connected systems &amp; run history</div>
+        <!-- Tab bar -->
+        <div class="mg-tab-bar" style="margin-top:14px">
+          <button class="odt-btn active" data-wftab="systems" onclick="wfSwitchTab('systems')">Systems</button>
+          <button class="odt-btn" data-wftab="library" onclick="wfSwitchTab('library')">Library</button>
+          <button class="odt-btn" data-wftab="runs" onclick="wfSwitchTab('runs')">Runs</button>
         </div>
-        <div id="wf-runs-list"><div class="loading-txt">Loading…</div></div>
+
+        <!-- TAB: SYSTEMS -->
+        <div class="wf-pane active" id="wf-tab-systems">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:4px">
+            <button class="btn" onclick="loadPlatformSessions()">↺ Refresh</button>
+            <span style="font-size:11px;color:var(--text-lo)">Sessions saved in ~/.monomind/sessions.json</span>
+          </div>
+          <div id="wf-systems-grid"></div>
+        </div>
+
+        <!-- TAB: LIBRARY -->
+        <div class="wf-pane" id="wf-tab-library">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:4px">
+            <button class="btn" onclick="loadWorkflowDefs()">↺ Refresh</button>
+            <span style="font-size:11px;color:var(--text-lo)">Saved in .monomind/workflows/</span>
+          </div>
+          <div id="wf-defs-list"><div class="loading-txt">Loading…</div></div>
+        </div>
+
+        <!-- TAB: RUNS -->
+        <div class="wf-pane" id="wf-tab-runs">
+          <div style="display:flex;gap:8px;margin-bottom:16px;margin-top:4px;align-items:center">
+            <button class="btn" onclick="loadWorkflowRuns()">↺ Refresh</button>
+            <select id="wf-status-filter" onchange="renderWorkflowRuns()" style="background:var(--surface);color:var(--text-hi);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px">
+              <option value="">All statuses</option>
+              <option value="running">Running</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="stopped">Stopped</option>
+            </select>
+            <span id="wf-count" style="color:var(--text-lo);font-size:12px"></span>
+          </div>
+          <div id="wf-runs-list"><div class="loading-txt">Loading…</div></div>
+        </div>
       </div>
     </div>
 
@@ -2379,7 +2439,7 @@ function renderView(v) {
   if (v === 'memory') renderMemory();
   if (v === 'orgs') renderOrgs();
   if (v === 'monograph') loadMonograph();
-  if (v === 'workflows') loadWorkflowRuns();
+  if (v === 'workflows') { loadPlatformSessions(); loadWorkflowDefs(); loadWorkflowRuns(); }
   if (v === 'global') renderGlobalFeed();
   if (v === 'global-loops') renderGlobalLoops();
   if (v === 'global-tokens') renderGlobalTokens();
@@ -10151,7 +10211,119 @@ let _mgWikiFilter = 'all';
 let _mgWikiMode = 'all';
 let _mgWikiSearchTimer = null;
 
-/* ── Workflow Runs ─────────────────────────────────────────── */
+/* ── Workflow View ─────────────────────────────────────────── */
+const WF_PLATFORMS = [
+  { id: 'linkedin',  name: 'LinkedIn',  icon: '💼', type: 'browser', connectCmd: 'npx monomind browse platform connect linkedin' },
+  { id: 'instagram', name: 'Instagram', icon: '📷', type: 'browser', connectCmd: 'npx monomind browse platform connect instagram' },
+  { id: 'x',        name: 'X (Twitter)',icon: '𝕏',  type: 'browser', connectCmd: 'npx monomind browse platform connect x' },
+  { id: 'gemini',   name: 'Gemini',    icon: '✦',  type: 'browser', connectCmd: 'npx monomind browse platform connect gemini' },
+  { id: 'google',   name: 'Google',    icon: '🔵', type: 'api',     connectCmd: 'export GOOGLE_ACCESS_TOKEN=<your-token>' },
+  { id: 'microsoft',name: 'Microsoft', icon: '🟦', type: 'api',     connectCmd: 'export MICROSOFT_ACCESS_TOKEN=<your-token>' },
+];
+
+function wfSwitchTab(tab) {
+  document.querySelectorAll('.wf-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('[data-wftab]').forEach(b => b.classList.remove('active'));
+  document.getElementById('wf-tab-' + tab).classList.add('active');
+  document.querySelector('[data-wftab="' + tab + '"]').classList.add('active');
+  if (tab === 'systems') loadPlatformSessions();
+  if (tab === 'library') loadWorkflowDefs();
+  if (tab === 'runs') loadWorkflowRuns();
+}
+
+let _wfDefs = [];
+async function loadWorkflowDefs() {
+  const el = document.getElementById('wf-defs-list');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    _wfDefs = await apiFetch('/api/workflow-defs');
+  } catch { _wfDefs = []; }
+  if (!_wfDefs.length) {
+    el.innerHTML = `<div id="wf-lib-empty">No workflows saved yet.<br><span style="font-size:12px;color:var(--text-xs)">Create one: <code style="font-family:var(--mono);color:var(--accent)">npx monomind browse workflow create my-workflow</code></span></div>`;
+    return;
+  }
+  el.innerHTML = _wfDefs.map(d => {
+    const ago = relativeTime(d.modifiedAt);
+    const paramTags = (d.params || []).map(p => `<span class="wf-def-tag">${esc(p)}</span>`).join('');
+    return `<div class="wf-def-card">
+      <div class="wf-def-icon">⚡</div>
+      <div class="wf-def-body">
+        <div class="wf-def-name">${esc(d.name || d.id || d.file)}</div>
+        ${d.description ? `<div class="wf-def-desc">${esc(d.description)}</div>` : ''}
+        <div class="wf-def-meta">
+          <span class="wf-def-tag">${esc(d.nodeCount)} node${d.nodeCount !== 1 ? 's' : ''}</span>
+          ${paramTags}
+          <span class="wf-def-tag" style="color:var(--text-xs)">${esc(ago)}</span>
+          <span class="wf-def-tag" style="font-size:9px;color:var(--text-xs)">${esc(d.file)}</span>
+        </div>
+      </div>
+      <button class="wf-def-run-btn" title="Copy run command" onclick="navigator.clipboard?.writeText('npx monomind browse workflow run .monomind/workflows/${esc(d.file)}').then(()=>this.textContent='Copied!').catch(()=>{});setTimeout(()=>this.textContent='▶ Run',1500)">▶ Run</button>
+    </div>`;
+  }).join('');
+}
+
+let _wfSessions = null;
+async function loadPlatformSessions() {
+  const grid = document.getElementById('wf-systems-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/platform-sessions');
+    _wfSessions = data;
+    renderSystems(data);
+  } catch (e) {
+    grid.innerHTML = '<div class="loading-txt">Failed to load systems.</div>';
+  }
+}
+
+function relativeTime(ts) {
+  if (!ts) return '—';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+
+function renderSystems(data) {
+  const grid = document.getElementById('wf-systems-grid');
+  if (!grid) return;
+  const sessions = data?.sessions || [];
+  const googleToken = data?.googleToken || false;
+  const msToken = data?.msToken || false;
+
+  grid.innerHTML = WF_PLATFORMS.map(p => {
+    let connected = false, username = null, lastUsed = null, session = null;
+    if (p.id === 'google') {
+      connected = googleToken;
+    } else if (p.id === 'microsoft') {
+      connected = msToken;
+    } else {
+      session = sessions.find(s => s.platform === p.id);
+      connected = !!session;
+      if (session) { username = session.username; lastUsed = session.lastUsedAt || session.createdAt; }
+    }
+    return `<div class="sys-card ${connected ? 'connected' : ''}">
+      <div class="sys-card-top">
+        <div class="sys-icon">${p.icon}</div>
+        <div>
+          <div class="sys-name">${esc(p.name)}</div>
+          <div class="sys-type">${esc(p.type)}</div>
+        </div>
+      </div>
+      <div class="sys-status">
+        <div class="sys-dot ${connected ? 'on' : 'off'}"></div>
+        <span style="color:${connected ? 'var(--green)' : 'var(--text-lo)'}">${connected ? 'Connected' : 'Not connected'}</span>
+        ${p.type === 'api' && connected ? '<span class="sys-api-badge">API token set</span>' : ''}
+      </div>
+      ${username ? `<div class="sys-user">@${esc(username)}</div>` : ''}
+      ${lastUsed ? `<div class="sys-age">Last used ${esc(relativeTime(lastUsed))}</div>` : ''}
+      ${!connected ? `<div class="sys-cmd" title="Run this command to connect">${esc(p.connectCmd)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
 let _wfRuns = [];
 async function loadWorkflowRuns() {
   document.getElementById('wf-runs-list').innerHTML = '<div class="loading-txt">Loading…</div>';
