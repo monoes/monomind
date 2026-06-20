@@ -68,7 +68,7 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       return;
     }
 
-    if (url === '/events' && req.method === 'GET' && !WebSocketServer) {
+    if (url === '/events' && (req.method === 'GET' || req.method === 'HEAD') && !WebSocketServer) {
       // SSE endpoint (fallback when ws not available)
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -95,7 +95,17 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
     });
   }
 
-  server.listen(port);
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Dashboard port ${port} is already in use. Set MONOBROWSE_DASHBOARD_PORT to use a different port.`);
+    } else {
+      console.error(`Dashboard server error: ${err.message}`);
+    }
+    instance = null;
+    process.exit(1);
+  });
+
+  server.listen(port, '127.0.0.1');
 
   function broadcast(event: StepEvent): void {
     const msg = JSON.stringify(event);

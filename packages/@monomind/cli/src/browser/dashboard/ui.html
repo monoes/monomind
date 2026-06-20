@@ -65,6 +65,10 @@ function updateHeader() {
   document.getElementById('b-fail').textContent = '✗ ' + fail + ' failed';
 }
 
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function renderCards() {
   const sorted = Object.values(runs).sort((a, b) => b.startedAt - a.startedAt);
   const container = document.getElementById('cards');
@@ -76,14 +80,14 @@ function renderCards() {
     const logLines = (logs[r.id] || []).slice(-5);
     return '<div class="card' + (!isRunning ? ' done' : '') + '">' +
       '<div class="card-header">' +
-        '<div><span class="card-title">' + r.workflowName + '</span> <span class="' + statusClass + '">' + statusLabel + '</span></div>' +
+        '<div><span class="card-title">' + esc(r.workflowName) + '</span> <span class="' + esc(statusClass) + '">' + esc(statusLabel) + '</span></div>' +
         '<div class="card-meta">' +
-          '<span>items: ' + r.itemsProcessed + '/' + r.itemsTotal + '</span>' +
-          '<span>elapsed: ' + elapsed + 's</span>' +
-          (isRunning ? '<button class="stop-btn" onclick="stopRun(\'' + r.id + '\')">stop</button>' : '') +
+          '<span>items: ' + esc(r.itemsProcessed) + '/' + esc(r.itemsTotal) + '</span>' +
+          '<span>elapsed: ' + esc(elapsed) + 's</span>' +
+          (isRunning ? '<button class="stop-btn" onclick="stopRun(\'' + esc(r.id) + '\')">stop</button>' : '') +
         '</div>' +
       '</div>' +
-      '<div class="log">' + (logLines.length ? logLines.map(l => '<div><span class="log-ts">' + l.ts + '</span> ' + l.text + '</div>').join('') : '<div style="color:#333">no events yet</div>') + '</div>' +
+      '<div class="log">' + (logLines.length ? logLines.map(l => '<div><span class="log-ts">' + esc(l.ts) + '</span> ' + esc(l.text) + '</div>').join('') : '<div style="color:#333">no events yet</div>') + '</div>' +
     '</div>';
   }).join('');
 }
@@ -113,7 +117,7 @@ function handleEvent(evt) {
     runs[runId].itemsProcessed = (runs[runId].itemsProcessed || 0) + (evt.itemTotal || 0);
     logs[runId].push({ ts: ts(timestamp), text: nodeName + ' → done (' + durationMs + 'ms)' });
   } else if (eventType === 'step_failed') {
-    logs[runId].push({ ts: ts(timestamp), text: '<span style="color:#ef4444">' + nodeName + ' → FAILED: ' + error + '</span>' });
+    logs[runId].push({ ts: ts(timestamp), text: esc(nodeName) + ' → FAILED: ' + esc(error || '') });
   } else if (eventType === 'run_completed') {
     runs[runId].status = 'completed';
   } else if (eventType === 'run_stopped') {
@@ -124,37 +128,47 @@ function handleEvent(evt) {
   renderCards();
 }
 
+function connectSSE() {
+  const connEl = document.getElementById('conn');
+  connEl.textContent = '● connecting (sse)…';
+  connEl.style.color = '#555';
+  const es = new EventSource('/events');
+  es.onopen = function() { connEl.textContent = '● live (sse)'; connEl.style.color = '#22c55e'; };
+  es.onmessage = function(e) { handleEvent(JSON.parse(e.data)); };
+  es.onerror = function() { connEl.textContent = '● reconnecting…'; connEl.style.color = '#f59e0b'; };
+}
+
 function connect() {
   const connEl = document.getElementById('conn');
-  let transport = 'ws';
-  let sock;
-  try {
-    sock = new WebSocket('ws://' + location.host + '/ws');
-  } catch (e) {
-    transport = 'sse';
-  }
-
-  if (transport === 'ws' && sock) {
-    connEl.textContent = '● connecting…';
-    connEl.style.color = '#555';
-    sock.onopen = function() { connEl.textContent = '● live'; connEl.style.color = '#22c55e'; };
-    sock.onmessage = function(e) {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'history') {
-        msg.runs.forEach(function(r) { runs[r.id] = r; });
-        renderCards();
-        updateHeader();
-      } else {
-        handleEvent(msg);
-      }
-    };
-    sock.onclose = function() { connEl.textContent = '● reconnecting…'; connEl.style.color = '#f59e0b'; setTimeout(connect, 2000); };
-  } else {
-    const es = new EventSource('/events');
-    es.onopen = function() { connEl.textContent = '● live (sse)'; connEl.style.color = '#22c55e'; };
-    es.onmessage = function(e) { handleEvent(JSON.parse(e.data)); };
-    es.onerror = function() { connEl.textContent = '● reconnecting…'; connEl.style.color = '#f59e0b'; };
-  }
+  connEl.textContent = '● connecting…';
+  connEl.style.color = '#555';
+  const sock = new WebSocket('ws://' + location.host + '/ws');
+  sock.onopen = function() { connEl.textContent = '● live'; connEl.style.color = '#22c55e'; };
+  sock.onmessage = function(e) {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'history') {
+      msg.runs.forEach(function(r) { runs[r.id] = r; });
+      renderCards();
+      updateHeader();
+    } else {
+      handleEvent(msg);
+    }
+  };
+  // On first close, try SSE (ws module may not be installed); on subsequent closes reconnect ws
+  let wsFailedOnce = false;
+  sock.onclose = function() {
+    if (!wsFailedOnce) {
+      wsFailedOnce = true;
+      connEl.textContent = '● trying sse…'; connEl.style.color = '#f59e0b';
+      // Quick probe: try SSE; if server returns 404, fall back to ws reconnect
+      fetch('/events', { method: 'HEAD' }).then(function(r) {
+        if (r.ok) { connectSSE(); } else { setTimeout(connect, 2000); }
+      }).catch(function() { setTimeout(connect, 2000); });
+    } else {
+      connEl.textContent = '● reconnecting…'; connEl.style.color = '#f59e0b';
+      setTimeout(connect, 2000);
+    }
+  };
 }
 
 connect();
