@@ -12,11 +12,11 @@ export function checkStaleness(db, repoPath) {
         // Not a git repo or git not available
         return { isStale: false, indexedAt: null, indexedCommit: null, currentCommit: null, changedSince: [], staleSince: null };
     }
-    // Display short SHA (7 chars) for the interface field; compare full SHAs for correctness
+    // Display short SHA (7 chars) for the interface field; compare short SHAs for staleness
     const indexedCommitShort = indexedCommitFull ? indexedCommitFull.slice(0, 7) : null;
     const currentCommitShort = currentCommit ? currentCommit.slice(0, 7) : null;
-    // 3. If no stored commit or full SHAs match, not stale
-    if (!indexedCommitFull || indexedCommitFull === currentCommit) {
+    // 3. If no stored commit or short SHAs match, not stale
+    if (!indexedCommitFull || indexedCommitShort === currentCommitShort) {
         return { isStale: false, indexedAt: null, indexedCommit: indexedCommitShort, currentCommit: currentCommitShort, changedSince: [], staleSince: null };
     }
     // Guard: indexedCommitFull is read from SQLite — validate before shell interpolation

@@ -28,19 +28,12 @@ function buildAdjacency(edges) {
  * a(i) = mean distance to other nodes in same community
  * b(i) = min mean distance to any other community
  * silhouette(i) = (b(i) - a(i)) / max(a(i), b(i))
+ *
+ * @param communityMembers - precomputed communityId → nodeId[] map (excludes self)
  */
-function nodeSilhouette(nodeId, community, memberships, adj) {
+function nodeSilhouette(nodeId, community, communityMembers, adj) {
     const neighbors = adj.get(nodeId) ?? new Set();
-    // Group all other nodes by community
-    const communityMembers = new Map();
-    for (const [nid, cid] of memberships) {
-        if (nid === nodeId)
-            continue;
-        if (!communityMembers.has(cid))
-            communityMembers.set(cid, []);
-        communityMembers.get(cid).push(nid);
-    }
-    const sameMembers = communityMembers.get(community) ?? [];
+    const sameMembers = (communityMembers.get(community) ?? []).filter(n => n !== nodeId);
     if (sameMembers.length === 0)
         return 0; // singleton community
     // a(i): mean distance to same community (1 = not neighbor, 0 = neighbor)
@@ -66,14 +59,27 @@ function nodeSilhouette(nodeId, community, memberships, adj) {
 /**
  * Compute the average silhouette score for the partitioning.
  * Returns a value in [-1, 1] where higher is better.
+ *
+ * Precomputes the communityMembers map once (O(N)) before the per-node loop,
+ * reducing overall complexity from O(N²) to O(N + K*N) where K = community count.
  */
 export function silhouetteScore(memberships, edges) {
     if (memberships.size === 0)
         return 0;
     const adj = buildAdjacency(edges);
+    // Precompute communityId → nodeId[] once to avoid O(N) re-scan per node
+    const communityMembers = new Map();
+    for (const [nid, cid] of memberships) {
+        let members = communityMembers.get(cid);
+        if (!members) {
+            members = [];
+            communityMembers.set(cid, members);
+        }
+        members.push(nid);
+    }
     let total = 0;
     for (const [nodeId, community] of memberships) {
-        total += nodeSilhouette(nodeId, community, memberships, adj);
+        total += nodeSilhouette(nodeId, community, communityMembers, adj);
     }
     return total / memberships.size;
 }

@@ -10,6 +10,7 @@ export interface UntestedExport {
     nodeId: string;
     name: string;
     filePath: string | null;
+    startLine: number | null;
     exportType: string;
 }
 export interface CoverageGapsResult {
@@ -20,4 +21,6 @@ export interface CoverageGapsResult {
     summary: string;
 }
 export declare function computeCoverageGaps(db: MonographDb): CoverageGapsResult;
+/** Format CoverageGapsResult as structured text with file:line hints for LLM navigation. */
+export declare function formatCoverageGaps(result: CoverageGapsResult, topN?: number): string;
 //# sourceMappingURL=coverage-gaps.d.ts.map

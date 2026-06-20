@@ -1,4 +1,8 @@
 import { execSync } from 'child_process';
+// ── Process-scoped TTL cache for expensive git log calls ─────────────────────
+// Key: `${projectDir}:${windowDays}` → { output, ts }
+const GIT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const gitLogCache = new Map();
 /**
  * Compute hotspot scores for all file nodes in the graph.
  * Combines recency-weighted git churn (half-life 90 days) with
@@ -16,14 +20,22 @@ export function computeHotspots(db, projectDir, options = {}) {
     const minCommits = options.minCommits ?? 2;
     const now = Date.now();
     const HALF_LIFE_DAYS = 90;
-    // ── Step 1: Get git log with dates ────────────────────────────────────────
+    // ── Step 1: Get git log with dates (TTL-cached per projectDir+window) ────
     // Format: ISO-date\tfile-path (one per changed file per commit)
     let gitOutput = '';
-    try {
-        gitOutput = execSync(`git log --since="${windowDays} days ago" --name-only --pretty=format:"%ci" -- .`, { cwd: projectDir, maxBuffer: 10 * 1024 * 1024 }).toString();
+    const cacheKey = `${projectDir}:${windowDays}`;
+    const cached = gitLogCache.get(cacheKey);
+    if (cached && now - cached.ts < GIT_CACHE_TTL_MS) {
+        gitOutput = cached.output;
     }
-    catch {
-        return []; // not a git repo or git not available
+    else {
+        try {
+            gitOutput = execSync(`git log --since="${windowDays} days ago" --name-only --pretty=format:"%ci" -- .`, { cwd: projectDir, maxBuffer: 10 * 1024 * 1024 }).toString();
+            gitLogCache.set(cacheKey, { output: gitOutput, ts: now });
+        }
+        catch {
+            return []; // not a git repo or git not available
+        }
     }
     const churnMap = new Map();
     const halfWindowMs = (windowDays / 2) * 24 * 60 * 60 * 1000;
@@ -118,5 +130,38 @@ export function computeHotspots(db, projectDir, options = {}) {
     return results
         .sort((a, b) => b.hotspotScore - a.hotspotScore)
         .slice(0, limit);
+}
+/**
+ * Format hotspot results as structured text with file:line hints for LLM navigation.
+ *
+ * @param hotspots - Results from computeHotspots()
+ * @returns structured text suitable for LLM consumption
+ */
+export function formatHotspots(hotspots) {
+    if (hotspots.length === 0) {
+        return 'hotspots: none found (insufficient git history or no matching file nodes)\n';
+    }
+    const trendMark = (t) => {
+        if (t === 'accelerating')
+            return '+';
+        if (t === 'cooling')
+            return '-';
+        return '~';
+    };
+    const lines = [
+        `hotspots: ${hotspots.length} high-risk files (churn x centrality)`,
+        '',
+    ];
+    hotspots.forEach((h, i) => {
+        lines.push(`[${i + 1}] ${h.nodeName}  trend:${trendMark(h.trend)}`);
+        lines.push(`  file: ${h.filePath}:1`);
+        lines.push(`  score: ${h.hotspotScore.toFixed(2)}  churn: ${h.churnScore.toFixed(2)}  centrality: ${h.centralityScore.toFixed(2)}`);
+        lines.push(`  commits: ${h.rawCommitCount}  last: ${h.lastCommitDate ?? 'unknown'}`);
+        lines.push('');
+    });
+    const accelerating = hotspots.filter(h => h.trend === 'accelerating').length;
+    const cooling = hotspots.filter(h => h.trend === 'cooling').length;
+    lines.push(`summary: ${accelerating} accelerating, ${cooling} cooling, ${hotspots.length - accelerating - cooling} stable`);
+    return lines.join('\n');
 }
 //# sourceMappingURL=hotspots.js.map

@@ -49,6 +49,12 @@ export class EWCConsolidator {
     globalFisher = [];
     consolidationHistory = [];
     initialized = false;
+    /** Dirty flag: true when in-memory state diverges from disk */
+    dirty = false;
+    /** Pending debounced write timer */
+    saveTimer = null;
+    /** Debounce window for disk writes (ms) */
+    static SAVE_DEBOUNCE_MS = 2_000;
     constructor(config) {
         this.config = { ...DEFAULT_EWC_CONFIG, ...config };
         this.globalFisher = new Array(this.config.dimensions).fill(0);
@@ -207,8 +213,8 @@ export class EWCConsolidator {
             if (this.consolidationHistory.length > 100) {
                 this.consolidationHistory = this.consolidationHistory.slice(-100);
             }
-            // Persist to disk
-            this.saveToDisk();
+            // Schedule debounced disk flush
+            this.scheduleSave();
             result.success = true;
             result.duration = performance.now() - startTime;
             return result;
@@ -322,6 +328,8 @@ export class EWCConsolidator {
                 this.globalFisher[i] = (1 - decay) * this.globalFisher[i] + decay * gradients[i] * gradients[i];
             }
         }
+        // Schedule debounced flush so importance/Fisher updates are persisted
+        this.scheduleSave();
     }
     /**
      * Get pattern weights by ID
@@ -391,7 +399,7 @@ export class EWCConsolidator {
         for (let i = 0; i < this.config.dimensions; i++) {
             this.globalFisher[i] = alpha * this.globalFisher[i] + (1 - alpha) * currentFisher[i];
         }
-        this.saveToDisk();
+        this.scheduleSave();
     }
     /**
      * Compute consolidation penalty for a proposed confidence update.
@@ -416,6 +424,12 @@ export class EWCConsolidator {
      * Clear all patterns and history (full reset)
      */
     clear() {
+        // Cancel any pending debounced write before clearing
+        if (this.saveTimer) {
+            clearTimeout(this.saveTimer);
+            this.saveTimer = null;
+        }
+        this.dirty = false;
         this.patterns.clear();
         this.gradientHistory = [];
         this.globalFisher = new Array(this.config.dimensions).fill(0);
@@ -484,6 +498,26 @@ export class EWCConsolidator {
         for (let i = 0; i < toRemove; i++) {
             this.patterns.delete(sortedPatterns[i].id);
         }
+    }
+    /**
+     * Schedule a debounced disk flush.
+     * Multiple calls within SAVE_DEBOUNCE_MS coalesce into one write,
+     * preventing blocking I/O on every consolidation or gradient event.
+     */
+    scheduleSave() {
+        this.dirty = true;
+        if (this.saveTimer)
+            return; // already scheduled
+        this.saveTimer = setTimeout(() => {
+            this.saveTimer = null;
+            if (this.dirty) {
+                this.dirty = false;
+                this.saveToDisk();
+            }
+        }, EWCConsolidator.SAVE_DEBOUNCE_MS);
+        // Allow the process to exit without waiting for the timer
+        if (this.saveTimer.unref)
+            this.saveTimer.unref();
     }
     /**
      * Save state to disk

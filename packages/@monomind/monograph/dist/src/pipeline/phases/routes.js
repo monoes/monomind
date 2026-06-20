@@ -20,6 +20,21 @@ export const routesPhase = {
         const routeRegistry = [];
         const routeNodes = [];
         const handlesEdges = [];
+        // ── Preload handler index: name:filePath → nodeId (one DB query vs N per route) ──
+        // Keyed as `${name}\0${filePath}` for O(1) lookup during route extraction.
+        const handlerIndex = new Map();
+        if (ctx.db) {
+            const handlerRows = ctx.db
+                .prepare(`SELECT id, name, file_path FROM nodes WHERE file_path IS NOT NULL`)
+                .all();
+            for (const row of handlerRows) {
+                handlerIndex.set(`${row.name}\0${row.file_path}`, row.id);
+            }
+        }
+        /** O(1) handler lookup using the preloaded index */
+        function lookupHandler(handlerName, filePath) {
+            return handlerIndex.get(`${handlerName}\0${filePath}`);
+        }
         for (const fileNode of fileNodes) {
             const relPath = fileNode.filePath ?? '';
             const ext = extname(relPath).toLowerCase();
@@ -53,20 +68,18 @@ export const routesPhase = {
                     if (source) {
                         const handlerName = extractDefaultExportName(source);
                         if (handlerName) {
-                            const row = ctx.db
-                                .prepare(`SELECT id FROM nodes WHERE name = ? AND file_path = ?`)
-                                .get(handlerName, relPath);
-                            if (row) {
-                                const edgeId = makeId(routeNodeId, row.id, 'handles_route');
+                            const targetId = lookupHandler(handlerName, relPath);
+                            if (targetId) {
+                                const edgeId = makeId(routeNodeId, targetId, 'handles_route');
                                 handlesEdges.push({
                                     id: edgeId,
                                     sourceId: routeNodeId,
-                                    targetId: row.id,
+                                    targetId,
                                     relation: 'HANDLES_ROUTE',
                                     confidence: 'EXTRACTED',
                                     confidenceScore: 0.9,
                                 });
-                                entry.handlerNodeId = row.id;
+                                entry.handlerNodeId = targetId;
                             }
                         }
                     }
@@ -96,20 +109,18 @@ export const routesPhase = {
                 routeNodes.push(routeNode);
                 const entry = { method: e.method, path: e.path, filePath: relPath, routeNodeId, middlewareChain: [] };
                 if (ctx.db && e.handlerName) {
-                    const row = ctx.db
-                        .prepare(`SELECT id FROM nodes WHERE name = ? AND file_path = ?`)
-                        .get(e.handlerName, relPath);
-                    if (row) {
-                        const edgeId = makeId(routeNodeId, row.id, 'handles_route');
+                    const targetId = lookupHandler(e.handlerName, relPath);
+                    if (targetId) {
+                        const edgeId = makeId(routeNodeId, targetId, 'handles_route');
                         handlesEdges.push({
                             id: edgeId,
                             sourceId: routeNodeId,
-                            targetId: row.id,
+                            targetId,
                             relation: 'HANDLES_ROUTE',
                             confidence: 'EXTRACTED',
                             confidenceScore: 0.9,
                         });
-                        entry.handlerNodeId = row.id;
+                        entry.handlerNodeId = targetId;
                     }
                 }
                 routeRegistry.push(entry);
@@ -133,20 +144,18 @@ export const routesPhase = {
                 routeNodes.push(routeNode);
                 const entry = { method: e.method, path: e.path, filePath: relPath, routeNodeId, middlewareChain: [] };
                 if (ctx.db && e.handlerName) {
-                    const row = ctx.db
-                        .prepare(`SELECT id FROM nodes WHERE name = ? AND file_path = ?`)
-                        .get(e.handlerName, relPath);
-                    if (row) {
-                        const edgeId = makeId(routeNodeId, row.id, 'handles_route');
+                    const targetId = lookupHandler(e.handlerName, relPath);
+                    if (targetId) {
+                        const edgeId = makeId(routeNodeId, targetId, 'handles_route');
                         handlesEdges.push({
                             id: edgeId,
                             sourceId: routeNodeId,
-                            targetId: row.id,
+                            targetId,
                             relation: 'HANDLES_ROUTE',
                             confidence: 'EXTRACTED',
                             confidenceScore: 0.9,
                         });
-                        entry.handlerNodeId = row.id;
+                        entry.handlerNodeId = targetId;
                     }
                 }
                 routeRegistry.push(entry);

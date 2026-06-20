@@ -90,16 +90,35 @@ export function detectMirroredFamilies(families, root) {
                 continue;
             const fa = families[i];
             const fb = families[j];
-            const dirsA = new Set(fa.files.map(dirOf));
-            const dirsB = new Set(fb.files.map(dirOf));
-            if (dirsA.size !== 1 || dirsB.size !== 1)
+            // Single pass: extract dir and basename together to avoid two separate .map() iterations
+            let firstDirA;
+            let singleDirA = true;
+            let firstDirB;
+            let singleDirB = true;
+            const namesA = new Set();
+            const namesB = new Set();
+            for (const f of fa.files) {
+                const d = dirOf(f);
+                if (firstDirA === undefined)
+                    firstDirA = d;
+                else if (d !== firstDirA) {
+                    singleDirA = false;
+                }
+                namesA.add(baseName(f));
+            }
+            for (const f of fb.files) {
+                const d = dirOf(f);
+                if (firstDirB === undefined)
+                    firstDirB = d;
+                else if (d !== firstDirB) {
+                    singleDirB = false;
+                }
+                namesB.add(baseName(f));
+            }
+            if (!singleDirA || !singleDirB)
                 continue;
-            const [dirA] = dirsA;
-            const [dirB] = dirsB;
-            if (dirA === dirB)
-                continue;
-            const namesA = new Set(fa.files.map(baseName));
-            const namesB = new Set(fb.files.map(baseName));
+            const dirA = firstDirA;
+            const dirB = firstDirB;
             const shared = [];
             for (const n of namesA) {
                 if (namesB.has(n))
@@ -124,9 +143,25 @@ export function detectMirroredFamilies(families, root) {
         }
     }
     mirrored.sort((a, b) => b.similarity - a.similarity);
-    return {
-        mirrored,
-        remaining: [...remainingIndices].map(i => families[i]),
-    };
+    const remaining = [];
+    for (const i of remainingIndices)
+        remaining.push(families[i]);
+    return { mirrored, remaining };
+}
+/**
+ * Format a MirroredDirsReport as structured text for LLM consumption.
+ */
+export function formatMirroredDirs(report) {
+    if (report.pairs.length === 0) {
+        return `No mirrored directories found (${report.totalDirsAnalyzed} dirs analyzed).`;
+    }
+    const lines = [
+        `Mirrored directories: ${report.pairs.length} pair(s) of ${report.totalDirsAnalyzed} analyzed`,
+        '',
+    ];
+    for (const p of report.pairs) {
+        lines.push(`  ${p.dirA} <-> ${p.dirB}  similarity=${(p.similarity * 100).toFixed(0)}%  shared=${p.sharedFileNames.length}  uniqueA=${p.uniqueToA}  uniqueB=${p.uniqueToB}`);
+    }
+    return lines.join('\n');
 }
 //# sourceMappingURL=mirrored-dirs.js.map
