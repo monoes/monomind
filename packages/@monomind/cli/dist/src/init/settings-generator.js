@@ -3,6 +3,7 @@
  * Creates .claude/settings.json with V1-optimized hook configurations
  */
 import { detectPlatform } from './types.js';
+import { MODEL_DEFAULTS } from '../pricing/model-pricing.js';
 /**
  * Generate the complete settings.json content
  */
@@ -64,8 +65,8 @@ export function generateSettings(options) {
             shell: platform.shell,
         },
         modelPreferences: {
-            default: 'claude-opus-4-6',
-            routing: 'claude-haiku-4-5-20251001',
+            default: MODEL_DEFAULTS.opus,
+            routing: MODEL_DEFAULTS.haiku,
         },
         agentTeams: {
             enabled: true,
