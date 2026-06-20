@@ -55,7 +55,7 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
   try {
     uiHtml = readFileSync(join(__dirname, 'ui.html'), 'utf-8');
   } catch {
-    uiHtml = `<!DOCTYPE html><html><head><title>monobrowse dashboard</title></head><body style="background:#0f0f1a;color:#ccc;font-family:system-ui;padding:20px"><h1>monobrowse dashboard</h1><p>Dashboard UI not found. Run the build to include ui.html.</p><script>const es=new EventSource('/events');es.onmessage=e=>console.log(JSON.parse(e.data));</script></body></html>`;
+    uiHtml = `<!DOCTYPE html><html><head><title>monobrowse dashboard</title></head><body style="background:#0f0f1a;color:#ccc;font-family:system-ui;padding:20px"><h1>monobrowse dashboard</h1><p>Dashboard UI not found. Run the build to include ui.html.</p><script>let _retryDelay=1000;function connectSSE(){const es=new EventSource('/events');es.onmessage=e=>{console.log(JSON.parse(e.data));_retryDelay=1000;};es.onerror=()=>{es.close();setTimeout(connectSSE,Math.min(_retryDelay*=2,30000));};};connectSSE();</script></body></html>`;
   }
 
   const server = createServer((req, res) => {
@@ -105,7 +105,14 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       });
       res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
       clientDirs.set(res, subscribedDir);
-      req.on('close', () => clientDirs.delete(res));
+      // 30-second keep-alive heartbeat prevents proxy idle-timeout drops.
+      const heartbeat = setInterval(() => {
+        try { res.write(': keep-alive\n\n'); } catch { clearInterval(heartbeat); }
+      }, 30_000);
+      req.on('close', () => {
+        clearInterval(heartbeat);
+        clientDirs.delete(res);
+      });
       return;
     }
 
