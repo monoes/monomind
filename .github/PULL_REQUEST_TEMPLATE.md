@@ -12,6 +12,7 @@
 
 ## Checklist
 
+- [ ] Completed [Security Checklist](.github/SECURITY_CHECKLIST.md) for any security-relevant changes
 - [ ] Branch is up to date with `main`
 - [ ] `npm run build` succeeds without errors
 - [ ] No `.env` files or secrets committed
