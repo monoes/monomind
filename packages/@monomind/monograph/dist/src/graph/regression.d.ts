@@ -40,4 +40,9 @@ export interface RegressionOutcome {
  * @param metricTolerances - per-metric tolerance overrides, e.g. { godNodeCount: "2", surpriseCount: "10%" }
  */
 export declare function checkRegression(db: Database.Database, baselinePath: string, toleranceSpec: string, metricTolerances?: Record<string, string>): RegressionOutcome;
+/**
+ * Format a RegressionOutcome as structured text for LLM consumption.
+ * Shows pass/fail status, per-metric results, and actionable violation details.
+ */
+export declare function formatRegressionOutcome(outcome: RegressionOutcome): string;
 //# sourceMappingURL=regression.d.ts.map

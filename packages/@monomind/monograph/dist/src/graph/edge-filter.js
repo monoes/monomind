@@ -44,22 +44,36 @@ export function filterEdges(db, options = {}) {
  * Useful when the caller already has edges and does not need a DB round-trip.
  */
 export function filterEdgesInMemory(edges, options = {}) {
+    // Convert arrays to Sets once before the loop for O(1) membership checks
+    const relationSet = options.relations && options.relations.length > 0
+        ? new Set(options.relations) : null;
+    const confidenceSet = options.confidences && options.confidences.length > 0
+        ? new Set(options.confidences) : null;
+    const minScore = options.minConfidenceScore;
+    const maxScore = options.maxConfidenceScore;
     return edges.filter(e => {
-        if (options.relations && options.relations.length > 0) {
-            if (!options.relations.includes(e.relation))
-                return false;
-        }
-        if (options.confidences && options.confidences.length > 0) {
-            if (!options.confidences.includes(e.confidence))
-                return false;
-        }
-        if (options.minConfidenceScore !== undefined && e.confidenceScore < options.minConfidenceScore) {
+        if (relationSet && !relationSet.has(e.relation))
             return false;
-        }
-        if (options.maxConfidenceScore !== undefined && e.confidenceScore > options.maxConfidenceScore) {
+        if (confidenceSet && !confidenceSet.has(e.confidence))
             return false;
-        }
+        if (minScore !== undefined && e.confidenceScore < minScore)
+            return false;
+        if (maxScore !== undefined && e.confidenceScore > maxScore)
+            return false;
         return true;
     });
+}
+// ── Formatting ─────────────────────────────────────────────────────────────────
+/** Format a list of filtered edges as structured text for LLM consumption. */
+export function formatFilteredEdges(edges) {
+    if (edges.length === 0)
+        return 'No edges match the filter.';
+    const lines = [`Filtered edges (${edges.length}):`];
+    for (const e of edges) {
+        const score = e.confidenceScore !== undefined ? ` [${e.confidenceScore.toFixed(2)}]` : '';
+        const reason = e.reason ? ` — ${e.reason}` : '';
+        lines.push(`  ${e.sourceId} -[${e.relation}/${e.confidence}${score}]-> ${e.targetId}${reason}`);
+    }
+    return lines.join('\n');
 }
 //# sourceMappingURL=edge-filter.js.map

@@ -13,7 +13,7 @@ export interface RegexNodeMatch {
  * @param pattern - A RegExp (or a string that will be compiled to one).
  * @param fields  - Which fields to test; default: ['name', 'filePath'].
  */
-export declare function regexSearchNodes(db: MonographDb, pattern: RegExp | string, fields?: Array<'name' | 'filePath' | 'language' | 'label'>): RegexNodeMatch[];
+export declare function regexSearchNodes(db: MonographDb, pattern: RegExp | string, fields?: Array<'name' | 'filePath' | 'language' | 'label'>, limit?: number): RegexNodeMatch[];
 export interface RegexEdgeMatch {
     edge: MonographEdge;
     /** Which field of the edge matched. */
@@ -27,7 +27,15 @@ export interface RegexEdgeMatch {
  * @param pattern - A RegExp (or a string that will be compiled to one).
  * @param fields  - Which fields to test; default: ['relation', 'reason'].
  */
-export declare function regexSearchEdges(db: MonographDb, pattern: RegExp | string, fields?: Array<'relation' | 'confidence' | 'reason'>): RegexEdgeMatch[];
+export declare function regexSearchEdges(db: MonographDb, pattern: RegExp | string, fields?: Array<'relation' | 'confidence' | 'reason'>, limit?: number): RegexEdgeMatch[];
 export declare function regexSearchNodesInMemory(nodes: MonographNode[], pattern: RegExp | string, fields?: Array<'name' | 'filePath' | 'language' | 'label'>): RegexNodeMatch[];
 export declare function regexSearchEdgesInMemory(edges: MonographEdge[], pattern: RegExp | string, fields?: Array<'relation' | 'confidence' | 'reason'>): RegexEdgeMatch[];
+/**
+ * Format node regex match results as structured text for LLM consumption.
+ */
+export declare function formatRegexNodeMatches(matches: RegexNodeMatch[], pattern: string): string;
+/**
+ * Format edge regex match results as structured text for LLM consumption.
+ */
+export declare function formatRegexEdgeMatches(matches: RegexEdgeMatch[], pattern: string): string;
 //# sourceMappingURL=regex-search.d.ts.map

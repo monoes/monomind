@@ -11,38 +11,28 @@ function tokenizePath(filePath) {
 function baseName(filePath) {
     return filePath.replace(/^.*[\\/]/, '');
 }
-/** Compute Jaccard similarity between two multisets (represented as token arrays). */
-function jaccardSimilarity(a, b) {
+/**
+ * Compute both Jaccard similarity and shared token count in a single pass.
+ * Avoids building the countA Map twice (previously done separately in
+ * jaccardSimilarity and sharedTokenCount).
+ */
+function computeSimilarityAndShared(a, b) {
     const countA = new Map();
-    const countB = new Map();
     for (const t of a)
         countA.set(t, (countA.get(t) ?? 0) + 1);
-    for (const t of b)
-        countB.set(t, (countB.get(t) ?? 0) + 1);
     let intersection = 0;
-    for (const [token, ca] of countA) {
-        const cb = countB.get(token) ?? 0;
-        intersection += Math.min(ca, cb);
-    }
-    const union = a.length + b.length - intersection;
-    return union === 0 ? 1 : intersection / union;
-}
-/** Count tokens shared between two multisets. */
-function sharedTokenCount(a, b) {
-    const countA = new Map();
-    for (const t of a)
-        countA.set(t, (countA.get(t) ?? 0) + 1);
-    let shared = 0;
     const seen = new Map();
     for (const t of b) {
         const limit = countA.get(t) ?? 0;
         const used = seen.get(t) ?? 0;
         if (used < limit) {
-            shared++;
+            intersection++;
             seen.set(t, used + 1);
         }
     }
-    return shared;
+    const union = a.length + b.length - intersection;
+    const similarity = union === 0 ? 1 : intersection / union;
+    return { similarity, shared: intersection };
 }
 export function detectClones(db, minSimilarity = 0.8, minTokens = 2) {
     // Query all File nodes with file_path
@@ -52,29 +42,25 @@ export function detectClones(db, minSimilarity = 0.8, minTokens = 2) {
     const totalFiles = rows.length;
     const pairs = [];
     const involvedFiles = new Set();
-    // Pre-compute tokens for each file
+    // Pre-compute path tokens and name tokens for each file
     const tokenMap = new Map();
     for (const row of rows) {
-        tokenMap.set(row.file_path, tokenizePath(row.file_path));
+        const pathTokens = tokenizePath(row.file_path);
+        const nameTokens = tokenizePath(baseName(row.file_path));
+        tokenMap.set(row.file_path, { pathTokens, nameTokens });
     }
     // Compare all pairs
     for (let i = 0; i < rows.length; i++) {
         for (let j = i + 1; j < rows.length; j++) {
             const pathA = rows[i].file_path;
             const pathB = rows[j].file_path;
-            const tokensA = tokenMap.get(pathA);
-            const tokensB = tokenMap.get(pathB);
-            const sim = jaccardSimilarity(tokensA, tokensB);
-            const shared = sharedTokenCount(tokensA, tokensB);
+            const entryA = tokenMap.get(pathA);
+            const entryB = tokenMap.get(pathB);
+            const { similarity: sim, shared } = computeSimilarityAndShared(entryA.pathTokens, entryB.pathTokens);
             if (sim < minSimilarity || shared < minTokens) {
                 // Also check near-duplicate file names (same name, different dir)
-                const nameA = baseName(pathA);
-                const nameB = baseName(pathB);
-                const nameTokensA = tokenizePath(nameA);
-                const nameTokensB = tokenizePath(nameB);
-                const nameSim = jaccardSimilarity(nameTokensA, nameTokensB);
-                const nameShared = sharedTokenCount(nameTokensA, nameTokensB);
-                if (nameSim >= minSimilarity && nameShared >= Math.min(minTokens, nameTokensA.length)) {
+                const { similarity: nameSim, shared: nameShared } = computeSimilarityAndShared(entryA.nameTokens, entryB.nameTokens);
+                if (nameSim >= minSimilarity && nameShared >= Math.min(minTokens, entryA.nameTokens.length)) {
                     // Same-name files in different directories → structural similarity
                     const pair = {
                         fileA: pathA,

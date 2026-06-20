@@ -24,6 +24,8 @@ export interface CloneFamily {
     suggestions: RefactoringSuggestion[];
 }
 export declare function groupIntoFamilies(groups: CloneGroup[]): CloneFamily[];
+/** Format clone families as structured text for LLM consumption. */
+export declare function formatCloneFamilies(families: CloneFamily[]): string;
 export declare function cloneFamilySummary(families: CloneFamily[]): {
     totalFamilies: number;
     totalDuplicatedLines: number;

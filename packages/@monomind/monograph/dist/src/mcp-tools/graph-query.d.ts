@@ -3,6 +3,8 @@ import type { MonographNode } from '../types.js';
 export interface GraphQueryInput {
     query: string;
     mode?: 'bfs' | 'dfs';
+    /** Direction of edge traversal. 'both' includes incoming edges (callers) and outgoing (callees). Default: 'out' */
+    direction?: 'out' | 'in' | 'both';
     tokenBudget?: number;
     depth?: number;
 }

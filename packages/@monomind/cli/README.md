@@ -139,16 +139,6 @@ graph LR
     E["7+ roles"] -->|hierarchical| F["Boss to leads to workers\nmiddle management"]
 ```
 
-### Pre-built org types
-
-| Org | Goal | Roles |
-|---|---|---|
-| `content-team` | 3 posts/week on AI tools | Director · Writer · Reviewer · SEO · Growth |
-| `dev-squad` | Features from design spec | Lead · Architect · Developer · QA |
-| `research-lab` | Weekly competitive intelligence | Director · Researcher · Analyst · Writer |
-| `sales-engine` | ICP research + outreach sequences | Director · Outbound · Email · Researcher |
-| `ops-squad` | 24/7 monitoring + incident response | SRE · Security · Perf · Incident Cmdr |
-
 ### Org management commands
 
 ```bash

@@ -48,23 +48,13 @@ export function computeHealthScore(db) {
     // Each circular pair is counted once; each pair has 2 edges contributing
     const circularEdges = circularRow.c * 2;
     // ── Hotspot files (churnScore > 0.5 in properties) ───────────────────────
-    // Files where properties contain a churnScore > 0.5
-    // We detect presence of churnScore via LIKE and then evaluate in JS
-    const hotspotCandidates = db.prepare("SELECT properties FROM nodes WHERE label = 'File' AND properties LIKE '%churnScore%'").all();
-    let hotspotCount = 0;
-    for (const row of hotspotCandidates) {
-        if (!row.properties)
-            continue;
-        try {
-            const props = JSON.parse(row.properties);
-            const churn = props['churnScore'];
-            if (typeof churn === 'number' && churn > 0.5)
-                hotspotCount++;
-        }
-        catch {
-            // ignore malformed JSON
-        }
-    }
+    // Push the numeric filter into SQLite via json_extract() — avoids O(N) JS JSON.parse loop
+    const hotspotRow = db.prepare(`
+    SELECT COUNT(*) as c FROM nodes
+    WHERE label = 'File'
+      AND CAST(json_extract(properties, '$.churnScore') AS REAL) > 0.5
+  `).get();
+    const hotspotCount = hotspotRow.c;
     // ── Isolated nodes (degree = 0) ───────────────────────────────────────────
     const isolatedRow = db.prepare(`
     SELECT COUNT(*) as c FROM nodes n
@@ -113,5 +103,46 @@ export function computeHealthScore(db) {
         `  cross-community edges: ${fmt(penalties.crossCommunityEdgePct, Math.min(penalties.crossCommunityEdgePct * 0.10, 10))}`,
     ].join('\n');
     return { score, grade, penalties, summary };
+}
+/**
+ * Format a HealthScoreResult as structured text for LLM navigation.
+ * Provides a concise grade breakdown that an LLM can parse and act on.
+ *
+ * @param result - HealthScoreResult from computeHealthScore()
+ * @returns structured text suitable for LLM consumption
+ */
+export function formatHealthScore(result) {
+    const { score, grade, penalties } = result;
+    const fmt = (val) => val.toFixed(1);
+    const lines = [
+        `health_score: ${score}/100  grade: ${grade}`,
+        '',
+        'penalties:',
+        `  unreachable_files:     ${fmt(penalties.unreachableFilePct)}%  (max -25)`,
+        `  god_nodes:             ${fmt(penalties.godNodePct)}%  (max -20)`,
+        `  circular_edges:        ${fmt(penalties.circularEdgePct)}%  (max -20)`,
+        `  hotspot_files:         ${fmt(penalties.hotspotPct)}%  (max -15)`,
+        `  isolated_nodes:        ${fmt(penalties.isolatedNodePct)}%  (max -10)`,
+        `  cross_community_edges: ${fmt(penalties.crossCommunityEdgePct)}%  (max -10)`,
+        '',
+    ];
+    // Actionable guidance for grades below B
+    if (grade === 'F' || grade === 'D') {
+        lines.push('action_required: yes');
+        if (penalties.circularEdgePct > 5)
+            lines.push('  - break circular import cycles (monograph_context for file dependencies)');
+        if (penalties.godNodePct > 5)
+            lines.push('  - split god nodes (monograph_god_nodes for candidates)');
+        if (penalties.unreachableFilePct > 10)
+            lines.push('  - investigate unreachable files (monograph_detect_changes to surface dead paths)');
+    }
+    else if (grade === 'C') {
+        lines.push('action_suggested: yes');
+        if (penalties.hotspotPct > 10)
+            lines.push('  - reduce churn on hotspot files');
+        if (penalties.isolatedNodePct > 10)
+            lines.push('  - connect or remove isolated nodes');
+    }
+    return lines.join('\n');
 }
 //# sourceMappingURL=health-score.js.map

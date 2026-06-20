@@ -50,4 +50,8 @@ export interface ReconciliationResult {
  * Mutates `source`/`target` fields on resolved edges in-place when remapping.
  */
 export declare function reconcileEdges(edges: RawEdge[], nodeIds: Set<string>): ReconciliationResult;
+/**
+ * Format a ReconciliationResult as structured text for LLM consumption.
+ */
+export declare function formatReconciliationResult(result: ReconciliationResult): string;
 //# sourceMappingURL=normalize-id.d.ts.map

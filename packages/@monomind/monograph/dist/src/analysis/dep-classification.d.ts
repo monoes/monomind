@@ -14,4 +14,6 @@ export interface DepClassificationResult {
     valueOnlyCount: number;
 }
 export declare function classifyDependencies(db: MonographDb): DepClassificationResult;
+/** Format DepClassificationResult as structured text for LLM navigation and actionable guidance. */
+export declare function formatDepClassification(result: DepClassificationResult): string;
 //# sourceMappingURL=dep-classification.d.ts.map

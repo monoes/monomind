@@ -18,15 +18,18 @@ export const godNodesPhase = {
             outDeg.set(e.sourceId, (outDeg.get(e.sourceId) ?? 0) + 1);
             inDeg.set(e.targetId, (inDeg.get(e.targetId) ?? 0) + 1);
         }
-        // Compute degree distributions from all symbol nodes
-        const allFanIn = symbolNodes
-            .filter(n => !EXCLUDED_LABELS.has(n.label))
-            .map(n => inDeg.get(n.id) ?? 0)
-            .sort((a, b) => a - b);
-        const allFanOut = symbolNodes
-            .filter(n => !EXCLUDED_LABELS.has(n.label))
-            .map(n => outDeg.get(n.id) ?? 0)
-            .sort((a, b) => a - b);
+        // Compute degree distributions from all symbol nodes in a single pass
+        // (avoids two separate filter + map passes over potentially large arrays)
+        const allFanIn = [];
+        const allFanOut = [];
+        for (const n of symbolNodes) {
+            if (EXCLUDED_LABELS.has(n.label))
+                continue;
+            allFanIn.push(inDeg.get(n.id) ?? 0);
+            allFanOut.push(outDeg.get(n.id) ?? 0);
+        }
+        allFanIn.sort((a, b) => a - b);
+        allFanOut.sort((a, b) => a - b);
         const thresholds = {
             p75FanIn: percentile(allFanIn, 75),
             p90FanIn: percentile(allFanIn, 90),
@@ -74,4 +77,35 @@ export const godNodesPhase = {
         return { godNodes, thresholds };
     },
 };
+/**
+ * Format god-node results as structured text with file:line hints for LLM navigation.
+ */
+export function formatGodNodes(output) {
+    const { godNodes, thresholds } = output;
+    if (godNodes.length === 0) {
+        return 'god-nodes: none\nstatus: no high-centrality nodes detected\n';
+    }
+    const lines = [
+        `god-nodes: ${godNodes.length} high-centrality node(s) detected`,
+        `thresholds: fanIn p75=${thresholds.p75FanIn} p90=${thresholds.p90FanIn} p95=${thresholds.p95FanIn}; fanOut p75=${thresholds.p75FanOut} p90=${thresholds.p90FanOut}`,
+        '',
+    ];
+    for (let i = 0; i < godNodes.length; i++) {
+        const n = godNodes[i];
+        const loc = n.filePath
+            ? `${n.filePath}${n.startLine !== undefined ? `:${n.startLine}` : ''}`
+            : n.id;
+        lines.push(`[${i + 1}] ${n.name} (${n.label}) — ${n.category}`);
+        lines.push(`  file: ${loc}`);
+        lines.push(`  degree: ${n.degree} (fanIn=${n.inDegree}, fanOut=${n.outDegree})`);
+        for (const f of n.contributingFactors) {
+            lines.push(`  factor: ${f.metric}=${f.value} (threshold=${f.threshold})`);
+        }
+        lines.push('');
+    }
+    const bridgeCount = godNodes.filter(n => n.category === 'BRIDGE_NODE').length;
+    const highCentralityCount = godNodes.length - bridgeCount;
+    lines.push(`summary: ${highCentralityCount} HIGH_CENTRALITY, ${bridgeCount} BRIDGE_NODE`);
+    return lines.join('\n');
+}
 //# sourceMappingURL=god-nodes.js.map

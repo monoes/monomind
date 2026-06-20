@@ -12,6 +12,8 @@ export interface WorkspaceEntry {
 export interface ProjectState {
     files: ProjectFile[];
     pathToId: Map<string, number>;
+    /** O(1) lookup by numeric fileId */
+    idToFile: Map<number, ProjectFile>;
     workspaces: WorkspaceEntry[];
 }
 export declare function makeProjectState(files: ProjectFile[], workspaces: WorkspaceEntry[]): ProjectState;
