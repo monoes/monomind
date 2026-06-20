@@ -4,7 +4,7 @@
  */
 
 import { Command } from 'commander';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -35,6 +35,8 @@ async function loadSessions(): Promise<Session[]> {
 async function saveSessions(sessions: Session[]): Promise<void> {
   await mkdir(join(homedir(), '.monomind'), { recursive: true });
   await writeFile(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
+  // Restrict to owner-only (rw-------) since the file contains platform session cookies.
+  await chmod(SESSIONS_FILE, 0o600);
 }
 
 export function createPlatformCommand(): Command {
