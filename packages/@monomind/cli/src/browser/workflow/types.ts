@@ -16,12 +16,12 @@ export interface NodeDef {
 export interface ConnectionDef {
   from: string;
   to: string;
-  handle?: string;
+  handle?: string; // port identifier for multi-output nodes (e.g. 'true'/'false' for core.if)
 }
 
 export interface Item {
   data: Record<string, unknown>;
-  binary?: string;
+  binaryBase64?: string; // base64-encoded binary payload
 }
 
 export type RunStatus = 'running' | 'completed' | 'failed' | 'stopped';
