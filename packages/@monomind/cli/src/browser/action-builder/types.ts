@@ -1,5 +1,3 @@
-export type StepType = 'navigate' | 'find' | 'click' | 'type' | 'wait' | 'extract' | 'condition';
-
 export interface NavigateStep { type: 'navigate'; url: string; }
 export interface FindStep { type: 'find'; selectors: string[]; as: string; }
 export interface ClickStep { type: 'click'; target: string; }
