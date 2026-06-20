@@ -2,7 +2,10 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import type { StepEvent, RunRecord } from '../workflow/types.js';
+
+const _require = createRequire(import.meta.url);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PORT = parseInt(process.env['MONOBROWSE_DASHBOARD_PORT'] ?? '4242', 10);
@@ -28,14 +31,19 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
   // Try to load ws, fall back to SSE
   let WebSocketServer: any = null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const wsModule = require('ws');
+    const wsModule = _require('ws');
     WebSocketServer = wsModule.WebSocketServer ?? wsModule.Server;
   } catch {
-    // ws not available — use SSE
+    // ws not available — fall back to SSE
   }
 
-  const uiHtml = readFileSync(join(__dirname, 'ui.html'), 'utf-8');
+  // ui.html must be copied to dist/ alongside server.js during build
+  let uiHtml: string;
+  try {
+    uiHtml = readFileSync(join(__dirname, 'ui.html'), 'utf-8');
+  } catch {
+    uiHtml = `<!DOCTYPE html><html><head><title>monobrowse dashboard</title></head><body style="background:#0f0f1a;color:#ccc;font-family:system-ui;padding:20px"><h1>monobrowse dashboard</h1><p>Dashboard UI not found. Run the build to include ui.html.</p><script>const es=new EventSource('/events');es.onmessage=e=>console.log(JSON.parse(e.data));</script></body></html>`;
+  }
 
   const server = createServer((req, res) => {
     const url = req.url ?? '/';
