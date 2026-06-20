@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { resolveExpression, resolveConfig } from './expression.js';
+import { getDashboard } from '../dashboard/server.js';
 import type { WorkflowDef, NodeDef, Item, RunRecord, StepEvent, RunStatus } from './types.js';
 
 export type NodeHandler = (items: Item[], config: Record<string, unknown>) => Promise<Item[]>;
@@ -18,6 +19,25 @@ export async function runWorkflow(
   const { handlers = new Map(), onEvent = () => {}, signal, params = {} } = options;
   const runId = randomUUID();
   const startedAt = Date.now();
+
+  // Build a unified abort controller that merges the caller's signal with dashboard stop-requests.
+  const controller = new AbortController();
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
+  const dashboard = getDashboard();
+  let stopPollTimer: ReturnType<typeof setInterval> | undefined;
+  if (dashboard) {
+    stopPollTimer = setInterval(() => {
+      if (dashboard.isStopRequested(runId)) controller.abort();
+    }, 500);
+    // Avoid keeping Node.js event loop alive if nothing else is running
+    stopPollTimer.unref?.();
+  }
 
   const emit = (partial: Omit<StepEvent, 'runId' | 'workflowId' | 'workflowName' | 'timestamp'>) =>
     onEvent({ runId, workflowId: def.id, workflowName: def.name, timestamp: Date.now(), ...partial });
@@ -65,38 +85,42 @@ export async function runWorkflow(
   let runStatus: RunStatus = 'completed';
   let runError: string | undefined;
 
-  for (const nodeId of sorted) {
-    if (signal?.aborted) {
-      runStatus = 'stopped';
-      emit({ nodeId, nodeName: nodeId, eventType: 'run_stopped' });
-      break;
-    }
-
-    const node = nodeMap.get(nodeId)!;
-    const nodeName = node.name ?? node.id;
-    const t0 = Date.now();
-
-    // Collect inputs from predecessor outputs
-    const inputItems = collectInputs(nodeId, nodeOutputs, toEdges);
-
-    emit({ nodeId, nodeName, eventType: 'step_started', itemTotal: inputItems.length });
-
-    try {
-      const outputs = await executeNode(node, inputItems, handlers, nodeOutputs, params);
-      nodeOutputs.set(nodeId, outputs);
-      itemsProcessed += outputs.length;
-      emit({ nodeId, nodeName, eventType: 'step_completed', durationMs: Date.now() - t0, itemTotal: outputs.length });
-    } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      emit({ nodeId, nodeName, eventType: 'step_failed', error, durationMs: Date.now() - t0 });
-      if (node.onError === 'skip') {
-        nodeOutputs.set(nodeId, []);
-      } else {
-        runStatus = 'failed';
-        runError = error;
+  try {
+    for (const nodeId of sorted) {
+      if (controller.signal.aborted) {
+        runStatus = 'stopped';
+        emit({ nodeId, nodeName: nodeId, eventType: 'run_stopped' });
         break;
       }
+
+      const node = nodeMap.get(nodeId)!;
+      const nodeName = node.name ?? node.id;
+      const t0 = Date.now();
+
+      // Collect inputs from predecessor outputs
+      const inputItems = collectInputs(nodeId, nodeOutputs, toEdges);
+
+      emit({ nodeId, nodeName, eventType: 'step_started', itemTotal: inputItems.length });
+
+      try {
+        const outputs = await executeNode(node, inputItems, handlers, nodeOutputs, params);
+        nodeOutputs.set(nodeId, outputs);
+        itemsProcessed += outputs.length;
+        emit({ nodeId, nodeName, eventType: 'step_completed', durationMs: Date.now() - t0, itemTotal: outputs.length });
+      } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        emit({ nodeId, nodeName, eventType: 'step_failed', error, durationMs: Date.now() - t0 });
+        if (node.onError === 'skip') {
+          nodeOutputs.set(nodeId, []);
+        } else {
+          runStatus = 'failed';
+          runError = error;
+          break;
+        }
+      }
     }
+  } finally {
+    if (stopPollTimer !== undefined) clearInterval(stopPollTimer);
   }
 
   const completedAt = Date.now();

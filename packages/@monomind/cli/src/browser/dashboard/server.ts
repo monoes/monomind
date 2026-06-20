@@ -69,12 +69,13 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
     }
 
     if (url === '/events' && (req.method === 'GET' || req.method === 'HEAD') && !WebSocketServer) {
-      // SSE endpoint (fallback when ws not available)
+      // SSE endpoint (fallback when ws not available).
+      // No CORS header — the dashboard is served from 127.0.0.1:4242 and no cross-origin
+      // access is needed. A wildcard ACAO would let any web page subscribe to workflow events.
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
       });
       res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
       clients.add(res);
