@@ -4,15 +4,37 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem, _tokPrice, _tokCost } from './collector.mjs';
-import { addSseClient, removeSseClient, broadcast, getSseClientCount, closeSseClients, addMmClient, removeMmClient, broadcastMm, getMmClientCount } from './sse-manager.mjs';
+import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
 
 const JSONL_SIZE_CAP = 10 * 1024 * 1024; // 10 MB — skip files larger than this in /api/graph
 const buildDocsState = new Map();
 
-// Pricing is now the single source-of-truth in collector.mjs (_tokPrice / _tokCost).
-// Thin wrappers preserve the legacy _sjGetPricing / _sjCalcCost call-sites below.
-function _sjGetPricing(model) { return _tokPrice(model) ?? null; }
+// Pricing per token (mirrors token-tracker.cjs FALLBACK_PRICING)
+const _SJ_PRICING = {
+  'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
+  'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
+  'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
+  'claude-opus-4':     { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6  },
+  'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-3-7-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-3-5-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,    cw: 1.25e-6,  cr: 0.1e-6  },
+  'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6 },
+  'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6 },
+  'gpt-4o':            { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6 },
+  'gpt-4o-mini':       { in: 0.15e-6, out: 0.6e-6,  cw: 0.15e-6,  cr: 0.075e-6 },
+  'gemini-2.5-pro':    { in: 1.25e-6, out: 10e-6,   cw: 1.25e-6,  cr: 0.315e-6 },
+};
+function _sjGetPricing(model) {
+  const _ALIAS = { 'haiku': 'claude-haiku-4-5', 'opus': 'claude-opus-4-6', 'sonnet': 'claude-sonnet-4-6' };
+  let canonical = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  canonical = _ALIAS[canonical] || canonical;
+  if (_SJ_PRICING[canonical]) return _SJ_PRICING[canonical];
+  for (const k of Object.keys(_SJ_PRICING)) { if (canonical.startsWith(k) || canonical.includes(k)) return _SJ_PRICING[k]; }
+  return null;
+}
 function _sjCalcCost(model, usage) {
   const p = _sjGetPricing(model);
   if (!p || !usage) return 0;
@@ -157,7 +179,10 @@ function pathToSections(filename) {
   return ['sessions', 'swarm', 'agents', 'tokens', 'hooks'];
 }
 
-// SSE client registry and broadcast functions are provided by sse-manager.mjs.
+// SSE client registry
+const sseClients = new Set();
+// Mastermind real-time event stream clients
+const mmSseClients = new Set();
 // Active org run tracking: org -> runId (enables event routing for orgs without runId in payload)
 const activeOrgRuns = new Map();
 // Active session tracking: org -> {sessionId, ts} (enables linking agent events to sessions)
@@ -202,6 +227,21 @@ let currentPort = null;
 let currentUrl = null;
 let activeServer = null;
 const activeWatchers = [];
+
+/**
+ * Broadcasts a data payload to all connected SSE clients.
+ * Silently removes clients that have disconnected.
+ */
+function broadcast(data) {
+  const msg = `data: ${JSON.stringify(data)}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(msg);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+}
 
 /**
  * Opens a URL in the default browser, cross-platform.
@@ -520,7 +560,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       } catch (_) {}
     }
     // Broadcast to all mastermind SSE clients
-    broadcastMm(event);
+    const msg = `data: ${JSON.stringify(event)}\n\n`;
+    for (const c of mmSseClients) { try { c.write(msg); } catch (_) { mmSseClients.delete(c); } }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     res.end('{"ok":true}');
   }
@@ -1027,7 +1068,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             memoryCount = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md').length;
           } catch {}
           return { slug, path: projPath, name, sessionCount, memoryCount, lastActivity: lastActivity || null };
-        }).filter(p => p.sessionCount > 0).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+        }).filter(p => p.sessionCount > 0 || fs.existsSync(path.join(p.path, '.monomind'))).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ projects }));
       } catch (err) {
@@ -3252,11 +3293,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         }
       }, 20_000);
 
-      addSseClient(res);
+      sseClients.add(res);
 
       req.on('close', () => {
         clearInterval(keepAlive);
-        removeSseClient(res);
+        sseClients.delete(res);
       });
 
       // Send the initial snapshot immediately
@@ -3478,9 +3519,45 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const routinesData = readJsonSafe(path.join(orgsDir, `${orgName}-routines.json`)) || { routines: [] };
         const approvalsData = readJsonSafe(path.join(orgsDir, `${orgName}-approvals.json`)) || { approvals: [] };
 
-        // Check running status: stop file absence AND (in-memory activeOrgRuns OR state-file agents)
+        // Check running status: stop file absence AND (in-memory activeOrgRuns OR state-file agents OR active loop file)
         const stopFile = path.join(orgsDir, '.stops', `${orgName}.stop`);
-        const running = !fs.existsSync(stopFile) && (activeOrgRuns.has(orgName) || Object.values(state.agents || {}).some(a => a.status === 'running'));
+        const _loopsDir = path.join(d, '.monomind', 'loops');
+        const _loopRunning = (() => {
+          try {
+            if (!fs.existsSync(_loopsDir)) return false;
+            // Get the org's state file mtime to correlate with loop activity
+            const orgStateMtime = (() => {
+              try { return fs.statSync(path.join(orgsDir, `${orgName}-state.json`)).mtimeMs; } catch { return 0; }
+            })();
+            // Also check org's most recent run file mtime
+            const orgRunsDir = path.join(d, '.monomind', 'orgs', orgName, 'runs');
+            const orgLastRunMtime = (() => {
+              try {
+                if (!fs.existsSync(orgRunsDir)) return 0;
+                const runFiles = fs.readdirSync(orgRunsDir).filter(f => f.endsWith('.jsonl'));
+                if (!runFiles.length) return 0;
+                return Math.max(...runFiles.map(f => { try { return fs.statSync(path.join(orgRunsDir, f)).mtimeMs; } catch { return 0; } }));
+              } catch { return 0; }
+            })();
+            const orgLastActivity = Math.max(orgStateMtime, orgLastRunMtime);
+            return fs.readdirSync(_loopsDir).some(f => {
+              if (!f.endsWith('.json') || f.endsWith('.stop')) return false;
+              try {
+                const lp = JSON.parse(fs.readFileSync(path.join(_loopsDir, f), 'utf8'));
+                if (!lp.command || !lp.command.includes('runorg')) return false;
+                if (!['running', 'paused'].includes(lp.status)) return false;
+                // Primary match: explicit orgName field (written by runorg command since v1.14.2)
+                if (lp.orgName === orgName) return true;
+                // Fallback: org name in prompt (early loop files that preserved --org flag)
+                if ((lp.prompt || '').includes(orgName)) return true;
+                // Heuristic: if loop's lastRunAt is within 3x wait interval of org's last activity
+                const waitMs = (lp.wait || 60) * 3 * 1000;
+                return orgLastActivity > 0 && Math.abs(orgLastActivity - (lp.lastRunAt || 0)) < waitMs;
+              } catch { return false; }
+            });
+          } catch { return false; }
+        })();
+        const running = !fs.existsSync(stopFile) && (activeOrgRuns.has(orgName) || ['running','active'].includes(state.status) || Object.values(state.agents || {}).some(a => a.status === 'running') || _loopRunning);
 
         // Read real tasks from the task store and group by status column
         const taskStoreData = readJsonSafe(path.join(d, '.monomind', 'tasks', 'store.json'));
@@ -4172,7 +4249,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         // Emit org:approval:resolved event so boss agent unblocks
         const event = { type: 'org:approval:resolved', org: orgName, approval_id: approvalId, status, ts: Date.now() };
         try { fs.appendFileSync(path.join(path.resolve(_postApprovalsQs.get('dir') || projectDir || process.cwd()), 'data', 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch(_) {}
-        broadcastMm(event);
+        const msg = `data: ${JSON.stringify(event)}\n\n`;
+        for (const c of mmSseClients) { try { c.write(msg); } catch(_) { mmSseClients.delete(c); } }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ ok: true, status }));
       } catch(_) { res.writeHead(500); res.end('{}'); }
@@ -4566,7 +4644,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         // Emit org:delete event
         const deleteEvent = { type: 'org:delete', org: orgName, ts: Date.now() };
         try { fs.appendFileSync(path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl'), JSON.stringify(deleteEvent) + '\n'); } catch(_) {}
-        broadcastMm(deleteEvent);
+        const msg = `data: ${JSON.stringify(deleteEvent)}\n\n`;
+        for (const c of mmSseClients) { try { c.write(msg); } catch(_) { mmSseClients.delete(c); } }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end('{"ok":true}');
       } catch(_) { res.writeHead(500); res.end('{}'); }
@@ -4590,7 +4669,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           fs.mkdirSync(stopDir, { recursive: true });
           fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
         } catch(_) {}
-        broadcastMm(stopEvent);
+        const msg = `data: ${JSON.stringify(stopEvent)}\n\n`;
+        for (const c of mmSseClients) { try { c.write(msg); } catch(_) { mmSseClients.delete(c); } }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end('{"ok":true}');
       } catch(_) { res.writeHead(500); res.end('{}'); }
@@ -4697,16 +4777,18 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         'Access-Control-Allow-Origin': '*',
       });
       res.write(': connected\n\n');
-      addMmClient(res);
-      // Replay last 50 events from disk
+      mmSseClients.add(res);
+      // Replay last 50 events from disk (use ?project= param if provided)
       try {
-        const root2 = projectDir || process.cwd();
+        const _sseQp = new URL('http://x' + req.url).searchParams;
+        const _sseProj = _sseQp.get('project');
+        const root2 = _sseProj || projectDir || process.cwd();
         const evFile = path.join(root2, 'data', 'mastermind-events.jsonl');
         const lines = fs.readFileSync(evFile, 'utf8').trim().split('\n').filter(Boolean).slice(-50);
         for (const l of lines) res.write(`data: ${l}\n\n`);
       } catch (_) {}
-      const ka = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) { clearInterval(ka); removeMmClient(res); } }, 20000);
-      req.on('close', () => { removeMmClient(res); clearInterval(ka); });
+      const ka = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) { clearInterval(ka); mmSseClients.delete(res); } }, 20000);
+      req.on('close', () => { mmSseClients.delete(res); clearInterval(ka); });
       return;
     }
 
@@ -4883,7 +4965,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           ts: Date.now(),
           uptime: process.uptime(),
           dir: root,
-          sseClients: getMmClientCount(),
+          sseClients: mmSseClients.size,
           activeOrgs: Object.keys(orgRuns).length,
           orgRuns,
           recentEvents,
@@ -4950,63 +5032,6 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ tokens, swarm, recentEvents: events }));
       } catch(_) { res.writeHead(500); res.end('{"tokens":{},"swarm":{},"recentEvents":[]}'); }
-      return;
-    }
-
-    // ------------------------------------------------------------------ GET /api/workflow-defs
-    if (req.method === 'GET' && url === '/api/workflow-defs') {
-      try {
-        const dir = path.join(projectDir || process.cwd(), '.monomind', 'workflows');
-        if (!fs.existsSync(dir)) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('[]'); return; }
-        const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
-        const defs = files.map(f => {
-          try {
-            const full = path.join(dir, f);
-            const raw = JSON.parse(fs.readFileSync(full, 'utf-8'));
-            const stat = fs.statSync(full);
-            return { file: f, path: full, id: raw.id, name: raw.name, description: raw.description, nodeCount: Array.isArray(raw.nodes) ? raw.nodes.length : 0, params: raw.params || [], modifiedAt: stat.mtimeMs };
-          } catch { return null; }
-        }).filter(Boolean).sort((a, b) => b.modifiedAt - a.modifiedAt);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(defs));
-      } catch (err) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end('[]');
-      }
-      return;
-    }
-
-    // ------------------------------------------------------------------ GET /api/platform-sessions
-    if (req.method === 'GET' && url === '/api/platform-sessions') {
-      try {
-        const sessFile = path.join(os.homedir(), '.monomind', 'sessions.json');
-        let sessions = [];
-        if (fs.existsSync(sessFile)) {
-          try { sessions = JSON.parse(fs.readFileSync(sessFile, 'utf-8')); } catch { sessions = []; }
-        }
-        const googleToken = !!(process.env['GOOGLE_ACCESS_TOKEN'] || process.env['GSHEETS_TOKEN']);
-        const msToken = !!(process.env['MICROSOFT_ACCESS_TOKEN'] || process.env['MSGRAPH_TOKEN']);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ sessions: Array.isArray(sessions) ? sessions : [], googleToken, msToken }));
-      } catch (err) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ sessions: [], googleToken: false, msToken: false }));
-      }
-      return;
-    }
-
-    // ------------------------------------------------------------------ GET /api/workflow-runs
-    if (req.method === 'GET' && url === '/api/workflow-runs') {
-      try {
-        const runsFile = path.join(os.homedir(), '.monomind', 'browse-runs.json');
-        if (!fs.existsSync(runsFile)) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('[]'); return; }
-        const runs = JSON.parse(fs.readFileSync(runsFile, 'utf-8'));
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(Array.isArray(runs) ? runs : []));
-      } catch (err) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end('[]');
-      }
       return;
     }
 
@@ -5133,7 +5158,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     activeWatchers.length = 0;
 
     // Close all SSE connections
-    closeSseClients();
+    for (const client of sseClients) {
+      try {
+        client.end();
+      } catch {
+        // Already ended
+      }
+    }
+    sseClients.clear();
 
     server.close(() => {
       running = false;
@@ -5164,7 +5196,7 @@ export function getServerStatus() {
     running,
     port: currentPort,
     url: currentUrl,
-    clientCount: getSseClientCount(),
+    clientCount: sseClients.size,
   };
 }
 

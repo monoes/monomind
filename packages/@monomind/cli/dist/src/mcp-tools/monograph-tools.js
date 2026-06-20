@@ -576,17 +576,11 @@ async function computeCommitsBehind(repoPath) {
     }
 }
 /**
- * Shared staleness threshold: both monograph_staleness and monograph_suggest_auto
- * trigger a background rebuild only when the index is more than this many commits behind HEAD.
- * Using a shared constant prevents conflicting rebuild pressure during active dev sessions.
- */
-const STALENESS_THRESHOLD = 10;
-/**
  * Fire-and-forget background rebuild. Uses a module-level guard so concurrent
  * MCP tool calls (e.g. repeated monograph_suggest_auto) don't pile up builds.
- * threshold: minimum commitsBehind to trigger (default STALENESS_THRESHOLD + 1).
+ * threshold: minimum commitsBehind to trigger (default 1, Task 2 uses 10).
  */
-function triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, threshold = STALENESS_THRESHOLD + 1) {
+function triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, threshold = 1) {
     if (commitsBehind < threshold)
         return false;
     if (_buildInProgress)
@@ -615,7 +609,8 @@ const monographStalenessTool = {
             return text(JSON.stringify({ commitsBehind: 0, status: 'unknown', triggered: false }));
         }
         const { commitsBehind } = result;
-        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, STALENESS_THRESHOLD + 1);
+        const AUTO_BUILD_THRESHOLD = 10;
+        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, AUTO_BUILD_THRESHOLD + 1);
         const status = triggered ? 'building' : commitsBehind === 0 ? 'fresh' : 'stale';
         return text(JSON.stringify({ commitsBehind, status, triggered }));
     },
@@ -1791,10 +1786,10 @@ const monographSuggestAutoTool = {
     },
     handler: async (input) => {
         const repoPath = getProjectCwd();
-        // Check staleness and trigger rebuild if needed (threshold: STALENESS_THRESHOLD commits).
+        // Check staleness and trigger rebuild if needed (threshold: any staleness).
         const stalenessResult = await computeCommitsBehind(repoPath);
         const commitsBehind = stalenessResult?.commitsBehind ?? 0;
-        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, STALENESS_THRESHOLD + 1);
+        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, 1);
         const stalenessStatus = triggered ? 'building' : commitsBehind === 0 ? 'fresh' : 'stale';
         // Delegate to the base suggest tool — no logic duplication.
         const baseResult = await monographSuggestTool.handler(input);
