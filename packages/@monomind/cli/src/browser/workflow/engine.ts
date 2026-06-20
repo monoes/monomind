@@ -28,12 +28,16 @@ export async function runWorkflow(
   const nodeMap = new Map(def.nodes.map(n => [n.id, n]));
   const inDegree = new Map<string, number>(def.nodes.map(n => [n.id, 0]));
   const outEdges = new Map<string, { to: string; handle?: string }[]>();
+  const toEdges = new Map<string, { from: string; handle?: string }[]>();
 
   for (const conn of def.connections) {
     inDegree.set(conn.to, (inDegree.get(conn.to) ?? 0) + 1);
     const edges = outEdges.get(conn.from) ?? [];
     edges.push({ to: conn.to, handle: conn.handle });
     outEdges.set(conn.from, edges);
+    const toList = toEdges.get(conn.to) ?? [];
+    toList.push({ from: conn.from, handle: conn.handle });
+    toEdges.set(conn.to, toList);
   }
 
   // Kahn's topological sort
@@ -73,7 +77,7 @@ export async function runWorkflow(
     const t0 = Date.now();
 
     // Collect inputs from predecessor outputs
-    const inputItems = collectInputs(nodeId, def, nodeOutputs);
+    const inputItems = collectInputs(nodeId, nodeOutputs, toEdges);
 
     emit({ nodeId, nodeName, eventType: 'step_started', itemTotal: inputItems.length });
 
@@ -108,14 +112,19 @@ export async function runWorkflow(
     error: runError,
   };
 
-  emit({ nodeId: '', nodeName: '', eventType: runStatus === 'completed' ? 'run_completed' : 'run_stopped' });
+  emit({ nodeId: '', nodeName: '', eventType: runStatus === 'completed' ? 'run_completed' : 'run_stopped', error: runError });
   return record;
 }
 
-function collectInputs(nodeId: string, def: WorkflowDef, nodeOutputs: Map<string, Item[]>): Item[] {
-  const predecessors = def.connections.filter(c => c.to === nodeId);
-  if (predecessors.length === 0) return [{ data: {} }]; // trigger node gets a seed item
-  return predecessors.flatMap(c => nodeOutputs.get(c.from) ?? []);
+function collectInputs(nodeId: string, nodeOutputs: Map<string, Item[]>, toEdges: Map<string, { from: string; handle?: string }[]>): Item[] {
+  const predecessors = toEdges.get(nodeId) ?? [];
+  if (predecessors.length === 0) return [{ data: {} }];
+  return predecessors.flatMap(({ from, handle }) => {
+    const items = nodeOutputs.get(from) ?? [];
+    if (handle === 'true') return items.filter(item => item.data['__ifResult'] === true);
+    if (handle === 'false') return items.filter(item => item.data['__ifResult'] === false);
+    return items;
+  });
 }
 
 async function executeNode(
@@ -125,6 +134,7 @@ async function executeNode(
   nodeOutputs: Map<string, Item[]>,
   params: Record<string, string>,
 ): Promise<Item[]> {
+  const allOutputs: Record<string, Item[]> = Object.fromEntries(nodeOutputs);
   const { type, config } = node;
 
   if (type === 'trigger.manual') {
@@ -135,7 +145,7 @@ async function executeNode(
 
   if (type === 'core.set') {
     return inputs.map(item => {
-      const resolved = resolveConfig(config, item, Object.fromEntries(nodeOutputs), params);
+      const resolved = resolveConfig(config, item, allOutputs, params);
       return { ...item, data: { ...item.data, ...resolved } };
     });
   }
@@ -144,7 +154,7 @@ async function executeNode(
     const predicate = config['expression'] as string;
     return inputs.filter(item => {
       try {
-        return Boolean(resolveExpression(predicate, item, Object.fromEntries(nodeOutputs), params));
+        return Boolean(resolveExpression(predicate, item, allOutputs, params));
       } catch {
         return false;
       }
@@ -154,7 +164,7 @@ async function executeNode(
   if (type === 'core.if') {
     const predicate = config['expression'] as string;
     return inputs.map(item => {
-      const result = Boolean(resolveExpression(predicate, item, Object.fromEntries(nodeOutputs), params));
+      const result = Boolean(resolveExpression(predicate, item, allOutputs, params));
       return { ...item, data: { ...item.data, __ifResult: result } };
     });
   }
@@ -162,6 +172,6 @@ async function executeNode(
   // action.* — delegate to registered handler
   const handler = handlers.get(type);
   if (!handler) throw new Error(`No handler registered for node type: ${type}`);
-  const resolvedConfig = resolveConfig(config, inputs[0] ?? { data: {} }, Object.fromEntries(nodeOutputs), params);
+  const resolvedConfig = resolveConfig(config, inputs[0] ?? { data: {} }, allOutputs, params);
   return handler(inputs, resolvedConfig);
 }
