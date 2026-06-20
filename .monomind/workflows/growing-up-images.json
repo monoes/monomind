@@ -1,0 +1,63 @@
+{
+  "id": "growing-up-images",
+  "name": "Growing Up — Gemini Image Generation",
+  "nodes": [
+    {
+      "id": "trigger",
+      "type": "trigger.manual",
+      "name": "Scene Seeds",
+      "config": {
+        "items": [
+          { "data": { "scene": "first day of school", "age": "5", "mood": "nervous excitement" } },
+          { "data": { "scene": "learning to ride a bike", "age": "7", "mood": "determination" } },
+          { "data": { "scene": "reading alone under a tree", "age": "10", "mood": "wonder" } },
+          { "data": { "scene": "teenage bedroom at night with city lights outside", "age": "16", "mood": "dreaming" } },
+          { "data": { "scene": "packing boxes for first apartment", "age": "22", "mood": "bittersweet independence" } }
+        ]
+      }
+    },
+    {
+      "id": "build_prompt",
+      "type": "core.set",
+      "name": "Build Image Prompt",
+      "config": {
+        "prompt": "A heartfelt, photorealistic illustration of a child growing up — {{$json.scene}}, age {{$json.age}}, evoking {{$json.mood}}. Warm cinematic lighting, shallow depth of field, golden hour tones. Style: Studio Ghibli meets National Geographic photography.",
+        "outputFile": "./output/growing-up-{{$json.scene}}.png"
+      }
+    },
+    {
+      "id": "generate_image",
+      "type": "action.gemini_image",
+      "name": "Gemini Imagen",
+      "onError": "skip",
+      "config": {
+        "model": "imagen-3.0-generate-001",
+        "aspectRatio": "4:3",
+        "outputPath": "{{$json.outputFile}}"
+      }
+    },
+    {
+      "id": "log_result",
+      "type": "action.log",
+      "name": "Log Result",
+      "config": {
+        "label": "generated"
+      }
+    },
+    {
+      "id": "save_manifest",
+      "type": "action.save_file",
+      "name": "Save Manifest",
+      "config": {
+        "path": "./output/growing-up-manifest.json",
+        "content": "{{$json.prompt}}"
+      }
+    }
+  ],
+  "connections": [
+    { "from": "trigger",        "to": "build_prompt"  },
+    { "from": "build_prompt",   "to": "generate_image" },
+    { "from": "generate_image", "to": "log_result"    },
+    { "from": "log_result",     "to": "save_manifest" }
+  ]
+}
