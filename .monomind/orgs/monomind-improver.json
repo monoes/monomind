@@ -1,4 +1,263 @@
 {
+  "config": {
+    "name": "monomind-improver",
+    "goal": "Continuously analyze the Monomind codebase to find improvement directions, implement the highest-value improvement each cycle, and commit changes to the improve/auto git branch — looping 1 minute after each run completes until stopped.",
+    "created": "2026-06-14T00:00:00Z",
+    "updated": "2026-06-14T00:00:00Z",
+    "mode": "daemon",
+    "topology": "hierarchical",
+    "schedule": "60s-after-last-run",
+    "loop_interval_seconds": 60,
+    "loop_type": "tillend",
+    "branch": "improve/auto",
+    "status": "active",
+    "first_run_complete": false,
+    "governance": {
+      "policy": "auto",
+      "approvals_file": ".monomind/orgs/monomind-improver-approvals.json"
+    },
+    "run_config": {
+      "checkpoint_interval_min": 5,
+      "max_concurrent_agents": 5,
+      "memory_namespace": "org:monomind-improver",
+      "budget_tokens": 0,
+      "alert_threshold": 0.8,
+      "boss_role": "boss",
+      "spawn_all_roles": true,
+      "ceo_adapter": "claude-sonnet-4-6",
+      "git_branch": "improve/auto",
+      "commit_each_cycle": true,
+      "base_branch": "main"
+    },
+    "phases": [
+      {
+        "id": "analyze",
+        "label": "Analyze & Prioritize",
+        "description": "Scan codebase, open issues, recent commits, and foundation.md completed log. Produce a ranked list of improvement opportunities — bugs, UX gaps, performance, missing features, tech debt.",
+        "trigger": "every-cycle",
+        "completed": false
+      },
+      {
+        "id": "implement",
+        "label": "Implement",
+        "description": "Pick the highest-ranked opportunity not yet done. Implement the change — write/edit code in the repo.",
+        "trigger": "every-cycle",
+        "completed": false
+      },
+      {
+        "id": "review",
+        "label": "Review",
+        "description": "Review the implementation for correctness, security issues, and adherence to project patterns. Flag any problems for the coder to fix.",
+        "trigger": "every-cycle",
+        "completed": false
+      },
+      {
+        "id": "commit",
+        "label": "Commit to improve/auto",
+        "description": "Switch to improve/auto branch (rebasing on main if needed), stage changed files, write a descriptive commit message, commit. Log the improvement to foundation.md.",
+        "trigger": "every-cycle",
+        "completed": false
+      }
+    ],
+    "communication": [
+      {
+        "from": "boss",
+        "to": "analyzer",
+        "type": "command",
+        "protocol": "direct"
+      },
+      {
+        "from": "boss",
+        "to": "coder",
+        "type": "command",
+        "protocol": "direct"
+      },
+      {
+        "from": "boss",
+        "to": "reviewer",
+        "type": "command",
+        "protocol": "direct"
+      },
+      {
+        "from": "boss",
+        "to": "git-manager",
+        "type": "command",
+        "protocol": "direct"
+      },
+      {
+        "from": "analyzer",
+        "to": "boss",
+        "type": "report",
+        "protocol": "direct"
+      },
+      {
+        "from": "coder",
+        "to": "reviewer",
+        "type": "handoff",
+        "protocol": "direct"
+      },
+      {
+        "from": "reviewer",
+        "to": "coder",
+        "type": "feedback",
+        "protocol": "direct"
+      },
+      {
+        "from": "reviewer",
+        "to": "git-manager",
+        "type": "handoff",
+        "protocol": "direct"
+      },
+      {
+        "from": "git-manager",
+        "to": "boss",
+        "type": "report",
+        "protocol": "direct"
+      }
+    ],
+    "roles": [
+      {
+        "id": "boss",
+        "title": "Improvement Director",
+        "type": "boss",
+        "agent_type": "coordinator",
+        "reports_to": null,
+        "color": "#22d3ee",
+        "skills": [
+          "Codebase analysis and prioritization",
+          "Multi-agent coordination",
+          "Technical decision-making",
+          "Progress tracking and deduplication"
+        ],
+        "responsibilities": [
+          "Load foundation.md at the start of each cycle to see what's already been done",
+          "Spawn the analyzer and review its ranked improvement list",
+          "Select the single highest-value improvement not yet completed",
+          "Delegate implementation to the coder with precise instructions",
+          "Pass coder output to the reviewer",
+          "After approval, instruct git-manager to commit",
+          "Log the completed improvement to foundation.md with a one-line summary",
+          "Wait 60 seconds after the cycle completes before starting the next one"
+        ],
+        "spawn_specialists": [
+          "analyzer",
+          "coder",
+          "reviewer",
+          "git-manager"
+        ],
+        "avatar": "data/avatars/security-auditor.svg"
+      },
+      {
+        "id": "analyzer",
+        "title": "Codebase Analyzer",
+        "type": "specialist",
+        "agent_type": "researcher",
+        "reports_to": "boss",
+        "color": "#a78bfa",
+        "skills": [
+          "Static code analysis",
+          "Bug detection",
+          "Performance profiling",
+          "UX gap identification",
+          "Technical debt assessment"
+        ],
+        "responsibilities": [
+          "Read foundation.md to know what has already been improved — do not suggest the same thing twice",
+          "Scan recent git commits on main to understand current trajectory",
+          "Identify the top 5 improvement candidates across: bugs, UX issues, performance, missing features, tech debt",
+          "Rank them by estimated impact vs effort",
+          "Return the ranked list to the boss with a one-paragraph rationale for each"
+        ]
+      },
+      {
+        "id": "coder",
+        "title": "Implementation Engineer",
+        "type": "specialist",
+        "agent_type": "coder",
+        "reports_to": "boss",
+        "color": "#34d399",
+        "skills": [
+          "TypeScript/JavaScript implementation",
+          "Node.js backend development",
+          "HTML/CSS frontend changes",
+          "Test writing",
+          "Clean code and project conventions"
+        ],
+        "responsibilities": [
+          "Receive a precise improvement spec from the boss",
+          "Read all affected files before editing",
+          "Implement the improvement cleanly — follow existing project patterns",
+          "Do not introduce unrelated changes",
+          "Pass the changed file list and a description of changes to the reviewer"
+        ]
+      },
+      {
+        "id": "reviewer",
+        "title": "Code Reviewer",
+        "type": "specialist",
+        "agent_type": "reviewer",
+        "reports_to": "boss",
+        "color": "#f59e0b",
+        "skills": [
+          "Code correctness verification",
+          "Security review",
+          "Pattern adherence checking",
+          "Regression risk assessment"
+        ],
+        "responsibilities": [
+          "Review each changed file from the coder",
+          "Check for: logic errors, security issues, broken patterns, unintended side effects",
+          "If issues found: send back to coder with specific line-level feedback",
+          "If approved: pass file list and commit message suggestion to git-manager",
+          "Keep review focused — do not block on style preferences"
+        ]
+      },
+      {
+        "id": "git-manager",
+        "title": "Git Commit Manager",
+        "type": "specialist",
+        "agent_type": "coder",
+        "reports_to": "boss",
+        "color": "#f87171",
+        "skills": [
+          "Git branch management",
+          "Commit message writing",
+          "Merge conflict resolution",
+          "Safe staging of dist files"
+        ],
+        "responsibilities": [
+          "Ensure improve/auto branch exists (create from main if not)",
+          "Rebase improve/auto onto latest main to stay current",
+          "Stage only the files changed by the coder (use git add -f for dist/ files)",
+          "Write a clear, descriptive commit message: what changed and why",
+          "Commit with Co-Authored-By: nokhodian <nokhodian@gmail.com>",
+          "Report the commit hash back to the boss"
+        ]
+      }
+    ]
+  },
+  "state": {
+    "org": "monomind-improver",
+    "run_id": "run-20260614T224716",
+    "started_at": "2026-06-14T22:47:16Z",
+    "agents": {}
+  },
+  "goals": [],
+  "routines": [],
+  "approvals": [],
+  "running": false,
+  "tasks": {
+    "todo": [],
+    "doing": [],
+    "done": [
+      {
+        "id": "task-1778335619444-tlvsr9",
+        "description": "test task for architect domain",
+        "status": "cancelled",
+        "ts": "2026-05-09T14:07:06.100Z"
+      }
+    ]
+  },
   "name": "monomind-improver",
   "goal": "Continuously analyze the Monomind codebase to find improvement directions, implement the highest-value improvement each cycle, and commit changes to the improve/auto git branch — looping 1 minute after each run completes until stopped.",
   "created": "2026-06-14T00:00:00Z",
@@ -63,15 +322,60 @@
     }
   ],
   "communication": [
-    { "from": "boss", "to": "analyzer", "type": "command", "protocol": "direct" },
-    { "from": "boss", "to": "coder", "type": "command", "protocol": "direct" },
-    { "from": "boss", "to": "reviewer", "type": "command", "protocol": "direct" },
-    { "from": "boss", "to": "git-manager", "type": "command", "protocol": "direct" },
-    { "from": "analyzer", "to": "boss", "type": "report", "protocol": "direct" },
-    { "from": "coder", "to": "reviewer", "type": "handoff", "protocol": "direct" },
-    { "from": "reviewer", "to": "coder", "type": "feedback", "protocol": "direct" },
-    { "from": "reviewer", "to": "git-manager", "type": "handoff", "protocol": "direct" },
-    { "from": "git-manager", "to": "boss", "type": "report", "protocol": "direct" }
+    {
+      "from": "boss",
+      "to": "analyzer",
+      "type": "command",
+      "protocol": "direct"
+    },
+    {
+      "from": "boss",
+      "to": "coder",
+      "type": "command",
+      "protocol": "direct"
+    },
+    {
+      "from": "boss",
+      "to": "reviewer",
+      "type": "command",
+      "protocol": "direct"
+    },
+    {
+      "from": "boss",
+      "to": "git-manager",
+      "type": "command",
+      "protocol": "direct"
+    },
+    {
+      "from": "analyzer",
+      "to": "boss",
+      "type": "report",
+      "protocol": "direct"
+    },
+    {
+      "from": "coder",
+      "to": "reviewer",
+      "type": "handoff",
+      "protocol": "direct"
+    },
+    {
+      "from": "reviewer",
+      "to": "coder",
+      "type": "feedback",
+      "protocol": "direct"
+    },
+    {
+      "from": "reviewer",
+      "to": "git-manager",
+      "type": "handoff",
+      "protocol": "direct"
+    },
+    {
+      "from": "git-manager",
+      "to": "boss",
+      "type": "report",
+      "protocol": "direct"
+    }
   ],
   "roles": [
     {
@@ -97,7 +401,13 @@
         "Log the completed improvement to foundation.md with a one-line summary",
         "Wait 60 seconds after the cycle completes before starting the next one"
       ],
-      "spawn_specialists": ["analyzer", "coder", "reviewer", "git-manager"]
+      "spawn_specialists": [
+        "analyzer",
+        "coder",
+        "reviewer",
+        "git-manager"
+      ],
+      "avatar": "data/avatars/security-auditor.svg"
     },
     {
       "id": "analyzer",

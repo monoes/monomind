@@ -1,32 +1,46 @@
 import { MonographError } from '../types.js';
 export class PipelineRunner {
     phases;
+    /** Topo-sorted phase names, computed once in constructor for O(1) phase map lookups. */
+    sortedNames;
+    /** O(1) phase lookup by name. */
+    phaseMap;
     constructor(phases) {
         this.phases = phases;
-        // Validate: detect cycles and unknown deps
-        topoSort(phases);
+        this.sortedNames = topoSort(phases);
+        this.phaseMap = new Map(phases.map(p => [p.name, p]));
     }
     async run(ctx) {
         const outputs = new Map();
-        const phaseMap = new Map(this.phases.map(p => [p.name, p]));
         // Lazily-created promise per phase — ensures dep promises exist before they are awaited
         const promises = new Map();
         const getOrCreatePromise = (name) => {
             if (promises.has(name))
                 return promises.get(name);
-            const phase = phaseMap.get(name);
+            const phase = this.phaseMap.get(name);
             const p = (async () => {
                 // Wait for all dep phases to finish
                 await Promise.all(phase.deps.map(dep => getOrCreatePromise(dep)));
                 ctx.onProgress?.({ phase: phase.name });
-                const output = await phase.execute(ctx, outputs);
-                outputs.set(phase.name, output);
+                try {
+                    const output = await phase.execute(ctx, outputs);
+                    outputs.set(phase.name, output);
+                }
+                catch (err) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    throw new MonographError(`Phase '${phase.name}' failed: ${msg}`);
+                }
             })();
             promises.set(name, p);
             return p;
         };
-        // Kick off all phases — each self-manages its dep wait via lazy promise creation
-        await Promise.all(this.phases.map(phase => getOrCreatePromise(phase.name)));
+        // Use allSettled so every in-flight phase completes before we return.
+        // This ensures the DB is not closed while phases are still writing to it,
+        // which would otherwise cause unhandled rejections that hang the process.
+        const results = await Promise.allSettled(this.sortedNames.map(name => getOrCreatePromise(name)));
+        const failed = results.find(r => r.status === 'rejected');
+        if (failed)
+            throw failed.reason;
         return outputs;
     }
 }
@@ -72,14 +86,19 @@ export async function runIncrementalAst(db, changedFiles, options = {}) {
     if (preserveInferred) {
         if (changedFiles.length > 0) {
             const placeholders = changedFiles.map(() => '?').join(',');
+            // Use a CTE to resolve file_path→id once, then delete edges referencing those ids.
+            // This avoids passing changedFiles twice (N*2 params) and lets SQLite reuse the scan.
             db.prepare(`
+        WITH changed_ids AS (
+          SELECT id FROM nodes WHERE file_path IN (${placeholders})
+        )
         DELETE FROM edges
         WHERE confidence = 'EXTRACTED'
         AND (
-          source_id IN (SELECT id FROM nodes WHERE file_path IN (${placeholders}))
-          OR target_id IN (SELECT id FROM nodes WHERE file_path IN (${placeholders}))
+          source_id IN (SELECT id FROM changed_ids)
+          OR target_id IN (SELECT id FROM changed_ids)
         )
-      `).run(...changedFiles, ...changedFiles);
+      `).run(...changedFiles);
         }
         else {
             db.prepare(`DELETE FROM edges WHERE confidence = 'EXTRACTED'`).run();

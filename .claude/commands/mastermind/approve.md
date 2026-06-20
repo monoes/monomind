@@ -73,7 +73,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -d "$(jq -cn \
     --arg session "$session_id" \
     --arg org "$org_name" \
-    --arg proj "$(pwd)" \
+    --arg proj "$REPO_ROOT" \
     '{type:"session:start",session:$session,domain:"ops",prompt:("Approve requests for org: "+$org),mode:"confirm",project:$proj,ts:(now*1000|floor)}')" || true
 ```
 

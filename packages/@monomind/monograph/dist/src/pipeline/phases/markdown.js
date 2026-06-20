@@ -6,6 +6,8 @@ import { insertEdges } from '../../storage/edge-store.js';
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.mdx']);
 // Inline code span: `identifier`
 const INLINE_CODE_RE = /`([^`]+)`/g;
+// Module-level constant: compiled once per process, not per isIdentifier() call.
+const IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$.-]*$/;
 export const markdownPhase = {
     name: 'markdown',
     // Must run after parse so symbols are already in the DB for name lookup.
@@ -13,6 +15,8 @@ export const markdownPhase = {
     // Runs before communities so REFERENCES edges are visible to graph analyses.
     deps: ['parse', 'structure'],
     async execute(ctx, deps) {
+        if (ctx.options.codeOnly)
+            return { documentNodes: [], referencesEdges: [] };
         const { fileNodes } = deps.get('structure');
         const documentNodes = [];
         const referencesEdges = [];
@@ -50,15 +54,16 @@ export const markdownPhase = {
             // Extract inline code spans and match against symbol names in the DB
             if (ctx.db) {
                 const spans = extractCodeSpans(source);
+                // Hoist prepared statement outside the span loop — avoids re-compiling the
+                // SQL query for every identifier in every markdown file (N+1 preparation).
+                const symbolLookup = ctx.db.prepare(`SELECT id FROM nodes WHERE name = ?
+           AND label NOT IN ('File', 'Folder', 'Document')`);
                 for (const span of spans) {
                     // Only match single-word identifiers (not shell commands, paths, etc.)
                     if (!isIdentifier(span))
                         continue;
                     // Exact name match, excluding structural nodes to avoid matching file names
-                    const rows = ctx.db
-                        .prepare(`SELECT id FROM nodes WHERE name = ?
-               AND label NOT IN ('File', 'Folder', 'Document')`)
-                        .all(span);
+                    const rows = symbolLookup.all(span);
                     if (rows.length === 1) {
                         const edgeId = makeId(docId, rows[0].id, 'references');
                         referencesEdges.push({
@@ -93,6 +98,6 @@ function extractCodeSpans(source) {
 }
 /** Accept only simple identifiers — letters, digits, underscores, hyphens, dots (for namespaced names). */
 function isIdentifier(span) {
-    return /^[A-Za-z_$][A-Za-z0-9_$.-]*$/.test(span);
+    return IDENTIFIER_RE.test(span);
 }
 //# sourceMappingURL=markdown.js.map
