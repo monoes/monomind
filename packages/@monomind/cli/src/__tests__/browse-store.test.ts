@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readWorkflow, writeRunRecord, listRuns, readAction } from '../browser/workflow/store.js';
+import { readWorkflow, writeRunRecord, listRuns, readAction, clearRunStore } from '../browser/workflow/store.js';
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -9,6 +9,7 @@ import type { ActionDef } from '../browser/action-builder/types.js';
 const TMP = join(tmpdir(), 'browse-store-test-' + Date.now());
 
 beforeEach(() => {
+  clearRunStore();
   mkdirSync(join(TMP, 'workflows'), { recursive: true });
   mkdirSync(join(TMP, 'actions'), { recursive: true });
 });
@@ -63,6 +64,22 @@ describe('readAction', () => {
     const result = await readAction(p);
     expect(result.id).toBe('linkedin:comment_post');
     expect(result.params).toContain('post_url');
+  });
+
+  it('throws on missing action file', async () => {
+    await expect(readAction(join(TMP, 'actions', 'nonexistent.json'))).rejects.toThrow();
+  });
+
+  it('throws on invalid action JSON', async () => {
+    const p = join(TMP, 'actions', 'bad.json');
+    writeFileSync(p, 'not json');
+    await expect(readAction(p)).rejects.toThrow();
+  });
+
+  it('throws if action steps array is missing', async () => {
+    const p = join(TMP, 'actions', 'no-steps.json');
+    writeFileSync(p, JSON.stringify({ id: 'x', platform: 'y', name: 'z', params: [] }));
+    await expect(readAction(p)).rejects.toThrow('steps');
   });
 });
 
