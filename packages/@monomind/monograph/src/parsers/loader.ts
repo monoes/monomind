@@ -70,14 +70,14 @@ export async function getParser(ext: string): Promise<{ parser: Parser; config: 
   }
 
   try {
+    const lang = config.getLanguage();
+    if (!lang) throw new Error('getLanguage() returned undefined');
     const parser = new Parser();
-    parser.setLanguage(config.getLanguage());
+    parser.setLanguage(lang);
     parserCache.set(ext, parser);
     return { parser, config };
-  } catch (err) {
-    // Grammar unavailable at runtime (ABI mismatch, native build failure, etc.).
-    // Log a warning and skip the language gracefully.
-    console.warn(`[monograph] warning: grammar for "${config.name}" (${ext}) could not be loaded: ${err}`);
+  } catch {
+    // Grammar unavailable at runtime (ABI mismatch, native build failure, etc.) — skip silently.
     return null;
   }
 }
