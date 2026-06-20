@@ -21,4 +21,8 @@ export interface GodNodesOutput {
     thresholds: GodNodesThresholds;
 }
 export declare const godNodesPhase: PipelinePhase<GodNodesOutput>;
+/**
+ * Format god-node results as structured text with file:line hints for LLM navigation.
+ */
+export declare function formatGodNodes(output: GodNodesOutput): string;
 //# sourceMappingURL=god-nodes.d.ts.map

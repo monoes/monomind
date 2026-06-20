@@ -6,11 +6,11 @@
  * @param pattern - A RegExp (or a string that will be compiled to one).
  * @param fields  - Which fields to test; default: ['name', 'filePath'].
  */
-export function regexSearchNodes(db, pattern, fields = ['name', 'filePath']) {
+export function regexSearchNodes(db, pattern, fields = ['name', 'filePath'], limit = 200) {
     const re = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
     const rows = db.prepare(`SELECT id, label, name, norm_label, file_path, start_line, end_line,
             community_id, is_exported, language, properties
-     FROM nodes`).all();
+     FROM nodes LIMIT ?`).all(limit);
     const results = [];
     for (const r of rows) {
         const node = {
@@ -47,10 +47,10 @@ export function regexSearchNodes(db, pattern, fields = ['name', 'filePath']) {
  * @param pattern - A RegExp (or a string that will be compiled to one).
  * @param fields  - Which fields to test; default: ['relation', 'reason'].
  */
-export function regexSearchEdges(db, pattern, fields = ['relation', 'reason']) {
+export function regexSearchEdges(db, pattern, fields = ['relation', 'reason'], limit = 200) {
     const re = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
     const rows = db.prepare(`SELECT id, source_id, target_id, relation, confidence, confidence_score, reason
-     FROM edges`).all();
+     FROM edges LIMIT ?`).all(limit);
     const results = [];
     for (const r of rows) {
         const edge = {
@@ -107,5 +107,34 @@ export function regexSearchEdgesInMemory(edges, pattern, fields = ['relation', '
         }
     }
     return results;
+}
+// ── LLM formatters ─────────────────────────────────────────────────────────────
+/**
+ * Format node regex match results as structured text for LLM consumption.
+ */
+export function formatRegexNodeMatches(matches, pattern) {
+    if (matches.length === 0)
+        return `No nodes matching /${pattern}/.`;
+    const lines = [`${matches.length} node(s) matching /${pattern}/:`];
+    for (const m of matches) {
+        const loc = m.node.filePath
+            ? ` ${m.node.filePath}${m.node.startLine != null ? `:${m.node.startLine}` : ''}`
+            : '';
+        lines.push(`  [${m.field}] ${m.node.label} ${m.node.name}${loc}`);
+    }
+    return lines.join('\n');
+}
+/**
+ * Format edge regex match results as structured text for LLM consumption.
+ */
+export function formatRegexEdgeMatches(matches, pattern) {
+    if (matches.length === 0)
+        return `No edges matching /${pattern}/.`;
+    const lines = [`${matches.length} edge(s) matching /${pattern}/:`];
+    for (const m of matches) {
+        lines.push(`  [${m.field}] ${m.edge.sourceId} -[${m.edge.relation}]-> ${m.edge.targetId}` +
+            (m.edge.reason ? `  // ${m.edge.reason}` : ''));
+    }
+    return lines.join('\n');
 }
 //# sourceMappingURL=regex-search.js.map

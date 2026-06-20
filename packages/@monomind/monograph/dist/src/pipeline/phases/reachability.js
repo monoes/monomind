@@ -59,15 +59,28 @@ export function classifyReachability(db, _projectDir) {
             roleMap.set(id, 'runtime');
         }
     }
-    // ── BFS from entry points — forward direction (walk what files import) ───────
+    // ── Preload forward adjacency map for BFS (one query vs N per BFS node) ────────
+    const forwardEdges = new Map();
+    const fwdRows = db.prepare(`SELECT source_id, target_id FROM edges WHERE relation IN ('IMPORTS', 'RE_EXPORTS')`).all();
+    for (const row of fwdRows) {
+        let targets = forwardEdges.get(row.source_id);
+        if (!targets) {
+            targets = [];
+            forwardEdges.set(row.source_id, targets);
+        }
+        targets.push(row.target_id);
+    }
+    // ── BFS from entry points — uses preloaded adjacency (no per-node DB query) ──
     const bfs = (startIds, role) => {
         const queue = Array.from(startIds);
         const visited = new Set(startIds);
         while (queue.length > 0) {
             const nodeId = queue.shift();
-            // Follow forward edges: find files that this file imports
-            const imported = db.prepare(`SELECT DISTINCT target_id FROM edges WHERE source_id = ? AND relation IN ('IMPORTS', 'RE_EXPORTS')`).all(nodeId);
-            for (const { target_id } of imported) {
+            // O(1) adjacency lookup instead of per-node DB query
+            const targets = forwardEdges.get(nodeId);
+            if (!targets)
+                continue;
+            for (const target_id of targets) {
                 if (!visited.has(target_id)) {
                     visited.add(target_id);
                     // Set role only if not already set to a higher-priority role
@@ -84,29 +97,32 @@ export function classifyReachability(db, _projectDir) {
     // Test BFS first, then runtime (runtime wins on overlap)
     bfs(testEntryIds, 'test');
     bfs(runtimeEntryIds, 'runtime');
-    // ── Persist roles and count ───────────────────────────────────────────────────
-    let runtime = 0, test = 0, support = 0, unreachable = 0;
-    for (const node of allFileNodes) {
-        const role = roleMap.get(node.id) ?? 'unreachable';
-        let props = {};
-        try {
-            if (node.properties)
-                props = JSON.parse(node.properties);
+    // ── Persist roles and count — batch UPDATE in transaction ────────────────────
+    const updateStmt = db.prepare(`UPDATE nodes SET properties = ? WHERE id = ?`);
+    const persistAll = db.transaction(() => {
+        let runtime = 0, test = 0, support = 0, unreachable = 0;
+        for (const node of allFileNodes) {
+            const role = roleMap.get(node.id) ?? 'unreachable';
+            let props = {};
+            try {
+                if (node.properties)
+                    props = JSON.parse(node.properties);
+            }
+            catch { /* ignore parse errors */ }
+            props.reachabilityRole = role;
+            updateStmt.run(JSON.stringify(props), node.id);
+            if (role === 'runtime')
+                runtime++;
+            else if (role === 'test')
+                test++;
+            else if (role === 'support')
+                support++;
+            else
+                unreachable++;
         }
-        catch { /* ignore parse errors */ }
-        props.reachabilityRole = role;
-        db.prepare(`UPDATE nodes SET properties = ? WHERE id = ?`)
-            .run(JSON.stringify(props), node.id);
-        if (role === 'runtime')
-            runtime++;
-        else if (role === 'test')
-            test++;
-        else if (role === 'support')
-            support++;
-        else
-            unreachable++;
-    }
-    return { runtime, test, support, unreachable };
+        return { runtime, test, support, unreachable };
+    });
+    return persistAll();
 }
 /**
  * Get File nodes filtered by reachability role.

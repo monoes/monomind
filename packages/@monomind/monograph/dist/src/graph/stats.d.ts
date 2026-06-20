@@ -35,4 +35,6 @@ export declare function computeCouplingProfile(db: Database.Database): CouplingP
  * Quick stats summary (extends existing stats from monograph_stats MCP tool).
  */
 export declare function computeGraphStats(db: Database.Database): GraphStatsSummary;
+/** Format a GraphStatsSummary as structured text for LLM consumption. */
+export declare function formatGraphStats(s: GraphStatsSummary): string;
 //# sourceMappingURL=stats.d.ts.map

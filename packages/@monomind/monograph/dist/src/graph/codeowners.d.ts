@@ -9,6 +9,16 @@ export interface OwnershipResult {
     unowned: boolean;
 }
 export declare function parseCodeowners(repoRoot: string): CodeownersEntry[];
+export interface CompiledEntry {
+    owners: string[];
+    re: RegExp;
+}
+/**
+ * Compile an array of CodeownersEntry into CompiledEntry objects so that
+ * globToRegex() runs exactly once per pattern instead of once per file lookup.
+ */
+export declare function compileEntries(entries: CodeownersEntry[]): CompiledEntry[];
+export declare function resolveOwnerCompiled(compiled: CompiledEntry[], filePath: string): string[];
 export declare function resolveOwner(entries: CodeownersEntry[], filePath: string): string[];
 export declare function annotateOwnership(db: Database.Database, repoRoot: string): {
     annotated: number;

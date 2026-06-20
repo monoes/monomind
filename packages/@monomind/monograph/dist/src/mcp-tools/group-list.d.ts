@@ -8,6 +8,7 @@ export interface GroupRepoInfo {
     path: string;
     indexedAt: string | null;
     nodeCount: number;
+    error?: string;
 }
 export interface GroupListResult {
     groups: GroupInfo[];

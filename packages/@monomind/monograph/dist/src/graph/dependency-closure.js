@@ -1,3 +1,4 @@
+const SQLITE_VAR_LIMIT = 200; // safe batch size for IN clauses
 export function computeDependencyClosure(db, maxNodes = 100) {
     // Get File nodes sorted by degree (most connected first)
     const fileNodes = db.prepare(`
@@ -15,6 +16,9 @@ export function computeDependencyClosure(db, maxNodes = 100) {
       JOIN nodes n ON n.id = e.target_id
       WHERE e.relation = 'IMPORTS' AND n.file_path IS NOT NULL
     `).all().map(r => r.file_path));
+    // Hoist prepared statement outside the per-node BFS loop to avoid recompiling
+    // on every iteration (N×maxNodes calls previously).
+    const edgeStmt = db.prepare(`SELECT target_id FROM edges WHERE source_id = ? AND relation = 'IMPORTS'`);
     const results = [];
     for (const fileNode of fileNodes) {
         // BFS forward (following IMPORTS edges from this node)
@@ -28,7 +32,7 @@ export function computeDependencyClosure(db, maxNodes = 100) {
             depth++;
             const next = [];
             for (const id of frontier) {
-                const edges = db.prepare(`SELECT target_id FROM edges WHERE source_id = ? AND relation = 'IMPORTS'`).all(id);
+                const edges = edgeStmt.all(id);
                 for (const e of edges) {
                     if (!visited.has(e.target_id)) {
                         visited.add(e.target_id);
@@ -45,12 +49,24 @@ export function computeDependencyClosure(db, maxNodes = 100) {
             }
             frontier = next;
         }
+        // Batch-resolve file_paths for all transitive deps in one chunked SQL query
+        // instead of one SELECT per dep (N+1 → O(deps/CHUNK) queries).
+        const depFilePathMap = new Map();
+        for (let i = 0; i < transitiveDeps.length; i += SQLITE_VAR_LIMIT) {
+            const chunk = transitiveDeps.slice(i, i + SQLITE_VAR_LIMIT);
+            const ph = chunk.map(() => '?').join(',');
+            const rows = db
+                .prepare(`SELECT id, file_path FROM nodes WHERE id IN (${ph})`)
+                .all(...chunk);
+            for (const row of rows)
+                depFilePathMap.set(row.id, row.file_path);
+        }
         // unusedTransitiveDeps: transitive deps whose file_path is NOT in importedFilePaths
         const unusedTransitiveDeps = transitiveDeps.filter(depId => {
-            const depNode = db.prepare('SELECT file_path FROM nodes WHERE id = ?').get(depId);
-            if (!depNode?.file_path)
+            const fp = depFilePathMap.get(depId);
+            if (!fp)
                 return false;
-            return !importedFilePaths.has(depNode.file_path);
+            return !importedFilePaths.has(fp);
         });
         results.push({
             nodeId: fileNode.id,

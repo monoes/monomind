@@ -11,10 +11,16 @@ export function isClassMemberSuppressed(member, allowlist, classHeritage) {
     }
     return false;
 }
+// Cache compiled glob regexes to avoid re-compilation on repeated allowlist checks
+const _globReCache = new Map();
 function memberGlobMatch(name, pattern) {
     if (!pattern.includes('*'))
         return name === pattern;
-    const re = new RegExp('^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+    let re = _globReCache.get(pattern);
+    if (!re) {
+        re = new RegExp('^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+        _globReCache.set(pattern, re);
+    }
     return re.test(name);
 }
 export function summarizeUnusedMembers(members) {

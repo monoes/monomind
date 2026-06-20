@@ -48,4 +48,24 @@ export declare function cypherToSql(parsed: CypherQuery): {
  * Never throws — all errors are returned in the CypherResult.error field.
  */
 export declare function executeCypherQuery(db: Database.Database, query: string): CypherResult;
+/**
+ * Format a CypherResult as structured text for LLM consumption.
+ *
+ * Rows that contain *_filePath and *_startLine fields are rendered with
+ * "file:line" navigation hints so LLMs can jump directly to the symbol.
+ * Plain key=value pairs are rendered for all other fields.
+ *
+ * @example
+ * ```
+ * monograph_cypher result (3 rows, 2ms)
+ *
+ * Row 1:
+ *   n.name = buildAsync
+ *   n.filePath = src/server.ts:42
+ *
+ * Row 2:
+ *   ...
+ * ```
+ */
+export declare function formatCypherResult(result: CypherResult): string;
 //# sourceMappingURL=cypher-parser.d.ts.map

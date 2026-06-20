@@ -20,4 +20,6 @@ export declare function filterEdges(db: MonographDb, options?: EdgeFilterOptions
  * Useful when the caller already has edges and does not need a DB round-trip.
  */
 export declare function filterEdgesInMemory(edges: MonographEdge[], options?: EdgeFilterOptions): MonographEdge[];
+/** Format a list of filtered edges as structured text for LLM consumption. */
+export declare function formatFilteredEdges(edges: MonographEdge[]): string;
 //# sourceMappingURL=edge-filter.d.ts.map

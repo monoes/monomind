@@ -48,7 +48,7 @@ export interface CloneTrace {
     matchingInstances: CloneInstance[];
     groupId?: number;
 }
-interface GraphNode {
+export interface GraphNode {
     id: string;
     filePath?: string;
     name: string;
@@ -64,8 +64,10 @@ interface Graph {
     nodes: GraphNode[];
     edges: GraphEdge[];
 }
-export declare function traceExport(graph: Graph, file: string, exportName: string): ExportTrace;
-export declare function traceFile(graph: Graph, file: string): FileTrace;
+/** Build an O(1) id→node index. Pass to the trace functions when calling multiple times on the same graph. */
+export declare function buildNodeIndex(graph: Graph): Map<string, GraphNode>;
+export declare function traceExport(graph: Graph, file: string, exportName: string, nodeIndex?: Map<string, GraphNode>): ExportTrace;
+export declare function traceFile(graph: Graph, file: string, nodeIndex?: Map<string, GraphNode>): FileTrace;
 export declare function traceDependency(importEdges: Array<{
     sourceFile: string;
     targetPackage: string;
