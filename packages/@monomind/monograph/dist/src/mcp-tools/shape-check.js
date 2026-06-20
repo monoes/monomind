@@ -1,9 +1,13 @@
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import { extractHandlerReturnKeys, extractAccessedKeys, compareShapes, } from '../analysis/shape-extractor.js';
 // ── Internal helpers ───────────────────────────────────────────────────────────
+const MAX_FILE_BYTES = 1_048_576; // 1 MiB guard
 function safeReadFile(absPath) {
     try {
+        const st = statSync(absPath);
+        if (st.size > MAX_FILE_BYTES)
+            return '';
         return readFileSync(absPath, 'utf-8');
     }
     catch {
@@ -36,18 +40,18 @@ export function getShapeCheck(db, repoPath, options) {
             .get(options.file);
     }
     else if (options.route) {
-        // Search by name substring (name is like "GET /api/users")
-        // We match against path part of the name to avoid matching the method token
-        const allRoutes = db
-            .prepare("SELECT * FROM nodes WHERE label = 'Route'")
-            .all();
-        const searchTerm = options.route.toLowerCase();
-        routeRow = allRoutes.find((row) => {
-            const name = row.name.toLowerCase();
-            const spaceIdx = name.indexOf(' ');
-            const path = spaceIdx >= 0 ? name.slice(spaceIdx + 1) : name;
-            return path.includes(searchTerm);
-        });
+        // Search by name substring (name is like "GET /api/users") using SQL LIKE to avoid full scan
+        // The route path follows the first space, so we match anywhere after it via a LIKE pattern.
+        const likeTerm = `% ${options.route.toLowerCase()}%`;
+        routeRow = db
+            .prepare("SELECT * FROM nodes WHERE label = 'Route' AND lower(name) LIKE ? LIMIT 1")
+            .get(likeTerm);
+        // Fallback: match anywhere in the name (e.g. no space prefix)
+        if (!routeRow) {
+            routeRow = db
+                .prepare("SELECT * FROM nodes WHERE label = 'Route' AND lower(name) LIKE ? LIMIT 1")
+                .get(`%${options.route.toLowerCase()}%`);
+        }
     }
     if (!routeRow) {
         return {

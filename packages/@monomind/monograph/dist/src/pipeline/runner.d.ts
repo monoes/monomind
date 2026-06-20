@@ -1,6 +1,10 @@
 import type { PipelinePhase, PipelineContext } from './types.js';
 export declare class PipelineRunner {
     private readonly phases;
+    /** Topo-sorted phase names, computed once in constructor for O(1) phase map lookups. */
+    private readonly sortedNames;
+    /** O(1) phase lookup by name. */
+    private readonly phaseMap;
     constructor(phases: PipelinePhase<unknown>[]);
     run(ctx: PipelineContext): Promise<Map<string, unknown>>;
 }

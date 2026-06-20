@@ -1,8 +1,23 @@
 import { bidirectional } from 'graphology-shortest-path';
 import betweennessCentrality from 'graphology-metrics/centrality/betweenness.js';
 import { loadGraphFromDb } from './loader.js';
-export function getShortestPath(db, sourceId, targetId, maxDepth = 6) {
+// ── TTL graph cache ───────────────────────────────────────────────────────────
+// Avoids loading the full graph from the DB multiple times in the same request
+// window (e.g. when getShortestPath and getBetweennessCentrality are called
+// back-to-back on the same DB instance).
+const GRAPH_CACHE_TTL_MS = 30_000;
+const graphCache = new WeakMap();
+function getOrLoadGraph(db) {
+    const cached = graphCache.get(db);
+    if (cached && Date.now() < cached.expiresAt)
+        return cached.graph;
     const graph = loadGraphFromDb(db);
+    graphCache.set(db, { graph, expiresAt: Date.now() + GRAPH_CACHE_TTL_MS });
+    return graph;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+export function getShortestPath(db, sourceId, targetId, maxDepth = 6) {
+    const graph = getOrLoadGraph(db);
     if (!graph.hasNode(sourceId) || !graph.hasNode(targetId))
         return null;
     try {
@@ -24,7 +39,7 @@ export function getShortestPath(db, sourceId, targetId, maxDepth = 6) {
  * structural bridges — refactoring them has wide blast radius.
  */
 export function getBetweennessCentrality(db) {
-    const graph = loadGraphFromDb(db);
+    const graph = getOrLoadGraph(db);
     if (graph.order === 0)
         return new Map();
     const scores = betweennessCentrality(graph, { normalized: true });

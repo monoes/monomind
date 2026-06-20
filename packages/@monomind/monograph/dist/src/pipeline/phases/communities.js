@@ -24,6 +24,62 @@ export function computeCohesion(communityId, memberships, edges) {
     }
     return internalCount / maxEdges;
 }
+/**
+ * Compute cohesion scores for all communities in a single O(N+E) pass.
+ *
+ * This replaces calling `computeCohesion` inside a loop, which was O(K*(N+E))
+ * because each call re-scanned all memberships (O(N)) and all edges (O(E)).
+ *
+ * @param memberships - nodeId → communityId map from the clustering step
+ * @param edges - all edges used for the graph (IMPORTS + resolved)
+ * @returns Map of communityId → cohesion score ∈ [0, 1]
+ */
+export function computeAllCohesionScores(memberships, edges) {
+    // Single pass over memberships: build communityId → Set<nodeId>
+    const memberSets = new Map();
+    for (const [nodeId, commId] of memberships) {
+        let s = memberSets.get(commId);
+        if (!s) {
+            s = new Set();
+            memberSets.set(commId, s);
+        }
+        s.add(nodeId);
+    }
+    // Single pass over edges: count unique undirected internal edges per community
+    const internalEdgeCounts = new Map();
+    const seenEdgeKeys = new Map();
+    for (const e of edges) {
+        const commSrc = memberships.get(e.sourceId);
+        const commTgt = memberships.get(e.targetId);
+        if (commSrc === undefined || commTgt === undefined || commSrc !== commTgt)
+            continue;
+        let seen = seenEdgeKeys.get(commSrc);
+        if (!seen) {
+            seen = new Set();
+            seenEdgeKeys.set(commSrc, seen);
+        }
+        const key = e.sourceId < e.targetId
+            ? `${e.sourceId}\0${e.targetId}`
+            : `${e.targetId}\0${e.sourceId}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            internalEdgeCounts.set(commSrc, (internalEdgeCounts.get(commSrc) ?? 0) + 1);
+        }
+    }
+    // Compute final scores
+    const scores = new Map();
+    for (const [commId, members] of memberSets) {
+        const n = members.size;
+        if (n <= 1) {
+            scores.set(commId, 1);
+            continue;
+        }
+        const maxEdges = (n * (n - 1)) / 2;
+        const internalCount = internalEdgeCounts.get(commId) ?? 0;
+        scores.set(commId, maxEdges > 0 ? internalCount / maxEdges : 1);
+    }
+    return scores;
+}
 export const communitiesPhase = {
     name: 'communities',
     deps: ['parse', 'cross-file', 'mro'],
@@ -58,11 +114,8 @@ export const communitiesPhase = {
             const topNode = [...nodeDegs.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
             communityLabels.set(commId, `community-${commId}(${topNode.slice(0, 20)})`);
         }
-        const communityIds = new Set([...memberships.values()]);
-        const cohesionScores = new Map();
-        for (const cid of communityIds) {
-            cohesionScores.set(cid, computeCohesion(cid, memberships, allUsedEdges));
-        }
+        // Compute all cohesion scores in one O(N+E) pass instead of O(K*(N+E))
+        const cohesionScores = computeAllCohesionScores(memberships, allUsedEdges);
         return { memberships, communityLabels, cohesionScores };
     },
 };

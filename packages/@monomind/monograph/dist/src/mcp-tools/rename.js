@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 // ── Row → MonographNode mapper ─────────────────────────────────────────────────
 function rowToNode(row) {
     return {
@@ -44,13 +44,21 @@ export function getMonographRename(db, input) {
     const referencingFiles = [...new Set(referencingRows.map(r => r.file_path))];
     // Build changes list by reading source files
     const changes = [];
-    const nameRegex = new RegExp(`\\b${escapeRegExp(input.oldName)}\\b`, 'g');
+    // Two separate regexes: testRe has no `g` flag (safe for repeated test()), replaceRe has `g`
+    const testRe = new RegExp(`\\b${escapeRegExp(input.oldName)}\\b`);
+    const replaceRe = new RegExp(`\\b${escapeRegExp(input.oldName)}\\b`, 'g');
+    const MAX_FILE_BYTES = 1_048_576; // 1 MiB guard
     // File line cache to avoid re-reading the same file multiple times
     const fileLineCache = new Map();
     const getLines = (filePath) => {
         if (fileLineCache.has(filePath))
             return fileLineCache.get(filePath);
         try {
+            const st = statSync(filePath);
+            if (st.size > MAX_FILE_BYTES) {
+                fileLineCache.set(filePath, []);
+                return [];
+            }
             const content = readFileSync(filePath, 'utf-8');
             const lines = content.split('\n');
             fileLineCache.set(filePath, lines);
@@ -69,12 +77,9 @@ export function getMonographRename(db, input) {
         if (lineIdx < 0 || lineIdx >= lines.length)
             continue;
         const originalLine = lines[lineIdx];
-        if (!nameRegex.test(originalLine)) {
-            nameRegex.lastIndex = 0;
+        if (!testRe.test(originalLine))
             continue;
-        }
-        nameRegex.lastIndex = 0;
-        const updatedLine = originalLine.replace(nameRegex, input.newName);
+        const updatedLine = originalLine.replace(replaceRe, input.newName);
         changes.push({
             file: row.file_path,
             line: row.start_line,

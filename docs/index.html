@@ -241,7 +241,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <img src="assets/logo.svg" alt="Monomind logo" width="32" height="32" style="border-radius:6px;flex-shrink:0">
     <div>
       <div class="logo-text">Monomind</div>
-      <div class="logo-ver">v1.10.54</div>
+      <div class="logo-ver">v1.14.7</div>
     </div>
   </div>
   <div class="nav-section">
@@ -323,7 +323,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="card-grid">
       <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, HNSW vector indexing, and AgentDB backends. Context survives across sessions.</div></div>
       <div class="card reveal"><div class="card-icon">🐝</div><div class="card-title">Swarm Topologies</div><div class="card-desc">Hierarchical, mesh, adaptive, and hybrid multi-agent swarms with Raft, Byzantine, and CRDT consensus. 15-agent domain hierarchy.</div></div>
-      <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 23 MCP tools for impact analysis, path finding, and community detection.</div></div>
+      <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 43 MCP tools across 6 categories for impact analysis, path finding, community detection, and multi-repo queries.</div></div>
       <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Outcome-Measured Routing</div><div class="card-desc">Deterministic keyword routing with route-outcome correlation. Every hook event is logged so routing accuracy and adherence can be measured by <code>doctor</code>.</div></div>
       <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:autodev --tillend researches, builds, reviews, and loops while you sleep.</div></div>
       <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">22 hook events, 10+ background workers. Pre/post-edit, pre/post-task, session, learning, and agent-team hooks with zero-overhead dispatch.</div></div>
@@ -455,7 +455,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <text class="arch-sub" x="640" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">CVE remediation</text>
         <text class="arch-sub" x="640" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Input validation</text>
         <text class="arch-label" x="250" y="347" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">Monograph</text>
-        <text class="arch-sub" x="250" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">23 MCP tools · Code knowledge graph</text>
+        <text class="arch-sub" x="250" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">43 MCP tools · Code knowledge graph</text>
         <text class="arch-label" x="510" y="347" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/guidance</text>
         <text class="arch-sub" x="510" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Governance control plane</text>
         <line class="arch-arrow" x1="230" y1="65" x2="265" y2="65" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
@@ -482,7 +482,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">@monomind/swarm</td><td class="mono">packages/@monomind/swarm/</td><td>Multi-agent swarm coordination</td></tr>
         <tr><td class="mono">@monomind/routing</td><td class="mono">packages/@monomind/routing/</td><td>Keyword routing, route-outcome measurement</td></tr>
         <tr><td class="mono">monofence-ai</td><td class="mono">packages/monofence-ai/</td><td>AI manipulation defense — prompt injection, jailbreak, evasion detection</td></tr>
-        <tr><td class="mono">monograph</td><td class="mono">packages/monograph/</td><td>Code knowledge graph, 23 MCP tools</td></tr>
+        <tr><td class="mono">monograph</td><td class="mono">packages/monograph/</td><td>Code knowledge graph, 43 MCP tools — also published standalone as <code>@monoes/monograph</code></td></tr>
         <tr><td class="mono">monomind</td><td class="mono">/ (root)</td><td>Umbrella package published to npm</td></tr>
       </tbody>
     </table>
@@ -507,7 +507,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Memory &amp; Knowledge</h1>
-      <p class="page-desc">Four-tier memory palace, HNSW vector indexing, BM25 search, and Monograph — the code knowledge graph with 23 MCP tools.</p>
+      <p class="page-desc">Four-tier memory palace, HNSW vector indexing, BM25 search, and Monograph — the code knowledge graph with 43 MCP tools across 6 categories.</p>
     </div>
     <div class="section-title reveal">Memory Palace — Four Tiers</div>
     <div class="reveal" style="margin-bottom:24px;display:flex;gap:12px;flex-wrap:wrap">
@@ -534,7 +534,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     </table>
     </div>
     <div class="section-title reveal">Monograph — Code Knowledge Graph</div>
-    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Monograph builds a SQLite-backed graph of your codebase — nodes are files/classes/functions, edges are imports/calls/dependencies. Use it before touching 3+ files.</p>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Monograph builds a SQLite-backed graph of your codebase — nodes are files/classes/functions, edges are imports/calls/dependencies. 43 MCP tools across 6 categories: Core Navigation, Change Impact, Graph Exploration, Index Lifecycle, Snapshots &amp; Export, and Multi-Repo/Group. Use it before touching 3+ files. Also available standalone as <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">@monoes/monograph@1.2.0</code>.</p>
     <div class="table-wrap reveal">
     <table class="doc-table">
       <thead><tr><th>Tool</th><th>When to use</th></tr></thead>
@@ -797,9 +797,15 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="cmd-item" data-search="monograph search query find bm25 semantic"><div class="cmd-name">monograph search</div><div class="cmd-desc">BM25, semantic, hybrid search across graph</div></div>
       <div class="cmd-item" data-search="monograph stats counts nodes edges"><div class="cmd-name">monograph stats</div><div class="cmd-desc">Node/edge counts, top concepts by importance</div></div>
       <div class="cmd-item" data-search="monograph watch incremental rebuild changes"><div class="cmd-name">monograph watch</div><div class="cmd-desc">Watch mode: incremental rebuild on file changes</div></div>
-      <div class="cmd-item" data-search="browse browser ui testing open url"><div class="cmd-name">browse open &lt;url&gt;</div><div class="cmd-desc">Open URL in CDP browser client</div></div>
-      <div class="cmd-item" data-search="browse snapshot elements interactive"><div class="cmd-name">browse snapshot -i</div><div class="cmd-desc">Get interactive elements (93% less context)</div></div>
-      <div class="cmd-item" data-search="browse click element interact ref"><div class="cmd-name">browse click @e1</div><div class="cmd-desc">Click element by snapshot ref</div></div>
+      <div class="cmd-item" data-search="browse browser ui testing open url cdp chrome"><div class="cmd-name">browse open &lt;url&gt;</div><div class="cmd-desc">Open URL in CDP browser client (Chrome DevTools Protocol)</div></div>
+      <div class="cmd-item" data-search="browse snapshot elements interactive context"><div class="cmd-name">browse snapshot -i</div><div class="cmd-desc">Get interactive elements (93% less context)</div></div>
+      <div class="cmd-item" data-search="browse click element interact ref automation"><div class="cmd-name">browse click @e1</div><div class="cmd-desc">Click element by snapshot ref</div></div>
+      <div class="cmd-item" data-search="browse workflow dag run topological kahn automation"><div class="cmd-name">browse workflow run &lt;file&gt;</div><div class="cmd-desc">Execute a DAG workflow (Kahn topological sort, parallel steps, AbortSignal cancellation)</div></div>
+      <div class="cmd-item" data-search="browse workflow validate check dag file yaml json"><div class="cmd-name">browse workflow validate &lt;file&gt;</div><div class="cmd-desc">Validate workflow DAG file — checks for cycles and missing steps</div></div>
+      <div class="cmd-item" data-search="browse session list sessions persistent resume"><div class="cmd-name">browse session list</div><div class="cmd-desc">List persisted browser sessions (~/.monomind/sessions.json)</div></div>
+      <div class="cmd-item" data-search="browse session resume restore previous cdp"><div class="cmd-name">browse session resume &lt;id&gt;</div><div class="cmd-desc">Restore a previous browser session by ID</div></div>
+      <div class="cmd-item" data-search="browse platform connect gmail sheets drive microsoft graph"><div class="cmd-name">browse platform connect &lt;name&gt;</div><div class="cmd-desc">Connect a platform adapter (gmail, sheets, drive, msgraph, gemini-image)</div></div>
+      <div class="cmd-item" data-search="browse platform list adapters available http file gmail"><div class="cmd-name">browse platform list</div><div class="cmd-desc">List available built-in action handlers (http, file, gmail, sheets, drive, msgraph, gemini-image)</div></div>
     </div>
   </div>
 </div>
@@ -1550,6 +1556,10 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>GET</td><td><code>/api/orgs</code></td><td>Org list</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name</code></td><td>Org detail</td></tr>
           <tr><td>POST</td><td><code>/api/orgs/:name/stop</code></td><td>Stop org</td></tr>
+          <tr><td>DELETE</td><td><code>/api/orgs/:name</code></td><td>Delete org and clean up persisted config</td></tr>
+          <tr><td>POST</td><td><code>/api/orgs/:name/copy</code></td><td>Duplicate org under a new name</td></tr>
+          <tr><td>GET</td><td><code>/api/orgs/:name/export</code></td><td>Export org config as JSON</td></tr>
+          <tr><td>POST</td><td><code>/api/orgs/import</code></td><td>Import org from a JSON config file</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/activity</code></td><td>Org activity log</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/health</code></td><td>Org health metrics</td></tr>
           <tr><td>GET</td><td><code>/api/org/:name/agents</code></td><td>Org agents</td></tr>
@@ -1764,14 +1774,16 @@ Session N: empty round (zero findings AND zero actions)
     <span class="obadge ob-b">Shared task board</span>
     <span class="obadge ob-c">Memory-backed</span>
     <span class="obadge ob-a">Auto-topology</span>
+    <span class="obadge ob-b">Full lifecycle</span>
+    <span class="obadge ob-c">Import / Export</span>
   </div>
 </div>
 
 <!-- How it works -->
 <div class="orgs-section alt">
-  <div class="osec-label">Two commands</div>
+  <div class="osec-label">Full lifecycle</div>
   <h2 class="osec-title">From goal to running organization</h2>
-  <p class="osec-sub">createorg designs and persists the structure. runorg loads it and starts the boss agent, which coordinates all roles from a shared task board.</p>
+  <p class="osec-sub">createorg designs and persists the structure. runorg loads it and starts the boss agent. Stop, delete, copy, or import/export orgs from the CLI or the dashboard — full lifecycle management in every environment.</p>
   <div class="how-row">
     <div class="how-cell">
       <div class="hc-num">01</div>
@@ -2265,7 +2277,7 @@ function runTypewriter() {
     {t:'cmd',text:'npx monomind doctor'},
     {t:'out',text:'Node 22.0.0          ✓'},
     {t:'out',text:'Memory backend       ✓  hybrid (SQLite + AgentDB)'},
-    {t:'out',text:'MCP tools            ✓  23 monograph + 14 monomind'},
+    {t:'out',text:'MCP tools            ✓  43 monograph + 14 monomind'},
     {t:'cmd',text:'/mastermind:autodev --tillend --focus security'},
     {t:'out',text:'[autodev] Research phase starting...',cls:'amber'},
     {t:'out',text:'[autodev] 4 candidates found. Selected: CVE-1 remediation',cls:'amber'},

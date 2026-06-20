@@ -22,10 +22,18 @@ export function leiden(graph, _options = {}) {
     }
     // Phase 1: Louvain with deterministic settings
     const communities = louvain(graph, { randomWalk: false });
-    // Phase 2: Refinement — merge singletons into their largest neighbor's community
+    // Phase 2: Refinement — merge singletons into their largest neighbor's community.
+    // Single pass over Object.entries to build both communitySizes and the singletonNodes Set,
+    // avoiding a separate Object.values scan. The singletonNodes Set enables O(1) skip in the
+    // refinement loop below instead of a map.get(commId) <= 1 test per node.
     const communitySizes = new Map();
     for (const comm of Object.values(communities)) {
         communitySizes.set(comm, (communitySizes.get(comm) ?? 0) + 1);
+    }
+    const singletonNodes = new Set();
+    for (const [nodeId, commId] of Object.entries(communities)) {
+        if ((communitySizes.get(commId) ?? 0) <= 1)
+            singletonNodes.add(nodeId);
     }
     // Refinement: merge singletons into their largest neighbor's community.
     // Pass 1: update communitySizes eagerly (so adjacent singletons see each other's moves
@@ -33,25 +41,25 @@ export function leiden(graph, _options = {}) {
     // Pass 2: apply community writes — keeps the community map consistent at all times.
     const pending = new Map();
     for (const [nodeId, commId] of Object.entries(communities)) {
-        if ((communitySizes.get(commId) ?? 0) <= 1) {
-            let bestComm = commId;
-            let bestSize = 0;
-            graph.forEachNeighbor(nodeId, (neighbor) => {
-                const neighborComm = communities[neighbor];
-                if (neighborComm === undefined)
-                    return;
-                const size = communitySizes.get(neighborComm) ?? 0;
-                if (size > bestSize) {
-                    bestSize = size;
-                    bestComm = neighborComm;
-                }
-            });
-            if (bestComm !== commId) {
-                // Update sizes eagerly so subsequent singletons see the correct community sizes
-                communitySizes.set(commId, (communitySizes.get(commId) ?? 1) - 1);
-                communitySizes.set(bestComm, (communitySizes.get(bestComm) ?? 0) + 1);
-                pending.set(nodeId, bestComm);
+        if (!singletonNodes.has(nodeId))
+            continue; // O(1) skip for non-singletons
+        let bestComm = commId;
+        let bestSize = 0;
+        graph.forEachNeighbor(nodeId, (neighbor) => {
+            const neighborComm = communities[neighbor];
+            if (neighborComm === undefined)
+                return;
+            const size = communitySizes.get(neighborComm) ?? 0;
+            if (size > bestSize) {
+                bestSize = size;
+                bestComm = neighborComm;
             }
+        });
+        if (bestComm !== commId) {
+            // Update sizes eagerly so subsequent singletons see the correct community sizes
+            communitySizes.set(commId, (communitySizes.get(commId) ?? 1) - 1);
+            communitySizes.set(bestComm, (communitySizes.get(bestComm) ?? 0) + 1);
+            pending.set(nodeId, bestComm);
         }
     }
     // Apply deferred community writes

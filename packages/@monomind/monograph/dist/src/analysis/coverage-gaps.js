@@ -67,7 +67,7 @@ export function computeCoverageGaps(db) {
         }
     }
     // All exported symbols
-    const allExportedRows = db.prepare(`SELECT n.id, n.name, n.file_path, n.label
+    const allExportedRows = db.prepare(`SELECT n.id, n.name, n.file_path, n.start_line, n.label
      FROM nodes n
      WHERE n.is_exported = 1
        AND n.label IN ('Function','Class','Method','Interface','Const','TypeAlias','Enum','Variable')`).all();
@@ -103,6 +103,7 @@ export function computeCoverageGaps(db) {
                 nodeId: exp.id,
                 name: exp.name,
                 filePath: exp.file_path,
+                startLine: exp.start_line ?? null,
                 exportType: exp.label,
             });
         }
@@ -130,5 +131,43 @@ export function computeCoverageGaps(db) {
         exportCoveragePct,
         summary,
     };
+}
+/** Format CoverageGapsResult as structured text with file:line hints for LLM navigation. */
+export function formatCoverageGaps(result, topN = 20) {
+    const lines = [result.summary, ''];
+    if (result.untestedFiles.length > 0) {
+        // Sort untested files by inDegree descending — highest-impact first
+        const sorted = [...result.untestedFiles].sort((a, b) => b.inDegree - a.inDegree);
+        const shown = sorted.slice(0, topN);
+        lines.push(`Top untested files by import-count (${shown.length}/${result.untestedFiles.length} shown):`);
+        for (const f of shown) {
+            lines.push(`  ${f.filePath}  in-degree:${f.inDegree}`);
+        }
+        lines.push('');
+    }
+    if (result.untestedExports.length > 0) {
+        // Group untested exports by file
+        const byFile = new Map();
+        for (const exp of result.untestedExports) {
+            const key = exp.filePath ?? '(unknown)';
+            let group = byFile.get(key);
+            if (!group) {
+                group = [];
+                byFile.set(key, group);
+            }
+            group.push(exp);
+        }
+        lines.push(`Untested exported symbols (${result.untestedExports.length}) grouped by file:`);
+        for (const [filePath, exports] of byFile) {
+            lines.push(`  ${filePath}`);
+            for (const exp of exports) {
+                const ref = exp.startLine != null ? `${filePath}:${exp.startLine}` : filePath;
+                lines.push(`    ${exp.exportType}  ${exp.name}  (${ref})`);
+            }
+        }
+        lines.push('');
+    }
+    lines.push('Fix: add tests importing the untested files, or mark files as non-runtime if they are build artifacts.');
+    return lines.join('\n').trimEnd();
 }
 //# sourceMappingURL=coverage-gaps.js.map

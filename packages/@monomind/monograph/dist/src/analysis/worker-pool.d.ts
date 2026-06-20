@@ -5,8 +5,11 @@ export interface WorkerPoolOptions {
 export declare class WorkerPool {
     readonly threads: number;
     readonly stackSizeMb: number;
+    private _active;
+    private readonly _queue;
     constructor(opts?: WorkerPoolOptions);
     run<T>(workerScript: string, input: unknown): Promise<T>;
+    private _drain;
 }
 export declare function configureGlobalPool(threads?: number, stackSizeMb?: number): WorkerPool;
 export declare function getGlobalPool(): WorkerPool;

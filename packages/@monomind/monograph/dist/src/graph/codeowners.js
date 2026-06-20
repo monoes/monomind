@@ -81,6 +81,24 @@ export function parseCodeowners(repoRoot) {
     }
     return entries;
 }
+/**
+ * Compile an array of CodeownersEntry into CompiledEntry objects so that
+ * globToRegex() runs exactly once per pattern instead of once per file lookup.
+ */
+export function compileEntries(entries) {
+    return entries.map(e => ({ owners: e.owners, re: globToRegex(e.pattern) }));
+}
+// Resolve owner for a single file path using precompiled regexes.
+// Last matching entry wins (GitHub semantics).
+export function resolveOwnerCompiled(compiled, filePath) {
+    const normalised = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+    let lastMatch = null;
+    for (const entry of compiled) {
+        if (entry.re.test(normalised))
+            lastMatch = entry;
+    }
+    return lastMatch ? lastMatch.owners : [];
+}
 // Resolve owner for a single file path (relative to repoRoot)
 // Last matching entry wins
 export function resolveOwner(entries, filePath) {
@@ -98,6 +116,8 @@ export function resolveOwner(entries, filePath) {
 // Annotate all File nodes in the DB with their owners (stored in properties.codeowners)
 export function annotateOwnership(db, repoRoot) {
     const entries = parseCodeowners(repoRoot);
+    // Compile regexes once for all file nodes — avoids O(files * patterns) re-compilations.
+    const compiled = compileEntries(entries);
     const fileNodes = db
         .prepare(`SELECT id, file_path, properties FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`)
         .all();
@@ -107,7 +127,7 @@ export function annotateOwnership(db, repoRoot) {
     const updateAll = db.transaction(() => {
         for (const node of fileNodes) {
             const relPath = relative(repoRoot, node.file_path).replace(/\\/g, '/');
-            const owners = resolveOwner(entries, relPath);
+            const owners = resolveOwnerCompiled(compiled, relPath);
             const existing = node.properties ? JSON.parse(node.properties) : {};
             const updated = { ...existing, codeowners: owners };
             update.run(JSON.stringify(updated), node.id);
@@ -126,6 +146,8 @@ export function annotateOwnership(db, repoRoot) {
 // Findings with no filePath or no matching pattern bucket under 'unowned'
 // If a file has multiple owners, the finding appears under each owner key
 export function groupByOwner(findings, entries) {
+    // Compile patterns once for all findings to avoid O(findings * patterns) regex constructions.
+    const compiled = compileEntries(entries);
     const result = new Map();
     for (const finding of findings) {
         if (!finding.filePath) {
@@ -134,7 +156,7 @@ export function groupByOwner(findings, entries) {
             result.set('unowned', bucket);
             continue;
         }
-        const owners = resolveOwner(entries, finding.filePath);
+        const owners = resolveOwnerCompiled(compiled, finding.filePath);
         if (owners.length === 0) {
             const bucket = result.get('unowned') ?? [];
             bucket.push(finding);

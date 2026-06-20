@@ -63,7 +63,7 @@ export function extractFindingsFromDb(db, projectPath) {
     const findings = [];
     // Isolated nodes (no incoming or outgoing edges)
     const isolated = db.prepare(`
-    SELECT n.id, n.name, n.file_path, n.label
+    SELECT n.id, n.name, n.file_path, n.start_line, n.label
     FROM nodes n
     WHERE NOT EXISTS (SELECT 1 FROM edges e WHERE e.source_id = n.id OR e.target_id = n.id)
     AND n.label IN ('Function', 'Class', 'Method', 'Interface', 'Variable', 'Module', 'File')
@@ -76,13 +76,14 @@ export function extractFindingsFromDb(db, projectPath) {
             nodeId: n.id,
             nodeName: n.name,
             filePath: n.file_path,
+            startLine: n.start_line ?? null,
             savedAt: new Date().toISOString(),
             fingerprint: fingerprintFinding('isolated_node', n.file_path ?? '', n.id),
         });
     }
     // God nodes (degree > 50)
     const gods = db.prepare(`
-    SELECT n.id, n.name, n.file_path,
+    SELECT n.id, n.name, n.file_path, n.start_line,
            COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) as degree
     FROM nodes n
     LEFT JOIN edges e1 ON e1.source_id = n.id
@@ -99,6 +100,7 @@ export function extractFindingsFromDb(db, projectPath) {
             nodeId: n.id,
             nodeName: n.name,
             filePath: n.file_path,
+            startLine: n.start_line ?? null,
             savedAt: new Date().toISOString(),
             fingerprint: fingerprintFinding('god_node', n.file_path ?? '', n.id),
         });
@@ -106,7 +108,7 @@ export function extractFindingsFromDb(db, projectPath) {
     // Surprise edges: non-EXTRACTED confidence (cross-community low-confidence edges)
     const surprises = db.prepare(`
     SELECT DISTINCT e.id as edge_id, e.source_id, e.target_id, e.confidence,
-           n.name as src_name, n.file_path as src_file
+           n.name as src_name, n.file_path as src_file, n.start_line as src_line
     FROM edges e
     JOIN nodes n ON n.id = e.source_id
     WHERE e.confidence != 'EXTRACTED'
@@ -119,27 +121,25 @@ export function extractFindingsFromDb(db, projectPath) {
             nodeId: e.source_id,
             nodeName: e.src_name,
             filePath: e.src_file,
+            startLine: e.src_line ?? null,
             savedAt: new Date().toISOString(),
             fingerprint: fingerprintFinding('surprise', e.source_id, e.target_id),
         });
     }
     // Bridge nodes: nodes whose edges span more than one community_id
+    // Use JOIN+GROUP BY instead of correlated subqueries to avoid N*2 subquery executions
     const bridges = db.prepare(`
-    SELECT n.id, n.name, n.file_path
+    SELECT n.id, n.name, n.file_path, n.start_line,
+           COUNT(DISTINCT CASE WHEN e_out.source_id = n.id AND n_tgt.community_id != n.community_id THEN n_tgt.community_id END) +
+           COUNT(DISTINCT CASE WHEN e_in.target_id = n.id AND n_src.community_id != n.community_id THEN n_src.community_id END) AS cross_communities
     FROM nodes n
+    LEFT JOIN edges e_out ON e_out.source_id = n.id
+    LEFT JOIN nodes n_tgt ON n_tgt.id = e_out.target_id AND n_tgt.community_id IS NOT NULL
+    LEFT JOIN edges e_in ON e_in.target_id = n.id
+    LEFT JOIN nodes n_src ON n_src.id = e_in.source_id AND n_src.community_id IS NOT NULL
     WHERE n.community_id IS NOT NULL
-    AND (
-      SELECT COUNT(DISTINCT n_tgt.community_id)
-      FROM edges e_out
-      JOIN nodes n_tgt ON n_tgt.id = e_out.target_id
-      WHERE e_out.source_id = n.id AND n_tgt.community_id != n.community_id
-    ) +
-    (
-      SELECT COUNT(DISTINCT n_src.community_id)
-      FROM edges e_in
-      JOIN nodes n_src ON n_src.id = e_in.source_id
-      WHERE e_in.target_id = n.id AND n_src.community_id != n.community_id
-    ) >= 2
+    GROUP BY n.id
+    HAVING cross_communities >= 2
     LIMIT 100
   `).all();
     for (const n of bridges) {
@@ -149,13 +149,14 @@ export function extractFindingsFromDb(db, projectPath) {
             nodeId: n.id,
             nodeName: n.name,
             filePath: n.file_path,
+            startLine: n.start_line ?? null,
             savedAt: new Date().toISOString(),
             fingerprint: fingerprintFinding('bridge_node', n.file_path ?? '', n.id),
         });
     }
     // Unreachable exports: exported nodes with no incoming edges
     const unreachableExports = db.prepare(`
-    SELECT n.id, n.name, n.file_path
+    SELECT n.id, n.name, n.file_path, n.start_line
     FROM nodes n
     WHERE n.is_exported = 1
     AND n.label IN ('Function', 'Class', 'Method', 'Interface', 'Variable')
@@ -169,6 +170,7 @@ export function extractFindingsFromDb(db, projectPath) {
             nodeId: n.id,
             nodeName: n.name,
             filePath: n.file_path,
+            startLine: n.start_line ?? null,
             savedAt: new Date().toISOString(),
             fingerprint: fingerprintFinding('unreachable_export', n.file_path ?? '', n.id),
         });
@@ -176,7 +178,7 @@ export function extractFindingsFromDb(db, projectPath) {
     // Ambiguous edges: edges with AMBIGUOUS confidence
     const ambiguousEdges = db.prepare(`
     SELECT DISTINCT e.id as edge_id, e.source_id, e.target_id,
-           n.name as src_name, n.file_path as src_file
+           n.name as src_name, n.file_path as src_file, n.start_line as src_line
     FROM edges e
     JOIN nodes n ON n.id = e.source_id
     WHERE e.confidence = 'AMBIGUOUS'
@@ -189,6 +191,7 @@ export function extractFindingsFromDb(db, projectPath) {
             nodeId: e.source_id,
             nodeName: e.src_name,
             filePath: e.src_file,
+            startLine: e.src_line ?? null,
             savedAt: new Date().toISOString(),
             fingerprint: fingerprintFinding('ambiguous_edge', e.source_id, e.target_id),
         });
@@ -268,5 +271,49 @@ export function computeTrend(before, after) {
         overallDirection = 'declining';
     }
     return { metrics, overallDirection };
+}
+/** Format a list of ComparedFindings as structured text with file:line hints. */
+export function formatComparedFindings(findings, showAll = false) {
+    if (findings.length === 0)
+        return 'Baseline comparison: no findings.';
+    const newFindings = findings.filter(f => f.introduced);
+    const existing = findings.filter(f => !f.introduced);
+    const lines = [
+        `Baseline comparison: ${findings.length} total finding(s) — ${newFindings.length} new, ${existing.length} known.`,
+        '',
+    ];
+    if (newFindings.length > 0) {
+        lines.push(`New findings (${newFindings.length}):`);
+        for (const f of newFindings) {
+            const ref = f.filePath
+                ? f.startLine != null ? `${f.filePath}:${f.startLine}` : f.filePath
+                : f.nodeId;
+            lines.push(`  [${f.type}]  ${f.nodeName}  ${ref}`);
+        }
+        lines.push('');
+    }
+    if (showAll && existing.length > 0) {
+        lines.push(`Known findings (${existing.length}):`);
+        for (const f of existing) {
+            const ref = f.filePath
+                ? f.startLine != null ? `${f.filePath}:${f.startLine}` : f.filePath
+                : f.nodeId;
+            lines.push(`  [${f.type}]  ${f.nodeName}  ${ref}`);
+        }
+        lines.push('');
+    }
+    return lines.join('\n').trimEnd();
+}
+/** Format a TrendReport as structured text for LLM consumption. */
+export function formatTrendReport(report) {
+    const lines = [
+        `Graph trend: ${report.overallDirection}`,
+        '',
+    ];
+    for (const m of report.metrics) {
+        const deltaStr = m.delta > 0 ? `+${m.delta}` : `${m.delta}`;
+        lines.push(`  ${m.symbol} ${m.metric}: ${m.previous} → ${m.current} (${deltaStr})  [${m.direction}]`);
+    }
+    return lines.join('\n');
 }
 //# sourceMappingURL=baseline.js.map
