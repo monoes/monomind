@@ -91,9 +91,9 @@ export interface AllowlistRule {
   /**
    * Threat types this rule applies to.
    * - Empty array `[]`: full bypass — matching inputs skip detection entirely.
-   * - Non-empty array: reserved for future per-type suppression.
-   *   Currently treated the same as empty (full bypass). Do not rely on
-   *   selective suppression behavior until a future release implements it.
+   * - Non-empty array: selective suppression — detection still runs, but threats
+   *   whose type appears in this array are removed from the result. Threats of
+   *   other types are reported normally.
    */
   readonly types: ThreatType[];
   readonly context?: string;
