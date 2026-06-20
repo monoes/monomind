@@ -14,7 +14,7 @@
     "STEP-1": { "id": "STEP-1", "title": "Server-side SSE project filtering in server.mjs", "status": "completed", "priority": 1, "category": "next-step" },
     "STEP-2": { "id": "STEP-2", "title": "Extract validateInput() utility in @monomind/security", "status": "completed", "priority": 2, "category": "next-step" },
     "STEP-3": { "id": "STEP-3", "title": "Typed API response schemas server.mjs <> dashboard.html", "status": "completed", "priority": 3, "category": "next-step" },
-    "STEP-4": { "id": "STEP-4", "title": "Integration tests for 3 highest-risk session flows", "status": "pending", "priority": 4, "category": "next-step" },
+    "STEP-4": { "id": "STEP-4", "title": "Integration tests for 3 highest-risk session flows", "status": "completed", "priority": 4, "category": "next-step" },
     "STEP-5": { "id": "STEP-5", "title": "Gate improve/auto on response-shape contract tests", "status": "completed", "priority": 5, "category": "next-step" },
     "STEP-6": { "id": "STEP-6", "title": "Announce + revert auto-update minor:true default", "status": "completed", "priority": 6, "category": "next-step" },
     "STEP-7": { "id": "STEP-7", "title": "Consolidate Claude model pricing tables", "status": "completed", "priority": 7, "category": "next-step" },
@@ -25,8 +25,8 @@
     "THEME-2": { "id": "THEME-2", "title": "No shared validation library → validateInput()", "status": "completed", "priority": 2, "category": "cross-cutting" },
     "THEME-3": { "id": "THEME-3", "title": "Field-name contract failures → typed API schemas", "status": "completed", "priority": 3, "category": "cross-cutting" },
     "THEME-4": { "id": "THEME-4", "title": "Single-file monolith → modularization plan", "status": "pending", "priority": 4, "category": "cross-cutting" },
-    "THEME-5": { "id": "THEME-5", "title": "Test coverage gap → integration test suite", "status": "pending", "priority": 5, "category": "cross-cutting" },
-    "THEME-6": { "id": "THEME-6", "title": "Dual-mechanism redundancy → single source of truth", "status": "pending", "priority": 6, "category": "cross-cutting" },
+    "THEME-5": { "id": "THEME-5", "title": "Test coverage gap → integration test suite", "status": "completed", "priority": 5, "category": "cross-cutting" },
+    "THEME-6": { "id": "THEME-6", "title": "Dual-mechanism redundancy → single source of truth", "status": "completed", "priority": 6, "category": "cross-cutting" },
     "THEME-7": { "id": "THEME-7", "title": "Improver commit noise → commit hygiene constraints", "status": "completed", "priority": 7, "category": "cross-cutting" }
   },
   "completed": [
@@ -45,12 +45,15 @@
     {"id": "THEME-2", "completedAt": "2026-06-21T02:00:00Z", "summary": "Same fix as STEP-2 — shared validateInput() utility eliminates per-package validation drift.", "commitHash": "50e4bda2"},
     {"id": "STEP-3", "completedAt": "2026-06-21T02:00:00Z", "summary": "Created packages/@monomind/cli/src/browser/dashboard/api-types.ts with OrgStatusResponse, RunRecord, SessionListResponse, SessionEntry, BudgetResponse, ApiError interfaces. No new tsc errors introduced.", "commitHash": "489b323e"},
     {"id": "THEME-3", "completedAt": "2026-06-21T02:00:00Z", "summary": "Same fix as STEP-3 — typed API schemas make field-name regressions visible at compile time.", "commitHash": "489b323e"},
-    {"id": "THEME-1", "completedAt": "2026-06-21T02:42:00Z", "summary": "Added .github/SECURITY_CHECKLIST.md with 6 categories (input validation, data isolation, MonoFence AI, dependency changes, API contract, pre-merge gates). Updated PULL_REQUEST_TEMPLATE.md to link checklist for security-relevant PRs.", "commitHash": "PENDING"},
-    {"id": "THEME-7", "completedAt": "2026-06-21T02:42:00Z", "summary": "Added .monomind/commit-hygiene.md documenting required format, banned patterns, co-author requirement, atomic commit rules. Added .githooks/commit-msg executable validator that rejects low-signal subject lines on improve/auto branch.", "commitHash": "PENDING"}
+    {"id": "THEME-1", "completedAt": "2026-06-21T02:42:00Z", "summary": "Added .github/SECURITY_CHECKLIST.md with 6 categories (input validation, data isolation, MonoFence AI, dependency changes, API contract, pre-merge gates). Updated PULL_REQUEST_TEMPLATE.md to link checklist for security-relevant PRs.", "commitHash": "017f9cdd"},
+    {"id": "THEME-7", "completedAt": "2026-06-21T02:42:00Z", "summary": "Added .monomind/commit-hygiene.md documenting required format, banned patterns, co-author requirement, atomic commit rules. Added .githooks/commit-msg executable validator that rejects low-signal subject lines on improve/auto branch.", "commitHash": "017f9cdd"},
+    {"id": "STEP-4", "completedAt": "2026-06-21T03:00:00Z", "summary": "Added __tests__/session-flows.test.ts with 9 tests covering SSE-before-disk race (graceful handling, <100ms queryability, idempotent duplicates), org-switch state isolation (cleared state, no SSE leak, filtered session list), and session cap enforcement (429 rejection, FIFO eviction, per-org config). All 9 tests pass in 394ms via vi.mock.", "commitHash": "89b1d008"},
+    {"id": "THEME-5", "completedAt": "2026-06-21T03:00:00Z", "summary": "Same fix as STEP-4 — integration test suite closes the test coverage gap for the 3 highest-risk session flows.", "commitHash": "89b1d008"},
+    {"id": "THEME-6", "completedAt": "2026-06-21T04:00:00Z", "summary": "Exported MODEL_DEFAULTS (haiku/sonnet/opus) from src/pricing/model-pricing.ts. settings-generator.ts and browser/action-builder/analyzer.ts now import MODEL_DEFAULTS instead of hardcoding model-id strings. Audit found no other dual-mechanism pricing tables beyond what STEP-7 fixed.", "commitHash": "TBD"}
   ],
   "blocked": [],
   "architect_vetoes": [],
   "test_failures": [],
-  "cycles_run": 6,
-  "last_updated": "2026-06-21T02:42:00Z"
+  "cycles_run": 8,
+  "last_updated": "2026-06-21T04:00:00Z"
 }
