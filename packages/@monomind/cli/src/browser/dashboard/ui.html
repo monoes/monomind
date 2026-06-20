@@ -117,7 +117,7 @@ function handleEvent(evt) {
     runs[runId].itemsProcessed = (runs[runId].itemsProcessed || 0) + (evt.itemTotal || 0);
     logs[runId].push({ ts: ts(timestamp), text: nodeName + ' → done (' + durationMs + 'ms)' });
   } else if (eventType === 'step_failed') {
-    logs[runId].push({ ts: ts(timestamp), text: esc(nodeName) + ' → FAILED: ' + esc(error || '') });
+    logs[runId].push({ ts: ts(timestamp), text: nodeName + ' → FAILED: ' + (error || '') });
   } else if (eventType === 'run_completed') {
     runs[runId].status = 'completed';
   } else if (eventType === 'run_stopped') {
