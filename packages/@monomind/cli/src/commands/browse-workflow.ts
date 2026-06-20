@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { readdir, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { readWorkflow, listRuns } from '../browser/workflow/store.js';
+import { readWorkflow, listRuns, writeRunRecord } from '../browser/workflow/store.js';
 import { runWorkflow } from '../browser/workflow/engine.js';
 import { startDashboard } from '../browser/dashboard/server.js';
 import type { WorkflowDef } from '../browser/workflow/types.js';
@@ -63,6 +63,7 @@ export function createWorkflowCommand(): Command {
       });
 
       dashboard.addRunRecord(record);
+      await writeRunRecord(record);
       console.log(`\nCompleted: ${record.status} — ${record.itemsProcessed} items`);
       if (record.error) console.error(`Error: ${record.error}`);
       process.exit(record.status === 'completed' ? 0 : 1);
