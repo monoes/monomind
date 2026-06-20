@@ -5,8 +5,12 @@ type ParsedTemplate = RegExpMatchArray[];
 const cache = new Map<string, ParsedTemplate>();
 
 function extractTemplates(template: string): ParsedTemplate {
-  if (cache.size >= 500) cache.clear();
   if (cache.has(template)) return cache.get(template)!;
+  // LRU eviction: drop the oldest entry rather than clearing all at once (thundering-herd).
+  if (cache.size >= 500) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
   const matches = [...template.matchAll(new RegExp(TEMPLATE_PATTERN, 'g'))];
   cache.set(template, matches);
   return matches;
