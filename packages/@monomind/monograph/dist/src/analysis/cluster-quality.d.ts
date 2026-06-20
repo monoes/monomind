@@ -12,6 +12,9 @@ export type Edge = {
 /**
  * Compute the average silhouette score for the partitioning.
  * Returns a value in [-1, 1] where higher is better.
+ *
+ * Precomputes the communityMembers map once (O(N)) before the per-node loop,
+ * reducing overall complexity from O(N²) to O(N + K*N) where K = community count.
  */
 export declare function silhouetteScore(memberships: Map<string, number>, edges: Edge[]): number;
 /**

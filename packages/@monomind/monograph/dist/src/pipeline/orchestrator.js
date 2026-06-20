@@ -35,6 +35,25 @@ function getCurrentCommitHash(repoPath) {
 export async function buildAsync(repoPath, options = {}) {
     const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
     const fullOptions = { ...DEFAULT_OPTIONS, ...options };
+    // Incremental guard: if the caller requested skip-when-fresh and force is
+    // not set, check staleness before opening the DB for a full write cycle.
+    if (options.incremental && !options.force) {
+        const { existsSync: _existsSync } = await import('fs');
+        if (_existsSync(dbPath)) {
+            const { checkStaleness } = await import('../staleness/git-staleness.js');
+            const tmpDb = openDb(dbPath);
+            try {
+                const report = checkStaleness(tmpDb, resolve(repoPath));
+                if (!report.isStale && report.currentCommit !== null) {
+                    options.onProgress?.({ phase: 'skip', message: 'Index is fresh — skipping rebuild' });
+                    return; // Already up-to-date
+                }
+            }
+            finally {
+                closeDb(tmpDb);
+            }
+        }
+    }
     const db = openDb(dbPath);
     try {
         const graph = new Graph({ multi: true, type: 'directed' });

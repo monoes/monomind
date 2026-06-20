@@ -3,6 +3,9 @@
  * Provides ref-based element model and token-efficient accessibility snapshots
  */
 import { output } from '../output.js';
+import { createWorkflowCommand } from './browse-workflow.js';
+import { createActionCommand } from './browse-action.js';
+import { createPlatformCommand } from './browse-platform.js';
 // Runtime state (single session per CLI process)
 let _client = null;
 let _sessionId = '';
@@ -2020,6 +2023,89 @@ const resizeCommand = {
     },
 };
 // ---------------------------------------------------------------------------
+// Commander-to-internal adapter
+// ---------------------------------------------------------------------------
+/**
+ * Wraps a commander.Command instance as an internal Command object so it can
+ * participate in the browse command's subcommands array.  The adapter
+ * reconstructs a raw argv string from the context that was parsed by the
+ * internal CLI, then hands it off to commander's parseAsync.
+ */
+function wrapCommanderCommand(factory) {
+    // Lazily instantiate so we don't pay import cost at startup
+    let _cmd = null;
+    const getCmd = () => {
+        if (!_cmd)
+            _cmd = factory();
+        return _cmd;
+    };
+    const cmd = getCmd();
+    // Allow the commander parent to ignore flags it doesn't recognise — the
+    // Monomind CLI parser injects global flags (e.g. --format, --quiet) into
+    // ctx.flags that have no meaning to the commander sub-tree.
+    cmd.allowUnknownOption(true);
+    /** Return the set of long-option names declared on a commander Command */
+    function knownOptions(c) {
+        return new Set(c.options.map((o) => o.long?.replace(/^--/, '') ?? ''));
+    }
+    const subcommandDefs = cmd.commands.map((sub) => ({
+        name: sub.name(),
+        description: sub.description(),
+        action: async (ctx) => {
+            // Rebuild argv for commander's { from: 'user' } mode — no 'node'/'script' prefix.
+            // The sub-command name must be first so commander routes to the right handler.
+            const argv = [sub.name(), ...ctx.args];
+            const known = knownOptions(sub);
+            for (const [key, val] of Object.entries(ctx.flags)) {
+                if (key === '_')
+                    continue;
+                // Only forward flags the Commander subcommand actually declares.
+                if (!known.has(key))
+                    continue;
+                if (typeof val === 'boolean') {
+                    if (val)
+                        argv.push(`--${key}`);
+                }
+                else if (val !== undefined && val !== null) {
+                    argv.push(`--${key}`, String(val));
+                }
+            }
+            // Re-use the same commander instance to keep state (e.g. option defaults)
+            await getCmd().parseAsync(argv, { from: 'user' });
+            return { success: true };
+        },
+    }));
+    return {
+        name: cmd.name(),
+        description: cmd.description(),
+        subcommands: subcommandDefs,
+        action: async (ctx) => {
+            // No subcommand provided — show commander help.
+            // { from: 'user' } expects bare args with no 'node'/'script' prefix.
+            const argv = [...ctx.args];
+            const known = knownOptions(cmd);
+            for (const [key, val] of Object.entries(ctx.flags)) {
+                if (key === '_')
+                    continue;
+                if (!known.has(key))
+                    continue;
+                if (typeof val === 'boolean') {
+                    if (val)
+                        argv.push(`--${key}`);
+                }
+                else if (val !== undefined && val !== null) {
+                    argv.push(`--${key}`, String(val));
+                }
+            }
+            await getCmd().parseAsync(argv, { from: 'user' });
+            return { success: true };
+        },
+    };
+}
+const workflowSubcommand = wrapCommanderCommand(createWorkflowCommand);
+const actionSubcommand = wrapCommanderCommand(createActionCommand);
+const platformSubcommand = wrapCommanderCommand(createPlatformCommand);
+// ---------------------------------------------------------------------------
 // Root browse command
 // ---------------------------------------------------------------------------
 const browseCommand = {
@@ -2078,6 +2164,9 @@ const browseCommand = {
         harCommand,
         resizeCommand,
         closeCommand,
+        workflowSubcommand,
+        actionSubcommand,
+        platformSubcommand,
     ],
     options: [
         { name: 'port', short: 'p', type: 'number', description: 'CDP debug port', default: 9222 },

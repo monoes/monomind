@@ -10,10 +10,10 @@ import { parseGroupConfig } from '../groups/group-config.js';
 function getRepoDbPath(repoPath) {
     return join(repoPath, '.monomind', 'monograph.db');
 }
-function readRepStats(repoName, repoPath) {
+function readRepoStats(repoPath) {
     const dbPath = getRepoDbPath(repoPath);
     if (!existsSync(dbPath)) {
-        return { indexedAt: null, nodeCount: 0 };
+        return { indexedAt: null, nodeCount: 0, error: 'index not found' };
     }
     let db = null;
     try {
@@ -22,14 +22,11 @@ function readRepStats(repoName, repoPath) {
             .prepare(`SELECT value FROM index_meta WHERE key = 'indexed_at'`)
             .get();
         const countRow = db.prepare(`SELECT COUNT(*) as cnt FROM nodes`).get();
-        return {
-            indexedAt: metaRow?.value ?? null,
-            nodeCount: countRow.cnt,
-        };
+        return { indexedAt: metaRow?.value ?? null, nodeCount: countRow.cnt };
     }
     catch (err) {
-        console.warn(`[group-list] Error reading repo "${repoName}": ${err}`);
-        return { indexedAt: null, nodeCount: 0 };
+        const message = err instanceof Error ? err.message : String(err);
+        return { indexedAt: null, nodeCount: 0, error: message };
     }
     finally {
         db?.close();
@@ -44,12 +41,13 @@ export async function getGroupList(configPath) {
     const resolvedPath = configPath ?? join(process.cwd(), 'group.yaml');
     const config = parseGroupConfig(resolvedPath);
     const repos = config.repos.map((repo) => {
-        const { indexedAt, nodeCount } = readRepStats(repo.name, repo.path);
+        const { indexedAt, nodeCount, error } = readRepoStats(repo.path);
         return {
             name: repo.name,
             path: repo.path,
             indexedAt,
             nodeCount,
+            ...(error ? { error } : {}),
         };
     });
     return {

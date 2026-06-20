@@ -6,6 +6,7 @@ export interface BaselineFinding {
     nodeId: string;
     nodeName: string;
     filePath: string | null;
+    startLine: number | null;
     savedAt: string;
     /** 16-hex SHA-256 fingerprint for stable deduplication across runs */
     fingerprint?: string;
@@ -77,4 +78,8 @@ export interface BaselineVitals {
  * Each baseline must carry BaselineVitals fields (nodeCount, edgeCount, …).
  */
 export declare function computeTrend(before: BaselineData & BaselineVitals, after: BaselineData & BaselineVitals): TrendReport;
+/** Format a list of ComparedFindings as structured text with file:line hints. */
+export declare function formatComparedFindings(findings: ComparedFinding[], showAll?: boolean): string;
+/** Format a TrendReport as structured text for LLM consumption. */
+export declare function formatTrendReport(report: TrendReport): string;
 //# sourceMappingURL=baseline.d.ts.map

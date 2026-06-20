@@ -1339,6 +1339,24 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 #mem-modal-ta:focus { border-color: var(--accent); }
 .mem-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
 
+/* ── workflow runs view ────────────────────────────────────── */
+.wf-run-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
+.wf-run-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.wf-run-name { font-size: 13px; font-weight: 600; color: var(--text-hi); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-run-id { font-size: 10px; color: var(--text-xs); font-family: var(--mono); }
+.wf-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.04em; flex-shrink: 0; }
+.wf-status.s-running  { background: oklch(72% 0.18 75 / 0.15); color: var(--accent); }
+.wf-status.s-completed{ background: oklch(65% 0.15 150 / 0.15); color: var(--green); }
+.wf-status.s-failed   { background: oklch(60% 0.18 25 / 0.15); color: var(--red); }
+.wf-status.s-stopped  { background: oklch(42% 0.006 75 / 0.15); color: var(--text-lo); }
+.wf-run-meta { display: flex; gap: 16px; font-size: 11px; color: var(--text-lo); }
+.wf-run-meta span { display: flex; align-items: center; gap: 4px; }
+.wf-run-error { font-size: 11px; color: var(--red); margin-top: 6px; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.wf-progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+#wf-runs-list .loading-txt { padding: 40px 0; text-align: center; color: var(--text-lo); }
+#wf-empty { padding: 40px 0; text-align: center; color: var(--text-lo); font-size: 13px; }
+
 /* Mastermind overlay */
 #mm-overlay { display: none; position: fixed; top: 0; right: 0; bottom: 0; width: min(680px, 100vw); background: var(--surface); border-left: 1px solid oklch(65% 0.16 295 / 0.3); z-index: 500; flex-direction: column; box-shadow: -8px 0 32px oklch(0% 0 0 / 0.4); transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); transform: translateX(100%); }
 #mm-overlay.open { display: flex; transform: translateX(0); }
@@ -1408,6 +1426,10 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         </div>
         <div class="nav-item" data-view="monograph">
           <span class="ico">⬡</span><span class="lbl">Monograph</span>
+        </div>
+        <div class="nav-item" data-view="workflows">
+          <span class="ico">⚡</span><span class="lbl">Workflows</span>
+          <span class="bdg" id="bdg-workflows">—</span>
         </div>
       </div>
     </div>
@@ -2083,6 +2105,26 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       </div>
     </div>
 
+    <!-- WORKFLOWS -->
+    <div class="view" id="view-workflows">
+      <div class="vscroll">
+        <div class="pg-title">Workflows</div>
+        <div class="pg-sub" style="margin-bottom:16px">Browser automation workflow runs — live &amp; historical</div>
+        <div id="wf-toolbar" style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+          <button class="btn" onclick="loadWorkflowRuns()">↺ Refresh</button>
+          <select id="wf-status-filter" class="filter-select" onchange="renderWorkflowRuns()" style="background:var(--surface);color:var(--text-hi);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px">
+            <option value="">All statuses</option>
+            <option value="running">Running</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+            <option value="stopped">Stopped</option>
+          </select>
+          <span id="wf-count" style="color:var(--text-lo);font-size:12px"></span>
+        </div>
+        <div id="wf-runs-list"><div class="loading-txt">Loading…</div></div>
+      </div>
+    </div>
+
     <!-- GLOBAL FEED -->
     <div class="view" id="view-global">
       <div class="vscroll">
@@ -2274,7 +2316,7 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', workflows:'Workflows', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
   const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
@@ -2337,6 +2379,7 @@ function renderView(v) {
   if (v === 'memory') renderMemory();
   if (v === 'orgs') renderOrgs();
   if (v === 'monograph') loadMonograph();
+  if (v === 'workflows') loadWorkflowRuns();
   if (v === 'global') renderGlobalFeed();
   if (v === 'global-loops') renderGlobalLoops();
   if (v === 'global-tokens') renderGlobalTokens();
@@ -10107,6 +10150,55 @@ let _mgActiveAnalysis = null;
 let _mgWikiFilter = 'all';
 let _mgWikiMode = 'all';
 let _mgWikiSearchTimer = null;
+
+/* ── Workflow Runs ─────────────────────────────────────────── */
+let _wfRuns = [];
+async function loadWorkflowRuns() {
+  document.getElementById('wf-runs-list').innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const runs = await apiFetch('/api/workflow-runs');
+    _wfRuns = Array.isArray(runs) ? runs : [];
+  } catch (e) {
+    _wfRuns = [];
+  }
+  const bdg = document.getElementById('bdg-workflows');
+  if (bdg) bdg.textContent = _wfRuns.length || '—';
+  document.getElementById('wf-count').textContent = _wfRuns.length + ' run' + (_wfRuns.length !== 1 ? 's' : '');
+  renderWorkflowRuns();
+}
+
+function renderWorkflowRuns() {
+  const filter = document.getElementById('wf-status-filter')?.value || '';
+  const runs = filter ? _wfRuns.filter(r => r.status === filter) : _wfRuns;
+  const el = document.getElementById('wf-runs-list');
+  if (!runs.length) {
+    el.innerHTML = '<div id="wf-empty">No workflow runs found. Run a workflow with:<br><code style="font-family:var(--mono);font-size:12px;color:var(--accent)">npx monomind browse workflow run &lt;file&gt;</code></div>';
+    return;
+  }
+  el.innerHTML = runs.map(r => {
+    const st = r.status || 'unknown';
+    const elapsed = r.completedAt
+      ? ((r.completedAt - r.startedAt) / 1000).toFixed(1) + 's'
+      : r.startedAt ? ((Date.now() - r.startedAt) / 1000).toFixed(0) + 's' : '—';
+    const pct = r.itemsTotal > 0 ? Math.round((r.itemsProcessed || 0) / r.itemsTotal * 100) : (st === 'completed' ? 100 : 0);
+    const items = r.itemsTotal > 0 ? `${r.itemsProcessed || 0}/${r.itemsTotal}` : (r.itemsProcessed ? String(r.itemsProcessed) : '—');
+    const started = r.startedAt ? new Date(r.startedAt).toLocaleString() : '—';
+    return `<div class="wf-run-card">
+      <div class="wf-run-header">
+        <span class="wf-run-name" title="${esc(r.workflowName || r.workflowId || 'Workflow')}">${esc(r.workflowName || r.workflowId || 'Workflow')}</span>
+        <span class="wf-status s-${esc(st)}">${esc(st.toUpperCase())}</span>
+      </div>
+      <div class="wf-run-meta">
+        <span>⏱ ${esc(elapsed)}</span>
+        <span>📦 ${esc(items)} items</span>
+        <span>🕐 ${esc(started)}</span>
+        <span class="wf-run-id">${esc((r.id || '').slice(0,12))}</span>
+      </div>
+      ${r.error ? `<div class="wf-run-error">✗ ${esc(r.error)}</div>` : ''}
+      ${r.itemsTotal > 0 ? `<div class="wf-progress-bar"><div class="wf-progress-bar-fill" style="width:${pct}%"></div></div>` : ''}
+    </div>`;
+  }).join('');
+}
 
 async function loadMonograph() {
   if (_mgLoaded) return;

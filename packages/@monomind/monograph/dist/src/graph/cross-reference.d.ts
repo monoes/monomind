@@ -19,4 +19,8 @@ export interface CrossReferenceReport {
  * @param db - monograph database
  */
 export declare function crossReferenceDuplicatesAndDeadCode(db: MonographDb): CrossReferenceReport;
+/**
+ * Format a CrossReferenceReport as structured text for LLM consumption.
+ */
+export declare function formatCrossReferenceReport(report: CrossReferenceReport): string;
 //# sourceMappingURL=cross-reference.d.ts.map

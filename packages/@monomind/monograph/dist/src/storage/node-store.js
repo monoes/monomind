@@ -7,13 +7,40 @@ export function insertNode(db, node) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(node.id, node.label, node.name, node.normLabel ?? toNormLabel(node.name), node.filePath ?? null, node.startLine ?? null, node.endLine ?? null, node.communityId ?? null, node.isExported ? 1 : 0, node.language ?? null, node.properties ? JSON.stringify(node.properties) : null);
 }
+const INSERT_SQL = `
+    INSERT OR REPLACE INTO nodes
+      (id, label, name, norm_label, file_path, start_line, end_line,
+       community_id, is_exported, language, properties)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
 export function insertNodes(db, nodes) {
+    if (nodes.length === 0)
+        return;
+    // Prepare once and reuse across all rows — avoids N redundant prepare calls
+    const stmt = db.prepare(INSERT_SQL);
     const insertMany = db.transaction((rows) => {
         for (const n of rows) {
-            insertNode(db, n);
+            stmt.run(n.id, n.label, n.name, n.normLabel ?? toNormLabel(n.name), n.filePath ?? null, n.startLine ?? null, n.endLine ?? null, n.communityId ?? null, n.isExported ? 1 : 0, n.language ?? null, n.properties ? JSON.stringify(n.properties) : null);
         }
     });
     insertMany(nodes);
+}
+/** Batch-fetch multiple nodes by ID using a single SQL IN query. Batches at 50 IDs. */
+export function getNodesByIds(db, ids) {
+    if (ids.length === 0)
+        return [];
+    const BATCH = 50;
+    const results = [];
+    for (let i = 0; i < ids.length; i += BATCH) {
+        const chunk = ids.slice(i, i + BATCH);
+        const placeholders = chunk.map(() => '?').join(',');
+        const rows = db
+            .prepare(`SELECT * FROM nodes WHERE id IN (${placeholders})`)
+            .all(...chunk);
+        for (const row of rows)
+            results.push(rowToNode(row));
+    }
+    return results;
 }
 export function getNode(db, id) {
     const row = db

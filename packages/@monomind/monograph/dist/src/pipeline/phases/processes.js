@@ -31,22 +31,39 @@ function scoreEntryPoints(db) {
        FROM nodes
        WHERE label IN ('Function', 'Method', 'Class')`)
         .all();
-    const incomingCallsStmt = db.prepare(`SELECT COUNT(*) as cnt FROM edges WHERE target_id = ? AND relation = 'CALLS'`);
-    const isRouteHandlerStmt = db.prepare(`SELECT COUNT(*) as cnt FROM edges WHERE target_id = ? AND relation = 'HANDLES_ROUTE'`);
-    const isToolHandlerStmt = db.prepare(`SELECT COUNT(*) as cnt FROM edges WHERE target_id = ? AND relation = 'HANDLES_TOOL'`);
+    // Preload all three edge-count signals in a single pass instead of 3 per-row queries.
+    // LEFT JOIN with FILTER avoids N*3 prepared-stmt round-trips.
+    const edgeCounts = db
+        .prepare(`SELECT
+         n.id,
+         COUNT(CASE WHEN e.relation = 'CALLS'         THEN 1 END) AS incoming_calls,
+         COUNT(CASE WHEN e.relation = 'HANDLES_ROUTE' THEN 1 END) AS route_count,
+         COUNT(CASE WHEN e.relation = 'HANDLES_TOOL'  THEN 1 END) AS tool_count
+       FROM nodes n
+       LEFT JOIN edges e ON e.target_id = n.id AND e.relation IN ('CALLS','HANDLES_ROUTE','HANDLES_TOOL')
+       WHERE n.label IN ('Function','Method','Class')
+       GROUP BY n.id`)
+        .all();
+    const callsMap = new Map();
+    const routeSet = new Set();
+    const toolSet = new Set();
+    for (const r of edgeCounts) {
+        callsMap.set(r.id, r.incoming_calls);
+        if (r.route_count > 0)
+            routeSet.add(r.id);
+        if (r.tool_count > 0)
+            toolSet.add(r.id);
+    }
     const scored = [];
     for (const row of symbolRows) {
         let score = 0;
-        const incomingCalls = incomingCallsStmt.get(row.id).cnt;
-        if (incomingCalls === 0)
+        if ((callsMap.get(row.id) ?? 0) === 0)
             score += 3;
         if (row.is_exported === 1)
             score += 2;
-        const isRouteHandler = isRouteHandlerStmt.get(row.id).cnt > 0;
-        if (isRouteHandler)
+        if (routeSet.has(row.id))
             score += 4;
-        const isToolHandler = isToolHandlerStmt.get(row.id).cnt > 0;
-        if (isToolHandler)
+        if (toolSet.has(row.id))
             score += 4;
         const filePath = row.file_path ?? '';
         const filename = basename(filePath, extname(filePath)).toLowerCase();
