@@ -60,3 +60,19 @@
 {"type":"loop:tick","loopId":"mastermind-review-1779782770770","command":"/mastermind:review","mode":"tillend","completedRep":2,"nextRep":3,"nextAt":1779797190763,"ts":1779797131000}
 {"type":"loop:tick","loopId":"mastermind-review-1779782770770","command":"/mastermind:review","mode":"tillend","completedRep":2,"nextRep":3,"nextAt":1779797270981,"ts":1779797211000}
 {"type":"loop:complete","loopId":"mastermind-review-1779782770770","command":"/mastermind:review","mode":"tillend","ranReps":3,"reason":"empty-round","ts":1779800261000}
+{"type":"domain:dispatch","session":"mm-20260620T221557","domain":"ops","cmd":"Sprint Fix Squad cycle 3 — dispatching RISK-6 (AllowlistRule.types MonoFence AI)","ts":1781994379295}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","mode":"tillend","completedRep":3,"nextRep":4,"orgName":"sprint-fix-squad","nextAt":1781994498847,"ts":1781994438000}
+{"type":"domain:dispatch","session":"mm-20260620T221557","domain":"ops","cmd":"cycle 4 — dispatching STEP-7 pricing tables + STEP-9 SSE heartbeat","ts":1781994559456}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","mode":"tillend","completedRep":4,"nextRep":5,"orgName":"sprint-fix-squad","ts":1781994611000}
+{"type":"domain:dispatch","session":"mm-20260620T221557","domain":"ops","cmd":"cycle 5 — RISK-4 contract tests + RISK-5 pre-publish integration test","ts":1781994736559}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","rep":5,"nextRep":6,"wait":60,"ts":1781994977314}
+{"type":"domain:dispatch","session":"mm-20260620T223813","domain":"ops","cmd":"cycle 6 — picking next pending items from 15 remaining","ts":1781995093272}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","rep":6,"nextRep":7,"wait":60,"ts":1781995144126}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","rep":7,"nextRep":8,"wait":60,"ts":1781995344560}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","rep":8,"nextRep":9,"wait":60,"ts":1781995522470}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","rep":9,"nextRep":10,"wait":60,"ts":1781995645378}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","rep":10,"nextRep":11,"wait":60,"ts":1781995768510}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","rep":11,"nextRep":12,"wait":60,"ts":1781995912644}
+{"type":"loop:tick","loopId":"runorg-1781993848473","command":"/mastermind:runorg","rep":12,"nextRep":13,"wait":60,"ts":1781996043770}
+{"type":"loop:complete","loopId":"runorg-1781993848473","command":"/mastermind:runorg","mode":"tillend","ranReps":13,"reason":"empty-round","org":"sprint-fix-squad","itemsCompleted":23,"verdict":"APPROVED WITH NOTES","ts":1781996193973}
+{"type":"session:complete","session":"mm-20260620T221557","domain":"ops","status":"complete","domains":["ops"],"ts":1781996193973}
