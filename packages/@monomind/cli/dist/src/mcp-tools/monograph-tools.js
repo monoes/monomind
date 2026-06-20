@@ -544,10 +544,64 @@ const monographReportTool = {
         }
     },
 };
+// ── Shared staleness helper ───────────────────────────────────────────────────
+/** Guard against concurrent background buildAsync calls on the same DB. */
+let _buildInProgress = false;
+/**
+ * Compute how many commits the index is behind HEAD.
+ * Returns { commitsBehind, lastCommit } — or null if the index has never been
+ * built or git is unavailable.
+ */
+async function computeCommitsBehind(repoPath) {
+    const { openDb, closeDb } = await import('@monoes/monograph');
+    const { execSync } = await import('child_process');
+    const db = openDb(join(repoPath, '.monomind', 'monograph.db'));
+    try {
+        const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get() ?? db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get();
+        const lastCommit = meta?.value ?? null;
+        if (!lastCommit || !/^[0-9a-f]{7,40}$/i.test(lastCommit))
+            return null;
+        try {
+            const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
+                cwd: repoPath, encoding: 'utf-8',
+            }).trim();
+            return { commitsBehind: parseInt(out, 10), lastCommit };
+        }
+        catch {
+            return null;
+        }
+    }
+    finally {
+        closeDb(db);
+    }
+}
+/**
+ * Shared staleness threshold: both monograph_staleness and monograph_suggest_auto
+ * trigger a background rebuild only when the index is more than this many commits behind HEAD.
+ * Using a shared constant prevents conflicting rebuild pressure during active dev sessions.
+ */
+const STALENESS_THRESHOLD = 10;
+/**
+ * Fire-and-forget background rebuild. Uses a module-level guard so concurrent
+ * MCP tool calls (e.g. repeated monograph_suggest_auto) don't pile up builds.
+ * threshold: minimum commitsBehind to trigger (default STALENESS_THRESHOLD + 1).
+ */
+function triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, threshold = STALENESS_THRESHOLD + 1) {
+    if (commitsBehind < threshold)
+        return false;
+    if (_buildInProgress)
+        return false;
+    _buildInProgress = true;
+    void import('@monoes/monograph')
+        .then(({ buildAsync }) => buildAsync(repoPath, { codeOnly: true }))
+        .catch(() => { })
+        .finally(() => { _buildInProgress = false; });
+    return true;
+}
 // ── monograph_staleness ───────────────────────────────────────────────────────
 const monographStalenessTool = {
     name: 'monograph_staleness',
-    description: 'Git staleness detection: compares the commit hash at last index build against current HEAD. Returns isStale, changed files, and the timestamp of first diverging commit.',
+    description: 'Git staleness detection: compares the commit hash at last index build against current HEAD. When the index is more than 10 commits behind HEAD it automatically triggers a background rebuild. Returns { commitsBehind, status, triggered }.',
     inputSchema: {
         type: 'object',
         properties: {
@@ -555,26 +609,15 @@ const monographStalenessTool = {
         },
     },
     handler: async (input) => {
-        const { getMonographStaleness } = await import('@monoes/monograph');
         const repoPath = input.path ?? getProjectCwd();
-        const r = await getMonographStaleness(repoPath);
-        if (!r.indexedCommit && !r.currentCommit) {
-            return text('Index has never been built or repo has no git history. Run monograph_build first.');
+        const result = await computeCommitsBehind(repoPath);
+        if (!result) {
+            return text(JSON.stringify({ commitsBehind: 0, status: 'unknown', triggered: false }));
         }
-        const statusLine = r.isStale
-            ? `STALE — index at ${r.indexedCommit}, HEAD at ${r.currentCommit}`
-            : `FRESH — index matches HEAD (${r.currentCommit})`;
-        const lines = [`Staleness: ${statusLine}`];
-        if (r.staleSince)
-            lines.push(`Stale since: ${r.staleSince}`);
-        if (r.changedSince.length > 0) {
-            const shown = r.changedSince.slice(0, 10);
-            const more = r.changedSince.length - shown.length;
-            lines.push(`Changed files (${r.changedSince.length}):${shown.map(f => `\n  ${f}`).join('')}${more > 0 ? `\n  … ${more} more` : ''}`);
-        }
-        if (r.isStale)
-            lines.push('Action: run monograph_build to re-index');
-        return text(lines.join('\n'));
+        const { commitsBehind } = result;
+        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, STALENESS_THRESHOLD + 1);
+        const status = triggered ? 'building' : commitsBehind === 0 ? 'fresh' : 'stale';
+        return text(JSON.stringify({ commitsBehind, status, triggered }));
     },
 };
 // ── monograph_snapshot ────────────────────────────────────────────────────────
@@ -1735,6 +1778,38 @@ const monographNeighborsTool = {
         }
     },
 };
+// ── monograph_suggest_auto ────────────────────────────────────────────────────
+const monographSuggestAutoTool = {
+    name: 'monograph_suggest_auto',
+    description: 'Like monograph_suggest but health-aware: checks staleness first and triggers a background rebuild when the index is behind HEAD before returning suggestions. Result includes a _staleness annotation.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            task: { type: 'string', description: 'Optional task description for task-relevance scoring' },
+            limit: { type: 'number', description: 'Max questions (default 10)' },
+        },
+    },
+    handler: async (input) => {
+        const repoPath = getProjectCwd();
+        // Check staleness and trigger rebuild if needed (threshold: STALENESS_THRESHOLD commits).
+        const stalenessResult = await computeCommitsBehind(repoPath);
+        const commitsBehind = stalenessResult?.commitsBehind ?? 0;
+        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, STALENESS_THRESHOLD + 1);
+        const stalenessStatus = triggered ? 'building' : commitsBehind === 0 ? 'fresh' : 'stale';
+        // Delegate to the base suggest tool — no logic duplication.
+        const baseResult = await monographSuggestTool.handler(input);
+        // Append staleness annotation to the text content.
+        const stalenessAnnotation = `\n_staleness: ${JSON.stringify({ commitsBehind, status: stalenessStatus, triggered })}`;
+        if (baseResult && Array.isArray(baseResult.content)) {
+            const content = baseResult.content;
+            if (content.length > 0 && content[0].type === 'text') {
+                content[0].text += stalenessAnnotation;
+            }
+            return baseResult;
+        }
+        return baseResult;
+    },
+};
 // ── Export all tools ──────────────────────────────────────────────────────────
 export const monographTools = [
     monographBuildTool,
@@ -1747,6 +1822,7 @@ export const monographTools = [
     monographCommunityTool,
     monographSurprisesTool,
     monographSuggestTool,
+    monographSuggestAutoTool,
     monographVisualizeTool,
     monographWatchTool,
     monographWatchStopTool,
