@@ -3,128 +3,220 @@
 // action.http         — fetch a URL (GET/POST/etc.) and put the response in item.data
 // action.save_file    — write item data or binaryBase64 to a file on disk
 // action.log          — console.log each item (useful for debugging workflows)
-// action.gemini_image — generate image via Gemini web app (browser automation on port 9222)
+// action.gemini_image — generate image via Gemini web app (browser automation + session store)
 //                       or Imagen REST API (GEMINI_API_KEY), or mock mode
-import { writeFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { writeFile, readFile, mkdir, chmod } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 import type { NodeHandler } from './engine.js';
 import type { Item } from './types.js';
 
-// Generate an image using the Gemini web app on the user's authenticated Chrome (CDP port).
-// Uses the browser module directly (same process — no subprocess overhead, no shell escaping).
-// Returns the saved file path on success, null if Chrome is not available on that port.
+// ---------------------------------------------------------------------------
+// Session persistence (shared format with browse-platform.ts)
+// ---------------------------------------------------------------------------
+
+const SESSIONS_FILE = join(homedir(), '.monomind', 'sessions.json');
+
+interface StoredSession {
+  id: string;
+  platform: string;
+  username: string;
+  cookies: string;   // JSON-serialized CDP cookie array
+  userAgent: string;
+  createdAt: number;
+  lastUsedAt: number;
+}
+
+async function loadStoredSession(platform: string): Promise<StoredSession | null> {
+  if (!existsSync(SESSIONS_FILE)) return null;
+  try {
+    const sessions: StoredSession[] = JSON.parse(await readFile(SESSIONS_FILE, 'utf-8'));
+    return sessions.find(s => s.platform === platform) ?? null;
+  } catch { return null; }
+}
+
+async function saveStoredSession(
+  platform: string,
+  cookies: object[],
+  userAgent: string,
+  username: string,
+): Promise<void> {
+  let sessions: StoredSession[] = [];
+  if (existsSync(SESSIONS_FILE)) {
+    try { sessions = JSON.parse(await readFile(SESSIONS_FILE, 'utf-8')); } catch { /* start fresh */ }
+  }
+  const id = `${platform}:${username}`;
+  const now = Date.now();
+  const existing = sessions.findIndex(s => s.platform === platform);
+  const entry: StoredSession = {
+    id, platform, username, userAgent,
+    cookies: JSON.stringify(cookies),
+    createdAt: existing >= 0 ? sessions[existing].createdAt : now,
+    lastUsedAt: now,
+  };
+  if (existing >= 0) sessions[existing] = entry; else sessions.push(entry);
+  await mkdir(join(homedir(), '.monomind'), { recursive: true });
+  await writeFile(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
+  await chmod(SESSIONS_FILE, 0o600);
+}
+
+// ---------------------------------------------------------------------------
+// Gemini browser automation
+// ---------------------------------------------------------------------------
+
+const GEMINI_IMAGE_CHECK = `
+  (() => {
+    const imgs = Array.from(document.querySelectorAll('img'));
+    return imgs.some(img =>
+      img.complete && img.naturalWidth > 200 && img.naturalHeight > 200 &&
+      img.src && !img.src.includes('icon') && !img.src.includes('avatar') &&
+      !img.src.includes('logo') && !img.src.includes('profile')
+    );
+  })()
+`;
+
+const GEMINI_IMAGE_SRC = `
+  (() => {
+    const imgs = Array.from(document.querySelectorAll('img'));
+    const c = imgs.filter(img =>
+      img.complete && img.naturalWidth > 200 && img.naturalHeight > 200 &&
+      img.src && !img.src.includes('icon') && !img.src.includes('avatar') &&
+      !img.src.includes('logo') && !img.src.includes('profile')
+    );
+    return c.length ? c[c.length - 1].src : '';
+  })()
+`;
+
+// Generate an image via the Gemini web app, with session management.
+// Flow: connect → restore saved session → if not logged in, wait for user login → generate.
+// Returns the saved file path, or null if Chrome is not available.
 async function generateViaGeminiBrowser(
   prompt: string,
   outputPath: string,
   cdpPort: number,
 ): Promise<string | null> {
-  // Lazy-load browser module so test environments without Chrome don't fail on import
   let browser: typeof import('../index.js');
-  try {
-    browser = await import('../index.js');
-  } catch {
-    return null;
-  }
+  try { browser = await import('../index.js'); } catch { return null; }
 
-  // Connect to the user's running Chrome on cdpPort
   let conn: Awaited<ReturnType<typeof browser.connectToTarget>>;
-  try {
-    conn = await browser.connectToTarget(cdpPort);
-  } catch {
-    return null; // Chrome not running on this port
-  }
+  try { conn = await browser.connectToTarget(cdpPort); } catch { return null; }
 
   const { client, sessionId } = conn;
   const refs = new Map();
 
   try {
+    // Restore stored Gemini session cookies before navigating
+    const stored = await loadStoredSession('gemini');
+    if (stored?.cookies) {
+      try {
+        const cookies = JSON.parse(stored.cookies) as object[];
+        if (cookies.length > 0) {
+          await browser.setCookies(client, sessionId, cookies as Parameters<typeof browser.setCookies>[2]);
+        }
+      } catch { /* ignore malformed cookies */ }
+    }
+
     // Navigate to Gemini
     await browser.openUrl(client, sessionId, 'https://gemini.google.com/app');
 
     // Dismiss cookie consent if present
-    const cookieRef = await browser.findByRole(client, sessionId, refs, 'button', { name: 'Accept all' }).catch(() => null);
-    if (cookieRef) {
-      await browser.clickElement(client, sessionId, cookieRef);
+    const refs2 = new Map();
+    const consentBtn = await browser.findByRole(client, sessionId, refs2, 'button', { name: 'Accept all' }).catch(() => null);
+    if (consentBtn) {
+      await browser.clickElement(client, sessionId, consentBtn);
       await new Promise(r => setTimeout(r, 1500));
     }
 
-    // Find the Gemini prompt input (.ql-editor contenteditable)
-    // Only present when user is logged in — if not found, fall through to REST/mock
-    const inputRef = await browser.findBySelector(client, sessionId, refs, '.ql-editor');
+    // Check if logged in — .ql-editor only appears when authenticated
+    let inputRef = await browser.findBySelector(client, sessionId, refs, '.ql-editor').catch(() => null);
+
     if (!inputRef) {
-      console.log(`[action.gemini_image] .ql-editor not found on port ${cdpPort} — user may not be logged into Gemini`);
-      return null;
+      // Not logged in — ask the user to authenticate
+      console.log('');
+      console.log('┌─────────────────────────────────────────────────────────┐');
+      console.log('│  Gemini login required                                  │');
+      console.log('│                                                         │');
+      console.log('│  A browser window has been opened to Gemini.            │');
+      console.log('│  Please sign in with your Google account.               │');
+      console.log('│                                                         │');
+      console.log('│  The workflow will resume automatically after login.    │');
+      console.log('│  Waiting up to 5 minutes…                               │');
+      console.log('└─────────────────────────────────────────────────────────┘');
+      console.log('');
+
+      // Navigate to Google sign-in
+      await browser.openUrl(client, sessionId, 'https://accounts.google.com/signin/v2/identifier');
+
+      // Wait up to 5 min for the user to complete login and land back on Gemini
+      const loginDeadline = Date.now() + 5 * 60 * 1000;
+      let loggedIn = false;
+      while (Date.now() < loginDeadline) {
+        await new Promise(r => setTimeout(r, 2000));
+        const url = await browser.getCurrentUrl(client, sessionId).catch(() => '');
+        if (url.includes('gemini.google.com')) {
+          inputRef = await browser.findBySelector(client, sessionId, refs, '.ql-editor').catch(() => null);
+          if (inputRef) { loggedIn = true; break; }
+        }
+      }
+
+      if (!loggedIn) {
+        console.log('[action.gemini_image] Login timeout. Run: monomind browse platform connect gemini');
+        return null;
+      }
+
+      console.log('[action.gemini_image] Login detected! Saving session...');
     }
 
-    // Fill the prompt (fillElement handles contenteditable, clear-all, and type)
+    // Save/refresh cookies after confirming login
+    const liveCookies = await browser.getCookies(client, sessionId).catch(() => []);
+    const userAgent = await browser.evaluateJs(client, sessionId, 'navigator.userAgent').catch(() => 'unknown') as string;
+    const username = await browser.evaluateJs(
+      client, sessionId,
+      "document.querySelector('.gb_A.gb_Sa')?.textContent?.trim() ?? 'gemini-user'"
+    ).catch(() => 'gemini-user') as string;
+    await saveStoredSession('gemini', liveCookies, String(userAgent), String(username));
+
+    // Ensure we're on the app page with the input visible
+    if (!inputRef) {
+      await browser.openUrl(client, sessionId, 'https://gemini.google.com/app');
+      inputRef = await browser.findBySelector(client, sessionId, refs, '.ql-editor').catch(() => null);
+    }
+    if (!inputRef) return null;
+
+    // Fill and submit the prompt
     await browser.fillElement(client, sessionId, inputRef, prompt);
     await new Promise(r => setTimeout(r, 300));
-
-    // Submit by pressing Enter
     await browser.pressKey(client, sessionId, 'Return');
-    console.log(`[action.gemini_image] Prompt submitted to Gemini, waiting for image generation...`);
+    console.log('[action.gemini_image] Prompt submitted to Gemini, waiting for image...');
 
-    // Poll up to 90s for a large generated image to appear in the DOM
-    const imageCheckExpr = `
-      (() => {
-        const imgs = Array.from(document.querySelectorAll('img'));
-        return imgs.some(img =>
-          img.complete && img.naturalWidth > 200 && img.naturalHeight > 200 &&
-          img.src && !img.src.includes('icon') && !img.src.includes('avatar') &&
-          !img.src.includes('logo') && !img.src.includes('profile')
-        );
-      })()
-    `;
+    // Poll up to 90s for generated image
     const deadline = Date.now() + 90_000;
     while (Date.now() < deadline) {
-      const found = await browser.evaluateJs(client, sessionId, imageCheckExpr).catch(() => false);
+      const found = await browser.evaluateJs(client, sessionId, GEMINI_IMAGE_CHECK).catch(() => false);
       if (found) break;
       await new Promise(r => setTimeout(r, 500));
     }
 
     await mkdir(dirname(outputPath), { recursive: true });
 
-    // Extract the generated image URL from the DOM
-    const evalResult = await client.send<{ result: { value?: string } }>(
-      'Runtime.evaluate',
-      {
-        expression: `
-          (() => {
-            const imgs = Array.from(document.querySelectorAll('img'));
-            const c = imgs.filter(img =>
-              img.complete && img.naturalWidth > 200 && img.naturalHeight > 200 &&
-              img.src && !img.src.includes('icon') && !img.src.includes('avatar') &&
-              !img.src.includes('logo') && !img.src.includes('profile')
-            );
-            return c.length ? c[c.length - 1].src : '';
-          })()
-        `,
-        returnByValue: true,
-      },
-      sessionId,
-    ).catch(() => null);
-
-    const imgSrc = evalResult?.result?.value ?? '';
-
+    // Extract image URL and download
+    const imgSrc = (await browser.evaluateJs(client, sessionId, GEMINI_IMAGE_SRC).catch(() => '')) as string;
     if (imgSrc && (imgSrc.startsWith('https://') || imgSrc.startsWith('http://'))) {
       try {
         const resp = await fetch(imgSrc);
         if (resp.ok) {
-          const buf = Buffer.from(await resp.arrayBuffer());
-          await writeFile(outputPath, buf);
-          console.log(`[action.gemini_image] Image downloaded from Gemini → ${outputPath}`);
+          await writeFile(outputPath, Buffer.from(await resp.arrayBuffer()));
+          console.log(`[action.gemini_image] Image saved → ${outputPath}`);
           return outputPath;
         }
       } catch { /* fall through to screenshot */ }
     }
 
-    // Fallback: full-page screenshot of the Gemini response
+    // Fallback: screenshot the response
     const screenshotPath = outputPath.replace(/\.(png|jpe?g|webp)$/i, '') + '-screenshot.png';
     const ss = await browser.captureScreenshot(client, sessionId, { path: screenshotPath, fullPage: true }).catch(() => null);
-    if (ss) {
-      console.log(`[action.gemini_image] Saved Gemini screenshot → ${ss.path}`);
-      return ss.path;
-    }
+    if (ss) { console.log(`[action.gemini_image] Screenshot saved → ${ss.path}`); return ss.path; }
 
     return null;
   } finally {
