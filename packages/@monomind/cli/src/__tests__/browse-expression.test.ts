@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { resolveExpression, resolveConfig } from '../browser/workflow/expression.js';
 import type { Item } from '../browser/workflow/types.js';
 
@@ -14,9 +14,8 @@ describe('resolveExpression', () => {
   });
 
   it('resolves $env variables', () => {
-    process.env.TEST_VAR = 'test-value';
+    vi.stubEnv('TEST_VAR', 'test-value');
     expect(resolveExpression('{{$env.TEST_VAR}}', item, nodeOutputs, params)).toBe('test-value');
-    delete process.env.TEST_VAR;
   });
 
   it('resolves params', () => {
@@ -38,6 +37,23 @@ describe('resolveExpression', () => {
   it('throws on unresolved expression', () => {
     expect(() => resolveExpression('{{$json.missing}}', item, nodeOutputs, params)).toThrow('Unresolved');
   });
+
+  it('replaces duplicate placeholders in a single template', () => {
+    const doubled = { data: { x: 'hello' } };
+    expect(resolveExpression('{{$json.x}} and {{$json.x}}', doubled, {}, {})).toBe('hello and hello');
+  });
+
+  it('throws when $node output array is empty', () => {
+    expect(() => resolveExpression('{{$node.empty.field}}', item, { empty: [] }, params)).toThrow('Unresolved');
+  });
+
+  it('throws when $node bracket field is missing', () => {
+    expect(() => resolveExpression('{{$node["trigger"].missing}}', item, nodeOutputs, params)).toThrow('Unresolved');
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('resolveConfig', () => {

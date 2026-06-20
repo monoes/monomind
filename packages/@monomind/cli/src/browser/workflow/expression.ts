@@ -1,12 +1,13 @@
 import type { Item } from './types.js';
 
-const TEMPLATE_RE = /\{\{([^}]+)\}\}/g;
+const TEMPLATE_PATTERN = '\\{\\{([^}]+)\\}\\}';
 type ParsedTemplate = RegExpMatchArray[];
 const cache = new Map<string, ParsedTemplate>();
 
 function extractTemplates(template: string): ParsedTemplate {
+  if (cache.size >= 500) cache.clear();
   if (cache.has(template)) return cache.get(template)!;
-  const matches = [...template.matchAll(new RegExp(TEMPLATE_RE.source, 'g'))];
+  const matches = [...template.matchAll(new RegExp(TEMPLATE_PATTERN, 'g'))];
   cache.set(template, matches);
   return matches;
 }
@@ -24,7 +25,7 @@ export function resolveExpression(
   for (const match of matches) {
     const expr = match[1].trim();
     const value = resolveToken(expr, item, nodeOutputs, params);
-    result = result.replace(match[0], String(value));
+    result = result.split(match[0]).join(String(value));
   }
   return result;
 }
@@ -76,6 +77,7 @@ function resolveToken(
   return `{{${expr}}}`;
 }
 
+// Note: only resolves top-level string values. Nested objects/arrays are passed through unchanged.
 export function resolveConfig(
   config: Record<string, unknown>,
   item: Item,
