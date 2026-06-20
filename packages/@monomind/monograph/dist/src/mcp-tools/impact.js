@@ -74,11 +74,24 @@ export function getMonographImpact(db, input) {
     const nodeId = node.id;
     // Reverse BFS to find all callers (depth 0 = start node)
     const visited = reverseBfs(nodeId, db, maxDepth, {});
-    // Separate direct callers (depth 1) from transitive (depth 2+)
+    return { node, ...extractCallerResult(db, nodeId, visited) };
+}
+// ── Shared helper: fetch nodes by IDs in a single query ───────────────────────
+function getNodesByIds(db, ids) {
+    if (ids.length === 0)
+        return [];
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = db
+        .prepare(`SELECT * FROM nodes WHERE id IN (${placeholders})`)
+        .all(...ids);
+    return rows.map(rowToNode);
+}
+// ── Shared helper: turn a visited map into structured caller lists ─────────────
+function extractCallerResult(db, startNodeId, visited) {
     const directCallerIds = [];
     const byDepth = new Map();
     for (const [id, depth] of visited.entries()) {
-        if (id === nodeId)
+        if (id === startNodeId)
             continue;
         if (depth === 1) {
             directCallerIds.push(id);
@@ -89,33 +102,18 @@ export function getMonographImpact(db, input) {
             byDepth.set(depth, existing);
         }
     }
-    // Fetch node details for direct callers
-    const getNodesByIds = (ids) => {
-        if (ids.length === 0)
-            return [];
-        const placeholders = ids.map(() => '?').join(',');
-        const rows = db
-            .prepare(`SELECT * FROM nodes WHERE id IN (${placeholders})`)
-            .all(...ids);
-        return rows.map(rowToNode);
-    };
-    const directCallers = getNodesByIds(directCallerIds);
+    const directCallers = getNodesByIds(db, directCallerIds);
     const transitiveCallers = [];
     const sortedDepths = Array.from(byDepth.keys()).sort((a, b) => a - b);
     for (const depth of sortedDepths) {
-        const ids = byDepth.get(depth);
-        transitiveCallers.push({ depth, nodes: getNodesByIds(ids) });
+        transitiveCallers.push({ depth, nodes: getNodesByIds(db, byDepth.get(depth)) });
     }
-    // Collect unique affected file paths (excluding start node)
     const allAffectedNodes = [...directCallers, ...transitiveCallers.flatMap(t => t.nodes)];
-    const affectedFiles = [...new Set(allAffectedNodes
-            .map(n => n.filePath)
-            .filter((p) => p != null))];
-    // Risk score: log2(totalCallerCount + 1) normalized to [0, 1] (max log2(11) ≈ 3.46, capped at 10, /10)
+    const affectedFiles = [...new Set(allAffectedNodes.map(n => n.filePath).filter((p) => p != null))];
     const totalCallerCount = visited.size - 1; // exclude start node
     const rawScore = Math.min(Math.log2(totalCallerCount + 1), 10);
     const riskScore = rawScore / 10;
-    return { node, directCallers, transitiveCallers, affectedFiles, riskScore, riskLevel: computeRiskLevel(riskScore) };
+    return { directCallers, transitiveCallers, affectedFiles, riskScore, riskLevel: computeRiskLevel(riskScore) };
 }
 // ── id-based impact with filtering options ────────────────────────────────────
 export async function monographImpact(db, nodeId, options = {}) {
@@ -128,43 +126,6 @@ export async function monographImpact(db, nodeId, options = {}) {
     }
     const node = rowToNode(nodeRow);
     const visited = reverseBfs(nodeId, db, maxDepth, options);
-    const directCallerIds = [];
-    const byDepth = new Map();
-    for (const [id, depth] of visited.entries()) {
-        if (id === nodeId)
-            continue;
-        if (depth === 1) {
-            directCallerIds.push(id);
-        }
-        else {
-            const existing = byDepth.get(depth) ?? [];
-            existing.push(id);
-            byDepth.set(depth, existing);
-        }
-    }
-    const getNodesByIds = (ids) => {
-        if (ids.length === 0)
-            return [];
-        const placeholders = ids.map(() => '?').join(',');
-        const rows = db
-            .prepare(`SELECT * FROM nodes WHERE id IN (${placeholders})`)
-            .all(...ids);
-        return rows.map(rowToNode);
-    };
-    const directCallers = getNodesByIds(directCallerIds);
-    const transitiveCallers = [];
-    const sortedDepths = Array.from(byDepth.keys()).sort((a, b) => a - b);
-    for (const depth of sortedDepths) {
-        const ids = byDepth.get(depth);
-        transitiveCallers.push({ depth, nodes: getNodesByIds(ids) });
-    }
-    const allAffectedNodes = [...directCallers, ...transitiveCallers.flatMap(t => t.nodes)];
-    const affectedFiles = [...new Set(allAffectedNodes
-            .map(n => n.filePath)
-            .filter((p) => p != null))];
-    const totalCallerCount = visited.size - 1;
-    const rawScore = Math.min(Math.log2(totalCallerCount + 1), 10);
-    const riskScore = rawScore / 10;
-    return { node, directCallers, transitiveCallers, affectedFiles, riskScore, riskLevel: computeRiskLevel(riskScore) };
+    return { node, ...extractCallerResult(db, nodeId, visited) };
 }
 //# sourceMappingURL=impact.js.map

@@ -8,6 +8,20 @@ export declare function computeCohesion(communityId: number, memberships: Map<st
     sourceId: string;
     targetId: string;
 }>): number;
+/**
+ * Compute cohesion scores for all communities in a single O(N+E) pass.
+ *
+ * This replaces calling `computeCohesion` inside a loop, which was O(K*(N+E))
+ * because each call re-scanned all memberships (O(N)) and all edges (O(E)).
+ *
+ * @param memberships - nodeId → communityId map from the clustering step
+ * @param edges - all edges used for the graph (IMPORTS + resolved)
+ * @returns Map of communityId → cohesion score ∈ [0, 1]
+ */
+export declare function computeAllCohesionScores(memberships: Map<string, number>, edges: Array<{
+    sourceId: string;
+    targetId: string;
+}>): Map<number, number>;
 export declare const communitiesPhase: PipelinePhase<CommunitiesOutput>;
 /**
  * Split a community that is too large into smaller sub-groups.

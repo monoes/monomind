@@ -34,4 +34,11 @@ export declare function computeHotspots(db: Database.Database, projectDir: strin
     limit?: number;
     minCommits?: number;
 }): HotspotResult[];
+/**
+ * Format hotspot results as structured text with file:line hints for LLM navigation.
+ *
+ * @param hotspots - Results from computeHotspots()
+ * @returns structured text suitable for LLM consumption
+ */
+export declare function formatHotspots(hotspots: HotspotResult[]): string;
 //# sourceMappingURL=hotspots.d.ts.map

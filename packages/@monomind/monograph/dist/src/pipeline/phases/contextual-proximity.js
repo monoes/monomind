@@ -12,19 +12,28 @@ export const contextualProximityPhase = {
             .all();
         if (rows.length === 0)
             return { coOccursEdges: 0, conceptsScored: 0 };
-        // Group concepts by section
+        // Group concepts by section using ??= to avoid has+get pattern
         const sectionConcepts = new Map();
         for (const { source_id, target_id } of rows) {
-            if (!sectionConcepts.has(source_id))
-                sectionConcepts.set(source_id, []);
-            sectionConcepts.get(source_id).push(target_id);
+            let list = sectionConcepts.get(source_id);
+            if (!list) {
+                list = [];
+                sectionConcepts.set(source_id, list);
+            }
+            list.push(target_id);
         }
-        // Count concept co-occurrences across all sections
+        // Count concept co-occurrences across all sections.
+        // Accumulate conceptDegree in the same pass to avoid a second loop over sectionConcepts.
+        // Use a ternary comparison instead of [a,b].sort() to avoid per-pair array allocation.
         const coOccur = new Map();
+        const conceptDegree = new Map();
         for (const concepts of sectionConcepts.values()) {
             for (let i = 0; i < concepts.length; i++) {
+                conceptDegree.set(concepts[i], (conceptDegree.get(concepts[i]) ?? 0) + 1);
                 for (let j = i + 1; j < concepts.length; j++) {
-                    const [a, b] = [concepts[i], concepts[j]].sort();
+                    // Avoid allocating a 2-element sort array — ternary comparison is equivalent
+                    const a = concepts[i] <= concepts[j] ? concepts[i] : concepts[j];
+                    const b = concepts[i] <= concepts[j] ? concepts[j] : concepts[i];
                     const key = `${a}::${b}`;
                     coOccur.set(key, (coOccur.get(key) ?? 0) + 1);
                 }
@@ -46,15 +55,13 @@ export const contextualProximityPhase = {
                 weight,
             });
         }
-        // Score concept importance 1-5 based on normalized degree (sections it appears in)
-        const conceptDegree = new Map();
-        for (const concepts of sectionConcepts.values()) {
-            for (const cid of concepts) {
-                conceptDegree.set(cid, (conceptDegree.get(cid) ?? 0) + 1);
-            }
-        }
         if (conceptDegree.size > 0) {
-            const maxDeg = [...conceptDegree.values()].reduce((a, b) => Math.max(a, b), 0);
+            // Compute maxDeg with a loop to avoid spread array allocation from [...values()]
+            let maxDeg = 0;
+            for (const deg of conceptDegree.values()) {
+                if (deg > maxDeg)
+                    maxDeg = deg;
+            }
             const update = ctx.db.prepare(`UPDATE nodes SET properties = json_set(COALESCE(properties, '{}'), '$.importance', ?) WHERE id = ?`);
             ctx.db.transaction(() => {
                 for (const [cid, deg] of conceptDegree) {

@@ -19,6 +19,9 @@ export interface NodeSearchOptions {
 /**
  * Search nodes by structured property criteria.
  * All supplied criteria are combined with AND.
+ *
+ * Prepared statements are cached per-DB keyed by the active condition set so
+ * repeated calls with the same filter shape reuse the compiled statement.
  */
 export declare function searchNodesByProperty(db: MonographDb, options?: NodeSearchOptions): MonographNode[];
 /**

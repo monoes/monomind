@@ -44,4 +44,8 @@ export interface DependencyHealthResult {
  * Compute a composite dependency health score for the given graph.
  */
 export declare function dependencyHealth(input: DependencyHealthInput): DependencyHealthResult;
+/**
+ * Format dependency health results as structured text for LLM consumption.
+ */
+export declare function formatDependencyHealth(result: DependencyHealthResult): string;
 //# sourceMappingURL=dependency-health.d.ts.map

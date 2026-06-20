@@ -15,4 +15,6 @@ export interface AuthorAnalyticsReport {
     unownedFiles: number;
 }
 export declare function computeAuthorAnalytics(repoPath: string, db: MonographDb): AuthorAnalyticsReport;
+/** Format AuthorAnalyticsReport as structured text for LLM navigation. */
+export declare function formatAuthorAnalytics(report: AuthorAnalyticsReport): string;
 //# sourceMappingURL=author-analytics.d.ts.map

@@ -34,6 +34,16 @@ export declare function computeCrapScore(cc: number, coverage: number): number;
  * - Cognitive complexity proxy: (endLine - startLine) / 10, capped at 20
  * - LOC: endLine - startLine + 1 (or 1 if missing)
  * - CRAP: computed with coverage = 0 (worst-case, no test data available)
+ *
+ * Batches all SQL work to avoid N+1 queries (2 GROUP BY queries replace 2×N individual queries).
  */
 export declare function computeComplexity(db: MonographDb): ComplexityReport;
+/**
+ * Format a ComplexityReport as structured text with file:line hints for LLM navigation.
+ *
+ * @param report - ComplexityReport from computeComplexity()
+ * @param topN - number of worst offenders to list (default 10)
+ * @returns structured text suitable for LLM consumption
+ */
+export declare function formatComplexity(report: ComplexityReport, topN?: number): string;
 //# sourceMappingURL=complexity.d.ts.map

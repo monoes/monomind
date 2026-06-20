@@ -1,3 +1,38 @@
+const _stmtCache = new Map();
+function getStmts(db) {
+    const key = db.name ?? '__default__';
+    let cache = _stmtCache.get(key);
+    if (!cache) {
+        cache = {
+            selectNodes: db.prepare('SELECT id FROM nodes'),
+            selectEdges: db.prepare('SELECT source_id, target_id FROM edges'),
+        };
+        _stmtCache.set(key, cache);
+    }
+    return cache;
+}
+// ---------------------------------------------------------------------------
+// Result cache — avoids re-running power iteration when the graph hasn't
+// changed. Keyed by (dbName, nodeCount, edgeCount) with a 5-second TTL.
+// ---------------------------------------------------------------------------
+const PAGERANK_CACHE_TTL_MS = 5_000;
+const _resultCache = new Map();
+function resultCacheKey(db, nodeCount, edgeCount) {
+    const name = db.name ?? '__default__';
+    return `${name}:${nodeCount}:${edgeCount}`;
+}
+/**
+ * Evict cached statements and results for a given DB instance (call after writes).
+ */
+export function invalidatePageRankCache(db) {
+    const key = db.name ?? '__default__';
+    _stmtCache.delete(key);
+    // Purge all result-cache entries for this DB (they have the name as prefix)
+    for (const k of _resultCache.keys()) {
+        if (k.startsWith(`${key}:`))
+            _resultCache.delete(k);
+    }
+}
 /**
  * Compute PageRank scores for all nodes using power iteration.
  *
@@ -5,16 +40,26 @@
  * After convergence the scores still sum to ~1 (standard normalized PageRank).
  * Dangling nodes (out-degree 0) distribute their rank equally to all nodes.
  *
+ * Results are cached for 5 seconds when the graph's node+edge counts are
+ * unchanged, making repeated calls (e.g. during context preloading) free.
+ *
  * @param db - The MonographDb instance
  * @param options - Optional tuning parameters
  * @returns Map of nodeId → PageRank score
  */
 export function pageRank(db, options = {}) {
     const { dampingFactor = 0.85, maxIterations = 100, tolerance = 1e-6 } = options;
-    const nodeRows = db.prepare('SELECT id FROM nodes').all();
-    const edgeRows = db.prepare('SELECT source_id, target_id FROM edges').all();
+    const stmts = getStmts(db);
+    const nodeRows = stmts.selectNodes.all();
+    const edgeRows = stmts.selectEdges.all();
     if (nodeRows.length === 0)
         return new Map();
+    // Check result cache before running power iteration
+    const cacheKey = resultCacheKey(db, nodeRows.length, edgeRows.length);
+    const now = Date.now();
+    const cached = _resultCache.get(cacheKey);
+    if (cached && now < cached.expiresAt)
+        return cached.result;
     const nodes = nodeRows.map(r => r.id);
     const n = nodes.length;
     const nodeIndex = new Map();
@@ -64,6 +109,8 @@ export function pageRank(db, options = {}) {
     for (let i = 0; i < n; i++) {
         result.set(nodes[i], scores[i]);
     }
+    // Store in result cache
+    _resultCache.set(cacheKey, { result, expiresAt: now + PAGERANK_CACHE_TTL_MS });
     return result;
 }
 //# sourceMappingURL=pagerank.js.map

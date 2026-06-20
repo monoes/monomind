@@ -1,6 +1,7 @@
 export const MODULE_EXTRACTION_THRESHOLD_LINES = 50;
 function fileSetKey(files) {
-    return [...files].sort().join('|');
+    // Avoid spread allocation: sort a copy directly
+    return files.slice().sort().join('|');
 }
 function generateSuggestions(family) {
     const suggestions = [];
@@ -15,10 +16,14 @@ function generateSuggestions(family) {
     }
     else {
         // Check if all files are in the same directory → MergeDirectories
-        const dirs = [...new Set(family.files.map(f => {
-                const parts = f.replace(/\\/g, '/').split('/');
-                return parts.slice(0, -1).join('/');
-            }))];
+        // Use Set directly to avoid spread+map intermediate array
+        const dirSet = new Set();
+        for (const f of family.files) {
+            const slash = f.replace(/\\/g, '/');
+            const lastSlash = slash.lastIndexOf('/');
+            dirSet.add(lastSlash >= 0 ? slash.slice(0, lastSlash) : '.');
+        }
+        const dirs = [...dirSet];
         if (dirs.length > 1 && family.files.length >= 3) {
             suggestions.push({
                 kind: 'MergeDirectories',
@@ -48,24 +53,47 @@ export function groupIntoFamilies(groups) {
         }
         familyMap.get(key).groups.push(group);
     }
-    return [...familyMap.values()].map(({ files, groups }) => {
+    // Build output array without intermediate spread + map allocation
+    const result = [];
+    for (const { files, groups } of familyMap.values()) {
         const fileList = [...files].sort();
-        const totalDuplicatedLines = groups.reduce((s, g) => s + g.duplicatedLines, 0);
+        let totalDuplicatedLines = 0;
+        for (const g of groups)
+            totalDuplicatedLines += g.duplicatedLines;
         const base = { files: fileList, groups, totalDuplicatedLines };
-        return { ...base, suggestions: generateSuggestions(base) };
-    }).sort((a, b) => b.totalDuplicatedLines - a.totalDuplicatedLines);
+        result.push({ ...base, suggestions: generateSuggestions(base) });
+    }
+    return result.sort((a, b) => b.totalDuplicatedLines - a.totalDuplicatedLines);
+}
+/** Format clone families as structured text for LLM consumption. */
+export function formatCloneFamilies(families) {
+    if (families.length === 0)
+        return 'No clone families detected.';
+    const lines = [`Clone Families (${families.length} total):`];
+    for (const f of families.slice(0, 20)) {
+        lines.push(`\n  ${f.totalDuplicatedLines} duplicated lines across ${f.files.length} files:`);
+        for (const file of f.files)
+            lines.push(`    ${file}`);
+        for (const s of f.suggestions)
+            lines.push(`  -> [${s.kind}] ${s.description}`);
+    }
+    if (families.length > 20)
+        lines.push(`\n  ... and ${families.length - 20} more families`);
+    return lines.join('\n');
 }
 export function cloneFamilySummary(families) {
     const byKind = {
         ExtractFunction: 0, ExtractModule: 0, MergeDirectories: 0,
     };
+    let totalDuplicatedLines = 0;
     for (const f of families) {
+        totalDuplicatedLines += f.totalDuplicatedLines;
         for (const s of f.suggestions)
             byKind[s.kind]++;
     }
     return {
         totalFamilies: families.length,
-        totalDuplicatedLines: families.reduce((s, f) => s + f.totalDuplicatedLines, 0),
+        totalDuplicatedLines,
         byKind,
     };
 }

@@ -13,6 +13,21 @@ function globToRegex(glob) {
         .split(DOUBLE_STAR).join('.*');
     return new RegExp('^' + pattern + '$');
 }
+/** Compile a ZoneConfig[] into CompiledZone[] once to avoid reconstructing RegExps per path. */
+function compileZones(zones) {
+    return zones.map(z => ({ name: z.name, re: globToRegex(z.glob) }));
+}
+/**
+ * Classify a file path into a zone name using precompiled regexes.
+ * Returns null if no zone matches.
+ */
+function classifyZoneCompiled(filePath, compiled) {
+    for (const z of compiled) {
+        if (z.re.test(filePath))
+            return z.name;
+    }
+    return null;
+}
 /**
  * Load .monographrc.json from repoRoot. Returns empty config if not found or invalid.
  */
@@ -30,6 +45,8 @@ export function loadMonographConfig(repoRoot) {
 }
 /**
  * Classify a file path into a zone name. Returns null if no zone matches.
+ * Compiles the glob patterns on every call — use classifyZoneCompiled with
+ * precompiled zones for hot paths.
  */
 export function classifyZone(filePath, zones) {
     for (const zone of zones) {
@@ -51,6 +68,8 @@ export function detectBoundaryViolations(db, repoRoot) {
         return [];
     const zones = config.zones;
     const allowedSet = new Set((config.allowedImports ?? []).map(([from, to]) => `${from}→${to}`));
+    // Precompile zone regexes once — avoids re-constructing RegExp objects per file path.
+    const compiledZones = compileZones(zones);
     const rows = db.prepare(`
     SELECT e.id, e.relation,
            ns.file_path AS src_path,
@@ -60,10 +79,20 @@ export function detectBoundaryViolations(db, repoRoot) {
     JOIN nodes nt ON nt.id = e.target_id
     WHERE ns.file_path IS NOT NULL AND nt.file_path IS NOT NULL
   `).all();
+    // Cache per-path zone classification to avoid O(rows * zones) repeated regex tests.
+    const pathZoneCache = new Map();
+    const classifyPath = (p) => {
+        let zone = pathZoneCache.get(p);
+        if (zone === undefined) {
+            zone = classifyZoneCompiled(p, compiledZones);
+            pathZoneCache.set(p, zone);
+        }
+        return zone;
+    };
     const violations = [];
     for (const row of rows) {
-        const fromZone = classifyZone(row.src_path, zones);
-        const toZone = classifyZone(row.tgt_path, zones);
+        const fromZone = classifyPath(row.src_path);
+        const toZone = classifyPath(row.tgt_path);
         if (fromZone === null || toZone === null)
             continue;
         if (fromZone === toZone)

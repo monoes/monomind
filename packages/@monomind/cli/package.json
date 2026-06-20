@@ -72,7 +72,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc --noEmitOnError false || true",
+    "build": "tsc --noEmitOnError false || true && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html",
     "test": "vitest run",
     "test:plugin-store": "npx tsx src/plugins/tests/standalone-test.ts",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",

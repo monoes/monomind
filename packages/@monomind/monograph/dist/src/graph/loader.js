@@ -18,24 +18,23 @@ export function loadGraphFromEdges(edges) {
 }
 export function loadGraphFromDb(db) {
     const nodes = db.prepare('SELECT id FROM nodes').all();
-    const edges = db.prepare('SELECT * FROM edges').all();
+    // Explicitly select only the columns used here — avoids fetching reason/evidence blobs
+    const edges = db.prepare('SELECT id, source_id, target_id, relation, confidence, confidence_score FROM edges').all();
     const graph = new Graph({ multi: true, type: 'directed' });
-    for (const n of nodes) {
-        if (!graph.hasNode(n.id))
-            graph.addNode(n.id);
-    }
+    // Seed known nodes first; edges below may reference node ids not in the nodes table
+    // (defensive: addNode is a no-op guard here, has-check avoided to reduce overhead)
+    for (const n of nodes)
+        graph.mergeNode(n.id);
     for (const e of edges) {
-        if (!graph.hasNode(e.source_id))
-            graph.addNode(e.source_id);
-        if (!graph.hasNode(e.target_id))
-            graph.addNode(e.target_id);
+        graph.mergeNode(e.source_id);
+        graph.mergeNode(e.target_id);
         try {
             graph.addEdge(e.source_id, e.target_id, {
                 id: e.id, relation: e.relation,
                 confidence: e.confidence, confidenceScore: e.confidence_score,
             });
         }
-        catch { /* skip */ }
+        catch { /* skip duplicate edges */ }
     }
     return graph;
 }

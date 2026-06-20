@@ -1,3 +1,10 @@
+## [Unreleased]
+
+### Fixed
+- **Breaking default reverted**: auto-update `minor:true` has been changed back to `minor:false` to prevent silent breaking changes. Users who want minor auto-updates must explicitly set `minor:true` in their monomind config or run `monomind update all` explicitly. Packages affected by this silent default were: `monofence-ai`, `@monoes/monograph`, `@monoes/memory`.
+
+---
+
 # Monomind v1.11 — MonoFence AI, Semantic Routing, and Scheduled Orgs
 
 A major release arc: a new AI manipulation-defence package under its own npm name, real

@@ -20,6 +20,8 @@ export interface BoundaryViolation {
 export declare function loadMonographConfig(repoRoot: string): MonographConfig;
 /**
  * Classify a file path into a zone name. Returns null if no zone matches.
+ * Compiles the glob patterns on every call — use classifyZoneCompiled with
+ * precompiled zones for hot paths.
  */
 export declare function classifyZone(filePath: string, zones: ZoneConfig[]): string | null;
 /**

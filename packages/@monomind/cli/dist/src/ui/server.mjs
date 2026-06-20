@@ -4997,6 +4997,21 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ------------------------------------------------------------------ GET /api/workflow-runs
+    if (req.method === 'GET' && url === '/api/workflow-runs') {
+      try {
+        const runsFile = path.join(os.homedir(), '.monomind', 'browse-runs.json');
+        if (!fs.existsSync(runsFile)) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('[]'); return; }
+        const runs = JSON.parse(fs.readFileSync(runsFile, 'utf-8'));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(Array.isArray(runs) ? runs : []));
+      } catch (err) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('[]');
+      }
+      return;
+    }
+
     // ------------------------------------------------------------------ 404
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');

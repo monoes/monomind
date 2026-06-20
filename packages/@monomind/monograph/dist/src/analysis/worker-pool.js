@@ -5,23 +5,45 @@ let _globalPool = null;
 export class WorkerPool {
     threads;
     stackSizeMb;
+    _active = 0;
+    _queue = [];
     constructor(opts = {}) {
         this.threads = opts.threads ?? cpus().length;
         this.stackSizeMb = opts.stackSizeMb ?? DEFAULT_STACK_SIZE_MB;
     }
     run(workerScript, input) {
         return new Promise((resolve, reject) => {
-            const worker = new Worker(workerScript, {
-                workerData: input,
+            this._queue.push({ script: workerScript, input, resolve: resolve, reject });
+            this._drain();
+        });
+    }
+    _drain() {
+        while (this._active < this.threads && this._queue.length > 0) {
+            const task = this._queue.shift();
+            this._active++;
+            const worker = new Worker(task.script, {
+                workerData: task.input,
                 resourceLimits: { stackSizeMb: this.stackSizeMb },
             });
-            worker.on('message', (v) => resolve(v));
-            worker.on('error', reject);
-            worker.on('exit', code => {
-                if (code !== 0)
-                    reject(new Error(`Worker exited with code ${code}`));
+            const cleanup = () => {
+                this._active--;
+                this._drain();
+            };
+            worker.on('message', (v) => {
+                task.resolve(v);
+                cleanup();
             });
-        });
+            worker.on('error', (err) => {
+                task.reject(err);
+                cleanup();
+            });
+            worker.on('exit', (code) => {
+                if (code !== 0) {
+                    task.reject(new Error(`Worker exited with code ${code}`));
+                    cleanup();
+                }
+            });
+        }
     }
 }
 export function configureGlobalPool(threads, stackSizeMb) {

@@ -2,6 +2,8 @@ import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
 export declare function insertNode(db: Database.Database, node: MonographNode): void;
 export declare function insertNodes(db: Database.Database, nodes: MonographNode[]): void;
+/** Batch-fetch multiple nodes by ID using a single SQL IN query. Batches at 50 IDs. */
+export declare function getNodesByIds(db: Database.Database, ids: string[]): MonographNode[];
 export declare function getNode(db: Database.Database, id: string): MonographNode | undefined;
 export declare function getNodesForFile(db: Database.Database, filePath: string): MonographNode[];
 export declare function deleteNodesForFile(db: Database.Database, filePath: string): void;

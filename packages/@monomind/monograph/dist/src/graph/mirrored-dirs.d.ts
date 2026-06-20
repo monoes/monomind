@@ -25,4 +25,8 @@ export interface MirroredDirResult {
     remaining: CloneFamily[];
 }
 export declare function detectMirroredFamilies(families: CloneFamily[], root: string): MirroredDirResult;
+/**
+ * Format a MirroredDirsReport as structured text for LLM consumption.
+ */
+export declare function formatMirroredDirs(report: MirroredDirsReport): string;
 //# sourceMappingURL=mirrored-dirs.d.ts.map

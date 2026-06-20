@@ -1,9 +1,16 @@
 export function makeProjectState(files, workspaces) {
-    const pathToId = new Map(files.map(f => [f.path, f.fileId]));
-    return { files, pathToId, workspaces };
+    // Build both lookup maps in a single pass to avoid intermediate arrays
+    const pathToId = new Map();
+    const idToFile = new Map();
+    for (const f of files) {
+        pathToId.set(f.path, f.fileId);
+        idToFile.set(f.fileId, f);
+    }
+    return { files, pathToId, idToFile, workspaces };
 }
 export function fileById(state, fileId) {
-    return state.files.find(f => f.fileId === fileId);
+    // O(1) lookup via idToFile map instead of O(N) linear scan
+    return state.idToFile.get(fileId);
 }
 export function idForPath(state, filePath) {
     return state.pathToId.get(filePath);
@@ -36,10 +43,14 @@ export function filesInWorkspace(state, workspace) {
 export class PackageResolver {
     entries;
     constructor(workspaces) {
-        this.entries = workspaces
-            .filter(w => w.name)
-            .map(w => ({ root: w.root, name: w.name }))
-            .sort((a, b) => b.root.length - a.root.length);
+        // Combine filter + map into a single for-of loop to avoid 2 intermediate arrays
+        const named = [];
+        for (const w of workspaces) {
+            if (w.name)
+                named.push({ root: w.root, name: w.name });
+        }
+        named.sort((a, b) => b.root.length - a.root.length);
+        this.entries = named;
     }
     resolvePackage(filePath) {
         const normalized = filePath.replace(/\\/g, '/');
