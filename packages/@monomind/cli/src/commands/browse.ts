@@ -5,6 +5,9 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import { createWorkflowCommand } from './browse-workflow.js';
+import { createActionCommand } from './browse-action.js';
+import { createPlatformCommand } from './browse-platform.js';
 import type { CdpClient, ElementRef, NetworkRoute, FindAction } from '../browser/index.js';
 
 // Runtime state (single session per CLI process)
@@ -1933,6 +1936,70 @@ const resizeCommand: Command = {
 };
 
 // ---------------------------------------------------------------------------
+// Commander-to-internal adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Wraps a commander.Command instance as an internal Command object so it can
+ * participate in the browse command's subcommands array.  The adapter
+ * reconstructs a raw argv string from the context that was parsed by the
+ * internal CLI, then hands it off to commander's parseAsync.
+ */
+function wrapCommanderCommand(factory: () => import('commander').Command): Command {
+  // Lazily instantiate so we don't pay import cost at startup
+  let _cmd: import('commander').Command | null = null;
+  const getCmd = () => {
+    if (!_cmd) _cmd = factory();
+    return _cmd;
+  };
+
+  const cmd = getCmd();
+  const subcommandDefs: Command[] = (cmd.commands as import('commander').Command[]).map((sub) => ({
+    name: sub.name(),
+    description: sub.description(),
+    action: async (ctx: CommandContext): Promise<CommandResult> => {
+      // Rebuild argv: node <cmd> <sub> [positional args] [--flag [value] ...]
+      const argv = ['node', cmd.name(), sub.name(), ...ctx.args];
+      for (const [key, val] of Object.entries(ctx.flags)) {
+        if (key === '_') continue;
+        if (typeof val === 'boolean') {
+          if (val) argv.push(`--${key}`);
+        } else if (val !== undefined && val !== null) {
+          argv.push(`--${key}`, String(val));
+        }
+      }
+      // Re-use the same commander instance to keep state (e.g. option defaults)
+      await getCmd().parseAsync(argv, { from: 'user' });
+      return { success: true };
+    },
+  }));
+
+  return {
+    name: cmd.name(),
+    description: cmd.description(),
+    subcommands: subcommandDefs,
+    action: async (ctx: CommandContext): Promise<CommandResult> => {
+      // No subcommand provided — show commander help
+      const argv = ['node', cmd.name(), ...ctx.args];
+      for (const [key, val] of Object.entries(ctx.flags)) {
+        if (key === '_') continue;
+        if (typeof val === 'boolean') {
+          if (val) argv.push(`--${key}`);
+        } else if (val !== undefined && val !== null) {
+          argv.push(`--${key}`, String(val));
+        }
+      }
+      await getCmd().parseAsync(argv, { from: 'user' });
+      return { success: true };
+    },
+  };
+}
+
+const workflowSubcommand: Command = wrapCommanderCommand(createWorkflowCommand);
+const actionSubcommand: Command = wrapCommanderCommand(createActionCommand);
+const platformSubcommand: Command = wrapCommanderCommand(createPlatformCommand);
+
+// ---------------------------------------------------------------------------
 // Root browse command
 // ---------------------------------------------------------------------------
 
@@ -1992,6 +2059,9 @@ const browseCommand: Command = {
     harCommand,
     resizeCommand,
     closeCommand,
+    workflowSubcommand,
+    actionSubcommand,
+    platformSubcommand,
   ],
   options: [
     { name: 'port', short: 'p', type: 'number', description: 'CDP debug port', default: 9222 },
