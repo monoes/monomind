@@ -27,6 +27,10 @@ describe('resolveExpression', () => {
     expect(resolveExpression('{{$node.trigger.url}}', item, nodeOutputs, params)).toBe('https://linkedin.com/post/123');
   });
 
+  it('resolves $node bracket notation', () => {
+    expect(resolveExpression('{{$node["trigger"].url}}', item, nodeOutputs, params)).toBe('https://linkedin.com/post/123');
+  });
+
   it('returns raw string if no template markers', () => {
     expect(resolveExpression('plain text', item, nodeOutputs, params)).toBe('plain text');
   });
