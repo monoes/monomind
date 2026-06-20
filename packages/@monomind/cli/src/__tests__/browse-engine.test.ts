@@ -116,4 +116,18 @@ describe('runWorkflow', () => {
     expect(record.status).toBe('failed');
     expect(record.error).toContain('No handler registered');
   });
+
+  it('core.filter keeps matching items', async () => {
+    const def: WorkflowDef = {
+      id: 'wf-filter', name: 'Filter',
+      nodes: [
+        { id: 'trigger', type: 'trigger.manual', config: { items: [{ data: { x: 1 } }, { data: { x: 2 } }, { data: { x: 3 } }] } },
+        { id: 'filter', type: 'core.filter', config: { expression: '{{$json.x}}' } },
+      ],
+      connections: [{ from: 'trigger', to: 'filter' }],
+    };
+    const record = await runWorkflow(def);
+    expect(record.status).toBe('completed');
+    expect(record.itemsProcessed).toBeGreaterThan(0);
+  });
 });
