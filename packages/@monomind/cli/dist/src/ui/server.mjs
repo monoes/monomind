@@ -5,6 +5,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem, _tokPrice, _tokCost } from './collector.mjs';
+import { addSseClient, removeSseClient, broadcast, getSseClientCount, closeSseClients, addMmClient, removeMmClient, broadcastMm, getMmClientCount } from './sse-manager.mjs';
 
 const JSONL_SIZE_CAP = 10 * 1024 * 1024; // 10 MB — skip files larger than this in /api/graph
 const buildDocsState = new Map();
@@ -156,10 +157,7 @@ function pathToSections(filename) {
   return ['sessions', 'swarm', 'agents', 'tokens', 'hooks'];
 }
 
-// SSE client registry
-const sseClients = new Set();
-// Mastermind real-time event stream clients
-const mmSseClients = new Set();
+// SSE client registry and broadcast functions are provided by sse-manager.mjs.
 // Active org run tracking: org -> runId (enables event routing for orgs without runId in payload)
 const activeOrgRuns = new Map();
 // Active session tracking: org -> {sessionId, ts} (enables linking agent events to sessions)
@@ -204,21 +202,6 @@ let currentPort = null;
 let currentUrl = null;
 let activeServer = null;
 const activeWatchers = [];
-
-/**
- * Broadcasts a data payload to all connected SSE clients.
- * Silently removes clients that have disconnected.
- */
-function broadcast(data) {
-  const msg = `data: ${JSON.stringify(data)}\n\n`;
-  for (const client of sseClients) {
-    try {
-      client.write(msg);
-    } catch {
-      sseClients.delete(client);
-    }
-  }
-}
 
 /**
  * Opens a URL in the default browser, cross-platform.
@@ -537,8 +520,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       } catch (_) {}
     }
     // Broadcast to all mastermind SSE clients
-    const msg = `data: ${JSON.stringify(event)}\n\n`;
-    for (const c of mmSseClients) { try { c.write(msg); } catch (_) { mmSseClients.delete(c); } }
+    broadcastMm(event);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     res.end('{"ok":true}');
   }
@@ -3270,11 +3252,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         }
       }, 20_000);
 
-      sseClients.add(res);
+      addSseClient(res);
 
       req.on('close', () => {
         clearInterval(keepAlive);
-        sseClients.delete(res);
+        removeSseClient(res);
       });
 
       // Send the initial snapshot immediately
@@ -4190,8 +4172,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         // Emit org:approval:resolved event so boss agent unblocks
         const event = { type: 'org:approval:resolved', org: orgName, approval_id: approvalId, status, ts: Date.now() };
         try { fs.appendFileSync(path.join(path.resolve(_postApprovalsQs.get('dir') || projectDir || process.cwd()), 'data', 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch(_) {}
-        const msg = `data: ${JSON.stringify(event)}\n\n`;
-        for (const c of mmSseClients) { try { c.write(msg); } catch(_) { mmSseClients.delete(c); } }
+        broadcastMm(event);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ ok: true, status }));
       } catch(_) { res.writeHead(500); res.end('{}'); }
@@ -4585,8 +4566,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         // Emit org:delete event
         const deleteEvent = { type: 'org:delete', org: orgName, ts: Date.now() };
         try { fs.appendFileSync(path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl'), JSON.stringify(deleteEvent) + '\n'); } catch(_) {}
-        const msg = `data: ${JSON.stringify(deleteEvent)}\n\n`;
-        for (const c of mmSseClients) { try { c.write(msg); } catch(_) { mmSseClients.delete(c); } }
+        broadcastMm(deleteEvent);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end('{"ok":true}');
       } catch(_) { res.writeHead(500); res.end('{}'); }
@@ -4610,8 +4590,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           fs.mkdirSync(stopDir, { recursive: true });
           fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
         } catch(_) {}
-        const msg = `data: ${JSON.stringify(stopEvent)}\n\n`;
-        for (const c of mmSseClients) { try { c.write(msg); } catch(_) { mmSseClients.delete(c); } }
+        broadcastMm(stopEvent);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end('{"ok":true}');
       } catch(_) { res.writeHead(500); res.end('{}'); }
@@ -4718,7 +4697,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         'Access-Control-Allow-Origin': '*',
       });
       res.write(': connected\n\n');
-      mmSseClients.add(res);
+      addMmClient(res);
       // Replay last 50 events from disk
       try {
         const root2 = projectDir || process.cwd();
@@ -4726,8 +4705,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const lines = fs.readFileSync(evFile, 'utf8').trim().split('\n').filter(Boolean).slice(-50);
         for (const l of lines) res.write(`data: ${l}\n\n`);
       } catch (_) {}
-      const ka = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) { clearInterval(ka); mmSseClients.delete(res); } }, 20000);
-      req.on('close', () => { mmSseClients.delete(res); clearInterval(ka); });
+      const ka = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) { clearInterval(ka); removeMmClient(res); } }, 20000);
+      req.on('close', () => { removeMmClient(res); clearInterval(ka); });
       return;
     }
 
@@ -4904,7 +4883,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           ts: Date.now(),
           uptime: process.uptime(),
           dir: root,
-          sseClients: mmSseClients.size,
+          sseClients: getMmClientCount(),
           activeOrgs: Object.keys(orgRuns).length,
           orgRuns,
           recentEvents,
@@ -4971,6 +4950,48 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ tokens, swarm, recentEvents: events }));
       } catch(_) { res.writeHead(500); res.end('{"tokens":{},"swarm":{},"recentEvents":[]}'); }
+      return;
+    }
+
+    // ------------------------------------------------------------------ GET /api/workflow-defs
+    if (req.method === 'GET' && url === '/api/workflow-defs') {
+      try {
+        const dir = path.join(projectDir || process.cwd(), '.monomind', 'workflows');
+        if (!fs.existsSync(dir)) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('[]'); return; }
+        const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+        const defs = files.map(f => {
+          try {
+            const full = path.join(dir, f);
+            const raw = JSON.parse(fs.readFileSync(full, 'utf-8'));
+            const stat = fs.statSync(full);
+            return { file: f, path: full, id: raw.id, name: raw.name, description: raw.description, nodeCount: Array.isArray(raw.nodes) ? raw.nodes.length : 0, params: raw.params || [], modifiedAt: stat.mtimeMs };
+          } catch { return null; }
+        }).filter(Boolean).sort((a, b) => b.modifiedAt - a.modifiedAt);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(defs));
+      } catch (err) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('[]');
+      }
+      return;
+    }
+
+    // ------------------------------------------------------------------ GET /api/platform-sessions
+    if (req.method === 'GET' && url === '/api/platform-sessions') {
+      try {
+        const sessFile = path.join(os.homedir(), '.monomind', 'sessions.json');
+        let sessions = [];
+        if (fs.existsSync(sessFile)) {
+          try { sessions = JSON.parse(fs.readFileSync(sessFile, 'utf-8')); } catch { sessions = []; }
+        }
+        const googleToken = !!(process.env['GOOGLE_ACCESS_TOKEN'] || process.env['GSHEETS_TOKEN']);
+        const msToken = !!(process.env['MICROSOFT_ACCESS_TOKEN'] || process.env['MSGRAPH_TOKEN']);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ sessions: Array.isArray(sessions) ? sessions : [], googleToken, msToken }));
+      } catch (err) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ sessions: [], googleToken: false, msToken: false }));
+      }
       return;
     }
 
@@ -5112,14 +5133,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     activeWatchers.length = 0;
 
     // Close all SSE connections
-    for (const client of sseClients) {
-      try {
-        client.end();
-      } catch {
-        // Already ended
-      }
-    }
-    sseClients.clear();
+    closeSseClients();
 
     server.close(() => {
       running = false;
@@ -5150,7 +5164,7 @@ export function getServerStatus() {
     running,
     port: currentPort,
     url: currentUrl,
-    clientCount: sseClients.size,
+    clientCount: getSseClientCount(),
   };
 }
 
