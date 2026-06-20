@@ -15,6 +15,10 @@ import type { ActionDef } from '../action-builder/types.js';
 //   );
 const runStore = new Map<string, RunRecord>();
 
+export function clearRunStore(): void {
+  runStore.clear();
+}
+
 export async function readWorkflow(filePath: string): Promise<WorkflowDef> {
   let raw: string;
   try {
@@ -28,27 +32,32 @@ export async function readWorkflow(filePath: string): Promise<WorkflowDef> {
   } catch {
     throw new Error(`Invalid JSON in workflow file: ${filePath}`);
   }
-  validateWorkflow(def);
-  return def as WorkflowDef;
-}
-
-function validateWorkflow(def: unknown): void {
-  if (typeof def !== 'object' || def === null) {
-    throw new Error('Workflow must be a JSON object');
-  }
-  const w = def as Record<string, unknown>;
-  if (typeof w['id'] !== 'string') {
-    throw new Error('Workflow missing required field: id');
-  }
-  if (typeof w['name'] !== 'string') {
-    throw new Error('Workflow missing required field: name');
-  }
-  if (!Array.isArray(w['nodes'])) {
-    throw new Error('Workflow missing required field: nodes');
-  }
-  if (!Array.isArray(w['connections'])) {
+  if (!isWorkflowDef(def)) {
+    const w = def as Record<string, unknown>;
+    if (typeof w?.['id'] !== 'string') throw new Error('Workflow missing required field: id');
+    if (typeof w?.['name'] !== 'string') throw new Error('Workflow missing required field: name');
+    if (!Array.isArray(w?.['nodes'])) throw new Error('Workflow missing required field: nodes');
     throw new Error('Workflow missing required field: connections');
   }
+  return def;
+}
+
+function validateAction(def: unknown): void {
+  if (typeof def !== 'object' || def === null) throw new Error('Action must be a JSON object');
+  const a = def as Record<string, unknown>;
+  if (typeof a['id'] !== 'string') throw new Error('Action missing required field: id');
+  if (!Array.isArray(a['steps'])) throw new Error('Action missing required field: steps');
+}
+
+function isWorkflowDef(def: unknown): def is WorkflowDef {
+  if (typeof def !== 'object' || def === null) return false;
+  const w = def as Record<string, unknown>;
+  return (
+    typeof w['id'] === 'string' &&
+    typeof w['name'] === 'string' &&
+    Array.isArray(w['nodes']) &&
+    Array.isArray(w['connections'])
+  );
 }
 
 export async function readAction(filePath: string): Promise<ActionDef> {
@@ -64,6 +73,7 @@ export async function readAction(filePath: string): Promise<ActionDef> {
   } catch {
     throw new Error(`Invalid JSON in action file: ${filePath}`);
   }
+  validateAction(def);
   return def as ActionDef;
 }
 
