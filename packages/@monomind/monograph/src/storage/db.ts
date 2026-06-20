@@ -37,6 +37,17 @@ function applyMigrations(db: MonographDb): void {
   db.exec(FTS_SYNC_TRIGGERS);
   db.exec(CREATE_EMBEDDINGS);
   db.exec(CREATE_WIKI_PAGES);
+
+  // Schema version table — tracks incremental column additions.
+  db.exec(`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)`);
+  const row = db.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number | null };
+  const current = row?.v ?? 0;
+
+  if (current < 1) {
+    // v1: added `reason TEXT` to edges
+    try { db.exec('ALTER TABLE edges ADD COLUMN reason TEXT'); } catch { /* already present */ }
+    db.prepare('INSERT OR REPLACE INTO schema_version VALUES (1)').run();
+  }
 }
 
 /** Write to a .tmp file then rename for atomic replacement. */
