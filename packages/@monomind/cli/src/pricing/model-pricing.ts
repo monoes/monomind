@@ -49,6 +49,22 @@ const _ALIAS: Record<string, string> = {
 };
 
 /**
+ * Canonical default model IDs — single source of truth for code that needs
+ * to reference a specific tier without hard-coding a string literal.
+ *
+ * Consumers should import these instead of writing raw model-id strings so
+ * that a model upgrade only requires editing this one object.
+ */
+export const MODEL_DEFAULTS = {
+  /** Fast/cheap routing model (Tier 2). */
+  haiku:  _ALIAS['haiku']  as string,
+  /** Balanced capability model (Tier 3 default). */
+  sonnet: _ALIAS['sonnet'] as string,
+  /** Most capable model (Tier 3 high). */
+  opus:   _ALIAS['opus']   as string,
+} as const;
+
+/**
  * Resolve a raw model string (may include date suffix or @version) to its
  * pricing entry.  Returns `null` when the model is unknown.
  */
