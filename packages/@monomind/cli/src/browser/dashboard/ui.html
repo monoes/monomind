@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>monobrowse dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f1a; color: #ccc; font-family: system-ui,-apple-system,sans-serif; font-size: 13px; min-height: 100vh; }
+#header { background: #1a1a2e; border-bottom: 1px solid #2a2a3e; padding: 10px 16px; display: flex; gap: 10px; align-items: center; }
+.badge { border-radius: 4px; padding: 2px 8px; font-size: 11px; border: 1px solid; }
+.badge-run { background: #22c55e22; border-color: #22c55e55; color: #22c55e; }
+.badge-done { background: #55555522; border-color: #55555544; color: #888; }
+.badge-fail { background: #ef444422; border-color: #ef444444; color: #ef4444; }
+.badge-status-running { background: #7c3aed22; border-color: #7c3aed44; color: #7c3aed; font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+.badge-status-completed { background: #22c55e22; border-color: #22c55e44; color: #22c55e; font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+.badge-status-failed { background: #ef444422; border-color: #ef444444; color: #ef4444; font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+#cards { padding: 14px; display: grid; gap: 12px; }
+.card { background: #1a1a2e; border: 1px solid #7c3aed44; border-radius: 8px; padding: 12px; }
+.card.done { background: #11111f; border-color: #22222f; opacity: .75; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.card-title { color: #ddd; font-weight: 600; }
+.card-meta { display: flex; gap: 10px; align-items: center; font-size: 11px; color: #555; }
+.stop-btn { background: #ef444422; border: 1px solid #ef444444; color: #ef4444; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+.stop-btn:hover { background: #ef444444; }
+.steps { display: grid; gap: 3px; font-size: 11px; font-family: monospace; }
+.step { display: flex; gap: 8px; align-items: center; }
+.step-icon { width: 14px; }
+.step-name { width: 130px; color: #888; }
+.step-name.active { color: #fff; font-weight: 600; }
+.step-meta { color: #555; }
+.step-meta.active { color: #3b82f6; }
+.progress-bar { flex: 1; background: #333; border-radius: 2px; height: 3px; margin-left: 8px; overflow: hidden; }
+.progress-fill { background: #3b82f6; height: 100%; border-radius: 2px; transition: width .3s; }
+.log { margin-top: 8px; background: #0a0a14; border-radius: 4px; padding: 6px 8px; font-family: monospace; font-size: 10px; color: #555; line-height: 1.7; max-height: 80px; overflow: hidden; }
+.log-ts { color: #333; }
+#conn { margin-left: auto; font-size: 10px; }
+</style>
+</head>
+<body>
+<div id="header">
+  <span class="badge badge-run" id="b-run">● 0 running</span>
+  <span class="badge badge-done" id="b-done">✓ 0 completed</span>
+  <span class="badge badge-fail" id="b-fail">✗ 0 failed</span>
+  <span id="conn" style="color:#555">● connecting…</span>
+</div>
+<div id="cards"></div>
+<script>
+const runs = {};
+const logs = {};
+
+function ts(ms) {
+  return new Date(ms).toLocaleTimeString();
+}
+
+function updateHeader() {
+  let run = 0, done = 0, fail = 0;
+  for (const r of Object.values(runs)) {
+    if (r.status === 'running') run++;
+    else if (r.status === 'completed') done++;
+    else if (r.status === 'failed') fail++;
+  }
+  document.getElementById('b-run').textContent = '● ' + run + ' running';
+  document.getElementById('b-done').textContent = '✓ ' + done + ' completed';
+  document.getElementById('b-fail').textContent = '✗ ' + fail + ' failed';
+}
+
+function renderCards() {
+  const sorted = Object.values(runs).sort((a, b) => b.startedAt - a.startedAt);
+  const container = document.getElementById('cards');
+  container.innerHTML = sorted.map(r => {
+    const isRunning = r.status === 'running';
+    const statusClass = r.status === 'running' ? 'badge-status-running' : r.status === 'completed' ? 'badge-status-completed' : 'badge-status-failed';
+    const statusLabel = r.status === 'running' ? 'running' : r.status === 'completed' ? '✓ done' : '✗ failed';
+    const elapsed = ((Date.now() - r.startedAt) / 1000).toFixed(1);
+    const logLines = (logs[r.id] || []).slice(-5);
+    return '<div class="card' + (!isRunning ? ' done' : '') + '">' +
+      '<div class="card-header">' +
+        '<div><span class="card-title">' + r.workflowName + '</span> <span class="' + statusClass + '">' + statusLabel + '</span></div>' +
+        '<div class="card-meta">' +
+          '<span>items: ' + r.itemsProcessed + '/' + r.itemsTotal + '</span>' +
+          '<span>elapsed: ' + elapsed + 's</span>' +
+          (isRunning ? '<button class="stop-btn" onclick="stopRun(\'' + r.id + '\')">stop</button>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="log">' + (logLines.length ? logLines.map(l => '<div><span class="log-ts">' + l.ts + '</span> ' + l.text + '</div>').join('') : '<div style="color:#333">no events yet</div>') + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function stopRun(runId) {
+  fetch('/stop/' + runId, { method: 'POST' }).catch(function() {});
+}
+
+function handleEvent(evt) {
+  const runId = evt.runId;
+  const workflowName = evt.workflowName;
+  const workflowId = evt.workflowId;
+  const eventType = evt.eventType;
+  const nodeName = evt.nodeName;
+  const error = evt.error;
+  const durationMs = evt.durationMs;
+  const timestamp = evt.timestamp;
+
+  if (!runs[runId]) {
+    runs[runId] = { id: runId, workflowId: workflowId, workflowName: workflowName, status: 'running', startedAt: timestamp, itemsProcessed: 0, itemsTotal: 0 };
+  }
+  if (!logs[runId]) logs[runId] = [];
+
+  if (eventType === 'run_started') {
+    runs[runId].status = 'running';
+  } else if (eventType === 'step_completed') {
+    runs[runId].itemsProcessed = (runs[runId].itemsProcessed || 0) + (evt.itemTotal || 0);
+    logs[runId].push({ ts: ts(timestamp), text: nodeName + ' → done (' + durationMs + 'ms)' });
+  } else if (eventType === 'step_failed') {
+    logs[runId].push({ ts: ts(timestamp), text: '<span style="color:#ef4444">' + nodeName + ' → FAILED: ' + error + '</span>' });
+  } else if (eventType === 'run_completed') {
+    runs[runId].status = 'completed';
+  } else if (eventType === 'run_stopped') {
+    runs[runId].status = error ? 'failed' : 'stopped';
+  }
+
+  updateHeader();
+  renderCards();
+}
+
+function connect() {
+  const connEl = document.getElementById('conn');
+  let transport = 'ws';
+  let sock;
+  try {
+    sock = new WebSocket('ws://' + location.host + '/ws');
+  } catch (e) {
+    transport = 'sse';
+  }
+
+  if (transport === 'ws' && sock) {
+    connEl.textContent = '● connecting…';
+    connEl.style.color = '#555';
+    sock.onopen = function() { connEl.textContent = '● live'; connEl.style.color = '#22c55e'; };
+    sock.onmessage = function(e) {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'history') {
+        msg.runs.forEach(function(r) { runs[r.id] = r; });
+        renderCards();
+        updateHeader();
+      } else {
+        handleEvent(msg);
+      }
+    };
+    sock.onclose = function() { connEl.textContent = '● reconnecting…'; connEl.style.color = '#f59e0b'; setTimeout(connect, 2000); };
+  } else {
+    const es = new EventSource('/events');
+    es.onopen = function() { connEl.textContent = '● live (sse)'; connEl.style.color = '#22c55e'; };
+    es.onmessage = function(e) { handleEvent(JSON.parse(e.data)); };
+    es.onerror = function() { connEl.textContent = '● reconnecting…'; connEl.style.color = '#f59e0b'; };
+  }
+}
+
+connect();
+</script>
+</body>
+</html>
