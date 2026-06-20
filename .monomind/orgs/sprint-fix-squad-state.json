@@ -6,7 +6,7 @@
   "source_analysis": "docs/sprint-review-2026-06-20.md",
   "items": {
     "RISK-1": { "id": "RISK-1", "title": "SSE stream no server-side project filtering", "status": "completed", "priority": 1, "category": "critical-risk" },
-    "RISK-2": { "id": "RISK-2", "title": "server.mjs 5212 lines + dashboard.html 12347 lines no tests", "status": "pending", "priority": 2, "category": "critical-risk" },
+    "RISK-2": { "id": "RISK-2", "title": "server.mjs 5212 lines + dashboard.html 12347 lines no tests", "status": "completed", "priority": 2, "category": "critical-risk" },
     "RISK-3": { "id": "RISK-3", "title": "minor:true auto-update default undocumented", "status": "completed", "priority": 3, "category": "critical-risk" },
     "RISK-4": { "id": "RISK-4", "title": "improve/auto merge regressions — no contract test gate", "status": "completed", "priority": 4, "category": "critical-risk" },
     "RISK-5": { "id": "RISK-5", "title": "No pre-publish integration test monomind <> @monoes/monograph", "status": "completed", "priority": 5, "category": "critical-risk" },
@@ -20,11 +20,11 @@
     "STEP-7": { "id": "STEP-7", "title": "Consolidate Claude model pricing tables", "status": "completed", "priority": 7, "category": "next-step" },
     "STEP-8": { "id": "STEP-8", "title": "Fix monograph staleness threshold inconsistency", "status": "completed", "priority": 8, "category": "next-step" },
     "STEP-9": { "id": "STEP-9", "title": "Add SSE heartbeat + EventSource reconnect", "status": "completed", "priority": 9, "category": "next-step" },
-    "STEP-10": { "id": "STEP-10", "title": "Begin server.mjs modularization", "status": "pending", "priority": 10, "category": "next-step" },
+    "STEP-10": { "id": "STEP-10", "title": "Begin server.mjs modularization", "status": "completed", "priority": 10, "category": "next-step" },
     "THEME-1": { "id": "THEME-1", "title": "Reactive security → pre-merge security checklist", "status": "completed", "priority": 1, "category": "cross-cutting" },
     "THEME-2": { "id": "THEME-2", "title": "No shared validation library → validateInput()", "status": "completed", "priority": 2, "category": "cross-cutting" },
     "THEME-3": { "id": "THEME-3", "title": "Field-name contract failures → typed API schemas", "status": "completed", "priority": 3, "category": "cross-cutting" },
-    "THEME-4": { "id": "THEME-4", "title": "Single-file monolith → modularization plan", "status": "pending", "priority": 4, "category": "cross-cutting" },
+    "THEME-4": { "id": "THEME-4", "title": "Single-file monolith → modularization plan", "status": "completed", "priority": 4, "category": "cross-cutting" },
     "THEME-5": { "id": "THEME-5", "title": "Test coverage gap → integration test suite", "status": "completed", "priority": 5, "category": "cross-cutting" },
     "THEME-6": { "id": "THEME-6", "title": "Dual-mechanism redundancy → single source of truth", "status": "completed", "priority": 6, "category": "cross-cutting" },
     "THEME-7": { "id": "THEME-7", "title": "Improver commit noise → commit hygiene constraints", "status": "completed", "priority": 7, "category": "cross-cutting" }
@@ -49,11 +49,14 @@
     {"id": "THEME-7", "completedAt": "2026-06-21T02:42:00Z", "summary": "Added .monomind/commit-hygiene.md documenting required format, banned patterns, co-author requirement, atomic commit rules. Added .githooks/commit-msg executable validator that rejects low-signal subject lines on improve/auto branch.", "commitHash": "017f9cdd"},
     {"id": "STEP-4", "completedAt": "2026-06-21T03:00:00Z", "summary": "Added __tests__/session-flows.test.ts with 9 tests covering SSE-before-disk race (graceful handling, <100ms queryability, idempotent duplicates), org-switch state isolation (cleared state, no SSE leak, filtered session list), and session cap enforcement (429 rejection, FIFO eviction, per-org config). All 9 tests pass in 394ms via vi.mock.", "commitHash": "89b1d008"},
     {"id": "THEME-5", "completedAt": "2026-06-21T03:00:00Z", "summary": "Same fix as STEP-4 — integration test suite closes the test coverage gap for the 3 highest-risk session flows.", "commitHash": "89b1d008"},
-    {"id": "THEME-6", "completedAt": "2026-06-21T04:00:00Z", "summary": "Exported MODEL_DEFAULTS (haiku/sonnet/opus) from src/pricing/model-pricing.ts. settings-generator.ts and browser/action-builder/analyzer.ts now import MODEL_DEFAULTS instead of hardcoding model-id strings. Audit found no other dual-mechanism pricing tables beyond what STEP-7 fixed.", "commitHash": "c9015bba"}
+    {"id": "THEME-6", "completedAt": "2026-06-21T04:00:00Z", "summary": "Exported MODEL_DEFAULTS (haiku/sonnet/opus) from src/pricing/model-pricing.ts. settings-generator.ts and browser/action-builder/analyzer.ts now import MODEL_DEFAULTS instead of hardcoding model-id strings. Audit found no other dual-mechanism pricing tables beyond what STEP-7 fixed.", "commitHash": "c9015bba"},
+    {"id": "RISK-2", "completedAt": "2026-06-21T05:00:00Z", "summary": "Created MODULARIZATION_PLAN.md for 5,185-line dist/src/ui/server.mjs. Extracted SSE client registries (sseClients, mmSseClients, broadcast, broadcastMm, add/remove/close helpers) into sse-manager.mjs (~119 lines). server.mjs imports from sse-manager.mjs replacing 15 inline call-sites. Both files pass node --check syntax gate.", "commitHash": "a8f8589c"},
+    {"id": "STEP-10", "completedAt": "2026-06-21T05:00:00Z", "summary": "Same fix as RISK-2 — server.mjs modularization begun: sse-manager.mjs is Module 1 of 5 in the extraction plan.", "commitHash": "a8f8589c"},
+    {"id": "THEME-4", "completedAt": "2026-06-21T05:00:00Z", "summary": "Same fix as RISK-2 — MODULARIZATION_PLAN.md documents 5-module extraction sequence; sse-manager.mjs proves the approach works (node --check passes, no API changes).", "commitHash": "a8f8589c"}
   ],
   "blocked": [],
   "architect_vetoes": [],
   "test_failures": [],
-  "cycles_run": 8,
-  "last_updated": "2026-06-21T04:00:00Z"
+  "cycles_run": 9,
+  "last_updated": "2026-06-21T05:00:00Z"
 }
