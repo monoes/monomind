@@ -1,9 +1,10 @@
 import type { Item } from './types.js';
 
 const TEMPLATE_RE = /\{\{([^}]+)\}\}/g;
-const cache = new Map<string, RegExpMatchArray[]>();
+type ParsedTemplate = RegExpMatchArray[];
+const cache = new Map<string, ParsedTemplate>();
 
-function extractTemplates(template: string): RegExpMatchArray[] {
+function extractTemplates(template: string): ParsedTemplate {
   if (cache.has(template)) return cache.get(template)!;
   const matches = [...template.matchAll(new RegExp(TEMPLATE_RE.source, 'g'))];
   cache.set(template, matches);
@@ -50,17 +51,28 @@ function resolveToken(
     if (!(key in params)) throw new Error(`Unresolved: params.${key} not provided`);
     return params[key];
   }
-  if (expr.startsWith('$node.')) {
-    const parts = expr.slice(6).split('.');
-    const nodeId = parts[0];
-    const field = parts.slice(1).join('.');
+  if (expr.startsWith('$node.') || expr.startsWith('$node["')) {
+    let nodeId: string;
+    let field: string;
+    if (expr.startsWith('$node["')) {
+      // $node["NodeId"].field
+      const bracketEnd = expr.indexOf('"].');
+      if (bracketEnd === -1) throw new Error(`Unresolved: malformed $node bracket expression: ${expr}`);
+      nodeId = expr.slice(7, bracketEnd);       // slice off '$node["'
+      field = expr.slice(bracketEnd + 3);       // slice off '"].'
+    } else {
+      // $node.NodeId.field
+      const parts = expr.slice(6).split('.');
+      nodeId = parts[0];
+      field = parts.slice(1).join('.');
+    }
     const items = nodeOutputs[nodeId];
     if (!items || items.length === 0) throw new Error(`Unresolved: $node.${nodeId} has no output`);
     const val = items[0].data[field];
     if (val === undefined) throw new Error(`Unresolved: $node.${nodeId}.${field} not found`);
     return val;
   }
-  // Named ref (from find step) — caller resolves these at execution time
+  // Named ref (e.g. {{box}} from a find step) — action executor resolves these using its element handle map
   return `{{${expr}}}`;
 }
 
