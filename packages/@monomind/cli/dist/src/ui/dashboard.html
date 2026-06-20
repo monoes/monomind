@@ -449,8 +449,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .hv2-val.red   { color: var(--red); }
 
 /* ── alerts rail ─────────────────────────────────────────── */
-#alerts-rail { display: none; flex-shrink: 0; border-bottom: 1px solid var(--border); padding: 0 16px; min-height: 36px; flex-direction: row; gap: 8px; align-items: center; overflow-x: auto; }
-#alerts-rail.has-alerts { display: flex; }
+#alerts-rail { display: none !important; }
+#alerts-rail.has-alerts { display: none !important; }
 .alert-item { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 4px 10px; border-radius: 10px; cursor: default; white-space: nowrap; user-select: none; }
 .alert-item:hover .al-x { opacity: 1; }
 .alert-warn { background: oklch(72% 0.18 75 / 0.1); color: oklch(78% 0.18 75); border: 1px solid oklch(72% 0.18 75 / 0.25); }
@@ -1497,9 +1497,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <span id="live-cost-ticker" title="Current session accumulated cost"></span>
     <span id="topbar-activity"></span>
     <div id="tb-right">
-      <button class="btn" onclick="openMastermind()" style="color:oklch(65% 0.16 295);border-color:oklch(65% 0.16 295 / 0.4)" title="Mastermind — orgs, skills, loops, metrics">⬡ Mastermind</button>
-      <button class="btn" onclick="switchView('orgs')" title="Manage autonomous organisations" style="color:oklch(70% 0.14 185);border-color:oklch(70% 0.14 185 / 0.4)">⬡ Orgs</button>
-      <button class="btn" onclick="switchView('orgs')" title="Manage autonomous organisations" style="color:oklch(70% 0.14 185);border-color:oklch(70% 0.14 185 / 0.4)">⬡ Orgs</button>
       <button class="btn" id="btn-budget" onclick="openBudgetModal()" title="Set daily/monthly cost budget">⚑ Budget</button>
       <button class="btn" onclick="openCmdPalette()">⌕ Search <kbd style="font-size:10px;opacity:0.6;margin-left:3px">⌘K</kbd></button>
       <button class="btn" onclick="openShortcutHelp()" title="Keyboard shortcuts (?)">? Help</button>
@@ -4147,7 +4144,7 @@ async function loadChatViewSessions() {
     // include events that arrived via SSE right before the fetch, so we preserve their
     // buffered events and merge them back after (same pattern as _odtLoadChatSessions).
     const _prevChatSessions = { ...chatVSessions };
-    const data = await apiFetch('/api/mastermind/sessions');
+    const data = await apiFetch('/api/mastermind/sessions' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
     chatVSessions = {};
     chatVGroupMap = {};
     chatVSessionGroupMap = {};
@@ -4374,7 +4371,7 @@ function appendChatViewEvent(ev, animate) {
     const _auTok = (ev.tokens_in || ev.tokens_out) ? ((ev.tokens_in||0)).toLocaleString() + '↑ ' + ((ev.tokens_out||0)).toLocaleString() + '↓' : '';
     el = mkCVSys('◈ ' + esc(_auAgent) + (_auTok ? ' · ' + _auTok : '') + (_auCost ? ' · ' + _auCost : ''), ts);
   } else if (ev.type === 'agent:message') {
-    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || '', ts, ev.type);
+    el = mkCVAgent(ev.agent || ev.name || ev.role || '?', ev.msg || ev.message || ev.content || '', ts, ev.type);
   } else if (ev.type === 'session:start') {
     el = mkCVSys('Session started' + (ev.prompt ? ': ' + esc(ev.prompt.slice(0,80)) : ''), ts);
   } else if (ev.type === 'session:complete') {
@@ -4421,7 +4418,7 @@ function appendChatViewEvent(ev, animate) {
 function _cvExcerptText(ev) {
   const t = ev.type || '';
   if (t === 'intercom' || t === 'org:comms') return (ev.from || ev.role || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
-  if (t === 'agent:message') return (ev.agent || ev.name || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
+  if (t === 'agent:message') return (ev.agent || ev.name || ev.role || '?') + ': ' + (ev.msg || ev.message || ev.content || '').slice(0, 80);
   if (t === 'agent:result') return (ev.agent || ev.from || '?') + ': ' + (ev.result || ev.msg || ev.message || ev.summary || '').slice(0, 80);
   if (t === 'agent:spawn') return 'spawned ' + (ev.to || ev.agent || ev.role || '?') + (ev.task || ev.briefing ? ': ' + (ev.task || ev.briefing || '').slice(0, 50) : '');
   if (t === 'org:agent:online') return (ev.title || ev.role || '?') + ' online';
@@ -4556,7 +4553,7 @@ function connectChatViewSSE() {
   if (chatVSseSource) return;
   const dot = document.getElementById('chat-v-live-dot');
   const lbl = document.getElementById('chat-v-live-lbl');
-  chatVSseSource = new EventSource('/api/mastermind-stream');
+  chatVSseSource = new EventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
   chatVSseSource.onopen = () => { dot && dot.classList.add('on'); lbl && (lbl.textContent = 'LIVE'); };
   chatVSseSource.onmessage = e => {
     try { handleChatViewEvent(JSON.parse(e.data)); } catch(_) {}
@@ -4581,6 +4578,7 @@ function handleChatViewEvent(ev) {
   // Org events (org:comms, org:agent:online, org:checkpoint, etc.) may carry a session field
   // from the org run's session ID — route them directly to the feed if the session matches,
   // or append them unconditionally when the chat view is showing the "live" placeholder.
+  if (ev.project && DIR && ev.project !== DIR) return;
   const isOrgEvent = ev.type && (ev.type.startsWith('org:') || ev.type.startsWith('run:') || ev.type.startsWith('loop:'));
   if (!ev.session && !isOrgEvent) return;
   if (ev.session) {
@@ -7029,7 +7027,7 @@ function _odtOrgSessionMatch(s) {
     const after = str[idx + prefix.length];
     return after === undefined || !/[a-z0-9_-]/.test(after);
   };
-  if (_orgBound(prompt, 'running org: ' + orgLc) || _orgBound(prompt, 'org: ' + orgLc)) return true;
+  if (_orgBound(prompt, 'running org: ' + orgLc) || _orgBound(prompt, 'org: ' + orgLc) || _orgBound(prompt, 'running ' + orgLc + ' org:')) return true;
   return (s.events || []).some(ev => (ev.org || '').toLowerCase() === orgLc);
 }
 
@@ -7208,7 +7206,7 @@ async function _odtLoadChatSessions() {
       // Orgs running via _repeat loops emit session:start/complete events to the mastermind
       // event store; these never appear in the run list and are otherwise invisible.
       try {
-        const _mmSessR = await apiFetch('/api/mastermind/sessions');
+        const _mmSessR = await apiFetch('/api/mastermind/sessions' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
         if (_v2SelOrg === _loadedForOrg) {
           const _mmAll = Array.isArray(_mmSessR) ? _mmSessR : Object.values(_mmSessR.sessions || {});
           const _mmMatch = _mmAll.filter(_odtOrgSessionMatch).filter(s => !_odtChatSessions.find(x => x.id === s.id));
@@ -7238,7 +7236,7 @@ async function _odtLoadChatSessions() {
   if (_v2SelOrg !== _loadedForOrg) return;
   // Fallback: mastermind lifecycle events (pre-run-file era sessions)
   try {
-    const r = await apiFetch('/api/mastermind/sessions');
+    const r = await apiFetch('/api/mastermind/sessions' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
     if (_v2SelOrg !== _loadedForOrg) return;
     const all = Array.isArray(r) ? r : Object.values(r.sessions || {});
     _odtChatSessions = all.filter(_odtOrgSessionMatch).map(s => {
@@ -7394,7 +7392,7 @@ function _odtPopulateChatSel() {
   });
 
   // Render [S] groups (collapsed loop reps)
-  groups.forEach(g => {
+  sessGroups.forEach(g => {
     const d = new Date(g.ts || 0);
     const ts = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const date = d.toLocaleDateString([],{month:'short',day:'numeric'});
@@ -7801,7 +7799,7 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'intercom') {
     el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
   } else if (ev.type === 'agent:message') {
-    el = mkCVAgent(ev.agent || ev.name || '?', ev.msg || ev.message || '', ts, ev.type);
+    el = mkCVAgent(ev.agent || ev.name || ev.role || '?', ev.msg || ev.message || ev.content || '', ts, ev.type);
   } else if (ev.type === 'session:start') {
     el = mkCVSys('▶ ' + esc((ev.prompt || '').replace(/^running org:\s*/i,'').slice(0,80) || 'Session started'), ts);
   } else if (ev.type === 'session:complete') {
@@ -7846,7 +7844,7 @@ function _odtConnectChatSSE() {
   if (_odtChatSseSource) return;
   const dot = document.getElementById('odt-chat-live-dot');
   const lbl = document.getElementById('odt-chat-live-lbl');
-  _odtChatSseSource = new EventSource('/api/mastermind-stream');
+  _odtChatSseSource = new EventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
   _odtChatSseSource.onopen = () => { dot?.classList.add('on'); if (lbl) lbl.textContent = 'LIVE'; };
   _odtChatSseSource.onmessage = e => {
     try { _odtHandleLiveEvent(JSON.parse(e.data)); } catch(_) {}
@@ -7865,6 +7863,7 @@ function _odtConnectChatSSE() {
 }
 
 function _odtHandleLiveEvent(ev) {
+  if (ev?.project && DIR && ev.project !== DIR) return;
   // Deduplicate SSE reconnect replays (server replays last 50 events on every reconnect)
   const _odtDedupKey = (ev?.ts||'') + '|' + (ev?.type||'') + '|' + (ev?.runId||ev?.session||'') + '|' + (ev?.from||ev?.role||ev?.agent||'') + '|' + (ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
   if (_odtChatSeenKeys.has(_odtDedupKey)) return;
@@ -8538,7 +8537,7 @@ function filterOrgList(q) {
     if (src) src.close();
     // Do NOT reset seenKeys here — the server replays ~50 events on every reconnect and
     // clearing the set lets all replays through, duplicating _v2OrgEventLog and _activity entries.
-    src = new EventSource('/api/mastermind-stream');
+    src = new EventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
     src.onmessage = e => {
       try {
         const ev = JSON.parse(e.data);
