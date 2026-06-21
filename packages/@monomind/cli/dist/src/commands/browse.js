@@ -2120,6 +2120,59 @@ const highlightCommand = {
         return { success: true };
     },
 };
+const diffCommand = {
+    name: 'diff',
+    description: 'Compare two URLs or snapshots. Usage: monomind browse diff url <url1> <url2> [--interactive] [--json]',
+    options: [
+        { name: 'interactive', short: 'i', type: 'boolean', description: 'Snapshot interactive elements only', default: false },
+        { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
+    ],
+    action: async (ctx) => {
+        const { client, sessionId } = await ensureConnected(_port);
+        const browser = await getBrowser();
+        const subAction = ctx.args[0];
+        if (subAction === 'url') {
+            const url1 = ctx.args[1];
+            const url2 = ctx.args[2];
+            if (!url1 || !url2)
+                throw new Error('Usage: monomind browse diff url <url1> <url2>');
+            // Capture snapshot at url1
+            await browser.openUrl(client, sessionId, url1);
+            await browser.waitFor(client, sessionId, { load: 'load', timeout: 15000 });
+            const snap1 = await browser.captureSnapshot(client, sessionId, { interactiveOnly: ctx.flags.interactive });
+            // Capture snapshot at url2
+            await browser.openUrl(client, sessionId, url2);
+            await browser.waitFor(client, sessionId, { load: 'load', timeout: 15000 });
+            const snap2 = await browser.captureSnapshot(client, sessionId, { interactiveOnly: ctx.flags.interactive });
+            _refs = snap2.refs;
+            // Text diff
+            const lines1 = snap1.text.split('\n');
+            const lines2 = snap2.text.split('\n');
+            const set1 = new Set(lines1);
+            const set2 = new Set(lines2);
+            const onlyIn1 = lines1.filter((l) => !set2.has(l));
+            const onlyIn2 = lines2.filter((l) => !set1.has(l));
+            const changed = onlyIn1.length > 0 || onlyIn2.length > 0;
+            if (ctx.flags.json) {
+                print(JSON.stringify({ changed, url1, url2, onlyIn1, onlyIn2, additions: onlyIn2.length, removals: onlyIn1.length }));
+            }
+            else {
+                if (!changed) {
+                    output.printSuccess(`No differences between ${url1} and ${url2}`);
+                }
+                else {
+                    output.printWarning(`Diff: ${url1} vs ${url2} — +${onlyIn2.length} lines, -${onlyIn1.length} lines`);
+                    for (const l of onlyIn1)
+                        print(`\x1b[31m- ${l}\x1b[0m`);
+                    for (const l of onlyIn2)
+                        print(`\x1b[32m+ ${l}\x1b[0m`);
+                }
+            }
+            return { success: true, data: { changed, url1, url2, additions: onlyIn2.length, removals: onlyIn1.length } };
+        }
+        throw new Error('Usage: monomind browse diff url <url1> <url2>');
+    },
+};
 const pushstateCommand = {
     name: 'pushstate',
     description: 'SPA navigation via pushState. Usage: monomind browse pushstate /path',
@@ -2696,6 +2749,7 @@ const browseCommand = {
         isCommand,
         findCommand,
         highlightCommand,
+        diffCommand,
         pushstateCommand,
         batchCommand,
         addinitscriptCommand,

@@ -432,6 +432,11 @@ npx monomind browse snapshot -i --diff ./baselines/homepage.txt --json
 npx monomind browse snapshot --content-boundaries          # wrap output in sentinel markers to prevent injection
 npx monomind browse snapshot --max-output 10000            # truncate to 10k chars (prevents context blowout)
 npx monomind browse snapshot --content-boundaries --max-output 8000  # both together
+
+# Compare two URLs side-by-side (navigates to each, diffs their snapshots)
+npx monomind browse diff url https://staging.example.com https://prod.example.com
+npx monomind browse diff url https://app.com/v1 https://app.com/v2 --interactive
+npx monomind browse diff url https://before.com https://after.com --json
 ```
 
 ### Mobile Testing (Touch Events)
