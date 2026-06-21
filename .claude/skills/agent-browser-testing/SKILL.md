@@ -364,10 +364,11 @@ npx monomind browse wait --text "Done" --timeout 10000
 
 ```bash
 npx monomind browse screenshot before.png
-npx monomind browse screenshot --full page.png    # full-page
-npx monomind browse screenshot --annotate out.png # overlay @eN numbered labels (requires prior snapshot -i)
+npx monomind browse screenshot --full page.png             # full-page
+npx monomind browse screenshot --annotate out.png          # overlay @eN numbered labels (requires prior snapshot -i)
+npx monomind browse screenshot --hide-scrollbars clean.png # hide native scrollbars via CSS injection
 npx monomind browse screenshot --format webp --quality 90 out.webp
-npx monomind browse screenshot --json             # returns path as JSON
+npx monomind browse screenshot --json                      # returns path as JSON
 npx monomind browse pdf ./output.pdf
 npx monomind browse pdf --landscape ./report.pdf
 ```
@@ -741,10 +742,61 @@ npx monomind memory search --query "login flow" --namespace ui-testing
 
 ---
 
+## Electron App Automation
+
+Automate any Electron desktop app (VS Code, Slack, Discord, Figma, Notion, Spotify) via CDP — same snapshot-interact workflow as for web pages.
+
+### Launch with CDP port
+
+```bash
+# macOS — quit the app first if already running
+open -a "Slack"   --args --remote-debugging-port=9222
+open -a "Visual Studio Code" --args --remote-debugging-port=9223
+open -a "Discord" --args --remote-debugging-port=9224
+open -a "Figma"   --args --remote-debugging-port=9225
+open -a "Notion"  --args --remote-debugging-port=9226
+
+# Linux
+slack --remote-debugging-port=9222
+code  --remote-debugging-port=9223
+
+# Windows
+"C:\...\slack.exe" --remote-debugging-port=9222
+```
+
+### Connect and interact
+
+```bash
+# Connect to a specific port
+npx monomind browse connect --port 9222
+
+# Auto-discover any running Chromium-based app on ports 9222 or 9229
+npx monomind browse connect --auto-connect
+
+# Standard workflow from here
+npx monomind browse snapshot -i
+npx monomind browse click @e5
+npx monomind browse screenshot --annotate slack-desktop.png
+```
+
+`--auto-connect` probes ports 9222 and 9229 in order and connects to the first responding Chrome/Electron instance.
+
+### Tab and webview management
+
+Electron apps often have multiple windows or embedded webviews:
+
+```bash
+npx monomind browse tab                  # list all tabs/webviews
+npx monomind browse tab switch 2         # switch to tab index 2
+npx monomind browse tab new              # open a new tab
+```
+
+---
+
 ## Activation Checklist
 
 When this skill fires:
-- [ ] Get the URL (ask if not provided)
+- [ ] Get the URL (ask if not provided — or use `--auto-connect` for Electron apps)
 - [ ] Run `open` + `errors` baseline
 - [ ] Run all 7 QA phases (or subset the user requested)
 - [ ] Screenshot key states: initial, post-action, errors, mobile
