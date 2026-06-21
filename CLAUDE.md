@@ -49,6 +49,8 @@
 | `@monomind/hooks`    | `packages/@monomind/hooks/`    | 17 hooks + 12 workers                  |
 | `@monomind/memory`   | `packages/@monomind/memory/`   | AgentDB + HNSW search                  |
 | `@monomind/security` | `packages/@monomind/security/` | Input validation, CVE remediation      |
+| `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
+| `@monoes/monoplaybook`| `packages/@monoes/monoplaybook/`| Multi-transport playbooks (browser/HTTP/CLI/MCP)|
 
 ## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
 
