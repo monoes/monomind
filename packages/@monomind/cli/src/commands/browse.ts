@@ -8,7 +8,7 @@ import { output } from '../output.js';
 import { createWorkflowCommand } from './browse-workflow.js';
 import { createActionCommand } from './browse-action.js';
 import { createPlatformCommand } from './browse-platform.js';
-import type { CdpClient, ElementRef, NetworkRoute, FindAction } from '../browser/index.js';
+import type { CdpClient, ElementRef, NetworkRoute, FindAction } from '@monoes/monobrowse';
 
 // Runtime state (single session per CLI process)
 let _client: CdpClient | null = null;
@@ -18,7 +18,7 @@ let _port = 9222;
 let _refs: Map<string, ElementRef> = new Map();
 
 async function getBrowser() {
-  return import('../browser/index.js');
+  return import('@monoes/monobrowse');
 }
 
 async function ensureConnected(port: number, targetId?: string) {

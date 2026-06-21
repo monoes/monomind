@@ -1,0 +1,38 @@
+{
+  "name": "@monoes/monoplaybook",
+  "version": "1.0.0",
+  "description": "Multi-transport automation playbooks — browser (CDP), HTTP, CLI, and MCP actions in a unified recipe format",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "automation",
+    "playbook",
+    "browser-automation",
+    "api-automation",
+    "mcp",
+    "monomind"
+  ],
+  "author": {
+    "name": "nokhodian",
+    "email": "nokhodian@gmail.com",
+    "url": "https://github.com/nokhodian"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monoes/monomind.git",
+    "directory": "packages/@monoes/monoplaybook"
+  },
+  "dependencies": {
+    "@monoes/monobrowse": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
