@@ -23,9 +23,9 @@ export interface OrgStatusResponse {
 
 export interface RunRecord {
   /** Stable run identifier (UUID or monotonic ID). */
-  runId: string;
+  id: string;
   workflowId: string;
-  startedAt: string; // ISO-8601 timestamp
+  startedAt: number; // Unix ms timestamp
   itemsProcessed: number;
   status: string;
 }
