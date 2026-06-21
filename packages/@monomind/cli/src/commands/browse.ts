@@ -342,12 +342,14 @@ const waitCommand: Command = {
       const MAX_DOWNLOAD_TIMEOUT = 5 * 60 * 1000; // I6: cap at 5 minutes
       const rawTimeout = Math.min((ctx.flags.timeout as number) ?? 30000, MAX_DOWNLOAD_TIMEOUT);
       const finalPath = await new Promise<string>((resolve, reject) => {
-        const tid = setTimeout(() => reject(new Error('Download timed out')), rawTimeout);
         let guid = '';
         // C2: capture off() functions to avoid listener leaks
         const offBegin = client.on('Browser.downloadWillBegin', (params: Record<string, unknown>) => { guid = params.guid as string; });
         let offProgress: (() => void) | undefined;
+        // cleanup defined before setTimeout so the timeout callback can call it
+        let tid: ReturnType<typeof setTimeout>;
         const cleanup = () => { clearTimeout(tid); offBegin?.(); offProgress?.(); };
+        tid = setTimeout(() => { cleanup(); reject(new Error('Download timed out')); }, rawTimeout);
         offProgress = client.on('Browser.downloadProgress', async (params: Record<string, unknown>) => {
           if (params.guid === guid && params.state === 'completed') {
             cleanup();
@@ -1415,14 +1417,16 @@ const downloadCommand: Command = {
 
     // Track when download completes
     const downloadPromise = new Promise<string>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Download timed out')), ctx.flags.timeout as number);
       let guid = '';
       // C2: capture off() functions to avoid listener leaks in batch mode
       const offBegin = client.on('Browser.downloadWillBegin', (params: Record<string, unknown>) => {
         guid = params.guid as string;
       });
       let offProgress: (() => void) | undefined;
+      // cleanup defined before setTimeout so the timeout callback can call it
+      let timeout: ReturnType<typeof setTimeout>;
       const cleanup = () => { clearTimeout(timeout); offBegin?.(); offProgress?.(); };
+      timeout = setTimeout(() => { cleanup(); reject(new Error('Download timed out')); }, ctx.flags.timeout as number);
       offProgress = client.on('Browser.downloadProgress', async (params: Record<string, unknown>) => {
         if (params.guid === guid && params.state === 'completed') {
           cleanup();
