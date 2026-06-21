@@ -278,6 +278,7 @@ const waitCommand = {
         { name: 'fn', type: 'string', description: 'Wait until JS expression returns truthy' },
         { name: 'ms', type: 'number', description: 'Wait N milliseconds' },
         { name: 'timeout', short: 't', type: 'number', description: 'Timeout in ms', default: 30000 },
+        { name: 'download', type: 'string', description: 'Wait for a file download to complete and save to path (monitors Browser.downloadProgress events)' },
     ],
     action: async (ctx) => {
         const { client, sessionId } = await ensureConnected(_port);
@@ -319,6 +320,44 @@ const waitCommand = {
                 await new Promise((r) => setTimeout(r, interval));
             }
             throw new Error(`Timeout waiting for text to disappear: "${target}"`);
+        }
+        if (ctx.flags.download) {
+            const savePath = ctx.flags.download;
+            const { mkdir } = await import('fs/promises');
+            const { dirname, join } = await import('path');
+            const { tmpdir } = await import('os');
+            const downloadDir = join(tmpdir(), `mm-dl-wait-${Date.now()}`);
+            await mkdir(downloadDir, { recursive: true });
+            await client.send('Browser.setDownloadBehavior', {
+                behavior: 'allow', downloadPath: downloadDir, eventsEnabled: true,
+            }, undefined).catch(() => client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir }, sessionId).catch(() => { }));
+            const rawTimeout = ctx.flags.timeout ?? 30000;
+            const finalPath = await new Promise((resolve, reject) => {
+                const tid = setTimeout(() => reject(new Error('Download timed out')), rawTimeout);
+                let guid = '';
+                client.on('Browser.downloadWillBegin', (params) => { guid = params.guid; });
+                client.on('Browser.downloadProgress', async (params) => {
+                    if (params.guid === guid && params.state === 'completed') {
+                        clearTimeout(tid);
+                        const { readdir, rename } = await import('fs/promises');
+                        const files = await readdir(downloadDir);
+                        if (files.length > 0) {
+                            const src = join(downloadDir, files[0]);
+                            await mkdir(dirname(savePath), { recursive: true });
+                            await rename(src, savePath);
+                            resolve(savePath);
+                        }
+                        else
+                            reject(new Error('Download completed but no file found'));
+                    }
+                    else if (params.guid === guid && params.state === 'canceled') {
+                        clearTimeout(tid);
+                        reject(new Error('Download was canceled'));
+                    }
+                });
+            });
+            output.printSuccess(`Download saved: ${finalPath}`);
+            return { success: true, data: { path: finalPath } };
         }
         await browser.waitFor(client, sessionId, {
             url: ctx.flags.url,
@@ -689,7 +728,10 @@ const setCommand = {
 };
 const stateCommand = {
     name: 'state',
-    description: 'Manage browser session state. Usage: monomind browse state save|load|list [name]',
+    description: 'Manage browser session state. Usage: monomind browse state save|load|list|rename|clean [name]',
+    options: [
+        { name: 'older-than', type: 'number', description: 'For state clean: remove sessions older than N days' },
+    ],
     action: async (ctx) => {
         const browser = await getBrowser();
         const action = ctx.args[0];
@@ -758,8 +800,50 @@ const stateCommand = {
                 output.printSuccess('Browser state cleared (cookies, localStorage, sessionStorage, refs)');
                 return { success: true };
             }
+            case 'rename': {
+                const oldName = ctx.args[1];
+                const newName = ctx.args[2];
+                if (!oldName || !newName)
+                    throw new Error('Usage: monomind browse state rename <old-name> <new-name>');
+                const sessions = await browser.listSessions();
+                if (!sessions.includes(oldName))
+                    throw new Error(`Session not found: ${oldName}`);
+                const { rename, readFile, writeFile, mkdir: mkdirRename } = await import('fs/promises');
+                const { join: joinR } = await import('path');
+                const { homedir } = await import('os');
+                const sessionDir = joinR(homedir(), '.monomind', 'browser-sessions');
+                const oldPath = joinR(sessionDir, `${oldName}.json`);
+                const newPath = joinR(sessionDir, `${newName}.json`);
+                const data = JSON.parse(await readFile(oldPath, 'utf8'));
+                data.name = newName;
+                await mkdirRename(sessionDir, { recursive: true });
+                await writeFile(newPath, JSON.stringify(data, null, 2), 'utf8');
+                await rename(oldPath, '/dev/null').catch(() => { });
+                output.printSuccess(`Session renamed: ${oldName} → ${newName}`);
+                return { success: true };
+            }
+            case 'clean': {
+                const days = ctx.flags['older-than'] ?? 7;
+                const { unlink, stat } = await import('fs/promises');
+                const { join: joinC } = await import('path');
+                const { homedir: homedirC } = await import('os');
+                const sessionDir = joinC(homedirC(), '.monomind', 'browser-sessions');
+                const sessions = await browser.listSessions();
+                const cutoff = Date.now() - days * 86400 * 1000;
+                let removed = 0;
+                for (const name of sessions) {
+                    const p = joinC(sessionDir, `${name}.json`);
+                    const s = await stat(p).catch(() => null);
+                    if (s && s.mtimeMs < cutoff) {
+                        await unlink(p).catch(() => { });
+                        removed++;
+                    }
+                }
+                output.printSuccess(`Cleaned ${removed} session(s) older than ${days} days`);
+                return { success: true, data: { removed } };
+            }
             default:
-                throw new Error(`Unknown action: ${action}. Use: save|load|list|show|clear`);
+                throw new Error(`Unknown action: ${action}. Use: save|load|list|show|clear|rename|clean`);
         }
     },
 };
