@@ -103,7 +103,7 @@ export async function runWorkflow(
       emit({ nodeId, nodeName, eventType: 'step_started', itemTotal: inputItems.length });
 
       try {
-        const outputs = await executeNode(node, inputItems, handlers, nodeOutputs, params);
+        const outputs = await executeNode(node, inputItems, handlers, nodeOutputs, params, def.allowEnvAccess);
         nodeOutputs.set(nodeId, outputs);
         itemsProcessed += outputs.length;
         emit({ nodeId, nodeName, eventType: 'step_completed', durationMs: Date.now() - t0, itemTotal: outputs.length });
@@ -157,6 +157,7 @@ async function executeNode(
   handlers: Map<string, NodeHandler>,
   nodeOutputs: Map<string, Item[]>,
   params: Record<string, string>,
+  allowEnvAccess?: boolean,
 ): Promise<Item[]> {
   const allOutputs: Record<string, Item[]> = Object.fromEntries(nodeOutputs);
   const { type, config } = node;
@@ -169,7 +170,7 @@ async function executeNode(
 
   if (type === 'core.set') {
     return inputs.map(item => {
-      const resolved = resolveConfig(config, item, allOutputs, params);
+      const resolved = resolveConfig(config, item, allOutputs, params, allowEnvAccess);
       return { ...item, data: { ...item.data, ...resolved } };
     });
   }
@@ -178,7 +179,7 @@ async function executeNode(
     const predicate = config['expression'] as string;
     return inputs.filter(item => {
       try {
-        return Boolean(resolveExpression(predicate, item, allOutputs, params));
+        return Boolean(resolveExpression(predicate, item, allOutputs, params, allowEnvAccess));
       } catch {
         return false;
       }
@@ -188,7 +189,7 @@ async function executeNode(
   if (type === 'core.if') {
     const predicate = config['expression'] as string;
     return inputs.map(item => {
-      const result = Boolean(resolveExpression(predicate, item, allOutputs, params));
+      const result = Boolean(resolveExpression(predicate, item, allOutputs, params, allowEnvAccess));
       return { ...item, data: { ...item.data, __ifResult: result } };
     });
   }
@@ -196,6 +197,6 @@ async function executeNode(
   // action.* — delegate to registered handler
   const handler = handlers.get(type);
   if (!handler) throw new Error(`No handler registered for node type: ${type}`);
-  const resolvedConfig = resolveConfig(config, inputs[0] ?? { data: {} }, allOutputs, params);
+  const resolvedConfig = resolveConfig(config, inputs[0] ?? { data: {} }, allOutputs, params, allowEnvAccess);
   return handler(inputs, resolvedConfig);
 }

@@ -1,6 +1,9 @@
 import type { Item } from './types.js';
 
 const TEMPLATE_PATTERN = '\\{\\{([^}]+)\\}\\}';
+
+/** Env var names matching this pattern are blocked from $env expressions to prevent secret exfiltration. */
+const ENV_DENYLIST = /(_KEY|_TOKEN|_SECRET|_PASSWORD|_JWT|_API_KEY|_PRIVATE_KEY)$/i;
 type ParsedTemplate = RegExpMatchArray[];
 const cache = new Map<string, ParsedTemplate>();
 
@@ -21,6 +24,7 @@ export function resolveExpression(
   item: Item,
   nodeOutputs: Record<string, Item[]>,
   params: Record<string, string>,
+  allowEnvAccess?: boolean,
 ): string {
   const matches = extractTemplates(template);
   if (matches.length === 0) return template;
@@ -28,7 +32,7 @@ export function resolveExpression(
   let result = template;
   for (const match of matches) {
     const expr = match[1].trim();
-    const value = resolveToken(expr, item, nodeOutputs, params);
+    const value = resolveToken(expr, item, nodeOutputs, params, allowEnvAccess);
     result = result.split(match[0]).join(String(value));
   }
   return result;
@@ -39,6 +43,7 @@ function resolveToken(
   item: Item,
   nodeOutputs: Record<string, Item[]>,
   params: Record<string, string>,
+  allowEnvAccess?: boolean,
 ): unknown {
   if (expr.startsWith('$json.')) {
     const key = expr.slice(6);
@@ -47,6 +52,11 @@ function resolveToken(
   }
   if (expr.startsWith('$env.')) {
     const key = expr.slice(5);
+    if (!allowEnvAccess && ENV_DENYLIST.test(key)) {
+      throw new Error(
+        `Blocked: env var "${key}" matches secret pattern. Set allowEnvAccess: true in workflow config to override.`,
+      );
+    }
     const val = process.env[key];
     if (val === undefined) throw new Error(`Unresolved: $env.${key} not set`);
     return val;
@@ -87,10 +97,11 @@ export function resolveConfig(
   item: Item,
   nodeOutputs: Record<string, Item[]>,
   params: Record<string, string>,
+  allowEnvAccess?: boolean,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(config)) {
-    result[k] = typeof v === 'string' ? resolveExpression(v, item, nodeOutputs, params) : v;
+    result[k] = typeof v === 'string' ? resolveExpression(v, item, nodeOutputs, params, allowEnvAccess) : v;
   }
   return result;
 }
