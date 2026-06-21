@@ -56,7 +56,9 @@
   },
   "dependencies": {
     "semver": "^7.6.0",
-    "@monoes/monograph": "^1.2.1"
+    "@monoes/monograph": "^1.2.1",
+    "@monoes/monobrowse": "workspace:*",
+    "@monoes/monoplaybook": "workspace:*"
   },
   "overrides": {
     "hono": ">=4.12.21",

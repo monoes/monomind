@@ -8,7 +8,7 @@ import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { getAdapter } from '../browser/adapters/index.js';
+import { getAdapter } from '@monoes/monobrowse';
 
 const CDP_PORT = Number(process.env['MONOMIND_CDP_PORT'] ?? 9222);
 
