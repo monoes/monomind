@@ -339,24 +339,32 @@ const waitCommand: Command = {
       }, undefined).catch(() =>
         client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir }, sessionId).catch(() => {})
       );
-      const rawTimeout = (ctx.flags.timeout as number) ?? 30000;
+      const MAX_DOWNLOAD_TIMEOUT = 5 * 60 * 1000; // I6: cap at 5 minutes
+      const rawTimeout = Math.min((ctx.flags.timeout as number) ?? 30000, MAX_DOWNLOAD_TIMEOUT);
       const finalPath = await new Promise<string>((resolve, reject) => {
         const tid = setTimeout(() => reject(new Error('Download timed out')), rawTimeout);
         let guid = '';
-        client.on('Browser.downloadWillBegin', (params: Record<string, unknown>) => { guid = params.guid as string; });
-        client.on('Browser.downloadProgress', async (params: Record<string, unknown>) => {
+        // C2: capture off() functions to avoid listener leaks
+        const offBegin = client.on('Browser.downloadWillBegin', (params: Record<string, unknown>) => { guid = params.guid as string; });
+        let offProgress: (() => void) | undefined;
+        const cleanup = () => { clearTimeout(tid); offBegin?.(); offProgress?.(); };
+        offProgress = client.on('Browser.downloadProgress', async (params: Record<string, unknown>) => {
           if (params.guid === guid && params.state === 'completed') {
-            clearTimeout(tid);
-            const { readdir, rename } = await import('fs/promises');
+            cleanup();
+            const { readdir, rename, rmdir } = await import('fs/promises');
             const files = await readdir(downloadDir);
             if (files.length > 0) {
               const src = join(downloadDir, files[0]);
               await mkdir(dirname(savePath), { recursive: true });
               await rename(src, savePath);
+              await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
               resolve(savePath);
-            } else reject(new Error('Download completed but no file found'));
+            } else {
+              await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
+              reject(new Error('Download completed but no file found'));
+            }
           } else if (params.guid === guid && params.state === 'canceled') {
-            clearTimeout(tid);
+            cleanup();
             reject(new Error('Download was canceled'));
           }
         });
@@ -385,7 +393,7 @@ const screenshotCommand: Command = {
     { name: 'full', type: 'boolean', description: 'Full page screenshot', default: false },
     { name: 'format', type: 'string', description: 'Format: png|jpeg|webp', default: 'png' },
     { name: 'quality', type: 'number', description: 'Quality 0-100 for jpeg/webp', default: 80 },
-    { name: 'annotate', type: 'boolean', description: 'Overlay numbered labels keyed to @eN refs from last snapshot', default: false },
+    { name: 'annotate', type: 'boolean', description: 'Overlay numbered labels keyed to @eN refs from last snapshot (viewport-only; do not combine with --full)', default: false },
     { name: 'hide-scrollbars', type: 'boolean', description: 'Hide native scrollbars via CSS injection before capture', default: false },
     { name: 'json', type: 'boolean', description: 'Output JSON with path', default: false },
   ],
@@ -790,7 +798,13 @@ const stateCommand: Command = {
         if (!oldName || !newName) throw new Error('Usage: monomind browse state rename <old-name> <new-name>');
         const sessions = await browser.listSessions();
         if (!sessions.includes(oldName)) throw new Error(`Session not found: ${oldName}`);
-        const { rename, readFile, writeFile, mkdir: mkdirRename } = await import('fs/promises');
+        // W1: validate newName to prevent path traversal
+        const { basename: basenameFn } = await import('path');
+        const safeName = basenameFn(newName);
+        if (safeName !== newName || safeName.startsWith('.') || safeName.includes('/')) {
+          throw new Error('Invalid session name — must not contain path separators or start with "."');
+        }
+        const { unlink: unlinkRename, readFile, writeFile, mkdir: mkdirRename } = await import('fs/promises');
         const { join: joinR } = await import('path');
         const { homedir } = await import('os');
         const sessionDir = joinR(homedir(), '.monomind', 'browser-sessions');
@@ -800,7 +814,7 @@ const stateCommand: Command = {
         data.name = newName;
         await mkdirRename(sessionDir, { recursive: true });
         await writeFile(newPath, JSON.stringify(data, null, 2), 'utf8');
-        await rename(oldPath, '/dev/null').catch(() => {});
+        await unlinkRename(oldPath).catch(() => {}); // C1: delete old file (not rename to /dev/null)
         output.printSuccess(`Session renamed: ${oldName} → ${newName}`);
         return { success: true };
       }
@@ -1403,25 +1417,30 @@ const downloadCommand: Command = {
     const downloadPromise = new Promise<string>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Download timed out')), ctx.flags.timeout as number);
       let guid = '';
-      client.on('Browser.downloadWillBegin', (params: Record<string, unknown>) => {
+      // C2: capture off() functions to avoid listener leaks in batch mode
+      const offBegin = client.on('Browser.downloadWillBegin', (params: Record<string, unknown>) => {
         guid = params.guid as string;
       });
-      client.on('Browser.downloadProgress', async (params: Record<string, unknown>) => {
+      let offProgress: (() => void) | undefined;
+      const cleanup = () => { clearTimeout(timeout); offBegin?.(); offProgress?.(); };
+      offProgress = client.on('Browser.downloadProgress', async (params: Record<string, unknown>) => {
         if (params.guid === guid && params.state === 'completed') {
-          clearTimeout(timeout);
+          cleanup();
           // Find the downloaded file in downloadDir
-          const { readdir, rename } = await import('fs/promises');
+          const { readdir, rename, rmdir } = await import('fs/promises');
           const files = await readdir(downloadDir);
           if (files.length > 0) {
             const src = join(downloadDir, files[0]);
             await mkdir(dirname(savePath), { recursive: true });
             await rename(src, savePath);
+            await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
             resolve(savePath);
           } else {
+            await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
             reject(new Error('Download completed but no file found'));
           }
         } else if (params.guid === guid && params.state === 'canceled') {
-          clearTimeout(timeout);
+          cleanup();
           reject(new Error('Download was canceled'));
         }
       });
@@ -1686,8 +1705,19 @@ const windowCommand: Command = {
       const targetId = targetResult.targetId;
       const attachResult = await client.send<{ sessionId: string }>('Target.attachToTarget', { targetId, flatten: true }, undefined);
       const newSessionId = attachResult.sessionId;
-      // Switch active session to new window
+      // W3: fully tear down old session before switching
       const oldSid = _sessionId;
+      if (browser.getHarStatus(oldSid).recording) {
+        try { await browser.stopHarRecording(client, oldSid); } catch { /* ignore */ }
+      }
+      if (browser.getTraceStatus(oldSid)) {
+        try { await browser.stopTrace(client, oldSid); } catch { /* ignore */ }
+      }
+      if (browser.isProfilingActive(oldSid)) {
+        try { await browser.stopCpuProfile(client, oldSid); } catch { /* ignore */ }
+      }
+      browser.teardownRouteInterception(oldSid);
+      browser.stopRequestCapture(oldSid);
       browser.teardownDialogHandling(oldSid);
       browser.teardownConsoleCapture(oldSid);
       _sessionId = newSessionId;
@@ -1943,9 +1973,10 @@ const findCommand: Command = {
 
     // alttext: find element by alt attribute (images, icons)
     if (locator === 'alttext') {
-      const sel = JSON.stringify(value);
+      // I2: use JS attribute comparison to avoid broken CSS selectors for values with spaces/quotes
+      const valJson = JSON.stringify(value);
       const found = await browser.evaluateJs(client, sessionId,
-        `(function(){var el=document.querySelector('img[alt='+${sel}+'], [alt='+${sel}+']');if(el){el.setAttribute('data-mm-located','true');return true;}return false;})()`) as boolean;
+        `(function(v){var el=document.querySelector('img[alt]')||null;var all=document.querySelectorAll('[alt]');for(var i=0;i<all.length;i++){if(all[i].getAttribute('alt')===v){all[i].setAttribute('data-mm-located','true');return true;}}return false;})(${valJson})`) as boolean;
       if (!found) { output.printWarning(`alttext not found: ${value}`); return { success: false }; }
       output.printSuccess(`Found element with alt="${value}"`);
       return { success: true, data: { alttext: value } };
@@ -1953,9 +1984,10 @@ const findCommand: Command = {
 
     // title: find element by title attribute
     if (locator === 'title') {
-      const sel = JSON.stringify(value);
+      // I2: use JS attribute comparison to avoid broken CSS selectors for values with spaces/quotes
+      const valJson = JSON.stringify(value);
       const found = await browser.evaluateJs(client, sessionId,
-        `(function(){var el=document.querySelector('[title='+${sel}+']');if(el){el.setAttribute('data-mm-located','true');return true;}return false;})()`) as boolean;
+        `(function(v){var all=document.querySelectorAll('[title]');for(var i=0;i<all.length;i++){if(all[i].getAttribute('title')===v){all[i].setAttribute('data-mm-located','true');return true;}}return false;})(${valJson})`) as boolean;
       if (!found) { output.printWarning(`title not found: ${value}`); return { success: false }; }
       output.printSuccess(`Found element with title="${value}"`);
       return { success: true, data: { title: value } };
