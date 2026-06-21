@@ -1152,6 +1152,42 @@ const tapCommand: Command = {
   },
 };
 
+const swipeCommand: Command = {
+  name: 'swipe',
+  description: 'Swipe gesture (mobile). Usage: monomind browse swipe up|down|left|right [distance] [--x N] [--y N]',
+  options: [
+    { name: 'x', type: 'number', description: 'Start X coordinate (default: center)', default: 200 },
+    { name: 'y', type: 'number', description: 'Start Y coordinate (default: center)', default: 400 },
+    { name: 'distance', short: 'd', type: 'number', description: 'Swipe distance in pixels', default: 300 },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { client, sessionId } = await ensureConnected(_port);
+    const direction = (ctx.args[0] as string) as 'up' | 'down' | 'left' | 'right';
+    if (!['up', 'down', 'left', 'right'].includes(direction)) {
+      throw new Error('Usage: monomind browse swipe up|down|left|right [--x N] [--y N] [--distance N]');
+    }
+    const startX = (ctx.flags.x as number) ?? 200;
+    const startY = (ctx.flags.y as number) ?? 400;
+    const positionalDistance = ctx.args[1] !== undefined ? parseInt(ctx.args[1] as string, 10) : undefined;
+    const distance = (positionalDistance && Number.isFinite(positionalDistance)) ? positionalDistance : (ctx.flags.distance as number) ?? 300;
+    const dx = direction === 'right' ? distance : direction === 'left' ? -distance : 0;
+    const dy = direction === 'down' ? distance : direction === 'up' ? -distance : 0;
+
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: startX, y: startY }] }, sessionId);
+    const steps = 10;
+    for (let i = 1; i <= steps; i++) {
+      const x = Math.round(startX + dx * i / steps);
+      const y = Math.round(startY + dy * i / steps);
+      await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] }, sessionId);
+      await new Promise((r) => setTimeout(r, 16));
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }, sessionId);
+
+    output.printSuccess(`Swiped ${direction} ${distance}px from (${startX},${startY})`);
+    return { success: true, data: { direction, distance, startX, startY } };
+  },
+};
+
 const scrollIntoViewCommand: Command = {
   name: 'scrollintoview',
   description: 'Scroll element into view. Usage: monomind browse scrollintoview @e1',
@@ -1431,6 +1467,39 @@ const tabCommand: Command = {
   },
 };
 
+const windowCommand: Command = {
+  name: 'window',
+  description: 'Browser window management. Usage: monomind browse window new [url]',
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { client, sessionId: _sid } = await ensureConnected(_port);
+    const browser = await getBrowser();
+    const action = ctx.args[0] as string;
+
+    if (!action || action === 'new') {
+      // Create isolated browser context (incognito-like) with a fresh page
+      const ctxResult = await client.send<{ browserContextId: string }>('Target.createBrowserContext', {}, undefined);
+      const browserContextId = ctxResult.browserContextId;
+      const url = (ctx.args[1] as string) || 'about:blank';
+      const targetResult = await client.send<{ targetId: string }>('Target.createTarget', { url, browserContextId }, undefined);
+      const targetId = targetResult.targetId;
+      const attachResult = await client.send<{ sessionId: string }>('Target.attachToTarget', { targetId, flatten: true }, undefined);
+      const newSessionId = attachResult.sessionId;
+      // Switch active session to new window
+      const oldSid = _sessionId;
+      browser.teardownDialogHandling(oldSid);
+      browser.teardownConsoleCapture(oldSid);
+      _sessionId = newSessionId;
+      _targetId = targetId;
+      _refs = new Map();
+      await browser.enableSessionDomains(client, _sessionId);
+      output.printSuccess(`Opened new window (isolated context): ${targetId} [${url}]`);
+      return { success: true, data: { targetId, browserContextId, sessionId: newSessionId } };
+    }
+
+    throw new Error(`Unknown window action: ${action}. Use: new`);
+  },
+};
+
 const consoleLogCommand: Command = {
   name: 'console',
   description: 'View captured console messages. Usage: monomind browse console [--clear] [--json]',
@@ -1647,7 +1716,7 @@ const isCommand: Command = {
 
 const findCommand: Command = {
   name: 'find',
-  description: 'Find elements by semantic locators. Usage: monomind browse find role|text|label|placeholder|testid|selector <value> [action]',
+  description: 'Find elements by semantic locators. Usage: monomind browse find role|text|label|placeholder|testid|alttext|title|selector <value> [action]',
   options: [
     { name: 'name', type: 'string', description: 'Filter by accessible name' },
     { name: 'exact', type: 'boolean', description: 'Require exact match', default: false },
@@ -1661,7 +1730,7 @@ const findCommand: Command = {
     const value = ctx.args[1] as string;
     const action = ctx.args[2] as FindAction | undefined;
 
-    if (!locator || !value) throw new Error('Usage: monomind browse find role|text|label|placeholder|testid|selector <value> [action]');
+    if (!locator || !value) throw new Error('Usage: monomind browse find role|text|label|placeholder|testid|alttext|title|selector <value> [action]');
 
     const opts = {
       name: ctx.flags.name as string,
@@ -1669,6 +1738,26 @@ const findCommand: Command = {
       nth: ctx.flags.nth as number,
       last: ctx.flags.last as boolean,
     };
+
+    // alttext: find element by alt attribute (images, icons)
+    if (locator === 'alttext') {
+      const sel = JSON.stringify(value);
+      const found = await browser.evaluateJs(client, sessionId,
+        `(function(){var el=document.querySelector('img[alt='+${sel}+'], [alt='+${sel}+']');if(el){el.setAttribute('data-mm-located','true');return true;}return false;})()`) as boolean;
+      if (!found) { output.printWarning(`alttext not found: ${value}`); return { success: false }; }
+      output.printSuccess(`Found element with alt="${value}"`);
+      return { success: true, data: { alttext: value } };
+    }
+
+    // title: find element by title attribute
+    if (locator === 'title') {
+      const sel = JSON.stringify(value);
+      const found = await browser.evaluateJs(client, sessionId,
+        `(function(){var el=document.querySelector('[title='+${sel}+']');if(el){el.setAttribute('data-mm-located','true');return true;}return false;})()`) as boolean;
+      if (!found) { output.printWarning(`title not found: ${value}`); return { success: false }; }
+      output.printSuccess(`Found element with title="${value}"`);
+      return { success: true, data: { title: value } };
+    }
 
     let ref: ElementRef | null = null;
     switch (locator) {
@@ -1684,7 +1773,7 @@ const findCommand: Command = {
         return { success: true, data: { selector: sel } };
       }
       default:
-        throw new Error(`Unknown locator: ${locator}. Use: role|text|label|placeholder|testid|selector`);
+        throw new Error(`Unknown locator: ${locator}. Use: role|text|label|placeholder|testid|alttext|title|selector`);
     }
 
     if (!ref) {
@@ -2244,6 +2333,7 @@ const browseCommand: Command = {
     isenabledCommand,
     ischeckedCommand,
     tapCommand,
+    swipeCommand,
     scrollIntoViewCommand,
     dragCommand,
     uploadCommand,
@@ -2261,6 +2351,7 @@ const browseCommand: Command = {
     dialogCommand,
     frameCommand,
     tabCommand,
+    windowCommand,
     consoleLogCommand,
     errorsCommand,
     storageCommand,
