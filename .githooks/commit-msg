@@ -1,4 +1,10 @@
 #!/bin/bash
+# Skip hook if deps not installed (fresh clone)
+if [ ! -d "packages/@monomind/cli/node_modules" ]; then
+  echo "[commit-msg] Skipping: deps not installed. Run npm install first."
+  exit 0
+fi
+
 # Reject commits on improve/auto that don't follow the sprint-review format
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 if [ "$BRANCH" = "improve/auto" ]; then

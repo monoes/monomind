@@ -3,7 +3,7 @@ import type { Item } from './types.js';
 const TEMPLATE_PATTERN = '\\{\\{([^}]+)\\}\\}';
 
 /** Env var names matching this pattern are blocked from $env expressions to prevent secret exfiltration. */
-const ENV_DENYLIST = /(_KEY|_TOKEN|_SECRET|_PASSWORD|_JWT|_API_KEY|_PRIVATE_KEY)$/i;
+const ENV_DENYLIST = /(_KEY|_TOKEN|_SECRET|_PASSWORD|_JWT|_API_KEY|_PRIVATE_KEY|_PASS|_PWD|_CERT|_PEM|_CREDENTIAL|_CREDENTIALS|_AUTH)$/i;
 type ParsedTemplate = RegExpMatchArray[];
 const cache = new Map<string, ParsedTemplate>();
 
