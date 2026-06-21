@@ -1,0 +1,47 @@
+{
+  "name": "@monoes/monobrowse",
+  "version": "1.0.0",
+  "description": "Native browser automation via Chrome DevTools Protocol — the engine powering monomind browse",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "browser-automation",
+    "cdp",
+    "chrome-devtools-protocol",
+    "monomind",
+    "web-scraping",
+    "accessibility"
+  ],
+  "author": {
+    "name": "nokhodian",
+    "email": "nokhodian@gmail.com",
+    "url": "https://github.com/nokhodian"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monoes/monomind.git",
+    "directory": "packages/@monoes/monobrowse"
+  },
+  "dependencies": {
+    "ws": "^8.21.0"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.20.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "typescript": "^5.8.3"
+  }
+}

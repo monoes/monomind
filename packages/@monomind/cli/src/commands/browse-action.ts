@@ -3,9 +3,8 @@ import { Command } from 'commander';
 import { readdir, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { analyzePageForAction, type AnalyzerPage } from '../browser/action-builder/analyzer.js';
-import { readAction } from '../browser/workflow/store.js';
-import type { ActionDef } from '../browser/action-builder/types.js';
+import { analyzePageForAction, type AnalyzerPage, readAction } from '@monoes/monobrowse';
+import type { ActionDef } from '@monoes/monobrowse';
 
 // Built-in actions (shipped with the CLI) — actual step definitions live in adapters/
 const BUILTIN_ACTIONS: { id: string; platform: string; name: string }[] = [

@@ -18,9 +18,15 @@ importers:
 
   .:
     dependencies:
+      '@monoes/monobrowse':
+        specifier: workspace:*
+        version: link:packages/@monoes/monobrowse
       '@monoes/monograph':
-        specifier: ^1.1.0
-        version: 1.1.0
+        specifier: ^1.2.1
+        version: 1.2.1(graphology-types@0.24.8)
+      '@monoes/monoplaybook':
+        specifier: workspace:*
+        version: link:packages/@monoes/monoplaybook
       semver:
         specifier: ^7.6.0
         version: 7.7.4
@@ -41,38 +47,49 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
 
+  packages/@monoes/monobrowse:
+    dependencies:
+      ws:
+        specifier: '>=8.20.1'
+        version: 8.21.0
+    devDependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.39.0
+        version: 0.39.0
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
   packages/@monoes/monodesign:
     dependencies:
       impeccable:
         specifier: '*'
         version: 2.3.2(typescript@5.9.3)
 
+  packages/@monoes/monoplaybook:
+    dependencies:
+      '@monoes/monobrowse':
+        specifier: workspace:*
+        version: link:../monobrowse
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
   packages/@monomind/cli:
     dependencies:
+      '@monoes/monobrowse':
+        specifier: workspace:*
+        version: link:../../@monoes/monobrowse
       '@monoes/monograph':
+        specifier: ^1.2.1
+        version: 1.2.1(graphology-types@0.24.8)
+      '@monoes/monoplaybook':
         specifier: workspace:*
-        version: link:../monograph
-      '@monomind/guidance':
-        specifier: workspace:*
-        version: link:../guidance
-      '@monomind/hooks':
-        specifier: workspace:*
-        version: link:../hooks
-      '@monomind/mcp':
-        specifier: workspace:*
-        version: link:../mcp
-      '@monomind/routing':
-        specifier: workspace:*
-        version: link:../routing
+        version: link:../../@monoes/monoplaybook
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
-      monofence-ai:
-        specifier: workspace:*
-        version: link:../../monofence-ai
-      semver:
-        specifier: ^7.6.0
-        version: 7.7.4
       ws:
         specifier: '>=8.20.1'
         version: 8.21.0
@@ -88,8 +105,8 @@ importers:
         specifier: ^3.8.1
         version: 3.8.1
       '@monoes/memory':
-        specifier: workspace:*
-        version: link:../memory
+        specifier: ^1.0.0
+        version: 1.0.0(@types/node@20.19.39)(zod@3.25.76)
       agentic-flow:
         specifier: ^3.0.0-alpha.1
         version: 3.0.0-alpha.2(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
@@ -1076,8 +1093,13 @@ packages:
       '@cfworker/json-schema':
         optional: true
 
-  '@monoes/monograph@1.1.0':
-    resolution: {integrity: sha512-fH3gYvzWW+RXA/AStsFcr/8dhiLQ/GdY4Ptjng6QBcGUaybio+mXP3tL/cql5d5+9q9meNsu2lmAp2vvlA5owg==}
+  '@monoes/memory@1.0.0':
+    resolution: {integrity: sha512-G9kvyBOibXEr/5MOBF0QJI2aVClCLM4PYTGd0awBnBj/5SIfGjCwB2MA3d8zm1inYj3zY7B5MQPQVQwMQZ6FFw==}
+    cpu: [x64, arm64]
+    os: [darwin, linux, win32]
+
+  '@monoes/monograph@1.2.1':
+    resolution: {integrity: sha512-dgeDLk1VkGbFCz+k0GpHQyzOKcPsbENiT2q+LVZJmArxfyX4Ti4tnzSbH06L4YYVmBNRKbWpYOsUvW2eubtp4w==}
 
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4':
     resolution: {integrity: sha512-LCkGo6JDfaBhgST7UpPWgNgLINpcpabaHfyz5OBx75nUYxBsaEPxjnyNjWpeb/xBup/682QnBfRBy2/LvPutZQ==}
@@ -5794,7 +5816,6 @@ snapshots:
       node-fetch: 2.7.0
     transitivePeerDependencies:
       - encoding
-    optional: true
 
   '@anthropic-ai/sdk@0.65.0(zod@3.25.76)':
     dependencies:
@@ -6217,22 +6238,55 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@monoes/monograph@1.1.0':
+  '@monoes/memory@1.0.0(@types/node@20.19.39)(zod@3.25.76)':
+    dependencies:
+      agentdb: 3.0.0-alpha.11(@types/node@20.19.39)(zod@3.25.76)
+      better-sqlite3: 11.10.0
+      sql.js: 1.14.1
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - '@types/node'
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
+      - zod
+    optional: true
+
+  '@monoes/monograph@1.2.1(graphology-types@0.24.8)':
     dependencies:
       better-sqlite3: 12.9.0
       chokidar: 3.6.0
+      express: 4.22.1
       graphology: 0.25.4(graphology-types@0.24.8)
       graphology-communities-louvain: 2.0.2(graphology-types@0.24.8)
       graphology-metrics: 2.4.0(graphology-types@0.24.8)
       graphology-shortest-path: 2.1.0(graphology-types@0.24.8)
       graphology-traversal: 0.3.1(graphology-types@0.24.8)
-      graphology-types: 0.24.8
+      micromatch: 4.0.8
       tree-sitter: 0.22.4
+      tree-sitter-c: 0.24.1(tree-sitter@0.22.4)
+      tree-sitter-c-sharp: 0.23.5(tree-sitter@0.22.4)
+      tree-sitter-cpp: 0.23.4(tree-sitter@0.22.4)
+      tree-sitter-dart: 1.0.0
       tree-sitter-go: 0.23.4(tree-sitter@0.22.4)
       tree-sitter-java: 0.23.5(tree-sitter@0.22.4)
+      tree-sitter-kotlin: 0.3.8(tree-sitter@0.22.4)
+      tree-sitter-php: 0.24.2(tree-sitter@0.22.4)
       tree-sitter-python: 0.23.6(tree-sitter@0.22.4)
+      tree-sitter-ruby: 0.23.1(tree-sitter@0.22.4)
       tree-sitter-rust: 0.23.3(tree-sitter@0.22.4)
+      tree-sitter-swift: 0.7.1(tree-sitter@0.22.4)
       tree-sitter-typescript: 0.23.2(tree-sitter@0.22.4)
+      tree-sitter-vue: 0.2.1
+    optionalDependencies:
+      '@anthropic-ai/sdk': 0.39.0
+      '@huggingface/transformers': 3.8.1
+    transitivePeerDependencies:
+      - encoding
+      - graphology-types
+      - supports-color
+      - tree_sitter
 
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4':
     optional: true
@@ -8045,6 +8099,48 @@ snapshots:
       - marked
       - react-native-b4a
       - supports-color
+
+  agentdb@3.0.0-alpha.11(@types/node@20.19.39)(zod@3.25.76):
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
+      '@opentelemetry/api': 1.9.1
+      '@ruvector/graph-transformer': 2.0.4
+      ajv: 8.18.0
+      jsonwebtoken: 9.0.3
+      sql.js: 1.14.1
+    optionalDependencies:
+      '@opentelemetry/resources': 1.30.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-node': 0.52.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/semantic-conventions': 1.40.0
+      '@ruvector/attention': 0.1.32
+      '@ruvector/gnn': 0.1.25
+      '@ruvector/graph-node': 2.0.4
+      '@ruvector/router': 0.1.30
+      '@ruvector/ruvllm': 2.5.5
+      '@ruvector/rvf': 0.1.9
+      '@ruvector/rvf-node': 0.1.8
+      '@ruvector/rvf-solver': 0.1.8
+      '@ruvector/rvf-wasm': 0.1.6
+      '@ruvector/sona': 0.1.6
+      '@xenova/transformers': 2.17.2
+      argon2: 0.44.0
+      better-sqlite3: 11.10.0
+      chalk: 5.6.2
+      commander: 12.1.0
+      hnswlib-node: 3.0.0
+      inquirer: 9.3.8(@types/node@20.19.39)
+      ruvector: 0.1.100(zod@3.25.76)
+      ruvector-attention-wasm: 0.1.32
+      ruvector-graph-transformer-wasm: 2.0.4
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - '@types/node'
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
+      - zod
+    optional: true
 
   agentdb@3.0.0-alpha.11(@types/node@20.19.39)(zod@4.3.6):
     dependencies:

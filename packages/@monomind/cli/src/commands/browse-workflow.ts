@@ -3,14 +3,14 @@ import { Command } from 'commander';
 import { readdir, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { readWorkflow, listRuns, writeRunRecord } from '../browser/workflow/store.js';
-import { runWorkflow } from '../browser/workflow/engine.js';
-import { startDashboard } from '../browser/dashboard/server.js';
-import { createBuiltinHandlers } from '../browser/workflow/builtin-handlers.js';
-import type { WorkflowDef } from '../browser/workflow/types.js';
+import { readWorkflow, listRuns, writeRunRecord, runWorkflow, createBuiltinHandlers } from '@monoes/monobrowse';
+import { startDashboard } from '@monoes/monobrowse';
+import type { WorkflowDef } from '@monoes/monobrowse';
 
 export function createWorkflowCommand(): Command {
-  const cmd = new Command('workflow').description('Manage browser workflows');
+  const cmd = new Command('playbook')
+    .alias('workflow')
+    .description('Manage browser playbooks (saved automation recipes)');
 
   cmd
     .command('create <name>')
