@@ -267,26 +267,46 @@ const waitCommand = {
 };
 const screenshotCommand = {
     name: 'screenshot',
-    description: 'Capture a screenshot. Usage: monomind browse screenshot [path] [--annotate]',
+    description: 'Capture a screenshot. Usage: monomind browse screenshot [path] [--annotate] [--hide-scrollbars]',
     options: [
         { name: 'full', type: 'boolean', description: 'Full page screenshot', default: false },
         { name: 'format', type: 'string', description: 'Format: png|jpeg|webp', default: 'png' },
         { name: 'quality', type: 'number', description: 'Quality 0-100 for jpeg/webp', default: 80 },
         { name: 'annotate', type: 'boolean', description: 'Overlay numbered labels keyed to @eN refs from last snapshot', default: false },
+        { name: 'hide-scrollbars', type: 'boolean', description: 'Hide native scrollbars via CSS injection before capture', default: false },
         { name: 'json', type: 'boolean', description: 'Output JSON with path', default: false },
     ],
     action: async (ctx) => {
         const { client, sessionId } = await ensureConnected(_port);
         const browser = await getBrowser();
+        const hideScrollbars = ctx.flags['hide-scrollbars'];
+        if (hideScrollbars) {
+            await client.send('Runtime.evaluate', {
+                expression: `(function(){var s=document.getElementById('__mm_noscroll__');if(s)return;var el=document.createElement('style');el.id='__mm_noscroll__';el.textContent='*::-webkit-scrollbar{display:none!important}*{scrollbar-width:none!important;-ms-overflow-style:none!important}';document.head.appendChild(el);})()`,
+                returnByValue: false,
+            }, sessionId).catch(() => { });
+        }
         const annotate = ctx.flags.annotate;
-        const result = await browser.captureScreenshot(client, sessionId, {
-            path: ctx.args[0],
-            fullPage: ctx.flags.full,
-            format: ctx.flags.format,
-            quality: ctx.flags.quality,
-            annotate,
-            refs: annotate ? _refs : undefined,
-        });
+        // eslint-disable-next-line prefer-const
+        let result;
+        try {
+            result = await browser.captureScreenshot(client, sessionId, {
+                path: ctx.args[0],
+                fullPage: ctx.flags.full,
+                format: ctx.flags.format,
+                quality: ctx.flags.quality,
+                annotate,
+                refs: annotate ? _refs : undefined,
+            });
+        }
+        finally {
+            if (hideScrollbars) {
+                await client.send('Runtime.evaluate', {
+                    expression: `(function(){var s=document.getElementById('__mm_noscroll__');if(s)s.remove();})()`,
+                    returnByValue: false,
+                }, sessionId).catch(() => { });
+            }
+        }
         if (ctx.flags.json) {
             print(JSON.stringify({ data: { path: result.path } }));
         }
@@ -1801,13 +1821,31 @@ const removeinitscriptCommand = {
 };
 const connectCommand = {
     name: 'connect',
-    description: 'Connect to existing Chrome instance. Usage: monomind browse connect [--port 9222] [--target <id>]',
+    description: 'Connect to existing Chrome instance. Usage: monomind browse connect [--port 9222] [--target <id>] [--auto-connect]',
     options: [
         { name: 'port', short: 'p', type: 'number', description: 'CDP port', default: 9222 },
         { name: 'target', type: 'string', description: 'Target ID to attach to' },
+        { name: 'auto-connect', type: 'boolean', description: 'Auto-discover running Chrome on ports 9222 and 9229', default: false },
     ],
     action: async (ctx) => {
-        const port = ctx.flags.port ?? 9222;
+        let port = ctx.flags.port ?? 9222;
+        if (ctx.flags['auto-connect']) {
+            const probePorts = [9222, 9229];
+            let found = false;
+            for (const p of probePorts) {
+                try {
+                    const r = await fetch(`http://127.0.0.1:${p}/json/version`);
+                    if (r.ok) {
+                        port = p;
+                        found = true;
+                        break;
+                    }
+                }
+                catch { /* port not open */ }
+            }
+            if (!found)
+                throw new Error('No running Chrome instance found. Launch Chrome with --remote-debugging-port or use --port.');
+        }
         const browser = await getBrowser();
         if (_client) {
             const prevSid = _sessionId;
