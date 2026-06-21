@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { startDashboard, getDashboard } from '../browser/dashboard/server.js';
-import type { StepEvent, RunRecord } from '../browser/workflow/types.js';
+import { startDashboard, getDashboard } from '@monoes/monobrowse';
+import type { StepEvent, RunRecord } from '@monoes/monobrowse';
 import { WebSocket } from 'ws';
 import http from 'node:http';
 
