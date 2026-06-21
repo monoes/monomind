@@ -5,6 +5,8 @@ export interface WorkflowDef {
   params?: Record<string, { type?: string; required?: boolean; default?: unknown; description?: string }>;
   nodes: NodeDef[];
   connections: ConnectionDef[];
+  /** Allow $env.* expressions to access env vars that match the secret denylist. Use with caution. */
+  allowEnvAccess?: boolean;
 }
 
 export interface NodeDef {
