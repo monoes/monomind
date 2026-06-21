@@ -59,7 +59,7 @@ export function createActionCommand(): Command {
       try {
         // Dynamic import to avoid crashing if CDP is unavailable
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mod = await (import('../browser/page-factory.js' as string) as Promise<any>).catch(() => null);
+        const mod = await (import('@monoes/monobrowse' as string) as Promise<any>).catch(() => null);
         const createBrowserPage = mod?.createBrowserPage as ((url: string) => Promise<AnalyzerPage>) | null;
         if (!createBrowserPage) {
           throw new Error('Browser CDP client not available. Ensure Chrome is running with --remote-debugging-port=9222');

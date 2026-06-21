@@ -1,7 +1,7 @@
 // src/__tests__/browse-adapters.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { getAdapter, adapters } from '../browser/adapters/index.js';
-import type { PageInterface } from '../browser/adapters/index.js';
+import { getAdapter, adapters } from '@monoes/monobrowse';
+import type { PageInterface } from '@monoes/monobrowse';
 
 function mockPage(isLoggedIn: boolean, username = 'testuser'): PageInterface {
   return {
