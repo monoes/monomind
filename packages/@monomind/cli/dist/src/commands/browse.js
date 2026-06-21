@@ -13,7 +13,7 @@ let _targetId = '';
 let _port = 9222;
 let _refs = new Map();
 async function getBrowser() {
-    return import('../browser/index.js');
+    return import('@monoes/monobrowse');
 }
 async function ensureConnected(port, targetId) {
     const browser = await getBrowser();
@@ -267,21 +267,25 @@ const waitCommand = {
 };
 const screenshotCommand = {
     name: 'screenshot',
-    description: 'Capture a screenshot. Usage: monomind browse screenshot [path]',
+    description: 'Capture a screenshot. Usage: monomind browse screenshot [path] [--annotate]',
     options: [
         { name: 'full', type: 'boolean', description: 'Full page screenshot', default: false },
         { name: 'format', type: 'string', description: 'Format: png|jpeg|webp', default: 'png' },
         { name: 'quality', type: 'number', description: 'Quality 0-100 for jpeg/webp', default: 80 },
+        { name: 'annotate', type: 'boolean', description: 'Overlay numbered labels keyed to @eN refs from last snapshot', default: false },
         { name: 'json', type: 'boolean', description: 'Output JSON with path', default: false },
     ],
     action: async (ctx) => {
         const { client, sessionId } = await ensureConnected(_port);
         const browser = await getBrowser();
+        const annotate = ctx.flags.annotate;
         const result = await browser.captureScreenshot(client, sessionId, {
             path: ctx.args[0],
             fullPage: ctx.flags.full,
             format: ctx.flags.format,
             quality: ctx.flags.quality,
+            annotate,
+            refs: annotate ? _refs : undefined,
         });
         if (ctx.flags.json) {
             print(JSON.stringify({ data: { path: result.path } }));
@@ -429,17 +433,33 @@ const getCommand = {
 };
 const scrollCommand = {
     name: 'scroll',
-    description: 'Scroll the page. Usage: monomind browse scroll up|down|left|right',
+    description: 'Scroll the page. Usage: monomind browse scroll up|down|left|right [amount] [--selector ".sidebar"]',
     options: [
         { name: 'amount', short: 'a', type: 'number', description: 'Pixels to scroll', default: 300 },
         { name: 'ref', type: 'string', description: 'Element ref to scroll within' },
+        { name: 'selector', short: 's', type: 'string', description: 'CSS selector of element to scroll within' },
     ],
     action: async (ctx) => {
         const { client, sessionId } = await ensureConnected(_port);
         const browser = await getBrowser();
         const direction = ctx.args[0];
         if (!direction)
-            throw new Error('Usage: monomind browse scroll up|down|left|right');
+            throw new Error('Usage: monomind browse scroll up|down|left|right [amount]');
+        // Support positional amount: scroll down 300
+        const positionalAmount = ctx.args[1] !== undefined ? parseInt(ctx.args[1], 10) : undefined;
+        const amount = (positionalAmount && Number.isFinite(positionalAmount)) ? positionalAmount : ctx.flags.amount ?? 300;
+        if (ctx.flags.selector) {
+            const sel = ctx.flags.selector;
+            const dx = direction === 'right' ? amount : direction === 'left' ? -amount : 0;
+            const dy = direction === 'down' ? amount : direction === 'up' ? -amount : 0;
+            const posJson = await browser.evaluateJs(client, sessionId, `(function(){var el=document.querySelector(${JSON.stringify(sel)});if(!el)return null;var r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()`);
+            if (!posJson)
+                throw new Error(`Selector not found: ${sel}`);
+            const pos = JSON.parse(posJson);
+            await client.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: pos.x, y: pos.y, deltaX: dx, deltaY: dy }, sessionId);
+            output.printSuccess(`Scrolled ${direction} in ${sel}`);
+            return { success: true };
+        }
         let ref;
         if (ctx.flags.ref) {
             const refKey = ctx.flags.ref.startsWith('@')
@@ -447,7 +467,7 @@ const scrollCommand = {
                 : ctx.flags.ref;
             ref = _refs.get(refKey);
         }
-        await browser.scrollElement(client, sessionId, direction, ctx.flags.amount, ref);
+        await browser.scrollElement(client, sessionId, direction, amount, ref);
         output.printSuccess(`Scrolled ${direction}`);
         return { success: true };
     },
@@ -2040,27 +2060,14 @@ function wrapCommanderCommand(factory) {
         return _cmd;
     };
     const cmd = getCmd();
-    // Allow the commander parent to ignore flags it doesn't recognise — the
-    // Monomind CLI parser injects global flags (e.g. --format, --quiet) into
-    // ctx.flags that have no meaning to the commander sub-tree.
-    cmd.allowUnknownOption(true);
-    /** Return the set of long-option names declared on a commander Command */
-    function knownOptions(c) {
-        return new Set(c.options.map((o) => o.long?.replace(/^--/, '') ?? ''));
-    }
     const subcommandDefs = cmd.commands.map((sub) => ({
         name: sub.name(),
         description: sub.description(),
         action: async (ctx) => {
-            // Rebuild argv for commander's { from: 'user' } mode — no 'node'/'script' prefix.
-            // The sub-command name must be first so commander routes to the right handler.
-            const argv = [sub.name(), ...ctx.args];
-            const known = knownOptions(sub);
+            // Rebuild argv: node <cmd> <sub> [positional args] [--flag [value] ...]
+            const argv = ['node', cmd.name(), sub.name(), ...ctx.args];
             for (const [key, val] of Object.entries(ctx.flags)) {
                 if (key === '_')
-                    continue;
-                // Only forward flags the Commander subcommand actually declares.
-                if (!known.has(key))
                     continue;
                 if (typeof val === 'boolean') {
                     if (val)
@@ -2080,14 +2087,10 @@ function wrapCommanderCommand(factory) {
         description: cmd.description(),
         subcommands: subcommandDefs,
         action: async (ctx) => {
-            // No subcommand provided — show commander help.
-            // { from: 'user' } expects bare args with no 'node'/'script' prefix.
-            const argv = [...ctx.args];
-            const known = knownOptions(cmd);
+            // No subcommand provided — show commander help
+            const argv = ['node', cmd.name(), ...ctx.args];
             for (const [key, val] of Object.entries(ctx.flags)) {
                 if (key === '_')
-                    continue;
-                if (!known.has(key))
                     continue;
                 if (typeof val === 'boolean') {
                     if (val)
@@ -2103,6 +2106,10 @@ function wrapCommanderCommand(factory) {
     };
 }
 const workflowSubcommand = wrapCommanderCommand(createWorkflowCommand);
+// Expose both "playbook" (canonical) and "workflow" (backward-compat alias) in the internal dispatch table.
+// Commander's .alias() only applies at Commander's own parse layer; the internal Command[] table
+// routes by name, so we register both names pointing at the same underlying Commander instance.
+const workflowAliasSubcommand = { ...workflowSubcommand, name: 'workflow' };
 const actionSubcommand = wrapCommanderCommand(createActionCommand);
 const platformSubcommand = wrapCommanderCommand(createPlatformCommand);
 // ---------------------------------------------------------------------------
@@ -2165,6 +2172,7 @@ const browseCommand = {
         resizeCommand,
         closeCommand,
         workflowSubcommand,
+        workflowAliasSubcommand,
         actionSubcommand,
         platformSubcommand,
     ],
