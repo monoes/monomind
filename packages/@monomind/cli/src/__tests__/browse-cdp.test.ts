@@ -61,7 +61,7 @@ vi.mock('ws', () => ({
   WebSocket: FakeWebSocket,
 }));
 
-import { CdpClient } from '../browser/cdp.js';
+import { CdpClient } from '@monoes/monobrowse';
 
 // ---------------------------------------------------------------------------
 // Helpers
