@@ -28,8 +28,8 @@ vi.mock('../browser/index.js', () => ({
   captureScreenshot: vi.fn().mockResolvedValue(null),
 }));
 
-import { createBuiltinHandlers } from '../browser/workflow/builtin-handlers.js';
-import type { Item } from '../browser/workflow/types.js';
+import { createBuiltinHandlers } from '@monoes/monobrowse';
+import type { Item } from '@monoes/monobrowse';
 import * as fsMock from 'node:fs/promises';
 
 function makeItem(data: Record<string, unknown> = {}): Item {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runWorkflow } from '../browser/workflow/engine.js';
-import type { WorkflowDef, Item } from '../browser/workflow/types.js';
+import { runWorkflow } from '@monoes/monobrowse';
+import type { WorkflowDef, Item } from '@monoes/monobrowse';
 
 const triggerNode = { id: 'trigger', type: 'trigger.manual', config: {} };
 

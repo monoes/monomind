@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AnalyzerPage } from '../browser/action-builder/analyzer.js';
+import type { AnalyzerPage } from '@monoes/monobrowse';
 
 // Shared mock instance so tests can override `create` per-test
 const mockCreate = vi.fn().mockResolvedValue({
@@ -40,11 +40,11 @@ function mockPage(url = 'https://linkedin.com/feed', title = 'LinkedIn'): Analyz
 }
 
 describe('analyzePageForAction', () => {
-  let analyzePageForAction: typeof import('../browser/action-builder/analyzer.js')['analyzePageForAction'];
+  let analyzePageForAction: typeof import('@monoes/monobrowse')['analyzePageForAction'];
 
   beforeEach(async () => {
     mockCreate.mockClear();
-    const mod = await import('../browser/action-builder/analyzer.js');
+    const mod = await import('@monoes/monobrowse');
     analyzePageForAction = mod.analyzePageForAction;
   });
 
