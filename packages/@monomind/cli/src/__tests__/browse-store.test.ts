@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readWorkflow, writeRunRecord, listRuns, readAction, clearRunStore } from '../browser/workflow/store.js';
+import { readWorkflow, writeRunRecord, listRuns, readAction, clearRunStore } from '@monoes/monobrowse';
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { WorkflowDef, RunRecord } from '../browser/workflow/types.js';
-import type { ActionDef } from '../browser/action-builder/types.js';
+import type { WorkflowDef, RunRecord } from '@monoes/monobrowse';
+import type { ActionDef } from '@monoes/monobrowse';
 
 const TMP = join(tmpdir(), 'browse-store-test-' + Date.now());
 

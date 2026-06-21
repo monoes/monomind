@@ -66,8 +66,8 @@ export function createPlatformCommand(): Command {
       const timeoutMs = Number(opts.timeout) * 1000;
 
       // Lazy-load browser module
-      let browser: typeof import('../browser/index.js');
-      try { browser = await import('../browser/index.js'); } catch (err) {
+      let browser: typeof import('@monoes/monobrowse');
+      try { browser = await import('@monoes/monobrowse'); } catch (err) {
         console.error('Browser module unavailable:', err);
         process.exit(1);
       }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { WorkflowDef, NodeDef, ConnectionDef, Item, RunRecord, RunStatus } from '../browser/workflow/types.js';
-import type { ActionDef, StepDef } from '../browser/action-builder/types.js';
+import type { WorkflowDef, NodeDef, ConnectionDef, Item, RunRecord, RunStatus } from '@monoes/monobrowse';
+import type { ActionDef, StepDef } from '@monoes/monobrowse';
 
 describe('WorkflowDef', () => {
   it('accepts a valid workflow definition', () => {
