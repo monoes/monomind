@@ -384,6 +384,8 @@ npx monomind browse wait --load domcontentloaded
 npx monomind browse wait --ms 500
 npx monomind browse wait --fn "window.__ready === true"
 npx monomind browse wait --text "Done" --timeout 10000
+npx monomind browse wait --download ./report.pdf    # wait for browser-triggered download to complete
+npx monomind browse wait --download ./data.csv --timeout 15000
 ```
 
 ### Element State Checks (Assertions)
@@ -430,6 +432,11 @@ npx monomind browse snapshot -i --diff ./baselines/homepage.txt --json
 npx monomind browse snapshot --content-boundaries          # wrap output in sentinel markers to prevent injection
 npx monomind browse snapshot --max-output 10000            # truncate to 10k chars (prevents context blowout)
 npx monomind browse snapshot --content-boundaries --max-output 8000  # both together
+
+# Compare two URLs side-by-side (navigates to each, diffs their snapshots)
+npx monomind browse diff url https://staging.example.com https://prod.example.com
+npx monomind browse diff url https://app.com/v1 https://app.com/v2 --interactive
+npx monomind browse diff url https://before.com https://after.com --json
 ```
 
 ### Mobile Testing (Touch Events)
@@ -579,6 +586,8 @@ npx monomind browse state load <name>
 npx monomind browse state list
 npx monomind browse state show        # inspect current active session
 npx monomind browse state clear       # clear current active session
+npx monomind browse state rename <old> <new>           # rename a saved session
+npx monomind browse state clean --older-than 7         # delete sessions older than N days (default: 7)
 ```
 
 ### Performance & Diagnostics
