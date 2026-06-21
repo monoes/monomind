@@ -7,8 +7,18 @@
 //                       or Imagen REST API (GEMINI_API_KEY), or mock mode
 import { writeFile, readFile, mkdir, chmod } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
+
+/** Resolve a user-supplied path and assert it stays within the working directory. */
+function safeResolvePath(rawPath: string): string {
+  const cwd = process.cwd();
+  const safePath = resolve(cwd, rawPath);
+  if (safePath !== cwd && !safePath.startsWith(cwd + '/')) {
+    throw new Error(`Path traversal blocked: "${rawPath}" resolves outside working directory`);
+  }
+  return safePath;
+}
 import type { NodeHandler } from './engine.js';
 import type { Item } from './types.js';
 
@@ -262,7 +272,7 @@ export function createBuiltinHandlers(): Map<string, NodeHandler> {
   handlers.set('action.save_file', async (items, config) => {
     const results: Item[] = [];
     for (const item of items) {
-      const outPath = String(config['path'] ?? './output.txt');
+      const outPath = safeResolvePath(String(config['path'] ?? './output.txt'));
       const field = config['field'] as string | undefined;
       const encoding = String(config['encoding'] ?? 'utf8');
 
@@ -306,7 +316,7 @@ export function createBuiltinHandlers(): Map<string, NodeHandler> {
 
     for (const item of items) {
       const prompt = String(config['prompt'] ?? item.data['prompt'] ?? '');
-      const filePath = outputPath ?? `./output/gemini-image-${Date.now()}.png`;
+      const filePath = safeResolvePath(outputPath ?? `./output/gemini-image-${Date.now()}.png`);
 
       // Priority 1: Browser automation via authenticated Chrome session
       const browserPath = await generateViaGeminiBrowser(prompt, filePath, cdpPort);
