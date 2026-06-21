@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { resolveExpression, resolveConfig } from '../browser/workflow/expression.js';
-import type { Item } from '../browser/workflow/types.js';
+import { resolveExpression, resolveConfig } from '@monoes/monobrowse';
+import type { Item } from '@monoes/monobrowse';
 
 const item: Item = { data: { url: 'https://linkedin.com/post/123', comment: 'Great post!' } };
 const nodeOutputs: Record<string, Item[]> = {
