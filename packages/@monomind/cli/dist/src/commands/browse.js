@@ -119,6 +119,8 @@ const snapshotCommand = {
         { name: 'selector', short: 's', type: 'string', description: 'Scope snapshot to a CSS selector' },
         { name: 'save', type: 'string', description: 'Save snapshot text to file (baseline for --diff)' },
         { name: 'diff', type: 'string', description: 'Compare current snapshot against a saved baseline file' },
+        { name: 'content-boundaries', type: 'boolean', description: 'Wrap output in sentinel markers to prevent page-content injection attacks', default: false },
+        { name: 'max-output', type: 'number', description: 'Truncate output to N characters (prevents context window blowout on large pages)' },
     ],
     action: async (ctx) => {
         const { client, sessionId } = await ensureConnected(_port);
@@ -130,6 +132,18 @@ const snapshotCommand = {
             selector: ctx.flags.selector,
         });
         _refs = result.refs;
+        const applyOutputLimits = (text) => {
+            let out = text;
+            const maxOutput = ctx.flags['max-output'];
+            if (maxOutput && out.length > maxOutput) {
+                out = out.slice(0, maxOutput) + `\n[... truncated at ${maxOutput} chars]`;
+            }
+            if (ctx.flags['content-boundaries']) {
+                const nonce = Math.random().toString(36).slice(2, 10);
+                out = `MONOMIND_PAGE_CONTENT nonce=${nonce} origin=${result.url}\n${out}\nEND_MONOMIND_PAGE_CONTENT nonce=${nonce}`;
+            }
+            return out;
+        };
         // --save: write snapshot text to baseline file
         if (ctx.flags.save) {
             const { writeFile, mkdir } = await import('fs/promises');
@@ -173,9 +187,9 @@ const snapshotCommand = {
                 else {
                     output.printWarning(`Snapshot changed: +${added.length} lines, -${removed.length} lines`);
                     for (const l of added)
-                        print(`+ ${l}`);
+                        print(`\x1b[32m+ ${l}\x1b[0m`);
                     for (const l of removed)
-                        print(`- ${l}`);
+                        print(`\x1b[31m- ${l}\x1b[0m`);
                 }
             }
             return { success: true, data: { changed, additions: added.length, removals: removed.length } };
@@ -186,7 +200,7 @@ const snapshotCommand = {
         }
         else {
             print(`[${result.title}] ${result.url}\n`);
-            print(result.text);
+            print(applyOutputLimits(result.text));
         }
         return { success: true, data: result };
     },
@@ -759,6 +773,10 @@ const networkCommand = {
         { name: 'status', type: 'number', description: 'HTTP status for fulfill', default: 200 },
         { name: 'headers', type: 'string', description: 'JSON headers object' },
         { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
+        { name: 'filter', type: 'string', description: 'Filter requests by URL substring (for network requests)' },
+        { name: 'method', type: 'string', description: 'Filter by HTTP method, e.g. GET, POST (for network requests)' },
+        { name: 'status-code', type: 'number', description: 'Filter by HTTP status code (for network requests)' },
+        { name: 'type', type: 'string', description: 'Filter by resource type: xhr|fetch|document|script|stylesheet|image (for network requests)' },
     ],
     action: async (ctx) => {
         const { client, sessionId } = await ensureConnected(_port);
@@ -818,7 +836,19 @@ const networkCommand = {
                 break;
             }
             case 'requests': {
-                const reqs = browser.getCapturedRequests(sessionId);
+                let reqs = browser.getCapturedRequests(sessionId);
+                const filterUrl = ctx.flags.filter;
+                const filterMethod = ctx.flags.method;
+                const filterStatus = ctx.flags['status-code'];
+                const filterType = ctx.flags.type;
+                if (filterUrl)
+                    reqs = reqs.filter((r) => r.url.includes(filterUrl));
+                if (filterMethod)
+                    reqs = reqs.filter((r) => (r.method ?? 'GET').toUpperCase() === filterMethod.toUpperCase());
+                if (filterStatus)
+                    reqs = reqs.filter((r) => r.status === filterStatus);
+                if (filterType)
+                    reqs = reqs.filter((r) => r.resourceType === filterType || r.type === filterType);
                 if (ctx.flags.json)
                     print(JSON.stringify({ data: reqs }));
                 else {
@@ -831,8 +861,24 @@ const networkCommand = {
                 }
                 return { success: true, data: { requests: reqs } };
             }
+            case 'request': {
+                const reqId = ctx.args[1];
+                if (!reqId)
+                    throw new Error('Usage: monomind browse network request <requestId>');
+                const reqs = browser.getCapturedRequests(sessionId);
+                const req = reqs.find((r) => r.requestId === reqId || r.id === reqId);
+                if (!req) {
+                    output.printWarning(`Request not found: ${reqId}`);
+                    return { success: false };
+                }
+                if (ctx.flags.json)
+                    print(JSON.stringify({ data: req }));
+                else
+                    print(JSON.stringify(req, null, 2));
+                return { success: true, data: { request: req } };
+            }
             default:
-                throw new Error(`Unknown: ${action}. Use: route|unroute|cookies|headers|capture|requests`);
+                throw new Error(`Unknown: ${action}. Use: route|unroute|cookies|headers|capture|requests|request`);
         }
         return { success: true };
     },
@@ -842,13 +888,20 @@ const evalCommand = {
     description: 'Evaluate JavaScript in page context. Usage: monomind browse eval "document.title"',
     options: [
         { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
+        { name: 'stdin', type: 'boolean', description: 'Read JS expression from stdin (heredoc-friendly for multiline scripts)', default: false },
     ],
     action: async (ctx) => {
         const { client, sessionId } = await ensureConnected(_port);
         const browser = await getBrowser();
-        const expr = ctx.args[0];
+        let expr = ctx.args[0];
+        if (ctx.flags.stdin) {
+            const chunks = [];
+            for await (const chunk of process.stdin)
+                chunks.push(chunk);
+            expr = Buffer.concat(chunks).toString('utf8').trim();
+        }
         if (!expr)
-            throw new Error('Usage: monomind browse eval "<expression>"');
+            throw new Error('Usage: monomind browse eval "<expression>" (or pipe with --stdin)');
         const result = await browser.evaluateJs(client, sessionId, expr);
         if (ctx.flags.json) {
             print(JSON.stringify({ data: result }));
@@ -1274,6 +1327,82 @@ const uploadCommand = {
         await browser.uploadFile(client, sessionId, ref, files);
         output.printSuccess(`Uploaded ${files.length} file(s) to @${refKey}`);
         return { success: true };
+    },
+};
+const downloadCommand = {
+    name: 'download',
+    description: 'Click an element and capture the triggered file download. Usage: monomind browse download @e1 ./output.pdf',
+    options: [
+        { name: 'timeout', short: 't', type: 'number', description: 'Max wait for download in ms', default: 30000 },
+        { name: 'json', type: 'boolean', description: 'Output result as JSON', default: false },
+    ],
+    action: async (ctx) => {
+        const { client, sessionId } = await ensureConnected(_port);
+        const browser = await getBrowser();
+        const refOrSel = ctx.args[0];
+        const savePath = ctx.args[1];
+        if (!refOrSel || !savePath)
+            throw new Error('Usage: monomind browse download @e1|selector <save-path>');
+        const { mkdir } = await import('fs/promises');
+        const { dirname } = await import('path');
+        const { tmpdir } = await import('os');
+        const { join } = await import('path');
+        const downloadDir = join(tmpdir(), `mm-download-${Date.now()}`);
+        await mkdir(downloadDir, { recursive: true });
+        // Enable Page.downloadWillBegin / Page.downloadProgress events
+        await client.send('Browser.setDownloadBehavior', {
+            behavior: 'allow',
+            downloadPath: downloadDir,
+            eventsEnabled: true,
+        }, undefined).catch(() => {
+            // Fallback: older Chrome API (session-scoped)
+            return client.send('Page.setDownloadBehavior', {
+                behavior: 'allow',
+                downloadPath: downloadDir,
+            }, sessionId).catch(() => { });
+        });
+        // Track when download completes
+        const downloadPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Download timed out')), ctx.flags.timeout);
+            let guid = '';
+            client.on('Browser.downloadWillBegin', (params) => {
+                guid = params.guid;
+            });
+            client.on('Browser.downloadProgress', async (params) => {
+                if (params.guid === guid && params.state === 'completed') {
+                    clearTimeout(timeout);
+                    // Find the downloaded file in downloadDir
+                    const { readdir, rename } = await import('fs/promises');
+                    const files = await readdir(downloadDir);
+                    if (files.length > 0) {
+                        const src = join(downloadDir, files[0]);
+                        await mkdir(dirname(savePath), { recursive: true });
+                        await rename(src, savePath);
+                        resolve(savePath);
+                    }
+                    else {
+                        reject(new Error('Download completed but no file found'));
+                    }
+                }
+                else if (params.guid === guid && params.state === 'canceled') {
+                    clearTimeout(timeout);
+                    reject(new Error('Download was canceled'));
+                }
+            });
+        });
+        // Click the element to trigger download
+        const objectId = await resolveElementObjectId(client, sessionId, _refs, refOrSel);
+        await client.send('Runtime.callFunctionOn', {
+            functionDeclaration: 'function(){ this.click(); }',
+            objectId,
+            returnByValue: true,
+        }, sessionId);
+        const finalPath = await downloadPromise;
+        if (ctx.flags.json)
+            print(JSON.stringify({ data: { path: finalPath } }));
+        else
+            output.printSuccess(`Downloaded: ${finalPath}`);
+        return { success: true, data: { path: finalPath } };
     },
 };
 const mouseCommand = {
@@ -2157,7 +2286,7 @@ const connectCommand = {
 };
 const recordCommand = {
     name: 'record',
-    description: 'Screen recording. Usage: monomind browse record start|stop|status [path]',
+    description: 'Screen recording. Usage: monomind browse record start|stop|restart|status [path]',
     options: [
         { name: 'format', type: 'string', description: 'jpeg|png', default: 'jpeg' },
         { name: 'quality', type: 'number', description: 'Quality 0-100', default: 80 },
@@ -2168,7 +2297,7 @@ const recordCommand = {
         const browser = await getBrowser();
         const action = ctx.args[0];
         if (!action)
-            throw new Error('Usage: monomind browse record start|stop|status');
+            throw new Error('Usage: monomind browse record start|stop|restart|status');
         switch (action) {
             case 'start':
                 await browser.startRecording(client, sessionId, {
@@ -2185,6 +2314,20 @@ const recordCommand = {
                     output.printSuccess(`Recording saved: ${path}`);
                 return { success: true, data: { path } };
             }
+            case 'restart': {
+                const prevStatus = browser.getRecordingStatus(sessionId);
+                let prevPath;
+                if (prevStatus.recording) {
+                    prevPath = await browser.stopRecording(client, sessionId, ctx.args[1]);
+                    output.printInfo(`Previous recording saved: ${prevPath}`);
+                }
+                await browser.startRecording(client, sessionId, {
+                    format: ctx.flags.format,
+                    quality: ctx.flags.quality,
+                });
+                output.printSuccess('Recording restarted');
+                return { success: true, data: { previous: prevPath } };
+            }
             case 'status': {
                 const status = browser.getRecordingStatus(sessionId);
                 if (ctx.flags.json)
@@ -2194,7 +2337,7 @@ const recordCommand = {
                 return { success: true, data: status };
             }
             default:
-                throw new Error('Usage: monomind browse record start|stop|status [path]');
+                throw new Error('Usage: monomind browse record start|stop|restart|status [path]');
         }
     },
 };
@@ -2445,6 +2588,7 @@ const browseCommand = {
         scrollIntoViewCommand,
         dragCommand,
         uploadCommand,
+        downloadCommand,
         mouseCommand,
         clipboardCommand,
         waitCommand,

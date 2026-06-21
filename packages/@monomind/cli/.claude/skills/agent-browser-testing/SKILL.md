@@ -347,6 +347,8 @@ npx monomind browse scroll down --selector ".sidebar" 300  # scroll within CSS s
 npx monomind browse scrollintoview @eN
 npx monomind browse drag @eN @eM                 # drag source to target
 npx monomind browse upload @eN ./file.pdf        # file input
+npx monomind browse download @eN ./report.pdf   # click element, capture file download
+npx monomind browse download ".export-btn" ./data.csv --timeout 15000
 npx monomind browse highlight @eN               # visual debug highlight
 ```
 
@@ -415,7 +417,7 @@ npx monomind browse isvisible ".success-banner" --json
 # Save current snapshot as baseline
 npx monomind browse snapshot -i --save ./baselines/homepage.txt
 
-# Later: compare against baseline
+# Later: compare against baseline (colored diff: green=added, red=removed)
 npx monomind browse snapshot -i --diff ./baselines/homepage.txt
 # → Snapshot changed: +2 lines, -1 lines
 # + button "Sign Out" [@e12]
@@ -423,6 +425,11 @@ npx monomind browse snapshot -i --diff ./baselines/homepage.txt
 
 # JSON output
 npx monomind browse snapshot -i --diff ./baselines/homepage.txt --json
+
+# Content-safety flags (for agentic pipelines with untrusted pages)
+npx monomind browse snapshot --content-boundaries          # wrap output in sentinel markers to prevent injection
+npx monomind browse snapshot --max-output 10000            # truncate to 10k chars (prevents context blowout)
+npx monomind browse snapshot --content-boundaries --max-output 8000  # both together
 ```
 
 ### Mobile Testing (Touch Events)
@@ -478,6 +485,11 @@ npx monomind browse errors --json               # machine-readable output
 npx monomind browse eval "document.title"
 npx monomind browse eval "document.querySelectorAll('button').length"
 npx monomind browse eval "window.__store.getState()" --json
+# Multiline JS via heredoc (--stdin reads from stdin)
+cat <<'EOF' | npx monomind browse eval --stdin
+  const items = document.querySelectorAll('li');
+  JSON.stringify([...items].map(i => i.textContent.trim()))
+EOF
 npx monomind browse addinitscript "window.__TEST__ = true"
 npx monomind browse removeinitscript <id>
 ```
@@ -499,6 +511,11 @@ npx monomind browse network capture start
 npx monomind browse network capture stop
 npx monomind browse network capture clear
 npx monomind browse network requests --json
+npx monomind browse network requests --filter "api/users"            # filter by URL substring
+npx monomind browse network requests --method POST                   # filter by HTTP method
+npx monomind browse network requests --status-code 200               # filter by status code
+npx monomind browse network requests --type xhr                      # filter by resource type
+npx monomind browse network request <requestId>                      # full detail for one request
 npx monomind browse network cookies             # cookies via network layer
 ```
 
@@ -590,6 +607,7 @@ npx monomind browse har stop --bodies --json   # --bodies only valid on stop
 npx monomind browse record start --format jpeg --quality 80
 npx monomind browse record status
 npx monomind browse record stop --json
+npx monomind browse record restart ./take2.mp4   # atomically stop+start (no page reload)
 
 # Trace status
 npx monomind browse trace status
