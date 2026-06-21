@@ -277,8 +277,10 @@ npx monomind browse find role button --name "Submit"
 npx monomind browse find text "Delete"            # by visible text
 npx monomind browse find label "Email"            # by label text
 npx monomind browse find testid "submit-btn"      # by data-testid
+npx monomind browse find alttext "Company logo"   # by alt attribute (images)
+npx monomind browse find title "More options"     # by title attribute (tooltips)
 npx monomind browse find role link --nth 2        # nth match
-npx monomind browse find role image --last         # last match
+npx monomind browse find role image --last        # last match
 npx monomind browse find placeholder "Search..."  # by placeholder text
 npx monomind browse find selector "div.modal"     # by CSS selector
 
@@ -291,6 +293,28 @@ npx monomind browse find text "Delete" click
 npx monomind browse is visible @eN
 npx monomind browse is enabled @eN
 npx monomind browse is checked @eN
+```
+
+### Window Management (Isolated Contexts)
+
+```bash
+# Open a new isolated browser window (like incognito — separate cookies/storage)
+npx monomind browse window new
+npx monomind browse window new https://app.example.com
+
+# Useful for multi-user testing (e.g. admin + regular user simultaneously):
+# 1. Connect once, then open isolated windows for each user role
+npx monomind browse connect --port 9222
+npx monomind browse window new                 # switches to new isolated context
+npx monomind browse open https://app.example.com/login
+npx monomind browse fill @e1 "admin@example.com"
+# ...
+
+# Tab management (within the same context)
+npx monomind browse tab                        # list all tabs
+npx monomind browse tab new https://example.com
+npx monomind browse tab close <tabId>
+npx monomind browse tab <tabId>               # switch to tab
 ```
 
 ### Interaction
@@ -408,10 +432,17 @@ npx monomind browse snapshot -i --diff ./baselines/homepage.txt --json
 npx monomind browse tap @e4
 npx monomind browse tap ".mobile-nav-toggle"
 
+# Swipe gestures — 10-step smooth touchMove sequence
+npx monomind browse swipe up                        # swipe up 300px from center
+npx monomind browse swipe down 500                  # swipe down 500px
+npx monomind browse swipe left --x 300 --y 400     # swipe left from (300,400)
+npx monomind browse swipe right 200 --x 50 --y 300 # swipe right 200px
+
 # Combine with device emulation
 npx monomind browse set device "iPhone 14"
 npx monomind browse snapshot -i
 npx monomind browse tap @e2
+npx monomind browse swipe up 400                    # scroll via swipe on mobile
 ```
 
 ### Screenshots & Visual Evidence
