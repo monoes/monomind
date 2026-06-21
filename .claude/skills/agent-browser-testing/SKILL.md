@@ -360,6 +360,60 @@ npx monomind browse wait --fn "window.__ready === true"
 npx monomind browse wait --text "Done" --timeout 10000
 ```
 
+### Element State Checks (Assertions)
+
+```bash
+npx monomind browse isvisible @e3          # true/false — is element visible?
+npx monomind browse isenabled @e2          # true/false — is element enabled (not disabled)?
+npx monomind browse ischecked @e1          # true/false — is checkbox/radio checked?
+
+# Also accepts CSS selectors
+npx monomind browse isvisible ".submit-btn"
+npx monomind browse isenabled "#email-input"
+npx monomind browse ischecked "input[name='agree']"
+
+# JSON output for scripting
+npx monomind browse isvisible @e4 --json   # → {"visible": true}
+```
+
+**Use in test scripts:**
+```bash
+# Run snapshot, then assert expected state
+npx monomind browse snapshot -i
+npx monomind browse click @e3             # click submit
+npx monomind browse wait --text "Success"
+npx monomind browse isvisible ".success-banner" --json
+```
+
+### Snapshot Regression Testing
+
+```bash
+# Save current snapshot as baseline
+npx monomind browse snapshot -i --save ./baselines/homepage.txt
+
+# Later: compare against baseline
+npx monomind browse snapshot -i --diff ./baselines/homepage.txt
+# → Snapshot changed: +2 lines, -1 lines
+# + button "Sign Out" [@e12]
+# - button "Sign In" [@e8]
+
+# JSON output
+npx monomind browse snapshot -i --diff ./baselines/homepage.txt --json
+```
+
+### Mobile Testing (Touch Events)
+
+```bash
+# Tap with touch event — useful for mobile-emulated layouts
+npx monomind browse tap @e4
+npx monomind browse tap ".mobile-nav-toggle"
+
+# Combine with device emulation
+npx monomind browse set device "iPhone 14"
+npx monomind browse snapshot -i
+npx monomind browse tap @e2
+```
+
 ### Screenshots & Visual Evidence
 
 ```bash
