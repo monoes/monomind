@@ -41,6 +41,40 @@ tools:
 
 ---
 
+## Commands at a Glance
+
+All 55 subcommands — grouped by what they do.
+
+| Group | Commands |
+|---|---|
+| **Open / Navigate** | `open`, `navigate back\|forward\|reload`, `pushstate`, `connect`, `close` |
+| **Inspect** | `snapshot`, `get url\|title\|text\|html\|value\|attr\|count\|box\|styles`, `errors`, `console` |
+| **Find** | `find role\|text\|label\|placeholder\|testid\|alttext\|title\|selector` |
+| **Assert** | `is visible\|enabled\|checked`, `isvisible`, `isenabled`, `ischecked` |
+| **Click / Tap** | `click`, `dblclick`, `tap`, `hover`, `focus` |
+| **Type / Fill** | `fill`, `type`, `keyboard type\|inserttext`, `keydown`, `keyup`, `press` |
+| **Form** | `select`, `check`, `uncheck`, `upload` |
+| **Scroll / Drag** | `scroll`, `scrollintoview`, `drag`, `swipe up\|down\|left\|right` |
+| **Mouse (raw)** | `mouse move\|down\|up\|wheel` |
+| **Wait** | `wait --text\|--not-text\|--url\|--selector\|--load\|--ms\|--fn\|--download` |
+| **Download** | `download <ref> <path>`, `wait --download <path>` |
+| **Screenshot / PDF** | `screenshot`, `pdf`, `highlight`, `diff url` |
+| **Clipboard** | `clipboard read\|write\|copy\|paste` |
+| **Dialogs** | `dialog accept\|dismiss\|status` |
+| **Tabs** | `tab list\|new\|close\|<targetId>` |
+| **Windows** | `window new [url]` (isolated context / incognito) |
+| **Frames** | `frame <ref>\|main` |
+| **Storage** | `storage local\|session`, `cookies list\|set\|clear` |
+| **Network** | `network route\|unroute\|headers\|capture\|requests\|request` |
+| **Emulation** | `set device\|media\|geo\|offline\|useragent\|viewport\|credentials`, `resize` |
+| **Session** | `state save\|load\|list\|show\|clear\|rename\|clean`, `open --session\|--state` |
+| **JS / Init** | `eval`, `eval --stdin`, `addinitscript`, `removeinitscript` |
+| **Record** | `record start\|stop\|restart\|status` |
+| **Performance** | `vitals`, `trace start\|stop\|status`, `profiler start\|stop\|heap`, `har start\|stop\|status` |
+| **Batch** | `batch "cmd1" "cmd2" ...` |
+
+---
+
 ## QA Execution Protocol
 
 When this skill is invoked, run ALL phases unless the user specifies a subset.
@@ -474,6 +508,8 @@ npx monomind browse pdf --landscape ./report.pdf
 
 **`--annotate` pattern:** always run `snapshot -i` first to populate refs, then `screenshot --annotate` to produce a screenshot with numbered labels at each element's position. Numbers match the `@eN` refs from the snapshot, so you can point to elements by number in bug reports.
 
+> **Note:** `--annotate` uses viewport-relative coordinates — do not combine with `--full`. On full-page captures, badges will be misaligned below the fold.
+
 ```bash
 npx monomind browse snapshot -i
 npx monomind browse screenshot --annotate ./issue-001.png
@@ -898,8 +934,8 @@ npx monomind browse screenshot --annotate slack-desktop.png
 Electron apps often have multiple windows or embedded webviews:
 
 ```bash
-npx monomind browse tab                  # list all tabs/webviews
-npx monomind browse tab switch 2         # switch to tab index 2
+npx monomind browse tab                  # list all tabs/webviews (shows targetId for each)
+npx monomind browse tab <targetId>       # switch to tab by its targetId
 npx monomind browse tab new              # open a new tab
 ```
 
