@@ -122,6 +122,8 @@ const snapshotCommand: Command = {
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
     { name: 'depth', short: 'd', type: 'number', description: 'Max depth of AX tree to show' },
     { name: 'selector', short: 's', type: 'string', description: 'Scope snapshot to a CSS selector' },
+    { name: 'save', type: 'string', description: 'Save snapshot text to file (baseline for --diff)' },
+    { name: 'diff', type: 'string', description: 'Compare current snapshot against a saved baseline file' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
@@ -135,6 +137,45 @@ const snapshotCommand: Command = {
     });
 
     _refs = result.refs;
+
+    // --save: write snapshot text to baseline file
+    if (ctx.flags.save) {
+      const { writeFile, mkdir } = await import('fs/promises');
+      const { dirname } = await import('path');
+      const savePath = ctx.flags.save as string;
+      await mkdir(dirname(savePath), { recursive: true }).catch(() => {});
+      await writeFile(savePath, result.text, 'utf8');
+      output.printSuccess(`Snapshot saved to: ${savePath}`);
+      return { success: true, data: { path: savePath } };
+    }
+
+    // --diff: compare against baseline file
+    if (ctx.flags.diff) {
+      const { readFile } = await import('fs/promises');
+      const baselinePath = ctx.flags.diff as string;
+      let baseline: string;
+      try { baseline = await readFile(baselinePath, 'utf8'); }
+      catch { throw new Error(`Baseline not found: ${baselinePath}. Run snapshot --save first.`); }
+      const currentLines = result.text.split('\n');
+      const baselineLines = baseline.split('\n');
+      const added: string[] = [], removed: string[] = [];
+      const baseSet = new Set(baselineLines);
+      const curSet = new Set(currentLines);
+      for (const l of currentLines) if (!baseSet.has(l)) added.push(l);
+      for (const l of baselineLines) if (!curSet.has(l)) removed.push(l);
+      const changed = added.length > 0 || removed.length > 0;
+      if (ctx.flags.json) {
+        print(JSON.stringify({ changed, additions: added.length, removals: removed.length, added, removed }));
+      } else {
+        if (!changed) { output.printSuccess('No snapshot changes detected'); }
+        else {
+          output.printWarning(`Snapshot changed: +${added.length} lines, -${removed.length} lines`);
+          for (const l of added) print(`+ ${l}`);
+          for (const l of removed) print(`- ${l}`);
+        }
+      }
+      return { success: true, data: { changed, additions: added.length, removals: removed.length } };
+    }
 
     if (ctx.flags.json) {
       const refsObj = Object.fromEntries([...result.refs.entries()].map(([k, v]) => [k, v]));
@@ -991,6 +1032,123 @@ const uncheckCommand: Command = {
     await browser.checkElement(client, sessionId, ref, false);
     output.printSuccess(`Unchecked: ${ref.role} "${ref.name}"`);
     return { success: true };
+  },
+};
+
+async function resolveElementObjectId(
+  client: import('@monoes/monobrowse').CdpClient,
+  sessionId: string,
+  refs: Map<string, import('@monoes/monobrowse').ElementRef>,
+  refOrSelector: string
+): Promise<string> {
+  const browser = await getBrowser();
+  if (refOrSelector.startsWith('@') || /^e\d+$/.test(refOrSelector)) {
+    const key = refOrSelector.startsWith('@') ? refOrSelector.slice(1) : refOrSelector;
+    const ref = await browser.resolveRef(client, sessionId, refs, key);
+    const objectId = await browser.getObjectIdForRef(client, sessionId, ref);
+    if (!objectId) throw new Error(`Element @${key} not found in DOM`);
+    return objectId;
+  }
+  // CSS selector path
+  const res = await client.send<{ result: { objectId?: string; subtype?: string } }>('Runtime.evaluate', {
+    expression: `document.querySelector(${JSON.stringify(refOrSelector)})`,
+    returnByValue: false,
+  }, sessionId);
+  if (!res.result?.objectId || res.result?.subtype === 'null') throw new Error(`Selector not found: ${refOrSelector}`);
+  return res.result.objectId;
+}
+
+const isvisibleCommand: Command = {
+  name: 'isvisible',
+  description: 'Check if element is visible. Usage: monomind browse isvisible @e1|"selector"',
+  options: [{ name: 'json', type: 'boolean', description: 'Output as JSON', default: false }],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { client, sessionId } = await ensureConnected(_port);
+    const arg = ctx.args[0] as string;
+    if (!arg) throw new Error('Usage: monomind browse isvisible @e1|".selector"');
+    const objectId = await resolveElementObjectId(client, sessionId, _refs, arg);
+    const r = await client.send<{ result: { value?: boolean } }>('Runtime.callFunctionOn', {
+      functionDeclaration: `function(){var r=this.getBoundingClientRect(),s=window.getComputedStyle(this);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'&&parseFloat(s.opacity)>0;}`,
+      objectId,
+      returnByValue: true,
+    }, sessionId);
+    const visible = r.result?.value ?? false;
+    if (ctx.flags.json) { print(JSON.stringify({ visible })); }
+    else { output.printSuccess(`isvisible: ${visible}`); }
+    return { success: true, data: { visible } };
+  },
+};
+
+const isenabledCommand: Command = {
+  name: 'isenabled',
+  description: 'Check if element is enabled (not disabled). Usage: monomind browse isenabled @e1|"selector"',
+  options: [{ name: 'json', type: 'boolean', description: 'Output as JSON', default: false }],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { client, sessionId } = await ensureConnected(_port);
+    const arg = ctx.args[0] as string;
+    if (!arg) throw new Error('Usage: monomind browse isenabled @e1|".selector"');
+    const objectId = await resolveElementObjectId(client, sessionId, _refs, arg);
+    const r = await client.send<{ result: { value?: boolean } }>('Runtime.callFunctionOn', {
+      functionDeclaration: `function(){return !this.disabled;}`,
+      objectId,
+      returnByValue: true,
+    }, sessionId);
+    const enabled = r.result?.value ?? true;
+    if (ctx.flags.json) { print(JSON.stringify({ enabled })); }
+    else { output.printSuccess(`isenabled: ${enabled}`); }
+    return { success: true, data: { enabled } };
+  },
+};
+
+const ischeckedCommand: Command = {
+  name: 'ischecked',
+  description: 'Check if checkbox/radio is checked. Usage: monomind browse ischecked @e1|"selector"',
+  options: [{ name: 'json', type: 'boolean', description: 'Output as JSON', default: false }],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { client, sessionId } = await ensureConnected(_port);
+    const arg = ctx.args[0] as string;
+    if (!arg) throw new Error('Usage: monomind browse ischecked @e1|".selector"');
+    const objectId = await resolveElementObjectId(client, sessionId, _refs, arg);
+    const r = await client.send<{ result: { value?: boolean } }>('Runtime.callFunctionOn', {
+      functionDeclaration: `function(){var el=this,tag=el.tagName&&el.tagName.toUpperCase();if(tag==='INPUT'&&(el.type==='checkbox'||el.type==='radio'))return el.checked;var role=el.getAttribute&&el.getAttribute('role');if(role&&['checkbox','radio','switch','menuitemcheckbox','menuitemradio','option','treeitem'].indexOf(role)!==-1)return el.getAttribute('aria-checked')==='true';var label=tag!=='LABEL'?el.closest&&el.closest('label'):el;if(label&&label.control&&(label.control.type==='checkbox'||label.control.type==='radio'))return label.control.checked;var inp=el.querySelector&&el.querySelector('input[type="checkbox"],input[type="radio"]');return inp?inp.checked:false;}`,
+      objectId,
+      returnByValue: true,
+    }, sessionId);
+    const checked = r.result?.value ?? false;
+    if (ctx.flags.json) { print(JSON.stringify({ checked })); }
+    else { output.printSuccess(`ischecked: ${checked}`); }
+    return { success: true, data: { checked } };
+  },
+};
+
+const tapCommand: Command = {
+  name: 'tap',
+  description: 'Tap element with a touch event (mobile testing). Usage: monomind browse tap @e1|"selector"',
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { client, sessionId } = await ensureConnected(_port);
+    const browser = await getBrowser();
+    const arg = ctx.args[0] as string;
+    if (!arg) throw new Error('Usage: monomind browse tap @e1|".selector"');
+    // Get element center position
+    let x: number, y: number;
+    if (arg.startsWith('@') || /^e\d+$/.test(arg)) {
+      const key = arg.startsWith('@') ? arg.slice(1) : arg;
+      const ref = await browser.resolveRef(client, sessionId, _refs, key);
+      const box = await browser.getElementBox(client, sessionId, ref);
+      if (!box) throw new Error(`Cannot get bounds for @${key}`);
+      x = Math.round(box.x + box.width / 2);
+      y = Math.round(box.y + box.height / 2);
+    } else {
+      const posJson = await browser.evaluateJs(client, sessionId,
+        `(function(){var el=document.querySelector(${JSON.stringify(arg)});if(!el)return null;var r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()`) as string | null;
+      if (!posJson) throw new Error(`Selector not found: ${arg}`);
+      const pos = JSON.parse(posJson) as { x: number; y: number };
+      x = Math.round(pos.x); y = Math.round(pos.y);
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }, sessionId);
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }, sessionId);
+    output.printSuccess(`Tapped at (${x}, ${y})`);
+    return { success: true, data: { x, y } };
   },
 };
 
@@ -2082,6 +2240,10 @@ const browseCommand: Command = {
     selectCommand,
     checkCommand,
     uncheckCommand,
+    isvisibleCommand,
+    isenabledCommand,
+    ischeckedCommand,
+    tapCommand,
     scrollIntoViewCommand,
     dragCommand,
     uploadCommand,
@@ -2168,6 +2330,10 @@ const browseCommand: Command = {
     output.printInfo('  select         Select a dropdown option');
     output.printInfo('  check          Check a checkbox');
     output.printInfo('  uncheck        Uncheck a checkbox');
+    output.printInfo('  isvisible      Check if element is visible');
+    output.printInfo('  isenabled      Check if element is enabled');
+    output.printInfo('  ischecked      Check if checkbox/radio is checked');
+    output.printInfo('  tap            Tap element with touch event (mobile)');
     output.printInfo('  scrollintoview Scroll element into view');
     output.printInfo('  drag           Drag element to another element');
     output.printInfo('  upload         Upload file(s) to file input');
