@@ -1233,7 +1233,7 @@ if (process.argv.includes('--json')) {
   }
 } else {
   // Default: respect mode state file — use disk cache to avoid 52+ sync I/O calls per render
-  const CACHE_FILE = path.join(CWD, '.monomind', 'statusline-cache.json');
+  const CACHE_FILE = path.join(os.homedir(), '.monomind', 'statusline-cache.json');
   const CACHE_TTL_MS = 5000; // 5 seconds
   const mode = readMode();
 
