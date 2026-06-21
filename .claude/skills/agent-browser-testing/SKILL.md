@@ -518,13 +518,17 @@ npx monomind browse screenshot --annotate ./issue-001.png
 
 ### Console, Errors & JavaScript
 
+> **Console capture is always-on.** As soon as you `open` or `connect`, monobrowse hooks `Runtime.consoleAPICalled`, `Log.entryAdded`, and `Runtime.exceptionThrown` automatically. No `capture start` needed — messages accumulate in memory and `console`/`errors` read from that buffer at any time.
+
 ```bash
-npx monomind browse console                      # all console messages
-npx monomind browse console --clear              # clear console history
-npx monomind browse console --errors-only        # only error-level messages
-npx monomind browse errors                       # JS exceptions only
-npx monomind browse errors --clear              # clear exception history
-npx monomind browse errors --json               # machine-readable output
+npx monomind browse console                      # all log/warn/error/info messages since connect
+npx monomind browse console --errors-only        # filter to error level only
+npx monomind browse console --clear              # reset the buffer
+npx monomind browse console --json               # machine-readable [{type, text, timestamp}]
+npx monomind browse errors                       # uncaught JS exceptions (Runtime.exceptionThrown)
+npx monomind browse errors --json                # [{text, url, lineNumber, columnNumber, timestamp}]
+npx monomind browse errors --clear
+
 npx monomind browse eval "document.title"
 npx monomind browse eval "document.querySelectorAll('button').length"
 npx monomind browse eval "window.__store.getState()" --json
@@ -533,7 +537,7 @@ cat <<'EOF' | npx monomind browse eval --stdin
   const items = document.querySelectorAll('li');
   JSON.stringify([...items].map(i => i.textContent.trim()))
 EOF
-npx monomind browse addinitscript "window.__TEST__ = true"
+npx monomind browse addinitscript "window.__TEST__ = true"   # runs on every page load
 npx monomind browse removeinitscript <id>
 ```
 
@@ -628,8 +632,17 @@ npx monomind browse state clean --older-than 7         # delete sessions older t
 
 ### Performance & Diagnostics
 
+> **DevTools panel coverage:**
+> ✅ Console panel — `console` / `errors` (always-on, see above)
+> ✅ Network panel — `network requests` + filters, `network request <id>`, `har start/stop --bodies`
+> ✅ Performance panel — `trace start/stop` (exports Chrome DevTools-compatible `.json`)
+> ✅ Memory panel — `profiler heap ./heap.json` (heap snapshot)
+> ✅ Application panel — `storage`, `cookies`
+> ✅ Sources / JS eval — `eval`, `eval --stdin`, `addinitscript`
+> ❌ Not available: source-map resolution for error stacks, live network waterfall, Lighthouse audit scores, Total Blocking Time metric
+
 ```bash
-# Core Web Vitals
+# Core Web Vitals (LCP < 2.5s PASS, 2.5–4s WARN, >4s FAIL)
 npx monomind browse vitals --wait 3000 --json
 
 # CPU profiler
@@ -639,11 +652,12 @@ npx monomind browse profiler stop --json
 # Heap snapshot
 npx monomind browse profiler heap ./heap.json
 
-# Chrome trace
+# Chrome trace (load in chrome://tracing or Perfetto)
 npx monomind browse trace start --screenshots
 npx monomind browse trace stop ./trace.json
+npx monomind browse trace status
 
-# HAR (full HTTP archive with bodies)
+# HAR (full HTTP archive with request/response bodies)
 npx monomind browse har start
 npx monomind browse har status
 npx monomind browse har stop --bodies --json   # --bodies only valid on stop
@@ -653,9 +667,6 @@ npx monomind browse record start --format jpeg --quality 80
 npx monomind browse record status
 npx monomind browse record stop --json
 npx monomind browse record restart ./take2.mp4   # atomically stop+start (no page reload)
-
-# Trace status
-npx monomind browse trace status
 ```
 
 ### Batch Execution
