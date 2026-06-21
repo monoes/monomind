@@ -285,22 +285,26 @@ const waitCommand: Command = {
 
 const screenshotCommand: Command = {
   name: 'screenshot',
-  description: 'Capture a screenshot. Usage: monomind browse screenshot [path]',
+  description: 'Capture a screenshot. Usage: monomind browse screenshot [path] [--annotate]',
   options: [
     { name: 'full', type: 'boolean', description: 'Full page screenshot', default: false },
     { name: 'format', type: 'string', description: 'Format: png|jpeg|webp', default: 'png' },
     { name: 'quality', type: 'number', description: 'Quality 0-100 for jpeg/webp', default: 80 },
+    { name: 'annotate', type: 'boolean', description: 'Overlay numbered labels keyed to @eN refs from last snapshot', default: false },
     { name: 'json', type: 'boolean', description: 'Output JSON with path', default: false },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
 
+    const annotate = ctx.flags.annotate as boolean;
     const result = await browser.captureScreenshot(client, sessionId, {
       path: ctx.args[0] as string,
       fullPage: ctx.flags.full as boolean,
       format: ctx.flags.format as 'png' | 'jpeg' | 'webp',
       quality: ctx.flags.quality as number,
+      annotate,
+      refs: annotate ? _refs : undefined,
     });
 
     if (ctx.flags.json) {
@@ -434,17 +438,35 @@ const getCommand: Command = {
 
 const scrollCommand: Command = {
   name: 'scroll',
-  description: 'Scroll the page. Usage: monomind browse scroll up|down|left|right',
+  description: 'Scroll the page. Usage: monomind browse scroll up|down|left|right [amount] [--selector ".sidebar"]',
   options: [
     { name: 'amount', short: 'a', type: 'number', description: 'Pixels to scroll', default: 300 },
     { name: 'ref', type: 'string', description: 'Element ref to scroll within' },
+    { name: 'selector', short: 's', type: 'string', description: 'CSS selector of element to scroll within' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
     const browser = await getBrowser();
 
     const direction = ctx.args[0] as 'up' | 'down' | 'left' | 'right';
-    if (!direction) throw new Error('Usage: monomind browse scroll up|down|left|right');
+    if (!direction) throw new Error('Usage: monomind browse scroll up|down|left|right [amount]');
+
+    // Support positional amount: scroll down 300
+    const positionalAmount = ctx.args[1] !== undefined ? parseInt(ctx.args[1] as string, 10) : undefined;
+    const amount = (positionalAmount && Number.isFinite(positionalAmount)) ? positionalAmount : (ctx.flags.amount as number) ?? 300;
+
+    if (ctx.flags.selector) {
+      const sel = ctx.flags.selector as string;
+      const dx = direction === 'right' ? amount : direction === 'left' ? -amount : 0;
+      const dy = direction === 'down' ? amount : direction === 'up' ? -amount : 0;
+      const posJson = await browser.evaluateJs(client, sessionId,
+        `(function(){var el=document.querySelector(${JSON.stringify(sel)});if(!el)return null;var r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()`) as string | null;
+      if (!posJson) throw new Error(`Selector not found: ${sel}`);
+      const pos = JSON.parse(posJson) as { x: number; y: number };
+      await client.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: pos.x, y: pos.y, deltaX: dx, deltaY: dy }, sessionId);
+      output.printSuccess(`Scrolled ${direction} in ${sel}`);
+      return { success: true };
+    }
 
     let ref: ElementRef | undefined;
     if (ctx.flags.ref) {
@@ -454,7 +476,7 @@ const scrollCommand: Command = {
       ref = _refs.get(refKey);
     }
 
-    await browser.scrollElement(client, sessionId, direction, ctx.flags.amount as number, ref);
+    await browser.scrollElement(client, sessionId, direction, amount, ref);
     output.printSuccess(`Scrolled ${direction}`);
     return { success: true };
   },
@@ -1996,6 +2018,10 @@ function wrapCommanderCommand(factory: () => import('commander').Command): Comma
 }
 
 const workflowSubcommand: Command = wrapCommanderCommand(createWorkflowCommand);
+// Expose both "playbook" (canonical) and "workflow" (backward-compat alias) in the internal dispatch table.
+// Commander's .alias() only applies at Commander's own parse layer; the internal Command[] table
+// routes by name, so we register both names pointing at the same underlying Commander instance.
+const workflowAliasSubcommand: Command = { ...workflowSubcommand, name: 'workflow' };
 const actionSubcommand: Command = wrapCommanderCommand(createActionCommand);
 const platformSubcommand: Command = wrapCommanderCommand(createPlatformCommand);
 
@@ -2060,6 +2086,7 @@ const browseCommand: Command = {
     resizeCommand,
     closeCommand,
     workflowSubcommand,
+    workflowAliasSubcommand,
     actionSubcommand,
     platformSubcommand,
   ],
