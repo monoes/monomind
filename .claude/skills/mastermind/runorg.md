@@ -113,7 +113,8 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     --arg org "$orgName" \
     --arg goal "$goal" \
     --arg proj "$REPO_ROOT" \
-    '{type:"org:start",session:$session,org:$org,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
+    --argjson ci "${CHECKPOINT_INTERVAL_MS:-600000}" \
+    '{type:"org:start",session:$session,org:$org,goal:$goal,project:$proj,checkpointInterval:$ci,ts:(now*1000|floor)}')" || true
 ```
 
 ### 1.6.4 — Execute first iteration inline
@@ -147,12 +148,22 @@ If `LOOP_STATUS == "active"` or `LOOP_STATUS == "paused"`:
    LOOP_PROMPT=$(cat "$run_prompt_file")
    ```
 
-2. Call `ScheduleWakeup` with:
+2. Emit `org:stop` to signal this iteration is pausing:
+   ```bash
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+     -H "Content-Type: application/json" \
+     -d "$(jq -cn \
+       --arg org "$orgName" \
+       --arg runId "run-$(date -u +%Y%m%dT%H%M%S)" \
+       '{type:"org:stop",org:$org,runId:$runId,ts:(now*1000|floor),reason:"scheduled-iteration-complete"}')" || true
+   ```
+
+3. Call `ScheduleWakeup` with:
    - `delaySeconds`: `$poll_interval_seconds`
    - `reason`: `"<orgName>: next scheduled poll (every <poll_interval_minutes> min)"`
    - `prompt`: full contents of `$LOOP_PROMPT`
 
-3. Update `next_run` in org JSON:
+4. Update `next_run` in org JSON:
    ```bash
    next_ts=$(( $(date +%s) + poll_interval_seconds ))
    next_iso=$(date -u -r "$next_ts" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
@@ -326,7 +337,8 @@ curl -s -X POST "<CTRL_URL>/api/mastermind/event" \
     --arg runId "<runId>" \
     --arg goal "<goal>" \
     --arg proj "<REPO_ROOT>" \
-    '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
+    --argjson ci "${CHECKPOINT_INTERVAL_MS:-600000}" \
+    '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,checkpointInterval:$ci,ts:(now*1000|floor)}')" || true
 ```
 
 ---
@@ -508,6 +520,11 @@ OPERATING LOOP:
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
               --arg from "<role_id>" --arg msg "Completed: <one-sentence summary of output>" \
               '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
+          # When your task is fully complete — signal offline:
+          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+            -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
+              --arg from "<role_id>" \
+              '{type:"org:agent:offline",session:$s,org:$o,runId:$rid,from:$from,ts:(now*1000|floor)}')" || true
           # TOKEN TRACKING — estimate and persist token usage to state.json for the Budgets dashboard:
           # Count approximate output tokens from your work (1 word ≈ 1.3 tokens):
           _tok_out=$(echo -n "<paste a representative sample of your final output here>" | wc -w)
@@ -636,3 +653,29 @@ run_id: "<runId>"
 ## Step 8 — Brain Write (standalone only)
 
 If `caller` is not "command", follow _protocol.md Brain Write Procedure for domain `ops`.
+
+---
+
+## Reporting Artifacts (optional)
+
+When you create or modify a file that represents output of this org run, emit:
+
+```bash
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn \
+    --arg s "${sessionId}" \
+    --arg o "${orgName}" \
+    --arg rid "${runId}" \
+    --arg from "${AGENT_ROLE}" \
+    --arg label "Short description" \
+    --arg path "${FILE_PATH}" \
+    --arg mime "text/markdown" \
+    '{type:"org:artifact",session:$s,org:$o,runId:$rid,from:$from,artifact:{label:$label,type:"file",path:$path,mimeType:$mime},ts:(now*1000|floor)}')" || true
+```
+
+The dashboard chat will show this as an artifact card with a "View" button. Fill in:
+- `${AGENT_ROLE}` — the literal role id of the agent emitting the artifact
+- `${FILE_PATH}` — the absolute or repo-relative path to the created/modified file
+- `label` — a short human-readable description (e.g., "Weekly report", "Analysis output")
+- `mimeType` — `text/markdown`, `application/json`, `text/plain`, etc.
