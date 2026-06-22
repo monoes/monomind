@@ -1,14 +1,23 @@
 {
   "name": "@monoes/monoplaybook",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Multi-transport automation playbooks — browser (CDP), HTTP, CLI, and MCP actions in a unified recipe format",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "automation",
@@ -29,8 +38,19 @@
     "url": "https://github.com/monoes/monomind.git",
     "directory": "packages/@monoes/monoplaybook"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
-    "@monoes/monobrowse": "workspace:*"
+    "@monoes/monobrowse": "^1.0.0"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.20.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "typescript": "^5.8.3"

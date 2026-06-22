@@ -1,13 +1,35 @@
-import { createServer } from 'node:http';
+import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
-import type { StepEvent, RunRecord } from '../workflow/types.js';
+import type { StepEvent, RunRecord, WorkflowDef } from '../workflow/types.js';
 
 const RUNS_FILE = join(homedir(), '.monomind', 'browse-runs.json');
+const WORKFLOWS_FILE = join(homedir(), '.monomind', 'workflows.json');
+
+async function loadWorkflows(): Promise<WorkflowDef[]> {
+  if (!existsSync(WORKFLOWS_FILE)) return [];
+  try {
+    return JSON.parse(await readFile(WORKFLOWS_FILE, 'utf-8')) as WorkflowDef[];
+  } catch { return []; }
+}
+
+async function saveWorkflows(workflows: WorkflowDef[]): Promise<void> {
+  await mkdir(join(homedir(), '.monomind'), { recursive: true });
+  await writeFile(WORKFLOWS_FILE, JSON.stringify(workflows, null, 2));
+}
+
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
 
 async function loadPersistedRuns(): Promise<RunRecord[]> {
   if (!existsSync(RUNS_FILE)) return [];
@@ -58,7 +80,7 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
     uiHtml = `<!DOCTYPE html><html><head><title>monobrowse dashboard</title></head><body style="background:#0f0f1a;color:#ccc;font-family:system-ui;padding:20px"><h1>monobrowse dashboard</h1><p>Dashboard UI not found. Run the build to include ui.html.</p><script>let _retryDelay=1000;function connectSSE(){const es=new EventSource('/events');es.onmessage=e=>{console.log(JSON.parse(e.data));_retryDelay=1000;};es.onerror=()=>{es.close();setTimeout(connectSSE,Math.min(_retryDelay*=2,30000));};};connectSSE();</script></body></html>`;
   }
 
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     const url = req.url ?? '/';
 
     if (url === '/' && req.method === 'GET') {
@@ -69,17 +91,13 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
 
     if (url === '/runs' && req.method === 'GET') {
       // Merge in-memory runs with persisted runs so the UI shows history even across restarts
-      loadPersistedRuns().then(persisted => {
-        const seen = new Set(runHistory.map(r => r.id));
-        const merged = [...runHistory, ...persisted.filter(r => !seen.has(r.id))]
-          .sort((a, b) => b.startedAt - a.startedAt)
-          .slice(0, MAX_RUN_HISTORY);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(merged));
-      }).catch(() => {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(runHistory));
-      });
+      const persisted = await loadPersistedRuns().catch(() => [] as RunRecord[]);
+      const seen = new Set(runHistory.map(r => r.id));
+      const merged = [...runHistory, ...persisted.filter(r => !seen.has(r.id))]
+        .sort((a, b) => b.startedAt - a.startedAt)
+        .slice(0, MAX_RUN_HISTORY);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(merged));
       return;
     }
 
@@ -113,6 +131,94 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
         clearInterval(heartbeat);
         clientDirs.delete(res);
       });
+      return;
+    }
+
+    // ── Workflow CRUD ────────────────────────────────────────────────────
+    // GET  /api/workflows          → list all saved workflows
+    // POST /api/workflows          → create/update a workflow (body: WorkflowDef)
+    // GET  /api/workflows/:id      → get single workflow
+    // DELETE /api/workflows/:id    → delete a workflow
+    // POST /api/workflows/:id/run  → run a workflow (delegates to engine)
+    if (parsed.pathname === '/api/workflows' && req.method === 'GET') {
+      const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(list));
+      return;
+    }
+
+    if (parsed.pathname === '/api/workflows' && req.method === 'POST') {
+      try {
+        const raw = await readBody(req);
+        const wf = JSON.parse(raw) as WorkflowDef;
+        if (!wf.id || !wf.name) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'id and name are required' }));
+          return;
+        }
+        const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
+        const idx = list.findIndex(w => w.id === wf.id);
+        if (idx >= 0) list[idx] = wf; else list.push(wf);
+        await saveWorkflows(list);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(wf));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e) }));
+      }
+      return;
+    }
+
+    const wfIdMatch = parsed.pathname.match(/^\/api\/workflows\/([^/]+)$/);
+    const wfRunMatch = parsed.pathname.match(/^\/api\/workflows\/([^/]+)\/run$/);
+
+    if (wfRunMatch && req.method === 'POST') {
+      const wfId = wfRunMatch[1];
+      const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
+      const wf = list.find(w => w.id === wfId);
+      if (!wf) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Workflow ${wfId} not found` }));
+        return;
+      }
+      // Import engine and builtin handlers dynamically to avoid circular deps at startup
+      res.writeHead(202, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, workflowId: wfId, message: 'Workflow run started' }));
+      // Run async, broadcast events via dashboard
+      Promise.resolve().then(async () => {
+        try {
+          const { runWorkflow } = await import('../workflow/engine.js');
+          const { createBuiltinHandlers } = await import('../workflow/builtin-handlers.js');
+          const handlers = createBuiltinHandlers();
+          const record = await runWorkflow(wf, {
+            handlers,
+            onEvent: (evt) => { instance?.broadcast(evt); },
+          });
+          instance?.addRunRecord(record);
+        } catch (err) {
+          console.error('[dashboard] workflow run error:', err);
+        }
+      });
+      return;
+    }
+
+    if (wfIdMatch && req.method === 'GET') {
+      const wfId = wfIdMatch[1];
+      const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
+      const wf = list.find(w => w.id === wfId);
+      if (!wf) { res.writeHead(404); res.end('Not found'); return; }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(wf));
+      return;
+    }
+
+    if (wfIdMatch && req.method === 'DELETE') {
+      const wfId = wfIdMatch[1];
+      const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
+      const newList = list.filter(w => w.id !== wfId);
+      await saveWorkflows(newList);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, deleted: wfId }));
       return;
     }
 
