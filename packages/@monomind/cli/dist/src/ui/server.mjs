@@ -3645,7 +3645,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             });
           } catch { return false; }
         })();
-        const running = !fs.existsSync(stopFile) && (activeOrgRuns.has(orgName) || ['running','active'].includes(state.status) || Object.values(state.agents || {}).some(a => a.status === 'running') || _loopRunning);
+        const _runstateData = _readRunState(orgName, d);
+        const _runstateTtl = (_runstateData?.checkpointInterval || 600000) * 2;
+        const _runstateAlive = _runstateData?.status === 'running' && (Date.now() - (_runstateData?.lastEventAt || 0)) < _runstateTtl;
+        const running = !fs.existsSync(stopFile) && (_runstateAlive || activeOrgRuns.has(orgName) || _loopRunning);
 
         // Read real tasks from the task store and group by status column
         const taskStoreData = readJsonSafe(path.join(d, '.monomind', 'tasks', 'store.json'));
@@ -3657,7 +3660,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         };
 
         const result = { config, state, goals: goalsData.goals, routines: routinesData.routines,
-          approvals: approvalsData.approvals, running, tasks };
+          approvals: approvalsData.approvals, running, tasks,
+          runId: _runstateData?.runId || null,
+          lastEventAt: _runstateData?.lastEventAt || null,
+          agentStates: _runstateData?.agentStates || {} };
 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(result));
