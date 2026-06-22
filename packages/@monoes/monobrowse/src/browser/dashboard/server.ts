@@ -5,21 +5,21 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
-import type { StepEvent, RunRecord, WorkflowDef } from '../workflow/types.js';
+import type { StepEvent, RunRecord, PlaybookDef } from '../playbook/types.js';
 
 const RUNS_FILE = join(homedir(), '.monomind', 'browse-runs.json');
-const WORKFLOWS_FILE = join(homedir(), '.monomind', 'workflows.json');
+const PLAYBOOKS_FILE = join(homedir(), '.monomind', 'playbooks.json');
 
-async function loadWorkflows(): Promise<WorkflowDef[]> {
-  if (!existsSync(WORKFLOWS_FILE)) return [];
+async function loadPlaybooks(): Promise<PlaybookDef[]> {
+  if (!existsSync(PLAYBOOKS_FILE)) return [];
   try {
-    return JSON.parse(await readFile(WORKFLOWS_FILE, 'utf-8')) as WorkflowDef[];
+    return JSON.parse(await readFile(PLAYBOOKS_FILE, 'utf-8')) as PlaybookDef[];
   } catch { return []; }
 }
 
-async function saveWorkflows(workflows: WorkflowDef[]): Promise<void> {
+async function savePlaybooks(playbooks: PlaybookDef[]): Promise<void> {
   await mkdir(join(homedir(), '.monomind'), { recursive: true });
-  await writeFile(WORKFLOWS_FILE, JSON.stringify(workflows, null, 2));
+  await writeFile(PLAYBOOKS_FILE, JSON.stringify(playbooks, null, 2));
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -114,7 +114,7 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
     if (parsed.pathname === '/events' && (req.method === 'GET' || req.method === 'HEAD') && !WebSocketServer) {
       // SSE endpoint (fallback when ws not available).
       // No CORS header — the dashboard is served from 127.0.0.1:4242 and no cross-origin
-      // access is needed. A wildcard ACAO would let any web page subscribe to workflow events.
+      // access is needed. A wildcard ACAO would let any web page subscribe to playbook events.
       const subscribedDir = parsed.searchParams.get('dir') ?? null;
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -134,34 +134,34 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       return;
     }
 
-    // ── Workflow CRUD ────────────────────────────────────────────────────
-    // GET  /api/workflows          → list all saved workflows
-    // POST /api/workflows          → create/update a workflow (body: WorkflowDef)
-    // GET  /api/workflows/:id      → get single workflow
-    // DELETE /api/workflows/:id    → delete a workflow
-    // POST /api/workflows/:id/run  → run a workflow (delegates to engine)
-    if (parsed.pathname === '/api/workflows' && req.method === 'GET') {
-      const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
+    // ── Playbook CRUD ────────────────────────────────────────────────────
+    // GET  /api/playbooks          → list all saved playbooks
+    // POST /api/playbooks          → create/update a playbook (body: PlaybookDef)
+    // GET  /api/playbooks/:id      → get single playbook
+    // DELETE /api/playbooks/:id    → delete a playbook
+    // POST /api/playbooks/:id/run  → run a playbook (delegates to engine)
+    if (parsed.pathname === '/api/playbooks' && req.method === 'GET') {
+      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(list));
       return;
     }
 
-    if (parsed.pathname === '/api/workflows' && req.method === 'POST') {
+    if (parsed.pathname === '/api/playbooks' && req.method === 'POST') {
       try {
         const raw = await readBody(req);
-        const wf = JSON.parse(raw) as WorkflowDef;
-        if (!wf.id || !wf.name) {
+        const pb = JSON.parse(raw) as PlaybookDef;
+        if (!pb.id || !pb.name) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'id and name are required' }));
           return;
         }
-        const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
-        const idx = list.findIndex(w => w.id === wf.id);
-        if (idx >= 0) list[idx] = wf; else list.push(wf);
-        await saveWorkflows(list);
+        const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
+        const idx = list.findIndex(w => w.id === pb.id);
+        if (idx >= 0) list[idx] = pb; else list.push(pb);
+        await savePlaybooks(list);
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(wf));
+        res.end(JSON.stringify(pb));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: String(e) }));
@@ -169,56 +169,56 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       return;
     }
 
-    const wfIdMatch = parsed.pathname.match(/^\/api\/workflows\/([^/]+)$/);
-    const wfRunMatch = parsed.pathname.match(/^\/api\/workflows\/([^/]+)\/run$/);
+    const pbIdMatch = parsed.pathname.match(/^\/api\/playbooks\/([^/]+)$/);
+    const pbRunMatch = parsed.pathname.match(/^\/api\/playbooks\/([^/]+)\/run$/);
 
-    if (wfRunMatch && req.method === 'POST') {
-      const wfId = wfRunMatch[1];
-      const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
-      const wf = list.find(w => w.id === wfId);
-      if (!wf) {
+    if (pbRunMatch && req.method === 'POST') {
+      const pbId = pbRunMatch[1];
+      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
+      const pb = list.find(w => w.id === pbId);
+      if (!pb) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Workflow ${wfId} not found` }));
+        res.end(JSON.stringify({ error: `Playbook ${pbId} not found` }));
         return;
       }
       // Import engine and builtin handlers dynamically to avoid circular deps at startup
       res.writeHead(202, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, workflowId: wfId, message: 'Workflow run started' }));
+      res.end(JSON.stringify({ ok: true, playbookId: pbId, message: 'Playbook run started' }));
       // Run async, broadcast events via dashboard
       Promise.resolve().then(async () => {
         try {
-          const { runWorkflow } = await import('../workflow/engine.js');
-          const { createBuiltinHandlers } = await import('../workflow/builtin-handlers.js');
+          const { runPlaybook } = await import('../playbook/engine.js');
+          const { createBuiltinHandlers } = await import('../playbook/builtin-handlers.js');
           const handlers = createBuiltinHandlers();
-          const record = await runWorkflow(wf, {
+          const record = await runPlaybook(pb, {
             handlers,
             onEvent: (evt) => { instance?.broadcast(evt); },
           });
           instance?.addRunRecord(record);
         } catch (err) {
-          console.error('[dashboard] workflow run error:', err);
+          console.error('[dashboard] playbook run error:', err);
         }
       });
       return;
     }
 
-    if (wfIdMatch && req.method === 'GET') {
-      const wfId = wfIdMatch[1];
-      const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
-      const wf = list.find(w => w.id === wfId);
-      if (!wf) { res.writeHead(404); res.end('Not found'); return; }
+    if (pbIdMatch && req.method === 'GET') {
+      const pbId = pbIdMatch[1];
+      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
+      const pb = list.find(w => w.id === pbId);
+      if (!pb) { res.writeHead(404); res.end('Not found'); return; }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(wf));
+      res.end(JSON.stringify(pb));
       return;
     }
 
-    if (wfIdMatch && req.method === 'DELETE') {
-      const wfId = wfIdMatch[1];
-      const list = await loadWorkflows().catch(() => [] as WorkflowDef[]);
-      const newList = list.filter(w => w.id !== wfId);
-      await saveWorkflows(newList);
+    if (pbIdMatch && req.method === 'DELETE') {
+      const pbId = pbIdMatch[1];
+      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
+      const newList = list.filter(w => w.id !== pbId);
+      await savePlaybooks(newList);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, deleted: wfId }));
+      res.end(JSON.stringify({ ok: true, deleted: pbId }));
       return;
     }
 
@@ -247,7 +247,7 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
 
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
-      console.log(`Dashboard port ${port} in use — workflow will run without live dashboard.`);
+      console.log(`Dashboard port ${port} in use — playbook will run without live dashboard.`);
     } else {
       console.error(`Dashboard server error: ${err.message}`);
     }
