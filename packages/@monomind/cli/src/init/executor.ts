@@ -1335,13 +1335,18 @@ function findSourceHelpersDir(sourceBaseDir?: string): string | null {
   }
 
   // Strategy 1: require.resolve to find package root (most reliable for npx)
-  try {
-    const esmRequire = createRequire(import.meta.url);
-    const pkgJsonPath = esmRequire.resolve('@monomind/cli/package.json');
-    const pkgRoot = path.dirname(pkgJsonPath);
-    possiblePaths.push(path.join(pkgRoot, '.claude', 'helpers'));
-  } catch {
-    // Not installed as a package — skip
+  // Try both published package names (@monoes/monomindcli is the scoped CLI package,
+  // monomind is the umbrella — neither is @monomind/cli which is the monorepo name only)
+  for (const pkgName of ['@monoes/monomindcli/package.json', 'monomind/packages/@monomind/cli/package.json', '@monomind/cli/package.json']) {
+    try {
+      const esmRequire = createRequire(import.meta.url);
+      const pkgJsonPath = esmRequire.resolve(pkgName);
+      const pkgRoot = path.dirname(pkgJsonPath);
+      possiblePaths.push(path.join(pkgRoot, '.claude', 'helpers'));
+      break;
+    } catch {
+      // Not installed under this name — try next
+    }
   }
 
   // Strategy 2: __dirname-based (dist/src/init -> package root)
