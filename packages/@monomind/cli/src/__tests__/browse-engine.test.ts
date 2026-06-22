@@ -1,21 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runWorkflow } from '@monoes/monobrowse';
-import type { WorkflowDef, Item } from '@monoes/monobrowse';
+import { runPlaybook } from '@monoes/monobrowse';
+import type { PlaybookDef, Item } from '@monoes/monobrowse';
 
 const triggerNode = { id: 'trigger', type: 'trigger.manual', config: {} };
 
-describe('runWorkflow', () => {
+describe('runPlaybook', () => {
   it('runs a single-node trigger workflow', async () => {
-    const def: WorkflowDef = {
+    const def: PlaybookDef = {
       id: 'wf-1', name: 'Test', nodes: [triggerNode], connections: [],
     };
-    const record = await runWorkflow(def);
+    const record = await runPlaybook(def);
     expect(record.status).toBe('completed');
-    expect(record.workflowId).toBe('wf-1');
+    expect(record.playbookId).toBe('wf-1');
   });
 
   it('rejects cyclic workflow', async () => {
-    const def: WorkflowDef = {
+    const def: PlaybookDef = {
       id: 'cyclic', name: 'Cyclic',
       nodes: [
         { id: 'a', type: 'core.set', config: {} },
@@ -23,12 +23,12 @@ describe('runWorkflow', () => {
       ],
       connections: [{ from: 'a', to: 'b' }, { from: 'b', to: 'a' }],
     };
-    await expect(runWorkflow(def)).rejects.toThrow('cycle');
+    await expect(runPlaybook(def)).rejects.toThrow('cycle');
   });
 
   it('calls node handlers for action nodes', async () => {
     const handler = vi.fn().mockResolvedValue([{ data: { result: 'ok' } }] as Item[]);
-    const def: WorkflowDef = {
+    const def: PlaybookDef = {
       id: 'wf-2', name: 'Action Test',
       nodes: [
         triggerNode,
@@ -37,22 +37,22 @@ describe('runWorkflow', () => {
       connections: [{ from: 'trigger', to: 'act' }],
     };
     const handlers = new Map([['action.linkedin.comment_post', handler]]);
-    const record = await runWorkflow(def, { handlers });
+    const record = await runPlaybook(def, { handlers });
     expect(handler).toHaveBeenCalled();
     expect(record.status).toBe('completed');
   });
 
   it('emits step events in order', async () => {
     const events: string[] = [];
-    const def: WorkflowDef = { id: 'wf-3', name: 'Events', nodes: [triggerNode], connections: [] };
-    await runWorkflow(def, { onEvent: e => events.push(e.eventType) });
+    const def: PlaybookDef = { id: 'wf-3', name: 'Events', nodes: [triggerNode], connections: [] };
+    await runPlaybook(def, { onEvent: e => events.push(e.eventType) });
     expect(events[0]).toBe('run_started');
     expect(events[events.length - 1]).toBe('run_completed');
   });
 
   it('skips failed node when onError is skip', async () => {
     const handler = vi.fn().mockRejectedValue(new Error('fail'));
-    const def: WorkflowDef = {
+    const def: PlaybookDef = {
       id: 'wf-4', name: 'Skip',
       nodes: [
         triggerNode,
@@ -61,13 +61,13 @@ describe('runWorkflow', () => {
       connections: [{ from: 'trigger', to: 'bad' }],
     };
     const handlers = new Map([['action.x.fail', handler]]);
-    const record = await runWorkflow(def, { handlers });
+    const record = await runPlaybook(def, { handlers });
     expect(record.status).toBe('completed');
   });
 
   it('stops on node failure when onError is stop (default)', async () => {
     const handler = vi.fn().mockRejectedValue(new Error('boom'));
-    const def: WorkflowDef = {
+    const def: PlaybookDef = {
       id: 'wf-5', name: 'Stop',
       nodes: [
         triggerNode,
@@ -76,7 +76,7 @@ describe('runWorkflow', () => {
       connections: [{ from: 'trigger', to: 'bad' }],
     };
     const handlers = new Map([['action.x.fail', handler]]);
-    const record = await runWorkflow(def, { handlers });
+    const record = await runPlaybook(def, { handlers });
     expect(record.status).toBe('failed');
     expect(record.error).toContain('boom');
   });
@@ -84,13 +84,13 @@ describe('runWorkflow', () => {
   it('stops when AbortSignal is aborted', async () => {
     const controller = new AbortController();
     controller.abort();
-    const def: WorkflowDef = { id: 'wf-6', name: 'Abort', nodes: [triggerNode], connections: [] };
-    const record = await runWorkflow(def, { signal: controller.signal });
+    const def: PlaybookDef = { id: 'wf-6', name: 'Abort', nodes: [triggerNode], connections: [] };
+    const record = await runPlaybook(def, { signal: controller.signal });
     expect(record.status).toBe('stopped');
   });
 
   it('core.set transforms item fields', async () => {
-    const def: WorkflowDef = {
+    const def: PlaybookDef = {
       id: 'wf-7', name: 'Set',
       nodes: [
         { id: 'trigger', type: 'trigger.manual', config: { items: [{ data: { x: 1 } }] } },
@@ -99,12 +99,12 @@ describe('runWorkflow', () => {
       connections: [{ from: 'trigger', to: 'setNode' }],
     };
     const events: any[] = [];
-    const record = await runWorkflow(def, { onEvent: e => events.push(e) });
+    const record = await runPlaybook(def, { onEvent: e => events.push(e) });
     expect(record.status).toBe('completed');
   });
 
   it('throws for unregistered action handler', async () => {
-    const def: WorkflowDef = {
+    const def: PlaybookDef = {
       id: 'wf-8', name: 'NoHandler',
       nodes: [
         triggerNode,
@@ -112,13 +112,13 @@ describe('runWorkflow', () => {
       ],
       connections: [{ from: 'trigger', to: 'act' }],
     };
-    const record = await runWorkflow(def);
+    const record = await runPlaybook(def);
     expect(record.status).toBe('failed');
     expect(record.error).toContain('No handler registered');
   });
 
   it('core.filter keeps matching items', async () => {
-    const def: WorkflowDef = {
+    const def: PlaybookDef = {
       id: 'wf-filter', name: 'Filter',
       nodes: [
         { id: 'trigger', type: 'trigger.manual', config: { items: [{ data: { x: 1 } }, { data: { x: 2 } }, { data: { x: 3 } }] } },
@@ -126,7 +126,7 @@ describe('runWorkflow', () => {
       ],
       connections: [{ from: 'trigger', to: 'filter' }],
     };
-    const record = await runWorkflow(def);
+    const record = await runPlaybook(def);
     expect(record.status).toBe('completed');
     expect(record.itemsProcessed).toBeGreaterThan(0);
   });
