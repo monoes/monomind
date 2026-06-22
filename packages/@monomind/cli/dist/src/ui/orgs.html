@@ -1653,6 +1653,8 @@ function appendChatEvent(ev, animate) {
     el = mkSys(`🔁 Loop: ${esc(ev.command||'')} (${ev.repeat||'?'} runs)`, ts);
   } else if (ev.type === 'loop:complete') {
     el = mkSys(`🔁 Loop done: ${esc(ev.command||'')} — ${ev.ranReps||'?'} run(s)`, ts);
+  } else if (ev.type === 'org:artifact' && ev.artifact) {
+    el = mkArtifact(ev.artifact, ts);
   } else {
     el = mkSys(`<span style="opacity:0.4">${esc(ev.type)}${ev.domain?' ['+esc(ev.domain)+']':''}</span>`, ts);
   }
@@ -1680,6 +1682,49 @@ function mkIntercom(from, to, text, ts) {
   el.className = 'cmsg cic';
   el.innerHTML = `<div class="cmsg-meta"><span class="ctag sender">${esc(from||'?')}</span><span class="cic-arrow">→</span><span class="ctag receiver">${esc(to||'?')}</span><span class="cevtype">intercom</span><span class="cts">${ts}</span></div><div class="cbubble">${text}</div>`;
   return el;
+}
+function mkArtifact(art, ts) {
+  const el = document.createElement('div');
+  el.className = 'cmsg csys';
+  const isText = (art.mimeType || '').startsWith('text/') || (art.mimeType || '') === 'application/json';
+  const labelRaw = art.label || (art.path || 'artifact').split('/').pop();
+  const meta = [art.mimeType, art.size ? `${Math.round(art.size/1024*10)/10} KB` : null, art.path ? art.path.split('/').slice(-2).join('/') : null].filter(Boolean).join(' · ');
+  const viewBtn = isText && art.path
+    ? `<button onclick="viewArtifact(${JSON.stringify(art.path)},${JSON.stringify(labelRaw)})" style="background:#1a3a5a;color:#5d9fd9;border:1px solid #2980b944;border-radius:4px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;margin-left:auto">View</button>`
+    : `<span style="font-size:10px;color:#555">Binary</span>`;
+  el.innerHTML = `<div class="cbubble" style="padding:0"><div style="background:#1a1a2e;border:1px solid #3333aa44;border-radius:6px;padding:7px 10px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">📄</span><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(labelRaw)}</div><div style="font-size:10px;color:#888">${esc(meta)}</div></div>${viewBtn}</div><span style="color:var(--dim);font-size:9px;padding:4px 6px 2px">${ts}</span></div>`;
+  return el;
+}
+
+async function viewArtifact(filePath, label) {
+  const orgName = selectedOrg;
+  if (!orgName || !filePath) return;
+  const url = `/api/org/${encodeURIComponent(orgName)}/artifact?path=${encodeURIComponent(filePath)}`;
+  try {
+    const data = await fetch(url).then(r => r.json());
+    if (data.binary) { alert('Binary file — cannot display'); return; }
+    if (data.error === 'file not found') { alert('File no longer exists'); return; }
+    if (data.error) { alert(`Error: ${data.error}`); return; }
+    showArtifactPanel(label, data.content, data.mimeType);
+  } catch(_) { alert('Failed to load artifact'); }
+}
+
+function showArtifactPanel(label, content, mimeType) {
+  let panel = document.getElementById('artifact-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'artifact-panel';
+    panel.style.cssText = 'position:fixed;top:0;right:0;width:480px;height:100vh;background:#0a0a14;border-left:1px solid #333;z-index:1000;display:flex;flex-direction:column;overflow:hidden';
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML = `
+    <div style="padding:12px 14px;border-bottom:1px solid #1a1a2a;display:flex;align-items:center;gap:10px">
+      <span style="font-size:13px;font-weight:700;color:#ccc;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)}</span>
+      <button onclick="document.getElementById('artifact-panel').remove()" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer">✕</button>
+    </div>
+    <pre style="flex:1;overflow:auto;padding:14px;font-size:11px;line-height:1.6;color:#bbb;white-space:pre-wrap;word-break:break-word">${esc(content)}</pre>
+  `;
+  panel.style.display = 'flex';
 }
 
 function chatScrollFeed() {
