@@ -1,14 +1,41 @@
 {
   "name": "@monoes/monobrowse",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Native browser automation via Chrome DevTools Protocol — the engine powering monomind browse",
   "type": "module",
-  "main": "./src/index.ts",
+  "bin": {
+    "monobrowse": "./dist/src/cli.js"
+  },
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./cli": {
+      "types": "./dist/src/cli.d.ts",
+      "import": "./dist/src/cli.js"
+    },
+    "./cli/commands": {
+      "types": "./dist/src/cli/commands.d.ts",
+      "import": "./dist/src/cli/commands.js"
+    },
+    "./cli/types": {
+      "types": "./dist/src/cli/types.d.ts",
+      "import": "./dist/src/cli/types.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "browser-automation",
@@ -30,6 +57,7 @@
     "directory": "packages/@monoes/monobrowse"
   },
   "dependencies": {
+    "commander": "^12.1.0",
     "ws": "^8.21.0"
   },
   "peerDependencies": {

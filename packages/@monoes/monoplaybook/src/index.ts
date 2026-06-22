@@ -6,4 +6,8 @@ export {
   writeRunRecord,
   createBuiltinHandlers,
 } from '@monoes/monobrowse';
-export type { WorkflowDef, NodeDef, ConnectionDef, RunRecord, StepEvent } from '@monoes/monobrowse';
+export type { WorkflowDef, NodeDef, ConnectionDef, RunRecord, StepEvent, Item } from '@monoes/monobrowse';
+export type { NodeHandler } from '@monoes/monobrowse';
+
+// Node handler registry — service integrations
+export { createNodeHandlers } from './registry.js';
