@@ -3497,34 +3497,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const orgsDir = path.join(_opd, '.monomind', 'orgs');
           if (!fs.existsSync(orgsDir)) continue;
           const files = fs.readdirSync(orgsDir).filter(f => f.endsWith('.json') && !_sidecarSuffixRe.test(f));
-          // Read events file once per project dir
-          let recentLines = [];
-          try {
-            const evFile = path.join(_opd, 'data', 'mastermind-events.jsonl');
-            if (fs.existsSync(evFile)) {
-              const stat = fs.statSync(evFile);
-              const TAIL = 65536;
-              const fd = fs.openSync(evFile, 'r');
-              const buf = Buffer.alloc(Math.min(TAIL, stat.size));
-              try { fs.readSync(fd, buf, 0, buf.length, Math.max(0, stat.size - buf.length)); } finally { fs.closeSync(fd); }
-              recentLines = buf.toString('utf8').split('\n').filter(Boolean).reverse();
-            }
-          } catch(_) {}
           for (const f of files) {
             try {
               const cfg = JSON.parse(fs.readFileSync(path.join(orgsDir, f), 'utf8'));
               const _lOrgName = cfg.name || '';
               if (!_lOrgName || _orgsSeen.has(_lOrgName)) continue;
               _orgsSeen.add(_lOrgName);
-              let running = false;
-              const lastStart = recentLines.find(l => { try { const e = JSON.parse(l); return e.type === 'org:start' && e.org === _lOrgName; } catch(_) { return false; } });
-              const lastStop = recentLines.find(l => { try { const e = JSON.parse(l); return (e.type === 'org:stop' || e.type === 'org:complete') && e.org === _lOrgName; } catch(_) { return false; } });
-              if (lastStart) {
-                const startTs = JSON.parse(lastStart).ts || 0;
-                const stopTs = lastStop ? (JSON.parse(lastStop).ts || 0) : 0;
-                running = startTs > stopTs;
-              }
-              if (!running && activeOrgRuns.has(_lOrgName)) running = true;
+              const _rs = _readRunState(_lOrgName, _opd);
+              const _ttl = (_rs?.checkpointInterval || 600000) * 2;
+              let running = (_rs?.status === 'running' && (Date.now() - (_rs?.lastEventAt || 0)) < _ttl)
+                || activeOrgRuns.has(_lOrgName);
               orgs.push({ name: cfg.name, goal: cfg.goal, roles: Array.isArray(cfg.roles) ? cfg.roles : [], topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, projectDir: _opd, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
             } catch(_) {}
           }
