@@ -23,6 +23,7 @@
     "packages/@monomind/cli/dist/**/*.mjs",
     "packages/@monomind/cli/dist/**/*.html",
     "packages/@monomind/cli/dist/**/*.json",
+    "packages/@monomind/cli/dist/**/*.svg",
     "packages/@monomind/cli/dist/**/*.d.ts",
     "!packages/@monomind/cli/dist/**/*.map",
     "packages/@monomind/cli/bundled-graph/**",
