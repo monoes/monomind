@@ -503,6 +503,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       // Any event with both org+runId updates the active run map (run:start written directly to file so org:start is first via curl)
       if (event.runId) activeOrgRuns.set(_orgKey, String(event.runId).trim());
       else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
+      else { const _rsId = _getActiveRunId(_orgKey, root); if (_rsId) event.runId = _rsId; }
       if (event.type === 'run:complete' || event.type === 'org:complete') activeOrgRuns.delete(_orgKey);
       // Persist active-run.json so capture-handler.cjs can find the current org/runId without HTTP calls
       try {
@@ -516,6 +517,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         }
       } catch(_e) {}
     }
+    // Update durable runstate.json — survives server restarts
+    if (event.org) _updateRunState(event, root);
     try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
     // Persist to git-safe run file (survives branch switches + shared across worktrees)
     if (event.org && event.runId) {
