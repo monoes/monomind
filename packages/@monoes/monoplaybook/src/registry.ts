@@ -3,7 +3,7 @@
 //   import { createNodeHandlers } from '@monoes/monoplaybook';
 //   const handlers = createNodeHandlers();
 //   const result = await runWorkflow(def, { handlers });
-import type { NodeHandler } from '@monoes/monobrowse';
+import type { NodeHandler } from './engine/index.js';
 import { register as registerGoogleDrive } from './nodes/google-drive.js';
 import { register as registerGmail } from './nodes/gmail.js';
 import { register as registerGitHub } from './nodes/github.js';

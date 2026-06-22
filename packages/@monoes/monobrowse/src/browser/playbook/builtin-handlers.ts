@@ -19,8 +19,7 @@ function safeResolvePath(rawPath: string): string {
   }
   return safePath;
 }
-import type { NodeHandler } from './engine.js';
-import type { Item } from './types.js';
+import type { NodeHandler, Item } from '@monoes/monoplaybook';
 
 // ---------------------------------------------------------------------------
 // Session persistence (shared format with browse-platform.ts)
