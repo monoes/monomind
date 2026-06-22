@@ -4895,6 +4895,34 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // GET /api/org/:name/artifact — serve file content for chat "View" button
+    if (req.method === 'GET' && /^\/api\/org\/[^/]+\/artifact/.test(url)) {
+      try {
+        const _artQp = new URL('http://x' + req.url).searchParams;
+        const _rawPath = _artQp.get('path');
+        if (!_rawPath) { res.writeHead(400); res.end(JSON.stringify({ error: 'path required' })); return; }
+        const _filePath = path.resolve(decodeURIComponent(_rawPath));
+        // Path traversal guard: only allow reads within known project dirs
+        const _allowed = _getAllowedArtifactDirs(projectDir || process.cwd());
+        const _safe = _allowed.some(d => _filePath.startsWith(d + path.sep) || _filePath === d);
+        if (!_safe) { res.writeHead(403); res.end(JSON.stringify({ error: 'path not allowed' })); return; }
+        if (!fs.existsSync(_filePath)) { res.writeHead(404); res.end(JSON.stringify({ error: 'file not found' })); return; }
+        const _mime = _detectMimeType(_filePath);
+        const _size = fs.statSync(_filePath).size;
+        // Reject files >2MB to avoid blocking the event loop
+        if (_size > 2 * 1024 * 1024) { res.writeHead(413); res.end(JSON.stringify({ error: 'file too large', size: _size })); return; }
+        if (!_mime.startsWith('text/') && _mime !== 'application/json') {
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ binary: true, mimeType: _mime, size: _size }));
+          return;
+        }
+        const _content = fs.readFileSync(_filePath, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ content: _content, mimeType: _mime, size: _size }));
+      } catch (_e) { res.writeHead(500); res.end(JSON.stringify({ error: 'read failed' })); }
+      return;
+    }
+
     // ------------------------------------------------- Mastermind event system
     // POST /api/mastermind/event — ingest event from mastermind skill
     if (req.method === 'POST' && url === '/api/mastermind/event') {
