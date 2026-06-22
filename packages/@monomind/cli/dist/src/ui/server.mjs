@@ -272,7 +272,7 @@ function _detectMimeType(filePath) {
 // Writes runstate.json for state-changing events. Debounces lastEventAt for frequent events.
 const _runstateDebouncers = new Map();
 function _updateRunState(event, rootDir) {
-  const orgName = String(event.org || '').trim();
+  const orgName = String(event.org || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
   if (!orgName) return;
   const projDir = _resolveOrgProjectDir(orgName, rootDir) || rootDir;
   const base = _getGitMonomindDir(projDir) || path.join(projDir, '.monomind');
@@ -315,7 +315,7 @@ function _updateRunState(event, rootDir) {
       try {
         if (!fs.existsSync(file)) return;
         const rs = JSON.parse(fs.readFileSync(file, 'utf8'));
-        rs.lastEventAt = ts;
+        rs.lastEventAt = Date.now();
         fs.writeFileSync(file, JSON.stringify(rs, null, 2));
       } catch (_) {}
     }, 5000);
