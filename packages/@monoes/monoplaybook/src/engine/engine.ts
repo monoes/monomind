@@ -135,7 +135,8 @@ export async function runPlaybook(
     error: runError,
   };
 
-  emit({ nodeId: '', nodeName: '', eventType: runStatus === 'completed' ? 'run_completed' : 'run_stopped', error: runError });
+  const finalEvent = runStatus === 'completed' ? 'run_completed' : runStatus === 'failed' ? 'run_failed' : 'run_stopped';
+  emit({ nodeId: '', nodeName: '', eventType: finalEvent, error: runError });
   return record;
 }
 
@@ -146,6 +147,8 @@ function collectInputs(nodeId: string, nodeOutputs: Map<string, Item[]>, toEdges
     const items = nodeOutputs.get(from) ?? [];
     if (handle === 'true') return items.filter(item => item.data['__ifResult'] === true);
     if (handle === 'false') return items.filter(item => item.data['__ifResult'] === false);
+    // core.switch handle routing — filter items tagged with __switchHandle matching this connection's handle
+    if (handle !== undefined && handle !== '') return items.filter(item => item.data['__switchHandle'] === handle);
     return items;
   });
 }

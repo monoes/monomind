@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import type { WorkflowDef, NodeDef, ConnectionDef, Item, RunRecord, RunStatus } from '@monoes/monobrowse';
+import type { PlaybookDef, NodeDef, ConnectionDef, Item, RunRecord, RunStatus } from '@monoes/monobrowse';
 import type { ActionDef, StepDef } from '@monoes/monobrowse';
 
-describe('WorkflowDef', () => {
-  it('accepts a valid workflow definition', () => {
-    const wf: WorkflowDef = {
-      id: 'my-workflow',
-      name: 'My Workflow',
+describe('PlaybookDef', () => {
+  it('accepts a valid playbook definition', () => {
+    const wf: PlaybookDef = {
+      id: 'my-playbook',
+      name: 'My Playbook',
       nodes: [
         { id: 'n1', type: 'trigger.manual', config: {} },
         { id: 'n2', type: 'action.linkedin.comment_post', config: { post_url: '{{$json.url}}', text: 'hi' } },
