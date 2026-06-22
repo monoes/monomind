@@ -1,7 +1,7 @@
 // GitHub node handler — ported from internal/nodes/service/github.go
 // Operations: list_repos, list_issues, get_issue, create_issue, update_issue,
 //             list_prs, create_pr, list_releases, create_release
-import type { NodeHandler, Item } from '@monoes/monobrowse';
+import type { NodeHandler, Item } from '../engine/index.js';
 
 const GITHUB_BASE = 'https://api.github.com';
 

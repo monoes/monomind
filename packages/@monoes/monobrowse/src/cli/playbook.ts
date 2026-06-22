@@ -3,8 +3,10 @@ import { Command } from 'commander';
 import { readdir, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { readPlaybook, listPlaybookRuns, writePlaybookRun, runPlaybook, createBuiltinHandlers, startDashboard } from '../index.js';
-import type { PlaybookDef } from '../index.js';
+import { readPlaybook, listPlaybookRuns, writePlaybookRun, runPlaybook } from '@monoes/monoplaybook';
+import type { PlaybookDef } from '@monoes/monoplaybook';
+import { createBuiltinHandlers } from '../browser/playbook/builtin-handlers.js';
+import { startDashboard } from '../index.js';
 
 export function createPlaybookCommand(): Command {
   const cmd = new Command('playbook')
