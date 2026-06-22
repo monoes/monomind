@@ -1,6 +1,6 @@
 // Gmail node handler — ported from internal/nodes/service/gmail.go
 // Operations: list_messages, get_message, send_message, list_labels, trash_message
-import type { NodeHandler, Item } from '@monoes/monobrowse';
+import type { NodeHandler, Item } from '../engine/index.js';
 
 const GMAIL_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
 

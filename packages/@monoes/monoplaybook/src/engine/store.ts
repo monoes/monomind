@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import type { PlaybookDef, RunRecord } from '@monoes/monoplaybook';
-import type { ActionDef } from '../action-builder/types.js';
+import type { PlaybookDef, RunRecord } from './types.js';
 
 // TODO: Upgrade to better-sqlite3 for persistence across process restarts.
 // Schema:
@@ -42,13 +41,6 @@ export async function readPlaybook(filePath: string): Promise<PlaybookDef> {
   return def;
 }
 
-function validateAction(def: unknown): void {
-  if (typeof def !== 'object' || def === null) throw new Error('Action must be a JSON object');
-  const a = def as Record<string, unknown>;
-  if (typeof a['id'] !== 'string') throw new Error('Action missing required field: id');
-  if (!Array.isArray(a['steps'])) throw new Error('Action missing required field: steps');
-}
-
 function isPlaybookDef(def: unknown): def is PlaybookDef {
   if (typeof def !== 'object' || def === null) return false;
   const w = def as Record<string, unknown>;
@@ -58,23 +50,6 @@ function isPlaybookDef(def: unknown): def is PlaybookDef {
     Array.isArray(w['nodes']) &&
     Array.isArray(w['connections'])
   );
-}
-
-export async function readAction(filePath: string): Promise<ActionDef> {
-  let raw: string;
-  try {
-    raw = await readFile(filePath, 'utf-8');
-  } catch {
-    throw new Error(`Action file not found: ${filePath}`);
-  }
-  let def: unknown;
-  try {
-    def = JSON.parse(raw);
-  } catch {
-    throw new Error(`Invalid JSON in action file: ${filePath}`);
-  }
-  validateAction(def);
-  return def as ActionDef;
 }
 
 export async function writePlaybookRun(record: RunRecord): Promise<void> {

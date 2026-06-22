@@ -2,7 +2,7 @@
 // Type: "http.request"
 // Supports: GET/POST/etc., auth (none/bearer/basic/api_key), body (json/form/text),
 //           pagination (offset), response format (json/text/binary)
-import type { NodeHandler, Item } from '@monoes/monobrowse';
+import type { NodeHandler, Item } from '../engine/index.js';
 
 interface RequestConfig {
   method: string;

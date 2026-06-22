@@ -57,6 +57,7 @@
     "directory": "packages/@monoes/monobrowse"
   },
   "dependencies": {
+    "@monoes/monoplaybook": "workspace:*",
     "commander": "^12.1.0",
     "ws": "^8.21.0"
   },
