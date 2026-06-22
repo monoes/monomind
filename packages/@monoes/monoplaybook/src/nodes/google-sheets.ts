@@ -1,6 +1,6 @@
 // Google Sheets node handler — ported from internal/nodes/service/google_sheets.go
 // Operations: read_rows, append_rows, update_rows, clear_range, create_spreadsheet
-import type { NodeHandler, Item } from '@monoes/monobrowse';
+import type { NodeHandler, Item } from '../engine/index.js';
 
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 

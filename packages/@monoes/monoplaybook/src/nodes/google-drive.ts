@@ -1,6 +1,6 @@
 // Google Drive node handler — ported from internal/nodes/service/google_drive.go
 // Operations: list_files, get_file, upload_file, download_file, create_folder, delete_file, share_file
-import type { NodeHandler, Item } from '@monoes/monobrowse';
+import type { NodeHandler, Item } from '../engine/index.js';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 

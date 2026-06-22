@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
-import type { StepEvent, RunRecord, PlaybookDef } from '../playbook/types.js';
+import type { StepEvent, RunRecord, PlaybookDef } from '@monoes/monoplaybook';
 
 const RUNS_FILE = join(homedir(), '.monomind', 'browse-runs.json');
 const PLAYBOOKS_FILE = join(homedir(), '.monomind', 'playbooks.json');
@@ -187,12 +187,13 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       // Run async, broadcast events via dashboard
       Promise.resolve().then(async () => {
         try {
-          const { runPlaybook } = await import('../playbook/engine.js');
+          const { runPlaybook } = await import('@monoes/monoplaybook');
           const { createBuiltinHandlers } = await import('../playbook/builtin-handlers.js');
           const handlers = createBuiltinHandlers();
           const record = await runPlaybook(pb, {
             handlers,
             onEvent: (evt) => { instance?.broadcast(evt); },
+            isStopRequested: (id) => instance?.isStopRequested(id) ?? false,
           });
           instance?.addRunRecord(record);
         } catch (err) {
