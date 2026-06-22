@@ -1339,9 +1339,59 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 #mem-modal-ta:focus { border-color: var(--accent); }
 .mem-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
 
-/* ── workflow view tabs ────────────────────────────────────── */
+/* ── playbook view tabs ────────────────────────────────────── */
 .wf-pane { display: none; }
 .wf-pane.active { display: block; }
+
+/* ── playbook builder ──────────────────────────────────────── */
+#wf-tab-builder { display: none; height: calc(100vh - 180px); min-height: 400px; }
+#wf-tab-builder.active { display: flex; flex-direction: column; }
+#pb-toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+#pb-toolbar .btn { font-size: 11px; padding: 4px 10px; }
+#pb-name-input { background: var(--surface-hi); border: 1px solid var(--border); border-radius: 5px; color: var(--text-hi); font-size: 12px; padding: 4px 8px; flex: 1; max-width: 240px; outline: none; }
+#pb-name-input:focus { border-color: var(--accent); }
+#pb-run-status { font-size: 11px; color: var(--text-lo); margin-left: 4px; }
+#pb-editor { display: flex; flex: 1; gap: 0; overflow: hidden; }
+#pb-palette { width: 180px; flex-shrink: 0; border-right: 1px solid var(--border); overflow-y: auto; padding: 8px 0; }
+.pb-cat-hdr { font-size: 10px; font-weight: 700; color: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 12px 3px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.pb-cat-hdr:hover { color: var(--text-lo); }
+.pb-cat-arrow { font-size: 8px; transition: transform 0.15s; }
+.pb-cat-body { overflow: hidden; }
+.pb-cat-body.collapsed { display: none; }
+.pb-node-btn { width: 100%; text-align: left; background: none; border: none; font-size: 11px; color: var(--text-lo); padding: 4px 12px 4px 20px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.pb-node-btn:hover { background: var(--surface-hi); color: var(--text-hi); }
+.pb-node-btn .pb-node-icon { font-size: 13px; width: 16px; text-align: center; flex-shrink: 0; }
+#pb-canvas-wrap { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
+#pb-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+#pb-svg { position: absolute; top: 0; left: 0; pointer-events: none; }
+#pb-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-xs); font-size: 12px; gap: 8px; pointer-events: none; }
+.pb-node-card { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; width: 160px; min-height: 56px; cursor: grab; user-select: none; transition: box-shadow 0.12s, border-color 0.12s; }
+.pb-node-card:active { cursor: grabbing; }
+.pb-node-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px oklch(72% 0.18 75 / 0.25); }
+.pb-node-card.ns-running { border-color: var(--accent); }
+.pb-node-card.ns-completed { border-color: var(--green); }
+.pb-node-card.ns-failed { border-color: var(--red); }
+.pb-node-hdr { display: flex; align-items: center; gap: 6px; padding: 8px 10px 6px; border-bottom: 1px solid var(--border); }
+.pb-node-type-icon { font-size: 14px; }
+.pb-node-title { font-size: 11px; font-weight: 600; color: var(--text-hi); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-node-del { font-size: 12px; color: var(--text-xs); cursor: pointer; padding: 0 2px; line-height: 1; background: none; border: none; }
+.pb-node-del:hover { color: var(--red); }
+.pb-node-body { padding: 6px 10px 8px; font-size: 10px; color: var(--text-lo); line-height: 1.5; }
+.pb-node-status { display: flex; align-items: center; gap: 4px; margin-bottom: 2px; }
+.pb-ns-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+.pb-ns-dot.running  { background: var(--accent); animation: pb-pulse 1s infinite; }
+.pb-ns-dot.completed{ background: var(--green); }
+.pb-ns-dot.failed   { background: var(--red); }
+.pb-node-conn-btn { position: absolute; right: -10px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; border-radius: 50%; background: var(--accent-dim); border: 2px solid var(--accent); cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; font-size: 8px; color: var(--accent); }
+.pb-node-conn-btn:hover { background: var(--accent); color: #fff; }
+#pb-config { width: 220px; flex-shrink: 0; border-left: 1px solid var(--border); overflow-y: auto; padding: 12px; }
+#pb-config-title { font-size: 11px; font-weight: 700; color: var(--text-hi); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.pb-cfg-row { margin-bottom: 10px; }
+.pb-cfg-lbl { font-size: 10px; color: var(--text-lo); margin-bottom: 3px; font-weight: 600; }
+.pb-cfg-inp { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text-hi); font-size: 11px; padding: 4px 7px; outline: none; resize: vertical; font-family: var(--mono); }
+.pb-cfg-inp:focus { border-color: var(--accent); }
+select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
+@keyframes pb-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
 /* ── systems grid ──────────────────────────────────────────── */
 #wf-systems-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
@@ -1360,7 +1410,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 .sys-cmd { font-size: 10px; color: var(--accent); font-family: var(--mono); background: var(--accent-dim); border-radius: 4px; padding: 3px 7px; display: inline-block; cursor: pointer; word-break: break-all; }
 .sys-api-badge { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: oklch(72% 0.18 75 / 0.1); color: var(--accent); border: 1px solid var(--accent-dim); }
 
-/* ── workflow runs view ────────────────────────────────────── */
+/* ── playbook runs view ────────────────────────────────────── */
 .wf-run-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
 .wf-run-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .wf-run-name { font-size: 13px; font-weight: 600; color: var(--text-hi); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1459,9 +1509,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div class="nav-item" data-view="monograph">
           <span class="ico">⬡</span><span class="lbl">Monograph</span>
         </div>
-        <div class="nav-item" data-view="workflows">
-          <span class="ico">⚡</span><span class="lbl">Workflows</span>
-          <span class="bdg" id="bdg-workflows">—</span>
+        <div class="nav-item" data-view="playbooks">
+          <span class="ico">⚡</span><span class="lbl">Playbooks</span>
+          <span class="bdg" id="bdg-playbooks">—</span>
         </div>
       </div>
     </div>
@@ -2134,15 +2184,16 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       </div>
     </div>
 
-    <!-- WORKFLOWS -->
-    <div class="view" id="view-workflows">
+    <!-- PLAYBOOKS -->
+    <div class="view" id="view-playbooks">
       <div class="vscroll">
-        <div class="pg-title">Workflows</div>
+        <div class="pg-title">Playbooks</div>
         <div class="pg-sub">Browser automation — connected systems &amp; run history</div>
         <!-- Tab bar -->
         <div class="mg-tab-bar" style="margin-top:14px">
           <button class="odt-btn active" data-wftab="systems" onclick="wfSwitchTab('systems')">Systems</button>
           <button class="odt-btn" data-wftab="library" onclick="wfSwitchTab('library')">Library</button>
+          <button class="odt-btn" data-wftab="builder" onclick="wfSwitchTab('builder')">Builder</button>
           <button class="odt-btn" data-wftab="runs" onclick="wfSwitchTab('runs')">Runs</button>
         </div>
 
@@ -2159,7 +2210,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div class="wf-pane" id="wf-tab-library">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:4px">
             <button class="btn" onclick="loadWorkflowDefs()">↺ Refresh</button>
-            <span style="font-size:11px;color:var(--text-lo)">Saved in .monomind/workflows/</span>
+            <span style="font-size:11px;color:var(--text-lo)">Saved in .monomind/playbooks/</span>
           </div>
           <div id="wf-defs-list"><div class="loading-txt">Loading…</div></div>
         </div>
@@ -2178,6 +2229,35 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <span id="wf-count" style="color:var(--text-lo);font-size:12px"></span>
           </div>
           <div id="wf-runs-list"><div class="loading-txt">Loading…</div></div>
+        </div>
+
+        <!-- TAB: BUILDER -->
+        <div id="wf-tab-builder">
+          <div id="pb-toolbar">
+            <button class="btn" onclick="pbNew()" title="New playbook">＋ New</button>
+            <input id="pb-name-input" type="text" placeholder="Playbook name…" oninput="pbState.playbook.name=this.value">
+            <button class="btn" onclick="pbLoad()" title="Load a playbook from Library">⬆ Load</button>
+            <button class="btn" onclick="pbSave()" title="Save to .monomind/playbooks/">💾 Save</button>
+            <button class="btn" onclick="pbRun()" title="Run via monobrowse dashboard" style="color:var(--accent);border-color:var(--accent)">▶ Run</button>
+            <button class="btn" onclick="pbImportJSON()" title="Import from JSON">⬇ Import</button>
+            <button class="btn" onclick="pbExportJSON()" title="Export to JSON">⬆ Export</button>
+            <span id="pb-run-status"></span>
+          </div>
+          <div id="pb-editor">
+            <div id="pb-palette">
+              <!-- populated by pbRenderPalette() -->
+            </div>
+            <div id="pb-canvas-wrap">
+              <div id="pb-canvas">
+                <svg id="pb-svg" width="100%" height="100%"><defs><marker id="pb-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-xs)"/></marker></defs></svg>
+                <div id="pb-empty"><div style="font-size:32px">⚡</div><div>Drag a node from the left panel onto the canvas</div><div style="font-size:11px">or click a node type to add it</div></div>
+              </div>
+            </div>
+            <div id="pb-config">
+              <div id="pb-config-title">Select a node</div>
+              <div id="pb-config-body"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2373,7 +2453,7 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', workflows:'Workflows', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', playbooks:'Playbooks', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
   const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
@@ -2436,7 +2516,7 @@ function renderView(v) {
   if (v === 'memory') renderMemory();
   if (v === 'orgs') renderOrgs();
   if (v === 'monograph') loadMonograph();
-  if (v === 'workflows') { loadPlatformSessions(); loadWorkflowDefs(); loadWorkflowRuns(); }
+  if (v === 'playbooks') { loadPlatformSessions(); loadWorkflowDefs(); loadWorkflowRuns(); }
   if (v === 'global') renderGlobalFeed();
   if (v === 'global-loops') renderGlobalLoops();
   if (v === 'global-tokens') renderGlobalTokens();
@@ -10210,7 +10290,7 @@ let _mgWikiFilter = 'all';
 let _mgWikiMode = 'all';
 let _mgWikiSearchTimer = null;
 
-/* ── Workflow View ─────────────────────────────────────────── */
+/* ── Playbook View ─────────────────────────────────────────── */
 const WF_PLATFORMS = [
   { id: 'linkedin',  name: 'LinkedIn',  icon: '💼', type: 'browser', connectCmd: 'npx monomind browse platform connect linkedin' },
   { id: 'instagram', name: 'Instagram', icon: '📷', type: 'browser', connectCmd: 'npx monomind browse platform connect instagram' },
@@ -10221,13 +10301,14 @@ const WF_PLATFORMS = [
 ];
 
 function wfSwitchTab(tab) {
-  document.querySelectorAll('.wf-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.wf-pane, #wf-tab-builder').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('[data-wftab]').forEach(b => b.classList.remove('active'));
   document.getElementById('wf-tab-' + tab).classList.add('active');
   document.querySelector('[data-wftab="' + tab + '"]').classList.add('active');
   if (tab === 'systems') loadPlatformSessions();
   if (tab === 'library') loadWorkflowDefs();
   if (tab === 'runs') loadWorkflowRuns();
+  if (tab === 'builder') pbInit();
 }
 
 let _wfDefs = [];
@@ -10239,7 +10320,7 @@ async function loadWorkflowDefs() {
     _wfDefs = await apiFetch('/api/workflow-defs');
   } catch { _wfDefs = []; }
   if (!_wfDefs.length) {
-    el.innerHTML = `<div id="wf-lib-empty">No workflows saved yet.<br><span style="font-size:12px;color:var(--text-xs)">Create one: <code style="font-family:var(--mono);color:var(--accent)">npx monomind browse workflow create my-workflow</code></span></div>`;
+    el.innerHTML = `<div id="wf-lib-empty">No playbooks saved yet.<br><span style="font-size:12px;color:var(--text-xs)">Create one: <code style="font-family:var(--mono);color:var(--accent)">npx monomind browse playbook create my-playbook</code></span></div>`;
     return;
   }
   el.innerHTML = _wfDefs.map(d => {
@@ -10257,7 +10338,10 @@ async function loadWorkflowDefs() {
           <span class="wf-def-tag" style="font-size:9px;color:var(--text-xs)">${esc(d.file)}</span>
         </div>
       </div>
-      <button class="wf-def-run-btn" title="Copy run command" onclick="navigator.clipboard?.writeText('npx monomind browse workflow run .monomind/workflows/${esc(d.file)}').then(()=>this.textContent='Copied!').catch(()=>{});setTimeout(()=>this.textContent='▶ Run',1500)">▶ Run</button>
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+        <button class="wf-def-run-btn" title="Copy run command" onclick="navigator.clipboard?.writeText('npx monomind browse playbook run .monomind/playbooks/${esc(d.file)}').then(()=>this.textContent='Copied!').catch(()=>{});setTimeout(()=>this.textContent='▶ Run',1500)">▶ Run</button>
+        <button class="wf-def-run-btn" style="font-size:10px" title="Open in Builder" onclick="pbLoadDef(${JSON.stringify(d.id)});wfSwitchTab('builder')">✎ Edit</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -10332,7 +10416,7 @@ async function loadWorkflowRuns() {
   } catch (e) {
     _wfRuns = [];
   }
-  const bdg = document.getElementById('bdg-workflows');
+  const bdg = document.getElementById('bdg-playbooks');
   if (bdg) bdg.textContent = _wfRuns.length || '—';
   document.getElementById('wf-count').textContent = _wfRuns.length + ' run' + (_wfRuns.length !== 1 ? 's' : '');
   renderWorkflowRuns();
@@ -10343,7 +10427,7 @@ function renderWorkflowRuns() {
   const runs = filter ? _wfRuns.filter(r => r.status === filter) : _wfRuns;
   const el = document.getElementById('wf-runs-list');
   if (!runs.length) {
-    el.innerHTML = '<div id="wf-empty">No workflow runs found. Run a workflow with:<br><code style="font-family:var(--mono);font-size:12px;color:var(--accent)">npx monomind browse workflow run &lt;file&gt;</code></div>';
+    el.innerHTML = '<div id="wf-empty">No playbook runs found. Run a playbook with:<br><code style="font-family:var(--mono);font-size:12px;color:var(--accent)">npx monomind browse playbook run &lt;file&gt;</code></div>';
     return;
   }
   el.innerHTML = runs.map(r => {
@@ -10356,7 +10440,7 @@ function renderWorkflowRuns() {
     const started = r.startedAt ? new Date(r.startedAt).toLocaleString() : '—';
     return `<div class="wf-run-card">
       <div class="wf-run-header">
-        <span class="wf-run-name" title="${esc(r.workflowName || r.workflowId || 'Workflow')}">${esc(r.workflowName || r.workflowId || 'Workflow')}</span>
+        <span class="wf-run-name" title="${esc(r.playbookName || r.playbookId || r.workflowName || r.workflowId || 'Playbook')}">${esc(r.playbookName || r.playbookId || r.workflowName || r.workflowId || 'Playbook')}</span>
         <span class="wf-status s-${esc(st)}">${esc(st.toUpperCase())}</span>
       </div>
       <div class="wf-run-meta">
@@ -10370,6 +10454,527 @@ function renderWorkflowRuns() {
     </div>`;
   }).join('');
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PLAYBOOK BUILDER
+   ═══════════════════════════════════════════════════════════════ */
+const PB_NODE_DEFS = [
+  { cat: 'Core',    type: 'trigger.manual', label: 'Manual Trigger', icon: '▶' },
+  { cat: 'Core',    type: 'core.filter',    label: 'Filter',         icon: '⚗' },
+  { cat: 'Core',    type: 'core.if',        label: 'If / Branch',    icon: '⑂' },
+  { cat: 'Core',    type: 'core.set',       label: 'Set Fields',     icon: '✎' },
+  { cat: 'Core',    type: 'core.aggregate', label: 'Aggregate',      icon: '∑' },
+  { cat: 'Core',    type: 'core.sort',      label: 'Sort',           icon: '⇅' },
+  { cat: 'Core',    type: 'core.limit',     label: 'Limit',          icon: '✂' },
+  { cat: 'Core',    type: 'core.switch',    label: 'Switch',         icon: '⑃' },
+  { cat: 'Core',    type: 'core.merge',     label: 'Merge',          icon: '⊕' },
+  { cat: 'Core',    type: 'core.remove_duplicates', label: 'Remove Duplicates', icon: '⊘' },
+  { cat: 'Core',    type: 'core.code',      label: 'Code',           icon: '〈/〉' },
+  { cat: 'Core',    type: 'core.wait',      label: 'Wait',           icon: '⏱' },
+  { cat: 'Core',    type: 'core.split_in_batches', label: 'Split Batches', icon: '⋮' },
+  { cat: 'Core',    type: 'core.stop_error',label: 'Stop & Error',   icon: '⛔' },
+  { cat: 'Core',    type: 'core.compare_datasets', label: 'Compare Datasets', icon: '⟺' },
+  { cat: 'HTTP',    type: 'http.request',   label: 'HTTP Request',   icon: '⊹' },
+  { cat: 'Google',  type: 'google_drive.list',     label: 'Drive: List',      icon: '📁' },
+  { cat: 'Google',  type: 'google_drive.download', label: 'Drive: Download',  icon: '⬇' },
+  { cat: 'Google',  type: 'google_drive.upload',   label: 'Drive: Upload',    icon: '⬆' },
+  { cat: 'Google',  type: 'gmail.send',      label: 'Gmail: Send',   icon: '✉' },
+  { cat: 'Google',  type: 'gmail.list',      label: 'Gmail: List',   icon: '📬' },
+  { cat: 'Google',  type: 'google_sheets.read',    label: 'Sheets: Read',     icon: '📊' },
+  { cat: 'Google',  type: 'google_sheets.append',  label: 'Sheets: Append',   icon: '➕' },
+  { cat: 'Services',type: 'github.list_issues',    label: 'GitHub: Issues',   icon: '⊙' },
+  { cat: 'Services',type: 'github.create_issue',   label: 'GitHub: New Issue',icon: '⊙' },
+  { cat: 'Services',type: 'notion.query_database', label: 'Notion: Query',    icon: '📄' },
+  { cat: 'Services',type: 'linear.list_issues',    label: 'Linear: Issues',   icon: '◉' },
+  { cat: 'Services',type: 'airtable.list_records', label: 'Airtable: List',   icon: '⊞' },
+  { cat: 'Services',type: 'stripe.list_customers', label: 'Stripe: Customers',icon: '💳' },
+];
+
+const PB_NODE_FIELDS = {
+  'trigger.manual':   [],
+  'core.filter':      [{ key:'expression', label:'Condition', type:'text', placeholder:'{{ $json.active == true }}' }],
+  'core.if':          [{ key:'expression', label:'Condition', type:'text', placeholder:'{{ $json.status == "active" }}' }],
+  'core.set':         [{ key:'assignments', label:'Assignments (JSON)', type:'textarea', placeholder:'{"field":"{{ $json.value }}"}' }],
+  'core.aggregate':   [{ key:'operation', label:'Operation', type:'select', options:['count','sum','avg','min','max','collect'] }, { key:'field', label:'Field', type:'text', placeholder:'amount' }, { key:'group_by', label:'Group By', type:'text', placeholder:'category' }],
+  'core.sort':        [{ key:'field', label:'Sort By', type:'text', placeholder:'created_at' }, { key:'direction', label:'Direction', type:'select', options:['asc','desc'] }],
+  'core.limit':       [{ key:'max_items', label:'Max Items', type:'number', placeholder:'10' }],
+  'core.switch':      [{ key:'field', label:'Field Expr', type:'text', placeholder:'{{ $json.status }}' }, { key:'cases', label:'Cases (comma-sep)', type:'text', placeholder:'active,pending,closed' }],
+  'core.merge':       [{ key:'mode', label:'Mode', type:'select', options:['append','merge_by_key','zip'] }, { key:'key_field', label:'Key Field', type:'text', placeholder:'id' }],
+  'core.remove_duplicates': [{ key:'field', label:'Dedup By', type:'text', placeholder:'id' }],
+  'core.code':        [{ key:'code', label:'Code (JS)', type:'textarea', placeholder:'return $input.all().map(i => ({...i.data, processed:true}));' }],
+  'core.wait':        [{ key:'duration', label:'Duration (s)', type:'number', placeholder:'5' }],
+  'core.split_in_batches': [{ key:'batch_size', label:'Batch Size', type:'number', placeholder:'10' }],
+  'core.stop_error':  [{ key:'message', label:'Error Message', type:'text', placeholder:'Stopped: condition not met' }],
+  'core.compare_datasets': [{ key:'key_field', label:'Key Field', type:'text', placeholder:'id' }, { key:'output', label:'Output', type:'select', options:['new_items','removed_items','changed_items','all_differences'] }],
+  'http.request':     [{ key:'method', label:'Method', type:'select', options:['GET','POST','PUT','PATCH','DELETE'] }, { key:'url', label:'URL', type:'text', placeholder:'https://api.example.com/data' }, { key:'body_type', label:'Body', type:'select', options:['none','json','form','text'] }],
+};
+
+let pbState = {
+  playbook: { id: '', name: 'Untitled', nodes: [], connections: [] },
+  positions: {},       // { nodeId: { x, y } }
+  runStatus: {},       // { nodeId: 'running'|'completed'|'failed' }
+  selectedId: null,
+  connecting: null,    // nodeId being connected from
+  _pbInited: false,
+  _dragNode: null,
+  _dragOff: { x: 0, y: 0 },
+};
+
+let _pbWs = null;
+function pbHandleEvent(ev) {
+  if (!ev) return;
+  if (ev.nodeId) {
+    if (ev.eventType === 'step_started')   { pbState.runStatus[ev.nodeId] = 'running';   pbUpdateNodeStatus(ev.nodeId); }
+    if (ev.eventType === 'step_completed') { pbState.runStatus[ev.nodeId] = 'completed'; pbUpdateNodeStatus(ev.nodeId); }
+    if (ev.eventType === 'step_failed')    { pbState.runStatus[ev.nodeId] = 'failed';    pbUpdateNodeStatus(ev.nodeId); }
+  }
+  if (ev.eventType === 'run_started') { pbState.runStatus = {}; pbRenderCanvas(); }
+  if (ev.eventType === 'run_completed' || ev.eventType === 'run_failed' || ev.eventType === 'run_stopped') {
+    const lbl = document.getElementById('pb-run-status');
+    if (lbl) lbl.textContent = '● ' + ev.eventType.replace('run_', '').toUpperCase();
+    setTimeout(() => loadWorkflowRuns(), 1000);
+  }
+}
+
+function pbInit() {
+  if (pbState._pbInited) { pbRenderCanvas(); return; }
+  pbState._pbInited = true;
+  pbRenderPalette();
+  pbRenderCanvas();
+  pbConnectEvents();
+}
+
+function pbConnectEvents() {
+  // Connect to the monobrowse dashboard WS/SSE on port 4243 for live step events
+  if (_pbWs) { try { _pbWs.close(); } catch {} _pbWs = null; }
+  try {
+    const ws = new WebSocket('ws://localhost:4243');
+    ws.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.type === 'history') return; pbHandleEvent(d); } catch {} };
+    ws.onerror = () => pbConnectSse();
+    ws.onclose = () => { _pbWs = null; };
+    _pbWs = ws;
+  } catch { pbConnectSse(); }
+}
+
+function pbConnectSse() {
+  try {
+    const es = new EventSource('http://localhost:4243/events');
+    es.onmessage = (e) => { try { pbHandleEvent(JSON.parse(e.data)); } catch {} };
+    es.onerror = () => es.close();
+  } catch {}
+}
+
+function pbRenderPalette() {
+  const el = document.getElementById('pb-palette');
+  if (!el) return;
+  const cats = [...new Set(PB_NODE_DEFS.map(n => n.cat))];
+  el.innerHTML = cats.map(cat => {
+    const nodes = PB_NODE_DEFS.filter(n => n.cat === cat);
+    return `<div>
+      <div class="pb-cat-hdr" onclick="pbToggleCat(this)">
+        <span class="pb-cat-arrow">▸</span>${cat}
+      </div>
+      <div class="pb-cat-body ${cat === 'Core' ? '' : 'collapsed'}">
+        ${nodes.map(n => `<button class="pb-node-btn" onclick="pbAddNode('${esc(n.type)}')" title="${esc(n.type)}">
+          <span class="pb-node-icon">${n.icon}</span>${esc(n.label)}
+        </button>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  // Expand Core by default
+  el.querySelector('.pb-cat-hdr')?.classList.add('expanded');
+  const firstArrow = el.querySelector('.pb-cat-arrow');
+  if (firstArrow) firstArrow.textContent = '▾';
+}
+
+function pbToggleCat(hdr) {
+  const body = hdr.nextElementSibling;
+  const arrow = hdr.querySelector('.pb-cat-arrow');
+  body.classList.toggle('collapsed');
+  if (arrow) arrow.textContent = body.classList.contains('collapsed') ? '▸' : '▾';
+}
+
+function pbNew() {
+  pbState.playbook = { id: 'pb-' + Date.now(), name: 'Untitled', nodes: [], connections: [] };
+  pbState.positions = {};
+  pbState.runStatus = {};
+  pbState.selectedId = null;
+  document.getElementById('pb-name-input').value = 'Untitled';
+  document.getElementById('pb-run-status').textContent = '';
+  pbRenderCanvas();
+  pbShowConfig(null);
+}
+
+function pbAddNode(type) {
+  const def = PB_NODE_DEFS.find(n => n.type === type) || { label: type, icon: '⊹' };
+  const id = 'n-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+  const pb = pbState.playbook;
+  // Offset new nodes so they don't stack
+  const offset = pb.nodes.length * 20;
+  pbState.positions[id] = { x: 60 + offset, y: 60 + offset };
+  pb.nodes.push({ id, type, name: def.label, config: {} });
+  const empty = document.getElementById('pb-empty');
+  if (empty) empty.style.display = 'none';
+  pbRenderCanvas();
+  pbSelectNode(id);
+}
+
+function pbRenderCanvas() {
+  const canvas = document.getElementById('pb-canvas');
+  const svg = document.getElementById('pb-svg');
+  if (!canvas || !svg) return;
+
+  // Remove old node cards
+  canvas.querySelectorAll('.pb-node-card').forEach(el => el.remove());
+
+  const pb = pbState.playbook;
+  if (!pb.nodes.length) {
+    const empty = document.getElementById('pb-empty');
+    if (empty) empty.style.display = '';
+    svg.innerHTML = '<defs><marker id="pb-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-xs)"/></marker></defs>';
+    return;
+  }
+  const empty = document.getElementById('pb-empty');
+  if (empty) empty.style.display = 'none';
+
+  // Render nodes
+  for (const node of pb.nodes) {
+    const pos = pbState.positions[node.id] || { x: 40, y: 40 };
+    const def = PB_NODE_DEFS.find(n => n.type === node.type) || { icon: '⊹' };
+    const st = pbState.runStatus[node.id] || '';
+    const card = document.createElement('div');
+    card.className = 'pb-node-card' + (node.id === pbState.selectedId ? ' selected' : '') + (st ? ' ns-' + st : '');
+    card.dataset.id = node.id;
+    card.style.left = pos.x + 'px';
+    card.style.top = pos.y + 'px';
+    card.innerHTML = `
+      <div class="pb-node-hdr">
+        <span class="pb-node-type-icon">${def.icon}</span>
+        <span class="pb-node-title" title="${esc(node.type)}">${esc(node.name || node.type)}</span>
+        <button class="pb-node-del" onclick="pbDeleteNode('${esc(node.id)}')" title="Remove">✕</button>
+      </div>
+      <div class="pb-node-body">
+        ${st ? `<div class="pb-node-status"><div class="pb-ns-dot ${st}"></div><span style="color:${st==='running'?'var(--accent)':st==='completed'?'var(--green)':'var(--red)'}">${st}</span></div>` : ''}
+        <div style="font-size:10px;color:var(--text-xs)">${esc(node.type)}</div>
+      </div>
+      <button class="pb-node-conn-btn" title="Connect to another node" onclick="pbStartConnect('${esc(node.id)}',event)">→</button>
+    `;
+    card.addEventListener('mousedown', (e) => pbDragStart(node.id, e));
+    card.addEventListener('click', (e) => { if (!e.defaultPrevented) pbSelectNode(node.id); });
+    canvas.appendChild(card);
+  }
+
+  // Render SVG connections
+  const w = canvas.offsetWidth || 800;
+  const h = canvas.offsetHeight || 600;
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  let paths = '<defs><marker id="pb-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-xs)"/></marker></defs>';
+  for (const conn of pb.connections) {
+    const fromPos = pbState.positions[conn.from];
+    const toPos   = pbState.positions[conn.to];
+    if (!fromPos || !toPos) continue;
+    const x1 = fromPos.x + 160; const y1 = fromPos.y + 36;
+    const x2 = toPos.x;         const y2 = toPos.y + 36;
+    const cx1 = x1 + 60; const cx2 = x2 - 60;
+    const label = conn.handle ? `<text x="${(x1+x2)/2}" y="${(y1+y2)/2 - 5}" font-size="9" fill="var(--text-xs)" text-anchor="middle">${esc(conn.handle)}</text>` : '';
+    paths += `<path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}" stroke="var(--border)" stroke-width="2" fill="none" marker-end="url(#pb-arrow)"/>${label}`;
+  }
+  svg.innerHTML = paths;
+}
+
+function pbDragStart(nodeId, e) {
+  if (e.target.classList.contains('pb-node-del') || e.target.classList.contains('pb-node-conn-btn')) return;
+  e.preventDefault();
+  const pos = pbState.positions[nodeId] || { x: 0, y: 0 };
+  pbState._dragNode = nodeId;
+  pbState._dragOff = { x: e.clientX - pos.x, y: e.clientY - pos.y };
+  function onMove(ev) {
+    const wrap = document.getElementById('pb-canvas-wrap');
+    const rect = wrap ? wrap.getBoundingClientRect() : { left: 0, top: 0 };
+    pbState.positions[nodeId] = { x: Math.max(0, ev.clientX - pbState._dragOff.x), y: Math.max(0, ev.clientY - pbState._dragOff.y) };
+    const card = document.querySelector('.pb-node-card[data-id="' + nodeId + '"]');
+    if (card) { card.style.left = pbState.positions[nodeId].x + 'px'; card.style.top = pbState.positions[nodeId].y + 'px'; }
+    pbRenderSvg();
+  }
+  function onUp() {
+    pbState._dragNode = null;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function pbRenderSvg() {
+  const svg = document.getElementById('pb-svg');
+  const canvas = document.getElementById('pb-canvas');
+  if (!svg || !canvas) return;
+  const w = canvas.offsetWidth || 800;
+  const h = canvas.offsetHeight || 600;
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  let paths = '<defs><marker id="pb-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-xs)"/></marker></defs>';
+  for (const conn of pbState.playbook.connections) {
+    const fromPos = pbState.positions[conn.from];
+    const toPos   = pbState.positions[conn.to];
+    if (!fromPos || !toPos) continue;
+    const x1 = fromPos.x + 160; const y1 = fromPos.y + 36;
+    const x2 = toPos.x;         const y2 = toPos.y + 36;
+    const cx1 = x1 + 60; const cx2 = x2 - 60;
+    const label = conn.handle ? `<text x="${(x1+x2)/2}" y="${(y1+y2)/2 - 5}" font-size="9" fill="var(--text-xs)" text-anchor="middle">${esc(conn.handle)}</text>` : '';
+    paths += `<path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}" stroke="var(--border)" stroke-width="2" fill="none" marker-end="url(#pb-arrow)"/>${label}`;
+  }
+  svg.innerHTML = paths;
+}
+
+function pbStartConnect(fromId, e) {
+  e.stopPropagation();
+  e.preventDefault();
+  if (pbState.connecting) {
+    // Second click: connect from→to
+    const toId = pbState.connecting === fromId ? null : fromId;
+    if (toId) pbAddConnection(pbState._connectFrom, toId);
+    pbState.connecting = null;
+    pbState._connectFrom = null;
+    document.querySelectorAll('.pb-node-card').forEach(c => c.style.outline = '');
+  } else {
+    pbState.connecting = fromId;
+    pbState._connectFrom = fromId;
+    // Highlight the from node
+    const card = document.querySelector('.pb-node-card[data-id="' + fromId + '"]');
+    if (card) card.style.outline = '2px solid var(--accent)';
+    // Next click on any node's conn-btn will complete
+    showToast('Connect mode', 'Click → on target node to connect', 'info');
+  }
+}
+
+function pbAddConnection(fromId, toId) {
+  const handle = prompt('Handle (optional, e.g. true/false for if-node, or case value for switch):') || undefined;
+  pbState.playbook.connections.push({ from: fromId, to: toId, handle: handle || undefined });
+  pbRenderCanvas();
+}
+
+function pbSelectNode(nodeId) {
+  pbState.selectedId = nodeId;
+  document.querySelectorAll('.pb-node-card').forEach(c => c.classList.toggle('selected', c.dataset.id === nodeId));
+  pbShowConfig(nodeId);
+}
+
+function pbShowConfig(nodeId) {
+  const title = document.getElementById('pb-config-title');
+  const body  = document.getElementById('pb-config-body');
+  if (!nodeId) {
+    if (title) title.textContent = 'Select a node';
+    if (body)  body.innerHTML = '<div style="font-size:11px;color:var(--text-xs);margin-top:8px">Click a node on the canvas to configure it.</div>';
+    return;
+  }
+  const node = pbState.playbook.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  const fields = PB_NODE_FIELDS[node.type] || [];
+  if (title) title.textContent = node.name || node.type;
+  if (!body) return;
+  body.innerHTML = `
+    <div class="pb-cfg-row">
+      <div class="pb-cfg-lbl">Node Name</div>
+      <input class="pb-cfg-inp" type="text" value="${esc(node.name || '')}" oninput="pbUpdateNodeName('${nodeId}',this.value)">
+    </div>
+    ${fields.map(f => {
+      const val = node.config[f.key] !== undefined ? node.config[f.key] : '';
+      if (f.type === 'select') {
+        return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
+          <select class="pb-cfg-inp" onchange="pbUpdateConfig('${nodeId}','${f.key}',this.value)">
+            ${(f.options || []).map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+          </select></div>`;
+      }
+      if (f.type === 'textarea') {
+        return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
+          <textarea class="pb-cfg-inp" rows="4" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)">${esc(String(val))}</textarea></div>`;
+      }
+      return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
+        <input class="pb-cfg-inp" type="${f.type === 'number' ? 'number' : 'text'}" value="${esc(String(val))}" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)"></div>`;
+    }).join('')}
+    <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
+      <div class="pb-cfg-lbl">Connections from this node</div>
+      ${pbState.playbook.connections.filter(c=>c.from===nodeId).map((c,i) => `
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--text-lo)">
+          <span>→ ${esc(c.to.slice(0,10))}…${c.handle ? ' <em>['+esc(c.handle)+']</em>' : ''}</span>
+          <button class="btn" style="font-size:10px;padding:1px 6px" onclick="pbRemoveConn(${i})">✕</button>
+        </div>`).join('') || '<div style="font-size:11px;color:var(--text-xs);margin-top:4px">None yet. Use → button on canvas.</div>'}
+    </div>
+  `;
+}
+
+function pbUpdateNodeName(id, name) {
+  const node = pbState.playbook.nodes.find(n => n.id === id);
+  if (node) { node.name = name; pbRenderCanvas(); }
+}
+
+function pbUpdateConfig(id, key, value) {
+  const node = pbState.playbook.nodes.find(n => n.id === id);
+  if (node) node.config[key] = value;
+}
+
+function pbDeleteNode(id) {
+  pbState.playbook.nodes = pbState.playbook.nodes.filter(n => n.id !== id);
+  pbState.playbook.connections = pbState.playbook.connections.filter(c => c.from !== id && c.to !== id);
+  delete pbState.positions[id];
+  delete pbState.runStatus[id];
+  if (pbState.selectedId === id) { pbState.selectedId = null; pbShowConfig(null); }
+  pbRenderCanvas();
+}
+
+function pbRemoveConn(idx) {
+  pbState.playbook.connections.splice(idx, 1);
+  pbShowConfig(pbState.selectedId);
+  pbRenderCanvas();
+}
+
+function pbUpdateNodeStatus(nodeId) {
+  const st = pbState.runStatus[nodeId] || '';
+  const card = document.querySelector('.pb-node-card[data-id="' + nodeId + '"]');
+  if (!card) return;
+  card.className = 'pb-node-card' + (nodeId === pbState.selectedId ? ' selected' : '') + (st ? ' ns-' + st : '');
+  const body = card.querySelector('.pb-node-body');
+  if (body) body.innerHTML = `
+    ${st ? `<div class="pb-node-status"><div class="pb-ns-dot ${st}"></div><span style="color:${st==='running'?'var(--accent)':st==='completed'?'var(--green)':'var(--red)'}">${st}</span></div>` : ''}
+    <div style="font-size:10px;color:var(--text-xs)">${esc(pbState.playbook.nodes.find(n=>n.id===nodeId)?.type||'')}</div>
+  `;
+}
+
+async function pbSave() {
+  const pb = pbState.playbook;
+  if (!pb.name || pb.name === 'Untitled') {
+    pb.name = document.getElementById('pb-name-input').value || 'Untitled';
+  }
+  if (!pb.id) pb.id = 'pb-' + Date.now();
+  // Save to .monomind/playbooks/<id>.json via API
+  try {
+    const resp = await fetch('/api/playbooks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pb),
+    });
+    if (resp.ok) {
+      showToast('Saved', 'Playbook saved to .monomind/playbooks/', 'ok');
+      loadWorkflowDefs();
+    } else {
+      const txt = await resp.text();
+      showToast('Save failed', txt, 'err');
+    }
+  } catch (e) {
+    showToast('Save error', e.message, 'err');
+  }
+}
+
+async function pbLoad() {
+  try {
+    _wfDefs = await apiFetch('/api/workflow-defs');
+  } catch { _wfDefs = []; }
+  if (!_wfDefs.length) { showToast('No playbooks', 'No saved playbooks found', 'warn'); return; }
+  const names = _wfDefs.map((d, i) => i + ': ' + (d.name || d.id)).join('\n');
+  const choice = prompt('Select a playbook to load:\n' + names);
+  const idx = parseInt(choice, 10);
+  if (isNaN(idx) || !_wfDefs[idx]) return;
+  pbLoadDef(_wfDefs[idx].id);
+}
+
+async function pbLoadDef(playbookId) {
+  try {
+    // First try to read the saved JSON file directly via workflow-defs + file read
+    // Try monobrowse API for full definition (includes node config)
+    let pb = null;
+    try {
+      pb = await apiFetch('http://localhost:4243/api/playbooks/' + encodeURIComponent(playbookId));
+    } catch {
+      // Fall back: read the .json file via the defs list and reconstruct
+      const defs = await apiFetch('/api/workflow-defs').catch(() => []);
+      const def = defs.find(d => d.id === playbookId);
+      if (!def) { showToast('Not found', 'Playbook not found: ' + playbookId, 'err'); return; }
+      pb = { id: def.id, name: def.name, description: def.description || '', nodes: [], connections: [] };
+    }
+    pbState.playbook = pb;
+    pbState.positions = {};
+    pbState.runStatus = {};
+    pbState.selectedId = null;
+    pb.nodes.forEach((n, i) => {
+      pbState.positions[n.id] = { x: 60 + (i % 4) * 200, y: 60 + Math.floor(i / 4) * 120 };
+    });
+    document.getElementById('pb-name-input').value = pb.name || '';
+    document.getElementById('pb-run-status').textContent = '';
+    pbRenderCanvas();
+    pbShowConfig(null);
+    showToast('Loaded', pb.name || playbookId, 'ok');
+  } catch (e) {
+    showToast('Load error', e.message, 'err');
+  }
+}
+
+function pbImportJSON() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = () => {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const pb = JSON.parse(ev.target.result);
+        if (!pb.id || !pb.nodes) { showToast('Invalid JSON', 'Missing id or nodes', 'err'); return; }
+        pbState.playbook = pb;
+        pbState.positions = {};
+        pbState.runStatus = {};
+        pbState.selectedId = null;
+        pb.nodes.forEach((n, i) => { pbState.positions[n.id] = { x: 60 + (i % 4) * 200, y: 60 + Math.floor(i / 4) * 120 }; });
+        document.getElementById('pb-name-input').value = pb.name || '';
+        pbRenderCanvas();
+        showToast('Imported', pb.name || pb.id, 'ok');
+      } catch { showToast('Parse error', 'Invalid JSON file', 'err'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function pbExportJSON() {
+  const pb = pbState.playbook;
+  if (!pb.nodes.length) { showToast('Nothing to export', 'Add nodes first', 'warn'); return; }
+  const json = JSON.stringify(pb, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (pb.id || 'playbook') + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function pbRun() {
+  const pb = pbState.playbook;
+  if (!pb.nodes.length) { showToast('Empty playbook', 'Add nodes first', 'warn'); return; }
+  if (!pb.id) pb.id = 'pb-' + Date.now();
+  await pbSave();
+  pbState.runStatus = {};
+  document.getElementById('pb-run-status').textContent = '● STARTING…';
+  try {
+    const resp = await fetch('http://localhost:4243/api/playbooks/' + encodeURIComponent(pb.id) + '/run', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    if (resp.ok) {
+      showToast('Running', pb.name || pb.id, 'ok');
+    } else {
+      const txt = await resp.text();
+      showToast('Run failed', txt, 'err');
+      document.getElementById('pb-run-status').textContent = '✗ FAILED';
+    }
+  } catch {
+    showToast('Offline', 'Start monobrowse: npx monomind browse dashboard', 'warn');
+    document.getElementById('pb-run-status').textContent = '✗ OFFLINE';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
 
 async function loadMonograph() {
   if (_mgLoaded) return;

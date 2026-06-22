@@ -187,9 +187,8 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       // Run async, broadcast events via dashboard
       Promise.resolve().then(async () => {
         try {
-          const { runPlaybook } = await import('@monoes/monoplaybook');
-          const { createBuiltinHandlers } = await import('../playbook/builtin-handlers.js');
-          const handlers = createBuiltinHandlers();
+          const { runPlaybook, createDefaultHandlers } = await import('../../index.js');
+          const handlers = createDefaultHandlers();
           const record = await runPlaybook(pb, {
             handlers,
             onEvent: (evt) => { instance?.broadcast(evt); },
@@ -220,6 +219,88 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       await savePlaybooks(newList);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, deleted: pbId }));
+      return;
+    }
+
+    // ── Webhook trigger ──────────────────────────────────────────────────────
+    // POST /webhooks/:playbookId
+    //   Body (optional): JSON object or array — merged as `params` into the playbook run.
+    //   Header (optional): X-Webhook-Signature: sha256=<hex> for HMAC verification.
+    //   Response: 202 { ok, runId, playbookId } — run executes asynchronously.
+    const webhookMatch = parsed.pathname.match(/^\/webhooks\/([^/]+)$/);
+    if (webhookMatch && req.method === 'POST') {
+      const pbId = webhookMatch[1];
+      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
+      const pb = list.find(w => w.id === pbId);
+      if (!pb) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Playbook ${pbId} not found` }));
+        return;
+      }
+
+      const rawBody = await readBody(req).catch(() => '');
+
+      // Optional HMAC-SHA256 signature verification
+      const sigHeader = (req.headers['x-webhook-signature'] as string | undefined) ?? '';
+      if (sigHeader) {
+        try {
+          const { createHmac } = await import('node:crypto');
+          // Secret is stored in the playbook's trigger config (first schedule/webhook trigger)
+          const triggers = (pb as unknown as Record<string, unknown>)['triggers'];
+          const secret: string | undefined =
+            Array.isArray(triggers)
+              ? (triggers as Array<Record<string, unknown>>).find(t => t['secret'])?.[
+                  'secret'
+                ] as string | undefined
+              : undefined;
+          if (secret) {
+            const expected = 'sha256=' + createHmac('sha256', secret).update(rawBody).digest('hex');
+            if (sigHeader !== expected) {
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Invalid webhook signature' }));
+              return;
+            }
+          }
+        } catch {
+          // crypto not available or other error — skip verification
+        }
+      }
+
+      // Parse body into params (string values only, per engine contract)
+      const params: Record<string, string> = {};
+      try {
+        if (rawBody.trim()) {
+          const parsed2 = JSON.parse(rawBody);
+          if (parsed2 && typeof parsed2 === 'object' && !Array.isArray(parsed2)) {
+            for (const [k, v] of Object.entries(parsed2 as Record<string, unknown>)) {
+              params[k] = typeof v === 'string' ? v : JSON.stringify(v);
+            }
+          }
+          params['__body'] = rawBody;
+        }
+      } catch {
+        params['__body'] = rawBody;
+      }
+
+      const runId = `webhook-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      res.writeHead(202, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, runId, playbookId: pbId }));
+
+      Promise.resolve().then(async () => {
+        try {
+          const { runPlaybook, createDefaultHandlers } = await import('../../index.js');
+          const handlers = createDefaultHandlers();
+          const record = await runPlaybook(pb, {
+            handlers,
+            params,
+            onEvent: (evt) => { instance?.broadcast(evt); },
+            isStopRequested: (id) => instance?.isStopRequested(id) ?? false,
+          });
+          instance?.addRunRecord(record);
+        } catch (err) {
+          console.error('[dashboard] webhook run error:', err);
+        }
+      });
       return;
     }
 
@@ -293,6 +374,11 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       runHistory.unshift(record);
       if (runHistory.length > MAX_RUN_HISTORY) runHistory.pop();
     }
+    // Persist to disk so the CLI dashboard (/api/workflow-runs) can read run history
+    const dir = join(homedir(), '.monomind');
+    mkdir(dir, { recursive: true }).then(() =>
+      writeFile(RUNS_FILE, JSON.stringify(runHistory, null, 2))
+    ).catch(() => {});
   }
 
   function isStopRequested(runId: string): boolean {

@@ -77,7 +77,7 @@ describe('action.save_file', () => {
     const binaryItem: Item = { data: {}, binaryBase64: Buffer.from('abc').toString('base64') };
     const result = await handler([binaryItem], { path: 'img.png' });
     expect(fsMock.writeFile).toHaveBeenCalled();
-    const [, content] = vi.mocked(fsMock.writeFile).mock.calls[0] as [string, Buffer, ...unknown[]];
+    const [, content] = vi.mocked(fsMock.writeFile).mock.calls[0] as unknown as [string, Buffer, ...unknown[]];
     expect(Buffer.isBuffer(content)).toBe(true);
     expect(result[0].data.savedPath).toMatch(/img\.png$/);
   });
@@ -86,7 +86,7 @@ describe('action.save_file', () => {
     const handler = handlers.get('action.save_file')!;
     const items = [makeItem()];
     const result = await handler(items, { path: 'out.txt', content: 'hello content' });
-    const [, written] = vi.mocked(fsMock.writeFile).mock.calls[0] as [string, string, ...unknown[]];
+    const [, written] = vi.mocked(fsMock.writeFile).mock.calls[0] as unknown as [string, string, ...unknown[]];
     expect(written).toBe('hello content');
     expect(result[0].data.savedPath).toMatch(/out\.txt$/);
   });
