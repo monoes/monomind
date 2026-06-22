@@ -1,13 +1,5 @@
-// Re-export the playbook engine from monobrowse
-export {
-  runPlaybook,
-  readPlaybook,
-  listPlaybookRuns,
-  writePlaybookRun,
-  createBuiltinHandlers,
-} from '@monoes/monobrowse';
-export type { PlaybookDef, NodeDef, ConnectionDef, RunRecord, StepEvent, Item } from '@monoes/monobrowse';
-export type { NodeHandler } from '@monoes/monobrowse';
+// Engine — types, runner, expression evaluator, run store
+export * from './engine/index.js';
 
-// Node handler registry — service integrations
+// Service node handlers
 export { createNodeHandlers } from './registry.js';
