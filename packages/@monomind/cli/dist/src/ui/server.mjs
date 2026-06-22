@@ -219,6 +219,111 @@ function _getGitMonomindDir(workDir) {
   return result;
 }
 
+// Resolve an org's project directory by searching across known projects.
+// Returns the first project dir where {dir}/.monomind/orgs/{orgName}.json exists, or null.
+function _resolveOrgProjectDir(orgName, serverRoot) {
+  const dirs = new Set([serverRoot]);
+  try {
+    const kf = path.join(serverRoot, 'data', 'known-projects.json');
+    if (fs.existsSync(kf)) JSON.parse(fs.readFileSync(kf, 'utf8')).forEach(p => dirs.add(p));
+  } catch(_) {}
+  for (const d of dirs) {
+    if (fs.existsSync(path.join(d, '.monomind', 'orgs', `${orgName}.json`))) return d;
+  }
+  return null;
+}
+
+// ── Org run state helpers ────────────────────────────────────────────────
+// Reads {name}-runstate.json from disk. Returns null if missing/corrupt.
+function _readRunState(orgName, rootDir) {
+  const projDir = _resolveOrgProjectDir(orgName, rootDir) || rootDir;
+  const base = _getGitMonomindDir(projDir) || path.join(projDir, '.monomind');
+  const file = path.join(base, 'orgs', `${orgName}-runstate.json`);
+  if (!fs.existsSync(file)) return null;
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return null; }
+}
+
+// Returns the current runId from runstate (for events that omit it after restart).
+function _getActiveRunId(orgName, rootDir) {
+  return _readRunState(orgName, rootDir)?.runId || null;
+}
+
+// Returns all project dirs allowed for artifact reads (serverRoot + known-projects.json).
+function _getAllowedArtifactDirs(serverRoot) {
+  const dirs = [path.resolve(serverRoot)];
+  try {
+    const kf = path.join(serverRoot, 'data', 'known-projects.json');
+    if (fs.existsSync(kf)) JSON.parse(fs.readFileSync(kf, 'utf8')).forEach(p => dirs.push(path.resolve(p)));
+  } catch (_) {}
+  return dirs;
+}
+
+// Detects a basic mime type from file extension for artifact responses.
+function _detectMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const map = { '.ts': 'text/typescript', '.js': 'text/javascript', '.mjs': 'text/javascript',
+    '.json': 'application/json', '.md': 'text/markdown', '.txt': 'text/plain',
+    '.html': 'text/html', '.css': 'text/css', '.py': 'text/x-python',
+    '.sh': 'text/x-shellscript', '.yaml': 'text/yaml', '.yml': 'text/yaml',
+    '.toml': 'text/plain', '.env': 'text/plain', '.xml': 'text/xml' };
+  return map[ext] || 'application/octet-stream';
+}
+
+// Writes runstate.json for state-changing events. Debounces lastEventAt for frequent events.
+const _runstateDebouncers = new Map();
+function _updateRunState(event, rootDir) {
+  const orgName = String(event.org || '').trim();
+  if (!orgName) return;
+  const projDir = _resolveOrgProjectDir(orgName, rootDir) || rootDir;
+  const base = _getGitMonomindDir(projDir) || path.join(projDir, '.monomind');
+  const orgsDir = path.join(base, 'orgs');
+  const file = path.join(orgsDir, `${orgName}-runstate.json`);
+  const stateChanging = ['org:start','org:stop','org:agent:online','org:agent:offline'];
+  const ts = event.ts || Date.now();
+
+  if (stateChanging.includes(event.type)) {
+    // State-changing: clear any pending debounced write, then write immediately
+    const pending = _runstateDebouncers.get(orgName);
+    if (pending?.timer) clearTimeout(pending.timer);
+    _runstateDebouncers.delete(orgName);
+    let cur = null;
+    try { cur = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {}; } catch (_) { cur = {}; }
+    if (event.type === 'org:start') {
+      cur.runId = event.runId || cur.runId;
+      cur.status = 'running';
+      cur.startedAt = ts;
+      cur.checkpointInterval = event.checkpointInterval || 600000;
+      cur.agentStates = {};
+    } else if (event.type === 'org:stop') {
+      cur.status = 'idle';
+    } else if (event.type === 'org:agent:online') {
+      cur.agentStates = cur.agentStates || {};
+      cur.agentStates[String(event.from || '').trim()] = { status: 'active', lastSeen: ts };
+    } else if (event.type === 'org:agent:offline') {
+      if (cur.agentStates?.[String(event.from || '').trim()]) {
+        cur.agentStates[String(event.from).trim()].status = 'idle';
+      }
+    }
+    cur.lastEventAt = ts;
+    try { fs.mkdirSync(orgsDir, { recursive: true }); fs.writeFileSync(file, JSON.stringify(cur, null, 2)); } catch (_) {}
+  } else {
+    // Frequent event: debounce lastEventAt write by 5s
+    const existing = _runstateDebouncers.get(orgName);
+    if (existing?.timer) clearTimeout(existing.timer);
+    const timer = setTimeout(() => {
+      _runstateDebouncers.delete(orgName);
+      try {
+        if (!fs.existsSync(file)) return;
+        const rs = JSON.parse(fs.readFileSync(file, 'utf8'));
+        rs.lastEventAt = ts;
+        fs.writeFileSync(file, JSON.stringify(rs, null, 2));
+      } catch (_) {}
+    }, 5000);
+    _runstateDebouncers.set(orgName, { timer });
+  }
+}
+// ── End runstate helpers ─────────────────────────────────────────────────
+
 // Server state
 let running = false;
 let currentPort = null;
@@ -3370,44 +3475,54 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/api/orgs') {
       try {
         const _orgsQs = new URL(req.url, 'http://localhost').searchParams;
-        const orgsDir = path.join(path.resolve(_orgsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
+        const _orgsExplicitDir = _orgsQs.get('dir');
+        const _orgsServerRoot = path.resolve(_orgsExplicitDir || projectDir || process.cwd());
+        // Collect project dirs to search: explicit dir + known-projects (like sessions API)
+        const _orgsProjDirs = new Set([_orgsServerRoot]);
+        if (!_orgsExplicitDir) {
+          try {
+            const _knownOrgsFile = path.join(_orgsServerRoot, 'data', 'known-projects.json');
+            if (fs.existsSync(_knownOrgsFile)) {
+              JSON.parse(fs.readFileSync(_knownOrgsFile, 'utf8')).forEach(p => _orgsProjDirs.add(p));
+            }
+          } catch(_) {}
+        }
+        const _sidecarSuffixRe = /-(approvals|state|activity|goals|routines|projects|members|issues|workspaces|worktrees|environments|plugins|adapters|bootstrap|threads|budgets|project-workspaces|approval-comments|secrets|join-requests|skills)\.json$/;
+        const _orgsSeen = new Set();
         let orgs = [];
-        if (fs.existsSync(orgsDir)) {
-          const _sidecarSuffixRe = /-(approvals|state|activity|goals|routines|projects|members|issues|workspaces|worktrees|environments|plugins|adapters|bootstrap|threads|budgets|project-workspaces|approval-comments|secrets|join-requests|skills)\.json$/;
+        for (const _opd of _orgsProjDirs) {
+          const orgsDir = path.join(_opd, '.monomind', 'orgs');
+          if (!fs.existsSync(orgsDir)) continue;
           const files = fs.readdirSync(orgsDir).filter(f => f.endsWith('.json') && !_sidecarSuffixRe.test(f));
-          // Read events file once, outside the per-org loop
+          // Read events file once per project dir
           let recentLines = [];
           try {
-            const evFile = path.join(path.resolve(_orgsQs.get('dir') || projectDir || process.cwd()), 'data', 'mastermind-events.jsonl');
+            const evFile = path.join(_opd, 'data', 'mastermind-events.jsonl');
             if (fs.existsSync(evFile)) {
-              // Read only the last 64 KB to bound cost on large files
               const stat = fs.statSync(evFile);
               const TAIL = 65536;
               const fd = fs.openSync(evFile, 'r');
               const buf = Buffer.alloc(Math.min(TAIL, stat.size));
-              try {
-                fs.readSync(fd, buf, 0, buf.length, Math.max(0, stat.size - buf.length));
-              } finally {
-                fs.closeSync(fd);
-              }
+              try { fs.readSync(fd, buf, 0, buf.length, Math.max(0, stat.size - buf.length)); } finally { fs.closeSync(fd); }
               recentLines = buf.toString('utf8').split('\n').filter(Boolean).reverse();
             }
           } catch(_) {}
           for (const f of files) {
             try {
               const cfg = JSON.parse(fs.readFileSync(path.join(orgsDir, f), 'utf8'));
+              const _lOrgName = cfg.name || '';
+              if (!_lOrgName || _orgsSeen.has(_lOrgName)) continue;
+              _orgsSeen.add(_lOrgName);
               let running = false;
-              const lastStart = recentLines.find(l => { try { const e = JSON.parse(l); return e.type === 'org:start' && e.org === cfg.name; } catch(_) { return false; } });
-              const lastStop = recentLines.find(l => { try { const e = JSON.parse(l); return (e.type === 'org:stop' || e.type === 'org:complete') && e.org === cfg.name; } catch(_) { return false; } });
+              const lastStart = recentLines.find(l => { try { const e = JSON.parse(l); return e.type === 'org:start' && e.org === _lOrgName; } catch(_) { return false; } });
+              const lastStop = recentLines.find(l => { try { const e = JSON.parse(l); return (e.type === 'org:stop' || e.type === 'org:complete') && e.org === _lOrgName; } catch(_) { return false; } });
               if (lastStart) {
                 const startTs = JSON.parse(lastStart).ts || 0;
                 const stopTs = lastStop ? (JSON.parse(lastStop).ts || 0) : 0;
                 running = startTs > stopTs;
               }
-              // Also check in-memory activeOrgRuns so the list reflects LIVE immediately after launch
-              const _lOrgName = cfg.name || '';
-              if (!running && _lOrgName && activeOrgRuns.has(_lOrgName)) running = true;
-              orgs.push({ name: cfg.name, goal: cfg.goal, roles: Array.isArray(cfg.roles) ? cfg.roles : [], topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
+              if (!running && activeOrgRuns.has(_lOrgName)) running = true;
+              orgs.push({ name: cfg.name, goal: cfg.goal, roles: Array.isArray(cfg.roles) ? cfg.roles : [], topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, projectDir: _opd, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
             } catch(_) {}
           }
         }
@@ -3475,7 +3590,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const orgName = decodeURIComponent(url.slice('/api/orgs/'.length));
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
         const _orgsOneQs = new URL(req.url, 'http://localhost').searchParams;
-        const f = path.join(path.resolve(_orgsOneQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs', `${orgName}.json`);
+        const _orgsOneRoot = path.resolve(_orgsOneQs.get('dir') || projectDir || process.cwd());
+        const _orgsOneProjDir = _resolveOrgProjectDir(orgName, _orgsOneRoot) || _orgsOneRoot;
+        const f = path.join(_orgsOneProjDir, '.monomind', 'orgs', `${orgName}.json`);
         if (!fs.existsSync(f)) { res.writeHead(404); res.end('{"error":"not found"}'); return; }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(fs.readFileSync(f, 'utf8'));
@@ -3489,7 +3606,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const orgName = decodeURIComponent(url.slice('/api/org/'.length));
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
         const _orgQs = new URL(req.url, 'http://localhost').searchParams;
-        const d = path.resolve(_orgQs.get('dir') || projectDir || process.cwd());
+        const _orgServerRoot = path.resolve(_orgQs.get('dir') || projectDir || process.cwd());
+        // Resolve which project dir actually has this org's config
+        const d = _resolveOrgProjectDir(orgName, _orgServerRoot) || _orgServerRoot;
         const orgsDir = path.join(d, '.monomind', 'orgs');
 
         const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
@@ -3568,7 +3687,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const orgName = decodeURIComponent(parts[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('[]'); return; }
         const _actQs = new URL(req.url, 'http://localhost').searchParams;
-        const d = path.resolve(_actQs.get('dir') || projectDir || process.cwd());
+        const _actServerRoot = path.resolve(_actQs.get('dir') || projectDir || process.cwd());
+        const d = _resolveOrgProjectDir(orgName, _actServerRoot) || _actServerRoot;
         const orgsDir = path.join(d, '.monomind', 'orgs');
         const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
         const events = [];
@@ -3656,7 +3776,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const orgName = decodeURIComponent(parts[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
         const _adaptersQs = new URL(req.url, 'http://localhost').searchParams;
-        const d = path.resolve(_adaptersQs.get('dir') || projectDir || process.cwd());
+        const _adaptersRoot = path.resolve(_adaptersQs.get('dir') || projectDir || process.cwd());
+        const d = _resolveOrgProjectDir(orgName, _adaptersRoot) || _adaptersRoot;
         const adaptersFile = path.join(d, '.monomind', 'orgs', `${orgName}-adapters.json`);
         if (!fs.existsSync(adaptersFile)) {
           // Return defaults derived from org config if available
@@ -4351,7 +4472,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
         const _threadsQs = new URL(req.url, 'http://localhost').searchParams;
-        const threadsFile = path.join(path.resolve(_threadsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs', `${orgName}-threads.jsonl`);
+        const _threadsRoot = path.resolve(_threadsQs.get('dir') || projectDir || process.cwd());
+        const _threadsProjDir = _resolveOrgProjectDir(orgName, _threadsRoot) || _threadsRoot;
+        const threadsFile = path.join(_threadsProjDir, '.monomind', 'orgs', `${orgName}-threads.jsonl`);
         let threads = [];
         try {
           const lines = fs.readFileSync(threadsFile, 'utf8').split('\n').filter(l => l.trim());
@@ -4412,7 +4535,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const orgName = decodeURIComponent(url.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
         const _goalsQs = new URL(req.url, 'http://localhost').searchParams;
-        const goalsFile = path.join(path.resolve(_goalsQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs', `${orgName}-goals.json`);
+        const _goalsRoot = path.resolve(_goalsQs.get('dir') || projectDir || process.cwd());
+        const _goalsProjDir = _resolveOrgProjectDir(orgName, _goalsRoot) || _goalsRoot;
+        const goalsFile = path.join(_goalsProjDir, '.monomind', 'orgs', `${orgName}-goals.json`);
         let data = { goals: [] };
         try { data = JSON.parse(fs.readFileSync(goalsFile, 'utf8')); } catch(_) {}
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -4428,13 +4553,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
         const _routinesQs = new URL(req.url, 'http://localhost').searchParams;
         const _routinesBase = path.resolve(_routinesQs.get('dir') || projectDir || process.cwd());
-        const routinesFile = path.join(_routinesBase, '.monomind', 'orgs', `${orgName}-routines.json`);
+        const _routinesProjDir = _resolveOrgProjectDir(orgName, _routinesBase) || _routinesBase;
+        const routinesFile = path.join(_routinesProjDir, '.monomind', 'orgs', `${orgName}-routines.json`);
         let data = { routines: [] };
         try { data = JSON.parse(fs.readFileSync(routinesFile, 'utf8')); } catch(_) {}
         // Synthesize routines from org config's loop/schedule settings when no explicit routines are defined
         if (!data.routines || !data.routines.length) {
           try {
-            const orgCfg = JSON.parse(fs.readFileSync(path.join(_routinesBase, '.monomind', 'orgs', `${orgName}.json`), 'utf8'));
+            const orgCfg = JSON.parse(fs.readFileSync(path.join(_routinesProjDir, '.monomind', 'orgs', `${orgName}.json`), 'utf8'));
             const loop = orgCfg.loop;
             if (loop && (loop.poll_interval_minutes || loop.interval_minutes)) {
               const intervalMin = loop.poll_interval_minutes || loop.interval_minutes;
@@ -4689,35 +4815,56 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const _rQs = new URL(req.url, 'http://localhost').searchParams;
         const _rOrgName = decodeURIComponent(url.split('/')[3] || '');
-        const _rWorkDir = path.resolve(_rQs.get('dir') || projectDir || process.cwd());
-        const _rMonoDir = _getGitMonomindDir(_rWorkDir) || path.join(_rWorkDir, '.monomind');
-        const _rDir = path.join(_rMonoDir, 'orgs', _rOrgName, 'runs');
+        const _rExplicitDir = _rQs.get('dir');
+        const _rServerRoot = path.resolve(_rExplicitDir || projectDir || process.cwd());
+        // Search across known projects (same logic as /api/orgs) unless explicit dir given
+        const _rProjDirs = new Set([_rServerRoot]);
+        if (!_rExplicitDir) {
+          try {
+            const _rKnown = JSON.parse(fs.readFileSync(path.join(_rServerRoot, 'data', 'known-projects.json'), 'utf8'));
+            _rKnown.forEach(p => _rProjDirs.add(p));
+          } catch(_) {}
+        }
+        const _rSeenFiles = new Set();
         const runs = [];
-        if (fs.existsSync(_rDir)) {
-          const files = fs.readdirSync(_rDir).filter(f => f.endsWith('.jsonl')).sort().reverse();
-          for (const f of files.slice(0, 50)) {
-            try {
-              const raw = fs.readFileSync(path.join(_rDir, f), 'utf8');
-              const allLines = raw.split('\n').filter(Boolean);
-              const eventCount = allLines.length;
-              const parse = l => { try { return JSON.parse(l); } catch { return null; } };
-              const headEvents = allLines.slice(0, 10).map(parse).filter(Boolean);
-              const tailEvents = allLines.slice(-5).map(parse).filter(Boolean);
-              const first = headEvents.find(e => e.type === 'run:start') || headEvents[0];
-              const last = tailEvents.slice().reverse().find(e => e.type === 'run:complete' || e.type === 'org:complete');
-              const cycles = allLines.filter(l => l.includes('"org:checkpoint"')).length;
-              const lastEvent = tailEvents[tailEvents.length - 1] || headEvents[headEvents.length - 1];
-              const ageMs = lastEvent?.ts ? Date.now() - lastEvent.ts : Infinity;
-              const isStale = !last && ageMs > 30 * 60 * 1000;
-              // Derive a human-readable goal from the first boss directive when run:start lacks one
-              const firstBossComms = headEvents.find(e => e.type === 'org:comms' && (e.from === 'boss' || e.role === 'boss') && e.msg);
-              const derivedGoal = first?.goal || firstBossComms?.msg?.slice(0, 80) || '';
-              runs.push({ runId: f.replace('.jsonl', ''), startedAt: first?.ts || 0, endedAt: last?.ts || 0,
-                status: last ? 'complete' : isStale ? 'stale' : 'running',
-                eventCount, cycleCount: cycles, goal: derivedGoal, bossRole: first?.bossRole || '' });
-            } catch (_) {}
+        const _parseRun = (filePath, f) => {
+          try {
+            const raw = fs.readFileSync(filePath, 'utf8');
+            const allLines = raw.split('\n').filter(Boolean);
+            const eventCount = allLines.length;
+            const parse = l => { try { return JSON.parse(l); } catch { return null; } };
+            const headEvents = allLines.slice(0, 10).map(parse).filter(Boolean);
+            const tailEvents = allLines.slice(-5).map(parse).filter(Boolean);
+            const first = headEvents.find(e => e.type === 'run:start') || headEvents[0];
+            const last = tailEvents.slice().reverse().find(e => e.type === 'run:complete' || e.type === 'org:complete');
+            const cycles = allLines.filter(l => l.includes('"org:checkpoint"')).length;
+            const lastEvent = tailEvents[tailEvents.length - 1] || headEvents[headEvents.length - 1];
+            const ageMs = lastEvent?.ts ? Date.now() - lastEvent.ts : Infinity;
+            const isStale = !last && ageMs > 30 * 60 * 1000;
+            const firstBossComms = headEvents.find(e => e.type === 'org:comms' && (e.from === 'boss' || e.role === 'boss') && e.msg);
+            const derivedGoal = first?.goal || firstBossComms?.msg?.slice(0, 80) || '';
+            return { runId: f.replace('.jsonl', ''), startedAt: first?.ts || 0, endedAt: last?.ts || 0,
+              status: last ? 'complete' : isStale ? 'stale' : 'running',
+              eventCount, cycleCount: cycles, goal: derivedGoal, bossRole: first?.bossRole || '' };
+          } catch(_) { return null; }
+        };
+        for (const _rpd of _rProjDirs) {
+          // Check both .monomind and .git/monomind locations
+          const _rMonoDir = _getGitMonomindDir(_rpd) || path.join(_rpd, '.monomind');
+          const _rSearchDirs = [path.join(_rMonoDir, 'orgs', _rOrgName, 'runs')];
+          if (_rMonoDir !== path.join(_rpd, '.monomind')) _rSearchDirs.push(path.join(_rpd, '.monomind', 'orgs', _rOrgName, 'runs'));
+          for (const _rDir of _rSearchDirs) {
+            if (!fs.existsSync(_rDir)) continue;
+            const files = fs.readdirSync(_rDir).filter(f => f.endsWith('.jsonl')).sort().reverse();
+            for (const f of files.slice(0, 50)) {
+              if (_rSeenFiles.has(f)) continue;
+              _rSeenFiles.add(f);
+              const r = _parseRun(path.join(_rDir, f), f);
+              if (r) runs.push(r);
+            }
           }
         }
+        runs.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify(runs));
       } catch (_) { res.writeHead(500); res.end('[]'); }
@@ -4731,10 +4878,24 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const _rvParts = url.replace(/\?.*$/, '').split('/');
         const _rvOrgName = decodeURIComponent(_rvParts[3] || '');
         const _rvRunId = decodeURIComponent(_rvParts[5] || '');
-        const _rvWorkDir = path.resolve(_rvQs.get('dir') || projectDir || process.cwd());
-        const _rvMonoDir = _getGitMonomindDir(_rvWorkDir) || path.join(_rvWorkDir, '.monomind');
-        const _rvFile = path.join(_rvMonoDir, 'orgs', _rvOrgName, 'runs', `${_rvRunId}.jsonl`);
-        if (!fs.existsSync(_rvFile)) { res.writeHead(404); res.end('{"error":"run not found"}'); return; }
+        const _rvExplicitDir = _rvQs.get('dir');
+        const _rvServerRoot = path.resolve(_rvExplicitDir || projectDir || process.cwd());
+        // Search across known projects
+        const _rvProjDirs = new Set([_rvServerRoot]);
+        if (!_rvExplicitDir) {
+          try {
+            JSON.parse(fs.readFileSync(path.join(_rvServerRoot, 'data', 'known-projects.json'), 'utf8')).forEach(p => _rvProjDirs.add(p));
+          } catch(_) {}
+        }
+        let _rvFile = null;
+        for (const _rvpd of _rvProjDirs) {
+          const _rvMonoDir = _getGitMonomindDir(_rvpd) || path.join(_rvpd, '.monomind');
+          const _candidates = [path.join(_rvMonoDir, 'orgs', _rvOrgName, 'runs', `${_rvRunId}.jsonl`)];
+          if (_rvMonoDir !== path.join(_rvpd, '.monomind')) _candidates.push(path.join(_rvpd, '.monomind', 'orgs', _rvOrgName, 'runs', `${_rvRunId}.jsonl`));
+          for (const c of _candidates) { if (fs.existsSync(c)) { _rvFile = c; break; } }
+          if (_rvFile) break;
+        }
+        if (!_rvFile) { res.writeHead(404); res.end('{"error":"run not found"}'); return; }
         const events = fs.readFileSync(_rvFile, 'utf8').split('\n').filter(Boolean)
           .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
