@@ -83,8 +83,8 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
 .panel-title { font-size: 14px; font-weight: 600; color: #ddd; }
 .panel-subtitle { color: #555; font-size: 11px; margin-left: auto; }
 
-/* ── workflow run cards ──────────────────────────────────── */
-#wf-cards { padding: 12px; display: grid; gap: 10px; overflow-y: auto; }
+/* ── playbook run cards ──────────────────────────────────── */
+#pb-cards { padding: 12px; display: grid; gap: 10px; overflow-y: auto; }
 .card {
   background: #131320;
   border: 1px solid #7c3aed30;
@@ -144,7 +144,7 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
 }
 #agents-panel .placeholder .big { font-size: 28px; }
 
-/* ── workflow builder ────────────────────────────────────── */
+/* ── playbook builder ────────────────────────────────────── */
 #builder-panel { display: none; flex-direction: column; overflow: hidden; }
 #builder-panel.active { display: flex; }
 
@@ -158,7 +158,7 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
   background: #0f0f1e;
   flex-shrink: 0;
 }
-#wf-name-input {
+#pb-name-input {
   background: #0b0b14;
   border: 1px solid #1e1e30;
   border-radius: 5px;
@@ -168,7 +168,7 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
   width: 200px;
   outline: none;
 }
-#wf-name-input:focus { border-color: #7c3aed66; }
+#pb-name-input:focus { border-color: #7c3aed66; }
 .tb-btn {
   background: #131320;
   border: 1px solid #1e1e30;
@@ -359,8 +359,8 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
 .prop-select { appearance: none; cursor: pointer; }
 .prop-textarea { resize: vertical; min-height: 60px; }
 
-/* Workflow list inside builder */
-#wf-list-overlay {
+/* Playbook list inside builder */
+#pb-list-overlay {
   display: none;
   position: absolute;
   inset: 0;
@@ -369,8 +369,8 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
   align-items: center;
   justify-content: center;
 }
-#wf-list-overlay.show { display: flex; }
-#wf-list-box {
+#pb-list-overlay.show { display: flex; }
+#pb-list-box {
   width: 480px;
   max-height: 70vh;
   background: #0d0d1a;
@@ -381,7 +381,7 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
   overflow: hidden;
   box-shadow: 0 24px 60px rgba(0,0,0,.8);
 }
-.wflo-header {
+.pblo-header {
   padding: 12px 14px;
   border-bottom: 1px solid #1a1a2a;
   display: flex;
@@ -389,11 +389,11 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
   gap: 8px;
   flex-shrink: 0;
 }
-.wflo-title { font-size: 12px; font-weight: 700; color: #ddd; flex: 1; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; }
-.wflo-close { background: none; border: none; cursor: pointer; color: #555; font-size: 16px; }
-.wflo-close:hover { color: #aaa; }
-.wflo-body { flex: 1; overflow-y: auto; }
-.wflo-item {
+.pblo-title { font-size: 12px; font-weight: 700; color: #ddd; flex: 1; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; }
+.pblo-close { background: none; border: none; cursor: pointer; color: #555; font-size: 16px; }
+.pblo-close:hover { color: #aaa; }
+.pblo-body { flex: 1; overflow-y: auto; }
+.pblo-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -402,12 +402,12 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
   cursor: pointer;
   transition: background .1s;
 }
-.wflo-item:hover { background: #7c3aed10; }
-.wflo-item-name { flex: 1; font-size: 12px; color: #ccc; }
-.wflo-item-meta { font-size: 10px; color: #444; }
-.wflo-del { background: none; border: none; cursor: pointer; color: #444; font-size: 12px; padding: 2px 5px; }
-.wflo-del:hover { color: #ef4444; }
-.wflo-empty { padding: 30px; text-align: center; color: #333; font-size: 12px; }
+.pblo-item:hover { background: #7c3aed10; }
+.pblo-item-name { flex: 1; font-size: 12px; color: #ccc; }
+.pblo-item-meta { font-size: 10px; color: #444; }
+.pblo-del { background: none; border: none; cursor: pointer; color: #444; font-size: 12px; padding: 2px 5px; }
+.pblo-del:hover { color: #ef4444; }
+.pblo-empty { padding: 30px; text-align: center; color: #333; font-size: 12px; }
 
 @keyframes nodePulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(124,58,237,0.4), 0 6px 20px rgba(0,0,0,.5); }
@@ -435,7 +435,7 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
   <!-- sidebar -->
   <nav id="sidebar">
     <div class="nav-section-label">Project</div>
-    <div class="nav-item active" data-panel="workflows">
+    <div class="nav-item active" data-panel="playbooks">
       <span class="nav-icon">⚡</span> Runs
       <span class="nav-badge" id="nb-run">0</span>
     </div>
@@ -458,17 +458,17 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
   <!-- main -->
   <div id="main">
 
-    <!-- Workflow Runs panel -->
-    <div class="panel active" id="wf-panel">
+    <!-- Playbook Runs panel -->
+    <div class="panel active" id="pb-panel">
       <div class="panel-header">
-        <span class="panel-title">Workflow Runs</span>
-        <span class="panel-subtitle" id="wf-subtitle">0 runs</span>
+        <span class="panel-title">Playbook Runs</span>
+        <span class="panel-subtitle" id="pb-subtitle">0 runs</span>
       </div>
-      <div id="wf-cards" style="overflow-y:auto;flex:1;padding:12px;display:grid;gap:10px;align-content:start"></div>
-      <div class="empty" id="wf-empty">
+      <div id="pb-cards" style="overflow-y:auto;flex:1;padding:12px;display:grid;gap:10px;align-content:start"></div>
+      <div class="empty" id="pb-empty">
         <span class="empty-icon">⚡</span>
-        <span class="empty-title">No workflow runs yet</span>
-        <span class="empty-sub">Use the Builder tab to create and run workflows,<br>or run via CLI: <code style="color:#7c3aed">npx monomind browse workflow run &lt;name&gt;</code></span>
+        <span class="empty-title">No playbook runs yet</span>
+        <span class="empty-sub">Use the Builder tab to create and run playbooks,<br>or run via CLI: <code style="color:#7c3aed">npx monomind browse playbook run &lt;name&gt;</code></span>
       </div>
     </div>
 
@@ -476,13 +476,13 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
     <div class="panel" id="builder-panel">
       <!-- Toolbar -->
       <div id="builder-toolbar">
-        <input id="wf-name-input" type="text" placeholder="Untitled Workflow" value="Untitled Workflow" />
+        <input id="pb-name-input" type="text" placeholder="Untitled Playbook" value="Untitled Playbook" />
         <div class="tb-sep"></div>
-        <button class="tb-btn" id="btn-new" title="New workflow">＋ New</button>
-        <button class="tb-btn" id="btn-open" title="Open saved workflow">📂 Open</button>
-        <button class="tb-btn" id="btn-save" title="Save workflow">💾 Save</button>
+        <button class="tb-btn" id="btn-new" title="New playbook">＋ New</button>
+        <button class="tb-btn" id="btn-open" title="Open saved playbook">📂 Open</button>
+        <button class="tb-btn" id="btn-save" title="Save playbook">💾 Save</button>
         <div class="tb-sep"></div>
-        <button class="tb-btn run-btn" id="btn-run" title="Run workflow">▶ Run</button>
+        <button class="tb-btn run-btn" id="btn-run" title="Run playbook">▶ Run</button>
         <div class="tb-sep"></div>
         <button class="tb-btn" id="btn-zoom-in" title="Zoom in">＋</button>
         <button class="tb-btn" id="btn-zoom-out" title="Zoom out">－</button>
@@ -510,14 +510,14 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
           </svg>
           <div id="canvas-nodes"></div>
 
-          <!-- Workflow list overlay -->
-          <div id="wf-list-overlay">
-            <div id="wf-list-box">
-              <div class="wflo-header">
-                <span class="wflo-title">Saved Workflows</span>
-                <button class="wflo-close" id="wflo-close-btn">✕</button>
+          <!-- Playbook list overlay -->
+          <div id="pb-list-overlay">
+            <div id="pb-list-box">
+              <div class="pblo-header">
+                <span class="pblo-title">Saved Playbooks</span>
+                <button class="pblo-close" id="pblo-close-btn">✕</button>
               </div>
-              <div class="wflo-body" id="wflo-body"></div>
+              <div class="pblo-body" id="pblo-body"></div>
             </div>
           </div>
         </div>
@@ -574,7 +574,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
     item.classList.add('active');
     document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
-    var panelId = target === 'workflows' ? 'wf-panel'
+    var panelId = target === 'playbooks' ? 'pb-panel'
                 : target === 'builder'   ? 'builder-panel'
                 : target + '-panel';
     var panel = document.getElementById(panelId);
@@ -584,7 +584,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// WORKFLOW RUN STATE (existing panel)
+// PLAYBOOK RUN STATE (existing panel)
 // ═══════════════════════════════════════════════════════════════════
 var runs = {};
 var runLogs = {};
@@ -610,7 +610,7 @@ function updateHeader() {
   document.getElementById('nb-run').textContent = String(running || Object.keys(runs).length);
   document.getElementById('nb-run').className = 'nav-badge' + (running ? '' : ' green');
   var total = Object.keys(runs).length;
-  document.getElementById('wf-subtitle').textContent = total + (total === 1 ? ' run' : ' runs');
+  document.getElementById('pb-subtitle').textContent = total + (total === 1 ? ' run' : ' runs');
 }
 
 function progressPct(r) {
@@ -630,8 +630,8 @@ function elapsed(r) {
   return Math.floor(ms / 60000) + 'm ' + Math.floor((ms % 60000) / 1000) + 's';
 }
 function renderCards() {
-  var cards = document.getElementById('wf-cards');
-  var empty = document.getElementById('wf-empty');
+  var cards = document.getElementById('pb-cards');
+  var empty = document.getElementById('pb-empty');
   var sorted = Object.values(runs).sort(function(a, b) { return b.startedAt - a.startedAt; });
   if (!sorted.length) { cards.innerHTML = ''; empty.style.display = 'flex'; return; }
   empty.style.display = 'none';
@@ -648,7 +648,7 @@ function renderCards() {
       : '<div style="color:#2a2a3a">no events yet</div>';
     return '<div class="card' + (!isRunning ? ' done' : '') + '">' +
       '<div class="card-header">' +
-        '<span class="card-title">' + esc(r.workflowName) + '</span>' +
+        '<span class="card-title">' + esc(r.playbookName) + '</span>' +
         '<span class="status-badge ' + sl[0] + '">' + sl[1] + '</span>' +
       '</div>' +
       '<div class="card-meta">' +
@@ -796,7 +796,7 @@ var canvas = {
   panX: 0,
   panY: 0,
   selectedId: null,
-  workflowId: null,
+  playbookId: null,
 };
 var _nodeSeq = 1;
 
@@ -1321,12 +1321,12 @@ function renderPropsPanel() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// WORKFLOW SERIALIZATION
+// PLAYBOOK SERIALIZATION
 // ═══════════════════════════════════════════════════════════════════
-function toWorkflowDef() {
-  var id = canvas.workflowId || ('wf_' + Date.now().toString(36));
-  canvas.workflowId = id;
-  var name = document.getElementById('wf-name-input').value.trim() || 'Untitled Workflow';
+function toPlaybookDef() {
+  var id = canvas.playbookId || ('pb_' + Date.now().toString(36));
+  canvas.playbookId = id;
+  var name = document.getElementById('pb-name-input').value.trim() || 'Untitled Playbook';
   return {
     id: id,
     name: name,
@@ -1341,18 +1341,18 @@ function toWorkflowDef() {
   };
 }
 
-function loadWorkflowDef(wf) {
+function loadPlaybookDef(pb) {
   canvas.nodes = [];
   canvas.edges = [];
-  canvas.workflowId = wf.id;
+  canvas.playbookId = pb.id;
   canvas.selectedId = null;
-  document.getElementById('wf-name-input').value = wf.name || 'Untitled';
+  document.getElementById('pb-name-input').value = pb.name || 'Untitled';
   // Clear existing nodes from DOM
   document.getElementById('canvas-nodes').innerHTML = '';
 
   // Lay out nodes in a simple column if no positions stored
   var x = 100, y = 60;
-  (wf.nodes || []).forEach(function(n, i) {
+  (pb.nodes || []).forEach(function(n, i) {
     var def = getNodeDef(n.type) || { inputs:[{label:'in'}], outputs:[{label:'out'}], color:'#7c3aed', label: n.type };
     var node = {
       id: n.id,
@@ -1371,7 +1371,7 @@ function loadWorkflowDef(wf) {
   });
 
   // Build edges from connections
-  (wf.connections || []).forEach(function(c) {
+  (pb.connections || []).forEach(function(c) {
     var fromNode = canvas.nodes.find(function(n) { return n.id === c.from; });
     var toNode   = canvas.nodes.find(function(n) { return n.id === c.to; });
     if (!fromNode || !toNode) return;
@@ -1401,136 +1401,136 @@ function loadWorkflowDef(wf) {
 document.getElementById('btn-new').addEventListener('click', function() {
   canvas.nodes = [];
   canvas.edges = [];
-  canvas.workflowId = null;
+  canvas.playbookId = null;
   canvas.selectedId = null;
   document.getElementById('canvas-nodes').innerHTML = '';
-  document.getElementById('wf-name-input').value = 'Untitled Workflow';
+  document.getElementById('pb-name-input').value = 'Untitled Playbook';
   renderNodes();
   renderEdges();
   renderPropsPanel();
 });
 
 document.getElementById('btn-save').addEventListener('click', function() {
-  var wf = toWorkflowDef();
-  fetch('/api/workflows', {
+  var pb = toPlaybookDef();
+  fetch('/api/playbooks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(wf),
+    body: JSON.stringify(pb),
   }).then(function(r) { return r.json(); }).then(function(saved) {
-    canvas.workflowId = saved.id;
-    showToast('Workflow saved: ' + saved.name);
+    canvas.playbookId = saved.id;
+    showToast('Playbook saved: ' + saved.name);
   }).catch(function(e) {
     showToast('Save failed: ' + e, true);
   });
 });
 
 document.getElementById('btn-open').addEventListener('click', function() {
-  openWorkflowList();
+  openPlaybookList();
 });
 
 document.getElementById('btn-run').addEventListener('click', function() {
-  if (!canvas.workflowId) {
+  if (!canvas.playbookId) {
     // Auto-save first
-    var wf = toWorkflowDef();
-    fetch('/api/workflows', {
+    var pb = toPlaybookDef();
+    fetch('/api/playbooks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(wf),
+      body: JSON.stringify(pb),
     }).then(function() {
-      runCurrentWorkflow(wf.id);
+      runCurrentPlaybook(pb.id);
     }).catch(function(e) { showToast('Error: ' + e, true); });
   } else {
     // Save then run
-    var wf2 = toWorkflowDef();
-    fetch('/api/workflows', {
+    var pb2 = toPlaybookDef();
+    fetch('/api/playbooks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(wf2),
+      body: JSON.stringify(pb2),
     }).then(function() {
-      runCurrentWorkflow(wf2.id);
+      runCurrentPlaybook(pb2.id);
     }).catch(function(e) { showToast('Error: ' + e, true); });
   }
 });
 
-function runCurrentWorkflow(workflowId) {
+function runCurrentPlaybook(playbookId) {
   // Reset node statuses
   canvas.nodes.forEach(function(n) { n.runStatus = null; n.runItems = 0; n.runDuration = null; });
   renderNodes();
-  fetch('/api/workflows/' + workflowId + '/run', { method: 'POST' })
+  fetch('/api/playbooks/' + playbookId + '/run', { method: 'POST' })
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res.ok) {
-        showToast('Workflow started — watch the Runs tab');
+        showToast('Playbook started — watch the Runs tab');
         // Switch to runs panel
         document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
-        document.querySelector('[data-panel="workflows"]').classList.add('active');
+        document.querySelector('[data-panel="playbooks"]').classList.add('active');
         document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
-        document.getElementById('wf-panel').classList.add('active');
+        document.getElementById('pb-panel').classList.add('active');
       }
     })
     .catch(function(e) { showToast('Run failed: ' + e, true); });
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// WORKFLOW LIST OVERLAY
+// PLAYBOOK LIST OVERLAY
 // ═══════════════════════════════════════════════════════════════════
-function openWorkflowList() {
-  var overlay = document.getElementById('wf-list-overlay');
+function openPlaybookList() {
+  var overlay = document.getElementById('pb-list-overlay');
   overlay.classList.add('show');
-  fetch('/api/workflows')
+  fetch('/api/playbooks')
     .then(function(r) { return r.json(); })
     .then(function(list) {
-      var body = document.getElementById('wflo-body');
+      var body = document.getElementById('pblo-body');
       if (!list.length) {
-        body.innerHTML = '<div class="wflo-empty">No saved workflows yet. Build one and click Save!</div>';
+        body.innerHTML = '<div class="pblo-empty">No saved playbooks yet. Build one and click Save!</div>';
         return;
       }
-      body.innerHTML = list.map(function(wf) {
-        return '<div class="wflo-item" data-wf-id="' + esc(wf.id) + '">' +
-          '<span class="wflo-item-name">' + esc(wf.name) + '</span>' +
-          '<span class="wflo-item-meta">' + (wf.nodes ? wf.nodes.length : 0) + ' nodes</span>' +
-          '<button class="wflo-del" data-del-id="' + esc(wf.id) + '" title="Delete">✕</button>' +
+      body.innerHTML = list.map(function(pb) {
+        return '<div class="pblo-item" data-pb-id="' + esc(pb.id) + '">' +
+          '<span class="pblo-item-name">' + esc(pb.name) + '</span>' +
+          '<span class="pblo-item-meta">' + (pb.nodes ? pb.nodes.length : 0) + ' nodes</span>' +
+          '<button class="pblo-del" data-del-id="' + esc(pb.id) + '" title="Delete">✕</button>' +
           '</div>';
       }).join('');
-      body.querySelectorAll('.wflo-item').forEach(function(el) {
+      body.querySelectorAll('.pblo-item').forEach(function(el) {
         el.addEventListener('click', function(e) {
-          if (e.target.closest('.wflo-del')) return;
-          var wfId = el.getAttribute('data-wf-id');
-          fetch('/api/workflows/' + wfId).then(function(r) { return r.json(); }).then(function(wf) {
-            loadWorkflowDef(wf);
+          if (e.target.closest('.pblo-del')) return;
+          var pbId = el.getAttribute('data-pb-id');
+          fetch('/api/playbooks/' + pbId).then(function(r) { return r.json(); }).then(function(pb) {
+            loadPlaybookDef(pb);
             overlay.classList.remove('show');
           });
         });
       });
-      body.querySelectorAll('.wflo-del').forEach(function(btn) {
+      body.querySelectorAll('.pblo-del').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
           e.stopPropagation();
           var delId = btn.getAttribute('data-del-id');
-          if (!confirm('Delete this workflow?')) return;
-          fetch('/api/workflows/' + delId, { method: 'DELETE' }).then(function() {
-            if (canvas.workflowId === delId) {
-              canvas.workflowId = null;
+          if (!confirm('Delete this playbook?')) return;
+          fetch('/api/playbooks/' + delId, { method: 'DELETE' }).then(function() {
+            if (canvas.playbookId === delId) {
+              canvas.playbookId = null;
               canvas.nodes = [];
               canvas.edges = [];
               canvas.selectedId = null;
               document.getElementById('canvas-nodes').innerHTML = '';
-              document.getElementById('wf-name-input').value = 'Untitled Workflow';
+              document.getElementById('pb-name-input').value = 'Untitled Playbook';
               renderNodes();
               renderEdges();
               renderPropsPanel();
             }
-            openWorkflowList(); // refresh
+            openPlaybookList(); // refresh
           });
         });
       });
     })
     .catch(function() {
-      document.getElementById('wflo-body').innerHTML = '<div class="wflo-empty">Failed to load workflows.</div>';
+      document.getElementById('pblo-body').innerHTML = '<div class="pblo-empty">Failed to load playbooks.</div>';
     });
 }
 
-document.getElementById('wflo-close-btn').addEventListener('click', function() {
-  document.getElementById('wf-list-overlay').classList.remove('show');
+document.getElementById('pblo-close-btn').addEventListener('click', function() {
+  document.getElementById('pb-list-overlay').classList.remove('show');
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1578,7 +1578,7 @@ function handleEvent(evt) {
   var id = evt.runId;
   if (!id) return;
   if (!runs[id]) {
-    runs[id] = { id: id, workflowId: evt.workflowId, workflowName: evt.workflowName || id,
+    runs[id] = { id: id, playbookId: evt.playbookId, playbookName: evt.playbookName || id,
                  status: 'running', startedAt: evt.timestamp || Date.now(),
                  itemsProcessed: 0, itemsTotal: 0 };
   }

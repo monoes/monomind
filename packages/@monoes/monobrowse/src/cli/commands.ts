@@ -5,7 +5,7 @@
 
 import type { Command, CommandContext, CommandResult } from './types.js';
 import { output } from './output.js';
-import { createWorkflowCommand } from './workflow.js';
+import { createPlaybookCommand } from './playbook.js';
 import { createActionCommand } from './action.js';
 import { createPlatformCommand } from './platform.js';
 import type { CdpClient, ElementRef, NetworkRoute, FindAction } from '../index.js';
@@ -2606,11 +2606,11 @@ function wrapCommanderCommand(factory: () => import('commander').Command): Comma
   };
 }
 
-const workflowSubcommand: Command = wrapCommanderCommand(createWorkflowCommand);
+const playbookSubcommand: Command = wrapCommanderCommand(createPlaybookCommand);
 // Expose both "playbook" (canonical) and "workflow" (backward-compat alias) in the internal dispatch table.
 // Commander's .alias() only applies at Commander's own parse layer; the internal Command[] table
 // routes by name, so we register both names pointing at the same underlying Commander instance.
-const workflowAliasSubcommand: Command = { ...workflowSubcommand, name: 'workflow' };
+const workflowAliasSubcommand: Command = { ...playbookSubcommand, name: 'workflow' };
 const actionSubcommand: Command = wrapCommanderCommand(createActionCommand);
 const platformSubcommand: Command = wrapCommanderCommand(createPlatformCommand);
 
@@ -2682,7 +2682,7 @@ const browseCommand: Command = {
     harCommand,
     resizeCommand,
     closeCommand,
-    workflowSubcommand,
+    playbookSubcommand,
     workflowAliasSubcommand,
     actionSubcommand,
     platformSubcommand,
