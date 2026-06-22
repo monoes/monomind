@@ -1,8 +1,8 @@
-// Built-in node handlers registered for every `browse workflow run` invocation.
+// Built-in node handlers registered for every `browse playbook run` invocation.
 //
 // action.http         — fetch a URL (GET/POST/etc.) and put the response in item.data
 // action.save_file    — write item data or binaryBase64 to a file on disk
-// action.log          — console.log each item (useful for debugging workflows)
+// action.log          — console.log each item (useful for debugging playbooks)
 // action.gemini_image — generate image via Gemini web app (browser automation + session store)
 //                       or Imagen REST API (GEMINI_API_KEY), or mock mode
 import { writeFile, readFile, mkdir, chmod } from 'node:fs/promises';
@@ -149,7 +149,7 @@ async function generateViaGeminiBrowser(
       console.log('│  A browser window has been opened to Gemini.            │');
       console.log('│  Please sign in with your Google account.               │');
       console.log('│                                                         │');
-      console.log('│  The workflow will resume automatically after login.    │');
+      console.log('│  The playbook will resume automatically after login.   │');
       console.log('│  Waiting up to 5 minutes…                               │');
       console.log('└─────────────────────────────────────────────────────────┘');
       console.log('');
@@ -237,24 +237,46 @@ export function createBuiltinHandlers(): Map<string, NodeHandler> {
   const handlers = new Map<string, NodeHandler>();
 
   // action.http
-  // config: { url, method?, headers?, body?, responseField? }
-  // Puts { statusCode, body, json? } into item.data[responseField ?? 'response']
+  // config: { url, method?, headers?, body?, responseField?, timeoutMs?, throwOnError? }
+  // Puts { statusCode, body, json? } into item.data[responseField ?? 'response'].
+  // throwOnError (default true): throws on 4xx/5xx responses.
+  // timeoutMs (default 30000): abort the request after this many ms.
   handlers.set('action.http', async (items, config) => {
     const url = String(config['url'] ?? '');
     const method = String(config['method'] ?? 'GET').toUpperCase();
     const headers = (config['headers'] as Record<string, string>) ?? {};
     const body = config['body'] !== undefined ? JSON.stringify(config['body']) : undefined;
     const responseField = String(config['responseField'] ?? 'response');
+    const timeoutMs = Number(config['timeoutMs'] ?? 30_000);
+    const throwOnError = config['throwOnError'] !== false; // default true
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      const msg = err instanceof Error && err.name === 'AbortError'
+        ? `action.http: request timed out after ${timeoutMs}ms — ${url}`
+        : `action.http: network error — ${err instanceof Error ? err.message : String(err)}`;
+      throw new Error(msg);
+    }
+    clearTimeout(timer);
 
     const text = await res.text();
     let json: unknown;
-    try { json = JSON.parse(text); } catch { /* not JSON */ }
+    try { json = JSON.parse(text); } catch { /* not JSON — body is plain text or binary */ }
+
+    if (throwOnError && !res.ok) {
+      throw new Error(`action.http: HTTP ${res.status} ${res.statusText} — ${url}\n${text.slice(0, 500)}`);
+    }
 
     return items.map(item => ({
       ...item,
