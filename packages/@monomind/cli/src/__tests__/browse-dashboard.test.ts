@@ -14,8 +14,8 @@ afterEach(() => {
 function makeEvent(overrides: Partial<StepEvent> = {}): StepEvent {
   return {
     runId: 'run-1',
-    workflowId: 'wf-1',
-    workflowName: 'Test WF',
+    playbookId: 'wf-1',
+    playbookName: 'Test WF',
     nodeId: 'node-1',
     nodeName: 'Test Node',
     eventType: 'step_completed',
@@ -48,7 +48,7 @@ describe('startDashboard', () => {
 
   it('GET /runs returns JSON array', async () => {
     const dash = startDashboard(PORT);
-    const run: RunRecord = { id: 'r1', workflowId: 'wf', workflowName: 'WF', status: 'completed', startedAt: Date.now(), itemsProcessed: 1, itemsTotal: 1 };
+    const run: RunRecord = { id: 'r1', playbookId: 'wf', playbookName: 'WF', status: 'completed', startedAt: Date.now(), itemsProcessed: 1, itemsTotal: 1 };
     dash.addRunRecord(run);
     const res = await fetch(`http://localhost:${PORT}/runs`);
     expect(res.status).toBe(200);

@@ -31,6 +31,7 @@ import {
   fillElement,
   typeText,
   pressKey,
+  pressKeyCombo,
   scrollElement,
   hoverElement,
   selectOption,
@@ -64,7 +65,17 @@ interface BrowserConnection {
 const connectionCache = new Map<number, BrowserConnection>();
 
 async function getConnection(port: number): Promise<BrowserConnection> {
-  if (connectionCache.has(port)) return connectionCache.get(port)!;
+  if (connectionCache.has(port)) {
+    const cached = connectionCache.get(port)!;
+    try {
+      // Lightweight liveness check — if the CDP connection has dropped, this throws
+      await cached.client.send('Runtime.evaluate', { expression: '1', returnByValue: true }, cached.sessionId);
+      return cached;
+    } catch {
+      // Stale connection — evict and reconnect below
+      connectionCache.delete(port);
+    }
+  }
   const { client, sessionId } = await connectToTarget(port);
   const conn: BrowserConnection = { client, sessionId, refs: new Map() };
   connectionCache.set(port, conn);
@@ -252,21 +263,9 @@ export function createBrowserHandlers(): Map<string, NodeHandler> {
       const parts = key.split('+').map(k => k.trim());
       const mainKey = parts[parts.length - 1];
       const bits = modifierBits(parts.slice(0, -1));
-      // Use low-level CDP for key combos (pressKeyCombo API takes key + modifierBits)
-      const { default: _unused, ...keyData } = { default: null };
-      void _unused;
-      await conn.client.send('Input.dispatchKeyEvent', {
-        type: 'rawKeyDown',
-        key: mainKey,
-        code: `Key${mainKey.toUpperCase()}`,
-        modifiers: bits,
-      }, conn.sessionId);
-      await conn.client.send('Input.dispatchKeyEvent', {
-        type: 'keyUp',
-        key: mainKey,
-        code: `Key${mainKey.toUpperCase()}`,
-        modifiers: bits,
-      }, conn.sessionId);
+      // Delegate to pressKeyCombo which uses resolveKey() for correct code/key mapping
+      // (avoids KeyENTER-style bugs from naive Key${mainKey.toUpperCase()} construction)
+      await pressKeyCombo(conn.client, conn.sessionId, mainKey, bits);
     } else {
       await pressKey(conn.client, conn.sessionId, key);
     }

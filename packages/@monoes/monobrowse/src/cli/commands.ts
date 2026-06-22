@@ -2607,10 +2607,6 @@ function wrapCommanderCommand(factory: () => import('commander').Command): Comma
 }
 
 const playbookSubcommand: Command = wrapCommanderCommand(createPlaybookCommand);
-// Expose both "playbook" (canonical) and "workflow" (backward-compat alias) in the internal dispatch table.
-// Commander's .alias() only applies at Commander's own parse layer; the internal Command[] table
-// routes by name, so we register both names pointing at the same underlying Commander instance.
-const workflowAliasSubcommand: Command = { ...playbookSubcommand, name: 'workflow' };
 const actionSubcommand: Command = wrapCommanderCommand(createActionCommand);
 const platformSubcommand: Command = wrapCommanderCommand(createPlatformCommand);
 
@@ -2683,7 +2679,6 @@ const browseCommand: Command = {
     resizeCommand,
     closeCommand,
     playbookSubcommand,
-    workflowAliasSubcommand,
     actionSubcommand,
     platformSubcommand,
   ],

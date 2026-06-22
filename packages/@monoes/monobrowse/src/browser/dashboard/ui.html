@@ -568,20 +568,36 @@ body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sa
 // ═══════════════════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════════════════
+function navigateToPanel(target) {
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  var navItem = document.querySelector('[data-panel="' + target + '"]');
+  if (navItem) navItem.classList.add('active');
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  var panelId = target === 'playbooks' ? 'pb-panel'
+              : target === 'builder'   ? 'builder-panel'
+              : target + '-panel';
+  var panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
+  if (target === 'builder') renderEdges();
+  location.hash = target;
+}
+
 document.querySelectorAll('.nav-item').forEach(function(item) {
   item.addEventListener('click', function() {
     var target = item.getAttribute('data-panel');
-    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
-    item.classList.add('active');
-    document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
-    var panelId = target === 'playbooks' ? 'pb-panel'
-                : target === 'builder'   ? 'builder-panel'
-                : target + '-panel';
-    var panel = document.getElementById(panelId);
-    if (panel) panel.classList.add('active');
-    if (target === 'builder') renderEdges();
+    navigateToPanel(target);
   });
 });
+
+// Hash-based routing on load
+(function() {
+  var hash = location.hash.replace('#', '');
+  var validPanels = ['playbooks', 'builder', 'agents', 'memory', 'sessions'];
+  if (hash && validPanels.indexOf(hash) !== -1) {
+    // defer until after renderEdges is defined
+    window.addEventListener('load', function() { navigateToPanel(hash); });
+  }
+})();
 
 // ═══════════════════════════════════════════════════════════════════
 // PLAYBOOK RUN STATE (existing panel)
@@ -715,6 +731,44 @@ var NODE_TYPES = [
   { cat: 'Browser',  type: 'action.save_file',       label: 'Save File',       color: '#9333ea',
     inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
     defaults: { path: './output.txt' } },
+
+  { cat: 'Services', type: 'service.notion',   label: 'Notion',          color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'query_database', token: '' } },
+  { cat: 'Services', type: 'service.linear',   label: 'Linear',          color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'list_issues', token: '' } },
+  { cat: 'Services', type: 'service.airtable', label: 'Airtable',        color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'list_records', token: '', base_id: '', table: '' } },
+  { cat: 'Services', type: 'service.stripe',   label: 'Stripe',          color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'list_customers', api_key: '' } },
+
+  { cat: 'Data', type: 'core.aggregate', label: 'Aggregate',    color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { group_by: '', operations: [] } },
+  { cat: 'Data', type: 'core.sort',      label: 'Sort',         color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { field: '', order: 'asc' } },
+  { cat: 'Data', type: 'core.limit',     label: 'Limit',        color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { count: 10 } },
+  { cat: 'Data', type: 'core.merge',     label: 'Merge',        color: '#d97706',
+    inputs: [{ label: 'in1' }, { label: 'in2' }], outputs: [{ label: 'out' }],
+    defaults: { mode: 'append' } },
+  { cat: 'Data', type: 'core.remove_duplicates', label: 'Remove Duplicates', color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { field: '' } },
+  { cat: 'Data', type: 'core.switch',    label: 'Switch',       color: '#0891b2',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'case0' }, { label: 'default' }],
+    defaults: { field: '', cases: [] } },
+  { cat: 'Data', type: 'core.wait',      label: 'Wait',         color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { seconds: 5 } },
+  { cat: 'Data', type: 'core.split_in_batches', label: 'Split in Batches', color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'batch' }],
+    defaults: { batch_size: 10 } },
 ];
 
 var CAT_ORDER = ['Triggers','Control','Data','HTTP','Services','Browser'];
@@ -783,6 +837,73 @@ var NODE_FIELDS = {
     { key:'path', label:'File path', type:'text' },
     { key:'field', label:'Data field', type:'text' },
     { key:'encoding', label:'Encoding', type:'text' },
+  ],
+  'service.notion': [
+    { key:'token', label:'Integration token', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['get_page','create_page','update_page','query_database','get_database','create_database','append_blocks'] },
+    { key:'page_id', label:'Page ID', type:'text' },
+    { key:'database_id', label:'Database ID', type:'text' },
+    { key:'parent_id', label:'Parent ID', type:'text' },
+    { key:'properties', label:'Properties (JSON)', type:'textarea' },
+  ],
+  'service.linear': [
+    { key:'token', label:'API token', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['list_issues','get_issue','create_issue','update_issue','list_teams','list_projects'] },
+    { key:'team_id', label:'Team ID', type:'text' },
+    { key:'issue_id', label:'Issue ID', type:'text' },
+    { key:'title', label:'Title', type:'text' },
+    { key:'description', label:'Description', type:'textarea' },
+    { key:'priority', label:'Priority (0-4)', type:'text' },
+    { key:'state_id', label:'State ID', type:'text' },
+  ],
+  'service.airtable': [
+    { key:'token', label:'Personal access token', type:'text' },
+    { key:'base_id', label:'Base ID', type:'text' },
+    { key:'table', label:'Table name', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['list_records','get_record','create_record','update_record','delete_record'] },
+    { key:'record_id', label:'Record ID', type:'text' },
+    { key:'fields', label:'Fields (JSON)', type:'textarea' },
+    { key:'filter_formula', label:'Filter formula', type:'text' },
+    { key:'view', label:'View name', type:'text' },
+  ],
+  'service.stripe': [
+    { key:'api_key', label:'Secret key', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['list_customers','create_customer','get_customer','list_charges','create_charge','list_subscriptions','create_subscription','cancel_subscription','list_products','create_payment_intent'] },
+    { key:'customer_id', label:'Customer ID', type:'text' },
+    { key:'email', label:'Email', type:'text' },
+    { key:'name', label:'Name', type:'text' },
+    { key:'amount', label:'Amount (cents)', type:'text' },
+    { key:'currency', label:'Currency', type:'text' },
+    { key:'price_id', label:'Price ID', type:'text' },
+    { key:'subscription_id', label:'Subscription ID', type:'text' },
+  ],
+  'core.aggregate': [
+    { key:'group_by', label:'Group by field', type:'text' },
+    { key:'operations', label:'Operations (JSON array)', type:'textarea' },
+  ],
+  'core.sort': [
+    { key:'field', label:'Field to sort by', type:'text' },
+    { key:'order', label:'Order', type:'select', options:['asc','desc'] },
+  ],
+  'core.limit': [
+    { key:'count', label:'Max items', type:'text' },
+  ],
+  'core.merge': [
+    { key:'mode', label:'Mode', type:'select', options:['append','merge_by_field'] },
+    { key:'field', label:'Merge key field (for merge_by_field)', type:'text' },
+  ],
+  'core.remove_duplicates': [
+    { key:'field', label:'Deduplicate by field (empty = all fields)', type:'text' },
+  ],
+  'core.switch': [
+    { key:'field', label:'Field to switch on', type:'text' },
+    { key:'cases', label:'Case values (JSON array)', type:'textarea' },
+  ],
+  'core.wait': [
+    { key:'seconds', label:'Seconds to wait', type:'text' },
+  ],
+  'core.split_in_batches': [
+    { key:'batch_size', label:'Batch size', type:'text' },
   ],
 };
 
@@ -1603,6 +1724,9 @@ function handleEvent(evt) {
     canvas.nodes.forEach(function(n) {
       if (n.runStatus === 'running') { n.runStatus = null; }
     });
+  } else if (evt.eventType === 'run_failed') {
+    r.status = 'failed';
+    r.endedAt = evt.timestamp || Date.now();
   } else if (evt.eventType === 'run_stopped') {
     r.status = evt.error ? 'failed' : 'stopped';
     r.endedAt = evt.timestamp || Date.now();
