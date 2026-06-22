@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { readPlaybook, listPlaybookRuns, writePlaybookRun, runPlaybook } from '@monoes/monoplaybook';
 import type { PlaybookDef } from '@monoes/monoplaybook';
-import { createBuiltinHandlers } from '../browser/playbook/builtin-handlers.js';
+import { createDefaultHandlers } from '../index.js';
 import { startDashboard } from '../index.js';
 
 export function createPlaybookCommand(): Command {
@@ -16,7 +16,7 @@ export function createPlaybookCommand(): Command {
   cmd
     .command('create <name>')
     .description('Scaffold a new playbook JSON file')
-    .option('--template <type>', 'Starter template: minimal | http | google-sheets | gmail | microsoft | gemini-image', 'minimal')
+    .option('--template <type>', 'Starter template: minimal | http | google-sheets | gmail | github | gemini-image', 'minimal')
     .action(async (name: string, opts: { template: string }) => {
       const dir = join(process.cwd(), '.monomind', 'playbooks');
       await mkdir(dir, { recursive: true });
@@ -44,47 +44,67 @@ export function createPlaybookCommand(): Command {
           };
           break;
 
-        case 'google-sheets':
+        case 'google-sheets': {
+          const accessRef = '{{params.access_token}}';
           def = {
             id: name, name: humanName,
             description: 'Read rows from Google Sheets and process them',
-            params: { spreadsheetId: { required: true, description: 'Google Sheets ID from URL' }, range: { default: 'Sheet1', description: 'Cell range e.g. Sheet1!A:Z' } },
+            params: {
+              spreadsheet_id: { required: true, description: 'Google Sheets ID from URL' },
+              range: { default: 'Sheet1', description: 'Cell range e.g. Sheet1!A:Z' },
+              access_token: { required: true, description: 'OAuth2 access token for Google Sheets API' },
+            },
             nodes: [
               { id: 'trigger', type: 'trigger.manual', name: 'Start', config: {} },
-              { id: 'read', type: 'action.google_sheets_read', name: 'Read Sheet', config: { spreadsheetId: '{{params.spreadsheetId}}', range: '{{params.range}}' } },
+              { id: 'read', type: 'service.google_sheets', name: 'Read Sheet', config: { operation: 'read_rows', spreadsheet_id: '{{params.spreadsheet_id}}', range: '{{params.range}}', access_token: accessRef } },
               { id: 'log', type: 'action.log', name: 'Log Rows', config: { label: 'row' } },
             ],
             connections: [{ from: 'trigger', to: 'read' }, { from: 'read', to: 'log' }],
           };
           break;
+        }
 
-        case 'gmail':
+        case 'gmail': {
+          const gmailAccessRef = '{{params.access_token}}';
           def = {
             id: name, name: humanName,
             description: 'Send emails via Gmail API',
-            params: { to: { required: true, description: 'Recipient email address' }, subject: { required: true }, body: { required: true } },
+            params: {
+              to: { required: true, description: 'Recipient email address' },
+              subject: { required: true, description: 'Email subject line' },
+              body: { required: true, description: 'Email body text' },
+              access_token: { required: true, description: 'OAuth2 access token for Gmail API' },
+            },
             nodes: [
               { id: 'trigger', type: 'trigger.manual', name: 'Start', config: { items: [{ data: {} }] } },
-              { id: 'send', type: 'action.gmail_send', name: 'Send Email', config: { to: '{{params.to}}', subject: '{{params.subject}}', body: '{{params.body}}' } },
+              { id: 'send', type: 'service.gmail', name: 'Send Email', config: { operation: 'send_message', to: '{{params.to}}', subject: '{{params.subject}}', body: '{{params.body}}', access_token: gmailAccessRef } },
               { id: 'log', type: 'action.log', name: 'Log Result', config: { label: 'sent' } },
             ],
             connections: [{ from: 'trigger', to: 'send' }, { from: 'send', to: 'log' }],
           };
           break;
+        }
 
-        case 'microsoft':
+        case 'github': {
+          const ghTokenRef = '{{params.gh_token}}';
           def = {
             id: name, name: humanName,
-            description: 'Call Microsoft Graph API (Outlook, Teams, OneDrive)',
-            params: { endpoint: { default: '/me/messages', description: 'Graph API endpoint' } },
+            description: 'List GitHub issues and process them',
+            params: {
+              owner: { required: true, description: 'GitHub repo owner (user or org)' },
+              repo: { required: true, description: 'GitHub repo name' },
+              gh_token: { required: true, description: 'GitHub personal access token' },
+              state: { default: 'open', description: 'Issue state: open | closed | all' },
+            },
             nodes: [
               { id: 'trigger', type: 'trigger.manual', name: 'Start', config: { items: [{ data: {} }] } },
-              { id: 'graph', type: 'action.microsoft_graph', name: 'Graph API Call', config: { endpoint: '{{params.endpoint}}', method: 'GET' } },
-              { id: 'log', type: 'action.log', name: 'Log Result', config: { label: 'graph' } },
+              { id: 'issues', type: 'service.github', name: 'List Issues', config: { operation: 'list_issues', owner: '{{params.owner}}', repo: '{{params.repo}}', token: ghTokenRef, state: '{{params.state}}' } },
+              { id: 'log', type: 'action.log', name: 'Log Issues', config: { label: 'issue' } },
             ],
-            connections: [{ from: 'trigger', to: 'graph' }, { from: 'graph', to: 'log' }],
+            connections: [{ from: 'trigger', to: 'issues' }, { from: 'issues', to: 'log' }],
           };
           break;
+        }
 
         case 'gemini-image':
           def = {
@@ -171,7 +191,7 @@ export function createPlaybookCommand(): Command {
       // Resolve the project directory once so every event carries the same canonical tag.
       const projectDir = process.cwd();
       const record = await runPlaybook(def, {
-        handlers: createBuiltinHandlers(),
+        handlers: createDefaultHandlers(),
         onEvent: event => {
           dashboard.broadcast({ ...event, projectDir });
           if (event.eventType === 'step_completed' || event.eventType === 'step_failed') {
@@ -181,6 +201,7 @@ export function createPlaybookCommand(): Command {
         },
         signal: AbortSignal.timeout(timeoutMs),
         params,
+        isStopRequested: (id) => dashboard.isStopRequested(id),
       });
 
       dashboard.addRunRecord(record);

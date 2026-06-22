@@ -154,6 +154,7 @@ dist/
 !packages/@monomind/cli/dist/src/ui/server.mjs
 !packages/@monomind/cli/dist/src/ui/sse-manager.mjs
 !packages/@monomind/cli/dist/src/ui/MODULARIZATION_PLAN.md
+!packages/@monomind/cli/dist/src/ui/dashboard.html
 packages/@monomind/cli/dist/src/ui/data/
 hive-mind-prompt-*.txt
 init-output.log
