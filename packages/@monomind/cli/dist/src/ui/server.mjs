@@ -504,7 +504,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       if (event.runId) activeOrgRuns.set(_orgKey, String(event.runId).trim());
       else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
       else { const _rsId = _getActiveRunId(_orgKey, root); if (_rsId) event.runId = _rsId; }
-      if (event.type === 'run:complete' || event.type === 'org:complete') activeOrgRuns.delete(_orgKey);
+      if (event.type === 'run:complete' || event.type === 'org:complete' || event.type === 'org:stop') activeOrgRuns.delete(_orgKey);
       // Persist active-run.json so capture-handler.cjs can find the current org/runId without HTTP calls
       try {
         const _captureDir = path.join(root, '.monomind', 'capture');
