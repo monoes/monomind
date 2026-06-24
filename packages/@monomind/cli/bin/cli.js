@@ -214,7 +214,9 @@ if (isMCPMode) {
 
   const { CLI } = await import('../dist/src/index.js');
   const cli = new CLI();
-  cli.run().catch((error) => {
+  cli.run().then(() => {
+    process.exit(process.exitCode ?? 0);
+  }).catch((error) => {
     console.error('Fatal error:', safeMsg(error && error.message));
     process.exit(1);
   });

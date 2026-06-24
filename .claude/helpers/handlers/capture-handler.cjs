@@ -14,7 +14,7 @@
 //
 // Active session awareness:
 //   - Reads .monomind/capture/active-session.json (written by server on session:start)
-//   - Reads .monomind/capture/active-run.json (written by server on run:start)
+//   - Reads .monomind/capture/active-run.json (written by server on run:start or org:start)
 //   - Includes sessionId in all emitted events so they link to the dashboard session
 
 const fs = require('fs');
@@ -91,6 +91,16 @@ function parseJSONLForData(filePath) {
 }
 
 function getActiveRun() {
+  // Phase 1: Try ppid-keyed file first — supports multiple concurrent orgs (Issue 3)
+  const ppidFile = path.join(CAPTURE_DIR, 'active-runs', `${process.ppid}.json`);
+  if (fs.existsSync(ppidFile)) {
+    try {
+      const d = JSON.parse(fs.readFileSync(ppidFile, 'utf8'));
+      if (Date.now() - (d.ts || 0) > 8 * 60 * 60 * 1000) return null;
+      return d;
+    } catch { /* fall through to single-slot fallback */ }
+  }
+  // Fallback: single-slot active-run.json (written by server on org:start)
   const runFile = path.join(CAPTURE_DIR, 'active-run.json');
   if (!fs.existsSync(runFile)) return null;
   try {
@@ -101,18 +111,34 @@ function getActiveRun() {
   } catch { return null; }
 }
 
-function getActiveSession() {
+function getActiveSession(activeRun) {
   const sessFile = path.join(CAPTURE_DIR, 'active-session.json');
-  if (!fs.existsSync(sessFile)) return null;
-  try {
-    const d = JSON.parse(fs.readFileSync(sessFile, 'utf8'));
-    // Treat as stale after 8 hours
-    if (Date.now() - (d.ts || 0) > 8 * 60 * 60 * 1000) return null;
-    return d; // { org, sessionId, ts }
-  } catch { return null; }
+  if (fs.existsSync(sessFile)) {
+    try {
+      const d = JSON.parse(fs.readFileSync(sessFile, 'utf8'));
+      // Treat as stale after 8 hours
+      if (Date.now() - (d.ts || 0) <= 8 * 60 * 60 * 1000) return d; // { org, sessionId, ts }
+    } catch { /* fall through to synthesis */ }
+  }
+  // Fallback: synthesize a session from active-run so agent events are always attributed,
+  // even if session:start was never emitted (LLM compliance risk). The synthetic session
+  // uses a stable ID so all events within the same run land in the same session file.
+  if (activeRun?.org && activeRun?.runId) {
+    const synthetic = { org: activeRun.org, sessionId: 'auto-' + activeRun.org + '-' + activeRun.runId, ts: Date.now(), synthetic: true };
+    try { fs.writeFileSync(sessFile, JSON.stringify(synthetic)); } catch { /* non-fatal */ }
+    return synthetic;
+  }
+  return null;
 }
 
-function postEvent(event) {
+function emitEvent(event) {
+  // Phase 2: Write to spool first (dead-letter queue) — survives server restart/downtime (Issue 5)
+  const spoolDir = path.join(CAPTURE_DIR, 'spool');
+  const spoolFile = path.join(spoolDir, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`);
+  try {
+    fs.mkdirSync(spoolDir, { recursive: true });
+    fs.writeFileSync(spoolFile, JSON.stringify(event));
+  } catch { /* non-fatal — proceed with HTTP attempt */ }
   return new Promise((resolve) => {
     try {
       const ctrlPath = path.join(CWD, '.monomind', 'control.json');
@@ -128,7 +154,10 @@ function postEvent(event) {
         path: '/api/mastermind/event',
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-      }, () => resolve());
+      }, () => {
+        try { fs.unlinkSync(spoolFile); } catch {}
+        resolve();
+      });
       req.on('error', () => resolve());
       req.setTimeout(3000, () => { req.destroy(); resolve(); });
       req.write(body);
@@ -148,13 +177,28 @@ async function handleSubagentStart(hookInput) {
   ).slice(0, 64).replace(/[^a-z0-9_-]/gi, '-');
   const agentDesc = String(hookInput.description || hookInput.prompt_description || '').slice(0, 1000);
   const activeRun = getActiveRun();
-  const activeSess = getActiveSession();
+  // Phase 1: Bootstrap ppid-keyed active-run file for multi-org support (Issue 3)
+  if (activeRun) {
+    const ppidDir = path.join(CAPTURE_DIR, 'active-runs');
+    const ppidFile = path.join(ppidDir, `${process.ppid}.json`);
+    if (!fs.existsSync(ppidFile)) {
+      try {
+        fs.mkdirSync(ppidDir, { recursive: true });
+        fs.writeFileSync(ppidFile, JSON.stringify({ ...activeRun, ppid: process.ppid }));
+      } catch { /* non-fatal */ }
+    }
+  }
+  const activeSess = getActiveSession(activeRun);
 
   // Write snapshot to FIFO queue — subagent-stop pops the oldest
   const snapFile = path.join(
     CAPTURE_DIR,
     'snap-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.json'
   );
+  const leanModePath = path.join(process.env.CLAUDE_PROJECT_DIR || process.cwd(), '.monomind/state/monolean-mode');
+  let leanMode = null;
+  try { leanMode = fs.readFileSync(leanModePath, 'utf8').trim() || null; } catch {}
+
   fs.writeFileSync(snapFile, JSON.stringify({
     ts: Date.now(),
     files: snapshot,
@@ -163,6 +207,7 @@ async function handleSubagentStart(hookInput) {
     org: activeSess?.org || activeRun?.org || null,
     runId: activeRun?.runId || null,
     session: activeSess?.sessionId || null,
+    leanMode: leanMode || 'off',
   }));
 
   console.log('[CAPTURE:start] ' + agentType + ' · snapped ' + snapshot.length + ' files'
@@ -172,7 +217,7 @@ async function handleSubagentStart(hookInput) {
   // Emit agent:spawn immediately so the dashboard shows the agent starting
   const org = activeSess?.org || activeRun?.org;
   if (org || activeSess?.sessionId) {
-    await postEvent({
+    await emitEvent({
       type: 'agent:spawn',
       org: org || '',
       runId: activeRun?.runId || '',
@@ -210,7 +255,9 @@ async function handleSubagentStop(hookInput) {
   try { fs.unlinkSync(snapPath); } catch {}
 
   // Also check current active session (may have changed since SubagentStart)
-  const activeSess = getActiveSession();
+  // Pass a synthetic activeRun from snap so session can be synthesized even if snap.session is null
+  const _snapRun = snap.runId ? { org: snap.org, runId: snap.runId } : null;
+  const activeSess = getActiveSession(_snapRun);
   const session = snap.session || activeSess?.sessionId || null;
   const org = snap.org || activeSess?.org || null;
   const runId = snap.runId || null;
@@ -257,7 +304,7 @@ async function handleSubagentStop(hookInput) {
 
   // ── Emit agent:usage (token/cost accounting) ──────────────────────────────
   if (totalTin > 0 || totalTout > 0) {
-    await postEvent({
+    await emitEvent({
       type: 'agent:usage',
       org: org || '',
       runId: runId || '',
@@ -273,7 +320,7 @@ async function handleSubagentStop(hookInput) {
 
   // ── Emit agent:complete (replaces org:comms — richer, includes session) ───
   // Always emit even if summary is empty (so the spawn/complete pair is always visible)
-  await postEvent({
+  await emitEvent({
     type: 'agent:complete',
     org: org || '',
     runId: runId || '',
@@ -293,7 +340,7 @@ async function handleSubagentStop(hookInput) {
 
   // ── Also emit legacy org:comms for backwards compat ───────────────────────
   if (summary && (org || session)) {
-    await postEvent({
+    await emitEvent({
       type: 'org:comms',
       org: org || '',
       runId: runId || '',
@@ -325,12 +372,102 @@ async function handleSubagentStop(hookInput) {
   }
 }
 
+// ─── Phase 3: PreToolUse accumulator (Issue 9) ────────────────────────────────
+// capture-handler is short-lived — no timers. Accumulate tool calls to a
+// persistent batch file; server polls and emits agent:read:batch events.
+
+async function handlePreTool(hookInput) {
+  const activeRun = getActiveRun();
+  if (!activeRun) return; // no active run — nothing to attribute to
+
+  const toolName = String(hookInput.tool_name || hookInput.name || '').toLowerCase();
+  const toolInput = hookInput.tool_input || hookInput.input || {};
+
+  // Only batch file-read events; edits/bash/browse are emitted directly
+  const isRead = toolName === 'read' || toolName === 'readfile';
+  const isEdit = toolName === 'edit' || toolName === 'write' || toolName === 'multiedit';
+  const isBash = toolName === 'bash' || toolName === 'shell';
+  const isBrowse = toolName === 'browse' || toolName.includes('browse');
+
+  if (isRead) {
+    // Accumulate to batch file (server polls every 3s)
+    const batchFile = path.join(CAPTURE_DIR, `read-batch-${process.ppid}.json`);
+    let batch = [];
+    try { batch = JSON.parse(fs.readFileSync(batchFile, 'utf8')); } catch {}
+    batch.push({ path: toolInput.file_path || toolInput.path || '', ts: Date.now() });
+    try { fs.writeFileSync(batchFile, JSON.stringify(batch)); } catch {}
+  } else if (isEdit || isBash || isBrowse) {
+    // Emit directly — these are important events worth showing immediately
+    const evType = isEdit ? 'agent:edit' : isBash ? 'agent:bash' : 'agent:browse';
+    const payload = isEdit ? (toolInput.file_path || toolInput.path || '') : (toolInput.command || toolInput.url || '');
+    const activeSess = getActiveSession(activeRun);
+    await emitEvent({
+      type: evType,
+      org: activeRun.org || '',
+      runId: activeRun.runId || '',
+      session: activeSess?.sessionId || '',
+      payload: String(payload).slice(0, 256),
+      ts: Date.now(),
+    });
+  }
+}
+
+// ─── Phase 4: PostToolUse — capture Bash output (test results, command output) ────
+
+async function handlePostTool(hookInput) {
+  const activeRun = getActiveRun();
+  if (!activeRun) return;
+
+  const toolName = String(hookInput.tool_name || hookInput.name || '').toLowerCase();
+  const toolInput = hookInput.tool_input || hookInput.input || {};
+  const toolResponse = hookInput.tool_response || hookInput.response || {};
+
+  const isBash = toolName === 'bash' || toolName === 'shell';
+  const isEdit = toolName === 'edit' || toolName === 'write' || toolName === 'multiedit';
+
+  if (!isBash && !isEdit) return;
+
+  const activeSess = getActiveSession(activeRun);
+
+  if (isBash) {
+    const cmd = String(toolInput.command || toolInput.cmd || '').slice(0, 256);
+    // Capture output — tool_response may be a string or {output, error} object
+    const rawOut = typeof toolResponse === 'string' ? toolResponse
+      : (toolResponse.output || toolResponse.stdout || toolResponse.result || '');
+    const output = String(rawOut).slice(0, 1200); // cap at 1200 chars for storage
+    // Only emit if there's actual output worth showing
+    if (!cmd) return;
+    await emitEvent({
+      type: 'agent:bash',
+      org: activeRun.org || '',
+      runId: activeRun.runId || '',
+      session: activeSess?.sessionId || '',
+      payload: cmd,
+      output: output,
+      ts: Date.now(),
+    });
+  } else if (isEdit) {
+    const filePath = String(toolInput.file_path || toolInput.path || '').slice(0, 256);
+    if (!filePath) return;
+    await emitEvent({
+      type: 'agent:edit',
+      org: activeRun.org || '',
+      runId: activeRun.runId || '',
+      session: activeSess?.sessionId || '',
+      payload: filePath,
+      ts: Date.now(),
+    });
+  }
+}
+
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
 
-const eventType = process.argv[2]; // 'subagent-start' | 'subagent-stop'
+const eventType = process.argv[2]; // 'subagent-start' | 'subagent-stop' | 'pretool' | 'posttool'
 
 readStdin().then(hookInput => {
   if (eventType === 'subagent-start') return handleSubagentStart(hookInput);
   if (eventType === 'subagent-stop')  return handleSubagentStop(hookInput);
+  if (eventType === 'pretool')        return handlePreTool(hookInput);
+  if (eventType === 'posttool')       return handlePostTool(hookInput);
   console.log('[CAPTURE] unknown event type: ' + eventType);
 }).catch(() => process.exit(0));

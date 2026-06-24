@@ -75,6 +75,16 @@
             "timeout": 2000
           }
         ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" pretool",
+            "timeout": 2000
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -127,6 +137,16 @@
             "timeout": 2000
           }
         ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" posttool",
+            "timeout": 3000
+          }
+        ]
       }
     ],
     "Notification": [
@@ -141,6 +161,10 @@
       }
     ],
     "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-tracker.cjs\"", "timeout": 3000 }]
+      },
       {
         "hooks": [
           {
@@ -161,6 +185,10 @@
       }
     ],
     "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-activate.cjs\"", "timeout": 5000 }]
+      },
       {
         "hooks": [
           {
@@ -265,6 +293,10 @@
     ],
     "SubagentStart": [
       {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-propagate.cjs\"", "timeout": 3000 }]
+      },
+      {
         "hooks": [
           {
             "type": "command",
@@ -340,7 +372,7 @@
   },
   "attribution": {
     "commit": "Co-Authored-By: nokhodian <nokhodian@gmail.com>",
-    "pr": "🤖 Generated with [monomind](https://github.com/monoes/monomind)"
+    "pr": "\ud83e\udd16 Generated with [monomind](https://github.com/monoes/monomind)"
   },
   "monomind": {
     "version": "3.5.2",

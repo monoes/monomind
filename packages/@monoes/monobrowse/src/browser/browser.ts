@@ -22,14 +22,14 @@ function findChrome(executablePath?: string): string {
   }
   // Try PATH
   try {
-    const result = execSync('which google-chrome chromium-browser chromium 2>/dev/null', { encoding: 'utf8' }).trim();
+    const result = execSync('which google-chrome chromium-browser chromium microsoft-edge microsoft-edge-stable 2>/dev/null', { encoding: 'utf8' }).trim();
     const first = result.split('\n')[0];
     if (first) return first;
   } catch {
     // ignore
   }
   throw new Error(
-    'Chrome/Chromium not found. Install Google Chrome or pass executablePath in BrowserConfig.'
+    'No supported browser found. Install Google Chrome, Microsoft Edge, or Chromium — or pass executablePath in BrowserConfig.'
   );
 }
 

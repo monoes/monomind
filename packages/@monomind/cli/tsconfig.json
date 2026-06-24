@@ -6,7 +6,13 @@
     "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "noEmitOnError": false
+    "noEmitOnError": false,
+    "paths": {
+      "@monomind/guidance/compiler": ["../guidance/dist/compiler.js"],
+      "@monomind/guidance/retriever": ["../guidance/dist/retriever.js"],
+      "@monomind/guidance/gates": ["../guidance/dist/gates.js"],
+      "@monomind/guidance/analyzer": ["../guidance/dist/analyzer.js"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "src/swarm/flow-visualizer.ts"],

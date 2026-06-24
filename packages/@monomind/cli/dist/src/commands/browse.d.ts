@@ -1,8 +1,12 @@
-/**
- * Browse Command — Native browser automation via Chrome DevTools Protocol
- * Provides ref-based element model and token-efficient accessibility snapshots
- */
-import type { Command } from '../types.js';
-declare const browseCommand: Command;
+declare const browseCommand: {
+    subcommands: import("../types.js").Command[];
+    name: string;
+    description: string;
+    aliases?: string[];
+    options?: import("@monoes/monobrowse/cli/types").CommandOption[];
+    examples?: import("@monoes/monobrowse/cli/types").CommandExample[];
+    action?: import("@monoes/monobrowse/cli/types").CommandAction;
+    hidden?: boolean;
+};
 export default browseCommand;
 //# sourceMappingURL=browse.d.ts.map
