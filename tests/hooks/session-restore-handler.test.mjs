@@ -131,6 +131,9 @@ describe('session-restore-handler', () => {
   });
 
   it('logs [DAEMON_STOPPED] when daemon.pid does not exist', async () => {
+    // Handler only logs [DAEMON_STOPPED] when monomind.config.json exists (avoids
+    // noise in projects that never configured a daemon).
+    fs.writeFileSync(path.join(tmpDir, 'monomind.config.json'), JSON.stringify({}));
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await runCapture(hCtx);
     const daemonLine = lines.find(l => l.includes('[DAEMON_STOPPED]') || l.includes('[DAEMON_AUTOSTART]'));
@@ -139,6 +142,8 @@ describe('session-restore-handler', () => {
   });
 
   it('logs [DAEMON_STOPPED] even when daemon.pid has a stale pid', async () => {
+    // Handler only logs [DAEMON_STOPPED] when monomind.config.json exists.
+    fs.writeFileSync(path.join(tmpDir, 'monomind.config.json'), JSON.stringify({}));
     const pidPath = path.join(tmpDir, '.monomind', 'daemon.pid');
     fs.writeFileSync(pidPath, '999999999'); // non-existent pid
     const hCtx = makeHCtx({ CWD: tmpDir });

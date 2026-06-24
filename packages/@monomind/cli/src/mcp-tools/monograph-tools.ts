@@ -712,11 +712,11 @@ const monographDiffTool: MCPTool = {
     // The merged snapshot is the union of before+after nodes — covers all referenced IDs.
     type NodeRef = { name: string; filePath?: string | null; startLine?: number | null };
     const nodeById = new Map<string, NodeRef>();
-    const indexNodes = (nodes: NodeRef & { id?: string }[]) => {
+    const indexNodes = (nodes: Array<NodeRef & { id?: string }>) => {
       for (const n of nodes) { if (n.id) nodeById.set(n.id as string, n); }
     };
-    indexNodes(before.nodes as unknown as (NodeRef & { id?: string })[]);
-    indexNodes(after.nodes as unknown as (NodeRef & { id?: string })[]);
+    indexNodes(before.nodes as unknown as Array<NodeRef & { id?: string }>);
+    indexNodes(after.nodes as unknown as Array<NodeRef & { id?: string }>);
 
     const resolveEdgeEnd = (id: string): string => {
       const ref = nodeById.get(id);
@@ -902,15 +902,15 @@ const monographImpactTool: MCPTool = {
         filePath: impactPath,
         depth,
       });
-      if (!result || !result.root) return text(`No symbol found: ${impactName}`);
+      if (!result || !result.node) return text(`No symbol found: ${impactName}`);
 
       // Format impact as structured text for direct LLM consumption
-      const root = result.root as any;
+      const root = result.node as any;
       const rootLoc = root.filePath ? (root.startLine != null ? `${root.filePath}:${root.startLine}` : root.filePath) : '';
       const lines: string[] = [
         `[${root.label ?? '?'}] ${root.name}  ${rootLoc}`,
         '',
-        `Blast radius: ${result.totalAffected ?? 0} symbols affected`,
+        `Blast radius: ${result.affectedFiles?.length ?? 0} symbols affected`,
       ];
 
       if (result.riskScore != null) {
@@ -919,7 +919,10 @@ const monographImpactTool: MCPTool = {
       }
       lines.push('');
 
-      const affected = (result.affected ?? result.callers ?? []) as any[];
+      const affected = [
+        ...((result.directCallers as any[]) ?? []),
+        ...((result.transitiveCallers as Array<{ depth: number; nodes: any[] }>) ?? []).flatMap(t => t.nodes ?? []),
+      ] as any[];
       if (affected.length > 0) {
         lines.push(`Affected callers (${affected.length}):`);
         for (const sym of affected.slice(0, 20)) {
@@ -1205,11 +1208,13 @@ const monographGroupListTool: MCPTool = {
     const { getGroupList } = await import('@monoes/monograph');
     const configPath = (input.configPath as string | undefined) ?? join(getProjectCwd(), 'group.yaml');
     const result = await getGroupList(configPath);
-    if (!result.repos || result.repos.length === 0) {
-      return text(`Group: ${result.group?.name ?? 'unknown'}\nNo repos configured. Check ${configPath}`);
+    const firstGroup = result.groups?.[0];
+    const allRepos = result.groups?.flatMap((g: any) => g.repos ?? []) ?? [];
+    if (!allRepos.length) {
+      return text(`Group: ${firstGroup?.name ?? 'unknown'}\nNo repos configured. Check ${configPath}`);
     }
-    const lines = [`Group: ${result.group?.name ?? 'unknown'}  (${result.repos.length} repos)`];
-    for (const r of result.repos) {
+    const lines = [`Group: ${firstGroup?.name ?? 'unknown'}  (${allRepos.length} repos)`];
+    for (const r of allRepos) {
       const indexed = r.indexedAt ? r.indexedAt.slice(0, 10) : 'never';
       lines.push(`  ${r.name}  nodes=${r.nodeCount}  indexed=${indexed}  ${r.path}`);
     }

@@ -576,11 +576,17 @@ async function computeCommitsBehind(repoPath) {
     }
 }
 /**
+ * Shared staleness threshold: both monograph_staleness and monograph_suggest_auto
+ * trigger a background rebuild only when the index is more than this many commits behind HEAD.
+ * Using a shared constant prevents conflicting rebuild pressure during active dev sessions.
+ */
+const STALENESS_THRESHOLD = 10;
+/**
  * Fire-and-forget background rebuild. Uses a module-level guard so concurrent
  * MCP tool calls (e.g. repeated monograph_suggest_auto) don't pile up builds.
- * threshold: minimum commitsBehind to trigger (default 1, Task 2 uses 10).
+ * threshold: minimum commitsBehind to trigger (default STALENESS_THRESHOLD + 1).
  */
-function triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, threshold = 1) {
+function triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, threshold = STALENESS_THRESHOLD + 1) {
     if (commitsBehind < threshold)
         return false;
     if (_buildInProgress)
@@ -609,8 +615,7 @@ const monographStalenessTool = {
             return text(JSON.stringify({ commitsBehind: 0, status: 'unknown', triggered: false }));
         }
         const { commitsBehind } = result;
-        const AUTO_BUILD_THRESHOLD = 10;
-        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, AUTO_BUILD_THRESHOLD + 1);
+        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, STALENESS_THRESHOLD + 1);
         const status = triggered ? 'building' : commitsBehind === 0 ? 'fresh' : 'stale';
         return text(JSON.stringify({ commitsBehind, status, triggered }));
     },
@@ -895,22 +900,25 @@ const monographImpactTool = {
                 filePath: impactPath,
                 depth,
             });
-            if (!result || !result.root)
+            if (!result || !result.node)
                 return text(`No symbol found: ${impactName}`);
             // Format impact as structured text for direct LLM consumption
-            const root = result.root;
+            const root = result.node;
             const rootLoc = root.filePath ? (root.startLine != null ? `${root.filePath}:${root.startLine}` : root.filePath) : '';
             const lines = [
                 `[${root.label ?? '?'}] ${root.name}  ${rootLoc}`,
                 '',
-                `Blast radius: ${result.totalAffected ?? 0} symbols affected`,
+                `Blast radius: ${result.affectedFiles?.length ?? 0} symbols affected`,
             ];
             if (result.riskScore != null) {
                 const riskLabel = result.riskScore >= 0.8 ? 'HIGH' : result.riskScore >= 0.5 ? 'MEDIUM' : 'LOW';
                 lines.push(`Risk score: ${result.riskScore.toFixed(2)} (${riskLabel})`);
             }
             lines.push('');
-            const affected = (result.affected ?? result.callers ?? []);
+            const affected = [
+                ...(result.directCallers ?? []),
+                ...(result.transitiveCallers ?? []).flatMap(t => t.nodes ?? []),
+            ];
             if (affected.length > 0) {
                 lines.push(`Affected callers (${affected.length}):`);
                 for (const sym of affected.slice(0, 20)) {
@@ -1210,11 +1218,13 @@ const monographGroupListTool = {
         const { getGroupList } = await import('@monoes/monograph');
         const configPath = input.configPath ?? join(getProjectCwd(), 'group.yaml');
         const result = await getGroupList(configPath);
-        if (!result.repos || result.repos.length === 0) {
-            return text(`Group: ${result.group?.name ?? 'unknown'}\nNo repos configured. Check ${configPath}`);
+        const firstGroup = result.groups?.[0];
+        const allRepos = result.groups?.flatMap((g) => g.repos ?? []) ?? [];
+        if (!allRepos.length) {
+            return text(`Group: ${firstGroup?.name ?? 'unknown'}\nNo repos configured. Check ${configPath}`);
         }
-        const lines = [`Group: ${result.group?.name ?? 'unknown'}  (${result.repos.length} repos)`];
-        for (const r of result.repos) {
+        const lines = [`Group: ${firstGroup?.name ?? 'unknown'}  (${allRepos.length} repos)`];
+        for (const r of allRepos) {
             const indexed = r.indexedAt ? r.indexedAt.slice(0, 10) : 'never';
             lines.push(`  ${r.name}  nodes=${r.nodeCount}  indexed=${indexed}  ${r.path}`);
         }
@@ -1786,10 +1796,10 @@ const monographSuggestAutoTool = {
     },
     handler: async (input) => {
         const repoPath = getProjectCwd();
-        // Check staleness and trigger rebuild if needed (threshold: any staleness).
+        // Check staleness and trigger rebuild if needed (threshold: STALENESS_THRESHOLD commits).
         const stalenessResult = await computeCommitsBehind(repoPath);
         const commitsBehind = stalenessResult?.commitsBehind ?? 0;
-        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, 1);
+        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, STALENESS_THRESHOLD + 1);
         const stalenessStatus = triggered ? 'building' : commitsBehind === 0 ? 'fresh' : 'stale';
         // Delegate to the base suggest tool — no logic duplication.
         const baseResult = await monographSuggestTool.handler(input);

@@ -160,12 +160,17 @@ If someone could look at this interface and say "AI made that" without doubt, it
 
 ## Antipattern Detection
 
-Before finalizing any design, run the antipattern detector. It checks for 27 known design antipatterns across two categories:
+Before finalizing any design, run the antipattern detector. It checks for 46 known design antipatterns across two categories:
 
 - **slop** — AI tells that signal lack of intentional design (purple palettes, side-tabs, identical card grids, italic-serif heroes, overused fonts)
 - **quality** — Design principle violations (spacing, hierarchy, readability, contrast, motion, typography)
 
 To run detection on HTML/CSS files:
+```bash
+monomind design detect <file-or-dir>
+```
+
+Or use `npx impeccable detect` directly as an alternative:
 ```bash
 npx impeccable detect <file-or-dir>
 ```
@@ -177,7 +182,30 @@ npm install -g impeccable
 npx impeccable@latest detect <file-or-dir>
 ```
 
+For machine-readable output (e.g. CI pipelines):
+```bash
+monomind design detect --json <file-or-dir>
+```
+
 For the full antipattern catalog with detection rules and remediation, see [reference/antipatterns-catalog.md](reference/antipatterns-catalog.md).
+
+## OKLCH Palette Seed
+
+Before composing a brand palette, seed the anchor color from the curated OKLCH library (129 hand-curated seeds):
+
+```bash
+monomind design palette                              # random seed (hue-zone weighted)
+monomind design palette --from "my-product-name"    # deterministic seed from product name
+monomind design palette --id seed-021               # specific seed by ID
+monomind design palette --json                      # machine-readable output
+```
+
+Each seed returns:
+- **Anchor color** — the single OKLCH value your primary brand color derives from
+- **Mood** — one evocative phrase describing the register this hue inhabits
+- **Strategy** — a concrete composition hint (bg choice, accent pairing, surface treatment)
+
+The seed is the start, not the recipe. Compose the full 5-role palette (bg, surface, ink, accent, muted) using your brief and the color-strategy guidance in this skill. The same seed can produce a dark-mode jazz club or a light-mode clinical brand depending on what the brief calls for.
 
 ## UX Quality Gate
 
@@ -290,6 +318,9 @@ Shadows max at 0.15 alpha. No heavy drop shadows.
 | `components [target]` | Build | Build component systems, token foundations, theme toggles | [reference/component-system.md](reference/component-system.md) |
 | `research [target]` | Evaluate | UX research, usability testing, personas, journey mapping | [reference/ux-research.md](reference/ux-research.md) |
 | `images [target]` | Build | Generate design images, hero photography, inclusive prompts | [reference/image-prompts.md](reference/image-prompts.md) |
+| `hooks [action]` | Config | Manage the impeccable design detector hook per project | [reference/hooks.md](reference/hooks.md) |
+| `detect [file-or-dir]` | Evaluate | Run design anti-pattern detection on HTML/CSS files | (inline) |
+| `palette [--from name]` | Build | Seed a brand palette from the OKLCH library (129 seeds) | (inline) |
 
 ### Routing rules
 

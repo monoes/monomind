@@ -406,6 +406,7 @@ describe('MCP Tools Deep Test Suite', () => {
       const exceptions = new Set([
         'mcp_status',      // system-tools exports mcp_status
         'task_summary',    // system-tools exports task_summary
+        'playbook_run',    // intentionally named playbook_run (not workflow_run) for semantic clarity; lives in workflow category
       ]);
 
       for (const tool of ALL_TOOLS) {

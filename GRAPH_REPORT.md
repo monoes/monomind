@@ -1,44 +1,44 @@
 # Graph Report
 
-_Generated: 2026-06-10T22:14:00.734Z_
+_Generated: 2026-06-24T13:13:34.289Z_
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
-| Total nodes | 23208 |
-| Total edges | 31106 |
+| Total nodes | 26835 |
+| Total edges | 35867 |
 | Communities | 0 |
 
 ## Nodes by Type
 
 | Label | Count |
 |-------|-------|
-| Function | 10659 |
-| Method | 4046 |
-| Interface | 3027 |
-| Variable | 2853 |
-| File | 1355 |
-| Class | 634 |
-| Process | 309 |
-| Document | 132 |
+| Function | 13092 |
+| Method | 4192 |
+| Variable | 3415 |
+| Interface | 3245 |
+| File | 1548 |
+| Class | 654 |
+| Process | 319 |
+| Document | 175 |
 | Tool | 87 |
 | Route | 38 |
 | Field | 29 |
 | Struct | 29 |
-| Enum | 7 |
+| Enum | 9 |
 | Entity | 3 |
 
 ## Edges by Relation
 
 | Relation | Count |
 |----------|-------|
-| CONTAINS | 22427 |
-| CALLS | 7383 |
-| IMPORTS | 329 |
-| REFERENCES | 318 |
-| ENTRY_POINT_OF | 309 |
-| STEP_IN_PROCESS | 309 |
+| CONTAINS | 26224 |
+| CALLS | 8242 |
+| IMPORTS | 388 |
+| REFERENCES | 344 |
+| ENTRY_POINT_OF | 319 |
+| STEP_IN_PROCESS | 319 |
 | HAS_FIELD | 29 |
 | HANDLES_TOOL | 1 |
 | RE_EXPORTS | 1 |
@@ -47,9 +47,9 @@ _Generated: 2026-06-10T22:14:00.734Z_
 
 | Rank | Name | Type | Degree |
 |------|------|------|--------|
-| 1 | `Path` | Interface | 273 |
+| 1 | `Path` | Interface | 329 |
 | 2 | `analyzer.ts` | File | 133 |
-| 3 | `index.ts` | File | 108 |
+| 3 | `index.ts` | File | 110 |
 | 4 | `index.ts` | File | 106 |
 | 5 | `api-quick-reference` | Document | 106 |
 | 6 | `teammate-bridge.ts` | File | 97 |
@@ -70,31 +70,31 @@ _No stale files detected._
 
 | Confidence | Count | Percentage |
 |-----------|-------|------------|
-| EXTRACTED | 30458 | 97.9% |
-| INFERRED | 648 | 2.1% |
+| EXTRACTED | 35134 | 98.0% |
+| INFERRED | 733 | 2.0% |
 
 ## Suggested Questions
 
-- **bridge_node**: `cli.test.ts` bridges community 4 and 5
-- **bridge_node**: `commands.test.ts` bridges community 4 and 3
-- **bridge_node**: `p1-commands.test.ts` bridges community 4 and 3
-- **bridge_node**: `plugins-transfer-deep.test.ts` bridges community 4 and 3
-- **bridge_node**: `headless-worker-executor.test.ts` bridges community 4 and 19
-- **bridge_node**: `actions.ts` bridges community 4 and 19
-- **bridge_node**: `browser.ts` bridges community 4 and 19
-- **bridge_node**: `index.ts` bridges community 19 and 33
-- **bridge_node**: `network.ts` bridges community 30 and 19
-- **bridge_node**: `session.ts` bridges community 4 and 19
-- **bridge_node**: `analyze.ts` bridges community 4 and 37
-- **bridge_node**: `autopilot.ts` bridges community 4 and 37
-- **bridge_node**: `benchmark.ts` bridges community 4 and 37
-- **bridge_node**: `browse.ts` bridges community 4 and 37
-- **bridge_node**: `doctor.ts` bridges community 4 and 37
-- **bridge_node**: `hooks.ts` bridges community 4 and 37
-- **bridge_node**: `index.ts` bridges community 4 and 41
-- **bridge_node**: `issues.ts` bridges community 4 and 37
-- **bridge_node**: `monograph.ts` bridges community 4 and 37
-- **bridge_node**: `route.ts` bridges community 4 and 37
+- **bridge_node**: `index.ts` bridges community 2 and 14
+- **bridge_node**: `browser-handlers.ts` bridges community 0 and 2
+- **bridge_node**: `commands.ts` bridges community 2 and 0
+- **bridge_node**: `engine.ts` bridges community 0 and 2
+- **bridge_node**: `cli.test.ts` bridges community 2 and 32
+- **bridge_node**: `commands.test.ts` bridges community 2 and 31
+- **bridge_node**: `mcp-tools-deep.test.ts` bridges community 2 and 38
+- **bridge_node**: `p1-commands.test.ts` bridges community 2 and 31
+- **bridge_node**: `plugins-transfer-deep.test.ts` bridges community 2 and 31
+- **bridge_node**: `browse-builtin-handlers.test.ts` bridges community 2 and 0
+- **bridge_node**: `browse-dashboard.test.ts` bridges community 2 and 0
+- **bridge_node**: `browse-store.test.ts` bridges community 2 and 0
+- **bridge_node**: `server.ts` bridges community 59 and 60
+- **bridge_node**: `autopilot.ts` bridges community 2 and 63
+- **bridge_node**: `benchmark.ts` bridges community 2 and 0
+- **bridge_node**: `browse-platform.ts` bridges community 6 and 2
+- **bridge_node**: `daemon.ts` bridges community 2 and 63
+- **bridge_node**: `deployment.ts` bridges community 2 and 63
+- **bridge_node**: `design-detect.ts` bridges community 2 and 63
+- **bridge_node**: `design-palette.ts` bridges community 0 and 2
 
 ## Knowledge Gaps
 
