@@ -1,0 +1,51 @@
+// src/__tests__/browse-adapters.test.ts
+import { describe, it, expect, vi } from 'vitest';
+import { getAdapter, adapters } from '@monoes/monobrowse';
+function mockPage(isLoggedIn, username = 'testuser') {
+    return {
+        evaluate: vi.fn().mockImplementation((expr) => {
+            if (expr.includes('querySelector'))
+                return Promise.resolve(isLoggedIn ? true : false);
+            return Promise.resolve(username);
+        }),
+        url: vi.fn().mockResolvedValue('https://example.com'),
+    };
+}
+describe('adapter registry', () => {
+    it('has all 6 platforms', () => {
+        expect(adapters.size).toBe(6);
+        for (const p of ['linkedin', 'instagram', 'x', 'gemini', 'google', 'microsoft']) {
+            expect(adapters.has(p)).toBe(true);
+        }
+    });
+    it('getAdapter throws for unknown platform', () => {
+        expect(() => getAdapter('myspace')).toThrow('Unknown platform');
+    });
+});
+describe('each adapter', () => {
+    const platforms = ['linkedin', 'instagram', 'x', 'gemini', 'google', 'microsoft'];
+    for (const platform of platforms) {
+        describe(platform, () => {
+            const adapter = getAdapter(platform);
+            it('has required fields', () => {
+                expect(typeof adapter.platform).toBe('string');
+                expect(adapter.baseURL).toMatch(/^https?:\/\//);
+                expect(Array.isArray(adapter.reservedPaths)).toBe(true);
+                expect(adapter.reservedPaths.length).toBeGreaterThan(0);
+                expect(typeof adapter.loginURL()).toBe('string');
+            });
+            it('isLoggedIn returns boolean', async () => {
+                const page = mockPage(true);
+                const result = await adapter.isLoggedIn(page);
+                expect(typeof result).toBe('boolean');
+            });
+            it('extractUsername returns string', async () => {
+                const page = mockPage(true);
+                page.evaluate = vi.fn().mockResolvedValue('johndoe');
+                const username = await adapter.extractUsername(page);
+                expect(typeof username).toBe('string');
+            });
+        });
+    }
+});
+//# sourceMappingURL=browse-adapters.test.js.map
