@@ -1,3 +1,4 @@
+import Database from 'better-sqlite3';
 import type { MonographNode, NodeLabel } from '../types.js';
 import type { MonographDb } from '../storage/db.js';
 
@@ -55,13 +56,13 @@ function rowToNode(r: {
 // so the same query shape reuses the compiled statement across calls.
 
 // WeakMap ensures the cache is garbage-collected when the DB object is released.
-const stmtCache = new WeakMap<object, Map<string, ReturnType<MonographDb['prepare']>>>();
+const stmtCache = new WeakMap<object, Map<string, Database.Statement>>();
 
 function getCachedStmt(
   db: MonographDb,
   key: string,
   buildSql: () => string,
-): ReturnType<MonographDb['prepare']> {
+): Database.Statement {
   let dbCache = stmtCache.get(db);
   if (!dbCache) {
     dbCache = new Map();

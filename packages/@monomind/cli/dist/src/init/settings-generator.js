@@ -175,6 +175,14 @@ function hookHandlerCmd(subcommand) {
 function autoMemoryCmd(subcommand) {
     return hookCmd('.claude/helpers/auto-memory-hook.mjs', subcommand);
 }
+/** Shorthand for capture-handler (agent telemetry for org dashboard) */
+function captureHandlerCmd(subcommand) {
+    // capture-handler does not use sh -c wrapper — it reads stdin directly
+    const dir = IS_WINDOWS ? '%CLAUDE_PROJECT_DIR%' : '${CLAUDE_PROJECT_DIR:-.}';
+    return IS_WINDOWS
+        ? `node ${dir}/.claude/helpers/handlers/capture-handler.cjs ${subcommand}`
+        : `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
+}
 /** Shorthand for standalone CJS helper scripts (no subcommand) */
 function standaloneHelperCmd(script) {
     if (IS_WINDOWS) {
@@ -397,7 +405,7 @@ function generateHooksConfig(config, graphify = true) {
             },
         ];
     }
-    // SubagentStart — status update when a sub-agent is spawned
+    // SubagentStart — status update + capture-handler telemetry for org dashboard
     hooks.SubagentStart = [
         {
             hooks: [
@@ -406,10 +414,15 @@ function generateHooksConfig(config, graphify = true) {
                     command: hookHandlerCmd('status'),
                     timeout: 3000,
                 },
+                {
+                    type: 'command',
+                    command: captureHandlerCmd('subagent-start'),
+                    timeout: 5000,
+                },
             ],
         },
     ];
-    // SubagentStop — track agent completion for metrics
+    // SubagentStop — track agent completion for metrics + capture-handler telemetry
     // NOTE: The valid event is "SubagentStop" (not "SubagentEnd")
     hooks.SubagentStop = [
         {
@@ -418,6 +431,11 @@ function generateHooksConfig(config, graphify = true) {
                     type: 'command',
                     command: hookHandlerCmd('post-task'),
                     timeout: 5000,
+                },
+                {
+                    type: 'command',
+                    command: captureHandlerCmd('subagent-stop'),
+                    timeout: 10000,
                 },
             ],
         },
