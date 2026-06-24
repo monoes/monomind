@@ -5,7 +5,6 @@
 
 import type { Command, CommandContext, CommandResult } from './types.js';
 import { output } from './output.js';
-import { createPlaybookCommand } from './playbook.js';
 import { createActionCommand } from './action.js';
 import { createPlatformCommand } from './platform.js';
 import type { CdpClient, ElementRef, NetworkRoute, FindAction } from '../index.js';
@@ -2734,7 +2733,6 @@ function wrapCommanderCommand(factory: () => import('commander').Command): Comma
   };
 }
 
-const playbookSubcommand: Command = wrapCommanderCommand(createPlaybookCommand);
 const actionSubcommand: Command = wrapCommanderCommand(createActionCommand);
 const platformSubcommand: Command = wrapCommanderCommand(createPlatformCommand);
 
@@ -2806,7 +2804,6 @@ const browseCommand: Command = {
     harCommand,
     resizeCommand,
     closeCommand,
-    playbookSubcommand,
     actionSubcommand,
     platformSubcommand,
   ],
