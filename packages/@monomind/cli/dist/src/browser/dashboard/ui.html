@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>monomind dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0b0b14; color: #ccc; font-family: system-ui,-apple-system,sans-serif; font-size: 13px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── top bar ─────────────────────────────────────────────── */
+#topbar {
+  background: #12122080;
+  border-bottom: 1px solid #1e1e30;
+  padding: 0 16px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  backdrop-filter: blur(8px);
+}
+#topbar .logo { font-size: 14px; font-weight: 700; color: #a78bfa; letter-spacing: .5px; margin-right: 6px; }
+#topbar .logo span { color: #555; font-weight: 400; }
+.pill { border-radius: 10px; padding: 1px 8px; font-size: 10px; border: 1px solid; }
+.pill-run  { background: #7c3aed22; border-color: #7c3aed55; color: #a78bfa; }
+.pill-done { background: #22c55e15; border-color: #22c55e44; color: #22c55e; }
+.pill-fail { background: #ef444415; border-color: #ef444444; color: #ef4444; }
+#conn { margin-left: auto; font-size: 10px; color: #555; display: flex; align-items: center; gap: 4px; }
+#conn-dot { width: 6px; height: 6px; border-radius: 50%; background: #555; }
+
+/* ── layout ──────────────────────────────────────────────── */
+#layout { display: flex; flex: 1; overflow: hidden; }
+
+/* ── sidebar ─────────────────────────────────────────────── */
+#sidebar {
+  width: 180px;
+  background: #0f0f1e;
+  border-right: 1px solid #1a1a2a;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding: 12px 0;
+}
+.nav-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #3a3a5a;
+  padding: 12px 14px 4px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+  color: #666;
+  font-size: 12px;
+  border-left: 2px solid transparent;
+  transition: all .12s;
+  user-select: none;
+}
+.nav-item:hover { color: #aaa; background: #ffffff08; }
+.nav-item.active { color: #c4b5fd; border-left-color: #7c3aed; background: #7c3aed12; }
+.nav-item .nav-icon { font-size: 14px; width: 16px; text-align: center; }
+.nav-badge { margin-left: auto; background: #7c3aed33; border-radius: 8px; padding: 0 5px; font-size: 9px; color: #a78bfa; min-width: 16px; text-align: center; }
+.nav-badge.green { background: #22c55e22; color: #22c55e; }
+
+/* ── main panel ──────────────────────────────────────────── */
+#main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+.panel.active { display: flex; }
+.panel-header {
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid #1a1a2a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.panel-title { font-size: 14px; font-weight: 600; color: #ddd; }
+.panel-subtitle { color: #555; font-size: 11px; margin-left: auto; }
+
+/* ── playbook run cards ──────────────────────────────────── */
+#pb-cards { padding: 12px; display: grid; gap: 10px; overflow-y: auto; }
+.card {
+  background: #131320;
+  border: 1px solid #7c3aed30;
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: border-color .2s;
+}
+.card:hover { border-color: #7c3aed66; }
+.card.done { background: #0e0e1c; border-color: #1e1e30; opacity: .7; }
+.card.done:hover { opacity: .9; border-color: #2a2a40; }
+.card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.card-title { color: #e2e2f0; font-weight: 600; font-size: 13px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border-radius: 4px; padding: 2px 6px; border: 1px solid; flex-shrink: 0; }
+.s-running { background: #7c3aed18; border-color: #7c3aed55; color: #a78bfa; }
+.s-completed { background: #22c55e15; border-color: #22c55e44; color: #22c55e; }
+.s-failed { background: #ef444415; border-color: #ef444444; color: #ef4444; }
+.s-stopped { background: #f59e0b15; border-color: #f59e0b44; color: #f59e0b; }
+.card-meta { display: flex; gap: 14px; font-size: 10px; color: #444; margin-bottom: 6px; align-items: center; }
+.card-meta .mitem { display: flex; align-items: center; gap: 3px; }
+.stop-btn { margin-left: auto; background: #ef444415; border: 1px solid #ef444433; color: #ef4444; border-radius: 4px; padding: 2px 8px; font-size: 10px; cursor: pointer; transition: background .15s; }
+.stop-btn:hover { background: #ef444430; }
+.progress-track { height: 2px; background: #1a1a2a; border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 2px; transition: width .4s; }
+.log-area { background: #09090f; border-radius: 4px; padding: 5px 8px; font-family: monospace; font-size: 10px; color: #555; line-height: 1.6; max-height: 72px; overflow: hidden; }
+.log-ts { color: #2a2a40; }
+.log-ok  { color: #22c55e88; }
+.log-err { color: #ef444488; }
+.log-info { color: #3b82f688; }
+
+/* ── empty state ─────────────────────────────────────────── */
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  gap: 8px;
+  padding: 40px;
+}
+.empty-icon { font-size: 32px; }
+.empty-title { color: #555; font-size: 14px; font-weight: 600; }
+.empty-sub { font-size: 11px; text-align: center; line-height: 1.6; }
+
+/* ── placeholder panels ─────────────────────────────────── */
+#agents-panel .placeholder,
+#memory-panel .placeholder,
+#sessions-panel .placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #2a2a3a;
+  gap: 8px;
+  font-size: 12px;
+}
+#agents-panel .placeholder .big { font-size: 28px; }
+
+/* ── playbook builder ────────────────────────────────────── */
+#builder-panel { display: none; flex-direction: column; overflow: hidden; }
+#builder-panel.active { display: flex; }
+
+/* Builder toolbar */
+#builder-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #1a1a2a;
+  background: #0f0f1e;
+  flex-shrink: 0;
+}
+#pb-name-input {
+  background: #0b0b14;
+  border: 1px solid #1e1e30;
+  border-radius: 5px;
+  padding: 4px 10px;
+  color: #ddd;
+  font-size: 12px;
+  width: 200px;
+  outline: none;
+}
+#pb-name-input:focus { border-color: #7c3aed66; }
+.tb-btn {
+  background: #131320;
+  border: 1px solid #1e1e30;
+  border-radius: 5px;
+  padding: 4px 10px;
+  color: #999;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .12s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.tb-btn:hover { border-color: #7c3aed55; color: #c4b5fd; background: #7c3aed12; }
+.tb-btn.run-btn { border-color: #22c55e44; color: #22c55e; background: #22c55e10; }
+.tb-btn.run-btn:hover { background: #22c55e22; }
+.tb-btn.danger { border-color: #ef444433; color: #ef4444; background: #ef444410; }
+.tb-btn.danger:hover { background: #ef444425; }
+.tb-sep { width: 1px; height: 20px; background: #1e1e30; }
+
+/* Builder body = palette + canvas + properties */
+#builder-body { display: flex; flex: 1; overflow: hidden; }
+
+/* Node palette */
+#node-palette {
+  width: 200px;
+  background: #0c0c1a;
+  border-right: 1px solid #1a1a2a;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+#palette-search {
+  margin: 8px;
+  background: #0b0b14;
+  border: 1px solid #1e1e30;
+  border-radius: 5px;
+  padding: 5px 8px;
+  color: #ccc;
+  font-size: 11px;
+  outline: none;
+  flex-shrink: 0;
+}
+#palette-search:focus { border-color: #7c3aed55; }
+.palette-cat-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #3a3a5a;
+  padding: 8px 10px 3px;
+  flex-shrink: 0;
+}
+.palette-node {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  cursor: grab;
+  font-size: 11px;
+  color: #777;
+  border-left: 2px solid transparent;
+  transition: all .1s;
+  user-select: none;
+  flex-shrink: 0;
+}
+.palette-node:hover { color: #bbb; background: #ffffff08; }
+.palette-node:active { cursor: grabbing; }
+.palette-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* Canvas area */
+#canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #0b0b14;
+  background-image:
+    radial-gradient(circle, #1e1e30 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+#canvas-svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+#canvas-nodes {
+  position: absolute;
+  top: 0; left: 0;
+  width: 0; height: 0;
+  transform-origin: 0 0;
+}
+
+/* Canvas node */
+.cn {
+  position: absolute;
+  width: 200px;
+  background: linear-gradient(160deg,#0d0d1e 0%,#090914 100%);
+  border: 1.5px solid rgba(124,58,237,0.15);
+  border-radius: 9px;
+  user-select: none;
+  cursor: default;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5);
+  transition: border-color .14s, box-shadow .14s;
+}
+.cn.selected { box-shadow: 0 0 0 1.5px #7c3aed55, 0 12px 32px rgba(0,0,0,.7); }
+.cn.running { animation: nodePulse 1s ease-in-out infinite; }
+.cn-header {
+  height: 40px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 10px;
+  cursor: grab;
+  gap: 6px;
+  border-bottom: 1px solid rgba(124,58,237,0.1);
+}
+.cn-header:active { cursor: grabbing; }
+.cn-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.cn-label { flex: 1; font-size: 11px; font-weight: 600; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; }
+.cn-del { background: none; border: none; cursor: pointer; color: rgba(148,163,184,.3); font-size: 14px; padding: 1px 3px; line-height: 1; transition: color .1s; }
+.cn-del:hover { color: #ef4444; }
+.cn-ports { padding: 6px 0; }
+.cn-row { height: 26px; display: flex; align-items: center; justify-content: space-between; }
+.cn-port-area { display: flex; align-items: center; gap: 5px; }
+.cn-port {
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: #1e1e30;
+  border: 1.5px solid rgba(124,58,237,0.4);
+  cursor: crosshair;
+  flex-shrink: 0;
+  transition: all .1s;
+}
+.cn-port:hover, .cn-port.highlight { background: #7c3aed; border-color: #7c3aed; }
+.cn-port.in  { margin-left: -6px; }
+.cn-port.out { margin-right: -6px; }
+.cn-port-label { font-size: 9px; color: #3a3a5a; font-family: monospace; }
+.cn-status {
+  position: absolute; top: -9px; right: -5px;
+  font-size: 8px; font-weight: 700;
+  border-radius: 8px; padding: 1px 5px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.cn-status.running { background: #7c3aed; color: #fff; box-shadow: 0 0 8px #7c3aed66; }
+.cn-status.ok      { background: #10b981; color: #fff; box-shadow: 0 0 8px #10b98166; }
+.cn-status.error   { background: #ef4444; color: #fff; box-shadow: 0 0 8px #ef444466; }
+.cn-status.skipped { background: #6b7280; color: #fff; }
+
+/* Properties panel */
+#props-panel {
+  width: 240px;
+  background: #0c0c1a;
+  border-left: 1px solid #1a1a2a;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+#props-header {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid #1a1a2a;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #3a3a5a;
+  flex-shrink: 0;
+}
+#props-body { padding: 10px 12px; flex: 1; }
+.prop-row { margin-bottom: 10px; }
+.prop-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #444; margin-bottom: 4px; }
+.prop-input, .prop-select, .prop-textarea {
+  width: 100%;
+  background: #0b0b14;
+  border: 1px solid #1e1e30;
+  border-radius: 4px;
+  padding: 5px 8px;
+  color: #ccc;
+  font-size: 11px;
+  outline: none;
+  font-family: monospace;
+}
+.prop-input:focus, .prop-select:focus, .prop-textarea:focus { border-color: #7c3aed55; }
+.prop-select { appearance: none; cursor: pointer; }
+.prop-textarea { resize: vertical; min-height: 60px; }
+
+/* Playbook list inside builder */
+#pb-list-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(10,10,20,0.85);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+#pb-list-overlay.show { display: flex; }
+#pb-list-box {
+  width: 480px;
+  max-height: 70vh;
+  background: #0d0d1a;
+  border: 1px solid #7c3aed33;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,.8);
+}
+.pblo-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid #1a1a2a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.pblo-title { font-size: 12px; font-weight: 700; color: #ddd; flex: 1; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; }
+.pblo-close { background: none; border: none; cursor: pointer; color: #555; font-size: 16px; }
+.pblo-close:hover { color: #aaa; }
+.pblo-body { flex: 1; overflow-y: auto; }
+.pblo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #1a1a2a10;
+  cursor: pointer;
+  transition: background .1s;
+}
+.pblo-item:hover { background: #7c3aed10; }
+.pblo-item-name { flex: 1; font-size: 12px; color: #ccc; }
+.pblo-item-meta { font-size: 10px; color: #444; }
+.pblo-del { background: none; border: none; cursor: pointer; color: #444; font-size: 12px; padding: 2px 5px; }
+.pblo-del:hover { color: #ef4444; }
+.pblo-empty { padding: 30px; text-align: center; color: #333; font-size: 12px; }
+
+@keyframes nodePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124,58,237,0.4), 0 6px 20px rgba(0,0,0,.5); }
+  50%       { box-shadow: 0 0 0 4px rgba(124,58,237,0.1), 0 6px 20px rgba(0,0,0,.5); }
+}
+</style>
+</head>
+<body>
+
+<!-- ── top bar ─────────────────────────────────────── -->
+<div id="topbar">
+  <span class="logo">monomind <span>dashboard</span></span>
+  <span class="pill pill-run" id="p-run">● 0</span>
+  <span class="pill pill-done" id="p-done">✓ 0</span>
+  <span class="pill pill-fail" id="p-fail">✗ 0</span>
+  <span id="conn">
+    <span id="conn-dot"></span>
+    <span id="conn-label">connecting…</span>
+  </span>
+</div>
+
+<!-- ── layout ──────────────────────────────────────── -->
+<div id="layout">
+
+  <!-- sidebar -->
+  <nav id="sidebar">
+    <div class="nav-section-label">Project</div>
+    <div class="nav-item active" data-panel="playbooks">
+      <span class="nav-icon">⚡</span> Runs
+      <span class="nav-badge" id="nb-run">0</span>
+    </div>
+    <div class="nav-item" data-panel="builder">
+      <span class="nav-icon">🔧</span> Builder
+    </div>
+
+    <div class="nav-section-label" style="margin-top:8px">System</div>
+    <div class="nav-item" data-panel="agents">
+      <span class="nav-icon">🤖</span> Agents
+    </div>
+    <div class="nav-item" data-panel="memory">
+      <span class="nav-icon">🧠</span> Memory
+    </div>
+    <div class="nav-item" data-panel="sessions">
+      <span class="nav-icon">🔗</span> Sessions
+    </div>
+  </nav>
+
+  <!-- main -->
+  <div id="main">
+
+    <!-- Playbook Runs panel -->
+    <div class="panel active" id="pb-panel">
+      <div class="panel-header">
+        <span class="panel-title">Playbook Runs</span>
+        <span class="panel-subtitle" id="pb-subtitle">0 runs</span>
+      </div>
+      <div id="pb-cards" style="overflow-y:auto;flex:1;padding:12px;display:grid;gap:10px;align-content:start"></div>
+      <div class="empty" id="pb-empty">
+        <span class="empty-icon">⚡</span>
+        <span class="empty-title">No playbook runs yet</span>
+        <span class="empty-sub">Use the Builder tab to create and run playbooks,<br>or run via CLI: <code style="color:#7c3aed">npx monomind browse playbook run &lt;name&gt;</code></span>
+      </div>
+    </div>
+
+    <!-- Builder panel -->
+    <div class="panel" id="builder-panel">
+      <!-- Toolbar -->
+      <div id="builder-toolbar">
+        <input id="pb-name-input" type="text" placeholder="Untitled Playbook" value="Untitled Playbook" />
+        <div class="tb-sep"></div>
+        <button class="tb-btn" id="btn-new" title="New playbook">＋ New</button>
+        <button class="tb-btn" id="btn-open" title="Open saved playbook">📂 Open</button>
+        <button class="tb-btn" id="btn-save" title="Save playbook">💾 Save</button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn run-btn" id="btn-run" title="Run playbook">▶ Run</button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" id="btn-zoom-in" title="Zoom in">＋</button>
+        <button class="tb-btn" id="btn-zoom-out" title="Zoom out">－</button>
+        <button class="tb-btn" id="btn-fit" title="Fit canvas">⊡</button>
+      </div>
+
+      <!-- Builder body -->
+      <div id="builder-body">
+        <!-- Node palette -->
+        <div id="node-palette">
+          <input id="palette-search" type="text" placeholder="Search nodes…" />
+          <div id="palette-list"></div>
+        </div>
+
+        <!-- Canvas -->
+        <div id="canvas-wrap">
+          <svg id="canvas-svg" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrowhead" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                <polygon points="0 0, 7 3.5, 0 7" fill="#7c3aed88" />
+              </marker>
+            </defs>
+            <g id="edge-layer"></g>
+            <path id="drag-edge" d="" stroke="#a78bfa" stroke-width="1.5" fill="none" stroke-dasharray="6,3" style="display:none"/>
+          </svg>
+          <div id="canvas-nodes"></div>
+
+          <!-- Playbook list overlay -->
+          <div id="pb-list-overlay">
+            <div id="pb-list-box">
+              <div class="pblo-header">
+                <span class="pblo-title">Saved Playbooks</span>
+                <button class="pblo-close" id="pblo-close-btn">✕</button>
+              </div>
+              <div class="pblo-body" id="pblo-body"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Properties panel -->
+        <div id="props-panel">
+          <div id="props-header">Properties</div>
+          <div id="props-body">
+            <div class="empty" style="padding:20px;color:#333;font-size:11px;text-align:center">
+              Select a node to edit its properties
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agents panel -->
+    <div class="panel" id="agents-panel">
+      <div class="panel-header"><span class="panel-title">Agents</span></div>
+      <div class="placeholder">
+        <span class="big">🤖</span>
+        <span>Agent monitoring coming soon</span>
+      </div>
+    </div>
+
+    <!-- Memory panel -->
+    <div class="panel" id="memory-panel">
+      <div class="panel-header"><span class="panel-title">Memory</span></div>
+      <div class="placeholder">
+        <span class="big">🧠</span>
+        <span>Memory browser coming soon</span>
+      </div>
+    </div>
+
+    <!-- Sessions panel -->
+    <div class="panel" id="sessions-panel">
+      <div class="panel-header"><span class="panel-title">Sessions</span></div>
+      <div class="placeholder">
+        <span class="big">🔗</span>
+        <span>Session viewer coming soon</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════════════════
+function navigateToPanel(target) {
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  var navItem = document.querySelector('[data-panel="' + target + '"]');
+  if (navItem) navItem.classList.add('active');
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  var panelId = target === 'playbooks' ? 'pb-panel'
+              : target === 'builder'   ? 'builder-panel'
+              : target + '-panel';
+  var panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
+  if (target === 'builder') renderEdges();
+  location.hash = target;
+}
+
+document.querySelectorAll('.nav-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    var target = item.getAttribute('data-panel');
+    navigateToPanel(target);
+  });
+});
+
+// Hash-based routing on load
+(function() {
+  var hash = location.hash.replace('#', '');
+  var validPanels = ['playbooks', 'builder', 'agents', 'memory', 'sessions'];
+  if (hash && validPanels.indexOf(hash) !== -1) {
+    // defer until after renderEdges is defined
+    window.addEventListener('load', function() { navigateToPanel(hash); });
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// PLAYBOOK RUN STATE (existing panel)
+// ═══════════════════════════════════════════════════════════════════
+var runs = {};
+var runLogs = {};
+
+function ts(ms) {
+  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function updateHeader() {
+  var running = 0, done = 0, fail = 0;
+  for (var id in runs) {
+    var s = runs[id].status;
+    if (s === 'running') running++;
+    else if (s === 'completed') done++;
+    else if (s === 'failed') fail++;
+  }
+  document.getElementById('p-run').textContent = '● ' + running;
+  document.getElementById('p-done').textContent = '✓ ' + done;
+  document.getElementById('p-fail').textContent = '✗ ' + fail;
+  document.getElementById('nb-run').textContent = String(running || Object.keys(runs).length);
+  document.getElementById('nb-run').className = 'nav-badge' + (running ? '' : ' green');
+  var total = Object.keys(runs).length;
+  document.getElementById('pb-subtitle').textContent = total + (total === 1 ? ' run' : ' runs');
+}
+
+function progressPct(r) {
+  if (!r.itemsTotal || r.itemsTotal <= 0) return r.status === 'completed' ? 100 : 0;
+  return Math.min(100, Math.round((r.itemsProcessed / r.itemsTotal) * 100));
+}
+function statusLabel(r) {
+  if (r.status === 'running') return ['s-running', '● running'];
+  if (r.status === 'completed') return ['s-completed', '✓ done'];
+  if (r.status === 'failed') return ['s-failed', '✗ failed'];
+  return ['s-stopped', '⏹ stopped'];
+}
+function elapsed(r) {
+  var ms = (r.endedAt || r.completedAt || Date.now()) - r.startedAt;
+  if (ms < 1000) return ms + 'ms';
+  if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+  return Math.floor(ms / 60000) + 'm ' + Math.floor((ms % 60000) / 1000) + 's';
+}
+function renderCards() {
+  var cards = document.getElementById('pb-cards');
+  var empty = document.getElementById('pb-empty');
+  var sorted = Object.values(runs).sort(function(a, b) { return b.startedAt - a.startedAt; });
+  if (!sorted.length) { cards.innerHTML = ''; empty.style.display = 'flex'; return; }
+  empty.style.display = 'none';
+  cards.innerHTML = sorted.map(function(r) {
+    var sl = statusLabel(r);
+    var isRunning = r.status === 'running';
+    var pct = progressPct(r);
+    var logLines = (runLogs[r.id] || []).slice(-4);
+    var logHtml = logLines.length
+      ? logLines.map(function(l) {
+          var cls = l.type === 'ok' ? 'log-ok' : l.type === 'err' ? 'log-err' : 'log-info';
+          return '<div><span class="log-ts">' + esc(l.ts) + '</span> <span class="' + cls + '">' + esc(l.text) + '</span></div>';
+        }).join('')
+      : '<div style="color:#2a2a3a">no events yet</div>';
+    return '<div class="card' + (!isRunning ? ' done' : '') + '">' +
+      '<div class="card-header">' +
+        '<span class="card-title">' + esc(r.playbookName) + '</span>' +
+        '<span class="status-badge ' + sl[0] + '">' + sl[1] + '</span>' +
+      '</div>' +
+      '<div class="card-meta">' +
+        '<span class="mitem">⏱ ' + esc(elapsed(r)) + '</span>' +
+        '<span class="mitem">📦 ' + esc(r.itemsProcessed) + '/' + esc(r.itemsTotal || '?') + '</span>' +
+        '<span class="mitem" style="color:#3a3a5a">id: ' + esc(r.id.slice(0,8)) + '</span>' +
+        (isRunning ? '<button class="stop-btn" onclick="stopRun(\'' + esc(r.id) + '\')">■ stop</button>' : '') +
+      '</div>' +
+      '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="log-area">' + logHtml + '</div>' +
+    '</div>';
+  }).join('');
+}
+function stopRun(id) { fetch('/stop/' + id, { method: 'POST' }).catch(function() {}); }
+
+// ═══════════════════════════════════════════════════════════════════
+// NODE PALETTE DEFINITIONS
+// ═══════════════════════════════════════════════════════════════════
+var NODE_TYPES = [
+  { cat: 'Triggers', type: 'trigger.manual',   label: 'Manual Trigger',  color: '#7c3aed',
+    inputs: [], outputs: [{ label: 'items' }],
+    defaults: { items: [] } },
+  { cat: 'Triggers', type: 'trigger.schedule',  label: 'Schedule',        color: '#7c3aed',
+    inputs: [], outputs: [{ label: 'items' }],
+    defaults: { cron: '0 * * * *' } },
+
+  { cat: 'Control',  type: 'core.if',           label: 'If / Branch',     color: '#0891b2',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'true' }, { label: 'false' }],
+    defaults: { expression: '$item.data.value > 0' } },
+  { cat: 'Control',  type: 'core.filter',       label: 'Filter',          color: '#0891b2',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { expression: '$item.data.value > 0' } },
+
+  { cat: 'Data',     type: 'core.set',          label: 'Set Fields',      color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: {} },
+  { cat: 'Data',     type: 'action.log',        label: 'Log',             color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { label: 'debug' } },
+
+  { cat: 'HTTP',     type: 'action.http',       label: 'HTTP Request',    color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { url: 'https://example.com/api', method: 'GET' } },
+  { cat: 'HTTP',     type: 'http.request',      label: 'HTTP Advanced',   color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'main' }, { label: 'error' }],
+    defaults: { url: 'https://example.com/api', method: 'GET', response_format: 'json' } },
+
+  { cat: 'Services', type: 'service.google_drive',   label: 'Google Drive',    color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'list_files', access_token: '' } },
+  { cat: 'Services', type: 'service.gmail',          label: 'Gmail',           color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'list_messages', access_token: '' } },
+  { cat: 'Services', type: 'service.github',         label: 'GitHub',          color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'list_repos', token: '' } },
+  { cat: 'Services', type: 'service.google_sheets',  label: 'Google Sheets',   color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'read_rows', access_token: '', spreadsheet_id: '' } },
+
+  { cat: 'Browser',  type: 'action.gemini_image',    label: 'Gemini Image',    color: '#9333ea',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { prompt: 'A beautiful landscape' } },
+  { cat: 'Browser',  type: 'action.save_file',       label: 'Save File',       color: '#9333ea',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { path: './output.txt' } },
+
+  { cat: 'Services', type: 'service.notion',   label: 'Notion',          color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'query_database', token: '' } },
+  { cat: 'Services', type: 'service.linear',   label: 'Linear',          color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'list_issues', token: '' } },
+  { cat: 'Services', type: 'service.airtable', label: 'Airtable',        color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'list_records', token: '', base_id: '', table: '' } },
+  { cat: 'Services', type: 'service.stripe',   label: 'Stripe',          color: '#0f766e',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { operation: 'list_customers', api_key: '' } },
+
+  { cat: 'Data', type: 'core.aggregate', label: 'Aggregate',    color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { group_by: '', operations: [] } },
+  { cat: 'Data', type: 'core.sort',      label: 'Sort',         color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { field: '', order: 'asc' } },
+  { cat: 'Data', type: 'core.limit',     label: 'Limit',        color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { count: 10 } },
+  { cat: 'Data', type: 'core.merge',     label: 'Merge',        color: '#d97706',
+    inputs: [{ label: 'in1' }, { label: 'in2' }], outputs: [{ label: 'out' }],
+    defaults: { mode: 'append' } },
+  { cat: 'Data', type: 'core.remove_duplicates', label: 'Remove Duplicates', color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { field: '' } },
+  { cat: 'Data', type: 'core.switch',    label: 'Switch',       color: '#0891b2',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'case0' }, { label: 'default' }],
+    defaults: { field: '', cases: [] } },
+  { cat: 'Data', type: 'core.wait',      label: 'Wait',         color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'out' }],
+    defaults: { seconds: 5 } },
+  { cat: 'Data', type: 'core.split_in_batches', label: 'Split in Batches', color: '#d97706',
+    inputs: [{ label: 'in' }], outputs: [{ label: 'batch' }],
+    defaults: { batch_size: 10 } },
+];
+
+var CAT_ORDER = ['Triggers','Control','Data','HTTP','Services','Browser'];
+
+// Fields shown for each node type in the properties panel
+var NODE_FIELDS = {
+  'trigger.manual':       [{ key:'items', label:'Initial Items (JSON array)', type:'textarea' }],
+  'trigger.schedule':     [{ key:'cron', label:'Cron expression', type:'text' }],
+  'core.if':              [{ key:'expression', label:'Expression', type:'text' }],
+  'core.filter':          [{ key:'expression', label:'Expression', type:'text' }],
+  'core.set':             [{ key:'__note', label:'Config (JSON)', type:'textarea', jsonKey:'_config_json' }],
+  'action.log':           [{ key:'label', label:'Label', type:'text' }],
+  'action.http':          [
+    { key:'url', label:'URL', type:'text' },
+    { key:'method', label:'Method', type:'select', options:['GET','POST','PUT','PATCH','DELETE'] },
+    { key:'responseField', label:'Response field', type:'text' },
+  ],
+  'http.request':         [
+    { key:'url', label:'URL', type:'text' },
+    { key:'method', label:'Method', type:'select', options:['GET','POST','PUT','PATCH','DELETE'] },
+    { key:'auth_type', label:'Auth type', type:'select', options:['none','bearer','basic','api_key'] },
+    { key:'auth_token', label:'Bearer token', type:'text' },
+    { key:'response_format', label:'Response format', type:'select', options:['json','text','binary'] },
+    { key:'timeout_seconds', label:'Timeout (s)', type:'text' },
+  ],
+  'service.google_drive': [
+    { key:'access_token', label:'Access token', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['list_files','get_file','upload_file','download_file','create_folder','delete_file','share_file'] },
+    { key:'file_id', label:'File ID', type:'text' },
+    { key:'file_name', label:'File name', type:'text' },
+    { key:'query', label:'Search query', type:'text' },
+    { key:'page_size', label:'Page size', type:'text' },
+  ],
+  'service.gmail': [
+    { key:'access_token', label:'Access token', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['list_messages','get_message','send_message','list_labels','trash_message'] },
+    { key:'message_id', label:'Message ID', type:'text' },
+    { key:'to', label:'To', type:'text' },
+    { key:'subject', label:'Subject', type:'text' },
+    { key:'body', label:'Body', type:'textarea' },
+    { key:'query', label:'Search query', type:'text' },
+  ],
+  'service.github': [
+    { key:'token', label:'GitHub token', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['list_repos','list_issues','get_issue','create_issue','update_issue','list_prs','create_pr','list_releases','create_release'] },
+    { key:'owner', label:'Owner', type:'text' },
+    { key:'repo', label:'Repo', type:'text' },
+    { key:'number', label:'Issue/PR number', type:'text' },
+    { key:'title', label:'Title', type:'text' },
+    { key:'state', label:'State', type:'select', options:['','open','closed','all'] },
+  ],
+  'service.google_sheets': [
+    { key:'access_token', label:'Access token', type:'text' },
+    { key:'spreadsheet_id', label:'Spreadsheet ID', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['read_rows','append_rows','update_rows','clear_range','create_spreadsheet'] },
+    { key:'sheet_name', label:'Sheet name', type:'text' },
+    { key:'range', label:'Range (e.g. A1:Z100)', type:'text' },
+    { key:'title', label:'Title (new sheet)', type:'text' },
+  ],
+  'action.gemini_image': [
+    { key:'prompt', label:'Prompt', type:'textarea' },
+    { key:'outputPath', label:'Output path', type:'text' },
+    { key:'cdpPort', label:'CDP port', type:'text' },
+  ],
+  'action.save_file': [
+    { key:'path', label:'File path', type:'text' },
+    { key:'field', label:'Data field', type:'text' },
+    { key:'encoding', label:'Encoding', type:'text' },
+  ],
+  'service.notion': [
+    { key:'token', label:'Integration token', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['get_page','create_page','update_page','query_database','get_database','create_database','append_blocks'] },
+    { key:'page_id', label:'Page ID', type:'text' },
+    { key:'database_id', label:'Database ID', type:'text' },
+    { key:'parent_id', label:'Parent ID', type:'text' },
+    { key:'properties', label:'Properties (JSON)', type:'textarea' },
+  ],
+  'service.linear': [
+    { key:'token', label:'API token', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['list_issues','get_issue','create_issue','update_issue','list_teams','list_projects'] },
+    { key:'team_id', label:'Team ID', type:'text' },
+    { key:'issue_id', label:'Issue ID', type:'text' },
+    { key:'title', label:'Title', type:'text' },
+    { key:'description', label:'Description', type:'textarea' },
+    { key:'priority', label:'Priority (0-4)', type:'text' },
+    { key:'state_id', label:'State ID', type:'text' },
+  ],
+  'service.airtable': [
+    { key:'token', label:'Personal access token', type:'text' },
+    { key:'base_id', label:'Base ID', type:'text' },
+    { key:'table', label:'Table name', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['list_records','get_record','create_record','update_record','delete_record'] },
+    { key:'record_id', label:'Record ID', type:'text' },
+    { key:'fields', label:'Fields (JSON)', type:'textarea' },
+    { key:'filter_formula', label:'Filter formula', type:'text' },
+    { key:'view', label:'View name', type:'text' },
+  ],
+  'service.stripe': [
+    { key:'api_key', label:'Secret key', type:'text' },
+    { key:'operation', label:'Operation', type:'select', options:['list_customers','create_customer','get_customer','list_charges','create_charge','list_subscriptions','create_subscription','cancel_subscription','list_products','create_payment_intent'] },
+    { key:'customer_id', label:'Customer ID', type:'text' },
+    { key:'email', label:'Email', type:'text' },
+    { key:'name', label:'Name', type:'text' },
+    { key:'amount', label:'Amount (cents)', type:'text' },
+    { key:'currency', label:'Currency', type:'text' },
+    { key:'price_id', label:'Price ID', type:'text' },
+    { key:'subscription_id', label:'Subscription ID', type:'text' },
+  ],
+  'core.aggregate': [
+    { key:'group_by', label:'Group by field', type:'text' },
+    { key:'operations', label:'Operations (JSON array)', type:'textarea' },
+  ],
+  'core.sort': [
+    { key:'field', label:'Field to sort by', type:'text' },
+    { key:'order', label:'Order', type:'select', options:['asc','desc'] },
+  ],
+  'core.limit': [
+    { key:'count', label:'Max items', type:'text' },
+  ],
+  'core.merge': [
+    { key:'mode', label:'Mode', type:'select', options:['append','merge_by_field'] },
+    { key:'field', label:'Merge key field (for merge_by_field)', type:'text' },
+  ],
+  'core.remove_duplicates': [
+    { key:'field', label:'Deduplicate by field (empty = all fields)', type:'text' },
+  ],
+  'core.switch': [
+    { key:'field', label:'Field to switch on', type:'text' },
+    { key:'cases', label:'Case values (JSON array)', type:'textarea' },
+  ],
+  'core.wait': [
+    { key:'seconds', label:'Seconds to wait', type:'text' },
+  ],
+  'core.split_in_batches': [
+    { key:'batch_size', label:'Batch size', type:'text' },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// CANVAS STATE
+// ═══════════════════════════════════════════════════════════════════
+var canvas = {
+  nodes: [],    // { id, type, name, config, x, y, _def, runStatus, runItems, runDuration }
+  edges: [],    // { id, from, to, handle, fromPort, toPort }
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  selectedId: null,
+  playbookId: null,
+};
+var _nodeSeq = 1;
+
+function uid() { return 'n' + (_nodeSeq++) + '_' + Date.now().toString(36); }
+
+// Find node type def
+function getNodeDef(type) {
+  return NODE_TYPES.find(function(t) { return t.type === type; }) || null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PALETTE
+// ═══════════════════════════════════════════════════════════════════
+function buildPalette(filter) {
+  filter = (filter || '').toLowerCase();
+  var list = document.getElementById('palette-list');
+  var html = '';
+  CAT_ORDER.forEach(function(cat) {
+    var nodes = NODE_TYPES.filter(function(n) {
+      return n.cat === cat && (!filter || n.label.toLowerCase().includes(filter) || n.type.toLowerCase().includes(filter));
+    });
+    if (!nodes.length) return;
+    html += '<div class="palette-cat-label">' + cat + '</div>';
+    nodes.forEach(function(n) {
+      html += '<div class="palette-node" draggable="true" data-type="' + n.type + '" data-label="' + esc(n.label) + '">' +
+        '<div class="palette-dot" style="background:' + n.color + '"></div>' +
+        '<span>' + esc(n.label) + '</span></div>';
+    });
+  });
+  list.innerHTML = html;
+
+  list.querySelectorAll('.palette-node').forEach(function(el) {
+    el.addEventListener('dragstart', function(e) {
+      e.dataTransfer.setData('text/plain', el.getAttribute('data-type'));
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+  });
+}
+
+document.getElementById('palette-search').addEventListener('input', function(e) {
+  buildPalette(e.target.value);
+});
+buildPalette('');
+
+// ═══════════════════════════════════════════════════════════════════
+// CANVAS TRANSFORM
+// ═══════════════════════════════════════════════════════════════════
+function applyTransform() {
+  document.getElementById('canvas-nodes').style.transform =
+    'translate(' + canvas.panX + 'px,' + canvas.panY + 'px) scale(' + canvas.zoom + ')';
+  renderEdges();
+}
+
+// Canvas pan + zoom
+var _panning = false, _panStart = null;
+
+document.getElementById('canvas-wrap').addEventListener('wheel', function(e) {
+  e.preventDefault();
+  var rect = this.getBoundingClientRect();
+  var mx = e.clientX - rect.left;
+  var my = e.clientY - rect.top;
+  var delta = e.deltaY < 0 ? 1.1 : 0.9;
+  var newZoom = Math.max(0.2, Math.min(3, canvas.zoom * delta));
+  // Zoom toward mouse position
+  canvas.panX = mx - (mx - canvas.panX) * (newZoom / canvas.zoom);
+  canvas.panY = my - (my - canvas.panY) * (newZoom / canvas.zoom);
+  canvas.zoom = newZoom;
+  applyTransform();
+}, { passive: false });
+
+document.getElementById('canvas-wrap').addEventListener('mousedown', function(e) {
+  if (e.button === 1 || (e.button === 0 && e.target === this)) {
+    _panning = true;
+    _panStart = { x: e.clientX - canvas.panX, y: e.clientY - canvas.panY };
+    e.preventDefault();
+  }
+});
+document.addEventListener('mousemove', function(e) {
+  if (_panning) {
+    canvas.panX = e.clientX - _panStart.x;
+    canvas.panY = e.clientY - _panStart.y;
+    applyTransform();
+  }
+  if (_dragEdge.active) updateDragEdge(e);
+  if (_draggingNode) updateNodeDrag(e);
+});
+document.addEventListener('mouseup', function(e) {
+  _panning = false;
+  if (_draggingNode) endNodeDrag(e);
+  if (_dragEdge.active) endDragEdge(e);
+});
+
+// Deselect on canvas click
+document.getElementById('canvas-wrap').addEventListener('mousedown', function(e) {
+  if (e.target === this || e.target === document.getElementById('canvas-svg')) {
+    canvas.selectedId = null;
+    renderPropsPanel();
+    renderNodes();
+  }
+});
+
+// Drop from palette
+document.getElementById('canvas-wrap').addEventListener('dragover', function(e) { e.preventDefault(); });
+document.getElementById('canvas-wrap').addEventListener('drop', function(e) {
+  e.preventDefault();
+  var type = e.dataTransfer.getData('text/plain');
+  if (!type) return;
+  var def = getNodeDef(type);
+  if (!def) return;
+  var rect = this.getBoundingClientRect();
+  var wx = (e.clientX - rect.left - canvas.panX) / canvas.zoom;
+  var wy = (e.clientY - rect.top  - canvas.panY) / canvas.zoom;
+  addNode(type, wx - 100, wy - 20);
+});
+
+// Zoom buttons
+document.getElementById('btn-zoom-in').addEventListener('click', function() {
+  canvas.zoom = Math.min(3, canvas.zoom * 1.2);
+  applyTransform();
+});
+document.getElementById('btn-zoom-out').addEventListener('click', function() {
+  canvas.zoom = Math.max(0.2, canvas.zoom / 1.2);
+  applyTransform();
+});
+document.getElementById('btn-fit').addEventListener('click', function() {
+  fitCanvas();
+});
+
+function fitCanvas() {
+  if (!canvas.nodes.length) { canvas.zoom = 1; canvas.panX = 40; canvas.panY = 40; applyTransform(); return; }
+  var wrap = document.getElementById('canvas-wrap');
+  var W = wrap.clientWidth, H = wrap.clientHeight;
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  canvas.nodes.forEach(function(n) {
+    minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + 200); maxY = Math.max(maxY, n.y + nodeH(n));
+  });
+  var pw = maxX - minX + 80, ph = maxY - minY + 80;
+  var zoom = Math.min(1, Math.min(W / pw, H / ph));
+  canvas.zoom = zoom;
+  canvas.panX = (W - pw * zoom) / 2 - minX * zoom + 40;
+  canvas.panY = (H - ph * zoom) / 2 - minY * zoom + 40;
+  applyTransform();
+}
+
+function nodeH(n) {
+  var def = n._def || getNodeDef(n.type) || { inputs: [{}], outputs: [{}] };
+  var rows = Math.max(def.inputs.length, def.outputs.length, 1);
+  return 40 + 6 + rows * 26 + 6;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADD / REMOVE NODE
+// ═══════════════════════════════════════════════════════════════════
+function addNode(type, x, y) {
+  var def = getNodeDef(type);
+  if (!def) return;
+  var node = {
+    id: uid(),
+    type: type,
+    name: def.label,
+    config: Object.assign({}, def.defaults),
+    x: x || 100,
+    y: y || 100,
+    _def: def,
+    runStatus: null,
+    runItems: 0,
+    runDuration: null,
+  };
+  canvas.nodes.push(node);
+  canvas.selectedId = node.id;
+  renderNodes();
+  renderEdges();
+  renderPropsPanel();
+  return node;
+}
+
+function removeNode(id) {
+  canvas.nodes = canvas.nodes.filter(function(n) { return n.id !== id; });
+  canvas.edges = canvas.edges.filter(function(e) { return e.from !== id && e.to !== id; });
+  if (canvas.selectedId === id) { canvas.selectedId = null; renderPropsPanel(); }
+  renderNodes();
+  renderEdges();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NODE DRAG
+// ═══════════════════════════════════════════════════════════════════
+var _draggingNode = null;
+var _dragNodeStart = null;
+
+function startNodeDrag(e, nodeId) {
+  e.stopPropagation();
+  _draggingNode = nodeId;
+  var n = canvas.nodes.find(function(n) { return n.id === nodeId; });
+  _dragNodeStart = {
+    mx: e.clientX, my: e.clientY,
+    nx: n.x, ny: n.y,
+  };
+  canvas.selectedId = nodeId;
+  renderPropsPanel();
+  renderNodes();
+}
+function updateNodeDrag(e) {
+  if (!_draggingNode) return;
+  var dx = (e.clientX - _dragNodeStart.mx) / canvas.zoom;
+  var dy = (e.clientY - _dragNodeStart.my) / canvas.zoom;
+  var n = canvas.nodes.find(function(n) { return n.id === _draggingNode; });
+  if (n) { n.x = _dragNodeStart.nx + dx; n.y = _dragNodeStart.ny + dy; }
+  renderNodePosition(_draggingNode);
+  renderEdges();
+}
+function endNodeDrag(e) {
+  _draggingNode = null;
+  _dragNodeStart = null;
+}
+function renderNodePosition(id) {
+  var el = document.querySelector('[data-node-id="' + id + '"]');
+  var n = canvas.nodes.find(function(n) { return n.id === id; });
+  if (el && n) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EDGE DRAG
+// ═══════════════════════════════════════════════════════════════════
+var _dragEdge = { active: false, fromNodeId: null, fromPortIdx: null, x: 0, y: 0 };
+
+function startDragEdge(e, nodeId, portIdx) {
+  e.stopPropagation();
+  e.preventDefault();
+  _dragEdge.active = true;
+  _dragEdge.fromNodeId = nodeId;
+  _dragEdge.fromPortIdx = portIdx;
+  var pos = getOutPortPos(nodeId, portIdx);
+  _dragEdge.x = pos.x; _dragEdge.y = pos.y;
+  var path = document.getElementById('drag-edge');
+  path.style.display = '';
+}
+function updateDragEdge(e) {
+  var wrap = document.getElementById('canvas-wrap');
+  var rect = wrap.getBoundingClientRect();
+  var tx = (e.clientX - rect.left - canvas.panX) / canvas.zoom;
+  var ty = (e.clientY - rect.top  - canvas.panY) / canvas.zoom;
+  var sx = _dragEdge.x, sy = _dragEdge.y;
+  var dx = Math.max(60, Math.abs(tx - sx) * 0.5);
+  document.getElementById('drag-edge').setAttribute('d',
+    'M' + sx + ',' + sy + ' C' + (sx+dx) + ',' + sy + ' ' + (tx-dx) + ',' + ty + ' ' + tx + ',' + ty);
+}
+function endDragEdge(e) {
+  document.getElementById('drag-edge').style.display = 'none';
+  _dragEdge.active = false;
+}
+function dropOnInputPort(e, toNodeId, toPortIdx) {
+  if (!_dragEdge.active) return;
+  e.stopPropagation();
+  if (_dragEdge.fromNodeId === toNodeId) { endDragEdge(e); return; }
+  var fromNode = canvas.nodes.find(function(n) { return n.id === _dragEdge.fromNodeId; });
+  var def = fromNode && (fromNode._def || getNodeDef(fromNode.type));
+  var handle = def && def.outputs[_dragEdge.fromPortIdx] ? def.outputs[_dragEdge.fromPortIdx].label : undefined;
+  // Remove existing edge from same out port if any
+  canvas.edges = canvas.edges.filter(function(ed) {
+    return !(ed.from === _dragEdge.fromNodeId && ed.fromPort === _dragEdge.fromPortIdx && ed.to === toNodeId && ed.toPort === toPortIdx);
+  });
+  canvas.edges.push({
+    id: uid(),
+    from: _dragEdge.fromNodeId,
+    to: toNodeId,
+    handle: handle,
+    fromPort: _dragEdge.fromPortIdx,
+    toPort: toPortIdx,
+  });
+  endDragEdge(e);
+  renderEdges();
+}
+
+function getOutPortPos(nodeId, portIdx) {
+  var n = canvas.nodes.find(function(n) { return n.id === nodeId; });
+  if (!n) return {x:0,y:0};
+  return { x: n.x + 200, y: n.y + 40 + 6 + portIdx * 26 + 13 };
+}
+function getInPortPos(nodeId, portIdx) {
+  var n = canvas.nodes.find(function(n) { return n.id === nodeId; });
+  if (!n) return {x:0,y:0};
+  return { x: n.x, y: n.y + 40 + 6 + portIdx * 26 + 13 };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER NODES
+// ═══════════════════════════════════════════════════════════════════
+function renderNodes() {
+  var container = document.getElementById('canvas-nodes');
+  var existingIds = new Set();
+  canvas.nodes.forEach(function(n) { existingIds.add(n.id); });
+  // Remove nodes that no longer exist
+  container.querySelectorAll('[data-node-id]').forEach(function(el) {
+    if (!existingIds.has(el.getAttribute('data-node-id'))) el.remove();
+  });
+  // Add or update each node
+  canvas.nodes.forEach(function(n) {
+    var existing = container.querySelector('[data-node-id="' + n.id + '"]');
+    var def = n._def || getNodeDef(n.type) || { inputs:[{label:'in'}], outputs:[{label:'out'}], color:'#7c3aed' };
+    var color = def.color || '#7c3aed';
+    var rows = Math.max(def.inputs.length, def.outputs.length, 1);
+    var h = 40 + 6 + rows * 26 + 6;
+    var isSelected = canvas.selectedId === n.id;
+
+    if (!existing) {
+      var el = document.createElement('div');
+      el.className = 'cn' + (isSelected ? ' selected' : '') + (n.runStatus === 'running' ? ' running' : '');
+      el.setAttribute('data-node-id', n.id);
+      el.style.left = n.x + 'px';
+      el.style.top  = n.y + 'px';
+      el.style.height = h + 'px';
+      el.style.borderColor = isSelected ? color : (n.runStatus === 'error' ? '#ef444444' : n.runStatus === 'ok' ? '#10b98133' : 'rgba(124,58,237,0.15)');
+
+      // Status badge
+      var statusHtml = '';
+      if (n.runStatus) {
+        var statusText = n.runStatus === 'ok' ? '✓ ' + n.runItems + ' item' + (n.runItems !== 1 ? 's' : '') + (n.runDuration ? ' · ' + n.runDuration + 'ms' : '')
+          : n.runStatus === 'running' ? '⏳ running'
+          : n.runStatus === 'error' ? '✕ error'
+          : '— skipped';
+        statusHtml = '<div class="cn-status ' + n.runStatus + '">' + esc(statusText) + '</div>';
+      }
+
+      // Header
+      var headerHtml = '<div class="cn-header" style="background:linear-gradient(110deg,' + color + '1a 0%,' + color + '0a 100%);border-bottom:1px solid ' + color + '22">' +
+        '<div class="cn-dot" style="background:' + color + '"></div>' +
+        '<span class="cn-label">' + esc(n.name || def.label) + '</span>' +
+        '<button class="cn-del" data-del="' + n.id + '" title="Delete">✕</button>' +
+        '</div>';
+
+      // Ports
+      var portsHtml = '<div class="cn-ports">';
+      for (var i = 0; i < rows; i++) {
+        var inPort = def.inputs[i];
+        var outPort = def.outputs[i];
+        portsHtml += '<div class="cn-row">';
+        if (inPort) {
+          portsHtml += '<div class="cn-port-area">' +
+            '<div class="cn-port in" data-in-port="' + i + '" data-node="' + n.id + '" title="Input: ' + esc(inPort.label) + '"></div>' +
+            '<span class="cn-port-label">' + esc(inPort.label) + '</span>' +
+            '</div>';
+        } else {
+          portsHtml += '<div></div>';
+        }
+        if (outPort) {
+          portsHtml += '<div class="cn-port-area" style="justify-content:flex-end">' +
+            '<span class="cn-port-label">' + esc(outPort.label) + '</span>' +
+            '<div class="cn-port out" data-out-port="' + i + '" data-node="' + n.id + '" title="Output: ' + esc(outPort.label) + '"></div>' +
+            '</div>';
+        } else {
+          portsHtml += '<div></div>';
+        }
+        portsHtml += '</div>';
+      }
+      portsHtml += '</div>';
+
+      el.innerHTML = statusHtml + headerHtml + portsHtml;
+
+      // Events
+      el.querySelector('.cn-header').addEventListener('mousedown', function(e) {
+        if (e.target.closest('.cn-del')) return;
+        startNodeDrag(e, n.id);
+      });
+      el.addEventListener('mousedown', function(e) {
+        if (e.target.closest('.cn-del') || e.target.closest('.cn-port')) return;
+        e.stopPropagation();
+        canvas.selectedId = n.id;
+        renderPropsPanel();
+        renderNodes();
+      });
+      var delBtn = el.querySelector('.cn-del');
+      if (delBtn) delBtn.addEventListener('mousedown', function(e) {
+        e.stopPropagation();
+        removeNode(n.id);
+      });
+      el.querySelectorAll('.cn-port.out').forEach(function(port) {
+        port.addEventListener('mousedown', function(e) {
+          e.stopPropagation();
+          var portIdx = parseInt(port.getAttribute('data-out-port'), 10);
+          startDragEdge(e, n.id, portIdx);
+        });
+      });
+      el.querySelectorAll('.cn-port.in').forEach(function(port) {
+        port.addEventListener('mouseup', function(e) {
+          var portIdx = parseInt(port.getAttribute('data-in-port'), 10);
+          dropOnInputPort(e, n.id, portIdx);
+        });
+        port.addEventListener('mouseenter', function() { port.classList.add('highlight'); });
+        port.addEventListener('mouseleave', function() { port.classList.remove('highlight'); });
+      });
+
+      container.appendChild(el);
+    } else {
+      // Update position, selection, status
+      existing.style.left = n.x + 'px';
+      existing.style.top  = n.y + 'px';
+      existing.className = 'cn' + (isSelected ? ' selected' : '') + (n.runStatus === 'running' ? ' running' : '');
+      existing.style.borderColor = isSelected ? color : (n.runStatus === 'error' ? '#ef444444' : n.runStatus === 'ok' ? '#10b98133' : 'rgba(124,58,237,0.15)');
+      // Update status badge
+      var badge = existing.querySelector('.cn-status');
+      if (n.runStatus) {
+        var statusText2 = n.runStatus === 'ok' ? '✓ ' + n.runItems + ' item' + (n.runItems !== 1 ? 's' : '') + (n.runDuration ? ' · ' + n.runDuration + 'ms' : '')
+          : n.runStatus === 'running' ? '⏳ running'
+          : n.runStatus === 'error' ? '✕ error'
+          : '— skipped';
+        if (!badge) {
+          var newBadge = document.createElement('div');
+          newBadge.className = 'cn-status ' + n.runStatus;
+          newBadge.textContent = statusText2;
+          existing.insertBefore(newBadge, existing.firstChild);
+        } else {
+          badge.className = 'cn-status ' + n.runStatus;
+          badge.textContent = statusText2;
+        }
+      } else if (badge) {
+        badge.remove();
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER EDGES (SVG)
+// ═══════════════════════════════════════════════════════════════════
+function renderEdges() {
+  var layer = document.getElementById('edge-layer');
+  layer.innerHTML = '';
+  canvas.edges.forEach(function(edge) {
+    var fromNode = canvas.nodes.find(function(n) { return n.id === edge.from; });
+    var toNode   = canvas.nodes.find(function(n) { return n.id === edge.to; });
+    if (!fromNode || !toNode) return;
+    var sx = (fromNode.x + 200) * canvas.zoom + canvas.panX;
+    var sy = (fromNode.y + 40 + 6 + edge.fromPort * 26 + 13) * canvas.zoom + canvas.panY;
+    var tx = toNode.x * canvas.zoom + canvas.panX;
+    var ty = (toNode.y + 40 + 6 + edge.toPort * 26 + 13) * canvas.zoom + canvas.panY;
+    var dx = Math.max(60, Math.abs(tx - sx) * 0.5) * canvas.zoom;
+    var d = 'M' + sx + ',' + sy + ' C' + (sx+dx) + ',' + sy + ' ' + (tx-dx) + ',' + ty + ' ' + tx + ',' + ty;
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('stroke', '#7c3aed88');
+    path.setAttribute('stroke-width', '1.5');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('marker-end', 'url(#arrowhead)');
+    // Add label if handle differs from default
+    layer.appendChild(path);
+
+    // Remove edge on click
+    (function(edgeId, midX, midY) {
+      path.style.cursor = 'pointer';
+      path.style.strokeWidth = '4';
+      path.style.stroke = 'transparent';
+      var hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      hit.setAttribute('d', d);
+      hit.setAttribute('stroke', 'transparent');
+      hit.setAttribute('stroke-width', '8');
+      hit.setAttribute('fill', 'none');
+      hit.style.cursor = 'pointer';
+      hit.addEventListener('click', function() {
+        canvas.edges = canvas.edges.filter(function(e) { return e.id !== edgeId; });
+        renderEdges();
+      });
+      layer.appendChild(hit);
+    })(edge.id, (sx + tx) / 2, (sy + ty) / 2);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROPERTIES PANEL
+// ═══════════════════════════════════════════════════════════════════
+function renderPropsPanel() {
+  var body = document.getElementById('props-body');
+  var node = canvas.nodes.find(function(n) { return n.id === canvas.selectedId; });
+  if (!node) {
+    body.innerHTML = '<div class="empty" style="padding:20px;color:#333;font-size:11px;text-align:center">Select a node to edit its properties</div>';
+    return;
+  }
+  var fields = NODE_FIELDS[node.type] || [];
+  var html = '<div class="prop-row"><div class="prop-label">Node name</div>' +
+    '<input class="prop-input" id="prop-node-name" value="' + esc(node.name || '') + '" /></div>';
+  html += '<div class="prop-row"><div class="prop-label">On error</div>' +
+    '<select class="prop-select" id="prop-on-error">' +
+    ['stop','skip'].map(function(v) {
+      return '<option value="' + v + '"' + (node.onError === v ? ' selected' : '') + '>' + v + '</option>';
+    }).join('') + '</select></div>';
+
+  fields.forEach(function(f) {
+    var val = node.config[f.key] !== undefined ? String(node.config[f.key]) : '';
+    html += '<div class="prop-row"><div class="prop-label">' + esc(f.label) + '</div>';
+    if (f.type === 'select') {
+      html += '<select class="prop-select" data-key="' + f.key + '">' +
+        (f.options || []).map(function(o) {
+          return '<option value="' + esc(o) + '"' + (val === o ? ' selected' : '') + '>' + esc(o) + '</option>';
+        }).join('') + '</select>';
+    } else if (f.type === 'textarea') {
+      html += '<textarea class="prop-textarea" data-key="' + f.key + '">' + esc(val) + '</textarea>';
+    } else {
+      html += '<input class="prop-input" data-key="' + f.key + '" value="' + esc(val) + '" />';
+    }
+    html += '</div>';
+  });
+
+  body.innerHTML = html;
+
+  body.querySelector('#prop-node-name').addEventListener('input', function(e) {
+    node.name = e.target.value;
+    var el = document.querySelector('[data-node-id="' + node.id + '"] .cn-label');
+    if (el) el.textContent = node.name;
+  });
+  body.querySelector('#prop-on-error').addEventListener('change', function(e) {
+    node.onError = e.target.value;
+  });
+  body.querySelectorAll('[data-key]').forEach(function(el) {
+    el.addEventListener('input', function() {
+      node.config[el.getAttribute('data-key')] = el.value;
+    });
+    el.addEventListener('change', function() {
+      node.config[el.getAttribute('data-key')] = el.value;
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PLAYBOOK SERIALIZATION
+// ═══════════════════════════════════════════════════════════════════
+function toPlaybookDef() {
+  var id = canvas.playbookId || ('pb_' + Date.now().toString(36));
+  canvas.playbookId = id;
+  var name = document.getElementById('pb-name-input').value.trim() || 'Untitled Playbook';
+  return {
+    id: id,
+    name: name,
+    nodes: canvas.nodes.map(function(n) {
+      return { id: n.id, type: n.type, name: n.name, config: n.config, onError: n.onError || 'stop' };
+    }),
+    connections: canvas.edges.map(function(e) {
+      var res = { from: e.from, to: e.to };
+      if (e.handle && e.handle !== 'main' && e.handle !== 'out' && e.handle !== 'items') res.handle = e.handle;
+      return res;
+    }),
+  };
+}
+
+function loadPlaybookDef(pb) {
+  canvas.nodes = [];
+  canvas.edges = [];
+  canvas.playbookId = pb.id;
+  canvas.selectedId = null;
+  document.getElementById('pb-name-input').value = pb.name || 'Untitled';
+  // Clear existing nodes from DOM
+  document.getElementById('canvas-nodes').innerHTML = '';
+
+  // Lay out nodes in a simple column if no positions stored
+  var x = 100, y = 60;
+  (pb.nodes || []).forEach(function(n, i) {
+    var def = getNodeDef(n.type) || { inputs:[{label:'in'}], outputs:[{label:'out'}], color:'#7c3aed', label: n.type };
+    var node = {
+      id: n.id,
+      type: n.type,
+      name: n.name || def.label,
+      config: n.config || {},
+      onError: n.onError,
+      x: n._x || (x + (i % 3) * 260),
+      y: n._y || (y + Math.floor(i / 3) * 140),
+      _def: def,
+      runStatus: null,
+      runItems: 0,
+      runDuration: null,
+    };
+    canvas.nodes.push(node);
+  });
+
+  // Build edges from connections
+  (pb.connections || []).forEach(function(c) {
+    var fromNode = canvas.nodes.find(function(n) { return n.id === c.from; });
+    var toNode   = canvas.nodes.find(function(n) { return n.id === c.to; });
+    if (!fromNode || !toNode) return;
+    var fromDef = fromNode._def || { outputs: [{label:'main'}] };
+    var handle = c.handle || (fromDef.outputs[0] ? fromDef.outputs[0].label : 'main');
+    var fromPortIdx = fromDef.outputs.findIndex(function(o) { return o.label === handle; });
+    if (fromPortIdx < 0) fromPortIdx = 0;
+    canvas.edges.push({
+      id: uid(),
+      from: c.from,
+      to: c.to,
+      handle: c.handle,
+      fromPort: fromPortIdx,
+      toPort: 0,
+    });
+  });
+
+  renderNodes();
+  renderEdges();
+  renderPropsPanel();
+  setTimeout(fitCanvas, 50);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TOOLBAR ACTIONS
+// ═══════════════════════════════════════════════════════════════════
+document.getElementById('btn-new').addEventListener('click', function() {
+  canvas.nodes = [];
+  canvas.edges = [];
+  canvas.playbookId = null;
+  canvas.selectedId = null;
+  document.getElementById('canvas-nodes').innerHTML = '';
+  document.getElementById('pb-name-input').value = 'Untitled Playbook';
+  renderNodes();
+  renderEdges();
+  renderPropsPanel();
+});
+
+document.getElementById('btn-save').addEventListener('click', function() {
+  var pb = toPlaybookDef();
+  fetch('/api/playbooks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(pb),
+  }).then(function(r) { return r.json(); }).then(function(saved) {
+    canvas.playbookId = saved.id;
+    showToast('Playbook saved: ' + saved.name);
+  }).catch(function(e) {
+    showToast('Save failed: ' + e, true);
+  });
+});
+
+document.getElementById('btn-open').addEventListener('click', function() {
+  openPlaybookList();
+});
+
+document.getElementById('btn-run').addEventListener('click', function() {
+  if (!canvas.playbookId) {
+    // Auto-save first
+    var pb = toPlaybookDef();
+    fetch('/api/playbooks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pb),
+    }).then(function() {
+      runCurrentPlaybook(pb.id);
+    }).catch(function(e) { showToast('Error: ' + e, true); });
+  } else {
+    // Save then run
+    var pb2 = toPlaybookDef();
+    fetch('/api/playbooks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pb2),
+    }).then(function() {
+      runCurrentPlaybook(pb2.id);
+    }).catch(function(e) { showToast('Error: ' + e, true); });
+  }
+});
+
+function runCurrentPlaybook(playbookId) {
+  // Reset node statuses
+  canvas.nodes.forEach(function(n) { n.runStatus = null; n.runItems = 0; n.runDuration = null; });
+  renderNodes();
+  fetch('/api/playbooks/' + playbookId + '/run', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.ok) {
+        showToast('Playbook started — watch the Runs tab');
+        // Switch to runs panel
+        document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+        document.querySelector('[data-panel="playbooks"]').classList.add('active');
+        document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+        document.getElementById('pb-panel').classList.add('active');
+      }
+    })
+    .catch(function(e) { showToast('Run failed: ' + e, true); });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PLAYBOOK LIST OVERLAY
+// ═══════════════════════════════════════════════════════════════════
+function openPlaybookList() {
+  var overlay = document.getElementById('pb-list-overlay');
+  overlay.classList.add('show');
+  fetch('/api/playbooks')
+    .then(function(r) { return r.json(); })
+    .then(function(list) {
+      var body = document.getElementById('pblo-body');
+      if (!list.length) {
+        body.innerHTML = '<div class="pblo-empty">No saved playbooks yet. Build one and click Save!</div>';
+        return;
+      }
+      body.innerHTML = list.map(function(pb) {
+        return '<div class="pblo-item" data-pb-id="' + esc(pb.id) + '">' +
+          '<span class="pblo-item-name">' + esc(pb.name) + '</span>' +
+          '<span class="pblo-item-meta">' + (pb.nodes ? pb.nodes.length : 0) + ' nodes</span>' +
+          '<button class="pblo-del" data-del-id="' + esc(pb.id) + '" title="Delete">✕</button>' +
+          '</div>';
+      }).join('');
+      body.querySelectorAll('.pblo-item').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+          if (e.target.closest('.pblo-del')) return;
+          var pbId = el.getAttribute('data-pb-id');
+          fetch('/api/playbooks/' + pbId).then(function(r) { return r.json(); }).then(function(pb) {
+            loadPlaybookDef(pb);
+            overlay.classList.remove('show');
+          });
+        });
+      });
+      body.querySelectorAll('.pblo-del').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var delId = btn.getAttribute('data-del-id');
+          if (!confirm('Delete this playbook?')) return;
+          fetch('/api/playbooks/' + delId, { method: 'DELETE' }).then(function() {
+            if (canvas.playbookId === delId) {
+              canvas.playbookId = null;
+              canvas.nodes = [];
+              canvas.edges = [];
+              canvas.selectedId = null;
+              document.getElementById('canvas-nodes').innerHTML = '';
+              document.getElementById('pb-name-input').value = 'Untitled Playbook';
+              renderNodes();
+              renderEdges();
+              renderPropsPanel();
+            }
+            openPlaybookList(); // refresh
+          });
+        });
+      });
+    })
+    .catch(function() {
+      document.getElementById('pblo-body').innerHTML = '<div class="pblo-empty">Failed to load playbooks.</div>';
+    });
+}
+
+document.getElementById('pblo-close-btn').addEventListener('click', function() {
+  document.getElementById('pb-list-overlay').classList.remove('show');
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════════
+function showToast(msg, isError) {
+  var t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;padding:8px 14px;border-radius:6px;font-size:11px;font-family:monospace;max-width:320px;pointer-events:none;transition:opacity .3s;' +
+    (isError ? 'background:#ef444420;border:1px solid #ef444466;color:#ef4444;' : 'background:#7c3aed20;border:1px solid #7c3aed66;color:#c4b5fd;');
+  document.body.appendChild(t);
+  setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 300); }, 2500);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LIVE EVENTS → update node statuses in builder
+// ═══════════════════════════════════════════════════════════════════
+function handleBuilderEvent(evt) {
+  if (!evt.nodeId) return;
+  var node = canvas.nodes.find(function(n) { return n.id === evt.nodeId; });
+  if (!node) return;
+  if (evt.eventType === 'step_started') {
+    node.runStatus = 'running';
+  } else if (evt.eventType === 'step_completed') {
+    node.runStatus = 'ok';
+    node.runItems = evt.itemTotal || 0;
+    node.runDuration = evt.durationMs || null;
+  } else if (evt.eventType === 'step_failed') {
+    node.runStatus = 'error';
+  }
+  // Only re-render if builder is active
+  var builderPanel = document.getElementById('builder-panel');
+  if (builderPanel.classList.contains('active')) {
+    renderNodes();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EVENT HANDLER (runs + builder)
+// ═══════════════════════════════════════════════════════════════════
+function handleEvent(evt) {
+  // Route to builder status
+  handleBuilderEvent(evt);
+
+  var id = evt.runId;
+  if (!id) return;
+  if (!runs[id]) {
+    runs[id] = { id: id, playbookId: evt.playbookId, playbookName: evt.playbookName || id,
+                 status: 'running', startedAt: evt.timestamp || Date.now(),
+                 itemsProcessed: 0, itemsTotal: 0 };
+  }
+  if (!runLogs[id]) runLogs[id] = [];
+  var r = runs[id];
+  var t = ts(evt.timestamp || Date.now());
+
+  if (evt.eventType === 'run_started') {
+    r.status = 'running';
+    r.startedAt = evt.timestamp || Date.now();
+  } else if (evt.eventType === 'step_started') {
+    runLogs[id].push({ ts: t, type: 'info', text: (evt.nodeName || '?') + ' — started' });
+  } else if (evt.eventType === 'step_completed') {
+    r.itemsProcessed = (r.itemsProcessed || 0) + (evt.itemTotal || 1);
+    runLogs[id].push({ ts: t, type: 'ok', text: (evt.nodeName || '?') + ' ✓ ' + (evt.durationMs ? evt.durationMs + 'ms' : '') });
+  } else if (evt.eventType === 'step_failed') {
+    runLogs[id].push({ ts: t, type: 'err', text: (evt.nodeName || '?') + ' ✗ ' + (evt.error || '') });
+  } else if (evt.eventType === 'run_completed') {
+    r.status = 'completed';
+    r.endedAt = evt.timestamp || Date.now();
+    // Clear running status on nodes
+    canvas.nodes.forEach(function(n) {
+      if (n.runStatus === 'running') { n.runStatus = null; }
+    });
+  } else if (evt.eventType === 'run_failed') {
+    r.status = 'failed';
+    r.endedAt = evt.timestamp || Date.now();
+  } else if (evt.eventType === 'run_stopped') {
+    r.status = evt.error ? 'failed' : 'stopped';
+    r.endedAt = evt.timestamp || Date.now();
+  }
+
+  if (runLogs[id].length > 80) runLogs[id] = runLogs[id].slice(-80);
+  updateHeader();
+  renderCards();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONNECTION
+// ═══════════════════════════════════════════════════════════════════
+var connDot = document.getElementById('conn-dot');
+var connLabel = document.getElementById('conn-label');
+
+function setConnStatus(state) {
+  if (state === 'live') {
+    connDot.style.background = '#22c55e';
+    connLabel.style.color = '#22c55e';
+    connLabel.textContent = 'live';
+  } else if (state === 'error') {
+    connDot.style.background = '#f59e0b';
+    connLabel.style.color = '#f59e0b';
+    connLabel.textContent = 'reconnecting…';
+  } else {
+    connDot.style.background = '#555';
+    connLabel.style.color = '#555';
+    connLabel.textContent = 'connecting…';
+  }
+}
+
+var _sseRetryDelay = 1000;
+function connectSSE() {
+  setConnStatus('connecting');
+  var es = new EventSource('/events');
+  es.onopen = function() { setConnStatus('live'); _sseRetryDelay = 1000; };
+  es.onmessage = function(e) { handleEvent(JSON.parse(e.data)); };
+  es.onerror = function() {
+    setConnStatus('error');
+    es.close();
+    setTimeout(connectSSE, Math.min(_sseRetryDelay *= 2, 30000));
+  };
+}
+
+function connect() {
+  setConnStatus('connecting');
+  var sock = new WebSocket('ws://' + location.host + '/ws');
+  sock.onopen = function() { setConnStatus('live'); };
+  sock.onmessage = function(e) {
+    var msg = JSON.parse(e.data);
+    if (msg.type === 'history') {
+      msg.runs.forEach(function(r) {
+        runs[r.id] = r;
+        if (!runLogs[r.id]) runLogs[r.id] = [];
+      });
+      updateHeader();
+      renderCards();
+    } else {
+      handleEvent(msg);
+    }
+  };
+  var wsFailedOnce = false;
+  sock.onclose = function() {
+    setConnStatus('error');
+    if (!wsFailedOnce) {
+      wsFailedOnce = true;
+      fetch('/events', { method: 'HEAD' }).then(function(r) {
+        if (r.ok) { connectSSE(); } else { setTimeout(connect, 2500); }
+      }).catch(function() { setTimeout(connect, 2500); });
+    } else {
+      setTimeout(connect, 2500);
+    }
+  };
+}
+
+// ── init ───────────────────────────────────────────────────
+connect();
+setInterval(function() { if (Object.values(runs).some(function(r){return r.status==='running';})) renderCards(); }, 5000);
+</script>
+</body>
+</html>
