@@ -31,6 +31,7 @@ export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
 export { monographCommand } from './monograph.js';
 export { platformsCommand } from './platforms.js';
+export { designCommand } from './design-detect.js';
 export declare function getConfigCommand(): Promise<Command | undefined>;
 export declare function getMigrateCommand(): Promise<Command | undefined>;
 export declare function getWorkflowCommand(): Promise<Command | undefined>;
