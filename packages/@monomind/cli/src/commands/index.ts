@@ -79,6 +79,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   platforms: () => import('./platforms.js'),
   // Org management (list, delete)
   org: () => import('./org.js'),
+  // Design tooling (anti-pattern detection)
+  design: () => import('./design-detect.js'),
 };
 
 // Cache for loaded commands
@@ -162,6 +164,7 @@ import { benchmarkCommand } from './benchmark.js';
 import storeCommand from './transfer-store.js';
 import tokensCommand from './tokens.js';
 import { platformsCommand } from './platforms.js';
+import { designCommand } from './design-detect.js';
 
 // Pre-populate cache with core commands
 loadedCommands.set('init', initCommand);
@@ -191,6 +194,7 @@ loadedCommands.set('transfer-store', storeCommand);
 loadedCommands.set('tokens', tokensCommand);
 loadedCommands.set('platforms', platformsCommand);
 loadedCommands.set('browse', browseCommand);
+loadedCommands.set('design', designCommand);
 
 // =============================================================================
 // Exports (maintain backwards compatibility)
@@ -219,6 +223,7 @@ export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
 export { monographCommand } from './monograph.js';
 export { platformsCommand } from './platforms.js';
+export { designCommand } from './design-detect.js';
 
 // Lazy-loaded command re-exports (for backwards compatibility, but async-only)
 export async function getConfigCommand() { return loadCommand('config'); }
@@ -274,6 +279,7 @@ export const commands: Command[] = [
   autopilotCommand,
   monographCommand,
   platformsCommand,
+  designCommand,
 ];
 
 /**

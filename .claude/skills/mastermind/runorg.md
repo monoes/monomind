@@ -316,34 +316,37 @@ jq -cn \
   '{type:"run:start",runId:$runId,org:$org,orgName:$org,goal:$goal,bossRole:$bossRole,project:$proj,ts:(now*1000|floor)}' \
   >> "$runFile"
 
-# Print resolved values so Step 4 can embed them in the boss prompt
+# Emit session:start first — creates the chat tab session record and writes active-session.json
+# so capture-handler can tag all subsequent agent:spawn / agent:complete events with this session
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn \
+    --arg session "$sessionId" \
+    --arg org "$orgName" \
+    --arg prompt "$goal" \
+    '{type:"session:start",session:$session,org:$org,prompt:$prompt,ts:(now*1000|floor)}')" || true
+
+# Emit org:start — must run here while CTRL_URL/runId/orgName are in scope
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn \
+    --arg session "$sessionId" \
+    --arg org "$orgName" \
+    --arg runId "$runId" \
+    --arg goal "$goal" \
+    --arg proj "$REPO_ROOT" \
+    --argjson ci "${CHECKPOINT_INTERVAL_MS:-600000}" \
+    '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,checkpointInterval:$ci,ts:(now*1000|floor)}')" || true
+
+# Print resolved values so Step 3 can embed them in the boss prompt
 echo "ORG_VARS: orgName=${orgName} runId=${runId} sessionId=${sessionId} goal=${goal} bossRole_id=${bossRole_id} bossRole_title=${bossRole_title} bossRole_agent_type=${bossRole_agent_type} board_id=${board_id} todo_col=${todo_col} doing_col=${doing_col} done_col=${done_col} checkpointMin=${checkpointMin} memNs=${memNs} CTRL_URL=${CTRL_URL} MONO_DIR=${MONO_DIR} runFile=${runFile} REPO_ROOT=${REPO_ROOT}"
 ```
 
-After running the script above, read the `ORG_VARS:` line from its output and hold those values for Step 4 (embed them into the boss prompt as literals — **do not re-run bash to look them up**).
+After running the script above, read the `ORG_VARS:` line from its output and hold those values for Step 3 (embed them into the boss prompt as literals — **do not re-run bash to look them up**).
 
 ---
 
-## Step 3 — Emit org:start (separate Bash call, re-derives from output)
-
-After the combined Step 2+3 script runs, emit `org:start` using the values printed by `ORG_VARS:`. Replace each `<X>` with the literal value from that line:
-
-```bash
-curl -s -X POST "<CTRL_URL>/api/mastermind/event" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -cn \
-    --arg session "<sessionId>" \
-    --arg org "<orgName>" \
-    --arg runId "<runId>" \
-    --arg goal "<goal>" \
-    --arg proj "<REPO_ROOT>" \
-    --argjson ci "${CHECKPOINT_INTERVAL_MS:-600000}" \
-    '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,checkpointInterval:$ci,ts:(now*1000|floor)}')" || true
-```
-
----
-
-## Step 4 — Spawn Boss Agent
+## Step 3 — Spawn Boss Agent
 
 Using the literal values from the `ORG_VARS:` output (not shell variables — they don't persist), spawn the boss agent via Task tool:
 

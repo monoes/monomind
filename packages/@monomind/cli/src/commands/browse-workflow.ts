@@ -1,258 +1,152 @@
-// src/commands/browse-workflow.ts
-import { Command } from 'commander';
-import { readdir, writeFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { readWorkflow, listRuns, writeRunRecord, runWorkflow, createBuiltinHandlers } from '@monoes/monobrowse';
-import { startDashboard } from '@monoes/monobrowse';
-import type { WorkflowDef } from '@monoes/monobrowse';
+import { writeFile, mkdir } from 'fs/promises';
+import { join, resolve, isAbsolute } from 'path';
+import type { Command, CommandContext, CommandResult } from '../types.js';
+import { output } from '../output.js';
+import { input, confirm } from '../prompt.js';
 
-export function createWorkflowCommand(): Command {
-  const cmd = new Command('playbook')
-    .alias('workflow')
-    .description('Manage browser playbooks (saved automation recipes)');
+const createSubcommand: Command = {
+  name: 'create',
+  description: 'Scaffold a new workflow JSON file',
+  options: [
+    { name: 'output', short: 'o', type: 'string', description: 'Output directory', default: '.monomind/workflows' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const name = ctx.args[0] ?? (ctx.interactive ? await input({ message: 'Workflow name:' }) : undefined);
+    if (!name || !/^[a-zA-Z0-9_-]{1,64}$/.test(name)) {
+      output.printError('Workflow name required (alphanumeric, dash, underscore, max 64 chars)');
+      return { success: false, exitCode: 1 };
+    }
+    const outDir = join(ctx.cwd, ctx.flags.output as string ?? '.monomind/workflows');
+    await mkdir(outDir, { recursive: true });
+    const filePath = join(outDir, `${name}.json`);
+    const template = {
+      id: name, name: name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      nodes: [
+        { id: 'trigger', type: 'trigger.manual', config: {} },
+        { id: 'action1', type: 'action.linkedin.comment_post',
+          config: { post_url: '{{$json.url}}', text: '{{$json.comment}}', account: '{{$env.LINKEDIN_USER}}' } },
+      ],
+      connections: [{ from: 'trigger', to: 'action1' }],
+    };
+    await writeFile(filePath, JSON.stringify(template, null, 2));
+    output.printSuccess(`Created ${filePath}`);
+    output.printInfo('Edit the file, then run: monomind browse workflow run ' + filePath);
+    return { success: true };
+  },
+};
 
-  cmd
-    .command('create <name>')
-    .description('Scaffold a new workflow JSON file')
-    .option('--template <type>', 'Starter template: minimal | http | google-sheets | gmail | microsoft | gemini-image', 'minimal')
-    .action(async (name: string, opts: { template: string }) => {
-      const dir = join(process.cwd(), '.monomind', 'workflows');
-      await mkdir(dir, { recursive: true });
-      const file = join(dir, `${name}.json`);
-      if (existsSync(file)) {
-        console.error(`Workflow already exists: ${file}`);
-        process.exit(1);
-      }
+const runSubcommand: Command = {
+  name: 'run',
+  description: 'Execute a workflow JSON file',
+  options: [
+    { name: 'no-dashboard', type: 'boolean', description: 'Skip opening web dashboard', default: false },
+    { name: 'port', type: 'number', description: 'Dashboard port', default: 4242 },
+    { name: 'items', short: 'i', type: 'string', description: 'JSON file of input items array' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const rawPath = ctx.args[0];
+    if (!rawPath) { output.printError('Workflow file required: monomind browse workflow run <file.json>'); return { success: false, exitCode: 1 }; }
+    const filePath = isAbsolute(rawPath) ? rawPath : resolve(ctx.cwd, rawPath);
 
-      const humanName = name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      let def: WorkflowDef;
+    const { readWorkflow } = await import('../browser/workflow/store.js');
+    const { runWorkflow } = await import('../browser/workflow/engine.js');
+    const { getDashboardServer } = await import('../browser/dashboard/server.js');
 
-      switch (opts.template) {
-        case 'http':
-          def = {
-            id: name, name: humanName,
-            description: 'Fetch data from an HTTP endpoint and save to file',
-            nodes: [
-              { id: 'trigger', type: 'trigger.manual', name: 'Start', config: { items: [{ data: { url: 'https://api.example.com/data' } }] } },
-              { id: 'fetch', type: 'action.http', name: 'Fetch Data', config: { url: '{{$json.url}}', method: 'GET' }, onError: 'skip' },
-              { id: 'log', type: 'action.log', name: 'Log Result', config: { label: 'result' } },
-              { id: 'save', type: 'action.save_file', name: 'Save JSON', config: { path: `./output/${name}-result.json` } },
-            ],
-            connections: [{ from: 'trigger', to: 'fetch' }, { from: 'fetch', to: 'log' }, { from: 'log', to: 'save' }],
-          };
-          break;
+    const wf = await readWorkflow(filePath).catch(e => { output.printError(e.message); return null; });
+    if (!wf) return { success: false, exitCode: 1 };
 
-        case 'google-sheets':
-          def = {
-            id: name, name: humanName,
-            description: 'Read rows from Google Sheets and process them',
-            params: { spreadsheetId: { required: true, description: 'Google Sheets ID from URL' }, range: { default: 'Sheet1', description: 'Cell range e.g. Sheet1!A:Z' } },
-            nodes: [
-              { id: 'trigger', type: 'trigger.manual', name: 'Start', config: {} },
-              { id: 'read', type: 'action.google_sheets_read', name: 'Read Sheet', config: { spreadsheetId: '{{params.spreadsheetId}}', range: '{{params.range}}' } },
-              { id: 'log', type: 'action.log', name: 'Log Rows', config: { label: 'row' } },
-            ],
-            connections: [{ from: 'trigger', to: 'read' }, { from: 'read', to: 'log' }],
-          };
-          break;
+    const port = ctx.flags.port as number ?? 4242;
+    const dashboard = getDashboardServer(port);
+    if (!ctx.flags['no-dashboard']) {
+      output.printInfo(`Dashboard: http://localhost:${dashboard.port}`);
+      const { exec } = await import('child_process');
+      exec(`open http://localhost:${dashboard.port}`).unref();
+    }
 
-        case 'gmail':
-          def = {
-            id: name, name: humanName,
-            description: 'Send emails via Gmail API',
-            params: { to: { required: true, description: 'Recipient email address' }, subject: { required: true }, body: { required: true } },
-            nodes: [
-              { id: 'trigger', type: 'trigger.manual', name: 'Start', config: { items: [{ data: {} }] } },
-              { id: 'send', type: 'action.gmail_send', name: 'Send Email', config: { to: '{{params.to}}', subject: '{{params.subject}}', body: '{{params.body}}' } },
-              { id: 'log', type: 'action.log', name: 'Log Result', config: { label: 'sent' } },
-            ],
-            connections: [{ from: 'trigger', to: 'send' }, { from: 'send', to: 'log' }],
-          };
-          break;
+    output.writeln(output.bold(`Running: ${wf.name}`));
+    const spinner = output.createSpinner({ text: 'Executing...', spinner: 'dots' });
+    spinner.start();
 
-        case 'microsoft':
-          def = {
-            id: name, name: humanName,
-            description: 'Call Microsoft Graph API (Outlook, Teams, OneDrive)',
-            params: { endpoint: { default: '/me/messages', description: 'Graph API endpoint' } },
-            nodes: [
-              { id: 'trigger', type: 'trigger.manual', name: 'Start', config: { items: [{ data: {} }] } },
-              { id: 'graph', type: 'action.microsoft_graph', name: 'Graph API Call', config: { endpoint: '{{params.endpoint}}', method: 'GET' } },
-              { id: 'log', type: 'action.log', name: 'Log Result', config: { label: 'graph' } },
-            ],
-            connections: [{ from: 'trigger', to: 'graph' }, { from: 'graph', to: 'log' }],
-          };
-          break;
-
-        case 'gemini-image':
-          def = {
-            id: name, name: humanName,
-            description: 'Generate images using Gemini via browser or API',
-            params: { prompt: { required: true, description: 'Image generation prompt' } },
-            nodes: [
-              { id: 'trigger', type: 'trigger.manual', name: 'Start', config: { items: [{ data: {} }] } },
-              { id: 'generate', type: 'action.gemini_image', name: 'Generate Image', config: { prompt: '{{params.prompt}}', outputPath: `./output/${name}.png` }, onError: 'skip' },
-              { id: 'log', type: 'action.log', name: 'Log Result', config: { label: 'generated' } },
-            ],
-            connections: [{ from: 'trigger', to: 'generate' }, { from: 'generate', to: 'log' }],
-          };
-          break;
-
-        default: // minimal
-          def = {
-            id: name, name: humanName,
-            description: 'New workflow',
-            nodes: [
-              { id: 'trigger', type: 'trigger.manual', name: 'Start', config: { items: [{ data: { message: 'hello' } }] } },
-              { id: 'log', type: 'action.log', name: 'Log', config: { label: name } },
-            ],
-            connections: [{ from: 'trigger', to: 'log' }],
-          };
-      }
-
-      await writeFile(file, JSON.stringify(def, null, 2));
-      console.log(`Created: ${file}`);
-      console.log(`Template: ${opts.template}`);
-      if (def.params) {
-        console.log(`Params: ${Object.entries(def.params).map(([k, v]) => `${k}${v.required ? ' (required)' : ''}`).join(', ')}`);
-      }
-      console.log(`Run with: npx monomind browse workflow run ${file}`);
+    const record = await runWorkflow(wf, {
+      onEvent: (ev) => dashboard.broadcast(ev),
     });
 
-  cmd
-    .command('run <file>')
-    .description('Execute a workflow and open the dashboard')
-    .option('--port <number>', 'Dashboard port (default: MONOBROWSE_DASHBOARD_PORT or 4242)', '4242')
-    .option('--no-keep', 'Exit immediately after run instead of keeping dashboard alive')
-    .option('--params <pairs...>', 'Workflow params as key=value pairs e.g. --params name=Alice count=5')
-    .option('--timeout <seconds>', 'Max run time in seconds (default: 900)', '900')
-    .action(async (file: string, opts: { port: string; keep: boolean; params?: string[]; timeout: string }) => {
-      const filePath = resolve(file);
-      let def: WorkflowDef;
-      try {
-        def = await readWorkflow(filePath);
-      } catch (err) {
-        console.error(`Failed to load workflow: ${err instanceof Error ? err.message : String(err)}`);
-        process.exit(1);
-      }
+    if (record.status === 'completed') {
+      spinner.succeed(`Done — ${record.itemsProcessed} items in ${((record.completedAt! - record.startedAt) / 1000).toFixed(1)}s`);
+    } else {
+      spinner.fail(`${record.status}${record.error ? ': ' + record.error : ''}`);
+    }
+    return { success: record.status === 'completed' };
+  },
+};
 
-      // Parse --params key=value pairs
-      const params: Record<string, string> = {};
-      for (const pair of opts.params ?? []) {
-        const eq = pair.indexOf('=');
-        if (eq > 0) params[pair.slice(0, eq)] = pair.slice(eq + 1);
-      }
-
-      // Validate required params
-      if (def.params) {
-        for (const [key, spec] of Object.entries(def.params)) {
-          if (spec.required && !(key in params) && spec.default === undefined) {
-            console.error(`Missing required workflow param: ${key}${spec.description ? ` (${spec.description})` : ''}`);
-            process.exit(1);
-          }
-          // Apply defaults
-          if (!(key in params) && spec.default !== undefined) {
-            params[key] = String(spec.default);
-          }
-        }
-      }
-
-      const port = parseInt(process.env['MONOBROWSE_DASHBOARD_PORT'] ?? opts.port, 10);
-      const dashboard = startDashboard(port);
-      console.log(`Dashboard: http://localhost:${dashboard.port}`);
-      console.log(`Running: ${def.name}`);
-      if (Object.keys(params).length > 0) {
-        console.log(`Params: ${JSON.stringify(params)}`);
-      }
-
-      const timeoutMs = parseInt(opts.timeout, 10) * 1000;
-      // Resolve the project directory once so every event carries the same canonical tag.
-      const projectDir = process.cwd();
-      const record = await runWorkflow(def, {
-        handlers: createBuiltinHandlers(),
-        onEvent: event => {
-          dashboard.broadcast({ ...event, projectDir });
-          if (event.eventType === 'step_completed' || event.eventType === 'step_failed') {
-            const status = event.eventType === 'step_completed' ? '✓' : '✗';
-            console.log(`  ${status} ${event.nodeName}${event.durationMs ? ` (${event.durationMs}ms)` : ''}`);
-          }
-        },
-        signal: AbortSignal.timeout(timeoutMs),
-        params,
-      });
-
-      dashboard.addRunRecord(record);
-      await writeRunRecord(record);
-      console.log(`\nCompleted: ${record.status} — ${record.itemsProcessed} items`);
-      if (record.error) console.error(`Error: ${record.error}`);
-
-      if (opts.keep !== false) {
-        console.log(`\nDashboard kept alive at http://localhost:${dashboard.port} — press Ctrl+C to exit`);
-        process.on('SIGINT', () => { dashboard.close(); process.exit(0); });
-        process.on('SIGTERM', () => { dashboard.close(); process.exit(0); });
-      } else {
-        process.exit(record.status === 'completed' ? 0 : 1);
-      }
+const listSubcommand: Command = {
+  name: 'list',
+  aliases: ['ls'],
+  description: 'List recent workflow runs',
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { listRuns } = await import('../browser/workflow/store.js');
+    const runs = await listRuns();
+    if (runs.length === 0) { output.printInfo('No runs found'); return { success: true }; }
+    output.printTable({
+      columns: [
+        { key: 'id', header: 'Run ID', width: 12 },
+        { key: 'workflowName', header: 'Workflow', width: 20 },
+        { key: 'status', header: 'Status', width: 10 },
+        { key: 'itemsProcessed', header: 'Items', width: 8, align: 'right' },
+        { key: 'startedAt', header: 'Started', width: 20,
+          format: (v) => new Date(v as number).toLocaleString() },
+      ],
+      data: runs as unknown as Record<string, unknown>[],
     });
+    return { success: true };
+  },
+};
 
-  cmd
-    .command('list')
-    .description('List available workflows and their last run status')
-    .action(async () => {
-      const dir = join(process.cwd(), '.monomind', 'workflows');
-      if (!existsSync(dir)) {
-        console.log('No workflows found. Create one with: browse workflow create <name>');
-        return;
-      }
-      const files = (await readdir(dir)).filter(f => f.endsWith('.json'));
-      if (files.length === 0) {
-        console.log('No workflows found.');
-        return;
-      }
-      const runs = await listRuns();
-      for (const file of files) {
-        const id = file.replace('.json', '');
-        const lastRun = runs.find(r => r.workflowId === id);
-        const status = lastRun ? `[${lastRun.status}]` : '[never run]';
-        console.log(`  ${id}  ${status}`);
-      }
-    });
+const statusSubcommand: Command = {
+  name: 'status',
+  description: 'Show status of a specific run',
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const runId = ctx.args[0];
+    if (!runId) { output.printError('Run ID required'); return { success: false, exitCode: 1 }; }
+    const { listRuns } = await import('../browser/workflow/store.js');
+    const runs = await listRuns();
+    const run = runs.find(r => r.id.startsWith(runId));
+    if (!run) { output.printError(`Run not found: ${runId}`); return { success: false, exitCode: 1 }; }
+    output.printBox([
+      `ID: ${run.id}`, `Workflow: ${run.workflowName}`, `Status: ${run.status}`,
+      `Items: ${run.itemsProcessed}/${run.itemsTotal}`,
+      `Started: ${new Date(run.startedAt).toLocaleString()}`,
+      run.completedAt ? `Completed: ${new Date(run.completedAt).toLocaleString()}` : '',
+      run.error ? `Error: ${run.error}` : '',
+    ].filter(Boolean).join('\n'), 'Run Status');
+    return { success: true };
+  },
+};
 
-  cmd
-    .command('status <run-id>')
-    .description('Check the status of a specific run')
-    .action(async (runId: string) => {
-      const runs = await listRuns();
-      const run = runs.find(r => r.id === runId);
-      if (!run) {
-        console.error(`Run not found: ${runId}`);
-        process.exit(1);
-      }
-      console.log(JSON.stringify(run, null, 2));
-    });
+const stopSubcommand: Command = {
+  name: 'stop',
+  description: 'Stop a running workflow (sends abort signal)',
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    output.printInfo('Stop is handled via the dashboard Stop button or Ctrl-C in the running terminal.');
+    return { success: true };
+  },
+};
 
-  cmd
-    .command('stop <run-id>')
-    .description('Request cancellation of a running workflow via dashboard')
-    .option('--port <number>', 'Dashboard port (default: MONOBROWSE_DASHBOARD_PORT or 4242)', '4242')
-    .action(async (runId: string, opts: { port: string }) => {
-      const port = parseInt(process.env['MONOBROWSE_DASHBOARD_PORT'] ?? opts.port, 10);
-      // Try to signal via HTTP POST to the dashboard server
-      try {
-        const res = await fetch(`http://127.0.0.1:${port}/stop/${runId}`, { method: 'POST' });
-        if (res.ok) {
-          console.log(`Stop requested for run: ${runId}`);
-          console.log(`Dashboard: http://localhost:${port}`);
-        } else {
-          console.error(`Dashboard returned ${res.status}. Is a workflow running on port ${port}?`);
-        }
-      } catch {
-        console.error(`Could not reach dashboard on port ${port}. Make sure the workflow is running.`);
-        console.error(`You can also use the Stop button in the dashboard: http://localhost:${port}`);
-        process.exit(1);
-      }
-    });
+export const browseWorkflowCommand: Command = {
+  name: 'workflow',
+  description: 'Browser workflow automation (create, run, list, status)',
+  subcommands: [createSubcommand, runSubcommand, listSubcommand, statusSubcommand, stopSubcommand],
+  action: async (): Promise<CommandResult> => {
+    output.writeln(output.bold('browse workflow — usage:'));
+    output.printList([
+      'monomind browse workflow create <name>',
+      'monomind browse workflow run <file.json>',
+      'monomind browse workflow list',
+      'monomind browse workflow status <run-id>',
+    ]);
+    return { success: true };
+  },
+};
 
-  return cmd;
-}
+export default browseWorkflowCommand;

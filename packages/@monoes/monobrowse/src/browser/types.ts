@@ -125,11 +125,22 @@ export const INTERACTIVE_ROLES = new Set([
 ]);
 
 export const CHROME_EXECUTABLES = [
+  // macOS — Chrome
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  // macOS — Edge
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+  // Linux — Chrome
   '/usr/bin/google-chrome',
   '/usr/bin/chromium-browser',
   '/usr/bin/chromium',
+  // Linux — Edge
+  '/usr/bin/microsoft-edge',
+  '/usr/bin/microsoft-edge-stable',
+  // Windows — Chrome
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  // Windows — Edge (pre-installed on all Windows 10/11 machines)
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
 ];

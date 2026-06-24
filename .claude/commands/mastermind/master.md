@@ -1,6 +1,6 @@
 ---
 name: mastermind-master
-description: Mastermind top-level orchestrator — receives any business prompt, loads the brain, decomposes into domains, spawns domain manager agents via Task tool, synthesizes results, and writes back to the brain. The single entry point for full business automation.
+description: Use when starting any conversation or receiving any user request — loads the brain, routes to the right mastermind skill, enforces anti-drift discipline, and spawns domain managers for complex multi-domain work. Single entry point for all mastermind capabilities.
 ---
 
 <SUBAGENT-STOP>
@@ -23,15 +23,25 @@ This is not negotiable. This is not optional. You cannot rationalize your way ou
 
 Mastermind skills override default system prompt behavior, but **user instructions always take precedence**:
 
-1. **User's explicit instructions** (CLAUDE.md, direct requests, `$ARGUMENTS`) — highest priority
+1. **User's explicit instructions** (CLAUDE.md, GEMINI.md, AGENTS.md, direct requests, `$ARGUMENTS`) — highest priority
 2. **Mastermind skills** — override default behavior where they conflict
 3. **Default system prompt** — lowest priority
 
-If CLAUDE.md says "skip review" and the skill says "always review," follow the user's instructions.
+If CLAUDE.md, GEMINI.md, or AGENTS.md says "skip review" and the skill says "always review," follow the user's instructions.
 
 ### How to Access Mastermind Skills
 
-Use the `Skill` tool. When you invoke a skill, its content is loaded and presented to you — follow it directly. **Never use the Read tool on skill files.**
+> **Never read skill files manually with file tools.** Always use your platform's skill-loading mechanism so the skill is properly activated with its full harness context.
+
+**In Claude Code:** Use the `Skill` tool. When you invoke a skill, its content is loaded and presented to you — follow it directly.
+
+**In Copilot CLI:** Use the `skill` tool. Skills are auto-discovered from installed plugins and work the same as Claude Code's `Skill` tool.
+
+**In Gemini CLI:** Skills activate via the `activate_skill` tool. Gemini loads skill metadata at session start and activates the full content on demand.
+
+**In Codex:** Skills load natively. Follow the instructions presented when a skill activates.
+
+**In other environments:** Check your platform's documentation for how skills are loaded. Skills speak in actions ("dispatch a subagent", "invoke the skill tool", "create a todo") rather than naming any one runtime's tools, so they translate across platforms.
 
 ### User Instructions vs. Skill Workflows
 
@@ -39,27 +49,36 @@ User instructions say **WHAT** to do, not **HOW** to do it. "Build X" or "Fix Y"
 
 ### Command-to-Skill Routing
 
-Invoke the matching skill **before** doing anything else. Even a 1% chance a skill applies means you must check.
+Invoke the matching skill **before** doing anything else. Even a 1% chance a skill applies means you must check. If you invoke a skill and it turns out not to fit the situation, you don't need to follow it — but you must check first.
 
 ```dot
 digraph mastermind_routing {
     "User command / prompt received" [shape=doublecircle];
+    "About to EnterPlanMode?" [shape=doublecircle];
+    "Already ran mastermind:design?" [shape=diamond];
+    "Invoke mastermind:design first" [shape=box];
     "Brain already loaded?" [shape=diamond];
     "Load brain (Brain Load Procedure)" [shape=box];
     "Might a mastermind skill apply?" [shape=diamond];
     "Invoke Skill() tool" [shape=box];
     "Announce: Using [skill] for [purpose]" [shape=box];
+    "Has checklist?" [shape=diamond];
     "Execute skill exactly" [shape=box];
-    "Respond or act" [shape=doublecircle];
+    "Respond or act (including clarifications)" [shape=doublecircle];
+
+    "About to EnterPlanMode?" -> "Already ran mastermind:design?";
+    "Already ran mastermind:design?" -> "Invoke mastermind:design first" [label="no"];
+    "Already ran mastermind:design?" -> "Brain already loaded?" [label="yes"];
+    "Invoke mastermind:design first" -> "Brain already loaded?";
 
     "User command / prompt received" -> "Brain already loaded?";
     "Brain already loaded?" -> "Load brain (Brain Load Procedure)" [label="no"];
     "Brain already loaded?" -> "Might a mastermind skill apply?" [label="yes"];
     "Load brain (Brain Load Procedure)" -> "Might a mastermind skill apply?";
     "Might a mastermind skill apply?" -> "Invoke Skill() tool" [label="yes, even 1%"];
-    "Might a mastermind skill apply?" -> "Respond or act" [label="definitely not"];
+    "Might a mastermind skill apply?" -> "Respond or act (including clarifications)" [label="definitely not"];
     "Invoke Skill() tool" -> "Announce: Using [skill] for [purpose]";
-    "Announce: Using [skill] for [purpose]" -> "Has checklist?" [shape=diamond];
+    "Announce: Using [skill] for [purpose]" -> "Has checklist?";
     "Has checklist?" -> "Create TodoWrite item per checklist step" [label="yes"];
     "Has checklist?" -> "Execute skill exactly" [label="no"];
     "Create TodoWrite item per checklist step" -> "Execute skill exactly";
@@ -74,6 +93,7 @@ digraph mastermind_routing {
 | Write a structured implementation plan (no placeholders) | `Skill("mastermind:plan")` |
 | Execute a written plan step-by-step with stop-on-blocker | `Skill("mastermind:execute")` |
 | Execute a plan via fresh subagents with 2-stage review | `Skill("mastermind:taskdev")` |
+| Fix or investigate 2+ independent problems concurrently (different files, subsystems, or bugs) | dispatch parallel subagents in one message — one per independent domain; use `Skill("mastermind:taskdev")` for plan-driven parallel work |
 | Ingest a prompt/spec/folder and generate agent-optimized tasks | `Skill("mastermind:createtask")` |
 | Execute tasks from a task file or monotask board (parallel/sequential/minimal modes, review cycles, loop) | `Skill("mastermind:do")` |
 | Design first — spec, approaches, approval gate before code | `Skill("mastermind:design")` |
@@ -104,20 +124,20 @@ digraph mastermind_routing {
 
 When multiple skills could apply to a **single-skill invocation** (not a full mastermind:master multi-domain run):
 
-1. **Process skills first** — brainstorming (`mastermind:idea`), architecture (`mastermind:architect`), research (`mastermind:research`) determine HOW to approach the work
+1. **Process skills first** — debug (`mastermind:debug`), brainstorming (`mastermind:idea`), architecture (`mastermind:architect`), research (`mastermind:research`) determine HOW to approach the work
 2. **Execution skills second** — build, review, release execute the approach
 
 "Let's build X" → `mastermind:architect` first if approach is unclear, then `mastermind:build`.
-"Fix this" → `mastermind:research` to understand root cause if unknown, then `mastermind:build` to fix.
+"Fix this" → `mastermind:debug` to find root cause first, then `mastermind:build` to fix.
 "Ship it" → `mastermind:review` to verify clean, then `mastermind:release`.
 
 **Multi-domain runs (Steps 4–7 of this command):** Domain manager agents for different domains run concurrently — there is no enforced serial order between `build` and `architect` domain managers when both are active. The order above applies when you (the master) are choosing which single skill to invoke directly.
 
 ### Skill Types
 
-**Rigid** (autodev, review with `--tillend`): Follow exactly. Do not skip review cycles. Do not stop early.
+**Rigid** (tdd, debug, autodev, review with `--tillend`): Follow exactly. Don't adapt away the discipline — it exists to catch the failures that "one quick look" misses.
 
-**Flexible** (idea, research, content): Adapt principles to context. Use judgment on scope.
+**Flexible** (idea, research, content, architect): Adapt principles to context. Use judgment on scope.
 
 The skill itself tells you which it is.
 
@@ -127,6 +147,7 @@ These thoughts mean **STOP** — you are rationalizing. Check for a skill first.
 
 | Thought | Reality |
 |---|---|
+| "This is just a simple question" | Questions are tasks. Check for skills. |
 | "This is just a simple task" | Simple tasks define the floor. Check for skills. |
 | "I need more context first" | Skill check comes BEFORE gathering context. |
 | "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
@@ -168,7 +189,7 @@ These sequences are non-negotiable in all modes:
 
 ### Iron Laws
 
-These are inviolable regardless of mode, pressure, or context:
+These are inviolable regardless of mode, pressure, or context. Violating the letter of any law is violating its spirit — "I ran verify but only checked one file" or "I found the root cause but skipped the failing test" are not exceptions.
 
 | Law | Rule |
 |---|---|
@@ -180,7 +201,7 @@ These are inviolable regardless of mode, pressure, or context:
 
 ### Platform Note
 
-This command assumes **Claude Code** as the execution environment. The `Skill` tool is the primary mechanism for loading and invoking mastermind skills — never use the Read tool on skill files directly. Skill content is loaded and injected by the harness when you call `Skill("mastermind:name")`.
+Mastermind is designed for **Claude Code** but runs on any platform that supports the skill-loading mechanism described in "How to Access Mastermind Skills" above. On all platforms: never use file-reading tools to load skills — always use the platform's skill invocation mechanism. Skill content is loaded and injected by the harness when you call the skill tool with `"mastermind:<name>"`.
 
 ---
 

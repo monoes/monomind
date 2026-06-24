@@ -14,9 +14,9 @@ function mockPage(isLoggedIn: boolean, username = 'testuser'): PageInterface {
 }
 
 describe('adapter registry', () => {
-  it('has all 4 platforms', () => {
-    expect(adapters.size).toBe(4);
-    for (const p of ['linkedin', 'instagram', 'x', 'gemini']) {
+  it('has all 6 platforms', () => {
+    expect(adapters.size).toBe(6);
+    for (const p of ['linkedin', 'instagram', 'x', 'gemini', 'google', 'microsoft']) {
       expect(adapters.has(p)).toBe(true);
     }
   });
@@ -27,7 +27,7 @@ describe('adapter registry', () => {
 });
 
 describe('each adapter', () => {
-  const platforms = ['linkedin', 'instagram', 'x', 'gemini'] as const;
+  const platforms = ['linkedin', 'instagram', 'x', 'gemini', 'google', 'microsoft'] as const;
 
   for (const platform of platforms) {
     describe(platform, () => {

@@ -98,6 +98,18 @@ NOT posed, NOT smiling at camera, NOT showing screen reflection
 5. Generate 3 variations at minimum; choose by fit to design brief
 6. Check: Does this pass the "could someone tell AI made this?" test?
 
+### Raster Asset Production Workflow
+
+When a design mock has been approved and needs to be broken into clean, production-ready raster assets (crops, cutouts, textures, clean plates), use the **`monodesign-asset-producer`** agent. It provides a structured production workflow that:
+
+- Classifies each visual role into `produce`, `direct`, or `semantic` buckets
+- Applies the prompt pattern above for image-to-image clean-plate generation
+- Removes baked-in UI chrome (nav, buttons, labels, card borders, shadows) from rasters
+- Hands off semantic elements (icons, logos, charts) to HTML/CSS/SVG with concrete implementation notes
+- Returns a full manifest with `qa_status` for every asset
+
+Invoke it from the parent craft agent when raster production work is scoped: provide the approved mock path, crop ids or a contact sheet, output directory, and format/dimension requirements.
+
 ## Prompt Anti-Patterns
 
 | Don't write | Write instead |

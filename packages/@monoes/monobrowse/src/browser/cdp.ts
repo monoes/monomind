@@ -150,7 +150,74 @@ export async function fetchTargets(port: number): Promise<CdpTarget[]> {
 }
 
 export async function fetchNewTarget(port: number, url: string): Promise<CdpTarget> {
-  const res = await fetch(`http://127.0.0.1:${port}/json/new?${url}`);
+  // Chrome v92+ requires PUT for /json/new; GET returns 405. URL must be encoded.
+  const res = await fetch(`http://127.0.0.1:${port}/json/new?${url}`, { method: 'PUT' });
   if (!res.ok) throw new Error(`Failed to create target: ${res.statusText}`);
   return readCdpJson(res) as Promise<CdpTarget>;
+}
+
+export interface BrowserPage {
+  url(): Promise<string>;
+  evaluate<T>(expression: string): Promise<T>;
+  close(): Promise<void>;
+}
+
+export async function createBrowserPage(url: string, port = 9222): Promise<BrowserPage> {
+  const target = await fetchNewTarget(port, url);
+  const wsDebuggerUrl = target.webSocketDebuggerUrl;
+  if (!wsDebuggerUrl) {
+    throw new Error('Chrome did not return a WebSocket debugger URL. Ensure Chrome is running with --remote-debugging-port=' + port);
+  }
+
+  const client = new CdpClient();
+  try {
+    await client.connect(wsDebuggerUrl);
+
+    await client.send('Page.enable');
+    await client.send('Runtime.enable');
+
+    const loadPromise = client.once('Page.loadEventFired');
+    await client.send('Page.navigate', { url });
+    await Promise.race([
+      loadPromise,
+      new Promise<void>((_, reject) =>
+        AbortSignal.timeout(30_000).addEventListener('abort', () => reject(new Error('Page load timeout after 30s')))
+      ),
+    ]);
+  } catch (err) {
+    client.close();
+    throw err;
+  }
+
+  const closeTab = async (): Promise<void> => {
+    try {
+      await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(target.id)}`, { method: 'GET' });
+    } catch {
+      // best-effort: tab may already be gone
+    }
+  };
+
+  return {
+    url: async () => {
+      const result = await client.send<{ result: { value: string } }>('Runtime.evaluate', {
+        expression: 'location.href',
+        returnByValue: true,
+      });
+      return result.result.value;
+    },
+    evaluate: async <T>(expression: string): Promise<T> => {
+      const result = await client.send<{ result: { value: T; }; exceptionDetails?: { text: string } }>('Runtime.evaluate', {
+        expression,
+        returnByValue: true,
+      });
+      if (result.exceptionDetails) {
+        throw new Error(`JS evaluation failed: ${result.exceptionDetails.text}`);
+      }
+      return result.result.value;
+    },
+    close: async (): Promise<void> => {
+      client.close();
+      await closeTab();
+    },
+  };
 }

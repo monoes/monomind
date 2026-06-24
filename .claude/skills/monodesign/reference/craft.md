@@ -52,6 +52,7 @@ Then add references based on the brief's needs:
 - Color-heavy or themed? Consult [color-and-contrast.md](color-and-contrast.md)
 - Responsive requirements? Consult [responsive-design.md](responsive-design.md)
 - Heavy on copy, labels, or errors? Consult [ux-writing.md](ux-writing.md)
+- Brand identity work, visual identity guidelines, or establishing a brand-consistent design system? Consult [brand-workflow.md](brand-workflow.md) for the end-to-end brand definition and token-sync process, and [brand.md](brand.md) for register-specific design rules.
 
 ## Step 3: Land the Visual Direction (Capability-Gated)
 
@@ -62,6 +63,8 @@ Before implementation, generate high-fidelity visual comps when all of these are
 - The current harness has **built-in image generation capability** (for example, Codex with a native image tool). Do **not** ask the user to set up external APIs, shell scripts, or one-off tooling just to do this.
 
 When those conditions are met, this step is mandatory for **both brand and product work** in Codex and any harness with built-in image generation. Use native image generation; in Codex, use the built-in `image_gen` tool via the imagegen skill. If image generation is unavailable, do not ask the user to install APIs or tooling. State in one line that the image step is skipped because the harness lacks native image generation, then proceed.
+
+When image generation is available, load [codex.md](codex.md) before generating anything. It defines the four stop points (A–D) and the full direction workflow: palette lock, mock generation, approval loop, and asset handoff. Do not skip the stop points.
 
 Do not skip this step because the eventual UI should be semantic, editable, code-native, responsive, or accessible. Those are implementation requirements, not reasons to avoid visual exploration.
 

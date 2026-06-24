@@ -75,7 +75,7 @@ const FORBIDDEN_WORKFLOW_IDS = new Set(['__proto__', 'constructor', 'prototype']
 export const workflowTools = [
     {
         name: 'workflow_run',
-        description: 'Run a workflow from a template or file',
+        description: 'Create a swarm workflow stage record from a template (feature/bugfix/refactor/security). This tracks multi-agent orchestration stages — it does NOT execute a browser automation playbook. To run a playbook use `playbook_run`.',
         category: 'workflow',
         inputSchema: {
             type: 'object',
@@ -648,6 +648,59 @@ export const workflowTools = [
                 };
             }
             return { action, error: 'Unknown action' };
+        },
+    },
+    {
+        name: 'playbook_run',
+        description: 'Run a browser automation playbook (JSON file with browser/service/HTTP nodes) via @monoes/monobrowse. Executes the full playbook engine with all handlers: browser CDP nodes (browser.open, browser.click, etc.), service nodes (gmail, github, google_drive, google_sheets), and builtins (action.http, action.log, action.save_file, action.gemini_image).',
+        category: 'workflow',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                file: { type: 'string', description: 'Absolute or CWD-relative path to a playbook JSON file' },
+                params: {
+                    type: 'object',
+                    description: 'Key/value pairs substituted as {{params.key}} in playbook node configs',
+                    additionalProperties: { type: 'string' },
+                },
+                port: { type: 'number', description: 'CDP port for browser automation (default 9222)' },
+                timeoutSeconds: { type: 'number', description: 'Max run duration in seconds (default 300)' },
+            },
+            required: ['file'],
+        },
+        handler: async (input) => {
+            const filePath = input.file;
+            if (typeof filePath !== 'string' || !filePath)
+                throw new Error('playbook_run: file is required');
+            if (filePath.startsWith('-'))
+                throw new Error('playbook_run: file path must not start with "-"');
+            const { resolve } = await import('node:path');
+            const absPath = resolve(process.cwd(), filePath);
+            const timeoutMs = (input.timeoutSeconds ?? 300) * 1000;
+            const rawParams = input.params ?? {};
+            // Sanitize params — string values only
+            const params = Object.fromEntries(Object.entries(rawParams).map(([k, v]) => [k, String(v)]));
+            if (input.port !== undefined) {
+                process.env['GEMINI_CDP_PORT'] = String(input.port);
+            }
+            const { readPlaybook, runPlaybook, createDefaultHandlers } = await import('@monoes/monobrowse');
+            const def = await readPlaybook(absPath);
+            const record = await runPlaybook(def, {
+                handlers: createDefaultHandlers(),
+                signal: AbortSignal.timeout(timeoutMs),
+                params,
+            });
+            return {
+                playbookId: record.playbookId,
+                playbookName: record.playbookName,
+                status: record.status,
+                itemsProcessed: record.itemsProcessed,
+                itemsTotal: record.itemsTotal,
+                durationMs: record.completedAt && record.startedAt
+                    ? record.completedAt - record.startedAt
+                    : undefined,
+                error: record.error,
+            };
         },
     },
 ];

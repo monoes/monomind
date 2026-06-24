@@ -31,7 +31,7 @@ async function ensureConnected(port: number, targetId?: string) {
       browser.teardownConsoleCapture(_sessionId);
       _client.close();
     }
-    _port = await browser.launchBrowser({ port, headless: false });
+    _port = await browser.launchBrowser({ port, headless: true });
     const conn = await browser.connectToTarget(_port, targetId);
     _client = conn.client;
     _sessionId = conn.sessionId;
@@ -39,6 +39,120 @@ async function ensureConnected(port: number, targetId?: string) {
     _refs = new Map();
   }
   return { client: _client!, sessionId: _sessionId, targetId: _targetId };
+}
+
+// URL patterns that signal an unambiguous login/auth wall.
+// Excludes 'auth', 'oauth', 'sso', 'saml' — their callback/ACS/token paths
+// (/auth/callback, /sso/callback, /saml/acs) are completion endpoints, not walls.
+// DOM detection (password field, CAPTCHA widgets) handles SSO/SAML login pages.
+const ATTENTION_URL_RE = /\/(login|log-in|signin|sign-in|captcha|mfa|2fa|account\/login|accounts\/login|session\/new|users\/sign_in)(?:[/?#]|$)/i;
+
+async function detectAttentionNeeded(client: CdpClient, sessionId: string, url: string): Promise<'login' | 'captcha' | null> {
+  if (ATTENTION_URL_RE.test(url)) return 'login';
+  try {
+    const hasPassword = await client.send<{ result: { value: boolean } }>('Runtime.evaluate', {
+      expression: '!!document.querySelector("input[type=password]")',
+      returnByValue: true,
+    }, sessionId).then(r => r.result?.value === true).catch(() => false);
+    if (hasPassword) return 'login';
+
+    const hasCaptcha = await client.send<{ result: { value: boolean } }>('Runtime.evaluate', {
+      expression: '!!(document.querySelector("iframe[src*=recaptcha]") || document.querySelector("iframe[src*=hcaptcha]") || document.querySelector(".g-recaptcha") || document.querySelector(".h-captcha") || document.querySelector("[data-sitekey]"))',
+      returnByValue: true,
+    }, sessionId).then(r => r.result?.value === true).catch(() => false);
+    if (hasCaptcha) return 'captcha';
+  } catch { /* ignore CDP errors */ }
+  return null;
+}
+
+function waitForEnter(): Promise<void> {
+  if (!process.stdin.isTTY) {
+    // Non-interactive context (MCP server, piped input, CI) — cannot safely read stdin.
+    // Auto-continue after a short grace period so automation isn't blocked.
+    output.printWarning('Non-interactive mode: auto-continuing in 30s. Switch to headed manually if needed.');
+    return new Promise(resolve => setTimeout(resolve, 30_000));
+  }
+  return new Promise(resolve => {
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+    const onData = () => { process.stdin.pause(); process.stdin.off('data', onData); resolve(); };
+    process.stdin.once('data', onData);
+  });
+}
+
+async function switchToHeaded(url: string, port: number): Promise<void> {
+  const browser = await getBrowser();
+
+  // Snapshot cookies from current headless session before closing
+  let savedCookies: unknown[] = [];
+  if (_client && _sessionId) {
+    try { savedCookies = await browser.getCookies(_client, _sessionId); } catch { /* ignore */ }
+    browser.teardownRouteInterception(_sessionId);
+    browser.stopRequestCapture(_sessionId);
+    browser.teardownDialogHandling(_sessionId);
+    browser.teardownConsoleCapture(_sessionId);
+    _client.close();
+    _client = null;
+    _sessionId = '';
+    _targetId = '';
+  }
+
+  // Launch headed on a neighbouring port to avoid collision
+  const headedPort = port + 10;
+  try {
+    await browser.launchBrowser({ port: headedPort, headless: false });
+  } catch (err) {
+    // Headed launch failed (no display, locked down env). Restore headless and rethrow.
+    _port = await browser.launchBrowser({ port, headless: true });
+    const fallback = await browser.connectToTarget(_port);
+    _client = fallback.client;
+    _sessionId = fallback.sessionId;
+    _targetId = fallback.target.id;
+    _refs = new Map();
+    throw new Error(`Cannot open headed browser: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const conn = await browser.connectToTarget(headedPort);
+  _client = conn.client;
+  _sessionId = conn.sessionId;
+  _targetId = conn.target.id;
+  _refs = new Map();
+
+  if (savedCookies.length) {
+    try { await browser.setCookies(_client, _sessionId, savedCookies as Parameters<typeof browser.setCookies>[2]); } catch { /* ignore */ }
+  }
+  await browser.openUrl(_client, _sessionId, url);
+
+  output.printInfo('Browser window opened. Complete the required action (login / CAPTCHA), then press Enter to continue in headless mode...');
+  await waitForEnter();
+
+  // Capture post-auth cookies
+  const authCookies = await browser.getCookies(_client, _sessionId).catch(() => [] as unknown[]);
+  const authLocalStorage = await browser.getLocalStorage(_client, _sessionId).catch(() => ({}) as Record<string, string>);
+
+  // Close headed session
+  browser.teardownRouteInterception(_sessionId);
+  browser.stopRequestCapture(_sessionId);
+  browser.teardownDialogHandling(_sessionId);
+  browser.teardownConsoleCapture(_sessionId);
+  _client.close();
+  _client = null;
+  _sessionId = '';
+  _targetId = '';
+
+  // Relaunch headless and restore session
+  _port = await browser.launchBrowser({ port, headless: true });
+  const headlessConn = await browser.connectToTarget(_port);
+  _client = headlessConn.client;
+  _sessionId = headlessConn.sessionId;
+  _targetId = headlessConn.target.id;
+  _refs = new Map();
+
+  if (authCookies.length) {
+    try { await browser.setCookies(_client, _sessionId, authCookies as Parameters<typeof browser.setCookies>[2]); } catch { /* ignore */ }
+  }
+  if (authLocalStorage && Object.keys(authLocalStorage).length) {
+    try { await browser.setLocalStorage(_client, _sessionId, authLocalStorage); } catch { /* ignore */ }
+  }
 }
 
 function print(msg: string) {
@@ -54,7 +168,7 @@ const openCommand: Command = {
   description: 'Open a URL in the browser. Usage: monomind browse open <url>',
   options: [
     { name: 'port', short: 'p', type: 'number', description: 'CDP port', default: 9222 },
-    { name: 'headless', type: 'boolean', description: 'Run in headless mode', default: false },
+    { name: 'headed', type: 'boolean', description: 'Force visible browser window', default: false },
     { name: 'session', short: 's', type: 'string', description: 'Session name to restore' },
     { name: 'state', type: 'string', description: 'State file to load' },
   ],
@@ -63,6 +177,7 @@ const openCommand: Command = {
     if (!url) throw new Error('URL required. Usage: monomind browse open <url>');
 
     const port = (ctx.flags.port as number) ?? 9222;
+    const forceHeaded = ctx.flags.headed as boolean;
     const browser = await getBrowser();
 
     if (_client) {
@@ -88,7 +203,7 @@ const openCommand: Command = {
       _refs = new Map();
     }
 
-    _port = await browser.launchBrowser({ port, headless: ctx.flags.headless as boolean });
+    _port = await browser.launchBrowser({ port, headless: !forceHeaded });
     const conn = await browser.connectToTarget(_port);
     _client = conn.client;
     _sessionId = conn.sessionId;
@@ -106,10 +221,23 @@ const openCommand: Command = {
 
     await browser.openUrl(_client, _sessionId, url);
     const currentUrl = await browser.getCurrentUrl(_client, _sessionId);
-    const title = await browser.getCurrentTitle(_client, _sessionId);
 
-    output.printSuccess(`Opened: ${title} (${currentUrl})`);
-    return { success: true, data: { url: currentUrl, title } };
+    // Auto-detect login/CAPTCHA walls and switch to headed if needed
+    if (!forceHeaded) {
+      const attentionType = await detectAttentionNeeded(_client, _sessionId, currentUrl);
+      if (attentionType) {
+        output.printWarning(`${attentionType === 'captcha' ? 'CAPTCHA' : 'Login'} detected — switching to headed mode`);
+        await switchToHeaded(currentUrl, port);
+        await browser.openUrl(_client!, _sessionId, currentUrl);
+        output.printSuccess(`Resumed headless after ${attentionType === 'captcha' ? 'CAPTCHA' : 'login'}`);
+      }
+    }
+
+    const finalUrl = await browser.getCurrentUrl(_client!, _sessionId);
+    const title = await browser.getCurrentTitle(_client!, _sessionId);
+
+    output.printSuccess(`Opened: ${title} (${finalUrl})`);
+    return { success: true, data: { url: finalUrl, title } };
   },
 };
 

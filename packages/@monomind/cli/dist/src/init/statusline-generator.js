@@ -1229,12 +1229,32 @@ if (process.argv.includes('--json')) {
     console.log(generateDashboard());
   }
 } else {
-  // Default: respect mode state file
+  // Default: respect mode state file — use disk cache to avoid 52+ sync I/O calls per render
+  const CACHE_FILE = path.join(os.homedir(), '.monomind', 'statusline-cache.json');
+  const CACHE_TTL_MS = 5000; // 5 seconds
   const mode = readMode();
-  if (mode === 'compact') {
-    console.log(generateStatusline());
-  } else {
-    console.log(generateDashboard());
+
+  // Try to serve from cache if fresh and same mode
+  let servedFromCache = false;
+  try {
+    const cacheStat = safeStat(CACHE_FILE);
+    if (cacheStat && (Date.now() - cacheStat.mtimeMs) < CACHE_TTL_MS && cacheStat.size <= 512 * 1024) {
+      const cached = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
+      if (cached && cached.mode === mode && typeof cached.output === 'string') {
+        console.log(cached.output);
+        servedFromCache = true;
+      }
+    }
+  } catch { /* cache miss — regenerate */ }
+
+  if (!servedFromCache) {
+    const statusOutput = mode === 'compact' ? generateStatusline() : generateDashboard();
+    console.log(statusOutput);
+    // Persist to cache for subsequent renders within the TTL window
+    try {
+      fs.mkdirSync(path.dirname(CACHE_FILE), { recursive: true });
+      fs.writeFileSync(CACHE_FILE, JSON.stringify({ mode, output: statusOutput }), 'utf-8');
+    } catch { /* ignore cache write failures */ }
   }
 }
 `;

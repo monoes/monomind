@@ -1,3 +1,4 @@
+import Database from 'better-sqlite3';
 import type { MonographNode, MonographEdge } from '../types.js';
 import type { MonographDb } from '../storage/db.js';
 
@@ -66,7 +67,7 @@ export function extractInducedSubgraph(db: MonographDb, nodeIds: string[]): Indu
   const stmts = getStmtCaches(db);
 
   // Chunk helper — caches prepared statements by chunk size to avoid re-prepare per call.
-  function queryChunked<T>(ids: string[], chunkSize: number, stmtCache: Map<number, ReturnType<MonographDb['prepare']>>, sql: (ph: string) => string): T[] {
+  function queryChunked<T>(ids: string[], chunkSize: number, stmtCache: Map<number, Database.Statement>, sql: (ph: string) => string): T[] {
     const results: T[] = [];
     for (let i = 0; i < ids.length; i += chunkSize) {
       const chunk = ids.slice(i, i + chunkSize);

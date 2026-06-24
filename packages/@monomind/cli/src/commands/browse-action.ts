@@ -1,145 +1,155 @@
-// src/commands/browse-action.ts
-import { Command } from 'commander';
-import { readdir, writeFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { analyzePageForAction, type AnalyzerPage, readAction } from '@monoes/monobrowse';
-import type { ActionDef } from '@monoes/monobrowse';
+import { readdir, readFile } from 'fs/promises';
+import { join, resolve, isAbsolute } from 'path';
+import type { Command, CommandContext, CommandResult } from '../types.js';
+import { output } from '../output.js';
 
-// Built-in actions (shipped with the CLI) — actual step definitions live in adapters/
-const BUILTIN_ACTIONS: { id: string; platform: string; name: string }[] = [
-  { id: 'linkedin:comment_post', platform: 'linkedin', name: 'Comment on Post' },
-  { id: 'linkedin:like_post', platform: 'linkedin', name: 'Like Post' },
-  { id: 'linkedin:send_connection', platform: 'linkedin', name: 'Send Connection Request' },
-  { id: 'linkedin:publish_post', platform: 'linkedin', name: 'Publish Post' },
-  { id: 'linkedin:keyword_search', platform: 'linkedin', name: 'Keyword Search' },
-  { id: 'instagram:like_post', platform: 'instagram', name: 'Like Post' },
-  { id: 'instagram:comment_post', platform: 'instagram', name: 'Comment on Post' },
-  { id: 'instagram:follow_user', platform: 'instagram', name: 'Follow User' },
-  { id: 'instagram:send_dm', platform: 'instagram', name: 'Send DM' },
-  { id: 'instagram:hashtag_search', platform: 'instagram', name: 'Hashtag Search' },
-  { id: 'x:like_post', platform: 'x', name: 'Like Post' },
-  { id: 'x:reply_post', platform: 'x', name: 'Reply to Post' },
-  { id: 'x:follow_user', platform: 'x', name: 'Follow User' },
-  { id: 'x:publish_post', platform: 'x', name: 'Publish Post' },
-  { id: 'x:keyword_search', platform: 'x', name: 'Keyword Search' },
-  { id: 'gemini:submit_prompt', platform: 'gemini', name: 'Submit Prompt' },
-  { id: 'gemini:extract_response', platform: 'gemini', name: 'Extract Response' },
-];
+const buildSubcommand: Command = {
+  name: 'build',
+  description: 'AI-powered: open a URL, analyze DOM, generate an action JSON file',
+  options: [
+    { name: 'url', short: 'u', type: 'string', description: 'URL to analyze', required: true },
+    { name: 'task', short: 't', type: 'string', description: 'What you want the action to do', required: true },
+    { name: 'port', type: 'number', description: 'CDP port', default: 9222 },
+    { name: 'output', short: 'o', type: 'string', description: 'Output directory', default: '.monomind/actions' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const url = ctx.flags.url as string;
+    const task = ctx.flags.task as string;
+    const port = ctx.flags.port as number ?? 9222;
+    const outDir = join(ctx.cwd, ctx.flags.output as string ?? '.monomind/actions');
 
-async function getCustomActions(): Promise<ActionDef[]> {
-  const dir = join(process.cwd(), '.monomind', 'actions');
-  if (!existsSync(dir)) return [];
-  const files = (await readdir(dir)).filter(f => f.endsWith('.json'));
-  const results: ActionDef[] = [];
-  for (const f of files) {
-    try {
-      results.push(await readAction(join(dir, f)));
-    } catch {
-      // skip malformed action files
+    if (!url || !task) {
+      output.printError('--url and --task are required');
+      return { success: false, exitCode: 1 };
     }
-  }
-  return results;
-}
+    if (!process.env.ANTHROPIC_API_KEY) {
+      output.printError('ANTHROPIC_API_KEY is not set. Required for action build.');
+      return { success: false, exitCode: 1 };
+    }
 
-export function createActionCommand(): Command {
-  const cmd = new Command('action').description('Manage browser actions');
+    const spinner = output.createSpinner({ text: `Opening ${url}...`, spinner: 'dots' });
+    spinner.start();
 
-  cmd
-    .command('build')
-    .description('AI-powered: analyze a page and generate an action definition')
-    .requiredOption('--url <url>', 'URL to analyze')
-    .requiredOption('--task <description>', 'What the action should do')
-    .option('--output <file>', 'Output file path (default: .monomind/actions/<id>.json)')
-    .action(async (opts: { url: string; task: string; output?: string }) => {
-      console.log(`Analyzing ${opts.url} for task: "${opts.task}"`);
-      console.log('Opening browser...');
+    try {
+      const browser = await import('@monoes/monobrowse');
+      const cdpPort = await browser.launchBrowser({ port, headless: false });
+      const { client, sessionId } = await browser.connectToTarget(cdpPort);
 
-      let actionDef: ActionDef;
+      spinner.stop('Navigated. Analyzing DOM...');
+      const { analyzeAndBuild } = await import('../browser/action-builder/analyzer.js');
+      const action = await analyzeAndBuild({ url, task, client, sessionId, outputDir: outDir });
+
+      spinner.succeed(`Action generated: ${action.id}`);
+      output.writeln();
+      output.printBox([
+        `ID: ${action.id}`,
+        `Platform: ${action.platform}`,
+        `Steps: ${action.steps.length}`,
+        `Params: ${action.params.join(', ')}`,
+        `Saved to: ${outDir}/${action.id.replace(/[^a-z0-9_-]/gi, '_')}.json`,
+      ].join('\n'), 'Action Built');
+
+      client.close();
+      return { success: true, data: action };
+    } catch (err) {
+      spinner.fail('Action build failed');
+      output.printError((err as Error).message);
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
+
+const listSubcommand: Command = {
+  name: 'list',
+  aliases: ['ls'],
+  description: 'List available actions (built-in + custom)',
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const customDir = join(ctx.cwd, '.monomind', 'actions');
+    let customFiles: string[] = [];
+    try { customFiles = (await readdir(customDir)).filter(f => f.endsWith('.json')); } catch {}
+
+    const builtinActions = [
+      { id: 'linkedin:comment_post', platform: 'linkedin', name: 'Comment on Post', source: 'built-in' },
+      { id: 'linkedin:like_post', platform: 'linkedin', name: 'Like Post', source: 'built-in' },
+      { id: 'linkedin:send_connection', platform: 'linkedin', name: 'Send Connection Request', source: 'built-in' },
+      { id: 'linkedin:publish_post', platform: 'linkedin', name: 'Publish Post', source: 'built-in' },
+      { id: 'instagram:like_post', platform: 'instagram', name: 'Like Post', source: 'built-in' },
+      { id: 'instagram:comment_post', platform: 'instagram', name: 'Comment on Post', source: 'built-in' },
+      { id: 'instagram:follow_user', platform: 'instagram', name: 'Follow User', source: 'built-in' },
+      { id: 'x:like_post', platform: 'x', name: 'Like Post', source: 'built-in' },
+      { id: 'x:reply_post', platform: 'x', name: 'Reply to Post', source: 'built-in' },
+      { id: 'x:follow_user', platform: 'x', name: 'Follow User', source: 'built-in' },
+      { id: 'gemini:submit_prompt', platform: 'gemini', name: 'Submit Prompt', source: 'built-in' },
+    ];
+
+    const customActions = await Promise.all(customFiles.map(async f => {
       try {
-        // Dynamic import to avoid crashing if CDP is unavailable
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mod = await (import('@monoes/monobrowse' as string) as Promise<any>).catch(() => null);
-        const createBrowserPage = mod?.createBrowserPage as ((url: string) => Promise<AnalyzerPage>) | null;
-        if (!createBrowserPage) {
-          throw new Error('Browser CDP client not available. Ensure Chrome is running with --remote-debugging-port=9222');
-        }
-        const page = await createBrowserPage(opts.url);
-        actionDef = await analyzePageForAction(page, opts.task);
-      } catch (err) {
-        console.error(`Action build failed: ${err instanceof Error ? err.message : String(err)}`);
-        process.exit(1);
-      }
+        const raw = await readFile(join(customDir, f), 'utf8');
+        const def = JSON.parse(raw);
+        return { id: def.id, platform: def.platform ?? 'custom', name: def.name, source: 'custom' };
+      } catch { return null; }
+    }));
 
-      const dir = join(process.cwd(), '.monomind', 'actions');
-      await mkdir(dir, { recursive: true });
-      const outputPath = opts.output ?? join(dir, `${actionDef.id.replace(':', '-')}.json`);
-      await writeFile(outputPath, JSON.stringify(actionDef, null, 2));
-      console.log(`\nGenerated action: ${outputPath}`);
-      console.log(`Action ID: ${actionDef.id}`);
-      console.log(`Steps: ${actionDef.steps.length}`);
+    const all = [...builtinActions, ...customActions.filter(Boolean)] as typeof builtinActions;
+    output.printTable({
+      columns: [
+        { key: 'id', header: 'Action ID', width: 30 },
+        { key: 'platform', header: 'Platform', width: 12 },
+        { key: 'name', header: 'Name', width: 25 },
+        { key: 'source', header: 'Source', width: 10 },
+      ],
+      data: all,
     });
+    return { success: true };
+  },
+};
 
-  cmd
-    .command('run <action-id>')
-    .description('Run a single action')
-    .requiredOption('--account <user>', 'Account username to use')
-    .option('--params <pairs...>', 'Key=value params e.g. --params post_url=https://... text=hello')
-    .action(async (actionId: string, opts: { account: string; params?: string[] }) => {
-      const params: Record<string, string> = {};
-      for (const pair of opts.params ?? []) {
-        const eq = pair.indexOf('=');
-        if (eq > 0) params[pair.slice(0, eq)] = pair.slice(eq + 1);
-      }
-      console.log(`Running action: ${actionId} with account: ${opts.account}`);
-      console.log('Params:', params);
-      console.log('(Action runner not yet implemented — use browse workflow run for full execution)');
-    });
+const showSubcommand: Command = {
+  name: 'show',
+  description: 'Print an action definition JSON',
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const actionId = ctx.args[0];
+    if (!actionId) { output.printError('Action ID required'); return { success: false, exitCode: 1 }; }
+    const customDir = join(ctx.cwd, '.monomind', 'actions');
+    const filename = actionId.replace(/[^a-z0-9_-]/gi, '_') + '.json';
+    try {
+      const raw = await readFile(join(customDir, filename), 'utf8');
+      output.printJson(JSON.parse(raw));
+      return { success: true };
+    } catch {
+      output.printError(`Action not found: ${actionId}. Check "monomind browse action list".`);
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
 
-  cmd
-    .command('list')
-    .description('List available actions (built-in + custom)')
-    .option('--platform <platform>', 'Filter by platform')
-    .action(async (opts: { platform?: string }) => {
-      const custom = await getCustomActions();
-      const all = [
-        ...BUILTIN_ACTIONS.map(a => ({ ...a, source: 'built-in' })),
-        ...custom.map(a => ({ id: a.id, platform: a.platform, name: a.name, source: 'custom' })),
-      ];
-      const filtered = opts.platform ? all.filter(a => a.platform === opts.platform) : all;
-      if (filtered.length === 0) {
-        console.log('No actions found.');
-        return;
-      }
-      console.log(`\n${'ID'.padEnd(40)} ${'PLATFORM'.padEnd(12)} ${'NAME'.padEnd(30)} SOURCE`);
-      console.log('─'.repeat(90));
-      for (const a of filtered) {
-        console.log(`${a.id.padEnd(40)} ${a.platform.padEnd(12)} ${a.name.padEnd(30)} ${a.source}`);
-      }
-    });
+const runSubcommand: Command = {
+  name: 'run',
+  description: 'Run a single action directly',
+  options: [
+    { name: 'account', short: 'a', type: 'string', description: 'Platform account username' },
+    { name: 'params', short: 'p', type: 'array', description: 'Params as key=value pairs' },
+    { name: 'port', type: 'number', description: 'CDP port', default: 9222 },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    output.printInfo('Direct action run is coming soon. Use workflow run to execute actions.');
+    return { success: true };
+  },
+};
 
-  cmd
-    .command('show <action-id>')
-    .description('Print the action definition JSON')
-    .action(async (actionId: string) => {
-      // Check custom actions first
-      const dir = join(process.cwd(), '.monomind', 'actions');
-      const fileName = actionId.replace(':', '-') + '.json';
-      const customPath = join(dir, fileName);
-      if (existsSync(customPath)) {
-        const def = await readAction(customPath);
-        console.log(JSON.stringify(def, null, 2));
-        return;
-      }
-      // Check built-ins
-      const builtin = BUILTIN_ACTIONS.find(a => a.id === actionId);
-      if (builtin) {
-        console.log(JSON.stringify({ ...builtin, note: 'Built-in action — steps defined in browser/adapters/' }, null, 2));
-        return;
-      }
-      console.error(`Action not found: ${actionId}`);
-      process.exit(1);
-    });
+export const browseActionCommand: Command = {
+  name: 'action',
+  description: 'Manage and run browser actions',
+  subcommands: [buildSubcommand, runSubcommand, listSubcommand, showSubcommand],
+  action: async (): Promise<CommandResult> => {
+    output.writeln(output.bold('browse action — usage:'));
+    output.printList([
+      'monomind browse action build --url <url> --task "description"',
+      'monomind browse action list',
+      'monomind browse action show <action-id>',
+    ]);
+    return { success: true };
+  },
+};
 
-  return cmd;
-}
+export default browseActionCommand;

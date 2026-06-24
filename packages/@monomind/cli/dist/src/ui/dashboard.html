@@ -286,7 +286,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .oi-goal { font-size: 11px; color: var(--text-lo); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oi-chips { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
 .oi-chip { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: var(--surface-hi); color: var(--text-lo); }
-.oi-chip.live { background: oklch(65% 0.15 150 / 0.12); color: var(--green); }
+.oi-chip.live  { background: oklch(65% 0.15 150 / 0.12); color: var(--green); }
+.oi-chip.quiet { background: oklch(70% 0.12 90 / 0.12); color: oklch(78% 0.15 90); }
+.oi-chip.stale { background: oklch(60% 0.15 25 / 0.12); color: oklch(70% 0.15 25); }
 
 /* detail pane */
 #org-detail-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; position: relative; }
@@ -297,8 +299,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #org-detail-head { padding: 12px 18px 11px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .odh-name { font-size: 16px; font-weight: 600; color: var(--text-hi); }
 .odh-badge { font-size: 11px; padding: 2px 8px; border-radius: 8px; }
-.odh-badge.idle { background: var(--surface-hi); color: var(--text-lo); }
-.odh-badge.live { background: oklch(65% 0.15 150 / 0.12); color: var(--green); }
+.odh-badge.idle  { background: var(--surface-hi); color: var(--text-lo); }
+.odh-badge.live  { background: oklch(65% 0.15 150 / 0.12); color: var(--green); }
+.odh-badge.quiet { background: oklch(70% 0.12 90 / 0.12); color: oklch(78% 0.15 90); }
+.odh-badge.stale { background: oklch(60% 0.15 25 / 0.12); color: oklch(70% 0.15 25); }
 .odh-pill { font-size: 11px; padding: 2px 8px; border-radius: 8px; background: var(--surface); color: var(--text-lo); border: 1px solid var(--border); }
 .odh-right { margin-left: auto; display: flex; gap: 6px; }
 
@@ -336,6 +340,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #odt-chat-feed::-webkit-scrollbar { width:4px; }
 #odt-chat-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
 #odt-chat-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
+.odt-mode-btn {
+  font-family: inherit; font-size: 7px; letter-spacing: 1.5px;
+  padding: 2px 7px; border-radius: 3px; cursor: pointer;
+  border: 1px solid oklch(62% 0.2 186 / 0.25);
+  color: oklch(45% 0.07 186); background: transparent;
+  transition: all 0.12s;
+}
+.odt-mode-btn:hover { color: oklch(65% 0.12 186); border-color: oklch(62% 0.2 186 / 0.5); }
+.odt-mode-btn.active { color: oklch(72% 0.18 186); border-color: oklch(62% 0.2 186 / 0.7); background: oklch(62% 0.2 186 / 0.12); }
 .cv-excerpt-banner { flex-shrink:0; padding:7px 16px 8px; background:oklch(13% 0.01 295); border-bottom:1px solid var(--border); display:none; }
 .cv-excerpt-banner.visible { display:block; }
 .cv-excerpt-label { font-size:8px; letter-spacing:2px; color:var(--text-xs); text-transform:uppercase; margin-bottom:4px; }
@@ -1394,21 +1407,65 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 @keyframes pb-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
 /* ── systems grid ──────────────────────────────────────────── */
-#wf-systems-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-.sys-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.15s; }
-.sys-card.connected { border-color: oklch(65% 0.15 150 / 0.5); }
-.sys-card-top { display: flex; align-items: center; gap: 10px; }
-.sys-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; background: var(--surface-hi); }
-.sys-name { font-size: 13px; font-weight: 600; color: var(--text-hi); }
-.sys-type { font-size: 10px; color: var(--text-xs); margin-top: 1px; letter-spacing: 0.04em; text-transform: uppercase; }
-.sys-status { display: flex; align-items: center; gap: 6px; font-size: 11px; }
-.sys-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.sys-dot.on  { background: var(--green); box-shadow: 0 0 6px oklch(65% 0.15 150 / 0.6); }
-.sys-dot.off { background: var(--border); }
-.sys-user { font-size: 11px; color: var(--text-lo); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sys-age { font-size: 10px; color: var(--text-xs); }
-.sys-cmd { font-size: 10px; color: var(--accent); font-family: var(--mono); background: var(--accent-dim); border-radius: 4px; padding: 3px 7px; display: inline-block; cursor: pointer; word-break: break-all; }
-.sys-api-badge { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: oklch(72% 0.18 75 / 0.1); color: var(--accent); border: 1px solid var(--accent-dim); }
+#wf-systems-grid { display: block; }
+/* ── monoagent connections tile grid ─────────────────────────── */
+.ma-cat-hdr { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.ma-cat-label { font-family:var(--mono); font-size:10px; font-weight:700; color:var(--text-lo); text-transform:uppercase; letter-spacing:2px; white-space:nowrap; }
+.ma-cat-line { flex:1; height:1px; background:var(--border); }
+.ma-cat-count { font-family:var(--mono); font-size:9.5px; color:var(--text-xs); }
+.ma-tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:8px; margin-bottom:24px; }
+.ma-tile { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 8px 12px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; transition:border-color 0.15s,box-shadow 0.15s; user-select:none; }
+.ma-tile:hover { border-color:var(--border-hi); }
+.ma-tile.connected { border-color:oklch(65% 0.15 150 / 0.5); box-shadow:0 0 10px oklch(65% 0.15 150 / 0.12); }
+.ma-tile-icon { font-size:22px; line-height:1; }
+.ma-tile-name { font-family:var(--mono); font-size:10px; font-weight:600; color:var(--text-mid); text-align:center; line-height:1.3; }
+.ma-tile-dot { width:6px; height:6px; border-radius:50%; background:var(--border); }
+.ma-tile.connected .ma-tile-dot { background:var(--green); box-shadow:0 0 5px oklch(65% 0.15 150 / 0.7); }
+.ma-tile.expired .ma-tile-dot { background:#fbbf24; box-shadow:0 0 5px rgba(251,191,36,0.5); }
+.ma-tile-acct { font-family:var(--mono); font-size:9px; color:var(--text-xs); max-width:84px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* modal */
+.ma-modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1200; display:flex; align-items:center; justify-content:center; padding:24px; }
+.ma-modal { width:100%; max-width:440px; background:var(--surface); border:1px solid var(--border-hi); border-radius:14px; box-shadow:0 8px 40px rgba(0,0,0,0.5); overflow:hidden; }
+.ma-modal-hdr { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 12px; border-bottom:1px solid var(--border); }
+.ma-modal-hdr-left { display:flex; align-items:center; gap:10px; }
+.ma-modal-title { font-family:var(--mono); font-size:13px; font-weight:700; color:var(--text-hi); }
+.ma-modal-status { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:1px; }
+.ma-modal-body { padding:16px 20px 20px; display:flex; flex-direction:column; gap:14px; }
+.ma-modal-info { background:var(--surface-hi); border:1px solid var(--border); border-radius:8px; padding:10px 14px; display:flex; flex-direction:column; gap:8px; }
+.ma-modal-row { display:flex; justify-content:space-between; align-items:center; }
+.ma-modal-lbl { font-family:var(--mono); font-size:9.5px; color:var(--text-xs); text-transform:uppercase; letter-spacing:1px; }
+.ma-modal-val { font-family:var(--mono); font-size:11px; color:var(--text-mid); }
+.ma-modal-val.ok { color:var(--green); }
+.ma-modal-val.warn { color:#fbbf24; }
+.ma-field-label { font-family:var(--mono); font-size:9.5px; color:var(--text-xs); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:4px; }
+.ma-field-input { width:100%; padding:7px 10px; border:1px solid var(--border-hi); border-radius:6px; background:var(--surface-hi); color:var(--text-hi); font-family:var(--mono); font-size:11px; box-sizing:border-box; outline:none; }
+.ma-field-input:focus { border-color:var(--accent); }
+.ma-steps { background:var(--surface-hi); border:1px solid var(--border); border-radius:8px; padding:8px 10px; max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:5px; }
+.ma-step { display:flex; align-items:center; gap:8px; }
+.ma-step-dot { width:5px; height:5px; border-radius:50%; background:var(--text-xs); flex-shrink:0; }
+.ma-step-dot.ok { background:var(--green); }
+.ma-step-dot.err { background:oklch(60% 0.18 25); }
+.ma-step-txt { font-family:var(--mono); font-size:10px; color:var(--text-lo); }
+.ma-step-txt.ok { color:var(--green); }
+.ma-step-txt.err { color:oklch(60% 0.18 25); }
+.ma-btns { display:flex; gap:8px; flex-wrap:wrap; }
+.ma-btn { padding:6px 14px; border-radius:6px; border:none; font-family:var(--mono); font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:5px; transition:opacity 0.15s; }
+.ma-btn:disabled { opacity:0.45; cursor:default; }
+.ma-btn-primary { background:var(--accent); color:#fff; }
+.ma-btn-primary:hover:not(:disabled) { opacity:0.85; }
+.ma-btn-secondary { background:var(--surface-hi); color:var(--text-mid); border:1px solid var(--border-hi); }
+.ma-btn-secondary:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.ma-btn-danger { background:oklch(17% 0.015 25); color:oklch(60% 0.18 25); border:1px solid oklch(60% 0.18 25 / 0.3); }
+.ma-btn-danger:hover:not(:disabled) { opacity:0.85; }
+.ma-btn-ghost { background:none; color:var(--text-lo); border:1px solid var(--border); }
+.ma-btn-ghost:hover:not(:disabled) { color:var(--text-mid); }
+.ma-msg { font-family:var(--mono); font-size:11px; padding:7px 12px; border-radius:6px; }
+.ma-msg.ok { background:oklch(65% 0.15 150 / 0.08); border:1px solid oklch(65% 0.15 150 / 0.25); color:var(--green); }
+.ma-msg.err { background:oklch(60% 0.18 25 / 0.08); border:1px solid oklch(60% 0.18 25 / 0.25); color:oklch(60% 0.18 25); }
+.ma-method-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+.ma-method-tab { font-family:var(--mono); font-size:10px; padding:3px 10px; border-radius:4px; background:var(--surface-hi); border:1px solid var(--border); color:var(--text-lo); cursor:pointer; }
+.ma-method-tab.active { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); }
+.ma-browser-hint { font-size:11px; color:var(--text-lo); line-height:1.5; }
 
 /* ── playbook runs view ────────────────────────────────────── */
 .wf-run-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
@@ -1942,6 +1999,7 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
               <button class="btn" onclick="v2ExportOrg()" title="Export org as JSON file" style="color:var(--text-lo);border-color:var(--border)">Export</button>
               <button class="btn" onclick="v2ImportOrgTrigger()" title="Import org from JSON file" style="color:var(--text-lo);border-color:var(--border)">Import</button>
               <button class="btn" id="org-copy-btn" onclick="v2ShowCopyOrgDialog()" style="color:var(--accent);border-color:var(--accent)">Copy to…</button>
+              <button class="btn" id="org-mark-complete-btn" onclick="v2MarkOrgComplete()" style="display:none;color:oklch(70% 0.15 25);border-color:oklch(60% 0.15 25 / 0.4)" title="Write run:complete to clear STALE state">Mark Complete</button>
               <button class="btn" id="org-stop-btn" onclick="v2StopOrg()" style="display:none;color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Stop</button>
               <button class="btn" id="org-delete-btn" onclick="v2DeleteOrg()" title="Permanently delete this org and all its data" style="color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Delete</button>
             </div>
@@ -2201,7 +2259,6 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
         <div class="wf-pane active" id="wf-tab-systems">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:4px">
             <button class="btn" onclick="loadPlatformSessions()">↺ Refresh</button>
-            <span style="font-size:11px;color:var(--text-lo)">Sessions saved in ~/.monomind/sessions.json</span>
           </div>
           <div id="wf-systems-grid"></div>
         </div>
@@ -4482,6 +4539,12 @@ function appendChatViewEvent(ev, animate) {
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'file:write') {
     el = mkCVFileCard(ev.name || ev.path || '?', ev.path || '', ev.size || 0, ts);
+  } else if (ev.type === 'agent:edit' || ev.type === 'agent:write') {
+    el = mkCVTool('EDIT', ev.payload || ev.file || ev.path || '', '', 'oklch(65% 0.20 270)', ts);
+  } else if (ev.type === 'agent:bash') {
+    el = mkCVTool('BASH', ev.payload || ev.command || '', ev.output || '', 'oklch(72% 0.18 40)', ts);
+  } else if (ev.type === 'agent:browse') {
+    el = mkCVTool('BROWSE', ev.payload || ev.url || '', '', 'oklch(65% 0.15 190)', ts);
   } else if (ev.type === 'org:agent:offline') {
     el = mkCVSys('◌ ' + esc(ev.title || ev.role || '?') + ' offline' + (ev.org ? ' [' + esc(ev.org) + ']' : ''), ts);
   } else if (ev.type === 'org:error') {
@@ -4500,6 +4563,9 @@ function _cvExcerptText(ev) {
   if (t === 'intercom' || t === 'org:comms') return (ev.from || ev.role || '?') + ' → ' + (ev.to || '?') + ': ' + (ev.msg || ev.message || '').slice(0, 80);
   if (t === 'agent:message') return (ev.agent || ev.name || ev.role || '?') + ': ' + (ev.msg || ev.message || ev.content || '').slice(0, 80);
   if (t === 'agent:result') return (ev.agent || ev.from || '?') + ': ' + (ev.result || ev.msg || ev.message || ev.summary || '').slice(0, 80);
+  if (t === 'agent:edit' || t === 'agent:write') return '✏ ' + (ev.payload || ev.file || ev.path || '').replace(/.*\//, '');
+  if (t === 'agent:bash') { const c = ev.payload || ev.command || ''; return '$ ' + c.slice(0, 80); }
+  if (t === 'agent:browse') return '🌐 ' + (ev.payload || ev.url || '').slice(0, 80);
   if (t === 'agent:spawn') return 'spawned ' + (ev.to || ev.agent || ev.role || '?') + (ev.task || ev.briefing ? ': ' + (ev.task || ev.briefing || '').slice(0, 50) : '');
   if (t === 'org:agent:online') return (ev.title || ev.role || '?') + ' online';
   if (t === 'org:agent:offline') return (ev.title || ev.role || '?') + ' offline';
@@ -4604,6 +4670,23 @@ function mkCVFileCard(name, filePath, size, ts) {
     `<span style="font-size:9px;color:var(--text-lo);flex-shrink:0">${sizeStr}</span>`+
     (filePath ? `<button class="btn" style="font-size:9px;padding:1px 6px;flex-shrink:0;border-color:oklch(65% 0.18 50);color:oklch(65% 0.18 50)" data-fp="${esc(filePath)}" data-fn="${esc(name)}" onclick="v2ViewOrgFile(this.dataset.fp,this.dataset.fn)">View</button>` : '')+
     `<span class="cv-ts">${ts}</span></div>`;
+  return d;
+}
+
+function mkCVTool(tag, cmd, output, color, ts) {
+  const d = document.createElement('div');
+  d.className = 'cv-msg cv-tool';
+  const shortCmd = cmd.length > 120 ? '…' + cmd.slice(-100) : cmd;
+  const uid = 'tool-' + Math.random().toString(36).slice(2,8);
+  const hasOutput = output && output.trim().length > 0;
+  const shortOut = output && output.length > 400 ? output.slice(0, 400) + '…' : output;
+  d.innerHTML = `<div class="cv-bub" style="border-left:2px solid ${color};align-items:flex-start;flex-direction:column;gap:3px">`+
+    `<div style="display:flex;align-items:center;gap:6px;width:100%">`+
+    `<span class="cv-etype" style="color:${color};flex-shrink:0">${tag}</span>`+
+    `<span class="cv-text" style="font-family:var(--mono);font-size:10px;word-break:break-all">${esc(shortCmd)}</span>`+
+    `<span class="cv-ts" style="margin-left:auto;flex-shrink:0">${ts}</span></div>`+
+    (hasOutput ? `<pre id="${uid}" style="margin:2px 0 0 0;padding:6px 8px;background:oklch(6% 0.01 295);border-radius:4px;font-size:9.5px;line-height:1.5;color:oklch(70% 0.05 295);overflow:auto;max-height:200px;width:100%;box-sizing:border-box;white-space:pre-wrap;word-break:break-word">${esc(shortOut)}</pre>` : '')+
+    `</div>`;
   return d;
 }
 
@@ -5768,7 +5851,7 @@ function v2RenderOrgList() {
         <div class="oi-name">${esc(o.name)}</div>
         ${goalSnip ? `<div class="oi-goal">${esc(goalSnip)}</div>` : ''}
         <div class="oi-chips">
-          ${o.running ? '<span class="oi-chip live">LIVE</span>' : ''}
+          ${o.running ? `<span class="oi-chip ${o.lastEventAt ? (Date.now()-o.lastEventAt<1800000?'live':'quiet') : 'quiet'}">${o.lastEventAt ? (Date.now()-o.lastEventAt<1800000?'🟢 LIVE':'🟡 QUIET') : '🟡 QUIET'}</span>` : ''}
           <span class="oi-chip">${rolesN} roles</span>
           <span class="oi-chip">${esc(o.topology || 'hierarchical')}</span>
         </div>
@@ -5842,14 +5925,29 @@ async function v2SelectOrg(name) {
 function v2UpdateOrgHeader(listOrg, data) {
   document.getElementById('odh-name').textContent = listOrg.name || _v2SelOrg || '—';
   const running = data ? (data.running ?? listOrg.running) : listOrg.running;
+  const _lastEvAt = data ? (data.lastEventAt ?? listOrg.lastEventAt) : listOrg.lastEventAt;
   const badge = document.getElementById('odh-badge');
-  badge.textContent = running ? 'LIVE' : 'IDLE';
-  badge.className = 'odh-badge ' + (running ? 'live' : 'idle');
+  const _mcBtn = document.getElementById('org-mark-complete-btn');
+  if (!running) { badge.textContent = 'IDLE'; badge.className = 'odh-badge idle'; if (_mcBtn) _mcBtn.style.display = 'none'; }
+  else if (!_lastEvAt) { badge.textContent = '🟡 QUIET'; badge.className = 'odh-badge quiet'; if (_mcBtn) _mcBtn.style.display = 'none'; }
+  else { const _a = Date.now() - _lastEvAt; badge.textContent = _a < 1800000 ? '🟢 LIVE' : _a < 7200000 ? '🟡 QUIET' : '🔴 STALE'; badge.className = 'odh-badge ' + (_a < 1800000 ? 'live' : _a < 7200000 ? 'quiet' : 'stale'); if (_mcBtn) _mcBtn.style.display = _a >= 7200000 ? '' : 'none'; }
   const roles = data ? (Array.isArray(data.roles) ? data.roles.length : (data.roles || 0)) : (listOrg.roles || 0);
   document.getElementById('odh-roles').textContent = roles + ' role' + (roles !== 1 ? 's' : '');
   document.getElementById('odh-topo').textContent = (data?.topology || listOrg.topology || '—');
   document.getElementById('org-stop-btn').style.display = running ? '' : 'none';
 }
+
+window.v2MarkOrgComplete = async function() {
+  if (!_v2SelOrg) return;
+  const btn = document.getElementById('org-mark-complete-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Marking…'; }
+  try {
+    const r = await fetch('/api/orgs/' + encodeURIComponent(_v2SelOrg) + '/mark-complete', { method: 'POST' });
+    const j = await r.json();
+    if (!r.ok) { if (btn) { btn.textContent = 'Failed: ' + (j.error || r.status); setTimeout(() => { if (btn) btn.textContent = 'Mark Complete'; }, 3000); } }
+  } catch (e) { if (btn) { btn.textContent = 'Error'; setTimeout(() => { if (btn) btn.textContent = 'Mark Complete'; }, 3000); } console.error('[mark-complete]', e); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Mark Complete'; } }
+};
 
 window.v2SwitchOrgTab = function(tab) {
   // Clear live interval when switching away from live tab
@@ -6477,7 +6575,7 @@ function v2RenderOrgHealth() {
   if (!pane) return;
   pane.innerHTML = `
     <div class="health-v2-grid">
-      <div class="hv2-cell"><div class="hv2-lbl">Status</div><div class="hv2-val ${(_v2OrgData?.running??listOrg.running)?'green':''}">${(_v2OrgData?.running??listOrg.running)?'LIVE':'IDLE'}</div></div>
+      <div class="hv2-cell"><div class="hv2-lbl">Status</div><div class="hv2-val ${(()=>{const r=_v2OrgData?.running??listOrg.running;if(!r)return '';const a=_v2OrgData?.lastEventAt??listOrg.lastEventAt;return a&&(Date.now()-a)<1800000?'green':'amber';})()} ">${(()=>{const r=_v2OrgData?.running??listOrg.running;if(!r)return 'IDLE';const a=_v2OrgData?.lastEventAt??listOrg.lastEventAt;if(!a)return '🟡 QUIET';const d=Date.now()-a;return d<1800000?'🟢 LIVE':d<7200000?'🟡 QUIET':'🔴 STALE';})()}</div></div>
       <div class="hv2-cell"><div class="hv2-lbl">Roles</div><div class="hv2-val">${roles}</div></div>
       <div class="hv2-cell"><div class="hv2-lbl">Topology</div><div class="hv2-val" style="font-size:14px">${esc((_v2OrgData?.topology||'—').toUpperCase())}</div></div>
       ${health?.agents_active!=null?`<div class="hv2-cell"><div class="hv2-lbl">Agents</div><div class="hv2-val ${health.agents_active>0?'green':''}">${health.agents_active}</div></div>`:''}
@@ -7085,6 +7183,9 @@ let _odtChatCurrentId = null;
 let _odtChatCurrentAgent = 'all';
 let _odtChatSseSource = null;
 let _odtChatSeenKeys = new Set();
+let _odtOrgTailSse = null;    // per-org lifecycle tail SSE (receives bash-written run events)
+let _odtOrgTailOffset = 0;   // line offset for reconnect (supplied as ?since=N)
+let _odtOrgTailOrg = null;   // org the tail is currently connected to
 let _odtChatForOrg = '';
 // Loop grouping: [S] sessions with same prompt + <20 min gap → one entry
 let _odtSessionGroups = {};    // groupId → {sessions, events, status, ts, _isGroup}
@@ -7137,11 +7238,19 @@ async function v2RenderOrgChat() {
       <div id="odt-chat-agent-bar" style="display:none">
         <span id="odt-chat-agent-lbl">AGENT</span>
       </div>
+      <div id="odt-chat-mode-row" style="display:flex;gap:4px;padding:4px 8px;border-bottom:1px solid oklch(62% 0.2 186 / 0.12);flex-shrink:0">
+        <button id="odt-mode-summary" class="odt-mode-btn" onclick="setOdtChatMode('summary')" title="Summary: spawn/complete/edit/comms">SUMMARY</button>
+        <button id="odt-mode-detailed" class="odt-mode-btn" onclick="setOdtChatMode('detailed')" title="Detailed: adds bash/browse/reads">DETAILED</button>
+        <button id="odt-mode-raw" class="odt-mode-btn" onclick="setOdtChatMode('raw')" title="Raw: all events">RAW</button>
+      </div>
       <div id="odt-chat-excerpt" class="cv-excerpt-banner"></div>
       <div id="odt-chat-feed">
         <div id="odt-chat-empty">Select a session to see agent communications.<br><span style="font-size:10px;opacity:0.5">Sessions appear after the first /mastermind:runorg</span></div>
       </div>`;
   }
+
+  // Restore saved chat mode (runs on every tab open so buttons stay in sync)
+  initOdtChatMode();
 
   // Reset state only when org changes (not on every tab-switch)
   if (_odtChatForOrg !== _v2SelOrg) {
@@ -7149,6 +7258,10 @@ async function v2RenderOrgChat() {
     _odtChatCurrentId = null;
     _odtChatCurrentAgent = 'all';
     _odtChatSeenKeys = new Set();
+    // Reset per-org lifecycle tail so it reconnects to the new org on next chat render
+    if (_odtOrgTailSse) { _odtOrgTailSse.close(); _odtOrgTailSse = null; }
+    _odtOrgTailOffset = 0;
+    _odtOrgTailOrg = null;
     // Clear sessions from the previous org so _odtLoadChatSessions doesn't snapshot them
     // into _prevSessions and risk contaminating the new org's event buffers. SSE-injected
     // sessions for the NEW org arriving during the upcoming fetch are still captured via
@@ -7231,6 +7344,9 @@ async function v2RenderOrgChat() {
     }
   }
   _odtConnectChatSSE();
+  // Wire per-org streaming tail to pick up bash-written lifecycle events (run:start, run:cycle:complete, run:complete)
+  // that bypass mastermind-stream. The dedup set in _odtHandleLiveEvent filters any duplicates.
+  if (_v2SelOrg) _odtConnectOrgTail(_v2SelOrg);
 }
 
 async function _odtLoadChatSessions() {
@@ -7491,12 +7607,23 @@ function _odtPopulateChatSel() {
   // Update label
   const _lblEl = document.getElementById('odt-chat-sess-lbl');
   if (_lblEl) _lblEl.textContent = (hasRuns && hasSess) ? 'HISTORY' : hasRuns ? 'RUN' : 'SESSION';
-  // Auto-select running entry
+  // Auto-select: prefer running entry; if already on a non-running entry and a running one
+  // becomes available (e.g. mastermind sessions loaded after initial run-file fetch), upgrade.
+  const runningRunGrp = runGroups.find(g => g.status === 'running');
+  const runningSessGrp = sessGroups.find(g => g.status === 'running');
+  const bestRunning = runningRunGrp || runningSessGrp;
+  const currentGrp = _odtChatCurrentId
+    ? (runGroups.find(g => g.id === _odtChatCurrentId) || sessGroups.find(g => g.id === _odtChatCurrentId))
+    : null;
+  const currentIsRunning = currentGrp?.status === 'running';
   if (!_odtChatCurrentId) {
-    const runningRunGrp = runGroups.find(g => g.status === 'running');
-    const runningSessGrp = sessGroups.find(g => g.status === 'running');
-    const first = runningRunGrp || runningSessGrp || runGroups[0] || sessGroups[0];
+    // Pick: running entry first, then most-recent by timestamp across both run and session groups
+    const allEntries = [...runGroups, ...sessGroups].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    const first = bestRunning || allEntries[0];
     if (first) { sel.value = first.id; odtChatSelectSession(first.id); }
+  } else if (!currentIsRunning && bestRunning && bestRunning.id !== _odtChatCurrentId) {
+    // Upgrade from stale/complete auto-selection to the running entry now that it's loaded
+    sel.value = bestRunning.id; odtChatSelectSession(bestRunning.id);
   }
 }
 
@@ -7841,8 +7968,36 @@ window.odtChatSelectAgent = function(name) {
   feed.scrollTop = feed.scrollHeight;
 };
 
+// Chat tab render mode (Summary/Detailed/Raw) — persists to localStorage
+let _odtChatMode = localStorage.getItem('odt-chat-mode') || 'detailed';
+
+function setOdtChatMode(mode) {
+  _odtChatMode = mode;
+  localStorage.setItem('odt-chat-mode', mode);
+  document.querySelectorAll('.odt-mode-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('odt-mode-' + mode);
+  if (btn) btn.classList.add('active');
+}
+
+function initOdtChatMode() {
+  const saved = localStorage.getItem('odt-chat-mode') || 'detailed';
+  setOdtChatMode(saved);
+}
+
 function _odtAppendEvent(ev, animate) {
   if (!_odtChatAgentMatches(ev)) return;
+  // Filter by render mode
+  const _evType = ev.type || '';
+  const _isSummaryType = _evType === 'agent:spawn' || _evType === 'agent:complete' ||
+    _evType === 'agent:edit' || _evType === 'org:comms' || _evType === 'org:error' ||
+    _evType === 'run:start' || _evType === 'run:complete' || _evType === 'org:start' ||
+    _evType === 'org:checkpoint' || _evType === 'run:cycle:complete' || _evType === 'org:complete' || _evType === 'org:stop';
+  const _isDetailedType = _isSummaryType || _evType === 'agent:bash' ||
+    _evType === 'agent:browse' || _evType === 'agent:read:batch' || _evType === 'agent:usage' ||
+    _evType === 'agent:result' || _evType === 'file:write' || _evType === 'org:agent:online';
+  if (_odtChatMode === 'summary' && !_isSummaryType) return;
+  if (_odtChatMode === 'detailed' && !_isDetailedType) return;
+  // raw: show everything
   const feed = document.getElementById('odt-chat-feed');
   if (!feed) return;
   // Capture scroll position BEFORE appending: only auto-scroll for live events when
@@ -7907,6 +8062,12 @@ function _odtAppendEvent(ev, animate) {
     el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.loopId || ''), ts);
   } else if (ev.type === 'loop:hil:resolved') {
     el = mkCVSys('✓ Loop HIL resolved: ' + esc(ev.loopId || ''), ts);
+  } else if (ev.type === 'agent:edit' || ev.type === 'agent:write') {
+    el = mkCVTool('EDIT', ev.payload || ev.file || ev.path || '', '', 'oklch(65% 0.20 270)', ts);
+  } else if (ev.type === 'agent:bash') {
+    el = mkCVTool('BASH', ev.payload || ev.command || '', ev.output || '', 'oklch(72% 0.18 40)', ts);
+  } else if (ev.type === 'agent:browse') {
+    el = mkCVTool('BROWSE', ev.payload || ev.url || '', '', 'oklch(65% 0.15 190)', ts);
   } else if (ev.type === 'org:error') {
     el = mkCVSys('⚠ Error: ' + esc(ev.msg || ev.error || ev.message || ''), ts);
     el.classList.add('cv-err');
@@ -7939,6 +8100,28 @@ function _odtConnectChatSSE() {
     _odtChatSseSource = null;
     if (_src) _src.close();
     setTimeout(_odtConnectChatSSE, 5000);
+  };
+}
+
+function _odtConnectOrgTail(orgName) {
+  if (!orgName || (_odtOrgTailSse !== null && _odtOrgTailOrg === orgName)) return;
+  if (_odtOrgTailSse) { _odtOrgTailSse.close(); _odtOrgTailSse = null; }
+  _odtOrgTailOrg = orgName;
+  const _tailUrl = '/api/orgs/' + encodeURIComponent(orgName) + '/runs/current/stream?since=' + _odtOrgTailOffset;
+  _odtOrgTailSse = new EventSource(_tailUrl);
+  _odtOrgTailSse.onmessage = e => {
+    try {
+      const ev = JSON.parse(e.data);
+      if (ev && ev.type === 'stream:replay-done') { _odtOrgTailOffset = ev.count || _odtOrgTailOffset; return; }
+      _odtOrgTailOffset++;
+      _odtHandleLiveEvent(ev);
+    } catch (_) {}
+  };
+  _odtOrgTailSse.onerror = () => {
+    const _src = _odtOrgTailSse;
+    _odtOrgTailSse = null;
+    if (_src) _src.close();
+    setTimeout(() => { if (_v2SelOrg === orgName && _odtOrgTailOrg === orgName) _odtConnectOrgTail(orgName); }, 5000);
   };
 }
 
@@ -10291,14 +10474,12 @@ let _mgWikiMode = 'all';
 let _mgWikiSearchTimer = null;
 
 /* ── Playbook View ─────────────────────────────────────────── */
-const WF_PLATFORMS = [
-  { id: 'linkedin',  name: 'LinkedIn',  icon: '💼', type: 'browser', connectCmd: 'npx monomind browse platform connect linkedin' },
-  { id: 'instagram', name: 'Instagram', icon: '📷', type: 'browser', connectCmd: 'npx monomind browse platform connect instagram' },
-  { id: 'x',        name: 'X (Twitter)',icon: '𝕏',  type: 'browser', connectCmd: 'npx monomind browse platform connect x' },
-  { id: 'gemini',   name: 'Gemini',    icon: '✦',  type: 'browser', connectCmd: 'npx monomind browse platform connect gemini' },
-  { id: 'google',   name: 'Google',    icon: '🔵', type: 'api',     connectCmd: 'export GOOGLE_ACCESS_TOKEN=<your-token>' },
-  { id: 'microsoft',name: 'Microsoft', icon: '🟦', type: 'api',     connectCmd: 'export MICROSOFT_ACCESS_TOKEN=<your-token>' },
-];
+// monoagent connections state
+let _maPlatforms = [];   // full registry from monoes
+let _maConns = [];       // active API/OAuth connections
+let _maSessions = [];    // browser sessions
+let _maSelected = null;  // currently open modal platform def
+let _maLoginPoll = null; // active login poll interval (cleared on modal close)
 
 function wfSwitchTab(tab) {
   document.querySelectorAll('.wf-pane, #wf-tab-builder').forEach(p => p.classList.remove('active'));
@@ -10346,15 +10527,19 @@ async function loadWorkflowDefs() {
   }).join('');
 }
 
-let _wfSessions = null;
 async function loadPlatformSessions() {
   const grid = document.getElementById('wf-systems-grid');
   if (!grid) return;
   grid.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const data = await apiFetch('/api/platform-sessions');
-    _wfSessions = data;
-    renderSystems(data);
+    const [plats, conns] = await Promise.all([
+      fetch('/api/monoagent/platforms').then(r => r.json()).catch(() => []),
+      fetch('/api/monoagent/connections').then(r => r.json()).catch(() => ({ connections: [], sessions: [] })),
+    ]);
+    _maPlatforms = Array.isArray(plats) ? plats : [];
+    _maConns = Array.isArray(conns.connections) ? conns.connections : [];
+    _maSessions = Array.isArray(conns.sessions) ? conns.sessions : [];
+    renderSystems();
   } catch (e) {
     grid.innerHTML = '<div class="loading-txt">Failed to load systems.</div>';
   }
@@ -10369,42 +10554,289 @@ function relativeTime(ts) {
   return Math.floor(s / 86400) + 'd ago';
 }
 
-function renderSystems(data) {
+const MA_CATEGORY_ORDER = ['social', 'service', 'communication', 'database'];
+const MA_CATEGORY_LABELS = { social: 'Social', service: 'Services & APIs', communication: 'Communication', database: 'Databases' };
+const BROWSER_PLATFORMS = new Set(['instagram', 'linkedin', 'x', 'tiktok', 'gemini']);
+
+function maResolveConn(pid) {
+  pid = pid.toLowerCase();
+  if (BROWSER_PLATFORMS.has(pid)) {
+    const now = Date.now();
+    const s = _maSessions.find(x => (x.Platform || '').toLowerCase() === pid);
+    if (!s) return null;
+    const expiry = new Date(s.Expiry).getTime();
+    return { _type: 'session', id: String(s.ID), account: s.Username || '—', method: 'browser', status: expiry > now ? 'active' : 'expired' };
+  }
+  const c = _maConns.find(x => (x.platform || '').toLowerCase() === pid);
+  if (!c) return null;
+  return { _type: 'connection', id: c.id, account: c.account_id || c.label || '—', method: c.method || '—', status: c.status || 'active', lastTested: c.last_tested };
+}
+
+function renderSystems() {
   const grid = document.getElementById('wf-systems-grid');
   if (!grid) return;
-  const sessions = data?.sessions || [];
-  const googleToken = data?.googleToken || false;
-  const msToken = data?.msToken || false;
 
-  grid.innerHTML = WF_PLATFORMS.map(p => {
-    let connected = false, username = null, lastUsed = null, session = null;
-    if (p.id === 'google') {
-      connected = googleToken;
-    } else if (p.id === 'microsoft') {
-      connected = msToken;
-    } else {
-      session = sessions.find(s => s.platform === p.id);
-      connected = !!session;
-      if (session) { username = session.username; lastUsed = session.lastUsedAt || session.createdAt; }
+  if (!_maPlatforms.length) {
+    grid.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-xs);font-size:12px">
+      <div style="font-size:28px;margin-bottom:8px">🔌</div>
+      <div style="font-weight:600;color:var(--text-lo);margin-bottom:4px">monoagent not found</div>
+      <div style="font-size:11px">Install monoes: <code style="color:var(--accent)">go install github.com/monoes/mono-agent/cmd/monoes@latest</code></div>
+    </div>`;
+    return;
+  }
+
+  const groups = {};
+  for (const p of _maPlatforms) {
+    const cat = (p.Category || p.category || 'service').toLowerCase();
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(p);
+  }
+
+  const cats = [...MA_CATEGORY_ORDER, ...Object.keys(groups).filter(c => !MA_CATEGORY_ORDER.includes(c))].filter(c => groups[c]);
+  const totalConn = _maPlatforms.filter(p => maResolveConn(p.ID || p.id)).length;
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <span style="font-size:11px;color:var(--text-xs)">${totalConn} / ${_maPlatforms.length} connected</span>
+    <button class="ma-btn ma-btn-ghost" style="font-size:10px;padding:3px 10px" onclick="loadPlatformSessions()">↺ Refresh</button>
+  </div>`;
+
+  for (const cat of cats) {
+    const list = groups[cat];
+    const catConn = list.filter(p => maResolveConn(p.ID || p.id)).length;
+    html += `<div class="ma-cat-hdr">
+      <span class="ma-cat-label">${MA_CATEGORY_LABELS[cat] || cat}</span>
+      <div class="ma-cat-line"></div>
+      <span class="ma-cat-count">${catConn}/${list.length}</span>
+    </div><div class="ma-tiles">`;
+    for (const p of list) {
+      const pid = p.ID || p.id;
+      const conn = maResolveConn(pid);
+      const connected = conn && conn.status === 'active';
+      const expired = conn && conn.status !== 'active';
+      const cls = connected ? 'connected' : expired ? 'expired' : '';
+      html += `<div class="ma-tile ${cls}" data-pid="${esc(pid)}" onclick="maOpenModal(this.dataset.pid)">
+        <span class="ma-tile-icon">${esc(p.IconEmoji || p.iconEmoji || '🔌')}</span>
+        <span class="ma-tile-name">${esc(p.Name || p.name || pid)}</span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span class="ma-tile-dot"></span>
+          ${conn ? `<span class="ma-tile-acct">${esc(conn.account)}</span>` : ''}
+        </div>
+      </div>`;
     }
-    return `<div class="sys-card ${connected ? 'connected' : ''}">
-      <div class="sys-card-top">
-        <div class="sys-icon">${p.icon}</div>
+    html += `</div>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+function maOpenModal(pid) {
+  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
+  if (!p) return;
+  _maSelected = p;
+  maRenderModal(p, maResolveConn(pid), []);
+}
+
+function maRenderModal(p, conn, steps, selMethod, fields, state) {
+  const pid = p.ID || p.id;
+  const name = p.Name || p.name || pid;
+  const emoji = p.IconEmoji || p.iconEmoji || '🔌';
+  const methods = (p.Methods || p.methods || []);
+  const method = selMethod || methods[0] || '';
+  const isBrowser = method === 'browser';
+  const connected = conn && conn.status === 'active';
+  const expired = conn && conn.status !== 'active' && conn;
+  state = state || {};
+
+  const existing = document.getElementById('ma-modal-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ma-modal-overlay';
+  overlay.className = 'ma-modal-bg';
+  overlay.addEventListener('click', e => { if (e.target === overlay) maCloseModal(); });
+
+  let bodyHtml = '';
+
+  if (conn) {
+    // Connected state
+    const statusColor = connected ? 'var(--green)' : '#fbbf24';
+    bodyHtml = `
+      <div class="ma-modal-info">
+        ${[['Account', conn.account], ['Method', conn.method], ['Status', conn.status]].map(([l,v]) =>
+          `<div class="ma-modal-row"><span class="ma-modal-lbl">${l}</span><span class="ma-modal-val ${v==='active'?'ok':v==='expired'?'warn':''}">${esc(v)}</span></div>`
+        ).join('')}
+        ${conn.lastTested ? `<div class="ma-modal-row"><span class="ma-modal-lbl">Last tested</span><span class="ma-modal-val">${esc(relativeTime(new Date(conn.lastTested).getTime()))}</span></div>` : ''}
+      </div>
+      ${state.testMsg ? `<div class="ma-msg ${state.testOk ? 'ok' : 'err'}">${esc(state.testMsg)}</div>` : ''}
+      ${state.err ? `<div class="ma-msg err">${esc(state.err)}</div>` : ''}
+      ${steps.length ? `<div class="ma-steps">${steps.map(s=>`<div class="ma-step"><span class="ma-step-dot ${s.kind}"></span><span class="ma-step-txt ${s.kind}">${esc(s.msg)}</span></div>`).join('')}</div>` : ''}
+      <div class="ma-btns">
+        <button class="ma-btn ma-btn-secondary" id="ma-test-btn" onclick="maTest('${pid}','${conn.id}')">Test</button>
+        ${expired ? `<button class="ma-btn ma-btn-primary" onclick="maStartLogin('${pid}')">Log in again</button>` : ''}
+        ${state.confirmDisc ? `
+          <button class="ma-btn ma-btn-danger" onclick="maDisconnect('${pid}','${conn.id}','${conn._type}')">Yes, disconnect</button>
+          <button class="ma-btn ma-btn-ghost" data-pid="${esc(pid)}" onclick="maOpenModal(this.dataset.pid)">Cancel</button>
+        ` : `
+          <button class="ma-btn ma-btn-danger" onclick="maConfirmDisconnect('${pid}')">Disconnect</button>
+          <button class="ma-btn ma-btn-ghost" onclick="maCloseModal()">Close</button>
+        `}
+      </div>`;
+  } else {
+    // Not connected — show method tabs + connect form
+    const methodTabsHtml = methods.length > 1 ? `<div class="ma-method-tabs">${methods.map(m =>
+      `<button class="ma-method-tab ${m===method?'active':''}" data-pid="${esc(p.ID||p.id)}" data-method="${esc(m)}" onclick="maRenderModal(_maPlatforms.find(x=>(x.ID||x.id)===this.dataset.pid),null,[],this.dataset.method,{},{})">${esc(m)}</button>`
+    ).join('')}</div>` : '';
+
+    let formHtml = '';
+    if (isBrowser) {
+      formHtml = `<div class="ma-browser-hint">A browser window will open. Log in to ${esc(name)} and the session will be saved automatically.</div>
+        ${steps.length ? `<div class="ma-steps">${steps.map(s=>`<div class="ma-step"><span class="ma-step-dot ${s.kind}"></span><span class="ma-step-txt ${s.kind}">${esc(s.msg)}</span></div>`).join('')}</div>` : ''}
+        ${state.running ? `<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-xs)"><span class="spinner" style="width:10px;height:10px;border-width:2px"></span>Waiting for login…</div>` : ''}
+        ${state.err ? `<div class="ma-msg err">${esc(state.err)}</div>` : ''}`;
+    } else {
+      const fieldDefs = (p.Fields || p.fields || {})[method] || [];
+      formHtml = fieldDefs.map(f => {
+        const key = f.Key || f.key;
+        const label = f.Label || f.label || key;
+        const secret = f.Secret || f.secret;
+        const req = f.Required || f.required;
+        const val = (fields || {})[key] || '';
+        return `<div>
+          <div class="ma-field-label">${esc(label)}${req ? ' <span style="color:oklch(60% 0.18 25)">*</span>' : ''}</div>
+          <input class="ma-field-input" type="${secret ? 'password' : 'text'}" data-key="${esc(key)}" value="${esc(val)}" autocomplete="${secret ? 'new-password' : 'off'}" placeholder="${esc(label)}">
+          ${f.HelpURL || f.helpURL ? `<a href="#" style="font-size:9.5px;color:var(--accent);text-decoration:none" onclick="event.preventDefault()">How to get this ↗</a>` : ''}
+        </div>`;
+      }).join('') || `<div class="ma-browser-hint">No configuration required.</div>`;
+      formHtml += `${state.err ? `<div class="ma-msg err">${esc(state.err)}</div>` : ''}
+        ${state.ok ? `<div class="ma-msg ok">Connected!</div>` : ''}`;
+    }
+
+    const connectBtn = isBrowser
+      ? `<button class="ma-btn ma-btn-primary" id="ma-conn-btn" onclick="maStartLogin('${pid}')">Connect ${esc(name)}</button>`
+      : `<button class="ma-btn ma-btn-primary" id="ma-conn-btn" data-pid="${esc(pid)}" data-method="${esc(method)}" onclick="maConnectApiKey(this.dataset.pid,this.dataset.method)">Connect</button>`;
+
+    bodyHtml = `
+      ${methodTabsHtml}
+      ${formHtml}
+      <div class="ma-btns">
+        ${state.ok ? '' : connectBtn}
+        <button class="ma-btn ma-btn-ghost" onclick="loadPlatformSessions();maCloseModal()">Refresh</button>
+        <button class="ma-btn ma-btn-ghost" onclick="maCloseModal()">Close</button>
+      </div>`;
+  }
+
+  overlay.innerHTML = `<div class="ma-modal">
+    <div class="ma-modal-hdr">
+      <div class="ma-modal-hdr-left">
+        <span style="font-size:26px">${esc(emoji)}</span>
         <div>
-          <div class="sys-name">${esc(p.name)}</div>
-          <div class="sys-type">${esc(p.type)}</div>
+          <div class="ma-modal-title">${esc(name)}</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
+            <span style="width:6px;height:6px;border-radius:50%;background:${connected?'var(--green)':expired?'#fbbf24':'var(--border)'}"></span>
+            <span class="ma-modal-status" style="color:${connected?'var(--green)':expired?'#fbbf24':'var(--text-xs)'}">${connected?'Connected':expired?'Session expired':'Not connected'}</span>
+          </div>
         </div>
       </div>
-      <div class="sys-status">
-        <div class="sys-dot ${connected ? 'on' : 'off'}"></div>
-        <span style="color:${connected ? 'var(--green)' : 'var(--text-lo)'}">${connected ? 'Connected' : 'Not connected'}</span>
-        ${p.type === 'api' && connected ? '<span class="sys-api-badge">API token set</span>' : ''}
-      </div>
-      ${username ? `<div class="sys-user">@${esc(username)}</div>` : ''}
-      ${lastUsed ? `<div class="sys-age">Last used ${esc(relativeTime(lastUsed))}</div>` : ''}
-      ${!connected ? `<div class="sys-cmd" title="Run this command to connect">${esc(p.connectCmd)}</div>` : ''}
-    </div>`;
-  }).join('');
+      <button class="ma-btn ma-btn-ghost" style="padding:4px 8px" onclick="maCloseModal()">✕</button>
+    </div>
+    <div class="ma-modal-body">${bodyHtml}</div>
+  </div>`;
+
+  document.body.appendChild(overlay);
+}
+
+function maCloseModal() {
+  if (_maLoginPoll) { clearInterval(_maLoginPoll); _maLoginPoll = null; }
+  const el = document.getElementById('ma-modal-overlay');
+  if (el) el.remove();
+  _maSelected = null;
+}
+
+function maConfirmDisconnect(pid) {
+  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
+  const conn = maResolveConn(pid);
+  if (p && conn) maRenderModal(p, conn, [], null, {}, { confirmDisc: true });
+}
+
+async function maStartLogin(pid) {
+  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
+  if (!p) return;
+  const steps = [{ msg: 'Opening browser…', kind: '' }];
+  maRenderModal(p, null, steps, 'browser', {}, { running: true });
+  try {
+    const r = await fetch('/api/monoagent/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pid }) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    steps.push({ msg: 'Browser open — log in then come back', kind: 'ok' });
+    maRenderModal(p, null, steps, 'browser', {}, { running: false });
+    showToast('Browser opened', 'Log in to ' + (p.Name || pid) + ' and hit Refresh', 'ok');
+    // Poll for completion
+    let polls = 0;
+    if (_maLoginPoll) clearInterval(_maLoginPoll);
+    _maLoginPoll = setInterval(async () => {
+      polls++;
+      const d = await fetch('/api/monoagent/connections').then(r => r.json()).catch(() => null);
+      if (d) { _maConns = d.connections || []; _maSessions = d.sessions || []; }
+      const conn = maResolveConn(pid);
+      if (conn || polls >= 18) {
+        clearInterval(_maLoginPoll); _maLoginPoll = null;
+        if (conn) { renderSystems(); maOpenModal(pid); showToast('Connected', (p.Name||pid) + ' session saved', 'ok'); }
+        else { maRenderModal(p, null, [], 'browser', {}, { err: 'Login timed out. Close the browser tab and try again.' }); }
+      }
+    }, 5000);
+  } catch (e) {
+    maRenderModal(p, null, [], 'browser', {}, { err: e.message });
+  }
+}
+
+async function maConnectApiKey(pid, method) {
+  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
+  if (!p) return;
+  const modal = document.getElementById('ma-modal-overlay');
+  const inputs = modal ? modal.querySelectorAll('.ma-field-input') : [];
+  const fields = {};
+  inputs.forEach(inp => { fields[inp.dataset.key] = inp.value.trim(); });
+  const btn = document.getElementById('ma-conn-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+  try {
+    const r = await fetch('/api/monoagent/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pid, method, fields }) });
+    const d = await r.json();
+    if (d.ok) {
+      await loadPlatformSessions();
+      maRenderModal(p, maResolveConn(pid), [], method, fields, { ok: true });
+      showToast('Connected', (p.Name || pid) + ' connected', 'ok');
+    } else {
+      maRenderModal(p, null, [], method, fields, { err: d.stderr || d.error || 'Connection failed' });
+    }
+  } catch (e) {
+    maRenderModal(p, null, [], method, fields, { err: e.message });
+  }
+}
+
+async function maTest(pid, connId) {
+  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
+  const conn = maResolveConn(pid);
+  if (!p || !conn) return;
+  const btn = document.getElementById('ma-test-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
+  try {
+    const d = await fetch('/api/monoagent/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: connId }) }).then(r => r.json());
+    maRenderModal(p, conn, [], null, {}, { testOk: d.ok, testMsg: d.ok ? '✓ Connection OK' : ('✗ ' + (d.error || 'Test failed')) });
+  } catch (e) {
+    maRenderModal(p, conn, [], null, {}, { testMsg: '✗ ' + e.message, testOk: false });
+  }
+}
+
+async function maDisconnect(pid, connId, type) {
+  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
+  if (!p) return;
+  try {
+    await fetch('/api/monoagent/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: connId, type }) });
+    await loadPlatformSessions();
+    maCloseModal();
+    showToast('Disconnected', (p.Name || pid) + ' removed', 'ok');
+  } catch (e) {
+    showToast('Error', e.message, 'err');
+  }
 }
 
 let _wfRuns = [];
@@ -10458,55 +10890,386 @@ function renderWorkflowRuns() {
 /* ═══════════════════════════════════════════════════════════════
    PLAYBOOK BUILDER
    ═══════════════════════════════════════════════════════════════ */
+const PB_CAT_COLOR = {
+  'Triggers':'#7c3aed','Control':'#0891b2','Data':'#d97706','Actions':'#059669',
+  'HTTP':'#ea580c','Comm':'#9333ea','Google':'#1d4ed8','Services':'#0f766e',
+};
+
 const PB_NODE_DEFS = [
-  { cat: 'Core',    type: 'trigger.manual', label: 'Manual Trigger', icon: '▶' },
-  { cat: 'Core',    type: 'core.filter',    label: 'Filter',         icon: '⚗' },
-  { cat: 'Core',    type: 'core.if',        label: 'If / Branch',    icon: '⑂' },
-  { cat: 'Core',    type: 'core.set',       label: 'Set Fields',     icon: '✎' },
-  { cat: 'Core',    type: 'core.aggregate', label: 'Aggregate',      icon: '∑' },
-  { cat: 'Core',    type: 'core.sort',      label: 'Sort',           icon: '⇅' },
-  { cat: 'Core',    type: 'core.limit',     label: 'Limit',          icon: '✂' },
-  { cat: 'Core',    type: 'core.switch',    label: 'Switch',         icon: '⑃' },
-  { cat: 'Core',    type: 'core.merge',     label: 'Merge',          icon: '⊕' },
-  { cat: 'Core',    type: 'core.remove_duplicates', label: 'Remove Duplicates', icon: '⊘' },
-  { cat: 'Core',    type: 'core.code',      label: 'Code',           icon: '〈/〉' },
-  { cat: 'Core',    type: 'core.wait',      label: 'Wait',           icon: '⏱' },
-  { cat: 'Core',    type: 'core.split_in_batches', label: 'Split Batches', icon: '⋮' },
-  { cat: 'Core',    type: 'core.stop_error',label: 'Stop & Error',   icon: '⛔' },
-  { cat: 'Core',    type: 'core.compare_datasets', label: 'Compare Datasets', icon: '⟺' },
-  { cat: 'HTTP',    type: 'http.request',   label: 'HTTP Request',   icon: '⊹' },
-  { cat: 'Google',  type: 'google_drive.list',     label: 'Drive: List',      icon: '📁' },
-  { cat: 'Google',  type: 'google_drive.download', label: 'Drive: Download',  icon: '⬇' },
-  { cat: 'Google',  type: 'google_drive.upload',   label: 'Drive: Upload',    icon: '⬆' },
-  { cat: 'Google',  type: 'gmail.send',      label: 'Gmail: Send',   icon: '✉' },
-  { cat: 'Google',  type: 'gmail.list',      label: 'Gmail: List',   icon: '📬' },
-  { cat: 'Google',  type: 'google_sheets.read',    label: 'Sheets: Read',     icon: '📊' },
-  { cat: 'Google',  type: 'google_sheets.append',  label: 'Sheets: Append',   icon: '➕' },
-  { cat: 'Services',type: 'github.list_issues',    label: 'GitHub: Issues',   icon: '⊙' },
-  { cat: 'Services',type: 'github.create_issue',   label: 'GitHub: New Issue',icon: '⊙' },
-  { cat: 'Services',type: 'notion.query_database', label: 'Notion: Query',    icon: '📄' },
-  { cat: 'Services',type: 'linear.list_issues',    label: 'Linear: Issues',   icon: '◉' },
-  { cat: 'Services',type: 'airtable.list_records', label: 'Airtable: List',   icon: '⊞' },
-  { cat: 'Services',type: 'stripe.list_customers', label: 'Stripe: Customers',icon: '💳' },
+  // ── Triggers ──────────────────────────────────────────────────────────────
+  { cat:'Triggers', type:'trigger.manual',   label:'Manual Trigger', icon:'▶' },
+  { cat:'Triggers', type:'trigger.schedule', label:'Schedule',       icon:'⏰' },
+  { cat:'Triggers', type:'trigger.webhook',  label:'Webhook',        icon:'🔗' },
+  // ── Control ───────────────────────────────────────────────────────────────
+  { cat:'Control',  type:'core.if',                  label:'If / Branch',    icon:'⑂' },
+  { cat:'Control',  type:'core.switch',              label:'Switch',         icon:'⑃' },
+  { cat:'Control',  type:'core.filter',              label:'Filter',         icon:'⚗' },
+  { cat:'Control',  type:'core.merge',               label:'Merge',          icon:'⊕' },
+  { cat:'Control',  type:'core.wait',                label:'Wait',           icon:'⏱' },
+  { cat:'Control',  type:'core.stop_error',          label:'Stop & Error',   icon:'⛔' },
+  // ── Data ──────────────────────────────────────────────────────────────────
+  { cat:'Data',     type:'core.set',                 label:'Set Fields',     icon:'✎' },
+  { cat:'Data',     type:'core.aggregate',           label:'Aggregate',      icon:'∑' },
+  { cat:'Data',     type:'core.sort',                label:'Sort',           icon:'⇅' },
+  { cat:'Data',     type:'core.limit',               label:'Limit',          icon:'✂' },
+  { cat:'Data',     type:'core.remove_duplicates',   label:'Dedup',          icon:'⊘' },
+  { cat:'Data',     type:'core.split_in_batches',    label:'Split Batches',  icon:'⋮' },
+  { cat:'Data',     type:'core.compare_datasets',    label:'Compare',        icon:'⟺' },
+  { cat:'Data',     type:'core.code',                label:'Code (JS)',       icon:'〈/〉' },
+  { cat:'Data',     type:'data.datetime',            label:'Date & Time',    icon:'📅' },
+  { cat:'Data',     type:'data.html',                label:'HTML',           icon:'📝' },
+  { cat:'Data',     type:'data.markdown',            label:'Markdown',       icon:'📄' },
+  { cat:'Data',     type:'data.xml',                 label:'XML',            icon:'📋' },
+  // ── Actions (monoplaybook builtins) ───────────────────────────────────────
+  { cat:'Actions',  type:'action.http',              label:'HTTP Request',   icon:'🌐' },
+  { cat:'Actions',  type:'action.log',               label:'Log',            icon:'📜' },
+  { cat:'Actions',  type:'action.save_file',         label:'Save File',      icon:'💾' },
+  { cat:'Actions',  type:'action.gemini_image',      label:'Gemini Image',   icon:'🖼' },
+  // ── HTTP / Network ────────────────────────────────────────────────────────
+  { cat:'HTTP',     type:'http.request',             label:'HTTP Request',   icon:'⊹' },
+  // ── Communications ────────────────────────────────────────────────────────
+  { cat:'Comm',     type:'comm.email_send',          label:'Send Email',     icon:'✉' },
+  { cat:'Comm',     type:'comm.slack',               label:'Slack',          icon:'💬' },
+  { cat:'Comm',     type:'comm.discord',             label:'Discord',        icon:'🎮' },
+  { cat:'Comm',     type:'comm.telegram',            label:'Telegram',       icon:'✈' },
+  { cat:'Comm',     type:'comm.twilio',              label:'Twilio SMS',     icon:'📱' },
+  // ── Google (service.* — real monoplaybook handlers) ──────────────────────
+  { cat:'Google',   type:'service.gmail',        defaultConfig:{operation:'send_message'},  label:'Gmail: Send',    icon:'✉' },
+  { cat:'Google',   type:'service.gmail',        defaultConfig:{operation:'list_messages'}, label:'Gmail: List',    icon:'📬' },
+  { cat:'Google',   type:'service.google_drive', defaultConfig:{operation:'list_files'},    label:'Drive: List',    icon:'📁' },
+  { cat:'Google',   type:'service.google_drive', defaultConfig:{operation:'download_file'}, label:'Drive: Download',icon:'⬇' },
+  { cat:'Google',   type:'service.google_drive', defaultConfig:{operation:'upload_file'},   label:'Drive: Upload',  icon:'⬆' },
+  { cat:'Google',   type:'service.google_sheets',defaultConfig:{operation:'read_rows'},     label:'Sheets: Read',   icon:'📊' },
+  { cat:'Google',   type:'service.google_sheets',defaultConfig:{operation:'append_rows'},   label:'Sheets: Append', icon:'➕' },
+  // ── Services (service.* — real monoplaybook handlers) ────────────────────
+  { cat:'Services', type:'service.github',   defaultConfig:{operation:'list_issues'},    label:'GitHub: Issues',    icon:'⊙' },
+  { cat:'Services', type:'service.github',   defaultConfig:{operation:'create_issue'},   label:'GitHub: Create',    icon:'⊙' },
+  { cat:'Services', type:'service.notion',   defaultConfig:{operation:'query_database'}, label:'Notion: Query',     icon:'📄' },
+  { cat:'Services', type:'service.notion',   defaultConfig:{operation:'create_page'},    label:'Notion: Create',    icon:'📄' },
+  { cat:'Services', type:'service.linear',   defaultConfig:{operation:'list_issues'},    label:'Linear: Issues',    icon:'◉' },
+  { cat:'Services', type:'service.linear',   defaultConfig:{operation:'create_issue'},   label:'Linear: Create',    icon:'◉' },
+  { cat:'Services', type:'service.airtable', defaultConfig:{operation:'list_records'},   label:'Airtable: List',    icon:'⊞' },
+  { cat:'Services', type:'service.airtable', defaultConfig:{operation:'create_record'},  label:'Airtable: Create',  icon:'⊞' },
+  { cat:'Services', type:'service.stripe',   defaultConfig:{operation:'list_customers'}, label:'Stripe: Customers', icon:'💳' },
+  { cat:'Services', type:'service.stripe',   defaultConfig:{operation:'list_charges'},   label:'Stripe: Charges',   icon:'💳' },
 ];
 
 const PB_NODE_FIELDS = {
+  // ── Triggers ──────────────────────────────────────────────────────────────
   'trigger.manual':   [],
-  'core.filter':      [{ key:'expression', label:'Condition', type:'text', placeholder:'{{ $json.active == true }}' }],
-  'core.if':          [{ key:'expression', label:'Condition', type:'text', placeholder:'{{ $json.status == "active" }}' }],
-  'core.set':         [{ key:'assignments', label:'Assignments (JSON)', type:'textarea', placeholder:'{"field":"{{ $json.value }}"}' }],
-  'core.aggregate':   [{ key:'operation', label:'Operation', type:'select', options:['count','sum','avg','min','max','collect'] }, { key:'field', label:'Field', type:'text', placeholder:'amount' }, { key:'group_by', label:'Group By', type:'text', placeholder:'category' }],
-  'core.sort':        [{ key:'field', label:'Sort By', type:'text', placeholder:'created_at' }, { key:'direction', label:'Direction', type:'select', options:['asc','desc'] }],
-  'core.limit':       [{ key:'max_items', label:'Max Items', type:'number', placeholder:'10' }],
-  'core.switch':      [{ key:'field', label:'Field Expr', type:'text', placeholder:'{{ $json.status }}' }, { key:'cases', label:'Cases (comma-sep)', type:'text', placeholder:'active,pending,closed' }],
-  'core.merge':       [{ key:'mode', label:'Mode', type:'select', options:['append','merge_by_key','zip'] }, { key:'key_field', label:'Key Field', type:'text', placeholder:'id' }],
-  'core.remove_duplicates': [{ key:'field', label:'Dedup By', type:'text', placeholder:'id' }],
-  'core.code':        [{ key:'code', label:'Code (JS)', type:'textarea', placeholder:'return $input.all().map(i => ({...i.data, processed:true}));' }],
-  'core.wait':        [{ key:'duration', label:'Duration (s)', type:'number', placeholder:'5' }],
+  'trigger.schedule': [
+    { key:'cron',     label:'Cron Expression', type:'text', placeholder:'*/5 * * * *', help:'Standard 5-field cron: min hour day month weekday' },
+    { key:'timezone', label:'Timezone',        type:'text', placeholder:'UTC' },
+  ],
+  'trigger.webhook':  [
+    { key:'path',   label:'Webhook Path', type:'text',     placeholder:'/webhooks/my-playbook' },
+    { key:'method', label:'HTTP Method',  type:'select',   options:['POST','GET','PUT','PATCH'] },
+    { key:'secret', label:'HMAC Secret', type:'password',  placeholder:'optional — verified via X-Signature header' },
+  ],
+  // ── Control ───────────────────────────────────────────────────────────────
+  'core.if':     [{ key:'condition', label:'Condition', type:'textarea', placeholder:'{{ eq $json.active true }}', help:'Go template — items go to "true" or "false" handle' }],
+  'core.filter': [
+    { key:'condition', label:'Condition', type:'textarea', placeholder:'{{ eq $json.status "todo" }}' },
+    { key:'mode',      label:'Mode',      type:'select',   options:['keep','remove'] },
+  ],
+  'core.switch': [
+    { key:'expression',     label:'Expression',    type:'text',     placeholder:'{{$json.status}}' },
+    { key:'cases',          label:'Cases (JSON)',  type:'textarea', placeholder:'[{"value":"active"},{"value":"closed"}]' },
+    { key:'default_handle', label:'Default Handle',type:'text',     placeholder:'default' },
+  ],
+  'core.merge':  [{ key:'mode', label:'Mode', type:'select', options:['append','first'] }],
+  'core.wait':   [{ key:'duration', label:'Duration', type:'text', placeholder:'5s', help:'e.g. 5s, 2m, 1h' }],
+  'core.stop_error': [{ key:'message', label:'Error Message', type:'text', placeholder:'Stopped: condition not met' }],
+  // ── Data ──────────────────────────────────────────────────────────────────
+  'core.set':    [
+    { key:'assignments',   label:'Assignments (JSON)', type:'textarea', placeholder:'[{"name":"output","value":"{{$json.input}}"}]' },
+    { key:'include_input', label:'Include Input',      type:'select',   options:['true','false'] },
+  ],
+  'core.aggregate': [
+    { key:'group_by',   label:'Group By Field', type:'text',     placeholder:'' },
+    { key:'operations', label:'Operations',     type:'textarea', placeholder:'[{"field":"amount","operation":"sum","output_field":"total"}]' },
+  ],
+  'core.sort':   [
+    { key:'field', label:'Sort By', type:'text',   placeholder:'name' },
+    { key:'order', label:'Order',   type:'select', options:['asc','desc'] },
+    { key:'type',  label:'Type',    type:'select', options:['string','number','date'] },
+  ],
+  'core.limit':  [{ key:'max_items', label:'Max Items', type:'number', placeholder:'10' }],
+  'core.remove_duplicates': [
+    { key:'field', label:'Field Key', type:'text',   placeholder:'id' },
+    { key:'keep',  label:'Keep',      type:'select', options:['first','last'] },
+  ],
   'core.split_in_batches': [{ key:'batch_size', label:'Batch Size', type:'number', placeholder:'10' }],
-  'core.stop_error':  [{ key:'message', label:'Error Message', type:'text', placeholder:'Stopped: condition not met' }],
-  'core.compare_datasets': [{ key:'key_field', label:'Key Field', type:'text', placeholder:'id' }, { key:'output', label:'Output', type:'select', options:['new_items','removed_items','changed_items','all_differences'] }],
-  'http.request':     [{ key:'method', label:'Method', type:'select', options:['GET','POST','PUT','PATCH','DELETE'] }, { key:'url', label:'URL', type:'text', placeholder:'https://api.example.com/data' }, { key:'body_type', label:'Body', type:'select', options:['none','json','form','text'] }],
+  'core.compare_datasets': [
+    { key:'key_field', label:'Key Field',       type:'text',   placeholder:'id' },
+    { key:'split_at',  label:'Split At Index',  type:'number', placeholder:'' },
+  ],
+  'core.code': [{ key:'code', label:'JavaScript', type:'textarea', placeholder:'// return array of items\nreturn items.map(item => ({ ...item.json }))' }],
+  'data.datetime': [
+    { key:'operation',     label:'Operation',     type:'select', options:['format','parse','add','subtract','diff','now'] },
+    { key:'field',         label:'Source Field',  type:'text',   placeholder:'date' },
+    { key:'input_format',  label:'Input Format',  type:'text',   placeholder:'' },
+    { key:'output_format', label:'Output Format', type:'text',   placeholder:'2006-01-02T15:04:05Z07:00' },
+    { key:'duration',      label:'Duration',      type:'text',   placeholder:'24h' },
+    { key:'output_field',  label:'Output Field',  type:'text',   placeholder:'formatted_date' },
+  ],
+  'data.html': [
+    { key:'operation', label:'Operation',    type:'select', options:['extract','extract_all','text','generate'] },
+    { key:'field',     label:'Source Field', type:'text',   placeholder:'' },
+    { key:'selector',  label:'CSS Selector', type:'text',   placeholder:'h1.title' },
+    { key:'attribute', label:'Attribute',    type:'text',   placeholder:'href' },
+    { key:'template',  label:'HTML Template',type:'textarea',placeholder:'<p>{{.Title}}</p>' },
+  ],
+  'data.markdown': [
+    { key:'field',        label:'Source Field', type:'text', placeholder:'' },
+    { key:'output_field', label:'Output Field', type:'text', placeholder:'html' },
+  ],
+  'data.xml': [
+    { key:'operation',    label:'Operation',    type:'select', options:['parse','generate'] },
+    { key:'field',        label:'Source Field', type:'text',   placeholder:'' },
+    { key:'root_element', label:'Root Element', type:'text',   placeholder:'root' },
+  ],
+  // ── Actions (monoplaybook builtins) ───────────────────────────────────────
+  'action.http': [
+    { key:'url',           label:'URL',           type:'text',     placeholder:'https://api.example.com/data' },
+    { key:'method',        label:'Method',        type:'select',   options:['GET','POST','PUT','PATCH','DELETE'] },
+    { key:'body',          label:'Body (JSON)',    type:'textarea', placeholder:'{}' },
+    { key:'responseField', label:'Save As Field', type:'text',     placeholder:'response' },
+    { key:'timeoutMs',     label:'Timeout (ms)',  type:'number',   placeholder:'30000' },
+  ],
+  'action.log': [
+    { key:'label', label:'Label', type:'text', placeholder:'debug', help:'Prefix shown in console output' },
+  ],
+  'action.save_file': [
+    { key:'path',     label:'Output Path', type:'text',   placeholder:'./output/result.json' },
+    { key:'field',    label:'Field',       type:'text',   placeholder:'leave blank for full item' },
+    { key:'encoding', label:'Encoding',    type:'select', options:['utf8','base64','binary'] },
+  ],
+  'action.gemini_image': [
+    { key:'prompt',      label:'Prompt',      type:'textarea', placeholder:'A futuristic city skyline at dusk' },
+    { key:'outputPath',  label:'Output Path', type:'text',     placeholder:'./output/image.png' },
+    { key:'aspectRatio', label:'Aspect Ratio',type:'select',   options:['1:1','16:9','9:16','4:3'] },
+    { key:'apiKey',      label:'API Key',     type:'password', placeholder:'uses GEMINI_API_KEY env if blank' },
+    { key:'model',       label:'Model',       type:'text',     placeholder:'imagen-3.0-generate-001' },
+  ],
+  // ── HTTP / Network ────────────────────────────────────────────────────────
+  'http.request': [
+    { key:'method',          label:'Method',         type:'select',   options:['GET','POST','PUT','PATCH','DELETE','HEAD'] },
+    { key:'url',             label:'URL',            type:'text',     placeholder:'https://api.example.com/endpoint' },
+    { key:'body_type',       label:'Body Type',      type:'select',   options:['none','json','form','raw'] },
+    { key:'body',            label:'Body (JSON)',     type:'textarea', placeholder:'' },
+    { key:'auth_type',       label:'Auth',           type:'select',   options:['none','bearer','basic','api_key'] },
+    { key:'auth_api_key_value', label:'Token / Key', type:'password', placeholder:'' },
+    { key:'response_format', label:'Response',       type:'select',   options:['json','text','binary'] },
+  ],
+  'http.ftp': [
+    { key:'host',        label:'Host',       type:'text',     placeholder:'ftp.example.com' },
+    { key:'port',        label:'Port',       type:'number',   placeholder:'21' },
+    { key:'username',    label:'Username',   type:'text',     placeholder:'' },
+    { key:'password',    label:'Password',   type:'password', placeholder:'' },
+    { key:'remote_path', label:'Remote Path',type:'text',     placeholder:'/' },
+    { key:'operation',   label:'Operation',  type:'select',   options:['list','download','upload','delete'] },
+  ],
+  'http.ssh': [
+    { key:'host',     label:'Host',     type:'text',     placeholder:'server.example.com' },
+    { key:'port',     label:'Port',     type:'number',   placeholder:'22' },
+    { key:'username', label:'Username', type:'text',     placeholder:'' },
+    { key:'password', label:'Password', type:'password', placeholder:'' },
+    { key:'command',  label:'Command',  type:'textarea', placeholder:'ls -la /var/log' },
+  ],
+  'system.execute_command': [
+    { key:'command',     label:'Command',     type:'text',   placeholder:'echo' },
+    { key:'args',        label:'Args (JSON)', type:'text',   placeholder:'["hello world"]' },
+    { key:'working_dir', label:'Working Dir', type:'text',   placeholder:'' },
+    { key:'timeout_seconds', label:'Timeout (s)', type:'number', placeholder:'30' },
+  ],
+  'system.rss_read': [
+    { key:'url',   label:'Feed URL',  type:'text',   placeholder:'https://feeds.example.com/rss' },
+    { key:'limit', label:'Max Items', type:'number', placeholder:'20' },
+  ],
+  // ── Communications ────────────────────────────────────────────────────────
+  'comm.email_send': [
+    { key:'smtp_host',     label:'SMTP Host',     type:'text',     placeholder:'smtp.gmail.com' },
+    { key:'smtp_port',     label:'SMTP Port',     type:'number',   placeholder:'587' },
+    { key:'smtp_user',     label:'Username',      type:'text',     placeholder:'user@example.com' },
+    { key:'smtp_password', label:'Password',      type:'password', placeholder:'' },
+    { key:'from',          label:'From',          type:'text',     placeholder:'sender@example.com' },
+    { key:'to',            label:'To',            type:'text',     placeholder:'recipient@example.com' },
+    { key:'subject',       label:'Subject',       type:'text',     placeholder:'Hello' },
+    { key:'body',          label:'Body',          type:'textarea', placeholder:'Hi {{$json.name}},' },
+    { key:'body_type',     label:'Body Type',     type:'select',   options:['text','html'] },
+  ],
+  'comm.slack': [
+    { key:'webhook_url', label:'Webhook URL', type:'password', placeholder:'https://hooks.slack.com/services/…' },
+    { key:'channel',     label:'Channel',     type:'text',     placeholder:'#general' },
+    { key:'text',        label:'Message',     type:'textarea', placeholder:'Hello from monoplaybook!' },
+    { key:'username',    label:'Bot Name',    type:'text',     placeholder:'Monoplaybook' },
+  ],
+  'comm.discord': [
+    { key:'webhook_url', label:'Webhook URL', type:'password', placeholder:'https://discord.com/api/webhooks/…' },
+    { key:'content',     label:'Message',     type:'textarea', placeholder:'Hello from monoplaybook!' },
+    { key:'username',    label:'Bot Name',    type:'text',     placeholder:'Monoplaybook' },
+  ],
+  'comm.telegram': [
+    { key:'token',   label:'Bot Token', type:'password', placeholder:'123456:ABC-DEF…' },
+    { key:'chat_id', label:'Chat ID',   type:'text',     placeholder:'-100123456' },
+    { key:'text',    label:'Message',   type:'textarea', placeholder:'Hello {{$json.name}}!' },
+    { key:'parse_mode', label:'Format', type:'select',   options:['text','Markdown','HTML'] },
+  ],
+  'comm.twilio': [
+    { key:'account_sid', label:'Account SID', type:'text',     placeholder:'ACxxxx' },
+    { key:'auth_token',  label:'Auth Token',  type:'password', placeholder:'' },
+    { key:'from',        label:'From Number', type:'text',     placeholder:'+15551234567' },
+    { key:'to',          label:'To Number',   type:'text',     placeholder:'{{$json.phone}}' },
+    { key:'body',        label:'Message',     type:'textarea', placeholder:'Your code is {{$json.code}}' },
+  ],
+  // ── Google ────────────────────────────────────────────────────────────────
+  // ── Google (service.* handlers — consolidated with operation selector) ─────
+  'service.gmail': [
+    { key:'operation',    label:'Operation',    type:'select',   options:['send_message','list_messages','get_message','list_labels','trash_message'] },
+    { key:'access_token', label:'OAuth Token',  type:'password', placeholder:'ya29.…' },
+    { key:'to',           label:'To (send)',    type:'text',     placeholder:'recipient@example.com' },
+    { key:'subject',      label:'Subject (send)',type:'text',    placeholder:'Hello from monoplaybook' },
+    { key:'body',         label:'Body (send)',  type:'textarea', placeholder:'Hi there,' },
+    { key:'body_type',    label:'Body Type',    type:'select',   options:['text','html'] },
+    { key:'query',        label:'Search (list)',type:'text',     placeholder:'from:alice is:unread' },
+    { key:'max_results',  label:'Max Results',  type:'number',   placeholder:'10' },
+    { key:'message_id',   label:'Message ID (get/trash)',type:'text', placeholder:'' },
+  ],
+  'service.google_drive': [
+    { key:'operation',        label:'Operation',    type:'select',   options:['list_files','download_file','upload_file','get_file','create_folder','delete_file','share_file'] },
+    { key:'access_token',     label:'OAuth Token',  type:'password', placeholder:'ya29.…' },
+    { key:'query',            label:'Search (list)',type:'text',     placeholder:'name contains "report"' },
+    { key:'file_id',          label:'File ID (get/download/delete/share)',type:'text', placeholder:'1BxiMV…' },
+    { key:'file_path',        label:'Local Path (upload)',type:'text', placeholder:'/tmp/file.pdf' },
+    { key:'file_name',        label:'Name (upload/folder)',type:'text', placeholder:'report.pdf' },
+    { key:'parent_folder_id', label:'Parent Folder ID',   type:'text', placeholder:'' },
+    { key:'mime_type',        label:'MIME Type (upload)',  type:'text', placeholder:'application/pdf' },
+  ],
+  'service.google_sheets': [
+    { key:'operation',      label:'Operation',      type:'select',   options:['read_rows','append_rows','update_rows','clear_range'] },
+    { key:'access_token',   label:'OAuth Token',    type:'password', placeholder:'ya29.…' },
+    { key:'spreadsheet_id', label:'Spreadsheet ID', type:'text',     placeholder:'1BxiMV…' },
+    { key:'sheet',          label:'Sheet Name',     type:'text',     placeholder:'Sheet1' },
+    { key:'range',          label:'Range',          type:'text',     placeholder:'A1:Z' },
+    { key:'use_header_row', label:'Header Row (read)',type:'select', options:['true','false'] },
+  ],
+  // ── Services (service.* handlers) ─────────────────────────────────────────
+  'service.github': [
+    { key:'operation', label:'Operation',    type:'select',   options:['list_issues','create_issue','get_issue','update_issue','list_repos','list_prs','create_pr','list_releases','create_release'] },
+    { key:'token',     label:'Access Token', type:'password', placeholder:'ghp_…' },
+    { key:'owner',     label:'Owner',        type:'text',     placeholder:'octocat' },
+    { key:'repo',      label:'Repo',         type:'text',     placeholder:'hello-world' },
+    { key:'state',     label:'State (list)', type:'select',   options:['open','closed','all'] },
+    { key:'title',     label:'Title (create)',type:'text',    placeholder:'Bug: something is broken' },
+    { key:'body',      label:'Body (create)', type:'textarea',placeholder:'Steps to reproduce…' },
+  ],
+  'service.notion': [
+    { key:'operation',    label:'Operation',            type:'select',   options:['query_database','create_page','get_page','update_page','get_database','create_database','append_blocks'] },
+    { key:'token',        label:'Integration Token',    type:'password', placeholder:'secret_…' },
+    { key:'database_id',  label:'Database ID',          type:'text',     placeholder:'xxxxxxxx-xxxx-…' },
+    { key:'parent_id',    label:'Parent Page/DB ID',    type:'text',     placeholder:'xxxxxxxx-xxxx-…' },
+    { key:'page_id',      label:'Page ID (get/update)', type:'text',     placeholder:'xxxxxxxx-xxxx-…' },
+    { key:'title',        label:'Title (create)',        type:'text',     placeholder:'New Page' },
+    { key:'properties',   label:'Properties (JSON)',     type:'textarea', placeholder:'{}' },
+    { key:'filter',       label:'Filter (JSON, query)',  type:'textarea', placeholder:'{"property":"Status","select":{"equals":"Done"}}' },
+  ],
+  'service.linear': [
+    { key:'operation',   label:'Operation',   type:'select',   options:['list_issues','create_issue','get_issue','update_issue','list_teams','list_projects'] },
+    { key:'token',       label:'API Key',     type:'password', placeholder:'lin_api_…' },
+    { key:'team_id',     label:'Team ID',     type:'text',     placeholder:'' },
+    { key:'issue_id',    label:'Issue ID (get/update)',type:'text', placeholder:'' },
+    { key:'title',       label:'Title (create)',type:'text',   placeholder:'Fix: something broke' },
+    { key:'description', label:'Description', type:'textarea', placeholder:'Details…' },
+    { key:'priority',    label:'Priority (create)',type:'number', placeholder:'1 = urgent, 4 = low' },
+  ],
+  'service.airtable': [
+    { key:'operation',      label:'Operation',      type:'select',   options:['list_records','create_record','get_record','update_record','delete_record'] },
+    { key:'token',          label:'Access Token',   type:'password', placeholder:'patXXX…' },
+    { key:'base_id',        label:'Base ID',        type:'text',     placeholder:'appXXX…' },
+    { key:'table',          label:'Table Name',     type:'text',     placeholder:'Tasks' },
+    { key:'record_id',      label:'Record ID (get/update/delete)',type:'text', placeholder:'recXXX…' },
+    { key:'filter_formula', label:'Filter Formula (list)',type:'text', placeholder:'AND({Status}="Done")' },
+    { key:'max_records',    label:'Max Records (list)',type:'number', placeholder:'100' },
+    { key:'fields',         label:'Fields JSON (create/update)',type:'textarea', placeholder:'{"Name":"{{$json.title}}"}' },
+  ],
+  'service.stripe': [
+    { key:'operation',   label:'Operation',   type:'select',   options:['list_customers','create_customer','get_customer','list_charges','create_charge','list_subscriptions','create_subscription','cancel_subscription','list_products','create_payment_intent'] },
+    { key:'api_key',     label:'Secret Key',  type:'password', placeholder:'sk_live_…' },
+    { key:'customer_id', label:'Customer ID', type:'text',     placeholder:'cus_…' },
+    { key:'limit',       label:'Limit',       type:'number',   placeholder:'20' },
+    { key:'amount',      label:'Amount (cents, charge)',type:'number', placeholder:'2000' },
+    { key:'currency',    label:'Currency',    type:'text',     placeholder:'usd' },
+    { key:'email',       label:'Email (create customer)',type:'text', placeholder:'customer@example.com' },
+  ],
+  // ── Database ──────────────────────────────────────────────────────────────
+  'db.postgres': [
+    { key:'host',     label:'Host',     type:'text',     placeholder:'localhost' },
+    { key:'port',     label:'Port',     type:'number',   placeholder:'5432' },
+    { key:'database', label:'Database', type:'text',     placeholder:'mydb' },
+    { key:'username', label:'Username', type:'text',     placeholder:'postgres' },
+    { key:'password', label:'Password', type:'password', placeholder:'' },
+    { key:'query',    label:'SQL',      type:'textarea', placeholder:'SELECT * FROM users LIMIT 10' },
+  ],
+  'db.mysql': [
+    { key:'host',     label:'Host',     type:'text',     placeholder:'localhost' },
+    { key:'port',     label:'Port',     type:'number',   placeholder:'3306' },
+    { key:'database', label:'Database', type:'text',     placeholder:'mydb' },
+    { key:'username', label:'Username', type:'text',     placeholder:'root' },
+    { key:'password', label:'Password', type:'password', placeholder:'' },
+    { key:'query',    label:'SQL',      type:'textarea', placeholder:'SELECT * FROM users LIMIT 10' },
+  ],
+  'db.mongodb': [
+    { key:'uri',        label:'Connection URI', type:'password', placeholder:'mongodb://localhost:27017/mydb' },
+    { key:'collection', label:'Collection',     type:'text',     placeholder:'users' },
+    { key:'operation',  label:'Operation',      type:'select',   options:['find','findOne','insertOne','updateOne','deleteOne'] },
+    { key:'filter',     label:'Filter (JSON)',  type:'textarea', placeholder:'{"active":true}' },
+    { key:'update',     label:'Update (JSON)',  type:'textarea', placeholder:'{"$set":{"status":"active"}}' },
+    { key:'limit',      label:'Limit',          type:'number',   placeholder:'100' },
+  ],
+  'db.redis': [
+    { key:'url',       label:'Redis URL', type:'password', placeholder:'redis://localhost:6379' },
+    { key:'operation', label:'Operation', type:'select',   options:['get','set','del','keys','hget','hset','lpush','lrange'] },
+    { key:'key',       label:'Key',       type:'text',     placeholder:'mykey' },
+    { key:'value',     label:'Value',     type:'text',     placeholder:'{{$json.value}}' },
+    { key:'ttl',       label:'TTL (s)',   type:'number',   placeholder:'3600' },
+  ],
+  // ── AI ────────────────────────────────────────────────────────────────────
+  'ai.chat': [
+    { key:'provider_id',   label:'Provider',      type:'text',     placeholder:'anthropic' },
+    { key:'model',         label:'Model',         type:'text',     placeholder:'claude-3-5-sonnet-20241022' },
+    { key:'system_prompt', label:'System Prompt', type:'textarea', placeholder:'You are a helpful assistant.' },
+    { key:'prompt',        label:'Prompt',        type:'textarea', placeholder:'{{$json.text}}' },
+    { key:'temperature',   label:'Temperature',   type:'text',     placeholder:'0.7' },
+    { key:'max_tokens',    label:'Max Tokens',    type:'number',   placeholder:'1024' },
+    { key:'output_key',    label:'Output Key',    type:'text',     placeholder:'ai_response' },
+  ],
+  'ai.extract': [
+    { key:'provider_id',   label:'Provider',       type:'text',     placeholder:'anthropic' },
+    { key:'model',         label:'Model',          type:'text',     placeholder:'claude-3-5-haiku-20241022' },
+    { key:'prompt',        label:'Extract Prompt', type:'textarea', placeholder:'Extract the name and email from: {{$json.text}}' },
+    { key:'output_schema', label:'Output Schema',  type:'textarea', placeholder:'{"name":"string","email":"string"}' },
+    { key:'output_key',    label:'Output Key',     type:'text',     placeholder:'extracted' },
+  ],
+  'ai.classify': [
+    { key:'provider_id',      label:'Provider',    type:'text',     placeholder:'anthropic' },
+    { key:'model',            label:'Model',       type:'text',     placeholder:'claude-3-5-haiku-20241022' },
+    { key:'categories',       label:'Categories',  type:'text',     placeholder:'positive,negative,neutral' },
+    { key:'prompt_template',  label:'Prompt',      type:'textarea', placeholder:'Classify this text: {{$json.text}}' },
+  ],
+  'ai.transform': [
+    { key:'provider_id',  label:'Provider',    type:'text',     placeholder:'anthropic' },
+    { key:'model',        label:'Model',       type:'text',     placeholder:'claude-3-5-sonnet-20241022' },
+    { key:'instruction',  label:'Instruction', type:'textarea', placeholder:'Summarize this in 2 sentences' },
+    { key:'input_field',  label:'Input Field', type:'text',     placeholder:'content' },
+    { key:'output_key',   label:'Output Key',  type:'text',     placeholder:'transformed' },
+  ],
+  'ai.agent': [
+    { key:'provider_id', label:'Provider',  type:'text',     placeholder:'anthropic' },
+    { key:'model',       label:'Model',     type:'text',     placeholder:'claude-3-5-sonnet-20241022' },
+    { key:'goal',        label:'Goal',      type:'textarea', placeholder:'Research and summarize the topic: {{$json.query}}' },
+    { key:'max_steps',   label:'Max Steps', type:'number',   placeholder:'5' },
+  ],
 };
 
 let pbState = {
@@ -10570,18 +11333,19 @@ function pbRenderPalette() {
   const cats = [...new Set(PB_NODE_DEFS.map(n => n.cat))];
   el.innerHTML = cats.map(cat => {
     const nodes = PB_NODE_DEFS.filter(n => n.cat === cat);
+    const catColor = PB_CAT_COLOR[cat] || '#6b7280';
     return `<div>
       <div class="pb-cat-hdr" onclick="pbToggleCat(this)">
-        <span class="pb-cat-arrow">▸</span>${cat}
+        <span class="pb-cat-arrow">▸</span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor};margin-right:5px;vertical-align:middle;flex-shrink:0"></span>${cat}
       </div>
-      <div class="pb-cat-body ${cat === 'Core' ? '' : 'collapsed'}">
-        ${nodes.map(n => `<button class="pb-node-btn" onclick="pbAddNode('${esc(n.type)}')" title="${esc(n.type)}">
+      <div class="pb-cat-body ${cat === cats[0] ? '' : 'collapsed'}">
+        ${nodes.map((n,i) => `<button class="pb-node-btn" onclick="pbAddNode('${esc(n.type)}',PB_NODE_DEFS.filter(d=>d.cat==='${cat}')[${i}])" title="${esc(n.type)}${n.defaultConfig ? ' (op: '+n.defaultConfig.operation+')' : ''}">
           <span class="pb-node-icon">${n.icon}</span>${esc(n.label)}
         </button>`).join('')}
       </div>
     </div>`;
   }).join('');
-  // Expand Core by default
+  // Expand first category by default
   el.querySelector('.pb-cat-hdr')?.classList.add('expanded');
   const firstArrow = el.querySelector('.pb-cat-arrow');
   if (firstArrow) firstArrow.textContent = '▾';
@@ -10605,14 +11369,15 @@ function pbNew() {
   pbShowConfig(null);
 }
 
-function pbAddNode(type) {
-  const def = PB_NODE_DEFS.find(n => n.type === type) || { label: type, icon: '⊹' };
+function pbAddNode(type, defOverride) {
+  // defOverride lets palette pass the specific def when multiple defs share a type (e.g. service.gmail)
+  const def = defOverride || PB_NODE_DEFS.find(n => n.type === type) || { label: type, icon: '⊹' };
   const id = 'n-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
   const pb = pbState.playbook;
   // Offset new nodes so they don't stack
   const offset = pb.nodes.length * 20;
   pbState.positions[id] = { x: 60 + offset, y: 60 + offset };
-  pb.nodes.push({ id, type, name: def.label, config: {} });
+  pb.nodes.push({ id, type, name: def.label, config: Object.assign({}, def.defaultConfig || {}) });
   const empty = document.getElementById('pb-empty');
   if (empty) empty.style.display = 'none';
   pbRenderCanvas();
@@ -10789,10 +11554,14 @@ function pbShowConfig(nodeId) {
       }
       if (f.type === 'textarea') {
         return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
-          <textarea class="pb-cfg-inp" rows="4" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)">${esc(String(val))}</textarea></div>`;
+          <textarea class="pb-cfg-inp" rows="4" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)">${esc(String(val))}</textarea>${f.help ? `<div style="font-size:10px;color:var(--text-xs);margin-top:2px">${esc(f.help)}</div>` : ''}</div>`;
+      }
+      if (f.type === 'password') {
+        return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
+          <input class="pb-cfg-inp" type="password" value="${esc(String(val))}" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)">${f.help ? `<div style="font-size:10px;color:var(--text-xs);margin-top:2px">${esc(f.help)}</div>` : ''}</div>`;
       }
       return `<div class="pb-cfg-row"><div class="pb-cfg-lbl">${esc(f.label)}</div>
-        <input class="pb-cfg-inp" type="${f.type === 'number' ? 'number' : 'text'}" value="${esc(String(val))}" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)"></div>`;
+        <input class="pb-cfg-inp" type="${f.type === 'number' ? 'number' : 'text'}" value="${esc(String(val))}" placeholder="${esc(f.placeholder||'')}" oninput="pbUpdateConfig('${nodeId}','${f.key}',this.value)">${f.help ? `<div style="font-size:10px;color:var(--text-xs);margin-top:2px">${esc(f.help)}</div>` : ''}</div>`;
     }).join('')}
     <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
       <div class="pb-cfg-lbl">Connections from this node</div>
@@ -13060,9 +13829,10 @@ function mmRenderOrgs(body) {
   if (!orgs.length) { body.innerHTML = '<div class="empty">No orgs found. Run /mastermind:createorg to create one.</div>'; return; }
   body.innerHTML = orgs.map(o => {
     const running = o.running;
+    const _liveLabel = running ? (o.lastEventAt ? (Date.now()-o.lastEventAt<1800000 ? '🟢 LIVE' : Date.now()-o.lastEventAt<7200000 ? '🟡 QUIET' : '🔴 STALE') : '🟡 QUIET') : '';
     return `<div class="mm-skill-item" data-org="${esc(o.name)}" onclick="closeMastermind();v2SelectOrg(this.dataset.org);switchView('orgs')">
       <span class="mm-skill-name">${esc(o.name)}</span>
-      <span class="mm-skill-desc">${esc((o.goal || '').slice(0, 60))} ${running ? '⬤ LIVE' : ''}</span>
+      <span class="mm-skill-desc">${esc((o.goal || '').slice(0, 60))} ${_liveLabel}</span>
     </div>`;
   }).join('');
 }
