@@ -61,8 +61,7 @@
   "dependencies": {
     "semver": "^7.6.0",
     "@monoes/monograph": "^1.2.1",
-    "@monoes/monobrowse": "^1.0.0",
-    "@monoes/monoplaybook": "^1.0.0"
+    "@monoes/monobrowse": "^1.0.0"
   },
   "overrides": {
     "hono": ">=4.12.21",
