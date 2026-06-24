@@ -192,6 +192,15 @@ function autoMemoryCmd(subcommand: string): string {
   return hookCmd('.claude/helpers/auto-memory-hook.mjs', subcommand);
 }
 
+/** Shorthand for capture-handler (agent telemetry for org dashboard) */
+function captureHandlerCmd(subcommand: string): string {
+  // capture-handler does not use sh -c wrapper — it reads stdin directly
+  const dir = IS_WINDOWS ? '%CLAUDE_PROJECT_DIR%' : '${CLAUDE_PROJECT_DIR:-.}';
+  return IS_WINDOWS
+    ? `node ${dir}/.claude/helpers/handlers/capture-handler.cjs ${subcommand}`
+    : `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
+}
+
 /** Shorthand for standalone CJS helper scripts (no subcommand) */
 function standaloneHelperCmd(script: string): string {
   if (IS_WINDOWS) {
@@ -317,7 +326,7 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
     ];
   }
 
-  // UserPromptSubmit — intelligent task routing
+  // UserPromptSubmit — intelligent task routing + lean mode switching
   if (config.userPromptSubmit) {
     hooks.UserPromptSubmit = [
       {
@@ -326,6 +335,11 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
             type: 'command',
             command: hookHandlerCmd('route'),
             timeout: 10000,
+          },
+          {
+            type: 'command',
+            command: standaloneHelperCmd('monolean-tracker.cjs'),
+            timeout: 3000,
           },
         ],
       },
@@ -358,6 +372,12 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
     sessionStartHooks.push({
       type: 'command',
       command: standaloneHelperCmd('control-start.cjs'),
+      timeout: 5000,
+    });
+
+    sessionStartHooks.push({
+      type: 'command',
+      command: standaloneHelperCmd('monolean-activate.cjs'),
       timeout: 5000,
     });
 
@@ -428,7 +448,7 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
     ];
   }
 
-  // SubagentStart — status update when a sub-agent is spawned
+  // SubagentStart — status update + capture-handler telemetry for org dashboard + lean mode propagation
   hooks.SubagentStart = [
     {
       hooks: [
@@ -437,11 +457,21 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
           command: hookHandlerCmd('status'),
           timeout: 3000,
         },
+        {
+          type: 'command',
+          command: captureHandlerCmd('subagent-start'),
+          timeout: 5000,
+        },
+        {
+          type: 'command',
+          command: standaloneHelperCmd('monolean-propagate.cjs'),
+          timeout: 3000,
+        },
       ],
     },
   ];
 
-  // SubagentStop — track agent completion for metrics
+  // SubagentStop — track agent completion for metrics + capture-handler telemetry
   // NOTE: The valid event is "SubagentStop" (not "SubagentEnd")
   hooks.SubagentStop = [
     {
@@ -450,6 +480,11 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
           type: 'command',
           command: hookHandlerCmd('post-task'),
           timeout: 5000,
+        },
+        {
+          type: 'command',
+          command: captureHandlerCmd('subagent-stop'),
+          timeout: 10000,
         },
       ],
     },

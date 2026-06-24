@@ -72,7 +72,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc --noEmitOnError false || true && mkdir -p dist/src/browser/dashboard && cp node_modules/@monoes/monobrowse/src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html",
+    "build": "tsc --noEmitOnError false || true && mkdir -p dist/src/browser/dashboard && cp node_modules/@monoes/monobrowse/dist/src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html",
     "test": "vitest run",
     "test:plugin-store": "npx tsx src/plugins/tests/standalone-test.ts",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
@@ -82,14 +82,15 @@
   },
   "devDependencies": {
     "typescript": "^5.3.0",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.4",
+    "@anthropic-ai/sdk": "^0.39.0"
   },
   "dependencies": {
-    "ws": "^8.20.1",
+    "ws": "^8.21.0",
     "@noble/ed25519": "^2.1.0",
     "@monoes/monograph": "^1.2.1",
-    "@monoes/monobrowse": "workspace:*",
-    "@monoes/monoplaybook": "workspace:*"
+    "@monoes/monobrowse": "^1.0.1",
+    "@monoes/monoplaybook": "^1.0.1"
   },
   "optionalDependencies": {
     "sql.js": "^1.14.1",

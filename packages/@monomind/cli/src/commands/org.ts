@@ -1,4 +1,4 @@
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import type { Command, CommandContext, CommandResult, CommandExample } from '../types.js';
 import { output } from '../output.js';
 import { existsSync, unlinkSync, rmSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
@@ -6,15 +6,14 @@ import { join, resolve } from 'path';
 const orgCommand: Command = {
   name: 'org',
   description: 'Manage monomind organisations',
-  subcommands: ['delete', 'list'],
-  usage: 'monomind org <subcommand> [options]',
   examples: [
-    'monomind org list',
-    'monomind org delete my-org',
-    'monomind org delete my-org --yes',
-  ],
+    { command: 'monomind org list', description: 'List all orgs in the project' },
+    { command: 'monomind org delete my-org', description: 'Delete an org (with confirmation)' },
+    { command: 'monomind org delete my-org --yes', description: 'Delete without confirmation' },
+  ] as CommandExample[],
 
-  async execute(args: string[], context: CommandContext): Promise<CommandResult> {
+  action: async (context: CommandContext): Promise<CommandResult> => {
+    const args = context.args ?? [];
     const sub = args[0];
 
     if (!sub || sub === 'help') {
@@ -27,7 +26,7 @@ const orgCommand: Command = {
     }
 
     if (sub === 'list') {
-      const cwd = context.projectPath || process.cwd();
+      const cwd = context.cwd || process.cwd();
       const orgsDir = join(cwd, '.monomind', 'orgs');
       if (!existsSync(orgsDir)) {
         output.info('No orgs directory found. Create an org first with /mastermind:createorg');
@@ -50,26 +49,26 @@ const orgCommand: Command = {
       const orgName = args[1];
       if (!orgName) {
         output.error('Usage: monomind org delete <name>');
-        return { success: false, error: 'org name required' };
+        return { success: false, message:'org name required' };
       }
       if (!/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
         output.error(`Invalid org name: ${orgName}`);
-        return { success: false, error: 'invalid org name' };
+        return { success: false, message:'invalid org name' };
       }
 
       const confirmed = args.includes('--yes') || args.includes('-y');
       if (!confirmed) {
-        output.warn(`This will permanently delete org "${orgName}" and all its data.`);
-        output.warn('Pass --yes to confirm.');
-        return { success: false, error: 'confirmation required' };
+        output.warning(`This will permanently delete org "${orgName}" and all its data.`);
+        output.warning('Pass --yes to confirm.');
+        return { success: false, message:'confirmation required' };
       }
 
-      const cwd = resolve(context.projectPath || process.cwd());
+      const cwd = resolve(context.cwd || process.cwd());
       const orgsDir = join(cwd, '.monomind', 'orgs');
       const configFile = join(orgsDir, `${orgName}.json`);
       if (!existsSync(configFile)) {
         output.error(`Org not found: ${orgName}`);
-        return { success: false, error: 'org not found' };
+        return { success: false, message:'org not found' };
       }
 
       const suffixes = ['', '-state', '-goals', '-routines', '-approvals', '-activity',
@@ -99,7 +98,7 @@ const orgCommand: Command = {
     }
 
     output.error(`Unknown subcommand: ${sub}. Run "monomind org help" for usage.`);
-    return { success: false, error: `unknown subcommand: ${sub}` };
+    return { success: false, message:`unknown subcommand: ${sub}` };
   },
 };
 

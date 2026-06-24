@@ -114,6 +114,8 @@ export {
   createSecurityWorker,
   createPatternsWorker,
   createCacheWorker,
+  createProgressWorker,
+  WORKER_ALIAS_MAP,
   // Types
   type WorkerConfig,
   type WorkerResult,
