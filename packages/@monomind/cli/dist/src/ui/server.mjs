@@ -185,6 +185,91 @@ function pathToSections(filename) {
 const activeOrgRuns = new Map();
 // Active session tracking: org -> {sessionId, ts} (enables linking agent events to sessions)
 const activeSessionsByOrg = new Map();
+// Phase 3: Per-org SSE clients for run streaming tail endpoint
+const runStreamClients = new Map(); // orgName → Set<res>
+
+// Design doc Issue 2: concurrent write safety. Since server.mjs is the sole writer
+// (all hook processes POST via HTTP), in-process serialization is sufficient.
+// SQLite WAL (Issue 2 Phase 1.5): run events are indexed in an in-memory sql.js database
+// with WAL mode and persisted to .monomind/run-events.db every 1000ms. JSONL files are
+// still written (bash lifecycle scripts write them directly), but SQLite is the query layer
+// for streaming tail replay and startup gap-fill.
+//
+// Serializing write queue — prevents concurrent JSONL corruption (Issue 2 from design doc)
+const _writeQueue = new Map(); // filePath → Promise (in-flight write)
+
+// ── sql.js WAL run-event index (Phase 1.5) ──────────────────────────────────
+let _runDb = null;           // sql.js in-memory Database
+let _runDbPath = null;       // disk path for persistence
+let _runDbPersistTimer = null;
+let _runDbInsertStmt = null; // prepared INSERT statement
+
+const _require = createRequire(import.meta.url);
+
+async function _initRunDb(monoHome) {
+  try {
+    const initSqlJs = _require('sql.js');
+    const SQL = await initSqlJs();
+    _runDbPath = path.join(monoHome, '.monomind', 'run-events.db');
+    fs.mkdirSync(path.dirname(_runDbPath), { recursive: true });
+    let fileData;
+    try { fileData = fs.readFileSync(_runDbPath); } catch (_) {}
+    _runDb = fileData ? new SQL.Database(fileData) : new SQL.Database();
+    _runDb.run('PRAGMA journal_mode=WAL');
+    _runDb.run('PRAGMA synchronous=NORMAL');
+    _runDb.run(`CREATE TABLE IF NOT EXISTS run_events (
+      id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      org   TEXT    NOT NULL,
+      run_id TEXT   NOT NULL,
+      type  TEXT    NOT NULL,
+      raw   TEXT    NOT NULL,
+      ts    INTEGER NOT NULL,
+      source TEXT   DEFAULT 'http',
+      UNIQUE(org, run_id, ts, type, raw)
+    )`);
+    _runDb.run('CREATE INDEX IF NOT EXISTS idx_re_org_id ON run_events(org, id)');
+    _runDb.run('CREATE INDEX IF NOT EXISTS idx_re_ts    ON run_events(ts)');
+    _runDbInsertStmt = _runDb.prepare(
+      'INSERT OR IGNORE INTO run_events (org, run_id, type, raw, ts, source) VALUES (?,?,?,?,?,?)'
+    );
+    // Compact old events at startup: keep last 30 days
+    const _cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    _runDb.run('DELETE FROM run_events WHERE ts < ?', [_cutoff]);
+    _persistRunDb();
+  } catch (_) {
+    _runDb = null; // graceful fallback — JSONL path continues to work
+  }
+}
+
+function _persistRunDb() {
+  if (!_runDb || !_runDbPath) return;
+  clearTimeout(_runDbPersistTimer);
+  _runDbPersistTimer = setTimeout(() => {
+    try { fs.writeFileSync(_runDbPath, Buffer.from(_runDb.export())); } catch (_) {}
+  }, 1000);
+}
+
+function _insertRunEvent(ev, source) {
+  if (!_runDb || !_runDbInsertStmt) return;
+  try {
+    const org = String(ev.org || '').trim();
+    const runId = String(ev.runId || '').trim();
+    if (!org || !runId) return;
+    _runDbInsertStmt.run([org, runId, String(ev.type || ''), JSON.stringify(ev), Number(ev.ts || Date.now()), source || 'http']);
+    _persistRunDb();
+  } catch (_) {}
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function appendToFile(filePath, line) {
+  const prev = _writeQueue.get(filePath) || Promise.resolve();
+  const next = prev.then(() => {
+    try { fs.appendFileSync(filePath, line); } catch (_) {}
+  });
+  _writeQueue.set(filePath, next);
+  next.then(() => { if (_writeQueue.get(filePath) === next) _writeQueue.delete(filePath); });
+  return next;
+}
 
 // Returns the shared git directory parent so run files survive branch switches and
 // are shared across all worktrees. In a worktree, .git is a FILE pointing to the
@@ -218,6 +303,19 @@ function _getGitMonomindDir(workDir) {
   _gitMonomindCache.set(workDir, result);
   return result;
 }
+
+// Returns the monomind home directory for server-level data (capture, control.json, loops).
+// Priority: MONOMIND_HOME env var > walk up from cwd finding .monomind/control.json > cwd fallback
+function getMonomindHome() {
+  if (process.env.MONOMIND_HOME) return path.resolve(process.env.MONOMIND_HOME);
+  let dir = process.cwd();
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, '.monomind', 'control.json'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return process.cwd();
+}
+const MONOMIND_HOME = getMonomindHome();
 
 // Resolve an org's project directory by searching across known projects.
 // Returns the first project dir where {dir}/.monomind/orgs/{orgName}.json exists, or null.
@@ -465,6 +563,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     let event = {};
     try { event = JSON.parse(body); } catch (_) {}
     event.ts = event.ts || Date.now();
+    // Event type validation: accept any {scope}:{action} pattern — future event types
+    // auto-work without whitelist maintenance. Malformed types are logged and rejected.
+    if (event.type != null) {
+      if (typeof event.type !== 'string' || !/^[a-z][a-z0-9-]*:[a-z][a-z0-9:-]*$/.test(event.type)) {
+        try {
+          const _badLog = path.join(projectDir || process.cwd(), 'data', 'unknown-events.jsonl');
+          fs.mkdirSync(path.dirname(_badLog), { recursive: true });
+          fs.appendFileSync(_badLog, JSON.stringify({ ts: Date.now(), type: event.type, body: body.slice(0, 256) }) + '\n');
+        } catch (_) {}
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'invalid event type' }));
+        return;
+      }
+    }
     // Use project path from event if provided (multi-project support).
     // Security: path.isAbsolute() alone is insufficient — an attacker can
     // supply event.project="/etc" and cause writes to system directories.
@@ -477,7 +589,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         && path.isAbsolute(_rawProject)) {
       // Reject filesystem root and common system directories
       const _norm = path.resolve(_rawProject);
-      const _systemPaths = ['/', '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/sys', '/proc', '/tmp'];
+      const _systemPaths = ['/', '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/sys', '/proc', '/tmp', os.tmpdir(), (() => { try { return fs.realpathSync(os.tmpdir()); } catch (_) { return ''; } })()].filter(Boolean);
       if (!_systemPaths.includes(_norm) && !_systemPaths.some(p => _norm.startsWith(p + '/'))) {
         eventProject = _norm;
       }
@@ -505,21 +617,36 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
       else { const _rsId = _getActiveRunId(_orgKey, root); if (_rsId) event.runId = _rsId; }
       if (event.type === 'run:complete' || event.type === 'org:complete' || event.type === 'org:stop') activeOrgRuns.delete(_orgKey);
-      // Persist active-run.json so capture-handler.cjs can find the current org/runId without HTTP calls
+      // Persist active-run.json so capture-handler.cjs can find the current org/runId without HTTP calls.
+      // Use process.cwd() (server's own dir, same as CLAUDE_PROJECT_DIR in the session) — not root (org project dir),
+      // because capture-handler.cjs reads from CLAUDE_PROJECT_DIR which is the server's working directory.
       try {
-        const _captureDir = path.join(root, '.monomind', 'capture');
+        const _captureDir = path.join(MONOMIND_HOME, '.monomind', 'capture');
         const _activeRunFile = path.join(_captureDir, 'active-run.json');
-        if (event.type === 'run:start' && event.org && event.runId) {
+        if ((event.type === 'run:start' || event.type === 'org:start') && event.org && event.runId) {
           fs.mkdirSync(_captureDir, { recursive: true });
           fs.writeFileSync(_activeRunFile, JSON.stringify({ org: String(event.org).trim(), runId: String(event.runId).trim(), ts: Date.now() }));
-        } else if ((event.type === 'run:complete' || event.type === 'org:complete') && fs.existsSync(_activeRunFile)) {
+        } else if ((event.type === 'run:complete' || event.type === 'org:complete' || event.type === 'org:stop') && fs.existsSync(_activeRunFile)) {
           fs.unlinkSync(_activeRunFile);
+          // Phase 1: Clean up ppid-keyed files for this org (Issue 3)
+          try {
+            const _ppidDir = path.join(_captureDir, 'active-runs');
+            const _completedOrg = String(event.org || '').trim();
+            if (_completedOrg && fs.existsSync(_ppidDir)) {
+              fs.readdirSync(_ppidDir).filter(f => f.endsWith('.json')).forEach(_pf => {
+                try {
+                  const _pData = JSON.parse(fs.readFileSync(path.join(_ppidDir, _pf), 'utf8'));
+                  if (_pData.org === _completedOrg) fs.unlinkSync(path.join(_ppidDir, _pf));
+                } catch (_) {}
+              });
+            }
+          } catch (_e) {}
         }
       } catch(_e) {}
     }
     // Update durable runstate.json — survives server restarts
     if (event.org) _updateRunState(event, root);
-    try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
+    appendToFile(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n').catch(() => {});
     // Persist to git-safe run file (survives branch switches + shared across worktrees)
     if (event.org && event.runId) {
       try {
@@ -530,7 +657,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const _monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
           const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
           fs.mkdirSync(_runDir, { recursive: true });
-          fs.appendFileSync(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
+          await appendToFile(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
+          _insertRunEvent(event, 'http');
           // agent:usage — persist per-role token/cost data to state.json (accumulated across runs)
           if (event.type === 'agent:usage' && event.role) {
             try {
@@ -555,11 +683,46 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           // Solution 3: dedicated conversation log — org:comms only, for easy replay
           if (event.type === 'org:comms') {
             const _conv = { ts: event.ts, run_id: _rid, from: event.from, to: event.to, msg: event.msg };
-            fs.appendFileSync(path.join(_runDir, `${_rid}.convs.jsonl`), JSON.stringify(_conv) + '\n');
+            await appendToFile(path.join(_runDir, `${_rid}.convs.jsonl`), JSON.stringify(_conv) + '\n');
             // Also write to org-level threads.jsonl so the dashboard Threads tab shows agent conversations
             const _orgThreadsFile = path.join(root, '.monomind', 'orgs', `${_orn}-threads.jsonl`);
             const _thread = { type: 'message', id: `${_rid}-${event.ts}`, run_id: _rid, ts: event.ts, from: event.from, to: event.to, msg: event.msg, subject: `Run ${_rid}` };
-            try { fs.appendFileSync(_orgThreadsFile, JSON.stringify(_thread) + '\n'); } catch(_) {}
+            appendToFile(_orgThreadsFile, JSON.stringify(_thread) + '\n').catch(() => {});
+          }
+          // Phase 4: Compact completed run to three-tier retention (Issue 7)
+          // hot (SQLite JSONL in .monomind) → warm (flat JSONL in archive/) → cold (gzip)
+          // We use a lightweight approach: rename completed JSONL to .warm.jsonl, then gzip runs
+          // older than 24 hours to .cold.jsonl.gz — no external deps.
+          if (event.type === 'run:complete' || event.type === 'org:complete') {
+            setImmediate(() => {
+              try {
+                const _hotFile = path.join(_runDir, `${_rid}.jsonl`);
+                const _warmFile = path.join(_runDir, `${_rid}.warm.jsonl`);
+                // Promote: hot → warm (just rename — same dir, marks run as done)
+                if (fs.existsSync(_hotFile) && !fs.existsSync(_warmFile)) {
+                  fs.renameSync(_hotFile, _warmFile);
+                }
+                // Compact warm files older than 24h to cold gzip
+                const _24h = 24 * 60 * 60 * 1000;
+                fs.readdirSync(_runDir).filter(f => f.endsWith('.warm.jsonl')).forEach(_wf => {
+                  const _wp = path.join(_runDir, _wf);
+                  try {
+                    if (Date.now() - fs.statSync(_wp).mtimeMs < _24h) return;
+                    const _coldPath = _wp.replace('.warm.jsonl', '.cold.jsonl.gz');
+                    if (fs.existsSync(_coldPath)) return; // already compacted
+                    const _warmData = fs.readFileSync(_wp);
+                    const zlib = require('zlib');
+                    zlib.gzip(_warmData, (_err, _gz) => {
+                      if (_err) return;
+                      try {
+                        fs.writeFileSync(_coldPath, _gz);
+                        fs.unlinkSync(_wp); // remove warm after cold written
+                      } catch (_) {}
+                    });
+                  } catch (_) {}
+                });
+              } catch (_) {}
+            });
           }
         }
       } catch (_) {}
@@ -591,11 +754,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Format: data/sessions/<sessionId>.jsonl  +  data/sessions/_index.json
     try {
       const _sid = String(event.session || '').trim();
-      if (_sid.length > 0 && _sid.length <= 128 && /^[a-zA-Z0-9_.-]+$/.test(_sid)) {
+      if (_sid.length > 0 && _sid.length <= 128 && /^(?!.*\.\.)[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(_sid)) {
         const sessDir = path.join(dataDir, 'sessions');
         fs.mkdirSync(sessDir, { recursive: true });
         // Append event to per-session JSONL (O(1), no read)
-        fs.appendFileSync(path.join(sessDir, `${_sid}.jsonl`), JSON.stringify(event) + '\n');
+        appendToFile(path.join(sessDir, `${_sid}.jsonl`), JSON.stringify(event) + '\n').catch(() => {});
         // Update lightweight index (id, ts, prompt, status, org, startedAt, endedAt, domains only)
         const indexFile = path.join(sessDir, '_index.json');
         let _idx = [];
@@ -641,19 +804,36 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 500)));
     } catch (_) {}
     // For org:stop events, write a stop marker the boss agent can detect
-    if (event.type === 'org:stop' && event.org) {
+    // For org:start events, remove any existing stop marker so the org shows as running again
+    if ((event.type === 'org:stop' || event.type === 'org:start') && event.org) {
       try {
         const orgName = String(event.org).trim();
         // Validate before any filesystem use — reject rather than strip
         if (orgName.length > 0 && orgName.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
           const stopDir = path.join(root, '.monomind', 'orgs', '.stops');
-          fs.mkdirSync(stopDir, { recursive: true });
-          fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
+          if (event.type === 'org:stop') {
+            fs.mkdirSync(stopDir, { recursive: true });
+            fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
+          } else {
+            // org:start — remove stop file so the org can appear running
+            try { fs.unlinkSync(path.join(stopDir, `${orgName}.stop`)); } catch (_) {}
+          }
         }
       } catch (_) {}
     }
     // Broadcast to all mastermind SSE clients
     broadcastMm(event);
+    // Phase 3: Forward to per-org streaming tail clients
+    if (event.org) {
+      const _fwdOrg = String(event.org).trim();
+      const _fwdClients = runStreamClients.get(_fwdOrg);
+      if (_fwdClients && _fwdClients.size > 0) {
+        const _fwdLine = `data: ${JSON.stringify(event)}\n\n`;
+        for (const _fwdClient of _fwdClients) {
+          try { _fwdClient.write(_fwdLine); } catch (_) { _fwdClients.delete(_fwdClient); }
+        }
+      }
+    }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     res.end('{"ok":true}');
   }
@@ -3504,10 +3684,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               if (!_lOrgName || _orgsSeen.has(_lOrgName)) continue;
               _orgsSeen.add(_lOrgName);
               const _rs = _readRunState(_lOrgName, _opd);
-              const _ttl = (_rs?.checkpointInterval || 600000) * 2;
+              const _ttl = Math.max((_rs?.checkpointInterval || 600000) * 2, 7200000);
               let running = (_rs?.status === 'running' && (Date.now() - (_rs?.lastEventAt || 0)) < _ttl)
                 || activeOrgRuns.has(_lOrgName);
-              orgs.push({ name: cfg.name, goal: cfg.goal, roles: Array.isArray(cfg.roles) ? cfg.roles : [], topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, projectDir: _opd, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
+              orgs.push({ name: cfg.name, goal: cfg.goal, roles: Array.isArray(cfg.roles) ? cfg.roles : [], topology: cfg.topology, created_at: cfg.created_at, running, status: cfg.status, projectDir: _opd, lastEventAt: _rs?.lastEventAt || null, loop: cfg.loop ? { poll_interval_minutes: cfg.loop.poll_interval_minutes, last_run: cfg.loop.last_run, next_run: cfg.loop.next_run } : undefined });
             } catch(_) {}
           }
         }
@@ -3618,7 +3798,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               try { return fs.statSync(path.join(orgsDir, `${orgName}-state.json`)).mtimeMs; } catch { return 0; }
             })();
             // Also check org's most recent run file mtime
-            const orgRunsDir = path.join(d, '.monomind', 'orgs', orgName, 'runs');
+            const orgRunsDir = path.join(_getGitMonomindDir(d) || path.join(d, '.monomind'), 'orgs', orgName, 'runs');
             const orgLastRunMtime = (() => {
               try {
                 if (!fs.existsSync(orgRunsDir)) return 0;
@@ -3646,7 +3826,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           } catch { return false; }
         })();
         const _runstateData = _readRunState(orgName, d);
-        const _runstateTtl = (_runstateData?.checkpointInterval || 600000) * 2;
+        const _runstateTtl = Math.max((_runstateData?.checkpointInterval || 600000) * 2, 7200000);
         const _runstateAlive = _runstateData?.status === 'running' && (Date.now() - (_runstateData?.lastEventAt || 0)) < _runstateTtl;
         const running = !fs.existsSync(stopFile) && (_runstateAlive || activeOrgRuns.has(orgName) || _loopRunning);
 
@@ -4344,7 +4524,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         fs.renameSync(tmp, approvalsFile);
         // Emit org:approval:resolved event so boss agent unblocks
         const event = { type: 'org:approval:resolved', org: orgName, approval_id: approvalId, status, ts: Date.now() };
-        try { fs.appendFileSync(path.join(path.resolve(_postApprovalsQs.get('dir') || projectDir || process.cwd()), 'data', 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch(_) {}
+        appendToFile(path.join(path.resolve(_postApprovalsQs.get('dir') || projectDir || process.cwd()), 'data', 'mastermind-events.jsonl'), JSON.stringify(event) + '\n').catch(() => {});
         broadcastMm(event);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ ok: true, status }));
@@ -4743,7 +4923,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try { const lpf = path.join(path.resolve(projectDir || process.cwd()), '.monomind', 'loops', `${orgName}.md`); if (fs.existsSync(lpf)) fs.unlinkSync(lpf); } catch(_) {}
         // Emit org:delete event
         const deleteEvent = { type: 'org:delete', org: orgName, ts: Date.now() };
-        try { fs.appendFileSync(path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl'), JSON.stringify(deleteEvent) + '\n'); } catch(_) {}
+        appendToFile(path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl'), JSON.stringify(deleteEvent) + '\n').catch(() => {});
         broadcastMm(deleteEvent);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end('{"ok":true}');
@@ -4761,7 +4941,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const stopEvent = { type: 'org:stop', org: orgName, ts: Date.now() };
         const dataDir = path.join(_stopOrgBase, 'data');
         try { fs.mkdirSync(dataDir, { recursive: true }); } catch(_) {}
-        try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(stopEvent) + '\n'); } catch(_) {}
+        appendToFile(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(stopEvent) + '\n').catch(() => {});
         // Write stop marker file for boss agent to detect
         try {
           const stopDir = path.join(_stopOrgBase, '.monomind', 'orgs', '.stops');
@@ -4806,6 +4986,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try {
         const _rQs = new URL(req.url, 'http://localhost').searchParams;
         const _rOrgName = decodeURIComponent(url.split('/')[3] || '');
+        if (_rOrgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(_rOrgName)) { res.writeHead(400); res.end('{"error":"Invalid org name"}'); return; }
         const _rExplicitDir = _rQs.get('dir');
         const _rServerRoot = path.resolve(_rExplicitDir || projectDir || process.cwd());
         // Search across known projects (same logic as /api/orgs) unless explicit dir given
@@ -4822,14 +5003,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           try {
             const raw = fs.readFileSync(filePath, 'utf8');
             const allLines = raw.split('\n').filter(Boolean);
-            const eventCount = allLines.length;
             const parse = l => { try { return JSON.parse(l); } catch { return null; } };
-            const headEvents = allLines.slice(0, 10).map(parse).filter(Boolean);
-            const tailEvents = allLines.slice(-5).map(parse).filter(Boolean);
+            // Merge .warm.jsonl (promoted pre-complete events) for accurate event count + metadata
+            const warmFile = filePath.replace(/\.jsonl$/, '.warm.jsonl');
+            let warmLines = [];
+            let warmEvents = [];
+            try { if (fs.existsSync(warmFile)) { warmLines = fs.readFileSync(warmFile, 'utf8').split('\n').filter(Boolean); warmEvents = warmLines.map(parse).filter(Boolean); } } catch(_) {}
+            const combinedLines = [...warmLines, ...allLines];
+            const eventCount = combinedLines.length;
+            const headEvents = (warmEvents.length ? warmEvents : allLines.map(parse).filter(Boolean)).slice(0, 10);
+            const tailEvents = (allLines.map(parse).filter(Boolean).slice(-5).length ? allLines.map(parse).filter(Boolean).slice(-5) : warmEvents.slice(-5));
             const first = headEvents.find(e => e.type === 'run:start') || headEvents[0];
-            const last = tailEvents.slice().reverse().find(e => e.type === 'run:complete' || e.type === 'org:complete');
-            const cycles = allLines.filter(l => l.includes('"org:checkpoint"')).length;
-            const lastEvent = tailEvents[tailEvents.length - 1] || headEvents[headEvents.length - 1];
+            const last = [...(warmEvents.slice(-5)), ...(allLines.map(parse).filter(Boolean).slice(-3))].slice().reverse().find(e => e.type === 'run:complete' || e.type === 'org:complete');
+            const cycles = combinedLines.filter(l => l.includes('"org:checkpoint"')).length;
+            const lastEvent = allLines.map(parse).filter(Boolean).slice(-1)[0] || warmEvents.slice(-1)[0];
             const ageMs = lastEvent?.ts ? Date.now() - lastEvent.ts : Infinity;
             const isStale = !last && ageMs > 30 * 60 * 1000;
             const firstBossComms = headEvents.find(e => e.type === 'org:comms' && (e.from === 'boss' || e.role === 'boss') && e.msg);
@@ -4846,7 +5033,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           if (_rMonoDir !== path.join(_rpd, '.monomind')) _rSearchDirs.push(path.join(_rpd, '.monomind', 'orgs', _rOrgName, 'runs'));
           for (const _rDir of _rSearchDirs) {
             if (!fs.existsSync(_rDir)) continue;
-            const files = fs.readdirSync(_rDir).filter(f => f.endsWith('.jsonl')).sort().reverse();
+            const files = fs.readdirSync(_rDir).filter(f => f.endsWith('.jsonl') && !f.endsWith('.convs.jsonl') && !f.endsWith('.warm.jsonl') && !f.endsWith('.cold.jsonl')).sort().reverse();
             for (const f of files.slice(0, 50)) {
               if (_rSeenFiles.has(f)) continue;
               _rSeenFiles.add(f);
@@ -4869,6 +5056,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const _rvParts = url.replace(/\?.*$/, '').split('/');
         const _rvOrgName = decodeURIComponent(_rvParts[3] || '');
         const _rvRunId = decodeURIComponent(_rvParts[5] || '');
+        if (_rvOrgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(_rvOrgName) ||
+            _rvRunId.length > 80  || !/^[a-z0-9][a-z0-9_-]*$/i.test(_rvRunId)) { res.writeHead(400); res.end('{"error":"Invalid org or run id"}'); return; }
         const _rvExplicitDir = _rvQs.get('dir');
         const _rvServerRoot = path.resolve(_rvExplicitDir || projectDir || process.cwd());
         // Search across known projects
@@ -4887,8 +5076,18 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           if (_rvFile) break;
         }
         if (!_rvFile) { res.writeHead(404); res.end('{"error":"run not found"}'); return; }
-        const events = fs.readFileSync(_rvFile, 'utf8').split('\n').filter(Boolean)
-          .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+        const _parseLines = p => { try { return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return []; } };
+        const events = _parseLines(_rvFile);
+        // Merge .warm.jsonl (pre-run:complete events, including org:comms) if it exists.
+        // When run:complete fires, the hot .jsonl is renamed to .warm.jsonl so all pre-complete
+        // events live there. The current .jsonl then only holds post-complete events (e.g. org:stop).
+        const _rvWarmFile = _rvFile.replace(/\.jsonl$/, '.warm.jsonl');
+        if (fs.existsSync(_rvWarmFile)) {
+          events.push(..._parseLines(_rvWarmFile));
+        }
+        // For in-progress runs (no .warm.jsonl), org:comms also go to .convs.jsonl (stripped form).
+        // They're already in .jsonl as full events, so .convs.jsonl would duplicate — skip it.
+        events.sort((a, b) => (a.ts || 0) - (b.ts || 0));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify(events));
       } catch (_) { res.writeHead(500); res.end('[]'); }
@@ -4978,7 +5177,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               const top = idx.slice(0, limitParam);
               for (const entry of top) {
                 const _sid = String(entry.id || '').trim();
-                if (!_sid || !/^[a-zA-Z0-9_.-]+$/.test(_sid)) continue;
+                if (!_sid || !/^(?!.*\.\.)[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(_sid)) continue;
                 let events = [];
                 try {
                   const jl = fs.readFileSync(path.join(sessDir, `${_sid}.jsonl`), 'utf8');
@@ -5196,28 +5395,137 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // ----------------------------------------------- GET /api/platform-sessions
-    if (req.method === 'GET' && url === '/api/platform-sessions') {
+    // ----------------------------------------------- GET /api/monoagent/platforms
+    // Returns all supported platforms from `monoes connect list --all --json`
+    if (req.method === 'GET' && url === '/api/monoagent/platforms') {
       try {
-        const sessDir = path.join(os.homedir(), '.monomind', 'sessions.json');
-        let sessions = [];
-        if (fs.existsSync(sessDir)) {
-          try {
-            const raw = fs.readFileSync(sessDir, 'utf8');
-            const all = JSON.parse(raw);
-            sessions = (Array.isArray(all) ? all : []).map(s => ({
-              platform: s.platform || s.id?.split(':')[0] || 'unknown',
-              username: s.username || null,
-              createdAt: s.createdAt || null,
-              lastUsedAt: s.lastUsedAt || null,
-            }));
-          } catch (_) {}
-        }
-        const googleToken = !!(process.env.GOOGLE_ACCESS_TOKEN || process.env.GOOGLE_API_KEY);
-        const msToken = !!(process.env.MS_ACCESS_TOKEN || process.env.MICROSOFT_TOKEN);
+        const { execFile } = await import('child_process');
+        const out = await new Promise((resolve, reject) => {
+          execFile('monoes', ['connect', 'list', '--all', '--json'], { timeout: 8000 }, (err, stdout) => {
+            if (err) reject(err); else resolve(stdout);
+          });
+        });
+        // Parse + re-serialize to ensure only valid JSON reaches the client
+        // (monoes may emit warning lines before the JSON array)
+        let parsed; try { parsed = JSON.parse(out); } catch (_) { parsed = []; }
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ sessions, googleToken, msToken }));
+        res.end(JSON.stringify(Array.isArray(parsed) ? parsed : []));
+      } catch (e) { res.writeHead(200); res.end('[]'); }
+      return;
+    }
+
+    // ----------------------------------------------- GET /api/monoagent/connections
+    // Returns active API/OAuth connections + browser sessions merged
+    if (req.method === 'GET' && url === '/api/monoagent/connections') {
+      try {
+        const { execFile } = await import('child_process');
+        const [connsOut, sessOut] = await Promise.all([
+          new Promise((resolve) => {
+            execFile('monoes', ['connect', 'list', '--json'], { timeout: 8000 }, (err, stdout) => resolve(err ? '[]' : stdout));
+          }),
+          new Promise((resolve) => {
+            execFile('monoes', ['--json', 'login', 'status'], { timeout: 8000 }, (err, stdout) => resolve(err ? '[]' : stdout));
+          }),
+        ]);
+        let connections = []; try { connections = JSON.parse(connsOut); } catch (_) {}
+        let sessions = []; try { sessions = JSON.parse(sessOut); } catch (_) {}
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ connections, sessions }));
+      } catch (e) { res.writeHead(200); res.end(JSON.stringify({ connections: [], sessions: [] })); }
+      return;
+    }
+
+    // ----------------------------------------------- POST /api/monoagent/login
+    // Launches browser login for social platforms via `monoes login <platform>`
+    if (req.method === 'POST' && url === '/api/monoagent/login') {
+      try {
+        let body = '';
+        await new Promise((resolve, reject) => { req.on('data', d => { body += d; if (body.length > 65536) { req.destroy(); reject(new Error('body too large')); } }); req.on('end', resolve); req.on('error', reject); });
+        const { id } = JSON.parse(body);
+        if (!id || !/^[a-z][a-z0-9_-]*$/.test(id)) { res.writeHead(400); res.end(JSON.stringify({ error: 'invalid id' })); return; }
+        const { spawn } = await import('child_process');
+        const child = spawn('monoes', ['login', id, '--timeout', '10m'], { detached: true, stdio: 'ignore' });
+        // Defer response until spawn confirms or errors — prevents race where error fires after res.end()
+        child.once('spawn', () => {
+          child.unref();
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        });
+        child.once('error', (err) => {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        });
       } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+      return;
+    }
+
+    // ----------------------------------------------- POST /api/monoagent/connect
+    if (req.method === 'POST' && url === '/api/monoagent/connect') {
+      try {
+        let body = '';
+        await new Promise((resolve, reject) => { req.on('data', d => { body += d; if (body.length > 65536) { req.destroy(); reject(new Error('body too large')); } }); req.on('end', resolve); req.on('error', reject); });
+        const { id, method, fields } = JSON.parse(body);
+        if (!id || !/^[a-z][a-z0-9_-]*$/.test(id)) { res.writeHead(400); res.end(JSON.stringify({ error: 'invalid id' })); return; }
+        if (method && !/^[a-z][a-z0-9_-]*$/.test(method)) { res.writeHead(400); res.end(JSON.stringify({ error: 'invalid method' })); return; }
+        const { execFile } = await import('child_process');
+        const args = ['connect', id];
+        if (method) args.push('--method', method);
+        if (fields && typeof fields === 'object') {
+          for (const [k, v] of Object.entries(fields)) {
+            // Only allow simple word keys — prevents --flag injection
+            if (!/^[a-z][a-z0-9_]*$/.test(k)) continue;
+            args.push(`--${k}`, String(v).slice(0, 2048));
+          }
+        }
+        await new Promise((resolve, reject) => {
+          execFile('monoes', args, { timeout: 30000 }, (err, stdout, stderr) => {
+            const ok = !err;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok, stdout: (stdout || '').trim(), stderr: (stderr || '').trim() }));
+            resolve();
+          });
+        });
+      } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+      return;
+    }
+
+    // ----------------------------------------------- POST /api/monoagent/test
+    if (req.method === 'POST' && url === '/api/monoagent/test') {
+      try {
+        let body = '';
+        await new Promise((resolve, reject) => { req.on('data', d => { body += d; if (body.length > 65536) { req.destroy(); reject(new Error('body too large')); } }); req.on('end', resolve); req.on('error', reject); });
+        const { id } = JSON.parse(body);
+        if (!id || !/^[a-z0-9][a-z0-9_:-]*$/.test(id)) { res.writeHead(400); res.end(JSON.stringify({ error: 'id required' })); return; }
+        const { execFile } = await import('child_process');
+        await new Promise((resolve, reject) => {
+          execFile('monoes', ['connect', 'test', id], { timeout: 15000 }, (err, stdout, stderr) => {
+            if (err) reject(new Error(stderr || err.message)); else resolve(stdout);
+          });
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) { res.writeHead(200); res.end(JSON.stringify({ ok: false, error: e.message })); }
+      return;
+    }
+
+    // ----------------------------------------------- POST /api/monoagent/disconnect
+    if (req.method === 'POST' && url === '/api/monoagent/disconnect') {
+      try {
+        let body = '';
+        await new Promise((resolve, reject) => { req.on('data', d => { body += d; if (body.length > 65536) { req.destroy(); reject(new Error('body too large')); } }); req.on('end', resolve); req.on('error', reject); });
+        const { id, type } = JSON.parse(body);
+        if (!id || !/^[a-z0-9][a-z0-9_:-]*$/.test(id)) { res.writeHead(400); res.end(JSON.stringify({ error: 'id required' })); return; }
+        if (type !== 'session' && type !== 'connection') { res.writeHead(400); res.end(JSON.stringify({ error: 'invalid type' })); return; }
+        const { execFile } = await import('child_process');
+        const cmd = type === 'session' ? ['logout', id] : ['connect', 'remove', id];
+        await new Promise((resolve, reject) => {
+          execFile('monoes', cmd, { timeout: 10000 }, (err, _stdout, stderr) => {
+            if (err) reject(new Error(stderr || err.message)); else resolve();
+          });
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) { res.writeHead(200); res.end(JSON.stringify({ ok: false, error: e.message })); }
       return;
     }
 
@@ -5302,12 +5610,172 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ---- POST /api/orgs/:name/mark-complete — manual STALE recovery ----
+    if (req.method === 'POST' && /^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/mark-complete$/i.test(url)) {
+      const _mcOrgName = decodeURIComponent(url.split('/')[3]);
+      if (_mcOrgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(_mcOrgName)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Invalid org name' })); return;
+      }
+      const _mcRoot = projectDir || process.cwd();
+      const _mcMonoDir = _getGitMonomindDir(_mcRoot) || path.join(_mcRoot, '.monomind');
+      const _mcRunId = activeOrgRuns.get(_mcOrgName) || _getActiveRunId(_mcOrgName, _mcRoot);
+      if (!_mcRunId) {
+        res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No active run for org: ' + _mcOrgName })); return;
+      }
+      const _mcEvent = { type: 'run:complete', org: _mcOrgName, runId: _mcRunId, ts: Date.now(), reason: 'manual' };
+      try {
+        const _mcRunFile = path.join(_mcMonoDir, 'orgs', _mcOrgName, 'runs', `${_mcRunId}.jsonl`);
+        if (fs.existsSync(_mcRunFile)) await appendToFile(_mcRunFile, JSON.stringify(_mcEvent) + '\n');
+        activeOrgRuns.delete(_mcOrgName);
+        // Clean up ppid-keyed active-run files for this org
+        const _mcCapDir = path.join(MONOMIND_HOME, '.monomind', 'capture');
+        try {
+          const _mcPpidDir = path.join(_mcCapDir, 'active-runs');
+          if (fs.existsSync(_mcPpidDir)) {
+            fs.readdirSync(_mcPpidDir).filter(f => f.endsWith('.json')).forEach(_pf => {
+              try { const _pd = JSON.parse(fs.readFileSync(path.join(_mcPpidDir, _pf), 'utf8')); if (_pd.org === _mcOrgName) fs.unlinkSync(path.join(_mcPpidDir, _pf)); } catch (_) {}
+            });
+          }
+          const _mcActiveFile = path.join(_mcCapDir, 'active-run.json');
+          if (fs.existsSync(_mcActiveFile)) {
+            try { const _a = JSON.parse(fs.readFileSync(_mcActiveFile, 'utf8')); if (_a.org === _mcOrgName) fs.unlinkSync(_mcActiveFile); } catch (_) {}
+          }
+        } catch (_) {}
+        _updateRunState(_mcEvent, _mcRoot);
+        broadcastMm(_mcEvent);
+        const _mcFwdClients = runStreamClients.get(_mcOrgName);
+        if (_mcFwdClients && _mcFwdClients.size > 0) {
+          const _mcLine = `data: ${JSON.stringify(_mcEvent)}\n\n`;
+          for (const _cl of _mcFwdClients) { try { _cl.write(_mcLine); } catch (_) { _mcFwdClients.delete(_cl); } }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: true, runId: _mcRunId }));
+      } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: e.message })); }
+      return;
+    }
+
+    // ---- GET /api/orgs/:name/runs/current/stream — Phase 3 streaming tail ----
+    if (req.method === 'GET' && /^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/runs\/current\/stream$/i.test(url)) {
+      const _stOrgName = decodeURIComponent(url.split('/')[3]);
+      if (_stOrgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(_stOrgName)) {
+        res.writeHead(400); res.end('Invalid org name'); return;
+      }
+      const _stQs = new URL(req.url, 'http://localhost').searchParams;
+      const _stSince = Math.max(0, parseInt(_stQs.get('since') || '0', 10) || 0);
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'X-Accel-Buffering': 'no',
+      });
+      res.write(': connected\n\n');
+      // Register client for live events
+      if (!runStreamClients.has(_stOrgName)) runStreamClients.set(_stOrgName, new Set());
+      runStreamClients.get(_stOrgName).add(res);
+      // Replay events since `since` (SQLite row id cursor; falls back to JSONL line offset)
+      try {
+        if (_runDb) {
+          // SQLite path: cursor is last row id seen (client sends 0 on first connect)
+          const _stStmt = _runDb.prepare(
+            'SELECT id, raw FROM run_events WHERE org=? AND id > ? ORDER BY id LIMIT 2000'
+          );
+          _stStmt.bind([_stOrgName, _stSince]);
+          let _stLastId = _stSince;
+          while (_stStmt.step()) {
+            const _stRow = _stStmt.getAsObject();
+            try { res.write(`data: ${_stRow.raw}\n\n`); _stLastId = _stRow.id; } catch (_) { break; }
+          }
+          _stStmt.free();
+          res.write(`data: ${JSON.stringify({ type: 'stream:replay-done', count: _stLastId })}\n\n`);
+        } else {
+          // JSONL fallback: since = 0-based line offset
+          const _stRoot = projectDir || process.cwd();
+          const _stRunId = activeOrgRuns.get(_stOrgName) || _getActiveRunId(_stOrgName, _stRoot);
+          if (_stRunId) {
+            const _stMono = _getGitMonomindDir(_stRoot) || path.join(_stRoot, '.monomind');
+            const _stRunFile = path.join(_stMono, 'orgs', _stOrgName, 'runs', `${_stRunId}.jsonl`);
+            if (fs.existsSync(_stRunFile)) {
+              const _stLines = fs.readFileSync(_stRunFile, 'utf8').trim().split('\n').filter(Boolean);
+              for (let _i = _stSince; _i < _stLines.length; _i++) {
+                try { res.write(`data: ${_stLines[_i]}\n\n`); } catch (_) { break; }
+              }
+              res.write(`data: ${JSON.stringify({ type: 'stream:replay-done', count: _stLines.length })}\n\n`);
+            }
+          }
+        }
+      } catch (_) {}
+      const _stKa = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) { clearInterval(_stKa); } }, 20000);
+      req.on('close', () => {
+        clearInterval(_stKa);
+        const _stClients = runStreamClients.get(_stOrgName);
+        if (_stClients) { _stClients.delete(res); if (_stClients.size === 0) runStreamClients.delete(_stOrgName); }
+      });
+      return;
+    }
+
     // ------------------------------------------------------------------ 404
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');
   });
 
-  // Bind to available port
+  // ── Gap-fill ordering (ADR Issue 7): rebuild activeOrgRuns BEFORE the server
+  // starts accepting connections so the first incoming event already has runId context.
+  // Uses SQLite when available; falls back to JSONL scan.
+  await _initRunDb(MONOMIND_HOME);
+  try {
+    if (_runDb) {
+      // SQLite gap-fill: for each org, find latest run_id and check if it has run:complete
+      const _gfOrgsStmt = _runDb.prepare('SELECT DISTINCT org FROM run_events');
+      while (_gfOrgsStmt.step()) {
+        const _gfOrg = _gfOrgsStmt.getAsObject().org;
+        if (!_gfOrg || !/^[a-z0-9][a-z0-9_-]*$/i.test(_gfOrg)) continue;
+        // Resolve the latest run_id for this org, then check if it has a terminal event
+        const _gfLatRunStmt = _runDb.prepare(
+          "SELECT run_id FROM run_events WHERE org=? ORDER BY id DESC LIMIT 1"
+        );
+        _gfLatRunStmt.bind([_gfOrg]);
+        let _gfLatestRun = null;
+        if (_gfLatRunStmt.step()) _gfLatestRun = _gfLatRunStmt.getAsObject().run_id;
+        _gfLatRunStmt.free();
+        let _gfDone = false;
+        if (_gfLatestRun) {
+          const _gfRunStmt = _runDb.prepare(
+            "SELECT type FROM run_events WHERE org=? AND run_id=? AND type IN ('run:complete','org:complete','org:stop') LIMIT 1"
+          );
+          _gfRunStmt.bind([_gfOrg, _gfLatestRun]);
+          if (_gfRunStmt.step()) _gfDone = true;
+          _gfRunStmt.free();
+        }
+        if (_gfLatestRun && !_gfDone) activeOrgRuns.set(_gfOrg, _gfLatestRun);
+      }
+      _gfOrgsStmt.free();
+    } else {
+      // JSONL fallback
+      const _gfOrgsDir = path.join(MONOMIND_HOME, '.monomind', 'orgs');
+      if (fs.existsSync(_gfOrgsDir)) {
+        for (const _gfOrg of fs.readdirSync(_gfOrgsDir)) {
+          if (!_gfOrg || _gfOrg.startsWith('.') || !/^[a-z0-9][a-z0-9_-]*$/i.test(_gfOrg)) continue;
+          const _gfRunsDir = path.join(_gfOrgsDir, _gfOrg, 'runs');
+          if (!fs.existsSync(_gfRunsDir)) continue;
+          const _gfFiles = fs.readdirSync(_gfRunsDir)
+            .filter(f => f.endsWith('.jsonl') && !f.endsWith('.convs.jsonl'))
+            .sort().reverse();
+          for (const _gfF of _gfFiles.slice(0, 5)) {
+            try {
+              const _gfId = _gfF.replace('.jsonl', '');
+              const _gfContent = fs.readFileSync(path.join(_gfRunsDir, _gfF), 'utf8');
+              const _gfLast = _gfContent.trim().split('\n').filter(Boolean).slice(-10);
+              const _gfDone = _gfLast.some(l => { try { const e = JSON.parse(l); return e.type === 'run:complete' || e.type === 'org:complete'; } catch { return false; } });
+              if (!_gfDone) { activeOrgRuns.set(_gfOrg, _gfId); break; }
+            } catch (_) {}
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Bind to available port (after activeOrgRuns is populated — no race window)
   const boundPort = await bindServer(server, port);
   const url = `http://localhost:${boundPort}`;
 
@@ -5326,7 +5794,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const _migIndex = [];
         for (const sess of (_migOld || [])) {
           const _msid = String(sess.id || '').trim();
-          if (!_msid || !/^[a-zA-Z0-9_.-]+$/.test(_msid)) continue;
+          if (!_msid || !/^(?!.*\.\.)[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(_msid)) continue;
           // Write per-session JSONL
           const _mEvts = (sess.events || []);
           const _mLines = _mEvts.map(e => JSON.stringify(e)).join('\n');
@@ -5339,32 +5807,6 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         fs.writeFileSync(_migIndexFile, JSON.stringify(_migIndex));
         console.log('[server] migrated ' + _migIndex.length + ' sessions to per-session JSONL format');
       } catch(_me) { console.warn('[server] session migration failed:', _me.message); }
-    }
-  } catch (_) {}
-
-  // Rebuild activeOrgRuns from disk so event enrichment (runId injection) still works
-  // after a server restart. Without this, org events emitted mid-run that lack runId
-  // are broadcast without it and _odtHandleLiveEvent drops them.
-  try {
-    const _rbOrgsDir = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
-    if (fs.existsSync(_rbOrgsDir)) {
-      for (const _rbOrg of fs.readdirSync(_rbOrgsDir)) {
-        if (!_rbOrg || _rbOrg.startsWith('.') || !/^[a-z0-9][a-z0-9_-]*$/i.test(_rbOrg)) continue;
-        const _rbRunsDir = path.join(_rbOrgsDir, _rbOrg, 'runs');
-        if (!fs.existsSync(_rbRunsDir)) continue;
-        const _rbFiles = fs.readdirSync(_rbRunsDir)
-          .filter(f => f.endsWith('.jsonl') && !f.endsWith('.convs.jsonl'))
-          .sort().reverse();
-        for (const _rbF of _rbFiles.slice(0, 5)) {
-          try {
-            const _rbId = _rbF.replace('.jsonl', '');
-            const _rbContent = fs.readFileSync(path.join(_rbRunsDir, _rbF), 'utf8');
-            const _rbLast = _rbContent.trim().split('\n').filter(Boolean).slice(-10);
-            const _rbDone = _rbLast.some(l => { try { const e = JSON.parse(l); return e.type === 'run:complete' || e.type === 'org:complete'; } catch { return false; } });
-            if (!_rbDone) { activeOrgRuns.set(_rbOrg, _rbId); break; }
-          } catch (_) {}
-        }
-      }
     }
   } catch (_) {}
 
@@ -5396,6 +5838,128 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     }
   }
 
+  // ── Phase 1: fs.watch orgs dir — pick up run events written directly to JSONL files
+  // without going through the HTTP endpoint (e.g. when runorg.md bash writes run:start directly).
+  // Also forwards new bytes to per-org SSE clients (runStreamClients) so the chat tab
+  // receives bash-written lifecycle events in real-time (Phase 3 gap-fill).
+  const _orgsFileSizes = new Map(); // absPath → last known byte offset
+  function _readNewOrgLines(absPath, orgName, runId) {
+    try {
+      const stat = fs.statSync(absPath);
+      const prevSize = _orgsFileSizes.get(absPath) || 0;
+      if (stat.size <= prevSize) return; // nothing new
+      _orgsFileSizes.set(absPath, stat.size);
+      // Read only the new bytes to avoid re-processing existing lines
+      const fd = fs.openSync(absPath, 'r');
+      const newLen = stat.size - prevSize;
+      const buf = Buffer.alloc(newLen);
+      fs.readSync(fd, buf, 0, newLen, prevSize);
+      fs.closeSync(fd);
+      const newText = buf.toString('utf8');
+      const newLines = newText.split('\n').filter(Boolean);
+      const clients = runStreamClients.get(orgName);
+      for (const _rawLine of newLines) {
+        let ev;
+        try { ev = JSON.parse(_rawLine); } catch { continue; }
+        if (!ev || !ev.type) continue;
+        // Index in SQLite (watcher path — bash-written lifecycle events)
+        if (!ev.org) ev.org = orgName;
+        if (!ev.runId) ev.runId = runId;
+        _insertRunEvent(ev, 'watcher');
+        // Update activeOrgRuns based on file-watcher evidence
+        if ((ev.type === 'run:start' || ev.type === 'org:start') && ev.runId) {
+          activeOrgRuns.set(orgName, String(ev.runId).trim());
+        } else if (ev.type === 'run:complete' || ev.type === 'org:complete' || ev.type === 'org:stop') {
+          activeOrgRuns.delete(orgName);
+        }
+        // Forward to per-org SSE clients so the chat tab gets live bash-written events
+        if (clients && clients.size > 0) {
+          const _sseData = `data: ${_rawLine}\n\n`;
+          for (const _cl of clients) { try { _cl.write(_sseData); } catch (_) { clients.delete(_cl); } }
+        }
+        // Also broadcast to mastermind-stream for the org activity strip
+        if (ev.org && ev.org === orgName) broadcastMm({ ...ev, _fromWatcher: true });
+      }
+    } catch (_) {}
+  }
+
+  function watchOrgsDir() {
+    const _orgsDir = path.join(MONOMIND_HOME, '.monomind', 'orgs');
+    if (!fs.existsSync(_orgsDir)) {
+      // Orgs dir may not exist yet; watch parent and re-try when it appears
+      const _parentDir = path.join(MONOMIND_HOME, '.monomind');
+      if (fs.existsSync(_parentDir)) {
+        try {
+          fs.watch(_parentDir, (_evType, _fname) => {
+            if (_fname === 'orgs' && fs.existsSync(_orgsDir)) watchOrgsDir();
+          });
+        } catch (_) {}
+      }
+      return;
+    }
+    // Seed initial file sizes so the watcher only forwards NEW bytes after startup
+    try {
+      for (const _org of fs.readdirSync(_orgsDir)) {
+        const _runsDir = path.join(_orgsDir, _org, 'runs');
+        if (!fs.existsSync(_runsDir)) continue;
+        for (const _f of fs.readdirSync(_runsDir).filter(f => f.endsWith('.jsonl') && !f.endsWith('.warm.jsonl') && !f.endsWith('.convs.jsonl'))) {
+          try { _orgsFileSizes.set(path.join(_runsDir, _f), fs.statSync(path.join(_runsDir, _f)).size); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    // Use chokidar when available (Linux requires it — fs.watch { recursive } is macOS/Windows only).
+    // Falls back to fs.watch for environments where chokidar is absent.
+    let _watcherStarted = false;
+    try {
+      const chokidar = _require('chokidar');
+      const _chokidarWatcher = chokidar.watch(_orgsDir, {
+        persistent: false,
+        ignoreInitial: true,
+        depth: 3,
+        ignored: (p) => {
+          const b = path.basename(p);
+          return b.endsWith('.warm.jsonl') || b.endsWith('.convs.jsonl') || b.startsWith('.');
+        },
+        awaitWriteFinish: false,
+      });
+      const _handleChokidarPath = (absPath) => {
+        if (!absPath.endsWith('.jsonl')) return;
+        const rel = path.relative(_orgsDir, absPath).replace(/\\/g, '/');
+        const parts = rel.split('/');
+        if (parts.length >= 3 && parts[1] === 'runs') {
+          const _wOrgName = parts[0];
+          const _wRunId = parts[2].replace('.jsonl', '');
+          if (_wOrgName && _wRunId && /^[a-z0-9][a-z0-9_-]*$/i.test(_wOrgName) && /^[a-z0-9][a-z0-9_-]*$/i.test(_wRunId)) {
+            _readNewOrgLines(absPath, _wOrgName, _wRunId);
+          }
+        }
+      };
+      _chokidarWatcher.on('add', _handleChokidarPath);
+      _chokidarWatcher.on('change', _handleChokidarPath);
+      activeWatchers.push({ close: () => _chokidarWatcher.close() });
+      _watcherStarted = true;
+    } catch (_chokidarErr) { /* chokidar unavailable — fall through to fs.watch */ }
+    if (!_watcherStarted) {
+      try {
+        const _orgsWatcher = fs.watch(_orgsDir, { recursive: true, persistent: false }, (_evType, _fname) => {
+          if (!_fname || !_fname.endsWith('.jsonl') || _fname.endsWith('.warm.jsonl') || _fname.endsWith('.convs.jsonl')) return;
+          const _parts = _fname.replace(/\\/g, '/').split('/');
+          if (_parts.length >= 3 && _parts[1] === 'runs') {
+            const _wOrgName = _parts[0];
+            const _wRunId = _parts[2].replace('.jsonl', '');
+            if (_wOrgName && _wRunId && /^[a-z0-9][a-z0-9_-]*$/i.test(_wOrgName) && /^[a-z0-9][a-z0-9_-]*$/i.test(_wRunId)) {
+              _readNewOrgLines(path.join(_orgsDir, _fname.replace(/\\/g, '/')), _wOrgName, _wRunId);
+            }
+          }
+        });
+        activeWatchers.push(_orgsWatcher);
+      } catch (_wErr) {
+        console.warn('[monomind] watchOrgsDir: both chokidar and fs.watch failed — bash-written lifecycle events will not reach SSE clients. HTTP-posted events still work via spool DLQ.');
+      }
+    }
+  }
+  watchOrgsDir();
+
   // Watch .claude/sessions/ if present
   const claudeSessionsDir = path.join(projectDir || process.cwd(), '.claude', 'sessions');
   if (fs.existsSync(claudeSessionsDir)) {
@@ -5407,6 +5971,134 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     }
   }
 
+  // ── Phase 2: Spool polling — replay undelivered events from capture-handler (Issue 5) ──
+  // capture-handler writes events to spool/ before HTTP POST. If the POST fails (server
+  // down, timeout), the file stays. We poll every 5s and replay them.
+  const _spoolBaseDir = path.join(MONOMIND_HOME, '.monomind', 'capture', 'spool');
+  const _spoolTimer = setInterval(() => {
+    if (!fs.existsSync(_spoolBaseDir)) return;
+    try {
+      const _spoolFiles = fs.readdirSync(_spoolBaseDir)
+        .filter(f => f.endsWith('.json') && !f.startsWith('.'))
+        .sort() // chronological (timestamp prefix)
+        .slice(0, 20); // max 20 per cycle to avoid flooding
+      for (const _sf of _spoolFiles) {
+        const _sfPath = path.join(_spoolBaseDir, _sf);
+        try {
+          const _spoolEvent = JSON.parse(fs.readFileSync(_sfPath, 'utf8'));
+          const _spoolBody = JSON.stringify(_spoolEvent);
+          const _spoolReq = http.request({
+            hostname: 'localhost', port: boundPort,
+            path: '/api/mastermind/event', method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(_spoolBody) },
+          }, (_spoolRes) => {
+            // Delete only after confirmed delivery; leave file on failure for next poll cycle
+            if (_spoolRes.statusCode >= 200 && _spoolRes.statusCode < 300) {
+              try { fs.unlinkSync(_sfPath); } catch (_) {}
+            }
+            _spoolRes.resume();
+          });
+          _spoolReq.on('error', () => {});
+          _spoolReq.setTimeout(2000, () => { _spoolReq.destroy(); });
+          _spoolReq.write(_spoolBody);
+          _spoolReq.end();
+        } catch (_e) {}
+      }
+    } catch (_) {}
+  }, 5000);
+  // Clean up spool files older than 8 hours on startup (stale captures from crashed sessions)
+  try {
+    if (fs.existsSync(_spoolBaseDir)) {
+      const _staleMs = 8 * 60 * 60 * 1000;
+      fs.readdirSync(_spoolBaseDir).filter(f => f.endsWith('.json')).forEach(_staleF => {
+        const _staleP = path.join(_spoolBaseDir, _staleF);
+        try {
+          if (Date.now() - fs.statSync(_staleP).mtimeMs > _staleMs) fs.unlinkSync(_staleP);
+        } catch (_) {}
+      });
+    }
+  } catch (_) {}
+
+  // ── Phase 3: Read-batch polling — aggregate file-read events from capture-handler (Issue 9) ──
+  // capture-handler writes Read tool calls to capture/read-batch-{ppid}-{pid}.json (per-subagent, no sharing).
+  // Server polls every 3s, aggregates all matching files per session, emits agent:read:batch, removes files.
+  const _rbDir = path.join(MONOMIND_HOME, '.monomind', 'capture');
+  const _rbTimer = setInterval(() => {
+    if (!fs.existsSync(_rbDir)) return;
+    try {
+      fs.readdirSync(_rbDir)
+        .filter(f => f.startsWith('read-batch-') && f.endsWith('.json'))
+        .forEach(_rbf => {
+          const _rbPath = path.join(_rbDir, _rbf);
+          try {
+            const _rbData = JSON.parse(fs.readFileSync(_rbPath, 'utf8'));
+            fs.unlinkSync(_rbPath);
+            if (!Array.isArray(_rbData) || _rbData.length === 0) return;
+            const _rbOrg = String(_rbData[0].org || '').trim();
+            const _rbRunId = String(_rbData[0].runId || '').trim();
+            const _rbEvent = {
+              type: 'agent:read:batch',
+              org: _rbOrg,
+              runId: _rbRunId,
+              paths: _rbData.map(e => String(e.path || '').slice(0, 256)),
+              count: _rbData.length,
+              ts: Date.now(),
+            };
+            const _rbBody = JSON.stringify(_rbEvent);
+            const _rbReq = http.request({
+              hostname: 'localhost', port: boundPort,
+              path: '/api/mastermind/event', method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(_rbBody) },
+            }, () => {});
+            _rbReq.on('error', () => {});
+            _rbReq.setTimeout(2000, () => { _rbReq.destroy(); });
+            _rbReq.write(_rbBody);
+            _rbReq.end();
+          } catch (_e) {}
+        });
+    } catch (_) {}
+  }, 3000);
+
+  // ── Phase 4: Daemon heartbeat — ps -p {ppid} liveness check (Issue 8) ──
+  // Periodically checks if the Claude Code session (tracked via ppid-keyed files) is still alive.
+  // If the parent process is gone, auto-emits org:stop to close stale LIVE orgs in the dashboard.
+  const _ppidCheckDir = path.join(MONOMIND_HOME, '.monomind', 'capture', 'active-runs');
+  const _heartbeatTimer = setInterval(() => {
+    if (!fs.existsSync(_ppidCheckDir)) return;
+    try {
+      fs.readdirSync(_ppidCheckDir).filter(f => f.endsWith('.json')).forEach(_ppf => {
+        const _ppPath = path.join(_ppidCheckDir, _ppf);
+        try {
+          const _ppData = JSON.parse(fs.readFileSync(_ppPath, 'utf8'));
+          const _ppid = parseInt(_ppf.replace('.json', ''), 10);
+          if (!_ppid || isNaN(_ppid)) return;
+          // Check if the ppid process is still alive (signal 0 = probe, no kill)
+          try {
+            process.kill(_ppid, 0);
+            // Process alive — no action
+          } catch (_psErr) {
+            // Process gone — emit org:stop and remove the ppid file
+            fs.unlinkSync(_ppPath);
+            const _staleOrg = String(_ppData.org || '').trim();
+            const _staleRun = String(_ppData.runId || '').trim();
+            if (_staleOrg && activeOrgRuns.has(_staleOrg)) {
+              const _stopBody = JSON.stringify({ type: 'org:stop', org: _staleOrg, runId: _staleRun, reason: 'ppid-dead', ts: Date.now() });
+              const _stopReq = http.request({
+                hostname: 'localhost', port: boundPort,
+                path: '/api/mastermind/event', method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(_stopBody) },
+              }, () => {});
+              _stopReq.on('error', () => {});
+              _stopReq.setTimeout(2000, () => { _stopReq.destroy(); });
+              _stopReq.write(_stopBody);
+              _stopReq.end();
+            }
+          }
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }, 60000); // every 60s — intentionally infrequent, just a safety net
+
   // Update module-level state
   running = true;
   currentPort = boundPort;
@@ -5415,6 +6107,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
 
   // --------------------------------------------------------- Graceful shutdown
   function shutdown() {
+    clearInterval(_spoolTimer);
+    clearInterval(_rbTimer);
+    clearInterval(_heartbeatTimer);
+    // Flush SQLite run-event index to disk before exit (bypasses 1000ms debounce timer)
+    clearTimeout(_runDbPersistTimer);
+    if (_runDb && _runDbPath) {
+      try { fs.writeFileSync(_runDbPath, Buffer.from(_runDb.export())); } catch (_) {}
+    }
     for (const w of activeWatchers) {
       try {
         w.close();
@@ -5427,11 +6127,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Close all SSE connections
     closeSseClients();
 
-    server.close(() => {
-      running = false;
-      currentPort = null;
-      currentUrl = null;
-      activeServer = null;
+    // Drain in-flight JSONL appends before closing (prevents truncated writes on fast SIGTERM)
+    Promise.all([..._writeQueue.values()]).catch(() => {}).finally(() => {
+      server.close(() => {
+        running = false;
+        currentPort = null;
+        currentUrl = null;
+        activeServer = null;
+      });
     });
   }
 

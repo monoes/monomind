@@ -222,12 +222,15 @@ export class StatuslineGenerator {
     const dddDisplay = String(data.devProgress.dddProgress).padStart(3);
     const integrationColor = data.swarm.coordinationActive ? c.brightCyan : c.dim;
 
+    const leanMode = this.getLeanMode();
+    const leanBadge = leanMode ? `  ${c.dim}│${c.reset}  ${c.brightYellow}${leanMode === 'full' ? '[LEAN]' : `[LEAN:${leanMode.toUpperCase()}]`}${c.reset}` : '';
+
     lines.push(
       `${c.brightPurple}🔧 Architecture${c.reset}    ` +
       `${c.cyan}DDD${c.reset} ${dddColor}●${dddDisplay}%${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Security${c.reset} ${securityColor}●${data.security.status}${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Memory${c.reset} ${c.brightGreen}●AgentDB${c.reset}  ${c.dim}│${c.reset}  ` +
-      `${c.cyan}Integration${c.reset} ${integrationColor}●${c.reset}`
+      `${c.cyan}Integration${c.reset} ${integrationColor}●${c.reset}${leanBadge}`
     );
 
     return lines.join('\n');
@@ -268,12 +271,15 @@ export class StatuslineGenerator {
     const securityStatus = data.security.status === 'CLEAN' ? '✓' :
                            data.security.cvesFixed > 0 ? '~' : '✗';
 
+    const leanMode = this.getLeanMode();
+    const leanPart = leanMode ? ` ${c.dim}|${c.reset} ${c.brightYellow}${leanMode === 'full' ? '[LEAN]' : `[LEAN:${leanMode.toUpperCase()}]`}${c.reset}` : '';
+
     // Single line format: Monomind | D:3/5 | S:●2/15 | CVE:✓3/3 | 🧠12%
     return `${c.brightPurple}Monomind${c.reset} ${c.dim}|${c.reset} ` +
       `${c.cyan}D:${data.devProgress.domainsCompleted}/${data.devProgress.totalDomains}${c.reset} ${c.dim}|${c.reset} ` +
       `${c.yellow}S:${swarmIndicator}${data.swarm.activeAgents}/${data.swarm.maxAgents}${c.reset} ${c.dim}|${c.reset} ` +
       `${data.security.status === 'CLEAN' ? c.green : c.red}CVE:${securityStatus}${data.security.cvesFixed}/${data.security.totalCves}${c.reset} ${c.dim}|${c.reset} ` +
-      `${c.dim}🧠${data.system.intelligencePct}%${c.reset}`;
+      `${c.dim}🧠${data.system.intelligencePct}%${c.reset}${leanPart}`;
   }
 
   /**
@@ -381,6 +387,18 @@ export class StatuslineGenerator {
   updateConfig(config: Partial<StatuslineConfig>): void {
     this.config = { ...this.config, ...config };
     this.invalidateCache();
+  }
+
+  /**
+   * Read lean mode from metrics file
+   */
+  private getLeanMode(): string | null {
+    const monoleanPath = join(this.projectRoot, '.monomind', 'metrics', 'monolean-mode.json');
+    try {
+      const lm = JSON.parse(readFileSync(monoleanPath, 'utf-8'));
+      if (lm.mode && lm.mode !== 'off') return lm.mode;
+    } catch {}
+    return null;
   }
 
   /**

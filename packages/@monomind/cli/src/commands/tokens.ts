@@ -113,10 +113,84 @@ const todaySubcommand: Command = {
   },
 };
 
+const leanDeltaSubcommand: Command = {
+  name: 'lean-delta',
+  description: 'Compare token cost: sessions with monolean active vs without',
+  options: [],
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const { join: pathJoin, dirname: pathDirname } = await import('path');
+      const { fileURLToPath } = await import('url');
+      const { readdirSync, readFileSync } = await import('fs');
+
+      // Locate capture directory
+      const __dirname = pathDirname(fileURLToPath(import.meta.url));
+      const projectRoot = pathJoin(__dirname, '..', '..', '..', '..', '..', '..');
+      const captureDir = pathJoin(projectRoot, '.monomind', 'capture');
+
+      // Load all run capture logs
+      let snapshots: Array<{ leanMode?: string; cost_usd?: number; tokens_in?: number; tokens_out?: number }> = [];
+      try {
+        const orgsDir = pathJoin(projectRoot, '.monomind', 'orgs');
+        const orgEntries = readdirSync(orgsDir, { withFileTypes: true });
+        for (const org of orgEntries) {
+          if (!org.isDirectory()) continue;
+          const runsDir = pathJoin(orgsDir, org.name, 'runs');
+          try {
+            const runFiles = readdirSync(runsDir).filter(f => f.endsWith('-captures.jsonl'));
+            for (const rf of runFiles) {
+              const lines = readFileSync(pathJoin(runsDir, rf), 'utf8').split('\n').filter(Boolean);
+              for (const line of lines) {
+                try { snapshots.push(JSON.parse(line)); } catch { /* skip */ }
+              }
+            }
+          } catch { /* no runs dir */ }
+        }
+      } catch { /* no orgs dir */ }
+
+      // Also check snap files in capture dir for leanMode field
+      try {
+        const snapFiles = readdirSync(captureDir).filter(f => f.startsWith('snap-') && f.endsWith('.json'));
+        for (const sf of snapFiles) {
+          try { snapshots.push(JSON.parse(readFileSync(pathJoin(captureDir, sf), 'utf8'))); } catch { /* skip */ }
+        }
+      } catch { /* no capture dir */ }
+
+      const lean = snapshots.filter(s => s.leanMode && s.leanMode !== 'off' && s.cost_usd != null);
+      const normal = snapshots.filter(s => (!s.leanMode || s.leanMode === 'off') && s.cost_usd != null);
+
+      if (lean.length < 3 || normal.length < 3) {
+        output.writeln('Not enough data yet. Need 3+ sessions in each group.');
+        output.writeln(`Current: ${lean.length} lean sessions, ${normal.length} normal sessions.`);
+        return { success: true };
+      }
+
+      const avg = (arr: typeof snapshots) => arr.reduce((s, x) => s + (x.cost_usd || 0), 0) / arr.length;
+      const leanAvg = avg(lean);
+      const normalAvg = avg(normal);
+      const delta = ((leanAvg - normalAvg) / normalAvg * 100).toFixed(1);
+      const sign = leanAvg <= normalAvg ? '' : '+';
+
+      output.writeln('');
+      output.writeln('Monolean Token Delta');
+      output.writeln('─'.repeat(50));
+      output.writeln(`Sessions with monolean: ${lean.length.toString().padStart(4)}   avg cost: $${leanAvg.toFixed(4)}`);
+      output.writeln(`Sessions without:       ${normal.length.toString().padStart(4)}   avg cost: $${normalAvg.toFixed(4)}`);
+      output.writeln(`delta: ${sign}${delta}%`);
+      output.writeln('');
+
+      return { success: true, data: { leanSessions: lean.length, normalSessions: normal.length, leanAvg, normalAvg, deltaPct: parseFloat(delta) } };
+    } catch (err) {
+      output.error('lean-delta error: ' + (err instanceof Error ? err.message : String(err)));
+      return { success: false };
+    }
+  },
+};
+
 export const tokensCommand: Command = {
   name: 'tokens',
   description: 'Token usage tracking and cost visualization',
-  subcommands: [dashboardSubcommand, summarySubcommand, todaySubcommand],
+  subcommands: [dashboardSubcommand, summarySubcommand, todaySubcommand, leanDeltaSubcommand],
 };
 
 export default tokensCommand;

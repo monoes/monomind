@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>monobrowse dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f1a; color: #ccc; font-family: system-ui, sans-serif; font-size: 13px; }
+  header { background: #7c3aed; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { color: #fff; font-size: 14px; font-weight: 600; }
+  header .meta { color: rgba(255,255,255,.7); font-size: 11px; }
+  .stats { display: flex; gap: 10px; padding: 12px 16px; background: #1a1a2e; border-bottom: 1px solid #2a2a3e; }
+  .badge { border-radius: 4px; padding: 3px 10px; font-size: 11px; border: 1px solid; }
+  .badge.running { background: #22c55e22; border-color: #22c55e55; color: #22c55e; }
+  .badge.done { background: #55555522; border-color: #55555544; color: #888; }
+  .badge.failed { background: #ef444422; border-color: #ef444444; color: #ef4444; }
+  .runs { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .run { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 8px; padding: 12px; }
+  .run.active { border-color: #7c3aed44; }
+  .run.completed { opacity: .6; }
+  .run.failed { border-color: #ef444444; }
+  .run-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .run-name { font-weight: 600; color: #e2e8f0; }
+  .status-badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-left: 8px; }
+  .status-running { background: #7c3aed22; color: #7c3aed; }
+  .status-completed { background: #22c55e22; color: #22c55e; }
+  .status-failed { background: #ef444422; color: #ef4444; }
+  .status-stopped { background: #f59e0b22; color: #f59e0b; }
+  .run-meta { color: #555; font-size: 11px; display: flex; gap: 12px; }
+  .steps { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-family: monospace; }
+  .step { display: flex; align-items: center; gap: 8px; }
+  .step-icon { width: 14px; flex-shrink: 0; }
+  .step-name { flex: 1; }
+  .step-time { color: #555; font-size: 10px; }
+  .step.current .step-name { color: #fff; font-weight: 600; }
+  .step.done .step-icon { color: #22c55e; }
+  .step.current .step-icon { color: #3b82f6; }
+  .step.pending .step-icon { color: #555; }
+  .step.error .step-icon { color: #ef4444; }
+  .progress-bar { height: 3px; background: #333; border-radius: 2px; margin: 6px 0 2px; }
+  .progress-fill { height: 3px; background: #3b82f6; border-radius: 2px; transition: width .3s; }
+  .log { margin-top: 8px; background: #0f0f0f; border-radius: 4px; padding: 6px 8px;
+         font-family: monospace; font-size: 10px; color: #555; line-height: 1.6; max-height: 60px; overflow: hidden; }
+  .stop-btn { background: #ef444422; border: 1px solid #ef444444; color: #ef4444;
+              border-radius: 4px; padding: 2px 8px; font-size: 10px; cursor: pointer; }
+  .empty { padding: 40px; text-align: center; color: #555; }
+</style>
+</head>
+<body>
+<header>
+  <h1>monobrowse dashboard</h1>
+  <span class="meta" id="meta">connecting...</span>
+</header>
+<div class="stats">
+  <span class="badge running" id="stat-running">0 running</span>
+  <span class="badge done" id="stat-done">0 done</span>
+  <span class="badge failed" id="stat-failed">0 failed</span>
+</div>
+<div class="runs" id="runs">
+  <div class="empty">No workflows running. Start one with:<br><code>monomind browse workflow run &lt;file.json&gt;</code></div>
+</div>
+
+<script>
+const runs = new Map();
+const logs = new Map();
+
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => { document.getElementById('meta').textContent = `localhost:${location.port} · connected`; };
+  ws.onclose = () => { document.getElementById('meta').textContent = 'disconnected · reconnecting...'; setTimeout(connect, 2000); };
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'init') { msg.runs?.forEach(r => runs.set(r.id, r)); render(); return; }
+    handleEvent(msg);
+  };
+}
+
+function handleEvent(ev) {
+  if (ev.eventType === 'run_started') {
+    runs.set(ev.runId, { id: ev.runId, workflowId: ev.workflowId, workflowName: ev.workflowName,
+      status: 'running', startedAt: ev.timestamp, steps: [], currentStep: null,
+      itemsProcessed: 0, itemsTotal: ev.itemTotal ?? 0 });
+    logs.set(ev.runId, []);
+  } else if (ev.eventType === 'step_started') {
+    const run = runs.get(ev.runId);
+    if (run) { run.currentStep = ev.nodeName; addLog(ev.runId, `${ev.nodeName} → starting...`); }
+  } else if (ev.eventType === 'step_completed') {
+    const run = runs.get(ev.runId);
+    if (run) {
+      if (!run.steps) run.steps = [];
+      run.steps.push({ name: ev.nodeName, duration: ev.durationMs, status: 'done' });
+      run.currentStep = null;
+      run.itemsProcessed = ev.itemTotal ?? run.itemsProcessed;
+      addLog(ev.runId, `${ev.nodeName} ✓ (${ev.durationMs}ms)`);
+    }
+  } else if (ev.eventType === 'step_failed') {
+    const run = runs.get(ev.runId);
+    if (run) {
+      if (!run.steps) run.steps = [];
+      run.steps.push({ name: ev.nodeName, status: 'error', error: ev.error });
+      run.currentStep = null;
+      addLog(ev.runId, `${ev.nodeName} ✗ ${ev.error}`);
+    }
+  } else if (ev.eventType === 'run_completed') {
+    const run = runs.get(ev.runId);
+    if (run) { run.status = 'completed'; run.completedAt = ev.timestamp; }
+  } else if (ev.eventType === 'run_stopped') {
+    const run = runs.get(ev.runId);
+    if (run) { run.status = 'stopped'; run.completedAt = ev.timestamp; }
+  }
+  render();
+}
+
+function addLog(runId, msg) {
+  if (!logs.has(runId)) logs.set(runId, []);
+  const ts = new Date().toLocaleTimeString();
+  logs.get(runId).push(`${ts} ${msg}`);
+  if (logs.get(runId).length > 10) logs.get(runId).shift();
+}
+
+function elapsed(startedAt) {
+  const s = Math.floor((Date.now() - startedAt) / 1000);
+  return s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+}
+
+function render() {
+  const allRuns = [...runs.values()].sort((a,b) => b.startedAt - a.startedAt);
+  const nRunning = allRuns.filter(r => r.status === 'running').length;
+  const nDone = allRuns.filter(r => r.status === 'completed').length;
+  const nFailed = allRuns.filter(r => r.status === 'failed').length;
+  document.getElementById('stat-running').textContent = `${nRunning} running`;
+  document.getElementById('stat-done').textContent = `✓ ${nDone} done`;
+  document.getElementById('stat-failed').textContent = `✗ ${nFailed} failed`;
+
+  if (allRuns.length === 0) {
+    document.getElementById('runs').innerHTML = '<div class="empty">No workflows running. Start one with:<br><code>monomind browse workflow run &lt;file.json&gt;</code></div>';
+    return;
+  }
+
+  document.getElementById('runs').innerHTML = allRuns.map(run => {
+    const stepHtml = (run.steps || []).map(s => `
+      <div class="step ${s.status}">
+        <span class="step-icon">${s.status==='done'?'✓':s.status==='error'?'✗':'○'}</span>
+        <span class="step-name">${s.name}</span>
+        <span class="step-time">${s.duration ? s.duration+'ms' : ''}</span>
+      </div>`).join('') + (run.currentStep ? `
+      <div class="step current">
+        <span class="step-icon">⠸</span>
+        <span class="step-name">${run.currentStep}</span>
+        <span class="step-time">running</span>
+      </div>` : '');
+
+    const pct = run.itemsTotal > 0 ? Math.round(run.itemsProcessed / run.itemsTotal * 100) : 0;
+    const runLog = (logs.get(run.id) || []).slice(-3).join('\n');
+    return `<div class="run ${run.status==='running'?'active':run.status}">
+      <div class="run-header">
+        <div><span class="run-name">${run.workflowName}</span>
+          <span class="status-badge status-${run.status}">${run.status==='completed'?'✓ done':run.status}</span>
+        </div>
+        <div class="run-meta">
+          <span>items: ${run.itemsProcessed}/${run.itemsTotal}</span>
+          <span>elapsed: ${elapsed(run.startedAt)}</span>
+          ${run.status==='running'?'<button class="stop-btn" onclick="stopRun(\''+run.id+'\')">stop</button>':''}
+        </div>
+      </div>
+      ${run.itemsTotal > 0 ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>` : ''}
+      <div class="steps">${stepHtml}</div>
+      ${runLog ? `<div class="log">${runLog}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function stopRun(runId) {
+  await fetch(`/stop/${runId}`, { method: 'POST' }).catch(() => {});
+}
+
+connect();
+setInterval(render, 1000); // Update elapsed time
+</script>
+</body>
+</html>

@@ -345,6 +345,8 @@ Insert this block immediately before line 4817 (`// POST /api/mastermind/event`)
         if (!fs.existsSync(_filePath)) { res.writeHead(404); res.end(JSON.stringify({ error: 'file not found' })); return; }
         const _mime = _detectMimeType(_filePath);
         const _size = fs.statSync(_filePath).size;
+        // Reject files >2MB to avoid blocking the event loop
+        if (_size > 2 * 1024 * 1024) { res.writeHead(413); res.end(JSON.stringify({ error: 'file too large', size: _size })); return; }
         if (!_mime.startsWith('text/') && _mime !== 'application/json') {
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ binary: true, mimeType: _mime, size: _size }));
@@ -401,10 +403,13 @@ Find the block that renders an `org:comms` event (it likely builds an HTML strin
 } else if (e.type === 'org:artifact' && e.artifact) {
   const _art = e.artifact;
   const _isText = (_art.mimeType || '').startsWith('text/') || (_art.mimeType || '') === 'application/json';
-  const _label = _escHtml(_art.label || path.basename(_art.path || 'artifact'));
+  // Note: path.basename is Node.js-only; use split('/').pop() for browser context
+  const _labelRaw = _art.label || (_art.path || 'artifact').split('/').pop();
+  const _label = _escHtml(_labelRaw);
   const _meta = [_art.mimeType, _art.size ? `${Math.round(_art.size/1024*10)/10} KB` : null, _art.path ? _art.path.split('/').slice(-2).join('/') : null].filter(Boolean).join(' · ');
+  // JSON.stringify handles single-quotes and all special chars in file paths
   const _viewBtn = _isText && _art.path
-    ? `<button onclick="viewArtifact('${_escHtml(_art.path)}','${_label}')" style="background:#1a3a5a;color:#5d9fd9;border:1px solid #2980b944;border-radius:4px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;margin-left:auto">View</button>`
+    ? `<button onclick="viewArtifact(${JSON.stringify(_art.path)},${JSON.stringify(_labelRaw)})" style="background:#1a3a5a;color:#5d9fd9;border:1px solid #2980b944;border-radius:4px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;margin-left:auto">View</button>`
     : `<span style="font-size:10px;color:#555">Binary</span>`;
   msgHtml += `<div style="background:#1a1a2e;border:1px solid #3333aa44;border-radius:6px;padding:7px 10px;margin-top:5px;display:flex;align-items:center;gap:8px">
     <span style="font-size:16px">📄</span>
@@ -573,7 +578,7 @@ npx monomind browse wait --text "MASTERMIND" --timeout 8000
 ```bash
 npx monomind browse find role link --name "Orgs" click
 npx monomind browse wait --text "reengineer-squad" --timeout 5000
-npx monomind browse screenshot orgs-after-fix.png
+npx monomind browse screenshot docs/superpowers/screenshots/orgs-after-fix.png
 ```
 Expected: Orgs show correct LIVE/IDLE (not stuck LIVE for stopped orgs).
 
@@ -583,7 +588,7 @@ Expected: Orgs show correct LIVE/IDLE (not stuck LIVE for stopped orgs).
 npx monomind browse find text "reengineer-squad" click
 npx monomind browse wait --text "Chat" --timeout 3000
 npx monomind browse find text "Chat" click
-npx monomind browse screenshot chat-after-fix.png
+npx monomind browse screenshot docs/superpowers/screenshots/chat-after-fix.png
 ```
 Expected: Chat shows more than 2 events (all org:comms, org:checkpoint, etc.).
 
@@ -604,6 +609,7 @@ Expected: `[]` or empty.
 - [ ] **Step 6: Commit smoke test screenshot evidence**
 
 ```bash
-git add orgs-after-fix.png chat-after-fix.png 2>/dev/null || true
+mkdir -p docs/superpowers/screenshots
+git add docs/superpowers/screenshots/orgs-after-fix.png docs/superpowers/screenshots/chat-after-fix.png 2>/dev/null || true
 git commit -m "test: smoke test screenshots showing status and chat fixes" 2>/dev/null || echo "no screenshots to commit"
 ```

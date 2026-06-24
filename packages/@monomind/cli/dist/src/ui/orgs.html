@@ -152,6 +152,16 @@ html, body {
   color: var(--green);
   border: 1px solid oklch(68% 0.20 150 / 0.28);
 }
+.oi-badge.quiet {
+  background: oklch(75% 0.18 80 / 0.10);
+  color: oklch(75% 0.18 80);
+  border: 1px solid oklch(75% 0.18 80 / 0.30);
+}
+.oi-badge.stale {
+  background: oklch(60% 0.20 25 / 0.10);
+  color: oklch(65% 0.20 25);
+  border: 1px solid oklch(60% 0.20 25 / 0.30);
+}
 .oi-badge.idle {
   background: transparent; color: var(--dim);
   border: 1px solid var(--border);
@@ -209,6 +219,14 @@ html, body {
 #org-status-badge.running {
   background: oklch(68% 0.20 150 / 0.12);
   color: var(--green); border: 1px solid oklch(68% 0.20 150 / 0.25);
+}
+#org-status-badge.quiet {
+  background: oklch(75% 0.18 80 / 0.10);
+  color: oklch(75% 0.18 80); border: 1px solid oklch(75% 0.18 80 / 0.30);
+}
+#org-status-badge.stale {
+  background: oklch(60% 0.20 25 / 0.10);
+  color: oklch(65% 0.20 25); border: 1px solid oklch(60% 0.20 25 / 0.30);
 }
 #org-status-badge.idle {
   background: transparent; color: var(--dim);
@@ -427,6 +445,18 @@ html, body {
 }
 #chat-live-dot.on { background: var(--green); animation: livepulse 2.2s ease-in-out infinite; }
 #chat-live-label { font-size: 8px; color: var(--dim); }
+/* Phase 3: render mode toggle */
+#chat-mode-bar {
+  display: flex; gap: 3px; margin-left: 8px;
+}
+.chat-mode-btn {
+  font-size: 7px; padding: 2px 7px; border-radius: 2px;
+  border: 1px solid var(--border); color: var(--dim);
+  background: transparent; cursor: pointer; font-family: var(--mono);
+  letter-spacing: 0.5px; text-transform: uppercase; transition: all 0.15s;
+}
+.chat-mode-btn:hover { border-color: var(--teal-dim); color: var(--muted); }
+.chat-mode-btn.active { border-color: var(--teal); color: var(--teal); background: oklch(62% 0.20 186 / 0.07); }
 
 #chat-feed-wrap {
   flex: 1; overflow-y: auto; padding: 12px 20px;
@@ -870,6 +900,11 @@ html, body {
               <select id="chat-sess-select" onchange="selectChatSession(this.value)">
                 <option value="">— select a session —</option>
               </select>
+              <div id="chat-mode-bar">
+                <button class="chat-mode-btn active" id="mode-summary" onclick="setChatMode('summary')">SUMMARY</button>
+                <button class="chat-mode-btn" id="mode-detailed" onclick="setChatMode('detailed')">DETAILED</button>
+                <button class="chat-mode-btn" id="mode-raw" onclick="setChatMode('raw')">RAW</button>
+              </div>
               <div id="chat-live-dot"></div>
               <span id="chat-live-label">OFFLINE</span>
             </div>
@@ -917,6 +952,30 @@ let allOrgs = [];
 let selectedOrg = null;
 let orgDetailData = null;
 let currentTab = 'chart';
+// Phase 3: Chat render mode (Summary / Detailed / Raw)
+let chatRenderMode = localStorage.getItem('chatRenderMode') || 'summary';
+
+// Phase 3: Chat render mode — Summary / Detailed / Raw
+const CHAT_SUMMARY_TYPES = new Set(['session:start','session:complete','domain:dispatch','domain:complete','agent:spawn','agent:complete','agent:edit','org:comms','loop:start','loop:complete','org:artifact','agent:message','intercom']);
+const CHAT_DETAILED_TYPES = new Set([...CHAT_SUMMARY_TYPES,'agent:bash','agent:bash:result','agent:browse','agent:read','agent:read:batch']);
+function setChatMode(mode) {
+  chatRenderMode = mode;
+  localStorage.setItem('chatRenderMode', mode);
+  ['summary','detailed','raw'].forEach(m => {
+    const btn = document.getElementById('mode-' + m);
+    if (btn) btn.className = 'chat-mode-btn' + (m === mode ? ' active' : '');
+  });
+  // Re-render chat feed with new mode
+  const currentSessId = document.getElementById('chat-sess-select')?.value;
+  if (currentSessId) selectChatSession(currentSessId);
+}
+// Apply saved mode on load
+(function() {
+  ['summary','detailed','raw'].forEach(m => {
+    const btn = document.getElementById('mode-' + m);
+    if (btn) btn.className = 'chat-mode-btn' + (m === chatRenderMode ? ' active' : '');
+  });
+})();
 
 // ── Utilities ──────────────────────────────────────────────────────
 function esc(s) {
@@ -1017,7 +1076,7 @@ function renderSidebar() {
       <div class="oi-header">
         <div class="oi-dot ${org.running ? 'running' : ''}"></div>
         <div class="oi-name">${esc(org.name)}</div>
-        <span class="oi-badge ${org.running ? 'running' : 'idle'}">${org.running ? 'LIVE' : 'IDLE'}</span>
+        <span class="oi-badge ${(()=>{if(!org.running)return 'idle';if(!org.lastEventAt)return 'quiet';const a=Date.now()-org.lastEventAt;return a<1800000?'running':a<7200000?'quiet':'stale';})()} ">${(()=>{if(!org.running)return 'IDLE';if(!org.lastEventAt)return '🟡 QUIET';const a=Date.now()-org.lastEventAt;return a<1800000?'🟢 LIVE':a<7200000?'🟡 QUIET':'🔴 STALE';})()}</span>
         <button class="oi-copy-btn" title="Copy org to another project">COPY</button>
         <button class="oi-export-btn" title="Export org as JSON file">EXPORT</button>
         <button class="oi-import-btn" title="Import org from JSON file">IMPORT</button>
@@ -1087,6 +1146,20 @@ async function selectOrg(name) {
   }
 
   updateHeader(listOrg, orgDetailData);
+
+  // Pre-populate LIVE EVENTS from historical run data (so panel isn't empty on select)
+  if (listOrg.projectDir) {
+    try {
+      const runsR = await fetch(`/api/orgs/${encodeURIComponent(name)}/runs/current?dir=${encodeURIComponent(listOrg.projectDir)}`);
+      if (runsR.ok) {
+        const runsData = await runsR.json();
+        if (runsData.events && runsData.events.length) {
+          orgEventLog[name] = runsData.events.map(ev => ({ ...ev, _ts: ev.ts || Date.now() }));
+        }
+      }
+    } catch (_) {}
+  }
+
   renderTab(currentTab);
 }
 
@@ -1096,8 +1169,21 @@ function updateHeader(listOrg, data) {
 
   const running = listOrg.running;
   const badge = document.getElementById('org-status-badge');
-  badge.textContent = running ? 'LIVE' : 'IDLE';
-  badge.className = 'oi-badge ' + (running ? 'running' : 'idle');
+  // Phase 2: Three-state liveness — LIVE / QUIET / STALE / IDLE (Issue 6)
+  let badgeState, badgeText;
+  if (running) {
+    if (!listOrg.lastEventAt) { badgeState = 'quiet'; badgeText = '🟡 QUIET'; }
+    else {
+      const _ageMs = Date.now() - listOrg.lastEventAt;
+      if (_ageMs < 30 * 60 * 1000)          { badgeState = 'running'; badgeText = '🟢 LIVE'; }
+      else if (_ageMs < 2 * 60 * 60 * 1000) { badgeState = 'quiet';   badgeText = '🟡 QUIET'; }
+      else                                   { badgeState = 'stale';   badgeText = '🔴 STALE'; }
+    }
+  } else {
+    badgeState = 'idle'; badgeText = 'IDLE';
+  }
+  badge.textContent = badgeText;
+  badge.className = 'oi-badge ' + badgeState;
 
   const rolesArr = data ? (data.roles || []) : [];
   const rolesCount = Array.isArray(rolesArr) ? rolesArr.length : (listOrg.roles || 0);
@@ -1624,6 +1710,10 @@ window.selectChatAgent = function(name) {
 
 function appendChatEvent(ev, animate) {
   if (!chatAgentMatchesFilter(ev)) return;
+  // Phase 3: Apply render mode filter
+  if (chatRenderMode === 'summary' && !CHAT_SUMMARY_TYPES.has(ev.type)) return;
+  if (chatRenderMode === 'detailed' && !CHAT_DETAILED_TYPES.has(ev.type)) return;
+  // 'raw' mode: show everything
   const feed = document.getElementById('chat-feed-wrap');
   const empty = document.getElementById('chat-feed-empty');
   if (!feed) return;
@@ -1644,7 +1734,16 @@ function appendChatEvent(ev, animate) {
     el = mkSys(`<span style="color:${dc(ev.domain)}">✓ [${esc((ev.domain||'').toUpperCase())}]</span> ${esc(ev.status||'done')}${arts}`, ts);
   } else if (ev.type === 'agent:spawn') {
     const col = dc(ev.domain);
-    el = mkAgent(ev.agent||'agent', `spawned: ${esc(ev.task||'task')}`, ts, col, 'spawn');
+    const name = ev.agentType || ev.from || ev.agent || 'agent';
+    el = mkAgent(name, `spawned: ${esc(ev.task||'task')}`, ts, col, 'spawn');
+  } else if (ev.type === 'agent:complete') {
+    const name = ev.agentType || ev.role || ev.from || 'agent';
+    const result = (ev.result || '').slice(0, 300);
+    const cost = ev.cost_usd ? ` · $${parseFloat(ev.cost_usd).toFixed(4)}` : '';
+    const tools = ev.toolCalls?.length ? ` · ${ev.toolCalls.slice(0,4).join(', ')}` : '';
+    el = mkAgent(name, `${esc(result) || 'done'}${esc(tools)}${esc(cost)}`, ts, dc(ev.domain), 'complete');
+  } else if (ev.type === 'org:comms') {
+    el = mkIntercom(ev.from || 'boss', ev.to || 'agent', esc(ev.msg || ev.message || ''), ts);
   } else if (ev.type === 'agent:message') {
     el = mkAgent(ev.agent||'agent', esc(ev.text||''), ts, dc(ev.domain), null);
   } else if (ev.type === 'intercom') {
@@ -1702,11 +1801,11 @@ async function viewArtifact(filePath, label) {
   const url = `/api/org/${encodeURIComponent(orgName)}/artifact?path=${encodeURIComponent(filePath)}`;
   try {
     const data = await fetch(url).then(r => r.json());
-    if (data.binary) { alert('Binary file — cannot display'); return; }
-    if (data.error === 'file not found') { alert('File no longer exists'); return; }
-    if (data.error) { alert(`Error: ${data.error}`); return; }
+    if (data.binary) { console.warn('[orgs] Binary file — cannot display'); return; }
+    if (data.error === 'file not found') { console.warn('[orgs] File no longer exists'); return; }
+    if (data.error) { console.warn('[orgs] Artifact error:', data.error); return; }
     showArtifactPanel(label, data.content, data.mimeType);
-  } catch(_) { alert('Failed to load artifact'); }
+  } catch(_) { console.warn('[orgs] Failed to load artifact', _); }
 }
 
 function showArtifactPanel(label, content, mimeType) {
@@ -1827,7 +1926,7 @@ function connectSSE() {
   evtSource.onmessage = e => {
     try {
       const ev = JSON.parse(e.data);
-      if (ev && typeof ev.org === 'string' && ev.type && ev.type.startsWith('org:')) {
+      if (ev && typeof ev.org === 'string' && ev.type && (ev.type.startsWith('org:') || ev.type.startsWith('agent:'))) {
         const name = ev.org;
         if (!orgEventLog[name]) orgEventLog[name] = [];
         orgEventLog[name].push({ ...ev, _ts: Date.now() });
@@ -1919,7 +2018,7 @@ function appendLiveFeedRow(ev, isNew) {
   if (!rows) return;
   const time = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const type = (ev.type || '').replace('org:', '');
-  const msg = ev.message || ev.msg || ev.agent || ev.role || ev.status || '';
+  const msg = ev.message || ev.msg || ev.task?.slice(0,60) || (ev.result||'').slice(0,60) || ev.agentType || ev.agent || ev.role || ev.status || '';
   const row = document.createElement('div');
   row.className = 'clf-row' + (isNew ? ' new' : '');
   row.title = msg;
@@ -2058,7 +2157,7 @@ window.exportOrg = async function(name) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   } catch(e) {
-    alert('EXPORT FAILED: ' + e.message);
+    console.warn('[orgs] Export failed:', e.message);
   }
 };
 
@@ -2087,7 +2186,7 @@ async function handleImportFile(e) {
   try {
     const text = await file.text();
     let data;
-    try { data = JSON.parse(text); } catch(_) { alert('IMPORT FAILED: invalid JSON'); return; }
+    try { data = JSON.parse(text); } catch(_) { console.warn('[orgs] Import failed: invalid JSON'); return; }
     const r = await fetch(`/api/orgs/${encodeURIComponent(importTargetOrg)}/import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2097,10 +2196,10 @@ async function handleImportFile(e) {
     if (r.ok && result.ok) {
       loadOrgs();
     } else {
-      alert('IMPORT FAILED: ' + (result.error || r.statusText));
+      console.warn('[orgs] Import failed:', result.error || r.statusText);
     }
   } catch(e) {
-    alert('IMPORT FAILED: ' + e.message);
+    console.warn('[orgs] Import failed:', e.message);
   } finally {
     importTargetOrg = null;
   }

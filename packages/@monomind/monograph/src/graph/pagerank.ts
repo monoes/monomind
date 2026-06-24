@@ -1,3 +1,4 @@
+import Database from 'better-sqlite3';
 import type { MonographDb } from '../storage/db.js';
 
 export interface PageRankOptions {
@@ -13,8 +14,8 @@ export interface PageRankOptions {
 // Per-DB statement cache — avoids recompiling SQL on every pageRank() call.
 // ---------------------------------------------------------------------------
 interface StmtCache {
-  selectNodes: ReturnType<MonographDb['prepare']>;
-  selectEdges: ReturnType<MonographDb['prepare']>;
+  selectNodes: Database.Statement;
+  selectEdges: Database.Statement;
 }
 
 const _stmtCache = new Map<string, StmtCache>();

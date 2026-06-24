@@ -200,7 +200,9 @@ async function main(): Promise<void> {
   await dispatch(browseCommand, userArgs);
 }
 
-main().catch(err => {
+main().then(() => {
+  process.exit(process.exitCode ?? 0);
+}).catch(err => {
   output.printError(err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
