@@ -1,0 +1,2 @@
+{"type":"agent:spawn","org":"test-event-fix","runId":"rigid-qa-restart-1782288201","session":"final-sess-001","agentType":"boss","task":"","from":"orchestrator","to":"boss","ts":1782292656644}
+{"type":"agent:spawn","org":"test-event-fix","runId":"rigid-qa-restart-1782288201","session":"final-sess-001","agentType":"boss","task":"","from":"orchestrator","to":"boss","ts":1782292656691}

@@ -302,7 +302,7 @@ function generateHooksConfig(config, graphify = true) {
             },
         ];
     }
-    // UserPromptSubmit — intelligent task routing
+    // UserPromptSubmit — intelligent task routing + lean mode switching
     if (config.userPromptSubmit) {
         hooks.UserPromptSubmit = [
             {
@@ -311,6 +311,11 @@ function generateHooksConfig(config, graphify = true) {
                         type: 'command',
                         command: hookHandlerCmd('route'),
                         timeout: 10000,
+                    },
+                    {
+                        type: 'command',
+                        command: standaloneHelperCmd('monolean-tracker.cjs'),
+                        timeout: 3000,
                     },
                 ],
             },
@@ -340,6 +345,11 @@ function generateHooksConfig(config, graphify = true) {
         sessionStartHooks.push({
             type: 'command',
             command: standaloneHelperCmd('control-start.cjs'),
+            timeout: 5000,
+        });
+        sessionStartHooks.push({
+            type: 'command',
+            command: standaloneHelperCmd('monolean-activate.cjs'),
             timeout: 5000,
         });
         hooks.SessionStart = [{ hooks: sessionStartHooks }];
@@ -405,7 +415,7 @@ function generateHooksConfig(config, graphify = true) {
             },
         ];
     }
-    // SubagentStart — status update + capture-handler telemetry for org dashboard
+    // SubagentStart — status update + capture-handler telemetry for org dashboard + lean mode propagation
     hooks.SubagentStart = [
         {
             hooks: [
@@ -418,6 +428,11 @@ function generateHooksConfig(config, graphify = true) {
                     type: 'command',
                     command: captureHandlerCmd('subagent-start'),
                     timeout: 5000,
+                },
+                {
+                    type: 'command',
+                    command: standaloneHelperCmd('monolean-propagate.cjs'),
+                    timeout: 3000,
                 },
             ],
         },
