@@ -5,22 +5,22 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
-import type { StepEvent, RunRecord, PlaybookDef } from '@monoes/monoplaybook';
+
+export interface StepEvent {
+  type: string;
+  projectDir?: string;
+  [key: string]: unknown;
+}
+
+export interface RunRecord {
+  id: string;
+  startedAt: number;
+  status: string;
+  itemsProcessed?: number;
+  [key: string]: unknown;
+}
 
 const RUNS_FILE = join(homedir(), '.monomind', 'browse-runs.json');
-const PLAYBOOKS_FILE = join(homedir(), '.monomind', 'playbooks.json');
-
-async function loadPlaybooks(): Promise<PlaybookDef[]> {
-  if (!existsSync(PLAYBOOKS_FILE)) return [];
-  try {
-    return JSON.parse(await readFile(PLAYBOOKS_FILE, 'utf-8')) as PlaybookDef[];
-  } catch { return []; }
-}
-
-async function savePlaybooks(playbooks: PlaybookDef[]): Promise<void> {
-  await mkdir(join(homedir(), '.monomind'), { recursive: true });
-  await writeFile(PLAYBOOKS_FILE, JSON.stringify(playbooks, null, 2));
-}
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -90,7 +90,6 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
     }
 
     if (url === '/runs' && req.method === 'GET') {
-      // Merge in-memory runs with persisted runs so the UI shows history even across restarts
       const persisted = await loadPersistedRuns().catch(() => [] as RunRecord[]);
       const seen = new Set(runHistory.map(r => r.id));
       const merged = [...runHistory, ...persisted.filter(r => !seen.has(r.id))]
@@ -109,12 +108,9 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       return;
     }
 
-    // Parse the URL to correctly handle query parameters such as ?dir=
     const parsed = new URL(url, 'http://localhost');
     if (parsed.pathname === '/events' && (req.method === 'GET' || req.method === 'HEAD') && !WebSocketServer) {
-      // SSE endpoint (fallback when ws not available).
-      // No CORS header — the dashboard is served from 127.0.0.1:4242 and no cross-origin
-      // access is needed. A wildcard ACAO would let any web page subscribe to playbook events.
+      // SSE fallback when ws not available
       const subscribedDir = parsed.searchParams.get('dir') ?? null;
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -123,183 +119,12 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       });
       res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
       clientDirs.set(res, subscribedDir);
-      // 30-second keep-alive heartbeat prevents proxy idle-timeout drops.
       const heartbeat = setInterval(() => {
         try { res.write(': keep-alive\n\n'); } catch { clearInterval(heartbeat); }
       }, 30_000);
       req.on('close', () => {
         clearInterval(heartbeat);
         clientDirs.delete(res);
-      });
-      return;
-    }
-
-    // ── Playbook CRUD ────────────────────────────────────────────────────
-    // GET  /api/playbooks          → list all saved playbooks
-    // POST /api/playbooks          → create/update a playbook (body: PlaybookDef)
-    // GET  /api/playbooks/:id      → get single playbook
-    // DELETE /api/playbooks/:id    → delete a playbook
-    // POST /api/playbooks/:id/run  → run a playbook (delegates to engine)
-    if (parsed.pathname === '/api/playbooks' && req.method === 'GET') {
-      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(list));
-      return;
-    }
-
-    if (parsed.pathname === '/api/playbooks' && req.method === 'POST') {
-      try {
-        const raw = await readBody(req);
-        const pb = JSON.parse(raw) as PlaybookDef;
-        if (!pb.id || !pb.name) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'id and name are required' }));
-          return;
-        }
-        const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
-        const idx = list.findIndex(w => w.id === pb.id);
-        if (idx >= 0) list[idx] = pb; else list.push(pb);
-        await savePlaybooks(list);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(pb));
-      } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: String(e) }));
-      }
-      return;
-    }
-
-    const pbIdMatch = parsed.pathname.match(/^\/api\/playbooks\/([^/]+)$/);
-    const pbRunMatch = parsed.pathname.match(/^\/api\/playbooks\/([^/]+)\/run$/);
-
-    if (pbRunMatch && req.method === 'POST') {
-      const pbId = pbRunMatch[1];
-      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
-      const pb = list.find(w => w.id === pbId);
-      if (!pb) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Playbook ${pbId} not found` }));
-        return;
-      }
-      // Import engine and builtin handlers dynamically to avoid circular deps at startup
-      res.writeHead(202, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, playbookId: pbId, message: 'Playbook run started' }));
-      // Run async, broadcast events via dashboard
-      Promise.resolve().then(async () => {
-        try {
-          const { runPlaybook, createDefaultHandlers } = await import('../../index.js');
-          const handlers = createDefaultHandlers();
-          const record = await runPlaybook(pb, {
-            handlers,
-            onEvent: (evt) => { instance?.broadcast(evt); },
-            isStopRequested: (id) => instance?.isStopRequested(id) ?? false,
-          });
-          instance?.addRunRecord(record);
-        } catch (err) {
-          console.error('[dashboard] playbook run error:', err);
-        }
-      });
-      return;
-    }
-
-    if (pbIdMatch && req.method === 'GET') {
-      const pbId = pbIdMatch[1];
-      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
-      const pb = list.find(w => w.id === pbId);
-      if (!pb) { res.writeHead(404); res.end('Not found'); return; }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(pb));
-      return;
-    }
-
-    if (pbIdMatch && req.method === 'DELETE') {
-      const pbId = pbIdMatch[1];
-      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
-      const newList = list.filter(w => w.id !== pbId);
-      await savePlaybooks(newList);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, deleted: pbId }));
-      return;
-    }
-
-    // ── Webhook trigger ──────────────────────────────────────────────────────
-    // POST /webhooks/:playbookId
-    //   Body (optional): JSON object or array — merged as `params` into the playbook run.
-    //   Header (optional): X-Webhook-Signature: sha256=<hex> for HMAC verification.
-    //   Response: 202 { ok, runId, playbookId } — run executes asynchronously.
-    const webhookMatch = parsed.pathname.match(/^\/webhooks\/([^/]+)$/);
-    if (webhookMatch && req.method === 'POST') {
-      const pbId = webhookMatch[1];
-      const list = await loadPlaybooks().catch(() => [] as PlaybookDef[]);
-      const pb = list.find(w => w.id === pbId);
-      if (!pb) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Playbook ${pbId} not found` }));
-        return;
-      }
-
-      const rawBody = await readBody(req).catch(() => '');
-
-      // Optional HMAC-SHA256 signature verification
-      const sigHeader = (req.headers['x-webhook-signature'] as string | undefined) ?? '';
-      if (sigHeader) {
-        try {
-          const { createHmac } = await import('node:crypto');
-          // Secret is stored in the playbook's trigger config (first schedule/webhook trigger)
-          const triggers = (pb as unknown as Record<string, unknown>)['triggers'];
-          const secret: string | undefined =
-            Array.isArray(triggers)
-              ? (triggers as Array<Record<string, unknown>>).find(t => t['secret'])?.[
-                  'secret'
-                ] as string | undefined
-              : undefined;
-          if (secret) {
-            const expected = 'sha256=' + createHmac('sha256', secret).update(rawBody).digest('hex');
-            if (sigHeader !== expected) {
-              res.writeHead(403, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Invalid webhook signature' }));
-              return;
-            }
-          }
-        } catch {
-          // crypto not available or other error — skip verification
-        }
-      }
-
-      // Parse body into params (string values only, per engine contract)
-      const params: Record<string, string> = {};
-      try {
-        if (rawBody.trim()) {
-          const parsed2 = JSON.parse(rawBody);
-          if (parsed2 && typeof parsed2 === 'object' && !Array.isArray(parsed2)) {
-            for (const [k, v] of Object.entries(parsed2 as Record<string, unknown>)) {
-              params[k] = typeof v === 'string' ? v : JSON.stringify(v);
-            }
-          }
-          params['__body'] = rawBody;
-        }
-      } catch {
-        params['__body'] = rawBody;
-      }
-
-      const runId = `webhook-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      res.writeHead(202, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, runId, playbookId: pbId }));
-
-      Promise.resolve().then(async () => {
-        try {
-          const { runPlaybook, createDefaultHandlers } = await import('../../index.js');
-          const handlers = createDefaultHandlers();
-          const record = await runPlaybook(pb, {
-            handlers,
-            params,
-            onEvent: (evt) => { instance?.broadcast(evt); },
-            isStopRequested: (id) => instance?.isStopRequested(id) ?? false,
-          });
-          instance?.addRunRecord(record);
-        } catch (err) {
-          console.error('[dashboard] webhook run error:', err);
-        }
       });
       return;
     }
@@ -311,12 +136,10 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
   if (WebSocketServer) {
     const wss = new WebSocketServer({ server });
     wss.on('connection', async (ws: any, req: any) => {
-      // Extract optional project-dir filter from the WebSocket upgrade URL
       const upgradeUrl = req?.url ?? '/ws';
       const upgradeParsed = new URL(upgradeUrl, 'http://localhost');
       const subscribedDir = upgradeParsed.searchParams.get('dir') ?? null;
       clientDirs.set(ws, subscribedDir);
-      // Merge in-memory and persisted runs so history survives server restarts
       const persisted = await loadPersistedRuns().catch(() => [] as RunRecord[]);
       const seen = new Set(runHistory.map(r => r.id));
       const merged = [...runHistory, ...persisted.filter(r => !seen.has(r.id))]
@@ -329,11 +152,10 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
 
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
-      console.log(`Dashboard port ${port} in use — playbook will run without live dashboard.`);
+      console.log(`Dashboard port ${port} in use — continuing without live dashboard.`);
     } else {
       console.error(`Dashboard server error: ${err.message}`);
     }
-    // Replace with a no-op instance so the engine doesn't crash
     instance = {
       broadcast: () => {},
       addRunRecord: () => {},
@@ -348,17 +170,14 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
   function broadcast(event: StepEvent): void {
     const msg = JSON.stringify(event);
     for (const [client, subscribedDir] of clientDirs) {
-      // Server-side project filtering: if the client subscribed with ?dir=<path>, only
-      // deliver events whose projectDir matches.  Clients without a dir filter (subscribedDir
-      // === null) receive all events, preserving backward-compatibility with ui.html.
       if (subscribedDir !== null && event.projectDir !== undefined && subscribedDir !== event.projectDir) {
         continue;
       }
       try {
         if (typeof client.send === 'function') {
-          client.send(msg); // WebSocket
+          client.send(msg);
         } else {
-          client.write(`data: ${msg}\n\n`); // SSE
+          client.write(`data: ${msg}\n\n`);
         }
       } catch {
         clientDirs.delete(client);
@@ -374,7 +193,6 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       runHistory.unshift(record);
       if (runHistory.length > MAX_RUN_HISTORY) runHistory.pop();
     }
-    // Persist to disk so the CLI dashboard (/api/workflow-runs) can read run history
     const dir = join(homedir(), '.monomind');
     mkdir(dir, { recursive: true }).then(() =>
       writeFile(RUNS_FILE, JSON.stringify(runHistory, null, 2))
