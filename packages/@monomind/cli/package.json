@@ -89,8 +89,7 @@
     "ws": "^8.21.0",
     "@noble/ed25519": "^2.1.0",
     "@monoes/monograph": "^1.2.1",
-    "@monoes/monobrowse": "^1.0.1",
-    "@monoes/monoplaybook": "^1.0.1"
+    "@monoes/monobrowse": "^1.0.1"
   },
   "optionalDependencies": {
     "sql.js": "^1.14.1",
