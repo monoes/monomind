@@ -223,6 +223,18 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
 
   // ===== Table management =====
 
+  /** Open an existing table. Returns null without creating if the namespace doesn't exist. */
+  private async openExistingTable(namespace: string): Promise<any | null> {
+    if (this.tables.has(namespace)) return this.tables.get(namespace)!;
+    if (!this.initialized || !this.db) throw new Error('LanceDBBackend not initialized — call initialize() first');
+    const tableNames: string[] = await this.db.tableNames();
+    if (!tableNames.includes(namespace)) return null;
+    const table = await this.db.openTable(namespace);
+    this.tables.set(namespace, table);
+    return table;
+  }
+
+  /** Open or create a table — call only from write paths (store, bulkInsert). */
   private async getTable(namespace: string): Promise<any> {
     if (this.tables.has(namespace)) return this.tables.get(namespace)!;
     if (!this.initialized || !this.db) throw new Error('LanceDBBackend not initialized — call initialize() first');
