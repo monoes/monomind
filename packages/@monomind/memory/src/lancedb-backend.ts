@@ -291,24 +291,27 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   }
 
   async get(id: string): Promise<MemoryEntry | null> {
-    // Search default namespace first, then any other open tables (deduped)
+    // Search default namespace first, then any other open tables (deduped).
+    // openExistingTable is used to avoid creating phantom tables during reads.
     const toSearch = [...new Set([this.config.namespace, ...this.tables.keys()])];
     for (const ns of toSearch) {
       try {
-        const table = await this.getTable(ns);
+        const table = await this.openExistingTable(ns);
+        if (!table) continue;
         const rows = await table.query()
           .where(`id = ${sqlStr(id)}`)
           .limit(1)
           .toArray();
         if (rows.length > 0) return fromRecord(rows[0]);
-      } catch { /* table may not exist */ }
+      } catch { /* ignore per-namespace errors */ }
     }
     return null;
   }
 
   async getByKey(namespace: string, key: string): Promise<MemoryEntry | null> {
     try {
-      const table = await this.getTable(namespace);
+      const table = await this.openExistingTable(namespace);
+      if (!table) return null;
       const rows = await table.query()
         .where(`namespace = ${sqlStr(namespace)} AND key = ${sqlStr(key)}`)
         .limit(1)
@@ -358,7 +361,8 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
     const ns = query.namespace ?? this.config.namespace;
     const t0 = Date.now();
     try {
-      const table = await this.getTable(ns);
+      const table = await this.openExistingTable(ns);
+      if (!table) return [];
       const filter = buildFilter(query);
       let q = table.query();
       if (filter) q = q.where(filter);
@@ -378,13 +382,14 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
     const ns = options.filters?.namespace ?? this.config.namespace;
     const t0 = Date.now();
     try {
-      const table = await this.getTable(ns);
+      const table = await this.openExistingTable(ns);
+      if (!table) return [];
       const queryVector = Array.from(embedding);
       const k = options.k ?? 10;
 
       // over-fetch for threshold filtering, then trim; single predicate (chaining may overwrite)
       const preFilter = `namespace = ${sqlStr(ns)} AND (expiresAt = 0 OR expiresAt > ${Date.now()})`;
-      let q = table.search(queryVector).limit(k * 2).where(preFilter);
+      let q = table.search(queryVector).nprobes(this.config.nProbes).limit(k * 2).where(preFilter);
 
       const rows = await q.toArray();
       const threshold = options.threshold ?? 0;
@@ -445,7 +450,8 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   async count(namespace?: string): Promise<number> {
     const ns = namespace ?? this.config.namespace;
     try {
-      const table = await this.getTable(ns);
+      const table = await this.openExistingTable(ns);
+      if (!table) return 0;
       // countRows() avoids loading all IDs into memory (available in lancedb >= 0.9)
       if (typeof table.countRows === 'function') {
         return await table.countRows(`namespace = ${sqlStr(ns)}`);
