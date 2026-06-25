@@ -60,7 +60,7 @@ What it does differently from Claude Flow or raw Claude Code sessions:
 
 - Persistent: agents checkpoint state and resume across sessions using SQLite + HNSW vector search. They stop re-discovering what they already know.
 - Fault-tolerant: if an agent crashes mid-task, the raft leader reassigns the work. The coordination loop keeps running.
-- Memory that compounds: AgentDB stores every agent decision and outcome in a queryable vector index. Later agents can search what earlier agents learned.
+- Memory that compounds: LanceDB stores every agent decision and outcome in a queryable vector index. Later agents can search what earlier agents learned.
 - Zero infrastructure: no Kubernetes, no message queues. It's an npm install.
 
 Quick demo (terminal recording in post):
@@ -176,7 +176,7 @@ If the leader crashes, a new one is elected in <1s. Work continues.
 
 Post 4:
 ```
-On top of raft: HNSW vector memory via AgentDB.
+On top of raft: HNSW vector memory via LanceDB.
 
 Every agent decision is stored and searchable. Agent 5 finds what Agent 2 figured out 3 hours ago, without you telling it.
 
@@ -435,7 +435,7 @@ Submission 1: awesome-claude-mcp
 - Section: Agent Orchestration or Multi-Agent Frameworks
 
 Submission 2: awesome-ai-agents
-- Copy: "**[Monomind](https://github.com/monoes/monomind)** — Open-source orchestration layer for Claude Code. Persistent agent teams with raft consensus, Byzantine fault tolerance, and AgentDB vector memory. Node.js/TypeScript."
+- Copy: "**[Monomind](https://github.com/monoes/monomind)** — Open-source orchestration layer for Claude Code. Persistent agent teams with raft consensus, Byzantine fault tolerance, and LanceDB vector memory. Node.js/TypeScript."
 - Section: Frameworks or Node.js Tools
 
 Submission 3: AI tool directories (TAAFT — There's An AI For That / Futurepedia)

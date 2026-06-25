@@ -22,5 +22,5 @@ export {
 } from './bus.js';
 export { BusHookBridge } from './bus-hook-bridge.js';
 export { CLISink } from './sinks/cli-sink.js';
-export { AgentDBSink } from './sinks/agentdb-sink.js';
+export { MemorySink } from './sinks/memory-sink.js';
 export { OTelSink } from './sinks/otel-sink.js';

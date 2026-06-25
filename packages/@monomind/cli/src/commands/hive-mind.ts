@@ -432,7 +432,7 @@ const initCommand: Command = {
     },
     {
       name: 'memory-backend',
-      description: 'Memory backend (agentdb, sqlite, hybrid)',
+      description: 'Memory backend (lancedb, sqlite, hybrid)',
       type: 'string',
       default: 'hybrid'
     }

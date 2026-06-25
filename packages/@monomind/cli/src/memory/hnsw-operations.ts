@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-// ADR-053: Lazy import of AgentDB v1 bridge
+// ADR-053: Lazy import of LanceDB memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
   if (_bridge === null) return null;
@@ -24,7 +24,7 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
 
 // ============================================================================
 // HNSW INDEX SINGLETON (150x faster vector search)
-// AgentDB bridge provides HNSW; getHNSWIndex() returns null → pure-JS fallback
+// LanceDB bridge provides ANN search; getHNSWIndex() returns null → pure-JS fallback
 // ============================================================================
 
 interface HNSWEntry {
@@ -81,7 +81,7 @@ export async function getHNSWIndex(options?: {
     // Native @monoes/core HNSW (WASM VectorDb) was removed in the lean teardown.
     // This function is kept for callers that check its return value — all callers
     // already handle null by falling back to the pure-JS / brute-force path.
-    // The AgentDB bridge (memory-bridge.ts) provides HNSW via agentdb instead.
+    // The memory bridge (memory-bridge.ts) provides ANN search via LanceDB.
 
     // Native backend removed — return null so callers use the pure-JS fallback.
     hnswInitializing = false;
@@ -118,7 +118,7 @@ export async function addToHNSWIndex(
   embedding: number[],
   entry: HNSWEntry
 ): Promise<boolean> {
-  // ADR-053: Try AgentDB v1 bridge first
+  // ADR-053: Try LanceDB memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeAddToHNSW(id, embedding, entry);
@@ -155,7 +155,7 @@ export async function searchHNSWIndex(
     namespace?: string;
   }
 ): Promise<Array<{ id: string; key: string; content: string; score: number; namespace: string }> | null> {
-  // ADR-053: Try AgentDB v1 bridge first
+  // ADR-053: Try LanceDB memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeSearchHNSW(queryEmbedding, options);
@@ -218,7 +218,7 @@ export function getHNSWStatus(): {
 } {
   // ADR-053: If bridge was previously loaded, report availability
   if (_bridge && _bridge !== null) {
-    // Bridge is loaded — HNSW-equivalent is available via AgentDB v1
+    // Bridge is loaded — HNSW-equivalent is available via LanceDB
     return {
       available: true,
       initialized: true,

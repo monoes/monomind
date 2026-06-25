@@ -189,7 +189,7 @@ export const hooksPostCommand = {
             command: typeof command === 'string' ? command.slice(0, 200) : String(command).slice(0, 200),
             exitCode,
         });
-        // Persist command outcome via AgentDB
+        // Persist command outcome via memory backend
         let _storedIn = 'none';
         try {
             const bridge = await import('../memory/memory-bridge.js');
@@ -199,10 +199,10 @@ export const hooksPostCommand = {
                 namespace: 'commands',
                 tags: [success ? 'success' : 'error'],
             });
-            _storedIn = 'agentdb';
+            _storedIn = 'lancedb';
         }
         catch {
-            // AgentDB not available — store in JSON
+            // memory backend unavailable — store in JSON
             try {
                 const store = loadMemoryStore();
                 const key = `cmd-${Date.now()}`;
@@ -255,16 +255,16 @@ export const hooksRoute = {
             ? rawContext.slice(0, MAX_ROUTE_CTX_LEN)
             : rawContext;
         const useSemanticRouter = params.useSemanticRouter !== false;
-        // Phase 5: Try AgentDB's SemanticRouter / LearningSystem first
+        // Phase 5: Try memory backend SemanticRouter / LearningSystem first
         if (useSemanticRouter) {
             try {
                 const bridge = await import('../memory/memory-bridge.js');
-                const agentdbRoute = await bridge.bridgeRouteTask({ task, context });
-                if (agentdbRoute && agentdbRoute.confidence > 0.5) {
-                    const agents = agentdbRoute.agents.length > 0 ? agentdbRoute.agents : ['coder', 'researcher'];
+                const memoryRoute = await bridge.bridgeRouteTask({ task, context });
+                if (memoryRoute && memoryRoute.confidence > 0.5) {
+                    const agents = memoryRoute.agents.length > 0 ? memoryRoute.agents : ['coder', 'researcher'];
                     const complexity = task.length > 200 ? 'high' : task.length < 50 ? 'low' : 'medium';
-                    const agentdbMethod = `agentdb-${agentdbRoute.controller}`;
-                    const agentdbConfidence = Math.round(agentdbRoute.confidence * 100) / 100;
+                    const memoryMethod = `memory-${memoryRoute.controller}`;
+                    const memoryConfidence = Math.round(memoryRoute.confidence * 100) / 100;
                     // Record the route recommendation so post-task can join the actual outcome
                     const routeId = randomUUID();
                     await recordRoute(getRouteOutcomesBaseDir(), {
@@ -272,33 +272,33 @@ export const hooksRoute = {
                         ts: Date.now(),
                         task,
                         recommendedAgent: agents[0],
-                        routingMethod: agentdbMethod,
-                        confidence: agentdbConfidence,
+                        routingMethod: memoryMethod,
+                        confidence: memoryConfidence,
                         learningMode: 'js',
                     });
                     return {
                         routeId,
                         task,
                         routing: {
-                            method: agentdbMethod,
-                            backend: agentdbRoute.controller,
+                            method: memoryMethod,
+                            backend: memoryRoute.controller,
                             latencyMs: 0,
                             throughput: 'N/A',
                         },
-                        matchedPattern: agentdbRoute.route,
-                        semanticMatches: [{ pattern: agentdbRoute.route, score: agentdbRoute.confidence }],
+                        matchedPattern: memoryRoute.route,
+                        semanticMatches: [{ pattern: memoryRoute.route, score: memoryRoute.confidence }],
                         primaryAgent: {
                             type: agents[0],
-                            confidence: Math.round(agentdbRoute.confidence * 100) / 100,
-                            reason: `AgentDB ${agentdbRoute.controller}: "${agentdbRoute.route}" (${Math.round(agentdbRoute.confidence * 100)}%)`,
+                            confidence: Math.round(memoryRoute.confidence * 100) / 100,
+                            reason: `memory:${memoryRoute.controller}: "${memoryRoute.route}" (${Math.round(memoryRoute.confidence * 100)}%)`,
                         },
                         alternativeAgents: agents.slice(1).map((agent, i) => ({
                             type: agent,
-                            confidence: Math.round((agentdbRoute.confidence - (0.1 * (i + 1))) * 100) / 100,
-                            reason: `Alternative from ${agentdbRoute.controller}`,
+                            confidence: Math.round((memoryRoute.confidence - (0.1 * (i + 1))) * 100) / 100,
+                            reason: `Alternative from ${memoryRoute.controller}`,
                         })),
                         estimatedMetrics: {
-                            successProbability: Math.round(agentdbRoute.confidence * 100) / 100,
+                            successProbability: Math.round(memoryRoute.confidence * 100) / 100,
                             estimatedDuration: complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
                             complexity,
                         },
@@ -307,7 +307,7 @@ export const hooksRoute = {
                 }
             }
             catch {
-                // AgentDB router not available — fall through to local routing
+                // memory router not available — fall through to local routing
             }
         }
         // Deterministic keyword routing is the baseline (and only) local path.
@@ -1004,7 +1004,7 @@ export const hooksPretrain = {
         };
         scan(repoPath, 0);
         const elapsed = Math.round(performance.now() - startTime);
-        // Store extracted patterns in AgentDB
+        // Store extracted patterns in memory backend
         let patternsStored = 0;
         try {
             const bridge = await import('../memory/memory-bridge.js');
@@ -1016,7 +1016,7 @@ export const hooksPretrain = {
             });
             patternsStored = patterns.length;
         }
-        catch { /* AgentDB not available */ }
+        catch { /* memory backend unavailable */ }
         // Feed extracted import patterns into the neural training system so
         // pretrain actually trains, not just scans.
         let neuralPatternsLearned = 0;

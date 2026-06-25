@@ -43,7 +43,6 @@ export declare function getNeuralCommand(): Promise<Command | undefined>;
 export declare function getSecurityCommand(): Promise<Command | undefined>;
 export declare function getPerformanceCommand(): Promise<Command | undefined>;
 export declare function getProvidersCommand(): Promise<Command | undefined>;
-export declare function getPluginsCommand(): Promise<Command | undefined>;
 export declare function getDeploymentCommand(): Promise<Command | undefined>;
 export declare function getClaimsCommand(): Promise<Command | undefined>;
 export declare function getCompletionsCommand(): Promise<Command | undefined>;

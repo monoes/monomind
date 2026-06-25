@@ -3,7 +3,7 @@
  *
  * Provides structured storage for memory entries using SQLite.
  * Optimized for ACID transactions, exact matches, and complex queries.
- * Part of ADR-009: Hybrid Memory Backend (SQLite + AgentDB)
+ * Part of ADR-009: Hybrid Memory Backend (SQLite + LanceDB)
  *
  * @module v1/memory/sqlite-backend
  */
@@ -467,7 +467,7 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
 
   /**
    * Semantic vector search (not optimized for SQLite, returns empty)
-   * Use HybridBackend for semantic search with AgentDB
+   * Use HybridBackend for semantic search with LanceDB
    */
   async search(
     embedding: Float32Array,

@@ -292,7 +292,7 @@ const runCommand = {
                                 }
                             }
                             output.printSuccess(`Memory files backed up (${jsonFiles.length} JSON, ${hasDb ? '1 DB' : '0 DB'}).`);
-                            output.printInfo('Run "monomind memory init --force" to import v2 memory into v1 AgentDB.');
+                            output.printInfo('Run "monomind memory init --force" to import v2 memory into v1 LanceDB.');
                         }
                         migrated.push('memory');
                     }
@@ -775,7 +775,7 @@ function formatMigrationStatus(status) {
 function getMigrationSteps(target) {
     const allSteps = [
         { name: 'Configuration Files', description: 'Migrate config schema to v1 format', source: './monomind.json', dest: './monomind.config.json' },
-        { name: 'Memory Backend', description: 'Upgrade to hybrid backend with AgentDB', source: './.monomind/memory', dest: './data/memory' },
+        { name: 'Memory Backend', description: 'Upgrade to hybrid backend with LanceDB', source: './.monomind/memory', dest: './data/memory' },
         { name: 'Agent Definitions', description: 'Convert agent configs to v1 format', source: './.monomind/agents', dest: './packages/agents' },
         { name: 'Hook Registry', description: 'Migrate hooks to v1 hook system', source: './src/hooks', dest: './packages/hooks' },
         { name: 'Workflow Definitions', description: 'Convert workflows to event-sourced format', source: './.monomind/workflows', dest: './data/workflows' },

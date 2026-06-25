@@ -47,7 +47,7 @@
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (41 commands)          |
 | `@monomind/guidance` | `packages/@monomind/guidance/` | Governance control plane               |
 | `@monomind/hooks`    | `packages/@monomind/hooks/`    | 17 hooks + 12 workers                  |
-| `@monomind/memory`   | `packages/@monomind/memory/`   | AgentDB + HNSW search                  |
+| `@monomind/memory`   | `packages/@monomind/memory/`   | LanceDB + HNSW search                  |
 | `@monomind/security` | `packages/@monomind/security/` | Input validation, CVE remediation      |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
 
@@ -226,7 +226,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `init`        | 4   | Project initialization (wizard, presets, skills)     |
 | `agent`       | 8   | Agent lifecycle (spawn, list, status, stop, metrics) |
 | `swarm`       | 6   | Multi-agent swarm coordination                       |
-| `memory`      | 11  | AgentDB with vector search (HNSW)                    |
+| `memory`      | 11  | LanceDB with vector search (HNSW)                    |
 | `mcp`         | 9   | MCP server management                                |
 | `task`        | 6   | Task creation and lifecycle                          |
 | `session`     | 7   | Session state management                             |
@@ -237,7 +237,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `neural`      | 5   | Neural pattern training                              |
 | `security`    | 6   | Security scanning                                    |
 | `performance` | 5   | Performance profiling                                |
-| `plugins`     | 5   | Plugin management                                    |
+
 | `deployment`  | 5   | Deployment management                                |
 | `embeddings`  | 4   | Vector embeddings                                    |
 | `claims`      | 4   | Claims-based authorization                           |
@@ -288,7 +288,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 
 ## Project Configuration (Anti-Drift Defaults)
 
-Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: hybrid (SQLite + AgentDB) | HNSW: pure-JS via AgentDB.
+Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: hybrid (SQLite + LanceDB) | HNSW: pure-JS via LanceDB.
 
 ## Quick Setup
 
@@ -321,18 +321,6 @@ cd ../../.. && npm publish --tag latest
 npm view @monoes/monomindcli dist-tags --json
 npm view monomind dist-tags --json
 ```
-
-## Plugins
-
-Distributed via IPFS/Pinata. Registry CID in `packages/@monomind/cli/src/plugins/store/discovery.ts`.
-
-```bash
-npx monomind@latest plugins list      # Browse available
-npx monomind@latest plugins install @monomind/plugin-name
-npx monomind@latest plugins create my-plugin  # Development
-```
-
-See CLAUDE.local.md for registry maintenance procedures.
 
 ## Support
 

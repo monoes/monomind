@@ -12,8 +12,6 @@ export { systemTools } from './system-tools.js';
 export { neuralTools } from './neural-tools.js';
 export { performanceTools } from './performance-tools.js';
 export { githubTools } from './github-tools.js';
-// Phase 6: AgentDB v1 controller tools
-export { agentdbTools } from './agentdb-tools.js';
 export { memoryTools } from './memory-tools.js';
 export { configTools } from './config-tools.js';
 export { hooksTools } from './hooks-tools.js';

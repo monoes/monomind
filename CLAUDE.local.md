@@ -11,19 +11,6 @@ MONOMIND_MCP_PORT=3000
 MONOMIND_MCP_TRANSPORT=stdio
 ```
 
-## Plugin Registry Maintenance (IPFS/Pinata)
-
-Registry CID stored in: `packages/@monomind/cli/src/plugins/store/discovery.ts`
-Gateway: `https://gateway.pinata.cloud/ipfs/{CID}`
-
-Steps to add a plugin:
-1. Fetch current registry: `curl -s "https://gateway.pinata.cloud/ipfs/$(grep LIVE_REGISTRY_CID packages/@monomind/cli/src/plugins/store/discovery.ts | cut -d"'" -f2)" > /tmp/registry.json`
-2. Add plugin entry to `plugins` array, increment `totalPlugins`, update category counts
-3. Upload: `curl -X POST "https://api.pinata.cloud/pinning/pinJSONToIPFS" -H "Authorization: Bearer $PINATA_JWT" -H "Content-Type: application/json" -d @/tmp/registry.json`
-4. Update `LIVE_REGISTRY_CID` in discovery.ts and the `demoPluginRegistry` fallback
-
-Security: NEVER hardcode API keys. Source from .env at runtime. NEVER commit .env.
-
 ## Doctor Health Checks
 
 `npx monomind@latest doctor` checks: Node 20+, npm 9+, git, config, daemon, memory DB, API keys, MCP servers, disk space, TypeScript.
@@ -40,4 +27,4 @@ npx monomind@latest hooks worker list
 
 ## Intelligence System
 
-Trajectory + outcome logging (`intelligence.ts`); keyword routing (`createKeywordRouter`) with route-outcome correlation measured by `doctor`. Memory search uses pure-JS HNSW via AgentDB.
+Trajectory + outcome logging (`intelligence.ts`); keyword routing (`createKeywordRouter`) with route-outcome correlation measured by `doctor`. Memory search uses pure-JS HNSW via LanceDB.

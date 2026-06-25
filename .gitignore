@@ -250,6 +250,6 @@ target/
 .playwright-mcp/
 GRAPH_REPORT.md
 
-# AgentDB / ruvector runtime database files
+# LanceDB runtime database files
 *.rvf
 *.rvf.lock

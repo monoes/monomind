@@ -25,7 +25,7 @@
   <rect x="32" y="100" width="260" height="52" rx="8" fill="oklch(65% 0.16 295 / 0.10)"/>
   <text x="48" y="122" class="tier-label" fill="oklch(65% 0.16 295)">Long-term</text>
   <text x="48" y="140" class="tier-desc">Persistent patterns · cross-session</text>
-  <text x="452" y="131" class="tier-val" fill="oklch(65% 0.16 295)">AgentDB + HNSW</text>
+  <text x="452" y="131" class="tier-val" fill="oklch(65% 0.16 295)">LanceDB + ANN</text>
 
   <!-- L2 contextual -->
   <rect x="32" y="164" width="536" height="52" rx="8" fill="oklch(70% 0.18 60 / 0.07)" stroke="oklch(70% 0.18 60)" stroke-opacity="0.4" stroke-width="1"/>

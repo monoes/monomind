@@ -396,13 +396,13 @@ const wizardCommand: Command = {
             message: 'Select skill sets:',
             options: [
               { value: 'core', label: 'Core', hint: 'Swarm, memory, SPARC skills', selected: true },
-              { value: 'agentdb', label: 'AgentDB', hint: 'Vector database skills', selected: true },
+              { value: 'memory', label: 'Memory (LanceDB)', hint: 'Vector database skills', selected: true },
               { value: 'github', label: 'GitHub', hint: 'GitHub integration skills', selected: true },
             ],
           });
 
           options.skills.core = skillSets.includes('core');
-          options.skills.agentdb = skillSets.includes('agentdb');
+          options.skills.memory = skillSets.includes('memory');
           options.skills.github = skillSets.includes('github');
         }
 
@@ -457,8 +457,8 @@ const wizardCommand: Command = {
       const memoryBackend = await select({
         message: 'Select memory backend:',
         options: [
-          { value: 'hybrid', label: 'Hybrid', hint: 'SQLite + AgentDB (recommended)' },
-          { value: 'agentdb', label: 'AgentDB', hint: '150x faster vector search' },
+          { value: 'hybrid', label: 'Hybrid', hint: 'SQLite + LanceDB (recommended)' },
+          { value: 'lancedb', label: 'LanceDB', hint: '150x faster vector search' },
           { value: 'sqlite', label: 'SQLite', hint: 'Standard SQL storage' },
           { value: 'memory', label: 'In-Memory', hint: 'Fast but non-persistent' },
         ],
@@ -466,7 +466,7 @@ const wizardCommand: Command = {
       options.runtime.memoryBackend = memoryBackend as InitOptions['runtime']['memoryBackend'];
 
       // HNSW indexing
-      if (memoryBackend === 'agentdb' || memoryBackend === 'hybrid') {
+      if (memoryBackend === 'lancedb' || memoryBackend === 'hybrid') {
         const enableHNSW = await confirm({
           message: 'Enable HNSW indexing for faster vector search?',
           default: true,
@@ -482,7 +482,7 @@ const wizardCommand: Command = {
       options.runtime.enableNeural = enableNeural;
 
       // ADR-049: Self-Learning Memory capabilities
-      if (memoryBackend === 'agentdb' || memoryBackend === 'hybrid') {
+      if (memoryBackend === 'lancedb' || memoryBackend === 'hybrid') {
         const enableSelfLearning = await confirm({
           message: 'Enable self-learning memory? (LearningBridge + Knowledge Graph + Agent Scopes)',
           default: true,
@@ -660,7 +660,7 @@ const skillsCommand: Command = {
   options: [
     { name: 'all', description: 'Install all skills', type: 'boolean', default: false },
     { name: 'core', description: 'Install core skills', type: 'boolean', default: true },
-    { name: 'agentdb', description: 'Install AgentDB skills', type: 'boolean', default: false },
+    { name: 'memory', description: 'Install memory skills', type: 'boolean', default: false },
     { name: 'github', description: 'Install GitHub skills', type: 'boolean', default: false },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -683,7 +683,7 @@ const skillsCommand: Command = {
       skills: {
         all: ctx.flags.all as boolean,
         core: ctx.flags.core as boolean,
-        agentdb: ctx.flags.agentdb as boolean,
+        memory: ctx.flags.memory as boolean,
         github: ctx.flags.github as boolean,
         browser: false,
         advanced: false,

@@ -66,7 +66,7 @@ flowchart TD
     R["Reviewer"]
     M["Growth Marketer"]
     BOARD[("Shared\nTask Board")]
-    MEM[("AgentDB\nMemory")]
+    MEM[("LanceDB\nMemory")]
 
     U --> CO --> RO --> BOSS
     BOSS -->|spawns| W
@@ -126,7 +126,7 @@ Type "go" to save, or describe changes.
 | **Boss agent** | Coordinator type, no supervisor — owns the goal |
 | **Role agents** | Spawned on demand, specialized by task type |
 | **Task board** | Todo → Doing → Done, shared across all agents |
-| **Memory** | All output stored in org-scoped AgentDB namespace |
+| **Memory** | All output stored in org-scoped LanceDB namespace |
 | **Checkpoint** | State saved every 30 min — survives crashes and restarts |
 | **Governance** | `auto` (free), `board` (approve sensitive), `strict` (approve all external actions) |
 
@@ -221,13 +221,13 @@ Open Claude Code. You now have 80+ slash commands available:
 
 ## 🧠 Memory That Persists
 
-Every session, every agent, every org writes to **AgentDB** — a hybrid SQLite + HNSW vector store that survives across sessions. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
+Every session, every agent, every org writes to **LanceDB** — a hybrid SQLite + HNSW vector store that survives across sessions. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
 
 ```mermaid
 graph TD
     L0["L0 - In-flight\nCurrent session drawers\nephemeral"]
     L1["L1 - Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
-    L2["L2 - Long-term\nAgentDB + HNSW index\nSemantic search"]
+    L2["L2 - Long-term\nLanceDB + HNSW index\nSemantic search"]
     L3["L3 - Shared\nCross-agent namespace\nFederated swarm reads"]
 
     L0 -->|promoted| L1 --> L2 --> L3
@@ -275,7 +275,7 @@ flowchart LR
     H --> I["route\nlearn\nbuild-agents"]
     H --> T["teammate-idle\ntask-completed"]
 
-    I --> DB[("AgentDB\npatterns.json")]
+    I --> DB[("LanceDB\npatterns.json")]
     DB -->|next session| CE
 ```
 
@@ -358,7 +358,7 @@ graph TD
     CC <-->|"23 tools: monograph, memory, swarm"| MCP
     MCP <--> D
 
-    D --> ADB[("AgentDB\nSQLite + HNSW")]
+    D --> ADB[("LanceDB\nSQLite + HNSW")]
     D --> MG[("Monograph\ncode graph")]
     D --> HK["Hooks\n22 event types"]
     D --> SW["Swarm\n6 topologies\n5 consensus algos"]

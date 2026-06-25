@@ -250,7 +250,7 @@ monomind hooks metrics --traces    # list execution traces
 
 `ObservabilityBus` with three sinks:
 - `CLISink` — terminal output
-- `AgentDBSink` — persists to memory
+- `LanceDBSink` — persists to memory
 - `OTelSink` — OpenTelemetry export
 
 ### Cost Tracking

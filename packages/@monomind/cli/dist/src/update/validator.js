@@ -35,9 +35,7 @@ function isSafePackageName(p) {
 }
 // Known compatibility matrix between monomind packages
 const COMPATIBILITY_MATRIX = {
-    '@monomind/cli': {
-        '@monomind/security': { minVersion: '3.0.0-alpha.1' },
-    },
+    '@monomind/cli': {},
     '@monoes/monomindcli': {
         'monofence-ai': { minVersion: '1.0.0' },
     },

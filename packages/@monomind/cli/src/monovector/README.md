@@ -81,4 +81,4 @@ const classifier = createDiffClassifier();
 All outcome records are plain JSON files under the project's `.monomind` base
 directory — there is no vector database, no embedding store, and no quantized weight
 file in the lean build. Semantic memory search is provided separately by
-`@monomind/memory` (pure-JS HNSW via AgentDB).
+`@monomind/memory` (pure-JS HNSW via LanceDB).

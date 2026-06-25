@@ -271,7 +271,7 @@ const initCommand = {
             output.writeln(output.dim('  Initializing memory namespace...'));
             output.writeln(output.dim('  Setting up communication channels...'));
             if (v1Mode) {
-                output.writeln(output.dim('  Configuring AgentDB integration (pure-JS HNSW)...'));
+                output.writeln(output.dim('  Configuring LanceDB integration (ANN)....'));
                 output.writeln(output.dim('  Initializing keyword routing + outcome measurement...'));
             }
             output.writeln();
