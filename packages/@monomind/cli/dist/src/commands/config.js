@@ -146,7 +146,7 @@ const setCommand = {
     ],
     examples: [
         { command: 'monomind config set swarm.maxAgents 20', description: 'Set max agents' },
-        { command: 'monomind config set -k memory.backend -v agentdb', description: 'Set memory backend' }
+        { command: 'monomind config set -k memory.backend -v lancedb', description: 'Set memory backend' }
     ],
     action: async (ctx) => {
         const key = (ctx.flags.key || ctx.args[0] || '').slice(0, 256);

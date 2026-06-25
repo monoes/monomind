@@ -12,7 +12,7 @@ import { output } from '../output.js';
 const TOP_LEVEL_COMMANDS = [
   'swarm', 'agent', 'task', 'session', 'config', 'memory', 'workflow',
   'hive-mind', 'hooks', 'daemon', 'neural', 'security', 'performance',
-  'providers', 'plugins', 'deployment', 'claims', 'embeddings',
+  'providers', 'deployment', 'claims', 'embeddings',
   'doctor', 'completions', 'help', 'version'
 ];
 
@@ -91,10 +91,6 @@ _monomind_completions() {
             COMPREPLY=( $(compgen -W "benchmark profile metrics optimize bottleneck" -- "\${cur}") )
             return 0
             ;;
-        plugins)
-            COMPREPLY=( $(compgen -W "list install uninstall toggle info create" -- "\${cur}") )
-            return 0
-            ;;
         deployment|deploy)
             COMPREPLY=( $(compgen -W "deploy status rollback history environments logs" -- "\${cur}") )
             return 0
@@ -149,7 +145,7 @@ _monomind() {
         'task:Task creation and management'
         'session:Session management'
         'config:Configuration management'
-        'memory:Memory operations with AgentDB'
+        'memory:Memory operations with LanceDB'
         'workflow:Workflow automation'
         'hive-mind:Queen-led consensus coordination'
         'hooks:Self-learning automation hooks'
@@ -158,7 +154,6 @@ _monomind() {
         'security:Security scanning and CVE detection'
         'performance:Performance profiling'
         'providers:AI provider management'
-        'plugins:Plugin management'
         'deployment:Deployment management'
         'claims:Claims-based authorization'
         'embeddings:Vector embeddings'
@@ -284,16 +279,6 @@ _monomind() {
                         'bottleneck:Find bottlenecks'
                     )
                     ;;
-                plugins)
-                    subcommands=(
-                        'list:List plugins'
-                        'install:Install plugin'
-                        'uninstall:Remove plugin'
-                        'toggle:Enable/disable'
-                        'info:Plugin details'
-                        'create:Scaffold plugin'
-                    )
-                    ;;
                 deployment|deploy)
                     subcommands=(
                         'deploy:Deploy to environment'
@@ -391,9 +376,6 @@ complete -c monomind -n "__fish_seen_subcommand_from security" -a "scan cve thre
 # Performance subcommands
 complete -c monomind -n "__fish_seen_subcommand_from performance" -a "benchmark profile metrics optimize bottleneck"
 
-# Plugins subcommands
-complete -c monomind -n "__fish_seen_subcommand_from plugins" -a "list install uninstall toggle info create"
-
 # Deployment subcommands
 complete -c monomind -n "__fish_seen_subcommand_from deployment deploy" -a "deploy status rollback history environments logs"
 
@@ -432,7 +414,6 @@ $script:SubCommands = @{
     'neural' = @('train', 'status', 'patterns', 'predict', 'optimize')
     'security' = @('scan', 'cve', 'threats', 'audit', 'secrets')
     'performance' = @('benchmark', 'profile', 'metrics', 'optimize', 'bottleneck')
-    'plugins' = @('list', 'install', 'uninstall', 'toggle', 'info', 'create')
     'deployment' = @('deploy', 'status', 'rollback', 'history', 'environments', 'logs')
     'deploy' = @('deploy', 'status', 'rollback', 'history', 'environments', 'logs')
     'claims' = @('list', 'check', 'grant', 'revoke', 'roles', 'policies')

@@ -4,6 +4,7 @@
 > **Scope:** Org lifecycle state, LIVE EVENTS / Chat tab, hook-based event capture  
 > **Replaces:** Current curl-push + TTL + SSE architecture in `server.mjs` / `orgs.html` / `capture-handler.cjs`
 > **All open questions resolved as of 2026-06-23. No blocking unknowns remain for Phase 1.**
+> **Last updated:** 2026-06-25 — Section 12 revised: compose bar fix moved from orgs.html (wrong) to dashboard.html (correct); user:message rendering, send-button enable/disable, event persistence explanation added.
 
 ---
 
@@ -263,55 +264,45 @@ Export API can still produce JSONL for external consumers.
 
 ---
 
-### Issue 3 — active-run.json is a single slot
+### Issue 3 — active-run.json is a single slot (RESOLVED 2026-06-25)
 
 **Severity:** Critical  
 **Impact:** If two orgs start before either completes, the second org:start overwrites
 `active-run.json`. All hook events from the first org's still-running subagents get
-misattributed to the second org. Tool events, agent events, and usage data are poisoned.
+misattributed to the second org.
 
-**Resolution:**  
-Replace the single-file approach with a registry keyed by the parent Claude Code process.
+**Resolution — ppid-keyed registry (implemented):**
 
 ```
 .monomind/capture/active-runs/
   {ppid}.json    ← one file per active Claude Code session (keyed by parent PID)
 ```
 
-capture-handler resolves which org it belongs to by reading the file for its `process.ppid`.
-On org:complete, delete `{ppid}.json`.
+capture-handler reads `active-runs/{process.ppid}.json` first. On the first SubagentStart
+it writes the file using data from the single-slot `active-run.json` (bootstrap). Cleanup
+on org:complete: server deletes all ppid files whose `org` field matches the completed org.
 
-**Key insight (empirically verified 2026-06-23):** `CLAUDE_SESSION_ID` is NOT set in hook
-processes, so ppid is the only viable discriminator. Crucially, for multi-org attribution,
-ppid DOES work: each Claude Code session has a unique PID (verified: 6059, 78648, 85539, etc.
-all running concurrently), so hooks from Session A (`ppid = 6059`) and hooks from Session B
-(`ppid = 9999`) naturally resolve to different active-run files. Boss/member discrimination
-within a single session is NOT needed here — we only need to distinguish sessions.
+**Bootstrap race fix (2026-06-25):** The single-slot `active-run.json` is needed for
+bootstrap (server writes it on org:start; first SubagentStart reads it to seed the ppid file).
+But if two orgs start concurrently, the second org:start overwrites the slot before the first
+org's SubagentStart fires — hook reads wrong org data.
 
-```javascript
-function getActiveRunFile() {
-  // ppid = the Claude Code process that spawned this hook — unique per session
-  return path.join(captureDir, 'active-runs', `${process.ppid}.json`);
-}
-```
-
-**Bootstrap (writing the active-run file):** The `ppid` is only available inside the hook
-process, not in the curl from runorg.md. Therefore the active-run file must be written by
-capture-handler on `SubagentStart` using its own `process.ppid`, not by the server on org:start.
-The org:start curl tells the server which org/runId is active; capture-handler writes the
-ppid-keyed file on its first SubagentStart:
+Fix in `getActiveRun()` in `capture-handler.cjs`:
 
 ```javascript
-// In capture-handler.cjs handleSubagentStart:
-const runFile = path.join(captureDir, 'active-runs', `${process.ppid}.json`);
-if (!fs.existsSync(runFile) && activeRun) {
-  fs.writeFileSync(runFile, JSON.stringify({ ...activeRun, ppid: process.ppid }));
-}
+// 1. ppid file exists but corrupt → return null (not fall-through to wrong-org slot)
+} catch { return null; }
+
+// 2. Bootstrap: only trust active-run.json when NO other ppid files exist.
+//    If another org already has a ppid file, the single-slot belongs to it.
+const ppidDir = path.join(CAPTURE_DIR, 'active-runs');
+if (fs.existsSync(ppidDir) && fs.readdirSync(ppidDir).some(f => f.endsWith('.json'))) return null;
+// safe single-org bootstrap path continues below
 ```
 
-**Bootstrap race:** If two orgs start and both reach SubagentStart before either writes
-its ppid file, each correctly writes its own `{ppid}.json` (different ppid = different file).
-No collision is possible — each session has a unique ppid and writes only its own file.
+Worst case with the fix: in a two-org bootstrap race, the second-starting org's first
+SubagentStart emits an unattributed event (to the DLQ) until its ppid file is written.
+This is far safer than permanent cross-org misattribution.
 
 ---
 
@@ -671,6 +662,8 @@ runner), so it remains the primary source — `MONOMIND_HOME` discovery is the s
 | orgRunsDir uses _getGitMonomindDir | Correct path for loop orgs | Watcher architecture not yet built |
 | orgs.html historical events fetch | LIVE EVENTS populated on org select | Not streamed, point-in-time only |
 | session:start emitted before org:start in runorg.md | Creates session record; writes active-session.json; all subsequent capture-handler events tagged with sessionId; chat tab populates | — |
+| activeOrgRuns Map is SQLite-backed (not primary source of truth) | Gap-fill on startup repopulates Map from SQLite; file watcher keeps it in sync. Server restart no longer loses state. Map is a write-through cache, consistent with SQLite. | — |
+| Issue 3 bootstrap race fixed (2026-06-25) | `getActiveRun()` catch block now returns null instead of falling through to wrong-org slot; multi-org guard added before single-slot bootstrap read | — |
 | capture-handler: synthetic session fallback (Issue 19) | If session:start never fires, synthesizes `auto-{org}-{runId}` session so agent events are always attributed; eliminates LLM-compliance dependency for Chat tab | Synthetic sessions show no prompt text (session:start carries it) |
 | capture-handler: init auto-wiring (Issue 18) | `monomind init` now writes capture-handler to SubagentStart/SubagentStop in generated settings.json; all new projects get telemetry automatically | Existing projects (pre-fix) need manual update |
 | Event type validation in server.mjs (Issue 17) | Prefix-based regex `/^[a-z][a-z0-9-]*:[a-z][a-z0-9:-]*$/` rejects injections, accepts all current and future scope:action types without whitelist maintenance | — |
@@ -996,3 +989,272 @@ instead of `better-sqlite3`. The WASM build is already a dependency of `@monomin
 
 If `sql.js` proves too slow for sequential appends (unlikely at <10k events/run), escalate
 to `better-sqlite3` with a documented build requirement.
+
+---
+
+## 10. Fixes Applied 2026-06-24
+
+### Issue 20 — Dashboard client-side filter silently drops Chat events (FIXED)
+
+**Severity: Critical — users saw "No displayable events" despite events arriving**
+
+The `_odtAppendEvent` function in `dashboard.html` gates rendering on two sets:
+`_isSummaryType` and `_isDetailedType`. Events not present in the active mode's set are
+silently discarded on the client — they never appear in the Chat tab regardless of server
+delivery.
+
+**Root cause:** The original sets were written when only bare agent/org lifecycle events
+existed. As runorg.md evolved to emit `session:start`, `session:complete`, `domain:dispatch`,
+`domain:complete`, and `loop:*` events, none of those types were added to the filter sets.
+Every one of them was silently dropped at the client.
+
+**Symptom:** A live org run produced events visible in LIVE EVENTS strip (SSE push, which
+has no filter) but the Chat tab showed "No displayable events" while the run was active.
+
+**Fix applied (`packages/@monomind/cli/dist/src/ui/dashboard.html`, `_odtAppendEvent`):**
+
+```javascript
+// BEFORE:
+const _isSummaryType = _evType === 'agent:spawn' || ... || _evType === 'org:stop';
+const _isDetailedType = _isSummaryType || ... || _evType === 'org:agent:online';
+
+// AFTER:
+const _isSummaryType = _evType === 'agent:spawn' || ... || _evType === 'org:stop' ||
+    _evType === 'session:start' || _evType === 'session:complete';
+const _isDetailedType = _isSummaryType || ... || _evType === 'org:agent:online' ||
+    _evType === 'domain:dispatch' || _evType === 'domain:complete' ||
+    _evType === 'loop:start' || _evType === 'loop:complete' || _evType === 'loop:tick' ||
+    _evType === 'loop:hil' || _evType === 'loop:hil:waiting' || _evType === 'loop:hil:resolved';
+```
+
+**Maintenance rule:** Whenever a new event type is emitted by runorg.md, boss, or any org
+participant, it MUST be added to one of these two sets or it will be silently dropped.
+The correct long-term fix is to invert the logic: show all events by default in Detailed/Raw
+mode and only suppress known noise types (agent:read, etc.) — whitelist suppression instead
+of whitelist display. See also FA-3 in Section 11.
+
+**Files changed:**
+- `packages/@monomind/cli/dist/src/ui/dashboard.html`
+- `/opt/homebrew/lib/node_modules/monomind/packages/@monomind/cli/dist/src/ui/dashboard.html` (global install sync)
+
+---
+
+### Issue 21 — stdout truncation loses runId before boss spawn; no [R] run sessions (FIXED)
+
+**Severity: Critical — boss ran without runId, no [R] run sessions ever appeared in SESSION dropdown**
+
+**Root cause:** Claude Code's bash tool collapses long output (shows "+17 lines" when output
+exceeds ~40 lines). The runorg.md Step 2 script printed `ORG_VARS` at the end of a long block
+that also printed curl responses, jq output, and debug info. Claude Code truncated this output,
+so the values of `runId`, `sessionId`, and `runFile` were never visible to Claude Code before
+Step 4 attempted to reference them as `{{runId}}` template substitutions.
+
+**Effect chain:**
+1. Step 4 substituted empty strings for `{{runId}}`/`{{sessionId}}`/`{{runFile}}`
+2. Boss DASHBOARD EVENT HELPER evaluated to empty shell variables
+3. Boss emitted events with empty `runId` field
+4. Server's `POST /api/mastermind/event` only creates `.monomind/orgs/{org}/runs/{runId}.jsonl`
+   when both `org` AND `runId` are non-empty
+5. No run file was ever created → `/api/org/:name/runs` returned empty array → SESSION dropdown
+   had no `[R]` entry
+
+**Fix Part 1 — context file in runorg.md (Step 2):**
+
+Write all ORG_VARS to disk instead of relying on stdout capture across the bash→Task boundary:
+
+```bash
+contextFile="${REPO_ROOT}/.monomind/orgs/${orgName}-runcontext.json"
+jq -cn \
+  --arg runId "$runId" --arg sessionId "$sessionId" --arg orgName "$orgName" \
+  --arg goal "$goal" --arg runFile "$runFile" --arg MONO_DIR "$MONO_DIR" \
+  --arg CTRL_URL "$CTRL_URL" --arg REPO_ROOT "$REPO_ROOT" \
+  '{runId:$runId,sessionId:$sessionId,orgName:$orgName,goal:$goal,
+    runFile:$runFile,MONO_DIR:$MONO_DIR,CTRL_URL:$CTRL_URL,
+    REPO_ROOT:$REPO_ROOT,startedAt:(now|todate)}' \
+  > "$contextFile"
+echo "CONTEXT_FILE=${contextFile}"
+```
+
+**Fix Part 2 — boss reads context file at startup:**
+
+Changed DASHBOARD EVENT HELPER in boss prompt to source from the context file instead of
+injected template literals:
+
+```bash
+_ctx="$REPO_ROOT/.monomind/orgs/${orgName}-runcontext.json"
+runId=$(jq -r '.runId // ""' "$_ctx" 2>/dev/null)
+sessionId=$(jq -r '.sessionId // ""' "$_ctx" 2>/dev/null)
+CTRL_URL=$(jq -r '.CTRL_URL // "http://localhost:4242"' "$_ctx" 2>/dev/null || \
+           jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || \
+           echo "http://localhost:4242")
+```
+
+Step 4 instruction updated: "Do NOT inject runId, sessionId, or runFile — boss reads from
+context file." This eliminates the dependency on stdout parsing across the bash→Task boundary.
+
+**Fix Part 3 — server threads fallback (rescues orgs with only threads files, no run files):**
+
+Added to `GET /api/org/:name/runs` in `server.mjs`: if no run files exist for the org,
+look for `.monomind/orgs/${orgName}-threads.jsonl` and synthesize a virtual run entry:
+
+```javascript
+if (runs.length === 0) {
+  for (const _rpd of _rProjDirs) {
+    const _tf = path.join(_rpd, '.monomind', 'orgs', `${_rOrgName}-threads.jsonl`);
+    if (!fs.existsSync(_tf)) continue;
+    // parse events, compute timestamps
+    runs.push({ id: `threads-${_rOrgName}`, orgName: _rOrgName, goal: `${_rOrgName} threads`,
+      status: 'complete', startedAt: _firstTs, endedAt: _lastTs,
+      eventCount: _tEvs.length, _threadsFile: _tf });
+    break;
+  }
+}
+```
+
+Added corresponding handler in `GET /api/org/:name/runs/:runId` when runId is
+`threads-${orgName}`: reads the threads JSONL and maps each entry to `org:comms` events.
+
+**Files changed:**
+- `packages/@monomind/cli/.claude/skills/mastermind/runorg.md`
+- `packages/@monomind/cli/dist/src/ui/server.mjs`
+- `/opt/homebrew/lib/node_modules/monomind/packages/@monomind/cli/dist/src/ui/server.mjs` (global install sync)
+- `/opt/homebrew/lib/node_modules/monomind/.claude/skills/mastermind/runorg.md` (global install sync)
+
+**Invariant going forward:** Never pass runId/sessionId/runFile from bash Step 2 to the
+boss Task prompt via template substitution. Always write to disk and read from disk.
+Stdout across a bash→Task boundary is unreliable — Claude Code truncates it.
+
+---
+
+## 11. Failed Approaches — Do Not Repeat
+
+### FA-1: ORG_VARS stdout parsing across bash→Task boundary
+
+**What was tried:** Printing `runId=<value>` / `ORG_VARS:` block to stdout in Step 2,
+then reading these values in the Step 4 Task instruction via `{{runId}}` template substitution.
+
+**Why it failed:** Claude Code collapses long bash output (+17 lines shown as ellipsis).
+Any block that also prints curl responses, jq output, or debug info before the ORG_VARS
+will push the values past the visible window. The template substitution received empty strings.
+
+**Do not re-attempt:** Even reducing Step 2 output volume is fragile — the truncation
+threshold is undocumented and may change. The context file pattern (Issue 21 Fix Part 1)
+is the correct solution: write to disk, read from disk.
+
+### FA-2: Template literal injection of runId into boss prompt
+
+**What was tried:** Injecting `runId`, `sessionId`, and `runFile` as literal values into
+the Step 4 Task `prompt:` string so the boss would have them available as shell variables.
+
+**Why it failed:** Depends on Step 2 stdout making it to the template engine (see FA-1).
+Also brittle against any change to the Step 2 script structure.
+
+**Do not re-attempt:** The context file at `.monomind/orgs/${orgName}-runcontext.json` is
+the explicit handoff mechanism between Step 2 and the boss. Boss reads it at startup.
+
+### FA-3: Whitelist-based event type display filter in dashboard
+
+**What was tried:** Maintaining an explicit set of allowed event type strings in
+`_isSummaryType` / `_isDetailedType` in `_odtAppendEvent`.
+
+**Why it fails repeatedly:** Every time a new event type is introduced in runorg.md or the
+boss prompt, it must also be added to the dashboard filter sets or it is silently dropped.
+This coupling has caused "No displayable events" bugs multiple times.
+
+**Preferred direction:** Invert the filter — display all event types by default in
+Detailed/Raw mode; only suppress known noise types (e.g. `agent:read`) explicitly.
+New event types become visible automatically without any dashboard change.
+
+### FA-4: Relying on CLAUDE_SESSION_ID or CLAUDE_CODE_AGENT_ROLE in hook processes
+
+**What was tried (and empirically tested 2026-06-23):** Using `CLAUDE_SESSION_ID` or
+`CLAUDE_CODE_AGENT_ROLE` env vars in `capture-handler.cjs` to identify which session or
+agent role a hook belongs to.
+
+**Why it fails:** Both env vars are **not set** in hook processes. `process.ppid` is
+identical for boss and member hooks — hooks are children of Claude Code, not of the
+boss agent. See Issue 16 (Section 8) and empirical test in Section 7.
+
+**Do not re-attempt until:** Claude Code exposes a discriminating identity value in the
+hook environment (e.g. a `BossStop` hook type or a `CLAUDE_CODE_AGENT_ROLE` env var set
+to `"orchestrator"` for the top-level agent).
+
+---
+
+## 12. Org Chat — User Input (Fixed 2026-06-25)
+
+### Problem
+
+The Chat tab on the Org panel was read-only. It displayed agent `org:comms` events but had no
+input field — users could not send messages to a running org. After a run completed or the server
+restarted, previously-visible live events disappeared and the history selector showed only an
+unrelated "auto-run · 0cyc · 1ev" stub.
+
+### Root cause
+
+**Wrong file was edited first.** The project has two UIs:
+- `dist/src/ui/orgs.html` — standalone `/orgs` route, rarely used
+- `dist/src/ui/dashboard.html` — the actual monomind dashboard at `localhost:4242` (13 986 lines)
+
+Initial fixes went to `orgs.html`. The user confirmed nothing changed because they view `dashboard.html`.
+
+**In `dashboard.html`:** `v2RenderOrgChat()` builds `pane.innerHTML` with a session selector, mode
+buttons, and `#odt-chat-feed`, but **no compose textarea or SEND button** anywhere in the template.
+
+### Fix
+
+**`dist/src/ui/dashboard.html`** (the actual file the user sees):
+
+*CSS (lines ~343–350):*
+- `#odt-chat-compose` — flex row, flex-shrink:0 (stays below the scrollable feed)
+- `#odt-chat-input` — monospace textarea, max-height:80px, accent border on focus
+- `#odt-chat-send-btn` — disabled state, accent hover
+- `.cv-user-msg` / `.cv-user-msg .cv-bub` — right-aligned bubble with right accent border
+
+*HTML template in `v2RenderOrgChat()` `pane.innerHTML` (line ~7258):*
+```html
+<div id="odt-chat-compose">
+  <textarea id="odt-chat-input" …onkeydown="Enter → odtSendChatMessage()"></textarea>
+  <button id="odt-chat-send-btn" disabled>SEND</button>
+</div>
+```
+
+*JS added before `odtChatSelectSession` (line ~7642):*
+- `odtSendChatMessage()` — POSTs `{ text, runId }` to `/api/orgs/:name/chat` via `fetch()`.
+  Restores input text on error; re-enables button in `finally`.
+- `odtChatSelectSession` updated to look up `#odt-chat-send-btn` and enable it when `id` is
+  truthy, disable it when `id` is empty.
+
+*`_odtAppendEvent()` updated:*
+- `user:message` added to `_isSummaryType` — shown in summary/detailed/raw modes.
+- `user:message` render case: calls `mkCVAgent('you', ev.text, ts, 'user:message')` and adds
+  `.cv-user-msg` class for right-aligned styling.
+
+**`dist/src/ui/server.mjs`** (unchanged from prior session):
+- `POST /api/orgs/:name/chat` endpoint added before the 404 handler.
+- Appends `user:message` event to the active run JSONL (persists through restart; lazy-loaded
+  by `odtChatSelectSession` from `/api/org/:name/runs/:runId`).
+- Writes message to `.monomind/orgs/<name>-threads.json` mailbox.
+- Broadcasts via `broadcastMm` + `runStreamClients` SSE so the message appears live in the feed.
+
+### Scope
+
+`dashboard.html` is the only file that matters for the UI users see. The `orgs.html` edits from
+the earlier session are dead weight (standalone `/orgs` route is not used). The fix applies to all
+orgs on all projects — same singleton server and dashboard.html.
+
+### Event persistence after session ends
+
+Completed session events survive via the JSONL run files at
+`.git/monomind/orgs/<name>/runs/<runId>.jsonl`. `odtChatSelectSession` lazy-loads from
+`/api/org/:name/runs/:runId` on first select — events are never lost unless the JSONL itself
+is deleted. The "auto-run" stub that appeared in history was a `user:message` curl test event
+that created a synthetic session in the in-memory store; it had 1 event and 0 cycles, matching
+the "0cyc · 1ev" label the user observed.
+
+### Boss-agent integration (not yet done)
+
+Messages are queued in `<name>-threads.json` but the boss agent's operating loop in
+`runorg.md` does not currently check for them. To close the loop: add a mailbox-check step
+at the top of the boss's OPERATING LOOP that reads `-threads.json`, processes pending
+messages (e.g. updates goal, answers questions), and marks them `status: "processed"`.

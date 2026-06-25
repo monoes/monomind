@@ -302,7 +302,7 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 - **Strategy**: specialized (clear roles)
 - **Consensus**: raft
 - **Memory**: hybrid
-- **HNSW**: Pure-JS via AgentDB
+- **HNSW**: Pure-JS via LanceDB
 - **Routing**: keyword + route-outcomes
 
 ## 🚀 CLI Commands (41 Commands)
@@ -314,7 +314,7 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 | `init`      | 4           | Project initialization with wizard, presets, skills, hooks               |
 | `agent`     | 8           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health, logs) |
 | `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         |
-| `memory`    | 11          | AgentDB memory with pure-JS HNSW vector search                           |
+| `memory`    | 11          | LanceDB memory with pure-JS HNSW vector search                           |
 | `mcp`       | 9           | MCP server management and tool execution                                 |
 | `task`      | 6           | Task creation, assignment, and lifecycle                                 |
 | `session`   | 7           | Session state management and persistence                                 |
@@ -524,7 +524,7 @@ The lean build records what happens and measures whether routing helped — no n
 - **Route-outcome measurement**: correlates recommended routes with actual outcomes; accuracy/adherence surfaced by `doctor`
 - **Trajectory + outcome logging**: `intelligence.ts` records steps/trajectories; `command-outcomes.ts` tracks command results
 - **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
-- **HNSW**: pure-JS approximate nearest-neighbor via AgentDB / `@monomind/memory`
+- **HNSW**: pure-JS approximate nearest-neighbor via LanceDB / `@monomind/memory`
 
 > The full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA) lives on the `monoes-full-loop` branch.
 
@@ -729,7 +729,7 @@ This includes:
 - All 27 hooks + 12 background workers
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
-- Integration ecosystem (agentic-flow, agentdb, ruv-swarm,  agentic-jujutsu)
+- Integration ecosystem (agentic-flow, lancedb, ruv-swarm,  agentic-jujutsu)
 - Performance targets and status
 
 ## Support

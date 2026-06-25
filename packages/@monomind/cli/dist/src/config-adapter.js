@@ -30,8 +30,8 @@ export function systemConfigToMonomindConfig(systemConfig) {
             backend: normalizeMemoryBackend(systemConfig.memory?.type),
             persistPath: systemConfig.memory?.path || './data/memory',
             cacheSize: systemConfig.memory?.maxSize ?? 1000000,
-            enableHNSW: systemConfig.memory?.agentdb?.indexType === 'hnsw',
-            vectorDimension: systemConfig.memory?.agentdb?.dimensions ?? 384, // Match all-MiniLM-L6-v2 output (#1395 Bug 5)
+            enableHNSW: systemConfig.memory?.lancedb?.indexType === 'ann',
+            vectorDimension: systemConfig.memory?.lancedb?.dimensions ?? 384,
         },
         // MCP configuration
         mcp: {
@@ -114,12 +114,10 @@ export function configToSystemConfig(config) {
             type: denormalizeMemoryBackend(config.memory.backend),
             path: config.memory.persistPath,
             maxSize: config.memory.cacheSize,
-            agentdb: {
+            lancedb: {
                 dimensions: config.memory.vectorDimension,
-                indexType: config.memory.enableHNSW ? 'hnsw' : 'flat',
-                efConstruction: 200,
-                m: 16,
-                quantization: 'none',
+                indexType: config.memory.enableHNSW ? 'ann' : 'flat',
+                nProbes: 20,
             },
         },
         mcp: {
@@ -182,11 +180,13 @@ function normalizeMemoryBackend(backend) {
     switch (backend) {
         case 'memory':
         case 'sqlite':
-        case 'agentdb':
+        case 'lancedb':
         case 'hybrid':
             return backend;
+        case 'agentdb':
+            return 'lancedb'; // legacy alias
         case 'redis':
-            return 'memory'; // Redis maps to memory for CLI purposes
+            return 'memory';
         default:
             return 'hybrid';
     }

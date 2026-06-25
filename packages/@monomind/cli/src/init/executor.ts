@@ -77,13 +77,13 @@ const SKILLS_MAP: Record<string, string[]> = {
     'hive-mind-advanced',
   ],
   browser: ['agent-browser-testing'],
-  agentdb: [
-    'agentdb-advanced',
-    'agentdb-learning',
-    'agentdb-memory-patterns',
-    'agentdb-optimization',
-    'agentdb-vector-search',
-    'reasoningbank-agentdb',
+  memory: [
+    'memory-advanced',
+    'memory-learning',
+    'memory-patterns',
+    'memory-optimization',
+    'memory-vector-search',
+    'memory-reasoningbank',
     'reasoningbank-intelligence',
   ],
   github: [
@@ -1133,7 +1133,7 @@ async function copySkills(
     Object.values(SKILLS_MAP).forEach(skills => skillsToCopy.push(...skills));
   } else {
     if (skillsConfig.core) skillsToCopy.push(...SKILLS_MAP.core);
-    if (skillsConfig.agentdb) skillsToCopy.push(...SKILLS_MAP.agentdb);
+    if (skillsConfig.memory) skillsToCopy.push(...SKILLS_MAP.memory);
     if (skillsConfig.github) skillsToCopy.push(...SKILLS_MAP.github);
     if (skillsConfig.browser) skillsToCopy.push(...SKILLS_MAP.browser);
     if (skillsConfig.advanced) skillsToCopy.push(...SKILLS_MAP.advanced);
@@ -1544,7 +1544,7 @@ async function writeStatusline(
     }
   }
 
-  // ALWAYS generate statusline.cjs — the generated version includes AgentDB
+  // ALWAYS generate statusline.cjs — the generated version includes
   // vectors/size, tests, ADRs, hooks, and integration stats that the
   // pre-installed static copy in the npm package lacks.
   // This must overwrite any copy from writeHelpers() which copies the legacy file.
@@ -1828,7 +1828,7 @@ async function writeCapabilitiesDoc(
 Monomind is a domain-driven design architecture for multi-agent AI coordination with:
 
 - **15-Agent Swarm Coordination** with hierarchical and mesh topologies
-- **HNSW Vector Search** - pure-JS indexed pattern retrieval via AgentDB
+- **ANN Vector Search** - indexed pattern retrieval via LanceDB
 - **Keyword Routing** - deterministic task→agent routing with outcome measurement
 - **Byzantine Fault Tolerance** - Queen-led consensus mechanisms
 - **MCP Server Integration** - Model Context Protocol support
@@ -1927,7 +1927,7 @@ npx monomind@latest swarm monitor
 | \`init\` | 4 | Project initialization |
 | \`agent\` | 8 | Agent lifecycle management |
 | \`swarm\` | 6 | Multi-agent coordination |
-| \`memory\` | 11 | AgentDB with HNSW search |
+| \`memory\` | 11 | LanceDB with ANN vector search |
 | \`mcp\` | 9 | MCP server management |
 | \`task\` | 6 | Task assignment |
 | \`session\` | 7 | Session persistence |
@@ -1945,7 +1945,7 @@ npx monomind@latest swarm monitor
 | \`security\` | 6 | Security scanning |
 | \`performance\` | 5 | Profiling & benchmarks |
 | \`providers\` | 5 | AI provider config |
-| \`plugins\` | 5 | Plugin management |
+
 | \`deployment\` | 5 | Deploy management |
 | \`embeddings\` | 4 | Vector embeddings |
 | \`claims\` | 4 | Authorization |
@@ -2032,7 +2032,7 @@ npx monomind@latest doctor --fix
 
 ### Intelligence System
 - **Keyword routing**: Deterministic task→agent routing with outcome measurement
-- **HNSW pattern search**: Pure-JS indexed vector search via AgentDB
+- **ANN pattern search**: Indexed vector search via LanceDB
 - **ReasoningBank**: Stores learned patterns and trajectories for retrieval
 - **Int8 Quantization**: ~4x memory reduction for stored embeddings
 
@@ -2117,7 +2117,7 @@ npx monomind@latest hive-mind consensus --propose "task"
 
 | Metric | Target | Status |
 |--------|--------|--------|
-| HNSW Search | Indexed vector search | ✅ Implemented (pure-JS via AgentDB) |
+| ANN Search | Indexed vector search | ✅ Implemented (LanceDB) |
 | Memory Reduction | 50-75% | ✅ Implemented (~4x via Int8 quantization) |
 | Pattern Learning | Recorded + retrievable | ✅ Implemented (ReasoningBank) |
 | MCP Response | <100ms | ✅ Achieved |
@@ -2136,7 +2136,7 @@ npx monomind@latest hive-mind consensus --propose "task"
 | Package | Version | Purpose |
 |---------|---------|---------|
 | agentic-flow | 3.0.0-alpha.1 | Core coordination + ReasoningBank + Router |
-| agentdb | 3.0.0-alpha.10 | Vector database + 8 controllers |
+| @lancedb/lancedb | latest | Vector database (ANN search) |
 
 ### Optional Integrations
 | Package | Command |

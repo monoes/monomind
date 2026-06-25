@@ -2,7 +2,7 @@
  * Tests for HybridBackend (ADR-009)
  *
  * Verifies that the hybrid backend correctly routes queries between
- * SQLite (structured) and AgentDB (semantic) backends.
+ * SQLite (structured) and LanceDB (semantic) backends.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -28,7 +28,7 @@ describe('HybridBackend - ADR-009', () => {
         databasePath: ':memory:', // In-memory for testing
         verbose: false,
       },
-      agentdb: {
+      lancedb: {
         vectorDimension: 128,
       },
       embeddingGenerator: mockEmbedding,
@@ -67,10 +67,10 @@ describe('HybridBackend - ADR-009', () => {
       expect(fromSQLite).toBeDefined();
       expect(fromSQLite?.key).toBe('test-key');
 
-      // Verify in AgentDB
-      const fromAgentDB = await backend.getAgentDBBackend().get(entry.id);
-      expect(fromAgentDB).toBeDefined();
-      expect(fromAgentDB?.key).toBe('test-key');
+      // Verify in memory backend
+      const fromMemory = await backend.getlancedbBackend().get(entry.id);
+      expect(fromMemory).toBeDefined();
+      expect(fromMemory?.key).toBe('test-key');
     });
 
     it('should handle bulk inserts', async () => {
@@ -127,7 +127,7 @@ describe('HybridBackend - ADR-009', () => {
     });
   });
 
-  describe('Semantic Search (AgentDB)', () => {
+  describe('Semantic Search (LanceDB)', () => {
     beforeEach(async () => {
       // Insert test data with semantic content
       await backend.store(
@@ -158,7 +158,7 @@ describe('HybridBackend - ADR-009', () => {
       );
     });
 
-    it('should perform semantic search via AgentDB', async () => {
+    it('should perform semantic search via LanceDB', async () => {
       const results = await backend.querySemantic({
         content: 'authentication security',
         k: 5,
@@ -263,9 +263,9 @@ describe('HybridBackend - ADR-009', () => {
       const fromSQLite = await backend.getSQLiteBackend().get(testEntry.id);
       expect(fromSQLite?.content).toBe('Updated content');
 
-      // Verify in AgentDB
-      const fromAgentDB = await backend.getAgentDBBackend().get(testEntry.id);
-      expect(fromAgentDB?.content).toBe('Updated content');
+      // Verify in memory backend
+      const fromMemory = await backend.getlancedbBackend().get(testEntry.id);
+      expect(fromMemory?.content).toBe('Updated content');
     });
 
     it('should delete entries from both backends', async () => {
@@ -275,8 +275,8 @@ describe('HybridBackend - ADR-009', () => {
       const fromSQLite = await backend.getSQLiteBackend().get(testEntry.id);
       expect(fromSQLite).toBeNull();
 
-      const fromAgentDB = await backend.getAgentDBBackend().get(testEntry.id);
-      expect(fromAgentDB).toBeNull();
+      const fromMemory = await backend.getlancedbBackend().get(testEntry.id);
+      expect(fromMemory).toBeNull();
     });
   });
 
@@ -356,7 +356,7 @@ describe('HybridBackend - ADR-009', () => {
   });
 
   describe('Query Routing', () => {
-    it('should auto-route semantic queries to AgentDB', async () => {
+    it('should auto-route semantic queries to LanceDB', async () => {
       await backend.store(
         createDefaultEntry({
           key: 'route-test',

@@ -3,7 +3,7 @@
  * Properly initializes the memory database with sql.js (WASM SQLite)
  * Includes pattern tables, vector embeddings, migration state tracking
  *
- * ADR-053: Routes through ControllerRegistry → AgentDB v1 when available,
+ * ADR-053: Routes through ControllerRegistry → LanceDB when available,
  * falls back to raw sql.js for backwards compatibility.
  *
  * @module v1/cli/memory-initializer
@@ -15,7 +15,7 @@ import * as path from 'path';
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
 
-// ADR-053: Lazy import of AgentDB v1 bridge
+// ADR-053: Lazy import of LanceDB memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
   if (_bridge === null) return null;
@@ -118,7 +118,7 @@ INSERT OR REPLACE INTO metadata (key, value) VALUES
 -- Create default vector index configuration
 -- Dimensions match BRIDGE_EMBEDDING_DIMS=384 (Xenova/all-MiniLM-L6-v2).
 -- 768 was a legacy value from the agentic-flow era; 384 is the actual
--- embedding size used by memory-bridge.ts and AgentDB v1.
+-- embedding size used by memory-bridge.ts and LanceDB.
 INSERT OR IGNORE INTO vector_indexes (id, name, dimensions) VALUES
   ('default', 'default', 384),
   ('patterns', 'patterns', 384);
@@ -152,14 +152,14 @@ export interface MemoryInitResult {
 }
 
 /**
- * ADR-053: Activate ControllerRegistry so AgentDB v1 controllers
+ * ADR-053: Activate ControllerRegistry so LanceDB controllers
  * (ReasoningBank, SkillLibrary, ExplainableRecall, etc.) are instantiated.
  *
  * Uses the memory-bridge's getControllerRegistry() which lazily creates
  * a singleton ControllerRegistry and initializes it with the given dbPath.
  * After this call, all enabled controllers are ready for immediate use.
  *
- * Failures are isolated: if @monomind/memory or agentdb is not installed,
+ * Failures are isolated: if @monomind/memory or LanceDB is not available,
  * this returns an empty result without throwing.
  */
 async function activateControllerRegistry(

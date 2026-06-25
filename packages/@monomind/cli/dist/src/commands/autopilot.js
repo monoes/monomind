@@ -221,7 +221,7 @@ const learnCommand = {
     action: async (ctx) => {
         const learning = await tryLoadLearning();
         if (!learning) {
-            output.writeln('Learning not available (AgentDB not initialized). Autopilot still works for task completion tracking.');
+            output.writeln('Learning not available (memory backend not initialized). Autopilot still works for task completion tracking.');
             return { success: true };
         }
         const metrics = await learning.getMetrics();

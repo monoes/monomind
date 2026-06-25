@@ -292,12 +292,12 @@ describe('getActiveAgent', () => {
   });
 });
 
-// ── getAgentDBStats ───────────────────────────────────────────────────────────
+// ── getLanceDBStats ───────────────────────────────────────────────────────────
 
-describe('getAgentDBStats', () => {
+describe('getLanceDBStats', () => {
   it('returns vectorCount=0 when no data files exist', () => {
-    const { getAgentDBStats } = loadSL();
-    const result = getAgentDBStats();
+    const { getLanceDBStats } = loadSL();
+    const result = getLanceDBStats();
     expect(result.vectorCount).toBe(0);
     expect(result.dbSizeKB).toBe(0);
   });
@@ -309,8 +309,8 @@ describe('getAgentDBStats', () => {
       path.join(dataDir, 'auto-memory-store.json'),
       JSON.stringify([{ key: 'a' }, { key: 'b' }, { key: 'c' }])
     );
-    const { getAgentDBStats } = loadSL();
-    const result = getAgentDBStats();
+    const { getLanceDBStats } = loadSL();
+    const result = getLanceDBStats();
     expect(result.vectorCount).toBe(3);
   });
 
@@ -321,8 +321,8 @@ describe('getAgentDBStats', () => {
     fs.writeFileSync(path.join(dataDir, 'ranked-context.json'), JSON.stringify({
       entries: [{ k: 1 }, { k: 2 }, { k: 3 }, { k: 4 }, { k: 5 }],
     }));
-    const { getAgentDBStats } = loadSL();
-    const result = getAgentDBStats();
+    const { getLanceDBStats } = loadSL();
+    const result = getLanceDBStats();
     expect(result.vectorCount).toBe(5);
   });
 });
@@ -424,7 +424,7 @@ describe('generateJSON', () => {
     expect(result).toHaveProperty('swarm');
     expect(result).toHaveProperty('adrs');
     expect(result).toHaveProperty('hooks');
-    expect(result).toHaveProperty('agentdb');
+    expect(result).toHaveProperty('lancedb');
     expect(result).toHaveProperty('tests');
     expect(result).toHaveProperty('git');
     expect(result).toHaveProperty('lastUpdated');

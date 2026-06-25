@@ -5,7 +5,7 @@
  *
  * Features:
  * - 50+ prompt injection patterns
- * - HNSW-indexed threat pattern search (150x-12,500x faster with AgentDB)
+ * - HNSW-indexed threat pattern search (150x-12,500x faster with LanceDB)
  * - ReasoningBank-style pattern learning
  * - Adaptive mitigation with effectiveness tracking
  * - Strange-loop meta-learning integration
@@ -86,7 +86,7 @@ import type { LearnedThreatPattern, MitigationStrategy, VectorStore } from './do
 export interface MonoDefenceConfig {
   /** Enable self-learning from detections */
   enableLearning?: boolean;
-  /** Custom vector store (defaults to in-memory, use AgentDB for production) */
+  /** Custom vector store (defaults to in-memory, use LanceDB for production) */
   vectorStore?: VectorStore;
   /** Minimum confidence threshold for threats */
   confidenceThreshold?: number;
@@ -119,7 +119,7 @@ export interface MonoDefence {
 
   /**
    * Search for similar threat patterns using HNSW
-   * Achieves 150x-12,500x speedup when connected to AgentDB
+   * Achieves 150x-12,500x speedup with vector backend
    */
   searchSimilarThreats(
     query: string,

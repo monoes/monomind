@@ -84,7 +84,7 @@ export interface SwarmConfig {
     healthCheckInterval: number;
 }
 export interface MemoryConfig {
-    backend: 'agentdb' | 'sqlite' | 'memory' | 'hybrid';
+    backend: 'lancedb' | 'sqlite' | 'memory' | 'hybrid';
     persistPath: string;
     cacheSize: number;
     enableHNSW: boolean;

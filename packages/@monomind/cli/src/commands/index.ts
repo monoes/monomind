@@ -45,7 +45,6 @@ const commandLoaders: Record<string, CommandLoader> = {
   security: () => import('./security.js'),
   performance: () => import('./performance.js'),
   providers: () => import('./providers.js'),
-  plugins: () => import('./plugins.js'),
   deployment: () => import('./deployment.js'),
   claims: () => import('./claims.js'),
   // P0 Commands
@@ -149,7 +148,6 @@ import { analyzeCommand } from './analyze.js';
 import { routeCommand } from './route.js';
 import { progressCommand } from './progress.js';
 import { providersCommand } from './providers.js';
-import { pluginsCommand } from './plugins.js';
 import { deploymentCommand } from './deployment.js';
 import { claimsCommand } from './claims.js';
 import { issuesCommand } from './issues.js';
@@ -237,7 +235,6 @@ export async function getNeuralCommand() { return loadCommand('neural'); }
 export async function getSecurityCommand() { return loadCommand('security'); }
 export async function getPerformanceCommand() { return loadCommand('performance'); }
 export async function getProvidersCommand() { return loadCommand('providers'); }
-export async function getPluginsCommand() { return loadCommand('plugins'); }
 export async function getDeploymentCommand() { return loadCommand('deployment'); }
 export async function getClaimsCommand() { return loadCommand('claims'); }
 export async function getCompletionsCommand() { return loadCommand('completions'); }
@@ -326,7 +323,6 @@ export const commandsByCategory = {
   ],
   management: [
     providersCommand,
-    pluginsCommand,
     deploymentCommand,
     claimsCommand,
     issuesCommand,

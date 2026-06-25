@@ -176,7 +176,7 @@ function cliCommandsTable() {
 | \`init\` | 4 | Project initialization |
 | \`agent\` | 8 | Agent lifecycle management |
 | \`swarm\` | 6 | Multi-agent swarm coordination |
-| \`memory\` | 11 | AgentDB memory with HNSW search |
+| \`memory\` | 11 | LanceDB memory with ANN search |
 | \`task\` | 6 | Task creation and lifecycle |
 | \`session\` | 7 | Session state management |
 | \`hooks\` | 17 | Self-learning hooks + 12 workers |
@@ -350,7 +350,7 @@ function intelligenceSystem() {
 
 - **Keyword routing**: Deterministic task→agent routing via \`createKeywordRouter\`
 - **Outcome measurement**: Route and command outcomes are recorded and scored to surface routing accuracy over time
-- **Pattern search**: Pure-JS HNSW vector search via AgentDB for finding similar past patterns
+- **Pattern search**: LanceDB ANN vector search for finding similar past patterns
 
 Routing and learning are JS-only — no native engine is required. Outcomes
 feed back into the recorded metrics so routing quality is measured, not assumed.`;

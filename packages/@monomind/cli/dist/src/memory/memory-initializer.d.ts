@@ -3,7 +3,7 @@
  * Properly initializes the memory database with sql.js (WASM SQLite)
  * Includes pattern tables, vector embeddings, migration state tracking
  *
- * ADR-053: Routes through ControllerRegistry → AgentDB v1 when available,
+ * ADR-053: Routes through ControllerRegistry → LanceDB when available,
  * falls back to raw sql.js for backwards compatibility.
  *
  * @module v1/cli/memory-initializer

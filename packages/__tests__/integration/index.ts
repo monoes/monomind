@@ -91,22 +91,6 @@ export const quickSetup = {
   },
 
   /**
-   * Setup for plugin tests
-   */
-  async plugin() {
-    const { MockImplementations } = await import('./fixtures');
-
-    const pluginManager = MockImplementations.createMockPluginManager();
-
-    return {
-      pluginManager,
-      cleanup: async () => {
-        await pluginManager.shutdown();
-      }
-    };
-  },
-
-  /**
    * Setup for full integration tests
    */
   async full() {
@@ -116,15 +100,12 @@ export const quickSetup = {
     const dbPath = TestUtils.createTestDbPath('full');
     const backend = MockImplementations.createMockMemoryBackend();
     const coordinator = MockImplementations.createMockCoordinator();
-    const pluginManager = MockImplementations.createMockPluginManager();
 
     return {
       dbPath,
       backend,
       coordinator,
-      pluginManager,
       cleanup: async () => {
-        await pluginManager.shutdown();
         await coordinator.shutdown();
         await backend.close();
         await TestUtils.cleanupTestFiles('full');

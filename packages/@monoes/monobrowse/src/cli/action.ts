@@ -1,10 +1,14 @@
 // src/commands/browse-action.ts
 import { Command } from 'commander';
-import { readdir, writeFile, mkdir } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { analyzePageForAction, type AnalyzerPage, readAction } from '../index.js';
+import { analyzePageForAction, type AnalyzerPage } from '../index.js';
 import type { ActionDef } from '../index.js';
+
+async function readAction(filePath: string): Promise<ActionDef> {
+  return JSON.parse(await readFile(filePath, 'utf8')) as ActionDef;
+}
 
 // Built-in actions (shipped with the CLI) — actual step definitions live in adapters/
 const BUILTIN_ACTIONS: { id: string; platform: string; name: string }[] = [
