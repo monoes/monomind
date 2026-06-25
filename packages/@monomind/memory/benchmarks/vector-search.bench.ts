@@ -357,20 +357,14 @@ export const vectorSearchOptimizations = {
    * HNSW Indexing: Hierarchical Navigable Small World graphs
    */
   hnswIndexing: {
-    description: 'Use HNSW for O(log n) approximate nearest neighbor search',
+    description: 'Use LanceDB ANN for O(log n) approximate nearest neighbor search',
     expectedImprovement: '150x-12500x',
     implementation: `
-      import { HNSW } from 'agentdb';
+      import { LanceDBBackend } from '../src/lancedb-backend.js';
 
-      const index = new HNSW({
-        dimensions: 384,
-        maxElements: 1000000,
-        efConstruction: 200,
-        M: 16,
-      });
-
-      index.addItems(vectors);
-      const results = index.search(query, k);
+      const backend = new LanceDBBackend({ dbPath: './lancedb', vectorDimension: 384 });
+      await backend.initialize();
+      const results = await backend.search(queryVector, { limit: k });
     `,
   },
 

@@ -1,13 +1,13 @@
 /**
- * V1 ReasoningBank - Pattern Learning with AgentDB
+ * V1 ReasoningBank - Pattern Learning with LanceDB
  *
- * Connects hooks to persistent vector storage using AgentDB adapter.
+ * Connects hooks to persistent vector storage using LanceDB.
  * No JSON - all patterns stored as vectors in memory.db
  *
  * Features:
  * - Real HNSW indexing (M=16, efConstruction=200) for 150x+ faster search
- * - Embeddings via AgentDB's embedder; deterministic hash fallback otherwise
- * - AgentDB backend for persistence
+ * - Embeddings via backend embedder; deterministic hash fallback otherwise
+ * - LanceDB backend for persistence
  * - Pattern promotion from short-term to long-term memory
  *
  * @module @monomind/hooks/reasoningbank
@@ -17,12 +17,12 @@ import { EventEmitter } from 'node:events';
 import type { HookContext, HookEvent } from '../types.js';
 
 // Dynamic imports for optional dependencies
-let AgentDBAdapter: any = null;
+let MemoryAdapter: any = null;
 let HNSWIndex: any = null;
 let EmbeddingServiceImpl: any = null;
 
 /**
- * Pattern stored in AgentDB
+ * Pattern stored in memory backend
  */
 export interface GuidancePattern {
   id: string;
@@ -134,7 +134,7 @@ const AGENT_PATTERNS: Record<string, RegExp> = {
   'performance-engineer': /perf|optim|fast|memory|cache|speed|slow/i,
   'core-architect': /architect|design|ddd|domain|refactor|struct/i,
   'swarm-specialist': /swarm|agent|coordinate|orchestrat|parallel/i,
-  'memory-specialist': /memory|agentdb|hnsw|vector|embedding/i,
+  'memory-specialist': /memory|lancedb|hnsw|vector|embedding/i,
   'coder': /fix|bug|implement|create|add|build|error|code/i,
   'reviewer': /review|quality|lint|check|audit/i,
 };
@@ -183,12 +183,12 @@ const DOMAIN_GUIDANCE: Record<string, string[]> = {
 /**
  * ReasoningBank - Vector-based pattern storage and retrieval
  *
- * Uses AgentDB adapter for HNSW-indexed pattern storage.
+ * Uses LanceDB for ANN-indexed pattern storage.
  * Provides guidance generation from learned patterns.
  */
 export class ReasoningBank extends EventEmitter {
   private config: ReasoningBankConfig;
-  private agentDB: any = null;
+  private memoryBackend: any = null;
   private hnswIndex: any = null;
   private embeddingService: IEmbeddingService;
   private initialized = false;
@@ -219,7 +219,7 @@ export class ReasoningBank extends EventEmitter {
   }
 
   /**
-   * Initialize ReasoningBank with AgentDB backend and real HNSW
+   * Initialize ReasoningBank with memory backend and ANN search
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -228,7 +228,7 @@ export class ReasoningBank extends EventEmitter {
       // Try to load real implementations
       await this.loadDependencies();
 
-      if (AgentDBAdapter && HNSWIndex) {
+      if (MemoryAdapter && HNSWIndex) {
         // Initialize real HNSW index
         this.hnswIndex = new HNSWIndex({
           dimensions: this.config.dimensions,
@@ -238,8 +238,8 @@ export class ReasoningBank extends EventEmitter {
           metric: 'cosine',
         });
 
-        // Initialize AgentDB adapter
-        this.agentDB = new AgentDBAdapter({
+        // Initialize memory adapter
+        this.memoryBackend = new MemoryAdapter({
           dimensions: this.config.dimensions,
           hnswM: this.config.hnswM,
           hnswEfConstruction: this.config.hnswEfConstruction,
@@ -249,7 +249,7 @@ export class ReasoningBank extends EventEmitter {
           embeddingGenerator: (text: string) => this.embeddingService.embed(text),
         });
 
-        await this.agentDB.initialize();
+        await this.memoryBackend.initialize();
         this.useRealBackend = true;
 
         // Try to use real embedding service
@@ -263,7 +263,7 @@ export class ReasoningBank extends EventEmitter {
         }
 
         await this.loadPatterns();
-        console.log(`[ReasoningBank] Initialized with AgentDB + HNSW (M=${this.config.hnswM}, efConstruction=${this.config.hnswEfConstruction})`);
+        console.log(`[ReasoningBank] Initialized with LanceDB + ANN (M=${this.config.hnswM}, efConstruction=${this.config.hnswEfConstruction})`);
       } else {
         throw new Error('Dependencies not available');
       }
@@ -276,7 +276,7 @@ export class ReasoningBank extends EventEmitter {
       });
     } catch (error) {
       // Fallback to in-memory only mode
-      console.warn('[ReasoningBank] AgentDB not available, using in-memory mode');
+      console.warn('[ReasoningBank] memory backend not available, using in-memory mode');
       this.useRealBackend = false;
       this.initialized = true;
     }
@@ -297,7 +297,7 @@ export class ReasoningBank extends EventEmitter {
 
     const memoryModule = await dynamicImport('@monoes/memory');
     if (memoryModule) {
-      AgentDBAdapter = memoryModule.AgentDBAdapter;
+      MemoryAdapter = memoryModule.LanceDBBackend;
       HNSWIndex = memoryModule.HNSWIndex;
     }
   }
@@ -350,7 +350,7 @@ export class ReasoningBank extends EventEmitter {
       await this.hnswIndex.addPoint(pattern.id, embedding);
     }
 
-    await this.storeInAgentDB(pattern, 'short_term');
+    await this.storeInMemory(pattern, 'short_term');
 
     this.metrics.patternsStored++;
     this.emit('pattern:stored', { id: pattern.id, domain });
@@ -684,7 +684,7 @@ export class ReasoningBank extends EventEmitter {
         if (this.hnswIndex) {
           await this.hnswIndex.addPoint(pattern.id, pattern.embedding);
         }
-        await this.storeInAgentDB(pattern, 'short_term');
+        await this.storeInMemory(pattern, 'short_term');
         imported++;
       }
     }
@@ -695,7 +695,7 @@ export class ReasoningBank extends EventEmitter {
         if (this.hnswIndex) {
           await this.hnswIndex.addPoint(pattern.id, pattern.embedding);
         }
-        await this.storeInAgentDB(pattern, 'long_term');
+        await this.storeInMemory(pattern, 'long_term');
         imported++;
       }
     }
@@ -712,11 +712,11 @@ export class ReasoningBank extends EventEmitter {
   }
 
   private async loadPatterns(): Promise<void> {
-    if (!this.agentDB) return;
+    if (!this.memoryBackend) return;
 
     try {
-      // Load from AgentDB namespaces
-      const shortTermEntries = await this.agentDB.query({
+      // Load from memory backend namespaces
+      const shortTermEntries = await this.memoryBackend.query({
         namespace: 'patterns:short_term',
         limit: this.config.maxShortTerm,
       });
@@ -729,7 +729,7 @@ export class ReasoningBank extends EventEmitter {
         }
       }
 
-      const longTermEntries = await this.agentDB.query({
+      const longTermEntries = await this.memoryBackend.query({
         namespace: 'patterns:long_term',
         limit: this.config.maxLongTerm,
       });
@@ -746,11 +746,11 @@ export class ReasoningBank extends EventEmitter {
     }
   }
 
-  private async storeInAgentDB(pattern: GuidancePattern, type: 'short_term' | 'long_term'): Promise<void> {
-    if (!this.agentDB) return;
+  private async storeInMemory(pattern: GuidancePattern, type: 'short_term' | 'long_term'): Promise<void> {
+    if (!this.memoryBackend) return;
 
     try {
-      await this.agentDB.store({
+      await this.memoryBackend.store({
         key: pattern.id,
         namespace: `patterns:${type}`,
         content: pattern.strategy,
@@ -771,10 +771,10 @@ export class ReasoningBank extends EventEmitter {
   }
 
   private async updateInStorage(pattern: GuidancePattern): Promise<void> {
-    if (!this.agentDB) return;
+    if (!this.memoryBackend) return;
 
     try {
-      await this.agentDB.update(pattern.id, {
+      await this.memoryBackend.update(pattern.id, {
         metadata: {
           quality: pattern.quality,
           usageCount: pattern.usageCount,
@@ -788,10 +788,10 @@ export class ReasoningBank extends EventEmitter {
   }
 
   private async deleteFromStorage(id: string): Promise<void> {
-    if (!this.agentDB) return;
+    if (!this.memoryBackend) return;
 
     try {
-      await this.agentDB.delete(id);
+      await this.memoryBackend.delete(id);
     } catch (error) {
       console.warn('[ReasoningBank] Failed to delete pattern:', error);
     }
@@ -903,7 +903,7 @@ export class ReasoningBank extends EventEmitter {
 
     // Update storage
     await this.deleteFromStorage(pattern.id);
-    await this.storeInAgentDB(pattern, 'long_term');
+    await this.storeInMemory(pattern, 'long_term');
 
     this.metrics.promotions++;
     this.emit('pattern:promoted', { id: pattern.id });
@@ -1057,7 +1057,7 @@ export const reasoningBank = new ReasoningBank();
 
 /**
  * Hook handler: session-start → import auto memory, build graph.
- * Called by the session-start hook to hydrate AgentDB with previous learnings.
+ * Called by the session-start hook to hydrate memory backend with previous learnings.
  *
  * @param bridge - An initialized AutoMemoryBridge instance
  */

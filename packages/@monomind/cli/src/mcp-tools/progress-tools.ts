@@ -24,7 +24,7 @@ const PROJECT_ROOT = join(PACKAGES_DIR, '..');
 // Utility/service packages follow DDD differently - their services ARE the application layer
 const UTILITY_PACKAGES = new Set([
   'cli', 'hooks', 'mcp', 'shared', 'testing', 'agents', 'integration',
-  'embeddings', 'deployment', 'performance', 'plugins', 'providers'
+  'embeddings', 'deployment', 'performance', 'providers'
 ]);
 
 // Target metrics for 100% completion

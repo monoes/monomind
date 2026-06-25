@@ -73,7 +73,7 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
     // Count DDD layers
     const utilityPackages = new Set([
       'cli', 'hooks', 'mcp', 'shared', 'testing', 'agents', 'integration',
-      'embeddings', 'deployment', 'performance', 'plugins', 'providers'
+      'embeddings', 'deployment', 'performance', 'providers'
     ]);
     let packagesWithDDD = 0;
     for (const pkg of packageDirs) {

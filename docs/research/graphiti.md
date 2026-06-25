@@ -21,7 +21,7 @@ The paper demonstrates 94.8% accuracy on Deep Memory Retrieval benchmarks at 90%
 
 ### `MemoryEntry.eventAt` + `event_at` SQLite Column
 
-Monomind's AgentDB `MemoryEntry` type was extended with an `eventAt` nullable field:
+Monomind's LanceDB `MemoryEntry` type was extended with an `eventAt` nullable field:
 
 ```typescript
 interface MemoryEntry {

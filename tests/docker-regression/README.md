@@ -26,7 +26,7 @@ docker-compose up --build security-tests
 | Hooks | 50+ | Self-learning and routing |
 | Plugins | 70+ | IPFS/Pinata plugin registry |
 | Security | 55+ | Security features and CVE |
-| Memory | 50+ | AgentDB and HNSW |
+| Memory | 50+ | LanceDB and HNSW |
 | Workers | 60+ | Background workers |
 | Performance | 45+ | Benchmarks and targets |
 | Unit Tests | 424+ | V1 package tests |

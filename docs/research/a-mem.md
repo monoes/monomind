@@ -16,7 +16,7 @@ The paper demonstrates that this linked structure significantly improves retriev
 
 ### Zettelkasten-Style Automatic Note Linking
 
-Every time `bridgeStoreEntry()` stores a new memory in Monomind's AgentDB, the system runs a post-store HNSW query to find the top-3 nearest neighbors above a 0.7 cosine similarity threshold. For each neighbor found, `bridgeRecordCausalEdge()` creates a `similar` edge between the new entry and the neighbor.
+Every time `bridgeStoreEntry()` stores a new memory in Monomind's LanceDB, the system runs a post-store HNSW query to find the top-3 nearest neighbors above a 0.7 cosine similarity threshold. For each neighbor found, `bridgeRecordCausalEdge()` creates a `similar` edge between the new entry and the neighbor.
 
 This creates a graph of memory entries where semantically related memories are linked, even if they were stored weeks apart and in different sessions. The graph enables:
 
@@ -28,7 +28,7 @@ The 0.7 threshold was chosen empirically — below 0.7 produces too many false-l
 
 ## How It Improved Monomind
 
-A-MEM's automatic linking transformed AgentDB from a flat vector store into a knowledge network. The most visible improvement is in multi-session continuity: when a task references "the authentication system we built last month," the system can now find not just the directly relevant memory entry but also its linked neighbors — the debugging session, the test suite, the security audit — giving the agent a complete picture of the authentication system's history.
+A-MEM's automatic linking transformed LanceDB from a flat vector store into a knowledge network. The most visible improvement is in multi-session continuity: when a task references "the authentication system we built last month," the system can now find not just the directly relevant memory entry but also its linked neighbors — the debugging session, the test suite, the security audit — giving the agent a complete picture of the authentication system's history.
 
 ## Key Files Influenced
 

@@ -54,9 +54,7 @@ function isSafePackageName(p: unknown): p is string {
 
 // Known compatibility matrix between monomind packages
 const COMPATIBILITY_MATRIX: Record<string, Record<string, PackageCompatibility>> = {
-  '@monomind/cli': {
-    '@monomind/security': { minVersion: '3.0.0-alpha.1' },
-  },
+  '@monomind/cli': {},
   '@monoes/monomindcli': {
     'monofence-ai': { minVersion: '1.0.0' },
   },

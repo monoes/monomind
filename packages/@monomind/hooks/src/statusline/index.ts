@@ -9,7 +9,7 @@
  * ─────────────────────────────────────────────────────
  * 🏗️  DDD Domains    [●●●●●]  5/5    ⚡ 1.0x → 2.49x-7.47x
  * 🤖 Swarm  ◉ [58/15]  👥 0    🟢 CVE 3/3    💾 22282MB    📂  47%    🧠  10%
- * 🔧 Architecture    DDD ● 98%  │  Security ●CLEAN  │  Memory ●AgentDB  │  Integration ●
+ * 🔧 Architecture    DDD ● 98%  │  Security ●CLEAN  │  Memory ●LanceDB  │  Integration ●
  */
 
 import type {
@@ -229,7 +229,7 @@ export class StatuslineGenerator {
       `${c.brightPurple}🔧 Architecture${c.reset}    ` +
       `${c.cyan}DDD${c.reset} ${dddColor}●${dddDisplay}%${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Security${c.reset} ${securityColor}●${data.security.status}${c.reset}  ${c.dim}│${c.reset}  ` +
-      `${c.cyan}Memory${c.reset} ${c.brightGreen}●AgentDB${c.reset}  ${c.dim}│${c.reset}  ` +
+      `${c.cyan}Memory${c.reset} ${c.brightGreen}●LanceDB${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Integration${c.reset} ${integrationColor}●${c.reset}${leanBadge}`
     );
 
@@ -367,7 +367,7 @@ export class StatuslineGenerator {
       `${c.brightPurple}🔧 Architecture${c.reset}    ` +
       `${c.cyan}DDD${c.reset} ${dddColor}●${dddDisplay}%${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Security${c.reset} ${securityColor}●${data.security.status}${c.reset}  ${c.dim}│${c.reset}  ` +
-      `${c.cyan}Memory${c.reset} ${c.brightGreen}●AgentDB${c.reset}  ${c.dim}│${c.reset}  ` +
+      `${c.cyan}Memory${c.reset} ${c.brightGreen}●LanceDB${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Integration${c.reset} ${integrationColor}●${c.reset}`
     );
 

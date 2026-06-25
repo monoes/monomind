@@ -165,7 +165,7 @@ export const COMMON_TYPOS: Record<string, string> = {
   'perf': 'performance',
   'performace': 'performance',
   'provider': 'providers',
-  'plugin': 'plugins',
+
   'dep': 'deployment',
   'depoly': 'deployment',
   'deploy': 'deployment',

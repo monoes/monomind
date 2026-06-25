@@ -13,7 +13,7 @@
 | `init` | 5 | Project initialization |
 | `agent` | 8 | Agent lifecycle management |
 | `swarm` | 6 | Multi-agent swarm coordination |
-| `memory` | 11 | AgentDB with vector search |
+| `memory` | 11 | LanceDB with vector search |
 | `mcp` | 9 | MCP server management |
 | `task` | 6 | Task lifecycle |
 | `session` | 7 | Session state management |
@@ -24,7 +24,7 @@
 | `neural` | 5 | Neural pattern training |
 | `security` | 6 | Security scanning |
 | `performance` | 5 | Performance profiling |
-| `plugins` | 5 | Plugin management |
+
 | `deployment` | 5 | Deployment management |
 | `embeddings` | 4 | Vector embeddings |
 | `claims` | 4 | Claims-based authorization |
@@ -265,20 +265,6 @@ monomind performance optimize --target memory  # memory | cpu | latency | all
 monomind performance optimize --apply         # apply (vs dry-run)
 monomind performance report             # generate performance report
 ```
-
----
-
-## `monomind plugins`
-
-```bash
-monomind plugins list                   # browse available plugins (IPFS registry)
-monomind plugins install @monomind/plugin-name
-monomind plugins uninstall @monomind/plugin-name
-monomind plugins create my-plugin       # scaffold a new plugin
-monomind plugins update                 # update all installed plugins
-```
-
-Plugin registry is IPFS-distributed via Pinata. Registry CID in `packages/@monomind/cli/src/plugins/store/discovery.ts`.
 
 ---
 

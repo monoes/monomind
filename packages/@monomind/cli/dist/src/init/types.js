@@ -73,7 +73,7 @@ export const DEFAULT_INIT_OPTIONS = {
     },
     skills: {
         core: true,
-        agentdb: true,
+        memory: true,
         github: true,
         browser: true,
         advanced: true,
@@ -164,7 +164,7 @@ export const MINIMAL_INIT_OPTIONS = {
     },
     skills: {
         core: true,
-        agentdb: false,
+        memory: false,
         github: false,
         browser: false,
         advanced: false,
@@ -220,7 +220,7 @@ export const FULL_INIT_OPTIONS = {
     },
     skills: {
         core: true,
-        agentdb: true,
+        memory: true,
         github: true,
         browser: true,
         advanced: true,

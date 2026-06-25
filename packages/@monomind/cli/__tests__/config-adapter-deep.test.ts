@@ -155,7 +155,7 @@ describe('ConfigAdapter deep edge cases', () => {
     });
 
     it('should pass through every recognized backend', () => {
-      const backends = ['memory', 'sqlite', 'agentdb', 'hybrid'] as const;
+      const backends = ['memory', 'sqlite', 'lancedb', 'hybrid'] as const;
       for (const b of backends) {
         const cfg = minimalSystemConfig({ memory: { type: b } });
         const v1 = systemConfigToMonomindConfig(cfg);
@@ -203,22 +203,22 @@ describe('ConfigAdapter deep edge cases', () => {
       expect(v1.memory.cacheSize).toBe(1000000);
     });
 
-    it('should set enableHNSW false when agentdb indexType is not hnsw', () => {
+    it('should set enableHNSW false when lancedb indexType is not hnsw', () => {
       const cfg = minimalSystemConfig({
         memory: {
-          type: 'agentdb',
-          agentdb: { indexType: 'flat', dimensions: 768 },
+          type: 'lancedb',
+          lancedb: { indexType: 'flat', dimensions: 768 },
         },
       });
       const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.memory.enableHNSW).toBe(false);
     });
 
-    it('should set enableHNSW true when agentdb indexType is hnsw', () => {
+    it('should set enableHNSW true when lancedb indexType is hnsw', () => {
       const cfg = minimalSystemConfig({
         memory: {
-          type: 'agentdb',
-          agentdb: { indexType: 'hnsw', dimensions: 768 },
+          type: 'lancedb',
+          lancedb: { indexType: 'hnsw', dimensions: 768 },
         },
       });
       const v1 = systemConfigToMonomindConfig(cfg);
@@ -318,7 +318,7 @@ describe('ConfigAdapter deep edge cases', () => {
         memory: { ...minimalMonomindConfig().memory, enableHNSW: true },
       });
       const sys = configToSystemConfig(v1);
-      expect(sys.memory?.agentdb?.indexType).toBe('hnsw');
+      expect(sys.memory?.lancedb?.indexType).toBe('hnsw');
     });
 
     it('should set indexType "flat" when enableHNSW is false', () => {
@@ -326,7 +326,7 @@ describe('ConfigAdapter deep edge cases', () => {
         memory: { ...minimalMonomindConfig().memory, enableHNSW: false },
       });
       const sys = configToSystemConfig(v1);
-      expect(sys.memory?.agentdb?.indexType).toBe('flat');
+      expect(sys.memory?.lancedb?.indexType).toBe('flat');
     });
   });
 
@@ -377,24 +377,24 @@ describe('ConfigAdapter deep edge cases', () => {
   });
 
   describe('round-trip preserves diverse configurations', () => {
-    it('should round-trip with agentdb + hnsw enabled', () => {
+    it('should round-trip with lancedb + hnsw enabled', () => {
       const original = minimalSystemConfig({
         memory: {
-          type: 'agentdb',
+          type: 'lancedb',
           path: '/my/data',
           maxSize: 500000,
-          agentdb: { dimensions: 768, indexType: 'hnsw' },
+          lancedb: { dimensions: 768, indexType: 'hnsw' },
         },
       });
       const v1 = systemConfigToMonomindConfig(original);
-      expect(v1.memory.backend).toBe('agentdb');
+      expect(v1.memory.backend).toBe('lancedb');
       expect(v1.memory.enableHNSW).toBe(true);
       expect(v1.memory.vectorDimension).toBe(768);
 
       const sys = configToSystemConfig(v1);
-      expect(sys.memory?.type).toBe('agentdb');
-      expect(sys.memory?.agentdb?.indexType).toBe('hnsw');
-      expect(sys.memory?.agentdb?.dimensions).toBe(768);
+      expect(sys.memory?.type).toBe('lancedb');
+      expect(sys.memory?.lancedb?.indexType).toBe('hnsw');
+      expect(sys.memory?.lancedb?.dimensions).toBe(768);
     });
 
     it('should round-trip with consensus coordination', () => {

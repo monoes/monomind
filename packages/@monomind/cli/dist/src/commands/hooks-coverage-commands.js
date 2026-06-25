@@ -1049,8 +1049,8 @@ export const statuslineCommand = {
             }
             catch { /* ignore */ }
         }
-        // Get AgentDB stats (matching statusline-generator.ts paths)
-        const agentdbStats = { vectorCount: 0, dbSizeKB: 0, hasHnsw: false };
+        // Get memory backend stats
+        const memoryStats = { vectorCount: 0, dbSizeKB: 0, hasHnsw: false };
         // Check for direct database files first
         const dbPaths = [
             path.join(process.cwd(), '.swarm', 'memory.db'),
@@ -1058,30 +1058,30 @@ export const statuslineCommand = {
             path.join(process.cwd(), '.claude', 'memory.db'),
             path.join(process.cwd(), 'data', 'memory.db'),
             path.join(process.cwd(), 'memory.db'),
-            path.join(process.cwd(), '.agentdb', 'memory.db'),
-            path.join(process.cwd(), '.monomind', 'memory', 'agentdb.db'),
+            path.join(process.cwd(), ".swarm", "lancedb"),
+            path.join(process.cwd(), ".monomind", "memory", "lancedb"),
         ];
         for (const dbPath of dbPaths) {
             if (fs.existsSync(dbPath)) {
                 try {
                     const stats = fs.statSync(dbPath);
-                    agentdbStats.dbSizeKB = Math.round(stats.size / 1024);
-                    agentdbStats.vectorCount = Math.floor(agentdbStats.dbSizeKB / 2);
-                    agentdbStats.hasHnsw = agentdbStats.vectorCount > 100;
+                    memoryStats.dbSizeKB = Math.round(stats.size / 1024);
+                    memoryStats.vectorCount = Math.floor(memoryStats.dbSizeKB / 2);
+                    memoryStats.hasHnsw = memoryStats.vectorCount > 100;
                     break;
                 }
                 catch { /* ignore */ }
             }
         }
-        // Check for AgentDB directories if no direct db found
-        if (agentdbStats.vectorCount === 0) {
-            const agentdbDirs = [
-                path.join(process.cwd(), '.monomind', 'agentdb'),
-                path.join(process.cwd(), '.swarm', 'agentdb'),
-                path.join(process.cwd(), 'data', 'agentdb'),
-                path.join(process.cwd(), '.agentdb'),
+        // Check for LanceDB directories if no direct db found
+        if (memoryStats.vectorCount === 0) {
+            const lancedbDirs = [
+                path.join(process.cwd(), ".monomind", "lancedb"),
+                path.join(process.cwd(), ".swarm", "lancedb"),
+                path.join(process.cwd(), "data", "lancedb"),
+                path.join(process.cwd(), ".swarm", "lancedb"),
             ];
-            for (const dir of agentdbDirs) {
+            for (const dir of lancedbDirs) {
                 if (fs.existsSync(dir)) {
                     try {
                         const files = fs.readdirSync(dir);
@@ -1089,12 +1089,12 @@ export const statuslineCommand = {
                             if (f.endsWith('.db') || f.endsWith('.sqlite')) {
                                 const filePath = path.join(dir, f);
                                 const fileStat = fs.statSync(filePath);
-                                agentdbStats.dbSizeKB += Math.round(fileStat.size / 1024);
+                                memoryStats.dbSizeKB += Math.round(fileStat.size / 1024);
                             }
                         }
-                        agentdbStats.vectorCount = Math.floor(agentdbStats.dbSizeKB / 2);
-                        agentdbStats.hasHnsw = agentdbStats.vectorCount > 100;
-                        if (agentdbStats.vectorCount > 0)
+                        memoryStats.vectorCount = Math.floor(memoryStats.dbSizeKB / 2);
+                        memoryStats.hasHnsw = memoryStats.vectorCount > 100;
+                        if (memoryStats.vectorCount > 0)
                             break;
                     }
                     catch { /* ignore */ }
@@ -1109,14 +1109,14 @@ export const statuslineCommand = {
         ];
         for (const hnswPath of hnswPaths) {
             if (fs.existsSync(hnswPath)) {
-                agentdbStats.hasHnsw = true;
+                memoryStats.hasHnsw = true;
                 try {
                     const hnswFiles = fs.readdirSync(hnswPath);
                     const indexFile = hnswFiles.find(f => f.endsWith('.index'));
                     if (indexFile) {
                         const indexStat = fs.statSync(path.join(hnswPath, indexFile));
                         const hnswVectors = Math.floor(indexStat.size / 512);
-                        agentdbStats.vectorCount = Math.max(agentdbStats.vectorCount, hnswVectors);
+                        memoryStats.vectorCount = Math.max(memoryStats.vectorCount, hnswVectors);
                     }
                 }
                 catch { /* ignore */ }
@@ -1125,15 +1125,15 @@ export const statuslineCommand = {
         }
         // Check for vectors.json file
         const vectorsPath = path.join(process.cwd(), '.monomind', 'vectors.json');
-        if (fs.existsSync(vectorsPath) && agentdbStats.vectorCount === 0) {
+        if (fs.existsSync(vectorsPath) && memoryStats.vectorCount === 0) {
             try {
                 if (fs.statSync(vectorsPath).size <= 8_388_608) {
                     const data = JSON.parse(fs.readFileSync(vectorsPath, 'utf-8'));
                     if (Array.isArray(data)) {
-                        agentdbStats.vectorCount = data.length;
+                        memoryStats.vectorCount = data.length;
                     }
                     else if (data.vectors) {
-                        agentdbStats.vectorCount = Object.keys(data.vectors).length;
+                        memoryStats.vectorCount = Object.keys(data.vectors).length;
                     }
                 }
             }
@@ -1169,8 +1169,8 @@ export const statuslineCommand = {
         const domainsColor = progress.domainsCompleted >= 3 ? c.brightGreen : progress.domainsCompleted > 0 ? c.yellow : c.red;
         // Dynamic perf indicator based on patterns/HNSW
         let perfIndicator = `${c.dim}⚡ HNSW: idle${c.reset}`;
-        if (agentdbStats.hasHnsw && agentdbStats.vectorCount > 0) {
-            perfIndicator = `${c.brightGreen}⚡ HNSW ${agentdbStats.vectorCount.toLocaleString()} vec${c.reset}`;
+        if (memoryStats.hasHnsw && memoryStats.vectorCount > 0) {
+            perfIndicator = `${c.brightGreen}⚡ HNSW ${memoryStats.vectorCount.toLocaleString()} vec${c.reset}`;
         }
         else if (progress.patternsLearned > 0) {
             const patternsK = progress.patternsLearned >= 1000 ? `${(progress.patternsLearned / 1000).toFixed(1)}k` : String(progress.patternsLearned);
@@ -1195,13 +1195,13 @@ export const statuslineCommand = {
             `${c.cyan}ADRs${c.reset} ${c.dim}●0/0${c.reset}  ${c.dim}│${c.reset}  ` +
             `${c.cyan}DDD${c.reset} ${dddColor}●${String(progress.dddProgress).padStart(3)}%${c.reset}  ${c.dim}│${c.reset}  ` +
             `${c.cyan}Security${c.reset} ${securityColor}●${security.status}${c.reset}`;
-        const vectorColor = agentdbStats.vectorCount > 0 ? c.brightGreen : c.dim;
+        const vectorColor = memoryStats.vectorCount > 0 ? c.brightGreen : c.dim;
         const testColor = testStats.testFiles > 0 ? c.brightGreen : c.dim;
         const mcpColor = mcpStats.enabled > 0 ? c.brightGreen : c.dim;
-        const sizeDisplay = agentdbStats.dbSizeKB >= 1024 ? `${(agentdbStats.dbSizeKB / 1024).toFixed(1)}MB` : `${agentdbStats.dbSizeKB}KB`;
-        const hnswIndicator = agentdbStats.hasHnsw ? `${c.brightGreen}⚡${c.reset}` : '';
-        const line4 = `${c.brightCyan}📊 AgentDB${c.reset}    ` +
-            `${c.cyan}Vectors${c.reset} ${vectorColor}●${agentdbStats.vectorCount}${hnswIndicator}${c.reset}  ${c.dim}│${c.reset}  ` +
+        const sizeDisplay = memoryStats.dbSizeKB >= 1024 ? `${(memoryStats.dbSizeKB / 1024).toFixed(1)}MB` : `${memoryStats.dbSizeKB}KB`;
+        const hnswIndicator = memoryStats.hasHnsw ? `${c.brightGreen}⚡${c.reset}` : '';
+        const line4 = `${c.brightCyan}📊 LanceDB${c.reset}    ` +
+            `${c.cyan}Vectors${c.reset} ${vectorColor}●${memoryStats.vectorCount}${hnswIndicator}${c.reset}  ${c.dim}│${c.reset}  ` +
             `${c.cyan}Size${c.reset} ${c.brightWhite}${sizeDisplay}${c.reset}  ${c.dim}│${c.reset}  ` +
             `${c.cyan}Tests${c.reset} ${testColor}●${testStats.testFiles}${c.reset} ${c.dim}(${testStats.testCases} cases)${c.reset}  ${c.dim}│${c.reset}  ` +
             `${c.cyan}MCP${c.reset} ${mcpColor}●${mcpStats.enabled}/${mcpStats.total}${c.reset}`;

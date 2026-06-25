@@ -19,7 +19,7 @@ export { searchEntries, listEntries, getEntry } from './memory-read.js';
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
 
-// ADR-053: Lazy import of AgentDB v1 bridge
+// ADR-053: Lazy import of memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
   if (_bridge === null) return null;
@@ -262,7 +262,7 @@ export async function storeEntry(options: {
   embedding?: { dimensions: number; model: string };
   error?: string;
 }> {
-  // ADR-053: Try AgentDB v1 bridge first
+  // ADR-053: Try LanceDB memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeStoreEntry(options);
@@ -393,7 +393,7 @@ export async function deleteEntry(options: {
   remainingEntries: number;
   error?: string;
 }> {
-  // ADR-053: Try AgentDB v1 bridge first
+  // ADR-053: Try LanceDB memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeDeleteEntry(options);

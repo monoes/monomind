@@ -258,7 +258,7 @@ describe('suggestCommand', () => {
     'init', 'agent', 'swarm', 'memory', 'mcp', 'task', 'session',
     'config', 'status', 'start', 'workflow', 'hooks', 'hive-mind',
     'daemon', 'neural', 'security', 'performance', 'providers',
-    'plugins', 'deployment', 'embeddings', 'claims', 'migrate',
+    'deployment', 'embeddings', 'claims', 'migrate',
     'doctor', 'completions',
   ];
 

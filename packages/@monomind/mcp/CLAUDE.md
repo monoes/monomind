@@ -308,7 +308,7 @@ Bash("npx @monomind/cli@latest hooks worker dispatch --trigger optimize")
 | `init`      | 4           | Project initialization with wizard, presets, skills, hooks               |
 | `agent`     | 8           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health, logs) |
 | `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         |
-| `memory`    | 11          | AgentDB memory with pure-JS HNSW vector search                           |
+| `memory`    | 11          | LanceDB memory with pure-JS HNSW vector search                           |
 | `mcp`       | 9           | MCP server management and tool execution                                 |
 | `task`      | 6           | Task creation, assignment, and lifecycle                                 |
 | `session`   | 7           | Session state management and persistence                                 |
@@ -518,7 +518,7 @@ The lean build records what happens and measures whether routing helped — no n
 - **Route-outcome measurement**: correlates recommended routes with actual outcomes; accuracy/adherence surfaced by `doctor`
 - **Trajectory + outcome logging**: `intelligence.ts` records steps/trajectories; `command-outcomes.ts` tracks command results
 - **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
-- **HNSW**: pure-JS approximate nearest-neighbor via AgentDB / `@monomind/memory`
+- **HNSW**: pure-JS approximate nearest-neighbor via LanceDB / `@monomind/memory`
 
 > The full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA) lives on the `monoes-full-loop` branch.
 

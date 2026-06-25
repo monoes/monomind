@@ -4,7 +4,7 @@
  * After a task completes, sends the agent's output to an LLM critic that
  * produces a structured "textual gradient" — a natural-language critique of
  * the form "this response can be improved by…". Textual gradients are stored
- * in the `textual_gradients` namespace via `agentdb_pattern-store` and can
+ * in the `textual_gradients` namespace via `memory_pattern-store` and can
  * be injected back into the next prompt optimisation cycle via
  * `SynthesisPromptTemplate`.
  *

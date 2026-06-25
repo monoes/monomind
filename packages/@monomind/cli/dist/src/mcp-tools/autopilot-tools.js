@@ -147,7 +147,7 @@ const autopilotProgress = {
 };
 const autopilotLearn = {
     name: 'autopilot_learn',
-    description: 'Discover success patterns from past task completions. Requires AgentDB for full functionality.',
+    description: 'Discover success patterns from past task completions. Requires memory backend for full functionality.',
     category: 'autopilot',
     inputSchema: { type: 'object', properties: {} },
     handler: async () => {
@@ -159,12 +159,12 @@ const autopilotLearn = {
             ]);
             return ok({ metrics, patterns });
         }
-        return ok({ available: false, reason: 'AgentDB/AutopilotLearning not initialized', patterns: [] });
+        return ok({ available: false, reason: 'memory backend/AutopilotLearning not initialized', patterns: [] });
     },
 };
 const autopilotHistory = {
     name: 'autopilot_history',
-    description: 'Search past completion episodes by keyword. Requires AgentDB.',
+    description: 'Search past completion episodes by keyword. Requires memory backend.',
     category: 'autopilot',
     inputSchema: {
         type: 'object',

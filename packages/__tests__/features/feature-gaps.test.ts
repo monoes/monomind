@@ -215,9 +215,9 @@ describe('system_metrics uses request tracker', () => {
 });
 
 // =========================================================================
-// 8. hive-mind has AgentDB integration
+// 8. hive-mind has memory backend integration
 // =========================================================================
-describe('hive-mind has AgentDB integration', () => {
+describe('hive-mind has memory backend integration', () => {
   it('should contain bridgeStoreEntry or memory-bridge import', () => {
     const source = readSource('hive-mind-tools.ts');
     const hasIntegration =
@@ -228,9 +228,9 @@ describe('hive-mind has AgentDB integration', () => {
 });
 
 // =========================================================================
-// 9. daa-tools has AgentDB integration in multiple handlers
+// 9. daa-tools has memory backend integration in multiple handlers
 // =========================================================================
-describe('daa-tools has AgentDB integration', () => {
+describe('daa-tools has memory backend integration', () => {
   it('should contain bridgeStoreEntry or memory-bridge', () => {
     const source = readSource('daa-tools.ts');
     const hasIntegration =
@@ -239,7 +239,7 @@ describe('daa-tools has AgentDB integration', () => {
     expect(hasIntegration).toBe(true);
   });
 
-  it('should have AgentDB integration in at least 3 handler sections', () => {
+  it('should have memory backend integration in at least 3 handler sections', () => {
     const source = readSource('daa-tools.ts');
     // Count distinct occurrences of memory-bridge imports
     const bridgeImports = source.match(/import\(['"]\.\.\/memory\/memory-bridge/g) || [];

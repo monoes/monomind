@@ -1,7 +1,7 @@
 /**
  * Threat Learning Service
  *
- * Self-learning threat pattern service using AgentDB for vector search
+ * Self-learning threat pattern service with vector search
  * and ReasoningBank-style pattern storage.
  *
  * Features:
@@ -72,7 +72,7 @@ export interface LearningTrajectory {
 }
 
 /**
- * AgentDB-compatible vector store interface
+ * Vector store interface
  */
 export interface VectorStore {
   store(params: {
@@ -97,7 +97,7 @@ export interface VectorStore {
 
 /**
  * Simple in-memory vector store for standalone usage
- * Replace with AgentDB in production
+ * Replace with LanceDB in production
  */
 export class InMemoryVectorStore implements VectorStore {
   private storage = new Map<string, Map<string, { value: unknown; embedding?: number[] }>>();
@@ -196,7 +196,7 @@ export class ThreatLearningService {
 
   /**
    * Search for similar threat patterns using HNSW
-   * When connected to AgentDB, achieves 150x-12,500x speedup
+   * With LanceDB, achieves 150x-12,500x speedup
    */
   async searchSimilarThreats(
     query: string,
@@ -435,7 +435,7 @@ export class ThreatLearningService {
 }
 
 /**
- * Create a ThreatLearningService with optional AgentDB vector store
+ * Create a ThreatLearningService with optional vector store
  */
 export function createThreatLearningService(
   vectorStore?: VectorStore

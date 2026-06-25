@@ -410,28 +410,7 @@ describe('GCS Storage Command Injection', () => {
 });
 
 // ============================================================================
-// 9. Plugin Manager - NPM Install Injection
-// ============================================================================
-describe('Plugin Manager NPM Injection', () => {
-  it('should use execFileAsync and validate package names for plugin install (fixed S-3)', () => {
-    // src/plugins/manager.ts now uses execFileAsync with array args
-    // and validates package names before install (ADR-061 S-3 fix).
-    const managerPath = path.join(__dirname, '..', 'src', 'plugins', 'manager.ts');
-    const content = fs.readFileSync(managerPath, 'utf-8');
-
-    // Should have package name validation
-    const hasPackageNameValidation = content.includes('validatePackageName') ||
-                                     content.includes('VALID_PACKAGE_RE');
-    expect(hasPackageNameValidation).toBe(true);
-
-    // Should use execFileAsync (safe array form)
-    const usesExecFileAsync = content.includes('execFileAsync');
-    expect(usesExecFileAsync).toBe(true);
-  });
-});
-
-// ============================================================================
-// 10. Doctor Command - Safe Command Execution
+// 9. Doctor Command - Safe Command Execution
 // ============================================================================
 describe('Doctor Command Safety', () => {
   it('should use hardcoded commands only (no user input in shell)', () => {

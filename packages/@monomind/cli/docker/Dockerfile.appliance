@@ -70,7 +70,7 @@ RUN GLOBAL_NM="$(npm config get prefix)/lib/node_modules" \
        "$GLOBAL_NM/monomind/node_modules/onnx-proto" \
        "$GLOBAL_NM/monomind/node_modules/@anthropic-ai" \
        "$GLOBAL_NM/monomind/node_modules/@xenova" \
-       "$GLOBAL_NM/monomind/node_modules/agentdb" \
+       
        "$GLOBAL_NM/monomind/node_modules/@ruvector" \
        "$GLOBAL_NM/monomind/node_modules/ruvector" \
        "$GLOBAL_NM/monomind/node_modules/tiktoken" \

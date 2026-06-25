@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-In a multi-agent swarm, agents share state through a memory subsystem (AgentDB with HNSW indexing in Monomind v1). Without governance, agents can:
+In a multi-agent swarm, agents share state through a memory subsystem (LanceDB with HNSW indexing in Monomind v1). Without governance, agents can:
 
 1. **Overwrite critical state.** A coder agent overwrites the architect's design decisions. A tester overwrites the coordinator's task assignments.
 2. **Flood memory.** An agent in a loop writes thousands of entries, degrading search performance and consuming storage.
@@ -86,7 +86,7 @@ Memory writes flow through the existing gate infrastructure:
 
 - **Indirect enforcement.** Memory writes go through MCP tools, so gating depends on the MCP layer invoking the guidance control plane. If an agent bypasses MCP (direct database access), the gates are ineffective.
 - **Rule authoring burden.** Teams must write memory-specific rules in their `CLAUDE.md`. Without these rules, memory writes are ungoverned. Mitigation: the optimizer can propose memory rules based on observed conflicts.
-- **No built-in TTL engine.** The current implementation governs TTL through rules and evaluators, not through an automatic expiration mechanism in the storage layer. True TTL requires integration with AgentDB's storage engine.
+- **No built-in TTL engine.** The current implementation governs TTL through rules and evaluators, not through an automatic expiration mechanism in the storage layer. True TTL requires integration with LanceDB's storage engine.
 
 ## Alternatives Considered
 

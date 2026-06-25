@@ -340,6 +340,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #odt-chat-feed::-webkit-scrollbar { width:4px; }
 #odt-chat-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
 #odt-chat-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
+#odt-chat-compose { display:flex; gap:6px; padding:8px 12px; border-top:1px solid var(--border); flex-shrink:0; }
+#odt-chat-input { flex:1; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:4px; font-size:11px; font-family:var(--mono); padding:5px 8px; resize:none; min-height:28px; max-height:80px; line-height:1.4; }
+#odt-chat-input:focus { outline:none; border-color:var(--accent); }
+#odt-chat-send-btn { font-size:8px; letter-spacing:1.5px; padding:4px 10px; border-radius:3px; border:1px solid oklch(62% 0.2 186 / 0.4); color:oklch(62% 0.2 186); background:transparent; cursor:pointer; font-family:inherit; flex-shrink:0; align-self:flex-end; }
+#odt-chat-send-btn:hover:not(:disabled) { background:oklch(62% 0.2 186 / 0.12); }
+#odt-chat-send-btn:disabled { opacity:0.3; cursor:default; }
+.cv-user-msg { align-self:flex-end; }
+.cv-user-msg .cv-bub { background:oklch(20% 0.06 220); border-left:none; border-right:2px solid oklch(62% 0.2 186); }
 .odt-mode-btn {
   font-family: inherit; font-size: 7px; letter-spacing: 1.5px;
   padding: 2px 7px; border-radius: 3px; cursor: pointer;
@@ -7246,6 +7254,10 @@ async function v2RenderOrgChat() {
       <div id="odt-chat-excerpt" class="cv-excerpt-banner"></div>
       <div id="odt-chat-feed">
         <div id="odt-chat-empty">Select a session to see agent communications.<br><span style="font-size:10px;opacity:0.5">Sessions appear after the first /mastermind:runorg</span></div>
+      </div>
+      <div id="odt-chat-compose">
+        <textarea id="odt-chat-input" rows="1" placeholder="Send a message to the org…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();odtSendChatMessage();}"></textarea>
+        <button id="odt-chat-send-btn" onclick="odtSendChatMessage()" disabled>SEND</button>
       </div>`;
   }
 
@@ -7627,18 +7639,39 @@ function _odtPopulateChatSel() {
   }
 }
 
+window.odtSendChatMessage = async function() {
+  const inp = document.getElementById('odt-chat-input');
+  const btn = document.getElementById('odt-chat-send-btn');
+  if (!inp || !_v2SelOrg) return;
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  btn.disabled = true;
+  try {
+    await fetch('/api/orgs/'+encodeURIComponent(_v2SelOrg)+'/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, runId: _odtChatCurrentId || null }) });
+  } catch(e) {
+    inp.value = text;
+  } finally {
+    btn.disabled = false;
+    inp.focus();
+  }
+};
+
 window.odtChatSelectSession = async function(id) {
   _odtChatCurrentId = id;
   _odtChatCurrentAgent = 'all';
   const feed = document.getElementById('odt-chat-feed');
   const emptyEl = document.getElementById('odt-chat-empty');
   const bar = document.getElementById('odt-chat-agent-bar');
+  const sendBtn = document.getElementById('odt-chat-send-btn');
   feed.querySelectorAll('.cv-msg, .cv-session-hdr').forEach(e => e.remove());
   if (!id) {
     if (emptyEl) emptyEl.style.display = 'block';
     if (bar) bar.style.display = 'none';
+    if (sendBtn) sendBtn.disabled = true;
     return;
   }
+  if (sendBtn) sendBtn.disabled = false;
 
   // ── Run group path: render merged events from all runs in the group ──
   if (id.startsWith('rgrp:') && _odtRunGroups[id]) {
@@ -7991,12 +8024,12 @@ function _odtAppendEvent(ev, animate) {
   const _isSummaryType = _evType === 'agent:spawn' || _evType === 'agent:complete' ||
     _evType === 'agent:edit' || _evType === 'org:comms' || _evType === 'org:error' ||
     _evType === 'run:start' || _evType === 'run:complete' || _evType === 'org:start' ||
-    _evType === 'org:checkpoint' || _evType === 'run:cycle:complete' || _evType === 'org:complete' || _evType === 'org:stop';
-  const _isDetailedType = _isSummaryType || _evType === 'agent:bash' ||
-    _evType === 'agent:browse' || _evType === 'agent:read:batch' || _evType === 'agent:usage' ||
-    _evType === 'agent:result' || _evType === 'file:write' || _evType === 'org:agent:online';
+    _evType === 'org:checkpoint' || _evType === 'run:cycle:complete' || _evType === 'org:complete' || _evType === 'org:stop' ||
+    _evType === 'user:message';
+  // detailed: show all except pure noise (inverted — new event types auto-visible)
+  const _isNoiseType = _evType === 'agent:usage' || _evType === 'loop:tick';
   if (_odtChatMode === 'summary' && !_isSummaryType) return;
-  if (_odtChatMode === 'detailed' && !_isDetailedType) return;
+  if (_odtChatMode === 'detailed' && _isNoiseType) return;
   // raw: show everything
   const feed = document.getElementById('odt-chat-feed');
   if (!feed) return;
@@ -8073,6 +8106,9 @@ function _odtAppendEvent(ev, animate) {
     el.classList.add('cv-err');
   } else if (ev.type === 'org:agent:offline') {
     el = mkCVSys('◌ ' + esc(ev.title || ev.role || '?') + ' offline', ts);
+  } else if (ev.type === 'user:message') {
+    el = mkCVAgent('you', ev.text || ev.msg || ev.message || '', ts, 'user:message');
+    el.classList.add('cv-user-msg');
   } else {
     el = mkCVSys(esc(ev.type || 'event'), ts);
   }

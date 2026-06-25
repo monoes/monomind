@@ -254,12 +254,15 @@ html, body {
 .tab-btn:hover { color: var(--muted); }
 .tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); }
 
-#main-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
+#main-body { flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
 #main-body::-webkit-scrollbar { width: 4px; }
 #main-body::-webkit-scrollbar-thumb { background: var(--teal-dim); border-radius: 2px; }
+/* Chat tab needs a non-scrolling bounded container so compose stays visible */
+#main-body.chat-active { overflow: hidden; display: flex; flex-direction: column; }
 
 .tab-pane { display: none; }
 .tab-pane.active { display: block; }
+#main-body.chat-active #tab-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
 /* ── Empty / no-selection state ─────────────────────────────────── */
 #no-org-state {
@@ -421,7 +424,7 @@ html, body {
 
 /* ── Chat tab ───────────────────────────────────────────────────── */
 #chat-pane {
-  display: flex; flex-direction: column; height: 100%;
+  display: flex; flex-direction: column; flex: 1; min-height: 0;
   overflow: hidden;
 }
 #chat-session-bar {
@@ -491,6 +494,39 @@ html, body {
 .cmsg.csys { align-self: center; max-width: 100%; }
 .cmsg.cagent { align-self: flex-start; }
 .cmsg.cic { align-self: flex-start; }
+.cmsg.cuser { align-self: flex-end; }
+.cmsg.cuser .cbubble {
+  background: oklch(14% 0.022 250);
+  border: 1px solid oklch(68% 0.18 250 / 0.28);
+  border-radius: 8px 2px 8px 8px;
+  padding: 7px 11px; color: oklch(80% 0.010 250);
+  font-size: 11px; line-height: 1.6;
+  word-break: break-word; white-space: pre-wrap;
+}
+#chat-compose {
+  display: flex; gap: 6px; align-items: flex-end;
+  padding: 8px 20px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#chat-compose-input {
+  flex: 1; background: oklch(10% 0.012 186);
+  border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-family: var(--mono); font-size: 11px;
+  padding: 6px 9px; resize: none; min-height: 32px; max-height: 120px;
+  line-height: 1.5; outline: none;
+}
+#chat-compose-input:focus { border-color: var(--teal-dim); }
+#chat-compose-input::placeholder { color: var(--dim); }
+#chat-send-btn {
+  background: oklch(14% 0.022 186); border: 1px solid var(--teal-dim);
+  color: var(--teal); border-radius: 4px; padding: 5px 12px;
+  font-family: var(--mono); font-size: 9px; letter-spacing: 1px;
+  cursor: pointer; flex-shrink: 0; align-self: flex-end;
+  transition: background 0.15s, border-color 0.15s;
+}
+#chat-send-btn:hover { background: oklch(62% 0.20 186 / 0.12); border-color: var(--teal); }
+#chat-send-btn:disabled { opacity: 0.35; cursor: default; }
 
 @keyframes cmsg-in { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:none} }
 .cmsg.new { animation: cmsg-in 0.18s ease-out; }
@@ -914,6 +950,10 @@ html, body {
             <div id="chat-feed-wrap">
               <div id="chat-feed-empty">Select a session above to see agent communications.</div>
             </div>
+            <div id="chat-compose">
+              <textarea id="chat-compose-input" rows="1" placeholder="Send a message to the org…" onkeydown="chatComposeKey(event)"></textarea>
+              <button id="chat-send-btn" onclick="sendChatMessage()" disabled>SEND</button>
+            </div>
           </div>
         </div>
 
@@ -956,7 +996,7 @@ let currentTab = 'chart';
 let chatRenderMode = localStorage.getItem('chatRenderMode') || 'summary';
 
 // Phase 3: Chat render mode — Summary / Detailed / Raw
-const CHAT_SUMMARY_TYPES = new Set(['session:start','session:complete','domain:dispatch','domain:complete','agent:spawn','agent:complete','agent:edit','org:comms','loop:start','loop:complete','org:artifact','agent:message','intercom']);
+const CHAT_SUMMARY_TYPES = new Set(['session:start','session:complete','domain:dispatch','domain:complete','agent:spawn','agent:complete','agent:edit','org:comms','loop:start','loop:complete','org:artifact','agent:message','intercom','user:message']);
 const CHAT_DETAILED_TYPES = new Set([...CHAT_SUMMARY_TYPES,'agent:bash','agent:bash:result','agent:browse','agent:read','agent:read:batch']);
 function setChatMode(mode) {
   chatRenderMode = mode;
@@ -1029,6 +1069,8 @@ window.switchTab = function(tab) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   const pane = document.getElementById('tab-' + tab);
   if (pane) pane.classList.add('active');
+  const mainBody = document.getElementById('main-body');
+  if (mainBody) mainBody.classList.toggle('chat-active', tab === 'chat');
   if (tab === 'chat') renderChatTab();
   else if (orgDetailData) renderTab(tab);
 };
@@ -1638,12 +1680,15 @@ window.selectChatSession = function(id) {
   const feed = document.getElementById('chat-feed-wrap');
   const empty = document.getElementById('chat-feed-empty');
   const bar = document.getElementById('chat-agent-bar');
+  const sendBtn = document.getElementById('chat-send-btn');
   if (!id) {
     feed.querySelectorAll('.cmsg').forEach(e=>e.remove());
     if (empty) empty.style.display = 'block';
     if (bar) bar.style.display = 'none';
+    if (sendBtn) sendBtn.disabled = true;
     return;
   }
+  if (sendBtn) sendBtn.disabled = false;
   const sess = chatSessions.find(s => s.id === id);
   if (!sess) return;
   feed.querySelectorAll('.cmsg').forEach(e=>e.remove());
@@ -1748,12 +1793,16 @@ function appendChatEvent(ev, animate) {
     el = mkAgent(ev.agent||'agent', esc(ev.text||''), ts, dc(ev.domain), null);
   } else if (ev.type === 'intercom') {
     el = mkIntercom(ev.from, ev.to, esc(ev.msg||''), ts);
+  } else if (ev.type === 'user:message') {
+    el = mkUser(esc(ev.text||ev.msg||''), ts);
   } else if (ev.type === 'loop:start') {
     el = mkSys(`🔁 Loop: ${esc(ev.command||'')} (${ev.repeat||'?'} runs)`, ts);
   } else if (ev.type === 'loop:complete') {
     el = mkSys(`🔁 Loop done: ${esc(ev.command||'')} — ${ev.ranReps||'?'} run(s)`, ts);
-  } else if (ev.type === 'org:artifact' && ev.artifact) {
-    el = mkArtifact(ev.artifact, ts);
+  } else if (ev.type === 'org:artifact') {
+    const _art = ev.artifact || (ev.path ? { path: ev.path, label: ev.label, mimeType: ev.mimeType } : null);
+    if (_art) el = mkArtifact(_art, ts);
+    else el = mkSys(`📄 artifact: ${esc(ev.label||ev.path||'file')}`, ts);
   } else {
     el = mkSys(`<span style="opacity:0.4">${esc(ev.type)}${ev.domain?' ['+esc(ev.domain)+']':''}</span>`, ts);
   }
@@ -1793,6 +1842,43 @@ function mkArtifact(art, ts) {
     : `<span style="font-size:10px;color:#555">Binary</span>`;
   el.innerHTML = `<div class="cbubble" style="padding:0"><div style="background:#1a1a2e;border:1px solid #3333aa44;border-radius:6px;padding:7px 10px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">📄</span><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(labelRaw)}</div><div style="font-size:10px;color:#888">${esc(meta)}</div></div>${viewBtn}</div><span style="color:var(--dim);font-size:9px;padding:4px 6px 2px">${ts}</span></div>`;
   return el;
+}
+
+function mkUser(text, ts) {
+  const el = document.createElement('div');
+  el.className = 'cmsg cuser';
+  el.innerHTML = `<div class="cmsg-meta" style="justify-content:flex-end"><span class="cts">${ts}</span><span class="ctag" style="border-color:oklch(68% 0.18 250 / 0.35);color:oklch(68% 0.14 250)">you</span></div><div class="cbubble">${text}</div>`;
+  return el;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chat-compose-input');
+  const btn = document.getElementById('chat-send-btn');
+  const text = (input?.value || '').trim();
+  if (!text || !selectedOrg) return;
+  btn.disabled = true;
+  input.value = '';
+  input.style.height = '';
+  try {
+    await fetch(`/api/orgs/${encodeURIComponent(selectedOrg)}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+  } catch(_) {}
+  btn.disabled = false;
+  input.focus();
+}
+
+function chatComposeKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
+  // Auto-resize
+  const ta = e.target;
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
 }
 
 async function viewArtifact(filePath, label) {

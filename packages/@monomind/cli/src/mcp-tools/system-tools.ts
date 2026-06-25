@@ -163,12 +163,12 @@ export const systemTools: MCPTool[] = [
       const totalMem = os.totalmem();
       const freeMem = os.freemem();
 
-      // Read real agent/task counts — try AgentDB first, fallback to JSON stores
+      // Read real agent/task counts — try memory backend first, fallback to JSON stores
       let agentCounts = { active: 0, total: 0 };
       let taskCounts = { pending: 0, completed: 0, failed: 0 };
-      let _metricsSource: 'agentdb' | 'json-store' | 'none' = 'none';
+      let _metricsSource: 'lancedb' | 'json-store' | 'none' = 'none';
 
-      // Primary: AgentDB (sql.js + HNSW)
+      // Primary: LanceDB bridge
       try {
         const bridge = await import('../memory/memory-bridge.js');
         const agentResults = await bridge.bridgeListEntries({ namespace: 'agents', limit: 10000 }) as { entries?: Array<{ metadata?: string; value?: string }> } | null;
@@ -182,7 +182,7 @@ export const systemTools: MCPTool[] = [
             } catch { /* skip unparseable */ }
           }
           agentCounts = { total: agentEntries.length, active };
-          _metricsSource = 'agentdb';
+          _metricsSource = 'lancedb';
         }
         const taskResults = await bridge.bridgeListEntries({ namespace: 'tasks', limit: 10000 }) as { entries?: Array<{ metadata?: string; value?: string }> } | null;
         const taskEntries = taskResults?.entries;
@@ -197,9 +197,9 @@ export const systemTools: MCPTool[] = [
             } catch { /* skip */ }
           }
           taskCounts = { pending, completed, failed };
-          _metricsSource = 'agentdb';
+          _metricsSource = 'lancedb';
         }
-      } catch { /* AgentDB not available, try JSON fallback */ }
+      } catch { /* memory backend unavailable, try JSON fallback */ }
 
       // Fallback: JSON store files (backward compatibility)
       if (_metricsSource === 'none') {

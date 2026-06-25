@@ -453,7 +453,7 @@ const result = await worker.execute({ entries: memoryEntries });
 ```
 
 Wire into the `consolidate` or `ultralearn` background worker to replay
-decaying memories via `agentdb_pattern-store`.
+decaying memories via `lancedb_pattern-store`.
 
 ### CP-WBFT Weighted Voting (newinnovation.md §4.1)
 
@@ -811,7 +811,7 @@ Add to your Claude settings (`~/.claude/settings.json`):
 
 - [@monomind/shared](../shared) - Shared utilities and types
 - [@monomind/swarm](../swarm) - Multi-agent coordination
-- [@monomind/memory](../memory) - AgentDB memory system
+- [@monomind/memory](../memory) - LanceDB memory system
 
 ## License
 

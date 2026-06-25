@@ -15,7 +15,7 @@ import { addToHNSWIndex, rebuildSearchIndex } from './hnsw-operations.js';
 export { searchEntries, listEntries, getEntry } from './memory-read.js';
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
-// ADR-053: Lazy import of AgentDB v1 bridge
+// ADR-053: Lazy import of memory bridge
 let _bridge;
 async function getBridge() {
     if (_bridge === null)
@@ -214,7 +214,7 @@ export async function verifyMemoryInit(dbPath, options) {
  * This bypasses MCP and writes directly to the database
  */
 export async function storeEntry(options) {
-    // ADR-053: Try AgentDB v1 bridge first
+    // ADR-053: Try LanceDB memory bridge first
     const bridge = await getBridge();
     if (bridge) {
         const bridgeResult = await bridge.bridgeStoreEntry(options);
@@ -311,7 +311,7 @@ export async function storeEntry(options) {
  * Issue #980: Properly supports namespaced entries
  */
 export async function deleteEntry(options) {
-    // ADR-053: Try AgentDB v1 bridge first
+    // ADR-053: Try LanceDB memory bridge first
     const bridge = await getBridge();
     if (bridge) {
         const bridgeResult = await bridge.bridgeDeleteEntry(options);

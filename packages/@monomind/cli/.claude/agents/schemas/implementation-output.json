@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "implementation-output",
+  "type": "object",
+  "required": ["filesModified", "summary", "agentSlug"],
+  "properties": {
+    "filesModified": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "summary": { "type": "string" },
+    "agentSlug": { "type": "string" },
+    "linesAdded": { "type": "integer" },
+    "linesRemoved": { "type": "integer" },
+    "testsPassed": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}
