@@ -8164,7 +8164,7 @@ function _odtHandleLiveEvent(ev) {
       }
     } else if (runSess) {
       (runSess.events = runSess.events || []).push(ev);
-      if (runSess._runMeta) runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1;
+      if (runSess._runMeta) { runSess._runMeta.eventCount = (runSess._runMeta.eventCount || 0) + 1; if (runSess._runMeta.eventCount % 5 === 0) _odtPopulateChatSel(); }
       if (ev.type === 'run:cycle:complete' || ev.type === 'org:checkpoint') { if (runSess._runMeta) runSess._runMeta.cycleCount = (runSess._runMeta.cycleCount || 0) + 1; _odtPopulateChatSel(); }
       // Backfill prompt from first boss directive when run:start had no goal field
       if (!runSess.prompt && ev.type === 'org:comms' && (ev.from === 'boss' || ev.role === 'boss') && ev.msg) {
