@@ -51,7 +51,7 @@ vi.mock('child_process', () => ({
   spawnSync: vi.fn(() => ({ status: 0, stdout: '' })),
 }));
 
-// Mock the memory bridge for agentdb tools
+// Mock the memory bridge for memory tools
 vi.mock('../src/memory/memory-bridge.js', () => ({
   bridgeHealthCheck: vi.fn(async () => ({ available: true, status: 'healthy' })),
   bridgeListControllers: vi.fn(async () => []),
@@ -162,7 +162,7 @@ vi.mock('agentic-flow/reasoningbank', () => {
 // ============================================================================
 
 import { agentTools } from '../src/mcp-tools/agent-tools.js';
-import { agentdbTools } from '../src/mcp-tools/agentdb-tools.js';
+import { memoryTools as memoryTools } from '../src/mcp-tools/memory-tools.js'; // monolean:
 import { analyzeTools } from '../src/mcp-tools/analyze-tools.js';
 import { claimsTools } from '../src/mcp-tools/claims-tools.js';
 import { configTools } from '../src/mcp-tools/config-tools.js';
@@ -195,7 +195,7 @@ interface ToolModule {
 
 const ALL_MODULES: ToolModule[] = [
   { name: 'agent-tools', tools: agentTools },
-  { name: 'agentdb-tools', tools: agentdbTools },
+  { name: 'memory-tools-legacy', tools: memoryTools },
   { name: 'analyze-tools', tools: analyzeTools },
   { name: 'claims-tools', tools: claimsTools },
   { name: 'config-tools', tools: configTools },
@@ -254,7 +254,7 @@ describe('MCP Tools Deep Test Suite', () => {
     it('should register expected tool counts per module', () => {
       const minCounts: Record<string, number> = {
         'agent-tools': 7,
-        'agentdb-tools': 15,
+        'memory-tools-legacy': 15,
         'analyze-tools': 6,
         'claims-tools': 12,
         'config-tools': 6,
@@ -791,55 +791,55 @@ describe('MCP Tools Deep Test Suite', () => {
   });
 
   // --------------------------------------------------------------------------
-  // 20. Handler Invocation - AgentDB Tools
+  // 20. Handler Invocation - Memory Tools
   // --------------------------------------------------------------------------
-  describe('AgentDB Tools - Handler Invocation', () => {
-    it('agentdb_health returns availability', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_health')!;
+  describe('Memory Tools - Handler Invocation', () => {
+    it('memory_health returns availability', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_health')!;
       const result: any = await tool.handler({});
       expect(result).toBeDefined();
     });
 
-    it('agentdb_controllers returns controllers list', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_controllers')!;
+    it('memory_controllers returns controllers list', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_controllers')!;
       const result: any = await tool.handler({});
       expect(result).toBeDefined();
     });
 
-    it('agentdb_pattern-store requires pattern param', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_pattern-store')!;
+    it('memory_pattern-store requires pattern param', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_pattern-store')!;
       const result: any = await tool.handler({});
       expect(result.success).toBe(false);
       expect(result.error).toContain('pattern is required');
     });
 
-    it('agentdb_pattern-search requires query param', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_pattern-search')!;
+    it('memory_pattern-search requires query param', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_pattern-search')!;
       const result: any = await tool.handler({});
       expect(result.error).toContain('query is required');
     });
 
-    it('agentdb_causal-edge validates required fields', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_causal-edge')!;
+    it('memory_causal-edge validates required fields', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_causal-edge')!;
       const result: any = await tool.handler({});
       expect(result.success).toBe(false);
     });
 
-    it('agentdb_route requires task param', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_route')!;
+    it('memory_route requires task param', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_route')!;
       const result: any = await tool.handler({});
       expect(result.error).toContain('task is required');
     });
 
-    it('agentdb_batch validates entries array', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_batch')!;
+    it('memory_batch validates entries array', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_batch')!;
       const result: any = await tool.handler({ operation: 'insert' });
       expect(result.success).toBe(false);
       expect(result.error).toContain('entries is required');
     });
 
-    it('agentdb_batch validates operation type', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_batch')!;
+    it('memory_batch validates operation type', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_batch')!;
       const result: any = await tool.handler({ operation: 'invalid', entries: [{ key: 'k' }] });
       expect(result.success).toBe(false);
       expect(result.error).toContain('Invalid operation');
@@ -875,15 +875,15 @@ describe('MCP Tools Deep Test Suite', () => {
       expect(result).toBeDefined();
     });
 
-    it('agentdb tools validate string inputs', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_pattern-store')!;
+    it('memory tools validate string inputs', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_pattern-store')!;
       // Empty string should fail validation
       const result: any = await tool.handler({ pattern: '' });
       expect(result.success).toBe(false);
     });
 
-    it('agentdb tools enforce max string length', async () => {
-      const tool = agentdbTools.find(t => t.name === 'agentdb_feedback')!;
+    it('memory tools enforce max string length', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_feedback')!;
       // Very long taskId should be rejected
       const longId = 'x'.repeat(1000);
       const result: any = await tool.handler({ taskId: longId });

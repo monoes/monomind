@@ -72,8 +72,8 @@ export interface HooksConfig {
 export interface SkillsConfig {
   /** Include core skills (swarm, sparc, mastermind, monodesign, monomotion) */
   core: boolean;
-  /** Include AgentDB skills */
-  agentdb: boolean;
+  /** Include memory/LanceDB skills */
+  memory: boolean;
   /** Include GitHub integration skills */
   github: boolean;
   /** Include browser automation skills */
@@ -205,7 +205,7 @@ export interface RuntimeConfig {
   /** Maximum agents */
   maxAgents: number;
   /** Memory backend */
-  memoryBackend: 'memory' | 'sqlite' | 'agentdb' | 'hybrid';
+  memoryBackend: 'memory' | 'sqlite' | 'lancedb' | 'hybrid';
   /** Enable HNSW indexing */
   enableHNSW: boolean;
   /** Enable neural learning */
@@ -366,7 +366,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
   },
   skills: {
     core: true,
-    agentdb: true,
+    memory: true,
     github: true,
     browser: true,
     advanced: true,
@@ -460,7 +460,7 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
   },
   skills: {
     core: true,
-    agentdb: false,
+    memory: false,
     github: false,
     browser: false,
     advanced: false,
@@ -519,7 +519,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
   },
   skills: {
     core: true,
-    agentdb: true,
+    memory: true,
     github: true,
     browser: true,
     advanced: true,

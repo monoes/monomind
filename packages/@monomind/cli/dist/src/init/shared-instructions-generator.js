@@ -3,7 +3,7 @@
  *
  * Auto-detects project profile and generates:
  * 1. .agents/shared_instructions.md  — prepended to every agent prompt
- * 2. Memory seeds — pre-loaded into AgentDB so agents start with project best practices
+ * 2. Memory seeds — pre-loaded into LanceDB so agents start with project best practices
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';

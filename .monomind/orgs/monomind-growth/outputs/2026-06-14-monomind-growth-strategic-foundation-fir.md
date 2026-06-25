@@ -82,7 +82,7 @@ Here are all three deliverables for the monomind-growth org's strategic foundati
 ### 1. Core Value Props
 
 - **Your Claude Code runs itself.** Monomind lets you design a team of specialized AI agents — coder, reviewer, tester, security auditor — give them a shared goal, and walk away. The org runs as a background daemon, checkpoints its own state, and recovers from failures. You return to finished work, not a frozen prompt.
-- **Persistent memory that compounds.** Unlike a stateless LLM session, Monomind's AgentDB stores everything agents learn — patterns, outcomes, code context — in a queryable HNSW vector index. The longer you use it, the more context is available. Agents stop re-discovering things they already know.
+- **Persistent memory that compounds.** Unlike a stateless LLM session, Monomind's LanceDB stores everything agents learn — patterns, outcomes, code context — in a queryable HNSW vector index. The longer you use it, the more context is available. Agents stop re-discovering things they already know.
 - **Infrastructure-grade coordination, zero infrastructure to run.** Byzantine fault-tolerant consensus, raft leader election, CRDT sync — the same coordination primitives that distributed systems engineers spend months building — available in one `npm install`. No Kubernetes, no message queues, no separate services.
 
 ### 2. Target Personas

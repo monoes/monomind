@@ -224,7 +224,7 @@ export {
   globalObservabilityBus,
   BusHookBridge,
   CLISink,
-  AgentDBSink,
+  MemorySink,
   OTelSink,
   type ObservabilityEvent,
   type TokenUsageEvent,

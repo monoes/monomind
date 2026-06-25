@@ -76,11 +76,11 @@ const CAPABILITY_CATALOG = {
     },
     'memory-knowledge': {
         name: 'Memory & Knowledge',
-        description: 'Persistent memory with HNSW vector search, AgentDB storage, and embeddings.',
+        description: 'Persistent memory with ANN vector search, LanceDB storage, and embeddings.',
         tools: ['memory_store', 'memory_retrieve', 'memory_search', 'memory_list', 'memory_delete', 'memory_init', 'memory_export', 'memory_import', 'memory_stats', 'memory_compact', 'memory_namespace'],
         commands: ['memory store', 'memory retrieve', 'memory search', 'memory list', 'memory delete', 'memory init'],
         agents: ['swarm-memory-manager', 'v1-memory-specialist'],
-        skills: ['v1-memory-unification', 'agentdb-advanced', 'agentdb-vector-search', 'agentdb-memory-patterns', 'agentdb-learning'],
+        skills: ['v1-memory-unification', 'memory-advanced', 'memory-vector-search', 'memory-patterns', 'memory-learning'],
         whenToUse: 'When you need to persist, search, or retrieve knowledge across sessions.',
     },
     'intelligence-learning': {
@@ -89,7 +89,7 @@ const CAPABILITY_CATALOG = {
         tools: ['neural_train', 'neural_predict', 'neural_status', 'neural_patterns', 'neural_optimize'],
         commands: ['neural train', 'neural predict', 'neural status', 'neural patterns', 'neural optimize'],
         agents: ['sona-learning-optimizer', 'safla-neural'],
-        skills: ['reasoningbank-intelligence', 'reasoningbank-agentdb'],
+        skills: ['reasoningbank-intelligence', 'memory-reasoningbank'],
         whenToUse: 'When optimizing agent routing, training patterns from outcomes, or adaptive learning.',
     },
     'hooks-automation': {
@@ -158,7 +158,7 @@ const CAPABILITY_CATALOG = {
         tools: ['embeddings_embed', 'embeddings_batch', 'embeddings_search', 'embeddings_init'],
         commands: ['embeddings embed', 'embeddings batch', 'embeddings search', 'embeddings init'],
         agents: [],
-        skills: ['agentdb-vector-search', 'agentdb-optimization'],
+        skills: ['memory-vector-search', 'memory-optimization'],
         whenToUse: 'When you need semantic search, document embedding, or vector similarity operations.',
     },
     'code-analysis': {

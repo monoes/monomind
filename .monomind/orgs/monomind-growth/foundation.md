@@ -79,7 +79,7 @@ Generated: 2026-06-12 | First Run Complete
 ### Core Value Props
 
 - **Your Claude Code runs itself.** Monomind lets you design a team of specialized AI agents — coder, reviewer, tester, security auditor — give them a shared goal, and walk away. The org runs as a background daemon, checkpoints its own state, and recovers from failures.
-- **Persistent memory that compounds.** Unlike a stateless LLM session, Monomind's AgentDB stores everything agents learn in a queryable HNSW vector index. The longer you use it, the more context is available. Agents stop re-discovering things they already know.
+- **Persistent memory that compounds.** Unlike a stateless LLM session, Monomind's LanceDB stores everything agents learn in a queryable HNSW vector index. The longer you use it, the more context is available. Agents stop re-discovering things they already know.
 - **Infrastructure-grade coordination, zero infrastructure to run.** Byzantine fault-tolerant consensus, raft leader election, CRDT sync — available in one `npm install`. No Kubernetes, no message queues, no separate services.
 
 ### Target Personas

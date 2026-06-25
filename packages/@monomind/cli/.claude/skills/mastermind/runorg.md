@@ -40,7 +40,7 @@ fi
 ```
 Return `status: blocked` with message: "Org '<org_name>' not found. Run /mastermind:createorg to define it."
 
-Validate the config has at minimum: `name`, `goal`, `roles` (non-empty array), `communication`.
+Validate the config has at minimum: `name`, `goal`, `roles` (non-empty array). The `communication` field is optional; fall back to `edges` if absent (both have the same schema: `from`, `to`, `type`).
 
 ---
 
@@ -113,7 +113,8 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     --arg org "$orgName" \
     --arg goal "$goal" \
     --arg proj "$REPO_ROOT" \
-    '{type:"org:start",session:$session,org:$org,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
+    --argjson ci "${CHECKPOINT_INTERVAL_MS:-600000}" \
+    '{type:"org:start",session:$session,org:$org,goal:$goal,project:$proj,checkpointInterval:$ci,ts:(now*1000|floor)}')" || true
 ```
 
 ### 1.6.4 — Execute first iteration inline
@@ -147,12 +148,22 @@ If `LOOP_STATUS == "active"` or `LOOP_STATUS == "paused"`:
    LOOP_PROMPT=$(cat "$run_prompt_file")
    ```
 
-2. Call `ScheduleWakeup` with:
+2. Emit `org:stop` to signal this iteration is pausing:
+   ```bash
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+     -H "Content-Type: application/json" \
+     -d "$(jq -cn \
+       --arg org "$orgName" \
+       --arg runId "run-$(date -u +%Y%m%dT%H%M%S)" \
+       '{type:"org:stop",org:$org,runId:$runId,ts:(now*1000|floor),reason:"scheduled-iteration-complete"}')" || true
+   ```
+
+3. Call `ScheduleWakeup` with:
    - `delaySeconds`: `$poll_interval_seconds`
    - `reason`: `"<orgName>: next scheduled poll (every <poll_interval_minutes> min)"`
    - `prompt`: full contents of `$LOOP_PROMPT`
 
-3. Update `next_run` in org JSON:
+4. Update `next_run` in org JSON:
    ```bash
    next_ts=$(( $(date +%s) + poll_interval_seconds ))
    next_iso=$(date -u -r "$next_ts" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
@@ -305,35 +316,55 @@ jq -cn \
   '{type:"run:start",runId:$runId,org:$org,orgName:$org,goal:$goal,bossRole:$bossRole,project:$proj,ts:(now*1000|floor)}' \
   >> "$runFile"
 
-# Print resolved values so Step 4 can embed them in the boss prompt
-echo "ORG_VARS: orgName=${orgName} runId=${runId} sessionId=${sessionId} goal=${goal} bossRole_id=${bossRole_id} bossRole_title=${bossRole_title} bossRole_agent_type=${bossRole_agent_type} board_id=${board_id} todo_col=${todo_col} doing_col=${doing_col} done_col=${done_col} checkpointMin=${checkpointMin} memNs=${memNs} CTRL_URL=${CTRL_URL} MONO_DIR=${MONO_DIR} runFile=${runFile} REPO_ROOT=${REPO_ROOT}"
-```
-
-After running the script above, read the `ORG_VARS:` line from its output and hold those values for Step 4 (embed them into the boss prompt as literals — **do not re-run bash to look them up**).
-
----
-
-## Step 3 — Emit org:start (separate Bash call, re-derives from output)
-
-After the combined Step 2+3 script runs, emit `org:start` using the values printed by `ORG_VARS:`. Replace each `<X>` with the literal value from that line:
-
-```bash
-curl -s -X POST "<CTRL_URL>/api/mastermind/event" \
+# Emit session:start first — creates the chat tab session record and writes active-session.json
+# so capture-handler can tag all subsequent agent:spawn / agent:complete events with this session
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
-    --arg session "<sessionId>" \
-    --arg org "<orgName>" \
-    --arg runId "<runId>" \
-    --arg goal "<goal>" \
-    --arg proj "<REPO_ROOT>" \
-    '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
+    --arg session "$sessionId" \
+    --arg org "$orgName" \
+    --arg prompt "$goal" \
+    '{type:"session:start",session:$session,org:$org,prompt:$prompt,ts:(now*1000|floor)}')" || true
+
+# Emit org:start — must run here while CTRL_URL/runId/orgName are in scope
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn \
+    --arg session "$sessionId" \
+    --arg org "$orgName" \
+    --arg runId "$runId" \
+    --arg goal "$goal" \
+    --arg proj "$REPO_ROOT" \
+    --argjson ci "${CHECKPOINT_INTERVAL_MS:-600000}" \
+    '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,checkpointInterval:$ci,ts:(now*1000|floor)}')" || true
+
+# Write context file so Step 3 can read values even if Bash output is truncated
+contextFile="${MONO_DIR}/orgs/${orgName}/runcontext.json"
+jq -cn \
+  --arg orgName "$orgName" --arg runId "$runId" --arg sessionId "$sessionId" \
+  --arg goal "$goal" --arg bossRole_id "$bossRole_id" --arg bossRole_title "$bossRole_title" \
+  --arg bossRole_agent_type "$bossRole_agent_type" --arg board_id "$board_id" \
+  --arg todo_col "$todo_col" --arg doing_col "$doing_col" --arg done_col "$done_col" \
+  --arg checkpointMin "$checkpointMin" --arg memNs "$memNs" --arg CTRL_URL "$CTRL_URL" \
+  --arg MONO_DIR "$MONO_DIR" --arg runFile "$runFile" --arg REPO_ROOT "$REPO_ROOT" \
+  '{orgName:$orgName,runId:$runId,sessionId:$sessionId,goal:$goal,bossRole_id:$bossRole_id,bossRole_title:$bossRole_title,bossRole_agent_type:$bossRole_agent_type,board_id:$board_id,todo_col:$todo_col,doing_col:$doing_col,done_col:$done_col,checkpointMin:$checkpointMin,memNs:$memNs,CTRL_URL:$CTRL_URL,MONO_DIR:$MONO_DIR,runFile:$runFile,REPO_ROOT:$REPO_ROOT}' \
+  > "$contextFile"
+echo "RUNCONTEXT: $contextFile"
 ```
+
+After the script completes, note the `RUNCONTEXT:` path it printed. Then run a second Bash call to read it — this survives output truncation:
+
+```bash
+cat "<RUNCONTEXT path from above>"
+```
+
+Use the JSON values from that file for Step 3.
 
 ---
 
-## Step 4 — Spawn Boss Agent
+## Step 3 — Spawn Boss Agent
 
-Using the literal values from the `ORG_VARS:` output (not shell variables — they don't persist), spawn the boss agent via Task tool:
+Using values from the context file (not shell variables — they don't persist), spawn the boss agent via Task tool:
 
 ```javascript
 Task({
@@ -351,7 +382,7 @@ YOUR TEAM (direct reports):
 ${directReports.map(r => `• ${r.title} (subagent_type="${r.agent_type}") — ${r.responsibilities.join(', ')}`).join('\n')}
 
 FULL COMMUNICATION TOPOLOGY:
-${orgConfig.communication.map(e => `${e.from} → ${e.to} (${e.type})`).join('\n')}
+${(orgConfig.communication || orgConfig.edges || []).map(e => `${e.from} → ${e.to} (${e.type})`).join('\n')}
 
 SHARED INFRASTRUCTURE:
 - Task board (monotask): board_id=<board_id>
@@ -501,16 +532,32 @@ OPERATING LOOP:
           # On start — announce you are working:
           curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
-              --arg from "<role_id>" --arg msg "Starting: <card title>" --arg p "$REPO_ROOT" \
-              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
+              --arg from "<role_id>" --arg msg "Starting: <card title>" \
+              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
           # On completion — report back:
           curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
-              --arg from "<role_id>" --arg msg "Completed: <one-sentence summary of output>" --arg p "$REPO_ROOT" \
-              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
+              --arg from "<role_id>" --arg msg "Completed: <one-sentence summary of output>" \
+              '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
+          # When your task is fully complete — signal offline:
+          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+            -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
+              --arg from "<role_id>" \
+              '{type:"org:agent:offline",session:$s,org:$o,runId:$rid,from:$from,ts:(now*1000|floor)}')" || true
+          # TOKEN TRACKING — estimate and persist token usage to state.json for the Budgets dashboard:
+          # Count approximate output tokens from your work (1 word ≈ 1.3 tokens):
+          _tok_out=$(echo -n "<paste a representative sample of your final output here>" | wc -w)
+          _tok_out=$(( _tok_out * 13 / 10 ))
+          _tok_in=8000  # fixed estimate for task context
+          stateFile="$REPO_ROOT/.monomind/orgs/${orgName}-state.json"
+          [ -f "$stateFile" ] && jq --arg id "<role_id>" --argjson in $_tok_in --argjson out $_tok_out \
+            '.agents[$id].tokens_in = ((.agents[$id].tokens_in // 0) + $in) | .agents[$id].tokens_out = ((.agents[$id].tokens_out // 0) + $out)' \
+            "$stateFile" > "${stateFile}.tmp" && mv "${stateFile}.tmp" "$stateFile" || true
 
         Fill in the literal values for orgName="${orgName}", runId="${runId}", sessionId="${sessionId}" — embed them
         directly in the prompt string so the specialist doesn't need to resolve them.
+        For token tracking: set _tok_out to the actual word count of your output text (use wc -w on your
+        output), and replace <role_id> with the literal role id string.
 
 5. Collect completed results from memory (search "${memNs}:report:")
 
@@ -526,8 +573,7 @@ OPERATING LOOP:
    jq -cn --arg runId "${runId}" --arg org "${orgName}" --argjson pend "${pending_count:-0}" \
      '{type:"run:cycle:complete",runId:$runId,org:$org,pending:$pend,ts:(now*1000|floor)}' >> "${runFile}" || true
    activityFile=".monomind/orgs/${orgName}-activity.jsonl"
-   jq -cn --arg org "${orgName}" --arg runId "${runId}" --argjson pend "${pending_count:-0}" \
-     '{type:"run:cycle:complete",org:$org,runId:$runId,ts:(now*1000|floor),pending:$pend}' >> "$activityFile" 2>/dev/null || true
+   echo "{\"type\":\"run:cycle:complete\",\"org\":\"${orgName}\",\"runId\":\"${runId}\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pending\":${pending_count:-0}}" >> "$activityFile" 2>/dev/null || true
 
 8. REQUIRED — emit org:checkpoint with a one-sentence progress summary (include runId):
    curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
@@ -551,23 +597,25 @@ START NOW: resolve CTRL_URL, check for stop signal, assess the board, create ini
 
 ## Step 5 — Emit Boss Online Event
 
-Emit `org:agent:online` for the boss role (team member events are emitted by the boss itself):
+Emit `org:agent:online` for the boss role (team member events are emitted by the boss itself).
+
+**IMPORTANT**: Shell variables do NOT persist across separate Bash tool calls. Read the `ORG_VARS:` line printed in Step 2+3 and substitute each literal value directly into the curl command before running it. Do NOT use `$variableName` syntax — replace each placeholder with its literal string from `ORG_VARS:`.
 
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+# Replace <CTRL_URL>, <sessionId>, <orgName>, <runId>, <bossRole_id>, <bossRole_title>, <bossRole_agent_type>, <REPO_ROOT>
+# with the LITERAL values from the ORG_VARS: line printed in Step 2+3.
+curl -s -X POST "<CTRL_URL>/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
-    --arg session "$sessionId" \
-    --arg org "$orgName" \
-    --arg runId "$runId" \
-    --arg role "$bossRole_id" \
-    --arg title "$bossRole_title" \
-    --arg agent_type "$bossRole_agent_type" \
-    --arg proj "$REPO_ROOT" \
+    --arg session "<sessionId>" \
+    --arg org "<orgName>" \
+    --arg runId "<runId>" \
+    --arg role "<bossRole_id>" \
+    --arg title "<bossRole_title>" \
+    --arg agent_type "<bossRole_agent_type>" \
+    --arg proj "<REPO_ROOT>" \
     '{type:"org:agent:online",session:$session,org:$org,runId:$runId,role:$role,title:$title,agent_type:$agent_type,project:$proj,ts:(now*1000|floor)}')" || true
 ```
-
-(Use the scalar string variables `$bossRole_id`, `$bossRole_title`, `$bossRole_agent_type` derived by extracting fields from `bossRole` before constructing the curl call. `CTRL_URL`, `MONO_DIR`, and `runId` were resolved in Step 3 — reuse those variables.)
 
 ---
 
@@ -624,3 +672,29 @@ run_id: "<runId>"
 ## Step 8 — Brain Write (standalone only)
 
 If `caller` is not "command", follow _protocol.md Brain Write Procedure for domain `ops`.
+
+---
+
+## Reporting Artifacts (optional)
+
+When you create or modify a file that represents output of this org run, emit:
+
+```bash
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn \
+    --arg s "${sessionId}" \
+    --arg o "${orgName}" \
+    --arg rid "${runId}" \
+    --arg from "${AGENT_ROLE}" \
+    --arg label "Short description" \
+    --arg path "${FILE_PATH}" \
+    --arg mime "text/markdown" \
+    '{type:"org:artifact",session:$s,org:$o,runId:$rid,from:$from,artifact:{label:$label,type:"file",path:$path,mimeType:$mime},ts:(now*1000|floor)}')" || true
+```
+
+The dashboard chat will show this as an artifact card with a "View" button. Fill in:
+- `${AGENT_ROLE}` — the literal role id of the agent emitting the artifact
+- `${FILE_PATH}` — the absolute or repo-relative path to the created/modified file
+- `label` — a short human-readable description (e.g., "Weekly report", "Analysis output")
+- `mimeType` — `text/markdown`, `application/json`, `text/plain`, etc.

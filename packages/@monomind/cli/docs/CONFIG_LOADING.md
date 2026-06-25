@@ -83,7 +83,7 @@ interface v1Config {
   };
 
   memory: {
-    backend: "agentdb" | "sqlite" | "memory" | "hybrid";
+    backend: "lancedb" | "sqlite" | "memory" | "hybrid";
     persistPath: string;
     cacheSize: number;
     enableHNSW: boolean;
@@ -157,7 +157,7 @@ MONOMIND_MAX_AGENTS=20 monomind swarm init
   },
   "memory": {
     "type": "hybrid",
-    "agentdb": {
+    "lancedb": {
       "dimensions": 1536,
       "indexType": "hnsw"
     }

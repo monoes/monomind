@@ -1,7 +1,7 @@
 /**
  * V1 Unified Memory Types
  *
- * Type definitions for the unified memory system based on AgentDB with HNSW indexing.
+ * Type definitions for the unified memory system based on LanceDB with ANN indexing.
  * Supports 150x-12,500x faster vector search compared to brute-force approaches.
  *
  * @module v1/memory/types

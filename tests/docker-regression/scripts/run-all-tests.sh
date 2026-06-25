@@ -190,15 +190,15 @@ else
 fi
 
 # ============================================================================
-# TEST CATEGORY 8: MEMORY/AGENTDB
+# TEST CATEGORY 8: MEMORY/LANCEDB
 # ============================================================================
 echo ""
-echo -e "${CYAN}▶ CATEGORY 8: MEMORY/AGENTDB${NC}"
+echo -e "${CYAN}▶ CATEGORY 8: MEMORY/LANCEDB${NC}"
 
 if bash "${SCRIPT_DIR}/test-memory.sh"; then
-    record_result "Memory/AgentDB" "passed" "0" ""
+    record_result "Memory/LanceDB" "passed" "0" ""
 else
-    record_result "Memory/AgentDB" "failed" "0" ""
+    record_result "Memory/LanceDB" "failed" "0" ""
 fi
 
 # ============================================================================

@@ -87,8 +87,8 @@
         "log into",
         "sign in to",
         "submit the form",
-        "agent-browser",
-        "agent browser",
+        "monobrowse",
+        "mono browse",
         "check the ui",
         "check the page",
         "check the frontend",
@@ -509,8 +509,8 @@
       "primaryAgent": "devops"
     },
     {
-      "skill": "agentdb-vector-search",
-      "invoke": "Skill(\"agentdb-vector-search\")",
+      "skill": "memory-vector-search",
+      "invoke": "Skill(\"memory-vector-search\")",
       "description": "Vector search operations — semantic search, HNSW, embeddings, nearest neighbor",
       "keywords": [
         "vector search",
@@ -518,7 +518,7 @@
         "hnsw",
         "embedding",
         "similarity",
-        "agentdb",
+        "memory",
         "nearest"
       ],
       "category": "memory",
@@ -555,38 +555,38 @@
       "primaryAgent": "frontend-dev"
     },
     {
-      "skill": "agentdb-advanced",
-      "invoke": "Skill(\"agentdb-advanced\")",
-      "description": "Advanced AgentDB — QUIC sync, multi-database, custom metrics, distributed systems",
+      "skill": "memory-advanced",
+      "invoke": "Skill(\"memory-advanced\")",
+      "description": "Advanced memory — QUIC sync, multi-database, custom metrics, distributed systems",
       "keywords": [
-        "agentdb",
+        "memory",
         "quic",
         "synchronization",
         "distributed",
         "vector-search",
         "multi-database"
       ],
-      "category": "agentdb",
+      "category": "memory",
       "primaryAgent": "coder"
     },
     {
-      "skill": "agentdb-learning",
-      "invoke": "Skill(\"agentdb-learning\")",
-      "description": "AgentDB RL — 9 algorithms: DQN, PPO, Decision Transformer, Q-Learning, SARSA",
+      "skill": "memory-learning",
+      "invoke": "Skill(\"memory-learning\")",
+      "description": "Memory RL — 9 algorithms: DQN, PPO, Decision Transformer, Q-Learning, SARSA",
       "keywords": [
         "reinforcement-learning",
         "training",
         "rl",
-        "agentdb",
+        "memory",
         "decision-transformer",
         "q-learning"
       ],
-      "category": "agentdb",
+      "category": "memory",
       "primaryAgent": "ml-developer"
     },
     {
-      "skill": "agentdb-memory-patterns",
-      "invoke": "Skill(\"agentdb-memory-patterns\")",
+      "skill": "memory-memory-patterns",
+      "invoke": "Skill(\"memory-memory-patterns\")",
       "description": "Persistent memory patterns for stateful agents and context management",
       "keywords": [
         "memory",
@@ -596,13 +596,13 @@
         "sessions",
         "stateful"
       ],
-      "category": "agentdb",
+      "category": "memory",
       "primaryAgent": "coder"
     },
     {
-      "skill": "agentdb-optimization",
-      "invoke": "Skill(\"agentdb-optimization\")",
-      "description": "AgentDB optimization — quantization (4-32x), HNSW (150x faster), caching, batch ops",
+      "skill": "memory-optimization",
+      "invoke": "Skill(\"memory-optimization\")",
+      "description": "Memory optimization — quantization (4-32x), HNSW (150x faster), caching, batch ops",
       "keywords": [
         "optimization",
         "hnsw",
@@ -611,7 +611,7 @@
         "performance",
         "batch"
       ],
-      "category": "agentdb",
+      "category": "memory",
       "primaryAgent": "coder"
     },
     {
@@ -731,9 +731,9 @@
       "primaryAgent": "coder"
     },
     {
-      "skill": "reasoningbank-agentdb",
-      "invoke": "Skill(\"reasoningbank-agentdb\")",
-      "description": "ReasoningBank adaptive learning with AgentDB vector search and trajectory tracking",
+      "skill": "memory-reasoningbank",
+      "invoke": "Skill("memory-reasoningbank")",
+      "description": "ReasoningBank adaptive learning with LanceDB vector search and trajectory tracking",
       "keywords": [
         "reasoningbank",
         "adaptive-learning",
@@ -741,7 +741,7 @@
         "vector-search",
         "verdict"
       ],
-      "category": "agentdb",
+      "category": "memory",
       "primaryAgent": "ml-developer"
     },
     {
@@ -902,12 +902,12 @@
     {
       "skill": "memory-unification",
       "invoke": "Skill(\"memory-unification\")",
-      "description": "Unify 6+ memory systems into AgentDB with HNSW indexing (150x-12,500x faster)",
+      "description": "Unify 6+ memory systems into LanceDB with ANN indexing (150x-12,500x faster)",
       "keywords": [
         "memory",
         "unification",
         "hnsw",
-        "agentdb",
+        "memory",
         "hierarchical"
       ],
       "category": "memory",

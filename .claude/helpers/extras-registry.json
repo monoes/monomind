@@ -3715,7 +3715,7 @@
     {
       "slug": "v1-memory-specialist",
       "name": "v1-memory-specialist",
-      "description": "v1 Memory Specialist for unifying 6+ memory systems into AgentDB with HNSW indexing. Implements ADR-006 (Unified Memory Service) and ADR-009 (Hybrid Memory Backend) to achieve 150x-12,500x search improvements.",
+      "description": "v1 Memory Specialist for unifying 6+ memory systems into LanceDB with HNSW indexing. Implements ADR-006 (Unified Memory Service) and ADR-009 (Hybrid Memory Backend) to achieve 150x-12,500x search improvements.",
       "category": "specialists",
       "filePath": "../agents/specialists/memory-specialist.md",
       "keywords": [
@@ -3724,7 +3724,7 @@
         "unifying",
         "systems",
         "into",
-        "agentdb",
+        "lancedb",
         "hnsw",
         "indexing",
         "implements",

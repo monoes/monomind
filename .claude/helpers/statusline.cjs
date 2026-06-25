@@ -283,7 +283,7 @@ function getLearningStats() {
     path.join(CWD, '.monomind', 'memory.db'),
     path.join(CWD, '.claude', 'memory.db'),
     path.join(CWD, 'data', 'memory.db'),
-    path.join(CWD, '.agentdb', 'memory.db'),
+    path.join(CWD, '.lancedb', 'memory.db'),
   ];
 
   for (const dbPath of memoryPaths) {
@@ -431,7 +431,7 @@ function getSwarmStatus() {
 function getSystemMetrics() {
   const memoryMB = Math.floor(process.memoryUsage().heapUsed / 1024 / 1024);
   const learning = getLearningStats();
-  const agentdb = getAgentDBStats();
+  const lancedb = getLanceDBStats();
 
   // Intelligence from learning.json
   const learningData = readJSON(path.join(CWD, '.monomind', 'metrics', 'learning.json'));
@@ -443,7 +443,7 @@ function getSystemMetrics() {
   } else {
     // Use actual vector/entry counts — 2000 entries = 100%
     const fromPatterns = learning.patterns > 0 ? Math.min(100, Math.floor(learning.patterns / 20)) : 0;
-    const fromVectors = agentdb.vectorCount > 0 ? Math.min(100, Math.floor(agentdb.vectorCount / 20)) : 0;
+    const fromVectors = lancedb.vectorCount > 0 ? Math.min(100, Math.floor(lancedb.vectorCount / 20)) : 0;
     intelligencePct = Math.max(fromPatterns, fromVectors);
   }
 
@@ -559,8 +559,8 @@ function getActiveAgent() {
   } catch { return null; }
 }
 
-// AgentDB stats — count real entries, not file-size heuristics
-function getAgentDBStats() {
+// LanceDB stats — count real entries, not file-size heuristics
+function getLanceDBStats() {
   let vectorCount = 0;
   let dbSizeKB = 0;
   let namespaces = 0;
@@ -1142,7 +1142,7 @@ function generateDashboard() {
   const system      = getSystemMetrics();
   const adrs        = getADRStatus();
   const hooks       = getHooksStatus();
-  const agentdb     = getAgentDBStats();
+  const lancedb     = getLanceDBStats();
   const tests       = getTestStats();
   const session     = getSessionStats();
   const integration = getIntegrationStatus();
@@ -1288,7 +1288,7 @@ function generateJSON() {
     system:     getSystemMetrics(),
     adrs:       getADRStatus(),
     hooks:      getHooksStatus(),
-    agentdb:    getAgentDBStats(),
+    lancedb:    getLanceDBStats(),
     tests:      getTestStats(),
     git:        { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
     tokenCost:  getTokenCostSummary(),
@@ -1313,7 +1313,7 @@ if (require.main !== module) {
   module.exports = {
     readJSON, safeStat, modelLabel,
     getSecurityStatus, getSwarmStatus, getADRStatus,
-    getHooksStatus, getActiveAgent, getAgentDBStats,
+    getHooksStatus, getActiveAgent, getLanceDBStats,
     getLearningStats, getTestStats, getIntegrationStatus,
     generateJSON,
   };

@@ -6,7 +6,7 @@
  * @module v1/cli/embedding-operations
  */
 
-// ADR-053: Lazy import of AgentDB v1 bridge
+// ADR-053: Lazy import of memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
   if (_bridge === null) return null;
@@ -61,7 +61,7 @@ export async function loadEmbeddingModel(options?: {
     };
   }
 
-  // ADR-053: Try AgentDB v1 bridge first
+  // ADR-053: Try LanceDB bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeLoadEmbeddingModel();
@@ -228,7 +228,7 @@ export async function generateEmbedding(text: string): Promise<{
   if (typeof text !== 'string') text = String(text ?? '');
   if (text.length > 16 * 1024) text = text.slice(0, 16 * 1024);
 
-  // ADR-053: Try AgentDB v1 bridge first
+  // ADR-053: Try LanceDB bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeGenerateEmbedding(text);

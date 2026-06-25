@@ -121,7 +121,7 @@ export const daaTools = [
             }
             store.agents[id] = agent;
             saveDAAStore(store);
-            // Store agent in AgentDB for searchable agent registry
+            // Store agent in memory backend for searchable agent registry
             try {
                 const bridge = await import('../memory/memory-bridge.js');
                 await bridge.bridgeStoreEntry({
@@ -131,7 +131,7 @@ export const daaTools = [
                     tags: [agent.type, agent.cognitivePattern],
                 });
             }
-            catch { /* AgentDB not available */ }
+            catch { /* memory backend unavailable */ }
             return {
                 success: true,
                 agent: {
@@ -177,7 +177,7 @@ export const daaTools = [
             agent.lastActivity = new Date().toISOString();
             agent.status = 'active';
             saveDAAStore(store);
-            // Store adaptation feedback in AgentDB for pattern learning (backward compat: JSON store above)
+            // Store adaptation feedback in memory backend for pattern learning (backward compat: JSON store above)
             let _storedIn = 'json-store';
             try {
                 const bridge = await import('../memory/memory-bridge.js');
@@ -187,9 +187,9 @@ export const daaTools = [
                     quality: performanceScore,
                     agent: agentId,
                 });
-                _storedIn = 'agentdb';
+                _storedIn = 'lancedb';
             }
-            catch { /* AgentDB not available */ }
+            catch { /* memory backend unavailable */ }
             return {
                 success: true,
                 agentId,
@@ -283,7 +283,7 @@ export const daaTools = [
             }
             workflow.status = 'running';
             saveDAAStore(store);
-            // Store workflow state in AgentDB for tracking
+            // Store workflow state in memory backend for tracking
             try {
                 const bridge = await import('../memory/memory-bridge.js');
                 await bridge.bridgeStoreEntry({
@@ -296,7 +296,7 @@ export const daaTools = [
                     namespace: 'daa-workflows',
                 });
             }
-            catch { /* AgentDB not available */ }
+            catch { /* memory backend unavailable */ }
             return {
                 success: true,
                 workflowId,
@@ -325,7 +325,7 @@ export const daaTools = [
             const store = loadDAAStore();
             const sourceId = input.sourceAgentId;
             // Cap targetIds to prevent a large array from inflating the JSON store
-            // entry and the AgentDB tags blob.  100 target agents is already very
+            // entry and the memory backend tags blob.  100 target agents is already very
             // generous for any realistic swarm configuration.
             const MAX_TARGET_IDS = 100;
             const MAX_TARGET_ID_LEN = 256;
@@ -344,7 +344,7 @@ export const daaTools = [
                 targetAgents: targetIds,
                 timestamp: new Date().toISOString(),
             };
-            // Primary: store in AgentDB for vector-searchable knowledge
+            // Primary: store in memory backend for vector-searchable knowledge
             let _storedIn = 'json-store';
             try {
                 const bridge = await import('../memory/memory-bridge.js');
@@ -354,9 +354,9 @@ export const daaTools = [
                     namespace: 'daa-knowledge',
                     tags: [domain, sourceId, ...targetIds],
                 });
-                _storedIn = 'agentdb';
+                _storedIn = 'lancedb';
             }
-            catch { /* AgentDB not available */ }
+            catch { /* memory backend unavailable */ }
             // Backward compat: always persist in JSON store (cap at 1000 entries)
             if (Object.keys(store.knowledge).length >= 1000) {
                 const oldest = Object.keys(store.knowledge)[0];
@@ -373,8 +373,8 @@ export const daaTools = [
                 domain,
                 sharedAt: knowledgeEntry.timestamp,
                 _storedIn,
-                _note: _storedIn === 'agentdb'
-                    ? 'Knowledge stored in AgentDB (vector-searchable) and JSON store. Target agents can retrieve via daa_learning_status or memory search.'
+                _note: _storedIn === 'lancedb'
+                    ? 'Knowledge stored in memory backend (vector-searchable) and JSON store. Target agents can retrieve via daa_learning_status or memory search.'
                     : 'Knowledge stored in shared JSON registry. Target agents can retrieve via daa_learning_status. No cross-agent memory transfer occurs.',
             };
         },

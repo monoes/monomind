@@ -32,8 +32,6 @@ import { githubTools } from './mcp-tools/github-tools.js';
 import { daaTools } from './mcp-tools/daa-tools.js';
 import { coordinationTools } from './mcp-tools/coordination-tools.js';
 import { browserTools } from './mcp-tools/browser-tools.js';
-// Phase 6: AgentDB v1 controller tools
-import { agentdbTools } from './mcp-tools/agentdb-tools.js';
 import { guidanceTools } from './mcp-tools/guidance-tools.js';
 import { autopilotTools } from './mcp-tools/autopilot-tools.js';
 // Knowledge graph tools (graphify — deprecated shims + monograph native)
@@ -43,15 +41,15 @@ import { monographTools } from './mcp-tools/monograph-tools.js';
 import { coverageRouterTools } from './monovector/coverage-tools.js';
 // A2A Agent Card protocol (source: https://a2a-protocol.org)
 import { a2aTools } from './mcp-tools/a2a-tools.js';
+// Quality and Coherence core tools
+import { qualityTools } from './mcp-tools/quality-tools.js';
+import { coherenceTools } from './mcp-tools/coherence-tools.js';
 /**
  * MCP Tool Registry
  * Maps tool names to their handler functions
  */
 const TOOL_REGISTRY = new Map();
-// Register all tools — refuse silent overrides so a future plugin/IPFS-loaded
-// tool cannot shadow a built-in handler (e.g. `agent_spawn`, `memory_store`)
-// without an explicit override flag. Logical-name collision is a real concern
-// when the plugin system goes live.
+// Register all tools — refuse silent overrides without an explicit override flag.
 function registerTools(tools, options = {}) {
     for (const tool of tools) {
         if (TOOL_REGISTRY.has(tool.name) && !options.override) {
@@ -86,8 +84,7 @@ registerTools([
     ...daaTools,
     ...coordinationTools,
     ...browserTools,
-    // Phase 6: AgentDB v1 controller tools
-    ...agentdbTools,
+    ...memoryTools,
     // Guidance & discovery tools
     ...guidanceTools,
     // Autopilot persistent completion tools
@@ -100,6 +97,10 @@ registerTools([
     ...coverageRouterTools,
     // A2A Agent Card protocol (source: https://a2a-protocol.org)
     ...a2aTools,
+    // Quality tools
+    ...qualityTools,
+    // Coherence tools
+    ...coherenceTools,
 ]);
 /**
  * MCP Client Error

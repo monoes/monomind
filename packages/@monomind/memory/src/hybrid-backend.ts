@@ -1,9 +1,9 @@
 /**
- * HybridBackend - Combines SQLite (structured queries) + AgentDB (vector search)
+ * HybridBackend - Combines SQLite (structured queries) + LanceDB (vector search)
  *
- * Per ADR-009: "HybridBackend (SQLite + AgentDB) as default"
+ * Per ADR-009: "HybridBackend (SQLite + LanceDB) as default"
  * - SQLite for: Structured queries, ACID transactions, exact matches
- * - AgentDB for: Semantic search, vector similarity, RAG
+ * - LanceDB for: Semantic search, vector similarity, RAG
  *
  * @module v1/memory/hybrid-backend
  */
@@ -25,7 +25,6 @@ import {
   QueryType,
 } from './types.js';
 import { SQLiteBackend, SQLiteBackendConfig } from './sqlite-backend.js';
-import { AgentDBBackend, AgentDBBackendConfig } from './agentdb-backend.js';
 import { LanceDBBackend, LanceDBBackendConfig } from './lancedb-backend.js';
 import { MemoryGraph } from './memory-graph.js';
 
@@ -36,8 +35,7 @@ export interface HybridBackendConfig {
   /** SQLite configuration */
   sqlite?: Partial<SQLiteBackendConfig>;
 
-  /** AgentDB configuration (used when semanticBackend is 'agentdb', the default) */
-  agentdb?: Partial<AgentDBBackendConfig>;
+  /** LanceDB configuration override */
 
   /**
    * LanceDB configuration (used when semanticBackend is 'lancedb').
@@ -45,12 +43,8 @@ export interface HybridBackendConfig {
    */
   lancedb?: LanceDBBackendConfig;
 
-  /**
-   * Which backend handles semantic (vector) search.
-   * 'agentdb' = HNSW via agentdb (default, works without native deps via WASM).
-   * 'lancedb' = IVF-PQ via LanceDB (requires native binary; faster at scale).
-   */
-  semanticBackend?: 'agentdb' | 'lancedb';
+  /** Which backend handles semantic (vector) search. Always 'lancedb'. */
+  semanticBackend?: 'lancedb';
 
   /** Default namespace */
   defaultNamespace?: string;
@@ -59,7 +53,7 @@ export interface HybridBackendConfig {
   embeddingGenerator?: EmbeddingGenerator;
 
   /** Query routing strategy */
-  routingStrategy?: 'auto' | 'sqlite-first' | 'agentdb-first';
+  routingStrategy?: 'auto' | 'sqlite-first' | 'semantic-first';
 
   /** Enable dual-write (write to both backends) */
   dualWrite?: boolean;
@@ -97,9 +91,9 @@ export interface HybridBackendConfig {
  */
 const DEFAULT_CONFIG: Required<HybridBackendConfig> = {
   sqlite: {},
-  agentdb: {},
+  
   lancedb: {},
-  semanticBackend: 'agentdb',
+  semanticBackend: 'lancedb',
   defaultNamespace: 'default',
   embeddingGenerator: undefined as any,
   routingStrategy: 'auto',
@@ -159,7 +153,7 @@ export interface StructuredQuery {
 
 /**
  * Semantic Query Interface
- * Optimized for AgentDB's vector search
+ * Optimized for LanceDB's vector search
  */
 export interface SemanticQuery {
   /** Content to search for (will be embedded) */
@@ -202,14 +196,14 @@ export interface HybridQuery {
 /**
  * HybridBackend Implementation
  *
- * Intelligently routes queries between SQLite and AgentDB:
+ * Intelligently routes queries between SQLite and LanceDB:
  * - Exact matches, prefix queries → SQLite
- * - Semantic search, similarity → AgentDB
+ * - Semantic search, similarity → LanceDB
  * - Complex hybrid queries → Both backends with intelligent merging
  */
 export class HybridBackend extends EventEmitter implements IMemoryBackend {
-  private sqlite: IMemoryBackend; // SQLiteBackend normally; same as agentdb when lancedb solo
-  private agentdb: IMemoryBackend; // AgentDBBackend or LanceDBBackend
+  private sqlite: IMemoryBackend; // SQLiteBackend normally; same as semantic when lancedb solo
+  private semantic: IMemoryBackend; // LanceDBBackend
   private config: Required<HybridBackendConfig>;
   private initialized: boolean = false;
   /** Lazy MemoryGraph for HippoRAG PPR re-ranking */
@@ -218,7 +212,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   // Performance tracking
   private stats = {
     sqliteQueries: 0,
-    agentdbQueries: 0,
+    semanticQueries: 0,
     hybridQueries: 0,
     totalQueryTime: 0,
   };
@@ -227,10 +221,10 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config };
 
-    // Initialize semantic backend (AgentDB default, or LanceDB when configured)
+    // Initialize semantic backend (LanceDB)
     if (this.config.semanticBackend === 'lancedb') {
       // Solo LanceDB mode: one backend handles all queries (structured + vector).
-      // Both this.sqlite and this.agentdb point to the same instance so all
+      // Both this.sqlite and this.semantic point to the same instance so all
       // routing paths (exact/prefix/tag/semantic) transparently use LanceDB.
       // dualWrite forced off to prevent double-writes to the same instance.
       const ldb = new LanceDBBackend({
@@ -238,7 +232,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
         namespace: this.config.defaultNamespace,
         embeddingGenerator: this.config.embeddingGenerator,
       });
-      this.agentdb = ldb;
+      this.semantic = ldb;
       this.sqlite = ldb;
       this.config.dualWrite = false;
     } else {
@@ -247,8 +241,8 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
         defaultNamespace: this.config.defaultNamespace,
         embeddingGenerator: this.config.embeddingGenerator,
       });
-      this.agentdb = new AgentDBBackend({
-        ...this.config.agentdb,
+      this.semantic = new LanceDBBackend({
+        ...this.config.lancedb,
         namespace: this.config.defaultNamespace,
         embeddingGenerator: this.config.embeddingGenerator,
       });
@@ -260,12 +254,12 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     em(this.sqlite).on?.('entry:updated', (d: any) => this.emit('sqlite:updated', d));
     em(this.sqlite).on?.('entry:deleted', (d: any) => this.emit('sqlite:deleted', d));
 
-    if (this.agentdb !== this.sqlite) {
-      em(this.agentdb).on?.('entry:stored', (d: any) => this.emit('agentdb:stored', d));
-      em(this.agentdb).on?.('entry:updated', (d: any) => this.emit('agentdb:updated', d));
-      em(this.agentdb).on?.('entry:deleted', (d: any) => this.emit('agentdb:deleted', d));
-      em(this.agentdb).on?.('cache:hit', (d: any) => this.emit('cache:hit', d));
-      em(this.agentdb).on?.('cache:miss', (d: any) => this.emit('cache:miss', d));
+    if (this.semantic !== this.sqlite) {
+      em(this.semantic).on?.('entry:stored', (d: any) => this.emit('semantic:stored', d));
+      em(this.semantic).on?.('entry:updated', (d: any) => this.emit('semantic:updated', d));
+      em(this.semantic).on?.('entry:deleted', (d: any) => this.emit('semantic:deleted', d));
+      em(this.semantic).on?.('cache:hit', (d: any) => this.emit('cache:hit', d));
+      em(this.semantic).on?.('cache:miss', (d: any) => this.emit('cache:miss', d));
     }
   }
 
@@ -275,9 +269,9 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    const inits = this.agentdb === this.sqlite
-      ? [this.agentdb.initialize()]
-      : [this.sqlite.initialize(), this.agentdb.initialize()];
+    const inits = this.semantic === this.sqlite
+      ? [this.semantic.initialize()]
+      : [this.sqlite.initialize(), this.semantic.initialize()];
     await Promise.all(inits);
 
     this.initialized = true;
@@ -290,9 +284,9 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   async shutdown(): Promise<void> {
     if (!this.initialized) return;
 
-    const shutdowns = this.agentdb === this.sqlite
-      ? [this.agentdb.shutdown()]
-      : [this.sqlite.shutdown(), this.agentdb.shutdown()];
+    const shutdowns = this.semantic === this.sqlite
+      ? [this.semantic.shutdown()]
+      : [this.sqlite.shutdown(), this.semantic.shutdown()];
     await Promise.all(shutdowns);
 
     this.initialized = false;
@@ -310,10 +304,10 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   async store(entry: MemoryEntry): Promise<void> {
     if (this.config.dualWrite) {
       // Write to both backends in parallel
-      await Promise.all([this.sqlite.store(entry), this.agentdb.store(entry)]);
+      await Promise.all([this.sqlite.store(entry), this.semantic.store(entry)]);
     } else {
-      // Write to primary backend only (AgentDB has vector search)
-      await this.agentdb.store(entry);
+      // Write to primary backend only
+      await this.semantic.store(entry);
     }
 
     this.emit('entry:stored', { id: entry.id });
@@ -334,7 +328,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   private async aMemAutoLink(newEntry: MemoryEntry): Promise<void> {
     try {
       const embedding = await this.config.embeddingGenerator!(newEntry.content!);
-      const neighbors = await this.agentdb.search(embedding, {
+      const neighbors = await this.semantic.search(embedding, {
         k: 4, // fetch 4 to exclude self
         threshold: 0.75,
       });
@@ -366,7 +360,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   }
 
   /**
-   * Get from AgentDB (has caching enabled).
+   * Get from semantic backend.
    *
    * Collaborative memory promotion: when `agentId` is supplied, also notifies
    * the SQLite backend so it can track the read and promote the entry's
@@ -374,11 +368,11 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    * Source: newinnovation.md §2.7 — memory access-level promotion.
    */
   async get(id: string, agentId?: string): Promise<MemoryEntry | null> {
-    const entry = await this.agentdb.get(id);
+    const entry = await this.semantic.get(id);
 
     // Track the read in SQLite for collaborative promotion (best-effort, non-blocking).
-    // Skipped in solo-lancedb mode since this.sqlite === this.agentdb (already fetched above).
-    if (agentId && entry && this.agentdb !== this.sqlite) {
+    // Skipped in solo-lancedb mode since this.sqlite === this.semantic (already fetched above).
+    if (agentId && entry && this.semantic !== this.sqlite) {
       (this.sqlite as any).get(id, agentId).catch(() => { /* non-critical */ });
     }
 
@@ -398,13 +392,13 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   async update(id: string, update: MemoryEntryUpdate): Promise<MemoryEntry | null> {
     if (this.config.dualWrite) {
       // Update both backends
-      const [sqliteResult, agentdbResult] = await Promise.all([
+      const [sqliteResult, semanticResult] = await Promise.all([
         this.sqlite.update(id, update),
-        this.agentdb.update(id, update),
+        this.semantic.update(id, update),
       ]);
-      return agentdbResult || sqliteResult;
+      return semanticResult || sqliteResult;
     } else {
-      return this.agentdb.update(id, update);
+      return this.semantic.update(id, update);
     }
   }
 
@@ -413,18 +407,18 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    */
   async delete(id: string): Promise<boolean> {
     if (this.config.dualWrite) {
-      const [sqliteResult, agentdbResult] = await Promise.all([
+      const [sqliteResult, semanticResult] = await Promise.all([
         this.sqlite.delete(id),
-        this.agentdb.delete(id),
+        this.semantic.delete(id),
       ]);
-      return sqliteResult || agentdbResult;
+      return sqliteResult || semanticResult;
     } else {
-      return this.agentdb.delete(id);
+      return this.semantic.delete(id);
     }
   }
 
   /**
-   * Query routing - semantic goes to AgentDB, structured to SQLite
+   * Query routing — semantic goes to LanceDB, structured to SQLite
    */
   async query(query: MemoryQuery): Promise<MemoryEntry[]> {
     const startTime = performance.now();
@@ -452,9 +446,9 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
         break;
 
       case 'semantic':
-        // AgentDB optimized for semantic search
-        this.stats.agentdbQueries++;
-        results = await this.agentdb.query(query);
+        // LanceDB handles semantic search
+        this.stats.semanticQueries++;
+        results = await this.semantic.query(query);
         break;
 
       case 'hybrid':
@@ -560,7 +554,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
 
   /**
    * Semantic queries (vector)
-   * Routes to AgentDB for HNSW-based vector search.
+   * Routes to semantic backend for ANN vector search.
    *
    * MemoRAG query rewriting (arXiv:2409.05591): when `memoragRewriter` is configured
    * and `query.content` is present, generates 2-3 reformulated sub-queries, embeds
@@ -568,7 +562,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    * before HippoRAG PPR re-ranking.
    */
   async querySemantic(query: SemanticQuery): Promise<MemoryEntry[]> {
-    this.stats.agentdbQueries++;
+    this.stats.semanticQueries++;
 
     let searchResults: SearchResult[] = [];
 
@@ -583,7 +577,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
             subQueries.map(async (sq) => {
               if (!this.config.embeddingGenerator) return [];
               const sqEmbedding = await this.config.embeddingGenerator(sq);
-              const results = await this.agentdb.search(sqEmbedding, {
+              const results = await this.semantic.search(sqEmbedding, {
                 k: (query.k || 10) * 2,
                 threshold: query.threshold || this.config.semanticThreshold,
                 filters: query.filters as MemoryQuery | undefined,
@@ -614,7 +608,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
         throw new Error('SemanticQuery requires either content or embedding');
       }
 
-      searchResults = await this.agentdb.search(embedding, {
+      searchResults = await this.semantic.search(embedding, {
         k: (query.k || 10) * 2, // Over-fetch to account for post-filtering
         threshold: query.threshold || this.config.semanticThreshold,
         filters: query.filters as MemoryQuery | undefined,
@@ -659,7 +653,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
         }
       }
 
-      const reranked = await this.memoryGraph.pprRerank(searchResults, this.agentdb);
+      const reranked = await this.memoryGraph.pprRerank(searchResults, this.semantic);
       // Annotate each entry with its community ID and summary from GraphRAG
       entries = reranked.map((r) => {
         const commSummary = nodeToSummary.get(r.entry.id);
@@ -695,7 +689,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
       entries = safe;
     }
 
-    // Apply tag/namespace/type filters that AgentDB may not enforce
+    // Apply tag/namespace/type filters
     if (query.filters) {
       const f = query.filters as Record<string, unknown>;
       if (f.tags && Array.isArray(f.tags)) {
@@ -751,11 +745,11 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   }
 
   /**
-   * Semantic vector search (routes to AgentDB)
+   * Semantic vector search (routes to LanceDB)
    */
   async search(embedding: Float32Array, options: SearchOptions): Promise<SearchResult[]> {
-    this.stats.agentdbQueries++;
-    return this.agentdb.search(embedding, options);
+    this.stats.semanticQueries++;
+    return this.semantic.search(embedding, options);
   }
 
   /**
@@ -763,9 +757,9 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    */
   async bulkInsert(entries: MemoryEntry[]): Promise<void> {
     if (this.config.dualWrite) {
-      await Promise.all([this.sqlite.bulkInsert(entries), this.agentdb.bulkInsert(entries)]);
+      await Promise.all([this.sqlite.bulkInsert(entries), this.semantic.bulkInsert(entries)]);
     } else {
-      await this.agentdb.bulkInsert(entries);
+      await this.semantic.bulkInsert(entries);
     }
   }
 
@@ -774,13 +768,13 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    */
   async bulkDelete(ids: string[]): Promise<number> {
     if (this.config.dualWrite) {
-      const [sqliteCount, agentdbCount] = await Promise.all([
+      const [sqliteCount, semanticCount] = await Promise.all([
         this.sqlite.bulkDelete(ids),
-        this.agentdb.bulkDelete(ids),
+        this.semantic.bulkDelete(ids),
       ]);
-      return Math.max(sqliteCount, agentdbCount);
+      return Math.max(sqliteCount, semanticCount);
     } else {
-      return this.agentdb.bulkDelete(ids);
+      return this.semantic.bulkDelete(ids);
     }
   }
 
@@ -803,13 +797,13 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    */
   async clearNamespace(namespace: string): Promise<number> {
     if (this.config.dualWrite) {
-      const [sqliteCount, agentdbCount] = await Promise.all([
+      const [sqliteCount, semanticCount] = await Promise.all([
         this.sqlite.clearNamespace(namespace),
-        this.agentdb.clearNamespace(namespace),
+        this.semantic.clearNamespace(namespace),
       ]);
-      return Math.max(sqliteCount, agentdbCount);
+      return Math.max(sqliteCount, semanticCount);
     } else {
-      return this.agentdb.clearNamespace(namespace);
+      return this.semantic.clearNamespace(namespace);
     }
   }
 
@@ -817,35 +811,35 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    * Get combined statistics from both backends
    */
   async getStats(): Promise<BackendStats> {
-    const solo = this.agentdb === this.sqlite;
-    const [sqliteStats, agentdbStats] = await Promise.all([
+    const solo = this.semantic === this.sqlite;
+    const [sqliteStats, semanticStats] = await Promise.all([
       solo ? Promise.resolve(null as any) : this.sqlite.getStats(),
-      this.agentdb.getStats(),
+      this.semantic.getStats(),
     ]);
 
     return {
-      totalEntries: solo ? agentdbStats.totalEntries : Math.max(sqliteStats.totalEntries, agentdbStats.totalEntries),
-      entriesByNamespace: agentdbStats.entriesByNamespace,
-      entriesByType: agentdbStats.entriesByType,
-      memoryUsage: solo ? agentdbStats.memoryUsage : sqliteStats.memoryUsage + agentdbStats.memoryUsage,
-      hnswStats: agentdbStats.hnswStats ?? {
+      totalEntries: solo ? semanticStats.totalEntries : Math.max(sqliteStats.totalEntries, semanticStats.totalEntries),
+      entriesByNamespace: semanticStats.entriesByNamespace,
+      entriesByType: semanticStats.entriesByType,
+      memoryUsage: solo ? semanticStats.memoryUsage : sqliteStats.memoryUsage + semanticStats.memoryUsage,
+      hnswStats: semanticStats.hnswStats ?? {
         vectorCount: 0,          // 0 = no active HNSW index; do not fabricate from totalEntries
         memoryUsage: 0,
         avgSearchTime: 0,
         buildTime: 0,
         compressionRatio: 1.0,
       },
-      cacheStats: (agentdbStats as any).cacheStats ?? {
+      cacheStats: (semanticStats as any).cacheStats ?? {
         hitRate: 0,
         size: 0,
         maxSize: 1000,
       },
       avgQueryTime:
-        this.stats.hybridQueries + this.stats.sqliteQueries + this.stats.agentdbQueries > 0
+        this.stats.hybridQueries + this.stats.sqliteQueries + this.stats.semanticQueries > 0
           ? this.stats.totalQueryTime /
-            (this.stats.hybridQueries + this.stats.sqliteQueries + this.stats.agentdbQueries)
+            (this.stats.hybridQueries + this.stats.sqliteQueries + this.stats.semanticQueries)
           : 0,
-      avgSearchTime: agentdbStats.avgSearchTime,
+      avgSearchTime: semanticStats.avgSearchTime,
     };
   }
 
@@ -853,28 +847,28 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    * Health check for both backends
    */
   async healthCheck(): Promise<HealthCheckResult> {
-    const solo = this.agentdb === this.sqlite;
-    const [sqliteHealth, agentdbHealth] = await Promise.all([
+    const solo = this.semantic === this.sqlite;
+    const [sqliteHealth, semanticHealth] = await Promise.all([
       solo ? Promise.resolve({ status: 'healthy', issues: [], recommendations: [], components: {} as any, timestamp: Date.now() } as HealthCheckResult) : this.sqlite.healthCheck(),
-      this.agentdb.healthCheck(),
+      this.semantic.healthCheck(),
     ]);
 
-    const allIssues = [...sqliteHealth.issues, ...agentdbHealth.issues];
+    const allIssues = [...sqliteHealth.issues, ...semanticHealth.issues];
     const allRecommendations = [
       ...sqliteHealth.recommendations,
-      ...agentdbHealth.recommendations,
+      ...semanticHealth.recommendations,
     ];
 
     // Determine overall status
     let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
     if (
       sqliteHealth.status === 'unhealthy' ||
-      agentdbHealth.status === 'unhealthy'
+      semanticHealth.status === 'unhealthy'
     ) {
       status = 'unhealthy';
     } else if (
       sqliteHealth.status === 'degraded' ||
-      agentdbHealth.status === 'degraded'
+      semanticHealth.status === 'degraded'
     ) {
       status = 'degraded';
     }
@@ -883,8 +877,8 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
       status,
       components: {
         storage: sqliteHealth.components.storage,
-        index: agentdbHealth.components.index,
-        cache: agentdbHealth.components.cache,
+        index: semanticHealth.components.index,
+        cache: semanticHealth.components.cache,
       },
       timestamp: Date.now(),
       issues: allIssues,
@@ -898,11 +892,11 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    * Auto-route queries based on properties
    */
   private async autoRoute(query: MemoryQuery): Promise<MemoryEntry[]> {
-    // If has embedding or content, use semantic search (AgentDB)
+    // If has embedding or content, use semantic search (LanceDB)
     const hasEmbeddingGenerator = typeof this.config.embeddingGenerator === 'function';
     if (query.embedding || (query.content && hasEmbeddingGenerator)) {
-      this.stats.agentdbQueries++;
-      return this.agentdb.query(query);
+      this.stats.semanticQueries++;
+      return this.semantic.query(query);
     }
 
     // If has exact key or prefix, use structured search (SQLite)
@@ -917,15 +911,15 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
         this.stats.sqliteQueries++;
         return this.sqlite.query(query);
 
-      case 'agentdb-first':
-        this.stats.agentdbQueries++;
-        return this.agentdb.query(query);
+      case 'semantic-first':
+        this.stats.semanticQueries++;
+        return this.semantic.query(query);
 
       case 'auto':
       default:
-        // Default to AgentDB (has caching)
-        this.stats.agentdbQueries++;
-        return this.agentdb.query(query);
+        // Default to semantic backend (LanceDB)
+        this.stats.semanticQueries++;
+        return this.semantic.query(query);
     }
   }
 
@@ -1025,67 +1019,33 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     return [...structuredResults, ...additional];
   }
 
-  // ===== Proxy Methods for AgentDB v1 Controllers (ADR-053 #1212) =====
+  // ===== Proxy Methods — stubs for legacy controller API =====
 
   /**
    * Record feedback for a memory entry.
-   * Delegates to AgentDB's recordFeedback when available.
-   * Gracefully degrades to a no-op when AgentDB is unavailable.
+   * Delegates to semantic backend's recordFeedback when available.
+   * Gracefully degrades to no-op when unavailable.
    */
   async recordFeedback(
-    entryId: string,
-    feedback: { score: number; label?: string; context?: Record<string, unknown> },
+    _entryId: string,
+    _feedback: { score: number; label?: string; context?: Record<string, unknown> },
   ): Promise<boolean> {
-    const agentdbInstance = (this.agentdb as any).getAgentDB?.();
-    if (agentdbInstance && typeof agentdbInstance.recordFeedback === 'function') {
-      try {
-        await agentdbInstance.recordFeedback(entryId, feedback);
-        this.emit('feedback:recorded', { entryId, score: feedback.score });
-        return true;
-      } catch {
-        // AgentDB feedback recording failed — degrade silently
-      }
-    }
-    return false;
+    return false; // monolean: stub — LanceDB has no feedback API
   }
 
-  /**
-   * Verify a witness chain for a memory entry.
-   * Delegates to AgentDB's verifyWitnessChain when available.
-   */
-  async verifyWitnessChain(entryId: string): Promise<{
+  async verifyWitnessChain(_entryId: string): Promise<{
     valid: boolean;
     chainLength: number;
     errors: string[];
   }> {
-    const agentdbInstance = (this.agentdb as any).getAgentDB?.();
-    if (agentdbInstance && typeof agentdbInstance.verifyWitnessChain === 'function') {
-      try {
-        return await agentdbInstance.verifyWitnessChain(entryId);
-      } catch {
-        // Verification failed — return degraded result
-      }
-    }
-    return { valid: false, chainLength: 0, errors: ['AgentDB not available'] };
+    return { valid: false, chainLength: 0, errors: ['not supported by LanceDB backend'] };
   }
 
-  /**
-   * Get the witness chain for a memory entry.
-   * Delegates to AgentDB's getWitnessChain when available.
-   */
-  async getWitnessChain(entryId: string): Promise<Array<{
+  async getWitnessChain(_entryId: string): Promise<Array<{
     hash: string;
     timestamp: number;
     operation: string;
   }>> {
-    const agentdbInstance = (this.agentdb as any).getAgentDB?.();
-    if (agentdbInstance && typeof agentdbInstance.getWitnessChain === 'function') {
-      try {
-        return await agentdbInstance.getWitnessChain(entryId);
-      } catch {
-        // Chain retrieval failed
-      }
-    }
     return [];
   }
 
@@ -1098,8 +1058,8 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     return this.sqlite;
   }
 
-  getAgentDBBackend(): IMemoryBackend {
-    return this.agentdb;
+  getSemanticBackend(): IMemoryBackend {
+    return this.semantic;
   }
 }
 

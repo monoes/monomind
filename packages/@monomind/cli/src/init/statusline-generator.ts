@@ -20,7 +20,7 @@ import type { InitOptions } from './types.js';
  * 🏗️  DDD Domains    [●●○○○]  2/5    ⚡ HNSW 150x
  * 🤖 Swarm  ◉ [ 5/15]  👥 2    🪝 10/17    🟢 CVE 3/3    💾 4MB    🧠  63%
  * 🔧 Architecture    ADRs ●71%  │  DDD ● 13%  │  Security ●CLEAN
- * 📊 AgentDB    Vectors ●3104⚡  │  Size 216KB  │  Tests ●6 (~24 cases)  │  MCP ●1/1
+ * 📊 LanceDB    Vectors ●3104⚡  │  Size 216KB  │  Tests ●6 (~24 cases)  │  MCP ●1/1
  */
 export function generateStatuslineScript(options: InitOptions): string {
   const maxAgents = options.runtime.maxAgents;
@@ -316,7 +316,7 @@ function getLearningStats() {
     path.join(CWD, '.monomind', 'memory.db'),
     path.join(CWD, '.claude', 'memory.db'),
     path.join(CWD, 'data', 'memory.db'),
-    path.join(CWD, '.agentdb', 'memory.db'),
+    path.join(CWD, '.swarm', 'lancedb'),
   ];
 
   for (const dbPath of memoryPaths) {
@@ -464,7 +464,7 @@ function getSwarmStatus() {
 function getSystemMetrics() {
   const memoryMB = Math.floor(process.memoryUsage().heapUsed / 1024 / 1024);
   const learning = getLearningStats();
-  const agentdb = getAgentDBStats();
+  const lancedbStats = getMemoryStats();
 
   // Intelligence from learning.json
   const learningData = readJSON(path.join(CWD, '.monomind', 'metrics', 'learning.json'));
@@ -476,7 +476,7 @@ function getSystemMetrics() {
   } else {
     // Use actual vector/entry counts — 2000 entries = 100%
     const fromPatterns = learning.patterns > 0 ? Math.min(100, Math.floor(learning.patterns / 20)) : 0;
-    const fromVectors = agentdb.vectorCount > 0 ? Math.min(100, Math.floor(agentdb.vectorCount / 20)) : 0;
+    const fromVectors = lancedbStats.vectorCount > 0 ? Math.min(100, Math.floor(lancedbStats.vectorCount / 20)) : 0;
     intelligencePct = Math.max(fromPatterns, fromVectors);
   }
 
@@ -593,8 +593,8 @@ function getActiveAgent() {
   } catch { return null; }
 }
 
-// AgentDB stats — count real entries, not file-size heuristics
-function getAgentDBStats() {
+// Memory (LanceDB) stats — count real entries
+function getMemoryStats() {
   let vectorCount = 0;
   let dbSizeKB = 0;
   let namespaces = 0;
@@ -1070,7 +1070,7 @@ function generateDashboard() {
   const system      = getSystemMetrics();
   const adrs        = getADRStatus();
   const hooks       = getHooksStatus();
-  const agentdb     = getAgentDBStats();
+  const lancedbStats = getMemoryStats();
   const tests       = getTestStats();
   const session     = getSessionStats();
   const integration = getIntegrationStatus();
@@ -1191,7 +1191,7 @@ function generateJSON() {
     system:     getSystemMetrics(),
     adrs:       getADRStatus(),
     hooks:      getHooksStatus(),
-    agentdb:    getAgentDBStats(),
+    lancedb: getMemoryStats(),
     tests:      getTestStats(),
     git:        { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
     lastUpdated: new Date().toISOString(),
