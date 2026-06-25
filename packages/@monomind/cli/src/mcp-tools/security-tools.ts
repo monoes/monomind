@@ -17,8 +17,9 @@ import { createRequire } from 'module';
 // Create require for resolving module paths
 const require = createRequire(import.meta.url);
 
-// MonoFence instance type
-type MonoFenceInstance = ReturnType<typeof import('monofence-ai').createMonoDefence>;
+// monolean: local shape instead of static import of optional dep monofence-ai
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MonoFenceInstance = Record<string, (...args: any[]) => any>;
 
 // Lazy-loaded MonoFence instance
 let monofenceInstance: MonoFenceInstance | null = null;
@@ -408,6 +409,7 @@ const monofenceIsSafeTool: MCPTool = {
 
     try {
       await getMonoFence(); // triggers auto-install if package is missing
+      // @ts-expect-error — optional peer dep resolved at runtime
       const { isSafe } = await import('monofence-ai');
       const safe = isSafe(input);
 
