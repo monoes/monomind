@@ -847,8 +847,10 @@ const defendCommand: Command = {
     output.writeln(output.dim('─'.repeat(55)));
 
     // Dynamic import of aidefence (allows package to be optional)
-    let createMonoDefence: typeof import('monofence-ai').createMonoDefence;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let createMonoDefence: (config?: Record<string, unknown>) => Record<string, (...args: any[]) => any>;
     try {
+      // @ts-expect-error — optional peer dep resolved at runtime
       const aidefence = await import('monofence-ai');
       createMonoDefence = aidefence.createMonoDefence;
     } catch {
