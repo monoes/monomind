@@ -146,7 +146,7 @@ function fromRecord(r: Record<string, any>): MemoryEntry {
     tags,
     references,
     metadata,
-    embedding: undefined, // not round-tripped — re-embed if needed
+    embedding: Array.isArray(r.vector) && r.vector.length > 0 ? new Float32Array(r.vector) : undefined,
     createdAt: Number(r.createdAt),
     updatedAt: Number(r.updatedAt),
     lastAccessedAt: Number(r.lastAccessedAt),
