@@ -583,7 +583,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Only accept paths that resolve to an existing directory AND are not
     // the filesystem root (/), AND are not obviously system paths.
     // Cap to 4096 chars to prevent OOM from huge path strings.
-    const _rawProject = event.project;
+    const _rawProject = event.project ?? event.projectDir;
     let eventProject = null;
     if (typeof _rawProject === 'string' && _rawProject.length > 0 && _rawProject.length <= 4096
         && path.isAbsolute(_rawProject)) {
@@ -5043,6 +5043,22 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
         }
         runs.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+        // Threads fallback: if no run files found, synthesize a run from the org threads file
+        // so orgs whose boss never emitted runId-tagged events still show in the chat dropdown.
+        if (runs.length === 0) {
+          for (const _rpd of _rProjDirs) {
+            const _tf = path.join(_rpd, '.monomind', 'orgs', `${_rOrgName}-threads.jsonl`);
+            if (!fs.existsSync(_tf)) continue;
+            const _tLines = fs.readFileSync(_tf, 'utf8').split('\n').filter(Boolean);
+            if (!_tLines.length) continue;
+            const _tEvs = _tLines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+            if (!_tEvs.length) continue;
+            const _firstTs = _tEvs[0].ts ? (typeof _tEvs[0].ts === 'number' ? _tEvs[0].ts : new Date(_tEvs[0].ts).getTime()) : Date.now();
+            const _lastTs = _tEvs[_tEvs.length-1].ts ? (typeof _tEvs[_tEvs.length-1].ts === 'number' ? _tEvs[_tEvs.length-1].ts : new Date(_tEvs[_tEvs.length-1].ts).getTime()) : _firstTs;
+            runs.push({ id: `threads-${_rOrgName}`, orgName: _rOrgName, goal: `${_rOrgName} threads`, status: 'complete', startedAt: _firstTs, endedAt: _lastTs, eventCount: _tEvs.length, _threadsFile: _tf });
+            break;
+          }
+        }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify(runs));
       } catch (_) { res.writeHead(500); res.end('[]'); }
@@ -5060,6 +5076,21 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             _rvRunId.length > 80  || !/^[a-z0-9][a-z0-9_-]*$/i.test(_rvRunId)) { res.writeHead(400); res.end('{"error":"Invalid org or run id"}'); return; }
         const _rvExplicitDir = _rvQs.get('dir');
         const _rvServerRoot = path.resolve(_rvExplicitDir || projectDir || process.cwd());
+        // Threads fallback: threads-${orgName} is a synthetic runId served from threads file
+        if (_rvRunId === `threads-${_rvOrgName}`) {
+          const _rvProjDirsT = new Set([_rvServerRoot]);
+          if (!_rvExplicitDir) { try { JSON.parse(fs.readFileSync(path.join(_rvServerRoot, 'data', 'known-projects.json'), 'utf8')).forEach(p => _rvProjDirsT.add(p)); } catch(_) {} }
+          for (const _rvpd of _rvProjDirsT) {
+            const _tf = path.join(_rvpd, '.monomind', 'orgs', `${_rvOrgName}-threads.jsonl`);
+            if (!fs.existsSync(_tf)) continue;
+            const _tLines = fs.readFileSync(_tf, 'utf8').split('\n').filter(Boolean);
+            const _tEvs = _tLines.map(l => { try { const e = JSON.parse(l); return { type: 'org:comms', from: e.role || e.from || 'agent', to: e.to || 'all', msg: e.message || e.msg || '', ts: e.ts ? (typeof e.ts === 'number' ? e.ts : new Date(e.ts).getTime()) : Date.now(), org: _rvOrgName, runId: _rvRunId }; } catch { return null; } }).filter(Boolean);
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify(_tEvs));
+            return;
+          }
+          res.writeHead(404); res.end('{"error":"threads file not found"}'); return;
+        }
         // Search across known projects
         const _rvProjDirs = new Set([_rvServerRoot]);
         if (!_rvExplicitDir) {
