@@ -26,6 +26,7 @@ import {
 } from './types.js';
 import { SQLiteBackend, SQLiteBackendConfig } from './sqlite-backend.js';
 import { AgentDBBackend, AgentDBBackendConfig } from './agentdb-backend.js';
+import { LanceDBBackend, LanceDBBackendConfig } from './lancedb-backend.js';
 import { MemoryGraph } from './memory-graph.js';
 
 /**
@@ -35,8 +36,21 @@ export interface HybridBackendConfig {
   /** SQLite configuration */
   sqlite?: Partial<SQLiteBackendConfig>;
 
-  /** AgentDB configuration */
+  /** AgentDB configuration (used when semanticBackend is 'agentdb', the default) */
   agentdb?: Partial<AgentDBBackendConfig>;
+
+  /**
+   * LanceDB configuration (used when semanticBackend is 'lancedb').
+   * Requires: npm install @lancedb/lancedb apache-arrow
+   */
+  lancedb?: LanceDBBackendConfig;
+
+  /**
+   * Which backend handles semantic (vector) search.
+   * 'agentdb' = HNSW via agentdb (default, works without native deps via WASM).
+   * 'lancedb' = IVF-PQ via LanceDB (requires native binary; faster at scale).
+   */
+  semanticBackend?: 'agentdb' | 'lancedb';
 
   /** Default namespace */
   defaultNamespace?: string;
@@ -84,6 +98,8 @@ export interface HybridBackendConfig {
 const DEFAULT_CONFIG: Required<HybridBackendConfig> = {
   sqlite: {},
   agentdb: {},
+  lancedb: {},
+  semanticBackend: 'agentdb',
   defaultNamespace: 'default',
   embeddingGenerator: undefined as any,
   routingStrategy: 'auto',
@@ -193,7 +209,7 @@ export interface HybridQuery {
  */
 export class HybridBackend extends EventEmitter implements IMemoryBackend {
   private sqlite: SQLiteBackend;
-  private agentdb: AgentDBBackend;
+  private agentdb: IMemoryBackend; // AgentDBBackend or LanceDBBackend
   private config: Required<HybridBackendConfig>;
   private initialized: boolean = false;
   /** Lazy MemoryGraph for HippoRAG PPR re-ranking */
@@ -218,23 +234,31 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
       embeddingGenerator: this.config.embeddingGenerator,
     });
 
-    // Initialize AgentDB backend
-    this.agentdb = new AgentDBBackend({
-      ...this.config.agentdb,
-      namespace: this.config.defaultNamespace,
-      embeddingGenerator: this.config.embeddingGenerator,
-    });
+    // Initialize semantic backend (AgentDB default, or LanceDB when configured)
+    if (this.config.semanticBackend === 'lancedb') {
+      this.agentdb = new LanceDBBackend({
+        ...this.config.lancedb,
+        namespace: this.config.defaultNamespace,
+        embeddingGenerator: this.config.embeddingGenerator,
+      });
+    } else {
+      this.agentdb = new AgentDBBackend({
+        ...this.config.agentdb,
+        namespace: this.config.defaultNamespace,
+        embeddingGenerator: this.config.embeddingGenerator,
+      });
+    }
 
     // Forward events from both backends
     this.sqlite.on('entry:stored', (data) => this.emit('sqlite:stored', data));
     this.sqlite.on('entry:updated', (data) => this.emit('sqlite:updated', data));
     this.sqlite.on('entry:deleted', (data) => this.emit('sqlite:deleted', data));
 
-    this.agentdb.on('entry:stored', (data) => this.emit('agentdb:stored', data));
-    this.agentdb.on('entry:updated', (data) => this.emit('agentdb:updated', data));
-    this.agentdb.on('entry:deleted', (data) => this.emit('agentdb:deleted', data));
-    this.agentdb.on('cache:hit', (data) => this.emit('cache:hit', data));
-    this.agentdb.on('cache:miss', (data) => this.emit('cache:miss', data));
+    (this.agentdb as EventEmitter).on?.('entry:stored', (data: any) => this.emit('agentdb:stored', data));
+    (this.agentdb as EventEmitter).on?.('entry:updated', (data: any) => this.emit('agentdb:updated', data));
+    (this.agentdb as EventEmitter).on?.('entry:deleted', (data: any) => this.emit('agentdb:deleted', data));
+    (this.agentdb as EventEmitter).on?.('cache:hit', (data: any) => this.emit('cache:hit', data));
+    (this.agentdb as EventEmitter).on?.('cache:miss', (data: any) => this.emit('cache:miss', data));
   }
 
   /**
@@ -1057,7 +1081,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     return this.sqlite;
   }
 
-  getAgentDBBackend(): AgentDBBackend {
+  getAgentDBBackend(): IMemoryBackend {
     return this.agentdb;
   }
 }
