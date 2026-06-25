@@ -1,10 +1,10 @@
 #!/bin/bash
-# Monomind Memory/AgentDB Test Suite
-# Tests memory management, AgentDB, and HNSW indexing
+# Monomind Memory/LanceDB Test Suite
+# Tests memory management, LanceDB, and HNSW indexing
 
 set -e
 
-echo "=== MEMORY/AGENTDB TEST SUITE ==="
+echo "=== MEMORY/LANCEDB TEST SUITE ==="
 echo ""
 
 PASSED=0
@@ -43,9 +43,9 @@ echo "── Memory Initialization ──"
 
 run_test "Memory status" "npx monomind memory status 2>/dev/null || echo 'memory status ok'"
 run_test "Memory path config" "echo 'memory path: ${MONOMIND_MEMORY_PATH:-./data}' && echo 'ok'"
-run_test "AgentDB initialization" "echo 'AgentDB init' && echo 'ok'"
+run_test "LanceDB initialization" "echo 'LanceDB init' && echo 'ok'"
 run_test "SQLite backend" "echo 'SQLite backend' && echo 'ok'"
-run_test "Hybrid backend" "echo 'Hybrid backend (SQLite + AgentDB)' && echo 'ok'"
+run_test "Hybrid backend" "echo 'Hybrid backend (SQLite + LanceDB)' && echo 'ok'"
 
 # ============================================================================
 # 2. VECTOR STORAGE
@@ -192,7 +192,7 @@ run_test "Corruption recovery" "echo 'corruption recovery' && echo 'ok'"
 # SUMMARY
 # ============================================================================
 echo ""
-echo "=== Memory/AgentDB Summary ==="
+echo "=== Memory/LanceDB Summary ==="
 echo "Total: $TOTAL | Passed: $PASSED | Failed: $FAILED"
 
 if [ $FAILED -gt 0 ]; then

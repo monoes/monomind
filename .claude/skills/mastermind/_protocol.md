@@ -29,12 +29,12 @@ This makes delegation recursive: every spawned agent can itself spawn sub-agents
 Execute at the START of every mastermind run (master or standalone domain command). Load in this order:
 
 **Step A — Tier 3 core principles (all domains):**
-Try `mcp__monomind__agentdb_hierarchical-recall` with query `"mastermind principles"`, topK 20.
-If it returns `"AgentDB bridge not available"` or any error, fall back to:
+Try `mcp__monomind__lancedb_hierarchical-recall` with query `"mastermind principles"`, topK 20.
+If it returns `"LanceDB bridge not available"` or any error, fall back to:
 `mcp__monomind__memory_search` with query `"mastermind principles"`, namespace `"mastermind:principles"`, limit 20.
 
 **Step B — Tier 2 weekly summary for this domain:**
-Try `mcp__monomind__agentdb_context-synthesize` with query `[current prompt keywords]`, maxEntries 10.
+Try `mcp__monomind__lancedb_context-synthesize` with query `[current prompt keywords]`, maxEntries 10.
 If it fails, fall back to:
 `mcp__monomind__memory_search` with query `[current prompt keywords]`, namespace `"mastermind:<domain>:weekly"`, limit 10.
 
@@ -69,31 +69,31 @@ score = confidence × (1 / (days_since_run + 1)) × log(uses + 1)
 - `uses`: 1 (first write)
 
 **Step 2 — Append to Tier 1 raw log:**
-Try `mcp__monomind__agentdb_hierarchical-store` with:
+Try `mcp__monomind__lancedb_hierarchical-store` with:
 - namespace: `mastermind:<domain>:raw`
 - content: [full unified output schema YAML from this run, as a string]
 - metadata: `{ score, project, run_id, date: ISO8601, domain }`
 
-If AgentDB is unavailable, fall back to `mcp__monomind__memory_store`:
+If LanceDB is unavailable, fall back to `mcp__monomind__memory_store`:
 - key: `mastermind:<domain>:run:<run_id>`
 - value: [JSON-encoded unified output schema]
 - namespace: `mastermind:<domain>:raw`
 - tags: `["mastermind", "<domain>", "run"]`
 
 **Step 3 — Check weekly compaction trigger:**
-Try `mcp__monomind__agentdb_health` on namespace `mastermind:<domain>:raw`.
+Try `mcp__monomind__lancedb_health` on namespace `mastermind:<domain>:raw`.
 If unavailable, call `mcp__monomind__memory_stats` and check entry count manually.
 If `entry_count >= 20` OR `days_since_last_compaction >= 7`:
 1. Retrieve all Tier 1 entries since last compaction
 2. Produce a per-domain weekly summary (use LLM synthesis: "Summarize the key decisions, patterns, and lessons from these run logs in under 300 words")
-3. Store summary: `mcp__monomind__agentdb_hierarchical-store` namespace `mastermind:<domain>:weekly`
+3. Store summary: `mcp__monomind__lancedb_hierarchical-store` namespace `mastermind:<domain>:weekly`
 4. Archive (do not delete) Tier 1 entries with score < 0.1 by updating their metadata: `{ archived: true }`
 
 **Step 4 — Check graph consolidation trigger:**
 Call `mcp__monomind__monograph_community` for nodes matching `mastermind:<domain>`.
 If 3+ similar memory nodes are detected in a cluster:
 1. Merge into a single principle via LLM: "Distill these memories into one clear principle in 1-2 sentences"
-2. Store principle: `mcp__monomind__agentdb_hierarchical-store` namespace `mastermind:principles`
+2. Store principle: `mcp__monomind__lancedb_hierarchical-store` namespace `mastermind:principles`
 3. Add `EXCEPTION` edge in Monograph for any conflicting memory: `mcp__monomind__monograph_add_fact`
 
 ---

@@ -729,7 +729,7 @@ export async function recordStep(step) {
     }
     try {
         // Generate embedding if not provided
-        // ADR-053: Try AgentDB v1 bridge embedder first
+        // ADR-053: Try LanceDB bridge embedder first
         let embedding = step.embedding;
         if (!embedding) {
             try {
@@ -830,7 +830,7 @@ export async function findSimilarPatterns(query, options) {
             return [];
     }
     try {
-        // ADR-053: Try AgentDB v1 bridge embedder first
+        // ADR-053: Try LanceDB bridge embedder first
         let queryEmbedding = null;
         try {
             const bridge = await import('./memory-bridge.js');

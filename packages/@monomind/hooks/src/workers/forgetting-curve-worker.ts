@@ -72,7 +72,7 @@ const DEFAULTS: Required<ForgettingCurveConfig> = {
  * Call site: hook into the `ultralearn` / `consolidate` background worker
  * pipeline. The worker pulls MemoryEntry rows with their `importanceScore`
  * and `lastAccessedAt`, computes decayed scores, and returns the replay list
- * for the caller to re-surface (e.g. inject into `agentdb_pattern-store`).
+ * for the caller to re-surface (e.g. inject into `memory_pattern-store`).
  */
 export class ForgettingCurveWorker {
   readonly name = 'forgetting-curve' as const;

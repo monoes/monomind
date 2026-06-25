@@ -1,6 +1,6 @@
 /**
  * CLI Memory Command
- * Memory operations for AgentDB integration
+ * Memory operations for LanceDB integration
  */
 import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
@@ -8,9 +8,9 @@ import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { configManager } from '../services/config-file-manager.js';
 // Memory backends
 const BACKENDS = [
-    { value: 'agentdb', label: 'AgentDB', hint: 'Vector database with pure-JS HNSW indexing' },
+    { value: 'lancedb', label: 'LanceDB', hint: 'Vector database with ANN indexing' },
     { value: 'sqlite', label: 'SQLite', hint: 'Lightweight local storage' },
-    { value: 'hybrid', label: 'Hybrid', hint: 'SQLite + AgentDB (recommended)' },
+    { value: 'hybrid', label: 'Hybrid', hint: 'SQLite + LanceDB (recommended)' },
     { value: 'memory', label: 'In-Memory', hint: 'Fast but non-persistent' }
 ];
 // Store command
@@ -447,29 +447,29 @@ function formatRelativeTime(isoDate) {
 // Edit command
 const editCommand = {
     name: 'edit',
-    description: 'Edit a memory entry (AgentDB, Memory Palace, or knowledge chunk)',
+    description: 'Edit a memory entry (LanceDB, Memory Palace, or knowledge chunk)',
     options: [
-        { name: 'key', short: 'k', description: 'Storage key (AgentDB)', type: 'string' },
-        { name: 'namespace', short: 'n', description: 'Memory namespace (AgentDB)', type: 'string', default: 'default' },
+        { name: 'key', short: 'k', description: 'Storage key', type: 'string' },
+        { name: 'namespace', short: 'n', description: 'Memory namespace', type: 'string', default: 'default' },
         { name: 'value', description: 'New value/content', type: 'string' },
-        { name: 'source', short: 's', description: 'Source to edit: agentdb, palace, knowledge', type: 'string', default: 'agentdb', choices: ['agentdb', 'palace', 'knowledge'] },
+        { name: 'source', short: 's', description: 'Source to edit: lancedb, palace, knowledge', type: 'string', default: 'lancedb', choices: ['lancedb', 'palace', 'knowledge'] },
         { name: 'id', description: 'Entry ID (palace/knowledge)', type: 'string' }
     ],
     examples: [
-        { command: 'monomind memory edit -k "pattern/auth" --value "updated content"', description: 'Edit AgentDB entry' },
+        { command: 'monomind memory edit -k "pattern/auth" --value "updated content"', description: 'Edit LanceDB entry' },
         { command: 'monomind memory edit --source palace --id "abc123" --value "new content"', description: 'Edit Memory Palace drawer' },
         { command: 'monomind memory edit --source knowledge --id "chunk-42" --value "updated"', description: 'Edit knowledge chunk' }
     ],
     action: async (ctx) => {
-        const source = ctx.flags.source || 'agentdb';
+        const source = ctx.flags.source || 'lancedb';
         let value = ctx.flags.value || ctx.args[0];
         const fs = await import('fs');
         const path = await import('path');
-        if (source === 'agentdb') {
+        if (source === 'lancedb') {
             const key = ctx.flags.key;
             const namespace = ctx.flags.namespace || 'default';
             if (!key) {
-                output.printError('Key is required for AgentDB edit. Use --key or -k');
+                output.printError('Key is required for lancedb edit. Use --key or -k');
                 return { success: false, exitCode: 1 };
             }
             if (!value && ctx.interactive) {
@@ -666,28 +666,28 @@ const templatesCommand = {
 const deleteCommand = {
     name: 'delete',
     aliases: ['rm'],
-    description: 'Delete a memory entry (AgentDB, Memory Palace, or knowledge chunk)',
+    description: 'Delete a memory entry (LanceDB, Memory Palace, or knowledge chunk)',
     options: [
         {
             name: 'key',
             short: 'k',
-            description: 'Storage key (AgentDB)',
+            description: 'Storage key',
             type: 'string'
         },
         {
             name: 'namespace',
             short: 'n',
-            description: 'Memory namespace (AgentDB)',
+            description: 'Memory namespace',
             type: 'string',
             default: 'default'
         },
         {
             name: 'source',
             short: 's',
-            description: 'Source to delete from: agentdb, palace, knowledge',
+            description: 'Source to delete from: lancedb, palace, knowledge',
             type: 'string',
-            default: 'agentdb',
-            choices: ['agentdb', 'palace', 'knowledge']
+            default: 'lancedb',
+            choices: ['lancedb', 'palace', 'knowledge']
         },
         {
             name: 'id',
@@ -703,15 +703,15 @@ const deleteCommand = {
         }
     ],
     examples: [
-        { command: 'monomind memory delete -k "mykey"', description: 'Delete AgentDB entry' },
+        { command: 'monomind memory delete -k "mykey"', description: 'Delete memory entry' },
         { command: 'monomind memory delete -k "lesson" -n "lessons"', description: 'Delete from specific namespace' },
         { command: 'monomind memory delete --source palace --id "abc123"', description: 'Delete Memory Palace drawer' },
         { command: 'monomind memory delete --source knowledge --id "chunk-42" -f', description: 'Delete knowledge chunk (no confirm)' }
     ],
     action: async (ctx) => {
-        const source = ctx.flags.source || 'agentdb';
+        const source = ctx.flags.source || 'lancedb';
         const force = ctx.flags.force;
-        if (source === 'agentdb') {
+        if (source === 'lancedb') {
             const key = ctx.flags.key || ctx.args[0];
             const namespace = ctx.flags.namespace || 'default';
             if (!key) {
@@ -1342,7 +1342,7 @@ const initMemoryCommand = {
         {
             name: 'backend',
             short: 'b',
-            description: 'Backend type: hybrid (default), sqlite, or agentdb',
+            description: 'Backend type: hybrid (default), sqlite, or lancedb',
             type: 'string',
             default: 'hybrid'
         },
@@ -1380,7 +1380,7 @@ const initMemoryCommand = {
     ],
     examples: [
         { command: 'monomind memory init', description: 'Initialize hybrid backend with all features' },
-        { command: 'monomind memory init -b agentdb', description: 'Initialize AgentDB backend' },
+        { command: 'monomind memory init -b lancedb', description: 'Initialize LanceDB backend' },
         { command: 'monomind memory init -p ./data/memory.db --force', description: 'Reinitialize at custom path' },
         { command: 'monomind memory init --verbose --verify', description: 'Initialize with full verification' }
     ],
@@ -1447,7 +1447,7 @@ const initMemoryCommand = {
                 const { activated, failed, initTimeMs } = result.controllers;
                 if (activated.length > 0 || failed.length > 0) {
                     const controllerLines = [
-                        output.bold('AgentDB Controllers:'),
+                        output.bold('Memory Controllers:'),
                         `  Activated: ${activated.length}  Failed: ${failed.length}  Init: ${Math.round(initTimeMs)}ms`,
                     ];
                     if (verbose && activated.length > 0) {
@@ -1586,11 +1586,11 @@ export const memoryCommand = {
         output.printList([
             `${output.highlight('init')}        - Initialize memory database (sql.js)`,
             `${output.highlight('store')}       - Store data in memory`,
-            `${output.highlight('edit')}        - Edit an entry (AgentDB, palace, knowledge)`,
+            `${output.highlight('edit')}        - Edit an entry (LanceDB, palace, knowledge)`,
             `${output.highlight('retrieve')}    - Retrieve data from memory`,
             `${output.highlight('search')}      - Semantic/vector search`,
             `${output.highlight('list')}        - List memory entries`,
-            `${output.highlight('delete')}      - Delete an entry (AgentDB, palace, knowledge)`,
+            `${output.highlight('delete')}      - Delete an entry (LanceDB, palace, knowledge)`,
             `${output.highlight('templates')}   - Show best-practice entry templates`,
             `${output.highlight('stats')}       - Show statistics`,
             `${output.highlight('configure')}   - Configure backend`,

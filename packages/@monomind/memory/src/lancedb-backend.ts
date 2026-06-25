@@ -1,7 +1,7 @@
 /**
  * LanceDB Backend - IMemoryBackend via @lancedb/lancedb
  *
- * Drop-in semantic replacement for AgentDBBackend. Uses LanceDB's columnar
+ * Uses LanceDB's columnar
  * format, native IVF-PQ ANN search, SQL predicate push-down, and optional
  * full-text search — all in one embedded Rust engine with no server process.
  *

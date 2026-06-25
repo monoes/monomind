@@ -604,7 +604,7 @@ export const hooksCommand: Command = {
     output.printList([
       '🧠 Trajectory + outcome logging',
       '🎯 Keyword routing + route-outcome measurement',
-      '🔍 AgentDB integration (pure-JS HNSW search)',
+      '🔍 LanceDB integration (ANN vector search)',
       '🎯 32.3% token reduction',
       '👥 Agent Teams integration (auto task assignment)'
     ]);

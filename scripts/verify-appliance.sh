@@ -185,7 +185,7 @@ fi
 
 # ── 4. Memory Operations ─────────────────────────────────────
 if should_run "memory"; then
-  section 4 "Memory Operations (AgentDB + RVF)"
+  section 4 "Memory Operations (LanceDB + RVF)"
   check "memory init" $MONOMIND_CMD memory init --force
   check "memory store key-1" $MONOMIND_CMD memory store --key "verify-1" --value "Capability verification entry one" --namespace verify
   check "memory store key-2" $MONOMIND_CMD memory store --key "verify-2" --value "Vector search verification entry" --namespace verify

@@ -1,0 +1,21 @@
+{
+  "name": "@monomind/security",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Input validation and security guards for Monomind",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "src"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monoes/monomind.git",
+    "directory": "packages/@monomind/security"
+  }
+}

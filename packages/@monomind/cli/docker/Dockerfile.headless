@@ -36,7 +36,7 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
       "${CLI_NM}/onnx-proto" \
       "${CLI_NM}/@anthropic-ai" \
       "${CLI_NM}/@xenova" \
-      "${CLI_NM}/agentdb" \
+      "${CLI_NM}/lancedb" \
       "${CLI_NM}/@ruvector" \
       "${CLI_NM}/ruvector" \
       "${CLI_NM}/tiktoken" \
@@ -53,7 +53,7 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
     && rm -rf \
       "${NESTED}/agentic-flow" \
       "${NESTED}/@ruvector" \
-      "${NESTED}/agentdb" \
+      "${NESTED}/lancedb" \
     && rm -rf \
       "${CLI_NM}/ruvector-onnx-embeddings-wasm" \
       "${CLI_NM}/ruvector-core-linux-x64-gnu" \

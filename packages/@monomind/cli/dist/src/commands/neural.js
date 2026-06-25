@@ -56,7 +56,7 @@ const statusCommand = {
                         component: 'Pattern Index',
                         status: hnswStatus.available ? output.success('Ready') : output.dim('Empty'),
                         details: hnswStatus.available
-                            ? `${hnswStatus.entryCount} vectors, ${hnswStatus.dimensions}-dim (pure-JS HNSW via AgentDB)`
+                            ? `${hnswStatus.entryCount} vectors, ${hnswStatus.dimensions}-dim (ANN via LanceDB)`
                             : 'No vectors indexed yet',
                     },
                     {

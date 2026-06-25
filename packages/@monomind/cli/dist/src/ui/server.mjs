@@ -5745,6 +5745,50 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ---- POST /api/orgs/:name/chat — user sends a message to a running org ----
+    if (req.method === 'POST' && /^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/chat$/i.test(url)) {
+      let _chBody = '';
+      for await (const chunk of req) { _chBody += chunk; if (_chBody.length > 65536) { req.destroy(); break; } }
+      try {
+        const _chOrgName = decodeURIComponent(url.split('/')[3]);
+        if (_chOrgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(_chOrgName)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Invalid org name' })); return;
+        }
+        let _chPayload = {};
+        try { _chPayload = JSON.parse(_chBody); } catch(_) {}
+        const _chText = String(_chPayload.text || '').trim().slice(0, 4096);
+        if (!_chText) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'text is required' })); return; }
+        const _chRoot = projectDir || process.cwd();
+        const _chMonoDir = _getGitMonomindDir(_chRoot) || path.join(_chRoot, '.monomind');
+        const _chRunId = activeOrgRuns.get(_chOrgName) || _getActiveRunId(_chOrgName, _chRoot);
+        const _chEvent = { type: 'user:message', org: _chOrgName, runId: _chRunId || null, text: _chText, ts: Date.now() };
+        // Write to run JSONL if active run exists
+        if (_chRunId) {
+          const _chRunFile = path.join(_chMonoDir, 'orgs', _chOrgName, 'runs', `${_chRunId}.jsonl`);
+          if (fs.existsSync(_chRunFile)) await appendToFile(_chRunFile, JSON.stringify(_chEvent) + '\n');
+        }
+        // Write to mailbox file so boss agent can pick up on next cycle
+        const _chMailbox = path.join(_chRoot, '.monomind', 'orgs', `${_chOrgName}-threads.json`);
+        try {
+          let _chThreads = { messages: [] };
+          if (fs.existsSync(_chMailbox)) { try { _chThreads = JSON.parse(fs.readFileSync(_chMailbox, 'utf8')); } catch(_) {} }
+          if (!Array.isArray(_chThreads.messages)) _chThreads.messages = [];
+          _chThreads.messages.push({ text: _chText, ts: _chEvent.ts, status: 'pending' });
+          fs.writeFileSync(_chMailbox, JSON.stringify(_chThreads, null, 2));
+        } catch(_) {}
+        // Broadcast to SSE stream clients
+        broadcastMm(_chEvent);
+        const _chFwdClients = runStreamClients.get(_chOrgName);
+        if (_chFwdClients && _chFwdClients.size > 0) {
+          const _chLine = `data: ${JSON.stringify(_chEvent)}\n\n`;
+          for (const _cl of _chFwdClients) { try { _cl.write(_chLine); } catch(_) { _chFwdClients.delete(_cl); } }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: e.message })); }
+      return;
+    }
+
     // ------------------------------------------------------------------ 404
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');

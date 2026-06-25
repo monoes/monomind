@@ -171,7 +171,7 @@ describe('ConfigAdapter', () => {
           healthCheckInterval: 15000,
         },
         memory: {
-          backend: 'agentdb',
+          backend: 'lancedb',
           persistPath: '/test/memory',
           cacheSize: 500000,
           enableHNSW: true,
@@ -215,10 +215,10 @@ describe('ConfigAdapter', () => {
       expect(systemConfig.swarm?.maxAgents).toBe(20);
       expect(systemConfig.swarm?.autoScale?.enabled).toBe(true);
       expect(systemConfig.swarm?.coordination?.consensusRequired).toBe(true);
-      expect(systemConfig.memory?.type).toBe('agentdb');
+      expect(systemConfig.memory?.type).toBe('lancedb');
       expect(systemConfig.memory?.path).toBe('/test/memory');
-      expect(systemConfig.memory?.agentdb?.dimensions).toBe(768);
-      expect(systemConfig.memory?.agentdb?.indexType).toBe('hnsw');
+      expect(systemConfig.memory?.lancedb?.dimensions).toBe(768);
+      expect(systemConfig.memory?.lancedb?.indexType).toBe('hnsw');
       // MCP enabled not mapped, just transport
       expect(systemConfig.mcp?.transport?.type).toBe('websocket');
       expect(systemConfig.mcp?.transport?.host).toBe('0.0.0.0');
@@ -275,7 +275,7 @@ describe('ConfigAdapter', () => {
       const systemConfig = configToSystemConfig(leaderConfig);
 
       expect(systemConfig.swarm?.coordination?.consensusRequired).toBe(false);
-      expect(systemConfig.memory?.agentdb?.indexType).toBe('flat');
+      expect(systemConfig.memory?.lancedb?.indexType).toBe('flat');
     });
   });
 
@@ -307,7 +307,7 @@ describe('ConfigAdapter', () => {
         memory: {
           type: 'hybrid',
           path: '/test/memory',
-          agentdb: {
+          lancedb: {
             dimensions: 1536,
             indexType: 'hnsw',
             efConstruction: 200,

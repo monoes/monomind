@@ -1,8 +1,8 @@
 /**
  * @monomind/memory - V1 Unified Memory System
  *
- * Provides a unified memory interface backed by AgentDB with HNSW indexing
- * for 150x-12,500x faster vector search compared to brute-force approaches.
+ * Provides a unified memory interface backed by LanceDB with ANN indexing
+ * for fast vector search.
  *
  * @module @monomind/memory
  *
@@ -168,7 +168,7 @@ export type {
 // ===== Controller Registry (ADR-053) =====
 export { ControllerRegistry, INIT_LEVELS } from './controller-registry.js';
 export type {
-  AgentDBControllerName,
+  MemoryControllerName,
   CLIControllerName,
   ControllerName,
   InitLevel,
@@ -178,10 +178,6 @@ export type {
 } from './controller-registry.js';
 
 // ===== Core Components =====
-export { AgentDBAdapter } from './agentdb-adapter.js';
-export type { AgentDBAdapterConfig } from './agentdb-adapter.js';
-export { AgentDBBackend } from './agentdb-backend.js';
-export type { AgentDBBackendConfig } from './agentdb-backend.js';
 export { LanceDBBackend } from './lancedb-backend.js';
 export type { LanceDBBackendConfig } from './lancedb-backend.js';
 export { SQLiteBackend } from './sqlite-backend.js';
@@ -251,13 +247,13 @@ import {
   MigrationConfig,
   MigrationResult,
 } from './types.js';
-import { AgentDBAdapter, AgentDBAdapterConfig } from './agentdb-adapter.js';
+import { LanceDBBackend } from './lancedb-backend.js';
 import { MemoryMigrator } from './migration.js';
 
 /**
  * Configuration for UnifiedMemoryService
  */
-export interface UnifiedMemoryServiceConfig extends Partial<AgentDBAdapterConfig> {
+export interface UnifiedMemoryServiceConfig {
   /** Enable automatic embedding generation */
   autoEmbed?: boolean;
 
@@ -266,21 +262,28 @@ export interface UnifiedMemoryServiceConfig extends Partial<AgentDBAdapterConfig
 
   /** Embedding generator function */
   embeddingGenerator?: EmbeddingGenerator;
+
+  /** Persistence path (LanceDB directory) */
+  persistencePath?: string;
+
+  /** Whether to enable persistence (false = use temp dir) */
+  persistenceEnabled?: boolean;
+
+  /** Default namespace */
+  defaultNamespace?: string;
+
+  /** Number of probes for ANN search (higher = more accurate, slower) */
+  nProbes?: number;
 }
 
 /**
  * Unified Memory Service
  *
- * High-level interface for the V1 memory system that provides:
- * - Simple API for common operations
- * - Automatic embedding generation
- * - Cross-agent memory sharing
- * - SONA integration for learning
- * - Event-driven notifications
- * - Performance monitoring
+ * High-level interface for the V1 memory system backed by LanceDB.
+ * Provides simple API for common operations with automatic embedding support.
  */
 export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend {
-  private adapter: AgentDBAdapter;
+  private adapter: LanceDBBackend;
   private config: UnifiedMemoryServiceConfig;
   private initialized: boolean = false;
 
@@ -288,32 +291,22 @@ export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend
     super();
     this.config = {
       dimensions: 1536,
-      cacheEnabled: true,
       autoEmbed: true,
       ...config,
     };
 
-    this.adapter = new AgentDBAdapter({
-      dimensions: this.config.dimensions,
-      cacheEnabled: this.config.cacheEnabled,
-      cacheSize: this.config.cacheSize,
-      cacheTtl: this.config.cacheTtl,
-      hnswM: this.config.hnswM,
-      hnswEfConstruction: this.config.hnswEfConstruction,
-      defaultNamespace: this.config.defaultNamespace,
+    this.adapter = new LanceDBBackend({
+      dbPath: this.config.persistencePath,
+      vectorDimension: this.config.dimensions,
+      namespace: this.config.defaultNamespace,
       embeddingGenerator: this.config.embeddingGenerator,
-      persistenceEnabled: this.config.persistenceEnabled,
-      persistencePath: this.config.persistencePath,
-      maxEntries: this.config.maxEntries,
+      nProbes: this.config.nProbes ?? 20,
     });
 
     // Forward adapter events
     this.adapter.on('entry:stored', (data) => this.emit('entry:stored', data));
     this.adapter.on('entry:updated', (data) => this.emit('entry:updated', data));
     this.adapter.on('entry:deleted', (data) => this.emit('entry:deleted', data));
-    this.adapter.on('cache:hit', (data) => this.emit('cache:hit', data));
-    this.adapter.on('cache:miss', (data) => this.emit('cache:miss', data));
-    this.adapter.on('index:added', (data) => this.emit('index:added', data));
   }
 
   // ===== Lifecycle =====
@@ -536,7 +529,7 @@ export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend
   /**
    * Get the underlying adapter for advanced operations
    */
-  getAdapter(): AgentDBAdapter {
+  getAdapter(): LanceDBBackend {
     return this.adapter;
   }
 
@@ -554,21 +547,14 @@ export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend
  * Create a simple in-memory service (for testing)
  */
 export function createInMemoryService(): UnifiedMemoryService {
-  return new UnifiedMemoryService({
-    persistenceEnabled: false,
-    cacheEnabled: true,
-  });
+  return new UnifiedMemoryService({ persistenceEnabled: false });
 }
 
 /**
  * Create a persistent memory service
  */
 export function createPersistentService(path: string): UnifiedMemoryService {
-  return new UnifiedMemoryService({
-    persistenceEnabled: true,
-    persistencePath: path,
-    cacheEnabled: true,
-  });
+  return new UnifiedMemoryService({ persistenceEnabled: true, persistencePath: path });
 }
 
 /**
@@ -578,42 +564,21 @@ export function createEmbeddingService(
   embeddingGenerator: EmbeddingGenerator,
   dimensions: number = 1536
 ): UnifiedMemoryService {
-  return new UnifiedMemoryService({
-    embeddingGenerator,
-    dimensions,
-    autoEmbed: true,
-    cacheEnabled: true,
-  });
+  return new UnifiedMemoryService({ embeddingGenerator, dimensions, autoEmbed: true });
 }
 
 /**
- * Create a hybrid memory service (SQLite + AgentDB)
- * This is the DEFAULT recommended configuration per ADR-009
- *
- * @example
- * ```typescript
- * const memory = createHybridService('./data/memory.db', embeddingFn);
- * await memory.initialize();
- *
- * // Structured queries go to SQLite
- * const user = await memory.getByKey('users', 'john@example.com');
- *
- * // Semantic queries go to AgentDB
- * const similar = await memory.semanticSearch('authentication patterns', 10);
- * ```
+ * Create a LanceDB-backed memory service with persistence
  */
 export function createHybridService(
   databasePath: string,
   embeddingGenerator: EmbeddingGenerator,
   dimensions: number = 1536
 ): UnifiedMemoryService {
-  // Creates an AgentDB-backed UnifiedMemoryService with persistence.
-  // For SQLite+AgentDB hybrid storage, use HybridBackend directly (see hybrid-backend.ts).
   return new UnifiedMemoryService({
     embeddingGenerator,
     dimensions,
     autoEmbed: true,
-    cacheEnabled: true,
     persistenceEnabled: true,
     persistencePath: databasePath,
   });

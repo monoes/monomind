@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "1.15.3",
+  "version": "1.15.6",
   "type": "module",
   "description": "Monomind CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
@@ -74,7 +74,6 @@
   "scripts": {
     "build": "tsc --noEmitOnError false || true && mkdir -p dist/src/browser/dashboard && cp node_modules/@monoes/monobrowse/dist/src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html",
     "test": "vitest run",
-    "test:plugin-store": "npx tsx src/plugins/tests/standalone-test.ts",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
     "prepublishOnly": "cp ../../../README.md ./README.md && bash ./scripts/sync-claude-assets.sh",
     "release": "npm version prerelease --preid=alpha && npm run publish:all",
@@ -89,7 +88,8 @@
     "ws": "^8.21.0",
     "@noble/ed25519": "^2.1.0",
     "@monoes/monograph": "^1.2.1",
-    "@monoes/monobrowse": "^1.0.1"
+    "@monoes/monobrowse": "^1.0.1",
+    "@monomind/security": "workspace:*"
   },
   "optionalDependencies": {
     "sql.js": "^1.14.1",

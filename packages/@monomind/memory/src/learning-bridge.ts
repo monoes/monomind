@@ -172,7 +172,7 @@ export class LearningBridge extends EventEmitter {
   // ===== Public API =====
 
   /**
-   * Notify the bridge that an insight has been recorded in AgentDB.
+   * Notify the bridge that an insight has been recorded in memory backend.
    * Creates a learning trajectory so the neural system can track the
    * insight's lifecycle.
    */

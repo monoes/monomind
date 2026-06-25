@@ -132,7 +132,6 @@ export const COMMON_TYPOS = {
     'perf': 'performance',
     'performace': 'performance',
     'provider': 'providers',
-    'plugin': 'plugins',
     'dep': 'deployment',
     'depoly': 'deployment',
     'deploy': 'deployment',
