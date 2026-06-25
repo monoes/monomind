@@ -24,7 +24,7 @@ pnpm add monofence-ai
 Optional — HNSW-accelerated pattern search:
 
 ```bash
-npm install agentdb
+npm install lancedb
 ```
 
 ---
@@ -110,7 +110,7 @@ Returns the highest-effectiveness mitigation strategy for a threat type.
 
 ### `fence.searchSimilarThreats(input, { k })`
 
-Vector similarity search over learned threat patterns (requires AgentDB).
+Vector similarity search over learned threat patterns (requires LanceDB).
 
 ### `fence.recordMitigation(threatType, strategy, success)`
 
@@ -239,7 +239,7 @@ Six MCP tools are available when monomind is installed:
 | Full `detect()` | ~0.04ms |
 | `quickScan()` | ~0.02ms |
 | PII check | ~0.01ms |
-| HNSW search (AgentDB) | ~0.1ms |
+| HNSW search (LanceDB) | ~0.1ms |
 
 Throughput: >12,000 req/s single-threaded. Memory: ~50KB per instance.
 

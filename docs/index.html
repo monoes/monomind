@@ -321,7 +321,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
   <div class="page-content" style="padding-top:0">
     <div class="section-title reveal">Why Monomind?</div>
     <div class="card-grid">
-      <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, HNSW vector indexing, and AgentDB backends. Context survives across sessions.</div></div>
+      <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, HNSW vector indexing, and LanceDB backends. Context survives across sessions.</div></div>
       <div class="card reveal"><div class="card-icon">🐝</div><div class="card-title">Swarm Topologies</div><div class="card-desc">Hierarchical, mesh, adaptive, and hybrid multi-agent swarms with Raft, Byzantine, and CRDT consensus. 15-agent domain hierarchy.</div></div>
       <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 43 MCP tools across 6 categories for impact analysis, path finding, community detection, and multi-repo queries.</div></div>
       <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Outcome-Measured Routing</div><div class="card-desc">Deterministic keyword routing with route-outcome correlation. Every hook event is logged so routing accuracy and adherence can be measured by <code>doctor</code>.</div></div>
@@ -443,7 +443,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <text class="arch-sub" x="380" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">17 hook types · 12 workers</text>
         <text class="arch-sub" x="380" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Intelligence pipeline</text>
         <text class="arch-label" x="640" y="62" text-anchor="middle" fill="oklch(70% 0.18 60)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/memory</text>
-        <text class="arch-sub" x="640" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">AgentDB + HNSW</text>
+        <text class="arch-sub" x="640" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">LanceDB + HNSW</text>
         <text class="arch-sub" x="640" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Memory Palace L0–L3</text>
         <text class="arch-label" x="120" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/swarm</text>
         <text class="arch-sub" x="120" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">6 topologies</text>
@@ -476,7 +476,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <tbody>
         <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 41 commands</td></tr>
         <tr><td class="mono">@monomind/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>17 hooks + 12 background workers</td></tr>
-        <tr><td class="mono">@monomind/memory</td><td class="mono">packages/@monomind/memory/</td><td>AgentDB + HNSW vector search</td></tr>
+        <tr><td class="mono">@monomind/memory</td><td class="mono">packages/@monomind/memory/</td><td>LanceDB + HNSW vector search</td></tr>
         <tr><td class="mono">@monomind/security</td><td class="mono">packages/@monomind/security/</td><td>Input validation, CVE remediation</td></tr>
         <tr><td class="mono">@monomind/guidance</td><td class="mono">packages/@monomind/guidance/</td><td>Governance control plane</td></tr>
         <tr><td class="mono">@monomind/swarm</td><td class="mono">packages/@monomind/swarm/</td><td>Multi-agent swarm coordination</td></tr>
@@ -517,7 +517,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="tier-stack reveal">
       <div class="tier-row tier-l0"><div class="tier-label">L0<br>In-flight</div><div class="tier-content"><strong>Current session context.</strong> Stored in <code>drawers.jsonl</code>. Each drawer has a key, value, tags array, timestamp, and score. Ephemeral — not persisted across sessions unless promoted.</div></div>
       <div class="tier-row tier-l1"><div class="tier-label">L1<br>Working</div><div class="tier-content"><strong>Cross-session working memory.</strong> Closets store aggregated entries from multiple drawers. Closet boost adds +0.5 per matching search term. BM25 parameters: K1=1.5, B=0.75.</div></div>
-      <div class="tier-row tier-l2"><div class="tier-label">L2<br>Long-term</div><div class="tier-content"><strong>Persisted embeddings.</strong> AgentDB with HNSW indexing. Hybrid backend combines SQLite for exact lookups with AgentDB for semantic search. Pure-JS HNSW gives O(log n) approximate nearest neighbor vs O(n) brute-force.</div></div>
+      <div class="tier-row tier-l2"><div class="tier-label">L2<br>Long-term</div><div class="tier-content"><strong>Persisted embeddings.</strong> LanceDB with HNSW indexing. Hybrid backend combines SQLite for exact lookups with LanceDB for semantic search. Pure-JS HNSW gives O(log n) approximate nearest neighbor vs O(n) brute-force.</div></div>
       <div class="tier-row tier-l3"><div class="tier-label">L3<br>Shared</div><div class="tier-content"><strong>Cross-agent namespace.</strong> PartitionedHNSW shards by agent domain. Federation allows swarm agents to read each other's L3 without owning writes. Knowledge graph edges land here.</div></div>
     </div>
     <div class="section-title reveal">Storage Backends</div>
@@ -526,8 +526,8 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <thead><tr><th>Backend</th><th>Use Case</th><th>Notes</th></tr></thead>
       <tbody>
         <tr><td class="mono">SQLiteBackend</td><td>Small projects, single-agent</td><td>Default. No external deps.</td></tr>
-        <tr><td class="mono">AgentDBBackend</td><td>Vector semantic search</td><td>Pure-TypeScript HNSW index.</td></tr>
-        <tr><td class="mono">HybridBackend</td><td>Production (recommended)</td><td>SQLite + AgentDB per ADR-009. Auto-routes by query type.</td></tr>
+        <tr><td class="mono">LanceDBBackend</td><td>Vector semantic search</td><td>Pure-TypeScript HNSW index.</td></tr>
+        <tr><td class="mono">HybridBackend</td><td>Production (recommended)</td><td>SQLite + LanceDB per ADR-009. Auto-routes by query type.</td></tr>
         <tr><td class="mono">PartitionedHNSW</td><td>Multi-agent L3</td><td>Domain-sharded; agent-scoped writes.</td></tr>
         <tr><td class="mono">DiskAnnBackend</td><td>Very large datasets</td><td>Disk-resident ANN index.</td></tr>
       </tbody>
@@ -862,7 +862,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="cmd-item" data-search="mastermind approve review pending approval agents running"><div class="cmd-name">/mastermind:approve</div><div class="cmd-desc">Review and action pending approval requests from running orgs</div></div>
       <!-- mastermind: — utilities -->
       <div class="cmd-item" data-search="mastermind brain context memory inspect compact refresh"><div class="cmd-name">/mastermind:brain</div><div class="cmd-desc">Inspect and manage mastermind brain context</div></div>
-      <div class="cmd-item" data-search="mastermind memory agentdb store search retrieve list delete"><div class="cmd-name">/mastermind:memory</div><div class="cmd-desc">AgentDB memory: store, search, retrieve, list, delete</div></div>
+      <div class="cmd-item" data-search="mastermind memory lancedb store search retrieve list delete"><div class="cmd-name">/mastermind:memory</div><div class="cmd-desc">LanceDB memory: store, search, retrieve, list, delete</div></div>
       <div class="cmd-item" data-search="mastermind budget tokens cost limits autotune today month"><div class="cmd-name">/mastermind:budget</div><div class="cmd-desc">Budget status: today, month, limits, autotune</div></div>
       <div class="cmd-item" data-search="mastermind graph status nodes edges freshness usage"><div class="cmd-name">/mastermind:graph-status</div><div class="cmd-desc">Single-line graph stats: nodes, edges, freshness</div></div>
       <div class="cmd-item" data-search="mastermind loops active running tillend repeat command"><div class="cmd-name">/mastermind:loops</div><div class="cmd-desc">List active --tillend/--repeat loops</div></div>
@@ -912,7 +912,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <!-- hooks: / memory: -->
       <div class="cmd-item" data-search="hooks setup configure settings json claude code"><div class="cmd-name">/hooks:setup</div><div class="cmd-desc">Configure hooks in settings.json</div></div>
       <div class="cmd-item" data-search="hooks overview system wire claude code how"><div class="cmd-name">/hooks:overview</div><div class="cmd-desc">How hooks wire into Claude Code</div></div>
-      <div class="cmd-item" data-search="memory readme reference cli subcommands mcp agentdb"><div class="cmd-name">/memory:README</div><div class="cmd-desc">Full memory CLI reference: all 14 subcommands</div></div>
+      <div class="cmd-item" data-search="memory readme reference cli subcommands mcp lancedb"><div class="cmd-name">/memory:README</div><div class="cmd-desc">Full memory CLI reference: all 14 subcommands</div></div>
     </div>
   </div>
 </div>
@@ -928,7 +928,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="section-title reveal">autodev — The Autonomous Build Loop</div>
     <div class="phase-flow reveal">
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 1</div><div class="phase-name">Research</div><div class="phase-desc">Parallel: git log, file scan, package.json, README, TODO/FIXME grep, monograph god nodes, memory search for already-built items. Returns ranked list of 3–5 improvement candidates.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 2</div><div class="phase-name">Selection</div><div class="phase-desc">Picks best candidate by feasibility × blast-radius × focus alignment. Stores selection to AgentDB memory. Focus flags: <code>--focus security</code>, <code>--focus dx</code>, <code>--focus performance</code>.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 2</div><div class="phase-name">Selection</div><div class="phase-desc">Picks best candidate by feasibility × blast-radius × focus alignment. Stores selection to LanceDB memory. Focus flags: <code>--focus security</code>, <code>--focus dx</code>, <code>--focus performance</code>.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 3</div><div class="phase-name">Build</div><div class="phase-desc">Invokes <code>mastermind:build</code> with concrete spec, acceptance criteria, and blast radius guard. Spawns architect → coder → tester → reviewer agent chain.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 4</div><div class="phase-name">Review Loop</div><div class="phase-desc">Invokes <code>mastermind:review</code> inline. Runs Code Reviewer + Security Engineer + Reality Checker in parallel. Repeats up to 5 iterations until zero findings.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 5</div><div class="phase-name">Log</div><div class="phase-desc">Records completion to memory. If count &gt; 1, continues to next improvement. If <code>--tillend</code>, schedules next session via ScheduleWakeup.</div></div></div>
@@ -1004,7 +1004,7 @@ Session N: empty round (zero findings AND zero actions)
         <tr><td class="mono">/mastermind:approve</td><td>Review and action pending approval requests from running orgs</td></tr>
         <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Utilities —</td></tr>
         <tr><td class="mono">/mastermind:brain</td><td>Inspect and manage mastermind brain context</td></tr>
-        <tr><td class="mono">/mastermind:memory</td><td>AgentDB memory: store, search, retrieve, list, delete</td></tr>
+        <tr><td class="mono">/mastermind:memory</td><td>LanceDB memory: store, search, retrieve, list, delete</td></tr>
         <tr><td class="mono">/mastermind:budget</td><td>Budget status: today, month, limits, autotune</td></tr>
         <tr><td class="mono">/mastermind:graph-status</td><td>Single-line graph stats: nodes, edges, freshness</td></tr>
         <tr><td class="mono">/mastermind:loops</td><td>List active --tillend/--repeat loops</td></tr>
@@ -1026,14 +1026,14 @@ Session N: empty round (zero findings AND zero actions)
     <div class="section-title reveal">Brain Protocol</div>
     <div class="code-block reveal">
 <span class="comment">// Brain Load (session start)</span>
-1. Search AgentDB namespace <span class="string">"mastermind:{domain}"</span>
+1. Search LanceDB namespace <span class="string">"mastermind:{domain}"</span>
 2. Three tiers: raw records (last 7 days)
                 → weekly summaries
                 → long-term principles
 3. Inject combined BRAIN CONTEXT block into skill
 
 <span class="comment">// Brain Write (session end)</span>
-1. Store key decisions + findings to AgentDB
+1. Store key decisions + findings to LanceDB
 2. Update weekly summaries and principles</div>
   </div>
 </div>
@@ -1072,7 +1072,7 @@ Session N: empty round (zero findings AND zero actions)
         <thead><tr><th>Chip</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td>HNSW ON / OFF</td><td>Whether the HNSW vector index is loaded and searchable</td></tr>
-          <tr><td>PATTERNS N</td><td>Number of learned routing patterns in AgentDB</td></tr>
+          <tr><td>PATTERNS N</td><td>Number of learned routing patterns in LanceDB</td></tr>
           <tr><td>CHUNKS N</td><td>Number of indexed text chunks available for semantic search</td></tr>
           <tr><td>SWARM topology</td><td>Active swarm topology name (hierarchical, mesh, adaptive…)</td></tr>
           <tr><td>LAST ROUTE</td><td>Agent name that the routing hook most recently selected</td></tr>
@@ -1486,7 +1486,7 @@ Session N: empty round (zero findings AND zero actions)
         <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td>GET</td><td><code>/api/section</code></td><td>Named data sections (e.g. tokens)</td></tr>
-          <tr><td>GET</td><td><code>/api/memory/stats</code></td><td>AgentDB stats</td></tr>
+          <tr><td>GET</td><td><code>/api/memory/stats</code></td><td>LanceDB stats</td></tr>
           <tr><td>GET</td><td><code>/api/memory-files</code></td><td>.md file list</td></tr>
           <tr><td>PUT / DELETE</td><td><code>/api/memory-file</code></td><td>Create or delete memory file</td></tr>
           <tr><td>GET</td><td><code>/api/token-usage</code></td><td>Token usage, accepts <code>period</code> param</td></tr>
@@ -2276,7 +2276,7 @@ function runTypewriter() {
     {t:'out',text:'✓ Background daemon started',cls:'accent'},
     {t:'cmd',text:'npx monomind doctor'},
     {t:'out',text:'Node 22.0.0          ✓'},
-    {t:'out',text:'Memory backend       ✓  hybrid (SQLite + AgentDB)'},
+    {t:'out',text:'Memory backend       ✓  hybrid (SQLite + LanceDB)'},
     {t:'out',text:'MCP tools            ✓  43 monograph + 14 monomind'},
     {t:'cmd',text:'/mastermind:autodev --tillend --focus security'},
     {t:'out',text:'[autodev] Research phase starting...',cls:'amber'},

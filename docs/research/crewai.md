@@ -16,9 +16,9 @@ crewAI is a framework for orchestrating role-playing AI agents that work togethe
 crewAI proved that one monolithic memory store is insufficient. Different information has different lifespans and retrieval patterns. Monomind adopted a four-tier model:
 
 - **Short-term**: Active session context (injected via hooks)
-- **Long-term**: AgentDB SQLite + HNSW vector index
+- **Long-term**: LanceDB SQLite + HNSW vector index
 - **Entity**: Knowledge graph triples (`kg.json` in Memory Palace)
-- **Contextual**: RAPTOR-clustered summaries stored as `contextual`-tier entries in AgentDB
+- **Contextual**: RAPTOR-clustered summaries stored as `contextual`-tier entries in LanceDB
 
 ### 2. Role / Goal / Backstory Agent Registry
 crewAI's agent definition format — `role`, `goal`, `backstory` as distinct fields — shaped how Monomind's agent markdown files are structured. Each agent file has a purpose statement, capability list, and behavioral constraints that map to these three concepts.
@@ -31,11 +31,11 @@ crewAI's typed output schemas for agent results — ensuring structured, parseab
 
 ## How It Improved Monomind
 
-crewAI's memory tier model is the most direct influence on Monomind's AgentDB design. The separation of concerns between short, long, entity, and contextual memory means the system can answer different classes of queries efficiently — recency for short-term, semantic similarity for long-term, fact retrieval for entities, and abstract reasoning for contextual.
+crewAI's memory tier model is the most direct influence on Monomind's LanceDB design. The separation of concerns between short, long, entity, and contextual memory means the system can answer different classes of queries efficiently — recency for short-term, semantic similarity for long-term, fact retrieval for entities, and abstract reasoning for contextual.
 
 ## Key Files Influenced
 
-- `packages/@monomind/memory/` — AgentDB memory tier implementation
+- `packages/@monomind/memory/` — LanceDB memory tier implementation
 - `.claude/helpers/memory-palace.cjs` — entity-tier knowledge graph
 - `.claude/agents/*.md` — role/goal/backstory structure
 - `hook-handler.cjs` `pre-task` / `post-task` — context chaining

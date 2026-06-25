@@ -5,12 +5,12 @@ Comprehensive cross-module integration tests for monomind V1 architecture.
 ## Test Files Overview
 
 ### 1. memory-integration.test.ts (15 tests)
-Tests for HybridBackend with SQLite + AgentDB integration:
+Tests for HybridBackend with SQLite + LanceDB integration:
 - ✅ Store and retrieve memory from hybrid backend
 - ✅ Cross-backend queries by agent ID
 - ✅ Query memories by type across backends
 - ✅ Persist memory across backend reinitialization
-- ✅ Vector search in AgentDB backend
+- ✅ Vector search in LanceDB backend
 - ✅ Update existing memory in both backends
 - ✅ Delete memory from both backends
 - ✅ Bulk memory storage
@@ -23,8 +23,8 @@ Tests for HybridBackend with SQLite + AgentDB integration:
 - ✅ Data consistency across backends during failures
 
 **Key Features Tested:**
-- SQLite + AgentDB hybrid backend
-- Vector search (AgentDB pure-JS HNSW)
+- SQLite + LanceDB hybrid backend
+- Vector search (LanceDB pure-JS HNSW)
 - Cross-backend query coordination
 - Transaction consistency
 - Concurrent operations
@@ -232,7 +232,7 @@ When adding new integration tests:
 ## Performance Targets (from V1 Goals)
 
 Integration tests verify these targets:
-- 🔍 AgentDB Search (pure-JS HNSW)
+- 🔍 LanceDB Search (pure-JS HNSW)
 - 💾 Memory Reduction: 50-75%
 - 🚀 Startup Time: <500ms
 

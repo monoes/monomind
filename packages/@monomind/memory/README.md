@@ -5,13 +5,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
-> High-performance memory module for Monomind V1 - AgentDB unification, HNSW indexing, vector search, self-learning knowledge graph, and hybrid SQLite+AgentDB backend (ADR-009).
+> High-performance memory module for Monomind V1 - LanceDB unification, HNSW indexing, vector search, self-learning knowledge graph, and hybrid SQLite+LanceDB backend (ADR-009).
 
 ## Features
 
 - **Indexed Vector Search** - HNSW (Hierarchical Navigable Small World) vector index for fast similarity search
-- **Hybrid Backend** - SQLite for structured data + AgentDB for vectors (ADR-009)
-- **Auto Memory Bridge** - Bidirectional sync between Claude Code auto memory and AgentDB (ADR-048)
+- **Hybrid Backend** - SQLite for structured data + LanceDB for vectors (ADR-009)
+- **Auto Memory Bridge** - Bidirectional sync between Claude Code auto memory and LanceDB (ADR-048)
 - **Self-Learning** - LearningBridge connects insights to the ReasoningBank pattern store (ADR-049)
 - **Knowledge Graph** - PageRank + label propagation community detection + HippoRAG PPR re-ranking (ADR-049)
 - **Agent-Scoped Memory** - 3-scope agent memory (project/local/user) with cross-agent knowledge transfer (ADR-049)
@@ -37,7 +37,7 @@ npm install @monomind/memory
 ## Quick Start
 
 ```typescript
-import { HNSWIndex, AgentDBAdapter, CacheManager } from '@monomind/memory';
+import { HNSWIndex, LanceDBAdapter, CacheManager } from '@monomind/memory';
 
 // Create HNSW index for vector search
 const index = new HNSWIndex({
@@ -100,12 +100,12 @@ const stats = index.getStats();
 // { vectorCount, memoryUsage, avgSearchTime, compressionRatio }
 ```
 
-### AgentDB Adapter
+### LanceDB Adapter
 
 ```typescript
-import { AgentDBAdapter } from '@monomind/memory';
+import { LanceDBAdapter } from '@monomind/memory';
 
-const adapter = new AgentDBAdapter({
+const adapter = new LanceDBAdapter({
   dimensions: 1536,           // vector dimensions
   hnswM: 16,                  // max connections per HNSW layer
   hnswEfConstruction: 200,    // construction-time search depth
@@ -209,7 +209,7 @@ query().semantic('...').oldestFirst().build();                   // createdAt as
 query().semantic('...').recentlyAccessed().build();              // lastAccessedAt desc
 
 // sortField and sortDirection are passed through to all backends that support them
-// (agentdb-adapter, rvf-backend, sqlite-backend, sqljs-backend, JsonBackend)
+// (lancedb-adapter, rvf-backend, sqlite-backend, sqljs-backend, JsonBackend)
 
 // Predefined templates
 const recent = QueryTemplates.recentInNamespace('learnings', 10);
@@ -267,7 +267,7 @@ const productIndex = new HNSWIndex({
 
 ## Auto Memory Bridge (ADR-048)
 
-Bidirectional sync between Claude Code's [auto memory](https://code.claude.com/docs/en/memory) files and AgentDB. Auto memory is a persistent directory (`~/.claude/projects/<project>/memory/`) where Claude writes learnings as markdown. `MEMORY.md` (first 200 lines) is loaded into the system prompt; topic files are read on demand.
+Bidirectional sync between Claude Code's [auto memory](https://code.claude.com/docs/en/memory) files and LanceDB. Auto memory is a persistent directory (`~/.claude/projects/<project>/memory/`) where Claude writes learnings as markdown. `MEMORY.md` (first 200 lines) is loaded into the system prompt; topic files are read on demand.
 
 ### Quick Start
 
@@ -280,7 +280,7 @@ const bridge = new AutoMemoryBridge(memoryBackend, {
   pruneStrategy: 'confidence-weighted', // 'confidence-weighted' | 'fifo' | 'lru'
 });
 
-// Record an insight (stores in AgentDB + optionally writes to files)
+// Record an insight (stores in LanceDB + optionally writes to files)
 await bridge.recordInsight({
   category: 'debugging',
   summary: 'HNSW index requires initialization before search',
@@ -291,7 +291,7 @@ await bridge.recordInsight({
 // Sync buffered insights to auto memory files
 const syncResult = await bridge.syncToAutoMemory();
 
-// Import existing auto memory files into AgentDB (on session start)
+// Import existing auto memory files into LanceDB (on session start)
 const importResult = await bridge.importFromAutoMemory();
 
 // Curate MEMORY.md index (stays under 200-line limit)
@@ -749,7 +749,7 @@ Source: arXiv:2409.05591 — MemoRAG (TheWebConf 2025).
 
 ## DiskANN Backend — Large-Scale ANN at Disk Scale (arXiv:2305.04359)
 
-`DiskAnnBackend` is an `IMemoryBackend` decorator that activates SSD-resident Vamana ANN search above entry-count thresholds. Wraps any existing backend (typically the long-term SQLite/AgentDB backend in `TierManager`).
+`DiskAnnBackend` is an `IMemoryBackend` decorator that activates SSD-resident Vamana ANN search above entry-count thresholds. Wraps any existing backend (typically the long-term SQLite/LanceDB backend in `TierManager`).
 
 ### Architecture
 
@@ -884,7 +884,7 @@ import type {
 
 ## Dependencies
 
-- `agentdb` - Vector database engine
+- `lancedb` - Vector database engine
 - `better-sqlite3` - SQLite driver (native)
 - `sql.js` - SQLite driver (WASM fallback)
 

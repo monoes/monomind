@@ -623,7 +623,7 @@ export const transferFromProjectCommand = {
 // Parent transfer command combining all transfer methods
 export const transferCommand = {
     name: 'transfer',
-    description: 'Transfer patterns and plugins via IPFS-based decentralized registry',
+    description: 'Transfer patterns via IPFS-based decentralized registry',
     subcommands: [storeCommand, transferFromProjectCommand],
     examples: [
         { command: 'monomind hooks transfer store list', description: 'List patterns from registry' },

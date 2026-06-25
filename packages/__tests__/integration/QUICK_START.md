@@ -8,7 +8,7 @@ This directory contains 75 comprehensive integration tests across 5 test files c
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `memory-integration.test.ts` | 15 | HybridBackend (SQLite + AgentDB) |
+| `memory-integration.test.ts` | 15 | HybridBackend (SQLite + LanceDB) |
 | `swarm-integration.test.ts` | 15 | Agent coordination and topologies |
 | `mcp-integration.test.ts` | 15 | MCP tools (agent, memory, config) |
 | `plugin-integration.test.ts` | 15 | Plugin system and extension points |

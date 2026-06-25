@@ -130,7 +130,7 @@ Memory management optimization via 10-run autodev loop + 2 review runs across `p
 - Reduced graph algorithm allocations (double-buffered PageRank, reused `labelCounts`)
 - Episodic-store container reuse (`.length=0` / `.clear()` instead of `new []`)
 - Contextual tier sort caching (lazy `sortedCache`)
-- Namespace index bypass fix in `agentdb-backend`
+- Namespace index bypass fix in `lancedb-backend`
 - Orphaned map fix in `learning-bridge` (`destroy()` now clears both maps)
 - Fixed SQLite ambiguous column in `json_each()` query (23 test failures resolved)
 - Fixed embedding buffer slice bug in `sqlite-backend` (`byteOffset`/`byteLength`)
@@ -310,7 +310,7 @@ Live org state visualization in `orgs.html`:
 - `ERLWorker` — entirely untested
 - `BusHookBridge` — entirely untested
 - `MuACP` (micro-Agent Coordination Protocol) — entirely untested
-- `AgentDBSink` — entirely untested
+- `LanceDBSink` — entirely untested
 - `SubSwarmManager` — entirely untested
 - `LATSPlanner` / `AFLOWSearch` (MCTS-based) — entirely untested
 - `SubGraphCompiler.compile()` — entirely untested
@@ -496,7 +496,7 @@ Five read-only sessions produced detailed test skeletons that were never written
 | `ERLWorker` | Entirely untested | High |
 | `BusHookBridge` | Entirely untested | High |
 | `MuACP` (micro-Agent Coordination Protocol) | Entirely untested | High |
-| `AgentDBSink` | Entirely untested | Medium |
+| `LanceDBSink` | Entirely untested | Medium |
 | `SubSwarmManager` | Entirely untested | Medium |
 | `LATSPlanner` / `AFLOWSearch` | Entirely untested | Medium |
 | `SubGraphCompiler.compile()` | Entirely untested | Medium |

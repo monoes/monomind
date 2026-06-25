@@ -1,6 +1,6 @@
 # Memory Systems
 
-> Monomind has three memory layers that work together: Memory Palace (BM25 verbatim search), AgentDB (vector semantic search with HNSW), and Monograph (code knowledge graph). Each serves a different retrieval pattern.
+> Monomind has three memory layers that work together: Memory Palace (BM25 verbatim search), LanceDB (vector semantic search with HNSW), and Monograph (code knowledge graph). Each serves a different retrieval pattern.
 
 ---
 
@@ -15,7 +15,7 @@
 │  identity.md                 drawers.jsonl                           │
 │         ↓ injected at session start                                 │
 │                                                                      │
-│  AgentDB (semantic)          Monograph (code graph)                 │
+│  LanceDB (semantic)          Monograph (code graph)                 │
 │  .monomind/*.db              .monomind/monograph.db                 │
 │  HNSW vector index           SQLite + dependency graph              │
 └─────────────────────────────────────────────────────────────────────┘
@@ -85,10 +85,10 @@ Triples with `valid_from`/`valid_to` for bi-temporal queries:
 
 ---
 
-## 2. AgentDB (`@monomind/memory`)
+## 2. LanceDB (`@monomind/memory`)
 
 **Package:** `packages/@monomind/memory/`  
-**Default backend:** HybridBackend (SQLite + AgentDB per ADR-009)
+**Default backend:** HybridBackend (SQLite + LanceDB per ADR-009)
 
 ### Architecture
 
@@ -97,7 +97,7 @@ UnifiedMemoryService
   └── TierManager
         ├── Tier 1: ShortTermMemory (in-memory LRU, capacity 500, current run only)
         ├── Tier 2: SQLiteBackend (ACID, structured queries, exact matches)
-        ├── Tier 3: AgentDBBackend (semantic/vector via HNSW)
+        ├── Tier 3: LanceDBBackend (semantic/vector via HNSW)
         └── Tier 4: DiskAnnBackend (optional, large-scale ANN)
 ```
 
@@ -114,8 +114,8 @@ Pure-TypeScript Hierarchical Navigable Small World implementation:
 | Backend | Use case |
 |---|---|
 | `SQLiteBackend` | ACID, exact matches, metadata filters |
-| `AgentDBBackend` | Semantic vector search via HNSW; wraps `agentdb@2.0.0-alpha.3.4` |
-| `HybridBackend` | Default: routes semantic → AgentDB, structured → SQLite; dual-write option |
+| `LanceDBBackend` | Semantic vector search via HNSW; wraps `lancedb@2.0.0-alpha.3.4` |
+| `HybridBackend` | Default: routes semantic → LanceDB, structured → SQLite; dual-write option |
 | `SqljsBackend` | sql.js WASM fallback (browser/edge) |
 | `PartitionedHNSW` | Timestamp-partitioned HNSW for temporally-local search |
 | `DiskAnnBackend` | Disk-resident ANN graph for large corpora (Tier 4) |

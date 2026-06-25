@@ -761,6 +761,7 @@ export async function initDefaultWorkers(): Promise<void> {
   // GAP-009: PromptOptimizer + BootstrapFewShot — improve agent prompts from real execution data
   try {
     const [{ PromptOptimizationWorker }, { PromptOptimizer }, { BootstrapFewShot }] = await Promise.all([
+      // @ts-expect-error — optional: prompt-optimization-worker may not be compiled yet
       import('../workers/prompt-optimization-worker.js'),
       import('../optimization/prompt-optimizer.js'),
       import('../optimization/bootstrap-fewshot.js'),
@@ -784,6 +785,7 @@ export async function initDefaultWorkers(): Promise<void> {
 
   // Task 45: ProceduralMemory — scan SkillRegistry at startup so learned skills are indexed
   try {
+    // @ts-expect-error — optional peer dep @monoes/memory resolved at runtime
     const { SkillRegistry } = await import('@monoes/memory');
     const skillRegistry = new SkillRegistry('.monomind/skills.jsonl');
     const skills = skillRegistry.list();

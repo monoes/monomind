@@ -817,7 +817,7 @@ export const hiveMindTools: MCPTool[] = [
 
         saveHiveState(state);
 
-        // Persist consensus result in AgentDB for searchable history
+        // Persist consensus result for searchable history
         if (resolved) {
           try {
             const bridge = await import('../memory/memory-bridge.js');
@@ -834,7 +834,7 @@ export const hiveMindTools: MCPTool[] = [
               namespace: 'hive-consensus',
               tags: [proposal.type, proposalStrategy || 'raft', proposal.status],
             });
-          } catch { /* AgentDB not available — JSON store is primary */ }
+          } catch { /* LanceDB not available — JSON store is primary */ }
 
           // Persist consensus audit record
           const sessionSecret = process.env.MONOMIND_SESSION_SECRET;
@@ -1153,7 +1153,7 @@ export const hiveMindTools: MCPTool[] = [
         state.sharedMemory[key] = cappedValue;
         saveHiveState(state);
 
-        // Also store in AgentDB for searchable hive memory
+        // Also store for searchable hive memory
         try {
           const bridge = await import('../memory/memory-bridge.js');
           await bridge.bridgeStoreEntry({
@@ -1161,7 +1161,7 @@ export const hiveMindTools: MCPTool[] = [
             value: JSON.stringify(input.value),
             namespace: 'hive-memory',
           });
-        } catch { /* AgentDB not available */ }
+        } catch { /* LanceDB not available */ }
 
         return {
           action,

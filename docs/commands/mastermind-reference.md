@@ -8,10 +8,10 @@
 
 Mastermind is a command namespace for high-level autonomous operations. Each command follows a common pattern:
 
-1. **Brain Load** — loads context from AgentDB (`mastermind:*` namespace) via the _protocol.md Brain Load Procedure
+1. **Brain Load** — loads context from LanceDB (`mastermind:*` namespace) via the _protocol.md Brain Load Procedure
 2. **Intake** — optional 5-question intake if the prompt is vague
 3. **Skill execution** — delegates to the corresponding skill file
-4. **Brain Write** — saves results and context back to AgentDB
+4. **Brain Write** — saves results and context back to LanceDB
 5. **Repeat Postamble** — handles `--tillend`/`--repeat` loop scheduling
 
 ### Universal Flags
@@ -303,12 +303,12 @@ touch .monomind/loops/{loop-id}.stop
 Each mastermind command loads/saves brain context:
 
 **Brain Load** (at session start):
-- Searches AgentDB namespace `mastermind:{domain}` for recent context
+- Searches LanceDB namespace `mastermind:{domain}` for recent context
 - Three memory tiers: raw records (last 7 days) → weekly summaries → principles
 - Combines into a `BRAIN CONTEXT` block injected into the skill
 
 **Brain Write** (at session end):
-- Stores key decisions, findings, and outcomes to AgentDB
+- Stores key decisions, findings, and outcomes to LanceDB
 - Updates weekly summaries and principles over time
 
 ---

@@ -305,7 +305,7 @@ export const ConfigFixtures = {
       peerDiscovery: true
     },
     memory: {
-      backend: 'agentdb',
+      backend: 'lancedb',
       vectorDimension: 384,
       hnswM: 16
     },
@@ -517,71 +517,6 @@ export const MockImplementations = {
       }
     };
   },
-
-  /**
-   * Mock PluginManager that tracks plugin operations
-   */
-  createMockPluginManager: () => {
-    const plugins = new Map();
-    const operations: any[] = [];
-
-    return {
-      operations, // Expose for testing
-      plugins, // Expose for testing
-
-      async loadPlugin(plugin: any, config?: any) {
-        operations.push({ type: 'load', plugin, config });
-        plugins.set(plugin.id, plugin);
-        if (plugin.initialize) {
-          await plugin.initialize(config);
-        }
-      },
-
-      async unloadPlugin(pluginId: string) {
-        operations.push({ type: 'unload', pluginId });
-        const plugin = plugins.get(pluginId);
-        if (plugin?.shutdown) {
-          await plugin.shutdown();
-        }
-        plugins.delete(pluginId);
-      },
-
-      listPlugins() {
-        operations.push({ type: 'list' });
-        return Array.from(plugins.values());
-      },
-
-      async invokeExtensionPoint(name: string, data: any) {
-        operations.push({ type: 'invoke', name, data });
-        const results: any[] = [];
-
-        for (const plugin of plugins.values()) {
-          const extensionPoints = plugin.getExtensionPoints();
-          const matching = extensionPoints.filter((ep: any) => ep.name === name);
-
-          for (const ep of matching) {
-            try {
-              const result = await ep.handler(data);
-              results.push(result);
-            } catch (error) {
-              results.push({ error: (error as Error).message });
-            }
-          }
-        }
-
-        return results;
-      },
-
-      async initialize() {
-        operations.push({ type: 'initialize' });
-      },
-
-      async shutdown() {
-        operations.push({ type: 'shutdown' });
-        plugins.clear();
-      }
-    };
-  }
 };
 
 /**

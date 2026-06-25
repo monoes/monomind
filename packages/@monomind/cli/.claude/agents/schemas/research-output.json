@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "research-output",
+  "type": "object",
+  "required": ["summary", "sources", "agentSlug"],
+  "properties": {
+    "summary": { "type": "string" },
+    "sources": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "agentSlug": { "type": "string" },
+    "recommendations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "keyFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["topic", "detail"],
+        "properties": {
+          "topic": { "type": "string" },
+          "detail": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

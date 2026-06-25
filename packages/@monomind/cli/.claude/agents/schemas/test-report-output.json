@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "test-report-output",
+  "type": "object",
+  "required": ["filesCreated", "summary", "agentSlug"],
+  "properties": {
+    "filesCreated": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "summary": { "type": "string" },
+    "agentSlug": { "type": "string" },
+    "testCount": { "type": "integer" },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "lines": { "type": "number", "minimum": 0, "maximum": 100 },
+        "branches": { "type": "number", "minimum": 0, "maximum": 100 },
+        "functions": { "type": "number", "minimum": 0, "maximum": 100 }
+      },
+      "additionalProperties": false
+    },
+    "frameworks": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}
