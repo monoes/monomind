@@ -208,7 +208,7 @@ export interface HybridQuery {
  * - Complex hybrid queries → Both backends with intelligent merging
  */
 export class HybridBackend extends EventEmitter implements IMemoryBackend {
-  private sqlite: SQLiteBackend;
+  private sqlite: IMemoryBackend; // SQLiteBackend normally; same as agentdb when lancedb solo
   private agentdb: IMemoryBackend; // AgentDBBackend or LanceDBBackend
   private config: Required<HybridBackendConfig>;
   private initialized: boolean = false;
@@ -227,21 +227,26 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config };
 
-    // Initialize SQLite backend
-    this.sqlite = new SQLiteBackend({
-      ...this.config.sqlite,
-      defaultNamespace: this.config.defaultNamespace,
-      embeddingGenerator: this.config.embeddingGenerator,
-    });
-
     // Initialize semantic backend (AgentDB default, or LanceDB when configured)
     if (this.config.semanticBackend === 'lancedb') {
-      this.agentdb = new LanceDBBackend({
+      // Solo LanceDB mode: one backend handles all queries (structured + vector).
+      // Both this.sqlite and this.agentdb point to the same instance so all
+      // routing paths (exact/prefix/tag/semantic) transparently use LanceDB.
+      // dualWrite forced off to prevent double-writes to the same instance.
+      const ldb = new LanceDBBackend({
         ...this.config.lancedb,
         namespace: this.config.defaultNamespace,
         embeddingGenerator: this.config.embeddingGenerator,
       });
+      this.agentdb = ldb;
+      this.sqlite = ldb;
+      this.config.dualWrite = false;
     } else {
+      this.sqlite = new SQLiteBackend({
+        ...this.config.sqlite,
+        defaultNamespace: this.config.defaultNamespace,
+        embeddingGenerator: this.config.embeddingGenerator,
+      });
       this.agentdb = new AgentDBBackend({
         ...this.config.agentdb,
         namespace: this.config.defaultNamespace,
@@ -249,16 +254,19 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
       });
     }
 
-    // Forward events from both backends
-    this.sqlite.on('entry:stored', (data) => this.emit('sqlite:stored', data));
-    this.sqlite.on('entry:updated', (data) => this.emit('sqlite:updated', data));
-    this.sqlite.on('entry:deleted', (data) => this.emit('sqlite:deleted', data));
+    // Forward events (skip duplicate wiring in solo mode)
+    const em = (b: IMemoryBackend) => b as unknown as EventEmitter;
+    em(this.sqlite).on?.('entry:stored', (d: any) => this.emit('sqlite:stored', d));
+    em(this.sqlite).on?.('entry:updated', (d: any) => this.emit('sqlite:updated', d));
+    em(this.sqlite).on?.('entry:deleted', (d: any) => this.emit('sqlite:deleted', d));
 
-    (this.agentdb as EventEmitter).on?.('entry:stored', (data: any) => this.emit('agentdb:stored', data));
-    (this.agentdb as EventEmitter).on?.('entry:updated', (data: any) => this.emit('agentdb:updated', data));
-    (this.agentdb as EventEmitter).on?.('entry:deleted', (data: any) => this.emit('agentdb:deleted', data));
-    (this.agentdb as EventEmitter).on?.('cache:hit', (data: any) => this.emit('cache:hit', data));
-    (this.agentdb as EventEmitter).on?.('cache:miss', (data: any) => this.emit('cache:miss', data));
+    if (this.agentdb !== this.sqlite) {
+      em(this.agentdb).on?.('entry:stored', (d: any) => this.emit('agentdb:stored', d));
+      em(this.agentdb).on?.('entry:updated', (d: any) => this.emit('agentdb:updated', d));
+      em(this.agentdb).on?.('entry:deleted', (d: any) => this.emit('agentdb:deleted', d));
+      em(this.agentdb).on?.('cache:hit', (d: any) => this.emit('cache:hit', d));
+      em(this.agentdb).on?.('cache:miss', (d: any) => this.emit('cache:miss', d));
+    }
   }
 
   /**
@@ -267,7 +275,10 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    await Promise.all([this.sqlite.initialize(), this.agentdb.initialize()]);
+    const inits = this.agentdb === this.sqlite
+      ? [this.agentdb.initialize()]
+      : [this.sqlite.initialize(), this.agentdb.initialize()];
+    await Promise.all(inits);
 
     this.initialized = true;
     this.emit('initialized');
@@ -279,7 +290,10 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   async shutdown(): Promise<void> {
     if (!this.initialized) return;
 
-    await Promise.all([this.sqlite.shutdown(), this.agentdb.shutdown()]);
+    const shutdowns = this.agentdb === this.sqlite
+      ? [this.agentdb.shutdown()]
+      : [this.sqlite.shutdown(), this.agentdb.shutdown()];
+    await Promise.all(shutdowns);
 
     this.initialized = false;
     this.emit('shutdown');
@@ -362,9 +376,10 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   async get(id: string, agentId?: string): Promise<MemoryEntry | null> {
     const entry = await this.agentdb.get(id);
 
-    // Track the read in SQLite for collaborative promotion (best-effort, non-blocking)
-    if (agentId && entry) {
-      this.sqlite.get(id, agentId).catch(() => { /* non-critical */ });
+    // Track the read in SQLite for collaborative promotion (best-effort, non-blocking).
+    // Skipped in solo-lancedb mode since this.sqlite === this.agentdb (already fetched above).
+    if (agentId && entry && this.agentdb !== this.sqlite) {
+      (this.sqlite as any).get(id, agentId).catch(() => { /* non-critical */ });
     }
 
     return entry;
@@ -802,16 +817,17 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    * Get combined statistics from both backends
    */
   async getStats(): Promise<BackendStats> {
+    const solo = this.agentdb === this.sqlite;
     const [sqliteStats, agentdbStats] = await Promise.all([
-      this.sqlite.getStats(),
+      solo ? Promise.resolve(null as any) : this.sqlite.getStats(),
       this.agentdb.getStats(),
     ]);
 
     return {
-      totalEntries: Math.max(sqliteStats.totalEntries, agentdbStats.totalEntries),
+      totalEntries: solo ? agentdbStats.totalEntries : Math.max(sqliteStats.totalEntries, agentdbStats.totalEntries),
       entriesByNamespace: agentdbStats.entriesByNamespace,
       entriesByType: agentdbStats.entriesByType,
-      memoryUsage: sqliteStats.memoryUsage + agentdbStats.memoryUsage,
+      memoryUsage: solo ? agentdbStats.memoryUsage : sqliteStats.memoryUsage + agentdbStats.memoryUsage,
       hnswStats: agentdbStats.hnswStats ?? {
         vectorCount: 0,          // 0 = no active HNSW index; do not fabricate from totalEntries
         memoryUsage: 0,
@@ -837,8 +853,9 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
    * Health check for both backends
    */
   async healthCheck(): Promise<HealthCheckResult> {
+    const solo = this.agentdb === this.sqlite;
     const [sqliteHealth, agentdbHealth] = await Promise.all([
-      this.sqlite.healthCheck(),
+      solo ? Promise.resolve({ status: 'healthy', issues: [], recommendations: [], components: {} as any, timestamp: Date.now() } as HealthCheckResult) : this.sqlite.healthCheck(),
       this.agentdb.healthCheck(),
     ]);
 
@@ -1019,7 +1036,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     entryId: string,
     feedback: { score: number; label?: string; context?: Record<string, unknown> },
   ): Promise<boolean> {
-    const agentdbInstance = this.agentdb.getAgentDB?.();
+    const agentdbInstance = (this.agentdb as any).getAgentDB?.();
     if (agentdbInstance && typeof agentdbInstance.recordFeedback === 'function') {
       try {
         await agentdbInstance.recordFeedback(entryId, feedback);
@@ -1041,7 +1058,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     chainLength: number;
     errors: string[];
   }> {
-    const agentdbInstance = this.agentdb.getAgentDB?.();
+    const agentdbInstance = (this.agentdb as any).getAgentDB?.();
     if (agentdbInstance && typeof agentdbInstance.verifyWitnessChain === 'function') {
       try {
         return await agentdbInstance.verifyWitnessChain(entryId);
@@ -1061,7 +1078,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     timestamp: number;
     operation: string;
   }>> {
-    const agentdbInstance = this.agentdb.getAgentDB?.();
+    const agentdbInstance = (this.agentdb as any).getAgentDB?.();
     if (agentdbInstance && typeof agentdbInstance.getWitnessChain === 'function') {
       try {
         return await agentdbInstance.getWitnessChain(entryId);
