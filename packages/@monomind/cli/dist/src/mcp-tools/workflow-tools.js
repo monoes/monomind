@@ -680,27 +680,37 @@ export const workflowTools = [
             const rawParams = input.params ?? {};
             // Sanitize params — string values only
             const params = Object.fromEntries(Object.entries(rawParams).map(([k, v]) => [k, String(v)]));
-            if (input.port !== undefined) {
-                process.env['GEMINI_CDP_PORT'] = String(input.port);
-            }
-            const { readPlaybook, runPlaybook, createDefaultHandlers } = await import('@monoes/monobrowse');
-            const def = await readPlaybook(absPath);
-            const record = await runPlaybook(def, {
-                handlers: createDefaultHandlers(),
-                signal: AbortSignal.timeout(timeoutMs),
-                params,
+            const { spawn } = await import('node:child_process');
+            const _args = ['run', '--file', absPath, '--json'];
+            for (const [k, v] of Object.entries(params))
+                _args.push('--param', `${k}=${v}`);
+            const env = { ...process.env };
+            if (input.port !== undefined)
+                env['CDP_PORT'] = String(input.port);
+            const record = await new Promise((resolve) => {
+                const child = spawn('monoes', _args, { env });
+                let stdout = '';
+                let stderr = '';
+                child.stdout?.on('data', (d) => { stdout += d; });
+                child.stderr?.on('data', (d) => { stderr += d; });
+                const _kill = setTimeout(() => { child.kill(); resolve({ status: 'timeout', error: `Timed out after ${timeoutMs}ms` }); }, timeoutMs);
+                child.on('close', (code) => {
+                    clearTimeout(_kill);
+                    if (code === 0) {
+                        try {
+                            resolve({ status: 'complete', output: JSON.parse(stdout) });
+                        }
+                        catch {
+                            resolve({ status: 'complete', output: stdout.trim() });
+                        }
+                    }
+                    else {
+                        resolve({ status: 'failed', error: (stderr.trim() || stdout.trim()) });
+                    }
+                });
+                child.on('error', (e) => { clearTimeout(_kill); resolve({ status: 'failed', error: e.message }); });
             });
-            return {
-                playbookId: record.playbookId,
-                playbookName: record.playbookName,
-                status: record.status,
-                itemsProcessed: record.itemsProcessed,
-                itemsTotal: record.itemsTotal,
-                durationMs: record.completedAt && record.startedAt
-                    ? record.completedAt - record.startedAt
-                    : undefined,
-                error: record.error,
-            };
+            return record;
         },
     },
 ];
