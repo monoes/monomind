@@ -28,18 +28,19 @@ import {
 // ===== Optional dynamic import =====
 
 let lancedb: any;
-let importAttempted = false;
+let importError: Error | null = null;
 
 async function ensureLanceDB(): Promise<void> {
   if (lancedb) return;
-  if (importAttempted) throw new Error('LanceDB unavailable — see install note below');
-  importAttempted = true;
+  if (importError) throw importError;
   try {
+    // @ts-expect-error — optional peer dep resolved at runtime
     lancedb = await import('@lancedb/lancedb');
   } catch (err: any) {
-    throw new Error(
+    importError = new Error(
       `LanceDB not installed. Run:\n  npm install @lancedb/lancedb apache-arrow\n\nOriginal error: ${err.message}`
     );
+    throw importError;
   }
 }
 
@@ -224,6 +225,7 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
 
   private async getTable(namespace: string): Promise<any> {
     if (this.tables.has(namespace)) return this.tables.get(namespace)!;
+    if (!this.initialized || !this.db) throw new Error('LanceDBBackend not initialized — call initialize() first');
 
     const tableNames: string[] = await this.db.tableNames();
     let table: any;
@@ -289,8 +291,9 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   }
 
   async get(id: string): Promise<MemoryEntry | null> {
-    // We don't know the namespace — search the default table first, then all tables
-    for (const ns of [this.config.namespace, ...[...this.tables.keys()]]) {
+    // Search default namespace first, then any other open tables (deduped)
+    const toSearch = [...new Set([this.config.namespace, ...this.tables.keys()])];
+    for (const ns of toSearch) {
       try {
         const table = await this.getTable(ns);
         const rows = await table.query()
@@ -338,17 +341,17 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   }
 
   async delete(id: string): Promise<boolean> {
-    let deleted = false;
-    for (const ns of [...this.tables.keys(), this.config.namespace]) {
-      try {
-        const table = await this.getTable(ns);
-        await table.delete(`id = ${sqlStr(id)}`);
-        deleted = true;
-        this.emit('entry:deleted', { id, namespace: ns });
-        break;
-      } catch { /* table may not exist */ }
+    // Check existence first — lance.delete() returns void, can't tell if row matched
+    const existing = await this.get(id);
+    if (!existing) return false;
+    try {
+      const table = await this.getTable(existing.namespace);
+      await table.delete(`id = ${sqlStr(id)}`);
+      this.emit('entry:deleted', { id, namespace: existing.namespace });
+      return true;
+    } catch {
+      return false;
     }
-    return deleted;
   }
 
   async query(query: MemoryQuery): Promise<MemoryEntry[]> {
@@ -379,10 +382,9 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
       const queryVector = Array.from(embedding);
       const k = options.k ?? 10;
 
-      // over-fetch for threshold filtering, then trim
-      let q = table.search(queryVector).limit(k * 2);
-      q = q.where(`namespace = ${sqlStr(ns)}`);
-      q = q.where(`(expiresAt = 0 OR expiresAt > ${Date.now()})`);
+      // over-fetch for threshold filtering, then trim; single predicate (chaining may overwrite)
+      const preFilter = `namespace = ${sqlStr(ns)} AND (expiresAt = 0 OR expiresAt > ${Date.now()})`;
+      let q = table.search(queryVector).limit(k * 2).where(preFilter);
 
       const rows = await q.toArray();
       const threshold = options.threshold ?? 0;
@@ -426,11 +428,15 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   async bulkDelete(ids: string[]): Promise<number> {
     if (!ids.length) return 0;
     const idList = ids.map(sqlStr).join(', ');
+    // Count before deleting to get accurate return value (lance.delete returns void)
     let deleted = 0;
-    for (const [, table] of this.tables) {
+    for (const [ns, table] of this.tables) {
       try {
+        const before = typeof table.countRows === 'function'
+          ? await table.countRows(`id IN (${idList})`)
+          : 0; // skip pre-count if API unavailable; return 0 (conservative)
         await table.delete(`id IN (${idList})`);
-        deleted += ids.length; // LanceDB doesn't return row count; approximate
+        deleted += before;
       } catch { /* ignore */ }
     }
     return deleted;
@@ -440,6 +446,10 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
     const ns = namespace ?? this.config.namespace;
     try {
       const table = await this.getTable(ns);
+      // countRows() avoids loading all IDs into memory (available in lancedb >= 0.9)
+      if (typeof table.countRows === 'function') {
+        return await table.countRows(`namespace = ${sqlStr(ns)}`);
+      }
       const rows = await table.query()
         .where(`namespace = ${sqlStr(ns)}`)
         .select(['id'])
