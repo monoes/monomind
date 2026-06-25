@@ -794,8 +794,10 @@ const defendCommand = {
         output.writeln(output.bold('🛡️ MonoFence - AI Manipulation Defense System'));
         output.writeln(output.dim('─'.repeat(55)));
         // Dynamic import of aidefence (allows package to be optional)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let createMonoDefence;
         try {
+            // @ts-expect-error — optional peer dep resolved at runtime
             const aidefence = await import('monofence-ai');
             createMonoDefence = aidefence.createMonoDefence;
         }
