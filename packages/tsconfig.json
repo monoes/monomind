@@ -5,18 +5,15 @@
     "paths": {
       "@monomind/security": ["./@monomind/security/src"],
       "@monomind/memory": ["./@monomind/memory/src"],
-      "@monomind/swarm": ["./@monomind/swarm/src"],
-      "@monomind/performance": ["./@monomind/performance/src"],
+
       "@monomind/cli": ["./@monomind/cli/src"],
-      "@monomind/shared": ["./@monomind/shared/dist"],
       "@monomind/hooks": ["./@monomind/hooks/src"]
     }
   },
   "references": [
     { "path": "./@monomind/security" },
     { "path": "./@monomind/memory" },
-    { "path": "./@monomind/swarm" },
-    { "path": "./@monomind/performance" },
+
     { "path": "./@monomind/cli" },
     { "path": "./@monomind/hooks" }
   ],
