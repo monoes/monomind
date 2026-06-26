@@ -30,7 +30,7 @@ export function systemConfigToMonomindConfig(systemConfig) {
             backend: normalizeMemoryBackend(systemConfig.memory?.type),
             persistPath: systemConfig.memory?.path || './data/memory',
             cacheSize: systemConfig.memory?.maxSize ?? 1000000,
-            enableHNSW: systemConfig.memory?.lancedb?.indexType === 'ann',
+            enableHNSW: systemConfig.memory?.lancedb?.indexType === 'hnsw',
             vectorDimension: systemConfig.memory?.lancedb?.dimensions ?? 384,
         },
         // MCP configuration
@@ -116,7 +116,7 @@ export function configToSystemConfig(config) {
             maxSize: config.memory.cacheSize,
             lancedb: {
                 dimensions: config.memory.vectorDimension,
-                indexType: config.memory.enableHNSW ? 'ann' : 'flat',
+                indexType: config.memory.enableHNSW ? 'hnsw' : 'flat',
                 nProbes: 20,
             },
         },

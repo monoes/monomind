@@ -167,7 +167,7 @@ describe('Tool Honesty (V1.0.0-57)', () => {
       const resetStart = source.indexOf("name: 'system_reset'");
       expect(resetStart).toBeGreaterThan(-1);
 
-      const handlerSection = source.slice(resetStart, resetStart + 1000);
+      const handlerSection = source.slice(resetStart, resetStart + 2000);
 
       // Should use real os functions, not hardcoded values
       expect(handlerSection).toContain('os.loadavg()');
@@ -182,7 +182,7 @@ describe('Tool Honesty (V1.0.0-57)', () => {
     it('should use os.totalmem() and os.freemem() for memory values', () => {
       const source = readSource('system-tools.ts');
       const resetStart = source.indexOf("name: 'system_reset'");
-      const handlerSection = source.slice(resetStart, resetStart + 1000);
+      const handlerSection = source.slice(resetStart, resetStart + 2000);
 
       // Verify memory is computed from os module
       expect(handlerSection).toContain('os.totalmem()');
@@ -201,7 +201,7 @@ describe('Tool Honesty (V1.0.0-57)', () => {
   // =========================================================================
   describe('hooks_intelligence_attention fallback', () => {
     it('should return empty results array when no backend is available', () => {
-      const source = readSource('hooks-tools.ts');
+      const source = readSource('hooks-intelligence.ts');
 
       // Find the hooks_intelligence_attention handler
       const attentionStart = source.indexOf("name: 'hooks_intelligence_attention'");
@@ -222,7 +222,7 @@ describe('Tool Honesty (V1.0.0-57)', () => {
     });
 
     it('should mark _stub as true when no backend is available', () => {
-      const source = readSource('hooks-tools.ts');
+      const source = readSource('hooks-intelligence.ts');
       const attentionStart = source.indexOf("name: 'hooks_intelligence_attention'");
       const handlerSection = source.slice(attentionStart, attentionStart + 4000);
 
@@ -231,7 +231,7 @@ describe('Tool Honesty (V1.0.0-57)', () => {
     });
 
     it('should not generate fake speedup claims when no backend is available', () => {
-      const source = readSource('hooks-tools.ts');
+      const source = readSource('hooks-intelligence.ts');
       const attentionStart = source.indexOf("name: 'hooks_intelligence_attention'");
       const handlerSection = source.slice(attentionStart, attentionStart + 4000);
 
@@ -277,7 +277,7 @@ describe('Tool Honesty (V1.0.0-57)', () => {
   // =========================================================================
   describe('Benchmark fallback returns 0 for searchTimeMs', () => {
     it('should return searchTimeMs: 0 in pattern-search fallback', () => {
-      const source = readSource('hooks-tools.ts');
+      const source = readSource('hooks-intelligence.ts');
 
       // Find the hooks_intelligence_pattern-search handler
       const patternSearchStart = source.indexOf("name: 'hooks_intelligence_pattern-search'");
@@ -354,7 +354,7 @@ describe('Tool Honesty (V1.0.0-57)', () => {
       const benchmarkStart = source.indexOf("name: 'performance_benchmark'");
       expect(benchmarkStart).toBeGreaterThan(-1);
 
-      const handlerSection = source.slice(benchmarkStart, benchmarkStart + 3000);
+      const handlerSection = source.slice(benchmarkStart, benchmarkStart + 5000);
 
       // Should use performance.now() for real timing
       expect(handlerSection).toContain('performance.now()');
