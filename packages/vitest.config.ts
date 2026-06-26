@@ -29,9 +29,9 @@ export default defineConfig({
 
     // Exclude patterns
     exclude: [
-      'node_modules',
-      'dist',
-      '.git',
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.git/**',
     ],
 
     // Coverage configuration - London School targets
