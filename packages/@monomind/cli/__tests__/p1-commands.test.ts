@@ -493,6 +493,7 @@ describe('Start Command', () => {
       const pathStr = String(p);
       return pathStr.includes('config.yaml');
     });
+    vi.mocked(fs.statSync).mockReturnValue({ size: 100 } as ReturnType<typeof fs.statSync>);
     vi.mocked(fs.readFileSync).mockReturnValue('version: 3.0.0\nswarm:\n  topology: mesh');
   });
 

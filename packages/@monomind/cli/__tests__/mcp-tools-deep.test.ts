@@ -162,7 +162,6 @@ vi.mock('agentic-flow/reasoningbank', () => {
 // ============================================================================
 
 import { agentTools } from '../src/mcp-tools/agent-tools.js';
-import { memoryTools as memoryTools } from '../src/mcp-tools/memory-tools.js'; // monolean:
 import { analyzeTools } from '../src/mcp-tools/analyze-tools.js';
 import { claimsTools } from '../src/mcp-tools/claims-tools.js';
 import { configTools } from '../src/mcp-tools/config-tools.js';
@@ -195,7 +194,6 @@ interface ToolModule {
 
 const ALL_MODULES: ToolModule[] = [
   { name: 'agent-tools', tools: agentTools },
-  { name: 'memory-tools-legacy', tools: memoryTools },
   { name: 'analyze-tools', tools: analyzeTools },
   { name: 'claims-tools', tools: claimsTools },
   { name: 'config-tools', tools: configTools },
@@ -228,8 +226,8 @@ describe('MCP Tools Deep Test Suite', () => {
   // 1. Module Loading & Registration
   // --------------------------------------------------------------------------
   describe('Module Loading & Registration', () => {
-    it('should load all 20 tool modules', () => {
-      expect(ALL_MODULES).toHaveLength(20);
+    it('should load all 19 tool modules', () => {
+      expect(ALL_MODULES).toHaveLength(19);
     });
 
     it('should have at least 100 total tools across all modules', () => {
@@ -254,7 +252,6 @@ describe('MCP Tools Deep Test Suite', () => {
     it('should register expected tool counts per module', () => {
       const minCounts: Record<string, number> = {
         'agent-tools': 7,
-        'memory-tools-legacy': 15,
         'analyze-tools': 6,
         'claims-tools': 12,
         'config-tools': 6,
@@ -270,7 +267,7 @@ describe('MCP Tools Deep Test Suite', () => {
         'swarm-tools': 4,
         'system-tools': 7,
         'task-tools': 7,
-        'transfer-tools': 11,
+        'transfer-tools': 7,
         'workflow-tools': 10,
       };
 
@@ -1023,22 +1020,22 @@ describe('MCP Tools Deep Test Suite', () => {
   // 26. Memory Tools
   // --------------------------------------------------------------------------
   describe('Memory Tools - Handler Invocation', () => {
-    it('memory_store stores an entry', async () => {
-      const tool = memoryTools.find(t => t.name === 'memory_store')!;
-      expect(tool).toBeDefined();
-      const result: any = await tool.handler({ key: 'test-key', value: 'test-value' });
-      expect(result).toBeDefined();
-    });
-
-    it('memory_list returns entries', async () => {
-      const tool = memoryTools.find(t => t.name === 'memory_list')!;
+    it('memory_health returns health status', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_health')!;
       expect(tool).toBeDefined();
       const result: any = await tool.handler({});
       expect(result).toBeDefined();
     });
 
-    it('memory_stats returns statistics', async () => {
-      const tool = memoryTools.find(t => t.name === 'memory_stats')!;
+    it('memory_controllers returns controllers', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_controllers')!;
+      expect(tool).toBeDefined();
+      const result: any = await tool.handler({});
+      expect(result).toBeDefined();
+    });
+
+    it('memory_consolidate consolidates memory', async () => {
+      const tool = memoryTools.find(t => t.name === 'memory_consolidate')!;
       expect(tool).toBeDefined();
       const result: any = await tool.handler({});
       expect(result).toBeDefined();
