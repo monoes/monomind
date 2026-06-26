@@ -246,6 +246,7 @@ import {
   MigrationSource,
   MigrationConfig,
   MigrationResult,
+  createDefaultEntry,
 } from './types.js';
 import { LanceDBBackend } from './lancedb-backend.js';
 import { MemoryMigrator } from './migration.js';
@@ -389,7 +390,9 @@ export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend
    * Store an entry from simple input
    */
   async storeEntry(input: MemoryEntryInput): Promise<MemoryEntry> {
-    return this.adapter.storeEntry(input);
+    const entry = createDefaultEntry(input);
+    await this.adapter.store(entry);
+    return entry;
   }
 
   /**
@@ -400,7 +403,10 @@ export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend
     k: number = 10,
     threshold?: number
   ): Promise<SearchResult[]> {
-    return this.adapter.semanticSearch(content, k, threshold);
+    const gen = this.config.embeddingGenerator;
+    if (!gen) return [];
+    const embedding = await gen(content);
+    return this.adapter.search(embedding, { k, threshold });
   }
 
   /**

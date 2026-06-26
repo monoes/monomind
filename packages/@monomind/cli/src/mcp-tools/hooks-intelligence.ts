@@ -797,6 +797,7 @@ export const hooksIntelligenceAttention: MCPTool = {
       results,
       stats: {
         computeTimeMs,
+        speedup: implementation.startsWith('real-') ? computeTimeMs : null,
         _stub: implementation === 'none',
         _note: implementation === 'none' ? 'Pure-JS similarity only; native attention backends are not part of the lean build.' : undefined,
       },

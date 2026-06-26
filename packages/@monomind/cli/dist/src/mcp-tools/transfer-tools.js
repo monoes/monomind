@@ -1,6 +1,6 @@
 /**
  * Transfer MCP Tools
- * Pattern and plugin sharing via IPFS-based decentralized registry
+ * Pattern sharing via IPFS-based decentralized registry
  *
  * @module @monomind/cli/mcp-tools/transfer-tools
  * @version 3.0.0

@@ -43,7 +43,24 @@ describe('analyzePageForAction', () => {
   let analyzePageForAction: typeof import('@monoes/monobrowse')['analyzePageForAction'];
 
   beforeEach(async () => {
-    mockCreate.mockClear();
+    mockCreate.mockResolvedValue({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          id: 'linkedin:comment_post',
+          platform: 'linkedin',
+          name: 'Comment on Post',
+          params: ['post_url', 'text'],
+          steps: [
+            { type: 'navigate', url: '{{params.post_url}}' },
+            { type: 'find', selectors: ['.comment-box'], as: 'box' },
+            { type: 'click', target: '{{box}}' },
+            { type: 'type', target: '{{box}}', text: '{{params.text}}', humanDelay: true },
+            { type: 'wait', condition: 'network_idle', timeout: 3000 },
+          ],
+        }),
+      }],
+    });
     const mod = await import('@monoes/monobrowse');
     analyzePageForAction = mod.analyzePageForAction;
   });
