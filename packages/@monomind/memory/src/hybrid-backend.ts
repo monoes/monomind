@@ -1054,7 +1054,7 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   /**
    * Get underlying backends for advanced operations
    */
-  getSQLiteBackend(): SQLiteBackend {
+  getSQLiteBackend(): IMemoryBackend {
     return this.sqlite;
   }
 

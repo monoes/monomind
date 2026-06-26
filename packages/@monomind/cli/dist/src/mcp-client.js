@@ -84,7 +84,6 @@ registerTools([
     ...daaTools,
     ...coordinationTools,
     ...browserTools,
-    ...memoryTools,
     // Guidance & discovery tools
     ...guidanceTools,
     // Autopilot persistent completion tools

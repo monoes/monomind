@@ -35,7 +35,6 @@ import { githubTools } from './mcp-tools/github-tools.js';
 import { daaTools } from './mcp-tools/daa-tools.js';
 import { coordinationTools } from './mcp-tools/coordination-tools.js';
 import { browserTools } from './mcp-tools/browser-tools.js';
-import { memoryTools } from './mcp-tools/memory-tools.js';
 import { guidanceTools } from './mcp-tools/guidance-tools.js';
 import { autopilotTools } from './mcp-tools/autopilot-tools.js';
 // Knowledge graph tools (graphify — deprecated shims + monograph native)
@@ -91,7 +90,6 @@ registerTools([
   ...daaTools,
   ...coordinationTools,
   ...browserTools,
-  ...memoryTools,
   // Guidance & discovery tools
   ...guidanceTools,
   // Autopilot persistent completion tools
