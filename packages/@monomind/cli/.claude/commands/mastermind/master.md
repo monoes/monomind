@@ -250,6 +250,7 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 
 **Persistent agent orgs** — named teams that coordinate across sessions
 `/mastermind:createorg` — define an org: roles, hierarchy, goal
+`/mastermind:updateorg` — edit an org after creation (goal, schedule, rename, status, any field)
 `/mastermind:runorg` — start a saved org; boss agent assigns work to all roles
 `/mastermind:approve` — review and action pending approval requests from running org agents
 

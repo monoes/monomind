@@ -395,9 +395,6 @@ if (command && handlers[command]) {
 main().catch(function(e) {
   console.log('[WARN] Hook handler error: ' + e.message);
 }).finally(function() {
-  // Use process.exitCode if a gate set it (exit 2 = block), otherwise clean exit.
-  // Skip when required as a module (e.g. tests) — only exit when running as the entry point.
-  if (require.main === module) {
-    process.exit(process.exitCode || 0);
-  }
+  // Use process.exitCode if a gate set it (exit 2 = block), otherwise clean exit
+  process.exit(process.exitCode || 0);
 });

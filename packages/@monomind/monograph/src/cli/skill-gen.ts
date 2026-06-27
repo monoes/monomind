@@ -245,6 +245,9 @@ function renderSkillMarkdown(
   lines.push('---');
   lines.push(`name: ${toKebabName(label)}`);
   lines.push(`description: "Skill for the ${label} community. ${members.length} symbols."`);
+  lines.push(`type: Code Community`);
+  lines.push(`tags: [monograph, code-community]`);
+  lines.push(`timestamp: ${new Date().toISOString()}`);
   lines.push('---');
   lines.push('');
 

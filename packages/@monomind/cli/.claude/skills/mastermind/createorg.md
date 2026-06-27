@@ -55,6 +55,88 @@ Run intake from `_intake.md` if `prompt` is vague (stop at Q3, domain is `ops`).
 
 ---
 
+## Step 0.5 — Template Discovery (runs immediately after Step 0, before Step 1)
+
+**Before designing roles from scratch, score the user's prompt against pre-built templates. A strong match gives the user a battle-tested scaffold — proven roles, wiring, and topology — that they can adopt or extend. Templates are scaffolds only: every role still flows through Steps 2.4 → 2.6 → 3.5 for registry-matching, generation, and validation.**
+
+### Template Library
+
+| ID | Name | Suggested roles | Topology | Best for |
+|---|---|---|---|---|
+| `content-team` | Content Production Team | boss, writer, editor, designer, social-manager | star | Blogs, newsletters, social content |
+| `devbot` | Code Quality Pipeline | orchestrator, churn-analyst, complexity-scanner, coder, tester | hierarchical | Automated code quality / CI pipeline |
+| `research-pod` | Research Pod | research-director, researcher, analyst, report-writer | star | Deep research, synthesis, reports |
+| `legal-panel` | Legal Panel | judge, prosecutor, defender, court-clerk | mesh | Mock trial, legal sim, argument stress-test |
+| `marketing-team` | Full Marketing Team | cmo, content-strategist, seo-specialist, social-media-manager, email-specialist | hierarchical | Full marketing function |
+| `growth-squad` | Developer Growth Squad | growth-lead, developer-advocate, content-creator, community-manager | star | Developer product growth, community, DX |
+| `code-review-squad` | Code Review Squad | lead-reviewer, security-auditor, perf-analyzer, tester | star | Automated PR review across security/perf/correctness |
+| `data-team` | Data & Analytics Team | data-lead, data-engineer, ml-engineer, analyst | hierarchical | Pipelines, ML models, BI reporting |
+
+### Matching
+
+Count how many of each template's defining keywords appear in the user's `prompt` + `roles_desc` (template keywords = name words + role title words + "best for" domain words, all lowercased). Take the template with the highest count.
+
+**If best score ≥ 3 keyword matches:**
+
+**In `confirm` mode** — use `AskUserQuestion` to present the match and ask how to proceed:
+
+```
+Template found: "<Template Name>" (<N> keyword matches)
+  Roles: <list>
+  Topology: <topology>
+  Best for: <description>
+
+How would you like to proceed?
+```
+
+Options to offer:
+- **Use this template** — pre-populate roles and topology from the template data below; proceed from Step 1 (naming) with role design pre-answered. Steps 2.4 → 2.6 → 3.5 still run as validation gates.
+- **Customize this template** — pre-populate roles as a starting list, user can add/remove/rename before Step 2 processes them. Topology re-derived in Step 3.
+- **Build from scratch** — ignore the template, proceed normally.
+
+**In `auto` mode** — use the template if score ≥ 5 (high confidence); otherwise build from scratch with no prompt.
+
+### Template Scaffold Data
+
+Pre-populate the roles list from the chosen template. `agent_type` values are suggestions — Step 2.4 registry matching may find a better fit.
+
+**content-team**
+Roles: `boss` (coordinator, "Strategic oversight, final approval"), `writer` (Content Creator, "Write posts, articles, newsletters"), `editor` (reviewer, "Edit drafts for quality and tone"), `designer` (Monodesign, "Create visuals and brand assets"), `social-manager` (Social Media Strategist, "Distribute content across channels")
+Edges: boss→writer (command), boss→designer (command), boss→social-manager (command), writer→editor (handoff), editor→boss (report), designer→boss (report), social-manager→boss (report)
+
+**devbot**
+Roles: `orchestrator` (devbot-orchestrator, "Run the 4-phase pipeline, coordinate all agents"), `churn-analyst` (churn-analyst, "Identify high-churn files from git log"), `complexity-scanner` (complexity-scanner, "Flag functions exceeding complexity thresholds"), `coder` (coder, "Implement refactors and fixes"), `tester` (tester, "Verify each fix passes tests")
+Edges: orchestrator→churn-analyst (command), orchestrator→complexity-scanner (command), churn-analyst→orchestrator (report), complexity-scanner→orchestrator (report), orchestrator→coder (command), coder→tester (handoff), tester→orchestrator (report)
+
+**research-pod**
+Roles: `research-director` (coordinator, "Set research agenda, synthesize final report"), `researcher` (researcher, "Gather primary sources and data"), `analyst` (researcher, "Analyze findings, extract patterns"), `report-writer` (Content Creator, "Write and edit the deliverable report")
+Edges: research-director→researcher (command), research-director→analyst (command), researcher→analyst (handoff), analyst→report-writer (handoff), report-writer→research-director (report)
+
+**legal-panel**
+Roles: `judge` (judge, "Run procedure, rule on objections, deliver verdict"), `prosecutor` (prosecutor, "Build and argue the case for conviction"), `defender` (defender, "Advocate for defendant, test prosecution's case"), `court-clerk` (court-reporter, "Record proceedings, maintain transcript")
+Edges: judge→prosecutor (command), judge→defender (command), prosecutor→defender (handoff), defender→prosecutor (feedback), prosecutor→judge (report), defender→judge (report), court-clerk→judge (report)
+Note: uses `mesh` topology despite 4 roles — a courtroom requires direct peer communication (prosecutor↔defender cross-examination, judge with all parties). The topology guide is a default; mesh is architecturally correct here. Step 3.5 will accept it as long as all roles are wired.
+
+**marketing-team**
+Roles: `cmo` (coordinator, "Set strategy, approve all campaigns"), `content-strategist` (Content Creator, "Plan and produce written content"), `seo-specialist` (SEO Specialist, "Keyword strategy, on-page optimization"), `social-media-manager` (Social Media Strategist, "Run social channels"), `email-specialist` (Email Marketing Specialist, "Own email sequences and drip campaigns")
+Edges: cmo→content-strategist (command), cmo→seo-specialist (command), cmo→email-specialist (command), content-strategist→social-media-manager (handoff), seo-specialist→content-strategist (feedback), social-media-manager→cmo (report), email-specialist→cmo (report), content-strategist→cmo (report)
+
+**growth-squad**
+Roles: `growth-lead` (coordinator, "Own growth strategy and channel mix"), `developer-advocate` (Developer Advocate, "Demos, talks, technical content"), `content-creator` (Content Creator, "Blog, tutorials, case studies"), `community-manager` (developer-community-strategist, "GitHub, Discord, Reddit presence")
+Edges: growth-lead→developer-advocate (command), growth-lead→content-creator (command), growth-lead→community-manager (command), developer-advocate→content-creator (feedback), content-creator→community-manager (handoff), community-manager→growth-lead (report), developer-advocate→growth-lead (report), content-creator→growth-lead (report)
+
+**code-review-squad**
+Roles: `lead-reviewer` (Code Reviewer, "Coordinate review, synthesize findings, approve/block PR"), `security-auditor` (Security Engineer, "Find security vulnerabilities"), `perf-analyzer` (Performance Benchmarker, "Flag performance regressions"), `tester` (tester, "Verify tests pass, check coverage")
+Edges: lead-reviewer→security-auditor (command), lead-reviewer→perf-analyzer (command), lead-reviewer→tester (command), security-auditor→lead-reviewer (report), perf-analyzer→lead-reviewer (report), tester→lead-reviewer (report)
+
+**data-team**
+Roles: `data-lead` (coordinator, "Set data priorities, own data roadmap"), `data-engineer` (Data Engineer, "Build and maintain pipelines"), `ml-engineer` (AI Engineer, "Train and deploy models"), `analyst` (researcher, "Analyze data, produce business insights")
+Edges: data-lead→data-engineer (command), data-lead→ml-engineer (command), data-engineer→ml-engineer (handoff), ml-engineer→analyst (handoff), analyst→data-lead (report), data-engineer→data-lead (report)
+
+> **Template scaffolds are inputs to Step 2, not finished role specs.** Steps 2.4 (registry match), 2.5 (generate missing defs), 2.6 (completeness gate), and 3.5 (topology gate) run in full regardless of whether a template was used.
+
+---
+
 ## Step 1 — Resolve Org Name
 
 If `org_name` is not provided, extract the most prominent product/team noun from `prompt`, slugify it (lowercase, spaces → hyphens, strip non-`[a-z0-9-]` chars), and confirm with the user. Fallback: `org-<YYYYMMDD>`.
@@ -138,13 +220,103 @@ An org is **persona-based** if ≥ 50% of its roles are character names, OR the 
 
 ---
 
+## Step 2.4 — Registry Discovery & Matching
+
+**Before generating anything, check whether the monomind agent registry already has a suitable base for each role.** This step runs for every non-persona role (persona roles skip to Step 2.5 directly). A registry match means the agent gets a battle-tested definition instead of a blank-slate generated one — it still gets org-specific customization, but the core expertise and instructions come from a curated source.
+
+### 2.4.1 — Build the registry index
+
+```bash
+# Index all curated agent definitions (exclude generated/, templates/, schemas/)
+AGENT_INDEX_FILE="/tmp/org-agent-registry-$$.tsv"
+find .claude/agents -name "*.md" \
+  -not -path "*/generated/*" \
+  -not -path "*/templates/*" \
+  -not -path "*/schemas/*" 2>/dev/null | while IFS= read -r file; do
+  name=$(grep -m1 "^name:" "$file" 2>/dev/null | sed 's/^name:[[:space:]]*//' | tr '[:upper:]' '[:lower:]')
+  desc=$(grep -m1 "^description:" "$file" 2>/dev/null | sed 's/^description:[[:space:]]*//' | cut -c1-200 | tr '[:upper:]' '[:lower:]')
+  category=$(echo "$file" | awk -F'/' '{for(i=1;i<=NF;i++) if($i=="agents"){print $(i+1); exit}}' | tr '[:upper:]' '[:lower:]')
+  expertise=$(awk '/^  expertise:/,/^  [a-z_-]+:/' "$file" 2>/dev/null | grep -E "^\s+- " | sed 's/.*- //' | tr '\n' ',' | tr '[:upper:]' '[:lower:]')
+  printf '%s\t%s\t%s\t%s\t%s\n' "$file" "$name" "$category" "$desc" "$expertise"
+done > "$AGENT_INDEX_FILE"
+echo "Registry index built: $(wc -l < "$AGENT_INDEX_FILE") agents"
+```
+
+### 2.4.2 — Score each role against the registry
+
+For **each non-persona role**, extract match keywords and score every registry entry:
+
+```bash
+# Keywords: role title words + org domain words + key responsibilities words
+# Example for a "Content Writer" role in a "B2B SaaS marketing" org:
+#   keywords = (content, writer, copywriter, marketing, saas, blog, copy, article)
+
+role_keywords="<space-separated keywords derived from: role title, org goal, role responsibilities>"
+
+best_file=""
+best_name=""
+best_score=0
+
+while IFS=$'\t' read -r file name category desc expertise; do
+  score=0
+  for kw in $role_keywords; do
+    # Title match: highest weight
+    echo "$name" | grep -qi "$kw" && score=$((score + 60))
+    # Category match: medium weight
+    echo "$category" | grep -qi "$kw" && score=$((score + 25))
+    # Description match: medium weight
+    echo "$desc" | grep -qi "$kw" && score=$((score + 20))
+    # Expertise match: lower weight (broader)
+    echo "$expertise" | grep -qi "$kw" && score=$((score + 15))
+  done
+  if [ "$score" -gt "$best_score" ]; then
+    best_score=$score; best_file="$file"; best_name="$name"
+  fi
+done < "$AGENT_INDEX_FILE"
+
+echo "Best match for <role_id>: '${best_name}' (score ${best_score}) at ${best_file}"
+```
+
+### 2.4.3 — Interpret the score and assign result
+
+| Score | Result | Action |
+|---|---|---|
+| ≥ 80 | **Strong match** — use as-is | `agent_source: "registry"`, point `agent_type` at matched `name:` |
+| 50–79 | **Good match** — use with context | `agent_source: "registry"`, add `agent_context` with org-specific overrides |
+| 20–49 | **Weak match** — generate but reference | `agent_source: "generated"`, mention the near-miss in generated def's `## Notes` |
+| < 20 | **No match** | `agent_source: "generated"`, generate from scratch in Step 2.5 |
+
+**When score ≥ 50 (registry match):**
+
+1. Set `agent_type` to the matched agent's `name:` value (e.g. `"Email Marketing Specialist"`) — this is the exact slug `runorg` uses to resolve the definition at spawn time.
+2. Extract the matched agent's `expertise:` block — use it directly as the role's `skills` array.
+3. Set `agent_source: "registry"` and `agent_file: "<matched file path>"` on the role.
+4. Write `agent_context`: a 1–3 sentence org-specific customization that the agent will receive before its core instructions. Derive it from the org's goal, the role's specific responsibilities, and any domain constraints. Example:
+   - `"For this org, you are the Email Campaign Manager for AcmeCo, a B2B developer tools startup. Focus exclusively on email sequences for developer audiences. All copy must be technically accurate and jargon-appropriate."`
+5. **Skip Step 2.5 for this role.** The registry definition is the instruction document.
+
+**When score < 50 (no registry match):**
+
+Continue to Step 2.5 to generate a definition from scratch.
+
+> **Persona roles**: skip Step 2.4 entirely. Their definitions are always generated in Step 2.5.
+
+**Clean up the temp index file when done:**
+```bash
+rm -f "$AGENT_INDEX_FILE"
+```
+
+---
+
 ## Step 2.5 — Complete Every Agent's Specification (generate what's missing)
+
+**This step runs ONLY for roles that did NOT get a registry match in Step 2.4 (score < 50), plus all persona roles.** Registry-matched roles are already resolved — do not regenerate them.
 
 **This is the step that makes each created agent actually work.** A role is only usable if it has: skills, an instruction document (system prompt), an input contract, and an output contract. Most of these are missing from a bare role description — **generate them, tailored to the specific agent, rather than leaving them blank.**
 
 **For persona/character roles** (identified in Step 2.3): the generated definition must embody the character. The system prompt should open with "You are [Character Name]" and describe their personality, known views, communication style, and behavioral quirks drawn from public knowledge. Skills must reflect their real-world expertise and traits, not generic software capabilities. If the character is a living public figure, base the portrayal on documented public behavior and statements — do not invent positions they haven't taken.
 
-For **each** role, do the following:
+For **each** role needing generation, do the following:
 
 **1. Check whether a usable agent definition already exists.**
 ```bash
@@ -234,6 +406,53 @@ If any check fails: go back to Step 2.5 and generate the missing file before pro
 
 ---
 
+## Step 2.7 — Role Overlap Detection (BLOCKING for confirm mode — run before Step 3)
+
+**Catch duplicate roles before they burn two agent slots doing the same work. Two roles with 75% overlapping responsibilities will confuse handoffs, duplicate output, and waste tokens.**
+
+### Algorithm
+
+For each pair of roles, extract significant keywords from their `responsibilities` arrays (nouns and verbs, lowercased, strip articles and prepositions). Compute Jaccard similarity:
+
+```
+overlap_score = |shared_keywords| / |union_keywords|
+```
+
+**Thresholds:**
+
+| Score | Classification | Action |
+|---|---|---|
+| ≥ 0.70 | High overlap — likely duplicate | Block (confirm) / auto-merge (auto) |
+| 0.40–0.69 | Moderate overlap — scope unclear | Warn and suggest `feedback` edge |
+| < 0.40 | OK | No action |
+
+### In confirm mode (blocking on ≥ 0.70)
+
+For any pair with score ≥ 0.70, use `AskUserQuestion` to present the conflict:
+
+```
+⚠ Role Overlap: "[Role A title]" and "[Role B title]" share ~<N>% of responsibilities.
+  Shared: <top shared keywords>
+  Unique to A: <unique keywords>
+  Unique to B: <unique keywords>
+```
+
+Options:
+- **Merge** — keep the higher-value role (prefer boss; prefer registry-matched over generated), absorb unique responsibilities into it, remove the other
+- **Clarify** — edit responsibilities now to differentiate the two roles before continuing
+- **Keep both** — add a `feedback` edge between them (they'll coordinate explicitly)
+
+Apply the user's choice before Step 3.
+
+For pairs with score 0.40–0.69: note the overlap in the Step 5 plan display as a WARNING. Do not block.
+
+### In auto mode
+
+- ≥ 0.70: Merge the lower-value role into the higher-value one. Log: `[AUTO] Merged '[B]' into '[A]' — ~<N>% overlap.`
+- 0.40–0.69: Add a `feedback` edge between the pair. Log: `[AUTO] Added feedback edge [A]↔[B] — moderate overlap.`
+
+---
+
 ## Step 3 — Suggest Communication Topology
 
 Determine topology from team size:
@@ -264,6 +483,8 @@ boss → middle_manager (feedback)
 ```
 
 Adjust for the actual roles in this run. Assign `reports_to` on each role using the derived topology.
+
+**Deduplication:** Before adding any edge, check whether an identical `(from, to, type)` triplet already exists (e.g. a `feedback` edge added by Step 2.7 overlap detection). Skip duplicates — two identical edges produce redundant chart arrows.
 
 **Completeness rules (every role must be properly wired — no orphans):**
 - Every executor role has **≥1 inbound edge** (how work reaches it — usually a `command`) and **≥1 outbound edge** (how its output leaves — usually a `report` or `handoff`).
@@ -323,10 +544,13 @@ Ask the user (or infer from prompt) for the optional Paperclip-style fields:
     {
       "id": "<slug>",
       "title": "<display title>",
-      "agent_type": "<subagent_type slug — from Step 2.3 character slug for persona roles, or from mapping table for functional roles>",
+      "agent_type": "<subagent_type slug — from Step 2.3 character slug for persona roles, Step 2.4 registry name, or Step 2.5 mapping table>",
+      "agent_source": "<'registry' if matched in Step 2.4 | 'generated' if created in Step 2.5 | 'coined' if a new domain-specific slug was invented>",
+      "agent_file": "<path to matched agent definition — set only when agent_source='registry', e.g. '.claude/agents/marketing/marketing-launch-strategist.md'; omit otherwise>",
+      "agent_context": "<org-specific customization note for this role — 1-3 sentences; set for all registry roles and optionally for generated roles; null if none needed>",
       "responsibilities": ["<1-3 bullet responsibilities>"],
       "reports_to": "<role id or null>",
-      "skills": ["<populated from the generated def's expertise in Step 2.5 — never left empty>"],
+      "skills": ["<populated from the matched or generated def's expertise — never left empty>"],
       "adapter_config": {
         "model": "<claude model id>",
         "max_tokens": 8192
@@ -359,7 +583,25 @@ Ask the user (or infer from prompt) for the optional Paperclip-style fields:
     "alert_threshold": 0.8,
     "ceo_adapter": "<model id>"
   },
-  "loop": "<only included when --schedule was provided; see below>"
+  "loop": "<only included when --schedule was provided; see below>",
+  "milestones": "<only included for scheduled orgs with discrete outcomes; see below>"
+}
+```
+
+**If the org has a defined finish line** (discrete outcomes, not a forever-running monitor), include a `milestones` array. In confirm mode, ask: "Does this org have a defined finish line? If so, describe up to 5 milestones." Derive milestones from the goal if the user describes discrete outcomes. Omit this field entirely for continuous-monitor orgs (e.g. "watch PRs forever", "keep docs in sync").
+
+> **Milestones are only auto-checked for scheduled orgs** (`--schedule` flag). The Milestone Check runs inside the loop prompt (Step 6.7) — it requires a loop to execute. For non-scheduled orgs, milestones are recorded in the JSON as documentation but are never automatically evaluated or transitioned to `"complete"`. If you add milestones to a non-scheduled org, plan to check them manually via `/mastermind:org-status --org <name>`.
+
+```json
+{
+  "milestones": [
+    {
+      "id": "<milestone-slug>",
+      "description": "<what this milestone represents>",
+      "done_when": "<observable condition — e.g. '5 blog posts published and indexed', 'all CVEs in the audit report patched', 'first paying customer acquired'>",
+      "status": "pending"
+    }
+  ]
 }
 ```
 
@@ -395,19 +637,29 @@ ROLES  (N roles — all must have agent_type + skills before "go")
 ─────
 • [boss] CEO / Boss
     Agent type:      coordinator
+    Source:          registry (.claude/agents/core/coordinator.md) ✓
     Skills:          strategic oversight, decision-making, org management
     Reports to:      (none — top of hierarchy)
     Responsibilities: Strategic oversight, final approval
-    Definition file: .claude/agents/coordinator.md ✓
+    Context:         "For this org, you lead the B2B content team. Prioritize pipeline-focused content."
+
+• [email_manager] Email Campaign Manager
+    Agent type:      Email Marketing Specialist
+    Source:          registry (.claude/agents/marketing/marketing-email-specialist.md) ✓  [score: 85]
+    Skills:          email sequence design, drip campaigns, A/B testing, lifecycle email
+    Reports to:      boss
+    Responsibilities: Write and optimize email sequences
+    Context:         "Focus on developer-audience cold outreach. Tone: direct, technical, no fluff."
 
 • [middle_manager] Middle Manager
     Agent type:      project-shepherd
+    Source:          generated (.claude/agents/generated/project-shepherd.md) ✓
     Skills:          sprint planning, cross-team coordination, status tracking
     Reports to:      boss
     Responsibilities: Sprint planning, cross-team coordination
-    Definition file: .claude/agents/generated/project-shepherd.md ✓
+    Context:         (none)
 
-  ... (all roles — each showing agent_type, skills, and definition file status)
+  ... (all roles — each showing agent_type, source [registry/generated + file], skills, and context)
 
 COMMUNICATION TOPOLOGY  (N edges — must be non-zero)
 ──────────────────────
@@ -568,6 +820,36 @@ echo "✓ Org config validated — org is ready to run"
 
 ---
 
+## Step 6.5 — Seed Memory Namespace
+
+**Prime the org's memory namespace so agents start with context instead of cold-starting. On day one the boss and every team member can query `org:<org_name>` and immediately know the org's goal, their role, and their peers.**
+
+```bash
+NAMESPACE="org:${org_name}"
+ROLE_COUNT=$(jq '.roles | length' "$orgJson" 2>/dev/null || echo "0")
+
+# 1 — Org-level context (all agents can read this at any time)
+npx monomind@latest memory store \
+  --key "org-context" \
+  --value "Org: ${org_name}. Goal: $(jq -r '.goal' "$orgJson"). Topology: $(jq -r '.topology' "$orgJson"). Roles: $(jq -r '[.roles[].title] | join(", ")' "$orgJson"). Governance: $(jq -r '.governance.policy' "$orgJson")." \
+  --namespace "$NAMESPACE" 2>/dev/null || echo "[warn] memory store failed for org-context — continuing"
+
+# 2 — Per-role brief (each agent reads its own key at spawn time)
+jq -r '.roles[] | [.id, .title, .agent_type, (.reports_to // "none"), (.responsibilities // [] | if type=="array" then join("; ") else . end)] | join("\t")' "$orgJson" | \
+while IFS=$'\t' read -r role_id title agent_type reports_to responsibilities; do
+  npx monomind@latest memory store \
+    --key "role:${role_id}" \
+    --value "You are the ${title} (${agent_type}) in the ${org_name} org. Reporting to: ${reports_to}. Responsibilities: ${responsibilities}." \
+    --namespace "$NAMESPACE" 2>/dev/null || true
+done
+
+echo "✓ Memory namespace '${NAMESPACE}' seeded (org context + ${ROLE_COUNT} role briefs)"
+```
+
+> **If any `memory store` call fails** (daemon not running, storage full): the warning is printed and the script continues — memory seeding is best-effort. The org is valid without it.
+
+---
+
 ## Step 6.7 — Generate Loop Prompt File (scheduled orgs only)
 
 **Skip this step if `--schedule` was NOT provided.**
@@ -599,6 +881,7 @@ LOOP_STATUS=$(jq -r '.status // "stopped"' "$ORG_FILE" 2>/dev/null || echo "stop
 
 - If `LOOP_STATUS == "active"` → continue to Step 1.
 - If `LOOP_STATUS == "paused"` → print "Org '<org_name>' is paused — skipping iteration. Jump directly to Schedule Next." Do NOT run Steps 1–N.
+- If `LOOP_STATUS == "complete"` → print "Org '<org_name>' mission accomplished — all milestones done. Not rescheduling." and stop. **Do NOT call ScheduleWakeup.**
 - If anything else (including `"stopped"`) → print "Org '<org_name>' status is '$LOOP_STATUS' — exiting loop. **Do NOT call ScheduleWakeup.**" and stop.
 
 ---
@@ -697,6 +980,58 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
        --arg org "<org_name>" \
        --arg runId "$RUN_ID" \
        '{type:"org:cycle:complete",org:$org,runId:$runId,ts:(now*1000|floor)}')" || true
+   ```
+
+---
+
+## Milestone Check (only if org has milestones — run after org-specific iteration steps)
+
+```bash
+ORG_FILE=".monomind/orgs/<org_name>.json"
+HAS_MILESTONES=$(jq '(.milestones // []) | length > 0' "$ORG_FILE" 2>/dev/null || echo "false")
+```
+
+If `HAS_MILESTONES=true`:
+
+1. Spawn the boss agent with a milestone review task:
+   ```
+   Review the milestones in .monomind/orgs/<org_name>.json.
+   For each milestone with status "pending", determine if its `done_when` condition
+   is now met based on the work completed this cycle.
+   Return a JSON array of milestone IDs that are now complete (empty array if none).
+   ```
+
+2. For each milestone ID returned as complete:
+   ```bash
+   tmp="${ORG_FILE}.tmp"
+   jq --arg mid "<milestone_id>" \
+      '(.milestones[] | select(.id == $mid) | .status) = "complete"' \
+      "$ORG_FILE" > "$tmp" && mv "$tmp" "$ORG_FILE"
+
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+     -H "Content-Type: application/json" \
+     -d "$(jq -cn \
+       --arg org "<org_name>" \
+       --arg mid "<milestone_id>" \
+       --arg runId "$RUN_ID" \
+       '{type:"org:milestone:complete",org:$org,milestone:$mid,runId:$runId,ts:(now*1000|floor)}')" || true
+   ```
+
+3. After patching, check if all milestones are now complete:
+   ```bash
+   PENDING_COUNT=$(jq '[.milestones[] | select(.status == "pending")] | length' "$ORG_FILE" 2>/dev/null || echo "-1")
+   if [ "$PENDING_COUNT" -eq 0 ]; then
+     echo "✓ All milestones complete — mission accomplished."
+     tmp="${ORG_FILE}.tmp"
+     jq '.status = "complete"' "$ORG_FILE" > "$tmp" && mv "$tmp" "$ORG_FILE"
+     curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+       -H "Content-Type: application/json" \
+       -d "$(jq -cn \
+         --arg org "<org_name>" \
+         --arg runId "$RUN_ID" \
+         '{type:"org:complete",org:$org,runId:$runId,ts:(now*1000|floor)}')" || true
+     # Proceed to Schedule Next — the re-check of status there will see "complete" and not reschedule.
+   fi
    ```
 
 ---
@@ -807,7 +1142,10 @@ artifacts:
     type: config
   - path: .claude/agents/generated/<agent_type>.md
     type: agent-definition
-    note: "one per role whose agent_type lacked a usable definition (skills, instructions, input/output)"
+    note: "one per role with agent_source='generated' — omit roles resolved from the registry"
+  - path: .claude/agents/<category>/<agent_file>.md
+    type: agent-definition-reference
+    note: "registry agents — already exist, no new file written; listed here for transparency"
   - path: .monomind/loops/<org_name>.md
     type: loop-prompt
     note: "only present when --schedule was used; omit otherwise"
