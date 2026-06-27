@@ -1,20 +1,20 @@
 # Graph Report
 
-_Generated: 2026-06-25T23:31:20.362Z_
+_Generated: 2026-06-27T20:37:32.198Z_
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
-| Total nodes | 27782 |
-| Total edges | 37226 |
+| Total nodes | 27787 |
+| Total edges | 37235 |
 | Communities | 0 |
 
 ## Nodes by Type
 
 | Label | Count |
 |-------|-------|
-| Function | 13586 |
+| Function | 13591 |
 | Method | 4245 |
 | Variable | 3530 |
 | Interface | 3477 |
@@ -33,8 +33,8 @@ _Generated: 2026-06-25T23:31:20.362Z_
 
 | Relation | Count |
 |----------|-------|
-| CONTAINS | 27259 |
-| CALLS | 8538 |
+| CONTAINS | 27265 |
+| CALLS | 8541 |
 | IMPORTS | 388 |
 | REFERENCES | 344 |
 | ENTRY_POINT_OF | 333 |
@@ -70,7 +70,7 @@ _No stale files detected._
 
 | Confidence | Count | Percentage |
 |-----------|-------|------------|
-| EXTRACTED | 36493 | 98.0% |
+| EXTRACTED | 36502 | 98.0% |
 | INFERRED | 733 | 2.0% |
 
 ## Suggested Questions

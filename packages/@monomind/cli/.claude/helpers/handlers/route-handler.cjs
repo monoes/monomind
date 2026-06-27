@@ -144,7 +144,7 @@ module.exports = {
         { label: 'PRODUCT',   agents: 'Product Manager · Launch Strategist · CRO Spec.' },
         { label: 'MARKETING', agents: 'Content Creator · SEO Specialist · Growth Hacker' },
         { label: 'SOCIAL',    agents: 'TikTok · LinkedIn · Twitter · Instagram Strat.' },
-        { label: 'SALES',     agents: 'Deal Strategist · Sales Coach · Outbound Strat.' },
+        { label: 'SALES',     agents: 'Deal Strategist · Sales Coach · Outbound Strat. · Modern Sale Advisor' },
         { label: 'BUSINESS',  agents: 'Finance Tracker · Legal Compliance · Analytics' },
         { label: 'DESIGN',    agents: 'Monodesign (UI/UX · brand · CSS · animation)' },
       ];

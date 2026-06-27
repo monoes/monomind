@@ -249,6 +249,7 @@ bossRole           = rootRoles[0]
 bossRole_id        = bossRole.id
 bossRole_title     = bossRole.title
 bossRole_agent_type = bossRole.agent_type
+bossRole_context   = bossRole.agent_context || null   // org-specific customization from createorg Step 2.4
 directReports      = orgConfig.roles.filter(r => r.reports_to === bossRole.id)
 runId              = new Date().toISOString()
 ```
@@ -338,40 +339,24 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     --argjson ci "${CHECKPOINT_INTERVAL_MS:-600000}" \
     '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,checkpointInterval:$ci,ts:(now*1000|floor)}')" || true
 
-# Write context file so Step 3 can read values even if Bash output is truncated
-contextFile="${MONO_DIR}/orgs/${orgName}/runcontext.json"
-jq -cn \
-  --arg orgName "$orgName" --arg runId "$runId" --arg sessionId "$sessionId" \
-  --arg goal "$goal" --arg bossRole_id "$bossRole_id" --arg bossRole_title "$bossRole_title" \
-  --arg bossRole_agent_type "$bossRole_agent_type" --arg board_id "$board_id" \
-  --arg todo_col "$todo_col" --arg doing_col "$doing_col" --arg done_col "$done_col" \
-  --arg checkpointMin "$checkpointMin" --arg memNs "$memNs" --arg CTRL_URL "$CTRL_URL" \
-  --arg MONO_DIR "$MONO_DIR" --arg runFile "$runFile" --arg REPO_ROOT "$REPO_ROOT" \
-  '{orgName:$orgName,runId:$runId,sessionId:$sessionId,goal:$goal,bossRole_id:$bossRole_id,bossRole_title:$bossRole_title,bossRole_agent_type:$bossRole_agent_type,board_id:$board_id,todo_col:$todo_col,doing_col:$doing_col,done_col:$done_col,checkpointMin:$checkpointMin,memNs:$memNs,CTRL_URL:$CTRL_URL,MONO_DIR:$MONO_DIR,runFile:$runFile,REPO_ROOT:$REPO_ROOT}' \
-  > "$contextFile"
-echo "RUNCONTEXT: $contextFile"
+# Print resolved values so Step 3 can embed them in the boss prompt
+echo "ORG_VARS: orgName=${orgName} runId=${runId} sessionId=${sessionId} goal=${goal} bossRole_id=${bossRole_id} bossRole_title=${bossRole_title} bossRole_agent_type=${bossRole_agent_type} board_id=${board_id} todo_col=${todo_col} doing_col=${doing_col} done_col=${done_col} checkpointMin=${checkpointMin} memNs=${memNs} CTRL_URL=${CTRL_URL} MONO_DIR=${MONO_DIR} runFile=${runFile} REPO_ROOT=${REPO_ROOT}"
 ```
 
-After the script completes, note the `RUNCONTEXT:` path it printed. Then run a second Bash call to read it — this survives output truncation:
-
-```bash
-cat "<RUNCONTEXT path from above>"
-```
-
-Use the JSON values from that file for Step 3.
+After running the script above, read the `ORG_VARS:` line from its output and hold those values for Step 3 (embed them into the boss prompt as literals — **do not re-run bash to look them up**).
 
 ---
 
 ## Step 3 — Spawn Boss Agent
 
-Using values from the context file (not shell variables — they don't persist), spawn the boss agent via Task tool:
+Using the literal values from the `ORG_VARS:` output (not shell variables — they don't persist), spawn the boss agent via Task tool:
 
 ```javascript
 Task({
   subagent_type: bossRole.agent_type,
   description: `You are the ${bossRole.title} of org "${orgName}". You run persistently until stopped.`,
   run_in_background: true,
-  prompt: `You are the ${bossRole.title} of the autonomous organization "${orgName}".
+  prompt: `${bossRole_context ? `CONTEXT FOR THIS ROLE:\n${bossRole_context}\n\n` : ''}You are the ${bossRole.title} of the autonomous organization "${orgName}".
 
 ORG GOAL: ${goal}
 
@@ -387,7 +372,7 @@ ${(orgConfig.communication || orgConfig.edges || []).map(e => `${e.from} → ${e
 SHARED INFRASTRUCTURE:
 - Task board (monotask): board_id=<board_id>
   Columns: Todo=<todo_col>  Doing=<doing_col>  Done=<done_col>
-- Memory namespace: <memNs> (use: npx monomind@latest memory store/search --namespace <memNs>)
+- Memory namespace: <memNs> (pre-seeded with org context + per-role briefs — read at startup: `npx monomind@latest memory search --query "org context" --namespace <memNs>`; store findings: `npx monomind@latest memory store --key "<key>" --value "<val>" --namespace <memNs>`)
 - Dashboard events: POST to mastermind control server via curl — see CTRL_URL resolution in DASHBOARD EVENTS section below
 - Session ID for all events: ${sessionId}
 
@@ -586,8 +571,10 @@ OPERATING LOOP:
 
 AGENT TYPES FOR YOUR TEAM:
 ${orgConfig.roles.filter(r => r.id !== bossRole.id).map(r =>
-  `• ${r.title}: subagent_type="${r.agent_type}"`
+  `• ${r.title}: subagent_type="${r.agent_type}"${r.agent_context ? `\n  Context: ${r.agent_context}` : ''}`
 ).join('\n')}
+
+IMPORTANT — When spawning a team member who has a "Context:" line above, prepend that context to their Task prompt before the core instructions. This is their org-specific customization — it scopes a general-purpose agent to this org's needs.
 
 START NOW: resolve CTRL_URL, check for stop signal, assess the board, create initial tasks if none exist, then begin the operating loop.`
 })
