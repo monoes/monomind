@@ -160,7 +160,11 @@ export async function generateWikiPage(
     content = (block?.type === 'text') ? block.text : '';
   }
 
-  // 7. Persist to DB
+  // 7. Persist to DB — prepend OKF frontmatter if not already present
+  if (!content.startsWith('---')) {
+    const safeLabel = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    content = `---\ntype: Code Community Wiki\ntitle: "${safeLabel}"\ntags: [monograph, wiki]\ntimestamp: ${new Date().toISOString()}\n---\n\n${content}`;
+  }
   upsertWikiPage(db, communityIdStr, content);
 
   return content;
