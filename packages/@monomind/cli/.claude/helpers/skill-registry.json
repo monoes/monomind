@@ -8,7 +8,7 @@
     {
       "skill": "code-review:code-review",
       "invoke": "Skill(\"code-review:code-review\")",
-      "description": "Comprehensive code review — correctness, security, performance, maintainability",
+      "description": "Comprehensive code review \u2014 correctness, security, performance, maintainability",
       "keywords": [
         "review",
         "audit",
@@ -24,7 +24,7 @@
     {
       "skill": "feature-dev:feature-dev",
       "invoke": "Skill(\"feature-dev:feature-dev\")",
-      "description": "Full feature development pipeline — explore, architect, implement, test, review",
+      "description": "Full feature development pipeline \u2014 explore, architect, implement, test, review",
       "keywords": [
         "feature",
         "implement",
@@ -39,7 +39,7 @@
     {
       "skill": "sparc:tdd",
       "invoke": "Skill(\"sparc:tdd\")",
-      "description": "Test-driven development — write failing tests first, then implementation",
+      "description": "Test-driven development \u2014 write failing tests first, then implementation",
       "keywords": [
         "tdd",
         "test driven",
@@ -54,7 +54,7 @@
     {
       "skill": "agent-browser-testing",
       "invoke": "Skill(\"agent-browser-testing\")",
-      "description": "Comprehensive UI QA and browser automation via monomind browse CDP client — 7-phase test protocol: discovery, golden path, edge cases, responsive, accessibility, network/errors, performance vitals. Full command set: snapshot, click, fill, wait, eval, network intercept, har, trace, vitals, record, device emulation, storage, cookies, tabs, frames, dialogs.",
+      "description": "Comprehensive UI QA and browser automation via monomind browse CDP client \u2014 7-phase test protocol: discovery, golden path, edge cases, responsive, accessibility, network/errors, performance vitals. Full command set: snapshot, click, fill, wait, eval, network intercept, har, trace, vitals, record, device emulation, storage, cookies, tabs, frames, dialogs.",
       "keywords": [
         "ui test",
         "ui testing",
@@ -109,7 +109,7 @@
     {
       "skill": "sparc:architect",
       "invoke": "Skill(\"sparc:architect\")",
-      "description": "System architecture design — patterns, DDD, scalability, API design",
+      "description": "System architecture design \u2014 patterns, DDD, scalability, API design",
       "keywords": [
         "architect",
         "design",
@@ -126,7 +126,7 @@
     {
       "skill": "sparc:security-review",
       "invoke": "Skill(\"sparc:security-review\")",
-      "description": "Security analysis — vulnerabilities, CVEs, threat modeling, input validation",
+      "description": "Security analysis \u2014 vulnerabilities, CVEs, threat modeling, input validation",
       "keywords": [
         "security",
         "vulnerability",
@@ -143,7 +143,7 @@
     {
       "skill": "sparc:debugger",
       "invoke": "Skill(\"sparc:debugger\")",
-      "description": "Systematic debugging — root cause analysis, error tracing, fix verification",
+      "description": "Systematic debugging \u2014 root cause analysis, error tracing, fix verification",
       "keywords": [
         "debug",
         "bug",
@@ -161,7 +161,7 @@
     {
       "skill": "sparc:optimizer",
       "invoke": "Skill(\"sparc:optimizer\")",
-      "description": "Performance optimization — profiling, bottlenecks, memory, speed improvements",
+      "description": "Performance optimization \u2014 profiling, bottlenecks, memory, speed improvements",
       "keywords": [
         "optimize",
         "performance",
@@ -178,7 +178,7 @@
     {
       "skill": "sparc:devops",
       "invoke": "Skill(\"sparc:devops\")",
-      "description": "DevOps and deployment — CI/CD, Docker, infrastructure, pipelines",
+      "description": "DevOps and deployment \u2014 CI/CD, Docker, infrastructure, pipelines",
       "keywords": [
         "deploy",
         "ci",
@@ -196,7 +196,7 @@
     {
       "skill": "sparc:documenter",
       "invoke": "Skill(\"sparc:documenter\")",
-      "description": "Documentation generation — READMEs, API docs, architecture docs, inline comments",
+      "description": "Documentation generation \u2014 READMEs, API docs, architecture docs, inline comments",
       "keywords": [
         "document",
         "docs",
@@ -212,7 +212,7 @@
     {
       "skill": "sparc:researcher",
       "invoke": "Skill(\"sparc:researcher\")",
-      "description": "Research and analysis — investigate, explore, gather information, summarize",
+      "description": "Research and analysis \u2014 investigate, explore, gather information, summarize",
       "keywords": [
         "research",
         "find",
@@ -237,7 +237,7 @@
     {
       "skill": "sparc:spec-pseudocode",
       "invoke": "Skill(\"sparc:spec-pseudocode\")",
-      "description": "Specification and pseudocode — clarify requirements, write specs, plan logic",
+      "description": "Specification and pseudocode \u2014 clarify requirements, write specs, plan logic",
       "keywords": [
         "spec",
         "specification",
@@ -253,7 +253,7 @@
     {
       "skill": "sparc:refactor",
       "invoke": "Skill(\"sparc:coder\")",
-      "description": "Refactoring — clean up code, extract functions, improve structure without changing behavior",
+      "description": "Refactoring \u2014 clean up code, extract functions, improve structure without changing behavior",
       "keywords": [
         "refactor",
         "clean up",
@@ -269,7 +269,7 @@
     {
       "skill": "github:code-review",
       "invoke": "Skill(\"github:code-review\")",
-      "description": "GitHub PR code review — review pull requests, suggest improvements, approve/request changes",
+      "description": "GitHub PR code review \u2014 review pull requests, suggest improvements, approve/request changes",
       "keywords": [
         "pr review",
         "pull request",
@@ -283,7 +283,7 @@
     {
       "skill": "github:pr-manager",
       "invoke": "Skill(\"github:pr-manager\")",
-      "description": "Pull request lifecycle — create, update, merge, manage GitHub PRs",
+      "description": "Pull request lifecycle \u2014 create, update, merge, manage GitHub PRs",
       "keywords": [
         "create pr",
         "pull request",
@@ -298,7 +298,7 @@
     {
       "skill": "github:release-manager",
       "invoke": "Skill(\"github:release-manager\")",
-      "description": "Release management — changelogs, versioning, GitHub releases, tags",
+      "description": "Release management \u2014 changelogs, versioning, GitHub releases, tags",
       "keywords": [
         "release",
         "changelog",
@@ -314,7 +314,7 @@
     {
       "skill": "github:workflow-automation",
       "invoke": "Skill(\"github:workflow-automation\")",
-      "description": "GitHub Actions — create/modify CI/CD workflows, automate pipelines",
+      "description": "GitHub Actions \u2014 create/modify CI/CD workflows, automate pipelines",
       "keywords": [
         "github actions",
         "workflow",
@@ -330,7 +330,7 @@
     {
       "skill": "github:issue-tracker",
       "invoke": "Skill(\"github:issue-tracker\")",
-      "description": "GitHub issue management — create, triage, close, label issues",
+      "description": "GitHub issue management \u2014 create, triage, close, label issues",
       "keywords": [
         "issue",
         "bug report",
@@ -346,7 +346,7 @@
     {
       "skill": "swarm:swarm-init",
       "invoke": "Skill(\"swarm:swarm-init\")",
-      "description": "Initialize a multi-agent swarm — topology, coordination, parallel execution",
+      "description": "Initialize a multi-agent swarm \u2014 topology, coordination, parallel execution",
       "keywords": [
         "swarm",
         "multi-agent",
@@ -361,7 +361,7 @@
     {
       "skill": "performance-analysis",
       "invoke": "Skill(\"performance-analysis\")",
-      "description": "Performance metrics — token usage, bottleneck detection, optimization recommendations",
+      "description": "Performance metrics \u2014 token usage, bottleneck detection, optimization recommendations",
       "keywords": [
         "performance analysis",
         "token usage",
@@ -376,7 +376,7 @@
     {
       "skill": "verification-quality",
       "invoke": "Skill(\"verification-quality\")",
-      "description": "Quality assurance — coverage verification, linting, security scanning, completeness",
+      "description": "Quality assurance \u2014 coverage verification, linting, security scanning, completeness",
       "keywords": [
         "verify",
         "quality",
@@ -392,7 +392,7 @@
     {
       "skill": "superpowers:brainstorm",
       "invoke": "Skill(\"superpowers:brainstorm\")",
-      "description": "Structured brainstorming — explore options, generate ideas, evaluate trade-offs",
+      "description": "Structured brainstorming \u2014 explore options, generate ideas, evaluate trade-offs",
       "keywords": [
         "brainstorm",
         "ideas",
@@ -407,7 +407,7 @@
     {
       "skill": "superpowers:write-plan",
       "invoke": "Skill(\"superpowers:write-plan\")",
-      "description": "Write an implementation plan — structured steps, milestones, approach",
+      "description": "Write an implementation plan \u2014 structured steps, milestones, approach",
       "keywords": [
         "plan",
         "planning",
@@ -423,7 +423,7 @@
     {
       "skill": "superpowers:systematic-debugging",
       "invoke": "Skill(\"superpowers:systematic-debugging\")",
-      "description": "Systematic debugging process — reproduce, isolate, fix, verify",
+      "description": "Systematic debugging process \u2014 reproduce, isolate, fix, verify",
       "keywords": [
         "systematic debug",
         "debug process",
@@ -437,7 +437,7 @@
     {
       "skill": "superpowers:test-driven-development",
       "invoke": "Skill(\"superpowers:test-driven-development\")",
-      "description": "TDD workflow — write tests first, implement to pass, refactor",
+      "description": "TDD workflow \u2014 write tests first, implement to pass, refactor",
       "keywords": [
         "tdd",
         "test first",
@@ -466,7 +466,7 @@
     {
       "skill": "pair-programming",
       "invoke": "Skill(\"pair-programming\")",
-      "description": "Pair programming session — driver/navigator modes, real-time collaboration",
+      "description": "Pair programming session \u2014 driver/navigator modes, real-time collaboration",
       "keywords": [
         "pair",
         "pair programming",
@@ -480,7 +480,7 @@
     {
       "skill": "hive-mind:hive-mind",
       "invoke": "Skill(\"hive-mind:hive-mind\")",
-      "description": "Collective intelligence — consensus-building across distributed agents, Byzantine tolerance",
+      "description": "Collective intelligence \u2014 consensus-building across distributed agents, Byzantine tolerance",
       "keywords": [
         "hive mind",
         "consensus",
@@ -495,7 +495,7 @@
     {
       "skill": "hooks:setup",
       "invoke": "Skill(\"hooks:setup\")",
-      "description": "Configure the hook system — add/modify pre/post task hooks, event handlers",
+      "description": "Configure the hook system \u2014 add/modify pre/post task hooks, event handlers",
       "keywords": [
         "hook",
         "configure hook",
@@ -509,16 +509,16 @@
       "primaryAgent": "devops"
     },
     {
-      "skill": "memory-vector-search",
-      "invoke": "Skill(\"memory-vector-search\")",
-      "description": "Vector search operations — semantic search, HNSW, embeddings, nearest neighbor",
+      "skill": "lancedb-vector-search",
+      "invoke": "Skill(\"lancedb-vector-search\")",
+      "description": "Vector search operations \u2014 semantic search, HNSW, embeddings, nearest neighbor",
       "keywords": [
         "vector search",
         "semantic search",
         "hnsw",
         "embedding",
         "similarity",
-        "memory",
+        "lancedb",
         "nearest"
       ],
       "category": "memory",
@@ -527,7 +527,7 @@
     {
       "skill": "stream-chain:pipeline",
       "invoke": "Skill(\"stream-chain:pipeline\")",
-      "description": "Stream processing pipeline — event-driven data flow, pipeline construction",
+      "description": "Stream processing pipeline \u2014 event-driven data flow, pipeline construction",
       "keywords": [
         "stream",
         "pipeline",
@@ -542,7 +542,7 @@
     {
       "skill": "frontend-design:frontend-design",
       "invoke": "Skill(\"frontend-design:frontend-design\")",
-      "description": "Frontend design system — UI components, CSS, design tokens, visual consistency",
+      "description": "Frontend design system \u2014 UI components, CSS, design tokens, visual consistency",
       "keywords": [
         "ui design",
         "frontend design",
@@ -555,38 +555,38 @@
       "primaryAgent": "frontend-dev"
     },
     {
-      "skill": "memory-advanced",
-      "invoke": "Skill(\"memory-advanced\")",
-      "description": "Advanced memory — QUIC sync, multi-database, custom metrics, distributed systems",
+      "skill": "lancedb-advanced",
+      "invoke": "Skill(\"lancedb-advanced\")",
+      "description": "Advanced LanceDB \u2014 QUIC sync, multi-database, custom metrics, distributed systems",
       "keywords": [
-        "memory",
+        "lancedb",
         "quic",
         "synchronization",
         "distributed",
         "vector-search",
         "multi-database"
       ],
-      "category": "memory",
+      "category": "lancedb",
       "primaryAgent": "coder"
     },
     {
-      "skill": "memory-learning",
-      "invoke": "Skill(\"memory-learning\")",
-      "description": "Memory RL — 9 algorithms: DQN, PPO, Decision Transformer, Q-Learning, SARSA",
+      "skill": "lancedb-learning",
+      "invoke": "Skill(\"lancedb-learning\")",
+      "description": "LanceDB RL \u2014 9 algorithms: DQN, PPO, Decision Transformer, Q-Learning, SARSA",
       "keywords": [
         "reinforcement-learning",
         "training",
         "rl",
-        "memory",
+        "lancedb",
         "decision-transformer",
         "q-learning"
       ],
-      "category": "memory",
+      "category": "lancedb",
       "primaryAgent": "ml-developer"
     },
     {
-      "skill": "memory-memory-patterns",
-      "invoke": "Skill(\"memory-memory-patterns\")",
+      "skill": "lancedb-memory-patterns",
+      "invoke": "Skill(\"lancedb-memory-patterns\")",
       "description": "Persistent memory patterns for stateful agents and context management",
       "keywords": [
         "memory",
@@ -596,13 +596,13 @@
         "sessions",
         "stateful"
       ],
-      "category": "memory",
+      "category": "lancedb",
       "primaryAgent": "coder"
     },
     {
-      "skill": "memory-optimization",
-      "invoke": "Skill(\"memory-optimization\")",
-      "description": "Memory optimization — quantization (4-32x), HNSW (150x faster), caching, batch ops",
+      "skill": "lancedb-optimization",
+      "invoke": "Skill(\"lancedb-optimization\")",
+      "description": "LanceDB optimization \u2014 quantization (4-32x), HNSW (150x faster), caching, batch ops",
       "keywords": [
         "optimization",
         "hnsw",
@@ -611,7 +611,7 @@
         "performance",
         "batch"
       ],
-      "category": "memory",
+      "category": "lancedb",
       "primaryAgent": "coder"
     },
     {
@@ -659,7 +659,7 @@
     {
       "skill": "github-project-management",
       "invoke": "Skill(\"github-project-management\")",
-      "description": "GitHub project management — boards, milestones, automation, sprint planning",
+      "description": "GitHub project management \u2014 boards, milestones, automation, sprint planning",
       "keywords": [
         "project-management",
         "github",
@@ -674,7 +674,7 @@
     {
       "skill": "github-release-management",
       "invoke": "Skill(\"github-release-management\")",
-      "description": "Release management — changelog, semantic versioning, GitHub releases",
+      "description": "Release management \u2014 changelog, semantic versioning, GitHub releases",
       "keywords": [
         "release",
         "versioning",
@@ -704,7 +704,7 @@
     {
       "skill": "hive-mind-advanced",
       "invoke": "Skill(\"hive-mind-advanced\")",
-      "description": "Advanced hive-mind — Byzantine consensus, distributed voting, queen coordination",
+      "description": "Advanced hive-mind \u2014 Byzantine consensus, distributed voting, queen coordination",
       "keywords": [
         "hive-mind",
         "consensus",
@@ -719,7 +719,7 @@
     {
       "skill": "hooks-automation",
       "invoke": "Skill(\"hooks-automation\")",
-      "description": "Automated hooks — pre/post task, Git integration, neural learning, MCP coordination",
+      "description": "Automated hooks \u2014 pre/post task, Git integration, neural learning, MCP coordination",
       "keywords": [
         "hooks",
         "automation",
@@ -731,8 +731,8 @@
       "primaryAgent": "coder"
     },
     {
-      "skill": "memory-reasoningbank",
-      "invoke": "Skill("memory-reasoningbank")",
+      "skill": "reasoningbank-lancedb",
+      "invoke": "Skill(\"reasoningbank-lancedb\")",
       "description": "ReasoningBank adaptive learning with LanceDB vector search and trajectory tracking",
       "keywords": [
         "reasoningbank",
@@ -741,7 +741,7 @@
         "vector-search",
         "verdict"
       ],
-      "category": "memory",
+      "category": "lancedb",
       "primaryAgent": "ml-developer"
     },
     {
@@ -761,7 +761,7 @@
     {
       "skill": "skill-builder",
       "invoke": "Skill(\"skill-builder\")",
-      "description": "Create Claude Code skills — YAML frontmatter, progressive disclosure, directory structure",
+      "description": "Create Claude Code skills \u2014 YAML frontmatter, progressive disclosure, directory structure",
       "keywords": [
         "skill",
         "create-skill",
@@ -775,7 +775,7 @@
     {
       "skill": "sparc-methodology",
       "invoke": "Skill(\"sparc-methodology\")",
-      "description": "SPARC development methodology — Specification, Pseudocode, Architecture, Refinement, Completion",
+      "description": "SPARC development methodology \u2014 Specification, Pseudocode, Architecture, Refinement, Completion",
       "keywords": [
         "sparc",
         "methodology",
@@ -803,7 +803,7 @@
     {
       "skill": "swarm-advanced",
       "invoke": "Skill(\"swarm-advanced\")",
-      "description": "Advanced swarm orchestration — dynamic topology, research/dev/test patterns",
+      "description": "Advanced swarm orchestration \u2014 dynamic topology, research/dev/test patterns",
       "keywords": [
         "swarm",
         "multi-agent",
@@ -832,7 +832,7 @@
     {
       "skill": "cli-modernization",
       "invoke": "Skill(\"cli-modernization\")",
-      "description": "CLI modernization — interactive prompts, command decomposition, hooks enhancement",
+      "description": "CLI modernization \u2014 interactive prompts, command decomposition, hooks enhancement",
       "keywords": [
         "cli",
         "modernization",
@@ -846,7 +846,7 @@
     {
       "skill": "core-implementation",
       "invoke": "Skill(\"core-implementation\")",
-      "description": "Core module implementation — DDD domains, clean architecture, TypeScript",
+      "description": "Core module implementation \u2014 DDD domains, clean architecture, TypeScript",
       "keywords": [
         "core",
         "ddd",
@@ -860,7 +860,7 @@
     {
       "skill": "ddd-architecture",
       "invoke": "Skill(\"ddd-architecture\")",
-      "description": "Domain-driven design architecture — bounded contexts, modular patterns",
+      "description": "Domain-driven design architecture \u2014 bounded contexts, modular patterns",
       "keywords": [
         "ddd",
         "bounded-context",
@@ -874,7 +874,7 @@
     {
       "skill": "agentic-integration",
       "invoke": "Skill(\"agentic-integration\")",
-      "description": "Deep agentic-flow integration — ADR-001, eliminate duplicate lines, adapter layer",
+      "description": "Deep agentic-flow integration \u2014 ADR-001, eliminate duplicate lines, adapter layer",
       "keywords": [
         "integration",
         "agentic-flow",
@@ -888,7 +888,7 @@
     {
       "skill": "mcp-optimization",
       "invoke": "Skill(\"mcp-optimization\")",
-      "description": "MCP server optimization — connection pooling, load balancing, sub-100ms responses",
+      "description": "MCP server optimization \u2014 connection pooling, load balancing, sub-100ms responses",
       "keywords": [
         "mcp",
         "optimization",
@@ -902,12 +902,12 @@
     {
       "skill": "memory-unification",
       "invoke": "Skill(\"memory-unification\")",
-      "description": "Unify 6+ memory systems into LanceDB with ANN indexing (150x-12,500x faster)",
+      "description": "Unify 6+ memory systems into LanceDB with HNSW indexing (150x-12,500x faster)",
       "keywords": [
         "memory",
         "unification",
         "hnsw",
-        "memory",
+        "lancedb",
         "hierarchical"
       ],
       "category": "memory",
@@ -916,7 +916,7 @@
     {
       "skill": "performance-optimization",
       "invoke": "Skill(\"performance-optimization\")",
-      "description": "Performance targets — Flash Attention speedup, search improvements, memory reduction",
+      "description": "Performance targets \u2014 Flash Attention speedup, search improvements, memory reduction",
       "keywords": [
         "performance",
         "optimization",
@@ -930,7 +930,7 @@
     {
       "skill": "security-hardening",
       "invoke": "Skill(\"security-hardening\")",
-      "description": "Security hardening — CVE remediation, input validation, secure-by-default patterns",
+      "description": "Security hardening \u2014 CVE remediation, input validation, secure-by-default patterns",
       "keywords": [
         "security",
         "hardening",
@@ -945,7 +945,7 @@
     {
       "skill": "swarm-coordination",
       "invoke": "Skill(\"swarm-coordination\")",
-      "description": "15-agent hierarchical mesh coordination — parallel execution across domains",
+      "description": "15-agent hierarchical mesh coordination \u2014 parallel execution across domains",
       "keywords": [
         "swarm",
         "coordination",
@@ -957,9 +957,31 @@
       "primaryAgent": "architect"
     },
     {
+      "skill": "mastermind:updateorg",
+      "invoke": "Skill(\"mastermind:updateorg\")",
+      "description": "Edit a saved org's config after creation — change goal, schedule, rename, status, or any field. Use when the user wants to update, change, modify, or reconfigure an existing org.",
+      "keywords": [
+        "update org",
+        "edit org",
+        "change org",
+        "modify org",
+        "org schedule",
+        "reschedule org",
+        "rename org",
+        "org goal",
+        "org status",
+        "pause org",
+        "stop org",
+        "org config",
+        "updateorg"
+      ],
+      "category": "ops",
+      "primaryAgent": "coordinator"
+    },
+    {
       "skill": "mastermind:autodev",
       "invoke": "Skill(\"mastermind:autodev\")",
-      "description": "Autonomous research → build → review loop. Researches the project, picks the best improvement idea, builds it, then reviews with mastermind:review --tillend until clean. Repeats N times (e.g. /mastermind:autodev 9 builds 9 improvements). Supports --tillend, --focus, --count.",
+      "description": "Autonomous research \u2192 build \u2192 review loop. Researches the project, picks the best improvement idea, builds it, then reviews with mastermind:review --tillend until clean. Repeats N times (e.g. /mastermind:autodev 9 builds 9 improvements). Supports --tillend, --focus, --count.",
       "keywords": [
         "autodev",
         "autonomous",
@@ -1008,7 +1030,7 @@
     {
       "skill": "github:repo-recap",
       "invoke": "Skill(\"github:repo-recap\")",
-      "description": "Generate a structured repo recap — open PRs by category, issues, recent releases, executive summary, overlap detection — formatted as Markdown, copied to clipboard.",
+      "description": "Generate a structured repo recap \u2014 open PRs by category, issues, recent releases, executive summary, overlap detection \u2014 formatted as Markdown, copied to clipboard.",
       "keywords": [
         "repo recap",
         "pr summary",
@@ -1038,6 +1060,34 @@
       ],
       "category": "github",
       "primaryAgent": "researcher"
+    },
+    {
+      "skill": "mastermind:modernsale",
+      "invoke": "Skill(\"mastermind:modernsale\")",
+      "description": "Modern B2B sales playbook for tech startup founders \u2014 signal-based prospecting, PLG+sales hybrid, founder-to-sales-led transition, multi-stakeholder deal strategy for crowded skeptical markets",
+      "keywords": [
+        "modernsale",
+        "modern sale",
+        "modern sales",
+        "startup sales",
+        "founder sales",
+        "founder-led sales",
+        "plg sales",
+        "product-led growth",
+        "signal-based prospecting",
+        "buyer saturation",
+        "b2b saas sales",
+        "gtm strategy",
+        "sales playbook",
+        "new sales playbook",
+        "icp",
+        "pls",
+        "pql",
+        "deal strategy",
+        "win loss"
+      ],
+      "category": "sales",
+      "primaryAgent": "modernsale"
     }
   ]
 }
