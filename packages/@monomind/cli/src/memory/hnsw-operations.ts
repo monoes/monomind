@@ -118,13 +118,6 @@ export async function addToHNSWIndex(
   embedding: number[],
   entry: HNSWEntry
 ): Promise<boolean> {
-  // ADR-053: Try LanceDB memory bridge first
-  const bridge = await getBridge();
-  if (bridge) {
-    const bridgeResult = await bridge.bridgeAddToHNSW(id, embedding, entry);
-    if (bridgeResult === true) return true;
-  }
-
   const index = await getHNSWIndex({ dimensions: embedding.length });
   if (!index) return false;
 
@@ -155,13 +148,6 @@ export async function searchHNSWIndex(
     namespace?: string;
   }
 ): Promise<Array<{ id: string; key: string; content: string; score: number; namespace: string }> | null> {
-  // ADR-053: Try LanceDB memory bridge first
-  const bridge = await getBridge();
-  if (bridge) {
-    const bridgeResult = await bridge.bridgeSearchHNSW(queryEmbedding, options);
-    if (bridgeResult) return bridgeResult;
-  }
-
   const index = await getHNSWIndex({ dimensions: queryEmbedding.length });
   if (!index) return null;
 

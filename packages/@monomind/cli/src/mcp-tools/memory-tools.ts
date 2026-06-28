@@ -99,9 +99,9 @@ export const memoryControllers: MCPTool = {
       if (!controllers) return { available: false, controllers: [], error: 'Memory bridge not available — @monomind/memory not installed or missing controller-registry. Use memory_store/memory_search tools instead.' };
       return {
         available: true,
-        controllers,
-        total: controllers.length,
-        active: controllers.filter((c: any) => c.enabled).length,
+        controllers: controllers.controllers,
+        total: controllers.controllers.length,
+        active: controllers.active.length,
       };
     } catch (error) {
       return { available: false, error: sanitizeError(error) };
@@ -130,7 +130,7 @@ export const memoryPatternStore: MCPTool = {
       const bridge = await getBridge();
       const result = await bridge.bridgeStorePattern({
         pattern,
-        type: validateString(params.type, 'type', 200) ?? 'general',
+        taskType: validateString(params.type, 'type', 200) ?? 'general',
         confidence: validateScore(params.confidence, 0.8),
       });
       return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
@@ -159,12 +159,16 @@ export const memoryPatternSearch: MCPTool = {
       const query = validateString(params.query, 'query', 10_000);
       if (!query) return { results: [], error: 'query is required (non-empty string, max 10KB)' };
       const bridge = await getBridge();
+      const minConfidence = validateScore(params.minConfidence, 0.3);
       const result = await bridge.bridgeSearchPatterns({
         query,
-        topK: validatePositiveInt(params.topK, 5, MAX_TOP_K),
-        minConfidence: validateScore(params.minConfidence, 0.3),
+        limit: validatePositiveInt(params.topK, 5, MAX_TOP_K),
       });
-      return result ?? { results: [], controller: 'unavailable' };
+      if (!result) return { results: [], controller: 'unavailable' };
+      return {
+        ...result,
+        patterns: result.patterns.filter((p: { score: number }) => p.score >= minConfidence),
+      };
     } catch (error) {
       return { results: [], error: sanitizeError(error) };
     }
@@ -192,10 +196,11 @@ export const memoryFeedback: MCPTool = {
       if (!taskId) return { success: false, error: 'taskId is required (non-empty string, max 500 chars)' };
       const bridge = await getBridge();
       const result = await bridge.bridgeRecordFeedback({
-        taskId,
-        success: params.success === true,
-        quality: validateScore(params.quality, 0.85),
-        agent: validateString(params.agent, 'agent', 200) ?? undefined,
+        taskType: validateString(params.agent, 'agent', 200) ?? 'task',
+        action: taskId,
+        outcome: params.success === true ? 'success' : 'failure',
+        confidence: validateScore(params.quality, 0.85),
+        metadata: { taskId },
       });
       return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
     } catch (error) {
@@ -232,7 +237,7 @@ export const memoryCausalEdge: MCPTool = {
         sourceId,
         targetId,
         relation,
-        weight: typeof params.weight === 'number' ? validateScore(params.weight, 0.5) : undefined,
+        strength: typeof params.weight === 'number' ? validateScore(params.weight, 0.5) : undefined,
       });
       return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
     } catch (error) {
@@ -259,10 +264,7 @@ export const memoryRoute: MCPTool = {
       const task = validateString(params.task, 'task', 10_000);
       if (!task) return { route: 'general', confidence: 0.5, agents: ['coder'], controller: 'error', error: 'task is required (non-empty string)' };
       const bridge = await getBridge();
-      const result = await bridge.bridgeRouteTask({
-        task,
-        context: validateString(params.context, 'context', 10_000) ?? undefined,
-      });
+      const result = await bridge.bridgeRouteTask({ task });
       return result ?? { route: 'general', confidence: 0.5, agents: ['coder'], controller: 'fallback' };
     } catch (error) {
       return { route: 'general', confidence: 0.5, agents: ['coder'], controller: 'error', error: sanitizeError(error) };
@@ -290,7 +292,7 @@ export const memorySessionStart: MCPTool = {
       const bridge = await getBridge();
       const result = await bridge.bridgeSessionStart({
         sessionId,
-        context: validateString(params.context, 'context', 10_000) ?? undefined,
+        metadata: { context: validateString(params.context, 'context', 10_000) ?? undefined },
       });
       return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
     } catch (error) {
@@ -321,7 +323,7 @@ export const memorySessionEnd: MCPTool = {
       const result = await bridge.bridgeSessionEnd({
         sessionId,
         summary: validateString(params.summary, 'summary', 50_000) ?? undefined,
-        tasksCompleted: validatePositiveInt(params.tasksCompleted, 0, 10_000),
+        metrics: { tasksCompleted: validatePositiveInt(params.tasksCompleted, 0, 10_000) },
       });
       return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
     } catch (error) {

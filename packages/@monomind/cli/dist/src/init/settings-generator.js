@@ -159,7 +159,7 @@ const IS_WINDOWS = process.platform === 'win32';
  */
 function hookCmd(script, subcommand) {
     if (IS_WINDOWS) {
-        return `cmd /c node %CLAUDE_PROJECT_DIR%/${script} ${subcommand}`.trim();
+        return `cmd /c node "%CLAUDE_PROJECT_DIR%/${script}" ${subcommand}`.trim();
     }
     // Use sh -c to ensure $CLAUDE_PROJECT_DIR is expanded by a real shell,
     // even if Claude Code doesn't invoke hooks through a shell on macOS.
@@ -180,13 +180,13 @@ function captureHandlerCmd(subcommand) {
     // capture-handler does not use sh -c wrapper — it reads stdin directly
     const dir = IS_WINDOWS ? '%CLAUDE_PROJECT_DIR%' : '${CLAUDE_PROJECT_DIR:-.}';
     return IS_WINDOWS
-        ? `node ${dir}/.claude/helpers/handlers/capture-handler.cjs ${subcommand}`
+        ? `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`
         : `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
 }
 /** Shorthand for standalone CJS helper scripts (no subcommand) */
 function standaloneHelperCmd(script) {
     if (IS_WINDOWS) {
-        return `cmd /c node %CLAUDE_PROJECT_DIR%/.claude/helpers/${script}`;
+        return `cmd /c node "%CLAUDE_PROJECT_DIR%/.claude/helpers/${script}"`;
     }
     // eslint-disable-next-line no-template-curly-in-string
     const dir = '${CLAUDE_PROJECT_DIR:-.}';
@@ -200,8 +200,14 @@ function generateStatusLineConfig(_options) {
     // Claude Code pipes JSON session data to the script via stdin.
     // Valid fields: type, command, padding (optional).
     // The script runs after each assistant message (debounced 300ms).
-    // NOTE: statusline must NOT use `cmd /c` — Claude Code manages its stdin
-    // directly for statusline commands, and `cmd /c` blocks stdin forwarding.
+    // NOTE: statusline must NOT use `cmd /c` on Windows either — Claude Code
+    // manages stdin directly for statusline commands; wrappers block forwarding.
+    if (IS_WINDOWS) {
+        return {
+            type: 'command',
+            command: 'node "%CLAUDE_PROJECT_DIR%/.claude/helpers/statusline.cjs"',
+        };
+    }
     // eslint-disable-next-line no-template-curly-in-string
     const dir = '${CLAUDE_PROJECT_DIR:-.}';
     return {
