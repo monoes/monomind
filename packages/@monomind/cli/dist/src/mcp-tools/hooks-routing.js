@@ -91,13 +91,10 @@ export const hooksPostEdit = {
         try {
             const bridge = await import('../memory/memory-bridge.js');
             feedbackResult = await bridge.bridgeRecordFeedback({
-                taskId: `edit-${filePath}-${Date.now()}`,
-                success,
-                quality: success ? 0.85 : 0.3,
-                agent,
-                // B1.2: give the SONA embedder real semantics (the edited file) instead of
-                // the opaque task ID.
-                task: `edit ${filePath}`,
+                taskType: agent ?? 'coder',
+                action: `edit ${filePath}`,
+                outcome: success ? 'success' : 'failure',
+                confidence: success ? 0.85 : 0.3,
             });
         }
         catch {
@@ -111,8 +108,8 @@ export const hooksPostEdit = {
             learningUpdate: success ? 'pattern_reinforced' : 'pattern_adjusted',
             feedback: feedbackResult ? {
                 recorded: feedbackResult.success,
-                controller: feedbackResult.controller,
-                updates: feedbackResult.updated,
+                controller: feedbackResult.success ? 'lancedb' : 'unavailable',
+                updates: feedbackResult.success ? 1 : 0,
             } : { recorded: false, controller: 'unavailable', updates: 0 },
         };
     },
@@ -259,51 +256,56 @@ export const hooksRoute = {
         if (useSemanticRouter) {
             try {
                 const bridge = await import('../memory/memory-bridge.js');
-                const memoryRoute = await bridge.bridgeRouteTask({ task, context });
-                if (memoryRoute && memoryRoute.confidence > 0.5) {
-                    const agents = memoryRoute.agents.length > 0 ? memoryRoute.agents : ['coder', 'researcher'];
-                    const complexity = task.length > 200 ? 'high' : task.length < 50 ? 'low' : 'medium';
-                    const memoryMethod = `memory-${memoryRoute.controller}`;
-                    const memoryConfidence = Math.round(memoryRoute.confidence * 100) / 100;
-                    // Record the route recommendation so post-task can join the actual outcome
-                    const routeId = randomUUID();
-                    await recordRoute(getRouteOutcomesBaseDir(), {
-                        routeId,
-                        ts: Date.now(),
-                        task,
-                        recommendedAgent: agents[0],
-                        routingMethod: memoryMethod,
-                        confidence: memoryConfidence,
-                        learningMode: 'js',
-                    });
-                    return {
-                        routeId,
-                        task,
-                        routing: {
-                            method: memoryMethod,
-                            backend: memoryRoute.controller,
-                            latencyMs: 0,
-                            throughput: 'N/A',
-                        },
-                        matchedPattern: memoryRoute.route,
-                        semanticMatches: [{ pattern: memoryRoute.route, score: memoryRoute.confidence }],
-                        primaryAgent: {
-                            type: agents[0],
-                            confidence: Math.round(memoryRoute.confidence * 100) / 100,
-                            reason: `memory:${memoryRoute.controller}: "${memoryRoute.route}" (${Math.round(memoryRoute.confidence * 100)}%)`,
-                        },
-                        alternativeAgents: agents.slice(1).map((agent, i) => ({
-                            type: agent,
-                            confidence: Math.round((memoryRoute.confidence - (0.1 * (i + 1))) * 100) / 100,
-                            reason: `Alternative from ${memoryRoute.controller}`,
-                        })),
-                        estimatedMetrics: {
-                            successProbability: Math.round(memoryRoute.confidence * 100) / 100,
-                            estimatedDuration: complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
-                            complexity,
-                        },
-                        swarmRecommendation: agents.length > 2 ? { topology: 'hierarchical', agents, coordination: 'queen-led' } : null,
-                    };
+                const memoryRoute = await bridge.bridgeRouteTask({ task });
+                if (memoryRoute && memoryRoute.routes && memoryRoute.routes.length > 0) {
+                    const topRoute = memoryRoute.routes[0];
+                    const routeConfidence = topRoute.confidence ?? 0;
+                    if (routeConfidence > 0.5) {
+                        const agents = memoryRoute.routes.map((r) => r.agentType);
+                        const complexity = task.length > 200 ? 'high' : task.length < 50 ? 'low' : 'medium';
+                        const memoryMethod = 'memory-lancedb';
+                        const memoryConfidence = Math.round(routeConfidence * 100) / 100;
+                        const matchedPattern = topRoute.pattern ?? task.slice(0, 60);
+                        // Record the route recommendation so post-task can join the actual outcome
+                        const routeId = randomUUID();
+                        await recordRoute(getRouteOutcomesBaseDir(), {
+                            routeId,
+                            ts: Date.now(),
+                            task,
+                            recommendedAgent: agents[0],
+                            routingMethod: memoryMethod,
+                            confidence: memoryConfidence,
+                            learningMode: 'js',
+                        });
+                        return {
+                            routeId,
+                            task,
+                            routing: {
+                                method: memoryMethod,
+                                backend: 'lancedb',
+                                latencyMs: 0,
+                                throughput: 'N/A',
+                            },
+                            matchedPattern,
+                            semanticMatches: [{ pattern: matchedPattern, score: routeConfidence }],
+                            primaryAgent: {
+                                type: agents[0],
+                                confidence: memoryConfidence,
+                                reason: `memory:lancedb: "${matchedPattern}" (${Math.round(routeConfidence * 100)}%)`,
+                            },
+                            alternativeAgents: agents.slice(1).map((agent, i) => ({
+                                type: agent,
+                                confidence: Math.round((routeConfidence - (0.1 * (i + 1))) * 100) / 100,
+                                reason: 'Alternative from lancedb',
+                            })),
+                            estimatedMetrics: {
+                                successProbability: memoryConfidence,
+                                estimatedDuration: complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
+                                complexity,
+                            },
+                            swarmRecommendation: agents.length > 2 ? { topology: 'hierarchical', agents, coordination: 'queen-led' } : null,
+                        };
+                    }
                 }
             }
             catch {
@@ -682,17 +684,11 @@ export const hooksPostTask = {
         try {
             const bridge = await import('../memory/memory-bridge.js');
             feedbackResult = await bridge.bridgeRecordFeedback({
-                taskId,
-                success,
-                quality,
-                agent,
-                // B1.2: thread the real task description into the SONA trajectory so the
-                // embedder encodes meaning, not the opaque task ID.
-                task: cappedPostTask || undefined,
-                // B1.3: only feed the SONA LoRA update when the outcome is actually known.
-                outcomeKnown,
-                duration: params.duration || undefined,
-                patterns: params.patterns || undefined,
+                taskType: agent ?? 'task',
+                action: cappedPostTask?.slice(0, 80) ?? taskId,
+                outcome: success ? 'success' : (outcomeKnown ? 'failure' : 'partial'),
+                confidence: quality,
+                metadata: { taskId, duration: params.duration || undefined, patterns: params.patterns || undefined },
             });
         }
         catch {
@@ -705,7 +701,7 @@ export const hooksPostTask = {
                 sourceId: taskId,
                 targetId: `outcome-${taskId}`,
                 relation: success ? 'succeeded' : 'failed',
-                weight: quality,
+                strength: quality,
             });
         }
         catch {
@@ -830,17 +826,17 @@ export const hooksPostTask = {
             successSource,
             duration,
             learningUpdates: {
-                patternsUpdated: feedbackResult?.updated || (success ? 2 : 1),
+                patternsUpdated: feedbackResult?.success ? (success ? 2 : 1) : 0,
                 newPatterns: success ? 1 : 0,
                 trajectoryId: `traj-${Date.now()}`,
-                controller: feedbackResult?.controller || 'none',
+                controller: feedbackResult?.success ? 'lancedb' : 'none',
                 outcomePersisted,
             },
             quality,
             feedback: feedbackResult ? {
                 recorded: feedbackResult.success,
-                controller: feedbackResult.controller,
-                updates: feedbackResult.updated,
+                controller: feedbackResult.success ? 'lancedb' : 'unavailable',
+                updates: feedbackResult.success ? 1 : 0,
             } : { recorded: false, controller: 'unavailable', updates: 0 },
             marReflection,
             timestamp: new Date().toISOString(),
@@ -1261,12 +1257,12 @@ export const hooksSessionStart = {
             const bridge = await import('../memory/memory-bridge.js');
             const result = await bridge.bridgeSessionStart({
                 sessionId,
-                context: restoreLatest ? 'restore previous session patterns' : 'new session',
+                metadata: { context: restoreLatest ? 'restore previous session patterns' : 'new session' },
             });
             if (result) {
                 sessionMemory = {
-                    controller: result.controller,
-                    restoredPatterns: result.restoredPatterns,
+                    controller: result.success ? 'lancedb' : 'none',
+                    restoredPatterns: 0,
                 };
             }
         }
@@ -1351,13 +1347,12 @@ export const hooksSessionEnd = {
             const result = await bridge.bridgeSessionEnd({
                 sessionId,
                 summary: saveState ? 'Session ended with state saved' : 'Session ended',
-                tasksCompleted: taskCount,
-                patternsLearned: patternCount,
+                metrics: { tasksCompleted: taskCount, patternsLearned: patternCount },
             });
             if (result) {
                 sessionPersistence = {
-                    controller: result.controller,
-                    persisted: result.persisted,
+                    controller: result.success ? 'lancedb' : 'none',
+                    persisted: result.success,
                 };
             }
         }

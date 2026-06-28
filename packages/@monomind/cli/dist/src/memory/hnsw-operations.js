@@ -85,13 +85,6 @@ function saveHNSWMetadata() {
  * Add entry to HNSW index (with automatic persistence)
  */
 export async function addToHNSWIndex(id, embedding, entry) {
-    // ADR-053: Try LanceDB memory bridge first
-    const bridge = await getBridge();
-    if (bridge) {
-        const bridgeResult = await bridge.bridgeAddToHNSW(id, embedding, entry);
-        if (bridgeResult === true)
-            return true;
-    }
     const index = await getHNSWIndex({ dimensions: embedding.length });
     if (!index)
         return false;
@@ -115,13 +108,6 @@ export async function addToHNSWIndex(id, embedding, entry) {
  * Returns results sorted by similarity (highest first)
  */
 export async function searchHNSWIndex(queryEmbedding, options) {
-    // ADR-053: Try LanceDB memory bridge first
-    const bridge = await getBridge();
-    if (bridge) {
-        const bridgeResult = await bridge.bridgeSearchHNSW(queryEmbedding, options);
-        if (bridgeResult)
-            return bridgeResult;
-    }
     const index = await getHNSWIndex({ dimensions: queryEmbedding.length });
     if (!index)
         return null;

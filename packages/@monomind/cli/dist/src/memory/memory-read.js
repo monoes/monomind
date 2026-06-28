@@ -166,7 +166,16 @@ export async function listEntries(options) {
     if (bridge) {
         const bridgeResult = await bridge.bridgeListEntries(options);
         if (bridgeResult)
-            return bridgeResult;
+            return {
+                success: bridgeResult.success,
+                total: bridgeResult.total,
+                error: bridgeResult.error,
+                entries: bridgeResult.entries.map((e) => ({
+                    id: e.id, key: e.key, namespace: e.namespace,
+                    size: typeof e.content === 'string' ? e.content.length : 0,
+                    accessCount: e.accessCount, createdAt: e.createdAt, updatedAt: e.updatedAt, hasEmbedding: e.hasEmbedding,
+                })),
+            };
     }
     // Fallback: raw sql.js
     const { namespace, limit = 20, offset = 0, dbPath: customPath } = options;
