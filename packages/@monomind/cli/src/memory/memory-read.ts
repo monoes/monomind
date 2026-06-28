@@ -232,7 +232,16 @@ export async function listEntries(options: {
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeListEntries(options);
-    if (bridgeResult) return bridgeResult;
+    if (bridgeResult) return {
+      success: bridgeResult.success,
+      total: bridgeResult.total,
+      error: bridgeResult.error,
+      entries: bridgeResult.entries.map((e: { id: string; key: string; namespace: string; content?: string; accessCount: number; createdAt: string; updatedAt: string; hasEmbedding: boolean }) => ({
+        id: e.id, key: e.key, namespace: e.namespace,
+        size: typeof e.content === 'string' ? e.content.length : 0,
+        accessCount: e.accessCount, createdAt: e.createdAt, updatedAt: e.updatedAt, hasEmbedding: e.hasEmbedding,
+      })),
+    };
   }
 
   // Fallback: raw sql.js

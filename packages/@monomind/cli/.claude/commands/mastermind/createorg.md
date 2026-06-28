@@ -37,7 +37,6 @@ Use orgs when the work is ongoing, not single-shot. A content team that ships 10
 `--list` — list all saved orgs with their status
 
 Once created, start the org with `/mastermind:runorg --org <name>`.
-To edit after creation: `/mastermind:updateorg --org <name> --goal "..." --schedule "..."`.
 For scheduled orgs: `runorg` activates the loop; `stoporg` stops it; `orgs` lists all.
 
 ---

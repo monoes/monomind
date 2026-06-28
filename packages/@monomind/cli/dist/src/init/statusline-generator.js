@@ -70,17 +70,22 @@ function getVersion() {
       }
     } catch { /* ignore */ }
   }
-  // 2. Fallback: npm global prefix
+  // 2. Fallback: npm global prefix (lib/node_modules on POSIX, node_modules on Windows)
   try {
     const { execSync } = require('child_process');
     const prefix = execSync('npm config get prefix', { encoding: 'utf-8', timeout: 2000 }).trim();
-    const globalPkgPath = path.join(prefix, 'lib', 'node_modules', 'monomind', 'package.json');
-    const globalPkgStat = safeStat(globalPkgPath);
-    if (!globalPkgStat || globalPkgStat.size > 1024 * 1024) throw new Error('too large');
-    const pkg = JSON.parse(fs.readFileSync(globalPkgPath, 'utf-8'));
-    if (pkg.version) return \`v\${pkg.version}\`;
+    const candidates = [
+      path.join(prefix, 'lib', 'node_modules', 'monomind', 'package.json'),
+      path.join(prefix, 'node_modules', 'monomind', 'package.json'),
+    ];
+    for (const globalPkgPath of candidates) {
+      const globalPkgStat = safeStat(globalPkgPath);
+      if (!globalPkgStat || globalPkgStat.size > 1024 * 1024) continue;
+      const pkg = JSON.parse(fs.readFileSync(globalPkgPath, 'utf-8'));
+      if (pkg.version) return \`v\${pkg.version}\`;
+    }
   } catch { /* ignore */ }
-  return 'v1.0.6';
+  return 'v?';
 }
 const VERSION = getVersion();
 
