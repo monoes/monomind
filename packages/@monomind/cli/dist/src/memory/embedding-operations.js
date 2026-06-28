@@ -76,25 +76,6 @@ export async function loadEmbeddingModel(options) {
                 loadTime: Date.now() - startTime
             };
         }
-        // Fallback: Check for agentic-flow ReasoningBank embeddings (v1)
-        const reasoningBank = await import('agentic-flow/reasoningbank').catch(() => null);
-        if (reasoningBank?.computeEmbedding) {
-            if (verbose) {
-                console.log('Loading agentic-flow ReasoningBank embedding model...');
-            }
-            embeddingModelState = {
-                loaded: true,
-                model: { embed: reasoningBank.computeEmbedding },
-                tokenizer: null,
-                dimensions: 768
-            };
-            return {
-                success: true,
-                dimensions: 768,
-                modelName: 'agentic-flow/reasoningbank',
-                loadTime: Date.now() - startTime
-            };
-        }
         // Fallback: Check for monovector ONNX embedder (bundled MiniLM-L6-v2 since v0.2.15)
         // v0.2.16: LoRA B=0 fix makes AdaptiveEmbedder safe (identity when untrained)
         // Note: isReady() returns false until first embed() call (lazy init), so we
@@ -108,7 +89,8 @@ export async function loadEmbeddingModel(options) {
                 if (onnxEmb?.embed) {
                     // Probe embed to trigger lazy ONNX init and verify it works
                     const probe = await onnxEmb.embed('test');
-                    if (probe && probe.length > 0 && (Array.isArray(probe) ? probe.some((v) => v !== 0) : true)) {
+                    const probeArr = ArrayBuffer.isView(probe) ? Array.from(probe) : (Array.isArray(probe) ? probe : []);
+                    if (probe && probe.length > 0 && probeArr.some((v) => v !== 0)) {
                         if (verbose) {
                             console.log(`Loading monovector ONNX embedder (all-MiniLM-L6-v2, ${probe.length}d)...`);
                         }
@@ -130,25 +112,6 @@ export async function loadEmbeddingModel(options) {
             catch {
                 // monovector ONNX init failed, continue to next fallback
             }
-        }
-        // Legacy fallback: Check for agentic-flow core embeddings
-        const agenticFlow = await import('agentic-flow').catch(() => null);
-        if (agenticFlow && agenticFlow.embeddings) {
-            if (verbose) {
-                console.log('Loading agentic-flow embedding model...');
-            }
-            embeddingModelState = {
-                loaded: true,
-                model: agenticFlow.embeddings,
-                tokenizer: null,
-                dimensions: 768
-            };
-            return {
-                success: true,
-                dimensions: 768,
-                modelName: 'agentic-flow',
-                loadTime: Date.now() - startTime
-            };
         }
         // No ONNX model available - use fallback
         embeddingModelState = {

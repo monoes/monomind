@@ -88,7 +88,7 @@ export class GuidanceProvider {
       '**Active Patterns**:',
       '- Use TDD London School (mock-first)',
       '- Event sourcing for state changes',
-      '- agentic-flow@alpha as core foundation',
+      '- LanceDB + HNSW as vector memory backend',
       '- Bounded contexts with clear interfaces',
       '',
       '**Code Quality Rules**:',

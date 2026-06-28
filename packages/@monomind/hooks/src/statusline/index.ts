@@ -482,12 +482,11 @@ export class StatuslineGenerator {
 
     try {
       const ps = execSync('ps aux 2>/dev/null || echo ""', { encoding: 'utf-8' });
-      const agenticCount = (ps.match(/agentic-flow/g) || []).length;
       const mcpCount = (ps.match(/mcp.*start/g) || []).length;
 
-      if (agenticCount > 0 || mcpCount > 0) {
+      if (mcpCount > 0) {
         coordinationActive = true;
-        activeAgents = Math.max(1, Math.floor(agenticCount / 2));
+        activeAgents = Math.max(1, mcpCount);
       }
     } catch {
       // Fall through to defaults
