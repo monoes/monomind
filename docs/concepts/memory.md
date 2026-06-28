@@ -18,6 +18,9 @@
 │  LanceDB (semantic)          Monograph (code graph)                 │
 │  .monomind/*.db              .monomind/monograph.db                 │
 │  HNSW vector index           SQLite + dependency graph              │
+│                                                                      │
+│  Hybrid mode (default): SQLite + LanceDB                            │
+│  Solo mode: LanceDB only (no SQLite)                                │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -90,15 +93,86 @@ Triples with `valid_from`/`valid_to` for bi-temporal queries:
 **Package:** `packages/@monomind/memory/`  
 **Default backend:** HybridBackend (SQLite + LanceDB per ADR-009)
 
+LanceDB is a first-class backend option. It uses LanceDB's columnar format, native IVF-PQ ANN search, SQL predicate push-down, and optional full-text search — all in one embedded Rust engine with no server process.
+
+**Peer dependencies (optional):**
+
+```bash
+npm install @lancedb/lancedb apache-arrow
+```
+
 ### Architecture
 
 ```
 UnifiedMemoryService
   └── TierManager
         ├── Tier 1: ShortTermMemory (in-memory LRU, capacity 500, current run only)
-        ├── Tier 2: SQLiteBackend (ACID, structured queries, exact matches)
+        ├── Tier 2: SQLiteBackend (ACID, structured queries, exact matches) [hybrid mode only]
         ├── Tier 3: LanceDBBackend (semantic/vector via HNSW)
         └── Tier 4: DiskAnnBackend (optional, large-scale ANN)
+```
+
+### Operation Modes
+
+#### Hybrid Mode (Default)
+
+The default mode runs SQLite alongside LanceDB. Structured queries (exact matches, prefix, tag filters) route to SQLite; semantic and vector queries route to LanceDB. Dual-write keeps both backends in sync.
+
+```
+HybridBackend
+  ├── SQLiteBackend  ← structured queries (exact/prefix/tag), ACID transactions
+  └── LanceDBBackend ← semantic/vector search (HNSW + IVF-PQ)
+```
+
+#### Solo LanceDB Mode (SQLite-free)
+
+When `semanticBackend` is set to `'lancedb'`, SQLiteBackend is never instantiated. Both the structured routing path and the semantic routing path point to the same `LanceDBBackend` instance. Dual-write is automatically disabled to prevent double-writes.
+
+This mode is useful when you want a single-file columnar store with no SQLite dependency, or when deploying to environments where SQLite is unavailable.
+
+```
+HybridBackend (solo mode)
+  └── LanceDBBackend ← all queries: structured + semantic + vector
+```
+
+**All routing paths (exact, prefix, tag, semantic, hybrid) transparently use LanceDB in solo mode.**
+
+### Configuration
+
+#### Environment variable
+
+```bash
+MONOMIND_MEMORY_BACKEND=lancedb
+```
+
+#### `monomind.config.json`
+
+```json
+{
+  "memory": {
+    "semanticBackend": "lancedb",
+    "lancedb": {
+      "dbPath": "./.monomind/lancedb"
+    }
+  }
+}
+```
+
+#### Programmatic API
+
+```typescript
+// Solo LanceDB mode — no SQLite
+const backend = new HybridBackend({
+  semanticBackend: 'lancedb',
+  lancedb: { dbPath: './.monomind/lancedb' },
+});
+
+// Hybrid mode (default) — SQLite + LanceDB
+const backend = new HybridBackend({
+  sqlite: { dbPath: './.monomind/memory.db' },
+  lancedb: { dbPath: './.monomind/lancedb' },
+  dualWrite: true,
+});
 ```
 
 ### HNSW Index
@@ -111,14 +185,54 @@ Pure-TypeScript Hierarchical Navigable Small World implementation:
 
 ### Backends
 
-| Backend | Use case |
-|---|---|
-| `SQLiteBackend` | ACID, exact matches, metadata filters |
-| `LanceDBBackend` | Semantic vector search via HNSW; wraps `lancedb@2.0.0-alpha.3.4` |
-| `HybridBackend` | Default: routes semantic → LanceDB, structured → SQLite; dual-write option |
-| `SqljsBackend` | sql.js WASM fallback (browser/edge) |
-| `PartitionedHNSW` | Timestamp-partitioned HNSW for temporally-local search |
-| `DiskAnnBackend` | Disk-resident ANN graph for large corpora (Tier 4) |
+| Backend | Use case | Mode |
+|---|---|---|
+| `SQLiteBackend` | ACID, exact matches, metadata filters | Hybrid only |
+| `LanceDBBackend` | Semantic vector search via HNSW + IVF-PQ; wraps `@lancedb/lancedb` | Both modes |
+| `HybridBackend` | Default: routes semantic → LanceDB, structured → SQLite; or solo LanceDB when `semanticBackend='lancedb'` | Configurable |
+| `SqljsBackend` | sql.js WASM fallback (browser/edge) | — |
+| `PartitionedHNSW` | Timestamp-partitioned HNSW for temporally-local search | — |
+| `DiskAnnBackend` | Disk-resident ANN graph for large corpora (Tier 4) | — |
+
+### LanceDB Backend Configuration
+
+```typescript
+interface LanceDBBackendConfig {
+  /** Directory for the Lance database files (default: ~/.monomind/lancedb) */
+  dbPath?: string;
+
+  /** Default namespace — also used as the table name (default: 'default') */
+  namespace?: string;
+
+  /** Vector dimension. Must match your embedding generator (default: 1536). */
+  vectorDimension?: number;
+
+  /** Embedding generator function */
+  embeddingGenerator?: EmbeddingGenerator;
+
+  /**
+   * Build a full-text search index on content + key columns.
+   * Requires at least one record in the table.
+   */
+  enableFts?: boolean;
+
+  /**
+   * IVF-PQ search probes (default: 20).
+   * Higher = better recall, slower. Only applies after IVF-PQ index is built
+   * (auto-triggered at 50k rows).
+   */
+  nProbes?: number;
+}
+```
+
+### LanceDB Implementation Notes
+
+The following behaviors are enforced in the current implementation:
+
+- **Phantom table prevention:** Read paths (`get`, `getByKey`, `query`, `search`) use `openExistingTable()`, which checks `db.tableNames()` before opening. A namespace table is never created as a side effect of a read.
+- **nProbes applied:** The `nProbes` config option is passed directly to `table.search().nprobes()` on every vector query, giving you control over recall vs. latency without code changes.
+- **Zero-embedding prevention on `update()`:** `update()` performs a read-then-write round-trip via `get()` + `store()`. The existing `embedding` field is preserved from the stored record through `fromRecord()`, so calling `update()` with a partial payload never zeroes out an entry's vector.
+- **Arrow upper bound fix:** Table creation uses a schema-inference placeholder row that is deleted immediately after the table is established, avoiding Arrow type inference issues with empty arrays.
 
 ### Memory Entry Schema
 
@@ -188,7 +302,7 @@ monomind memory import           # import from JSON
 
 **Package:** `packages/@monomind/monograph/`  
 **Database:** `.monomind/monograph.db` (SQLite)  
-**Tools:** 23 MCP tools (`mcp__monomind__monograph_*`)
+**Tools:** 43 MCP tools (`mcp__monomind__monograph_*`)
 
 ### What It Is
 
@@ -266,6 +380,7 @@ All memory persists across sessions in `.monomind/`:
 │   ├── auto-memory-store.json  ← intelligence patterns
 │   ├── ranked-context.json     ← pre-computed context rankings
 │   └── pending-insights.jsonl  ← unsaved edit events (cleared on consolidate)
+├── lancedb/                 ← LanceDB columnar files (solo or hybrid mode)
 └── monograph.db             ← code knowledge graph
 ```
 
