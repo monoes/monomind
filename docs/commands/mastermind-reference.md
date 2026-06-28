@@ -242,6 +242,31 @@ Switches from improvement mode to a full end-to-end feature delivery pipeline. I
 
 ---
 
+### `/mastermind:updateorg`
+
+**Purpose:** Edit a saved org's configuration after creation.
+
+| Option | Description |
+|---|---|
+| `--org <name>` | Org to update (required) |
+| `--goal "<text>"` | Replace the org's goal |
+| `--schedule "<interval>"` | Add/change loop schedule (e.g. `"every 30 minutes"`, `"daily"`) |
+| `--no-schedule` | Remove the loop schedule (converts to persistent daemon org) |
+| `--rename <new-name>` | Rename the org (renames JSON file and loop file) |
+| `--status <value>` | Set status: `active` \| `paused` \| `stopped` |
+| `--field <key> <value>` | Set any JSON field (raw jq value, strings need inner quotes) |
+| `--show` | Print current org config and exit |
+
+```
+/mastermind:updateorg --org research-pod --schedule "every 2 hours"
+/mastermind:updateorg --org content-team --goal "Ship 5 blog posts per week"
+/mastermind:updateorg --org old-name --rename new-name
+/mastermind:updateorg --org myorg --status paused
+/mastermind:updateorg --org myorg --show
+```
+
+---
+
 ### `/mastermind:runorg`
 
 **Purpose:** Run organization-level tasks and workflows.

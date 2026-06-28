@@ -1,6 +1,6 @@
 # CLI Reference
 
-> Complete reference for `monomind` (and `npx monomind@latest`) CLI commands. Version 1.10.54.
+> Complete reference for `monomind` (and `npx monomind@latest`) CLI commands. Version 1.15.7.
 
 **Usage:** `monomind <command> [subcommand] [options]`
 
@@ -29,9 +29,9 @@
 | `embeddings` | 4 | Vector embeddings |
 | `claims` | 4 | Claims-based authorization |
 | `doctor` | 1 | System diagnostics |
-| `monograph` | 8+ | Knowledge graph |
+| `monograph` | 43 | Knowledge graph |
 | `guidance` | — | Governance control plane |
-| `browse` | — | CDP browser automation |
+| `browse` | 55 | CDP browser automation |
 
 ---
 
@@ -95,7 +95,11 @@ monomind swarm stop
 ## `monomind memory`
 
 ```bash
-monomind memory init                    # initialize backend
+monomind memory init                    # initialize hybrid backend (default)
+monomind memory init -b lancedb         # initialize LanceDB-only backend (solo mode, no SQLite)
+monomind memory init -b sqlite          # initialize SQLite-only backend
+monomind memory init -b hybrid          # initialize hybrid backend explicitly
+monomind memory init --path ./data/memory.db --force   # reinitialize at custom path
 monomind memory store \
   --content "JWT: use RS256, refresh 7d" \
   --namespace "auth" \
@@ -118,6 +122,16 @@ monomind memory compress               # compress old entries
 monomind memory export --output memory.json
 monomind memory import --input memory.json
 ```
+
+**Backend options for `memory init`:**
+
+| Backend | Flag | Description |
+|---|---|---|
+| `hybrid` | `-b hybrid` | Default — SQLite (structured) + LanceDB (vector). Dual-write for consistency. |
+| `lancedb` | `-b lancedb` | Solo LanceDB mode — fully SQLite-free. LanceDB handles all structured and vector queries. Requires `@lancedb/lancedb` and `apache-arrow`. |
+| `sqlite` | `-b sqlite` | SQLite only. No vector search. |
+
+> **Solo LanceDB mode** (`-b lancedb`): when `semanticBackend='lancedb'` and no SQLite path is configured, a single LanceDB instance handles all reads and writes. This eliminates the SQLite dependency entirely and is recommended for pure vector-search workloads.
 
 ---
 
@@ -307,11 +321,17 @@ monomind claims list                    # list all active claims
 ## `monomind doctor`
 
 ```bash
-monomind doctor                         # run 16 parallel health checks
+monomind doctor                         # run parallel health checks
 monomind doctor --fix                   # auto-fix issues where possible
+monomind doctor --check gitignore       # check a specific component
+monomind doctor --check helpers         # check helper file drift
 ```
 
-Checks: Node.js ≥20, npm ≥9, git, config validity, daemon status, memory DB, API keys, MCP connectivity, disk space, TypeScript compilation.
+Checks: Node.js ≥20, npm ≥9, git, config validity, daemon status, memory DB, API keys, MCP connectivity, disk space, TypeScript compilation, gitignore coverage, helper file drift.
+
+**Gitignore coverage** (`gitignore`): verifies that all monomind runtime paths (sessions, logs, daemon.pid, `.db` files, etc.) are covered by `.gitignore`. Reports missing patterns and provides a one-line fix command.
+
+**Helper file drift** (`helpers`): compares `.claude/helpers/*.cjs` files in the project against the bundled versions shipped with the current CLI. Reports stale helpers and the fix command to re-run `monomind init`.
 
 ---
 
@@ -336,6 +356,8 @@ monomind monograph export --format graphml --output graph.graphml
 # formats: json, svg, graphml, cypher, html, markdown, SARIF
 ```
 
+43 MCP tools available — see the [Knowledge Graph section in CLAUDE.md](../../CLAUDE.md) for the full tool reference organized by category (core navigation, change impact, graph exploration, index lifecycle, snapshots, wiki & AI docs, multi-repo).
+
 ---
 
 ## `monomind guidance`
@@ -353,20 +375,141 @@ monomind guidance enforce               # enforce governance rules
 
 ## `monomind browse`
 
-CDP browser automation (no Playwright/Puppeteer required):
+Pure CDP browser automation via Chrome DevTools Protocol — no Playwright, Puppeteer, or external binary required. Provides a ref-based element model (`@e1`, `@e2`, ...) and token-efficient accessibility snapshots.
+
+55 subcommands covering: navigation, interaction, inspection, network interception, session state, mobile emulation, performance profiling, and recording.
 
 ```bash
+# Navigation
 npx monomind browse open https://app.example.com
-npx monomind browse snapshot -i          # interactive elements only
-npx monomind browse click @e1
-npx monomind browse fill @e2 "value"
-npx monomind browse press Enter
-npx monomind browse get text @e5
+npx monomind browse open https://app.example.com --headed   # visible window
+npx monomind browse navigate back|forward|reload
+
+# Snapshots & inspection
+npx monomind browse snapshot -i          # interactive elements only (93% token reduction)
+npx monomind browse snapshot --save baseline.txt
+npx monomind browse snapshot --diff baseline.txt
 npx monomind browse get url
+npx monomind browse get title
+npx monomind browse get text @e5
+npx monomind browse get value @e2
+npx monomind browse get attr @e3 href
+npx monomind browse get count ".item"
+npx monomind browse get box @e1
+npx monomind browse get styles @e1
+
+# Interaction
+npx monomind browse click @e1
+npx monomind browse click --x 400 --y 300   # click by coordinates
+npx monomind browse dblclick @e1
+npx monomind browse fill @e2 "value"
+npx monomind browse type @e2 "appended text"
+npx monomind browse press Enter
+npx monomind browse press "Control+a"
+npx monomind browse hover @e1
+npx monomind browse focus @e1
+npx monomind browse select @e1 "Option text"
+npx monomind browse check @e1
+npx monomind browse uncheck @e1
+npx monomind browse drag @e1 @e2
+npx monomind browse upload @e1 ./file.pdf
+npx monomind browse download @e1 ./output.pdf
+
+# State queries
+npx monomind browse isvisible @e1
+npx monomind browse isenabled @e1
+npx monomind browse ischecked @e1
+
+# Scrolling
+npx monomind browse scroll down 300
+npx monomind browse scroll up --selector ".sidebar"
+npx monomind browse scrollintoview @e1
+
+# Waiting
 npx monomind browse wait --text "Success"
-npx monomind browse errors               # check for JS errors
+npx monomind browse wait --url "**/dashboard"
+npx monomind browse wait --selector ".modal"
+npx monomind browse wait --ms 500
+npx monomind browse wait --download ./output.csv
+
+# Screenshots & recording
 npx monomind browse screenshot output.png
 npx monomind browse screenshot --full full-page.png
+npx monomind browse screenshot --annotate        # overlay @eN labels
+npx monomind browse pdf output.pdf
+npx monomind browse record start output.gif
+npx monomind browse record stop
+
+# Network interception & inspection
+npx monomind browse network route --pattern "**/*.json" --fulfill '{"ok":true}'
+npx monomind browse network capture start
+npx monomind browse network requests
+npx monomind browse errors               # check for JS errors
+
+# Browser configuration
+npx monomind browse set viewport 1280 720
+npx monomind browse set device "iPhone 14"
+npx monomind browse set geo 37.7749 -122.4194
+npx monomind browse set offline true
+npx monomind browse set media dark
+npx monomind browse set useragent "MyBot/1.0"
+
+# Session state
+npx monomind browse state save my-session
+npx monomind browse state load my-session
+npx monomind browse state list
+npx monomind browse state show
+npx monomind browse state clear
+npx monomind browse state rename old-name new-name
+npx monomind browse state clean --older-than 7
+
+# Tabs
+npx monomind browse tab new
+npx monomind browse tab list
+npx monomind browse tab switch <id>
+npx monomind browse tab close <id>
+
+# Frames
+npx monomind browse frame list
+npx monomind browse frame switch <id>
+
+# JavaScript evaluation
+npx monomind browse eval "document.title"
+npx monomind browse eval --stdin          # read expression from stdin
+
+# Storage
+npx monomind browse storage get localStorage key
+npx monomind browse storage set sessionStorage key value
+
+# Keyboard / touch
+npx monomind browse keyboard inserttext "hello"
+npx monomind browse keydown Shift
+npx monomind browse keyup Shift
+npx monomind browse tap @e1
+npx monomind browse swipe up 300
+
+# Performance & diagnostics
+npx monomind browse vitals              # Web Vitals (LCP, FID, CLS)
+npx monomind browse har start
+npx monomind browse har stop output.har
+npx monomind browse trace start
+npx monomind browse trace stop output.json
+npx monomind browse profiler start
+npx monomind browse profiler stop output.json
+npx monomind browse diff baseline.png   # visual diff
+
+# Misc
+npx monomind browse close               # close session
+npx monomind browse connect --port 9222 # connect to existing Chrome
+npx monomind browse find "Submit"       # find element by text
+npx monomind browse highlight @e1       # highlight element
+npx monomind browse resize 1440 900     # resize window
+npx monomind browse clipboard read
+npx monomind browse clipboard write "text"
+npx monomind browse dialog accept
+npx monomind browse dialog dismiss
+npx monomind browse cookies list
+npx monomind browse batch ./commands.txt  # run a batch of commands
 ```
 
 ---
