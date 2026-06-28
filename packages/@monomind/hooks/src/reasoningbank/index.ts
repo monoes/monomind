@@ -978,8 +978,6 @@ class RealEmbeddingService implements IEmbeddingService {
 class FallbackEmbeddingService implements IEmbeddingService {
   private dimensions: number;
   private cache: Map<string, Float32Array> = new Map();
-  // When true (e.g. during tests), skip the costly external agentic-flow call
-  // and go directly to the deterministic hash-based implementation.
   private readonly skipExternalCall: boolean;
 
   constructor(dimensions: number = 384, skipExternalCall = false) {
@@ -993,32 +991,11 @@ class FallbackEmbeddingService implements IEmbeddingService {
       return this.cache.get(cacheKey)!;
     }
 
-    // Skip the external npx call in mock/test mode — it times out (10 s) when
-    // agentic-flow is not installed, making every storePattern/searchPatterns
-    // call very slow.
     if (this.skipExternalCall) {
       return this.hashEmbed(text);
     }
 
-    // Try agentic-flow ONNX embeddings first
-    try {
-      const { execFileSync } = await import('child_process');
-      // Use execFileSync with shell: false to prevent command injection
-      // Pass text as argument array to avoid shell interpolation
-      const safeText = text.slice(0, 500).replace(/[\x00-\x1f]/g, ''); // Remove control chars
-      const result = execFileSync(
-        'npx',
-        ['agentic-flow@alpha', 'embeddings', 'generate', safeText, '--format', 'json'],
-        { encoding: 'utf-8', timeout: 10000, shell: false, stdio: ['pipe', 'pipe', 'pipe'] }
-      );
-      const parsed = JSON.parse(result);
-      const embedding = new Float32Array(parsed.embedding || parsed);
-      this.cache.set(cacheKey, embedding);
-      return embedding;
-    } catch {
-      // Fallback to hash-based embedding
-      return this.hashEmbed(text);
-    }
+    return this.hashEmbed(text);
   }
 
   private hashEmbed(text: string): Float32Array {

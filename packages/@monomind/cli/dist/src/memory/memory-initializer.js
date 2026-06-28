@@ -65,8 +65,6 @@ INSERT OR REPLACE INTO metadata (key, value) VALUES
 
 -- Create default vector index configuration
 -- Dimensions match BRIDGE_EMBEDDING_DIMS=384 (Xenova/all-MiniLM-L6-v2).
--- 768 was a legacy value from the agentic-flow era; 384 is the actual
--- embedding size used by memory-bridge.ts and LanceDB.
 INSERT OR IGNORE INTO vector_indexes (id, name, dimensions) VALUES
   ('default', 'default', 384),
   ('patterns', 'patterns', 384);
