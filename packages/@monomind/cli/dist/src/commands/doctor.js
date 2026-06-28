@@ -554,7 +554,6 @@ async function checkMonoesMemory() {
         return { name: 'Vector Memory', status: 'warn', message: 'Vector memory check failed' };
     }
 }
-// Check agentic-flow v1 integration (filesystem-based to avoid slow WASM/DB init)
 // Resolve the path to the bundled (npm-installed) copy of a helper file.
 // Walks up from this module's location to find the package root, then joins
 // the relative path. Returns null if not found.
@@ -637,49 +636,6 @@ async function checkHelpersFresh() {
     }
     catch (e) {
         return { name: 'Helper Files', status: 'warn', message: `check failed: ${e instanceof Error ? e.message : 'unknown'}` };
-    }
-}
-async function checkAgenticFlow() {
-    try {
-        // Walk common node_modules paths to find agentic-flow/package.json
-        const candidates = [
-            join(process.cwd(), 'node_modules', 'agentic-flow', 'package.json'),
-            join(process.cwd(), '..', 'node_modules', 'agentic-flow', 'package.json'),
-        ];
-        let pkgJsonPath = null;
-        for (const p of candidates) {
-            if (existsSync(p)) {
-                pkgJsonPath = p;
-                break;
-            }
-        }
-        if (!pkgJsonPath) {
-            return {
-                name: 'agentic-flow',
-                status: 'warn',
-                message: 'Not installed (optional — embeddings/routing will use fallbacks)',
-                fix: 'npm install agentic-flow@latest'
-            };
-        }
-        if (statSync(pkgJsonPath).size > MAX_DOCTOR_PKG_BYTES) {
-            return { name: 'agentic-flow', status: 'warn', message: 'package.json too large to parse' };
-        }
-        const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'));
-        const version = pkg.version || 'unknown';
-        const exports = pkg.exports || {};
-        const features = [
-            exports['./reasoningbank'] ? 'ReasoningBank' : null,
-            exports['./router'] ? 'Router' : null,
-            exports['./transport/quic'] ? 'QUIC' : null,
-        ].filter(Boolean);
-        return {
-            name: 'agentic-flow',
-            status: 'pass',
-            message: `v${version}${features.length ? ' (' + features.join(', ') + ')' : ' (installed)'}`
-        };
-    }
-    catch {
-        return { name: 'agentic-flow', status: 'warn', message: 'Check failed' };
     }
 }
 // Check @monoes native acceleration integration (sona/router/attention/learning-wasm)
@@ -880,7 +836,7 @@ export const doctorCommand = {
         {
             name: 'component',
             short: 'c',
-            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, agentic-flow, monoes, gates, gitignore)',
+            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore)',
             type: 'string'
         },
         {
@@ -926,7 +882,6 @@ export const doctorCommand = {
             checkMonographFreshness,
             checkMonoesMemory,
             checkHelpersFresh,
-            checkAgenticFlow,
             checkMonoesIntegration,
             checkGuidanceGates,
             checkGitignoreCoverage,
@@ -949,7 +904,6 @@ export const doctorCommand = {
             'graph-freshness': checkMonographFreshness,
             'memory-pkg': checkMonoesMemory,
             'helpers': checkHelpersFresh,
-            'agentic-flow': checkAgenticFlow,
             'monoes': checkMonoesIntegration,
             'gates': checkGuidanceGates,
             'gitignore': checkGitignoreCoverage,

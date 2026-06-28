@@ -329,7 +329,7 @@ Bash("npx @monomind/cli@latest hooks worker dispatch --trigger optimize")
 | `providers`   | 5           | AI providers (list, add, remove, test, configure)                             |
 | `plugins`     | 5           | Plugin management (list, install, uninstall, enable, disable)                 |
 | `deployment`  | 5           | Deployment management (deploy, rollback, status, environments, release)       |
-| `embeddings`  | 4           | Vector embeddings (embed, batch, search, init) - 75x faster with agentic-flow |
+| `embeddings`  | 4           | Vector embeddings (embed, batch, search, init) - 75x faster with monovector ONNX |
 | `claims`      | 4           | Claims-based authorization (check, grant, revoke, list)                       |
 | `migrate`     | 5           | V2 to V1 migration with rollback support                                      |
 | `doctor`      | 1           | System diagnostics with health checks                                         |
@@ -530,7 +530,7 @@ Features:
 - **Document chunking**: Configurable overlap and size
 - **Normalization**: L2, L1, min-max, z-score
 - **Hyperbolic embeddings**: Poincaré ball model for hierarchical data
-- **75x faster**: With agentic-flow ONNX integration
+- **75x faster**: With monovector ONNX integration
 
 ## 🐝 Hive-Mind Consensus
 

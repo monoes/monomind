@@ -1058,7 +1058,7 @@ export const statuslineCommand: Command = {
       try {
         const psCmd = isWindows
           ? 'tasklist /FI "IMAGENAME eq node.exe" 2>NUL | findstr /I /C:"node" >NUL && echo 1 || echo 0'
-          : 'ps aux 2>/dev/null | grep -c agentic-flow || echo "0"';
+          : 'ps aux 2>/dev/null | grep -c "mcp.*start" || echo "0"';
         const ps = execSync(psCmd, { encoding: 'utf-8' });
         const raw = parseInt(ps.trim());
         activeAgents = Math.max(0, isWindows ? raw : raw - 1);

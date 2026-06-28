@@ -19,18 +19,27 @@ import { join } from 'node:path';
 const MAX_NEURAL_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 const NEURAL_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-// Try to import real embeddings — agentic-flow v1 ReasoningBank when available,
-// otherwise the deterministic hash fallback below.
+// Embeddings via monovector ONNX when available; deterministic hash fallback otherwise.
 let realEmbeddings: { embed: (text: string) => Promise<number[]> } | null = null;
 let embeddingServiceName: string = 'none';
 try {
-  const rb = await import('agentic-flow/reasoningbank').catch(() => null);
-  if (rb?.computeEmbedding) {
-    realEmbeddings = { embed: async (text: string) => Array.from(await rb.computeEmbedding(text)) };
-    embeddingServiceName = 'agentic-flow/reasoningbank';
+  const monovector = await import('monovector').catch(() => null) as any;
+  if (monovector?.getOptimizedOnnxEmbedder) {
+    await monovector.initOnnxEmbedder?.();
+    const onnxEmb = monovector.getOptimizedOnnxEmbedder();
+    if (onnxEmb?.embed) {
+      const probe = await onnxEmb.embed('test');
+      const hasNonZero = ArrayBuffer.isView(probe) || Array.isArray(probe)
+        ? [...(probe as number[])].some((v: number) => v !== 0)
+        : false;
+      if (probe && probe.length > 0 && hasNonZero) {
+        realEmbeddings = { embed: async (text: string) => Array.from(await onnxEmb.embed(text)) };
+        embeddingServiceName = 'monovector/onnx';
+      }
+    }
   }
 } catch {
-  // No embedding provider available, will use fallback
+  // No ONNX embedding provider available, will use hash fallback
 }
 
 // Storage paths

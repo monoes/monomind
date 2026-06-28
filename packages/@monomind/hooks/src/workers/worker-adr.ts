@@ -17,7 +17,6 @@ export function createADRWorker(projectRoot: string): WorkerHandler {
     const dddDomains = ['agent-lifecycle', 'task-execution', 'memory-management', 'coordination'];
 
     const [
-      adr001Result,
       adr002Results,
       adr005Result,
       adr006Result,
@@ -25,18 +24,6 @@ export function createADRWorker(projectRoot: string): WorkerHandler {
       adr011Result,
       adr012Result,
     ] = await Promise.all([
-      // ADR-001: agentic-flow integration
-      fs.readFile(path.join(packagesPath, 'package.json'), 'utf-8')
-        .then(content => {
-          const pkg = safeJsonParse<Record<string, unknown>>(content);
-          return {
-            compliant: pkg.dependencies?.['agentic-flow'] !== undefined ||
-                       pkg.devDependencies?.['agentic-flow'] !== undefined,
-            reason: 'agentic-flow dependency',
-          };
-        })
-        .catch(() => ({ compliant: false, reason: 'Package not found' })),
-
       // ADR-002: DDD domains (parallel check)
       Promise.allSettled(
         dddDomains.map(d => fs.access(path.join(packagesPath, '@monomind', d)))
@@ -79,8 +66,6 @@ export function createADRWorker(projectRoot: string): WorkerHandler {
         })
         .catch(() => ({ compliant: false, reason: 'MCP index not readable' })),
     ]);
-
-    adrChecks['ADR-001'] = adr001Result;
 
     const dddCount = adr002Results.filter(r => r.status === 'fulfilled').length;
     adrChecks['ADR-002'] = {
