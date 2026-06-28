@@ -120,7 +120,8 @@ export async function loadEmbeddingModel(options?: {
         if (onnxEmb?.embed) {
           // Probe embed to trigger lazy ONNX init and verify it works
           const probe = await onnxEmb.embed('test');
-          if (probe && probe.length > 0 && (Array.isArray(probe) ? probe.some((v: number) => v !== 0) : true)) {
+          const probeArr: number[] = ArrayBuffer.isView(probe) ? Array.from(probe as unknown as ArrayLike<number>) : (Array.isArray(probe) ? probe : []);
+          if (probe && probe.length > 0 && probeArr.some((v: number) => v !== 0)) {
             if (verbose) {
               console.log(`Loading monovector ONNX embedder (all-MiniLM-L6-v2, ${probe.length}d)...`);
             }

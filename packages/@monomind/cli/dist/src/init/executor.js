@@ -757,9 +757,9 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
         if (!fs.existsSync(activityPath)) {
             const activity = {
                 timestamp: new Date().toISOString(),
-                processes: { agentic_flow: 0, mcp_server: 0, estimated_agents: 0 },
+                processes: { mcp_server: 0, estimated_agents: 0 },
                 swarm: { active: false, agent_count: 0, coordination_active: false },
-                integration: { agentic_flow_active: false, mcp_active: false },
+                integration: { mcp_active: false },
                 _initialized: true
             };
             atomicWriteFile(activityPath, JSON.stringify(activity, null, 2));
@@ -1582,7 +1582,6 @@ async function writeInitialMetrics(targetDir, options, result) {
         const activity = {
             timestamp: new Date().toISOString(),
             processes: {
-                agentic_flow: 0,
                 mcp_server: 0,
                 estimated_agents: 0
             },
@@ -1592,7 +1591,6 @@ async function writeInitialMetrics(targetDir, options, result) {
                 coordination_active: false
             },
             integration: {
-                agentic_flow_active: false,
                 mcp_active: false
             },
             _initialized: true
@@ -1977,7 +1975,6 @@ npx monomind@latest hive-mind consensus --propose "task"
 ### Integrated Packages
 | Package | Version | Purpose |
 |---------|---------|---------|
-| agentic-flow | 3.0.0-alpha.1 | Core coordination + ReasoningBank + Router |
 | @lancedb/lancedb | latest | Vector database (ANN search) |
 
 ### Optional Integrations
