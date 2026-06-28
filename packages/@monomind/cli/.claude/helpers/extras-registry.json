@@ -5136,37 +5136,6 @@
         "productivity",
         "efficiency"
       ]
-    },
-    {
-      "slug": "modernsale",
-      "name": "Modern Sale Advisor",
-      "description": "Modern B2B sales strategist for tech startup founders \u2014 applies the new sales playbook for crowded, skeptical, fast-moving markets. Signal-based prospecting, buyer-centric selling, PLG+sales hybrid motions, founder-to-sales-led transition, and multi-stakeholder deal strategy.",
-      "category": "sales",
-      "filePath": "../agents/sales/sales-modernsale.md",
-      "keywords": [
-        "modern",
-        "sale",
-        "sales",
-        "startup",
-        "founder",
-        "led",
-        "playbook",
-        "signal",
-        "based",
-        "prospecting",
-        "plg",
-        "product",
-        "hybrid",
-        "pls",
-        "buyer",
-        "saturation",
-        "icp",
-        "gtm",
-        "b2b",
-        "saas",
-        "deal",
-        "strategy"
-      ]
     }
   ]
 }
