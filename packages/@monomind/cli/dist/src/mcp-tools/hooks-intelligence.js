@@ -354,7 +354,7 @@ export const hooksPatternStore = {
         let reasoningResult = null;
         try {
             const bridge = await import('../memory/memory-bridge.js');
-            reasoningResult = await bridge.bridgeStorePattern({ pattern, type, confidence, metadata: metadata });
+            reasoningResult = await bridge.bridgeStorePattern({ pattern, taskType: type, confidence });
         }
         catch {
             // Bridge not available
@@ -379,20 +379,20 @@ export const hooksPatternStore = {
             }
         }
         const success = reasoningResult?.success || storeResult.success;
-        const controller = reasoningResult?.controller || (storeResult.success ? 'bridge-store' : 'none');
+        const controller = reasoningResult?.success ? 'lancedb' : (storeResult.success ? 'bridge-store' : 'none');
         return {
-            patternId: reasoningResult?.patternId || storeResult.id || patternId,
+            patternId: reasoningResult?.id || storeResult.id || patternId,
             pattern,
             type,
             confidence,
             indexed: success,
-            hnswIndexed: success && (!!storeResult.embedding || controller === 'reasoningBank'),
+            hnswIndexed: success && (!!storeResult.embedding || controller === 'lancedb'),
             embedding: storeResult.embedding,
             timestamp,
             controller,
-            implementation: controller === 'reasoningBank' ? 'reasoning-bank-controller' : (storeResult.success ? 'real-hnsw-indexed' : 'memory-only'),
-            note: controller === 'reasoningBank'
-                ? 'Pattern stored via ReasoningBank controller with HNSW indexing'
+            implementation: controller === 'lancedb' ? 'lancedb-controller' : (storeResult.success ? 'real-hnsw-indexed' : 'memory-only'),
+            note: controller === 'lancedb'
+                ? 'Pattern stored via lancedb bridge with HNSW indexing'
                 : (storeResult.success ? 'Pattern stored with vector embedding for semantic search' : (storeResult.error || 'Store function unavailable')),
         };
     },
@@ -428,20 +428,22 @@ export const hooksPatternSearch = {
         // Phase 3: Try ReasoningBank search via bridge first
         try {
             const bridge = await import('../memory/memory-bridge.js');
-            const rbResult = await bridge.bridgeSearchPatterns({ query, topK, minConfidence });
-            if (rbResult && rbResult.results.length > 0) {
+            const rbResult = await bridge.bridgeSearchPatterns({ query, limit: topK });
+            if (rbResult && rbResult.patterns.length > 0) {
                 return {
                     query,
-                    results: rbResult.results.map(r => ({
+                    results: rbResult.patterns
+                        .filter((r) => r.score >= minConfidence)
+                        .map((r) => ({
                         patternId: r.id,
-                        pattern: r.content,
+                        pattern: r.pattern,
                         similarity: r.score,
                         confidence: r.score,
                         namespace,
                     })),
                     searchTimeMs: 0,
-                    backend: rbResult.controller,
-                    note: `Results from ${rbResult.controller} controller`,
+                    backend: 'lancedb',
+                    note: 'Results from lancedb bridge',
                 };
             }
         }

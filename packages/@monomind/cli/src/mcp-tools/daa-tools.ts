@@ -252,10 +252,11 @@ export const daaTools: MCPTool[] = [
       try {
         const bridge = await import('../memory/memory-bridge.js');
         await bridge.bridgeRecordFeedback({
-          taskId: `adapt-${agentId}-${agent.metrics.adaptations}`,
-          success: performanceScore >= 0.5,
-          quality: performanceScore,
-          agent: agentId,
+          taskType: agentId,
+          action: `adapt-${agentId}-${agent.metrics.adaptations}`,
+          outcome: performanceScore >= 0.5 ? 'success' : 'failure',
+          confidence: performanceScore,
+          metadata: { agentId, adaptations: agent.metrics.adaptations },
         });
         _storedIn = 'lancedb';
       } catch { /* memory backend unavailable */ }

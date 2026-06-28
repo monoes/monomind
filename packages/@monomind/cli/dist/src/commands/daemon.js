@@ -213,7 +213,11 @@ async function startBackgroundDaemon(projectRoot, quiet, maxCpuLoad, minFreeMemo
     const __dirname = dirname(__filename);
     // dist/src/commands -> dist/src -> dist -> package root -> bin/cli.js
     const cliPath = resolve(join(__dirname, '..', '..', '..', 'bin', 'cli.js'));
-    validatePath(cliPath, 'CLI path');
+    // monolean: CLI may be in global npm install (different drive on Windows) — only
+    // check for injection, not directory containment
+    if (cliPath.includes('\0') || /[;&|`$<>]/.test(cliPath)) {
+        throw new Error('CLI path contains invalid characters');
+    }
     // Verify CLI path exists
     if (!fs.existsSync(cliPath)) {
         output.printError(`CLI not found at: ${cliPath}`);

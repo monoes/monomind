@@ -249,7 +249,6 @@ bossRole           = rootRoles[0]
 bossRole_id        = bossRole.id
 bossRole_title     = bossRole.title
 bossRole_agent_type = bossRole.agent_type
-bossRole_context   = bossRole.agent_context || null   // org-specific customization from createorg Step 2.4
 directReports      = orgConfig.roles.filter(r => r.reports_to === bossRole.id)
 runId              = new Date().toISOString()
 ```
@@ -356,7 +355,7 @@ Task({
   subagent_type: bossRole.agent_type,
   description: `You are the ${bossRole.title} of org "${orgName}". You run persistently until stopped.`,
   run_in_background: true,
-  prompt: `${bossRole_context ? `CONTEXT FOR THIS ROLE:\n${bossRole_context}\n\n` : ''}You are the ${bossRole.title} of the autonomous organization "${orgName}".
+  prompt: `You are the ${bossRole.title} of the autonomous organization "${orgName}".
 
 ORG GOAL: ${goal}
 
@@ -372,7 +371,7 @@ ${(orgConfig.communication || orgConfig.edges || []).map(e => `${e.from} → ${e
 SHARED INFRASTRUCTURE:
 - Task board (monotask): board_id=<board_id>
   Columns: Todo=<todo_col>  Doing=<doing_col>  Done=<done_col>
-- Memory namespace: <memNs> (pre-seeded with org context + per-role briefs — read at startup: `npx monomind@latest memory search --query "org context" --namespace <memNs>`; store findings: `npx monomind@latest memory store --key "<key>" --value "<val>" --namespace <memNs>`)
+- Memory namespace: <memNs> (use: npx monomind@latest memory store/search --namespace <memNs>)
 - Dashboard events: POST to mastermind control server via curl — see CTRL_URL resolution in DASHBOARD EVENTS section below
 - Session ID for all events: ${sessionId}
 
@@ -571,10 +570,8 @@ OPERATING LOOP:
 
 AGENT TYPES FOR YOUR TEAM:
 ${orgConfig.roles.filter(r => r.id !== bossRole.id).map(r =>
-  `• ${r.title}: subagent_type="${r.agent_type}"${r.agent_context ? `\n  Context: ${r.agent_context}` : ''}`
+  `• ${r.title}: subagent_type="${r.agent_type}"`
 ).join('\n')}
-
-IMPORTANT — When spawning a team member who has a "Context:" line above, prepend that context to their Task prompt before the core instructions. This is their org-specific customization — it scopes a general-purpose agent to this org's needs.
 
 START NOW: resolve CTRL_URL, check for stop signal, assess the board, create initial tasks if none exist, then begin the operating loop.`
 })
