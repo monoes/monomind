@@ -204,7 +204,11 @@ async function checkMcpServers(): Promise<HealthCheck> {
   const mcpConfigPaths = [
     join(homedir(), '.claude/claude_desktop_config.json'),
     join(homedir(), '.config/claude/mcp.json'),
-    '.mcp.json'
+    '.mcp.json',
+    // Claude Code local/project scope stores MCP servers in settings files
+    '.claude/settings.json',
+    '.claude/settings.local.json',
+    join(homedir(), '.claude/settings.json'),
   ];
 
   for (const configPath of mcpConfigPaths) {
