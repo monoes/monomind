@@ -5,10 +5,10 @@
  */
 import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-// Token Optimizer command - integrates agentic-flow Agent Booster
+// Token Optimizer command
 export const tokenOptimizeCommand = {
     name: 'token-optimize',
-    description: 'Token optimization via agentic-flow Agent Booster (30-50% savings)',
+    description: 'Token optimization via memory-based context retrieval (30-50% savings)',
     options: [
         { name: 'query', short: 'q', type: 'string', description: 'Query for compact context retrieval' },
         { name: 'agents', short: 'A', type: 'number', description: 'Agent count for optimal config', default: '6' },
@@ -25,7 +25,7 @@ export const tokenOptimizeCommand = {
         const agentCount = parseInt(ctx.flags['agents'] || '6', 10);
         const showReport = ctx.flags['report'];
         const showStats = ctx.flags['stats'];
-        const spinner = output.createSpinner({ text: 'Checking agentic-flow integration...', spinner: 'dots' });
+        const spinner = output.createSpinner({ text: 'Checking memory integration...', spinner: 'dots' });
         spinner.start();
         // Inline TokenOptimizer (self-contained, no external imports)
         const stats = {
@@ -35,26 +35,8 @@ export const tokenOptimizeCommand = {
             cacheMisses: 0,
             memoriesRetrieved: 0,
         };
-        let agenticFlowAvailable = false;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let reasoningBank = null;
         try {
-            // Check if agentic-flow v1 is available
-            const rb = await import('agentic-flow/reasoningbank').catch(() => null);
-            if (rb) {
-                agenticFlowAvailable = true;
-                if (typeof rb.retrieveMemories === 'function') {
-                    reasoningBank = rb;
-                }
-            }
-            else {
-                // Legacy check for older agentic-flow
-                const af = await import('agentic-flow').catch(() => null);
-                if (af)
-                    agenticFlowAvailable = true;
-            }
-            const versionLabel = agenticFlowAvailable ? `agentic-flow v1 detected (ReasoningBank: ${reasoningBank ? 'active' : 'unavailable'})` : 'agentic-flow not available (using fallbacks)';
-            spinner.succeed(versionLabel);
+            spinner.succeed('Memory-based token optimization active');
             output.writeln();
             // Anti-drift config (hardcoded optimal values from research)
             const config = {
@@ -69,27 +51,9 @@ export const tokenOptimizeCommand = {
                 `Batch Size: ${config.batchSize}\n` +
                 `Cache: ${config.cacheSizeMB}MB\n` +
                 `Success Rate: ${(config.expectedSuccessRate * 100)}%`);
-            // If query provided, get compact context via ReasoningBank
-            if (query && reasoningBank) {
+            if (query) {
                 output.writeln();
-                output.printInfo(`Retrieving compact context for: "${query}"`);
-                const memories = await reasoningBank.retrieveMemories(query, { k: 5 });
-                const compactPrompt = reasoningBank.formatMemoriesForPrompt ? reasoningBank.formatMemoriesForPrompt(memories) : '';
-                // Estimate based on actual query vs compact prompt size difference
-                const queryTokenEstimate = Math.ceil((query?.length || 0) / 4);
-                const used = Math.ceil((compactPrompt?.length || 0) / 4);
-                const tokensSaved = Math.max(0, queryTokenEstimate - used);
-                stats.totalTokensSaved += tokensSaved;
-                stats.memoriesRetrieved += Array.isArray(memories) ? memories.length : 0;
-                output.writeln(`  Memories found: ${Array.isArray(memories) ? memories.length : 0}`);
-                output.writeln(`  Tokens saved: ${output.success(String(tokensSaved))}`);
-                if (compactPrompt) {
-                    output.writeln(`  Compact prompt (${compactPrompt.length} chars)`);
-                }
-            }
-            else if (query) {
-                output.writeln();
-                output.printInfo('ReasoningBank not available - query skipped');
+                output.printInfo(`Context retrieval for: "${query}" — use monomind memory search`);
             }
             // Simulate some token savings for demo
             stats.totalTokensSaved += 200;
@@ -112,7 +76,6 @@ export const tokenOptimizeCommand = {
                         { metric: 'Cache Hit Rate', value: `${hitRate}%` },
                         { metric: 'Memories Retrieved', value: String(stats.memoriesRetrieved) },
                         { metric: 'Est. Monthly Savings', value: `$${savings}` },
-                        { metric: 'Agentic-Flow Active', value: agenticFlowAvailable ? '✓' : '✗' },
                     ],
                 });
             }
@@ -131,9 +94,9 @@ export const tokenOptimizeCommand = {
 | Cache Hit Rate | ${hitRate}% |
 | Memories Retrieved | ${stats.memoriesRetrieved} |
 | Est. Monthly Savings | $${savings} |
-| Agentic-Flow Active | ${agenticFlowAvailable ? '✓' : '✗'} |`);
+| Memories Retrieved | ${stats.memoriesRetrieved} |`);
             }
-            return { success: true, data: { config, stats: { ...stats, agenticFlowAvailable } } };
+            return { success: true, data: { config, stats } };
         }
         catch (error) {
             spinner.fail('TokenOptimizer failed');

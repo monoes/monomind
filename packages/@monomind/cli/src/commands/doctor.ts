@@ -562,7 +562,6 @@ async function checkMonoesMemory(): Promise<HealthCheck> {
   }
 }
 
-// Check agentic-flow v1 integration (filesystem-based to avoid slow WASM/DB init)
 // Resolve the path to the bundled (npm-installed) copy of a helper file.
 // Walks up from this module's location to find the package root, then joins
 // the relative path. Returns null if not found.
@@ -636,45 +635,6 @@ async function checkHelpersFresh(): Promise<HealthCheck> {
   }
 }
 
-async function checkAgenticFlow(): Promise<HealthCheck> {
-  try {
-    // Walk common node_modules paths to find agentic-flow/package.json
-    const candidates = [
-      join(process.cwd(), 'node_modules', 'agentic-flow', 'package.json'),
-      join(process.cwd(), '..', 'node_modules', 'agentic-flow', 'package.json'),
-    ];
-    let pkgJsonPath: string | null = null;
-    for (const p of candidates) {
-      if (existsSync(p)) { pkgJsonPath = p; break; }
-    }
-    if (!pkgJsonPath) {
-      return {
-        name: 'agentic-flow',
-        status: 'warn',
-        message: 'Not installed (optional — embeddings/routing will use fallbacks)',
-        fix: 'npm install agentic-flow@latest'
-      };
-    }
-    if (statSync(pkgJsonPath).size > MAX_DOCTOR_PKG_BYTES) {
-      return { name: 'agentic-flow', status: 'warn', message: 'package.json too large to parse' };
-    }
-    const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'));
-    const version = pkg.version || 'unknown';
-    const exports = pkg.exports || {};
-    const features = [
-      exports['./reasoningbank'] ? 'ReasoningBank' : null,
-      exports['./router'] ? 'Router' : null,
-      exports['./transport/quic'] ? 'QUIC' : null,
-    ].filter(Boolean);
-    return {
-      name: 'agentic-flow',
-      status: 'pass',
-      message: `v${version}${features.length ? ' (' + features.join(', ') + ')' : ' (installed)'}`
-    };
-  } catch {
-    return { name: 'agentic-flow', status: 'warn', message: 'Check failed' };
-  }
-}
 
 // Check @monoes native acceleration integration (sona/router/attention/learning-wasm)
 // Format a 0..1 accuracy as a whole-percent string, or 'n/a' when null.
@@ -894,7 +854,7 @@ export const doctorCommand: Command = {
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, agentic-flow, monoes, gates, gitignore)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore)',
       type: 'string'
     },
     {
@@ -942,7 +902,6 @@ export const doctorCommand: Command = {
       checkMonographFreshness,
       checkMonoesMemory,
       checkHelpersFresh,
-      checkAgenticFlow,
       checkMonoesIntegration,
       checkGuidanceGates,
       checkGitignoreCoverage,
@@ -966,7 +925,6 @@ export const doctorCommand: Command = {
       'graph-freshness': checkMonographFreshness,
       'memory-pkg': checkMonoesMemory,
       'helpers': checkHelpersFresh,
-      'agentic-flow': checkAgenticFlow,
       'monoes': checkMonoesIntegration,
       'gates': checkGuidanceGates,
       'gitignore': checkGitignoreCoverage,
