@@ -4,8 +4,8 @@
  * V2 Compatibility - Neural network and ML tools
  *
  * ✅ HYBRID Implementation:
- * - Uses agentic-flow/reasoningbank for REAL ML embeddings when available
- * - Falls back to deterministic hash-based embeddings when ML model not installed
+ * - Uses monovector ONNX embeddings when available
+ * - Falls back to deterministic hash-based embeddings otherwise
  * - Pattern storage and search with cosine similarity (real math in all tiers)
  * - Training stores patterns as searchable embeddings (not simulated)
  *
@@ -16,19 +16,28 @@ import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSyn
 import { join } from 'node:path';
 const MAX_NEURAL_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 const NEURAL_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-// Try to import real embeddings — agentic-flow v1 ReasoningBank when available,
-// otherwise the deterministic hash fallback below.
+// Embeddings via monovector ONNX when available; deterministic hash fallback otherwise.
 let realEmbeddings = null;
 let embeddingServiceName = 'none';
 try {
-    const rb = await import('agentic-flow/reasoningbank').catch(() => null);
-    if (rb?.computeEmbedding) {
-        realEmbeddings = { embed: async (text) => Array.from(await rb.computeEmbedding(text)) };
-        embeddingServiceName = 'agentic-flow/reasoningbank';
+    const monovector = await import('monovector').catch(() => null);
+    if (monovector?.getOptimizedOnnxEmbedder) {
+        await monovector.initOnnxEmbedder?.();
+        const onnxEmb = monovector.getOptimizedOnnxEmbedder();
+        if (onnxEmb?.embed) {
+            const probe = await onnxEmb.embed('test');
+            const hasNonZero = ArrayBuffer.isView(probe) || Array.isArray(probe)
+                ? [...probe].some((v) => v !== 0)
+                : false;
+            if (probe && probe.length > 0 && hasNonZero) {
+                realEmbeddings = { embed: async (text) => Array.from(await onnxEmb.embed(text)) };
+                embeddingServiceName = 'monovector/onnx';
+            }
+        }
     }
 }
 catch {
-    // No embedding provider available, will use fallback
+    // No ONNX embedding provider available, will use hash fallback
 }
 // Storage paths
 const STORAGE_DIR = '.monomind';
