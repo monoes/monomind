@@ -173,7 +173,7 @@ const IS_WINDOWS = process.platform === 'win32';
  */
 function hookCmd(script: string, subcommand: string): string {
   if (IS_WINDOWS) {
-    return `cmd /c node %CLAUDE_PROJECT_DIR%/${script} ${subcommand}`.trim();
+    return `cmd /c node "%CLAUDE_PROJECT_DIR%/${script}" ${subcommand}`.trim();
   }
   // Use sh -c to ensure $CLAUDE_PROJECT_DIR is expanded by a real shell,
   // even if Claude Code doesn't invoke hooks through a shell on macOS.
@@ -197,14 +197,14 @@ function captureHandlerCmd(subcommand: string): string {
   // capture-handler does not use sh -c wrapper — it reads stdin directly
   const dir = IS_WINDOWS ? '%CLAUDE_PROJECT_DIR%' : '${CLAUDE_PROJECT_DIR:-.}';
   return IS_WINDOWS
-    ? `node ${dir}/.claude/helpers/handlers/capture-handler.cjs ${subcommand}`
+    ? `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`
     : `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
 }
 
 /** Shorthand for standalone CJS helper scripts (no subcommand) */
 function standaloneHelperCmd(script: string): string {
   if (IS_WINDOWS) {
-    return `cmd /c node %CLAUDE_PROJECT_DIR%/.claude/helpers/${script}`;
+    return `cmd /c node "%CLAUDE_PROJECT_DIR%/.claude/helpers/${script}"`;
   }
   // eslint-disable-next-line no-template-curly-in-string
   const dir = '${CLAUDE_PROJECT_DIR:-.}';

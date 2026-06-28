@@ -402,7 +402,7 @@ export async function deleteEntry(options: {
       if (bridgeResult.deleted) {
         rebuildSearchIndex();
       }
-      return bridgeResult;
+      return { ...bridgeResult, key: options.key, namespace: options.namespace ?? 'default', remainingEntries: 0 };
     }
   }
 
