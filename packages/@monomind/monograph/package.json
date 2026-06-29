@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monograph",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "type": "module",
   "description": "Native TypeScript code intelligence engine for monomind",
   "main": "dist/src/index.js",
