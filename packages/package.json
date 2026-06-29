@@ -55,11 +55,14 @@
   },
   "pnpm": {
     "neverBuiltDependencies": ["sharp"],
-    "overrides": {},
+    "overrides": {
+      "handlebars": ">=4.7.9"
+    },
     "peerDependencyRules": {
       "ignoreMissing": [
         "@monoes/*",
-        "@anthropic-ai/claude-code"
+        "@anthropic-ai/claude-code",
+        "lancedb"
       ]
     }
   }
