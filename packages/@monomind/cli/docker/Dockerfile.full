@@ -1,5 +1,4 @@
 # Monomind v1.5 — Full Image (includes optional dependencies)
-# Use this when you need agentic-flow, RuVector, ONNX, or embeddings.
 #
 # Build:
 #   docker build -t monomind:full -f v1/@monomind/cli/docker/Dockerfile.full .
@@ -15,7 +14,6 @@ RUN apk add --no-cache git python3 make g++
 
 WORKDIR /install
 
-# Full install — includes optional deps (agentic-flow, ruvector, etc.)
 RUN npm install -g monomind@latest \
       --no-audit \
       --no-fund \

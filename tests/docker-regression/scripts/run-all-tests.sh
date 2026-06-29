@@ -166,17 +166,6 @@ else
 fi
 
 # ============================================================================
-# TEST CATEGORY 6: RUVECTOR PLUGINS
-# ============================================================================
-echo ""
-echo -e "${CYAN}▶ CATEGORY 6: RUVECTOR PLUGINS${NC}"
-
-if bash "${SCRIPT_DIR}/test-plugins.sh"; then
-    record_result "RuVector Plugins" "passed" "0" ""
-else
-    record_result "RuVector Plugins" "failed" "0" ""
-fi
-
 # ============================================================================
 # TEST CATEGORY 7: SECURITY FEATURES
 # ============================================================================

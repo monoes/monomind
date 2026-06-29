@@ -38,8 +38,6 @@ RUN npm install -g monomind@latest \
 #   @anthropic-ai: 72MB (SDK, only needed when calling API directly)
 #   @xenova: 45MB (transformers.js, not needed for CLI)
 #   lancedb: 37MB (optional memory backend)
-#   @ruvector: 28MB (optional neural patterns)
-#   ruvector: 9MB (optional intelligence)
 #   onnx-proto: 22MB (protobuf for ONNX)
 #   tiktoken: 23MB (token counting, optional)
 #   @img: 16MB (image processing, not needed)
@@ -55,8 +53,6 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
       "${CLI_NM}/@anthropic-ai" \
       "${CLI_NM}/@xenova" \
       "${CLI_NM}/lancedb" \
-      "${CLI_NM}/@ruvector" \
-      "${CLI_NM}/ruvector" \
       "${CLI_NM}/tiktoken" \
       "${CLI_NM}/@img" \
       "${CLI_NM}/better-sqlite3" \
@@ -70,11 +66,8 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
     && NESTED="${CLI_NM}/@monomind/cli/node_modules" \
     && rm -rf \
       "${NESTED}/agentic-flow" \
-      "${NESTED}/@ruvector" \
       "${NESTED}/lancedb" \
     && rm -rf \
-      "${CLI_NM}/ruvector-onnx-embeddings-wasm" \
-      "${CLI_NM}/ruvector-core-linux-x64-gnu" \
       "${CLI_NM}/@monomind/neural" \
       "${CLI_NM}/@grpc" \
       "${CLI_NM}/gun"
