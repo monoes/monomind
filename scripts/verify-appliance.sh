@@ -403,24 +403,20 @@ if should_run "integration"; then
   check "integration: cleanup" $MONOMIND_CMD memory delete --key "int-verify" --namespace integration
 fi
 
-# ── 26. RVF Format Verification ───────────────────────────────
-if should_run "rvf"; then
-  section 26 "RVF Format Verification"
-  RVF_DIR="/tmp/monomind-rvf-verify-$$"
-  mkdir -p "$RVF_DIR"
+# ── 26. Memory Backend Verification ───────────────────────────
+if should_run "memory-backend"; then
+  section 26 "Memory Backend Verification"
 
-  # Test RVF backend by writing and reading data
-  check "rvf: memory init creates backend" $MONOMIND_CMD memory init --force
-  check "rvf: store creates data file" $MONOMIND_CMD memory store --key "rvf-test" --value "RVF binary format verification" --namespace rvf-verify
-  check_contains "rvf: retrieve confirms persistence" "RVF binary" $MONOMIND_CMD memory retrieve --key "rvf-test" --namespace rvf-verify
-  check "rvf: multiple entries" sh -c "$MONOMIND_CMD memory store --key 'rvf-2' --value 'Second entry' --namespace rvf-verify && $MONOMIND_CMD memory store --key 'rvf-3' --value 'Third entry' --namespace rvf-verify"
-  check_contains "rvf: list shows entries" "3" $MONOMIND_CMD memory list --namespace rvf-verify
-  check "rvf: delete works" $MONOMIND_CMD memory delete --key "rvf-test" --namespace rvf-verify
-  check_contains "rvf: list after delete" "2" $MONOMIND_CMD memory list --namespace rvf-verify
+  check "memory-backend: init creates backend" $MONOMIND_CMD memory init --force
+  check "memory-backend: store creates data file" $MONOMIND_CMD memory store --key "mem-test" --value "Memory backend verification" --namespace mem-verify
+  check_contains "memory-backend: retrieve confirms persistence" "Memory backend" $MONOMIND_CMD memory retrieve --key "mem-test" --namespace mem-verify
+  check "memory-backend: multiple entries" sh -c "$MONOMIND_CMD memory store --key 'mem-2' --value 'Second entry' --namespace mem-verify && $MONOMIND_CMD memory store --key 'mem-3' --value 'Third entry' --namespace mem-verify"
+  check_contains "memory-backend: list shows entries" "3" $MONOMIND_CMD memory list --namespace mem-verify
+  check "memory-backend: delete works" $MONOMIND_CMD memory delete --key "mem-test" --namespace mem-verify
+  check_contains "memory-backend: list after delete" "2" $MONOMIND_CMD memory list --namespace mem-verify
   # Cleanup
-  $MONOMIND_CMD memory delete --key "rvf-2" --namespace rvf-verify >/dev/null 2>&1 || true
-  $MONOMIND_CMD memory delete --key "rvf-3" --namespace rvf-verify >/dev/null 2>&1 || true
-  rm -rf "$RVF_DIR"
+  $MONOMIND_CMD memory delete --key "mem-2" --namespace mem-verify >/dev/null 2>&1 || true
+  $MONOMIND_CMD memory delete --key "mem-3" --namespace mem-verify >/dev/null 2>&1 || true
 fi
 
 # Section 27 (local model inference) was removed — native LLM module not in lean build
