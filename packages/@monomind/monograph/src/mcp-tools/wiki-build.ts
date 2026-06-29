@@ -25,11 +25,6 @@ export async function runWikiBuildTool(
   db: MonographDb,
   input: WikiBuildToolInput,
 ): Promise<WikiBuildToolResult> {
-  const apiKey = process.env['ANTHROPIC_API_KEY'];
-  if (!apiKey && !input.llmClient) {
-    return { error: 'ANTHROPIC_API_KEY not set' };
-  }
-
   const opts: GenerateAllWikiPagesOptions = {
     force: input.force ?? false,
     model: input.model,
