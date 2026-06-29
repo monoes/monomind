@@ -58,8 +58,8 @@ feat(port): <description> (from <source-module>)
 
 Examples:
 ```
-feat(port): add EventBus with typed subscribers (from ruv-swarm/event-system)
-feat(port): add PluginLoader with lazy resolution (from ruv-swarm/plugins)
+feat(port): add EventBus with typed subscribers (from upstream/event-system)
+feat(port): add PluginLoader with lazy resolution (from upstream/plugins)
 test(port): add EventBus behavioral contract tests
 ```
 

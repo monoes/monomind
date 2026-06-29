@@ -634,7 +634,7 @@ Run `npx @monomind/cli@latest doctor` to check:
 ```bash
 # Add MCP servers (auto-detects MCP mode when stdin is piped)
 claude mcp add monomind -- npx -y @monomind/cli@latest
-claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start  # Optional
+
 
 # Start daemon
 npx @monomind/cli@latest daemon start

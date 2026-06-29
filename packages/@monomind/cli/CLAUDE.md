@@ -640,7 +640,7 @@ Run `npx monomind@latest doctor` to check:
 ```bash
 # Add MCP servers (requires explicit `mcp start` subcommand)
 claude mcp add monomind -- npx -y monomind@latest mcp start
-claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start  # Optional
+
 
 # Start daemon
 npx monomind@latest daemon start
@@ -729,7 +729,7 @@ This includes:
 - All 27 hooks + 12 background workers
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
-- Integration ecosystem (agentic-flow, lancedb, ruv-swarm,  agentic-jujutsu)
+- Integration ecosystem (agentic-flow, lancedb,agentic-jujutsu)
 - Performance targets and status
 
 ## Support
