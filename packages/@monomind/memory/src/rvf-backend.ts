@@ -378,17 +378,13 @@ export class RvfBackend implements IMemoryBackend {
     const recommendations: string[] = [];
 
     if (!this.initialized) issues.push('Backend not initialized');
-    if (!this.nativeDb) {
-      recommendations.push('Running in pure-TS HnswLite fallback — @monoes/rvf not installed');
-    }
-
     const status = issues.length === 0
       ? 'healthy'
       : issues.some(i => i.includes('not initialized')) ? 'unhealthy' : 'degraded';
 
     return {
       status,
-      mode: this.nativeDb ? 'native-rvf' : 'pure-ts-fallback',
+      mode: 'pure-ts-fallback',
       components: {
         storage: { status: this.initialized ? 'healthy' : 'unhealthy', latency: 0 },
         index: { status: this.initialized ? 'healthy' : 'degraded', latency: 0 },
@@ -401,7 +397,6 @@ export class RvfBackend implements IMemoryBackend {
   }
 
   private async tryNativeInit(): Promise<boolean> {
-    // Native @monoes/rvf removed — using pure-TS fallback
     return false;
   }
 
