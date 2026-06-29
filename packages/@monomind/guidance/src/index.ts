@@ -219,24 +219,6 @@ export type {
   ConformanceTestResult,
   ReplayTestResult,
 } from './conformance-kit.js';
-export {
-  RuvBotGuidanceBridge,
-  AIDefenceGate,
-  RuvBotMemoryAdapter,
-  createRuvBotBridge,
-  createAIDefenceGate,
-  createRuvBotMemoryAdapter,
-} from './ruvbot-integration.js';
-export type {
-  RuvBotInstance,
-  RuvBotAIDefenceGuard,
-  RuvBotMemory,
-  AIDefenceThreat,
-  AIDefenceResult,
-  AIDefenceGateConfig,
-  RuvBotBridgeConfig,
-  RuvBotEvent,
-} from './ruvbot-integration.js';
 export { MetaGovernor, createMetaGovernor } from './meta-governance.js';
 export type {
   InvariantCheckResult,
