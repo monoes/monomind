@@ -22,8 +22,9 @@ const buildSubcommand: Command = {
       output.printError('--url and --task are required');
       return { success: false, exitCode: 1 };
     }
-    if (!process.env.ANTHROPIC_API_KEY) {
-      output.printError('ANTHROPIC_API_KEY is not set. Required for action build.');
+    const { isClaudeCodeAvailable } = await import('../routing/llm-caller.js');
+    if (!isClaudeCodeAvailable()) {
+      output.printError('Claude Code CLI not found. Install with: npm install -g @anthropic-ai/claude-code');
       return { success: false, exitCode: 1 };
     }
 

@@ -168,14 +168,28 @@ async function checkApiKeys(): Promise<HealthCheck> {
   // Detect Claude Code environment — API keys are managed internally
   const inClaudeCode = !!(process.env.CLAUDE_CODE || process.env.CLAUDE_PROJECT_DIR || process.env.MCP_SESSION_ID);
 
+  // Detect claude CLI on PATH — monomind uses claude --print, no direct API key needed
+  let claudeCliAvailable = false;
+  try {
+    execSync('claude --version', { encoding: 'utf-8', stdio: 'pipe', timeout: 5000, windowsHide: true });
+    claudeCliAvailable = true;
+  } catch { /* not on PATH */ }
+
   if (found.includes('ANTHROPIC_API_KEY') || found.includes('CLAUDE_API_KEY')) {
     return { name: 'API Keys', status: 'pass', message: `Found: ${found.join(', ')}` };
   } else if (inClaudeCode) {
-    return { name: 'API Keys', status: 'pass', message: 'Claude Code (managed internally)' };
+    return { name: 'API Keys', status: 'pass', message: 'Claude Code manages auth (no direct API key needed)' };
+  } else if (claudeCliAvailable) {
+    return { name: 'API Keys', status: 'pass', message: 'Using Claude Code CLI auth (no direct API key needed)' };
   } else if (found.length > 0) {
     return { name: 'API Keys', status: 'warn', message: `Found: ${found.join(', ')} (no Claude key)`, fix: 'export ANTHROPIC_API_KEY=your_key' };
   } else {
-    return { name: 'API Keys', status: 'warn', message: 'No API keys found', fix: 'export ANTHROPIC_API_KEY=your_key' };
+    return {
+      name: 'API Keys',
+      status: 'warn',
+      message: 'Claude Code CLI not found — monomind works best on top of Claude Code',
+      fix: 'npm install -g @anthropic-ai/claude-code  # then: claude login',
+    };
   }
 }
 
