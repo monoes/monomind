@@ -388,7 +388,7 @@ describe('getIntegrationStatus', () => {
   it('counts mcpServers from settings.json', () => {
     fs.writeFileSync(
       path.join(tmpDir, '.claude', 'settings.json'),
-      JSON.stringify({ mcpServers: { monomind: {}, 'ruv-swarm': {} } })
+      JSON.stringify({ mcpServers: { monomind: {}, monograph: {} } })
     );
     const { getIntegrationStatus } = loadSL();
     const result = getIntegrationStatus();

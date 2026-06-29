@@ -192,7 +192,7 @@ head -80 "{source_path}/README.md" 2>/dev/null
 **BRAND EXTRACTION — required before Phase 2B collision detection:**
 
 Extract `source_brand` from three signals, pick the most specific:
-1. `package.json` `name` field: strip `@scope/` prefix, convert to PascalCase (e.g., `claude-flow` → `ClaudeFlow`, `ruv-swarm` → `RuvSwarm`)
+1. `package.json` `name` field: strip `@scope/` prefix, convert to PascalCase (e.g., `claude-flow` → `ClaudeFlow`, `monomind` → `Monomind`)
 2. README H1 title: extract the project name word(s) before any tagline
 3. Class name prefixes: run `grep -rhn "^export class\|^export abstract class" "{source_path}/src" --include="*.ts" 2>/dev/null | grep -oE "(class) [A-Z][A-Za-z0-9]+" | awk '{print $2}' | grep -oE "^[A-Z][a-z]+" | sort | uniq -c | sort -rn | head -5` — the most frequent leading word (e.g., `Ruv` from `RuvSwarm`, `Claude` from `ClaudeFlow`) is the brand prefix; convert to PascalCase compound if needed
 
