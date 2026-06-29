@@ -27,7 +27,7 @@ If invoked directly (not by `mastermind:master`):
 - `focus_hint`: optional — what to look for ("CLI commands", "animation", "hooks", "skills"); default: `"core architecture skills commands hooks agents"`
 - `mode`: confirm | auto
 - `partial`: boolean — if true, skip strategy (a) Copy-As-Is; force (b) Adapt or (c) Extract only
-- `source_brand`: derived in Phase 1A — PascalCase brand name of the source project (e.g. `RuvSwarm`, `ClaudeFlow`); used in all `rg -i "{source_brand}"` brand contamination checks
+- `source_brand`: derived in Phase 1A — PascalCase brand name of the source project (e.g. `Monomind`, `ClaudeFlow`); used in all `rg -i "{source_brand}"` brand contamination checks
 - `candidate_file`: derived during Phase 1E–1F — absolute path to a specific source file under analysis; substituted before running per-candidate coupling checks
 
 ---
@@ -194,9 +194,9 @@ head -80 "{source_path}/README.md" 2>/dev/null
 Extract `source_brand` from three signals, pick the most specific:
 1. `package.json` `name` field: strip `@scope/` prefix, convert to PascalCase (e.g., `claude-flow` → `ClaudeFlow`, `monomind` → `Monomind`)
 2. README H1 title: extract the project name word(s) before any tagline
-3. Class name prefixes: run `grep -rhn "^export class\|^export abstract class" "{source_path}/src" --include="*.ts" 2>/dev/null | grep -oE "(class) [A-Z][A-Za-z0-9]+" | awk '{print $2}' | grep -oE "^[A-Z][a-z]+" | sort | uniq -c | sort -rn | head -5` — the most frequent leading word (e.g., `Ruv` from `RuvSwarm`, `Claude` from `ClaudeFlow`) is the brand prefix; convert to PascalCase compound if needed
+3. Class name prefixes: run `grep -rhn "^export class\|^export abstract class" "{source_path}/src" --include="*.ts" 2>/dev/null | grep -oE "(class) [A-Z][A-Za-z0-9]+" | awk '{print $2}' | grep -oE "^[A-Z][a-z]+" | sort | uniq -c | sort -rn | head -5` — the most frequent leading word (e.g., `Mono` from `Monomind`, `Claude` from `ClaudeFlow`) is the brand prefix; convert to PascalCase compound if needed
 
-Set `source_brand` to the PascalCase result (e.g., `RuvSwarm`, `ClaudeFlow`, `SourceProject`). This variable is used verbatim in all subsequent `rg -i "{source_brand}"` calls and the collision-detection Python script.
+Set `source_brand` to the PascalCase result (e.g., `Monomind`, `ClaudeFlow`, `SourceProject`). This variable is used verbatim in all subsequent `rg -i "{source_brand}"` calls and the collision-detection Python script.
 
 ### 1B — Repo-Map (Structural Index)
 
@@ -359,7 +359,7 @@ grep -rhn "^export" "{source_path}/src" --include="*.ts" 2>/dev/null | \
   grep -oE "(class|interface|function|const|type|enum) [A-Z][A-Za-z0-9]+" | awk '{print $2}' | \
   python3 -c "
 import sys, re
-source_brand = '{source_brand}'  # LLM substitutes the PascalCase value from Phase 1A before running (e.g. 'RuvSwarm', 'ClaudeFlow')
+source_brand = '{source_brand}'  # LLM substitutes the PascalCase value from Phase 1A before running (e.g. 'Monomind', 'ClaudeFlow')
 # Mono prefix: the domain prefix used in monomind for this context (e.g. 'Mono', 'Agent', 'Graph')
 # LLM: substitute the actual mono prefix from Phase 0B's MNS before running
 mono_prefix = '{mono_prefix}'
