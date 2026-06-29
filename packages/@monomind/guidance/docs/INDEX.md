@@ -58,7 +58,6 @@ Step-by-step walkthroughs for specific tasks.
 | [G016](./adrs/ADR-G016-coherence-scheduler.md) | Coherence Scheduler |
 | [G017](./adrs/ADR-G017-capability-algebra.md) | Capability Algebra |
 | [G018](./adrs/ADR-G018-conformance-kit.md) | Conformance Kit |
-| [G019](./adrs/ADR-G019-ruvbot-integration.md) | RuvBot Integration |
 | [G020](./adrs/ADR-G020-meta-governance.md) | Meta-Governance |
 | [G021](./adrs/ADR-G021-adversarial-model.md) | Adversarial Model |
 | [G022](./adrs/ADR-G022-trust-system.md) | Trust System |
