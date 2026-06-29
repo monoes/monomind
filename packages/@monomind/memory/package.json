@@ -1,6 +1,6 @@
 {
   "name": "@monoes/memory",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "Memory module - LanceDB backend, ANN indexing, vector search, hybrid SQLite+LanceDB backend (ADR-009)",
   "main": "dist/index.js",
@@ -17,10 +17,10 @@
     "prepublishOnly": "npm run build && node --input-type=module --eval \"import('./dist/index.js').then(m => { const required = ['ControllerRegistry','HnswLite','PersistentSonaCoordinator','RvfBackend','RvfLearningStore','RvfMigrator']; const missing = required.filter(k => !m[k]); if (missing.length) { console.error('Missing exports:', missing); process.exit(1); } console.log('All required exports present'); });\""
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
     "sql.js": "^1.10.3"
   },
   "optionalDependencies": {
+    "better-sqlite3": "^11.0.0",
     "@lancedb/lancedb": "^0.30.0",
     "apache-arrow": ">=15.0.0 <=18.1.0"
   },
