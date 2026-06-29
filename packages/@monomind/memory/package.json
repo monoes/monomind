@@ -1,6 +1,6 @@
 {
   "name": "@monoes/memory",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Memory module - LanceDB backend, ANN indexing, vector search, hybrid SQLite+LanceDB backend (ADR-009)",
   "main": "dist/index.js",
