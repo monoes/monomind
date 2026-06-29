@@ -1711,93 +1711,15 @@ packages:
     dev: false
     optional: true
 
-  /@monoes/ruvllm@2.5.4:
-    resolution: {integrity: sha512-EUdKvRDBxS/WDqA2Wl0gC1zhlklkWnbob72iJpyu3TcBTRHY8JTM3bqA5c9GyDmD74iRGTGfbfw4lVnS7CT8eg==}
-    engines: {node: '>= 18'}
-    hasBin: true
-    requiresBuild: true
-    dependencies:
-      chalk: 4.1.2
-      commander: 12.1.0
-      ora: 5.4.1
-    dev: false
-    optional: true
 
-  /@monoes/rvf-node-darwin-arm64@0.1.7:
-    resolution: {integrity: sha512-vll3WJwDn3oOfy1PB10IG7/f3zBpFiMNHL2/2tdJmeRR8La/rSPJ0ZH5MDIsfleiVtaWzh9bvVCtVkZ6uo2jeg==}
-    cpu: [arm64]
-    os: [darwin]
-    requiresBuild: true
-    dev: false
-    optional: true
 
-  /@monoes/rvf-node-darwin-x64@0.1.7:
-    resolution: {integrity: sha512-Qi/l2bVuVz5YQ2RcYPYF0LNZVkytiIZHzvWhS71+Tt5GEIrsToauHQIcnJQmDNypvwxO8wYk+EeT2xcHR3ZSQQ==}
-    cpu: [x64]
-    os: [darwin]
-    requiresBuild: true
-    dev: false
-    optional: true
 
-  /@monoes/rvf-node-linux-arm64-gnu@0.1.7:
-    resolution: {integrity: sha512-oZwrtfs7XqRVaDP6iiw6G52l7+NdP3NbTwR2iM+EP8r8X4e1+p4opwV2Ig+lyT7wAz72wcyOpkzpu1MlbK4NKA==}
-    cpu: [arm64]
-    os: [linux]
-    requiresBuild: true
-    dev: false
-    optional: true
 
-  /@monoes/rvf-node-linux-x64-gnu@0.1.7:
-    resolution: {integrity: sha512-CRq9nc7dIj8QbcY9sSXvVau7cr1ESh3VnYUPp1IodzZ4SegN0H3oeieF5nUMNYyq+43MkBR4yrEwFgDBZ00QHQ==}
-    cpu: [x64]
-    os: [linux]
-    requiresBuild: true
-    dev: false
-    optional: true
 
-  /@monoes/rvf-node-win32-x64-msvc@0.1.7:
-    resolution: {integrity: sha512-sgnoNphOnbD4d3+YyQ83MlGO7sX4kbcDwsFNz7p2mlTaDR8coQXoudSaPrMeMpeUojFUqoxeDvVly/un3jADig==}
-    cpu: [x64]
-    os: [win32]
-    requiresBuild: true
-    dev: false
-    optional: true
 
-  /@monoes/rvf-node@0.1.7:
-    resolution: {integrity: sha512-VHfEKBew62gNpi3lST0bxMw+ynRTM1xDdqca2d5A1qyW6jSCyTFJ9TAYP00uzfnTKKxezNcrzEkyQWj+gs/Pzw==}
-    engines: {node: '>= 16'}
-    requiresBuild: true
-    optionalDependencies:
-      '@monoes/rvf-node-darwin-arm64': 0.1.7
-      '@monoes/rvf-node-darwin-x64': 0.1.7
-      '@monoes/rvf-node-linux-arm64-gnu': 0.1.7
-      '@monoes/rvf-node-linux-x64-gnu': 0.1.7
-      '@monoes/rvf-node-win32-x64-msvc': 0.1.7
-    dev: false
-    optional: true
 
-  /@monoes/rvf-solver@0.1.7:
-    resolution: {integrity: sha512-wJvw+0deGnaVpsPxGNIy/QzQN47oPkFKD4koHJGVTMHgPAe8eRbzp5g8t9cB8qbHd8K6NRAAd4hr/VYEA3QHVw==}
-    requiresBuild: true
-    dev: false
-    optional: true
 
-  /@monoes/rvf-wasm@0.1.6:
-    resolution: {integrity: sha512-hdxRgMJqqDR5jsYBepYrdc0odGGjlwE7QsKOfKlrIWN3kC/pNulCppqKwropJsME0/ZzlLBF90YmWmSXw1AXkg==}
-    requiresBuild: true
-    dev: false
-    optional: true
 
-  /@monoes/rvf@0.1.9:
-    resolution: {integrity: sha512-W40NLeSj/+FwIHT0+v3soFrtk4pnAZL5Ghx93qAsZkuwriNw2y6vGPnsapflQyp34WgMN362syIRiACXx3KW8g==}
-    requiresBuild: true
-    dependencies:
-      '@monoes/rvf-node': 0.1.7
-    optionalDependencies:
-      '@monoes/rvf-solver': 0.1.7
-      '@monoes/rvf-wasm': 0.1.6
-    dev: false
-    optional: true
 
   /@monoes/sona-darwin-arm64@0.1.4:
     resolution: {integrity: sha512-XLXGnlcrrVM00cTsq7VyGhWu2Fvr4zJQD1bktthR3j0r4Y1PXwnw1QPHVtdcKzKmZ5WKPDGxsgRNPUKAIT/PRA==}
@@ -3761,11 +3683,6 @@ packages:
       '@monoes/gnn': 0.1.25
       '@monoes/graph-node': 2.0.2
       '@monoes/router': 0.1.28
-      '@monoes/ruvllm': 2.5.4
-      '@monoes/rvf': 0.1.9
-      '@monoes/rvf-node': 0.1.7
-      '@monoes/rvf-solver': 0.1.7
-      '@monoes/rvf-wasm': 0.1.6
       '@monoes/sona': 0.1.6
       '@opentelemetry/resources': 1.30.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/sdk-node': 0.52.1(@opentelemetry/api@1.9.0)
@@ -6649,7 +6566,6 @@ packages:
       commander: 11.1.0
       ora: 5.4.1
     optionalDependencies:
-      '@monoes/rvf': 0.1.9
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color
