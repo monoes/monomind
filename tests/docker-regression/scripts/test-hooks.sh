@@ -168,7 +168,7 @@ run_test "Transfer patterns" "npx monomind hooks transfer /tmp/source-project 2>
 echo ""
 echo "── Intelligence Features ──"
 
-run_test "RuVector intelligence" "npx monomind hooks intelligence 2>/dev/null || echo 'intelligence ok'"
+run_test "Intelligence hooks" "npx monomind hooks intelligence 2>/dev/null || echo 'intelligence ok'"
 
 # Cleanup
 rm -f "$TEST_FILE"

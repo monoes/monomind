@@ -37,8 +37,6 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
       "${CLI_NM}/@anthropic-ai" \
       "${CLI_NM}/@xenova" \
       "${CLI_NM}/lancedb" \
-      "${CLI_NM}/@ruvector" \
-      "${CLI_NM}/ruvector" \
       "${CLI_NM}/tiktoken" \
       "${CLI_NM}/@img" \
       "${CLI_NM}/better-sqlite3" \
@@ -52,11 +50,8 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
     && NESTED="${CLI_NM}/@monomind/cli/node_modules" \
     && rm -rf \
       "${NESTED}/agentic-flow" \
-      "${NESTED}/@ruvector" \
       "${NESTED}/lancedb" \
     && rm -rf \
-      "${CLI_NM}/ruvector-onnx-embeddings-wasm" \
-      "${CLI_NM}/ruvector-core-linux-x64-gnu" \
       "${CLI_NM}/@monomind/neural" \
       "${CLI_NM}/@grpc" \
       "${CLI_NM}/gun"
