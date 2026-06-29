@@ -24,7 +24,6 @@ All exports from `@monomind/guidance`. Each module is also available as a standa
 | `@monomind/guidance/coherence` | `CoherenceScheduler`, `EconomicGovernor`, `createCoherenceScheduler`, `createEconomicGovernor` |
 | `@monomind/guidance/capabilities` | `CapabilityAlgebra`, `createCapabilityAlgebra` |
 | `@monomind/guidance/conformance-kit` | `SimulatedRuntime`, `MemoryClerkCell`, `ConformanceRunner`, `createMemoryClerkCell`, `createConformanceRunner` |
-| `@monomind/guidance/ruvbot-integration` | `RuvBotGuidanceBridge`, `AIDefenceGate`, `RuvBotMemoryAdapter`, `createRuvBotBridge`, `createAIDefenceGate`, `createRuvBotMemoryAdapter` |
 | `@monomind/guidance/meta-governance` | `MetaGovernor`, `createMetaGovernor` |
 | `@monomind/guidance/adversarial` | `ThreatDetector`, `CollusionDetector`, `MemoryQuorum`, `createThreatDetector`, `createCollusionDetector`, `createMemoryQuorum` |
 | `@monomind/guidance/trust` | `TrustAccumulator`, `TrustScoreLedger`, `TrustSystem`, `getTrustBasedRateLimit`, `createTrustAccumulator`, `createTrustSystem` |

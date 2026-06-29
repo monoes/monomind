@@ -235,7 +235,6 @@ The package ships 31 modules organized in 9 layers, from compilation through enf
 | | `CapabilityAlgebra` | Grant, restrict, delegate, expire, revoke permissions as typed objects |
 | | `ManifestValidator` | Fails-closed admission for agent cell manifests |
 | | `ConformanceRunner` | Memory Clerk acceptance test with replay verification |
-| **Bridge** | `RuvBotGuidanceBridge` | Wires ruvbot events to guidance hooks, AIDefence gate, memory adapter |
 | **WASM Kernel** | `guidance-kernel` | Rust→WASM policy kernel: SHA-256, HMAC, secret scanning, shard scoring |
 | | `WasmKernel` bridge | Auto-fallback host bridge with batch API for minimal boundary crossings |
 | **Generate** | `generateClaudeMd` | Scaffold CLAUDE.md from a project profile |

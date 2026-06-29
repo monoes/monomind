@@ -193,9 +193,6 @@ importers:
       '@monomind/hooks':
         specifier: workspace:*
         version: link:../hooks
-      ruvbot:
-        specifier: '>=0.1.8'
-        version: 0.3.2(typescript@5.9.3)
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -3755,15 +3752,6 @@ packages:
     resolution: {integrity: sha512-540WwVDOMxA6dN6We19EcT9sc3hkXPw5mzRNGM3FkdN/vtE9NFvj5lFAPNwUDmJjXidm3v7TC1cTE7t17Ulm1Q==}
     engines: {node: '>=0.12.0'}
 
-  ruvbot@0.3.2:
-    resolution: {integrity: sha512-Ejl4E86ThubFCnkji9UR46Nvn9GubKi1fPZJeWMXww3GyTSoIs+BKk8Khk7VV7A+3DAWouQqZsv6iU0MPl8e3g==}
-    engines: {node: '>=18.0.0'}
-    hasBin: true
-    peerDependencies:
-      typescript: '>=5.0.0'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
 
   ruvector-attention-wasm@0.1.32:
     resolution: {integrity: sha512-2pt5dhcpHXXhNEVXeeDPzshXlGo3X8vWVuMfLA+fjUuXYFsW2YYrmUSgHOvEuqVxxow2Rgn9sZpxWQSBuT470g==}
@@ -8416,35 +8404,6 @@ snapshots:
   run-async@3.0.0:
     optional: true
 
-  ruvbot@0.3.2(typescript@5.9.3):
-    dependencies:
-      '@anthropic-ai/sdk': 0.20.9
-      aidefence: 2.3.0
-      chalk: 5.6.2
-      commander: 12.1.0
-      dotenv: 16.6.1
-      eventemitter3: 5.0.4
-      ora: 8.2.0
-      pino: 8.21.0
-      pino-pretty: 10.3.1
-      uuid: 9.0.1
-      zod: 3.25.76
-    optionalDependencies:
-      '@ruvector/ruvllm': 2.5.5
-      '@slack/bolt': 3.22.0
-      '@slack/web-api': 7.17.0
-      bullmq: 5.78.0
-      ioredis: 5.11.1
-      pg: 8.21.0
-      typescript: 5.9.3
-    transitivePeerDependencies:
-      - bufferutil
-      - debug
-      - encoding
-      - pg-native
-      - redis
-      - supports-color
-      - utf-8-validate
 
   ruvector-attention-wasm@0.1.32:
     optional: true
