@@ -267,7 +267,6 @@ The key lifecycle: `CLAUDE.md` is compiled once at session start. Rules are retr
 | G016 | Coherence Scheduler |
 | G017 | Capability Algebra |
 | G018 | Conformance Kit |
-| G019 | RuvBot Integration |
 | G020 | Meta-Governance |
 | G021 | Adversarial Model |
 | G022 | Trust System |
