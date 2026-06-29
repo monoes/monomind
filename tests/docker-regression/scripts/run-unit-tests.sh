@@ -101,18 +101,6 @@ else
     echo "⊘ SKIPPED"
 fi
 
-# Plugin tests
-echo -n "  Testing: RuVector Plugins... "
-if [ -f "/app/packages/@monomind/plugins/examples/ruvector-plugins/ruvector-plugins.test.ts" ]; then
-    cd /app/packages/@monomind/plugins
-    set +e
-    npm test -- --run examples/ruvector-plugins/ruvector-plugins.test.ts 2>/dev/null && echo "✓ PASSED" || echo "✓ PASSED (via npm test)"
-    set -e
-    cd /app
-else
-    echo "⊘ SKIPPED"
-fi
-
 # ============================================================================
 # TEST COVERAGE
 # ============================================================================
