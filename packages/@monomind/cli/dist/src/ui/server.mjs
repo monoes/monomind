@@ -5560,6 +5560,28 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ----------------------------------------------- GET /api/monoagent/data
+    if (req.method === 'GET' && url === '/api/monoagent/data') {
+      try {
+        const { execFile } = await import('child_process');
+        const run = (args) => new Promise(resolve => {
+          execFile('monoagent', args, { timeout: 8000 }, (err, stdout) => resolve(err ? '[]' : stdout));
+        });
+        const [wfOut, actOut] = await Promise.all([
+          run(['workflow', 'list', '--json']),
+          run(['action', 'list', '--json']),
+        ]);
+        const workflows = JSON.parse(wfOut.trim() || '[]');
+        const actions = JSON.parse(actOut.trim() || '[]');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ workflows, actions }));
+      } catch (e) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ workflows: [], actions: [], error: e.message }));
+      }
+      return;
+    }
+
     // ------------------------------------------------- POST /api/playbooks
     // Save a playbook definition to .monomind/playbooks/<id>.json
     if (req.method === 'POST' && url === '/api/playbooks') {
