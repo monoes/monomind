@@ -49,39 +49,13 @@ export async function callLLM(prompt: string, config: LLMConfig): Promise<LLMRes
 
 async function callAnthropic(
   prompt: string,
-  config: LLMConfig,
-  signal: AbortSignal,
+  _config: LLMConfig,
+  _signal: AbortSignal,
 ): Promise<LLMResponse> {
-  const apiKey = config.apiKey ?? process.env['ANTHROPIC_API_KEY'];
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    signal,
-    headers: {
-      'x-api-key': apiKey ?? '',
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: config.model ?? 'claude-3-haiku-20240307',
-      max_tokens: config.maxTokens ?? 2048,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`LLM provider anthropic error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json() as {
-    content: Array<{ text: string }>;
-    usage: { input_tokens: number; output_tokens: number };
-  };
-
-  return {
-    text: data.content[0].text,
-    inputTokens: data.usage.input_tokens,
-    outputTokens: data.usage.output_tokens,
-  };
+  // Route through Claude Code CLI — reuses host auth, no API key needed.
+  const { claudeCliCall } = await import('../claude-cli.js');
+  const text = await claudeCliCall(prompt);
+  return { text };
 }
 
 async function callOpenAI(
