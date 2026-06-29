@@ -187,8 +187,7 @@ monomind/                           # workspace root — published as "monomind"
 - Manages a **hybrid LanceDB (primary) + SQLite (fallback)** store.
 - Implements **HNSW** (Hierarchical Navigable Small World) pure-JavaScript vector search — 150x–12,500x faster than linear scan over embeddings.
 - `ControllerRegistry`: multi-tenant namespace management (each memory namespace is isolated).
-- `RvfLearningStore`: trajectory + pattern storage for the learning loop.
-- `RvfMigrator`: schema migration between versions.
+- `SonaLearningStore`: trajectory + pattern storage for the learning loop.
 
 **Key exports:**
 
@@ -197,9 +196,7 @@ monomind/                           # workspace root — published as "monomind"
 | `ControllerRegistry` | Multi-tenant namespace management |
 | `HnswLite` | Pure-JS approximate nearest-neighbor index |
 | `PersistentSonaCoordinator` | SONA-compatible interface (stub interface in V1) |
-| `RvfBackend` | High-level CRUD over LanceDB |
-| `RvfLearningStore` | Trajectory + pattern storage |
-| `RvfMigrator` | Schema migration |
+| `SonaLearningStore` | Trajectory + pattern storage |
 
 **Wiring quality:** ✅ Store/search/retrieve are well-wired end-to-end. `PersistentSonaCoordinator` is a stub — the SONA training path it supports is inactive in V1.
 

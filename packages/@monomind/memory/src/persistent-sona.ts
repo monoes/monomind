@@ -1,32 +1,32 @@
 /**
- * PersistentSonaCoordinator - SONA learning with RVF persistence
+ * PersistentSonaCoordinator - SONA learning with persistent storage
  *
- * Wraps RvfLearningStore to provide an in-memory pattern bank with
+ * Wraps SonaLearningStore to provide an in-memory pattern bank with
  * brute-force cosine similarity, trajectory buffering, EWC tracking,
  * and automatic periodic persistence to disk.
  *
  * This is intentionally decoupled from the monovector SONA classes:
  * it defines its own compatible types and delegates persistence to
- * RvfLearningStore.
+ * SonaLearningStore.
  *
  * @module @monomind/memory/persistent-sona
  */
 
 import {
-  RvfLearningStore,
-} from './rvf-learning-store.js';
+  SonaLearningStore,
+} from './sona-learning-store.js';
 import { cosineSimilarity } from './math-utils.js';
 import type {
-  RvfLearningStoreConfig,
+  SonaLearningStoreConfig,
   PatternRecord,
   EwcRecord,
   TrajectoryRecord,
-} from './rvf-learning-store.js';
+} from './sona-learning-store.js';
 
 // ===== Types =====
 
 export interface PersistentSonaConfig {
-  /** Path to the RVF learning store file */
+  /** Path to the SONA learning store file */
   storePath: string;
   /** Cosine similarity threshold for pattern matching (default: 0.85) */
   patternThreshold?: number;
@@ -80,7 +80,7 @@ function generateId(prefix: string): string {
  * ```
  */
 export class PersistentSonaCoordinator {
-  private store: RvfLearningStore;
+  private store: SonaLearningStore;
   private patterns: Map<string, PatternRecord> = new Map();
   private trajectoryBuffer: TrajectoryRecord[] = [];
   private ewcState: EwcRecord | null = null;
@@ -94,13 +94,13 @@ export class PersistentSonaCoordinator {
     this.maxTrajectoryBuffer = config.maxTrajectoryBuffer ?? DEFAULT_MAX_TRAJECTORY_BUFFER;
     this.verbose = config.verbose ?? false;
 
-    const storeConfig: RvfLearningStoreConfig = {
+    const storeConfig: SonaLearningStoreConfig = {
       storePath: config.storePath,
       autoPersistInterval: config.autoPersistInterval ?? DEFAULT_AUTO_PERSIST_MS,
       verbose: config.verbose,
     };
 
-    this.store = new RvfLearningStore(storeConfig);
+    this.store = new SonaLearningStore(storeConfig);
   }
 
   /**
