@@ -1574,9 +1574,9 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
         <div class="nav-item" data-view="monograph">
           <span class="ico">⬡</span><span class="lbl">Monograph</span>
         </div>
-        <div class="nav-item" data-view="playbooks">
-          <span class="ico">⚡</span><span class="lbl">Playbooks</span>
-          <span class="bdg" id="bdg-playbooks">—</span>
+        <div class="nav-item" data-view="monoagent">
+          <span class="ico">🤖</span><span class="lbl">MonoAgent</span>
+          <span class="bdg" id="bdg-monoagent">—</span>
         </div>
       </div>
     </div>
@@ -2250,79 +2250,26 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       </div>
     </div>
 
-    <!-- PLAYBOOKS -->
-    <div class="view" id="view-playbooks">
+    <!-- MONOAGENT -->
+    <div class="view" id="view-monoagent">
       <div class="vscroll">
-        <div class="pg-title">Playbooks</div>
-        <div class="pg-sub">Browser automation — connected systems &amp; run history</div>
-        <!-- Tab bar -->
+        <div class="pg-title">MonoAgent</div>
+        <div class="pg-sub">Social media automation workflows &amp; run history</div>
         <div class="mg-tab-bar" style="margin-top:14px">
-          <button class="odt-btn active" data-wftab="systems" onclick="wfSwitchTab('systems')">Systems</button>
-          <button class="odt-btn" data-wftab="library" onclick="wfSwitchTab('library')">Library</button>
-          <button class="odt-btn" data-wftab="builder" onclick="wfSwitchTab('builder')">Builder</button>
-          <button class="odt-btn" data-wftab="runs" onclick="wfSwitchTab('runs')">Runs</button>
+          <button class="odt-btn active" data-matab="workflows" onclick="maSwitchTab('workflows')">Workflows</button>
+          <button class="odt-btn" data-matab="history" onclick="maSwitchTab('history')">Action History</button>
         </div>
-
-        <!-- TAB: SYSTEMS -->
-        <div class="wf-pane active" id="wf-tab-systems">
+        <div class="wf-pane active" id="ma-tab-workflows">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:4px">
-            <button class="btn" onclick="loadPlatformSessions()">↺ Refresh</button>
+            <button class="btn" onclick="loadMonoagentData()">↺ Refresh</button>
           </div>
-          <div id="wf-systems-grid"></div>
+          <div id="ma-workflows-list"><div class="loading-txt">Loading…</div></div>
         </div>
-
-        <!-- TAB: LIBRARY -->
-        <div class="wf-pane" id="wf-tab-library">
+        <div class="wf-pane" id="ma-tab-history">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:4px">
-            <button class="btn" onclick="loadWorkflowDefs()">↺ Refresh</button>
-            <span style="font-size:11px;color:var(--text-lo)">Saved in .monomind/playbooks/</span>
+            <button class="btn" onclick="loadMonoagentData()">↺ Refresh</button>
           </div>
-          <div id="wf-defs-list"><div class="loading-txt">Loading…</div></div>
-        </div>
-
-        <!-- TAB: RUNS -->
-        <div class="wf-pane" id="wf-tab-runs">
-          <div style="display:flex;gap:8px;margin-bottom:16px;margin-top:4px;align-items:center">
-            <button class="btn" onclick="loadWorkflowRuns()">↺ Refresh</button>
-            <select id="wf-status-filter" onchange="renderWorkflowRuns()" style="background:var(--surface);color:var(--text-hi);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px">
-              <option value="">All statuses</option>
-              <option value="running">Running</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-              <option value="stopped">Stopped</option>
-            </select>
-            <span id="wf-count" style="color:var(--text-lo);font-size:12px"></span>
-          </div>
-          <div id="wf-runs-list"><div class="loading-txt">Loading…</div></div>
-        </div>
-
-        <!-- TAB: BUILDER -->
-        <div id="wf-tab-builder">
-          <div id="pb-toolbar">
-            <button class="btn" onclick="pbNew()" title="New playbook">＋ New</button>
-            <input id="pb-name-input" type="text" placeholder="Playbook name…" oninput="pbState.playbook.name=this.value">
-            <button class="btn" onclick="pbLoad()" title="Load a playbook from Library">⬆ Load</button>
-            <button class="btn" onclick="pbSave()" title="Save to .monomind/playbooks/">💾 Save</button>
-            <button class="btn" onclick="pbRun()" title="Run via monobrowse dashboard" style="color:var(--accent);border-color:var(--accent)">▶ Run</button>
-            <button class="btn" onclick="pbImportJSON()" title="Import from JSON">⬇ Import</button>
-            <button class="btn" onclick="pbExportJSON()" title="Export to JSON">⬆ Export</button>
-            <span id="pb-run-status"></span>
-          </div>
-          <div id="pb-editor">
-            <div id="pb-palette">
-              <!-- populated by pbRenderPalette() -->
-            </div>
-            <div id="pb-canvas-wrap">
-              <div id="pb-canvas">
-                <svg id="pb-svg" width="100%" height="100%"><defs><marker id="pb-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--text-xs)"/></marker></defs></svg>
-                <div id="pb-empty"><div style="font-size:32px">⚡</div><div>Drag a node from the left panel onto the canvas</div><div style="font-size:11px">or click a node type to add it</div></div>
-              </div>
-            </div>
-            <div id="pb-config">
-              <div id="pb-config-title">Select a node</div>
-              <div id="pb-config-body"></div>
-            </div>
-          </div>
+          <div id="ma-history-list"><div class="loading-txt">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -2518,7 +2465,7 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', playbooks:'Playbooks', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', monoagent:'MonoAgent', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
   const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
@@ -2581,7 +2528,7 @@ function renderView(v) {
   if (v === 'memory') renderMemory();
   if (v === 'orgs') renderOrgs();
   if (v === 'monograph') loadMonograph();
-  if (v === 'playbooks') { loadPlatformSessions(); loadWorkflowDefs(); loadWorkflowRuns(); }
+  if (v === 'monoagent') { loadMonoagentData(); }
   if (v === 'global') renderGlobalFeed();
   if (v === 'global-loops') renderGlobalLoops();
   if (v === 'global-tokens') renderGlobalTokens();
@@ -10877,16 +10824,17 @@ async function maDisconnect(pid, connId, type) {
 
 let _wfRuns = [];
 async function loadWorkflowRuns() {
-  document.getElementById('wf-runs-list').innerHTML = '<div class="loading-txt">Loading…</div>';
+  const runsListEl = document.getElementById('wf-runs-list');
+  if (!runsListEl) return;
+  runsListEl.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
     const runs = await apiFetch('/api/workflow-runs');
     _wfRuns = Array.isArray(runs) ? runs : [];
   } catch (e) {
     _wfRuns = [];
   }
-  const bdg = document.getElementById('bdg-playbooks');
-  if (bdg) bdg.textContent = _wfRuns.length || '—';
-  document.getElementById('wf-count').textContent = _wfRuns.length + ' run' + (_wfRuns.length !== 1 ? 's' : '');
+  const wfCount = document.getElementById('wf-count');
+  if (wfCount) wfCount.textContent = _wfRuns.length + ' run' + (_wfRuns.length !== 1 ? 's' : '');
   renderWorkflowRuns();
 }
 
@@ -14016,6 +13964,65 @@ async function mmRenderGraph(body) {
       </div>
     `;
   } catch (e) { body.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MONOAGENT TAB
+   ═══════════════════════════════════════════════════════════════ */
+const MA_STATE_COLOR = { completed:'#22c55e', failed:'#ef4444', running:'#3b82f6', pending:'#a3a3a3' };
+let _maWorkflows = [], _maActions = [];
+
+function maSwitchTab(tab) {
+  document.querySelectorAll('[data-matab]').forEach(b => b.classList.toggle('active', b.dataset.matab === tab));
+  document.querySelectorAll('#view-monoagent .wf-pane').forEach(p => p.classList.toggle('active', p.id === 'ma-tab-' + tab));
+}
+
+async function loadMonoagentData() {
+  document.getElementById('ma-workflows-list').innerHTML = '<div class="loading-txt">Loading…</div>';
+  document.getElementById('ma-history-list').innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/monoagent/data');
+    _maWorkflows = Array.isArray(data.workflows) ? data.workflows : [];
+    _maActions = Array.isArray(data.actions) ? data.actions : [];
+  } catch (e) {
+    _maWorkflows = []; _maActions = [];
+  }
+  const bdg = document.getElementById('bdg-monoagent');
+  if (bdg) bdg.textContent = _maWorkflows.length || '—';
+  renderMonoagentWorkflows();
+  renderMonoagentHistory();
+}
+
+function renderMonoagentWorkflows() {
+  const el = document.getElementById('ma-workflows-list');
+  if (!el) return;
+  if (!_maWorkflows.length) { el.innerHTML = '<div class="empty">No monoagent workflows found. Create one with: <code>monoagent workflow create</code></div>'; return; }
+  el.innerHTML = _maWorkflows.map(w => `<div class="m-card" style="margin-bottom:10px;padding:12px 14px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:600;color:var(--text-hi);font-family:var(--mono);font-size:13px">${esc(w.name||w.id||'—')}</span>
+      <span style="font-size:11px;color:var(--text-lo)">${esc(w.id||'')}</span>
+    </div>
+    ${w.description ? `<div style="font-size:12px;color:var(--text-lo);margin-top:4px">${esc(w.description)}</div>` : ''}
+    <div style="font-size:11px;color:var(--text-xs);margin-top:6px">${(w.nodes||[]).length} nodes · trigger: ${esc(w.trigger||'manual')}</div>
+  </div>`).join('');
+}
+
+function renderMonoagentHistory() {
+  const el = document.getElementById('ma-history-list');
+  if (!el) return;
+  if (!_maActions.length) { el.innerHTML = '<div class="empty">No action history yet.</div>'; return; }
+  el.innerHTML = _maActions.map(a => {
+    const color = MA_STATE_COLOR[a.status] || MA_STATE_COLOR.pending;
+    const ts = a.createdAt ? new Date(a.createdAt).toLocaleString() : '—';
+    return `<div class="m-card" style="margin-bottom:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <span style="font-weight:600;color:var(--text-hi);font-size:12px;font-family:var(--mono)">${esc(a.type||a.action||'—')}</span>
+        <span style="font-size:11px;color:var(--text-lo);margin-left:8px">${esc(a.platform||'')}</span>
+        <div style="font-size:11px;color:var(--text-xs);margin-top:2px">${ts}</div>
+      </div>
+      <span style="font-size:11px;font-weight:600;color:${color}">${esc(a.status||'—')}</span>
+    </div>`;
+  }).join('');
 }
 </script>
 </body>
