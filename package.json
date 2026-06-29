@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "1.16.4",
+  "version": "1.16.5",
   "description": "Monomind - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "dist/index.js",
   "type": "module",
@@ -83,14 +83,26 @@
       "esbuild": ">=0.28.1",
       "protobufjs": ">=7.5.8",
       "@protobufjs/utf8": ">=1.1.1",
-      "@grpc/grpc-js": ">=1.14.4"
+      "@grpc/grpc-js": ">=1.14.4",
+      "vite": ">=8.0.16",
+      "postcss": ">=8.5.10",
+      "fast-uri": ">=3.1.2",
+      "form-data": ">=4.0.6",
+      "ip-address": ">=10.1.1",
+      "js-yaml": ">=4.2.0",
+      "undici": ">=7.28.0",
+      "http-proxy-middleware": ">=3.0.7",
+      "follow-redirects": ">=1.16.0",
+      "@anthropic-ai/claude-code": ">=2.1.163",
+      "handlebars": ">=4.7.9"
     },
     "peerDependencyRules": {
       "allowedVersions": {
         "tree-sitter": "0.22.4",
         "marked": "16",
         "@vitest/coverage-v8": "4.1.8",
-        "vitest": "4.1.4"
+        "vitest": "4.1.4",
+        "vite": "8"
       }
     }
   },
