@@ -124,21 +124,17 @@ export type {
   PatternMatch,
 } from './learning-bridge.js';
 
-// ===== RVF Learning Persistence (ADR-057 Phase 6) =====
-export { RvfLearningStore } from './rvf-learning-store.js';
+// ===== SONA Learning Persistence =====
+export { SonaLearningStore } from './sona-learning-store.js';
 export type {
-  RvfLearningStoreConfig,
+  SonaLearningStoreConfig,
   PatternRecord,
   LoraRecord,
   EwcRecord,
   TrajectoryRecord,
-} from './rvf-learning-store.js';
+} from './sona-learning-store.js';
 export { PersistentSonaCoordinator } from './persistent-sona.js';
 export type { PersistentSonaConfig } from './persistent-sona.js';
-
-// ===== RVF Migration (Bidirectional) =====
-export { RvfMigrator } from './rvf-migration.js';
-export type { RvfMigrationOptions, RvfMigrationResult } from './rvf-migration.js';
 
 // ===== Knowledge Graph =====
 export { MemoryGraph } from './memory-graph.js';
@@ -191,8 +187,6 @@ export type {
   SemanticQuery,
   HybridQuery,
 } from './hybrid-backend.js';
-export { RvfBackend } from './rvf-backend.js';
-export type { RvfBackendConfig } from './rvf-backend.js';
 export { DiskAnnBackend } from './diskann-backend.js';
 export type { DiskAnnBackendConfig } from './diskann-backend.js';
 export { HnswLite, cosineSimilarity } from './hnsw-lite.js';

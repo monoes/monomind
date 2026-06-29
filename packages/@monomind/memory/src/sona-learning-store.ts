@@ -1,5 +1,5 @@
 /**
- * RvfLearningStore - Persistent storage for SONA learning artifacts
+ * SonaLearningStore - Persistent storage for SONA learning artifacts
  *
  * Stores patterns, LoRA adapters, EWC state, and trajectories in a
  * binary-header JSON-lines file format for fast append and rebuild.
@@ -8,7 +8,7 @@
  *   4-byte magic "RVLS" + newline
  *   One JSON record per line: {"type":"pattern"|"lora"|"ewc"|"trajectory","data":{...}}
  *
- * @module @monomind/memory/rvf-learning-store
+ * @module @monomind/memory/sona-learning-store
  */
 
 import * as fs from 'node:fs';
@@ -16,7 +16,7 @@ import * as path from 'node:path';
 
 // ===== Types =====
 
-export interface RvfLearningStoreConfig {
+export interface SonaLearningStoreConfig {
   /** Path to the persistence file */
   storePath: string;
   /** SONA embedding dimension (default: 64) */
@@ -87,7 +87,7 @@ function ensureDirectory(filePath: string): void {
   }
 }
 
-// ===== RvfLearningStore =====
+// ===== SonaLearningStore =====
 
 /**
  * Persistent store for SONA learning artifacts.
@@ -98,7 +98,7 @@ function ensureDirectory(filePath: string): void {
  *
  * @example
  * ```typescript
- * const store = new RvfLearningStore({ storePath: './data/learning.rvls' });
+ * const store = new SonaLearningStore({ storePath: './data/learning.rvls' });
  * await store.initialize();
  *
  * await store.savePatterns([{ id: 'p1', type: 'query_response', ... }]);
@@ -106,8 +106,8 @@ function ensureDirectory(filePath: string): void {
  * await store.close();
  * ```
  */
-export class RvfLearningStore {
-  private config: Required<RvfLearningStoreConfig>;
+export class SonaLearningStore {
+  private config: Required<SonaLearningStoreConfig>;
   private patterns: Map<string, PatternRecord> = new Map();
   private loraAdapters: Map<string, LoraRecord> = new Map();
   private ewcState: EwcRecord | null = null;
@@ -116,7 +116,7 @@ export class RvfLearningStore {
   private initialized = false;
   private autoPersistTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(config: RvfLearningStoreConfig) {
+  constructor(config: SonaLearningStoreConfig) {
     this.config = {
       storePath: config.storePath,
       dimensions: config.dimensions ?? DEFAULT_DIMENSIONS,
@@ -442,14 +442,14 @@ export class RvfLearningStore {
 
   private ensureInitialized(): void {
     if (!this.initialized) {
-      throw new Error('RvfLearningStore has not been initialized. Call initialize() first.');
+      throw new Error('SonaLearningStore has not been initialized. Call initialize() first.');
     }
   }
 
   private log(message: string): void {
     if (this.config.verbose) {
       // eslint-disable-next-line no-console
-      console.log(`[RvfLearningStore] ${message}`);
+      console.log(`[SonaLearningStore] ${message}`);
     }
   }
 }

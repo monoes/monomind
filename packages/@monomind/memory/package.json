@@ -14,7 +14,7 @@
     "bench": "vitest bench",
     "build": "tsc",
     "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
-    "prepublishOnly": "npm run build && node --input-type=module --eval \"import('./dist/index.js').then(m => { const required = ['ControllerRegistry','HnswLite','PersistentSonaCoordinator','RvfBackend','RvfLearningStore','RvfMigrator']; const missing = required.filter(k => !m[k]); if (missing.length) { console.error('Missing exports:', missing); process.exit(1); } console.log('All required exports present'); });\""
+    "prepublishOnly": "npm run build && node --input-type=module --eval \"import('./dist/index.js').then(m => { const required = ['ControllerRegistry','HnswLite','PersistentSonaCoordinator','SonaLearningStore']; const missing = required.filter(k => !m[k]); if (missing.length) { console.error('Missing exports:', missing); process.exit(1); } console.log('All required exports present'); });\""
   },
   "dependencies": {
     "sql.js": "^1.10.3"

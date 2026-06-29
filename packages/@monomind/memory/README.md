@@ -209,7 +209,7 @@ query().semantic('...').oldestFirst().build();                   // createdAt as
 query().semantic('...').recentlyAccessed().build();              // lastAccessedAt desc
 
 // sortField and sortDirection are passed through to all backends that support them
-// (lancedb-adapter, rvf-backend, sqlite-backend, sqljs-backend, JsonBackend)
+// (lancedb-adapter, sqlite-backend, sqljs-backend, JsonBackend)
 
 // Predefined templates
 const recent = QueryTemplates.recentInNamespace('learnings', 10);
@@ -235,12 +235,6 @@ const result = await migrator.migrate();
 console.log(`Migrated ${result.progress.migrated} entries`);
 console.log(`Failed: ${result.progress.failed}`);
 
-// RVF ↔ JSON bidirectional migration
-import { RvfMigrator } from '@monomind/memory';
-
-await RvfMigrator.fromSqlite('./old.db', './new.rvf');
-await RvfMigrator.fromJsonFile('./export.json', './new.rvf');
-await RvfMigrator.toJsonFile('./store.rvf', './export.json');
 ```
 
 ## Quantization Options
