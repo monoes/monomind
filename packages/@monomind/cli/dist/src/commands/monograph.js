@@ -54,7 +54,7 @@ const buildCommand = {
     options: [
         { name: 'path', short: 'p', type: 'string', description: 'Root path to index (default: cwd)' },
         { name: 'code-only', type: 'boolean', description: 'Index only code files, skip documents' },
-        { name: 'llm', type: 'boolean', description: 'Enable Claude-powered semantic extraction (requires ANTHROPIC_API_KEY)' },
+        { name: 'llm', type: 'boolean', description: 'Enable Claude-powered semantic extraction (uses Claude Code CLI)' },
         { name: 'llm-sections', type: 'number', description: 'Max sections to enrich with LLM (default 50)', default: '50' },
         { name: 'force', short: 'f', type: 'boolean', description: 'Force full rebuild even if index is fresh' },
     ],
@@ -70,10 +70,11 @@ const buildCommand = {
         const force = ctx.flags.force === true;
         const llmFlag = ctx.flags.llm === true;
         const llmSections = parseInt(ctx.flags['llm-sections'] || '50', 10);
-        const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
-        const llmMaxSections = (llmFlag && hasApiKey) ? llmSections : 0;
-        if (llmFlag && !hasApiKey) {
-            output.printWarning('--llm passed but ANTHROPIC_API_KEY is not set — LLM extraction disabled');
+        const { isClaudeCodeAvailable } = await import('../routing/llm-caller.js');
+        const claudeAvailable = isClaudeCodeAvailable();
+        const llmMaxSections = (llmFlag && claudeAvailable) ? llmSections : 0;
+        if (llmFlag && !claudeAvailable) {
+            output.printWarning('--llm passed but Claude Code CLI not found — LLM extraction disabled');
         }
         output.writeln();
         output.writeln(output.bold('Monograph — Knowledge Graph Build'));
@@ -140,7 +141,7 @@ const wikiCommand = {
     description: 'Scan all docs and PDFs in the project and build a searchable knowledge graph',
     options: [
         { name: 'path', short: 'p', type: 'string', description: 'Root path (default: cwd)' },
-        { name: 'llm', type: 'boolean', description: 'Enrich with Claude semantic extraction (requires ANTHROPIC_API_KEY)' },
+        { name: 'llm', type: 'boolean', description: 'Enrich with Claude semantic extraction (uses Claude Code CLI)' },
         { name: 'llm-sections', type: 'number', description: 'Max sections for LLM enrichment (default 100)', default: '100' },
         { name: 'force', short: 'f', type: 'boolean', description: 'Force full rebuild' },
     ],
@@ -154,10 +155,11 @@ const wikiCommand = {
         const force = ctx.flags.force === true;
         const llmFlag = ctx.flags.llm === true;
         const llmSections = parseInt(ctx.flags['llm-sections'] || '100', 10);
-        const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
-        const llmMaxSections = (llmFlag && hasApiKey) ? llmSections : 0;
-        if (llmFlag && !hasApiKey) {
-            output.printWarning('--llm passed but ANTHROPIC_API_KEY is not set — LLM extraction disabled');
+        const { isClaudeCodeAvailable } = await import('../routing/llm-caller.js');
+        const claudeAvailable = isClaudeCodeAvailable();
+        const llmMaxSections = (llmFlag && claudeAvailable) ? llmSections : 0;
+        if (llmFlag && !claudeAvailable) {
+            output.printWarning('--llm passed but Claude Code CLI not found — LLM extraction disabled');
         }
         // Pre-scan docs
         const docs = walkDocs(root, []);
@@ -384,7 +386,7 @@ const watchCommand = {
     description: 'Watch for file changes and incrementally rebuild the knowledge graph',
     options: [
         { name: 'path', short: 'p', type: 'string', description: 'Root path (default: cwd)' },
-        { name: 'llm', type: 'boolean', description: 'Enable LLM enrichment on rebuild (requires ANTHROPIC_API_KEY)' },
+        { name: 'llm', type: 'boolean', description: 'Enable LLM enrichment on rebuild (uses Claude Code CLI)' },
     ],
     examples: [
         { command: 'monomind monograph watch', description: 'Watch and rebuild on changes' },
@@ -392,8 +394,8 @@ const watchCommand = {
     action: async (ctx) => {
         const root = resolve(ctx.flags.path ?? process.cwd());
         const llmFlag = ctx.flags.llm === true;
-        const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
-        const llmMaxSections = (llmFlag && hasApiKey) ? 50 : 0;
+        const { isClaudeCodeAvailable } = await import('../routing/llm-caller.js');
+        const llmMaxSections = (llmFlag && isClaudeCodeAvailable()) ? 50 : 0;
         output.writeln();
         output.writeln(output.bold('Monograph — Watch Mode'));
         output.writeln(output.dim(`  Watching: ${root}`));

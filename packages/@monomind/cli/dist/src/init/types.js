@@ -112,7 +112,6 @@ export const DEFAULT_INIT_OPTIONS = {
     },
     mcp: {
         monomind: true,
-        ruvSwarm: false,
         graphify: false,
         autoStart: false,
         port: 3000,
@@ -236,7 +235,6 @@ export const FULL_INIT_OPTIONS = {
     },
     mcp: {
         monomind: true,
-        ruvSwarm: true,
         graphify: false,
         autoStart: false,
         port: 3000,
