@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "1.16.9",
+  "version": "1.16.10",
   "type": "module",
   "description": "Monomind CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
@@ -87,7 +87,7 @@
   "dependencies": {
     "ws": "^8.21.0",
     "@noble/ed25519": "^2.1.0",
-    "@monoes/monograph": "^1.2.3",
+    "@monoes/monograph": "^1.2.4",
     "@monoes/monobrowse": "^1.0.1",
     "@monomind/security": "workspace:*"
   },
