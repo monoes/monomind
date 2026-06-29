@@ -34,7 +34,6 @@ async function ensureLanceDB(): Promise<void> {
   if (lancedb) return;
   if (importError) throw importError;
   try {
-    // @ts-expect-error — optional peer dep resolved at runtime
     lancedb = await import('@lancedb/lancedb');
   } catch (err: any) {
     importError = new Error(
