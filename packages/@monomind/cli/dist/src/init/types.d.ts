@@ -176,8 +176,6 @@ export interface StatuslineConfig {
 export interface MCPConfig {
     /** Include monomind MCP server */
     monomind: boolean;
-    /** Include ruv-swarm MCP server */
-    ruvSwarm: boolean;
     /** Include monograph knowledge graph MCP server */
     graphify: boolean;
     /** Auto-start MCP server */

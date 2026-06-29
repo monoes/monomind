@@ -186,8 +186,6 @@ export interface StatuslineConfig {
 export interface MCPConfig {
   /** Include monomind MCP server */
   monomind: boolean;
-  /** Include ruv-swarm MCP server */
-  ruvSwarm: boolean;
   /** Include monograph knowledge graph MCP server */
   graphify: boolean;
   /** Auto-start MCP server */
@@ -407,7 +405,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
   },
   mcp: {
     monomind: true,
-    ruvSwarm: false,
     graphify: false,
     autoStart: false,
     port: 3000,
@@ -536,7 +533,6 @@ export const FULL_INIT_OPTIONS: InitOptions = {
   },
   mcp: {
     monomind: true,
-    ruvSwarm: true,
     graphify: false,
     autoStart: false,
     port: 3000,

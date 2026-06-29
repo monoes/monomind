@@ -88,7 +88,7 @@ Available for delegation:
 
 3 MCP servers with 110+ tools:
 - **monomind**: Core orchestration (40+ tools) - Required
-- **ruv-swarm**: Enhanced coordination - Optional
+- **monograph**: Knowledge graph - Optional
 
 ---
 
@@ -131,7 +131,6 @@ The plugin defines MCP servers, but you may need to install the packages:
 npm install -g monomind@alpha
 
 # Optional enhanced coordination
-npm install -g ruv-swarm
 
 # Optional cloud features (requires authentication)
 ```

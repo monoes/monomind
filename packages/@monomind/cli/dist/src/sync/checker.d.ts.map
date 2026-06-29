@@ -1,0 +1,1 @@
+{"version":3,"file":"checker.d.ts","sourceRoot":"","sources":["../../../src/sync/checker.ts"],"names":[],"mappings":"AAAA;;;;GAIG;AAMH,MAAM,WAAW,eAAe;IAC9B,YAAY,EAAE,MAAM,GAAG,IAAI,CAAC;IAC5B,aAAa,EAAE,MAAM,GAAG,IAAI,CAAC;IAC7B,SAAS,EAAE,OAAO,CAAC;CACpB;AAED,wBAAgB,cAAc,CAAC,UAAU,SAAgB,GAAG,eAAe,CAoB1E"}

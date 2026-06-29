@@ -1,5 +1,6 @@
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { createClaudeLLMCaller } from '../../routing/llm-caller.js';
 const SYSTEM_PROMPT = `You are a browser automation expert. Given a DOM snippet and a task description, generate a JSON action definition that automates the task.
 
 Rules:
@@ -47,19 +48,11 @@ export async function analyzeAndBuild(options) {
         .replace(/<style[\s\S]*?<\/style>/gi, '')
         .replace(/\s{2,}/g, ' ')
         .slice(0, 12000);
-    // Call Claude API
-    const { Anthropic } = await import('@anthropic-ai/sdk');
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const message = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: buildPrompt(task, cleanDom) }],
-    });
-    const responseText = message.content
-        .filter(c => c.type === 'text')
-        .map(c => c.text)
-        .join('');
+    // Call Claude via the CLI (reuses Claude Code's auth — no API key needed)
+    const caller = createClaudeLLMCaller({ model: 'sonnet' });
+    if (!caller)
+        throw new Error('Claude Code CLI not found. Install with: npm install -g @anthropic-ai/claude-code');
+    const responseText = await caller(`${SYSTEM_PROMPT}\n\n${buildPrompt(task, cleanDom)}`);
     const action = parseActionResponse(responseText);
     // Write to output directory
     await mkdir(outputDir, { recursive: true });

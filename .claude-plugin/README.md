@@ -298,7 +298,7 @@ Then in Claude Code:
 ```bash
 # Add MCP servers to Claude Code
 claude mcp add monomind npx monomind@alpha mcp start
-claude mcp add ruv-swarm npx ruv-swarm mcp start  # Optional
+
 ```
 
 ### 4. Verify Installation
@@ -513,15 +513,11 @@ Monomind integrates with 3 MCP servers providing 110+ tools:
 - Neural training
 - Performance monitoring
 
-### ruv-swarm MCP (Optional)
+### Additional MCP Servers
 
 ```json
 {
   "mcpServers": {
-    "ruv-swarm": {
-      "command": "npx",
-      "args": ["ruv-swarm", "mcp", "start"]
-    }
   }
 }
 ```
