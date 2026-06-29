@@ -145,19 +145,11 @@ export async function generateWikiPage(
     const result = await callLLM(prompt, options.llmConfig);
     content = result.text;
   } else {
-    const apiKey = options?.apiKey ?? process.env['ANTHROPIC_API_KEY'];
-    if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY not set');
+    const { claudeCliCall, isClaudeCliAvailable } = await import('../claude-cli.js');
+    if (!isClaudeCliAvailable()) {
+      throw new Error('Claude Code CLI not found. Install with: npm install -g @anthropic-ai/claude-code');
     }
-    const { default: Anthropic } = await import('@anthropic-ai/sdk');
-    const client = new Anthropic({ apiKey });
-    const msg = await client.messages.create({
-      model: options?.model ?? 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    });
-    const block = msg.content[0];
-    content = (block?.type === 'text') ? block.text : '';
+    content = await claudeCliCall(prompt);
   }
 
   // 7. Persist to DB — prepend OKF frontmatter if not already present

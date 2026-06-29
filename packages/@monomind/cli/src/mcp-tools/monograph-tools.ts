@@ -1290,7 +1290,7 @@ const monographWikiTool: MCPTool = {
 
 const monographWikiBuildTool: MCPTool = {
   name: 'monograph_wiki_build',
-  description: 'Generate LLM-powered wiki pages for code communities using the Anthropic API. Requires ANTHROPIC_API_KEY environment variable.',
+  description: 'Generate wiki pages for code communities using Claude Code CLI (no API key needed — reuses Claude Code auth).',
   inputSchema: {
     type: 'object',
     properties: {
