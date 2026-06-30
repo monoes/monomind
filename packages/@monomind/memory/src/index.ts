@@ -124,17 +124,6 @@ export type {
   PatternMatch,
 } from './learning-bridge.js';
 
-// ===== SONA Learning Persistence =====
-export { SonaLearningStore } from './sona-learning-store.js';
-export type {
-  SonaLearningStoreConfig,
-  PatternRecord,
-  LoraRecord,
-  EwcRecord,
-  TrajectoryRecord,
-} from './sona-learning-store.js';
-export { PersistentSonaCoordinator } from './persistent-sona.js';
-export type { PersistentSonaConfig } from './persistent-sona.js';
 
 // ===== Knowledge Graph =====
 export { MemoryGraph } from './memory-graph.js';
