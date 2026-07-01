@@ -477,6 +477,20 @@ If the file exists: write run:complete to run file, emit org:complete via curl, 
 OPERATING LOOP:
 1. Check for stop signal (above). Exit with run:complete + org:complete events if found.
 
+1b. Check user mailbox for pending messages:
+   _threads="${REPO_ROOT}/.monomind/orgs/${orgName}-threads.json"
+   if [ -f "$_threads" ]; then
+     _pending=$(jq '[.[] | select(.status == "pending")]' "$_threads" 2>/dev/null || echo "[]")
+     if [ "$(echo "$_pending" | jq 'length')" -gt 0 ]; then
+       echo "$_pending" | jq -r '.[] | .text // .msg // ""'
+       jq '[.[] | if .status == "pending" then .status = "processed" else . end]' "$_threads" > "${_threads}.tmp" && mv "${_threads}.tmp" "$_threads" || true
+       curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+         -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
+           --arg msg "Received user message — adjusting plan if needed" \
+           '{type:"org:comms",session:$s,org:$o,runId:$rid,from:"boss",to:"user",msg:$msg,ts:(now*1000|floor)}')" || true
+     fi
+   fi
+
 2. List unclaimed Todo cards:
    monotask card list ${board_id} --col ${todo_col} --json | jq '[.[] | select(.labels | index("claimed") | not)]'
 

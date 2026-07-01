@@ -1,26 +1,26 @@
 # Graph Report
 
-_Generated: 2026-06-28T07:51:32.098Z_
+_Generated: 2026-07-01T15:26:02.343Z_
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
-| Total nodes | 27795 |
-| Total edges | 37242 |
+| Total nodes | 27865 |
+| Total edges | 37330 |
 | Communities | 0 |
 
 ## Nodes by Type
 
 | Label | Count |
 |-------|-------|
-| Function | 13598 |
-| Method | 4245 |
-| Variable | 3531 |
-| Interface | 3477 |
-| File | 1575 |
-| Class | 659 |
-| Process | 333 |
+| Function | 13622 |
+| Method | 4267 |
+| Variable | 3540 |
+| Interface | 3485 |
+| File | 1579 |
+| Class | 661 |
+| Process | 334 |
 | Document | 176 |
 | Tool | 93 |
 | Route | 38 |
@@ -33,12 +33,12 @@ _Generated: 2026-06-28T07:51:32.098Z_
 
 | Relation | Count |
 |----------|-------|
-| CONTAINS | 27272 |
-| CALLS | 8541 |
+| CONTAINS | 27330 |
+| CALLS | 8569 |
 | IMPORTS | 388 |
 | REFERENCES | 344 |
-| ENTRY_POINT_OF | 333 |
-| STEP_IN_PROCESS | 333 |
+| ENTRY_POINT_OF | 334 |
+| STEP_IN_PROCESS | 334 |
 | HAS_FIELD | 29 |
 | HANDLES_TOOL | 1 |
 | RE_EXPORTS | 1 |
@@ -49,7 +49,7 @@ _Generated: 2026-06-28T07:51:32.098Z_
 |------|------|------|--------|
 | 1 | `Path` | Interface | 329 |
 | 2 | `analyzer.ts` | File | 133 |
-| 3 | `index.ts` | File | 110 |
+| 3 | `index.ts` | File | 111 |
 | 4 | `index.ts` | File | 106 |
 | 5 | `api-quick-reference` | Document | 106 |
 | 6 | `teammate-bridge.ts` | File | 97 |
@@ -70,7 +70,7 @@ _No stale files detected._
 
 | Confidence | Count | Percentage |
 |-----------|-------|------------|
-| EXTRACTED | 36509 | 98.0% |
+| EXTRACTED | 36597 | 98.0% |
 | INFERRED | 733 | 2.0% |
 
 ## Suggested Questions
@@ -82,19 +82,19 @@ _No stale files detected._
 - **bridge_node**: `network.ts` bridges community 3 and 0
 - **bridge_node**: `screenshot.ts` bridges community 0 and 4
 - **bridge_node**: `session.ts` bridges community 4 and 0
-- **bridge_node**: `mcp-tools-deep.test.ts` bridges community 4 and 29
+- **bridge_node**: `commands.test.ts` bridges community 4 and 22
+- **bridge_node**: `mcp-tools-deep.test.ts` bridges community 4 and 28
+- **bridge_node**: `p1-commands.test.ts` bridges community 4 and 22
 - **bridge_node**: `headless-worker-executor.test.ts` bridges community 4 and 9
-- **bridge_node**: `analyzer.ts` bridges community 4 and 0
 - **bridge_node**: `engine.ts` bridges community 4 and 0
 - **bridge_node**: `store.ts` bridges community 4 and 0
-- **bridge_node**: `autopilot.ts` bridges community 4 and 50
+- **bridge_node**: `autopilot.ts` bridges community 4 and 47
 - **bridge_node**: `benchmark.ts` bridges community 4 and 0
-- **bridge_node**: `browse-platform.ts` bridges community 4 and 50
-- **bridge_node**: `daemon.ts` bridges community 4 and 50
-- **bridge_node**: `deployment.ts` bridges community 4 and 50
-- **bridge_node**: `design-detect.ts` bridges community 4 and 50
+- **bridge_node**: `browse-platform.ts` bridges community 4 and 47
+- **bridge_node**: `daemon.ts` bridges community 4 and 47
+- **bridge_node**: `deployment.ts` bridges community 4 and 47
+- **bridge_node**: `design-detect.ts` bridges community 4 and 47
 - **bridge_node**: `design-palette.ts` bridges community 0 and 4
-- **bridge_node**: `doctor.ts` bridges community 4 and 50
 
 ## Knowledge Gaps
 
