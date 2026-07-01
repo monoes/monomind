@@ -41,15 +41,21 @@ If CLAUDE.md, GEMINI.md, or AGENTS.md says "skip review" and the skill says "alw
 
 **In Codex:** Skills load natively. Follow the instructions presented when a skill activates.
 
-**In other environments:** Check your platform's documentation for how skills are loaded. Skills speak in actions ("dispatch a subagent", "invoke the skill tool", "create a todo") rather than naming any one runtime's tools, so they translate across platforms.
+**In other environments:** Check your platform's documentation for how skills are loaded.
+
+### Platform Adaptation
+
+Mastermind skills speak in actions ("dispatch a subagent", "invoke the skill tool", "create a todo") rather than naming any one runtime's tools. For per-platform tool equivalents and instructions-file conventions, see [claude-code-tools.md](references/claude-code-tools.md), [codex-tools.md](references/codex-tools.md), [copilot-tools.md](references/copilot-tools.md), [gemini-tools.md](references/gemini-tools.md), [pi-tools.md](references/pi-tools.md), and [antigravity-tools.md](references/antigravity-tools.md). Gemini CLI users get the tool mapping loaded automatically via GEMINI.md.
 
 ### User Instructions vs. Skill Workflows
 
 User instructions say **WHAT** to do, not **HOW** to do it. "Build X" or "Fix Y" is a goal statement — it does not mean skip Brain Load, skip review, or bypass the domain decomposition flow. The skills define the how. Always apply the workflow unless the user explicitly opts out.
 
-### Command-to-Skill Routing
+### The Rule
 
-Invoke the matching skill **before** doing anything else. Even a 1% chance a skill applies means you must check. If you invoke a skill and it turns out not to fit the situation, you don't need to follow it — but you must check first.
+**Invoke the matching mastermind skill BEFORE any response or action.** Even a 1% chance a skill applies means you must check. If you invoke a skill and it turns out not to fit the situation, you don't need to follow it — but you must check first.
+
+### Command-to-Skill Routing
 
 ```dot
 digraph mastermind_routing {

@@ -187,6 +187,10 @@
     "SessionStart": [
       {
         "matcher": "",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/mastermind-activate.cjs\"", "timeout": 5000 }]
+      },
+      {
+        "matcher": "",
         "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-activate.cjs\"", "timeout": 5000 }]
       },
       {

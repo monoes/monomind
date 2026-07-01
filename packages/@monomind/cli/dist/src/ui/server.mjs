@@ -257,7 +257,11 @@ function _insertRunEvent(ev, source) {
     if (!org || !runId) return;
     _runDbInsertStmt.run([org, runId, String(ev.type || ''), JSON.stringify(ev), Number(ev.ts || Date.now()), source || 'http']);
     _persistRunDb();
-  } catch (_) {}
+  } catch (_) {
+    // sql.js leaves the prepared statement in a dirty state after any error (step() throws but
+    // reset() is never called). Reset it so subsequent inserts aren't permanently broken.
+    try { _runDbInsertStmt.reset(); } catch (_2) {}
+  }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -5728,6 +5732,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       runStreamClients.get(_stOrgName).add(res);
       // Replay events since `since` (SQLite row id cursor; falls back to JSONL line offset)
       try {
+        let _stReplayedViaSqlite = false;
         if (_runDb) {
           // SQLite path: cursor is last row id seen (client sends 0 on first connect)
           const _stStmt = _runDb.prepare(
@@ -5740,9 +5745,15 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             try { res.write(`data: ${_stRow.raw}\n\n`); _stLastId = _stRow.id; } catch (_) { break; }
           }
           _stStmt.free();
-          res.write(`data: ${JSON.stringify({ type: 'stream:replay-done', count: _stLastId })}\n\n`);
-        } else {
-          // JSONL fallback: since = 0-based line offset
+          if (_stLastId > _stSince) {
+            // SQLite had rows — send cursor and skip JSONL fallback
+            res.write(`data: ${JSON.stringify({ type: 'stream:replay-done', count: _stLastId })}\n\n`);
+            _stReplayedViaSqlite = true;
+          }
+        }
+        if (!_stReplayedViaSqlite) {
+          // JSONL fallback: SQLite absent or returned 0 rows — read directly from run file.
+          // `since` is a 0-based line offset in this path.
           const _stRoot = projectDir || process.cwd();
           const _stRunId = activeOrgRuns.get(_stOrgName) || _getActiveRunId(_stOrgName, _stRoot);
           if (_stRunId) {
@@ -5754,7 +5765,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                 try { res.write(`data: ${_stLines[_i]}\n\n`); } catch (_) { break; }
               }
               res.write(`data: ${JSON.stringify({ type: 'stream:replay-done', count: _stLines.length })}\n\n`);
+            } else {
+              res.write(`data: ${JSON.stringify({ type: 'stream:replay-done', count: 0 })}\n\n`);
             }
+          } else {
+            res.write(`data: ${JSON.stringify({ type: 'stream:replay-done', count: 0 })}\n\n`);
           }
         }
       } catch (_) {}

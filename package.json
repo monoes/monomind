@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "1.16.10",
+  "version": "1.17.0",
   "description": "Monomind - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "dist/index.js",
   "type": "module",
@@ -123,7 +123,6 @@
     "url": "https://github.com/monoes/monomind.git"
   },
   "keywords": [
-    "ruvflow",
     "claude",
     "claude-code",
     "anthropic",
@@ -152,10 +151,12 @@
     "embeddings",
     "machine-learning",
     "neural-network",
-    "hive-mind",
+    "monomind",
     "distributed-systems",
     "consensus",
-    "self-learning"
+    "self-learning",
+    "harness",
+    "organizations"
   ],
   "author": {
     "name": "nokhodian",
