@@ -1,7 +1,7 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════
-# Monomind RVFA Appliance — Full Capability Verification Suite
-# ADR-058: Self-Contained Monomind RVF Appliance
+# Monomind Appliance — Full Capability Verification Suite
+# ADR-058: Self-Contained Monomind Appliance
 #
 # Tests ALL 35 categories (95+ checks) to verify every capability
 # of the Monomind + Monomind system works correctly.
@@ -185,7 +185,7 @@ fi
 
 # ── 4. Memory Operations ─────────────────────────────────────
 if should_run "memory"; then
-  section 4 "Memory Operations (LanceDB + RVF)"
+  section 4 "Memory Operations (LanceDB )"
   check "memory init" $MONOMIND_CMD memory init --force
   check "memory store key-1" $MONOMIND_CMD memory store --key "verify-1" --value "Capability verification entry one" --namespace verify
   check "memory store key-2" $MONOMIND_CMD memory store --key "verify-2" --value "Vector search verification entry" --namespace verify
