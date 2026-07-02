@@ -640,25 +640,29 @@ const scaleCommand = {
             return { success: false, exitCode: 1 };
         }
         output.printInfo(`Scaling swarm ${swarmId} to ${targetAgents} agents...`);
-        // Calculate scaling delta — fetch actual count instead of hardcoded 8 (#1425)
-        let currentAgents = 0;
         try {
-            const statusResult = await callMCPTool('swarm_status', { swarmId });
-            const statusData = typeof statusResult === 'string' ? JSON.parse(statusResult) : statusResult;
-            currentAgents = statusData?.agentCount ?? statusData?.agents?.length ?? 0;
+            const result = await callMCPTool('swarm_scale', { swarmId, targetAgents, agentType });
+            if (!result.success) {
+                output.printError(result.error || 'Failed to scale swarm');
+                return { success: false, exitCode: 1 };
+            }
+            if (result.spawned.length === 0 && result.terminated.length === 0) {
+                output.printInfo('Swarm already at target size');
+                return { success: true, data: result };
+            }
+            if (result.spawned.length > 0) {
+                output.printSuccess(`Spawned ${result.spawned.length} agent(s): ${result.spawned.join(', ')}`);
+            }
+            if (result.terminated.length > 0) {
+                output.printSuccess(`Terminated ${result.terminated.length} agent(s): ${result.terminated.join(', ')}`);
+            }
+            output.writeln(output.dim(`  ${result.previousCount} → ${result.currentCount} agents`));
+            return { success: true, data: result };
         }
-        catch {
-            // If MCP unavailable, fall back to 0 (will spawn all requested agents)
-            currentAgents = 0;
+        catch (error) {
+            output.printError(`Scale error: ${error instanceof MCPClientError ? error.message : String(error)}`);
+            return { success: false, exitCode: 1 };
         }
-        const delta = targetAgents - currentAgents;
-        if (delta === 0) {
-            output.printInfo('Swarm already at target size');
-            return { success: true };
-        }
-        // No swarm_scale MCP tool is available — report the computed delta but do not pretend to act
-        output.printWarning('Swarm scaling is not yet implemented. The target count was computed but no agents were spawned or stopped.');
-        return { success: false, message: 'Scaling not implemented', exitCode: 1 };
     }
 };
 // Coordinate command (v1 specific)
