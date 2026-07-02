@@ -27,31 +27,11 @@ export async function callLLM(prompt, config) {
         clearTimeout(timeoutId);
     }
 }
-async function callAnthropic(prompt, config, signal) {
-    const apiKey = config.apiKey ?? process.env['ANTHROPIC_API_KEY'];
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        signal,
-        headers: {
-            'x-api-key': apiKey ?? '',
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: config.model ?? 'claude-3-haiku-20240307',
-            max_tokens: config.maxTokens ?? 2048,
-            messages: [{ role: 'user', content: prompt }],
-        }),
-    });
-    if (!response.ok) {
-        throw new Error(`LLM provider anthropic error: ${response.status} ${response.statusText}`);
-    }
-    const data = await response.json();
-    return {
-        text: data.content[0].text,
-        inputTokens: data.usage.input_tokens,
-        outputTokens: data.usage.output_tokens,
-    };
+async function callAnthropic(prompt, _config, _signal) {
+    // Route through Claude Code CLI — reuses host auth, no API key needed.
+    const { claudeCliCall } = await import('../claude-cli.js');
+    const text = await claudeCliCall(prompt);
+    return { text };
 }
 async function callOpenAI(prompt, config, signal) {
     const apiKey = config.apiKey ?? process.env['OPENAI_API_KEY'];

@@ -4,10 +4,6 @@ import { generateAllWikiPages } from '../wiki/wiki-generator.js';
  * Generates wiki pages for communities using the LLM.
  */
 export async function runWikiBuildTool(db, input) {
-    const apiKey = process.env['ANTHROPIC_API_KEY'];
-    if (!apiKey && !input.llmClient) {
-        return { error: 'ANTHROPIC_API_KEY not set' };
-    }
     const opts = {
         force: input.force ?? false,
         model: input.model,
