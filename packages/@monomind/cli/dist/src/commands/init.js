@@ -3,11 +3,13 @@
  * Comprehensive initialization for Monomind with Claude Code integration
  */
 import { output } from '../output.js';
-import { confirm, select, multiSelect, input } from '../prompt.js';
+import { confirm } from '../prompt.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { executeInit, executeUpgrade, executeUpgradeWithMissing, findMonomindProjects, DEFAULT_INIT_OPTIONS, MINIMAL_INIT_OPTIONS, FULL_INIT_OPTIONS, } from '../init/index.js';
-// Check if project is already initialized
+import { executeInit, DEFAULT_INIT_OPTIONS, MINIMAL_INIT_OPTIONS, FULL_INIT_OPTIONS, } from '../init/index.js';
+import { wizardCommand } from './init-wizard.js';
+import { upgradeCommand } from './init-upgrade.js';
+import { checkCommand, skillsCommand, hooksCommand } from './init-subcommands.js';
 function isInitialized(cwd) {
     const claudePath = path.join(cwd, '.claude', 'settings.json');
     const monomindPath = path.join(cwd, '.monomind', 'config.yaml');
@@ -16,7 +18,6 @@ function isInitialized(cwd) {
         monomind: fs.existsSync(monomindPath),
     };
 }
-// Init subcommand (default)
 const initAction = async (ctx) => {
     const force = ctx.flags.force;
     const minimal = ctx.flags.minimal;
@@ -24,7 +25,6 @@ const initAction = async (ctx) => {
     const skipClaude = ctx.flags['skip-claude'];
     const onlyClaude = ctx.flags['only-claude'];
     const cwd = ctx.cwd;
-    // Check if already initialized
     const initialized = isInitialized(cwd);
     const hasExisting = initialized.claude || initialized.monomind;
     if (hasExisting && !force) {
@@ -51,7 +51,6 @@ const initAction = async (ctx) => {
     output.writeln();
     output.writeln(output.bold('Initializing Monomind'));
     output.writeln();
-    // Build init options based on flags
     let options;
     if (minimal) {
         options = { ...MINIMAL_INIT_OPTIONS, targetDir: cwd, force };
@@ -62,7 +61,6 @@ const initAction = async (ctx) => {
     else {
         options = { ...DEFAULT_INIT_OPTIONS, targetDir: cwd, force };
     }
-    // Handle --skip-claude and --only-claude flags
     if (skipClaude) {
         options.components.settings = false;
         options.components.skills = false;
@@ -76,11 +74,9 @@ const initAction = async (ctx) => {
     if (onlyClaude) {
         options.components.runtime = false;
     }
-    // Create spinner
     const spinner = output.createSpinner({ text: 'Initializing...' });
     spinner.start();
     try {
-        // Execute initialization
         const result = await executeInit(options);
         if (!result.success) {
             spinner.fail('Initialization failed');
@@ -132,7 +128,6 @@ const initAction = async (ctx) => {
             }
         }
         output.writeln();
-        // Display summary
         const summary = [];
         if (result.created.directories.length > 0) {
             summary.push(`Directories: ${result.created.directories.length} created`);
@@ -145,7 +140,6 @@ const initAction = async (ctx) => {
         }
         output.printBox(summary.join('\n'), 'Summary');
         output.writeln();
-        // Show what was created
         if (options.components.claudeMd || options.components.settings || options.components.skills || options.components.commands || options.components.agents) {
             output.printBox([
                 options.components.claudeMd ? `CLAUDE.md:   Swarm guidance & configuration` : '',
@@ -167,19 +161,16 @@ const initAction = async (ctx) => {
             ].join('\n'), 'v1 Runtime');
             output.writeln();
         }
-        // Hooks summary
         if (result.summary.hooksEnabled > 0) {
             output.printInfo(`Hooks: ${result.summary.hooksEnabled} hook types enabled in settings.json`);
             output.writeln();
         }
-        // Handle --start-all or --start-daemon
         const startAll = ctx.flags['start-all'] || ctx.flags.startAll;
         const startDaemon = ctx.flags['start-daemon'] || ctx.flags.startDaemon || startAll;
         if (startDaemon || startAll) {
             output.writeln();
             output.printInfo('Starting services...');
             const { execSync, spawn: spawnChild } = await import('child_process');
-            // Initialize memory database
             if (startAll) {
                 try {
                     output.writeln(output.dim('  Initializing memory database...'));
@@ -194,7 +185,6 @@ const initAction = async (ctx) => {
                     output.writeln(output.dim('  Memory database already exists'));
                 }
             }
-            // Start daemon
             if (startDaemon) {
                 try {
                     output.writeln(output.dim('  Starting daemon...'));
@@ -206,7 +196,6 @@ const initAction = async (ctx) => {
                     output.writeln(output.warning('  Daemon may already be running'));
                 }
             }
-            // Initialize swarm
             if (startAll) {
                 try {
                     output.writeln(output.dim('  Initializing swarm...'));
@@ -224,7 +213,6 @@ const initAction = async (ctx) => {
             output.writeln();
             output.printSuccess('All services started');
         }
-        // Handle --with-embeddings
         const withEmbeddings = ctx.flags['with-embeddings'] || ctx.flags.withEmbeddings;
         const embeddingModel = (ctx.flags['embedding-model'] || ctx.flags.embeddingModel || 'Xenova/all-MiniLM-L6-v2');
         if (withEmbeddings) {
@@ -247,12 +235,11 @@ const initAction = async (ctx) => {
                 output.writeln(output.success('  ✓ Embeddings initialized'));
                 output.writeln(output.dim('    Run "embeddings init --download" to download model'));
             }
-            catch (err) {
+            catch {
                 output.writeln(output.warning('  Embedding initialization skipped (run manually)'));
             }
         }
         if (!startDaemon && !startAll) {
-            // Next steps (only if not auto-starting)
             output.writeln(output.bold('Next steps:'));
             output.printList([
                 `Run ${output.highlight('monomind daemon start')} to start background workers`,
@@ -262,7 +249,6 @@ const initAction = async (ctx) => {
                 options.components.settings ? `Review ${output.highlight('.claude/settings.json')} for hook configurations` : '',
             ].filter(Boolean));
         }
-        // Recommend semantic enrichment — prominent callout, not buried tip
         output.writeln('');
         output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
         output.writeln(output.bold('  Run /mastermind:understand next'));
@@ -285,609 +271,6 @@ const initAction = async (ctx) => {
         return { success: false, exitCode: 1 };
     }
 };
-// Wizard subcommand for interactive setup
-const wizardCommand = {
-    name: 'wizard',
-    description: 'Interactive setup wizard for comprehensive configuration',
-    action: async (ctx) => {
-        output.writeln();
-        output.writeln(output.bold('Monomind Setup Wizard'));
-        output.writeln(output.dim('Answer questions to configure your project'));
-        output.writeln();
-        try {
-            // Start with base options
-            const options = { ...DEFAULT_INIT_OPTIONS, targetDir: ctx.cwd };
-            // Configuration preset
-            const preset = await select({
-                message: 'Select configuration preset:',
-                options: [
-                    { value: 'default', label: 'Default', hint: 'Recommended settings for most projects' },
-                    { value: 'minimal', label: 'Minimal', hint: 'Core features only' },
-                    { value: 'full', label: 'Full', hint: 'All features enabled' },
-                    { value: 'custom', label: 'Custom', hint: 'Choose each component' },
-                ],
-            });
-            if (preset === 'minimal') {
-                Object.assign(options, MINIMAL_INIT_OPTIONS);
-                options.targetDir = ctx.cwd;
-            }
-            else if (preset === 'full') {
-                Object.assign(options, FULL_INIT_OPTIONS);
-                options.targetDir = ctx.cwd;
-            }
-            else if (preset === 'custom') {
-                // Component selection
-                const components = await multiSelect({
-                    message: 'Select components to initialize:',
-                    options: [
-                        { value: 'claudeMd', label: 'CLAUDE.md', hint: 'Swarm guidance and project configuration', selected: true },
-                        { value: 'settings', label: 'settings.json', hint: 'Claude Code hooks configuration', selected: true },
-                        { value: 'skills', label: 'Skills', hint: 'Claude Code skills in .claude/skills/', selected: true },
-                        { value: 'commands', label: 'Commands', hint: 'Claude Code commands in .claude/commands/', selected: true },
-                        { value: 'agents', label: 'Agents', hint: 'Agent definitions in .claude/agents/', selected: true },
-                        { value: 'helpers', label: 'Helpers', hint: 'Utility scripts in .claude/helpers/', selected: true },
-                        { value: 'statusline', label: 'Statusline', hint: 'Shell statusline integration', selected: false },
-                        { value: 'mcp', label: 'MCP', hint: '.mcp.json for MCP server configuration', selected: true },
-                        { value: 'runtime', label: 'Runtime', hint: '.monomind/ directory for v1 runtime', selected: true },
-                    ],
-                });
-                options.components.claudeMd = components.includes('claudeMd');
-                options.components.settings = components.includes('settings');
-                options.components.skills = components.includes('skills');
-                options.components.commands = components.includes('commands');
-                options.components.agents = components.includes('agents');
-                options.components.helpers = components.includes('helpers');
-                options.components.statusline = components.includes('statusline');
-                options.components.mcp = components.includes('mcp');
-                options.components.runtime = components.includes('runtime');
-                // Skills selection
-                if (options.components.skills) {
-                    const skillSets = await multiSelect({
-                        message: 'Select skill sets:',
-                        options: [
-                            { value: 'core', label: 'Core', hint: 'Swarm, memory, SPARC skills', selected: true },
-                            { value: 'memory', label: 'Memory (LanceDB)', hint: 'Vector database skills', selected: true },
-                            { value: 'github', label: 'GitHub', hint: 'GitHub integration skills', selected: true },
-                        ],
-                    });
-                    options.skills.core = skillSets.includes('core');
-                    options.skills.memory = skillSets.includes('memory');
-                    options.skills.github = skillSets.includes('github');
-                }
-                // Hooks selection
-                if (options.components.settings) {
-                    const hooks = await multiSelect({
-                        message: 'Select hooks to enable:',
-                        options: [
-                            { value: 'preToolUse', label: 'PreToolUse', hint: 'Before tool execution', selected: true },
-                            { value: 'postToolUse', label: 'PostToolUse', hint: 'After tool execution', selected: true },
-                            { value: 'userPromptSubmit', label: 'UserPromptSubmit', hint: 'Task routing', selected: true },
-                            { value: 'sessionStart', label: 'SessionStart', hint: 'Session initialization', selected: true },
-                            { value: 'stop', label: 'Stop', hint: 'Task completion evaluation', selected: true },
-                            { value: 'notification', label: 'Notification', hint: 'Swarm notifications', selected: true },
-                            { value: 'permissionRequest', label: 'PermissionRequest', hint: 'Auto-allow monomind tools', selected: true },
-                        ],
-                    });
-                    options.hooks.preToolUse = hooks.includes('preToolUse');
-                    options.hooks.postToolUse = hooks.includes('postToolUse');
-                    options.hooks.userPromptSubmit = hooks.includes('userPromptSubmit');
-                    options.hooks.sessionStart = hooks.includes('sessionStart');
-                    options.hooks.stop = hooks.includes('stop');
-                    options.hooks.notification = hooks.includes('notification');
-                }
-            }
-            // Swarm topology (for all presets)
-            const topology = await select({
-                message: 'Select swarm topology:',
-                options: [
-                    { value: 'hierarchical-mesh', label: 'Hierarchical Mesh', hint: 'Best for complex projects (recommended)' },
-                    { value: 'mesh', label: 'Mesh', hint: 'Peer-to-peer coordination' },
-                    { value: 'hierarchical', label: 'Hierarchical', hint: 'Tree-based coordination' },
-                    { value: 'adaptive', label: 'Adaptive', hint: 'Dynamic topology switching' },
-                ],
-            });
-            options.runtime.topology = topology;
-            // Max agents
-            const maxAgents = await input({
-                message: 'Maximum concurrent agents:',
-                default: String(options.runtime.maxAgents),
-                validate: (v) => {
-                    const n = parseInt(v);
-                    return (!isNaN(n) && n > 0 && n <= 50) || 'Enter a number between 1 and 50';
-                },
-            });
-            options.runtime.maxAgents = parseInt(maxAgents);
-            // Memory backend
-            const memoryBackend = await select({
-                message: 'Select memory backend:',
-                options: [
-                    { value: 'hybrid', label: 'Hybrid', hint: 'SQLite + LanceDB (recommended)' },
-                    { value: 'lancedb', label: 'LanceDB', hint: '150x faster vector search' },
-                    { value: 'sqlite', label: 'SQLite', hint: 'Standard SQL storage' },
-                    { value: 'memory', label: 'In-Memory', hint: 'Fast but non-persistent' },
-                ],
-            });
-            options.runtime.memoryBackend = memoryBackend;
-            // HNSW indexing
-            if (memoryBackend === 'lancedb' || memoryBackend === 'hybrid') {
-                const enableHNSW = await confirm({
-                    message: 'Enable HNSW indexing for faster vector search?',
-                    default: true,
-                });
-                options.runtime.enableHNSW = enableHNSW;
-            }
-            // Neural learning
-            const enableNeural = await confirm({
-                message: 'Enable neural pattern learning?',
-                default: options.runtime.enableNeural,
-            });
-            options.runtime.enableNeural = enableNeural;
-            // ADR-049: Self-Learning Memory capabilities
-            if (memoryBackend === 'lancedb' || memoryBackend === 'hybrid') {
-                const enableSelfLearning = await confirm({
-                    message: 'Enable self-learning memory? (LearningBridge + Knowledge Graph + Agent Scopes)',
-                    default: true,
-                });
-                options.runtime.enableLearningBridge = enableSelfLearning && enableNeural;
-                options.runtime.enableMemoryGraph = enableSelfLearning;
-                options.runtime.enableAgentScopes = enableSelfLearning;
-            }
-            else {
-                options.runtime.enableLearningBridge = false;
-                options.runtime.enableMemoryGraph = false;
-                options.runtime.enableAgentScopes = false;
-            }
-            // Embeddings configuration
-            const enableEmbeddings = await confirm({
-                message: 'Enable ONNX embedding system with hyperbolic support?',
-                default: true,
-            });
-            let embeddingModel = 'Xenova/all-MiniLM-L6-v2';
-            if (enableEmbeddings) {
-                embeddingModel = await select({
-                    message: 'Select embedding model:',
-                    options: [
-                        { value: 'Xenova/all-MiniLM-L6-v2', label: 'MiniLM L6 (384d)', hint: 'Fast, good quality (recommended)' },
-                        { value: 'Xenova/all-mpnet-base-v2', label: 'MPNet Base (768d)', hint: 'Higher quality, more memory' },
-                    ],
-                });
-            }
-            // Execute initialization
-            output.writeln();
-            const spinner = output.createSpinner({ text: 'Initializing...' });
-            spinner.start();
-            const result = await executeInit(options);
-            if (!result.success) {
-                spinner.fail('Initialization failed');
-                for (const error of result.errors) {
-                    output.printError(error);
-                }
-                return { success: false, exitCode: 1 };
-            }
-            spinner.succeed('Setup complete!');
-            // Initialize embeddings if enabled
-            let embeddingsInitialized = false;
-            if (enableEmbeddings) {
-                output.writeln();
-                output.printInfo('Initializing ONNX embedding subsystem...');
-                const ALLOWED_MODELS = /^[\w\-./]+$/;
-                if (!ALLOWED_MODELS.test(embeddingModel)) {
-                    output.writeln(output.error('Invalid model identifier. Only alphanumeric characters, hyphens, dots, and slashes are allowed.'));
-                    return { success: false, exitCode: 1 };
-                }
-                const { execFileSync } = await import('child_process');
-                try {
-                    execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['@monomind/cli@latest', 'embeddings', 'init', '--model', embeddingModel, '--no-download', '--force'], {
-                        stdio: 'pipe',
-                        cwd: ctx.cwd,
-                        timeout: 30000
-                    });
-                    output.writeln(output.success('  ✓ Embeddings configured'));
-                    embeddingsInitialized = true;
-                }
-                catch {
-                    output.writeln(output.dim('  Embeddings will be configured on first use'));
-                }
-            }
-            // Enforcement gates opt-in
-            const enableGates = await confirm({
-                message: 'Enable enforcement gates? (blocks destructive commands + secrets in writes)',
-                default: true,
-            });
-            let gatesEnabled = false;
-            if (enableGates) {
-                try {
-                    const { execFileSync } = await import('child_process');
-                    execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['@monomind/cli@latest', 'guidance', 'setup', '--project-dir', ctx.cwd], { stdio: 'pipe', cwd: ctx.cwd, timeout: 10000 });
-                    gatesEnabled = true;
-                    output.writeln(output.success('  ✓ Enforcement gates wired'));
-                }
-                catch {
-                    output.writeln(output.dim('  Gates setup skipped (run `monomind guidance setup` manually)'));
-                }
-            }
-            output.writeln();
-            // Summary table
-            output.printTable({
-                columns: [
-                    { key: 'setting', header: 'Setting', width: 20 },
-                    { key: 'value', header: 'Value', width: 40 },
-                ],
-                data: [
-                    { setting: 'Preset', value: preset },
-                    { setting: 'Topology', value: options.runtime.topology },
-                    { setting: 'Max Agents', value: String(options.runtime.maxAgents) },
-                    { setting: 'Memory Backend', value: options.runtime.memoryBackend },
-                    { setting: 'HNSW Indexing', value: options.runtime.enableHNSW ? 'Enabled' : 'Disabled' },
-                    { setting: 'Neural Learning', value: options.runtime.enableNeural ? 'Enabled' : 'Disabled' },
-                    { setting: 'Self-Learning', value: options.runtime.enableLearningBridge ? 'LearningBridge + Graph + Scopes' : 'Disabled' },
-                    { setting: 'Embeddings', value: enableEmbeddings ? `${embeddingModel} (hyperbolic)` : 'Disabled' },
-                    { setting: 'Skills', value: `${result.summary.skillsCount} installed` },
-                    { setting: 'Commands', value: `${result.summary.commandsCount} installed` },
-                    { setting: 'Agents', value: `${result.summary.agentsCount} installed` },
-                    { setting: 'Hooks', value: `${result.summary.hooksEnabled} enabled` },
-                    { setting: 'Enforcement Gates', value: gatesEnabled ? 'Enabled' : 'Disabled' },
-                ],
-            });
-            return { success: true, data: result };
-        }
-        catch (error) {
-            if (error instanceof Error && error.message === 'User cancelled') {
-                output.printInfo('Setup cancelled');
-                return { success: true };
-            }
-            throw error;
-        }
-    },
-};
-// Check subcommand
-const checkCommand = {
-    name: 'check',
-    description: 'Check if MonoMind is initialized',
-    action: async (ctx) => {
-        const initialized = isInitialized(ctx.cwd);
-        const result = {
-            initialized: initialized.claude || initialized.monomind,
-            claude: initialized.claude,
-            monomind: initialized.monomind,
-            paths: {
-                claudeSettings: initialized.claude ? path.join(ctx.cwd, '.claude', 'settings.json') : null,
-                monomindConfig: initialized.monomind ? path.join(ctx.cwd, '.monomind', 'config.yaml') : null,
-            },
-        };
-        if (ctx.flags.format === 'json') {
-            output.printJson(result);
-            return { success: true, data: result };
-        }
-        if (result.initialized) {
-            output.printSuccess('MonoMind is initialized');
-            if (initialized.claude) {
-                output.printInfo(`  Claude Code: .claude/settings.json`);
-            }
-            if (initialized.monomind) {
-                output.printInfo(`  Runtime: .monomind/config.yaml`);
-            }
-        }
-        else {
-            output.printWarning('MonoMind is not initialized in this directory');
-            output.printInfo('Run "monomind init" to initialize');
-        }
-        return { success: true, data: result };
-    },
-};
-// Skills subcommand
-const skillsCommand = {
-    name: 'skills',
-    description: 'Initialize only skills',
-    options: [
-        { name: 'all', description: 'Install all skills', type: 'boolean', default: false },
-        { name: 'core', description: 'Install core skills', type: 'boolean', default: true },
-        { name: 'memory', description: 'Install memory skills', type: 'boolean', default: false },
-        { name: 'github', description: 'Install GitHub skills', type: 'boolean', default: false },
-    ],
-    action: async (ctx) => {
-        const options = {
-            ...MINIMAL_INIT_OPTIONS,
-            targetDir: ctx.cwd,
-            force: ctx.flags.force,
-            components: {
-                settings: false,
-                skills: true,
-                commands: false,
-                agents: false,
-                helpers: false,
-                statusline: false,
-                mcp: false,
-                runtime: false,
-                claudeMd: false,
-                graphify: false,
-            },
-            skills: {
-                all: ctx.flags.all,
-                core: ctx.flags.core,
-                memory: ctx.flags.memory,
-                github: ctx.flags.github,
-                browser: false,
-                advanced: false,
-            },
-        };
-        const spinner = output.createSpinner({ text: 'Installing skills...' });
-        spinner.start();
-        const result = await executeInit(options);
-        if (result.success) {
-            spinner.succeed(`Installed ${result.summary.skillsCount} skills`);
-        }
-        else {
-            spinner.fail('Failed to install skills');
-            for (const error of result.errors) {
-                output.printError(error);
-            }
-        }
-        return { success: result.success, data: result };
-    },
-};
-// Hooks subcommand
-const hooksCommand = {
-    name: 'hooks',
-    description: 'Initialize only hooks configuration',
-    options: [
-        { name: 'all', description: 'Enable all hooks', type: 'boolean', default: true },
-        { name: 'minimal', description: 'Enable only essential hooks', type: 'boolean', default: false },
-    ],
-    action: async (ctx) => {
-        const minimal = ctx.flags.minimal;
-        const options = {
-            ...DEFAULT_INIT_OPTIONS,
-            targetDir: ctx.cwd,
-            force: ctx.flags.force,
-            components: {
-                settings: true,
-                skills: false,
-                commands: false,
-                agents: false,
-                helpers: false,
-                statusline: false,
-                mcp: false,
-                runtime: false,
-                claudeMd: false,
-                graphify: false,
-            },
-            hooks: minimal
-                ? {
-                    preToolUse: true,
-                    postToolUse: true,
-                    userPromptSubmit: false,
-                    sessionStart: false,
-                    stop: false,
-                    preCompact: false,
-                    notification: false,
-                    teammateIdle: false,
-                    taskCompleted: false,
-                    timeout: 5000,
-                    continueOnError: true,
-                }
-                : DEFAULT_INIT_OPTIONS.hooks,
-        };
-        const spinner = output.createSpinner({ text: 'Creating hooks configuration...' });
-        spinner.start();
-        const result = await executeInit(options);
-        if (result.success) {
-            spinner.succeed(`Created settings.json with ${result.summary.hooksEnabled} hooks enabled`);
-        }
-        else {
-            spinner.fail('Failed to create hooks configuration');
-            for (const error of result.errors) {
-                output.printError(error);
-            }
-        }
-        return { success: result.success, data: result };
-    },
-};
-// Upgrade subcommand - updates helpers without losing user data
-const upgradeCommand = {
-    name: 'upgrade',
-    description: 'Update statusline and helpers while preserving existing data',
-    options: [
-        {
-            name: 'verbose',
-            short: 'v',
-            description: 'Show detailed output',
-            type: 'boolean',
-            default: false,
-        },
-        {
-            name: 'add-missing',
-            short: 'a',
-            description: 'Add any new skills, agents, and commands that are missing',
-            type: 'boolean',
-            default: false,
-        },
-        {
-            name: 'settings',
-            short: 's',
-            description: 'Merge new settings (Agent Teams, hooks) into existing settings.json',
-            type: 'boolean',
-            default: false,
-        },
-        {
-            name: 'all',
-            description: 'Upgrade all known monomind projects on this machine (scans ~/Desktop, ~/projects, etc.)',
-            type: 'boolean',
-            default: false,
-        },
-    ],
-    action: async (ctx) => {
-        const addMissing = (ctx.flags['add-missing'] || ctx.flags.addMissing);
-        const upgradeSettings = (ctx.flags.settings);
-        const upgradeAll = (ctx.flags.all);
-        // ── --all: scan for every monomind project and upgrade each ──────────────
-        if (upgradeAll) {
-            output.writeln();
-            output.writeln(output.bold('Upgrading all monomind projects'));
-            output.writeln(output.dim('Scanning ~/Desktop, ~/projects, ~/code… (this may take a moment)'));
-            output.writeln();
-            const projects = findMonomindProjects();
-            if (projects.length === 0) {
-                output.printInfo('No monomind projects found. Install monomind in a project first: npx monomind init');
-                return { success: true, exitCode: 0 };
-            }
-            output.printInfo(`Found ${projects.length} project(s). Upgrading…`);
-            output.writeln();
-            let succeeded = 0;
-            let failed = 0;
-            // Try to read control URL for dashboard progress events (best-effort)
-            let controlUrl = 'http://localhost:4242';
-            try {
-                const ctrlPath = path.join(process.cwd(), '.monomind', 'control.json');
-                if (fs.existsSync(ctrlPath) && fs.statSync(ctrlPath).size <= 4096) {
-                    const ctrlCfg = JSON.parse(fs.readFileSync(ctrlPath, 'utf-8'));
-                    // Only allow localhost/127.0.0.1 URLs to prevent SSRF via attacker-controlled control.json
-                    if (typeof ctrlCfg.url === 'string' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(ctrlCfg.url)) {
-                        controlUrl = ctrlCfg.url;
-                    }
-                }
-            }
-            catch { }
-            const emitUpgradeProgress = async (projDir, status, current, total) => {
-                try {
-                    const { default: http } = await import('http');
-                    const payload = JSON.stringify({ type: 'upgrade:progress', project: projDir, status, current, total, ts: Date.now() });
-                    const url = new URL(controlUrl + '/api/mastermind/event');
-                    const req = http.request({ hostname: url.hostname, port: parseInt(url.port || '4242'), path: url.pathname, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } });
-                    req.write(payload);
-                    req.end();
-                    req.on('error', () => { });
-                }
-                catch { }
-            };
-            for (const projDir of projects) {
-                const projIdx = projects.indexOf(projDir) + 1;
-                const spinner = output.createSpinner({ text: `[${projIdx}/${projects.length}] ${projDir}` });
-                spinner.start();
-                try {
-                    const res = addMissing
-                        ? await executeUpgradeWithMissing(projDir, upgradeSettings)
-                        : await executeUpgrade(projDir, upgradeSettings);
-                    if (res.success) {
-                        spinner.succeed(projDir + ' (' + res.updated.length + ' updated)');
-                        succeeded++;
-                        emitUpgradeProgress(projDir, 'success', projIdx, projects.length);
-                    }
-                    else {
-                        spinner.fail(projDir + ' — ' + (res.errors[0] || 'unknown error'));
-                        failed++;
-                        emitUpgradeProgress(projDir, 'failed', projIdx, projects.length);
-                    }
-                }
-                catch (e) {
-                    spinner.fail(projDir + ' — ' + (e instanceof Error ? e.message : String(e)));
-                    failed++;
-                    emitUpgradeProgress(projDir, 'failed', projIdx, projects.length);
-                }
-            }
-            output.writeln();
-            output.printInfo(`Done: ${succeeded} upgraded, ${failed} failed out of ${projects.length} projects.`);
-            return { success: failed === 0, exitCode: failed > 0 ? 1 : 0 };
-        }
-        output.writeln();
-        output.writeln(output.bold('Upgrading MonoMind'));
-        if (addMissing && upgradeSettings) {
-            output.writeln(output.dim('Updates helpers, settings, and adds any missing skills/agents/commands'));
-        }
-        else if (addMissing) {
-            output.writeln(output.dim('Updates helpers and adds any missing skills/agents/commands'));
-        }
-        else if (upgradeSettings) {
-            output.writeln(output.dim('Updates helpers and merges new settings (Agent Teams, hooks)'));
-        }
-        else {
-            output.writeln(output.dim('Updates helpers while preserving your existing data'));
-        }
-        output.writeln();
-        const spinnerText = upgradeSettings
-            ? 'Upgrading helpers and settings...'
-            : (addMissing ? 'Upgrading and adding missing assets...' : 'Upgrading...');
-        const spinner = output.createSpinner({ text: spinnerText });
-        spinner.start();
-        try {
-            const result = addMissing
-                ? await executeUpgradeWithMissing(ctx.cwd, upgradeSettings)
-                : await executeUpgrade(ctx.cwd, upgradeSettings);
-            if (!result.success) {
-                spinner.fail('Upgrade failed');
-                for (const error of result.errors) {
-                    output.printError(error);
-                }
-                return { success: false, exitCode: 1 };
-            }
-            spinner.succeed('Upgrade complete!');
-            output.writeln();
-            // Show what was updated
-            if (result.updated.length > 0) {
-                output.printBox(result.updated.map(f => `✓ ${f}`).join('\n'), 'Updated (latest version)');
-                output.writeln();
-            }
-            // Show what was created
-            if (result.created.length > 0) {
-                output.printBox(result.created.map(f => `+ ${f}`).join('\n'), 'Created (new files)');
-                output.writeln();
-            }
-            // Show what was preserved
-            if (result.preserved.length > 0 && ctx.flags.verbose) {
-                output.printBox(result.preserved.map(f => `• ${f}`).join('\n'), 'Preserved (existing data kept)');
-                output.writeln();
-            }
-            else if (result.preserved.length > 0) {
-                output.printInfo(`Preserved ${result.preserved.length} existing data files`);
-                output.writeln();
-            }
-            // Show added assets (when --add-missing flag is used)
-            if (result.addedSkills && result.addedSkills.length > 0) {
-                output.printBox(result.addedSkills.map(s => `+ ${s}`).join('\n'), `Added Skills (${result.addedSkills.length} new)`);
-                output.writeln();
-            }
-            if (result.addedAgents && result.addedAgents.length > 0) {
-                output.printBox(result.addedAgents.map(a => `+ ${a}`).join('\n'), `Added Agents (${result.addedAgents.length} new)`);
-                output.writeln();
-            }
-            if (result.addedCommands && result.addedCommands.length > 0) {
-                output.printBox(result.addedCommands.map(c => `+ ${c}`).join('\n'), `Added Commands (${result.addedCommands.length} new)`);
-                output.writeln();
-            }
-            // Show settings updates
-            if (result.settingsUpdated && result.settingsUpdated.length > 0) {
-                output.printBox(result.settingsUpdated.map(s => `+ ${s}`).join('\n'), 'Settings Updated');
-                output.writeln();
-            }
-            output.printSuccess('Your statusline helper has been updated to the latest version');
-            output.printInfo('Existing metrics and learning data were preserved');
-            // Show settings summary
-            if (upgradeSettings && result.settingsUpdated && result.settingsUpdated.length > 0) {
-                output.printSuccess('Settings.json updated with new Agent Teams configuration');
-            }
-            // Show summary for --add-missing
-            if (addMissing) {
-                const totalAdded = (result.addedSkills?.length || 0) + (result.addedAgents?.length || 0) + (result.addedCommands?.length || 0);
-                if (totalAdded > 0) {
-                    output.printSuccess(`Added ${totalAdded} missing assets to your project`);
-                }
-                else {
-                    output.printInfo('All skills, agents, and commands are already up to date');
-                }
-            }
-            if (ctx.flags.format === 'json') {
-                output.printJson(result);
-            }
-            return { success: true, data: result };
-        }
-        catch (error) {
-            spinner.fail('Upgrade failed');
-            output.printError(`Failed to upgrade: ${error instanceof Error ? error.message : String(error)}`);
-            return { success: false, exitCode: 1 };
-        }
-    },
-};
-// Main init command
 export const initCommand = {
     name: 'init',
     description: 'Initialize MonoMind in the current directory',
