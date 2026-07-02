@@ -1,5 +1,4 @@
 // src/browser/action-builder/analyzer.ts
-import Anthropic from '@anthropic-ai/sdk';
 import type { ActionDef } from './types.js';
 const MODEL_DEFAULTS = { sonnet: 'claude-sonnet-4-6' } as const;
 
@@ -94,6 +93,10 @@ ${elements.map((el, i) => {
   return `${i + 1}. <${el.tag}${attrs ? ' ' + attrs : ''}>${el.text}</${el.tag}>`;
 }).join('\n')}`;
 
+  // monolean: dynamic import so missing SDK doesn't crash module load when SDK is absent
+  const { default: Anthropic } = await import('@anthropic-ai/sdk').catch(() => {
+    throw new Error('analyzePageForAction requires @anthropic-ai/sdk — install it: npm install @anthropic-ai/sdk');
+  });
   const client = new Anthropic({ apiKey: options.apiKey ?? process.env['ANTHROPIC_API_KEY'] });
   const model = options.model ?? MODEL_DEFAULTS.sonnet;
 

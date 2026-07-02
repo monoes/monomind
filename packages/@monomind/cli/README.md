@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/monoes/monomind/main/assets/mascot.png" alt="Monomind" width="140" />
+  <img src="assets/banner.png" alt="Monomind" width="600" />
 </p>
 
 <h1 align="center">Monomind</h1>

@@ -347,6 +347,21 @@ curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
     '{type:"session:start",session:$sid,prompt:$prompt,mode:$mode,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
+### Step 3.5 — Design Gate
+
+<HARD-GATE>
+STOP before Step 4. If `domains_needed` includes `build` (or any code/feature/fix work):
+
+1. Invoke `Skill("mastermind:design")` NOW — pass `resolved_prompt` as the task description
+2. Do NOT write any code, do NOT spawn any domain managers, do NOT proceed to Step 4 until the design skill returns with an approved spec
+3. When design returns: save the approved spec as `build_spec` in `current.json`
+4. Only then continue to Step 4
+
+If `domains_needed` contains ONLY non-build domains (marketing, sales, research, content, ops, finance, idea): skip this gate and go directly to Step 4.
+
+Rationale: without a design gate, master spawns agents before the user has confirmed what to build. The design gate replicates the superpowers workflow: questions → approaches → spec approval → plan → execute.
+</HARD-GATE>
+
 ### Step 4 — Decompose
 
 For each domain in `domains_needed`, assess complexity:
@@ -423,7 +438,39 @@ If mode = confirm: show plan and wait for user response. Valid responses:
 - Any modification (e.g. "add sales domain", "remove marketing") — apply the change, re-show the plan, wait again
 - "cancel" or "stop" — emit `session:complete` with `status: blocked`, reason "cancelled by user", then STOP
 
-If mode = auto: proceed immediately.
+After the user says "go" (and `build` is in `domains_needed`), ask once:
+> "For the build work: **subagents** (recommended — fresh agent per task with 2-stage review, like mastermind:taskdev) or **inline** (direct execution, mastermind:execute)?"
+
+- "subagents" → `build_exec_mode = "taskdev"`
+- "inline" → `build_exec_mode = "execute"`
+- No answer / skipped → `build_exec_mode = "taskdev"` (default)
+
+If mode = auto: `build_exec_mode = "taskdev"` (default).
+
+**Persist `build_exec_mode` to `current.json`** (required — Phase C reads it from there):
+
+```bash
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+_get_mono_dir() {
+  local w="${1:-$(pwd)}"
+  if [ -d "$w/.git" ]; then echo "$w/.git/monomind"; return; fi
+  if [ -f "$w/.git" ]; then
+    local m; m=$(grep '^gitdir:' "$w/.git" | sed 's/gitdir: *//')
+    [ -z "$m" ] && { echo "$w/.monomind"; return; }
+    [[ "$m" != /* ]] && m="$w/$m"
+    echo "$(dirname "$(dirname "$m")")/monomind"; return
+  fi
+  echo "$w/.monomind"
+}
+MONO_DIR=$(_get_mono_dir "$REPO_ROOT")
+SESSION_STATE="$MONO_DIR/sessions/current.json"
+# LLM: replace EXEC_MODE_VALUE with the resolved value: taskdev or execute
+build_exec_mode="EXEC_MODE_VALUE"
+[ "$build_exec_mode" = "EXEC_MODE_VALUE" ] && build_exec_mode="taskdev"
+jq --arg m "$build_exec_mode" '. + {build_exec_mode: $m}' \
+  "$SESSION_STATE" > "$SESSION_STATE.tmp" && mv "$SESSION_STATE.tmp" "$SESSION_STATE"
+echo "build_exec_mode=$build_exec_mode written to current.json"
+```
 
 ### Step 6 — Monotask Setup
 
@@ -678,12 +725,15 @@ for domain in $(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | grep -v '
   if [ -z "$board_id" ]; then
     echo "WARN: DOMAIN=$domain has no board_id — Step 6 may not have run or monotask is missing. Task agent will run without board tracking."
   fi
+  exec_mode=""
+  [ "$domain" = "build" ] && exec_mode=$(jq -r '.build_exec_mode // "taskdev"' "$SESSION_STATE")
   echo "DOMAIN=$domain \
 MANAGER=$(jq -r --arg d "$domain" '.domain_managers[$d] // "coordinator"' "$SESSION_STATE") \
 BOARD=$board_id \
 TODO=$(jq -r --arg d "$domain" '.todo_cols[$d] // ""' "$SESSION_STATE") \
 DOING=$(jq -r --arg d "$domain" '.doing_cols[$d] // ""' "$SESSION_STATE") \
 DONE=$(jq -r --arg d "$domain" '.done_cols[$d] // ""' "$SESSION_STATE") \
+EXEC_MODE=$exec_mode \
 GOAL=$(jq -r --arg d "$domain" '.domain_goals[$d] // .prompt' "$SESSION_STATE" | tr -d '\n')"
 done
 ```
@@ -698,6 +748,7 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - Instruction to create monotask cards directly using `monotask card create $BOARD_ID $COL_TODO_ID "<title>" --json` for all sub-tasks
 - Instruction to use `Skill("mastermind:do")` to execute tasks (Task agents have Skill tool access — do NOT use slash command syntax)
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
+- **For the `build` domain only:** include `build_exec_mode` (value: `"taskdev"` or `"execute"`) and instruct the manager: "Use `Skill("mastermind:taskdev")` if build_exec_mode is `taskdev`, or `Skill("mastermind:execute")` if `execute`. This was chosen by the user in Step 5."
 - Instruction to return the unified output schema when done
 
 Example Task call for Development Manager. Substitute all **pre-known** `<…>` placeholders (project_name, SESSION_ID, board/col IDs, goals, manager name) before calling Task. Placeholders like `<status>`, `<path1>`, `<action1>` are filled at runtime by the spawned agent — do not attempt to substitute them. `subagent_type` is the **string value** of `$domain_manager_build` (e.g. `"Backend Architect"`), not a variable reference.
