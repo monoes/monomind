@@ -48,7 +48,7 @@ describe('analyzePageForAction', () => {
         vi.resetModules();
         const mod = await import('@monoes/monobrowse');
         analyzePageForAction = mod.analyzePageForAction;
-    });
+    }, 20000); // monolean: re-importing the workspace package can exceed the 10s default under full-suite parallel load
     it('returns a valid ActionDef from mocked claude --print response', async () => {
         await makeSpawnMock(JSON.stringify(VALID_ACTION_DEF));
         const result = await analyzePageForAction(mockPage(), 'comment on a LinkedIn post');

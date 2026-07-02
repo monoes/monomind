@@ -49,6 +49,17 @@ vi.mock('fs', () => {
 vi.mock('child_process', () => ({
   execSync: vi.fn(() => '{}'),
   spawnSync: vi.fn(() => ({ status: 0, stdout: '' })),
+  // github-tools.ts's run()/runSafe() helpers call execFileSync for git/gh commands.
+  execFileSync: vi.fn((cmd: string, args: string[] = []) => {
+    if (cmd === 'git') {
+      if (args[0] === 'rev-list') return '42';
+      if (args[0] === 'rev-parse') return 'main';
+      if (args[0] === 'remote') return 'git@github.com:mock-owner/mock-repo.git';
+      if (args[0] === 'branch') return '3';
+      if (args[0] === 'shortlog') return '2';
+    }
+    return '';
+  }),
 }));
 
 // Mock the memory bridge for memory tools
@@ -693,7 +704,7 @@ describe('MCP Tools Deep Test Suite', () => {
   // 14. Handler Invocation - GitHub Tools
   // --------------------------------------------------------------------------
   describe('GitHub Tools - Handler Invocation', () => {
-    it.skip('github_repo_analyze returns success', async () => { // Skip: requires live git repo context
+    it('github_repo_analyze returns success', async () => { // Skip: requires live git repo context
       const tool = githubTools.find(t => t.name === 'github_repo_analyze')!;
       const result: any = await tool.handler({});
       expect(result.success).toBe(true);
