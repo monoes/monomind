@@ -85,6 +85,38 @@ export async function buildAsync(repoPath: string, options: BuildOptions = {}): 
 
     const outputs = await runner.run(ctx);
 
+    // Every full build reuses the same DB in place (no truncate-on-open), and no
+    // phase ever deletes nodes for files that were renamed/deleted since the last
+    // build. Left unchecked, orphaned rows (and their FTS/edge fallout) accumulate
+    // forever across repeated rebuilds. Sweep them here, once, after scan knows the
+    // authoritative current file set.
+    const scanOut = outputs.get('scan') as { filePaths: string[] } | undefined;
+    if (scanOut) {
+      const liveFiles = new Set(scanOut.filePaths.map((f) => resolve(f)));
+      const staleFiles = (
+        db.prepare('SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL').all() as { file_path: string }[]
+      )
+        .map((r) => r.file_path)
+        .filter((f) => !liveFiles.has(resolve(f)));
+      if (staleFiles.length > 0) {
+        const deleteStale = db.transaction((files: string[]) => {
+          // Edges FK-reference nodes with no ON DELETE CASCADE, and a stale node
+          // can be referenced from either side (another file's export pointing at
+          // it, or it importing another file) — clear both directions first.
+          const deleteEdges = db.prepare(`
+            DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE file_path = ?)
+               OR target_id IN (SELECT id FROM nodes WHERE file_path = ?)
+          `);
+          const deleteNodesStmt = db.prepare('DELETE FROM nodes WHERE file_path = ?');
+          for (const f of files) {
+            deleteEdges.run(f, f);
+            deleteNodesStmt.run(f);
+          }
+        });
+        deleteStale(staleFiles);
+      }
+    }
+
     const hash = getCurrentCommitHash(resolve(repoPath));
     if (hash) {
       db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
