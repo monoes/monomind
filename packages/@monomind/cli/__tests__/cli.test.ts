@@ -255,7 +255,7 @@ describe('CLI', () => {
       expect(flagsPassed).toBe(true);
     });
 
-    it.skip('should parse multiple flags', async () => { // Skip: process.exit mock issue
+    it('should parse multiple flags', async () => {
       let flagsPassed = false;
       const mockCommand: Command = {
         name: 'testmulti',
@@ -270,7 +270,8 @@ describe('CLI', () => {
       };
 
       cli['parser'].registerCommand(mockCommand);
-      await cli.run(['testmulti', '--verbose', '--format', 'json', '-q']);
+      // Global quiet flag's short form is -Q (uppercase) per parser.ts, not -q
+      await cli.run(['testmulti', '--verbose', '--format', 'json', '-Q']);
       expect(flagsPassed).toBe(true);
     });
 

@@ -572,7 +572,7 @@ const importCommand = {
             : path.join(ctx.cwd, filePath);
         // Path traversal protection: resolved path must stay within cwd or home
         const resolvedPath = path.resolve(absolutePath);
-        const cwd = process.cwd();
+        const cwd = ctx.cwd || process.cwd();
         const home = process.env.HOME || '';
         const underCwd = resolvedPath === cwd || resolvedPath.startsWith(cwd + path.sep);
         const underHome = home && (resolvedPath === home || resolvedPath.startsWith(home + path.sep));
