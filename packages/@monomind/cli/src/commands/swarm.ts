@@ -696,7 +696,9 @@ const scaleCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    if (!targetAgents) {
+    // 0 is a valid target (scale a swarm down to no agents) — check for
+    // presence, not truthiness.
+    if (targetAgents === undefined || Number.isNaN(targetAgents)) {
       output.printError('Target agent count required. Use --agents or -a');
       return { success: false, exitCode: 1 };
     }
