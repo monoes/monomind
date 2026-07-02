@@ -11,7 +11,6 @@ import { mkdir, writeFile } from 'fs/promises';
 import { join, resolve as resolvePath, sep } from 'path';
 import {
   MAX_OBJECTIVE_LEN,
-  MAX_AGENT_ID_LEN,
   type HiveWorker,
   groupWorkersByType,
   generateHiveMindPrompt,
@@ -337,6 +336,3 @@ export const spawnCommand: Command = {
     }
   }
 };
-
-// Re-export MAX_AGENT_ID_LEN so hive-mind-comms can import from this module if needed
-export { MAX_AGENT_ID_LEN };
