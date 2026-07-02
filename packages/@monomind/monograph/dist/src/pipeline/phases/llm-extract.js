@@ -19,26 +19,11 @@ Rules:
 - Return [] for non-substantive content
 
 Return only valid JSON array, no explanation.`;
-async function callClaude(content, apiKey) {
+async function callClaude(content) {
     try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 512,
-                system: SYSTEM_PROMPT,
-                messages: [{ role: 'user', content: content.slice(0, 1500) }],
-            }),
-        });
-        if (!res.ok)
-            return null;
-        const data = await res.json();
-        const text = data.content[0]?.text ?? '[]';
+        const { claudeCliCall } = await import('../../claude-cli.js');
+        const prompt = `${SYSTEM_PROMPT}\n\n${content.slice(0, 1500)}`;
+        const text = await claudeCliCall(prompt, 30_000);
         const parsed = JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] ?? '[]');
         return Array.isArray(parsed) ? parsed : null;
     }
@@ -50,9 +35,12 @@ export const llmExtractPhase = {
     name: 'llm-extract',
     deps: ['docs-parse', 'pdf-parse'],
     async execute(ctx) {
-        const apiKey = process.env.ANTHROPIC_API_KEY;
         const maxSections = ctx.options.llmMaxSections;
-        if (!apiKey || maxSections <= 0 || ctx.options.codeOnly) {
+        if (maxSections <= 0 || ctx.options.codeOnly) {
+            return { triplesExtracted: 0, sectionsProcessed: 0 };
+        }
+        const { isClaudeCliAvailable } = await import('../../claude-cli.js');
+        if (!isClaudeCliAvailable()) {
             return { triplesExtracted: 0, sectionsProcessed: 0 };
         }
         // Fetch Section nodes with non-trivial content
@@ -80,7 +68,7 @@ export const llmExtractPhase = {
             const content = props.content;
             if (!content)
                 continue;
-            const triples = await callClaude(`Section: "${section.name}"\n\n${content}`, apiKey);
+            const triples = await callClaude(`Section: "${section.name}"\n\n${content}`);
             if (!triples || triples.length === 0)
                 continue;
             sectionsProcessed++;

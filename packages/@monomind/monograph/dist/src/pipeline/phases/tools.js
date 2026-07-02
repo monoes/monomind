@@ -87,17 +87,26 @@ export const toolsPhase = {
                         const n = row.name.toLowerCase().replace(/[_-]/g, '');
                         return n.includes(lowerTool) || (n.length > 0 && lowerTool.includes(n));
                     });
-                    if (matches.length === 1) {
-                        const edgeId = makeId(toolNodeId, matches[0].id, 'handles_tool');
+                    if (matches.length >= 1) {
+                        // Pick best match: exact name > name contains tool > tool contains name
+                        const scored = matches
+                            .map(row => {
+                            const n = row.name.toLowerCase().replace(/[_-]/g, '');
+                            const score = n === lowerTool ? 3 : n.includes(lowerTool) ? 2 : 1;
+                            return { row, score };
+                        })
+                            .sort((a, b) => b.score - a.score);
+                        const { row: best, score } = scored[0];
+                        const edgeId = makeId(toolNodeId, best.id, 'handles_tool');
                         handlesEdges.push({
                             id: edgeId,
                             sourceId: toolNodeId,
-                            targetId: matches[0].id,
+                            targetId: best.id,
                             relation: 'HANDLES_TOOL',
                             confidence: 'EXTRACTED',
-                            confidenceScore: 0.85,
+                            confidenceScore: score === 3 ? 0.95 : 0.75,
                         });
-                        def.handlerNodeId = matches[0].id;
+                        def.handlerNodeId = best.id;
                     }
                 }
                 toolDefs.push(def);
