@@ -54,9 +54,11 @@
 # Safe to track: test-fixtures/
 # Orgs are runtime data — gitignored so branch switches don't delete them
 .monomind/orgs/*.json
+.monomind/orgs/*.jsonl
 .monomind/orgs/*/
 .monomind/sessions/
 .monomind/data/
+.monomind/capture/
 .monomind/metrics/
 .monomind/knowledge/
 .monomind/brain/
@@ -84,6 +86,7 @@
 # Same patterns for nested .monomind/ in sub-packages
 **/.monomind/sessions/
 **/.monomind/data/
+**/.monomind/capture/
 **/.monomind/metrics/
 **/.monomind/knowledge/
 **/.monomind/brain/
@@ -111,6 +114,7 @@
 .agentic-flow/
 .cache/
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 .deno/
 .env
 .env.*.local
@@ -224,6 +228,8 @@ data/memory.db
 data/memory.graph
 data/sessions/
 **/data/known-projects.json
+**/data/mastermind-*.json
+**/data/mastermind-*.jsonl
 
 # Environment variables
 .env
