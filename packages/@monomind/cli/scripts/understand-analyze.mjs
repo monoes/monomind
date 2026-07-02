@@ -391,7 +391,7 @@ const FRAMEWORK_SIGNATURES = [
   ['Vite',         'package.json',     ['"vite"']],
   ['Webpack',      'package.json',     ['"webpack"']],
   ['TypeScript',   'package.json',     ['"typescript"']],
-  ['Anthropic SDK','package.json',     ['"@anthropic-ai/sdk"']],
+  ['Claude Code',  'package.json',     ['"@anthropic-ai/claude-code"']],
   ['Django',       'requirements.txt', ['django']],
   ['Flask',        'requirements.txt', ['flask']],
   ['FastAPI',      'requirements.txt', ['fastapi']],

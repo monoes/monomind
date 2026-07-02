@@ -1,14 +1,14 @@
 // src/browser/action-builder/analyzer.ts
+import { spawn } from 'child_process';
 import type { ActionDef } from './types.js';
-const MODEL_DEFAULTS = { sonnet: 'claude-sonnet-4-6' } as const;
 
 export interface AnalyzerPage {
   evaluate<T>(expression: string): Promise<T>;
   url(): Promise<string>;
 }
 
+// monolean: no options needed — routes through claude --print, no API key required
 export interface AnalyzerOptions {
-  apiKey?: string;
   model?: string;
 }
 
@@ -40,6 +40,40 @@ JSON.stringify(
       }
     }))
 )`;
+
+function claudeCliCall(prompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      'claude',
+      ['--print', '--model', 'haiku', '--strict-mcp-config', '--no-session-persistence', '--', prompt],
+      { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
+    );
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try { child.kill('SIGTERM'); } catch { /* ignore */ }
+      reject(new Error('claude --print timed out after 60s'));
+    }, 60_000);
+    child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+    child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code === 0) resolve(stdout.trim());
+      else reject(new Error(stderr.trim() || `claude exited with code ${code}`));
+    });
+    child.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(new Error(`claude CLI not found — is Claude Code installed? (${(err as NodeJS.ErrnoException).code})`));
+    });
+  });
+}
 
 const SYSTEM_PROMPT = `You are an expert browser automation engineer. Given a webpage's interactive elements and a task description, generate a browser automation ActionDef JSON.
 
@@ -93,37 +127,18 @@ ${elements.map((el, i) => {
   return `${i + 1}. <${el.tag}${attrs ? ' ' + attrs : ''}>${el.text}</${el.tag}>`;
 }).join('\n')}`;
 
-  // monolean: dynamic import so missing SDK doesn't crash module load when SDK is absent
-  const { default: Anthropic } = await import('@anthropic-ai/sdk').catch(() => {
-    throw new Error('analyzePageForAction requires @anthropic-ai/sdk — install it: npm install @anthropic-ai/sdk');
-  });
-  const client = new Anthropic({ apiKey: options.apiKey ?? process.env['ANTHROPIC_API_KEY'] });
-  const model = options.model ?? MODEL_DEFAULTS.sonnet;
-
-  const message = await client.messages.create({
-    model,
-    max_tokens: 2048,
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: `Task: ${task}\n\nPage context:\n${domContext}`,
-      },
-    ],
-  });
-
-  const content = message.content[0];
-  if (content.type !== 'text') throw new Error('Claude returned non-text response');
+  const fullPrompt = `${SYSTEM_PROMPT}\n\nTask: ${task}\n\nPage context:\n${domContext}`;
+  const responseText = await claudeCliCall(fullPrompt);
 
   let actionDef: ActionDef;
   try {
-    actionDef = JSON.parse(content.text) as ActionDef;
+    actionDef = JSON.parse(responseText) as ActionDef;
   } catch {
-    throw new Error(`Claude returned invalid JSON:\n${content.text.slice(0, 500)}`);
+    throw new Error(`Claude returned invalid JSON:\n${responseText.slice(0, 500)}`);
   }
 
   if (!actionDef.id || !actionDef.steps || !Array.isArray(actionDef.steps)) {
-    throw new Error(`Claude returned invalid ActionDef: missing id or steps\n${content.text.slice(0, 500)}`);
+    throw new Error(`Claude returned invalid ActionDef: missing id or steps\n${responseText.slice(0, 500)}`);
   }
 
   return actionDef;
