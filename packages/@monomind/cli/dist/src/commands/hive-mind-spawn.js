@@ -7,7 +7,7 @@ import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { spawn as childSpawn, execSync } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
 import { join, resolve as resolvePath, sep } from 'path';
-import { MAX_OBJECTIVE_LEN, MAX_AGENT_ID_LEN, groupWorkersByType, generateHiveMindPrompt, formatAgentStatus, } from './hive-mind-helpers.js';
+import { MAX_OBJECTIVE_LEN, groupWorkersByType, generateHiveMindPrompt, formatAgentStatus, } from './hive-mind-helpers.js';
 export async function spawnClaudeCodeInstance(swarmId, swarmName, objective, workers, flags) {
     output.writeln();
     output.writeln(output.bold('🚀 Launching Claude Code with Hive Mind Coordination'));
@@ -271,6 +271,4 @@ export const spawnCommand = {
         }
     }
 };
-// Re-export MAX_AGENT_ID_LEN so hive-mind-comms can import from this module if needed
-export { MAX_AGENT_ID_LEN };
 //# sourceMappingURL=hive-mind-spawn.js.map
