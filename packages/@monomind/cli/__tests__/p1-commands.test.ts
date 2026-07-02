@@ -405,38 +405,10 @@ describe('Init Command', () => {
   });
 
   describe('init (default)', () => {
-    // TODO: Init command tests require complex mocking of executeInit internals
-    // These tests were never running before, skipped for alpha release
-    it.skip('should initialize with default configuration', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(false);
-
-      const result = await initCommand.action!(ctx);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('success', true);
-      expect(fs.mkdirSync).toHaveBeenCalled();
-      expect(fs.writeFileSync).toHaveBeenCalled();
-    });
-
-    it.skip('should initialize with minimal configuration', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(false);
-      ctx.flags = { minimal: true, _: [] };
-
-      const result = await initCommand.action!(ctx);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('success', true);
-    });
-
-    it.skip('should initialize with full configuration', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(false);
-      ctx.flags = { full: true, _: [] };
-
-      const result = await initCommand.action!(ctx);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('success', true);
-    });
+    // "default/minimal/full configuration" and "reinitialize with force flag"
+    // are covered by __tests__/init-e2e.test.ts against a real writable
+    // tmpdir — executeInit's real file-writing pipeline can't be meaningfully
+    // exercised through this file's fully-mocked fs.
 
     it('should fail if already initialized without force', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
@@ -444,15 +416,6 @@ describe('Init Command', () => {
       const result = await initCommand.action!(ctx);
 
       expect(result.success).toBe(false);
-    });
-
-    it.skip('should reinitialize with force flag', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      ctx.flags = { force: true, _: [] };
-
-      const result = await initCommand.action!(ctx);
-
-      expect(result.success).toBe(true);
     });
   });
 
@@ -524,13 +487,22 @@ describe('Start Command', () => {
       expect(result.data).toHaveProperty('topology', 'mesh');
     });
 
-    it.skip('should start in daemon mode', async () => { // Skip: leaves a 5s interval that calls process.exit
-      ctx.flags = { daemon: true, _: [] };
+    it('should start in daemon mode', async () => {
+      // Daemon mode arms a 5s heartbeat interval that calls process.exit()
+      // when the PID file disappears. Fake timers keep it from ever actually
+      // firing (we never advance the clock), and it's already unref()'d in
+      // production code so it can't hang the test process either way.
+      vi.useFakeTimers();
+      try {
+        ctx.flags = { daemon: true, _: [] };
 
-      const result = await startCommand.action!(ctx);
+        const result = await startCommand.action!(ctx);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('daemon', true);
+        expect(result.success).toBe(true);
+        expect(result.data).toHaveProperty('daemon', true);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('should skip MCP server when requested', async () => {

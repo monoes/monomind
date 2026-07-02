@@ -125,6 +125,18 @@ vi.mock('../src/mcp-client.js', () => ({
       };
     }
 
+    if (toolName === 'swarm_scale') {
+      return {
+        success: true,
+        swarmId: input.swarmId,
+        previousCount: 5,
+        currentCount: input.targetAgents,
+        targetAgents: input.targetAgents,
+        spawned: Array.from({ length: Math.max(0, (input.targetAgents as number) - 5) }, (_, i) => `agent-mock-${i}`),
+        terminated: []
+      };
+    }
+
     if (toolName === 'memory_stats') {
       // Return raw MCP format that the command expects and transforms
       return {
@@ -496,7 +508,7 @@ describe('Swarm Commands', () => {
   });
 
   describe('swarm scale', () => {
-    it.skip('should scale swarm', async () => { // Skip: swarm_scale MCP tool not available in lean build
+    it('should scale swarm', async () => {
       const scaleCmd = swarmCommand.subcommands?.find(c => c.name === 'scale');
       expect(scaleCmd).toBeDefined();
 
@@ -505,7 +517,7 @@ describe('Swarm Commands', () => {
       const result = await scaleCmd!.action!(ctx);
 
       expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('agents', 20);
+      expect(result.data).toHaveProperty('currentCount', 20);
     });
 
     it('should fail without target agent count', async () => {

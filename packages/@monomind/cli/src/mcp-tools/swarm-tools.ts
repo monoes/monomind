@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, statSyn
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { type MCPTool, getProjectCwd } from './types.js';
+import { agentTools } from './agent-tools.js';
 
 // Swarm state persistence
 const SWARM_DIR = '.monomind/swarm';
@@ -218,6 +219,81 @@ export const swarmTools: MCPTool[] = [
         createdAt: latest.createdAt,
         updatedAt: latest.updatedAt,
         totalSwarms: swarmIds.length,
+      };
+    },
+  },
+  {
+    name: 'swarm_scale',
+    description: 'Scale a swarm to a target agent count by spawning or terminating agents',
+    category: 'swarm',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        swarmId: { type: 'string', description: 'Swarm ID to scale' },
+        targetAgents: { type: 'number', description: 'Target number of agents' },
+        agentType: { type: 'string', description: 'Agent type for newly spawned agents (default: worker)' },
+      },
+      required: ['swarmId', 'targetAgents'],
+    },
+    handler: async (input) => {
+      const swarmId = input.swarmId as string;
+      const targetAgents = input.targetAgents as number;
+      const agentType = (input.agentType as string) || 'worker';
+
+      const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (!swarmId || FORBIDDEN_KEYS.has(swarmId)) {
+        return { success: false, error: 'Invalid swarm ID' };
+      }
+      if (!Number.isFinite(targetAgents) || targetAgents < 0 || !Number.isInteger(targetAgents)) {
+        return { success: false, error: 'targetAgents must be a non-negative integer' };
+      }
+
+      const store = loadSwarmStore();
+      if (!Object.hasOwn(store.swarms, swarmId)) {
+        return { success: false, error: `Swarm ${swarmId} not found` };
+      }
+
+      const swarm = store.swarms[swarmId];
+      const currentCount = swarm.agents.length;
+      const delta = targetAgents - currentCount;
+
+      const spawnTool = agentTools.find(t => t.name === 'agent_spawn')!;
+      const terminateTool = agentTools.find(t => t.name === 'agent_terminate')!;
+
+      const spawned: string[] = [];
+      const terminated: string[] = [];
+
+      if (delta > 0) {
+        for (let i = 0; i < delta; i++) {
+          const result = await spawnTool.handler({ agentType }) as { success: boolean; agentId?: string };
+          if (result.success && result.agentId) {
+            swarm.agents.push(result.agentId);
+            spawned.push(result.agentId);
+          }
+        }
+      } else if (delta < 0) {
+        const toRemove = swarm.agents.slice(0, -delta);
+        for (const agentId of toRemove) {
+          const result = await terminateTool.handler({ agentId }) as { success: boolean };
+          if (result.success) {
+            terminated.push(agentId);
+          }
+        }
+        swarm.agents = swarm.agents.filter(id => !terminated.includes(id));
+      }
+
+      swarm.maxAgents = Math.max(swarm.maxAgents, swarm.agents.length);
+      swarm.updatedAt = new Date().toISOString();
+      saveSwarmStore(store);
+
+      return {
+        success: true,
+        swarmId,
+        previousCount: currentCount,
+        currentCount: swarm.agents.length,
+        targetAgents,
+        spawned,
+        terminated,
       };
     },
   },
