@@ -243,8 +243,16 @@ export const swarmTools = [
             swarm.maxAgents = Math.max(swarm.maxAgents, swarm.agents.length);
             swarm.updatedAt = new Date().toISOString();
             saveSwarmStore(store);
+            // Individual agent_spawn/agent_terminate calls can fail silently (e.g. a
+            // stale agent ID already evicted from the agent store) — report success
+            // only if the swarm actually reached the requested count, so callers
+            // can't mistake a no-op failure for "already at target size".
+            const targetReached = swarm.agents.length === targetAgents;
             return {
-                success: true,
+                success: targetReached,
+                error: targetReached
+                    ? undefined
+                    : `Reached ${swarm.agents.length}/${targetAgents} agents — some spawn/terminate operations failed`,
                 swarmId,
                 previousCount: currentCount,
                 currentCount: swarm.agents.length,
