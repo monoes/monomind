@@ -49,10 +49,20 @@ vi.mock('child_process', () => ({
 
 describe('Init Command E2E (real fs)', () => {
   let tmpDir: string;
+  let fakeHome: string;
+  let realHome: string | undefined;
   let ctx: CommandContext;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-e2e-'));
+    // executeInit's _registerMonomindProject() writes to
+    // ~/.monomind-projects.json via os.homedir() (which reads $HOME on
+    // Unix) — redirect it to a throwaway dir so real init runs don't get
+    // this test's tmpdir permanently registered in the user's actual
+    // project registry.
+    fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-init-e2e-home-'));
+    realHome = process.env.HOME;
+    process.env.HOME = fakeHome;
     ctx = {
       args: [],
       flags: { _: [], 'no-watch': true },
@@ -62,7 +72,9 @@ describe('Init Command E2E (real fs)', () => {
   });
 
   afterEach(() => {
+    process.env.HOME = realHome;
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(fakeHome, { recursive: true, force: true });
   });
 
   it('should initialize with default configuration', async () => {
