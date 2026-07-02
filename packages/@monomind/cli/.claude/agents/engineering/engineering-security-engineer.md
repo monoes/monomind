@@ -24,7 +24,7 @@ capability:
   model_preference: opus
   termination: All identified vulnerabilities have remediation steps documented
   triggers:
-    - pattern: "\\b(auth|jwt|session|oauth|saml|oidc|csrf|xss|sql.injection|ssrf|rce|lfi)\\b"
+    - pattern: "\\b(jwt|oauth|saml|oidc|csrf|xss|sql.injection|ssrf|rce|lfi|session\\W{0,3}(hijack|fixation|token\\W{0,3}theft)\\w*|auth\\w*\\W{0,3}(bypass|bug|vuln|flaw|exploit)\\w*)\\b"
       mode: "inject"
     - pattern: "CVE-\\d{4}-\\d+"
       mode: "inject"
