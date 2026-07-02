@@ -14,7 +14,7 @@ This file is referenced by `master.md` and domain commands. Never invoke directl
 
 Count the words in `$ARGUMENTS` and scan for domain signals.
 
-**Rich prompt** (skip all intake questions → proceed to execution):
+**Rich prompt** (skip all intake questions → show plan in confirm mode, wait for "go"):
 - Word count ≥ 20 AND
 - Contains at least one domain signal (build, ship, feature, bug, fix, campaign, marketing, SEO, content, review, audit, research, launch, release, sales, outreach, ops, finance, report) AND
 - Contains a goal or outcome phrase (e.g. "so that", "by end of", "targeting", "for our", "to improve")
@@ -70,7 +70,7 @@ After intake (or skip), resolve the execution mode:
 | Q4 answer: "auto" or "yes go ahead" | auto |
 | Q4 answer: "show me first" or "confirm" | confirm |
 | No flag, vague prompt | confirm (default for vague) |
-| No flag, rich prompt | auto (default for rich) |
+| No flag, rich prompt | confirm (default for rich — skips Q&A but always shows plan and waits) |
 
 ---
 
