@@ -169,6 +169,8 @@ vi.mock('@monomind/monodefence', () => {
 // Import all tool modules (after mocks are set up)
 // ============================================================================
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { agentTools } from '../src/mcp-tools/agent-tools.js';
 import { analyzeTools } from '../src/mcp-tools/analyze-tools.js';
 import { claimsTools } from '../src/mcp-tools/claims-tools.js';
@@ -611,6 +613,86 @@ describe('MCP Tools Deep Test Suite', () => {
       const result: any = await tool.handler({ topology: 'invalid-topo' });
       expect(result.success).toBe(false);
       expect(result.error).toContain('Invalid topology');
+    });
+
+    it('swarm_scale spawns agents to reach a higher target', async () => {
+      const initTool = swarmTools.find(t => t.name === 'swarm_init')!;
+      const initResult: any = await initTool.handler({ topology: 'mesh' });
+      const scaleTool = swarmTools.find(t => t.name === 'swarm_scale')!;
+      const result: any = await scaleTool.handler({ swarmId: initResult.swarmId, targetAgents: 3 });
+
+      expect(result.success).toBe(true);
+      expect(result.previousCount).toBe(0);
+      expect(result.currentCount).toBe(3);
+      expect(result.spawned).toHaveLength(3);
+      expect(result.terminated).toHaveLength(0);
+    });
+
+    it('swarm_scale terminates agents to reach a lower target', async () => {
+      const initTool = swarmTools.find(t => t.name === 'swarm_init')!;
+      const initResult: any = await initTool.handler({ topology: 'mesh' });
+      const scaleTool = swarmTools.find(t => t.name === 'swarm_scale')!;
+      await scaleTool.handler({ swarmId: initResult.swarmId, targetAgents: 5 });
+      const result: any = await scaleTool.handler({ swarmId: initResult.swarmId, targetAgents: 2 });
+
+      expect(result.success).toBe(true);
+      expect(result.previousCount).toBe(5);
+      expect(result.currentCount).toBe(2);
+      expect(result.terminated).toHaveLength(3);
+    });
+
+    it('swarm_scale is a no-op success when already at target', async () => {
+      const initTool = swarmTools.find(t => t.name === 'swarm_init')!;
+      const initResult: any = await initTool.handler({ topology: 'mesh' });
+      const scaleTool = swarmTools.find(t => t.name === 'swarm_scale')!;
+      await scaleTool.handler({ swarmId: initResult.swarmId, targetAgents: 2 });
+      const result: any = await scaleTool.handler({ swarmId: initResult.swarmId, targetAgents: 2 });
+
+      expect(result.success).toBe(true);
+      expect(result.spawned).toHaveLength(0);
+      expect(result.terminated).toHaveLength(0);
+    });
+
+    it('swarm_scale reports failure (not silent success) when it cannot reach the target', async () => {
+      // Regression test: swarm_scale used to hardcode success:true even when
+      // every agent_terminate call failed (e.g. a stale agent ID already
+      // evicted from the agent store), silently reporting the swarm as
+      // "already at target size" when it never actually changed.
+      const initTool = swarmTools.find(t => t.name === 'swarm_init')!;
+      const initResult: any = await initTool.handler({ topology: 'mesh' });
+      const scaleTool = swarmTools.find(t => t.name === 'swarm_scale')!;
+
+      // Directly corrupt the persisted swarm state with an agent ID that was
+      // never actually spawned, simulating desync with the agent store.
+      const swarmPath = path.join(process.cwd(), '.monomind', 'swarm', 'swarm-state.json');
+      const raw = JSON.parse((fs.readFileSync as any)(swarmPath, 'utf-8'));
+      raw.swarms[initResult.swarmId].agents.push('agent-stale-never-existed');
+      (fs.writeFileSync as any)(swarmPath, JSON.stringify(raw));
+
+      const result: any = await scaleTool.handler({ swarmId: initResult.swarmId, targetAgents: 0 });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Reached');
+      expect(result.currentCount).toBe(1);
+    });
+
+    it('swarm_scale rejects a negative or non-integer target', async () => {
+      const initTool = swarmTools.find(t => t.name === 'swarm_init')!;
+      const initResult: any = await initTool.handler({ topology: 'mesh' });
+      const scaleTool = swarmTools.find(t => t.name === 'swarm_scale')!;
+
+      const negative: any = await scaleTool.handler({ swarmId: initResult.swarmId, targetAgents: -1 });
+      expect(negative.success).toBe(false);
+
+      const fractional: any = await scaleTool.handler({ swarmId: initResult.swarmId, targetAgents: 1.5 });
+      expect(fractional.success).toBe(false);
+    });
+
+    it('swarm_scale returns error for nonexistent swarm ID', async () => {
+      const scaleTool = swarmTools.find(t => t.name === 'swarm_scale')!;
+      const result: any = await scaleTool.handler({ swarmId: 'nonexistent-id-999', targetAgents: 3 });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
     });
   });
 
