@@ -30,6 +30,24 @@ export function getDashboardServer(port = DEFAULT_PORT) {
             res.end(JSON.stringify(recentRuns));
             return;
         }
+        if (req.method === 'POST' && req.url === '/api/mastermind/event') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                try {
+                    const body = Buffer.concat(chunks).toString('utf8');
+                    JSON.parse(body); // validate before broadcast
+                    for (const client of clients) {
+                        if (client.readyState === client.OPEN)
+                            client.send(body);
+                    }
+                }
+                catch { }
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end('{"ok":true}');
+            });
+            return;
+        }
         res.writeHead(404);
         res.end();
     });
