@@ -341,13 +341,9 @@ export class CommandParser {
   private buildAliases(): Record<string, string> {
     const aliases: Record<string, string> = {};
 
-    for (const opt of this.globalOptions) {
-      if (opt.short) {
-        aliases[opt.short] = opt.name;
-      }
-    }
-
-    // Add aliases from all commands and subcommands
+    // Add aliases from all commands and subcommands first (lowest priority) —
+    // any command's own options may still be re-applied by buildScopedAliases()
+    // once the resolved command is known.
     for (const cmd of this.commands.values()) {
       if (cmd.options) {
         for (const opt of cmd.options) {
@@ -367,6 +363,15 @@ export class CommandParser {
             }
           }
         }
+      }
+    }
+
+    // Global options are applied last so an unrelated command's short flag
+    // (e.g. "security scan --quick, -Q") can't silently shadow a global flag
+    // of the same letter (e.g. global "-Q, --quiet") for every other command.
+    for (const opt of this.globalOptions) {
+      if (opt.short) {
+        aliases[opt.short] = opt.name;
       }
     }
 

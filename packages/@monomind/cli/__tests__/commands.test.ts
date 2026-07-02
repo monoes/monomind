@@ -4,14 +4,45 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { agentCommand } from '../src/commands/agent.js';
 import { swarmCommand } from '../src/commands/swarm.js';
 import { memoryCommand } from '../src/commands/memory.js';
 import { configCommand } from '../src/commands/config.js';
+import { configManager } from '../src/services/config-file-manager.js';
 import type { CommandContext } from '../src/types.js';
 
-// Mock memory-initializer (search/list commands use direct imports, not MCP)
+// Mock memory-initializer (store/retrieve/delete/search/list commands use direct imports, not MCP)
 vi.mock('../src/memory/memory-initializer.js', () => ({
+  storeEntry: vi.fn(async (options: Record<string, unknown>) => ({
+    success: true,
+    id: 'mock-id-' + options.key,
+    embedding: { dimensions: 384, model: 'mock' }
+  })),
+  getEntry: vi.fn(async (options: Record<string, unknown>) => ({
+    success: true,
+    found: true,
+    entry: {
+      id: 'mock-id-' + options.key,
+      key: options.key,
+      namespace: options.namespace ?? 'default',
+      content: 'mock-value-for-' + options.key,
+      accessCount: 5,
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+      hasEmbedding: false,
+      tags: []
+    }
+  })),
+  deleteEntry: vi.fn(async (options: Record<string, unknown>) => ({
+    success: true,
+    deleted: true,
+    key: options.key,
+    namespace: options.namespace ?? 'default',
+    remainingEntries: 41
+  })),
   searchEntries: vi.fn(async (options: Record<string, unknown>) => ({
     success: true,
     results: [
@@ -35,8 +66,8 @@ vi.mock('../src/memory/memory-initializer.js', () => ({
 // Mock MCP client
 vi.mock('../src/mcp-client.js', () => ({
   callMCPTool: vi.fn(async (toolName: string, input: Record<string, unknown>) => {
-    // Mock responses for different tools
-    if (toolName === 'agent/spawn') {
+    // Mock responses for different tools (names must match production callMCPTool() calls)
+    if (toolName === 'agent_spawn') {
       return {
         agentId: input.id || 'mock-agent-123',
         agentType: input.agentType,
@@ -45,7 +76,7 @@ vi.mock('../src/mcp-client.js', () => ({
       };
     }
 
-    if (toolName === 'agent/list') {
+    if (toolName === 'agent_list') {
       return {
         agents: [
           { id: 'agent-1', agentType: 'coder', status: 'active', createdAt: '2024-01-01T00:00:00Z' },
@@ -55,7 +86,7 @@ vi.mock('../src/mcp-client.js', () => ({
       };
     }
 
-    if (toolName === 'agent/status') {
+    if (toolName === 'agent_status') {
       return {
         id: input.agentId,
         agentType: 'coder',
@@ -72,7 +103,7 @@ vi.mock('../src/mcp-client.js', () => ({
       };
     }
 
-    if (toolName === 'agent/terminate') {
+    if (toolName === 'agent_terminate') {
       return {
         agentId: input.agentId,
         terminated: true,
@@ -80,7 +111,7 @@ vi.mock('../src/mcp-client.js', () => ({
       };
     }
 
-    if (toolName === 'swarm/init') {
+    if (toolName === 'swarm_init') {
       return {
         swarmId: 'swarm-mock-123',
         topology: input.topology,
@@ -94,60 +125,7 @@ vi.mock('../src/mcp-client.js', () => ({
       };
     }
 
-    // Memory tool mocks
-    if (toolName === 'memory/store') {
-      return {
-        success: true,
-        key: input.key,
-        totalEntries: 42
-      };
-    }
-
-    if (toolName === 'memory/retrieve') {
-      return {
-        key: input.key,
-        value: 'mock-value-for-' + input.key,
-        found: true,
-        storedAt: '2024-01-01T00:00:00Z',
-        accessCount: 5,
-        metadata: { tags: ['test'], size: 100 }
-      };
-    }
-
-    if (toolName === 'memory/search') {
-      return {
-        query: input.query,
-        results: [
-          { key: 'result-1', value: 'auth pattern 1', score: 0.95, storedAt: '2024-01-01T00:00:00Z' },
-          { key: 'result-2', value: 'auth pattern 2', score: 0.85, storedAt: '2024-01-01T00:01:00Z' }
-        ],
-        total: 2,
-        searchTime: '0.5ms'
-      };
-    }
-
-    if (toolName === 'memory/list') {
-      return {
-        entries: [
-          { key: 'entry-1', storedAt: '2024-01-01T00:00:00Z', accessCount: 10, preview: 'test value 1' },
-          { key: 'entry-2', storedAt: '2024-01-01T00:01:00Z', accessCount: 5, preview: 'test value 2' }
-        ],
-        total: 2,
-        limit: input.limit || 20,
-        offset: input.offset || 0
-      };
-    }
-
-    if (toolName === 'memory/delete') {
-      return {
-        success: true,
-        key: input.key,
-        deleted: true,
-        remainingEntries: 41
-      };
-    }
-
-    if (toolName === 'memory/stats') {
+    if (toolName === 'memory_stats') {
       // Return raw MCP format that the command expects and transforms
       return {
         totalEntries: 42,
@@ -221,7 +199,7 @@ describe('Agent Commands', () => {
   });
 
   describe('agent spawn', () => {
-    it.skip('should spawn agent with type flag', async () => { // Skip: requires live MCP context
+    it('should spawn agent with type flag', async () => {
       const spawnCmd = agentCommand.subcommands?.find(c => c.name === 'spawn');
       expect(spawnCmd).toBeDefined();
 
@@ -233,7 +211,7 @@ describe('Agent Commands', () => {
       expect(result.data).toHaveProperty('agentType', 'coder');
     });
 
-    it.skip('should spawn agent with custom name', async () => { // Skip: requires live MCP context
+    it('should spawn agent with custom name', async () => {
       const spawnCmd = agentCommand.subcommands?.find(c => c.name === 'spawn');
 
       ctx.flags = { type: 'tester', name: 'my-tester', _: [] };
@@ -282,7 +260,7 @@ describe('Agent Commands', () => {
   });
 
   describe('agent list', () => {
-    it.skip('should list all agents', async () => { // Skip: requires live MCP context
+    it('should list all agents', async () => {
       const listCmd = agentCommand.subcommands?.find(c => c.name === 'list');
       expect(listCmd).toBeDefined();
 
@@ -293,7 +271,7 @@ describe('Agent Commands', () => {
       expect(result.data).toHaveProperty('total', 2);
     });
 
-    it.skip('should filter by agent type', async () => { // Skip: requires live MCP context
+    it('should filter by agent type', async () => {
       const listCmd = agentCommand.subcommands?.find(c => c.name === 'list');
 
       ctx.flags = { type: 'coder', _: [] };
@@ -302,7 +280,7 @@ describe('Agent Commands', () => {
       expect(result.success).toBe(true);
     });
 
-    it.skip('should filter by status', async () => { // Skip: requires live MCP context
+    it('should filter by status', async () => {
       const listCmd = agentCommand.subcommands?.find(c => c.name === 'list');
 
       ctx.flags = { status: 'active', _: [] };
@@ -311,7 +289,7 @@ describe('Agent Commands', () => {
       expect(result.success).toBe(true);
     });
 
-    it.skip('should include inactive agents with --all flag', async () => { // Skip: requires live MCP context
+    it('should include inactive agents with --all flag', async () => {
       const listCmd = agentCommand.subcommands?.find(c => c.name === 'list');
 
       ctx.flags = { all: true, _: [] };
@@ -322,7 +300,7 @@ describe('Agent Commands', () => {
   });
 
   describe('agent status', () => {
-    it.skip('should show agent status', async () => { // Skip: requires live MCP context
+    it('should show agent status', async () => {
       const statusCmd = agentCommand.subcommands?.find(c => c.name === 'status');
       expect(statusCmd).toBeDefined();
 
@@ -348,7 +326,7 @@ describe('Agent Commands', () => {
   });
 
   describe('agent stop', () => {
-    it.skip('should stop agent', async () => { // Skip: requires live MCP context
+    it('should stop agent', async () => {
       const stopCmd = agentCommand.subcommands?.find(c => c.name === 'stop');
       expect(stopCmd).toBeDefined();
 
@@ -407,7 +385,7 @@ describe('Swarm Commands', () => {
   });
 
   describe('swarm init', () => {
-    it.skip('should initialize swarm with default topology', async () => { // Skip: requires live MCP context
+    it('should initialize swarm with default topology', async () => {
       const initCmd = swarmCommand.subcommands?.find(c => c.name === 'init');
       expect(initCmd).toBeDefined();
 
@@ -418,7 +396,7 @@ describe('Swarm Commands', () => {
       expect(result.data).toHaveProperty('topology');
     });
 
-    it.skip('should initialize swarm with custom topology', async () => { // Skip: requires live MCP context
+    it('should initialize swarm with custom topology', async () => {
       const initCmd = swarmCommand.subcommands?.find(c => c.name === 'init');
 
       ctx.flags = { topology: 'mesh', _: [] };
@@ -428,7 +406,7 @@ describe('Swarm Commands', () => {
       expect(result.data).toHaveProperty('topology', 'mesh');
     });
 
-    it.skip('should enable V1 mode', async () => { // Skip: requires live MCP context
+    it('should enable V1 mode', async () => {
       const initCmd = swarmCommand.subcommands?.find(c => c.name === 'init');
 
       ctx.flags = { v1Mode: true, _: [] };
@@ -437,10 +415,10 @@ describe('Swarm Commands', () => {
       expect(result.success).toBe(true);
     });
 
-    it.skip('should set max agents', async () => { // Skip: requires live MCP context
+    it('should set max agents', async () => {
       const initCmd = swarmCommand.subcommands?.find(c => c.name === 'init');
 
-      ctx.flags = { maxAgents: 20, _: [] };
+      ctx.flags = { 'max-agents': 20, _: [] };
       const result = await initCmd!.action!(ctx);
 
       expect(result.success).toBe(true);
@@ -567,7 +545,7 @@ describe('Memory Commands', () => {
   });
 
   describe('memory store', () => {
-    it.skip('should store data', async () => { // Skip: requires live memory service
+    it('should store data', async () => {
       const storeCmd = memoryCommand.subcommands?.find(c => c.name === 'store');
       expect(storeCmd).toBeDefined();
 
@@ -589,7 +567,7 @@ describe('Memory Commands', () => {
   });
 
   describe('memory retrieve', () => {
-    it.skip('should retrieve data', async () => { // Skip: requires live memory service
+    it('should retrieve data', async () => {
       const retrieveCmd = memoryCommand.subcommands?.find(c => c.name === 'retrieve');
       expect(retrieveCmd).toBeDefined();
 
@@ -635,7 +613,7 @@ describe('Memory Commands', () => {
   });
 
   describe('memory delete', () => {
-    it.skip('should delete entry', async () => { // Skip: requires live memory service
+    it('should delete entry', async () => {
       const deleteCmd = memoryCommand.subcommands?.find(c => c.name === 'delete');
       expect(deleteCmd).toBeDefined();
 
@@ -649,7 +627,7 @@ describe('Memory Commands', () => {
   });
 
   describe('memory stats', () => {
-    it.skip('should show memory statistics', async () => { // Skip: requires live memory service
+    it('should show memory statistics', async () => {
       const statsCmd = memoryCommand.subcommands?.find(c => c.name === 'stats');
       expect(statsCmd).toBeDefined();
 
@@ -664,10 +642,26 @@ describe('Memory Commands', () => {
   });
 
   describe('memory configure', () => {
-    it.skip('should configure memory backend', async () => { // Skip: ctx.cwd=/test is not writable in test env
+    let tmpCwd: string;
+
+    beforeEach(() => {
+      // configManager.set() writes to <cwd>/.monomind/config.json — needs a real writable dir
+      tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-configure-test-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+      // configManager is a module-level singleton that caches configPath/config
+      // internally — reset it so later tests don't inherit this tmpdir's real path.
+      (configManager as unknown as { configPath: string | null; config: unknown | null }).configPath = null;
+      (configManager as unknown as { configPath: string | null; config: unknown | null }).config = null;
+    });
+
+    it('should configure memory backend', async () => {
       const configureCmd = memoryCommand.subcommands?.find(c => c.name === 'configure');
       expect(configureCmd).toBeDefined();
 
+      ctx.cwd = tmpCwd;
       ctx.flags = { backend: 'lancedb', _: [] };
       const result = await configureCmd!.action!(ctx);
 
