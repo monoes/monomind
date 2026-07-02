@@ -414,9 +414,13 @@ describe('GCS Storage Command Injection', () => {
 // ============================================================================
 describe('Doctor Command Safety', () => {
   it('should use hardcoded commands only (no user input in shell)', () => {
-    // doctor.ts runs system commands but they should all be hardcoded
-    const doctorPath = path.join(__dirname, '..', 'src', 'commands', 'doctor.ts');
-    const content = fs.readFileSync(doctorPath, 'utf-8');
+    // doctor.ts was split into doctor.ts (orchestration), doctor-env-checks.ts
+    // (system checks) and doctor-project-checks.ts (project checks) — all
+    // runCommand() calls live in the split files, so concatenate them.
+    const doctorFiles = ['doctor.ts', 'doctor-env-checks.ts', 'doctor-project-checks.ts'];
+    const content = doctorFiles
+      .map((f) => fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', f), 'utf-8'))
+      .join('\n');
 
     // Find actual invocations of runCommand (not the function definition)
     // The function is defined as: async function runCommand(command: string, ...)
