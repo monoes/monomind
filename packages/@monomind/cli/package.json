@@ -81,8 +81,7 @@
   },
   "devDependencies": {
     "typescript": "^5.3.0",
-    "vitest": "^4.1.4",
-    "@anthropic-ai/sdk": "^0.39.0"
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "ws": "^8.21.0",

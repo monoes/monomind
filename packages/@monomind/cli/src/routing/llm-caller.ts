@@ -4,8 +4,7 @@
  * Monomind always runs on top of Claude Code, so low-confidence route
  * classification is delegated to the local `claude` CLI in headless print
  * mode — NOT to the Anthropic API with a managed key. There is no
- * `@anthropic-ai/sdk` dependency and no `ANTHROPIC_API_KEY` requirement: the
- * host's existing Claude Code auth is reused.
+ * No API key required: the host's existing Claude Code auth is reused.
  *
  * The returned function matches `LLMFallbackConfig.llmCaller` from
  * `@monomind/routing` — `(prompt: string) => Promise<string>`. When the

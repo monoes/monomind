@@ -325,6 +325,8 @@ RECENT_HIL=$(find . -maxdepth 3 \( -name "humaninloop*.md" -o -name "humaninloop
 
 **Skip this section if `tillend_mode` is not true.** Proceed to section 5.
 
+**`LOOP_ASYNC_PENDING` escape hatch:** If the calling skill set `LOOP_ASYNC_PENDING=true` before invoking the postamble (because it spawned background agents whose results have not yet arrived in this turn), skip the empty-round check entirely — treat this round as non-empty and go directly to section 6 to schedule the next run. The next scheduled run will evaluate results from the agents that are currently in-flight. Output: `[tillend] Async work in flight — deferring empty-round check to run <next_rep>.`
+
 After each run in tillend mode, evaluate whether this run produced **zero findings and zero actions**. The loop stops only when a complete round finds nothing new and makes no changes — not when the AI predicts there is nothing left.
 
 **You (the AI running the loop) must now assess your own output from this run.** Answer these two questions:
@@ -459,6 +461,8 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 
 ## Notes for Calling Commands
 
+- **Async agents in loop mode**: In `--repeat` or `--tillend` mode, all subagents MUST be synchronous (`run_in_background: false` or omitted). The postamble's empty-round check runs in the same turn as the command — background agents complete in a later turn and their output is invisible to the check. If a skill must go async (e.g. it needs to spawn a long-running agent), set `LOOP_ASYNC_PENDING=true` before invoking the postamble; section 4 will skip the empty-round check and schedule the next run unconditionally. The next run will then evaluate the results.
+- **Loop state is durable across turns**: The counter and all loop parameters survive across `ScheduleWakeup` fires via two mechanisms: (1) `--rep <N> --loop <ID>` is re-encoded in every ScheduleWakeup prompt, and (2) the `.monomind/loops/<ID>.json` file stores current state persistently. There is no in-memory counter — the counter is always re-read from the prompt flags or the file.
 - **`<command_slug>`**: lowercase command name without namespace (`build` for `/mastermind:build`, `mastermind-idea` for `/mastermind:idea`)
 - **Dashboard**: the monomind panel reads `.monomind/loops/*.json`; `type` field is `"repeat"` or `"tillend"`; HIL status shows as `"hil:pending"`
 - **Stopping a loop**: create `.monomind/loops/${LOOP_ID}.stop` or delete the `.json` file; the next wake-up detects it

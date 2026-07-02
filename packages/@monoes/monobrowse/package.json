@@ -60,16 +60,7 @@
     "commander": "^12.1.0",
     "ws": "^8.21.0"
   },
-  "peerDependencies": {
-    "@anthropic-ai/sdk": ">=0.20.0"
-  },
-  "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": {
-      "optional": true
-    }
-  },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
     "typescript": "^5.8.3"
   }
 }

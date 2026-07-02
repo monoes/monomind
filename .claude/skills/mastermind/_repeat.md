@@ -27,6 +27,8 @@ If the stop file exists:
 
 ## Step 2 — Tillend termination check (tillend mode only — skip for fixed-count)
 
+**`LOOP_ASYNC_PENDING` escape hatch:** If the calling skill set `LOOP_ASYNC_PENDING=true` before invoking this postamble (because it spawned background agents whose results have not yet arrived), skip the empty-round check and go directly to Step 4 to schedule the next run. Output: `[tillend] Async work in flight — deferring empty-round check to run <next_rep>.`
+
 Evaluate now whether this run produced **zero findings AND zero actions**:
 
 - **Findings**: issues found, problems detected, items flagged, security vulnerabilities, tasks discovered, errors reported
