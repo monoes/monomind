@@ -83,7 +83,7 @@ export function computeAllCohesionScores(memberships, edges) {
 export const communitiesPhase = {
     name: 'communities',
     deps: ['parse', 'cross-file', 'mro'],
-    async execute(_ctx, deps) {
+    async execute(ctx, deps) {
         const { resolvedEdges } = deps.get('cross-file');
         const { allEdges } = deps.get('parse');
         const allUsedEdges = [...allEdges, ...resolvedEdges];
@@ -116,6 +116,23 @@ export const communitiesPhase = {
         }
         // Compute all cohesion scores in one O(N+E) pass instead of O(K*(N+E))
         const cohesionScores = computeAllCohesionScores(memberships, allUsedEdges);
+        // Persist community assignments to the DB
+        if (memberships.size > 0) {
+            const commSizes = new Map();
+            for (const commId of memberships.values()) {
+                commSizes.set(commId, (commSizes.get(commId) ?? 0) + 1);
+            }
+            const updateNode = ctx.db.prepare('UPDATE nodes SET community_id = ? WHERE id = ?');
+            const upsertComm = ctx.db.prepare('INSERT OR REPLACE INTO communities (id, label, size, cohesion_score) VALUES (?, ?, ?, ?)');
+            ctx.db.transaction(() => {
+                for (const [nodeId, commId] of memberships) {
+                    updateNode.run(commId, nodeId);
+                }
+                for (const [commId, label] of communityLabels) {
+                    upsertComm.run(commId, label, commSizes.get(commId) ?? 0, cohesionScores.get(commId) ?? 0);
+                }
+            })();
+        }
         return { memberships, communityLabels, cohesionScores };
     },
 };
