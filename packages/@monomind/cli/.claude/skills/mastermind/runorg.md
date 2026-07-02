@@ -482,10 +482,8 @@ OPERATING LOOP:
    if [ -f "$_threads" ]; then
      _pending=$(jq '[.[] | select(.status == "pending")]' "$_threads" 2>/dev/null || echo "[]")
      if [ "$(echo "$_pending" | jq 'length')" -gt 0 ]; then
-       # Read messages, then mark them processed
-       echo "$_pending" | jq -r '.[] | .text // .msg // ""' # print each message for context
+       echo "$_pending" | jq -r '.[] | .text // .msg // ""'
        jq '[.[] | if .status == "pending" then .status = "processed" else . end]' "$_threads" > "${_threads}.tmp" && mv "${_threads}.tmp" "$_threads" || true
-       # Acknowledge via dashboard
        curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
          -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
            --arg msg "Received user message — adjusting plan if needed" \
