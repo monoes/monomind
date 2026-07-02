@@ -4,9 +4,9 @@
  * Extracted from hooks.ts to reduce file size.
  */
 import type { Command } from '../types.js';
-export declare const coverageRouteCommand: Command;
-export declare const coverageSuggestCommand: Command;
-export declare const coverageGapsCommand: Command;
-export declare const progressHookCommand: Command;
+export { coverageRouteCommand } from './hooks-coverage-routing.js';
+export { coverageSuggestCommand } from './hooks-coverage-routing.js';
+export { coverageGapsCommand } from './hooks-coverage-gaps.js';
+export { progressHookCommand } from './hooks-coverage-gaps.js';
 export declare const statuslineCommand: Command;
 //# sourceMappingURL=hooks-coverage-commands.d.ts.map
