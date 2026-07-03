@@ -2,6 +2,7 @@ import fs from 'fs';
 import type { CapabilityModule, DirectoryScan, FileEntry, IndexResult, SearchResult } from './types.js';
 
 const DATA_EXTENSIONS = new Set(['.csv', '.tsv', '.json', '.jsonl', '.sqlite', '.parquet', '.xlsx', '.xls']);
+const MAX_INDEX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — skip oversized files
 
 interface DataEntry {
   path: string;
@@ -50,17 +51,40 @@ function parseJSON(content: string): { columns: string[]; rowCount: number; samp
   try {
     const parsed = JSON.parse(content);
     const arr = Array.isArray(parsed) ? parsed : [parsed];
-    if (arr.length === 0) return { columns: [], rowCount: 0, sampleValues: {} };
+    if (arr.length === 0) return { columns: [], rowCount: 0, sampleValues: Object.create(null) };
 
-    const columns = Object.keys(arr[0]);
-    const sampleValues: Record<string, string[]> = {};
+    const columns = Object.keys(arr[0]).filter(k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype');
+    const sampleValues: Record<string, string[]> = Object.create(null);
     for (const col of columns) {
       sampleValues[col] = arr.slice(0, 3).map((row) => String(row[col] ?? ''));
     }
     return { columns, rowCount: arr.length, sampleValues };
   } catch {
-    return { columns: [], rowCount: 0, sampleValues: {} };
+    return { columns: [], rowCount: 0, sampleValues: Object.create(null) };
   }
+}
+
+function parseJSONL(content: string): { columns: string[]; rowCount: number; sampleValues: Record<string, string[]> } {
+  const lines = content.trim().split('\n').filter(l => l.trim());
+  if (lines.length === 0) return { columns: [], rowCount: 0, sampleValues: Object.create(null) };
+
+  const rows: Record<string, unknown>[] = [];
+  for (const line of lines) {
+    try {
+      const obj = JSON.parse(line);
+      if (obj && typeof obj === 'object' && !Array.isArray(obj)) rows.push(obj);
+    } catch {
+      // skip malformed lines
+    }
+  }
+  if (rows.length === 0) return { columns: [], rowCount: 0, sampleValues: Object.create(null) };
+
+  const columns = Object.keys(rows[0]).filter(k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype');
+  const sampleValues: Record<string, string[]> = Object.create(null);
+  for (const col of columns) {
+    sampleValues[col] = rows.slice(0, 3).map(row => String(row[col] ?? ''));
+  }
+  return { columns, rowCount: rows.length, sampleValues };
 }
 
 export const dataCapability: CapabilityModule = {
@@ -85,6 +109,11 @@ export const dataCapability: CapabilityModule = {
         continue;
       }
 
+      if (file.size > MAX_INDEX_FILE_SIZE) {
+        skipped++;
+        continue;
+      }
+
       try {
         let columns: string[] = [];
         let rowCount = 0;
@@ -95,11 +124,16 @@ export const dataCapability: CapabilityModule = {
           const parsed = parseCSV(content, file.extension === '.tsv' ? '\t' : ',');
           columns = parsed.columns;
           rowCount = parsed.rows.length;
-          for (const col of columns) {
-            const colIdx = columns.indexOf(col);
-            sampleValues[col] = parsed.rows.slice(0, 3).map((row) => row[colIdx] ?? '');
+          for (let colIdx = 0; colIdx < columns.length; colIdx++) {
+            sampleValues[columns[colIdx]] = parsed.rows.slice(0, 3).map((row) => row[colIdx] ?? '');
           }
-        } else if (file.extension === '.json' || file.extension === '.jsonl') {
+        } else if (file.extension === '.jsonl') {
+          const content = fs.readFileSync(file.absolutePath, 'utf-8');
+          const parsed = parseJSONL(content);
+          columns = parsed.columns;
+          rowCount = parsed.rowCount;
+          sampleValues = parsed.sampleValues;
+        } else if (file.extension === '.json') {
           const content = fs.readFileSync(file.absolutePath, 'utf-8');
           const parsed = parseJSON(content);
           columns = parsed.columns;

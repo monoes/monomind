@@ -55,6 +55,7 @@ export interface HealthCheck {
   status: 'pass' | 'warn' | 'fail';
   message: string;
   hint?: string;
+  fix?: string;
 }
 
 export interface EnrichmentState {

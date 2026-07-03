@@ -77,6 +77,11 @@ export const searchUniversalCommand: Command = {
     const monomindDir = path.join(ctx.cwd, '.monomind');
     const fingerprint = await loadFingerprint(monomindDir);
 
+    if (!fingerprint) {
+      console.log('No directory scan found. Run `monomind init` or `monomind scan` first.');
+      return { success: true };
+    }
+
     const mgr = new CapabilityManager();
     mgr.register(codeCapability);
     mgr.register(documentsCapability);
@@ -85,13 +90,15 @@ export const searchUniversalCommand: Command = {
     mgr.register(graphCapability);
     mgr.register(timelineCapability);
 
-    if (fingerprint) {
+    try {
       await mgr.activateFromScan(fingerprint, ctx.cwd, false);
 
       const files = listFiles(ctx.cwd);
       for (const module of mgr.getActive()) {
         await module.index(files);
       }
+    } catch (err) {
+      return { success: false, message: `Failed to load capabilities: ${err instanceof Error ? err.message : String(err)}` };
     }
 
     const limit = (ctx.flags.limit as number) ?? 20;

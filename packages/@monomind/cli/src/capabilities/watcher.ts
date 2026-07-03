@@ -22,6 +22,12 @@ export class FileWatcher extends EventEmitter {
   }
 
   async start(root: string, options?: WatcherOptions): Promise<void> {
+    // Guard against double-start: close previous watcher to prevent fd leak
+    if (this.watcher) {
+      this.watcher.close();
+      this.watcher = null;
+    }
+
     const gitExists = fs.existsSync(path.join(root, '.git'));
     const useGit = options?.useGit ?? gitExists;
     this._mode = useGit ? 'git' : 'fs';
@@ -102,5 +108,6 @@ export class FileWatcher extends EventEmitter {
     }
     this.debounceTimers.clear();
     this.knownFiles.clear();
+    this.removeAllListeners();
   }
 }

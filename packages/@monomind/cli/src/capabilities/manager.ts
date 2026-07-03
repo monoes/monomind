@@ -49,7 +49,9 @@ export class CapabilityManager {
     const capsPath = path.join(monomindDir, 'capabilities.json');
     try {
       fs.mkdirSync(monomindDir, { recursive: true });
-      fs.writeFileSync(capsPath, JSON.stringify({ active: [...this.active.keys()] }, null, 2));
+      const tmpPath = capsPath + '.tmp';
+      fs.writeFileSync(tmpPath, JSON.stringify({ active: [...this.active.keys()] }, null, 2));
+      fs.renameSync(tmpPath, capsPath);
     } catch {
       // best-effort persistence; activation state still holds in-memory
     }

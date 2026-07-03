@@ -13,7 +13,7 @@ const CODE_SIGNALS = new Set(['.ts', '.tsx', '.js', '.jsx', '.py', '.rs', '.go',
 const CODE_MARKERS = new Set(['package.json', 'Cargo.toml', 'go.mod', 'pyproject.toml', 'Makefile', 'CMakeLists.txt', 'pom.xml', 'build.gradle']);
 const DOC_EXTENSIONS = new Set(['.pdf', '.docx', '.doc', '.md', '.txt', '.rtf', '.pages', '.odt', '.rst', '.tex', '.epub']);
 const MEDIA_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.heic', '.heif', '.webp', '.svg', '.raw', '.cr2', '.nef', '.mp4', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.flac', '.aac', '.ogg']);
-const DATA_EXTENSIONS = new Set(['.csv', '.tsv', '.json', '.jsonl', '.sqlite', '.db', '.parquet', '.xlsx', '.xls']);
+const DATA_EXTENSIONS = new Set(['.csv', '.tsv', '.jsonl', '.sqlite', '.db', '.parquet', '.xlsx', '.xls']);
 
 function walkDir(dir: string, maxDepth: number, currentDepth: number, ignore: Set<string>, root: string): FileEntry[] {
   if (currentDepth > maxDepth) return [];
@@ -28,6 +28,8 @@ function walkDir(dir: string, maxDepth: number, currentDepth: number, ignore: Se
 
   for (const dirent of dirents) {
     if (ignore.has(dirent.name) || dirent.name.startsWith('.')) continue;
+    // Skip symlinks to prevent traversal outside target directory
+    if (dirent.isSymbolicLink()) continue;
 
     const fullPath = path.join(dir, dirent.name);
     if (dirent.isDirectory()) {
@@ -94,6 +96,7 @@ export function listFiles(root: string, options?: ScanOptions): FileEntry[] {
 export async function scanDirectory(root: string, options?: ScanOptions): Promise<DirectoryScan> {
   const files = listFiles(root, options);
   const totalFiles = files.length;
+  const classifiableFiles = files.filter(f => f.extension !== '').length;
 
   const filesByExtension: Record<string, number> = {};
   for (const f of files) {
@@ -102,7 +105,7 @@ export async function scanDirectory(root: string, options?: ScanOptions): Promis
 
   const gitExists = fs.existsSync(path.join(root, '.git'));
 
-  const codeScore = computeScore(files, totalFiles, CODE_SIGNALS, CODE_MARKERS, root);
+  const codeScore = computeScore(files, classifiableFiles, CODE_SIGNALS, CODE_MARKERS, root);
   if (gitExists && codeScore.confidence > 0 && !codeScore.signals.includes('.git')) {
     codeScore.signals.push('.git');
     codeScore.confidence = Math.min(1, codeScore.confidence + 0.15);
@@ -115,9 +118,9 @@ export async function scanDirectory(root: string, options?: ScanOptions): Promis
     scannedAt: new Date().toISOString(),
     capabilities: {
       code: codeScore,
-      documents: computeScore(files, totalFiles, DOC_EXTENSIONS, null, root),
-      media: computeScore(files, totalFiles, MEDIA_EXTENSIONS, null, root),
-      data: computeScore(files, totalFiles, DATA_EXTENSIONS, null, root),
+      documents: computeScore(files, classifiableFiles, DOC_EXTENSIONS, null, root),
+      media: computeScore(files, classifiableFiles, MEDIA_EXTENSIONS, null, root),
+      data: computeScore(files, classifiableFiles, DATA_EXTENSIONS, null, root),
       graph: { confidence: 0, files: 0, signals: [] },   // activated by manager when 2+ caps active
       timeline: { confidence: 0, files: 0, signals: [] }, // activated by manager when 2+ caps active
     },
@@ -129,7 +132,9 @@ export async function saveFingerprint(scan: DirectoryScan, monomindDir: string):
   const fp: Fingerprint = { version: 1, ...scan };
   const fpPath = path.join(monomindDir, 'fingerprint.json');
   fs.mkdirSync(monomindDir, { recursive: true });
-  fs.writeFileSync(fpPath, JSON.stringify(fp, null, 2));
+  const tmpPath = fpPath + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(fp, null, 2));
+  fs.renameSync(tmpPath, fpPath);
 }
 
 export async function loadFingerprint(monomindDir: string): Promise<Fingerprint | null> {

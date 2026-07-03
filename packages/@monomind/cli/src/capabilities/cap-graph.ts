@@ -30,15 +30,14 @@ function buildRelationships(): void {
   }
 
   // Relationship 2: same date (within 1 day) = temporal neighbors
-  const nodeList = [...nodes.entries()];
-  for (let i = 0; i < nodeList.length; i++) {
-    for (let j = i + 1; j < nodeList.length; j++) {
-      const [pathA, nodeA] = nodeList[i];
-      const [pathB, nodeB] = nodeList[j];
-      const diffMs = Math.abs(nodeA.modified.getTime() - nodeB.modified.getTime());
-      if (diffMs < 86400000 && nodeA.directory !== nodeB.directory) { // same day, different dir
-        nodeA.neighbors.add(pathB);
-        nodeB.neighbors.add(pathA);
+  const sorted = [...nodes.entries()].sort((a, b) => a[1].modified.getTime() - b[1].modified.getTime());
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      const diffMs = sorted[j][1].modified.getTime() - sorted[i][1].modified.getTime();
+      if (diffMs >= 86400000) break; // sorted — no further matches possible
+      if (sorted[i][1].directory !== sorted[j][1].directory) {
+        sorted[i][1].neighbors.add(sorted[j][0]);
+        sorted[j][1].neighbors.add(sorted[i][0]);
       }
     }
   }

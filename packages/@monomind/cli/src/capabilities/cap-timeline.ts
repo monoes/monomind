@@ -9,6 +9,8 @@ const timelineIndex = new Map<string, TimelineEntry>();
 
 const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const MONTH_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH_NAME_REGEXPS = MONTH_NAMES.map(m => new RegExp(`\\b${m}\\b`));
+const MONTH_SHORT_REGEXPS = MONTH_SHORT.map(m => new RegExp(`\\b${m}\\b`));
 
 function extractDatesFromFilename(filename: string): Date[] {
   const dates: Date[] = [];
@@ -23,9 +25,7 @@ function extractDatesFromFilename(filename: string): Date[] {
   // Match month names (word-boundary — avoid 'mar' matching 'marketplace', 'may' matching 'payment', etc.)
   const lower = filename.toLowerCase();
   for (let i = 0; i < MONTH_NAMES.length; i++) {
-    const nameRe = new RegExp(`\\b${MONTH_NAMES[i]}\\b`);
-    const shortRe = new RegExp(`\\b${MONTH_SHORT[i]}\\b`);
-    if (nameRe.test(lower) || shortRe.test(lower)) {
+    if (MONTH_NAME_REGEXPS[i].test(lower) || MONTH_SHORT_REGEXPS[i].test(lower)) {
       const yearMatch = filename.match(/(\d{4})/);
       if (yearMatch) {
         dates.push(new Date(parseInt(yearMatch[1]), i, 1));
@@ -78,9 +78,7 @@ export const timelineCapability: CapabilityModule = {
     let targetYear = -1;
 
     for (let i = 0; i < MONTH_NAMES.length; i++) {
-      const nameRe = new RegExp(`\\b${MONTH_NAMES[i]}\\b`);
-      const shortRe = new RegExp(`\\b${MONTH_SHORT[i]}\\b`);
-      if (nameRe.test(queryLower) || shortRe.test(queryLower)) {
+      if (MONTH_NAME_REGEXPS[i].test(queryLower) || MONTH_SHORT_REGEXPS[i].test(queryLower)) {
         targetMonth = i;
         break;
       }
