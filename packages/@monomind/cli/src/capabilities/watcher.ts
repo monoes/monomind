@@ -46,7 +46,10 @@ export class FileWatcher extends EventEmitter {
       // Skip ignored directories
       if (isIgnored(filename)) return;
 
-      const fullPath = path.join(root, filename);
+      const fullPath = path.resolve(root, filename);
+
+      // Prevent symlink traversal: reject paths that escape root
+      if (!fullPath.startsWith(root + path.sep) && fullPath !== root) return;
 
       // Debounce rapid events on the same file
       const existing = this.debounceTimers.get(filename);
@@ -90,6 +93,7 @@ export class FileWatcher extends EventEmitter {
       const fullPath = path.join(dir, entry.name);
       const rel = path.relative(root, fullPath);
       if (isIgnored(rel)) continue;
+      if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
         this.seedKnownFiles(root, fullPath, isIgnored);
       } else if (entry.isFile()) {

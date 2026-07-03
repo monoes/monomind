@@ -38,13 +38,15 @@ function splitCSVLine(line: string, delimiter: string): string[] {
   return fields;
 }
 
-function parseCSV(content: string, delimiter = ','): { columns: string[]; rows: string[][] } {
+function parseCSV(content: string, delimiter = ','): { columns: string[]; rows: string[][]; totalRows: number } {
   const lines = content.trim().split('\n');
-  if (lines.length === 0) return { columns: [], rows: [] };
+  if (lines.length === 0) return { columns: [], rows: [], totalRows: 0 };
 
   const columns = splitCSVLine(lines[0], delimiter).map((c) => c.trim());
-  const rows = lines.slice(1).map((line) => splitCSVLine(line, delimiter).map((c) => c.trim()));
-  return { columns, rows };
+  // Only parse first 3 data rows for samples — avoids wasting CPU on large files
+  const sampleLines = lines.slice(1, 4);
+  const rows = sampleLines.map((line) => splitCSVLine(line, delimiter).map((c) => c.trim()));
+  return { columns, rows, totalRows: lines.length - 1 };
 }
 
 function parseJSON(content: string): { columns: string[]; rowCount: number; sampleValues: Record<string, string[]> } {
@@ -123,9 +125,9 @@ export const dataCapability: CapabilityModule = {
           const content = fs.readFileSync(file.absolutePath, 'utf-8');
           const parsed = parseCSV(content, file.extension === '.tsv' ? '\t' : ',');
           columns = parsed.columns;
-          rowCount = parsed.rows.length;
+          rowCount = parsed.totalRows;
           for (let colIdx = 0; colIdx < columns.length; colIdx++) {
-            sampleValues[columns[colIdx]] = parsed.rows.slice(0, 3).map((row) => row[colIdx] ?? '');
+            sampleValues[columns[colIdx]] = parsed.rows.map((row) => row[colIdx] ?? '');
           }
         } else if (file.extension === '.jsonl') {
           const content = fs.readFileSync(file.absolutePath, 'utf-8');

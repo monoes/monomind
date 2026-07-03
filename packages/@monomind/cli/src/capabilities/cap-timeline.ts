@@ -28,7 +28,10 @@ function extractDatesFromFilename(filename: string): Date[] {
     if (MONTH_NAME_REGEXPS[i].test(lower) || MONTH_SHORT_REGEXPS[i].test(lower)) {
       const yearMatch = filename.match(/(\d{4})/);
       if (yearMatch) {
-        dates.push(new Date(parseInt(yearMatch[1]), i, 1));
+        const year = parseInt(yearMatch[1]);
+        if (year >= 1900 && year <= 2100) {
+          dates.push(new Date(year, i, 1));
+        }
       }
     }
   }
