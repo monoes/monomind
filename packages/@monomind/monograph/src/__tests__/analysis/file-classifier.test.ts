@@ -23,8 +23,8 @@ describe('classifyFile', () => {
   it('classifies arxiv URL as PAPER', () => {
     expect(classifyFile('https://arxiv.org/abs/2401.00001')).toBe('PAPER');
   });
-  it('returns CODE for unknown extension', () => {
-    expect(classifyFile('Makefile')).toBe('CODE');
+  it('returns UNKNOWN for unrecognized extension', () => {
+    expect(classifyFile('Makefile')).toBe('UNKNOWN');
   });
   it('detects paper signals in filename', () => {
     expect(classifyFile('attention_is_all_you_need.pdf')).toBe('PAPER');

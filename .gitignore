@@ -210,7 +210,9 @@ monomind.config.json
 monomind
 docs/*.md
 docs/adr/
-docs/superpowers/
+docs/superpowers/*
+!docs/superpowers/specs/
+!docs/superpowers/plans/
 .superpowers/
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
