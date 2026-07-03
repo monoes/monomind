@@ -133,6 +133,27 @@ export function buildRegistry(agentsRoot, outputPath) {
     return buildUnifiedRegistry([agentsRoot], outputPath);
 }
 /**
+ * Compute the ordered list of agent-definition roots for `cwd`: extras
+ * (canonical, from MONOMIND_EXTRA_AGENT_PATHS or a sibling `agency-agents`
+ * dir) first, then the project's `.claude/agents`. Shared by CLI startup
+ * and `monomind doctor` so both build the registry the same way.
+ */
+export function computeAgentRoots(cwd) {
+    const devAgentsRoot = join(cwd, '.claude', 'agents');
+    const extraPaths = process.env.MONOMIND_EXTRA_AGENT_PATHS
+        ? process.env.MONOMIND_EXTRA_AGENT_PATHS.split(':').filter(Boolean)
+        : [];
+    const siblingExtraPath = join(cwd, '..', 'agency-agents');
+    if (extraPaths.length === 0) {
+        try {
+            if (statSync(siblingExtraPath).isDirectory())
+                extraPaths.push(siblingExtraPath);
+        }
+        catch { /* sibling path doesn't exist */ }
+    }
+    return [...extraPaths, devAgentsRoot];
+}
+/**
  * Build a unified agent registry from multiple root directories, deduplicating
  * by slug. When the same slug appears in more than one root, the entry from the
  * **first** root in the array wins (earlier roots are considered canonical).
@@ -178,6 +199,7 @@ export function buildUnifiedRegistry(roots, outputPath) {
                 version: (typeof fm.version === 'string' ? fm.version : undefined) || '0.0.0',
                 category: (typeof fm.category === 'string' ? fm.category : undefined) ||
                     categoryFromPath(file, root),
+                description: typeof fm.description === 'string' ? fm.description : '',
                 capabilities: toStringArray(fm.capabilities),
                 taskTypes: toStringArray(fm.taskTypes ?? fm['task-types'] ?? fm.task_types),
                 tools: toStringArray(fm.tools),

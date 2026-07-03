@@ -3,7 +3,7 @@
  * Config, daemon, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore
  */
 
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, statSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -332,6 +332,47 @@ export async function checkGitignoreCoverage(): Promise<HealthCheck> {
   if (missing.length === 0) return { name: 'Gitignore Coverage', status: 'pass', message: 'All monomind runtime paths are gitignored' };
   const missingList = missing.map(m => m.pattern).join(', ');
   return { name: 'Gitignore Coverage', status: 'warn', message: `${missing.length} runtime path(s) not in .gitignore: ${missingList}`, fix: `printf "${missing.map(m => m.pattern).join('\\n')}\\n" >> .gitignore` };
+}
+
+export async function checkAgentRegistry(): Promise<HealthCheck> {
+  try {
+    const { buildUnifiedRegistry, computeAgentRoots } = await import('../agents/registry-builder.js');
+    const cwd = process.cwd();
+    const roots = computeAgentRoots(cwd);
+    const outDir = join(cwd, '.monomind');
+    mkdirSync(outDir, { recursive: true });
+    // Rebuilds fresh in-memory (and refreshes .monomind/registry.json on disk)
+    // rather than reading a file that a separate, unawaited startup task also
+    // writes — avoids reporting stale results from a race between the two.
+    const registry = buildUnifiedRegistry(roots, join(outDir, 'registry.json'));
+    const entries = registry.agents;
+    if (entries.length === 0) {
+      return { name: 'Agent Registry', status: 'warn', message: 'No agents found under .claude/agents', fix: 'monomind init  (installs agent definitions)' };
+    }
+    let missingSlug = 0, missingName = 0, missingDescription = 0;
+    for (const agent of entries) {
+      if (!agent.slug) missingSlug++;
+      if (!agent.name) missingName++;
+      if (!agent.description) missingDescription++;
+    }
+    const total = missingSlug + missingName + missingDescription;
+    if (total === 0) {
+      return { name: 'Agent Registry', status: 'pass', message: `${entries.length} agent(s), all metadata complete` };
+    }
+    const parts = [
+      missingSlug > 0 ? `${missingSlug} missing slug` : null,
+      missingName > 0 ? `${missingName} missing name` : null,
+      missingDescription > 0 ? `${missingDescription} missing description` : null,
+    ].filter(Boolean).join(', ');
+    return {
+      name: 'Agent Registry',
+      status: 'warn',
+      message: `${total} metadata issue(s) across ${entries.length} agent(s): ${parts}`,
+      fix: 'Add the missing field(s) to frontmatter in .claude/agents/*.md',
+    };
+  } catch {
+    return { name: 'Agent Registry', status: 'warn', message: 'Could not build/parse agent registry' };
+  }
 }
 
 export async function checkGuidanceGates(): Promise<HealthCheck> {

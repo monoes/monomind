@@ -439,50 +439,21 @@ export class CLI {
         // Extra paths are read from MONOMIND_EXTRA_AGENT_PATHS env var (colon-separated)
         // or fall back to the known local path when available.
         try {
-            const { buildUnifiedRegistry } = await import('./agents/registry-builder.js');
+            const { buildUnifiedRegistry, computeAgentRoots } = await import('./agents/registry-builder.js');
             const { mkdirSync } = await import('fs');
             const { join } = await import('path');
-            const devAgentsRoot = join(process.cwd(), '.claude', 'agents');
-            const extraPaths = process.env.MONOMIND_EXTRA_AGENT_PATHS
-                ? process.env.MONOMIND_EXTRA_AGENT_PATHS.split(':').filter(Boolean)
-                : [];
-            // Fallback: well-known sibling path relative to project root (no hardcoded dev paths)
-            const { existsSync } = await import('fs');
-            const siblingExtraPath = join(process.cwd(), '..', 'agency-agents');
-            if (extraPaths.length === 0 && existsSync(siblingExtraPath)) {
-                extraPaths.push(siblingExtraPath);
-            }
-            // extras-first so they win deduplication; dev agents fill in the rest
-            const roots = [...extraPaths, devAgentsRoot];
+            const roots = computeAgentRoots(process.cwd());
             const outDir = join(process.cwd(), '.monomind');
             mkdirSync(outDir, { recursive: true });
             buildUnifiedRegistry(roots, join(outDir, 'registry.json'));
         }
         catch { /* optional — registry build failures must never block startup */ }
-        // Task 04: CapabilityMetadata — validate agent registry at startup
-        try {
-            const { readFileSync, existsSync, statSync: statSyncReg } = await import('fs');
-            const { join: pathJoin } = await import('path');
-            const registryPath = pathJoin(process.cwd(), '.monomind', 'registry.json');
-            const MAX_REGISTRY_BYTES = 10 * 1024 * 1024; // 10 MB
-            if (existsSync(registryPath) && statSyncReg(registryPath).size <= MAX_REGISTRY_BYTES) {
-                const registry = JSON.parse(readFileSync(registryPath, 'utf-8'));
-                const entries = registry.agents ?? [];
-                const issues = [];
-                for (const agent of entries) {
-                    if (!agent.slug)
-                        issues.push(`Agent missing 'slug'`);
-                    if (!agent.name)
-                        issues.push(`Agent ${String(agent.slug ?? '?')} missing 'name'`);
-                    if (!agent.description)
-                        issues.push(`Agent ${String(agent.slug ?? '?')} missing 'description'`);
-                }
-                if (issues.length > 0) {
-                    console.warn(`[CapabilityMetadata] ${issues.length} agent metadata issue(s) in registry — run 'monomind doctor' to review`);
-                }
-            }
-        }
-        catch { /* optional */ }
+        // Task 04: CapabilityMetadata validation moved to `monomind doctor -c registry`
+        // (see doctor-project-checks.ts:checkAgentRegistry). Printing this from a
+        // fire-and-forget startup task raced process exit — short-lived commands
+        // could skip the warning even when the underlying issue was present. Doctor
+        // runs it synchronously within its own check pass instead, so it's always
+        // visible and itemized when you actually look for it.
         // NOTE: Semantic routing (@monomind/routing) is constructed on-demand by
         // its consumers — `monomind route` and `monomind agent --task` (see
         // commands/route.ts and commands/agent.ts). It is intentionally NOT

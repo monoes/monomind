@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { join, basename, relative, extname, isAbsolute } from 'path';
 type TriggerPattern = { pattern: string; mode: 'glob' | 'regex' | 'exact' };
 type AgentRegistryEntry = {
-  slug: string; name: string; version: string; category: string;
+  slug: string; name: string; version: string; category: string; description: string;
   capabilities: string[]; taskTypes: string[]; tools: string[];
   triggers: TriggerPattern[]; deprecated: boolean; deprecatedBy?: string;
   dependencies: string[]; filePath: string; registeredAt: string; lastUpdated: string;
@@ -146,6 +146,26 @@ export function buildRegistry(agentsRoot: string, outputPath?: string): AgentReg
 }
 
 /**
+ * Compute the ordered list of agent-definition roots for `cwd`: extras
+ * (canonical, from MONOMIND_EXTRA_AGENT_PATHS or a sibling `agency-agents`
+ * dir) first, then the project's `.claude/agents`. Shared by CLI startup
+ * and `monomind doctor` so both build the registry the same way.
+ */
+export function computeAgentRoots(cwd: string): string[] {
+  const devAgentsRoot = join(cwd, '.claude', 'agents');
+  const extraPaths = process.env.MONOMIND_EXTRA_AGENT_PATHS
+    ? process.env.MONOMIND_EXTRA_AGENT_PATHS.split(':').filter(Boolean)
+    : [];
+  const siblingExtraPath = join(cwd, '..', 'agency-agents');
+  if (extraPaths.length === 0) {
+    try {
+      if (statSync(siblingExtraPath).isDirectory()) extraPaths.push(siblingExtraPath);
+    } catch { /* sibling path doesn't exist */ }
+  }
+  return [...extraPaths, devAgentsRoot];
+}
+
+/**
  * Build a unified agent registry from multiple root directories, deduplicating
  * by slug. When the same slug appears in more than one root, the entry from the
  * **first** root in the array wins (earlier roots are considered canonical).
@@ -190,6 +210,7 @@ export function buildUnifiedRegistry(roots: string[], outputPath?: string): Agen
         category:
           (typeof fm.category === 'string' ? fm.category : undefined) ||
           categoryFromPath(file, root),
+        description: typeof fm.description === 'string' ? fm.description : '',
         capabilities: toStringArray(fm.capabilities),
         taskTypes: toStringArray(fm.taskTypes ?? fm['task-types'] ?? fm.task_types),
         tools: toStringArray(fm.tools),
