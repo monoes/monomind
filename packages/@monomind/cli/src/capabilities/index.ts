@@ -7,3 +7,4 @@ export { documentsCapability } from './cap-documents.js';
 export { mediaCapability } from './cap-media.js';
 export { timelineCapability } from './cap-timeline.js';
 export { graphCapability } from './cap-graph.js';
+export { dataCapability } from './cap-data.js';
