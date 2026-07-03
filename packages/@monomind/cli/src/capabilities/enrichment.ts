@@ -16,8 +16,10 @@ export interface EnrichmentStatusReport {
   summary: EnrichmentSummary;
 }
 
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 export class EnrichmentPipeline {
-  private state: EnrichmentState = {};
+  private state: EnrichmentState = Object.create(null);
   private _paused = false;
   private manager?: CapabilityManager;
 
@@ -138,14 +140,18 @@ export class EnrichmentPipeline {
       const raw = fs.readFileSync(statePath, 'utf-8');
       const parsed = JSON.parse(raw);
       // Support legacy format (raw file-state map with no `paused`/`files` wrapper)
-      if (parsed && typeof parsed === 'object' && 'files' in parsed) {
-        this.state = parsed.files ?? {};
-        this._paused = Boolean(parsed.paused);
-      } else {
-        this.state = parsed ?? {};
+      const raw = (parsed && typeof parsed === 'object' && 'files' in parsed)
+        ? parsed.files ?? {}
+        : parsed ?? {};
+      this._paused = Boolean(parsed?.paused);
+      // Sanitize: use null-prototype object and filter unsafe keys
+      const safe: EnrichmentState = Object.create(null);
+      for (const key of Object.keys(raw)) {
+        if (!UNSAFE_KEYS.has(key)) safe[key] = raw[key];
       }
+      this.state = safe;
     } catch {
-      this.state = {};
+      this.state = Object.create(null);
     }
   }
 
