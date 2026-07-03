@@ -24,11 +24,13 @@ export const enrichCommand: Command = {
 
     if (ctx.flags.pause) {
       pipeline.pause();
+      pipeline.saveState(monomindDir);
       return { success: true, message: 'Enrichment paused.' };
     }
 
     if (ctx.flags.resume) {
       pipeline.resume();
+      pipeline.saveState(monomindDir);
       return { success: true, message: 'Enrichment resumed.' };
     }
 

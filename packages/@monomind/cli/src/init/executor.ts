@@ -342,13 +342,11 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       capMgr.register(dataCapability);
       await capMgr.activateFromScan(scan, targetDir);
 
-      // Print capability-aware messaging
-      if (!capMgr.isActive('code')) {
-        // Non-code directory — print simplified messaging
-        console.log('\nActivating capabilities:');
-        for (const cap of capMgr.getActive()) {
-          console.log(`  ✓ ${cap.name}`);
-        }
+      // Print capability-aware messaging (always show active capabilities,
+      // regardless of whether 'code' is also active, so mixed projects get feedback)
+      console.log('\nActivating capabilities:');
+      for (const cap of capMgr.getActive()) {
+        console.log(`  ✓ ${cap.name}`);
       }
     } catch (scanError) {
       // Scanner/fingerprint/activation failed — non-fatal, continue without capabilities
@@ -412,7 +410,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     result.summary.hooksEnabled = countEnabledHooks(options);
 
     // Build knowledge graph in background (non-blocking) — code-project only
-    if (options.components.graphify && capMgr && capMgr.isActive('code')) {
+    if (options.components.graphify && (capMgr === null || capMgr.isActive('code'))) {
       await initKnowledgeGraph(targetDir, result);
     } else if (options.components.graphify) {
       result.skipped.push('knowledge graph: not a code project (skipping monograph indexing)');

@@ -7,7 +7,7 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import type { SearchResult, CapabilityName } from '../capabilities/types.js';
 import { CapabilityManager } from '../capabilities/manager.js';
-import { loadFingerprint } from '../capabilities/scanner.js';
+import { loadFingerprint, listFiles } from '../capabilities/scanner.js';
 import { codeCapability } from '../capabilities/cap-code.js';
 import { documentsCapability } from '../capabilities/cap-documents.js';
 import { mediaCapability } from '../capabilities/cap-media.js';
@@ -86,13 +86,23 @@ export const searchUniversalCommand: Command = {
     mgr.register(timelineCapability);
 
     if (fingerprint) {
-      await mgr.activateFromScan(fingerprint, ctx.cwd);
+      await mgr.activateFromScan(fingerprint, ctx.cwd, false);
+
+      const files = listFiles(ctx.cwd);
+      for (const module of mgr.getActive()) {
+        await module.index(files);
+      }
     }
 
     const limit = (ctx.flags.limit as number) ?? 20;
     const results = await mgr.search(query, limit);
 
-    const output = formatSearchResults(results);
+    const typeFilter = ctx.flags.type as CapabilityName | undefined;
+    const filteredResults = typeFilter
+      ? results.filter((r) => r.type === typeFilter)
+      : results;
+
+    const output = formatSearchResults(filteredResults);
     console.log(output);
 
     return { success: true };

@@ -14,7 +14,7 @@ export class CapabilityManager {
     this.registry.set(module.name, module);
   }
 
-  async activateFromScan(scan: DirectoryScan, rootDir: string): Promise<void> {
+  async activateFromScan(scan: DirectoryScan, rootDir: string, save = true): Promise<void> {
     this.active.clear();
 
     // Activate content capabilities above threshold
@@ -39,7 +39,9 @@ export class CapabilityManager {
       }
     }
 
-    this.saveCapabilities(rootDir);
+    if (save) {
+      this.saveCapabilities(rootDir);
+    }
   }
 
   private saveCapabilities(rootDir: string): void {

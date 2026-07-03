@@ -13,12 +13,36 @@ interface DataEntry {
 
 const indexedData = new Map<string, DataEntry>();
 
+// Splits a single CSV/TSV line on `delimiter`, respecting basic RFC 4180 quoting:
+// fields starting with `"` are read until the matching closing `"` before the
+// delimiter is honored again. Does not handle escaped ("") quotes within a field.
+function splitCSVLine(line: string, delimiter: string): string[] {
+  const fields: string[] = [];
+  let i = 0;
+  while (i <= line.length) {
+    if (line[i] === '"') {
+      const end = line.indexOf('"', i + 1);
+      const closeIdx = end === -1 ? line.length : end;
+      fields.push(line.slice(i + 1, closeIdx));
+      // advance past the closing quote and the following delimiter (if any)
+      const next = line.indexOf(delimiter, closeIdx + 1);
+      i = next === -1 ? line.length + 1 : next + 1;
+    } else {
+      const next = line.indexOf(delimiter, i);
+      const closeIdx = next === -1 ? line.length : next;
+      fields.push(line.slice(i, closeIdx));
+      i = next === -1 ? line.length + 1 : next + 1;
+    }
+  }
+  return fields;
+}
+
 function parseCSV(content: string, delimiter = ','): { columns: string[]; rows: string[][] } {
   const lines = content.trim().split('\n');
   if (lines.length === 0) return { columns: [], rows: [] };
 
-  const columns = lines[0].split(delimiter).map((c) => c.trim().replace(/^"|"$/g, ''));
-  const rows = lines.slice(1).map((line) => line.split(delimiter).map((c) => c.trim().replace(/^"|"$/g, '')));
+  const columns = splitCSVLine(lines[0], delimiter).map((c) => c.trim());
+  const rows = lines.slice(1).map((line) => splitCSVLine(line, delimiter).map((c) => c.trim()));
   return { columns, rows };
 }
 

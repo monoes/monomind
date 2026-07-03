@@ -62,7 +62,7 @@ export const surprisesPhase: PipelinePhase<SurprisesOutput> = {
         if (srcFilePath && tgtFilePath) {
           const srcFileType = classifyFile(srcFilePath);
           const tgtFileType = classifyFile(tgtFilePath);
-          if (srcFileType !== tgtFileType) {
+          if (srcFileType !== tgtFileType && srcFileType !== 'UNKNOWN' && tgtFileType !== 'UNKNOWN') {
             score += WEIGHTS.crossRepo;  // reuse unused crossRepo weight (0.15)
             reasons.push(`cross-filetype (${srcFileType}→${tgtFileType})`);
           }

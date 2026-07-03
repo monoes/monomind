@@ -73,7 +73,7 @@ describe('documentsCapability', () => {
     await documentsCapability.index(files);
 
     const results = await documentsCapability.search!('test document', 5);
-    expect(results.length).toBeGreaterThanOrEqual(0); // may or may not match depending on content
+    expect(results.length).toBeGreaterThan(0);
     for (const r of results) {
       expect(r.type).toBe('documents');
     }
