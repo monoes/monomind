@@ -324,6 +324,26 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Create directory structure
     await createDirectories(targetDir, options, result);
 
+    // Scan directory and save fingerprint
+    const { scanDirectory, saveFingerprint, CapabilityManager, codeCapability } = await import('../capabilities/index.js');
+    const scan = await scanDirectory(targetDir);
+    const monomindDir = path.join(targetDir, '.monomind');
+    await saveFingerprint(scan, monomindDir);
+
+    // Activate capabilities
+    const capMgr = new CapabilityManager();
+    capMgr.register(codeCapability);
+    await capMgr.activateFromScan(scan, targetDir);
+
+    // Print capability-aware messaging
+    if (!capMgr.isActive('code')) {
+      // Non-code directory — print simplified messaging
+      console.log('\nActivating capabilities:');
+      for (const cap of capMgr.getActive()) {
+        console.log(`  ✓ ${cap.name}`);
+      }
+    }
+
     // Generate and write settings.json
     if (options.components.settings) {
       await writeSettings(targetDir, options, result);
@@ -380,9 +400,11 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Count enabled hooks
     result.summary.hooksEnabled = countEnabledHooks(options);
 
-    // Build knowledge graph in background (non-blocking)
-    if (options.components.graphify) {
+    // Build knowledge graph in background (non-blocking) — code-project only
+    if (options.components.graphify && capMgr.isActive('code')) {
       await initKnowledgeGraph(targetDir, result);
+    } else if (options.components.graphify) {
+      result.skipped.push('knowledge graph: not a code project (skipping monograph indexing)');
     }
 
     // Start daemon with background workers (non-blocking)
