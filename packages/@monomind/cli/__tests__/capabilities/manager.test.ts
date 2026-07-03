@@ -1,6 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CapabilityManager } from '../../src/capabilities/manager.js';
 import type { CapabilityModule, DirectoryScan } from '../../src/capabilities/types.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 function makeScan(overrides: Partial<DirectoryScan> = {}): DirectoryScan {
   return {
@@ -31,6 +34,21 @@ function makeCap(name: string, detectResult: number): CapabilityModule {
 }
 
 describe('CapabilityManager', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = path.join(os.tmpdir(), `monomind-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(tmpDir)) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it('activates modules above threshold', async () => {
     const mgr = new CapabilityManager();
     const docs = makeCap('documents', 0.5);
@@ -85,8 +103,13 @@ describe('CapabilityManager', () => {
   it('saves capabilities.json on activation', async () => {
     const mgr = new CapabilityManager();
     mgr.register(makeCap('documents', 0.5));
-    await mgr.activateFromScan(makeScan(), '/tmp/test');
-    // capabilities.json is written to the monomind dir
+    await mgr.activateFromScan(makeScan(), tmpDir);
     expect(mgr.getActive().length).toBe(1);
+
+    // Verify the file was actually written
+    const capFile = path.join(tmpDir, '.monomind', 'capabilities.json');
+    expect(fs.existsSync(capFile)).toBe(true);
+    const saved = JSON.parse(fs.readFileSync(capFile, 'utf-8'));
+    expect(saved.active).toContain('documents');
   });
 });
