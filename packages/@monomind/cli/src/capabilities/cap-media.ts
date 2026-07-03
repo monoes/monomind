@@ -38,7 +38,10 @@ interface MediaEntry {
 // In-memory index for T0 (metadata) — replaced by memory DB in production
 const indexedMedia = new Map<string, MediaEntry>();
 
+const MAX_EXIF_FILE_SIZE = 100 * 1024 * 1024; // 100MB — avoid OOM on large files
+
 async function extractExif(file: FileEntry): Promise<Record<string, unknown>> {
+  if (file.size > MAX_EXIF_FILE_SIZE) return {};
   try {
     // monolean: exifreader is an optional dependency — degrade to metadata-only if missing
     const mod = await import('exifreader');
@@ -92,8 +95,10 @@ export const mediaCapability: CapabilityModule = {
       }
 
       try {
-        const exif = file.extension !== '.svg' ? await extractExif(file) : {};
         const type = mediaType(file.extension);
+        // Video/audio: never readFileSync (multi-GB files) — metadata comes from fs.stat only
+        const exif =
+          type === 'image' && file.extension !== '.svg' ? await extractExif(file) : {};
 
         // Build searchable description from metadata + filename
         const descParts = [file.path.replace(/[_-]/g, ' ')];

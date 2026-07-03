@@ -77,10 +77,10 @@ export const doctorCommand: Command = {
       checkVersionFreshness, checkNodeVersion, checkNpmVersion, checkClaudeCode,
       checkConfigFile, checkMemoryDatabase, checkDiskSpace,
       checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
-      checkGuidanceGates, checkAgentRegistry,
+      checkGuidanceGates, checkAgentRegistry, checkGit, checkDaemonStatus, checkApiKeys,
     ];
     const codeOnlyChecks: (() => Promise<HealthCheck>)[] = [
-      checkGit, checkGitRepo, checkDaemonStatus, checkApiKeys, checkMcpServers,
+      checkGitRepo, checkMcpServers,
       checkBuildTools, checkMonographFreshness, checkGitignoreCoverage,
     ];
 

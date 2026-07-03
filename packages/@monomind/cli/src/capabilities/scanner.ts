@@ -77,7 +77,7 @@ function computeScore(
     }
   }
 
-  const markerBoost = markers ? signals.filter(s => !s.startsWith('.')).length * 0.15 : 0;
+  const markerBoost = markers ? Math.min(0.2, signals.filter(s => !s.startsWith('.')).length * 0.15) : 0;
   const confidence = totalFiles > 0
     ? Math.min(1, (matchingFiles.length / totalFiles) + markerBoost)
     : 0;
@@ -85,11 +85,14 @@ function computeScore(
   return { confidence, files: matchingFiles.length, signals };
 }
 
-export async function scanDirectory(root: string, options?: ScanOptions): Promise<DirectoryScan> {
+export function listFiles(root: string, options?: ScanOptions): FileEntry[] {
   const maxDepth = options?.maxDepth ?? 3;
   const ignore = new Set([...DEFAULT_IGNORE, ...(options?.ignorePatterns ?? [])]);
+  return walkDir(root, maxDepth, 0, ignore, root);
+}
 
-  const files = walkDir(root, maxDepth, 0, ignore, root);
+export async function scanDirectory(root: string, options?: ScanOptions): Promise<DirectoryScan> {
+  const files = listFiles(root, options);
   const totalFiles = files.length;
 
   const filesByExtension: Record<string, number> = {};
@@ -100,7 +103,7 @@ export async function scanDirectory(root: string, options?: ScanOptions): Promis
   const gitExists = fs.existsSync(path.join(root, '.git'));
 
   const codeScore = computeScore(files, totalFiles, CODE_SIGNALS, CODE_MARKERS, root);
-  if (gitExists && !codeScore.signals.includes('.git')) {
+  if (gitExists && codeScore.confidence > 0 && !codeScore.signals.includes('.git')) {
     codeScore.signals.push('.git');
     codeScore.confidence = Math.min(1, codeScore.confidence + 0.15);
   }

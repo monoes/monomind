@@ -20,10 +20,12 @@ function extractDatesFromFilename(filename: string): Date[] {
     if (!isNaN(d.getTime())) dates.push(d);
   }
 
-  // Match month names
+  // Match month names (word-boundary — avoid 'mar' matching 'marketplace', 'may' matching 'payment', etc.)
   const lower = filename.toLowerCase();
   for (let i = 0; i < MONTH_NAMES.length; i++) {
-    if (lower.includes(MONTH_NAMES[i]) || lower.includes(MONTH_SHORT[i])) {
+    const nameRe = new RegExp(`\\b${MONTH_NAMES[i]}\\b`);
+    const shortRe = new RegExp(`\\b${MONTH_SHORT[i]}\\b`);
+    if (nameRe.test(lower) || shortRe.test(lower)) {
       const yearMatch = filename.match(/(\d{4})/);
       if (yearMatch) {
         dates.push(new Date(parseInt(yearMatch[1]), i, 1));
@@ -76,7 +78,9 @@ export const timelineCapability: CapabilityModule = {
     let targetYear = -1;
 
     for (let i = 0; i < MONTH_NAMES.length; i++) {
-      if (queryLower.includes(MONTH_NAMES[i]) || queryLower.includes(MONTH_SHORT[i])) {
+      const nameRe = new RegExp(`\\b${MONTH_NAMES[i]}\\b`);
+      const shortRe = new RegExp(`\\b${MONTH_SHORT[i]}\\b`);
+      if (nameRe.test(queryLower) || shortRe.test(queryLower)) {
         targetMonth = i;
         break;
       }

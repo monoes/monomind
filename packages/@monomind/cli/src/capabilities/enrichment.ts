@@ -41,11 +41,15 @@ export class EnrichmentPipeline {
 
   markFailed(filePath: string, tier: EnrichmentTier): void {
     this.ensureEntry(filePath);
+    // Don't let a later module's failure overwrite an earlier module's success
+    // for the same (file, tier) — status has no module dimension.
+    if (this.state[filePath][tier] === 'done') return;
     this.state[filePath][tier] = 'failed';
   }
 
   markSkipped(filePath: string, tier: EnrichmentTier): void {
     this.ensureEntry(filePath);
+    if (this.state[filePath][tier] === 'done') return;
     this.state[filePath][tier] = 'skipped';
   }
 
@@ -122,14 +126,21 @@ export class EnrichmentPipeline {
   saveState(monomindDir: string): void {
     fs.mkdirSync(monomindDir, { recursive: true });
     const statePath = path.join(monomindDir, 'enrichment.json');
-    fs.writeFileSync(statePath, JSON.stringify(this.state, null, 2));
+    fs.writeFileSync(statePath, JSON.stringify({ paused: this._paused, files: this.state }, null, 2));
   }
 
   loadState(monomindDir: string): void {
     const statePath = path.join(monomindDir, 'enrichment.json');
     try {
       const raw = fs.readFileSync(statePath, 'utf-8');
-      this.state = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      // Support legacy format (raw file-state map with no `paused`/`files` wrapper)
+      if (parsed && typeof parsed === 'object' && 'files' in parsed) {
+        this.state = parsed.files ?? {};
+        this._paused = Boolean(parsed.paused);
+      } else {
+        this.state = parsed ?? {};
+      }
     } catch {
       this.state = {};
     }
