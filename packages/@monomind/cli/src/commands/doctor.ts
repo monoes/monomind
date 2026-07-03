@@ -5,6 +5,7 @@
  * github.com/monoes/monomind
  */
 
+import * as path from 'path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import {
@@ -58,14 +59,34 @@ export const doctorCommand: Command = {
     output.writeln(output.dim('─'.repeat(50)));
     output.writeln();
 
-    const allChecks: (() => Promise<HealthCheck>)[] = [
+    // Capability-aware scoping: skip code-specific checks in non-code directories
+    // (e.g. document/media/data-only projects created via `monomind init`).
+    let isCodeProject = true;
+    try {
+      const { loadFingerprint } = await import('../capabilities/index.js');
+      const monomindDir = path.join(process.cwd(), '.monomind');
+      const fingerprint = await loadFingerprint(monomindDir);
+      isCodeProject = !fingerprint || fingerprint.capabilities.code.confidence >= 0.1;
+    } catch {
+      // Fingerprint unavailable — default to treating this as a code project
+      // so existing behavior is unaffected when the capabilities module can't load.
+      isCodeProject = true;
+    }
+
+    const alwaysOnChecks: (() => Promise<HealthCheck>)[] = [
       checkVersionFreshness, checkNodeVersion, checkNpmVersion, checkClaudeCode,
-      checkGit, checkGitRepo, checkConfigFile, checkDaemonStatus, checkMemoryDatabase,
-      checkApiKeys, checkMcpServers, checkDiskSpace, checkBuildTools,
-      checkMonograph, checkMonographFreshness, checkMonoesMemory,
-      checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
-      checkAgentRegistry,
+      checkConfigFile, checkMemoryDatabase, checkDiskSpace,
+      checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
+      checkGuidanceGates, checkAgentRegistry,
     ];
+    const codeOnlyChecks: (() => Promise<HealthCheck>)[] = [
+      checkGit, checkGitRepo, checkDaemonStatus, checkApiKeys, checkMcpServers,
+      checkBuildTools, checkMonographFreshness, checkGitignoreCoverage,
+    ];
+
+    const allChecks: (() => Promise<HealthCheck>)[] = isCodeProject
+      ? [...alwaysOnChecks, ...codeOnlyChecks]
+      : alwaysOnChecks;
 
     const componentMap: Record<string, () => Promise<HealthCheck>> = {
       version: checkVersionFreshness, freshness: checkVersionFreshness,

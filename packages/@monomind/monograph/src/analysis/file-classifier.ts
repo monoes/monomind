@@ -1,6 +1,6 @@
 import { extname } from 'path';
 
-export type FileType = 'CODE' | 'DOCUMENT' | 'PAPER' | 'IMAGE' | 'VIDEO';
+export type FileType = 'CODE' | 'DOCUMENT' | 'PAPER' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DATA' | 'UNKNOWN';
 
 const CODE_EXTENSIONS = new Set([
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
@@ -28,6 +28,8 @@ const VIDEO_EXTENSIONS = new Set([
   '.wmv', '.m4v',
 ]);
 
+const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma']);
+
 const PAPER_URL_PATTERNS = [
   /arxiv\.org/,
   /semanticscholar\.org/,
@@ -49,6 +51,7 @@ export function classifyFile(pathOrUrl: string): FileType {
 
   if (IMAGE_EXTENSIONS.has(ext)) return 'IMAGE';
   if (VIDEO_EXTENSIONS.has(ext)) return 'VIDEO';
+  if (AUDIO_EXTENSIONS.has(ext)) return 'AUDIO';
 
   if (DOCUMENT_EXTENSIONS.has(ext)) {
     if (ext === '.pdf' && PAPER_FILENAME_SIGNALS.some(p => p.test(pathOrUrl))) return 'PAPER';
@@ -57,7 +60,7 @@ export function classifyFile(pathOrUrl: string): FileType {
 
   if (CODE_EXTENSIONS.has(ext)) return 'CODE';
 
-  return 'CODE';
+  return 'UNKNOWN';
 }
 
 const PAPER_CONTENT_SIGNALS: RegExp[] = [
