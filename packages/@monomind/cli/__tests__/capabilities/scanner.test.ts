@@ -1,10 +1,18 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import { scanDirectory, saveFingerprint, loadFingerprint } from '../../src/capabilities/scanner.js';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures');
+
+// Ensure fixture directories are set up (e.g., .git directory that git doesn't track)
+beforeAll(() => {
+  const gitFixtureDir = path.join(FIXTURES, 'code-project', '.git');
+  if (!fs.existsSync(gitFixtureDir)) {
+    fs.mkdirSync(gitFixtureDir, { recursive: true });
+  }
+});
 
 describe('scanDirectory', () => {
   it('detects a code project', async () => {
