@@ -1,6 +1,8 @@
 export * from './types.js';
 export { scanDirectory, saveFingerprint, loadFingerprint } from './scanner.js';
 export { CapabilityManager } from './manager.js';
+export { EnrichmentPipeline } from './enrichment.js';
+export type { EnrichmentSummary, EnrichmentStatusReport } from './enrichment.js';
 export { FileWatcher } from './watcher.js';
 export { codeCapability } from './cap-code.js';
 export { documentsCapability } from './cap-documents.js';
