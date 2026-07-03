@@ -327,7 +327,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Scan directory and save fingerprint (non-fatal if failed)
     let capMgr: any = null;
     try {
-      const { scanDirectory, saveFingerprint, CapabilityManager, codeCapability, documentsCapability, mediaCapability, timelineCapability } = await import('../capabilities/index.js');
+      const { scanDirectory, saveFingerprint, CapabilityManager, codeCapability, documentsCapability, mediaCapability, timelineCapability, graphCapability } = await import('../capabilities/index.js');
       const scan = await scanDirectory(targetDir);
       const monomindDir = path.join(targetDir, '.monomind');
       await saveFingerprint(scan, monomindDir);
@@ -338,6 +338,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       capMgr.register(documentsCapability);
       capMgr.register(mediaCapability);
       capMgr.register(timelineCapability);
+      capMgr.register(graphCapability);
       await capMgr.activateFromScan(scan, targetDir);
 
       // Print capability-aware messaging
