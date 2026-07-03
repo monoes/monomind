@@ -13,12 +13,12 @@ interface DataEntry {
 
 const indexedData = new Map<string, DataEntry>();
 
-function parseCSV(content: string): { columns: string[]; rows: string[][] } {
+function parseCSV(content: string, delimiter = ','): { columns: string[]; rows: string[][] } {
   const lines = content.trim().split('\n');
   if (lines.length === 0) return { columns: [], rows: [] };
 
-  const columns = lines[0].split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
-  const rows = lines.slice(1).map((line) => line.split(',').map((c) => c.trim().replace(/^"|"$/g, '')));
+  const columns = lines[0].split(delimiter).map((c) => c.trim().replace(/^"|"$/g, ''));
+  const rows = lines.slice(1).map((line) => line.split(delimiter).map((c) => c.trim().replace(/^"|"$/g, '')));
   return { columns, rows };
 }
 
@@ -68,7 +68,7 @@ export const dataCapability: CapabilityModule = {
 
         if (file.extension === '.csv' || file.extension === '.tsv') {
           const content = fs.readFileSync(file.absolutePath, 'utf-8');
-          const parsed = parseCSV(content);
+          const parsed = parseCSV(content, file.extension === '.tsv' ? '\t' : ',');
           columns = parsed.columns;
           rowCount = parsed.rows.length;
           for (const col of columns) {
