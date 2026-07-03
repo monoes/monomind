@@ -5,3 +5,4 @@ export { FileWatcher } from './watcher.js';
 export { codeCapability } from './cap-code.js';
 export { documentsCapability } from './cap-documents.js';
 export { mediaCapability } from './cap-media.js';
+export { timelineCapability } from './cap-timeline.js';
