@@ -82,6 +82,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   design: () => import('./design-detect.js'),
   // Enrichment pipeline (T0/T1/T2 progressive content enrichment)
   enrich: () => import('./enrich.js'),
+  // Universal search across all activated capabilities
+  search: () => import('./search-universal.js'),
 };
 
 // Cache for loaded commands
@@ -166,6 +168,7 @@ import tokensCommand from './tokens.js';
 import { platformsCommand } from './platforms.js';
 import { designCommand } from './design-detect.js';
 import { enrichCommand } from './enrich.js';
+import { searchUniversalCommand } from './search-universal.js';
 
 // Pre-populate cache with core commands
 loadedCommands.set('init', initCommand);
@@ -197,6 +200,7 @@ loadedCommands.set('platforms', platformsCommand);
 loadedCommands.set('browse', browseCommand);
 loadedCommands.set('design', designCommand);
 loadedCommands.set('enrich', enrichCommand);
+loadedCommands.set('search', searchUniversalCommand);
 
 // =============================================================================
 // Exports (maintain backwards compatibility)
@@ -227,6 +231,7 @@ export { monographCommand } from './monograph.js';
 export { platformsCommand } from './platforms.js';
 export { designCommand } from './design-detect.js';
 export { enrichCommand } from './enrich.js';
+export { searchUniversalCommand } from './search-universal.js';
 
 // Lazy-loaded command re-exports (for backwards compatibility, but async-only)
 export async function getConfigCommand() { return loadCommand('config'); }
@@ -283,6 +288,7 @@ export const commands: Command[] = [
   platformsCommand,
   designCommand,
   enrichCommand,
+  searchUniversalCommand,
 ];
 
 /**
@@ -327,6 +333,7 @@ export const commandsByCategory = {
     replayCommand,
     tokensCommand,
     enrichCommand,
+    searchUniversalCommand,
   ],
   management: [
     providersCommand,
