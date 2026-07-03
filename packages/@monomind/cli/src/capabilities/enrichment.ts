@@ -137,8 +137,8 @@ export class EnrichmentPipeline {
   loadState(monomindDir: string): void {
     const statePath = path.join(monomindDir, 'enrichment.json');
     try {
-      const raw = fs.readFileSync(statePath, 'utf-8');
-      const parsed = JSON.parse(raw);
+      const content = fs.readFileSync(statePath, 'utf-8');
+      const parsed = JSON.parse(content);
       // Support legacy format (raw file-state map with no `paused`/`files` wrapper)
       const raw = (parsed && typeof parsed === 'object' && 'files' in parsed)
         ? parsed.files ?? {}
