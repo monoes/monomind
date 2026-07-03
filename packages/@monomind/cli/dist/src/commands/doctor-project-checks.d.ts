@@ -15,5 +15,6 @@ export declare function checkMonoesMemory(): Promise<HealthCheck>;
 export declare function checkHelpersFresh(): Promise<HealthCheck>;
 export declare function checkMonoesIntegration(): Promise<HealthCheck>;
 export declare function checkGitignoreCoverage(): Promise<HealthCheck>;
+export declare function checkAgentRegistry(): Promise<HealthCheck>;
 export declare function checkGuidanceGates(): Promise<HealthCheck>;
 //# sourceMappingURL=doctor-project-checks.d.ts.map

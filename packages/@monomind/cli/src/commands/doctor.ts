@@ -17,6 +17,7 @@ import {
   checkConfigFile, checkDaemonStatus, checkMemoryDatabase, checkApiKeys,
   checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory,
   checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
+  checkAgentRegistry,
 } from './doctor-project-checks.js';
 
 function formatCheck(check: HealthCheck): string {
@@ -34,7 +35,7 @@ export const doctorCommand: Command = {
     { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
     {
       name: 'component', short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -63,6 +64,7 @@ export const doctorCommand: Command = {
       checkApiKeys, checkMcpServers, checkDiskSpace, checkBuildTools,
       checkMonograph, checkMonographFreshness, checkMonoesMemory,
       checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
+      checkAgentRegistry,
     ];
 
     const componentMap: Record<string, () => Promise<HealthCheck>> = {
@@ -74,6 +76,7 @@ export const doctorCommand: Command = {
       'graph-freshness': checkMonographFreshness, 'memory-pkg': checkMonoesMemory,
       helpers: checkHelpersFresh, monoes: checkMonoesIntegration,
       gates: checkGuidanceGates, gitignore: checkGitignoreCoverage,
+      registry: checkAgentRegistry,
     };
 
     const checksToRun = (component && componentMap[component]) ? [componentMap[component]] : allChecks;
