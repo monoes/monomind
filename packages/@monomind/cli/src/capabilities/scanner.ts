@@ -15,7 +15,7 @@ const DOC_EXTENSIONS = new Set(['.pdf', '.docx', '.doc', '.md', '.txt', '.rtf', 
 const MEDIA_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.heic', '.heif', '.webp', '.svg', '.raw', '.cr2', '.nef', '.mp4', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.flac', '.aac', '.ogg']);
 const DATA_EXTENSIONS = new Set(['.csv', '.tsv', '.json', '.jsonl', '.sqlite', '.db', '.parquet', '.xlsx', '.xls']);
 
-function walkDir(dir: string, maxDepth: number, currentDepth: number, ignore: Set<string>): FileEntry[] {
+function walkDir(dir: string, maxDepth: number, currentDepth: number, ignore: Set<string>, root: string): FileEntry[] {
   if (currentDepth > maxDepth) return [];
   const entries: FileEntry[] = [];
 
@@ -31,12 +31,12 @@ function walkDir(dir: string, maxDepth: number, currentDepth: number, ignore: Se
 
     const fullPath = path.join(dir, dirent.name);
     if (dirent.isDirectory()) {
-      entries.push(...walkDir(fullPath, maxDepth, currentDepth + 1, ignore));
+      entries.push(...walkDir(fullPath, maxDepth, currentDepth + 1, ignore, root));
     } else if (dirent.isFile()) {
       try {
         const stat = fs.statSync(fullPath);
         entries.push({
-          path: dirent.name,
+          path: path.relative(root, fullPath),
           absolutePath: fullPath,
           extension: path.extname(dirent.name).toLowerCase(),
           size: stat.size,
@@ -89,7 +89,7 @@ export async function scanDirectory(root: string, options?: ScanOptions): Promis
   const maxDepth = options?.maxDepth ?? 3;
   const ignore = new Set([...DEFAULT_IGNORE, ...(options?.ignorePatterns ?? [])]);
 
-  const files = walkDir(root, maxDepth, 0, ignore);
+  const files = walkDir(root, maxDepth, 0, ignore, root);
   const totalFiles = files.length;
 
   const filesByExtension: Record<string, number> = {};
