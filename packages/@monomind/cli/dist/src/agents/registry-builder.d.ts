@@ -7,6 +7,7 @@ type AgentRegistryEntry = {
     name: string;
     version: string;
     category: string;
+    description: string;
     capabilities: string[];
     taskTypes: string[];
     tools: string[];
@@ -32,6 +33,13 @@ type AgentRegistry = {
  * @returns The built AgentRegistry object.
  */
 export declare function buildRegistry(agentsRoot: string, outputPath?: string): AgentRegistry;
+/**
+ * Compute the ordered list of agent-definition roots for `cwd`: extras
+ * (canonical, from MONOMIND_EXTRA_AGENT_PATHS or a sibling `agency-agents`
+ * dir) first, then the project's `.claude/agents`. Shared by CLI startup
+ * and `monomind doctor` so both build the registry the same way.
+ */
+export declare function computeAgentRoots(cwd: string): string[];
 /**
  * Build a unified agent registry from multiple root directories, deduplicating
  * by slug. When the same slug appears in more than one root, the entry from the

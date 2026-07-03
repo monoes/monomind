@@ -6,7 +6,7 @@
  */
 import { output } from '../output.js';
 import { checkNodeVersion, checkNpmVersion, checkGit, checkGitRepo, checkDiskSpace, checkBuildTools, checkVersionFreshness, checkClaudeCode, installClaudeCode, } from './doctor-env-checks.js';
-import { checkConfigFile, checkDaemonStatus, checkMemoryDatabase, checkApiKeys, checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage, } from './doctor-project-checks.js';
+import { checkConfigFile, checkDaemonStatus, checkMemoryDatabase, checkApiKeys, checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage, checkAgentRegistry, } from './doctor-project-checks.js';
 function formatCheck(check) {
     const icon = check.status === 'pass' ? output.success('✓') :
         check.status === 'warn' ? output.warning('⚠') :
@@ -21,7 +21,7 @@ export const doctorCommand = {
         { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
         {
             name: 'component', short: 'c',
-            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore)',
+            description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry)',
             type: 'string',
         },
         { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -48,6 +48,7 @@ export const doctorCommand = {
             checkApiKeys, checkMcpServers, checkDiskSpace, checkBuildTools,
             checkMonograph, checkMonographFreshness, checkMonoesMemory,
             checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
+            checkAgentRegistry,
         ];
         const componentMap = {
             version: checkVersionFreshness, freshness: checkVersionFreshness,
@@ -58,6 +59,7 @@ export const doctorCommand = {
             'graph-freshness': checkMonographFreshness, 'memory-pkg': checkMonoesMemory,
             helpers: checkHelpersFresh, monoes: checkMonoesIntegration,
             gates: checkGuidanceGates, gitignore: checkGitignoreCoverage,
+            registry: checkAgentRegistry,
         };
         const checksToRun = (component && componentMap[component]) ? [componentMap[component]] : allChecks;
         const results = [];
