@@ -93,7 +93,7 @@ export class EnrichmentPipeline {
    * - t2: each active module's optional `enrich()` is invoked; modules
    *   without an `enrich()` implementation have their files marked skipped.
    */
-  async runTier(tier: EnrichmentTier, files: FileEntry[]): Promise<void> {
+  async runTier(tier: EnrichmentTier, files: FileEntry[], monomindDir?: string): Promise<void> {
     if (this._paused || files.length === 0) return;
     if (!this.manager) return;
 
@@ -120,13 +120,16 @@ export class EnrichmentPipeline {
       } catch {
         for (const file of files) this.markFailed(file.path, tier);
       }
+      if (monomindDir) this.saveState(monomindDir);
     }
   }
 
   saveState(monomindDir: string): void {
     fs.mkdirSync(monomindDir, { recursive: true });
     const statePath = path.join(monomindDir, 'enrichment.json');
-    fs.writeFileSync(statePath, JSON.stringify({ paused: this._paused, files: this.state }, null, 2));
+    const tmpPath = statePath + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify({ paused: this._paused, files: this.state }, null, 2));
+    fs.renameSync(tmpPath, statePath);
   }
 
   loadState(monomindDir: string): void {

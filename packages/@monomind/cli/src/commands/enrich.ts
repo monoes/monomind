@@ -24,13 +24,21 @@ export const enrichCommand: Command = {
 
     if (ctx.flags.pause) {
       pipeline.pause();
-      pipeline.saveState(monomindDir);
+      try {
+        pipeline.saveState(monomindDir);
+      } catch (err) {
+        return { success: false, message: `Failed to save state: ${err instanceof Error ? err.message : String(err)}` };
+      }
       return { success: true, message: 'Enrichment paused.' };
     }
 
     if (ctx.flags.resume) {
       pipeline.resume();
-      pipeline.saveState(monomindDir);
+      try {
+        pipeline.saveState(monomindDir);
+      } catch (err) {
+        return { success: false, message: `Failed to save state: ${err instanceof Error ? err.message : String(err)}` };
+      }
       return { success: true, message: 'Enrichment resumed.' };
     }
 

@@ -37,7 +37,8 @@ describe('E2E: full second-brain flow', () => {
     await mgr.activateFromScan(scan, mixedDir);
 
     // Should have at least code + documents active
-    expect(mgr.isActive('code') || mgr.isActive('documents')).toBe(true);
+    expect(mgr.isActive('code')).toBe(true);
+    expect(mgr.isActive('documents')).toBe(true);
 
     // Fingerprint persisted
     const loaded = await loadFingerprint(tmpDir);
