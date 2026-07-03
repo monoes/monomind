@@ -324,24 +324,30 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Create directory structure
     await createDirectories(targetDir, options, result);
 
-    // Scan directory and save fingerprint
-    const { scanDirectory, saveFingerprint, CapabilityManager, codeCapability } = await import('../capabilities/index.js');
-    const scan = await scanDirectory(targetDir);
-    const monomindDir = path.join(targetDir, '.monomind');
-    await saveFingerprint(scan, monomindDir);
+    // Scan directory and save fingerprint (non-fatal if failed)
+    let capMgr: any = null;
+    try {
+      const { scanDirectory, saveFingerprint, CapabilityManager, codeCapability } = await import('../capabilities/index.js');
+      const scan = await scanDirectory(targetDir);
+      const monomindDir = path.join(targetDir, '.monomind');
+      await saveFingerprint(scan, monomindDir);
 
-    // Activate capabilities
-    const capMgr = new CapabilityManager();
-    capMgr.register(codeCapability);
-    await capMgr.activateFromScan(scan, targetDir);
+      // Activate capabilities
+      capMgr = new CapabilityManager();
+      capMgr.register(codeCapability);
+      await capMgr.activateFromScan(scan, targetDir);
 
-    // Print capability-aware messaging
-    if (!capMgr.isActive('code')) {
-      // Non-code directory — print simplified messaging
-      console.log('\nActivating capabilities:');
-      for (const cap of capMgr.getActive()) {
-        console.log(`  ✓ ${cap.name}`);
+      // Print capability-aware messaging
+      if (!capMgr.isActive('code')) {
+        // Non-code directory — print simplified messaging
+        console.log('\nActivating capabilities:');
+        for (const cap of capMgr.getActive()) {
+          console.log(`  ✓ ${cap.name}`);
+        }
       }
+    } catch (scanError) {
+      // Scanner/fingerprint/activation failed — non-fatal, continue without capabilities
+      result.skipped.push(`directory scan: ${scanError instanceof Error ? scanError.message : String(scanError)}`);
     }
 
     // Generate and write settings.json
@@ -401,7 +407,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     result.summary.hooksEnabled = countEnabledHooks(options);
 
     // Build knowledge graph in background (non-blocking) — code-project only
-    if (options.components.graphify && capMgr.isActive('code')) {
+    if (options.components.graphify && capMgr && capMgr.isActive('code')) {
       await initKnowledgeGraph(targetDir, result);
     } else if (options.components.graphify) {
       result.skipped.push('knowledge graph: not a code project (skipping monograph indexing)');
