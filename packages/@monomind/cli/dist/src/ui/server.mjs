@@ -380,7 +380,7 @@ function _updateRunState(event, rootDir) {
   const base = _getGitMonomindDir(projDir) || path.join(projDir, '.monomind');
   const orgsDir = path.join(base, 'orgs');
   const file = path.join(orgsDir, `${orgName}-runstate.json`);
-  const stateChanging = ['org:start','org:stop','org:agent:online','org:agent:offline'];
+  const stateChanging = ['org:start','org:stop','org:complete','run:complete','org:agent:online','org:agent:offline'];
   const ts = event.ts || Date.now();
 
   if (stateChanging.includes(event.type)) {
@@ -398,6 +398,12 @@ function _updateRunState(event, rootDir) {
       cur.agentStates = {};
     } else if (event.type === 'org:stop') {
       cur.status = 'idle';
+    } else if (event.type === 'org:complete' || event.type === 'run:complete') {
+      // Only close runstate if the completing run matches (or no runId given)
+      if (!event.runId || !cur.runId || String(event.runId).trim() === String(cur.runId)) {
+        cur.status = 'complete';
+        cur.endedAt = ts;
+      }
     } else if (event.type === 'org:agent:online') {
       cur.agentStates = cur.agentStates || {};
       cur.agentStates[String(event.from || '').trim()] = { status: 'active', lastSeen: ts };
@@ -513,7 +519,7 @@ function resolveSlugToPath(slug, projDir) {
 
   // 2. Try reading cwd from a session file
   try {
-    const sfiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl'));
+    const sfiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._'));
     for (const sf of sfiles) {
       try {
         const line = fs.readFileSync(path.join(projDir, sf), 'utf-8').split('\n').find(l => l.includes('"cwd"'));
@@ -708,7 +714,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                 }
                 // Compact warm files older than 24h to cold gzip
                 const _24h = 24 * 60 * 60 * 1000;
-                fs.readdirSync(_runDir).filter(f => f.endsWith('.warm.jsonl')).forEach(_wf => {
+                fs.readdirSync(_runDir).filter(f => f.endsWith('.warm.jsonl') && !f.startsWith('._')).forEach(_wf => {
                   const _wp = path.join(_runDir, _wf);
                   try {
                     if (Date.now() - fs.statSync(_wp).mtimeMs < _24h) return;
@@ -983,7 +989,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let sessionFiles = [];
         try {
           sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl'))
+            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
             .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
             .filter(Boolean)
             .sort((a, b) => b.mtime - a.mtime)
@@ -1081,7 +1087,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let sessionFiles = [];
         try {
           sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl'))
+            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
             .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
             .filter(Boolean)
             .sort((a, b) => b.mtime - a.mtime)
@@ -1132,7 +1138,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let sessionFiles = [];
         try {
           sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl'))
+            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
             .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
             .filter(Boolean)
             .sort((a, b) => b.mtime - a.mtime)
@@ -1194,7 +1200,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let sessionFiles = [];
         try {
           sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl'))
+            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
             .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
             .filter(Boolean).sort((a,b) => b.mtime - a.mtime).slice(0, 10);
         } catch {}
@@ -1246,7 +1252,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let sessionFiles = [];
         try {
           sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl'))
+            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
             .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
             .filter(Boolean).sort((a,b) => b.mtime - a.mtime).slice(0, 30);
         } catch {}
@@ -1297,7 +1303,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const projDir = path.join(projectsBase, slug);
           const projPath = resolveSlugToPath(slug, projDir);
           let sessionFiles = [];
-          try { sessionFiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl')).map(f => path.join(projDir, f)); } catch {}
+          try { sessionFiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._')).map(f => path.join(projDir, f)); } catch {}
           if (!sessionFiles.length) continue;
           let totalCost = 0;
           for (const fp of sessionFiles) {
@@ -1333,7 +1339,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const name = projPath.split('/').filter(Boolean).pop() || slug.split('-').filter(Boolean).pop() || slug;
           let sessionCount = 0; let lastActivity = 0; let memoryCount = 0;
           try {
-            const files = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl'));
+            const files = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._'));
             sessionCount = files.length;
             for (const f of files) {
               try { const st = fs.statSync(path.join(projDir, f)); if (st.mtimeMs > lastActivity) lastActivity = st.mtimeMs; } catch {}
@@ -1831,7 +1837,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       const slug = d.replace(/\//g, '-');
       const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
       try {
-        const files = fs.readdirSync(projectClaudeDir).filter(f => f.endsWith('.jsonl'));
+        const files = fs.readdirSync(projectClaudeDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._'));
         let fp = null;
         // Find the file matching sessionId
         for (const f of files) {
@@ -1981,41 +1987,64 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
 
-        // Generate HTML on-the-fly from SQLite DB using the improved toHtml export
+        // Generate HTML on-the-fly from SQLite DB
         if (fs.existsSync(dbPath)) {
-          const { openDb, closeDb } = await import(new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href);
-          const { toHtml } = await import(new URL('../../../../monograph/dist/src/export/html.js', import.meta.url).href);
-          const db = openDb(dbPath);
           let html;
           try {
-            const rawNodes = db.prepare('SELECT * FROM nodes LIMIT 5000').all();
-            const rawEdges = db.prepare('SELECT * FROM edges').all();
-            // Remap snake_case DB columns to camelCase MonographNode/MonographEdge interfaces
-            const parsedNodes = rawNodes.map(n => ({
-              id: n.id,
-              label: n.label,
-              name: n.name,
-              normLabel: n.norm_label,
-              filePath: n.file_path,
-              startLine: n.start_line,
-              endLine: n.end_line,
-              communityId: n.community_id,
-              isExported: !!n.is_exported,
-              language: n.language,
-              properties: n.properties ? JSON.parse(n.properties) : {},
+            // Try better-sqlite3 first (fast, in-process)
+            const { openDb, closeDb } = await import(new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href);
+            const { toHtml } = await import(new URL('../../../../monograph/dist/src/export/html.js', import.meta.url).href);
+            const db = openDb(dbPath);
+            try {
+              const rawNodes = db.prepare('SELECT * FROM nodes LIMIT 5000').all();
+              const rawEdges = db.prepare('SELECT * FROM edges').all();
+              const parsedNodes = rawNodes.map(n => ({
+                id: n.id, label: n.label, name: n.name, normLabel: n.norm_label,
+                filePath: n.file_path, startLine: n.start_line, endLine: n.end_line,
+                communityId: n.community_id, isExported: !!n.is_exported,
+                language: n.language, properties: n.properties ? JSON.parse(n.properties) : {},
+              }));
+              const parsedEdges = rawEdges.map(e => ({
+                id: e.id, sourceId: e.source_id, targetId: e.target_id,
+                relation: e.relation, confidence: e.confidence,
+                confidenceScore: e.confidence_score, weight: e.weight,
+              }));
+              html = toHtml(parsedNodes, parsedEdges);
+            } finally { closeDb(db); }
+          } catch {
+            // Fallback: sqlite3 CLI + inline Sigma.js graph
+            const { execSync } = await import('child_process');
+            const runSql = (sql) => {
+              try { return JSON.parse(execSync(`sqlite3 -json "${dbPath}"`, { encoding: 'utf-8', timeout: 15000, maxBuffer: 50*1024*1024, input: sql + ';' }) || '[]'); } catch { return []; }
+            };
+            const rawNodes = runSql('SELECT id, name, label, file_path, community_id FROM nodes LIMIT 2000');
+            const rawEdges = runSql('SELECT source_id, target_id, relation FROM edges');
+            const degree = new Map();
+            for (const n of rawNodes) degree.set(n.id, 0);
+            for (const e of rawEdges) {
+              if (degree.has(e.source_id)) degree.set(e.source_id, (degree.get(e.source_id)||0)+1);
+              if (degree.has(e.target_id)) degree.set(e.target_id, (degree.get(e.target_id)||0)+1);
+            }
+            const topNodes = [...rawNodes].sort((a,b) => (degree.get(b.id)||0)-(degree.get(a.id)||0)).slice(0,500);
+            const topIds = new Set(topNodes.map(n => n.id));
+            const filteredEdges = rawEdges.filter(e => topIds.has(e.source_id) && topIds.has(e.target_id)).slice(0,2000);
+            const colors = ['#4E79A7','#F28E2B','#E15759','#76B7B2','#59A14F','#EDC948','#B07AA1','#FF9DA7','#9C755F','#BAB0AC'];
+            const nodesJson = JSON.stringify(topNodes.map((n,i) => {
+              const d = degree.get(n.id)||1;
+              const c = n.community_id != null ? colors[n.community_id % colors.length] : colors[i % colors.length];
+              return { id: n.id, label: n.name||n.id, x: Math.cos(i*0.618*Math.PI*2)*300+Math.random()*50, y: Math.sin(i*0.618*Math.PI*2)*300+Math.random()*50, size: Math.min(3+Math.sqrt(d)*2,20), color: c };
             }));
-            const parsedEdges = rawEdges.map(e => ({
-              id: e.id,
-              sourceId: e.source_id,
-              targetId: e.target_id,
-              relation: e.relation,
-              confidence: e.confidence,
-              confidenceScore: e.confidence_score,
-              weight: e.weight,
-            }));
-            html = toHtml(parsedNodes, parsedEdges);
-          } finally {
-            closeDb(db);
+            const edgesJson = JSON.stringify(filteredEdges.map((e,i) => ({ id:'e'+i, source:e.source_id, target:e.target_id })));
+            html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Monograph</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/2.4.0/sigma.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/graphology/0.25.4/graphology.umd.min.js"><\/script>
+<style>*{margin:0;padding:0}body{background:#0f0f1a;overflow:hidden}#g{width:100vw;height:100vh}</style></head>
+<body><div id="g"></div><script>
+const g=new graphology.Graph();
+${nodesJson}.forEach(n=>g.addNode(n.id,{label:n.label,x:n.x,y:n.y,size:n.size,color:n.color}));
+${edgesJson}.forEach(e=>{try{g.addEdge(e.source,e.target,{size:0.5,color:'#333'})}catch{}});
+new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{color:'#ccc'},labelSize:10});
+<\/script></body></html>`;
           }
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
           res.end(html);
@@ -2087,31 +2116,31 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         let nodes = [], edges = [];
         if (fs.existsSync(dbPath)) {
-          const { openDb, closeDb } = await import(new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href);
-          const db = openDb(dbPath);
-          try {
-            const nodeLimit = Math.min(parseInt(qs.get('limit') || '500', 10), 5000);
-            // ?labels=Section,Concept  →  fetch only those label types (no degree cutoff)
-            const labelFilter = qs.get('labels') ? new Set(qs.get('labels').split(',').map(s => s.trim())) : null;
-            const rawNodes = labelFilter
-              ? db.prepare(`SELECT id, name, label, file_path, community_id FROM nodes WHERE label IN (${[...labelFilter].map(() => '?').join(',')}) LIMIT 5000`).all(...labelFilter)
-              : db.prepare('SELECT id, name, label, file_path, community_id FROM nodes LIMIT 5000').all();
-            const rawEdges = db.prepare('SELECT source_id, target_id, relation FROM edges').all();
-            // Compute degree
-            const degree = new Map();
-            for (const n of rawNodes) degree.set(n.id, 0);
-            for (const e of rawEdges) {
-              if (degree.has(e.source_id)) degree.set(e.source_id, (degree.get(e.source_id) || 0) + 1);
-              if (degree.has(e.target_id)) degree.set(e.target_id, (degree.get(e.target_id) || 0) + 1);
-            }
-            // When filtering by labels, return all matching nodes (skip degree sort+slice)
-            const topNodes = labelFilter
-              ? rawNodes
-              : [...rawNodes].sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0)).slice(0, nodeLimit);
-            const topIds = new Set(topNodes.map(n => n.id));
-            nodes = topNodes.map(n => ({ id: n.id, label: n.name || n.id, type: n.label || 'unknown', degree: degree.get(n.id) || 0 }));
-            edges = rawEdges.filter(e => topIds.has(e.source_id) && topIds.has(e.target_id)).slice(0, 2000).map(e => ({ source: e.source_id, target: e.target_id, relation: e.relation || 'REF' }));
-          } finally { closeDb(db); }
+          const { execSync } = await import('child_process');
+          const runSql = (sql, timeout = 10000) => {
+            try {
+              return JSON.parse(execSync(`sqlite3 -json "${dbPath}"`,
+                { encoding: 'utf-8', timeout, maxBuffer: 50 * 1024 * 1024, input: sql + ';' }) || '[]');
+            } catch { return []; }
+          };
+          const nodeLimit = Math.min(parseInt(qs.get('limit') || '500', 10), 5000);
+          const labelFilter = qs.get('labels') ? qs.get('labels').split(',').map(s => s.trim()) : null;
+          const rawNodes = labelFilter
+            ? runSql(`SELECT id, name, label, file_path, community_id FROM nodes WHERE label IN (${labelFilter.map(l => "'" + l.replace(/'/g, "''") + "'").join(',')}) LIMIT 5000`)
+            : runSql(`SELECT id, name, label, file_path, community_id FROM nodes LIMIT 5000`);
+          const rawEdges = runSql('SELECT source_id, target_id, relation FROM edges');
+          const degree = new Map();
+          for (const n of rawNodes) degree.set(n.id, 0);
+          for (const e of rawEdges) {
+            if (degree.has(e.source_id)) degree.set(e.source_id, (degree.get(e.source_id) || 0) + 1);
+            if (degree.has(e.target_id)) degree.set(e.target_id, (degree.get(e.target_id) || 0) + 1);
+          }
+          const topNodes = labelFilter
+            ? rawNodes
+            : [...rawNodes].sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0)).slice(0, nodeLimit);
+          const topIds = new Set(topNodes.map(n => n.id));
+          nodes = topNodes.map(n => ({ id: n.id, label: n.name || n.id, type: n.label || 'unknown', degree: degree.get(n.id) || 0 }));
+          edges = rawEdges.filter(e => topIds.has(e.source_id) && topIds.has(e.target_id)).slice(0, 2000).map(e => ({ source: e.source_id, target: e.target_id, relation: e.relation || 'REF' }));
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ nodes, edges }));
@@ -3253,7 +3282,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let sessionFiles = [];
         try {
           sessionFiles = fs.readdirSync(sessionsDir)
-            .filter(f => f.endsWith('.jsonl'))
+            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
             .map(f => ({ f, mtime: (() => { try { return fs.statSync(path.join(sessionsDir, f)).mtimeMs; } catch { return 0; } })() }))
             .sort((a, b) => b.mtime - a.mtime)
             .map(({ f }) => f);
@@ -3648,11 +3677,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           godNodes: gods,
           typeDistribution: types,
           relationDistribution: relations,
-          updatedAt: fs.statSync(dbPath).mtime,
+          updatedAt: (() => { try { return fs.statSync(dbPath).mtime; } catch { return null; } })(),
         }));
       } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: String(err) }));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ exists: true, nodes: 0, edges: 0, godNodes: [], typeDistribution: [], relationDistribution: [], error: String(err) }));
       }
       return;
     }
@@ -3806,7 +3835,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             const orgLastRunMtime = (() => {
               try {
                 if (!fs.existsSync(orgRunsDir)) return 0;
-                const runFiles = fs.readdirSync(orgRunsDir).filter(f => f.endsWith('.jsonl'));
+                const runFiles = fs.readdirSync(orgRunsDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._'));
                 if (!runFiles.length) return 0;
                 return Math.max(...runFiles.map(f => { try { return fs.statSync(path.join(orgRunsDir, f)).mtimeMs; } catch { return 0; } }));
               } catch { return 0; }
@@ -4603,7 +4632,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             if (fs.existsSync(_runsDir)) {
               const _usageByRole = {};
               for (const f of fs.readdirSync(_runsDir)) {
-                if (!f.endsWith('.jsonl')) continue;
+                if (!f.endsWith('.jsonl') || f.startsWith('._')) continue;
                 const lines = fs.readFileSync(path.join(_runsDir, f), 'utf8').split('\n').filter(Boolean);
                 for (const l of lines) {
                   try {
@@ -5025,7 +5054,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             const isStale = !last && ageMs > 30 * 60 * 1000;
             const firstBossComms = headEvents.find(e => e.type === 'org:comms' && (e.from === 'boss' || e.role === 'boss') && e.msg);
             const derivedGoal = first?.goal || firstBossComms?.msg?.slice(0, 80) || '';
-            return { runId: f.replace('.jsonl', ''), startedAt: first?.ts || 0, endedAt: last?.ts || 0,
+            return { runId: f.replace(/\.warm\.jsonl$|\.jsonl$/, ''), startedAt: first?.ts || 0, endedAt: last?.ts || 0,
               status: last ? 'complete' : isStale ? 'stale' : 'running',
               eventCount, cycleCount: cycles, goal: derivedGoal, bossRole: first?.bossRole || '' };
           } catch(_) { return null; }
@@ -5037,10 +5066,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           if (_rMonoDir !== path.join(_rpd, '.monomind')) _rSearchDirs.push(path.join(_rpd, '.monomind', 'orgs', _rOrgName, 'runs'));
           for (const _rDir of _rSearchDirs) {
             if (!fs.existsSync(_rDir)) continue;
-            const files = fs.readdirSync(_rDir).filter(f => f.endsWith('.jsonl') && !f.endsWith('.convs.jsonl') && !f.endsWith('.warm.jsonl') && !f.endsWith('.cold.jsonl')).sort().reverse();
+            // Include .warm.jsonl — completed runs are renamed hot→warm on org:complete and
+            // must stay visible in the chat history dropdown.
+            const files = fs.readdirSync(_rDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._') && !f.endsWith('.convs.jsonl') && !f.endsWith('.cold.jsonl')).sort().reverse();
             for (const f of files.slice(0, 50)) {
-              if (_rSeenFiles.has(f)) continue;
-              _rSeenFiles.add(f);
+              const _rFileId = f.replace(/\.warm\.jsonl$|\.jsonl$/, '');
+              if (_rSeenFiles.has(_rFileId)) continue;
+              _rSeenFiles.add(_rFileId);
               const r = _parseRun(path.join(_rDir, f), f);
               if (r) runs.push(r);
             }
@@ -5105,8 +5137,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let _rvFile = null;
         for (const _rvpd of _rvProjDirs) {
           const _rvMonoDir = _getGitMonomindDir(_rvpd) || path.join(_rvpd, '.monomind');
-          const _candidates = [path.join(_rvMonoDir, 'orgs', _rvOrgName, 'runs', `${_rvRunId}.jsonl`)];
-          if (_rvMonoDir !== path.join(_rvpd, '.monomind')) _candidates.push(path.join(_rvpd, '.monomind', 'orgs', _rvOrgName, 'runs', `${_rvRunId}.jsonl`));
+          const _candidates = [
+            path.join(_rvMonoDir, 'orgs', _rvOrgName, 'runs', `${_rvRunId}.jsonl`),
+            path.join(_rvMonoDir, 'orgs', _rvOrgName, 'runs', `${_rvRunId}.warm.jsonl`),
+          ];
+          if (_rvMonoDir !== path.join(_rvpd, '.monomind')) {
+            _candidates.push(path.join(_rvpd, '.monomind', 'orgs', _rvOrgName, 'runs', `${_rvRunId}.jsonl`));
+            _candidates.push(path.join(_rvpd, '.monomind', 'orgs', _rvOrgName, 'runs', `${_rvRunId}.warm.jsonl`));
+          }
           for (const c of _candidates) { if (fs.existsSync(c)) { _rvFile = c; break; } }
           if (_rvFile) break;
         }
@@ -5116,8 +5154,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         // Merge .warm.jsonl (pre-run:complete events, including org:comms) if it exists.
         // When run:complete fires, the hot .jsonl is renamed to .warm.jsonl so all pre-complete
         // events live there. The current .jsonl then only holds post-complete events (e.g. org:stop).
-        const _rvWarmFile = _rvFile.replace(/\.jsonl$/, '.warm.jsonl');
-        if (fs.existsSync(_rvWarmFile)) {
+        const _rvWarmFile = _rvFile.endsWith('.warm.jsonl') ? _rvFile : _rvFile.replace(/\.jsonl$/, '.warm.jsonl');
+        if (_rvWarmFile !== _rvFile && fs.existsSync(_rvWarmFile)) {
           events.push(..._parseLines(_rvWarmFile));
         }
         // For in-progress runs (no .warm.jsonl), org:comms also go to .convs.jsonl (stripped form).
@@ -5358,6 +5396,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({
           ts: Date.now(),
+          pid: process.pid,
           uptime: process.uptime(),
           dir: root,
           sseClients: getMmClientCount(),
@@ -5393,7 +5432,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         if (!runFile) {
           const runsDir = path.join(monoDir, 'orgs', orgName, 'runs');
           if (fs.existsSync(runsDir)) {
-            const files = fs.readdirSync(runsDir).filter(f => f.endsWith('.jsonl'));
+            const files = fs.readdirSync(runsDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._'));
             if (files.length) {
               files.sort();
               runFile = path.join(runsDir, files[files.length - 1]);
@@ -5871,7 +5910,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const _gfRunsDir = path.join(_gfOrgsDir, _gfOrg, 'runs');
           if (!fs.existsSync(_gfRunsDir)) continue;
           const _gfFiles = fs.readdirSync(_gfRunsDir)
-            .filter(f => f.endsWith('.jsonl') && !f.endsWith('.convs.jsonl'))
+            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._') && !f.endsWith('.convs.jsonl'))
             .sort().reverse();
           for (const _gfF of _gfFiles.slice(0, 5)) {
             try {
@@ -6014,7 +6053,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       for (const _org of fs.readdirSync(_orgsDir)) {
         const _runsDir = path.join(_orgsDir, _org, 'runs');
         if (!fs.existsSync(_runsDir)) continue;
-        for (const _f of fs.readdirSync(_runsDir).filter(f => f.endsWith('.jsonl') && !f.endsWith('.warm.jsonl') && !f.endsWith('.convs.jsonl'))) {
+        for (const _f of fs.readdirSync(_runsDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._') && !f.endsWith('.warm.jsonl') && !f.endsWith('.convs.jsonl'))) {
           try { _orgsFileSizes.set(path.join(_runsDir, _f), fs.statSync(path.join(_runsDir, _f)).size); } catch (_) {}
         }
       }
