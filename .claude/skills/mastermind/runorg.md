@@ -338,17 +338,33 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     --argjson ci "${CHECKPOINT_INTERVAL_MS:-600000}" \
     '{type:"org:start",session:$session,org:$org,runId:$runId,goal:$goal,project:$proj,checkpointInterval:$ci,ts:(now*1000|floor)}')" || true
 
-# Print resolved values so Step 3 can embed them in the boss prompt
-echo "ORG_VARS: orgName=${orgName} runId=${runId} sessionId=${sessionId} goal=${goal} bossRole_id=${bossRole_id} bossRole_title=${bossRole_title} bossRole_agent_type=${bossRole_agent_type} board_id=${board_id} todo_col=${todo_col} doing_col=${doing_col} done_col=${done_col} checkpointMin=${checkpointMin} memNs=${memNs} CTRL_URL=${CTRL_URL} MONO_DIR=${MONO_DIR} runFile=${runFile} REPO_ROOT=${REPO_ROOT}"
+# Write context file so Step 3 can read values even if Bash output is truncated
+contextFile="${MONO_DIR}/orgs/${orgName}/runcontext.json"
+jq -cn \
+  --arg orgName "$orgName" --arg runId "$runId" --arg sessionId "$sessionId" \
+  --arg goal "$goal" --arg bossRole_id "$bossRole_id" --arg bossRole_title "$bossRole_title" \
+  --arg bossRole_agent_type "$bossRole_agent_type" --arg board_id "$board_id" \
+  --arg todo_col "$todo_col" --arg doing_col "$doing_col" --arg done_col "$done_col" \
+  --arg checkpointMin "$checkpointMin" --arg memNs "$memNs" --arg CTRL_URL "$CTRL_URL" \
+  --arg MONO_DIR "$MONO_DIR" --arg runFile "$runFile" --arg REPO_ROOT "$REPO_ROOT" \
+  '{orgName:$orgName,runId:$runId,sessionId:$sessionId,goal:$goal,bossRole_id:$bossRole_id,bossRole_title:$bossRole_title,bossRole_agent_type:$bossRole_agent_type,board_id:$board_id,todo_col:$todo_col,doing_col:$doing_col,done_col:$done_col,checkpointMin:$checkpointMin,memNs:$memNs,CTRL_URL:$CTRL_URL,MONO_DIR:$MONO_DIR,runFile:$runFile,REPO_ROOT:$REPO_ROOT}' \
+  > "$contextFile"
+echo "RUNCONTEXT: $contextFile"
 ```
 
-After running the script above, read the `ORG_VARS:` line from its output and hold those values for Step 3 (embed them into the boss prompt as literals — **do not re-run bash to look them up**).
+After the script completes, note the `RUNCONTEXT:` path it printed. Then run a second Bash call to read it — this survives output truncation:
+
+```bash
+cat "<RUNCONTEXT path from above>"
+```
+
+Use the JSON values from that file for Step 3. Do NOT rely on any `ORG_VARS:`-style stdout from the script above — long bash output gets truncated and the values would be lost (see FA-1 in the org-dashboard-v2 ADR).
 
 ---
 
 ## Step 3 — Spawn Boss Agent
 
-Using the literal values from the `ORG_VARS:` output (not shell variables — they don't persist), spawn the boss agent via Task tool:
+Using values from the context file (not shell variables — they don't persist), spawn the boss agent via Task tool:
 
 ```javascript
 Task({
@@ -597,11 +613,11 @@ START NOW: resolve CTRL_URL, check for stop signal, assess the board, create ini
 
 Emit `org:agent:online` for the boss role (team member events are emitted by the boss itself).
 
-**IMPORTANT**: Shell variables do NOT persist across separate Bash tool calls. Read the `ORG_VARS:` line printed in Step 2+3 and substitute each literal value directly into the curl command before running it. Do NOT use `$variableName` syntax — replace each placeholder with its literal string from `ORG_VARS:`.
+**IMPORTANT**: Shell variables do NOT persist across separate Bash tool calls. Use the values read from the `runcontext.json` file in Step 2+3 and substitute each literal value directly into the curl command before running it. Do NOT use `$variableName` syntax — replace each placeholder with its literal string from the context file.
 
 ```bash
 # Replace <CTRL_URL>, <sessionId>, <orgName>, <runId>, <bossRole_id>, <bossRole_title>, <bossRole_agent_type>, <REPO_ROOT>
-# with the LITERAL values from the ORG_VARS: line printed in Step 2+3.
+# with the LITERAL values from runcontext.json read in Step 2+3.
 curl -s -X POST "<CTRL_URL>/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \

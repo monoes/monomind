@@ -88,12 +88,40 @@ function findCliPath() {
   return { cmd: 'npx', args: ['monomind@latest'], usePort: false };
 }
 
-function main() {
+function probeStatus(p) {
+  const http = require('http');
+  return new Promise((resolve) => {
+    const req = http.get({ hostname: 'localhost', port: p, path: '/api/status', timeout: 1000 }, (res) => {
+      let body = '';
+      res.on('data', (c) => { if (body.length < 64 * 1024) body += c; });
+      res.on('end', () => {
+        if (res.statusCode >= 500) return resolve(null);
+        try { resolve(JSON.parse(body)); } catch { resolve({}); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
+
+async function main() {
   // If already running, do nothing
   const status = readStatus();
   if (status && status.pid && isPidAlive(status.pid)) {
     process.stdout.write(`[control] already running on port ${status.port} (pid ${status.pid})\n`);
     process.exit(0);
+  }
+
+  // Adopt an already-listening server (e.g. started manually or by another session)
+  // instead of spawning a duplicate that would bind port+1 and clobber control.json.
+  for (let delta = 0; delta <= 10; delta++) {
+    const p = DEFAULT_PORT + delta;
+    const live = await probeStatus(p);
+    if (live) {
+      writeStatus(live.pid || 0, p);
+      process.stdout.write(`[control] adopted running server on port ${p} (pid ${live.pid || 'unknown'})\n`);
+      process.exit(0);
+    }
   }
 
   const { cmd, args, usePort } = findCliPath();
@@ -152,4 +180,4 @@ function main() {
   confirmPort().catch(() => {}).finally(() => process.exit(0));
 }
 
-main();
+main().catch(() => process.exit(0));
