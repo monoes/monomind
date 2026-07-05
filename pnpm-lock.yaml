@@ -31,8 +31,8 @@ importers:
   .:
     dependencies:
       '@monoes/monobrowse':
-        specifier: ^1.0.0
-        version: 1.0.1(@anthropic-ai/sdk@0.65.0(zod@3.25.76))
+        specifier: workspace:*
+        version: link:packages/@monoes/monobrowse
       '@monoes/monograph':
         specifier: workspace:*
         version: link:packages/@monomind/monograph
@@ -94,13 +94,11 @@ importers:
         specifier: '*'
         version: 2.3.2(typescript@5.9.3)
 
-  packages/@monoes/monoplaybook: {}
-
   packages/@monomind/cli:
     dependencies:
       '@monoes/monobrowse':
-        specifier: ^1.0.1
-        version: 1.0.1(@anthropic-ai/sdk@0.65.0(zod@3.25.76))
+        specifier: workspace:*
+        version: link:../../@monoes/monobrowse
       '@monoes/monograph':
         specifier: workspace:*
         version: link:../monograph
@@ -133,6 +131,9 @@ importers:
       '@monomind/security':
         specifier: workspace:*
         version: link:../security
+      monofence-ai:
+        specifier: '*'
+        version: 1.0.0(@lancedb/lancedb@0.30.0(apache-arrow@18.1.0))
       sql.js:
         specifier: ^1.14.1
         version: 1.14.1
@@ -436,15 +437,6 @@ importers:
 
 packages:
 
-  '@anthropic-ai/sdk@0.65.0':
-    resolution: {integrity: sha512-zIdPOcrCVEI8t3Di40nH4z9EoeyGZfXbYSvWdDLsB/KkaSYMnEgC7gmcgWu83g2NTn1ZTpbMvpdttWDGGIk6zw==}
-    hasBin: true
-    peerDependencies:
-      zod: ^3.25.0 || ^4.0.0
-    peerDependenciesMeta:
-      zod:
-        optional: true
-
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
     engines: {node: '>=6.9.0'}
@@ -461,10 +453,6 @@ packages:
     resolution: {integrity: sha512-hnORnjP/1P/zFEndoeX+n+t1RwWRJiJpM/jO7FW32Kn9r5+sJB2JWOdYo4L6k78j15eCwY3Gm/7364B1EMwtNg==}
     engines: {node: '>=6.0.0'}
     hasBin: true
-
-  '@babel/runtime@7.29.7':
-    resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
-    engines: {node: '>=6.9.0'}
 
   '@babel/types@7.29.7':
     resolution: {integrity: sha512-4zBIxpPzowiZpusoFkyGVwakdRJUyuH5PxQ/PrqghfdFWWasvnCdPfQXHrenDai+gyLARulZjZowCOj6fjT4pA==}
@@ -845,25 +833,6 @@ packages:
     os: [darwin, linux, win32]
     peerDependencies:
       apache-arrow: '>=15.0.0 <=18.1.0'
-
-  '@monoes/monobrowse@1.0.1':
-    resolution: {integrity: sha512-Om5zVNfyp4vpAFur+d/0tienWPvTZymXImc9I5PldZKHdJE3P590ECwmILmGkpAT+w76SnCJ74RW9zm/cW6AaA==}
-    engines: {node: '>=18.0.0'}
-    hasBin: true
-    peerDependencies:
-      '@anthropic-ai/sdk': '>=0.20.0'
-    peerDependenciesMeta:
-      '@anthropic-ai/sdk':
-        optional: true
-
-  '@monoes/monoplaybook@1.0.1':
-    resolution: {integrity: sha512-Tg4Oq9fID3LXLeOi1+ebRpMj85+zmkCMMLnt2DNyNsDE+UqZ4b/Vivd+K3PJUF2+7zQCc7fUY9Hauaas3wSTpA==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      '@anthropic-ai/sdk': '>=0.20.0'
-    peerDependenciesMeta:
-      '@anthropic-ai/sdk':
-        optional: true
 
   '@napi-rs/wasm-runtime@1.1.6':
     resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
@@ -1808,10 +1777,6 @@ packages:
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
 
-  json-schema-to-ts@3.1.1:
-    resolution: {integrity: sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g==}
-    engines: {node: '>=16'}
-
   lightningcss-android-arm64@1.32.0:
     resolution: {integrity: sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==}
     engines: {node: '>= 12.0.0'}
@@ -1964,6 +1929,15 @@ packages:
 
   mnemonist@0.39.8:
     resolution: {integrity: sha512-vyWo2K3fjrUw8YeeZ1zF0fy6Mu59RHokURlld8ymdUPjMlD9EC9ov1/YPqTgqRvUN9nTr3Gqfz29LYAmu0PHPQ==}
+
+  monofence-ai@1.0.0:
+    resolution: {integrity: sha512-zVp/1V1TJ+oL3OrIxJjxKZW8XqoQw+XfspUqmsrE+uNxL7/ISY7eTDcq8UkP4iqPdcmV7DVunyk1ihPNOsDI3g==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      '@lancedb/lancedb': '>=0.12.0'
+    peerDependenciesMeta:
+      '@lancedb/lancedb':
+        optional: true
 
   ms@2.0.0:
     resolution: {integrity: sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==}
@@ -2488,9 +2462,6 @@ packages:
   tree-sitter@0.22.4:
     resolution: {integrity: sha512-usbHZP9/oxNsUY65MQUsduGRqDHQOou1cagUSwjhoSYAmSahjQDAVsh9s+SlZkn8X8+O1FULRGwHu7AFP3kjzg==}
 
-  ts-algebra@2.0.0:
-    resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
-
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
@@ -2689,13 +2660,6 @@ packages:
 
 snapshots:
 
-  '@anthropic-ai/sdk@0.65.0(zod@3.25.76)':
-    dependencies:
-      json-schema-to-ts: 3.1.1
-    optionalDependencies:
-      zod: 3.25.76
-    optional: true
-
   '@babel/code-frame@7.29.7':
     dependencies:
       '@babel/helper-validator-identifier': 7.29.7
@@ -2710,9 +2674,6 @@ snapshots:
   '@babel/parser@7.29.7':
     dependencies:
       '@babel/types': 7.29.7
-
-  '@babel/runtime@7.29.7':
-    optional: true
 
   '@babel/types@7.29.7':
     dependencies:
@@ -2970,21 +2931,6 @@ snapshots:
       '@lancedb/lancedb-linux-x64-musl': 0.30.0
       '@lancedb/lancedb-win32-arm64-msvc': 0.30.0
       '@lancedb/lancedb-win32-x64-msvc': 0.30.0
-
-  '@monoes/monobrowse@1.0.1(@anthropic-ai/sdk@0.65.0(zod@3.25.76))':
-    dependencies:
-      '@monoes/monoplaybook': 1.0.1(@anthropic-ai/sdk@0.65.0(zod@3.25.76))
-      commander: 12.1.0
-      ws: 8.21.0
-    optionalDependencies:
-      '@anthropic-ai/sdk': 0.65.0(zod@3.25.76)
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-
-  '@monoes/monoplaybook@1.0.1(@anthropic-ai/sdk@0.65.0(zod@3.25.76))':
-    optionalDependencies:
-      '@anthropic-ai/sdk': 0.65.0(zod@3.25.76)
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
     dependencies:
@@ -4055,12 +4001,6 @@ snapshots:
   json-parse-even-better-errors@2.3.1:
     optional: true
 
-  json-schema-to-ts@3.1.1:
-    dependencies:
-      '@babel/runtime': 7.29.7
-      ts-algebra: 2.0.0
-    optional: true
-
   lightningcss-android-arm64@1.32.0:
     optional: true
 
@@ -4177,6 +4117,11 @@ snapshots:
   mnemonist@0.39.8:
     dependencies:
       obliterator: 2.0.5
+
+  monofence-ai@1.0.0(@lancedb/lancedb@0.30.0(apache-arrow@18.1.0)):
+    optionalDependencies:
+      '@lancedb/lancedb': 0.30.0(apache-arrow@18.1.0)
+    optional: true
 
   ms@2.0.0: {}
 
@@ -4846,9 +4791,6 @@ snapshots:
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-
-  ts-algebra@2.0.0:
-    optional: true
 
   tslib@2.8.1: {}
 
