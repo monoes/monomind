@@ -110,6 +110,7 @@
 **/.monomind/*.db-wal
 ./claude/checkpoints/
 .DS_Store
+._*
 .Python
 .agentic-flow/
 .cache/

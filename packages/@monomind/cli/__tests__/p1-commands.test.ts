@@ -974,8 +974,9 @@ describe('Session Command', () => {
   });
 
   describe('session import', () => {
-    it('should import session from file', async () => { // Skip: requires live MCP context
+    it('should import session from file', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.statSync).mockReturnValue({ size: 100 } as ReturnType<typeof fs.statSync>);
       vi.mocked(fs.readFileSync).mockReturnValue('{"agents":[],"tasks":[]}');
 
       const importCmd = sessionCommand.subcommands?.find(c => c.name === 'import');

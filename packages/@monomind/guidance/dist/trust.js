@@ -246,7 +246,8 @@ export class TrustAccumulator {
         const target = this.config.initialTrust;
         // Exponential interpolation toward target
         state.score = target + (state.score - target) * retainFactor;
-        state.lastUpdated = now;
+        // Advance by only consumed intervals so the remainder carries forward
+        state.lastUpdated = state.lastUpdated + intervals * this.config.decayIntervalMs;
     }
 }
 // ============================================================================

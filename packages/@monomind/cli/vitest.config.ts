@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['__tests__/**/*.test.ts', 'src/__tests__/**/*.test.ts'],
+    exclude: ['node_modules', 'dist', '**/._*'],
     globals: true,
     testTimeout: 15000,
     // Disable coverage for CLI package (uses vitest v2)

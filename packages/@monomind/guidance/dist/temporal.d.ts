@@ -52,6 +52,8 @@ export interface ValidityWindow {
     assertedAt: number;
     /** Unix timestamp (ms) when the assertion was retracted, or null if still standing */
     retractedAt: number | null;
+    /** Unix timestamp (ms) when the assertion was superseded, or null if not superseded */
+    supersededAt: number | null;
 }
 /**
  * A single temporal assertion: a claim with an explicit validity window,

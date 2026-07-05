@@ -8,7 +8,7 @@ export default defineConfig({
       'tests/**/*.spec.ts',
       'tests/**/*.test.mjs',
     ],
-    exclude: ['node_modules', 'dist', '.git'],
+    exclude: ['node_modules', 'dist', '.git', '**/._*'],
     globals: false,
     testTimeout: 10000,
     hookTimeout: 10000,

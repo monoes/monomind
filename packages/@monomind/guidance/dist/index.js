@@ -47,7 +47,6 @@ export { MemoryWriteGate, createMemoryWriteGate, createMemoryEntry, } from './me
 export { CoherenceScheduler, EconomicGovernor, createCoherenceScheduler, createEconomicGovernor, } from './coherence.js';
 export { CapabilityAlgebra, createCapabilityAlgebra } from './capabilities.js';
 export { SimulatedRuntime, MemoryClerkCell, ConformanceRunner, createMemoryClerkCell, createConformanceRunner, } from './conformance-kit.js';
-export { RuvBotGuidanceBridge, AIDefenceGate, RuvBotMemoryAdapter, createRuvBotBridge, createAIDefenceGate, createRuvBotMemoryAdapter, } from './ruvbot-integration.js';
 export { MetaGovernor, createMetaGovernor } from './meta-governance.js';
 export { ThreatDetector, CollusionDetector, MemoryQuorum, createThreatDetector, createCollusionDetector, createMemoryQuorum, } from './adversarial.js';
 export { ContinueGate, createContinueGate } from './continue-gate.js';
@@ -55,7 +54,7 @@ export { ContinueGate, createContinueGate } from './continue-gate.js';
 export { getKernel, isWasmAvailable, resetKernel, } from './wasm-kernel.js';
 export { generateClaudeMd, generateClaudeLocalMd, generateSkillMd, generateAgentMd, generateAgentIndex, scaffold, } from './generators.js';
 export { analyze, benchmark, autoOptimize, optimizeForSize, headlessBenchmark, validateEffect, abBenchmark, getDefaultABTasks, formatReport, formatBenchmark, } from './analyzer.js';
-export { TrustAccumulator, TrustLedger as TrustScoreLedger, TrustSystem, getTrustBasedRateLimit, createTrustAccumulator, createTrustSystem, } from './trust.js';
+export { TrustAccumulator, TrustLedger as TrustScoreLedger, TrustSystem, getTrustBasedRateLimit, createTrustAccumulator, createTrustLedger, createTrustSystem, } from './trust.js';
 export { TruthAnchorStore, TruthResolver, createTruthAnchorStore, createTruthResolver, } from './truth-anchors.js';
 export { UncertaintyLedger, UncertaintyAggregator, createUncertaintyLedger, createUncertaintyAggregator, } from './uncertainty.js';
 export { TemporalStore, TemporalReasoner, createTemporalStore, createTemporalReasoner, } from './temporal.js';

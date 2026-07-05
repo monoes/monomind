@@ -28,7 +28,7 @@ export interface IEmbeddingProvider {
  * an ONNX model.
  *
  * **Do NOT use in production** — replace with a real model-backed
- * provider (e.g. the agentic-flow ONNX integration).
+ * provider (e.g. monovector ONNX or @huggingface/transformers).
  */
 export declare class HashEmbeddingProvider implements IEmbeddingProvider {
     private dimensions;

@@ -56,8 +56,6 @@ export { CapabilityAlgebra, createCapabilityAlgebra } from './capabilities.js';
 export type { CapabilityScope, CapabilityConstraint, Attestation, Capability, CapabilityCheckResult, } from './capabilities.js';
 export { SimulatedRuntime, MemoryClerkCell, ConformanceRunner, createMemoryClerkCell, createConformanceRunner, } from './conformance-kit.js';
 export type { TraceEvent as CellTraceEvent, CellRunResult, CellRuntime, AgentCell, SimulatedRuntimeConfig, ConformanceTestResult, ReplayTestResult, } from './conformance-kit.js';
-export { RuvBotGuidanceBridge, AIDefenceGate, RuvBotMemoryAdapter, createRuvBotBridge, createAIDefenceGate, createRuvBotMemoryAdapter, } from './ruvbot-integration.js';
-export type { RuvBotInstance, RuvBotAIDefenceGuard, RuvBotMemory, AIDefenceThreat, AIDefenceResult, AIDefenceGateConfig, RuvBotBridgeConfig, RuvBotEvent, } from './ruvbot-integration.js';
 export { MetaGovernor, createMetaGovernor } from './meta-governance.js';
 export type { InvariantCheckResult, GovernanceState, ConstitutionalInvariant, AmendmentChange, Amendment, OptimizerConstraint, OptimizerAction, OptimizerValidation, InvariantReport, MetaGovernanceConfig, } from './meta-governance.js';
 export { ThreatDetector, CollusionDetector, MemoryQuorum, createThreatDetector, createCollusionDetector, createMemoryQuorum, } from './adversarial.js';
@@ -70,7 +68,7 @@ export { generateClaudeMd, generateClaudeLocalMd, generateSkillMd, generateAgent
 export type { ProjectProfile, LocalProfile, SkillDefinition, AgentDefinition, ScaffoldOptions, ScaffoldResult, } from './generators.js';
 export { analyze, benchmark, autoOptimize, optimizeForSize, headlessBenchmark, validateEffect, abBenchmark, getDefaultABTasks, formatReport, formatBenchmark, } from './analyzer.js';
 export type { AnalysisResult, AnalysisMetrics, DimensionScore, Suggestion, BenchmarkResult, ContextSize, OptimizeOptions, HeadlessBenchmarkResult, HeadlessTaskResult, IHeadlessExecutor, IContentAwareExecutor, ValidationAssertion, ValidationTask, ValidationTaskResult, ValidationRun, CorrelationResult, ValidationReport, ABTaskClass, ABTask, ABGatePattern, ABTaskResult, ABMetrics, ABReport, } from './analyzer.js';
-export { TrustAccumulator, TrustLedger as TrustScoreLedger, TrustSystem, getTrustBasedRateLimit, createTrustAccumulator, createTrustSystem, } from './trust.js';
+export { TrustAccumulator, TrustLedger as TrustScoreLedger, TrustSystem, getTrustBasedRateLimit, createTrustAccumulator, createTrustLedger, createTrustSystem, } from './trust.js';
 export type { TrustTier, GateOutcome, TrustConfig, TrustRecord, TrustSnapshot, } from './trust.js';
 export { TruthAnchorStore, TruthResolver, createTruthAnchorStore, createTruthResolver, } from './truth-anchors.js';
 export type { TruthSourceKind, TruthAnchor, TruthAnchorConfig, AnchorParams, TruthAnchorQuery, VerifyAllResult, ConflictResolution, } from './truth-anchors.js';

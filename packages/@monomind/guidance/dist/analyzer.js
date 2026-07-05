@@ -346,7 +346,7 @@ class DefaultHeadlessExecutor {
             return { stdout, stderr, exitCode: 0 };
         }
         catch (error) {
-            return { stdout: error.stdout ?? '', stderr: error.stderr ?? '', exitCode: error.code ?? 1 };
+            return { stdout: error.stdout ?? '', stderr: error.stderr ?? '', exitCode: typeof error.exitCode === 'number' ? error.exitCode : 1 };
         }
     }
 }
@@ -992,8 +992,8 @@ function extractRulesFromProse(content) {
         // Skip lines already in list format
         if (/^\s*[-*]\s/.test(line))
             continue;
-        // Extract NEVER/MUST/ALWAYS from bold or plain prose
-        const enforceMatch = line.match(/\*{0,2}(.*?\b(NEVER|MUST|ALWAYS|DO NOT|SHALL NOT)\b.*?)\*{0,2}/i);
+        // Extract NEVER/MUST/ALWAYS from bold or plain prose — non-lazy suffix to capture full sentence
+        const enforceMatch = line.match(/\*{0,2}(.*?\b(NEVER|MUST|ALWAYS|DO NOT|SHALL NOT)\b[^*\n]*)\*{0,2}/i);
         if (enforceMatch && !line.startsWith('#') && !line.startsWith('```')) {
             const statement = enforceMatch[1]
                 .replace(/\*\*/g, '')
