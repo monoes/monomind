@@ -4,24 +4,37 @@
  * Integration tests for the V1 GuidanceProvider that generates Claude-visible output.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { mkdtempSync, rmSync } from 'fs';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GuidanceProvider, type ClaudeHookOutput } from '../reasoningbank/guidance-provider.js';
 import { ReasoningBank } from '../reasoningbank/index.js';
 
 describe('GuidanceProvider', () => {
   let provider: GuidanceProvider;
   let reasoningBank: ReasoningBank;
+  let dbDir: string;
 
   beforeEach(async () => {
+    // Isolated per-test dbPath — see reasoningbank.test.ts for why the shared
+    // default path caused cross-run dimension-mismatch pollution.
+    dbDir = mkdtempSync(join(tmpdir(), 'guidance-provider-test-'));
+
     // Create a fresh ReasoningBank with mock embeddings
     reasoningBank = new ReasoningBank({
       useMockEmbeddings: true,
       dimensions: 384,
+      dbPath: join(dbDir, 'memory.db'),
     });
     await reasoningBank.initialize();
 
     provider = new GuidanceProvider(reasoningBank);
     await provider.initialize();
+  });
+
+  afterEach(() => {
+    rmSync(dbDir, { recursive: true, force: true });
   });
 
   describe('generateSessionContext', () => {

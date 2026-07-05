@@ -1,27 +1,27 @@
 # Graph Report
 
-_Generated: 2026-07-02T21:35:57.812Z_
+_Generated: 2026-07-05T11:06:43.463Z_
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
-| Total nodes | 19912 |
-| Total edges | 26462 |
-| Communities | 0 |
+| Total nodes | 19915 |
+| Total edges | 26456 |
+| Communities | 757 |
 
 ## Nodes by Type
 
 | Label | Count |
 |-------|-------|
-| Function | 10090 |
-| Variable | 2575 |
-| Method | 2530 |
-| Interface | 2426 |
-| File | 1293 |
-| Class | 446 |
+| Function | 9964 |
+| Variable | 2623 |
+| Method | 2541 |
+| Interface | 2435 |
+| File | 1320 |
+| Class | 448 |
 | Process | 300 |
-| Document | 107 |
+| Document | 139 |
 | Tool | 65 |
 | Route | 38 |
 | Field | 29 |
@@ -33,12 +33,12 @@ _Generated: 2026-07-02T21:35:57.812Z_
 
 | Relation | Count |
 |----------|-------|
-| CONTAINS | 18963 |
-| CALLS | 5993 |
-| IMPORTS | 620 |
+| CONTAINS | 18856 |
+| CALLS | 5996 |
+| IMPORTS | 651 |
+| REFERENCES | 322 |
 | ENTRY_POINT_OF | 300 |
 | STEP_IN_PROCESS | 300 |
-| REFERENCES | 255 |
 | HAS_FIELD | 29 |
 | HANDLES_TOOL | 1 |
 | RE_EXPORTS | 1 |
@@ -47,20 +47,776 @@ _Generated: 2026-07-02T21:35:57.812Z_
 
 | Rank | Name | Type | Degree |
 |------|------|------|--------|
-| 1 | `path` | Variable | 321 |
-| 2 | `fs` | Variable | 243 |
+| 1 | `path` | Variable | 339 |
+| 2 | `fs` | Variable | 257 |
 | 3 | `analyzer.ts` | File | 133 |
-| 4 | `index.ts` | File | 107 |
+| 4 | `index.ts` | File | 110 |
 | 5 | `api-quick-reference` | Document | 102 |
 | 6 | `types.ts` | File | 96 |
 | 7 | `intelligence.ts` | File | 81 |
-| 8 | `memory-bridge.ts` | File | 69 |
+| 8 | `memory-bridge.ts` | File | 74 |
 | 9 | `claim-service.ts` | File | 68 |
 | 10 | `claudemd-generator.ts` | File | 65 |
 
 ## Communities
 
-_No communities detected._
+- **community-2(import_path)** (id: 2) — 1573 members
+- **community-0(import___types_js)** (id: 0) — 909 members
+- **community-299(import____storage_db)** (id: 299) — 471 members
+- **community-41(packages__monomind_m)** (id: 41) — 430 members
+- **community-9(packages__monomind_c)** (id: 9) — 307 members
+- **community-119(packages__monomind_c)** (id: 119) — 285 members
+- **community-200(packages__monomind_g)** (id: 200) — 231 members
+- **community-4(packages__monoes_mon)** (id: 4) — 216 members
+- **community-26(packages__monomind_c)** (id: 26) — 201 members
+- **community-309(packages__monomind_m)** (id: 309) — 189 members
+- **community-163(packages__monomind_m)** (id: 163) — 154 members
+- **community-18(tests_memory_memory_)** (id: 18) — 146 members
+- **community-191(packages__monomind_g)** (id: 191) — 132 members
+- **community-106(packages__monomind_c)** (id: 106) — 118 members
+- **community-11(packages__monomind_c)** (id: 11) — 112 members
+- **community-33(packages__monomind_c)** (id: 33) — 106 members
+- **community-709(packages_monofence_a)** (id: 709) — 99 members
+- **community-15(packages__monoes_mon)** (id: 15) — 99 members
+- **community-300(packages__monomind_m)** (id: 300) — 95 members
+- **community-125(packages__monomind_c)** (id: 125) — 91 members
+- **community-301(packages__monomind_m)** (id: 301) — 86 members
+- **community-476(packages__monomind_m)** (id: 476) — 85 members
+- **community-169(packages__monomind_c)** (id: 169) — 81 members
+- **community-167(packages__monomind_c)** (id: 167) — 81 members
+- **community-25(packages__monomind_m)** (id: 25) — 79 members
+- **community-146(packages__monomind_c)** (id: 146) — 77 members
+- **community-12(packages__monomind_h)** (id: 12) — 73 members
+- **community-155(packages__monomind_c)** (id: 155) — 71 members
+- **community-164(packages__monomind_m)** (id: 164) — 70 members
+- **community-150(packages__monomind_c)** (id: 150) — 68 members
+- **community-266(packages__monomind_h)** (id: 266) — 64 members
+- **community-6(packages__monomind_c)** (id: 6) — 64 members
+- **community-87(packages__monomind_c)** (id: 87) — 62 members
+- **community-295(packages__monomind_h)** (id: 295) — 60 members
+- **community-47(packages__monomind_c)** (id: 47) — 60 members
+- **community-24(packages__monomind_c)** (id: 24) — 60 members
+- **community-272(packages__monomind_h)** (id: 272) — 57 members
+- **community-332(packages__monomind_m)** (id: 332) — 56 members
+- **community-5(packages__monomind_h)** (id: 5) — 56 members
+- **community-311(packages__monomind_m)** (id: 311) — 55 members
+- **community-252(packages__monomind_h)** (id: 252) — 51 members
+- **community-224(packages__monomind_g)** (id: 224) — 51 members
+- **community-129(packages__monomind_c)** (id: 129) — 51 members
+- **community-160(packages__monomind_c)** (id: 160) — 50 members
+- **community-147(packages__monomind_c)** (id: 147) — 49 members
+- **community-34(packages__monomind_c)** (id: 34) — 49 members
+- **community-220(packages__monomind_g)** (id: 220) — 48 members
+- **community-118(packages__monomind_c)** (id: 118) — 47 members
+- **community-127(packages__monomind_c)** (id: 127) — 46 members
+- **community-202(packages__monomind_g)** (id: 202) — 45 members
+- **community-144(packages__monomind_c)** (id: 144) — 45 members
+- **community-750(tests_hooks_utility_)** (id: 750) — 44 members
+- **community-221(packages__monomind_g)** (id: 221) — 44 members
+- **community-105(packages__monomind_c)** (id: 105) — 44 members
+- **community-606(packages__monomind_m)** (id: 606) — 43 members
+- **community-199(packages__monomind_g)** (id: 199) — 43 members
+- **community-148(packages__monomind_c)** (id: 148) — 43 members
+- **community-222(packages__monomind_g)** (id: 222) — 42 members
+- **community-207(packages__monomind_g)** (id: 207) — 42 members
+- **community-201(packages__monomind_g)** (id: 201) — 42 members
+- **community-133(packages__monomind_c)** (id: 133) — 42 members
+- **community-131(packages__monomind_c)** (id: 131) — 42 members
+- **community-149(packages__monomind_c)** (id: 149) — 41 members
+- **community-172(packages__monomind_g)** (id: 172) — 40 members
+- **community-132(packages__monomind_c)** (id: 132) — 39 members
+- **community-711(packages_monofence_a)** (id: 711) — 38 members
+- **community-212(packages__monomind_g)** (id: 212) — 38 members
+- **community-184(packages__monomind_c)** (id: 184) — 38 members
+- **community-138(packages__monomind_c)** (id: 138) — 38 members
+- **community-135(packages__monomind_c)** (id: 135) — 38 members
+- **community-213(packages__monomind_g)** (id: 213) — 37 members
+- **community-326(packages__monomind_m)** (id: 326) — 36 members
+- **community-240(packages__monomind_g)** (id: 240) — 36 members
+- **community-204(packages__monomind_g)** (id: 204) — 36 members
+- **community-729(tests_hooks_misc_han)** (id: 729) — 35 members
+- **community-664(packages__monomind_m)** (id: 664) — 35 members
+- **community-215(packages__monomind_g)** (id: 215) — 35 members
+- **community-211(packages__monomind_g)** (id: 211) — 35 members
+- **community-120(packages__monomind_c)** (id: 120) — 35 members
+- **community-82(packages__monomind_c)** (id: 82) — 35 members
+- **community-50(packages__monomind_c)** (id: 50) — 35 members
+- **community-610(packages__monomind_m)** (id: 610) — 34 members
+- **community-304(packages__monomind_m)** (id: 304) — 34 members
+- **community-198(packages__monomind_g)** (id: 198) — 34 members
+- **community-137(packages__monomind_c)** (id: 137) — 34 members
+- **community-128(packages__monomind_c)** (id: 128) — 34 members
+- **community-701(packages___tests___i)** (id: 701) — 33 members
+- **community-230(packages__monomind_g)** (id: 230) — 33 members
+- **community-225(packages__monomind_g)** (id: 225) — 33 members
+- **community-217(packages__monomind_g)** (id: 217) — 33 members
+- **community-214(packages__monomind_g)** (id: 214) — 33 members
+- **community-114(packages__monomind_c)** (id: 114) — 33 members
+- **community-8(packages__monoes_mon)** (id: 8) — 33 members
+- **community-739(tests_hooks_session_)** (id: 739) — 32 members
+- **community-554(packages__monomind_m)** (id: 554) — 32 members
+- **community-276(packages__monomind_h)** (id: 276) — 32 members
+- **community-134(packages__monomind_c)** (id: 134) — 32 members
+- **community-265(packages__monomind_h)** (id: 265) — 31 members
+- **community-142(packages__monomind_c)** (id: 142) — 31 members
+- **community-40(packages__monomind_c)** (id: 40) — 31 members
+- **community-30(packages__monomind_c)** (id: 30) — 31 members
+- **community-13(packages__monoes_mon)** (id: 13) — 31 members
+- **community-282(packages__monomind_h)** (id: 282) — 30 members
+- **community-235(packages__monomind_g)** (id: 235) — 30 members
+- **community-72(packages__monomind_c)** (id: 72) — 30 members
+- **community-49(packages__monomind_c)** (id: 49) — 30 members
+- **community-39(packages__monomind_c)** (id: 39) — 30 members
+- **community-609(packages__monomind_m)** (id: 609) — 29 members
+- **community-273(packages__monomind_h)** (id: 273) — 29 members
+- **community-264(packages__monomind_h)** (id: 264) — 29 members
+- **community-219(packages__monomind_g)** (id: 219) — 29 members
+- **community-159(packages__monomind_c)** (id: 159) — 29 members
+- **community-156(packages__monomind_c)** (id: 156) — 29 members
+- **community-608(packages__monomind_m)** (id: 608) — 28 members
+- **community-320(packages__monomind_m)** (id: 320) — 28 members
+- **community-209(packages__monomind_g)** (id: 209) — 28 members
+- **community-205(packages__monomind_g)** (id: 205) — 28 members
+- **community-186(packages__monomind_c)** (id: 186) — 28 members
+- **community-161(packages__monomind_c)** (id: 161) — 28 members
+- **community-136(packages__monomind_c)** (id: 136) — 28 members
+- **community-124(packages__monomind_c)** (id: 124) — 28 members
+- **community-472(packages__monomind_m)** (id: 472) — 27 members
+- **community-327(packages__monomind_m)** (id: 327) — 27 members
+- **community-290(packages__monomind_h)** (id: 290) — 27 members
+- **community-203(packages__monomind_g)** (id: 203) — 27 members
+- **community-194(packages__monomind_g)** (id: 194) — 27 members
+- **community-145(packages__monomind_c)** (id: 145) — 27 members
+- **community-121(packages__monomind_c)** (id: 121) — 27 members
+- **community-110(packages__monomind_c)** (id: 110) — 27 members
+- **community-653(packages__monomind_m)** (id: 653) — 26 members
+- **community-540(packages__monomind_m)** (id: 540) — 26 members
+- **community-744(tests_hooks_task_ses)** (id: 744) — 25 members
+- **community-325(packages__monomind_m)** (id: 325) — 25 members
+- **community-123(packages__monomind_c)** (id: 123) — 25 members
+- **community-122(packages__monomind_c)** (id: 122) — 25 members
+- **community-63(packages__monomind_c)** (id: 63) — 25 members
+- **community-494(packages__monomind_m)** (id: 494) — 24 members
+- **community-269(packages__monomind_h)** (id: 269) — 24 members
+- **community-223(packages__monomind_g)** (id: 223) — 24 members
+- **community-173(packages__monomind_c)** (id: 173) — 24 members
+- **community-158(packages__monomind_c)** (id: 158) — 24 members
+- **community-716(tests_docker_regress)** (id: 716) — 23 members
+- **community-692(packages__monomind_r)** (id: 692) — 23 members
+- **community-481(packages__monomind_m)** (id: 481) — 23 members
+- **community-407(packages__monomind_m)** (id: 407) — 23 members
+- **community-297(packages__monomind_h)** (id: 297) — 23 members
+- **community-289(packages__monomind_h)** (id: 289) — 23 members
+- **community-256(packages__monomind_s)** (id: 256) — 23 members
+- **community-174(packages__monomind_c)** (id: 174) — 23 members
+- **community-70(packages__monomind_c)** (id: 70) — 23 members
+- **community-699(packages___tests___i)** (id: 699) — 22 members
+- **community-665(packages__monomind_m)** (id: 665) — 22 members
+- **community-305(packages__monomind_m)** (id: 305) — 22 members
+- **community-274(packages__monomind_h)** (id: 274) — 22 members
+- **community-263(packages__monomind_h)** (id: 263) — 22 members
+- **community-216(packages__monomind_g)** (id: 216) — 22 members
+- **community-183(packages__monomind_c)** (id: 183) — 22 members
+- **community-153(packages__monomind_c)** (id: 153) — 22 members
+- **community-86(packages__monomind_c)** (id: 86) — 22 members
+- **community-735(tests_hooks_route_ed)** (id: 735) — 21 members
+- **community-700(packages___tests___i)** (id: 700) — 21 members
+- **community-316(packages__monomind_m)** (id: 316) — 21 members
+- **community-306(packages__monomind_m)** (id: 306) — 21 members
+- **community-291(packages__monomind_h)** (id: 291) — 21 members
+- **community-208(packages__monomind_g)** (id: 208) — 21 members
+- **community-206(packages__monomind_g)** (id: 206) — 21 members
+- **community-116(packages__monomind_c)** (id: 116) — 21 members
+- **community-98(packages__monomind_c)** (id: 98) — 21 members
+- **community-96(packages__monomind_c)** (id: 96) — 21 members
+- **community-92(packages__monomind_c)** (id: 92) — 21 members
+- **community-57(packages__monomind_c)** (id: 57) — 21 members
+- **community-55(packages__monomind_c)** (id: 55) — 21 members
+- **community-577(packages__monomind_m)** (id: 577) — 20 members
+- **community-475(packages__monomind_m)** (id: 475) — 20 members
+- **community-210(packages__monomind_g)** (id: 210) — 20 members
+- **community-113(packages__monomind_c)** (id: 113) — 20 members
+- **community-60(packages__monomind_c)** (id: 60) — 20 members
+- **community-680(packages__monomind_m)** (id: 680) — 19 members
+- **community-579(packages__monomind_m)** (id: 579) — 19 members
+- **community-512(packages__monomind_m)** (id: 512) — 19 members
+- **community-505(packages__monomind_m)** (id: 505) — 19 members
+- **community-456(packages__monomind_m)** (id: 456) — 19 members
+- **community-181(packages__monomind_c)** (id: 181) — 19 members
+- **community-714(scripts_validate_cap)** (id: 714) — 18 members
+- **community-713(scripts_generate_age)** (id: 713) — 18 members
+- **community-660(packages__monomind_m)** (id: 660) — 18 members
+- **community-646(packages__monomind_m)** (id: 646) — 18 members
+- **community-605(packages__monomind_m)** (id: 605) — 18 members
+- **community-565(packages__monomind_m)** (id: 565) — 18 members
+- **community-469(packages__monomind_m)** (id: 469) — 18 members
+- **community-463(packages__monomind_m)** (id: 463) — 18 members
+- **community-329(packages__monomind_m)** (id: 329) — 18 members
+- **community-218(packages__monomind_g)** (id: 218) — 18 members
+- **community-177(packages__monomind_c)** (id: 177) — 18 members
+- **community-48(packages__monomind_c)** (id: 48) — 18 members
+- **community-1(packages__monoes_mon)** (id: 1) — 18 members
+- **community-685(packages__monomind_m)** (id: 685) — 17 members
+- **community-647(packages__monomind_m)** (id: 647) — 17 members
+- **community-621(packages__monomind_m)** (id: 621) — 17 members
+- **community-548(packages__monomind_m)** (id: 548) — 17 members
+- **community-543(packages__monomind_m)** (id: 543) — 17 members
+- **community-530(packages__monomind_m)** (id: 530) — 17 members
+- **community-474(packages__monomind_m)** (id: 474) — 17 members
+- **community-465(packages__monomind_m)** (id: 465) — 17 members
+- **community-460(packages__monomind_m)** (id: 460) — 17 members
+- **community-448(packages__monomind_m)** (id: 448) — 17 members
+- **community-346(packages__monomind_m)** (id: 346) — 17 members
+- **community-286(packages__monomind_h)** (id: 286) — 17 members
+- **community-280(packages__monomind_h)** (id: 280) — 17 members
+- **community-279(packages__monomind_h)** (id: 279) — 17 members
+- **community-243(packages__monomind_g)** (id: 243) — 17 members
+- **community-227(packages__monomind_g)** (id: 227) — 17 members
+- **community-151(packages__monomind_c)** (id: 151) — 17 members
+- **community-102(packages__monomind_c)** (id: 102) — 17 members
+- **community-654(packages__monomind_m)** (id: 654) — 16 members
+- **community-601(packages__monomind_m)** (id: 601) — 16 members
+- **community-596(packages__monomind_m)** (id: 596) — 16 members
+- **community-590(packages__monomind_m)** (id: 590) — 16 members
+- **community-587(packages__monomind_m)** (id: 587) — 16 members
+- **community-568(packages__monomind_m)** (id: 568) — 16 members
+- **community-257(packages__monomind_h)** (id: 257) — 16 members
+- **community-238(packages__monomind_g)** (id: 238) — 16 members
+- **community-196(packages__monomind_g)** (id: 196) — 16 members
+- **community-179(packages__monomind_c)** (id: 179) — 16 members
+- **community-170(packages__monomind_c)** (id: 170) — 16 members
+- **community-162(packages__monomind_c)** (id: 162) — 16 members
+- **community-108(packages__monomind_c)** (id: 108) — 16 members
+- **community-93(packages__monomind_c)** (id: 93) — 16 members
+- **community-67(packages__monomind_c)** (id: 67) — 16 members
+- **community-663(packages__monomind_m)** (id: 663) — 15 members
+- **community-655(packages__monomind_m)** (id: 655) — 15 members
+- **community-637(packages__monomind_m)** (id: 637) — 15 members
+- **community-632(packages__monomind_m)** (id: 632) — 15 members
+- **community-612(packages__monomind_m)** (id: 612) — 15 members
+- **community-569(packages__monomind_m)** (id: 569) — 15 members
+- **community-560(packages__monomind_m)** (id: 560) — 15 members
+- **community-546(packages__monomind_m)** (id: 546) — 15 members
+- **community-544(packages__monomind_m)** (id: 544) — 15 members
+- **community-485(packages__monomind_m)** (id: 485) — 15 members
+- **community-453(packages__monomind_m)** (id: 453) — 15 members
+- **community-315(packages__monomind_m)** (id: 315) — 15 members
+- **community-310(packages__monomind_m)** (id: 310) — 15 members
+- **community-236(packages__monomind_g)** (id: 236) — 15 members
+- **community-143(packages__monomind_c)** (id: 143) — 15 members
+- **community-115(packages__monomind_c)** (id: 115) — 15 members
+- **community-83(packages__monomind_c)** (id: 83) — 15 members
+- **community-76(packages__monomind_c)** (id: 76) — 15 members
+- **community-42(packages__monomind_c)** (id: 42) — 15 members
+- **community-14(packages__monoes_mon)** (id: 14) — 15 members
+- **community-708(packages_monofence_a)** (id: 708) — 14 members
+- **community-657(packages__monomind_m)** (id: 657) — 14 members
+- **community-645(packages__monomind_m)** (id: 645) — 14 members
+- **community-578(packages__monomind_m)** (id: 578) — 14 members
+- **community-567(packages__monomind_m)** (id: 567) — 14 members
+- **community-556(packages__monomind_m)** (id: 556) — 14 members
+- **community-542(packages__monomind_m)** (id: 542) — 14 members
+- **community-541(packages__monomind_m)** (id: 541) — 14 members
+- **community-538(packages__monomind_m)** (id: 538) — 14 members
+- **community-516(packages__monomind_m)** (id: 516) — 14 members
+- **community-508(packages__monomind_m)** (id: 508) — 14 members
+- **community-473(packages__monomind_m)** (id: 473) — 14 members
+- **community-470(packages__monomind_m)** (id: 470) — 14 members
+- **community-323(packages__monomind_m)** (id: 323) — 14 members
+- **community-292(packages__monomind_h)** (id: 292) — 14 members
+- **community-260(packages__monomind_h)** (id: 260) — 14 members
+- **community-195(packages__monomind_g)** (id: 195) — 14 members
+- **community-185(packages__monomind_c)** (id: 185) — 14 members
+- **community-168(packages__monomind_c)** (id: 168) — 14 members
+- **community-117(packages__monomind_c)** (id: 117) — 14 members
+- **community-109(packages__monomind_c)** (id: 109) — 14 members
+- **community-99(packages__monomind_c)** (id: 99) — 14 members
+- **community-85(packages__monomind_c)** (id: 85) — 14 members
+- **community-78(packages__monomind_c)** (id: 78) — 14 members
+- **community-71(packages__monomind_c)** (id: 71) — 14 members
+- **community-736(tests_hooks_route_ha)** (id: 736) — 13 members
+- **community-667(packages__monomind_m)** (id: 667) — 13 members
+- **community-661(packages__monomind_m)** (id: 661) — 13 members
+- **community-658(packages__monomind_m)** (id: 658) — 13 members
+- **community-656(packages__monomind_m)** (id: 656) — 13 members
+- **community-649(packages__monomind_m)** (id: 649) — 13 members
+- **community-648(packages__monomind_m)** (id: 648) — 13 members
+- **community-604(packages__monomind_m)** (id: 604) — 13 members
+- **community-598(packages__monomind_m)** (id: 598) — 13 members
+- **community-592(packages__monomind_m)** (id: 592) — 13 members
+- **community-583(packages__monomind_m)** (id: 583) — 13 members
+- **community-575(packages__monomind_m)** (id: 575) — 13 members
+- **community-550(packages__monomind_m)** (id: 550) — 13 members
+- **community-545(packages__monomind_m)** (id: 545) — 13 members
+- **community-524(packages__monomind_m)** (id: 524) — 13 members
+- **community-492(packages__monomind_m)** (id: 492) — 13 members
+- **community-483(packages__monomind_m)** (id: 483) — 13 members
+- **community-466(packages__monomind_m)** (id: 466) — 13 members
+- **community-462(packages__monomind_m)** (id: 462) — 13 members
+- **community-457(packages__monomind_m)** (id: 457) — 13 members
+- **community-450(packages__monomind_m)** (id: 450) — 13 members
+- **community-368(packages__monomind_m)** (id: 368) — 13 members
+- **community-302(packages__monomind_m)** (id: 302) — 13 members
+- **community-277(packages__monomind_h)** (id: 277) — 13 members
+- **community-270(packages__monomind_h)** (id: 270) — 13 members
+- **community-229(packages__monomind_g)** (id: 229) — 13 members
+- **community-226(packages__monomind_g)** (id: 226) — 13 members
+- **community-187(packages__monomind_c)** (id: 187) — 13 members
+- **community-180(packages__monomind_c)** (id: 180) — 13 members
+- **community-100(packages__monomind_c)** (id: 100) — 13 members
+- **community-91(packages__monomind_c)** (id: 91) — 13 members
+- **community-90(packages__monomind_c)** (id: 90) — 13 members
+- **community-46(packages__monomind_c)** (id: 46) — 13 members
+- **community-44(packages__monomind_c)** (id: 44) — 13 members
+- **community-720(tests_hooks_edit_han)** (id: 720) — 12 members
+- **community-712(scripts_add_capabili)** (id: 712) — 12 members
+- **community-706(packages_monofence_a)** (id: 706) — 12 members
+- **community-689(packages__monomind_m)** (id: 689) — 12 members
+- **community-681(packages__monomind_m)** (id: 681) — 12 members
+- **community-679(packages__monomind_m)** (id: 679) — 12 members
+- **community-677(packages__monomind_m)** (id: 677) — 12 members
+- **community-676(packages__monomind_m)** (id: 676) — 12 members
+- **community-675(packages__monomind_m)** (id: 675) — 12 members
+- **community-652(packages__monomind_m)** (id: 652) — 12 members
+- **community-638(packages__monomind_m)** (id: 638) — 12 members
+- **community-620(packages__monomind_m)** (id: 620) — 12 members
+- **community-599(packages__monomind_m)** (id: 599) — 12 members
+- **community-597(packages__monomind_m)** (id: 597) — 12 members
+- **community-594(packages__monomind_m)** (id: 594) — 12 members
+- **community-586(packages__monomind_m)** (id: 586) — 12 members
+- **community-562(packages__monomind_m)** (id: 562) — 12 members
+- **community-552(packages__monomind_m)** (id: 552) — 12 members
+- **community-537(packages__monomind_m)** (id: 537) — 12 members
+- **community-535(packages__monomind_m)** (id: 535) — 12 members
+- **community-506(packages__monomind_m)** (id: 506) — 12 members
+- **community-491(packages__monomind_m)** (id: 491) — 12 members
+- **community-486(packages__monomind_m)** (id: 486) — 12 members
+- **community-439(packages__monomind_m)** (id: 439) — 12 members
+- **community-355(packages__monomind_m)** (id: 355) — 12 members
+- **community-284(packages__monomind_h)** (id: 284) — 12 members
+- **community-267(packages__monomind_h)** (id: 267) — 12 members
+- **community-258(packages__monomind_h)** (id: 258) — 12 members
+- **community-255(packages__monomind_h)** (id: 255) — 12 members
+- **community-231(packages__monomind_g)** (id: 231) — 12 members
+- **community-197(packages__monomind_g)** (id: 197) — 12 members
+- **community-176(packages__monomind_c)** (id: 176) — 12 members
+- **community-152(packages__monomind_c)** (id: 152) — 12 members
+- **community-130(packages__monomind_c)** (id: 130) — 12 members
+- **community-111(packages__monomind_c)** (id: 111) — 12 members
+- **community-66(packages__monomind_c)** (id: 66) — 12 members
+- **community-65(packages__monomind_c)** (id: 65) — 12 members
+- **community-59(packages__monomind_c)** (id: 59) — 12 members
+- **community-755(tests_memory_hnsw_me)** (id: 755) — 11 members
+- **community-748(tests_hooks_trace_co)** (id: 748) — 11 members
+- **community-745(tests_hooks_telemetr)** (id: 745) — 11 members
+- **community-728(tests_hooks_micro_ag)** (id: 728) — 11 members
+- **community-710(packages_monofence_a)** (id: 710) — 11 members
+- **community-691(packages__monomind_r)** (id: 691) — 11 members
+- **community-678(packages__monomind_m)** (id: 678) — 11 members
+- **community-651(packages__monomind_m)** (id: 651) — 11 members
+- **community-615(packages__monomind_m)** (id: 615) — 11 members
+- **community-591(packages__monomind_m)** (id: 591) — 11 members
+- **community-585(packages__monomind_m)** (id: 585) — 11 members
+- **community-555(packages__monomind_m)** (id: 555) — 11 members
+- **community-547(packages__monomind_m)** (id: 547) — 11 members
+- **community-521(packages__monomind_m)** (id: 521) — 11 members
+- **community-519(packages__monomind_m)** (id: 519) — 11 members
+- **community-517(packages__monomind_m)** (id: 517) — 11 members
+- **community-501(packages__monomind_m)** (id: 501) — 11 members
+- **community-493(packages__monomind_m)** (id: 493) — 11 members
+- **community-489(packages__monomind_m)** (id: 489) — 11 members
+- **community-488(packages__monomind_m)** (id: 488) — 11 members
+- **community-478(packages__monomind_m)** (id: 478) — 11 members
+- **community-467(packages__monomind_m)** (id: 467) — 11 members
+- **community-458(packages__monomind_m)** (id: 458) — 11 members
+- **community-330(packages__monomind_m)** (id: 330) — 11 members
+- **community-322(packages__monomind_m)** (id: 322) — 11 members
+- **community-321(packages__monomind_m)** (id: 321) — 11 members
+- **community-268(packages__monomind_h)** (id: 268) — 11 members
+- **community-259(packages__monomind_h)** (id: 259) — 11 members
+- **community-250(packages__monomind_h)** (id: 250) — 11 members
+- **community-241(packages__monomind_g)** (id: 241) — 11 members
+- **community-166(packages__monomind_c)** (id: 166) — 11 members
+- **community-126(packages__monomind_c)** (id: 126) — 11 members
+- **community-104(packages__monomind_c)** (id: 104) — 11 members
+- **community-103(packages__monomind_c)** (id: 103) — 11 members
+- **community-101(packages__monomind_c)** (id: 101) — 11 members
+- **community-75(packages__monomind_c)** (id: 75) — 11 members
+- **community-62(packages__monomind_c)** (id: 62) — 11 members
+- **community-58(packages__monomind_c)** (id: 58) — 11 members
+- **community-56(packages__monomind_c)** (id: 56) — 11 members
+- **community-52(packages__monomind_c)** (id: 52) — 11 members
+- **community-726(tests_hooks_memory_p)** (id: 726) — 10 members
+- **community-684(packages__monomind_m)** (id: 684) — 10 members
+- **community-659(packages__monomind_m)** (id: 659) — 10 members
+- **community-639(packages__monomind_m)** (id: 639) — 10 members
+- **community-629(packages__monomind_m)** (id: 629) — 10 members
+- **community-627(packages__monomind_m)** (id: 627) — 10 members
+- **community-603(packages__monomind_m)** (id: 603) — 10 members
+- **community-595(packages__monomind_m)** (id: 595) — 10 members
+- **community-576(packages__monomind_m)** (id: 576) — 10 members
+- **community-558(packages__monomind_m)** (id: 558) — 10 members
+- **community-551(packages__monomind_m)** (id: 551) — 10 members
+- **community-536(packages__monomind_m)** (id: 536) — 10 members
+- **community-522(packages__monomind_m)** (id: 522) — 10 members
+- **community-482(packages__monomind_m)** (id: 482) — 10 members
+- **community-461(packages__monomind_m)** (id: 461) — 10 members
+- **community-451(packages__monomind_m)** (id: 451) — 10 members
+- **community-426(packages__monomind_m)** (id: 426) — 10 members
+- **community-422(packages__monomind_m)** (id: 422) — 10 members
+- **community-364(packages__monomind_m)** (id: 364) — 10 members
+- **community-345(packages__monomind_m)** (id: 345) — 10 members
+- **community-307(packages__monomind_m)** (id: 307) — 10 members
+- **community-303(packages__monomind_m)** (id: 303) — 10 members
+- **community-298(packages__monomind_m)** (id: 298) — 10 members
+- **community-275(packages__monomind_h)** (id: 275) — 10 members
+- **community-248(packages__monomind_h)** (id: 248) — 10 members
+- **community-233(packages__monomind_g)** (id: 233) — 10 members
+- **community-165(packages__monomind_c)** (id: 165) — 10 members
+- **community-154(packages__monomind_c)** (id: 154) — 10 members
+- **community-95(packages__monomind_c)** (id: 95) — 10 members
+- **community-94(packages__monomind_c)** (id: 94) — 10 members
+- **community-88(packages__monomind_c)** (id: 88) — 10 members
+- **community-69(packages__monomind_c)** (id: 69) — 10 members
+- **community-61(packages__monomind_c)** (id: 61) — 10 members
+- **community-53(packages__monomind_c)** (id: 53) — 10 members
+- **community-51(packages__monomind_c)** (id: 51) — 10 members
+- **community-32(packages__monomind_c)** (id: 32) — 10 members
+- **community-3(packages__monoes_mon)** (id: 3) — 10 members
+- **community-756(tests_memory_knowled)** (id: 756) — 9 members
+- **community-672(packages__monomind_m)** (id: 672) — 9 members
+- **community-642(packages__monomind_m)** (id: 642) — 9 members
+- **community-626(packages__monomind_m)** (id: 626) — 9 members
+- **community-618(packages__monomind_m)** (id: 618) — 9 members
+- **community-614(packages__monomind_m)** (id: 614) — 9 members
+- **community-607(packages__monomind_m)** (id: 607) — 9 members
+- **community-602(packages__monomind_m)** (id: 602) — 9 members
+- **community-600(packages__monomind_m)** (id: 600) — 9 members
+- **community-582(packages__monomind_m)** (id: 582) — 9 members
+- **community-581(packages__monomind_m)** (id: 581) — 9 members
+- **community-573(packages__monomind_m)** (id: 573) — 9 members
+- **community-566(packages__monomind_m)** (id: 566) — 9 members
+- **community-559(packages__monomind_m)** (id: 559) — 9 members
+- **community-553(packages__monomind_m)** (id: 553) — 9 members
+- **community-520(packages__monomind_m)** (id: 520) — 9 members
+- **community-511(packages__monomind_m)** (id: 511) — 9 members
+- **community-509(packages__monomind_m)** (id: 509) — 9 members
+- **community-499(packages__monomind_m)** (id: 499) — 9 members
+- **community-480(packages__monomind_m)** (id: 480) — 9 members
+- **community-479(packages__monomind_m)** (id: 479) — 9 members
+- **community-471(packages__monomind_m)** (id: 471) — 9 members
+- **community-459(packages__monomind_m)** (id: 459) — 9 members
+- **community-454(packages__monomind_m)** (id: 454) — 9 members
+- **community-354(packages__monomind_m)** (id: 354) — 9 members
+- **community-313(packages__monomind_m)** (id: 313) — 9 members
+- **community-287(packages__monomind_h)** (id: 287) — 9 members
+- **community-193(packages__monomind_g)** (id: 193) — 9 members
+- **community-190(import_vitest_config)** (id: 190) — 9 members
+- **community-171(packages__monomind_c)** (id: 171) — 9 members
+- **community-84(packages__monomind_c)** (id: 84) — 9 members
+- **community-74(packages__monomind_c)** (id: 74) — 9 members
+- **community-64(packages__monomind_c)** (id: 64) — 9 members
+- **community-758(tests_memory_short_t)** (id: 758) — 8 members
+- **community-757(tests_memory_procedu)** (id: 757) — 8 members
+- **community-742(tests_hooks_synthesi)** (id: 742) — 8 members
+- **community-741(tests_hooks_subgraph)** (id: 741) — 8 members
+- **community-737(tests_hooks_router_t)** (id: 737) — 8 members
+- **community-730(tests_hooks_monograp)** (id: 730) — 8 members
+- **community-673(packages__monomind_m)** (id: 673) — 8 members
+- **community-671(packages__monomind_m)** (id: 671) — 8 members
+- **community-643(packages__monomind_m)** (id: 643) — 8 members
+- **community-622(packages__monomind_m)** (id: 622) — 8 members
+- **community-613(packages__monomind_m)** (id: 613) — 8 members
+- **community-611(packages__monomind_m)** (id: 611) — 8 members
+- **community-593(packages__monomind_m)** (id: 593) — 8 members
+- **community-589(packages__monomind_m)** (id: 589) — 8 members
+- **community-584(packages__monomind_m)** (id: 584) — 8 members
+- **community-580(packages__monomind_m)** (id: 580) — 8 members
+- **community-574(packages__monomind_m)** (id: 574) — 8 members
+- **community-572(packages__monomind_m)** (id: 572) — 8 members
+- **community-561(packages__monomind_m)** (id: 561) — 8 members
+- **community-557(packages__monomind_m)** (id: 557) — 8 members
+- **community-539(packages__monomind_m)** (id: 539) — 8 members
+- **community-527(packages__monomind_m)** (id: 527) — 8 members
+- **community-507(packages__monomind_m)** (id: 507) — 8 members
+- **community-503(packages__monomind_m)** (id: 503) — 8 members
+- **community-498(packages__monomind_m)** (id: 498) — 8 members
+- **community-434(packages__monomind_m)** (id: 434) — 8 members
+- **community-423(packages__monomind_m)** (id: 423) — 8 members
+- **community-363(packages__monomind_m)** (id: 363) — 8 members
+- **community-343(packages__monomind_m)** (id: 343) — 8 members
+- **community-342(packages__monomind_m)** (id: 342) — 8 members
+- **community-336(packages__monomind_m)** (id: 336) — 8 members
+- **community-328(packages__monomind_m)** (id: 328) — 8 members
+- **community-278(packages__monomind_h)** (id: 278) — 8 members
+- **community-239(packages__monomind_g)** (id: 239) — 8 members
+- **community-237(packages__monomind_g)** (id: 237) — 8 members
+- **community-192(packages__monomind_g)** (id: 192) — 8 members
+- **community-182(packages__monomind_c)** (id: 182) — 8 members
+- **community-107(packages__monomind_c)** (id: 107) — 8 members
+- **community-89(packages__monomind_c)** (id: 89) — 8 members
+- **community-77(packages__monomind_c)** (id: 77) — 8 members
+- **community-73(packages__monomind_c)** (id: 73) — 8 members
+- **community-54(packages__monomind_c)** (id: 54) — 8 members
+- **community-29(packages__monomind_c)** (id: 29) — 8 members
+- **community-17(packages__monoes_mon)** (id: 17) — 8 members
+- **community-16(packages__monoes_mon)** (id: 16) — 8 members
+- **community-760(tests_routing_intell)** (id: 760) — 7 members
+- **community-732(tests_hooks_observab)** (id: 732) — 7 members
+- **community-723(tests_hooks_episode_)** (id: 723) — 7 members
+- **community-687(packages__monomind_m)** (id: 687) — 7 members
+- **community-674(packages__monomind_m)** (id: 674) — 7 members
+- **community-650(packages__monomind_m)** (id: 650) — 7 members
+- **community-644(packages__monomind_m)** (id: 644) — 7 members
+- **community-625(packages__monomind_m)** (id: 625) — 7 members
+- **community-588(packages__monomind_m)** (id: 588) — 7 members
+- **community-564(packages__monomind_m)** (id: 564) — 7 members
+- **community-563(packages__monomind_m)** (id: 563) — 7 members
+- **community-525(packages__monomind_m)** (id: 525) — 7 members
+- **community-523(packages__monomind_m)** (id: 523) — 7 members
+- **community-502(packages__monomind_m)** (id: 502) — 7 members
+- **community-496(packages__monomind_m)** (id: 496) — 7 members
+- **community-495(packages__monomind_m)** (id: 495) — 7 members
+- **community-487(packages__monomind_m)** (id: 487) — 7 members
+- **community-484(packages__monomind_m)** (id: 484) — 7 members
+- **community-468(packages__monomind_m)** (id: 468) — 7 members
+- **community-464(packages__monomind_m)** (id: 464) — 7 members
+- **community-410(packages__monomind_m)** (id: 410) — 7 members
+- **community-378(packages__monomind_m)** (id: 378) — 7 members
+- **community-377(packages__monomind_m)** (id: 377) — 7 members
+- **community-369(packages__monomind_m)** (id: 369) — 7 members
+- **community-362(packages__monomind_m)** (id: 362) — 7 members
+- **community-324(packages__monomind_m)** (id: 324) — 7 members
+- **community-296(packages__monomind_h)** (id: 296) — 7 members
+- **community-294(packages__monomind_h)** (id: 294) — 7 members
+- **community-283(packages__monomind_h)** (id: 283) — 7 members
+- **community-262(packages__monomind_h)** (id: 262) — 7 members
+- **community-244(packages__monomind_h)** (id: 244) — 7 members
+- **community-228(packages__monomind_g)** (id: 228) — 7 members
+- **community-112(packages__monomind_c)** (id: 112) — 7 members
+- **community-81(packages__monomind_c)** (id: 81) — 7 members
+- **community-20(packages__monoes_mon)** (id: 20) — 7 members
+- **community-10(packages__monoes_mon)** (id: 10) — 7 members
+- **community-759(tests_optimization_b)** (id: 759) — 6 members
+- **community-743(tests_hooks_task_han)** (id: 743) — 6 members
+- **community-734(tests_hooks_replay_r)** (id: 734) — 6 members
+- **community-733(tests_hooks_planning)** (id: 733) — 6 members
+- **community-731(tests_hooks_nested_s)** (id: 731) — 6 members
+- **community-727(tests_hooks_memory_t)** (id: 727) — 6 members
+- **community-725(tests_hooks_latency_)** (id: 725) — 6 members
+- **community-703(packages_monofence_a)** (id: 703) — 6 members
+- **community-695(packages__monomind_r)** (id: 695) — 6 members
+- **community-670(packages__monomind_m)** (id: 670) — 6 members
+- **community-662(packages__monomind_m)** (id: 662) — 6 members
+- **community-636(packages__monomind_m)** (id: 636) — 6 members
+- **community-631(packages__monomind_m)** (id: 631) — 6 members
+- **community-630(packages__monomind_m)** (id: 630) — 6 members
+- **community-616(packages__monomind_m)** (id: 616) — 6 members
+- **community-570(packages__monomind_m)** (id: 570) — 6 members
+- **community-549(packages__monomind_m)** (id: 549) — 6 members
+- **community-533(packages__monomind_m)** (id: 533) — 6 members
+- **community-529(packages__monomind_m)** (id: 529) — 6 members
+- **community-528(packages__monomind_m)** (id: 528) — 6 members
+- **community-504(packages__monomind_m)** (id: 504) — 6 members
+- **community-497(packages__monomind_m)** (id: 497) — 6 members
+- **community-449(packages__monomind_m)** (id: 449) — 6 members
+- **community-441(packages__monomind_m)** (id: 441) — 6 members
+- **community-431(packages__monomind_m)** (id: 431) — 6 members
+- **community-428(packages__monomind_m)** (id: 428) — 6 members
+- **community-427(packages__monomind_m)** (id: 427) — 6 members
+- **community-406(packages__monomind_m)** (id: 406) — 6 members
+- **community-405(packages__monomind_m)** (id: 405) — 6 members
+- **community-393(packages__monomind_m)** (id: 393) — 6 members
+- **community-370(packages__monomind_m)** (id: 370) — 6 members
+- **community-352(packages__monomind_m)** (id: 352) — 6 members
+- **community-351(packages__monomind_m)** (id: 351) — 6 members
+- **community-344(packages__monomind_m)** (id: 344) — 6 members
+- **community-340(packages__monomind_m)** (id: 340) — 6 members
+- **community-308(packages__monomind_m)** (id: 308) — 6 members
+- **community-293(packages__monomind_h)** (id: 293) — 6 members
+- **community-285(packages__monomind_h)** (id: 285) — 6 members
+- **community-281(packages__monomind_h)** (id: 281) — 6 members
+- **community-140(packages__monomind_c)** (id: 140) — 6 members
+- **community-97(packages__monomind_c)** (id: 97) — 6 members
+- **community-45(packages__monomind_c)** (id: 45) — 6 members
+- **community-36(packages__monomind_c)** (id: 36) — 6 members
+- **community-747(tests_hooks_token_tr)** (id: 747) — 5 members
+- **community-746(tests_hooks_threaded)** (id: 746) — 5 members
+- **community-738(tests_hooks_session_)** (id: 738) — 5 members
+- **community-722(tests_hooks_entity_e)** (id: 722) — 5 members
+- **community-697(packages___tests___f)** (id: 697) — 5 members
+- **community-688(packages__monomind_m)** (id: 688) — 5 members
+- **community-683(packages__monomind_m)** (id: 683) — 5 members
+- **community-682(packages__monomind_m)** (id: 682) — 5 members
+- **community-668(packages__monomind_m)** (id: 668) — 5 members
+- **community-666(packages__monomind_m)** (id: 666) — 5 members
+- **community-641(packages__monomind_m)** (id: 641) — 5 members
+- **community-640(packages__monomind_m)** (id: 640) — 5 members
+- **community-634(packages__monomind_m)** (id: 634) — 5 members
+- **community-624(packages__monomind_m)** (id: 624) — 5 members
+- **community-623(packages__monomind_m)** (id: 623) — 5 members
+- **community-619(packages__monomind_m)** (id: 619) — 5 members
+- **community-571(packages__monomind_m)** (id: 571) — 5 members
+- **community-534(packages__monomind_m)** (id: 534) — 5 members
+- **community-532(packages__monomind_m)** (id: 532) — 5 members
+- **community-526(packages__monomind_m)** (id: 526) — 5 members
+- **community-510(packages__monomind_m)** (id: 510) — 5 members
+- **community-500(packages__monomind_m)** (id: 500) — 5 members
+- **community-490(packages__monomind_m)** (id: 490) — 5 members
+- **community-477(packages__monomind_m)** (id: 477) — 5 members
+- **community-455(packages__monomind_m)** (id: 455) — 5 members
+- **community-452(packages__monomind_m)** (id: 452) — 5 members
+- **community-447(packages__monomind_m)** (id: 447) — 5 members
+- **community-446(packages__monomind_m)** (id: 446) — 5 members
+- **community-445(packages__monomind_m)** (id: 445) — 5 members
+- **community-444(packages__monomind_m)** (id: 444) — 5 members
+- **community-429(packages__monomind_m)** (id: 429) — 5 members
+- **community-421(packages__monomind_m)** (id: 421) — 5 members
+- **community-403(packages__monomind_m)** (id: 403) — 5 members
+- **community-394(packages__monomind_m)** (id: 394) — 5 members
+- **community-390(packages__monomind_m)** (id: 390) — 5 members
+- **community-389(packages__monomind_m)** (id: 389) — 5 members
+- **community-381(packages__monomind_m)** (id: 381) — 5 members
+- **community-374(packages__monomind_m)** (id: 374) — 5 members
+- **community-367(packages__monomind_m)** (id: 367) — 5 members
+- **community-365(packages__monomind_m)** (id: 365) — 5 members
+- **community-360(packages__monomind_m)** (id: 360) — 5 members
+- **community-358(packages__monomind_m)** (id: 358) — 5 members
+- **community-349(packages__monomind_m)** (id: 349) — 5 members
+- **community-341(packages__monomind_m)** (id: 341) — 5 members
+- **community-319(packages__monomind_m)** (id: 319) — 5 members
+- **community-251(packages__monomind_h)** (id: 251) — 5 members
+- **community-245(packages__monomind_h)** (id: 245) — 5 members
+- **community-175(packages__monomind_c)** (id: 175) — 5 members
+- **community-141(packages__monomind_c)** (id: 141) — 5 members
+- **community-139(packages__monomind_c)** (id: 139) — 5 members
+- **community-80(packages__monomind_c)** (id: 80) — 5 members
+- **community-27(packages__monomind_c)** (id: 27) — 5 members
+- **community-23(packages__monomind_c)** (id: 23) — 5 members
+- **community-761(tests_scripts_valida)** (id: 761) — 4 members
+- **community-752(tests_memory_checkpo)** (id: 752) — 4 members
+- **community-749(tests_hooks_trace_st)** (id: 749) — 4 members
+- **community-740(tests_hooks_statusli)** (id: 740) — 4 members
+- **community-718(tests_hooks_confiden)** (id: 718) — 4 members
+- **community-715(tests_cli_init_helpe)** (id: 715) — 4 members
+- **community-698(packages___tests___h)** (id: 698) — 4 members
+- **community-690(packages__monomind_r)** (id: 690) — 4 members
+- **community-669(packages__monomind_m)** (id: 669) — 4 members
+- **community-635(packages__monomind_m)** (id: 635) — 4 members
+- **community-633(packages__monomind_m)** (id: 633) — 4 members
+- **community-628(packages__monomind_m)** (id: 628) — 4 members
+- **community-617(packages__monomind_m)** (id: 617) — 4 members
+- **community-518(packages__monomind_m)** (id: 518) — 4 members
+- **community-515(packages__monomind_m)** (id: 515) — 4 members
+- **community-514(packages__monomind_m)** (id: 514) — 4 members
+- **community-440(packages__monomind_m)** (id: 440) — 4 members
+- **community-438(packages__monomind_m)** (id: 438) — 4 members
+- **community-437(packages__monomind_m)** (id: 437) — 4 members
+- **community-430(packages__monomind_m)** (id: 430) — 4 members
+- **community-425(packages__monomind_m)** (id: 425) — 4 members
+- **community-418(packages__monomind_m)** (id: 418) — 4 members
+- **community-414(packages__monomind_m)** (id: 414) — 4 members
+- **community-413(packages__monomind_m)** (id: 413) — 4 members
+- **community-412(packages__monomind_m)** (id: 412) — 4 members
+- **community-411(packages__monomind_m)** (id: 411) — 4 members
+- **community-401(packages__monomind_m)** (id: 401) — 4 members
+- **community-386(packages__monomind_m)** (id: 386) — 4 members
+- **community-385(packages__monomind_m)** (id: 385) — 4 members
+- **community-384(packages__monomind_m)** (id: 384) — 4 members
+- **community-382(packages__monomind_m)** (id: 382) — 4 members
+- **community-379(packages__monomind_m)** (id: 379) — 4 members
+- **community-375(packages__monomind_m)** (id: 375) — 4 members
+- **community-361(packages__monomind_m)** (id: 361) — 4 members
+- **community-350(packages__monomind_m)** (id: 350) — 4 members
+- **community-348(packages__monomind_m)** (id: 348) — 4 members
+- **community-338(packages__monomind_m)** (id: 338) — 4 members
+- **community-334(packages__monomind_m)** (id: 334) — 4 members
+- **community-331(packages__monomind_m)** (id: 331) — 4 members
+- **community-318(packages__monomind_m)** (id: 318) — 4 members
+- **community-317(packages__monomind_m)** (id: 317) — 4 members
+- **community-314(packages__monomind_m)** (id: 314) — 4 members
+- **community-271(packages__monomind_h)** (id: 271) — 4 members
+- **community-261(packages__monomind_h)** (id: 261) — 4 members
+- **community-249(packages__monomind_h)** (id: 249) — 4 members
+- **community-188(packages__monomind_c)** (id: 188) — 4 members
+- **community-157(packages__monomind_c)** (id: 157) — 4 members
+- **community-79(packages__monomind_c)** (id: 79) — 4 members
+- **community-38(packages__monomind_c)** (id: 38) — 4 members
+- **community-35(packages__monomind_c)** (id: 35) — 4 members
+- **community-754(tests_memory_episodi)** (id: 754) — 3 members
+- **community-721(tests_hooks_entity_c)** (id: 721) — 3 members
+- **community-717(tests_hooks_cli_sink)** (id: 717) — 3 members
+- **community-705(packages_monofence_a)** (id: 705) — 3 members
+- **community-702(packages_monofence_a)** (id: 702) — 3 members
+- **community-696(packages__monomind_s)** (id: 696) — 3 members
+- **community-693(packages__monomind_r)** (id: 693) — 3 members
+- **community-686(packages__monomind_m)** (id: 686) — 3 members
+- **community-513(packages__monomind_m)** (id: 513) — 3 members
+- **community-443(packages__monomind_m)** (id: 443) — 3 members
+- **community-433(packages__monomind_m)** (id: 433) — 3 members
+- **community-432(packages__monomind_m)** (id: 432) — 3 members
+- **community-424(packages__monomind_m)** (id: 424) — 3 members
+- **community-420(packages__monomind_m)** (id: 420) — 3 members
+- **community-417(packages__monomind_m)** (id: 417) — 3 members
+- **community-416(packages__monomind_m)** (id: 416) — 3 members
+- **community-408(packages__monomind_m)** (id: 408) — 3 members
+- **community-395(packages__monomind_m)** (id: 395) — 3 members
+- **community-353(packages__monomind_m)** (id: 353) — 3 members
+- **community-347(packages__monomind_m)** (id: 347) — 3 members
+- **community-339(packages__monomind_m)** (id: 339) — 3 members
+- **community-335(packages__monomind_m)** (id: 335) — 3 members
+- **community-288(packages__monomind_h)** (id: 288) — 3 members
+- **community-247(packages__monomind_h)** (id: 247) — 3 members
+- **community-234(packages__monomind_g)** (id: 234) — 3 members
+- **community-232(packages__monomind_g)** (id: 232) — 3 members
+- **community-31(packages__monomind_c)** (id: 31) — 3 members
+- **community-22(packages__monomind_c)** (id: 22) — 3 members
+- **community-21(packages__monomind_c)** (id: 21) — 3 members
+- **community-753(tests_memory_entity_)** (id: 753) — 2 members
+- **community-704(packages_monofence_a)** (id: 704) — 2 members
+- **community-531(packages__monomind_m)** (id: 531) — 2 members
+- **community-442(packages__monomind_m)** (id: 442) — 2 members
+- **community-436(packages__monomind_m)** (id: 436) — 2 members
+- **community-435(packages__monomind_m)** (id: 435) — 2 members
+- **community-419(packages__monomind_m)** (id: 419) — 2 members
+- **community-415(packages__monomind_m)** (id: 415) — 2 members
+- **community-409(packages__monomind_m)** (id: 409) — 2 members
+- **community-402(packages__monomind_m)** (id: 402) — 2 members
+- **community-400(packages__monomind_m)** (id: 400) — 2 members
+- **community-399(packages__monomind_m)** (id: 399) — 2 members
+- **community-398(packages__monomind_m)** (id: 398) — 2 members
+- **community-397(packages__monomind_m)** (id: 397) — 2 members
+- **community-392(packages__monomind_m)** (id: 392) — 2 members
+- **community-391(packages__monomind_m)** (id: 391) — 2 members
+- **community-388(packages__monomind_m)** (id: 388) — 2 members
+- **community-387(packages__monomind_m)** (id: 387) — 2 members
+- **community-383(packages__monomind_m)** (id: 383) — 2 members
+- **community-380(packages__monomind_m)** (id: 380) — 2 members
+- **community-376(packages__monomind_m)** (id: 376) — 2 members
+- **community-373(packages__monomind_m)** (id: 373) — 2 members
+- **community-372(packages__monomind_m)** (id: 372) — 2 members
+- **community-371(packages__monomind_m)** (id: 371) — 2 members
+- **community-366(packages__monomind_m)** (id: 366) — 2 members
+- **community-359(packages__monomind_m)** (id: 359) — 2 members
+- **community-357(packages__monomind_m)** (id: 357) — 2 members
+- **community-356(packages__monomind_m)** (id: 356) — 2 members
+- **community-337(packages__monomind_m)** (id: 337) — 2 members
+- **community-333(packages__monomind_m)** (id: 333) — 2 members
+- **community-312(packages__monomind_m)** (id: 312) — 2 members
+- **community-246(packages__monomind_h)** (id: 246) — 2 members
+- **community-242(packages__monomind_g)** (id: 242) — 2 members
+- **community-189(packages__monomind_c)** (id: 189) — 2 members
+- **community-68(packages__monomind_c)** (id: 68) — 2 members
+- **community-43(packages__monomind_c)** (id: 43) — 2 members
+- **community-37(packages__monomind_c)** (id: 37) — 2 members
+- **community-28(packages__monomind_c)** (id: 28) — 2 members
+- **community-7(packages__monoes_mon)** (id: 7) — 2 members
+- **community-707(packages_monofence_a)** (id: 707) — 1 members
+- **community-694(packages__monomind_r)** (id: 694) — 1 members
+- **community-254(packages__monomind_h)** (id: 254) — 1 members
+- **community-253(packages__monomind_h)** (id: 253) — 1 members
+- **community-178(packages__monomind_c)** (id: 178) — 1 members
+- **community-19(packages__monoes_mon)** (id: 19) — 1 members
 
 ## Stale Files
 
@@ -70,8 +826,8 @@ _No stale files detected._
 
 | Confidence | Count | Percentage |
 |-----------|-------|------------|
-| EXTRACTED | 25586 | 96.7% |
-| INFERRED | 876 | 3.3% |
+| EXTRACTED | 25482 | 96.3% |
+| INFERRED | 974 | 3.7% |
 
 ## Suggested Questions
 
@@ -83,18 +839,18 @@ _No stale files detected._
 - **bridge_node**: `network.ts` bridges community 4 and 0
 - **bridge_node**: `screenshot.ts` bridges community 0 and 2
 - **bridge_node**: `session.ts` bridges community 2 and 0
-- **bridge_node**: `cli.test.ts` bridges community 2 and 23
-- **bridge_node**: `commands.test.ts` bridges community 2 and 22
-- **bridge_node**: `init-e2e.test.ts` bridges community 9 and 27
-- **bridge_node**: `mcp-tools-deep.test.ts` bridges community 2 and 31
-- **bridge_node**: `p1-commands.test.ts` bridges community 2 and 22
+- **bridge_node**: `cli.test.ts` bridges community 2 and 25
+- **bridge_node**: `commands.test.ts` bridges community 2 and 24
+- **bridge_node**: `config-loading.test.ts` bridges community 25 and 28
+- **bridge_node**: `init-e2e.test.ts` bridges community 9 and 30
+- **bridge_node**: `mcp-tools-deep.test.ts` bridges community 2 and 34
+- **bridge_node**: `p1-commands.test.ts` bridges community 2 and 24
 - **bridge_node**: `headless-worker-executor.test.ts` bridges community 2 and 9
 - **bridge_node**: `browse-analyzer.test.ts` bridges community 2 and 9
-- **bridge_node**: `server.ts` bridges community 9 and 50
+- **bridge_node**: `server.ts` bridges community 9 and 53
 - **bridge_node**: `engine.ts` bridges community 2 and 0
 - **bridge_node**: `store.ts` bridges community 2 and 0
-- **bridge_node**: `benchmark.ts` bridges community 2 and 0
-- **bridge_node**: `design-palette.ts` bridges community 0 and 2
+- **bridge_node**: `cap-data.ts` bridges community 2 and 0
 
 ## Knowledge Gaps
 
@@ -102,13 +858,28 @@ _No stale files detected._
 
 Nodes with no edges — may indicate dead code or missing imports:
 
-- **Variable** `fence`
-- **Variable** `result`
-- **Variable** `CONSTITUTION_MARKERS`
-- **Variable** `AGENT_TYPES`
-- **Variable** `backend`
-- **Variable** `current`
-- **Variable** `fs`
-- **Variable** `TEMPLATE_RE`
-- **Variable** `cache`
-- **Variable** `DB_PATH`
+- **Variable** `__dirname`
+- **Variable** `cliPath`
+- **Variable** `__dirname`
+- **Variable** `cliPath`
+- **Variable** `DOM_CAPTURE_EXPR`
+- **Variable** `SYSTEM_PROMPT`
+- **Variable** `geminiAdapter`
+- **Variable** `googleAdapter`
+- **Variable** `adapters`
+- **Variable** `instagramAdapter`
+
+### Thin Communities (10)
+
+Communities with fewer than 3 members — may need merging:
+
+- Community 7: 2 members
+- Community 19: 1 member
+- Community 28: 2 members
+- Community 37: 2 members
+- Community 43: 2 members
+- Community 68: 2 members
+- Community 178: 1 member
+- Community 189: 2 members
+- Community 242: 2 members
+- Community 246: 2 members
