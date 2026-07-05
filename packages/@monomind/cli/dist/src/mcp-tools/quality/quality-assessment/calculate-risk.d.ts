@@ -21,8 +21,8 @@ export declare const CalculateRiskInputSchema: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         size: number;
         documentation: number;
-        coverage: number;
         complexity: number;
+        coverage: number;
         changeFrequency: number;
         age: number;
         coupling: number;
@@ -31,8 +31,8 @@ export declare const CalculateRiskInputSchema: z.ZodObject<{
     }, {
         size?: number | undefined;
         documentation?: number | undefined;
-        coverage?: number | undefined;
         complexity?: number | undefined;
+        coverage?: number | undefined;
         changeFrequency?: number | undefined;
         age?: number | undefined;
         coupling?: number | undefined;
@@ -56,14 +56,14 @@ export declare const CalculateRiskInputSchema: z.ZodObject<{
     includeRecommendations: z.ZodDefault<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     targetPath: string;
-    factors: ("size" | "documentation" | "coverage" | "complexity" | "change-frequency" | "defect-density" | "age" | "coupling" | "team-experience")[];
-    granularity: "function" | "project" | "module" | "file";
+    factors: ("size" | "documentation" | "complexity" | "coverage" | "change-frequency" | "defect-density" | "age" | "coupling" | "team-experience")[];
+    granularity: "function" | "module" | "file" | "project";
     includeRecommendations: boolean;
     weights?: {
         size: number;
         documentation: number;
-        coverage: number;
         complexity: number;
+        coverage: number;
         changeFrequency: number;
         age: number;
         coupling: number;
@@ -80,16 +80,16 @@ export declare const CalculateRiskInputSchema: z.ZodObject<{
     weights?: {
         size?: number | undefined;
         documentation?: number | undefined;
-        coverage?: number | undefined;
         complexity?: number | undefined;
+        coverage?: number | undefined;
         changeFrequency?: number | undefined;
         age?: number | undefined;
         coupling?: number | undefined;
         defectDensity?: number | undefined;
         teamExperience?: number | undefined;
     } | undefined;
-    factors?: ("size" | "documentation" | "coverage" | "complexity" | "change-frequency" | "defect-density" | "age" | "coupling" | "team-experience")[] | undefined;
-    granularity?: "function" | "project" | "module" | "file" | undefined;
+    factors?: ("size" | "documentation" | "complexity" | "coverage" | "change-frequency" | "defect-density" | "age" | "coupling" | "team-experience")[] | undefined;
+    granularity?: "function" | "module" | "file" | "project" | undefined;
     riskThresholds?: {
         high?: number | undefined;
         medium?: number | undefined;
@@ -194,8 +194,8 @@ export declare const toolDefinition: {
         }, "strip", z.ZodTypeAny, {
             size: number;
             documentation: number;
-            coverage: number;
             complexity: number;
+            coverage: number;
             changeFrequency: number;
             age: number;
             coupling: number;
@@ -204,8 +204,8 @@ export declare const toolDefinition: {
         }, {
             size?: number | undefined;
             documentation?: number | undefined;
-            coverage?: number | undefined;
             complexity?: number | undefined;
+            coverage?: number | undefined;
             changeFrequency?: number | undefined;
             age?: number | undefined;
             coupling?: number | undefined;
@@ -229,14 +229,14 @@ export declare const toolDefinition: {
         includeRecommendations: z.ZodDefault<z.ZodBoolean>;
     }, "strip", z.ZodTypeAny, {
         targetPath: string;
-        factors: ("size" | "documentation" | "coverage" | "complexity" | "change-frequency" | "defect-density" | "age" | "coupling" | "team-experience")[];
-        granularity: "function" | "project" | "module" | "file";
+        factors: ("size" | "documentation" | "complexity" | "coverage" | "change-frequency" | "defect-density" | "age" | "coupling" | "team-experience")[];
+        granularity: "function" | "module" | "file" | "project";
         includeRecommendations: boolean;
         weights?: {
             size: number;
             documentation: number;
-            coverage: number;
             complexity: number;
+            coverage: number;
             changeFrequency: number;
             age: number;
             coupling: number;
@@ -253,16 +253,16 @@ export declare const toolDefinition: {
         weights?: {
             size?: number | undefined;
             documentation?: number | undefined;
-            coverage?: number | undefined;
             complexity?: number | undefined;
+            coverage?: number | undefined;
             changeFrequency?: number | undefined;
             age?: number | undefined;
             coupling?: number | undefined;
             defectDensity?: number | undefined;
             teamExperience?: number | undefined;
         } | undefined;
-        factors?: ("size" | "documentation" | "coverage" | "complexity" | "change-frequency" | "defect-density" | "age" | "coupling" | "team-experience")[] | undefined;
-        granularity?: "function" | "project" | "module" | "file" | undefined;
+        factors?: ("size" | "documentation" | "complexity" | "coverage" | "change-frequency" | "defect-density" | "age" | "coupling" | "team-experience")[] | undefined;
+        granularity?: "function" | "module" | "file" | "project" | undefined;
         riskThresholds?: {
             high?: number | undefined;
             medium?: number | undefined;

@@ -26,8 +26,8 @@ export declare const AnalyzeRootCauseInputSchema: z.ZodObject<{
         stackTrace: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         description: string;
-        id?: string | undefined;
         category?: string | undefined;
+        id?: string | undefined;
         location?: {
             file: string;
             function?: string | undefined;
@@ -36,8 +36,8 @@ export declare const AnalyzeRootCauseInputSchema: z.ZodObject<{
         stackTrace?: string | undefined;
     }, {
         description: string;
-        id?: string | undefined;
         category?: string | undefined;
+        id?: string | undefined;
         location?: {
             file: string;
             function?: string | undefined;
@@ -50,11 +50,10 @@ export declare const AnalyzeRootCauseInputSchema: z.ZodObject<{
     includeRemediation: z.ZodDefault<z.ZodBoolean>;
     maxContributingFactors: z.ZodDefault<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
-    analysisDepth: "standard" | "deep" | "immediate";
     defect: {
         description: string;
-        id?: string | undefined;
         category?: string | undefined;
+        id?: string | undefined;
         location?: {
             file: string;
             function?: string | undefined;
@@ -62,14 +61,15 @@ export declare const AnalyzeRootCauseInputSchema: z.ZodObject<{
         } | undefined;
         stackTrace?: string | undefined;
     };
+    analysisDepth: "deep" | "standard" | "immediate";
     includeHistorical: boolean;
     includeRemediation: boolean;
     maxContributingFactors: number;
 }, {
     defect: {
         description: string;
-        id?: string | undefined;
         category?: string | undefined;
+        id?: string | undefined;
         location?: {
             file: string;
             function?: string | undefined;
@@ -77,7 +77,7 @@ export declare const AnalyzeRootCauseInputSchema: z.ZodObject<{
         } | undefined;
         stackTrace?: string | undefined;
     };
-    analysisDepth?: "standard" | "deep" | "immediate" | undefined;
+    analysisDepth?: "deep" | "standard" | "immediate" | undefined;
     includeHistorical?: boolean | undefined;
     includeRemediation?: boolean | undefined;
     maxContributingFactors?: number | undefined;
@@ -215,8 +215,8 @@ export declare const toolDefinition: {
             stackTrace: z.ZodOptional<z.ZodString>;
         }, "strip", z.ZodTypeAny, {
             description: string;
-            id?: string | undefined;
             category?: string | undefined;
+            id?: string | undefined;
             location?: {
                 file: string;
                 function?: string | undefined;
@@ -225,8 +225,8 @@ export declare const toolDefinition: {
             stackTrace?: string | undefined;
         }, {
             description: string;
-            id?: string | undefined;
             category?: string | undefined;
+            id?: string | undefined;
             location?: {
                 file: string;
                 function?: string | undefined;
@@ -239,11 +239,10 @@ export declare const toolDefinition: {
         includeRemediation: z.ZodDefault<z.ZodBoolean>;
         maxContributingFactors: z.ZodDefault<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
-        analysisDepth: "standard" | "deep" | "immediate";
         defect: {
             description: string;
-            id?: string | undefined;
             category?: string | undefined;
+            id?: string | undefined;
             location?: {
                 file: string;
                 function?: string | undefined;
@@ -251,14 +250,15 @@ export declare const toolDefinition: {
             } | undefined;
             stackTrace?: string | undefined;
         };
+        analysisDepth: "deep" | "standard" | "immediate";
         includeHistorical: boolean;
         includeRemediation: boolean;
         maxContributingFactors: number;
     }, {
         defect: {
             description: string;
-            id?: string | undefined;
             category?: string | undefined;
+            id?: string | undefined;
             location?: {
                 file: string;
                 function?: string | undefined;
@@ -266,7 +266,7 @@ export declare const toolDefinition: {
             } | undefined;
             stackTrace?: string | undefined;
         };
-        analysisDepth?: "standard" | "deep" | "immediate" | undefined;
+        analysisDepth?: "deep" | "standard" | "immediate" | undefined;
         includeHistorical?: boolean | undefined;
         includeRemediation?: boolean | undefined;
         maxContributingFactors?: number | undefined;

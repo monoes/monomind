@@ -1,7 +1,4 @@
----
-name: mastermind-orgstatus
-description: Show detailed status for a single org — lifecycle state, schedule, last/next run, recent activity, and roles. For scheduled orgs shows loop health.
----
+<!-- Show detailed status for a single org — lifecycle state, schedule, last/next run, recent activity, and roles. For scheduled orgs shows loop health. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 
@@ -54,6 +51,6 @@ session_id="mm-$(date -u +%Y%m%dT%H%M%S)"
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 ```
 
-Invoke `Skill("mastermind:orgstatus")` passing: org_name: `$org_name`, caller: "command".
+Invoke `Skill("mastermind-skills:orgstatus")` passing: org_name: `$org_name`, caller: "command".
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

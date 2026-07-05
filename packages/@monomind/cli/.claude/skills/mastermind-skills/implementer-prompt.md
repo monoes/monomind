@@ -30,7 +30,7 @@ Task tool (general-purpose):
 
     Once you're clear on requirements:
     1. Implement exactly what the task specifies
-    2. Write tests following TDD (use Skill("mastermind:tdd") if available)
+    2. Write tests following TDD (use Skill("mastermind-skills:tdd") if available)
     3. Verify implementation works
     4. Commit your work
     5. Self-review (see below)

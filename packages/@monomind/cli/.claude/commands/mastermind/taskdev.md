@@ -1,7 +1,4 @@
----
-name: mastermind-taskdev
-description: Execute an implementation plan task-by-task using fresh subagents with two-stage review per task. Default mode: auto.
----
+<!-- Execute an implementation plan task-by-task using fresh subagents with two-stage review per task. Default mode: auto. -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 
@@ -19,8 +16,8 @@ Default mode: **auto** (unless `--confirm` flag is present).
 
 ---
 
-Invoke `Skill("mastermind:taskdev")` passing: brain_context, plan_file, project_name, mode.
+Invoke `Skill("mastermind-skills:taskdev")` passing: brain_context, plan_file, project_name, mode.
 
 After skill returns: follow `_protocol.md` Brain Write Procedure.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

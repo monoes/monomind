@@ -1,6 +1,4 @@
----
-description: Draft an Architecture Decision Record from accumulated decision markers in this session's prompts
----
+<!-- Draft an Architecture Decision Record from accumulated decision markers in this session's prompts -->
 
 Run the hook handler's adr-draft action to scan `.monomind/decisions.jsonl` for the last 7 days of decision markers (e.g. "let's go with X", "we chose Y", "decision: Z") and produce an ADR template in `docs/adrs/`.
 

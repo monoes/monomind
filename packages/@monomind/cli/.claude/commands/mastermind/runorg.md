@@ -1,7 +1,4 @@
----
-name: mastermind-runorg
-description: Start a saved org as a persistent autonomous agent organization. The boss agent coordinates all roles; agents pick up tasks from a shared board and run until stopped.
----
+<!-- Start a saved org as a persistent autonomous agent organization. The boss agent coordinates all roles; agents pick up tasks from a shared board and run until stopped. -->
 
 **If $ARGUMENTS is empty:** List saved orgs and display the following.
 
@@ -57,7 +54,7 @@ Scan `$ARGUMENTS` for these flags and store their values. Remove them from the a
 | `--wait <N>` | `wait_seconds = N` | 60 |
 | `--repeat <N>` | `repeat_count = N` | 0 |
 
-⚠️ **CRITICAL — CONTINUATION RUNS DO NOT SKIP WORK.** When `--rep N` is present, this is a scheduled continuation triggered by ScheduleWakeup. The org's FULL work cycle MUST still execute every time: session variables → session:start event → Skill("mastermind:runorg") → session:complete event. NEVER short-circuit or skip the org work because `--rep` is present. The `--rep` / `--loop` flags are only consumed by `Skill("mastermind:_repeat")` at the end.
+⚠️ **CRITICAL — CONTINUATION RUNS DO NOT SKIP WORK.** When `--rep N` is present, this is a scheduled continuation triggered by ScheduleWakeup. The org's FULL work cycle MUST still execute every time: session variables → session:start event → Skill("mastermind-skills:runorg") → session:complete event. NEVER short-circuit or skip the org work because `--rep` is present. The `--rep` / `--loop` flags are only consumed by `Skill("mastermind-skills:_repeat")` at the end.
 
 ---
 
@@ -120,7 +117,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     '{type:"domain:dispatch",session:$session,domain:"ops",cmd:("Starting org "+$org+" as persistent daemon"),project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
-Invoke `Skill("mastermind:runorg")` passing: brain_context, org_name: `$org_name`, session_id: `$session_id`, task: task_override, caller: "command".
+Invoke `Skill("mastermind-skills:runorg")` passing: brain_context, org_name: `$org_name`, session_id: `$session_id`, task: task_override, caller: "command".
 
 After the skill spawns the boss agent and returns: note the status. Emit `session:complete`:
 ```bash
@@ -136,7 +133,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 Follow _protocol.md Brain Write Procedure for domain `ops`.
 
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
 
 After the REPEAT POSTAMBLE completes, if a loop was started or continued (LOOP_ID is set), write the org name into the loop state file so the dashboard can detect running status:
 ```bash

@@ -1,7 +1,4 @@
----
-name: mastermind-debug
-description: Systematic root-cause debugging — use before ANY fix attempt for bugs, test failures, unexpected behavior, build failures, or performance regressions. Enforces Phase 1 root-cause investigation before proposing fixes.
----
+<!-- Systematic root-cause debugging — use before ANY fix attempt for bugs, test failures, unexpected behavior, build failures, or performance regressions. Enforces Phase 1 root-cause investigation before proposing fixes. -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`.
 
@@ -15,8 +12,8 @@ Default mode: **auto** (proceed immediately; the skill gates on root-cause inves
 
 ---
 
-Invoke `Skill("mastermind:debug")` passing: brain_context, problem_description, mode.
+Invoke `Skill("mastermind-skills:debug")` passing: brain_context, problem_description, mode.
 
 After skill returns: follow `_protocol.md` Brain Write Procedure for domain `debug`.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

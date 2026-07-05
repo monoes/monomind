@@ -1,15 +1,4 @@
----
-name: mastermind:createtask
-description: "Mastermind — Ingest a prompt, file, or folder, deeply understand it, generate agent-optimized tasks saved to docs/tasks/ (default) or to a monotask board (--monotask flag)"
-version: 1.0.0
-triggers:
-  - /mastermind:createtask
-  - create tasks from spec
-  - decompose into tasks
-  - turn this into tasks
-  - break this down into tasks
-  - create implementation tasks
----
+<!-- "Mastermind — Ingest a prompt, file, or folder, deeply understand it, generate agent-optimized tasks saved to docs/tasks/ (default) or to a monotask board (--monotask flag)" -->
 
 If `$ARGUMENTS` is empty, output this and STOP:
 

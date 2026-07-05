@@ -1,7 +1,4 @@
----
-name: mastermind-memory
-description: LanceDB memory system — store, search, retrieve, list, delete, and manage cross-session persistent memory with vector embeddings
----
+<!-- LanceDB memory system — store, search, retrieve, list, delete, and manage cross-session persistent memory with vector embeddings -->
 
 # Monomind Memory System
 

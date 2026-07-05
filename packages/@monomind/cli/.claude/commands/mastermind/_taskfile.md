@@ -1,7 +1,4 @@
----
-name: _taskfile
-description: Shared file-based task/idea/improvement format for mastermind commands. Defines markdown structure, status enum, status transitions, prerequisite-unblock logic, and file paths. Referenced by createtask, do, ideate, and improve — do NOT duplicate this spec.
----
+<!-- Shared file-based task/idea/improvement format for mastermind commands. Defines markdown structure, status enum, status transitions, prerequisite-unblock logic, and file paths. Referenced by createtask, do, ideate, and improve — do NOT duplicate this spec. -->
 
 # Task File Format Spec
 

@@ -14,21 +14,21 @@ export declare const PredictDefectsInputSchema: z.ZodObject<{
     useSimilarPatterns: z.ZodDefault<z.ZodBoolean>;
     maxPredictions: z.ZodDefault<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
+    depth: "deep" | "medium" | "shallow";
     minConfidence: number;
-    depth: "medium" | "shallow" | "deep";
-    categories: ("security" | "performance" | "boundary" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[];
+    categories: ("boundary" | "security" | "performance" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[];
     targetPath: string;
+    maxPredictions: number;
     includeRootCause: boolean;
     useSimilarPatterns: boolean;
-    maxPredictions: number;
 }, {
     targetPath: string;
+    depth?: "deep" | "medium" | "shallow" | undefined;
     minConfidence?: number | undefined;
-    depth?: "medium" | "shallow" | "deep" | undefined;
-    categories?: ("security" | "performance" | "boundary" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[] | undefined;
+    categories?: ("boundary" | "security" | "performance" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[] | undefined;
+    maxPredictions?: number | undefined;
     includeRootCause?: boolean | undefined;
     useSimilarPatterns?: boolean | undefined;
-    maxPredictions?: number | undefined;
 }>;
 export type PredictDefectsInput = z.infer<typeof PredictDefectsInputSchema>;
 export interface PredictDefectsOutput {
@@ -129,21 +129,21 @@ export declare const toolDefinition: {
         useSimilarPatterns: z.ZodDefault<z.ZodBoolean>;
         maxPredictions: z.ZodDefault<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
+        depth: "deep" | "medium" | "shallow";
         minConfidence: number;
-        depth: "medium" | "shallow" | "deep";
-        categories: ("security" | "performance" | "boundary" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[];
+        categories: ("boundary" | "security" | "performance" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[];
         targetPath: string;
+        maxPredictions: number;
         includeRootCause: boolean;
         useSimilarPatterns: boolean;
-        maxPredictions: number;
     }, {
         targetPath: string;
+        depth?: "deep" | "medium" | "shallow" | undefined;
         minConfidence?: number | undefined;
-        depth?: "medium" | "shallow" | "deep" | undefined;
-        categories?: ("security" | "performance" | "boundary" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[] | undefined;
+        categories?: ("boundary" | "security" | "performance" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[] | undefined;
+        maxPredictions?: number | undefined;
         includeRootCause?: boolean | undefined;
         useSimilarPatterns?: boolean | undefined;
-        maxPredictions?: number | undefined;
     }>;
     handler: typeof handler;
 };
