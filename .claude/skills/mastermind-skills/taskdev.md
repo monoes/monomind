@@ -296,12 +296,12 @@ Done!
 ## Integration
 
 **Required workflow skills:**
-- `Skill("mastermind:plan")` - Creates the plan this skill executes
-- `Skill("mastermind:review")` - Code review template for reviewer subagents
-- `Skill("mastermind:finish")` - Complete development after all tasks done
+- `Skill("mastermind-skills:plan")` - Creates the plan this skill executes
+- `Skill("mastermind-skills:review")` - Code review template for reviewer subagents
+- `Skill("mastermind-skills:finish")` - Complete development after all tasks done
 
 **Subagents should use:**
-- `Skill("mastermind:tdd")` - Subagents follow TDD for each task
+- `Skill("mastermind-skills:tdd")` - Subagents follow TDD for each task
 
 **Alternative workflow:**
-- `Skill("mastermind:execute")` - Use for parallel session instead of same-session execution
+- `Skill("mastermind-skills:execute")` - Use for parallel session instead of same-session execution

@@ -1,7 +1,4 @@
----
-name: mastermind-techport
-description: Tech Port — deep-analyzes a foreign project folder and recommends porting valuable features, patterns, or infrastructure into the current monomind base project.
----
+<!-- Tech Port — deep-analyzes a foreign project folder and recommends porting valuable features, patterns, or infrastructure into the current monomind base project. -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check below.
 
@@ -23,8 +20,8 @@ Default mode: **confirm** (show analysis + port plan, wait before executing anyt
 > /mastermind:techport --tillend --auto /path/to/project
 > ```
 
-Invoke `Skill("mastermind:techport")` passing: source_path, focus_hint, mode.
+Invoke `Skill("mastermind-skills:techport")` passing: source_path, focus_hint, mode.
 
 After skill returns: follow `_protocol.md` Brain Write Procedure for domain `techport`.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

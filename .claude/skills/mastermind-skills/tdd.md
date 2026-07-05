@@ -137,7 +137,7 @@ Confirm:
 
 **Test errors?** Fix error, re-run until it fails correctly.
 
-Invoke `Skill("mastermind:verify")` to gate this step: the RED verification must confirm the test fails for the expected reason.
+Invoke `Skill("mastermind-skills:verify")` to gate this step: the RED verification must confirm the test fails for the expected reason.
 
 ### GREEN — Minimal Code
 
@@ -192,7 +192,7 @@ Confirm:
 
 **Other tests fail?** Fix now.
 
-Invoke `Skill("mastermind:verify")` to gate this step.
+Invoke `Skill("mastermind-skills:verify")` to gate this step.
 
 ### REFACTOR — Clean Up
 
@@ -350,7 +350,7 @@ Extract validation for multiple fields if needed.
 
 ## Verification Checklist
 
-Before marking work complete — invoke `Skill("mastermind:verify")` to run this gate:
+Before marking work complete — invoke `Skill("mastermind-skills:verify")` to run this gate:
 
 - [ ] Every new function/method has a test
 - [ ] Watched each test fail before implementing
