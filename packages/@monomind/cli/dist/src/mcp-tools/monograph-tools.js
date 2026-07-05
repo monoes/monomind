@@ -1139,29 +1139,16 @@ const monographApiImpactTool = {
 // ── monograph_embed ───────────────────────────────────────────────────────────
 const monographEmbedTool = {
     name: 'monograph_embed',
-    description: 'Embed all symbol nodes using Snowflake/snowflake-arctic-embed-xs (384D). Requires @huggingface/transformers. Enables hybrid BM25+vector search via MONOGRAPH_EMBEDDINGS=true.',
+    description: 'DEPRECATED — embeddings are disabled; monograph uses BM25 (FTS5) search. This tool is a no-op kept for backward compatibility.',
     inputSchema: {
         type: 'object',
         properties: {
-            codeOnly: { type: 'boolean', description: 'Only embed code symbol nodes (Functions, Classes, Methods), skip Document/Route/Tool nodes (default: false)' },
-            force: { type: 'boolean', description: 'Re-embed all nodes even if embeddings already exist (default: false)' },
+            codeOnly: { type: 'boolean', description: 'Ignored (embeddings are disabled)' },
+            force: { type: 'boolean', description: 'Ignored (embeddings are disabled)' },
         },
     },
-    handler: async (input) => {
-        const { openDb, closeDb } = await import('@monoes/monograph');
-        const { runEmbed } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
-        try {
-            const result = await runEmbed(db, { codeOnly: input.codeOnly ?? false, force: input.force ?? false });
-            return text(`Embedding complete.\n  model: ${result.model}\n  embedded: ${result.embedded}\n  skipped: ${result.skipped}`);
-        }
-        catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return text(`Embedding failed: ${msg}`);
-        }
-        finally {
-            closeDb(db);
-        }
+    handler: async () => {
+        return text('Embeddings are disabled — monograph uses BM25 (FTS5) search; this tool is deprecated and does nothing. Use monograph_query instead.');
     },
 };
 // ── monograph_cypher ──────────────────────────────────────────────────────────

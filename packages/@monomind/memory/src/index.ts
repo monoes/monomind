@@ -169,8 +169,6 @@ export { SQLiteBackend } from './sqlite-backend.js';
 export type { SQLiteBackendConfig } from './sqlite-backend.js';
 export { SqlJsBackend } from './sqljs-backend.js';
 export type { SqlJsBackendConfig } from './sqljs-backend.js';
-export { DiskAnnBackend } from './diskann-backend.js';
-export type { DiskAnnBackendConfig } from './diskann-backend.js';
 export { HNSWIndex } from './hnsw-index.js';
 export { CacheManager, TieredCacheManager } from './cache-manager.js';
 export { QueryBuilder, query, QueryTemplates } from './query-builder.js';
@@ -184,10 +182,9 @@ export { SwarmCheckpointer } from './checkpointer.js';
 export type { AgentState, SwarmCheckpoint, CheckpointMeta } from './types/checkpoint.js';
 
 // ===== Multi-Tier Memory (Task 09) =====
-export { TierManager } from './tier-manager.js';
 export { ShortTermMemory, EntityMemory, ContextualMemory } from './tiers/index.js';
 export type { EntityFact, SessionSummary } from './tiers/index.js';
-export type { MemoryTier, TierManagerConfig } from './types.js';
+export type { MemoryTier } from './types.js';
 
 // ===== Episodic Memory (Task 11) =====
 export { EpisodicStore } from './episodic-store.js';
