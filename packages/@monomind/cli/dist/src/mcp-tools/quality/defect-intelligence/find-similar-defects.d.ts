@@ -12,23 +12,54 @@ export declare const FindSimilarDefectsInputSchema: z.ZodObject<{
         file: z.ZodOptional<z.ZodString>;
         codeSnippet: z.ZodOptional<z.ZodString>;
         stackTrace: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
-    searchScope: z.ZodDefault<z.ZodEnum<{
-        project: "project";
-        organization: "organization";
-        global: "global";
-    }>>;
+    }, "strip", z.ZodTypeAny, {
+        description: string;
+        category?: string | undefined;
+        file?: string | undefined;
+        stackTrace?: string | undefined;
+        codeSnippet?: string | undefined;
+    }, {
+        description: string;
+        category?: string | undefined;
+        file?: string | undefined;
+        stackTrace?: string | undefined;
+        codeSnippet?: string | undefined;
+    }>;
+    searchScope: z.ZodDefault<z.ZodEnum<["project", "organization", "global"]>>;
     maxResults: z.ZodDefault<z.ZodNumber>;
     minSimilarity: z.ZodDefault<z.ZodNumber>;
     includeResolved: z.ZodDefault<z.ZodBoolean>;
     includeAnalysis: z.ZodDefault<z.ZodBoolean>;
-    groupBy: z.ZodDefault<z.ZodEnum<{
-        none: "none";
-        component: "component";
-        category: "category";
-        resolution: "resolution";
-    }>>;
-}, z.core.$strip>;
+    groupBy: z.ZodDefault<z.ZodEnum<["none", "category", "resolution", "component"]>>;
+}, "strip", z.ZodTypeAny, {
+    query: {
+        description: string;
+        category?: string | undefined;
+        file?: string | undefined;
+        stackTrace?: string | undefined;
+        codeSnippet?: string | undefined;
+    };
+    groupBy: "none" | "component" | "category" | "resolution";
+    searchScope: "project" | "organization" | "global";
+    maxResults: number;
+    minSimilarity: number;
+    includeResolved: boolean;
+    includeAnalysis: boolean;
+}, {
+    query: {
+        description: string;
+        category?: string | undefined;
+        file?: string | undefined;
+        stackTrace?: string | undefined;
+        codeSnippet?: string | undefined;
+    };
+    groupBy?: "none" | "component" | "category" | "resolution" | undefined;
+    searchScope?: "project" | "organization" | "global" | undefined;
+    maxResults?: number | undefined;
+    minSimilarity?: number | undefined;
+    includeResolved?: boolean | undefined;
+    includeAnalysis?: boolean | undefined;
+}>;
 export type FindSimilarDefectsInput = z.infer<typeof FindSimilarDefectsInputSchema>;
 export interface FindSimilarDefectsOutput {
     success: boolean;
@@ -124,23 +155,54 @@ export declare const toolDefinition: {
             file: z.ZodOptional<z.ZodString>;
             codeSnippet: z.ZodOptional<z.ZodString>;
             stackTrace: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>;
-        searchScope: z.ZodDefault<z.ZodEnum<{
-            project: "project";
-            organization: "organization";
-            global: "global";
-        }>>;
+        }, "strip", z.ZodTypeAny, {
+            description: string;
+            category?: string | undefined;
+            file?: string | undefined;
+            stackTrace?: string | undefined;
+            codeSnippet?: string | undefined;
+        }, {
+            description: string;
+            category?: string | undefined;
+            file?: string | undefined;
+            stackTrace?: string | undefined;
+            codeSnippet?: string | undefined;
+        }>;
+        searchScope: z.ZodDefault<z.ZodEnum<["project", "organization", "global"]>>;
         maxResults: z.ZodDefault<z.ZodNumber>;
         minSimilarity: z.ZodDefault<z.ZodNumber>;
         includeResolved: z.ZodDefault<z.ZodBoolean>;
         includeAnalysis: z.ZodDefault<z.ZodBoolean>;
-        groupBy: z.ZodDefault<z.ZodEnum<{
-            none: "none";
-            component: "component";
-            category: "category";
-            resolution: "resolution";
-        }>>;
-    }, z.core.$strip>;
+        groupBy: z.ZodDefault<z.ZodEnum<["none", "category", "resolution", "component"]>>;
+    }, "strip", z.ZodTypeAny, {
+        query: {
+            description: string;
+            category?: string | undefined;
+            file?: string | undefined;
+            stackTrace?: string | undefined;
+            codeSnippet?: string | undefined;
+        };
+        groupBy: "none" | "component" | "category" | "resolution";
+        searchScope: "project" | "organization" | "global";
+        maxResults: number;
+        minSimilarity: number;
+        includeResolved: boolean;
+        includeAnalysis: boolean;
+    }, {
+        query: {
+            description: string;
+            category?: string | undefined;
+            file?: string | undefined;
+            stackTrace?: string | undefined;
+            codeSnippet?: string | undefined;
+        };
+        groupBy?: "none" | "component" | "category" | "resolution" | undefined;
+        searchScope?: "project" | "organization" | "global" | undefined;
+        maxResults?: number | undefined;
+        minSimilarity?: number | undefined;
+        includeResolved?: boolean | undefined;
+        includeAnalysis?: boolean | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

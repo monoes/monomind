@@ -15,7 +15,8 @@ const { spawn } = require('child_process');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const STATUS_FILE = path.join(CWD, '.monomind', 'control.json');
-const DEFAULT_PORT = 4242;
+// Overridable for test isolation — production always uses the 4242 default.
+const DEFAULT_PORT = Number(process.env.MONOMIND_CONTROL_PORT) || 4242;
 
 function readStatus() {
   try {

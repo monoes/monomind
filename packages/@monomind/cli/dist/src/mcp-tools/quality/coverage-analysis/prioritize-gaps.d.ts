@@ -8,24 +8,25 @@ import { z } from 'zod';
 export declare const PrioritizeGapsInputSchema: z.ZodObject<{
     gaps: z.ZodOptional<z.ZodArray<z.ZodObject<{
         id: z.ZodString;
-        type: z.ZodEnum<{
-            function: "function";
-            line: "line";
-            branch: "branch";
-        }>;
+        type: z.ZodEnum<["line", "branch", "function"]>;
         file: z.ZodString;
         startLine: z.ZodNumber;
         endLine: z.ZodNumber;
-    }, z.core.$strip>>>;
+    }, "strip", z.ZodTypeAny, {
+        id: string;
+        type: "function" | "line" | "branch";
+        file: string;
+        startLine: number;
+        endLine: number;
+    }, {
+        id: string;
+        type: "function" | "line" | "branch";
+        file: string;
+        startLine: number;
+        endLine: number;
+    }>, "many">>;
     targetPath: z.ZodOptional<z.ZodString>;
-    factors: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-        complexity: "complexity";
-        "change-frequency": "change-frequency";
-        "defect-history": "defect-history";
-        "business-critical": "business-critical";
-        "dependency-count": "dependency-count";
-        "test-difficulty": "test-difficulty";
-    }>>>;
+    factors: z.ZodDefault<z.ZodArray<z.ZodEnum<["complexity", "change-frequency", "defect-history", "business-critical", "dependency-count", "test-difficulty"]>, "many">>;
     weights: z.ZodOptional<z.ZodObject<{
         complexity: z.ZodDefault<z.ZodNumber>;
         changeFrequency: z.ZodDefault<z.ZodNumber>;
@@ -33,15 +34,64 @@ export declare const PrioritizeGapsInputSchema: z.ZodObject<{
         businessCritical: z.ZodDefault<z.ZodNumber>;
         dependencyCount: z.ZodDefault<z.ZodNumber>;
         testDifficulty: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>>;
-    limit: z.ZodDefault<z.ZodNumber>;
-    groupBy: z.ZodDefault<z.ZodEnum<{
-        none: "none";
-        type: "type";
-        file: "file";
-        risk: "risk";
+    }, "strip", z.ZodTypeAny, {
+        complexity: number;
+        changeFrequency: number;
+        defectHistory: number;
+        businessCritical: number;
+        dependencyCount: number;
+        testDifficulty: number;
+    }, {
+        complexity?: number | undefined;
+        changeFrequency?: number | undefined;
+        defectHistory?: number | undefined;
+        businessCritical?: number | undefined;
+        dependencyCount?: number | undefined;
+        testDifficulty?: number | undefined;
     }>>;
-}, z.core.$strip>;
+    limit: z.ZodDefault<z.ZodNumber>;
+    groupBy: z.ZodDefault<z.ZodEnum<["risk", "file", "type", "none"]>>;
+}, "strip", z.ZodTypeAny, {
+    limit: number;
+    factors: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[];
+    groupBy: "none" | "type" | "file" | "risk";
+    weights?: {
+        complexity: number;
+        changeFrequency: number;
+        defectHistory: number;
+        businessCritical: number;
+        dependencyCount: number;
+        testDifficulty: number;
+    } | undefined;
+    gaps?: {
+        id: string;
+        type: "function" | "line" | "branch";
+        file: string;
+        startLine: number;
+        endLine: number;
+    }[] | undefined;
+    targetPath?: string | undefined;
+}, {
+    limit?: number | undefined;
+    weights?: {
+        complexity?: number | undefined;
+        changeFrequency?: number | undefined;
+        defectHistory?: number | undefined;
+        businessCritical?: number | undefined;
+        dependencyCount?: number | undefined;
+        testDifficulty?: number | undefined;
+    } | undefined;
+    gaps?: {
+        id: string;
+        type: "function" | "line" | "branch";
+        file: string;
+        startLine: number;
+        endLine: number;
+    }[] | undefined;
+    targetPath?: string | undefined;
+    factors?: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[] | undefined;
+    groupBy?: "none" | "type" | "file" | "risk" | undefined;
+}>;
 export type PrioritizeGapsInput = z.infer<typeof PrioritizeGapsInputSchema>;
 export interface PrioritizeGapsOutput {
     success: boolean;
@@ -121,24 +171,25 @@ export declare const toolDefinition: {
     inputSchema: z.ZodObject<{
         gaps: z.ZodOptional<z.ZodArray<z.ZodObject<{
             id: z.ZodString;
-            type: z.ZodEnum<{
-                function: "function";
-                line: "line";
-                branch: "branch";
-            }>;
+            type: z.ZodEnum<["line", "branch", "function"]>;
             file: z.ZodString;
             startLine: z.ZodNumber;
             endLine: z.ZodNumber;
-        }, z.core.$strip>>>;
+        }, "strip", z.ZodTypeAny, {
+            id: string;
+            type: "function" | "line" | "branch";
+            file: string;
+            startLine: number;
+            endLine: number;
+        }, {
+            id: string;
+            type: "function" | "line" | "branch";
+            file: string;
+            startLine: number;
+            endLine: number;
+        }>, "many">>;
         targetPath: z.ZodOptional<z.ZodString>;
-        factors: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-            complexity: "complexity";
-            "change-frequency": "change-frequency";
-            "defect-history": "defect-history";
-            "business-critical": "business-critical";
-            "dependency-count": "dependency-count";
-            "test-difficulty": "test-difficulty";
-        }>>>;
+        factors: z.ZodDefault<z.ZodArray<z.ZodEnum<["complexity", "change-frequency", "defect-history", "business-critical", "dependency-count", "test-difficulty"]>, "many">>;
         weights: z.ZodOptional<z.ZodObject<{
             complexity: z.ZodDefault<z.ZodNumber>;
             changeFrequency: z.ZodDefault<z.ZodNumber>;
@@ -146,15 +197,64 @@ export declare const toolDefinition: {
             businessCritical: z.ZodDefault<z.ZodNumber>;
             dependencyCount: z.ZodDefault<z.ZodNumber>;
             testDifficulty: z.ZodDefault<z.ZodNumber>;
-        }, z.core.$strip>>;
-        limit: z.ZodDefault<z.ZodNumber>;
-        groupBy: z.ZodDefault<z.ZodEnum<{
-            none: "none";
-            type: "type";
-            file: "file";
-            risk: "risk";
+        }, "strip", z.ZodTypeAny, {
+            complexity: number;
+            changeFrequency: number;
+            defectHistory: number;
+            businessCritical: number;
+            dependencyCount: number;
+            testDifficulty: number;
+        }, {
+            complexity?: number | undefined;
+            changeFrequency?: number | undefined;
+            defectHistory?: number | undefined;
+            businessCritical?: number | undefined;
+            dependencyCount?: number | undefined;
+            testDifficulty?: number | undefined;
         }>>;
-    }, z.core.$strip>;
+        limit: z.ZodDefault<z.ZodNumber>;
+        groupBy: z.ZodDefault<z.ZodEnum<["risk", "file", "type", "none"]>>;
+    }, "strip", z.ZodTypeAny, {
+        limit: number;
+        factors: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[];
+        groupBy: "none" | "type" | "file" | "risk";
+        weights?: {
+            complexity: number;
+            changeFrequency: number;
+            defectHistory: number;
+            businessCritical: number;
+            dependencyCount: number;
+            testDifficulty: number;
+        } | undefined;
+        gaps?: {
+            id: string;
+            type: "function" | "line" | "branch";
+            file: string;
+            startLine: number;
+            endLine: number;
+        }[] | undefined;
+        targetPath?: string | undefined;
+    }, {
+        limit?: number | undefined;
+        weights?: {
+            complexity?: number | undefined;
+            changeFrequency?: number | undefined;
+            defectHistory?: number | undefined;
+            businessCritical?: number | undefined;
+            dependencyCount?: number | undefined;
+            testDifficulty?: number | undefined;
+        } | undefined;
+        gaps?: {
+            id: string;
+            type: "function" | "line" | "branch";
+            file: string;
+            startLine: number;
+            endLine: number;
+        }[] | undefined;
+        targetPath?: string | undefined;
+        factors?: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[] | undefined;
+        groupBy?: "none" | "type" | "file" | "risk" | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

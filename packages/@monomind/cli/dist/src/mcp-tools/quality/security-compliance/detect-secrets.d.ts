@@ -7,25 +7,29 @@
 import { z } from 'zod';
 export declare const DetectSecretsInputSchema: z.ZodObject<{
     targetPath: z.ZodString;
-    secretTypes: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-        password: "password";
-        "api-key": "api-key";
-        "private-key": "private-key";
-        token: "token";
-        "connection-string": "connection-string";
-        certificate: "certificate";
-        "aws-key": "aws-key";
-        "aws-secret": "aws-secret";
-        "gcp-key": "gcp-key";
-        "azure-key": "azure-key";
-        generic: "generic";
-    }>>>;
-    excludePatterns: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    secretTypes: z.ZodDefault<z.ZodArray<z.ZodEnum<["api-key", "password", "private-key", "token", "connection-string", "certificate", "aws-key", "aws-secret", "gcp-key", "azure-key", "generic"]>, "many">>;
+    excludePatterns: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     includeEntropy: z.ZodDefault<z.ZodBoolean>;
     entropyThreshold: z.ZodDefault<z.ZodNumber>;
     verifySecrets: z.ZodDefault<z.ZodBoolean>;
     scanHistory: z.ZodDefault<z.ZodBoolean>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    targetPath: string;
+    excludePatterns: string[];
+    secretTypes: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[];
+    includeEntropy: boolean;
+    entropyThreshold: number;
+    verifySecrets: boolean;
+    scanHistory: boolean;
+}, {
+    targetPath: string;
+    excludePatterns?: string[] | undefined;
+    secretTypes?: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[] | undefined;
+    includeEntropy?: boolean | undefined;
+    entropyThreshold?: number | undefined;
+    verifySecrets?: boolean | undefined;
+    scanHistory?: boolean | undefined;
+}>;
 export type DetectSecretsInput = z.infer<typeof DetectSecretsInputSchema>;
 export interface DetectSecretsOutput {
     success: boolean;
@@ -104,25 +108,29 @@ export declare const toolDefinition: {
     version: string;
     inputSchema: z.ZodObject<{
         targetPath: z.ZodString;
-        secretTypes: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-            password: "password";
-            "api-key": "api-key";
-            "private-key": "private-key";
-            token: "token";
-            "connection-string": "connection-string";
-            certificate: "certificate";
-            "aws-key": "aws-key";
-            "aws-secret": "aws-secret";
-            "gcp-key": "gcp-key";
-            "azure-key": "azure-key";
-            generic: "generic";
-        }>>>;
-        excludePatterns: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        secretTypes: z.ZodDefault<z.ZodArray<z.ZodEnum<["api-key", "password", "private-key", "token", "connection-string", "certificate", "aws-key", "aws-secret", "gcp-key", "azure-key", "generic"]>, "many">>;
+        excludePatterns: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
         includeEntropy: z.ZodDefault<z.ZodBoolean>;
         entropyThreshold: z.ZodDefault<z.ZodNumber>;
         verifySecrets: z.ZodDefault<z.ZodBoolean>;
         scanHistory: z.ZodDefault<z.ZodBoolean>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        targetPath: string;
+        excludePatterns: string[];
+        secretTypes: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[];
+        includeEntropy: boolean;
+        entropyThreshold: number;
+        verifySecrets: boolean;
+        scanHistory: boolean;
+    }, {
+        targetPath: string;
+        excludePatterns?: string[] | undefined;
+        secretTypes?: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[] | undefined;
+        includeEntropy?: boolean | undefined;
+        entropyThreshold?: number | undefined;
+        verifySecrets?: boolean | undefined;
+        scanHistory?: boolean | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;
