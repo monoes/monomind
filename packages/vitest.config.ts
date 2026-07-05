@@ -32,6 +32,7 @@ export default defineConfig({
       '**/node_modules/**',
       '**/dist/**',
       '**/.git/**',
+      '**/._*',
     ],
 
     // Coverage configuration - London School targets

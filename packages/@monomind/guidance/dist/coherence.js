@@ -226,11 +226,17 @@ export class EconomicGovernor {
             durationMs,
             timestamp: Date.now(),
         });
+        // Cap log to prevent unbounded growth on long-lived governor instances
+        if (this.toolCallLog.length > 1000) {
+            this.toolCallLog.splice(0, this.toolCallLog.length - 1000);
+        }
     }
     /**
      * Record storage usage in bytes.
      */
     recordStorageUsage(bytes) {
+        if (bytes < 0)
+            return;
         this.storageUsed += bytes;
     }
     /**
@@ -366,7 +372,7 @@ function clamp(value, min, max) {
 }
 function safePercentage(used, limit) {
     if (limit <= 0)
-        return 0;
+        return 100;
     return (used / limit) * 100;
 }
 //# sourceMappingURL=coherence.js.map
