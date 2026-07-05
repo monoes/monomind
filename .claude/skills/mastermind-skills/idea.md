@@ -13,7 +13,7 @@ This skill is invoked by `mastermind:master` or directly via `/mastermind:idea`.
 
 **File mode (default, `USE_MONOTASK=false`):**
 
-Invoke `Skill("mastermind:ideate", $ARGUMENTS)` immediately — it provides the same research, evaluation, elaboration, and task-decomposition pipeline with file-first storage (`docs/ideas/` and `docs/tasks/`). The rest of this skill is skipped in file mode.
+Invoke `Skill("mastermind-skills:ideate", $ARGUMENTS)` immediately — it provides the same research, evaluation, elaboration, and task-decomposition pipeline with file-first storage (`docs/ideas/` and `docs/tasks/`). The rest of this skill is skipped in file mode.
 
 **Board mode (`USE_MONOTASK=true`):**
 

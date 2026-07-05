@@ -137,7 +137,7 @@ Once you understand WHERE the break is, find existing working examples:
 
 1. **Write a failing test first** (before touching production code)
    - Automated test where possible
-   - Use `Skill("mastermind:build")` with a test-only prompt if needed
+   - Use `Skill("mastermind-skills:build")` with a test-only prompt if needed
    - The test MUST fail before the fix proves it
 
 2. **Implement a single fix**
@@ -150,7 +150,7 @@ Once you understand WHERE the break is, find existing working examples:
    - Test passes now?
    - No other tests broken?
    - Issue actually resolved?
-   - Use `Skill("mastermind:review")` to verify before declaring done
+   - Use `Skill("mastermind-skills:review")` to verify before declaring done
 
 4. **If the fix doesn't work:**
    - STOP

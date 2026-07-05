@@ -130,11 +130,11 @@ Default mode: **confirm** (or **auto** for low-risk/fast skills).
 
 ---
 
-Invoke `Skill("mastermind:[name]")` passing: brain_context, params, mode.
+Invoke `Skill("mastermind-skills:[name]")` passing: brain_context, params, mode.
 
 After skill returns: follow `_protocol.md` Brain Write Procedure.
 
-Invoke `Skill("mastermind:_repeat")` now. Required — do not skip.
+Invoke `Skill("mastermind-skills:_repeat")` now. Required — do not skip.
 ```
 
 ## Claude Search Optimization (CSO)
@@ -176,15 +176,15 @@ Use words Claude would search for:
 
 **Techniques:**
 - Reference other skills instead of repeating content
-- Use cross-references: `**REQUIRED BACKGROUND:** Use Skill("mastermind:X")`
+- Use cross-references: `**REQUIRED BACKGROUND:** Use Skill("mastermind-skills:X")`
 - One excellent example beats many mediocre ones
 
 ### Cross-Referencing Other Skills
 
 ```markdown
 # GOOD: Explicit requirement marker
-**REQUIRED SUB-SKILL:** Use Skill("mastermind:worktree")
-**REQUIRED BACKGROUND:** You MUST understand Skill("mastermind:finish")
+**REQUIRED SUB-SKILL:** Use Skill("mastermind-skills:worktree")
+**REQUIRED BACKGROUND:** You MUST understand Skill("mastermind-skills:finish")
 
 # BAD: Unclear if required
 See mastermind/worktree.md

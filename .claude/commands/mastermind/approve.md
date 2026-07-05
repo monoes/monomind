@@ -1,7 +1,4 @@
----
-name: mastermind-approve
-description: Review and action pending approval requests from agents in a running org.
----
+<!-- Review and action pending approval requests from agents in a running org. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 
@@ -77,7 +74,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     '{type:"session:start",session:$session,domain:"ops",prompt:("Approve requests for org: "+$org),mode:"confirm",project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
-Invoke `Skill("mastermind:approve")` passing: brain_context, org_name, action, approval_id, reason, caller: "command".
+Invoke `Skill("mastermind-skills:approve")` passing: brain_context, org_name, action, approval_id, reason, caller: "command".
 
 After skill returns: note the status. Emit `session:complete`:
 ```bash
@@ -91,4 +88,4 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 
 Follow _protocol.md Brain Write Procedure for domain `ops`.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

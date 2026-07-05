@@ -67,47 +67,54 @@ Reject any `org_name` that does not match `^[a-z0-9][a-z0-9-]{0,63}$`.
 
 Parse `roles_desc` (if provided) into a list of role titles. If not provided, derive a set of roles from `prompt` by identifying the human functions needed to achieve the goal.
 
-**Required roles to always include** (if the prompt implies a team — **skip this rule for persona-based orgs** where the characters themselves define the structure; do not inject a generic coordinator into a celebrity panel):
+**Required roles to include when deriving roles from the prompt** (**skip this rule for persona-based orgs** where the characters themselves define the structure; do not inject a generic coordinator into a celebrity panel):
 - A coordinator/boss role that owns the goal and makes final decisions
 - At least one executor role that does the primary work
 - A reviewer or QA role if quality output is implied
 - A communication layer (middle manager) if team size ≥ 4
 
-> ⚠ **Check Step 2.3 (Persona / Character Detection) BEFORE applying this table.** If the org is persona-based (roles are named real people, celebrities, or fictional characters), skip this table for those roles and follow Step 2.3 instead.
+**If the user provided an explicit `roles_desc`, their list is authoritative — never silently inject roles into it.** If a structural role above is missing (e.g. no coordinator, or ≥4 roles with no middle manager), in confirm mode note the gap in the Step 5 plan as a one-line suggestion ("Suggestion: add a coordinator — none in your list; reply 'add it' or 'go' to keep as-is"); in auto mode, create exactly the roles listed.
 
-**Role → Agent Type mapping table** (use exact `subagent_type` slug for Task tool):
+**Step 2.2 — Detect the org's domain.** From the goal/prompt, classify the org's domain in one or two words (e.g. `software-engineering`, `content-marketing`, `sports-analytics`, `legal`, `medical`, `finance`). This drives agent-type resolution below.
 
-| User role keyword | Agent type slug | Specialty |
+> ⚠ **Check Step 2.3 (Persona / Character Detection) BEFORE resolving agent types.** If the org is persona-based (roles are named real people, celebrities, or fictional characters), skip the roster below for those roles and follow Step 2.3 instead.
+
+**Step 2.4 — Resolve each role's `agent_type` (domain-fit first).**
+
+The premade roster below is a set of **candidates, not defaults**. Every premade agent is domain-scoped — `reviewer` reviews *code*, `tester` tests *software*, `Content Creator` writes *marketing content*. A keyword match alone is never enough to use one; the agent's domain must also match the role's actual job in this org.
+
+| Premade agent slug | Its domain | Candidate for role keywords |
 |---|---|---|
-| boss / ceo / director / lead / chief | `coordinator` | Strategic oversight, final decisions |
-| content writer / writer / copywriter | `Content Creator` | Blog posts, copy, articles |
-| content reviewer / editor | `reviewer` | Review quality, accuracy, tone (use `reviewer`, not `Code Reviewer`) |
-| marketer / marketing / growth | `Growth Hacker` | Campaigns, acquisition, channels |
-| designer / ui / ux / visual | `Monodesign` | Visuals, UI, brand |
-| middle manager / manager | `Project Shepherd` | Sprint planning, cross-team coordination |
-| engineer / developer / coder / dev | `coder` | Code implementation |
-| researcher / analyst | `researcher` | Research, data, insights |
-| seo / search | `SEO Specialist` | SEO, search strategy |
-| social media / social | `Social Media Strategist` | Social content and engagement |
-| product / product manager | `Product Manager` | Roadmap, prioritization |
-| qa / tester | `tester` | Quality assurance, testing |
+| `coordinator` | any (domain-neutral orchestration) | boss / ceo / director / lead / chief |
+| `Project Shepherd` | any (domain-neutral coordination) | middle manager / manager |
+| `researcher` | general research | researcher (broad research roles only) |
+| `coder` | software | engineer / developer / coder / dev |
+| `reviewer` | software — code review | code reviewer |
+| `tester` | software — QA/testing | qa / tester (of software) |
+| `Content Creator` | content/marketing | content writer / copywriter |
+| `Growth Hacker` | marketing | marketer / growth |
+| `SEO Specialist` | search marketing | seo / search |
+| `Social Media Strategist` | social marketing | social media / social |
+| `Product Manager` | product/software | product / product manager |
+| `Monodesign` | design/UI/brand | designer / ui / ux / visual |
 
-If a role doesn't match any keyword **and the org's domain is far from software** (legal, medical, finance, creative, etc.), do NOT force a mismatched generic type whose instructions are about the wrong domain (e.g. a court reporter mapped to the code `reviewer`). Instead coin a role-specific `agent_type` slug from the role title (slugify: `Court Reporter` → `court-reporter`, `Prosecutor` → `prosecutor`) and generate a fitting definition for it in Step 2.5. Only fall back to `general-purpose` when no sensible slug applies.
+**Resolution procedure — apply to each role in order:**
 
-**For technical/engineering orgs** (DevBot, code quality, CI/CD, data pipelines, etc.), coin a precise domain slug for every specialized role rather than forcing it into a generic category:
-- `Churn Analyst` → `churn-analyst` (git churn analysis, not a financial analyst)
-- `Complexity Scanner` → `complexity-scanner` (static analysis, cyclomatic complexity)
-- `Impact Assessor` → `impact-assessor` (code change blast-radius scoring)
-- `Validator` → `code-validator` (applies patches, runs tests, enforces kill switch)
-- `Orchestrator` (in a devbot) → `devbot-orchestrator` (4-phase pipeline boss, not generic coordinator)
+1. **Persona role** (Step 2.3) → coin the character slug; skip the roster.
+2. Find a roster candidate by role keyword.
+3. **Domain-fit gate:** accept the candidate ONLY if its domain column matches what this role actually does in *this org's* domain (Step 2.2). A "reviewer" in a football-analysis org reviews match analyses, not code — `reviewer` fails the gate. An "analyst" there analyzes matches, not general research — `researcher` fails too. When in doubt, the gate fails.
+4. **Gate passed, generic role** → reuse the premade slug as-is.
+5. **Gate passed, use-case-specific role** (e.g. a content writer for a niche audience) → still reuse the premade slug; put the specialization into the role's `responsibilities` and the org goal (runorg passes both to the agent). Do not fork the definition for mere topical focus.
+6. **No candidate, or gate failed** → coin a role-specific slug from the role title (`Football Analyst` → `football-analyst`, `Court Reporter` → `court-reporter`, `Churn Analyst` → `churn-analyst`, devbot `Orchestrator` → `devbot-orchestrator`) and fully generate its definition in Step 2.5 — skills, instructions, and I/O contracts all authored for this role in this org's domain. If a rejected candidate was structurally close, its definition may seed the *shape* of the generated one, but every line must be rewritten for the actual domain.
+7. `general-purpose` is a last resort, only when no sensible slug applies. Never map an editor/content-reviewer role to `reviewer` — that agent is code review; coin `content-editor` (or similar) and generate.
 
-The coined slug + a generated definition at `.claude/agents/generated/<slug>.md` is always better than a generic type whose system prompt talks about a completely different job.
+**A coined slug + generated definition always beats a premade agent whose system prompt describes a different job.** runorg and the dashboard load whatever definition matches `agent_type` — a football org whose analyst is `researcher` or whose reviewer is `reviewer` gets the wrong instructions at run time. That is a bug, not a fallback.
 
 ---
 
-## Step 2.3 — Persona / Character Detection (run BEFORE the mapping table above)
+## Step 2.3 — Persona / Character Detection (run BEFORE the Step 2.4 resolution above)
 
-**Before applying the mapping table above, detect whether this org is persona-based:**
+**Before resolving agent types via Step 2.4, detect whether this org is persona-based:**
 
 A role is **persona-based** if its title is:
 - A named real person (e.g. "Donald Trump", "Elon Musk", "Steve Jobs")
@@ -118,7 +125,7 @@ An org is **persona-based** if ≥ 50% of its roles are character names, OR the 
 
 **If persona-based:**
 
-1. **Ignore the mapping table entirely for these roles.** Do NOT map "Donald Trump" → `coder`, "Elon Musk" → `researcher`, etc.
+1. **Ignore the premade roster entirely for these roles.** Do NOT map "Donald Trump" → `coder`, "Elon Musk" → `researcher`, etc.
 
 2. **Coin a character-specific `agent_type` slug** from the character's name:
    - `Donald Trump` → `donald-trump`
@@ -132,9 +139,9 @@ An org is **persona-based** if ≥ 50% of its roles are character names, OR the 
 
 4. **The generated agent definition** (written in Step 2.5) must read as that character — their voice, stance, known views, communication style. It is a character simulation, not a generic role.
 
-5. **Non-character roles in the same org** (e.g. "Moderator", "Audience") should use the standard mapping table or a role-coined slug as appropriate.
+5. **Non-character roles in the same org** (e.g. "Moderator", "Audience") go through the normal Step 2.4 resolution (roster + domain-fit gate, or a role-coined slug).
 
-**If NOT persona-based:** proceed normally with the mapping table.
+**If NOT persona-based:** proceed normally with Step 2.4.
 
 ---
 
@@ -153,7 +160,7 @@ at="<agent_type>"
 existing=$(grep -rils "^name:[[:space:]]*${at}\$" .claude/agents 2>/dev/null | head -1)
 [ -z "$existing" ] && existing=$(find .claude/agents -iname "${at}.md" 2>/dev/null | head -1)
 ```
-A definition is **usable** only if it exists AND its domain fits this role. A curated def whose instructions are about a different domain (e.g. `reviewer.md` = code review, applied to a "Court Reporter") does **not** count as usable — treat it as missing and coin a role-specific `agent_type` (see Step 2 note).
+A definition is **usable** only if it exists AND it passed the Step 2.4 domain-fit gate (its instructions describe this role's actual job in this org's domain). A curated def about a different domain (e.g. `reviewer.md` = code review, applied to a "Court Reporter" or "Match Reviewer") does **not** count as usable — treat it as missing, coin a role-specific `agent_type` per Step 2.4 rule 6, and generate.
 
 **2. If no usable definition exists, generate one** at `.claude/agents/generated/<agent_type>.md`. Author it specifically for this role and this org's goal — never a generic stub. Use this shape:
 
@@ -208,6 +215,8 @@ The dashboard agent drawer and `runorg` both read these definitions (matched by 
 ## Step 2.6 — COMPLETENESS GATE (BLOCKING — do not proceed to Step 3 until all checks pass)
 
 This gate prevents saving an org where the dashboard will show "No instruction document" or blank skills. **Run these checks now — one Bash call per role:**
+
+**Check 0 — domain fit (judgment, per role using a premade slug):** for every role whose `agent_type` comes from the Step 2.4 roster, re-confirm the gate: the premade agent's definition describes this role's actual job in *this org's* domain. If not, go back to Step 2.4 rule 6 — coin a slug and generate. An org outside the roster's domains (sports, legal, medical, etc.) should have **zero domain-scoped** roster slugs (`coder`, `reviewer`, `tester`, `researcher`, etc.); domain-neutral slugs (`coordinator`, `Project Shepherd`) and roles whose *function itself* matches a premade (e.g. a content writer publishing that org's output → `Content Creator`, per rule 5) remain valid reuses.
 
 For each role in the org:
 
@@ -323,7 +332,7 @@ Ask the user (or infer from prompt) for the optional Paperclip-style fields:
     {
       "id": "<slug>",
       "title": "<display title>",
-      "agent_type": "<subagent_type slug — from Step 2.3 character slug for persona roles, or from mapping table for functional roles>",
+      "agent_type": "<subagent_type slug — from Step 2.3 character slug for persona roles, or from the Step 2.4 resolution (reused premade or coined+generated) for functional roles>",
       "responsibilities": ["<1-3 bullet responsibilities>"],
       "reports_to": "<role id or null>",
       "skills": ["<populated from the generated def's expertise in Step 2.5 — never left empty>"],

@@ -1,7 +1,4 @@
----
-name: _repeat
-description: Shared inter-session repeat protocol. Referenced by mastermind and monomind commands via "Follow the Repeat Preamble/Postamble from _repeat.md".
----
+<!-- Shared inter-session repeat protocol. Referenced by mastermind and monomind commands via "Follow the Repeat Preamble/Postamble from _repeat.md". -->
 
 ## Shared Repeat Protocol
 
