@@ -1,13 +1,13 @@
 # Graph Report
 
-_Generated: 2026-07-05T11:06:43.463Z_
+_Generated: 2026-07-05T19:25:38.129Z_
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
-| Total nodes | 19915 |
-| Total edges | 26456 |
+| Total nodes | 19916 |
+| Total edges | 26465 |
 | Communities | 757 |
 
 ## Nodes by Type
@@ -16,7 +16,7 @@ _Generated: 2026-07-05T11:06:43.463Z_
 |-------|-------|
 | Function | 9964 |
 | Variable | 2623 |
-| Method | 2541 |
+| Method | 2542 |
 | Interface | 2435 |
 | File | 1320 |
 | Class | 448 |
@@ -33,10 +33,10 @@ _Generated: 2026-07-05T11:06:43.463Z_
 
 | Relation | Count |
 |----------|-------|
-| CONTAINS | 18856 |
-| CALLS | 5996 |
+| CONTAINS | 18857 |
+| CALLS | 5997 |
 | IMPORTS | 651 |
-| REFERENCES | 322 |
+| REFERENCES | 329 |
 | ENTRY_POINT_OF | 300 |
 | STEP_IN_PROCESS | 300 |
 | HAS_FIELD | 29 |
@@ -69,7 +69,7 @@ _Generated: 2026-07-05T11:06:43.463Z_
 - **community-200(packages__monomind_g)** (id: 200) — 231 members
 - **community-4(packages__monoes_mon)** (id: 4) — 216 members
 - **community-26(packages__monomind_c)** (id: 26) — 201 members
-- **community-309(packages__monomind_m)** (id: 309) — 189 members
+- **community-309(packages__monomind_m)** (id: 309) — 190 members
 - **community-163(packages__monomind_m)** (id: 163) — 154 members
 - **community-18(tests_memory_memory_)** (id: 18) — 146 members
 - **community-191(packages__monomind_g)** (id: 191) — 132 members
@@ -826,8 +826,8 @@ _No stale files detected._
 
 | Confidence | Count | Percentage |
 |-----------|-------|------------|
-| EXTRACTED | 25482 | 96.3% |
-| INFERRED | 974 | 3.7% |
+| EXTRACTED | 25484 | 96.3% |
+| INFERRED | 981 | 3.7% |
 
 ## Suggested Questions
 
@@ -858,16 +858,16 @@ _No stale files detected._
 
 Nodes with no edges — may indicate dead code or missing imports:
 
-- **Variable** `__dirname`
-- **Variable** `cliPath`
-- **Variable** `__dirname`
-- **Variable** `cliPath`
-- **Variable** `DOM_CAPTURE_EXPR`
-- **Variable** `SYSTEM_PROMPT`
-- **Variable** `geminiAdapter`
-- **Variable** `googleAdapter`
-- **Variable** `adapters`
-- **Variable** `instagramAdapter`
+- **Variable** `nodes`
+- **Variable** `graphCapability`
+- **Variable** `FIXTURES`
+- **Variable** `DATA_EXTENSIONS`
+- **Variable** `indexedData`
+- **Variable** `enrichCommand`
+- **Variable** `TYPE_ICONS`
+- **Variable** `TYPE_LABELS`
+- **Variable** `searchUniversalCommand`
+- **Variable** `scanCommand`
 
 ### Thin Communities (10)
 
