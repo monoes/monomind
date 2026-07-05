@@ -1,7 +1,4 @@
----
-name: mastermind-finish
-description: Use when implementation is complete and you need to decide how to integrate the work — merge locally, create a PR, keep the branch, or discard
----
+<!-- Use when implementation is complete and you need to decide how to integrate the work — merge locally, create a PR, keep the branch, or discard -->
 
 **First — extract repeat flags:** Follow REPEAT PREAMBLE from `_repeat.md`.
 
@@ -13,8 +10,8 @@ Default mode: **confirm**.
 
 ---
 
-Invoke `Skill("mastermind:finish")` passing: brain_context, params, mode.
+Invoke `Skill("mastermind-skills:finish")` passing: brain_context, params, mode.
 
 After skill returns: follow `_protocol.md` Brain Write Procedure.
 
-Invoke `Skill("mastermind:_repeat")` now. Required — do not skip.
+Invoke `Skill("mastermind-skills:_repeat")` now. Required — do not skip.

@@ -1,7 +1,4 @@
----
-name: mastermind:understand
-description: "Monomind — Run semantic enrichment on the current project's monograph knowledge graph. Uses the active Claude Code session for LLM work — no API key needed."
----
+<!-- "Monomind — Run semantic enrichment on the current project's monograph knowledge graph. Uses the active Claude Code session for LLM work — no API key needed." -->
 
 # /mastermind:understand — Semantic Enrichment
 

@@ -1,7 +1,4 @@
----
-name: mastermind-tdd
-description: Implement a feature or bugfix using Test-Driven Development — Red-Green-Refactor with the Iron Law enforced.
----
+<!-- Implement a feature or bugfix using Test-Driven Development — Red-Green-Refactor with the Iron Law enforced. -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`.
 
@@ -15,8 +12,8 @@ Default mode: **auto**.
 
 ---
 
-Invoke `Skill("mastermind:tdd")` passing: brain_context, feature_or_bug, project_name, mode.
+Invoke `Skill("mastermind-skills:tdd")` passing: brain_context, feature_or_bug, project_name, mode.
 
 After skill returns: follow `_protocol.md` Brain Write Procedure for domain `tdd`.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

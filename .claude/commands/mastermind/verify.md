@@ -1,7 +1,4 @@
----
-name: mastermind-verify
-description: Run the verification gate before claiming any work is complete, fixed, or passing — evidence before assertions always.
----
+<!-- Run the verification gate before claiming any work is complete, fixed, or passing — evidence before assertions always. -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`.
 
@@ -15,8 +12,8 @@ Default mode: **auto**.
 
 ---
 
-Invoke `Skill("mastermind:verify")` passing: brain_context, claim_or_task, project_name, mode.
+Invoke `Skill("mastermind-skills:verify")` passing: brain_context, claim_or_task, project_name, mode.
 
 After skill returns: follow `_protocol.md` Brain Write Procedure for domain `verify`.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

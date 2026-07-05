@@ -1,7 +1,4 @@
----
-name: mastermind:ideate
-description: "Mastermind — Research ideas from a prompt, evaluate them with a PM lens, elaborate, and decompose into subtasks saved to docs/ideas/ (default) or monotask boards (--monotask flag)"
----
+<!-- "Mastermind — Research ideas from a prompt, evaluate them with a PM lens, elaborate, and decompose into subtasks saved to docs/ideas/ (default) or monotask boards (--monotask flag)" -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
 
@@ -248,14 +245,14 @@ If there are todo tasks:
 
 *File mode:*
 ```
-Skill("mastermind:do", "--file <TASK_FILE> --mode <parallel|minimal|sequential>")
+Skill("mastermind-skills:do", "--file <TASK_FILE> --mode <parallel|minimal|sequential>")
 ```
 
 *Monotask mode:*
 ```
-Skill("mastermind:do", "--monotask --space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
+Skill("mastermind-skills:do", "--monotask --space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
 ```
 
 To repeat this command on a schedule, wrap it with `/mastermind:repeat` or use `--repeat N` / `--tillend` directly.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
