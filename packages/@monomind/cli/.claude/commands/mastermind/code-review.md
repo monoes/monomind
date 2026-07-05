@@ -1,7 +1,4 @@
----
-name: mastermind:code-review
-description: "Monomind — Multi-agent iterative review loop: runs Code Reviewer, Security Engineer, and domain specialists in parallel, auto-fixes findings each iteration, and captures human-in-loop items to a dated file."
----
+<!-- "Monomind — Multi-agent iterative review loop: runs Code Reviewer, Security Engineer, and domain specialists in parallel, auto-fixes findings each iteration, and captures human-in-loop items to a dated file." -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
 
@@ -314,4 +311,4 @@ If `ALL_HIL` is empty, omit the HIL section and congratulate:
 
 To repeat this command on a schedule, wrap it with `/mastermind:repeat` or use `--repeat N` / `--tillend` directly.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

@@ -664,7 +664,7 @@ mcp__monomind__memory_store(namespace: "architect:<sessionId>", key: "humaninloo
 ```
 (Use the same `<YYYYMMDD-HHmmss>` value used when writing the file above.)
 
-Spawn `Skill("mastermind:build")` with:
+Spawn `Skill("mastermind-skills:build")` with:
 - `prompt`: "Implement the following architecture fixes:\n" followed by the CRITICAL and HIGH `recommendation` fields extracted from `last_findings`, one bullet per line (format: `- [severity] [dimension]: [recommendation]`)
 - `project_name`: same project_name
 - `board_id`: same board_id
@@ -686,7 +686,7 @@ mcp__monomind__memory_store(namespace: "architect:<sessionId>", key: "cycle_<i>_
 
 **If activity = review:**
 
-Re-invoke `Skill("mastermind:architect")` with:
+Re-invoke `Skill("mastermind-skills:architect")` with:
 - `prompt`: if `i == 1` (clean initial pass — second independent review): "Second independent review to confirm initial clean result. Perform a fresh pass with no prior context bias." Otherwise: "Re-review after fixes applied in cycle \<i-1>. Focus on dimensions that had CRITICAL or HIGH findings: \<list dimension names from last_findings>"
 - `project_name`, `board_id`, `brain_context`, `stack`: same as initial pass
 - `scope`: if initial scope was `all`, use `review+deduplicate` (running both review and deduplicate catches structural regressions introduced by fixes without the full cost of design and migrate phases); otherwise use the same scope as the initial pass

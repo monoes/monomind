@@ -38,7 +38,7 @@ export declare const ChaosInjectInputSchema: z.ZodObject<{
     target: string;
     duration: number;
     dryRun: boolean;
-    failureType: "network-latency" | "network-partition" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
+    failureType: "network-partition" | "network-latency" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
     intensity: number;
     rollbackOnFailure: boolean;
     monitorMetrics: boolean;
@@ -52,7 +52,7 @@ export declare const ChaosInjectInputSchema: z.ZodObject<{
     } | undefined;
 }, {
     target: string;
-    failureType: "network-latency" | "network-partition" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
+    failureType: "network-partition" | "network-latency" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
     duration?: number | undefined;
     dryRun?: boolean | undefined;
     intensity?: number | undefined;
@@ -194,7 +194,7 @@ export declare const toolDefinition: {
         target: string;
         duration: number;
         dryRun: boolean;
-        failureType: "network-latency" | "network-partition" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
+        failureType: "network-partition" | "network-latency" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
         intensity: number;
         rollbackOnFailure: boolean;
         monitorMetrics: boolean;
@@ -208,7 +208,7 @@ export declare const toolDefinition: {
         } | undefined;
     }, {
         target: string;
-        failureType: "network-latency" | "network-partition" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
+        failureType: "network-partition" | "network-latency" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
         duration?: number | undefined;
         dryRun?: boolean | undefined;
         intensity?: number | undefined;

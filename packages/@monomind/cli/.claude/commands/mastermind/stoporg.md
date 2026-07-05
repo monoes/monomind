@@ -1,7 +1,4 @@
----
-name: mastermind-stoporg
-description: Stop a running scheduled org loop. Sets status to "stopped" — the next scheduled wakeup reads the status, skips all work, and does not reschedule. Loop dies within one interval.
----
+<!-- Stop a running scheduled org loop. Sets status to "stopped" — the next scheduled wakeup reads the status, skips all work, and does not reschedule. Loop dies within one interval. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 
@@ -62,7 +59,7 @@ session_id="mm-$(date -u +%Y%m%dT%H%M%S)"
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 ```
 
-Invoke `Skill("mastermind:stoporg")` passing: org_name: `$org_name`, session_id: `$session_id`, caller: "command".
+Invoke `Skill("mastermind-skills:stoporg")` passing: org_name: `$org_name`, session_id: `$session_id`, caller: "command".
 
 After skill returns: emit `session:complete`:
 ```bash
@@ -75,4 +72,4 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 
 Follow _protocol.md Brain Write Procedure for domain `ops`.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
