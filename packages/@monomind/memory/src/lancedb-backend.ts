@@ -244,8 +244,20 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
     const tableNames: string[] = await this.db.tableNames();
     if (!tableNames.includes(tableName)) return null;
     const table = await this.db.openTable(tableName);
+    void this.sweepExpired(table);
     this.tables.set(namespace, table);
     return table;
+  }
+
+  /** Physically remove expired rows — reads only filter them, so without this
+   * the store grows without bound. Runs once per table per process, fire-and-
+   * forget; a failed sweep never blocks the caller's read/write.
+   * monolean: no fragment compaction (table.optimize) — add if .lance dirs
+   * grow noticeably despite sweeps. */
+  private async sweepExpired(table: any): Promise<void> {
+    try {
+      await table.delete(`expiresAt > 0 AND expiresAt < ${Date.now()}`);
+    } catch { /* best-effort */ }
   }
 
   /** Open or create a table — call only from write paths (store, bulkInsert). */
@@ -259,6 +271,7 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
 
     if (tableNames.includes(tableName)) {
       table = await this.db.openTable(tableName);
+      void this.sweepExpired(table);
     } else {
       // Create with a placeholder row so the schema is fully established.
       // The placeholder is deleted immediately after creation.
