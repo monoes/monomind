@@ -32,9 +32,69 @@ function getCurrentCommitHash(repoPath) {
         return null;
     }
 }
+// Cross-process build mutex. Callers arrive from several independent entry points
+// (session-start hook, MCP staleness auto-build, CLI, watcher), each with its own
+// ad-hoc lock file that the others don't know about — concurrent builds then fail
+// with "database is locked". Serialize here, the one place all builders pass through.
+async function acquireBuildLock(dbPath) {
+    const { writeFileSync, readFileSync, statSync, unlinkSync } = await import('fs');
+    const lockPath = dbPath + '.build-lock';
+    const tryAcquire = () => {
+        try {
+            writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
+            return true;
+        }
+        catch {
+            return false;
+        }
+    };
+    if (!tryAcquire()) {
+        // Reclaim if the holder is dead or the lock is older than 30 minutes
+        let stale = false;
+        try {
+            const pid = parseInt(readFileSync(lockPath, 'utf8'), 10);
+            try {
+                process.kill(pid, 0);
+            }
+            catch {
+                stale = true;
+            }
+            if (!stale && Date.now() - statSync(lockPath).mtimeMs > 30 * 60 * 1000)
+                stale = true;
+        }
+        catch {
+            stale = true;
+        }
+        if (!stale)
+            return null;
+        try {
+            unlinkSync(lockPath);
+        }
+        catch { /* raced with another reclaimer */ }
+        if (!tryAcquire())
+            return null;
+    }
+    return () => { try {
+        unlinkSync(lockPath);
+    }
+    catch { /* already gone */ } };
+}
 export async function buildAsync(repoPath, options = {}) {
     const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
     const fullOptions = { ...DEFAULT_OPTIONS, ...options };
+    const releaseLock = await acquireBuildLock(dbPath);
+    if (!releaseLock) {
+        options.onProgress?.({ phase: 'skip', message: 'Another build is in progress — skipping' });
+        return;
+    }
+    try {
+        await buildAsyncLocked(repoPath, dbPath, fullOptions, options);
+    }
+    finally {
+        releaseLock();
+    }
+}
+async function buildAsyncLocked(repoPath, dbPath, fullOptions, options) {
     // Incremental guard: if the caller requested skip-when-fresh and force is
     // not set, check staleness before opening the DB for a full write cycle.
     if (options.incremental && !options.force) {
@@ -80,7 +140,7 @@ export async function buildAsync(repoPath, options = {}) {
             const liveFiles = new Set(scanOut.filePaths.map((f) => resolve(f)));
             const staleFiles = db.prepare('SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL').all()
                 .map((r) => r.file_path)
-                .filter((f) => !liveFiles.has(resolve(f)));
+                .filter((f) => !liveFiles.has(resolve(ctx.repoPath, f)));
             if (staleFiles.length > 0) {
                 const deleteStale = db.transaction((files) => {
                     // Edges FK-reference nodes with no ON DELETE CASCADE, and a stale node

@@ -2,15 +2,31 @@ import chokidar from 'chokidar';
 import { EventEmitter } from 'events';
 import { isSupportedExtension } from '../parsers/loader.js';
 import { extname } from 'path';
-import { platform } from 'os';
 /** Convenience: start a watcher and trigger buildAsync on every change. Returns stop() fn. */
 export async function watchAsync(repoPath, opts = {}) {
     const { buildAsync } = await import('../pipeline/orchestrator.js');
     const watcher = new MonographWatcher(repoPath, { debounceMs: opts.debounceMs ?? 3000 });
+    // monolean: full rebuild per change-batch, serialized — true incremental rebuild
+    // (re-parse only changed files) requires restructuring the phase pipeline.
+    let building = false;
+    let rerun = false;
     watcher.on('monograph:updated', async (files) => {
-        opts.onProgress?.({ phase: 'watch', message: `Changed: ${files.slice(0, 3).join(', ')}` });
-        await buildAsync(repoPath, { onProgress: opts.onProgress, force: opts.force, codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0 });
-        opts.onProgress?.({ phase: 'watch', message: 'Graph rebuilt.' });
+        if (building) {
+            rerun = true;
+            return;
+        } // coalesce saves that land mid-build
+        building = true;
+        try {
+            do {
+                rerun = false;
+                opts.onProgress?.({ phase: 'watch', message: `Changed: ${files.slice(0, 3).join(', ')}` });
+                await buildAsync(repoPath, { onProgress: opts.onProgress, force: opts.force, codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0 });
+                opts.onProgress?.({ phase: 'watch', message: 'Graph rebuilt.' });
+            } while (rerun);
+        }
+        finally {
+            building = false;
+        }
     });
     await watcher.start();
     return { stop: () => watcher.stop() };
@@ -27,7 +43,10 @@ export class MonographWatcher extends EventEmitter {
         this.debounceMs = opts.debounceMs ?? 3000;
     }
     async start() {
-        const usePolling = platform() === 'darwin';
+        // FSEvents works natively on macOS — polling the whole tree every second is
+        // far more expensive (especially on external/exFAT volumes). Poll only when
+        // explicitly requested via env (e.g. network mounts where events don't fire).
+        const usePolling = process.env.MONOGRAPH_WATCH_POLL === '1';
         this.watcher = chokidar.watch(this.repoPath, {
             ignored: [
                 /(^|[/\\])\../, // dotfiles
