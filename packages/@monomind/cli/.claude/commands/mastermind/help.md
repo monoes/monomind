@@ -1,7 +1,4 @@
----
-name: mastermind-help
-description: Mastermind commands reference — quick overview of all skills, CLI subcommands, and MCP tools available in this session
----
+<!-- Mastermind commands reference — quick overview of all skills, CLI subcommands, and MCP tools available in this session -->
 
 # Mastermind Help
 

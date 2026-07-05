@@ -1,7 +1,4 @@
----
-name: mastermind-swarm
-description: Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams
----
+<!-- Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams -->
 
 # Monomind Swarm Coordination
 

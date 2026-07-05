@@ -16,7 +16,7 @@ export declare const DetectSecretsInputSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     targetPath: string;
     excludePatterns: string[];
-    secretTypes: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[];
+    secretTypes: ("password" | "token" | "api-key" | "private-key" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[];
     includeEntropy: boolean;
     entropyThreshold: number;
     verifySecrets: boolean;
@@ -24,7 +24,7 @@ export declare const DetectSecretsInputSchema: z.ZodObject<{
 }, {
     targetPath: string;
     excludePatterns?: string[] | undefined;
-    secretTypes?: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[] | undefined;
+    secretTypes?: ("password" | "token" | "api-key" | "private-key" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[] | undefined;
     includeEntropy?: boolean | undefined;
     entropyThreshold?: number | undefined;
     verifySecrets?: boolean | undefined;
@@ -117,7 +117,7 @@ export declare const toolDefinition: {
     }, "strip", z.ZodTypeAny, {
         targetPath: string;
         excludePatterns: string[];
-        secretTypes: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[];
+        secretTypes: ("password" | "token" | "api-key" | "private-key" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[];
         includeEntropy: boolean;
         entropyThreshold: number;
         verifySecrets: boolean;
@@ -125,7 +125,7 @@ export declare const toolDefinition: {
     }, {
         targetPath: string;
         excludePatterns?: string[] | undefined;
-        secretTypes?: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[] | undefined;
+        secretTypes?: ("password" | "token" | "api-key" | "private-key" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[] | undefined;
         includeEntropy?: boolean | undefined;
         entropyThreshold?: number | undefined;
         verifySecrets?: boolean | undefined;
