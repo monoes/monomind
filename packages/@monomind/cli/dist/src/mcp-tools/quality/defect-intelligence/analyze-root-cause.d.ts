@@ -13,19 +13,75 @@ export declare const AnalyzeRootCauseInputSchema: z.ZodObject<{
             file: z.ZodString;
             line: z.ZodOptional<z.ZodNumber>;
             function: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>>;
+        }, "strip", z.ZodTypeAny, {
+            file: string;
+            function?: string | undefined;
+            line?: number | undefined;
+        }, {
+            file: string;
+            function?: string | undefined;
+            line?: number | undefined;
+        }>>;
         category: z.ZodOptional<z.ZodString>;
         stackTrace: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
-    analysisDepth: z.ZodDefault<z.ZodEnum<{
-        standard: "standard";
-        deep: "deep";
-        immediate: "immediate";
-    }>>;
+    }, "strip", z.ZodTypeAny, {
+        description: string;
+        id?: string | undefined;
+        category?: string | undefined;
+        location?: {
+            file: string;
+            function?: string | undefined;
+            line?: number | undefined;
+        } | undefined;
+        stackTrace?: string | undefined;
+    }, {
+        description: string;
+        id?: string | undefined;
+        category?: string | undefined;
+        location?: {
+            file: string;
+            function?: string | undefined;
+            line?: number | undefined;
+        } | undefined;
+        stackTrace?: string | undefined;
+    }>;
+    analysisDepth: z.ZodDefault<z.ZodEnum<["immediate", "standard", "deep"]>>;
     includeHistorical: z.ZodDefault<z.ZodBoolean>;
     includeRemediation: z.ZodDefault<z.ZodBoolean>;
     maxContributingFactors: z.ZodDefault<z.ZodNumber>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    analysisDepth: "standard" | "deep" | "immediate";
+    defect: {
+        description: string;
+        id?: string | undefined;
+        category?: string | undefined;
+        location?: {
+            file: string;
+            function?: string | undefined;
+            line?: number | undefined;
+        } | undefined;
+        stackTrace?: string | undefined;
+    };
+    includeHistorical: boolean;
+    includeRemediation: boolean;
+    maxContributingFactors: number;
+}, {
+    defect: {
+        description: string;
+        id?: string | undefined;
+        category?: string | undefined;
+        location?: {
+            file: string;
+            function?: string | undefined;
+            line?: number | undefined;
+        } | undefined;
+        stackTrace?: string | undefined;
+    };
+    analysisDepth?: "standard" | "deep" | "immediate" | undefined;
+    includeHistorical?: boolean | undefined;
+    includeRemediation?: boolean | undefined;
+    maxContributingFactors?: number | undefined;
+}>;
 export type AnalyzeRootCauseInput = z.infer<typeof AnalyzeRootCauseInputSchema>;
 export interface AnalyzeRootCauseOutput {
     success: boolean;
@@ -146,19 +202,75 @@ export declare const toolDefinition: {
                 file: z.ZodString;
                 line: z.ZodOptional<z.ZodNumber>;
                 function: z.ZodOptional<z.ZodString>;
-            }, z.core.$strip>>;
+            }, "strip", z.ZodTypeAny, {
+                file: string;
+                function?: string | undefined;
+                line?: number | undefined;
+            }, {
+                file: string;
+                function?: string | undefined;
+                line?: number | undefined;
+            }>>;
             category: z.ZodOptional<z.ZodString>;
             stackTrace: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>;
-        analysisDepth: z.ZodDefault<z.ZodEnum<{
-            standard: "standard";
-            deep: "deep";
-            immediate: "immediate";
-        }>>;
+        }, "strip", z.ZodTypeAny, {
+            description: string;
+            id?: string | undefined;
+            category?: string | undefined;
+            location?: {
+                file: string;
+                function?: string | undefined;
+                line?: number | undefined;
+            } | undefined;
+            stackTrace?: string | undefined;
+        }, {
+            description: string;
+            id?: string | undefined;
+            category?: string | undefined;
+            location?: {
+                file: string;
+                function?: string | undefined;
+                line?: number | undefined;
+            } | undefined;
+            stackTrace?: string | undefined;
+        }>;
+        analysisDepth: z.ZodDefault<z.ZodEnum<["immediate", "standard", "deep"]>>;
         includeHistorical: z.ZodDefault<z.ZodBoolean>;
         includeRemediation: z.ZodDefault<z.ZodBoolean>;
         maxContributingFactors: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        analysisDepth: "standard" | "deep" | "immediate";
+        defect: {
+            description: string;
+            id?: string | undefined;
+            category?: string | undefined;
+            location?: {
+                file: string;
+                function?: string | undefined;
+                line?: number | undefined;
+            } | undefined;
+            stackTrace?: string | undefined;
+        };
+        includeHistorical: boolean;
+        includeRemediation: boolean;
+        maxContributingFactors: number;
+    }, {
+        defect: {
+            description: string;
+            id?: string | undefined;
+            category?: string | undefined;
+            location?: {
+                file: string;
+                function?: string | undefined;
+                line?: number | undefined;
+            } | undefined;
+            stackTrace?: string | undefined;
+        };
+        analysisDepth?: "standard" | "deep" | "immediate" | undefined;
+        includeHistorical?: boolean | undefined;
+        includeRemediation?: boolean | undefined;
+        maxContributingFactors?: number | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

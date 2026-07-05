@@ -6,39 +6,52 @@
  */
 import { z } from 'zod';
 export declare const AssessReadinessInputSchema: z.ZodObject<{
-    releaseType: z.ZodDefault<z.ZodEnum<{
-        minor: "minor";
-        major: "major";
-        patch: "patch";
-        hotfix: "hotfix";
-    }>>;
+    releaseType: z.ZodDefault<z.ZodEnum<["major", "minor", "patch", "hotfix"]>>;
     projectPath: z.ZodOptional<z.ZodString>;
     criteria: z.ZodOptional<z.ZodArray<z.ZodObject<{
         name: z.ZodString;
-        category: z.ZodEnum<{
-            security: "security";
-            performance: "performance";
-            documentation: "documentation";
-            testing: "testing";
-            quality: "quality";
-            compliance: "compliance";
-        }>;
+        category: z.ZodEnum<["quality", "testing", "security", "performance", "documentation", "compliance"]>;
         required: z.ZodDefault<z.ZodBoolean>;
         weight: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>>>;
-    includeChecks: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-        dependencies: "dependencies";
-        documentation: "documentation";
-        "quality-gates": "quality-gates";
-        "test-results": "test-results";
-        "security-scan": "security-scan";
-        "performance-baseline": "performance-baseline";
-        "change-log": "change-log";
-        "rollback-plan": "rollback-plan";
-    }>>>;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        required: boolean;
+        weight: number;
+        category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
+    }, {
+        name: string;
+        category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
+        required?: boolean | undefined;
+        weight?: number | undefined;
+    }>, "many">>;
+    includeChecks: z.ZodDefault<z.ZodArray<z.ZodEnum<["quality-gates", "test-results", "security-scan", "performance-baseline", "documentation", "change-log", "dependencies", "rollback-plan"]>, "many">>;
     compareToRelease: z.ZodOptional<z.ZodString>;
     strictMode: z.ZodDefault<z.ZodBoolean>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    releaseType: "minor" | "major" | "patch" | "hotfix";
+    includeChecks: ("dependencies" | "documentation" | "quality-gates" | "test-results" | "security-scan" | "performance-baseline" | "change-log" | "rollback-plan")[];
+    strictMode: boolean;
+    projectPath?: string | undefined;
+    criteria?: {
+        name: string;
+        required: boolean;
+        weight: number;
+        category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
+    }[] | undefined;
+    compareToRelease?: string | undefined;
+}, {
+    projectPath?: string | undefined;
+    releaseType?: "minor" | "major" | "patch" | "hotfix" | undefined;
+    criteria?: {
+        name: string;
+        category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
+        required?: boolean | undefined;
+        weight?: number | undefined;
+    }[] | undefined;
+    includeChecks?: ("dependencies" | "documentation" | "quality-gates" | "test-results" | "security-scan" | "performance-baseline" | "change-log" | "rollback-plan")[] | undefined;
+    compareToRelease?: string | undefined;
+    strictMode?: boolean | undefined;
+}>;
 export type AssessReadinessInput = z.infer<typeof AssessReadinessInputSchema>;
 export interface AssessReadinessOutput {
     success: boolean;
@@ -146,39 +159,52 @@ export declare const toolDefinition: {
     category: string;
     version: string;
     inputSchema: z.ZodObject<{
-        releaseType: z.ZodDefault<z.ZodEnum<{
-            minor: "minor";
-            major: "major";
-            patch: "patch";
-            hotfix: "hotfix";
-        }>>;
+        releaseType: z.ZodDefault<z.ZodEnum<["major", "minor", "patch", "hotfix"]>>;
         projectPath: z.ZodOptional<z.ZodString>;
         criteria: z.ZodOptional<z.ZodArray<z.ZodObject<{
             name: z.ZodString;
-            category: z.ZodEnum<{
-                security: "security";
-                performance: "performance";
-                documentation: "documentation";
-                testing: "testing";
-                quality: "quality";
-                compliance: "compliance";
-            }>;
+            category: z.ZodEnum<["quality", "testing", "security", "performance", "documentation", "compliance"]>;
             required: z.ZodDefault<z.ZodBoolean>;
             weight: z.ZodDefault<z.ZodNumber>;
-        }, z.core.$strip>>>;
-        includeChecks: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-            dependencies: "dependencies";
-            documentation: "documentation";
-            "quality-gates": "quality-gates";
-            "test-results": "test-results";
-            "security-scan": "security-scan";
-            "performance-baseline": "performance-baseline";
-            "change-log": "change-log";
-            "rollback-plan": "rollback-plan";
-        }>>>;
+        }, "strip", z.ZodTypeAny, {
+            name: string;
+            required: boolean;
+            weight: number;
+            category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
+        }, {
+            name: string;
+            category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
+            required?: boolean | undefined;
+            weight?: number | undefined;
+        }>, "many">>;
+        includeChecks: z.ZodDefault<z.ZodArray<z.ZodEnum<["quality-gates", "test-results", "security-scan", "performance-baseline", "documentation", "change-log", "dependencies", "rollback-plan"]>, "many">>;
         compareToRelease: z.ZodOptional<z.ZodString>;
         strictMode: z.ZodDefault<z.ZodBoolean>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        releaseType: "minor" | "major" | "patch" | "hotfix";
+        includeChecks: ("dependencies" | "documentation" | "quality-gates" | "test-results" | "security-scan" | "performance-baseline" | "change-log" | "rollback-plan")[];
+        strictMode: boolean;
+        projectPath?: string | undefined;
+        criteria?: {
+            name: string;
+            required: boolean;
+            weight: number;
+            category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
+        }[] | undefined;
+        compareToRelease?: string | undefined;
+    }, {
+        projectPath?: string | undefined;
+        releaseType?: "minor" | "major" | "patch" | "hotfix" | undefined;
+        criteria?: {
+            name: string;
+            category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
+            required?: boolean | undefined;
+            weight?: number | undefined;
+        }[] | undefined;
+        includeChecks?: ("dependencies" | "documentation" | "quality-gates" | "test-results" | "security-scan" | "performance-baseline" | "change-log" | "rollback-plan")[] | undefined;
+        compareToRelease?: string | undefined;
+        strictMode?: boolean | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

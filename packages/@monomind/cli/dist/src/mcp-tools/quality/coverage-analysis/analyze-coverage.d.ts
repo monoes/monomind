@@ -8,19 +8,48 @@ import { z } from 'zod';
 export declare const AnalyzeCoverageInputSchema: z.ZodObject<{
     targetPath: z.ZodString;
     coverageReport: z.ZodOptional<z.ZodString>;
-    algorithm: z.ZodDefault<z.ZodEnum<{
-        "johnson-lindenstrauss": "johnson-lindenstrauss";
-        "full-scan": "full-scan";
-    }>>;
+    algorithm: z.ZodDefault<z.ZodEnum<["johnson-lindenstrauss", "full-scan"]>>;
     prioritize: z.ZodDefault<z.ZodBoolean>;
     includeFileDetails: z.ZodDefault<z.ZodBoolean>;
     thresholds: z.ZodOptional<z.ZodObject<{
         line: z.ZodDefault<z.ZodNumber>;
         branch: z.ZodDefault<z.ZodNumber>;
         function: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>>;
+    }, "strip", z.ZodTypeAny, {
+        function: number;
+        line: number;
+        branch: number;
+    }, {
+        function?: number | undefined;
+        line?: number | undefined;
+        branch?: number | undefined;
+    }>>;
     projectionDimension: z.ZodDefault<z.ZodNumber>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    algorithm: "johnson-lindenstrauss" | "full-scan";
+    prioritize: boolean;
+    targetPath: string;
+    includeFileDetails: boolean;
+    projectionDimension: number;
+    coverageReport?: string | undefined;
+    thresholds?: {
+        function: number;
+        line: number;
+        branch: number;
+    } | undefined;
+}, {
+    targetPath: string;
+    algorithm?: "johnson-lindenstrauss" | "full-scan" | undefined;
+    prioritize?: boolean | undefined;
+    coverageReport?: string | undefined;
+    includeFileDetails?: boolean | undefined;
+    thresholds?: {
+        function?: number | undefined;
+        line?: number | undefined;
+        branch?: number | undefined;
+    } | undefined;
+    projectionDimension?: number | undefined;
+}>;
 export type AnalyzeCoverageInput = z.infer<typeof AnalyzeCoverageInputSchema>;
 export interface AnalyzeCoverageOutput {
     success: boolean;
@@ -109,19 +138,48 @@ export declare const toolDefinition: {
     inputSchema: z.ZodObject<{
         targetPath: z.ZodString;
         coverageReport: z.ZodOptional<z.ZodString>;
-        algorithm: z.ZodDefault<z.ZodEnum<{
-            "johnson-lindenstrauss": "johnson-lindenstrauss";
-            "full-scan": "full-scan";
-        }>>;
+        algorithm: z.ZodDefault<z.ZodEnum<["johnson-lindenstrauss", "full-scan"]>>;
         prioritize: z.ZodDefault<z.ZodBoolean>;
         includeFileDetails: z.ZodDefault<z.ZodBoolean>;
         thresholds: z.ZodOptional<z.ZodObject<{
             line: z.ZodDefault<z.ZodNumber>;
             branch: z.ZodDefault<z.ZodNumber>;
             function: z.ZodDefault<z.ZodNumber>;
-        }, z.core.$strip>>;
+        }, "strip", z.ZodTypeAny, {
+            function: number;
+            line: number;
+            branch: number;
+        }, {
+            function?: number | undefined;
+            line?: number | undefined;
+            branch?: number | undefined;
+        }>>;
         projectionDimension: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        algorithm: "johnson-lindenstrauss" | "full-scan";
+        prioritize: boolean;
+        targetPath: string;
+        includeFileDetails: boolean;
+        projectionDimension: number;
+        coverageReport?: string | undefined;
+        thresholds?: {
+            function: number;
+            line: number;
+            branch: number;
+        } | undefined;
+    }, {
+        targetPath: string;
+        algorithm?: "johnson-lindenstrauss" | "full-scan" | undefined;
+        prioritize?: boolean | undefined;
+        coverageReport?: string | undefined;
+        includeFileDetails?: boolean | undefined;
+        thresholds?: {
+            function?: number | undefined;
+            line?: number | undefined;
+            branch?: number | undefined;
+        } | undefined;
+        projectionDimension?: number | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

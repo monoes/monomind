@@ -55,6 +55,8 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
 
       for (const entry of entries) {
         if (ignoreDirs.has(entry)) continue;
+        // Skip macOS AppleDouble resource fork files (._*) — common on ExFAT/network volumes
+        if (entry.startsWith('._')) continue;
         const fullPath = join(dir, entry);
         let stat: ReturnType<typeof statSync>;
         try { stat = statSync(fullPath); } catch { continue; }

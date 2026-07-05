@@ -297,6 +297,33 @@ export async function executeInit(options) {
         }
         // Create directory structure
         await createDirectories(targetDir, options, result);
+        // Scan directory and save fingerprint (non-fatal if failed)
+        let capMgr = null;
+        try {
+            const { scanDirectory, saveFingerprint, CapabilityManager, codeCapability, documentsCapability, mediaCapability, timelineCapability, graphCapability, dataCapability } = await import('../capabilities/index.js');
+            const scan = await scanDirectory(targetDir);
+            const monomindDir = path.join(targetDir, '.monomind');
+            await saveFingerprint(scan, monomindDir);
+            // Activate capabilities
+            capMgr = new CapabilityManager();
+            capMgr.register(codeCapability);
+            capMgr.register(documentsCapability);
+            capMgr.register(mediaCapability);
+            capMgr.register(timelineCapability);
+            capMgr.register(graphCapability);
+            capMgr.register(dataCapability);
+            await capMgr.activateFromScan(scan, targetDir);
+            // Print capability-aware messaging (always show active capabilities,
+            // regardless of whether 'code' is also active, so mixed projects get feedback)
+            console.log('\nActivating capabilities:');
+            for (const cap of capMgr.getActive()) {
+                console.log(`  ✓ ${cap.name}`);
+            }
+        }
+        catch (scanError) {
+            // Scanner/fingerprint/activation failed — non-fatal, continue without capabilities
+            result.skipped.push(`directory scan: ${scanError instanceof Error ? scanError.message : String(scanError)}`);
+        }
         // Generate and write settings.json
         if (options.components.settings) {
             await writeSettings(targetDir, options, result);
@@ -341,9 +368,12 @@ export async function executeInit(options) {
         writeSharedInstructions(targetDir, options.force, result);
         // Count enabled hooks
         result.summary.hooksEnabled = countEnabledHooks(options);
-        // Build knowledge graph in background (non-blocking)
-        if (options.components.graphify) {
+        // Build knowledge graph in background (non-blocking) — code-project only
+        if (options.components.graphify && (capMgr === null || capMgr.isActive('code'))) {
             await initKnowledgeGraph(targetDir, result);
+        }
+        else if (options.components.graphify) {
+            result.skipped.push('knowledge graph: not a code project (skipping monograph indexing)');
         }
         // Start daemon with background workers (non-blocking)
         await startDaemonBackground(targetDir, result);

@@ -8,6 +8,8 @@
  */
 import * as path from 'path';
 import * as crypto from 'crypto';
+import * as os from 'os';
+import * as fs from 'fs';
 // ===== Embedding validation =====
 const MAX_EMBEDDING_DIMS = 8192;
 const MAX_EMBEDDING_JSON_BYTES = MAX_EMBEDDING_DIMS * 32; // ~256KB ceiling
@@ -42,22 +44,49 @@ const BRIDGE_MAX_VALUE_LEN = 1024 * 1024;
 const MAX_TAGS = 32;
 const MAX_TAG_LEN = 64;
 // ===== DB path resolution =====
+// LanceDB commits via atomic rename, which exFAT/SMB project volumes don't support
+// (ENOTSUP os error 45) — and non-APFS volumes grow ._ AppleDouble sidecars inside
+// the .lance datasets that corrupt reads. So the store always lives on the home
+// volume, namespaced per project directory.
+//
+// The slug is a hash of the full resolved path, not a character-substitution of
+// it — flattening separators to '-' is not collision-safe ('/x/foo-bar' and
+// '/x/foo/bar' would both flatten to 'x-foo-bar'). A short readable prefix is
+// kept purely so the directory name is browsable; only the hash guarantees
+// uniqueness.
+function projectDataDir() {
+    const resolved = path.resolve(process.cwd());
+    const hash = crypto.createHash('sha256').update(resolved).digest('hex').slice(0, 16);
+    const readable = path.basename(resolved).replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 40) || 'project';
+    return path.join(os.homedir(), '.monomind', 'projects', `${readable}-${hash}`);
+}
+/** Resolve symlinks so the traversal check below can't be bypassed by a link
+ * that lexically resolves inside the allowed trees but points outside them. */
+function realOrResolved(p) {
+    try {
+        return fs.realpathSync(p);
+    }
+    catch {
+        return p;
+    }
+}
 function getDbPath(customPath) {
-    const swarmDir = path.resolve(process.cwd(), '.swarm');
-    if (!customPath)
-        return path.join(swarmDir, 'lancedb');
-    // Treat legacy .db paths as a signal to use lancedb sibling dir
-    if (customPath.endsWith('.db')) {
-        return path.join(path.dirname(customPath), 'lancedb');
-    }
-    if (customPath === ':memory:')
-        return path.join(swarmDir, 'lancedb');
-    const resolved = path.resolve(customPath);
-    const rel = path.relative(process.cwd(), resolved);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
-        return path.join(swarmDir, 'lancedb');
-    }
-    return resolved;
+    const defaultDir = path.join(projectDataDir(), 'lancedb');
+    if (!customPath || customPath === ':memory:')
+        return defaultDir;
+    // Treat legacy .db paths (and the legacy .swarm dir) as a signal to use the default
+    if (customPath.endsWith('.db'))
+        return defaultDir;
+    const resolved = realOrResolved(path.resolve(customPath));
+    // Guard against path traversal from MCP inputs: only allow paths inside the
+    // project or inside the per-project home data dir.
+    const relCwd = path.relative(realOrResolved(process.cwd()), resolved);
+    const relHome = path.relative(realOrResolved(projectDataDir()), resolved);
+    if (!relCwd.startsWith('..') && !path.isAbsolute(relCwd))
+        return resolved;
+    if (!relHome.startsWith('..') && !path.isAbsolute(relHome))
+        return resolved;
+    return defaultDir;
 }
 function generateId(prefix) {
     return `${prefix}_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
@@ -87,7 +116,9 @@ async function getBackend(dbPath) {
                 let embeddingGenerator;
                 try {
                     const hf = await import('@huggingface/transformers');
-                    const extractor = await hf.pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { revision: 'default' });
+                    // revision must be a git ref — 'main' is the HF default; 'default' 404s and
+                    // silently killed embeddings (every search degraded to keyword matching)
+                    const extractor = await hf.pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { revision: 'main' });
                     embeddingGenerator = async (text) => {
                         const output = await extractor(text, { pooling: 'mean', normalize: true });
                         return new Float32Array(output.data);
@@ -96,7 +127,11 @@ async function getBackend(dbPath) {
                 }
                 catch { /* embeddings unavailable — store and search without vectors */ }
                 const backend = new LanceDBBackend({
-                    dbPath: dbPath || getDbPath(),
+                    // Always route through getDbPath's traversal guard — dbPath here can
+                    // originate from a caller/tool-supplied value, and getDbPath(undefined)
+                    // already returns the correct default, so there's no case where
+                    // calling it unconditionally changes behavior for the no-path case.
+                    dbPath: getDbPath(dbPath),
                     vectorDimension: BRIDGE_EMBEDDING_DIMS,
                     embeddingGenerator,
                     enableFts: false,
@@ -189,7 +224,9 @@ export async function bridgeSearchEntries(options) {
     if (!backend)
         return null;
     try {
-        const { query: queryStr, namespace, limit = 10, threshold = 0.3 } = options;
+        const { query: queryStr, limit = 10, threshold = 0.3 } = options;
+        // CLI callers pass 'all' as a no-filter sentinel — never treat it as a literal namespace
+        const namespace = options.namespace && options.namespace !== 'all' ? options.namespace : undefined;
         const startTime = Date.now();
         let results = [];
         let searchMethod = 'keyword';
@@ -222,7 +259,8 @@ export async function bridgeSearchEntries(options) {
             });
             const queryLower = queryStr.toLowerCase();
             results = entries
-                .filter((e) => e.content.toLowerCase().includes(queryLower))
+                .filter((e) => (e.content || '').toLowerCase().includes(queryLower)
+                || (e.key || '').toLowerCase().includes(queryLower))
                 .slice(0, limit)
                 .map((e) => ({
                 id: e.id,

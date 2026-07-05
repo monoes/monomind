@@ -21,6 +21,7 @@ const VIDEO_EXTENSIONS = new Set([
     '.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv',
     '.wmv', '.m4v',
 ]);
+const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma']);
 const PAPER_URL_PATTERNS = [
     /arxiv\.org/,
     /semanticscholar\.org/,
@@ -41,6 +42,8 @@ export function classifyFile(pathOrUrl) {
         return 'IMAGE';
     if (VIDEO_EXTENSIONS.has(ext))
         return 'VIDEO';
+    if (AUDIO_EXTENSIONS.has(ext))
+        return 'AUDIO';
     if (DOCUMENT_EXTENSIONS.has(ext)) {
         if (ext === '.pdf' && PAPER_FILENAME_SIGNALS.some(p => p.test(pathOrUrl)))
             return 'PAPER';
@@ -48,7 +51,7 @@ export function classifyFile(pathOrUrl) {
     }
     if (CODE_EXTENSIONS.has(ext))
         return 'CODE';
-    return 'CODE';
+    return 'UNKNOWN';
 }
 const PAPER_CONTENT_SIGNALS = [
     /\\cite\{/,

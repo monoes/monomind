@@ -169,17 +169,8 @@ export { SQLiteBackend } from './sqlite-backend.js';
 export type { SQLiteBackendConfig } from './sqlite-backend.js';
 export { SqlJsBackend } from './sqljs-backend.js';
 export type { SqlJsBackendConfig } from './sqljs-backend.js';
-export { HybridBackend } from './hybrid-backend.js';
-export type {
-  HybridBackendConfig,
-  StructuredQuery,
-  SemanticQuery,
-  HybridQuery,
-} from './hybrid-backend.js';
 export { DiskAnnBackend } from './diskann-backend.js';
 export type { DiskAnnBackendConfig } from './diskann-backend.js';
-export { HnswLite, cosineSimilarity } from './hnsw-lite.js';
-export type { HnswSearchResult } from './hnsw-lite.js';
 export { HNSWIndex } from './hnsw-index.js';
 export { CacheManager, TieredCacheManager } from './cache-manager.js';
 export { QueryBuilder, query, QueryTemplates } from './query-builder.js';

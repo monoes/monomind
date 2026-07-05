@@ -103,6 +103,14 @@ function sqlStr(s: string): string {
   return `'${s.replace(/'/g, "''")}'`;
 }
 
+// LanceDB table names allow only alphanumerics, underscores, hyphens, and
+// periods. Namespaces like 'patterns:short_term' contain a colon and would
+// otherwise crash the native binding with an unrecoverable Rust panic
+// (InvalidTableName) — sanitize before using a namespace as a table name.
+function toTableName(namespace: string): string {
+  return namespace.replace(/[^A-Za-z0-9_.-]/g, '_');
+}
+
 function toRecord(entry: MemoryEntry, dim: number): LanceRecord {
   return {
     id: entry.id,
@@ -145,7 +153,13 @@ function fromRecord(r: Record<string, any>): MemoryEntry {
     tags,
     references,
     metadata,
-    embedding: Array.isArray(r.vector) && r.vector.length > 0 ? new Float32Array(r.vector) : undefined,
+    // r.vector comes back from LanceDB as an Apache Arrow Vector, not a plain
+    // JS array — Array.isArray(r.vector) is always false for it, so the old
+    // check silently discarded every real embedding on read, which is what
+    // caused loadPatterns() to see 0-length vectors and fail the HNSW
+    // dimension check. Arrow Vectors are iterable/array-like (support
+    // .length and Array.from), so check .length directly instead.
+    embedding: r.vector != null && r.vector.length > 0 ? new Float32Array(Array.from(r.vector)) : undefined,
     createdAt: Number(r.createdAt),
     updatedAt: Number(r.updatedAt),
     lastAccessedAt: Number(r.lastAccessedAt),
@@ -226,9 +240,10 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   private async openExistingTable(namespace: string): Promise<any | null> {
     if (this.tables.has(namespace)) return this.tables.get(namespace)!;
     if (!this.initialized || !this.db) throw new Error('LanceDBBackend not initialized — call initialize() first');
+    const tableName = toTableName(namespace);
     const tableNames: string[] = await this.db.tableNames();
-    if (!tableNames.includes(namespace)) return null;
-    const table = await this.db.openTable(namespace);
+    if (!tableNames.includes(tableName)) return null;
+    const table = await this.db.openTable(tableName);
     this.tables.set(namespace, table);
     return table;
   }
@@ -238,11 +253,12 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
     if (this.tables.has(namespace)) return this.tables.get(namespace)!;
     if (!this.initialized || !this.db) throw new Error('LanceDBBackend not initialized — call initialize() first');
 
+    const tableName = toTableName(namespace);
     const tableNames: string[] = await this.db.tableNames();
     let table: any;
 
-    if (tableNames.includes(namespace)) {
-      table = await this.db.openTable(namespace);
+    if (tableNames.includes(tableName)) {
+      table = await this.db.openTable(tableName);
     } else {
       // Create with a placeholder row so the schema is fully established.
       // The placeholder is deleted immediately after creation.
@@ -268,7 +284,7 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
         accessCount: 0,
         importanceScore: 0,
       };
-      table = await this.db.createTable(namespace, [placeholder]);
+      table = await this.db.createTable(tableName, [placeholder]);
       await table.delete(`id = '__init__'`);
     }
 
@@ -279,20 +295,29 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   // ===== IMemoryBackend implementation =====
 
   async store(entry: MemoryEntry): Promise<void> {
-    const table = await this.getTable(entry.namespace);
-    const record = toRecord(entry, this.config.vectorDimension);
+    // Fall back to the configured default namespace, matching every other
+    // method here (query/count/search) — store() was the one path that
+    // didn't, so an entry with no namespace crashed instead of using the
+    // default table.
+    const ns = entry.namespace ?? this.config.namespace;
+    const table = await this.getTable(ns);
+    // Persist the resolved namespace, not entry.namespace — otherwise an
+    // entry stored without an explicit namespace lands in the right table
+    // but its own namespace column stays unset, so query({namespace: ns})
+    // can never find it again.
+    const record = toRecord({ ...entry, namespace: ns }, this.config.vectorDimension);
 
     // Upsert: delete any existing row with same id, then insert
     await table.delete(`id = ${sqlStr(entry.id)}`);
     await table.add([record]);
 
     // Build FTS index on first real write (LanceDB needs at least 1 row)
-    if (this.config.enableFts && !this.ftsBuilt.has(entry.namespace)) {
+    if (this.config.enableFts && !this.ftsBuilt.has(ns)) {
       try {
         await table.createIndex({
           config: lancedb.Index.fts(['content', 'key']),
         });
-        this.ftsBuilt.add(entry.namespace);
+        this.ftsBuilt.add(ns);
       } catch {
         // FTS build is best-effort; search falls back to vector-only
       }
@@ -400,7 +425,11 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
 
       // over-fetch for threshold filtering, then trim; single predicate (chaining may overwrite)
       const preFilter = `namespace = ${sqlStr(ns)} AND (expiresAt = 0 OR expiresAt > ${Date.now()})`;
-      let q = table.search(queryVector).nprobes(this.config.nProbes).limit(k * 2).where(preFilter);
+      // LanceDB defaults to L2 distance — the score formula below assumes cosine
+      // (score = 1 - distance); without this, related pairs score ~0.1 and get
+      // filtered by any sane threshold.
+      let q = (table.search(queryVector) as any).distanceType('cosine')
+        .nprobes(this.config.nProbes).limit(k * 2).where(preFilter);
 
       const rows = await q.toArray();
       const threshold = options.threshold ?? 0;
@@ -488,7 +517,7 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   async clearNamespace(namespace: string): Promise<number> {
     try {
       const n = await this.count(namespace);
-      await this.db.dropTable(namespace);
+      await this.db.dropTable(toTableName(namespace));
       this.tables.delete(namespace);
       this.ftsBuilt.delete(namespace);
       return n;

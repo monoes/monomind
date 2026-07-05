@@ -1,7 +1,19 @@
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { unlinkSync, existsSync } from 'fs';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// The no-llmClient/no-llmConfig default path in generateWikiPage now routes
+// through the local Claude Code CLI (see claude-cli.ts) instead of requiring
+// ANTHROPIC_API_KEY directly. Mock isClaudeCliAvailable so the "no client
+// configured" failure test doesn't depend on whether this machine happens to
+// have the CLI installed.
+const mockIsClaudeCliAvailable = vi.fn();
+vi.mock('../../src/claude-cli.js', () => ({
+  isClaudeCliAvailable: mockIsClaudeCliAvailable,
+  claudeCliCall: vi.fn(),
+}));
+
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode } from '../../src/storage/node-store.js';
 import { insertEdge } from '../../src/storage/edge-store.js';
@@ -71,6 +83,7 @@ const edgeBC: MonographEdge = {
 };
 
 beforeEach(() => {
+  mockIsClaudeCliAvailable.mockReset();
   db = openDb(dbPath);
   // Insert community records
   db.prepare('INSERT OR IGNORE INTO communities (id, label, size) VALUES (?, ?, ?)').run(1, 'Core Module', 2);
@@ -185,14 +198,11 @@ describe('generateWikiPage', () => {
     expect(capturedPrompt).toContain('Core Module');
   });
 
-  it('throws ANTHROPIC_API_KEY not set error when no key and no client', async () => {
-    const origKey = process.env['ANTHROPIC_API_KEY'];
-    delete process.env['ANTHROPIC_API_KEY'];
-    try {
-      await expect(generateWikiPage(db, '1')).rejects.toThrow('ANTHROPIC_API_KEY not set');
-    } finally {
-      if (origKey !== undefined) process.env['ANTHROPIC_API_KEY'] = origKey;
-    }
+  it('throws Claude Code CLI not found error when no client and CLI unavailable', async () => {
+    // The no-llmClient/no-llmConfig default path checks isClaudeCliAvailable()
+    // rather than an API key — it reuses the host's Claude Code auth instead.
+    mockIsClaudeCliAvailable.mockReturnValue(false);
+    await expect(generateWikiPage(db, '1')).rejects.toThrow('Claude Code CLI not found');
   });
 });
 

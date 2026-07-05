@@ -16,6 +16,14 @@ export function openDb(dbPath: string): MonographDb {
     const db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
+    // Concurrent pipeline phases + long-lived MCP connections share this DB —
+    // without a busy timeout, writers fail immediately with "database is locked".
+    db.pragma('busy_timeout = 10000');
+    db.pragma('synchronous = NORMAL');
+    // node-store uses INSERT OR REPLACE; without recursive_triggers the implicit
+    // DELETE never fires the nodes_fts delete trigger, leaving ghost FTS rows that
+    // corrupt queries ("missing row N from content table") and bloat the index.
+    db.pragma('recursive_triggers = ON');
     applyMigrations(db);
     return db;
   } catch (err) {

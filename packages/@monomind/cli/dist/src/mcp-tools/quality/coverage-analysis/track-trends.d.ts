@@ -7,32 +7,32 @@
 import { z } from 'zod';
 export declare const TrackTrendsInputSchema: z.ZodObject<{
     targetPath: z.ZodOptional<z.ZodString>;
-    timeRange: z.ZodDefault<z.ZodEnum<{
-        "30d": "30d";
-        "7d": "7d";
-        "14d": "14d";
-        "90d": "90d";
-        "180d": "180d";
-        "365d": "365d";
-    }>>;
-    metrics: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-        function: "function";
-        line: "line";
-        overall: "overall";
-        branch: "branch";
-        statement: "statement";
-    }>>>;
+    timeRange: z.ZodDefault<z.ZodEnum<["7d", "14d", "30d", "90d", "180d", "365d"]>>;
+    metrics: z.ZodDefault<z.ZodArray<z.ZodEnum<["line", "branch", "function", "statement", "overall"]>, "many">>;
     detectRegressions: z.ZodDefault<z.ZodBoolean>;
     regressionThreshold: z.ZodDefault<z.ZodNumber>;
-    groupBy: z.ZodDefault<z.ZodEnum<{
-        commit: "commit";
-        day: "day";
-        week: "week";
-        month: "month";
-    }>>;
+    groupBy: z.ZodDefault<z.ZodEnum<["day", "week", "month", "commit"]>>;
     includeProjections: z.ZodDefault<z.ZodBoolean>;
     compareBaseline: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    metrics: ("function" | "line" | "overall" | "branch" | "statement")[];
+    timeRange: "30d" | "7d" | "14d" | "90d" | "180d" | "365d";
+    groupBy: "commit" | "day" | "week" | "month";
+    detectRegressions: boolean;
+    regressionThreshold: number;
+    includeProjections: boolean;
+    targetPath?: string | undefined;
+    compareBaseline?: string | undefined;
+}, {
+    metrics?: ("function" | "line" | "overall" | "branch" | "statement")[] | undefined;
+    timeRange?: "30d" | "7d" | "14d" | "90d" | "180d" | "365d" | undefined;
+    targetPath?: string | undefined;
+    groupBy?: "commit" | "day" | "week" | "month" | undefined;
+    detectRegressions?: boolean | undefined;
+    regressionThreshold?: number | undefined;
+    includeProjections?: boolean | undefined;
+    compareBaseline?: string | undefined;
+}>;
 export type TrackTrendsInput = z.infer<typeof TrackTrendsInputSchema>;
 export interface TrackTrendsOutput {
     success: boolean;
@@ -133,32 +133,32 @@ export declare const toolDefinition: {
     version: string;
     inputSchema: z.ZodObject<{
         targetPath: z.ZodOptional<z.ZodString>;
-        timeRange: z.ZodDefault<z.ZodEnum<{
-            "30d": "30d";
-            "7d": "7d";
-            "14d": "14d";
-            "90d": "90d";
-            "180d": "180d";
-            "365d": "365d";
-        }>>;
-        metrics: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-            function: "function";
-            line: "line";
-            overall: "overall";
-            branch: "branch";
-            statement: "statement";
-        }>>>;
+        timeRange: z.ZodDefault<z.ZodEnum<["7d", "14d", "30d", "90d", "180d", "365d"]>>;
+        metrics: z.ZodDefault<z.ZodArray<z.ZodEnum<["line", "branch", "function", "statement", "overall"]>, "many">>;
         detectRegressions: z.ZodDefault<z.ZodBoolean>;
         regressionThreshold: z.ZodDefault<z.ZodNumber>;
-        groupBy: z.ZodDefault<z.ZodEnum<{
-            commit: "commit";
-            day: "day";
-            week: "week";
-            month: "month";
-        }>>;
+        groupBy: z.ZodDefault<z.ZodEnum<["day", "week", "month", "commit"]>>;
         includeProjections: z.ZodDefault<z.ZodBoolean>;
         compareBaseline: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        metrics: ("function" | "line" | "overall" | "branch" | "statement")[];
+        timeRange: "30d" | "7d" | "14d" | "90d" | "180d" | "365d";
+        groupBy: "commit" | "day" | "week" | "month";
+        detectRegressions: boolean;
+        regressionThreshold: number;
+        includeProjections: boolean;
+        targetPath?: string | undefined;
+        compareBaseline?: string | undefined;
+    }, {
+        metrics?: ("function" | "line" | "overall" | "branch" | "statement")[] | undefined;
+        timeRange?: "30d" | "7d" | "14d" | "90d" | "180d" | "365d" | undefined;
+        targetPath?: string | undefined;
+        groupBy?: "commit" | "day" | "week" | "month" | undefined;
+        detectRegressions?: boolean | undefined;
+        regressionThreshold?: number | undefined;
+        includeProjections?: boolean | undefined;
+        compareBaseline?: string | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

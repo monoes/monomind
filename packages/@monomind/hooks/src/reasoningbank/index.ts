@@ -14,7 +14,24 @@
  */
 
 import { EventEmitter } from 'node:events';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import * as crypto from 'node:crypto';
 import type { HookContext, HookEvent } from '../types.js';
+
+/**
+ * Derive a collision-resistant, filesystem-safe directory name for the
+ * current project. A naive character-substitution slug (e.g. replacing path
+ * separators with '-') is not collision-safe: '/x/foo-bar' and '/x/foo/bar'
+ * both flatten to 'x-foo-bar'. Hash the full resolved path and keep a
+ * human-readable suffix only for browsability.
+ */
+function projectSlug(cwd: string = process.cwd()): string {
+  const resolved = path.resolve(cwd);
+  const hash = crypto.createHash('sha256').update(resolved).digest('hex').slice(0, 16);
+  const readable = path.basename(resolved).replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 40) || 'project';
+  return `${readable}-${hash}`;
+}
 
 // Dynamic imports for optional dependencies
 let MemoryAdapter: any = null;
@@ -121,7 +138,10 @@ const DEFAULT_CONFIG: ReasoningBankConfig = {
   promotionThreshold: 3,
   qualityThreshold: 0.6,
   dedupThreshold: 0.95,
-  dbPath: '.monomind/memory.db',
+  // LanceDB needs atomic rename — unsupported on exFAT/SMB project volumes, so the
+  // store lives on the home volume, namespaced by project directory (hashed —
+  // see projectSlug — to avoid two different project paths colliding).
+  dbPath: path.join(os.homedir(), '.monomind', 'projects', projectSlug(), 'reasoningbank'),
   useMockEmbeddings: false,
 };
 
@@ -238,14 +258,25 @@ export class ReasoningBank extends EventEmitter {
           metric: 'cosine',
         });
 
-        // Initialize memory adapter
+        // Initialize memory adapter.
+        // NOTE: LanceDBBackendConfig's fields are `vectorDimension` and
+        // `dbPath` — this used to pass `dimensions` and `persistencePath`,
+        // neither of which LanceDBBackendConfig recognizes. Both were
+        // silently dropped (this.memoryBackend is typed `any`, so nothing
+        // caught it): vectorDimension fell back to LanceDB's own default
+        // (1536, breaking the HNSW dimension check whenever this.config
+        // .dimensions !== 1536) and dbPath fell back to LanceDB's own
+        // default (~/.monomind/lancedb, the real home directory) instead of
+        // this.config.dbPath — so every ReasoningBank instance, in tests and
+        // production alike, has been reading/writing the same real
+        // production LanceDB directory regardless of any configured dbPath.
         this.memoryBackend = new MemoryAdapter({
-          dimensions: this.config.dimensions,
+          vectorDimension: this.config.dimensions,
           hnswM: this.config.hnswM,
           hnswEfConstruction: this.config.hnswEfConstruction,
           maxEntries: this.config.maxShortTerm + this.config.maxLongTerm,
           persistenceEnabled: true,
-          persistencePath: this.config.dbPath,
+          dbPath: this.config.dbPath,
           embeddingGenerator: (text: string) => this.embeddingService.embed(text),
         });
 
@@ -750,12 +781,23 @@ export class ReasoningBank extends EventEmitter {
     if (!this.memoryBackend) return;
 
     try {
+      // this.memoryBackend is typed `any`, so TypeScript won't catch a
+      // MemoryEntry missing required fields — id/type/accessLevel/timestamps
+      // were previously omitted entirely, which crashed LanceDBBackend.store()
+      // (sqlStr(entry.id) on undefined) on every single call, silently caught
+      // by the try/catch below. Patterns were never actually persisted.
       await this.memoryBackend.store({
+        id: pattern.id,
         key: pattern.id,
         namespace: `patterns:${type}`,
         content: pattern.strategy,
         embedding: pattern.embedding,
+        type: 'procedural',
+        accessLevel: 'private',
         tags: [pattern.domain, type],
+        createdAt: pattern.createdAt,
+        updatedAt: pattern.updatedAt,
+        lastAccessedAt: pattern.updatedAt,
         metadata: {
           quality: pattern.quality,
           usageCount: pattern.usageCount,

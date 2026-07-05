@@ -8,38 +8,55 @@ import { z } from 'zod';
 export declare const EvaluateQualityGateInputSchema: z.ZodObject<{
     gates: z.ZodOptional<z.ZodArray<z.ZodObject<{
         metric: z.ZodString;
-        operator: z.ZodEnum<{
-            ">": ">";
-            "<": "<";
-            ">=": ">=";
-            "<=": "<=";
-            "==": "==";
-        }>;
+        operator: z.ZodEnum<[">", "<", ">=", "<=", "=="]>;
         threshold: z.ZodNumber;
         weight: z.ZodDefault<z.ZodNumber>;
         blocking: z.ZodDefault<z.ZodBoolean>;
-    }, z.core.$strip>>>;
-    defaults: z.ZodDefault<z.ZodEnum<{
-        minimal: "minimal";
-        standard: "standard";
-        strict: "strict";
-    }>>;
+    }, "strip", z.ZodTypeAny, {
+        threshold: number;
+        weight: number;
+        metric: string;
+        operator: ">" | "<" | ">=" | "<=" | "==";
+        blocking: boolean;
+    }, {
+        threshold: number;
+        metric: string;
+        operator: ">" | "<" | ">=" | "<=" | "==";
+        weight?: number | undefined;
+        blocking?: boolean | undefined;
+    }>, "many">>;
+    defaults: z.ZodDefault<z.ZodEnum<["strict", "standard", "minimal"]>>;
     projectPath: z.ZodOptional<z.ZodString>;
-    includeMetrics: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-        security: "security";
-        coverage: "coverage";
-        complexity: "complexity";
-        bugs: "bugs";
-        vulnerabilities: "vulnerabilities";
-        "code-smells": "code-smells";
-        duplications: "duplications";
-        "technical-debt": "technical-debt";
-        reliability: "reliability";
-        maintainability: "maintainability";
-    }>>>;
+    includeMetrics: z.ZodDefault<z.ZodArray<z.ZodEnum<["coverage", "bugs", "vulnerabilities", "code-smells", "duplications", "complexity", "technical-debt", "reliability", "security", "maintainability"]>, "many">>;
     failFast: z.ZodDefault<z.ZodBoolean>;
     generateReport: z.ZodDefault<z.ZodBoolean>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    defaults: "minimal" | "standard" | "strict";
+    includeMetrics: ("security" | "coverage" | "complexity" | "bugs" | "vulnerabilities" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[];
+    failFast: boolean;
+    generateReport: boolean;
+    gates?: {
+        threshold: number;
+        weight: number;
+        metric: string;
+        operator: ">" | "<" | ">=" | "<=" | "==";
+        blocking: boolean;
+    }[] | undefined;
+    projectPath?: string | undefined;
+}, {
+    gates?: {
+        threshold: number;
+        metric: string;
+        operator: ">" | "<" | ">=" | "<=" | "==";
+        weight?: number | undefined;
+        blocking?: boolean | undefined;
+    }[] | undefined;
+    defaults?: "minimal" | "standard" | "strict" | undefined;
+    projectPath?: string | undefined;
+    includeMetrics?: ("security" | "coverage" | "complexity" | "bugs" | "vulnerabilities" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[] | undefined;
+    failFast?: boolean | undefined;
+    generateReport?: boolean | undefined;
+}>;
 export type EvaluateQualityGateInput = z.infer<typeof EvaluateQualityGateInputSchema>;
 export interface EvaluateQualityGateOutput {
     success: boolean;
@@ -163,38 +180,55 @@ export declare const toolDefinition: {
     inputSchema: z.ZodObject<{
         gates: z.ZodOptional<z.ZodArray<z.ZodObject<{
             metric: z.ZodString;
-            operator: z.ZodEnum<{
-                ">": ">";
-                "<": "<";
-                ">=": ">=";
-                "<=": "<=";
-                "==": "==";
-            }>;
+            operator: z.ZodEnum<[">", "<", ">=", "<=", "=="]>;
             threshold: z.ZodNumber;
             weight: z.ZodDefault<z.ZodNumber>;
             blocking: z.ZodDefault<z.ZodBoolean>;
-        }, z.core.$strip>>>;
-        defaults: z.ZodDefault<z.ZodEnum<{
-            minimal: "minimal";
-            standard: "standard";
-            strict: "strict";
-        }>>;
+        }, "strip", z.ZodTypeAny, {
+            threshold: number;
+            weight: number;
+            metric: string;
+            operator: ">" | "<" | ">=" | "<=" | "==";
+            blocking: boolean;
+        }, {
+            threshold: number;
+            metric: string;
+            operator: ">" | "<" | ">=" | "<=" | "==";
+            weight?: number | undefined;
+            blocking?: boolean | undefined;
+        }>, "many">>;
+        defaults: z.ZodDefault<z.ZodEnum<["strict", "standard", "minimal"]>>;
         projectPath: z.ZodOptional<z.ZodString>;
-        includeMetrics: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-            security: "security";
-            coverage: "coverage";
-            complexity: "complexity";
-            bugs: "bugs";
-            vulnerabilities: "vulnerabilities";
-            "code-smells": "code-smells";
-            duplications: "duplications";
-            "technical-debt": "technical-debt";
-            reliability: "reliability";
-            maintainability: "maintainability";
-        }>>>;
+        includeMetrics: z.ZodDefault<z.ZodArray<z.ZodEnum<["coverage", "bugs", "vulnerabilities", "code-smells", "duplications", "complexity", "technical-debt", "reliability", "security", "maintainability"]>, "many">>;
         failFast: z.ZodDefault<z.ZodBoolean>;
         generateReport: z.ZodDefault<z.ZodBoolean>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        defaults: "minimal" | "standard" | "strict";
+        includeMetrics: ("security" | "coverage" | "complexity" | "bugs" | "vulnerabilities" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[];
+        failFast: boolean;
+        generateReport: boolean;
+        gates?: {
+            threshold: number;
+            weight: number;
+            metric: string;
+            operator: ">" | "<" | ">=" | "<=" | "==";
+            blocking: boolean;
+        }[] | undefined;
+        projectPath?: string | undefined;
+    }, {
+        gates?: {
+            threshold: number;
+            metric: string;
+            operator: ">" | "<" | ">=" | "<=" | "==";
+            weight?: number | undefined;
+            blocking?: boolean | undefined;
+        }[] | undefined;
+        defaults?: "minimal" | "standard" | "strict" | undefined;
+        projectPath?: string | undefined;
+        includeMetrics?: ("security" | "coverage" | "complexity" | "bugs" | "vulnerabilities" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[] | undefined;
+        failFast?: boolean | undefined;
+        generateReport?: boolean | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

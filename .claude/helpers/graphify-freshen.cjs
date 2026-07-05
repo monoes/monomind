@@ -41,17 +41,18 @@ function resolveMonographEntry(dir) {
   })();
 
   const candidates = [
-    // pnpm store version (most reliable — pre-built, isolated from workspace source changes)
+    // Monorepo workspace build FIRST — it carries unpublished fixes; the pnpm store
+    // holds registry tarballs that can lag behind the workspace source.
+    path.join(dir, 'packages', '@monomind', 'monograph', 'dist', 'src', 'index.js'),
+    // Installed as a flat dependency (follows workspace symlinks when linked)
+    path.join(dir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js'),
+    path.join(dir, 'node_modules', '@monomind', 'monograph', 'dist', 'src', 'index.js'),
+    // Monorepo: monomind root is the monograph package
+    path.join(dir, 'dist', 'src', 'index.js'),
+    // pnpm store registry copy
     pnpmStore,
     // Global npm / homebrew install of @monomind/cli (most common for npx/global users)
     globalNpmMonograph,
-    // Monorepo: monomind root is the monograph package
-    path.join(dir, 'dist', 'src', 'index.js'),
-    // Monorepo: monograph lives under packages/@monomind/monograph (pnpm workspace)
-    path.join(dir, 'packages', '@monomind', 'monograph', 'dist', 'src', 'index.js'),
-    // Installed as a flat dependency
-    path.join(dir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js'),
-    path.join(dir, 'node_modules', '@monomind', 'monograph', 'dist', 'src', 'index.js'),
   ].filter(Boolean);
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;

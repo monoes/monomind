@@ -7,34 +7,32 @@
 import { z } from 'zod';
 export declare const SecurityScanInputSchema: z.ZodObject<{
     targetPath: z.ZodString;
-    scanType: z.ZodDefault<z.ZodEnum<{
-        both: "both";
-        sast: "sast";
-        dast: "dast";
-    }>>;
-    compliance: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-        "owasp-top-10": "owasp-top-10";
-        "sans-25": "sans-25";
-        "pci-dss": "pci-dss";
-        hipaa: "hipaa";
-        gdpr: "gdpr";
-        soc2: "soc2";
-    }>>>;
-    severity: z.ZodDefault<z.ZodEnum<{
-        critical: "critical";
-        high: "high";
-        all: "all";
-        medium: "medium";
-    }>>;
+    scanType: z.ZodDefault<z.ZodEnum<["sast", "dast", "both"]>>;
+    compliance: z.ZodDefault<z.ZodArray<z.ZodEnum<["owasp-top-10", "sans-25", "pci-dss", "hipaa", "gdpr", "soc2"]>, "many">>;
+    severity: z.ZodDefault<z.ZodEnum<["all", "critical", "high", "medium"]>>;
     includeRemediation: z.ZodDefault<z.ZodBoolean>;
-    scanDepth: z.ZodDefault<z.ZodEnum<{
-        standard: "standard";
-        deep: "deep";
-        quick: "quick";
-    }>>;
-    excludePatterns: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    scanDepth: z.ZodDefault<z.ZodEnum<["quick", "standard", "deep"]>>;
+    excludePatterns: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     targetUrl: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    targetPath: string;
+    compliance: ("owasp-top-10" | "sans-25" | "pci-dss" | "hipaa" | "gdpr" | "soc2")[];
+    includeRemediation: boolean;
+    scanType: "both" | "sast" | "dast";
+    severity: "critical" | "high" | "all" | "medium";
+    scanDepth: "standard" | "deep" | "quick";
+    excludePatterns: string[];
+    targetUrl?: string | undefined;
+}, {
+    targetPath: string;
+    compliance?: ("owasp-top-10" | "sans-25" | "pci-dss" | "hipaa" | "gdpr" | "soc2")[] | undefined;
+    includeRemediation?: boolean | undefined;
+    scanType?: "both" | "sast" | "dast" | undefined;
+    severity?: "critical" | "high" | "all" | "medium" | undefined;
+    scanDepth?: "standard" | "deep" | "quick" | undefined;
+    excludePatterns?: string[] | undefined;
+    targetUrl?: string | undefined;
+}>;
 export type SecurityScanInput = z.infer<typeof SecurityScanInputSchema>;
 export interface SecurityScanOutput {
     success: boolean;
@@ -137,34 +135,32 @@ export declare const toolDefinition: {
     version: string;
     inputSchema: z.ZodObject<{
         targetPath: z.ZodString;
-        scanType: z.ZodDefault<z.ZodEnum<{
-            both: "both";
-            sast: "sast";
-            dast: "dast";
-        }>>;
-        compliance: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-            "owasp-top-10": "owasp-top-10";
-            "sans-25": "sans-25";
-            "pci-dss": "pci-dss";
-            hipaa: "hipaa";
-            gdpr: "gdpr";
-            soc2: "soc2";
-        }>>>;
-        severity: z.ZodDefault<z.ZodEnum<{
-            critical: "critical";
-            high: "high";
-            all: "all";
-            medium: "medium";
-        }>>;
+        scanType: z.ZodDefault<z.ZodEnum<["sast", "dast", "both"]>>;
+        compliance: z.ZodDefault<z.ZodArray<z.ZodEnum<["owasp-top-10", "sans-25", "pci-dss", "hipaa", "gdpr", "soc2"]>, "many">>;
+        severity: z.ZodDefault<z.ZodEnum<["all", "critical", "high", "medium"]>>;
         includeRemediation: z.ZodDefault<z.ZodBoolean>;
-        scanDepth: z.ZodDefault<z.ZodEnum<{
-            standard: "standard";
-            deep: "deep";
-            quick: "quick";
-        }>>;
-        excludePatterns: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        scanDepth: z.ZodDefault<z.ZodEnum<["quick", "standard", "deep"]>>;
+        excludePatterns: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
         targetUrl: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        targetPath: string;
+        compliance: ("owasp-top-10" | "sans-25" | "pci-dss" | "hipaa" | "gdpr" | "soc2")[];
+        includeRemediation: boolean;
+        scanType: "both" | "sast" | "dast";
+        severity: "critical" | "high" | "all" | "medium";
+        scanDepth: "standard" | "deep" | "quick";
+        excludePatterns: string[];
+        targetUrl?: string | undefined;
+    }, {
+        targetPath: string;
+        compliance?: ("owasp-top-10" | "sans-25" | "pci-dss" | "hipaa" | "gdpr" | "soc2")[] | undefined;
+        includeRemediation?: boolean | undefined;
+        scanType?: "both" | "sast" | "dast" | undefined;
+        severity?: "critical" | "high" | "all" | "medium" | undefined;
+        scanDepth?: "standard" | "deep" | "quick" | undefined;
+        excludePatterns?: string[] | undefined;
+        targetUrl?: string | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

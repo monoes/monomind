@@ -8,32 +8,65 @@
 import { z } from 'zod';
 export declare const ChaosInjectInputSchema: z.ZodObject<{
     target: z.ZodString;
-    failureType: z.ZodEnum<{
-        "network-latency": "network-latency";
-        "network-partition": "network-partition";
-        "cpu-stress": "cpu-stress";
-        "memory-pressure": "memory-pressure";
-        "disk-failure": "disk-failure";
-        "process-kill": "process-kill";
-        "dns-failure": "dns-failure";
-        "dependency-failure": "dependency-failure";
-        "clock-skew": "clock-skew";
-        "packet-loss": "packet-loss";
-    }>;
+    failureType: z.ZodEnum<["network-latency", "network-partition", "cpu-stress", "memory-pressure", "disk-failure", "process-kill", "dns-failure", "dependency-failure", "clock-skew", "packet-loss"]>;
     duration: z.ZodDefault<z.ZodNumber>;
     intensity: z.ZodDefault<z.ZodNumber>;
     dryRun: z.ZodDefault<z.ZodBoolean>;
     rollbackOnFailure: z.ZodDefault<z.ZodBoolean>;
     monitorMetrics: z.ZodDefault<z.ZodBoolean>;
-    notifyChannels: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    notifyChannels: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
     parameters: z.ZodOptional<z.ZodObject<{
         latencyMs: z.ZodOptional<z.ZodNumber>;
         packetLossPercent: z.ZodOptional<z.ZodNumber>;
         cpuCores: z.ZodOptional<z.ZodNumber>;
         memoryPercent: z.ZodOptional<z.ZodNumber>;
-        targetProcesses: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    }, z.core.$strip>>;
-}, z.core.$strip>;
+        targetProcesses: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    }, "strip", z.ZodTypeAny, {
+        latencyMs?: number | undefined;
+        packetLossPercent?: number | undefined;
+        cpuCores?: number | undefined;
+        memoryPercent?: number | undefined;
+        targetProcesses?: string[] | undefined;
+    }, {
+        latencyMs?: number | undefined;
+        packetLossPercent?: number | undefined;
+        cpuCores?: number | undefined;
+        memoryPercent?: number | undefined;
+        targetProcesses?: string[] | undefined;
+    }>>;
+}, "strip", z.ZodTypeAny, {
+    target: string;
+    duration: number;
+    dryRun: boolean;
+    failureType: "network-latency" | "network-partition" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
+    intensity: number;
+    rollbackOnFailure: boolean;
+    monitorMetrics: boolean;
+    notifyChannels: string[];
+    parameters?: {
+        latencyMs?: number | undefined;
+        packetLossPercent?: number | undefined;
+        cpuCores?: number | undefined;
+        memoryPercent?: number | undefined;
+        targetProcesses?: string[] | undefined;
+    } | undefined;
+}, {
+    target: string;
+    failureType: "network-latency" | "network-partition" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
+    duration?: number | undefined;
+    dryRun?: boolean | undefined;
+    intensity?: number | undefined;
+    rollbackOnFailure?: boolean | undefined;
+    monitorMetrics?: boolean | undefined;
+    notifyChannels?: string[] | undefined;
+    parameters?: {
+        latencyMs?: number | undefined;
+        packetLossPercent?: number | undefined;
+        cpuCores?: number | undefined;
+        memoryPercent?: number | undefined;
+        targetProcesses?: string[] | undefined;
+    } | undefined;
+}>;
 export type ChaosInjectInput = z.infer<typeof ChaosInjectInputSchema>;
 export interface ChaosInjectOutput {
     success: boolean;
@@ -131,32 +164,65 @@ export declare const toolDefinition: {
     version: string;
     inputSchema: z.ZodObject<{
         target: z.ZodString;
-        failureType: z.ZodEnum<{
-            "network-latency": "network-latency";
-            "network-partition": "network-partition";
-            "cpu-stress": "cpu-stress";
-            "memory-pressure": "memory-pressure";
-            "disk-failure": "disk-failure";
-            "process-kill": "process-kill";
-            "dns-failure": "dns-failure";
-            "dependency-failure": "dependency-failure";
-            "clock-skew": "clock-skew";
-            "packet-loss": "packet-loss";
-        }>;
+        failureType: z.ZodEnum<["network-latency", "network-partition", "cpu-stress", "memory-pressure", "disk-failure", "process-kill", "dns-failure", "dependency-failure", "clock-skew", "packet-loss"]>;
         duration: z.ZodDefault<z.ZodNumber>;
         intensity: z.ZodDefault<z.ZodNumber>;
         dryRun: z.ZodDefault<z.ZodBoolean>;
         rollbackOnFailure: z.ZodDefault<z.ZodBoolean>;
         monitorMetrics: z.ZodDefault<z.ZodBoolean>;
-        notifyChannels: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        notifyChannels: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
         parameters: z.ZodOptional<z.ZodObject<{
             latencyMs: z.ZodOptional<z.ZodNumber>;
             packetLossPercent: z.ZodOptional<z.ZodNumber>;
             cpuCores: z.ZodOptional<z.ZodNumber>;
             memoryPercent: z.ZodOptional<z.ZodNumber>;
-            targetProcesses: z.ZodOptional<z.ZodArray<z.ZodString>>;
-        }, z.core.$strip>>;
-    }, z.core.$strip>;
+            targetProcesses: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        }, "strip", z.ZodTypeAny, {
+            latencyMs?: number | undefined;
+            packetLossPercent?: number | undefined;
+            cpuCores?: number | undefined;
+            memoryPercent?: number | undefined;
+            targetProcesses?: string[] | undefined;
+        }, {
+            latencyMs?: number | undefined;
+            packetLossPercent?: number | undefined;
+            cpuCores?: number | undefined;
+            memoryPercent?: number | undefined;
+            targetProcesses?: string[] | undefined;
+        }>>;
+    }, "strip", z.ZodTypeAny, {
+        target: string;
+        duration: number;
+        dryRun: boolean;
+        failureType: "network-latency" | "network-partition" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
+        intensity: number;
+        rollbackOnFailure: boolean;
+        monitorMetrics: boolean;
+        notifyChannels: string[];
+        parameters?: {
+            latencyMs?: number | undefined;
+            packetLossPercent?: number | undefined;
+            cpuCores?: number | undefined;
+            memoryPercent?: number | undefined;
+            targetProcesses?: string[] | undefined;
+        } | undefined;
+    }, {
+        target: string;
+        failureType: "network-latency" | "network-partition" | "cpu-stress" | "memory-pressure" | "disk-failure" | "process-kill" | "dns-failure" | "dependency-failure" | "clock-skew" | "packet-loss";
+        duration?: number | undefined;
+        dryRun?: boolean | undefined;
+        intensity?: number | undefined;
+        rollbackOnFailure?: boolean | undefined;
+        monitorMetrics?: boolean | undefined;
+        notifyChannels?: string[] | undefined;
+        parameters?: {
+            latencyMs?: number | undefined;
+            packetLossPercent?: number | undefined;
+            cpuCores?: number | undefined;
+            memoryPercent?: number | undefined;
+            targetProcesses?: string[] | undefined;
+        } | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

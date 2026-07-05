@@ -7,24 +7,26 @@
 import { z } from 'zod';
 export declare const AuditComplianceInputSchema: z.ZodObject<{
     targetPath: z.ZodString;
-    frameworks: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-        "owasp-top-10": "owasp-top-10";
-        "sans-25": "sans-25";
-        "pci-dss": "pci-dss";
-        hipaa: "hipaa";
-        gdpr: "gdpr";
-        soc2: "soc2";
-        nist: "nist";
-    }>>>;
-    auditType: z.ZodDefault<z.ZodEnum<{
-        full: "full";
-        quick: "quick";
-        delta: "delta";
-    }>>;
+    frameworks: z.ZodDefault<z.ZodArray<z.ZodEnum<["owasp-top-10", "sans-25", "pci-dss", "hipaa", "gdpr", "soc2", "nist"]>, "many">>;
+    auditType: z.ZodDefault<z.ZodEnum<["full", "quick", "delta"]>>;
     includeEvidence: z.ZodDefault<z.ZodBoolean>;
     includeRemediation: z.ZodDefault<z.ZodBoolean>;
     lastAuditDate: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    targetPath: string;
+    includeRemediation: boolean;
+    frameworks: ("owasp-top-10" | "sans-25" | "pci-dss" | "hipaa" | "gdpr" | "soc2" | "nist")[];
+    auditType: "full" | "quick" | "delta";
+    includeEvidence: boolean;
+    lastAuditDate?: string | undefined;
+}, {
+    targetPath: string;
+    includeRemediation?: boolean | undefined;
+    frameworks?: ("owasp-top-10" | "sans-25" | "pci-dss" | "hipaa" | "gdpr" | "soc2" | "nist")[] | undefined;
+    auditType?: "full" | "quick" | "delta" | undefined;
+    includeEvidence?: boolean | undefined;
+    lastAuditDate?: string | undefined;
+}>;
 export type AuditComplianceInput = z.infer<typeof AuditComplianceInputSchema>;
 export interface AuditComplianceOutput {
     success: boolean;
@@ -142,24 +144,26 @@ export declare const toolDefinition: {
     version: string;
     inputSchema: z.ZodObject<{
         targetPath: z.ZodString;
-        frameworks: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-            "owasp-top-10": "owasp-top-10";
-            "sans-25": "sans-25";
-            "pci-dss": "pci-dss";
-            hipaa: "hipaa";
-            gdpr: "gdpr";
-            soc2: "soc2";
-            nist: "nist";
-        }>>>;
-        auditType: z.ZodDefault<z.ZodEnum<{
-            full: "full";
-            quick: "quick";
-            delta: "delta";
-        }>>;
+        frameworks: z.ZodDefault<z.ZodArray<z.ZodEnum<["owasp-top-10", "sans-25", "pci-dss", "hipaa", "gdpr", "soc2", "nist"]>, "many">>;
+        auditType: z.ZodDefault<z.ZodEnum<["full", "quick", "delta"]>>;
         includeEvidence: z.ZodDefault<z.ZodBoolean>;
         includeRemediation: z.ZodDefault<z.ZodBoolean>;
         lastAuditDate: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        targetPath: string;
+        includeRemediation: boolean;
+        frameworks: ("owasp-top-10" | "sans-25" | "pci-dss" | "hipaa" | "gdpr" | "soc2" | "nist")[];
+        auditType: "full" | "quick" | "delta";
+        includeEvidence: boolean;
+        lastAuditDate?: string | undefined;
+    }, {
+        targetPath: string;
+        includeRemediation?: boolean | undefined;
+        frameworks?: ("owasp-top-10" | "sans-25" | "pci-dss" | "hipaa" | "gdpr" | "soc2" | "nist")[] | undefined;
+        auditType?: "full" | "quick" | "delta" | undefined;
+        includeEvidence?: boolean | undefined;
+        lastAuditDate?: string | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

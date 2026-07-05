@@ -184,16 +184,23 @@ export const statsCommand: Command = {
   name: 'stats',
   description: 'Show memory statistics',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    // Call MCP memory/stats tool for real statistics
+    // Compute stats directly from the memory bridge (there is no memory_stats MCP tool)
     try {
-      const statsResult = await callMCPTool('memory_stats', {}) as {
-        totalEntries: number;
-        totalSize: string;
-        version: string;
-        backend: string;
-        location: string;
-        oldestEntry: string | null;
-        newestEntry: string | null;
+      const { bridgeListEntries } = await import('../memory/memory-bridge.js');
+      const listed = await bridgeListEntries({ limit: 10000 });
+      if (!listed || !listed.success) throw new Error('memory backend unavailable');
+      const entries = listed.entries;
+      const totalBytes = entries.reduce((s: number, e: any) => s + (e.content || '').length, 0);
+      const times = entries.map((e: any) => e.updatedAt || e.createdAt).filter(Boolean).sort();
+      const statsResult = {
+        totalEntries: entries.length,
+        totalSize: totalBytes >= 1048576 ? `${(totalBytes / 1048576).toFixed(1)} MB`
+          : totalBytes >= 1024 ? `${(totalBytes / 1024).toFixed(1)} KB` : `${totalBytes} B`,
+        version: 'lancedb',
+        backend: 'LanceDB',
+        location: '~/.monomind/projects/<project>/lancedb',
+        oldestEntry: times[0] ? new Date(times[0]).toISOString() : null,
+        newestEntry: times.length ? new Date(times[times.length - 1]).toISOString() : null,
       };
 
       const stats = {

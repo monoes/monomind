@@ -8,43 +8,50 @@
 import { z } from 'zod';
 export declare const GenerateTestsInputSchema: z.ZodObject<{
     targetPath: z.ZodString;
-    testType: z.ZodDefault<z.ZodEnum<{
-        unit: "unit";
-        integration: "integration";
-        e2e: "e2e";
-        property: "property";
-        mutation: "mutation";
-        fuzz: "fuzz";
-    }>>;
-    framework: z.ZodOptional<z.ZodEnum<{
-        vitest: "vitest";
-        jest: "jest";
-        mocha: "mocha";
-        pytest: "pytest";
-        junit: "junit";
-    }>>;
+    testType: z.ZodDefault<z.ZodEnum<["unit", "integration", "e2e", "property", "mutation", "fuzz"]>>;
+    framework: z.ZodOptional<z.ZodEnum<["vitest", "jest", "mocha", "pytest", "junit"]>>;
     coverage: z.ZodOptional<z.ZodObject<{
         target: z.ZodDefault<z.ZodNumber>;
         focusGaps: z.ZodDefault<z.ZodBoolean>;
-    }, z.core.$strip>>;
-    style: z.ZodDefault<z.ZodEnum<{
-        "tdd-london": "tdd-london";
-        "tdd-chicago": "tdd-chicago";
-        bdd: "bdd";
-        "example-based": "example-based";
+    }, "strip", z.ZodTypeAny, {
+        target: number;
+        focusGaps: boolean;
+    }, {
+        target?: number | undefined;
+        focusGaps?: boolean | undefined;
     }>>;
-    language: z.ZodOptional<z.ZodEnum<{
-        typescript: "typescript";
-        javascript: "javascript";
-        python: "python";
-        go: "go";
-        rust: "rust";
-        java: "java";
-    }>>;
+    style: z.ZodDefault<z.ZodEnum<["tdd-london", "tdd-chicago", "bdd", "example-based"]>>;
+    language: z.ZodOptional<z.ZodEnum<["typescript", "javascript", "python", "java", "go", "rust"]>>;
     includeEdgeCases: z.ZodDefault<z.ZodBoolean>;
     includeMocks: z.ZodDefault<z.ZodBoolean>;
     maxTests: z.ZodDefault<z.ZodNumber>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    style: "tdd-london" | "tdd-chicago" | "bdd" | "example-based";
+    targetPath: string;
+    testType: "unit" | "integration" | "e2e" | "property" | "mutation" | "fuzz";
+    includeEdgeCases: boolean;
+    includeMocks: boolean;
+    maxTests: number;
+    language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
+    framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
+    coverage?: {
+        target: number;
+        focusGaps: boolean;
+    } | undefined;
+}, {
+    targetPath: string;
+    language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
+    framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
+    coverage?: {
+        target?: number | undefined;
+        focusGaps?: boolean | undefined;
+    } | undefined;
+    style?: "tdd-london" | "tdd-chicago" | "bdd" | "example-based" | undefined;
+    testType?: "unit" | "integration" | "e2e" | "property" | "mutation" | "fuzz" | undefined;
+    includeEdgeCases?: boolean | undefined;
+    includeMocks?: boolean | undefined;
+    maxTests?: number | undefined;
+}>;
 export type GenerateTestsInput = z.infer<typeof GenerateTestsInputSchema>;
 export interface GenerateTestsOutput {
     success: boolean;
@@ -104,43 +111,50 @@ export declare const toolDefinition: {
     version: string;
     inputSchema: z.ZodObject<{
         targetPath: z.ZodString;
-        testType: z.ZodDefault<z.ZodEnum<{
-            unit: "unit";
-            integration: "integration";
-            e2e: "e2e";
-            property: "property";
-            mutation: "mutation";
-            fuzz: "fuzz";
-        }>>;
-        framework: z.ZodOptional<z.ZodEnum<{
-            vitest: "vitest";
-            jest: "jest";
-            mocha: "mocha";
-            pytest: "pytest";
-            junit: "junit";
-        }>>;
+        testType: z.ZodDefault<z.ZodEnum<["unit", "integration", "e2e", "property", "mutation", "fuzz"]>>;
+        framework: z.ZodOptional<z.ZodEnum<["vitest", "jest", "mocha", "pytest", "junit"]>>;
         coverage: z.ZodOptional<z.ZodObject<{
             target: z.ZodDefault<z.ZodNumber>;
             focusGaps: z.ZodDefault<z.ZodBoolean>;
-        }, z.core.$strip>>;
-        style: z.ZodDefault<z.ZodEnum<{
-            "tdd-london": "tdd-london";
-            "tdd-chicago": "tdd-chicago";
-            bdd: "bdd";
-            "example-based": "example-based";
+        }, "strip", z.ZodTypeAny, {
+            target: number;
+            focusGaps: boolean;
+        }, {
+            target?: number | undefined;
+            focusGaps?: boolean | undefined;
         }>>;
-        language: z.ZodOptional<z.ZodEnum<{
-            typescript: "typescript";
-            javascript: "javascript";
-            python: "python";
-            go: "go";
-            rust: "rust";
-            java: "java";
-        }>>;
+        style: z.ZodDefault<z.ZodEnum<["tdd-london", "tdd-chicago", "bdd", "example-based"]>>;
+        language: z.ZodOptional<z.ZodEnum<["typescript", "javascript", "python", "java", "go", "rust"]>>;
         includeEdgeCases: z.ZodDefault<z.ZodBoolean>;
         includeMocks: z.ZodDefault<z.ZodBoolean>;
         maxTests: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        style: "tdd-london" | "tdd-chicago" | "bdd" | "example-based";
+        targetPath: string;
+        testType: "unit" | "integration" | "e2e" | "property" | "mutation" | "fuzz";
+        includeEdgeCases: boolean;
+        includeMocks: boolean;
+        maxTests: number;
+        language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
+        framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
+        coverage?: {
+            target: number;
+            focusGaps: boolean;
+        } | undefined;
+    }, {
+        targetPath: string;
+        language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
+        framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
+        coverage?: {
+            target?: number | undefined;
+            focusGaps?: boolean | undefined;
+        } | undefined;
+        style?: "tdd-london" | "tdd-chicago" | "bdd" | "example-based" | undefined;
+        testType?: "unit" | "integration" | "e2e" | "property" | "mutation" | "fuzz" | undefined;
+        includeEdgeCases?: boolean | undefined;
+        includeMocks?: boolean | undefined;
+        maxTests?: number | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;
