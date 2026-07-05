@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monograph",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "type": "module",
   "description": "Native TypeScript code intelligence engine for monomind",
   "main": "dist/src/index.js",
@@ -44,9 +44,6 @@
     "tree-sitter-swift": "^0.7.1",
     "tree-sitter-typescript": "^0.23.0",
     "tree-sitter-vue": "^0.2.1"
-  },
-  "optionalDependencies": {
-    "@huggingface/transformers": "^3.1.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
