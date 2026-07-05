@@ -44,7 +44,7 @@ Complete these items in order:
 6. **Write design doc** — save to `docs/mastermind/specs/YYYY-MM-DD-<topic>-design.md`
 7. **Spec self-review** — inline check for placeholders, contradictions, ambiguity, scope (see below)
 8. **User reviews written spec** — ask user to review before proceeding
-9. **Transition to planning** — invoke `Skill("mastermind:plan")` to create the implementation plan
+9. **Transition to planning** — invoke `Skill("mastermind-skills:plan")` to create the implementation plan
 
 ---
 
@@ -68,10 +68,10 @@ Spec self-review (fix inline)
         ↓
 User reviews spec? → changes requested → Write design doc
         ↓ approved
-Invoke Skill("mastermind:plan")  ← TERMINAL STATE
+Invoke Skill("mastermind-skills:plan")  ← TERMINAL STATE
 ```
 
-**The terminal state is invoking `Skill("mastermind:plan")`.** Do NOT invoke mastermind:build or any other implementation skill directly. The ONLY next step after design is plan.
+**The terminal state is invoking `Skill("mastermind-skills:plan")`.** Do NOT invoke mastermind:build or any other implementation skill directly. The ONLY next step after design is plan.
 
 ---
 
@@ -143,11 +143,11 @@ Fix any issues inline. No need to re-review — just fix and move on.
 
 Wait for the user's response. If they request changes, make them and re-run the spec self-review. Only proceed once the user approves.
 
-**In auto mode:** Skip the wait. Proceed directly to `Skill("mastermind:plan")`.
+**In auto mode:** Skip the wait. Proceed directly to `Skill("mastermind-skills:plan")`.
 
 ### Transition to Planning
 
-- Invoke `Skill("mastermind:plan")` to create a detailed implementation plan
+- Invoke `Skill("mastermind-skills:plan")` to create a detailed implementation plan
 - Do NOT invoke any other skill. `mastermind:plan` is the only next step.
 
 ---
@@ -178,12 +178,12 @@ A browser-based companion for showing mockups, diagrams, and visual options duri
 - **Use the browser** for content that IS visual — mockups, wireframes, layout comparisons, architecture diagrams
 - **Use the terminal** for content that is text — requirements questions, conceptual choices, tradeoff lists, scope decisions
 
-If they agree to the companion, use `Skill("mastermind:worktree")` to set up an isolated workspace, then invoke `Skill("agent-browser-testing")` to open the browser.
+If they agree to the companion, use `Skill("mastermind-skills:worktree")` to set up an isolated workspace, then invoke `Skill("agent-browser-testing")` to open the browser.
 
 ---
 
 ## Integration
 
 **Skills used by this skill:**
-- `Skill("mastermind:plan")` — creates the implementation plan after design is approved (terminal state)
-- `Skill("mastermind:worktree")` — isolated workspace for visual companion work
+- `Skill("mastermind-skills:plan")` — creates the implementation plan after design is approved (terminal state)
+- `Skill("mastermind-skills:worktree")` — isolated workspace for visual companion work

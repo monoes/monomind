@@ -1,7 +1,4 @@
----
-name: mastermind-architect
-description: Mastermind architect domain — architecture review, file structure deduplication, coupling analysis, design pattern audit, DDD mapping, and system design. Default mode: confirm.
----
+<!-- Mastermind architect domain — architecture review, file structure deduplication, coupling analysis, design pattern audit, DDD mapping, and system design. Default mode: confirm. -->
 
 **First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 
@@ -43,7 +40,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -d '{"type":"domain:dispatch","session":"<sessionId>","domain":"architect","ts":'"$(date +%s)"'000}' || true
 ```
 
-Invoke `Skill("mastermind:architect")` passing: brain_context, prompt, project_name, board_id (create board named "architect" inside the project_name monotask space if not already present), mode, scope, stack, sessionId, iterate, caller: "command".
+Invoke `Skill("mastermind-skills:architect")` passing: brain_context, prompt, project_name, board_id (create board named "architect" inside the project_name monotask space if not already present), mode, scope, stack, sessionId, iterate, caller: "command".
 
 After skill returns: note the status from the skill's output (`complete`, `partial`, or `blocked`). Emit `session:complete` using that status, then follow _protocol.md Brain Write Procedure for domain `architect`. Before executing the curl below, substitute the generated sessionId for `<sessionId>` and the skill's actual status for `<status>`:
 ```bash
@@ -52,4 +49,4 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -d '{"type":"session:complete","session":"<sessionId>","domain":"architect","status":"<status>","domains":["architect"],"ts":'"$(date +%s)"'000}' || true
 ```
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

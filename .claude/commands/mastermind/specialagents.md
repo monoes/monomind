@@ -1,7 +1,4 @@
----
-name: mastermind-specialagents
-description: Activate a specialist agent persona — browse by category, activate by slug, or auto-select based on conversation context
----
+<!-- Activate a specialist agent persona — browse by category, activate by slug, or auto-select based on conversation context -->
 
 Activate a specialist agent persona. Three modes:
 

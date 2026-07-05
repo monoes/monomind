@@ -1,7 +1,4 @@
----
-name: mastermind-autodev
-description: Autonomous research → build → review loop. Researches the project, picks the best improvement, builds it, and reviews until clean. Repeat N times with a leading integer (e.g. `/mastermind:autodev 9`). Use --newfeature N to discover and fully deliver N brand-new features (build → review → document → stage). Supports --tillend.
----
+<!-- Autonomous research → build → review loop. Researches the project, picks the best improvement, builds it, and reviews until clean. Repeat N times with a leading integer (e.g. `/mastermind:autodev 9`). Use --newfeature N to discover and fully deliver N brand-new features (build → review → document → stage). Supports --tillend. -->
 
 **Pre-PREAMBLE compatibility check:** Before following the REPEAT PREAMBLE, scan `$ARGUMENTS` for both `--newfeature` and `--tillend` present simultaneously. If both are found, emit `[autodev] Warning: --tillend is not supported with --newfeature and will be ignored.` and remove `--tillend` from `$ARGUMENTS` now — before the PREAMBLE processes it — so the PREAMBLE never creates a tillend loop state file.
 
@@ -19,14 +16,13 @@ Parse `$ARGUMENTS` for:
 If no count is set, default `count = 1`.
 If `--newfeature` is present without a valid N, default `newfeature_count = 3`.
 If `newfeature_count > 10`: warn the user and set `newfeature_count = 10`.
-(The `--newfeature + --tillend` incompatibility is already handled by the pre-PREAMBLE check above.)
 
 Load brain context for the `autodev` domain (follow _protocol.md Brain Load Procedure).
 
 Default mode for this command: **auto** (unless `--confirm` flag present).
 
-Invoke `Skill("mastermind:autodev")` passing: brain_context, count, newfeature_count, focus, mode, board_id (create if needed).
+Invoke `Skill("mastermind-skills:autodev")` passing: brain_context, count, newfeature_count, focus, mode, board_id (create if needed).
 
 After skill returns: follow _protocol.md Brain Write Procedure for domain `autodev`.
 
-Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
