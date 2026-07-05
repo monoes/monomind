@@ -1,6 +1,6 @@
 import type { Command, CommandContext, CommandResult, CommandExample } from '../types.js';
 import { output } from '../output.js';
-import { existsSync, unlinkSync, rmSync, readdirSync } from 'fs';
+import { existsSync, unlinkSync, rmSync, readdirSync, readFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 const orgCommand: Command = {
@@ -10,6 +10,7 @@ const orgCommand: Command = {
     { command: 'monomind org list', description: 'List all orgs in the project' },
     { command: 'monomind org delete my-org', description: 'Delete an org (with confirmation)' },
     { command: 'monomind org delete my-org --yes', description: 'Delete without confirmation' },
+    { command: 'monomind org mark-complete my-org', description: 'Manually close a STALE run (crashed boss recovery)' },
   ] as CommandExample[],
 
   action: async (context: CommandContext): Promise<CommandResult> => {
@@ -20,9 +21,37 @@ const orgCommand: Command = {
       output.info('Usage: monomind org <subcommand>');
       output.info('');
       output.info('Subcommands:');
-      output.info('  list              List all orgs in the current project');
-      output.info('  delete <name>     Delete an org and all its data');
+      output.info('  list                   List all orgs in the current project');
+      output.info('  delete <name>          Delete an org and all its data');
+      output.info('  mark-complete <name>   Manually close a stale/crashed run');
       return { success: true };
+    }
+
+    if (sub === 'mark-complete') {
+      const orgName = args[1];
+      if (!orgName || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+        output.error('Usage: monomind org mark-complete <name>');
+        return { success: false, message: 'valid org name required' };
+      }
+      const cwd = resolve(context.cwd || process.cwd());
+      let ctrlUrl = 'http://localhost:4242';
+      try {
+        const ctl = JSON.parse(readFileSync(join(cwd, '.monomind', 'control.json'), 'utf8'));
+        if (ctl.url) ctrlUrl = ctl.url;
+      } catch { /* default */ }
+      try {
+        const res = await fetch(`${ctrlUrl}/api/orgs/${encodeURIComponent(orgName)}/mark-complete`, { method: 'POST' });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          output.error(`mark-complete failed (${res.status}): ${(body as any).error || 'unknown error'}`);
+          return { success: false, message: 'server rejected mark-complete' };
+        }
+        output.success(`Run marked complete for org "${orgName}"${(body as any).runId ? ` (run ${(body as any).runId})` : ''}.`);
+        return { success: true };
+      } catch (err) {
+        output.error(`Dashboard server unreachable at ${ctrlUrl} — is it running? (${err instanceof Error ? err.message : 'error'})`);
+        return { success: false, message: 'server unreachable' };
+      }
     }
 
     if (sub === 'list') {
