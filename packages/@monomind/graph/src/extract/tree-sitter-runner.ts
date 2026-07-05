@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import type { ExtractionResult } from '../types.js';
 import type { LanguageExtractor } from './types.js';
 
-// Dynamic type references — the real shapes come from node-tree-sitter at runtime.
+// Dynamic type references — the real shapes come from the 'tree-sitter' native binding at runtime.
 // We use `unknown` here so that the module compiles without the optional dep installed.
 type ParserInstance = {
   setLanguage(lang: unknown): void;
@@ -29,7 +29,7 @@ function probeTreeSitter(): void {
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('node-tree-sitter') as { default?: unknown } | unknown;
+    const mod = require('tree-sitter') as { default?: unknown } | unknown;
     const ctor =
       (mod as { default?: unknown }).default !== undefined
         ? (mod as { default: unknown }).default
@@ -46,7 +46,7 @@ function probeTreeSitter(): void {
 }
 
 /**
- * Returns true when node-tree-sitter is installed and loadable.
+ * Returns true when the 'tree-sitter' native binding is installed and loadable.
  */
 export function isTreeSitterAvailable(): boolean {
   probeTreeSitter();

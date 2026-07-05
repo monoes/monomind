@@ -1,5 +1,6 @@
 import Graph from 'graphology';
 // Mirrors upstream graphify's _normalize_id: lowercase + collapse non-alphanumeric to underscores.
+// Used to reconcile edge endpoints when AST and LLM generate IDs with different casing/punctuation.
 function normalizeId(s) {
     return s.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
 }
@@ -19,6 +20,7 @@ export function buildGraph(extraction) {
         }
     }
     // Build normalized ID lookup to remap mismatched edge endpoints before stubbing.
+    // e.g. LLM generates "UserService_validate" but AST produced "userservice_validate".
     const normToId = new Map();
     graph.forEachNode((id) => {
         normToId.set(normalizeId(id), id);
@@ -48,7 +50,7 @@ export function buildGraph(extraction) {
             }
         }
         if (src === tgt)
-            continue;
+            continue; // normalization may collapse two different IDs to the same node
         try {
             graph.addEdge(src, tgt, {
                 relation: edge.relation,

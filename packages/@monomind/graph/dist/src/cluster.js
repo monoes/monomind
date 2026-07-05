@@ -5,7 +5,7 @@ export async function detectCommunities(graph) {
         const mod = await import('graphology-communities-louvain');
         louvainFn = mod.default;
     }
-    catch { /* louvain not available */ }
+    catch { /* louvain not available — fall through to directory heuristic */ }
     if (louvainFn) {
         try {
             const assignment = louvainFn(graph);
@@ -60,12 +60,14 @@ export function cohesionScore(graph, communityNodes) {
 export function splitOversizedCommunities(graph, communities, threshold = 0.25, louvainFn = null) {
     const maxSize = threshold * graph.order;
     const allIds = Object.keys(communities).map(Number);
-    let nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 0;
+    // Avoid Math.max(...allIds) spread — throws RangeError for large community counts
+    let nextId = allIds.length > 0 ? allIds.reduce((max, id) => id > max ? id : max, -1) + 1 : 0;
     for (const [cidStr, members] of Object.entries(communities)) {
         if (members.length <= maxSize)
             continue;
         const cid = Number(cidStr);
-        // Attempt topology-based second pass via Louvain on the community subgraph
+        // Attempt a topology-based second pass: run Louvain on a subgraph of this community.
+        // Only use the result if it actually splits (produces >1 sub-community).
         if (louvainFn && members.length >= 10) {
             try {
                 const memberSet = new Set(members);
@@ -73,12 +75,14 @@ export function splitOversizedCommunities(graph, communities, threshold = 0.25, 
                 for (const nodeId of members)
                     subG.addNode(nodeId);
                 graph.forEachEdge((_e, _a, source, target) => {
-                    if (memberSet.has(source) && memberSet.has(target) && source !== target && !subG.hasEdge(source, target))
+                    if (memberSet.has(source) && memberSet.has(target) && source !== target && !subG.hasEdge(source, target)) {
                         subG.addEdge(source, target);
+                    }
                 });
                 const subAssignment = louvainFn(subG);
                 const subCommunityCount = new Set(Object.values(subAssignment)).size;
                 if (subCommunityCount > 1 && subCommunityCount <= Math.ceil(members.length / 2)) {
+                    // Remap local sub-community IDs to globally unique IDs
                     const subIdMap = new Map();
                     const newSubIds = {};
                     for (const [nodeId, localId] of Object.entries(subAssignment)) {
@@ -92,12 +96,12 @@ export function splitOversizedCommunities(graph, communities, threshold = 0.25, 
                     }
                     delete communities[cid];
                     Object.assign(communities, newSubIds);
-                    continue;
+                    continue; // this community is handled — move to next
                 }
             }
             catch { /* fall through to directory heuristic */ }
         }
-        // Directory heuristic fallback
+        // Directory heuristic fallback: split by parent directory
         const subMap = new Map();
         const newSubIds = {};
         for (const nodeId of members) {

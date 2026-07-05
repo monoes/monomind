@@ -4,24 +4,38 @@
  * Unit tests for the V1 ReasoningBank pattern learning system.
  */
 
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { mkdtempSync, rmSync } from 'fs';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ReasoningBank, type GuidancePattern } from '../reasoningbank/index.js';
 
 describe('ReasoningBank', () => {
   let reasoningBank: ReasoningBank;
+  let dbDir: string;
 
   beforeEach(() => {
+    // Isolated per-test dbPath — the ReasoningBank default ('.monomind/memory.db',
+    // relative to cwd) is shared across every test run on this machine. Now
+    // that store()/load() actually persist (see the LanceDB fixes this
+    // session), reusing that shared path meant one test run's real data
+    // (e.g. from a different embedding dimension config) collided with the
+    // next, causing spurious 'Vector dimension mismatch' failures.
+    dbDir = mkdtempSync(join(tmpdir(), 'reasoningbank-test-'));
+
     // Create a fresh instance for each test with mock embeddings
     reasoningBank = new ReasoningBank({
       useMockEmbeddings: true,
       dimensions: 384,
       hnswM: 16,
       hnswEfConstruction: 200,
+      dbPath: join(dbDir, 'memory.db'),
     });
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    rmSync(dbDir, { recursive: true, force: true });
   });
 
   describe('initialization', () => {
