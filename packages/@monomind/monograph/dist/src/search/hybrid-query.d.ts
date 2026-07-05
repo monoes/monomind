@@ -1,21 +1,19 @@
 /**
- * Hybrid BM25 + vector search with Reciprocal Rank Fusion.
+ * BM25 search (FTS5) with the historical "hybrid" entry-point signature.
  *
- * When MONOGRAPH_EMBEDDINGS=true (or an embedder is provided), the query is
- * embedded and cosine similarity is computed in JavaScript against all stored
- * vectors.  Both result lists are merged via RRF(K=60).
- *
- * If embeddings are unavailable (table empty, env not set, no embedder),
- * the function falls back to BM25 only — same behaviour as before.
+ * Monograph search is BM25-only. The former embedding/vector branch
+ * (gated on MONOGRAPH_EMBEDDINGS=true) was removed — it was never run in
+ * practice (the embeddings table stayed empty) and did a JS cosine full
+ * scan. The exported function signatures are unchanged so callers do not
+ * need to change.
  */
 import type Database from 'better-sqlite3';
-import type { EmbedderFn } from './embedder.js';
-import { type RankedResult } from './rrf.js';
+import type { RankedResult } from './rrf.js';
 export interface HybridQueryOptions {
     limit?: number;
     label?: string;
-    /** Explicit embedder — overrides MONOGRAPH_EMBEDDINGS env check */
-    embedder?: EmbedderFn;
+    /** @deprecated Embeddings are disabled — this option is ignored; search is BM25-only. */
+    embedder?: unknown;
 }
 export interface HybridResult extends RankedResult {
     id: string;
@@ -30,12 +28,8 @@ export interface HybridResult extends RankedResult {
     endLine?: number | null;
 }
 /**
- * Run a hybrid BM25 + cosine search.
- *
- * Falls back to BM25-only when:
- *  - MONOGRAPH_EMBEDDINGS env var is not 'true' AND no explicit embedder is given
- *  - The embeddings table is empty
- *  - Embedding the query string fails
+ * Run a BM25 (FTS5) search. Despite the name, this is BM25-only — the
+ * vector branch was removed; the `embedder` option is ignored.
  */
 export declare function hybridQuery(db: Database.Database, query: string, options?: HybridQueryOptions): Promise<HybridResult[]>;
 //# sourceMappingURL=hybrid-query.d.ts.map
