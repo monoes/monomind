@@ -67,7 +67,7 @@ This structure informs the task decomposition. Each task should produce self-con
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind:taskdev")` (recommended) or `Skill("mastermind:execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind-skills:taskdev")` (recommended) or `Skill("mastermind-skills:execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -181,18 +181,18 @@ After the plan is approved (or in auto mode, after self-review):
 
 **"Plan complete and saved to `docs/mastermind/plans/<filename>.md`. Two execution options:**
 
-**1. Subagent-Driven (recommended)** — Invoke `Skill("mastermind:taskdev")`: dispatches a fresh subagent per task, reviews between tasks, fast iteration.
+**1. Subagent-Driven (recommended)** — Invoke `Skill("mastermind-skills:taskdev")`: dispatches a fresh subagent per task, reviews between tasks, fast iteration.
 
-**2. Inline Execution** — Invoke `Skill("mastermind:execute")`: batch execution with checkpoints.
+**2. Inline Execution** — Invoke `Skill("mastermind-skills:execute")`: batch execution with checkpoints.
 
 **Which approach?"**
 
-**In auto mode:** Skip the question. Default to subagent-driven — invoke `Skill("mastermind:taskdev")` immediately.
+**In auto mode:** Skip the question. Default to subagent-driven — invoke `Skill("mastermind-skills:taskdev")` immediately.
 
 **If Subagent-Driven chosen (or auto mode):**
-- Invoke `Skill("mastermind:taskdev")`
+- Invoke `Skill("mastermind-skills:taskdev")`
 - Fresh subagent per task + two-stage review
 
 **If Inline Execution chosen:**
-- Invoke `Skill("mastermind:execute")`
+- Invoke `Skill("mastermind-skills:execute")`
 - Batch execution with checkpoints for review

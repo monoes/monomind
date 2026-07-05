@@ -177,9 +177,8 @@ export const statsCommand = {
     name: 'stats',
     description: 'Show memory statistics',
     action: async (ctx) => {
-        // Call MCP memory/stats tool for real statistics
+        // Compute stats directly from the memory bridge (there is no memory_stats MCP tool)
         try {
-            // Compute stats directly from the memory bridge (there is no memory_stats MCP tool)
             const { bridgeListEntries } = await import('../memory/memory-bridge.js');
             const listed = await bridgeListEntries({ limit: 10000 });
             if (!listed || !listed.success)
