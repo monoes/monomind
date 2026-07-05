@@ -4,6 +4,7 @@
  *
  * github.com/monoes/monomind
  */
+import * as path from 'path';
 import { output } from '../output.js';
 import { checkNodeVersion, checkNpmVersion, checkGit, checkGitRepo, checkDiskSpace, checkBuildTools, checkVersionFreshness, checkClaudeCode, installClaudeCode, } from './doctor-env-checks.js';
 import { checkConfigFile, checkDaemonStatus, checkMemoryDatabase, checkApiKeys, checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage, checkAgentRegistry, } from './doctor-project-checks.js';
@@ -42,14 +43,33 @@ export const doctorCommand = {
         output.writeln(output.dim('System diagnostics and health check'));
         output.writeln(output.dim('─'.repeat(50)));
         output.writeln();
-        const allChecks = [
+        // Capability-aware scoping: skip code-specific checks in non-code directories
+        // (e.g. document/media/data-only projects created via `monomind init`).
+        let isCodeProject = true;
+        try {
+            const { loadFingerprint } = await import('../capabilities/index.js');
+            const monomindDir = path.join(process.cwd(), '.monomind');
+            const fingerprint = await loadFingerprint(monomindDir);
+            isCodeProject = !fingerprint || fingerprint.capabilities.code.confidence >= 0.1;
+        }
+        catch {
+            // Fingerprint unavailable — default to treating this as a code project
+            // so existing behavior is unaffected when the capabilities module can't load.
+            isCodeProject = true;
+        }
+        const alwaysOnChecks = [
             checkVersionFreshness, checkNodeVersion, checkNpmVersion, checkClaudeCode,
-            checkGit, checkGitRepo, checkConfigFile, checkDaemonStatus, checkMemoryDatabase,
-            checkApiKeys, checkMcpServers, checkDiskSpace, checkBuildTools,
-            checkMonograph, checkMonographFreshness, checkMonoesMemory,
-            checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
-            checkAgentRegistry,
+            checkConfigFile, checkMemoryDatabase, checkDiskSpace,
+            checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
+            checkGuidanceGates, checkAgentRegistry, checkGit, checkDaemonStatus, checkApiKeys,
         ];
+        const codeOnlyChecks = [
+            checkGitRepo, checkMcpServers,
+            checkBuildTools, checkMonographFreshness, checkGitignoreCoverage,
+        ];
+        const allChecks = isCodeProject
+            ? [...alwaysOnChecks, ...codeOnlyChecks]
+            : alwaysOnChecks;
         const componentMap = {
             version: checkVersionFreshness, freshness: checkVersionFreshness,
             node: checkNodeVersion, npm: checkNpmVersion, claude: checkClaudeCode,

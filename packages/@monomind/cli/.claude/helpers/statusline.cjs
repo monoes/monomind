@@ -620,8 +620,8 @@ function getLanceDBStats() {
   // HNSW is available if memory package is present
   if (!hasHnsw) {
     const memPkgPaths = [
-      path.join(CWD, 'packages', '@monomind', 'memory', 'dist'),
-      path.join(CWD, 'node_modules', '@monomind', 'memory'),
+      path.join(CWD, 'packages', '@monoes', 'memory', 'dist'),
+      path.join(CWD, 'node_modules', '@monoes', 'memory'),
     ];
     for (const p of memPkgPaths) {
       if (fs.existsSync(p)) { hasHnsw = true; break; }

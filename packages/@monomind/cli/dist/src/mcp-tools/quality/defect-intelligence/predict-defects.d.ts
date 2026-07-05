@@ -7,27 +7,29 @@
 import { z } from 'zod';
 export declare const PredictDefectsInputSchema: z.ZodObject<{
     targetPath: z.ZodString;
-    depth: z.ZodDefault<z.ZodEnum<{
-        medium: "medium";
-        shallow: "shallow";
-        deep: "deep";
-    }>>;
+    depth: z.ZodDefault<z.ZodEnum<["shallow", "medium", "deep"]>>;
     includeRootCause: z.ZodDefault<z.ZodBoolean>;
     minConfidence: z.ZodDefault<z.ZodNumber>;
-    categories: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-        security: "security";
-        performance: "performance";
-        boundary: "boundary";
-        "null-pointer": "null-pointer";
-        "resource-leak": "resource-leak";
-        "race-condition": "race-condition";
-        "logic-error": "logic-error";
-        "type-error": "type-error";
-        "exception-handling": "exception-handling";
-    }>>>;
+    categories: z.ZodDefault<z.ZodArray<z.ZodEnum<["null-pointer", "boundary", "resource-leak", "race-condition", "logic-error", "security", "performance", "type-error", "exception-handling"]>, "many">>;
     useSimilarPatterns: z.ZodDefault<z.ZodBoolean>;
     maxPredictions: z.ZodDefault<z.ZodNumber>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    minConfidence: number;
+    depth: "medium" | "shallow" | "deep";
+    categories: ("security" | "performance" | "boundary" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[];
+    targetPath: string;
+    includeRootCause: boolean;
+    useSimilarPatterns: boolean;
+    maxPredictions: number;
+}, {
+    targetPath: string;
+    minConfidence?: number | undefined;
+    depth?: "medium" | "shallow" | "deep" | undefined;
+    categories?: ("security" | "performance" | "boundary" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[] | undefined;
+    includeRootCause?: boolean | undefined;
+    useSimilarPatterns?: boolean | undefined;
+    maxPredictions?: number | undefined;
+}>;
 export type PredictDefectsInput = z.infer<typeof PredictDefectsInputSchema>;
 export interface PredictDefectsOutput {
     success: boolean;
@@ -120,27 +122,29 @@ export declare const toolDefinition: {
     version: string;
     inputSchema: z.ZodObject<{
         targetPath: z.ZodString;
-        depth: z.ZodDefault<z.ZodEnum<{
-            medium: "medium";
-            shallow: "shallow";
-            deep: "deep";
-        }>>;
+        depth: z.ZodDefault<z.ZodEnum<["shallow", "medium", "deep"]>>;
         includeRootCause: z.ZodDefault<z.ZodBoolean>;
         minConfidence: z.ZodDefault<z.ZodNumber>;
-        categories: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-            security: "security";
-            performance: "performance";
-            boundary: "boundary";
-            "null-pointer": "null-pointer";
-            "resource-leak": "resource-leak";
-            "race-condition": "race-condition";
-            "logic-error": "logic-error";
-            "type-error": "type-error";
-            "exception-handling": "exception-handling";
-        }>>>;
+        categories: z.ZodDefault<z.ZodArray<z.ZodEnum<["null-pointer", "boundary", "resource-leak", "race-condition", "logic-error", "security", "performance", "type-error", "exception-handling"]>, "many">>;
         useSimilarPatterns: z.ZodDefault<z.ZodBoolean>;
         maxPredictions: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        minConfidence: number;
+        depth: "medium" | "shallow" | "deep";
+        categories: ("security" | "performance" | "boundary" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[];
+        targetPath: string;
+        includeRootCause: boolean;
+        useSimilarPatterns: boolean;
+        maxPredictions: number;
+    }, {
+        targetPath: string;
+        minConfidence?: number | undefined;
+        depth?: "medium" | "shallow" | "deep" | undefined;
+        categories?: ("security" | "performance" | "boundary" | "null-pointer" | "resource-leak" | "race-condition" | "logic-error" | "type-error" | "exception-handling")[] | undefined;
+        includeRootCause?: boolean | undefined;
+        useSimilarPatterns?: boolean | undefined;
+        maxPredictions?: number | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

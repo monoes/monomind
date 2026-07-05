@@ -8,30 +8,28 @@ import { z } from 'zod';
 export declare const SuggestTestsInputSchema: z.ZodObject<{
     targetPath: z.ZodString;
     coverageReport: z.ZodOptional<z.ZodString>;
-    focusAreas: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-        lines: "lines";
-        branches: "branches";
-        functions: "functions";
-        "edge-cases": "edge-cases";
-        "error-handling": "error-handling";
-        boundaries: "boundaries";
-    }>>>;
+    focusAreas: z.ZodDefault<z.ZodArray<z.ZodEnum<["branches", "functions", "lines", "edge-cases", "error-handling", "boundaries"]>, "many">>;
     maxSuggestions: z.ZodDefault<z.ZodNumber>;
-    priorityBy: z.ZodDefault<z.ZodEnum<{
-        risk: "risk";
-        complexity: "complexity";
-        "coverage-impact": "coverage-impact";
-        "change-frequency": "change-frequency";
-    }>>;
+    priorityBy: z.ZodDefault<z.ZodEnum<["risk", "complexity", "coverage-impact", "change-frequency"]>>;
     includeCode: z.ZodDefault<z.ZodBoolean>;
-    framework: z.ZodDefault<z.ZodEnum<{
-        vitest: "vitest";
-        jest: "jest";
-        mocha: "mocha";
-        pytest: "pytest";
-        junit: "junit";
-    }>>;
-}, z.core.$strip>;
+    framework: z.ZodDefault<z.ZodEnum<["vitest", "jest", "mocha", "pytest", "junit"]>>;
+}, "strip", z.ZodTypeAny, {
+    framework: "vitest" | "jest" | "mocha" | "pytest" | "junit";
+    targetPath: string;
+    focusAreas: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[];
+    maxSuggestions: number;
+    priorityBy: "risk" | "complexity" | "coverage-impact" | "change-frequency";
+    includeCode: boolean;
+    coverageReport?: string | undefined;
+}, {
+    targetPath: string;
+    framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
+    coverageReport?: string | undefined;
+    focusAreas?: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[] | undefined;
+    maxSuggestions?: number | undefined;
+    priorityBy?: "risk" | "complexity" | "coverage-impact" | "change-frequency" | undefined;
+    includeCode?: boolean | undefined;
+}>;
 export type SuggestTestsInput = z.infer<typeof SuggestTestsInputSchema>;
 export interface SuggestTestsOutput {
     success: boolean;
@@ -115,30 +113,28 @@ export declare const toolDefinition: {
     inputSchema: z.ZodObject<{
         targetPath: z.ZodString;
         coverageReport: z.ZodOptional<z.ZodString>;
-        focusAreas: z.ZodDefault<z.ZodArray<z.ZodEnum<{
-            lines: "lines";
-            branches: "branches";
-            functions: "functions";
-            "edge-cases": "edge-cases";
-            "error-handling": "error-handling";
-            boundaries: "boundaries";
-        }>>>;
+        focusAreas: z.ZodDefault<z.ZodArray<z.ZodEnum<["branches", "functions", "lines", "edge-cases", "error-handling", "boundaries"]>, "many">>;
         maxSuggestions: z.ZodDefault<z.ZodNumber>;
-        priorityBy: z.ZodDefault<z.ZodEnum<{
-            risk: "risk";
-            complexity: "complexity";
-            "coverage-impact": "coverage-impact";
-            "change-frequency": "change-frequency";
-        }>>;
+        priorityBy: z.ZodDefault<z.ZodEnum<["risk", "complexity", "coverage-impact", "change-frequency"]>>;
         includeCode: z.ZodDefault<z.ZodBoolean>;
-        framework: z.ZodDefault<z.ZodEnum<{
-            vitest: "vitest";
-            jest: "jest";
-            mocha: "mocha";
-            pytest: "pytest";
-            junit: "junit";
-        }>>;
-    }, z.core.$strip>;
+        framework: z.ZodDefault<z.ZodEnum<["vitest", "jest", "mocha", "pytest", "junit"]>>;
+    }, "strip", z.ZodTypeAny, {
+        framework: "vitest" | "jest" | "mocha" | "pytest" | "junit";
+        targetPath: string;
+        focusAreas: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[];
+        maxSuggestions: number;
+        priorityBy: "risk" | "complexity" | "coverage-impact" | "change-frequency";
+        includeCode: boolean;
+        coverageReport?: string | undefined;
+    }, {
+        targetPath: string;
+        framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
+        coverageReport?: string | undefined;
+        focusAreas?: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[] | undefined;
+        maxSuggestions?: number | undefined;
+        priorityBy?: "risk" | "complexity" | "coverage-impact" | "change-frequency" | undefined;
+        includeCode?: boolean | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

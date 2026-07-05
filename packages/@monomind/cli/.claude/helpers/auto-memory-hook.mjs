@@ -193,7 +193,7 @@ async function loadMemoryPackage() {
   let searchDir = PROJECT_ROOT;
   const { parse } = await import('path');
   while (searchDir !== parse(searchDir).root) {
-    const candidate = join(searchDir, 'node_modules', '@monomind', 'memory', 'dist', 'index.js');
+    const candidate = join(searchDir, 'node_modules', '@monoes', 'memory', 'dist', 'index.js');
     if (existsSync(candidate)) {
       try {
         return await import(`file://${candidate}`);

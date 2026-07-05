@@ -14,22 +14,31 @@ import { z } from 'zod';
 export declare const TDDCycleInputSchema: z.ZodObject<{
     requirement: z.ZodString;
     targetPath: z.ZodString;
-    style: z.ZodDefault<z.ZodEnum<{
-        london: "london";
-        chicago: "chicago";
-    }>>;
+    style: z.ZodDefault<z.ZodEnum<["london", "chicago"]>>;
     maxCycles: z.ZodDefault<z.ZodNumber>;
-    framework: z.ZodDefault<z.ZodEnum<{
-        vitest: "vitest";
-        jest: "jest";
-        mocha: "mocha";
-        pytest: "pytest";
-        junit: "junit";
-    }>>;
+    framework: z.ZodDefault<z.ZodEnum<["vitest", "jest", "mocha", "pytest", "junit"]>>;
     coverageTarget: z.ZodDefault<z.ZodNumber>;
     autoRefactor: z.ZodDefault<z.ZodBoolean>;
     stopOnGreen: z.ZodDefault<z.ZodBoolean>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    framework: "vitest" | "jest" | "mocha" | "pytest" | "junit";
+    style: "london" | "chicago";
+    targetPath: string;
+    requirement: string;
+    maxCycles: number;
+    coverageTarget: number;
+    autoRefactor: boolean;
+    stopOnGreen: boolean;
+}, {
+    targetPath: string;
+    requirement: string;
+    framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
+    style?: "london" | "chicago" | undefined;
+    maxCycles?: number | undefined;
+    coverageTarget?: number | undefined;
+    autoRefactor?: boolean | undefined;
+    stopOnGreen?: boolean | undefined;
+}>;
 export type TDDCycleInput = z.infer<typeof TDDCycleInputSchema>;
 export type TDDPhase = 'red' | 'green' | 'refactor' | 'complete';
 export interface TDDCycleOutput {
@@ -104,22 +113,31 @@ export declare const toolDefinition: {
     inputSchema: z.ZodObject<{
         requirement: z.ZodString;
         targetPath: z.ZodString;
-        style: z.ZodDefault<z.ZodEnum<{
-            london: "london";
-            chicago: "chicago";
-        }>>;
+        style: z.ZodDefault<z.ZodEnum<["london", "chicago"]>>;
         maxCycles: z.ZodDefault<z.ZodNumber>;
-        framework: z.ZodDefault<z.ZodEnum<{
-            vitest: "vitest";
-            jest: "jest";
-            mocha: "mocha";
-            pytest: "pytest";
-            junit: "junit";
-        }>>;
+        framework: z.ZodDefault<z.ZodEnum<["vitest", "jest", "mocha", "pytest", "junit"]>>;
         coverageTarget: z.ZodDefault<z.ZodNumber>;
         autoRefactor: z.ZodDefault<z.ZodBoolean>;
         stopOnGreen: z.ZodDefault<z.ZodBoolean>;
-    }, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        framework: "vitest" | "jest" | "mocha" | "pytest" | "junit";
+        style: "london" | "chicago";
+        targetPath: string;
+        requirement: string;
+        maxCycles: number;
+        coverageTarget: number;
+        autoRefactor: boolean;
+        stopOnGreen: boolean;
+    }, {
+        targetPath: string;
+        requirement: string;
+        framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
+        style?: "london" | "chicago" | undefined;
+        maxCycles?: number | undefined;
+        coverageTarget?: number | undefined;
+        autoRefactor?: boolean | undefined;
+        stopOnGreen?: boolean | undefined;
+    }>;
     handler: typeof handler;
 };
 export default toolDefinition;

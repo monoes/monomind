@@ -66,9 +66,15 @@ export interface PrimeRadiantBridge {
     computeTopology(complex: SimplicialComplex): Promise<TopologyResult>;
 }
 export declare const CoherenceInputSchema: z.ZodObject<{
-    vectors: z.ZodArray<z.ZodArray<z.ZodNumber>>;
+    vectors: z.ZodArray<z.ZodArray<z.ZodNumber, "many">, "many">;
     threshold: z.ZodDefault<z.ZodNumber>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    threshold: number;
+    vectors: number[][];
+}, {
+    vectors: number[][];
+    threshold?: number | undefined;
+}>;
 export type CoherenceInput = z.infer<typeof CoherenceInputSchema>;
 export interface CoherenceResult {
     coherent: boolean;
@@ -88,13 +94,15 @@ export interface CoherenceOutput {
     };
 }
 export declare const SpectralInputSchema: z.ZodObject<{
-    matrix: z.ZodArray<z.ZodArray<z.ZodNumber>>;
-    analyzeType: z.ZodDefault<z.ZodEnum<{
-        stability: "stability";
-        clustering: "clustering";
-        connectivity: "connectivity";
-    }>>;
-}, z.core.$strip>;
+    matrix: z.ZodArray<z.ZodArray<z.ZodNumber, "many">, "many">;
+    analyzeType: z.ZodDefault<z.ZodEnum<["stability", "clustering", "connectivity"]>>;
+}, "strip", z.ZodTypeAny, {
+    matrix: number[][];
+    analyzeType: "stability" | "clustering" | "connectivity";
+}, {
+    matrix: number[][];
+    analyzeType?: "stability" | "clustering" | "connectivity" | undefined;
+}>;
 export type SpectralInput = z.infer<typeof SpectralInputSchema>;
 export interface SpectralResult {
     stable: boolean;
@@ -114,18 +122,44 @@ export interface SpectralOutput {
     };
 }
 export declare const CausalGraphSchema: z.ZodObject<{
-    nodes: z.ZodArray<z.ZodString>;
-    edges: z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>;
-}, z.core.$strip>;
+    nodes: z.ZodArray<z.ZodString, "many">;
+    edges: z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>, "many">;
+}, "strip", z.ZodTypeAny, {
+    nodes: string[];
+    edges: [string, string][];
+}, {
+    nodes: string[];
+    edges: [string, string][];
+}>;
 export type CausalGraph = z.infer<typeof CausalGraphSchema>;
 export declare const CausalInputSchema: z.ZodObject<{
     graph: z.ZodObject<{
-        nodes: z.ZodArray<z.ZodString>;
-        edges: z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>>;
-    }, z.core.$strip>;
+        nodes: z.ZodArray<z.ZodString, "many">;
+        edges: z.ZodArray<z.ZodTuple<[z.ZodString, z.ZodString], null>, "many">;
+    }, "strip", z.ZodTypeAny, {
+        nodes: string[];
+        edges: [string, string][];
+    }, {
+        nodes: string[];
+        edges: [string, string][];
+    }>;
     intervention: z.ZodString;
     outcome: z.ZodString;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    graph: {
+        nodes: string[];
+        edges: [string, string][];
+    };
+    outcome: string;
+    intervention: string;
+}, {
+    graph: {
+        nodes: string[];
+        edges: [string, string][];
+    };
+    outcome: string;
+    intervention: string;
+}>;
 export type CausalInput = z.infer<typeof CausalInputSchema>;
 export interface CausalResult {
     effect: number;
@@ -148,20 +182,56 @@ export interface CausalOutput {
 }
 export declare const AgentStateSchema: z.ZodObject<{
     agentId: z.ZodString;
-    embedding: z.ZodArray<z.ZodNumber>;
+    embedding: z.ZodArray<z.ZodNumber, "many">;
     vote: z.ZodOptional<z.ZodString>;
     metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    agentId: string;
+    embedding: number[];
+    metadata?: Record<string, unknown> | undefined;
+    vote?: string | undefined;
+}, {
+    agentId: string;
+    embedding: number[];
+    metadata?: Record<string, unknown> | undefined;
+    vote?: string | undefined;
+}>;
 export type AgentState = z.infer<typeof AgentStateSchema>;
 export declare const ConsensusInputSchema: z.ZodObject<{
     agentStates: z.ZodArray<z.ZodObject<{
         agentId: z.ZodString;
-        embedding: z.ZodArray<z.ZodNumber>;
+        embedding: z.ZodArray<z.ZodNumber, "many">;
         vote: z.ZodOptional<z.ZodString>;
         metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-    }, z.core.$strip>>;
+    }, "strip", z.ZodTypeAny, {
+        agentId: string;
+        embedding: number[];
+        metadata?: Record<string, unknown> | undefined;
+        vote?: string | undefined;
+    }, {
+        agentId: string;
+        embedding: number[];
+        metadata?: Record<string, unknown> | undefined;
+        vote?: string | undefined;
+    }>, "many">;
     threshold: z.ZodDefault<z.ZodNumber>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    threshold: number;
+    agentStates: {
+        agentId: string;
+        embedding: number[];
+        metadata?: Record<string, unknown> | undefined;
+        vote?: string | undefined;
+    }[];
+}, {
+    agentStates: {
+        agentId: string;
+        embedding: number[];
+        metadata?: Record<string, unknown> | undefined;
+        vote?: string | undefined;
+    }[];
+    threshold?: number | undefined;
+}>;
 export type ConsensusInput = z.infer<typeof ConsensusInputSchema>;
 export interface ConsensusOutput {
     verified: boolean;
@@ -177,29 +247,93 @@ export interface ConsensusOutput {
     };
 }
 export declare const SimplexSchema: z.ZodObject<{
-    vertices: z.ZodArray<z.ZodNumber>;
+    vertices: z.ZodArray<z.ZodNumber, "many">;
     dimension: z.ZodNumber;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    vertices: number[];
+    dimension: number;
+}, {
+    vertices: number[];
+    dimension: number;
+}>;
 export type Simplex = z.infer<typeof SimplexSchema>;
 export declare const SimplicialComplexSchema: z.ZodObject<{
-    vertices: z.ZodArray<z.ZodArray<z.ZodNumber>>;
+    vertices: z.ZodArray<z.ZodArray<z.ZodNumber, "many">, "many">;
     simplices: z.ZodOptional<z.ZodArray<z.ZodObject<{
-        vertices: z.ZodArray<z.ZodNumber>;
+        vertices: z.ZodArray<z.ZodNumber, "many">;
         dimension: z.ZodNumber;
-    }, z.core.$strip>>>;
+    }, "strip", z.ZodTypeAny, {
+        vertices: number[];
+        dimension: number;
+    }, {
+        vertices: number[];
+        dimension: number;
+    }>, "many">>;
     maxDimension: z.ZodDefault<z.ZodNumber>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    vertices: number[][];
+    maxDimension: number;
+    simplices?: {
+        vertices: number[];
+        dimension: number;
+    }[] | undefined;
+}, {
+    vertices: number[][];
+    simplices?: {
+        vertices: number[];
+        dimension: number;
+    }[] | undefined;
+    maxDimension?: number | undefined;
+}>;
 export type SimplicialComplex = z.infer<typeof SimplicialComplexSchema>;
 export declare const TopologyInputSchema: z.ZodObject<{
     complex: z.ZodObject<{
-        vertices: z.ZodArray<z.ZodArray<z.ZodNumber>>;
+        vertices: z.ZodArray<z.ZodArray<z.ZodNumber, "many">, "many">;
         simplices: z.ZodOptional<z.ZodArray<z.ZodObject<{
-            vertices: z.ZodArray<z.ZodNumber>;
+            vertices: z.ZodArray<z.ZodNumber, "many">;
             dimension: z.ZodNumber;
-        }, z.core.$strip>>>;
+        }, "strip", z.ZodTypeAny, {
+            vertices: number[];
+            dimension: number;
+        }, {
+            vertices: number[];
+            dimension: number;
+        }>, "many">>;
         maxDimension: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>;
-}, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        vertices: number[][];
+        maxDimension: number;
+        simplices?: {
+            vertices: number[];
+            dimension: number;
+        }[] | undefined;
+    }, {
+        vertices: number[][];
+        simplices?: {
+            vertices: number[];
+            dimension: number;
+        }[] | undefined;
+        maxDimension?: number | undefined;
+    }>;
+}, "strip", z.ZodTypeAny, {
+    complex: {
+        vertices: number[][];
+        maxDimension: number;
+        simplices?: {
+            vertices: number[];
+            dimension: number;
+        }[] | undefined;
+    };
+}, {
+    complex: {
+        vertices: number[][];
+        simplices?: {
+            vertices: number[];
+            dimension: number;
+        }[] | undefined;
+        maxDimension?: number | undefined;
+    };
+}>;
 export type TopologyInput = z.infer<typeof TopologyInputSchema>;
 export interface TopologyResult {
     bettiNumbers: number[];
@@ -227,12 +361,34 @@ export interface TopologyOutput {
 export declare const MemoryGateInputSchema: z.ZodObject<{
     key: z.ZodString;
     value: z.ZodUnknown;
-    existingVectors: z.ZodOptional<z.ZodArray<z.ZodArray<z.ZodNumber>>>;
+    existingVectors: z.ZodOptional<z.ZodArray<z.ZodArray<z.ZodNumber, "many">, "many">>;
     thresholds: z.ZodOptional<z.ZodObject<{
         reject: z.ZodDefault<z.ZodNumber>;
         warn: z.ZodDefault<z.ZodNumber>;
-    }, z.core.$strip>>;
-}, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        warn: number;
+        reject: number;
+    }, {
+        warn?: number | undefined;
+        reject?: number | undefined;
+    }>>;
+}, "strip", z.ZodTypeAny, {
+    key: string;
+    value?: unknown;
+    thresholds?: {
+        warn: number;
+        reject: number;
+    } | undefined;
+    existingVectors?: number[][] | undefined;
+}, {
+    key: string;
+    value?: unknown;
+    thresholds?: {
+        warn?: number | undefined;
+        reject?: number | undefined;
+    } | undefined;
+    existingVectors?: number[][] | undefined;
+}>;
 export type MemoryGateInput = z.infer<typeof MemoryGateInputSchema>;
 export interface MemoryGateOutput {
     allowed: boolean;
