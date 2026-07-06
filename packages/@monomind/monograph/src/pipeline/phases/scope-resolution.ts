@@ -12,6 +12,7 @@ export interface ScopeResolutionOutput {
   skippedDynamic: number;
   ambiguous: number;
   orphanImportsRemoved: number;
+  importsReconstructed: number;
 }
 
 // ── Call site ─────────────────────────────────────────────────────────────────
@@ -69,8 +70,10 @@ const GO_EXTS = new Set(['.go']);
 const JAVA_EXTS = new Set(['.java']);
 const RUST_EXTS = new Set(['.rs']);
 
+const CJS_MJS_EXTS = new Set(['.cjs', '.mjs']);
+
 function isSupportedExt(ext: string): boolean {
-  return TS_JS_EXTS.has(ext) || PY_EXTS.has(ext) || GO_EXTS.has(ext) || JAVA_EXTS.has(ext) || RUST_EXTS.has(ext);
+  return TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext) || PY_EXTS.has(ext) || GO_EXTS.has(ext) || JAVA_EXTS.has(ext) || RUST_EXTS.has(ext);
 }
 
 // ── Language-specific extractors ──────────────────────────────────────────────
@@ -123,6 +126,22 @@ export function extractRustCallSites(source: string, filePath: string, fileNodeI
   return sites;
 }
 
+// ── Stage 0.5: Track constructor assignments for type-aware method resolution ─
+
+/**
+ * Scan source for `const/let/var x = new ClassName(...)` patterns.
+ * Returns a map: localVarName → ClassName (e.g. "svc" → "MyService").
+ */
+function extractConstructorAssignments(source: string): Map<string, string> {
+  const result = new Map<string, string>();
+  const pattern = /(?:const|let|var)\s+(\w+)\s*=\s*new\s+([A-Z][\w$]*)\s*(?:<[^>]*>\s*)?\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(source)) !== null) {
+    result.set(m[1], m[2]);
+  }
+  return result;
+}
+
 // ── Stage 1 + 2: Extract and classify call sites ──────────────────────────────
 
 function extractCallSites(
@@ -133,7 +152,7 @@ function extractCallSites(
 ): CallSite[] {
   const sites: CallSite[] = [];
 
-  if (TS_JS_EXTS.has(ext)) {
+  if (TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext)) {
     // Method calls: word.word( or word.word<T>(
     const methodPattern = /(\w+)\.(\w+)\s*(?:<[^>]*>\s*)?\(/g;
     let m: RegExpExecArray | null;
@@ -227,7 +246,19 @@ function extractCallSites(
 
 const IMPORT_RE = /import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+))(?:\s*,\s*(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+)))?\s+from\s+['"]([^'"]+)['"]/g;
 
+// CJS require: const x = require('y') or const { a, b } = require('y')
+const REQUIRE_RE = /(?:const|let|var)\s+(?:\{([^}]+)\}|(\w+))\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+// Python: from x import y, z  OR  import x
+const PY_FROM_IMPORT_RE = /from\s+([\w.]+)\s+import\s+(.+)/g;
+const PY_IMPORT_RE = /^import\s+([\w.]+)(?:\s+as\s+(\w+))?/gm;
+
+// Go: import "path" or import ( "path" )
+const GO_IMPORT_RE = /import\s+(?:"([^"]+)"|(?:\w+\s+)?"([^"]+)"|\(\s*([\s\S]*?)\s*\))/g;
+
 const RESOLVE_EXTS = ['.ts', '.tsx', '.js', '.jsx'];
+const PY_RESOLVE_EXTS = ['.py'];
+const GO_RESOLVE_EXTS = ['.go'];
 
 /**
  * Build package-name → directory map from workspace package.json files.
@@ -316,6 +347,26 @@ function resolveModuleSpecifier(
   return null;
 }
 
+function resolvePythonModule(importerPath: string, modulePath: string, knownFiles: Set<string>): string | null {
+  // Try relative to importer's directory, then absolute from repo root
+  const dir = dirname(importerPath);
+  for (const base of [dir + '/' + modulePath, modulePath]) {
+    for (const candidate of [base + '.py', base + '/__init__.py']) {
+      if (knownFiles.has(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+function resolveGoPackage(importerPath: string, goPath: string, knownFiles: Set<string>): string | null {
+  // Go standard library imports won't resolve — skip them
+  // Internal packages: look for the path as a directory with .go files
+  for (const f of knownFiles) {
+    if (f.startsWith(goPath + '/') && f.endsWith('.go')) return f;
+  }
+  return null;
+}
+
 function extractImportNames(clause: string): string[] {
   return clause
     .split(',')
@@ -337,7 +388,7 @@ function buildAllImportMapsFromSource(
 
   for (const [filePath, fileNode] of fileNodesByPath) {
     const ext = extname(filePath).toLowerCase();
-    if (!TS_JS_EXTS.has(ext)) continue;
+    const importMap = new Map<string, string>();
 
     let source: string;
     try {
@@ -346,26 +397,74 @@ function buildAllImportMapsFromSource(
       continue;
     }
 
-    const importMap = new Map<string, string>();
-    IMPORT_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = IMPORT_RE.exec(source)) !== null) {
-      const specifier = m[7];
-      const resolved = resolveModuleSpecifier(filePath, specifier, repoPath, knownFiles, workspaceMap);
-      if (!resolved) continue;
+    if (TS_JS_EXTS.has(ext) || ext === '.cjs' || ext === '.mjs') {
+      // ESM imports
+      IMPORT_RE.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = IMPORT_RE.exec(source)) !== null) {
+        const specifier = m[7];
+        const resolved = resolveModuleSpecifier(filePath, specifier, repoPath, knownFiles, workspaceMap);
+        if (!resolved) continue;
 
-      // Named imports: { foo, bar as baz }
-      if (m[1]) for (const n of extractImportNames(m[1])) importMap.set(n, resolved);
-      if (m[4]) for (const n of extractImportNames(m[4])) importMap.set(n, resolved);
-      // Default import
-      if (m[2]) importMap.set(m[2], resolved);
-      if (m[5]) importMap.set(m[5], resolved);
-      // Namespace import: * as X
-      if (m[3]) importMap.set(m[3], resolved);
-      if (m[6]) importMap.set(m[6], resolved);
-      // Store the module path itself (for method call receiver lookup by module name)
-      const baseName = resolved.split('/').pop()!.replace(/\.\w+$/, '');
-      importMap.set(baseName, resolved);
+        if (m[1]) for (const n of extractImportNames(m[1])) importMap.set(n, resolved);
+        if (m[4]) for (const n of extractImportNames(m[4])) importMap.set(n, resolved);
+        if (m[2]) importMap.set(m[2], resolved);
+        if (m[5]) importMap.set(m[5], resolved);
+        if (m[3]) importMap.set(m[3], resolved);
+        if (m[6]) importMap.set(m[6], resolved);
+        const baseName = resolved.split('/').pop()!.replace(/\.\w+$/, '');
+        importMap.set(baseName, resolved);
+      }
+
+      // CJS require()
+      REQUIRE_RE.lastIndex = 0;
+      while ((m = REQUIRE_RE.exec(source)) !== null) {
+        const specifier = m[3];
+        const resolved = resolveModuleSpecifier(filePath, specifier, repoPath, knownFiles, workspaceMap);
+        if (!resolved) continue;
+        if (m[1]) for (const n of extractImportNames(m[1])) importMap.set(n, resolved);
+        if (m[2]) importMap.set(m[2], resolved);
+        const baseName = resolved.split('/').pop()!.replace(/\.\w+$/, '');
+        importMap.set(baseName, resolved);
+      }
+    } else if (PY_EXTS.has(ext)) {
+      // Python: from module import name
+      PY_FROM_IMPORT_RE.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = PY_FROM_IMPORT_RE.exec(source)) !== null) {
+        const modulePath = m[1].replace(/\./g, '/');
+        const resolved = resolvePythonModule(filePath, modulePath, knownFiles);
+        if (!resolved) continue;
+        for (const name of m[2].split(',').map(s => s.trim().split(/\s+as\s+/).pop()!.trim()).filter(Boolean)) {
+          importMap.set(name, resolved);
+        }
+        const baseName = resolved.split('/').pop()!.replace(/\.\w+$/, '');
+        importMap.set(baseName, resolved);
+      }
+      // Python: import module
+      PY_IMPORT_RE.lastIndex = 0;
+      while ((m = PY_IMPORT_RE.exec(source)) !== null) {
+        const modulePath = m[1].replace(/\./g, '/');
+        const resolved = resolvePythonModule(filePath, modulePath, knownFiles);
+        if (!resolved) continue;
+        const alias = m[2] ?? m[1].split('.').pop()!;
+        importMap.set(alias, resolved);
+      }
+    } else if (GO_EXTS.has(ext)) {
+      // Go: import "path/to/pkg" or import ( "path/to/pkg" )
+      GO_IMPORT_RE.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = GO_IMPORT_RE.exec(source)) !== null) {
+        const paths = m[3]
+          ? m[3].match(/"([^"]+)"/g)?.map(s => s.slice(1, -1)) ?? []
+          : [m[1] ?? m[2]].filter(Boolean);
+        for (const goPath of paths) {
+          const resolved = resolveGoPackage(filePath, goPath, knownFiles);
+          if (!resolved) continue;
+          const pkgName = goPath.split('/').pop()!;
+          importMap.set(pkgName, resolved);
+        }
+      }
     }
 
     if (importMap.size > 0) {
@@ -444,6 +543,7 @@ function resolveTarget(
   callerFilePath: string,
   importMap: Map<string, string>,
   fnIndex: Map<string, Map<string, string[]>>,
+  ctorMap?: Map<string, string>,
 ): { targetId: string } | null {
   const methodName = site.methodName;
   if (!methodName) return null;
@@ -455,19 +555,26 @@ function resolveTarget(
     if (receiverPath) {
       candidateFilePaths = [receiverPath];
     } else {
-      // Receiver not in import map (local variable). Try same-file first.
-      const sameFileIds = fnIndex.get(callerFilePath)?.get(methodName);
-      if (sameFileIds && sameFileIds.length > 0) {
-        return { targetId: pickBestId(sameFileIds, site)! };
+      // Check constructor assignments: const svc = new MyService() → look up MyService
+      const className = ctorMap?.get(site.receiverName);
+      const classFilePath = className ? importMap.get(className) : undefined;
+      if (classFilePath) {
+        candidateFilePaths = [classFilePath, callerFilePath];
+      } else {
+        // Receiver not in import map (local variable). Try same-file first.
+        const sameFileIds = fnIndex.get(callerFilePath)?.get(methodName);
+        if (sameFileIds && sameFileIds.length > 0) {
+          return { targetId: pickBestId(sameFileIds, site)! };
+        }
+        // Fallback: find exactly one imported file with this method
+        const importedFiles = [...new Set(importMap.values())];
+        const matches = importedFiles.filter(fp => fnIndex.get(fp)?.has(methodName));
+        if (matches.length === 1) {
+          const ids = fnIndex.get(matches[0])!.get(methodName)!;
+          return { targetId: pickBestId(ids, site)! };
+        }
+        return null;
       }
-      // Fallback: find exactly one imported file with this method
-      const importedFiles = [...new Set(importMap.values())];
-      const matches = importedFiles.filter(fp => fnIndex.get(fp)?.has(methodName));
-      if (matches.length === 1) {
-        const ids = fnIndex.get(matches[0])!.get(methodName)!;
-        return { targetId: pickBestId(ids, site)! };
-      }
-      return null;
     }
   } else if (site.form === 'direct') {
     const importedFrom = importMap.get(methodName);
@@ -605,6 +712,9 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
       // Stage 3: Get pre-built import map for this file (O(1))
       const importMap = getImportMap(allImportMaps, fileNode.id);
 
+      // Track constructor assignments for type-aware method resolution
+      const ctorMap = (TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext)) ? extractConstructorAssignments(source) : undefined;
+
       for (const site of callSites) {
         if (site.form === 'dynamic') {
           skippedDynamic++;
@@ -612,7 +722,7 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
         }
 
         // Stage 4+5: Resolve target using preloaded indices (no DB query)
-        const resolved = resolveTarget(site, filePath, importMap, fnIndex);
+        const resolved = resolveTarget(site, filePath, importMap, fnIndex, ctorMap);
 
         if (!resolved) {
           // Could not resolve — method calls with unresolvable receivers are simply skipped
@@ -634,8 +744,6 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
     }
 
     // Clean up orphan IMPORTS edges that target Variable nodes instead of Files.
-    // These were created by the parser's raw import extraction and never resolved
-    // to meaningful targets (e.g. `import fs` → a Variable named `fs`).
     let orphanImportsRemoved = 0;
     if (ctx.db) {
       const result = ctx.db
@@ -650,6 +758,33 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
       orphanImportsRemoved = result.changes;
     }
 
-    return { resolvedEdges, skippedDynamic, ambiguous, orphanImportsRemoved };
+    // Reconstruct proper File→File IMPORTS edges from source-parsed import maps.
+    let importsReconstructed = 0;
+    if (ctx.db) {
+      const insertImport = ctx.db.prepare(`
+        INSERT OR IGNORE INTO edges (id, source_id, target_id, relation, confidence, confidence_score)
+        VALUES (?, ?, ?, 'IMPORTS', 'EXTRACTED', 0.9)
+      `);
+      const fileIdByPath = new Map<string, string>();
+      for (const [fp, node] of fileNodesByPath) fileIdByPath.set(fp, node.id);
+
+      const insertAll = ctx.db.transaction(() => {
+        for (const [fileNodeId, importMap] of allImportMaps) {
+          const targetPaths = new Set(importMap.values());
+          for (const targetPath of targetPaths) {
+            const targetFileId = fileIdByPath.get(targetPath);
+            if (!targetFileId || targetFileId === fileNodeId) continue;
+            const edgeId = makeId(fileNodeId, targetFileId, 'imports_file');
+            try {
+              insertImport.run(edgeId, fileNodeId, targetFileId);
+              importsReconstructed++;
+            } catch { /* duplicate — already exists */ }
+          }
+        }
+      });
+      insertAll();
+    }
+
+    return { resolvedEdges, skippedDynamic, ambiguous, orphanImportsRemoved, importsReconstructed };
   },
 };

@@ -47,8 +47,10 @@ export interface BuildOptions extends Partial<PipelineOptions> {
 // ad-hoc lock file that the others don't know about — concurrent builds then fail
 // with "database is locked". Serialize here, the one place all builders pass through.
 async function acquireBuildLock(dbPath: string): Promise<(() => void) | null> {
-  const { writeFileSync, readFileSync, statSync, unlinkSync } = await import('fs');
+  const { writeFileSync, readFileSync, statSync, unlinkSync, mkdirSync } = await import('fs');
+  const { dirname } = await import('path');
   const lockPath = dbPath + '.build-lock';
+  mkdirSync(dirname(lockPath), { recursive: true });
   const tryAcquire = (): boolean => {
     try { writeFileSync(lockPath, String(process.pid), { flag: 'wx' }); return true; }
     catch { return false; }
