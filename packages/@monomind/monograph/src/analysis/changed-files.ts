@@ -59,10 +59,3 @@ export function filterResultsByChangedFiles<T extends { filePath?: string | null
   return results.filter((item) => item.filePath != null && changedPaths.has(item.filePath));
 }
 
-export function filterDuplicationByChangedFiles<
-  T extends { instances: Array<{ filePath: string }> },
->(groups: T[], changedPaths: Set<string>): T[] {
-  return groups.filter((group) =>
-    group.instances.some((instance) => changedPaths.has(instance.filePath)),
-  );
-}

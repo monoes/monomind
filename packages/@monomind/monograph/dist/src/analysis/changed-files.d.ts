@@ -7,9 +7,4 @@ export declare function getChangedFiles(root: string, sinceRef: string): Promise
 export declare function filterResultsByChangedFiles<T extends {
     filePath?: string | null;
 }>(results: T[], changedPaths: Set<string>): T[];
-export declare function filterDuplicationByChangedFiles<T extends {
-    instances: Array<{
-        filePath: string;
-    }>;
-}>(groups: T[], changedPaths: Set<string>): T[];
 //# sourceMappingURL=changed-files.d.ts.map
