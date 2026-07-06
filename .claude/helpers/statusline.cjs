@@ -1219,10 +1219,9 @@ function generateDashboard() {
   let usageStr = '';
   if (usage) {
     const col = usage.pct >= 40 ? x.green : usage.pct >= 15 ? x.gold : x.coral;
-    const saved = usage.dollarsSaved > 0
-      ? `   ${x.green}💰 +$${usage.dollarsSaved.toFixed(2)}${x.reset}`
-      : '';
-    usageStr = `   ${DIV}   ${col}📊 graph ${usage.pct}%${x.reset}${x.slate} · grep ${100 - usage.pct}%${x.reset}${saved}`;
+    const savedCol = usage.dollarsSaved >= 0.10 ? x.green : x.slate;
+    const savedStr = `   ${savedCol}💰 $${usage.dollarsSaved.toFixed(2)}${x.reset}`;
+    usageStr = `   ${DIV}   ${col}📊 graph ${usage.pct}%${x.reset}${x.slate} · grep ${100 - usage.pct}%${x.reset}${savedStr}`;
   }
 
   // Hook latency — surface when slow (>500ms per prompt)

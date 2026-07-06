@@ -172,13 +172,23 @@ declare class LocalReasoningBank {
      */
     store(pattern: Omit<StoredPattern, 'usageCount' | 'createdAt' | 'lastUsedAt'> & Partial<StoredPattern>): void;
     /**
-     * Find similar patterns by embedding
+     * Find similar patterns by embedding.
+     *
+     * This is a pure read operation: it does NOT mutate usageCount or
+     * lastUsedAt, so no disk save is triggered. Callers that need to record
+     * a usage hit should call `recordUsage(id)` explicitly after consuming
+     * the results.
      */
     findSimilar(queryEmbedding: number[], options: {
         k?: number;
         threshold?: number;
         type?: string;
     }): StoredPattern[];
+    /**
+     * Record that a pattern was used, updating its usage metrics and scheduling
+     * a debounced disk save. Separated from findSimilar to keep searches pure.
+     */
+    recordUsage(id: string): void;
     /**
      * Optimized cosine similarity
      */
@@ -319,6 +329,26 @@ export declare function deletePattern(id: string): Promise<boolean>;
  * Clear all patterns (both in memory and on disk)
  */
 export declare function clearAllPatterns(): Promise<void>;
+interface MemoryDecisionInput {
+    taskDescription: string;
+    agent: string;
+    success: boolean;
+    latencyMs: number;
+}
+/**
+ * Record a memory decision from a completed task. Stores successful patterns
+ * in the 'memory-proficiency' domain so future PLAN routines can retrieve them.
+ */
+export declare function recordMemoryDecision(input: MemoryDecisionInput): Promise<void>;
+/**
+ * Return memory proficiency stats for doctor health check.
+ */
+export declare function getMemoryProficiencyStats(): {
+    totalDecisions: number;
+    successRate: number;
+    proficiencyPatterns: number;
+    patternHitRate: number;
+};
 /**
  * Get the neural data directory path
  */
