@@ -150,7 +150,57 @@ var _TOKEN_PER_EVENT = {
   bash_grep_call: 2000,
   bash_find_call:  800,
 };
-var _DOLLAR_PER_1M_TOKENS = 3.0;
+
+// $/M input tokens by model family — Opus sessions save 5x more per graph hit
+var _DOLLAR_RATES = { opus: 15.0, sonnet: 3.0, haiku: 0.25 };
+var _cachedDollarRate = undefined;
+function _rateFromModel(id) {
+  if (id.includes('opus')) return _DOLLAR_RATES.opus;
+  if (id.includes('haiku')) return _DOLLAR_RATES.haiku;
+  if (id.includes('sonnet') || id.includes('fable')) return _DOLLAR_RATES.sonnet;
+  return null;
+}
+function _getDollarRate() {
+  if (_cachedDollarRate !== undefined) return _cachedDollarRate;
+  // 1. Env vars (set by some launchers)
+  var envModel = process.env.ANTHROPIC_MODEL || process.env.CLAUDE_CODE_MODEL || '';
+  var r = _rateFromModel(envModel);
+  if (r) { _cachedDollarRate = r; return r; }
+  // 2. Project settings.json — the configured session model
+  try {
+    var settingsPaths = [
+      path.join(CWD, '.claude', 'settings.json'),
+      path.join(CWD, '.claude', 'settings.local.json'),
+    ];
+    for (var i = 0; i < settingsPaths.length; i++) {
+      var s = JSON.parse(fs.readFileSync(settingsPaths[i], 'utf-8'));
+      if (s.model) { r = _rateFromModel(s.model); if (r) { _cachedDollarRate = r; return r; } }
+    }
+  } catch(e) {}
+  _cachedDollarRate = _DOLLAR_RATES.sonnet;
+  return _cachedDollarRate;
+}
+
+// Staleness guard — skip graph DB lookups when the index is too far behind HEAD.
+// Returns true if it's safe to use the graph, false if stale.
+var _graphFreshnessCache = undefined;
+function _isGraphFresh() {
+  if (_graphFreshnessCache !== undefined) return _graphFreshnessCache;
+  try {
+    var dbPath = path.join(CWD, '.monomind', 'monograph.db');
+    var dbStat = fs.statSync(dbPath);
+    var { execSync } = require('child_process');
+    var buildIso = new Date(dbStat.mtimeMs).toISOString();
+    var out = execSync("git rev-list --count --since='" + buildIso + "' HEAD 2>/dev/null", {
+      encoding: 'utf-8', timeout: 1500, stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+    var behind = parseInt(out, 10) || 0;
+    _graphFreshnessCache = behind <= 50; // monolean: 50 commits is generous enough
+  } catch(e) {
+    _graphFreshnessCache = true; // can't check → assume fresh
+  }
+  return _graphFreshnessCache;
+}
 
 function _recordGraphTelemetry(event) {
   try {
@@ -161,10 +211,10 @@ function _recordGraphTelemetry(event) {
     try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (e) {}
     if (typeof d !== 'object' || d === null) d = {};
     d[event] = (d[event] || 0) + 1;
-    if (event === 'monograph_call') {
+    if (event === 'monograph_call' || event === 'preresolve_hit' || event === 'graph_assist_search' || event === 'graph_assist_neighbors') {
       var saved = (_TOKEN_PER_EVENT.grep_call - _TOKEN_PER_EVENT.monograph_call);
       d.tokens_saved = (d.tokens_saved || 0) + saved;
-      d.dollars_saved = ((d.tokens_saved / 1000000) * _DOLLAR_PER_1M_TOKENS);
+      d.dollars_saved = (d.tokens_saved / 1000000) * _getDollarRate();
     }
     if (event === 'grep_call' || event === 'bash_grep_call') {
       var wasted = (_TOKEN_PER_EVENT.grep_call - _TOKEN_PER_EVENT.monograph_call);
@@ -376,6 +426,7 @@ function injectGodNodesContext(CWD) {
 module.exports = {
   _requireMonograph,
   _openMonographDb,
+  _isGraphFresh,
   getMonographSuggestions,
   getMonographNeighbors,
   _recordGraphTelemetry,

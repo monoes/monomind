@@ -161,4 +161,29 @@ function storePattern(pattern) {
   void pattern;
 }
 
-module.exports = { init, getContext, recordEdit, consolidate, feedback, stats, logTrajectory, storePattern };
+// ── AutoMem bridges (arXiv:2607.01224) ───────────────────────────────────────
+
+var _intelligenceMod = null;
+
+async function _loadIntelligenceMod() {
+  if (_intelligenceMod) return _intelligenceMod;
+  try {
+    _intelligenceMod = await import('file://' + path.join(CWD, 'packages/@monomind/cli/dist/src/memory/intelligence.js'));
+  } catch (_) {
+    _intelligenceMod = null;
+  }
+  return _intelligenceMod;
+}
+
+async function findSimilarPatterns(query, options) {
+  var mod = await _loadIntelligenceMod();
+  if (mod && mod.findSimilarPatterns) return mod.findSimilarPatterns(query, options);
+  return [];
+}
+
+async function recordMemoryDecision(input) {
+  var mod = await _loadIntelligenceMod();
+  if (mod && mod.recordMemoryDecision) return mod.recordMemoryDecision(input);
+}
+
+module.exports = { init, getContext, recordEdit, consolidate, feedback, stats, logTrajectory, storePattern, findSimilarPatterns, recordMemoryDecision };
