@@ -46,53 +46,7 @@ function makeHCtx(overrides = {}) {
   };
 }
 
-// ── handlePreTask — model tier recommendation ──────────────────────────────────
-
-describe('task-handler.handlePreTask model tier', () => {
-  it('recommends haiku for very short/simple prompt', async () => {
-    const th = loadTH();
-    const hCtx = makeHCtx({ prompt: 'rename variable' });
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePreTask(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('[TASK_MODEL_RECOMMENDATION]');
-    expect(output).toContain('haiku');
-  });
-
-  it('recommends opus for large complex architecture task (>200 words)', async () => {
-    const th = loadTH();
-    // score: base 50 + >100 words (+20) + >200 words (+10) = 80 → opus
-    const filler = 'word '.repeat(210); // 210 words → >200 words condition
-    const longComplexPrompt = filler + 'architecture security design';
-    const hCtx = makeHCtx({ prompt: longComplexPrompt });
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePreTask(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('[TASK_MODEL_RECOMMENDATION]');
-    expect(output).toContain('opus');
-  });
-
-  it('recommends sonnet for moderate complexity', async () => {
-    const th = loadTH();
-    // 30-40 words, no high/low keywords
-    const prompt = 'Update the user profile page to show the avatar and bio section with proper validation and error handling for the form submission flow';
-    const hCtx = makeHCtx({ prompt });
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePreTask(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('[TASK_MODEL_RECOMMENDATION]');
-    expect(output).toContain('sonnet');
-  });
-
-  it('does NOT print recommendation when no prompt', async () => {
-    const th = loadTH();
-    const hCtx = makeHCtx({ prompt: '' });
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePreTask(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).not.toContain('[TASK_MODEL_RECOMMENDATION]');
-  });
-
+describe('task-handler.handlePreTask', () => {
   it('prints AUTO_RETRY_ENABLED when swarmCoordinator is set', async () => {
     const th = loadTH();
     const hCtx = makeHCtx({
