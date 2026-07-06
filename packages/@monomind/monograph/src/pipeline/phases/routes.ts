@@ -41,6 +41,7 @@ export const routesPhase: PipelinePhase<RoutesOutput> = {
   name: 'routes',
   deps: ['parse', 'structure'],
   async execute(ctx, deps) {
+    if (ctx.allFilesCached) return { routeRegistry: [], routeNodes: [], handlesEdges: [] };
     const { fileNodes } = deps.get('structure') as StructureOutput;
     const routeRegistry: RouteEntry[] = [];
     const routeNodes: MonographNode[] = [];

@@ -194,7 +194,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       output.writeln();
     }
 
-    const startAll = ctx.flags['start-all'] || ctx.flags.startAll;
+    const noStartAll = ctx.flags['no-start-all'] || ctx.flags.noStartAll;
+    const startAll = noStartAll ? false : (ctx.flags['start-all'] ?? ctx.flags.startAll ?? true);
     const startDaemon = ctx.flags['start-daemon'] || ctx.flags.startDaemon || startAll;
 
     if (startDaemon || startAll) {
@@ -286,7 +287,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         `Run ${output.highlight('monomind daemon start')} to start background workers`,
         `Run ${output.highlight('monomind memory init')} to initialize memory database`,
         `Run ${output.highlight('monomind swarm init')} to initialize a swarm`,
-        `Or use ${output.highlight('monomind init --start-all')} to do all of the above`,
+        `Services auto-start by default; use ${output.highlight('--no-start-all')} to skip`,
         options.components.settings ? `Review ${output.highlight('.claude/settings.json')} for hook configurations` : '',
       ].filter(Boolean));
     }
@@ -361,9 +362,9 @@ export const initCommand: Command = {
     },
     {
       name: 'start-all',
-      description: 'Auto-start daemon, memory, and swarm after init',
+      description: 'Auto-start daemon, memory, and swarm after init (default: true)',
       type: 'boolean',
-      default: false,
+      default: true,
     },
     {
       name: 'start-daemon',
@@ -393,7 +394,7 @@ export const initCommand: Command = {
   ],
   examples: [
     { command: 'monomind init', description: 'Initialize with default configuration' },
-    { command: 'monomind init --start-all', description: 'Initialize and start daemon, memory, swarm' },
+    { command: 'monomind init --no-start-all', description: 'Initialize without auto-starting services' },
     { command: 'monomind init --start-daemon', description: 'Initialize and start daemon only' },
     { command: 'monomind init --minimal', description: 'Initialize with minimal configuration' },
     { command: 'monomind init --full', description: 'Initialize with all components' },

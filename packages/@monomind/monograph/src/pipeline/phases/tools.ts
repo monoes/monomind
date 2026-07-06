@@ -42,6 +42,7 @@ export const toolsPhase: PipelinePhase<ToolsOutput> = {
   name: 'tools',
   deps: ['parse', 'structure'],
   async execute(ctx, deps) {
+    if (ctx.allFilesCached) return { toolDefs: [], toolNodes: [], handlesEdges: [] };
     const { fileNodes } = deps.get('structure') as StructureOutput;
     const toolDefs: ToolDef[] = [];
     const toolNodes: MonographNode[] = [];

@@ -348,6 +348,23 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       for (const cap of capMgr.getActive()) {
         console.log(`  ✓ ${cap.name}`);
       }
+      // Second Brain: if documents capability is active, index documents
+      const activeNames = capMgr.getActive().map((c: any) => c.name);
+      if (activeNames.includes('documents')) {
+        try {
+          const { ingestDirectory } = await import('../knowledge/document-pipeline.js');
+          console.log('\nIndexing documents for Second Brain...');
+          const docResult = await ingestDirectory(targetDir, 'shared');
+          if (docResult.filesProcessed > 0) {
+            console.log(`  ✓ ${docResult.totalChunks} chunks from ${docResult.filesProcessed} documents`);
+          } else {
+            console.log('  ✓ Knowledge base initialized (no new documents to index)');
+          }
+          result.created.files.push('.monomind/knowledge/');
+        } catch (docErr) {
+          result.skipped.push(`knowledge indexing: ${docErr instanceof Error ? docErr.message : String(docErr)}`);
+        }
+      }
     } catch (scanError) {
       // Scanner/fingerprint/activation failed — non-fatal, continue without capabilities
       result.skipped.push(`directory scan: ${scanError instanceof Error ? scanError.message : String(scanError)}`);

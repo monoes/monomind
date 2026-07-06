@@ -84,6 +84,9 @@ export const communitiesPhase = {
     name: 'communities',
     deps: ['parse', 'cross-file', 'mro'],
     async execute(ctx, deps) {
+        if (ctx.allFilesCached) {
+            return { memberships: new Map(), communityLabels: new Map(), cohesionScores: new Map() };
+        }
         const { resolvedEdges } = deps.get('cross-file');
         const { allEdges } = deps.get('parse');
         const allUsedEdges = [...allEdges, ...resolvedEdges];
