@@ -10,6 +10,7 @@ export const variablesPhase: PipelinePhase<VariablesOutput> = {
   name: 'variables',
   deps: ['parse'],
   async execute(ctx: PipelineContext, deps: Map<string, unknown>): Promise<VariablesOutput> {
+    if (ctx.allFilesCached) return { variableCount: 0 };
     const { fileContents } = deps.get('parse') as ParseOutput;
 
     const stmt = ctx.db.prepare(`

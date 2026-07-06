@@ -8,6 +8,8 @@ export interface PipelineContext {
   graph: Graph;
   onProgress: (p: PipelineProgress) => void;
   options: PipelineOptions;
+  /** Set by parse phase when all files hit the extraction cache (0 misses). */
+  allFilesCached?: boolean;
 }
 
 export interface PipelineOptions {

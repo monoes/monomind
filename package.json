@@ -66,6 +66,8 @@
   "dependencies": {
     "@monoes/monobrowse": "workspace:*",
     "@monoes/monograph": "workspace:*",
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5",
     "semver": "^7.6.0",
     "zod": "^3.22.0"
   },

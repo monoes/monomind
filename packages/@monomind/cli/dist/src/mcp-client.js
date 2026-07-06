@@ -44,6 +44,8 @@ import { a2aTools } from './mcp-tools/a2a-tools.js';
 // Quality and Coherence core tools
 import { qualityTools } from './mcp-tools/quality-tools.js';
 import { coherenceTools } from './mcp-tools/coherence-tools.js';
+// Second Brain knowledge tools
+import { knowledgeTools } from './mcp-tools/knowledge-tools.js';
 /**
  * MCP Tool Registry
  * Maps tool names to their handler functions
@@ -100,6 +102,8 @@ registerTools([
     ...qualityTools,
     // Coherence tools
     ...coherenceTools,
+    // Second Brain knowledge tools
+    ...knowledgeTools,
 ]);
 /**
  * MCP Client Error

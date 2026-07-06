@@ -37,6 +37,8 @@ export const ormPhase = {
     name: 'orm',
     deps: ['parse', 'structure'],
     async execute(ctx, deps) {
+        if (ctx.allFilesCached)
+            return { entities: [], entityNodes: [], fieldNodes: [], hasFieldEdges: [] };
         const { fileNodes } = deps.get('structure');
         const entities = [];
         const entityNodes = [];

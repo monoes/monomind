@@ -1,35 +1,29 @@
 import { createHash } from 'crypto';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 import type { MonographNode, MonographEdge } from '../types.js';
 
 export interface CacheEntry {
   fileHash: string;
+  mtimeMs?: number;
+  size?: number;
   nodes: MonographNode[];
   edges: MonographEdge[];
 }
 
-/**
- * SHA256-keyed per-file extraction cache.
- * Stores parsed nodes and edges keyed by file content hash so unchanged
- * files skip reparsing on subsequent monograph build runs.
- *
- * Cache files are stored in `dir` as `<sha256(filePath)>.json`.
- * A cache hit requires the stored `fileHash` to match the provided hash.
- *
- * TODO: Integrate into pipeline runner once per-file phase iteration is
- * exposed — currently PipelineRunner delegates file iteration to individual
- * phases (e.g. parse phase), so the cache hook point lives inside the parse
- * phase execute() method rather than in runner.ts.
- */
 export class ExtractionCache {
+  private pending: Array<{ path: string; data: string }> = [];
+
   constructor(private readonly dir: string) {
     mkdirSync(dir, { recursive: true });
   }
 
-  /** Compute SHA256 hex digest of a file's contents. */
   hashFile(filePath: string): string {
     const content = readFileSync(filePath);
+    return createHash('sha256').update(content).digest('hex');
+  }
+
+  hashContent(content: string): string {
     return createHash('sha256').update(content).digest('hex');
   }
 
@@ -39,9 +33,27 @@ export class ExtractionCache {
   }
 
   /**
-   * Retrieve a cache entry for the given file path and hash.
-   * Returns null on cache miss (file not cached or hash mismatch).
+   * Fast-path: check mtime+size before falling back to content hash.
+   * Returns cached entry if file hasn't changed, null on miss.
    */
+  getWithStat(filePath: string): CacheEntry | null {
+    const p = this.entryPath(filePath);
+    if (!existsSync(p)) return null;
+    try {
+      const entry: CacheEntry = JSON.parse(readFileSync(p, 'utf-8'));
+      const st = statSync(filePath);
+      if (entry.mtimeMs === st.mtimeMs && entry.size === st.size) return entry;
+      // mtime/size differ or missing — recheck content hash
+      const hash = this.hashFile(filePath);
+      if (entry.fileHash !== hash) return null;
+      // Hash matches — update entry with current mtime+size for next run
+      entry.mtimeMs = st.mtimeMs;
+      entry.size = st.size;
+      try { writeFileSync(p, JSON.stringify(entry)); } catch { /* non-fatal */ }
+      return entry;
+    } catch { return null; }
+  }
+
   get(filePath: string, fileHash: string): CacheEntry | null {
     const p = this.entryPath(filePath);
     if (!existsSync(p)) return null;
@@ -51,9 +63,26 @@ export class ExtractionCache {
     } catch { return null; }
   }
 
-  /** Store parsed nodes and edges for a file path + hash. */
   set(filePath: string, fileHash: string, nodes: MonographNode[], edges: MonographEdge[]): void {
-    const entry: CacheEntry = { fileHash, nodes, edges };
+    let mtimeMs: number | undefined;
+    let size: number | undefined;
+    try { const st = statSync(filePath); mtimeMs = st.mtimeMs; size = st.size; } catch { /* ignore */ }
+    const entry: CacheEntry = { fileHash, mtimeMs, size, nodes, edges };
     writeFileSync(this.entryPath(filePath), JSON.stringify(entry));
+  }
+
+  setDeferred(filePath: string, fileHash: string, nodes: MonographNode[], edges: MonographEdge[]): void {
+    let mtimeMs: number | undefined;
+    let size: number | undefined;
+    try { const st = statSync(filePath); mtimeMs = st.mtimeMs; size = st.size; } catch { /* ignore */ }
+    const entry: CacheEntry = { fileHash, mtimeMs, size, nodes, edges };
+    this.pending.push({ path: this.entryPath(filePath), data: JSON.stringify(entry) });
+  }
+
+  flush(): void {
+    for (const { path, data } of this.pending) {
+      try { writeFileSync(path, data); } catch { /* non-fatal */ }
+    }
+    this.pending = [];
   }
 }

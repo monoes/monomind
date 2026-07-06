@@ -8,7 +8,7 @@ import type {
   HealthCheck,
 } from './types.js';
 
-const DOC_EXTENSIONS = new Set([
+export const DOC_EXTENSIONS = new Set([
   '.pdf',
   '.docx',
   '.doc',
@@ -26,7 +26,7 @@ const MAX_INDEX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — skip oversized text fi
 // In-memory index for T0 (metadata) and T1 (content) — replaced by memory DB in production
 const indexedDocs = new Map<string, { path: string; content: string; metadata: Record<string, unknown> }>();
 
-async function extractText(file: FileEntry): Promise<string> {
+export async function extractText(file: FileEntry): Promise<string> {
   if (file.size > MAX_INDEX_FILE_SIZE) return '';
 
   const ext = file.extension;

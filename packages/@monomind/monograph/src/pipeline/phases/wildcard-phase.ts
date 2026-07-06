@@ -12,6 +12,7 @@ export const wildcardSynthesisPhase: PipelinePhase<WildcardSynthesisOutput> = {
   name: 'wildcard-synthesis',
   deps: ['parse', 'cross-file'],
   async execute(ctx: PipelineContext, deps: Map<string, unknown>): Promise<WildcardSynthesisOutput> {
+    if (ctx.allFilesCached) return { synthesizedCount: 0 };
     const { symbolNodes: allNodes, allEdges, fileContents } = deps.get('parse') as ParseOutput;
     const { resolvedEdges } = deps.get('cross-file') as CrossFileOutput;
 
