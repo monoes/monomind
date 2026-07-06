@@ -37,8 +37,9 @@ const PY_EXTS = new Set(['.py']);
 const GO_EXTS = new Set(['.go']);
 const JAVA_EXTS = new Set(['.java']);
 const RUST_EXTS = new Set(['.rs']);
+const CJS_MJS_EXTS = new Set(['.cjs', '.mjs']);
 function isSupportedExt(ext) {
-    return TS_JS_EXTS.has(ext) || PY_EXTS.has(ext) || GO_EXTS.has(ext) || JAVA_EXTS.has(ext) || RUST_EXTS.has(ext);
+    return TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext) || PY_EXTS.has(ext) || GO_EXTS.has(ext) || JAVA_EXTS.has(ext) || RUST_EXTS.has(ext);
 }
 // ── Language-specific extractors ──────────────────────────────────────────────
 export function extractGoCallSites(source, filePath, fileNodeId) {
@@ -89,10 +90,24 @@ export function extractRustCallSites(source, filePath, fileNodeId) {
     }
     return sites;
 }
+// ── Stage 0.5: Track constructor assignments for type-aware method resolution ─
+/**
+ * Scan source for `const/let/var x = new ClassName(...)` patterns.
+ * Returns a map: localVarName → ClassName (e.g. "svc" → "MyService").
+ */
+function extractConstructorAssignments(source) {
+    const result = new Map();
+    const pattern = /(?:const|let|var)\s+(\w+)\s*=\s*new\s+([A-Z][\w$]*)\s*(?:<[^>]*>\s*)?\(/g;
+    let m;
+    while ((m = pattern.exec(source)) !== null) {
+        result.set(m[1], m[2]);
+    }
+    return result;
+}
 // ── Stage 1 + 2: Extract and classify call sites ──────────────────────────────
 function extractCallSites(source, filePath, fileNodeId, ext) {
     const sites = [];
-    if (TS_JS_EXTS.has(ext)) {
+    if (TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext)) {
         // Method calls: word.word( or word.word<T>(
         const methodPattern = /(\w+)\.(\w+)\s*(?:<[^>]*>\s*)?\(/g;
         let m;
@@ -104,6 +119,20 @@ function extractCallSites(source, filePath, fileNodeId, ext) {
                 form: 'method',
                 receiverName: m[1],
                 methodName: m[2],
+            });
+        }
+        // Chained method calls: ).method( or ].method( — receiver unknown, resolve by method name
+        const chainedPattern = /[)\]]\s*\.(\w+)\s*(?:<[^>]*>\s*)?\(/g;
+        while ((m = chainedPattern.exec(source)) !== null) {
+            const name = m[1];
+            if (JS_KEYWORDS.has(name))
+                continue;
+            sites.push({
+                callerFileNodeId: fileNodeId,
+                callerFilePath: filePath,
+                calleeRaw: `?.${name}`,
+                form: 'method',
+                methodName: name,
             });
         }
         // Direct calls: word( or word<T>( — not preceded by . or word char
@@ -184,7 +213,24 @@ function extractCallSites(source, filePath, fileNodeId, ext) {
 }
 // ── Stage 3: Build import maps by parsing source imports ─────────────────────
 const IMPORT_RE = /import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+))(?:\s*,\s*(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+)))?\s+from\s+['"]([^'"]+)['"]/g;
+// CJS require: const x = require('y') or const { a, b } = require('y')
+const REQUIRE_RE = /(?:const|let|var)\s+(?:\{([^}]+)\}|(\w+))\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+// Python: from x import y, z  OR  import x
+const PY_FROM_IMPORT_RE = /from\s+([\w.]+)\s+import\s+(.+)/g;
+const PY_IMPORT_RE = /^import\s+([\w.]+)(?:\s+as\s+(\w+))?/gm;
+// Go: import "path" or import ( "path" )
+const GO_IMPORT_RE = /import\s+(?:"([^"]+)"|(?:\w+\s+)?"([^"]+)"|\(\s*([\s\S]*?)\s*\))/g;
+// Java: import com.foo.Bar;
+const JAVA_IMPORT_RE = /import\s+(?:static\s+)?([\w.]+)\s*;/g;
+// Rust: use crate::module::Item; or use super::foo;
+const RUST_USE_RE = /use\s+((?:crate|super|self)(?:::\w+)+)(?:::\{([^}]+)\})?;/g;
+// TS/JS re-exports: export { foo, bar } from './module'
+const REEXPORT_RE = /export\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g;
 const RESOLVE_EXTS = ['.ts', '.tsx', '.js', '.jsx'];
+const PY_RESOLVE_EXTS = ['.py'];
+const GO_RESOLVE_EXTS = ['.go'];
+const JAVA_RESOLVE_EXTS = ['.java'];
+const RUST_RESOLVE_EXTS = ['.rs'];
 /**
  * Build package-name → directory map from workspace package.json files.
  * Scans packages/ for package.json and maps npm name to its relative src path.
@@ -273,6 +319,63 @@ function resolveModuleSpecifier(importerPath, specifier, repoPath, knownFiles, w
     }
     return null;
 }
+function resolvePythonModule(importerPath, modulePath, knownFiles) {
+    // Try relative to importer's directory, then absolute from repo root
+    const dir = dirname(importerPath);
+    for (const base of [dir + '/' + modulePath, modulePath]) {
+        for (const candidate of [base + '.py', base + '/__init__.py']) {
+            if (knownFiles.has(candidate))
+                return candidate;
+        }
+    }
+    return null;
+}
+function resolveGoPackage(importerPath, goPath, knownFiles) {
+    for (const f of knownFiles) {
+        if (f.startsWith(goPath + '/') && f.endsWith('.go'))
+            return f;
+    }
+    return null;
+}
+function resolveJavaImport(qualifiedName, knownFiles) {
+    // com.foo.Bar → com/foo/Bar.java or src/main/java/com/foo/Bar.java
+    const pathPart = qualifiedName.replace(/\./g, '/');
+    for (const candidate of [pathPart + '.java', 'src/main/java/' + pathPart + '.java', 'src/' + pathPart + '.java']) {
+        if (knownFiles.has(candidate))
+            return candidate;
+    }
+    // Wildcard: com.foo.* → find any .java file in com/foo/
+    if (pathPart.endsWith('/*')) {
+        const dir = pathPart.slice(0, -2);
+        for (const f of knownFiles) {
+            if (f.endsWith('.java') && (f.startsWith(dir + '/') || f.includes('/' + dir + '/')))
+                return f;
+        }
+    }
+    return null;
+}
+function resolveRustUse(usePath, importerPath, knownFiles) {
+    // crate::module::item → src/module.rs or src/module/mod.rs
+    const parts = usePath.split('::');
+    if (parts[0] === 'crate')
+        parts[0] = 'src';
+    else if (parts[0] === 'super') {
+        const dir = dirname(importerPath);
+        parts[0] = dirname(dir);
+    }
+    else if (parts[0] === 'self') {
+        parts[0] = dirname(importerPath);
+    }
+    // Last segment is the item name — try with and without it
+    for (let len = parts.length; len >= 2; len--) {
+        const base = parts.slice(0, len).join('/');
+        for (const candidate of [base + '.rs', base + '/mod.rs']) {
+            if (knownFiles.has(candidate))
+                return candidate;
+        }
+    }
+    return null;
+}
 function extractImportNames(clause) {
     return clause
         .split(',')
@@ -289,8 +392,7 @@ function buildAllImportMapsFromSource(repoPath, fileNodesByPath) {
     const workspaceMap = buildWorkspacePackageMap(repoPath);
     for (const [filePath, fileNode] of fileNodesByPath) {
         const ext = extname(filePath).toLowerCase();
-        if (!TS_JS_EXTS.has(ext))
-            continue;
+        const importMap = new Map();
         let source;
         try {
             source = readFileSync(join(repoPath, filePath), 'utf-8');
@@ -298,34 +400,121 @@ function buildAllImportMapsFromSource(repoPath, fileNodesByPath) {
         catch {
             continue;
         }
-        const importMap = new Map();
-        IMPORT_RE.lastIndex = 0;
-        let m;
-        while ((m = IMPORT_RE.exec(source)) !== null) {
-            const specifier = m[7];
-            const resolved = resolveModuleSpecifier(filePath, specifier, repoPath, knownFiles, workspaceMap);
-            if (!resolved)
-                continue;
-            // Named imports: { foo, bar as baz }
-            if (m[1])
-                for (const n of extractImportNames(m[1]))
-                    importMap.set(n, resolved);
-            if (m[4])
-                for (const n of extractImportNames(m[4]))
-                    importMap.set(n, resolved);
-            // Default import
-            if (m[2])
-                importMap.set(m[2], resolved);
-            if (m[5])
-                importMap.set(m[5], resolved);
-            // Namespace import: * as X
-            if (m[3])
-                importMap.set(m[3], resolved);
-            if (m[6])
-                importMap.set(m[6], resolved);
-            // Store the module path itself (for method call receiver lookup by module name)
-            const baseName = resolved.split('/').pop().replace(/\.\w+$/, '');
-            importMap.set(baseName, resolved);
+        if (TS_JS_EXTS.has(ext) || ext === '.cjs' || ext === '.mjs') {
+            // ESM imports
+            IMPORT_RE.lastIndex = 0;
+            let m;
+            while ((m = IMPORT_RE.exec(source)) !== null) {
+                const specifier = m[7];
+                const resolved = resolveModuleSpecifier(filePath, specifier, repoPath, knownFiles, workspaceMap);
+                if (!resolved)
+                    continue;
+                if (m[1])
+                    for (const n of extractImportNames(m[1]))
+                        importMap.set(n, resolved);
+                if (m[4])
+                    for (const n of extractImportNames(m[4]))
+                        importMap.set(n, resolved);
+                if (m[2])
+                    importMap.set(m[2], resolved);
+                if (m[5])
+                    importMap.set(m[5], resolved);
+                if (m[3])
+                    importMap.set(m[3], resolved);
+                if (m[6])
+                    importMap.set(m[6], resolved);
+                const baseName = resolved.split('/').pop().replace(/\.\w+$/, '');
+                importMap.set(baseName, resolved);
+            }
+            // CJS require()
+            REQUIRE_RE.lastIndex = 0;
+            while ((m = REQUIRE_RE.exec(source)) !== null) {
+                const specifier = m[3];
+                const resolved = resolveModuleSpecifier(filePath, specifier, repoPath, knownFiles, workspaceMap);
+                if (!resolved)
+                    continue;
+                if (m[1])
+                    for (const n of extractImportNames(m[1]))
+                        importMap.set(n, resolved);
+                if (m[2])
+                    importMap.set(m[2], resolved);
+                const baseName = resolved.split('/').pop().replace(/\.\w+$/, '');
+                importMap.set(baseName, resolved);
+            }
+        }
+        else if (PY_EXTS.has(ext)) {
+            // Python: from module import name
+            PY_FROM_IMPORT_RE.lastIndex = 0;
+            let m;
+            while ((m = PY_FROM_IMPORT_RE.exec(source)) !== null) {
+                const modulePath = m[1].replace(/\./g, '/');
+                const resolved = resolvePythonModule(filePath, modulePath, knownFiles);
+                if (!resolved)
+                    continue;
+                for (const name of m[2].split(',').map(s => s.trim().split(/\s+as\s+/).pop().trim()).filter(Boolean)) {
+                    importMap.set(name, resolved);
+                }
+                const baseName = resolved.split('/').pop().replace(/\.\w+$/, '');
+                importMap.set(baseName, resolved);
+            }
+            // Python: import module
+            PY_IMPORT_RE.lastIndex = 0;
+            while ((m = PY_IMPORT_RE.exec(source)) !== null) {
+                const modulePath = m[1].replace(/\./g, '/');
+                const resolved = resolvePythonModule(filePath, modulePath, knownFiles);
+                if (!resolved)
+                    continue;
+                const alias = m[2] ?? m[1].split('.').pop();
+                importMap.set(alias, resolved);
+            }
+        }
+        else if (GO_EXTS.has(ext)) {
+            GO_IMPORT_RE.lastIndex = 0;
+            let m;
+            while ((m = GO_IMPORT_RE.exec(source)) !== null) {
+                const paths = m[3]
+                    ? m[3].match(/"([^"]+)"/g)?.map(s => s.slice(1, -1)) ?? []
+                    : [m[1] ?? m[2]].filter(Boolean);
+                for (const goPath of paths) {
+                    const resolved = resolveGoPackage(filePath, goPath, knownFiles);
+                    if (!resolved)
+                        continue;
+                    const pkgName = goPath.split('/').pop();
+                    importMap.set(pkgName, resolved);
+                }
+            }
+        }
+        else if (JAVA_EXTS.has(ext)) {
+            JAVA_IMPORT_RE.lastIndex = 0;
+            let m;
+            while ((m = JAVA_IMPORT_RE.exec(source)) !== null) {
+                const resolved = resolveJavaImport(m[1], knownFiles);
+                if (!resolved)
+                    continue;
+                const className = m[1].split('.').pop();
+                importMap.set(className, resolved);
+            }
+        }
+        else if (RUST_EXTS.has(ext)) {
+            RUST_USE_RE.lastIndex = 0;
+            let m;
+            while ((m = RUST_USE_RE.exec(source)) !== null) {
+                if (m[2]) {
+                    // use crate::module::{Item1, Item2}
+                    for (const name of m[2].split(',').map(s => s.trim()).filter(Boolean)) {
+                        const resolved = resolveRustUse(m[1] + '::' + name, filePath, knownFiles);
+                        if (resolved)
+                            importMap.set(name.split('::').pop(), resolved);
+                    }
+                }
+                else {
+                    const resolved = resolveRustUse(m[1], filePath, knownFiles);
+                    if (!resolved)
+                        continue;
+                    const itemName = m[1].split('::').pop();
+                    importMap.set(itemName, resolved);
+                }
+            }
         }
         if (importMap.size > 0) {
             result.set(fileNode.id, importMap);
@@ -384,7 +573,7 @@ function pickBestId(ids, site) {
     }
     return match ?? ids[0];
 }
-function resolveTarget(site, callerFilePath, importMap, fnIndex) {
+function resolveTarget(site, callerFilePath, importMap, fnIndex, ctorMap) {
     const methodName = site.methodName;
     if (!methodName)
         return null;
@@ -395,19 +584,27 @@ function resolveTarget(site, callerFilePath, importMap, fnIndex) {
             candidateFilePaths = [receiverPath];
         }
         else {
-            // Receiver not in import map (local variable). Try same-file first.
-            const sameFileIds = fnIndex.get(callerFilePath)?.get(methodName);
-            if (sameFileIds && sameFileIds.length > 0) {
-                return { targetId: pickBestId(sameFileIds, site) };
+            // Check constructor assignments: const svc = new MyService() → look up MyService
+            const className = ctorMap?.get(site.receiverName);
+            const classFilePath = className ? importMap.get(className) : undefined;
+            if (classFilePath) {
+                candidateFilePaths = [classFilePath, callerFilePath];
             }
-            // Fallback: find exactly one imported file with this method
-            const importedFiles = [...new Set(importMap.values())];
-            const matches = importedFiles.filter(fp => fnIndex.get(fp)?.has(methodName));
-            if (matches.length === 1) {
-                const ids = fnIndex.get(matches[0]).get(methodName);
-                return { targetId: pickBestId(ids, site) };
+            else {
+                // Receiver not in import map (local variable). Try same-file first.
+                const sameFileIds = fnIndex.get(callerFilePath)?.get(methodName);
+                if (sameFileIds && sameFileIds.length > 0) {
+                    return { targetId: pickBestId(sameFileIds, site) };
+                }
+                // Fallback: find exactly one imported file with this method
+                const importedFiles = [...new Set(importMap.values())];
+                const matches = importedFiles.filter(fp => fnIndex.get(fp)?.has(methodName));
+                if (matches.length === 1) {
+                    const ids = fnIndex.get(matches[0]).get(methodName);
+                    return { targetId: pickBestId(ids, site) };
+                }
+                return null;
             }
-            return null;
         }
     }
     else if (site.form === 'direct') {
@@ -529,13 +726,15 @@ export const scopeResolutionPhase = {
             const callSites = extractCallSites(source, filePath, fileNode.id, ext);
             // Stage 3: Get pre-built import map for this file (O(1))
             const importMap = getImportMap(allImportMaps, fileNode.id);
+            // Track constructor assignments for type-aware method resolution
+            const ctorMap = (TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext)) ? extractConstructorAssignments(source) : undefined;
             for (const site of callSites) {
                 if (site.form === 'dynamic') {
                     skippedDynamic++;
                     continue;
                 }
                 // Stage 4+5: Resolve target using preloaded indices (no DB query)
-                const resolved = resolveTarget(site, filePath, importMap, fnIndex);
+                const resolved = resolveTarget(site, filePath, importMap, fnIndex, ctorMap);
                 if (!resolved) {
                     // Could not resolve — method calls with unresolvable receivers are simply skipped
                     continue;
@@ -552,9 +751,57 @@ export const scopeResolutionPhase = {
                 }
             }
         }
+        // Scan for re-exports: export { foo, bar } from './module'
+        // Creates REFERENCES edges so re-exported symbols don't appear as dead code.
+        let reexportEdges = 0;
+        if (ctx.db) {
+            const insertRef = ctx.db.prepare(`
+        INSERT OR IGNORE INTO edges (id, source_id, target_id, relation, confidence, confidence_score)
+        VALUES (?, ?, ?, 'REFERENCES', 'EXTRACTED', 0.85)
+      `);
+            const insertReexports = ctx.db.transaction(() => {
+                for (const [filePath, fileNode] of fileNodesByPath) {
+                    const ext = extname(filePath).toLowerCase();
+                    if (!TS_JS_EXTS.has(ext) && !CJS_MJS_EXTS.has(ext))
+                        continue;
+                    let source;
+                    try {
+                        source = readFileSync(join(ctx.repoPath, filePath), 'utf-8');
+                    }
+                    catch {
+                        continue;
+                    }
+                    const importMap = getImportMap(allImportMaps, fileNode.id);
+                    REEXPORT_RE.lastIndex = 0;
+                    let m;
+                    while ((m = REEXPORT_RE.exec(source)) !== null) {
+                        const specifier = m[2];
+                        const names = extractImportNames(m[1]);
+                        // Resolve the source module
+                        const knownFiles = new Set(fileNodesByPath.keys());
+                        const workspaceMap = buildWorkspacePackageMap(ctx.repoPath);
+                        const resolvedFile = resolveModuleSpecifier(filePath, specifier, ctx.repoPath, knownFiles, workspaceMap);
+                        if (!resolvedFile)
+                            continue;
+                        for (const name of names) {
+                            // Find the function/class node in the source file
+                            const ids = fnIndex.get(resolvedFile)?.get(name);
+                            if (!ids || ids.length === 0)
+                                continue;
+                            const targetId = ids.length === 1 ? ids[0] : (ids.find(id => id.endsWith('_function')) ?? ids[0]);
+                            const edgeId = makeId(fileNode.id, targetId, 'reexport_ref');
+                            try {
+                                insertRef.run(edgeId, fileNode.id, targetId);
+                                reexportEdges++;
+                            }
+                            catch { /* duplicate */ }
+                        }
+                    }
+                }
+            });
+            insertReexports();
+        }
         // Clean up orphan IMPORTS edges that target Variable nodes instead of Files.
-        // These were created by the parser's raw import extraction and never resolved
-        // to meaningful targets (e.g. `import fs` → a Variable named `fs`).
         let orphanImportsRemoved = 0;
         if (ctx.db) {
             const result = ctx.db
@@ -568,7 +815,35 @@ export const scopeResolutionPhase = {
                 .run();
             orphanImportsRemoved = result.changes;
         }
-        return { resolvedEdges, skippedDynamic, ambiguous, orphanImportsRemoved };
+        // Reconstruct proper File→File IMPORTS edges from source-parsed import maps.
+        let importsReconstructed = 0;
+        if (ctx.db) {
+            const insertImport = ctx.db.prepare(`
+        INSERT OR IGNORE INTO edges (id, source_id, target_id, relation, confidence, confidence_score)
+        VALUES (?, ?, ?, 'IMPORTS', 'EXTRACTED', 0.9)
+      `);
+            const fileIdByPath = new Map();
+            for (const [fp, node] of fileNodesByPath)
+                fileIdByPath.set(fp, node.id);
+            const insertAll = ctx.db.transaction(() => {
+                for (const [fileNodeId, importMap] of allImportMaps) {
+                    const targetPaths = new Set(importMap.values());
+                    for (const targetPath of targetPaths) {
+                        const targetFileId = fileIdByPath.get(targetPath);
+                        if (!targetFileId || targetFileId === fileNodeId)
+                            continue;
+                        const edgeId = makeId(fileNodeId, targetFileId, 'imports_file');
+                        try {
+                            insertImport.run(edgeId, fileNodeId, targetFileId);
+                            importsReconstructed++;
+                        }
+                        catch { /* duplicate — already exists */ }
+                    }
+                }
+            });
+            insertAll();
+        }
+        return { resolvedEdges, skippedDynamic, ambiguous, reexportEdges, orphanImportsRemoved, importsReconstructed };
     },
 };
 //# sourceMappingURL=scope-resolution.js.map

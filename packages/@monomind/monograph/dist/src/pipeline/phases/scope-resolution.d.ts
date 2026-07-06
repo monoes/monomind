@@ -3,7 +3,9 @@ export interface ScopeResolutionOutput {
     resolvedEdges: number;
     skippedDynamic: number;
     ambiguous: number;
+    reexportEdges: number;
     orphanImportsRemoved: number;
+    importsReconstructed: number;
 }
 interface CallSite {
     callerFileNodeId: string;

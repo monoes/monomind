@@ -20,7 +20,7 @@ const {
 } = telemetry;
 
 const {
-  _requireMonograph, _openMonographDb,
+  _requireMonograph, _openMonographDb, _isGraphFresh,
   getMonographSuggestions, getMonographNeighbors,
   _recordGraphTelemetry, _injectCompactGraphMap,
   _findAffectedTests, _maybeRebuildMonograph,
@@ -284,10 +284,47 @@ const handlers = {
   },
 
   'pre-bash': () => {
-    // Record bash grep/find calls for graph-vs-grep telemetry
     var cmd = (hCtx.toolInput && (hCtx.toolInput.command || hCtx.toolInput.cmd)) || '';
-    if (/\bgrep\b/.test(cmd)) _recordGraphTelemetry('bash_grep_call');
-    else if (/\bfind\b/.test(cmd)) _recordGraphTelemetry('bash_find_call');
+    var isGrep = /\bgrep\b/.test(cmd);
+    var isFind = /\bfind\b/.test(cmd) && !isGrep; // grep piped from find = grep
+    if (isGrep || isFind) {
+      var graphAssisted = false;
+      if (_isGraphFresh()) {
+        try {
+          if (isGrep) {
+            // Extract quoted or bare pattern from grep (handles -A3, -rn, etc.)
+            var m = cmd.match(/grep\s+(?:-[a-zA-Z0-9]+\s+)*["']([^"']+)["']/);
+            if (!m) m = cmd.match(/grep\s+(?:-[a-zA-Z0-9]+\s+)*([a-zA-Z_$][a-zA-Z0-9_$]*)/);
+            var pattern = m && m[1];
+            if (pattern && pattern.length >= 3 && pattern.length <= 80
+                && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(pattern)) {
+              var db = _openMonographDb();
+              if (db) {
+                var row = db.prepare(
+                  'SELECT 1 FROM nodes WHERE name = ? AND label NOT IN (\'Concept\',\'Community\',\'Folder\') AND file_path IS NOT NULL LIMIT 1'
+                ).get(pattern);
+                if (row) graphAssisted = true;
+              }
+            }
+          } else {
+            // find -name "foo.ts" — check if the filename exists in File nodes
+            var fm = cmd.match(/-name\s+["']([^"'*?]+\.[a-z]+)["']/);
+            if (fm && fm[1]) {
+              var db = _openMonographDb();
+              if (db) {
+                var row = db.prepare(
+                  'SELECT 1 FROM nodes WHERE name = ? AND label = \'File\' LIMIT 1'
+                ).get(fm[1]);
+                if (row) graphAssisted = true;
+              }
+            }
+          }
+        } catch (e) { /* non-fatal */ }
+      }
+      if (graphAssisted) _recordGraphTelemetry('graph_assist_search');
+      else if (isGrep) _recordGraphTelemetry('bash_grep_call');
+      else _recordGraphTelemetry('bash_find_call');
+    }
     // Enforcement gate: destructive operations
     var gates = require('./handlers/gates-handler.cjs');
     gates.handlePreBash(hCtx);
@@ -300,50 +337,40 @@ const handlers = {
   },
 
   'pre-search': () => {
-    // Record Grep/Glob tool calls for graph-vs-grep telemetry
     var tool = hCtx.toolName || '';
-    if (tool === 'Grep') _recordGraphTelemetry('grep_call');
-    else if (tool === 'Glob') _recordGraphTelemetry('glob_call');
-
-    // Monograph symbol hint: when the Grep pattern looks like a plain symbol name
-    // (no regex metacharacters), look it up directly in the graph index and print
-    // the file:line so the LLM may skip or narrow the Grep.
-    // Session-level cache prevents repeated identical DB lookups across Grep bursts.
+    var graphResolved = false;
     try {
       var grepPattern = (typeof toolInput === 'object' && toolInput !== null)
         ? (toolInput.pattern || toolInput.query || '')
         : '';
-      // Only attempt lookup for clean identifiers — skip regexes and paths
       var isCleanSymbol = grepPattern.length >= 3 && grepPattern.length <= 80
         && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(grepPattern);
-      if (isCleanSymbol) {
-        if (!hCtx._preSearchCache) hCtx._preSearchCache = {};
-        var cacheKey = 'presearch:' + grepPattern;
-        if (!(cacheKey in hCtx._preSearchCache)) {
-          var db = _openMonographDb();
-          var hint = null;
-          if (db) {
-            try {
-              var row = db.prepare(
-                'SELECT n.name, n.label, n.file_path, n.start_line FROM nodes n ' +
-                'WHERE n.name = ? AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
-                'AND n.file_path IS NOT NULL LIMIT 1'
-              ).get(grepPattern);
-              if (row) {
-                hint = row.file_path + (row.start_line != null ? ':' + row.start_line : '');
-              }
-            } catch (e) { /* non-fatal */ }
-          }
-          hCtx._preSearchCache[cacheKey] = hint;
-        }
-        var cachedHint = hCtx._preSearchCache[cacheKey];
-        if (cachedHint) {
-          // Use the correct MCP tool name — monograph_context does not exist;
-          // the callable tool is mcp__monomind__monograph_query
-          console.log('[MONOGRAPH_HINT] ' + grepPattern + ' found at ' + cachedHint + ' — use mcp__monomind__monograph_query instead of Grep for better results');
+      if (isCleanSymbol && _isGraphFresh()) {
+        var db = _openMonographDb();
+        if (db) {
+          try {
+            var row = db.prepare(
+              'SELECT n.name, n.label, n.file_path, n.start_line FROM nodes n ' +
+              'WHERE n.name = ? AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+              'AND n.file_path IS NOT NULL LIMIT 1'
+            ).get(grepPattern);
+            if (row) {
+              graphResolved = true;
+              var hint = row.file_path + (row.start_line != null ? ':' + row.start_line : '');
+              console.log('[MONOGRAPH_HINT] ' + grepPattern + ' found at ' + hint);
+            }
+          } catch (e) { /* non-fatal */ }
         }
       }
-    } catch (e) { /* non-fatal — telemetry always proceeds */ }
+    } catch (e) { /* non-fatal */ }
+
+    if (graphResolved) {
+      _recordGraphTelemetry('graph_assist_search');
+    } else if (tool === 'Grep') {
+      _recordGraphTelemetry('grep_call');
+    } else if (tool === 'Glob') {
+      _recordGraphTelemetry('glob_call');
+    }
   },
 
   'post-graph-tool': () => {

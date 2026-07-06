@@ -139,6 +139,69 @@ module.exports = {
       }
     } catch (e) { /* non-fatal — context-persistence may not export archive() */ }
 
+    // ── AutoMem Outer Loops (arXiv:2607.01224) ────────────────────────────
+    // Run scaffold optimization and decision curation on session-end
+    // to close the learning loop.
+    if (!daemonHoldsLock) {
+      try {
+        var memMod = await import('@monomind/memory');
+        if (memMod && memMod.ScaffoldOptimizer && memMod.MemoryDecisionCurator && memMod.EpisodicStore) {
+          var episodicPath = path.join(CWD, '.monomind', 'episodic', 'episodes.jsonl');
+          if (fs.existsSync(episodicPath)) {
+            var epStore = new memMod.EpisodicStore({ filePath: episodicPath, maxRunsPerEpisode: 20 });
+            var episodes = epStore.readAll();
+            if (episodes.length >= 5) {
+              // Get learning service for scaffold optimizer metrics
+              var ls2 = await hCtx.getLearningService();
+
+              // Phase 2a: Scaffold optimization (gated revision)
+              if (ls2 && ls2.getLearningBridge) {
+                try {
+                  var bridge = ls2.getLearningBridge();
+                  if (bridge) {
+                    // Load tunable thresholds from .monomind/automem-config.json
+                    var scaffoldConfig = {};
+                    try {
+                      var amcPath = path.join(CWD, '.monomind', 'automem-config.json');
+                      if (fs.existsSync(amcPath) && fs.statSync(amcPath).size < 64 * 1024) {
+                        var amc = JSON.parse(fs.readFileSync(amcPath, 'utf-8'));
+                        if (amc.scaffold) scaffoldConfig = amc.scaffold;
+                      }
+                    } catch (e5) { /* non-fatal */ }
+                    var optimizer = new memMod.ScaffoldOptimizer(scaffoldConfig);
+                    var optResult = await hCtx.runWithTimeout(function() { return optimizer.optimize(epStore, bridge); }, 'scaffold.optimize()');
+                    if (optResult && optResult.accepted.length > 0) {
+                      console.log('[AUTOMEM_SCAFFOLD] Accepted ' + optResult.accepted.length + ' revision(s): ' + optResult.accepted.map(function(r) { return r.description; }).join(', '));
+                      // Persist revisions for diagnostics
+                      try {
+                        var revPath = path.join(CWD, '.monomind', 'data', 'scaffold-revisions.jsonl');
+                        fs.mkdirSync(path.dirname(revPath), { recursive: true });
+                        optResult.accepted.forEach(function(r) {
+                          fs.appendFileSync(revPath, JSON.stringify(r) + '\n', 'utf-8');
+                        });
+                      } catch (e6) { /* non-fatal */ }
+                    }
+                  }
+                } catch (e3) { /* non-fatal */ }
+              }
+
+              // Phase 2b: Decision curation
+              try {
+                var backend = ls2 && ls2.getBackend ? ls2.getBackend() : null;
+                if (backend) {
+                  var curator = new memMod.MemoryDecisionCurator(backend);
+                  var curResult = await hCtx.runWithTimeout(function() { return curator.curateFromEpisodes(epStore); }, 'curator.curate()');
+                  if (curResult && curResult.curated > 0) {
+                    console.log('[AUTOMEM_CURATE] Curated ' + curResult.curated + '/' + curResult.total + ' memory decisions for training');
+                  }
+                }
+              } catch (e4) { /* non-fatal */ }
+            }
+          }
+        }
+      } catch (e2) { /* @monomind/memory not available or missing exports */ }
+    }
+
     // ── Worker Queue Cleanup ─────────────────────────────────────────────
     // Process and clean up any pending worker dispatch files
     try {
