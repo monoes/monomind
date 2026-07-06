@@ -180,6 +180,20 @@ export class EpisodicStore {
   }
 
   /**
+   * Log a memory operation into the current episode's content stream.
+   * Makes memory decisions observable in episode traces (AutoMem, arXiv:2607.01224).
+   */
+  logMemoryOp(
+    op: 'write' | 'search' | 'read' | 'skip-duplicate' | 'flag-stale',
+    detail: string,
+    agentSlug: string = 'memory-bridge',
+  ): void {
+    if (this.currentEpisodeId === null) return;
+    this.currentAgentSlugs.add(agentSlug);
+    this.currentContent.push(`[memory:${op}] ${detail}`);
+  }
+
+  /**
    * Check whether an episode is currently open.
    */
   hasOpenEpisode(): boolean {

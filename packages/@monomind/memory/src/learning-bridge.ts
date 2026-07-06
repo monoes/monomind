@@ -70,6 +70,12 @@ export interface LearningStats {
   totalDecays: number;
   avgConfidenceBoost: number;
   neuralAvailable: boolean;
+  // AutoMem proficiency metrics (arXiv:2607.01224, Table 2)
+  memoryWrites: number;
+  memorySearches: number;
+  writeSearchRatio: number;
+  redundantWrites: number;
+  emptySearches: number;
 }
 
 /** Result returned by consolidate() */
@@ -157,6 +163,11 @@ export class LearningBridge extends EventEmitter {
     totalDecays: 0,
     confidenceBoosts: 0,
     totalBoostAmount: 0,
+    // AutoMem proficiency counters
+    memoryWrites: 0,
+    memorySearches: 0,
+    redundantWrites: 0,
+    emptySearches: 0,
   };
   private destroyed = false;
   private neuralInitPromise: Promise<void> | null = null;
@@ -411,12 +422,26 @@ export class LearningBridge extends EventEmitter {
     }
   }
 
+  /** Record a memory write event (for AutoMem proficiency tracking) */
+  recordMemoryWrite(redundant: boolean): void {
+    this.stats.memoryWrites++;
+    if (redundant) this.stats.redundantWrites++;
+  }
+
+  /** Record a memory search event (for AutoMem proficiency tracking) */
+  recordMemorySearch(empty: boolean): void {
+    this.stats.memorySearches++;
+    if (empty) this.stats.emptySearches++;
+  }
+
   /** Return aggregated learning statistics */
   getStats(): LearningStats {
     const avgBoost =
       this.stats.confidenceBoosts > 0
         ? this.stats.totalBoostAmount / this.stats.confidenceBoosts
         : 0;
+
+    const { memoryWrites, memorySearches, redundantWrites, emptySearches } = this.stats;
 
     return {
       totalTrajectories: this.stats.totalTrajectories,
@@ -426,6 +451,11 @@ export class LearningBridge extends EventEmitter {
       totalDecays: this.stats.totalDecays,
       avgConfidenceBoost: avgBoost,
       neuralAvailable: this.neural !== null,
+      memoryWrites,
+      memorySearches,
+      writeSearchRatio: memorySearches > 0 ? memoryWrites / memorySearches : 0,
+      redundantWrites,
+      emptySearches,
     };
   }
 

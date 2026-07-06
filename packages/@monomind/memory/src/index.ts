@@ -190,6 +190,12 @@ export type { MemoryTier } from './types.js';
 export { EpisodicStore } from './episodic-store.js';
 export type { Episode, EpisodicStoreConfig } from './types.js';
 
+// ===== AutoMem: Scaffold Optimization + Decision Curation (arXiv:2607.01224) =====
+export { ScaffoldOptimizer } from './scaffold-optimizer.js';
+export type { ScaffoldRevision, OptimizationResult, ScaffoldOptimizerConfig } from './scaffold-optimizer.js';
+export { MemoryDecisionCurator } from './memory-decision-curator.js';
+export type { CuratedDecision, CurationResult, MemoryDecisionCuratorConfig } from './memory-decision-curator.js';
+
 // ===== Per-Agent Knowledge Base (Task 28) =====
 export { chunkDocument, KnowledgeStore, KnowledgeRetriever } from './knowledge/index.js';
 export type {

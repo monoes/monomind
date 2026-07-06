@@ -18,8 +18,9 @@ import {
   checkConfigFile, checkDaemonStatus, checkMemoryDatabase, checkApiKeys,
   checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory,
   checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
-  checkAgentRegistry,
+  checkAgentRegistry, checkMemoryProficiency,
 } from './doctor-project-checks.js';
+import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
 
 function formatCheck(check: HealthCheck): string {
   const icon = check.status === 'pass' ? output.success('✓') :
@@ -36,7 +37,7 @@ export const doctorCommand: Command = {
     { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
     {
       name: 'component', short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, monoes-tools)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -47,6 +48,7 @@ export const doctorCommand: Command = {
     { command: 'monomind doctor --install', description: 'Auto-install missing dependencies' },
     { command: 'monomind doctor -c version', description: 'Check for stale npx cache' },
     { command: 'monomind doctor -c claude', description: 'Check Claude Code CLI only' },
+    { command: 'monomind doctor -c monoes-tools --install', description: 'Check/fix monotask, mono-agent, mono-clip install issues (opt-in, not in the default run)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const showFix = ctx.flags.fix as boolean;
@@ -78,6 +80,7 @@ export const doctorCommand: Command = {
       checkConfigFile, checkMemoryDatabase, checkDiskSpace,
       checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
       checkGuidanceGates, checkAgentRegistry, checkGit, checkDaemonStatus, checkApiKeys,
+      checkMemoryProficiency,
     ];
     const codeOnlyChecks: (() => Promise<HealthCheck>)[] = [
       checkGitRepo, checkMcpServers,
@@ -97,7 +100,8 @@ export const doctorCommand: Command = {
       'graph-freshness': checkMonographFreshness, 'memory-pkg': checkMonoesMemory,
       helpers: checkHelpersFresh, monoes: checkMonoesIntegration,
       gates: checkGuidanceGates, gitignore: checkGitignoreCoverage,
-      registry: checkAgentRegistry,
+      registry: checkAgentRegistry, 'memory-proficiency': checkMemoryProficiency,
+      'monoes-tools': checkMonoesTools,
     };
 
     const checksToRun = (component && componentMap[component]) ? [componentMap[component]] : allChecks;
@@ -139,6 +143,20 @@ export const doctorCommand: Command = {
           if (idx !== -1) {
             results[idx] = newCheck;
             const fixIdx = fixes.findIndex(f => f.startsWith('Claude Code CLI:'));
+            if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
+          }
+          output.writeln(formatCheck(newCheck));
+        }
+      }
+
+      const monoesToolsResult = results.find(r => r.name === 'monoes Tools');
+      if (monoesToolsResult && monoesToolsResult.status !== 'pass') {
+        if (await fixMonoesTools()) {
+          const newCheck = await checkMonoesTools();
+          const idx = results.findIndex(r => r.name === 'monoes Tools');
+          if (idx !== -1) {
+            results[idx] = newCheck;
+            const fixIdx = fixes.findIndex(f => f.startsWith('monoes Tools:'));
             if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
           }
           output.writeln(formatCheck(newCheck));
