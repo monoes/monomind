@@ -32,4 +32,5 @@ export { terminalTools } from './terminal-tools.js';
 export { daaTools } from './daa-tools.js';
 export { coordinationTools } from './coordination-tools.js';
 export { browserTools } from './browser-tools.js';
+export { knowledgeTools } from './knowledge-tools.js';
 //# sourceMappingURL=index.d.ts.map

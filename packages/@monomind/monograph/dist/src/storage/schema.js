@@ -65,10 +65,14 @@ export const CREATE_INDEXES = [
     `CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file_path)`,
     `CREATE INDEX IF NOT EXISTS idx_nodes_label ON nodes(label)`,
     `CREATE INDEX IF NOT EXISTS idx_nodes_norm ON nodes(norm_label)`,
+    `CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name)`,
+    `CREATE INDEX IF NOT EXISTS idx_nodes_name_nocase ON nodes(name COLLATE NOCASE)`,
+    `CREATE INDEX IF NOT EXISTS idx_nodes_name_label ON nodes(name, label) WHERE file_path IS NOT NULL`,
     `CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id)`,
     `CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id)`,
     `CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation)`,
     `CREATE INDEX IF NOT EXISTS idx_edges_confidence ON edges(confidence)`,
+    `CREATE INDEX IF NOT EXISTS idx_edges_calls_lookup ON edges(source_id, target_id, relation) WHERE relation = 'CALLS'`,
 ];
 export const CREATE_NODE_PROPERTIES = `
 CREATE TABLE IF NOT EXISTS node_properties (

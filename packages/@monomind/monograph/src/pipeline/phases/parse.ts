@@ -1,5 +1,5 @@
 import { readFileSync, statSync } from 'fs';
-import { extname } from 'path';
+import { extname, join } from 'path';
 import type { PipelinePhase, PipelineContext } from '../types.js';
 import type { MonographNode, MonographEdge } from '../../types.js';
 import { parseFile } from '../../parsers/loader.js';
@@ -7,12 +7,14 @@ import { insertNodes } from '../../storage/node-store.js';
 import { insertEdges } from '../../storage/edge-store.js';
 import type { StructureOutput } from './structure.js';
 import { extractVariables, variableToNode } from './variables.js';
+import { ExtractionCache } from '../../cache/extraction-cache.js';
 
 export interface ParseOutput {
   symbolNodes: MonographNode[];
   allEdges: MonographEdge[];
   parseErrors: string[];
   fileContents: Map<string, string>;
+  cacheStats: { hits: number; misses: number };
 }
 
 export const parsePhase: PipelinePhase<ParseOutput> = {
@@ -22,63 +24,85 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     const { fileNodes } = deps.get('structure') as StructureOutput;
     const symbolNodes: MonographNode[] = [];
     const allEdges: MonographEdge[] = [];
+    const freshNodes: MonographNode[] = [];
+    const freshEdges: MonographEdge[] = [];
     const parseErrors: string[] = [];
     const fileContents = new Map<string, string>();
     let processed = 0;
+    let cacheHits = 0;
+    let cacheMisses = 0;
+
+    const cache = new ExtractionCache(join(ctx.repoPath, '.monomind', 'parse-cache'));
 
     for (const fileNode of fileNodes) {
       const absPath = fileNode.filePath ? `${ctx.repoPath}/${fileNode.filePath}` : '';
       const ext = extname(absPath).toLowerCase();
-      let source: string;
-      try {
-        const stat = statSync(absPath);
-        if (stat.size > ctx.options.maxFileSizeBytes) {
-          parseErrors.push(`${fileNode.filePath}: skipped (too large)`);
-          continue;
-        }
-        source = readFileSync(absPath, 'utf-8');
+      if (ext === '.md' || ext === '.markdown') { processed++; continue; }
+
+      // Fast path: mtime+size check avoids reading file content entirely
+      const cached = cache.getWithStat(absPath);
+      if (cached) {
+        symbolNodes.push(...cached.nodes);
+        allEdges.push(...cached.edges);
+        cacheHits++;
+      } else {
+        let source: string;
+        try {
+          const stat = statSync(absPath);
+          if (stat.size > ctx.options.maxFileSizeBytes) {
+            parseErrors.push(`${fileNode.filePath}: skipped (too large)`);
+            continue;
+          }
+          source = readFileSync(absPath, 'utf-8');
+        } catch { continue; }
         fileContents.set(fileNode.filePath ?? absPath, source);
-      } catch { continue; }
+        const result = await parseFile(absPath, source, fileNode.filePath ?? '');
+        const fileSymbols: MonographNode[] = [...result.nodes];
+        const fileEdges: MonographEdge[] = [...result.edges];
+        parseErrors.push(...result.parseErrors);
 
-      const result = await parseFile(absPath, source, fileNode.filePath ?? '');
-      symbolNodes.push(...result.nodes);
-      allEdges.push(...result.edges);
-      parseErrors.push(...result.parseErrors);
-
-      // Extract C# namespace declarations
-      if (ext === '.cs') {
-        const csNamespaces = extractCsharpNamespaces(source, fileNode.filePath ?? '');
-        for (const ns of csNamespaces) {
-          symbolNodes.push({
-            id: `${ns.filePath}::namespace::${ns.name}`,
-            name: ns.name,
-            label: 'Namespace',
-            normLabel: 'namespace',
-            filePath: ns.filePath,
-            line: ns.line,
-            isExported: true,
-          } as import('../../types.js').MonographNode);
+        if (ext === '.cs') {
+          const csNamespaces = extractCsharpNamespaces(source, fileNode.filePath ?? '');
+          for (const ns of csNamespaces) {
+            fileSymbols.push({
+              id: `${ns.filePath}::namespace::${ns.name}`,
+              name: ns.name,
+              label: 'Namespace',
+              normLabel: 'namespace',
+              filePath: ns.filePath,
+              line: ns.line,
+              isExported: true,
+            } as import('../../types.js').MonographNode);
+          }
         }
-      }
 
-      // Extract top-level variable declarations for TS/JS files
-      if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
-        const varInfos = extractVariables(source, fileNode.filePath ?? '');
-        symbolNodes.push(...varInfos.map(v => variableToNode(v)));
+        if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
+          const varInfos = extractVariables(source, fileNode.filePath ?? '');
+          fileSymbols.push(...varInfos.map(v => variableToNode(v)));
 
-        // Extract named arrow functions
-        const arrowFns = extractArrowFunctions(source, fileNode.filePath ?? '');
-        for (const fn of arrowFns) {
-          symbolNodes.push({
-            id: `${fn.filePath}::fn::${fn.name}`,
-            name: fn.name,
-            label: 'Function',
-            normLabel: 'function',
-            filePath: fn.filePath,
-            line: fn.line,
-            isExported: fn.isExported,
-          } as import('../../types.js').MonographNode);
+          const arrowFns = extractArrowFunctions(source, fileNode.filePath ?? '');
+          for (const fn of arrowFns) {
+            fileSymbols.push({
+              id: `${fn.filePath}::fn::${fn.name}`,
+              name: fn.name,
+              label: 'Function',
+              normLabel: 'function',
+              filePath: fn.filePath,
+              line: fn.line,
+              isExported: fn.isExported,
+            } as import('../../types.js').MonographNode);
+          }
         }
+
+        try {
+          const fileHash = cache.hashContent(source);
+          cache.setDeferred(absPath, fileHash, fileSymbols, fileEdges);
+        } catch { /* non-fatal */ }
+        symbolNodes.push(...fileSymbols);
+        allEdges.push(...fileEdges);
+        freshNodes.push(...fileSymbols);
+        freshEdges.push(...fileEdges);
+        cacheMisses++;
       }
       processed++;
 
@@ -87,17 +111,31 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       }
     }
 
+    cache.flush();
+
     if (ctx.db) {
-      insertNodes(ctx.db, symbolNodes);
-      // Only insert edges whose target already exists in the DB (intra-file edges).
-      // Cross-file import edges with unresolved targets are handled by crossFilePhase
-      // after it resolves them to real node IDs.
+      // Only insert freshly-parsed nodes — cached nodes are already in the DB
+      // from the previous build (node IDs are deterministic from file_path + symbol).
+      // On first build (no cache hits), freshNodes === symbolNodes.
+      const nodesToInsert = cacheHits > 0 ? freshNodes : symbolNodes;
+      insertNodes(ctx.db, nodesToInsert);
       const knownIds = new Set(symbolNodes.map(n => n.id));
-      const resolvableEdges = allEdges.filter(e => knownIds.has(e.targetId));
-      insertEdges(ctx.db, resolvableEdges);
+      const edgesToInsert = cacheHits > 0
+        ? freshEdges.filter(e => knownIds.has(e.targetId))
+        : allEdges.filter(e => knownIds.has(e.targetId));
+      insertEdges(ctx.db, edgesToInsert);
     }
 
-    return { symbolNodes, allEdges, parseErrors, fileContents };
+    if (cacheHits > 0 && cacheMisses === 0) {
+      ctx.allFilesCached = true;
+    }
+
+    if (cacheHits > 0) {
+      ctx.onProgress?.({ phase: 'parse', filesProcessed: processed, totalFiles: fileNodes.length,
+        message: `cache: ${cacheHits} hits, ${cacheMisses} misses (${freshNodes.length} nodes inserted)` } as any);
+    }
+
+    return { symbolNodes, allEdges, parseErrors, fileContents, cacheStats: { hits: cacheHits, misses: cacheMisses } };
   },
 };
 

@@ -3,6 +3,8 @@ export const variablesPhase = {
     name: 'variables',
     deps: ['parse'],
     async execute(ctx, deps) {
+        if (ctx.allFilesCached)
+            return { variableCount: 0 };
         const { fileContents } = deps.get('parse');
         const stmt = ctx.db.prepare(`
       INSERT OR IGNORE INTO nodes (id, label, name, norm_label, file_path, start_line, end_line, is_exported)

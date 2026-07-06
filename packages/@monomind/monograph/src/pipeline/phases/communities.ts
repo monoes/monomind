@@ -108,6 +108,9 @@ export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
   name: 'communities',
   deps: ['parse', 'cross-file', 'mro'],
   async execute(ctx, deps) {
+    if (ctx.allFilesCached) {
+      return { memberships: new Map(), communityLabels: new Map(), cohesionScores: new Map() };
+    }
     const { resolvedEdges } = deps.get('cross-file') as CrossFileOutput;
     const { allEdges } = deps.get('parse') as ParseOutput;
     const allUsedEdges: MonographEdge[] = [...allEdges, ...resolvedEdges];

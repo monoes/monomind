@@ -2,6 +2,8 @@ export const suggestPhase = {
     name: 'suggest',
     deps: ['parse', 'cross-file', 'mro', 'communities', 'god-nodes', 'surprises'],
     async execute(_ctx, deps) {
+        if (_ctx.allFilesCached)
+            return { questions: [] };
         const { allEdges, symbolNodes } = deps.get('parse');
         const { memberships } = deps.get('communities');
         const questions = [];

@@ -17,6 +17,8 @@ export const toolsPhase = {
     name: 'tools',
     deps: ['parse', 'structure'],
     async execute(ctx, deps) {
+        if (ctx.allFilesCached)
+            return { toolDefs: [], toolNodes: [], handlesEdges: [] };
         const { fileNodes } = deps.get('structure');
         const toolDefs = [];
         const toolNodes = [];

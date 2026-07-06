@@ -16,6 +16,8 @@ export const routesPhase = {
     name: 'routes',
     deps: ['parse', 'structure'],
     async execute(ctx, deps) {
+        if (ctx.allFilesCached)
+            return { routeRegistry: [], routeNodes: [], handlesEdges: [] };
         const { fileNodes } = deps.get('structure');
         const routeRegistry = [];
         const routeNodes = [];

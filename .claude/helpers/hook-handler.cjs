@@ -285,37 +285,169 @@ const handlers = {
 
   'pre-bash': () => {
     var cmd = (hCtx.toolInput && (hCtx.toolInput.command || hCtx.toolInput.cmd)) || '';
-    var isGrep = /\bgrep\b/.test(cmd);
-    var isFind = /\bfind\b/.test(cmd) && !isGrep; // grep piped from find = grep
+    var isGrep = /\b(?:grep|rg|ag)\b/.test(cmd);
+    var isFind = /\b(?:find|fd)\b/.test(cmd) && !isGrep;
     if (isGrep || isFind) {
       var graphAssisted = false;
       if (_isGraphFresh()) {
         try {
           if (isGrep) {
-            // Extract quoted or bare pattern from grep (handles -A3, -rn, etc.)
-            var m = cmd.match(/grep\s+(?:-[a-zA-Z0-9]+\s+)*["']([^"']+)["']/);
-            if (!m) m = cmd.match(/grep\s+(?:-[a-zA-Z0-9]+\s+)*([a-zA-Z_$][a-zA-Z0-9_$]*)/);
-            var pattern = m && m[1];
-            if (pattern && pattern.length >= 3 && pattern.length <= 80
-                && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(pattern)) {
+            // Extract pattern from grep/rg/ag — find the first quoted string that
+            // looks like a search pattern (not a flag value like "*.ts" or "!dir")
+            var grepCmd = cmd.match(/\b(grep|rg|ag)\b/)[1];
+            var cmdAfterTool = cmd.slice(cmd.indexOf(grepCmd) + grepCmd.length);
+            var allQuoted = [];
+            var _qre = /["']([^"']{3,80})["']/g;
+            var _qm;
+            while ((_qm = _qre.exec(cmdAfterTool)) !== null) allQuoted.push(_qm[1]);
+            // Pick the first quoted string that looks like identifier/symbol, not a glob/path
+            var pattern = allQuoted.find(function(q) { return /[a-zA-Z]/.test(q) && !/^[!*.]/.test(q) && !/[*?{}]/.test(q); });
+            // Fallback: unquoted bare identifier after flags
+            if (!pattern) {
+              var _um = cmdAfterTool.match(/(?:^|\s)(?!-)([a-zA-Z_$][a-zA-Z0-9_$-]*[a-zA-Z0-9])(?:\s|$)/);
+              if (_um) pattern = _um[1];
+            }
+            if (pattern && pattern.length >= 3 && pattern.length <= 80) {
               var db = _openMonographDb();
               if (db) {
-                var row = db.prepare(
-                  'SELECT 1 FROM nodes WHERE name = ? AND label NOT IN (\'Concept\',\'Community\',\'Folder\') AND file_path IS NOT NULL LIMIT 1'
-                ).get(pattern);
-                if (row) graphAssisted = true;
+                // Stop words: language keywords + generic single-word identifiers
+                // that match Variable nodes in markdown/scripts (not real code symbols)
+                var _grepStop = {import:1,export:1,from:1,require:1,return:1,function:1,const:1,let:1,var:1,class:1,interface:1,type:1,extends:1,implements:1,async:1,await:1,yield:1,throw:1,catch:1,finally:1,typeof:1,instanceof:1,void:1,null:1,undefined:1,true:1,false:1,this:1,super:1,new:1,delete:1,switch:1,case:1,break:1,continue:1,default:1,else:1,while:1,for:1,with:1,include:1,error:1,string:1,number:1,object:1,boolean:1,array:1,value:1,result:1,data:1,name:1,path:1,file:1,node:1,list:1,item:1,index:1,config:1,options:1,params:1,args:1,event:1,state:1,props:1,context:1,module:1,package:1,version:1,model:1,schema:1,table:1,query:1,response:1,request:1,handler:1,logger:1,graph:1,usage:1,storage:1,pipeline:1,service:1,utils:1,types:1,helpers:1,common:1,shared:1,server:1,client:1,source:1,output:1,input:1,stream:1,buffer:1,worker:1,plugin:1,format:1,render:1,update:1,create:1,remove:1,method:1,define:1,invoke:1,process:1,execute:1,resolve:1,reject:1,promise:1,callback:1,cursor:1,record:1,column:1,filter:1,reduce:1,status:1,action:1,commit:1,revert:1,publish:1,symbol:1,target:1,length:1,string:1,global:1,static:1,struct:1,select:1,insert:1,signal:1,socket:1,system:1,memory:1,parser:1,router:1,docker:1,script:1,bundle:1,deploy:1,search:1,prepare:1};
+
+                // --- Strategy 1: clean identifier → exact name match (case-sensitive) ---
+                if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(pattern) && pattern.length >= 4
+                    && !_grepStop[pattern.toLowerCase()]) {
+                  var row = db.prepare(
+                    'SELECT n.name, n.file_path, n.start_line FROM nodes n WHERE n.name = ? AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                  ).get(pattern);
+                  if (row) {
+                    graphAssisted = true;
+                    var hint = row.file_path + (row.start_line != null ? ':' + row.start_line : '');
+                    console.log('[MONOGRAPH_HINT] ' + pattern + ' → ' + hint);
+                  }
+                }
+
+                // --- Strategy 2: case-insensitive name match (uses COLLATE NOCASE index) ---
+                if (!graphAssisted && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(pattern) && pattern.length >= 4
+                    && !_grepStop[pattern.toLowerCase()]) {
+                  var row = db.prepare(
+                    'SELECT n.name, n.file_path, n.start_line FROM nodes n WHERE n.name = ? COLLATE NOCASE AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                  ).get(pattern);
+                  if (row) {
+                    graphAssisted = true;
+                    var hint = row.file_path + (row.start_line != null ? ':' + row.start_line : '');
+                    console.log('[MONOGRAPH_HINT] ' + row.name + ' → ' + hint);
+                  }
+                }
+
+                // --- Strategy 3: dotted filename (db.ts, orchestrator.ts) → File node lookup ---
+                if (!graphAssisted && /^[a-zA-Z0-9_-]+\.[a-z]{1,4}$/.test(pattern)) {
+                  var row = db.prepare(
+                    'SELECT n.name, n.file_path FROM nodes n WHERE n.name = ? AND n.label = \'File\' LIMIT 1'
+                  ).get(pattern);
+                  if (row) {
+                    graphAssisted = true;
+                    console.log('[MONOGRAPH_HINT] file ' + pattern + ' → ' + row.file_path);
+                  }
+                }
+
+                // --- Strategy 4: file path fragment (hyphenated: "scope-resolution") ---
+                if (!graphAssisted && /^[a-zA-Z0-9_-]+(\.[a-zA-Z]+)?$/.test(pattern) && pattern.length >= 5
+                    && pattern.indexOf('-') !== -1) {
+                  var pathLike = '%/' + pattern + '%';
+                  var row = db.prepare(
+                    'SELECT n.name, n.file_path FROM nodes n WHERE n.label = \'File\' AND n.file_path LIKE ? LIMIT 1'
+                  ).get(pathLike);
+                  if (row) {
+                    graphAssisted = true;
+                    console.log('[MONOGRAPH_HINT] file ' + pattern + ' → ' + row.file_path);
+                  }
+                }
+
+                // --- Strategy 5: extract ≥4-char identifiers from regex patterns ---
+                if (!graphAssisted) {
+                  var identifiers = pattern.match(/[a-zA-Z_$][a-zA-Z0-9_$]{3,}/g) || [];
+                  var tried = {};
+                  for (var ji = 0; ji < identifiers.length && !graphAssisted; ji++) {
+                    var id = identifiers[ji];
+                    if (_grepStop[id.toLowerCase()] || tried[id.toLowerCase()]) continue;
+                    tried[id.toLowerCase()] = 1;
+                    var row2 = db.prepare(
+                      'SELECT n.name, n.file_path, n.start_line FROM nodes n WHERE n.name = ? COLLATE NOCASE AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                    ).get(id);
+                    if (row2) {
+                      graphAssisted = true;
+                      var hint2 = row2.file_path + (row2.start_line != null ? ':' + row2.start_line : '');
+                      console.log('[MONOGRAPH_HINT] ' + row2.name + ' → ' + hint2);
+                    }
+                  }
+                }
+
+                // --- Strategy 6: FTS5 trigram substring match ---
+                if (!graphAssisted && pattern.length >= 4) {
+                  try {
+                    var ftsPattern = '"' + pattern.replace(/"/g, '""') + '"';
+                    var ftsRow = db.prepare(
+                      'SELECT n.name, n.file_path, n.start_line FROM nodes_fts f ' +
+                      'JOIN nodes n ON n.rowid = f.rowid ' +
+                      'WHERE nodes_fts MATCH ? ' +
+                      'AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+                      'AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                    ).get(ftsPattern);
+                    if (ftsRow) {
+                      graphAssisted = true;
+                      var ftsHint = ftsRow.file_path + (ftsRow.start_line != null ? ':' + ftsRow.start_line : '');
+                      console.log('[MONOGRAPH_HINT] ' + ftsRow.name + ' → ' + ftsHint);
+                    }
+                  } catch (e) { /* FTS table may not exist */ }
+                }
+
+                // --- Strategy 7: dotted property access (ctx.allFilesCached, cache.hashFile) ---
+                if (!graphAssisted && pattern.indexOf('.') !== -1 && /^[a-zA-Z_$]/.test(pattern)) {
+                  var dotParts = pattern.split('.').filter(function(p) { return p.length >= 4 && /^[a-zA-Z_$]/.test(p); });
+                  for (var di = dotParts.length - 1; di >= 0 && !graphAssisted; di--) {
+                    var dp = dotParts[di];
+                    if (_grepStop[dp.toLowerCase()]) continue;
+                    var drow = db.prepare(
+                      'SELECT n.name, n.file_path, n.start_line FROM nodes n WHERE n.name = ? COLLATE NOCASE AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                    ).get(dp);
+                    if (drow) {
+                      graphAssisted = true;
+                      var dhint = drow.file_path + (drow.start_line != null ? ':' + drow.start_line : '');
+                      console.log('[MONOGRAPH_HINT] ' + drow.name + ' → ' + dhint);
+                    }
+                  }
+                }
+
+                // --- Strategy 8: snake_case → camelCase conversion ---
+                if (!graphAssisted && pattern.indexOf('_') !== -1 && /^[a-z]/.test(pattern) && pattern.length >= 6) {
+                  var camel = pattern.replace(/_([a-z])/g, function(_, c) { return c.toUpperCase(); });
+                  if (camel !== pattern && !_grepStop[camel.toLowerCase()]) {
+                    var crow = db.prepare(
+                      'SELECT n.name, n.file_path, n.start_line FROM nodes n WHERE n.name = ? COLLATE NOCASE AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                    ).get(camel);
+                    if (crow) {
+                      graphAssisted = true;
+                      var chint = crow.file_path + (crow.start_line != null ? ':' + crow.start_line : '');
+                      console.log('[MONOGRAPH_HINT] ' + crow.name + ' → ' + chint);
+                    }
+                  }
+                }
               }
             }
           } else {
-            // find -name "foo.ts" — check if the filename exists in File nodes
+            // find/fd -name "foo.ts" — check if the filename exists in File nodes
             var fm = cmd.match(/-name\s+["']([^"'*?]+\.[a-z]+)["']/);
             if (fm && fm[1]) {
               var db = _openMonographDb();
               if (db) {
                 var row = db.prepare(
-                  'SELECT 1 FROM nodes WHERE name = ? AND label = \'File\' LIMIT 1'
+                  'SELECT n.file_path FROM nodes n WHERE n.name = ? AND n.label = \'File\' LIMIT 1'
                 ).get(fm[1]);
-                if (row) graphAssisted = true;
+                if (row) {
+                  graphAssisted = true;
+                  console.log('[MONOGRAPH_HINT] file ' + fm[1] + ' → ' + row.file_path);
+                }
               }
             }
           }
@@ -343,21 +475,140 @@ const handlers = {
       var grepPattern = (typeof toolInput === 'object' && toolInput !== null)
         ? (toolInput.pattern || toolInput.query || '')
         : '';
-      var isCleanSymbol = grepPattern.length >= 3 && grepPattern.length <= 80
-        && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(grepPattern);
-      if (isCleanSymbol && _isGraphFresh()) {
+      if (grepPattern.length >= 4 && grepPattern.length <= 80 && _isGraphFresh()) {
         var db = _openMonographDb();
         if (db) {
           try {
-            var row = db.prepare(
-              'SELECT n.name, n.label, n.file_path, n.start_line FROM nodes n ' +
-              'WHERE n.name = ? AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
-              'AND n.file_path IS NOT NULL LIMIT 1'
-            ).get(grepPattern);
-            if (row) {
-              graphResolved = true;
-              var hint = row.file_path + (row.start_line != null ? ':' + row.start_line : '');
-              console.log('[MONOGRAPH_HINT] ' + grepPattern + ' found at ' + hint);
+            var _searchStop = {import:1,export:1,from:1,require:1,return:1,function:1,const:1,let:1,var:1,class:1,interface:1,type:1,extends:1,implements:1,async:1,await:1,yield:1,throw:1,catch:1,finally:1,typeof:1,instanceof:1,void:1,null:1,undefined:1,true:1,false:1,this:1,super:1,new:1,delete:1,switch:1,case:1,break:1,continue:1,default:1,else:1,while:1,for:1,with:1,include:1,error:1,string:1,number:1,object:1,boolean:1,array:1,value:1,result:1,data:1,name:1,path:1,file:1,node:1,list:1,item:1,index:1,config:1,options:1,params:1,args:1,event:1,state:1,props:1,context:1,module:1,package:1,version:1,model:1,schema:1,table:1,query:1,response:1,request:1,handler:1,logger:1,graph:1,usage:1,storage:1,pipeline:1,service:1,utils:1,types:1,helpers:1,common:1,shared:1,server:1,client:1,source:1,output:1,input:1,stream:1,buffer:1,worker:1,plugin:1,format:1,render:1,update:1,create:1,remove:1,method:1,define:1,invoke:1,process:1,execute:1,resolve:1,reject:1,promise:1,callback:1,cursor:1,record:1,column:1,filter:1,reduce:1,status:1,action:1,commit:1,revert:1,publish:1,symbol:1,target:1,length:1,string:1,global:1,static:1,struct:1,select:1,insert:1,signal:1,socket:1,system:1,memory:1,parser:1,router:1,docker:1,script:1,bundle:1,deploy:1,search:1,prepare:1};
+
+            var isCleanSymbol = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(grepPattern);
+
+            // Strategy 1: exact name match (case-sensitive)
+            if (isCleanSymbol && !_searchStop[grepPattern.toLowerCase()]) {
+              var row = db.prepare(
+                'SELECT n.name, n.file_path, n.start_line FROM nodes n ' +
+                'WHERE n.name = ? AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+                'AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+              ).get(grepPattern);
+              if (row) {
+                graphResolved = true;
+                var hint = row.file_path + (row.start_line != null ? ':' + row.start_line : '');
+                console.log('[MONOGRAPH_HINT] ' + grepPattern + ' found at ' + hint);
+              }
+            }
+
+            // Strategy 2: case-insensitive name match (uses COLLATE NOCASE index)
+            if (!graphResolved && isCleanSymbol && !_searchStop[grepPattern.toLowerCase()]) {
+              var row = db.prepare(
+                'SELECT n.name, n.file_path, n.start_line FROM nodes n ' +
+                'WHERE n.name = ? COLLATE NOCASE AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+                'AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+              ).get(grepPattern);
+              if (row) {
+                graphResolved = true;
+                var hint = row.file_path + (row.start_line != null ? ':' + row.start_line : '');
+                console.log('[MONOGRAPH_HINT] ' + row.name + ' found at ' + hint);
+              }
+            }
+
+            // Strategy 3: dotted filename (db.ts, orchestrator.ts) → File node lookup
+            if (!graphResolved && /^[a-zA-Z0-9_-]+\.[a-z]{1,4}$/.test(grepPattern)) {
+              var row = db.prepare(
+                'SELECT n.name, n.file_path FROM nodes n WHERE n.name = ? AND n.label = \'File\' LIMIT 1'
+              ).get(grepPattern);
+              if (row) {
+                graphResolved = true;
+                console.log('[MONOGRAPH_HINT] file ' + grepPattern + ' found at ' + row.file_path);
+              }
+            }
+
+            // Strategy 4: file path fragment (hyphenated: "scope-resolution")
+            if (!graphResolved && /^[a-zA-Z0-9_-]+(\.[a-zA-Z]+)?$/.test(grepPattern)
+                && grepPattern.length >= 5 && grepPattern.indexOf('-') !== -1) {
+              var pathLike = '%/' + grepPattern + '%';
+              var row = db.prepare(
+                'SELECT n.file_path FROM nodes n WHERE n.label = \'File\' AND n.file_path LIKE ? LIMIT 1'
+              ).get(pathLike);
+              if (row) {
+                graphResolved = true;
+                console.log('[MONOGRAPH_HINT] file ' + grepPattern + ' found at ' + row.file_path);
+              }
+            }
+
+            // Strategy 5: extract ≥4-char identifiers, case-insensitive match
+            if (!graphResolved) {
+              var identifiers = grepPattern.match(/[a-zA-Z_$][a-zA-Z0-9_$]{3,}/g) || [];
+              var tried = {};
+              for (var sj = 0; sj < identifiers.length && !graphResolved; sj++) {
+                var id = identifiers[sj];
+                if (_searchStop[id.toLowerCase()] || tried[id.toLowerCase()]) continue;
+                tried[id.toLowerCase()] = 1;
+                var row2 = db.prepare(
+                  'SELECT n.name, n.file_path, n.start_line FROM nodes n ' +
+                  'WHERE n.name = ? COLLATE NOCASE AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+                  'AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                ).get(id);
+                if (row2) {
+                  graphResolved = true;
+                  var hint2 = row2.file_path + (row2.start_line != null ? ':' + row2.start_line : '');
+                  console.log('[MONOGRAPH_HINT] ' + row2.name + ' found at ' + hint2);
+                }
+              }
+            }
+
+            // Strategy 6: FTS5 trigram substring match (catches partial/compound names)
+            if (!graphResolved && grepPattern.length >= 4) {
+              try {
+                var ftsQ = '"' + grepPattern.replace(/"/g, '""') + '"';
+                var ftsRow = db.prepare(
+                  'SELECT n.name, n.file_path, n.start_line FROM nodes_fts f ' +
+                  'JOIN nodes n ON n.rowid = f.rowid ' +
+                  'WHERE nodes_fts MATCH ? ' +
+                  'AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+                  'AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                ).get(ftsQ);
+                if (ftsRow) {
+                  graphResolved = true;
+                  var ftsHint = ftsRow.file_path + (ftsRow.start_line != null ? ':' + ftsRow.start_line : '');
+                  console.log('[MONOGRAPH_HINT] ' + ftsRow.name + ' found at ' + ftsHint);
+                }
+              } catch (e) { /* FTS table may not exist */ }
+            }
+
+            // Strategy 7: dotted property access (ctx.allFilesCached, cache.hashFile)
+            if (!graphResolved && grepPattern.indexOf('.') !== -1 && /^[a-zA-Z_$]/.test(grepPattern)) {
+              var dotParts = grepPattern.split('.').filter(function(p) { return p.length >= 4 && /^[a-zA-Z_$]/.test(p); });
+              for (var di = dotParts.length - 1; di >= 0 && !graphResolved; di--) {
+                var dp = dotParts[di];
+                if (_searchStop[dp.toLowerCase()]) continue;
+                var drow = db.prepare(
+                  'SELECT n.name, n.file_path, n.start_line FROM nodes n ' +
+                  'WHERE n.name = ? COLLATE NOCASE AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+                  'AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                ).get(dp);
+                if (drow) {
+                  graphResolved = true;
+                  var dhint = drow.file_path + (drow.start_line != null ? ':' + drow.start_line : '');
+                  console.log('[MONOGRAPH_HINT] ' + drow.name + ' found at ' + dhint);
+                }
+              }
+            }
+
+            // Strategy 8: snake_case → camelCase conversion
+            if (!graphResolved && grepPattern.indexOf('_') !== -1 && /^[a-z]/.test(grepPattern) && grepPattern.length >= 6) {
+              var camel = grepPattern.replace(/_([a-z])/g, function(_, c) { return c.toUpperCase(); });
+              if (camel !== grepPattern && !_searchStop[camel.toLowerCase()]) {
+                var crow = db.prepare(
+                  'SELECT n.name, n.file_path, n.start_line FROM nodes n ' +
+                  'WHERE n.name = ? COLLATE NOCASE AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') ' +
+                  'AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                ).get(camel);
+                if (crow) {
+                  graphResolved = true;
+                  var chint = crow.file_path + (crow.start_line != null ? ':' + crow.start_line : '');
+                  console.log('[MONOGRAPH_HINT] ' + crow.name + ' found at ' + chint);
+                }
+              }
             }
           } catch (e) { /* non-fatal */ }
         }
