@@ -16,8 +16,8 @@ export declare const TrackTrendsInputSchema: z.ZodObject<{
     compareBaseline: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     metrics: ("function" | "line" | "overall" | "branch" | "statement")[];
-    timeRange: "7d" | "30d" | "14d" | "90d" | "180d" | "365d";
-    groupBy: "week" | "month" | "commit" | "day";
+    timeRange: "30d" | "7d" | "14d" | "90d" | "180d" | "365d";
+    groupBy: "commit" | "day" | "week" | "month";
     detectRegressions: boolean;
     regressionThreshold: number;
     includeProjections: boolean;
@@ -25,9 +25,9 @@ export declare const TrackTrendsInputSchema: z.ZodObject<{
     compareBaseline?: string | undefined;
 }, {
     metrics?: ("function" | "line" | "overall" | "branch" | "statement")[] | undefined;
-    timeRange?: "7d" | "30d" | "14d" | "90d" | "180d" | "365d" | undefined;
+    timeRange?: "30d" | "7d" | "14d" | "90d" | "180d" | "365d" | undefined;
     targetPath?: string | undefined;
-    groupBy?: "week" | "month" | "commit" | "day" | undefined;
+    groupBy?: "commit" | "day" | "week" | "month" | undefined;
     detectRegressions?: boolean | undefined;
     regressionThreshold?: number | undefined;
     includeProjections?: boolean | undefined;
@@ -142,8 +142,8 @@ export declare const toolDefinition: {
         compareBaseline: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         metrics: ("function" | "line" | "overall" | "branch" | "statement")[];
-        timeRange: "7d" | "30d" | "14d" | "90d" | "180d" | "365d";
-        groupBy: "week" | "month" | "commit" | "day";
+        timeRange: "30d" | "7d" | "14d" | "90d" | "180d" | "365d";
+        groupBy: "commit" | "day" | "week" | "month";
         detectRegressions: boolean;
         regressionThreshold: number;
         includeProjections: boolean;
@@ -151,9 +151,9 @@ export declare const toolDefinition: {
         compareBaseline?: string | undefined;
     }, {
         metrics?: ("function" | "line" | "overall" | "branch" | "statement")[] | undefined;
-        timeRange?: "7d" | "30d" | "14d" | "90d" | "180d" | "365d" | undefined;
+        timeRange?: "30d" | "7d" | "14d" | "90d" | "180d" | "365d" | undefined;
         targetPath?: string | undefined;
-        groupBy?: "week" | "month" | "commit" | "day" | undefined;
+        groupBy?: "commit" | "day" | "week" | "month" | undefined;
         detectRegressions?: boolean | undefined;
         regressionThreshold?: number | undefined;
         includeProjections?: boolean | undefined;

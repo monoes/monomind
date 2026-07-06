@@ -17,7 +17,7 @@ Before spawning agents, run the `pre-task` hook. It analyzes task complexity and
 npx monomind hooks pre-task -d "Refactor authentication system with JWT, add tests, update docs"
 ```
 
-Output includes `[TASK_MODEL_RECOMMENDATION] Use model="sonnet"` and agent/topology suggestions.
+Output includes agent and topology suggestions.
 
 ### 2. Initialize the Swarm With the Recommended Topology
 

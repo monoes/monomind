@@ -4,7 +4,7 @@ name: hooks:pre-task
 
 # hooks pre-task
 
-Register task start, get agent suggestions, and receive model routing recommendations.
+Register task start and get agent suggestions.
 
 ## Usage
 
@@ -44,9 +44,6 @@ The command outputs:
 - **Suggested agents** — agent type, confidence, reason
 - **Potential risks** — issues to watch for
 - **Recommendations** — approach suggestions
-- **Model routing** — one of:
-  - `[AGENT_BOOSTER_AVAILABLE]` — skip LLM, use Agent Booster (< 1ms, $0)
-  - `[TASK_MODEL_RECOMMENDATION] Use model="haiku|sonnet|opus"` — use that model
 
 ## Integration in Claude Code
 
@@ -56,7 +53,7 @@ Run before starting any significant task:
 npx monomind hooks pre-task -d "Your task description here"
 ```
 
-Then use the model routing output to set the Task tool's `model` parameter.
+Then use the agent suggestions to guide your approach.
 
 ## MCP Tool
 
