@@ -1,13 +1,17 @@
 import type { MonographDb } from '../storage/db.js';
 /**
- * Detect dead code: nodes that have in-degree 0 AND are not marked as exported.
+ * Detect dead code: exported top-level functions with zero inbound references.
  *
- * In a module dependency graph, a node with in-degree 0 is never imported by
- * any other module. If it is also not explicitly exported (i.e., not an entry-point),
- * it is considered dead code — unreachable and unused.
+ * Limited to Function nodes only — the graph tracks CALLS edges for functions
+ * but has near-zero coverage for Interface/TypeAlias/Class usage.
  *
- * @param db - The MonographDb instance
- * @returns Array of node ids that are considered dead code.
+ * Filters:
+ * - Only top-level functions (File CONTAINS node) — skips nested closures
+ * - Only exported — private locals are internal by design
+ * - Skips entry-point, test, dist, and node_modules paths
+ * - Requires zero inbound CALLS, IMPORTS, REFERENCES, and RE_EXPORTS edges
+ * - No same-name node in another file (catches import bindings)
+ * - Not re-exported through any index.ts barrel file
  */
 export declare function detectDeadCode(db: MonographDb): string[];
 export interface DeadCodeNode {
@@ -17,13 +21,6 @@ export interface DeadCodeNode {
     startLine: number | null;
     label: string;
 }
-/**
- * Like detectDeadCode() but returns rich node objects with filePath and
- * startLine so callers can render file:line navigation hints.
- *
- * @param db - The MonographDb instance
- * @returns Array of dead-code nodes with location metadata.
- */
 export declare function detectDeadCodeNodes(db: MonographDb): DeadCodeNode[];
 /**
  * Format dead-code nodes as structured text for LLM consumption.

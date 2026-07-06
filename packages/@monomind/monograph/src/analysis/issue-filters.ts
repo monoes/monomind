@@ -49,36 +49,6 @@ export function activateExplicitOptIns(checks: IssueFilterKey[]): IssueFilters {
   return result;
 }
 
-/** Zero out result fields that are disabled in the filters.
- *  Works with any object whose keys overlap IssueFilterKey names. */
-export function applyIssueFilters<T extends Record<string, unknown>>(
-  results: T,
-  filters: IssueFilters,
-): T {
-  const out = { ...results };
-  const keyMap: Partial<Record<IssueFilterKey, string>> = {
-    unusedFiles: 'deadFiles',
-    unusedExports: 'unusedExports',
-    unusedDeps: 'unusedDependencies',
-    unusedTypes: 'unusedTypes',
-    privateTypeLeaks: 'privateTypeLeaks',
-    unusedEnumMembers: 'unusedEnumMembers',
-    unusedClassMembers: 'unusedClassMembers',
-    unresolvedImports: 'unresolvedImports',
-    unlistedDeps: 'unlistedDependencies',
-    duplicateExports: 'duplicateExports',
-    circularDeps: 'circularDependencies',
-    boundaryViolations: 'boundaryViolations',
-    staleSuppressions: 'staleSuppressions',
-  };
-  for (const [filterKey, resultKey] of Object.entries(keyMap) as [IssueFilterKey, string][]) {
-    if (!filters[filterKey] && resultKey in out) {
-      (out as Record<string, unknown>)[resultKey] = Array.isArray(out[resultKey]) ? [] : undefined;
-    }
-  }
-  return out;
-}
-
 /** Parse a comma-separated string of filter keys into an IssueFilters object. */
 export function parseIssueFilters(csv: string): IssueFilters {
   const keys = csv.split(',').map(s => s.trim()).filter(Boolean) as IssueFilterKey[];

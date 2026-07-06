@@ -6,11 +6,6 @@ export declare function createSubsetFilter(roots: string[]): SubsetFilter;
 export declare function filterToWorkspaces<T extends {
     filePath?: string | null;
 }>(items: T[], workspaceRoots: string[]): T[];
-export declare function filterGroupsByWorkspace<T extends {
-    instances: Array<{
-        filePath: string;
-    }>;
-}>(groups: T[], workspaceRoots: string[]): T[];
 export interface WorkspaceFilterPattern {
     pattern: string;
     negated: boolean;
