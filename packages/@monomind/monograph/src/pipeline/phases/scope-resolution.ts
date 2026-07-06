@@ -1,5 +1,5 @@
-import { readFileSync } from 'fs';
-import { join, extname } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { join, extname, dirname, resolve as resolvePath } from 'path';
 import type { PipelinePhase, PipelineContext } from '../types.js';
 import type { MonographNode } from '../../types.js';
 import { makeId } from '../../types.js';
@@ -11,6 +11,7 @@ export interface ScopeResolutionOutput {
   resolvedEdges: number;
   skippedDynamic: number;
   ambiguous: number;
+  orphanImportsRemoved: number;
 }
 
 // ── Call site ─────────────────────────────────────────────────────────────────
@@ -133,8 +134,8 @@ function extractCallSites(
   const sites: CallSite[] = [];
 
   if (TS_JS_EXTS.has(ext)) {
-    // Method calls: word.word(
-    const methodPattern = /(\w+)\.(\w+)\s*\(/g;
+    // Method calls: word.word( or word.word<T>(
+    const methodPattern = /(\w+)\.(\w+)\s*(?:<[^>]*>\s*)?\(/g;
     let m: RegExpExecArray | null;
     while ((m = methodPattern.exec(source)) !== null) {
       sites.push({
@@ -147,8 +148,8 @@ function extractCallSites(
       });
     }
 
-    // Direct calls: word( not preceded by . or word char
-    const directPattern = /(?<![.[\w])([A-Za-z_$][\w$]*)\s*\(/g;
+    // Direct calls: word( or word<T>( — not preceded by . or word char
+    const directPattern = /(?<![.[\w])([A-Za-z_$][\w$]*)\s*(?:<[^>]*>\s*)?\(/g;
     while ((m = directPattern.exec(source)) !== null) {
       const name = m[1];
       if (JS_KEYWORDS.has(name)) continue;
@@ -158,6 +159,18 @@ function extractCallSites(
         calleeRaw: name,
         form: 'direct',
         methodName: name,
+      });
+    }
+
+    // Constructor calls: new ClassName( or new ClassName<T>(
+    const newPattern = /\bnew\s+([A-Z][\w$]*)\s*(?:<[^>]*>\s*)?\(/g;
+    while ((m = newPattern.exec(source)) !== null) {
+      sites.push({
+        callerFileNodeId: fileNodeId,
+        callerFilePath: filePath,
+        calleeRaw: `new ${m[1]}`,
+        form: 'direct',
+        methodName: m[1],
       });
     }
 
@@ -210,53 +223,159 @@ function extractCallSites(
   return sites;
 }
 
-// ── Stage 3: Build import maps from DB (batch) ────────────────────────────────
+// ── Stage 3: Build import maps by parsing source imports ─────────────────────
+
+const IMPORT_RE = /import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+))(?:\s*,\s*(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+)))?\s+from\s+['"]([^'"]+)['"]/g;
+
+const RESOLVE_EXTS = ['.ts', '.tsx', '.js', '.jsx'];
 
 /**
- * Load all IMPORTS edges once and return a map of fileNodeId → (name → filePath).
- * Eliminates the N+1 pattern of querying per-file inside the main loop.
+ * Build package-name → directory map from workspace package.json files.
+ * Scans packages/ for package.json and maps npm name to its relative src path.
  */
-function buildAllImportMaps(
-  ctx: PipelineContext,
-  symbolNodes: MonographNode[],
-): Map<string, Map<string, string>> {
-  const result = new Map<string, Map<string, string>>();
-  if (!ctx.db) return result;
+function buildWorkspacePackageMap(repoPath: string): Map<string, string> {
+  const result = new Map<string, string>();
+  const packagesDir = join(repoPath, 'packages');
+  try {
+    const scanDirs = (base: string, depth: number) => {
+      if (depth > 2) return;
+      let entries: string[];
+      try { entries = require('fs').readdirSync(base); } catch { return; }
+      for (const e of entries) {
+        const full = join(base, e);
+        const pkgJson = join(full, 'package.json');
+        try {
+          const pkg = JSON.parse(readFileSync(pkgJson, 'utf-8'));
+          if (pkg.name) {
+            const relDir = full.slice(repoPath.length + 1); // e.g. packages/@monomind/cli
+            result.set(pkg.name, relDir);
+          }
+        } catch {
+          // No package.json — recurse for @scoped dirs
+          if (e.startsWith('@')) scanDirs(full, depth + 1);
+        }
+      }
+    };
+    scanDirs(packagesDir, 0);
+  } catch { /* no packages dir */ }
+  return result;
+}
 
-  // Build a lookup: fileNodeId → filePath from symbolNodes
-  const idToFilePath = new Map<string, string>();
-  for (const n of symbolNodes) {
-    if (n.label === 'File' && n.filePath) {
-      idToFilePath.set(n.id, n.filePath);
-      // Also register the alternate makeId form
-      const altId = makeId(n.filePath.replace(/\//g, '_'), 'file');
-      if (altId !== n.id) idToFilePath.set(altId, n.filePath);
+function resolveModuleSpecifier(
+  importerPath: string,
+  specifier: string,
+  repoPath: string,
+  knownFiles: Set<string>,
+  workspaceMap: Map<string, string>,
+): string | null {
+  if (specifier.startsWith('.')) {
+    const dir = dirname(importerPath);
+    const raw = resolvePath('/', dir, specifier).slice(1);
+    // Strip .js/.jsx — TS source uses .js extensions but files are .ts
+    const base = raw.replace(/\.(js|jsx)$/, '');
+
+    for (const candidate of [
+      raw,
+      base,
+      ...RESOLVE_EXTS.map(e => base + e),
+      ...RESOLVE_EXTS.map(e => base + '/index' + e),
+    ]) {
+      if (knownFiles.has(candidate)) return candidate;
+    }
+
+    for (const ext of RESOLVE_EXTS) {
+      if (existsSync(join(repoPath, base + ext))) return base + ext;
+    }
+    return null;
+  }
+
+  // Workspace package specifier: @monomind/hooks → packages/@monomind/hooks/src/index.ts
+  // Also handles subpath: @monomind/hooks/src/foo → packages/@monomind/hooks/src/foo.ts
+  for (const [pkgName, pkgDir] of workspaceMap) {
+    if (specifier === pkgName) {
+      // Bare import: resolve to package entry point (src/index.ts)
+      for (const entry of RESOLVE_EXTS.map(e => pkgDir + '/src/index' + e)) {
+        if (knownFiles.has(entry)) return entry;
+      }
+      return null;
+    }
+    if (specifier.startsWith(pkgName + '/')) {
+      const subpath = specifier.slice(pkgName.length + 1);
+      const base = pkgDir + '/' + subpath;
+      for (const candidate of [
+        base,
+        ...RESOLVE_EXTS.map(e => base + e),
+        ...RESOLVE_EXTS.map(e => base + '/index' + e),
+      ]) {
+        if (knownFiles.has(candidate)) return candidate;
+      }
+      return null;
     }
   }
 
-  // Load ALL IMPORTS edges in one query
-  const importsRows = ctx.db
-    .prepare(`SELECT source_id, target_id FROM edges WHERE relation = 'IMPORTS'`)
-    .all() as { source_id: string; target_id: string }[];
+  return null;
+}
 
-  for (const row of importsRows) {
-    const targetPath = idToFilePath.get(row.target_id);
-    if (!targetPath) continue;
-    let fileMap = result.get(row.source_id);
-    if (!fileMap) {
-      fileMap = new Map();
-      result.set(row.source_id, fileMap);
+function extractImportNames(clause: string): string[] {
+  return clause
+    .split(',')
+    .map(s => s.trim().split(/\s+as\s+/).pop()!.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Parse each file's import statements to build importedName → resolvedFilePath maps.
+ * Replaces the broken DB-edge approach (IMPORTS edges target Variable nodes, not Files).
+ */
+function buildAllImportMapsFromSource(
+  repoPath: string,
+  fileNodesByPath: Map<string, MonographNode>,
+): Map<string, Map<string, string>> {
+  const result = new Map<string, Map<string, string>>();
+  const knownFiles = new Set(fileNodesByPath.keys());
+  const workspaceMap = buildWorkspacePackageMap(repoPath);
+
+  for (const [filePath, fileNode] of fileNodesByPath) {
+    const ext = extname(filePath).toLowerCase();
+    if (!TS_JS_EXTS.has(ext)) continue;
+
+    let source: string;
+    try {
+      source = readFileSync(join(repoPath, filePath), 'utf-8');
+    } catch {
+      continue;
     }
-    const parts = targetPath.split('/');
-    const baseName = parts[parts.length - 1].replace(/\.\w+$/, '');
-    fileMap.set(baseName, targetPath);
-    fileMap.set(targetPath, targetPath);
+
+    const importMap = new Map<string, string>();
+    IMPORT_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = IMPORT_RE.exec(source)) !== null) {
+      const specifier = m[7];
+      const resolved = resolveModuleSpecifier(filePath, specifier, repoPath, knownFiles, workspaceMap);
+      if (!resolved) continue;
+
+      // Named imports: { foo, bar as baz }
+      if (m[1]) for (const n of extractImportNames(m[1])) importMap.set(n, resolved);
+      if (m[4]) for (const n of extractImportNames(m[4])) importMap.set(n, resolved);
+      // Default import
+      if (m[2]) importMap.set(m[2], resolved);
+      if (m[5]) importMap.set(m[5], resolved);
+      // Namespace import: * as X
+      if (m[3]) importMap.set(m[3], resolved);
+      if (m[6]) importMap.set(m[6], resolved);
+      // Store the module path itself (for method call receiver lookup by module name)
+      const baseName = resolved.split('/').pop()!.replace(/\.\w+$/, '');
+      importMap.set(baseName, resolved);
+    }
+
+    if (importMap.size > 0) {
+      result.set(fileNode.id, importMap);
+    }
   }
 
   return result;
 }
 
-/** Returns the pre-built import map for a given file node (empty map if not found). */
 function getImportMap(
   allImportMaps: Map<string, Map<string, string>>,
   fileNodeId: string,
@@ -267,10 +386,8 @@ function getImportMap(
 // ── Stage 4 helpers: preloaded function/method index ──────────────────────────
 
 /**
- * Load all Function/Method/Constructor nodes once.
- * Returns two indices:
- * - byFilePath: filePath → name → id[] (for resolveTarget candidate lookup)
- * - nameCounts: name → total occurrences across all files (for ambiguity check)
+ * Load all callable nodes once (Function, Method, Constructor, Class).
+ * Class is included so `new ClassName()` can resolve to Class nodes.
  */
 function buildFunctionIndex(ctx: PipelineContext): {
   byFilePath: Map<string, Map<string, string[]>>;
@@ -282,7 +399,7 @@ function buildFunctionIndex(ctx: PipelineContext): {
   if (!ctx.db) return { byFilePath, nameCounts };
 
   const rows = ctx.db
-    .prepare(`SELECT id, name, file_path FROM nodes WHERE label IN ('Function', 'Method', 'Constructor') AND file_path IS NOT NULL`)
+    .prepare(`SELECT id, name, file_path FROM nodes WHERE label IN ('Function', 'Method', 'Constructor', 'Class') AND file_path IS NOT NULL`)
     .all() as { id: string; name: string; file_path: string }[];
 
   for (const row of rows) {
@@ -308,6 +425,20 @@ function buildFunctionIndex(ctx: PipelineContext): {
 
 // ── Stage 4 + 5: Resolve target node (index-based, no per-call DB query) ──────
 
+function pickBestId(ids: string[], site: CallSite): string | null {
+  if (ids.length === 1) return ids[0];
+  if (ids.length === 0) return null;
+  // Disambiguate: prefer Function for direct calls, Method for method calls
+  const suffix = site.form === 'method' ? '_method' : '_function';
+  const match = ids.find(id => id.endsWith(suffix));
+  // For `new ClassName()` prefer _class
+  if (!match && site.calleeRaw.startsWith('new ')) {
+    const classMatch = ids.find(id => id.endsWith('_class'));
+    if (classMatch) return classMatch;
+  }
+  return match ?? ids[0];
+}
+
 function resolveTarget(
   site: CallSite,
   callerFilePath: string,
@@ -320,23 +451,41 @@ function resolveTarget(
   let candidateFilePaths: string[];
 
   if (site.form === 'method' && site.receiverName) {
-    // Stage 3: Infer receiver type — look up receiver in import map
     const receiverPath = importMap.get(site.receiverName);
-    candidateFilePaths = receiverPath ? [receiverPath] : [callerFilePath];
+    if (receiverPath) {
+      candidateFilePaths = [receiverPath];
+    } else {
+      // Receiver not in import map (local variable). Try same-file first.
+      const sameFileIds = fnIndex.get(callerFilePath)?.get(methodName);
+      if (sameFileIds && sameFileIds.length > 0) {
+        return { targetId: pickBestId(sameFileIds, site)! };
+      }
+      // Fallback: find exactly one imported file with this method
+      const importedFiles = [...new Set(importMap.values())];
+      const matches = importedFiles.filter(fp => fnIndex.get(fp)?.has(methodName));
+      if (matches.length === 1) {
+        const ids = fnIndex.get(matches[0])!.get(methodName)!;
+        return { targetId: pickBestId(ids, site)! };
+      }
+      return null;
+    }
   } else if (site.form === 'direct') {
-    // Direct call: same file first, then all imported files
-    candidateFilePaths = [callerFilePath, ...importMap.values()];
+    const importedFrom = importMap.get(methodName);
+    if (importedFrom) {
+      candidateFilePaths = [importedFrom, callerFilePath];
+    } else {
+      candidateFilePaths = [callerFilePath, ...new Set(importMap.values())];
+    }
   } else {
     return null;
   }
 
-  // Stage 5: O(1) lookup in preloaded index instead of per-call DB query
   for (const fp of candidateFilePaths) {
     const ids = fnIndex.get(fp)?.get(methodName);
-    if (ids && ids.length === 1) {
-      return { targetId: ids[0] };
+    if (ids && ids.length > 0) {
+      const best = pickBestId(ids, site);
+      if (best) return { targetId: best };
     }
-    // ids.length > 1 → ambiguous within this file — skip to next candidate
   }
 
   return null;
@@ -432,8 +581,8 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
       }
     }
 
-    // Preload all IMPORTS edges → per-file import maps (one DB query total)
-    const allImportMaps = buildAllImportMaps(ctx, symbolNodes);
+    // Parse source imports → per-file import maps (replaces broken DB-edge approach)
+    const allImportMaps = buildAllImportMapsFromSource(ctx.repoPath, fileNodesByPath);
 
     // Preload all Function/Method/Constructor nodes into indices (one DB query total)
     const { byFilePath: fnIndex, nameCounts } = buildFunctionIndex(ctx);
@@ -484,6 +633,23 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
       }
     }
 
-    return { resolvedEdges, skippedDynamic, ambiguous };
+    // Clean up orphan IMPORTS edges that target Variable nodes instead of Files.
+    // These were created by the parser's raw import extraction and never resolved
+    // to meaningful targets (e.g. `import fs` → a Variable named `fs`).
+    let orphanImportsRemoved = 0;
+    if (ctx.db) {
+      const result = ctx.db
+        .prepare(`
+          DELETE FROM edges WHERE id IN (
+            SELECT e.id FROM edges e
+            JOIN nodes t ON e.target_id = t.id
+            WHERE e.relation = 'IMPORTS' AND t.label = 'Variable'
+          )
+        `)
+        .run();
+      orphanImportsRemoved = result.changes;
+    }
+
+    return { resolvedEdges, skippedDynamic, ambiguous, orphanImportsRemoved };
   },
 };

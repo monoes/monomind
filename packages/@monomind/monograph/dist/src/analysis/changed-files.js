@@ -43,7 +43,4 @@ export async function getChangedFiles(root, sinceRef) {
 export function filterResultsByChangedFiles(results, changedPaths) {
     return results.filter((item) => item.filePath != null && changedPaths.has(item.filePath));
 }
-export function filterDuplicationByChangedFiles(groups, changedPaths) {
-    return groups.filter((group) => group.instances.some((instance) => changedPaths.has(instance.filePath)));
-}
 //# sourceMappingURL=changed-files.js.map

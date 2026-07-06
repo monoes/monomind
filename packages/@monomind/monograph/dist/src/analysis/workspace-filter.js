@@ -12,10 +12,6 @@ export function filterToWorkspaces(items, workspaceRoots) {
     const filter = createSubsetFilter(workspaceRoots);
     return items.filter((item) => item.filePath != null && filter.test(item.filePath));
 }
-export function filterGroupsByWorkspace(groups, workspaceRoots) {
-    const filter = createSubsetFilter(workspaceRoots);
-    return groups.filter((group) => group.instances.some((instance) => filter.test(instance.filePath)));
-}
 /** Parse a workspace filter string into a structured pattern. */
 export function parseWorkspaceFilterPattern(raw) {
     const negated = raw.startsWith('!');

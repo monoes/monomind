@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectDeadCode } from '../../graph/dead-code.js';
+import { detectDeadCode, detectDeadCodeNodes, formatDeadCode } from '../../graph/dead-code.js';
 import { openDb } from '../../storage/db.js';
 import Database from 'better-sqlite3';
 import { join } from 'path';
@@ -11,14 +11,27 @@ function makeTempDb() {
   return openDb(join(dir, 'test.db'));
 }
 
-function insertNode(db: Database.Database, id: string, isExported = 0) {
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, ?)`)
-    .run(id, id, id.toLowerCase(), isExported);
+function insertFileNode(db: Database.Database, filePath: string) {
+  const id = filePath.replace(/[/.]/g, '_') + '_file';
+  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, file_path, is_exported) VALUES (?, 'File', ?, ?, ?, 0)`)
+    .run(id, filePath.split('/').pop(), filePath.split('/').pop(), filePath);
+  return id;
 }
 
-function insertEdge(db: Database.Database, src: string, tgt: string) {
+function insertFunction(db: Database.Database, name: string, filePath: string, opts?: { exported?: boolean; startLine?: number }) {
+  const id = filePath.replace(/[/.]/g, '_') + '_' + name + '_function';
+  const fileId = filePath.replace(/[/.]/g, '_') + '_file';
+  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, file_path, start_line, is_exported) VALUES (?, 'Function', ?, ?, ?, ?, ?)`)
+    .run(id, name, name.toLowerCase(), filePath, opts?.startLine ?? 1, opts?.exported ? 1 : 0);
+  // CONTAINS edge from File → Function
+  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CONTAINS', 'EXTRACTED', 1.0)`)
+    .run(`${fileId}_${id}_contains`, fileId, id);
+  return id;
+}
+
+function insertCallEdge(db: Database.Database, src: string, tgt: string) {
   db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`)
-    .run(`${src}_${tgt}`, src, tgt);
+    .run(`${src}_${tgt}_calls`, src, tgt);
 }
 
 describe('detectDeadCode', () => {
@@ -28,72 +41,114 @@ describe('detectDeadCode', () => {
     db.close();
   });
 
-  it('detects a node with in-degree 0 that is not exported', () => {
+  it('does NOT flag non-exported functions', () => {
     const db = makeTempDb();
-    // orphan: no incoming edges, not exported
-    insertNode(db, 'orphan', 0);
-    insertNode(db, 'b');
-    insertEdge(db, 'b', 'orphan');
-    // orphan has in-degree 1 — not dead
-    // let's make a true orphan
-    insertNode(db, 'dead', 0);
-    // dead has no incoming edges
-    const result = detectDeadCode(db);
-    expect(result).toContain('dead');
+    insertFileNode(db, 'src/utils.ts');
+    insertFunction(db, 'helper', 'src/utils.ts', { exported: false });
+    expect(detectDeadCode(db)).toEqual([]);
     db.close();
   });
 
-  it('does NOT flag exported nodes as dead code', () => {
+  it('flags exported function with no inbound edges', () => {
     const db = makeTempDb();
-    // exported root with in-degree 0 — this is an entrypoint, not dead code
-    insertNode(db, 'entry', 1);
-    const result = detectDeadCode(db);
-    expect(result).not.toContain('entry');
+    insertFileNode(db, 'src/utils.ts');
+    const id = insertFunction(db, 'unused', 'src/utils.ts', { exported: true });
+    expect(detectDeadCode(db)).toContain(id);
     db.close();
   });
 
-  it('does NOT flag nodes that have incoming edges', () => {
+  it('does NOT flag functions with CALLS edges', () => {
     const db = makeTempDb();
-    insertNode(db, 'a');
-    insertNode(db, 'b');
-    insertEdge(db, 'a', 'b');
-    // b has in-degree 1 — reachable from a
+    insertFileNode(db, 'src/a.ts');
+    insertFileNode(db, 'src/b.ts');
+    const callerId = insertFunction(db, 'caller', 'src/a.ts', { exported: true });
+    const calleeId = insertFunction(db, 'callee', 'src/b.ts', { exported: true });
+    insertCallEdge(db, callerId, calleeId);
     const result = detectDeadCode(db);
-    expect(result).not.toContain('b');
+    expect(result).not.toContain(calleeId);
     db.close();
   });
 
-  it('flags node with in-degree 0 and not exported', () => {
+  it('skips test files', () => {
     const db = makeTempDb();
-    insertNode(db, 'unused', 0);
-    const result = detectDeadCode(db);
-    expect(result).toContain('unused');
+    insertFileNode(db, 'src/__tests__/foo.test.ts');
+    insertFunction(db, 'testHelper', 'src/__tests__/foo.test.ts', { exported: true });
+    expect(detectDeadCode(db)).toEqual([]);
     db.close();
   });
 
-  it('handles mix of dead and live nodes', () => {
+  it('skips dist files', () => {
     const db = makeTempDb();
-    insertNode(db, 'live_exported', 1);  // exported — not dead
-    insertNode(db, 'live_used');          // has incoming
-    insertNode(db, 'dead1');             // orphan, not exported
-    insertNode(db, 'dead2');             // orphan, not exported
-    insertEdge(db, 'live_exported', 'live_used');
-    const result = detectDeadCode(db);
-    expect(result).toContain('dead1');
-    expect(result).toContain('dead2');
-    expect(result).not.toContain('live_exported');
-    expect(result).not.toContain('live_used');
+    insertFileNode(db, 'packages/foo/dist/utils.ts');
+    insertFunction(db, 'built', 'packages/foo/dist/utils.ts', { exported: true });
+    expect(detectDeadCode(db)).toEqual([]);
     db.close();
   });
 
-  it('returns array of node id strings', () => {
+  it('skips index files', () => {
     const db = makeTempDb();
-    insertNode(db, 'unused');
-    const result = detectDeadCode(db);
-    expect(Array.isArray(result)).toBe(true);
-    for (const id of result) {
-      expect(typeof id).toBe('string');
-    }
+    insertFileNode(db, 'src/index.ts');
+    insertFunction(db, 'main', 'src/index.ts', { exported: true });
+    expect(detectDeadCode(db)).toEqual([]);
     db.close();
+  });
+
+  it('skips functions with same-name node in another file', () => {
+    const db = makeTempDb();
+    insertFileNode(db, 'src/a.ts');
+    insertFileNode(db, 'src/b.ts');
+    insertFunction(db, 'shared', 'src/a.ts', { exported: true });
+    // Same name in another file (import binding)
+    insertFunction(db, 'shared', 'src/b.ts', { exported: false });
+    expect(detectDeadCode(db)).toEqual([]);
+    db.close();
+  });
+
+  it('skips functions re-exported through barrel index', () => {
+    const db = makeTempDb();
+    insertFileNode(db, 'src/utils.ts');
+    insertFileNode(db, 'src/index.ts');
+    insertFunction(db, 'helper', 'src/utils.ts', { exported: true });
+    // Same name in index.ts (barrel re-export)
+    insertFunction(db, 'helper', 'src/index.ts', { exported: true });
+    expect(detectDeadCode(db)).toEqual([]);
+    db.close();
+  });
+});
+
+describe('detectDeadCodeNodes', () => {
+  it('returns structured nodes with file path and line', () => {
+    const db = makeTempDb();
+    insertFileNode(db, 'src/utils.ts');
+    insertFunction(db, 'unused', 'src/utils.ts', { exported: true, startLine: 42 });
+    const nodes = detectDeadCodeNodes(db);
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({
+      name: 'unused',
+      filePath: 'src/utils.ts',
+      startLine: 42,
+      label: 'Function',
+    });
+    db.close();
+  });
+});
+
+describe('formatDeadCode', () => {
+  it('returns "none detected" for empty list', () => {
+    expect(formatDeadCode([])).toBe('Dead code: none detected.');
+  });
+
+  it('includes candidate count and file locations', () => {
+    const result = formatDeadCode([{
+      id: 'test_id',
+      name: 'unused',
+      filePath: 'src/utils.ts',
+      startLine: 42,
+      label: 'Function',
+    }]);
+    expect(result).toContain('1 exported function');
+    expect(result).toContain('src/utils.ts:42');
+    expect(result).toContain('Candidates only');
+    expect(result).not.toContain('lacks cross-file');
   });
 });

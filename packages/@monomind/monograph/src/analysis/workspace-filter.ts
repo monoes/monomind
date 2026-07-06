@@ -23,14 +23,6 @@ export function filterToWorkspaces<T extends { filePath?: string | null }>(
   return items.filter((item) => item.filePath != null && filter.test(item.filePath));
 }
 
-export function filterGroupsByWorkspace<T extends { instances: Array<{ filePath: string }> }>(
-  groups: T[],
-  workspaceRoots: string[],
-): T[] {
-  const filter = createSubsetFilter(workspaceRoots);
-  return groups.filter((group) => group.instances.some((instance) => filter.test(instance.filePath)));
-}
-
 // ── Round 8: gitignore-style negation patterns + changed-file scoping ──────
 
 export interface WorkspaceFilterPattern {
