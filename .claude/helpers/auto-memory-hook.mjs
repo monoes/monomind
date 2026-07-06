@@ -287,6 +287,17 @@ async function doImport() {
 
   const bridge = new memPkg.AutoMemoryBridge(backend, bridgeConfig);
 
+  // Wire episodic store so [memory:*] ops flow into traces during import
+  if (memPkg.EpisodicStore) {
+    try {
+      const episodicPath = join(PROJECT_ROOT, '.monomind', 'episodic', 'episodes.jsonl');
+      const episodicDir = dirname(episodicPath);
+      if (!existsSync(episodicDir)) mkdirSync(episodicDir, { recursive: true });
+      const epStore = new memPkg.EpisodicStore({ filePath: episodicPath, maxRunsPerEpisode: 20 });
+      bridge.setEpisodicStore(epStore);
+    } catch { /* non-fatal */ }
+  }
+
   try {
     const result = await bridge.importFromAutoMemory();
     success(`Imported ${result.imported} entries (${result.skipped} skipped)`);
@@ -343,6 +354,17 @@ async function doSync() {
 
   const bridge = new memPkg.AutoMemoryBridge(backend, bridgeConfig);
 
+  // Wire episodic store so [memory:*] ops flow into traces during sync
+  if (memPkg.EpisodicStore) {
+    try {
+      const episodicPath = join(PROJECT_ROOT, '.monomind', 'episodic', 'episodes.jsonl');
+      if (existsSync(dirname(episodicPath))) {
+        const epStore = new memPkg.EpisodicStore({ filePath: episodicPath, maxRunsPerEpisode: 20 });
+        bridge.setEpisodicStore(epStore);
+      }
+    } catch { /* non-fatal */ }
+  }
+
   try {
     const syncResult = await bridge.syncToAutoMemory();
     success(`Synced ${syncResult.synced} entries to auto memory`);
@@ -382,6 +404,58 @@ async function doStatus() {
       }
     } catch { /* ignore */ }
   }
+
+  // AutoMem diagnostics (arXiv:2607.01224)
+  console.log('\n=== AutoMem Learning Loop Status ===\n');
+
+  // Episodic trace stats
+  const episodicPath = join(PROJECT_ROOT, '.monomind', 'episodic', 'episodes.jsonl');
+  if (existsSync(episodicPath) && memPkg && memPkg.EpisodicStore) {
+    try {
+      const epStore = new memPkg.EpisodicStore({ filePath: episodicPath, maxRunsPerEpisode: 20 });
+      const episodes = epStore.readAll();
+      let memOps = 0, skipDups = 0, writes = 0, searches = 0;
+      for (const ep of episodes) {
+        for (const line of (ep.summary || '').split('\n')) {
+          if (line.startsWith('[memory:')) {
+            memOps++;
+            if (line.includes('skip-duplicate')) skipDups++;
+            else if (line.includes('write]')) writes++;
+            else if (line.includes('search]')) searches++;
+          }
+        }
+      }
+      console.log(`  Episodes:       ${episodes.length}`);
+      console.log(`  Memory ops:     ${memOps} (${writes} writes, ${searches} searches, ${skipDups} skipped dups)`);
+      if (writes + searches > 0) {
+        const ratio = searches > 0 ? (writes / searches).toFixed(2) : 'N/A';
+        const dupRate = memOps > 0 ? Math.round(skipDups / memOps * 100) : 0;
+        console.log(`  Write/search:   ${ratio}  |  Dup rate: ${dupRate}%`);
+      }
+    } catch { console.log('  Episodes:       (error reading)'); }
+  } else {
+    console.log('  Episodes:       ⏸ No episodic traces yet');
+  }
+
+  // Scaffold optimizer history
+  const scaffoldPath = join(PROJECT_ROOT, '.monomind', 'data', 'scaffold-revisions.jsonl');
+  if (existsSync(scaffoldPath)) {
+    try {
+      const lines = readFileSync(scaffoldPath, 'utf-8').trim().split('\n').filter(Boolean);
+      console.log(`  Scaffold revs:  ${lines.length} revision(s) applied`);
+    } catch { /* ignore */ }
+  } else {
+    console.log('  Scaffold revs:  ⏸ No revisions yet');
+  }
+
+  // Curated decisions
+  const backend2 = new JsonFileBackend(STORE_PATH);
+  await backend2.initialize();
+  try {
+    const curated = await backend2.query({ namespace: 'memory-training', limit: 10000 });
+    console.log(`  Curated:        ${curated.length} training decision(s)`);
+  } catch { console.log('  Curated:        ⏸ No curated decisions'); }
+  await backend2.shutdown();
 
   console.log('');
 }
