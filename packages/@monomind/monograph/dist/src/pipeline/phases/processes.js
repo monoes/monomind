@@ -87,7 +87,7 @@ export const processesPhase = {
     name: 'processes',
     deps: ['communities', 'routes', 'tools', 'structure'],
     async execute(ctx, _deps) {
-        if (!ctx.db) {
+        if (ctx.allFilesCached || !ctx.db) {
             return {
                 processResult: {
                     processes: [],

@@ -11,6 +11,7 @@ export const suggestPhase: PipelinePhase<SuggestOutput> = {
   name: 'suggest',
   deps: ['parse', 'cross-file', 'mro', 'communities', 'god-nodes', 'surprises'],
   async execute(_ctx, deps) {
+    if (_ctx.allFilesCached) return { questions: [] };
     const { allEdges, symbolNodes } = deps.get('parse') as ParseOutput;
     const { memberships } = deps.get('communities') as CommunitiesOutput;
     const questions: SuggestedQuestion[] = [];

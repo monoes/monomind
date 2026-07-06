@@ -386,19 +386,21 @@ function extractImportNames(clause) {
  * Parse each file's import statements to build importedName → resolvedFilePath maps.
  * Replaces the broken DB-edge approach (IMPORTS edges target Variable nodes, not Files).
  */
-function buildAllImportMapsFromSource(repoPath, fileNodesByPath) {
+function buildAllImportMapsFromSource(repoPath, fileNodesByPath, fileContents) {
     const result = new Map();
     const knownFiles = new Set(fileNodesByPath.keys());
     const workspaceMap = buildWorkspacePackageMap(repoPath);
     for (const [filePath, fileNode] of fileNodesByPath) {
         const ext = extname(filePath).toLowerCase();
         const importMap = new Map();
-        let source;
-        try {
-            source = readFileSync(join(repoPath, filePath), 'utf-8');
-        }
-        catch {
-            continue;
+        let source = fileContents?.get(filePath);
+        if (!source) {
+            try {
+                source = readFileSync(join(repoPath, filePath), 'utf-8');
+            }
+            catch {
+                continue;
+            }
         }
         if (TS_JS_EXTS.has(ext) || ext === '.cjs' || ext === '.mjs') {
             // ESM imports
@@ -573,7 +575,7 @@ function pickBestId(ids, site) {
     }
     return match ?? ids[0];
 }
-function resolveTarget(site, callerFilePath, importMap, fnIndex, ctorMap) {
+function resolveTarget(site, callerFilePath, importMap, fnIndex, ctorMap, importedFiles) {
     const methodName = site.methodName;
     if (!methodName)
         return null;
@@ -584,20 +586,16 @@ function resolveTarget(site, callerFilePath, importMap, fnIndex, ctorMap) {
             candidateFilePaths = [receiverPath];
         }
         else {
-            // Check constructor assignments: const svc = new MyService() → look up MyService
             const className = ctorMap?.get(site.receiverName);
             const classFilePath = className ? importMap.get(className) : undefined;
             if (classFilePath) {
                 candidateFilePaths = [classFilePath, callerFilePath];
             }
             else {
-                // Receiver not in import map (local variable). Try same-file first.
                 const sameFileIds = fnIndex.get(callerFilePath)?.get(methodName);
                 if (sameFileIds && sameFileIds.length > 0) {
                     return { targetId: pickBestId(sameFileIds, site) };
                 }
-                // Fallback: find exactly one imported file with this method
-                const importedFiles = [...new Set(importMap.values())];
                 const matches = importedFiles.filter(fp => fnIndex.get(fp)?.has(methodName));
                 if (matches.length === 1) {
                     const ids = fnIndex.get(matches[0]).get(methodName);
@@ -613,7 +611,7 @@ function resolveTarget(site, callerFilePath, importMap, fnIndex, ctorMap) {
             candidateFilePaths = [importedFrom, callerFilePath];
         }
         else {
-            candidateFilePaths = [callerFilePath, ...new Set(importMap.values())];
+            candidateFilePaths = [callerFilePath, ...importedFiles];
         }
     }
     else {
@@ -629,42 +627,28 @@ function resolveTarget(site, callerFilePath, importMap, fnIndex, ctorMap) {
     }
     return null;
 }
-// ── Stage 6: Emit edge ────────────────────────────────────────────────────────
-function emitEdge(ctx, sourceId, targetId) {
-    if (!ctx.db)
-        return 'skipped';
+function prepareEdgeStmts(db) {
+    return {
+        selectExisting: db.prepare(`SELECT id, confidence_score FROM edges WHERE source_id = ? AND target_id = ? AND relation = 'CALLS'`),
+        updateScore: db.prepare(`UPDATE edges SET confidence_score = ?, confidence = 'EXTRACTED' WHERE id = ?`),
+        insertNew: db.prepare(`INSERT OR IGNORE INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', ?)`),
+    };
+}
+const RESOLVED_CONFIDENCE_SCORE = 0.75;
+function emitEdge(stmts, sourceId, targetId) {
     if (sourceId === targetId)
         return 'skipped';
-    const RESOLVED_CONFIDENCE_SCORE = 0.75;
-    // Check if a CALLS edge already exists
-    const existing = ctx.db
-        .prepare(`
-      SELECT id, confidence_score FROM edges
-      WHERE source_id = ? AND target_id = ? AND relation = 'CALLS'
-    `)
-        .get(sourceId, targetId);
+    const existing = stmts.selectExisting.get(sourceId, targetId);
     if (existing) {
         const newScore = Math.max(existing.confidence_score, RESOLVED_CONFIDENCE_SCORE);
         if (newScore > existing.confidence_score) {
-            ctx.db
-                .prepare(`
-          UPDATE edges
-          SET confidence_score = ?, confidence = 'EXTRACTED'
-          WHERE id = ?
-        `)
-                .run(newScore, existing.id);
+            stmts.updateScore.run(newScore, existing.id);
         }
         return 'upgraded';
     }
-    // Insert new CALLS edge
     const edgeId = makeId(sourceId, targetId, 'calls_resolved');
     try {
-        ctx.db
-            .prepare(`
-        INSERT OR IGNORE INTO edges (id, source_id, target_id, relation, confidence, confidence_score)
-        VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', ?)
-      `)
-            .run(edgeId, sourceId, targetId, RESOLVED_CONFIDENCE_SCORE);
+        stmts.insertNew.run(edgeId, sourceId, targetId, RESOLVED_CONFIDENCE_SCORE);
         return 'inserted';
     }
     catch {
@@ -676,6 +660,9 @@ export const scopeResolutionPhase = {
     name: 'scope-resolution',
     deps: ['parse', 'cross-file'],
     async execute(ctx, deps) {
+        if (ctx.allFilesCached) {
+            return { resolvedEdges: 0, skippedDynamic: 0, ambiguous: 0, reexportEdges: 0, orphanImportsRemoved: 0, importsReconstructed: 0 };
+        }
         const { symbolNodes } = deps.get('parse');
         let resolvedEdges = 0;
         let skippedDynamic = 0;
@@ -707,50 +694,57 @@ export const scopeResolutionPhase = {
             }
         }
         // Parse source imports → per-file import maps (replaces broken DB-edge approach)
-        const allImportMaps = buildAllImportMapsFromSource(ctx.repoPath, fileNodesByPath);
+        const { fileContents } = deps.get('parse');
+        const allImportMaps = buildAllImportMapsFromSource(ctx.repoPath, fileNodesByPath, fileContents);
         // Preload all Function/Method/Constructor nodes into indices (one DB query total)
         const { byFilePath: fnIndex, nameCounts } = buildFunctionIndex(ctx);
-        for (const [filePath, fileNode] of fileNodesByPath) {
-            const ext = extname(filePath).toLowerCase();
-            if (!isSupportedExt(ext))
-                continue;
-            // Read file source
-            let source;
-            try {
-                source = readFileSync(join(ctx.repoPath, filePath), 'utf-8');
-            }
-            catch {
-                continue;
-            }
-            // Stage 1+2: Extract call sites
-            const callSites = extractCallSites(source, filePath, fileNode.id, ext);
-            // Stage 3: Get pre-built import map for this file (O(1))
-            const importMap = getImportMap(allImportMaps, fileNode.id);
-            // Track constructor assignments for type-aware method resolution
-            const ctorMap = (TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext)) ? extractConstructorAssignments(source) : undefined;
-            for (const site of callSites) {
-                if (site.form === 'dynamic') {
-                    skippedDynamic++;
+        const edgeStmts = ctx.db ? prepareEdgeStmts(ctx.db) : null;
+        const resolveAllCalls = ctx.db?.transaction(() => {
+            for (const [filePath, fileNode] of fileNodesByPath) {
+                const ext = extname(filePath).toLowerCase();
+                if (!isSupportedExt(ext))
                     continue;
+                // Read file source (prefer cached from parse phase)
+                let source = fileContents.get(filePath);
+                if (!source) {
+                    try {
+                        source = readFileSync(join(ctx.repoPath, filePath), 'utf-8');
+                    }
+                    catch {
+                        continue;
+                    }
                 }
-                // Stage 4+5: Resolve target using preloaded indices (no DB query)
-                const resolved = resolveTarget(site, filePath, importMap, fnIndex, ctorMap);
-                if (!resolved) {
-                    // Could not resolve — method calls with unresolvable receivers are simply skipped
-                    continue;
-                }
-                // Ambiguity check using preloaded name counts (no DB query)
-                if (site.methodName && (nameCounts.get(site.methodName) ?? 0) > 1) {
-                    ambiguous++;
-                    // Still emit — we found exactly one candidate in the caller's context
-                }
-                // Stage 6: Emit edge (source is the file node of the caller)
-                const result = emitEdge(ctx, site.callerFileNodeId, resolved.targetId);
-                if (result === 'inserted' || result === 'upgraded') {
-                    resolvedEdges++;
+                // Stage 1+2: Extract call sites
+                const callSites = extractCallSites(source, filePath, fileNode.id, ext);
+                // Stage 3: Get pre-built import map for this file (O(1))
+                const importMap = getImportMap(allImportMaps, fileNode.id);
+                // Track constructor assignments for type-aware method resolution
+                const ctorMap = (TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext)) ? extractConstructorAssignments(source) : undefined;
+                // Precompute once per file instead of per call site
+                const importedFiles = [...new Set(importMap.values())];
+                for (const site of callSites) {
+                    if (site.form === 'dynamic') {
+                        skippedDynamic++;
+                        continue;
+                    }
+                    // Stage 4+5: Resolve target using preloaded indices (no DB query)
+                    const resolved = resolveTarget(site, filePath, importMap, fnIndex, ctorMap, importedFiles);
+                    if (!resolved) {
+                        continue;
+                    }
+                    // Ambiguity check using preloaded name counts (no DB query)
+                    if (site.methodName && (nameCounts.get(site.methodName) ?? 0) > 1) {
+                        ambiguous++;
+                    }
+                    // Stage 6: Emit edge (source is the file node of the caller)
+                    const result = edgeStmts ? emitEdge(edgeStmts, site.callerFileNodeId, resolved.targetId) : 'skipped';
+                    if (result === 'inserted' || result === 'upgraded') {
+                        resolvedEdges++;
+                    }
                 }
             }
-        }
+        });
+        resolveAllCalls?.();
         // Scan for re-exports: export { foo, bar } from './module'
         // Creates REFERENCES edges so re-exported symbols don't appear as dead code.
         let reexportEdges = 0;
@@ -764,12 +758,14 @@ export const scopeResolutionPhase = {
                     const ext = extname(filePath).toLowerCase();
                     if (!TS_JS_EXTS.has(ext) && !CJS_MJS_EXTS.has(ext))
                         continue;
-                    let source;
-                    try {
-                        source = readFileSync(join(ctx.repoPath, filePath), 'utf-8');
-                    }
-                    catch {
-                        continue;
+                    let source = fileContents.get(filePath);
+                    if (!source) {
+                        try {
+                            source = readFileSync(join(ctx.repoPath, filePath), 'utf-8');
+                        }
+                        catch {
+                            continue;
+                        }
                     }
                     const importMap = getImportMap(allImportMaps, fileNode.id);
                     REEXPORT_RE.lastIndex = 0;

@@ -77,6 +77,7 @@ export const ormPhase: PipelinePhase<OrmOutput> = {
   name: 'orm',
   deps: ['parse', 'structure'],
   async execute(ctx, deps) {
+    if (ctx.allFilesCached) return { entities: [], entityNodes: [], fieldNodes: [], hasFieldEdges: [] };
     const { fileNodes } = deps.get('structure') as StructureOutput;
     const entities: EntityDef[] = [];
     const entityNodes: MonographNode[] = [];

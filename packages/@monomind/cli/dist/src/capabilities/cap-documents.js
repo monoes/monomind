@@ -1,5 +1,5 @@
 import fs from 'fs';
-const DOC_EXTENSIONS = new Set([
+export const DOC_EXTENSIONS = new Set([
     '.pdf',
     '.docx',
     '.doc',
@@ -15,7 +15,7 @@ const DOC_EXTENSIONS = new Set([
 const MAX_INDEX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — skip oversized text files
 // In-memory index for T0 (metadata) and T1 (content) — replaced by memory DB in production
 const indexedDocs = new Map();
-async function extractText(file) {
+export async function extractText(file) {
     if (file.size > MAX_INDEX_FILE_SIZE)
         return '';
     const ext = file.extension;

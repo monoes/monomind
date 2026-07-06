@@ -3,6 +3,8 @@ export const wildcardSynthesisPhase = {
     name: 'wildcard-synthesis',
     deps: ['parse', 'cross-file'],
     async execute(ctx, deps) {
+        if (ctx.allFilesCached)
+            return { synthesizedCount: 0 };
         const { symbolNodes: allNodes, allEdges, fileContents } = deps.get('parse');
         const { resolvedEdges } = deps.get('cross-file');
         const allKnownEdges = [...allEdges, ...resolvedEdges];

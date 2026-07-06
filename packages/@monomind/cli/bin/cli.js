@@ -200,16 +200,43 @@ if (isMCPMode) {
   // filesystem paths. Sanitize before logging and exit non-zero.
   const safeMsg = (m) =>
     String(m == null ? '' : m).replace(/[\x00-\x1f\x7f-\x9f]/g, '?').slice(0, 1000);
+  // Crash reporting: files a GitHub issue on monoes/monomind for uncaught
+  // crashes (on by default, `monomind crash-reporting disable` to opt out).
+  // Bounded so a crash handler can't hang the process indefinitely on a
+  // stalled network call — best-effort only, never blocks exit past 10s.
+  const reportAndExit = async (title, stack) => {
+    try {
+      const { reportCrash } = await import('../dist/src/services/crash-reporter.js');
+      const body = [
+        `Uncaught crash in \`monomind\` CLI.`,
+        ``,
+        `Node ${process.version}, ${process.platform}/${process.arch}`,
+        ``,
+        '```',
+        stack || title,
+        '```',
+      ].join('\n');
+      const result = await Promise.race([
+        reportCrash({ repo: 'monoes/monomind', title: `crash: ${title}`, body }),
+        new Promise((resolve) => setTimeout(() => resolve({ status: 'error', message: 'crash report timed out after 10s' }), 10_000)),
+      ]);
+      if (result && result.message) console.error(`[${new Date().toISOString()}] INFO [monomind] crash-report: ${result.message}`);
+    } catch {
+      // never let crash reporting itself crash the crash handler
+    }
+    process.exit(1);
+  };
   process.on('uncaughtException', (err) => {
     console.error(`[${new Date().toISOString()}] FATAL [monomind] uncaughtException: ${safeMsg(err && err.message)}`);
     if (process.env.DEBUG) console.error(err && err.stack);
-    process.exit(1);
+    reportAndExit(safeMsg(err && err.message) || 'uncaughtException', err && err.stack);
+    return;
   });
   process.on('unhandledRejection', (reason) => {
     const msg = reason instanceof Error ? reason.message : String(reason);
     console.error(`[${new Date().toISOString()}] FATAL [monomind] unhandledRejection: ${safeMsg(msg)}`);
     if (process.env.DEBUG && reason instanceof Error) console.error(reason.stack);
-    process.exit(1);
+    reportAndExit(safeMsg(msg) || 'unhandledRejection', reason instanceof Error ? reason.stack : undefined);
   });
 
   const { CLI } = await import('../dist/src/index.js');

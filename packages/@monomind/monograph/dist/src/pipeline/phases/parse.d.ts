@@ -5,6 +5,10 @@ export interface ParseOutput {
     allEdges: MonographEdge[];
     parseErrors: string[];
     fileContents: Map<string, string>;
+    cacheStats: {
+        hits: number;
+        misses: number;
+    };
 }
 export declare const parsePhase: PipelinePhase<ParseOutput>;
 export declare function extractCsharpNamespaces(source: string, filePath: string): Array<{

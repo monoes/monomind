@@ -75,6 +75,8 @@
 .monomind/security/
 .monomind/worker-dispatch/
 .monomind/.monomind_inner/
+.monomind/parse-cache/
+**/.monomind/parse-cache/
 # Runtime state files at .monomind/ root (contain cwd paths / session ids)
 .monomind/*.json
 .monomind/*.jsonl

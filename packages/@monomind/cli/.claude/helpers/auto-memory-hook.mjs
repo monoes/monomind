@@ -309,6 +309,22 @@ async function doImport() {
     dim(`Import failed (non-critical): ${err.message}`);
   }
 
+  // Second Brain: re-index new/changed documents on session start
+  try {
+    const capFile = join(PROJECT_ROOT, '.monomind', 'capabilities.json');
+    if (existsSync(capFile)) {
+      const caps = JSON.parse(readFileSync(capFile, 'utf-8'));
+      const hasDocsCap = Array.isArray(caps) ? caps.includes('documents') : (caps && caps.documents);
+      if (hasDocsCap) {
+        const { ingestDirectory } = await import(join(PROJECT_ROOT, 'packages/@monomind/cli/dist/src/knowledge/document-pipeline.js'));
+        const docResult = await ingestDirectory(PROJECT_ROOT, 'shared');
+        if (docResult.filesProcessed > 0) {
+          dim(`├─ Second Brain: indexed ${docResult.totalChunks} new chunks from ${docResult.filesProcessed} docs`);
+        }
+      }
+    }
+  } catch { /* non-fatal — knowledge indexing is best-effort */ }
+
   await backend.shutdown();
 }
 

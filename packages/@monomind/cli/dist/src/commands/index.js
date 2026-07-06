@@ -77,6 +77,10 @@ const commandLoaders = {
     search: () => import('./search-universal.js'),
     // Re-scan directory and update capability fingerprint
     scan: () => import('./scan.js'),
+    'report-crash': () => import('./report-crash.js'),
+    'crash-reporting': () => import('./crash-reporting.js'),
+    // Second Brain document management
+    doc: () => import('./doc.js'),
 };
 // Cache for loaded commands
 const loadedCommands = new Map();
@@ -156,6 +160,9 @@ import { designCommand } from './design-detect.js';
 import { enrichCommand } from './enrich.js';
 import { searchUniversalCommand } from './search-universal.js';
 import { scanCommand } from './scan.js';
+import { reportCrashCommand } from './report-crash.js';
+import { crashReportingCommand } from './crash-reporting.js';
+import { docCommand } from './doc.js';
 // Pre-populate cache with core commands
 loadedCommands.set('init', initCommand);
 loadedCommands.set('start', startCommand);
@@ -188,6 +195,9 @@ loadedCommands.set('design', designCommand);
 loadedCommands.set('enrich', enrichCommand);
 loadedCommands.set('search', searchUniversalCommand);
 loadedCommands.set('scan', scanCommand);
+loadedCommands.set('report-crash', reportCrashCommand);
+loadedCommands.set('crash-reporting', crashReportingCommand);
+loadedCommands.set('doc', docCommand);
 // =============================================================================
 // Exports (maintain backwards compatibility)
 // =============================================================================
@@ -218,6 +228,9 @@ export { designCommand } from './design-detect.js';
 export { enrichCommand } from './enrich.js';
 export { searchUniversalCommand } from './search-universal.js';
 export { scanCommand } from './scan.js';
+export { reportCrashCommand } from './report-crash.js';
+export { crashReportingCommand } from './crash-reporting.js';
+export { docCommand } from './doc.js';
 // Lazy-loaded command re-exports (for backwards compatibility, but async-only)
 export async function getConfigCommand() { return loadCommand('config'); }
 export async function getMigrateCommand() { return loadCommand('migrate'); }
@@ -274,6 +287,8 @@ export const commands = [
     enrichCommand,
     searchUniversalCommand,
     scanCommand,
+    docCommand,
+    crashReportingCommand,
 ];
 /**
  * Commands organized by category for help display
@@ -286,6 +301,7 @@ export const commandsByCategory = {
         agentCommand,
         swarmCommand,
         memoryCommand,
+        docCommand,
         taskCommand,
         sessionCommand,
         mcpCommand,

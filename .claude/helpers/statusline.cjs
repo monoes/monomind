@@ -1068,9 +1068,6 @@ function generateStatusline() {
     parts.push(b);
   }
 
-  // Model
-  parts.push(`${x.violet}${getModelName()}${x.reset}`);
-
   // Active agent
   const activeAgent = getActiveAgent();
   if (activeAgent) {
@@ -1135,7 +1132,6 @@ function generateStatusline() {
 // ── Multi-line dashboard (full mode) ─────────────────────────────
 function generateDashboard() {
   const git         = getGitInfo();
-  const modelName   = getModelName();
   const progress    = getv1Progress();
   const security    = getSecurityStatus();
   const swarm       = getSwarmStatus();
@@ -1168,19 +1164,7 @@ function generateDashboard() {
     if (git.behind   > 0) hdr += `  ${x.coral}↓${git.behind}${x.reset}`;
   }
 
-  hdr += `  ${DIV}  🤖 ${x.violet}${x.bold}${modelName}${x.reset}`;
   if (session.duration) hdr += `  ${x.dim}⏱ ${session.duration}${x.reset}`;
-
-  // Token cost in dashboard header — today's spend (all projects)
-  const tokenCost = getTokenCostSummary();
-  if (tokenCost) {
-    if (tokenCost.isFresh && tokenCost.todayCost > 0) {
-      const col = tokenCost.todayCost > 50 ? x.coral : tokenCost.todayCost > 10 ? x.gold : x.mint;
-      hdr += `  ${DIV}  ${col}${fmtCost(tokenCost.todayCost)} today${x.reset}${x.dim} · ${fmtCost(tokenCost.monthCost)} mo${x.reset}`;
-    } else if (tokenCost.monthCost > 0) {
-      hdr += `  ${DIV}  ${x.slate}${fmtCost(tokenCost.monthCost)} mo${x.reset}`;
-    }
-  }
 
   lines.push(hdr);
   lines.push(SEP);
@@ -1214,16 +1198,6 @@ function generateDashboard() {
     loopStr = `${x.slate}🔄 no active loops${x.reset}`;
   }
 
-  // Graph usage ratio + $ saved — show only when there's data
-  const usage = getGraphUsage();
-  let usageStr = '';
-  if (usage) {
-    const col = usage.pct >= 40 ? x.green : usage.pct >= 15 ? x.gold : x.coral;
-    const savedCol = usage.dollarsSaved >= 0.10 ? x.green : x.slate;
-    const savedStr = `   ${savedCol}💰 $${usage.dollarsSaved.toFixed(2)}${x.reset}`;
-    usageStr = `   ${DIV}   ${col}📊 graph ${usage.pct}%${x.reset}${x.slate} · grep ${100 - usage.pct}%${x.reset}${savedStr}`;
-  }
-
   // Hook latency — surface when slow (>500ms per prompt)
   const lat = getHookLatency();
   let latStr = '';
@@ -1233,7 +1207,7 @@ function generateDashboard() {
     latStr = `   ${DIV}   ${x.dim}⚡ ${lat.perPromptMs}ms${x.reset}`;
   }
 
-  lines.push(`${x.purple}🤖  AGENT${x.reset}    ${agentStr}   ${DIV}   ${loopStr}${usageStr}${latStr}`);
+  lines.push(`${x.purple}🤖  AGENT${x.reset}    ${agentStr}   ${DIV}   ${loopStr}${latStr}`);
   lines.push(SEP);
 
   // ── Row 2: Graph freshness + Pending HIL ─────────────────────
@@ -1242,22 +1216,43 @@ function generateDashboard() {
   let graphStr;
   if (gf.exists) {
     const nodesFmt = gf.nodes >= 1000 ? `${(gf.nodes / 1000).toFixed(0)}k` : `${gf.nodes}`;
+    const edgesFmt = gf.edges >= 1000 ? `${(gf.edges / 1000).toFixed(0)}k` : `${gf.edges}`;
     const freshTag = freshness.fresh
       ? `${x.green}● fresh${x.reset}`
       : freshness.stale
         ? `${x.coral}● ${freshness.commitsBehind} commits stale${x.reset}`
         : `${x.gold}● ${freshness.commitsBehind} behind${x.reset}`;
-    graphStr = `${x.sky}🔗 ${x.bold}${nodesFmt}${x.reset}${x.slate} nodes${x.reset}  ${freshTag}`;
+    graphStr = `${x.sky}🔗 ${x.bold}${nodesFmt}${x.reset}${x.slate} nodes${x.reset}  ${x.bold}${edgesFmt}${x.reset}${x.slate} edges${x.reset}  ${freshTag}`;
   } else {
     graphStr = `${x.slate}🔗 no graph${x.reset}`;
   }
 
   const hil = getHILPending();
-  const hilStr = hil.pending > 0
-    ? `${x.coral}✨ ${x.bold}${hil.pending}${x.reset}${x.coral} HIL pending${x.reset}`
-    : `${x.slate}✨ no pending HIL${x.reset}`;
+  let contextLine = `${x.teal}🧠  CONTEXT${x.reset}  ${graphStr}`;
+  if (hil.pending > 0) {
+    contextLine += `   ${DIV}   ${x.coral}✨ ${x.bold}${hil.pending}${x.reset}${x.coral} HIL pending${x.reset}`;
+  }
 
-  lines.push(`${x.teal}🧠  CONTEXT${x.reset}  ${graphStr}   ${DIV}   ${hilStr}`);
+  // Graph usage ratio + $ saved
+  const usage = getGraphUsage();
+  if (usage) {
+    const col = usage.pct >= 40 ? x.green : usage.pct >= 15 ? x.gold : x.coral;
+    const savedCol = usage.dollarsSaved >= 0.10 ? x.green : x.slate;
+    contextLine += `   ${DIV}   ${col}📊 graph ${usage.pct}%${x.reset}${x.slate} · grep ${100 - usage.pct}%${x.reset}   ${savedCol}💰 $${usage.dollarsSaved.toFixed(2)}${x.reset}`;
+  }
+
+  // Token cost
+  const tokenCost = getTokenCostSummary();
+  if (tokenCost) {
+    if (tokenCost.isFresh && tokenCost.todayCost > 0) {
+      const col = tokenCost.todayCost > 50 ? x.coral : tokenCost.todayCost > 10 ? x.gold : x.mint;
+      contextLine += `   ${DIV}   ${col}${fmtCost(tokenCost.todayCost)} today${x.reset}${x.dim} · ${fmtCost(tokenCost.monthCost)} mo${x.reset}`;
+    } else if (tokenCost.monthCost > 0) {
+      contextLine += `   ${DIV}   ${x.slate}${fmtCost(tokenCost.monthCost)} mo${x.reset}`;
+    }
+  }
+
+  lines.push(contextLine);
 
   // ── Row 3: Active org runs ───────────────────────────────────
   const orgStatus = getActiveOrgs();
