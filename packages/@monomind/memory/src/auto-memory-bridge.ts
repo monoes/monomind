@@ -26,6 +26,7 @@ import {
 } from './types.js';
 import { LearningBridge, type LearningBridgeConfig } from './learning-bridge.js';
 import { MemoryGraph, type MemoryGraphConfig } from './memory-graph.js';
+import type { EpisodicStore } from './episodic-store.js';
 
 // ===== Types =====
 
@@ -222,6 +223,8 @@ export class AutoMemoryBridge extends EventEmitter {
   private learningBridge?: LearningBridge;
   /** Optional knowledge graph (ADR-049) */
   private memoryGraph?: MemoryGraph;
+  /** Optional episodic store for AutoMem trace logging */
+  private episodicStore?: EpisodicStore;
 
   constructor(backend: IMemoryBackend, config: AutoMemoryBridgeConfig = {}) {
     super();
@@ -252,6 +255,11 @@ export class AutoMemoryBridge extends EventEmitter {
     }
   }
 
+  /** Attach an episodic store for AutoMem trace logging */
+  setEpisodicStore(store: EpisodicStore): void {
+    this.episodicStore = store;
+  }
+
   /** Get the resolved auto memory directory path */
   getMemoryDir(): string {
     return this.config.memoryDir;
@@ -270,9 +278,19 @@ export class AutoMemoryBridge extends EventEmitter {
 
   /**
    * Record a memory insight.
-   * Stores in the in-memory buffer and optionally writes immediately.
+   * Consult-before-write: searches for similar content first (AutoMem discipline,
+   * arXiv:2607.01224 Table 2 — 54–72% redundant write reduction).
    */
   async recordInsight(insight: MemoryInsight): Promise<void> {
+    // AutoMem: consult existing memory before writing
+    const isDuplicate = await this.consultBeforeWrite(insight);
+    if (isDuplicate) {
+      this.learningBridge?.recordMemoryWrite(true);
+      this.episodicStore?.logMemoryOp('skip-duplicate', insight.summary);
+      this.emit('insight:skipped-duplicate', insight);
+      return;
+    }
+
     this.insights.push(insight);
 
     // Store in memory backend
@@ -286,9 +304,11 @@ export class AutoMemoryBridge extends EventEmitter {
 
     // ADR-049: Notify learning bridge
     if (this.learningBridge) {
+      this.learningBridge.recordMemoryWrite(false);
       await this.learningBridge.onInsightRecorded(insight, key);
     }
 
+    this.episodicStore?.logMemoryOp('write', `[${insight.category}] ${insight.summary}`);
     this.emit('insight:recorded', insight);
   }
 
@@ -737,6 +757,67 @@ export class AutoMemoryBridge extends EventEmitter {
       return hashes;
     } catch {
       return new Set();
+    }
+  }
+
+  /**
+   * AutoMem consult-before-write: search for similar content before storing.
+   * Returns true if a sufficiently similar entry already exists (skip the write).
+   */
+  private async consultBeforeWrite(insight: MemoryInsight): Promise<boolean> {
+    try {
+      const results = await this.backend.query({
+        type: 'hybrid',
+        content: insight.summary,
+        namespace: 'learnings',
+        tags: ['insight', insight.category],
+        limit: 3,
+      });
+
+      const empty = results.length === 0;
+      this.learningBridge?.recordMemorySearch(empty);
+      this.episodicStore?.logMemoryOp('search', `${insight.category}: ${insight.summary.substring(0, 80)}`);
+
+      const hash = hashContent(insight.detail ? `${insight.summary}\n\n${insight.detail}` : insight.summary);
+      return results.some(e => (e.metadata?.contentHash as string) === hash);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Flag entries never accessed since creation, older than `ageDays`.
+   * AutoMem insight: if a write is never read, it was a wasted write.
+   * Returns the count of flagged entries.
+   */
+  async flagStaleEntries(ageDays: number = 7): Promise<number> {
+    const cutoff = Date.now() - ageDays * 86_400_000;
+    try {
+      const entries = await this.backend.query({
+        type: 'hybrid',
+        namespace: 'learnings',
+        tags: ['insight'],
+        createdBefore: cutoff,
+        limit: 200,
+      });
+
+      let flagged = 0;
+      for (const entry of entries) {
+        if ((entry.accessCount ?? 0) === 0) {
+          await this.backend.update(entry.id, {
+            tags: [...(entry.tags || []), 'stale:never-read'],
+          });
+          flagged++;
+        }
+      }
+
+      if (flagged > 0) {
+        this.episodicStore?.logMemoryOp('flag-stale', `${flagged} entries never read in ${ageDays}d`);
+        this.emit('insights:stale-flagged', { count: flagged, ageDays });
+      }
+      return flagged;
+    } catch {
+      return 0;
     }
   }
 

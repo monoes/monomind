@@ -400,3 +400,34 @@ export async function checkGuidanceGates(): Promise<HealthCheck> {
     return { name: 'Guidance Gates', status: 'warn', message: 'Could not parse .claude/settings.json', fix: 'monomind guidance setup --force' };
   }
 }
+
+/**
+ * AutoMem proficiency check — reports memory learning health (arXiv:2607.01224)
+ */
+export async function checkMemoryProficiency(): Promise<HealthCheck> {
+  try {
+    const intelligenceMod = await import('../memory/intelligence.js');
+    const stats = intelligenceMod.getMemoryProficiencyStats();
+    const bankStats = intelligenceMod.getIntelligenceStats();
+
+    if (stats.totalDecisions === 0) {
+      return {
+        name: 'Memory Proficiency',
+        status: 'warn',
+        message: 'No memory decisions recorded yet — AutoMem LOG/PLAN not active',
+        fix: 'Complete tasks with pre-task/post-task hooks enabled',
+      };
+    }
+
+    const successPct = Math.round(stats.successRate * 100);
+    const hitPct = Math.round(stats.patternHitRate * 100);
+    const msg = `${stats.totalDecisions} decisions, ${successPct}% success, ${stats.proficiencyPatterns} patterns, ${hitPct}% hit rate (bank: ${bankStats.patternsLearned} total)`;
+
+    if (stats.successRate < 0.5) {
+      return { name: 'Memory Proficiency', status: 'warn', message: msg };
+    }
+    return { name: 'Memory Proficiency', status: 'pass', message: msg };
+  } catch {
+    return { name: 'Memory Proficiency', status: 'warn', message: 'Could not load intelligence module' };
+  }
+}
