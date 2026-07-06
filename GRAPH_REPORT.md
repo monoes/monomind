@@ -1,20 +1,20 @@
 # Graph Report
 
-_Generated: 2026-07-06T17:52:16.706Z_
+_Generated: 2026-07-06T20:54:30.880Z_
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
-| Total nodes | 19765 |
-| Total edges | 31723 |
+| Total nodes | 19767 |
+| Total edges | 31728 |
 | Communities | 718 |
 
 ## Nodes by Type
 
 | Label | Count |
 |-------|-------|
-| Function | 9724 |
+| Function | 9726 |
 | Variable | 2632 |
 | Method | 2492 |
 | Interface | 2412 |
@@ -33,8 +33,8 @@ _Generated: 2026-07-06T17:52:16.706Z_
 
 | Relation | Count |
 |----------|-------|
-| CONTAINS | 18509 |
-| CALLS | 9582 |
+| CONTAINS | 18513 |
+| CALLS | 9583 |
 | IMPORTS | 1859 |
 | REFERENCES | 748 |
 | ENTRY_POINT_OF | 497 |
@@ -114,12 +114,12 @@ _Generated: 2026-07-06T17:52:16.706Z_
 - **community-164(packages__monomind_c)** (id: 164) — 47 members
 - **community-106(packages__monomind_c)** (id: 106) — 47 members
 - **community-116(packages__monomind_c)** (id: 116) — 46 members
+- **community-93(packages__monomind_c)** (id: 93) — 46 members
 - **community-708(tests_hooks_utility_)** (id: 708) — 45 members
 - **community-635(packages__monomind_m)** (id: 635) — 45 members
 - **community-176(packages__monomind_g)** (id: 176) — 45 members
 - **community-133(packages__monomind_c)** (id: 133) — 45 members
 - **community-195(packages__monomind_g)** (id: 195) — 44 members
-- **community-93(packages__monomind_c)** (id: 93) — 44 members
 - **community-572(packages__monomind_m)** (id: 572) — 43 members
 - **community-173(packages__monomind_g)** (id: 173) — 43 members
 - **community-137(packages__monomind_c)** (id: 137) — 43 members
@@ -787,7 +787,7 @@ _No stale files detected._
 
 | Confidence | Count | Percentage |
 |-----------|-------|------------|
-| EXTRACTED | 31428 | 99.1% |
+| EXTRACTED | 31433 | 99.1% |
 | INFERRED | 295 | 0.9% |
 
 ## Suggested Questions

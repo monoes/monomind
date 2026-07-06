@@ -28,26 +28,26 @@ export declare const GenerateTestsInputSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     style: "tdd-london" | "tdd-chicago" | "bdd" | "example-based";
     targetPath: string;
-    testType: "property" | "e2e" | "unit" | "integration" | "mutation" | "fuzz";
+    testType: "unit" | "integration" | "e2e" | "property" | "mutation" | "fuzz";
     includeEdgeCases: boolean;
     includeMocks: boolean;
     maxTests: number;
+    language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
+    framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
     coverage?: {
         target: number;
         focusGaps: boolean;
     } | undefined;
-    language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
-    framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
 }, {
     targetPath: string;
+    language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
+    framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
     coverage?: {
         target?: number | undefined;
         focusGaps?: boolean | undefined;
     } | undefined;
-    language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
-    framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
     style?: "tdd-london" | "tdd-chicago" | "bdd" | "example-based" | undefined;
-    testType?: "property" | "e2e" | "unit" | "integration" | "mutation" | "fuzz" | undefined;
+    testType?: "unit" | "integration" | "e2e" | "property" | "mutation" | "fuzz" | undefined;
     includeEdgeCases?: boolean | undefined;
     includeMocks?: boolean | undefined;
     maxTests?: number | undefined;
@@ -131,26 +131,26 @@ export declare const toolDefinition: {
     }, "strip", z.ZodTypeAny, {
         style: "tdd-london" | "tdd-chicago" | "bdd" | "example-based";
         targetPath: string;
-        testType: "property" | "e2e" | "unit" | "integration" | "mutation" | "fuzz";
+        testType: "unit" | "integration" | "e2e" | "property" | "mutation" | "fuzz";
         includeEdgeCases: boolean;
         includeMocks: boolean;
         maxTests: number;
+        language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
+        framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
         coverage?: {
             target: number;
             focusGaps: boolean;
         } | undefined;
-        language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
-        framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
     }, {
         targetPath: string;
+        language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
+        framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
         coverage?: {
             target?: number | undefined;
             focusGaps?: boolean | undefined;
         } | undefined;
-        language?: "typescript" | "javascript" | "python" | "go" | "rust" | "java" | undefined;
-        framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
         style?: "tdd-london" | "tdd-chicago" | "bdd" | "example-based" | undefined;
-        testType?: "property" | "e2e" | "unit" | "integration" | "mutation" | "fuzz" | undefined;
+        testType?: "unit" | "integration" | "e2e" | "property" | "mutation" | "fuzz" | undefined;
         includeEdgeCases?: boolean | undefined;
         includeMocks?: boolean | undefined;
         maxTests?: number | undefined;

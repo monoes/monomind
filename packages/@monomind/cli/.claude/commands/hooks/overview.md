@@ -110,8 +110,3 @@ Optionally adds:
 5. **EMBED** — Index documents with ONNX model
 6. **HYPERBOLIC** — Poincaré ball projection for hierarchy preservation
 
-## Model Routing Output (pre-task)
-
-`npx monomind hooks pre-task -d "your task"` outputs one of:
-- `[AGENT_BOOSTER_AVAILABLE]` — skip LLM entirely, use Agent Booster (< 1ms, $0)
-- `[TASK_MODEL_RECOMMENDATION] Use model="haiku|sonnet|opus"` — use that model in Task tool

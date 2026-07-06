@@ -16,18 +16,18 @@ export declare const SuggestTestsInputSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     framework: "vitest" | "jest" | "mocha" | "pytest" | "junit";
     targetPath: string;
+    focusAreas: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[];
     maxSuggestions: number;
-    focusAreas: ("boundaries" | "lines" | "branches" | "functions" | "edge-cases" | "error-handling")[];
-    priorityBy: "complexity" | "risk" | "coverage-impact" | "change-frequency";
+    priorityBy: "risk" | "complexity" | "coverage-impact" | "change-frequency";
     includeCode: boolean;
     coverageReport?: string | undefined;
 }, {
     targetPath: string;
     framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
-    maxSuggestions?: number | undefined;
-    focusAreas?: ("boundaries" | "lines" | "branches" | "functions" | "edge-cases" | "error-handling")[] | undefined;
     coverageReport?: string | undefined;
-    priorityBy?: "complexity" | "risk" | "coverage-impact" | "change-frequency" | undefined;
+    focusAreas?: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[] | undefined;
+    maxSuggestions?: number | undefined;
+    priorityBy?: "risk" | "complexity" | "coverage-impact" | "change-frequency" | undefined;
     includeCode?: boolean | undefined;
 }>;
 export type SuggestTestsInput = z.infer<typeof SuggestTestsInputSchema>;
@@ -121,18 +121,18 @@ export declare const toolDefinition: {
     }, "strip", z.ZodTypeAny, {
         framework: "vitest" | "jest" | "mocha" | "pytest" | "junit";
         targetPath: string;
+        focusAreas: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[];
         maxSuggestions: number;
-        focusAreas: ("boundaries" | "lines" | "branches" | "functions" | "edge-cases" | "error-handling")[];
-        priorityBy: "complexity" | "risk" | "coverage-impact" | "change-frequency";
+        priorityBy: "risk" | "complexity" | "coverage-impact" | "change-frequency";
         includeCode: boolean;
         coverageReport?: string | undefined;
     }, {
         targetPath: string;
         framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
-        maxSuggestions?: number | undefined;
-        focusAreas?: ("boundaries" | "lines" | "branches" | "functions" | "edge-cases" | "error-handling")[] | undefined;
         coverageReport?: string | undefined;
-        priorityBy?: "complexity" | "risk" | "coverage-impact" | "change-frequency" | undefined;
+        focusAreas?: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[] | undefined;
+        maxSuggestions?: number | undefined;
+        priorityBy?: "risk" | "complexity" | "coverage-impact" | "change-frequency" | undefined;
         includeCode?: boolean | undefined;
     }>;
     handler: typeof handler;

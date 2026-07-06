@@ -28,7 +28,7 @@ const knowledgeIngest: MCPTool = {
     try {
       const stat = fs.statSync(target);
       if (stat.isDirectory()) {
-        const result = await ingestDirectory(target, scope);
+        const result = await ingestDirectory(target, scope, { rootDir: process.cwd() });
         return {
           content: [{
             type: 'text',

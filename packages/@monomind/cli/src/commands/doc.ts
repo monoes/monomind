@@ -32,6 +32,7 @@ const ingestCommand: Command = {
 
       if (stat.isDirectory()) {
         const result = await ingestDirectory(resolved, scope, {
+          rootDir: ctx.cwd || process.cwd(),
           onProgress: (file, done, total) => {
             spinner.setText(`[${done + 1}/${total}] ${path.basename(file)}`);
           },

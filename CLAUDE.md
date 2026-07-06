@@ -74,17 +74,6 @@
 - Never use MCP tools alone for execution — Task tool agents do the actual work
 - MUST call MCP tools AND Task tool in ONE message for complex work
 
-### 3-Tier Model Routing (ADR-026)
-
-| Tier  | Handler              | Latency | Cost         | Use Cases                                              |
-| ----- | -------------------- | ------- | ------------ | ------------------------------------------------------ |
-| **1** | Agent Booster (WASM) | <1ms    | $0           | Simple transforms (var->const, add types) -- skip LLM  |
-| **2** | Haiku                | ~500ms  | $0.0002      | Simple tasks, low complexity (<30%)                    |
-| **3** | Sonnet/Opus          | 2-5s    | $0.003-0.015 | Complex reasoning, architecture, security (>30%)       |
-
-- Check for `[AGENT_BOOSTER_AVAILABLE]` or `[TASK_MODEL_RECOMMENDATION]` before spawning agents
-- Use Edit tool directly when `[AGENT_BOOSTER_AVAILABLE]`
-
 ### Anti-Drift Coding Swarm (PREFERRED DEFAULT)
 
 - ALWAYS use hierarchical topology, maxAgents 6-8, specialized strategy

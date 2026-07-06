@@ -325,7 +325,7 @@ export async function executeInit(options) {
                 try {
                     const { ingestDirectory } = await import('../knowledge/document-pipeline.js');
                     console.log('\nIndexing documents for Second Brain...');
-                    const docResult = await ingestDirectory(targetDir, 'shared');
+                    const docResult = await ingestDirectory(targetDir, 'shared', { rootDir: targetDir });
                     if (docResult.filesProcessed > 0) {
                         console.log(`  ✓ ${docResult.totalChunks} chunks from ${docResult.filesProcessed} documents`);
                     }

@@ -317,7 +317,7 @@ async function doImport() {
       const hasDocsCap = Array.isArray(caps) ? caps.includes('documents') : (caps && caps.documents);
       if (hasDocsCap) {
         const { ingestDirectory } = await import(join(PROJECT_ROOT, 'packages/@monomind/cli/dist/src/knowledge/document-pipeline.js'));
-        const docResult = await ingestDirectory(PROJECT_ROOT, 'shared');
+        const docResult = await ingestDirectory(PROJECT_ROOT, 'shared', { rootDir: PROJECT_ROOT });
         if (docResult.filesProcessed > 0) {
           dim(`├─ Second Brain: indexed ${docResult.totalChunks} new chunks from ${docResult.filesProcessed} docs`);
         }

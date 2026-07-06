@@ -13,14 +13,14 @@ export declare const EvaluateQualityGateInputSchema: z.ZodObject<{
         weight: z.ZodDefault<z.ZodNumber>;
         blocking: z.ZodDefault<z.ZodBoolean>;
     }, "strip", z.ZodTypeAny, {
-        metric: string;
         threshold: number;
-        operator: ">" | "<" | ">=" | "<=" | "==";
         weight: number;
+        metric: string;
+        operator: ">" | "<" | ">=" | "<=" | "==";
         blocking: boolean;
     }, {
-        metric: string;
         threshold: number;
+        metric: string;
         operator: ">" | "<" | ">=" | "<=" | "==";
         weight?: number | undefined;
         blocking?: boolean | undefined;
@@ -31,29 +31,29 @@ export declare const EvaluateQualityGateInputSchema: z.ZodObject<{
     failFast: z.ZodDefault<z.ZodBoolean>;
     generateReport: z.ZodDefault<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
-    includeMetrics: ("complexity" | "security" | "coverage" | "vulnerabilities" | "bugs" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[];
-    defaults: "strict" | "standard" | "minimal";
+    defaults: "minimal" | "standard" | "strict";
+    includeMetrics: ("security" | "coverage" | "complexity" | "bugs" | "vulnerabilities" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[];
     failFast: boolean;
     generateReport: boolean;
     gates?: {
-        metric: string;
         threshold: number;
-        operator: ">" | "<" | ">=" | "<=" | "==";
         weight: number;
+        metric: string;
+        operator: ">" | "<" | ">=" | "<=" | "==";
         blocking: boolean;
     }[] | undefined;
     projectPath?: string | undefined;
 }, {
-    includeMetrics?: ("complexity" | "security" | "coverage" | "vulnerabilities" | "bugs" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[] | undefined;
     gates?: {
-        metric: string;
         threshold: number;
+        metric: string;
         operator: ">" | "<" | ">=" | "<=" | "==";
         weight?: number | undefined;
         blocking?: boolean | undefined;
     }[] | undefined;
-    defaults?: "strict" | "standard" | "minimal" | undefined;
+    defaults?: "minimal" | "standard" | "strict" | undefined;
     projectPath?: string | undefined;
+    includeMetrics?: ("security" | "coverage" | "complexity" | "bugs" | "vulnerabilities" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[] | undefined;
     failFast?: boolean | undefined;
     generateReport?: boolean | undefined;
 }>;
@@ -185,14 +185,14 @@ export declare const toolDefinition: {
             weight: z.ZodDefault<z.ZodNumber>;
             blocking: z.ZodDefault<z.ZodBoolean>;
         }, "strip", z.ZodTypeAny, {
-            metric: string;
             threshold: number;
-            operator: ">" | "<" | ">=" | "<=" | "==";
             weight: number;
+            metric: string;
+            operator: ">" | "<" | ">=" | "<=" | "==";
             blocking: boolean;
         }, {
-            metric: string;
             threshold: number;
+            metric: string;
             operator: ">" | "<" | ">=" | "<=" | "==";
             weight?: number | undefined;
             blocking?: boolean | undefined;
@@ -203,29 +203,29 @@ export declare const toolDefinition: {
         failFast: z.ZodDefault<z.ZodBoolean>;
         generateReport: z.ZodDefault<z.ZodBoolean>;
     }, "strip", z.ZodTypeAny, {
-        includeMetrics: ("complexity" | "security" | "coverage" | "vulnerabilities" | "bugs" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[];
-        defaults: "strict" | "standard" | "minimal";
+        defaults: "minimal" | "standard" | "strict";
+        includeMetrics: ("security" | "coverage" | "complexity" | "bugs" | "vulnerabilities" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[];
         failFast: boolean;
         generateReport: boolean;
         gates?: {
-            metric: string;
             threshold: number;
-            operator: ">" | "<" | ">=" | "<=" | "==";
             weight: number;
+            metric: string;
+            operator: ">" | "<" | ">=" | "<=" | "==";
             blocking: boolean;
         }[] | undefined;
         projectPath?: string | undefined;
     }, {
-        includeMetrics?: ("complexity" | "security" | "coverage" | "vulnerabilities" | "bugs" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[] | undefined;
         gates?: {
-            metric: string;
             threshold: number;
+            metric: string;
             operator: ">" | "<" | ">=" | "<=" | "==";
             weight?: number | undefined;
             blocking?: boolean | undefined;
         }[] | undefined;
-        defaults?: "strict" | "standard" | "minimal" | undefined;
+        defaults?: "minimal" | "standard" | "strict" | undefined;
         projectPath?: string | undefined;
+        includeMetrics?: ("security" | "coverage" | "complexity" | "bugs" | "vulnerabilities" | "code-smells" | "duplications" | "technical-debt" | "reliability" | "maintainability")[] | undefined;
         failFast?: boolean | undefined;
         generateReport?: boolean | undefined;
     }>;

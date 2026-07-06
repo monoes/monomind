@@ -186,13 +186,13 @@ export declare const AgentStateSchema: z.ZodObject<{
     vote: z.ZodOptional<z.ZodString>;
     metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
 }, "strip", z.ZodTypeAny, {
-    agentId: string;
     embedding: number[];
+    agentId: string;
     metadata?: Record<string, unknown> | undefined;
     vote?: string | undefined;
 }, {
-    agentId: string;
     embedding: number[];
+    agentId: string;
     metadata?: Record<string, unknown> | undefined;
     vote?: string | undefined;
 }>;
@@ -204,13 +204,13 @@ export declare const ConsensusInputSchema: z.ZodObject<{
         vote: z.ZodOptional<z.ZodString>;
         metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
     }, "strip", z.ZodTypeAny, {
-        agentId: string;
         embedding: number[];
+        agentId: string;
         metadata?: Record<string, unknown> | undefined;
         vote?: string | undefined;
     }, {
-        agentId: string;
         embedding: number[];
+        agentId: string;
         metadata?: Record<string, unknown> | undefined;
         vote?: string | undefined;
     }>, "many">;
@@ -218,15 +218,15 @@ export declare const ConsensusInputSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     threshold: number;
     agentStates: {
-        agentId: string;
         embedding: number[];
+        agentId: string;
         metadata?: Record<string, unknown> | undefined;
         vote?: string | undefined;
     }[];
 }, {
     agentStates: {
-        agentId: string;
         embedding: number[];
+        agentId: string;
         metadata?: Record<string, unknown> | undefined;
         vote?: string | undefined;
     }[];
@@ -250,11 +250,11 @@ export declare const SimplexSchema: z.ZodObject<{
     vertices: z.ZodArray<z.ZodNumber, "many">;
     dimension: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
-    dimension: number;
     vertices: number[];
+    dimension: number;
 }, {
-    dimension: number;
     vertices: number[];
+    dimension: number;
 }>;
 export type Simplex = z.infer<typeof SimplexSchema>;
 export declare const SimplicialComplexSchema: z.ZodObject<{
@@ -263,25 +263,25 @@ export declare const SimplicialComplexSchema: z.ZodObject<{
         vertices: z.ZodArray<z.ZodNumber, "many">;
         dimension: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
-        dimension: number;
         vertices: number[];
+        dimension: number;
     }, {
-        dimension: number;
         vertices: number[];
+        dimension: number;
     }>, "many">>;
     maxDimension: z.ZodDefault<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     vertices: number[][];
     maxDimension: number;
     simplices?: {
-        dimension: number;
         vertices: number[];
+        dimension: number;
     }[] | undefined;
 }, {
     vertices: number[][];
     simplices?: {
-        dimension: number;
         vertices: number[];
+        dimension: number;
     }[] | undefined;
     maxDimension?: number | undefined;
 }>;
@@ -293,25 +293,25 @@ export declare const TopologyInputSchema: z.ZodObject<{
             vertices: z.ZodArray<z.ZodNumber, "many">;
             dimension: z.ZodNumber;
         }, "strip", z.ZodTypeAny, {
-            dimension: number;
             vertices: number[];
+            dimension: number;
         }, {
-            dimension: number;
             vertices: number[];
+            dimension: number;
         }>, "many">>;
         maxDimension: z.ZodDefault<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         vertices: number[][];
         maxDimension: number;
         simplices?: {
-            dimension: number;
             vertices: number[];
+            dimension: number;
         }[] | undefined;
     }, {
         vertices: number[][];
         simplices?: {
-            dimension: number;
             vertices: number[];
+            dimension: number;
         }[] | undefined;
         maxDimension?: number | undefined;
     }>;
@@ -320,16 +320,16 @@ export declare const TopologyInputSchema: z.ZodObject<{
         vertices: number[][];
         maxDimension: number;
         simplices?: {
-            dimension: number;
             vertices: number[];
+            dimension: number;
         }[] | undefined;
     };
 }, {
     complex: {
         vertices: number[][];
         simplices?: {
-            dimension: number;
             vertices: number[];
+            dimension: number;
         }[] | undefined;
         maxDimension?: number | undefined;
     };
@@ -375,19 +375,19 @@ export declare const MemoryGateInputSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     key: string;
     value?: unknown;
-    existingVectors?: number[][] | undefined;
     thresholds?: {
         warn: number;
         reject: number;
     } | undefined;
+    existingVectors?: number[][] | undefined;
 }, {
     key: string;
     value?: unknown;
-    existingVectors?: number[][] | undefined;
     thresholds?: {
         warn?: number | undefined;
         reject?: number | undefined;
     } | undefined;
+    existingVectors?: number[][] | undefined;
 }>;
 export type MemoryGateInput = z.infer<typeof MemoryGateInputSchema>;
 export interface MemoryGateOutput {
