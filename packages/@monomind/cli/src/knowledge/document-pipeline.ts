@@ -241,9 +241,10 @@ export async function ingestDocument(
 export async function ingestDirectory(
   dirPath: string,
   scope = 'shared',
-  opts?: { onProgress?: (file: string, done: number, total: number) => void },
+  opts?: { rootDir?: string; onProgress?: (file: string, done: number, total: number) => void },
 ): Promise<BatchIngestResult> {
-  const resolved = path.resolve(dirPath);
+  const scanDir = path.resolve(dirPath);
+  const rootDir = path.resolve(opts?.rootDir ?? process.cwd());
   const files: string[] = [];
 
   function walk(dir: string, depth = 0) {
@@ -265,9 +266,9 @@ export async function ingestDirectory(
     }
   }
 
-  walk(resolved);
+  walk(scanDir);
 
-  const metadataCache = readMetadata(resolved);
+  const metadataCache = readMetadata(rootDir);
   const result: BatchIngestResult = {
     filesProcessed: 0,
     filesSkipped: 0,
@@ -278,7 +279,7 @@ export async function ingestDirectory(
 
   for (let i = 0; i < files.length; i++) {
     opts?.onProgress?.(files[i], i, files.length);
-    const r = await ingestDocument(files[i], scope, resolved, metadataCache);
+    const r = await ingestDocument(files[i], scope, rootDir, metadataCache);
     result.results.push(r);
 
     if (r.skipped) {

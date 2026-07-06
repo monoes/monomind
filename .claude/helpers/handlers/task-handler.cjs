@@ -18,25 +18,6 @@ module.exports = {
       try { session.metric('tasks'); } catch (e) { /* no active session */ }
     }
 
-    // ── Task 27: PerRunModelTier — inline complexity scoring ───────────────
-    var taskStr = typeof prompt === 'string' ? prompt : '';
-    if (taskStr) {
-      var score = 50;
-      var lower = taskStr.toLowerCase();
-      var words = taskStr.trim().split(/\s+/).length;
-      if (words < 20) score -= 20;
-      if (words > 100) score += 20;
-      if (words > 200) score += 10;
-      var highKw = ['architecture','distributed','security audit','cve','consensus','fault-tolerant','migrate','refactor across','orchestrat','design system','database schema','performance optim','threat model','encryption','zero-knowledge'];
-      var lowKwRe = /\b(format|list|rename|sort|typo|lint|log|comment|print|echo|delete unused|remove import)\b/i;
-      if (highKw.some(function(k) { return lower.includes(k); })) score += 10;
-      if (lowKwRe.test(lower)) score -= 10;
-      if (/(?:step\s*\d|first[\s,].*then[\s,]|phase\s*\d)/i.test(taskStr)) score += 10;
-      if (/```[\s\S]*?```/.test(taskStr) || /\b[\w.-]+\/[\w./-]+\b/.test(taskStr)) score += 5;
-      score = Math.max(0, Math.min(100, score));
-      var tier = score < 30 ? 'haiku' : score > 70 ? 'opus' : 'sonnet';
-      console.log('[TASK_MODEL_RECOMMENDATION] Use model="' + tier + '" (complexity=' + score + ')');
-    }
     // Task 06: AutoRetry — signal retry policy only if coordinator path is active
     if (hookInput.swarmCoordinator || hookInput.coordinator || hookInput.useRetry) {
       console.log('[AUTO_RETRY_ENABLED] maxAttempts=3 strategy=exponential-backoff backoffMs=1000');

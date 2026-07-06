@@ -39,9 +39,9 @@ export declare const FindSimilarDefectsInputSchema: z.ZodObject<{
         stackTrace?: string | undefined;
         codeSnippet?: string | undefined;
     };
+    groupBy: "none" | "component" | "category" | "resolution";
+    searchScope: "project" | "organization" | "global";
     maxResults: number;
-    groupBy: "category" | "none" | "component" | "resolution";
-    searchScope: "global" | "project" | "organization";
     minSimilarity: number;
     includeResolved: boolean;
     includeAnalysis: boolean;
@@ -53,9 +53,9 @@ export declare const FindSimilarDefectsInputSchema: z.ZodObject<{
         stackTrace?: string | undefined;
         codeSnippet?: string | undefined;
     };
+    groupBy?: "none" | "component" | "category" | "resolution" | undefined;
+    searchScope?: "project" | "organization" | "global" | undefined;
     maxResults?: number | undefined;
-    groupBy?: "category" | "none" | "component" | "resolution" | undefined;
-    searchScope?: "global" | "project" | "organization" | undefined;
     minSimilarity?: number | undefined;
     includeResolved?: boolean | undefined;
     includeAnalysis?: boolean | undefined;
@@ -182,9 +182,9 @@ export declare const toolDefinition: {
             stackTrace?: string | undefined;
             codeSnippet?: string | undefined;
         };
+        groupBy: "none" | "component" | "category" | "resolution";
+        searchScope: "project" | "organization" | "global";
         maxResults: number;
-        groupBy: "category" | "none" | "component" | "resolution";
-        searchScope: "global" | "project" | "organization";
         minSimilarity: number;
         includeResolved: boolean;
         includeAnalysis: boolean;
@@ -196,9 +196,9 @@ export declare const toolDefinition: {
             stackTrace?: string | undefined;
             codeSnippet?: string | undefined;
         };
+        groupBy?: "none" | "component" | "category" | "resolution" | undefined;
+        searchScope?: "project" | "organization" | "global" | undefined;
         maxResults?: number | undefined;
-        groupBy?: "category" | "none" | "component" | "resolution" | undefined;
-        searchScope?: "global" | "project" | "organization" | undefined;
         minSimilarity?: number | undefined;
         includeResolved?: boolean | undefined;
         includeAnalysis?: boolean | undefined;

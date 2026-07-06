@@ -15,12 +15,12 @@ export declare const AssessReadinessInputSchema: z.ZodObject<{
         weight: z.ZodDefault<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        category: "testing" | "documentation" | "compliance" | "quality" | "security" | "performance";
         required: boolean;
         weight: number;
+        category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
     }, {
         name: string;
-        category: "testing" | "documentation" | "compliance" | "quality" | "security" | "performance";
+        category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
         required?: boolean | undefined;
         weight?: number | undefined;
     }>, "many">>;
@@ -28,23 +28,23 @@ export declare const AssessReadinessInputSchema: z.ZodObject<{
     compareToRelease: z.ZodOptional<z.ZodString>;
     strictMode: z.ZodDefault<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
-    releaseType: "major" | "minor" | "patch" | "hotfix";
+    releaseType: "minor" | "major" | "patch" | "hotfix";
     includeChecks: ("dependencies" | "documentation" | "quality-gates" | "test-results" | "security-scan" | "performance-baseline" | "change-log" | "rollback-plan")[];
     strictMode: boolean;
     projectPath?: string | undefined;
     criteria?: {
         name: string;
-        category: "testing" | "documentation" | "compliance" | "quality" | "security" | "performance";
         required: boolean;
         weight: number;
+        category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
     }[] | undefined;
     compareToRelease?: string | undefined;
 }, {
-    releaseType?: "major" | "minor" | "patch" | "hotfix" | undefined;
     projectPath?: string | undefined;
+    releaseType?: "minor" | "major" | "patch" | "hotfix" | undefined;
     criteria?: {
         name: string;
-        category: "testing" | "documentation" | "compliance" | "quality" | "security" | "performance";
+        category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
         required?: boolean | undefined;
         weight?: number | undefined;
     }[] | undefined;
@@ -168,12 +168,12 @@ export declare const toolDefinition: {
             weight: z.ZodDefault<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
             name: string;
-            category: "testing" | "documentation" | "compliance" | "quality" | "security" | "performance";
             required: boolean;
             weight: number;
+            category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
         }, {
             name: string;
-            category: "testing" | "documentation" | "compliance" | "quality" | "security" | "performance";
+            category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
             required?: boolean | undefined;
             weight?: number | undefined;
         }>, "many">>;
@@ -181,23 +181,23 @@ export declare const toolDefinition: {
         compareToRelease: z.ZodOptional<z.ZodString>;
         strictMode: z.ZodDefault<z.ZodBoolean>;
     }, "strip", z.ZodTypeAny, {
-        releaseType: "major" | "minor" | "patch" | "hotfix";
+        releaseType: "minor" | "major" | "patch" | "hotfix";
         includeChecks: ("dependencies" | "documentation" | "quality-gates" | "test-results" | "security-scan" | "performance-baseline" | "change-log" | "rollback-plan")[];
         strictMode: boolean;
         projectPath?: string | undefined;
         criteria?: {
             name: string;
-            category: "testing" | "documentation" | "compliance" | "quality" | "security" | "performance";
             required: boolean;
             weight: number;
+            category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
         }[] | undefined;
         compareToRelease?: string | undefined;
     }, {
-        releaseType?: "major" | "minor" | "patch" | "hotfix" | undefined;
         projectPath?: string | undefined;
+        releaseType?: "minor" | "major" | "patch" | "hotfix" | undefined;
         criteria?: {
             name: string;
-            category: "testing" | "documentation" | "compliance" | "quality" | "security" | "performance";
+            category: "security" | "performance" | "documentation" | "testing" | "quality" | "compliance";
             required?: boolean | undefined;
             weight?: number | undefined;
         }[] | undefined;

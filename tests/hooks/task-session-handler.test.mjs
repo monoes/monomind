@@ -62,29 +62,6 @@ describe('task-handler — handlePreTask', () => {
   });
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
-  it('logs [TASK_MODEL_RECOMMENDATION] for any non-empty prompt', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir, prompt: 'implement a feature' });
-    const lines = await capture(() => loadTask().handlePreTask(hCtx));
-    expect(lines.join('\n')).toContain('[TASK_MODEL_RECOMMENDATION]');
-  });
-
-  it('recommends haiku for a short simple prompt', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir, prompt: 'format the file' });
-    const lines = await capture(() => loadTask().handlePreTask(hCtx));
-    const rec = lines.find(l => l.includes('[TASK_MODEL_RECOMMENDATION]'));
-    expect(rec).toContain('haiku');
-  });
-
-  it('recommends opus for a long architecture-level prompt', async () => {
-    // score starts at 50; words>100 → +20; architecture keyword → +10; total=80 → opus
-    const base = 'Design the distributed system architecture with security audit and threat model. ';
-    const prompt = base.repeat(11); // 11*11=121 words, ensures >100 word threshold
-    const hCtx = makeHCtx({ CWD: tmpDir, prompt });
-    const lines = await capture(() => loadTask().handlePreTask(hCtx));
-    const rec = lines.find(l => l.includes('[TASK_MODEL_RECOMMENDATION]'));
-    expect(rec).toContain('opus');
-  });
-
   it('logs [OK] Task started when no router', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir, router: null });
     const lines = await capture(() => loadTask().handlePreTask(hCtx));

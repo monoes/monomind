@@ -105,18 +105,7 @@ function swarmOrchestration(): string {
 - MUST initialize the swarm using CLI tools when starting complex tasks
 - MUST spawn concurrent agents using Claude Code's Task tool
 - Never use CLI tools alone for execution — Task tool agents do the actual work
-- MUST call CLI tools AND Task tool in ONE message for complex work
-
-### 3-Tier Model Routing (ADR-026)
-
-| Tier | Handler | Latency | Cost | Use Cases |
-|------|---------|---------|------|-----------|
-| **1** | Agent Booster (WASM) | <1ms | $0 | Simple transforms (var→const, add types) — Skip LLM |
-| **2** | Haiku | ~500ms | $0.0002 | Simple tasks, low complexity (<30%) |
-| **3** | Sonnet/Opus | 2-5s | $0.003-0.015 | Complex reasoning, architecture, security (>30%) |
-
-- Always check for \`[AGENT_BOOSTER_AVAILABLE]\` or \`[TASK_MODEL_RECOMMENDATION]\` before spawning agents
-- Use Edit tool directly when \`[AGENT_BOOSTER_AVAILABLE]\``;
+- MUST call CLI tools AND Task tool in ONE message for complex work`;
 }
 
 function antiDriftConfig(): string {
@@ -390,6 +379,27 @@ MONOMIND_MEMORY_PATH=./data/memory
 \`\`\``;
 }
 
+function secondBrainSection(): string {
+  return `## Second Brain — Document Knowledge Base
+
+If the \`documents\` capability is active (check \`.monomind/capabilities.json\`), this project indexes documents (PDF, DOCX, MD, TXT) into a semantic search engine.
+
+**When documents are indexed, search knowledge before answering questions about business, compliance, legal, or organizational topics:**
+- Call \`mcp__monomind__knowledge_search\` with a relevant query
+- Use the returned excerpts as grounding context for your answer
+- Cite the source document name when referencing specific information
+
+**CLI access:**
+\`\`\`bash
+monomind doc search -q "your query"    # Semantic search
+monomind doc list                       # List indexed docs
+monomind doc ingest ./path              # Ingest new documents
+monomind doc export                     # Export as OKF bundle
+\`\`\`
+
+**Re-indexing** happens automatically on session start (unchanged files are skipped via content hash).`;
+}
+
 function graphifySection(): string {
   return `## Knowledge Graph — Monograph (Use Before Codebase Exploration)
 
@@ -482,6 +492,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => antiDriftConfig(),
     executionRules,
     (_opts) => cliCommandsTable(),
+    (_opts) => secondBrainSection(),
     (_opts) => graphifySection(),
     (_opts) => setupAndBoundary(),
   ],
@@ -499,6 +510,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => cliCommandsTable(),
     (_opts) => agentTypes(),
     (_opts) => memoryCommands(),
+    (_opts) => secondBrainSection(),
     (_opts) => graphifySection(),
     (_opts) => setupAndBoundary(),
   ],
@@ -519,6 +531,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => hooksSystem(),
     (_opts) => learningProtocol(),
     (_opts) => memoryCommands(),
+    (_opts) => secondBrainSection(),
     (_opts) => graphifySection(),
     (_opts) => intelligenceSystem(),
     (_opts) => envVars(),
@@ -538,6 +551,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => cliCommandsTable(),
     (_opts) => agentTypes(),
     (_opts) => memoryCommands(),
+    (_opts) => secondBrainSection(),
     (_opts) => graphifySection(),
     (_opts) => setupAndBoundary(),
   ],
@@ -556,6 +570,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => cliCommandsTable(),
     (_opts) => agentTypes(),
     (_opts) => memoryCommands(),
+    (_opts) => secondBrainSection(),
     (_opts) => graphifySection(),
     (_opts) => intelligenceSystem(),
     (_opts) => setupAndBoundary(),

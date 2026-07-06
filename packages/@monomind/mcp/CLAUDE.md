@@ -18,41 +18,6 @@
 
 **CLI coordinates, Task tool agents do the actual work!**
 
-### 🤖 INTELLIGENT 3-TIER MODEL ROUTING (ADR-026)
-
-**The routing system has 3 tiers for optimal cost/performance:**
-
-| Tier  | Handler       | Latency | Cost          | Use Cases                                                |
-| ----- | ------------- | ------- | ------------- | -------------------------------------------------------- |
-| **1** | Agent Booster | <1ms    | $0            | Simple transforms (var→const, add-types, remove-console) |
-| **2** | Haiku         | ~500ms  | $0.0002       | Simple tasks, bug fixes, low complexity                  |
-| **3** | Sonnet/Opus   | 2-5s    | $0.003-$0.015 | Architecture, security, complex reasoning                |
-
-**Before spawning agents, get routing recommendation:**
-
-```bash
-npx @monomind/cli@latest hooks pre-task --description "[task description]"
-```
-
-**When you see these recommendations:**
-
-1. `[AGENT_BOOSTER_AVAILABLE]` → Skip LLM entirely, use Edit tool directly
-   - Intent types: `var-to-const`, `add-types`, `add-error-handling`, `async-await`, `add-logging`, `remove-console`
-
-2. `[TASK_MODEL_RECOMMENDATION] Use model="X"` → Use that model in Task tool:
-
-```javascript
-Task({
-  prompt: "...",
-  subagent_type: "coder",
-  model: "haiku", // ← USE THE RECOMMENDED MODEL (haiku/sonnet/opus)
-});
-```
-
-**Benefits:** 75% cost reduction, 352x faster for Tier 1 tasks
-
----
-
 ### 🛡️ Anti-Drift Config (PREFERRED)
 
 **Use this to prevent agent drift:**

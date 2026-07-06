@@ -26,28 +26,28 @@ export declare const AnalyzeCoverageInputSchema: z.ZodObject<{
     }>>;
     projectionDimension: z.ZodDefault<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
-    prioritize: boolean;
     algorithm: "johnson-lindenstrauss" | "full-scan";
+    prioritize: boolean;
     targetPath: string;
     includeFileDetails: boolean;
     projectionDimension: number;
+    coverageReport?: string | undefined;
     thresholds?: {
         function: number;
         line: number;
         branch: number;
     } | undefined;
-    coverageReport?: string | undefined;
 }, {
     targetPath: string;
+    algorithm?: "johnson-lindenstrauss" | "full-scan" | undefined;
     prioritize?: boolean | undefined;
+    coverageReport?: string | undefined;
+    includeFileDetails?: boolean | undefined;
     thresholds?: {
         function?: number | undefined;
         line?: number | undefined;
         branch?: number | undefined;
     } | undefined;
-    algorithm?: "johnson-lindenstrauss" | "full-scan" | undefined;
-    coverageReport?: string | undefined;
-    includeFileDetails?: boolean | undefined;
     projectionDimension?: number | undefined;
 }>;
 export type AnalyzeCoverageInput = z.infer<typeof AnalyzeCoverageInputSchema>;
@@ -156,28 +156,28 @@ export declare const toolDefinition: {
         }>>;
         projectionDimension: z.ZodDefault<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
-        prioritize: boolean;
         algorithm: "johnson-lindenstrauss" | "full-scan";
+        prioritize: boolean;
         targetPath: string;
         includeFileDetails: boolean;
         projectionDimension: number;
+        coverageReport?: string | undefined;
         thresholds?: {
             function: number;
             line: number;
             branch: number;
         } | undefined;
-        coverageReport?: string | undefined;
     }, {
         targetPath: string;
+        algorithm?: "johnson-lindenstrauss" | "full-scan" | undefined;
         prioritize?: boolean | undefined;
+        coverageReport?: string | undefined;
+        includeFileDetails?: boolean | undefined;
         thresholds?: {
             function?: number | undefined;
             line?: number | undefined;
             branch?: number | undefined;
         } | undefined;
-        algorithm?: "johnson-lindenstrauss" | "full-scan" | undefined;
-        coverageReport?: string | undefined;
-        includeFileDetails?: boolean | undefined;
         projectionDimension?: number | undefined;
     }>;
     handler: typeof handler;
