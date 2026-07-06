@@ -50,6 +50,24 @@ module.exports = {
       console.log('[OK] Task started');
     }
 
+    // AutoMem Phase 1: PLAN routine — consult memory before acting (arXiv:2607.01224)
+    if (prompt && typeof prompt === 'string' && prompt.length > 20) {
+      try {
+        var intelligence = hCtx.intelligence;
+        if (intelligence && intelligence.findSimilarPatterns) {
+          var memPatterns = await Promise.resolve(intelligence.findSimilarPatterns(prompt, { k: 3, type: 'memory-proficiency' }));
+          if (memPatterns && memPatterns.length > 0) {
+            console.log('[AUTOMEM_PLAN] Recalled ' + memPatterns.length + ' memory pattern(s): ' + memPatterns.map(function(p) { return p.content.substring(0, 80); }).join(' | '));
+          }
+          // Also check general patterns for task-relevant memory
+          var taskPatterns = await Promise.resolve(intelligence.findSimilarPatterns(prompt, { k: 2 }));
+          if (taskPatterns && taskPatterns.length > 0) {
+            console.log('[AUTOMEM_CONTEXT] ' + taskPatterns.length + ' relevant pattern(s) from prior sessions');
+          }
+        }
+      } catch (e) { /* non-fatal — PLAN is advisory */ }
+    }
+
     // Task 24: PromptVersioning — resolve prompt variant before agent spawn
     try {
       var memMod = await import('@monomind/memory');
@@ -245,7 +263,20 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
-    // Memory Palace task drawer writes removed — use auto-memory files for task context
+    // AutoMem Phase 1: LOG routine — record memory proficiency metrics (arXiv:2607.01224)
+    try {
+      var intelligence = hCtx.intelligence;
+      if (intelligence && intelligence.recordMemoryDecision) {
+        var agentSlug = hookInput.agentSlug || hookInput.agent_slug || 'unknown';
+        var taskDesc = typeof prompt === 'string' ? prompt : hookInput.description || '';
+        await Promise.resolve(intelligence.recordMemoryDecision({
+          taskDescription: taskDesc.substring(0, 200),
+          agent: agentSlug,
+          success: taskSuccess,
+          latencyMs: hookInput.latencyMs || hookInput.latency_ms || 0,
+        }));
+      }
+    } catch (e) { /* non-fatal — LOG is advisory */ }
 
     // ── Worker Auto-Dispatch ──────────────────────────────────────────────
     // Auto-dispatch background workers based on task outcome
