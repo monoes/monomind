@@ -70,7 +70,7 @@ if (!entryPoint) {
 const dbPath = path.join(projectDir, '.monomind', 'monograph.db');
 if (fs.existsSync(dbPath)) {
   try {
-    const Database = require('better-sqlite3');
+    const Database = require(require.resolve('better-sqlite3', { paths: [path.dirname(entryPoint)] }));
     const db = new Database(dbPath, { readonly: true, timeout: 5000 });
     try {
       const row = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get();
