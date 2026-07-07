@@ -27,11 +27,13 @@ async function handleAnalyze(req, res) {
         return;
     }
     // Set SSE headers
+    const origin = req.headers['origin'] ?? '';
+    const allowedOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ? origin : '';
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': 'http://localhost',
+        ...(allowedOrigin && { 'Access-Control-Allow-Origin': allowedOrigin }),
     });
     const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
     try {
