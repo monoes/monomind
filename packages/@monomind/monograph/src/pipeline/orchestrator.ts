@@ -190,7 +190,12 @@ async function buildAsyncLocked(
     if (hash) {
       db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
     } else {
-      options.onProgress?.({ phase: 'warning', message: 'Could not determine git HEAD — staleness tracking will be unavailable' } as PipelineProgress);
+      const msg = 'Could not determine git HEAD — staleness tracking will be unavailable';
+      if (options.onProgress) {
+        options.onProgress({ phase: 'warning', message: msg } as PipelineProgress);
+      } else {
+        process.stderr.write(`[monograph] ${msg}\n`);
+      }
     }
     db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(new Date().toISOString());
   } finally {
