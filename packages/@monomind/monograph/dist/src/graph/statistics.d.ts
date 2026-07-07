@@ -24,8 +24,9 @@ export interface PathStats {
     diameter: number;
 }
 /**
- * Compute both average path length and graph diameter in a single BFS pass.
- * Unreachable pairs are excluded from averagePathLength.
+ * Compute both average path length and graph diameter via BFS.
+ * For graphs > 500 nodes, uses deterministic sampling (every Nth node)
+ * to keep runtime practical — O(sample * E) instead of O(N * E).
  */
 export declare function pathStats(db: MonographDb): PathStats;
 /**

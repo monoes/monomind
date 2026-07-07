@@ -15,9 +15,12 @@ export function checkStaleness(db, repoPath) {
     // Display short SHA (7 chars) for the interface field; compare short SHAs for staleness
     const indexedCommitShort = indexedCommitFull ? indexedCommitFull.slice(0, 7) : null;
     const currentCommitShort = currentCommit ? currentCommit.slice(0, 7) : null;
-    // 3. If no stored commit or short SHAs match, not stale
-    if (!indexedCommitFull || indexedCommitShort === currentCommitShort) {
+    // 3. If SHAs match → fresh. If no stored commit → staleness unknown (not "fresh").
+    if (indexedCommitShort === currentCommitShort) {
         return { isStale: false, indexedAt: null, indexedCommit: indexedCommitShort, currentCommit: currentCommitShort, changedSince: [], staleSince: null };
+    }
+    if (!indexedCommitFull) {
+        return { isStale: true, indexedAt: null, indexedCommit: null, currentCommit: currentCommitShort, changedSince: [], staleSince: null };
     }
     // Guard: indexedCommitFull is read from SQLite — validate before shell interpolation
     if (!/^[0-9a-f]{7,40}$/i.test(indexedCommitFull)) {

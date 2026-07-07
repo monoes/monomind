@@ -24,6 +24,7 @@ import { frameworkDetectPhase } from './phases/framework-detect.js';
 import { importResolverPhase } from './phases/import-resolver.js';
 import { DEFAULT_OPTIONS } from './types.js';
 import { generateGraphReport } from '../reporting/graph-report.js';
+import { analyzeChurn } from '../analysis/churn.js';
 function getCurrentCommitHash(repoPath) {
     try {
         return execSync('git rev-parse HEAD', { cwd: repoPath, encoding: 'utf8' }).trim();
@@ -160,10 +161,46 @@ async function buildAsyncLocked(repoPath, dbPath, fullOptions, options) {
             const questions = suggestOut?.questions ?? [];
             await generateGraphReport(resolve(repoPath), undefined, dbPath, questions);
         }
+        // Populate churnScore on File nodes from git history (6-month window)
+        try {
+            const churnResult = await analyzeChurn(ctx.repoPath, '6m');
+            if (churnResult.files.length > 0) {
+                // Only consider files that exist as graph nodes for normalization —
+                // build artifacts and config files inflate the denominator otherwise
+                const graphFiles = new Set(db.prepare("SELECT file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL").all()
+                    .map(r => r.file_path));
+                const graphChurn = churnResult.files.filter(f => graphFiles.has(f.path));
+                const maxWeighted = graphChurn.reduce((m, f) => f.weightedCommits > m ? f.weightedCommits : m, 0);
+                if (maxWeighted > 0) {
+                    const updateProps = db.prepare(`
+            UPDATE nodes SET properties = json_set(COALESCE(properties, '{}'), '$.churnScore', ?)
+            WHERE file_path = ? AND label = 'File'
+          `);
+                    db.transaction(() => {
+                        for (const f of graphChurn) {
+                            updateProps.run(f.weightedCommits / maxWeighted, f.path);
+                        }
+                    })();
+                }
+            }
+        }
+        catch {
+            // churn analysis is non-fatal (e.g. no git history)
+        }
         const hash = getCurrentCommitHash(resolve(repoPath));
         if (hash) {
             db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
         }
+        else {
+            const msg = 'Could not determine git HEAD — staleness tracking will be unavailable';
+            if (options.onProgress) {
+                options.onProgress({ phase: 'warning', message: msg });
+            }
+            else {
+                process.stderr.write(`[monograph] ${msg}\n`);
+            }
+        }
+        db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(new Date().toISOString());
     }
     finally {
         closeDb(db);

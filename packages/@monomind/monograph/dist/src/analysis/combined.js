@@ -11,6 +11,8 @@ export function resolveAnalyses(opts) {
     }
     return result;
 }
+// monolean: stub — resolves which analyses to run but doesn't execute them.
+// Wire up when dead-code/duplication detectors are called from a unified entry point.
 export async function runCombined(db, opts) {
     const analyses = resolveAnalyses(opts);
     const ranAt = new Date().toISOString();
