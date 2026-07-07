@@ -7,17 +7,16 @@
 
 import { join, resolve, sep } from 'path';
 import { execSync } from 'child_process';
-import { existsSync, statSync } from 'fs';
+import { statSync } from 'fs';
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
 
-// monolean: resolve via git root so tools work from any subdirectory
-let _cachedDbPath: string | null = null;
+let _cachedDbPath: string | null | undefined;
 function _isValidDb(p: string): boolean {
   try { return statSync(p).size >= 100; } catch { return false; }
 }
 function getDbPath(): string {
-  if (_cachedDbPath) return _cachedDbPath;
+  if (_cachedDbPath !== undefined) return _cachedDbPath ?? join(getProjectCwd(), '.monomind', 'monograph.db');
   const direct = join(getProjectCwd(), '.monomind', 'monograph.db');
   if (_isValidDb(direct)) { _cachedDbPath = direct; return direct; }
   try {
@@ -28,6 +27,7 @@ function getDbPath(): string {
       return candidate;
     }
   } catch { /* not in a git repo */ }
+  _cachedDbPath = null;
   return direct;
 }
 
