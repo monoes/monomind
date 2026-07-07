@@ -1,6 +1,15 @@
 import type Database from 'better-sqlite3';
 import { createHash } from 'crypto';
-import { relative } from 'path';
+import { readFileSync } from 'fs';
+import { relative, dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PKG_VERSION = (() => {
+  try {
+    return JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf8')).version ?? '0.0.0';
+  } catch { return '0.0.0'; }
+})();
 
 export interface SarifRule {
   id: string;
@@ -231,6 +240,6 @@ export function exportHealthSarif(findings: SarifHealthFinding[], root?: string)
   return {
     $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
     version: '2.1.0',
-    runs: [{ tool: { driver: { name: 'monograph-health', version: '1.0.0', rules } }, results }],
+    runs: [{ tool: { driver: { name: 'monograph-health', version: PKG_VERSION, rules } }, results }],
   };
 }

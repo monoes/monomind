@@ -126,15 +126,19 @@ export function extractFindingsFromDb(
 
   // God nodes (degree > 50)
   const gods = db.prepare(`
-    SELECT n.id, n.name, n.file_path, n.start_line,
-           COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) as degree
+    SELECT n.id, n.name, n.file_path, n.start_line, d.deg as degree
     FROM nodes n
-    LEFT JOIN edges e1 ON e1.source_id = n.id
-    LEFT JOIN edges e2 ON e2.target_id = n.id
-    GROUP BY n.id
-    HAVING degree > 50
-    ORDER BY degree DESC
-    LIMIT 100
+    JOIN (
+      SELECT node_id, SUM(cnt) AS deg FROM (
+        SELECT source_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY source_id
+        UNION ALL
+        SELECT target_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY target_id
+      ) GROUP BY node_id
+      HAVING deg > 50
+      ORDER BY deg DESC
+      LIMIT 100
+    ) d ON d.node_id = n.id
+    ORDER BY d.deg DESC
   `).all() as { id: string; name: string; file_path: string | null; start_line: number | null; degree: number }[];
 
   for (const n of gods) {
@@ -173,20 +177,25 @@ export function extractFindingsFromDb(
     });
   }
 
-  // Bridge nodes: nodes whose edges span more than one community_id
-  // Use JOIN+GROUP BY instead of correlated subqueries to avoid N*2 subquery executions
+  // Bridge nodes: nodes whose edges span 2+ distinct foreign communities.
+  // Pre-aggregate cross-community counts per direction to avoid 4-way cross product.
   const bridges = db.prepare(`
-    SELECT n.id, n.name, n.file_path, n.start_line,
-           COUNT(DISTINCT CASE WHEN e_out.source_id = n.id AND n_tgt.community_id != n.community_id THEN n_tgt.community_id END) +
-           COUNT(DISTINCT CASE WHEN e_in.target_id = n.id AND n_src.community_id != n.community_id THEN n_src.community_id END) AS cross_communities
+    SELECT n.id, n.name, n.file_path, n.start_line
     FROM nodes n
-    LEFT JOIN edges e_out ON e_out.source_id = n.id
-    LEFT JOIN nodes n_tgt ON n_tgt.id = e_out.target_id AND n_tgt.community_id IS NOT NULL
-    LEFT JOIN edges e_in ON e_in.target_id = n.id
-    LEFT JOIN nodes n_src ON n_src.id = e_in.source_id AND n_src.community_id IS NOT NULL
-    WHERE n.community_id IS NOT NULL
-    GROUP BY n.id
-    HAVING cross_communities >= 2
+    JOIN (
+      SELECT node_id, COUNT(DISTINCT foreign_community) AS cross_cnt FROM (
+        SELECT e.source_id AS node_id, n2.community_id AS foreign_community
+        FROM edges e
+        JOIN nodes n1 ON n1.id = e.source_id AND n1.community_id IS NOT NULL
+        JOIN nodes n2 ON n2.id = e.target_id AND n2.community_id IS NOT NULL AND n2.community_id != n1.community_id
+        UNION ALL
+        SELECT e.target_id AS node_id, n1.community_id AS foreign_community
+        FROM edges e
+        JOIN nodes n1 ON n1.id = e.source_id AND n1.community_id IS NOT NULL
+        JOIN nodes n2 ON n2.id = e.target_id AND n2.community_id IS NOT NULL AND n1.community_id != n2.community_id
+      ) GROUP BY node_id
+      HAVING cross_cnt >= 2
+    ) b ON b.node_id = n.id
     LIMIT 100
   `).all() as { id: string; name: string; file_path: string | null; start_line: number | null }[];
 

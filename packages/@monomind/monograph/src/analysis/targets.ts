@@ -44,13 +44,12 @@ export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsRe
       n.id,
       n.file_path,
       n.properties,
-      COUNT(DISTINCT e_in.id) as in_degree,
-      COUNT(DISTINCT e_out.id) as out_degree
+      COALESCE(d_in.cnt, 0) as in_degree,
+      COALESCE(d_out.cnt, 0) as out_degree
     FROM nodes n
-    LEFT JOIN edges e_in ON e_in.target_id = n.id
-    LEFT JOIN edges e_out ON e_out.source_id = n.id
+    LEFT JOIN (SELECT target_id, COUNT(*) AS cnt FROM edges GROUP BY target_id) d_in ON d_in.target_id = n.id
+    LEFT JOIN (SELECT source_id, COUNT(*) AS cnt FROM edges GROUP BY source_id) d_out ON d_out.source_id = n.id
     WHERE n.label = 'File' AND n.file_path IS NOT NULL
-    GROUP BY n.id
   `).all() as FileNodeRow[];
 
   if (rows.length === 0) {

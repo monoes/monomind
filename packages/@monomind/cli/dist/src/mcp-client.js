@@ -18,7 +18,6 @@ import { sessionTools } from './mcp-tools/session-tools.js';
 import { hiveMindTools } from './mcp-tools/hive-mind-tools.js';
 import { workflowTools } from './mcp-tools/workflow-tools.js';
 import { analyzeTools } from './mcp-tools/analyze-tools.js';
-import { progressTools } from './mcp-tools/progress-tools.js';
 import { embeddingsTools } from './mcp-tools/embeddings-tools.js';
 import { claimsTools } from './mcp-tools/claims-tools.js';
 import { securityTools } from './mcp-tools/security-tools.js';
@@ -72,7 +71,6 @@ registerTools([
     ...hiveMindTools,
     ...workflowTools,
     ...analyzeTools,
-    ...progressTools,
     ...embeddingsTools,
     ...claimsTools,
     ...securityTools,
