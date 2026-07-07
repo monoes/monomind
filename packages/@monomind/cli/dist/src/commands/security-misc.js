@@ -133,7 +133,6 @@ export const defendCommand = {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let createMonoDefence;
         try {
-            // @ts-expect-error — optional peer dep resolved at runtime
             const aidefence = await import('monofence-ai');
             createMonoDefence = aidefence.createMonoDefence;
         }
