@@ -29,6 +29,8 @@ export function resolveAnalyses(opts: CombinedOptions): Set<AnalysisKind> {
   return result;
 }
 
+// monolean: stub — resolves which analyses to run but doesn't execute them.
+// Wire up when dead-code/duplication detectors are called from a unified entry point.
 export async function runCombined(
   db: MonographDb,
   opts: CombinedOptions

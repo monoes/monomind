@@ -123,12 +123,16 @@ export function computeHotspots(
   // ── Step 3: Get file nodes + centrality from DB ───────────────────────────
   const fileNodes = db.prepare(`
     SELECT n.id, n.name, n.file_path, n.label, n.community_id,
-           COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) as degree
+           COALESCE(d.deg, 0) as degree
     FROM nodes n
-    LEFT JOIN edges e1 ON e1.source_id = n.id
-    LEFT JOIN edges e2 ON e2.target_id = n.id
+    LEFT JOIN (
+      SELECT node_id, SUM(cnt) AS deg FROM (
+        SELECT source_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY source_id
+        UNION ALL
+        SELECT target_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY target_id
+      ) GROUP BY node_id
+    ) d ON d.node_id = n.id
     WHERE n.label = 'File' AND n.file_path IS NOT NULL
-    GROUP BY n.id
   `).all() as { id: string; name: string; file_path: string; label: string; community_id: number | null; degree: number }[];
 
   // ── Step 4: Join churn + centrality ──────────────────────────────────────

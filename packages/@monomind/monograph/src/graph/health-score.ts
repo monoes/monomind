@@ -33,7 +33,7 @@ export function computeHealthScore(db: Database.Database): HealthScoreResult {
 
   // ── Unreachable file nodes ────────────────────────────────────────────────
   const unreachableRow = db.prepare(
-    "SELECT COUNT(*) as c FROM nodes WHERE label = 'File' AND properties LIKE '%\"unreachable\"%'"
+    "SELECT COUNT(*) as c FROM nodes WHERE label = 'File' AND json_extract(properties, '$.unreachable') = 1"
   ).get() as { c: number };
   const unreachableFiles = unreachableRow.c;
 
@@ -42,23 +42,20 @@ export function computeHealthScore(db: Database.Database): HealthScoreResult {
   const totalNodes = totalNodesRow.c;
 
   // ── p95 degree (god nodes) ────────────────────────────────────────────────
-  const degreesRows = db.prepare(`
-    SELECT source_id as node_id, COUNT(*) as deg FROM edges GROUP BY source_id
-    UNION ALL
-    SELECT target_id as node_id, COUNT(*) as deg FROM edges GROUP BY target_id
-  `).all() as { node_id: string; deg: number }[];
+  // Compute per-node total degree (in + out) entirely in SQL
+  const degreeRows = db.prepare(`
+    SELECT node_id, SUM(cnt) AS degree FROM (
+      SELECT source_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY source_id
+      UNION ALL
+      SELECT target_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY target_id
+    ) GROUP BY node_id ORDER BY degree ASC
+  `).all() as { node_id: string; degree: number }[];
 
-  // Sum degrees per node
-  const degMap = new Map<string, number>();
-  for (const row of degreesRows) {
-    degMap.set(row.node_id, (degMap.get(row.node_id) ?? 0) + row.deg);
-  }
-  const degrees = [...degMap.values()].sort((a, b) => a - b);
-  const p95Index = Math.floor(degrees.length * 0.95);
-  const p95Degree = degrees[p95Index] ?? 0;
+  const p95Index = Math.floor(degreeRows.length * 0.95);
+  const p95Degree = degreeRows[p95Index]?.degree ?? 0;
 
   const godNodeCount = p95Degree > 0
-    ? [...degMap.values()].filter(d => d > p95Degree).length
+    ? degreeRows.filter(r => r.degree > p95Degree).length
     : 0;
 
   // ── Circular edges (bidirectional import pairs) ───────────────────────────

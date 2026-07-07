@@ -7,7 +7,7 @@
 import * as path from 'path';
 import { output } from '../output.js';
 import { checkNodeVersion, checkNpmVersion, checkGit, checkGitRepo, checkDiskSpace, checkBuildTools, checkVersionFreshness, checkClaudeCode, installClaudeCode, } from './doctor-env-checks.js';
-import { checkConfigFile, checkDaemonStatus, checkMemoryDatabase, checkApiKeys, checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage, checkAgentRegistry, checkMemoryProficiency, } from './doctor-project-checks.js';
+import { checkConfigFile, checkDaemonStatus, checkMemoryDatabase, checkApiKeys, checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory, checkHelpersFresh, fixStaleHelpers, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage, checkAgentRegistry, checkMemoryProficiency, } from './doctor-project-checks.js';
 import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
 function formatCheck(check) {
     const icon = check.status === 'pass' ? output.success('✓') :
@@ -139,6 +139,20 @@ export const doctorCommand = {
                     if (idx !== -1) {
                         results[idx] = newCheck;
                         const fixIdx = fixes.findIndex(f => f.startsWith('monoes Tools:'));
+                        if (fixIdx !== -1 && newCheck.status === 'pass')
+                            fixes.splice(fixIdx, 1);
+                    }
+                    output.writeln(formatCheck(newCheck));
+                }
+            }
+            const helpersResult = results.find(r => r.name === 'Helper Files');
+            if (helpersResult && helpersResult.status !== 'pass') {
+                if (await fixStaleHelpers()) {
+                    const newCheck = await checkHelpersFresh();
+                    const idx = results.findIndex(r => r.name === 'Helper Files');
+                    if (idx !== -1) {
+                        results[idx] = newCheck;
+                        const fixIdx = fixes.findIndex(f => f.startsWith('Helper Files:'));
                         if (fixIdx !== -1 && newCheck.status === 'pass')
                             fixes.splice(fixIdx, 1);
                     }

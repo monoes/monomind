@@ -15,7 +15,7 @@ export declare const TrackTrendsInputSchema: z.ZodObject<{
     includeProjections: z.ZodDefault<z.ZodBoolean>;
     compareBaseline: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    metrics: ("function" | "line" | "overall" | "branch" | "statement")[];
+    metrics: ("function" | "line" | "branch" | "statement" | "overall")[];
     timeRange: "30d" | "7d" | "14d" | "90d" | "180d" | "365d";
     groupBy: "commit" | "day" | "week" | "month";
     detectRegressions: boolean;
@@ -24,7 +24,7 @@ export declare const TrackTrendsInputSchema: z.ZodObject<{
     targetPath?: string | undefined;
     compareBaseline?: string | undefined;
 }, {
-    metrics?: ("function" | "line" | "overall" | "branch" | "statement")[] | undefined;
+    metrics?: ("function" | "line" | "branch" | "statement" | "overall")[] | undefined;
     timeRange?: "30d" | "7d" | "14d" | "90d" | "180d" | "365d" | undefined;
     targetPath?: string | undefined;
     groupBy?: "commit" | "day" | "week" | "month" | undefined;
@@ -141,7 +141,7 @@ export declare const toolDefinition: {
         includeProjections: z.ZodDefault<z.ZodBoolean>;
         compareBaseline: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
-        metrics: ("function" | "line" | "overall" | "branch" | "statement")[];
+        metrics: ("function" | "line" | "branch" | "statement" | "overall")[];
         timeRange: "30d" | "7d" | "14d" | "90d" | "180d" | "365d";
         groupBy: "commit" | "day" | "week" | "month";
         detectRegressions: boolean;
@@ -150,7 +150,7 @@ export declare const toolDefinition: {
         targetPath?: string | undefined;
         compareBaseline?: string | undefined;
     }, {
-        metrics?: ("function" | "line" | "overall" | "branch" | "statement")[] | undefined;
+        metrics?: ("function" | "line" | "branch" | "statement" | "overall")[] | undefined;
         timeRange?: "30d" | "7d" | "14d" | "90d" | "180d" | "365d" | undefined;
         targetPath?: string | undefined;
         groupBy?: "commit" | "day" | "week" | "month" | undefined;

@@ -82,6 +82,6 @@ export function buildDuplicationResultsEnvelope(
 
 export function stripRootPrefix(obj: unknown, rootPrefix: string): unknown {
   const json = JSON.stringify(obj);
-  const escaped = rootPrefix.replace(/[/\\]/g, s => `\\${s}`);
+  const escaped = rootPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return JSON.parse(json.replace(new RegExp(escaped, 'g'), ''));
 }

@@ -98,46 +98,45 @@ export function silhouetteScore(
 }
 
 /**
- * Compute Newman–Girvan modularity Q.
+ * Compute Newman–Girvan modularity Q using the community-level formula:
+ *   Q = Σ_c [e_c / m - (a_c / 2m)²]
+ * where e_c = intra-community edges, a_c = sum of degrees in community c, m = total edges.
  *
- * Q = (1/2m) * Σ_{ij} [A_ij - k_i*k_j/(2m)] * δ(c_i, c_j)
- *
- * where m = total edge count, k_i = degree of node i, A_ij = adjacency.
+ * O(E + N) instead of O(N²).
  * Returns a value in (-0.5, 1].
  */
 export function modularityScore(
   memberships: Map<string, number>,
   edges: Edge[],
 ): number {
-  const adj = buildAdjacency(edges);
+  if (edges.length === 0 || memberships.size === 0) return 0;
 
-  // Degree map (undirected) — use adj to count undirected edges correctly
-  const degree = new Map<string, number>();
-  for (const [nodeId, neighbors] of adj) {
-    degree.set(nodeId, neighbors.size);
+  const adj = buildAdjacency(edges);
+  const m = edges.length; // directed edges count (each undirected pair counted once in input)
+
+  // Sum of degrees per community and intra-community edge count
+  const communityDegreeSum = new Map<number, number>();
+  const intraCommunityEdges = new Map<number, number>();
+
+  for (const [nodeId, cid] of memberships) {
+    const deg = adj.get(nodeId)?.size ?? 0;
+    communityDegreeSum.set(cid, (communityDegreeSum.get(cid) ?? 0) + deg);
   }
 
-  // m_undirected: each undirected edge is counted once in adj (both directions added)
-  // so sum of degrees = 2 * m_undirected
-  const totalDegree = [...degree.values()].reduce((s, d) => s + d, 0);
-  const m = totalDegree / 2;
-  if (m === 0) return 0;
-
-  const twoM = 2 * m;
-  let Q = 0;
-
-  const nodes = [...memberships.keys()];
-  for (let i = 0; i < nodes.length; i++) {
-    const u = nodes[i]!;
-    for (let j = i + 1; j < nodes.length; j++) {
-      const v = nodes[j]!;
-      if (memberships.get(u) !== memberships.get(v)) continue;
-      const aij = adj.get(u)?.has(v) ? 1 : 0;
-      const ki = degree.get(u) ?? 0;
-      const kj = degree.get(v) ?? 0;
-      Q += aij - (ki * kj) / twoM;
+  for (const { sourceId, targetId } of edges) {
+    const cs = memberships.get(sourceId);
+    const ct = memberships.get(targetId);
+    if (cs !== undefined && ct !== undefined && cs === ct) {
+      intraCommunityEdges.set(cs, (intraCommunityEdges.get(cs) ?? 0) + 1);
     }
   }
 
-  return Q / m; // normalise by m (equivalent to 1/(2m) summed both directions)
+  const twoM = 2 * m;
+  let Q = 0;
+  for (const [cid, degSum] of communityDegreeSum) {
+    const ec = intraCommunityEdges.get(cid) ?? 0;
+    Q += ec / m - (degSum / twoM) ** 2;
+  }
+
+  return Q;
 }
