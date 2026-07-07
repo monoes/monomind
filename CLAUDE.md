@@ -115,7 +115,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 **Why:** The knowledge graph encodes full dependency relationships, import chains, and architectural topology. It lets you understand the blast radius of a change and find all affected files without grepping the entire codebase.
 
-**Available monograph tools (43 total):**
+**Available monograph tools (44 total):**
 
 ### Core Navigation (use these first)
 
@@ -139,6 +139,12 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `monograph_shortest_path` | Understanding how two modules are connected |
 | `monograph_shape_check` | Validate API route response shapes — handler return keys vs consumer property accesses |
 | `monograph_route_map` | List all HTTP routes with handler info; filter by URL prefix or method |
+
+### Dead Code & Stale Artifacts
+
+| Tool | Use when |
+|---|---|
+| `monograph_dead_code` | **Stale hunt** — finds dead exported functions, orphan files with no importers, and stale dist build artifacts. Categories: `dead-functions`, `orphan-files`, `stale-dist`. Verifies candidates against source before reporting. |
 
 ### Graph Exploration
 
