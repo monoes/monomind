@@ -16,7 +16,7 @@ export declare const SuggestTestsInputSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     framework: "vitest" | "jest" | "mocha" | "pytest" | "junit";
     targetPath: string;
-    focusAreas: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[];
+    focusAreas: ("branches" | "lines" | "functions" | "edge-cases" | "error-handling" | "boundaries")[];
     maxSuggestions: number;
     priorityBy: "risk" | "complexity" | "coverage-impact" | "change-frequency";
     includeCode: boolean;
@@ -25,7 +25,7 @@ export declare const SuggestTestsInputSchema: z.ZodObject<{
     targetPath: string;
     framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
     coverageReport?: string | undefined;
-    focusAreas?: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[] | undefined;
+    focusAreas?: ("branches" | "lines" | "functions" | "edge-cases" | "error-handling" | "boundaries")[] | undefined;
     maxSuggestions?: number | undefined;
     priorityBy?: "risk" | "complexity" | "coverage-impact" | "change-frequency" | undefined;
     includeCode?: boolean | undefined;
@@ -121,7 +121,7 @@ export declare const toolDefinition: {
     }, "strip", z.ZodTypeAny, {
         framework: "vitest" | "jest" | "mocha" | "pytest" | "junit";
         targetPath: string;
-        focusAreas: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[];
+        focusAreas: ("branches" | "lines" | "functions" | "edge-cases" | "error-handling" | "boundaries")[];
         maxSuggestions: number;
         priorityBy: "risk" | "complexity" | "coverage-impact" | "change-frequency";
         includeCode: boolean;
@@ -130,7 +130,7 @@ export declare const toolDefinition: {
         targetPath: string;
         framework?: "vitest" | "jest" | "mocha" | "pytest" | "junit" | undefined;
         coverageReport?: string | undefined;
-        focusAreas?: ("lines" | "branches" | "functions" | "edge-cases" | "error-handling" | "boundaries")[] | undefined;
+        focusAreas?: ("branches" | "lines" | "functions" | "edge-cases" | "error-handling" | "boundaries")[] | undefined;
         maxSuggestions?: number | undefined;
         priorityBy?: "risk" | "complexity" | "coverage-impact" | "change-frequency" | undefined;
         includeCode?: boolean | undefined;

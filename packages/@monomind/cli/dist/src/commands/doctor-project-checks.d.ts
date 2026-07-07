@@ -12,6 +12,7 @@ export declare function checkMcpServers(): Promise<HealthCheck>;
 export declare function checkMonograph(): Promise<HealthCheck>;
 export declare function checkMonographFreshness(): Promise<HealthCheck>;
 export declare function checkMonoesMemory(): Promise<HealthCheck>;
+export declare function fixStaleHelpers(): Promise<boolean>;
 export declare function checkHelpersFresh(): Promise<HealthCheck>;
 export declare function checkMonoesIntegration(): Promise<HealthCheck>;
 export declare function checkGitignoreCoverage(): Promise<HealthCheck>;

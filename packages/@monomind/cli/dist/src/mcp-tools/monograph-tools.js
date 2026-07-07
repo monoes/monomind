@@ -451,7 +451,13 @@ const monographVisualizeTool = {
                 ? Math.min(Math.floor(rawMaxNodes), MAX_EXPORT_NODES)
                 : 500;
             const nodes = db.prepare('SELECT * FROM nodes LIMIT ?').all(limit);
-            const edges = db.prepare('SELECT * FROM edges LIMIT ?').all(limit * 3);
+            // Only include edges where both endpoints are in the visible node set
+            const edges = db.prepare(`
+        SELECT e.* FROM edges e
+        WHERE e.source_id IN (SELECT id FROM nodes LIMIT ?)
+          AND e.target_id IN (SELECT id FROM nodes LIMIT ?)
+        LIMIT ?
+      `).all(limit, limit, limit * 3);
             const fmt = input.format ?? 'html';
             if (fmt === 'json')
                 return text(toJson(nodes, edges));

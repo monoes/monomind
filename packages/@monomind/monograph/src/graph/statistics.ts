@@ -77,21 +77,24 @@ export function clusteringCoefficient(db: MonographDb): number {
   let totalCoeff = 0;
   let countWithNeighbors = 0;
 
+  // Cap per-node neighbor scan to avoid O(k²) explosion on hub nodes
+  const MAX_K = 200;
   for (const [node, nbrs] of neighbors) {
     const k = nbrs.size;
     if (k < 2) continue;
 
     let triangles = 0;
-    const nbList = [...nbrs];
-    for (let i = 0; i < nbList.length; i++) {
-      for (let j = i + 1; j < nbList.length; j++) {
+    const nbList = k <= MAX_K ? [...nbrs] : [...nbrs].slice(0, MAX_K);
+    const effectiveK = nbList.length;
+    for (let i = 0; i < effectiveK; i++) {
+      for (let j = i + 1; j < effectiveK; j++) {
         if (neighbors.get(nbList[i])?.has(nbList[j])) {
           triangles++;
         }
       }
     }
 
-    const possible = (k * (k - 1)) / 2;
+    const possible = (effectiveK * (effectiveK - 1)) / 2;
     totalCoeff += triangles / possible;
     countWithNeighbors++;
   }
@@ -112,19 +115,28 @@ export interface PathStats {
 }
 
 /**
- * Compute both average path length and graph diameter in a single BFS pass.
- * Unreachable pairs are excluded from averagePathLength.
+ * Compute both average path length and graph diameter via BFS.
+ * For graphs > 500 nodes, uses deterministic sampling (every Nth node)
+ * to keep runtime practical — O(sample * E) instead of O(N * E).
  */
 export function pathStats(db: MonographDb): PathStats {
   const graph = getGraph(db);
   const nodes = graph.nodes();
   if (nodes.length < 2) return { averagePathLength: 0, diameter: 0 };
 
+  // Sample sources for large graphs — stride ensures even coverage
+  const MAX_SOURCES = 500;
+  const stride = nodes.length <= MAX_SOURCES ? 1 : Math.ceil(nodes.length / MAX_SOURCES);
+  const sources: string[] = [];
+  for (let i = 0; i < nodes.length && sources.length < MAX_SOURCES; i += stride) {
+    sources.push(nodes[i]);
+  }
+
   let totalLength = 0;
   let reachablePairs = 0;
   let maxDist = 0;
 
-  for (const source of nodes) {
+  for (const source of sources) {
     bfsFromNode(graph, source, (node, _attr, depth) => {
       if (node !== source && depth > 0) {
         totalLength += depth;

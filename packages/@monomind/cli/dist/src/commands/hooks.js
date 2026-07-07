@@ -13,7 +13,7 @@
 import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { intelligenceCommand, workerCommand } from './hooks-workers.js';
-import { coverageRouteCommand, coverageSuggestCommand, coverageGapsCommand, progressHookCommand, statuslineCommand, } from './hooks-coverage-commands.js';
+import { coverageRouteCommand, coverageSuggestCommand, coverageGapsCommand, statuslineCommand, } from './hooks-coverage-commands.js';
 import { tokenOptimizeCommand, modelRouteCommand, modelOutcomeCommand, modelStatsCommand, teammateIdleCommand, taskCompletedCommand, notifyCommand, } from './hooks-extended-commands.js';
 import { preEditCommand, postEditCommand, preCommandCommand, postCommandCommand, } from './hooks-core-commands.js';
 import { routeCommand, explainCommand, pretrainCommand, buildAgentsCommand, metricsCommand, transferCommand, listCommand, } from './hooks-routing-commands.js';
@@ -423,7 +423,6 @@ export const hooksCommand = {
         intelligenceCommand,
         notifyCommand,
         workerCommand,
-        progressHookCommand,
         statuslineCommand,
         // Coverage-aware routing commands
         coverageRouteCommand,

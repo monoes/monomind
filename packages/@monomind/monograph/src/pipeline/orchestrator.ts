@@ -26,6 +26,7 @@ import type { PipelineOptions, PipelineContext } from './types.js';
 import { DEFAULT_OPTIONS } from './types.js';
 import type { PipelineProgress, SuggestedQuestion } from '../types.js';
 import { generateGraphReport } from '../reporting/graph-report.js';
+import { analyzeChurn } from '../analysis/churn.js';
 
 function getCurrentCommitHash(repoPath: string): string | null {
   try {
@@ -164,10 +165,32 @@ async function buildAsyncLocked(
       await generateGraphReport(resolve(repoPath), undefined, dbPath, questions);
     }
 
+    // Populate churnScore on File nodes from git history (6-month window)
+    try {
+      const churnResult = await analyzeChurn(ctx.repoPath, '6m');
+      if (churnResult.files.length > 0) {
+        const maxWeighted = churnResult.files.reduce((m, f) => f.weightedCommits > m ? f.weightedCommits : m, 0);
+        if (maxWeighted > 0) {
+          const updateProps = db.prepare(`
+            UPDATE nodes SET properties = json_set(COALESCE(properties, '{}'), '$.churnScore', ?)
+            WHERE file_path = ? AND label = 'File'
+          `);
+          db.transaction(() => {
+            for (const f of churnResult.files) {
+              updateProps.run(f.weightedCommits / maxWeighted, f.path);
+            }
+          })();
+        }
+      }
+    } catch {
+      // churn analysis is non-fatal (e.g. no git history)
+    }
+
     const hash = getCurrentCommitHash(resolve(repoPath));
     if (hash) {
       db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
     }
+    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(new Date().toISOString());
   } finally {
     closeDb(db);
   }

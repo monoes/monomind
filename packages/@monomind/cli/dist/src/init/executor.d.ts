@@ -3,6 +3,9 @@
  * Main execution logic for V1 initialization
  */
 import type { InitOptions, InitResult } from './types.js';
+/**
+ * Execute initialization
+ */
 export declare function executeInit(options: InitOptions): Promise<InitResult>;
 /**
  * Upgrade result interface

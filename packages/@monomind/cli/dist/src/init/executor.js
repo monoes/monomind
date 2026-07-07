@@ -186,88 +186,6 @@ const DIRECTORIES = {
 /**
  * Execute initialization
  */
-/**
- * Remove legacy ruv-swarm configuration from existing project files.
- * Safe to call even if no legacy config exists.
- */
-function cleanupLegacyTools(targetDir) {
-    const cleaned = [];
-    // Helper to fix MCP server args: replace @monomind/cli@latest with monomind@latest
-    function fixMcpArgs(servers) {
-        let changed = false;
-        for (const name of Object.keys(servers)) {
-            const srv = servers[name];
-            if (Array.isArray(srv.args)) {
-                srv.args = srv.args.map((a) => {
-                    if (typeof a === 'string' && a.includes('@monomind/cli@')) {
-                        changed = true;
-                        return a.replace(/@monomind\/cli@[^\s]*/g, 'monomind@latest');
-                    }
-                    return a;
-                });
-            }
-        }
-        return changed;
-    }
-    // Clean ruv-swarm from .mcp.json and fix old MCP package name
-    const mcpJsonPath = path.join(targetDir, '.mcp.json');
-    if (fs.existsSync(mcpJsonPath) && fs.statSync(mcpJsonPath).size <= MAX_EXEC_FILE_BYTES) {
-        try {
-            const mcp = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
-            let mcpChanged = false;
-            if (mcp.mcpServers && mcp.mcpServers['ruv-swarm']) {
-                delete mcp.mcpServers['ruv-swarm'];
-                mcpChanged = true;
-                cleaned.push('.mcp.json: removed ruv-swarm entry');
-            }
-            if (mcp.mcpServers && fixMcpArgs(mcp.mcpServers)) {
-                mcpChanged = true;
-                cleaned.push('.mcp.json: updated MCP package name to monomind@latest');
-            }
-            if (mcpChanged) {
-                atomicWriteFile(mcpJsonPath, JSON.stringify(mcp, null, 2));
-            }
-        }
-        catch { /* non-fatal */ }
-    }
-    // Clean ruv-swarm from .claude/settings.json hooks and fix MCP package name
-    const settingsPath = path.join(targetDir, '.claude', 'settings.json');
-    if (fs.existsSync(settingsPath) && fs.statSync(settingsPath).size <= MAX_EXEC_FILE_BYTES) {
-        try {
-            const raw = fs.readFileSync(settingsPath, 'utf-8');
-            const settings = JSON.parse(raw);
-            let settingsChanged = false;
-            if (raw.includes('ruv-swarm')) {
-                // Remove legacy ruv-swarm hook entries from all hook arrays
-                const hookKeys = ['PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'SessionStart', 'SessionEnd', 'Stop', 'SubagentStart', 'SubagentStop', 'PreCompact'];
-                for (const key of hookKeys) {
-                    if (Array.isArray(settings.hooks?.[key])) {
-                        const before = settings.hooks[key].length;
-                        settings.hooks[key] = settings.hooks[key].filter((entry) => {
-                            const str = JSON.stringify(entry);
-                            return !str.includes('ruv-swarm');
-                        });
-                        if (settings.hooks[key].length !== before)
-                            settingsChanged = true;
-                    }
-                }
-                if (settingsChanged) {
-                    cleaned.push('.claude/settings.json: removed ruv-swarm hooks');
-                }
-            }
-            // Fix wrong MCP package name in mcpServers
-            if (settings.mcpServers && fixMcpArgs(settings.mcpServers)) {
-                settingsChanged = true;
-                cleaned.push('.claude/settings.json: updated MCP package name to monomind@latest');
-            }
-            if (settingsChanged) {
-                atomicWriteFile(settingsPath, JSON.stringify(settings, null, 2));
-            }
-        }
-        catch { /* non-fatal */ }
-    }
-    return cleaned;
-}
 export async function executeInit(options) {
     // Detect platform
     const platform = detectPlatform();
@@ -290,11 +208,6 @@ export async function executeInit(options) {
     };
     const targetDir = options.targetDir;
     try {
-        // Remove legacy ruv-swarm configs before writing new ones
-        const legacyCleaned = cleanupLegacyTools(targetDir);
-        for (const msg of legacyCleaned) {
-            result.created.files.push(`[cleaned] ${msg}`);
-        }
         // Create directory structure
         await createDirectories(targetDir, options, result);
         // Scan directory and save fingerprint (non-fatal if failed)
@@ -678,11 +591,6 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
         settingsUpdated: [],
     };
     try {
-        // Fix legacy ruv-swarm configs and old MCP package names
-        const legacyCleaned = cleanupLegacyTools(targetDir);
-        for (const msg of legacyCleaned) {
-            result.updated.push(`[cleaned] ${msg}`);
-        }
         // Ensure required directories exist
         const dirs = [
             '.claude/helpers',
@@ -701,7 +609,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
         if (sourceHelpersForUpgrade) {
             const destHelpersDir = path.join(targetDir, '.claude', 'helpers');
             // Copy top-level critical files atomically
-            const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
+            const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'graphify-freshen.cjs'];
             for (const helperName of criticalHelpers) {
                 const targetPath = path.join(destHelpersDir, helperName);
                 const sourcePath = path.join(sourceHelpersForUpgrade, helperName);
@@ -760,26 +668,27 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 fs.renameSync(tmp, targetPath);
             }
         }
-        // 1. ALWAYS update statusline helper (force overwrite)
+        // 1. Statusline fallback — only generate if source copy above didn't cover it
         const statuslinePath = path.join(targetDir, '.claude', 'helpers', 'statusline.cjs');
-        // Use default options with statusline config
-        const upgradeOptions = {
-            ...DEFAULT_INIT_OPTIONS,
-            targetDir,
-            force: true,
-            statusline: {
-                ...DEFAULT_INIT_OPTIONS.statusline,
-                refreshInterval: 5000,
-            },
-        };
-        const statuslineContent = generateStatuslineScript(upgradeOptions);
-        if (fs.existsSync(statuslinePath)) {
-            result.updated.push('.claude/helpers/statusline.cjs');
+        if (!sourceHelpersForUpgrade || !fs.existsSync(path.join(sourceHelpersForUpgrade, 'statusline.cjs'))) {
+            const upgradeOptions = {
+                ...DEFAULT_INIT_OPTIONS,
+                targetDir,
+                force: true,
+                statusline: {
+                    ...DEFAULT_INIT_OPTIONS.statusline,
+                    refreshInterval: 5000,
+                },
+            };
+            const statuslineContent = generateStatuslineScript(upgradeOptions);
+            if (fs.existsSync(statuslinePath)) {
+                result.updated.push('.claude/helpers/statusline.cjs');
+            }
+            else {
+                result.created.push('.claude/helpers/statusline.cjs');
+            }
+            atomicWriteFile(statuslinePath, statuslineContent);
         }
-        else {
-            result.created.push('.claude/helpers/statusline.cjs');
-        }
-        atomicWriteFile(statuslinePath, statuslineContent);
         // 2. Create MISSING metrics files only (preserve existing data)
         const metricsDir = path.join(targetDir, '.monomind', 'metrics');
         const securityDir = path.join(targetDir, '.monomind', 'security');

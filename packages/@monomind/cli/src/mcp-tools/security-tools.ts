@@ -409,7 +409,6 @@ const monofenceIsSafeTool: MCPTool = {
 
     try {
       await getMonoFence(); // triggers auto-install if package is missing
-      // @ts-expect-error — optional peer dep resolved at runtime
       const { isSafe } = await import('monofence-ai');
       const safe = isSafe(input);
 

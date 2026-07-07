@@ -18,7 +18,6 @@ export { sessionTools } from './session-tools.js';
 export { hiveMindTools } from './hive-mind-tools.js';
 export { workflowTools } from './workflow-tools.js';
 export { analyzeTools } from './analyze-tools.js';
-export { progressTools } from './progress-tools.js';
 export { transferTools } from './transfer-tools.js';
 export { securityTools } from './security-tools.js';
 export { embeddingsTools } from './embeddings-tools.js';
