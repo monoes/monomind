@@ -169,14 +169,21 @@ async function buildAsyncLocked(
     try {
       const churnResult = await analyzeChurn(ctx.repoPath, '6m');
       if (churnResult.files.length > 0) {
-        const maxWeighted = churnResult.files.reduce((m, f) => f.weightedCommits > m ? f.weightedCommits : m, 0);
+        // Only consider files that exist as graph nodes for normalization —
+        // build artifacts and config files inflate the denominator otherwise
+        const graphFiles = new Set(
+          (db.prepare("SELECT file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL").all() as { file_path: string }[])
+            .map(r => r.file_path),
+        );
+        const graphChurn = churnResult.files.filter(f => graphFiles.has(f.path));
+        const maxWeighted = graphChurn.reduce((m, f) => f.weightedCommits > m ? f.weightedCommits : m, 0);
         if (maxWeighted > 0) {
           const updateProps = db.prepare(`
             UPDATE nodes SET properties = json_set(COALESCE(properties, '{}'), '$.churnScore', ?)
             WHERE file_path = ? AND label = 'File'
           `);
           db.transaction(() => {
-            for (const f of churnResult.files) {
+            for (const f of graphChurn) {
               updateProps.run(f.weightedCommits / maxWeighted, f.path);
             }
           })();

@@ -32,7 +32,7 @@ export function buildDuplicationResultsEnvelope(results, cloneGroups, opts = {})
 }
 export function stripRootPrefix(obj, rootPrefix) {
     const json = JSON.stringify(obj);
-    const escaped = rootPrefix.replace(/[/\\]/g, s => `\\${s}`);
+    const escaped = rootPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return JSON.parse(json.replace(new RegExp(escaped, 'g'), ''));
 }
 //# sourceMappingURL=analysis-json.js.map

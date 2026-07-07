@@ -29,9 +29,9 @@ export function getReactUiHtml() {
 
       async function search() {
         if (!query.trim()) return;
-        const res = await fetch('/api/query?q=' + encodeURIComponent(query));
+        const res = await fetch('/api/search?q=' + encodeURIComponent(query));
         const data = await res.json();
-        setResults(data.results ?? data ?? []);
+        setResults(Array.isArray(data) ? data : data.results ?? []);
       }
 
       async function analyze() {

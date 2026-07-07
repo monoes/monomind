@@ -19,6 +19,9 @@ export interface GraphData {
     nodes: ApiNode[];
     edges: ApiEdge[];
     communities: Record<string, string[]>;
+    totalNodeCount: number;
+    totalEdgeCount: number;
+    truncated: boolean;
 }
 export interface NodeDetail {
     node: ApiNode | null;

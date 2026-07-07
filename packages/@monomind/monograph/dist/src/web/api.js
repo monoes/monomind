@@ -1,7 +1,18 @@
 import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { ftsSearch } from '../storage/fts-store.js';
 import { globalJobRegistry } from './async-jobs.js';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PKG_VERSION = (() => {
+    try {
+        const pkg = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf8'));
+        return pkg.version ?? '0.0.0';
+    }
+    catch {
+        return '0.0.0';
+    }
+})();
 // ── Query helpers (testable in isolation) ─────────────────────────────────────
 export function rowToApiNode(row) {
     return {
@@ -15,27 +26,43 @@ export function rowToApiNode(row) {
     };
 }
 export function queryGraphData(db) {
+    const totalNodeCount = db.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
+    const totalEdgeCount = db.prepare('SELECT COUNT(*) as c FROM edges').get().c;
+    // Select the most connected nodes for a representative visualization
     const nodeRows = db
-        .prepare('SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes LIMIT 2000')
+        .prepare(`SELECT n.id, n.name, n.label, n.file_path, n.start_line, n.end_line, n.community_id
+       FROM nodes n
+       LEFT JOIN (
+         SELECT node_id, SUM(cnt) AS deg FROM (
+           SELECT source_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY source_id
+           UNION ALL
+           SELECT target_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY target_id
+         ) GROUP BY node_id
+       ) d ON d.node_id = n.id
+       ORDER BY d.deg DESC NULLS LAST
+       LIMIT 2000`)
         .all();
     const nodes = nodeRows.map(rowToApiNode);
     const nodeIds = new Set(nodes.map((n) => n.id));
     const edges = [];
     if (nodeIds.size > 0) {
-        // Use a subquery instead of IN(?,...) to avoid SQLite's SQLITE_MAX_VARIABLE_NUMBER limit
+        // Scan edges and keep those where at least one endpoint is a visible node
         const edgeRows = db
-            .prepare(`SELECT e.source_id, e.target_id, e.relation, e.confidence_score
-         FROM edges e
-         JOIN (SELECT id FROM nodes LIMIT 2000) n ON e.source_id = n.id
-         LIMIT 10000`)
+            .prepare('SELECT source_id, target_id, relation, confidence_score FROM edges')
             .all();
         for (const r of edgeRows) {
-            edges.push({
-                sourceId: r['source_id'],
-                targetId: r['target_id'],
-                relation: r['relation'],
-                confidenceScore: r['confidence_score'],
-            });
+            const src = r['source_id'];
+            const tgt = r['target_id'];
+            if (nodeIds.has(src) && nodeIds.has(tgt)) {
+                edges.push({
+                    sourceId: src,
+                    targetId: tgt,
+                    relation: r['relation'],
+                    confidenceScore: r['confidence_score'],
+                });
+                if (edges.length >= 10000)
+                    break;
+            }
         }
     }
     const communities = {};
@@ -47,7 +74,7 @@ export function queryGraphData(db) {
             communities[key].push(node.id);
         }
     }
-    return { nodes, edges, communities };
+    return { nodes, edges, communities, totalNodeCount, totalEdgeCount, truncated: totalNodeCount > nodes.length };
 }
 export function queryNode(db, id) {
     const nodeRow = db
@@ -79,8 +106,8 @@ export function querySearch(db, q) {
         name: r.name,
         label: r.label,
         filePath: r.filePath,
-        startLine: null,
-        endLine: null,
+        startLine: r.startLine ?? null,
+        endLine: r.endLine ?? null,
         communityId: null,
     }));
 }
@@ -164,7 +191,7 @@ export function queryProcess(db, name) {
 export function getServerInfo() {
     return {
         name: 'monograph',
-        version: '1.0.0',
+        version: PKG_VERSION,
         nodeVersion: process.version,
         uptimeSeconds: process.uptime(),
     };
@@ -278,15 +305,27 @@ export function setupApiRoutes(app, db) {
     });
     // Async analyze job API
     app.post('/api/analyze', (req, res) => {
-        const { repoPath } = req.body;
+        const { repoPath, codeOnly, force } = req.body;
         if (!repoPath) {
             res.status(400).json({ error: 'repoPath is required' });
             return;
         }
         const job = globalJobRegistry.create('analyze', { repoPath });
         globalJobRegistry.update(job.id, { status: 'running' });
-        setImmediate(() => {
-            globalJobRegistry.update(job.id, { status: 'done', result: { message: 'ok' } });
+        import('../pipeline/orchestrator.js').then(({ buildAsync }) => {
+            buildAsync(repoPath, {
+                codeOnly,
+                force,
+                onProgress: (p) => {
+                    globalJobRegistry.emitProgress(job.id, { phase: p.phase ?? '', message: p.message });
+                },
+            }).then(() => {
+                globalJobRegistry.update(job.id, { status: 'done', result: { message: 'Build complete' } });
+            }).catch((err) => {
+                globalJobRegistry.update(job.id, { status: 'failed', result: { error: String(err) } });
+            });
+        }).catch((err) => {
+            globalJobRegistry.update(job.id, { status: 'failed', result: { error: String(err) } });
         });
         res.status(202).json({ jobId: job.id });
     });

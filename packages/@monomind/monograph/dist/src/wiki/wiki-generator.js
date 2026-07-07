@@ -48,14 +48,17 @@ export async function generateWikiPage(db, communityId, options) {
     const label = commRow?.label ?? `Community ${communityIdStr}`;
     // 2. Get top 5 symbols by degree (count of connected edges, since no centrality column)
     const symbolRows = db.prepare(`
-    SELECT n.name, n.label, n.file_path,
-           COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
+    SELECT n.name, n.label, n.file_path
     FROM nodes n
-    LEFT JOIN edges e1 ON e1.source_id = n.id
-    LEFT JOIN edges e2 ON e2.target_id = n.id
+    LEFT JOIN (
+      SELECT node_id, SUM(cnt) AS deg FROM (
+        SELECT source_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY source_id
+        UNION ALL
+        SELECT target_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY target_id
+      ) GROUP BY node_id
+    ) d ON d.node_id = n.id
     WHERE n.community_id = ?
-    GROUP BY n.id
-    ORDER BY degree DESC, n.name ASC
+    ORDER BY d.deg DESC NULLS LAST, n.name ASC
     LIMIT 5
   `).all(Number(communityIdStr));
     // 3. Count incoming edges to community (edges whose target is in this community)

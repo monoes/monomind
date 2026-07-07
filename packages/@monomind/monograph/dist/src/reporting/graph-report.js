@@ -16,16 +16,15 @@ function queryEdgesByRelation(db) {
 }
 function queryTopNodesByDegree(db, limit = 10) {
     const rows = db.prepare(`
-    SELECT
-      n.id,
-      n.name,
-      n.label,
-      (
-        SELECT COUNT(*) FROM edges WHERE source_id = n.id
-      ) + (
-        SELECT COUNT(*) FROM edges WHERE target_id = n.id
-      ) AS degree
+    SELECT n.id, n.name, n.label, COALESCE(d.degree, 0) AS degree
     FROM nodes n
+    LEFT JOIN (
+      SELECT node_id, SUM(cnt) AS degree FROM (
+        SELECT source_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY source_id
+        UNION ALL
+        SELECT target_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY target_id
+      ) GROUP BY node_id
+    ) d ON d.node_id = n.id
     ORDER BY degree DESC
     LIMIT ?
   `).all(limit);
