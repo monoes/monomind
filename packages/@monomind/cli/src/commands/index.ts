@@ -34,7 +34,6 @@ const commandLoaders: Record<string, CommandLoader> = {
   memory: () => import('./memory.js'),
   mcp: () => import('./mcp.js'),
   config: () => import('./config.js'),
-  migrate: () => import('./migrate.js'),
   hooks: () => import('./hooks.js'),
   workflow: () => import('./workflow.js'),
   'hive-mind': () => import('./hive-mind.js'),
@@ -54,16 +53,10 @@ const commandLoaders: Record<string, CommandLoader> = {
   analyze: () => import('./analyze.js'),
   // Q-Learning Routing Commands
   route: () => import('./route.js'),
-  // Progress Commands
-  progress: () => import('./progress.js'),
   // Issue Claims Commands (ADR-016)
   issues: () => import('./issues.js'),
   // Auto-update System (ADR-025)
   update: () => import('./update.js'),
-  // MonoVector PostgreSQL Bridge
-  monovector: () => import('./monovector/index.js'),
-  // Benchmark Suite (Pre-training, Neural, Memory)
-  benchmark: () => import('./benchmark.js'),
   // Guidance Control Plane
   guidance: () => import('./guidance.js'),
   'transfer-store': () => import('./transfer-store.js'),
@@ -146,17 +139,14 @@ import { doctorCommand } from './doctor.js';
 import { neuralCommand } from './neural.js';
 import { performanceCommand } from './performance.js';
 import { securityCommand } from './security.js';
-import { monovectorCommand } from './monovector/index.js';
 import { hiveMindCommand } from './hive-mind.js';
 import browseCommand from './browse.js';
 // Additional commands for categorized help display
 import { configCommand } from './config.js';
 import { completionsCommand } from './completions.js';
-import { migrateCommand } from './migrate.js';
 import { workflowCommand } from './workflow.js';
 import { analyzeCommand } from './analyze.js';
 import { routeCommand } from './route.js';
-import { progressCommand } from './progress.js';
 import { providersCommand } from './providers.js';
 import { deploymentCommand } from './deployment.js';
 import { claimsCommand } from './claims.js';
@@ -168,7 +158,6 @@ import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
 import { monographCommand } from './monograph.js';
 import replayCommand from './replay.js';
-import { benchmarkCommand } from './benchmark.js';
 import storeCommand from './transfer-store.js';
 import tokensCommand from './tokens.js';
 import { platformsCommand } from './platforms.js';
@@ -196,14 +185,12 @@ loadedCommands.set('doctor', doctorCommand);
 loadedCommands.set('neural', neuralCommand);
 loadedCommands.set('performance', performanceCommand);
 loadedCommands.set('security', securityCommand);
-loadedCommands.set('monovector', monovectorCommand);
 loadedCommands.set('hive-mind', hiveMindCommand);
 loadedCommands.set('guidance', guidanceCommand);
 loadedCommands.set('cleanup', cleanupCommand);
 loadedCommands.set('autopilot', autopilotCommand);
 loadedCommands.set('monograph', monographCommand);
 loadedCommands.set('replay', replayCommand);
-loadedCommands.set('benchmark', benchmarkCommand);
 loadedCommands.set('transfer-store', storeCommand);
 loadedCommands.set('tokens', tokensCommand);
 loadedCommands.set('platforms', platformsCommand);
@@ -236,7 +223,6 @@ export { doctorCommand } from './doctor.js';
 export { neuralCommand } from './neural.js';
 export { performanceCommand } from './performance.js';
 export { securityCommand } from './security.js';
-export { monovectorCommand } from './monovector/index.js';
 export { hiveMindCommand } from './hive-mind.js';
 export { guidanceCommand } from './guidance.js';
 export { cleanupCommand } from './cleanup.js';
@@ -253,7 +239,6 @@ export { docCommand } from './doc.js';
 
 // Lazy-loaded command re-exports (for backwards compatibility, but async-only)
 export async function getConfigCommand() { return loadCommand('config'); }
-export async function getMigrateCommand() { return loadCommand('migrate'); }
 export async function getWorkflowCommand() { return loadCommand('workflow'); }
 export async function getHiveMindCommand() { return loadCommand('hive-mind'); }
 export async function getProcessCommand() { return loadCommand('process'); }
@@ -268,9 +253,7 @@ export async function getClaimsCommand() { return loadCommand('claims'); }
 export async function getCompletionsCommand() { return loadCommand('completions'); }
 export async function getAnalyzeCommand() { return loadCommand('analyze'); }
 export async function getRouteCommand() { return loadCommand('route'); }
-export async function getProgressCommand() { return loadCommand('progress'); }
 export async function getIssuesCommand() { return loadCommand('issues'); }
-export async function getMonovectorCommand() { return loadCommand('monovector'); }
 export async function getGuidanceCommand() { return loadCommand('guidance'); }
 export async function getCleanupCommand() { return loadCommand('cleanup'); }
 export async function getAutopilotCommand() { return loadCommand('autopilot'); }
@@ -297,7 +280,6 @@ export const commands: Command[] = [
   neuralCommand,
   performanceCommand,
   securityCommand,
-  monovectorCommand,
   hiveMindCommand,
   guidanceCommand,
   cleanupCommand,
@@ -334,23 +316,19 @@ export const commandsByCategory = {
     securityCommand,
     performanceCommand,
     hiveMindCommand,
-    monovectorCommand,
-    guidanceCommand,
+      guidanceCommand,
     autopilotCommand,
-    benchmarkCommand,
   ],
   utility: [
     configCommand,
     doctorCommand,
     daemonCommand,
     completionsCommand,
-    migrateCommand,
     workflowCommand,
   ],
   analysis: [
     analyzeCommand,
     routeCommand,
-    progressCommand,
     monographCommand,
     replayCommand,
     tokensCommand,
