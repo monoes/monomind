@@ -34,7 +34,7 @@ function collectMdFiles(root, base = root) {
                 continue;
             results.push(...collectMdFiles(full, base));
         }
-        else if (stat.isFile() && extname(entry) === '.md') {
+        else if (stat.isFile() && extname(entry) === '.md' && !entry.startsWith('._')) {
             results.push(full);
         }
     }
