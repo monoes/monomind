@@ -70,27 +70,23 @@ if (!entryPoint) {
 const dbPath = path.join(projectDir, '.monomind', 'monograph.db');
 if (fs.existsSync(dbPath)) {
   try {
-    const mod = (() => {
-      try { return require(path.join(projectDir, 'packages', '@monomind', 'monograph', 'dist', 'src', 'index.js')); } catch {}
-      try { return require('@monoes/monograph'); } catch {}
-      return null;
-    })();
-    if (mod && mod.openDb) {
-      const db = mod.openDb(dbPath);
-      try {
-        const row = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get();
-        if (row && row.value) {
-          const { execSync } = require('child_process');
-          const behind = parseInt(execSync('git rev-list --count ' + row.value + '..HEAD 2>/dev/null', {
-            cwd: projectDir, encoding: 'utf-8', timeout: 2000
-          }).trim(), 10) || 0;
-          if (behind === 0) {
-            console.log('[graph] index is fresh — skipping rebuild');
-            process.exit(0);
-          }
+    const Database = require('better-sqlite3');
+    const db = new Database(dbPath, { readonly: true, timeout: 5000 });
+    try {
+      const row = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get();
+      if (row && row.value && /^[0-9a-f]{7,40}$/i.test(row.value)) {
+        const { execFileSync } = require('child_process');
+        const out = execFileSync('git', ['rev-list', '--count', row.value + '..HEAD'], {
+          cwd: projectDir, encoding: 'utf-8', timeout: 2000, stdio: ['pipe', 'pipe', 'pipe']
+        }).trim();
+        const behind = parseInt(out, 10);
+        if (behind === 0) {
+          console.log('[graph] index is fresh — skipping rebuild');
+          db.close();
+          process.exit(0);
         }
-      } finally { mod.closeDb(db); }
-    }
+      }
+    } finally { try { db.close(); } catch {} }
   } catch { /* can't check — proceed with build */ }
 }
 

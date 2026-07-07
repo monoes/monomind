@@ -66,6 +66,30 @@ if (!entryPoint) {
   process.exit(0);
 }
 
+// Skip if index is already fresh — don't waste CPU on every session start
+const dbPath = path.join(projectDir, '.monomind', 'monograph.db');
+if (fs.existsSync(dbPath)) {
+  try {
+    const Database = require('better-sqlite3');
+    const db = new Database(dbPath, { readonly: true, timeout: 5000 });
+    try {
+      const row = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get();
+      if (row && row.value && /^[0-9a-f]{7,40}$/i.test(row.value)) {
+        const { execFileSync } = require('child_process');
+        const out = execFileSync('git', ['rev-list', '--count', row.value + '..HEAD'], {
+          cwd: projectDir, encoding: 'utf-8', timeout: 2000, stdio: ['pipe', 'pipe', 'pipe']
+        }).trim();
+        const behind = parseInt(out, 10);
+        if (behind === 0) {
+          console.log('[graph] index is fresh — skipping rebuild');
+          db.close();
+          process.exit(0);
+        }
+      }
+    } finally { try { db.close(); } catch {} }
+  } catch { /* can't check — proceed with build */ }
+}
+
 // Skip if another build is already in progress (avoids SQLite BUSY on concurrent init + session-start)
 const lockPath = path.join(graphDir, 'build.lock');
 const now = Date.now();
