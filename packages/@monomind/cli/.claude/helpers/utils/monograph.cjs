@@ -49,11 +49,27 @@ function _suggestCacheSet(key, value) {
   }
   _suggestCache._map[key] = value;
 }
+function _isValidDb(p) {
+  try { return fs.statSync(p).size >= 100; } catch (_) { return false; }
+}
+
+function _resolveDbPath() {
+  var candidate = path.join(CWD, '.monomind', 'monograph.db');
+  if (_isValidDb(candidate)) return candidate;
+  try {
+    var { execSync } = require('child_process');
+    var root = execSync('git rev-parse --show-toplevel', { cwd: CWD, encoding: 'utf-8', timeout: 2000 }).trim();
+    candidate = path.join(root, '.monomind', 'monograph.db');
+    if (_isValidDb(candidate)) return candidate;
+  } catch (_) {}
+  return null;
+}
+
 function _openMonographDb() {
   if (_cachedMonographDb !== undefined) return _cachedMonographDb;
   try {
-    var dbPath = path.join(CWD, '.monomind', 'monograph.db');
-    if (!fs.existsSync(dbPath)) { _cachedMonographDb = null; return null; }
+    var dbPath = _resolveDbPath();
+    if (!dbPath) { _cachedMonographDb = null; return null; }
     var mod = _requireMonograph();
     if (!mod || !mod.openDb) { _cachedMonographDb = null; return null; }
     _cachedMonographDb = mod.openDb(dbPath);
@@ -183,19 +199,31 @@ function _getDollarRate() {
 
 // Staleness guard — skip graph DB lookups when the index is too far behind HEAD.
 // Returns true if it's safe to use the graph, false if stale.
+// Uses last_commit_hash from the DB (not file mtime, which drifts from backups/WAL/VACUUM).
 var _graphFreshnessCache = undefined;
 function _isGraphFresh() {
   if (_graphFreshnessCache !== undefined) return _graphFreshnessCache;
   try {
-    var dbPath = path.join(CWD, '.monomind', 'monograph.db');
-    var dbStat = fs.statSync(dbPath);
+    var db = _openMonographDb();
+    if (!db) { _graphFreshnessCache = false; return false; }
+    var row = null;
+    try {
+      row = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get() ||
+            db.prepare("SELECT value FROM index_meta WHERE key='lastCommit'").get();
+    } catch (_) {}
+    if (!row || !row.value) {
+      // No commit hash → can't check staleness, but DB may still have useful data
+      var nodeCount = 0;
+      try { nodeCount = db.prepare('SELECT COUNT(*) AS c FROM nodes').get().c; } catch (_) {}
+      _graphFreshnessCache = nodeCount > 0;
+      return _graphFreshnessCache;
+    }
     var { execSync } = require('child_process');
-    var buildIso = new Date(dbStat.mtimeMs).toISOString();
-    var out = execSync("git rev-list --count --since='" + buildIso + "' HEAD 2>/dev/null", {
+    var out = execSync('git rev-list --count ' + row.value + '..HEAD 2>/dev/null', {
       encoding: 'utf-8', timeout: 1500, stdio: ['pipe', 'pipe', 'pipe']
     }).trim();
     var behind = parseInt(out, 10) || 0;
-    _graphFreshnessCache = behind <= 50; // monolean: 50 commits is generous enough
+    _graphFreshnessCache = behind <= 50;
   } catch(e) {
     _graphFreshnessCache = true; // can't check → assume fresh
   }
@@ -354,14 +382,24 @@ function injectGodNodesContext(CWD) {
     try {
       var nodeCount = db.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
       var edgeCount = db.prepare('SELECT COUNT(*) AS c FROM edges').get().c;
+      // Precompute degree via indexed edge lookups to avoid O(N) correlated subquery
       var godNodes = db.prepare(
-        "SELECT n.name, n.label, n.file_path, " +
-        "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
-        "FROM nodes n " +
+        "WITH deg AS (" +
+        "  SELECT id, cnt FROM (" +
+        "    SELECT source_id AS id, COUNT(*) AS cnt FROM edges GROUP BY source_id " +
+        "    UNION ALL " +
+        "    SELECT target_id AS id, COUNT(*) AS cnt FROM edges GROUP BY target_id" +
+        "  ) GROUP BY id" +
+        "  HAVING SUM(cnt) > 0" +
+        "), ranked AS (" +
+        "  SELECT d.id, SUM(d.cnt) AS deg FROM deg d GROUP BY d.id ORDER BY deg DESC LIMIT 50" +
+        ") " +
+        "SELECT n.name, n.label, n.file_path, r.deg " +
+        "FROM ranked r JOIN nodes n ON n.id = r.id " +
         "WHERE n.label NOT IN ('Concept') " +
         "AND n.file_path IS NOT NULL AND n.file_path != '' " +
         "AND n.file_path NOT LIKE '%/node_modules/%' AND n.file_path NOT LIKE '%node_modules%' " +
-        "ORDER BY deg DESC LIMIT 12"
+        "ORDER BY r.deg DESC LIMIT 12"
       ).all();
 
       // Staleness indicator: compare stored commit hash with current HEAD.
@@ -396,6 +434,7 @@ function injectGodNodesContext(CWD) {
           return n.name + ' (' + n.label + ', ' + n.deg + ' links)';
         }).join(', ');
         console.log('[MONOGRAPH_CONTEXT] ' + nodeCount + ' nodes · ' + edgeCount + ' edges. Key nodes: ' + godStr + staleIndicator);
+        console.log('[MONOGRAPH_ACTIVE] Indexed knowledge graph available — prefer monograph_query / monograph_suggest over grep/find for symbol and definition lookups.');
 
         // Write god nodes into knowledge/chunks.jsonl so semantic search finds them.
         var knowledgeDir = path.join(CWD, '.monomind', 'knowledge');
@@ -416,7 +455,10 @@ function injectGodNodesContext(CWD) {
             try { return JSON.parse(line).id !== 'monograph-god-nodes'; } catch(e) { return true; }
           });
           existing.push(godChunk);
-          fs.writeFileSync(chunksFile, existing.join('\n') + '\n');
+          // Atomic write: tmp file + rename to avoid corruption on kill/timeout
+          var tmpChunks = chunksFile + '.tmp.' + process.pid;
+          fs.writeFileSync(tmpChunks, existing.join('\n') + '\n');
+          fs.renameSync(tmpChunks, chunksFile);
         } catch(e) {}
       }
     } catch(e) { /* non-fatal */ }

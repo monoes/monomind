@@ -49,11 +49,28 @@ function _suggestCacheSet(key, value) {
   }
   _suggestCache._map[key] = value;
 }
+function _isValidDb(p) {
+  try { return fs.statSync(p).size >= 100; } catch (_) { return false; }
+}
+
+function _resolveDbPath() {
+  // monolean: try CWD first, then git root, so hooks work from any subdirectory
+  var candidate = path.join(CWD, '.monomind', 'monograph.db');
+  if (_isValidDb(candidate)) return candidate;
+  try {
+    var { execSync } = require('child_process');
+    var root = execSync('git rev-parse --show-toplevel', { cwd: CWD, encoding: 'utf-8', timeout: 2000 }).trim();
+    candidate = path.join(root, '.monomind', 'monograph.db');
+    if (_isValidDb(candidate)) return candidate;
+  } catch (_) {}
+  return null;
+}
+
 function _openMonographDb() {
   if (_cachedMonographDb !== undefined) return _cachedMonographDb;
   try {
-    var dbPath = path.join(CWD, '.monomind', 'monograph.db');
-    if (!fs.existsSync(dbPath)) { _cachedMonographDb = null; return null; }
+    var dbPath = _resolveDbPath();
+    if (!dbPath) { _cachedMonographDb = null; return null; }
     var mod = _requireMonograph();
     if (!mod || !mod.openDb) { _cachedMonographDb = null; return null; }
     _cachedMonographDb = mod.openDb(dbPath);
@@ -189,27 +206,29 @@ function _isGraphFresh() {
   if (_graphFreshnessCache !== undefined) return _graphFreshnessCache;
   try {
     var db = _openMonographDb();
-    if (!db) { _graphFreshnessCache = true; return true; }
+    if (!db) { _graphFreshnessCache = false; return false; }
     var row = null;
     try {
       row = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get() ||
             db.prepare("SELECT value FROM index_meta WHERE key='lastCommit'").get();
     } catch (_) {}
     if (!row || !row.value) {
-      // No commit hash → can't check staleness, but DB may still have useful data
-      var nodeCount = 0;
-      try { nodeCount = db.prepare('SELECT COUNT(*) AS c FROM nodes').get().c; } catch (_) {}
-      _graphFreshnessCache = nodeCount > 0;
-      return _graphFreshnessCache;
+      _graphFreshnessCache = false;
+      return false;
     }
-    var { execSync } = require('child_process');
-    var out = execSync('git rev-list --count ' + row.value + '..HEAD 2>/dev/null', {
-      encoding: 'utf-8', timeout: 1500, stdio: ['pipe', 'pipe', 'pipe']
+    if (!/^[0-9a-f]{7,40}$/i.test(row.value)) {
+      _graphFreshnessCache = false;
+      return false;
+    }
+    var { execFileSync } = require('child_process');
+    var out = execFileSync('git', ['rev-list', '--count', row.value + '..HEAD'], {
+      encoding: 'utf-8', timeout: 1500, stdio: ['pipe', 'pipe', 'pipe'], cwd: CWD
     }).trim();
-    var behind = parseInt(out, 10) || 0;
+    var behind = parseInt(out, 10);
+    if (isNaN(behind)) { _graphFreshnessCache = false; return false; }
     _graphFreshnessCache = behind <= 50;
   } catch(e) {
-    _graphFreshnessCache = true; // can't check → assume fresh
+    _graphFreshnessCache = false; // can't check → assume stale
   }
   return _graphFreshnessCache;
 }
@@ -369,21 +388,18 @@ function injectGodNodesContext(CWD) {
       // Precompute degree via indexed edge lookups to avoid O(N) correlated subquery
       var godNodes = db.prepare(
         "WITH deg AS (" +
-        "  SELECT id, cnt FROM (" +
+        "  SELECT id, SUM(cnt) AS deg FROM (" +
         "    SELECT source_id AS id, COUNT(*) AS cnt FROM edges GROUP BY source_id " +
         "    UNION ALL " +
         "    SELECT target_id AS id, COUNT(*) AS cnt FROM edges GROUP BY target_id" +
         "  ) GROUP BY id" +
-        "  HAVING SUM(cnt) > 0" +
-        "), ranked AS (" +
-        "  SELECT d.id, SUM(d.cnt) AS deg FROM deg d GROUP BY d.id ORDER BY deg DESC LIMIT 50" +
         ") " +
-        "SELECT n.name, n.label, n.file_path, r.deg " +
-        "FROM ranked r JOIN nodes n ON n.id = r.id " +
+        "SELECT n.name, n.label, n.file_path, d.deg " +
+        "FROM deg d JOIN nodes n ON n.id = d.id " +
         "WHERE n.label NOT IN ('Concept') " +
         "AND n.file_path IS NOT NULL AND n.file_path != '' " +
         "AND n.file_path NOT LIKE '%/node_modules/%' AND n.file_path NOT LIKE '%node_modules%' " +
-        "ORDER BY r.deg DESC LIMIT 12"
+        "ORDER BY d.deg DESC LIMIT 12"
       ).all();
 
       // Staleness indicator: compare stored commit hash with current HEAD.
