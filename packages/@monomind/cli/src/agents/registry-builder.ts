@@ -46,7 +46,7 @@ function collectMdFiles(root: string, base: string = root): string[] {
     if (stat.isDirectory()) {
       if (SKIP_DIRS.has(entry)) continue;
       results.push(...collectMdFiles(full, base));
-    } else if (stat.isFile() && extname(entry) === '.md') {
+    } else if (stat.isFile() && extname(entry) === '.md' && !entry.startsWith('._')) {
       results.push(full);
     }
   }
