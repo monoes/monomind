@@ -1,8 +1,21 @@
 import { randomUUID } from 'crypto';
+const MAX_COMPLETED_JOBS = 50;
 export function createJobRegistry() {
     const jobs = new Map();
     const progressMap = new Map();
     function now() { return new Date().toISOString(); }
+    function evictOldCompleted() {
+        const completed = [...jobs.entries()]
+            .filter(([, j]) => j.status === 'done' || j.status === 'failed' || j.status === 'cancelled');
+        if (completed.length <= MAX_COMPLETED_JOBS)
+            return;
+        completed.sort((a, b) => a[1].updatedAt.localeCompare(b[1].updatedAt));
+        const toEvict = completed.slice(0, completed.length - MAX_COMPLETED_JOBS);
+        for (const [id] of toEvict) {
+            jobs.delete(id);
+            progressMap.delete(id);
+        }
+    }
     return {
         create(type, payload) {
             const job = {
@@ -28,6 +41,8 @@ export function createJobRegistry() {
             if (j.status === 'done' || j.status === 'failed' || j.status === 'cancelled')
                 return false;
             Object.assign(j, patch, { updatedAt: now() });
+            if (patch.status === 'done' || patch.status === 'failed')
+                evictOldCompleted();
             return true;
         },
         cancel(id) {

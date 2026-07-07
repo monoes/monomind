@@ -106,10 +106,11 @@ export function computeGraphStats(db) {
 /** Format a GraphStatsSummary as structured text for LLM consumption. */
 export function formatGraphStats(s) {
     const cp = s.couplingProfile;
+    const totalEntities = cp.fanInProfile.low + cp.fanInProfile.medium + cp.fanInProfile.high + cp.fanInProfile.critical;
     const lines = [
         `Graph Stats`,
         `  Nodes: ${s.nodeCount}  Edges: ${s.edgeCount}  Communities: ${s.communityCount}  Files: ${s.fileCount}`,
-        `Coupling Profile (${cp.totalFiles} files)`,
+        `Coupling Profile (${totalEntities} entities, ${cp.totalFiles} files)`,
         `  Fan-in p50/p75/p90/p95: ${cp.p50FanIn}/${cp.p75FanIn}/${cp.p90FanIn}/${cp.p95FanIn}`,
         `  High-coupling (>p95): ${cp.couplingHighPct}%`,
         `Fan-in Risk: low=${cp.fanInProfile.low}(${cp.fanInProfile.lowPct}%) med=${cp.fanInProfile.medium}(${cp.fanInProfile.mediumPct}%) high=${cp.fanInProfile.high}(${cp.fanInProfile.highPct}%) crit=${cp.fanInProfile.critical}(${cp.fanInProfile.criticalPct}%)`,

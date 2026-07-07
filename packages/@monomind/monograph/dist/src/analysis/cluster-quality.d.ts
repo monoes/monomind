@@ -18,11 +18,11 @@ export type Edge = {
  */
 export declare function silhouetteScore(memberships: Map<string, number>, edges: Edge[]): number;
 /**
- * Compute Newman–Girvan modularity Q.
+ * Compute Newman–Girvan modularity Q using the community-level formula:
+ *   Q = Σ_c [e_c / m - (a_c / 2m)²]
+ * where e_c = intra-community edges, a_c = sum of degrees in community c, m = total edges.
  *
- * Q = (1/2m) * Σ_{ij} [A_ij - k_i*k_j/(2m)] * δ(c_i, c_j)
- *
- * where m = total edge count, k_i = degree of node i, A_ij = adjacency.
+ * O(E + N) instead of O(N²).
  * Returns a value in (-0.5, 1].
  */
 export declare function modularityScore(memberships: Map<string, number>, edges: Edge[]): number;
