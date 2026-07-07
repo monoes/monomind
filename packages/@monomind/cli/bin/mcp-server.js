@@ -97,7 +97,16 @@ async function handleMessage(message) {
 
   try {
     switch (message.method) {
-      case 'initialize':
+      case 'initialize': {
+        const roots = params.roots ?? params.workspaceFolders ?? [];
+        if (roots.length > 0 && !process.env.MONOMIND_CWD) {
+          const rootUri = typeof roots[0] === 'string' ? roots[0] : (roots[0].uri ?? roots[0].path ?? '');
+          const rootPath = rootUri.startsWith('file://') ? decodeURIComponent(rootUri.slice(7)) : rootUri;
+          if (rootPath) {
+            process.env.MONOMIND_CWD = rootPath;
+            console.error(`[${new Date().toISOString()}] INFO [monomind-mcp] Project root set to ${rootPath}`);
+          }
+        }
         return {
           jsonrpc: '2.0',
           id: message.id,
@@ -110,6 +119,7 @@ async function handleMessage(message) {
             },
           },
         };
+      }
 
       case 'tools/list': {
         const tools = listMCPTools();
