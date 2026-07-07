@@ -326,12 +326,31 @@ RECENT_HIL=$(find . -maxdepth 3 \( -name "humaninloop*.md" -o -name "humaninloop
 
 After each run in tillend mode, evaluate whether this run produced **zero findings and zero actions**. The loop stops only when a complete round finds nothing new and makes no changes — not when the AI predicts there is nothing left.
 
-**You (the AI running the loop) must now assess your own output from this run.** Answer these two questions:
+<EXTREMELY-IMPORTANT>
+**Anti-premature-stop rules:**
+- "I think the work is done" is NOT a reason to stop. Only the checks below decide.
+- "There's nothing more to find" is a PREDICTION, not an observation. Predictions do not stop loops.
+- You MUST run the git verification command below. If git shows changes, the round is non-empty. Period.
+- Only a round where git shows NO changes AND you confirm zero findings AND zero actions qualifies as empty.
+</EXTREMELY-IMPORTANT>
+
+**Step 4a — Machine verification (REQUIRED — run this command before any self-assessment):**
+
+```bash
+GIT_CHANGES=$(git diff --stat HEAD 2>/dev/null; git diff --cached --stat 2>/dev/null; git status --porcelain 2>/dev/null | grep -v '^\?\?' | head -20)
+echo "GIT_CHANGES_DURING_RUN: ${GIT_CHANGES:-NONE}"
+```
+
+If `GIT_CHANGES` is non-empty, files were modified — `TILLEND_EMPTY=false` regardless of self-assessment. Skip directly to "Otherwise" below.
+
+**Step 4b — Self-assessment (only if git shows no changes):**
+
+Only if `GIT_CHANGES` was empty, answer these two questions about this run:
 
 1. **Were any findings produced?** — issues found, problems detected, items identified, things flagged, errors reported, tasks discovered, security vulnerabilities found, etc.
-2. **Were any actions taken?** — files edited, code fixed, tasks created, cards moved, commits made, content written, configs changed, etc.
+2. **Were any actions taken?** — tasks created, content written, configs changed — anything not captured by git diff.
 
-**Set `TILLEND_EMPTY=true` only if BOTH answers are "no" — zero findings AND zero actions this round.**
+**Set `TILLEND_EMPTY=true` only if git shows no changes AND BOTH answers are "no".**
 
 **Important:** If this round found things AND fixed them all, `TILLEND_EMPTY=false`. The loop must run once more to verify the fixes didn't introduce new issues. A "clean" prediction after a productive round is not enough — only an actually empty round stops the loop.
 

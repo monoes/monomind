@@ -361,17 +361,14 @@ module.exports = {
       // Source of truth is .monomind/monograph.db (SQLite). Legacy stats.json
       // is no longer written by the build, so it is checked only as a fallback.
       try {
-        var monographDb = path.join(CWD, '.monomind', 'monograph.db');
         var legacyStats = path.join(CWD, '.monomind', 'graph', 'stats.json');
         var nodeCount = 0;
-        if (fs.existsSync(monographDb)) {
-          try {
-            var hintDb = hCtx._openMonographDb();
-            if (hintDb) {
-              nodeCount = hintDb.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
-            }
-          } catch (e) { /* ignore — fall back to legacy */ }
-        }
+        try {
+          var hintDb = hCtx._openMonographDb();
+          if (hintDb) {
+            nodeCount = hintDb.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
+          }
+        } catch (e) { /* ignore — fall back to legacy */ }
         if (nodeCount === 0 && fs.existsSync(legacyStats)) {
           try {
             var legacyStatsSt = fs.statSync(legacyStats);
@@ -381,7 +378,7 @@ module.exports = {
             }
           } catch (e) { /* ignore */ }
         }
-        if (nodeCount > 100) {
+        if (nodeCount > 100 && hCtx._isGraphFresh()) {
           // Pre-resolve top-3 relevant files for the user's prompt — the LLM
           // sees the answer inline instead of being told to call a tool.
           // 3 is enough signal; more files inflate token cost on every prompt.

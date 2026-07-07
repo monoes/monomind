@@ -241,7 +241,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <img src="assets/logo.svg" alt="Monomind logo" width="32" height="32" style="border-radius:6px;flex-shrink:0">
     <div>
       <div class="logo-text">Monomind</div>
-      <div class="logo-ver">v1.14.7</div>
+      <div class="logo-ver">v1.18.13</div>
     </div>
   </div>
   <div class="nav-section">
@@ -323,10 +323,10 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="card-grid">
       <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, HNSW vector indexing, and LanceDB backends. Context survives across sessions.</div></div>
       <div class="card reveal"><div class="card-icon">🐝</div><div class="card-title">Swarm Topologies</div><div class="card-desc">Hierarchical, mesh, adaptive, and hybrid multi-agent swarms with Raft, Byzantine, and CRDT consensus. 15-agent domain hierarchy.</div></div>
-      <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 43 MCP tools across 6 categories for impact analysis, path finding, community detection, and multi-repo queries.</div></div>
+      <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 44 MCP tools across 8 categories for impact analysis, dead code detection, path finding, community detection, and multi-repo queries.</div></div>
       <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Outcome-Measured Routing</div><div class="card-desc">Deterministic keyword routing with route-outcome correlation. Every hook event is logged so routing accuracy and adherence can be measured by <code>doctor</code>.</div></div>
       <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:autodev --tillend researches, builds, reviews, and loops while you sleep.</div></div>
-      <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">22 hook events, 10+ background workers. Pre/post-edit, pre/post-task, session, learning, and agent-team hooks with zero-overhead dispatch.</div></div>
+      <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">17 hook events, 12 background workers. Pre/post-edit, pre/post-task, session, learning, and agent-team hooks with zero-overhead dispatch.</div></div>
     </div>
     <div class="section-title reveal">Quick Install</div>
     <div class="code-block reveal">
@@ -455,7 +455,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <text class="arch-sub" x="640" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">CVE remediation</text>
         <text class="arch-sub" x="640" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Input validation</text>
         <text class="arch-label" x="250" y="347" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">Monograph</text>
-        <text class="arch-sub" x="250" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">43 MCP tools · Code knowledge graph</text>
+        <text class="arch-sub" x="250" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">44 MCP tools · Code knowledge graph</text>
         <text class="arch-label" x="510" y="347" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/guidance</text>
         <text class="arch-sub" x="510" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Governance control plane</text>
         <line class="arch-arrow" x1="230" y1="65" x2="265" y2="65" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
@@ -482,7 +482,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">@monomind/swarm</td><td class="mono">packages/@monomind/swarm/</td><td>Multi-agent swarm coordination</td></tr>
         <tr><td class="mono">@monomind/routing</td><td class="mono">packages/@monomind/routing/</td><td>Keyword routing, route-outcome measurement</td></tr>
         <tr><td class="mono">monofence-ai</td><td class="mono">packages/monofence-ai/</td><td>AI manipulation defense — prompt injection, jailbreak, evasion detection</td></tr>
-        <tr><td class="mono">monograph</td><td class="mono">packages/monograph/</td><td>Code knowledge graph, 43 MCP tools — also published standalone as <code>@monoes/monograph</code></td></tr>
+        <tr><td class="mono">monograph</td><td class="mono">packages/monograph/</td><td>Code knowledge graph, 44 MCP tools — also published standalone as <code>@monoes/monograph</code></td></tr>
         <tr><td class="mono">monomind</td><td class="mono">/ (root)</td><td>Umbrella package published to npm</td></tr>
       </tbody>
     </table>
@@ -507,7 +507,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Memory &amp; Knowledge</h1>
-      <p class="page-desc">Four-tier memory palace, HNSW vector indexing, BM25 search, and Monograph — the code knowledge graph with 43 MCP tools across 6 categories.</p>
+      <p class="page-desc">Four-tier memory palace, HNSW vector indexing, BM25 search, and Monograph — the code knowledge graph with 44 MCP tools across 8 categories.</p>
     </div>
     <div class="section-title reveal">Memory Palace — Four Tiers</div>
     <div class="reveal" style="margin-bottom:24px;display:flex;gap:12px;flex-wrap:wrap">
@@ -534,7 +534,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     </table>
     </div>
     <div class="section-title reveal">Monograph — Code Knowledge Graph</div>
-    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Monograph builds a SQLite-backed graph of your codebase — nodes are files/classes/functions, edges are imports/calls/dependencies. 43 MCP tools across 6 categories: Core Navigation, Change Impact, Graph Exploration, Index Lifecycle, Snapshots &amp; Export, and Multi-Repo/Group. Use it before touching 3+ files. Also available standalone as <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">@monoes/monograph@1.2.0</code>.</p>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Monograph builds a SQLite-backed graph of your codebase — nodes are files/classes/functions, edges are imports/calls/dependencies. 44 MCP tools across 8 categories: Core Navigation, Change Impact, Dead Code &amp; Stale Artifacts, Graph Exploration, Index Lifecycle, Snapshots &amp; Export, Wiki &amp; AI Docs, and Multi-Repo/Group. Use it before touching 3+ files. Also available standalone as <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">@monoes/monograph</code>.</p>
     <div class="table-wrap reveal">
     <table class="doc-table">
       <thead><tr><th>Tool</th><th>When to use</th></tr></thead>
@@ -546,6 +546,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">monograph_god_nodes</td><td>High-centrality files (external/test auto-filtered)</td></tr>
         <tr><td class="mono">monograph_shortest_path</td><td>How two modules connect</td></tr>
         <tr><td class="mono">monograph_rename</td><td>Dry-run multi-file rename with graph + text occurrences</td></tr>
+        <tr><td class="mono">monograph_dead_code</td><td>Find dead exports, orphan files, stale dist artifacts</td></tr>
         <tr><td class="mono">monograph_detect_changes</td><td>Map git diff to affected graph nodes</td></tr>
         <tr><td class="mono">monograph_community</td><td>Files forming a cohesive module cluster</td></tr>
         <tr><td class="mono">monograph_cypher</td><td>Ad-hoc graph queries (Cypher syntax)</td></tr>
@@ -568,7 +569,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Hooks &amp; Workers</h1>
-      <p class="page-desc">22 hook events, 10 core background workers, and an intelligence pipeline that learns from every edit, task, and session.</p>
+      <p class="page-desc">17 hook events, 12 background workers, and an intelligence pipeline that learns from every edit, task, and session.</p>
     </div>
     <div class="section-title reveal">Hook Events</div>
     <div class="table-wrap reveal">
@@ -600,16 +601,18 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <table class="doc-table">
       <thead><tr><th>Worker</th><th>Priority</th><th>Function</th></tr></thead>
       <tbody>
-        <tr><td class="mono">security</td><td><span class="tag tag-red">critical</span></td><td>Continuous security scanning and CVE alerting</td></tr>
-        <tr><td class="mono">health</td><td><span class="tag tag-red">critical</span></td><td>System health monitoring, daemon watchdog</td></tr>
-        <tr><td class="mono">swarm</td><td><span class="tag tag-red">critical</span></td><td>Swarm coordinator heartbeat and agent lifecycle</td></tr>
-        <tr><td class="mono">performance</td><td><span class="tag tag-amber">normal</span></td><td>Token cost tracking, latency profiling</td></tr>
-        <tr><td class="mono">patterns</td><td><span class="tag tag-amber">normal</span></td><td>Pattern extraction from hook trajectories</td></tr>
-        <tr><td class="mono">learning</td><td><span class="tag tag-amber">normal</span></td><td>Outcome/trajectory logging and pattern consolidation</td></tr>
-        <tr><td class="mono">git</td><td><span class="tag tag-amber">normal</span></td><td>Commit analysis, branch diff summaries</td></tr>
-        <tr><td class="mono">ddd</td><td><span class="tag tag-muted">low</span></td><td>Domain-driven design pattern detection</td></tr>
-        <tr><td class="mono">adr</td><td><span class="tag tag-muted">low</span></td><td>Architecture Decision Record harvesting</td></tr>
-        <tr><td class="mono">cache</td><td><span class="tag tag-muted">bg</span></td><td>Context preloading and cache warming</td></tr>
+        <tr><td class="mono">audit</td><td><span class="tag tag-red">critical</span></td><td>Continuous security scanning and CVE alerting</td></tr>
+        <tr><td class="mono">ultralearn</td><td><span class="tag tag-amber">normal</span></td><td>Deep knowledge acquisition from trajectories</td></tr>
+        <tr><td class="mono">optimize</td><td><span class="tag tag-amber">normal</span></td><td>Performance tuning and token cost tracking</td></tr>
+        <tr><td class="mono">consolidate</td><td><span class="tag tag-amber">normal</span></td><td>Memory dedup, contradiction detection, pruning</td></tr>
+        <tr><td class="mono">predict</td><td><span class="tag tag-amber">normal</span></td><td>Predictive preloading from patterns</td></tr>
+        <tr><td class="mono">map</td><td><span class="tag tag-amber">normal</span></td><td>Codebase architecture mapping</td></tr>
+        <tr><td class="mono">deepdive</td><td><span class="tag tag-amber">normal</span></td><td>Deep code analysis</td></tr>
+        <tr><td class="mono">document</td><td><span class="tag tag-muted">low</span></td><td>Auto-documentation generation</td></tr>
+        <tr><td class="mono">refactor</td><td><span class="tag tag-muted">low</span></td><td>Refactoring suggestions</td></tr>
+        <tr><td class="mono">benchmark</td><td><span class="tag tag-muted">low</span></td><td>Performance benchmarking</td></tr>
+        <tr><td class="mono">testgaps</td><td><span class="tag tag-muted">low</span></td><td>Test coverage gap analysis</td></tr>
+        <tr><td class="mono">preload</td><td><span class="tag tag-muted">bg</span></td><td>Context preloading and cache warming</td></tr>
       </tbody>
     </table>
     </div>
@@ -2243,7 +2246,7 @@ function setupReveals(container) {
 
 // ── HERO COUNTERS (RAF-based, no GSAP dependency) ────────────────────
 function animateHero() {
-  const DATA = [['stat-agents',60,'+'  ],['stat-commands',53,'+'],['stat-hooks',22,''],['stat-packages',17,'+']];
+  const DATA = [['stat-agents',60,'+'  ],['stat-commands',53,'+'],['stat-hooks',17,''],['stat-packages',17,'+']];
   if (!motionOK) {
     DATA.forEach(([id,t,s]) => { const el=document.getElementById(id); if(el) el.textContent=t+s; });
     return;
@@ -2277,7 +2280,7 @@ function runTypewriter() {
     {t:'cmd',text:'npx monomind doctor'},
     {t:'out',text:'Node 22.0.0          ✓'},
     {t:'out',text:'Memory backend       ✓  hybrid (SQLite + LanceDB)'},
-    {t:'out',text:'MCP tools            ✓  43 monograph + 14 monomind'},
+    {t:'out',text:'MCP tools            ✓  44 monograph + 14 monomind'},
     {t:'cmd',text:'/mastermind:autodev --tillend --focus security'},
     {t:'out',text:'[autodev] Research phase starting...',cls:'amber'},
     {t:'out',text:'[autodev] 4 candidates found. Selected: CVE-1 remediation',cls:'amber'},

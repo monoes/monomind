@@ -228,7 +228,8 @@ function _isGraphFresh() {
     if (isNaN(behind)) { _graphFreshnessCache = false; return false; }
     _graphFreshnessCache = behind <= 50;
   } catch(e) {
-    _graphFreshnessCache = false; // can't check → assume stale
+    // Don't cache transient errors — let next call retry
+    return false;
   }
   return _graphFreshnessCache;
 }
