@@ -5,9 +5,37 @@
  * All monograph_* tools are backed by @monoes/monograph package.
  */
 import { join, resolve, sep } from 'path';
+import { execSync } from 'child_process';
+import { statSync } from 'fs';
 import { getProjectCwd } from './types.js';
+let _cachedDbPath;
+function _isValidDb(p) {
+    try {
+        return statSync(p).size >= 100;
+    }
+    catch {
+        return false;
+    }
+}
 function getDbPath() {
-    return join(getProjectCwd(), '.monomind', 'monograph.db');
+    if (_cachedDbPath !== undefined)
+        return _cachedDbPath ?? join(getProjectCwd(), '.monomind', 'monograph.db');
+    const direct = join(getProjectCwd(), '.monomind', 'monograph.db');
+    if (_isValidDb(direct)) {
+        _cachedDbPath = direct;
+        return direct;
+    }
+    try {
+        const root = execSync('git rev-parse --show-toplevel', { cwd: getProjectCwd(), encoding: 'utf8' }).trim();
+        const candidate = join(root, '.monomind', 'monograph.db');
+        if (_isValidDb(candidate)) {
+            _cachedDbPath = candidate;
+            return candidate;
+        }
+    }
+    catch { /* not in a git repo */ }
+    _cachedDbPath = null;
+    return direct;
 }
 function text(t) {
     return { content: [{ type: 'text', text: t }] };

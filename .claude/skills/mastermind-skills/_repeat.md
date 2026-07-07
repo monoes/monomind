@@ -6,6 +6,21 @@ type: protocol-skill
 
 # REPEAT POSTAMBLE
 
+<EXTREMELY-IMPORTANT>
+## MANDATORY EXECUTION — READ THIS FIRST
+
+This postamble is **not optional**. You MUST execute every step below. You MUST call ScheduleWakeup unless a legitimate stop condition is met (stop file, empty round confirmed by git, or count reached).
+
+**Anti-rationalization rules:**
+- "I think the work is done" is NOT a reason to stop. Only the checks below decide.
+- "The skill already handled everything" is NOT a reason to skip this postamble.
+- "There's nothing more to do" is NOT your decision — the tillend check decides.
+- For `--repeat N`: you MUST run all N iterations. The count is non-negotiable. You cannot stop at run 3 of 5 because you think 3 was enough.
+- For `--tillend`: you MUST continue until git AND your assessment BOTH confirm an empty round. Your feeling that "it's probably clean" is not evidence.
+
+If you are about to end your response without calling ScheduleWakeup and you have not hit a legitimate stop condition, **YOU ARE MAKING AN ERROR. Go back and call ScheduleWakeup.**
+</EXTREMELY-IMPORTANT>
+
 **If neither `tillend_mode = true` nor `repeat_count ≥ 2` was active in this invocation, stop immediately — this skill is a no-op.**
 
 Otherwise execute all steps below before ending the response.
@@ -29,12 +44,22 @@ If the stop file exists:
 
 **`LOOP_ASYNC_PENDING` escape hatch:** If the calling skill set `LOOP_ASYNC_PENDING=true` before invoking this postamble (because it spawned background agents whose results have not yet arrived), skip the empty-round check and go directly to Step 4 to schedule the next run. Output: `[tillend] Async work in flight — deferring empty-round check to run <next_rep>.`
 
-Evaluate now whether this run produced **zero findings AND zero actions**:
+**Step 2a — Machine verification (REQUIRED before any self-assessment):**
 
-- **Findings**: issues found, problems detected, items flagged, security vulnerabilities, tasks discovered, errors reported
-- **Actions**: files edited, code fixed, commits made, tasks created, configs changed, content written
+Run this command to get an objective signal of whether files changed during this run:
 
-Set `TILLEND_EMPTY=true` **only if BOTH are zero for this round**.
+```bash
+GIT_CHANGES=$(git diff --stat HEAD 2>/dev/null; git diff --cached --stat 2>/dev/null; git status --porcelain 2>/dev/null | grep -v '^\?\?' | head -20)
+echo "GIT_CHANGES_DURING_RUN: ${GIT_CHANGES:-NONE}"
+```
+
+If `GIT_CHANGES` is non-empty, files were modified — `TILLEND_EMPTY=false` regardless of your self-assessment. Skip to "Otherwise" below.
+
+**Step 2b — Self-assessment (only if git shows no changes):**
+
+Only if `GIT_CHANGES` was empty, evaluate whether this run produced findings (issues identified, problems flagged) or actions (tasks created, content written, configs changed — anything not captured by git diff).
+
+Set `TILLEND_EMPTY=true` **only if git shows no changes AND your self-assessment confirms zero findings and zero actions**.
 
 **Important**: If this round found things AND fixed them, `TILLEND_EMPTY=false` — the loop must continue to verify the fixes didn't introduce new issues.
 
