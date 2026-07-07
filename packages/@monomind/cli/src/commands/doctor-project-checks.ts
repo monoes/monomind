@@ -3,7 +3,7 @@
  * Config, daemon, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore
  */
 
-import { existsSync, readFileSync, statSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, statSync, mkdirSync, copyFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -252,6 +252,19 @@ async function _detectStaleHelpers(): Promise<{ stale: string[]; missing: string
     } catch { /* skip */ }
   }
   return { stale, missing };
+}
+
+export async function fixStaleHelpers(): Promise<boolean> {
+  const { stale } = await _detectStaleHelpers();
+  let fixed = 0;
+  for (const name of stale) {
+    const local = join(process.cwd(), '.claude', 'helpers', name);
+    const bundled = _resolveBundledHelper(join('.claude', 'helpers', name));
+    if (bundled) {
+      try { copyFileSync(bundled, local); fixed++; } catch { /* skip */ }
+    }
+  }
+  return fixed > 0;
 }
 
 export async function checkHelpersFresh(): Promise<HealthCheck> {
