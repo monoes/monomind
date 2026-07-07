@@ -737,26 +737,6 @@ export async function initDefaultWorkers(): Promise<void> {
     }
   } catch { /* @monomind/cli may not be compiled */ }
 
-  // Task 34: RegressionBenchmarks — BenchmarkRunner registered as weekly daemon
-  try {
-    // @ts-ignore — cli is not in hooks tsconfig references; dynamic import works at runtime
-    const { BenchmarkRunner } = await import('../../cli/src/benchmarks/benchmark-runner.js');
-    const benchmarkRunner = new BenchmarkRunner();
-    defaultDaemonManager.register(
-      {
-        name: 'regression-benchmarks',
-        interval: 604_800_000, // 7 days
-        enabled: true,
-      },
-      async () => {
-        const benchmarkDir = '.monomind/benchmarks';
-        const defs = benchmarkRunner.loadBenchmarks(benchmarkDir);
-        if (defs.length > 0) {
-          console.log(`[BENCHMARK_RUNNER] Running ${defs.length} regression benchmark(s)`);
-        }
-      },
-    );
-  } catch { /* @monomind/cli may not be compiled */ }
 
   // GAP-009: PromptOptimizer + BootstrapFewShot — improve agent prompts from real execution data
   try {
