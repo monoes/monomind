@@ -189,6 +189,8 @@ async function buildAsyncLocked(
     const hash = getCurrentCommitHash(resolve(repoPath));
     if (hash) {
       db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
+    } else {
+      options.onProgress?.({ phase: 'warning', message: 'Could not determine git HEAD — staleness tracking will be unavailable' } as PipelineProgress);
     }
     db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(new Date().toISOString());
   } finally {

@@ -216,6 +216,7 @@ var hCtx = {
   _recordToolCall: _recordToolCall,
   _openMonographDb: _openMonographDb,
   _requireMonograph: _requireMonograph,
+  _isGraphFresh: _isGraphFresh,
   _triggerExtractYamlValue: _triggerExtractYamlValue,
   _triggerFinalize: _triggerFinalize,
   _triggerExtractFromFrontmatter: _triggerExtractFromFrontmatter,
@@ -312,7 +313,8 @@ const handlers = {
               if (db) {
                 // Stop words: language keywords + generic single-word identifiers
                 // that match Variable nodes in markdown/scripts (not real code symbols)
-                var _grepStop = {import:1,export:1,from:1,require:1,return:1,function:1,const:1,let:1,var:1,class:1,interface:1,type:1,extends:1,implements:1,async:1,await:1,yield:1,throw:1,catch:1,finally:1,typeof:1,instanceof:1,void:1,null:1,undefined:1,true:1,false:1,this:1,super:1,new:1,delete:1,switch:1,case:1,break:1,continue:1,default:1,else:1,while:1,for:1,with:1,include:1,error:1,string:1,number:1,object:1,boolean:1,array:1,value:1,result:1,data:1,name:1,path:1,file:1,node:1,list:1,item:1,index:1,config:1,options:1,params:1,args:1,event:1,state:1,props:1,context:1,module:1,package:1,version:1,model:1,schema:1,table:1,query:1,response:1,request:1,handler:1,logger:1,graph:1,usage:1,storage:1,pipeline:1,service:1,utils:1,types:1,helpers:1,common:1,shared:1,server:1,client:1,source:1,output:1,input:1,stream:1,buffer:1,worker:1,plugin:1,format:1,render:1,update:1,create:1,remove:1,method:1,define:1,invoke:1,process:1,execute:1,resolve:1,reject:1,promise:1,callback:1,cursor:1,record:1,column:1,filter:1,reduce:1,status:1,action:1,commit:1,revert:1,publish:1,symbol:1,target:1,length:1,string:1,global:1,static:1,struct:1,select:1,insert:1,signal:1,socket:1,system:1,memory:1,parser:1,router:1,docker:1,script:1,bundle:1,deploy:1,search:1,prepare:1};
+                // monolean: only JS/TS reserved words — generic identifiers (handler, config, router, etc.) are valid symbol names
+                var _grepStop = {import:1,export:1,from:1,require:1,return:1,function:1,const:1,let:1,var:1,class:1,interface:1,type:1,extends:1,implements:1,async:1,await:1,yield:1,throw:1,catch:1,finally:1,typeof:1,instanceof:1,void:1,null:1,undefined:1,true:1,false:1,this:1,super:1,new:1,delete:1,switch:1,case:1,break:1,continue:1,default:1,else:1,while:1,for:1,with:1,static:1,enum:1,string:1,number:1,object:1,boolean:1};
 
                 // --- Strategy 1: clean identifier → exact name match (case-sensitive) ---
                 if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(pattern) && pattern.length >= 4
@@ -479,7 +481,8 @@ const handlers = {
         var db = _openMonographDb();
         if (db) {
           try {
-            var _searchStop = {import:1,export:1,from:1,require:1,return:1,function:1,const:1,let:1,var:1,class:1,interface:1,type:1,extends:1,implements:1,async:1,await:1,yield:1,throw:1,catch:1,finally:1,typeof:1,instanceof:1,void:1,null:1,undefined:1,true:1,false:1,this:1,super:1,new:1,delete:1,switch:1,case:1,break:1,continue:1,default:1,else:1,while:1,for:1,with:1,include:1,error:1,string:1,number:1,object:1,boolean:1,array:1,value:1,result:1,data:1,name:1,path:1,file:1,node:1,list:1,item:1,index:1,config:1,options:1,params:1,args:1,event:1,state:1,props:1,context:1,module:1,package:1,version:1,model:1,schema:1,table:1,query:1,response:1,request:1,handler:1,logger:1,graph:1,usage:1,storage:1,pipeline:1,service:1,utils:1,types:1,helpers:1,common:1,shared:1,server:1,client:1,source:1,output:1,input:1,stream:1,buffer:1,worker:1,plugin:1,format:1,render:1,update:1,create:1,remove:1,method:1,define:1,invoke:1,process:1,execute:1,resolve:1,reject:1,promise:1,callback:1,cursor:1,record:1,column:1,filter:1,reduce:1,status:1,action:1,commit:1,revert:1,publish:1,symbol:1,target:1,length:1,string:1,global:1,static:1,struct:1,select:1,insert:1,signal:1,socket:1,system:1,memory:1,parser:1,router:1,docker:1,script:1,bundle:1,deploy:1,search:1,prepare:1};
+            // monolean: only JS/TS reserved words — generic identifiers are valid symbol names
+            var _searchStop = {import:1,export:1,from:1,require:1,return:1,function:1,const:1,let:1,var:1,class:1,interface:1,type:1,extends:1,implements:1,async:1,await:1,yield:1,throw:1,catch:1,finally:1,typeof:1,instanceof:1,void:1,null:1,undefined:1,true:1,false:1,this:1,super:1,new:1,delete:1,switch:1,case:1,break:1,continue:1,default:1,else:1,while:1,for:1,with:1,static:1,enum:1,string:1,number:1,object:1,boolean:1};
 
             var isCleanSymbol = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(grepPattern);
 

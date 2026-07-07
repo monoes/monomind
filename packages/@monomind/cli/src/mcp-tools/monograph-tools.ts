@@ -141,7 +141,20 @@ const monographHealthTool: MCPTool = {
         db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get() as { value: string } | undefined
       );
       const lastCommit = meta?.value ?? null;
-      if (!lastCommit) return text('Index has never been built. Run monograph_build first.');
+      if (!lastCommit) {
+        // last_commit_hash can be missing even when the index is populated
+        // (e.g. git rev-parse failed during build). Check actual data before
+        // claiming "never built".
+        const nodeCount = (db.prepare('SELECT COUNT(*) AS c FROM nodes').get() as { c: number }).c;
+        if (nodeCount > 0) {
+          const indexedAt = (db.prepare("SELECT value FROM index_meta WHERE key = 'indexed_at'").get() as { value: string } | undefined)?.value;
+          return text(
+            `Index is built (${nodeCount} nodes${indexedAt ? `, indexed at ${indexedAt}` : ''}) but no commit hash was recorded — staleness tracking unavailable.\n` +
+            'Run monograph_build to fix commit tracking.'
+          );
+        }
+        return text('Index has never been built. Run monograph_build first.');
+      }
       if (!/^[0-9a-f]{7,40}$/i.test(lastCommit)) {
         return text('Index metadata is corrupt: invalid commit SHA. Run monograph_build to re-index.');
       }

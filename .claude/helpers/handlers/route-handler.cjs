@@ -381,7 +381,7 @@ module.exports = {
             }
           } catch (e) { /* ignore */ }
         }
-        if (nodeCount > 100) {
+        if (nodeCount > 100 && hCtx._isGraphFresh()) {
           // Pre-resolve top-3 relevant files for the user's prompt — the LLM
           // sees the answer inline instead of being told to call a tool.
           // 3 is enough signal; more files inflate token cost on every prompt.
