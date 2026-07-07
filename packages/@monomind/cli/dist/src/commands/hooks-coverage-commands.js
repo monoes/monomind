@@ -1,6 +1,6 @@
 /**
  * Hooks Coverage Commands
- * Coverage-aware routing, progress tracking, and statusline generation.
+ * Coverage-aware routing and statusline generation.
  * Extracted from hooks.ts to reduce file size.
  */
 import { output } from '../output.js';
@@ -8,7 +8,6 @@ import { output } from '../output.js';
 export { coverageRouteCommand } from './hooks-coverage-routing.js';
 export { coverageSuggestCommand } from './hooks-coverage-routing.js';
 export { coverageGapsCommand } from './hooks-coverage-gaps.js';
-export { progressHookCommand } from './hooks-coverage-gaps.js';
 // Statusline subcommand - generates dynamic status display
 export const statuslineCommand = {
     name: 'statusline',
