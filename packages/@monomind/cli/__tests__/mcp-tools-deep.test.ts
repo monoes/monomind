@@ -181,7 +181,6 @@ import { hiveMindTools } from '../src/mcp-tools/hive-mind-tools.js';
 import { memoryTools } from '../src/mcp-tools/memory-tools.js';
 import { neuralTools } from '../src/mcp-tools/neural-tools.js';
 import { performanceTools } from '../src/mcp-tools/performance-tools.js';
-import { progressTools } from '../src/mcp-tools/progress-tools.js';
 import { securityTools } from '../src/mcp-tools/security-tools.js';
 import { sessionTools } from '../src/mcp-tools/session-tools.js';
 import { swarmTools } from '../src/mcp-tools/swarm-tools.js';
@@ -214,7 +213,6 @@ const ALL_MODULES: ToolModule[] = [
   { name: 'memory-tools', tools: memoryTools },
   { name: 'neural-tools', tools: neuralTools },
   { name: 'performance-tools', tools: performanceTools },
-  { name: 'progress-tools', tools: progressTools },
   { name: 'security-tools', tools: securityTools },
   { name: 'session-tools', tools: sessionTools },
   { name: 'swarm-tools', tools: swarmTools },
@@ -271,7 +269,6 @@ describe('MCP Tools Deep Test Suite', () => {
         'memory-tools': 7,
         'neural-tools': 6,
         'performance-tools': 6,
-        'progress-tools': 4,
         'security-tools': 6,
         'session-tools': 5,
         'swarm-tools': 4,
@@ -1044,25 +1041,6 @@ describe('MCP Tools Deep Test Suite', () => {
       const result: any = await tool.handler({});
       expect(result.success).toBe(true);
       expect(result.swarmId).toBeDefined();
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 24. Progress & Embeddings Tools
-  // --------------------------------------------------------------------------
-  describe('Progress Tools - Handler Invocation', () => {
-    it('progress_check returns progress metrics', async () => {
-      const tool = progressTools.find(t => t.name === 'progress_check')!;
-      expect(tool).toBeDefined();
-      const result: any = await tool.handler({});
-      expect(result).toBeDefined();
-    });
-
-    it('progress_summary returns summary', async () => {
-      const tool = progressTools.find(t => t.name === 'progress_summary')!;
-      expect(tool).toBeDefined();
-      const result: any = await tool.handler({});
-      expect(result).toBeDefined();
     });
   });
 

@@ -19,7 +19,6 @@ import {
   coverageRouteCommand,
   coverageSuggestCommand,
   coverageGapsCommand,
-  progressHookCommand,
   statuslineCommand,
 } from './hooks-coverage-commands.js';
 import {
@@ -529,8 +528,7 @@ export const hooksCommand: Command = {
     intelligenceCommand,
     notifyCommand,
     workerCommand,
-    progressHookCommand,
-    statuslineCommand,
+      statuslineCommand,
     // Coverage-aware routing commands
     coverageRouteCommand,
     coverageSuggestCommand,
