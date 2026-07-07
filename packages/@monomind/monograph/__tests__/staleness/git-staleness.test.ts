@@ -81,13 +81,13 @@ describe('checkStaleness', () => {
     expect(report.changedSince).toHaveLength(0);
   });
 
-  it('returns isStale: false when no commit hash has been stored', () => {
-    // No stored commit hash
+  it('returns isStale: true when no commit hash has been stored', () => {
+    // No stored commit hash → staleness unknown, treat as stale
     vi.mocked(execSync).mockReturnValue('abc1234' as any);
 
     const report = checkStaleness(db, '/fake/repo');
 
-    expect(report.isStale).toBe(false);
+    expect(report.isStale).toBe(true);
     expect(report.indexedCommit).toBeNull();
     expect(report.currentCommit).toBe('abc1234');
   });

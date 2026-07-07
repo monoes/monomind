@@ -6,11 +6,29 @@
  */
 
 import { join, resolve, sep } from 'path';
+import { execSync } from 'child_process';
+import { existsSync, statSync } from 'fs';
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
 
+// monolean: resolve via git root so tools work from any subdirectory
+let _cachedDbPath: string | null = null;
+function _isValidDb(p: string): boolean {
+  try { return statSync(p).size >= 100; } catch { return false; }
+}
 function getDbPath(): string {
-  return join(getProjectCwd(), '.monomind', 'monograph.db');
+  if (_cachedDbPath) return _cachedDbPath;
+  const direct = join(getProjectCwd(), '.monomind', 'monograph.db');
+  if (_isValidDb(direct)) { _cachedDbPath = direct; return direct; }
+  try {
+    const root = execSync('git rev-parse --show-toplevel', { cwd: getProjectCwd(), encoding: 'utf8' }).trim();
+    const candidate = join(root, '.monomind', 'monograph.db');
+    if (_isValidDb(candidate)) {
+      _cachedDbPath = candidate;
+      return candidate;
+    }
+  } catch { /* not in a git repo */ }
+  return direct;
 }
 
 function text(t: string) {
