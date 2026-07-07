@@ -171,8 +171,15 @@ Step 4 — Report:
 
 Also run /mastermind:do --board <board_id> to track execution.
 
-STEP 4 — COLLECT AND RETURN
-Synthesize all review findings. Return to caller:
+STEP 4 — AUTO-FIX (mode = auto only, skip for mode = confirm)
+When mode is auto: for each fixable finding from the review (code bugs, style issues, security vulnerabilities with clear fixes), apply the fix directly by editing the file. Do NOT ask the user for permission — auto mode means fix without asking. After fixing, output:
+  [review] Auto-fixed N issues. M issues remain (require manual intervention or are architectural).
+Non-fixable findings (design questions, trade-offs, architectural concerns) are reported but left untouched.
+
+When --tillend is active, this step is critical: without auto-fixing, the loop either finds the same issues every round (infinite loop) or falsely declares empty round. The tillend contract is: find → fix → verify (next round) → stop when clean.
+
+STEP 5 — COLLECT AND RETURN
+Synthesize all review findings and fixes applied. Return to caller:
 
 domain: review
 status: complete | partial | blocked
@@ -183,12 +190,14 @@ decisions:
   - what: [critical findings and recommended actions]
     why: [evidence from review]
     confidence: [0.0-1.0]
-    outcome: pending
+    outcome: fixed | pending | manual
 lessons:
   - what_worked: [which review angles surfaced the most value]
   - what_didnt: [gaps in review coverage]
+fixes_applied: [count of auto-fixed issues]
+fixes_remaining: [count of issues needing manual intervention]
 next_actions:
-  - [e.g. "run mastermind:build to fix critical issues found"]
+  - [e.g. "re-run review to verify fixes" if tillend is active]
   - [e.g. "run mastermind:release after fixes are confirmed"]
 board_url: monotask://<project_name>/review
 run_id: <ISO8601-timestamp>`,
@@ -203,8 +212,10 @@ run_id: <ISO8601-timestamp>`,
 For simple tasks (single reviewer, single artifact):
 
 1. Spawn one Task agent with the review request as a self-contained briefing
-2. Collect output
-3. Return unified output schema with `status: complete`
+2. Collect findings
+3. **If mode = auto**: apply fixes for all fixable findings directly (do NOT ask the user). Output: `[review] Auto-fixed N issues.`
+4. **If mode = confirm**: present findings and ask which to fix
+5. Return unified output schema with `status: complete`
 
 ---
 
