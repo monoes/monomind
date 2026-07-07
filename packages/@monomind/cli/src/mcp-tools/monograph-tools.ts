@@ -11,23 +11,29 @@ import { statSync } from 'fs';
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
 
-let _cachedDbPath: string | null | undefined;
+let _cachedDbPath: string | undefined;
+let _cachedCwd: string | undefined;
 function _isValidDb(p: string): boolean {
   try { return statSync(p).size >= 100; } catch { return false; }
 }
 function getDbPath(): string {
-  if (_cachedDbPath !== undefined) return _cachedDbPath ?? join(getProjectCwd(), '.monomind', 'monograph.db');
-  const direct = join(getProjectCwd(), '.monomind', 'monograph.db');
+  const cwd = getProjectCwd();
+  // Invalidate cache when project root changes (e.g. MONOMIND_CWD set after initialize)
+  if (_cachedDbPath && _cachedCwd === cwd) return _cachedDbPath;
+  _cachedCwd = cwd;
+  _cachedDbPath = undefined;
+
+  const direct = join(cwd, '.monomind', 'monograph.db');
   if (_isValidDb(direct)) { _cachedDbPath = direct; return direct; }
   try {
-    const root = execSync('git rev-parse --show-toplevel', { cwd: getProjectCwd(), encoding: 'utf8' }).trim();
+    const root = execSync('git rev-parse --show-toplevel', { cwd, encoding: 'utf8' }).trim();
     const candidate = join(root, '.monomind', 'monograph.db');
     if (_isValidDb(candidate)) {
       _cachedDbPath = candidate;
       return candidate;
     }
   } catch { /* not in a git repo */ }
-  _cachedDbPath = null;
+  // Don't cache failures — the DB may be created by a subsequent build
   return direct;
 }
 
