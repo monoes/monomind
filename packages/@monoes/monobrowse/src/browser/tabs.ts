@@ -25,13 +25,42 @@ export async function activateTab(client: CdpClient, oldSessionId: string, targe
 }
 
 export async function switchToFrame(
-  _client: CdpClient,
-  _sessionId: string,
-  _frameSelector: string
+  client: CdpClient,
+  sessionId: string,
+  frameSelector: string
 ): Promise<string | null> {
-  throw new Error(
-    'switchToFrame is not yet implemented. ' +
-    'For same-origin frames, CDP commands already apply to the whole page. ' +
-    'For cross-origin (OOPIF) frames, call Target.attachToTarget with the frame target ID.'
+  const { result } = await client.send<{ result: { result: { value: string | null } } }>(
+    'Runtime.evaluate',
+    {
+      expression: `(() => {
+        const el = document.querySelector(${JSON.stringify(frameSelector)});
+        if (!el || el.tagName !== 'IFRAME') return null;
+        return el.src || null;
+      })()`,
+      returnByValue: true,
+    },
+    sessionId
   );
+  const frameSrc = result?.result?.value ?? null;
+
+  const { frameTree } = await client.send<{
+    frameTree: { childFrames?: Array<{ frame: { id: string; url: string; securityOrigin: string } }> };
+  }>('Page.getFrameTree', {}, sessionId);
+
+  const match = frameTree.childFrames?.find(
+    (cf) => cf.frame.url === frameSrc || cf.frame.id === frameSelector
+  );
+  if (!match) return frameSrc;
+
+  const targets = await client.send<{ targetInfos: Array<{ targetId: string; type: string; url: string }> }>(
+    'Target.getTargets', {}
+  );
+  const oopif = targets.targetInfos.find(
+    (t) => t.type === 'iframe' && t.url === match.frame.url
+  );
+  if (oopif) {
+    await client.send('Target.attachToTarget', { targetId: oopif.targetId, flatten: true });
+  }
+
+  return frameSrc;
 }

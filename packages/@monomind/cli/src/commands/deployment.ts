@@ -348,9 +348,6 @@ const rollbackCommand: Command = {
 
       const targetVersion = ctx.flags['version'] ? String(ctx.flags['version']).slice(0, MAX_VERSION_LEN) : null;
       const steps = Math.min(Math.max(parseInt(ctx.flags.steps as string || '1', 10), 1), 100);
-      if (steps > 1) {
-        output.printWarning(`Multi-step rollback (--steps ${steps}) is not yet implemented. Rolling back 1 step only.`);
-      }
       const state = loadDeploymentState(ctx.cwd);
 
       // Find deployments for this environment in reverse chronological order
@@ -372,14 +369,17 @@ const rollbackCommand: Command = {
           return { success: false, exitCode: 1 };
         }
       } else {
-        // Rollback to the deployment before the most recent one
-        rollbackTo = envHistory[1];
+        if (envHistory.length <= steps) {
+          output.printWarning(`Only ${envHistory.length - 1} previous deployment(s) available, cannot rollback ${steps} steps`);
+          return { success: false, exitCode: 1 };
+        }
+        rollbackTo = envHistory[steps];
       }
 
-      // Mark current active deployment for this env as rolled-back
-      const current = envHistory[0];
-      if (current) {
-        const idx = state.history.findIndex(r => r.id === current.id);
+      // Mark all deployments between current and target as rolled-back
+      for (let i = 0; i < steps && i < envHistory.length; i++) {
+        const entry = envHistory[i];
+        const idx = state.history.findIndex(r => r.id === entry.id);
         if (idx >= 0) {
           state.history[idx].status = 'rolled-back';
         }
@@ -392,7 +392,7 @@ const rollbackCommand: Command = {
         version: rollbackTo!.version,
         status: 'deployed',
         timestamp: new Date().toISOString(),
-        description: `Rollback from ${current?.version || 'unknown'} to ${rollbackTo!.version}`,
+        description: `Rollback from ${envHistory[0]?.version || 'unknown'} to ${rollbackTo!.version}`,
       };
 
       state.history.push(record);
@@ -410,7 +410,7 @@ const rollbackCommand: Command = {
         data: [
           { field: 'Rollback ID', value: record.id },
           { field: 'Environment', value: envName },
-          { field: 'From Version', value: current?.version || 'unknown' },
+          { field: 'From Version', value: envHistory[0]?.version || 'unknown' },
           { field: 'To Version', value: rollbackTo!.version },
           { field: 'Timestamp', value: record.timestamp },
         ],

@@ -347,7 +347,23 @@ const profileCommand: Command = {
 
     const outputFile = ctx.flags.output as string | undefined;
     if (outputFile) {
-      output.printWarning(`--output flag is not yet implemented. Profile data was not saved to ${outputFile}.`);
+      const profileData = {
+        timestamp: new Date().toISOString(),
+        duration_ms: Math.round(elapsedMs),
+        cpu: { user_us: endCpu.user, system_us: endCpu.system, percent: parseFloat(cpuPercent) },
+        memory: {
+          heap_used_mb: parseFloat(heapUsedMB),
+          heap_total_mb: parseFloat(heapTotalMB),
+          rss_mb: parseFloat(rssMB),
+          external_mb: parseFloat(externalMB),
+        },
+        event_loop_lag_ms: parseFloat(eventLoopLag),
+      };
+      const fs = await import('fs');
+      const path = await import('path');
+      const resolved = path.resolve(outputFile);
+      fs.writeFileSync(resolved, JSON.stringify(profileData, null, 2) + '\n');
+      output.writeln(output.success(`Profile data saved to ${resolved}`));
     }
 
     return { success: true };
@@ -569,9 +585,12 @@ const optimizeCommand: Command = {
     const VALID_TARGETS = new Set(['memory', 'cpu', 'latency', 'all']);
     const target = VALID_TARGETS.has(targetRaw) ? targetRaw : 'all';
 
-    if (ctx.flags.apply) {
-      output.printWarning('Optimization application is not yet implemented. Showing recommendations only.');
-    }
+    const recommendations = [
+      { priority: 'P0', area: 'Memory', recommendation: 'Enable HNSW index quantization', impact: '+50% reduction', configKey: 'hnsw.quantization', configValue: true },
+      { priority: 'P1', area: 'CPU', recommendation: 'Enable WASM SIMD acceleration', impact: '+4x speedup', configKey: 'wasm.simd', configValue: true },
+      { priority: 'P2', area: 'Cache', recommendation: 'Increase pattern cache size', impact: '+15% hit rate', configKey: 'cache.patternSize', configValue: 2048 },
+      { priority: 'P2', area: 'Network', recommendation: 'Enable request batching', impact: '-30% latency', configKey: 'network.batching', configValue: true },
+    ].filter(r => target === 'all' || r.area.toLowerCase() === target);
 
     output.writeln();
     output.writeln(output.bold('Performance Optimization'));
@@ -586,6 +605,7 @@ const optimizeCommand: Command = {
     output.writeln(output.bold('Recommendations:'));
     output.writeln();
 
+    const priorityFormat: Record<string, (s: string) => string> = { P0: output.error, P1: output.warning, P2: output.info };
     output.printTable({
       columns: [
         { key: 'priority', header: 'Priority', width: 10 },
@@ -593,13 +613,38 @@ const optimizeCommand: Command = {
         { key: 'recommendation', header: 'Recommendation', width: 40 },
         { key: 'impact', header: 'Impact', width: 15 },
       ],
-      data: [
-        { priority: output.error('P0'), area: 'Memory', recommendation: 'Enable HNSW index quantization', impact: '+50% reduction' },
-        { priority: output.warning('P1'), area: 'CPU', recommendation: 'Enable WASM SIMD acceleration', impact: '+4x speedup' },
-        { priority: output.info('P2'), area: 'Cache', recommendation: 'Increase pattern cache size', impact: '+15% hit rate' },
-        { priority: output.info('P2'), area: 'Network', recommendation: 'Enable request batching', impact: '-30% latency' },
-      ],
+      data: recommendations.map(r => ({
+        priority: (priorityFormat[r.priority] ?? output.dim)(r.priority),
+        area: r.area,
+        recommendation: r.recommendation,
+        impact: r.impact,
+      })),
     });
+
+    if (ctx.flags.apply || ctx.flags['dry-run']) {
+      output.writeln();
+      const fs = await import('node:fs');
+      const configPath = 'monomind.config.json';
+      let config: Record<string, unknown> = {};
+      try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch { /* fresh */ }
+
+      const perf = (config.performance ?? {}) as Record<string, unknown>;
+      for (const r of recommendations) {
+        const parts = r.configKey.split('.');
+        const section = (perf[parts[0]] ?? {}) as Record<string, unknown>;
+        section[parts[1]] = r.configValue;
+        perf[parts[0]] = section;
+      }
+      config.performance = perf;
+
+      if (ctx.flags['dry-run']) {
+        output.writeln(output.bold('Dry run — changes that would be applied:'));
+        output.writeln(output.dim(JSON.stringify(config.performance, null, 2)));
+      } else {
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+        output.printSuccess(`Applied ${recommendations.length} optimization(s) to ${configPath}`);
+      }
+    }
 
     return { success: true };
   },
@@ -618,15 +663,63 @@ const bottleneckCommand: Command = {
     { command: 'monomind performance bottleneck -d full', description: 'Full analysis' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    output.printWarning('Bottleneck analysis is using static sample data. Dynamic analysis coming soon.');
     output.writeln();
     output.writeln(output.bold('Bottleneck Analysis'));
     output.writeln(output.dim('─'.repeat(50)));
 
     const spinner = output.createSpinner({ text: 'Analyzing system...', spinner: 'dots' });
     spinner.start();
-    await new Promise(r => setTimeout(r, 600));
-    spinner.succeed('Analysis complete');
+
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const findings: { component: string; bottleneck: string; severity: string; solution: string }[] = [];
+
+    const mem = process.memoryUsage();
+    const heapUsedMB = mem.heapUsed / 1024 / 1024;
+    if (heapUsedMB > 200) {
+      findings.push({ component: 'Runtime', bottleneck: `Heap ${heapUsedMB.toFixed(0)}MB`, severity: output.error('High'), solution: 'Investigate memory leaks or increase --max-old-space-size' });
+    }
+
+    const configPath = 'monomind.config.json';
+    let config: Record<string, unknown> = {};
+    try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch { /* no config */ }
+    const perf = (config.performance ?? {}) as Record<string, unknown>;
+    const hnsw = (perf.hnsw ?? {}) as Record<string, unknown>;
+    if (!hnsw.quantization) {
+      findings.push({ component: 'Vector Search', bottleneck: 'No HNSW quantization', severity: output.error('High'), solution: 'Run: monomind performance optimize --apply -t memory' });
+    }
+
+    const tracesDir = '.monomind/traces';
+    if (fs.existsSync(tracesDir)) {
+      try {
+        const traceFiles = fs.readdirSync(tracesDir);
+        if (traceFiles.length > 500) {
+          findings.push({ component: 'Traces', bottleneck: `${traceFiles.length} trace files`, severity: output.warning('Medium'), solution: 'Prune old traces: rm .monomind/traces/*.jsonl' });
+        }
+      } catch { /* ok */ }
+    }
+
+    const memoryDir = '.monomind/memory';
+    if (fs.existsSync(memoryDir)) {
+      try {
+        const stat = fs.statSync(path.join(memoryDir, 'lance.db')).size ?? 0;
+        const sizeMB = stat / 1024 / 1024;
+        if (sizeMB > 100) {
+          findings.push({ component: 'Memory DB', bottleneck: `LanceDB ${sizeMB.toFixed(0)}MB`, severity: output.warning('Medium'), solution: 'Run: monomind memory compact' });
+        }
+      } catch { /* no lance.db */ }
+    }
+
+    const network = (perf.network ?? {}) as Record<string, unknown>;
+    if (!network.batching) {
+      findings.push({ component: 'Network', bottleneck: 'No request batching', severity: output.info('Low'), solution: 'Run: monomind performance optimize --apply -t latency' });
+    }
+
+    if (findings.length === 0) {
+      findings.push({ component: 'System', bottleneck: 'No bottlenecks detected', severity: output.success('None'), solution: 'System is performing well' });
+    }
+
+    spinner.succeed(`Analysis complete — ${findings.length} finding(s)`);
 
     output.writeln();
     output.printTable({
@@ -634,12 +727,9 @@ const bottleneckCommand: Command = {
         { key: 'component', header: 'Component', width: 20 },
         { key: 'bottleneck', header: 'Bottleneck', width: 25 },
         { key: 'severity', header: 'Severity', width: 12 },
-        { key: 'solution', header: 'Solution', width: 30 },
+        { key: 'solution', header: 'Solution', width: 50 },
       ],
-      data: [
-        { component: 'Vector Search', bottleneck: 'Linear scan O(n)', severity: output.error('High'), solution: 'Enable HNSW indexing' },
-        { component: 'Memory Store', bottleneck: 'Lock contention', severity: output.info('Low'), solution: 'Use sharded storage' },
-      ],
+      data: findings,
     });
 
     return { success: true };
