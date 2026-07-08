@@ -553,6 +553,49 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       </tbody>
     </table>
     </div>
+    <div class="section-title reveal">Second Brain — Document Knowledge Base</div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Second Brain indexes your project's documents (PDF, DOCX, Markdown, TXT, RTF, and more) into a searchable knowledge base. During <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">monomind init</code>, the directory scanner detects document files and auto-ingests them — chunked, hashed for dedup, and stored in LanceDB for semantic retrieval. Agents can then query business docs, compliance policies, or design specs without leaving Claude Code.</p>
+    <div class="phase-flow reveal">
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">SCAN</div><div class="phase-desc">Directory scanner classifies files by extension (<code>.pdf</code>, <code>.docx</code>, <code>.md</code>, <code>.txt</code>, <code>.rtf</code>, <code>.pages</code>, <code>.odt</code>, <code>.rst</code>, <code>.tex</code>, <code>.epub</code>). If enough match, the "documents" capability activates.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 2</div><div class="phase-name">EXTRACT</div><div class="phase-desc">Text extraction via <code>pdf-parse</code> (PDF), <code>mammoth</code> (DOCX), or direct read (plain text). Each document is chunked into 3200-char segments with 400-char overlap, respecting paragraph boundaries.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 3</div><div class="phase-name">INDEX</div><div class="phase-desc">SHA-256 content hashing for deduplication. Chunks are stored in LanceDB under <code>knowledge:&lt;scope&gt;</code> namespace. Metadata logged to <code>.monomind/knowledge/doc-metadata.jsonl</code>.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">QUERY</div><div class="phase-desc">Semantic search via <code>knowledge_search</code> MCP tool or <code>monomind doc search</code> CLI. Returns ranked excerpts with similarity scores.</div></div></div>
+    </div>
+    <div class="section-title reveal" style="margin-top:32px">CLI — <code style="font-family:var(--ff-m);font-size:13px">monomind doc</code></div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">doc ingest &lt;path&gt;</td><td>Index documents from a file or directory into the knowledge base</td></tr>
+        <tr><td class="mono">doc search -q "query"</td><td>Semantic search over indexed documents (supports <code>--limit</code>, <code>--scope</code>, <code>--min-score</code>)</td></tr>
+        <tr><td class="mono">doc list</td><td>List all indexed documents with chunk counts and sizes</td></tr>
+        <tr><td class="mono">doc export</td><td>Export knowledge base as OKF bundle (Markdown + YAML frontmatter)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal" style="margin-top:32px">OKF — Open Knowledge Format</div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:16px;font-size:14px;line-height:1.7;">OKF is a portable interchange format for knowledge bases. Each document becomes a Markdown file with YAML frontmatter (type, title, resource path, tags, content hash, chunk count) plus an <code>index.md</code> linking them all. Use it to move knowledge between projects, share with teammates, or back up your Second Brain.</p>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Operation</th><th>CLI</th><th>Slash Command</th></tr></thead>
+      <tbody>
+        <tr><td>Export</td><td class="mono">monomind doc export -o ./bundle</td><td class="mono">/mastermind:okf-export</td></tr>
+        <tr><td>Import</td><td class="mono">monomind doc ingest ./bundle</td><td class="mono">/mastermind:okf-import</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="code-block reveal" style="margin-top:16px">
+<span class="comment"># Export your knowledge base</span>
+monomind doc export -o ./my-knowledge -s shared
+
+<span class="comment"># Import an OKF bundle from another project</span>
+monomind doc ingest ./their-knowledge -s shared
+
+<span class="comment"># Or use slash commands inside Claude Code</span>
+/mastermind:okf-export -o ./bundle
+/mastermind:okf-import ./bundle
+    </div>
+
     <div class="section-title reveal">Learning Pipeline</div>
     <div class="phase-flow reveal">
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">RETRIEVE</div><div class="phase-desc">Pure-JS HNSW ANN search across L2/L3 tiers. Returns top-K neighbors by cosine similarity.</div></div></div>
@@ -796,6 +839,10 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="cmd-item" data-search="performance report metrics time series"><div class="cmd-name">performance report</div><div class="cmd-desc">Time-series performance metrics</div></div>
       <div class="cmd-item" data-search="doctor health check diagnose fix repair"><div class="cmd-name">doctor</div><div class="cmd-desc">System diagnostics — all components</div></div>
       <div class="cmd-item" data-search="doctor fix auto repair node db daemon"><div class="cmd-name">doctor --fix</div><div class="cmd-desc">Auto-fix: Node version, DB init, daemon start</div></div>
+      <div class="cmd-item" data-search="doc ingest index documents pdf docx knowledge second brain"><div class="cmd-name">doc ingest &lt;path&gt;</div><div class="cmd-desc">Index documents into the Second Brain knowledge base</div></div>
+      <div class="cmd-item" data-search="doc search query semantic knowledge second brain"><div class="cmd-name">doc search -q "query"</div><div class="cmd-desc">Semantic search over indexed documents</div></div>
+      <div class="cmd-item" data-search="doc list indexed documents knowledge chunks"><div class="cmd-name">doc list</div><div class="cmd-desc">List all indexed documents with chunk counts</div></div>
+      <div class="cmd-item" data-search="doc export okf knowledge bundle markdown portable"><div class="cmd-name">doc export</div><div class="cmd-desc">Export knowledge base as OKF bundle</div></div>
       <div class="cmd-item" data-search="monograph build graph code knowledge"><div class="cmd-name">monograph build</div><div class="cmd-desc">Build the code knowledge graph</div></div>
       <div class="cmd-item" data-search="monograph search query find bm25 semantic"><div class="cmd-name">monograph search</div><div class="cmd-desc">BM25, semantic, hybrid search across graph</div></div>
       <div class="cmd-item" data-search="monograph stats counts nodes edges"><div class="cmd-name">monograph stats</div><div class="cmd-desc">Node/edge counts, top concepts by importance</div></div>
@@ -864,6 +911,8 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="cmd-item" data-search="mastermind orgstatus detailed status lifecycle single org"><div class="cmd-name">/mastermind:orgstatus</div><div class="cmd-desc">Detailed status for a single org</div></div>
       <div class="cmd-item" data-search="mastermind approve review pending approval agents running"><div class="cmd-name">/mastermind:approve</div><div class="cmd-desc">Review and action pending approval requests from running orgs</div></div>
       <!-- mastermind: — utilities -->
+      <div class="cmd-item" data-search="mastermind okf export knowledge bundle second brain portable markdown"><div class="cmd-name">/mastermind:okf-export</div><div class="cmd-desc">Export Second Brain as OKF bundle</div></div>
+      <div class="cmd-item" data-search="mastermind okf import knowledge bundle second brain ingest"><div class="cmd-name">/mastermind:okf-import</div><div class="cmd-desc">Import an OKF bundle into Second Brain</div></div>
       <div class="cmd-item" data-search="mastermind brain context memory inspect compact refresh"><div class="cmd-name">/mastermind:brain</div><div class="cmd-desc">Inspect and manage mastermind brain context</div></div>
       <div class="cmd-item" data-search="mastermind memory lancedb store search retrieve list delete"><div class="cmd-name">/mastermind:memory</div><div class="cmd-desc">LanceDB memory: store, search, retrieve, list, delete</div></div>
       <div class="cmd-item" data-search="mastermind budget tokens cost limits autotune today month"><div class="cmd-name">/mastermind:budget</div><div class="cmd-desc">Budget status: today, month, limits, autotune</div></div>

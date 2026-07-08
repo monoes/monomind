@@ -87,7 +87,7 @@ Advanced action definitions with tool groups:
 Action: analyze_codebase
   Preconditions: {repository_accessible: true}
   Effects: {code_analyzed: true, metrics_available: true}
-  Tools: [grep, ast_parser, complexity_analyzer]
+  Tools: [monograph_query, monograph_suggest, grep (fallback), ast_parser, complexity_analyzer]
   Execution: hybrid (LLM for insights, code for metrics)
   Cost: 2
   Fallback: manual_review if tools unavailable

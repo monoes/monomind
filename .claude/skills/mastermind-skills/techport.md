@@ -75,8 +75,17 @@ find .claude -name "*.md" \
 
 ### 0B — Naming Convention Extraction (from actual monomind code)
 
-Extract the real conventions — not the stated ones — from the codebase itself:
+Extract the real conventions — not the stated ones — from the codebase itself.
 
+**Step 1 — monograph-based extraction (preferred):**
+```
+# Use monograph for exported symbol discovery
+monograph_query({ query: "export class interface" })    # all exported types
+monograph_god_nodes({})                                  # high-centrality files (naming exemplars)
+monograph_stats({})                                      # node counts by type
+```
+
+**Step 2 — grep fallback (only if monograph returns 0 results or DB not built):**
 ```bash
 BASE=packages/@monomind/cli/src
 
@@ -143,10 +152,20 @@ Domain vocab:       Agent, Memory, Swarm, Config, Node, Graph, Session, Task, Wo
 
 ### 0C — Dependency Direction Constraints
 
+**Preferred: monograph-based dependency analysis:**
+```
+# Use monograph for dependency direction mapping
+monograph_community({})                              # module clusters with import directions
+monograph_context({ name: "types" })                 # 360° view: importers vs imports
+monograph_context({ name: "utils" })
+monograph_context({ name: "core" })
+monograph_context({ name: "commands" })
+monograph_context({ name: "services" })
+```
+
+**Fallback (only if monograph unavailable):**
 ```bash
 BASE=packages/@monomind/cli/src
-
-# Map import directions by directory layer
 for dir in types utils core commands services; do
   count=$(grep -rn "^import" "$BASE/$dir" --include="*.ts" 2>/dev/null | wc -l)
   refs=$(grep -rn "from.*/$dir/" "$BASE" --include="*.ts" 2>/dev/null | wc -l)
@@ -160,6 +179,13 @@ Extract the implied layering from the import ratio. High `imported_by` → leaf/
 
 ### 0D — Build Monomind Vocabulary Name Set (for collision detection)
 
+**Preferred: monograph-based symbol enumeration:**
+```
+monograph_query({ query: "export class interface function const type enum" })
+# Extract names from results for collision checking
+```
+
+**Fallback (only if monograph unavailable):**
 ```bash
 grep -rhn "^export" packages/@monomind/cli/src \
   --include="*.ts" | grep -v dist | \
@@ -200,6 +226,14 @@ Set `source_brand` to the PascalCase result (e.g., `Monomind`, `ClaudeFlow`, `So
 
 ### 1B — Repo-Map (Structural Index)
 
+**If source project has a monograph index** (check with `monograph_health` against source_path):
+```
+monograph_query({ query: "export class interface function" })  # all exported symbols
+monograph_god_nodes({})                                         # high-centrality files
+monograph_community({})                                         # module structure
+```
+
+**Otherwise (foreign project without monograph — grep is expected here):**
 ```bash
 # File tree
 find "{source_path}" -maxdepth 4 \
