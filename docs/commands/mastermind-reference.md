@@ -323,6 +323,71 @@ touch .monomind/loops/{loop-id}.stop
 
 ---
 
+## Second Brain & OKF
+
+The Second Brain is Monomind's document knowledge base. During `monomind init`, the directory scanner auto-detects document files and ingests them — chunking, deduplicating, and storing in LanceDB for semantic retrieval.
+
+### CLI — `monomind doc`
+
+| Command | Description |
+|---|---|
+| `doc ingest <path>` | Index a file or directory into the knowledge base |
+| `doc search -q "query"` | Semantic search over indexed documents (`--limit`, `--scope`, `--min-score`) |
+| `doc list` | List indexed documents with chunk counts and sizes |
+| `doc export -o <dir>` | Export as OKF bundle (Markdown + YAML frontmatter) |
+
+### `/mastermind:okf-export`
+
+**Purpose:** Export the Second Brain as a portable OKF (Open Knowledge Format) bundle.
+
+```
+/mastermind:okf-export
+/mastermind:okf-export -o ./my-bundle
+/mastermind:okf-export -o ./my-bundle -s private
+```
+
+| Option | Description |
+|---|---|
+| `-o`, `--output <dir>` | Output directory (default: `.monomind/knowledge-export`) |
+| `-s`, `--scope <name>` | Knowledge scope (default: `shared`) |
+
+### `/mastermind:okf-import`
+
+**Purpose:** Import an OKF bundle into the Second Brain.
+
+```
+/mastermind:okf-import ./their-knowledge
+/mastermind:okf-import ./bundle -s private
+```
+
+| Option | Description |
+|---|---|
+| positional arg | Bundle directory path (required) |
+| `-s`, `--scope <name>` | Knowledge scope (default: `shared`) |
+
+### OKF Format
+
+Each exported document becomes a Markdown file with YAML frontmatter:
+
+```yaml
+---
+type: Document
+title: design-spec
+description: "Extracted from design-spec.pdf"
+resource: docs/design-spec.pdf
+tags: ["document", "pdf"]
+timestamp: "2026-07-08T12:00:00.000Z"
+contentHash: "a1b2c3..."
+chunkCount: 12
+---
+
+(document content)
+```
+
+An `index.md` links all exported documents. Use OKF to move knowledge between projects, share with teammates, or back up your Second Brain.
+
+---
+
 ## Brain Protocol
 
 Each mastermind command loads/saves brain context:

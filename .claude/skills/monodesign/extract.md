@@ -17,7 +17,7 @@ Every codebase with more than a few pages has an implicit design system — inco
 ## Discovery Phase
 
 **Color inventory**
-- Collect all color values used in the codebase (grep for `#`, `rgb`, `hsl`, `oklch`)
+- Collect all color values used in the codebase (use `monograph_query({ query: "color rgb hsl oklch" })` first; fall back to grep for `#`, `rgb`, `hsl`, `oklch` if monograph returns 0 results)
 - Group by apparent purpose (backgrounds, text, accents, borders, shadows)
 - Identify the brand anchor color(s)
 - Spot inconsistencies (5 slightly different grays)

@@ -148,11 +148,14 @@ Run the test suite and adversarial probes against the live monofence-ai detector
 ```
 MONOFENCE INPUT BOUNDARY SCAN (monofence_deep flag):
 
-Step 1 — Find LLM input boundary files using these patterns:
-  grep -rl "detect\|isSafe\|prompt\|chat\|completion\|message" src/ --include="*.ts" --include="*.js"
-  find . -name "*.ts" -path "*/routes/*" -o -name "*.ts" -path "*/handlers/*" \
-         -o -name "*.ts" -path "*/controllers/*" -o -name "*.ts" -path "*/api/*" \
-         -o -name "prompt*.ts" -o -name "*chat*.ts" -o -name "*completion*.ts"
+Step 1 — Find LLM input boundary files:
+  PREFERRED: monograph_query({ query: "detect isSafe prompt chat completion message" })
+             monograph_neighbors({ name: "detect" })  // trace call chains into LLM boundaries
+  FALLBACK (if monograph returns 0 results):
+    grep -rl "detect\|isSafe\|prompt\|chat\|completion\|message" src/ --include="*.ts" --include="*.js"
+    find . -name "*.ts" -path "*/routes/*" -o -name "*.ts" -path "*/handlers/*" \
+           -o -name "*.ts" -path "*/controllers/*" -o -name "*.ts" -path "*/api/*" \
+           -o -name "prompt*.ts" -o -name "*chat*.ts" -o -name "*completion*.ts"
 
 Step 2 — For each boundary file found, extract string literals and template literals
   that flow into LLM calls (look for openai/anthropic/fetch calls).

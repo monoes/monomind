@@ -9,6 +9,7 @@ import { execSync } from 'child_process';
 import { statSync } from 'fs';
 import { getProjectCwd } from './types.js';
 let _cachedDbPath;
+let _cachedCwd;
 function _isValidDb(p) {
     try {
         return statSync(p).size >= 100;
@@ -18,15 +19,19 @@ function _isValidDb(p) {
     }
 }
 function getDbPath() {
-    if (_cachedDbPath !== undefined)
-        return _cachedDbPath ?? join(getProjectCwd(), '.monomind', 'monograph.db');
-    const direct = join(getProjectCwd(), '.monomind', 'monograph.db');
+    const cwd = getProjectCwd();
+    // Invalidate cache when project root changes (e.g. MONOMIND_CWD set after initialize)
+    if (_cachedDbPath && _cachedCwd === cwd)
+        return _cachedDbPath;
+    _cachedCwd = cwd;
+    _cachedDbPath = undefined;
+    const direct = join(cwd, '.monomind', 'monograph.db');
     if (_isValidDb(direct)) {
         _cachedDbPath = direct;
         return direct;
     }
     try {
-        const root = execSync('git rev-parse --show-toplevel', { cwd: getProjectCwd(), encoding: 'utf8' }).trim();
+        const root = execSync('git rev-parse --show-toplevel', { cwd, encoding: 'utf8' }).trim();
         const candidate = join(root, '.monomind', 'monograph.db');
         if (_isValidDb(candidate)) {
             _cachedDbPath = candidate;
@@ -34,7 +39,7 @@ function getDbPath() {
         }
     }
     catch { /* not in a git repo */ }
-    _cachedDbPath = null;
+    // Don't cache failures — the DB may be created by a subsequent build
     return direct;
 }
 function text(t) {
