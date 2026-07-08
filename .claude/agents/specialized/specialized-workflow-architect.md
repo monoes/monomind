@@ -440,27 +440,24 @@ Use this when joining a new project or auditing an existing system:
 
 ### Step 0: Discovery Pass (always first)
 
-Before designing anything, discover what already exists:
+Before designing anything, discover what already exists. **Use monograph first** — fall back to grep only if monograph returns 0 results or the DB is not built.
+
+```
+# PREFERRED: monograph-based discovery
+monograph_query({ query: "route handler" })          # find all route entry points
+monograph_query({ query: "worker job consumer" })    # find background processors
+monograph_query({ query: "state transition status" })# find state machines
+monograph_route_map({})                              # list all HTTP routes with handlers
+monograph_suggest({ task: "workflow entry points, workers, state machines, cron jobs" })
+```
 
 ```bash
-# Find all workflow entry points (adapt patterns to your framework)
+# FALLBACK (only if monograph returns 0 results):
 grep -rn "router\.\(post\|put\|delete\|get\|patch\)" src/routes/ --include="*.ts" --include="*.js"
 grep -rn "@app\.\(route\|get\|post\|put\|delete\)" src/ --include="*.py"
-grep -rn "HandleFunc\|Handle(" cmd/ pkg/ --include="*.go"
-
-# Find all background workers / job processors
 find src/ -type f -name "*worker*" -o -name "*job*" -o -name "*consumer*" -o -name "*processor*"
-
-# Find all state transitions in the codebase
 grep -rn "status.*=\|\.status\s*=\|state.*=\|\.state\s*=" src/ --include="*.ts" --include="*.py" --include="*.go" | grep -v "test\|spec\|mock"
-
-# Find all database migrations
 find . -path "*/migrations/*" -type f | head -30
-
-# Find all infrastructure resources
-find . -name "*.tf" -o -name "docker-compose*.yml" -o -name "*.yaml" | xargs grep -l "resource\|service:" 2>/dev/null
-
-# Find all scheduled / cron jobs
 grep -rn "cron\|schedule\|setInterval\|@Scheduled" src/ --include="*.ts" --include="*.py" --include="*.go" --include="*.java"
 ```
 

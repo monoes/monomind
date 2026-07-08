@@ -364,7 +364,7 @@ The goal is the same: give the user three variants to choose from AND persist th
 
 Use the error payload:
 
-- `element_not_in_source` with `generatedMatch: "public/docs/foo.html"`: the served HTML is generated. Find the generator (grep for writers of that path, e.g. `scripts/build-sub-pages.js`, an Astro/Next template) and locate the template or partial that emits this element.
+- `element_not_in_source` with `generatedMatch: "public/docs/foo.html"`: the served HTML is generated. Find the generator (use `monograph_query({ query: "build generate template" })` or `monograph_neighbors` to trace writers of that path; fall back to grep if monograph returns 0 results, e.g. `scripts/build-sub-pages.js`, an Astro/Next template) and locate the template or partial that emits this element.
 - `element_not_found`: the element is runtime-injected. Look for the component that renders it (React/Vue/Svelte), the JS that assembles it, or the data source that feeds it.
 - `file_is_generated` with `file: "..."`: user pointed at a generated file explicitly. Same resolution as `element_not_in_source`.
 

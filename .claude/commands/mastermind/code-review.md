@@ -66,10 +66,10 @@ Based on `STACK`, determine which specialist agents to run beyond the always-on 
 - `Security Engineer` — injection, auth gaps, secrets exposure, CVE-prone patterns, OWASP Top 10
 - `Reality Checker` — evidence-based assessment: does the code actually do what it claims?
 
-**Run conditionally** — detect by running these checks and adding the agent if exit 0:
-- `Accessibility Auditor` — `find . -maxdepth 5 \( -name "*.html" -o -name "*.jsx" -o -name "*.tsx" \) -not -path "*/node_modules/*" | head -1 | grep -q .`
-- `API Tester` — `find . -maxdepth 5 \( -name "*.route.*" -o -name "openapi.yml" -o -name "openapi.json" -o -name "swagger.*" \) -not -path "*/node_modules/*" | head -1 | grep -q . || grep -rqEl "express\(|fastify|hono|koa|router\." --include="*.ts" --include="*.js" . 2>/dev/null`
-- `Database Optimizer` — `find . -maxdepth 5 \( -name "*.sql" -o -name "*migration*" -o -name "*schema*" \) -not -path "*/node_modules/*" | head -1 | grep -q . || grep -rqEl "prisma|typeorm|sequelize|drizzle|knex" --include="*.ts" --include="*.js" . 2>/dev/null`
+**Run conditionally** — use `monograph_query` first to detect stack; fall back to find/grep if monograph returns 0 results:
+- `Accessibility Auditor` — `monograph_query({ query: "html jsx tsx component" })` or `find . -maxdepth 5 \( -name "*.html" -o -name "*.jsx" -o -name "*.tsx" \) -not -path "*/node_modules/*" | head -1 | grep -q .`
+- `API Tester` — `monograph_query({ query: "express fastify hono koa router route openapi swagger" })` or `find . -maxdepth 5 \( -name "*.route.*" -o -name "openapi.yml" -o -name "openapi.json" -o -name "swagger.*" \) -not -path "*/node_modules/*" | head -1 | grep -q . || grep -rqEl "express\(|fastify|hono|koa|router\." --include="*.ts" --include="*.js" . 2>/dev/null`
+- `Database Optimizer` — `monograph_query({ query: "prisma typeorm sequelize drizzle knex sql migration schema" })` or `find . -maxdepth 5 \( -name "*.sql" -o -name "*migration*" -o -name "*schema*" \) -not -path "*/node_modules/*" | head -1 | grep -q . || grep -rqEl "prisma|typeorm|sequelize|drizzle|knex" --include="*.ts" --include="*.js" . 2>/dev/null`
 - `SRE` — `find . -maxdepth 3 \( -name "Dockerfile" -o -name "docker-compose*" -o -name "*.yml" -path "*/.github/workflows/*" \) | head -1 | grep -q .`
 - `Mobile App Builder` — `find . -maxdepth 3 \( -name "*.swift" -o -name "*.kt" \) | head -1 | grep -q . || grep -q "react-native" package.json 2>/dev/null`
 

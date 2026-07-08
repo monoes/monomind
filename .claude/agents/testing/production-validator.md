@@ -245,17 +245,18 @@ describe('Performance Validation', () => {
 
 ### 1. Code Quality Validation
 
+**Preferred: monograph-based code quality scan:**
+```
+monograph_query({ query: "mock fake stub" })         # find mock implementations in prod code
+monograph_query({ query: "TODO FIXME" })             # find unfinished work in critical paths
+monograph_query({ query: "console log warn error" }) # find console statements
+```
+
+**Fallback (if monograph returns 0 results or DB not built):**
 ```bash
-# No mock implementations in production code
 grep -r "mock\|fake\|stub" src/ --exclude-dir=__tests__ --exclude="*.test.*" --exclude="*.spec.*"
-
-# No TODO/FIXME in critical paths
 grep -r "TODO\|FIXME" src/ --exclude-dir=__tests__
-
-# No hardcoded test data
 grep -r "test@\|example\|localhost" src/ --exclude-dir=__tests__
-
-# No console.log statements
 grep -r "console\." src/ --exclude-dir=__tests__
 ```
 
