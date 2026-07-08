@@ -4,7 +4,7 @@ import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { analyzePageForAction, type AnalyzerPage } from '../index.js';
-import type { ActionDef } from '../index.js';
+import type { ActionDef, StepDef } from '../index.js';
 
 async function readAction(filePath: string): Promise<ActionDef> {
   return JSON.parse(await readFile(filePath, 'utf8')) as ActionDef;
@@ -96,8 +96,90 @@ export function createActionCommand(): Command {
         if (eq > 0) params[pair.slice(0, eq)] = pair.slice(eq + 1);
       }
       console.log(`Running action: ${actionId} with account: ${opts.account}`);
-      console.log('Params:', params);
-      console.log('(Action runner not yet implemented — use browse playbook run for full execution)');
+
+      const custom = await getCustomActions();
+      const def = custom.find(a => a.id === actionId);
+      if (!def) {
+        console.error(`Action not found in custom actions: ${actionId}`);
+        console.error('Built-in actions require adapter step definitions — use "action build" to create a custom action.');
+        process.exit(1);
+      }
+
+      const { connectToTarget } = await import('../browser/browser.js');
+      const { openUrl } = await import('../browser/browser.js');
+      const { clickElement, fillElement, evaluateJs } = await import('../browser/actions.js');
+      const { findBySelector } = await import('../browser/find.js');
+      const { waitFor } = await import('../browser/wait.js');
+      const port = parseInt(process.env.MONOBROWSE_PORT ?? '9222', 10);
+      const { client, sessionId } = await connectToTarget(port);
+      const refs = new Map<string, import('../browser/types.js').ElementRef>();
+
+      const interpolate = (s: string) =>
+        s.replace(/\{\{(\w+)\}\}/g, (_, k: string) => params[k] ?? `{{${k}}}`);
+
+      async function runSteps(steps: StepDef[]): Promise<void> {
+        for (const step of steps) {
+          switch (step.type) {
+            case 'navigate':
+              await openUrl(client, sessionId, interpolate(step.url));
+              console.log(`  navigate → ${step.url}`);
+              break;
+            case 'find': {
+              for (const sel of step.selectors) {
+                const found = await findBySelector(client, sessionId, refs, interpolate(sel)).catch(() => null);
+                if (found) { refs.set(step.as, found); break; }
+              }
+              console.log(`  find → ${step.as}`);
+              break;
+            }
+            case 'click': {
+              const ref = refs.get(step.target);
+              if (!ref) throw new Error(`Element "${step.target}" not found`);
+              await clickElement(client, sessionId, ref);
+              console.log(`  click → ${step.target}`);
+              break;
+            }
+            case 'type': {
+              const ref = refs.get(step.target);
+              if (!ref) throw new Error(`Element "${step.target}" not found`);
+              await fillElement(client, sessionId, ref, interpolate(step.text));
+              console.log(`  type → ${step.target}`);
+              break;
+            }
+            case 'wait':
+              if (step.condition === 'network_idle') {
+                await waitFor(client, sessionId, { load: 'networkidle', timeout: step.timeout });
+              } else if (step.condition === 'selector' && step.selector) {
+                await waitFor(client, sessionId, { selector: step.selector, timeout: step.timeout });
+              } else if (step.condition === 'duration') {
+                await new Promise(r => setTimeout(r, step.timeout ?? 1000));
+              }
+              console.log(`  wait → ${step.condition}`);
+              break;
+            case 'extract': {
+              const ref = refs.get(step.target);
+              if (!ref) throw new Error(`Element "${step.target}" not found`);
+              const val = step.attribute
+                ? await evaluateJs(client, sessionId, `document.querySelector('[data-ref="${ref.ref}"]')?.getAttribute('${step.attribute}')`)
+                : await evaluateJs(client, sessionId, `document.querySelector('[data-ref="${ref.ref}"]')?.textContent`);
+              console.log(`  extract → ${step.as}: ${val}`);
+              break;
+            }
+            case 'condition': {
+              const result = await evaluateJs(client, sessionId, step.expression);
+              if (result) {
+                await runSteps(step.then);
+              } else if (step.else) {
+                await runSteps(step.else);
+              }
+              break;
+            }
+          }
+        }
+      }
+
+      await runSteps(def.steps);
+      console.log(`\nAction ${actionId} completed successfully.`);
     });
 
   cmd

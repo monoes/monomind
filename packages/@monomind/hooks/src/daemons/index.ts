@@ -624,8 +624,8 @@ export async function initDefaultWorkers(): Promise<void> {
   // GAP-004: EntityExtractorWorker — extracts entity facts from task transcripts
   try {
     const { EntityExtractorWorker } = await import('../workers/entity-extractor.js');
-    // No-op entityMemory stub — real implementation wires @monomind/memory EntityStore
-    const entityMemory = { store(_fact: unknown) { /* stub — replaced when EntityStore is available */ } };
+    const { EntityMemory } = await import('../../../memory/src/tiers/entity.js');
+    const entityMemory = new EntityMemory('.monomind/entities/facts.jsonl');
     const extractFacts = async (_transcript: string, _runId: string) => [];
     // EntityExtractorWorker is event-driven; expose it on the manager for callers to trigger
     const worker = new EntityExtractorWorker({ entityMemory, extractFacts });

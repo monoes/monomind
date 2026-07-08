@@ -1,127 +1,14 @@
 /**
  * CLI Commands Index
  * Central registry for all CLI commands
- *
- * NOTE: All commands are synchronously imported at module load time (lines below).
- * The commandLoaders/loadCommand infrastructure provides an async fallback for
- * commands looked up via getCommandAsync() but does NOT reduce startup time since
- * all modules are already imported synchronously for the commands array and
- * commandsByCategory exports.
  */
 
 import type { Command } from '../types.js';
 
-// =============================================================================
-// Lazy Loading Infrastructure
-// =============================================================================
-
-type CommandLoader = () => Promise<{ default?: Command; [key: string]: Command | unknown }>;
-
-/**
- * Command loaders - commands are only imported when needed
- * This reduces initial bundle parse time by ~200ms
- */
-const commandLoaders: Record<string, CommandLoader> = {
-  // P1 Core Commands (frequently used - load first)
-  init: () => import('./init.js'),
-  start: () => import('./start.js'),
-  status: () => import('./status.js'),
-  task: () => import('./task.js'),
-  session: () => import('./session.js'),
-  // Original Commands
-  agent: () => import('./agent.js'),
-  swarm: () => import('./swarm.js'),
-  memory: () => import('./memory.js'),
-  mcp: () => import('./mcp.js'),
-  config: () => import('./config.js'),
-  hooks: () => import('./hooks.js'),
-  workflow: () => import('./workflow.js'),
-  'hive-mind': () => import('./hive-mind.js'),
-  process: () => import('./process.js'),
-  daemon: () => import('./daemon.js'),
-  // Advanced Commands (less frequently used - lazy load)
-  neural: () => import('./neural.js'),
-  security: () => import('./security.js'),
-  performance: () => import('./performance.js'),
-  providers: () => import('./providers.js'),
-  deployment: () => import('./deployment.js'),
-  claims: () => import('./claims.js'),
-  // P0 Commands
-  completions: () => import('./completions.js'),
-  doctor: () => import('./doctor.js'),
-  // Analysis Commands
-  analyze: () => import('./analyze.js'),
-  // Q-Learning Routing Commands
-  route: () => import('./route.js'),
-  // Issue Claims Commands (ADR-016)
-  issues: () => import('./issues.js'),
-  // Auto-update System (ADR-025)
-  update: () => import('./update.js'),
-  // Guidance Control Plane
-  guidance: () => import('./guidance.js'),
-  'transfer-store': () => import('./transfer-store.js'),
-  'store': () => import('./transfer-store.js'),
-  cleanup: () => import('./cleanup.js'),
-  autopilot: () => import('./autopilot.js'),
-  tokens: () => import('./tokens.js'),
-  monograph: () => import('./monograph.js'),
-  replay: () => import('./replay.js'),
-  // Native browser automation (TypeScript CDP client)
-  browse: () => import('./browse.js'),
-  platforms: () => import('./platforms.js'),
-  // Org management (list, delete)
-  org: () => import('./org.js'),
-  // Design tooling (anti-pattern detection)
-  design: () => import('./design-detect.js'),
-  // Enrichment pipeline (T0/T1/T2 progressive content enrichment)
-  enrich: () => import('./enrich.js'),
-  // Universal search across all activated capabilities
-  search: () => import('./search-universal.js'),
-  // Re-scan directory and update capability fingerprint
-  scan: () => import('./scan.js'),
-  'report-crash': () => import('./report-crash.js'),
-  'crash-reporting': () => import('./crash-reporting.js'),
-  // Second Brain document management
-  doc: () => import('./doc.js'),
-};
-
-// Cache for loaded commands
 const loadedCommands = new Map<string, Command>();
 
-/**
- * Load a command lazily
- */
-async function loadCommand(name: string): Promise<Command | undefined> {
-  if (loadedCommands.has(name)) {
-    return loadedCommands.get(name);
-  }
-
-  const loader = commandLoaders[name];
-  if (!loader) return undefined;
-
-  try {
-    const module = await loader();
-    // Try to find the command export (either default or named)
-    const command = (module.default || module[`${name}Command`] || Object.values(module).find(
-      (v): v is Command => typeof v === 'object' && v !== null && 'name' in v && 'description' in v
-    )) as Command | undefined;
-
-    if (command) {
-      loadedCommands.set(name, command);
-      return command;
-    }
-  } catch (error) {
-    // Silently fail for missing optional commands
-    if (process.env.DEBUG) {
-      console.error(`Failed to load command ${name}:`, error);
-    }
-  }
-  return undefined;
-}
-
 // =============================================================================
-// Synchronous Imports for Core Commands (needed immediately at startup)
-// These are the most commonly used commands that need instant access
+// Command Imports
 // =============================================================================
 
 import { initCommand } from './init.js';
@@ -141,7 +28,6 @@ import { performanceCommand } from './performance.js';
 import { securityCommand } from './security.js';
 import { hiveMindCommand } from './hive-mind.js';
 import browseCommand from './browse.js';
-// Additional commands for categorized help display
 import { configCommand } from './config.js';
 import { completionsCommand } from './completions.js';
 import { workflowCommand } from './workflow.js';
@@ -169,7 +55,7 @@ import { reportCrashCommand } from './report-crash.js';
 import { crashReportingCommand } from './crash-reporting.js';
 import { docCommand } from './doc.js';
 
-// Pre-populate cache with core commands
+// Populate command cache
 loadedCommands.set('init', initCommand);
 loadedCommands.set('start', startCommand);
 loadedCommands.set('status', statusCommand);
@@ -195,6 +81,17 @@ loadedCommands.set('transfer-store', storeCommand);
 loadedCommands.set('tokens', tokensCommand);
 loadedCommands.set('platforms', platformsCommand);
 loadedCommands.set('browse', browseCommand);
+loadedCommands.set('config', configCommand);
+loadedCommands.set('completions', completionsCommand);
+loadedCommands.set('workflow', workflowCommand);
+loadedCommands.set('analyze', analyzeCommand);
+loadedCommands.set('route', routeCommand);
+loadedCommands.set('providers', providersCommand);
+loadedCommands.set('deployment', deploymentCommand);
+loadedCommands.set('claims', claimsCommand);
+loadedCommands.set('issues', issuesCommand);
+loadedCommands.set('update', updateCommand);
+loadedCommands.set('process', processCommand);
 loadedCommands.set('design', designCommand);
 loadedCommands.set('enrich', enrichCommand);
 loadedCommands.set('search', searchUniversalCommand);
@@ -204,10 +101,8 @@ loadedCommands.set('crash-reporting', crashReportingCommand);
 loadedCommands.set('doc', docCommand);
 
 // =============================================================================
-// Exports (maintain backwards compatibility)
+// Exports
 // =============================================================================
-
-// Export synchronously loaded commands
 export { initCommand } from './init.js';
 export { startCommand } from './start.js';
 export { statusCommand } from './status.js';
@@ -237,34 +132,10 @@ export { reportCrashCommand } from './report-crash.js';
 export { crashReportingCommand } from './crash-reporting.js';
 export { docCommand } from './doc.js';
 
-// Lazy-loaded command re-exports (for backwards compatibility, but async-only)
-export async function getConfigCommand() { return loadCommand('config'); }
-export async function getWorkflowCommand() { return loadCommand('workflow'); }
-export async function getHiveMindCommand() { return loadCommand('hive-mind'); }
-export async function getProcessCommand() { return loadCommand('process'); }
-export async function getTaskCommand() { return loadCommand('task'); }
-export async function getSessionCommand() { return loadCommand('session'); }
-export async function getNeuralCommand() { return loadCommand('neural'); }
-export async function getSecurityCommand() { return loadCommand('security'); }
-export async function getPerformanceCommand() { return loadCommand('performance'); }
-export async function getProvidersCommand() { return loadCommand('providers'); }
-export async function getDeploymentCommand() { return loadCommand('deployment'); }
-export async function getClaimsCommand() { return loadCommand('claims'); }
-export async function getCompletionsCommand() { return loadCommand('completions'); }
-export async function getAnalyzeCommand() { return loadCommand('analyze'); }
-export async function getRouteCommand() { return loadCommand('route'); }
-export async function getIssuesCommand() { return loadCommand('issues'); }
-export async function getGuidanceCommand() { return loadCommand('guidance'); }
-export async function getCleanupCommand() { return loadCommand('cleanup'); }
-export async function getAutopilotCommand() { return loadCommand('autopilot'); }
-export async function getMonographCommand() { return loadCommand('monograph'); }
-
 /**
- * Core commands loaded synchronously (available immediately)
- * Advanced commands loaded on-demand for faster startup
+ * All registered commands
  */
 export const commands: Command[] = [
-  // Core commands (synchronously loaded)
   initCommand,
   startCommand,
   statusCommand,
@@ -352,7 +223,6 @@ export const commandsByCategory = {
 
 /**
  * Command registry map for quick lookup
- * Supports both sync (core commands) and async (lazy-loaded) commands
  */
 export const commandRegistry = new Map<string, Command>();
 
@@ -366,73 +236,32 @@ for (const cmd of commands) {
   }
 }
 
-/**
- * Get command by name (sync for core commands, returns undefined for lazy commands)
- * Use getCommandAsync for lazy-loaded commands
- */
 export function getCommand(name: string): Command | undefined {
   return loadedCommands.get(name) || commandRegistry.get(name);
 }
 
-/**
- * Get command by name (async - supports lazy loading)
- */
 export async function getCommandAsync(name: string): Promise<Command | undefined> {
-  // Check already-loaded commands first
-  const cached = loadedCommands.get(name);
-  if (cached) return cached;
-
-  // Check sync registry
-  const synced = commandRegistry.get(name);
-  if (synced) return synced;
-
-  // Try lazy loading
-  return loadCommand(name);
+  return loadedCommands.get(name) || commandRegistry.get(name);
 }
 
-/**
- * Check if command exists (sync check for core commands)
- */
 export function hasCommand(name: string): boolean {
-  return loadedCommands.has(name) || commandRegistry.has(name) || name in commandLoaders;
+  return loadedCommands.has(name) || commandRegistry.has(name);
 }
 
-/**
- * Get all command names (including aliases and lazy-loadable)
- */
 export function getCommandNames(): string[] {
   const names = new Set([
     ...Array.from(commandRegistry.keys()),
     ...Array.from(loadedCommands.keys()),
-    ...Object.keys(commandLoaders),
   ]);
   return Array.from(names);
 }
 
-/**
- * Get all unique commands (excluding aliases)
- */
 export function getUniqueCommands(): Command[] {
   return commands.filter(cmd => !cmd.hidden);
 }
 
-/**
- * Load all commands (populates lazy-loaded commands)
- * Use this when you need all commands available synchronously
- */
 export async function loadAllCommands(): Promise<Command[]> {
-  const allCommands: Command[] = [...commands];
-
-  for (const name of Object.keys(commandLoaders)) {
-    if (!loadedCommands.has(name)) {
-      const cmd = await loadCommand(name);
-      if (cmd && !allCommands.includes(cmd)) {
-        allCommands.push(cmd);
-      }
-    }
-  }
-
-  return allCommands;
+  return [...commands];
 }
 
 /**
@@ -445,7 +274,7 @@ export function setupCommands(cli: { command: (cmd: Command) => void }): void {
 }
 
 /**
- * Setup all commands including lazy-loaded (async)
+ * Setup all commands (async variant)
  */
 export async function setupAllCommands(cli: { command: (cmd: Command) => void }): Promise<void> {
   const allCommands = await loadAllCommands();
