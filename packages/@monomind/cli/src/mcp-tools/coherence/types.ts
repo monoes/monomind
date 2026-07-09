@@ -384,25 +384,7 @@ export function trackPerformance<T>(
 }
 
 /**
- * Calculate cosine similarity between two vectors
+ * Cosine similarity — re-exported from shared utility.
+ * Callers that already import from this module continue to work unchanged.
  */
-export function cosineSimilarity(a: number[] | Float32Array, b: number[] | Float32Array): number {
-  if (a.length !== b.length) {
-    throw new Error(`Vector length mismatch: ${a.length} vs ${b.length}`);
-  }
-
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-
-  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-  if (denominator === 0) return 0;
-
-  return dotProduct / denominator;
-}
+export { cosineSimilarity } from '../../utils/cosine-similarity.js';

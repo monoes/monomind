@@ -9,6 +9,7 @@
 import { type MCPTool, getProjectCwd } from './types.js';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { cosineSimilarity } from '../utils/cosine-similarity.js';
 
 const MAX_NEURAL_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 const NEURAL_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -151,22 +152,6 @@ async function generateEmbedding(text?: string, dims: number = 384): Promise<num
 
   // No text provided — return zero vector (callers should always provide text)
   return new Array(dims).fill(0);
-}
-
-// Cosine similarity for pattern search
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) {
-    throw new Error(`Embedding dimension mismatch: ${a.length} vs ${b.length}. Ensure all embeddings use the same provider and dims.`);
-  }
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
 }
 
 export const neuralTools: MCPTool[] = [
