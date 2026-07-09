@@ -32,7 +32,6 @@ import { neuralTools } from './mcp-tools/neural-tools.js';
 import { performanceTools } from './mcp-tools/performance-tools.js';
 import { githubTools } from './mcp-tools/github-tools.js';
 import { daaTools } from './mcp-tools/daa-tools.js';
-import { coordinationTools } from './mcp-tools/coordination-tools.js';
 import { browserTools } from './mcp-tools/browser-tools.js';
 import { guidanceTools } from './mcp-tools/guidance-tools.js';
 import { autopilotTools } from './mcp-tools/autopilot-tools.js';
@@ -86,7 +85,6 @@ registerTools([
   ...performanceTools,
   ...githubTools,
   ...daaTools,
-  ...coordinationTools,
   ...browserTools,
   // Guidance & discovery tools
   ...guidanceTools,

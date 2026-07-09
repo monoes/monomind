@@ -33,6 +33,5 @@ export { monographTools } from './monograph-tools.js';
 export { a2aTools } from './a2a-tools.js';
 export { terminalTools } from './terminal-tools.js';
 export { daaTools } from './daa-tools.js';
-export { coordinationTools } from './coordination-tools.js';
 export { browserTools } from './browser-tools.js';
 export { knowledgeTools } from './knowledge-tools.js';
