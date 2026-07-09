@@ -1,22 +1,25 @@
 {
   "areas": {
     "cli-commands": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T20:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2
+      "verdict": "ITERATE",
+      "iterations": 2,
+      "note": "Re-opened under aggressive mandate: value_delivered must reach 8+"
     },
     "hooks-system": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T21:00:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 3
+      "verdict": "ITERATE",
+      "iterations": 3,
+      "note": "Re-opened: dual hook architecture needs unification assessment"
     },
     "memory-system": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T09:28:45.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2
+      "verdict": "ITERATE",
+      "iterations": 2,
+      "note": "Re-opened: part of triple-pattern deduplication concern"
     },
     "security-package": {
       "status": "converged",
@@ -25,10 +28,11 @@
       "iterations": 2
     },
     "guidance-package": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T15:00:00.000Z",
-      "verdict": "KEEP-AS-IS",
-      "iterations": 1
+      "verdict": "ITERATE",
+      "iterations": 1,
+      "note": "Re-opened: was KEEP-AS-IS but salvation-first policy requires checking if gates can auto-activate"
     },
     "monograph": {
       "status": "converged",
@@ -37,16 +41,18 @@
       "iterations": 1
     },
     "mcp-server": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T14:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 1
+      "verdict": "ITERATE",
+      "iterations": 1,
+      "note": "Re-opened: post-cleanup dead registrations need verification"
     },
     "routing": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T12:20:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 1
+      "verdict": "ITERATE",
+      "iterations": 1,
+      "note": "Re-opened: may duplicate router.cjs — needs consolidation assessment"
     },
     "monobrowse": {
       "status": "converged",
@@ -55,62 +61,99 @@
       "iterations": 1
     },
     "hook-handlers": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T12:20:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2
+      "verdict": "ITERATE",
+      "iterations": 2,
+      "note": "Re-opened: data pipeline completeness (write-only sinks)"
     },
     "router-system": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T12:20:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2
+      "verdict": "ITERATE",
+      "iterations": 2,
+      "note": "Re-opened: routing package overlap needs resolution"
     },
     "skills-system": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T20:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2
+      "verdict": "ITERATE",
+      "iterations": 2,
+      "note": "Re-opened: ~400 files, many likely dead — aggressive cleanup needed"
     },
     "swarm-agents": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T14:50:00.000Z",
-      "verdict": "KEEP-AS-IS",
-      "iterations": 1
+      "verdict": "ITERATE",
+      "iterations": 1,
+      "note": "Re-opened: was KEEP-AS-IS but salvation-first requires checking if consensus can be made useful"
     },
     "hive-mind": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T18:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2
+      "verdict": "ITERATE",
+      "iterations": 2,
+      "note": "Re-opened: single-process BFT — can it actually deliver value?"
     },
     "daemon-system": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T20:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2
+      "verdict": "ITERATE",
+      "iterations": 2,
+      "note": "Re-opened: metrics output pipeline still incomplete"
     },
     "neural-system": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T20:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2
+      "verdict": "ITERATE",
+      "iterations": 2,
+      "note": "Re-opened: 3rd pattern-similarity impl — consolidation target"
     },
     "intelligence-system": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T12:43:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 3
+      "verdict": "ITERATE",
+      "iterations": 3,
+      "note": "Re-opened: keyword matching could use LanceDB vectors"
     },
     "monofence": {
-      "status": "converged",
+      "status": "needs-review",
       "last_audited": "2026-07-09T15:00:00.000Z",
-      "verdict": "KEEP-AS-IS",
-      "iterations": 1
+      "verdict": "ITERATE",
+      "iterations": 1,
+      "note": "Re-opened: was KEEP-AS-IS but must verify full integration at all entry points"
+    },
+    "cross-deduplication": {
+      "status": "needs-review",
+      "last_audited": "2026-07-10T00:50:00.000Z",
+      "verdict": "ITERATE",
+      "iterations": 1,
+      "note": "Cosine similarity consolidated (5 impls -> 1 shared util). Pattern store consolidation deferred — different data shapes justify separate stores."
+    },
+    "cross-daemon-pipeline": {
+      "status": "not-started",
+      "last_audited": null,
+      "verdict": null,
+      "iterations": 0,
+      "note": "NEW: Daemon metrics written but not consumed — complete the pipeline"
+    },
+    "cross-hooks-architecture": {
+      "status": "not-started",
+      "last_audited": null,
+      "verdict": null,
+      "iterations": 0,
+      "note": "NEW: Two parallel hook systems — can they be unified or at least feed each other?"
+    },
+    "cross-docs-honesty": {
+      "status": "not-started",
+      "last_audited": null,
+      "verdict": null,
+      "iterations": 0,
+      "note": "NEW: Orphaned ADRs, stale CLAUDE.md claims post-cleanup"
     }
   },
-  "total_areas": 18,
-  "audited_count": 18,
-  "last_updated": "2026-07-09T20:30:00.000Z",
-  "org_version": "value-loop-v1"
+  "total_areas": 22,
+  "audited_count": 4,
+  "last_updated": "2026-07-10T00:00:00.000Z",
+  "org_version": "value-loop-v2-aggressive"
 }

@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { cosineSimilarity as sharedCosineSimilarity } from '../utils/cosine-similarity.js';
 
 // ============================================================================
 // Persistence Configuration
@@ -610,23 +611,11 @@ class LocalReasoningBank {
   }
 
   /**
-   * Optimized cosine similarity
+   * Cosine similarity — delegates to shared utility
+   * (see src/utils/cosine-similarity.ts)
    */
   private cosineSim(a: number[], b: number[]): number {
-    if (!a || !b || a.length === 0 || b.length === 0) return 0;
-
-    const len = Math.min(a.length, b.length);
-    let dot = 0, normA = 0, normB = 0;
-
-    for (let i = 0; i < len; i++) {
-      const ai = a[i], bi = b[i];
-      dot += ai * bi;
-      normA += ai * ai;
-      normB += bi * bi;
-    }
-
-    const mag = Math.sqrt(normA * normB);
-    return mag === 0 ? 0 : dot / mag;
+    return sharedCosineSimilarity(a, b);
   }
 
   /**

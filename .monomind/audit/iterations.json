@@ -703,11 +703,47 @@
         "timestamp": "2026-07-09T20:30:00.000Z"
       }
     ]
+    "cross-deduplication": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 4,
+          "implementation_health": 5,
+          "honesty_gap": 3,
+          "potential_value": 7
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Created shared cosine-similarity.ts utility in src/utils/ with canonical implementation (supports number[] and Float32Array, graceful dimension mismatch via Math.min, zero-magnitude safe)",
+          "Replaced 5 independent cosine similarity implementations: intelligence.ts ReasoningBank.cosineSim -> delegates to shared util; neural-tools.ts standalone -> import from shared util; embeddings-tools.ts standalone -> import from shared util; coherence/types.ts exported -> re-export from shared util; coherence/coherence-check.ts standalone -> import from shared util",
+          "Moved all mid-file imports to file top for proper style"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 7
+        },
+        "verification": {
+          "tsc_noEmit": "clean",
+          "tests_passed": 955,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "pre_existing_failure": "control-start.test.mjs ENOTEMPTY race (unrelated)",
+          "cosine_implementations_before": 5,
+          "cosine_implementations_after": 1,
+          "files_changed": 6,
+          "behavioral_change": "embeddings-tools.ts epsilon (1e-15) removed in favor of exact zero check; neural-tools.ts dimension mismatch now uses Math.min instead of throwing"
+        },
+        "remaining_work": "Pattern store consolidation (neural-tools models.json vs intelligence.ts patterns.json) — lower priority, different data shapes justify separate stores",
+        "timestamp": "2026-07-10T00:50:00.000Z"
+      }
+    ]
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-09T20:30:00.000Z",
-    "total_iterations": 30,
+    "last_updated": "2026-07-10T00:50:00.000Z",
+    "total_iterations": 31,
     "features_converged": 18,
     "features_removed": 0
   }

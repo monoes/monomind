@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import type { MCPTool } from './types.js';
+import { cosineSimilarity } from '../utils/cosine-similarity.js';
 
 // Configuration paths
 const CONFIG_DIR = '.monomind';
@@ -172,14 +173,6 @@ function poincareDistance(a: number[], b: number[], curvature: number): number {
   const delta = 2 * diffSq / (denom + 1e-15);
 
   return (1 / Math.sqrt(c)) * Math.acosh(1 + delta);
-}
-
-// Cosine similarity
-function cosineSimilarity(a: number[], b: number[]): number {
-  const dot = a.reduce((sum, _, i) => sum + a[i] * b[i], 0);
-  const normA = Math.sqrt(a.reduce((sum, x) => sum + x * x, 0));
-  const normB = Math.sqrt(b.reduce((sum, x) => sum + x * x, 0));
-  return dot / (normA * normB + 1e-15);
 }
 
 export const embeddingsTools: MCPTool[] = [
