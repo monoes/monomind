@@ -162,11 +162,9 @@ export declare const CausalInputSchema: z.ZodObject<{
 }>;
 export type CausalInput = z.infer<typeof CausalInputSchema>;
 export interface CausalResult {
-    effect: number;
     confounders: string[];
     interventionValid: boolean;
     backdoorPaths: string[][];
-    confidence: number;
 }
 export interface CausalOutput {
     identifiability: number;

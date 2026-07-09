@@ -20,8 +20,5 @@ export declare const hooksBuildAgents: MCPTool;
 export declare const hooksTransfer: MCPTool;
 export declare const hooksSessionStart: MCPTool;
 export declare const hooksSessionEnd: MCPTool;
-export declare const hooksSessionRestore: MCPTool;
-export declare const hooksNotify: MCPTool;
-export declare const hooksInit: MCPTool;
 export declare const hooksIntelligence: MCPTool;
 //# sourceMappingURL=hooks-routing.d.ts.map

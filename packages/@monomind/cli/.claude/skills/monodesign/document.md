@@ -16,15 +16,18 @@ Read `reference/document.md` from the monodesign skill directory for the full pr
 
 ## Discovery
 
-**Extract from codebase:**
+**Extract from codebase (monograph-first):**
+```
+# Preferred: monograph for design token discovery
+monograph_query({ query: "CSS custom properties variables tokens" })
+monograph_query({ query: "font-family font-face typography" })
+monograph_query({ query: "color theme palette" })
+```
+
+**Fallback (if monograph returns 0 results or DB not built):**
 ```bash
-# Find CSS custom properties
 grep -r "^--" src/ --include="*.css" --include="*.scss" -h | sort -u
-
-# Find font declarations
 grep -r "font-family\|@font-face\|@import.*font" src/ -h | sort -u
-
-# Find color values
 grep -rE "#[0-9a-fA-F]{3,8}|oklch\(|rgb\(|hsl\(" src/ -h | sort -u | head -50
 ```
 

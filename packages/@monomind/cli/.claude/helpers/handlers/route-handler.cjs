@@ -52,6 +52,16 @@ module.exports = {
 
     if (intelligence && intelligence.getContext) {
       try {
+        // Bootstrap intelligence from monograph on first prompt if store is sparse
+        if (intelligence.bootstrapFromDb) {
+          try {
+            var bDb = hCtx._openMonographDb();
+            if (bDb) {
+              var bootstrapped = intelligence.bootstrapFromDb(bDb);
+              if (bootstrapped > 0) console.log('[INTELLIGENCE] Bootstrapped ' + bootstrapped + ' hub nodes from knowledge graph');
+            }
+          } catch (e) { /* non-fatal */ }
+        }
         const ctx = intelligence.getContext(prompt);
         if (ctx) console.log(ctx);
       } catch (e) { /* non-fatal */ }
@@ -60,284 +70,116 @@ module.exports = {
       const routeFn = router.routeTaskSemantic || router.routeTask;
       var result = await Promise.resolve(routeFn(prompt));
 
-      // Graph-fallback override: when the router picked a low-confidence
-      // non-dev specialist (marketing slugs etc) but monograph has a strong
-      // graph match for the prompt, derive the agent from the top file's
-      // label instead. Stops "improve the system" → China E-Commerce.
+      // ── Agent success pattern lookup ──────────────────────────
       try {
-        // Don't override when the prompt has obvious non-dev keywords —
-        // marketing/sales/finance asks SHOULD route to those specialists.
-        var nonDevPrompt = /\b(marketing|advertis|seo|tiktok|instagram|linkedin|sales|customer|brand|blog post|content strategy|copy(?:writ|writing)|pitch|investor|hr|recruit|legal|compliance|tax|invoice|accounting|onboarding|design syst|figma|user research|persona)\b/i.test(prompt);
-
-        var devAgents = /^(coder|tester|reviewer|planner|researcher|system-architect|backend-dev|backend-architect|mobile-dev|ml-developer|cicd-engineer|api-docs|code-analyzer|production-validator|Technical Writer)$/i;
-        var pickedDev = devAgents.test(String(result.agent || '').trim()) ||
-                        devAgents.test(String(result.agentSlug || '').trim());
-
-        var resConf = (result.confidence != null ? result.confidence : 0);
-        var resReason = String(result.reason || '');
-        var fromKeywordStage = resReason.indexOf('Keyword 2-stage') !== -1;
-        var promptIsDevish = /\b(develop(?:ment|er)?|routing|improve|refactor|fix|bug|optimi[sz]e|implement|build|debug|deploy|test|feature|system|performance|architecture|memory|hook|graph|statusline|monograph|api|cli|skill|hooks|agent|workflow|init|module|package|registry|server|client|route|handler|localhost|dashboard|sidebar|layout|component|function|class|config|port|script|parse|compile|lint|build)\b/i.test(prompt);
-
-        // Align with the 90% primary-panel threshold: any non-dev pick below
-        // 90% confidence gets overridden via the graph, unless the prompt
-        // explicitly uses non-dev domain language (nonDevPrompt guard).
-        var shouldOverride = !nonDevPrompt && (
-          (!pickedDev && resConf < 0.90) ||
-          (fromKeywordStage && promptIsDevish)
-        );
-        if (shouldOverride) {
-          var topGraph = hCtx.getMonographSuggestions(prompt, 1)[0];
-          if (topGraph) {
-            var agent = 'coder';
-            var file = (topGraph.file || '').toLowerCase();
-            // Test files
-            if (/\.(test|spec)\./.test(file) || file.includes('__tests__')) agent = 'tester';
-            // Architecture/system docs → architect
-            else if (/(architect|adr-|design-doc|rfc-)/.test(file))         agent = 'system-architect';
-            // Pure docs → tech writer
-            else if (file.endsWith('readme.md') || file.startsWith('docs/') || /\/docs\//.test(file)) agent = 'Technical Writer';
-            // Other .md (skills, agents, configs) → coder (they're code-adjacent)
-            else if (file.endsWith('.md'))                                  agent = 'coder';
-            // Class/Interface → architect
-            else if (topGraph.label === 'Class' || topGraph.label === 'Interface') agent = 'system-architect';
-            // Functions, files, methods → coder
-            else                                                             agent = 'coder';
-            // Scale confidence by graph degree: well-connected nodes are stronger anchors.
-            var topDeg = topGraph.deg || 0;
-            var graphConf = topDeg > 30 ? 0.80 : (topDeg > 10 ? 0.75 : 0.70);
-            result = Object.assign({}, result, {
-              agent: agent,
-              agentSlug: agent,
-              confidence: graphConf,
-              reason: 'Graph fallback: top file ' + (topGraph.name || '').substring(0, 30) + ' [' + topGraph.label + '] deg=' + topDeg,
-              specificAgents: [],
-              extrasMatches: [],
-            });
+        var patternDb = hCtx._openMonographDb();
+        if (patternDb) {
+          var cutoff = Date.now() - 30 * 86400000;
+          var patterns = patternDb.prepare(
+            'SELECT agent_type, COUNT(*) as total, SUM(CASE WHEN success=1 THEN 1 ELSE 0 END) as wins FROM agent_interactions WHERE timestamp > @cutoff GROUP BY agent_type HAVING total >= 3'
+          ).all({ cutoff: cutoff });
+          if (patterns.length > 0) {
+            var patternMap = {};
+            for (var pi = 0; pi < patterns.length; pi++) {
+              patternMap[patterns[pi].agent_type] = {
+                total: patterns[pi].total,
+                successRate: Math.round(patterns[pi].wins / patterns[pi].total * 100)
+              };
+            }
+            var routedAgent = result.agent || 'coder';
+            var routedPattern = patternMap[routedAgent];
+            // Find if there's a clearly better agent
+            if (routedPattern && routedPattern.successRate < 50) {
+              var best = patterns.reduce(function(a, b) { return (b.wins/b.total) > (a.wins/a.total) ? b : a; });
+              if (best.wins / best.total > 0.8 && best.agent_type !== routedAgent) {
+                console.log('[AGENT_PATTERN] Historical: ' + best.agent_type + ' (' + Math.round(best.wins/best.total*100) + '% success, n=' + best.total + ') outperforms ' + routedAgent + ' (' + routedPattern.successRate + '%)');
+              }
+            }
+            result.historicalPattern = patternMap;
           }
         }
-      } catch (e) {}
+      } catch (e) { /* non-fatal — agent_interactions table may not exist */ }
+
+      // ── Routing feedback accuracy check ──────────────────────
+      try {
+        var rfPath = path.join(CWD, '.monomind', 'routing-feedback.jsonl');
+        var MAX_RF = 256 * 1024;
+        if (fs.existsSync(rfPath) && fs.statSync(rfPath).size <= MAX_RF) {
+          var rfLines = fs.readFileSync(rfPath, 'utf-8').trim().split('\n').filter(Boolean);
+          // Check last 50 entries for this agent's feedback
+          var routedAgent = result.agent || 'coder';
+          var recentRf = rfLines.slice(-50);
+          var agentFeedback = [];
+          for (var ri = 0; ri < recentRf.length; ri++) {
+            try {
+              var rfEntry = JSON.parse(recentRf[ri]);
+              if (rfEntry.suggestedAgent === routedAgent) {
+                agentFeedback.push(rfEntry.intelligenceFeedback);
+              }
+            } catch (e) {}
+          }
+          if (agentFeedback.length >= 3) {
+            var successes = agentFeedback.filter(function(f) { return f === true; }).length;
+            var accuracy = Math.round(successes / agentFeedback.length * 100);
+            if (accuracy < 60) {
+              console.log('[ROUTING] Warning: ' + routedAgent + ' routing accuracy ' + accuracy + '% over last ' + agentFeedback.length + ' sessions');
+            }
+            result.routingAccuracy = accuracy;
+          }
+        }
+      } catch (e) { /* non-fatal */ }
+
+      // monolean: graph-fallback override removed — it compensated for bad agent
+      // recommendations that are no longer injected into context. The statusline
+      // just shows the keyword router's pick; no need for 50 lines of overrides.
 
       var output = [];
-      // Skip the noisy "[INFO] Routing task: ..." prefix — it repeats the user's
-      // own words back and adds token overhead without helping Claude.
-      // Routing panel strategy:
-      //   conf >= 0.90 → show primary recommendation (router is confident, trust it)
-      //   conf  < 0.90 → show category picker so Claude uses its own context to
-      //                   pick the right agent category + agent from a menu.
-      //                   Specific-agent panel is suppressed (category menu replaces it).
       var conf = result.confidence != null ? result.confidence : 0;
-      var promptShort = (prompt || '').trim().length < 60;
-      var lowConf = conf < 0.70;
-      var suppressPanel = lowConf && promptShort;
-
-      // Agent category menu — shown when conf < 0.90 so Claude picks with context.
-      var AGENT_CATEGORIES = [
-        { label: 'CORE',      agents: 'coder · reviewer · tester · planner · researcher' },
-        { label: 'BACKEND',   agents: 'backend-dev · Backend Architect · DB Optimizer' },
-        { label: 'FRONTEND',  agents: 'Frontend Developer · mobile-dev' },
-        { label: 'ARCH',      agents: 'Software Architect · system-architect' },
-        { label: 'SECURITY',  agents: 'Security Engineer · security-architect' },
-        { label: 'AI/ML',     agents: 'AI Engineer · ml-developer · Data Engineer' },
-        { label: 'DEVOPS',    agents: 'DevOps Automator · SRE · cicd-engineer' },
-        { label: 'DOCS',      agents: 'Technical Writer · api-docs' },
-        { divider: 'Non-Coding Agents' },
-        { label: 'PRODUCT',   agents: 'Product Manager · Launch Strategist · CRO Spec.' },
-        { label: 'MARKETING', agents: 'Content Creator · SEO Specialist · Growth Hacker' },
-        { label: 'SOCIAL',    agents: 'TikTok · LinkedIn · Twitter · Instagram Strat.' },
-        { label: 'SALES',     agents: 'Deal Strategist · Sales Coach · Outbound Strat.' },
-        { label: 'BUSINESS',  agents: 'Finance Tracker · Legal Compliance · Analytics' },
-        { label: 'DESIGN',    agents: 'Monodesign (UI/UX · brand · CSS · animation)' },
-      ];
-
-      if (conf >= 0.90) {
-        output.push('+------------- monomind | Primary Recommendation --------------+');
-        output.push('| Agent: ' + (result.agent || 'unknown').substring(0, 54).padEnd(54) + '|');
-        output.push('| Confidence: ' + ((result.confidence != null ? (result.confidence * 100).toFixed(1) : '?') + '%').padEnd(49) + '|');
-        output.push('| Reason: ' + (result.reason || '').substring(0, 53).padEnd(53) + '|');
-        output.push('+--------------------------------------------------------------+');
-      } else if (!suppressPanel) {
-        output.push('+------- monomind | Agent Category Picker ---------------------+');
-        output.push('| ' + ('Conf: ' + (conf * 100).toFixed(0) + '% — router uncertain. YOU choose using context.').padEnd(60) + ' |');
-        output.push('+--------------------------------------------------------------+');
-        AGENT_CATEGORIES.forEach(function(cat) {
-          if (cat.divider) {
-            var d = '- ' + cat.divider + ' ';
-            output.push('|' + d.padEnd(31, '-') + ''.padEnd(31, '-') + '|');
-          } else {
-            output.push('| ' + cat.label.padEnd(10) + cat.agents.substring(0, 50).padEnd(50) + ' |');
-          }
-        });
-        output.push('+--------------------------------------------------------------+');
-        output.push('| INSTRUCTION: Read your conversation context. Identify the    |');
-        output.push('| best-fit category above, then pick one agent from it and     |');
-        output.push('| spawn it via Task({ subagent_type: "name" }). If no agent    |');
-        output.push('| fits the task, skip and proceed directly. Do this now.       |');
-        output.push('+--------------------------------------------------------------+');
-      }
 
       // ── Persist routing result for statusline display ─────────────
       try {
         var routeDir = path.join(CWD, '.monomind');
         fs.mkdirSync(routeDir, { recursive: true });
-        // When confidence < 90% and the router picked a non-dev agent without
-        // a graph override, don't persist the wrong specialist — show "AI" instead.
-        var confForPersist = result.confidence != null ? result.confidence : 0;
-        var devAgentsForPersist = /^(coder|tester|reviewer|planner|researcher|system-architect|backend-dev|backend-architect|mobile-dev|ml-developer|cicd-engineer|api-docs|code-analyzer|production-validator|Technical Writer|Software Architect|Frontend Developer|AI Engineer|Data Engineer|Security Engineer|DevOps Automator|SRE)$/i;
-        var persistedIsNonDev = !devAgentsForPersist.test(String(result.agent || '').trim());
-        var resolvedAgent = result.agent;
-        var resolvedFromExtras = false;
-        if (!resolvedAgent || resolvedAgent === 'extras') {
-          var topExtra = result.extrasMatches && result.extrasMatches[0];
-          resolvedAgent = topExtra ? topExtra.name : 'Specialist Agent';
-          resolvedFromExtras = true;
-        }
-        // If router was uncertain (< 90%) and picked a non-dev specialist,
-        // show "AI selecting" in statusline rather than the wrong agent.
-        // Exception: when agent was explicitly 'extras' and we resolved from extrasMatches,
-        // trust that resolution — the domain specialist was explicitly matched.
-        if (!resolvedFromExtras && confForPersist < 0.90 && persistedIsNonDev && !String(result.reason || '').startsWith('Graph fallback')) {
-          resolvedAgent = 'AI selecting';
-        }
-        var routePayload = {
-          agent: resolvedAgent,
-          agentSlug: result.agentSlug || null,
-          confidence: result.confidence,
-          reason: result.reason,
-          semanticRouting: result.semanticRouting || false,
-          llmRouting: result.llmRouting || false,
-          updatedAt: new Date().toISOString(),
-        };
-        if (result.extrasMatches && result.extrasMatches.length > 0) {
-          routePayload.extrasMatches = result.extrasMatches.map(function(e) {
-            return { name: e.name, slug: e.slug, category: e.category };
-          });
-        }
         fs.writeFileSync(
           path.join(routeDir, 'last-route.json'),
-          JSON.stringify(routePayload),
+          JSON.stringify({
+            agent: result.agent || 'coder',
+            agentSlug: result.agentSlug || null,
+            confidence: result.confidence,
+            reason: result.reason,
+            prompt: (prompt || '').slice(0, 500),
+            historicalPattern: result.historicalPattern || null,
+            updatedAt: new Date().toISOString(),
+          }),
           'utf-8'
         );
       } catch (e) { /* non-fatal */ }
 
-      // ── Dev skill suggestions ──────────────────────────────────────
+      // ── Skill auto-activation (the one thing the hook does better than Claude) ──
       var matches = result.skillMatches || [];
       if (matches.length > 0) {
-        // Check for high-confidence auto-invoke: if top skill scored >= 3 keyword
-        // hits and is the dominant match, auto-invoke instead of just suggesting
         var topMatch = matches[0];
-        var autoInvoke = false;
-        if (topMatch && topMatch.score >= 3 && matches.length <= 2) {
-          autoInvoke = true;
-        } else if (topMatch && topMatch.score >= 2 && matches.length === 1 && (result.confidence ?? 0) < 0.7) {
-          // Single strong skill match with weak agent routing = skill should take over
-          autoInvoke = true;
-        }
+        // Auto-activate when one skill clearly dominates:
+        //   - score >= 2 with at most 2 matches (strong multi-keyword signal), or
+        //   - single match with score >= 2 and low agent confidence (skill is better fit)
+        var autoInvoke = (topMatch && topMatch.score >= 2 && matches.length <= 2) ||
+          (topMatch && topMatch.score >= 2 && matches.length === 1 && conf < 0.7);
 
         if (autoInvoke) {
-          output.push('');
-          output.push('+======== SKILL AUTO-ACTIVATED (high confidence match) ========+');
-          output.push('| ' + topMatch.invoke.substring(0, 61).padEnd(61) + '|');
-          output.push('| INSTRUCTION: Invoke ' + topMatch.invoke.substring(0, 41).padEnd(41) + '|');
-          output.push('| BEFORE responding. This skill matched with very high         |');
-          output.push('| confidence — do not skip it.                                 |');
-          output.push('+==============================================================+');
+          output.push('+======== SKILL AUTO-ACTIVATED ========+');
+          output.push('| ' + topMatch.invoke.padEnd(36) + ' |');
+          output.push('+======================================+');
         } else {
-          output.push('');
-          if ((result.confidence ?? 0) < 0.8) {
-            output.push('+----------- Skill Suggestions (pick one if relevant) ---------+');
-            output.push('| No strong primary match — here are the best skill candidates |');
-          } else {
-            output.push('+----------- Matching Skills (invoke via Skill tool) ----------+');
-          }
+          output.push('+----------- Matching Skills (invoke via Skill tool) ----------+');
           matches.forEach(function(m, i) {
-            var label = (i + 1) + '. ' + m.skill;
-            var desc = (m.description || '').substring(0, 30);
-            var line = '| ' + label.substring(0, 30).padEnd(30) + desc.padEnd(30) + ' |';
-            output.push(line);
+            output.push('| ' + (i + 1) + '. ' + m.skill.padEnd(28) + (m.description || '').substring(0, 30).padEnd(30) + ' |');
             output.push('|   invoke: ' + m.invoke.substring(0, 51).padEnd(51) + '|');
           });
           output.push('+--------------------------------------------------------------+');
-          if ((result.confidence ?? 0) < 0.8) {
-            output.push('| To use a skill: call Skill("skill-name") before responding.  |');
-            output.push('+--------------------------------------------------------------+');
-          }
         }
       }
 
-      // ── Specific agent panel ──────────────────────────────────────────────────
-      // Skip entirely on suppressed (low-confidence + short) prompts.
-      var specificAgents = result.specificAgents || [];
-      if (specificAgents.length > 0 && !suppressPanel && conf >= 0.90) {
-        output.push('');
-        var saHdr = '------- Specific Agents (' + specificAgents.length + ' available) ';
-        output.push('+' + saHdr + '-'.repeat(Math.max(1, 62 - saHdr.length)) + '+');
-        specificAgents.forEach(function(a, i) {
-          var label = (i + 1) + '. ' + a.label;
-          var note = (a.note || '').substring(0, 26);
-          output.push('| ' + label.substring(0, 33).padEnd(33) + note.padEnd(27) + ' |');
-          if (a.slug) {
-            output.push('|   slug: ' + a.slug.substring(0, 52).padEnd(52) + ' |');
-          }
-        });
-        output.push('+--------------------------------------------------------------+');
-        output.push('| Use: Task({ subagent_type: "<slug>" })  or  /specialagent    |');
-        output.push('+--------------------------------------------------------------+');
-      }
-
-      // ── Specialist agents (non-dev domain) — only shown when specificAgents panel wasn't shown ──
-      var extras = result.extrasMatches || [];
-      var specificAgentsShown = (result.specificAgents || []).length > 0 && conf >= 0.90;
-      if (extras.length > 0 && !specificAgentsShown && !suppressPanel) {
-        output.push('');
-        var spHdr = '------- Specialist Agents (' + extras.length + ' matched) ';
-        output.push('+' + spHdr + '-'.repeat(Math.max(1, 62 - spHdr.length)) + '+');
-        extras.slice(0, 5).forEach(function(e, i) {
-          var label = (i + 1) + '. ' + e.name;
-          var cat = '[' + e.category + ']';
-          output.push('| ' + label.substring(0, 44).padEnd(44) + cat.substring(0, 16).padEnd(16) + ' |');
-          output.push('|   slug: ' + e.slug.substring(0, 52).padEnd(52) + ' |');
-        });
-        output.push('+--------------------------------------------------------------+');
-        output.push('| Use: Task({ subagent_type: "<slug>" })  or  /specialagent    |');
-        output.push('+--------------------------------------------------------------+');
-      }
-
-      // ── MicroAgent Trigger Scan (Task 32) ──────────────────────────────
-      try {
-        var triggerResult = hCtx.scanMicroAgentTriggers(typeof prompt === 'string' ? prompt : '');
-        if (triggerResult.matches.length > 0) {
-          output.push('');
-          if (triggerResult.takeoverAgent) {
-            var tAgent = triggerResult.takeoverAgent;
-            var tKw = triggerResult.matches[0].matchedText;
-            output.push('+============= MicroAgent TAKEOVER Detected ===================+');
-            output.push('| Specialist: ' + tAgent.substring(0, 49).padEnd(49) + '|');
-            output.push('| Keyword:    ' + ('"' + tKw + '"').substring(0, 49).padEnd(49) + '|');
-            output.push('| Recommended: use this specialist instead of primary agent.   |');
-            output.push('+==============================================================+');
-          } else {
-            output.push('+------- MicroAgent Specialists Triggered ---------------------+');
-            triggerResult.matches.forEach(function(m) {
-              var slug = m.agentSlug.substring(0, 37).padEnd(37);
-              var kw = ('(match: "' + m.matchedText + '")').substring(0, 21).padEnd(21);
-              output.push('| + ' + slug + kw + ' |');
-            });
-            output.push('+--------------------------------------------------------------+');
-          }
-          // Persist trigger matches alongside route result
-          try {
-            var routeFile = path.join(CWD, '.monomind', 'last-route.json');
-            var routeSt = fs.statSync(routeFile);
-            if (routeSt.size <= 1024 * 1024) {
-              var existing = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
-              existing.microAgents = { injectAgents: triggerResult.injectAgents || [], takeoverAgent: triggerResult.takeoverAgent || null };
-              fs.writeFileSync(routeFile, JSON.stringify(existing), 'utf-8');
-            }
-          } catch (e) {}
-        }
-      } catch (e) { /* non-fatal */ }
-
-      console.log(output.join('\n'));
+      if (output.length > 0) console.log(output.join('\n'));
 
       // Record any decision markers in this prompt (auto-ADR pipeline).
       try { hCtx._recordDecisionMarkers(prompt); } catch (e) {}
@@ -356,6 +198,91 @@ module.exports = {
           }
         }
       } catch (e) {}
+
+      // ── Surface daemon metrics warnings (hook latency, token spikes) ──
+      try {
+        var metricsDir = path.join(CWD, '.monomind', 'metrics');
+        // Hook latency warnings
+        var latencyFile = path.join(metricsDir, 'hook-latency.json');
+        if (fs.existsSync(latencyFile) && fs.statSync(latencyFile).size < 32768) {
+          var latencyData = JSON.parse(fs.readFileSync(latencyFile, 'utf-8'));
+          if (latencyData && latencyData.avgMs > 500) {
+            console.log('[PERF] Hook latency avg ' + Math.round(latencyData.avgMs) + 'ms (target <500ms). Slowest: ' + (latencyData.slowest || 'unknown'));
+          }
+        }
+        // Token usage check — surface only when spend is high
+        var tokenFile = path.join(metricsDir, 'token-summary.json');
+        if (fs.existsSync(tokenFile) && fs.statSync(tokenFile).size < 32768) {
+          var tokenData = JSON.parse(fs.readFileSync(tokenFile, 'utf-8'));
+          if (tokenData && tokenData.todayCost > 50) {
+            console.log('[COST] Today: $' + (tokenData.todayCost || 0).toFixed(2) + ' (' + (tokenData.todayCalls || 0) + ' calls)');
+          }
+        }
+        // Security audit findings
+        var secAuditFile = path.join(metricsDir, 'security-audit.json');
+        if (fs.existsSync(secAuditFile) && fs.statSync(secAuditFile).size < 32768) {
+          var secData = JSON.parse(fs.readFileSync(secAuditFile, 'utf-8'));
+          if (secData && secData.findings && secData.findings.length > 0) {
+            console.log('[SECURITY] ' + secData.findings.length + ' findings from background scan. Review .monomind/metrics/security-audit.json');
+          }
+        }
+        // Codebase map hotspots
+        var mapFile = path.join(metricsDir, 'codebase-map.json');
+        if (fs.existsSync(mapFile) && fs.statSync(mapFile).size < 32768) {
+          var mapData = JSON.parse(fs.readFileSync(mapFile, 'utf-8'));
+          if (mapData && mapData.hotspots && mapData.hotspots.length > 0) {
+            console.log('[CODEBASE] ' + mapData.hotspots.length + ' hotspots detected. Top: ' + (mapData.hotspots[0].file || mapData.hotspots[0].name || 'unknown'));
+          }
+        }
+      } catch (e) { /* non-fatal */ }
+
+      // ── Memory: surface relevant past session context ──────────
+      try {
+        var epFile = path.join(CWD, '.monomind', 'episodic', 'episodes.jsonl');
+        var MAX_EP = 256 * 1024;
+        if (fs.existsSync(epFile) && fs.statSync(epFile).size <= MAX_EP) {
+          var epRaw = fs.readFileSync(epFile, 'utf-8').trim().split('\n').filter(Boolean);
+          if (epRaw.length > 0) {
+            // Simple keyword matching against episode summaries
+            var promptLower = (prompt || '').toLowerCase();
+            var promptTokens = promptLower.match(/[a-z][a-z0-9_-]{2,}/g) || [];
+            if (promptTokens.length > 0) {
+              var matches = [];
+              // Only search last 200 episodes
+              var searchEps = epRaw.slice(-200);
+              for (var ei = 0; ei < searchEps.length; ei++) {
+                try {
+                  var ep = JSON.parse(searchEps[ei]);
+                  var sumLower = (ep.summary || '').toLowerCase();
+                  // Skip if from current session
+                  var currentSessId = process.env.CLAUDE_SESSION_ID || '';
+                  if (ep.sessionId === currentSessId) continue;
+                  // Count keyword overlap
+                  var hits = 0;
+                  for (var ti = 0; ti < promptTokens.length; ti++) {
+                    if (sumLower.includes(promptTokens[ti])) hits++;
+                  }
+                  var relevance = promptTokens.length > 0 ? hits / promptTokens.length : 0;
+                  if (relevance >= 0.3 && hits >= 2) {
+                    matches.push({ summary: (ep.summary || '').slice(0, 120), relevance: relevance, ts: ep.endedAt || 0 });
+                  }
+                } catch (e) {}
+              }
+              // Show top 2 most relevant matches
+              if (matches.length > 0) {
+                matches.sort(function(a, b) { return b.relevance - a.relevance; });
+                var topMatches = matches.slice(0, 2);
+                var memLines = ['[MEMORY] Relevant past sessions:'];
+                for (var mi = 0; mi < topMatches.length; mi++) {
+                  var ago = topMatches[mi].ts ? Math.round((Date.now() - topMatches[mi].ts) / 3600000) + 'h ago' : '';
+                  memLines.push('  ' + topMatches[mi].summary.replace(/\n/g, ' ').trim() + (ago ? ' (' + ago + ')' : ''));
+                }
+                console.log(memLines.join('\n'));
+              }
+            }
+          }
+        }
+      } catch (e) { /* non-fatal */ }
 
       // Inject monograph hint for complex tasks.
       // Source of truth is .monomind/monograph.db (SQLite). Legacy stats.json

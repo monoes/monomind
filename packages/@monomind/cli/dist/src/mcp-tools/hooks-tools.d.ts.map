@@ -1,1 +1,1 @@
-{"version":3,"file":"hooks-tools.d.ts","sourceRoot":"","sources":["../../../src/mcp-tools/hooks-tools.ts"],"names":[],"mappings":"AAAA;;;;GAIG;AAEH,OAAO,EAAE,KAAK,OAAO,EAAE,MAAM,YAAY,CAAC;AA6C1C,eAAO,MAAM,UAAU,EAAE,OAAO,EAwC/B,CAAC;AAEF,eAAe,UAAU,CAAC"}
+{"version":3,"file":"hooks-tools.d.ts","sourceRoot":"","sources":["../../../src/mcp-tools/hooks-tools.ts"],"names":[],"mappings":"AAAA;;;;GAIG;AAEH,OAAO,EAAE,KAAK,OAAO,EAAE,MAAM,YAAY,CAAC;AA0C1C,eAAO,MAAM,UAAU,EAAE,OAAO,EAqC/B,CAAC;AAEF,eAAe,UAAU,CAAC"}

@@ -251,22 +251,21 @@ _entry=${_entry:-.}
   npx --yes madge --circular "$_entry/" 2>/dev/null; } | head -20
 
 # 6. Find god files (imported by many others)
-# NOTE: This step covers JS/TS/Vue and Python only.
-# For Go, Rust, Java, and other stacks, use mcp__monomind__monograph_god_nodes instead.
-# JS/TS/Vue: skip comment lines; perl extracts module name from from '...' or from "..."
-# --exclude-dir applied at grep level so exclusions work before -h strips filenames
+# PREFERRED: use monograph (pre-computed graph index, faster and more accurate)
+# Call mcp__monomind__monograph_god_nodes({}) first.
+# Only fall back to grep below if monograph returns 0 results or the DB is not built.
+#
+# FALLBACK (grep-based, JS/TS/Vue and Python only):
 grep -rh "^[^/]*from ['\"]" . \
   --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.vue" \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git \
   2>/dev/null \
   | perl -ne 'if (/from\s+['"'"'"]([^'"'"'"\s]+)['"'"'"]/) { print "$1\n" }' \
   | sort | uniq -c | sort -rn | head -20
-# Python: count imports separately (no quotes in Python import syntax)
 grep -rh "^from \|^import " . --include="*.py" \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git \
   2>/dev/null \
   | awk '{print $2}' | sed 's/,.*//' | sed 's/\..*//' | grep -v '^$' | sort | uniq -c | sort -rn | head -20
-# Note: if monograph is built, prefer mcp__monomind__monograph_god_nodes — it uses the pre-computed graph index
 ```
 
 For each finding, produce a **Deduplication Action Table**:

@@ -31,7 +31,6 @@ import { providersCommand } from './providers.js';
 import { claimsCommand } from './claims.js';
 import { issuesCommand } from './issues.js';
 import updateCommand from './update.js';
-import { processCommand } from './process.js';
 import { guidanceCommand } from './guidance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
@@ -47,6 +46,7 @@ import { scanCommand } from './scan.js';
 import { reportCrashCommand } from './report-crash.js';
 import { crashReportingCommand } from './crash-reporting.js';
 import { docCommand } from './doc.js';
+import { neuralCommand } from './neural.js';
 // Populate command cache
 loadedCommands.set('init', initCommand);
 loadedCommands.set('start', startCommand);
@@ -81,7 +81,6 @@ loadedCommands.set('providers', providersCommand);
 loadedCommands.set('claims', claimsCommand);
 loadedCommands.set('issues', issuesCommand);
 loadedCommands.set('update', updateCommand);
-loadedCommands.set('process', processCommand);
 loadedCommands.set('design', designCommand);
 loadedCommands.set('enrich', enrichCommand);
 loadedCommands.set('search', searchUniversalCommand);
@@ -89,6 +88,7 @@ loadedCommands.set('scan', scanCommand);
 loadedCommands.set('report-crash', reportCrashCommand);
 loadedCommands.set('crash-reporting', crashReportingCommand);
 loadedCommands.set('doc', docCommand);
+loadedCommands.set('neural', neuralCommand);
 // =============================================================================
 // Exports
 // =============================================================================
@@ -119,6 +119,7 @@ export { scanCommand } from './scan.js';
 export { reportCrashCommand } from './report-crash.js';
 export { crashReportingCommand } from './crash-reporting.js';
 export { docCommand } from './doc.js';
+export { neuralCommand } from './neural.js';
 /**
  * All registered commands
  */
@@ -159,11 +160,11 @@ export const commands = [
     claimsCommand,
     issuesCommand,
     updateCommand,
-    processCommand,
     replayCommand,
     storeCommand,
     tokensCommand,
     reportCrashCommand,
+    neuralCommand,
 ];
 /**
  * Commands organized by category for help display
@@ -188,6 +189,7 @@ export const commandsByCategory = {
         hiveMindCommand,
         guidanceCommand,
         autopilotCommand,
+        neuralCommand,
     ],
     utility: [
         configCommand,
@@ -211,7 +213,6 @@ export const commandsByCategory = {
         claimsCommand,
         issuesCommand,
         updateCommand,
-        processCommand,
         storeCommand,
         cleanupCommand,
         platformsCommand,
