@@ -13,6 +13,7 @@ import type {
   ToolContext,
   CoherenceOutput,
 } from './types.js';
+import { cosineSimilarity } from '../../utils/cosine-similarity.js';
 import {
   CoherenceInputSchema,
   successResult,
@@ -86,28 +87,6 @@ function detectContradictions(vectors: Float32Array[], threshold: number): strin
   }
 
   return violations;
-}
-
-/**
- * Calculate cosine similarity
- */
-function cosineSimilarity(a: Float32Array, b: Float32Array): number {
-  if (a.length !== b.length) return 0;
-
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    const ai = a[i]!;
-    const bi = b[i]!;
-    dotProduct += ai * bi;
-    normA += ai * ai;
-    normB += bi * bi;
-  }
-
-  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-  return denominator > 0 ? dotProduct / denominator : 0;
 }
 
 /**
