@@ -738,12 +738,48 @@
         "remaining_work": "Pattern store consolidation (neural-tools models.json vs intelligence.ts patterns.json) — lower priority, different data shapes justify separate stores",
         "timestamp": "2026-07-10T00:50:00.000Z"
       }
+    ],
+    "cross-daemon-pipeline": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 4,
+          "implementation_health": 6,
+          "honesty_gap": 5,
+          "potential_value": 7
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Fixed broken codebase-map.json consumption: route-handler read 'hotspots' but worker writes 'topFiles' — field never matched, consumer was dead code",
+          "Added graphStaleness surfacing: warns when monograph index is >10 commits behind HEAD",
+          "Wired deepdive.json into route-handler: surfaces god-node architectural warnings (name, degree, file location)",
+          "Wired consolidation.json into route-handler: surfaces RAPTOR memory cluster counts when consolidation has run"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 7
+        },
+        "verification": {
+          "tests_passed": 956,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "route_handler_tests": 12,
+          "metrics_consumed_before": "2 of 6 (security-audit, codebase-map[broken])",
+          "metrics_consumed_after": "4 of 6 (security-audit, codebase-map[fixed], deepdive, consolidation)",
+          "still_unconsumed": ["performance.json (just process.memoryUsage)", "benchmark.json (just process.memoryUsage/cpuUsage)"],
+          "field_bug_fixed": "hotspots -> topFiles"
+        },
+        "remaining_work": "performance.json and benchmark.json are intentionally thin (process runtime stats only) — not worth surfacing unless enriched with real perf data",
+        "timestamp": "2026-07-10T01:25:00.000Z"
+      }
     ]
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-10T00:50:00.000Z",
-    "total_iterations": 31,
+    "last_updated": "2026-07-10T01:25:00.000Z",
+    "total_iterations": 32,
     "features_converged": 18,
     "features_removed": 0
   }

@@ -131,11 +131,11 @@
       "note": "Cosine similarity consolidated (5 impls -> 1 shared util). Pattern store consolidation deferred — different data shapes justify separate stores."
     },
     "cross-daemon-pipeline": {
-      "status": "not-started",
-      "last_audited": null,
-      "verdict": null,
-      "iterations": 0,
-      "note": "NEW: Daemon metrics written but not consumed — complete the pipeline"
+      "status": "needs-review",
+      "last_audited": "2026-07-10T01:25:00.000Z",
+      "verdict": "ITERATE",
+      "iterations": 1,
+      "note": "Fixed broken codebase-map field (hotspots->topFiles), wired deepdive.json and consolidation.json into route-handler. performance.json and benchmark.json remain unconsumed (too thin — just process.memoryUsage)."
     },
     "cross-hooks-architecture": {
       "status": "not-started",
