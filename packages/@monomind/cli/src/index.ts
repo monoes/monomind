@@ -483,6 +483,13 @@ export class CLI {
       await initDefaultWorkers();
     } catch { /* optional */ }
 
+    // Start the @monomind/hooks WorkerManager (performance/health/swarm/git/learning/
+    // adr/ddd/security/patterns/cache/progress) — previously implemented but never invoked
+    try {
+      const { workerManager } = await import('@monomind/hooks' as string);
+      await workerManager.start();
+    } catch { /* optional */ }
+
     // GAP-007: SwarmCheckpointer — write checkpoint files so crashed swarms can resume
     try {
       const { SwarmCheckpointer } = await import('@monoes/memory' as string);

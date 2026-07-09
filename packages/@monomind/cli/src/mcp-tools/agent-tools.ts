@@ -272,12 +272,6 @@ export const agentTools: MCPTool[] = [
         store.agents[agentId].status = 'terminated';
         saveAgentStore(store);
 
-        // Task 46: AgentSandboxing — clean up sandbox on termination
-        try {
-          const { cleanup } = await import('@monomind/security' as string);
-          cleanup(agentId);
-        } catch { /* optional */ }
-
         return {
           success: true,
           agentId,
