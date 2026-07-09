@@ -29,7 +29,6 @@ import { neuralTools } from './mcp-tools/neural-tools.js';
 import { performanceTools } from './mcp-tools/performance-tools.js';
 import { githubTools } from './mcp-tools/github-tools.js';
 import { daaTools } from './mcp-tools/daa-tools.js';
-import { coordinationTools } from './mcp-tools/coordination-tools.js';
 import { browserTools } from './mcp-tools/browser-tools.js';
 import { guidanceTools } from './mcp-tools/guidance-tools.js';
 import { autopilotTools } from './mcp-tools/autopilot-tools.js';
@@ -38,8 +37,6 @@ import { graphifyTools } from './mcp-tools/graphify-tools.js';
 import { monographTools } from './mcp-tools/monograph-tools.js';
 // Coverage-aware routing tools
 import { coverageRouterTools } from './monovector/coverage-tools.js';
-// A2A Agent Card protocol (source: https://a2a-protocol.org)
-import { a2aTools } from './mcp-tools/a2a-tools.js';
 // Quality and Coherence core tools
 import { qualityTools } from './mcp-tools/quality-tools.js';
 import { coherenceTools } from './mcp-tools/coherence-tools.js';
@@ -82,7 +79,6 @@ registerTools([
     ...performanceTools,
     ...githubTools,
     ...daaTools,
-    ...coordinationTools,
     ...browserTools,
     // Guidance & discovery tools
     ...guidanceTools,
@@ -94,8 +90,6 @@ registerTools([
     ...graphifyTools,
     // Coverage-aware routing tools
     ...coverageRouterTools,
-    // A2A Agent Card protocol (source: https://a2a-protocol.org)
-    ...a2aTools,
     // Quality tools
     ...qualityTools,
     // Coherence tools

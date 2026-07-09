@@ -7,15 +7,14 @@
 import { output } from '../output.js';
 import { scanCommand, secretsCommand } from './security-scan.js';
 import { cveCommand } from './security-cve.js';
-import { threatsCommand, auditCommand, defendCommand, redteamCommand } from './security-misc.js';
+import { auditCommand, defendCommand, redteamCommand } from './security-misc.js';
 export const securityCommand = {
     name: 'security',
     description: 'Security scanning, CVE detection, threat modeling, AI defense',
-    subcommands: [scanCommand, cveCommand, threatsCommand, auditCommand, secretsCommand, defendCommand, redteamCommand],
+    subcommands: [scanCommand, cveCommand, auditCommand, secretsCommand, defendCommand, redteamCommand],
     examples: [
         { command: 'monomind security scan', description: 'Run security scan' },
         { command: 'monomind security cve --list', description: 'List known CVEs' },
-        { command: 'monomind security threats', description: 'Run threat analysis' },
     ],
     action: async () => {
         output.writeln();
@@ -26,7 +25,6 @@ export const securityCommand = {
         output.printList([
             'scan     - Run security scans on code, deps, containers',
             'cve      - Check and manage CVE vulnerabilities',
-            'threats  - Threat modeling (STRIDE, DREAD, PASTA)',
             'audit    - Security audit logging and compliance',
             'secrets  - Detect and manage secrets in codebase',
             'defend   - AI manipulation defense (prompt injection, jailbreaks, PII)',

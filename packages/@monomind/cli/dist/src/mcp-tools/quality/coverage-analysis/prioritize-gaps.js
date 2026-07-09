@@ -150,7 +150,7 @@ async function calculatePriorities(gaps, factors, weights, bridge) {
                 score,
                 weight: weights.complexity,
                 contribution,
-                details: `Cyclomatic complexity: ${Math.round(score * 20)}`,
+                details: `Estimated complexity (line-based proxy, not McCabe): ${Math.round(score * 20)}`,
             });
             totalScore += contribution;
         }
@@ -237,7 +237,7 @@ async function calculatePriorities(gaps, factors, weights, bridge) {
 }
 function calculateComplexityScore(gap) {
     const lines = gap.endLine - gap.startLine;
-    // Estimate cyclomatic complexity from line count
+    // Line-based proxy — not real McCabe cyclomatic complexity
     const estimatedComplexity = lines / 5;
     return Math.min(estimatedComplexity / 10, 1);
 }

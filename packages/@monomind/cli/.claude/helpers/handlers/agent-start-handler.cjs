@@ -65,44 +65,19 @@ module.exports = {
       );
     } catch (e) { /* non-fatal — never block a subagent from starting */ }
 
-    // Subagent context inheritance — inject graph god nodes + parent's last
-    // pre-resolved suggestions so the spawned agent inherits spatial map.
+    // monolean: compact single-line graph context instead of multi-line map.
+    // Subagents get task-relevant files only — god nodes are noise for a focused task.
     try {
-      var subDb = _openMonographDb();
-      if (subDb) {
-        try {
-          var godRows = subDb.prepare(
-            "SELECT n.name, n.label, n.file_path AS file, " +
-            "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
-            "FROM nodes n " +
-            "WHERE n.label NOT IN ('Concept') AND n.file_path IS NOT NULL AND n.file_path != '' " +
-            "ORDER BY deg DESC LIMIT 5"
-          ).all();
-          if (godRows.length > 0) {
-            console.log('[MONOGRAPH_SUBAGENT_CTX] Graph map inherited from parent:');
-            for (var gi = 0; gi < godRows.length; gi++) {
-              var gr = godRows[gi];
-              console.log('  · ' + gr.name + ' [' + gr.label + '] — ' + (gr.file || '') + ' (deg ' + gr.deg + ')');
-            }
-            try {
-              var subAgentDesc = hookInput.description || hookInput.prompt_description || '';
-              if (subAgentDesc && subAgentDesc.length > 8) {
-                var subHints = getMonographSuggestions(subAgentDesc, 3);
-                if (subHints.length > 0) {
-                  console.log('  Top files for this subagent task:');
-                  for (var si2 = 0; si2 < subHints.length; si2++) {
-                    var sh = subHints[si2];
-                    console.log('    · ' + sh.name + ' [' + sh.label + '] — ' + (sh.file || ''));
-                  }
-                }
-              }
-            } catch (_) {}
-            console.log('  Use mcp__monomind__monograph_suggest / monograph_query in this subagent before grepping.');
-          }
-        } catch (e) { /* non-fatal */ }
+      var subAgentDesc = hookInput.description || hookInput.prompt_description || '';
+      if (subAgentDesc && subAgentDesc.length > 8) {
+        var subHints = getMonographSuggestions(subAgentDesc, 3);
+        if (subHints.length > 0) {
+          var parts = subHints.map(function(s) {
+            return s.name + ' [' + s.label + '] — ' + (s.file || '');
+          });
+          console.log('[MONOGRAPH] Top files: ' + parts.join(' · '));
+        }
       }
     } catch (e) { /* non-fatal */ }
-
-    console.log('[OK] Agent registered');
   },
 };

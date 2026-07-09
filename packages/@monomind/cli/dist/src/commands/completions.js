@@ -13,15 +13,15 @@ const TOP_LEVEL_COMMANDS = [
     'doctor', 'completions', 'help', 'version'
 ];
 // Swarm subcommands
-const SWARM_SUBCOMMANDS = ['init', 'status', 'scale', 'destroy', 'monitor', 'optimize'];
+const SWARM_SUBCOMMANDS = ['init', 'status', 'scale', 'destroy', 'monitor'];
 // Agent subcommands
 const AGENT_SUBCOMMANDS = ['spawn', 'terminate', 'status', 'list', 'pool', 'health', 'update'];
 // Task subcommands
 const TASK_SUBCOMMANDS = ['create', 'status', 'list', 'complete', 'cancel'];
 // Memory subcommands
-const MEMORY_SUBCOMMANDS = ['store', 'retrieve', 'search', 'list', 'delete', 'stats', 'configure', 'cleanup', 'compress', 'export', 'import'];
+const MEMORY_SUBCOMMANDS = ['store', 'retrieve', 'search', 'list', 'delete', 'stats', 'configure', 'export', 'import'];
 // Hive-mind subcommands
-const HIVE_MIND_SUBCOMMANDS = ['init', 'spawn', 'status', 'task', 'join', 'leave', 'consensus', 'broadcast', 'memory', 'optimize-memory', 'shutdown'];
+const HIVE_MIND_SUBCOMMANDS = ['init', 'spawn', 'status', 'join', 'leave', 'consensus', 'broadcast', 'memory', 'shutdown'];
 // Hooks subcommands
 const HOOKS_SUBCOMMANDS = ['pre-edit', 'post-edit', 'pre-command', 'post-command', 'pre-task', 'post-task', 'route', 'explain', 'pretrain', 'build-agents', 'metrics', 'transfer', 'list', 'intelligence'];
 // Generate bash completion script
@@ -70,11 +70,11 @@ _monomind_completions() {
             return 0
             ;;
         security)
-            COMPREPLY=( $(compgen -W "scan cve threats audit secrets" -- "\${cur}") )
+            COMPREPLY=( $(compgen -W "scan cve audit secrets" -- "\${cur}") )
             return 0
             ;;
         performance)
-            COMPREPLY=( $(compgen -W "benchmark profile metrics optimize bottleneck" -- "\${cur}") )
+            COMPREPLY=( $(compgen -W "benchmark profile metrics bottleneck" -- "\${cur}") )
             return 0
             ;;
         claims)
@@ -160,7 +160,6 @@ _monomind() {
                         'scale:Scale agent count'
                         'destroy:Shutdown swarm'
                         'monitor:Real-time monitoring'
-                        'optimize:Optimize topology'
                     )
                     ;;
                 agent)
@@ -192,8 +191,6 @@ _monomind() {
                         'delete:Delete entry'
                         'stats:Show statistics'
                         'configure:Configure backend'
-                        'cleanup:Clean stale data'
-                        'compress:Compress storage'
                         'export:Export to file'
                         'import:Import from file'
                     )
@@ -203,13 +200,11 @@ _monomind() {
                         'init:Initialize hive mind'
                         'spawn:Spawn worker agents'
                         'status:Show hive status'
-                        'task:Submit task'
                         'join:Join agent to hive'
                         'leave:Remove agent'
                         'consensus:Consensus management'
                         'broadcast:Broadcast message'
                         'memory:Shared memory'
-                        'optimize-memory:Optimize patterns'
                         'shutdown:Shutdown hive'
                     )
                     ;;
@@ -235,7 +230,6 @@ _monomind() {
                     subcommands=(
                         'scan:Security scan'
                         'cve:CVE detection'
-                        'threats:Threat modeling'
                         'audit:Security audit'
                         'secrets:Secrets scanning'
                     )
@@ -245,7 +239,6 @@ _monomind() {
                         'benchmark:Run benchmarks'
                         'profile:Profile code'
                         'metrics:Show metrics'
-                        'optimize:Optimize performance'
                         'bottleneck:Find bottlenecks'
                     )
                     ;;
@@ -327,10 +320,10 @@ ${HIVE_MIND_SUBCOMMANDS.map(sub => `complete -c monomind -n "__fish_seen_subcomm
 ${HOOKS_SUBCOMMANDS.map(sub => `complete -c monomind -n "__fish_seen_subcommand_from hooks" -a "${sub}"`).join('\n')}
 
 # Security subcommands
-complete -c monomind -n "__fish_seen_subcommand_from security" -a "scan cve threats audit secrets"
+complete -c monomind -n "__fish_seen_subcommand_from security" -a "scan cve audit secrets"
 
 # Performance subcommands
-complete -c monomind -n "__fish_seen_subcommand_from performance" -a "benchmark profile metrics optimize bottleneck"
+complete -c monomind -n "__fish_seen_subcommand_from performance" -a "benchmark profile metrics bottleneck"
 
 # Claims subcommands
 complete -c monomind -n "__fish_seen_subcommand_from claims" -a "list check grant revoke roles policies"
@@ -363,8 +356,8 @@ $script:SubCommands = @{
     'hive-mind' = @('${HIVE_MIND_SUBCOMMANDS.join("', '")}')
     'hive' = @('${HIVE_MIND_SUBCOMMANDS.join("', '")}')
     'hooks' = @('${HOOKS_SUBCOMMANDS.join("', '")}')
-    'security' = @('scan', 'cve', 'threats', 'audit', 'secrets')
-    'performance' = @('benchmark', 'profile', 'metrics', 'optimize', 'bottleneck')
+    'security' = @('scan', 'cve', 'audit', 'secrets')
+    'performance' = @('benchmark', 'profile', 'metrics', 'bottleneck')
     'claims' = @('list', 'check', 'grant', 'revoke', 'roles', 'policies')
     'embeddings' = @('generate', 'search', 'compare', 'collections', 'index', 'providers')
     'daemon' = @('start', 'stop', 'status', 'trigger', 'enable')

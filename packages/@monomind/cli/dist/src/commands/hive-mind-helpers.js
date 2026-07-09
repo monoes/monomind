@@ -18,8 +18,8 @@ export const TOPOLOGIES = [
 export const CONSENSUS_STRATEGIES = [
     { value: 'byzantine', label: 'Byzantine Fault Tolerant', hint: '2/3 majority, handles malicious actors' },
     { value: 'raft', label: 'Raft', hint: 'Leader-based consensus' },
-    { value: 'gossip', label: 'Gossip', hint: 'Eventually consistent, scalable' },
-    { value: 'crdt', label: 'CRDT', hint: 'Conflict-free replicated data' },
+    { value: 'gossip', label: 'Gossip', hint: 'Eventually consistent, scalable (planned — not yet implemented)' },
+    { value: 'crdt', label: 'CRDT', hint: 'Conflict-free replicated data (planned — not yet implemented)' },
     { value: 'quorum', label: 'Quorum', hint: 'Simple majority voting' }
 ];
 export function groupWorkersByType(workers) {

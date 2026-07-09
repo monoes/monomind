@@ -1,6 +1,6 @@
 /**
  * CLI Neural Command
- * Pattern learning, search, and prediction backed by the pure-JS intelligence layer
+ * Pattern storage and similarity search for routing optimization
  *
  * github.com/monoes/monomind
  */

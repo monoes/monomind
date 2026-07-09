@@ -5,7 +5,7 @@ import { output } from '../output.js';
 // ─── optimize subcommand ─────────────────────────────────────────────────────
 export const optimizeCommand = {
     name: 'optimize',
-    description: 'Optimize neural patterns (Int8 quantization, memory compression)',
+    description: 'Optimize pattern storage (Int8 quantization, memory compression)',
     options: [
         { name: 'method', type: 'string', description: 'Method: quantize, analyze, compact', default: 'quantize' },
         { name: 'verbose', short: 'v', type: 'boolean', description: 'Show detailed metrics' },
@@ -138,7 +138,7 @@ export const optimizeCommand = {
 // ─── export subcommand ───────────────────────────────────────────────────────
 export const exportCommand = {
     name: 'export',
-    description: 'Export trained models to IPFS for sharing (Ed25519 signed)',
+    description: 'Export stored patterns to IPFS for sharing (Ed25519 signed)',
     options: [
         { name: 'model', short: 'm', type: 'string', description: 'Model ID or category to export' },
         { name: 'output', short: 'o', type: 'string', description: 'Output file path (optional)' },
@@ -159,7 +159,7 @@ export const exportCommand = {
         const stripPii = ctx.flags['strip-pii'] !== false;
         const customName = ctx.flags.name;
         output.writeln();
-        output.writeln(output.bold('Secure Model Export'));
+        output.writeln(output.bold('Secure Pattern Export'));
         output.writeln(output.dim('─'.repeat(50)));
         const spinner = output.createSpinner({ text: 'Preparing export...', spinner: 'dots' });
         spinner.start();
@@ -167,7 +167,7 @@ export const exportCommand = {
             const fs = await import('fs');
             const path = await import('path');
             const crypto = await import('crypto');
-            spinner.setText('Collecting trained patterns...');
+            spinner.setText('Collecting stored patterns...');
             const { getIntelligenceStats, flushPatterns } = await import('../memory/intelligence.js');
             await flushPatterns();
             const stats = await getIntelligenceStats();

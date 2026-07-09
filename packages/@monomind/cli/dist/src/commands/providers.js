@@ -6,43 +6,6 @@
  */
 import { output } from '../output.js';
 import { configManager } from '../services/config-file-manager.js';
-// List subcommand
-const listCommand = {
-    name: 'list',
-    description: 'List available AI providers and models',
-    options: [
-        { name: 'type', short: 't', type: 'string', description: 'Filter by type: llm, embedding, image', default: 'all' },
-        { name: 'active', short: 'a', type: 'boolean', description: 'Show only active providers' },
-    ],
-    examples: [
-        { command: 'monomind providers list', description: 'List all providers' },
-        { command: 'monomind providers list -t embedding', description: 'List embedding providers' },
-    ],
-    action: async (ctx) => {
-        const type = ctx.flags.type || 'all';
-        // Note: Static provider catalog — does not reflect user's configured providers
-        output.writeln();
-        output.writeln(output.bold('Available Providers'));
-        output.writeln(output.dim('─'.repeat(60)));
-        output.printTable({
-            columns: [
-                { key: 'provider', header: 'Provider', width: 18 },
-                { key: 'type', header: 'Type', width: 12 },
-                { key: 'models', header: 'Models', width: 25 },
-                { key: 'status', header: 'Status', width: 12 },
-            ],
-            data: [
-                { provider: 'Anthropic', type: 'LLM', models: 'claude-3.5-sonnet, opus', status: output.success('Active') },
-                { provider: 'OpenAI', type: 'LLM', models: 'gpt-4o, gpt-4-turbo', status: output.success('Active') },
-                { provider: 'OpenAI', type: 'Embedding', models: 'text-embedding-3-small/large', status: output.success('Active') },
-                { provider: 'Transformers.js', type: 'Embedding', models: 'Xenova/all-MiniLM-L6-v2', status: output.success('Active') },
-                { provider: 'Agentic Flow', type: 'Embedding', models: 'ONNX optimized', status: output.success('Active') },
-                { provider: 'Mock', type: 'All', models: 'mock-*', status: output.dim('Dev only') },
-            ],
-        });
-        return { success: true };
-    },
-};
 // Configure subcommand
 const configureCommand = {
     name: 'configure',
@@ -271,94 +234,13 @@ const testCommand = {
         }
     },
 };
-// Models subcommand
-const modelsCommand = {
-    name: 'models',
-    description: 'List and manage available models',
-    options: [
-        { name: 'provider', short: 'p', type: 'string', description: 'Filter by provider' },
-        { name: 'capability', short: 'c', type: 'string', description: 'Filter by capability: chat, completion, embedding' },
-    ],
-    examples: [
-        { command: 'monomind providers models', description: 'List all models' },
-        { command: 'monomind providers models -p anthropic', description: 'List Anthropic models' },
-    ],
-    action: async (ctx) => {
-        output.writeln();
-        output.writeln(output.bold('Available Models'));
-        output.writeln(output.dim('─'.repeat(70)));
-        output.printTable({
-            columns: [
-                { key: 'model', header: 'Model', width: 28 },
-                { key: 'provider', header: 'Provider', width: 14 },
-                { key: 'capability', header: 'Capability', width: 12 },
-                { key: 'context', header: 'Context', width: 10 },
-                { key: 'cost', header: 'Cost/1K', width: 12 },
-            ],
-            data: [
-                { model: 'claude-3.5-sonnet-20241022', provider: 'Anthropic', capability: 'Chat', context: '200K', cost: '$0.003/$0.015' },
-                { model: 'claude-3-opus-20240229', provider: 'Anthropic', capability: 'Chat', context: '200K', cost: '$0.015/$0.075' },
-                { model: 'gpt-4o', provider: 'OpenAI', capability: 'Chat', context: '128K', cost: '$0.005/$0.015' },
-                { model: 'gpt-4-turbo', provider: 'OpenAI', capability: 'Chat', context: '128K', cost: '$0.01/$0.03' },
-                { model: 'text-embedding-3-small', provider: 'OpenAI', capability: 'Embedding', context: '8K', cost: '$0.00002' },
-                { model: 'text-embedding-3-large', provider: 'OpenAI', capability: 'Embedding', context: '8K', cost: '$0.00013' },
-                { model: 'Xenova/all-MiniLM-L6-v2', provider: 'Transformers', capability: 'Embedding', context: '512', cost: output.success('Free') },
-            ],
-        });
-        return { success: true };
-    },
-};
-// Usage subcommand
-const usageCommand = {
-    name: 'usage',
-    description: 'View provider usage and costs',
-    options: [
-        { name: 'provider', short: 'p', type: 'string', description: 'Filter by provider' },
-        { name: 'timeframe', short: 't', type: 'string', description: 'Timeframe: 24h, 7d, 30d', default: '7d' },
-    ],
-    examples: [
-        { command: 'monomind providers usage', description: 'View all usage' },
-        { command: 'monomind providers usage -t 30d', description: 'View 30-day usage' },
-    ],
-    action: async (ctx) => {
-        const timeframe = ctx.flags.timeframe || '7d';
-        output.writeln();
-        output.writeln(output.bold(`Provider Usage (${timeframe})`));
-        output.writeln(output.dim('─'.repeat(60)));
-        output.printTable({
-            columns: [
-                { key: 'provider', header: 'Provider', width: 15 },
-                { key: 'requests', header: 'Requests', width: 12 },
-                { key: 'tokens', header: 'Tokens', width: 15 },
-                { key: 'cost', header: 'Est. Cost', width: 12 },
-                { key: 'trend', header: 'Trend', width: 12 },
-            ],
-            data: [
-                { provider: 'Anthropic', requests: '12,847', tokens: '4.2M', cost: '$12.60', trend: output.warning('↑ 15%') },
-                { provider: 'OpenAI (LLM)', requests: '3,421', tokens: '1.1M', cost: '$5.50', trend: output.success('↓ 8%') },
-                { provider: 'OpenAI (Embed)', requests: '89,234', tokens: '12.4M', cost: '$0.25', trend: output.success('↓ 12%') },
-                { provider: 'Transformers.js', requests: '234,567', tokens: '45.2M', cost: output.success('$0.00'), trend: '→' },
-            ],
-        });
-        output.writeln();
-        output.printBox([
-            `Total Requests: 340,069`,
-            `Total Tokens: 62.9M`,
-            `Total Cost: $18.35`,
-            ``,
-            `Savings from local embeddings: $890.12`,
-        ].join('\n'), 'Summary');
-        return { success: true };
-    },
-};
 // Main providers command
 export const providersCommand = {
     name: 'providers',
     description: 'Manage AI providers, models, and configurations',
-    subcommands: [listCommand, configureCommand, testCommand, modelsCommand, usageCommand],
+    subcommands: [configureCommand, testCommand],
     examples: [
-        { command: 'monomind providers list', description: 'List all providers' },
-        { command: 'monomind providers configure -p openai', description: 'Configure OpenAI' },
+        { command: 'monomind providers configure -p openai -k sk-...', description: 'Configure OpenAI' },
         { command: 'monomind providers test --all', description: 'Test all providers' },
     ],
     action: async () => {
@@ -368,19 +250,8 @@ export const providersCommand = {
         output.writeln();
         output.writeln('Subcommands:');
         output.printList([
-            'list      - List available providers and their status',
             'configure - Configure provider settings and API keys',
             'test      - Test provider connectivity',
-            'models    - List and manage available models',
-            'usage     - View usage statistics and costs',
-        ]);
-        output.writeln();
-        output.writeln('Supported Providers:');
-        output.printList([
-            'Anthropic (Claude models)',
-            'OpenAI (GPT + embeddings)',
-            'Transformers.js (local ONNX)',
-            'Agentic Flow (optimized ONNX with SIMD)',
         ]);
         output.writeln();
         output.writeln(output.dim('github.com/monoes/monomind'));

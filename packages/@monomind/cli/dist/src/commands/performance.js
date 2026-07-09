@@ -504,83 +504,6 @@ const metricsCommand = {
         return { success: true };
     },
 };
-// Optimize subcommand
-const optimizeCommand = {
-    name: 'optimize',
-    description: 'Run performance optimization recommendations',
-    options: [
-        { name: 'target', short: 't', type: 'string', description: 'Target: memory, cpu, latency, all', default: 'all' },
-        { name: 'apply', short: 'a', type: 'boolean', description: 'Apply recommended optimizations' },
-        { name: 'dry-run', short: 'd', type: 'boolean', description: 'Show changes without applying' },
-    ],
-    examples: [
-        { command: 'monomind performance optimize -t memory', description: 'Optimize memory usage' },
-        { command: 'monomind performance optimize --apply', description: 'Apply all optimizations' },
-    ],
-    action: async (ctx) => {
-        const targetRaw = ctx.flags.target || 'all';
-        const VALID_TARGETS = new Set(['memory', 'cpu', 'latency', 'all']);
-        const target = VALID_TARGETS.has(targetRaw) ? targetRaw : 'all';
-        const recommendations = [
-            { priority: 'P0', area: 'Memory', recommendation: 'Enable HNSW index quantization', impact: '+50% reduction', configKey: 'hnsw.quantization', configValue: true },
-            { priority: 'P1', area: 'CPU', recommendation: 'Enable WASM SIMD acceleration', impact: '+4x speedup', configKey: 'wasm.simd', configValue: true },
-            { priority: 'P2', area: 'Cache', recommendation: 'Increase pattern cache size', impact: '+15% hit rate', configKey: 'cache.patternSize', configValue: 2048 },
-            { priority: 'P2', area: 'Network', recommendation: 'Enable request batching', impact: '-30% latency', configKey: 'network.batching', configValue: true },
-        ].filter(r => target === 'all' || r.area.toLowerCase() === target);
-        output.writeln();
-        output.writeln(output.bold('Performance Optimization'));
-        output.writeln(output.dim('─'.repeat(50)));
-        const spinner = output.createSpinner({ text: 'Analyzing performance...', spinner: 'dots' });
-        spinner.start();
-        await new Promise(r => setTimeout(r, 800));
-        spinner.succeed('Analysis complete');
-        output.writeln();
-        output.writeln(output.bold('Recommendations:'));
-        output.writeln();
-        const priorityFormat = { P0: output.error, P1: output.warning, P2: output.info };
-        output.printTable({
-            columns: [
-                { key: 'priority', header: 'Priority', width: 10 },
-                { key: 'area', header: 'Area', width: 15 },
-                { key: 'recommendation', header: 'Recommendation', width: 40 },
-                { key: 'impact', header: 'Impact', width: 15 },
-            ],
-            data: recommendations.map(r => ({
-                priority: (priorityFormat[r.priority] ?? output.dim)(r.priority),
-                area: r.area,
-                recommendation: r.recommendation,
-                impact: r.impact,
-            })),
-        });
-        if (ctx.flags.apply || ctx.flags['dry-run']) {
-            output.writeln();
-            const fs = await import('node:fs');
-            const configPath = 'monomind.config.json';
-            let config = {};
-            try {
-                config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-            }
-            catch { /* fresh */ }
-            const perf = (config.performance ?? {});
-            for (const r of recommendations) {
-                const parts = r.configKey.split('.');
-                const section = (perf[parts[0]] ?? {});
-                section[parts[1]] = r.configValue;
-                perf[parts[0]] = section;
-            }
-            config.performance = perf;
-            if (ctx.flags['dry-run']) {
-                output.writeln(output.bold('Dry run — changes that would be applied:'));
-                output.writeln(output.dim(JSON.stringify(config.performance, null, 2)));
-            }
-            else {
-                fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-                output.printSuccess(`Applied ${recommendations.length} optimization(s) to ${configPath}`);
-            }
-        }
-        return { success: true };
-    },
-};
 // Bottleneck subcommand
 const bottleneckCommand = {
     name: 'bottleneck',
@@ -665,7 +588,7 @@ export const performanceCommand = {
     name: 'performance',
     description: 'Performance profiling, benchmarking, optimization, metrics',
     aliases: ['perf'],
-    subcommands: [benchmarkCommand, profileCommand, metricsCommand, optimizeCommand, bottleneckCommand],
+    subcommands: [benchmarkCommand, profileCommand, metricsCommand, bottleneckCommand],
     examples: [
         { command: 'monomind performance benchmark', description: 'Run benchmarks' },
         { command: 'monomind performance profile', description: 'Profile application' },
@@ -681,7 +604,6 @@ export const performanceCommand = {
             'benchmark  - Run performance benchmarks (WASM, neural, search)',
             'profile    - Profile CPU, memory, I/O usage',
             'metrics    - View and export performance metrics',
-            'optimize   - Get optimization recommendations',
             'bottleneck - Identify performance bottlenecks',
         ]);
         output.writeln();

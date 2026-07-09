@@ -440,19 +440,15 @@ export const hooksMetrics = {
             period,
             patterns: {
                 total: patternEntries.length,
-                successful: null,
-                failed: null,
-                avgConfidence: null,
+                _note: 'Success/failure breakdown not tracked yet — store outcomes via hooks_post-task to populate.',
             },
             agents: {
-                routingAccuracy: null,
                 totalRoutes: routingEntries.length,
-                topAgent: null,
+                _note: 'Routing accuracy not tracked yet — requires route-outcome correlation data.',
             },
             commands: {
                 totalExecuted: taskEntries.length,
-                successRate: null,
-                avgRiskScore: null,
+                _note: 'Success rate not tracked yet — requires command-outcomes.jsonl data.',
             },
             dataSource: 'memory-store',
             entriesFound: entries.length,
@@ -468,42 +464,46 @@ export const hooksList = {
         properties: {},
     },
     handler: async () => {
+        // Static registry — not live discovery from handler objects.
+        // Update this list when hooks are added or removed.
+        const hooks = [
+            // Core hooks
+            { name: 'pre-edit', type: 'PreToolUse', status: 'active' },
+            { name: 'post-edit', type: 'PostToolUse', status: 'active' },
+            { name: 'pre-command', type: 'PreToolUse', status: 'active' },
+            { name: 'post-command', type: 'PostToolUse', status: 'active' },
+            { name: 'pre-task', type: 'PreToolUse', status: 'active' },
+            { name: 'post-task', type: 'PostToolUse', status: 'active' },
+            // Routing hooks
+            { name: 'route', type: 'intelligence', status: 'active' },
+            { name: 'explain', type: 'intelligence', status: 'active' },
+            // Session hooks
+            { name: 'session-start', type: 'SessionStart', status: 'active' },
+            { name: 'session-end', type: 'SessionEnd', status: 'active' },
+            { name: 'session-restore', type: 'SessionStart', status: 'active' },
+            // Learning hooks
+            { name: 'pretrain', type: 'intelligence', status: 'active' },
+            { name: 'build-agents', type: 'intelligence', status: 'active' },
+            { name: 'transfer', type: 'intelligence', status: 'active' },
+            { name: 'metrics', type: 'analytics', status: 'active' },
+            // System hooks
+            { name: 'init', type: 'system', status: 'active' },
+            { name: 'notify', type: 'coordination', status: 'active' },
+            // Intelligence subcommands
+            { name: 'intelligence', type: 'intelligence', status: 'active' },
+            { name: 'intelligence_trajectory-start', type: 'intelligence', status: 'active' },
+            { name: 'intelligence_trajectory-step', type: 'intelligence', status: 'active' },
+            { name: 'intelligence_trajectory-end', type: 'intelligence', status: 'active' },
+            { name: 'intelligence_pattern-store', type: 'intelligence', status: 'active' },
+            { name: 'intelligence_pattern-search', type: 'intelligence', status: 'active' },
+            { name: 'intelligence_stats', type: 'analytics', status: 'active' },
+            { name: 'intelligence_learn', type: 'intelligence', status: 'active' },
+            { name: 'intelligence_attention', type: 'intelligence', status: 'active' },
+        ];
         return {
-            hooks: [
-                // Core hooks
-                { name: 'pre-edit', type: 'PreToolUse', status: 'active' },
-                { name: 'post-edit', type: 'PostToolUse', status: 'active' },
-                { name: 'pre-command', type: 'PreToolUse', status: 'active' },
-                { name: 'post-command', type: 'PostToolUse', status: 'active' },
-                { name: 'pre-task', type: 'PreToolUse', status: 'active' },
-                { name: 'post-task', type: 'PostToolUse', status: 'active' },
-                // Routing hooks
-                { name: 'route', type: 'intelligence', status: 'active' },
-                { name: 'explain', type: 'intelligence', status: 'active' },
-                // Session hooks
-                { name: 'session-start', type: 'SessionStart', status: 'active' },
-                { name: 'session-end', type: 'SessionEnd', status: 'active' },
-                { name: 'session-restore', type: 'SessionStart', status: 'active' },
-                // Learning hooks
-                { name: 'pretrain', type: 'intelligence', status: 'active' },
-                { name: 'build-agents', type: 'intelligence', status: 'active' },
-                { name: 'transfer', type: 'intelligence', status: 'active' },
-                { name: 'metrics', type: 'analytics', status: 'active' },
-                // System hooks
-                { name: 'init', type: 'system', status: 'active' },
-                { name: 'notify', type: 'coordination', status: 'active' },
-                // Intelligence subcommands
-                { name: 'intelligence', type: 'intelligence', status: 'active' },
-                { name: 'intelligence_trajectory-start', type: 'intelligence', status: 'active' },
-                { name: 'intelligence_trajectory-step', type: 'intelligence', status: 'active' },
-                { name: 'intelligence_trajectory-end', type: 'intelligence', status: 'active' },
-                { name: 'intelligence_pattern-store', type: 'intelligence', status: 'active' },
-                { name: 'intelligence_pattern-search', type: 'intelligence', status: 'active' },
-                { name: 'intelligence_stats', type: 'analytics', status: 'active' },
-                { name: 'intelligence_learn', type: 'intelligence', status: 'active' },
-                { name: 'intelligence_attention', type: 'intelligence', status: 'active' },
-            ],
-            total: 26,
+            _note: 'Static registry — update this list when hooks are added or removed.',
+            hooks,
+            total: hooks.length,
         };
     },
 };
@@ -1202,15 +1202,6 @@ export const hooksTransfer = {
                 total,
                 byType,
             },
-            skipped: {
-                lowConfidence: Math.floor(total * 0.15),
-                duplicates: Math.floor(total * 0.08),
-                conflicts: Math.floor(total * 0.03),
-            },
-            stats: {
-                avgConfidence: 0.82 + (minConfidence > 0.8 ? 0.1 : 0),
-                avgAge: '3 days',
-            },
             dataSource: 'source-project',
         };
     },
@@ -1283,8 +1274,8 @@ export const hooksSessionStart = {
             sessionMemory: sessionMemory || { controller: 'none', restoredPatterns: 0 },
             previousSession: restoreLatest ? {
                 id: `session-${Date.now() - 86400000}`,
-                tasksRestored: sessionMemory?.restoredPatterns || 3,
-                memoryRestored: sessionMemory?.restoredPatterns || 15,
+                tasksRestored: sessionMemory?.restoredPatterns || 0,
+                memoryRestored: sessionMemory?.restoredPatterns || 0,
             } : null,
         };
     },
@@ -1361,7 +1352,6 @@ export const hooksSessionEnd = {
         }
         return {
             sessionId,
-            duration: 3600000, // 1 hour in ms
             statePath: saveState ? `.claude/sessions/${sessionId}.json` : undefined,
             daemon: { stopped: daemonStopped },
             sessionPersistence: sessionPersistence || { controller: 'none', persisted: false },
@@ -1376,110 +1366,6 @@ export const hooksSessionEnd = {
                 patternsLearned: patternCount,
                 trajectoriesRecorded: trajectoryCount,
             },
-        };
-    },
-};
-// Session restore hook
-export const hooksSessionRestore = {
-    name: 'hooks_session-restore',
-    description: 'Restore a previous session',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            sessionId: { type: 'string', description: 'Session ID to restore (or "latest")' },
-            restoreAgents: { type: 'boolean', description: 'Restore spawned agents' },
-            restoreTasks: { type: 'boolean', description: 'Restore active tasks' },
-        },
-    },
-    handler: async (params) => {
-        const requestedId = params.sessionId || 'latest';
-        const restoreAgents = params.restoreAgents !== false;
-        const restoreTasks = params.restoreTasks !== false;
-        const originalSessionId = requestedId === 'latest' ? `session-${Date.now() - 86400000}` : requestedId;
-        const newSessionId = `session-${Date.now()}`;
-        // Get real memory entry count
-        const store = loadMemoryStore();
-        const memoryEntryCount = Object.keys(store.entries).length;
-        // Count task and agent entries
-        const taskEntries = Object.keys(store.entries).filter(k => k.includes('task')).length;
-        const agentEntries = Object.keys(store.entries).filter(k => k.includes('agent')).length;
-        return {
-            sessionId: newSessionId,
-            originalSessionId,
-            restoredState: {
-                tasksRestored: restoreTasks ? Math.min(taskEntries, 10) : 0,
-                agentsRestored: restoreAgents ? Math.min(agentEntries, 5) : 0,
-                memoryRestored: memoryEntryCount,
-            },
-            warnings: restoreTasks && taskEntries > 0 ? [`${Math.min(taskEntries, 2)} tasks were in progress and may need review`] : undefined,
-            dataSource: 'memory-store',
-        };
-    },
-};
-// Notify hook - cross-agent notifications
-export const hooksNotify = {
-    name: 'hooks_notify',
-    description: 'Send cross-agent notification',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            message: { type: 'string', description: 'Notification message' },
-            target: { type: 'string', description: 'Target agent or "all"' },
-            priority: { type: 'string', description: 'Priority level (low, normal, high, urgent)' },
-            data: { type: 'object', description: 'Additional data payload' },
-        },
-        required: ['message'],
-    },
-    handler: async (params) => {
-        const message = params.message;
-        const target = params.target || 'all';
-        const priority = params.priority || 'normal';
-        return {
-            notificationId: `notify-${Date.now()}`,
-            message,
-            target,
-            priority,
-            delivered: true,
-            recipients: target === 'all' ? ['coder', 'architect', 'tester', 'reviewer'] : [target],
-            timestamp: new Date().toISOString(),
-        };
-    },
-};
-// Init hook - initialize hooks in project
-export const hooksInit = {
-    name: 'hooks_init',
-    description: 'Initialize hooks in project with .claude/settings.json',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            path: { type: 'string', description: 'Project path' },
-            template: { type: 'string', description: 'Template to use (minimal, standard, full)' },
-            force: { type: 'boolean', description: 'Overwrite existing configuration' },
-        },
-    },
-    handler: async (params) => {
-        const path = params.path || '.';
-        const template = params.template || 'standard';
-        const force = params.force;
-        const hooksConfigured = template === 'minimal' ? 4 : template === 'full' ? 16 : 9;
-        return {
-            path,
-            template,
-            created: {
-                settingsJson: `${path}/.claude/settings.json`,
-                hooksDir: `${path}/.claude/hooks`,
-            },
-            hooks: {
-                configured: hooksConfigured,
-                types: ['PreToolUse', 'PostToolUse', 'SessionStart', 'SessionEnd'],
-            },
-            intelligence: {
-                enabled: template !== 'minimal',
-                sona: template === 'full',
-                moe: template === 'full',
-                hnsw: template !== 'minimal',
-            },
-            overwritten: force,
         };
     },
 };

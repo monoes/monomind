@@ -45,7 +45,7 @@ take the higher one and move on. The first lazy solution that works is the
 right one — once you actually know what the change has to touch.
 
 **Bug fix = root cause, not symptom.** A report names a symptom. Before you
-edit, grep every caller of the function you're about to touch. The lazy fix IS
+edit, find every caller of the function you're about to touch (use `monograph_neighbors` or `monograph_impact` first; fall back to grep only if monograph returns 0 results). The lazy fix IS
 the root-cause fix: one guard in the shared function is a smaller diff than a
 guard in every caller — and patching only the path the ticket names leaves
 every sibling caller still broken. Fix it once, where all callers route through.
