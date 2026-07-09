@@ -1,10 +1,10 @@
 /**
- * Causal Inference Tool - pr_causal_infer
+ * Causal Graph Analysis Tool - pr_causal_infer
  *
- * Performs causal inference using do-calculus.
- * Estimates causal effects, identifies confounders, and finds backdoor paths.
- *
- * Uses CausalEngine from prime-radiant-advanced-wasm
+ * Analyzes causal graph structure to assess identifiability.
+ * Identifies confounders, finds backdoor paths, and determines
+ * whether a causal effect can be identified from the graph.
+ * Does NOT estimate causal effect magnitude (that requires data).
  */
 import type { MCPTool } from './types.js';
 /**

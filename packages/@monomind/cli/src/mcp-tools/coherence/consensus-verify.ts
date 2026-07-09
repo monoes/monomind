@@ -1,10 +1,9 @@
 /**
  * Consensus Verification Tool - pr_consensus_verify
  *
- * Verifies multi-agent consensus mathematically using coherence analysis.
+ * Verifies multi-agent consensus using cosine-similarity coherence analysis.
  * Identifies divergent agents and measures agreement ratios.
- *
- * Uses CohomologyEngine for multi-agent consensus validation
+ * Connectivity stability uses a degree-ratio heuristic (not spectral decomposition).
  */
 
 import type {
@@ -140,14 +139,19 @@ function computeVoteAgreement(agentStates: AgentState[]): number {
 }
 
 /**
- * Compute spectral stability from similarity matrix
+ * Compute connectivity stability from similarity matrix.
+ * Uses the ratio of average to maximum degree as a connectivity proxy.
+ * A ratio near 1 means uniform connectivity; near 0 means a few nodes
+ * dominate connectivity while others are isolated.
+ * NOTE: This is NOT a true spectral gap (which requires eigendecomposition
+ * of the Laplacian). It is a lightweight degree-based heuristic.
  */
-function computeSpectralStability(similarityMatrix: number[][]): {
+function computeConnectivityStability(similarityMatrix: number[][]): {
   stable: boolean;
-  spectralGap: number;
+  degreeRatio: number;
 } {
   const n = similarityMatrix.length;
-  if (n < 2) return { stable: true, spectralGap: 1 };
+  if (n < 2) return { stable: true, degreeRatio: 1 };
 
   // Convert similarity to adjacency (threshold at 0.5)
   const adjacency: number[][] = [];
@@ -161,7 +165,7 @@ function computeSpectralStability(similarityMatrix: number[][]): {
     adjacency.push(row);
   }
 
-  // Compute degree matrix and Laplacian
+  // Compute degrees
   const degrees: number[] = [];
   for (let i = 0; i < n; i++) {
     let degree = 0;
@@ -172,15 +176,13 @@ function computeSpectralStability(similarityMatrix: number[][]): {
     degrees.push(degree);
   }
 
-  // Estimate spectral gap using power iteration on Laplacian
-  // Simplified: use average degree connectivity as proxy
   const avgDegree = degrees.reduce((a, b) => a + b, 0) / n;
   const maxDegree = Math.max(...degrees);
 
-  const spectralGap = maxDegree > 0 ? avgDegree / maxDegree : 0;
-  const stable = spectralGap > 0.3;
+  const degreeRatio = maxDegree > 0 ? avgDegree / maxDegree : 0;
+  const stable = degreeRatio > 0.3;
 
-  return { stable, spectralGap };
+  return { stable, degreeRatio };
 }
 
 /**
@@ -190,7 +192,7 @@ function getInterpretation(
   verified: boolean,
   coherenceScore: number,
   divergentAgents: string[],
-  spectralStability: boolean
+  connectivityStable: boolean
 ): string {
   if (verified && divergentAgents.length === 0) {
     return 'Strong consensus achieved - all agents are aligned';
@@ -200,8 +202,8 @@ function getInterpretation(
     return `Consensus achieved with ${divergentAgents.length} minority agent(s)`;
   }
 
-  if (!spectralStability) {
-    return 'Consensus not achieved - agent network shows instability patterns';
+  if (!connectivityStable) {
+    return 'Consensus not achieved - agent network shows poor connectivity (uneven degree distribution)';
   }
 
   if (coherenceScore < 0.5) {
@@ -280,7 +282,7 @@ async function handler(
 
     // Compute additional metrics
     const similarityMatrix = computeSimilarityMatrix(embeddings);
-    const { stable: spectralStability, spectralGap } = computeSpectralStability(similarityMatrix);
+    const { stable: connectivityStable, degreeRatio } = computeConnectivityStability(similarityMatrix);
     const voteAgreement = computeVoteAgreement(agentStates);
 
     // Coherence score is inverse of energy
@@ -301,9 +303,9 @@ async function handler(
       details: {
         agreementRatio,
         coherenceEnergy,
-        spectralStability,
-        spectralGap,
-        interpretation: getInterpretation(verified, coherenceScore, divergentAgents, spectralStability),
+        connectivityStable,
+        degreeRatio,
+        interpretation: getInterpretation(verified, coherenceScore, divergentAgents, connectivityStable),
         agentCount: agentStates.length,
       },
     };
@@ -333,7 +335,7 @@ async function handler(
  */
 export const consensusVerifyTool: MCPTool = {
   name: 'pr_consensus_verify',
-  description: 'Verify multi-agent consensus mathematically using coherence analysis. Identifies divergent agents and measures agreement ratios. Uses CohomologyEngine for consensus validation.',
+  description: 'Verify multi-agent consensus using cosine-similarity coherence analysis. Identifies divergent agents, measures agreement ratios, and checks connectivity stability via degree-ratio heuristic.',
   category: 'consensus',
   version: '0.1.3',
   tags: ['consensus', 'multi-agent', 'coherence', 'swarm', 'ai-interpretability'],

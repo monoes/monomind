@@ -567,6 +567,22 @@ export class MCPServerManager extends EventEmitter {
           const toolName = params.name;
           const toolParams = (rawArgs || {}) as Record<string, unknown>;
 
+          // validateInput boundary: sanitize the incoming tool name
+          try {
+            const secMod = await import('@monomind/security' as string).catch(() => null);
+            const validateInput = secMod?.validateInput;
+            if (validateInput) {
+              const check = validateInput(toolName, { type: 'string', maxLength: 200 });
+              if (!check.valid) {
+                return {
+                  jsonrpc: '2.0',
+                  id: message.id,
+                  error: { code: -32602, message: `Invalid tool name: ${check.error}` },
+                };
+              }
+            }
+          } catch { /* security module optional */ }
+
           if (!hasTool(toolName)) {
             return {
               jsonrpc: '2.0',

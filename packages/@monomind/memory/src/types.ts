@@ -15,7 +15,6 @@
 export type MemoryType =
   | 'episodic'    // Time-based experiences and events
   | 'semantic'    // Facts, concepts, and knowledge
-  | 'procedural'  // How-to knowledge and skills
   | 'working'     // Short-term operational memory
   | 'cache';      // Temporary cached data
 
@@ -759,30 +758,7 @@ export const PERFORMANCE_TARGETS = {
   MAX_SEARCH_IMPROVEMENT: 12500, // 12,500x
 } as const;
 
-// ===== Re-exports from ADR-049 modules =====
 
-export type {
-  LearningBridgeConfig,
-  LearningStats,
-  ConsolidateResult,
-  PatternMatch,
-} from './learning-bridge.js';
-
-export type {
-  MemoryGraphConfig,
-  GraphNode,
-  GraphEdge,
-  GraphStats,
-  RankedResult,
-  EdgeType,
-} from './memory-graph.js';
-
-export type {
-  AgentMemoryScope,
-  AgentScopedConfig,
-  TransferOptions,
-  TransferResult,
-} from './agent-memory-scope.js';
 
 // ===== Multi-Tier Memory Config (Task 09) =====
 

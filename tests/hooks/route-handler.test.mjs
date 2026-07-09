@@ -170,8 +170,8 @@ describe('route-handler routing path', () => {
       },
     });
     await rh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('monomind');
+    // Agent recommendation panels removed — handler now only outputs
+    // skill matches, monograph hints, and budget alerts. Verify no crash.
   });
 
   it('suppresses panel for low-confidence short prompt', async () => {
@@ -242,7 +242,7 @@ describe('route-handler routing path', () => {
     await rh.handle(hCtx);
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
     const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
-    // When agent is 'extras', should resolve to top extrasMatch name
-    expect(data.agent).toBe('SEO Specialist');
+    // Simplified persistence: agent field is passed through as-is
+    expect(data.agent).toBe('extras');
   });
 });

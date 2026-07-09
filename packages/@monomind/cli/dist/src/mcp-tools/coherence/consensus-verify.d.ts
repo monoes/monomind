@@ -1,10 +1,9 @@
 /**
  * Consensus Verification Tool - pr_consensus_verify
  *
- * Verifies multi-agent consensus mathematically using coherence analysis.
+ * Verifies multi-agent consensus using cosine-similarity coherence analysis.
  * Identifies divergent agents and measures agreement ratios.
- *
- * Uses CohomologyEngine for multi-agent consensus validation
+ * Connectivity stability uses a degree-ratio heuristic (not spectral decomposition).
  */
 import type { MCPTool } from './types.js';
 /**

@@ -1,0 +1,116 @@
+{
+  "areas": {
+    "cli-commands": {
+      "status": "iterated",
+      "last_audited": "2026-07-09T18:30:00.000Z",
+      "verdict": "ITERATE",
+      "iterations": 1
+    },
+    "hooks-system": {
+      "status": "iterated",
+      "last_audited": "2026-07-09T18:30:00.000Z",
+      "verdict": "ITERATE",
+      "iterations": 1
+    },
+    "memory-system": {
+      "status": "converged",
+      "last_audited": "2026-07-09T09:28:45.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 2
+    },
+    "security-package": {
+      "status": "iterated",
+      "last_audited": "2026-07-09T18:30:00.000Z",
+      "verdict": "ITERATE",
+      "iterations": 1
+    },
+    "guidance-package": {
+      "status": "converged",
+      "last_audited": "2026-07-09T15:00:00.000Z",
+      "verdict": "KEEP-AS-IS",
+      "iterations": 1
+    },
+    "monograph": {
+      "status": "converged",
+      "last_audited": "2026-07-09T14:00:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 1
+    },
+    "mcp-server": {
+      "status": "converged",
+      "last_audited": "2026-07-09T14:30:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 1
+    },
+    "routing": {
+      "status": "converged",
+      "last_audited": "2026-07-09T12:20:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 1
+    },
+    "monobrowse": {
+      "status": "converged",
+      "last_audited": "2026-07-09T16:00:00.000Z",
+      "verdict": "KEEP-AS-IS",
+      "iterations": 1
+    },
+    "hook-handlers": {
+      "status": "converged",
+      "last_audited": "2026-07-09T12:20:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 2
+    },
+    "router-system": {
+      "status": "converged",
+      "last_audited": "2026-07-09T12:20:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 2
+    },
+    "skills-system": {
+      "status": "iterated",
+      "last_audited": "2026-07-09T18:30:00.000Z",
+      "verdict": "ITERATE",
+      "iterations": 1
+    },
+    "swarm-agents": {
+      "status": "converged",
+      "last_audited": "2026-07-09T14:50:00.000Z",
+      "verdict": "KEEP-AS-IS",
+      "iterations": 1
+    },
+    "hive-mind": {
+      "status": "converged",
+      "last_audited": "2026-07-09T18:30:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 2
+    },
+    "daemon-system": {
+      "status": "iterated",
+      "last_audited": "2026-07-09T18:30:00.000Z",
+      "verdict": "ITERATE",
+      "iterations": 1
+    },
+    "neural-system": {
+      "status": "iterated",
+      "last_audited": "2026-07-09T18:30:00.000Z",
+      "verdict": "ITERATE",
+      "iterations": 1
+    },
+    "intelligence-system": {
+      "status": "converged",
+      "last_audited": "2026-07-09T12:43:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 3
+    },
+    "monofence": {
+      "status": "converged",
+      "last_audited": "2026-07-09T15:00:00.000Z",
+      "verdict": "KEEP-AS-IS",
+      "iterations": 1
+    }
+  },
+  "total_areas": 18,
+  "audited_count": 18,
+  "last_updated": "2026-07-09T18:30:00.000Z",
+  "org_version": "value-loop-v1"
+}

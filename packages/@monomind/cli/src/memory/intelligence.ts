@@ -69,8 +69,7 @@ function getStatsPath(): string {
 export interface SonaConfig {
   instantLoopEnabled: boolean;
   backgroundLoopEnabled: boolean;
-  loraLearningRate: number;
-  loraRank: number;
+  confidenceLearningRate: number;
   ewcLambda: number;
   maxTrajectorySize: number;
   patternThreshold: number;
@@ -133,8 +132,7 @@ interface StoredPattern {
 const DEFAULT_SONA_CONFIG: SonaConfig = {
   instantLoopEnabled: true,
   backgroundLoopEnabled: false,
-  loraLearningRate: 0.001,
-  loraRank: 8,
+  confidenceLearningRate: 0.001,
   ewcLambda: 0.4,
   maxTrajectorySize: 100,
   patternThreshold: 0.7,
@@ -234,7 +232,7 @@ class LocalSonaCoordinator {
   }
 
   /**
-   * End the current trajectory with a verdict and apply RL updates.
+   * End the current trajectory with a verdict and apply confidence updates.
    * Reward mapping: success=1.0, partial=0.5, failure=-0.5
    *
    * For successful/partial trajectories, boosts confidence of similar patterns
@@ -294,10 +292,10 @@ class LocalSonaCoordinator {
 
   /**
    * Distill learning from recent successful trajectories.
-   * Applies LoRA-style confidence updates and integrates EWC++ consolidation.
+   * Applies incremental confidence updates and integrates EWC consolidation.
    *
    * For each successful trajectory step with high confidence,
-   * increases the pattern's stored confidence by loraLearningRate * reward.
+   * increases the pattern's stored confidence by confidenceLearningRate * reward.
    * Before applying updates, checks EWC penalty to prevent catastrophic forgetting.
    */
   async distillLearning(bank: LocalReasoningBank): Promise<{
@@ -358,22 +356,22 @@ class LocalSonaCoordinator {
           // Check EWC penalty before applying update
           if (ewcConsolidator) {
             const oldWeights = [oldConfidence];
-            const proposedConfidence = Math.min(1.0, oldConfidence + this.config.loraLearningRate * reward);
+            const proposedConfidence = Math.min(1.0, oldConfidence + this.config.confidenceLearningRate * reward);
             const newWeights = [proposedConfidence];
             const penalty = ewcConsolidator.getPenalty(oldWeights, newWeights);
             totalEwcPenalty += penalty;
 
             // If penalty is too high, reduce the update magnitude
             if (penalty > this.config.ewcLambda) {
-              const dampedDelta = (this.config.loraLearningRate * reward) / (1 + penalty);
+              const dampedDelta = (this.config.confidenceLearningRate * reward) / (1 + penalty);
               pattern.confidence = Math.max(0.0, Math.min(1.0, oldConfidence + dampedDelta));
             } else {
               pattern.confidence = proposedConfidence;
             }
           } else {
-            // No EWC: apply full LoRA update
+            // No consolidation guard available: apply the full confidence update
             pattern.confidence = Math.max(0.0, Math.min(1.0,
-              oldConfidence + this.config.loraLearningRate * reward
+              oldConfidence + this.config.confidenceLearningRate * reward
             ));
           }
 
@@ -770,7 +768,7 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
     // Load persisted stats if available
     loadPersistedStats();
 
-    // Seed neural learned patterns from @monomind/neural's LearningBridge flush.
+    // Seed neural learned patterns from pattern store.
     // This is the A→B bridge reader: connects the automatic learning loop to routing.
     const neuralPatternsPath = join(getDataDir(), 'patterns.json');
     if (existsSync(neuralPatternsPath) && statSync(neuralPatternsPath).size <= 50 * 1024 * 1024) {
@@ -916,7 +914,7 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
       timestamp: step.timestamp || Date.now()
     });
 
-    // Add to current trajectory for RL tracking
+    // Add to current trajectory for outcome tracking
     const stepWithEmbedding = { ...step, embedding };
     sonaCoordinator!.addTrajectoryStep(stepWithEmbedding);
 
@@ -932,7 +930,7 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
       });
     }
 
-    // When a 'result' step arrives, end the trajectory and run RL loop
+    // When a 'result' step arrives, end the trajectory and run the confidence-update loop
     if (step.type === 'result' && reasoningBank) {
       // Determine verdict from metadata or default to 'partial'
       const verdict = (step.metadata?.verdict as 'success' | 'failure' | 'partial') || 'partial';
@@ -970,7 +968,7 @@ export async function recordTrajectory(
       timestamp: Date.now()
     });
 
-    // Apply RL: update pattern confidences based on verdict
+    // Update pattern confidences based on verdict
     if (reasoningBank) {
       // Load steps into the coordinator for endTrajectory processing
       for (const step of steps) {
@@ -1092,8 +1090,8 @@ export function getReasoningBank(): LocalReasoningBank | null {
 }
 
 /**
- * End the current trajectory with a verdict and apply RL updates.
- * This is the public API for the SONA RL loop.
+ * End the current trajectory with a verdict and apply confidence updates.
+ * This is the public API for the SONA feedback loop.
  *
  * @param verdict - 'success' (reward=1.0), 'partial' (0.5), or 'failure' (-0.5)
  * @returns Update statistics or null if not initialized
@@ -1118,7 +1116,7 @@ export async function endTrajectoryWithVerdict(
 
 /**
  * Distill learning from recent successful trajectories.
- * Applies LoRA-style confidence updates with EWC++ consolidation protection.
+ * Applies incremental confidence updates with EWC consolidation protection.
  *
  * @returns Distillation statistics or null if not initialized
  */
@@ -1442,7 +1440,9 @@ export async function clearAllPatterns(): Promise<void> {
   reasoningBank!.clear();
 }
 
-// ===== AutoMem: Memory Proficiency Tracking (arXiv:2607.01224) =====
+// ===== AutoMem: Memory Proficiency Tracking =====
+// Tracks success rate and pattern-hit rate of recalled memory decisions,
+// so recall quality can be measured and reported by `doctor`.
 
 interface MemoryDecisionInput {
   taskDescription: string;

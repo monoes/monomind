@@ -23,7 +23,6 @@ import { mcpCommand } from './mcp.js';
 import { hooksCommand } from './hooks.js';
 import { daemonCommand } from './daemon.js';
 import { doctorCommand } from './doctor.js';
-import { neuralCommand } from './neural.js';
 import { performanceCommand } from './performance.js';
 import { securityCommand } from './security.js';
 import { hiveMindCommand } from './hive-mind.js';
@@ -34,11 +33,9 @@ import { workflowCommand } from './workflow.js';
 import { analyzeCommand } from './analyze.js';
 import { routeCommand } from './route.js';
 import { providersCommand } from './providers.js';
-import { deploymentCommand } from './deployment.js';
 import { claimsCommand } from './claims.js';
 import { issuesCommand } from './issues.js';
 import updateCommand from './update.js';
-import { processCommand } from './process.js';
 import { guidanceCommand } from './guidance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
@@ -54,6 +51,7 @@ import { scanCommand } from './scan.js';
 import { reportCrashCommand } from './report-crash.js';
 import { crashReportingCommand } from './crash-reporting.js';
 import { docCommand } from './doc.js';
+import { neuralCommand } from './neural.js';
 
 // Populate command cache
 loadedCommands.set('init', initCommand);
@@ -68,7 +66,6 @@ loadedCommands.set('mcp', mcpCommand);
 loadedCommands.set('hooks', hooksCommand);
 loadedCommands.set('daemon', daemonCommand);
 loadedCommands.set('doctor', doctorCommand);
-loadedCommands.set('neural', neuralCommand);
 loadedCommands.set('performance', performanceCommand);
 loadedCommands.set('security', securityCommand);
 loadedCommands.set('hive-mind', hiveMindCommand);
@@ -87,11 +84,9 @@ loadedCommands.set('workflow', workflowCommand);
 loadedCommands.set('analyze', analyzeCommand);
 loadedCommands.set('route', routeCommand);
 loadedCommands.set('providers', providersCommand);
-loadedCommands.set('deployment', deploymentCommand);
 loadedCommands.set('claims', claimsCommand);
 loadedCommands.set('issues', issuesCommand);
 loadedCommands.set('update', updateCommand);
-loadedCommands.set('process', processCommand);
 loadedCommands.set('design', designCommand);
 loadedCommands.set('enrich', enrichCommand);
 loadedCommands.set('search', searchUniversalCommand);
@@ -99,6 +94,7 @@ loadedCommands.set('scan', scanCommand);
 loadedCommands.set('report-crash', reportCrashCommand);
 loadedCommands.set('crash-reporting', crashReportingCommand);
 loadedCommands.set('doc', docCommand);
+loadedCommands.set('neural', neuralCommand);
 
 // =============================================================================
 // Exports
@@ -115,7 +111,6 @@ export { mcpCommand } from './mcp.js';
 export { hooksCommand } from './hooks.js';
 export { daemonCommand } from './daemon.js';
 export { doctorCommand } from './doctor.js';
-export { neuralCommand } from './neural.js';
 export { performanceCommand } from './performance.js';
 export { securityCommand } from './security.js';
 export { hiveMindCommand } from './hive-mind.js';
@@ -131,6 +126,7 @@ export { scanCommand } from './scan.js';
 export { reportCrashCommand } from './report-crash.js';
 export { crashReportingCommand } from './crash-reporting.js';
 export { docCommand } from './doc.js';
+export { neuralCommand } from './neural.js';
 
 /**
  * All registered commands
@@ -148,7 +144,6 @@ export const commands: Command[] = [
   hooksCommand,
   daemonCommand,
   doctorCommand,
-  neuralCommand,
   performanceCommand,
   securityCommand,
   hiveMindCommand,
@@ -163,6 +158,21 @@ export const commands: Command[] = [
   scanCommand,
   docCommand,
   crashReportingCommand,
+  browseCommand,
+  configCommand,
+  completionsCommand,
+  workflowCommand,
+  analyzeCommand,
+  routeCommand,
+  providersCommand,
+  claimsCommand,
+  issuesCommand,
+  updateCommand,
+  replayCommand,
+  storeCommand,
+  tokensCommand,
+  reportCrashCommand,
+  neuralCommand,
 ];
 
 /**
@@ -183,12 +193,12 @@ export const commandsByCategory = {
     hooksCommand,
   ],
   advanced: [
-    neuralCommand,
     securityCommand,
     performanceCommand,
     hiveMindCommand,
       guidanceCommand,
     autopilotCommand,
+    neuralCommand,
   ],
   utility: [
     configCommand,
@@ -209,11 +219,9 @@ export const commandsByCategory = {
   ],
   management: [
     providersCommand,
-    deploymentCommand,
     claimsCommand,
     issuesCommand,
     updateCommand,
-    processCommand,
     storeCommand,
     cleanupCommand,
     platformsCommand,

@@ -1019,7 +1019,7 @@ export const hooksPretrain = {
         if (patterns.length > 0) {
             try {
                 const intel = await import('../memory/intelligence.js');
-                await intel.initializeIntelligence({ loraLearningRate: 0.002, maxTrajectorySize: patterns.length });
+                await intel.initializeIntelligence({ confidenceLearningRate: 0.002, maxTrajectorySize: patterns.length });
                 // Record each extracted pattern as an action step
                 for (const pat of patterns.slice(0, 50)) {
                     await intel.recordStep({ type: 'action', content: pat, metadata: { source: 'pretrain', depth } });

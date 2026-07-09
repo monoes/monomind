@@ -80,6 +80,21 @@ function getDbPath(customPath?: string): string {
   return defaultDir;
 }
 
+function getAutomemConfig(): { dedupThreshold: number; staleDays: number } {
+  const defaults = { dedupThreshold: 0.85, staleDays: 7 };
+  try {
+    const configPath = path.join(process.cwd(), '.monomind', 'automem-config.json');
+    if (!fs.existsSync(configPath)) return defaults;
+    const stat = fs.statSync(configPath);
+    if (stat.size > 64 * 1024) return defaults;
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    return {
+      dedupThreshold: typeof config?.scaffold?.dedupThreshold === 'number' ? config.scaffold.dedupThreshold : defaults.dedupThreshold,
+      staleDays: typeof config?.scaffold?.staleDays === 'number' ? config.scaffold.staleDays : defaults.staleDays,
+    };
+  } catch { return defaults; }
+}
+
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
 }
@@ -175,6 +190,7 @@ export async function bridgeStoreEntry(options: {
   guarded?: boolean;
   cached?: boolean;
   attested?: boolean;
+  duplicate?: boolean;
   error?: string;
 } | null> {
   const backend = await getBackend(options.dbPath);
@@ -222,6 +238,17 @@ export async function bridgeStoreEntry(options: {
         const existing = await backend.getByKey(namespace, key);
         if (existing) await backend.delete(existing.id);
       } catch { /* non-fatal */ }
+    }
+
+    // Dedup gate: skip if a near-duplicate already exists
+    const automemCfg = getAutomemConfig();
+    if (embedding && !options.upsert) {
+      try {
+        const similar = await backend.search(embedding, { k: 1, threshold: automemCfg.dedupThreshold });
+        if (similar.length > 0 && similar[0].score >= automemCfg.dedupThreshold) {
+          return { success: true, id: similar[0].entry.id, duplicate: true };
+        }
+      } catch { /* non-fatal — store anyway */ }
     }
 
     await backend.store(entry);
@@ -279,6 +306,7 @@ export async function bridgeSearchEntries(options: {
           score: r.score,
           namespace: r.entry.namespace,
           provenance: `semantic:${r.score.toFixed(3)}`,
+          _createdAt: r.entry.createdAt || 0,
         }));
         searchMethod = 'semantic';
       } catch { /* fall through to keyword search */ }
@@ -303,9 +331,16 @@ export async function bridgeSearchEntries(options: {
           score: 0.5,
           namespace: e.namespace,
           provenance: 'keyword',
+          _createdAt: e.createdAt || 0,
         }));
       searchMethod = 'keyword';
     }
+
+    // Filter stale entries based on automem config
+    const { staleDays } = getAutomemConfig();
+    const staleCutoff = Date.now() - staleDays * 86400000;
+    results = results.filter((r: any) => !r._createdAt || r._createdAt > staleCutoff);
+    results.forEach((r: any) => delete r._createdAt);
 
     return {
       success: true,

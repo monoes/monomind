@@ -1,53 +1,35 @@
 'use strict';
-const fs = require('fs');
-const path = require('path');
+// monolean: 207-line protocol replaced with compact routing table.
+// The enforcement prose, anti-drift guards, iron laws, and mandatory patterns
+// are redundant with using-superpowers skill and add ~4K tokens per session.
+// The routing table is the unique value — tells Claude which skill for which task.
+// Full protocol loads on-demand via /mastermind.
 
-// Walk up from cwd to find the project root containing master.md
-function findMasterPath() {
-  const candidates = [];
-  if (process.env.CLAUDE_PROJECT_DIR) candidates.push(process.env.CLAUDE_PROJECT_DIR);
-  let dir = process.cwd();
-  for (let i = 0; i < 12; i++) {
-    candidates.push(dir);
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  for (const base of candidates) {
-    const p = path.join(base, '.claude', 'commands', 'mastermind', 'master.md');
-    if (fs.existsSync(p)) return p;
-  }
-  return null;
-}
-
-// Extract only the MASTERMIND PROTOCOL section (before the capability menu / execution flow).
-// The protocol section ends at the separator before "**If $ARGUMENTS is empty:**"
-function extractProtocol(content) {
-  const marker = '\n---\n\n**If $ARGUMENTS is empty:**';
-  const idx = content.indexOf(marker);
-  if (idx !== -1) return content.slice(0, idx).trim();
-  // Fallback: everything before the capability menu header
-  const fallback = content.indexOf('\n**MASTERMIND** —');
-  if (fallback !== -1) return content.slice(0, fallback).trim();
-  return content.trim();
-}
-
-const masterPath = findMasterPath();
-if (!masterPath) {
-  process.stderr.write('[mastermind-activate] master.md not found — skipping injection\n');
-  process.exit(0);
-}
-
-let raw;
-try {
-  raw = fs.readFileSync(masterPath, 'utf8');
-} catch (e) {
-  process.stderr.write('[mastermind-activate] Could not read master.md: ' + e.message + '\n');
-  process.exit(0);
-}
-
-// Strip YAML frontmatter
-const body = raw.replace(/^---[\s\S]*?---\s*/, '');
-const protocol = extractProtocol(body);
-
-process.stdout.write(protocol + '\n');
+process.stdout.write(
+  '## Mastermind Skill Router\n\n' +
+  'Invoke the matching skill BEFORE responding. If unsure, check — invoking and finding it irrelevant costs less than skipping it.\n\n' +
+  '| Task | Skill |\n|---|---|\n' +
+  '| Debug/fix bug | `mastermind:debug` |\n' +
+  '| Verify claim/test/fix | `mastermind:verify` |\n' +
+  '| TDD (red-green-refactor) | `mastermind:tdd` |\n' +
+  '| Write implementation plan | `mastermind:plan` |\n' +
+  '| Execute a plan | `mastermind:execute` |\n' +
+  '| Subagent-driven plan execution | `mastermind:taskdev` |\n' +
+  '| Ingest spec → agent tasks | `mastermind:createtask` |\n' +
+  '| Execute task file/board | `mastermind:do` |\n' +
+  '| Design before code | `mastermind:design` |\n' +
+  '| Build feature/fix | `mastermind:build` |\n' +
+  '| Code/content review | `mastermind:review` |\n' +
+  '| Apply received review | `mastermind:receive-review` |\n' +
+  '| Architecture/DDD | `mastermind:architect` |\n' +
+  '| Research/analysis | `mastermind:research` |\n' +
+  '| Ideation | `mastermind:idea` / `mastermind:ideate` |\n' +
+  '| Improvement analysis | `mastermind:improve` |\n' +
+  '| Marketing/sales/content | `mastermind:marketing` / `mastermind:sales` / `mastermind:content` |\n' +
+  '| Release/finish branch | `mastermind:release` / `mastermind:finish` |\n' +
+  '| Autonomous build+review | `mastermind:autodev` |\n' +
+  '| Isolated work | `mastermind:worktree` |\n' +
+  '| Brain/memory inspect | `mastermind:brain` |\n\n' +
+  'Process skills (debug, idea, architect, research) set the approach. Execution skills (build, review, release) carry it out.\n' +
+  'Subagents with `<SUBAGENT-STOP>` gate skip this routing.\n'
+);

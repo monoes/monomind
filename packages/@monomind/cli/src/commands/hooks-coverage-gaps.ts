@@ -163,7 +163,7 @@ export const coverageGapsCommand: Command = {
         summary: { totalFiles: number; overallLineCoverage: number; overallBranchCoverage: number; filesBelowThreshold: number; coverageThreshold: number };
         agentAssignments: Record<string, string[]>;
         monovectorAvailable: boolean;
-      }>('hooks_coverage-gaps', { threshold, groupByAgent });
+      }>('coverage_gaps', { threshold, groupByAgent });
 
       spinner.stop();
 

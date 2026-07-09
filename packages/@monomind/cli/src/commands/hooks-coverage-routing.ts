@@ -182,7 +182,7 @@ export const coverageRouteCommand: Command = {
         routing: { primaryAgent: string; confidence: number; reason: string; coverageImpact: string };
         suggestions: string[];
         metrics: { filesAnalyzed: number; totalGaps: number; criticalGaps: number; avgCoverage: number };
-      }>('hooks_coverage-route', { task, threshold, useMonovector });
+      }>('coverage_route', { task, threshold, useMonovector });
 
       spinner.stop();
 
@@ -403,7 +403,7 @@ export const coverageSuggestCommand: Command = {
         summary: { totalFiles: number; overallLineCoverage: number; overallBranchCoverage: number; filesBelowThreshold: number };
         prioritizedFiles: string[];
         monovectorAvailable: boolean;
-      }>('hooks_coverage-suggest', { path: targetPath, threshold, limit });
+      }>('coverage_suggest', { path: targetPath, threshold, limit });
 
       spinner.stop();
 

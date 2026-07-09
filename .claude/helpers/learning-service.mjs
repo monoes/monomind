@@ -33,6 +33,7 @@ export class LearningService {
     } catch (_) {
       this._entries = [];
     }
+
     this._initialized = true;
   }
 

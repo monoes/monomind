@@ -1,0 +1,627 @@
+{
+  "features": {
+    "memory-system": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 2,
+          "implementation_health": 4,
+          "honesty_gap": 7
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Fix outcomes path mismatch (.monomind/ -> .monomind/data/)",
+          "Agent interactions: detect failure from result summary instead of hardcoding success=1",
+          "Episode content: strip system XML noise from stored prompts",
+          "Memory ops: wire consumer that logs stats at session-end",
+          "Routing feedback: wire reader that checks historical accuracy"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-08T22:52:02.657185Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Rebuilt monograph dist so agent_interactions table is created on DB open via applyMigrations",
+          "Wired taskSuccess into intelligence.feedback() instead of hardcoded true"
+        ],
+        "verification": {
+          "agent_interactions_table": "EXISTS in live DB",
+          "dist_includes_schema": true,
+          "feedback_wired": "taskSuccess flows to intelligence.feedback",
+          "tests_passed": 848,
+          "tests_skipped": 7,
+          "test_failures": 0
+        },
+        "convergence_rationale": "Both code-level fixes confirmed working. Remaining value requires accumulating real usage data over sessions, not more code changes.",
+        "timestamp": "2026-07-09T09:28:45.000Z"
+      }
+    ],
+    "hook-handlers": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 3,
+          "implementation_health": 5,
+          "honesty_gap": 6
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Same fixes as memory-system \u2014 hook handlers are the execution layer"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-08T22:52:02.657185Z"
+      }
+    ],
+    "intelligence-system": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 2,
+          "implementation_health": 5,
+          "honesty_gap": 6
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Persist recentEdits to disk (recent-edits.jsonl) so feedback() reads edits across subprocess boundaries",
+          "Store _lastContext from getContext() so feedback records include what intelligence suggested",
+          "consolidate() now synthesizes successful outcomes with edits into auto-memory-store.json for getContext() to use"
+        ],
+        "timestamp": "2026-07-09T12:00:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 3,
+          "implementation_health": 6,
+          "honesty_gap": 4
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "feedback() no longer clears recent-edits.jsonl \u2014 only consolidate() clears at session-end (prevents post-task from consuming session-level edits)",
+          "consolidate() falls back to session-level edits when outcomes have empty recentEdits (breaks bootstrap deadlock)",
+          "consolidate() deduplicates edit paths and caps store at 200 entries",
+          "consolidate() rotates outcomes file at 500 lines (prevents unbounded growth)",
+          "getContext() requires minimum 2 word matches (3+ char words) to reduce false positives",
+          "getContext() ranks matches by hit count then confidence (was arbitrary first-match)",
+          "Removed false 'PageRank recomputed' claim from session-handler consolidation message"
+        ],
+        "verification": {
+          "tests_passed": 688,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "flaky_test": "control-start.test.mjs (ENOTEMPTY temp cleanup race \u2014 pre-existing, unrelated)",
+          "intelligence_tests_passed": 43,
+          "data_diagnosis": "All 64 existing outcomes have empty recentEdits \u2014 fix A/B will resolve on next session cycle"
+        },
+        "timestamp": "2026-07-09T12:10:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Session-end ordering: moved feedback() BEFORE consolidate() so outcomes capture recentEdits (was always empty because consolidate cleared recent-edits.jsonl first)",
+          "consolidate() path extraction: e.path || e replaced with null-safe check that filters empty-path entries instead of producing [object Object]",
+          "Test isolation: tests/routing/intelligence-cjs.test.mjs now uses CLAUDE_PROJECT_DIR temp dir (was writing to production .monomind/data/), added 2 new tests (feedback captures edits, consolidate produces clean store)",
+          "Cleaned 65 polluted auto-memory-store.json entries (all contained [object Object] and fake test paths)"
+        ],
+        "verification": {
+          "e2e_data_flow": "recordEdit -> feedback(with edits) -> consolidate(pattern) -> init(loads) -> getContext(returns match) -- CONFIRMED",
+          "no_object_object": true,
+          "tests_passed": 674,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "intelligence_tests_passed": 45,
+          "intelligence_test_files": 2,
+          "new_tests_added": 2,
+          "polluted_entries_cleaned": 65
+        },
+        "convergence_rationale": "All three bugs in the intelligence data pipeline are fixed and verified end-to-end. Session 1 edits flow into auto-memory-store.json; Session 2 getContext returns relevant suggestions. No [object Object] pollution. No test data leaking into production files. The system now genuinely learns from successful sessions. Value increase from 3 to 7 reflects the pipeline going from broken-but-compensated to actually working.",
+        "timestamp": "2026-07-09T12:43:00.000Z"
+      }
+    ],
+    "routing-package": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 7,
+          "honesty_gap": 3
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Added 94 tests across 7 test files (cosine, encoder, keyword-pre-filter, llm-fallback, capability-index, classify-prompt, route-layer)",
+          "Added vitest.config.ts for the routing package"
+        ],
+        "verification": {
+          "routing_tests_passed": 94,
+          "routing_test_files": 7,
+          "repo_tests_passed": 833,
+          "repo_tests_skipped": 7,
+          "repo_test_failures": 0,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)"
+        },
+        "convergence_rationale": "Package delivers genuine value: real embedding-based semantic routing (Snowflake arctic-embed-xs, ~58% top-1), 3-tier cascade (keyword->semantic->LLM fallback), production hardening (isolated worker process, centroid caching, graceful degradation). Complementary to router.cjs (hooks pipeline) -- not redundant. Route-outcome correlation is in CLI monovector module, not this package (audit label was slightly misleading). No code bugs found. Added comprehensive test suite to close the only gap.",
+        "timestamp": "2026-07-09T12:20:00.000Z"
+      }
+    ],
+    "monograph": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 7,
+          "honesty_gap": 3
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Wired obsidian and canvas export formats in MCP tool (implementations existed in @monoes/monograph but were not connected)",
+          "Fixed monograph_watch_stop stub: added _activeWatchers Map to track watcher references, watch registers them, watch_stop actually stops them",
+          "Extracted shared applyPprRerank helper from duplicated code in monograph_query and monograph_ppr_rerank"
+        ],
+        "verification": {
+          "tests_passed": 833,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "export_formats_wired": [
+            "obsidian",
+            "canvas"
+          ],
+          "watch_stop_functional": true,
+          "ppr_deduped": "single applyPprRerank at line 51, used by monograph_query and monograph_ppr_rerank",
+          "tools_total": 47,
+          "tools_real": 46,
+          "tools_deprecated_noop": 1
+        },
+        "convergence_rationale": "Monograph is the highest-value package in monomind (8/10 value). 47 MCP tools with 46 real implementations. Graph-powered capabilities (impact analysis, PPR reranking, community detection, dead code, Cypher queries) genuinely transcend grep/find. Three targeted honesty-gap fixes applied: export wiring, watch_stop stub, PPR dedup. Only remaining gap is monograph_embed (deprecated no-op, intentional). No further code changes needed -- remaining value comes from usage.",
+        "timestamp": "2026-07-09T14:00:00.000Z"
+      }
+    ],
+    "router-system": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 5,
+          "implementation_health": 6,
+          "honesty_gap": 3
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "matchSkills now counts distinct keyword hits per skill (was binary 1.0 for all matches)",
+          "Skills registry gains _terms arrays for multi-keyword scoring",
+          "Auto-activation threshold lowered from score>=3 (unreachable) to score>=2 (fires on 2+ keyword hits)",
+          "Skills regex switched to global flag for consistent matching"
+        ],
+        "verification": {
+          "multi_keyword_scoring": "design ui layout css -> score 4",
+          "single_keyword_scoring": "design -> score 1 (no auto-activate)",
+          "auto_activation_reachable": true,
+          "tests_passed": 689,
+          "tests_skipped": 7,
+          "test_failures": 0
+        },
+        "timestamp": "2026-07-09T12:00:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 7,
+          "honesty_gap": 2
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [],
+        "verification": {
+          "auto_activation_confirmed": "swarm topology -> score 2 -> auto-activates",
+          "multi_keyword_confirmed": "design ui component layout -> score 4",
+          "regex_lastIndex_reset": "line 263 resets before test() \u2014 correct",
+          "coder_catchall_safe": "last in DEV_PRIORITY \u2014 only fires as fallback",
+          "no_bugs_found": true,
+          "tests_passed": 31,
+          "test_files": "route-handler.test.mjs (12), route-edit-handler.test.mjs (19)",
+          "test_failures": 0
+        },
+        "convergence_rationale": "Scoring fix from iteration 1 confirmed working. Auto-activation fires on 2+ keyword hits. No bugs found. Remaining improvements are additive features (more skills in registry), not fixes.",
+        "timestamp": "2026-07-09T12:20:00.000Z"
+      }
+    ],
+    "mcp-server": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 7,
+          "honesty_gap": 2
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [],
+        "verification": {
+          "stdio_server_works": true,
+          "http_server_works": "delegates to @monomind/mcp with CLI tool registration",
+          "tools_registered": "~300+ from 30 tool files via mcp-client.ts",
+          "tool_files": 30,
+          "mcp_package_tests": 65,
+          "mcp_package_test_failures": 0,
+          "protocol_version_correct": "2024-11-05 (string, matches Claude Code MCP client)",
+          "security_hardening": [
+            "proto-pollution sanitization on JSON-RPC boundary",
+            "10MB bounded stdin buffer",
+            "loopback gate for HTTP/WS (requires MONOMIND_MCP_ALLOW_REMOTE=1 + 32-char token)",
+            "O_EXCL PID file creation (symlink-safe)",
+            "log-injection defense (control char stripping)",
+            "production error message sanitization"
+          ],
+          "resources_exposed": 4,
+          "resource_uris": [
+            "monograph://repo/processes",
+            "monograph://repo/communities",
+            "monograph://repo/schema",
+            "monograph://repo/graph"
+          ],
+          "graceful_shutdown": true,
+          "memory_auto_init": true
+        },
+        "convergence_rationale": "MCP server is the highest-value integration point in monomind -- it bridges all ~300+ tools to Claude Code. The stdio handler (primary path) is well-implemented with comprehensive security hardening. The @monomind/mcp framework package provides HTTP/WS transport with its own session management, rate limiting, and tool registry. 65 tests pass. No bugs found. Protocol version '2024-11-05' is correct for Claude Code's MCP client. The dual-architecture (direct stdio handler + framework for HTTP/WS) is pragmatic engineering.",
+        "timestamp": "2026-07-09T14:30:00.000Z"
+      }
+    ],
+    "guidance-package": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "KEEP-AS-IS",
+        "fixes_applied": [],
+        "verification": {
+          "tests_passed": 1346,
+          "test_files": 26,
+          "test_failures": 0,
+          "coverage_statements": "88.63%",
+          "coverage_branches": "80.87%",
+          "coverage_functions": "85.12%",
+          "coverage_lines": "89.13%",
+          "source_files": 31,
+          "source_lines": 21304,
+          "cli_subcommands": 7,
+          "mcp_guidance_tools": 5,
+          "external_consumers": 0,
+          "cli_dynamic_imports": true,
+          "gates_handler_exists": true,
+          "init_wizard_wires_setup": true,
+          "weak_coverage_modules": [
+            "headless.ts (0%)",
+            "wasm-kernel.ts (5%)",
+            "meta-governance.ts (41%)",
+            "authority.ts (42%)"
+          ]
+        },
+        "convergence_rationale": "Guidance is a substantial, well-engineered governance framework (21k lines, 31 modules, 1346 tests at 88.6% coverage). It provides real value: CLAUDE.md compilation into policy bundles, enforcement gates for destructive ops and secrets, run ledgers with evaluators, trust systems, proof chains, adversarial defenses, and CLAUDE.md quality analysis/optimization. The CLI exposes 7 subcommands (compile, retrieve, gates, status, optimize, ab-test, setup) and 5 MCP guidance tools. The init wizard wires gates into hooks. The package has NO runtime consumers outside the CLI guidance command (no other package imports it), meaning it is opt-in tooling rather than a core runtime dependency. This is appropriate -- it is a governance control plane meant to be invoked explicitly. No bugs found. The only gaps are low test coverage on headless.ts and wasm-kernel.ts, which are infrastructure modules not yet fully implemented. No code changes needed.",
+        "timestamp": "2026-07-09T15:00:00.000Z"
+      }
+    ],
+    "monobrowse": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "KEEP-AS-IS",
+        "fixes_applied": [],
+        "verification": {
+          "build_clean": true,
+          "build_errors": 0,
+          "source_files": 43,
+          "source_lines": 7020,
+          "runtime_deps": 2,
+          "cli_integration": "browse.ts imports @monoes/monobrowse/cli/commands",
+          "cli_tests": 348,
+          "cli_test_files": [
+            "browse-cdp.test.ts",
+            "browse-adapters.test.ts",
+            "browse-analyzer.test.ts"
+          ],
+          "capabilities": [
+            "CDP WebSocket client with command correlation",
+            "Chrome/Edge/Chromium auto-discovery (macOS/Linux/Windows)",
+            "Headless/headed mode with auto-switch on login/CAPTCHA",
+            "Accessibility tree snapshots with ref-based element model",
+            "Click/fill/type/press/hover/scroll/drag/upload/tap/swipe",
+            "Screenshot (PNG/JPEG/WebP) with annotation overlays",
+            "Network interception (abort/fulfill/continue)",
+            "Cookie/localStorage/sessionStorage management",
+            "Session save/load/rename/clean",
+            "Device emulation, geolocation, offline, color scheme",
+            "CPU profiling, Chrome tracing, Web Vitals",
+            "PDF generation, HAR recording, console capture",
+            "Platform adapters (Google/Gemini/LinkedIn/Instagram/Microsoft/X)",
+            "Dashboard web UI server",
+            "Action builder analyzer for AI-driven automation"
+          ],
+          "resource_bounding": [
+            "1000 in-flight CDP commands",
+            "100 listeners per event",
+            "10MB CDP response limit",
+            "100KB text input cap",
+            "2MB URL length cap",
+            "100 click count cap",
+            "100K scroll amount cap",
+            "50 caller-supplied Chrome args cap"
+          ],
+          "security": [
+            "Session name validation (path traversal prevention)",
+            "File path validation (traversal, null byte)",
+            "Port range validation (1024-65535)"
+          ],
+          "repo_tests_passed": 880,
+          "repo_tests_skipped": 7,
+          "repo_test_failures": 0
+        },
+        "convergence_rationale": "Monobrowse is a well-implemented, lightweight CDP browser automation engine with genuine differentiators: ref-based accessibility element model optimized for AI agents, automatic login/CAPTCHA detection with headed fallback, session persistence, and zero binary downloads (uses system Chrome). 43 source files across 7020 lines with only 2 runtime dependencies (ws, commander). Clean build, comprehensive resource bounding, proper security validation. Used as the engine for monomind browse CLI command. 348 lines of tests in the CLI package. No bugs found. No code changes needed.",
+        "timestamp": "2026-07-09T16:00:00.000Z"
+      }
+    ],
+    "swarm-agents": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 7,
+          "honesty_gap": 2
+        },
+        "verdict": "KEEP-AS-IS",
+        "fixes_applied": [],
+        "verification": {
+          "registry_builder_functional": true,
+          "registry_builder_lines": 239,
+          "agent_definitions_scanned": 144,
+          "agent_types_in_cli": 15,
+          "cli_commands": {
+            "agent": [
+              "spawn",
+              "list",
+              "status",
+              "stop",
+              "metrics",
+              "pool",
+              "health"
+            ],
+            "swarm": [
+              "init",
+              "start",
+              "status",
+              "stop",
+              "scale",
+              "coordinate"
+            ]
+          },
+          "mcp_tools_wired": [
+            "agent_spawn",
+            "agent_list",
+            "agent_status",
+            "agent_terminate",
+            "agent_pool",
+            "agent_health",
+            "swarm_init",
+            "swarm_scale",
+            "swarm_shutdown"
+          ],
+          "agent_store_persistence": ".monomind/agents/store.json with 50MB cap and 500 terminated agent pruning",
+          "swarm_state_persistence": ".swarm/state.json with tmp+rename atomic writes",
+          "swarm_activity_metrics": ".monomind/metrics/swarm-activity.json",
+          "routing_integration": "spawn --task auto-routes via route-layer-factory.ts",
+          "doctor_integration": "doctor-project-checks.ts validates registry",
+          "startup_integration": "index.ts builds registry on startup (non-blocking)",
+          "consensus_coordination": "swarm coordinate command shows v1 15-agent mesh plan and calls MCP swarm_init",
+          "tests_passed": 880,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "no_dead_agent_types": true
+        },
+        "convergence_rationale": "The agents module is lean but well-integrated. The src/agents/ directory contains only registry-builder.ts (239 lines), which scans .claude/agents/*.md files (144 definitions), parses YAML frontmatter, and produces a unified registry JSON. This feeds into startup (index.ts), doctor checks, and agent routing. The actual agent lifecycle (spawn/list/status/stop/metrics/pool/health) lives in commands/agent-lifecycle.ts and agent-ops.ts, delegating to MCP tools for state management. The swarm command (912 lines) provides init/start/status/stop/scale/coordinate with real MCP integration and disk-persisted state. The MCP agent-tools.ts provides file-backed agent persistence with proper resource bounding (50MB store cap, 500 terminated agent pruning). Consensus coordination is implemented through swarm topology selection (hierarchical, mesh, ring, star, hybrid, hierarchical-mesh) with the coordinate command showing the v1 15-agent plan. No dead or broken agent types found. The spawn command integrates with route-layer-factory for auto-routing by task description. All 880 tests pass. No honesty gaps -- the CLI honestly delegates to MCP for actual execution and clearly states when MCP is unavailable. No code changes needed.",
+        "timestamp": "2026-07-09T14:50:00.000Z"
+      }
+    ],
+    "hive-mind": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 5,
+          "honesty_gap": 5
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Marked gossip and CRDT strategies as 'planned -- not yet implemented' in CONSENSUS_STRATEGIES constant (hive-mind-helpers.ts)",
+          "Added explicit rejection in hive-mind_consensus handler when gossip/crdt strategy is passed (returns error with available strategies list)",
+          "Added validation in hive-mind_init handler: gossip/crdt consensus requests get a warning and default to 'byzantine' instead of echoing unimplemented strategy",
+          "Added 37 tests in tests/hive-mind/consensus.test.mjs covering vote-signer (deriveSigningKey, signVote, verifyVote, weightedTally) and audit-writer (record, verify, tamper detection, path traversal guard, swarmId filtering)"
+        ],
+        "verification": {
+          "tests_passed": 957,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "test_files": 56,
+          "new_consensus_tests": 37,
+          "new_test_file": "tests/hive-mind/consensus.test.mjs",
+          "gossip_crdt_honest": "returns explicit 'not yet implemented' error instead of silent fallthrough",
+          "init_consensus_validated": "gossip/crdt default to byzantine with warning",
+          "tsc_noEmit": "clean (no type errors)"
+        },
+        "timestamp": "2026-07-09T15:00:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 4,
+          "implementation_health": 6,
+          "honesty_gap": 5
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [],
+        "convergence_rationale": "BFT/Raft/Quorum real. Gossip/CRDT honestly labeled. No further improvements without real distributed IPC.",
+        "timestamp": "2026-07-09T18:30:00.000Z"
+      }
+    ],
+    "monofence": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 7,
+          "honesty_gap": 2
+        },
+        "verdict": "KEEP-AS-IS",
+        "fixes_applied": [],
+        "verification": {
+          "tests_passed": 91,
+          "test_files": 8,
+          "test_failures": 0,
+          "coverage_statements": "75.26%",
+          "coverage_branches": "64.87%",
+          "coverage_functions": "68.18%",
+          "coverage_lines": "78.19%",
+          "source_files": 11,
+          "source_lines": 2271,
+          "mcp_tools": 6,
+          "cli_commands": 1,
+          "hooks_integration": "pre-task + pre-command auto-registration",
+          "npm_published": "monofence-ai@1.0.0",
+          "workspace_member": true,
+          "detection_patterns": "25+ regex patterns for prompt injection, jailbreak, role-switching",
+          "evasion_normalization": "homoglyphs (Cyrillic/Greek/IPA/fullwidth), leetspeak, zero-width, base64",
+          "pii_detection": "email, SSN, credit card, API keys, passwords",
+          "output_scanning": "PII leakage, prompt echo (trigram Jaccard), policy violations, contradictions",
+          "context_tracking": "4-state escalation machine with cumulative scoring and idle decay",
+          "multi_agent_consensus": "calculateSecurityConsensus with attention-weighted voting",
+          "self_learning": "ReasoningBank trajectory recording, EMA mitigation effectiveness"
+        },
+        "convergence_rationale": "Monofence is production-quality security middleware with comprehensive guardrails. 25+ detection patterns with evasion normalization, PII scanning, output analysis, multi-turn state machine, and multi-agent consensus. 91 tests pass across 8 test files at 75% statement coverage. Published to npm, deeply integrated via 6 MCP tools, CLI security scan command, and hooks auto-registration. The only coverage gap is the learning service (39%) which requires real usage data to exercise fully. No code changes needed.",
+        "timestamp": "2026-07-09T15:00:00.000Z"
+      }
+    ],
+    "cli-commands": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 4,
+          "implementation_health": 5,
+          "honesty_gap": 7
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Added Status column to CLI commands table in CLAUDE.md",
+          "Changed '60+ agent types' to '60+ routing target definitions'",
+          "Changed hive-mind description to 'BFT/Raft/Quorum vote counting (single-process)'",
+          "Removed phantom InputValidator/PathValidator/SafeExecutor agent claims",
+          "Changed neural description to 'Pattern storage'"
+        ],
+        "timestamp": "2026-07-09T18:30:00.000Z"
+      }
+    ],
+    "hooks-system": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 3,
+          "implementation_health": 5,
+          "honesty_gap": 7
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Wired security worker into session-start via session-restore-handler.cjs",
+          "Documented two-system architecture at top of hook-handler.cjs"
+        ],
+        "timestamp": "2026-07-09T18:30:00.000Z"
+      }
+    ],
+    "security-package": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 2,
+          "implementation_health": 4,
+          "honesty_gap": 9
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Wired validateExternalContent into memory_pattern-store and memory_pattern-search",
+          "Removed phantom WasmSandbox/DockerSandbox/register import from agent-tools.ts",
+          "Wired validateInput into MCP server tools/call dispatch"
+        ],
+        "timestamp": "2026-07-09T18:30:00.000Z"
+      }
+    ],
+    "skills-system": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 5,
+          "honesty_gap": 6
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Registered sparc, monobrowse, tokens skills in router",
+          "Added coder catch-all bypass when skill match score >= 2"
+        ],
+        "timestamp": "2026-07-09T18:30:00.000Z"
+      }
+    ],
+    "daemon-system": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 1,
+          "implementation_health": 6,
+          "honesty_gap": 9
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Wired security-audit.json into route-handler as [SECURITY] line",
+          "Wired codebase-map.json into route-handler as [CODEBASE] line"
+        ],
+        "timestamp": "2026-07-09T18:30:00.000Z"
+      }
+    ],
+    "neural-system": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 4,
+          "implementation_health": 6,
+          "honesty_gap": 7
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Wired trainCommand: reads outcomes + edits, stores patterns via ReasoningBank",
+          "Renamed all neural descriptions to honest 'pattern storage/similarity search'"
+        ],
+        "timestamp": "2026-07-09T18:30:00.000Z"
+      }
+    ]
+  },
+  "meta": {
+    "created": "2026-07-09T00:00:00Z",
+    "last_updated": "2026-07-09T18:30:00.000Z",
+    "total_iterations": 23,
+    "features_converged": 12,
+    "features_removed": 0
+  }
+}

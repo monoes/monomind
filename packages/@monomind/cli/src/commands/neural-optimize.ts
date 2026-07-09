@@ -9,7 +9,7 @@ import { output } from '../output.js';
 
 export const optimizeCommand: Command = {
   name: 'optimize',
-  description: 'Optimize neural patterns (Int8 quantization, memory compression)',
+  description: 'Optimize pattern storage (Int8 quantization, memory compression)',
   options: [
     { name: 'method', type: 'string', description: 'Method: quantize, analyze, compact', default: 'quantize' },
     { name: 'verbose', short: 'v', type: 'boolean', description: 'Show detailed metrics' },
@@ -152,7 +152,7 @@ export const optimizeCommand: Command = {
 
 export const exportCommand: Command = {
   name: 'export',
-  description: 'Export trained models to IPFS for sharing (Ed25519 signed)',
+  description: 'Export stored patterns to IPFS for sharing (Ed25519 signed)',
   options: [
     { name: 'model', short: 'm', type: 'string', description: 'Model ID or category to export' },
     { name: 'output', short: 'o', type: 'string', description: 'Output file path (optional)' },
@@ -174,7 +174,7 @@ export const exportCommand: Command = {
     const customName = ctx.flags.name as string;
 
     output.writeln();
-    output.writeln(output.bold('Secure Model Export'));
+    output.writeln(output.bold('Secure Pattern Export'));
     output.writeln(output.dim('─'.repeat(50)));
 
     const spinner = output.createSpinner({ text: 'Preparing export...', spinner: 'dots' });
@@ -185,7 +185,7 @@ export const exportCommand: Command = {
       const path = await import('path');
       const crypto = await import('crypto');
 
-      spinner.setText('Collecting trained patterns...');
+      spinner.setText('Collecting stored patterns...');
       const { getIntelligenceStats, flushPatterns } = await import('../memory/intelligence.js');
 
       await flushPatterns();

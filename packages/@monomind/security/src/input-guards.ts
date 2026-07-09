@@ -162,3 +162,111 @@ export function validateInput(
       return validateOrgName(value, opts);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/*  Prompt-injection guard for external / untrusted content            */
+/* ------------------------------------------------------------------ */
+
+export interface ExternalContentResult {
+  safe: boolean;
+  reason?: string;
+}
+
+/**
+ * Case-insensitive patterns that indicate an attempt to override
+ * system-level instructions or inject prompt directives.
+ */
+const INJECTION_PATTERNS: Array<{ re: RegExp; label: string }> = [
+  { re: /ignore\s+(all\s+)?previous\s+instructions/i, label: 'instruction override ("ignore previous instructions")' },
+  { re: /ignore\s+(all\s+)?prior\s+instructions/i, label: 'instruction override ("ignore prior instructions")' },
+  { re: /disregard\s+(all\s+)?(previous|prior|above)\s+instructions/i, label: 'instruction override ("disregard instructions")' },
+  { re: /forget\s+(all\s+)?(previous|prior|above)\s+(instructions|context)/i, label: 'instruction override ("forget instructions")' },
+  { re: /you\s+are\s+now\b/i, label: 'identity hijack ("you are now")' },
+  { re: /act\s+as\s+(if\s+you\s+are|a|an)\b/i, label: 'identity hijack ("act as")' },
+  { re: /pretend\s+(you\s+are|to\s+be)\b/i, label: 'identity hijack ("pretend to be")' },
+  { re: /^system\s*:/im, label: 'system prompt injection ("system:")' },
+  { re: /\[system\]/i, label: 'system prompt injection ("[system]")' },
+  { re: /<<\s*system\s*>>/i, label: 'system prompt injection ("<<system>>")' },
+  { re: /^IMPORTANT\s*:/im, label: 'directive injection ("IMPORTANT:")' },
+  { re: /^INSTRUCTION\s*:/im, label: 'directive injection ("INSTRUCTION:")' },
+  { re: /^OVERRIDE\s*:/im, label: 'directive injection ("OVERRIDE:")' },
+  { re: /\bdo\s+not\s+follow\s+(any\s+)?(previous|prior|earlier)\b/i, label: 'instruction override ("do not follow previous")' },
+  { re: /\bnew\s+instructions?\s*:/i, label: 'directive injection ("new instructions:")' },
+];
+
+/**
+ * Suspicious encoding patterns that may attempt to smuggle directives
+ * through Base64, hex escapes, or Unicode homoglyphs.
+ */
+const ENCODING_PATTERNS: Array<{ re: RegExp; label: string }> = [
+  // Large Base64 blobs (>80 chars of contiguous base64 alphabet)
+  { re: /[A-Za-z0-9+/=]{80,}/, label: 'suspicious Base64-encoded blob' },
+  // Excessive hex escapes (\x41\x42...)
+  { re: /(\\x[0-9a-fA-F]{2}){6,}/, label: 'suspicious hex-escape sequence' },
+  // Excessive Unicode escapes (AB...)
+  { re: /(\\u[0-9a-fA-F]{4}){6,}/, label: 'suspicious Unicode-escape sequence' },
+];
+
+/** Threshold ratio of uppercase + directive-like words to total words. */
+const DIRECTIVE_DENSITY_THRESHOLD = 0.4;
+const DIRECTIVE_WORDS = /\b(MUST|SHALL|ALWAYS|NEVER|IMPORTANT|OVERRIDE|IMMEDIATELY|MANDATORY|REQUIRED|CRITICAL)\b/g;
+
+/**
+ * Heuristically check whether `content` contains prompt-injection
+ * patterns. This is a structural / regex-based guard — it does not
+ * call any LLM.
+ *
+ * @param content - The untrusted string to inspect.
+ * @param source  - Optional label describing where the content came
+ *                  from (used only in log-friendly diagnostics, not
+ *                  in the returned reason).
+ * @returns `{ safe: true }` when no injection signal is found, or
+ *          `{ safe: false, reason }` describing the first match.
+ *
+ * @example
+ * const check = await validateExternalContent(userQuery, 'memory search');
+ * if (!check.safe) throw new Error(`Blocked: ${check.reason}`);
+ */
+export async function validateExternalContent(
+  content: string,
+  source?: string,
+): Promise<ExternalContentResult> {
+  if (typeof content !== 'string') {
+    return { safe: false, reason: 'Content must be a string' };
+  }
+
+  // Empty / very short content is trivially safe.
+  if (content.length === 0) {
+    return { safe: true };
+  }
+
+  // --- 1. Direct injection patterns ---
+  for (const { re, label } of INJECTION_PATTERNS) {
+    if (re.test(content)) {
+      return { safe: false, reason: `Prompt injection detected: ${label}` };
+    }
+  }
+
+  // --- 2. Suspicious encoding ---
+  for (const { re, label } of ENCODING_PATTERNS) {
+    if (re.test(content)) {
+      return { safe: false, reason: `Suspicious encoding: ${label}` };
+    }
+  }
+
+  // --- 3. Directive density ---
+  // Only check strings long enough to be meaningful (>20 words).
+  const words = content.split(/\s+/).filter(Boolean);
+  if (words.length > 20) {
+    const matches = content.match(DIRECTIVE_WORDS);
+    const density = (matches?.length ?? 0) / words.length;
+    if (density >= DIRECTIVE_DENSITY_THRESHOLD) {
+      return {
+        safe: false,
+        reason: `Excessive directive density (${(density * 100).toFixed(0)}% directive keywords)`,
+      };
+    }
+  }
+
+  return { safe: true };
+}

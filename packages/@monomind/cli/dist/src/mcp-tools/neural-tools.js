@@ -1,15 +1,9 @@
 /**
- * Neural MCP Tools for CLI
+ * Pattern Store MCP Tools
  *
- * V2 Compatibility - Neural network and ML tools
- *
- * ✅ HYBRID Implementation:
- * - Uses monovector ONNX embeddings when available
- * - Falls back to deterministic hash-based embeddings otherwise
- * - Pattern storage and search with cosine similarity (real math in all tiers)
- * - Training stores patterns as searchable embeddings (not simulated)
- *
- * Note: The lean build has no neural training. The full loop lives on monoes-full-loop.
+ * Embed text as vectors, store patterns, search by cosine similarity.
+ * Uses monovector ONNX embeddings when available, deterministic hash fallback otherwise.
+ * Tools are registered under the "neural" namespace for backwards compatibility.
  */
 import { getProjectCwd } from './types.js';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
@@ -141,16 +135,16 @@ function cosineSimilarity(a, b) {
 export const neuralTools = [
     {
         name: 'neural_train',
-        description: 'Train a neural model',
+        description: 'Embed and store patterns for similarity search',
         category: 'neural',
         inputSchema: {
             type: 'object',
             properties: {
-                modelId: { type: 'string', description: 'Model ID to train' },
-                modelType: { type: 'string', enum: ['moe', 'transformer', 'classifier', 'embedding'], description: 'Model type' },
-                epochs: { type: 'number', description: 'Number of training epochs' },
-                learningRate: { type: 'number', description: 'Learning rate' },
-                data: { type: 'object', description: 'Training data' },
+                modelId: { type: 'string', description: 'Store ID (groups related patterns)' },
+                modelType: { type: 'string', enum: ['pattern', 'embedding'], description: 'Store type' },
+                epochs: { type: 'number', description: 'Ignored (kept for backwards compatibility)' },
+                learningRate: { type: 'number', description: 'Ignored (kept for backwards compatibility)' },
+                data: { type: 'object', description: 'Data to embed and store (array of strings or {text/content/label} objects)' },
             },
             required: ['modelType'],
         },
@@ -174,30 +168,21 @@ export const neuralTools = [
             if (Object.keys(store.models ?? {}).length >= MAX_MODELS) {
                 return { success: false, error: `Model store full (max ${MAX_MODELS}). Delete old models first.` };
             }
-            // Runtime-validate modelType against the allowed enum. The JSON schema
-            // declares an enum but callers that bypass schema validation (e.g. direct
-            // MCP calls) can pass arbitrary strings, which would be stored verbatim.
-            const VALID_MODEL_TYPES = new Set(['moe', 'transformer', 'classifier', 'embedding']);
+            const VALID_MODEL_TYPES = new Set(['pattern', 'embedding']);
             const rawModelType = input.modelType;
             if (!rawModelType || !VALID_MODEL_TYPES.has(rawModelType)) {
-                return { success: false, error: `Invalid modelType "${rawModelType}". Must be one of: moe, transformer, classifier, embedding` };
+                return { success: false, error: `Invalid modelType "${rawModelType}". Must be one of: pattern, embedding` };
             }
             const modelType = rawModelType;
-            // Cap epochs to prevent storing absurdly large numbers in the JSON store.
-            const MAX_EPOCHS = 10000;
-            const rawEpochs = typeof input.epochs === 'number' && Number.isFinite(input.epochs) ? input.epochs : 10;
-            const epochs = Math.max(1, Math.min(Math.floor(rawEpochs), MAX_EPOCHS));
+            const epochs = 1;
             const model = {
                 id: modelId,
-                name: `${modelType}-model`,
+                name: `${modelType}-store`,
                 type: modelType,
-                status: 'training',
-                accuracy: 0,
+                status: 'indexing',
+                patternsStored: 0,
                 epochs,
-                config: {
-                    learningRate: input.learningRate || 0.001,
-                    batchSize: 32,
-                },
+                config: {},
             };
             store.models[modelId] = model;
             saveNeuralStore(store);
@@ -241,7 +226,7 @@ export const neuralTools = [
                 }
             }
             model.status = 'ready';
-            model.accuracy = patternsStored > 0 ? 1.0 : 0; // accuracy = data stored, not simulated
+            model.patternsStored = patternsStored;
             model.trainedAt = new Date().toISOString();
             saveNeuralStore(store);
             // Mirror patterns to patterns.json so CLI commands (neural patterns list,
@@ -294,14 +279,14 @@ export const neuralTools = [
     },
     {
         name: 'neural_predict',
-        description: 'Make predictions using a neural model',
+        description: 'Find similar patterns by cosine similarity',
         category: 'neural',
         inputSchema: {
             type: 'object',
             properties: {
                 modelId: { type: 'string', description: 'Model ID to use' },
-                input: { type: 'string', description: 'Input text or data' },
-                topK: { type: 'number', description: 'Number of top predictions' },
+                input: { type: 'string', description: 'Text to find similar patterns for' },
+                topK: { type: 'number', description: 'Number of top results to return' },
             },
             required: ['input'],
         },
@@ -330,9 +315,8 @@ export const neuralTools = [
             const startTime = performance.now();
             const embedding = await generateEmbedding(inputText, 384);
             const latency = Math.round(performance.now() - startTime);
-            // Search stored patterns via real cosine similarity.
-            // Merge MCP models.json patterns with CLI patterns.json so both training
-            // paths are visible from predict.
+            // Search stored patterns via cosine similarity.
+            // Merge MCP models.json patterns with CLI patterns.json.
             const MAX_SCAN = 10000;
             const EARLY_EXIT_THRESHOLD = 0.1;
             const mcpPatterns = Object.values(store.patterns);
@@ -525,7 +509,7 @@ export const neuralTools = [
     },
     {
         name: 'neural_compress',
-        description: 'Compress neural model or embeddings',
+        description: 'Compress pattern store (quantize, prune, or deduplicate)',
         category: 'neural',
         inputSchema: {
             type: 'object',
@@ -634,7 +618,7 @@ export const neuralTools = [
     },
     {
         name: 'neural_status',
-        description: 'Get neural system status',
+        description: 'Get pattern store status',
         category: 'neural',
         inputSchema: {
             type: 'object',
@@ -663,15 +647,11 @@ export const neuralTools = [
             const models = Object.values(store.models);
             const patterns = Object.values(store.patterns);
             return {
-                _realEmbeddings: !!realEmbeddings,
                 embeddingProvider: realEmbeddings ? embeddingServiceName : 'hash-based (deterministic)',
                 models: {
                     total: models.length,
                     ready: models.filter(m => m.status === 'ready').length,
-                    training: models.filter(m => m.status === 'training').length,
-                    avgAccuracy: models.length > 0
-                        ? models.reduce((sum, m) => sum + m.accuracy, 0) / models.length
-                        : 0,
+                    indexing: models.filter(m => m.status === 'indexing').length,
                 },
                 patterns: {
                     total: patterns.length,
@@ -679,20 +659,14 @@ export const neuralTools = [
                         acc[p.type] = (acc[p.type] || 0) + 1;
                         return acc;
                     }, {}),
-                    totalEmbeddingDims: patterns.length > 0 ? patterns[0].embedding.length : 384,
-                },
-                features: {
-                    hnsw: true,
-                    quantization: true,
-                    flashAttention: false,
-                    reasoningBank: true,
+                    embeddingDims: patterns.length > 0 ? patterns[0].embedding.length : 384,
                 },
             };
         },
     },
     {
         name: 'neural_optimize',
-        description: 'Optimize neural model performance',
+        description: 'Optimize pattern store (deduplicate, quantize, prune empty)',
         category: 'neural',
         inputSchema: {
             type: 'object',

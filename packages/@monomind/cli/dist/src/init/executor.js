@@ -1414,11 +1414,6 @@ memory:
     confidenceDecayRate: 0.005
     accessBoostAmount: 0.03
     consolidationThreshold: 10
-  memoryGraph:
-    enabled: ${options.runtime.enableMemoryGraph ?? true}
-    pageRankDamping: 0.85
-    maxNodes: 5000
-    similarityThreshold: 0.8
   agentScopes:
     enabled: ${options.runtime.enableAgentScopes ?? true}
     defaultScope: project
@@ -1639,8 +1634,7 @@ Monomind is a domain-driven design architecture for multi-agent AI coordination 
 | Memory Backend | ${options.runtime.memoryBackend} |
 | HNSW Indexing | ${options.runtime.enableHNSW ? 'Enabled' : 'Disabled'} |
 | Neural Learning | ${options.runtime.enableNeural ? 'Enabled' : 'Disabled'} |
-| LearningBridge | ${options.runtime.enableLearningBridge ? 'Enabled (ReasoningBank)' : 'Disabled'} |
-| Knowledge Graph | ${options.runtime.enableMemoryGraph ? 'Enabled (PageRank + Communities)' : 'Disabled'} |
+| Learning | ${options.runtime.enableLearningBridge ? 'Enabled' : 'Disabled'} |
 | Agent Scopes | ${options.runtime.enableAgentScopes ? 'Enabled (project/local/user)' : 'Disabled'} |
 
 ---
@@ -1743,8 +1737,6 @@ npx monomind@latest swarm monitor
 | \`security\` | 6 | Security scanning |
 | \`performance\` | 5 | Profiling & benchmarks |
 | \`providers\` | 5 | AI provider config |
-
-| \`deployment\` | 5 | Deploy management |
 | \`embeddings\` | 4 | Vector embeddings |
 | \`claims\` | 4 | Authorization |
 | \`migrate\` | 5 | V2→V1 migration |
@@ -1841,13 +1833,10 @@ and command outcomes are recorded and scored so routing quality is measured.
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **LearningBridge** | ${options.runtime.enableLearningBridge ? '✅ Enabled' : '⏸ Disabled'} | Connects insights to the ReasoningBank pattern store |
-| **MemoryGraph** | ${options.runtime.enableMemoryGraph ? '✅ Enabled' : '⏸ Disabled'} | PageRank knowledge graph + community detection |
+| **Learning** | ${options.runtime.enableLearningBridge ? '✅ Enabled' : '⏸ Disabled'} | Connects insights to the pattern store |
 | **AgentMemoryScope** | ${options.runtime.enableAgentScopes ? '✅ Enabled' : '⏸ Disabled'} | 3-scope agent memory (project/local/user) |
 
-**LearningBridge** - Insights trigger learning trajectories. Confidence evolves: +0.03 on access, -0.005/hour decay. Consolidation runs the JUDGE/DISTILL/CONSOLIDATE pipeline.
-
-**MemoryGraph** - Builds a knowledge graph from entry references. PageRank identifies influential insights. Communities group related knowledge. Graph-aware ranking blends vector + structural scores.
+**Learning** — Insights trigger learning trajectories. Confidence evolves: +0.03 on access, -0.005/hour decay.
 
 **AgentMemoryScope** - Maps Claude Code 3-scope directories:
 - \`project\`: \`<gitRoot>/.claude/agent-memory/<agent>/\`
