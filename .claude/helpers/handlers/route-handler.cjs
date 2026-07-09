@@ -226,12 +226,37 @@ module.exports = {
             console.log('[SECURITY] ' + secData.findings.length + ' findings from background scan. Review .monomind/metrics/security-audit.json');
           }
         }
-        // Codebase map hotspots
+        // Codebase map top files (high-centrality god nodes from monograph)
         var mapFile = path.join(metricsDir, 'codebase-map.json');
         if (fs.existsSync(mapFile) && fs.statSync(mapFile).size < 32768) {
           var mapData = JSON.parse(fs.readFileSync(mapFile, 'utf-8'));
-          if (mapData && mapData.hotspots && mapData.hotspots.length > 0) {
-            console.log('[CODEBASE] ' + mapData.hotspots.length + ' hotspots detected. Top: ' + (mapData.hotspots[0].file || mapData.hotspots[0].name || 'unknown'));
+          if (mapData && mapData.topFiles && mapData.topFiles.length > 0) {
+            console.log('[CODEBASE] ' + mapData.topFiles.length + ' high-centrality files. Top: ' + (mapData.topFiles[0].ref || 'unknown') + ' (degree ' + (mapData.topFiles[0].degree || '?') + ')');
+          }
+          if (mapData && mapData.graphStaleness && mapData.graphStaleness.commitsBehind > 10) {
+            console.log('[CODEBASE] Graph index ' + mapData.graphStaleness.commitsBehind + ' commits behind HEAD — run monograph build');
+          }
+        }
+        // Deep dive findings (god nodes, high-degree files from background analysis)
+        var deepdiveFile = path.join(metricsDir, 'deepdive.json');
+        if (fs.existsSync(deepdiveFile) && fs.statSync(deepdiveFile).size < 32768) {
+          var ddData = JSON.parse(fs.readFileSync(deepdiveFile, 'utf-8'));
+          if (ddData && ddData.findings && ddData.findings.length > 0) {
+            for (var di = 0; di < ddData.findings.length; di++) {
+              var finding = ddData.findings[di];
+              if (finding.category === 'god_nodes' && finding.items && finding.items.length > 0) {
+                var topGod = finding.items[0];
+                console.log('[DEEPDIVE] ' + finding.items.length + ' god nodes. Top: ' + (topGod.name || 'unknown') + ' (degree ' + (topGod.degree || '?') + ') in ' + (topGod.file || 'unknown'));
+              }
+            }
+          }
+        }
+        // Memory consolidation health
+        var consolFile = path.join(metricsDir, 'consolidation.json');
+        if (fs.existsSync(consolFile) && fs.statSync(consolFile).size < 32768) {
+          var consolData = JSON.parse(fs.readFileSync(consolFile, 'utf-8'));
+          if (consolData && consolData.patternsConsolidated > 0) {
+            console.log('[MEMORY] ' + consolData.patternsConsolidated + ' patterns consolidated into ' + consolData.clustersCreated + ' RAPTOR clusters');
           }
         }
       } catch (e) { /* non-fatal */ }
