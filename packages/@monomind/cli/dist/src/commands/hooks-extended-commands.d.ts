@@ -8,7 +8,5 @@ export declare const tokenOptimizeCommand: Command;
 export declare const modelRouteCommand: Command;
 export declare const modelOutcomeCommand: Command;
 export declare const modelStatsCommand: Command;
-export declare const teammateIdleCommand: Command;
-export declare const taskCompletedCommand: Command;
 export declare const notifyCommand: Command;
 //# sourceMappingURL=hooks-extended-commands.d.ts.map

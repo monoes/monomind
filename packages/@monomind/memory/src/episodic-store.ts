@@ -181,7 +181,7 @@ export class EpisodicStore {
 
   /**
    * Log a memory operation into the current episode's content stream.
-   * Makes memory decisions observable in episode traces (AutoMem, arXiv:2607.01224).
+   * Makes memory decisions (writes, searches, dedup skips) observable in episode traces.
    */
   logMemoryOp(
     op: 'write' | 'search' | 'read' | 'skip-duplicate' | 'flag-stale',

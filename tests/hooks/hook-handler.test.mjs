@@ -27,12 +27,6 @@ function run(command, opts = {}) {
 // ── basic dispatch ─────────────────────────────────────────────────────────────
 
 describe('hook-handler.cjs dispatch', () => {
-  it('exits 0 for "status" and prints [OK] Status check', () => {
-    const r = run('status');
-    expect(r.status).toBe(0);
-    expect(r.stdout).toContain('[OK] Status check');
-  });
-
   it('exits 0 for unknown command and echoes [OK] Hook: <name>', () => {
     const r = run('totally-unknown-command-xyz');
     expect(r.status).toBe(0);

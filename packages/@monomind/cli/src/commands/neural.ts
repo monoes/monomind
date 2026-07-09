@@ -1,20 +1,20 @@
 /**
  * CLI Neural Command
- * Pattern learning, search, and prediction backed by the pure-JS intelligence layer
+ * Pattern storage and similarity search for routing optimization
  *
  * github.com/monoes/monomind
  */
 
 import type { Command, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { statusCommand, patternsCommand, predictCommand } from './neural-core.js';
+import { statusCommand, patternsCommand, trainCommand, predictCommand } from './neural-core.js';
 import { optimizeCommand, exportCommand } from './neural-optimize.js';
 import { listCommand, importCommand } from './neural-registry.js';
 
 export const neuralCommand: Command = {
   name: 'neural',
-  description: 'Pattern learning, search, and prediction (pure-JS intelligence layer)',
-  subcommands: [statusCommand, patternsCommand, predictCommand, optimizeCommand, listCommand, exportCommand, importCommand],
+  description: 'Store and query edit patterns for routing optimization',
+  subcommands: [trainCommand, statusCommand, patternsCommand, predictCommand, optimizeCommand, listCommand, exportCommand, importCommand],
   examples: [
     { command: 'monomind neural status', description: 'Check pattern-learning system status' },
     { command: 'monomind neural patterns --action list', description: 'List learned patterns' },
@@ -22,8 +22,8 @@ export const neuralCommand: Command = {
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('MonoMind Pattern Learning'));
-    output.writeln(output.dim('Pattern learning, search, and prediction (pure-JS)'));
+    output.writeln(output.bold('MonoMind Pattern Storage'));
+    output.writeln(output.dim('Store and query edit patterns for routing optimization'));
     output.writeln();
     output.writeln('Use --help with subcommands for more info');
     output.writeln();

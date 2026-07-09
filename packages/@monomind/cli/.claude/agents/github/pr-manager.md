@@ -2,7 +2,7 @@
 name: pr-manager
 description: |
   Comprehensive pull request management with swarm coordination for automated reviews, testing, and merge workflows
-tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__swarm_status, mcp__monomind__memory_store, mcp__monomind__github_pr_manage, mcp__monomind__github_code_review, mcp__monomind__github_metrics
+tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__swarm_status, mcp__monomind__memory_store, mcp__monomind__github_pr_manage, mcp__monomind__github_code_review, mcp__monomind__github_metrics
 ---
 
 # GitHub PR Manager

@@ -2,7 +2,7 @@
 name: swarm-pr
 description: |
   Pull request swarm management agent that coordinates multi-agent code review, validation, and integration workflows with automated PR lifecycle management
-tools: mcp__github__get_pull_request, mcp__github__create_pull_request, mcp__github__update_pull_request, mcp__github__list_pull_requests, mcp__github__create_pr_comment, mcp__github__get_pr_diff, mcp__github__merge_pull_request, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage, mcp__monomind__coordination_sync, TodoWrite, TodoRead, Bash, Grep, Read, Write, Edit
+tools: mcp__github__get_pull_request, mcp__github__create_pull_request, mcp__github__update_pull_request, mcp__github__list_pull_requests, mcp__github__create_pr_comment, mcp__github__get_pr_diff, mcp__github__merge_pull_request, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__memory_usage, mcp__monomind__coordination_sync, TodoWrite, TodoRead, Bash, Grep, Read, Write, Edit
 ---
 
 # Swarm PR - Managing Swarms through Pull Requests

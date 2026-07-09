@@ -354,17 +354,29 @@ export const hiveMindTools: MCPTool[] = [
 
       saveHiveState(state);
 
+      // Validate consensus strategy: gossip and crdt are planned but not implemented
+      const SUPPORTED_CONSENSUS = ['byzantine', 'bft', 'raft', 'quorum'];
+      const PLANNED_CONSENSUS = ['gossip', 'crdt'];
+      const requestedConsensus = (input.consensus as string) || 'byzantine';
+      const consensusWarning = PLANNED_CONSENSUS.includes(requestedConsensus)
+        ? `Strategy "${requestedConsensus}" is planned but not yet implemented; defaulting to "byzantine".`
+        : undefined;
+      const effectiveConsensus = PLANNED_CONSENSUS.includes(requestedConsensus)
+        ? 'byzantine'
+        : (SUPPORTED_CONSENSUS.includes(requestedConsensus) ? requestedConsensus : 'byzantine');
+
       return {
         success: true,
         hiveId,
         topology: state.topology,
-        consensus: (input.consensus as string) || 'byzantine',
+        consensus: effectiveConsensus,
         queenId,
         neuralLearning: 'unavailable',
         status: 'initialized',
+        ...(consensusWarning ? { warning: consensusWarning } : {}),
         config: {
           topology: state.topology,
-          consensus: input.consensus || 'byzantine',
+          consensus: effectiveConsensus,
           maxAgents: input.maxAgents || 15,
           persist: input.persist !== false,
           memoryBackend: input.memoryBackend || 'hybrid',
@@ -578,7 +590,20 @@ export const hiveMindTools: MCPTool[] = [
     handler: async (input) => {
       const state = loadHiveState();
       const action = input.action as string;
-      const strategy = (input.strategy as ConsensusStrategy) || 'raft';
+      const rawStrategy = (input.strategy as string) || 'raft';
+
+      // Gossip and CRDT are planned but not yet implemented -- reject early
+      // with an honest message instead of silently falling through.
+      const UNIMPLEMENTED_STRATEGIES = ['gossip', 'crdt'];
+      if (UNIMPLEMENTED_STRATEGIES.includes(rawStrategy)) {
+        return {
+          action,
+          error: `Strategy "${rawStrategy}" is planned but not yet implemented. Available strategies: bft, raft, quorum.`,
+          availableStrategies: ['bft', 'raft', 'quorum'],
+        };
+      }
+
+      const strategy = rawStrategy as ConsensusStrategy;
       const totalNodes = state.workers.length;
 
       if (action === 'propose') {

@@ -8,7 +8,15 @@
  * @module v1/hooks/workers/entity-extractor
  */
 
-import type { EntityFact } from '../../../memory/src/tiers/entity.js';
+export interface EntityFact {
+  entity: string;
+  factType: string;
+  value: string;
+  confidence: number;
+  sourceRunId: string;
+  createdAt: number;
+  expiresAt?: number;
+}
 
 export interface EntityExtractorConfig {
   entityMemory: { store(fact: EntityFact): void };

@@ -943,31 +943,11 @@ async function loadMemoryPackage() {
 }
 
 async function doImport() {
-  const memPkg = await loadMemoryPackage();
-
-  if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — auto memory import skipped (non-critical)');
-    return;
-  }
-
-  // Full implementation deferred to copied version
-  dim('Auto memory import available — run init --upgrade for full support');
+  dim('Auto memory import skipped — AutoMemoryBridge removed');
 }
 
 async function doSync() {
-  if (!existsSync(STORE_PATH)) {
-    dim('No entries to sync');
-    return;
-  }
-
-  const memPkg = await loadMemoryPackage();
-
-  if (!memPkg || !memPkg.AutoMemoryBridge) {
-    dim('Memory package not available — sync skipped (non-critical)');
-    return;
-  }
-
-  dim('Auto memory sync available — run init --upgrade for full support');
+  dim('Auto memory sync skipped — AutoMemoryBridge removed');
 }
 
 function doStatus() {

@@ -7,48 +7,6 @@ import { output } from '../output.js';
 import { realpathSync } from 'fs';
 import { resolve, sep } from 'path';
 
-// ─── threats subcommand ──────────────────────────────────────────────────────
-
-export const threatsCommand: Command = {
-  name: 'threats',
-  description: 'Threat modeling and analysis',
-  options: [
-    { name: 'model', short: 'm', type: 'string', description: 'Threat model: stride, dread, pasta', default: 'stride' },
-    { name: 'scope', short: 's', type: 'string', description: 'Analysis scope', default: '.' },
-    { name: 'export', short: 'e', type: 'string', description: 'Export format: json, md, html' },
-  ],
-  examples: [
-    { command: 'monomind security threats --model stride', description: 'Run STRIDE analysis' },
-    { command: 'monomind security threats -e md', description: 'Export as markdown' },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const model = ctx.flags.model as string || 'stride';
-
-    output.writeln();
-    output.writeln(output.bold(`Threat Model: ${model.toUpperCase()}`));
-    output.writeln(output.dim('─'.repeat(50)));
-
-    output.printTable({
-      columns: [
-        { key: 'category', header: 'Category', width: 20 },
-        { key: 'threat', header: 'Threat', width: 30 },
-        { key: 'risk', header: 'Risk', width: 10 },
-        { key: 'mitigation', header: 'Mitigation', width: 30 },
-      ],
-      data: [
-        { category: 'Spoofing', threat: 'API key theft', risk: output.error('High'), mitigation: 'Use secure key storage' },
-        { category: 'Tampering', threat: 'Data manipulation', risk: output.warning('Medium'), mitigation: 'Input validation' },
-        { category: 'Repudiation', threat: 'Action denial', risk: output.info('Low'), mitigation: 'Audit logging' },
-        { category: 'Info Disclosure', threat: 'Data leakage', risk: output.error('High'), mitigation: 'Encryption at rest' },
-        { category: 'DoS', threat: 'Resource exhaustion', risk: output.warning('Medium'), mitigation: 'Rate limiting' },
-        { category: 'Elevation', threat: 'Privilege escalation', risk: output.error('High'), mitigation: 'RBAC implementation' },
-      ],
-    });
-
-    return { success: true };
-  },
-};
-
 // ─── audit subcommand ────────────────────────────────────────────────────────
 
 export const auditCommand: Command = {

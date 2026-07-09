@@ -123,7 +123,6 @@ export const DEFAULT_INIT_OPTIONS = {
         enableHNSW: true,
         enableNeural: true,
         enableLearningBridge: true,
-        enableMemoryGraph: true,
         enableAgentScopes: true,
     },
     embeddings: {
@@ -187,7 +186,6 @@ export const MINIMAL_INIT_OPTIONS = {
         enableHNSW: false,
         enableNeural: false,
         enableLearningBridge: false,
-        enableMemoryGraph: false,
         enableAgentScopes: false,
     },
     embeddings: {

@@ -455,10 +455,38 @@ const toggleCommand = {
         }
     ],
     action: async (ctx) => {
-        output.writeln();
-        output.writeln(output.warning('⚠  Tool toggling not yet implemented.'));
-        output.writeln(output.dim('Tool enable/disable state is not currently persisted. This feature requires MCP server reload support.'));
-        return { success: false, exitCode: 1 };
+        const fs = await import('node:fs');
+        const path = await import('node:path');
+        const stateFile = path.join('.monomind', 'mcp-disabled-tools.json');
+        let disabled = [];
+        try {
+            disabled = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        }
+        catch { /* fresh */ }
+        const enableArg = ctx.flags.enable;
+        const disableArg = ctx.flags.disable;
+        if (!enableArg && !disableArg) {
+            output.writeln(output.warning('Provide --enable <tool> or --disable <tool>'));
+            return { success: false, exitCode: 1 };
+        }
+        if (disableArg) {
+            const tools = disableArg.split(',').map(t => t.trim());
+            for (const t of tools) {
+                if (!disabled.includes(t))
+                    disabled.push(t);
+            }
+            output.printSuccess(`Disabled: ${tools.join(', ')}`);
+        }
+        if (enableArg) {
+            const tools = enableArg.split(',').map(t => t.trim());
+            disabled = disabled.filter(t => !tools.includes(t));
+            output.printSuccess(`Enabled: ${tools.join(', ')}`);
+        }
+        fs.mkdirSync(path.dirname(stateFile), { recursive: true });
+        fs.writeFileSync(stateFile, JSON.stringify(disabled, null, 2) + '\n');
+        output.writeln(output.dim(`State saved to ${stateFile}. ${disabled.length} tool(s) disabled.`));
+        output.writeln(output.dim('Note: MCP server restart required for changes to take effect.'));
+        return { success: true };
     }
 };
 // Execute tool

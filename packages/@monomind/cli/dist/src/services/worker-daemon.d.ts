@@ -7,7 +7,9 @@
  * - audit: Security analysis (10 min interval)
  * - optimize: Performance optimization (15 min interval)
  * - consolidate: Memory consolidation (30 min interval)
- * - testgaps: Test coverage analysis (20 min interval)
+ * - testgaps, predict, document, refactor, preload: no local-mode
+ *   implementation — real work only happens in headless mode via
+ *   HeadlessWorkerExecutor (Claude Code CLI required)
  */
 import { EventEmitter } from 'events';
 import { HeadlessWorkerExecutor } from './headless-worker-executor.js';
@@ -184,25 +186,9 @@ export declare class WorkerDaemon extends EventEmitter {
     private runOptimizeWorkerLocal;
     private runConsolidateWorker;
     /**
-     * Local testgaps worker (fallback when headless unavailable)
-     */
-    private runTestGapsWorkerLocal;
-    /**
-     * Local predict worker (fallback when headless unavailable)
-     */
-    private runPredictWorkerLocal;
-    /**
-     * Local document worker (fallback when headless unavailable)
-     */
-    private runDocumentWorkerLocal;
-    /**
      * Local ultralearn worker (fallback when headless unavailable)
      */
     private runUltralearnWorkerLocal;
-    /**
-     * Local refactor worker (fallback when headless unavailable)
-     */
-    private runRefactorWorkerLocal;
     /**
      * Local deepdive worker (fallback when headless unavailable)
      */
@@ -211,10 +197,6 @@ export declare class WorkerDaemon extends EventEmitter {
      * Local benchmark worker
      */
     private runBenchmarkWorkerLocal;
-    /**
-     * Local preload worker
-     */
-    private runPreloadWorkerLocal;
     /**
      * Manually trigger a worker
      */

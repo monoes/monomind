@@ -15,16 +15,16 @@ export declare const DetectSecretsInputSchema: z.ZodObject<{
     scanHistory: z.ZodDefault<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     targetPath: string;
-    excludePatterns: string[];
     secretTypes: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[];
+    excludePatterns: string[];
     includeEntropy: boolean;
     entropyThreshold: number;
     verifySecrets: boolean;
     scanHistory: boolean;
 }, {
     targetPath: string;
-    excludePatterns?: string[] | undefined;
     secretTypes?: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[] | undefined;
+    excludePatterns?: string[] | undefined;
     includeEntropy?: boolean | undefined;
     entropyThreshold?: number | undefined;
     verifySecrets?: boolean | undefined;
@@ -116,16 +116,16 @@ export declare const toolDefinition: {
         scanHistory: z.ZodDefault<z.ZodBoolean>;
     }, "strip", z.ZodTypeAny, {
         targetPath: string;
-        excludePatterns: string[];
         secretTypes: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[];
+        excludePatterns: string[];
         includeEntropy: boolean;
         entropyThreshold: number;
         verifySecrets: boolean;
         scanHistory: boolean;
     }, {
         targetPath: string;
-        excludePatterns?: string[] | undefined;
         secretTypes?: ("password" | "api-key" | "private-key" | "token" | "connection-string" | "certificate" | "aws-key" | "aws-secret" | "gcp-key" | "azure-key" | "generic")[] | undefined;
+        excludePatterns?: string[] | undefined;
         includeEntropy?: boolean | undefined;
         entropyThreshold?: number | undefined;
         verifySecrets?: boolean | undefined;

@@ -2,6 +2,24 @@
 /**
  * Monomind Hook Handler (Cross-Platform)
  * Dispatches hook events to the appropriate helper modules.
+ *
+ * ARCHITECTURE NOTE — Two Hook Systems
+ * =====================================
+ * There are two independent hook systems in this project:
+ *
+ * 1. .claude/helpers/ CJS handlers (THIS FILE and ./handlers/*.cjs)
+ *    These are the handlers that actually run via settings.json hook
+ *    configuration. They are plain CommonJS scripts invoked directly
+ *    by Claude Code's hook runtime. This is the "live" system.
+ *
+ * 2. @monomind/hooks TypeScript package (packages/@monomind/hooks/)
+ *    A full TypeScript package with workers, learning services, and
+ *    a WorkerManager. It compiles to dist/ but is only loaded
+ *    optionally — currently at session-restore (to bridge pre-task /
+ *    post-task into the hook registry) and at session-restore for a
+ *    non-blocking security scan. The CJS handlers in system (1) are
+ *    the authoritative dispatch path; system (2) provides optional
+ *    enrichment when the package is installed and built.
  */
 
 const path = require('path');
@@ -717,10 +735,6 @@ const handlers = {
     h.handle(hCtx);
   },
 
-  'status': () => {
-    console.log('[OK] Status check');
-  },
-
   'stats': async () => {
     const h = require('./handlers/stats-handler.cjs');
     await h.handle(hCtx);
@@ -739,7 +753,7 @@ if (command && handlers[command]) {
   } else if (command) {
     console.log('[OK] Hook: ' + command);
   } else {
-    console.log('Usage: hook-handler.cjs <route|pre-bash|pre-search|post-edit|post-read|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|status|stats>');
+    console.log('Usage: hook-handler.cjs <route|pre-bash|pre-search|post-edit|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|stats>');
   }
 }
 

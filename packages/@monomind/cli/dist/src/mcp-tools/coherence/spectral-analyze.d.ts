@@ -2,9 +2,8 @@
  * Spectral Analysis Tool - pr_spectral_analyze
  *
  * Analyzes stability of systems using spectral graph theory.
- * Computes eigenvalues, spectral gap, and stability metrics.
- *
- * Uses SpectralEngine from prime-radiant-advanced-wasm
+ * Computes eigenvalues via power iteration with Hotelling deflation,
+ * spectral gap, and stability metrics from the graph Laplacian.
  */
 import type { MCPTool } from './types.js';
 /**

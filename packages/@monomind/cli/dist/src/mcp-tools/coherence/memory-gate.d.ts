@@ -3,8 +3,9 @@
  *
  * Pre-storage coherence gate for memory entries.
  * Validates that new entries are coherent with existing context before storage.
- *
- * Uses CohomologyEngine Sheaf Laplacian for coherence validation
+ * Uses cosine similarity on vectors to compute coherence energy.
+ * When no pre-computed embeddings are supplied, falls back to a deterministic
+ * hash-based vector (structural proxy, not semantic similarity).
  */
 import type { MCPTool } from './types.js';
 /**

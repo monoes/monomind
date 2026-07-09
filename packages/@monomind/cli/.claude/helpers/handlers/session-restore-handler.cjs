@@ -356,15 +356,5 @@ module.exports = {
       } catch (e) { /* non-fatal */ }
     }
 
-    // Worker Queue Resume (SR-003).
-    try {
-      var dispatchDir = path.join(CWD, '.monomind', 'worker-dispatch');
-      if (fs.existsSync(dispatchDir)) {
-        var pendingFiles = fs.readdirSync(dispatchDir).filter(function(f) { return f.startsWith('pending-'); }).slice(0, 500);
-        if (pendingFiles.length > 0) {
-          console.log('[WORKER_RESUME] ' + pendingFiles.length + ' worker dispatch(es) pending from prior session');
-        }
-      }
-    } catch (e) { /* non-fatal */ }
   },
 };

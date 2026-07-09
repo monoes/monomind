@@ -105,9 +105,9 @@ const CAPABILITY_CATALOG: Record<string, CapabilityArea> = {
   },
   'intelligence-learning': {
     name: 'Intelligence & Learning',
-    description: 'Neural pattern training (SONA), RL loops, Flash Attention, EWC++ consolidation.',
+    description: 'Pattern storage and cosine-similarity search (SONA/ReasoningBank) backed by real embeddings.',
     tools: ['neural_train', 'neural_predict', 'neural_status', 'neural_patterns', 'neural_optimize'],
-    commands: ['neural train', 'neural predict', 'neural status', 'neural patterns', 'neural optimize'],
+    commands: [],
     agents: ['sona-learning-optimizer', 'safla-neural'],
     skills: ['reasoningbank-intelligence', 'memory-reasoningbank'],
     whenToUse: 'When optimizing agent routing, training patterns from outcomes, or adaptive learning.',

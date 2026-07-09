@@ -127,6 +127,19 @@ export const memoryPatternStore: MCPTool = {
     try {
       const pattern = validateString(params.pattern, 'pattern');
       if (!pattern) return { success: false, error: 'pattern is required (non-empty string, max 100KB)' };
+
+      // validateExternalContent: guard against prompt injection in stored patterns
+      try {
+        const secMod = await import('@monomind/security' as string).catch(() => null);
+        const validateExternalContent = secMod?.validateExternalContent;
+        if (validateExternalContent) {
+          const check = await validateExternalContent(pattern, 'memory_pattern-store pattern');
+          if (!check.safe) {
+            return { success: false, error: `Injection guard: ${check.reason}`, injectionDetected: true };
+          }
+        }
+      } catch { /* security module optional */ }
+
       const bridge = await getBridge();
       const result = await bridge.bridgeStorePattern({
         pattern,
@@ -158,6 +171,19 @@ export const memoryPatternSearch: MCPTool = {
     try {
       const query = validateString(params.query, 'query', 10_000);
       if (!query) return { results: [], error: 'query is required (non-empty string, max 10KB)' };
+
+      // validateExternalContent: guard against prompt injection in search queries
+      try {
+        const secMod = await import('@monomind/security' as string).catch(() => null);
+        const validateExternalContent = secMod?.validateExternalContent;
+        if (validateExternalContent) {
+          const check = await validateExternalContent(query, 'memory_pattern-search query');
+          if (!check.safe) {
+            return { results: [], error: `Injection guard: ${check.reason}`, injectionDetected: true };
+          }
+        }
+      } catch { /* security module optional */ }
+
       const bridge = await getBridge();
       const minConfidence = validateScore(params.minConfidence, 0.3);
       const result = await bridge.bridgeSearchPatterns({

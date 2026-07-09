@@ -7,5 +7,5 @@
  *   import { validateInput } from '@monomind/security';
  */
 
-export type { ValidationResult, ValidateInputOpts } from './input-guards.js';
-export { validateInput } from './input-guards.js';
+export type { ValidationResult, ValidateInputOpts, ExternalContentResult } from './input-guards.js';
+export { validateInput, validateExternalContent } from './input-guards.js';

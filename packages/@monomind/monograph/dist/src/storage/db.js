@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { mkdirSync, existsSync, renameSync, unlinkSync } from 'fs';
 import { dirname } from 'path';
-import { CREATE_NODES, CREATE_EDGES, CREATE_COMMUNITIES, CREATE_INDEX_META, CREATE_NODES_FTS, CREATE_INDEXES, FTS_SYNC_TRIGGERS, CREATE_EMBEDDINGS, CREATE_WIKI_PAGES, } from './schema.js';
+import { CREATE_NODES, CREATE_EDGES, CREATE_COMMUNITIES, CREATE_INDEX_META, CREATE_NODES_FTS, CREATE_INDEXES, FTS_SYNC_TRIGGERS, CREATE_EMBEDDINGS, CREATE_WIKI_PAGES, CREATE_AGENT_INTERACTIONS, CREATE_AGENT_INTERACTIONS_IDX, CREATE_AGENT_INTERACTIONS_ORG_IDX, CREATE_AGENT_INTERACTIONS_TYPE_IDX, CREATE_AGENT_INTERACTIONS_TS_IDX, } from './schema.js';
 import { MonographError } from '../types.js';
 export function openDb(dbPath) {
     try {
@@ -38,6 +38,11 @@ function applyMigrations(db) {
     db.exec(FTS_SYNC_TRIGGERS);
     db.exec(CREATE_EMBEDDINGS);
     db.exec(CREATE_WIKI_PAGES);
+    db.exec(CREATE_AGENT_INTERACTIONS);
+    db.exec(CREATE_AGENT_INTERACTIONS_IDX);
+    db.exec(CREATE_AGENT_INTERACTIONS_ORG_IDX);
+    db.exec(CREATE_AGENT_INTERACTIONS_TYPE_IDX);
+    db.exec(CREATE_AGENT_INTERACTIONS_TS_IDX);
     // Schema version table — tracks incremental column additions.
     db.exec(`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)`);
     const row = db.prepare('SELECT MAX(version) AS v FROM schema_version').get();

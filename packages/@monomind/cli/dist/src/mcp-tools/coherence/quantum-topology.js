@@ -1,10 +1,10 @@
 /**
- * Quantum Topology Tool - pr_quantum_topology
+ * Computational Topology Tool - pr_quantum_topology
  *
- * Computes quantum topology features including Betti numbers and persistence diagrams.
+ * Computes topological features including Betti numbers (b0, b1) and
+ * persistence diagrams via Vietoris-Rips filtration.
  * Analyzes topological features of point clouds and simplicial complexes.
- *
- * Uses QuantumEngine from prime-radiant-advanced-wasm
+ * b2 (voids) is not computed -- requires boundary-operator linear algebra.
  */
 import { TopologyInputSchema, successResult, errorResult, } from './types.js';
 // Default logger
@@ -163,14 +163,9 @@ function computeBettiNumbers(vertices, simplices, maxDimension) {
         const b1 = Math.max(0, edges - n + b0);
         bettiNumbers.push(b1);
     }
-    // b2: Approximate from triangle/tetrahedron relationship
-    if (maxDimension >= 2) {
-        const triangles = simplexCounts[2] || 0;
-        const tetrahedra = simplexCounts[3] || 0;
-        // Simplified: b2 related to enclosed voids
-        const b2 = Math.max(0, tetrahedra > 0 ? 1 : 0);
-        bettiNumbers.push(b2);
-    }
+    // b2 requires computing the rank of the boundary matrices (dim-2 and dim-3),
+    // which needs full boundary-operator linear algebra not implemented here.
+    // We do NOT fabricate b2 -- only b0 and b1 are reported.
     return bettiNumbers;
 }
 /**
@@ -256,7 +251,6 @@ function interpretBettiNumbers(bettiNumbers) {
     return {
         b0: `${bettiNumbers[0] || 0} connected component(s)`,
         b1: `${bettiNumbers[1] || 0} loop(s)/cycle(s)`,
-        b2: `${bettiNumbers[2] || 0} void(s)/cavit${(bettiNumbers[2] || 0) === 1 ? 'y' : 'ies'}`,
     };
 }
 /**
@@ -274,7 +268,7 @@ async function handler(input, context) {
         }
         const { complex } = validationResult.data;
         const { vertices, maxDimension } = complex;
-        logger.debug('Processing quantum topology', {
+        logger.debug('Processing computational topology', {
             vertexCount: vertices.length,
             maxDimension,
         });
@@ -338,7 +332,7 @@ async function handler(input, context) {
             },
         };
         const duration = performance.now() - startTime;
-        logger.info('Quantum topology completed', {
+        logger.info('Topology computation completed', {
             bettiNumbers: bettiNumbers.join(', '),
             persistencePoints: persistenceDiagram.length,
             homologyClasses,
@@ -348,7 +342,7 @@ async function handler(input, context) {
     }
     catch (error) {
         const duration = performance.now() - startTime;
-        logger.error('Quantum topology failed', {
+        logger.error('Topology computation failed', {
             error: error instanceof Error ? error.message : String(error),
             durationMs: duration.toFixed(2),
         });
@@ -360,7 +354,7 @@ async function handler(input, context) {
  */
 export const quantumTopologyTool = {
     name: 'pr_quantum_topology',
-    description: 'Compute quantum topology features including Betti numbers and persistence diagrams. Analyzes topological features of point clouds. Uses QuantumEngine for persistent homology computation.',
+    description: 'Compute topological features via Vietoris-Rips filtration. Reports Betti numbers b0 (components) and b1 (loops) with persistence diagrams. b2 (voids) is not computed.',
     category: 'topology',
     version: '0.1.3',
     tags: ['topology', 'betti-numbers', 'persistence', 'homology', 'ai-interpretability'],

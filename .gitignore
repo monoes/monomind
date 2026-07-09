@@ -73,7 +73,6 @@
 .monomind/events/
 .monomind/traces/
 .monomind/security/
-.monomind/worker-dispatch/
 .monomind/.monomind_inner/
 .monomind/parse-cache/
 **/.monomind/parse-cache/
@@ -102,7 +101,6 @@
 **/.monomind/loops/
 **/.monomind/traces/
 **/.monomind/security/
-**/.monomind/worker-dispatch/
 **/.monomind/*.json
 **/.monomind/*.jsonl
 **/.monomind/*.pid

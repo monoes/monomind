@@ -14,7 +14,7 @@ import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { intelligenceCommand, workerCommand } from './hooks-workers.js';
 import { coverageRouteCommand, coverageSuggestCommand, coverageGapsCommand, statuslineCommand, } from './hooks-coverage-commands.js';
-import { tokenOptimizeCommand, modelRouteCommand, modelOutcomeCommand, modelStatsCommand, teammateIdleCommand, taskCompletedCommand, notifyCommand, } from './hooks-extended-commands.js';
+import { tokenOptimizeCommand, modelRouteCommand, modelOutcomeCommand, modelStatsCommand, notifyCommand, } from './hooks-extended-commands.js';
 import { preEditCommand, postEditCommand, preCommandCommand, postCommandCommand, } from './hooks-core-commands.js';
 import { routeCommand, explainCommand, pretrainCommand, buildAgentsCommand, metricsCommand, transferCommand, listCommand, } from './hooks-routing-commands.js';
 // Pre-task subcommand
@@ -439,9 +439,6 @@ export const hooksCommand = {
         sessionStartCommand,
         preBashCommand,
         postBashCommand,
-        // Agent Teams integration
-        teammateIdleCommand,
-        taskCompletedCommand,
     ],
     options: [],
     examples: [

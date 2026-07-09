@@ -354,30 +354,10 @@ const usageCommand: Command = {
     output.writeln(output.bold(`Provider Usage (${timeframe})`));
     output.writeln(output.dim('─'.repeat(60)));
 
-    output.printTable({
-      columns: [
-        { key: 'provider', header: 'Provider', width: 15 },
-        { key: 'requests', header: 'Requests', width: 12 },
-        { key: 'tokens', header: 'Tokens', width: 15 },
-        { key: 'cost', header: 'Est. Cost', width: 12 },
-        { key: 'trend', header: 'Trend', width: 12 },
-      ],
-      data: [
-        { provider: 'Anthropic', requests: '12,847', tokens: '4.2M', cost: '$12.60', trend: output.warning('↑ 15%') },
-        { provider: 'OpenAI (LLM)', requests: '3,421', tokens: '1.1M', cost: '$5.50', trend: output.success('↓ 8%') },
-        { provider: 'OpenAI (Embed)', requests: '89,234', tokens: '12.4M', cost: '$0.25', trend: output.success('↓ 12%') },
-        { provider: 'Transformers.js', requests: '234,567', tokens: '45.2M', cost: output.success('$0.00'), trend: '→' },
-      ],
-    });
-
+    output.writeln(output.dim('Usage tracking is not wired to a live data source in this command.'));
     output.writeln();
-    output.printBox([
-      `Total Requests: 340,069`,
-      `Total Tokens: 62.9M`,
-      `Total Cost: $18.35`,
-      ``,
-      `Savings from local embeddings: $890.12`,
-    ].join('\n'), 'Summary');
+    output.writeln(`For real token usage data, run: ${output.bold('monomind tokens')}`);
+    output.writeln(output.dim('(reads from .claude/helpers/token-tracker.cjs data)'));
 
     return { success: true };
   },

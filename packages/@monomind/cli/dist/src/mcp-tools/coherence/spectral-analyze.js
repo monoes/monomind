@@ -2,9 +2,8 @@
  * Spectral Analysis Tool - pr_spectral_analyze
  *
  * Analyzes stability of systems using spectral graph theory.
- * Computes eigenvalues, spectral gap, and stability metrics.
- *
- * Uses SpectralEngine from prime-radiant-advanced-wasm
+ * Computes eigenvalues via power iteration with Hotelling deflation,
+ * spectral gap, and stability metrics from the graph Laplacian.
  */
 import { SpectralInputSchema, successResult, errorResult, } from './types.js';
 // Default logger
@@ -15,14 +14,32 @@ const defaultLogger = {
     error: (msg, meta) => console.error(`[pr_spectral_analyze] ${msg}`, meta),
 };
 /**
- * Power iteration method for finding dominant eigenvalue
+ * Simple deterministic hash to seed initial vectors reproducibly from matrix content
  */
-function powerIteration(matrix, maxIterations = 100, tolerance = 1e-10) {
+function matrixHash(matrix) {
+    let hash = 0;
+    for (let i = 0; i < matrix.length; i++) {
+        for (let j = 0; j < matrix[i].length; j++) {
+            // Combine with a simple LCG-style mixing
+            hash = ((hash * 1103515245 + 12345) & 0x7fffffff) ^ (matrix[i][j] * 1000003 | 0);
+        }
+    }
+    return hash;
+}
+/**
+ * Power iteration method for finding dominant eigenvalue.
+ * Returns both the eigenvalue and the converged eigenvector.
+ */
+function powerIteration(matrix, maxIterations = 100, tolerance = 1e-10, seed) {
     const n = matrix.length;
     if (n === 0)
-        return 0;
-    // Initialize random vector
-    let v = new Array(n).fill(0).map(() => Math.random());
+        return { eigenvalue: 0, eigenvector: [] };
+    // Initialize with deterministic vector seeded from matrix content
+    let s = seed ?? matrixHash(matrix);
+    let v = new Array(n).fill(0).map(() => {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        return (s / 0x7fffffff) * 2 - 1;
+    });
     let eigenvalue = 0;
     for (let iter = 0; iter < maxIterations; iter++) {
         // Multiply matrix by vector
@@ -44,7 +61,7 @@ function powerIteration(matrix, maxIterations = 100, tolerance = 1e-10) {
         // Check convergence
         const newEigenvalue = maxComponent;
         if (Math.abs(newEigenvalue - eigenvalue) < tolerance) {
-            return newEigenvalue;
+            return { eigenvalue: newEigenvalue, eigenvector: v };
         }
         eigenvalue = newEigenvalue;
         // Normalize
@@ -52,38 +69,40 @@ function powerIteration(matrix, maxIterations = 100, tolerance = 1e-10) {
             v[i] = w[i] / maxComponent;
         }
     }
-    return eigenvalue;
+    return { eigenvalue, eigenvector: v };
 }
 /**
- * Compute approximate eigenvalues using QR iteration (simplified)
- * For production, consider using a proper numerical library
+ * Compute eigenvalues via repeated power-iteration with Hotelling deflation.
+ * Returns only eigenvalues actually computed (up to min(n, maxCount)).
+ * For production, consider using a proper numerical library.
  */
-function computeEigenvalues(matrix) {
+function computeEigenvalues(matrix, maxCount = 10) {
     const n = matrix.length;
     if (n === 0)
         return [];
     if (n === 1)
         return [matrix[0][0]];
-    // For small matrices, use characteristic polynomial roots (simplified)
-    // For larger matrices, use power iteration for top k eigenvalues
     const eigenvalues = [];
-    // Get dominant eigenvalue
-    const lambda1 = powerIteration(matrix);
-    eigenvalues.push(lambda1);
-    // For spectral analysis, we mainly need the top eigenvalues and spectral gap
-    // Use deflation to get second eigenvalue
-    if (n > 1) {
-        // Simplified: estimate second eigenvalue from trace
-        let trace = 0;
+    // Work on a copy so deflation doesn't mutate the original
+    let current = matrix.map(row => [...row]);
+    const count = Math.min(n, maxCount);
+    for (let k = 0; k < count; k++) {
+        const { eigenvalue, eigenvector } = powerIteration(current, 200, 1e-10, matrixHash(current) + k);
+        // If power iteration didn't converge to anything meaningful, stop
+        if (Math.abs(eigenvalue) < 1e-12)
+            break;
+        eigenvalues.push(eigenvalue);
+        // Hotelling deflation: subtract lambda * v * v^T from the matrix
+        // to remove the dominant eigenvalue and find the next one
+        let vNorm = 0;
+        for (let i = 0; i < n; i++)
+            vNorm += eigenvector[i] * eigenvector[i];
+        if (vNorm < 1e-12)
+            break;
         for (let i = 0; i < n; i++) {
-            trace += matrix[i][i];
-        }
-        // Second eigenvalue approximation
-        const lambda2Approx = (trace - lambda1) / (n - 1);
-        eigenvalues.push(lambda2Approx);
-        // Add remaining approximate eigenvalues
-        for (let i = 2; i < Math.min(n, 10); i++) {
-            eigenvalues.push(lambda2Approx * (1 - i * 0.1)); // Decreasing approximation
+            for (let j = 0; j < n; j++) {
+                current[i][j] -= eigenvalue * (eigenvector[i] * eigenvector[j]) / vNorm;
+            }
         }
     }
     return eigenvalues.sort((a, b) => Math.abs(b) - Math.abs(a));
@@ -264,7 +283,7 @@ async function handler(input, context) {
  */
 export const spectralAnalyzeTool = {
     name: 'pr_spectral_analyze',
-    description: 'Analyze stability using spectral graph theory. Computes eigenvalues, spectral gap, and stability metrics. Uses SpectralEngine for mathematical validation of system stability.',
+    description: 'Analyze stability using spectral graph theory. Computes eigenvalues via power iteration with Hotelling deflation, spectral gap, and stability metrics from the graph Laplacian.',
     category: 'spectral',
     version: '0.1.3',
     tags: ['spectral', 'eigenvalues', 'stability', 'graph-theory', 'ai-interpretability'],

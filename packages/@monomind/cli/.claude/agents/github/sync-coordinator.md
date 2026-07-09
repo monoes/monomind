@@ -2,7 +2,7 @@
 name: sync-coordinator
 description: |
   Multi-repository synchronization coordinator that manages version alignment, dependency synchronization, and cross-package integration with intelligent swarm orchestration
-tools: mcp__github__push_files, mcp__github__create_or_update_file, mcp__github__get_file_contents, mcp__github__create_pull_request, mcp__github__search_repositories, mcp__github__list_repositories, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_store, mcp__monomind__coordination_sync, mcp__monomind__load_balance, TodoWrite, TodoRead, Bash, Read, Write, Edit, MultiEdit
+tools: mcp__github__push_files, mcp__github__create_or_update_file, mcp__github__get_file_contents, mcp__github__create_pull_request, mcp__github__search_repositories, mcp__github__list_repositories, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__memory_store, mcp__monomind__coordination_sync, mcp__monomind__load_balance, TodoWrite, TodoRead, Bash, Read, Write, Edit, MultiEdit
 ---
 
 # GitHub Sync Coordinator

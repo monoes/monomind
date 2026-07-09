@@ -337,8 +337,6 @@ export const coordinationTools: MCPTool[] = [
         store.sync.syncCount++;
         store.sync.lastSync = new Date().toISOString();
         store.sync.pendingChanges = 0;
-        // Simulate sync
-        await new Promise(resolve => setTimeout(resolve, 50));
         saveCoordStore(store);
         return {
           success: true,
@@ -801,16 +799,14 @@ export const coordinationTools: MCPTool[] = [
       const task = args.task;
       const agents = args.agents || Object.keys(store.nodes);
       const strategy = args.strategy || 'parallel';
-      const orchestrationId = `orch-${Date.now()}`;
       return {
         success: true,
-        orchestrationId,
         task,
         strategy,
         agents,
-        status: 'initiated',
+        status: 'ready',
         topology: store.topology.type,
-        estimatedCompletion: `${agents.length * (strategy === 'sequential' ? 100 : 50)}ms`,
+        note: 'Orchestration coordinates agents but does not execute tasks. Use Claude Code Task tool to spawn agents.',
       };
     },
   },

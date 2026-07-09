@@ -62,28 +62,28 @@ describe('task-handler — handlePreTask', () => {
   });
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
-  it('logs [OK] Task started when no router', async () => {
+  it('does not log [OK] Task started (removed)', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir, router: null });
     const lines = await capture(() => loadTask().handlePreTask(hCtx));
-    expect(lines.join('\n')).toContain('[OK] Task started');
+    expect(lines.join('\n')).not.toContain('[OK] Task started');
   });
 
-  it('logs [INFO] Task routed to: when router is present', async () => {
+  it('does not log [INFO] Task routed to: (routing removed from pre-task)', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
       router: { routeTask: () => ({ agent: 'coder', confidence: 0.85 }) },
     });
     const lines = await capture(() => loadTask().handlePreTask(hCtx));
-    expect(lines.join('\n')).toContain('[INFO] Task routed to: coder');
+    expect(lines.join('\n')).not.toContain('[INFO] Task routed to:');
   });
 
-  it('logs [AUTO_RETRY_ENABLED] when hookInput.swarmCoordinator is set', async () => {
+  it('does not log [AUTO_RETRY_ENABLED] (removed)', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
       hookInput: { swarmCoordinator: true },
     });
     const lines = await capture(() => loadTask().handlePreTask(hCtx));
-    expect(lines.join('\n')).toContain('[AUTO_RETRY_ENABLED]');
+    expect(lines.join('\n')).not.toContain('[AUTO_RETRY_ENABLED]');
   });
 
   it('does not log [AUTO_RETRY_ENABLED] without coordinator flag', async () => {
@@ -118,33 +118,6 @@ describe('task-handler — handlePostTask', () => {
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await capture(() => loadTask().handlePostTask(hCtx));
     expect(lines.join('\n')).toContain('[OK] Task completed');
-  });
-
-  it('queues consolidate worker after any task', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir, prompt: 'implement a feature' });
-    const lines = await capture(() => loadTask().handlePostTask(hCtx));
-    expect(lines.join('\n')).toContain('[WORKER_DISPATCH]');
-    expect(lines.join('\n')).toContain('consolidate');
-  });
-
-  it('queues audit worker for security-related tasks', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir, prompt: 'security audit of auth module and token validation' });
-    const lines = await capture(() => loadTask().handlePostTask(hCtx));
-    expect(lines.join('\n')).toContain('audit');
-  });
-
-  it('queues testgaps worker for implementation tasks', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir, prompt: 'implement the new feature for user authentication' });
-    const lines = await capture(() => loadTask().handlePostTask(hCtx));
-    expect(lines.join('\n')).toContain('testgaps');
-  });
-
-  it('writes a pending dispatch file to worker-dispatch/', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir, prompt: 'implement feature' });
-    await capture(() => loadTask().handlePostTask(hCtx));
-    const dispatchDir = path.join(tmpDir, '.monomind', 'worker-dispatch');
-    const files = fs.existsSync(dispatchDir) ? fs.readdirSync(dispatchDir).filter(f => f.startsWith('pending-')) : [];
-    expect(files.length).toBeGreaterThan(0);
   });
 
   it('generates an ADR file when adr.autoGenerate=true and architect agent', async () => {
@@ -236,21 +209,6 @@ describe('session-handler — handleEnd', () => {
     await capture(() => loadSession().handleEnd(hCtx));
     const feedbackPath = path.join(tmpDir, '.monomind', 'routing-feedback.jsonl');
     expect(fs.existsSync(feedbackPath)).toBe(false);
-  });
-
-  it('logs [WORKER_CLEANUP] when pending dispatch files exist', async () => {
-    const dispatchDir = path.join(tmpDir, '.monomind', 'worker-dispatch');
-    fs.mkdirSync(dispatchDir, { recursive: true });
-    fs.writeFileSync(path.join(dispatchDir, 'pending-1234.json'), '{}');
-    const hCtx = makeHCtx({ CWD: tmpDir });
-    const lines = await capture(() => loadSession().handleEnd(hCtx));
-    expect(lines.join('\n')).toContain('[WORKER_CLEANUP]');
-  });
-
-  it('does not log [WORKER_CLEANUP] when no pending dispatch files', async () => {
-    const hCtx = makeHCtx({ CWD: tmpDir });
-    const lines = await capture(() => loadSession().handleEnd(hCtx));
-    expect(lines.join('\n')).not.toContain('[WORKER_CLEANUP]');
   });
 
   it('skips intelligence consolidation when daemon holds lock', async () => {

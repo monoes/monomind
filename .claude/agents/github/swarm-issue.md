@@ -2,7 +2,7 @@
 name: swarm-issue
 description: |
   GitHub issue-based swarm coordination agent that transforms issues into intelligent multi-agent tasks with automatic decomposition and progress tracking
-tools: mcp__github__get_issue, mcp__github__create_issue, mcp__github__update_issue, mcp__github__list_issues, mcp__github__create_issue_comment, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage, TodoWrite, TodoRead, Bash, Grep, Read, Write
+tools: mcp__github__get_issue, mcp__github__create_issue, mcp__github__update_issue, mcp__github__list_issues, mcp__github__create_issue_comment, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__memory_usage, TodoWrite, TodoRead, Bash, Grep, Read, Write
 ---
 
 # Swarm Issue - Issue-Based Swarm Coordination

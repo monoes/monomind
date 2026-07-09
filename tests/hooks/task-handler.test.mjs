@@ -1,8 +1,8 @@
 /**
  * Tests for .claude/helpers/handlers/task-handler.cjs
  * Builds a minimal mock hCtx and calls handlePreTask / handlePostTask directly.
- * Verifies: model tier recommendation, worker dispatch, ADR generation,
- * and the [OK] completion messages.
+ * Verifies: model tier recommendation, ADR generation, and the [OK] completion
+ * messages.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createRequire } from 'module';
@@ -47,7 +47,7 @@ function makeHCtx(overrides = {}) {
 }
 
 describe('task-handler.handlePreTask', () => {
-  it('prints AUTO_RETRY_ENABLED when swarmCoordinator is set', async () => {
+  it('does not print AUTO_RETRY_ENABLED (removed)', async () => {
     const th = loadTH();
     const hCtx = makeHCtx({
       hookInput: { swarmCoordinator: true },
@@ -56,19 +56,19 @@ describe('task-handler.handlePreTask', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePreTask(hCtx);
     const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('[AUTO_RETRY_ENABLED]');
+    expect(output).not.toContain('[AUTO_RETRY_ENABLED]');
   });
 
-  it('prints [OK] Task started when no router', async () => {
+  it('does not print [OK] Task started (removed)', async () => {
     const th = loadTH();
     const hCtx = makeHCtx({ prompt: 'do something', router: null });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePreTask(hCtx);
     const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('[OK] Task started');
+    expect(output).not.toContain('[OK] Task started');
   });
 
-  it('routes task and logs result when router is available', async () => {
+  it('does not route task or log result (routing removed from pre-task)', async () => {
     const th = loadTH();
     const mockRoute = vi.fn().mockResolvedValue({ agent: 'coder', confidence: 0.88 });
     const hCtx = makeHCtx({
@@ -77,79 +77,15 @@ describe('task-handler.handlePreTask', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePreTask(hCtx);
-    expect(mockRoute).toHaveBeenCalled();
+    expect(mockRoute).not.toHaveBeenCalled();
     const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('Task routed');
+    expect(output).not.toContain('Task routed');
   });
 });
 
-// ── handlePostTask — worker dispatch ──────────────────────────────────────────
+// ── handlePostTask — completion message ────────────────────────────────────────
 
-describe('task-handler.handlePostTask worker dispatch', () => {
-  it('writes a pending dispatch file after any task', async () => {
-    const th = loadTH();
-    const hCtx = makeHCtx({ prompt: 'do something' });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePostTask(hCtx);
-    const dispatchDir = path.join(tmpDir, '.monomind', 'worker-dispatch');
-    expect(fs.existsSync(dispatchDir)).toBe(true);
-    const files = fs.readdirSync(dispatchDir).filter(f => f.startsWith('pending-'));
-    expect(files.length).toBeGreaterThan(0);
-  });
-
-  it('always dispatches consolidate worker', async () => {
-    const th = loadTH();
-    const hCtx = makeHCtx({ prompt: 'format imports' });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePostTask(hCtx);
-    const dispatchDir = path.join(tmpDir, '.monomind', 'worker-dispatch');
-    const files = fs.readdirSync(dispatchDir).filter(f => f.startsWith('pending-'));
-    const payload = JSON.parse(fs.readFileSync(path.join(dispatchDir, files[0]), 'utf-8'));
-    expect(payload.workers).toContain('consolidate');
-  });
-
-  it('adds audit worker for security-related task', async () => {
-    const th = loadTH();
-    const hCtx = makeHCtx({ prompt: 'fix security vulnerability in auth module' });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePostTask(hCtx);
-    const dispatchDir = path.join(tmpDir, '.monomind', 'worker-dispatch');
-    const files = fs.readdirSync(dispatchDir).filter(f => f.startsWith('pending-'));
-    const payload = JSON.parse(fs.readFileSync(path.join(dispatchDir, files[0]), 'utf-8'));
-    expect(payload.workers).toContain('audit');
-  });
-
-  it('adds testgaps worker for implementation tasks', async () => {
-    const th = loadTH();
-    const hCtx = makeHCtx({ prompt: 'implement new feature for user dashboard' });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePostTask(hCtx);
-    const dispatchDir = path.join(tmpDir, '.monomind', 'worker-dispatch');
-    const files = fs.readdirSync(dispatchDir).filter(f => f.startsWith('pending-'));
-    const payload = JSON.parse(fs.readFileSync(path.join(dispatchDir, files[0]), 'utf-8'));
-    expect(payload.workers).toContain('testgaps');
-  });
-
-  it('adds benchmark worker for performance tasks', async () => {
-    const th = loadTH();
-    const hCtx = makeHCtx({ prompt: 'optimize performance of the search index' });
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePostTask(hCtx);
-    const dispatchDir = path.join(tmpDir, '.monomind', 'worker-dispatch');
-    const files = fs.readdirSync(dispatchDir).filter(f => f.startsWith('pending-'));
-    const payload = JSON.parse(fs.readFileSync(path.join(dispatchDir, files[0]), 'utf-8'));
-    expect(payload.workers).toContain('benchmark');
-  });
-
-  it('prints [WORKER_DISPATCH] with queued worker names', async () => {
-    const th = loadTH();
-    const hCtx = makeHCtx({ prompt: 'fix bug' });
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await th.handlePostTask(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('[WORKER_DISPATCH]');
-  });
-
+describe('task-handler.handlePostTask completion', () => {
   it('prints [OK] Task completed', async () => {
     const th = loadTH();
     const hCtx = makeHCtx({ prompt: 'done' });

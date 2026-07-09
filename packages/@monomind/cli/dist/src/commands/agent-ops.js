@@ -1,5 +1,5 @@
 /**
- * Agent operational commands — metrics, pool, health, logs
+ * Agent operational commands — metrics, pool, health
  */
 import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
@@ -264,64 +264,6 @@ export const healthCommand = {
         }
         catch (error) {
             output.printError(error instanceof MCPClientError ? `Health check error: ${error.message}` : `Unexpected error: ${String(error)}`);
-            return { success: false, exitCode: 1 };
-        }
-    },
-};
-// ─── logs subcommand ─────────────────────────────────────────────────────────
-function formatLogLevel(level) {
-    switch (level) {
-        case 'debug': return output.dim('[DEBUG]');
-        case 'info': return '[INFO] ';
-        case 'warn': return output.warning('[WARN] ');
-        case 'error': return output.error('[ERROR]');
-        default: return `[${level.toUpperCase()}]`;
-    }
-}
-export const logsCommand = {
-    name: 'logs',
-    description: 'Show agent activity logs',
-    options: [
-        { name: 'id', short: 'i', description: 'Agent ID', type: 'string' },
-        { name: 'tail', short: 'n', description: 'Number of recent entries', type: 'number', default: 50 },
-        { name: 'level', short: 'l', description: 'Minimum log level', type: 'string', choices: ['debug', 'info', 'warn', 'error'], default: 'info' },
-        { name: 'follow', short: 'f', description: 'Follow log output', type: 'boolean', default: false },
-        { name: 'since', description: 'Show logs since (e.g., "1h", "30m")', type: 'string' },
-    ],
-    examples: [
-        { command: 'monomind agent logs -i agent-001', description: 'Show agent logs' },
-        { command: 'monomind agent logs -i agent-001 -f', description: 'Follow agent logs' },
-        { command: 'monomind agent logs -l error --since 1h', description: 'Show errors from last hour' },
-    ],
-    action: async (ctx) => {
-        const agentId = ((ctx.args[0] || ctx.flags.id) ?? '').slice(0, 128);
-        const tail = ctx.flags.tail;
-        const level = ctx.flags.level?.slice(0, 32);
-        if (!agentId) {
-            output.printError('Agent ID is required. Use --id or -i');
-            return { success: false, exitCode: 1 };
-        }
-        try {
-            const result = await callMCPTool('agent_logs', { agentId, tail, level, since: ctx.flags.since });
-            if (ctx.flags.format === 'json') {
-                output.printJson(result);
-                return { success: true, data: result };
-            }
-            output.writeln();
-            output.writeln(output.bold(`Logs for ${agentId}`));
-            output.writeln(output.dim(`Showing ${result.entries.length} of ${result.total} entries`));
-            output.writeln();
-            for (const entry of result.entries) {
-                const time = new Date(entry.timestamp).toLocaleTimeString();
-                output.writeln(`${output.dim(time)} ${formatLogLevel(entry.level)} ${entry.message}`);
-                if (entry.context && Object.keys(entry.context).length > 0) {
-                    output.writeln(output.dim(`  ${JSON.stringify(entry.context)}`));
-                }
-            }
-            return { success: true, data: result };
-        }
-        catch (error) {
-            output.printError(error instanceof MCPClientError ? `Logs error: ${error.message}` : `Unexpected error: ${String(error)}`);
             return { success: false, exitCode: 1 };
         }
     },

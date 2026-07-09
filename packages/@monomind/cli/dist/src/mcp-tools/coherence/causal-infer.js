@@ -1,10 +1,10 @@
 /**
- * Causal Inference Tool - pr_causal_infer
+ * Causal Graph Analysis Tool - pr_causal_infer
  *
- * Performs causal inference using do-calculus.
- * Estimates causal effects, identifies confounders, and finds backdoor paths.
- *
- * Uses CausalEngine from prime-radiant-advanced-wasm
+ * Analyzes causal graph structure to assess identifiability.
+ * Identifies confounders, finds backdoor paths, and determines
+ * whether a causal effect can be identified from the graph.
+ * Does NOT estimate causal effect magnitude (that requires data).
  */
 import { CausalInputSchema, successResult, errorResult, } from './types.js';
 // Default logger
@@ -155,41 +155,37 @@ function validateIntervention(treatment, outcome, graph) {
     return descendants.has(outcome);
 }
 /**
- * Estimate causal effect using backdoor adjustment
- * This is a simplified estimation - real estimation requires data
+ * Assess identifiability of the causal effect based on graph structure.
+ * Does NOT estimate the causal effect magnitude -- that requires
+ * observational or experimental data which this tool does not have.
+ * Returns an identifiability score reflecting how cleanly the effect
+ * can be estimated if data were available (fewer confounders and
+ * unblocked backdoor paths = higher identifiability).
  */
-function estimateCausalEffect(treatment, outcome, confounders, backdoorPaths, graph) {
-    // Effect estimation heuristic based on graph structure
-    // In practice, this requires observational data
-    // Base effect: based on direct path existence
-    const treatmentNode = graph.get(treatment);
-    let baseEffect = treatmentNode?.children.has(outcome) ? 0.5 : 0.3;
-    // Adjust for confounders (more confounders = less identifiable effect)
+function assessIdentifiability(confounders, backdoorPaths) {
+    // Identifiability decreases with confounders and unblocked backdoor paths
     const confounderPenalty = Math.min(confounders.length * 0.1, 0.3);
-    // Adjust for backdoor paths (more unblocked paths = less reliable)
     const pathPenalty = Math.min(backdoorPaths.length * 0.05, 0.2);
-    const effect = Math.max(0, baseEffect - confounderPenalty - pathPenalty);
-    // Confidence decreases with confounders and backdoor paths
-    const confidence = Math.max(0.1, 1 - confounderPenalty - pathPenalty);
-    return { effect, confidence };
+    const identifiability = Math.max(0.1, 1 - confounderPenalty - pathPenalty);
+    return { identifiability };
 }
 /**
- * Get interpretation of causal analysis results
+ * Get interpretation of causal graph analysis results
  */
-function getInterpretation(interventionValid, confounders, backdoorPaths, confidence) {
+function getInterpretation(interventionValid, confounders, backdoorPaths, identifiability) {
     if (!interventionValid) {
         return 'Intervention is not valid - no causal path exists from treatment to outcome';
     }
     if (confounders.length === 0 && backdoorPaths.length === 0) {
-        return 'Clean causal identification - no confounding detected';
+        return 'Clean causal identification - no confounding detected. Effect is identifiable with data.';
     }
-    if (confidence > 0.8) {
-        return 'Strong causal identification - confounders can be adjusted for';
+    if (identifiability > 0.8) {
+        return 'Strong identifiability - confounders can be adjusted for with observational data';
     }
-    if (confidence > 0.5) {
-        return `Moderate causal identification - ${confounders.length} confounder(s) require adjustment`;
+    if (identifiability > 0.5) {
+        return `Moderate identifiability - ${confounders.length} confounder(s) require adjustment`;
     }
-    return `Weak causal identification - multiple confounders (${confounders.length}) and backdoor paths (${backdoorPaths.length}) detected`;
+    return `Weak identifiability - multiple confounders (${confounders.length}) and backdoor paths (${backdoorPaths.length}) detected`;
 }
 /**
  * Handler for pr_causal_infer tool
@@ -219,10 +215,7 @@ async function handler(input, context) {
             return errorResult(`Outcome variable "${outcome}" not found in graph nodes`);
         }
         const maxBackdoorPaths = context?.config?.causal?.maxBackdoorPaths ?? 10;
-        // Note: confidenceThreshold can be used for filtering in future enhancements
-        void (context?.config?.causal?.confidenceThreshold ?? 0.8);
-        let effect;
-        let confidence;
+        let identifiability;
         let confounders;
         let backdoorPaths;
         let interventionValid;
@@ -231,11 +224,10 @@ async function handler(input, context) {
             try {
                 logger.debug('Using WASM bridge for causal inference');
                 const result = await context.bridge.inferCausal(graph, intervention, outcome);
-                effect = result.effect;
-                confidence = result.confidence;
                 confounders = result.confounders;
                 backdoorPaths = result.backdoorPaths;
                 interventionValid = result.interventionValid;
+                identifiability = assessIdentifiability(confounders, backdoorPaths).identifiability;
             }
             catch (wasmError) {
                 logger.warn('WASM bridge failed, falling back to JS implementation', {
@@ -246,9 +238,7 @@ async function handler(input, context) {
                 interventionValid = validateIntervention(intervention, outcome, graphStructure);
                 confounders = identifyConfounders(intervention, outcome, graphStructure);
                 backdoorPaths = findBackdoorPaths(intervention, outcome, graphStructure, maxBackdoorPaths);
-                const estimation = estimateCausalEffect(intervention, outcome, confounders, backdoorPaths, graphStructure);
-                effect = estimation.effect;
-                confidence = estimation.confidence;
+                identifiability = assessIdentifiability(confounders, backdoorPaths).identifiability;
             }
         }
         else {
@@ -258,26 +248,22 @@ async function handler(input, context) {
             interventionValid = validateIntervention(intervention, outcome, graphStructure);
             confounders = identifyConfounders(intervention, outcome, graphStructure);
             backdoorPaths = findBackdoorPaths(intervention, outcome, graphStructure, maxBackdoorPaths);
-            const estimation = estimateCausalEffect(intervention, outcome, confounders, backdoorPaths, graphStructure);
-            effect = estimation.effect;
-            confidence = estimation.confidence;
+            identifiability = assessIdentifiability(confounders, backdoorPaths).identifiability;
         }
         const output = {
-            effect,
-            confidence,
+            identifiability,
             backdoorPaths: backdoorPaths.map(p => p.join(' -> ')),
             details: {
                 confounders,
                 interventionValid,
-                interpretation: getInterpretation(interventionValid, confounders, backdoorPaths, confidence),
+                interpretation: getInterpretation(interventionValid, confounders, backdoorPaths, identifiability),
                 nodeCount: graph.nodes.length,
                 edgeCount: graph.edges.length,
             },
         };
         const duration = performance.now() - startTime;
-        logger.info('Causal inference completed', {
-            effect: effect.toFixed(4),
-            confidence: confidence.toFixed(4),
+        logger.info('Causal graph analysis completed', {
+            identifiability: identifiability.toFixed(4),
             confounders: confounders.length,
             backdoorPaths: backdoorPaths.length,
             interventionValid,
@@ -299,7 +285,7 @@ async function handler(input, context) {
  */
 export const causalInferTool = {
     name: 'pr_causal_infer',
-    description: 'Perform causal inference using do-calculus. Estimates causal effects, identifies confounders, and finds backdoor paths. Uses CausalEngine for mathematical causal analysis.',
+    description: 'Analyze causal graph structure for identifiability. Identifies confounders, finds backdoor paths, and assesses whether a causal effect can be identified. Does not estimate effect magnitude (requires observational data).',
     category: 'causal',
     version: '0.1.3',
     tags: ['causal', 'do-calculus', 'confounders', 'backdoor-paths', 'ai-interpretability'],

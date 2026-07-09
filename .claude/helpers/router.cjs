@@ -159,10 +159,27 @@ var MARKETING_OPTIN = /\b(marketing|seo|social media|advertising|campaign|conten
 // ── Skills registry ────────────────────────────────────────────────────────────
 
 var SKILLS = [
-  { skill: 'mastermind', invoke: '/mastermind', description: 'Select swarm topology', keywords: /\b(swarm|topology|hive|mastermind|multi.agent)\b/i },
-  { skill: 'monodesign', invoke: '/monodesign', description: 'Frontend design and UI', keywords: /\b(design|ui|ux|component|visual|layout|css|theme)\b/i },
-  { skill: 'monomotion', invoke: '/monomotion', description: 'Web animations and motion', keywords: /\b(animate|animation|motion|gsap|transition|scroll)\b/i },
-  { skill: 'graphify', invoke: '/graphify', description: 'Input to knowledge graph', keywords: /\b(graph|knowledge|monograph|node|edge|visualize)\b/i },
+  { skill: 'mastermind', invoke: '/mastermind', description: 'Select swarm topology',
+    keywords: /\b(swarm|topology|hive|mastermind|multi.agent)\b/ig,
+    _terms: ['swarm','topology','hive','mastermind','multi-agent','multi agent'] },
+  { skill: 'monodesign', invoke: '/monodesign', description: 'Frontend design and UI',
+    keywords: /\b(design|ui|ux|component|visual|layout|css|theme)\b/ig,
+    _terms: ['design','ui','ux','component','visual','layout','css','theme'] },
+  { skill: 'monomotion', invoke: '/monomotion', description: 'Web animations and motion',
+    keywords: /\b(animate|animation|motion|gsap|transition|scroll)\b/ig,
+    _terms: ['animate','animation','motion','gsap','transition','scroll'] },
+  { skill: 'graphify', invoke: '/graphify', description: 'Input to knowledge graph',
+    keywords: /\b(graph|knowledge|monograph|node|edge|visualize)\b/ig,
+    _terms: ['graph','knowledge','monograph','node','edge','visualize'] },
+  { skill: 'sparc', invoke: '/sparc', description: 'SPARC methodology',
+    keywords: /\b(sparc|specification|pseudocode|refinement|methodology)\b/ig,
+    _terms: ['sparc','specification','pseudocode','refinement','methodology'] },
+  { skill: 'monobrowse', invoke: '/monobrowse', description: 'Browser automation via CDP',
+    keywords: /\b(browse|browser|webpage|screenshot|navigate|selenium|puppeteer|cdp)\b/ig,
+    _terms: ['browse','browser','webpage','screenshot','navigate','selenium','puppeteer','cdp'] },
+  { skill: 'tokens', invoke: '/tokens', description: 'Token usage and cost tracking',
+    keywords: /\b(tokens|token.usage|cost|spending|budget)\b/ig,
+    _terms: ['tokens','token-usage','cost','spending','budget'] },
 ];
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -188,6 +205,9 @@ function routeTask(prompt) {
 
   var safePrompt = prompt.slice(0, MAX_PROMPT);
 
+  // Skills are always checked — they're the primary value of routing now.
+  var skills = matchSkills(safePrompt);
+
   // Check non-dev domain agents first (only if opt-in keywords match)
   var extras = matchExtras(safePrompt);
   if (extras.length > 0) {
@@ -199,18 +219,25 @@ function routeTask(prompt) {
       reason: 'Domain: ' + topExtra.category,
       semanticRouting: false,
       specificAgents: extras,
-      skillMatches: [],
+      skillMatches: skills,
       extrasMatches: extras,
     };
+  }
+
+  // Check if a skill matched strongly (score >= 2) — if so, skip broad catch-all agents
+  var hasStrongSkill = false;
+  for (var si = 0; si < skills.length; si++) {
+    if (skills[si].score >= 2) { hasStrongSkill = true; break; }
   }
 
   // Check dev patterns in priority order
   for (var i = 0; i < DEV_PRIORITY.length; i++) {
     var slug = DEV_PRIORITY[i];
+    // Skip the broad "coder" catch-all when a specialized skill matched strongly
+    if (slug === 'coder' && hasStrongSkill) continue;
     var pattern = _ROUTING_PATTERNS[slug];
     if (pattern && pattern.test(safePrompt)) {
       var confidence = TASK_CONFIDENCES[slug] || 0.75;
-      var skills = matchSkills(safePrompt);
       return {
         agent: TASK_AGENTS[slug],
         agentSlug: slug,
@@ -232,7 +259,7 @@ function routeTask(prompt) {
     reason: 'Default routing — no strong keyword match',
     semanticRouting: false,
     specificAgents: [],
-    skillMatches: [],
+    skillMatches: skills,
     extrasMatches: [],
   };
 }
@@ -243,13 +270,24 @@ function matchSkills(prompt, topN) {
   if (!prompt || typeof prompt !== 'string') return [];
   topN = topN || 5;
   var safePrompt = prompt.slice(0, MAX_PROMPT);
+  var promptLower = safePrompt.toLowerCase();
 
   var scored = [];
   for (var i = 0; i < SKILLS.length; i++) {
     var s = SKILLS[i];
-    if (s.keywords.test(safePrompt)) {
-      scored.push({ skill: s.skill, invoke: s.invoke, description: s.description, score: 1.0 });
+    // Reset regex lastIndex (global flag) before testing
+    s.keywords.lastIndex = 0;
+    if (!s.keywords.test(safePrompt)) continue;
+
+    // Count distinct keyword hits for scoring
+    var hits = 0;
+    var terms = s._terms || [];
+    for (var t = 0; t < terms.length; t++) {
+      if (promptLower.indexOf(terms[t]) !== -1) hits++;
     }
+    // Score: 1 base + 1 per additional keyword hit (min 1, max = term count)
+    var score = Math.max(1, hits);
+    scored.push({ skill: s.skill, invoke: s.invoke, description: s.description, score: score });
   }
 
   scored.sort(function(a, b) { return b.score - a.score; });

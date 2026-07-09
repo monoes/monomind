@@ -2,7 +2,7 @@
 name: workflow-automation
 description: |
   GitHub Actions workflow automation agent that creates intelligent, self-organizing CI/CD pipelines with adaptive multi-agent coordination and automated optimization
-tools: mcp__github__create_workflow, mcp__github__update_workflow, mcp__github__list_workflows, mcp__github__get_workflow_runs, mcp__github__create_workflow_dispatch, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage, mcp__monomind__performance_report, mcp__monomind__bottleneck_analyze, mcp__monomind__workflow_create, mcp__monomind__automation_setup, TodoWrite, TodoRead, Bash, Read, Write, Edit, Grep
+tools: mcp__github__create_workflow, mcp__github__update_workflow, mcp__github__list_workflows, mcp__github__get_workflow_runs, mcp__github__create_workflow_dispatch, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__memory_usage, mcp__monomind__performance_report, mcp__monomind__bottleneck_analyze, mcp__monomind__workflow_create, mcp__monomind__automation_setup, TodoWrite, TodoRead, Bash, Read, Write, Edit, Grep
 ---
 
 # Workflow Automation - GitHub Actions Integration

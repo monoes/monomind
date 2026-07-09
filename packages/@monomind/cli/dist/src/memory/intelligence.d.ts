@@ -13,8 +13,7 @@
 export interface SonaConfig {
     instantLoopEnabled: boolean;
     backgroundLoopEnabled: boolean;
-    loraLearningRate: number;
-    loraRank: number;
+    confidenceLearningRate: number;
     ewcLambda: number;
     maxTrajectorySize: number;
     patternThreshold: number;
@@ -104,7 +103,7 @@ declare class LocalSonaCoordinator {
      */
     addTrajectoryStep(step: TrajectoryStep): void;
     /**
-     * End the current trajectory with a verdict and apply RL updates.
+     * End the current trajectory with a verdict and apply confidence updates.
      * Reward mapping: success=1.0, partial=0.5, failure=-0.5
      *
      * For successful/partial trajectories, boosts confidence of similar patterns
@@ -116,10 +115,10 @@ declare class LocalSonaCoordinator {
     }>;
     /**
      * Distill learning from recent successful trajectories.
-     * Applies LoRA-style confidence updates and integrates EWC++ consolidation.
+     * Applies incremental confidence updates and integrates EWC consolidation.
      *
      * For each successful trajectory step with high confidence,
-     * increases the pattern's stored confidence by loraLearningRate * reward.
+     * increases the pattern's stored confidence by confidenceLearningRate * reward.
      * Before applying updates, checks EWC penalty to prevent catastrophic forgetting.
      */
     distillLearning(bank: LocalReasoningBank): Promise<{
@@ -264,8 +263,8 @@ export declare function getSonaCoordinator(): LocalSonaCoordinator | null;
  */
 export declare function getReasoningBank(): LocalReasoningBank | null;
 /**
- * End the current trajectory with a verdict and apply RL updates.
- * This is the public API for the SONA RL loop.
+ * End the current trajectory with a verdict and apply confidence updates.
+ * This is the public API for the SONA feedback loop.
  *
  * @param verdict - 'success' (reward=1.0), 'partial' (0.5), or 'failure' (-0.5)
  * @returns Update statistics or null if not initialized
@@ -276,7 +275,7 @@ export declare function endTrajectoryWithVerdict(verdict: 'success' | 'failure' 
 } | null>;
 /**
  * Distill learning from recent successful trajectories.
- * Applies LoRA-style confidence updates with EWC++ consolidation protection.
+ * Applies incremental confidence updates with EWC consolidation protection.
  *
  * @returns Distillation statistics or null if not initialized
  */

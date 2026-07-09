@@ -181,106 +181,6 @@ const runCommand = {
         }
     }
 };
-// Validate subcommand
-const validateCommand = {
-    name: 'validate',
-    description: 'Validate a workflow definition',
-    options: [
-        {
-            name: 'file',
-            short: 'f',
-            description: 'Workflow definition file',
-            type: 'string',
-            required: true
-        },
-        {
-            name: 'strict',
-            short: 's',
-            description: 'Strict validation mode',
-            type: 'boolean',
-            default: false
-        }
-    ],
-    examples: [
-        { command: 'monomind workflow validate -f ./workflow.yaml', description: 'Validate workflow file' },
-        { command: 'monomind workflow validate -f ./workflow.json --strict', description: 'Strict validation' }
-    ],
-    action: async (ctx) => {
-        const rawFile = ctx.flags.file || ctx.args[0];
-        const strict = ctx.flags.strict;
-        if (!rawFile) {
-            output.printError('Workflow file is required. Use --file or -f');
-            return { success: false, exitCode: 1 };
-        }
-        // Path traversal guard: file must stay within working directory
-        const pathMod = await import('path');
-        const effectiveCwd = ctx.cwd || process.cwd();
-        const absFile = pathMod.isAbsolute(rawFile) ? rawFile : pathMod.resolve(effectiveCwd, rawFile);
-        const resolvedFile = pathMod.resolve(absFile);
-        const resolvedCwd = pathMod.resolve(effectiveCwd);
-        if (!resolvedFile.startsWith(resolvedCwd + pathMod.sep) && resolvedFile !== resolvedCwd) {
-            output.printError('Workflow file path must be within the working directory.');
-            return { success: false, exitCode: 1 };
-        }
-        const file = resolvedFile;
-        output.printInfo(`Validating: ${file}`);
-        try {
-            const result = await callMCPTool('workflow_validate', {
-                file,
-                strict,
-            });
-            if (ctx.flags.format === 'json') {
-                output.printJson(result);
-                return { success: result.valid, data: result };
-            }
-            output.writeln();
-            if (result.valid) {
-                output.printSuccess('Workflow is valid');
-            }
-            else {
-                output.printError('Workflow validation failed');
-            }
-            if (result.errors.length > 0) {
-                output.writeln();
-                output.writeln(output.bold(output.error('Errors')));
-                output.printTable({
-                    columns: [
-                        { key: 'line', header: 'Line', width: 8, align: 'right' },
-                        { key: 'severity', header: 'Severity', width: 10 },
-                        { key: 'message', header: 'Message', width: 50 }
-                    ],
-                    data: result.errors
-                });
-            }
-            if (result.warnings.length > 0) {
-                output.writeln();
-                output.writeln(output.bold(output.warning('Warnings')));
-                result.warnings.forEach(w => {
-                    output.writeln(output.warning(`  Line ${w.line}: ${w.message}`));
-                });
-            }
-            if (result.valid) {
-                output.writeln();
-                output.writeln(output.bold('Workflow Stats'));
-                output.printList([
-                    `Stages: ${result.stats.stages}`,
-                    `Agents Required: ${result.stats.agents}`,
-                    `Est. Duration: ${result.stats.estimatedDuration}`
-                ]);
-            }
-            return { success: result.valid, data: result };
-        }
-        catch (error) {
-            if (error instanceof MCPClientError) {
-                output.printError(`Validation error: ${error.message}`);
-            }
-            else {
-                output.printError(`Unexpected error: ${String(error)}`);
-            }
-            return { success: false, exitCode: 1 };
-        }
-    }
-};
 // List subcommand
 const listCommand = {
     name: 'list',
@@ -437,7 +337,7 @@ const stopCommand = {
             }
         }
         try {
-            const result = await callMCPTool('workflow_stop', {
+            const result = await callMCPTool('workflow_cancel', {
                 workflowId,
                 graceful: !force,
             });
@@ -588,11 +488,10 @@ const templateCommand = {
 export const workflowCommand = {
     name: 'workflow',
     description: 'Workflow execution and management',
-    subcommands: [runCommand, validateCommand, listCommand, statusCommand, stopCommand, templateCommand],
+    subcommands: [runCommand, listCommand, statusCommand, stopCommand, templateCommand],
     options: [],
     examples: [
         { command: 'monomind workflow run -t development --task "Build feature"', description: 'Run workflow' },
-        { command: 'monomind workflow validate -f ./workflow.yaml', description: 'Validate workflow' },
         { command: 'monomind workflow list', description: 'List workflows' }
     ],
     action: async () => {
@@ -604,7 +503,6 @@ export const workflowCommand = {
         output.writeln('Subcommands:');
         output.printList([
             `${output.highlight('run')}       - Execute a workflow`,
-            `${output.highlight('validate')}  - Validate workflow definition`,
             `${output.highlight('list')}      - List workflows`,
             `${output.highlight('status')}    - Show workflow status`,
             `${output.highlight('stop')}      - Stop running workflow`,

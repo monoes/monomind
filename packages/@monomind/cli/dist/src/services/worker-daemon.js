@@ -7,7 +7,9 @@
  * - audit: Security analysis (10 min interval)
  * - optimize: Performance optimization (15 min interval)
  * - consolidate: Memory consolidation (30 min interval)
- * - testgaps: Test coverage analysis (20 min interval)
+ * - testgaps, predict, document, refactor, preload: no local-mode
+ *   implementation — real work only happens in headless mode via
+ *   HeadlessWorkerExecutor (Claude Code CLI required)
  */
 import { EventEmitter } from 'events';
 import { existsSync, mkdirSync, writeFileSync, renameSync, readFileSync, appendFileSync, unlinkSync, statSync } from 'fs';
@@ -723,22 +725,23 @@ export class WorkerDaemon extends EventEmitter {
                 return this.runOptimizeWorkerLocal();
             case 'consolidate':
                 return this.runConsolidateWorker();
-            case 'testgaps':
-                return this.runTestGapsWorkerLocal();
-            case 'predict':
-                return this.runPredictWorkerLocal();
-            case 'document':
-                return this.runDocumentWorkerLocal();
             case 'ultralearn':
                 return this.runUltralearnWorkerLocal();
-            case 'refactor':
-                return this.runRefactorWorkerLocal();
             case 'deepdive':
                 return this.runDeepdiveWorkerLocal();
             case 'benchmark':
                 return this.runBenchmarkWorkerLocal();
+            // testgaps/predict/document/refactor/preload have no real local-mode
+            // implementation — they only do real work in headless mode (see
+            // HeadlessWorkerExecutor). Without Claude Code CLI available there is
+            // nothing meaningful to run locally, so report that plainly instead of
+            // faking a result with hardcoded empty JSON (monolean).
+            case 'testgaps':
+            case 'predict':
+            case 'document':
+            case 'refactor':
             case 'preload':
-                return this.runPreloadWorkerLocal();
+                return { mode: 'local', note: 'Install Claude Code CLI for AI-powered analysis — no local implementation exists for this worker' };
             default:
                 return { status: 'unknown worker type', mode: 'local' };
         }
@@ -992,53 +995,6 @@ export class WorkerDaemon extends EventEmitter {
         return result;
     }
     /**
-     * Local testgaps worker (fallback when headless unavailable)
-     */
-    async runTestGapsWorkerLocal() {
-        // Check for test coverage gaps
-        const testGapsFile = join(this.projectRoot, '.monomind', 'metrics', 'test-gaps.json');
-        const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
-        if (!existsSync(metricsDir)) {
-            mkdirSync(metricsDir, { recursive: true });
-        }
-        const result = {
-            timestamp: new Date().toISOString(),
-            mode: 'local',
-            hasTestDir: existsSync(join(this.projectRoot, 'tests')) || existsSync(join(this.projectRoot, '__tests__')),
-            estimatedCoverage: 'unknown',
-            gaps: [],
-            note: 'Install Claude Code CLI for AI-powered test gap analysis',
-        };
-        const testGapsFileTmp = testGapsFile + '.tmp';
-        writeFileSync(testGapsFileTmp, JSON.stringify(result, null, 2));
-        renameSync(testGapsFileTmp, testGapsFile);
-        return result;
-    }
-    /**
-     * Local predict worker (fallback when headless unavailable)
-     */
-    async runPredictWorkerLocal() {
-        return {
-            timestamp: new Date().toISOString(),
-            mode: 'local',
-            predictions: [],
-            preloaded: [],
-            note: 'Install Claude Code CLI for AI-powered predictions',
-        };
-    }
-    /**
-     * Local document worker (fallback when headless unavailable)
-     */
-    async runDocumentWorkerLocal() {
-        return {
-            timestamp: new Date().toISOString(),
-            mode: 'local',
-            filesDocumented: 0,
-            suggestedDocs: [],
-            note: 'Install Claude Code CLI for AI-powered documentation generation',
-        };
-    }
-    /**
      * Local ultralearn worker (fallback when headless unavailable)
      */
     async runUltralearnWorkerLocal() {
@@ -1131,18 +1087,6 @@ export class WorkerDaemon extends EventEmitter {
         }
         catch { /* monograph unavailable — return minimal result */ }
         return result;
-    }
-    /**
-     * Local refactor worker (fallback when headless unavailable)
-     */
-    async runRefactorWorkerLocal() {
-        return {
-            timestamp: new Date().toISOString(),
-            mode: 'local',
-            suggestions: [],
-            duplicatesFound: 0,
-            note: 'Install Claude Code CLI for AI-powered refactoring suggestions',
-        };
     }
     /**
      * Local deepdive worker (fallback when headless unavailable)
@@ -1271,17 +1215,6 @@ export class WorkerDaemon extends EventEmitter {
         writeFileSync(benchmarkFileTmp, JSON.stringify(result, null, 2));
         renameSync(benchmarkFileTmp, benchmarkFile);
         return result;
-    }
-    /**
-     * Local preload worker
-     */
-    async runPreloadWorkerLocal() {
-        return {
-            timestamp: new Date().toISOString(),
-            mode: 'local',
-            resourcesPreloaded: 0,
-            cacheStatus: 'active',
-        };
     }
     /**
      * Manually trigger a worker

@@ -169,8 +169,7 @@ export interface CausalResult {
     confidence: number;
 }
 export interface CausalOutput {
-    effect: number;
-    confidence: number;
+    identifiability: number;
     backdoorPaths: string[];
     details: {
         confounders: string[];
@@ -240,8 +239,8 @@ export interface ConsensusOutput {
     details: {
         agreementRatio: number;
         coherenceEnergy: number;
-        spectralStability: boolean;
-        spectralGap: number;
+        connectivityStable: boolean;
+        degreeRatio: number;
         interpretation: string;
         agentCount: number;
     };
@@ -352,7 +351,6 @@ export interface TopologyOutput {
         interpretation: {
             b0: string;
             b1: string;
-            b2: string;
         };
         vertexCount: number;
         maxDimension: number;
@@ -375,19 +373,19 @@ export declare const MemoryGateInputSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     key: string;
     value?: unknown;
+    existingVectors?: number[][] | undefined;
     thresholds?: {
         warn: number;
         reject: number;
     } | undefined;
-    existingVectors?: number[][] | undefined;
 }, {
     key: string;
     value?: unknown;
+    existingVectors?: number[][] | undefined;
     thresholds?: {
         warn?: number | undefined;
         reject?: number | undefined;
     } | undefined;
-    existingVectors?: number[][] | undefined;
 }>;
 export type MemoryGateInput = z.infer<typeof MemoryGateInputSchema>;
 export interface MemoryGateOutput {

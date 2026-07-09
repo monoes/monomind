@@ -14,8 +14,8 @@ import { output } from '../output.js';
 
 import { storeCommand, retrieveCommand, searchCommand } from './memory-crud.js';
 import { listCommand, editCommand, templatesCommand } from './memory-list.js';
-import { deleteCommand, statsCommand, configureCommand, cleanupCommand } from './memory-admin.js';
-import { compressCommand, exportCommand, importCommand } from './memory-transfer.js';
+import { deleteCommand, statsCommand, configureCommand } from './memory-admin.js';
+import { exportCommand, importCommand } from './memory-transfer.js';
 
 // Init subcommand - initialize memory database using sql.js
 const initMemoryCommand: Command = {
@@ -246,7 +246,6 @@ const initMemoryCommand: Command = {
       output.printList([
         `Store data: ${output.highlight('monomind memory store -k "key" --value "data"')}`,
         `Search: ${output.highlight('monomind memory search -q "query"')}`,
-        `Train patterns: ${output.highlight('monomind neural train -p coordination')}`,
         `View stats: ${output.highlight('monomind memory stats')}`
       ]);
 
@@ -290,7 +289,7 @@ const initMemoryCommand: Command = {
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, editCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, templatesCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand],
+  subcommands: [initMemoryCommand, storeCommand, editCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, templatesCommand, statsCommand, configureCommand, exportCommand, importCommand],
   options: [],
   examples: [
     { command: 'monomind memory store -k "key" -v "value"', description: 'Store data' },
@@ -315,8 +314,6 @@ export const memoryCommand: Command = {
       `${output.highlight('templates')}   - Show best-practice entry templates`,
       `${output.highlight('stats')}       - Show statistics`,
       `${output.highlight('configure')}   - Configure backend`,
-      `${output.highlight('cleanup')}     - Clean expired entries`,
-      `${output.highlight('compress')}    - Compress database`,
       `${output.highlight('export')}      - Export memory to file`,
       `${output.highlight('import')}      - Import from file`
     ]);

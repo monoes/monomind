@@ -41,8 +41,6 @@ import { graphifyTools } from './mcp-tools/graphify-tools.js';
 import { monographTools } from './mcp-tools/monograph-tools.js';
 // Coverage-aware routing tools
 import { coverageRouterTools } from './monovector/coverage-tools.js';
-// A2A Agent Card protocol (source: https://a2a-protocol.org)
-import { a2aTools } from './mcp-tools/a2a-tools.js';
 // Quality and Coherence core tools
 import { qualityTools } from './mcp-tools/quality-tools.js';
 import { coherenceTools } from './mcp-tools/coherence-tools.js';
@@ -100,8 +98,6 @@ registerTools([
   ...graphifyTools,
   // Coverage-aware routing tools
   ...coverageRouterTools,
-  // A2A Agent Card protocol (source: https://a2a-protocol.org)
-  ...a2aTools,
   // Quality tools
   ...qualityTools,
   // Coherence tools

@@ -11,8 +11,8 @@
 import { output } from '../output.js';
 import { storeCommand, retrieveCommand, searchCommand } from './memory-crud.js';
 import { listCommand, editCommand, templatesCommand } from './memory-list.js';
-import { deleteCommand, statsCommand, configureCommand, cleanupCommand } from './memory-admin.js';
-import { compressCommand, exportCommand, importCommand } from './memory-transfer.js';
+import { deleteCommand, statsCommand, configureCommand } from './memory-admin.js';
+import { exportCommand, importCommand } from './memory-transfer.js';
 // Init subcommand - initialize memory database using sql.js
 const initMemoryCommand = {
     name: 'init',
@@ -209,7 +209,6 @@ const initMemoryCommand = {
             output.printList([
                 `Store data: ${output.highlight('monomind memory store -k "key" --value "data"')}`,
                 `Search: ${output.highlight('monomind memory search -q "query"')}`,
-                `Train patterns: ${output.highlight('monomind neural train -p coordination')}`,
                 `View stats: ${output.highlight('monomind memory stats')}`
             ]);
             // Also sync to .claude directory
@@ -248,7 +247,7 @@ const initMemoryCommand = {
 export const memoryCommand = {
     name: 'memory',
     description: 'Memory management commands',
-    subcommands: [initMemoryCommand, storeCommand, editCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, templatesCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand],
+    subcommands: [initMemoryCommand, storeCommand, editCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, templatesCommand, statsCommand, configureCommand, exportCommand, importCommand],
     options: [],
     examples: [
         { command: 'monomind memory store -k "key" -v "value"', description: 'Store data' },

@@ -1,0 +1,139 @@
+{
+  "security-package": {
+    "area": "security-package",
+    "path": "packages/@monomind/security",
+    "label": "@monomind/security — Input validation, path validation, CVE remediation, safe execution",
+    "iteration": 1,
+    "verdict": "ITERATE",
+    "scores": {
+      "value_delivered": 3,
+      "implementation_health": 4,
+      "honesty_gap": 7
+    },
+    "fixes_applied": [
+      "Added validateExternalContent() to input-guards.ts — heuristic prompt-injection guard with 15 injection patterns, 3 encoding patterns, and directive-density check",
+      "Exported validateExternalContent and ExternalContentResult from index.ts",
+      "Created tests/security/input-guards.test.ts — 45 tests (34 validateInput + 11 validateExternalContent) discoverable by vitest",
+      "Cleaned stale dist artifacts: removed input-validator.*, input-guards.test.*, sandbox/ (no source backing)",
+      "Rebuilt dist with tsc --build to include new exports"
+    ],
+    "remaining_gaps": [
+      "validateInput() still has zero adoption outside the security package — consumers should call it for input sanitization",
+      "agent-tools.ts imports WasmSandbox/DockerSandbox/register/cleanup which do not exist — these try/catch silently fail",
+      "CLAUDE.md claims InputValidator (Zod-based), PathValidator, SafeExecutor — these are not in source (only stale dist had them)",
+      "CVE remediation is not implemented"
+    ],
+    "post_scores": {
+      "value_delivered": 5,
+      "implementation_health": 6,
+      "honesty_gap": 5
+    },
+    "timestamp": "2026-07-09T14:34:00Z"
+  },
+  "cli-commands": {
+    "area": "cli-commands",
+    "path": "packages/@monomind/cli/src/commands",
+    "label": "@monomind/cli — 41 CLI commands",
+    "iteration": 1,
+    "verdict": "ITERATE",
+    "scores": {
+      "value_delivered": 7,
+      "implementation_health": 6,
+      "honesty_gap": 2
+    },
+    "fixes_applied": [
+      "Added 15 missing commands to the exported `commands` array in commands/index.ts (browse, config, completions, workflow, analyze, route, providers, claims, issues, update, process, replay, transfer-store, tokens, report-crash) — these were in loadedCommands but not registered with the parser or commandRegistry",
+      "Added missing re-exports for toObsidian, toCanvas, toMermaid from monograph export/obsidian.js, export/canvas.js, export/mermaid.js in monograph/src/index.ts — fixing TS2339 build errors in CLI's monograph-tools.ts",
+      "Rebuilt @monoes/monograph (clean tsc, zero errors) and @monoes/monomindcli (clean tsc --noEmit, zero errors)"
+    ],
+    "remaining_gaps": [
+      "hook-handler.cjs calls process.exit(0) at line 680 which triggers unhandled rejection in Vitest during init-helpers tests — pre-existing, cosmetic",
+      "The build script uses `tsc --noEmitOnError false || true` which masks any future TS errors — should be tightened",
+      "Dual-registry pattern (loadedCommands + commandRegistry + commands array) is fragile — should be consolidated to a single source of truth"
+    ],
+    "post_scores": {
+      "value_delivered": 8,
+      "implementation_health": 7,
+      "honesty_gap": 1
+    },
+    "timestamp": "2026-07-09T14:45:00Z"
+  },
+  "daemon-system": {
+    "area": "daemon-system",
+    "path": "packages/@monomind/cli/src/services/worker-daemon.ts",
+    "label": "Daemon — background worker management and lifecycle",
+    "iteration": 1,
+    "verdict": "CONVERGE",
+    "scores": {
+      "value_delivered": 7,
+      "implementation_health": 7,
+      "honesty_gap": 2
+    },
+    "fixes_applied": [
+      "Copied orphaned test from packages/@monomind/cli/__tests__/services/worker-daemon-resource-thresholds.test.ts to tests/daemon/worker-daemon-resource-thresholds.test.ts with corrected import paths — 40 tests now pass and are discoverable by vitest"
+    ],
+    "remaining_gaps": [],
+    "post_scores": {
+      "value_delivered": 7,
+      "implementation_health": 7,
+      "honesty_gap": 1
+    },
+    "timestamp": "2026-07-09T14:55:00Z"
+  },
+  "neural-system": {
+    "area": "neural-system",
+    "path": "packages/@monomind/cli/src/mcp-tools/neural-tools.ts",
+    "label": "Neural — pattern training and prediction",
+    "iteration": 1,
+    "verdict": "ITERATE",
+    "scores": {
+      "value_delivered": 5,
+      "implementation_health": 5,
+      "honesty_gap": 4
+    },
+    "fixes_applied": [
+      "Restored neural CLI source files from git history (neural.ts, neural-core.ts, neural-optimize.ts, neural-registry.ts) to packages/@monomind/cli/src/commands/",
+      "Registered neuralCommand in commands/index.ts (import, loadedCommands.set, export, commands array, commandsByCategory.advanced)",
+      "Verified tsc --noEmit compiles cleanly with zero errors"
+    ],
+    "remaining_gaps": [
+      "No tests for neural MCP tools (neural_train, neural_predict, neural_compress, neural_optimize, neural_patterns)",
+      "No tests for neural CLI commands (status, patterns, predict, optimize, list, export, import)",
+      "CLI patterns.json and MCP models.json are two separate stores that get mirrored best-effort — fragile dual-store pattern"
+    ],
+    "post_scores": {
+      "value_delivered": 6,
+      "implementation_health": 6,
+      "honesty_gap": 2
+    },
+    "timestamp": "2026-07-09T14:55:00Z"
+  },
+  "skills-system": {
+    "area": "skills-system",
+    "path": ".claude/commands",
+    "label": "Skills — mastermind, monolean, monodesign, monomotion, superpowers skill files",
+    "iteration": 1,
+    "verdict": "KEEP-AS-IS",
+    "scores": {
+      "value_delivered": 8,
+      "implementation_health": 7,
+      "honesty_gap": 2
+    },
+    "fixes_applied": [
+      "Fixed stale graphify_suggest/graphify_query references in mastermind/help.md — updated to monograph_suggest/monograph_query"
+    ],
+    "remaining_gaps": [
+      "98 of ~170 skill files missing frontmatter description: field — affects skill listing quality but not function",
+      "3 macOS ._ resource forks in commands/mastermind/ (._code-review, ._okf-export, ._okf-import) show as phantom skills — covered by .gitignore, local-only artifact",
+      "4 macOS ._ resource forks in skills/mastermind-skills/ — same local artifact issue",
+      "swarm/swarm.md frontmatter name is 'swarm-swarm' instead of 'swarm:swarm' — inconsistency with naming convention",
+      "do.md is 525 lines, right at the 500-line project limit"
+    ],
+    "post_scores": {
+      "value_delivered": 8,
+      "implementation_health": 7,
+      "honesty_gap": 2
+    },
+    "timestamp": "2026-07-09T14:55:00Z"
+  }
+}

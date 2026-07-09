@@ -161,7 +161,8 @@ function storePattern(pattern) {
   void pattern;
 }
 
-// ── AutoMem bridges (arXiv:2607.01224) ───────────────────────────────────────
+// ── AutoMem bridges — lazy-load the compiled intelligence module and expose ──
+// ── its pattern-recall/decision-recording helpers to the .cjs hook handlers ──
 
 var _intelligenceMod = null;
 

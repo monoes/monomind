@@ -153,15 +153,13 @@ export const wizardCommand: Command = {
 
       if (memoryBackend === 'lancedb' || memoryBackend === 'hybrid') {
         const enableSelfLearning = await confirm({
-          message: 'Enable self-learning memory? (LearningBridge + Knowledge Graph + Agent Scopes)',
+          message: 'Enable self-learning memory? (Knowledge Graph + Agent Scopes)',
           default: true,
         });
         options.runtime.enableLearningBridge = enableSelfLearning && enableNeural;
-        options.runtime.enableMemoryGraph = enableSelfLearning;
         options.runtime.enableAgentScopes = enableSelfLearning;
       } else {
         options.runtime.enableLearningBridge = false;
-        options.runtime.enableMemoryGraph = false;
         options.runtime.enableAgentScopes = false;
       }
 
@@ -257,7 +255,7 @@ export const wizardCommand: Command = {
           { setting: 'Memory Backend', value: options.runtime.memoryBackend },
           { setting: 'HNSW Indexing', value: options.runtime.enableHNSW ? 'Enabled' : 'Disabled' },
           { setting: 'Neural Learning', value: options.runtime.enableNeural ? 'Enabled' : 'Disabled' },
-          { setting: 'Self-Learning', value: options.runtime.enableLearningBridge ? 'LearningBridge + Graph + Scopes' : 'Disabled' },
+          { setting: 'Self-Learning', value: options.runtime.enableLearningBridge ? 'Graph + Scopes' : 'Disabled' },
           { setting: 'Embeddings', value: enableEmbeddings ? `${embeddingModel} (hyperbolic)` : 'Disabled' },
           { setting: 'Skills', value: `${result.summary.skillsCount} installed` },
           { setting: 'Commands', value: `${result.summary.commandsCount} installed` },

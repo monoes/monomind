@@ -491,6 +491,8 @@ export class MemoryMigrator extends EventEmitter {
   }
 
   private isValidMemoryType(type: string): boolean {
+    // 'procedural' kept here for legacy migration compatibility only —
+    // it is no longer a valid MemoryType (procedural memory removed).
     return ['episodic', 'semantic', 'procedural', 'working', 'cache'].includes(type);
   }
 

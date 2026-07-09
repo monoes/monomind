@@ -7,9 +7,6 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { confirm, input, select } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import { gzipSync } from 'node:zlib';
 
 // Format date for display
 function formatDate(dateStr: string): string {
@@ -505,282 +502,6 @@ const deleteCommand: Command = {
   }
 };
 
-// Export subcommand
-const exportCommand: Command = {
-  name: 'export',
-  description: 'Export session to file',
-  options: [
-    {
-      name: 'output',
-      short: 'o',
-      description: 'Output file path',
-      type: 'string'
-    },
-    {
-      name: 'format',
-      short: 'f',
-      description: 'Export format (json, yaml)',
-      type: 'string',
-      choices: ['json', 'yaml'],
-      default: 'json'
-    },
-    {
-      name: 'include-memory',
-      description: 'Include memory data',
-      type: 'boolean',
-      default: true
-    },
-    {
-      name: 'compress',
-      description: 'Compress output',
-      type: 'boolean',
-      default: false
-    }
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    let sessionId = ctx.args[0];
-    let outputPath = ctx.flags.output as string;
-    const exportFormat = ctx.flags.format as string;
-    const compress = ctx.flags.compress as boolean;
-
-    // Get current session if no ID provided
-    if (!sessionId) {
-      try {
-        const current = await callMCPTool<{ sessionId: string }>('session_current', {});
-        sessionId = current.sessionId;
-      } catch {
-        output.printError('No active session. Provide a session ID to export.');
-        return { success: false, exitCode: 1 };
-      }
-    }
-
-    // Generate output path if not provided
-    if (!outputPath) {
-      const ext = compress ? '.gz' : '';
-      outputPath = `session-${sessionId}.${exportFormat}${ext}`;
-    }
-
-    const spinner = output.createSpinner({ text: 'Exporting session...' });
-    spinner.start();
-
-    try {
-      const result = await callMCPTool<{
-        sessionId: string;
-        data: unknown;
-        stats: {
-          agentCount: number;
-          taskCount: number;
-          memoryEntries: number;
-        };
-      }>('session_export', {
-        sessionId,
-        includeMemory: ctx.flags['include-memory'] !== false
-      });
-
-      // Format output
-      let content: string;
-      if (exportFormat === 'yaml') {
-        content = toSimpleYaml(result.data);
-      } else {
-        content = JSON.stringify(result.data, null, 2);
-      }
-
-      // Path traversal protection: resolved path must stay within CWD
-      const effectiveCwd = ctx.cwd || process.cwd();
-      const absolutePath = path.isAbsolute(outputPath)
-        ? outputPath
-        : path.join(effectiveCwd, outputPath);
-      const resolvedOutputPath = path.resolve(absolutePath);
-      const resolvedCwd = path.resolve(effectiveCwd);
-      if (!resolvedOutputPath.startsWith(resolvedCwd + path.sep) && resolvedOutputPath !== resolvedCwd) {
-        output.printError(`Output path must be within the working directory.`);
-        return { success: false, exitCode: 1 };
-      }
-
-      // Write atomically (tmp + rename) to avoid partial writes — use resolvedOutputPath
-      const tmpPath = `${resolvedOutputPath}.${process.pid}.${Date.now()}.tmp`;
-      if (compress) {
-        const compressed = gzipSync(Buffer.from(content, 'utf-8'));
-        fs.writeFileSync(tmpPath, compressed);
-      } else {
-        fs.writeFileSync(tmpPath, content, 'utf-8');
-      }
-      fs.renameSync(tmpPath, resolvedOutputPath);
-
-      spinner.succeed('Session exported');
-      output.writeln();
-
-      output.printTable({
-        columns: [
-          { key: 'property', header: 'Property', width: 18 },
-          { key: 'value', header: 'Value', width: 40 }
-        ],
-        data: [
-          { property: 'Session ID', value: sessionId },
-          { property: 'Output File', value: absolutePath },
-          { property: 'Format', value: exportFormat.toUpperCase() },
-          { property: 'Agents', value: result.stats.agentCount },
-          { property: 'Tasks', value: result.stats.taskCount },
-          { property: 'Memory Entries', value: result.stats.memoryEntries },
-          { property: 'File Size', value: formatSize(content.length) }
-        ]
-      });
-
-      output.writeln();
-      output.printSuccess(`Session exported to ${outputPath}`);
-
-      return {
-        success: true,
-        data: { sessionId, outputPath, format: exportFormat, size: content.length }
-      };
-    } catch (error) {
-      spinner.fail('Failed to export session');
-      if (error instanceof MCPClientError) {
-        output.printError(`Error: ${error.message}`);
-      } else {
-        output.printError(`Unexpected error: ${String(error)}`);
-      }
-      return { success: false, exitCode: 1 };
-    }
-  }
-};
-
-// Import subcommand
-const importCommand: Command = {
-  name: 'import',
-  description: 'Import session from file',
-  options: [
-    {
-      name: 'name',
-      short: 'n',
-      description: 'Session name for imported session',
-      type: 'string'
-    },
-    {
-      name: 'activate',
-      description: 'Activate session after import',
-      type: 'boolean',
-      default: false
-    }
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const filePath = ctx.args[0];
-    const sessionName = ctx.flags.name as string;
-    const activate = ctx.flags.activate as boolean;
-
-    if (!filePath) {
-      output.printError('File path is required');
-      return { success: false, exitCode: 1 };
-    }
-
-    const absolutePath = path.isAbsolute(filePath)
-      ? filePath
-      : path.join(ctx.cwd, filePath);
-
-    // Path traversal protection: resolved path must stay within cwd or home
-    const resolvedPath = path.resolve(absolutePath);
-    const cwd = ctx.cwd || process.cwd();
-    const home = process.env.HOME || '';
-    const underCwd = resolvedPath === cwd || resolvedPath.startsWith(cwd + path.sep);
-    const underHome = home && (resolvedPath === home || resolvedPath.startsWith(home + path.sep));
-    if (!underCwd && !underHome) {
-      output.printError(`Path '${filePath}' escapes the allowed directories.`);
-      return { success: false, exitCode: 1 };
-    }
-
-    if (!fs.existsSync(absolutePath)) {
-      output.printError(`File not found: ${absolutePath}`);
-      return { success: false, exitCode: 1 };
-    }
-
-    // Reject oversized files before reading into memory
-    const MAX_IMPORT_BYTES = 50 * 1024 * 1024; // 50 MB
-    const stat = fs.statSync(absolutePath);
-    if (stat.size > MAX_IMPORT_BYTES) {
-      output.printError(`File too large: ${absolutePath} (${(stat.size / 1024 / 1024).toFixed(1)} MB > 50 MB limit)`);
-      return { success: false, exitCode: 1 };
-    }
-
-    const spinner = output.createSpinner({ text: 'Importing session...' });
-    spinner.start();
-
-    try {
-      const content = fs.readFileSync(absolutePath, 'utf-8');
-      let data: unknown;
-
-      // Parse based on extension
-      if (absolutePath.endsWith('.yaml') || absolutePath.endsWith('.yml')) {
-        output.printError('YAML import is not supported. Please convert to JSON first.');
-        spinner.fail('Import failed');
-        return { success: false, exitCode: 1 };
-      } else {
-        data = JSON.parse(content, (key, value) => {
-          if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
-          return value;
-        });
-      }
-
-      const result = await callMCPTool<{
-        sessionId: string;
-        name: string;
-        importedAt: string;
-        stats: {
-          agentsImported: number;
-          tasksImported: number;
-          memoryEntriesImported: number;
-        };
-        activated: boolean;
-      }>('session_import', {
-        data,
-        name: sessionName,
-        activate
-      });
-
-      spinner.succeed('Session imported');
-      output.writeln();
-
-      output.printTable({
-        columns: [
-          { key: 'property', header: 'Property', width: 20 },
-          { key: 'value', header: 'Value', width: 35 }
-        ],
-        data: [
-          { property: 'Session ID', value: result.sessionId },
-          { property: 'Name', value: result.name },
-          { property: 'Source File', value: path.basename(absolutePath) },
-          { property: 'Agents Imported', value: result.stats.agentsImported },
-          { property: 'Tasks Imported', value: result.stats.tasksImported },
-          { property: 'Memory Entries', value: result.stats.memoryEntriesImported },
-          { property: 'Activated', value: result.activated ? 'Yes' : 'No' }
-        ]
-      });
-
-      output.writeln();
-      output.printSuccess(`Session imported: ${result.sessionId}`);
-
-      if (!result.activated) {
-        output.printInfo(`Restore with: monomind session restore ${result.sessionId}`);
-      }
-
-      if (ctx.flags.format === 'json') {
-        output.printJson(result);
-      }
-
-      return { success: true, data: result };
-    } catch (error) {
-      spinner.fail('Failed to import session');
-      if (error instanceof MCPClientError) {
-        output.printError(`Error: ${error.message}`);
-      } else if (error instanceof SyntaxError) {
-        output.printError('Invalid file format. Expected JSON or YAML.');
-      } else {
-        output.printError(`Unexpected error: ${String(error)}`);
-      }
-      return { success: false, exitCode: 1 };
-    }
-  }
-};
-
 // Current subcommand
 const currentCommand: Command = {
   name: 'current',
@@ -798,7 +519,7 @@ const currentCommand: Command = {
           memoryEntries: number;
           duration: number;
         };
-      }>('session_current', { includeStats: true });
+      }>('session_info', { includeStats: true });
 
       if (ctx.flags.format === 'json') {
         output.printJson(result);
@@ -861,41 +582,6 @@ function formatDuration(ms: number): string {
   return `${seconds}s`;
 }
 
-function toSimpleYaml(obj: unknown, indent: number = 0): string {
-  // Simple YAML serializer (for basic types)
-  if (obj === null) return 'null';
-  if (typeof obj === 'boolean') return String(obj);
-  if (typeof obj === 'number') return String(obj);
-  if (typeof obj === 'string') {
-    const needsQuoting = /[:"'\n\r\\]|^(true|false|null|yes|no|on|off)$/i.test(obj) || /^\s|\s$/.test(obj) || /^[!&|>{\[]/.test(obj);
-    if (needsQuoting) return `"${obj.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-    return obj;
-  }
-
-  const spaces = '  '.repeat(indent);
-  let result = '';
-
-  if (Array.isArray(obj)) {
-    for (const item of obj) {
-      result += `${spaces}- ${toSimpleYaml(item, indent + 1).trim()}\n`;
-    }
-    return result;
-  }
-
-  if (typeof obj === 'object') {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'object' && value !== null) {
-        result += `${spaces}${key}:\n${toSimpleYaml(value, indent + 1)}`;
-      } else {
-        result += `${spaces}${key}: ${toSimpleYaml(value, indent)}\n`;
-      }
-    }
-    return result;
-  }
-
-  return String(obj);
-}
-
 // Main session command
 export const sessionCommand: Command = {
   name: 'session',
@@ -905,8 +591,6 @@ export const sessionCommand: Command = {
     saveCommand,
     restoreCommand,
     deleteCommand,
-    exportCommand,
-    importCommand,
     currentCommand
   ],
   options: [],
@@ -915,8 +599,6 @@ export const sessionCommand: Command = {
     { command: 'monomind session save -n "checkpoint-1"', description: 'Save current session' },
     { command: 'monomind session restore session-123', description: 'Restore a session' },
     { command: 'monomind session delete session-123', description: 'Delete a session' },
-    { command: 'monomind session export -o backup.json', description: 'Export session to file' },
-    { command: 'monomind session import backup.json', description: 'Import session from file' },
     { command: 'monomind session current', description: 'Show current session' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -932,8 +614,6 @@ export const sessionCommand: Command = {
       `${output.highlight('save')}    - Save current session state`,
       `${output.highlight('restore')} - Restore a saved session`,
       `${output.highlight('delete')}  - Delete a saved session`,
-      `${output.highlight('export')}  - Export session to file`,
-      `${output.highlight('import')}  - Import session from file`,
       `${output.highlight('current')} - Show current active session`
     ]);
     output.writeln();

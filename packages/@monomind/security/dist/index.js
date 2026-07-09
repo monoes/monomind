@@ -6,5 +6,5 @@
  *
  *   import { validateInput } from '@monomind/security';
  */
-export { validateInput } from './input-guards.js';
+export { validateInput, validateExternalContent } from './input-guards.js';
 //# sourceMappingURL=index.js.map

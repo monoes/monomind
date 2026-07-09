@@ -621,29 +621,6 @@ export async function initDefaultWorkers(): Promise<void> {
     binner.register();
   } catch { /* monomind/memory may not be installed */ }
 
-  // GAP-004: EntityExtractorWorker — extracts entity facts from task transcripts
-  try {
-    const { EntityExtractorWorker } = await import('../workers/entity-extractor.js');
-    const { EntityMemory } = await import('../../../memory/src/tiers/entity.js');
-    const entityMemory = new EntityMemory('.monomind/entities/facts.jsonl');
-    const extractFacts = async (_transcript: string, _runId: string) => [];
-    // EntityExtractorWorker is event-driven; expose it on the manager for callers to trigger
-    const worker = new EntityExtractorWorker({ entityMemory, extractFacts });
-    // Register a PostTask hook that delegates to the worker when a transcript is available
-    const { registerHook } = await import('../registry/index.js');
-    const { HookEvent, HookPriority } = await import('../types.js');
-    registerHook(
-      HookEvent.PostTask,
-      async (ctx) => {
-        const transcript = ((ctx as unknown) as Record<string, unknown>).transcript as string | undefined;
-        const runId = ctx.task?.id ?? 'unknown';
-        if (transcript) await worker.processTranscript(transcript, runId);
-        return { success: true };
-      },
-      HookPriority.Low,
-      { name: 'entity-extractor:post-task' },
-    );
-  } catch { /* optional */ }
 
   // GAP-006: Wire TraceCollector to globalObservabilityBus
   try {
@@ -763,16 +740,7 @@ export async function initDefaultWorkers(): Promise<void> {
     );
   } catch { /* optional — PromptOptimizer may not be available */ }
 
-  // Task 45: ProceduralMemory — scan SkillRegistry at startup so learned skills are indexed
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { SkillRegistry } = await import('@monoes/memory' as any);
-    const skillRegistry = new SkillRegistry('.monomind/skills.jsonl');
-    const skills = skillRegistry.list();
-    if (skills.length > 0) {
-      console.log(`[SKILL_REGISTRY] ${skills.length} learned skill(s) indexed at startup`);
-    }
-  } catch { /* @monomind/memory may not export SkillRegistry */ }
+  // Procedural memory removed — skill extraction no longer available
 
   // Task 36: ConsensusAudit — register AuditWriter in post-task hook for swarm consensus events
   try {

@@ -1,7 +1,7 @@
 /**
  * Tests for .claude/helpers/handlers/session-handler.cjs
  * Builds a minimal mock hCtx and calls handler.handleEnd(hCtx) directly.
- * Verifies: consolidation lock, routing-feedback.jsonl, session.end(), worker cleanup.
+ * Verifies: consolidation lock, routing-feedback.jsonl, session.end().
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createRequire } from 'module';
@@ -171,7 +171,8 @@ describe('session-handler routing feedback', () => {
     fs.writeFileSync(routeFile, JSON.stringify({ agent: 'coder', confidence: 0.7 }), 'utf-8');
 
     // Write mostly-failure outcomes within 30-minute window
-    const outcomesFile = path.join(tmpDir, '.monomind', 'intelligence-outcomes.jsonl');
+    fs.mkdirSync(path.join(tmpDir, '.monomind', 'data'), { recursive: true });
+    const outcomesFile = path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl');
     const now = Date.now();
     const lines = [
       JSON.stringify({ ts: now - 1000, success: false }),
@@ -189,43 +190,3 @@ describe('session-handler routing feedback', () => {
   });
 });
 
-// ── worker dispatch cleanup ────────────────────────────────────────────────────
-
-describe('session-handler worker dispatch cleanup', () => {
-  it('moves pending dispatch files to processed/', async () => {
-    const sh = loadSH();
-    const dispatchDir = path.join(tmpDir, '.monomind', 'worker-dispatch');
-    fs.mkdirSync(dispatchDir, { recursive: true });
-    fs.writeFileSync(path.join(dispatchDir, 'pending-001.json'), '{}', 'utf-8');
-    fs.writeFileSync(path.join(dispatchDir, 'pending-002.json'), '{}', 'utf-8');
-
-    const hCtx = makeHCtx({});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await sh.handleEnd(hCtx);
-
-    const processedDir = path.join(dispatchDir, 'processed');
-    expect(fs.existsSync(processedDir)).toBe(true);
-    const processedFiles = fs.readdirSync(processedDir);
-    expect(processedFiles.length).toBe(2);
-  });
-
-  it('logs pending count when dispatch files present', async () => {
-    const sh = loadSH();
-    const dispatchDir = path.join(tmpDir, '.monomind', 'worker-dispatch');
-    fs.mkdirSync(dispatchDir, { recursive: true });
-    fs.writeFileSync(path.join(dispatchDir, 'pending-xyz.json'), '{}', 'utf-8');
-
-    const hCtx = makeHCtx({});
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await sh.handleEnd(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('WORKER_CLEANUP');
-  });
-
-  it('does not throw when no dispatch directory exists', async () => {
-    const sh = loadSH();
-    const hCtx = makeHCtx({});
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    await expect(sh.handleEnd(hCtx)).resolves.not.toThrow();
-  });
-});

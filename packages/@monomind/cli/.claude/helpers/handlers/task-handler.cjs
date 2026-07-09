@@ -31,7 +31,8 @@ module.exports = {
       console.log('[OK] Task started');
     }
 
-    // AutoMem Phase 1: PLAN routine — consult memory before acting (arXiv:2607.01224)
+    // Recall similar past task/memory patterns before acting, so the agent
+    // can benefit from prior successful approaches.
     if (prompt && typeof prompt === 'string' && prompt.length > 20) {
       try {
         var intelligence = hCtx.intelligence;
@@ -244,7 +245,8 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
-    // AutoMem Phase 1: LOG routine — record memory proficiency metrics (arXiv:2607.01224)
+    // Record whether this task's outcome matched a recalled memory pattern,
+    // so future pattern recall can be scored for usefulness.
     try {
       var intelligence = hCtx.intelligence;
       if (intelligence && intelligence.recordMemoryDecision) {
@@ -258,51 +260,6 @@ module.exports = {
         }));
       }
     } catch (e) { /* non-fatal — LOG is advisory */ }
-
-    // ── Worker Auto-Dispatch ──────────────────────────────────────────────
-    // Auto-dispatch background workers based on task outcome
-    try {
-      var taskDesc = (typeof prompt === 'string' ? prompt : hookInput.description || '').toLowerCase();
-      var workersToDispatch = [];
-
-      // Always consolidate memory after any task
-      workersToDispatch.push('consolidate');
-
-      // Security-related task → dispatch audit worker
-      if (/\b(security|auth|vuln|cve|threat|token|permission|crypto)\b/.test(taskDesc)) {
-        workersToDispatch.push('audit');
-      }
-      // Performance-related → dispatch benchmark worker
-      if (/\b(performance|optimiz|benchmark|latency|throughput)\b/.test(taskDesc)) {
-        workersToDispatch.push('benchmark');
-      }
-      // Code changes → dispatch testgaps worker
-      if (/\b(implement|feature|refactor|fix|build|add|create|modify)\b/.test(taskDesc)) {
-        workersToDispatch.push('testgaps');
-      }
-      // Any significant task → dispatch map worker for codebase indexing
-      if (taskDesc.length > 50) {
-        workersToDispatch.push('map');
-      }
-
-      // Dispatch via @monomind/hooks if available, otherwise write dispatch file
-      if (workersToDispatch.length > 0) {
-        var dispatchDir = path.join(CWD, '.monomind', 'worker-dispatch');
-        fs.mkdirSync(dispatchDir, { recursive: true });
-        var dispatchPayload = {
-          workers: workersToDispatch,
-          trigger: 'post-task',
-          taskDesc: taskDesc.substring(0, 100),
-          success: taskSuccess,
-          timestamp: new Date().toISOString(),
-        };
-        fs.writeFileSync(
-          path.join(dispatchDir, 'pending-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.json'),
-          JSON.stringify(dispatchPayload), 'utf-8'
-        );
-        console.log('[WORKER_DISPATCH] Queued: ' + workersToDispatch.join(', '));
-      }
-    } catch (e) { /* non-fatal */ }
 
     // ── ADR Auto-Generation ────────────────────────────────────────────────
     // When adr.autoGenerate is true and task involved architect-level work,

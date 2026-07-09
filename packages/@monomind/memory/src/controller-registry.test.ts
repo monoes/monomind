@@ -19,8 +19,6 @@ import {
   type ControllerName,
   type RegistryHealthReport,
 } from './controller-registry.js';
-import { LearningBridge } from './learning-bridge.js';
-import { MemoryGraph } from './memory-graph.js';
 import { TieredCacheManager } from './cache-manager.js';
 import type {
   IMemoryBackend,
@@ -106,7 +104,7 @@ function createMockBackend(): IMemoryBackend {
       return {
         totalEntries: entries.size,
         entriesByNamespace: {},
-        entriesByType: { episodic: 0, semantic: 0, procedural: 0, working: 0, cache: 0 },
+        entriesByType: { episodic: 0, semantic: 0, working: 0, cache: 0 },
         memoryUsage: 0,
         avgQueryTime: 0,
         avgSearchTime: 0,
@@ -183,7 +181,7 @@ describe('ControllerRegistry', () => {
       const handler = vi.fn();
       registry.on('controller:initialized', handler);
       await registry.initialize({ backend: mockBackend });
-      // At minimum learningBridge and tieredCache should init
+      // learningBridge and tieredCache should init
       expect(handler.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -197,10 +195,10 @@ describe('ControllerRegistry', () => {
   // ----- Level-Based Ordering -----
 
   describe('level-based initialization ordering', () => {
-    it('should define 7 initialization levels (0-6)', () => {
-      expect(INIT_LEVELS).toHaveLength(7);
+    it('should define 2 initialization levels (0-1)', () => {
+      expect(INIT_LEVELS).toHaveLength(2);
       expect(INIT_LEVELS[0].level).toBe(0);
-      expect(INIT_LEVELS[6].level).toBe(6);
+      expect(INIT_LEVELS[1].level).toBe(1);
     });
 
     it('should have monotonically increasing levels', () => {
@@ -211,39 +209,8 @@ describe('ControllerRegistry', () => {
 
     it('should include core controllers in level 1', () => {
       const level1 = INIT_LEVELS.find((l) => l.level === 1);
-      expect(level1?.controllers).toContain('reasoningBank');
       expect(level1?.controllers).toContain('learningBridge');
       expect(level1?.controllers).toContain('tieredCache');
-    });
-
-    it('should include graph controllers in level 2', () => {
-      const level2 = INIT_LEVELS.find((l) => l.level === 2);
-      expect(level2?.controllers).toContain('memoryGraph');
-      expect(level2?.controllers).toContain('agentMemoryScope');
-    });
-
-    it('should include specialization controllers in level 3', () => {
-      const level3 = INIT_LEVELS.find((l) => l.level === 3);
-      expect(level3?.controllers).toContain('skills');
-      expect(level3?.controllers).toContain('explainableRecall');
-      expect(level3?.controllers).toContain('reflexion');
-    });
-
-    it('should include causal controllers in level 4', () => {
-      const level4 = INIT_LEVELS.find((l) => l.level === 4);
-      expect(level4?.controllers).toContain('causalGraph');
-      expect(level4?.controllers).toContain('nightlyLearner');
-    });
-
-    it('should include advanced services in level 5', () => {
-      const level5 = INIT_LEVELS.find((l) => l.level === 5);
-      expect(level5?.controllers).toContain('graphTransformer');
-      expect(level5?.controllers).toContain('sonaTrajectory');
-    });
-
-    it('should include session management in level 6', () => {
-      const level6 = INIT_LEVELS.find((l) => l.level === 6);
-      expect(level6?.controllers).toContain('federatedSession');
     });
 
     it('should not have duplicate controller names across levels', () => {
@@ -261,7 +228,6 @@ describe('ControllerRegistry', () => {
 
   describe('graceful degradation', () => {
     it('should continue when memory backend is unavailable', async () => {
-      // No legacy module available — should still init CLI-layer controllers
       await registry.initialize({ backend: mockBackend });
       expect(registry.isInitialized()).toBe(true);
     });
@@ -270,23 +236,8 @@ describe('ControllerRegistry', () => {
       await registry.initialize({ backend: mockBackend });
       const report = await registry.healthCheck();
 
-      // Some controllers should be unavailable (no backend)
-      // but the registry itself should be functional
+      // Registry should be functional
       expect(report.status).not.toBe('unhealthy');
-    });
-
-    it('should emit controller:failed for failed controllers', async () => {
-      const handler = vi.fn();
-      registry.on('controller:failed', handler);
-
-      // Enable a controller that requires backend (which is unavailable)
-      await registry.initialize({
-        backend: mockBackend,
-        controllers: { reasoningBank: true },
-      });
-
-      // ReasoningBank requires backend, so it should fail or be unavailable
-      // The exact behavior depends on whether legacy module is importable
     });
 
     it('should handle null backend gracefully', async () => {
@@ -296,12 +247,8 @@ describe('ControllerRegistry', () => {
     });
 
     it('should isolate controller failures from each other', async () => {
-      // Initialize with backend - learningBridge and tieredCache should work
+      // Initialize with backend - tieredCache should work
       await registry.initialize({ backend: mockBackend });
-
-      // LearningBridge should be available (it only needs backend)
-      const bridge = registry.get<LearningBridge>('learningBridge');
-      expect(bridge).toBeInstanceOf(LearningBridge);
 
       // TieredCache should be available
       const cache = registry.get<TieredCacheManager>('tieredCache');
@@ -325,36 +272,9 @@ describe('ControllerRegistry', () => {
       expect(registry.isEnabled('tieredCache')).toBe(true);
     });
 
-    it('should enable learningBridge by default when backend is available', async () => {
-      await registry.initialize({ backend: mockBackend });
-      expect(registry.isEnabled('learningBridge')).toBe(true);
-    });
-
     it('should enable tieredCache by default', async () => {
       await registry.initialize({ backend: mockBackend });
       expect(registry.isEnabled('tieredCache')).toBe(true);
-    });
-
-    it('should pass SONA mode to LearningBridge', async () => {
-      await registry.initialize({
-        backend: mockBackend,
-        neural: { enabled: true, sonaMode: 'research' },
-      });
-
-      const bridge = registry.get<LearningBridge>('learningBridge');
-      expect(bridge).toBeInstanceOf(LearningBridge);
-    });
-
-    it('should pass memoryGraph config', async () => {
-      await registry.initialize({
-        backend: mockBackend,
-        memory: {
-          memoryGraph: { pageRankDamping: 0.9, maxNodes: 1000 },
-        },
-      });
-
-      const graph = registry.get<MemoryGraph>('memoryGraph');
-      expect(graph).toBeInstanceOf(MemoryGraph);
     });
 
     it('should pass tieredCache config', async () => {
@@ -368,35 +288,11 @@ describe('ControllerRegistry', () => {
       const cache = registry.get<TieredCacheManager>('tieredCache');
       expect(cache).toBeInstanceOf(TieredCacheManager);
     });
-
-    it('should not enable optional controllers by default', async () => {
-      await registry.initialize({ backend: mockBackend });
-
-      expect(registry.isEnabled('hybridSearch')).toBe(false);
-      expect(registry.isEnabled('federatedSession')).toBe(false);
-      expect(registry.isEnabled('semanticRouter')).toBe(false);
-      expect(registry.isEnabled('sonaTrajectory')).toBe(false);
-    });
   });
 
   // ----- Controller Access -----
 
   describe('controller access (get/isEnabled)', () => {
-    it('should return null for unregistered controllers', async () => {
-      await registry.initialize({ backend: mockBackend });
-      expect(registry.get('hybridSearch')).toBeNull();
-    });
-
-    it('should return typed controller instances', async () => {
-      await registry.initialize({ backend: mockBackend });
-
-      const bridge = registry.get<LearningBridge>('learningBridge');
-      if (bridge) {
-        expect(typeof bridge.consolidate).toBe('function');
-        expect(typeof bridge.getStats).toBe('function');
-      }
-    });
-
     it('should return false for disabled controllers', async () => {
       await registry.initialize({
         backend: mockBackend,
@@ -559,76 +455,6 @@ describe('ControllerRegistry', () => {
     });
   });
 
-  // ----- LearningBridge Integration -----
-
-  describe('LearningBridge via registry', () => {
-    it('should create LearningBridge with backend', async () => {
-      await registry.initialize({ backend: mockBackend });
-      const bridge = registry.get<LearningBridge>('learningBridge');
-      expect(bridge).toBeInstanceOf(LearningBridge);
-    });
-
-    it('should pass config to LearningBridge', async () => {
-      await registry.initialize({
-        backend: mockBackend,
-        memory: {
-          learningBridge: {
-            sonaMode: 'edge',
-            confidenceDecayRate: 0.01,
-            accessBoostAmount: 0.05,
-            consolidationThreshold: 5,
-          },
-        },
-      });
-
-      const bridge = registry.get<LearningBridge>('learningBridge');
-      expect(bridge).toBeInstanceOf(LearningBridge);
-
-      const stats = bridge!.getStats();
-      expect(stats.totalTrajectories).toBe(0);
-      expect(stats.neuralAvailable).toBe(false); // No neural module in tests
-    });
-
-    it('should not create LearningBridge without backend', async () => {
-      await registry.initialize({});
-      const bridge = registry.get<LearningBridge>('learningBridge');
-      // Without backend, LearningBridge returns null
-      expect(bridge).toBeNull();
-    });
-  });
-
-  // ----- MemoryGraph Integration -----
-
-  describe('MemoryGraph via registry', () => {
-    it('should create MemoryGraph when configured', async () => {
-      await registry.initialize({
-        backend: mockBackend,
-        memory: {
-          memoryGraph: { pageRankDamping: 0.85, maxNodes: 5000 },
-        },
-      });
-
-      const graph = registry.get<MemoryGraph>('memoryGraph');
-      expect(graph).toBeInstanceOf(MemoryGraph);
-    });
-
-    it('should report graph stats', async () => {
-      await registry.initialize({
-        backend: mockBackend,
-        memory: {
-          memoryGraph: {},
-        },
-      });
-
-      const graph = registry.get<MemoryGraph>('memoryGraph');
-      if (graph) {
-        const stats = graph.getStats();
-        expect(stats.nodeCount).toBeGreaterThanOrEqual(0);
-        expect(stats.edgeCount).toBeGreaterThanOrEqual(0);
-      }
-    });
-  });
-
   // ----- TieredCache Integration -----
 
   describe('TieredCacheManager via registry', () => {
@@ -654,14 +480,6 @@ describe('ControllerRegistry', () => {
   // ----- Event Emission -----
 
   describe('events', () => {
-    it('should emit memory:unavailable when module missing', async () => {
-      const handler = vi.fn();
-      registry.on("memory:unavailable", handler);
-      await registry.initialize({ backend: mockBackend });
-      // Legacy module may or may not be available in test environment
-      // Just verify the listener doesn't break anything
-    });
-
     it('should emit all lifecycle events', async () => {
       const events: string[] = [];
       registry.on('initialized', () => events.push('initialized'));
@@ -704,7 +522,7 @@ describe('ControllerRegistry', () => {
       for (let i = 0; i < 1000; i++) {
         registry.get('learningBridge');
         registry.get('tieredCache');
-        registry.isEnabled('reasoningBank');
+        registry.isEnabled('learningBridge');
       }
       const duration = performance.now() - start;
 

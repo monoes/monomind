@@ -415,7 +415,7 @@ export async function checkGuidanceGates(): Promise<HealthCheck> {
 }
 
 /**
- * AutoMem proficiency check — reports memory learning health (arXiv:2607.01224)
+ * AutoMem proficiency check — reports memory learning health
  */
 export async function checkMemoryProficiency(): Promise<HealthCheck> {
   try {
