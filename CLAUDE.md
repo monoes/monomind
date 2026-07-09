@@ -47,7 +47,7 @@
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (41 commands)          |
 | `@monomind/guidance` | `packages/@monomind/guidance/` | Governance control plane               |
-| `@monomind/hooks`    | `packages/@monomind/hooks/`    | 17 hooks + 12 workers                  |
+| `@monomind/hooks`    | `packages/@monomind/hooks/`    | 17 hooks + 11 workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress) |
 | `@monomind/memory`   | `packages/@monomind/memory/`   | LanceDB + HNSW search                  |
 | `@monomind/security` | `packages/@monomind/security/` | Input validation, CVE remediation      |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
@@ -227,7 +227,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `task`        | 6   | Task creation and lifecycle                          |
 | `session`     | 7   | Session state management                             |
 | `config`      | 7   | Configuration management                             |
-| `hooks`       | 17  | Self-learning hooks + 12 background workers          |
+| `hooks`       | 17  | Self-learning hooks + 11 background workers (@monomind/hooks WorkerManager) |
 | `hive-mind`   | 6   | Byzantine fault-tolerant consensus                   |
 | `daemon`      | 5   | Background worker daemon                             |
 | `neural`      | 5   | Neural pattern training                              |
@@ -275,7 +275,9 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 | **Learning**     | intelligence (trajectory-start/step/end, pattern-store/search, stats, attention)|
 | **Agent Teams**  | teammate-idle, task-completed                                                   |
 
-**12 Workers:** ultralearn, optimize, consolidate, predict, audit (critical), map, preload, deepdive, document, refactor, benchmark, testgaps.
+**Daemon — 12 Workers** (`packages/@monomind/cli` daemon system): ultralearn, optimize, consolidate, predict, audit (critical), map, preload, deepdive, document, refactor, benchmark, testgaps.
+
+**Hooks — 11 Workers** (`@monomind/hooks` WorkerManager, separate system): performance, health, swarm, git, learning, adr, ddd, security, patterns, cache, progress.
 
 ## Hive-Mind Consensus
 
