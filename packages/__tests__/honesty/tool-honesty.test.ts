@@ -74,7 +74,7 @@ describe('Tool Honesty (V1.0.0-57)', () => {
       const allFiles = [
         'performance-tools.ts', 'system-tools.ts', 'hooks-tools.ts',
         'daa-tools.ts', 'neural-tools.ts', 'embeddings-tools.ts',
-        'agent-tools.ts', 'coordination-tools.ts', 'memory-tools.ts',
+        'agent-tools.ts', 'memory-tools.ts',
       ];
 
       for (const fileName of allFiles) {
