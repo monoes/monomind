@@ -130,8 +130,100 @@ const runSubcommand = {
         { name: 'port', type: 'number', description: 'CDP port', default: 9222 },
     ],
     action: async (ctx) => {
-        output.printInfo('Direct action run is coming soon. Use workflow run to execute actions.');
-        return { success: true };
+        const actionId = ctx.args[0];
+        if (!actionId) {
+            output.printError('Action ID required. Usage: monomind browse action run <action-id>');
+            return { success: false, exitCode: 1 };
+        }
+        const port = ctx.flags.port ?? 9222;
+        const paramsRaw = ctx.flags.params ?? [];
+        const params = {};
+        for (const pair of paramsRaw) {
+            const eq = pair.indexOf('=');
+            if (eq > 0)
+                params[pair.slice(0, eq)] = pair.slice(eq + 1);
+        }
+        const customDir = join(ctx.cwd, '.monomind', 'actions');
+        const filename = actionId.replace(/[^a-z0-9_-]/gi, '_') + '.json';
+        let def;
+        try {
+            def = JSON.parse(await readFile(join(customDir, filename), 'utf8'));
+        }
+        catch {
+            output.printError(`Action not found: ${actionId}. Run "monomind browse action list" to see available actions.`);
+            return { success: false, exitCode: 1 };
+        }
+        output.printInfo(`Running action: ${def.id} (${def.steps.length} steps)`);
+        try {
+            const { connectToTarget, openUrl, clickElement, fillElement, evaluateJs, findBySelector, waitFor } = await import('@monoes/monobrowse');
+            const { client, sessionId } = await connectToTarget(port);
+            const refs = new Map();
+            const interpolate = (s) => s.replace(/\{\{(\w+)\}\}/g, (_, k) => params[k] ?? `{{${k}}}`);
+            for (const step of def.steps) {
+                switch (step.type) {
+                    case 'navigate':
+                        await openUrl(client, sessionId, interpolate(step.url));
+                        output.writeln(output.dim(`  navigate -> ${step.url}`));
+                        break;
+                    case 'find':
+                        for (const sel of step.selectors ?? []) {
+                            const found = await findBySelector(client, sessionId, refs, interpolate(sel)).catch(() => null);
+                            if (found) {
+                                refs.set(step.as, found);
+                                break;
+                            }
+                        }
+                        output.writeln(output.dim(`  find -> ${step.as}`));
+                        break;
+                    case 'click': {
+                        const ref = refs.get(step.target);
+                        if (!ref)
+                            throw new Error(`Element "${step.target}" not found`);
+                        await clickElement(client, sessionId, ref);
+                        output.writeln(output.dim(`  click -> ${step.target}`));
+                        break;
+                    }
+                    case 'type': {
+                        const ref = refs.get(step.target);
+                        if (!ref)
+                            throw new Error(`Element "${step.target}" not found`);
+                        await fillElement(client, sessionId, ref, interpolate(step.text));
+                        output.writeln(output.dim(`  type -> ${step.target}`));
+                        break;
+                    }
+                    case 'wait':
+                        if (step.condition === 'network_idle')
+                            await waitFor(client, sessionId, { load: 'networkidle', timeout: step.timeout });
+                        else if (step.condition === 'selector')
+                            await waitFor(client, sessionId, { selector: step.selector, timeout: step.timeout });
+                        else if (step.condition === 'duration')
+                            await new Promise(r => setTimeout(r, step.timeout ?? 1000));
+                        output.writeln(output.dim(`  wait -> ${step.condition}`));
+                        break;
+                    case 'extract': {
+                        const ref = refs.get(step.target);
+                        if (!ref)
+                            throw new Error(`Element "${step.target}" not found`);
+                        const val = await evaluateJs(client, sessionId, `document.querySelector('[data-ref="${ref.ref}"]')?.textContent`);
+                        output.writeln(output.dim(`  extract -> ${step.as}: ${val}`));
+                        break;
+                    }
+                    case 'condition': {
+                        const result = await evaluateJs(client, sessionId, step.expression);
+                        if (result) {
+                            output.writeln(output.dim('  condition -> true branch'));
+                        }
+                        break;
+                    }
+                }
+            }
+            output.printSuccess(`Action ${def.id} completed successfully.`);
+            return { success: true };
+        }
+        catch (err) {
+            output.printError(`Action failed: ${err.message}`);
+            return { success: false, exitCode: 1 };
+        }
     },
 };
 export const browseActionCommand = {

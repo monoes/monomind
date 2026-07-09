@@ -1,10 +1,10 @@
 /**
- * Quantum Topology Tool - pr_quantum_topology
+ * Computational Topology Tool - pr_quantum_topology
  *
- * Computes quantum topology features including Betti numbers and persistence diagrams.
+ * Computes topological features including Betti numbers (b0, b1) and
+ * persistence diagrams via Vietoris-Rips filtration.
  * Analyzes topological features of point clouds and simplicial complexes.
- *
- * Uses QuantumEngine from prime-radiant-advanced-wasm
+ * b2 (voids) is not computed -- requires boundary-operator linear algebra.
  */
 import type { MCPTool } from './types.js';
 /**

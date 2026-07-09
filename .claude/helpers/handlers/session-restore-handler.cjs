@@ -30,6 +30,21 @@ module.exports = {
       }
     } catch (e) { console.log('[WARN] Session restore failed: ' + e.message); }
 
+    // ── Non-blocking security scan via @monomind/hooks worker ─────────────
+    // The hooks package ships a security worker (worker-security.ts) that scans
+    // for hardcoded secrets and vulnerability patterns. We run it at session
+    // start as a fire-and-forget check — failures are silently ignored since
+    // the package may not be installed or built.
+    try {
+      var hooksWorkersMod = require('@monomind/hooks/dist/workers/worker-security.js');
+      var _createSecurityWorker = hooksWorkersMod.createSecurityWorker;
+      if (typeof _createSecurityWorker === 'function') {
+        var _securityScan = _createSecurityWorker(CWD);
+        // Fire-and-forget: do not await — must not delay session restore
+        Promise.resolve(_securityScan()).catch(function() {});
+      }
+    } catch (e) { /* @monomind/hooks not available or not built — skip */ }
+
     // Stale helper detection — warn when project helpers drift from the bundled npm copy.
     // Skip when running inside the monomind dev repo itself: local helpers ARE the
     // source of truth there, so any diff vs. the npm global install is expected.
@@ -356,15 +371,5 @@ module.exports = {
       } catch (e) { /* non-fatal */ }
     }
 
-    // Worker Queue Resume (SR-003).
-    try {
-      var dispatchDir = path.join(CWD, '.monomind', 'worker-dispatch');
-      if (fs.existsSync(dispatchDir)) {
-        var pendingFiles = fs.readdirSync(dispatchDir).filter(function(f) { return f.startsWith('pending-'); }).slice(0, 500);
-        if (pendingFiles.length > 0) {
-          console.log('[WORKER_RESUME] ' + pendingFiles.length + ' worker dispatch(es) pending from prior session');
-        }
-      }
-    } catch (e) { /* non-fatal */ }
   },
 };

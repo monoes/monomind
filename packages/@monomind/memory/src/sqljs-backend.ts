@@ -621,7 +621,7 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
 
     // Count by type
     const entriesByType: Record<MemoryType, number> = {} as any;
-    const types: MemoryType[] = ['episodic', 'semantic', 'procedural', 'working', 'cache'];
+    const types: MemoryType[] = ['episodic', 'semantic', 'working', 'cache'];
     for (const type of types) {
       const stmt = this.db!.prepare('SELECT COUNT(*) as count FROM memory_entries WHERE type = ?');
       const row = stmt.getAsObject([type]);

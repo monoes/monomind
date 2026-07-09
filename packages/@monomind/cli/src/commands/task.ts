@@ -714,65 +714,11 @@ const assignCommand: Command = {
   }
 };
 
-// Retry subcommand
-const retryCommand: Command = {
-  name: 'retry',
-  aliases: ['rerun'],
-  description: 'Retry a failed task',
-  options: [
-    {
-      name: 'reset-state',
-      description: 'Reset task state completely',
-      type: 'boolean',
-      default: false
-    }
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const taskId = (ctx.args[0] || '').slice(0, MAX_TASK_ID_LEN);
-    const resetState = ctx.flags['reset-state'] as boolean;
-
-    if (!taskId) {
-      output.printError('Task ID is required');
-      return { success: false, exitCode: 1 };
-    }
-
-    try {
-      const result = await callMCPTool<{
-        taskId: string;
-        newTaskId: string;
-        previousStatus: string;
-        status: string;
-      }>('task_retry', {
-        taskId,
-        resetState
-      });
-
-      output.writeln();
-      output.printSuccess(`Task ${taskId} retried`);
-      output.printInfo(`New task ID: ${result.newTaskId}`);
-      output.printInfo(`Status: ${formatStatus(result.status)}`);
-
-      if (ctx.flags.format === 'json') {
-        output.printJson(result);
-      }
-
-      return { success: true, data: result };
-    } catch (error) {
-      if (error instanceof MCPClientError) {
-        output.printError(`Failed to retry task: ${error.message}`);
-      } else {
-        output.printError(`Unexpected error: ${String(error)}`);
-      }
-      return { success: false, exitCode: 1 };
-    }
-  }
-};
-
 // Main task command
 export const taskCommand: Command = {
   name: 'task',
   description: 'Task management commands',
-  subcommands: [createCommand, listCommand, statusCommand, cancelCommand, assignCommand, retryCommand],
+  subcommands: [createCommand, listCommand, statusCommand, cancelCommand, assignCommand],
   options: [],
   examples: [
     { command: 'monomind task create -t implementation -d "Add user auth"', description: 'Create a task' },
@@ -781,7 +727,6 @@ export const taskCommand: Command = {
     { command: 'monomind task status task-123', description: 'Get task details' },
     { command: 'monomind task cancel task-123', description: 'Cancel a task' },
     { command: 'monomind task assign task-123 --agent coder-1', description: 'Assign task to agent' },
-    { command: 'monomind task retry task-123', description: 'Retry a failed task' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Show help if no subcommand
@@ -796,8 +741,7 @@ export const taskCommand: Command = {
       `${output.highlight('list')}    - List tasks`,
       `${output.highlight('status')}  - Get task details`,
       `${output.highlight('cancel')}  - Cancel a running task`,
-      `${output.highlight('assign')}  - Assign task to agent(s)`,
-      `${output.highlight('retry')}   - Retry a failed task`
+      `${output.highlight('assign')}  - Assign task to agent(s)`
     ]);
     output.writeln();
     output.writeln('Run "monomind task <subcommand> --help" for subcommand help');

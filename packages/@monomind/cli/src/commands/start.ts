@@ -105,16 +105,11 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // Load configuration
   const config = loadConfig(cwd);
   const swarmConfig = (config?.swarm as Record<string, unknown>) || {};
-  const mcpConfig = (config?.mcp as Record<string, unknown>) || {};
-
   const VALID_TOPOLOGIES = new Set(['hierarchical-mesh', 'mesh', 'hierarchical', 'ring', 'star']);
   const rawTopology = topology || (swarmConfig.topology as string) || DEFAULT_TOPOLOGY;
   const finalTopology = VALID_TOPOLOGIES.has(rawTopology) ? rawTopology : DEFAULT_TOPOLOGY;
   const rawMaxAgents = Number((swarmConfig.maxAgents as number) || DEFAULT_MAX_AGENTS);
   const maxAgents = Number.isFinite(rawMaxAgents) ? Math.max(1, Math.min(rawMaxAgents, 100)) : DEFAULT_MAX_AGENTS;
-  const autoStartMcp = (mcpConfig.autoStart as boolean) !== false && !skipMcp;
-  const rawMcpPort = port || Number(mcpConfig.serverPort) || DEFAULT_PORT;
-  const mcpPort = Number.isFinite(rawMcpPort) ? Math.max(1, Math.min(rawMcpPort, 65535)) : DEFAULT_PORT;
 
   output.writeln();
   output.writeln(output.bold('Starting Monomind'));
@@ -141,37 +136,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     spinner.succeed(`Swarm initialized (${finalTopology})`);
 
-    // Step 2: Start MCP server if configured
-    let mcpResult: Record<string, unknown> | null = null;
-    if (autoStartMcp) {
-      spinner.setText('Starting MCP server...');
-      spinner.start();
-
-      try {
-        mcpResult = await callMCPTool<{
-          serverId: string;
-          port: number;
-          transport: string;
-          startedAt: string;
-        }>('mcp_start', {
-          port: mcpPort,
-          transport: mcpConfig.transportType || 'stdio',
-          tools: mcpConfig.tools || ['agent', 'swarm', 'memory', 'task']
-        });
-
-        spinner.succeed(`MCP server started on port ${mcpPort}`);
-      } catch (error) {
-        spinner.fail('MCP server failed to start');
-        output.printWarning(
-          error instanceof MCPClientError
-            ? error.message
-            : String(error)
-        );
-        // Continue without MCP
-      }
-    }
-
-    // Step 3: Run health check
+    // Step 2: Run health check
     spinner.setText('Running health checks...');
     spinner.start();
 
@@ -199,7 +164,6 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
         `Swarm ID:  ${swarmResult.swarmId}`,
         `Topology:  ${finalTopology}`,
         `Max Agents: ${maxAgents}`,
-        `MCP Server: ${autoStartMcp ? `localhost:${mcpPort}` : 'disabled'}`,
         `Mode:      ${daemon ? 'Daemon' : 'Foreground'}`,
         `Health:    ${healthResult.status}`
       ].join('\n'),
@@ -263,10 +227,6 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
       swarmId: swarmResult.swarmId,
       topology: finalTopology,
       maxAgents,
-      mcp: mcpResult ? {
-        port: mcpPort,
-        transport: mcpConfig.transportType || 'stdio'
-      } : null,
       health: healthResult.status,
       daemon,
       startedAt: new Date().toISOString()
@@ -332,20 +292,11 @@ const stopCommand: Command = {
     spinner.start();
 
     try {
-      // Stop MCP server
-      spinner.setText('Stopping MCP server...');
-      try {
-        await callMCPTool('mcp_stop', { graceful: !force, timeout });
-        spinner.succeed('MCP server stopped');
-      } catch {
-        spinner.fail('MCP server was not running');
-      }
-
       // Stop swarm
       spinner.setText('Stopping swarm...');
       spinner.start();
       try {
-        await callMCPTool('swarm_stop', {
+        await callMCPTool('swarm_shutdown', {
           graceful: !force,
           timeout,
           saveState: true

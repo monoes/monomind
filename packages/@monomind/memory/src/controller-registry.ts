@@ -19,10 +19,6 @@ import type {
   EmbeddingGenerator,
   SONAMode,
 } from './types.js';
-import { LearningBridge } from './learning-bridge.js';
-import type { LearningBridgeConfig } from './learning-bridge.js';
-import { MemoryGraph } from './memory-graph.js';
-import type { MemoryGraphConfig } from './memory-graph.js';
 import { TieredCacheManager } from './cache-manager.js';
 import type { CacheConfig } from './types.js';
 
@@ -51,8 +47,6 @@ export type MemoryControllerName =
  */
 export type CLIControllerName =
   | 'learningBridge'
-  | 'memoryGraph'
-  | 'agentMemoryScope'
   | 'tieredCache'
   | 'hybridSearch'
   | 'federatedSession'
@@ -119,8 +113,6 @@ export interface RuntimeConfig {
   /** Memory backend config */
   memory?: {
     enableHNSW?: boolean;
-    learningBridge?: Partial<LearningBridgeConfig>;
-    memoryGraph?: Partial<MemoryGraphConfig>;
     tieredCache?: Partial<CacheConfig>;
   };
 
@@ -163,7 +155,7 @@ export const INIT_LEVELS: InitLevel[] = [
   // Level 1: Core intelligence
   { level: 1, controllers: ['reasoningBank', 'hierarchicalMemory', 'learningBridge', 'hybridSearch', 'tieredCache'] },
   // Level 2: Graph & security
-  { level: 2, controllers: ['memoryGraph', 'agentMemoryScope', 'vectorBackend', 'mutationGuard', 'gnnService'] },
+  { level: 2, controllers: ['vectorBackend', 'mutationGuard', 'gnnService'] },
   // Level 3: Specialization
   { level: 3, controllers: ['skills', 'explainableRecall', 'reflexion', 'attestationLog', 'batchOperations', 'memoryConsolidation'] },
   // Level 4: Causal & routing
@@ -198,12 +190,10 @@ const SHUTDOWN_LEVELS = [...INIT_LEVELS].reverse();
  *   memory: {
  *     enableHNSW: true,
  *     learningBridge: { sonaMode: 'balanced' },
- *     memoryGraph: { pageRankDamping: 0.85 },
- *   },
+ * *   },
  * });
  *
  * const reasoning = registry.get<ReasoningBank>('reasoningBank');
- * const graph = registry.get<MemoryGraph>('memoryGraph');
  *
  * await registry.shutdown();
  * ```
@@ -424,10 +414,6 @@ export class ControllerRegistry extends EventEmitter {
       case 'hierarchicalMemory':
         return true;
 
-      // Graph — enabled if backend available
-      case 'memoryGraph':
-        return !!(this.config.memory?.memoryGraph || this.backend);
-
       // Security — enabled if LanceDB available
       case 'mutationGuard':
       case 'attestationLog':
@@ -459,7 +445,6 @@ export class ControllerRegistry extends EventEmitter {
 
       // Optional controllers
       case 'hybridSearch':
-      case 'agentMemoryScope':
       case 'sonaTrajectory':
       case 'federatedSession':
         return false; // Require explicit enabling
@@ -518,41 +503,8 @@ export class ControllerRegistry extends EventEmitter {
     switch (name) {
       // ----- CLI-layer controllers -----
 
-      case 'learningBridge': {
-        if (!this.backend) return null;
-        const config = this.config.memory?.learningBridge || {};
-        let embedder = config.embedder;
-        const bridge = new LearningBridge(this.backend, {
-          sonaMode: config.sonaMode || this.config.neural?.sonaMode || 'balanced',
-          confidenceDecayRate: config.confidenceDecayRate,
-          accessBoostAmount: config.accessBoostAmount,
-          consolidationThreshold: config.consolidationThreshold,
-          embedder,
-          // Thread the real vector dimension so SONA and the embedder agree
-          // (backend MiniLM produces 384-dim vectors, not SONA's 768 hidden width).
-          embeddingDim: this.config.dimension ?? config.embeddingDim,
-          enabled: true,
-        });
-        return bridge;
-      }
-
-      case 'memoryGraph': {
-        const config = this.config.memory?.memoryGraph || {};
-        const graph = new MemoryGraph({
-          pageRankDamping: config.pageRankDamping,
-          maxNodes: config.maxNodes,
-          ...config,
-        });
-        // Build from backend if available
-        if (this.backend) {
-          try {
-            await graph.buildFromBackend(this.backend);
-          } catch {
-            // Graph build from backend failed — empty graph is still usable
-          }
-        }
-        return graph;
-      }
+      case 'learningBridge':
+        return null;
 
       case 'tieredCache': {
         const config = this.config.memory?.tieredCache || {};
@@ -568,10 +520,6 @@ export class ControllerRegistry extends EventEmitter {
 
       case 'hybridSearch':
         // BM25 hybrid search — placeholder for future implementation
-        return null;
-
-      case 'agentMemoryScope':
-        // Agent memory scope — placeholder, activated when explicitly enabled
         return null;
 
       case 'semanticRouter':

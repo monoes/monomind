@@ -27,4 +27,25 @@ export interface ValidateInputOpts {
  * const safeName = result.sanitized!;
  */
 export declare function validateInput(value: unknown, opts: ValidateInputOpts): ValidationResult;
+export interface ExternalContentResult {
+    safe: boolean;
+    reason?: string;
+}
+/**
+ * Heuristically check whether `content` contains prompt-injection
+ * patterns. This is a structural / regex-based guard — it does not
+ * call any LLM.
+ *
+ * @param content - The untrusted string to inspect.
+ * @param source  - Optional label describing where the content came
+ *                  from (used only in log-friendly diagnostics, not
+ *                  in the returned reason).
+ * @returns `{ safe: true }` when no injection signal is found, or
+ *          `{ safe: false, reason }` describing the first match.
+ *
+ * @example
+ * const check = await validateExternalContent(userQuery, 'memory search');
+ * if (!check.safe) throw new Error(`Blocked: ${check.reason}`);
+ */
+export declare function validateExternalContent(content: string, source?: string): Promise<ExternalContentResult>;
 //# sourceMappingURL=input-guards.d.ts.map

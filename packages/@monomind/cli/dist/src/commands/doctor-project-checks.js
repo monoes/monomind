@@ -446,7 +446,7 @@ export async function checkGuidanceGates() {
     }
 }
 /**
- * AutoMem proficiency check — reports memory learning health (arXiv:2607.01224)
+ * AutoMem proficiency check — reports memory learning health
  */
 export async function checkMemoryProficiency() {
     try {

@@ -3,8 +3,9 @@
  *
  * Pre-storage coherence gate for memory entries.
  * Validates that new entries are coherent with existing context before storage.
- *
- * Uses CohomologyEngine Sheaf Laplacian for coherence validation
+ * Uses cosine similarity on vectors to compute coherence energy.
+ * When no pre-computed embeddings are supplied, falls back to a deterministic
+ * hash-based vector (structural proxy, not semantic similarity).
  */
 
 import type {
@@ -33,36 +34,47 @@ const defaultLogger = {
 // ============================================================================
 
 /**
- * Generate embedding from value (simplified - in production use actual embedding model)
+ * Deterministic hash-based vector from value content.
+ * This is NOT a semantic embedding -- it produces a normalized vector
+ * derived from character codes via an LCG, so only identical (or
+ * near-identical) strings will be "similar". It serves as a
+ * structural-consistency proxy when no real embedding model is available.
+ *
+ * For real semantic similarity, use the generateEmbedding() from
+ * neural-tools.ts which tries ONNX first and falls back to a
+ * deterministic hash.
  */
-function generateEmbedding(value: unknown): number[] {
-  // Convert value to string representation
+function hashVector(value: unknown): number[] {
   const str = typeof value === 'string' ? value : JSON.stringify(value);
 
-  // Simple hash-based embedding (for demo purposes)
-  // In production, use actual embedding model
-  const embedding = new Array(64).fill(0);
-
+  // Seed from string content
+  let seed = 0;
   for (let i = 0; i < str.length; i++) {
-    const charCode = str.charCodeAt(i);
-    const idx = i % embedding.length;
-    embedding[idx] += charCode * (i + 1) * 0.001;
+    seed = ((seed * 1103515245 + 12345) & 0x7fffffff) ^ (str.charCodeAt(i) * (i + 1));
+  }
+
+  // Generate deterministic vector via LCG
+  const dims = 64;
+  const vec = new Array(dims);
+  for (let i = 0; i < dims; i++) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    vec[i] = (seed / 0x7fffffff) * 2 - 1;
   }
 
   // Normalize
   let norm = 0;
-  for (let i = 0; i < embedding.length; i++) {
-    norm += embedding[i] * embedding[i];
+  for (let i = 0; i < dims; i++) {
+    norm += vec[i] * vec[i];
   }
   norm = Math.sqrt(norm);
 
   if (norm > 0) {
-    for (let i = 0; i < embedding.length; i++) {
-      embedding[i] /= norm;
+    for (let i = 0; i < dims; i++) {
+      vec[i] /= norm;
     }
   }
 
-  return embedding;
+  return vec;
 }
 
 /**
@@ -174,8 +186,9 @@ async function handler(
       rejectThreshold,
     });
 
-    // Generate embedding for the new value
-    const newEmbedding = generateEmbedding(value);
+    // Generate hash-based vector for the new value (not a semantic embedding --
+    // only detects near-identical content, not semantic similarity)
+    const newEmbedding = hashVector(value);
 
     // If no existing context, always allow
     if (!existingVectors || existingVectors.length === 0) {
@@ -283,7 +296,7 @@ async function handler(
  */
 export const memoryGateTool: MCPTool = {
   name: 'pr_memory_gate',
-  description: 'Pre-storage coherence gate for memory entries. Validates new entries against existing context using Sheaf Laplacian energy. Blocks contradictory entries to maintain memory coherence.',
+  description: 'Pre-storage coherence gate for memory entries. Validates new entries against existing context vectors using cosine-similarity energy. When no pre-computed embeddings are supplied, uses a deterministic hash-based vector (structural proxy, not semantic). Blocks contradictory entries to maintain memory coherence.',
   category: 'memory',
   version: '0.1.3',
   tags: ['memory', 'coherence', 'gate', 'validation', 'ai-interpretability'],

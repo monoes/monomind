@@ -45,7 +45,7 @@ export interface ForgettingCurveResult {
 export interface ForgettingCurveConfig {
   /**
    * Per-hour exponential decay rate (λ).
-   * Matches the LearningBridge default of −0.005/hour.
+   * Default decay rate of −0.005/hour.
    */
   decayRate?: number;
   /**
@@ -61,7 +61,7 @@ export interface ForgettingCurveConfig {
 }
 
 const DEFAULTS: Required<ForgettingCurveConfig> = {
-  decayRate: 0.005,       // matches LearningBridge default
+  decayRate: 0.005,       // default decay rate
   replayThreshold: 0.3,
   maxReplayPerRun: 50,
 };

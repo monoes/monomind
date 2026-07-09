@@ -26,6 +26,7 @@ export declare function bridgeStoreEntry(options: {
     guarded?: boolean;
     cached?: boolean;
     attested?: boolean;
+    duplicate?: boolean;
     error?: string;
 } | null>;
 export declare function bridgeSearchEntries(options: {

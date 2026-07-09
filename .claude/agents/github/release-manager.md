@@ -2,7 +2,7 @@
 name: release-manager
 description: |
   Automated release coordination and deployment with Monomind swarm orchestration for seamless version management, testing, and deployment across multiple packages
-tools: Bash, Read, Write, Edit, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__create_branch, mcp__github__push_files, mcp__github__create_issue, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_store
+tools: Bash, Read, Write, Edit, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__create_branch, mcp__github__push_files, mcp__github__create_issue, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__memory_store
 ---
 
 # GitHub Release Manager

@@ -1,15 +1,9 @@
 /**
- * Neural MCP Tools for CLI
+ * Pattern Store MCP Tools
  *
- * V2 Compatibility - Neural network and ML tools
- *
- * ✅ HYBRID Implementation:
- * - Uses monovector ONNX embeddings when available
- * - Falls back to deterministic hash-based embeddings otherwise
- * - Pattern storage and search with cosine similarity (real math in all tiers)
- * - Training stores patterns as searchable embeddings (not simulated)
- *
- * Note: The lean build has no neural training. The full loop lives on monoes-full-loop.
+ * Embed text as vectors, store patterns, search by cosine similarity.
+ * Uses monovector ONNX embeddings when available, deterministic hash fallback otherwise.
+ * Tools are registered under the "neural" namespace for backwards compatibility.
  */
 import { type MCPTool } from './types.js';
 export declare const neuralTools: MCPTool[];

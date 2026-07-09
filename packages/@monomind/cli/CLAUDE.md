@@ -270,41 +270,41 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 - **HNSW**: Pure-JS via LanceDB
 - **Routing**: keyword + route-outcomes
 
-## 🚀 CLI Commands (41 Commands)
+## CLI Commands
 
 ### Core Commands
 
-| Command     | Subcommands | Description                                                              |
-| ----------- | ----------- | ------------------------------------------------------------------------ |
-| `init`      | 4           | Project initialization with wizard, presets, skills, hooks               |
-| `agent`     | 8           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health, logs) |
-| `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         |
-| `memory`    | 11          | LanceDB memory with pure-JS HNSW vector search                           |
-| `mcp`       | 9           | MCP server management and tool execution                                 |
-| `task`      | 6           | Task creation, assignment, and lifecycle                                 |
-| `session`   | 7           | Session state management and persistence                                 |
-| `config`    | 7           | Configuration management and provider setup                              |
-| `status`    | 3           | System status monitoring with watch mode                                 |
-| `workflow`  | 6           | Workflow execution and template management                               |
-| `hooks`     | 17          | Self-learning hooks + 12 background workers                              |
-| `hive-mind` | 6           | Queen-led Byzantine fault-tolerant consensus                             |
+| Command     | Subcommands | Description                                                              | Status          |
+| ----------- | ----------- | ------------------------------------------------------------------------ | --------------- |
+| `init`      | 4           | Project initialization with wizard, presets, skills, hooks               | Working         |
+| `agent`     | 8           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health, logs) | MCP-dependent   |
+| `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         | MCP-dependent   |
+| `memory`    | 11          | LanceDB memory with pure-JS HNSW vector search                           | Working         |
+| `mcp`       | 9           | MCP server management and tool execution                                 | Working         |
+| `task`      | 6           | Task creation, assignment, and lifecycle                                 | Working         |
+| `session`   | 7           | Session state management and persistence                                 | Working         |
+| `config`    | 7           | Configuration management and provider setup                              | Working         |
+| `status`    | 3           | System status monitoring with watch mode                                 | Working         |
+| `workflow`  | 6           | Workflow execution and template management                               | Working         |
+| `hooks`     | 17          | Self-learning hooks + 12 background workers                              | Working         |
+| `hive-mind` | 6           | BFT/Raft/Quorum vote counting (single-process)                          | MCP-dependent   |
 
 ### Advanced Commands
 
-| Command       | Subcommands | Description                                                                   |
-| ------------- | ----------- | ----------------------------------------------------------------------------- |
-| `daemon`      | 5           | Background worker daemon (start, stop, status, trigger, enable)               |
-| `neural`      | 5           | Neural pattern training (train, status, patterns, predict, optimize)          |
-| `security`    | 6           | Security scanning (scan, audit, cve, threats, validate, report)               |
-| `performance` | 5           | Performance profiling (benchmark, profile, metrics, optimize, report)         |
-| `providers`   | 5           | AI providers (list, add, remove, test, configure)                             |
-| `plugins`     | 5           | Plugin management (list, install, uninstall, enable, disable)                 |
-| `deployment`  | 5           | Deployment management (deploy, rollback, status, environments, release)       |
-| `embeddings`  | 4           | Vector embeddings (embed, batch, search, init) - 75x faster with agentic-flow |
-| `claims`      | 4           | Claims-based authorization (check, grant, revoke, list)                       |
-| `migrate`     | 5           | V2 to V1 migration with rollback support                                      |
-| `doctor`      | 1           | System diagnostics with health checks                                         |
-| `completions` | 4           | Shell completions (bash, zsh, fish, powershell)                               |
+| Command       | Subcommands | Description                                                                   | Status           |
+| ------------- | ----------- | ----------------------------------------------------------------------------- | ---------------- |
+| `daemon`      | 5           | Background worker daemon (start, stop, status, trigger, enable)               | Background       |
+| `neural`      | 5           | Pattern storage (train, status, patterns, predict, optimize)                  | Pattern storage  |
+| `security`    | 6           | Security scanning (scan, audit, cve, threats, validate, report)               | Working          |
+| `performance` | 5           | Performance profiling (benchmark, profile, metrics, optimize, report)         | Minimal          |
+| `providers`   | 5           | AI providers (list, add, remove, test, configure)                             | Minimal          |
+| `plugins`     | 5           | Plugin management (list, install, uninstall, enable, disable)                 | Minimal          |
+| `deployment`  | 5           | Deployment management (deploy, rollback, status, environments, release)       | Minimal          |
+| `embeddings`  | 4           | Vector embeddings (embed, batch, search, init)                                | Minimal          |
+| `claims`      | 4           | Claims-based authorization (check, grant, revoke, list)                       | Minimal          |
+| `migrate`     | 5           | V2 to V1 migration with rollback support                                      | Minimal          |
+| `doctor`      | 1           | System diagnostics with health checks                                         | Working          |
+| `completions` | 4           | Shell completions (bash, zsh, fish, powershell)                               | Working          |
 
 ### Quick CLI Examples
 
@@ -334,7 +334,7 @@ npx monomind@latest security scan --depth full
 npx monomind@latest performance benchmark --suite all
 ```
 
-## 🚀 Available Agents (13 Core Types, 60+ Specializations)
+## Available Agents (13 Core Types, 60+ Routing Target Definitions)
 
 ### Core Development
 
@@ -344,13 +344,13 @@ npx monomind@latest performance benchmark --suite all
 
 `security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
 
-### 🔐 @monomind/security
+### @monomind/security
 
-CVE remediation, input validation, path security:
+CVE remediation, input validation, path security (utility functions, not standalone agent classes):
 
-- `InputValidator` - Zod validation
-- `PathValidator` - Traversal prevention
-- `SafeExecutor` - Injection protection
+- Input validation via Zod schemas
+- Path traversal prevention utilities
+- Command injection protection utilities
 
 ### Swarm Coordination
 
@@ -493,17 +493,16 @@ The lean build records what happens and measures whether routing helped — no n
 
 > The full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA) lives on the `monoes-full-loop` branch.
 
-## 📦 Embeddings Package (V1.0.0-alpha.12)
+## Embeddings Package (V1.0.0-alpha.12)
 
 Features:
 
 - **sql.js**: Cross-platform SQLite persistent cache (WASM, no native compilation)
 - **Document chunking**: Configurable overlap and size
 - **Normalization**: L2, L1, min-max, z-score
-- **Hyperbolic embeddings**: Poincaré ball model for hierarchical data
-- **75x faster**: With agentic-flow ONNX integration
+- **Hyperbolic embeddings**: Poincare ball model for hierarchical data
 
-## 🐝 Hive-Mind Consensus
+## Hive-Mind Consensus (Single-Process Vote Counting)
 
 ### Topologies
 
@@ -514,8 +513,10 @@ Features:
 
 ### Consensus Strategies
 
-- `byzantine` - BFT (tolerates f < n/3 faulty)
-- `raft` - Leader-based (tolerates f < n/2)
+These implement vote-counting logic in a single process (not distributed networking):
+
+- `byzantine` - BFT vote counting (tolerates f < n/3 faulty)
+- `raft` - Leader-based vote counting (tolerates f < n/2)
 - `gossip` - Epidemic for eventual consistency
 - `crdt` - Conflict-free replicated data types
 - `quorum` - Configurable quorum-based
@@ -553,13 +554,13 @@ Bash("npx monomind@latest session restore --latest")
 Bash("npx monomind@latest hooks session-end --generate-summary true --persist-state true --export-metrics true")
 ```
 
-### Pattern Logging & Prediction
+### Pattern Logging & Lookup
 
 ```bash
-# Predict optimal approach for new tasks (from logged patterns)
+# Look up stored patterns relevant to a task (keyword match, not ML prediction)
 Bash("npx monomind@latest neural predict --input '[task description]'")
 
-# View learned patterns
+# View stored patterns
 Bash("npx monomind@latest neural patterns --list")
 ```
 
@@ -689,7 +690,7 @@ For a comprehensive overview of all Monomind features, agents, commands, and int
 
 This includes:
 
-- All 60+ agent types with routing recommendations
+- All 60+ agent type definitions (routing targets) with recommendations
 - All 26 CLI commands with 140+ subcommands
 - All 27 hooks + 12 background workers
 - Intelligence system details (keyword routing + trajectory/outcome logging)

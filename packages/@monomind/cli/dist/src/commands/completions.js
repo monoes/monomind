@@ -8,8 +8,8 @@ import { output } from '../output.js';
 // Get all top-level commands for completions
 const TOP_LEVEL_COMMANDS = [
     'swarm', 'agent', 'task', 'session', 'config', 'memory', 'workflow',
-    'hive-mind', 'hooks', 'daemon', 'neural', 'security', 'performance',
-    'providers', 'deployment', 'claims', 'embeddings',
+    'hive-mind', 'hooks', 'daemon', 'security', 'performance',
+    'providers', 'claims', 'embeddings',
     'doctor', 'completions', 'help', 'version'
 ];
 // Swarm subcommands
@@ -69,20 +69,12 @@ _monomind_completions() {
             COMPREPLY=( $(compgen -W "\${hooks_commands}" -- "\${cur}") )
             return 0
             ;;
-        neural)
-            COMPREPLY=( $(compgen -W "train status patterns predict optimize" -- "\${cur}") )
-            return 0
-            ;;
         security)
             COMPREPLY=( $(compgen -W "scan cve threats audit secrets" -- "\${cur}") )
             return 0
             ;;
         performance)
             COMPREPLY=( $(compgen -W "benchmark profile metrics optimize bottleneck" -- "\${cur}") )
-            return 0
-            ;;
-        deployment|deploy)
-            COMPREPLY=( $(compgen -W "deploy status rollback history environments logs" -- "\${cur}") )
             return 0
             ;;
         claims)
@@ -139,11 +131,9 @@ _monomind() {
         'hive-mind:Queen-led consensus coordination'
         'hooks:Self-learning automation hooks'
         'daemon:Background service management'
-        'neural:Neural pattern training'
         'security:Security scanning and CVE detection'
         'performance:Performance profiling'
         'providers:AI provider management'
-        'deployment:Deployment management'
         'claims:Claims-based authorization'
         'embeddings:Vector embeddings'
         'doctor:System diagnostics'
@@ -241,15 +231,6 @@ _monomind() {
                         'intelligence:Neural intelligence commands'
                     )
                     ;;
-                neural)
-                    subcommands=(
-                        'train:Train neural patterns'
-                        'status:Check neural status'
-                        'patterns:Manage patterns'
-                        'predict:Make predictions'
-                        'optimize:Optimize models'
-                    )
-                    ;;
                 security)
                     subcommands=(
                         'scan:Security scan'
@@ -266,16 +247,6 @@ _monomind() {
                         'metrics:Show metrics'
                         'optimize:Optimize performance'
                         'bottleneck:Find bottlenecks'
-                    )
-                    ;;
-                deployment|deploy)
-                    subcommands=(
-                        'deploy:Deploy to environment'
-                        'status:Deployment status'
-                        'rollback:Rollback version'
-                        'history:Deployment history'
-                        'environments:List environments'
-                        'logs:View logs'
                     )
                     ;;
                 claims)
@@ -355,17 +326,11 @@ ${HIVE_MIND_SUBCOMMANDS.map(sub => `complete -c monomind -n "__fish_seen_subcomm
 # Hooks subcommands
 ${HOOKS_SUBCOMMANDS.map(sub => `complete -c monomind -n "__fish_seen_subcommand_from hooks" -a "${sub}"`).join('\n')}
 
-# Neural subcommands
-complete -c monomind -n "__fish_seen_subcommand_from neural" -a "train status patterns predict optimize"
-
 # Security subcommands
 complete -c monomind -n "__fish_seen_subcommand_from security" -a "scan cve threats audit secrets"
 
 # Performance subcommands
 complete -c monomind -n "__fish_seen_subcommand_from performance" -a "benchmark profile metrics optimize bottleneck"
-
-# Deployment subcommands
-complete -c monomind -n "__fish_seen_subcommand_from deployment deploy" -a "deploy status rollback history environments logs"
 
 # Claims subcommands
 complete -c monomind -n "__fish_seen_subcommand_from claims" -a "list check grant revoke roles policies"
@@ -398,11 +363,8 @@ $script:SubCommands = @{
     'hive-mind' = @('${HIVE_MIND_SUBCOMMANDS.join("', '")}')
     'hive' = @('${HIVE_MIND_SUBCOMMANDS.join("', '")}')
     'hooks' = @('${HOOKS_SUBCOMMANDS.join("', '")}')
-    'neural' = @('train', 'status', 'patterns', 'predict', 'optimize')
     'security' = @('scan', 'cve', 'threats', 'audit', 'secrets')
     'performance' = @('benchmark', 'profile', 'metrics', 'optimize', 'bottleneck')
-    'deployment' = @('deploy', 'status', 'rollback', 'history', 'environments', 'logs')
-    'deploy' = @('deploy', 'status', 'rollback', 'history', 'environments', 'logs')
     'claims' = @('list', 'check', 'grant', 'revoke', 'roles', 'policies')
     'embeddings' = @('generate', 'search', 'compare', 'collections', 'index', 'providers')
     'daemon' = @('start', 'stop', 'status', 'trigger', 'enable')

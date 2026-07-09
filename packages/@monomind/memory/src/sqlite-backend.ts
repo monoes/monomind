@@ -602,7 +602,6 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     const entriesByType: Record<MemoryType, number> = {
       episodic: 0,
       semantic: 0,
-      procedural: 0,
       working: 0,
       cache: 0,
     };

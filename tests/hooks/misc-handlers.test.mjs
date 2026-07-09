@@ -52,9 +52,9 @@ describe('agent-start-handler', () => {
     };
   }
 
-  it('logs [OK] Agent registered', () => {
+  it('does not log [OK] Agent registered (removed)', () => {
     const lines = capture(() => loadHandler('agent-start-handler.cjs').handle(makeCtx()));
-    expect(lines.find(l => l.includes('[OK] Agent registered'))).toBeTruthy();
+    expect(lines.find(l => l.includes('[OK] Agent registered'))).toBeUndefined();
   });
 
   it('creates a registration file under .monomind/agents/registrations/', () => {
@@ -113,7 +113,7 @@ describe('agent-start-handler', () => {
     expect(lines.find(l => l.includes('[MONOGRAPH_SUBAGENT_CTX]'))).toBeUndefined();
   });
 
-  it('logs [MONOGRAPH_SUBAGENT_CTX] when db returns god rows', () => {
+  it('does not log [MONOGRAPH_SUBAGENT_CTX] (replaced with compact format)', () => {
     const mockDb = {
       prepare: () => ({
         all: () => [{ name: 'HookHandler', label: 'Class', file: 'hook-handler.cjs', deg: 42 }],
@@ -121,23 +121,17 @@ describe('agent-start-handler', () => {
     };
     const ctx = makeCtx({ _openMonographDb: () => mockDb });
     const lines = capture(() => loadHandler('agent-start-handler.cjs').handle(ctx));
-    expect(lines.find(l => l.includes('[MONOGRAPH_SUBAGENT_CTX]'))).toBeTruthy();
-    expect(lines.find(l => l.includes('HookHandler'))).toBeTruthy();
+    expect(lines.find(l => l.includes('[MONOGRAPH_SUBAGENT_CTX]'))).toBeUndefined();
   });
 
-  it('shows top-files hint when description is long enough and suggestions exist', () => {
-    const mockDb = {
-      prepare: () => ({
-        all: () => [{ name: 'Router', label: 'Module', file: 'router.cjs', deg: 5 }],
-      }),
-    };
+  it('shows compact top-files hint when description is long enough and suggestions exist', () => {
     const ctx = makeCtx({
       hookInput: { description: 'implement the new routing feature' },
-      _openMonographDb: () => mockDb,
       getMonographSuggestions: () => [{ name: 'router.cjs', label: 'Module', file: 'router.cjs' }],
     });
     const lines = capture(() => loadHandler('agent-start-handler.cjs').handle(ctx));
-    expect(lines.find(l => l.includes('Top files for this subagent task'))).toBeTruthy();
+    expect(lines.find(l => l.includes('[MONOGRAPH] Top files:'))).toBeTruthy();
+    expect(lines.find(l => l.includes('router.cjs'))).toBeTruthy();
   });
 
   it('skips top-files hint when description is too short (<= 8 chars)', () => {

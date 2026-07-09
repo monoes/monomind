@@ -19,7 +19,7 @@ export declare function checkGitignoreCoverage(): Promise<HealthCheck>;
 export declare function checkAgentRegistry(): Promise<HealthCheck>;
 export declare function checkGuidanceGates(): Promise<HealthCheck>;
 /**
- * AutoMem proficiency check — reports memory learning health (arXiv:2607.01224)
+ * AutoMem proficiency check — reports memory learning health
  */
 export declare function checkMemoryProficiency(): Promise<HealthCheck>;
 //# sourceMappingURL=doctor-project-checks.d.ts.map

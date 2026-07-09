@@ -647,10 +647,6 @@ const handlers = {
     h.handle(hCtx);
   },
 
-  'status': () => {
-    console.log('[OK] Status check');
-  },
-
   'stats': async () => {
     const h = require('./handlers/stats-handler.cjs');
     await h.handle(hCtx);
@@ -669,7 +665,7 @@ if (command && handlers[command]) {
   } else if (command) {
     console.log('[OK] Hook: ' + command);
   } else {
-    console.log('Usage: hook-handler.cjs <route|pre-bash|pre-search|post-edit|post-read|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|status|stats>');
+    console.log('Usage: hook-handler.cjs <route|pre-bash|pre-search|post-edit|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|stats>');
   }
 }
 

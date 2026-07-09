@@ -1,12 +1,11 @@
 /**
  * Memory Admin Commands
- * deleteCommand, statsCommand, configureCommand, cleanupCommand
+ * deleteCommand, statsCommand, configureCommand
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { select, confirm } from '../prompt.js';
-import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { configManager } from '../services/config-file-manager.js';
 
 // Memory backends (needed for configureCommand)
@@ -350,144 +349,3 @@ export const configureCommand: Command = {
   }
 };
 
-// Cleanup command
-export const cleanupCommand: Command = {
-  name: 'cleanup',
-  description: 'Clean up stale and expired memory entries',
-  options: [
-    {
-      name: 'dry-run',
-      short: 'd',
-      description: 'Show what would be deleted',
-      type: 'boolean',
-      default: false
-    },
-    {
-      name: 'older-than',
-      short: 'o',
-      description: 'Delete entries older than (e.g., "7d", "30d")',
-      type: 'string'
-    },
-    {
-      name: 'expired-only',
-      short: 'e',
-      description: 'Only delete expired TTL entries',
-      type: 'boolean',
-      default: false
-    },
-    {
-      name: 'low-quality',
-      short: 'l',
-      description: 'Delete low quality patterns (threshold)',
-      type: 'number'
-    },
-    {
-      name: 'namespace',
-      short: 'n',
-      description: 'Clean specific namespace only',
-      type: 'string'
-    },
-    {
-      name: 'force',
-      short: 'f',
-      description: 'Skip confirmation',
-      type: 'boolean',
-      default: false
-    }
-  ],
-  examples: [
-    { command: 'monomind memory cleanup --dry-run', description: 'Preview cleanup' },
-    { command: 'monomind memory cleanup --older-than 30d', description: 'Delete entries older than 30 days' },
-    { command: 'monomind memory cleanup --expired-only', description: 'Clean expired entries' }
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const dryRun = ctx.flags['dry-run'] as boolean;
-    const force = ctx.flags.force as boolean;
-
-    if (dryRun) {
-      output.writeln(output.warning('DRY RUN - No changes will be made'));
-    }
-
-    output.printInfo('Analyzing memory for cleanup...');
-
-    try {
-      const result = await callMCPTool<{
-        dryRun: boolean;
-        candidates: {
-          expired: number;
-          stale: number;
-          lowQuality: number;
-          total: number;
-        };
-        deleted: {
-          entries: number;
-          vectors: number;
-          patterns: number;
-        };
-        freed: {
-          bytes: number;
-          formatted: string;
-        };
-        duration: number;
-      }>('memory_cleanup', {
-        dryRun,
-        olderThan: ctx.flags['older-than'],
-        expiredOnly: ctx.flags['expired-only'],
-        lowQualityThreshold: ctx.flags['low-quality'],
-        namespace: ctx.flags.namespace,
-      });
-
-      if (ctx.flags.format === 'json') {
-        output.printJson(result);
-        return { success: true, data: result };
-      }
-
-      output.writeln();
-      output.writeln(output.bold('Cleanup Analysis'));
-      output.printTable({
-        columns: [
-          { key: 'category', header: 'Category', width: 20 },
-          { key: 'count', header: 'Count', width: 15, align: 'right' }
-        ],
-        data: [
-          { category: 'Expired (TTL)', count: result.candidates.expired },
-          { category: 'Stale (unused)', count: result.candidates.stale },
-          { category: 'Low Quality', count: result.candidates.lowQuality },
-          { category: output.bold('Total'), count: output.bold(String(result.candidates.total)) }
-        ]
-      });
-
-      if (!dryRun && result.candidates.total > 0 && !force) {
-        const confirmed = await confirm({
-          message: `Delete ${result.candidates.total} entries (${result.freed.formatted})?`,
-          default: false
-        });
-
-        if (!confirmed) {
-          output.printInfo('Cleanup cancelled');
-          return { success: true, data: result };
-        }
-      }
-
-      if (!dryRun) {
-        output.writeln();
-        output.printSuccess(`Cleaned ${result.deleted.entries} entries`);
-        output.printList([
-          `Vectors removed: ${result.deleted.vectors}`,
-          `Patterns removed: ${result.deleted.patterns}`,
-          `Space freed: ${result.freed.formatted}`,
-          `Duration: ${result.duration}ms`
-        ]);
-      }
-
-      return { success: true, data: result };
-    } catch (error) {
-      if (error instanceof MCPClientError) {
-        output.printError(`Cleanup error: ${error.message}`);
-      } else {
-        output.printError(`Unexpected error: ${String(error)}`);
-      }
-      return { success: false, exitCode: 1 };
-    }
-  }
-};

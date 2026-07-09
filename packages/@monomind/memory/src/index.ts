@@ -102,53 +102,6 @@ export {
   PERFORMANCE_TARGETS,
 } from './types.js';
 
-// ===== Auto Memory Bridge (ADR-048) =====
-export { AutoMemoryBridge, resolveAutoMemoryDir, findGitRoot } from './auto-memory-bridge.js';
-export type {
-  AutoMemoryBridgeConfig,
-  MemoryInsight,
-  InsightCategory,
-  SyncDirection,
-  SyncMode,
-  PruneStrategy,
-  SyncResult,
-  ImportResult,
-} from './auto-memory-bridge.js';
-
-// ===== Learning Bridge =====
-export { LearningBridge } from './learning-bridge.js';
-export type {
-  LearningBridgeConfig,
-  LearningStats,
-  ConsolidateResult,
-  PatternMatch,
-} from './learning-bridge.js';
-
-
-// ===== Knowledge Graph =====
-export { MemoryGraph } from './memory-graph.js';
-export type {
-  MemoryGraphConfig,
-  GraphNode,
-  GraphEdge,
-  GraphStats,
-  RankedResult,
-  EdgeType,
-} from './memory-graph.js';
-
-// ===== Agent-Scoped Memory =====
-export {
-  resolveAgentMemoryDir,
-  createAgentBridge,
-  transferKnowledge,
-  listAgentScopes,
-} from './agent-memory-scope.js';
-export type {
-  AgentMemoryScope,
-  AgentScopedConfig,
-  TransferOptions,
-  TransferResult,
-} from './agent-memory-scope.js';
 
 // ===== Controller Registry (ADR-053) =====
 export { ControllerRegistry, INIT_LEVELS } from './controller-registry.js';
@@ -181,20 +134,11 @@ export type { DatabaseProvider, DatabaseOptions } from './database-provider.js';
 export { SwarmCheckpointer } from './checkpointer.js';
 export type { AgentState, SwarmCheckpoint, CheckpointMeta } from './types/checkpoint.js';
 
-// ===== Multi-Tier Memory (Task 09) =====
-export { ShortTermMemory, EntityMemory, ContextualMemory } from './tiers/index.js';
-export type { EntityFact, SessionSummary } from './tiers/index.js';
-export type { MemoryTier } from './types.js';
 
 // ===== Episodic Memory (Task 11) =====
 export { EpisodicStore } from './episodic-store.js';
 export type { Episode, EpisodicStoreConfig } from './types.js';
 
-// ===== AutoMem: Scaffold Optimization + Decision Curation (arXiv:2607.01224) =====
-export { ScaffoldOptimizer } from './scaffold-optimizer.js';
-export type { ScaffoldRevision, OptimizationResult, ScaffoldOptimizerConfig } from './scaffold-optimizer.js';
-export { MemoryDecisionCurator } from './memory-decision-curator.js';
-export type { CuratedDecision, CurationResult, MemoryDecisionCuratorConfig } from './memory-decision-curator.js';
 
 // ===== Per-Agent Knowledge Base (Task 28) =====
 export { chunkDocument, KnowledgeStore, KnowledgeRetriever } from './knowledge/index.js';
@@ -574,21 +518,6 @@ export type {
   PromptExperiment,
   DiffResult,
 } from './prompt-version-store.js';
-
-// ===== Procedural Memory (Task 45) =====
-export type {
-  ActionOutcome,
-  ActionRecord,
-  ExtractionConfig,
-  SkillTrigger,
-  LearnedSkill,
-  ActionSequenceGroup,
-} from './procedural/index.js';
-export { DEFAULT_EXTRACTION_CONFIG } from './procedural/index.js';
-export { ActionRecordStore } from './procedural/index.js';
-export { ActionSequenceExtractor } from './procedural/index.js';
-export { LearnedSkillSerializer } from './procedural/index.js';
-export { SkillRegistry } from './procedural/index.js';
 
 // Default export
 export default UnifiedMemoryService;

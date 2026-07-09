@@ -7,6 +7,7 @@
 import { join, resolve, sep } from 'path';
 import { execSync } from 'child_process';
 import { statSync } from 'fs';
+import { randomUUID } from 'crypto';
 import { getProjectCwd } from './types.js';
 let _cachedDbPath;
 let _cachedCwd;
@@ -44,6 +45,47 @@ function getDbPath() {
 }
 function text(t) {
     return { content: [{ type: 'text', text: t }] };
+}
+// ── Active watcher registry ──────────────────────────────────────────────────
+const _activeWatchers = new Map();
+function applyPprRerank(db, seedNodes, damping, maxResults) {
+    const propagated = new Map();
+    for (const r of seedNodes) {
+        propagated.set(r.id, r.score);
+    }
+    const neighborStmt = db.prepare('SELECT target_id FROM edges WHERE source_id = @id');
+    for (const r of seedNodes) {
+        const neighbors = neighborStmt.all({ id: r.id });
+        for (const n of neighbors) {
+            const boost = r.score * damping;
+            const current = propagated.get(n.target_id) ?? 0;
+            propagated.set(n.target_id, Math.max(current, boost));
+        }
+    }
+    const seedIds = new Set(seedNodes.map(r => r.id));
+    const ranked = seedNodes.map(r => ({
+        ...r,
+        combinedScore: Math.max(r.score, propagated.get(r.id) ?? 0),
+        boostedByNeighbors: false,
+    }));
+    for (const [id, score] of propagated) {
+        if (!seedIds.has(id)) {
+            const node = db.prepare('SELECT id, name, label, file_path, start_line FROM nodes WHERE id = @id').get({ id });
+            if (node) {
+                ranked.push({
+                    id: node.id, name: node.name, label: node.label,
+                    filePath: node.file_path, startLine: node.start_line,
+                    score: 0, combinedScore: score, boostedByNeighbors: true,
+                });
+            }
+        }
+    }
+    ranked.sort((a, b) => b.combinedScore - a.combinedScore);
+    return ranked.slice(0, maxResults).map(r => ({
+        id: r.id, name: r.name, label: r.label,
+        filePath: r.filePath, startLine: r.startLine,
+        score: r.combinedScore, boostedByNeighbors: r.boostedByNeighbors,
+    }));
 }
 // ── monograph_build ───────────────────────────────────────────────────────────
 const monographBuildTool = {
@@ -83,6 +125,8 @@ const monographQueryTool = {
             query: { type: 'string', description: 'Search terms' },
             limit: { type: 'number', description: 'Max results (default 20)' },
             label: { type: 'string', description: 'Filter by node type: Class, Function, Method, etc.' },
+            rerank: { type: 'boolean', description: 'Apply HippoRAG-style PPR graph reranking to boost neighbors of top hits (default: true)' },
+            damping: { type: 'number', description: 'PPR damping factor when rerank=true (0-1, default 0.5)' },
         },
         required: ['query'],
     },
@@ -106,19 +150,49 @@ const monographQueryTool = {
                 ? rawQuery.slice(0, MAX_MONOGRAPH_QUERY_LEN)
                 : rawQuery;
             const label = input.label;
+            const rerank = input.rerank ?? true;
+            const damping = input.damping ?? 0.5;
             if (process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
-                const results = await hybridQuery(db, query, { limit, label });
+                const results = await hybridQuery(db, query, { limit: rerank ? limit * 2 : limit, label });
                 if (results.length === 0)
                     return text('No results found.');
+                if (rerank) {
+                    const seeds = results.map(r => ({
+                        id: r.id, name: r.name ?? r.id, label: r.label ?? '?',
+                        filePath: r.filePath ?? '', startLine: r.startLine ?? null,
+                        score: r.score,
+                    }));
+                    const reranked = applyPprRerank(db, seeds, damping, limit);
+                    const lines = reranked.map(r => {
+                        const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
+                        const tag = r.boostedByNeighbors ? ' [PPR-boosted]' : '';
+                        return `[${r.label}] ${r.name}  ${loc}  (score: ${r.score.toFixed(4)})${tag}`;
+                    });
+                    return text(lines.join('\n'));
+                }
                 const lines = results.map(r => {
                     const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
                     return `[${r.label ?? '?'}] ${r.name ?? r.id}  ${loc}  (score: ${r.score.toFixed(4)})`;
                 });
                 return text(lines.join('\n'));
             }
-            const results = ftsSearch(db, query, limit, label);
+            const results = ftsSearch(db, query, rerank ? limit * 2 : limit, label);
             if (results.length === 0)
                 return text('No results found.');
+            if (rerank) {
+                const seeds = results.map(r => ({
+                    id: r.id, name: r.name, label: r.label,
+                    filePath: r.filePath ?? '', startLine: r.startLine ?? null,
+                    score: Math.abs(r.rank),
+                }));
+                const reranked = applyPprRerank(db, seeds, damping, limit);
+                const lines = reranked.map(r => {
+                    const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
+                    const tag = r.boostedByNeighbors ? ' [PPR-boosted]' : '';
+                    return `[${r.label}] ${r.name}  ${loc}  (score: ${r.score.toFixed(3)})${tag}`;
+                });
+                return text(lines.join('\n'));
+            }
             const lines = results.map(r => {
                 const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
                 return `[${r.label}] ${r.name}  ${loc}  (score: ${r.rank.toFixed(3)})`;
@@ -526,11 +600,15 @@ const monographWatchTool = {
     handler: async (input) => {
         const { MonographWatcher } = await import('@monoes/monograph');
         const repoPath = input.path ?? getProjectCwd();
+        if (_activeWatchers.has(repoPath)) {
+            return text(`Monograph watcher already running for ${repoPath}.`);
+        }
         const watcher = new MonographWatcher(repoPath);
         watcher.on('monograph:updated', (_paths) => {
             import('@monoes/monograph').then(({ buildAsync }) => buildAsync(repoPath)).catch(() => { });
         });
         await watcher.start();
+        _activeWatchers.set(repoPath, watcher);
         return text(`Monograph watcher started for ${repoPath}. Watching for file changes...`);
     },
 };
@@ -538,9 +616,21 @@ const monographWatchTool = {
 const monographWatchStopTool = {
     name: 'monograph_watch_stop',
     description: 'Stop the Monograph file watcher.',
-    inputSchema: { type: 'object', properties: {} },
-    handler: async () => {
-        return text('Watcher stop requested. (Restart MCP server to fully clear watchers.)');
+    inputSchema: {
+        type: 'object',
+        properties: {
+            path: { type: 'string', description: 'Repo path whose watcher to stop (defaults to project cwd)' },
+        },
+    },
+    handler: async (input) => {
+        const repoPath = input.path ?? getProjectCwd();
+        const watcher = _activeWatchers.get(repoPath);
+        if (!watcher) {
+            return text(`No active watcher found for ${repoPath}.`);
+        }
+        await watcher.stop();
+        _activeWatchers.delete(repoPath);
+        return text(`Monograph watcher stopped for ${repoPath}.`);
     },
 };
 // ── monograph_report ──────────────────────────────────────────────────────────
@@ -804,7 +894,7 @@ const monographExportTool = {
         required: ['format'],
     },
     handler: async (input) => {
-        const { openDb, closeDb, toJson, toSvg, toGraphml, toCypher } = await import('@monoes/monograph');
+        const { openDb, closeDb, toJson, toSvg, toGraphml, toCypher, toObsidian, toCanvas } = await import('@monoes/monograph');
         const { writeFileSync, mkdirSync } = await import('fs');
         const db = openDb(getDbPath());
         try {
@@ -837,6 +927,15 @@ const monographExportTool = {
                 const p = join(outDir, 'graph.cypher');
                 writeFileSync(p, toCypher(nodes, edges));
                 return text(`Exported Cypher to ${p}`);
+            }
+            if (fmt === 'obsidian') {
+                toObsidian(nodes, edges, outDir);
+                return text(`Exported Obsidian vault to ${outDir}`);
+            }
+            if (fmt === 'canvas') {
+                const p = join(outDir, 'graph.canvas');
+                writeFileSync(p, toCanvas(nodes, edges));
+                return text(`Exported Canvas to ${p}`);
             }
             return text(`Format ${fmt} export written to ${outDir}`);
         }
@@ -2053,6 +2152,313 @@ function findStaleDist(repoPath) {
         findings,
     };
 }
+// ── monograph_agent_history ───────────────────────────────────────────────────
+const monographAgentHistoryTool = {
+    name: 'monograph_agent_history',
+    description: 'Query past agent interactions by org, type, session, or time range. Returns rows ordered by timestamp descending.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            org_name: { type: 'string', description: 'Filter by org name' },
+            agent_type: { type: 'string', description: 'Filter by agent type' },
+            session_id: { type: 'string', description: 'Filter by session id' },
+            since: { type: 'number', description: 'Unix timestamp (ms) — only interactions after this time' },
+            limit: { type: 'number', description: 'Max rows to return (default 50)' },
+        },
+    },
+    handler: async (input) => {
+        const { openDb, closeDb } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const conditions = [];
+            const params = {};
+            if (typeof input.org_name === 'string') {
+                conditions.push('org_name = @org_name');
+                params.org_name = input.org_name;
+            }
+            if (typeof input.agent_type === 'string') {
+                conditions.push('agent_type = @agent_type');
+                params.agent_type = input.agent_type;
+            }
+            if (typeof input.session_id === 'string') {
+                conditions.push('session_id = @session_id');
+                params.session_id = input.session_id;
+            }
+            if (typeof input.since === 'number') {
+                conditions.push('timestamp >= @since');
+                params.since = input.since;
+            }
+            const MAX_LIMIT = 1_000;
+            const rawLimit = input.limit ?? 50;
+            const limit = Number.isFinite(rawLimit) && rawLimit > 0
+                ? Math.min(Math.floor(rawLimit), MAX_LIMIT)
+                : 50;
+            params.limit = limit;
+            const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+            const sql = `SELECT * FROM agent_interactions ${where} ORDER BY timestamp DESC LIMIT @limit`;
+            const rows = db.prepare(sql).all(params);
+            if (rows.length === 0)
+                return text('No agent interactions found.');
+            return text(JSON.stringify(rows, null, 2));
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+// ── monograph_agent_patterns ──────────────────────────────────────────────────
+const monographAgentPatternsTool = {
+    name: 'monograph_agent_patterns',
+    description: 'Aggregate agent interaction patterns: success rates, costs, and token usage grouped by agent type, org, or session.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            group_by: {
+                type: 'string',
+                description: "Column to group by: 'agent_type' | 'org_name' | 'session_id'",
+            },
+            since: { type: 'number', description: 'Unix timestamp (ms) — only interactions after this time' },
+            min_count: { type: 'number', description: 'Minimum interaction count to include in results (default 2)' },
+        },
+        required: ['group_by'],
+    },
+    handler: async (input) => {
+        const groupBy = input.group_by;
+        const ALLOWED_GROUP_COLUMNS = new Set(['agent_type', 'org_name', 'session_id']);
+        if (!ALLOWED_GROUP_COLUMNS.has(groupBy)) {
+            return text(`Invalid group_by: ${groupBy}. Must be one of: agent_type, org_name, session_id`);
+        }
+        const { openDb, closeDb } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const params = {};
+            const conditions = [];
+            if (typeof input.since === 'number') {
+                conditions.push('timestamp >= @since');
+                params.since = input.since;
+            }
+            const minCount = typeof input.min_count === 'number' && input.min_count > 0
+                ? Math.floor(input.min_count)
+                : 2;
+            params.min_count = minCount;
+            const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+            const sql = `
+        SELECT
+          ${groupBy} AS group_key,
+          COUNT(*) AS interaction_count,
+          AVG(success) AS success_rate,
+          SUM(tokens_in) AS total_tokens_in,
+          SUM(tokens_out) AS total_tokens_out,
+          SUM(cost_usd) AS total_cost_usd,
+          AVG(duration_ms) AS avg_duration_ms
+        FROM agent_interactions
+        ${where}
+        GROUP BY ${groupBy}
+        HAVING COUNT(*) >= @min_count
+        ORDER BY interaction_count DESC
+      `;
+            const rows = db.prepare(sql).all(params);
+            if (rows.length === 0)
+                return text('No agent interaction patterns found.');
+            return text(JSON.stringify(rows, null, 2));
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+// ── monograph_agent_record ────────────────────────────────────────────────────
+const monographAgentRecordTool = {
+    name: 'monograph_agent_record',
+    description: 'Record an agent interaction (called by capture hooks).',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            session_id: { type: 'string', description: 'Session id' },
+            agent_type: { type: 'string', description: 'Agent type' },
+            org_name: { type: 'string', description: 'Org name' },
+            parent_agent: { type: 'string', description: 'Parent agent name/type, if spawned by another agent' },
+            prompt_summary: { type: 'string', description: 'Short summary of the prompt given to the agent' },
+            result_summary: { type: 'string', description: 'Short summary of the agent result' },
+            tokens_in: { type: 'number', description: 'Input tokens consumed (default 0)' },
+            tokens_out: { type: 'number', description: 'Output tokens produced (default 0)' },
+            cost_usd: { type: 'number', description: 'Cost in USD (default 0)' },
+            success: { type: 'boolean', description: 'Whether the interaction succeeded (default true)' },
+            duration_ms: { type: 'number', description: 'Duration in milliseconds (default 0)' },
+        },
+        required: ['session_id', 'agent_type'],
+    },
+    handler: async (input) => {
+        const { openDb, closeDb } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const id = randomUUID();
+            const timestamp = Date.now();
+            db.prepare(`
+        INSERT INTO agent_interactions (
+          id, session_id, org_name, agent_type, parent_agent,
+          prompt_summary, result_summary, tokens_in, tokens_out,
+          cost_usd, success, duration_ms, timestamp
+        ) VALUES (
+          @id, @session_id, @org_name, @agent_type, @parent_agent,
+          @prompt_summary, @result_summary, @tokens_in, @tokens_out,
+          @cost_usd, @success, @duration_ms, @timestamp
+        )
+      `).run({
+                id,
+                session_id: input.session_id,
+                org_name: input.org_name ?? null,
+                agent_type: input.agent_type,
+                parent_agent: input.parent_agent ?? null,
+                prompt_summary: input.prompt_summary ?? null,
+                result_summary: input.result_summary ?? null,
+                tokens_in: input.tokens_in ?? 0,
+                tokens_out: input.tokens_out ?? 0,
+                cost_usd: input.cost_usd ?? 0,
+                success: input.success === false ? 0 : 1,
+                duration_ms: input.duration_ms ?? 0,
+                timestamp,
+            });
+            return text(`Recorded agent interaction ${id} for ${input.agent_type} at ${timestamp}`);
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+// ── monograph_rank_with_graph (ported from MemoryGraph) ──────────────────────
+const monographRankWithGraphTool = {
+    name: 'monograph_rank_with_graph',
+    description: 'Blend BM25/vector search scores with PageRank for graph-aware ranking. Ported from MemoryGraph.rankWithGraph (HippoRAG-inspired).',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            query: { type: 'string', description: 'Search query to run through monograph_query first' },
+            alpha: { type: 'number', description: 'Weight for search score vs PageRank (0-1, default 0.7 = 70% search, 30% PageRank)' },
+            limit: { type: 'number', description: 'Max results (default 20)' },
+        },
+        required: ['query'],
+    },
+    handler: async (input) => {
+        const { openDb, closeDb, pageRank } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const alpha = input.alpha ?? 0.7;
+            const limit = input.limit ?? 20;
+            const query = input.query;
+            const searchResults = db.prepare(`
+        SELECT n.id, n.name, n.label, n.file_path, n.start_line, n.community_id,
+               bm25(nodes_fts) AS score
+        FROM nodes_fts
+        JOIN nodes n ON n.id = nodes_fts.rowid
+        WHERE nodes_fts MATCH @query
+        ORDER BY bm25(nodes_fts)
+        LIMIT @limit
+      `).all({ query, limit: limit * 2 });
+            if (searchResults.length === 0)
+                return text('No results found.');
+            const ranks = pageRank(db);
+            const N = ranks.size || 1;
+            const ranked = searchResults.map(r => {
+                const pr = ranks.get(r.id) ?? 0;
+                return {
+                    ...r,
+                    pageRank: pr,
+                    combinedScore: alpha * Math.abs(r.score) + (1 - alpha) * (pr * N),
+                };
+            }).sort((a, b) => b.combinedScore - a.combinedScore).slice(0, limit);
+            return text(JSON.stringify(ranked, null, 2));
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+// ── monograph_community_summaries (ported from MemoryGraph) ──────────────────
+const monographCommunitySummariesTool = {
+    name: 'monograph_community_summaries',
+    description: 'GraphRAG-style community summaries: top-K communities by average PageRank with member counts and top nodes. Ported from MemoryGraph.getCommunitySummaries.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            top_k: { type: 'number', description: 'Number of top communities to return (default 5)' },
+        },
+    },
+    handler: async (input) => {
+        const { openDb, closeDb, pageRank } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const topK = input.top_k ?? 5;
+            const ranks = pageRank(db);
+            const rows = db.prepare(`SELECT id, community_id FROM nodes WHERE community_id IS NOT NULL`).all();
+            const communityMap = new Map();
+            for (const row of rows) {
+                const rank = ranks.get(row.id) ?? 0;
+                const entry = communityMap.get(row.community_id) ?? { nodeIds: [], rankSum: 0 };
+                entry.nodeIds.push(row.id);
+                entry.rankSum += rank;
+                communityMap.set(row.community_id, entry);
+            }
+            const summaries = [...communityMap.entries()]
+                .map(([communityId, { nodeIds, rankSum }]) => ({
+                communityId,
+                nodeCount: nodeIds.length,
+                topNodeIds: nodeIds.slice(0, 3),
+                avgPageRank: nodeIds.length > 0 ? rankSum / nodeIds.length : 0,
+            }))
+                .sort((a, b) => b.avgPageRank - a.avgPageRank)
+                .slice(0, topK);
+            return text(JSON.stringify(summaries, null, 2));
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+// ── monograph_ppr_rerank (ported from MemoryGraph) ───────────────────────────
+const monographPprRerankTool = {
+    name: 'monograph_ppr_rerank',
+    description: 'HippoRAG-style PPR re-ranking: search, then expand one hop through edges and boost neighbor scores. Ported from MemoryGraph.pprRerank (arXiv:2405.14831).',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            query: { type: 'string', description: 'Search query' },
+            damping: { type: 'number', description: 'Score propagation damping factor (default 0.5)' },
+            limit: { type: 'number', description: 'Max results (default 20)' },
+        },
+        required: ['query'],
+    },
+    handler: async (input) => {
+        const { openDb, closeDb } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const damping = input.damping ?? 0.5;
+            const limit = input.limit ?? 20;
+            const query = input.query;
+            const searchResults = db.prepare(`
+        SELECT n.id, n.name, n.label, n.file_path, n.start_line,
+               bm25(nodes_fts) AS score
+        FROM nodes_fts
+        JOIN nodes n ON n.id = nodes_fts.rowid
+        WHERE nodes_fts MATCH @query
+        ORDER BY bm25(nodes_fts)
+        LIMIT @limit
+      `).all({ query, limit: limit * 2 });
+            if (searchResults.length === 0)
+                return text('No results found.');
+            const seeds = searchResults.map(r => ({
+                id: r.id, name: r.name, label: r.label,
+                filePath: r.file_path, startLine: r.start_line ?? null,
+                score: Math.abs(r.score),
+            }));
+            const reranked = applyPprRerank(db, seeds, damping, limit);
+            return text(JSON.stringify(reranked, null, 2));
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
 export const monographTools = [
     monographBuildTool,
     monographQueryTool,
@@ -2099,5 +2505,11 @@ export const monographTools = [
     monographGroupContractsTool,
     monographGroupStatusTool,
     monographDeadCodeTool,
+    monographAgentHistoryTool,
+    monographAgentPatternsTool,
+    monographAgentRecordTool,
+    monographRankWithGraphTool,
+    monographCommunitySummariesTool,
+    monographPprRerankTool,
 ];
 //# sourceMappingURL=monograph-tools.js.map

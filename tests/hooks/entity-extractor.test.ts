@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import type { EntityFact } from '../../packages/@monomind/memory/src/tiers/entity.js';
 import {
+  type EntityFact,
   EntityExtractorWorker,
   buildExtractionPrompt,
   parseEntityFacts,

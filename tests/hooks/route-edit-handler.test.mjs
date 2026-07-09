@@ -104,14 +104,13 @@ describe('route-handler', () => {
     expect(data.confidence).toBe(0.9);
   });
 
-  it('shows primary recommendation panel when confidence >= 0.70', async () => {
+  it('does not show primary recommendation panel (removed)', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
       router: { routeTask: () => ({ agent: 'coder', confidence: 0.9, reason: 'keyword', skillMatches: [], specificAgents: [], extrasMatches: [] }) },
     });
     const lines = await capture(() => loadRoute().handle(hCtx));
-    expect(lines.join('\n')).toContain('monomind | Primary Recommendation');
-    expect(lines.join('\n')).toContain('coder');
+    expect(lines.join('\n')).not.toContain('monomind | Primary Recommendation');
   });
 
   it('suppresses panel for low-confidence (<0.70) short prompt', async () => {
@@ -158,7 +157,7 @@ describe('route-handler', () => {
     expect(lines.join('\n')).not.toContain('[ROUTING_MODE]');
   });
 
-  it('logs MicroAgent TAKEOVER when scanMicroAgentTriggers returns a takeoverAgent', async () => {
+  it('does not show MicroAgent TAKEOVER panel (removed)', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
       router: { routeTask: () => ({ agent: 'coder', confidence: 0.9, reason: 'kw', skillMatches: [], specificAgents: [], extrasMatches: [] }) },
@@ -169,8 +168,7 @@ describe('route-handler', () => {
       }),
     });
     const lines = await capture(() => loadRoute().handle(hCtx));
-    expect(lines.join('\n')).toContain('MicroAgent TAKEOVER');
-    expect(lines.join('\n')).toContain('Database Optimizer');
+    expect(lines.join('\n')).not.toContain('MicroAgent TAKEOVER');
   });
 });
 

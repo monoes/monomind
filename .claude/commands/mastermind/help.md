@@ -97,8 +97,8 @@ mcp__monomind__memory_store({ key: "...", value: "...", namespace: "..." })
 mcp__monomind__memory_search({ query: "...", namespace: "..." })
 
 // Knowledge graph
-mcp__monomind__graphify_suggest({ task: "..." })
-mcp__monomind__graphify_query({ query: "..." })
+mcp__monomind__monograph_suggest({ task: "..." })
+mcp__monomind__monograph_query({ query: "..." })
 
 // Swarm
 mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })

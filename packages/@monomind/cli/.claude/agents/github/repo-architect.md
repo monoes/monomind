@@ -2,7 +2,7 @@
 name: repo-architect
 description: |
   Repository structure optimization and multi-repo management with Monomind swarm coordination for scalable project architecture and development workflows
-tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_store
+tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__memory_store
 ---
 
 # GitHub Repository Architect

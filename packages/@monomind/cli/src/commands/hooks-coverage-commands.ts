@@ -61,7 +61,8 @@ export const statuslineCommand: Command = {
           try {
             const stats = fs.statSync(dbPath);
             const sizeKB = stats.size / 1024;
-            patterns = Math.floor(sizeKB / 2);
+            // Estimate: ~2KB per pattern entry on average
+            patterns = Math.floor(sizeKB / 2); // estimatedPatterns — derived from file size, not counted
             sessions = Math.max(1, Math.floor(patterns / 10));
             trajectories = Math.floor(patterns / 5);
             break;
@@ -291,7 +292,7 @@ export const statuslineCommand: Command = {
         try {
           const stats = fs.statSync(dbPath);
           memoryStats.dbSizeKB = Math.round(stats.size / 1024);
-          memoryStats.vectorCount = Math.floor(memoryStats.dbSizeKB / 2);
+          memoryStats.vectorCount = Math.floor(memoryStats.dbSizeKB / 2); // estimated from file size
           memoryStats.hasHnsw = memoryStats.vectorCount > 100;
           break;
         } catch { /* ignore */ }
@@ -314,7 +315,7 @@ export const statuslineCommand: Command = {
                 memoryStats.dbSizeKB += Math.round(fileStat.size / 1024);
               }
             }
-            memoryStats.vectorCount = Math.floor(memoryStats.dbSizeKB / 2);
+            memoryStats.vectorCount = Math.floor(memoryStats.dbSizeKB / 2); // estimated from file size
             memoryStats.hasHnsw = memoryStats.vectorCount > 100;
             if (memoryStats.vectorCount > 0) break;
           } catch { /* ignore */ }
@@ -363,7 +364,7 @@ export const statuslineCommand: Command = {
         try {
           const files = fs.readdirSync(fullPath, { recursive: true }) as string[];
           testStats.testFiles = files.filter((f: string) => /\.(test|spec)\.(ts|js|tsx|jsx)$/.test(f)).length;
-          testStats.testCases = testStats.testFiles * 28;
+          testStats.testCases = testStats.testFiles * 28; // rough estimate (~28 cases/file avg), not counted
         } catch { /* ignore */ }
       }
     }
@@ -386,7 +387,7 @@ export const statuslineCommand: Command = {
       perfIndicator = `${c.brightGreen}⚡ HNSW ${memoryStats.vectorCount.toLocaleString()} vec${c.reset}`;
     } else if (progress.patternsLearned > 0) {
       const patternsK = progress.patternsLearned >= 1000 ? `${(progress.patternsLearned / 1000).toFixed(1)}k` : String(progress.patternsLearned);
-      perfIndicator = `${c.brightYellow}📚 ${patternsK} patterns${c.reset}`;
+      perfIndicator = `${c.brightYellow}📚 ~${patternsK} patterns (est.)${c.reset}`;
     }
 
     const line1 = `${c.brightCyan}🏗️  DDD Domains${c.reset}    ${progressBar(progress.domainsCompleted, progress.totalDomains)}  ` +
@@ -419,9 +420,9 @@ export const statuslineCommand: Command = {
     const hnswIndicator = memoryStats.hasHnsw ? `${c.brightGreen}⚡${c.reset}` : '';
 
     const line4 = `${c.brightCyan}📊 LanceDB${c.reset}    ` +
-      `${c.cyan}Vectors${c.reset} ${vectorColor}●${memoryStats.vectorCount}${hnswIndicator}${c.reset}  ${c.dim}│${c.reset}  ` +
+      `${c.cyan}Vectors${c.reset} ${vectorColor}●~${memoryStats.vectorCount}${hnswIndicator}${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Size${c.reset} ${c.brightWhite}${sizeDisplay}${c.reset}  ${c.dim}│${c.reset}  ` +
-      `${c.cyan}Tests${c.reset} ${testColor}●${testStats.testFiles}${c.reset} ${c.dim}(${testStats.testCases} cases)${c.reset}  ${c.dim}│${c.reset}  ` +
+      `${c.cyan}Tests${c.reset} ${testColor}●${testStats.testFiles}${c.reset} ${c.dim}(~${testStats.testCases} est.)${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}MCP${c.reset} ${mcpColor}●${mcpStats.enabled}/${mcpStats.total}${c.reset}`;
 
     output.writeln(header);

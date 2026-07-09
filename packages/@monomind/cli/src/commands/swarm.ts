@@ -633,7 +633,7 @@ const stopCommand: Command = {
     // Attempt MCP cleanup first — only persist 'stopped' state if it succeeds
     let mcpStopped = false;
     try {
-      await callMCPTool('swarm_stop', { swarmId, force });
+      await callMCPTool('swarm_shutdown', { swarmId, force });
       output.writeln(output.dim('  MCP swarm stopped'));
       mcpStopped = true;
     } catch (err) {

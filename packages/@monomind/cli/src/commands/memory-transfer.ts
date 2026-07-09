@@ -1,169 +1,10 @@
 /**
  * Memory Transfer Commands
- * compressCommand, exportCommand, importCommand
+ * exportCommand, importCommand
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { callMCPTool, MCPClientError } from '../mcp-client.js';
-
-// Compress command
-export const compressCommand: Command = {
-  name: 'compress',
-  description: 'Compress and optimize memory storage',
-  options: [
-    {
-      name: 'level',
-      short: 'l',
-      description: 'Compression level (fast, balanced, max)',
-      type: 'string',
-      choices: ['fast', 'balanced', 'max'],
-      default: 'balanced'
-    },
-    {
-      name: 'target',
-      short: 't',
-      description: 'Target (vectors, text, patterns, all)',
-      type: 'string',
-      choices: ['vectors', 'text', 'patterns', 'all'],
-      default: 'all'
-    },
-    {
-      name: 'quantize',
-      short: 'z',
-      description: 'Enable vector quantization (reduces memory 4-32x)',
-      type: 'boolean',
-      default: false
-    },
-    {
-      name: 'bits',
-      description: 'Quantization bits (4, 8, 16)',
-      type: 'number',
-      default: 8
-    },
-    {
-      name: 'rebuild-index',
-      short: 'r',
-      description: 'Rebuild HNSW index after compression',
-      type: 'boolean',
-      default: true
-    }
-  ],
-  examples: [
-    { command: 'monomind memory compress', description: 'Balanced compression' },
-    { command: 'monomind memory compress --quantize --bits 4', description: '4-bit quantization (32x reduction)' },
-    { command: 'monomind memory compress -l max -t vectors', description: 'Max compression on vectors' }
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const level = ctx.flags.level as string || 'balanced';
-    const target = ctx.flags.target as string || 'all';
-    const quantize = ctx.flags.quantize as boolean;
-    const bits = ctx.flags.bits as number || 8;
-    const rebuildIndex = ctx.flags.rebuildIndex as boolean ?? true;
-
-    output.writeln();
-    output.writeln(output.bold('Memory Compression'));
-    output.writeln(output.dim(`Level: ${level}, Target: ${target}, Quantize: ${quantize ? `${bits}-bit` : 'no'}`));
-    output.writeln();
-
-    const spinner = output.createSpinner({ text: 'Analyzing current storage...', spinner: 'dots' });
-    spinner.start();
-
-    try {
-      const result = await callMCPTool<{
-        before: {
-          totalSize: string;
-          vectorsSize: string;
-          textSize: string;
-          patternsSize: string;
-          indexSize: string;
-        };
-        after: {
-          totalSize: string;
-          vectorsSize: string;
-          textSize: string;
-          patternsSize: string;
-          indexSize: string;
-        };
-        compression: {
-          ratio: number;
-          bytesSaved: number;
-          formattedSaved: string;
-          quantizationApplied: boolean;
-          indexRebuilt: boolean;
-        };
-        performance: {
-          searchLatencyBefore: number;
-          searchLatencyAfter: number;
-          searchSpeedup: string;
-        };
-        duration: number;
-      }>('memory_compress', {
-        level,
-        target,
-        quantize,
-        bits,
-        rebuildIndex,
-      });
-
-      spinner.succeed('Compression complete');
-
-      if (ctx.flags.format === 'json') {
-        output.printJson(result);
-        return { success: true, data: result };
-      }
-
-      output.writeln();
-      output.writeln(output.bold('Storage Comparison'));
-      output.printTable({
-        columns: [
-          { key: 'category', header: 'Category', width: 15 },
-          { key: 'before', header: 'Before', width: 12, align: 'right' },
-          { key: 'after', header: 'After', width: 12, align: 'right' },
-          { key: 'saved', header: 'Saved', width: 12, align: 'right' }
-        ],
-        data: [
-          { category: 'Vectors', before: result.before.vectorsSize, after: result.after.vectorsSize, saved: '-' },
-          { category: 'Text', before: result.before.textSize, after: result.after.textSize, saved: '-' },
-          { category: 'Patterns', before: result.before.patternsSize, after: result.after.patternsSize, saved: '-' },
-          { category: 'Index', before: result.before.indexSize, after: result.after.indexSize, saved: '-' },
-          { category: output.bold('Total'), before: result.before.totalSize, after: result.after.totalSize, saved: output.success(result.compression.formattedSaved) }
-        ]
-      });
-
-      output.writeln();
-      output.printBox(
-        [
-          `Compression Ratio: ${result.compression.ratio.toFixed(2)}x`,
-          `Space Saved: ${result.compression.formattedSaved}`,
-          `Quantization: ${result.compression.quantizationApplied ? `Yes (${bits}-bit)` : 'No'}`,
-          `Index Rebuilt: ${result.compression.indexRebuilt ? 'Yes' : 'No'}`,
-          `Duration: ${(result.duration / 1000).toFixed(1)}s`
-        ].join('\n'),
-        'Results'
-      );
-
-      if (result.performance) {
-        output.writeln();
-        output.writeln(output.bold('Performance Impact'));
-        output.printList([
-          `Search latency: ${result.performance.searchLatencyBefore.toFixed(2)}ms → ${result.performance.searchLatencyAfter.toFixed(2)}ms`,
-          `Speedup: ${output.success(result.performance.searchSpeedup)}`
-        ]);
-      }
-
-      return { success: true, data: result };
-    } catch (error) {
-      spinner.fail('Compression failed');
-      if (error instanceof MCPClientError) {
-        output.printError(`Compression error: ${error.message}`);
-      } else {
-        output.printError(`Unexpected error: ${String(error)}`);
-      }
-      return { success: false, exitCode: 1 };
-    }
-  }
-};
 
 // Export command
 export const exportCommand: Command = {
@@ -254,40 +95,8 @@ export const exportCommand: Command = {
       }
     }
 
-    try {
-      const result = await callMCPTool<{
-        outputPath: string;
-        format: string;
-        exported: {
-          entries: number;
-          vectors: number;
-          patterns: number;
-        };
-        fileSize: string;
-      }>('memory_export', {
-        outputPath,
-        format,
-        namespace: ctx.flags.namespace,
-        includeVectors: ctx.flags.includeVectors ?? true,
-      });
-
-      output.printSuccess(`Exported to ${result.outputPath}`);
-      output.printList([
-        `Entries: ${result.exported.entries}`,
-        `Vectors: ${result.exported.vectors}`,
-        `Patterns: ${result.exported.patterns}`,
-        `File size: ${result.fileSize}`
-      ]);
-
-      return { success: true, data: result };
-    } catch (error) {
-      if (error instanceof MCPClientError) {
-        output.printError(`Export error: ${error.message}`);
-      } else {
-        output.printError(`Unexpected error: ${String(error)}`);
-      }
-      return { success: false, exitCode: 1 };
-    }
+    output.printError(`Unsupported export format: ${format}. Use --format okf for file-based export.`);
+    return { success: false, exitCode: 1 };
   }
 };
 
@@ -399,39 +208,7 @@ export const importCommand: Command = {
       }
     }
 
-    try {
-      const result = await callMCPTool<{
-        inputPath: string;
-        imported: {
-          entries: number;
-          vectors: number;
-          patterns: number;
-        };
-        skipped: number;
-        duration: number;
-      }>('memory_import', {
-        inputPath,
-        merge: ctx.flags.merge ?? true,
-        namespace: ctx.flags.namespace,
-      });
-
-      output.printSuccess(`Imported from ${result.inputPath}`);
-      output.printList([
-        `Entries: ${result.imported.entries}`,
-        `Vectors: ${result.imported.vectors}`,
-        `Patterns: ${result.imported.patterns}`,
-        `Skipped (duplicates): ${result.skipped}`,
-        `Duration: ${result.duration}ms`
-      ]);
-
-      return { success: true, data: result };
-    } catch (error) {
-      if (error instanceof MCPClientError) {
-        output.printError(`Import error: ${error.message}`);
-      } else {
-        output.printError(`Unexpected error: ${String(error)}`);
-      }
-      return { success: false, exitCode: 1 };
-    }
+    output.printError(`Unsupported import format. Provide a directory of .md files (OKF bundle) for file-based import.`);
+    return { success: false, exitCode: 1 };
   }
 };

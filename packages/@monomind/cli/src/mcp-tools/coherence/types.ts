@@ -166,16 +166,13 @@ export const CausalInputSchema = z.object({
 export type CausalInput = z.infer<typeof CausalInputSchema>;
 
 export interface CausalResult {
-  effect: number;
   confounders: string[];
   interventionValid: boolean;
   backdoorPaths: string[][];
-  confidence: number;
 }
 
 export interface CausalOutput {
-  effect: number;
-  confidence: number;
+  identifiability: number;
   backdoorPaths: string[];
   details: {
     confounders: string[];
@@ -213,8 +210,8 @@ export interface ConsensusOutput {
   details: {
     agreementRatio: number;
     coherenceEnergy: number;
-    spectralStability: boolean;
-    spectralGap: number;
+    connectivityStable: boolean;
+    degreeRatio: number;
     interpretation: string;
     agentCount: number;
   };
@@ -263,7 +260,6 @@ export interface TopologyOutput {
     interpretation: {
       b0: string;
       b1: string;
-      b2: string;
     };
     vertexCount: number;
     maxDimension: number;

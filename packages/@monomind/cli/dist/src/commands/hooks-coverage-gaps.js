@@ -138,7 +138,7 @@ export const coverageGapsCommand = {
             return { success: true, data: result };
         }
         try {
-            const result = await callMCPTool('hooks_coverage-gaps', { threshold, groupByAgent });
+            const result = await callMCPTool('coverage_gaps', { threshold, groupByAgent });
             spinner.stop();
             const gaps = criticalOnly
                 ? result.gaps.filter(g => g.gapType === 'critical')

@@ -112,6 +112,31 @@ export const CREATE_FILE_CACHE = `
     edge_count INTEGER NOT NULL DEFAULT 0
   )
 `;
+export const CREATE_AGENT_INTERACTIONS = `
+CREATE TABLE IF NOT EXISTS agent_interactions (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  org_name TEXT,
+  agent_type TEXT NOT NULL,
+  parent_agent TEXT,
+  prompt_summary TEXT,
+  result_summary TEXT,
+  tokens_in INTEGER NOT NULL DEFAULT 0,
+  tokens_out INTEGER NOT NULL DEFAULT 0,
+  cost_usd REAL NOT NULL DEFAULT 0,
+  success INTEGER NOT NULL DEFAULT 1,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  timestamp INTEGER NOT NULL,
+  metadata TEXT
+)`;
+export const CREATE_AGENT_INTERACTIONS_IDX = `
+CREATE INDEX IF NOT EXISTS idx_agent_interactions_session ON agent_interactions(session_id)`;
+export const CREATE_AGENT_INTERACTIONS_ORG_IDX = `
+CREATE INDEX IF NOT EXISTS idx_agent_interactions_org ON agent_interactions(org_name)`;
+export const CREATE_AGENT_INTERACTIONS_TYPE_IDX = `
+CREATE INDEX IF NOT EXISTS idx_agent_interactions_type ON agent_interactions(agent_type)`;
+export const CREATE_AGENT_INTERACTIONS_TS_IDX = `
+CREATE INDEX IF NOT EXISTS idx_agent_interactions_ts ON agent_interactions(timestamp)`;
 export const FTS_SYNC_TRIGGERS = `
 CREATE TRIGGER IF NOT EXISTS nodes_fts_insert AFTER INSERT ON nodes BEGIN
   INSERT INTO nodes_fts(rowid, id, name, norm_label, file_path, label)

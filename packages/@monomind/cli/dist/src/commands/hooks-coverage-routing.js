@@ -150,7 +150,7 @@ export const coverageRouteCommand = {
             return { success: true, data: result };
         }
         try {
-            const result = await callMCPTool('hooks_coverage-route', { task, threshold, useMonovector });
+            const result = await callMCPTool('coverage_route', { task, threshold, useMonovector });
             spinner.stop();
             if (ctx.flags.format === 'json') {
                 output.printJson(result);
@@ -337,7 +337,7 @@ export const coverageSuggestCommand = {
             return { success: true, data: result };
         }
         try {
-            const result = await callMCPTool('hooks_coverage-suggest', { path: targetPath, threshold, limit });
+            const result = await callMCPTool('coverage_suggest', { path: targetPath, threshold, limit });
             spinner.stop();
             if (ctx.flags.format === 'json') {
                 output.printJson(result);

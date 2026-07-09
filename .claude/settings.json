@@ -109,16 +109,6 @@
         ]
       },
       {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-read",
-            "timeout": 4000
-          }
-        ]
-      },
-      {
         "matcher": "mcp__monomind__monograph_.*",
         "hooks": [
           {
@@ -202,11 +192,6 @@
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" import",
-            "timeout": 8000
-          },
-          {
-            "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/graphify-freshen.cjs\"",
             "timeout": 5000
           },
@@ -242,11 +227,6 @@
     "Stop": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" sync",
-            "timeout": 10000
-          },
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" stop",

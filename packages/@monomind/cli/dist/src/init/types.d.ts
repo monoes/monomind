@@ -197,10 +197,8 @@ export interface RuntimeConfig {
     enableHNSW: boolean;
     /** Enable neural learning */
     enableNeural: boolean;
-    /** Enable LearningBridge (ADR-049) - connects insights to the ReasoningBank pattern store */
+    /** Enable learning system - connects insights to the pattern store */
     enableLearningBridge?: boolean;
-    /** Enable MemoryGraph (ADR-049) - PageRank knowledge graph */
-    enableMemoryGraph?: boolean;
     /** Enable AgentMemoryScope (ADR-049) - 3-scope agent memory */
     enableAgentScopes?: boolean;
     /** CLAUDE.md template variant */

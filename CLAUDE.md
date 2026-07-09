@@ -110,7 +110,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 **When starting any task that touches 3+ files, introduces a new feature, or requires understanding a module you haven't worked in recently:**
 
 1. Call `mcp__monomind__monograph_suggest` first — it returns the most relevant files and relationships for your task description
-2. Call `mcp__monomind__monograph_query` for targeted lookups ("what imports auth?", "what does UserService depend on?") — results include exact file path and line number
+2. Call `mcp__monomind__monograph_query` for targeted lookups ("what imports auth?", "what does UserService depend on?") — results include exact file path and line number. PPR graph reranking is on by default (HippoRAG-style, boosts neighbors of top hits for better related-code discovery); pass `rerank: false` to disable
 3. Call `mcp__monomind__monograph_god_nodes` to find high-centrality **internal** files (external/test symbols are automatically filtered)
 
 **Why:** The knowledge graph encodes full dependency relationships, import chains, and architectural topology. It lets you understand the blast radius of a change and find all affected files without grepping the entire codebase.
@@ -122,7 +122,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | Tool | Use when |
 |---|---|
 | `monograph_suggest` | **Start every task** — returns ambiguous edges, bridge nodes, isolated nodes ranked by task relevance |
-| `monograph_query` | **Primary lookup** — BM25 keyword search; returns file + line number |
+| `monograph_query` | **Primary lookup** — BM25 keyword search; returns file + line number. PPR graph reranking is on by default; pass `rerank: false` to disable |
 | `monograph_god_nodes` | Finding high-centrality internal files (external/test filtered) |
 | `monograph_augment` | Graph-RAG: retrieve relevant code context for a natural-language query |
 | `monograph_get_node` | Get a specific node by exact ID or name |

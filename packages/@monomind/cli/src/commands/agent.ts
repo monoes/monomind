@@ -6,12 +6,12 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { spawnCommand, listCommand, statusCommand, stopCommand } from './agent-lifecycle.js';
-import { metricsCommand, poolCommand, healthCommand, logsCommand } from './agent-ops.js';
+import { metricsCommand, poolCommand, healthCommand } from './agent-ops.js';
 
 export const agentCommand: Command = {
   name: 'agent',
   description: 'Agent management commands',
-  subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand, logsCommand],
+  subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand],
   options: [],
   examples: [
     { command: 'monomind agent spawn -t coder', description: 'Spawn a coder agent' },
@@ -33,7 +33,6 @@ export const agentCommand: Command = {
       `${output.highlight('metrics')}       - Show agent metrics`,
       `${output.highlight('pool')}          - Manage agent pool`,
       `${output.highlight('health')}        - Show agent health`,
-      `${output.highlight('logs')}          - Show agent logs`,
     ]);
     output.writeln();
     output.writeln('Run "monomind agent <subcommand> --help" for subcommand help');
