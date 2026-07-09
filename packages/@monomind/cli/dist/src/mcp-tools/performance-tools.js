@@ -640,24 +640,12 @@ export const performanceTools = [
                     _real: true,
                 },
                 latency: {
-                    current: 45,
-                    avg: 52,
-                    min: 15,
-                    max: 250,
-                    p50: 48,
-                    p95: 150,
-                    p99: 220,
-                    unit: 'ms',
+                    _note: 'No latency telemetry collected. Wire up real instrumentation to populate this section.',
+                    available: false,
                 },
                 throughput: {
-                    current: 1250,
-                    avg: 1100,
-                    min: 500,
-                    max: 2000,
-                    p50: 1050,
-                    p95: 1800,
-                    p99: 1950,
-                    unit: 'ops/s',
+                    _note: 'No throughput telemetry collected. Wire up real instrumentation to populate this section.',
+                    available: false,
                 },
             };
             if (metric === 'all') {
@@ -681,7 +669,7 @@ export const performanceTools = [
                 _real: ['cpu', 'memory'].includes(metric),
                 metric,
                 value: aggValue,
-                unit: selectedMetric.unit,
+                unit: 'unit' in selectedMetric ? selectedMetric.unit : undefined,
                 details: selectedMetric,
                 timestamp: new Date().toISOString(),
             };

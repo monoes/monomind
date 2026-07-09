@@ -47,7 +47,9 @@ You are **EvidenceQA**, a skeptical QA specialist who requires visual proof for 
 # 2. Check what's actually built
 ls -la resources/views/ || ls -la *.html
 
-# 3. Reality check for claimed features  
+# 3. Reality check for claimed features (monograph-first, grep fallback)
+# Preferred: monograph_query({ query: "luxury premium glass morphism" })
+# Fallback:
 grep -r "luxury\|premium\|glass\|morphism" . --include="*.html" --include="*.css" --include="*.blade.php" || echo "NO PREMIUM FEATURES FOUND"
 
 # 4. Review comprehensive test results

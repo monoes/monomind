@@ -48,18 +48,21 @@ Default `count = 1`.
 
 ```bash
 git log --oneline -30
-find . -maxdepth 3 -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" -o -name "*.md" \) \
-  ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" | head -80
 cat package.json 2>/dev/null || cat pyproject.toml 2>/dev/null || cat go.mod 2>/dev/null || true
 head -120 README.md 2>/dev/null || true
-grep -rn "<PATTERNS>" --include="*.ts" --include="*.js" --include="*.py" --include="*.go" --include="*.md" \
-  . 2>/dev/null | grep -v node_modules | grep -v dist | head -40
 ```
 
-Plus these MCP calls (also parallel):
+Plus these MCP calls (also parallel — **preferred over grep for symbol/pattern search**):
+- `mcp__monomind__monograph_query` — search for `<PATTERNS>` (see mode table below); replaces grep for symbol lookup
 - `mcp__monomind__monograph_god_nodes` — high-centrality modules (hotspots / where new features plug in)
 - `mcp__monomind__monograph_suggest` — query per mode below
 - `mcp__monomind__memory_search` — namespace `"mastermind:autodev"`, to exclude already-built work
+
+**Fallback only** (if monograph returns 0 results or DB not built):
+```bash
+grep -rn "<PATTERNS>" --include="*.ts" --include="*.js" --include="*.py" --include="*.go" --include="*.md" \
+  . 2>/dev/null | grep -v node_modules | grep -v dist | head -40
+```
 
 Mode-specific values:
 

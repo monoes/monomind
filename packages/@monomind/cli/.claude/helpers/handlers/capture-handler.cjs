@@ -370,6 +370,84 @@ async function handleSubagentStop(hookInput) {
       ts: Date.now(),
     }) + '\n');
   }
+
+  // ── Wire captured interaction into EpisodicStore ────
+  try {
+    var episodicPath = path.join(CWD, '.monomind', 'episodic', 'episodes.jsonl');
+    var episodicDir = path.dirname(episodicPath);
+    if (!fs.existsSync(episodicDir)) fs.mkdirSync(episodicDir, { recursive: true });
+
+    // Append a lightweight episode entry directly (avoid importing @monomind/memory)
+    var episodeEntry = {
+      episodeId: require('crypto').randomUUID(),
+      sessionId: session || '',
+      runIds: [runId || 'unknown'],
+      summary: [
+        '[agent:' + (agentType || 'unknown') + ']',
+        summary ? summary.slice(0, 500) : '',
+        totalTin ? '[memory:write] tokens_in=' + totalTin : '',
+        totalTout ? '[memory:write] tokens_out=' + totalTout : ''
+      ].filter(Boolean).join('\n'),
+      startedAt: snap.ts || Date.now(),
+      endedAt: Date.now(),
+      agentSlugs: [agentType || 'unknown'],
+      taskTypes: [agentType || 'unknown'],
+      tokenEstimate: Math.ceil(((summary || '').length) / 4)
+    };
+    fs.appendFileSync(episodicPath, JSON.stringify(episodeEntry) + '\n', 'utf-8');
+  } catch (e) { /* non-fatal */ }
+
+  // ── Record agent interaction in Monograph SQLite ────────────────────────────
+  try {
+    var mgDbPath = path.join(CWD, '.monomind', 'monograph.db');
+    if (fs.existsSync(mgDbPath)) {
+      var monographMod = null;
+      var mgCandidates = [
+        path.join(CWD, 'node_modules/.pnpm/node_modules/@monoes/monograph'),
+        path.join(CWD, 'packages/node_modules/.pnpm/node_modules/@monoes/monograph'),
+        path.join(CWD, 'node_modules/@monoes/monograph'),
+      ];
+      for (var mi = 0; mi < mgCandidates.length; mi++) {
+        try { if (fs.existsSync(mgCandidates[mi])) { monographMod = require(mgCandidates[mi]); break; } } catch (e2) {}
+      }
+      if (!monographMod) { try { monographMod = require('@monoes/monograph'); } catch (e2) {} }
+      if (monographMod && monographMod.openDb) {
+        var mgDb = monographMod.openDb(mgDbPath);
+        try {
+          mgDb.prepare(
+            'INSERT OR IGNORE INTO agent_interactions ' +
+            '(id, session_id, org_name, agent_type, parent_agent, prompt_summary, result_summary, tokens_in, tokens_out, cost_usd, success, duration_ms, timestamp) ' +
+            'VALUES (@id, @session_id, @org_name, @agent_type, @parent_agent, @prompt_summary, @result_summary, @tokens_in, @tokens_out, @cost_usd, @success, @duration_ms, @timestamp)'
+          ).run({
+            id: require('crypto').randomUUID(),
+            session_id: session || '',
+            org_name: org || null,
+            agent_type: agentType || 'unknown',
+            parent_agent: null,
+            prompt_summary: agentDesc ? agentDesc.slice(0, 500) : null,
+            result_summary: summary ? summary.slice(0, 1000) : null,
+            tokens_in: totalTin || 0,
+            tokens_out: totalTout || 0,
+            cost_usd: costUsd || 0,
+            success: (function() {
+              // Determine success from result summary — errors/failures/exceptions indicate failure
+              if (summary) {
+                var sumLower = summary.toLowerCase();
+                if (sumLower.includes('error') || sumLower.includes('failed') || sumLower.includes('exception') || sumLower.includes('fatal')) {
+                  return 0;
+                }
+              }
+              return 1;
+            })(),
+            duration_ms: snap.ts ? (Date.now() - snap.ts) : 0,
+            timestamp: Date.now(),
+          });
+        } finally {
+          if (monographMod.closeDb) monographMod.closeDb(mgDb);
+        }
+      }
+    }
+  } catch (e) { /* non-fatal — monograph may not be available */ }
 }
 
 // ─── Phase 3: PreToolUse accumulator (Issue 9) ────────────────────────────────
@@ -424,6 +502,38 @@ async function handlePostTool(hookInput) {
 
   const isBash = toolName === 'bash' || toolName === 'shell';
   const isEdit = toolName === 'edit' || toolName === 'write' || toolName === 'multiedit';
+  const isMemoryStore = toolName.includes('memory_store') || toolName.includes('memory_pattern');
+  const isMemorySearch = toolName.includes('memory_search') || toolName.includes('memory_retrieve');
+
+  // Track real memory ops (writes stats to session file)
+  if (isMemoryStore || isMemorySearch) {
+    try {
+      var sessionId = process.env.CLAUDE_SESSION_ID || '';
+      var statsPath = path.join(CWD, '.monomind', 'memory-ops-' + sessionId.slice(0, 16) + '.json');
+      var stats = { writes: 0, searches: 0, redundantWrites: 0, emptySearches: 0 };
+      try { stats = JSON.parse(fs.readFileSync(statsPath, 'utf-8')); } catch {}
+      if (isMemoryStore) {
+        stats.writes++;
+        // Detect duplicate: response contains "already exists" or "duplicate"
+        var respStr = JSON.stringify(toolResponse).toLowerCase();
+        if (respStr.includes('duplicate') || respStr.includes('already exists') || respStr.includes('skip')) {
+          stats.redundantWrites++;
+        }
+      }
+      if (isMemorySearch) {
+        stats.searches++;
+        // Detect empty results
+        var results = toolResponse.results || toolResponse.entries || toolResponse.data;
+        if (Array.isArray(results) && results.length === 0) {
+          stats.emptySearches++;
+        } else if (toolResponse.count === 0 || toolResponse.total === 0) {
+          stats.emptySearches++;
+        }
+      }
+      fs.mkdirSync(path.dirname(statsPath), { recursive: true });
+      fs.writeFileSync(statsPath, JSON.stringify(stats), 'utf-8');
+    } catch (e) { /* non-fatal */ }
+  }
 
   if (!isBash && !isEdit) return;
 

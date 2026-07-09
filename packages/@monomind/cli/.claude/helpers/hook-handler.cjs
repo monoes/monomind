@@ -2,6 +2,24 @@
 /**
  * Monomind Hook Handler (Cross-Platform)
  * Dispatches hook events to the appropriate helper modules.
+ *
+ * ARCHITECTURE NOTE — Two Hook Systems
+ * =====================================
+ * There are two independent hook systems in this project:
+ *
+ * 1. .claude/helpers/ CJS handlers (THIS FILE and ./handlers/*.cjs)
+ *    These are the handlers that actually run via settings.json hook
+ *    configuration. They are plain CommonJS scripts invoked directly
+ *    by Claude Code's hook runtime. This is the "live" system.
+ *
+ * 2. @monomind/hooks TypeScript package (packages/@monomind/hooks/)
+ *    A full TypeScript package with workers, learning services, and
+ *    a WorkerManager. It compiles to dist/ but is only loaded
+ *    optionally — currently at session-restore (to bridge pre-task /
+ *    post-task into the hook registry) and at session-restore for a
+ *    non-blocking security scan. The CJS handlers in system (1) are
+ *    the authoritative dispatch path; system (2) provides optional
+ *    enrichment when the package is installed and built.
  */
 
 const path = require('path');
@@ -435,6 +453,44 @@ const handlers = {
                     }
                   }
                 }
+
+                // --- Strategy 9: alternation patterns (TODO\|FIXME, mock\|fake\|stub) ---
+                if (!graphAssisted && pattern.indexOf('|') !== -1) {
+                  var altParts = pattern.split(/\\?\|/).map(function(p) {
+                    return p.replace(/[^a-zA-Z0-9_$]/g, '');
+                  }).filter(function(p) {
+                    return p.length >= 4 && /^[a-zA-Z_$]/.test(p) && !_grepStop[p.toLowerCase()];
+                  });
+                  for (var ai = 0; ai < altParts.length && !graphAssisted; ai++) {
+                    var arow = db.prepare(
+                      'SELECT n.name, n.file_path, n.start_line FROM nodes n WHERE n.name = ? COLLATE NOCASE AND n.label NOT IN (\'Concept\',\'Community\',\'Folder\') AND n.file_path IS NOT NULL AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                    ).get(altParts[ai]);
+                    if (arow) {
+                      graphAssisted = true;
+                      var ahint = arow.file_path + (arow.start_line != null ? ':' + arow.start_line : '');
+                      console.log('[MONOGRAPH_HINT] ' + arow.name + ' → ' + ahint);
+                    }
+                  }
+                }
+
+              }
+            }
+            // --- Strategy 10: grep targeting a known source directory ---
+            // Runs outside `if (pattern)` so it works even when pattern extraction fails
+            if (!graphAssisted) {
+              var db10 = _openMonographDb();
+              if (db10) {
+                var dirMatch10 = cmdAfterTool.match(/\b(src|packages(?:\/[a-zA-Z0-9_@/-]*)?)\//);
+                if (dirMatch10) {
+                  var dirPath10 = dirMatch10[1].replace(/\/$/, '');
+                  var drow10 = db10.prepare(
+                    'SELECT COUNT(*) AS c FROM nodes WHERE label = \'File\' AND file_path LIKE ? LIMIT 1'
+                  ).get('%' + dirPath10 + '/%');
+                  if (drow10 && drow10.c > 0) {
+                    graphAssisted = true;
+                    console.log('[MONOGRAPH_HINT] grep scope ' + dirPath10 + ' has ' + drow10.c + ' indexed files');
+                  }
+                }
               }
             }
           } else {
@@ -449,6 +505,38 @@ const handlers = {
                 if (row) {
                   graphAssisted = true;
                   console.log('[MONOGRAPH_HINT] file ' + fm[1] + ' → ' + row.file_path);
+                }
+              }
+            }
+            // find -name "*worker*" — extract core word from wildcard patterns
+            if (!graphAssisted) {
+              var wm = cmd.match(/-name\s+["'][*]?([a-zA-Z][a-zA-Z0-9_-]{3,})[*]?(?:\.[a-z]+)?["']/);
+              if (wm && wm[1]) {
+                var db = _openMonographDb();
+                if (db) {
+                  var wrow = db.prepare(
+                    'SELECT n.name, n.file_path FROM nodes n WHERE n.name LIKE ? AND n.label = \'File\' AND n.file_path NOT LIKE \'%.md\' LIMIT 1'
+                  ).get('%' + wm[1] + '%');
+                  if (wrow) {
+                    graphAssisted = true;
+                    console.log('[MONOGRAPH_HINT] file *' + wm[1] + '* → ' + wrow.file_path);
+                  }
+                }
+              }
+            }
+            // find with -type f in a known directory scope
+            if (!graphAssisted) {
+              var fdm = cmd.match(/\bfind\s+(\S*(?:src|packages|lib|app)[a-zA-Z0-9_@/-]*)/);
+              if (fdm && fdm[1]) {
+                var db = _openMonographDb();
+                if (db) {
+                  var fdrow = db.prepare(
+                    'SELECT COUNT(*) AS c FROM nodes WHERE label = \'File\' AND file_path LIKE ? LIMIT 1'
+                  ).get(fdm[1].replace(/\/$/, '') + '/%');
+                  if (fdrow && fdrow.c > 0) {
+                    graphAssisted = true;
+                    console.log('[MONOGRAPH_HINT] find scope ' + fdm[1] + ' has ' + fdrow.c + ' indexed files');
+                  }
                 }
               }
             }

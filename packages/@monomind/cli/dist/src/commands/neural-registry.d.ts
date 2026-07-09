@@ -1,5 +1,5 @@
 /**
- * Neural registry commands — list and import models from IPFS
+ * Neural registry commands — list and import pattern sets from IPFS
  */
 import type { Command } from '../types.js';
 export declare const listCommand: Command;

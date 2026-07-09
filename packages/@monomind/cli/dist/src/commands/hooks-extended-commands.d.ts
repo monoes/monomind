@@ -4,7 +4,6 @@
  * Extracted from hooks.ts to reduce file size.
  */
 import type { Command } from '../types.js';
-export declare const tokenOptimizeCommand: Command;
 export declare const modelRouteCommand: Command;
 export declare const modelOutcomeCommand: Command;
 export declare const modelStatsCommand: Command;

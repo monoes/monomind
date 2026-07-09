@@ -18,115 +18,11 @@ module.exports = {
       try { session.metric('tasks'); } catch (e) { /* no active session */ }
     }
 
-    // Task 06: AutoRetry — signal retry policy only if coordinator path is active
-    if (hookInput.swarmCoordinator || hookInput.coordinator || hookInput.useRetry) {
-      console.log('[AUTO_RETRY_ENABLED] maxAttempts=3 strategy=exponential-backoff backoffMs=1000');
-    }
-
-    if (router && prompt) {
-      var routeFn = router.routeTaskSemantic || router.routeTask;
-      var result = await Promise.resolve(routeFn(prompt));
-      console.log('[INFO] Task routed to: ' + result.agent + ' (confidence: ' + result.confidence + ')');
-    } else {
-      console.log('[OK] Task started');
-    }
-
-    // Recall similar past task/memory patterns before acting, so the agent
-    // can benefit from prior successful approaches.
-    if (prompt && typeof prompt === 'string' && prompt.length > 20) {
-      try {
-        var intelligence = hCtx.intelligence;
-        if (intelligence && intelligence.findSimilarPatterns) {
-          var memPatterns = await Promise.resolve(intelligence.findSimilarPatterns(prompt, { k: 3, type: 'memory-proficiency' }));
-          if (memPatterns && memPatterns.length > 0) {
-            console.log('[AUTOMEM_PLAN] Recalled ' + memPatterns.length + ' memory pattern(s): ' + memPatterns.map(function(p) { return p.content.substring(0, 80); }).join(' | '));
-          }
-          // Also check general patterns for task-relevant memory
-          var taskPatterns = await Promise.resolve(intelligence.findSimilarPatterns(prompt, { k: 2 }));
-          if (taskPatterns && taskPatterns.length > 0) {
-            console.log('[AUTOMEM_CONTEXT] ' + taskPatterns.length + ' relevant pattern(s) from prior sessions');
-          }
-        }
-      } catch (e) { /* non-fatal — PLAN is advisory */ }
-    }
-
-    // Task 24: PromptVersioning — resolve prompt variant before agent spawn
-    try {
-      var memMod = await import('@monomind/memory');
-      if (memMod && memMod.PromptVersionStore) {
-        var pvStore = new memMod.PromptVersionStore(path.join(CWD, '.monomind', 'prompt-versions'));
-        var pvMod = await import('file://' + path.join(CWD, 'packages/@monomind/cli/dist/src/agents/prompt-experiment.js'));
-        if (pvMod && pvMod.PromptExperimentRouter) {
-          var pvRouter = new pvMod.PromptExperimentRouter(pvStore);
-          var agentSlug24 = hookInput.agentSlug || hookInput.agentType || hookInput.agent_type || 'unknown';
-          if (agentSlug24 !== 'unknown') {
-            var resolved = pvRouter.resolvePromptForSpawn(agentSlug24);
-            if (resolved.version) {
-              console.log('[PROMPT_VERSION] ' + agentSlug24 + ' v' + resolved.version + (resolved.isCandidate ? ' (experiment candidate)' : ''));
-            }
-          }
-        }
-      }
-    } catch (e) { /* not available or no experiment */ }
-
-    // Monograph impact — detect changed files and surface their dependents
-    try {
-      var mgDbPath1 = path.join(CWD, '.monomind', 'monograph.db');
-      if (fs.existsSync(mgDbPath1)) {
-        var changedFiles1 = await new Promise(function(resolve) {
-          require('child_process').exec(
-            'git diff --name-only HEAD 2>/dev/null || git diff --name-only 2>/dev/null',
-            { cwd: CWD, timeout: 3000 },
-            function(err, stdout) { resolve(err ? '' : (stdout || '').trim()); }
-          );
-        });
-        if (changedFiles1) {
-          var mgMod1 = null;
-          mgMod1 = hCtx._requireMonograph();
-          if (mgMod1 && mgMod1.openDb) {
-            var db1 = mgMod1.openDb(mgDbPath1);
-            try {
-              var fileList1 = changedFiles1.split('\n').filter(Boolean).slice(0, 8);
-              var impacted1 = [];
-              for (var fi = 0; fi < fileList1.length; fi++) {
-                var fBase = path.basename(fileList1[fi]);
-                var fNode = db1.prepare("SELECT id, name, label FROM nodes WHERE file_path LIKE ? LIMIT 1").get('%' + fBase);
-                if (fNode) {
-                  var fImporters = db1.prepare(
-                    'SELECT n2.name FROM edges e JOIN nodes n2 ON n2.id = e.source_id WHERE e.target_id = ? LIMIT 5'
-                  ).all(fNode.id);
-                  var entry = fNode.name + ' (' + fNode.label + ')';
-                  if (fImporters.length) entry += ' ← ' + fImporters.map(function(i){ return i.name; }).join(', ');
-                  impacted1.push(entry);
-                }
-              }
-              if (impacted1.length > 0) {
-                console.log('[MONOGRAPH_IMPACT] Changed files and their dependents: ' + impacted1.join(' | '));
-              }
-
-              // Effective blast radius — second pass using first impacted node
-              try {
-                if (fileList1.length > 0 && mgMod1.effectiveBlastRadius) {
-                  var firstFile1 = path.basename(fileList1[0]);
-                  var firstNode1 = db1.prepare("SELECT id, name, label FROM nodes WHERE file_path LIKE ? LIMIT 1").get('%' + firstFile1);
-                  if (firstNode1) {
-                    var blastResults1 = mgMod1.effectiveBlastRadius(db1, firstNode1.id, { maxDepth: 4 });
-                    if (blastResults1 && blastResults1.length > 0) {
-                      var bwdCount1 = blastResults1.filter(function(r){ return r.direction === 'backward' || r.direction === 'both'; }).length;
-                      var fwdCount1 = blastResults1.filter(function(r){ return r.direction === 'forward' || r.direction === 'both'; }).length;
-                      var topBlast1 = blastResults1.slice(0, 8).map(function(r){
-                        return '[' + r.direction + ':' + r.hops + '] ' + r.nodeName + ' (' + r.nodeLabel + ')';
-                      });
-                      console.log('[MONOGRAPH_BLAST_RADIUS] Node: ' + firstNode1.name + ' | forward=' + fwdCount1 + ' backward=' + bwdCount1 + ' | ' + topBlast1.join(', '));
-                    }
-                  }
-                }
-              } catch(blastErr) { /* non-fatal */ }
-            } finally { if (mgMod1.closeDb) mgMod1.closeDb(db1); }
-          }
-        }
-      }
-    } catch(e) { /* non-fatal */ }
+    // monolean: removed per-subagent redundancies:
+    // - Re-routing (already done by route handler on parent prompt)
+    // - AUTOMEM pattern recall (marginal value, 2 similarity searches per spawn)
+    // - PromptVersioning experiments (unused feature)
+    // - Monograph blast radius (already shown by post-edit hook on actual changes)
 
     // Bridge to @monomind/hooks registry — fires Tasks 26 (PromptAssembler) and any other PreTask hooks
     var _hooksModule = hCtx._hooksModule;
@@ -149,7 +45,7 @@ module.exports = {
     var taskSuccess = hookInput.success !== false && hookInput.status !== 'failed';
     if (intelligence && intelligence.feedback) {
       try {
-        intelligence.feedback(true);
+        intelligence.feedback(taskSuccess);
       } catch (e) { /* non-fatal */ }
     }
     // Each TeammateIdle/TaskCompleted = one agent done → remove oldest registration (FIFO)

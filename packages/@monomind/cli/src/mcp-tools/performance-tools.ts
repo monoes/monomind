@@ -727,7 +727,7 @@ export const performanceTools: MCPTool[] = [
         _real: ['cpu', 'memory'].includes(metric),
         metric,
         value: aggValue,
-        unit: selectedMetric.unit,
+        unit: 'unit' in selectedMetric ? selectedMetric.unit : undefined,
         details: selectedMetric,
         timestamp: new Date().toISOString(),
       };

@@ -14,7 +14,7 @@ import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { intelligenceCommand, workerCommand } from './hooks-workers.js';
 import { coverageRouteCommand, coverageSuggestCommand, coverageGapsCommand, statuslineCommand, } from './hooks-coverage-commands.js';
-import { tokenOptimizeCommand, modelRouteCommand, modelOutcomeCommand, modelStatsCommand, notifyCommand, } from './hooks-extended-commands.js';
+import { modelRouteCommand, modelOutcomeCommand, modelStatsCommand, notifyCommand, } from './hooks-extended-commands.js';
 import { preEditCommand, postEditCommand, preCommandCommand, postCommandCommand, } from './hooks-core-commands.js';
 import { routeCommand, explainCommand, pretrainCommand, buildAgentsCommand, metricsCommand, transferCommand, listCommand, } from './hooks-routing-commands.js';
 // Pre-task subcommand
@@ -428,8 +428,6 @@ export const hooksCommand = {
         coverageRouteCommand,
         coverageSuggestCommand,
         coverageGapsCommand,
-        // Token optimization
-        tokenOptimizeCommand,
         // Model routing (tiny-dancer integration)
         modelRouteCommand,
         modelOutcomeCommand,
@@ -473,19 +471,13 @@ export const hooksCommand = {
             `${output.highlight('transfer')}        - Transfer patterns from another project`,
             `${output.highlight('list')}            - List all registered hooks`,
             `${output.highlight('worker')}          - Background worker management (12 workers)`,
-            `${output.highlight('progress')}        - Check implementation progress`,
             `${output.highlight('statusline')}      - Generate dynamic statusline display`,
             `${output.highlight('coverage-route')}  - Route tasks based on coverage gaps (monovector)`,
             `${output.highlight('coverage-suggest')}- Suggest coverage improvements`,
             `${output.highlight('coverage-gaps')}   - List all coverage gaps with agents`,
-            `${output.highlight('token-optimize')} - Token optimization (30-50% savings)`,
             `${output.highlight('model-route')}    - Route to optimal model (haiku/sonnet/opus)`,
             `${output.highlight('model-outcome')}  - Record model routing outcome`,
             `${output.highlight('model-stats')}    - View model routing statistics`,
-            '',
-            output.bold('Agent Teams:'),
-            `${output.highlight('teammate-idle')}  - Handle idle teammate (auto-assign tasks)`,
-            `${output.highlight('task-completed')} - Handle task completion (train patterns)`
         ]);
         output.writeln();
         output.writeln('Run "monomind hooks <subcommand> --help" for subcommand help');

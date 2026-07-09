@@ -170,17 +170,6 @@ export const agentTools = [
             };
             store.agents[agentId] = agent;
             saveAgentStore(store);
-            // Task 46: AgentSandboxing — register sandbox for isolated agent execution
-            try {
-                const { WasmSandbox, DockerSandbox, register } = await import('@monomind/security');
-                const sandboxType = config.sandbox?.type ?? 'wasm';
-                const sandboxConfig = config.sandbox ?? {};
-                const sandbox = sandboxType === 'docker'
-                    ? DockerSandbox.create(agentId, sandboxConfig)
-                    : WasmSandbox.create(agentId, sandboxConfig);
-                register(agentId, sandbox);
-            }
-            catch { /* optional — @monomind/security may not be installed */ }
             // Include Agent Booster routing info if applicable
             const response = {
                 success: true,
@@ -225,12 +214,6 @@ export const agentTools = [
             if (Object.hasOwn(store.agents, agentId)) {
                 store.agents[agentId].status = 'terminated';
                 saveAgentStore(store);
-                // Task 46: AgentSandboxing — clean up sandbox on termination
-                try {
-                    const { cleanup } = await import('@monomind/security');
-                    cleanup(agentId);
-                }
-                catch { /* optional */ }
                 return {
                     success: true,
                     agentId,

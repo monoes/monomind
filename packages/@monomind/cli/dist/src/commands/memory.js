@@ -272,8 +272,6 @@ export const memoryCommand = {
             `${output.highlight('templates')}   - Show best-practice entry templates`,
             `${output.highlight('stats')}       - Show statistics`,
             `${output.highlight('configure')}   - Configure backend`,
-            `${output.highlight('cleanup')}     - Clean expired entries`,
-            `${output.highlight('compress')}    - Compress database`,
             `${output.highlight('export')}      - Export memory to file`,
             `${output.highlight('import')}      - Import from file`
         ]);

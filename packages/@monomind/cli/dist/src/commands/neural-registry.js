@@ -1,11 +1,11 @@
 /**
- * Neural registry commands — list and import models from IPFS
+ * Neural registry commands — list and import pattern sets from IPFS
  */
 import { output } from '../output.js';
 // ─── list subcommand ─────────────────────────────────────────────────────────
 export const listCommand = {
     name: 'list',
-    description: 'List available pre-trained models from the official registry',
+    description: 'List available pattern sets from the official registry',
     options: [
         { name: 'category', type: 'string', description: 'Filter by category (security, quality, performance, etc.)' },
         { name: 'format', short: 'f', type: 'string', description: 'Output format: table, json, simple', default: 'table' },
@@ -115,7 +115,7 @@ export const listCommand = {
 // ─── import subcommand ───────────────────────────────────────────────────────
 export const importCommand = {
     name: 'import',
-    description: 'Import trained models from IPFS with signature verification',
+    description: 'Import pattern sets from IPFS with signature verification',
     options: [
         { name: 'cid', short: 'c', type: 'string', description: 'IPFS CID to import from' },
         { name: 'file', short: 'f', type: 'string', description: 'Local file to import' },
@@ -139,7 +139,7 @@ export const importCommand = {
             return { success: false, exitCode: 1 };
         }
         output.writeln();
-        output.writeln(output.bold('Secure Model Import'));
+        output.writeln(output.bold('Secure Pattern Import'));
         output.writeln(output.dim('─'.repeat(50)));
         const spinner = output.createSpinner({ text: 'Fetching model...', spinner: 'dots' });
         spinner.start();

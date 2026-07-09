@@ -30,6 +30,7 @@ export { scanCommand } from './scan.js';
 export { reportCrashCommand } from './report-crash.js';
 export { crashReportingCommand } from './crash-reporting.js';
 export { docCommand } from './doc.js';
+export { neuralCommand } from './neural.js';
 /**
  * All registered commands
  */
