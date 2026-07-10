@@ -1,7 +1,7 @@
 {
   "name": "@monomind/hooks",
   "version": "1.0.0",
-  "description": "V1 Hooks System - Event-driven lifecycle hooks with ReasoningBank learning integration",
+  "description": "Library of hook type definitions, an in-memory HookRegistry/HookExecutor, background WorkerManager workers, MCP tool schemas, and ReasoningBank pattern learning. Not the runtime hook dispatcher — the live path is .claude/helpers/ (CJS handlers driven by settings.json), which optionally bridges into this package at a few lifecycle events.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

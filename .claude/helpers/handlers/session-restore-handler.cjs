@@ -138,6 +138,26 @@ module.exports = {
             var gates = guidanceMod.createGates();
             var retriever = guidanceMod.createRetriever();
             var ledger = guidanceMod.createLedger();
+
+            // Persist the compiled gate config to disk. Gates are normally registered
+            // onto an in-memory HookRegistry that does NOT survive Claude Code's
+            // per-hook subprocess boundaries (each hook event is a fresh short-lived
+            // node process), so the in-memory registration below is effectively wasted
+            // for later PreToolUse invocations. Writing the compiled patterns to a file
+            // lets .claude/helpers/handlers/gates-handler.cjs — which DOES run on every
+            // PreToolUse — read the canonical, single-source-of-truth gate config
+            // instead of maintaining its own hand-copied regex table.
+            try {
+              if (gates.exportConfig) {
+                var guidanceDir = path.join(CWD, '.monomind', 'guidance');
+                fs.mkdirSync(guidanceDir, { recursive: true });
+                fs.writeFileSync(
+                  path.join(guidanceDir, 'active-gates.json'),
+                  JSON.stringify(gates.exportConfig(), null, 2),
+                  'utf-8'
+                );
+              }
+            } catch (gateWriteErr) { /* non-fatal — gates-handler.cjs falls back to its own defaults */ }
             // Try to compile CLAUDE.md so the retriever has shards to serve
             try {
               var claudeMdPath = path.join(CWD, 'CLAUDE.md');

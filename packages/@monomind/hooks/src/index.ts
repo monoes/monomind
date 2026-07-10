@@ -1,14 +1,28 @@
 /**
- * @monomind/hooks - V1 Hooks System
+ * @monomind/hooks - Hooks & Workers Library
  *
- * Event-driven lifecycle hooks with ReasoningBank learning integration.
+ * A LIBRARY package, not a runtime hook dispatcher. It provides hook type
+ * definitions (HookEvent, HookHandler, HookPriority), an in-memory
+ * HookRegistry/HookExecutor for defining handlers, a WorkerManager with
+ * background workers (performance, health, swarm, git, learning, adr, ddd,
+ * security, patterns, cache, progress), MCP tool schemas, and a
+ * ReasoningBank pattern-learning store.
  *
- * Features:
- * - Hook registration and execution
- * - Background daemons for metrics and learning
- * - Statusline integration
- * - MCP tool definitions
- * - V2 compatibility layer
+ * NOT the authoritative hook dispatch path. The actual Claude Code hooks
+ * that fire on every edit/command/task/session run through the plain CJS
+ * handlers in `.claude/helpers/` (see `.claude/helpers/hook-handler.cjs`),
+ * driven by settings.json — that is the "live" system. This package is
+ * bridged in as OPTIONAL enrichment at a handful of lifecycle events
+ * (SessionStart, PreTask, PostTask, PostEdit, SessionEnd, AgentSpawn) when
+ * installed and built; it is not invoked otherwise.
+ *
+ * HookRegistry exists so the CJS layer (or any consumer) CAN register
+ * handlers to call into, but because each Claude Code hook event runs in a
+ * fresh subprocess, anything registered in-memory here does not persist
+ * across events — only the WorkerManager's daemon-managed workers (which
+ * persist state to disk) carry state across invocations. WorkerManager
+ * workers run as background daemon tasks (via `hooks-daemon` bin / the CLI
+ * daemon), not as live interceptors on the hook path.
  *
  * @packageDocumentation
  */

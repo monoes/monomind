@@ -445,6 +445,109 @@ export async function checkGuidanceGates() {
         return { name: 'Guidance Gates', status: 'warn', message: 'Could not parse .claude/settings.json', fix: 'monomind guidance setup --force' };
     }
 }
+const METRICS_FRESHNESS_MS = 60 * 60 * 1000; // 1 hour
+const MAX_DOCTOR_METRICS_BYTES = 5 * 1024 * 1024;
+function readMetricsJSON(name) {
+    try {
+        const p = join(process.cwd(), '.monomind', 'metrics', name);
+        if (!existsSync(p) || statSync(p).size > MAX_DOCTOR_METRICS_BYTES)
+            return null;
+        return JSON.parse(readFileSync(p, 'utf-8'));
+    }
+    catch {
+        return null;
+    }
+}
+/**
+ * Daemon metrics freshness — flags stale (>1h) or missing worker output files
+ * so a wedged/disabled daemon is visible without digging through .monomind/metrics.
+ */
+export async function checkMetricsFreshness() {
+    const metricsDir = join(process.cwd(), '.monomind', 'metrics');
+    const knownOutputs = [
+        'codebase-map.json', 'security-audit.json', 'performance.json',
+        'consolidation.json', 'ultralearn.json', 'deepdive.json', 'benchmark.json',
+    ];
+    if (!existsSync(metricsDir)) {
+        return { name: 'Daemon Metrics', status: 'warn', message: 'No .monomind/metrics — daemon has not run yet', fix: 'monomind daemon start' };
+    }
+    const now = Date.now();
+    const fresh = [];
+    const stale = [];
+    for (const name of knownOutputs) {
+        const p = join(metricsDir, name);
+        if (!existsSync(p))
+            continue;
+        try {
+            const ageMs = now - statSync(p).mtimeMs;
+            if (ageMs <= METRICS_FRESHNESS_MS)
+                fresh.push(name);
+            else
+                stale.push(name);
+        }
+        catch { /* skip unreadable */ }
+    }
+    if (fresh.length === 0 && stale.length === 0) {
+        return { name: 'Daemon Metrics', status: 'warn', message: 'No worker output files found yet', fix: 'monomind daemon start' };
+    }
+    if (stale.length === 0) {
+        return { name: 'Daemon Metrics', status: 'pass', message: `${fresh.length} metrics file(s) fresh (<1h)` };
+    }
+    return {
+        name: 'Daemon Metrics',
+        status: 'warn',
+        message: `${stale.length} stale (>1h): ${stale.join(', ')}${fresh.length > 0 ? ` — ${fresh.length} fresh` : ''}`,
+        fix: 'monomind daemon status  # or: monomind daemon trigger -w <worker>',
+    };
+}
+/**
+ * Surfaces critical findings from the security-audit daemon worker output.
+ */
+export async function checkSecurityAuditFindings() {
+    const audit = readMetricsJSON('security-audit.json');
+    if (!audit) {
+        return { name: 'Security Audit', status: 'warn', message: 'No security-audit.json yet', fix: 'monomind daemon trigger -w audit' };
+    }
+    const riskLevel = (audit.riskLevel || 'low').toLowerCase();
+    const recommendations = audit.recommendations || [];
+    const priorityTargets = audit.priorityScanTargets || [];
+    const criticalCount = recommendations.length + (riskLevel === 'high' || riskLevel === 'critical' ? priorityTargets.length : 0);
+    if (riskLevel === 'critical' || riskLevel === 'high') {
+        return {
+            name: 'Security Audit',
+            status: 'fail',
+            message: `risk=${riskLevel}, ${criticalCount} critical finding(s) — ${priorityTargets.length} priority scan target(s)`,
+            fix: 'Review .monomind/metrics/security-audit.json priorityScanTargets and recommendations',
+        };
+    }
+    if (recommendations.length > 0) {
+        return { name: 'Security Audit', status: 'warn', message: `risk=${riskLevel}, ${recommendations.length} recommendation(s)` };
+    }
+    return { name: 'Security Audit', status: 'pass', message: `risk=${riskLevel}, no open findings` };
+}
+/**
+ * Flags uncovered critical paths surfaced by the testgaps worker (headless-only —
+ * gracefully reports "not run" when the local daemon has no fallback for this worker).
+ */
+export async function checkTestGaps() {
+    const gaps = readMetricsJSON('testgaps.json');
+    if (!gaps) {
+        return { name: 'Test Coverage Gaps', status: 'warn', message: 'No testgaps.json yet (requires Claude Code CLI for AI analysis)', fix: 'monomind daemon trigger -w testgaps' };
+    }
+    if (gaps.note && !gaps.gaps && gaps.uncoveredCount === undefined) {
+        return { name: 'Test Coverage Gaps', status: 'warn', message: gaps.note };
+    }
+    const gapList = Array.isArray(gaps.gaps) ? gaps.gaps : [];
+    const uncovered = gaps.uncoveredCount ?? gapList.length;
+    const criticalGaps = gapList.filter(g => g?.critical).length;
+    if (criticalGaps > 0) {
+        return { name: 'Test Coverage Gaps', status: 'fail', message: `${uncovered} uncovered area(s), ${criticalGaps} critical path(s) untested`, fix: 'Review .monomind/metrics/testgaps.json' };
+    }
+    if (uncovered > 0) {
+        return { name: 'Test Coverage Gaps', status: 'warn', message: `${uncovered} uncovered area(s)` };
+    }
+    return { name: 'Test Coverage Gaps', status: 'pass', message: 'No uncovered areas reported' };
+}
 /**
  * AutoMem proficiency check — reports memory learning health
  */

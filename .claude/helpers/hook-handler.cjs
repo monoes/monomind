@@ -345,7 +345,7 @@ const handlers = {
     h.handle(hCtx);
   },
 
-  'pre-bash': () => {
+  'pre-bash': async () => {
     var cmd = (hCtx.toolInput && (hCtx.toolInput.command || hCtx.toolInput.cmd)) || '';
     var isGrep = /\b(?:grep|rg|ag)\b/.test(cmd);
     var isFind = /\b(?:find|fd)\b/.test(cmd) && !isGrep;
@@ -590,15 +590,16 @@ const handlers = {
       else if (isGrep) _recordGraphTelemetry('bash_grep_call');
       else _recordGraphTelemetry('bash_find_call');
     }
-    // Enforcement gate: destructive operations
+    // Enforcement gate: destructive operations + monofence-ai threat scan
     var gates = require('./handlers/gates-handler.cjs');
-    gates.handlePreBash(hCtx);
+    await gates.handlePreBash(hCtx);
   },
 
-  'pre-write': () => {
-    // Enforcement gate: secrets detection before Write/Edit/MultiEdit lands on disk
+  'pre-write': async () => {
+    // Enforcement gate: secrets detection + monofence-ai threat scan before
+    // Write/Edit/MultiEdit content lands on disk
     var gates = require('./handlers/gates-handler.cjs');
-    gates.handlePreWrite(hCtx);
+    await gates.handlePreWrite(hCtx);
   },
 
   'pre-search': () => {

@@ -1,12 +1,11 @@
 /**
- * Pattern Store MCP Tools
+ * Pattern Store MCP Tools — "neural" namespace (legacy name, kept for API compat)
  *
- * Embed text as vectors, store patterns, search by cosine similarity.
- * Embeddings come from the shared memory/embedding-operations.ts pipeline
- * (LanceDB bridge -> ONNX -> deterministic hash fallback) — the same one used
- * by CLI `neural` commands and memory search, so MCP- and CLI-trained patterns
- * are embedded consistently.
- * Tools are registered under the "neural" namespace for backwards compatibility.
+ * These tools embed text as vectors and search by cosine similarity.
+ * No ML training, gradient descent, or neural network inference occurs.
+ * The "train" tool embeds and stores; the "predict" tool finds similar stored
+ * patterns. Embeddings come from the shared memory/embedding-operations.ts
+ * pipeline (LanceDB bridge -> ONNX -> deterministic hash fallback).
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
@@ -133,15 +132,15 @@ async function generateEmbedding(text?: string, dims: number = 384): Promise<num
 export const neuralTools: MCPTool[] = [
   {
     name: 'neural_train',
-    description: 'Embed and store patterns for similarity search',
+    description: 'Embed text as vectors and store as named patterns for later similarity search (no ML training occurs)',
     category: 'neural',
     inputSchema: {
       type: 'object',
       properties: {
         modelId: { type: 'string', description: 'Store ID (groups related patterns)' },
         modelType: { type: 'string', enum: ['pattern', 'embedding'], description: 'Store type' },
-        epochs: { type: 'number', description: 'Ignored (kept for backwards compatibility)' },
-        learningRate: { type: 'number', description: 'Ignored (kept for backwards compatibility)' },
+        epochs: { type: 'number', description: 'Deprecated — ignored. Patterns are embedded and stored, not trained.' },
+        learningRate: { type: 'number', description: 'Deprecated — ignored. No gradient-based training occurs.' },
         data: { type: 'object', description: 'Data to embed and store (array of strings or {text/content/label} objects)' },
       },
       required: ['modelType'],
@@ -255,7 +254,7 @@ export const neuralTools: MCPTool[] = [
   },
   {
     name: 'neural_predict',
-    description: 'Find similar patterns by cosine similarity',
+    description: 'Find stored patterns most similar to input text via cosine similarity (not ML prediction)',
     category: 'neural',
     inputSchema: {
       type: 'object',
@@ -612,7 +611,7 @@ export const neuralTools: MCPTool[] = [
   },
   {
     name: 'neural_status',
-    description: 'Get pattern store status',
+    description: 'Get pattern store status (pattern count, embedding dimensions, store health)',
     category: 'neural',
     inputSchema: {
       type: 'object',
