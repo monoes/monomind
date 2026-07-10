@@ -1,7 +1,8 @@
 {
   "name": "@monomind/guidance",
   "version": "1.0.0",
-  "description": "Guidance Control Plane - Compiles, retrieves, enforces, and evolves guidance rules for Claude Code sessions",
+  "description": "[Experimental] Guidance Control Plane - Compiles, retrieves, enforces, and evolves guidance rules for Claude Code sessions",
+  "experimental": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -128,7 +128,7 @@ module.exports = {
                 if (erRule.pattern && erRule.pattern.test(prompt)) {
                   result.agent = erRule.routeName || erRule.agentSlug;
                   result.agentSlug = erRule.agentSlug;
-                  result.confidence = 0.90;
+                  result.confidence = erRule.score != null ? Math.min(0.98, Math.max(0.70, erRule.score)) : 0.85;
                   result.reason = 'Enriched: ' + (erRule.description || erRule.routeName);
                   result.enrichedFrom = 'routing-keyword-pre-filter';
                   break;

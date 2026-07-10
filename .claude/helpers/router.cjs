@@ -311,12 +311,22 @@ function routeTask(prompt) {
     if (slug === 'coder' && hasStrongSkill) continue;
     var pattern = _ROUTING_PATTERNS[slug];
     if (pattern && pattern.test(safePrompt)) {
-      var confidence = applyFeedbackWeight(slug, TASK_CONFIDENCES[slug] || 0.75);
+      // Count how many distinct keywords from the pattern actually matched
+      // so confidence reflects real match quality, not just a static constant.
+      var caps = AGENT_CAPABILITIES[slug] || [];
+      var promptLower = safePrompt.toLowerCase();
+      var matchedKw = 0;
+      for (var ki = 0; ki < caps.length; ki++) {
+        if (promptLower.indexOf(caps[ki].toLowerCase()) !== -1) matchedKw++;
+      }
+      var baseConf = TASK_CONFIDENCES[slug] || 0.75;
+      var matchBonus = Math.min(0.10, matchedKw * 0.02);
+      var confidence = Math.min(0.98, applyFeedbackWeight(slug, baseConf + matchBonus));
       return {
         agent: TASK_AGENTS[slug],
         agentSlug: slug,
         confidence: confidence,
-        reason: ('Keyword match: ' + slug).slice(0, 80),
+        reason: ('Keyword match: ' + slug + ' (' + matchedKw + ' kw)').slice(0, 80),
         semanticRouting: false,
         specificAgents: [{ slug: slug, name: TASK_AGENTS[slug], confidence: confidence }],
         skillMatches: skills,

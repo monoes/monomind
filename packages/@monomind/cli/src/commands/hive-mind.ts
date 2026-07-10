@@ -1,5 +1,5 @@
 /**
- * CLI Hive Mind Command
+ * CLI Hive Mind Command [Experimental]
  * Single-process vote-counting coordination for multi-agent decisions.
  * Consensus strategies (BFT, Raft, Quorum) implement threshold arithmetic
  * with Ed25519 vote signing — not distributed networking protocols.
@@ -118,7 +118,7 @@ const initCommand: Command = {
 export const hiveMindCommand: Command = {
   name: 'hive-mind',
   aliases: ['hive'],
-  description: 'Queen-led consensus-based multi-agent coordination',
+  description: '[Experimental] Queen-led consensus-based multi-agent coordination',
   subcommands: [initCommand, spawnCommand, statusCommand, joinCommand, leaveCommand, consensusCommand, broadcastCommand, memorySubCommand, shutdownCommand],
   options: [],
   examples: [

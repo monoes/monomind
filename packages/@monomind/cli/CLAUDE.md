@@ -287,7 +287,7 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `workflow`  | 5           | Workflow execution and template management                               | Working         |
 | `hooks`     | 26          | Self-learning hooks + 11 background workers                              | Working         |
-| `hive-mind` | 9           | BFT/Raft/Quorum vote counting (single-process)                          | Working — runs in-process, no MCP server needed |
+| `hive-mind` | 9           | [Experimental] BFT/Raft/Quorum vote counting (single-process)           | Working — runs in-process, no MCP server needed |
 
 ### Advanced Commands
 

@@ -254,7 +254,7 @@ describe('route-handler routing path', () => {
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
     const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
     expect(data.agentSlug).toBe('engineering-solidity-smart-contract-engineer');
-    expect(data.confidence).toBe(0.90);
+    expect(data.confidence).toBe(0.85);
   });
 
   it('does not enrich when router returns a specific non-coder agent', async () => {
