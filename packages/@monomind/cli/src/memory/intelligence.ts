@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, renameSyn
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { cosineSimilarity as sharedCosineSimilarity } from '../utils/cosine-similarity.js';
+import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
 
 // ============================================================================
 // Persistence Configuration
@@ -453,34 +454,68 @@ class LocalReasoningBank {
    */
   private loadFromDisk(): void {
     try {
-      const path = getPatternsPath();
-      if (existsSync(path) && statSync(path).size <= 50 * 1024 * 1024) {
-        const data = JSON.parse(readFileSync(path, 'utf-8'));
-        if (Array.isArray(data)) {
-          // Validate each persisted pattern. The patterns file is part of the
-          // IPFS-distributed pattern transfer flow — without bounds checks, a
-          // malicious bundle can inject `confidence: 1e9` (deterministically wins
-          // every routing decision) or `keywords: [10000 strings]` (DoS on every
-          // findBestPatternMatch call).
-          for (const pattern of data) {
-            if (!pattern || typeof pattern !== 'object') continue;
-            const id = (pattern as Record<string, unknown>).id;
-            if (typeof id !== 'string' || id.length === 0 || id.length > 256) continue;
-            const conf = (pattern as Record<string, unknown>).confidence;
-            if (conf !== undefined && (typeof conf !== 'number' || !Number.isFinite(conf) || conf < 0 || conf > 1)) {
-              continue;
-            }
-            const keywords = (pattern as Record<string, unknown>).keywords;
-            if (keywords !== undefined && (!Array.isArray(keywords) || keywords.length > 64)) {
-              continue;
-            }
-            this.patterns.set(id, pattern);
-            this.patternList.push(pattern);
+      const data = readJsonFileSync<unknown[]>(getPatternsPath(), []);
+      if (Array.isArray(data)) {
+        // Validate each persisted pattern. The patterns file is part of the
+        // IPFS-distributed pattern transfer flow — without bounds checks, a
+        // malicious bundle can inject `confidence: 1e9` (deterministically wins
+        // every routing decision) or `keywords: [10000 strings]` (DoS on every
+        // findBestPatternMatch call).
+        for (const pattern of data) {
+          if (!pattern || typeof pattern !== 'object') continue;
+          const id = (pattern as Record<string, unknown>).id;
+          if (typeof id !== 'string' || id.length === 0 || id.length > 256) continue;
+          const conf = (pattern as Record<string, unknown>).confidence;
+          if (conf !== undefined && (typeof conf !== 'number' || !Number.isFinite(conf) || conf < 0 || conf > 1)) {
+            continue;
           }
+          const keywords = (pattern as Record<string, unknown>).keywords;
+          if (keywords !== undefined && (!Array.isArray(keywords) || keywords.length > 64)) {
+            continue;
+          }
+          this.patterns.set(id, pattern);
+          this.patternList.push(pattern);
         }
       }
+
+      // Also load MCP-trained patterns from models.json (neural-tools store).
+      // Previously neural-tools mirrored these to patterns.json, creating a
+      // write conflict. Now intelligence.ts reads from models.json directly.
+      this.loadMcpPatterns();
     } catch {
       // Ignore load errors, start fresh
+    }
+  }
+
+  /**
+   * Load MCP-trained patterns from neural-tools' models.json store.
+   * Avoids the previous mirror-to-patterns.json approach that caused
+   * a write conflict (two writers to the same file).
+   */
+  private loadMcpPatterns(): void {
+    try {
+      const modelsPath = join(getDataDir(), 'models.json');
+      const store = readJsonFileSync<{ patterns?: Record<string, { id?: string; name?: string; type?: string; embedding?: number[]; createdAt?: string; usageCount?: number }> }>(modelsPath, {});
+      if (!store.patterns || typeof store.patterns !== 'object') return;
+      const entries = Object.values(store.patterns);
+      for (const p of entries.slice(0, 500)) {
+        if (!p.id || typeof p.id !== 'string' || p.id.length > 256) continue;
+        if (this.patterns.has(p.id)) continue; // already loaded from patterns.json
+        const pattern = {
+          id: p.id,
+          type: p.type || 'mcp-trained',
+          content: p.name || '',
+          confidence: 0.8,
+          usageCount: p.usageCount || 0,
+          embedding: Array.isArray(p.embedding) ? p.embedding : [],
+          createdAt: p.createdAt ? new Date(p.createdAt).getTime() : Date.now(),
+          lastUsedAt: Date.now(),
+        };
+        this.patterns.set(p.id, pattern);
+        this.patternList.push(pattern);
+      }
+    } catch {
+      // Best-effort: MCP patterns are supplementary
     }
   }
 
@@ -510,10 +545,7 @@ class LocalReasoningBank {
 
     try {
       ensureDataDir();
-      const path = getPatternsPath();
-      const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
-      writeFileSync(tmp, JSON.stringify(this.patternList, null, 2), 'utf-8');
-      renameSync(tmp, path);
+      writeJsonFileAtomic(getPatternsPath(), this.patternList);
       this.dirty = false;
     } catch {
       // Log but don't throw - persistence failures shouldn't break training
