@@ -287,11 +287,12 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `workflow`  | 5           | Workflow execution and template management                               | Working         |
 | `hooks`     | 26          | Self-learning hooks + 11 background workers                              | Working         |
-| `hive-mind` | 9           | [Experimental] BFT/Raft/Quorum vote counting (single-process)           | Working — runs in-process, no MCP server needed |
 
 ### Advanced Commands
 
-`agent`, `swarm`, and `hive-mind` above execute MCP tool handlers directly in-process via the local tool registry (`src/mcp-client.ts`) — they do **not** require a running `mcp start` server. A separate MCP server is only needed when an external MCP *client* (e.g. Claude Code) wants to call these tools over stdio/HTTP.
+`agent` and `swarm` above execute MCP tool handlers directly in-process via the local tool registry (`src/mcp-client.ts`) — they do **not** require a running `mcp start` server. A separate MCP server is only needed when an external MCP *client* (e.g. Claude Code) wants to call these tools over stdio/HTTP.
+
+> **Note:** Hive-mind functionality (BFT/Raft/Quorum consensus) is available exclusively via MCP tools (`hive-mind-tools.ts`), not as a CLI command.
 
 | Command       | Subcommands | Description                                                                   | Status           |
 | ------------- | ----------- | ----------------------------------------------------------------------------- | ---------------- |

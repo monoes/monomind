@@ -25,7 +25,6 @@ import { daemonCommand } from './daemon.js';
 import { doctorCommand } from './doctor.js';
 import { performanceCommand } from './performance.js';
 import { securityCommand } from './security.js';
-import { hiveMindCommand } from './hive-mind.js';
 import browseCommand from './browse.js';
 import { configCommand } from './config.js';
 import { completionsCommand } from './completions.js';
@@ -68,7 +67,6 @@ loadedCommands.set('daemon', daemonCommand);
 loadedCommands.set('doctor', doctorCommand);
 loadedCommands.set('performance', performanceCommand);
 loadedCommands.set('security', securityCommand);
-loadedCommands.set('hive-mind', hiveMindCommand);
 loadedCommands.set('guidance', guidanceCommand);
 loadedCommands.set('cleanup', cleanupCommand);
 loadedCommands.set('autopilot', autopilotCommand);
@@ -113,7 +111,6 @@ export { daemonCommand } from './daemon.js';
 export { doctorCommand } from './doctor.js';
 export { performanceCommand } from './performance.js';
 export { securityCommand } from './security.js';
-export { hiveMindCommand } from './hive-mind.js';
 export { guidanceCommand } from './guidance.js';
 export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
@@ -146,7 +143,6 @@ export const commands: Command[] = [
   doctorCommand,
   performanceCommand,
   securityCommand,
-  hiveMindCommand,
   guidanceCommand,
   cleanupCommand,
   autopilotCommand,
@@ -195,8 +191,7 @@ export const commandsByCategory = {
   advanced: [
     securityCommand,
     performanceCommand,
-    hiveMindCommand,
-      guidanceCommand,
+    guidanceCommand,
     autopilotCommand,
     neuralCommand,
   ],

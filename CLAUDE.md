@@ -219,7 +219,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 ---
 
-## CLI Commands (41 Commands)
+## CLI Commands (40 Commands)
 
 | Command          | Sub | Description                                          |
 | ---------------- | --- | ---------------------------------------------------- |
@@ -234,7 +234,6 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `session`        | 5   | Session state management                             |
 | `config`         | 7   | Configuration management                             |
 | `hooks`          | 26  | Self-learning hooks + 11 background workers (@monomind/hooks WorkerManager) |
-| `hive-mind`      | 9   | BFT/Raft/Quorum vote counting (single-process). Runs in-process — no separate MCP server required |
 | `daemon`         | 6   | Background worker daemon (12 workers)                |
 | `neural`         | 8   | Pattern storage and similarity search                |
 | `security`       | 6   | Security scanning                                    |
