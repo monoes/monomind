@@ -45,39 +45,9 @@ const compileCommand: Command = {
         localContent = await readFile(localPath, 'utf-8');
       }
 
-      const { GuidanceCompiler } = await import('@monomind/guidance/compiler');
-      const compiler = new GuidanceCompiler();
-      const bundle = compiler.compile(rootContent, localContent);
-
-      if (jsonOutput) {
-        output.writeln(JSON.stringify(bundle, null, 2));
-      } else {
-        output.writeln(output.success('Compiled successfully'));
-        output.writeln();
-        output.writeln(`  Constitution rules: ${output.bold(String(bundle.constitution.rules.length))}`);
-        output.writeln(`  Constitution hash:  ${output.dim(bundle.constitution.hash)}`);
-        output.writeln(`  Shard count:        ${output.bold(String(bundle.shards.length))}`);
-        output.writeln(`  Total rules:        ${output.bold(String(bundle.manifest.totalRules))}`);
-        output.writeln(`  Compiled at:        ${output.dim(new Date(bundle.manifest.compiledAt).toISOString())}`);
-
-        if (localContent) {
-          output.writeln(`  Local overlay:      ${output.success('applied')}`);
-        }
-
-        output.writeln();
-        output.writeln(output.dim('Rule summary:'));
-        for (const rule of bundle.manifest.rules.slice(0, 10)) {
-          const risk = rule.riskClass === 'critical' ? output.error(rule.riskClass) :
-            rule.riskClass === 'high' ? output.warning(rule.riskClass) :
-              output.dim(rule.riskClass);
-          output.writeln(`  ${output.bold(rule.id)} [${risk}] ${rule.source.slice(0, 60)}${rule.source.length > 60 ? '...' : ''}`);
-        }
-        if (bundle.manifest.rules.length > 10) {
-          output.writeln(output.dim(`  ... and ${bundle.manifest.rules.length - 10} more`));
-        }
-      }
-
-      return { success: true, data: bundle };
+      output.writeln(output.warning('The compile subcommand has been removed. The guidance package now only provides enforcement gates.'));
+      output.writeln(output.dim('Use "monomind guidance gates" to evaluate commands and content.'));
+      return { success: false, message: 'Subcommand removed — guidance package trimmed to gates only' };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       output.writeln(output.error(`Compilation failed: ${msg}`));
@@ -119,68 +89,9 @@ const retrieveCommand: Command = {
     output.writeln(output.bold('Guidance Retriever'));
     output.writeln(output.dim('─'.repeat(50)));
 
-    try {
-      const { readFile } = await import('node:fs/promises');
-      const { existsSync } = await import('node:fs');
-      const { GuidanceCompiler } = await import('@monomind/guidance/compiler');
-      const { ShardRetriever, HashEmbeddingProvider } = await import('@monomind/guidance/retriever');
-
-      if (!existsSync(rootPath)) {
-        output.writeln(output.error(`Root guidance file not found: ${rootPath}`));
-        return { success: false, message: `File not found: ${rootPath}` };
-      }
-
-      const rootContent = await readFile(rootPath, 'utf-8');
-      let localContent: string | undefined;
-      if (localPath && existsSync(localPath)) {
-        localContent = await readFile(localPath, 'utf-8');
-      }
-
-      const compiler = new GuidanceCompiler();
-      const bundle = compiler.compile(rootContent, localContent);
-
-      const retriever = new ShardRetriever(new HashEmbeddingProvider(128));
-      await retriever.loadBundle(bundle);
-
-      const result = await retriever.retrieve({
-        taskDescription: task,
-        maxShards,
-        intent: intentOverride as any,
-      });
-
-      if (jsonOutput) {
-        output.writeln(JSON.stringify(result, null, 2));
-      } else {
-        output.writeln(`  Detected intent: ${output.bold(result.detectedIntent)}`);
-        output.writeln(`  Retrieval time:  ${output.dim(result.latencyMs + 'ms')}`);
-        output.writeln(`  Constitution:    ${output.bold(String(result.constitution.rules.length))} rules`);
-        output.writeln(`  Shards:          ${output.bold(String(result.shards.length))} retrieved`);
-        output.writeln();
-
-        if (result.shards.length > 0) {
-          output.writeln(output.dim('Retrieved shards:'));
-          for (const shard of result.shards) {
-            output.writeln(`  ${output.bold(shard.shard.rule.id)} [${shard.shard.rule.riskClass}] ${shard.shard.rule.text.slice(0, 60)}`);
-          }
-        }
-
-        output.writeln();
-        output.writeln(output.dim('Policy text preview:'));
-        const lines = result.policyText.split('\n').slice(0, 15);
-        for (const line of lines) {
-          output.writeln(`  ${line}`);
-        }
-        if (result.policyText.split('\n').length > 15) {
-          output.writeln(output.dim('  ...'));
-        }
-      }
-
-      return { success: true, data: result };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      output.writeln(output.error(`Retrieval failed: ${msg}`));
-      return { success: false, message: msg };
-    }
+    output.writeln(output.warning('The retrieve subcommand has been removed. The guidance package now only provides enforcement gates.'));
+    output.writeln(output.dim('Use "monomind guidance gates" to evaluate commands and content.'));
+    return { success: false, message: 'Subcommand removed — guidance package trimmed to gates only' };
   },
 };
 
@@ -296,14 +207,16 @@ const statusCommand: Command = {
 
     try {
       const { existsSync } = await import('node:fs');
+      const { EnforcementGates } = await import('@monomind/guidance/gates');
 
       const rootExists = existsSync('./CLAUDE.md');
       const localExists = existsSync('./CLAUDE.local.md');
+      const gates = new EnforcementGates();
 
       const statusData = {
         rootGuidance: rootExists ? 'found' : 'not found',
         localOverlay: localExists ? 'found' : 'not configured',
-        dataDir: existsSync('./.monomind/guidance') ? 'exists' : 'not created',
+        activeGates: gates.getActiveGateCount(),
       };
 
       if (jsonOutput) {
@@ -311,22 +224,7 @@ const statusCommand: Command = {
       } else {
         output.writeln(`  Root guidance:  ${rootExists ? output.success('CLAUDE.md found') : output.warning('CLAUDE.md not found')}`);
         output.writeln(`  Local overlay:  ${localExists ? output.success('CLAUDE.local.md found') : output.dim('not configured')}`);
-        output.writeln(`  Data directory: ${statusData.dataDir === 'exists' ? output.success('exists') : output.dim('not created')}`);
-
-        if (rootExists) {
-          const { readFile } = await import('node:fs/promises');
-          const { GuidanceCompiler } = await import('@monomind/guidance/compiler');
-          const rootContent = await readFile('./CLAUDE.md', 'utf-8');
-          const compiler = new GuidanceCompiler();
-          const bundle = compiler.compile(rootContent);
-
-          output.writeln();
-          output.writeln(output.dim('Compiled bundle:'));
-          output.writeln(`  Constitution rules: ${output.bold(String(bundle.constitution.rules.length))}`);
-          output.writeln(`  Shard count:        ${output.bold(String(bundle.shards.length))}`);
-          output.writeln(`  Total rules:        ${output.bold(String(bundle.manifest.totalRules))}`);
-          output.writeln(`  Hash:               ${output.dim(bundle.constitution.hash)}`);
-        }
+        output.writeln(`  Active gates:   ${output.bold(String(statusData.activeGates))}`);
       }
 
       return { success: true, data: statusData };
@@ -370,90 +268,9 @@ const optimizeCommand: Command = {
     output.writeln(output.bold('Guidance Optimizer'));
     output.writeln(output.dim('─'.repeat(50)));
 
-    try {
-      const { readFile, writeFile } = await import('node:fs/promises');
-      const { existsSync } = await import('node:fs');
-
-      if (!existsSync(rootPath)) {
-        output.writeln(output.error(`Root guidance file not found: ${rootPath}`));
-        return { success: false, message: `File not found: ${rootPath}` };
-      }
-
-      const rootContent = await readFile(rootPath, 'utf-8');
-      let localContent: string | undefined;
-      if (localPath && existsSync(localPath)) {
-        localContent = await readFile(localPath, 'utf-8');
-      }
-
-      // Step 1: Analyze current state
-      const { analyze, formatReport, optimizeForSize, formatBenchmark } = await import('@monomind/guidance/analyzer');
-      const analysis = analyze(rootContent, localContent);
-
-      if (jsonOutput && !applyChanges) {
-        output.writeln(JSON.stringify(analysis, null, 2));
-        return { success: true, data: analysis };
-      }
-
-      // Show current analysis
-      output.writeln(formatReport(analysis));
-      output.writeln();
-
-      if (analysis.compositeScore >= targetScore) {
-        output.writeln(output.success(`Score ${analysis.compositeScore}/100 already meets target ${targetScore}. No optimization needed.`));
-        return { success: true, data: analysis };
-      }
-
-      // Step 2: Run optimization
-      output.writeln(output.dim(`Optimizing (target: ${targetScore}, context: ${contextSize}, max iterations: ${maxIterations})...`));
-
-      const result = optimizeForSize(rootContent, {
-        contextSize,
-        localContent,
-        maxIterations,
-        targetScore,
-      });
-
-      if (jsonOutput) {
-        output.writeln(JSON.stringify({
-          before: analysis,
-          after: result.benchmark.after,
-          delta: result.benchmark.delta,
-          steps: result.appliedSteps,
-        }, null, 2));
-        return { success: true, data: result };
-      }
-
-      // Show benchmark comparison
-      output.writeln();
-      output.writeln(formatBenchmark(result.benchmark));
-      output.writeln();
-
-      if (result.appliedSteps.length > 0) {
-        output.writeln(`Applied ${output.bold(String(result.appliedSteps.length))} optimization steps:`);
-        for (const step of result.appliedSteps) {
-          output.writeln(`  ${output.success('+')} ${step}`);
-        }
-        output.writeln();
-      }
-
-      // Step 3: Apply if requested
-      if (applyChanges) {
-        await writeFile(rootPath, result.optimized, 'utf-8');
-        output.writeln(output.success(`Optimized CLAUDE.md written to ${rootPath}`));
-        output.writeln(`  Before: ${analysis.compositeScore}/100 (${analysis.grade})`);
-        output.writeln(`  After:  ${result.benchmark.after.compositeScore}/100 (${result.benchmark.after.grade})`);
-        output.writeln(`  Delta:  ${result.benchmark.delta >= 0 ? '+' : ''}${result.benchmark.delta}`);
-      } else {
-        output.writeln(output.warning('Dry run - use --apply to write changes.'));
-        output.writeln(`  Projected: ${analysis.compositeScore} → ${result.benchmark.after.compositeScore}/100`);
-      }
-
-      return { success: true, data: result };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      output.writeln(output.error(`Optimization failed: ${msg}`));
-      return { success: false, message: msg };
-    }
+    output.writeln(output.warning('The optimize subcommand has been removed. The guidance package now only provides enforcement gates.'));
+    output.writeln(output.dim('Use "monomind guidance gates" to evaluate commands and content.'));
+    return { success: false, message: 'Subcommand removed — guidance package trimmed to gates only' };
   },
 };
 
@@ -485,110 +302,9 @@ const abTestCommand: Command = {
     output.writeln(output.bold('A/B Behavioral Benchmark'));
     output.writeln(output.dim('─'.repeat(50)));
 
-    try {
-      const { readFile } = await import('node:fs/promises');
-      const { existsSync } = await import('node:fs');
-      const { abBenchmark, getDefaultABTasks } = await import('@monomind/guidance/analyzer');
-
-      // Load Config B (candidate) content
-      if (!existsSync(configBPath)) {
-        output.writeln(output.error(`Config B file not found: ${configBPath}`));
-        return { success: false, message: `File not found: ${configBPath}` };
-      }
-      const configBContent = await readFile(configBPath, 'utf-8');
-
-      // Optionally load Config A for display context
-      let configALabel = 'No control plane (baseline)';
-      if (configAPath) {
-        if (!existsSync(configAPath)) {
-          output.writeln(output.error(`Config A file not found: ${configAPath}`));
-          return { success: false, message: `File not found: ${configAPath}` };
-        }
-        configALabel = configAPath;
-      }
-
-      // Load custom tasks if provided
-      let customTasks: undefined | any[];
-      if (tasksPath) {
-        if (!existsSync(tasksPath)) {
-          output.writeln(output.error(`Tasks file not found: ${tasksPath}`));
-          return { success: false, message: `File not found: ${tasksPath}` };
-        }
-        // Size guard: a multi-MB tasks file would be buffered in full before
-        // JSON.parse runs. Cap at 10 MB — any legitimate task list is far smaller.
-        const { statSync, lstatSync } = await import('node:fs');
-        const tasksLstat = lstatSync(tasksPath);
-        if (tasksLstat.isSymbolicLink()) {
-          output.writeln(output.error(`Symlinks are not allowed as task files: ${tasksPath}`));
-          return { success: false, message: 'Symlink not allowed as tasks file' };
-        }
-        const MAX_TASKS_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
-        if (tasksLstat.size > MAX_TASKS_FILE_BYTES) {
-          output.writeln(output.error(`Tasks file too large (max 10 MB): ${tasksPath}`));
-          return { success: false, message: 'Tasks file too large' };
-        }
-        const tasksJson = await readFile(tasksPath, 'utf-8');
-        customTasks = JSON.parse(tasksJson);
-        output.writeln(`  Custom tasks: ${output.bold(String(customTasks!.length))} loaded from ${tasksPath}`);
-      }
-
-      output.writeln(`  Config A: ${output.dim(configALabel)}`);
-      output.writeln(`  Config B: ${output.dim(configBPath)}`);
-      output.writeln(`  Tasks:    ${output.dim(customTasks ? `${customTasks.length} custom` : `${getDefaultABTasks().length} default`)}`);
-      output.writeln();
-      output.writeln(output.dim('Running benchmark...'));
-
-      // Run the A/B benchmark
-      const report = await abBenchmark(configBContent, {
-        tasks: customTasks,
-        workDir,
-      });
-
-      if (jsonOutput) {
-        output.writeln(JSON.stringify({
-          configA: { label: configALabel, metrics: report.configA.metrics },
-          configB: { label: configBPath, metrics: report.configB.metrics },
-          compositeDelta: report.compositeDelta,
-          classDeltas: report.classDeltas,
-          categoryShift: report.categoryShift,
-          taskResults: {
-            configA: report.configA.taskResults.map(r => ({
-              taskId: r.taskId, taskClass: r.taskClass, passed: r.passed,
-              violations: r.violations.length, toolCalls: r.toolCalls,
-            })),
-            configB: report.configB.taskResults.map(r => ({
-              taskId: r.taskId, taskClass: r.taskClass, passed: r.passed,
-              violations: r.violations.length, toolCalls: r.toolCalls,
-            })),
-          },
-        }, null, 2));
-        return { success: true, data: report };
-      }
-
-      // Print formatted report
-      output.writeln(report.report);
-      output.writeln();
-
-      // Summary verdict
-      const delta = report.compositeDelta;
-      if (delta > 0.05) {
-        output.writeln(output.success(`Config B is better (+${delta} composite delta)`));
-      } else if (delta < -0.05) {
-        output.writeln(output.error(`Config B is worse (${delta} composite delta)`));
-      } else {
-        output.writeln(output.warning(`No significant difference (${delta} composite delta)`));
-      }
-
-      if (report.categoryShift) {
-        output.writeln(output.success('Category shift detected: 3+ task classes improved by 20%+'));
-      }
-
-      return { success: true, data: report };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      output.writeln(output.error(`A/B benchmark failed: ${msg}`));
-      return { success: false, message: msg };
-    }
+    output.writeln(output.warning('The ab-test subcommand has been removed. The guidance package now only provides enforcement gates.'));
+    output.writeln(output.dim('Use "monomind guidance gates" to evaluate commands and content.'));
+    return { success: false, message: 'Subcommand removed — guidance package trimmed to gates only' };
   },
 };
 

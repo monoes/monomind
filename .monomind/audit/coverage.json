@@ -25,20 +25,20 @@
       "note": "Trimmed from 127 to 36 agent .md files. Deleted 91 agent files + 17 macOS resource forks. All 13 router TASK_AGENTS slugs still covered. Kept: 6 core, 8 engineering, 6 GitHub, 4 SPARC, 4 hive-mind, 4 specialized, 2 templates, 1 design, 1 testing. Deleted: org-generated (20), niche engineering (15), reengineer-squad (9), niche testing (8), github wrappers (6), specialized (13), marketing (5), optimization (5), hive-mind generic (3), consensus (2), duplicates (5)."
     },
     "guidance-right-size": {
-      "status": "not-started",
-      "last_audited": null,
-      "verdict": null,
-      "iterations": 0,
-      "value_delivered": 0,
-      "note": "8,383 lines of formal verification over non-deterministic prompts. Only 2 real importers (both optional/try-catch). Marked [Experimental]. Either extract the useful part (gates export) into a 200-line module or delete the package."
+      "status": "needs-review",
+      "last_audited": "2026-07-11T00:30:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 1,
+      "value_delivered": 9,
+      "note": "Trimmed from 8,383 to 851 lines (90% reduction). Deleted 10 files: analyzer.ts (3,194), compiler.ts, retriever.ts, persistence.ts, headless.ts, hooks.ts, ledger.ts, optimizer.ts, proof.ts, crypto-utils.ts. Kept: gates.ts (392), types.ts (435), index.ts (24). CLI guidance command gracefully handles missing submodules. Build clean."
     },
     "hive-mind-right-size": {
-      "status": "not-started",
-      "last_audited": null,
-      "verdict": null,
-      "iterations": 0,
-      "value_delivered": 0,
-      "note": "CLI commands (1,135 lines) duplicate MCP tools (1,361 lines). BFT between trusted in-memory singletons is architecture fiction. Marked [Experimental]. Keep the MCP tools version (actually wired), trim or remove CLI commands."
+      "status": "needs-review",
+      "last_audited": "2026-07-11T00:30:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 1,
+      "value_delivered": 9,
+      "note": "Deleted 5 CLI command files (1,135 lines): hive-mind.ts, hive-mind-comms.ts, hive-mind-helpers.ts, hive-mind-ops.ts, hive-mind-spawn.ts. Removed registration from commands/index.ts. MCP tools version (1,361 lines in hive-mind-tools.ts) remains — it's the one actually wired into mcp-client.ts. Updated CLAUDE.md command count 41->40. Build clean, 677 tests pass."
     },
     "security-monofence-merge": {
       "status": "not-started",

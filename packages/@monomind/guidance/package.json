@@ -1,7 +1,7 @@
 {
   "name": "@monomind/guidance",
   "version": "1.0.0",
-  "description": "[Experimental] Guidance Control Plane - Compiles, retrieves, enforces, and evolves guidance rules for Claude Code sessions",
+  "description": "Enforcement gates for Claude Code hooks — destructive-ops detection and secrets scanning",
   "experimental": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -11,45 +11,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./compiler": {
-      "types": "./dist/compiler.d.ts",
-      "import": "./dist/compiler.js"
-    },
-    "./retriever": {
-      "types": "./dist/retriever.d.ts",
-      "import": "./dist/retriever.js"
-    },
     "./gates": {
       "types": "./dist/gates.d.ts",
       "import": "./dist/gates.js"
-    },
-    "./hooks": {
-      "types": "./dist/hooks.d.ts",
-      "import": "./dist/hooks.js"
-    },
-    "./ledger": {
-      "types": "./dist/ledger.d.ts",
-      "import": "./dist/ledger.js"
-    },
-    "./optimizer": {
-      "types": "./dist/optimizer.d.ts",
-      "import": "./dist/optimizer.js"
-    },
-    "./headless": {
-      "types": "./dist/headless.d.ts",
-      "import": "./dist/headless.js"
-    },
-    "./persistence": {
-      "types": "./dist/persistence.d.ts",
-      "import": "./dist/persistence.js"
-    },
-    "./proof": {
-      "types": "./dist/proof.d.ts",
-      "import": "./dist/proof.js"
-    },
-    "./analyzer": {
-      "types": "./dist/analyzer.d.ts",
-      "import": "./dist/analyzer.js"
     }
   },
   "files": [
@@ -63,9 +27,7 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@monomind/hooks": "workspace:*"
-  },
+  "dependencies": {},
   "peerDependencies": {},
   "peerDependenciesMeta": {},
   "devDependencies": {
