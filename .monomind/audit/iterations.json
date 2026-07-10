@@ -942,6 +942,42 @@
         },
         "remaining_work": "Pattern store consolidation (neural-tools models.json vs intelligence.ts patterns.json) — lower priority, different data shapes justify separate stores",
         "timestamp": "2026-07-10T00:50:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 5,
+          "honesty_gap": 3,
+          "potential_value": 8
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Extracted writeJsonFileAtomic/readJsonFileSync into src/utils/json-file.ts (canonical atomic JSON I/O utility, parallels cosine-similarity.ts pattern)",
+          "Removed neural-tools.ts mirror-to-patterns.json (lines 262-294): was a second writer to the same file intelligence.ts owns, causing last-write-wins data loss risk",
+          "Added intelligence.ts loadMcpPatterns(): reads MCP-trained patterns directly from models.json at init time, eliminating the need for the mirror",
+          "Wired neural-tools.ts loadNeuralStore/saveNeuralStore and predict to use shared readJsonFileSync/writeJsonFileAtomic",
+          "Wired intelligence.ts loadFromDisk/flushToDisk to use shared utilities"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 8
+        },
+        "verification": {
+          "tests_passed": 960,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "write_conflict_resolved": true,
+          "patterns_json_sole_writer": "intelligence.ts (ReasoningBank)",
+          "models_json_sole_writer": "neural-tools.ts (NeuralStore)",
+          "shared_json_util_consumers": 2,
+          "remaining_duplication": "10+ other files still use inline writeFileSync+renameSync (lower priority, no write conflicts)"
+        },
+        "remaining_work": "Migrate remaining 10+ inline atomic-write sites to shared utility (autopilot-state, claims, swarm, memory-admin, etc.) — no data conflicts, purely cleanup",
+        "timestamp": "2026-07-10T09:30:00.000Z"
       }
     ],
     "cross-daemon-pipeline": [
@@ -978,6 +1014,41 @@
         },
         "remaining_work": "performance.json and benchmark.json are intentionally thin (process runtime stats only) — not worth surfacing unless enriched with real perf data",
         "timestamp": "2026-07-10T01:25:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 7,
+          "honesty_gap": 3,
+          "potential_value": 8
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "ultralearn worker: now persists output to .monomind/metrics/ultralearn.json (was return-only, insights vanished after worker completed)",
+          "Wired ultralearn.json into route-handler: surfaces bridge-node insights (symbols crossing community boundaries) — high-value LLM context for change impact awareness",
+          "Wired performance.json into route-handler: surfaces RSS memory warning when daemon exceeds 512MB threshold"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 8
+        },
+        "verification": {
+          "tests_passed": 960,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "metrics_consumed_before": "4 of 7 (security-audit, codebase-map, deepdive, consolidation)",
+          "metrics_consumed_after": "6 of 7 (+ ultralearn, performance)",
+          "still_unconsumed": ["benchmark.json (strict subset of performance.json data — intentionally not wired)"],
+          "ultralearn_persisted": true,
+          "bridge_nodes_surfaced": true,
+          "rss_warning_threshold": "512MB"
+        },
+        "remaining_work": "benchmark.json contains only process.cpuUsage/memoryUsage — same data as performance.json, not worth a separate consumer",
+        "timestamp": "2026-07-10T11:00:00.000Z"
       }
     ],
     "cross-hooks-architecture": [
@@ -1064,8 +1135,8 @@
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-10T08:45:00.000Z",
-    "total_iterations": 38,
+    "last_updated": "2026-07-10T09:30:00.000Z",
+    "total_iterations": 39,
     "features_converged": 22,
     "features_removed": 0
   }

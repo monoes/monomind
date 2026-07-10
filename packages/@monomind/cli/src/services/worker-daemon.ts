@@ -1271,6 +1271,16 @@ export class WorkerDaemon extends EventEmitter {
       }
     } catch { /* monograph unavailable — return minimal result */ }
 
+    // Persist to metrics file so route-handler can surface bridge-node insights
+    const ultralearnFile = join(this.projectRoot, '.monomind', 'metrics', 'ultralearn.json');
+    const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
+    if (!existsSync(metricsDir)) {
+      mkdirSync(metricsDir, { recursive: true });
+    }
+    const ultralearnFileTmp = ultralearnFile + '.tmp';
+    writeFileSync(ultralearnFileTmp, JSON.stringify(result, null, 2));
+    renameSync(ultralearnFileTmp, ultralearnFile);
+
     return result;
   }
 

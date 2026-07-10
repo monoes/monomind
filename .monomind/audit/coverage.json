@@ -125,17 +125,17 @@
     },
     "cross-deduplication": {
       "status": "needs-review",
-      "last_audited": "2026-07-10T00:50:00.000Z",
+      "last_audited": "2026-07-10T09:30:00.000Z",
       "verdict": "ITERATE",
-      "iterations": 1,
-      "note": "Cosine similarity consolidated (5 impls -> 1 shared util). Pattern store consolidation deferred — different data shapes justify separate stores."
+      "iterations": 2,
+      "note": "Shared JSON I/O utility extracted. patterns.json write conflict resolved (neural-tools no longer mirrors, intelligence reads models.json directly). 10+ inline atomic-write sites remain (cleanup, no conflicts)."
     },
     "cross-daemon-pipeline": {
       "status": "needs-review",
-      "last_audited": "2026-07-10T01:25:00.000Z",
+      "last_audited": "2026-07-10T11:00:00.000Z",
       "verdict": "ITERATE",
-      "iterations": 1,
-      "note": "Fixed broken codebase-map field (hotspots->topFiles), wired deepdive.json and consolidation.json into route-handler. performance.json and benchmark.json remain unconsumed (too thin — just process.memoryUsage)."
+      "iterations": 2,
+      "note": "6 of 7 daemon worker outputs now consumed by route-handler (+ ultralearn bridge-nodes, performance RSS). ultralearn now persists to disk. benchmark.json intentionally skipped (subset of performance.json)."
     },
     "cross-hooks-architecture": {
       "status": "needs-review",
@@ -154,6 +154,6 @@
   },
   "total_areas": 22,
   "audited_count": 9,
-  "last_updated": "2026-07-10T08:45:00.000Z",
+  "last_updated": "2026-07-10T11:00:00.000Z",
   "org_version": "value-loop-v2-aggressive"
 }
