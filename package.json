@@ -55,7 +55,7 @@
     "build:ts": "cd packages/@monomind/cli && npm run build || true",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:security": "vitest run packages/__tests__/security/",
+    "test:security": "vitest run tests/security/",
     "security:audit": "npm audit --audit-level high",
     "security:fix": "npm audit fix",
     "security:test": "npm run test:security",

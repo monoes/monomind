@@ -17,7 +17,6 @@ export { daemonCommand } from './daemon.js';
 export { doctorCommand } from './doctor.js';
 export { performanceCommand } from './performance.js';
 export { securityCommand } from './security.js';
-export { hiveMindCommand } from './hive-mind.js';
 export { guidanceCommand } from './guidance.js';
 export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';

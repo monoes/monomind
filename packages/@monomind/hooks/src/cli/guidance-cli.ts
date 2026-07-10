@@ -14,12 +14,29 @@
  * @module @monomind/hooks/cli/guidance-cli
  */
 
-import { GuidanceProvider } from '../reasoningbank/guidance-provider.js';
-import { reasoningBank } from '../reasoningbank/index.js';
 import { swarmComm } from '../swarm/index.js';
 import { readFileSync } from 'fs';
 
-const provider = new GuidanceProvider(reasoningBank);
+// Stub provider — the ReasoningBank / GuidanceProvider modules have been removed.
+const provider = {
+  async initialize() {},
+  async generateSessionContext() { return ''; },
+  async generatePromptContext(_p: string) { return ''; },
+  async generatePreEditGuidance(_p: string) { return {}; },
+  async generatePostEditFeedback(_p: string, _c?: string) { return {}; },
+  async generatePreCommandGuidance(_c: string) { return {}; },
+  async generateRoutingGuidance(_t: string) { return ''; },
+  async generateStopCheck() { return { shouldStop: true, reason: '' }; },
+};
+
+// Stub reasoningBank — the ReasoningBank module has been removed.
+const reasoningBank = {
+  async storePattern(strategy: string, _domain: string) { return { id: strategy }; },
+  async searchPatterns(_q: string, _k: number): Promise<Array<{ pattern: { id: string; strategy: string; domain: string; quality: number; similarity: number }; similarity: number }>> { return []; },
+  async consolidate() { return {}; },
+  getStats() { return {}; },
+  async exportPatterns() { return { shortTerm: [] as any[], longTerm: [] as any[] }; },
+};
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);

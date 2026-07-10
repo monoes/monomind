@@ -21,7 +21,6 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
       '@monomind/hooks',
       '@monomind/mcp',
       '@monomind/memory',
-      '@monomind/security',
     ];
 
     const moduleResults = await Promise.all(

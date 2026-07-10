@@ -129,21 +129,15 @@ export const memoryPatternStore: MCPTool = {
       if (!pattern) return { success: false, error: 'pattern is required (non-empty string, max 100KB)' };
 
       // validateExternalContent: guard against prompt injection in stored patterns.
-      // This is a WRITE to persistent memory, so it fails CLOSED: if the
-      // security module cannot be loaded or validation throws, the write is
-      // blocked rather than silently persisted unvalidated.
-      try {
-        const secMod = await import('@monomind/security' as string);
-        const validateExternalContent = secMod?.validateExternalContent;
-        if (!validateExternalContent) {
-          return { success: false, error: 'Security validation unavailable — operation blocked for safety' };
-        }
+      // This is a WRITE to persistent memory, so it fails CLOSED: if
+      // validation throws, the write is blocked rather than silently
+      // persisted unvalidated.
+      {
+        const { validateExternalContent } = await import('../utils/input-guards.js');
         const check = await validateExternalContent(pattern, 'memory_pattern-store pattern');
         if (!check.safe) {
           return { success: false, error: `Injection guard: ${check.reason}`, injectionDetected: true };
         }
-      } catch {
-        return { success: false, error: 'Security validation unavailable — operation blocked for safety' };
       }
 
       const bridge = await getBridge();
@@ -179,21 +173,12 @@ export const memoryPatternSearch: MCPTool = {
       if (!query) return { results: [], error: 'query is required (non-empty string, max 10KB)' };
 
       // validateExternalContent: guard against prompt injection in search queries.
-      // Read-only (non-critical) path: fails OPEN so search stays usable if the
-      // security module is missing, but logs a warning since the check was skipped.
-      try {
-        const secMod = await import('@monomind/security' as string).catch(() => null);
-        const validateExternalContent = secMod?.validateExternalContent;
-        if (validateExternalContent) {
-          const check = await validateExternalContent(query, 'memory_pattern-search query');
-          if (!check.safe) {
-            return { results: [], error: `Injection guard: ${check.reason}`, injectionDetected: true };
-          }
-        } else {
-          console.warn('[security] validateExternalContent unavailable — memory_pattern-search proceeding without injection guard');
+      {
+        const { validateExternalContent } = await import('../utils/input-guards.js');
+        const check = await validateExternalContent(query, 'memory_pattern-search query');
+        if (!check.safe) {
+          return { results: [], error: `Injection guard: ${check.reason}`, injectionDetected: true };
         }
-      } catch {
-        console.warn('[security] validateExternalContent threw — memory_pattern-search proceeding without injection guard');
       }
 
       const bridge = await getBridge();
@@ -570,21 +555,12 @@ export const memoryContextSynthesize: MCPTool = {
 
       // validateExternalContent: guard against prompt injection in synthesized context
       // Source: https://arxiv.org/abs/2302.12173, https://arxiv.org/abs/2310.12815
-      // Read/enrichment path (non-critical): fails OPEN so synthesis stays usable if
-      // the security module is missing, but logs a warning since the check was skipped.
-      try {
-        const secMod = await import('@monomind/security' as string).catch(() => null);
-        const validateExternalContent = secMod?.validateExternalContent;
-        if (validateExternalContent) {
-          const check = await validateExternalContent(query, 'memory_context-synthesize query');
-          if (!check.safe) {
-            return { success: false, error: `Injection guard: ${check.reason}`, injectionDetected: true };
-          }
-        } else {
-          console.warn('[security] validateExternalContent unavailable — memory_context-synthesize proceeding without injection guard');
+      {
+        const { validateExternalContent } = await import('../utils/input-guards.js');
+        const check = await validateExternalContent(query, 'memory_context-synthesize query');
+        if (!check.safe) {
+          return { success: false, error: `Injection guard: ${check.reason}`, injectionDetected: true };
         }
-      } catch {
-        console.warn('[security] validateExternalContent threw — memory_context-synthesize proceeding without injection guard');
       }
 
       const bridge = await getBridge();

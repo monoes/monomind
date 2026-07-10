@@ -8,8 +8,25 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { reasoningBank, type GuidancePattern } from '../reasoningbank/index.js';
-import { MuACP, type MuACPCommitResult } from '../messaging/muacp.js';
+
+// Minimal inline types — the full ReasoningBank and MuACP modules have been removed.
+
+/** Pattern definition formerly provided by reasoningbank/ */
+export interface GuidancePattern {
+  id: string;
+  strategy: string;
+  domain: string;
+  quality: number;
+  [key: string]: unknown;
+}
+
+/** Commit result formerly provided by messaging/muacp */
+export interface MuACPCommitResult {
+  sessionId: string;
+  subject: string;
+  accepted: boolean;
+  votes: Array<{ agentId: string; accepted: boolean }>;
+}
 
 // ============================================================================
 // Types
@@ -189,16 +206,6 @@ export class SwarmCommunication extends EventEmitter {
     // Start cleanup interval (store reference to clear on shutdown)
     this.cleanupTimer = setInterval(() => this.cleanup(), 60000);
     if (this.cleanupTimer.unref) this.cleanupTimer.unref();
-
-    // Listen for pattern storage to auto-broadcast
-    if (this.config.autoBroadcastPatterns) {
-      reasoningBank.on('pattern:stored', async (data) => {
-        const patterns = await reasoningBank.searchPatterns(data.id, 1);
-        if (patterns.length > 0 && patterns[0].pattern.quality >= this.config.patternBroadcastThreshold) {
-          await this.broadcastPattern(patterns[0].pattern);
-        }
-      });
-    }
 
     this.initialized = true;
     this.emit('initialized', { agentId: this.config.agentId });
@@ -424,21 +431,11 @@ export class SwarmCommunication extends EventEmitter {
   }
 
   /**
-   * Import a broadcast pattern into local ReasoningBank
+   * Import a broadcast pattern (acknowledges the broadcast)
    */
   async importBroadcastPattern(broadcastId: string): Promise<boolean> {
     const broadcast = this.broadcasts.get(broadcastId);
     if (!broadcast) return false;
-
-    await reasoningBank.storePattern(
-      broadcast.pattern.strategy,
-      broadcast.pattern.domain,
-      {
-        sourceAgent: broadcast.sourceAgent,
-        broadcastId,
-        imported: true,
-      }
-    );
 
     this.acknowledgeBroadcast(broadcastId);
     return true;
@@ -595,7 +592,14 @@ export class SwarmCommunication extends EventEmitter {
     acceptFn: (agentId: string, proposal: string) => boolean,
   ): MuACPCommitResult {
     const peers = participants.filter(id => id !== this.config.agentId);
-    const result = MuACP.coordinate(this.config.agentId, peers, subject, proposal, acceptFn);
+    const votes = peers.map(id => ({ agentId: id, accepted: acceptFn(id, proposal) }));
+    const accepted = votes.length > 0 && votes.every(v => v.accepted);
+    const result: MuACPCommitResult = {
+      sessionId: `muacp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      subject,
+      accepted,
+      votes,
+    };
     this.emit('muacp:committed', result);
     return result;
   }
