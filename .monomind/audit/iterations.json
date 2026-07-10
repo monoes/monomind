@@ -648,6 +648,40 @@
         },
         "convergence_rationale": "Monofence is production-quality security middleware with comprehensive guardrails. 25+ detection patterns with evasion normalization, PII scanning, output analysis, multi-turn state machine, and multi-agent consensus. 91 tests pass across 8 test files at 75% statement coverage. Published to npm, deeply integrated via 6 MCP tools, CLI security scan command, and hooks auto-registration. The only coverage gap is the learning service (39%) which requires real usage data to exercise fully. No code changes needed.",
         "timestamp": "2026-07-09T15:00:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 9
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Added monofence_scan_output MCP tool: exposes OutputScanner (PII leakage, prompt echo via trigram Jaccard, policy violations) — was implemented but unreachable via MCP",
+          "Added monofence_context MCP tool: exposes multi-turn escalation state (normal/suspicious/elevated/attack) and reset — was implemented but unreachable via MCP"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 9,
+          "implementation_health": 8,
+          "honesty_gap": 1,
+          "potential_value": 9
+        },
+        "verification": {
+          "tests_passed": 958,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "tsc_noEmit": "clean",
+          "monofence_tests": 91,
+          "mcp_tools_before": 6,
+          "mcp_tools_after": 8,
+          "new_tools": ["monofence_scan_output", "monofence_context"],
+          "input_bounds": "all new tools use capSecurityInput (64KB cap)",
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)"
+        },
+        "convergence_rationale": "Two facade capabilities (output scanning and context state) were fully implemented and tested in monofence-ai but had no MCP tool exposure — agents could not use them. Now wired as monofence_scan_output and monofence_context. All 8 MCP security tools cover the full MonoDefence API surface. All integration entry points verified: hooks executor auto-registers, CLI security defend works, MCP tools complete. Value 8->9.",
+        "timestamp": "2026-07-10T07:10:00.000Z"
       }
     ],
     "cli-commands": [
