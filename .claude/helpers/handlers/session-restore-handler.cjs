@@ -126,6 +126,41 @@ module.exports = {
         await runWithTimeout(function() { return hooksModule.initDefaultWorkers(); }, '@monomind/hooks.initDefaultWorkers()');
         hCtx._hooksModule = hooksModule;
         console.log('[INFO] @monomind/hooks workers initialized');
+
+        // Wire GuidanceHookProvider — activates shard retrieval (PreTask),
+        // run ledger tracking (PostTask), and diff-size gate (PreEdit).
+        try {
+          var guidanceMod = await import('@monomind/guidance');
+          if (guidanceMod && guidanceMod.createGates && guidanceMod.createRetriever && guidanceMod.createLedger) {
+            var gates = guidanceMod.createGates();
+            var retriever = guidanceMod.createRetriever();
+            var ledger = guidanceMod.createLedger();
+            // Try to compile CLAUDE.md so the retriever has shards to serve
+            try {
+              var claudeMdPath = path.join(CWD, 'CLAUDE.md');
+              if (fs.existsSync(claudeMdPath)) {
+                var compiler = guidanceMod.createCompiler();
+                var rootContent = fs.readFileSync(claudeMdPath, 'utf-8');
+                var localPath = path.join(CWD, 'CLAUDE.local.md');
+                var localContent = fs.existsSync(localPath) ? fs.readFileSync(localPath, 'utf-8') : undefined;
+                var bundle = compiler.compile(rootContent, localContent);
+                await retriever.loadBundle(bundle);
+                var allRules = [].concat(
+                  bundle.constitution.rules || [],
+                  (bundle.shards || []).map(function(s) { return s.rule; })
+                );
+                gates.setActiveRules(allRules);
+                console.log('[GUIDANCE] Compiled CLAUDE.md: ' + (bundle.shards || []).length + ' shards, ' + gates.getActiveGateCount() + ' gates');
+              }
+            } catch (compileErr) { /* non-fatal — gates still work without shards */ }
+            // Register on the global hook registry
+            if (guidanceMod.createGuidanceHooks && hooksModule.defaultRegistry) {
+              var result = guidanceMod.createGuidanceHooks(gates, retriever, ledger, hooksModule.defaultRegistry);
+              console.log('[GUIDANCE] Registered ' + result.hookIds.length + ' hooks on registry');
+            }
+          }
+        } catch (guidanceErr) { /* @monomind/guidance not available — skip */ }
+
         // Fire SessionStart event so observability bus and other SessionStart hooks activate
         if (hooksModule.executeHooks && hooksModule.HookEvent) {
           try {
