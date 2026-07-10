@@ -288,6 +288,32 @@ module.exports = {
             }
           }
         }
+        // Ultralearn insights (bridge nodes crossing community boundaries)
+        var ultralearnFile = path.join(metricsDir, 'ultralearn.json');
+        if (fs.existsSync(ultralearnFile) && fs.statSync(ultralearnFile).size < 32768) {
+          var ulData = JSON.parse(fs.readFileSync(ultralearnFile, 'utf-8'));
+          if (ulData && ulData.insightsGained && ulData.insightsGained.length > 0) {
+            for (var ui = 0; ui < ulData.insightsGained.length; ui++) {
+              var insight = ulData.insightsGained[ui];
+              if (insight.category === 'bridge_nodes' && insight.items && insight.items.length > 0) {
+                var topBridge = insight.items[0];
+                console.log('[ARCHITECTURE] ' + insight.items.length + ' bridge nodes crossing community boundaries. Top: ' + (topBridge.name || 'unknown') + ' (' + (topBridge.crossCommunityEdges || '?') + ' cross-edges) in ' + (topBridge.location || 'unknown'));
+              }
+            }
+          }
+        }
+        // Performance metrics (daemon optimize worker)
+        var perfFile = path.join(metricsDir, 'performance.json');
+        if (fs.existsSync(perfFile) && fs.statSync(perfFile).size < 32768) {
+          var perfData = JSON.parse(fs.readFileSync(perfFile, 'utf-8'));
+          if (perfData && perfData.memoryUsage) {
+            var rssBytes = perfData.memoryUsage.rss || 0;
+            var rssMB = Math.round(rssBytes / (1024 * 1024));
+            if (rssMB > 512) {
+              console.log('[PERF] Daemon RSS ' + rssMB + 'MB (>512MB threshold). Consider restarting daemon or reducing worker concurrency');
+            }
+          }
+        }
         // Memory consolidation health
         var consolFile = path.join(metricsDir, 'consolidation.json');
         if (fs.existsSync(consolFile) && fs.statSync(consolFile).size < 32768) {
