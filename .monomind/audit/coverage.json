@@ -2,11 +2,11 @@
   "areas": {
     "memory-consolidation": {
       "status": "needs-review",
-      "last_audited": "2026-07-11T01:00:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 4,
-      "note": "Research complete: 3 incompatible pattern stores (neural JSON linear-scan, intelligence JSON linear-scan, @monomind/memory HNSW). Shared cosine/embedding utils prevent worst duplication. Plan: wire neural-tools and intelligence.ts to use HNSW via UnifiedMemoryService instead of hand-rolled JSON + linear scan. Implementation deferred to next iteration."
+      "last_audited": "2026-07-11T02:00:00.000Z",
+      "verdict": "DEFERRED",
+      "iterations": 2,
+      "value_delivered": 5,
+      "note": "Not trim-first eligible — requires refactoring, not deletion. Two active pattern stores: neural-tools.ts (766 lines, 6 MCP tools, models.json) and intelligence.ts (1608 lines, 30 importers, patterns.json). Already partially coordinated (intelligence reads from models.json at init). Shared embedding pipeline prevents vector incompatibility. @monomind/memory HNSW (8943 lines, 3 importers) exists but is barely used. Consolidation requires rewriting neural MCP tool handlers to delegate to intelligence.ts — substantial refactoring beyond audit scope."
     },
     "hooks-architecture-unify": {
       "status": "needs-review",
