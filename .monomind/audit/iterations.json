@@ -189,6 +189,43 @@
         },
         "remaining_work": "Semantic (embedding) routing in hooks path would require solving ESM/latency constraints — keyword bridge is the pragmatic solution",
         "timestamp": "2026-07-10T04:10:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 7,
+          "honesty_gap": 3,
+          "potential_value": 8
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Added loadFeedbackWeights() to router.cjs: reads routing-feedback.jsonl (last 200 entries), computes per-agent success rates, adjusts confidence by up to +/-0.10 (boost for >70% success, dampen for <40%)",
+          "Wired applyFeedbackWeight() into all 3 routeTask return paths (domain agents, dev patterns, defaults)",
+          "60-second TTL cache prevents repeated disk reads within a session",
+          "Isolated router tests from real feedback data via CLAUDE_PROJECT_DIR env var",
+          "Added 2 new tests: feedback boost (100% success -> confidence > 0.80) and feedback dampen (20% success -> confidence < 0.80)"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 1,
+          "potential_value": 8
+        },
+        "verification": {
+          "tests_passed": 960,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "new_tests_added": 2,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "feedback_loop_closed": true,
+          "weight_range": "[-0.10, +0.10]",
+          "cache_ttl_ms": 60000,
+          "min_data_points": 5,
+          "test_isolation": "CLAUDE_PROJECT_DIR set to tmpDir in both test files"
+        },
+        "convergence_rationale": "The feedback loop is now closed: session-handler writes routing outcomes to routing-feedback.jsonl, and router.cjs reads them to adjust agent confidence scores. Agents with proven track records (>70% success rate) get boosted; poor performers (<40%) get dampened. This makes routing genuinely self-improving across sessions. Combined with the keyword enrichment bridge from iteration 2, routing delivers real value. Value 7->8.",
+        "timestamp": "2026-07-10T08:45:00.000Z"
       }
     ],
     "monograph": [
@@ -1027,9 +1064,9 @@
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-10T06:00:00.000Z",
-    "total_iterations": 37,
-    "features_converged": 21,
+    "last_updated": "2026-07-10T08:45:00.000Z",
+    "total_iterations": 38,
+    "features_converged": 22,
     "features_removed": 0
   }
 }
