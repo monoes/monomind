@@ -10,6 +10,7 @@ import { type MCPTool, getProjectCwd } from './types.js';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { cosineSimilarity } from '../utils/cosine-similarity.js';
+import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
 
 const MAX_NEURAL_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 const NEURAL_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -87,27 +88,25 @@ function ensureNeuralDir(): void {
 
 function loadNeuralStore(): NeuralStore {
   try {
-    const path = getNeuralPath();
-    if (existsSync(path)) {
-      if (statSync(path).size > MAX_NEURAL_STORE_BYTES) {
-        return { models: {}, patterns: {}, version: '3.0.0' };
-      }
-      const raw = JSON.parse(readFileSync(path, 'utf-8')) as NeuralStore;
-      // Strip proto-polluting keys from top-level containers
-      const models: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(raw.models ?? {})) {
-        if (!NEURAL_RESERVED_KEYS.has(k)) models[k] = v;
-      }
-      const patterns: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(raw.patterns ?? {})) {
-        if (!NEURAL_RESERVED_KEYS.has(k)) patterns[k] = v;
-      }
-      return {
-        models: models as NeuralStore['models'],
-        patterns: patterns as NeuralStore['patterns'],
-        version: typeof raw.version === 'string' ? raw.version : '3.0.0',
-      };
+    const raw = readJsonFileSync<NeuralStore>(
+      getNeuralPath(),
+      { models: {}, patterns: {}, version: '3.0.0' },
+      MAX_NEURAL_STORE_BYTES,
+    );
+    // Strip proto-polluting keys from top-level containers
+    const models: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(raw.models ?? {})) {
+      if (!NEURAL_RESERVED_KEYS.has(k)) models[k] = v;
     }
+    const patterns: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(raw.patterns ?? {})) {
+      if (!NEURAL_RESERVED_KEYS.has(k)) patterns[k] = v;
+    }
+    return {
+      models: models as NeuralStore['models'],
+      patterns: patterns as NeuralStore['patterns'],
+      version: typeof raw.version === 'string' ? raw.version : '3.0.0',
+    };
   } catch {
     // Return empty store
   }
@@ -116,10 +115,7 @@ function loadNeuralStore(): NeuralStore {
 
 function saveNeuralStore(store: NeuralStore): void {
   ensureNeuralDir();
-  const dest = getNeuralPath();
-  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
-  writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
-  renameSync(tmp, dest);
+  writeJsonFileAtomic(getNeuralPath(), store);
 }
 
 // Generate embedding - uses real ML embeddings if available, falls back to deterministic hash
@@ -259,39 +255,10 @@ export const neuralTools: MCPTool[] = [
       model.trainedAt = new Date().toISOString();
       saveNeuralStore(store);
 
-      // Mirror patterns to patterns.json so CLI commands (neural patterns list,
-      // neural predict) can find patterns trained via MCP and vice versa.
-      if (patternsStored > 0) {
-        try {
-          const patternsPath = join(getNeuralDir(), PATTERNS_FILE);
-          let existing: Array<Record<string, unknown>> = [];
-          if (existsSync(patternsPath) && statSync(patternsPath).size <= MAX_NEURAL_STORE_BYTES) {
-            const raw = readFileSync(patternsPath, 'utf-8');
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) existing = parsed;
-          }
-          const existingIds = new Set(existing.map(p => p['id']));
-          const newEntries = Object.values(store.patterns)
-            .filter(p => p.id.startsWith(modelId) && !existingIds.has(p.id))
-            .map(p => ({
-              id: p.id,
-              type: p.type,
-              content: p.name,
-              confidence: 0.8,
-              usageCount: 0,
-              embedding: p.embedding,
-              createdAt: p.createdAt,
-            }));
-          if (newEntries.length > 0) {
-            const merged = [...existing, ...newEntries];
-            const tmp = `${patternsPath}.${process.pid}.${Date.now()}.tmp`;
-            writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf-8');
-            renameSync(tmp, patternsPath);
-          }
-        } catch {
-          // Mirror is best-effort; don't fail the train operation
-        }
-      }
+      // MCP-trained patterns stay in models.json. intelligence.ts reads
+      // from models.json directly at init time (loadMcpPatterns), eliminating
+      // the previous mirror-to-patterns.json approach that caused a write
+      // conflict (two subsystems writing the same file).
 
       return {
         success: true,
@@ -350,21 +317,19 @@ export const neuralTools: MCPTool[] = [
       const latency = Math.round(performance.now() - startTime);
 
       // Search stored patterns via cosine similarity.
-      // Merge MCP models.json patterns with CLI patterns.json.
+      // Merge MCP models.json patterns with CLI patterns.json (owned by intelligence.ts).
       const MAX_SCAN = 10000;
       const EARLY_EXIT_THRESHOLD = 0.1;
       const mcpPatterns = Object.values(store.patterns);
       const cliPatternsRaw: Array<{ id?: string; type?: string; content?: string; name?: string; embedding?: number[] }> = [];
       try {
         const cliPath = join(getNeuralDir(), PATTERNS_FILE);
-        if (existsSync(cliPath) && statSync(cliPath).size <= MAX_NEURAL_STORE_BYTES) {
-          const raw = JSON.parse(readFileSync(cliPath, 'utf-8'));
-          if (Array.isArray(raw)) {
-            const mcpIds = new Set(mcpPatterns.map(p => p.id));
-            for (const p of raw) {
-              if (p?.id && !mcpIds.has(p.id) && Array.isArray(p.embedding)) {
-                cliPatternsRaw.push(p);
-              }
+        const raw = readJsonFileSync<unknown[]>(cliPath, [], MAX_NEURAL_STORE_BYTES);
+        if (Array.isArray(raw)) {
+          const mcpIds = new Set(mcpPatterns.map(p => p.id));
+          for (const p of raw as Array<{ id?: string; type?: string; content?: string; name?: string; embedding?: number[] }>) {
+            if (p?.id && !mcpIds.has(p.id) && Array.isArray(p.embedding)) {
+              cliPatternsRaw.push(p);
             }
           }
         }
