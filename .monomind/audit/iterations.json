@@ -681,6 +681,40 @@
         "fixes_applied": [],
         "convergence_rationale": "BFT/Raft/Quorum real. Gossip/CRDT honestly labeled. No further improvements without real distributed IPC.",
         "timestamp": "2026-07-09T18:30:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 5,
+          "implementation_health": 7,
+          "honesty_gap": 3,
+          "potential_value": 7
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Added hive-mind_audit_list MCP tool: exposes AuditWriter.listDecisions() — list tamper-evident HMAC-signed consensus records filtered by swarmId, capped at 500",
+          "Added hive-mind_audit_verify MCP tool: exposes AuditWriter.verifyDecision() — re-verifies all vote HMAC signatures and outer record signature for a given decisionId"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 7
+        },
+        "verification": {
+          "tests_passed": 962,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "mcp_tools_before": 9,
+          "mcp_tools_after": 11,
+          "new_tools": ["hive-mind_audit_list", "hive-mind_audit_verify"],
+          "audit_trail_closed_loop": true,
+          "listDecisions_was_unreachable": true,
+          "verifyDecision_was_unreachable": true
+        },
+        "remaining_work": "Value ceiling (7) limited by single-process architecture. Reaching 8 requires either: (a) consumer in route-handler that uses consensus history to inform agent selection, or (b) real distributed IPC for multi-process consensus.",
+        "timestamp": "2026-07-10T15:50:00.000Z"
       }
     ],
     "monofence": [
@@ -1168,8 +1202,8 @@
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-10T09:30:00.000Z",
-    "total_iterations": 39,
+    "last_updated": "2026-07-10T15:50:00.000Z",
+    "total_iterations": 40,
     "features_converged": 22,
     "features_removed": 0
   }

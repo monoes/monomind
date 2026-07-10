@@ -90,10 +90,10 @@
     },
     "hive-mind": {
       "status": "needs-review",
-      "last_audited": "2026-07-09T18:30:00.000Z",
+      "last_audited": "2026-07-10T15:50:00.000Z",
       "verdict": "ITERATE",
-      "iterations": 2,
-      "note": "Re-opened: single-process BFT — can it actually deliver value?"
+      "iterations": 3,
+      "note": "Audit trail closed loop: listDecisions/verifyDecision now exposed via MCP tools. Value 5->6. Ceiling at 7 due to single-process architecture."
     },
     "daemon-system": {
       "status": "needs-review",
@@ -154,6 +154,6 @@
   },
   "total_areas": 22,
   "audited_count": 10,
-  "last_updated": "2026-07-10T14:40:00.000Z",
+  "last_updated": "2026-07-10T15:50:00.000Z",
   "org_version": "value-loop-v2-aggressive"
 }
