@@ -810,13 +810,58 @@
         "remaining_work": "PostRoute/PreRoute events exist in enum but no CJS handler fires them (no registered consumers either — low priority)",
         "timestamp": "2026-07-10T02:05:00.000Z"
       }
+    ],
+    "cross-docs-honesty": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 5,
+          "implementation_health": 6,
+          "honesty_gap": 7,
+          "potential_value": 9
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Removed 2 phantom commands from root CLAUDE.md CLI table (deployment, embeddings) — no command files, no imports, no index.ts registration",
+          "Expanded CLI table from 18 entries to all 41 registered commands with accurate descriptions",
+          "Removed phantom agents (InputValidator, PathValidator, SafeExecutor) from root CLAUDE.md — these are @monomind/security utility functions, not agent classes",
+          "Fixed hooks subcommand count: 17 -> 26 in root CLAUDE.md and packages/@monomind/cli/CLAUDE.md",
+          "Added 5 missing packages to Key Packages table: @monomind/mcp, @monomind/routing, @monoes/monograph, monofence-ai",
+          "Marked gossip/crdt consensus strategies as 'planned but not yet implemented' in Hive-Mind section",
+          "Clarified Agent Teams hooks as 'Claude Code hook events, not CLI subcommands'",
+          "Removed 4 phantom commands from package CLAUDE.md (deployment, embeddings, plugins, migrate)",
+          "Fixed '12 background workers' -> '11 background workers' in hooks description (11 in @monomind/hooks, 12 in daemon — different systems)",
+          "Fixed capabilities reference: '26 CLI commands with 140+ subcommands' -> '41 CLI commands', '27 hooks + 12 workers' -> accurate split"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 2,
+          "potential_value": 9
+        },
+        "verification": {
+          "tests_passed": 956,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "phantom_commands_removed": ["deployment", "embeddings", "plugins", "migrate"],
+          "phantom_agents_removed": ["InputValidator", "PathValidator", "SafeExecutor"],
+          "cli_table_entries_before": 18,
+          "cli_table_entries_after": 41,
+          "packages_listed_before": 6,
+          "packages_listed_after": 10,
+          "files_changed": ["CLAUDE.md", "packages/@monomind/cli/CLAUDE.md"]
+        },
+        "convergence_rationale": "Both CLAUDE.md files now accurately reflect the codebase: all 41 CLI commands listed (no phantoms), correct hook/worker counts, honest consensus strategy status, complete package inventory. AI agents reading CLAUDE.md will no longer be misled into using nonexistent commands or expecting phantom agent types. Remaining honesty gap (2) is inherent drift risk in manual docs.",
+        "timestamp": "2026-07-10T02:45:00.000Z"
+      }
     ]
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-10T02:05:00.000Z",
-    "total_iterations": 33,
-    "features_converged": 18,
+    "last_updated": "2026-07-10T02:45:00.000Z",
+    "total_iterations": 34,
+    "features_converged": 19,
     "features_removed": 0
   }
 }
