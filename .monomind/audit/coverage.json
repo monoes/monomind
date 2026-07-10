@@ -82,11 +82,11 @@
       "note": "Re-opened: ~400 files, many likely dead — aggressive cleanup needed"
     },
     "swarm-agents": {
-      "status": "needs-review",
-      "last_audited": "2026-07-09T14:50:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "note": "Re-opened: was KEEP-AS-IS but salvation-first requires checking if consensus can be made useful"
+      "status": "converged",
+      "last_audited": "2026-07-10T05:00:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 2,
+      "note": "Unified CLI/MCP swarm state paths (.swarm/ -> .monomind/swarm/). Agent counts from real MCP store. Value 7->8."
     },
     "hive-mind": {
       "status": "needs-review",
@@ -154,6 +154,6 @@
   },
   "total_areas": 22,
   "audited_count": 6,
-  "last_updated": "2026-07-10T04:10:00.000Z",
+  "last_updated": "2026-07-10T05:00:00.000Z",
   "org_version": "value-loop-v2-aggressive"
 }

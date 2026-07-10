@@ -506,6 +506,42 @@
         },
         "convergence_rationale": "The agents module is lean but well-integrated. The src/agents/ directory contains only registry-builder.ts (239 lines), which scans .claude/agents/*.md files (144 definitions), parses YAML frontmatter, and produces a unified registry JSON. This feeds into startup (index.ts), doctor checks, and agent routing. The actual agent lifecycle (spawn/list/status/stop/metrics/pool/health) lives in commands/agent-lifecycle.ts and agent-ops.ts, delegating to MCP tools for state management. The swarm command (912 lines) provides init/start/status/stop/scale/coordinate with real MCP integration and disk-persisted state. The MCP agent-tools.ts provides file-backed agent persistence with proper resource bounding (50MB store cap, 500 terminated agent pruning). Consensus coordination is implemented through swarm topology selection (hierarchical, mesh, ring, star, hybrid, hierarchical-mesh) with the coordinate command showing the v1 15-agent plan. No dead or broken agent types found. The spawn command integrates with route-layer-factory for auto-routing by task description. All 880 tests pass. No honesty gaps -- the CLI honestly delegates to MCP for actual execution and clearly states when MCP is unavailable. No code changes needed.",
         "timestamp": "2026-07-09T14:50:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 5,
+          "honesty_gap": 4,
+          "potential_value": 8
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Unified swarm state storage: CLI swarm init/start/stop now read/write .monomind/swarm/swarm-state.json (MCP-canonical path) instead of .swarm/state.json — CLI and MCP tools share state",
+          "CLI swarm init writes MCP store format ({ swarms: { [id]: SwarmState } }) so swarm_shutdown can find CLI-initialized swarms",
+          "CLI swarm stop updates specific swarm entry in MCP store format instead of legacy flat file",
+          "getSwarmStatus() reads agent counts from .monomind/agents/store.json (where MCP agent_spawn actually stores records) instead of nonexistent .swarm/agents/*.json",
+          "getSwarmStatus() parses MCP store format to find latest non-terminated swarm, with legacy format fallback"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 8
+        },
+        "verification": {
+          "tsc_noEmit": "clean",
+          "tests_passed": 958,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "state_paths_unified": true,
+          "cli_writes_mcp_format": true,
+          "agent_counts_from_real_store": true,
+          "bug_fixed": "swarm stop for CLI-initialized swarms no longer fails with 'not found' because both CLI and MCP write to same file"
+        },
+        "convergence_rationale": "The dual-state-path bug was the primary honesty gap — CLI wrote to .swarm/state.json while MCP wrote to .monomind/swarm/swarm-state.json, making swarm stop fail for CLI-initiated swarms and swarm status show 0 agents despite MCP having spawned them. Both paths now unified. Agent counts come from the real MCP agent store. Value 7->8.",
+        "timestamp": "2026-07-10T05:00:00.000Z"
       }
     ],
     "hive-mind": [
