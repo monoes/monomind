@@ -170,6 +170,23 @@ module.exports = {
       // recommendations that are no longer injected into context. The statusline
       // just shows the keyword router's pick; no need for 50 lines of overrides.
 
+      // ── Dispatch dedup: suppress re-recommending the same agent just dispatched ──
+      // agent-start-handler writes last-dispatch.json on SubagentStart.
+      // If the router picks the same agent within 60s, it's likely the parent re-routing
+      // the same prompt — log a note so the LLM can vary its approach.
+      try {
+        var dispatchPath = path.join(CWD, '.monomind', 'last-dispatch.json');
+        var MAX_DISPATCH = 4096;
+        if (fs.existsSync(dispatchPath) && fs.statSync(dispatchPath).size <= MAX_DISPATCH) {
+          var lastDispatch = JSON.parse(fs.readFileSync(dispatchPath, 'utf-8'));
+          var dispatchAge = Date.now() - new Date(lastDispatch.dispatchedAt || 0).getTime();
+          if (dispatchAge < 60000 && lastDispatch.agentType === (result.agentSlug || result.agent)) {
+            result.recentlyDispatched = true;
+            console.log('[DISPATCH_DEDUP] ' + lastDispatch.agentType + ' was dispatched ' + Math.round(dispatchAge / 1000) + 's ago — consider a different specialist or direct implementation');
+          }
+        }
+      } catch (e) { /* non-fatal */ }
+
       var output = [];
       var conf = result.confidence != null ? result.confidence : 0;
 
