@@ -286,7 +286,7 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `workflow`  | 6           | Workflow execution and template management                               | Working         |
-| `hooks`     | 17          | Self-learning hooks + 12 background workers                              | Working         |
+| `hooks`     | 26          | Self-learning hooks + 11 background workers                              | Working         |
 | `hive-mind` | 6           | BFT/Raft/Quorum vote counting (single-process)                          | MCP-dependent   |
 
 ### Advanced Commands
@@ -298,11 +298,10 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 | `security`    | 6           | Security scanning (scan, audit, cve, threats, validate, report)               | Working          |
 | `performance` | 5           | Performance profiling (benchmark, profile, metrics, optimize, report)         | Minimal          |
 | `providers`   | 5           | AI providers (list, add, remove, test, configure)                             | Minimal          |
-| `plugins`     | 5           | Plugin management (list, install, uninstall, enable, disable)                 | Minimal          |
-| `deployment`  | 5           | Deployment management (deploy, rollback, status, environments, release)       | Minimal          |
-| `embeddings`  | 4           | Vector embeddings (embed, batch, search, init)                                | Minimal          |
 | `claims`      | 4           | Claims-based authorization (check, grant, revoke, list)                       | Minimal          |
-| `migrate`     | 5           | V2 to V1 migration with rollback support                                      | Minimal          |
+| `guidance`    | 7           | Governance control plane (compile, gates, optimize)                           | Working          |
+| `monograph`   | -           | Knowledge graph CLI (delegates to @monoes/monograph)                          | Working          |
+| `browse`      | -           | Browser automation via CDP (@monoes/monobrowse)                               | Working          |
 | `doctor`      | 1           | System diagnostics with health checks                                         | Working          |
 | `completions` | 4           | Shell completions (bash, zsh, fish, powershell)                               | Working          |
 
@@ -380,7 +379,7 @@ CVE remediation, input validation, path security (utility functions, not standal
 
 `tdd-london-swarm`, `production-validator`
 
-## 🪝 Hooks System (27 Hooks + 12 Workers)
+## 🪝 Hooks System (26 Hook Subcommands + 12 Daemon Workers + 11 Hooks Workers)
 
 ### All Available Hooks
 
@@ -691,8 +690,8 @@ For a comprehensive overview of all Monomind features, agents, commands, and int
 This includes:
 
 - All 60+ agent type definitions (routing targets) with recommendations
-- All 26 CLI commands with 140+ subcommands
-- All 27 hooks + 12 background workers
+- All 41 CLI commands
+- All 26 hook subcommands + 11 background workers (hooks) + 12 daemon workers
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, lancedb,agentic-jujutsu)
