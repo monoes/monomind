@@ -524,10 +524,12 @@ export class CLI {
     // visible and itemized when you actually look for it.
 
     // NOTE: Semantic routing (@monomind/routing) is constructed on-demand by
-    // its consumers — `monomind route` and `monomind agent --task` (see
-    // commands/route.ts and commands/agent.ts). It is intentionally NOT
-    // eagerly initialized here: building all route centroids and probing for
-    // the `claude` CLI on every CLI startup would regress the <500ms startup
+    // its consumers — `monomind route semantic` (commands/route.ts) and the
+    // `hooks_route_semantic` MCP tool (mcp-tools/hooks-routing.ts), both via
+    // routing/route-layer-factory.ts. `monomind agent` has no --task flag —
+    // that routing point does not exist yet. It is intentionally NOT eagerly
+    // initialized here: building all route centroids and probing for the
+    // `claude` CLI on every CLI startup would regress the <500ms startup
     // budget for zero benefit (nothing reads a process-global route layer).
   }
 

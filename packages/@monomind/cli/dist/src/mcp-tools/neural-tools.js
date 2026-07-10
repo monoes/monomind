@@ -2,37 +2,25 @@
  * Pattern Store MCP Tools
  *
  * Embed text as vectors, store patterns, search by cosine similarity.
- * Uses monovector ONNX embeddings when available, deterministic hash fallback otherwise.
+ * Embeddings come from the shared memory/embedding-operations.ts pipeline
+ * (LanceDB bridge -> ONNX -> deterministic hash fallback) — the same one used
+ * by CLI `neural` commands and memory search, so MCP- and CLI-trained patterns
+ * are embedded consistently.
  * Tools are registered under the "neural" namespace for backwards compatibility.
  */
 import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { cosineSimilarity } from '../utils/cosine-similarity.js';
+import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
 const MAX_NEURAL_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 const NEURAL_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-// Embeddings via monovector ONNX when available; deterministic hash fallback otherwise.
-let realEmbeddings = null;
-let embeddingServiceName = 'none';
-try {
-    const monovector = await import('monovector').catch(() => null);
-    if (monovector?.getOptimizedOnnxEmbedder) {
-        await monovector.initOnnxEmbedder?.();
-        const onnxEmb = monovector.getOptimizedOnnxEmbedder();
-        if (onnxEmb?.embed) {
-            const probe = await onnxEmb.embed('test');
-            const hasNonZero = ArrayBuffer.isView(probe) || Array.isArray(probe)
-                ? [...probe].some((v) => v !== 0)
-                : false;
-            if (probe && probe.length > 0 && hasNonZero) {
-                realEmbeddings = { embed: async (text) => Array.from(await onnxEmb.embed(text)) };
-                embeddingServiceName = 'monovector/onnx';
-            }
-        }
-    }
-}
-catch {
-    // No ONNX embedding provider available, will use hash fallback
-}
+// Embeddings: delegate to the shared embedding pipeline (LanceDB bridge → ONNX →
+// deterministic hash fallback) in memory/embedding-operations.ts. This is the same
+// path CLI `neural` commands use via intelligence.ts — previously neural-tools.ts
+// had its own separate ONNX/hash implementation, which meant MCP-trained patterns
+// and CLI-trained patterns were embedded with different, incompatible vectors.
+let lastEmbeddingModel = 'unknown';
 // Storage paths
 const STORAGE_DIR = '.monomind';
 const NEURAL_DIR = 'neural';
@@ -52,29 +40,23 @@ function ensureNeuralDir() {
 }
 function loadNeuralStore() {
     try {
-        const path = getNeuralPath();
-        if (existsSync(path)) {
-            if (statSync(path).size > MAX_NEURAL_STORE_BYTES) {
-                return { models: {}, patterns: {}, version: '3.0.0' };
-            }
-            const raw = JSON.parse(readFileSync(path, 'utf-8'));
-            // Strip proto-polluting keys from top-level containers
-            const models = {};
-            for (const [k, v] of Object.entries(raw.models ?? {})) {
-                if (!NEURAL_RESERVED_KEYS.has(k))
-                    models[k] = v;
-            }
-            const patterns = {};
-            for (const [k, v] of Object.entries(raw.patterns ?? {})) {
-                if (!NEURAL_RESERVED_KEYS.has(k))
-                    patterns[k] = v;
-            }
-            return {
-                models: models,
-                patterns: patterns,
-                version: typeof raw.version === 'string' ? raw.version : '3.0.0',
-            };
+        const raw = readJsonFileSync(getNeuralPath(), { models: {}, patterns: {}, version: '3.0.0' }, MAX_NEURAL_STORE_BYTES);
+        // Strip proto-polluting keys from top-level containers
+        const models = {};
+        for (const [k, v] of Object.entries(raw.models ?? {})) {
+            if (!NEURAL_RESERVED_KEYS.has(k))
+                models[k] = v;
         }
+        const patterns = {};
+        for (const [k, v] of Object.entries(raw.patterns ?? {})) {
+            if (!NEURAL_RESERVED_KEYS.has(k))
+                patterns[k] = v;
+        }
+        return {
+            models: models,
+            patterns: patterns,
+            version: typeof raw.version === 'string' ? raw.version : '3.0.0',
+        };
     }
     catch {
         // Return empty store
@@ -83,54 +65,32 @@ function loadNeuralStore() {
 }
 function saveNeuralStore(store) {
     ensureNeuralDir();
-    const dest = getNeuralPath();
-    const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
-    writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
-    renameSync(tmp, dest);
+    writeJsonFileAtomic(getNeuralPath(), store);
 }
-// Generate embedding - uses real ML embeddings if available, falls back to deterministic hash
+// Generate embedding via the shared pipeline (LanceDB bridge → ONNX → deterministic
+// hash), same one used by CLI `neural` commands and memory search. Falls back to a
+// local deterministic hash only if the shared module fails to load entirely.
 async function generateEmbedding(text, dims = 384) {
-    // If real embeddings available and text provided, use them
-    if (realEmbeddings && text) {
-        try {
-            return await realEmbeddings.embed(text);
-        }
-        catch {
-            // Fall back to hash-based
-        }
+    if (!text)
+        return new Array(dims).fill(0);
+    try {
+        const { generateEmbedding: sharedGenerateEmbedding } = await import('../memory/embedding-operations.js');
+        const result = await sharedGenerateEmbedding(text);
+        lastEmbeddingModel = result.model;
+        return result.embedding;
     }
-    // Hash-based deterministic embedding (better than pure random for consistency)
-    if (text) {
-        const hash = text.split('').reduce((acc, char, i) => {
-            return acc + char.charCodeAt(0) * (i + 1);
-        }, 0);
-        // Use hash to seed a deterministic embedding
+    catch {
+        // memory/embedding-operations.js unavailable — deterministic hash fallback
+        lastEmbeddingModel = 'hash-fallback';
+        const hash = text.split('').reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), 0);
         const embedding = [];
         let seed = hash;
         for (let i = 0; i < dims; i++) {
-            // Simple LCG random with seed
             seed = (seed * 1103515245 + 12345) & 0x7fffffff;
             embedding.push((seed / 0x7fffffff) * 2 - 1);
         }
         return embedding;
     }
-    // No text provided — return zero vector (callers should always provide text)
-    return new Array(dims).fill(0);
-}
-// Cosine similarity for pattern search
-function cosineSimilarity(a, b) {
-    if (a.length !== b.length) {
-        throw new Error(`Embedding dimension mismatch: ${a.length} vs ${b.length}. Ensure all embeddings use the same provider and dims.`);
-    }
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < a.length; i++) {
-        dotProduct += a[i] * b[i];
-        normA += a[i] * a[i];
-        normB += b[i] * b[i];
-    }
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
 }
 export const neuralTools = [
     {
@@ -229,44 +189,13 @@ export const neuralTools = [
             model.patternsStored = patternsStored;
             model.trainedAt = new Date().toISOString();
             saveNeuralStore(store);
-            // Mirror patterns to patterns.json so CLI commands (neural patterns list,
-            // neural predict) can find patterns trained via MCP and vice versa.
-            if (patternsStored > 0) {
-                try {
-                    const patternsPath = join(getNeuralDir(), PATTERNS_FILE);
-                    let existing = [];
-                    if (existsSync(patternsPath) && statSync(patternsPath).size <= MAX_NEURAL_STORE_BYTES) {
-                        const raw = readFileSync(patternsPath, 'utf-8');
-                        const parsed = JSON.parse(raw);
-                        if (Array.isArray(parsed))
-                            existing = parsed;
-                    }
-                    const existingIds = new Set(existing.map(p => p['id']));
-                    const newEntries = Object.values(store.patterns)
-                        .filter(p => p.id.startsWith(modelId) && !existingIds.has(p.id))
-                        .map(p => ({
-                        id: p.id,
-                        type: p.type,
-                        content: p.name,
-                        confidence: 0.8,
-                        usageCount: 0,
-                        embedding: p.embedding,
-                        createdAt: p.createdAt,
-                    }));
-                    if (newEntries.length > 0) {
-                        const merged = [...existing, ...newEntries];
-                        const tmp = `${patternsPath}.${process.pid}.${Date.now()}.tmp`;
-                        writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf-8');
-                        renameSync(tmp, patternsPath);
-                    }
-                }
-                catch {
-                    // Mirror is best-effort; don't fail the train operation
-                }
-            }
+            // MCP-trained patterns stay in models.json. intelligence.ts reads
+            // from models.json directly at init time (loadMcpPatterns), eliminating
+            // the previous mirror-to-patterns.json approach that caused a write
+            // conflict (two subsystems writing the same file).
             return {
                 success: true,
-                _realEmbedding: !!realEmbeddings,
+                _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
                 modelId,
                 type: modelType,
                 status: model.status,
@@ -316,21 +245,19 @@ export const neuralTools = [
             const embedding = await generateEmbedding(inputText, 384);
             const latency = Math.round(performance.now() - startTime);
             // Search stored patterns via cosine similarity.
-            // Merge MCP models.json patterns with CLI patterns.json.
+            // Merge MCP models.json patterns with CLI patterns.json (owned by intelligence.ts).
             const MAX_SCAN = 10000;
             const EARLY_EXIT_THRESHOLD = 0.1;
             const mcpPatterns = Object.values(store.patterns);
             const cliPatternsRaw = [];
             try {
                 const cliPath = join(getNeuralDir(), PATTERNS_FILE);
-                if (existsSync(cliPath) && statSync(cliPath).size <= MAX_NEURAL_STORE_BYTES) {
-                    const raw = JSON.parse(readFileSync(cliPath, 'utf-8'));
-                    if (Array.isArray(raw)) {
-                        const mcpIds = new Set(mcpPatterns.map(p => p.id));
-                        for (const p of raw) {
-                            if (p?.id && !mcpIds.has(p.id) && Array.isArray(p.embedding)) {
-                                cliPatternsRaw.push(p);
-                            }
+                const raw = readJsonFileSync(cliPath, [], MAX_NEURAL_STORE_BYTES);
+                if (Array.isArray(raw)) {
+                    const mcpIds = new Set(mcpPatterns.map(p => p.id));
+                    for (const p of raw) {
+                        if (p?.id && !mcpIds.has(p.id) && Array.isArray(p.embedding)) {
+                            cliPatternsRaw.push(p);
                         }
                     }
                 }
@@ -365,7 +292,7 @@ export const neuralTools = [
             }
             return {
                 success: true,
-                _realEmbedding: !!realEmbeddings,
+                _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
                 _hasStoredPatterns: storedPatterns.length > 0,
                 modelId: model?.id || 'default',
                 input: inputText,
@@ -447,7 +374,7 @@ export const neuralTools = [
                 saveNeuralStore(store);
                 return {
                     success: true,
-                    _realEmbedding: !!realEmbeddings,
+                    _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
                     patternId,
                     name: pattern.name,
                     type: pattern.type,
@@ -481,7 +408,7 @@ export const neuralTools = [
                 saveNeuralStore(store);
                 return {
                     _realSimilarity: true,
-                    _realEmbedding: !!realEmbeddings,
+                    _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
                     query,
                     results: results.map(r => ({
                         id: r.id,
@@ -647,7 +574,7 @@ export const neuralTools = [
             const models = Object.values(store.models);
             const patterns = Object.values(store.patterns);
             return {
-                embeddingProvider: realEmbeddings ? embeddingServiceName : 'hash-based (deterministic)',
+                embeddingProvider: lastEmbeddingModel === 'unknown' ? 'not yet used' : lastEmbeddingModel,
                 models: {
                     total: models.length,
                     ready: models.filter(m => m.status === 'ready').length,

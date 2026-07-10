@@ -12,6 +12,7 @@ import {
   hooksPreCommand,
   hooksPostCommand,
   hooksRoute,
+  hooksRouteSemantic,
   hooksMetrics,
   hooksList,
   hooksPreTask,
@@ -45,6 +46,9 @@ import {
   hooksModelStats,
 } from './hooks-intelligence.js';
 
+import { hooksAdvancedTools } from './hooks-advanced.js';
+import { hooksSynthesisTools } from './hooks-synthesis.js';
+
 // Export all hooks tools
 export const hooksTools: MCPTool[] = [
   hooksPreEdit,
@@ -52,6 +56,7 @@ export const hooksTools: MCPTool[] = [
   hooksPreCommand,
   hooksPostCommand,
   hooksRoute,
+  hooksRouteSemantic,
   hooksMetrics,
   hooksList,
   hooksPreTask,
@@ -83,6 +88,11 @@ export const hooksTools: MCPTool[] = [
   hooksModelRoute,
   hooksModelOutcome,
   hooksModelStats,
+  // Advanced tools salvaged from @monomind/hooks/mcp (AFLOW/DAGLearner routing,
+  // EvoAgentX prompt evolution, RLVR verifiable rewards, trace + HIL checkpoints)
+  ...hooksAdvancedTools,
+  // Dynamic agent synthesis (Task 47) — prompt/register/status/promote/cleanup
+  ...hooksSynthesisTools,
 ];
 
 export default hooksTools;

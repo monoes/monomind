@@ -6,14 +6,8 @@
  */
 
 import type {
-  PreEditInput,
-  PreEditResult,
-  PostEditInput,
-  PostEditResult,
   RouteTaskInput,
   RouteTaskResult,
-  MetricsQueryInput,
-  MetricsQueryResult,
 } from '../types.js';
 
 /**
@@ -30,129 +24,12 @@ interface MCPTool {
   handler: (input: Record<string, unknown>, context?: unknown) => Promise<unknown>;
 }
 
-/**
- * Pre-edit hook MCP tool
- */
-export const preEditTool: MCPTool = {
-  name: 'hooks/pre-edit',
-  description: 'Execute pre-edit hooks for a file. Gets context, suggestions, and warnings before file modification.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      filePath: {
-        type: 'string',
-        description: 'Path to the file being edited',
-      },
-      operation: {
-        type: 'string',
-        enum: ['create', 'modify', 'delete'],
-        description: 'Type of edit operation',
-        default: 'modify',
-      },
-      includeContext: {
-        type: 'boolean',
-        description: 'Include file context in response',
-        default: true,
-      },
-      includeSuggestions: {
-        type: 'boolean',
-        description: 'Include agent suggestions',
-        default: true,
-      },
-    },
-    required: ['filePath'],
-  },
-  handler: async (input: Record<string, unknown>): Promise<PreEditResult> => {
-    const filePath = input.filePath as string;
-    const operation = (input.operation as string) || 'modify';
-    const includeContext = input.includeContext !== false;
-    const includeSuggestions = input.includeSuggestions !== false;
-
-    const result: PreEditResult = {
-      filePath,
-      operation,
-    };
-
-    if (includeContext) {
-      result.context = {
-        fileExists: true, // Would check fs in real implementation
-        fileType: getFileType(filePath),
-        relatedFiles: [],
-        similarPatterns: [],
-      };
-    }
-
-    if (includeSuggestions) {
-      result.suggestions = [
-        {
-          agent: 'coder',
-          suggestion: `Use standard patterns for ${operation} operation`,
-          confidence: 0.85,
-          rationale: 'Based on file type and historical patterns',
-        },
-      ];
-    }
-
-    return result;
-  },
-};
-
-/**
- * Post-edit hook MCP tool
- */
-export const postEditTool: MCPTool = {
-  name: 'hooks/post-edit',
-  description: 'Execute post-edit hooks to record outcome for learning.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      filePath: {
-        type: 'string',
-        description: 'Path to the edited file',
-      },
-      operation: {
-        type: 'string',
-        enum: ['create', 'modify', 'delete'],
-        description: 'Type of edit operation',
-        default: 'modify',
-      },
-      success: {
-        type: 'boolean',
-        description: 'Whether the edit was successful',
-      },
-      outcome: {
-        type: 'string',
-        description: 'Description of the outcome',
-      },
-      metadata: {
-        type: 'object',
-        description: 'Additional metadata',
-      },
-    },
-    required: ['filePath', 'success'],
-  },
-  handler: async (input: Record<string, unknown>): Promise<PostEditResult> => {
-    const filePath = input.filePath as string;
-    const operation = (input.operation as string) || 'modify';
-    const success = input.success as boolean;
-
-    return {
-      filePath,
-      operation,
-      success,
-      recorded: true,
-      recordedAt: new Date().toISOString(),
-      patternId: success ? `pattern-${Date.now()}` : undefined,
-    };
-  },
-};
-
-/**
- * Route task MCP tool
- */
-export const routeTaskTool: MCPTool = {
-  name: 'hooks/route',
-  description: 'Route a task to the optimal agent based on learned patterns. Set useAFLOW=true to engage MCTS-based subgraph workflow search (arXiv:2410.10762).',
+// Renamed from 'hooks/route' → 'hooks/route-advanced' to disambiguate from the CLI's
+// hooks_route (mcp-tools/hooks-routing.ts), which is the primary, actually-wired routing
+// tool. This one is opt-in for AFLOW/DAGLearner/LATS-augmented routing only.
+export const routeAdvancedTool: MCPTool = {
+  name: 'hooks/route-advanced',
+  description: 'Route a task to the optimal agent using AFLOW/DAGLearner/LATS augmentation (MCTS-based subgraph and plan search). For standard routing, use hooks_route instead.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -292,206 +169,6 @@ export const routeTaskTool: MCPTool = {
   },
 };
 
-/**
- * Metrics query MCP tool
- */
-export const metricsTool: MCPTool = {
-  name: 'hooks/metrics',
-  description: 'Query hooks learning metrics and statistics.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      category: {
-        type: 'string',
-        enum: ['all', 'routing', 'edits', 'commands', 'patterns'],
-        description: 'Metrics category to query',
-        default: 'all',
-      },
-      timeRange: {
-        type: 'string',
-        enum: ['hour', 'day', 'week', 'month', 'all'],
-        description: 'Time range for metrics',
-        default: 'all',
-      },
-      includeDetailedStats: {
-        type: 'boolean',
-        description: 'Include detailed statistics',
-        default: false,
-      },
-      format: {
-        type: 'string',
-        enum: ['json', 'summary'],
-        description: 'Output format',
-        default: 'json',
-      },
-    },
-  },
-  handler: async (input: Record<string, unknown>): Promise<MetricsQueryResult> => {
-    const category = (input.category as string) || 'all';
-    const timeRange = (input.timeRange as string) || 'all';
-
-    return {
-      category,
-      timeRange,
-      summary: {
-        totalOperations: 1547,
-        successRate: 89,
-        avgQuality: 0.87,
-        patternsLearned: 156,
-      },
-      routing: {
-        totalRoutes: 423,
-        avgConfidence: 0.84,
-        topAgents: [
-          { agent: 'coder', count: 156, successRate: 0.92 },
-          { agent: 'reviewer', count: 89, successRate: 0.88 },
-          { agent: 'tester', count: 67, successRate: 0.91 },
-        ],
-      },
-      edits: {
-        totalEdits: 756,
-        successRate: 0.93,
-        commonPatterns: ['typescript', 'react', 'api'],
-      },
-      commands: {
-        totalCommands: 368,
-        successRate: 0.82,
-        avgExecutionTime: 4230,
-        commonCommands: ['npm test', 'npm build', 'git status'],
-      },
-    };
-  },
-};
-
-/**
- * Pre-command hook MCP tool
- */
-export const preCommandTool: MCPTool = {
-  name: 'hooks/pre-command',
-  description: 'Execute pre-command hooks to assess risk before command execution.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      command: {
-        type: 'string',
-        description: 'Command to be executed',
-      },
-      workingDirectory: {
-        type: 'string',
-        description: 'Working directory for command',
-      },
-      assessRisk: {
-        type: 'boolean',
-        description: 'Include risk assessment',
-        default: true,
-      },
-    },
-    required: ['command'],
-  },
-  handler: async (input: Record<string, unknown>): Promise<{
-    command: string;
-    riskLevel: 'low' | 'medium' | 'high';
-    warnings: string[];
-    proceed: boolean;
-  }> => {
-    const command = input.command as string;
-    const riskLevel = assessCommandRisk(command);
-
-    return {
-      command,
-      riskLevel: riskLevel.level,
-      warnings: riskLevel.warnings,
-      proceed: riskLevel.level !== 'high',
-    };
-  },
-};
-
-/**
- * Post-command hook MCP tool
- */
-export const postCommandTool: MCPTool = {
-  name: 'hooks/post-command',
-  description: 'Execute post-command hooks to record command execution outcome.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      command: {
-        type: 'string',
-        description: 'Executed command',
-      },
-      success: {
-        type: 'boolean',
-        description: 'Whether command succeeded',
-      },
-      exitCode: {
-        type: 'number',
-        description: 'Command exit code',
-        default: 0,
-      },
-      output: {
-        type: 'string',
-        description: 'Command output (truncated)',
-      },
-      error: {
-        type: 'string',
-        description: 'Error message if failed',
-      },
-      executionTime: {
-        type: 'number',
-        description: 'Execution time in milliseconds',
-      },
-    },
-    required: ['command', 'success'],
-  },
-  handler: async (input: Record<string, unknown>): Promise<{
-    recorded: boolean;
-    patternId?: string;
-  }> => {
-    const success = input.success as boolean;
-
-    return {
-      recorded: true,
-      patternId: success ? `cmd-${Date.now()}` : undefined,
-    };
-  },
-};
-
-/**
- * Daemon status MCP tool
- */
-export const daemonStatusTool: MCPTool = {
-  name: 'hooks/daemon-status',
-  description: 'Get status of hooks daemons.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      daemon: {
-        type: 'string',
-        description: 'Specific daemon to check (or all)',
-      },
-    },
-  },
-  handler: async (input: Record<string, unknown>): Promise<{
-    daemons: Array<{
-      name: string;
-      status: string;
-      lastUpdate?: string;
-      executionCount: number;
-    }>;
-  }> => {
-    return {
-      daemons: [
-        { name: 'metrics-sync', status: 'running', lastUpdate: new Date().toISOString(), executionCount: 45 },
-        { name: 'swarm-monitor', status: 'running', lastUpdate: new Date().toISOString(), executionCount: 890 },
-        { name: 'hooks-learning', status: 'running', lastUpdate: new Date().toISOString(), executionCount: 15 },
-      ],
-    };
-  },
-};
-
-/**
- * Statusline data MCP tool
- */
 export const statuslineTool: MCPTool = {
   name: 'hooks/statusline',
   description: 'Get statusline data for display.',
@@ -578,8 +255,12 @@ export const evoAgentXTool: MCPTool = {
  *
  * Source: RLVR — Reinforcement Learning with Verifiable Rewards (DeepSeek-R1)
  */
-export const modelOutcomeTool: MCPTool = {
-  name: 'hooks/model-outcome',
+// Renamed from 'hooks/model-outcome' → 'hooks/rlvr-outcome' to disambiguate from the
+// CLI's hooks_model-outcome (mcp-tools/hooks-intelligence.ts), which records
+// haiku/sonnet/opus model-routing outcomes — a different concept from this tool's
+// RLVR verifiable-reward computation.
+export const rlvrOutcomeTool: MCPTool = {
+  name: 'hooks/rlvr-outcome',
   description: 'Record a verifiable agent outcome for RLVR reward learning. Runs tsc --noEmit and/or monofence_scan pattern checks and stores the binary reward in ReasoningBank.',
   inputSchema: {
     type: 'object',
@@ -834,16 +515,10 @@ import { traceMCPTools } from './trace-tools.js';
 import { checkpointMCPTools } from './checkpoint-tools.js';
 
 export const hooksMCPTools: MCPTool[] = [
-  preEditTool,
-  postEditTool,
-  routeTaskTool,
-  metricsTool,
-  preCommandTool,
-  postCommandTool,
-  daemonStatusTool,
+  routeAdvancedTool,
   statuslineTool,
   evoAgentXTool,
-  modelOutcomeTool,
+  rlvrOutcomeTool,
   ...traceMCPTools,
   ...checkpointMCPTools,
 ];
@@ -856,24 +531,6 @@ export function getHooksTool(name: string): MCPTool | undefined {
 }
 
 // Helper functions
-
-function getFileType(filePath: string): string {
-  const ext = filePath.split('.').pop() || '';
-  const typeMap: Record<string, string> = {
-    ts: 'typescript',
-    tsx: 'typescript-react',
-    js: 'javascript',
-    jsx: 'javascript-react',
-    py: 'python',
-    go: 'go',
-    rs: 'rust',
-    md: 'markdown',
-    json: 'json',
-    yaml: 'yaml',
-    yml: 'yaml',
-  };
-  return typeMap[ext] || 'unknown';
-}
 
 function routeTaskToAgent(task: string): {
   name: string;
@@ -955,32 +612,5 @@ function routeTaskToAgent(task: string): {
   };
 }
 
-function assessCommandRisk(command: string): {
-  level: 'low' | 'medium' | 'high';
-  warnings: string[];
-} {
-  const warnings: string[] = [];
-  let level: 'low' | 'medium' | 'high' = 'low';
-
-  // High-risk patterns
-  const highRisk = ['rm -rf', 'format', 'fdisk', 'mkfs', 'dd if='];
-  for (const pattern of highRisk) {
-    if (command.includes(pattern)) {
-      level = 'high';
-      warnings.push(`High-risk pattern detected: ${pattern}`);
-    }
-  }
-
-  // Medium-risk patterns
-  const mediumRisk = ['sudo', 'chmod 777', 'npm publish', 'git push --force'];
-  for (const pattern of mediumRisk) {
-    if (command.includes(pattern)) {
-      if (level === 'low') level = 'medium';
-      warnings.push(`Medium-risk pattern detected: ${pattern}`);
-    }
-  }
-
-  return { level, warnings };
-}
 
 export { type MCPTool };

@@ -2,7 +2,10 @@
  * Pattern Store MCP Tools
  *
  * Embed text as vectors, store patterns, search by cosine similarity.
- * Uses monovector ONNX embeddings when available, deterministic hash fallback otherwise.
+ * Embeddings come from the shared memory/embedding-operations.ts pipeline
+ * (LanceDB bridge -> ONNX -> deterministic hash fallback) — the same one used
+ * by CLI `neural` commands and memory search, so MCP- and CLI-trained patterns
+ * are embedded consistently.
  * Tools are registered under the "neural" namespace for backwards compatibility.
  */
 
@@ -15,28 +18,12 @@ import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
 const MAX_NEURAL_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 const NEURAL_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-// Embeddings via monovector ONNX when available; deterministic hash fallback otherwise.
-let realEmbeddings: { embed: (text: string) => Promise<number[]> } | null = null;
-let embeddingServiceName: string = 'none';
-try {
-  const monovector = await import('monovector').catch(() => null) as any;
-  if (monovector?.getOptimizedOnnxEmbedder) {
-    await monovector.initOnnxEmbedder?.();
-    const onnxEmb = monovector.getOptimizedOnnxEmbedder();
-    if (onnxEmb?.embed) {
-      const probe = await onnxEmb.embed('test');
-      const hasNonZero = ArrayBuffer.isView(probe) || Array.isArray(probe)
-        ? [...(probe as number[])].some((v: number) => v !== 0)
-        : false;
-      if (probe && probe.length > 0 && hasNonZero) {
-        realEmbeddings = { embed: async (text: string) => Array.from(await onnxEmb.embed(text)) };
-        embeddingServiceName = 'monovector/onnx';
-      }
-    }
-  }
-} catch {
-  // No ONNX embedding provider available, will use hash fallback
-}
+// Embeddings: delegate to the shared embedding pipeline (LanceDB bridge → ONNX →
+// deterministic hash fallback) in memory/embedding-operations.ts. This is the same
+// path CLI `neural` commands use via intelligence.ts — previously neural-tools.ts
+// had its own separate ONNX/hash implementation, which meant MCP-trained patterns
+// and CLI-trained patterns were embedded with different, incompatible vectors.
+let lastEmbeddingModel = 'unknown';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -118,36 +105,29 @@ function saveNeuralStore(store: NeuralStore): void {
   writeJsonFileAtomic(getNeuralPath(), store);
 }
 
-// Generate embedding - uses real ML embeddings if available, falls back to deterministic hash
+// Generate embedding via the shared pipeline (LanceDB bridge → ONNX → deterministic
+// hash), same one used by CLI `neural` commands and memory search. Falls back to a
+// local deterministic hash only if the shared module fails to load entirely.
 async function generateEmbedding(text?: string, dims: number = 384): Promise<number[]> {
-  // If real embeddings available and text provided, use them
-  if (realEmbeddings && text) {
-    try {
-      return await realEmbeddings.embed(text);
-    } catch {
-      // Fall back to hash-based
-    }
-  }
+  if (!text) return new Array(dims).fill(0);
 
-  // Hash-based deterministic embedding (better than pure random for consistency)
-  if (text) {
-    const hash = text.split('').reduce((acc, char, i) => {
-      return acc + char.charCodeAt(0) * (i + 1);
-    }, 0);
-
-    // Use hash to seed a deterministic embedding
+  try {
+    const { generateEmbedding: sharedGenerateEmbedding } = await import('../memory/embedding-operations.js');
+    const result = await sharedGenerateEmbedding(text);
+    lastEmbeddingModel = result.model;
+    return result.embedding;
+  } catch {
+    // memory/embedding-operations.js unavailable — deterministic hash fallback
+    lastEmbeddingModel = 'hash-fallback';
+    const hash = text.split('').reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), 0);
     const embedding: number[] = [];
     let seed = hash;
     for (let i = 0; i < dims; i++) {
-      // Simple LCG random with seed
       seed = (seed * 1103515245 + 12345) & 0x7fffffff;
       embedding.push((seed / 0x7fffffff) * 2 - 1);
     }
     return embedding;
   }
-
-  // No text provided — return zero vector (callers should always provide text)
-  return new Array(dims).fill(0);
 }
 
 export const neuralTools: MCPTool[] = [
@@ -262,7 +242,7 @@ export const neuralTools: MCPTool[] = [
 
       return {
         success: true,
-        _realEmbedding: !!realEmbeddings,
+        _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
         modelId,
         type: modelType,
         status: model.status,
@@ -362,7 +342,7 @@ export const neuralTools: MCPTool[] = [
 
       return {
         success: true,
-        _realEmbedding: !!realEmbeddings,
+        _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
         _hasStoredPatterns: storedPatterns.length > 0,
         modelId: model?.id || 'default',
         input: inputText,
@@ -453,7 +433,7 @@ export const neuralTools: MCPTool[] = [
 
         return {
           success: true,
-          _realEmbedding: !!realEmbeddings,
+          _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
           patternId,
           name: pattern.name,
           type: pattern.type,
@@ -492,7 +472,7 @@ export const neuralTools: MCPTool[] = [
 
         return {
           _realSimilarity: true,
-          _realEmbedding: !!realEmbeddings,
+          _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
           query,
           results: results.map(r => ({
             id: r.id,
@@ -664,7 +644,7 @@ export const neuralTools: MCPTool[] = [
       const patterns = Object.values(store.patterns);
 
       return {
-        embeddingProvider: realEmbeddings ? embeddingServiceName : 'hash-based (deterministic)',
+        embeddingProvider: lastEmbeddingModel === 'unknown' ? 'not yet used' : lastEmbeddingModel,
         models: {
           total: models.length,
           ready: models.filter(m => m.status === 'ready').length,

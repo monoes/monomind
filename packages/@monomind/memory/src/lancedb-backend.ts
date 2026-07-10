@@ -24,6 +24,7 @@ import {
   HealthCheckResult,
   EmbeddingGenerator,
 } from './types.js';
+import { CacheManager } from './cache-manager.js';
 
 // ===== Optional dynamic import =====
 
@@ -206,6 +207,10 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   private queryTotalMs = 0;
   private searchCount = 0;
   private searchTotalMs = 0;
+  // Read-through cache for get()/getByKey() — LanceDB has no index-free point
+  // lookup faster than a table scan, so caching hot reads avoids repeated
+  // scans across every open namespace table (see get()'s toSearch loop).
+  private readCache = new CacheManager<MemoryEntry>({ maxSize: 500, ttl: 60_000 });
 
   constructor(config: LanceDBBackendConfig = {}) {
     super();
@@ -219,6 +224,17 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
     };
   }
 
+  /** Cache key for getByKey() lookups — distinct namespace from id cache keys. */
+  private static byKeyCacheKey(namespace: string, key: string): string {
+    return `byKey:${namespace}:${key}`;
+  }
+
+  /** Invalidate both the id-keyed and namespace:key-keyed cache entries for an entry. */
+  private invalidateCache(entry: Pick<MemoryEntry, 'id' | 'namespace' | 'key'>): void {
+    this.readCache.delete(entry.id);
+    this.readCache.delete(LanceDBBackend.byKeyCacheKey(entry.namespace, entry.key));
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
     await ensureLanceDB();
@@ -229,6 +245,7 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
 
   async shutdown(): Promise<void> {
     this.tables.clear();
+    this.readCache.shutdown();
     this.db = null;
     this.initialized = false;
     this.emit('shutdown');
@@ -323,6 +340,9 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
     // Upsert: delete any existing row with same id, then insert
     await table.delete(`id = ${sqlStr(entry.id)}`);
     await table.add([record]);
+    // Invalidate stale reads (this is also how update() takes effect, since
+    // update() re-stores the full entry rather than patching a row in place).
+    this.invalidateCache({ id: entry.id, namespace: ns, key: entry.key });
 
     // Build FTS index on first real write (LanceDB needs at least 1 row)
     if (this.config.enableFts && !this.ftsBuilt.has(ns)) {
@@ -340,6 +360,9 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   }
 
   async get(id: string): Promise<MemoryEntry | null> {
+    const cached = this.readCache.get(id);
+    if (cached) return cached;
+
     // Search default namespace first, then any other open tables (deduped).
     // openExistingTable is used to avoid creating phantom tables during reads.
     const toSearch = [...new Set([this.config.namespace, ...this.tables.keys()])];
@@ -351,13 +374,21 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
           .where(`id = ${sqlStr(id)}`)
           .limit(1)
           .toArray();
-        if (rows.length > 0) return fromRecord(rows[0]);
+        if (rows.length > 0) {
+          const entry = fromRecord(rows[0]);
+          this.readCache.set(id, entry);
+          return entry;
+        }
       } catch { /* ignore per-namespace errors */ }
     }
     return null;
   }
 
   async getByKey(namespace: string, key: string): Promise<MemoryEntry | null> {
+    const cacheKey = LanceDBBackend.byKeyCacheKey(namespace, key);
+    const cached = this.readCache.get(cacheKey);
+    if (cached) return cached;
+
     try {
       const table = await this.openExistingTable(namespace);
       if (!table) return null;
@@ -365,7 +396,11 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
         .where(`namespace = ${sqlStr(namespace)} AND key = ${sqlStr(key)}`)
         .limit(1)
         .toArray();
-      return rows.length > 0 ? fromRecord(rows[0]) : null;
+      if (rows.length === 0) return null;
+      const entry = fromRecord(rows[0]);
+      this.readCache.set(cacheKey, entry);
+      this.readCache.set(entry.id, entry);
+      return entry;
     } catch {
       return null;
     }
@@ -399,6 +434,7 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
     try {
       const table = await this.getTable(existing.namespace);
       await table.delete(`id = ${sqlStr(id)}`);
+      this.invalidateCache(existing);
       this.emit('entry:deleted', { id, namespace: existing.namespace });
       return true;
     } catch {
@@ -480,6 +516,7 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
       const ids = group.map(e => sqlStr(e.id)).join(', ');
       await table.delete(`id IN (${ids})`);
       await table.add(group.map(e => toRecord(e, dim)));
+      for (const e of group) this.invalidateCache({ id: e.id, namespace: ns, key: e.key });
     }
   }
 
@@ -497,6 +534,7 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
         deleted += before;
       } catch { /* ignore */ }
     }
+    for (const id of ids) this.readCache.delete(id);
     return deleted;
   }
 
@@ -533,6 +571,10 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
       await this.db.dropTable(toTableName(namespace));
       this.tables.delete(namespace);
       this.ftsBuilt.delete(namespace);
+      // Namespace-scoped invalidation: byKey entries are prefixed with the
+      // namespace, id entries aren't — clear the whole cache rather than track
+      // per-namespace id membership just for this rare admin operation.
+      this.readCache.clear();
       return n;
     } catch {
       return 0;
@@ -552,7 +594,7 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
       totalEntries,
       entriesByNamespace,
       entriesByType: {} as any, // groupby query is expensive; omit
-      memoryUsage: 0, // Lance manages its own columnar compression
+      memoryUsage: this.readCache.getStats().memoryUsage, // Lance manages its own columnar compression; this is just the read cache
       avgQueryTime: this.queryCount ? this.queryTotalMs / this.queryCount : 0,
       avgSearchTime: this.searchCount ? this.searchTotalMs / this.searchCount : 0,
     };
@@ -562,9 +604,11 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
     const ok = this.initialized && this.db !== null;
     const status = ok ? 'healthy' : 'unhealthy';
     const component = { status, latency: 0 } as any;
+    const cacheStats = this.readCache.getStats();
+    const cacheComponent = { status, latency: 0, hitRate: cacheStats.hitRate, size: cacheStats.size } as any;
     return {
       status,
-      components: { storage: component, index: component, cache: component },
+      components: { storage: component, index: component, cache: cacheComponent },
       timestamp: Date.now(),
       issues: ok ? [] : ['LanceDB not initialized'],
       recommendations: [],

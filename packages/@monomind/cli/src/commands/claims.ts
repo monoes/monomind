@@ -10,6 +10,7 @@ import { output } from '../output.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { homedir } from 'os';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
 
 interface ClaimsConfig {
   roles?: Record<string, string[]>;
@@ -67,14 +68,7 @@ function loadClaimsConfig(): { config: ClaimsConfig; path: string } {
 }
 
 function saveClaimsConfig(config: ClaimsConfig, configPath: string): void {
-  const dir = path.dirname(configPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  const tmpPath = configPath + '.tmp';
-  fs.writeFileSync(tmpPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
-  fs.renameSync(tmpPath, configPath);
+  writeJsonFileAtomic(configPath, config);
 }
 
 // List subcommand
