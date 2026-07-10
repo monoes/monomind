@@ -46,6 +46,13 @@ function getDbPath() {
 function text(t) {
     return { content: [{ type: 'text', text: t }] };
 }
+function ensureDbExists() {
+    const p = getDbPath();
+    if (!_isValidDb(p)) {
+        throw new Error(`Monograph index not built yet. Run monograph_build first (path: ${p}).`);
+    }
+    return p;
+}
 // ── Active watcher registry ──────────────────────────────────────────────────
 const _activeWatchers = new Map();
 function applyPprRerank(db, seedNodes, damping, maxResults) {
@@ -131,9 +138,12 @@ const monographQueryTool = {
         required: ['query'],
     },
     handler: async (input) => {
+        const dbPath = getDbPath();
+        if (!_isValidDb(dbPath))
+            return text('Monograph index not built yet. Run monograph_build first.');
         const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
         const { hybridQuery } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
+        const db = openDb(dbPath);
         try {
             // Cap limit: passed directly to SQLite queries and hybridQuery; an
             // unlimited value saturates memory with rows.
@@ -210,8 +220,11 @@ const monographStatsTool = {
     description: 'Show node/edge/community counts and index freshness.',
     inputSchema: { type: 'object', properties: {} },
     handler: async () => {
+        const dbPath = getDbPath();
+        if (!_isValidDb(dbPath))
+            return text('Monograph index not built yet. Run monograph_build first.');
         const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
+        const db = openDb(dbPath);
         try {
             const nodes = countNodes(db);
             const edges = countEdges(db);
@@ -280,8 +293,11 @@ const monographGodNodesTool = {
         properties: { limit: { type: 'number', description: 'Max nodes to return (default 20)' } },
     },
     handler: async (input) => {
+        const dbPath = getDbPath();
+        if (!_isValidDb(dbPath))
+            return text('Monograph index not built yet. Run monograph_build first.');
         const { openDb, closeDb } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
+        const db = openDb(dbPath);
         try {
             // Cap limit: passed directly to the SQL LIMIT clause.
             const MAX_GOD_NODES_LIMIT = 1_000;
@@ -470,9 +486,12 @@ const monographSuggestTool = {
         },
     },
     handler: async (input) => {
+        const dbPath = getDbPath();
+        if (!_isValidDb(dbPath))
+            return text('Monograph index not built yet. Run monograph_build first.');
         const { openDb, closeDb } = await import('@monoes/monograph');
         const { hybridQuery } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
+        const db = openDb(dbPath);
         try {
             // Cap limit and task: limit is passed directly to SQL LIMIT clause;
             // task is forwarded to hybridQuery (embedding path) or FTS.

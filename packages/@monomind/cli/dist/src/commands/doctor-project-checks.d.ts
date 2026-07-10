@@ -19,6 +19,20 @@ export declare function checkGitignoreCoverage(): Promise<HealthCheck>;
 export declare function checkAgentRegistry(): Promise<HealthCheck>;
 export declare function checkGuidanceGates(): Promise<HealthCheck>;
 /**
+ * Daemon metrics freshness — flags stale (>1h) or missing worker output files
+ * so a wedged/disabled daemon is visible without digging through .monomind/metrics.
+ */
+export declare function checkMetricsFreshness(): Promise<HealthCheck>;
+/**
+ * Surfaces critical findings from the security-audit daemon worker output.
+ */
+export declare function checkSecurityAuditFindings(): Promise<HealthCheck>;
+/**
+ * Flags uncovered critical paths surfaced by the testgaps worker (headless-only —
+ * gracefully reports "not run" when the local daemon has no fallback for this worker).
+ */
+export declare function checkTestGaps(): Promise<HealthCheck>;
+/**
  * AutoMem proficiency check — reports memory learning health
  */
 export declare function checkMemoryProficiency(): Promise<HealthCheck>;

@@ -849,6 +849,39 @@ function getTriggerStats() {
   } catch { return { triggers: 0, agents: 0 }; }
 }
 
+// Daemon worker alerts — security-audit, testgaps, benchmark. Fast: single
+// stat + JSON.parse per file (files are small, KB-scale), skip entirely when
+// the worker hasn't run yet (no metrics dir / file) so cold projects pay
+// zero cost beyond the existsSync check.
+function getDaemonAlerts() {
+  const metricsDir = path.join(CWD, '.monomind', 'metrics');
+  const out = { security: null, testgaps: null, benchmark: null };
+  if (!fs.existsSync(metricsDir)) return out;
+
+  const audit = readJSON(path.join(metricsDir, 'security-audit.json'));
+  if (audit) {
+    const riskLevel = (audit.riskLevel || 'low').toLowerCase();
+    const findings = (audit.recommendations || []).length + (audit.priorityScanTargets || []).length;
+    out.security = { riskLevel, findings };
+  }
+
+  const gaps = readJSON(path.join(metricsDir, 'testgaps.json'));
+  if (gaps) {
+    const gapList = Array.isArray(gaps.gaps) ? gaps.gaps : [];
+    const uncovered = gaps.uncoveredCount ?? gapList.length;
+    if (uncovered > 0 || gapList.length > 0) out.testgaps = { uncovered };
+  }
+
+  const bench = readJSON(path.join(metricsDir, 'benchmark.json'));
+  if (bench?.benchmarks) {
+    const heapMB = bench.benchmarks.memoryUsage ? Math.floor(bench.benchmarks.memoryUsage.heapUsed / 1024 / 1024) : null;
+    const uptimeMin = bench.benchmarks.uptime ? Math.floor(bench.benchmarks.uptime / 60) : null;
+    out.benchmark = { heapMB, uptimeMin, timestamp: bench.timestamp };
+  }
+
+  return out;
+}
+
 // Hook latency — surface slow per-prompt hooks in the statusline.
 function getHookLatency() {
   const p = path.join(CWD, '.monomind', 'metrics', 'hook-latency.json');
@@ -1062,6 +1095,15 @@ function generateStatusline() {
     parts.push(\`\${x.mint}⚡ \${hooks.enabled}h\${x.reset}\`);
   }
 
+  // Daemon alerts — only show when there's something worth flagging
+  const alerts = getDaemonAlerts();
+  if (alerts.security && (alerts.security.riskLevel === 'high' || alerts.security.riskLevel === 'critical')) {
+    parts.push(\`\${x.coral}🛡 \${alerts.security.findings}\${x.reset}\`);
+  }
+  if (alerts.testgaps && alerts.testgaps.uncovered > 0) {
+    parts.push(\`\${x.gold}🧪 \${alerts.testgaps.uncovered}\${x.reset}\`);
+  }
+
   return parts.join(\`  \${DIV}  \`);
 }
 
@@ -1181,6 +1223,25 @@ function generateDashboard() {
 
   lines.push(\`\${x.teal}🧠  CONTEXT\${x.reset}  \${graphStr}\${hilStr}\`);
 
+  // ── Row 3: Daemon worker alerts (security / testgaps / benchmark) ──
+  const alerts = getDaemonAlerts();
+  const alertParts = [];
+  if (alerts.security) {
+    const s = alerts.security;
+    const col = s.riskLevel === 'critical' || s.riskLevel === 'high' ? x.coral : s.findings > 0 ? x.gold : x.green;
+    alertParts.push(\`\${col}🛡 sec \${s.riskLevel}\${s.findings > 0 ? \` (\${s.findings})\` : ''}\${x.reset}\`);
+  }
+  if (alerts.testgaps) {
+    alertParts.push(\`\${x.gold}🧪 gaps \${alerts.testgaps.uncovered}\${x.reset}\`);
+  }
+  if (alerts.benchmark && alerts.benchmark.heapMB !== null) {
+    alertParts.push(\`\${x.slate}⏱ bench heap \${alerts.benchmark.heapMB}MB\${alerts.benchmark.uptimeMin !== null ? \` up \${alerts.benchmark.uptimeMin}m\` : ''}\${x.reset}\`);
+  }
+  if (alertParts.length > 0) {
+    lines.push(SEP);
+    lines.push(\`\${x.purple}⚙️  WORKERS\${x.reset}  \${alertParts.join(\`   \${DIV}   \`)}\`);
+  }
+
   return lines.join('\\n');
 }
 
@@ -1198,6 +1259,7 @@ function generateJSON() {
     lancedb: getMemoryStats(),
     tests:      getTestStats(),
     git:        { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
+    daemonAlerts: getDaemonAlerts(),
     lastUpdated: new Date().toISOString(),
   };
 }

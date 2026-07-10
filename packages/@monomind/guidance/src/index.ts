@@ -73,6 +73,7 @@ export type { CompilerConfig } from './compiler.js';
 export { ShardRetriever, createRetriever, HashEmbeddingProvider } from './retriever.js';
 export type { IEmbeddingProvider } from './retriever.js';
 export { EnforcementGates, createGates } from './gates.js';
+export type { SerializedGateConfig, SerializedRegExp } from './gates.js';
 export {
   GuidanceHookProvider,
   createGuidanceHooks,

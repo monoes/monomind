@@ -54,6 +54,9 @@ const GATE_DECISION_SEVERITY = {
     'warn': 1,
     'allow': 0,
 };
+function serializeRegExp(re) {
+    return { source: re.source, flags: re.flags };
+}
 // ============================================================================
 // Enforcement Gates
 // ============================================================================
@@ -283,6 +286,30 @@ export class EnforcementGates {
         if (this.config.secrets)
             count++;
         return count;
+    }
+    /**
+     * Export the compiled gate configuration as a plain JSON-serializable object.
+     *
+     * This is the single source of truth for gate patterns. Since gates are
+     * normally registered onto an in-memory HookRegistry that does not survive
+     * across Claude Code's per-hook subprocess boundaries, callers (e.g.
+     * session-restore) should persist this to disk so that other short-lived
+     * hook processes (e.g. PreToolUse) can read the same compiled patterns
+     * instead of maintaining a hand-copied duplicate.
+     */
+    exportConfig() {
+        return {
+            compiledAt: new Date().toISOString(),
+            activeGateCount: this.getActiveGateCount(),
+            destructiveOps: this.config.destructiveOps,
+            toolAllowlist: this.config.toolAllowlist,
+            diffSize: this.config.diffSize,
+            secrets: this.config.secrets,
+            diffSizeThreshold: this.config.diffSizeThreshold,
+            allowedTools: this.config.allowedTools,
+            destructivePatterns: this.config.destructivePatterns.map(serializeRegExp),
+            secretPatterns: this.config.secretPatterns.map(serializeRegExp),
+        };
     }
     // ===== Helpers =====
     findTriggeredRules(domain, riskClass) {
