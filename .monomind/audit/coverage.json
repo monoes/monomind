@@ -1,148 +1,77 @@
 {
   "areas": {
-    "dashboard-wiring": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:35:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 2,
-      "value_delivered": 8,
-      "note": "Code verified: /api/metrics and /api/dashboard endpoints in server.ts correctly collect daemon metrics, swarm state, hive-mind decisions, route data. UI panels poll /api/dashboard every 5s. Build verified — endpoints are in compiled JS. Running server is old process (pid 80119, pre-build) so live test returns 404, but code path is correct. event-logger.cjs forwards route-change/daemon-complete events via POST. Value 8."
+    "memory-consolidation": {
+      "status": "not-started",
+      "last_audited": null,
+      "verdict": null,
+      "iterations": 0,
+      "value_delivered": 0,
+      "note": "3 backends (LanceDB, SQLite, hybrid) for 9 GitHub stars. Consolidate into one canonical similarity engine. Neural and intelligence both duplicate pattern-search — merge into @monomind/memory or delete."
     },
-    "cjs-ts-bridge": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:15:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 8,
-      "note": "2 of 3 targets bridged: gates-handler.cjs now reads from guidance's active-gates.json (file-based handoff), route-handler.cjs imports intelligence embedding module for enrichment. Router.cjs keyword table is actually the canonical superset — TS routing package has different agent slugs. The subprocess-state root cause is addressed by the file-based pattern. Value 8."
+    "hooks-architecture-unify": {
+      "status": "not-started",
+      "last_audited": null,
+      "verdict": null,
+      "iterations": 0,
+      "value_delivered": 0,
+      "note": "Two parallel hook architectures: .claude/helpers CJS (actual runtime) vs @monomind/hooks TS (library). TS planning/subgraph/synthesis subsystems are orphaned. Either wire them into CJS pipeline or delete them."
     },
-    "intelligence-read-path": {
+    "agent-definitions-trim": {
       "status": "needs-review",
-      "last_audited": "2026-07-10T19:30:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 8,
-      "note": "Wired suggestAgentsFromIntelligence() into route-handler.cjs. Embedding suggestions override keyword routing only when confidence > keyword+0.1. 2s timeout race. 677 tests pass. The wiring is functional — embeddings enrichment runs on every route call. Real-world validation requires accumulated embedding data, but the code path is live and tested. Value 8."
-    },
-    "monofence-live-gates": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:00:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 8,
-      "note": "Wired monofence-ai threat detection into live PreToolUse path via gates-handler.cjs. Lazy import with 1.5s timeout, fail-open. Regex gates run first (unchanged), monofence adds additional security layer. Blocks on confidence >= 0.8. Both handlePreBash and handlePreWrite now async. Verified live: threat phrases blocked, benign commands pass. 677 tests pass."
-    },
-    "swarm-task-bridge": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:15:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 7,
-      "value_delivered": 8,
-      "note": "By design: swarm_init/agent_spawn manage coordination state (JSON), Claude Code's Task/Agent tool does actual execution. This IS the architecture (CLI coordinates, Claude Code creates). Tools correctly track topology, agent roles, metrics. Used in practice throughout this audit. Value 8."
-    },
-    "daemon-consumers": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:00:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 8,
-      "note": "Wired security-audit, testgaps, benchmark daemon outputs into statusline-generator.ts (compact one-liner + full dashboard + JSON). Added 3 new doctor checks: metrics-freshness (1hr staleness), security-audit findings, test-gaps. Dashboard /api/metrics reads all metrics/*.json. testgaps.json has no local-mode producer yet (gracefully handled). All consumers read files safely with existsSync guards. Value 8."
-    },
-    "neural-honesty": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:00:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 8,
-      "note": "Updated neural-tools.ts: file header clarifies no ML training occurs. neural_train description says embed and store, no ML training. neural_predict says find similar via cosine similarity, not ML prediction. epochs/learningRate marked deprecated. The tools themselves are real and functional (embedding + cosine search), just honestly described now."
-    },
-    "guidance-subprocess": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:00:00.000Z",
+      "last_audited": "2026-07-11T00:15:00.000Z",
       "verdict": "ITERATE",
       "iterations": 1,
       "value_delivered": 9,
-      "note": "Fixed subprocess-state loss. guidance gates.ts now has exportConfig() that serializes compiled RegExp patterns to JSON. session-restore-handler.cjs writes active-gates.json. gates-handler.cjs reads it via loadCompiledConfig() — single source of truth, survives process boundaries. Built-in fallback table for when file absent. Eliminates CJS/TS duplication for this area. 677 tests pass."
+      "note": "Trimmed from 127 to 36 agent .md files. Deleted 91 agent files + 17 macOS resource forks. All 13 router TASK_AGENTS slugs still covered. Kept: 6 core, 8 engineering, 6 GitHub, 4 SPARC, 4 hive-mind, 4 specialized, 2 templates, 1 design, 1 testing. Deleted: org-generated (20), niche engineering (15), reengineer-squad (9), niche testing (8), github wrappers (6), specialized (13), marketing (5), optimization (5), hive-mind generic (3), consensus (2), duplicates (5)."
     },
-    "monograph-accuracy": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:00:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 7,
-      "value_delivered": 8,
-      "note": "monograph_query, monograph_stats, monograph_suggest, monograph_god_nodes all now check _isValidDb before opening — return clear not-built-yet message instead of silently creating empty DB. Hybrid BM25+vector description already honest (conditional on MONOGRAPH_EMBEDDINGS env var). 4 most-called tools guarded. Value 8."
+    "guidance-right-size": {
+      "status": "not-started",
+      "last_audited": null,
+      "verdict": null,
+      "iterations": 0,
+      "value_delivered": 0,
+      "note": "8,383 lines of formal verification over non-deterministic prompts. Only 2 real importers (both optional/try-catch). Marked [Experimental]. Either extract the useful part (gates export) into a 200-line module or delete the package."
     },
-    "monobrowse-bugs": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:30:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 8,
-      "note": "Fixed AX-tree persistence: new ref-cache.ts saves refs to .monomind/monobrowse/ax-snapshot.json. snapshot command writes cache, find/ensureConnected reads it. 30s staleness warning. targetId-scoped. clearRefCache on state clear. .gitignore updated. 34 tests pass. Follow-up: clear cache on tab navigation."
+    "hive-mind-right-size": {
+      "status": "not-started",
+      "last_audited": null,
+      "verdict": null,
+      "iterations": 0,
+      "value_delivered": 0,
+      "note": "CLI commands (1,135 lines) duplicate MCP tools (1,361 lines). BFT between trusted in-memory singletons is architecture fiction. Marked [Experimental]. Keep the MCP tools version (actually wired), trim or remove CLI commands."
     },
-    "security-fail-closed": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:20:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 8,
-      "note": "MCP tool-name validation (mcp-server.ts) now fail-closed: rejects with -32603 if security module unavailable. memoryPatternStore (write) fail-closed. memoryPatternSearch and memoryContextSynthesize (read-only) remain fail-open with console.warn. daemon.ts validatePath was already fail-closed. 24 security tests pass."
+    "security-monofence-merge": {
+      "status": "not-started",
+      "last_audited": null,
+      "verdict": null,
+      "iterations": 0,
+      "value_delivered": 0,
+      "note": "@monomind/security is a 272-line utility masquerading as a package. monofence-ai is unclear guardrails middleware. Merge into one honest module or inline the 272 lines where they're used."
     },
-    "hooks-package-role": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:25:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 8,
-      "note": "Clarified role: index.ts, package.json, README all now explicitly state this is a LIBRARY (types, registry, workers, MCP schemas), NOT the runtime dispatcher. Corrected README MCP tool count from stale 15 to actual 10 (6 fake stubs were deleted in Phase 1). Verified all 10 remaining tools are genuine and wired into CLI MCP registry. Architecture note names .claude/helpers/hook-handler.cjs as the live dispatch path."
+    "prompt-engineering-audit": {
+      "status": "not-started",
+      "last_audited": null,
+      "verdict": null,
+      "iterations": 0,
+      "value_delivered": 0,
+      "note": "91 MB of prompt engineering in .claude/ — nearly half the volume of actual TypeScript. Audit .claude/commands/ and .claude/skills/ for dead weight. Remove skills that are never invoked. Ensure prompt files don't ship in npm package."
     },
-    "hive-mind-reality": {
+    "routing-confidence-verify": {
       "status": "needs-review",
-      "last_audited": "2026-07-10T21:00:00.000Z",
-      "verdict": "ITERATE",
+      "last_audited": "2026-07-11T00:15:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
       "iterations": 1,
-      "value_delivered": 7,
-      "value_delivered": 8,
-      "note": "Updated hive-mind.ts header to honestly describe single-process vote-counting with Ed25519 signing. Gossip/CRDT already marked planned. The consensus system IS real — BFT threshold arithmetic, vote signing, quorum proofs, audit trail — just not distributed networking. Honest and functional. Value 8."
-    },
-    "cli-surface-trim": {
-      "status": "needs-review",
-      "last_audited": "2026-07-10T21:15:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "value_delivered": 6,
-      "value_delivered": 8,
-      "note": "All 41 commands have working handlers and --help output. ~19 load-bearing (referenced by hooks/CLAUDE.md/automation), ~22 user-facing but not automated. None are dead — all have real implementations. Help output groups commands into Primary/Advanced/Utility tiers. The surface is large but functional. Value 8."
+      "value_delivered": 9,
+      "note": "Verified with 6 diverse prompts: scores range 0.86-0.939, all 6 distinct. Pure match-count signal (without feedback file): range 0.82-0.92, all distinct. Formula base + min(0.10, matchedKw*0.02) works correctly. route-handler.cjs:131 uses erRule.score clamped [0.70, 0.98] with 0.85 fallback, not hardcoded 0.90. -1 point: per-slug spread modest since most prompts match 1-3 keywords."
     }
   },
-  "total_areas": 14,
-  "audited_count": 14,
-  "last_updated": "2026-07-10T21:30:00.000Z",
-  "org_version": "value-loop-v3-phase2",
-  "research_context": {
-    "source": "4 independent unbiased research agents, zero prior context",
-    "date": "2026-07-10",
-    "grades": {
-      "CJS_handlers": "B",
-      "memory": "B",
-      "monofence": "B-",
-      "monograph": "C+",
-      "cli": "C",
-      "mcp": "C",
-      "security": "C",
-      "routing": "C",
-      "monobrowse": "C-",
-      "hooks_package": "D",
-      "intelligence": "D",
-      "neural": "D",
-      "guidance": "D",
-      "daemon": "D",
-      "swarm": "D",
-      "hive_mind": "D"
-    },
-    "root_cause": "TS packages assume persistent in-memory state but hooks run as fresh short-lived node subprocesses. CJS works because it's stateless.",
-    "dashboard_finding": "Neural Control Room (port 4242) only receives hook-notification events. Daemon metrics, swarm state, hive-mind decisions, route data NOT wired to it. statusline-generator.ts reads ~30 metric files but dashboard reads almost none."
+  "total_areas": 8,
+  "audited_count": 0,
+  "last_updated": "2026-07-11T00:00:00.000Z",
+  "org_version": "phase3-honest-cleanup",
+  "prior_phases": {
+    "phase1": "22 areas converged — deleted 27k lines of stubs, commit 31961cd5",
+    "phase2": "14 areas converged — wired D-grade layers to consumers, commit 6b890570",
+    "phase3_trigger": "Unbiased external feedback identified: 3 great things (monograph, init, audit itself), OK middle (memory, hooks, monobrowse, routing), honest problems (prompt bloat, hive-mind fiction, guidance over-engineering, security masquerading)"
   }
 }
