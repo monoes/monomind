@@ -774,12 +774,48 @@
         "remaining_work": "performance.json and benchmark.json are intentionally thin (process runtime stats only) — not worth surfacing unless enriched with real perf data",
         "timestamp": "2026-07-10T01:25:00.000Z"
       }
+    ],
+    "cross-hooks-architecture": [
+      {
+        "iteration": 1,
+        "judge_scores": {
+          "value_delivered": 4,
+          "implementation_health": 5,
+          "honesty_gap": 6,
+          "potential_value": 8
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Wired SessionEnd bridge in session-handler.cjs: fires executeHooks(HookEvent.SessionEnd) so EpisodeBinner.closeEpisode() and observability bus session.end event actually run",
+          "Wired PostEdit bridge in edit-handler.cjs: fires executeHooks(HookEvent.PostEdit) so observability bus and guidance provider receive edit events",
+          "Wired SessionStart bridge in session-restore-handler.cjs: fires executeHooks(HookEvent.SessionStart) after initDefaultWorkers() so observability bus session.start activates",
+          "Updated hook-handler.cjs architecture comment to document all 5 bridged events"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 8
+        },
+        "verification": {
+          "tests_passed": 956,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "hooks_tests_passed": 673,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "events_bridged_before": ["PreTask", "PostTask"],
+          "events_bridged_after": ["SessionStart", "PreTask", "PostTask", "PostEdit", "SessionEnd"],
+          "new_consumers_activated": ["EpisodeBinner.closeEpisode", "observability-bus:session-start", "observability-bus:session-end", "observability-bus:post-edit"]
+        },
+        "remaining_work": "PostRoute/PreRoute events exist in enum but no CJS handler fires them (no registered consumers either — low priority)",
+        "timestamp": "2026-07-10T02:05:00.000Z"
+      }
     ]
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-10T01:25:00.000Z",
-    "total_iterations": 32,
+    "last_updated": "2026-07-10T02:05:00.000Z",
+    "total_iterations": 33,
     "features_converged": 18,
     "features_removed": 0
   }

@@ -138,11 +138,11 @@
       "note": "Fixed broken codebase-map field (hotspots->topFiles), wired deepdive.json and consolidation.json into route-handler. performance.json and benchmark.json remain unconsumed (too thin — just process.memoryUsage)."
     },
     "cross-hooks-architecture": {
-      "status": "not-started",
-      "last_audited": null,
-      "verdict": null,
-      "iterations": 0,
-      "note": "NEW: Two parallel hook systems — can they be unified or at least feed each other?"
+      "status": "needs-review",
+      "last_audited": "2026-07-10T02:05:00.000Z",
+      "verdict": "ITERATE",
+      "iterations": 1,
+      "note": "Wired 3 missing lifecycle bridges (SessionStart, PostEdit, SessionEnd). All 5 CJS lifecycle events now bridge to @monomind/hooks registry. Value 4->7."
     },
     "cross-docs-honesty": {
       "status": "not-started",
@@ -154,6 +154,6 @@
   },
   "total_areas": 22,
   "audited_count": 4,
-  "last_updated": "2026-07-10T00:00:00.000Z",
+  "last_updated": "2026-07-10T02:05:00.000Z",
   "org_version": "value-loop-v2-aggressive"
 }

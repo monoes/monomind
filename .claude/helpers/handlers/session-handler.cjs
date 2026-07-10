@@ -117,6 +117,20 @@ module.exports = {
       }
     } catch (e) { console.log('[WARN] Session end failed: ' + e.message); }
 
+    // Bridge to @monomind/hooks registry — fires SessionEnd hooks (episode-binner closeEpisode, observability bus)
+    var _hooksModule = hCtx._hooksModule;
+    if (_hooksModule && _hooksModule.executeHooks && _hooksModule.HookEvent) {
+      try {
+        await _hooksModule.executeHooks(_hooksModule.HookEvent.SessionEnd, {
+          session: {
+            id: String(hookInput.sessionId || hookInput.session_id || ''),
+            startedAt: new Date(),
+          },
+          success: sessionSuccess,
+        }, { continueOnError: true, timeout: 2000 });
+      } catch (e) { /* non-fatal */ }
+    }
+
     // Memory Palace tombstone writes removed — redundant with raw session JSONL
 
     // ── Context Persistence Auto-Archive ─────────────────────────────────
