@@ -1222,4 +1222,84 @@ export const hiveMindTools: MCPTool[] = [
       return { action, error: 'Unknown action' };
     },
   },
+  {
+    name: 'hive-mind_audit_list',
+    description: 'List tamper-evident consensus audit records (HMAC-signed JSONL trail)',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        swarmId: { type: 'string', description: 'Filter by swarm ID (optional)' },
+        limit: { type: 'number', description: 'Max records to return (default: 50, max: 500)' },
+      },
+    },
+    handler: async (input) => {
+      try {
+        const { AuditWriter } = await import('../consensus/audit-writer.js');
+        const auditDir = join(getProjectCwd(), STORAGE_DIR, 'consensus');
+        const writer = new AuditWriter(auditDir);
+        const limit = Math.min(Math.max(1, (input.limit as number) || 50), 500);
+        const swarmId = input.swarmId as string | undefined;
+        const records = writer.listDecisions(swarmId, limit);
+        return {
+          success: true,
+          count: records.length,
+          records: records.map(r => ({
+            decisionId: r.decisionId,
+            swarmId: r.swarmId,
+            protocol: r.protocol,
+            topic: r.topic,
+            decision: r.decision,
+            voteCount: r.votes.length,
+            quorumAchieved: r.quorumAchieved,
+            round: r.round,
+            durationMs: r.durationMs,
+            completedAt: r.completedAt,
+            signed: !!r.recordSignature,
+          })),
+        };
+      } catch (e) {
+        return { success: false, error: `Audit trail unavailable: ${(e as Error).message}` };
+      }
+    },
+  },
+  {
+    name: 'hive-mind_audit_verify',
+    description: 'Verify tamper-evidence of a consensus decision (checks HMAC signatures on all votes and the record itself)',
+    category: 'hive-mind',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        decisionId: { type: 'string', description: 'Decision/proposal ID to verify' },
+      },
+      required: ['decisionId'],
+    },
+    handler: async (input) => {
+      const sessionSecret = process.env.MONOMIND_SESSION_SECRET;
+      if (!sessionSecret) {
+        return { success: false, error: 'MONOMIND_SESSION_SECRET not set — cannot verify signatures' };
+      }
+      const decisionId = input.decisionId as string;
+      if (typeof decisionId !== 'string' || decisionId.length === 0 || decisionId.length > 256) {
+        return { success: false, error: 'Invalid decisionId' };
+      }
+      try {
+        const { AuditWriter } = await import('../consensus/audit-writer.js');
+        const auditDir = join(getProjectCwd(), STORAGE_DIR, 'consensus');
+        const writer = new AuditWriter(auditDir);
+        const result = writer.verifyDecision(decisionId, sessionSecret);
+        return {
+          success: true,
+          decisionId,
+          valid: result.valid,
+          invalidVotes: result.invalidVotes,
+          message: result.valid
+            ? 'All vote signatures and record signature verified — no tampering detected.'
+            : `Verification failed: ${result.invalidVotes.length} invalid vote(s) or record signature mismatch.`,
+        };
+      } catch (e) {
+        return { success: false, error: `Audit verification failed: ${(e as Error).message}` };
+      }
+    },
+  },
 ];
