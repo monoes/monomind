@@ -569,19 +569,9 @@ export class MCPServerManager extends EventEmitter {
 
           // validateInput boundary: sanitize the incoming tool name.
           // This gates every MCP tool invocation (including path/write/command
-          // tools), so it fails CLOSED: if the security module cannot be
-          // loaded or validation itself throws, the call is blocked rather
-          // than silently allowed through unvalidated.
-          try {
-            const secMod = await import('@monomind/security' as string);
-            const validateInput = secMod?.validateInput;
-            if (!validateInput) {
-              return {
-                jsonrpc: '2.0',
-                id: message.id,
-                error: { code: -32603, message: 'Security validation unavailable — operation blocked for safety' },
-              };
-            }
+          // tools), so invalid names are rejected before reaching tool handlers.
+          {
+            const { validateInput } = await import('./utils/input-guards.js');
             const check = validateInput(toolName, { type: 'string', maxLength: 200 });
             if (!check.valid) {
               return {
@@ -590,12 +580,6 @@ export class MCPServerManager extends EventEmitter {
                 error: { code: -32602, message: `Invalid tool name: ${check.error}` },
               };
             }
-          } catch {
-            return {
-              jsonrpc: '2.0',
-              id: message.id,
-              error: { code: -32603, message: 'Security validation unavailable — operation blocked for safety' },
-            };
           }
 
           if (!hasTool(toolName)) {

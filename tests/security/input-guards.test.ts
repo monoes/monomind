@@ -1,16 +1,13 @@
 /**
- * Tests for validateInput() from @monomind/security
- *
- * Mirror of packages/@monomind/security/src/input-guards.test.ts
- * placed under tests/ so vitest picks it up via the project-level config.
+ * Tests for validateInput() and validateExternalContent()
  *
  * Covers: null byte rejection, control-char stripping, path traversal,
  * URL protocol allow-list, orgName format, number validation,
- * and valid pass-through cases.
+ * prompt-injection detection, and valid pass-through cases.
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateInput, validateExternalContent } from '../../packages/@monomind/security/src/input-guards.js';
+import { validateInput, validateExternalContent } from '../../packages/@monomind/cli/src/utils/input-guards.js';
 
 // ---------------------------------------------------------------------------
 // type:'string' — null bytes and control characters

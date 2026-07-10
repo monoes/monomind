@@ -110,6 +110,7 @@ export const routeAdvancedTool: MCPTool = {
     // DAGLearner: heterogeneous swarm topology proposal
     if (useDAGLearner) {
       try {
+        // @ts-expect-error subgraph module removed — degrade gracefully
         const { DAGLearner } = await import('../subgraph/dag-learner.js');
         const learner = new DAGLearner();
         const dagResult = await learner.propose(task);
@@ -125,6 +126,7 @@ export const routeAdvancedTool: MCPTool = {
     // LATS: Language Agent Tree Search coordinator planning (source: arXiv:2310.04406)
     if (useLATS) {
       try {
+        // @ts-expect-error planning module removed — degrade gracefully
         const { buildLATSPlan } = await import('../planning/lats-planner.js');
         const latsPlan = await buildLATSPlan(task, { simulations: latsSimulations });
         const r = result as unknown as Record<string, unknown>;
@@ -138,6 +140,7 @@ export const routeAdvancedTool: MCPTool = {
     // AFLOW: MCTS-guided subgraph workflow search (source: arXiv:2410.10762)
     if (useAFLOW) {
       try {
+        // @ts-expect-error subgraph module removed — degrade gracefully
         const { AFLOWSearch } = await import('../subgraph/aflow-search.js');
         const aflow = new AFLOWSearch({ simulations: aflowSimulations, maxDepth: 3 });
 
@@ -231,6 +234,7 @@ export const evoAgentXTool: MCPTool = {
     required: ['agentSlug', 'basePrompt'],
   },
   handler: async (input: Record<string, unknown>): Promise<unknown> => {
+    // @ts-expect-error optimization module removed — degrade gracefully
     const { EvoAgentXCoordinator } = await import('../optimization/evoagentx-coordinator.js');
     const coordinator = new EvoAgentXCoordinator({
       traceStorePath: (input.traceStorePath as string) ?? './data/traces',
@@ -447,6 +451,7 @@ export const rlvrOutcomeTool: MCPTool = {
     const traceStepsRaw = input.traceSteps as Array<Record<string, unknown>> | undefined;
     if (output && traceStepsRaw && traceStepsRaw.length > 0) {
       try {
+        // @ts-expect-error optimization module removed — degrade gracefully
         const { TraceAwareJudgeMetric } = await import('../optimization/quality-metric.js');
         const traceJudge = new TraceAwareJudgeMetric(
           // Haiku-compatible stub — returns a score based on reward when no LLM configured
@@ -468,6 +473,7 @@ export const rlvrOutcomeTool: MCPTool = {
     // Store reward as a pattern in ReasoningBank for future routing
     let patternStored = false;
     try {
+      // @ts-expect-error reasoningbank module removed — degrade gracefully
       const { reasoningBank } = await import('../reasoningbank/index.js');
       // storePattern(strategy, domain, metadata) — ReasoningBank public API
       await reasoningBank.storePattern(

@@ -103,7 +103,6 @@
     "@monomind/hooks": "*",
     "@monomind/mcp": "*",
     "@monomind/routing": "*",
-    "@monomind/security": "*",
     "monofence-ai": "*",
     "sql.js": "^1.14.1"
   },

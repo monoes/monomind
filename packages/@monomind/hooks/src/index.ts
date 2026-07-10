@@ -30,18 +30,6 @@
 // Types
 export * from './types.js';
 
-// ReasoningBank - Vector-based pattern learning
-export {
-  ReasoningBank,
-  reasoningBank,
-  type GuidancePattern,
-  type GuidanceResult,
-  type RoutingResult,
-  type ReasoningBankConfig,
-  type ReasoningBankMetrics,
-} from './reasoningbank/index.js';
-
-
 // Registry
 export {
   HookRegistry,
@@ -56,17 +44,6 @@ export {
   defaultExecutor,
   executeHooks,
 } from './executor/index.js';
-
-// Daemons
-export {
-  DaemonManager,
-  MetricsDaemon,
-  SwarmMonitorDaemon,
-  HooksLearningDaemon,
-  defaultDaemonManager,
-  initDefaultWorkers,
-} from './daemons/index.js';
-
 
 // MCP Tools
 // Note: the redundant stub duplicates of the CLI's real hooks_pre-edit, hooks_post-edit,
@@ -244,97 +221,6 @@ export {
   type ObservabilityBusSink,
 } from './observability/index.js';
 
-// Optimization - Few-Shot Prompt Optimization (Task 25) + EvoAgentX (Tier 4)
-export {
-  type QualityMetric,
-  LengthBasedMetric,
-  JSONValidityMetric,
-  LLMJudgeMetric,
-  // Agent-as-a-Judge (arXiv:2410.10934)
-  TraceAwareJudgeMetric,
-  type TraceStep,
-  BootstrapFewShot,
-  type TraceRecord,
-  type FewShotExample,
-  type BootstrapFewShotConfig,
-  TraceQualityStore,
-  PromptOptimizer,
-  type OptimizationResult,
-  type OptimizeOptions,
-  GEPAOptimizer,
-  type GEPAConfig,
-  type GEPACandidate,
-  type GEPAResult,
-  EvoAgentXCoordinator,
-  type EvoAgentXConfig,
-  type EvoAgentXResult,
-} from './optimization/index.js';
-
-// Planning Step (Task 42) + LATS coordinator planning (Tier 4, arXiv:2310.04406)
-export {
-  buildPlanningPrompt,
-  validatePlan,
-  PlanStore,
-  DEFAULT_PLANNING_CONFIG,
-  type PlanFormat,
-  type PlanningConfig,
-  type AgentPlan,
-  type PlanValidationResult,
-  buildLATSPlan,
-  type LATSConfig,
-} from './planning/index.js';
-
-// Confidence-Gated Human Input (Task 43)
-export {
-  injectConfidencePrompt,
-  parseScore,
-  evaluateConfidenceGate,
-  InputRequestStore,
-  DEFAULT_CONFIDENCE_CONFIG,
-  type HumanInputMode,
-  type ConfidenceConfig,
-  type InputRequest,
-  type InputRequestStatus,
-  type GateAction,
-  type GateResult,
-} from './confidence/index.js';
-
-// SubGraph Composition (Task 48) + AFLOW workflow search (arXiv:2410.10762) + DAGLearner (Tier 4)
-export {
-  compile as compileSubGraph,
-  SubGraphRegistry,
-  validateKeyContracts,
-  compose as composeSubGraphs,
-  AFLOWSearch,
-  type AFLOWConfig,
-  type AFLOWResult,
-  type SequenceRewardFn,
-  type StateKey,
-  type AgentNode,
-  type Edge,
-  type SubGraph,
-  type CompiledSubGraph,
-  type SubGraphManifest,
-  type ComposedTopology,
-  DAGLearner,
-  type DAGLearnerConfig,
-  type DAGLearnerResult,
-} from './subgraph/index.js';
-
-// Messaging — Per-Agent-Pair Conversation Threading (Task 41) + μACP (Tier 4)
-export {
-  ConversationThread,
-  ThreadedMessageBus,
-  threadedMessageBus,
-  type AgentId,
-  type Message,
-  type ThreadStats,
-  MuACP,
-  type MuACPVerb,
-  type MuACPEvent,
-  type MuACPSession,
-  type MuACPCommitResult,
-} from './messaging/index.js';
 
 // Dynamic Agent Synthesis (Task 47) + DGM MAP-Elites archive (arXiv:2505.22954)
 export {
@@ -352,11 +238,4 @@ export {
   type DGMArchiveEntry,
 } from './synthesis/index.js';
 
-// Nested Swarms (Task 44)
-export {
-  NestedSwarmEnvelope,
-  SummaryGenerator,
-  SubSwarmManager,
-  subSwarmManager,
-} from './nested-swarm/index.js';
 
