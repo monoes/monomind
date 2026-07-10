@@ -14,11 +14,26 @@ const require = createRequire(import.meta.url);
 
 // Force fresh module load to reset internal caches
 let router;
+let _origProjectDir;
+let _tmpDir;
 beforeEach(() => {
+  // Isolate tests from real routing-feedback.jsonl
+  _origProjectDir = process.env.CLAUDE_PROJECT_DIR;
+  _tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'router-cjs-test-'));
+  process.env.CLAUDE_PROJECT_DIR = _tmpDir;
   // Clear require cache so _feedbackWeightsCache resets between tests
   const routerPath = path.resolve(__dirname, '../../.claude/helpers/router.cjs');
   delete require.cache[routerPath];
   router = require('../../.claude/helpers/router.cjs');
+});
+
+afterEach(() => {
+  if (_origProjectDir !== undefined) {
+    process.env.CLAUDE_PROJECT_DIR = _origProjectDir;
+  } else {
+    delete process.env.CLAUDE_PROJECT_DIR;
+  }
+  try { fs.rmSync(_tmpDir, { recursive: true, force: true }); } catch (e) {}
 });
 
 const KNOWN_AGENTS = new Set([
@@ -178,5 +193,51 @@ describe('feedback weight system (structural tests)', () => {
     const result = router.routeTask('implement a new feature in TypeScript');
     // Dev tasks route to dev agents, not extras specialists
     expect(Array.isArray(result.extrasMatches)).toBe(true);
+  });
+
+  it('feedback weights boost confidence for agents with high success rate', () => {
+    // Seed routing-feedback.jsonl with 10 successful entries for "Coder"
+    const feedbackDir = path.join(_tmpDir, '.monomind');
+    fs.mkdirSync(feedbackDir, { recursive: true });
+    const entries = [];
+    for (let i = 0; i < 10; i++) {
+      entries.push(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        suggestedAgent: 'Coder',
+        confidence: 0.8,
+        intelligenceFeedback: true,
+      }));
+    }
+    fs.writeFileSync(path.join(feedbackDir, 'routing-feedback.jsonl'), entries.join('\n') + '\n');
+    // Reload router to reset cache
+    const routerPath = path.resolve(__dirname, '../../.claude/helpers/router.cjs');
+    delete require.cache[routerPath];
+    const r = require(routerPath);
+    const result = r.routeTask('implement a new feature');
+    // Coder base confidence is 0.80; with 100% success rate it should be boosted
+    expect(result.confidence).toBeGreaterThan(0.80);
+    expect(result.confidence).toBeLessThanOrEqual(1.0);
+  });
+
+  it('feedback weights dampen confidence for agents with low success rate', () => {
+    const feedbackDir = path.join(_tmpDir, '.monomind');
+    fs.mkdirSync(feedbackDir, { recursive: true });
+    const entries = [];
+    for (let i = 0; i < 10; i++) {
+      entries.push(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        suggestedAgent: 'Coder',
+        confidence: 0.8,
+        intelligenceFeedback: i < 2, // only 2/10 success = 20%
+      }));
+    }
+    fs.writeFileSync(path.join(feedbackDir, 'routing-feedback.jsonl'), entries.join('\n') + '\n');
+    const routerPath = path.resolve(__dirname, '../../.claude/helpers/router.cjs');
+    delete require.cache[routerPath];
+    const r = require(routerPath);
+    const result = r.routeTask('implement a new feature');
+    // Coder base confidence is 0.80; with 20% success rate it should be dampened
+    expect(result.confidence).toBeLessThan(0.80);
+    expect(result.confidence).toBeGreaterThanOrEqual(0);
   });
 });

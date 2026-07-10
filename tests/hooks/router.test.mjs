@@ -16,6 +16,26 @@ const require = createRequire(import.meta.url);
 
 const ROUTER_PATH = path.resolve(__dirname, '../../.claude/helpers/router.cjs');
 
+let _origProjectDir;
+let _tmpDir;
+
+beforeEach(() => {
+  // Isolate tests from real routing-feedback.jsonl — point CLAUDE_PROJECT_DIR
+  // to a temp dir so loadFeedbackWeights finds no feedback file.
+  _origProjectDir = process.env.CLAUDE_PROJECT_DIR;
+  _tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'router-test-'));
+  process.env.CLAUDE_PROJECT_DIR = _tmpDir;
+});
+
+afterEach(() => {
+  if (_origProjectDir !== undefined) {
+    process.env.CLAUDE_PROJECT_DIR = _origProjectDir;
+  } else {
+    delete process.env.CLAUDE_PROJECT_DIR;
+  }
+  try { fs.rmSync(_tmpDir, { recursive: true, force: true }); } catch (e) {}
+});
+
 function loadRouter() {
   delete require.cache[ROUTER_PATH];
   return require(ROUTER_PATH);
