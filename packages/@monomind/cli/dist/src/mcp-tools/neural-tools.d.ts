@@ -1,12 +1,11 @@
 /**
- * Pattern Store MCP Tools
+ * Pattern Store MCP Tools — "neural" namespace (legacy name, kept for API compat)
  *
- * Embed text as vectors, store patterns, search by cosine similarity.
- * Embeddings come from the shared memory/embedding-operations.ts pipeline
- * (LanceDB bridge -> ONNX -> deterministic hash fallback) — the same one used
- * by CLI `neural` commands and memory search, so MCP- and CLI-trained patterns
- * are embedded consistently.
- * Tools are registered under the "neural" namespace for backwards compatibility.
+ * These tools embed text as vectors and search by cosine similarity.
+ * No ML training, gradient descent, or neural network inference occurs.
+ * The "train" tool embeds and stores; the "predict" tool finds similar stored
+ * patterns. Embeddings come from the shared memory/embedding-operations.ts
+ * pipeline (LanceDB bridge -> ONNX -> deterministic hash fallback).
  */
 import { type MCPTool } from './types.js';
 export declare const neuralTools: MCPTool[];

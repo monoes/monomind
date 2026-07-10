@@ -1,10 +1,44 @@
 import { createServer } from 'http';
-import { readFile } from 'fs/promises';
+import { readFile, readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PORT = 4242;
+async function readJsonSafe(path) {
+    try {
+        return JSON.parse(await readFile(path, 'utf8'));
+    }
+    catch {
+        return null;
+    }
+}
+async function readMetricsDir(root) {
+    const metricsDir = join(root, '.monomind', 'metrics');
+    const out = {};
+    try {
+        const files = await readdir(metricsDir);
+        await Promise.all(files.map(async (f) => {
+            if (!f.endsWith('.json') || f.startsWith('.'))
+                return;
+            out[f.replace(/\.json$/, '')] = await readJsonSafe(join(metricsDir, f));
+        }));
+    }
+    catch {
+        // metrics dir may not exist yet — daemon hasn't run
+    }
+    return out;
+}
+async function collectDashboardState(root) {
+    const [daemonMetrics, swarmState, hiveMindState, lastRoute, autoMemory] = await Promise.all([
+        readMetricsDir(root),
+        readJsonSafe(join(root, '.monomind', 'swarm', 'swarm-state.json')),
+        readJsonSafe(join(root, '.monomind', 'hive-mind', 'state.json')),
+        readJsonSafe(join(root, '.monomind', 'last-route.json')),
+        readJsonSafe(join(root, '.monomind', 'data', 'auto-memory-store.json')),
+    ]);
+    return { daemonMetrics, swarmState, hiveMindState, lastRoute, autoMemory };
+}
 let instance = null;
 export function getDashboardServer(port = DEFAULT_PORT) {
     if (instance)
@@ -28,6 +62,40 @@ export function getDashboardServer(port = DEFAULT_PORT) {
         if (req.method === 'GET' && req.url === '/runs') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(recentRuns));
+            return;
+        }
+        if (req.method === 'GET' && req.url === '/api/metrics') {
+            try {
+                const { daemonMetrics, swarmState, hiveMindState, lastRoute } = await collectDashboardState(process.cwd());
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ daemonMetrics, swarmState, hiveMindState, lastRoute, ts: Date.now() }));
+            }
+            catch {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'failed to collect metrics' }));
+            }
+            return;
+        }
+        if (req.method === 'GET' && req.url === '/api/dashboard') {
+            try {
+                const { daemonMetrics, swarmState, hiveMindState, lastRoute, autoMemory } = await collectDashboardState(process.cwd());
+                const daemon_workers = Object.keys(daemonMetrics).filter((k) => daemonMetrics[k] != null);
+                const summary = {
+                    daemon_workers,
+                    swarm_status: swarmState ?? null,
+                    hive_mind_decisions: hiveMindState?.decisions ?? hiveMindState ?? null,
+                    last_route: lastRoute ?? null,
+                    pattern_count: Array.isArray(autoMemory) ? autoMemory.length : 0,
+                    memory_health: autoMemory ? 'ok' : 'unknown',
+                    ts: Date.now(),
+                };
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(summary));
+            }
+            catch {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'failed to collect dashboard summary' }));
+            }
             return;
         }
         if (req.method === 'POST' && req.url === '/api/mastermind/event') {

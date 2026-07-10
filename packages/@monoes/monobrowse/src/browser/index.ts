@@ -20,3 +20,4 @@ export * from './trace.js';
 export * from './profiler.js';
 export * from './vitals.js';
 export * from './har.js';
+export * from './ref-cache.js';

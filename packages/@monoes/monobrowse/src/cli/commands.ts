@@ -36,8 +36,25 @@ async function ensureConnected(port: number, targetId?: string) {
     _sessionId = conn.sessionId;
     _targetId = conn.target.id;
     _refs = new Map();
+    await hydrateRefsFromCache(browser, _targetId);
   }
   return { client: _client!, sessionId: _sessionId, targetId: _targetId };
+}
+
+// Each CLI invocation is a fresh process, so the in-memory _refs Map built by
+// a prior `snapshot` command is gone by the time a later `find`/`click`/etc.
+// command runs. Rehydrate it from the on-disk ref cache (written by
+// captureSnapshot call sites below) so refs resolved by a previous process
+// remain usable. Falls back silently to an empty Map if no cache exists.
+async function hydrateRefsFromCache(browser: Awaited<ReturnType<typeof getBrowser>>, targetId: string): Promise<void> {
+  const cached = await browser.loadRefCache(targetId);
+  if (!cached) return;
+  _refs = cached.refs;
+  if (cached.stale) {
+    output.printWarning(
+      `AX ref cache is ${Math.round(cached.ageMs / 1000)}s old — page may have changed since the last snapshot; re-run snapshot if refs don't resolve as expected`
+    );
+  }
 }
 
 // URL patterns that signal an unambiguous login/auth wall.
@@ -266,6 +283,7 @@ const snapshotCommand: Command = {
     });
 
     _refs = result.refs;
+    await browser.saveRefCache(_targetId, result.url, _refs);
 
     const applyOutputLimits = (text: string): string => {
       let out = text;
@@ -918,6 +936,7 @@ const stateCommand: Command = {
         await browser.clearLocalStorage(c, sid);
         await browser.clearSessionStorage(c, sid);
         _refs = new Map();
+        await browser.clearRefCache();
         output.printSuccess('Browser state cleared (cookies, localStorage, sessionStorage, refs)');
         return { success: true };
       }
@@ -2228,6 +2247,7 @@ const diffCommand: Command = {
       const snap2 = await browser.captureSnapshot(client, sessionId, { interactiveOnly: ctx.flags.interactive as boolean });
 
       _refs = snap2.refs;
+      await browser.saveRefCache(_targetId, snap2.url, _refs);
 
       // Text diff
       const lines1 = snap1.text.split('\n');

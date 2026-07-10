@@ -18,6 +18,38 @@
 const path = require('path');
 const fs = require('fs');
 
+// ── Intelligence read-path bridge ───────────────────────────────────────────
+// route-handler.cjs runs as a fresh node subprocess per invocation, but a
+// single process may call handle() more than once (e.g. tests, or a daemon
+// wrapper) — cache the dynamic import of the CLI's compiled intelligence
+// bridge (hooks-embedding.js -> suggestAgentsFromIntelligence) so repeat
+// calls within the same process don't re-resolve/re-import the module.
+// suggestAgentsFromIntelligence() reads the SONA/ReasoningBank embedding
+// store populated by recordMemoryDecision() on every post-task — this is
+// the module that makes stored embedding patterns affect live routing.
+var _intelligenceModPromise = null;
+function _loadIntelligenceModule(CWD) {
+  if (!_intelligenceModPromise) {
+    _intelligenceModPromise = (async function() {
+      var candidates = [
+        path.resolve(CWD, 'packages', '@monomind', 'cli', 'dist', 'src', 'mcp-tools', 'hooks-embedding.js'),
+        path.resolve(CWD, 'packages', '@monomind', 'cli', 'node_modules', '@monomind', 'cli', 'dist', 'src', 'mcp-tools', 'hooks-embedding.js'),
+      ];
+      for (var i = 0; i < candidates.length; i++) {
+        if (fs.existsSync(candidates[i])) {
+          try {
+            return await import(candidates[i]);
+          } catch (e) {
+            return null;
+          }
+        }
+      }
+      return null;
+    })();
+  }
+  return _intelligenceModPromise;
+}
+
 module.exports = {
   handle: async function(hCtx) {
     var prompt = hCtx.prompt;
@@ -106,6 +138,47 @@ module.exports = {
           }
         } catch (e) { /* non-fatal — routing package may not be available */ }
       }
+
+      // ── Intelligence embedding suggestion (SONA/ReasoningBank read path) ──
+      // Wires the previously-write-only intelligence system into live routing:
+      // suggestAgentsFromIntelligence() runs an embedding similarity search
+      // over patterns stored by recordMemoryDecision() on every post-task.
+      // This ENHANCES the keyword route — it only overrides when the
+      // embedding match is meaningfully more confident, and never blocks or
+      // delays routing beyond a 2s budget (fails silently otherwise).
+      try {
+        var intelResult = await Promise.race([
+          (async function() {
+            var mod = await _loadIntelligenceModule(CWD);
+            if (!mod || !mod.suggestAgentsFromIntelligence) return null;
+            return await mod.suggestAgentsFromIntelligence(prompt);
+          })(),
+          new Promise(function(resolve) { setTimeout(function() { resolve(null); }, 2000); })
+        ]);
+        if (intelResult && intelResult.agents && intelResult.agents.length > 0) {
+          var topIntelAgent = intelResult.agents[0];
+          var intelConf = intelResult.confidence != null ? intelResult.confidence : 0;
+          result.intelligenceSuggestion = { agents: intelResult.agents, confidence: intelConf };
+
+          var curAgent = result.agentSlug || result.agent;
+          var curConf = result.confidence != null ? result.confidence : 0;
+          if (topIntelAgent !== curAgent) {
+            // Only override when the embedding match clearly beats the keyword
+            // route (0.1 margin) — otherwise just surface it as a signal.
+            if (intelConf > curConf + 0.1) {
+              console.log('[INTELLIGENCE] Embedding suggestion overrides keyword routing: ' + topIntelAgent + ' (confidence ' + intelConf.toFixed(2) + ') vs keyword ' + curAgent + ' (' + curConf.toFixed(2) + ')');
+              result.keywordAgent = curAgent;
+              result.agent = topIntelAgent;
+              result.agentSlug = topIntelAgent;
+              result.confidence = intelConf;
+              result.reason = 'Intelligence embedding match (SONA/ReasoningBank)' + (result.reason ? '; keyword route was: ' + result.reason : '');
+              result.enrichedFrom = 'intelligence-embedding';
+            } else {
+              console.log('[INTELLIGENCE] Embedding suggestion: ' + topIntelAgent + ' (confidence ' + intelConf.toFixed(2) + ') — kept keyword route ' + curAgent);
+            }
+          }
+        }
+      } catch (e) { /* non-fatal — intelligence system unavailable or timed out */ }
 
       // ── Agent success pattern lookup ──────────────────────────
       try {

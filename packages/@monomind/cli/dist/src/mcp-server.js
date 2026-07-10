@@ -464,22 +464,37 @@ export class MCPServerManager extends EventEmitter {
                     }
                     const toolName = params.name;
                     const toolParams = (rawArgs || {});
-                    // validateInput boundary: sanitize the incoming tool name
+                    // validateInput boundary: sanitize the incoming tool name.
+                    // This gates every MCP tool invocation (including path/write/command
+                    // tools), so it fails CLOSED: if the security module cannot be
+                    // loaded or validation itself throws, the call is blocked rather
+                    // than silently allowed through unvalidated.
                     try {
-                        const secMod = await import('@monomind/security').catch(() => null);
+                        const secMod = await import('@monomind/security');
                         const validateInput = secMod?.validateInput;
-                        if (validateInput) {
-                            const check = validateInput(toolName, { type: 'string', maxLength: 200 });
-                            if (!check.valid) {
-                                return {
-                                    jsonrpc: '2.0',
-                                    id: message.id,
-                                    error: { code: -32602, message: `Invalid tool name: ${check.error}` },
-                                };
-                            }
+                        if (!validateInput) {
+                            return {
+                                jsonrpc: '2.0',
+                                id: message.id,
+                                error: { code: -32603, message: 'Security validation unavailable — operation blocked for safety' },
+                            };
+                        }
+                        const check = validateInput(toolName, { type: 'string', maxLength: 200 });
+                        if (!check.valid) {
+                            return {
+                                jsonrpc: '2.0',
+                                id: message.id,
+                                error: { code: -32602, message: `Invalid tool name: ${check.error}` },
+                            };
                         }
                     }
-                    catch { /* security module optional */ }
+                    catch {
+                        return {
+                            jsonrpc: '2.0',
+                            id: message.id,
+                            error: { code: -32603, message: 'Security validation unavailable — operation blocked for safety' },
+                        };
+                    }
                     if (!hasTool(toolName)) {
                         return {
                             jsonrpc: '2.0',

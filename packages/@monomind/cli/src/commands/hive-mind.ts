@@ -1,9 +1,9 @@
 /**
  * CLI Hive Mind Command
- * Queen-led consensus-based multi-agent coordination
- *
- * Updated to support --claude flag for launching interactive Claude Code sessions
- * PR: Fix #955 - Implement --claude flag for hive-mind spawn command
+ * Single-process vote-counting coordination for multi-agent decisions.
+ * Consensus strategies (BFT, Raft, Quorum) implement threshold arithmetic
+ * with Ed25519 vote signing — not distributed networking protocols.
+ * Gossip and CRDT strategies are planned but not yet implemented.
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';

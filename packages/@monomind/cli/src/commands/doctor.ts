@@ -18,7 +18,7 @@ import {
   checkConfigFile, checkDaemonStatus, checkMemoryDatabase, checkApiKeys,
   checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory,
   checkHelpersFresh, fixStaleHelpers, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
-  checkAgentRegistry, checkMemoryProficiency,
+  checkAgentRegistry, checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings, checkTestGaps,
 } from './doctor-project-checks.js';
 import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
 
@@ -37,7 +37,7 @@ export const doctorCommand: Command = {
     { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
     {
       name: 'component', short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, monoes-tools)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, monoes-tools, metrics-freshness, security-audit, test-gaps)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -80,7 +80,7 @@ export const doctorCommand: Command = {
       checkConfigFile, checkMemoryDatabase, checkDiskSpace,
       checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
       checkGuidanceGates, checkAgentRegistry, checkGit, checkDaemonStatus, checkApiKeys,
-      checkMemoryProficiency,
+      checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings, checkTestGaps,
     ];
     const codeOnlyChecks: (() => Promise<HealthCheck>)[] = [
       checkGitRepo, checkMcpServers,
@@ -102,6 +102,8 @@ export const doctorCommand: Command = {
       gates: checkGuidanceGates, gitignore: checkGitignoreCoverage,
       registry: checkAgentRegistry, 'memory-proficiency': checkMemoryProficiency,
       'monoes-tools': checkMonoesTools,
+      'metrics-freshness': checkMetricsFreshness, 'security-audit': checkSecurityAuditFindings,
+      'test-gaps': checkTestGaps,
     };
 
     const checksToRun = (component && componentMap[component]) ? [componentMap[component]] : allChecks;

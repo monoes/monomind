@@ -148,8 +148,54 @@ async function main() {
     forwardToDashboard(entry);
   }
 
+  // Detect route changes and daemon metric updates by mtime and forward them too.
+  // These aren't Claude Code hook events — they're file writes from route-handler.cjs
+  // and worker-daemon.ts respectively — so we poll cheaply on every hook invocation.
+  forwardFileChanges(monoDir, CWD);
+
   clearTimeout(safety);
   process.exit(0);
+}
+
+function forwardFileChanges(monoDir, workDir) {
+  try {
+    const cachePath = path.join(monoDir, 'dashboard-watch-cache.json');
+    let cache = {};
+    try { cache = JSON.parse(fs.readFileSync(cachePath, 'utf8')); } catch {}
+    let changed = false;
+
+    // Route changes (.monomind/last-route.json, written every prompt by route-handler.cjs)
+    const routePath = path.join(workDir, '.monomind', 'last-route.json');
+    try {
+      const routeMtime = fs.statSync(routePath).mtimeMs;
+      if (routeMtime !== cache.routeMtime) {
+        cache.routeMtime = routeMtime;
+        changed = true;
+        let route = null;
+        try { route = JSON.parse(fs.readFileSync(routePath, 'utf8')); } catch {}
+        forwardToDashboard({ hookType: 'route-change', ts: Date.now(), route });
+      }
+    } catch {}
+
+    // Daemon-complete: newest mtime among .monomind/metrics/*.json (written by worker-daemon.ts)
+    const metricsDir = path.join(workDir, '.monomind', 'metrics');
+    try {
+      const files = fs.readdirSync(metricsDir).filter(f => f.endsWith('.json') && !f.startsWith('.'));
+      let latestFile = null;
+      let latestMtime = cache.metricsMtime || 0;
+      for (const f of files) {
+        const mtime = fs.statSync(path.join(metricsDir, f)).mtimeMs;
+        if (mtime > latestMtime) { latestMtime = mtime; latestFile = f; }
+      }
+      if (latestFile) {
+        cache.metricsMtime = latestMtime;
+        changed = true;
+        forwardToDashboard({ hookType: 'daemon-complete', ts: Date.now(), metric: latestFile.replace(/\.json$/, '') });
+      }
+    } catch {}
+
+    if (changed) fs.writeFileSync(cachePath, JSON.stringify(cache));
+  } catch {}
 }
 
 main().catch(() => process.exit(0));

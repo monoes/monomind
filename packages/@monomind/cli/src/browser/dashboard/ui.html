@@ -45,6 +45,15 @@
   .stop-btn { background: #ef444422; border: 1px solid #ef444444; color: #ef4444;
               border-radius: 4px; padding: 2px 8px; font-size: 10px; cursor: pointer; }
   .empty { padding: 40px; text-align: center; color: #555; }
+  .panels { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .panel { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 8px; padding: 12px; }
+  .panel h2 { font-size: 12px; color: #e2e8f0; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .panel .empty { padding: 10px; font-size: 11px; }
+  .kv-list { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-family: monospace; }
+  .kv-row { display: flex; justify-content: space-between; gap: 12px; color: #aaa; }
+  .kv-row b { color: #ddd; font-weight: 600; }
+  .worker-chip { display: inline-block; background: #7c3aed22; border: 1px solid #7c3aed44; color: #a78bfa;
+                 border-radius: 4px; padding: 2px 8px; font-size: 10px; margin: 2px 4px 2px 0; }
 </style>
 </head>
 <body>
@@ -61,6 +70,21 @@
   <div class="empty">No workflows running. Start one with:<br><code>monomind browse workflow run &lt;file.json&gt;</code></div>
 </div>
 
+<div class="panels">
+  <div class="panel">
+    <h2>Daemon Metrics</h2>
+    <div id="panel-daemon" class="empty">loading...</div>
+  </div>
+  <div class="panel">
+    <h2>Swarm Status</h2>
+    <div id="panel-swarm" class="empty">loading...</div>
+  </div>
+  <div class="panel">
+    <h2>Routing Info</h2>
+    <div id="panel-route" class="empty">loading...</div>
+  </div>
+</div>
+
 <script>
 const runs = new Map();
 const logs = new Map();
@@ -72,9 +96,64 @@ function connect() {
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
     if (msg.type === 'init') { msg.runs?.forEach(r => runs.set(r.id, r)); render(); return; }
+    if (msg.hookType === 'route-change' || msg.hookType === 'daemon-complete') { refreshDashboard(); return; }
     handleEvent(msg);
   };
 }
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function refreshDashboard() {
+  try {
+    const res = await fetch('/api/dashboard');
+    if (!res.ok) return;
+    const data = await res.json();
+    renderDashboard(data);
+  } catch {}
+}
+
+function renderDashboard(data) {
+  const daemonEl = document.getElementById('panel-daemon');
+  if (data.daemon_workers?.length) {
+    daemonEl.className = '';
+    daemonEl.innerHTML = data.daemon_workers.map(w => `<span class="worker-chip">${escapeHtml(w)}</span>`).join('');
+  } else {
+    daemonEl.className = 'empty';
+    daemonEl.textContent = 'No daemon metrics yet. Run: monomind daemon start';
+  }
+
+  const swarmEl = document.getElementById('panel-swarm');
+  if (data.swarm_status) {
+    swarmEl.className = '';
+    const s = data.swarm_status;
+    swarmEl.innerHTML = `<div class="kv-list">` + Object.entries(s).map(([k, v]) =>
+      `<div class="kv-row"><span>${escapeHtml(k)}</span><b>${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : v)}</b></div>`
+    ).join('') + `</div>`;
+  } else {
+    swarmEl.className = 'empty';
+    swarmEl.textContent = 'No active swarm. Run: monomind swarm init';
+  }
+
+  const routeEl = document.getElementById('panel-route');
+  if (data.last_route) {
+    routeEl.className = '';
+    const r = data.last_route;
+    routeEl.innerHTML = `<div class="kv-list">
+      <div class="kv-row"><span>agent</span><b>${escapeHtml(r.agent ?? '—')}</b></div>
+      <div class="kv-row"><span>confidence</span><b>${escapeHtml(r.confidence ?? '—')}</b></div>
+      <div class="kv-row"><span>reason</span><b>${escapeHtml(r.reason ?? '—')}</b></div>
+      <div class="kv-row"><span>updated</span><b>${escapeHtml(r.updatedAt ?? '—')}</b></div>
+    </div>`;
+  } else {
+    routeEl.className = 'empty';
+    routeEl.textContent = 'No routing decisions yet.';
+  }
+}
+
+refreshDashboard();
+setInterval(refreshDashboard, 5000);
 
 function handleEvent(ev) {
   if (ev.eventType === 'run_started') {

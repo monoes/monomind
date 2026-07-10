@@ -101,6 +101,7 @@
 **/.monomind/loops/
 **/.monomind/traces/
 **/.monomind/security/
+**/.monomind/monobrowse/
 **/.monomind/*.json
 **/.monomind/*.jsonl
 **/.monomind/*.pid

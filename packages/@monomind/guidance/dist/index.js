@@ -38,27 +38,8 @@ export { RunLedger, createLedger, TestsPassEvaluator, ForbiddenCommandEvaluator,
 export { OptimizerLoop, createOptimizer } from './optimizer.js';
 export { PersistentLedger, EventStore, createPersistentLedger, createEventStore, } from './persistence.js';
 export { HeadlessRunner, createHeadlessRunner, ProcessExecutor, createComplianceSuite, } from './headless.js';
-export { DeterministicToolGateway, createToolGateway } from './gateway.js';
-export { ArtifactLedger, createArtifactLedger } from './artifacts.js';
-export { EvolutionPipeline, createEvolutionPipeline } from './evolution.js';
-export { ManifestValidator, ConformanceSuite, createManifestValidator, createConformanceSuite, } from './manifest-validator.js';
 export { ProofChain, createProofChain } from './proof.js';
-export { MemoryWriteGate, createMemoryWriteGate, createMemoryEntry, } from './memory-gate.js';
-export { CoherenceScheduler, EconomicGovernor, createCoherenceScheduler, createEconomicGovernor, } from './coherence.js';
-export { CapabilityAlgebra, createCapabilityAlgebra } from './capabilities.js';
-export { SimulatedRuntime, MemoryClerkCell, ConformanceRunner, createMemoryClerkCell, createConformanceRunner, } from './conformance-kit.js';
-export { MetaGovernor, createMetaGovernor } from './meta-governance.js';
-export { ThreatDetector, CollusionDetector, MemoryQuorum, createThreatDetector, createCollusionDetector, createMemoryQuorum, } from './adversarial.js';
-export { ContinueGate, createContinueGate } from './continue-gate.js';
-// WASM Kernel exports
-export { getKernel, isWasmAvailable, resetKernel, } from './wasm-kernel.js';
-export { generateClaudeMd, generateClaudeLocalMd, generateSkillMd, generateAgentMd, generateAgentIndex, scaffold, } from './generators.js';
 export { analyze, benchmark, autoOptimize, optimizeForSize, headlessBenchmark, validateEffect, abBenchmark, getDefaultABTasks, formatReport, formatBenchmark, } from './analyzer.js';
-export { TrustAccumulator, TrustLedger as TrustScoreLedger, TrustSystem, getTrustBasedRateLimit, createTrustAccumulator, createTrustLedger, createTrustSystem, } from './trust.js';
-export { TruthAnchorStore, TruthResolver, createTruthAnchorStore, createTruthResolver, } from './truth-anchors.js';
-export { UncertaintyLedger, UncertaintyAggregator, createUncertaintyLedger, createUncertaintyAggregator, } from './uncertainty.js';
-export { TemporalStore, TemporalReasoner, createTemporalStore, createTemporalReasoner, } from './temporal.js';
-export { AuthorityGate, IrreversibilityClassifier, createAuthorityGate, createIrreversibilityClassifier, isHigherAuthority, getAuthorityHierarchy, } from './authority.js';
 // ============================================================================
 // Default Configuration
 // ============================================================================

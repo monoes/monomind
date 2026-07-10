@@ -13,6 +13,28 @@
  * @module @monomind/guidance/gates
  */
 import type { GateConfig, GateResult, GateDecision, GuidanceRule } from './types.js';
+/** A regex serialized to its source + flags so it can survive a JSON round-trip. */
+export interface SerializedRegExp {
+    source: string;
+    flags: string;
+}
+/**
+ * Plain JSON-serializable snapshot of a gate config, written to disk so that
+ * out-of-process consumers (e.g. Claude Code's per-invocation hook subprocesses)
+ * can enforce the same patterns without re-importing the ESM package.
+ */
+export interface SerializedGateConfig {
+    compiledAt: string;
+    activeGateCount: number;
+    destructiveOps: boolean;
+    toolAllowlist: boolean;
+    diffSize: boolean;
+    secrets: boolean;
+    diffSizeThreshold: number;
+    allowedTools: string[];
+    destructivePatterns: SerializedRegExp[];
+    secretPatterns: SerializedRegExp[];
+}
 export declare class EnforcementGates {
     private config;
     private activeRules;
@@ -70,6 +92,17 @@ export declare class EnforcementGates {
      * Get gate statistics
      */
     getActiveGateCount(): number;
+    /**
+     * Export the compiled gate configuration as a plain JSON-serializable object.
+     *
+     * This is the single source of truth for gate patterns. Since gates are
+     * normally registered onto an in-memory HookRegistry that does not survive
+     * across Claude Code's per-hook subprocess boundaries, callers (e.g.
+     * session-restore) should persist this to disk so that other short-lived
+     * hook processes (e.g. PreToolUse) can read the same compiled patterns
+     * instead of maintaining a hand-copied duplicate.
+     */
+    exportConfig(): SerializedGateConfig;
     private findTriggeredRules;
 }
 /**
