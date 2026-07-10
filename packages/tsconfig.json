@@ -3,7 +3,6 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@monomind/security": ["./@monomind/security/src"],
       "@monomind/memory": ["./@monomind/memory/src"],
 
       "@monomind/cli": ["./@monomind/cli/src"],
@@ -11,7 +10,6 @@
     }
   },
   "references": [
-    { "path": "./@monomind/security" },
     { "path": "./@monomind/memory" },
 
     { "path": "./@monomind/cli" },

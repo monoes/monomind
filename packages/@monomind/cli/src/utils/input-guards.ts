@@ -1,12 +1,12 @@
 /**
- * Shared validateInput() utility for @monomind/security
+ * Input validation and prompt-injection guards.
  *
- * Provides a single typed entry point for input validation covering
- * string, number, path, url, and orgName types. Import this instead
- * of rolling per-package validation to ensure consistency and avoid
- * missed injection vectors.
+ * Inlined from the former @monomind/security package. Provides a single
+ * typed entry point for input validation covering string, number, path,
+ * url, and orgName types, plus a heuristic prompt-injection detector
+ * for untrusted external content.
  *
- * @module @monomind/security/input-guards
+ * @module @monomind/cli/utils/input-guards
  */
 
 import { resolve, isAbsolute } from 'node:path';
