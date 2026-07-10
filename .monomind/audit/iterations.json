@@ -154,6 +154,41 @@
         },
         "convergence_rationale": "Package delivers genuine value: real embedding-based semantic routing (Snowflake arctic-embed-xs, ~58% top-1), 3-tier cascade (keyword->semantic->LLM fallback), production hardening (isolated worker process, centroid caching, graceful degradation). Complementary to router.cjs (hooks pipeline) -- not redundant. Route-outcome correlation is in CLI monovector module, not this package (audit label was slightly misleading). No code bugs found. Added comprehensive test suite to close the only gap.",
         "timestamp": "2026-07-09T12:20:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 7,
+          "honesty_gap": 3,
+          "potential_value": 8
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Wired @monomind/routing keyword-pre-filter bridge into route-handler.cjs: when router.cjs falls to 'coder' catch-all (confidence <= 0.8), dynamically imports @monomind/routing's DEFAULT_KEYWORD_ROUTES (30+ specialized rules) for a more specific match",
+          "Bridge uses 2 filesystem fallback paths (direct dist/ or CLI node_modules symlink), fully try/catch wrapped for graceful degradation when routing package unavailable",
+          "Added 2 new tests: enrichment fires for specialized prompts (Solidity), skipped for specific non-coder matches"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 8
+        },
+        "verification": {
+          "tests_passed": 958,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "new_tests_added": 2,
+          "enrichment_test_file": "tests/hooks/route-handler.test.mjs",
+          "route_handler_tests": 14,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "bridge_triggers_on": "agentSlug=coder AND confidence<=0.8",
+          "bridge_sources": ["packages/@monomind/routing/dist/keyword-pre-filter.js", "packages/@monomind/cli/node_modules/@monomind/routing/dist/keyword-pre-filter.js"],
+          "enriched_fields": ["agent", "agentSlug", "confidence", "reason", "enrichedFrom"]
+        },
+        "remaining_work": "Semantic (embedding) routing in hooks path would require solving ESM/latency constraints — keyword bridge is the pragmatic solution",
+        "timestamp": "2026-07-10T04:10:00.000Z"
       }
     ],
     "monograph": [
@@ -894,8 +929,8 @@
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-10T03:30:00.000Z",
-    "total_iterations": 35,
+    "last_updated": "2026-07-10T04:10:00.000Z",
+    "total_iterations": 36,
     "features_converged": 20,
     "features_removed": 0
   }

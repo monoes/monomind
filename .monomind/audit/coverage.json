@@ -49,10 +49,10 @@
     },
     "routing": {
       "status": "needs-review",
-      "last_audited": "2026-07-09T12:20:00.000Z",
+      "last_audited": "2026-07-10T04:10:00.000Z",
       "verdict": "ITERATE",
-      "iterations": 1,
-      "note": "Re-opened: may duplicate router.cjs — needs consolidation assessment"
+      "iterations": 2,
+      "note": "Keyword bridge wired: router.cjs enriches coder catch-all via @monomind/routing's 30+ keyword rules. Value 6->7. Semantic routing bridge deferred (ESM/latency)."
     },
     "monobrowse": {
       "status": "converged",
@@ -154,6 +154,6 @@
   },
   "total_areas": 22,
   "audited_count": 6,
-  "last_updated": "2026-07-10T03:30:00.000Z",
+  "last_updated": "2026-07-10T04:10:00.000Z",
   "org_version": "value-loop-v2-aggressive"
 }
