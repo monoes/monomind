@@ -297,4 +297,60 @@ describe('route-handler routing path', () => {
     // Simplified persistence: agent field is passed through as-is
     expect(data.agent).toBe('extras');
   });
+
+  it('logs DISPATCH_DEDUP when same agent was recently dispatched', async () => {
+    const rh = loadRH();
+    // Write last-dispatch.json as if agent-start-handler just dispatched "coder"
+    const monomindDir = path.join(tmpDir, '.monomind');
+    fs.mkdirSync(monomindDir, { recursive: true });
+    fs.writeFileSync(path.join(monomindDir, 'last-dispatch.json'), JSON.stringify({
+      agentType: 'coder',
+      description: 'test task',
+      dispatchedAt: new Date().toISOString(),
+    }));
+    const logSpy = vi.spyOn(console, 'log');
+    const hCtx = makeHCtx({
+      prompt: 'fix a bug in the auth module',
+      router: {
+        routeTask: vi.fn().mockResolvedValue({
+          agent: 'coder',
+          agentSlug: 'coder',
+          confidence: 0.8,
+          reason: 'default',
+          skillMatches: [],
+        }),
+      },
+    });
+    await rh.handle(hCtx);
+    const dedupMsg = logSpy.mock.calls.find(c => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'));
+    expect(dedupMsg).toBeTruthy();
+    expect(dedupMsg[0]).toContain('coder');
+  });
+
+  it('does NOT log DISPATCH_DEDUP when a different agent was dispatched', async () => {
+    const rh = loadRH();
+    const monomindDir = path.join(tmpDir, '.monomind');
+    fs.mkdirSync(monomindDir, { recursive: true });
+    fs.writeFileSync(path.join(monomindDir, 'last-dispatch.json'), JSON.stringify({
+      agentType: 'researcher',
+      description: 'research task',
+      dispatchedAt: new Date().toISOString(),
+    }));
+    const logSpy = vi.spyOn(console, 'log');
+    const hCtx = makeHCtx({
+      prompt: 'fix a bug in the auth module',
+      router: {
+        routeTask: vi.fn().mockResolvedValue({
+          agent: 'coder',
+          agentSlug: 'coder',
+          confidence: 0.8,
+          reason: 'default',
+          skillMatches: [],
+        }),
+      },
+    });
+    await rh.handle(hCtx);
+    const dedupMsg = logSpy.mock.calls.find(c => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'));
+    expect(dedupMsg).toBeFalsy();
+  });
 });

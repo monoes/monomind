@@ -57,6 +57,39 @@
         ],
         "rejudge_scores": null,
         "timestamp": "2026-07-08T22:52:02.657185Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 7,
+          "honesty_gap": 2,
+          "potential_value": 8
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Wired last-dispatch.json consumer into route-handler.cjs: reads agent-start-handler's dispatch record and logs DISPATCH_DEDUP when the router picks the same agent that was dispatched <60s ago — closes the last write-only sink in the handler pipeline",
+          "Added 2 tests: DISPATCH_DEDUP fires for same-agent re-routing, skipped for different-agent routing"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 1,
+          "potential_value": 8
+        },
+        "verification": {
+          "tests_passed": 962,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "new_tests_added": 2,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "write_only_sinks_before": 1,
+          "write_only_sinks_after": 0,
+          "data_files_audited": ["last-dispatch.json", "last-route.json", "routing-feedback.jsonl", "episodes.jsonl", "swarm-activity.json", "memory-ops-*.json", "intelligence-outcomes.jsonl"],
+          "all_have_consumers": true
+        },
+        "convergence_rationale": "All handler data pipelines now have both writers and readers. last-dispatch.json (the sole remaining write-only sink) is now consumed by route-handler.cjs to suppress redundant same-agent routing within 60s. episodes.jsonl feeds past-session context. routing-feedback.jsonl feeds feedback weight adjustments. All daemon metrics consumed. All @monomind/hooks bridges wired. Value 7->8.",
+        "timestamp": "2026-07-10T14:40:00.000Z"
       }
     ],
     "intelligence-system": [
@@ -907,7 +940,7 @@
         "convergence_rationale": "Value 4→5, honesty 7→4. Working kNN similarity search with real cosine math. Partially self-aware about not being real ML (neural-core.ts disclaims 'no ML training'). Remaining gap is naming conventions (EWCConsolidator, 'neural train'), not broken functionality.",
         "timestamp": "2026-07-09T20:30:00.000Z"
       }
-    ]
+    ],
     "cross-deduplication": [
       {
         "iteration": 1,
