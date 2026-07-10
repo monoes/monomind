@@ -46,7 +46,7 @@
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (41 commands)          |
-| `@monomind/guidance` | `packages/@monomind/guidance/` | Governance control plane               |
+| `@monomind/guidance` | `packages/@monomind/guidance/` | Experimental — governance control plane |
 | `@monomind/hooks`    | `packages/@monomind/hooks/`    | 26 hook subcommands + 11 workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress) |
 | `@monomind/memory`   | `packages/@monomind/memory/`   | LanceDB + HNSW search                  |
 | `@monomind/security` | `packages/@monomind/security/` | Input validation, path security        |
@@ -286,10 +286,10 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 - **Security:** security-architect, security-auditor
 - **Swarm:** hierarchical-coordinator, mesh-coordinator, adaptive-coordinator, collective-intelligence-coordinator
 - **Consensus:** byzantine-coordinator, raft-manager, gossip-coordinator, crdt-synchronizer, quorum-manager
-- **Performance:** perf-analyzer, performance-benchmarker, task-orchestrator, memory-coordinator
+- **Performance:** perf-analyzer, performance-benchmarker
 - **GitHub:** github-modes, pr-manager, code-review-swarm, issue-tracker, release-manager, repo-architect
 - **SPARC:** sparc-coord, sparc-coder, specification, pseudocode, architecture, refinement
-- **Specialized:** backend-dev, mobile-dev, ml-developer, cicd-engineer, system-architect
+- **Specialized:** backend-dev, mobile-dev, ml-developer, system-architect
 
 Note: @monomind/security provides input validation (Zod schemas), path traversal prevention, and command injection protection as utility functions, not standalone agent classes.
 
@@ -308,6 +308,8 @@ Note: @monomind/security provides input validation (Zod schemas), path traversal
 **Hooks — 11 Workers** (`@monomind/hooks` WorkerManager, separate system): performance, health, swarm, git, learning, adr, ddd, security, patterns, cache, progress.
 
 ## Hive-Mind Consensus
+
+**Status: Experimental — single-process vote counting, not distributed consensus.**
 
 **Topologies:** hierarchical, mesh, hierarchical-mesh (recommended), adaptive.
 **Strategies:** byzantine (f < n/3), raft (f < n/2), quorum. Gossip and CRDT are planned but not yet implemented.
