@@ -47,10 +47,14 @@
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (41 commands)          |
 | `@monomind/guidance` | `packages/@monomind/guidance/` | Governance control plane               |
-| `@monomind/hooks`    | `packages/@monomind/hooks/`    | 17 hooks + 11 workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress) |
+| `@monomind/hooks`    | `packages/@monomind/hooks/`    | 26 hook subcommands + 11 workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress) |
 | `@monomind/memory`   | `packages/@monomind/memory/`   | LanceDB + HNSW search                  |
-| `@monomind/security` | `packages/@monomind/security/` | Input validation, CVE remediation      |
+| `@monomind/security` | `packages/@monomind/security/` | Input validation, path security        |
+| `@monomind/mcp`      | `packages/@monomind/mcp/`      | MCP server framework (HTTP/WS transport) |
+| `@monomind/routing`  | `packages/@monomind/routing/`  | Semantic routing (embedding + keyword cascade) |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
+| `@monoes/monograph`  | `packages/@monoes/monograph/`  | Knowledge graph (tree-sitter + SQLite) |
+| `monofence-ai`       | `packages/monofence-ai/`       | Security guardrails middleware         |
 
 ## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
 
@@ -217,27 +221,49 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 ## CLI Commands (41 Commands)
 
-| Command       | Sub | Description                                          |
-| ------------- | --- | ---------------------------------------------------- |
-| `init`        | 4   | Project initialization (wizard, presets, skills)     |
-| `agent`       | 8   | Agent lifecycle (spawn, list, status, stop, metrics) |
-| `swarm`       | 6   | Multi-agent swarm coordination                       |
-| `memory`      | 11  | LanceDB with vector search (HNSW)                    |
-| `mcp`         | 9   | MCP server management                                |
-| `task`        | 6   | Task creation and lifecycle                          |
-| `session`     | 7   | Session state management                             |
-| `config`      | 7   | Configuration management                             |
-| `hooks`       | 17  | Self-learning hooks + 11 background workers (@monomind/hooks WorkerManager) |
-| `hive-mind`   | 6   | Byzantine fault-tolerant consensus                   |
-| `daemon`      | 5   | Background worker daemon                             |
-| `neural`      | 5   | Neural pattern training                              |
-| `security`    | 6   | Security scanning                                    |
-| `performance` | 5   | Performance profiling                                |
-
-| `deployment`  | 5   | Deployment management                                |
-| `embeddings`  | 4   | Vector embeddings                                    |
-| `claims`      | 4   | Claims-based authorization                           |
-| `doctor`      | 1   | System diagnostics                                   |
+| Command          | Sub | Description                                          |
+| ---------------- | --- | ---------------------------------------------------- |
+| `init`           | 4   | Project initialization (wizard, presets, skills)     |
+| `start`          | -   | Start MCP server or daemon                           |
+| `status`         | 3   | System status monitoring with watch mode             |
+| `agent`          | 8   | Agent lifecycle (spawn, list, status, stop, metrics) |
+| `swarm`          | 6   | Multi-agent swarm coordination                       |
+| `memory`         | 11  | LanceDB with vector search (HNSW)                    |
+| `mcp`            | 9   | MCP server management                                |
+| `task`           | 6   | Task creation and lifecycle                          |
+| `session`        | 7   | Session state management                             |
+| `config`         | 7   | Configuration management                             |
+| `hooks`          | 26  | Self-learning hooks + 11 background workers (@monomind/hooks WorkerManager) |
+| `hive-mind`      | 6   | BFT/Raft/Quorum vote counting (single-process)      |
+| `daemon`         | 5   | Background worker daemon (12 workers)                |
+| `neural`         | 5   | Pattern storage and similarity search                |
+| `security`       | 6   | Security scanning                                    |
+| `performance`    | 5   | Performance profiling                                |
+| `guidance`       | 7   | Governance control plane (compile, gates, optimize)  |
+| `monograph`      | -   | Knowledge graph CLI (delegates to @monoes/monograph) |
+| `browse`         | -   | Browser automation via CDP (@monoes/monobrowse)      |
+| `workflow`       | 6   | Workflow execution and template management           |
+| `claims`         | 4   | Claims-based authorization                           |
+| `doctor`         | 1   | System diagnostics                                   |
+| `cleanup`        | -   | Project cleanup utilities                            |
+| `autopilot`      | -   | Autonomous task execution                            |
+| `analyze`        | -   | Codebase analysis                                    |
+| `route`          | -   | Task routing                                         |
+| `providers`      | 5   | AI provider management                               |
+| `search`         | -   | Universal search                                     |
+| `scan`           | -   | Security/code scanning                               |
+| `doc`            | -   | Documentation generation                             |
+| `design`         | -   | Design detection and routing                         |
+| `enrich`         | -   | Context enrichment                                   |
+| `tokens`         | -   | Token counting                                       |
+| `platforms`      | -   | Platform management                                  |
+| `issues`         | -   | Issue tracking                                       |
+| `completions`    | 4   | Shell completions (bash, zsh, fish, powershell)      |
+| `replay`         | -   | Session replay                                       |
+| `transfer-store` | -   | Pattern transfer between projects                    |
+| `update`         | -   | Self-update check                                    |
+| `report-crash`   | -   | Report a crash                                       |
+| `crash-reporting` | -  | Configure crash reporting                            |
 
 ## Agent Teams (Multi-Agent Coordination)
 
@@ -254,16 +280,18 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 
 **Hooks:** `TeammateIdle` (auto-assign tasks), `TaskCompleted` (train patterns, notify lead).
 
-## Available Agents (60+ Types)
+## Available Agents (13 Core Types, 60+ Routing Target Definitions)
 
 - **Core:** coder, reviewer, tester, planner, researcher
-- **Security:** security-architect, security-auditor, InputValidator, PathValidator, SafeExecutor
+- **Security:** security-architect, security-auditor
 - **Swarm:** hierarchical-coordinator, mesh-coordinator, adaptive-coordinator, collective-intelligence-coordinator
 - **Consensus:** byzantine-coordinator, raft-manager, gossip-coordinator, crdt-synchronizer, quorum-manager
 - **Performance:** perf-analyzer, performance-benchmarker, task-orchestrator, memory-coordinator
 - **GitHub:** github-modes, pr-manager, code-review-swarm, issue-tracker, release-manager, repo-architect
 - **SPARC:** sparc-coord, sparc-coder, specification, pseudocode, architecture, refinement
 - **Specialized:** backend-dev, mobile-dev, ml-developer, cicd-engineer, system-architect
+
+Note: @monomind/security provides input validation (Zod schemas), path traversal prevention, and command injection protection as utility functions, not standalone agent classes.
 
 ## Hooks System
 
@@ -273,7 +301,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 | **Session**      | session-start, session-end, session-restore, notify                             |
 | **Intelligence** | route, explain, pretrain, build-agents, transfer                                |
 | **Learning**     | intelligence (trajectory-start/step/end, pattern-store/search, stats, attention)|
-| **Agent Teams**  | teammate-idle, task-completed                                                   |
+| **Agent Teams**  | teammate-idle, task-completed (Claude Code hook events, not CLI subcommands)    |
 
 **Daemon — 12 Workers** (`packages/@monomind/cli` daemon system): ultralearn, optimize, consolidate, predict, audit (critical), map, preload, deepdive, document, refactor, benchmark, testgaps.
 
@@ -282,7 +310,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 ## Hive-Mind Consensus
 
 **Topologies:** hierarchical, mesh, hierarchical-mesh (recommended), adaptive.
-**Strategies:** byzantine (f < n/3), raft (f < n/2), gossip, crdt, quorum.
+**Strategies:** byzantine (f < n/3), raft (f < n/2), quorum. Gossip and CRDT are planned but not yet implemented.
 
 ## Project Configuration (Anti-Drift Defaults)
 
