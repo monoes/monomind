@@ -15,9 +15,9 @@
  * 2. @monomind/hooks TypeScript package (packages/@monomind/hooks/)
  *    A full TypeScript package with workers, learning services, and
  *    a WorkerManager. It compiles to dist/ but is only loaded
- *    optionally — currently at session-restore (to bridge pre-task /
- *    post-task into the hook registry) and at session-restore for a
- *    non-blocking security scan. The CJS handlers in system (1) are
+ *    optionally — loaded at session-restore, then bridged at five
+ *    lifecycle events: SessionStart (restore), PreTask, PostTask,
+ *    PostEdit, and SessionEnd. The CJS handlers in system (1) are
  *    the authoritative dispatch path; system (2) provides optional
  *    enrichment when the package is installed and built.
  */

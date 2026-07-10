@@ -140,6 +140,19 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
+    // Bridge to @monomind/hooks registry — fires PostEdit hooks (observability bus, guidance provider)
+    var _hooksModule = hCtx._hooksModule;
+    if (_hooksModule && _hooksModule.executeHooks && _hooksModule.HookEvent) {
+      try {
+        var editFileBridge = hookInput.file_path || toolInput.file_path
+          || process.env.TOOL_INPUT_file_path || args[0] || '';
+        _hooksModule.executeHooks(_hooksModule.HookEvent.PostEdit, {
+          file: { path: editFileBridge, operation: 'modify' },
+          duration: 0,
+        }, { continueOnError: true, timeout: 1500 }).catch(function() {});
+      } catch (e) { /* non-fatal */ }
+    }
+
     console.log('[OK] Edit recorded');
   }
 };

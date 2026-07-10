@@ -126,6 +126,19 @@ module.exports = {
         await runWithTimeout(function() { return hooksModule.initDefaultWorkers(); }, '@monomind/hooks.initDefaultWorkers()');
         hCtx._hooksModule = hooksModule;
         console.log('[INFO] @monomind/hooks workers initialized');
+        // Fire SessionStart event so observability bus and other SessionStart hooks activate
+        if (hooksModule.executeHooks && hooksModule.HookEvent) {
+          try {
+            await runWithTimeout(function() {
+              return hooksModule.executeHooks(hooksModule.HookEvent.SessionStart, {
+                session: {
+                  id: String(hookInput.sessionId || hookInput.session_id || ''),
+                  startedAt: new Date(),
+                },
+              }, { continueOnError: true, timeout: 1500 });
+            }, '@monomind/hooks.SessionStart');
+          } catch (e2) { /* non-fatal */ }
+        }
       }
     } catch (e) { /* @monomind/hooks not compiled yet — skip */ }
 
