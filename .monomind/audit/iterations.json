@@ -312,6 +312,41 @@
         },
         "convergence_rationale": "Guidance is a substantial, well-engineered governance framework (21k lines, 31 modules, 1346 tests at 88.6% coverage). It provides real value: CLAUDE.md compilation into policy bundles, enforcement gates for destructive ops and secrets, run ledgers with evaluators, trust systems, proof chains, adversarial defenses, and CLAUDE.md quality analysis/optimization. The CLI exposes 7 subcommands (compile, retrieve, gates, status, optimize, ab-test, setup) and 5 MCP guidance tools. The init wizard wires gates into hooks. The package has NO runtime consumers outside the CLI guidance command (no other package imports it), meaning it is opt-in tooling rather than a core runtime dependency. This is appropriate -- it is a governance control plane meant to be invoked explicitly. No bugs found. The only gaps are low test coverage on headless.ts and wasm-kernel.ts, which are infrastructure modules not yet fully implemented. No code changes needed.",
         "timestamp": "2026-07-09T15:00:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 7,
+          "implementation_health": 8,
+          "honesty_gap": 3,
+          "potential_value": 8
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Wired GuidanceHookProvider into session-restore-handler.cjs: after initDefaultWorkers(), imports @monomind/guidance, compiles CLAUDE.md + CLAUDE.local.md, loads shards into retriever, registers 5 hooks on defaultRegistry (PreCommand, PreToolUse, PreEdit, PreTask, PostTask)",
+          "Activates shard retrieval at PreTask (task-relevant CLAUDE.md rules injected per task), run ledger tracking at PostTask, and diff-size gate at PreEdit — all previously dead code",
+          "Fixed var fs shadowing bug (var fs inside try block shadowed const fs at file top, breaking later fs.existsSync calls)"
+        ],
+        "rejudge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 1,
+          "potential_value": 8
+        },
+        "verification": {
+          "tests_passed": 956,
+          "tests_skipped": 7,
+          "test_failures": 0,
+          "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
+          "hooks_registered": ["guidance-gate-pre-command", "guidance-gate-pre-tool-use", "guidance-gate-pre-edit", "guidance-retriever-pre-task", "guidance-ledger-post-task"],
+          "guidance_active_at_runtime": true,
+          "shard_retrieval_fires": true,
+          "ledger_tracking_fires": true,
+          "diff_size_gate_fires": true,
+          "graceful_degradation": "all try/catch wrapped — non-fatal if @monomind/guidance unavailable"
+        },
+        "convergence_rationale": "GuidanceHookProvider was fully implemented but never instantiated at runtime — shard retrieval, ledger tracking, and diff-size gate were dead code. Now wired into session-restore-handler.cjs alongside initDefaultWorkers(). CLAUDE.md is compiled once per session, shards loaded into retriever, and 5 hooks registered. Each task gets relevant CLAUDE.md rules injected (not the whole doc). Run events tracked for future optimization cycles. Value 7->8.",
+        "timestamp": "2026-07-10T03:30:00.000Z"
       }
     ],
     "monobrowse": [
@@ -859,9 +894,9 @@
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-10T02:45:00.000Z",
-    "total_iterations": 34,
-    "features_converged": 19,
+    "last_updated": "2026-07-10T03:30:00.000Z",
+    "total_iterations": 35,
+    "features_converged": 20,
     "features_removed": 0
   }
 }

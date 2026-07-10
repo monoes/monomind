@@ -28,11 +28,11 @@
       "iterations": 2
     },
     "guidance-package": {
-      "status": "needs-review",
-      "last_audited": "2026-07-09T15:00:00.000Z",
-      "verdict": "ITERATE",
-      "iterations": 1,
-      "note": "Re-opened: was KEEP-AS-IS but salvation-first policy requires checking if gates can auto-activate"
+      "status": "converged",
+      "last_audited": "2026-07-10T03:30:00.000Z",
+      "verdict": "CONVERGED-COMMIT",
+      "iterations": 2,
+      "note": "GuidanceHookProvider wired into session-restore. Shard retrieval, ledger tracking, diff-size gate now fire at runtime. Value 7->8."
     },
     "monograph": {
       "status": "converged",
@@ -153,7 +153,7 @@
     }
   },
   "total_areas": 22,
-  "audited_count": 5,
-  "last_updated": "2026-07-10T02:45:00.000Z",
+  "audited_count": 6,
+  "last_updated": "2026-07-10T03:30:00.000Z",
   "org_version": "value-loop-v2-aggressive"
 }
