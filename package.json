@@ -68,8 +68,7 @@
     "@monoes/monograph": "^1.3.0",
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
-    "semver": "^7.6.0",
-    "zod": "^3.22.0"
+    "semver": "^7.6.0"
   },
   "overrides": {
     "hono": ">=4.12.21",
