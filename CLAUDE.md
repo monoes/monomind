@@ -49,7 +49,7 @@
 | `@monomind/guidance` | `packages/@monomind/guidance/` | Experimental — governance control plane |
 | `@monomind/hooks`    | `packages/@monomind/hooks/`    | 26 hook subcommands + 11 workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress) |
 | `@monomind/memory`   | `packages/@monomind/memory/`   | LanceDB + HNSW search                  |
-| `@monomind/security` | `packages/@monomind/security/` | Input validation, path security        |
+| `@monomind/security` | `packages/@monomind/cli/src/utils/` | Input validation, path security (inlined into CLI) |
 | `@monomind/mcp`      | `packages/@monomind/mcp/`      | MCP server framework (HTTP/WS transport) |
 | `@monomind/routing`  | `packages/@monomind/routing/`  | Semantic routing (embedding + keyword cascade) |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
@@ -290,7 +290,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 - **SPARC:** sparc-coord, sparc-coder, specification, pseudocode, architecture, refinement
 - **Specialized:** backend-dev, mobile-dev, ml-developer, system-architect
 
-Note: @monomind/security provides input validation (Zod schemas), path traversal prevention, and command injection protection as utility functions, not standalone agent classes.
+Note: Input validation (path traversal prevention, command injection protection) is inlined in `packages/@monomind/cli/src/utils/input-guards.ts`, not a standalone package.
 
 ## Hooks System
 
