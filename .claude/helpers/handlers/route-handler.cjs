@@ -70,6 +70,43 @@ module.exports = {
       const routeFn = router.routeTaskSemantic || router.routeTask;
       var result = await Promise.resolve(routeFn(prompt));
 
+      // ── Enrichment: when router.cjs falls to the broad "coder" catch-all,
+      //    try @monomind/routing's richer keyword pre-filter (30+ specialized
+      //    rules for Solidity, game engines, DevOps, embedded, etc.) for a
+      //    more specific agent match. This bridges the hooks layer (router.cjs)
+      //    with the CLI routing package without requiring ESM imports. ─────────
+      if (result && result.agentSlug === 'coder' && result.confidence <= 0.8) {
+        try {
+          var routingPkgPath = path.resolve(
+            CWD, 'packages', '@monomind', 'routing', 'dist', 'keyword-pre-filter.js'
+          );
+          // Also check CLI's node_modules (symlinked workspace)
+          if (!fs.existsSync(routingPkgPath)) {
+            routingPkgPath = path.resolve(
+              CWD, 'packages', '@monomind', 'cli', 'node_modules',
+              '@monomind', 'routing', 'dist', 'keyword-pre-filter.js'
+            );
+          }
+          if (fs.existsSync(routingPkgPath)) {
+            var routingMod = await import(routingPkgPath);
+            var enrichRules = routingMod.DEFAULT_KEYWORD_ROUTES;
+            if (enrichRules && enrichRules.length > 0) {
+              for (var eri = 0; eri < enrichRules.length; eri++) {
+                var erRule = enrichRules[eri];
+                if (erRule.pattern && erRule.pattern.test(prompt)) {
+                  result.agent = erRule.routeName || erRule.agentSlug;
+                  result.agentSlug = erRule.agentSlug;
+                  result.confidence = 0.90;
+                  result.reason = 'Enriched: ' + (erRule.description || erRule.routeName);
+                  result.enrichedFrom = 'routing-keyword-pre-filter';
+                  break;
+                }
+              }
+            }
+          }
+        } catch (e) { /* non-fatal — routing package may not be available */ }
+      }
+
       // ── Agent success pattern lookup ──────────────────────────
       try {
         var patternDb = hCtx._openMonographDb();

@@ -226,6 +226,58 @@ describe('route-handler routing path', () => {
     await expect(rh.handle(hCtx)).resolves.not.toThrow();
   });
 
+  it('enriches coder catch-all with @monomind/routing keyword rules when available', async () => {
+    const rh = loadRH();
+    // Set up a routing dist directory with keyword rules
+    const routingDist = path.join(tmpDir, 'packages', '@monomind', 'routing', 'dist');
+    fs.mkdirSync(routingDist, { recursive: true });
+    // Write a minimal keyword-pre-filter.js ESM module
+    fs.writeFileSync(
+      path.join(routingDist, 'keyword-pre-filter.js'),
+      `export const DEFAULT_KEYWORD_ROUTES = [
+        { pattern: /\\bsolidity\\b/i, agentSlug: 'engineering-solidity-smart-contract-engineer', routeName: 'solidity', description: 'Solidity / smart contract' },
+      ];\n`
+    );
+    const hCtx = makeHCtx({
+      prompt: 'write a solidity smart contract for token vesting',
+      router: {
+        routeTask: vi.fn().mockResolvedValue({
+          agent: 'Coder',
+          agentSlug: 'coder',
+          confidence: 0.80,
+          reason: 'Default routing — keyword match: coder',
+          skillMatches: [],
+        }),
+      },
+    });
+    await rh.handle(hCtx);
+    const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
+    const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
+    expect(data.agentSlug).toBe('engineering-solidity-smart-contract-engineer');
+    expect(data.confidence).toBe(0.90);
+  });
+
+  it('does not enrich when router returns a specific non-coder agent', async () => {
+    const rh = loadRH();
+    const hCtx = makeHCtx({
+      prompt: 'review the authentication code',
+      router: {
+        routeTask: vi.fn().mockResolvedValue({
+          agent: 'Reviewer',
+          agentSlug: 'reviewer',
+          confidence: 0.82,
+          reason: 'Keyword match: reviewer',
+          skillMatches: [],
+        }),
+      },
+    });
+    await rh.handle(hCtx);
+    const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
+    const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
+    expect(data.agentSlug).toBe('reviewer');
+    expect(data.confidence).toBe(0.82);
+  });
+
   it('writes last-route.json with "extras" resolved to specialist name', async () => {
     const rh = loadRH();
     const hCtx = makeHCtx({
