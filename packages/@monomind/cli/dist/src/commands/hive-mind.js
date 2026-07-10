@@ -43,12 +43,15 @@ const initCommand = {
                 default: 'byzantine'
             });
         }
+        // Note: the parser normalizes all flag keys to camelCase (kebab-case keys
+        // like 'max-agents' never land in ctx.flags — only 'maxAgents' does), so
+        // the camelCase form must be read first here.
         const config = {
             topology: topology || 'hierarchical-mesh',
             consensus: consensus || 'byzantine',
-            maxAgents: ctx.flags['max-agents'] || 15,
+            maxAgents: ctx.flags.maxAgents ?? ctx.flags['max-agents'] ?? 15,
             persist: ctx.flags.persist,
-            memoryBackend: ctx.flags['memory-backend'] || 'hybrid'
+            memoryBackend: ctx.flags.memoryBackend || ctx.flags['memory-backend'] || 'hybrid'
         };
         output.writeln();
         output.writeln(output.bold('Initializing Hive Mind'));

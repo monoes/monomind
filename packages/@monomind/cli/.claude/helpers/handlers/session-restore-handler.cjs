@@ -120,12 +120,63 @@ module.exports = {
     }
 
     // Bridge to @monomind/hooks compiled workers (GAP-001).
+    // Uses the shared hCtx._ensureHooksModule() (defined in hook-handler.cjs) so worker
+    // registration happens exactly once per process instead of being duplicated here —
+    // every other bridging handler (agent-start, pre-task, post-task, post-edit,
+    // session-end) calls the same lazy loader since each hook event is its own process.
     try {
-      var hooksModule = await import('@monomind/hooks');
-      if (hooksModule && hooksModule.initDefaultWorkers) {
-        await runWithTimeout(function() { return hooksModule.initDefaultWorkers(); }, '@monomind/hooks.initDefaultWorkers()');
+      var hooksModule = hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : await import('@monomind/hooks');
+      if (hooksModule) {
         hCtx._hooksModule = hooksModule;
         console.log('[INFO] @monomind/hooks workers initialized');
+
+        // Wire GuidanceHookProvider — activates shard retrieval (PreTask),
+        // run ledger tracking (PostTask), and diff-size gate (PreEdit).
+        try {
+          var guidanceMod = await import('@monomind/guidance');
+          if (guidanceMod && guidanceMod.createGates && guidanceMod.createRetriever && guidanceMod.createLedger) {
+            var gates = guidanceMod.createGates();
+            var retriever = guidanceMod.createRetriever();
+            var ledger = guidanceMod.createLedger();
+            // Try to compile CLAUDE.md so the retriever has shards to serve
+            try {
+              var claudeMdPath = path.join(CWD, 'CLAUDE.md');
+              if (fs.existsSync(claudeMdPath)) {
+                var compiler = guidanceMod.createCompiler();
+                var rootContent = fs.readFileSync(claudeMdPath, 'utf-8');
+                var localPath = path.join(CWD, 'CLAUDE.local.md');
+                var localContent = fs.existsSync(localPath) ? fs.readFileSync(localPath, 'utf-8') : undefined;
+                var bundle = compiler.compile(rootContent, localContent);
+                await retriever.loadBundle(bundle);
+                var allRules = [].concat(
+                  bundle.constitution.rules || [],
+                  (bundle.shards || []).map(function(s) { return s.rule; })
+                );
+                gates.setActiveRules(allRules);
+                console.log('[GUIDANCE] Compiled CLAUDE.md: ' + (bundle.shards || []).length + ' shards, ' + gates.getActiveGateCount() + ' gates');
+              }
+            } catch (compileErr) { /* non-fatal — gates still work without shards */ }
+            // Register on the global hook registry
+            if (guidanceMod.createGuidanceHooks && hooksModule.defaultRegistry) {
+              var result = guidanceMod.createGuidanceHooks(gates, retriever, ledger, hooksModule.defaultRegistry);
+              console.log('[GUIDANCE] Registered ' + result.hookIds.length + ' hooks on registry');
+            }
+          }
+        } catch (guidanceErr) { /* @monomind/guidance not available — skip */ }
+
+        // Fire SessionStart event so observability bus and other SessionStart hooks activate
+        if (hooksModule.executeHooks && hooksModule.HookEvent) {
+          try {
+            await runWithTimeout(function() {
+              return hooksModule.executeHooks(hooksModule.HookEvent.SessionStart, {
+                session: {
+                  id: String(hookInput.sessionId || hookInput.session_id || ''),
+                  startedAt: new Date(),
+                },
+              }, { continueOnError: true, timeout: 1500 });
+            }, '@monomind/hooks.SessionStart');
+          } catch (e2) { /* non-fatal */ }
+        }
       }
     } catch (e) { /* @monomind/hooks not compiled yet — skip */ }
 

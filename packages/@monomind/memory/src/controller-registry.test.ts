@@ -195,10 +195,11 @@ describe('ControllerRegistry', () => {
   // ----- Level-Based Ordering -----
 
   describe('level-based initialization ordering', () => {
-    it('should define 2 initialization levels (0-1)', () => {
-      expect(INIT_LEVELS).toHaveLength(2);
+    it('should define 7 initialization levels (0-6)', () => {
+      expect(INIT_LEVELS).toHaveLength(7);
       expect(INIT_LEVELS[0].level).toBe(0);
       expect(INIT_LEVELS[1].level).toBe(1);
+      expect(INIT_LEVELS[INIT_LEVELS.length - 1].level).toBe(6);
     });
 
     it('should have monotonically increasing levels', () => {

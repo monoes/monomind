@@ -54,9 +54,8 @@ export const optimizeCommand = {
                     return { ...p, embedding: int8Embedding, _quantized: true, _scale: scale };
                 });
                 const patternFile = path.join(patternDir, 'patterns.json');
-                const tmpFile = `${patternFile}.${process.pid}.tmp`;
-                fs.writeFileSync(tmpFile, JSON.stringify(quantizedPatterns, null, 2), 'utf-8');
-                fs.renameSync(tmpFile, patternFile);
+                const { writeJsonFileAtomic } = await import('../utils/json-file.js');
+                writeJsonFileAtomic(patternFile, quantizedPatterns);
                 spinner.succeed(`Quantized ${quantized} patterns`);
                 output.writeln();
                 output.printTable({
@@ -267,9 +266,8 @@ export const exportCommand = {
                     spinner.fail(`--output path escapes project directory: ${outputFile}`);
                     return { success: false, exitCode: 1 };
                 }
-                const tmpOutput = outputFile + '.tmp';
-                fs.writeFileSync(tmpOutput, JSON.stringify(exportPackage, null, 2));
-                fs.renameSync(tmpOutput, outputFile);
+                const { writeJsonFileAtomic } = await import('../utils/json-file.js');
+                writeJsonFileAtomic(resolvedOut, exportPackage);
                 spinner.succeed(`Exported to: ${outputFile}`);
             }
             if (pinToIpfs) {

@@ -58,15 +58,12 @@ const SKILLS_MAP: Record<string, string[]> = {
   core: [
     'swarm-orchestration',
     'swarm-advanced',
-    'swarm-coordination',
     'sparc-methodology',
     'hooks-automation',
     'pair-programming',
     'verification-quality',
-    'stream-chain',
     'skill-builder',
     'specialagent',
-    'mastermind',
     'monodesign',
     'monomotion',
     'monolean',
@@ -77,33 +74,16 @@ const SKILLS_MAP: Record<string, string[]> = {
     'hive-mind-advanced',
   ],
   browser: ['agent-browser-testing'],
-  memory: [
-    'memory-advanced',
-    'memory-learning',
-    'memory-patterns',
-    'memory-optimization',
-    'memory-vector-search',
-    'memory-reasoningbank',
-    'reasoningbank-intelligence',
-  ],
-  github: [
-    'github-code-review',
-    'github-multi-repo',
-    'github-project-management',
-    'github-release-management',
-    'github-workflow-automation',
-  ],
+  // NOTE: memory-toolkit and github-toolkit are single consolidated skills
+  // (not one skill per capability) — see .claude/skills/memory-toolkit and
+  // .claude/skills/github-toolkit. The finer-grained names previously listed
+  // here (memory-advanced, github-code-review, etc.) never had matching
+  // source directories and silently copied nothing.
+  memory: ['memory-toolkit'],
+  github: ['github-toolkit'],
   advanced: [
-    'agentic-integration',
     'agentic-jujutsu',
-    'cli-modernization',
-    'core-implementation',
-    'ddd-architecture',
-    'mcp-optimization',
-    'memory-unification',
     'performance-analysis',
-    'performance-optimization',
-    'security-hardening',
   ],
 };
 
@@ -1119,6 +1099,11 @@ async function copySkills(
       copyDirRecursive(sourcePath, targetPath);
       result.created.files.push(`.claude/skills/${skillName}`);
       result.summary.skillsCount++;
+    } else {
+      // A skill referenced in SKILLS_MAP has no matching source directory —
+      // surface this instead of silently copying nothing, so drift between
+      // SKILLS_MAP and the actual .claude/skills/ tree gets caught.
+      result.errors.push(`Skill '${skillName}' listed in SKILLS_MAP has no source directory at ${sourcePath} — skipped`);
     }
   }
 }

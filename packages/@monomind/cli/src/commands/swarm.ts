@@ -9,6 +9,7 @@ import { select, confirm, multiSelect } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
 
 // Canonical paths — shared with MCP tools so CLI and MCP see the same state
 const SWARM_STATE_DIR = '.monomind/swarm';
@@ -355,9 +356,7 @@ const initCommand: Command = {
           createdAt: result.initializedAt || new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
-        const tmpStateFile1 = stateFile + '.tmp';
-        fs.writeFileSync(tmpStateFile1, JSON.stringify(store, null, 2));
-        fs.renameSync(tmpStateFile1, stateFile);
+        writeJsonFileAtomic(stateFile, store);
       } catch {
         // Ignore errors writing state file
       }
@@ -487,9 +486,12 @@ const startCommand: Command = {
       resolvedSwarmId = mcpData?.swarmId ?? mcpData?.id ?? swarmId;
       spinner.succeed('Swarm initialized via MCP');
     } catch (err) {
-      spinner.fail('MCP swarm_init failed — swarm metadata saved locally only');
+      // swarm_init runs in-process via the local MCP tool registry — there is no
+      // separate MCP server to "start" here. A failure means the handler itself
+      // threw (bad input, filesystem/config issue, etc.), not that a server is down.
+      spinner.fail('swarm_init failed — swarm metadata saved locally only');
       output.writeln(output.dim(`  Error: ${err instanceof Error ? err.message : String(err)}`));
-      output.writeln(output.dim('  The MCP server may not be running. Start it with: claude mcp add monomind npx monomind@v1alpha mcp start'));
+      output.writeln(output.dim('  Run with -v/--verbose for more detail, or `monomind doctor` to check config/permission issues.'));
     }
 
     // Persist swarm state to MCP-canonical path so CLI and MCP share state
@@ -515,9 +517,7 @@ const startCommand: Command = {
       updatedAt: new Date().toISOString()
     };
 
-    const tmpStateFile2 = stateFile2 + '.tmp';
-    fs.writeFileSync(tmpStateFile2, JSON.stringify(startStore, null, 2));
-    fs.renameSync(tmpStateFile2, stateFile2);
+    writeJsonFileAtomic(stateFile2, startStore);
 
     output.writeln();
     output.printSuccess(`Swarm ${resolvedSwarmId} initialized with ${totalAgents} agent slots`);
@@ -691,9 +691,7 @@ const stopCommand: Command = {
             store.status = 'stopped';
             store.stoppedAt = new Date().toISOString();
           }
-          const tmpSwarmStop = stopStateFile + '.tmp';
-          fs.writeFileSync(tmpSwarmStop, JSON.stringify(store, null, 2));
-          fs.renameSync(tmpSwarmStop, stopStateFile);
+          writeJsonFileAtomic(stopStateFile, store);
           output.writeln(output.dim('  Swarm state updated'));
         } catch {
           output.writeln(output.dim('  Could not update swarm state file'));

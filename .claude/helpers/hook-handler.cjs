@@ -15,11 +15,24 @@
  * 2. @monomind/hooks TypeScript package (packages/@monomind/hooks/)
  *    A full TypeScript package with workers, learning services, and
  *    a WorkerManager. It compiles to dist/ but is only loaded
- *    optionally — loaded at session-restore, then bridged at five
- *    lifecycle events: SessionStart (restore), PreTask, PostTask,
- *    PostEdit, and SessionEnd. The CJS handlers in system (1) are
- *    the authoritative dispatch path; system (2) provides optional
- *    enrichment when the package is installed and built.
+ *    optionally, bridged at six lifecycle events: SessionStart (restore),
+ *    PreTask, PostTask, PostEdit, SessionEnd, and AgentSpawn (agent-start).
+ *    The CJS handlers in system (1) are the authoritative dispatch path;
+ *    system (2) provides optional enrichment when the package is
+ *    installed and built.
+ *
+ *    IMPORTANT: each hook event is dispatched as its OWN fresh `node`
+ *    process (Claude Code spawns one invocation per event — this file
+ *    does not stay resident across events). So the @monomind/hooks
+ *    module, and anything it registers (trace collector spans, episode
+ *    binner, etc.), cannot be set up once and reused across events —
+ *    every bridging handler must call hCtx._ensureHooksModule() itself,
+ *    which lazily imports the package AND calls initDefaultWorkers() in
+ *    that process before firing executeHooks(). Cross-event state (e.g.
+ *    correlating a PreTask span to its matching PostTask) is NOT
+ *    possible via in-memory maps for this reason; only handlers/hooks
+ *    that persist state to disk (like the daemon workers under
+ *    .monomind/metrics/) can meaningfully bridge across separate events.
  */
 
 const path = require('path');
@@ -88,9 +101,37 @@ const session = safeRequire(path.join(helpersDir, 'session.cjs'));
 const memory = safeRequire(path.join(helpersDir, 'memory.cjs'));
 const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
 
-// Module-level reference to @monomind/hooks — populated at session-restore,
-// then used by pre-task / post-task to bridge into the hook registry (Tasks 26, 39).
+// Module-level reference to @monomind/hooks — populated lazily via
+// _ensureHooksModule(). NOTE: hook-handler.cjs runs as a fresh `node` process
+// per hook event (Claude Code spawns one invocation per event, it does not
+// keep the process alive across events), so a value set during one event
+// (e.g. session-restore) is NOT visible to a later event's process (e.g.
+// pre-task). Each handler that needs the bridge MUST call
+// hCtx._ensureHooksModule() itself rather than reading hCtx._hooksModule
+// directly, or the bridge silently no-ops.
 let _hooksModule = null;
+let _hooksModuleLoadAttempted = false;
+async function _ensureHooksModule() {
+  if (_hooksModule) return _hooksModule;
+  if (_hooksModuleLoadAttempted) return null; // already tried+failed this process
+  _hooksModuleLoadAttempted = true;
+  try {
+    _hooksModule = await import('@monomind/hooks');
+    // Registering workers/collectors (episode-binner, entity-extractor, trace-collector)
+    // is a no-op import side effect — initDefaultWorkers() must be called explicitly to
+    // wire their hook listeners onto THIS process's in-memory registry. Since every
+    // handler that bridges an event (agent-start, pre-task, post-task, post-edit,
+    // session-end) now lazily loads the module in its own process via this function,
+    // each of them must also init the workers here, or executeHooks() below fires into
+    // an empty registry with zero listeners attached.
+    if (_hooksModule && _hooksModule.initDefaultWorkers) {
+      try { await _hooksModule.initDefaultWorkers(); } catch (e) { /* non-fatal */ }
+    }
+  } catch (e) {
+    _hooksModule = null;
+  }
+  return _hooksModule;
+}
 
 // ── Intelligence timeout protection (fixes #1530, #1531) ───────────────────
 var INTELLIGENCE_TIMEOUT_MS = 1500;
@@ -212,9 +253,11 @@ var hCtx = {
   intelligence: intelligence,
   getLearningService: getLearningService,
   isSimpleCommand: isSimpleCommand,
-  // Module-level singleton (populated by session-restore handler)
+  // Module-level singleton (populated by session-restore handler, or lazily
+  // via _ensureHooksModule() — required since each hook event is a fresh process).
   get _hooksModule() { return _hooksModule; },
   set _hooksModule(v) { _hooksModule = v; },
+  _ensureHooksModule: _ensureHooksModule,
   // Utility functions
   _recordRecentEdit: _recordRecentEdit,
   _getRecentEdits: _getRecentEdits,
@@ -292,9 +335,9 @@ const handlers = {
     await h.handle(hCtx, 'auto');
   },
 
-  'agent-start': () => {
+  'agent-start': async () => {
     const h = require('./handlers/agent-start-handler.cjs');
-    h.handle(hCtx);
+    await h.handle(hCtx);
   },
 
   'adr-draft': () => {

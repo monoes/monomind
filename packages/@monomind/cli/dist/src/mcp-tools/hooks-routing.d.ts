@@ -10,6 +10,7 @@ export declare const hooksPostEdit: MCPTool;
 export declare const hooksPreCommand: MCPTool;
 export declare const hooksPostCommand: MCPTool;
 export declare const hooksRoute: MCPTool;
+export declare const hooksRouteSemantic: MCPTool;
 export declare const hooksMetrics: MCPTool;
 export declare const hooksList: MCPTool;
 export declare const hooksPreTask: MCPTool;

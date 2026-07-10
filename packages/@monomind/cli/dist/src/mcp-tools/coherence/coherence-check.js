@@ -6,6 +6,7 @@
  *
  * Uses CohomologyEngine from prime-radiant-advanced-wasm
  */
+import { cosineSimilarity } from '../../utils/cosine-similarity.js';
 import { CoherenceInputSchema, successResult, errorResult, } from './types.js';
 // Default logger for when context doesn't provide one
 const defaultLogger = {
@@ -67,25 +68,6 @@ function detectContradictions(vectors, threshold) {
         }
     }
     return violations;
-}
-/**
- * Calculate cosine similarity
- */
-function cosineSimilarity(a, b) {
-    if (a.length !== b.length)
-        return 0;
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < a.length; i++) {
-        const ai = a[i];
-        const bi = b[i];
-        dotProduct += ai * bi;
-        normA += ai * ai;
-        normB += bi * bi;
-    }
-    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-    return denominator > 0 ? dotProduct / denominator : 0;
 }
 /**
  * Get interpretation of energy level

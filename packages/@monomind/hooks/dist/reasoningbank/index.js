@@ -587,7 +587,7 @@ export class ReasoningBank extends EventEmitter {
                 namespace: `patterns:${type}`,
                 content: pattern.strategy,
                 embedding: pattern.embedding,
-                type: 'procedural',
+                type: 'semantic',
                 accessLevel: 'private',
                 tags: [pattern.domain, type],
                 createdAt: pattern.createdAt,

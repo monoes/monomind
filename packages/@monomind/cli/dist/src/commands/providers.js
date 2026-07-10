@@ -234,13 +234,100 @@ const testCommand = {
         }
     },
 };
+// List subcommand
+const listCommand = {
+    name: 'list',
+    description: 'List configured providers',
+    options: [
+        { name: 'json', short: 'j', type: 'boolean', description: 'Output as JSON' },
+    ],
+    examples: [
+        { command: 'monomind providers list', description: 'List all configured providers' },
+    ],
+    action: async (ctx) => {
+        try {
+            const cwd = process.cwd();
+            const config = configManager.getConfig(cwd);
+            const agents = (config.agents ?? {});
+            const providers = (agents.providers ?? []);
+            if (ctx.flags.json) {
+                const redacted = providers.map((p) => ({
+                    ...p,
+                    apiKey: p.apiKey ? '***configured***' : undefined,
+                }));
+                output.printJson(redacted);
+                return { success: true, data: redacted };
+            }
+            output.writeln();
+            output.writeln(output.bold('Configured Providers'));
+            output.writeln(output.dim('─'.repeat(40)));
+            if (providers.length === 0) {
+                output.writeln(output.dim('  No providers configured. Use "providers configure -p <name>" to add one.'));
+            }
+            else {
+                for (const p of providers) {
+                    const name = String(p.name ?? 'unknown');
+                    const hasKey = p.apiKey ? 'key set' : 'no key';
+                    const model = p.model ? `, model: ${p.model}` : '';
+                    output.writeln(`  ${output.highlight(name)} — ${hasKey}${model}`);
+                }
+            }
+            output.writeln();
+            return { success: true, data: providers };
+        }
+        catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            output.printError(`Failed to list providers: ${msg}`);
+            return { success: false, exitCode: 1 };
+        }
+    },
+};
+// Remove subcommand
+const removeCommand = {
+    name: 'remove',
+    description: 'Remove a configured provider',
+    options: [
+        { name: 'provider', short: 'p', type: 'string', description: 'Provider name', required: true },
+    ],
+    examples: [
+        { command: 'monomind providers remove -p openai', description: 'Remove OpenAI provider config' },
+    ],
+    action: async (ctx) => {
+        try {
+            const provider = (ctx.flags.provider || (ctx.args && ctx.args[0]) || '').slice(0, 64);
+            if (!provider) {
+                output.printError('Provider name is required. Use -p <name> or pass as first argument.');
+                return { success: false, exitCode: 1 };
+            }
+            const cwd = process.cwd();
+            const config = configManager.getConfig(cwd);
+            const agents = (config.agents ?? {});
+            const providers = (agents.providers ?? []);
+            const filtered = providers.filter((p) => !(typeof p.name === 'string' && p.name.toLowerCase() === provider.toLowerCase()));
+            if (filtered.length === providers.length) {
+                output.printWarning(`Provider "${provider}" was not configured.`);
+                return { success: true };
+            }
+            configManager.set(cwd, 'agents.providers', filtered);
+            output.writeln(output.success(`Provider "${provider}" removed.`));
+            return { success: true };
+        }
+        catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            output.printError(`Failed to remove provider: ${msg}`);
+            return { success: false, exitCode: 1 };
+        }
+    },
+};
 // Main providers command
 export const providersCommand = {
     name: 'providers',
     description: 'Manage AI providers, models, and configurations',
-    subcommands: [configureCommand, testCommand],
+    subcommands: [listCommand, configureCommand, removeCommand, testCommand],
     examples: [
+        { command: 'monomind providers list', description: 'List configured providers' },
         { command: 'monomind providers configure -p openai -k sk-...', description: 'Configure OpenAI' },
+        { command: 'monomind providers remove -p openai', description: 'Remove OpenAI config' },
         { command: 'monomind providers test --all', description: 'Test all providers' },
     ],
     action: async () => {
@@ -250,7 +337,9 @@ export const providersCommand = {
         output.writeln();
         output.writeln('Subcommands:');
         output.printList([
+            'list      - List configured providers',
             'configure - Configure provider settings and API keys',
+            'remove    - Remove a configured provider',
             'test      - Test provider connectivity',
         ]);
         output.writeln();

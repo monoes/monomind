@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 module.exports = {
-  handle: function(hCtx) {
+  handle: async function(hCtx) {
     var hookInput = hCtx.hookInput;
     var CWD = hCtx.CWD;
     var _openMonographDb = hCtx._openMonographDb;
@@ -77,6 +77,23 @@ module.exports = {
           });
           console.log('[MONOGRAPH] Top files: ' + parts.join(' · '));
         }
+      }
+    } catch (e) { /* non-fatal */ }
+
+    // Bridge to @monomind/hooks registry — fires AgentSpawn hooks (was previously never
+    // wired: HookEvent.AgentSpawn existed but no CJS handler ever fired it).
+    try {
+      var _hooksModule = hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : null;
+      if (_hooksModule && _hooksModule.executeHooks && _hooksModule.HookEvent) {
+        var agentTypeBridge = String(hookInput.subagent_type || hookInput.agentType || hookInput.agent_type || hookInput.agentSlug || 'unknown');
+        var agentDescBridge = String(hookInput.description || hookInput.prompt_description || '');
+        _hooksModule.executeHooks(_hooksModule.HookEvent.AgentSpawn, {
+          agent: {
+            id: hookInput.agentId || hookInput.agent_id || (agentTypeBridge + '-' + Date.now()),
+            type: agentTypeBridge,
+            description: agentDescBridge.slice(0, 500),
+          },
+        }, { continueOnError: true, timeout: 1500 }).catch(function() {});
       }
     } catch (e) { /* non-fatal */ }
   },

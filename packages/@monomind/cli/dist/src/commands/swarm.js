@@ -7,49 +7,67 @@ import { select, confirm } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import * as fs from 'fs';
 import * as path from 'path';
-// Get dynamic swarm status from memory/session files
+import { writeJsonFileAtomic } from '../utils/json-file.js';
+// Canonical paths — shared with MCP tools so CLI and MCP see the same state
+const SWARM_STATE_DIR = '.monomind/swarm';
+const SWARM_STATE_FILE = 'swarm-state.json';
+const AGENT_STORE_PATH = '.monomind/agents/store.json';
+// Get dynamic swarm status from MCP-canonical state files
 function getSwarmStatus(swarmId) {
-    const swarmDir = path.join(process.cwd(), '.swarm');
     const sessionDir = path.join(process.cwd(), '.claude', 'sessions');
     const memoryPaths = [
-        path.join(process.cwd(), '.swarm', 'memory.db'),
+        path.join(process.cwd(), '.monomind', 'memory.db'),
         path.join(process.cwd(), '.claude', 'memory.db'),
     ];
-    // Check for active swarm state file
-    const swarmStateFile = path.join(swarmDir, 'state.json');
+    // Read swarm state from MCP-canonical path (.monomind/swarm/swarm-state.json)
+    const swarmStateFile = path.join(process.cwd(), SWARM_STATE_DIR, SWARM_STATE_FILE);
     let swarmState = null;
     if (fs.existsSync(swarmStateFile)) {
         try {
             const swarmStatSz = fs.statSync(swarmStateFile).size;
-            if (swarmStatSz <= 1_048_576) {
-                swarmState = JSON.parse(fs.readFileSync(swarmStateFile, 'utf-8'));
+            if (swarmStatSz <= 10_485_760) {
+                const store = JSON.parse(fs.readFileSync(swarmStateFile, 'utf-8'));
+                // MCP swarm-tools stores { swarms: { [id]: SwarmState } }
+                if (store?.swarms && typeof store.swarms === 'object') {
+                    const swarms = store.swarms;
+                    if (swarmId && swarms[swarmId]) {
+                        swarmState = swarms[swarmId];
+                    }
+                    else {
+                        // Find latest non-terminated swarm
+                        const running = Object.values(swarms)
+                            .filter((s) => s.status !== 'terminated')
+                            .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+                        if (running.length > 0)
+                            swarmState = running[0];
+                    }
+                }
+                else if (store?.id || store?.swarmId) {
+                    // Legacy CLI-written format { id, topology, ... }
+                    swarmState = store;
+                }
             }
         }
         catch {
             // Ignore parse errors
         }
     }
-    // Count active agents from process files
+    // Count agents from MCP-canonical agent store (.monomind/agents/store.json)
     let activeAgents = 0;
     let totalAgents = 0;
-    const agentsDir = path.join(swarmDir, 'agents');
-    if (fs.existsSync(agentsDir)) {
+    const agentStoreFile = path.join(process.cwd(), AGENT_STORE_PATH);
+    if (fs.existsSync(agentStoreFile)) {
         try {
-            const agentFiles = fs.readdirSync(agentsDir).filter(f => f.endsWith('.json'));
-            totalAgents = agentFiles.length;
-            for (const file of agentFiles) {
-                try {
-                    const agentFilePath = path.join(agentsDir, file);
-                    const agentSz = fs.statSync(agentFilePath).size;
-                    if (agentSz <= 524_288) {
-                        const agent = JSON.parse(fs.readFileSync(agentFilePath, 'utf-8'));
-                        if (agent.status === 'active' || agent.status === 'running') {
+            const agentSz = fs.statSync(agentStoreFile).size;
+            if (agentSz <= 52_428_800) {
+                const agentStore = JSON.parse(fs.readFileSync(agentStoreFile, 'utf-8'));
+                if (agentStore?.agents && typeof agentStore.agents === 'object') {
+                    for (const agent of Object.values(agentStore.agents)) {
+                        totalAgents++;
+                        if (agent.status === 'idle' || agent.status === 'busy') {
                             activeAgents++;
                         }
                     }
-                }
-                catch {
-                    // Ignore
                 }
             }
         }
@@ -84,7 +102,7 @@ function getSwarmStatus(swarmId) {
     let completedTasks = 0;
     let inProgressTasks = 0;
     let pendingTasks = 0;
-    const tasksDir = path.join(swarmDir, 'tasks');
+    const tasksDir = path.join(process.cwd(), SWARM_STATE_DIR, 'tasks');
     if (fs.existsSync(tasksDir)) {
         try {
             const taskFiles = fs.readdirSync(tasksDir).filter(f => f.endsWith('.json'));
@@ -137,7 +155,7 @@ function getSwarmStatus(swarmId) {
         status = 'ready';
     }
     return {
-        id: swarmId || swarmState?.id || 'no-active-swarm',
+        id: swarmId || swarmState?.swarmId || swarmState?.id || 'no-active-swarm',
         topology: swarmState?.topology || 'none',
         status,
         objective: swarmState?.objective || 'No active objective',
@@ -291,24 +309,35 @@ const initCommand = {
             });
             output.writeln();
             output.printSuccess('Swarm initialized successfully');
-            // Save swarm state locally for status command to read
-            const swarmDir = path.join(process.cwd(), '.swarm');
+            // Save swarm state to MCP-canonical path so CLI and MCP share state
             try {
-                if (!fs.existsSync(swarmDir)) {
-                    fs.mkdirSync(swarmDir, { recursive: true });
+                const swarmDir2 = path.join(process.cwd(), SWARM_STATE_DIR);
+                if (!fs.existsSync(swarmDir2)) {
+                    fs.mkdirSync(swarmDir2, { recursive: true });
                 }
-                const stateFile = path.join(swarmDir, 'state.json');
-                const tmpStateFile1 = stateFile + '.tmp';
-                fs.writeFileSync(tmpStateFile1, JSON.stringify({
-                    id: result.swarmId,
+                // Read existing store to preserve other swarms
+                const stateFile = path.join(swarmDir2, SWARM_STATE_FILE);
+                let store = { swarms: {}, version: '3.0.0' };
+                if (fs.existsSync(stateFile)) {
+                    try {
+                        store = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+                    }
+                    catch { /* use default */ }
+                }
+                if (!store.swarms || typeof store.swarms !== 'object')
+                    store.swarms = {};
+                store.swarms[result.swarmId] = {
+                    swarmId: result.swarmId,
                     topology: result.topology,
                     maxAgents: result.config.maxAgents,
-                    strategy: ctx.flags.strategy || 'development',
-                    v1Mode,
-                    initializedAt: result.initializedAt,
-                    status: 'ready'
-                }, null, 2));
-                fs.renameSync(tmpStateFile1, stateFile);
+                    status: 'running',
+                    agents: [],
+                    tasks: [],
+                    config: { strategy: ctx.flags.strategy || 'development', v1Mode },
+                    createdAt: result.initializedAt || new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                writeJsonFileAtomic(stateFile, store);
             }
             catch {
                 // Ignore errors writing state file
@@ -428,34 +457,46 @@ const startCommand = {
             spinner.succeed('Swarm initialized via MCP');
         }
         catch (err) {
-            spinner.fail('MCP swarm_init failed — swarm metadata saved locally only');
+            // swarm_init runs in-process via the local MCP tool registry — there is no
+            // separate MCP server to "start" here. A failure means the handler itself
+            // threw (bad input, filesystem/config issue, etc.), not that a server is down.
+            spinner.fail('swarm_init failed — swarm metadata saved locally only');
             output.writeln(output.dim(`  Error: ${err instanceof Error ? err.message : String(err)}`));
-            output.writeln(output.dim('  The MCP server may not be running. Start it with: claude mcp add monomind npx monomind@v1alpha mcp start'));
+            output.writeln(output.dim('  Run with -v/--verbose for more detail, or `monomind doctor` to check config/permission issues.'));
         }
-        // Persist swarm state to disk so `swarm status` can read it
-        const swarmDir = path.join(process.cwd(), '.swarm');
+        // Persist swarm state to MCP-canonical path so CLI and MCP share state
+        const swarmDir = path.join(process.cwd(), SWARM_STATE_DIR);
         if (!fs.existsSync(swarmDir))
             fs.mkdirSync(swarmDir, { recursive: true });
-        const executionState = {
+        // Read existing store to preserve other swarms
+        const stateFile2 = path.join(swarmDir, SWARM_STATE_FILE);
+        let startStore = { swarms: {}, version: '3.0.0' };
+        if (fs.existsSync(stateFile2)) {
+            try {
+                startStore = JSON.parse(fs.readFileSync(stateFile2, 'utf-8'));
+            }
+            catch { /* use default */ }
+        }
+        if (!startStore.swarms || typeof startStore.swarms !== 'object')
+            startStore.swarms = {};
+        startStore.swarms[resolvedSwarmId] = {
             swarmId: resolvedSwarmId,
-            objective,
-            strategy,
-            status: 'initialized',
-            agents: totalAgents,
-            agentPlan,
-            startedAt: new Date().toISOString(),
-            parallel: ctx.flags.parallel ?? true
+            topology: 'hierarchical',
+            maxAgents: totalAgents,
+            status: 'running',
+            agents: [],
+            tasks: [],
+            config: { strategy, objective, agentPlan, parallel: ctx.flags.parallel ?? true },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         };
-        const stateFile2 = path.join(swarmDir, 'state.json');
-        const tmpStateFile2 = stateFile2 + '.tmp';
-        fs.writeFileSync(tmpStateFile2, JSON.stringify(executionState, null, 2));
-        fs.renameSync(tmpStateFile2, stateFile2);
+        writeJsonFileAtomic(stateFile2, startStore);
         output.writeln();
         output.printSuccess(`Swarm ${resolvedSwarmId} initialized with ${totalAgents} agent slots`);
         output.writeln(output.dim('  Note: Agents are registered but actual task execution requires'));
         output.writeln(output.dim('  Claude Code Task tool or hive-mind spawn --claude to drive work.'));
         output.writeln(output.dim(`  Monitor: monomind swarm status ${resolvedSwarmId}`));
-        return { success: true, data: executionState };
+        return { success: true, data: { swarmId: resolvedSwarmId, objective, strategy, agents: totalAgents } };
     }
 };
 // Swarm status
@@ -585,18 +626,24 @@ const stopCommand = {
         }
         // Only update persisted swarm state if the MCP call succeeded (#1423)
         if (mcpStopped) {
-            const swarmStateFile = path.join(process.cwd(), '.swarm', 'state.json');
-            if (fs.existsSync(swarmStateFile)) {
+            const stopStateFile = path.join(process.cwd(), SWARM_STATE_DIR, SWARM_STATE_FILE);
+            if (fs.existsSync(stopStateFile)) {
                 try {
-                    const stopStatSz = fs.statSync(swarmStateFile).size;
-                    if (stopStatSz > 1_048_576)
+                    const stopStatSz = fs.statSync(stopStateFile).size;
+                    if (stopStatSz > 10_485_760)
                         throw new Error('swarm state file too large');
-                    const state = JSON.parse(fs.readFileSync(swarmStateFile, 'utf-8'));
-                    state.status = 'stopped';
-                    state.stoppedAt = new Date().toISOString();
-                    const tmpSwarmStop = swarmStateFile + '.tmp';
-                    fs.writeFileSync(tmpSwarmStop, JSON.stringify(state, null, 2));
-                    fs.renameSync(tmpSwarmStop, swarmStateFile);
+                    const store = JSON.parse(fs.readFileSync(stopStateFile, 'utf-8'));
+                    // Update the specific swarm in the MCP store format
+                    if (store?.swarms?.[swarmId]) {
+                        store.swarms[swarmId].status = 'terminated';
+                        store.swarms[swarmId].updatedAt = new Date().toISOString();
+                    }
+                    else if (store?.id || store?.swarmId) {
+                        // Legacy format
+                        store.status = 'stopped';
+                        store.stoppedAt = new Date().toISOString();
+                    }
+                    writeJsonFileAtomic(stopStateFile, store);
                     output.writeln(output.dim('  Swarm state updated'));
                 }
                 catch {

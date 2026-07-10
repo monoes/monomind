@@ -120,10 +120,13 @@ module.exports = {
     }
 
     // Bridge to @monomind/hooks compiled workers (GAP-001).
+    // Uses the shared hCtx._ensureHooksModule() (defined in hook-handler.cjs) so worker
+    // registration happens exactly once per process instead of being duplicated here —
+    // every other bridging handler (agent-start, pre-task, post-task, post-edit,
+    // session-end) calls the same lazy loader since each hook event is its own process.
     try {
-      var hooksModule = await import('@monomind/hooks');
-      if (hooksModule && hooksModule.initDefaultWorkers) {
-        await runWithTimeout(function() { return hooksModule.initDefaultWorkers(); }, '@monomind/hooks.initDefaultWorkers()');
+      var hooksModule = hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : await import('@monomind/hooks');
+      if (hooksModule) {
         hCtx._hooksModule = hooksModule;
         console.log('[INFO] @monomind/hooks workers initialized');
 

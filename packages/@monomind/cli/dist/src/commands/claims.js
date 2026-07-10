@@ -8,6 +8,7 @@ import { output } from '../output.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { homedir } from 'os';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
 const CLAIMS_CONFIG_PATHS = [
     '.monomind/claims.json',
     'monomind.claims.json',
@@ -53,13 +54,7 @@ function loadClaimsConfig() {
     return { config: defaultConfig, path: configPaths[0] };
 }
 function saveClaimsConfig(config, configPath) {
-    const dir = path.dirname(configPath);
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-    const tmpPath = configPath + '.tmp';
-    fs.writeFileSync(tmpPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
-    fs.renameSync(tmpPath, configPath);
+    writeJsonFileAtomic(configPath, config);
 }
 // List subcommand
 const listCommand = {

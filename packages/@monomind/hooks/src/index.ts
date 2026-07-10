@@ -55,19 +55,18 @@ export {
 
 
 // MCP Tools
+// Note: the redundant stub duplicates of the CLI's real hooks_pre-edit, hooks_post-edit,
+// hooks_metrics, hooks_pre-command, hooks_post-command tools (mcp-tools/hooks-routing.ts)
+// were removed here — they returned hardcoded/fake data and were never wired into any
+// running MCP server. The tools below are genuinely unique and are wired into the CLI's
+// MCP tool registry (mcp-tools/hooks-advanced.ts).
 export {
   hooksMCPTools,
   getHooksTool,
-  preEditTool,
-  postEditTool,
-  routeTaskTool,
-  metricsTool,
-  preCommandTool,
-  postCommandTool,
-  daemonStatusTool,
+  routeAdvancedTool,
   statuslineTool,
   evoAgentXTool,
-  modelOutcomeTool,
+  rlvrOutcomeTool,
   type MCPTool,
   // Trace tools (GAP-010)
   listTracesTool,

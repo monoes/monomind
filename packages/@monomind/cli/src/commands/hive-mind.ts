@@ -49,12 +49,15 @@ const initCommand: Command = {
       });
     }
 
+    // Note: the parser normalizes all flag keys to camelCase (kebab-case keys
+    // like 'max-agents' never land in ctx.flags — only 'maxAgents' does), so
+    // the camelCase form must be read first here.
     const config = {
       topology: topology || 'hierarchical-mesh',
       consensus: consensus || 'byzantine',
-      maxAgents: ctx.flags['max-agents'] as number || 15,
+      maxAgents: (ctx.flags.maxAgents as number) ?? (ctx.flags['max-agents'] as number) ?? 15,
       persist: ctx.flags.persist as boolean,
-      memoryBackend: ctx.flags['memory-backend'] as string || 'hybrid'
+      memoryBackend: (ctx.flags.memoryBackend as string) || (ctx.flags['memory-backend'] as string) || 'hybrid'
     };
 
     output.writeln();

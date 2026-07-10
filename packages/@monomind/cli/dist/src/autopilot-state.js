@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
+import { writeJsonFileAtomic } from './utils/json-file.js';
 // ── Constants ─────────────────────────────────────────────────
 export const STATE_DIR = '.monomind/data';
 export const STATE_FILE = `${STATE_DIR}/autopilot-state.json`;
@@ -121,11 +122,9 @@ export function saveState(state) {
     if (state.history.length > MAX_HISTORY_ENTRIES) {
         state.history = state.history.slice(-MAX_HISTORY_ENTRIES);
     }
-    // Unique tmp filename — concurrent autopilot_enable/disable/reset calls
-    // must not collide on the same .tmp path.
-    const tmpFile = `${path.resolve(STATE_FILE)}.${process.pid}.${Date.now()}.tmp`;
-    fs.writeFileSync(tmpFile, JSON.stringify(state, null, 2));
-    fs.renameSync(tmpFile, path.resolve(STATE_FILE));
+    // writeJsonFileAtomic uses a pid+timestamp-suffixed tmp path internally, so
+    // concurrent autopilot_enable/disable/reset calls won't collide.
+    writeJsonFileAtomic(path.resolve(STATE_FILE), state);
 }
 export function appendLog(entry) {
     const filePath = path.resolve(LOG_FILE);

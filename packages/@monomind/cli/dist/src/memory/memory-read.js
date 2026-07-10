@@ -11,6 +11,7 @@ import { safeParseEmbedding } from './memory-bridge.js';
 import { ensureSchemaColumns } from './memory-migrations.js';
 import { generateEmbedding } from './embedding-operations.js';
 import { searchHNSWIndex } from './hnsw-operations.js';
+import { cosineSimilarity as cosineSim } from '../utils/cosine-similarity.js';
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
 // ADR-053: Lazy import of LanceDB memory bridge
@@ -28,25 +29,6 @@ async function getBridge() {
         _bridge = null;
         return null;
     }
-}
-/**
- * Optimized cosine similarity
- * V8 JIT-friendly - avoids manual unrolling which can hurt performance
- * ~0.5μs per 384-dim vector comparison
- */
-function cosineSim(a, b) {
-    if (!a || !b || a.length === 0 || b.length === 0)
-        return 0;
-    const len = Math.min(a.length, b.length);
-    let dot = 0, normA = 0, normB = 0;
-    for (let i = 0; i < len; i++) {
-        const ai = a[i], bi = b[i];
-        dot += ai * bi;
-        normA += ai * ai;
-        normB += bi * bi;
-    }
-    const mag = Math.sqrt(normA * normB);
-    return mag === 0 ? 0 : dot / mag;
 }
 /**
  * Search entries using sql.js with vector similarity

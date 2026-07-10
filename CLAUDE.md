@@ -223,33 +223,33 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 | Command          | Sub | Description                                          |
 | ---------------- | --- | ---------------------------------------------------- |
-| `init`           | 4   | Project initialization (wizard, presets, skills)     |
+| `init`           | 5   | Project initialization (wizard, presets, skills)     |
 | `start`          | -   | Start MCP server or daemon                           |
 | `status`         | 3   | System status monitoring with watch mode             |
-| `agent`          | 8   | Agent lifecycle (spawn, list, status, stop, metrics) |
-| `swarm`          | 6   | Multi-agent swarm coordination                       |
-| `memory`         | 11  | LanceDB with vector search (HNSW)                    |
+| `agent`          | 7   | Agent lifecycle (spawn, list, status, stop, metrics, pool, health). Runs in-process — no separate MCP server required |
+| `swarm`          | 6   | Multi-agent swarm coordination. Runs in-process — no separate MCP server required |
+| `memory`         | 12  | LanceDB with vector search (HNSW)                    |
 | `mcp`            | 9   | MCP server management                                |
-| `task`           | 6   | Task creation and lifecycle                          |
-| `session`        | 7   | Session state management                             |
+| `task`           | 5   | Task creation and lifecycle                          |
+| `session`        | 5   | Session state management                             |
 | `config`         | 7   | Configuration management                             |
 | `hooks`          | 26  | Self-learning hooks + 11 background workers (@monomind/hooks WorkerManager) |
-| `hive-mind`      | 6   | BFT/Raft/Quorum vote counting (single-process)      |
-| `daemon`         | 5   | Background worker daemon (12 workers)                |
-| `neural`         | 5   | Pattern storage and similarity search                |
+| `hive-mind`      | 9   | BFT/Raft/Quorum vote counting (single-process). Runs in-process — no separate MCP server required |
+| `daemon`         | 6   | Background worker daemon (12 workers)                |
+| `neural`         | 8   | Pattern storage and similarity search                |
 | `security`       | 6   | Security scanning                                    |
-| `performance`    | 5   | Performance profiling                                |
-| `guidance`       | 7   | Governance control plane (compile, gates, optimize)  |
+| `performance`    | 4   | Performance profiling — real benchmark measurements  |
+| `guidance`       | 8   | Governance control plane (compile, gates, optimize)  |
 | `monograph`      | -   | Knowledge graph CLI (delegates to @monoes/monograph) |
 | `browse`         | -   | Browser automation via CDP (@monoes/monobrowse)      |
-| `workflow`       | 6   | Workflow execution and template management           |
-| `claims`         | 4   | Claims-based authorization                           |
+| `workflow`       | 5   | Workflow execution and template management           |
+| `claims`         | 6   | Claims-based authorization                           |
 | `doctor`         | 1   | System diagnostics                                   |
 | `cleanup`        | -   | Project cleanup utilities                            |
 | `autopilot`      | -   | Autonomous task execution                            |
 | `analyze`        | -   | Codebase analysis                                    |
 | `route`          | -   | Task routing                                         |
-| `providers`      | 5   | AI provider management                               |
+| `providers`      | 2   | AI provider management (configure, test)             |
 | `search`         | -   | Universal search                                     |
 | `scan`           | -   | Security/code scanning                               |
 | `doc`            | -   | Documentation generation                             |

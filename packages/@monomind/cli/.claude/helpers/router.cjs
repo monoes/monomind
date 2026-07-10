@@ -182,6 +182,80 @@ var SKILLS = [
     _terms: ['tokens','token-usage','cost','spending','budget'] },
 ];
 
+// ── Feedback weight system ────────────────────────────────────────────────────
+// Reads routing-feedback.jsonl (written by session-handler at session-end) and
+// computes per-agent success rates. Adjusts routing confidence by up to +/-0.10
+// so agents with proven track records get a slight boost and poor performers get
+// dampened. Cached with a 60-second TTL to avoid repeated disk reads.
+
+var _feedbackWeightsCache = null;
+var _feedbackWeightsCacheTs = 0;
+var FEEDBACK_TTL_MS = 60000;
+
+function loadFeedbackWeights() {
+  var now = Date.now();
+  if (_feedbackWeightsCache && (now - _feedbackWeightsCacheTs) < FEEDBACK_TTL_MS) {
+    return _feedbackWeightsCache;
+  }
+  var weights = {};
+  try {
+    var fs = require('fs');
+    var path = require('path');
+    var cwd = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+    var feedbackPath = path.join(cwd, '.monomind', 'routing-feedback.jsonl');
+    var MAX_SIZE = 512 * 1024;
+    if (!fs.existsSync(feedbackPath)) {
+      _feedbackWeightsCache = weights;
+      _feedbackWeightsCacheTs = now;
+      return weights;
+    }
+    var stat = fs.statSync(feedbackPath);
+    if (stat.size > MAX_SIZE) {
+      _feedbackWeightsCache = weights;
+      _feedbackWeightsCacheTs = now;
+      return weights;
+    }
+    var lines = fs.readFileSync(feedbackPath, 'utf-8').trim().split('\n').filter(Boolean);
+    // Use last 200 entries for weight calculation
+    var recent = lines.slice(-200);
+    var agentStats = {};
+    for (var i = 0; i < recent.length; i++) {
+      try {
+        var entry = JSON.parse(recent[i]);
+        var agent = entry.suggestedAgent;
+        if (!agent) continue;
+        if (!agentStats[agent]) agentStats[agent] = { total: 0, successes: 0 };
+        agentStats[agent].total++;
+        if (entry.intelligenceFeedback === true) agentStats[agent].successes++;
+      } catch (e) {}
+    }
+    // Compute weight adjustments: agents with >= 5 data points get a weight
+    // successRate > 0.7 → positive boost (up to +0.10)
+    // successRate < 0.4 → negative dampen (down to -0.10)
+    // In between → neutral (0)
+    for (var ag in agentStats) {
+      var s = agentStats[ag];
+      if (s.total < 5) continue;
+      var rate = s.successes / s.total;
+      if (rate > 0.7) {
+        weights[ag] = Math.min(0.10, (rate - 0.7) * 0.33);
+      } else if (rate < 0.4) {
+        weights[ag] = Math.max(-0.10, (rate - 0.4) * 0.25);
+      }
+    }
+  } catch (e) { /* non-fatal */ }
+  _feedbackWeightsCache = weights;
+  _feedbackWeightsCacheTs = now;
+  return weights;
+}
+
+function applyFeedbackWeight(agentSlug, baseConfidence) {
+  var weights = loadFeedbackWeights();
+  var adj = weights[agentSlug] || weights[TASK_AGENTS[agentSlug]] || 0;
+  if (adj === 0) return baseConfidence;
+  return Math.max(0, Math.min(1.0, baseConfidence + adj));
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 var MAX_PROMPT = 2000;
@@ -215,7 +289,7 @@ function routeTask(prompt) {
     return {
       agent: topExtra.name,
       agentSlug: topExtra.slug,
-      confidence: 0.80,
+      confidence: applyFeedbackWeight(topExtra.slug, 0.80),
       reason: 'Domain: ' + topExtra.category,
       semanticRouting: false,
       specificAgents: extras,
@@ -237,7 +311,7 @@ function routeTask(prompt) {
     if (slug === 'coder' && hasStrongSkill) continue;
     var pattern = _ROUTING_PATTERNS[slug];
     if (pattern && pattern.test(safePrompt)) {
-      var confidence = TASK_CONFIDENCES[slug] || 0.75;
+      var confidence = applyFeedbackWeight(slug, TASK_CONFIDENCES[slug] || 0.75);
       return {
         agent: TASK_AGENTS[slug],
         agentSlug: slug,

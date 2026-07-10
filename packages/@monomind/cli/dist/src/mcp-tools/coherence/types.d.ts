@@ -423,7 +423,8 @@ export declare function trackPerformance<T>(operationName: string, operation: ()
     metrics: PerformanceMetrics;
 }>;
 /**
- * Calculate cosine similarity between two vectors
+ * Cosine similarity — re-exported from shared utility.
+ * Callers that already import from this module continue to work unchanged.
  */
-export declare function cosineSimilarity(a: number[] | Float32Array, b: number[] | Float32Array): number;
+export { cosineSimilarity } from '../../utils/cosine-similarity.js';
 //# sourceMappingURL=types.d.ts.map

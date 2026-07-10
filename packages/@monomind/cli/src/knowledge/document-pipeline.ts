@@ -11,7 +11,6 @@ import * as crypto from 'node:crypto';
 import { DOC_EXTENSIONS, extractText } from '../capabilities/cap-documents.js';
 import type { FileEntry } from '../capabilities/types.js';
 
-// Inline chunk function to avoid cross-package import resolution issues at build time
 interface TextChunk {
   chunkId: string;
   docId: string;
@@ -24,7 +23,10 @@ interface TextChunk {
 const DEFAULT_CHUNK_SIZE = 3200;
 const DEFAULT_OVERLAP = 400;
 
-function chunkDocument(docId: string, text: string): TextChunk[] {
+// Inline fallback identical to @monoes/memory's knowledge/document-chunker.ts —
+// used only if the dynamic import below fails (package not installed/built).
+// Keep in sync if the shared chunker's boundary-snapping logic changes.
+function chunkDocumentInline(docId: string, text: string): TextChunk[] {
   if (text.length === 0) return [];
   const chunks: TextChunk[] = [];
   let startChar = 0;
@@ -44,6 +46,15 @@ function chunkDocument(docId: string, text: string): TextChunk[] {
     startChar += Math.max(1, endChar - startChar - DEFAULT_OVERLAP);
   }
   return chunks;
+}
+
+async function chunkDocument(docId: string, text: string): Promise<TextChunk[]> {
+  try {
+    const mod = await import('@monoes/memory' as string);
+    return mod.chunkDocument(docId, text, DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP);
+  } catch {
+    return chunkDocumentInline(docId, text);
+  }
 }
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -199,7 +210,7 @@ export async function ingestDocument(
   }
 
   const docId = `${scope}:${resolved}`;
-  const chunks: TextChunk[] = chunkDocument(docId, fullContent);
+  const chunks: TextChunk[] = await chunkDocument(docId, fullContent);
   const bridge = await getBridge();
   let indexed = 0;
 

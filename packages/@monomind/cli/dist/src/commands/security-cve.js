@@ -2,11 +2,12 @@
  * Security CVE command — NVD/OSV lookups and npm audit vulnerability listing
  */
 import { output } from '../output.js';
-import { statSync, readFileSync, mkdirSync, writeFileSync, renameSync } from 'fs';
+import { statSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as https from 'https';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
 // ─── CVE helpers ─────────────────────────────────────────────────────────────
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 function getCveCache(cveId, cacheDir) {
@@ -25,11 +26,8 @@ const CVE_ID_RE = /^CVE-\d{4}-\d{4,}$/i;
 function saveCveCache(cveId, cacheDir, data) {
     if (!CVE_ID_RE.test(cveId))
         throw new Error('Invalid CVE ID');
-    mkdirSync(cacheDir, { recursive: true });
     const dest = join(cacheDir, `${cveId.toUpperCase()}.json`);
-    const tmp = dest + '.tmp';
-    writeFileSync(tmp, JSON.stringify(data));
-    renameSync(tmp, dest);
+    writeJsonFileAtomic(dest, data, false);
 }
 function httpsGet(url, timeoutMs = 10_000) {
     return new Promise((resolve, reject) => {

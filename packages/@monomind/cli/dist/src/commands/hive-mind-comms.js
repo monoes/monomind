@@ -69,18 +69,23 @@ export const consensusCommand = {
         { name: 'type', short: 't', description: 'Proposal type', type: 'string' },
         { name: 'value', description: 'Proposal value', type: 'string' },
         { name: 'vote', short: 'v', description: 'Vote (yes/no)', type: 'string' },
-        { name: 'voter-id', description: 'Voter agent ID', type: 'string' }
+        { name: 'voter-id', description: 'Voter agent ID', type: 'string' },
+        { name: 'strategy', description: 'Consensus strategy override (bft, raft, quorum) — defaults to the strategy chosen at init', type: 'string', choices: ['bft', 'raft', 'quorum'] }
     ],
     action: async (ctx) => {
         const action = ctx.flags.action || 'list';
         try {
+            // Note: the parser normalizes flag keys to camelCase, so kebab-case
+            // option names ('proposal-id', 'voter-id') never populate ctx.flags —
+            // only 'proposalId'/'voterId' do. Read the camelCase form.
             const result = await callMCPTool('hive-mind_consensus', {
                 action,
-                proposalId: ctx.flags['proposal-id'],
+                proposalId: ctx.flags.proposalId,
                 type: ctx.flags.type,
                 value: ctx.flags.value,
                 vote: ctx.flags.vote === 'yes',
-                voterId: ctx.flags['voter-id']
+                voterId: ctx.flags.voterId,
+                strategy: ctx.flags.strategy
             });
             if (ctx.flags.format === 'json') {
                 output.printJson(result);
@@ -202,7 +207,9 @@ export const shutdownCommand = {
     ],
     action: async (ctx) => {
         const force = ctx.flags.force;
-        const saveState = ctx.flags['save-state'];
+        // Note: the parser normalizes flag keys to camelCase — 'save-state' never
+        // populates ctx.flags; only 'saveState' does.
+        const saveState = ctx.flags.saveState;
         if (!force && ctx.interactive) {
             const confirmed = await confirm({
                 message: 'Shutdown the hive mind? All agents will be terminated.',

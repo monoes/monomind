@@ -459,6 +459,107 @@ const monofenceHasPIITool = {
     },
 };
 /**
+ * Scan LLM output for PII leakage, prompt echo, and policy violations
+ */
+const monofenceScanOutputTool = {
+    name: 'monofence_scan_output',
+    description: 'Scan LLM output for PII leakage, prompt echo (trigram Jaccard), and policy violations. Use after receiving a model response.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            output: {
+                type: 'string',
+                description: 'LLM output text to scan',
+            },
+            originalPrompt: {
+                type: 'string',
+                description: 'Original prompt sent to the LLM (enables echo detection)',
+            },
+        },
+        required: ['output'],
+    },
+    handler: async (args) => {
+        let output;
+        try {
+            output = capSecurityInput(args.output, 'output');
+        }
+        catch (e) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: e.message }) }], isError: true };
+        }
+        const rawPrompt = args.originalPrompt;
+        const originalPrompt = typeof rawPrompt === 'string'
+            ? (rawPrompt.length > MAX_SECURITY_INPUT_LEN ? rawPrompt.slice(0, MAX_SECURITY_INPUT_LEN) : rawPrompt)
+            : undefined;
+        try {
+            const defender = await getMonoFence();
+            const result = await defender.scanOutput(output, originalPrompt);
+            return {
+                content: [{
+                        type: 'text',
+                        text: JSON.stringify(result, null, 2),
+                    }],
+            };
+        }
+        catch (error) {
+            return {
+                content: [{
+                        type: 'text',
+                        text: JSON.stringify({ error: String(error) }),
+                    }],
+                isError: true,
+            };
+        }
+    },
+};
+/**
+ * Get or reset multi-turn context escalation state
+ */
+const monofenceContextTool = {
+    name: 'monofence_context',
+    description: 'Get the multi-turn context escalation state (normal/suspicious/elevated/attack) and cumulative threat score. Pass reset=true to start a fresh session.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            reset: {
+                type: 'boolean',
+                description: 'Reset context to start a new session',
+                default: false,
+            },
+        },
+    },
+    handler: async (args) => {
+        const reset = args.reset;
+        try {
+            const defender = await getMonoFence();
+            if (reset) {
+                defender.resetContext();
+                return {
+                    content: [{
+                            type: 'text',
+                            text: JSON.stringify({ message: 'Context reset — escalation state cleared', state: defender.getContextState() }, null, 2),
+                        }],
+                };
+            }
+            const state = defender.getContextState();
+            return {
+                content: [{
+                        type: 'text',
+                        text: JSON.stringify(state, null, 2),
+                    }],
+            };
+        }
+        catch (error) {
+            return {
+                content: [{
+                        type: 'text',
+                        text: JSON.stringify({ error: String(error) }),
+                    }],
+                isError: true,
+            };
+        }
+    },
+};
+/**
  * Export all security tools
  */
 export const securityTools = [
@@ -468,6 +569,8 @@ export const securityTools = [
     monofenceLearnTool,
     monofenceIsSafeTool,
     monofenceHasPIITool,
+    monofenceScanOutputTool,
+    monofenceContextTool,
 ];
 export default securityTools;
 //# sourceMappingURL=security-tools.js.map
