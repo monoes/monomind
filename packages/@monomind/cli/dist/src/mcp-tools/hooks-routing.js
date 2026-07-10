@@ -406,6 +406,47 @@ export const hooksRoute = {
         };
     },
 };
+export const hooksRouteSemantic = {
+    name: 'hooks_route_semantic',
+    description: 'Route a task using the @monomind/routing package: keyword pre-filter, then real-embedding ' +
+        'cosine-similarity matching (isolated worker), with a headless Claude (Haiku) fallback below ' +
+        'the confidence threshold. Slower and more precise than hooks_route — use for ambiguous or ' +
+        'highly specialized tasks (e.g. Solidity, game engines, embedded, DevOps) where keyword matching ' +
+        'is likely to under-specify the agent.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            task: { type: 'string', description: 'Task description' },
+            debug: { type: 'boolean', description: 'Include all route scores in the response (default: false)' },
+        },
+        required: ['task'],
+    },
+    handler: async (params) => {
+        const MAX_ROUTE_TASK_LEN = 2000; // matches route-layer-factory's MAX_TASK_LENGTH
+        const rawTask = params.task;
+        const task = typeof rawTask === 'string' && rawTask.length > MAX_ROUTE_TASK_LEN
+            ? rawTask.slice(0, MAX_ROUTE_TASK_LEN)
+            : rawTask;
+        const debug = params.debug === true;
+        if (!task || typeof task !== 'string') {
+            throw new Error('task is required');
+        }
+        const { createConfiguredRouteLayer } = await import('../routing/route-layer-factory.js');
+        const layer = await createConfiguredRouteLayer({ debug });
+        const result = await layer.route(task);
+        const routeId = randomUUID();
+        await recordRoute(getRouteOutcomesBaseDir(), {
+            routeId,
+            ts: Date.now(),
+            task,
+            recommendedAgent: result.agentSlug,
+            routingMethod: `routing-pkg:${result.method}`,
+            confidence: result.confidence,
+            learningMode: 'js',
+        }).catch(() => { });
+        return { routeId, task, ...result };
+    },
+};
 export const hooksMetrics = {
     name: 'hooks_metrics',
     description: 'View learning metrics dashboard',
@@ -586,6 +627,17 @@ export const hooksPreTask = {
             }
         }
         catch { /* non-critical */ }
+        // LATS (arXiv:2310.04406) — for high-complexity tasks, run a lightweight MCTS
+        // planning pass so the caller gets a concrete step sequence, not just an agent
+        // suggestion. Previously implemented in @monomind/hooks but never invoked.
+        let plan;
+        if (complexity === 'high') {
+            try {
+                const { buildLATSPlan } = await import('@monomind/hooks');
+                plan = await buildLATSPlan(description, { simulations: 10, format: 'numbered-list' });
+            }
+            catch { /* optional — planning pass is best-effort */ }
+        }
         return {
             taskId,
             description,
@@ -605,6 +657,7 @@ export const hooksPreTask = {
                 ...erlHints,
             ],
             modelRouting,
+            plan,
             timestamp: new Date().toISOString(),
         };
     },

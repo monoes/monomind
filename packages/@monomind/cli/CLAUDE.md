@@ -276,30 +276,32 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 
 | Command     | Subcommands | Description                                                              | Status          |
 | ----------- | ----------- | ------------------------------------------------------------------------ | --------------- |
-| `init`      | 4           | Project initialization with wizard, presets, skills, hooks               | Working         |
-| `agent`     | 8           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health, logs) | MCP-dependent   |
-| `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         | MCP-dependent   |
-| `memory`    | 11          | LanceDB memory with pure-JS HNSW vector search                           | Working         |
+| `init`      | 5           | Project initialization with wizard, presets, skills, hooks               | Working         |
+| `agent`     | 7           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health)       | Working — runs in-process, no MCP server needed |
+| `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         | Working — runs in-process, no MCP server needed |
+| `memory`    | 12          | LanceDB memory with pure-JS HNSW vector search                           | Working         |
 | `mcp`       | 9           | MCP server management and tool execution                                 | Working         |
-| `task`      | 6           | Task creation, assignment, and lifecycle                                 | Working         |
-| `session`   | 7           | Session state management and persistence                                 | Working         |
+| `task`      | 5           | Task creation, assignment, and lifecycle                                 | Working         |
+| `session`   | 5           | Session state management and persistence                                 | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
-| `workflow`  | 6           | Workflow execution and template management                               | Working         |
+| `workflow`  | 5           | Workflow execution and template management                               | Working         |
 | `hooks`     | 26          | Self-learning hooks + 11 background workers                              | Working         |
-| `hive-mind` | 6           | BFT/Raft/Quorum vote counting (single-process)                          | MCP-dependent   |
+| `hive-mind` | 9           | BFT/Raft/Quorum vote counting (single-process)                          | Working — runs in-process, no MCP server needed |
 
 ### Advanced Commands
 
+`agent`, `swarm`, and `hive-mind` above execute MCP tool handlers directly in-process via the local tool registry (`src/mcp-client.ts`) — they do **not** require a running `mcp start` server. A separate MCP server is only needed when an external MCP *client* (e.g. Claude Code) wants to call these tools over stdio/HTTP.
+
 | Command       | Subcommands | Description                                                                   | Status           |
 | ------------- | ----------- | ----------------------------------------------------------------------------- | ---------------- |
-| `daemon`      | 5           | Background worker daemon (start, stop, status, trigger, enable)               | Background       |
-| `neural`      | 5           | Pattern storage (train, status, patterns, predict, optimize)                  | Pattern storage  |
+| `daemon`      | 6           | Background worker daemon (start, stop, status, trigger, enable)               | Background       |
+| `neural`      | 8           | Pattern storage (train, status, patterns, predict, optimize)                  | Pattern storage  |
 | `security`    | 6           | Security scanning (scan, audit, cve, threats, validate, report)               | Working          |
-| `performance` | 5           | Performance profiling (benchmark, profile, metrics, optimize, report)         | Minimal          |
-| `providers`   | 5           | AI providers (list, add, remove, test, configure)                             | Minimal          |
-| `claims`      | 4           | Claims-based authorization (check, grant, revoke, list)                       | Minimal          |
-| `guidance`    | 7           | Governance control plane (compile, gates, optimize)                           | Working          |
+| `performance` | 4           | Performance profiling (benchmark, profile, metrics, bottleneck) — real measurements | Working     |
+| `providers`   | 4           | AI providers (list, configure, remove, test)                                  | Working          |
+| `claims`      | 6           | Claims-based authorization (list, check, grant, revoke, roles, policies)       | Working          |
+| `guidance`    | 8           | Governance control plane (compile, gates, optimize)                           | Working          |
 | `monograph`   | -           | Knowledge graph CLI (delegates to @monoes/monograph)                          | Working          |
 | `browse`      | -           | Browser automation via CDP (@monoes/monobrowse)                               | Working          |
 | `doctor`      | 1           | System diagnostics with health checks                                         | Working          |

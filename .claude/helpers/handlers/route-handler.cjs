@@ -339,6 +339,17 @@ module.exports = {
             console.log('[MEMORY] ' + consolData.patternsConsolidated + ' patterns consolidated into ' + consolData.clustersCreated + ' RAPTOR clusters');
           }
         }
+        // Benchmark worker RSS (manual-trigger `daemon trigger -w benchmark`)
+        var benchFile = path.join(metricsDir, 'benchmark.json');
+        if (fs.existsSync(benchFile) && fs.statSync(benchFile).size < 32768) {
+          var benchData = JSON.parse(fs.readFileSync(benchFile, 'utf-8'));
+          if (benchData && benchData.benchmarks && benchData.benchmarks.memoryUsage) {
+            var benchRssMB = Math.round((benchData.benchmarks.memoryUsage.rss || 0) / (1024 * 1024));
+            if (benchRssMB > 512) {
+              console.log('[PERF] Benchmark snapshot RSS ' + benchRssMB + 'MB (>512MB threshold) at last `daemon trigger -w benchmark` run');
+            }
+          }
+        }
       } catch (e) { /* non-fatal */ }
 
       // ── Memory: surface relevant past session context ──────────

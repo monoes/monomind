@@ -41,6 +41,24 @@
         },
         "convergence_rationale": "Both code-level fixes confirmed working. Remaining value requires accumulating real usage data over sessions, not more code changes.",
         "timestamp": "2026-07-09T09:28:45.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Wired CacheManager into LanceDBBackend (read-through cache on get/getByKey, invalidation on mutations)",
+          "Deleted 2 orphaned broken test files (benchmark.test.ts, hybrid-memory-repository.test.ts)",
+          "Fixed stale controller-registry.test.ts assertion (2\u21927 init levels)",
+          "Deduplicated chunkDocument in document-pipeline.ts (dynamic import from @monoes/memory)",
+          "Added 5 new LanceDB integration tests for cache behavior"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T06:51:07.000Z"
       }
     ],
     "hook-handlers": [
@@ -68,7 +86,7 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [
-          "Wired last-dispatch.json consumer into route-handler.cjs: reads agent-start-handler's dispatch record and logs DISPATCH_DEDUP when the router picks the same agent that was dispatched <60s ago — closes the last write-only sink in the handler pipeline",
+          "Wired last-dispatch.json consumer into route-handler.cjs: reads agent-start-handler's dispatch record and logs DISPATCH_DEDUP when the router picks the same agent that was dispatched <60s ago \u2014 closes the last write-only sink in the handler pipeline",
           "Added 2 tests: DISPATCH_DEDUP fires for same-agent re-routing, skipped for different-agent routing"
         ],
         "rejudge_scores": {
@@ -85,7 +103,15 @@
           "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
           "write_only_sinks_before": 1,
           "write_only_sinks_after": 0,
-          "data_files_audited": ["last-dispatch.json", "last-route.json", "routing-feedback.jsonl", "episodes.jsonl", "swarm-activity.json", "memory-ops-*.json", "intelligence-outcomes.jsonl"],
+          "data_files_audited": [
+            "last-dispatch.json",
+            "last-route.json",
+            "routing-feedback.jsonl",
+            "episodes.jsonl",
+            "swarm-activity.json",
+            "memory-ops-*.json",
+            "intelligence-outcomes.jsonl"
+          ],
           "all_have_consumers": true
         },
         "convergence_rationale": "All handler data pipelines now have both writers and readers. last-dispatch.json (the sole remaining write-only sink) is now consumed by route-handler.cjs to suppress redundant same-agent routing within 60s. episodes.jsonl feeds past-session context. routing-feedback.jsonl feeds feedback weight adjustments. All daemon metrics consumed. All @monomind/hooks bridges wired. Value 7->8.",
@@ -162,6 +188,23 @@
         },
         "convergence_rationale": "All three bugs in the intelligence data pipeline are fixed and verified end-to-end. Session 1 edits flow into auto-memory-store.json; Session 2 getContext returns relevant suggestions. No [object Object] pollution. No test data leaking into production files. The system now genuinely learns from successful sessions. Value increase from 3 to 7 reflects the pipeline going from broken-but-compensated to actually working.",
         "timestamp": "2026-07-09T12:43:00.000Z"
+      },
+      {
+        "iteration": 4,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Fixed 2 TS2345 errors in intelligence.ts loadFromDisk (field-by-field validation)",
+          "Bridged MCP trajectory-end into ReasoningBank via recordStep+distillLearning",
+          "Confirmed keyword/semantic routing layering already works correctly",
+          "@monomind/cli now has 0 TS errors (was 2)"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T08:33:00.000Z"
       }
     ],
     "routing-package": [
@@ -217,10 +260,19 @@
           "route_handler_tests": 14,
           "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
           "bridge_triggers_on": "agentSlug=coder AND confidence<=0.8",
-          "bridge_sources": ["packages/@monomind/routing/dist/keyword-pre-filter.js", "packages/@monomind/cli/node_modules/@monomind/routing/dist/keyword-pre-filter.js"],
-          "enriched_fields": ["agent", "agentSlug", "confidence", "reason", "enrichedFrom"]
+          "bridge_sources": [
+            "packages/@monomind/routing/dist/keyword-pre-filter.js",
+            "packages/@monomind/cli/node_modules/@monomind/routing/dist/keyword-pre-filter.js"
+          ],
+          "enriched_fields": [
+            "agent",
+            "agentSlug",
+            "confidence",
+            "reason",
+            "enrichedFrom"
+          ]
         },
-        "remaining_work": "Semantic (embedding) routing in hooks path would require solving ESM/latency constraints — keyword bridge is the pragmatic solution",
+        "remaining_work": "Semantic (embedding) routing in hooks path would require solving ESM/latency constraints \u2014 keyword bridge is the pragmatic solution",
         "timestamp": "2026-07-10T04:10:00.000Z"
       },
       {
@@ -340,6 +392,23 @@
         },
         "convergence_rationale": "Scoring fix from iteration 1 confirmed working. Auto-activation fires on 2+ keyword hits. No bugs found. Remaining improvements are additive features (more skills in registry), not fixes.",
         "timestamp": "2026-07-09T12:20:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 1
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Added hooks_route_semantic MCP tool exposing full @monomind/routing pipeline (embeddings + LLM fallback)",
+          "Registered in hooks-tools.ts tool array",
+          "Fixed misleading 'agent --task' comment in index.ts (flag doesn't exist)",
+          "Smoke-tested end-to-end: keyword hit, embedding threshold, Haiku fallback all verified"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T07:06:51.000Z"
       }
     ],
     "mcp-server": [
@@ -457,7 +526,7 @@
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [
           "Wired GuidanceHookProvider into session-restore-handler.cjs: after initDefaultWorkers(), imports @monomind/guidance, compiles CLAUDE.md + CLAUDE.local.md, loads shards into retriever, registers 5 hooks on defaultRegistry (PreCommand, PreToolUse, PreEdit, PreTask, PostTask)",
-          "Activates shard retrieval at PreTask (task-relevant CLAUDE.md rules injected per task), run ledger tracking at PostTask, and diff-size gate at PreEdit — all previously dead code",
+          "Activates shard retrieval at PreTask (task-relevant CLAUDE.md rules injected per task), run ledger tracking at PostTask, and diff-size gate at PreEdit \u2014 all previously dead code",
           "Fixed var fs shadowing bug (var fs inside try block shadowed const fs at file top, breaking later fs.existsSync calls)"
         ],
         "rejudge_scores": {
@@ -471,14 +540,20 @@
           "tests_skipped": 7,
           "test_failures": 0,
           "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
-          "hooks_registered": ["guidance-gate-pre-command", "guidance-gate-pre-tool-use", "guidance-gate-pre-edit", "guidance-retriever-pre-task", "guidance-ledger-post-task"],
+          "hooks_registered": [
+            "guidance-gate-pre-command",
+            "guidance-gate-pre-tool-use",
+            "guidance-gate-pre-edit",
+            "guidance-retriever-pre-task",
+            "guidance-ledger-post-task"
+          ],
           "guidance_active_at_runtime": true,
           "shard_retrieval_fires": true,
           "ledger_tracking_fires": true,
           "diff_size_gate_fires": true,
-          "graceful_degradation": "all try/catch wrapped — non-fatal if @monomind/guidance unavailable"
+          "graceful_degradation": "all try/catch wrapped \u2014 non-fatal if @monomind/guidance unavailable"
         },
-        "convergence_rationale": "GuidanceHookProvider was fully implemented but never instantiated at runtime — shard retrieval, ledger tracking, and diff-size gate were dead code. Now wired into session-restore-handler.cjs alongside initDefaultWorkers(). CLAUDE.md is compiled once per session, shards loaded into retriever, and 5 hooks registered. Each task gets relevant CLAUDE.md rules injected (not the whole doc). Run events tracked for future optimization cycles. Value 7->8.",
+        "convergence_rationale": "GuidanceHookProvider was fully implemented but never instantiated at runtime \u2014 shard retrieval, ledger tracking, and diff-size gate were dead code. Now wired into session-restore-handler.cjs alongside initDefaultWorkers(). CLAUDE.md is compiled once per session, shards loaded into retriever, and 5 hooks registered. Each task gets relevant CLAUDE.md rules injected (not the whole doc). Run events tracked for future optimization cycles. Value 7->8.",
         "timestamp": "2026-07-10T03:30:00.000Z"
       }
     ],
@@ -615,7 +690,7 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [
-          "Unified swarm state storage: CLI swarm init/start/stop now read/write .monomind/swarm/swarm-state.json (MCP-canonical path) instead of .swarm/state.json — CLI and MCP tools share state",
+          "Unified swarm state storage: CLI swarm init/start/stop now read/write .monomind/swarm/swarm-state.json (MCP-canonical path) instead of .swarm/state.json \u2014 CLI and MCP tools share state",
           "CLI swarm init writes MCP store format ({ swarms: { [id]: SwarmState } }) so swarm_shutdown can find CLI-initialized swarms",
           "CLI swarm stop updates specific swarm entry in MCP store format instead of legacy flat file",
           "getSwarmStatus() reads agent counts from .monomind/agents/store.json (where MCP agent_spawn actually stores records) instead of nonexistent .swarm/agents/*.json",
@@ -638,7 +713,7 @@
           "agent_counts_from_real_store": true,
           "bug_fixed": "swarm stop for CLI-initialized swarms no longer fails with 'not found' because both CLI and MCP write to same file"
         },
-        "convergence_rationale": "The dual-state-path bug was the primary honesty gap — CLI wrote to .swarm/state.json while MCP wrote to .monomind/swarm/swarm-state.json, making swarm stop fail for CLI-initiated swarms and swarm status show 0 agents despite MCP having spawned them. Both paths now unified. Agent counts come from the real MCP agent store. Value 7->8.",
+        "convergence_rationale": "The dual-state-path bug was the primary honesty gap \u2014 CLI wrote to .swarm/state.json while MCP wrote to .monomind/swarm/swarm-state.json, making swarm stop fail for CLI-initiated swarms and swarm status show 0 agents despite MCP having spawned them. Both paths now unified. Agent counts come from the real MCP agent store. Value 7->8.",
         "timestamp": "2026-07-10T05:00:00.000Z"
       }
     ],
@@ -692,8 +767,8 @@
         },
         "verdict": "ITERATE",
         "fixes_applied": [
-          "Added hive-mind_audit_list MCP tool: exposes AuditWriter.listDecisions() — list tamper-evident HMAC-signed consensus records filtered by swarmId, capped at 500",
-          "Added hive-mind_audit_verify MCP tool: exposes AuditWriter.verifyDecision() — re-verifies all vote HMAC signatures and outer record signature for a given decisionId"
+          "Added hive-mind_audit_list MCP tool: exposes AuditWriter.listDecisions() \u2014 list tamper-evident HMAC-signed consensus records filtered by swarmId, capped at 500",
+          "Added hive-mind_audit_verify MCP tool: exposes AuditWriter.verifyDecision() \u2014 re-verifies all vote HMAC signatures and outer record signature for a given decisionId"
         ],
         "rejudge_scores": {
           "value_delivered": 6,
@@ -708,7 +783,10 @@
           "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
           "mcp_tools_before": 9,
           "mcp_tools_after": 11,
-          "new_tools": ["hive-mind_audit_list", "hive-mind_audit_verify"],
+          "new_tools": [
+            "hive-mind_audit_list",
+            "hive-mind_audit_verify"
+          ],
           "audit_trail_closed_loop": true,
           "listDecisions_was_unreachable": true,
           "verifyDecision_was_unreachable": true
@@ -763,8 +841,8 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [
-          "Added monofence_scan_output MCP tool: exposes OutputScanner (PII leakage, prompt echo via trigram Jaccard, policy violations) — was implemented but unreachable via MCP",
-          "Added monofence_context MCP tool: exposes multi-turn escalation state (normal/suspicious/elevated/attack) and reset — was implemented but unreachable via MCP"
+          "Added monofence_scan_output MCP tool: exposes OutputScanner (PII leakage, prompt echo via trigram Jaccard, policy violations) \u2014 was implemented but unreachable via MCP",
+          "Added monofence_context MCP tool: exposes multi-turn escalation state (normal/suspicious/elevated/attack) and reset \u2014 was implemented but unreachable via MCP"
         ],
         "rejudge_scores": {
           "value_delivered": 9,
@@ -780,11 +858,14 @@
           "monofence_tests": 91,
           "mcp_tools_before": 6,
           "mcp_tools_after": 8,
-          "new_tools": ["monofence_scan_output", "monofence_context"],
+          "new_tools": [
+            "monofence_scan_output",
+            "monofence_context"
+          ],
           "input_bounds": "all new tools use capSecurityInput (64KB cap)",
           "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)"
         },
-        "convergence_rationale": "Two facade capabilities (output scanning and context state) were fully implemented and tested in monofence-ai but had no MCP tool exposure — agents could not use them. Now wired as monofence_scan_output and monofence_context. All 8 MCP security tools cover the full MonoDefence API surface. All integration entry points verified: hooks executor auto-registers, CLI security defend works, MCP tools complete. Value 8->9.",
+        "convergence_rationale": "Two facade capabilities (output scanning and context state) were fully implemented and tested in monofence-ai but had no MCP tool exposure \u2014 agents could not use them. Now wired as monofence_scan_output and monofence_context. All 8 MCP security tools cover the full MonoDefence API surface. All integration entry points verified: hooks executor auto-registers, CLI security defend works, MCP tools complete. Value 8->9.",
         "timestamp": "2026-07-10T07:10:00.000Z"
       }
     ],
@@ -815,8 +896,27 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [],
-        "convergence_rationale": "Value jumped 4→7, honesty gap 7→3 after ab50cd81 cleanup. Commands honestly labeled, most work end-to-end. In-process MCP tool registry means commands work standalone without requiring an MCP server. No further fixes needed.",
+        "convergence_rationale": "Value jumped 4\u21927, honesty gap 7\u21923 after ab50cd81 cleanup. Commands honestly labeled, most work end-to-end. In-process MCP tool registry means commands work standalone without requiring an MCP server. No further fixes needed.",
         "timestamp": "2026-07-09T20:30:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Added providers list subcommand (shows configured providers with masked keys)",
+          "Added providers remove subcommand (deletes provider config entry)",
+          "Fixed misleading 'MCP server may not be running' error in swarm.ts",
+          "Corrected ~15 stale subcommand counts in root CLAUDE.md and package CLAUDE.md",
+          "Replaced 'MCP-dependent' labels with 'Working \u2014 runs in-process' for agent/swarm/hive-mind",
+          "Replaced 'Minimal' labels with 'Working' for performance/providers/claims"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T06:30:45.000Z"
       }
     ],
     "hooks-system": [
@@ -858,8 +958,24 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [],
-        "convergence_rationale": "Value jumped 3→7, health 5→8 after WorkerManager wiring into CLI startup. 10 real workers with genuine OS/git/security introspection, 790 tests pass. Remaining honesty gap (5) is alias naming in CLAUDE.md — cosmetic, not functional.",
+        "convergence_rationale": "Value jumped 3\u21927, health 5\u21928 after WorkerManager wiring into CLI startup. 10 real workers with genuine OS/git/security introspection, 790 tests pass. Remaining honesty gap (5) is alias naming in CLAUDE.md \u2014 cosmetic, not functional.",
         "timestamp": "2026-07-09T21:00:00.000Z"
+      },
+      {
+        "iteration": 4,
+        "judge_scores": {
+          "value_delivered": 6,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "ITERATE",
+        "fixes_applied": [
+          "Wired buildLATSPlan into hooks_pre-task MCP tool for high-complexity tasks",
+          "Confirmed WorkerManager (11 workers) and HookRegistry healthy",
+          "Identified synthesis subsystem still dead, duplicate MCP tool surface in hooks/src/mcp/"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T08:19:20.000Z"
       }
     ],
     "security-package": [
@@ -887,7 +1003,7 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [],
-        "convergence_rationale": "Value 2→6, honesty 9→3 after ab50cd81 cleanup + iteration 1 wiring. Validators genuinely wired at MCP boundary and memory tools. Minor remaining issues (misleading CVE remediation docs) are cosmetic.",
+        "convergence_rationale": "Value 2\u21926, honesty 9\u21923 after ab50cd81 cleanup + iteration 1 wiring. Validators genuinely wired at MCP boundary and memory tools. Minor remaining issues (misleading CVE remediation docs) are cosmetic.",
         "timestamp": "2026-07-09T20:30:00.000Z"
       }
     ],
@@ -915,8 +1031,26 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [],
-        "convergence_rationale": "Value 6→7, health 5→7. Core skills (mastermind, monolean, monodesign, monomotion) work well with real routing integration. Honesty gap (6) is about ~183 legacy command files inflating perceived scope, not broken functionality. No further code fixes warranted.",
+        "convergence_rationale": "Value 6\u21927, health 5\u21927. Core skills (mastermind, monolean, monodesign, monomotion) work well with real routing integration. Honesty gap (6) is about ~183 legacy command files inflating perceived scope, not broken functionality. No further code fixes warranted.",
         "timestamp": "2026-07-09T20:30:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 1
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Pruned 23 phantom skill entries from SKILLS_MAP in executor.ts",
+          "Created .claude/skills/memory-toolkit/SKILL.md (real memory skill from existing docs)",
+          "Created .claude/skills/github-toolkit/SKILL.md (real GitHub skill from existing docs)",
+          "Added result.errors regression guard for future missing skill drift",
+          "Verified end-to-end: init --preset full now delivers real skill content"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T08:02:45.000Z"
       }
     ],
     "daemon-system": [
@@ -943,8 +1077,25 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [],
-        "convergence_rationale": "Value 1→6, honesty 9→2 after ab50cd81 cleanup. Daemon genuinely daemonizes, 7 of 12 workers run real analysis against monograph DB. Workers honestly label 5 as needing external CLI. Metrics pipeline (write to .monomind/metrics/) now partially consumed by route-handler.",
+        "convergence_rationale": "Value 1\u21926, honesty 9\u21922 after ab50cd81 cleanup. Daemon genuinely daemonizes, 7 of 12 workers run real analysis against monograph DB. Workers honestly label 5 as needing external CLI. Metrics pipeline (write to .monomind/metrics/) now partially consumed by route-handler.",
         "timestamp": "2026-07-09T20:30:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 1
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Added 5 missing workers to DEFAULT_WORKERS (ultralearn, deepdive, benchmark, refactor, preload)",
+          "Added benchmark.json consumer to route-handler.cjs (RSS warning >512MB)",
+          "Verified all 12 workers now triggerable via daemon trigger -w <type>",
+          "All 8 producing workers now have consumers in route-handler (8/8 pipeline complete)"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T07:18:57.000Z"
       }
     ],
     "neural-system": [
@@ -971,8 +1122,25 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [],
-        "convergence_rationale": "Value 4→5, honesty 7→4. Working kNN similarity search with real cosine math. Partially self-aware about not being real ML (neural-core.ts disclaims 'no ML training'). Remaining gap is naming conventions (EWCConsolidator, 'neural train'), not broken functionality.",
+        "convergence_rationale": "Value 4\u21925, honesty 7\u21924. Working kNN similarity search with real cosine math. Partially self-aware about not being real ML (neural-core.ts disclaims 'no ML training'). Remaining gap is naming conventions (EWCConsolidator, 'neural train'), not broken functionality.",
         "timestamp": "2026-07-09T20:30:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 1
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Rewired neural-tools.ts generateEmbedding() to delegate to shared embedding-operations.ts",
+          "Removed standalone monovector ONNX init block and hash-only fallback",
+          "Updated neural_status embeddingProvider reporting to reflect actual model",
+          "MCP and CLI neural paths now use same vector space (no more incompatible embeddings)"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T07:32:06.000Z"
       }
     ],
     "cross-deduplication": [
@@ -1007,7 +1175,7 @@
           "files_changed": 6,
           "behavioral_change": "embeddings-tools.ts epsilon (1e-15) removed in favor of exact zero check; neural-tools.ts dimension mismatch now uses Math.min instead of throwing"
         },
-        "remaining_work": "Pattern store consolidation (neural-tools models.json vs intelligence.ts patterns.json) — lower priority, different data shapes justify separate stores",
+        "remaining_work": "Pattern store consolidation (neural-tools models.json vs intelligence.ts patterns.json) \u2014 lower priority, different data shapes justify separate stores",
         "timestamp": "2026-07-10T00:50:00.000Z"
       },
       {
@@ -1043,8 +1211,25 @@
           "shared_json_util_consumers": 2,
           "remaining_duplication": "10+ other files still use inline writeFileSync+renameSync (lower priority, no write conflicts)"
         },
-        "remaining_work": "Migrate remaining 10+ inline atomic-write sites to shared utility (autopilot-state, claims, swarm, memory-admin, etc.) — no data conflicts, purely cleanup",
+        "remaining_work": "Migrate remaining 10+ inline atomic-write sites to shared utility (autopilot-state, claims, swarm, memory-admin, etc.) \u2014 no data conflicts, purely cleanup",
         "timestamp": "2026-07-10T09:30:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Replaced 6th cosine-sim duplicate in memory-read.ts with shared import",
+          "Migrated 8 atomic-write call sites in 6 files to writeJsonFileAtomic",
+          "Removed dead code (unused imports, redundant mkdir branches)",
+          "Files: autopilot-state.ts, claims.ts, agent-lifecycle.ts, security-cve.ts, swarm.ts, neural-optimize.ts"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T07:46:05.000Z"
       }
     ],
     "cross-daemon-pipeline": [
@@ -1058,7 +1243,7 @@
         },
         "verdict": "ITERATE",
         "fixes_applied": [
-          "Fixed broken codebase-map.json consumption: route-handler read 'hotspots' but worker writes 'topFiles' — field never matched, consumer was dead code",
+          "Fixed broken codebase-map.json consumption: route-handler read 'hotspots' but worker writes 'topFiles' \u2014 field never matched, consumer was dead code",
           "Added graphStaleness surfacing: warns when monograph index is >10 commits behind HEAD",
           "Wired deepdive.json into route-handler: surfaces god-node architectural warnings (name, degree, file location)",
           "Wired consolidation.json into route-handler: surfaces RAPTOR memory cluster counts when consolidation has run"
@@ -1076,10 +1261,13 @@
           "route_handler_tests": 12,
           "metrics_consumed_before": "2 of 6 (security-audit, codebase-map[broken])",
           "metrics_consumed_after": "4 of 6 (security-audit, codebase-map[fixed], deepdive, consolidation)",
-          "still_unconsumed": ["performance.json (just process.memoryUsage)", "benchmark.json (just process.memoryUsage/cpuUsage)"],
+          "still_unconsumed": [
+            "performance.json (just process.memoryUsage)",
+            "benchmark.json (just process.memoryUsage/cpuUsage)"
+          ],
           "field_bug_fixed": "hotspots -> topFiles"
         },
-        "remaining_work": "performance.json and benchmark.json are intentionally thin (process runtime stats only) — not worth surfacing unless enriched with real perf data",
+        "remaining_work": "performance.json and benchmark.json are intentionally thin (process runtime stats only) \u2014 not worth surfacing unless enriched with real perf data",
         "timestamp": "2026-07-10T01:25:00.000Z"
       },
       {
@@ -1093,7 +1281,7 @@
         "verdict": "ITERATE",
         "fixes_applied": [
           "ultralearn worker: now persists output to .monomind/metrics/ultralearn.json (was return-only, insights vanished after worker completed)",
-          "Wired ultralearn.json into route-handler: surfaces bridge-node insights (symbols crossing community boundaries) — high-value LLM context for change impact awareness",
+          "Wired ultralearn.json into route-handler: surfaces bridge-node insights (symbols crossing community boundaries) \u2014 high-value LLM context for change impact awareness",
           "Wired performance.json into route-handler: surfaces RSS memory warning when daemon exceeds 512MB threshold"
         ],
         "rejudge_scores": {
@@ -1109,13 +1297,31 @@
           "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
           "metrics_consumed_before": "4 of 7 (security-audit, codebase-map, deepdive, consolidation)",
           "metrics_consumed_after": "6 of 7 (+ ultralearn, performance)",
-          "still_unconsumed": ["benchmark.json (strict subset of performance.json data — intentionally not wired)"],
+          "still_unconsumed": [
+            "benchmark.json (strict subset of performance.json data \u2014 intentionally not wired)"
+          ],
           "ultralearn_persisted": true,
           "bridge_nodes_surfaced": true,
           "rss_warning_threshold": "512MB"
         },
-        "remaining_work": "benchmark.json contains only process.cpuUsage/memoryUsage — same data as performance.json, not worth a separate consumer",
+        "remaining_work": "benchmark.json contains only process.cpuUsage/memoryUsage \u2014 same data as performance.json, not worth a separate consumer",
         "timestamp": "2026-07-10T11:00:00.000Z"
+      },
+      {
+        "iteration": 3,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 1
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Verified all 8 producing daemon workers consumed by route-handler.cjs",
+          "benchmark.json consumer added in daemon-system run 19 closed the last gap",
+          "Non-daemon metrics (graph-rebuild, monolean-mode, etc.) serve separate purposes \u2014 not pipeline gaps"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T07:38:04.000Z"
       }
     ],
     "cross-hooks-architecture": [
@@ -1146,12 +1352,44 @@
           "test_failures": 0,
           "hooks_tests_passed": 673,
           "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
-          "events_bridged_before": ["PreTask", "PostTask"],
-          "events_bridged_after": ["SessionStart", "PreTask", "PostTask", "PostEdit", "SessionEnd"],
-          "new_consumers_activated": ["EpisodeBinner.closeEpisode", "observability-bus:session-start", "observability-bus:session-end", "observability-bus:post-edit"]
+          "events_bridged_before": [
+            "PreTask",
+            "PostTask"
+          ],
+          "events_bridged_after": [
+            "SessionStart",
+            "PreTask",
+            "PostTask",
+            "PostEdit",
+            "SessionEnd"
+          ],
+          "new_consumers_activated": [
+            "EpisodeBinner.closeEpisode",
+            "observability-bus:session-start",
+            "observability-bus:session-end",
+            "observability-bus:post-edit"
+          ]
         },
-        "remaining_work": "PostRoute/PreRoute events exist in enum but no CJS handler fires them (no registered consumers either — low priority)",
+        "remaining_work": "PostRoute/PreRoute events exist in enum but no CJS handler fires them (no registered consumers either \u2014 low priority)",
         "timestamp": "2026-07-10T02:05:00.000Z"
+      },
+      {
+        "iteration": 2,
+        "judge_scores": {
+          "value_delivered": 8,
+          "implementation_health": 8,
+          "honesty_gap": 2
+        },
+        "verdict": "CONVERGED-COMMIT",
+        "fixes_applied": [
+          "Added _ensureHooksModule() lazy per-process loader to hook-handler.cjs",
+          "Rewired task-handler.cjs, edit-handler.cjs, session-handler.cjs to use per-process loader",
+          "Added AgentSpawn bridge to agent-start-handler.cjs",
+          "Simplified session-restore-handler.cjs to reuse shared loader",
+          "Fixed misleading architecture comment about cross-event persistence"
+        ],
+        "rejudge_scores": null,
+        "timestamp": "2026-07-10T06:12:32.000Z"
       }
     ],
     "cross-docs-honesty": [
@@ -1165,15 +1403,15 @@
         },
         "verdict": "CONVERGED-COMMIT",
         "fixes_applied": [
-          "Removed 2 phantom commands from root CLAUDE.md CLI table (deployment, embeddings) — no command files, no imports, no index.ts registration",
+          "Removed 2 phantom commands from root CLAUDE.md CLI table (deployment, embeddings) \u2014 no command files, no imports, no index.ts registration",
           "Expanded CLI table from 18 entries to all 41 registered commands with accurate descriptions",
-          "Removed phantom agents (InputValidator, PathValidator, SafeExecutor) from root CLAUDE.md — these are @monomind/security utility functions, not agent classes",
+          "Removed phantom agents (InputValidator, PathValidator, SafeExecutor) from root CLAUDE.md \u2014 these are @monomind/security utility functions, not agent classes",
           "Fixed hooks subcommand count: 17 -> 26 in root CLAUDE.md and packages/@monomind/cli/CLAUDE.md",
           "Added 5 missing packages to Key Packages table: @monomind/mcp, @monomind/routing, @monoes/monograph, monofence-ai",
           "Marked gossip/crdt consensus strategies as 'planned but not yet implemented' in Hive-Mind section",
           "Clarified Agent Teams hooks as 'Claude Code hook events, not CLI subcommands'",
           "Removed 4 phantom commands from package CLAUDE.md (deployment, embeddings, plugins, migrate)",
-          "Fixed '12 background workers' -> '11 background workers' in hooks description (11 in @monomind/hooks, 12 in daemon — different systems)",
+          "Fixed '12 background workers' -> '11 background workers' in hooks description (11 in @monomind/hooks, 12 in daemon \u2014 different systems)",
           "Fixed capabilities reference: '26 CLI commands with 140+ subcommands' -> '41 CLI commands', '27 hooks + 12 workers' -> accurate split"
         ],
         "rejudge_scores": {
@@ -1187,13 +1425,25 @@
           "tests_skipped": 7,
           "test_failures": 0,
           "pre_existing_error": "init-helpers.test.mjs process.exit mock (unrelated)",
-          "phantom_commands_removed": ["deployment", "embeddings", "plugins", "migrate"],
-          "phantom_agents_removed": ["InputValidator", "PathValidator", "SafeExecutor"],
+          "phantom_commands_removed": [
+            "deployment",
+            "embeddings",
+            "plugins",
+            "migrate"
+          ],
+          "phantom_agents_removed": [
+            "InputValidator",
+            "PathValidator",
+            "SafeExecutor"
+          ],
           "cli_table_entries_before": 18,
           "cli_table_entries_after": 41,
           "packages_listed_before": 6,
           "packages_listed_after": 10,
-          "files_changed": ["CLAUDE.md", "packages/@monomind/cli/CLAUDE.md"]
+          "files_changed": [
+            "CLAUDE.md",
+            "packages/@monomind/cli/CLAUDE.md"
+          ]
         },
         "convergence_rationale": "Both CLAUDE.md files now accurately reflect the codebase: all 41 CLI commands listed (no phantoms), correct hook/worker counts, honest consensus strategy status, complete package inventory. AI agents reading CLAUDE.md will no longer be misled into using nonexistent commands or expecting phantom agent types. Remaining honesty gap (2) is inherent drift risk in manual docs.",
         "timestamp": "2026-07-10T02:45:00.000Z"
@@ -1202,8 +1452,8 @@
   },
   "meta": {
     "created": "2026-07-09T00:00:00Z",
-    "last_updated": "2026-07-10T15:50:00.000Z",
-    "total_iterations": 40,
+    "last_updated": "2026-07-10T18:25:00.000Z",
+    "total_iterations": 42,
     "features_converged": 22,
     "features_removed": 0
   }

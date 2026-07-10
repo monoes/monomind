@@ -103,6 +103,18 @@ const DEFAULT_WORKERS: WorkerConfigInternal[] = [
   { type: 'testgaps', intervalMs: 20 * 60 * 1000, offsetMs: 8 * 60 * 1000, priority: 'normal', description: 'Test coverage analysis', enabled: true },
   { type: 'predict', intervalMs: 10 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Predictive preloading', enabled: false },
   { type: 'document', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Auto-documentation', enabled: false },
+  // Manual-trigger-only workers (`monomind daemon trigger -w <type>`) — not
+  // scheduled on an interval, but must still be present in `config.workers`
+  // so triggerWorker()'s lookup (`this.config.workers.find(w => w.type === type)`)
+  // succeeds instead of throwing "Unknown worker type". Previously omitted
+  // here entirely, so `daemon trigger -w ultralearn|preload|deepdive|refactor|benchmark`
+  // always failed even though the CLI help text and runWorkerLogic() switch
+  // advertise them as triggerable.
+  { type: 'ultralearn', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'normal', description: 'Deep knowledge acquisition', enabled: false },
+  { type: 'deepdive', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'normal', description: 'Deep code analysis', enabled: false },
+  { type: 'benchmark', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'normal', description: 'Performance benchmarking', enabled: false },
+  { type: 'refactor', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'normal', description: 'Code refactoring suggestions', enabled: false },
+  { type: 'preload', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Resource preloading', enabled: false },
 ];
 
 // Worker timeout — must exceed the longest per-worker headless timeout (15 min for audit/refactor).

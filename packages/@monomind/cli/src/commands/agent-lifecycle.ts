@@ -8,6 +8,7 @@ import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
 
 // ─── Shared utilities ────────────────────────────────────────────────────────
 
@@ -23,8 +24,6 @@ export function updateSwarmActivityMetrics(agentCountDelta: number): void {
 
     if (fs.existsSync(activityPath) && fs.statSync(activityPath).size <= 10 * 1024 * 1024) {
       data = JSON.parse(fs.readFileSync(activityPath, 'utf-8'));
-    } else {
-      fs.mkdirSync(metricsDir, { recursive: true });
     }
 
     const swarm = (data.swarm as Record<string, unknown>) ?? {};
@@ -37,9 +36,7 @@ export function updateSwarmActivityMetrics(agentCountDelta: number): void {
     data.swarm = swarm;
     data.timestamp = new Date().toISOString();
 
-    const tmpPath = activityPath + '.tmp';
-    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
-    fs.renameSync(tmpPath, activityPath);
+    writeJsonFileAtomic(activityPath, data);
   } catch {
     // Non-critical — don't fail the command if metrics update fails
   }

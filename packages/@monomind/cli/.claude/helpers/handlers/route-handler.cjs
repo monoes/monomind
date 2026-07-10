@@ -170,6 +170,23 @@ module.exports = {
       // recommendations that are no longer injected into context. The statusline
       // just shows the keyword router's pick; no need for 50 lines of overrides.
 
+      // ── Dispatch dedup: suppress re-recommending the same agent just dispatched ──
+      // agent-start-handler writes last-dispatch.json on SubagentStart.
+      // If the router picks the same agent within 60s, it's likely the parent re-routing
+      // the same prompt — log a note so the LLM can vary its approach.
+      try {
+        var dispatchPath = path.join(CWD, '.monomind', 'last-dispatch.json');
+        var MAX_DISPATCH = 4096;
+        if (fs.existsSync(dispatchPath) && fs.statSync(dispatchPath).size <= MAX_DISPATCH) {
+          var lastDispatch = JSON.parse(fs.readFileSync(dispatchPath, 'utf-8'));
+          var dispatchAge = Date.now() - new Date(lastDispatch.dispatchedAt || 0).getTime();
+          if (dispatchAge < 60000 && lastDispatch.agentType === (result.agentSlug || result.agent)) {
+            result.recentlyDispatched = true;
+            console.log('[DISPATCH_DEDUP] ' + lastDispatch.agentType + ' was dispatched ' + Math.round(dispatchAge / 1000) + 's ago — consider a different specialist or direct implementation');
+          }
+        }
+      } catch (e) { /* non-fatal */ }
+
       var output = [];
       var conf = result.confidence != null ? result.confidence : 0;
 
@@ -263,12 +280,74 @@ module.exports = {
             console.log('[SECURITY] ' + secData.findings.length + ' findings from background scan. Review .monomind/metrics/security-audit.json');
           }
         }
-        // Codebase map hotspots
+        // Codebase map top files (high-centrality god nodes from monograph)
         var mapFile = path.join(metricsDir, 'codebase-map.json');
         if (fs.existsSync(mapFile) && fs.statSync(mapFile).size < 32768) {
           var mapData = JSON.parse(fs.readFileSync(mapFile, 'utf-8'));
-          if (mapData && mapData.hotspots && mapData.hotspots.length > 0) {
-            console.log('[CODEBASE] ' + mapData.hotspots.length + ' hotspots detected. Top: ' + (mapData.hotspots[0].file || mapData.hotspots[0].name || 'unknown'));
+          if (mapData && mapData.topFiles && mapData.topFiles.length > 0) {
+            console.log('[CODEBASE] ' + mapData.topFiles.length + ' high-centrality files. Top: ' + (mapData.topFiles[0].ref || 'unknown') + ' (degree ' + (mapData.topFiles[0].degree || '?') + ')');
+          }
+          if (mapData && mapData.graphStaleness && mapData.graphStaleness.commitsBehind > 10) {
+            console.log('[CODEBASE] Graph index ' + mapData.graphStaleness.commitsBehind + ' commits behind HEAD — run monograph build');
+          }
+        }
+        // Deep dive findings (god nodes, high-degree files from background analysis)
+        var deepdiveFile = path.join(metricsDir, 'deepdive.json');
+        if (fs.existsSync(deepdiveFile) && fs.statSync(deepdiveFile).size < 32768) {
+          var ddData = JSON.parse(fs.readFileSync(deepdiveFile, 'utf-8'));
+          if (ddData && ddData.findings && ddData.findings.length > 0) {
+            for (var di = 0; di < ddData.findings.length; di++) {
+              var finding = ddData.findings[di];
+              if (finding.category === 'god_nodes' && finding.items && finding.items.length > 0) {
+                var topGod = finding.items[0];
+                console.log('[DEEPDIVE] ' + finding.items.length + ' god nodes. Top: ' + (topGod.name || 'unknown') + ' (degree ' + (topGod.degree || '?') + ') in ' + (topGod.file || 'unknown'));
+              }
+            }
+          }
+        }
+        // Ultralearn insights (bridge nodes crossing community boundaries)
+        var ultralearnFile = path.join(metricsDir, 'ultralearn.json');
+        if (fs.existsSync(ultralearnFile) && fs.statSync(ultralearnFile).size < 32768) {
+          var ulData = JSON.parse(fs.readFileSync(ultralearnFile, 'utf-8'));
+          if (ulData && ulData.insightsGained && ulData.insightsGained.length > 0) {
+            for (var ui = 0; ui < ulData.insightsGained.length; ui++) {
+              var insight = ulData.insightsGained[ui];
+              if (insight.category === 'bridge_nodes' && insight.items && insight.items.length > 0) {
+                var topBridge = insight.items[0];
+                console.log('[ARCHITECTURE] ' + insight.items.length + ' bridge nodes crossing community boundaries. Top: ' + (topBridge.name || 'unknown') + ' (' + (topBridge.crossCommunityEdges || '?') + ' cross-edges) in ' + (topBridge.location || 'unknown'));
+              }
+            }
+          }
+        }
+        // Performance metrics (daemon optimize worker)
+        var perfFile = path.join(metricsDir, 'performance.json');
+        if (fs.existsSync(perfFile) && fs.statSync(perfFile).size < 32768) {
+          var perfData = JSON.parse(fs.readFileSync(perfFile, 'utf-8'));
+          if (perfData && perfData.memoryUsage) {
+            var rssBytes = perfData.memoryUsage.rss || 0;
+            var rssMB = Math.round(rssBytes / (1024 * 1024));
+            if (rssMB > 512) {
+              console.log('[PERF] Daemon RSS ' + rssMB + 'MB (>512MB threshold). Consider restarting daemon or reducing worker concurrency');
+            }
+          }
+        }
+        // Memory consolidation health
+        var consolFile = path.join(metricsDir, 'consolidation.json');
+        if (fs.existsSync(consolFile) && fs.statSync(consolFile).size < 32768) {
+          var consolData = JSON.parse(fs.readFileSync(consolFile, 'utf-8'));
+          if (consolData && consolData.patternsConsolidated > 0) {
+            console.log('[MEMORY] ' + consolData.patternsConsolidated + ' patterns consolidated into ' + consolData.clustersCreated + ' RAPTOR clusters');
+          }
+        }
+        // Benchmark worker RSS (manual-trigger `daemon trigger -w benchmark`)
+        var benchFile = path.join(metricsDir, 'benchmark.json');
+        if (fs.existsSync(benchFile) && fs.statSync(benchFile).size < 32768) {
+          var benchData = JSON.parse(fs.readFileSync(benchFile, 'utf-8'));
+          if (benchData && benchData.benchmarks && benchData.benchmarks.memoryUsage) {
+            var benchRssMB = Math.round((benchData.benchmarks.memoryUsage.rss || 0) / (1024 * 1024));
+            if (benchRssMB > 512) {
+              console.log('[PERF] Benchmark snapshot RSS ' + benchRssMB + 'MB (>512MB threshold) at last `daemon trigger -w benchmark` run');
+            }
           }
         }
       } catch (e) { /* non-fatal */ }

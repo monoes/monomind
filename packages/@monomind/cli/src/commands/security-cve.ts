@@ -4,11 +4,12 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { existsSync, statSync, readFileSync, mkdirSync, writeFileSync, renameSync } from 'fs';
+import { statSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as https from 'https';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
 
 // ─── CVE helpers ─────────────────────────────────────────────────────────────
 
@@ -26,11 +27,8 @@ function getCveCache(cveId: string, cacheDir: string): unknown | null {
 const CVE_ID_RE = /^CVE-\d{4}-\d{4,}$/i;
 function saveCveCache(cveId: string, cacheDir: string, data: unknown): void {
   if (!CVE_ID_RE.test(cveId)) throw new Error('Invalid CVE ID');
-  mkdirSync(cacheDir, { recursive: true });
   const dest = join(cacheDir, `${cveId.toUpperCase()}.json`);
-  const tmp = dest + '.tmp';
-  writeFileSync(tmp, JSON.stringify(data));
-  renameSync(tmp, dest);
+  writeJsonFileAtomic(dest, data, false);
 }
 
 function httpsGet(url: string, timeoutMs = 10_000): Promise<string> {

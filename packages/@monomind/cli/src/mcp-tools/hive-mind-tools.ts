@@ -5,6 +5,7 @@
  */
 
 import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { weightedTally } from '../consensus/vote-signer.js';
@@ -24,6 +25,13 @@ interface HiveState {
     term: number;
   };
   workers: string[];
+  /**
+   * Consensus strategy chosen at hive-mind_init (e.g. via `hive-mind init -c byzantine`).
+   * Used as the default strategy for hive-mind_consensus propose/vote when the
+   * caller doesn't explicitly pass `strategy`, so the strategy selected at init
+   * time actually governs voting instead of silently falling back to 'raft'.
+   */
+  consensusStrategy?: ConsensusStrategy;
   consensus: {
     pending: ConsensusProposal[];
     history: ConsensusResult[];
@@ -209,6 +217,48 @@ function saveHiveState(state: HiveState): void {
   renameSync(tmp, dest);
 }
 
+const SESSION_SECRET_FILE = 'session-secret';
+
+/**
+ * Resolve the HMAC signing secret used for consensus vote/audit records.
+ *
+ * Previously this was read exclusively from MONOMIND_SESSION_SECRET, which
+ * nothing in `init`/`doctor`/docs ever sets — so by default every consensus
+ * decision silently produced zero audit records (writes were skipped, and
+ * hive-mind_audit_verify refused to run at all). To make the audit trail
+ * work out of the box, fall back to a per-project secret generated once and
+ * persisted alongside the hive state (0600-equivalent: kept out of state.json
+ * and never returned by any tool). MONOMIND_SESSION_SECRET still takes
+ * precedence for callers that want to manage/rotate the secret themselves.
+ */
+function getOrCreateSessionSecret(): string {
+  const envSecret = process.env.MONOMIND_SESSION_SECRET;
+  if (envSecret) return envSecret;
+
+  const path = join(getHiveDir(), SESSION_SECRET_FILE);
+  try {
+    if (existsSync(path)) {
+      const existing = readFileSync(path, 'utf-8').trim();
+      if (existing) return existing;
+    }
+  } catch { /* fall through to regeneration */ }
+
+  try {
+    ensureHiveDir();
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const secret = randomBytes(32).toString('hex');
+    const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+    writeFileSync(tmp, secret, 'utf-8');
+    renameSync(tmp, path);
+    return secret;
+  } catch {
+    // Filesystem unavailable — fall back to an ephemeral in-process secret.
+    // Audit records signed with this won't verify across process restarts,
+    // but propose/vote/resolve still function.
+    return randomBytes(32).toString('hex');
+  }
+}
+
 // Import agent store helpers for spawn functionality
 import { existsSync as agentStoreExists, readFileSync as readAgentStore, writeFileSync as writeAgentStore, mkdirSync as mkdirAgentStore } from 'node:fs';
 
@@ -364,6 +414,12 @@ export const hiveMindTools: MCPTool[] = [
       const effectiveConsensus = PLANNED_CONSENSUS.includes(requestedConsensus)
         ? 'byzantine'
         : (SUPPORTED_CONSENSUS.includes(requestedConsensus) ? requestedConsensus : 'byzantine');
+
+      // Persist the chosen strategy on the hive state so hive-mind_consensus
+      // propose/vote default to it instead of silently using 'raft'.
+      // 'byzantine' is the CLI-facing name; the internal ConsensusStrategy type uses 'bft'.
+      state.consensusStrategy = (effectiveConsensus === 'byzantine' ? 'bft' : effectiveConsensus) as ConsensusStrategy;
+      saveHiveState(state);
 
       return {
         success: true,
@@ -590,7 +646,9 @@ export const hiveMindTools: MCPTool[] = [
     handler: async (input) => {
       const state = loadHiveState();
       const action = input.action as string;
-      const rawStrategy = (input.strategy as string) || 'raft';
+      // Default to the strategy chosen at hive-mind_init (state.consensusStrategy);
+      // fall back to 'raft' only when the hive hasn't been initialized with one.
+      const rawStrategy = (input.strategy as string) || state.consensusStrategy || 'raft';
 
       // Gossip and CRDT are planned but not yet implemented -- reject early
       // with an honest message instead of silently falling through.
@@ -861,40 +919,38 @@ export const hiveMindTools: MCPTool[] = [
             });
           } catch { /* LanceDB not available — JSON store is primary */ }
 
-          // Persist consensus audit record
-          const sessionSecret = process.env.MONOMIND_SESSION_SECRET;
-          if (!sessionSecret) {
-            process.stderr.write('[hive-consensus] Audit write skipped: MONOMIND_SESSION_SECRET not set\n');
-          } else {
-            try {
-              const { AuditWriter } = await import('../consensus/audit-writer.js');
-              const auditDir = join(getProjectCwd(), STORAGE_DIR, 'consensus');
-              const writer = new AuditWriter(auditDir);
-              const now = new Date().toISOString();
-              const voteEntries = Object.entries(proposal.votes).map(([agentId, vote]) => ({
-                agentId,
-                agentSlug: agentId,
-                vote,
-                votedAt: now,
-              }));
-              writer.record({
-                decisionId: proposal.proposalId,
-                swarmId: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
-                protocol: (proposalStrategy === 'bft' ? 'byzantine' : proposalStrategy === 'raft' ? 'raft' : 'quorum') as 'byzantine' | 'raft' | 'gossip' | 'crdt' | 'quorum',
-                topic: proposal.type,
-                decision: resolution,
-                votes: voteEntries,
-                quorumRequired: required,
-                quorumThreshold: required / Math.max(totalNodes, 1),
-                round: (proposal.divergenceRoundsSeen ?? 0) + 1,
-                startedAt: proposal.proposedAt,
-                completedAt: now,
-                sessionSecret,
-              });
-            } catch (e) {
-              if (process.env.MONOMIND_LOG_LEVEL === 'debug') {
-                process.stderr.write(`[hive-consensus] Audit write failed: ${(e as Error).message}\n`);
-              }
+          // Persist consensus audit record — uses MONOMIND_SESSION_SECRET when
+          // set, otherwise a per-project generated-and-persisted secret so the
+          // audit trail is populated by default (see getOrCreateSessionSecret).
+          const sessionSecret = getOrCreateSessionSecret();
+          try {
+            const { AuditWriter } = await import('../consensus/audit-writer.js');
+            const auditDir = join(getProjectCwd(), STORAGE_DIR, 'consensus');
+            const writer = new AuditWriter(auditDir);
+            const now = new Date().toISOString();
+            const voteEntries = Object.entries(proposal.votes).map(([agentId, vote]) => ({
+              agentId,
+              agentSlug: agentId,
+              vote,
+              votedAt: now,
+            }));
+            writer.record({
+              decisionId: proposal.proposalId,
+              swarmId: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
+              protocol: (proposalStrategy === 'bft' ? 'byzantine' : proposalStrategy === 'raft' ? 'raft' : 'quorum') as 'byzantine' | 'raft' | 'gossip' | 'crdt' | 'quorum',
+              topic: proposal.type,
+              decision: resolution,
+              votes: voteEntries,
+              quorumRequired: required,
+              quorumThreshold: required / Math.max(totalNodes, 1),
+              round: (proposal.divergenceRoundsSeen ?? 0) + 1,
+              startedAt: proposal.proposedAt,
+              completedAt: now,
+              sessionSecret,
+            });
+          } catch (e) {
+            if (process.env.MONOMIND_LOG_LEVEL === 'debug') {
+              process.stderr.write(`[hive-consensus] Audit write failed: ${(e as Error).message}\n`);
             }
           }
         }
@@ -1275,10 +1331,10 @@ export const hiveMindTools: MCPTool[] = [
       required: ['decisionId'],
     },
     handler: async (input) => {
-      const sessionSecret = process.env.MONOMIND_SESSION_SECRET;
-      if (!sessionSecret) {
-        return { success: false, error: 'MONOMIND_SESSION_SECRET not set — cannot verify signatures' };
-      }
+      // Uses MONOMIND_SESSION_SECRET when set, otherwise the same
+      // per-project generated-and-persisted secret used to sign records
+      // in hive-mind_consensus (see getOrCreateSessionSecret).
+      const sessionSecret = getOrCreateSessionSecret();
       const decisionId = input.decisionId as string;
       if (typeof decisionId !== 'string' || decisionId.length === 0 || decisionId.length > 256) {
         return { success: false, error: 'Invalid decisionId' };

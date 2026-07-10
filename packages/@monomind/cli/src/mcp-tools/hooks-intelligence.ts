@@ -263,6 +263,35 @@ export const hooksTrajectoryEnd: MCPTool = {
 
       // Remove from active trajectories
       activeTrajectories.delete(trajectoryId);
+
+      // Bridge to the local intelligence ReasoningBank/SONA confidence-learning
+      // loop (src/memory/intelligence.ts). Previously this handler only wrote
+      // to the legacy JSON memory store (namespace 'trajectories') and the
+      // SONA routing optimizer's .swarm/sona-patterns.json — neither of which
+      // the ReasoningBank read from live, so trajectories recorded through
+      // this MCP tool (the path Claude Code actually calls) never fed the
+      // pattern store that `findSimilarPatterns`/`suggestAgentsFromIntelligence`
+      // read from. Recording a summary 'result' step here generates an
+      // embedding, stores a searchable pattern, and — because type 'result'
+      // triggers intelligence.ts's endTrajectory+distillLearning — applies
+      // the success/failure verdict to any semantically similar patterns.
+      try {
+        const intel = await import('../memory/intelligence.js');
+        await intel.initializeIntelligence();
+        const summary = `Task: ${trajectory.task} | Agent: ${trajectory.agent} | Steps: ${trajectory.steps.length} | Success: ${success}${feedback ? ` | Feedback: ${feedback}` : ''}`;
+        await intel.recordStep({
+          type: 'result',
+          content: summary,
+          metadata: {
+            verdict: success ? 'success' : 'failure',
+            trajectoryId,
+            agent: trajectory.agent,
+          },
+        });
+      } catch {
+        // Non-fatal: intelligence bridge unavailable, trajectory is still
+        // persisted via the legacy store above.
+      }
     }
 
     // SONA Learning - process trajectory outcome for routing optimization
