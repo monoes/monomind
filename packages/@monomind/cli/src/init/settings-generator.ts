@@ -116,18 +116,6 @@ export function generateSettings(options: InitOptions): object {
     neural: {
       enabled: options.runtime.enableNeural,
     },
-    daemon: {
-      autoStart: false,  // Opt-in only — prevents unintended token consumption (#1427, #1330)
-      workers: [
-        'map',           // Codebase mapping
-        'audit',         // Security auditing (critical priority)
-        'optimize',      // Performance optimization (high priority)
-      ],
-      schedules: {
-        audit: { interval: '4h', priority: 'critical' },
-        optimize: { interval: '2h', priority: 'high' },
-      },
-    },
     learning: {
       enabled: true,
       autoTrain: true,

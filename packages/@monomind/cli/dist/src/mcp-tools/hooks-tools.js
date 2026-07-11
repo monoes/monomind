@@ -4,9 +4,7 @@
  * Business logic lives in hooks-embedding.ts, hooks-routing.ts, and hooks-intelligence.ts.
  */
 import { hooksPreEdit, hooksPostEdit, hooksPreCommand, hooksPostCommand, hooksRoute, hooksRouteSemantic, hooksMetrics, hooksList, hooksPreTask, hooksPostTask, hooksExplain, hooksPretrain, hooksBuildAgents, hooksTransfer, hooksSessionStart, hooksSessionEnd, hooksIntelligence, } from './hooks-routing.js';
-import { hooksIntelligenceReset, hooksTrajectoryStart, hooksTrajectoryStep, hooksTrajectoryEnd, hooksPatternStore, hooksPatternSearch, hooksIntelligenceStats, hooksIntelligenceLearn, hooksIntelligenceAttention, hooksWorkerList, hooksWorkerDispatch, hooksWorkerStatus, hooksWorkerDetect, hooksWorkerCancel, hooksModelRoute, hooksModelOutcome, hooksModelStats, } from './hooks-intelligence.js';
-import { hooksAdvancedTools } from './hooks-advanced.js';
-import { hooksSynthesisTools } from './hooks-synthesis.js';
+import { hooksIntelligenceReset, hooksTrajectoryStart, hooksTrajectoryStep, hooksTrajectoryEnd, hooksPatternStore, hooksPatternSearch, hooksIntelligenceStats, hooksIntelligenceLearn, hooksIntelligenceAttention, hooksModelRoute, hooksModelOutcome, hooksModelStats, } from './hooks-intelligence.js';
 // Export all hooks tools
 export const hooksTools = [
     hooksPreEdit,
@@ -36,21 +34,17 @@ export const hooksTools = [
     hooksIntelligenceStats,
     hooksIntelligenceLearn,
     hooksIntelligenceAttention,
-    // Worker tools
-    hooksWorkerList,
-    hooksWorkerDispatch,
-    hooksWorkerStatus,
-    hooksWorkerDetect,
-    hooksWorkerCancel,
     // Model routing tools
     hooksModelRoute,
     hooksModelOutcome,
     hooksModelStats,
-    // Advanced tools salvaged from @monomind/hooks/mcp (AFLOW/DAGLearner routing,
-    // EvoAgentX prompt evolution, RLVR verifiable rewards, trace + HIL checkpoints)
-    ...hooksAdvancedTools,
-    // Dynamic agent synthesis (Task 47) — prompt/register/status/promote/cleanup
-    ...hooksSynthesisTools,
+    // NOTE: the "advanced" tools formerly re-exported from @monomind/hooks/mcp
+    // (hooks/route-advanced, hooks/evo-agentx, hooks/rlvr-outcome, hooks/statusline,
+    // trace + HIL checkpoint tools) and the hooks_synthesis-* tools were removed.
+    // Their backing modules (AFLOW/LATS/GEPA/ReasoningBank) had already been
+    // deleted, the handlers silently degraded to hardcoded data, and none of the
+    // tools were ever invoked (no trace/checkpoint/ephemeral-agent artifacts ever
+    // appeared on disk).
 ];
 export default hooksTools;
 //# sourceMappingURL=hooks-tools.js.map

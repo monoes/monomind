@@ -115,20 +115,26 @@ async function _ensureHooksModule() {
   if (_hooksModule) return _hooksModule;
   if (_hooksModuleLoadAttempted) return null; // already tried+failed this process
   _hooksModuleLoadAttempted = true;
+  // 1) Bare specifier — works when @monomind/hooks is installed/linked in a
+  //    node_modules reachable from this file (e.g. an end-user install).
   try {
     _hooksModule = await import('@monomind/hooks');
-    // Registering workers/collectors (episode-binner, entity-extractor, trace-collector)
-    // is a no-op import side effect — initDefaultWorkers() must be called explicitly to
-    // wire their hook listeners onto THIS process's in-memory registry. Since every
-    // handler that bridges an event (agent-start, pre-task, post-task, post-edit,
-    // session-end) now lazily loads the module in its own process via this function,
-    // each of them must also init the workers here, or executeHooks() below fires into
-    // an empty registry with zero listeners attached.
-    if (_hooksModule && _hooksModule.initDefaultWorkers) {
-      try { await _hooksModule.initDefaultWorkers(); } catch (e) { /* non-fatal */ }
-    }
   } catch (e) {
     _hooksModule = null;
+  }
+  // 2) Dev-repo fallback — in the monorepo the pnpm workspace link lives under
+  //    packages/@monomind/cli/node_modules, NOT at the repo root, so the bare
+  //    specifier never resolves from .claude/helpers. Import the compiled dist
+  //    entry directly by path (same pattern as session-restore-handler.cjs).
+  if (!_hooksModule) {
+    try {
+      const _distIndex = path.join(CWD, 'packages', '@monomind', 'hooks', 'dist', 'index.js');
+      if (fs.existsSync(_distIndex)) {
+        _hooksModule = await import('file://' + _distIndex);
+      }
+    } catch (e) {
+      _hooksModule = null; // not built — bridge stays a fail-soft no-op
+    }
   }
   return _hooksModule;
 }

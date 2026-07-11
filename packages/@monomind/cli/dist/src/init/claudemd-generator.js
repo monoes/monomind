@@ -210,21 +210,23 @@ function hooksSystem() {
 | \`intelligence\` | Pattern-learning intelligence system |
 | \`worker\` | Background worker management |
 
-### 12 Background Workers
+### Background Workers (@monomind/hooks, run in-process)
 
 | Worker | Priority | Description |
 |--------|----------|-------------|
-| \`optimize\` | high | Performance optimization |
-| \`audit\` | critical | Security analysis |
-| \`testgaps\` | normal | Test coverage analysis |
 | \`map\` | normal | Codebase mapping |
-| \`deepdive\` | normal | Deep code analysis |
-| \`document\` | normal | Auto-documentation |
+| \`audit\` | high | Security audit |
+| \`optimize\` | normal | Performance snapshot |
+| \`consolidate\` | low | Memory consolidation |
+| \`ddd\` | low | DDD progress tracking |
+| \`security\` | high | Secret/vulnerability scan |
+
+Metrics-producing workers refresh at session start when output is >6h old.
 
 \`\`\`bash
 npx monomind@latest hooks pre-task --description "[task]"
 npx monomind@latest hooks post-task --task-id "[id]" --success true
-npx monomind@latest hooks worker dispatch --trigger audit
+npx monomind@latest hooks worker run audit
 \`\`\``;
 }
 function learningProtocol() {
@@ -424,9 +426,6 @@ function setupAndBoundary() {
 \`\`\`bash
 # Add MCP server — includes monograph, swarm, memory, hooks, all 200+ tools
 claude mcp add monomind -- npx -y monomind@latest mcp start
-
-# Start background workers
-npx monomind@latest daemon start
 
 # Verify everything works
 npx monomind@latest doctor --fix

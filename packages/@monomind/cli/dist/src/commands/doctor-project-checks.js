@@ -1,13 +1,13 @@
 /**
  * Doctor — project/monomind health checks
- * Config, daemon, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore
+ * Config, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore, worker metrics
  */
 import { existsSync, readFileSync, statSync, mkdirSync, copyFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { homedir } from 'os';
-import { MAX_DOCTOR_PKG_BYTES, MAX_DOCTOR_CONFIG_BYTES, MAX_DOCTOR_GITIGNORE_BYTES, MAX_DOCTOR_PID_BYTES, MAX_DOCTOR_HELPER_BYTES, } from './doctor-env-checks.js';
+import { MAX_DOCTOR_PKG_BYTES, MAX_DOCTOR_CONFIG_BYTES, MAX_DOCTOR_GITIGNORE_BYTES, MAX_DOCTOR_HELPER_BYTES, } from './doctor-env-checks.js';
 export async function checkConfigFile() {
     const jsonPaths = ['.monomind/config.json', 'monomind.config.json', '.monomind.json'];
     for (const configPath of jsonPaths) {
@@ -27,34 +27,6 @@ export async function checkConfigFile() {
             return { name: 'Config File', status: 'pass', message: `Found: ${configPath}` };
     }
     return { name: 'Config File', status: 'warn', message: 'No config file (using defaults)', fix: 'monomind config init' };
-}
-export async function checkDaemonStatus() {
-    try {
-        const pidFile = '.monomind/daemon.pid';
-        if (existsSync(pidFile) && statSync(pidFile).size <= MAX_DOCTOR_PID_BYTES) {
-            const pid = readFileSync(pidFile, 'utf8').trim();
-            try {
-                process.kill(parseInt(pid, 10), 0);
-                // Stall detection: process alive but state file hasn't updated in >24h
-                const stateFile = '.monomind/daemon-state.json';
-                if (existsSync(stateFile)) {
-                    const ageMs = Date.now() - statSync(stateFile).mtimeMs;
-                    if (ageMs > 24 * 60 * 60 * 1000) {
-                        const ageH = Math.floor(ageMs / 3600000);
-                        return { name: 'Daemon Status', status: 'warn', message: `Running (PID: ${pid}) but daemon appears stalled (state not updated in ${ageH}h)`, fix: 'monomind daemon stop && monomind daemon start' };
-                    }
-                }
-                return { name: 'Daemon Status', status: 'pass', message: `Running (PID: ${pid})` };
-            }
-            catch {
-                return { name: 'Daemon Status', status: 'warn', message: 'Stale PID file', fix: 'rm .monomind/daemon.pid && monomind daemon start' };
-            }
-        }
-        return { name: 'Daemon Status', status: 'warn', message: 'Not running', fix: 'monomind daemon start' };
-    }
-    catch {
-        return { name: 'Daemon Status', status: 'warn', message: 'Unable to check', fix: 'monomind daemon status' };
-    }
 }
 export async function checkMemoryDatabase() {
     const dbPaths = ['.monomind/memory.db', '.swarm/memory.db', 'data/memory.db'];
@@ -497,7 +469,9 @@ export async function checkGuidanceGates() {
         return { name: 'Guidance Gates', status: 'warn', message: 'Could not parse .claude/settings.json', fix: 'monomind guidance setup --force' };
     }
 }
-const METRICS_FRESHNESS_MS = 60 * 60 * 1000; // 1 hour
+// Workers refresh at session start when output is >6h old — allow a grace
+// window beyond that before flagging staleness.
+const METRICS_FRESHNESS_MS = 12 * 60 * 60 * 1000; // 12 hours
 const MAX_DOCTOR_METRICS_BYTES = 5 * 1024 * 1024;
 function readMetricsJSON(name) {
     try {
@@ -511,17 +485,19 @@ function readMetricsJSON(name) {
     }
 }
 /**
- * Daemon metrics freshness — flags stale (>1h) or missing worker output files
- * so a wedged/disabled daemon is visible without digging through .monomind/metrics.
+ * Worker metrics freshness — reports the age of the @monomind/hooks worker
+ * output files (written at session start with a 6h staleness gate, or on
+ * demand via `monomind hooks worker run <name>`), so missing/stale worker
+ * output is visible without digging through .monomind/metrics.
  */
 export async function checkMetricsFreshness() {
     const metricsDir = join(process.cwd(), '.monomind', 'metrics');
     const knownOutputs = [
         'codebase-map.json', 'security-audit.json', 'performance.json',
-        'consolidation.json', 'ultralearn.json', 'deepdive.json', 'benchmark.json',
+        'consolidation.json', 'ddd-progress.json',
     ];
     if (!existsSync(metricsDir)) {
-        return { name: 'Daemon Metrics', status: 'warn', message: 'No .monomind/metrics — daemon has not run yet', fix: 'monomind daemon start' };
+        return { name: 'Worker Metrics', status: 'warn', message: 'No .monomind/metrics — workers have not run yet (they run at session start)', fix: 'monomind hooks worker run map' };
     }
     const now = Date.now();
     const fresh = [];
@@ -540,25 +516,25 @@ export async function checkMetricsFreshness() {
         catch { /* skip unreadable */ }
     }
     if (fresh.length === 0 && stale.length === 0) {
-        return { name: 'Daemon Metrics', status: 'warn', message: 'No worker output files found yet', fix: 'monomind daemon start' };
+        return { name: 'Worker Metrics', status: 'warn', message: 'No worker output files found yet (they run at session start)', fix: 'monomind hooks worker run map' };
     }
     if (stale.length === 0) {
-        return { name: 'Daemon Metrics', status: 'pass', message: `${fresh.length} metrics file(s) fresh (<1h)` };
+        return { name: 'Worker Metrics', status: 'pass', message: `${fresh.length} metrics file(s) fresh (<12h)` };
     }
     return {
-        name: 'Daemon Metrics',
+        name: 'Worker Metrics',
         status: 'warn',
-        message: `${stale.length} stale (>1h): ${stale.join(', ')}${fresh.length > 0 ? ` — ${fresh.length} fresh` : ''}`,
-        fix: 'monomind daemon status  # or: monomind daemon trigger -w <worker>',
+        message: `${stale.length} stale (>12h): ${stale.join(', ')}${fresh.length > 0 ? ` — ${fresh.length} fresh` : ''}`,
+        fix: 'monomind hooks worker run <name>  # map, audit, optimize, consolidate, ddd',
     };
 }
 /**
- * Surfaces critical findings from the security-audit daemon worker output.
+ * Surfaces critical findings from the security-audit worker output.
  */
 export async function checkSecurityAuditFindings() {
     const audit = readMetricsJSON('security-audit.json');
     if (!audit) {
-        return { name: 'Security Audit', status: 'warn', message: 'No security-audit.json yet', fix: 'monomind daemon trigger -w audit' };
+        return { name: 'Security Audit', status: 'warn', message: 'No security-audit.json yet', fix: 'monomind hooks worker run audit' };
     }
     const riskLevel = (audit.riskLevel || 'low').toLowerCase();
     const recommendations = audit.recommendations || [];
@@ -576,29 +552,6 @@ export async function checkSecurityAuditFindings() {
         return { name: 'Security Audit', status: 'warn', message: `risk=${riskLevel}, ${recommendations.length} recommendation(s)` };
     }
     return { name: 'Security Audit', status: 'pass', message: `risk=${riskLevel}, no open findings` };
-}
-/**
- * Flags uncovered critical paths surfaced by the testgaps worker (headless-only —
- * gracefully reports "not run" when the local daemon has no fallback for this worker).
- */
-export async function checkTestGaps() {
-    const gaps = readMetricsJSON('testgaps.json');
-    if (!gaps) {
-        return { name: 'Test Coverage Gaps', status: 'warn', message: 'No testgaps.json yet (requires Claude Code CLI for AI analysis)', fix: 'monomind daemon trigger -w testgaps' };
-    }
-    if (gaps.note && !gaps.gaps && gaps.uncoveredCount === undefined) {
-        return { name: 'Test Coverage Gaps', status: 'warn', message: gaps.note };
-    }
-    const gapList = Array.isArray(gaps.gaps) ? gaps.gaps : [];
-    const uncovered = gaps.uncoveredCount ?? gapList.length;
-    const criticalGaps = gapList.filter(g => g?.critical).length;
-    if (criticalGaps > 0) {
-        return { name: 'Test Coverage Gaps', status: 'fail', message: `${uncovered} uncovered area(s), ${criticalGaps} critical path(s) untested`, fix: 'Review .monomind/metrics/testgaps.json' };
-    }
-    if (uncovered > 0) {
-        return { name: 'Test Coverage Gaps', status: 'warn', message: `${uncovered} uncovered area(s)` };
-    }
-    return { name: 'Test Coverage Gaps', status: 'pass', message: 'No uncovered areas reported' };
 }
 /**
  * AutoMem proficiency check — reports memory learning health

@@ -687,16 +687,11 @@ export const hooksPreTask: MCPTool = {
       }
     } catch { /* non-critical */ }
 
-    // LATS (arXiv:2310.04406) — for high-complexity tasks, run a lightweight MCTS
-    // planning pass so the caller gets a concrete step sequence, not just an agent
-    // suggestion. Previously implemented in @monomind/hooks but never invoked.
+    // NOTE: a LATS planning pass used to be attempted here via
+    // `import('@monomind/hooks').buildLATSPlan` — that function never existed
+    // in the package (the planning module was removed), so the import failed
+    // silently on every call. The dead block was removed.
     let plan: string | undefined;
-    if (complexity === 'high') {
-      try {
-        const { buildLATSPlan } = await import('@monomind/hooks' as string);
-        plan = await buildLATSPlan(description, { simulations: 10, format: 'numbered-list' });
-      } catch { /* optional — planning pass is best-effort */ }
-    }
 
     return {
       taskId,
@@ -1339,42 +1334,20 @@ export const hooksTransfer: MCPTool = {
   },
 };
 
-// Session start hook - auto-starts daemon
+// Session start hook
 export const hooksSessionStart: MCPTool = {
   name: 'hooks_session-start',
-  description: 'Initialize a new session and auto-start daemon',
+  description: 'Initialize a new session',
   inputSchema: {
     type: 'object',
     properties: {
       sessionId: { type: 'string', description: 'Optional session ID' },
       restoreLatest: { type: 'boolean', description: 'Restore latest session state' },
-      startDaemon: { type: 'boolean', description: 'Start worker daemon (default: false — opt-in to prevent unintended token usage)' },
     },
   },
   handler: async (params: Record<string, unknown>) => {
     const sessionId = (params.sessionId as string) || `session-${Date.now()}`;
     const restoreLatest = params.restoreLatest as boolean;
-    const shouldStartDaemon = params.startDaemon === true;
-
-    // Auto-start daemon if enabled
-    let daemonStatus: { started: boolean; pid?: number; error?: string } = { started: false };
-    if (shouldStartDaemon) {
-      try {
-        // Dynamic import to avoid circular dependencies
-        const { startDaemon } = await import('../services/worker-daemon.js');
-        const daemon = await startDaemon(getProjectCwd());
-        const status = daemon.getStatus();
-        daemonStatus = {
-          started: true,
-          pid: status.pid,
-        };
-      } catch (error) {
-        daemonStatus = {
-          started: false,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    }
 
     // Phase 5: Wire ReflexionMemory session start via bridge
     let sessionMemory: { controller: string; restoredPatterns: number } | null = null;
@@ -1402,9 +1375,7 @@ export const hooksSessionStart: MCPTool = {
         intelligenceEnabled: true,
         hooksEnabled: true,
         memoryPersistence: true,
-        daemonEnabled: shouldStartDaemon,
       },
-      daemon: daemonStatus,
       sessionMemory: sessionMemory || { controller: 'none', restoredPatterns: 0 },
       previousSession: restoreLatest ? {
         id: `session-${Date.now() - 86400000}`,
@@ -1415,38 +1386,24 @@ export const hooksSessionStart: MCPTool = {
   },
 };
 
-// Session end hook - stops daemon
+// Session end hook - persists state
 export const hooksSessionEnd: MCPTool = {
   name: 'hooks_session-end',
-  description: 'End current session, stop daemon, and persist state',
+  description: 'End current session and persist state',
   inputSchema: {
     type: 'object',
     properties: {
       saveState: { type: 'boolean', description: 'Save session state' },
       exportMetrics: { type: 'boolean', description: 'Export session metrics' },
-      stopDaemon: { type: 'boolean', description: 'Stop worker daemon (default: true)' },
     },
   },
   handler: async (params: Record<string, unknown>) => {
     const saveState = params.saveState !== false;
-    const shouldStopDaemon = params.stopDaemon !== false;
     // Use caller-supplied sessionId if provided, otherwise generate a current-time ID.
     // The -3600000 offset was incorrect — it prevented matching session-start IDs.
     const sessionId = typeof params.sessionId === 'string' && params.sessionId
       ? params.sessionId
       : `session-${Date.now()}`;
-
-    // Stop daemon if enabled
-    let daemonStopped = false;
-    if (shouldStopDaemon) {
-      try {
-        const { stopDaemon } = await import('../services/worker-daemon.js');
-        await stopDaemon();
-        daemonStopped = true;
-      } catch {
-        // Daemon may not be running
-      }
-    }
 
     // Read actual counts from stores
     const store = loadMemoryStore();
@@ -1490,7 +1447,6 @@ export const hooksSessionEnd: MCPTool = {
     return {
       sessionId,
       statePath: saveState ? `.claude/sessions/${sessionId}.json` : undefined,
-      daemon: { stopped: daemonStopped },
       sessionPersistence: sessionPersistence || { controller: 'none', persisted: false },
       summary: {
         tasksExecuted: taskCount,

@@ -288,8 +288,6 @@ export async function executeInit(options) {
         else if (options.components.graphify) {
             result.skipped.push('knowledge graph: not a code project (skipping monograph indexing)');
         }
-        // Start daemon with background workers (non-blocking)
-        await startDaemonBackground(targetDir, result);
         // Run doctor auto-fix (non-blocking, best-effort)
         await runDoctorFix(targetDir, result);
         // Register this project in ~/.monomind-projects.json so upgrade --all finds it
@@ -388,36 +386,6 @@ try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
         catch { /* non-fatal */ }
     }
     result.created.files.push('.monomind/graph/ (knowledge graph building in background)');
-}
-/**
- * Start the monomind daemon with background workers.
- * Non-fatal: if daemon fails to start, init continues.
- */
-async function startDaemonBackground(targetDir, result) {
-    try {
-        const { execSync } = await import('child_process');
-        // Check if daemon is already running
-        const pidFile = path.join(targetDir, '.monomind', 'daemon.pid');
-        const { existsSync, readFileSync, statSync: statSyncPid } = await import('fs');
-        if (existsSync(pidFile) && statSyncPid(pidFile).size <= 1024) {
-            const pid = parseInt(readFileSync(pidFile, 'utf8').trim(), 10);
-            try {
-                process.kill(pid, 0);
-                result.skipped.push('daemon: already running (PID ' + pid + ')');
-                return;
-            }
-            catch { /* stale PID, continue */ }
-        }
-        execSync('npx monomind@latest daemon start --background', {
-            cwd: targetDir,
-            stdio: 'ignore',
-            timeout: 15000,
-        });
-        result.created.files.push('monomind daemon (background workers started)');
-    }
-    catch {
-        result.skipped.push('daemon: could not auto-start (run: monomind daemon start)');
-    }
 }
 /**
  * Run doctor --install to auto-fix any remaining issues.
@@ -1507,7 +1475,7 @@ async function writeInitialMetrics(targetDir, options, result) {
                 patternsLearned: 0,
                 sessionsCompleted: 0
             },
-            _note: 'Metrics will update as you use Monomind. Run: npx monomind@latest daemon start'
+            _note: 'Metrics will update as you use Monomind (workers refresh at session start).'
         };
         atomicWriteFile(progressPath, JSON.stringify(progress, null, 2));
         result.created.files.push('.monomind/metrics/v1-progress.json');
@@ -1712,7 +1680,6 @@ npx monomind@latest swarm monitor
 ### Advanced Commands (14)
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| \`daemon\` | 5 | Background workers |
 | \`neural\` | 5 | Pattern training |
 | \`security\` | 6 | Security scanning |
 | \`performance\` | 5 | Profiling & benchmarks |
@@ -1780,21 +1747,28 @@ npx monomind@latest doctor --fix
 | \`coverage-suggest\` | Improvement suggestions |
 | \`coverage-gaps\` | Gap analysis |
 
-### 12 Background Workers
+### 15 Background Workers (@monomind/hooks, run in-process)
 | Worker | Priority | Purpose |
 |--------|----------|---------|
-| \`ultralearn\` | normal | Deep knowledge |
-| \`optimize\` | high | Performance |
-| \`consolidate\` | low | Memory consolidation |
-| \`predict\` | normal | Predictive preload |
-| \`audit\` | critical | Security |
+| \`performance\` | normal | Benchmark performance |
+| \`health\` | high | System health monitoring |
+| \`swarm\` | high | Swarm activity monitoring |
+| \`git\` | normal | Branch/change tracking |
+| \`learning\` | normal | Learning optimization |
+| \`adr\` | low | ADR compliance |
+| \`ddd\` | low | DDD progress |
+| \`security\` | high | Secret/vulnerability scan |
+| \`patterns\` | normal | Pattern consolidation |
+| \`cache\` | background | Cache cleanup |
+| \`progress\` | normal | Progress tracking |
 | \`map\` | normal | Codebase mapping |
-| \`preload\` | low | Resource preload |
-| \`deepdive\` | normal | Deep analysis |
-| \`document\` | normal | Auto-docs |
-| \`refactor\` | normal | Suggestions |
-| \`benchmark\` | normal | Benchmarking |
-| \`testgaps\` | normal | Coverage gaps |
+| \`audit\` | high | Security audit metrics |
+| \`optimize\` | normal | Performance snapshot |
+| \`consolidate\` | low | Memory consolidation |
+
+Metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh at
+session start when their output is >6h old; run on demand with
+\`monomind hooks worker run <name>\`.
 
 ---
 
@@ -1923,7 +1897,6 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 \`\`\`bash
 # Setup
 npx monomind@latest init --wizard
-npx monomind@latest daemon start
 npx monomind@latest doctor --fix
 
 # Swarm
@@ -1939,7 +1912,7 @@ npx monomind@latest memory search --query "patterns"
 
 # Hooks
 npx monomind@latest hooks pre-task --description "task"
-npx monomind@latest hooks worker dispatch --trigger optimize
+npx monomind@latest hooks worker run optimize
 \`\`\`
 
 ### File Structure

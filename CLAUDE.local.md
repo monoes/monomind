@@ -13,7 +13,7 @@ MONOMIND_MCP_TRANSPORT=stdio
 
 ## Doctor Health Checks
 
-`npx monomind@latest doctor` checks: Node 20+, npm 9+, git, config, daemon, memory DB, API keys, MCP servers, disk space, TypeScript.
+`npx monomind@latest doctor` checks: Node 20+, npm 9+, git, config, memory DB, API keys, MCP servers, disk space, TypeScript, worker metrics freshness.
 
 ## Hooks Quick Reference
 
