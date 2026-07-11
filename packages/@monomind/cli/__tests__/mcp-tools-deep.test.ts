@@ -18,32 +18,28 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 // ============================================================================
 
 // Mock fs to prevent actual file I/O during tests
-vi.mock('node:fs', () => {
-  const memStore = new Map<string, string>();
+// One shared in-memory store for BOTH 'node:fs' and 'fs' specifiers — source
+// modules import either one, and split stores make writes invisible across
+// modules (a file written via 'fs' didn't exist via 'node:fs').
+const sharedMemStore = new Map<string, string>();
+function makeFsMock() {
   return {
-    existsSync: vi.fn((p: string) => memStore.has(p)),
-    readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
-    writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
+    existsSync: vi.fn((p: string) => sharedMemStore.has(p)),
+    readFileSync: vi.fn((p: string) => sharedMemStore.get(p) || '{}'),
+    writeFileSync: vi.fn((p: string, d: string) => sharedMemStore.set(p, String(d))),
+    appendFileSync: vi.fn((p: string, d: string) => sharedMemStore.set(p, (sharedMemStore.get(p) || '') + String(d))),
     mkdirSync: vi.fn(),
     readdirSync: vi.fn(() => []),
-    unlinkSync: vi.fn(),
-    statSync: vi.fn(() => ({ size: 100, isFile: () => true, isDirectory: () => false })),
+    unlinkSync: vi.fn((p: string) => { sharedMemStore.delete(p); }),
+    rmSync: vi.fn((p: string) => { sharedMemStore.delete(p); }),
+    copyFileSync: vi.fn((src: string, dest: string) => sharedMemStore.set(dest, sharedMemStore.get(src) ?? '')),
+    renameSync: vi.fn((src: string, dest: string) => { sharedMemStore.set(dest, sharedMemStore.get(src) ?? ''); sharedMemStore.delete(src); }),
+    statSync: vi.fn(() => ({ size: 100, mtime: new Date(), mtimeMs: Date.now(), isFile: () => true, isDirectory: () => false })),
+    realpathSync: vi.fn((p: string) => p),
   };
-});
-
-vi.mock('fs', () => {
-  const memStore = new Map<string, string>();
-  return {
-    existsSync: vi.fn((p: string) => memStore.has(p)),
-    readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
-    writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
-    mkdirSync: vi.fn(),
-    readdirSync: vi.fn(() => []),
-    unlinkSync: vi.fn(),
-    renameSync: vi.fn((src: string, dest: string) => { memStore.set(dest, memStore.get(src) ?? ''); memStore.delete(src); }),
-    statSync: vi.fn(() => ({ size: 100, isFile: () => true, isDirectory: () => false })),
-  };
-});
+}
+vi.mock('node:fs', () => makeFsMock());
+vi.mock('fs', () => makeFsMock());
 
 // Mock child_process for browser/security tools
 vi.mock('child_process', () => ({
@@ -107,6 +103,13 @@ vi.mock('../src/memory/intelligence.js', () => ({
   })),
   initializeIntelligence: vi.fn(async () => {}),
   benchmarkAdaptation: vi.fn(() => ({ avgMs: 0.01, minMs: 0.005, maxMs: 0.02, targetMet: true })),
+  getAllPatterns: vi.fn(() => []),
+  getPatternsByType: vi.fn(() => []),
+  findSimilarPatterns: vi.fn(async () => []),
+  compactPatterns: vi.fn(async () => ({ removed: 0, kept: 0 })),
+  deletePattern: vi.fn(async () => true),
+  getReasoningBank: vi.fn(() => ({ getAllPatterns: () => [], size: 0 })),
+  flushPatterns: vi.fn(async () => {}),
 }));
 
 // Mock monovector modules

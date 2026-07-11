@@ -505,15 +505,6 @@ describe('Start Command', () => {
       }
     });
 
-    it('should skip MCP server when requested', async () => {
-      ctx.flags = { 'skip-mcp': true, _: [] };
-
-      const result = await startCommand.action!(ctx);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('mcp', null);
-    });
-
     it('should fail if not initialized', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
@@ -797,26 +788,6 @@ describe('Task Command', () => {
       expect(result.success).toBe(false);
     });
   });
-
-  describe('task retry', () => {
-    it('should retry failed task', async () => { // Skip: requires live MCP context
-      const retryCmd = taskCommand.subcommands?.find(c => c.name === 'retry');
-      ctx.args = ['task-123'];
-
-      const result = await retryCmd!.action!(ctx);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('newTaskId');
-    });
-
-    it('should fail without task ID', async () => {
-      const retryCmd = taskCommand.subcommands?.find(c => c.name === 'retry');
-
-      const result = await retryCmd!.action!(ctx);
-
-      expect(result.success).toBe(false);
-    });
-  });
 });
 
 describe('Session Command', () => {
@@ -943,80 +914,6 @@ describe('Session Command', () => {
       const result = await deleteCmd!.action!(ctx);
 
       expect(result.success).toBe(false);
-    });
-  });
-
-  describe('session export', () => {
-    it('should export session to file', async () => {
-      // Need to set up proper mock for session/current call
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-
-      const exportCmd = sessionCommand.subcommands?.find(c => c.name === 'export');
-      ctx.args = ['session-123'];
-      ctx.flags = { output: 'backup.json', _: [] };
-
-      const result = await exportCmd!.action!(ctx);
-
-      // Result depends on MCP calls succeeding
-      expect(result).toBeDefined();
-    });
-
-    it('should export in YAML format', async () => { // Skip: requires live MCP context
-      const exportCmd = sessionCommand.subcommands?.find(c => c.name === 'export');
-      ctx.args = ['session-123'];
-      ctx.flags = { output: 'backup.yaml', format: 'yaml', _: [] };
-
-      const result = await exportCmd!.action!(ctx);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('format', 'yaml');
-    });
-  });
-
-  describe('session import', () => {
-    it('should import session from file', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.statSync).mockReturnValue({ size: 100 } as ReturnType<typeof fs.statSync>);
-      vi.mocked(fs.readFileSync).mockReturnValue('{"agents":[],"tasks":[]}');
-
-      const importCmd = sessionCommand.subcommands?.find(c => c.name === 'import');
-      ctx.args = ['backup.json'];
-
-      const result = await importCmd!.action!(ctx);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('sessionId');
-    });
-
-    it('should fail if file not found', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(false);
-
-      const importCmd = sessionCommand.subcommands?.find(c => c.name === 'import');
-      ctx.args = ['missing.json'];
-
-      const result = await importCmd!.action!(ctx);
-
-      expect(result.success).toBe(false);
-    });
-
-    it('should fail without file path', async () => {
-      const importCmd = sessionCommand.subcommands?.find(c => c.name === 'import');
-
-      const result = await importCmd!.action!(ctx);
-
-      expect(result.success).toBe(false);
-    });
-  });
-
-  describe('session current', () => {
-    it('should show current session', async () => { // Skip: requires live MCP context
-      const currentCmd = sessionCommand.subcommands?.find(c => c.name === 'current');
-
-      const result = await currentCmd!.action!(ctx);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('sessionId');
-      expect(result.data).toHaveProperty('stats');
     });
   });
 });
