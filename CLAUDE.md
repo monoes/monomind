@@ -46,7 +46,7 @@
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (35 commands)          |
-| `@monomind/hooks`    | `packages/@monomind/hooks/`    | 26 hook subcommands + 11 workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress) |
+| `@monomind/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 15 background workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress/map/audit/optimize/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server |
 | `@monomind/memory`   | `packages/@monomind/memory/`   | LanceDB + HNSW search                  |
 | `@monomind/security` | `packages/@monomind/cli/src/utils/` | Input validation, path security (inlined into CLI) |
 | `@monomind/mcp`      | `packages/@monomind/mcp/`      | MCP server framework (HTTP/WS transport) |
@@ -180,23 +180,21 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 ---
 
-## CLI Commands (35 Commands)
+## CLI Commands (31 Commands)
 
 | Command          | Sub | Description                                          |
 | ---------------- | --- | ---------------------------------------------------- |
 | `init`           | 5   | Project initialization (wizard, presets, skills)     |
-| `start`          | -   | Start MCP server or daemon                           |
+| `start`          | -   | Start MCP server (foreground or daemonized)          |
 | `status`         | 3   | System status monitoring with watch mode             |
 | `agent`          | 7   | Agent lifecycle (spawn, list, status, stop, metrics, pool, health). Runs in-process — no separate MCP server required |
 | `swarm`          | 6   | Multi-agent swarm coordination. Runs in-process — no separate MCP server required |
 | `memory`         | 12  | LanceDB with vector search (HNSW)                    |
 | `mcp`            | 9   | MCP server management                                |
 | `task`           | 5   | Task creation and lifecycle                          |
-| `session`        | 5   | Session state management                             |
+| `session`        | 6   | Session state management (incl. `replay` show/list)  |
 | `config`         | 7   | Configuration management                             |
-| `hooks`          | 26  | Self-learning hooks + 11 background workers (@monomind/hooks WorkerManager) |
-| `daemon`         | 6   | Background worker daemon (12 workers)                |
-| `neural`         | 8   | Pattern storage and similarity search                |
+| `hooks`          | 26  | Self-learning hooks + 15 background workers (@monomind/hooks WorkerManager) |
 | `security`       | 6   | Security scanning                                    |
 | `performance`    | 4   | Performance profiling — real benchmark measurements  |
 | `guidance`       | 1   | Wire enforcement gates into Claude Code hooks (setup) |
@@ -208,14 +206,12 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `analyze`        | -   | Codebase analysis                                    |
 | `route`          | -   | Task routing                                         |
 | `providers`      | 2   | AI provider management (configure, test)             |
-| `search`         | -   | Universal search                                     |
-| `scan`           | -   | Security/code scanning                               |
+| `search`         | 1   | Universal search (`search scan` refreshes fingerprint) |
 | `doc`            | -   | Documentation generation                             |
 | `design`         | -   | Design detection and routing                         |
 | `tokens`         | -   | Token counting                                       |
 | `platforms`      | -   | Platform management                                  |
 | `completions`    | 4   | Shell completions (bash, zsh, fish, powershell)      |
-| `replay`         | -   | Session replay                                       |
 | `update`         | -   | Self-update check                                    |
 | `report-crash`   | -   | Report a crash                                       |
 | `crash-reporting` | -  | Configure crash reporting                            |
@@ -257,9 +253,7 @@ Note: Input validation (path traversal prevention, command injection protection)
 | **Learning**     | intelligence (trajectory-start/step/end, pattern-store/search, stats, attention)|
 | **Agent Teams**  | teammate-idle, task-completed (Claude Code hook events, not CLI subcommands)    |
 
-**Daemon — 12 Workers** (`packages/@monomind/cli` daemon system): ultralearn, optimize, consolidate, predict, audit (critical), map, preload, deepdive, document, refactor, benchmark, testgaps.
-
-**Hooks — 11 Workers** (`@monomind/hooks` WorkerManager, separate system): performance, health, swarm, git, learning, adr, ddd, security, patterns, cache, progress.
+**Hooks — 15 Workers** (`@monomind/hooks` WorkerManager): performance, health, swarm, git, learning, adr, ddd, security, patterns, cache, progress, map, audit, optimize, consolidate. The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh automatically at session start when their `.monomind/metrics/*.json` output is missing or older than 6 hours; run any worker on demand with `monomind hooks worker run <name>`. (The former standalone worker daemon and its headless-only workers were deleted.)
 
 ## Hive-Mind Consensus
 
@@ -278,7 +272,6 @@ Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft
 # MCP mode requires explicit `mcp start` subcommand (auto-detect disabled by default)
 # Set MONOMIND_MCP_AUTODETECT=1 to restore legacy piped-stdin auto-detect behavior
 claude mcp add monomind npx monomind@latest mcp start
-npx monomind@latest daemon start
 npx monomind@latest doctor --fix
 ```
 

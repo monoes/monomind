@@ -12,9 +12,9 @@ export const listCommand = {
         { name: 'cid', type: 'string', description: 'Custom registry CID (default: official registry)' },
     ],
     examples: [
-        { command: 'monomind neural list', description: 'List all available models' },
-        { command: 'monomind neural list --category security', description: 'List only security models' },
-        { command: 'monomind neural list -f json', description: 'Output as JSON' },
+        { command: 'monomind hooks intelligence list', description: 'List all available models' },
+        { command: 'monomind hooks intelligence list --category security', description: 'List only security models' },
+        { command: 'monomind hooks intelligence list -f json', description: 'Output as JSON' },
     ],
     action: async (ctx) => {
         const category = ctx.flags.category;
@@ -96,12 +96,12 @@ export const listCommand = {
                 output.writeln(output.dim('Registry CID: ' + registryCid));
                 output.writeln();
                 output.writeln(output.bold('Import Commands:'));
-                output.writeln(output.dim('  All models:      ') + `monomind neural import --cid ${registryCid}`);
+                output.writeln(output.dim('  All models:      ') + `monomind hooks intelligence import --cid ${registryCid}`);
                 if (category) {
-                    output.writeln(output.dim(`  ${category} only: `) + `monomind neural import --cid ${registryCid} --category ${category}`);
+                    output.writeln(output.dim(`  ${category} only: `) + `monomind hooks intelligence import --cid ${registryCid} --category ${category}`);
                 }
                 else {
-                    output.writeln(output.dim('  By category:     ') + `monomind neural import --cid ${registryCid} --category <category>`);
+                    output.writeln(output.dim('  By category:     ') + `monomind hooks intelligence import --cid ${registryCid} --category <category>`);
                 }
             }
             return { success: true };
@@ -124,9 +124,9 @@ export const importCommand = {
         { name: 'category', type: 'string', description: 'Only import patterns from specific category' },
     ],
     examples: [
-        { command: 'monomind neural import --cid QmXxx...', description: 'Import from IPFS' },
-        { command: 'monomind neural import -f ./patterns.json --verify', description: 'Import from file' },
-        { command: 'monomind neural import --cid QmNr1yYMK... --category security', description: 'Import only security patterns' },
+        { command: 'monomind hooks intelligence import --cid QmXxx...', description: 'Import from IPFS' },
+        { command: 'monomind hooks intelligence import -f ./patterns.json --verify', description: 'Import from file' },
+        { command: 'monomind hooks intelligence import --cid QmNr1yYMK... --category security', description: 'Import only security patterns' },
     ],
     action: async (ctx) => {
         const cid = ctx.flags.cid;
@@ -278,7 +278,7 @@ export const importCommand = {
             });
             output.writeln();
             output.writeln(output.success('Patterns imported and ready to use'));
-            output.writeln(output.dim('Run "monomind neural patterns --action list" to see imported patterns'));
+            output.writeln(output.dim('Run "monomind hooks intelligence patterns --action list" to see imported patterns'));
             return { success: true };
         }
         catch (error) {

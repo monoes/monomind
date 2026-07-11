@@ -1,11 +1,10 @@
 /**
  * Doctor — project/monomind health checks
- * Config, daemon, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore
+ * Config, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore, worker metrics
  */
 import type { HealthCheck } from './doctor-env-checks.js';
 export type { HealthCheck };
 export declare function checkConfigFile(): Promise<HealthCheck>;
-export declare function checkDaemonStatus(): Promise<HealthCheck>;
 export declare function checkMemoryDatabase(): Promise<HealthCheck>;
 export declare function checkApiKeys(): Promise<HealthCheck>;
 export declare function checkMcpServers(): Promise<HealthCheck>;
@@ -19,19 +18,16 @@ export declare function checkGitignoreCoverage(): Promise<HealthCheck>;
 export declare function checkAgentRegistry(): Promise<HealthCheck>;
 export declare function checkGuidanceGates(): Promise<HealthCheck>;
 /**
- * Daemon metrics freshness — flags stale (>1h) or missing worker output files
- * so a wedged/disabled daemon is visible without digging through .monomind/metrics.
+ * Worker metrics freshness — reports the age of the @monomind/hooks worker
+ * output files (written at session start with a 6h staleness gate, or on
+ * demand via `monomind hooks worker run <name>`), so missing/stale worker
+ * output is visible without digging through .monomind/metrics.
  */
 export declare function checkMetricsFreshness(): Promise<HealthCheck>;
 /**
- * Surfaces critical findings from the security-audit daemon worker output.
+ * Surfaces critical findings from the security-audit worker output.
  */
 export declare function checkSecurityAuditFindings(): Promise<HealthCheck>;
-/**
- * Flags uncovered critical paths surfaced by the testgaps worker (headless-only —
- * gracefully reports "not run" when the local daemon has no fallback for this worker).
- */
-export declare function checkTestGaps(): Promise<HealthCheck>;
 /**
  * AutoMem proficiency check — reports memory learning health
  */

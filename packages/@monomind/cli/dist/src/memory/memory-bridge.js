@@ -271,7 +271,7 @@ export async function bridgeSearchEntries(options) {
                 results = searchResults.map((r) => ({
                     id: r.entry.id,
                     key: r.entry.key,
-                    content: (r.entry.content || '').substring(0, 60) + ((r.entry.content || '').length > 60 ? '...' : ''),
+                    content: r.entry.content || '',
                     score: r.score,
                     namespace: r.entry.namespace,
                     provenance: `semantic:${r.score.toFixed(3)}`,
@@ -297,7 +297,7 @@ export async function bridgeSearchEntries(options) {
                 .map((e) => ({
                 id: e.id,
                 key: e.key,
-                content: (e.content || '').substring(0, 60) + ((e.content || '').length > 60 ? '...' : ''),
+                content: e.content || '',
                 score: 0.5,
                 namespace: e.namespace,
                 provenance: 'keyword',
@@ -305,10 +305,14 @@ export async function bridgeSearchEntries(options) {
             }));
             searchMethod = 'keyword';
         }
-        // Filter stale entries based on automem config
-        const { staleDays } = getAutomemConfig();
-        const staleCutoff = Date.now() - staleDays * 86400000;
-        results = results.filter((r) => !r._createdAt || r._createdAt > staleCutoff);
+        // Filter stale entries based on automem config — skip for knowledge
+        // namespaces (documents should remain searchable indefinitely)
+        const isKnowledgeNs = namespace?.startsWith('knowledge:');
+        if (!isKnowledgeNs) {
+            const { staleDays } = getAutomemConfig();
+            const staleCutoff = Date.now() - staleDays * 86400000;
+            results = results.filter((r) => !r._createdAt || r._createdAt > staleCutoff);
+        }
         results.forEach((r) => delete r._createdAt);
         return {
             success: true,

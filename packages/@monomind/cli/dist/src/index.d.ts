@@ -49,8 +49,9 @@ export declare class CLI {
     private loadConfig;
     /**
      * Initialize optional subsystems at startup (non-blocking, all failures are silent).
-     * Wires TierManager, ObservabilityBus + TraceCollector, and SwarmCheckpointer
-     * so that packages/@monomind/* actually contribute to the live runtime.
+     * Starts the @monomind/hooks WorkerManager, wires SwarmCheckpointer, and builds
+     * the unified agent registry so that packages/@monomind/* actually contribute
+     * to the live runtime.
      */
     private initSubsystems;
     /**

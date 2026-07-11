@@ -59,7 +59,7 @@
   },
   "total_areas": 8,
   "audited_count": 8,
-  "last_updated": "2026-07-12T00:00:00.000Z",
+  "last_updated": "2026-07-12T01:10:00.000Z",
   "org_version": "phase4-prove-it",
   "prior_phases": {
     "phase1": "22 areas converged \u2014 deleted 27k lines of stubs, commit 31961cd5",
@@ -67,5 +67,14 @@
     "phase3": "8 areas converged \u2014 trimmed guidance/security/hive-mind/skills/commands, consolidated memory, ~46k more lines deleted; final commit 9eb148c5",
     "phase4_trigger": "Post-cleanup honest review: remaining risk is UNMEASURED features (workers, memory learning, routing outcomes, sparc, CLI tail, monograph tail, npm weight). Each must show evidence of user-visible effect or get trimmed/flagged."
   },
-  "phase4_summary": "8/8 areas evidenced and actioned in one run: 2 TRIMMED-large (sparc ~9.8k lines, cli-tail ~10.7k lines), 2 TRIMMED-surface (monograph tools, npm files), 4 INSTRUMENTED (routing signal, memory recall, daemon persistence, ddd statusline wire). Recurring root cause: consumers built, producers never ran. Flags for human: (1) @monomind/hooks package \u2014 bridge never resolves, 10/11 workers unconsumed; (2) daemon default-off with zero organic adoption; (3) CLI merge candidates (replay/neural/scan/search)."
+  "phase4_summary": "8/8 areas evidenced and actioned in one run: 2 TRIMMED-large (sparc ~9.8k lines, cli-tail ~10.7k lines), 2 TRIMMED-surface (monograph tools, npm files), 4 INSTRUMENTED (routing signal, memory recall, daemon persistence, ddd statusline wire). Recurring root cause: consumers built, producers never ran. Flags for human: (1) @monomind/hooks package \u2014 bridge never resolves, 10/11 workers unconsumed; (2) daemon default-off with zero organic adoption; (3) CLI merge candidates (replay/neural/scan/search).",
+  "phase5": {
+    "decisions": {
+      "hooks-package": "CONNECTED+TRIMMED: evidence showed the 'advanced' MCP tools imported subsystems already deleted in phase 3 (silently degrading to keyword tables/regex verifiers) \u2014 deleted mcp/synthesis/observability/interrupt/statusline/swarm/cli + 8 arXiv workers (~9,700 lines). Package now 18 files/3,708 lines (registry+executor+workers). Bridge fixed: file:// dist fallback in hook-handler.cjs \u2014 resolves at runtime, verified.",
+      "daemon": "FOLDED+DELETED: 4 useful workers (map/audit/optimize/consolidate, 418 lines) ported into @monomind/hooks workers with byte-compatible output schemas; wired into session-restore with 6h staleness gating (live-verified \u2014 [CODEBASE] context block now appears in real sessions). Deleted daemon command, worker-daemon.ts, headless executor, 5 simulated worker MCP tools, tests (~6,700 lines). Doctor daemon check repurposed to worker-metrics freshness. hooks worker list/run rewired to real in-process workers.",
+      "cli-merges": "DONE: replay->session replay (output bug fixed), neural->hooks intelligence (8 subcommands), scan->search scan (auto-scan on stale fingerprint). CLI now 31 commands."
+    },
+    "verification": "tsc clean (cli + hooks build); root suite 38 files 744 passed/7 skipped; live hook test wrote all 5 worker metrics files; staleness gate confirmed on repeat run.",
+    "completed": "2026-07-12"
+  }
 }
