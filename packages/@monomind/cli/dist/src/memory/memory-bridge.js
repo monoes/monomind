@@ -547,7 +547,7 @@ export async function bridgeSearchPatterns(options) {
         patterns: result.results.map(r => {
             let parsed = {};
             try {
-                parsed = JSON.parse(r.content + (r.content.endsWith('...') ? '' : ''));
+                parsed = JSON.parse(r.content);
             }
             catch { /* use raw */ }
             return {
