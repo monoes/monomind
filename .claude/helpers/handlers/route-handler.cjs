@@ -84,6 +84,14 @@ module.exports = {
 
     if (intelligence && intelligence.getContext) {
       try {
+        // Each hook event runs as a fresh node process, so the module-level
+        // _entries cache is always empty here — without init() getContext()
+        // returns null on every prompt and stored patterns are never recalled.
+        // init() reads one small JSON file (auto-memory-store.json), so the
+        // per-prompt cost is negligible.
+        if (intelligence.init) {
+          try { intelligence.init(); } catch (e) { /* non-fatal */ }
+        }
         // Bootstrap intelligence from monograph on first prompt if store is sparse
         if (intelligence.bootstrapFromDb) {
           try {
@@ -223,7 +231,7 @@ module.exports = {
           for (var ri = 0; ri < recentRf.length; ri++) {
             try {
               var rfEntry = JSON.parse(recentRf[ri]);
-              if (rfEntry.suggestedAgent === routedAgent) {
+              if (rfEntry.suggestedAgent === routedAgent && typeof rfEntry.intelligenceFeedback === 'boolean') {
                 agentFeedback.push(rfEntry.intelligenceFeedback);
               }
             } catch (e) {}
@@ -437,6 +445,15 @@ module.exports = {
             var promptTokens = promptLower.match(/[a-z][a-z0-9_-]{2,}/g) || [];
             if (promptTokens.length > 0) {
               var matches = [];
+              // Truncate at the last space before maxLen so fragments never
+              // end mid-word (falls back to a hard cut for space-less text).
+              var truncAtWord = function(s, maxLen) {
+                s = String(s || '');
+                if (s.length <= maxLen) return s;
+                var cut = s.slice(0, maxLen);
+                var sp = cut.lastIndexOf(' ');
+                return sp > 40 ? cut.slice(0, sp) : cut;
+              };
               // Only search last 200 episodes
               var searchEps = epRaw.slice(-200);
               for (var ei = 0; ei < searchEps.length; ei++) {
@@ -453,14 +470,23 @@ module.exports = {
                   }
                   var relevance = promptTokens.length > 0 ? hits / promptTokens.length : 0;
                   if (relevance >= 0.3 && hits >= 2) {
-                    matches.push({ summary: (ep.summary || '').slice(0, 120), relevance: relevance, ts: ep.endedAt || 0 });
+                    matches.push({ summary: truncAtWord(ep.summary || '', 120), relevance: relevance, ts: ep.endedAt || 0 });
                   }
                 } catch (e) {}
               }
-              // Show top 2 most relevant matches
+              // Show top 2 most relevant matches — dedupe by fragment text so
+              // two episodes from the same conversation don't inject the same
+              // truncated snippet twice.
               if (matches.length > 0) {
                 matches.sort(function(a, b) { return b.relevance - a.relevance; });
-                var topMatches = matches.slice(0, 2);
+                var topMatches = [];
+                var seenFrags = {};
+                for (var tmi = 0; tmi < matches.length && topMatches.length < 2; tmi++) {
+                  var frag = matches[tmi].summary.replace(/\n/g, ' ').trim();
+                  if (seenFrags[frag]) continue;
+                  seenFrags[frag] = true;
+                  topMatches.push(matches[tmi]);
+                }
                 var memLines = ['[MEMORY] Relevant past sessions:'];
                 for (var mi = 0; mi < topMatches.length; mi++) {
                   var ago = topMatches[mi].ts ? Math.round((Date.now() - topMatches[mi].ts) / 3600000) + 'h ago' : '';

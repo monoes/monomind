@@ -187,7 +187,6 @@ import { swarmTools } from '../src/mcp-tools/swarm-tools.js';
 import { systemTools } from '../src/mcp-tools/system-tools.js';
 import { taskTools } from '../src/mcp-tools/task-tools.js';
 import { transferTools } from '../src/mcp-tools/transfer-tools.js';
-import { workflowTools } from '../src/mcp-tools/workflow-tools.js';
 import { hooksTools } from '../src/mcp-tools/hooks-tools.js';
 
 import type { MCPTool } from '../src/mcp-tools/types.js';
@@ -219,7 +218,6 @@ const ALL_MODULES: ToolModule[] = [
   { name: 'system-tools', tools: systemTools },
   { name: 'task-tools', tools: taskTools },
   { name: 'transfer-tools', tools: transferTools },
-  { name: 'workflow-tools', tools: workflowTools },
 ];
 
 const ALL_TOOLS: MCPTool[] = ALL_MODULES.flatMap(m => m.tools);
@@ -234,8 +232,8 @@ describe('MCP Tools Deep Test Suite', () => {
   // 1. Module Loading & Registration
   // --------------------------------------------------------------------------
   describe('Module Loading & Registration', () => {
-    it('should load all 19 tool modules', () => {
-      expect(ALL_MODULES).toHaveLength(19);
+    it('should load all 17 tool modules', () => {
+      expect(ALL_MODULES).toHaveLength(17);
     });
 
     it('should have at least 100 total tools across all modules', () => {
@@ -275,7 +273,6 @@ describe('MCP Tools Deep Test Suite', () => {
         'system-tools': 7,
         'task-tools': 7,
         'transfer-tools': 7,
-        'workflow-tools': 10,
       };
 
       for (const mod of ALL_MODULES) {
@@ -410,7 +407,6 @@ describe('MCP Tools Deep Test Suite', () => {
       const exceptions = new Set([
         'mcp_status',      // system-tools exports mcp_status
         'task_summary',    // system-tools exports task_summary
-        'playbook_run',    // intentionally named playbook_run (not workflow_run) for semantic clarity; lives in workflow category
       ]);
 
       for (const tool of ALL_TOOLS) {
@@ -758,24 +754,6 @@ describe('MCP Tools Deep Test Suite', () => {
       const tool = hiveMindTools.find(t => t.name === 'hive-mind_consensus')!;
       const result: any = await tool.handler({ action: 'list' });
       expect(result.action).toBe('list');
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 12. Handler Invocation - Workflow Tools
-  // --------------------------------------------------------------------------
-  describe('Workflow Tools - Handler Invocation', () => {
-    it('workflow_list returns workflows', async () => {
-      const tool = workflowTools.find(t => t.name === 'workflow_list')!;
-      const result: any = await tool.handler({});
-      expect(result.workflows).toBeDefined();
-    });
-
-    it('workflow_create creates a workflow', async () => {
-      const tool = workflowTools.find(t => t.name === 'workflow_create')!;
-      const result: any = await tool.handler({ name: 'test-wf', description: 'Test workflow' });
-      expect(result.workflowId).toBeDefined();
-      expect(result.name).toBe('test-wf');
     });
   });
 

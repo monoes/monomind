@@ -70,7 +70,7 @@ export interface HooksConfig {
  * Skills configuration
  */
 export interface SkillsConfig {
-  /** Include core skills (swarm, sparc, mastermind, monodesign, monomotion) */
+  /** Include core skills (swarm, mastermind, monodesign, monomotion) */
   core: boolean;
   /** Include memory/LanceDB skills */
   memory: boolean;
@@ -88,7 +88,7 @@ export interface SkillsConfig {
  * Commands configuration
  */
 export interface CommandsConfig {
-  /** Include core commands (mastermind.md, tokens.md, browse.md, sparc.md, ts.md) */
+  /** Include core commands (mastermind.md, tokens.md, browse.md, ts.md) */
   core: boolean;
   /** Include agents commands */
   agents?: boolean;
@@ -118,8 +118,6 @@ export interface CommandsConfig {
   optimization: boolean;
   /** Include pair commands */
   pair?: boolean;
-  /** Include SPARC commands */
-  sparc: boolean;
   /** Include stream-chain commands */
   streamChain?: boolean;
   /** Include swarm commands */
@@ -148,8 +146,6 @@ export interface AgentsConfig {
   github: boolean;
   /** Include hive-mind agents */
   hiveMind: boolean;
-  /** Include SPARC agents */
-  sparc: boolean;
   /** Include swarm coordinators */
   swarm: boolean;
   /** Include optimization agents */
@@ -377,7 +373,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     hooks: true,
     monitoring: true,
     optimization: true,
-    sparc: true,
     all: true,
   },
   agents: {
@@ -385,7 +380,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     consensus: true,
     github: true,
     hiveMind: true,
-    sparc: true,
     swarm: true,
     optimization: true,
     testing: true,
@@ -466,7 +460,6 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     consensus: false,
     github: false,
     hiveMind: false,
-    sparc: false,
     swarm: false,
     optimization: false,
     testing: false,

@@ -4,9 +4,9 @@
  * All graphify_* tools are deprecated. They proxy to monograph_* tools.
  * Will be removed in next major release.
  */
-import { monographTools } from './monograph-tools.js';
+import { allMonographTools } from './monograph-tools.js';
 function findMonographTool(name) {
-    const tool = monographTools.find(t => t.name === name);
+    const tool = allMonographTools.find(t => t.name === name);
     if (!tool)
         throw new Error(`[monograph] Tool ${name} not found`);
     return tool;

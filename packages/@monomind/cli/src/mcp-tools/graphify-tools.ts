@@ -6,10 +6,10 @@
  */
 
 import type { MCPTool } from './types.js';
-import { monographTools } from './monograph-tools.js';
+import { allMonographTools } from './monograph-tools.js';
 
 function findMonographTool(name: string): MCPTool {
-  const tool = monographTools.find(t => t.name === name);
+  const tool = allMonographTools.find(t => t.name === name);
   if (!tool) throw new Error(`[monograph] Tool ${name} not found`);
   return tool;
 }

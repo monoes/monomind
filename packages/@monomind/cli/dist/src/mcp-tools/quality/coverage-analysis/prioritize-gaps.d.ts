@@ -54,7 +54,7 @@ export declare const PrioritizeGapsInputSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     limit: number;
     factors: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[];
-    groupBy: "type" | "none" | "file" | "risk";
+    groupBy: "none" | "type" | "file" | "risk";
     weights?: {
         complexity: number;
         changeFrequency: number;
@@ -90,7 +90,7 @@ export declare const PrioritizeGapsInputSchema: z.ZodObject<{
     }[] | undefined;
     targetPath?: string | undefined;
     factors?: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[] | undefined;
-    groupBy?: "type" | "none" | "file" | "risk" | undefined;
+    groupBy?: "none" | "type" | "file" | "risk" | undefined;
 }>;
 export type PrioritizeGapsInput = z.infer<typeof PrioritizeGapsInputSchema>;
 export interface PrioritizeGapsOutput {
@@ -217,7 +217,7 @@ export declare const toolDefinition: {
     }, "strip", z.ZodTypeAny, {
         limit: number;
         factors: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[];
-        groupBy: "type" | "none" | "file" | "risk";
+        groupBy: "none" | "type" | "file" | "risk";
         weights?: {
             complexity: number;
             changeFrequency: number;
@@ -253,7 +253,7 @@ export declare const toolDefinition: {
         }[] | undefined;
         targetPath?: string | undefined;
         factors?: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[] | undefined;
-        groupBy?: "type" | "none" | "file" | "risk" | undefined;
+        groupBy?: "none" | "type" | "file" | "risk" | undefined;
     }>;
     handler: typeof handler;
 };

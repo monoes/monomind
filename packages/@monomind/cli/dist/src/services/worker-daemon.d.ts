@@ -175,6 +175,18 @@ export declare class WorkerDaemon extends EventEmitter {
      * Run the actual worker logic
      */
     private runWorkerLogic;
+    /**
+     * Metrics file each headless worker's result is persisted to. Names match
+     * what the local workers write and what the readers (route-handler.cjs,
+     * statusline-generator.ts, doctor-project-checks.ts) parse.
+     */
+    private static readonly HEADLESS_METRICS_FILES;
+    /**
+     * Persist a successful headless execution result to
+     * .monomind/metrics/<worker>.json using the same tmp-then-rename pattern the
+     * local workers use. Persistence failure never fails the worker run.
+     */
+    private persistHeadlessResult;
     private runMapWorker;
     /**
      * Local audit worker (fallback when headless unavailable)

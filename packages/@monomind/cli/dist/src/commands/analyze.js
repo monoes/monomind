@@ -7,9 +7,6 @@
  * - Symbol extraction (functions, classes, variables, types)
  * - Cyclomatic complexity scoring
  * - Diff classification and risk assessment
- * - Graph boundaries using MinCut algorithm
- * - Module communities using Louvain algorithm
- * - Circular dependency detection
  *
  * github.com/monoes/monomind
  */
@@ -21,14 +18,8 @@ import { diffCommand, codeCommand } from './analyze-diff.js';
 import { astCommand } from './analyze-ast.js';
 import { complexityAstCommand, symbolsCommand } from './analyze-symbols.js';
 import { importsCommand, depsCommand } from './analyze-imports.js';
-import { boundariesCommand, modulesCommand } from './analyze-boundaries.js';
-import { dependenciesCommand, circularCommand } from './analyze-graph.js';
 // AST analyzer module was never shipped — always falls back to the regex path.
 export async function getASTAnalyzer() {
-    return null;
-}
-// Graph analyzer module was never shipped — callers handle the null path.
-export async function getGraphAnalyzer() {
     return null;
 }
 /**
@@ -154,7 +145,7 @@ export function fallbackAnalyze(code, filePath) {
 // Main analyze command
 export const analyzeCommand = {
     name: 'analyze',
-    description: 'Code analysis, diff classification, graph boundaries, and change risk assessment',
+    description: 'Code analysis, diff classification, and change risk assessment',
     aliases: ['an'],
     subcommands: [
         diffCommand,
@@ -164,10 +155,6 @@ export const analyzeCommand = {
         complexityAstCommand,
         symbolsCommand,
         importsCommand,
-        boundariesCommand,
-        modulesCommand,
-        dependenciesCommand,
-        circularCommand,
     ],
     options: [
         {
@@ -191,10 +178,6 @@ export const analyzeCommand = {
         { command: 'monomind analyze symbols src/ --type function', description: 'Extract all functions' },
         { command: 'monomind analyze imports src/ --external', description: 'List npm dependencies' },
         { command: 'monomind analyze diff --risk', description: 'Analyze diff with risk assessment' },
-        { command: 'monomind analyze boundaries src/', description: 'Find code boundaries using MinCut' },
-        { command: 'monomind analyze modules src/', description: 'Detect module communities with Louvain' },
-        { command: 'monomind analyze dependencies src/ --format dot', description: 'Export dependency graph as DOT' },
-        { command: 'monomind analyze circular src/', description: 'Find circular dependencies' },
         { command: 'monomind analyze deps --security', description: 'Check dependency vulnerabilities' },
     ],
     action: async (_ctx) => {
@@ -212,10 +195,6 @@ export const analyzeCommand = {
         output.writeln(`  ${output.highlight('complexity')}   Analyze cyclomatic and cognitive complexity`);
         output.writeln(`  ${output.highlight('symbols')}      Extract functions, classes, and types`);
         output.writeln(`  ${output.highlight('imports')}      Analyze import dependencies`);
-        output.writeln(`  ${output.highlight('boundaries')}   Find code boundaries using MinCut algorithm`);
-        output.writeln(`  ${output.highlight('modules')}      Detect module communities using Louvain algorithm`);
-        output.writeln(`  ${output.highlight('dependencies')} Build and export full dependency graph`);
-        output.writeln(`  ${output.highlight('circular')}     Detect circular dependencies in codebase`);
         output.writeln();
         output.writeln(output.bold('AST Analysis Examples:'));
         output.writeln();
@@ -224,13 +203,6 @@ export const analyzeCommand = {
         output.writeln(`  ${output.dim('monomind analyze complexity src/ -t 15')}     # Flag high complexity`);
         output.writeln(`  ${output.dim('monomind analyze symbols src/ --type fn')}    # Extract functions`);
         output.writeln(`  ${output.dim('monomind analyze imports src/ --external')}   # Only npm imports`);
-        output.writeln();
-        output.writeln(output.bold('Graph Analysis Examples:'));
-        output.writeln();
-        output.writeln(`  ${output.dim('monomind analyze boundaries src/')}            # Find natural code boundaries`);
-        output.writeln(`  ${output.dim('monomind analyze modules src/')}               # Detect module communities`);
-        output.writeln(`  ${output.dim('monomind analyze dependencies -f dot src/')}   # Export to DOT format`);
-        output.writeln(`  ${output.dim('monomind analyze circular src/')}              # Find circular deps`);
         output.writeln();
         output.writeln(output.bold('Diff Analysis Examples:'));
         output.writeln();

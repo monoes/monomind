@@ -140,7 +140,6 @@ When handling requests:
 Integration with Monomind:
 - Coordinate with other specialized agents for specific actions
 - Use swarm coordination for parallel action execution
-- Leverage SPARC methodology for structured development tasks
 - Apply concurrent execution patterns from CLAUDE.md
 
 Advanced swarm coordination patterns:

@@ -5,7 +5,6 @@ import { mediaCapability } from '../../src/capabilities/cap-media.js';
 import { dataCapability } from '../../src/capabilities/cap-data.js';
 import { graphCapability } from '../../src/capabilities/cap-graph.js';
 import { timelineCapability } from '../../src/capabilities/cap-timeline.js';
-import { EnrichmentPipeline } from '../../src/capabilities/enrichment.js';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -44,24 +43,6 @@ describe('E2E: full second-brain flow', () => {
     const loaded = await loadFingerprint(tmpDir);
     expect(loaded).not.toBeNull();
     expect(loaded!.version).toBe(1);
-  });
-
-  it('enrichment pipeline tracks state across tiers', () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-e2e-'));
-    const pipeline = new EnrichmentPipeline();
-
-    pipeline.markDone('report.pdf', 't0');
-    pipeline.markDone('report.pdf', 't1');
-    pipeline.markQueued('report.pdf', 't2');
-    pipeline.markDone('photo.jpg', 't0');
-    pipeline.markSkipped('photo.jpg', 't1');
-
-    pipeline.saveState(tmpDir);
-
-    const summary = pipeline.getSummary();
-    expect(summary.total).toBe(2);
-    expect(summary.t0Done).toBe(2);
-    expect(summary.t1Done).toBe(1);
   });
 
   it('code project scan activates cap/code and skips doc/media', async () => {

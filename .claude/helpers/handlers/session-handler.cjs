@@ -33,7 +33,7 @@ module.exports = {
     // sessionSuccess is derived from intelligence-outcomes.jsonl entries written
     // during this session (last 30 minutes). A session is marked failed when the
     // majority of feedback() calls carried success=false in that window.
-    var sessionSuccess = true; // optimistic default when no signal exists
+    var sessionSuccess = null; // null = no evidence; only set to a boolean from real signals
     try {
       var feedbackPath = path.join(CWD, '.monomind', 'routing-feedback.jsonl');
       var lastRoutePath = path.join(CWD, '.monomind', 'last-route.json');
@@ -68,35 +68,41 @@ module.exports = {
                 }
               }
             }
-            // else: modified files exist, keep optimistic default (true)
+            // else: modified files exist — work in progress, not evidence either way (leave null)
           }
-        } catch (e) { /* non-critical — keep optimistic default */ }
+        } catch (e) { /* non-critical — leave null (no evidence) */ }
 
         // Record session-end feedback WITH recentEdits (before consolidate clears them)
-        if (intelligence && intelligence.feedback) {
+        if (intelligence && intelligence.feedback && typeof sessionSuccess === 'boolean') {
           try { intelligence.feedback(sessionSuccess); } catch (e) { /* non-fatal */ }
         }
-        var feedbackEntry = {
-          timestamp: new Date().toISOString(),
-          suggestedAgent: lastRoute.agent,
-          confidence: lastRoute.confidence,
-          sessionId: String(hookInput.sessionId || hookInput.session_id || '').slice(0, 128),
-          intelligenceFeedback: sessionSuccess,
-        };
-        fs.appendFileSync(feedbackPath, JSON.stringify(feedbackEntry) + '\n', 'utf-8');
-        // Rotate: keep last 1000 lines to prevent unbounded growth
-        try {
-          var MAX_FEEDBACK = 512 * 1024; // 512 KiB
-          if (fs.existsSync(feedbackPath) && fs.statSync(feedbackPath).size > MAX_FEEDBACK) {
-            // File too large — emergency trim without full read
-            throw new Error('skip-rotation');
-          }
-          var raw = fs.readFileSync(feedbackPath, 'utf-8');
-          var lines = raw.split('\n').filter(Boolean);
-          if (lines.length > 1000) {
-            fs.writeFileSync(feedbackPath, lines.slice(-1000).join('\n') + '\n', 'utf-8');
-          }
-        } catch (e2) { /* rotation is best-effort */ }
+        // Normalize agent label to a lowercase slug ("Coder" → "coder", "backend dev" → "backend-dev")
+        var agentSlug = String(lastRoute.agent || '').trim().toLowerCase().replace(/\s+/g, '-');
+        // Skip non-agent placeholders — "AI selecting" etc. carry no routing signal
+        if (agentSlug && agentSlug !== 'ai-selecting' && agentSlug !== 'unknown') {
+          var feedbackEntry = {
+            timestamp: new Date().toISOString(),
+            suggestedAgent: agentSlug,
+            confidence: lastRoute.confidence,
+            sessionId: String(hookInput.sessionId || hookInput.session_id || '').slice(0, 128),
+          };
+          // Only write the success flag when derived from actual evidence (commits, outcomes)
+          if (typeof sessionSuccess === 'boolean') feedbackEntry.intelligenceFeedback = sessionSuccess;
+          fs.appendFileSync(feedbackPath, JSON.stringify(feedbackEntry) + '\n', 'utf-8');
+          // Rotate: keep last 1000 lines to prevent unbounded growth
+          try {
+            var MAX_FEEDBACK = 512 * 1024; // 512 KiB
+            if (fs.existsSync(feedbackPath) && fs.statSync(feedbackPath).size > MAX_FEEDBACK) {
+              // File too large — emergency trim without full read
+              throw new Error('skip-rotation');
+            }
+            var raw = fs.readFileSync(feedbackPath, 'utf-8');
+            var lines = raw.split('\n').filter(Boolean);
+            if (lines.length > 1000) {
+              fs.writeFileSync(feedbackPath, lines.slice(-1000).join('\n') + '\n', 'utf-8');
+            }
+          } catch (e2) { /* rotation is best-effort */ }
+        }
       }
     } catch (e) { /* non-fatal */ }
 
@@ -128,7 +134,7 @@ module.exports = {
             id: String(hookInput.sessionId || hookInput.session_id || ''),
             startedAt: new Date(),
           },
-          success: sessionSuccess,
+          success: sessionSuccess !== false, // null (no evidence) still counts as non-failure here
         }, { continueOnError: true, timeout: 2000 });
       } catch (e) { /* non-fatal */ }
     }

@@ -10,9 +10,9 @@ import { output } from '../output.js';
 
 // Get all top-level commands for completions
 const TOP_LEVEL_COMMANDS = [
-  'swarm', 'agent', 'task', 'session', 'config', 'memory', 'workflow',
+  'swarm', 'agent', 'task', 'session', 'config', 'memory',
   'hive-mind', 'hooks', 'daemon', 'security', 'performance',
-  'providers', 'claims', 'embeddings',
+  'providers', 'embeddings',
   'doctor', 'completions', 'help', 'version'
 ];
 
@@ -371,7 +371,6 @@ $script:SubCommands = @{
     'hooks' = @('${HOOKS_SUBCOMMANDS.join("', '")}')
     'security' = @('scan', 'cve', 'audit', 'secrets')
     'performance' = @('benchmark', 'profile', 'metrics', 'bottleneck')
-    'claims' = @('list', 'check', 'grant', 'revoke', 'roles', 'policies')
     'embeddings' = @('generate', 'search', 'compare', 'collections', 'index', 'providers')
     'daemon' = @('start', 'stop', 'status', 'trigger', 'enable')
     'providers' = @('list', 'configure', 'test', 'models', 'usage')

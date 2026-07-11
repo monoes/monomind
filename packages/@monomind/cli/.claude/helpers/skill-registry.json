@@ -37,21 +37,6 @@
       "primaryAgent": "coder"
     },
     {
-      "skill": "sparc:tdd",
-      "invoke": "Skill(\"sparc:tdd\")",
-      "description": "Test-driven development — write failing tests first, then implementation",
-      "keywords": [
-        "tdd",
-        "test driven",
-        "tests first",
-        "unit test",
-        "spec",
-        "red green refactor"
-      ],
-      "category": "testing",
-      "primaryAgent": "tester"
-    },
-    {
       "skill": "agent-browser-testing",
       "invoke": "Skill(\"agent-browser-testing\")",
       "description": "Comprehensive UI QA and browser automation via monomind browse CDP client — 7-phase test protocol: discovery, golden path, edge cases, responsive, accessibility, network/errors, performance vitals. Full command set: snapshot, click, fill, wait, eval, network intercept, har, trace, vitals, record, device emulation, storage, cookies, tabs, frames, dialogs.",
@@ -105,166 +90,6 @@
       ],
       "category": "testing",
       "primaryAgent": "agent-browser-testing"
-    },
-    {
-      "skill": "sparc:architect",
-      "invoke": "Skill(\"sparc:architect\")",
-      "description": "System architecture design — patterns, DDD, scalability, API design",
-      "keywords": [
-        "architect",
-        "design",
-        "system design",
-        "structure",
-        "domain",
-        "ddd",
-        "patterns",
-        "scalability"
-      ],
-      "category": "architecture",
-      "primaryAgent": "architect"
-    },
-    {
-      "skill": "sparc:security-review",
-      "invoke": "Skill(\"sparc:security-review\")",
-      "description": "Security analysis — vulnerabilities, CVEs, threat modeling, input validation",
-      "keywords": [
-        "security",
-        "vulnerability",
-        "cve",
-        "threat",
-        "injection",
-        "xss",
-        "auth",
-        "exploit"
-      ],
-      "category": "security",
-      "primaryAgent": "reviewer"
-    },
-    {
-      "skill": "sparc:debugger",
-      "invoke": "Skill(\"sparc:debugger\")",
-      "description": "Systematic debugging — root cause analysis, error tracing, fix verification",
-      "keywords": [
-        "debug",
-        "bug",
-        "error",
-        "crash",
-        "fix",
-        "broken",
-        "not working",
-        "exception",
-        "trace"
-      ],
-      "category": "debugging",
-      "primaryAgent": "coder"
-    },
-    {
-      "skill": "sparc:optimizer",
-      "invoke": "Skill(\"sparc:optimizer\")",
-      "description": "Performance optimization — profiling, bottlenecks, memory, speed improvements",
-      "keywords": [
-        "optimize",
-        "performance",
-        "slow",
-        "speed",
-        "memory",
-        "bottleneck",
-        "profile",
-        "latency"
-      ],
-      "category": "performance",
-      "primaryAgent": "coder"
-    },
-    {
-      "skill": "sparc:devops",
-      "invoke": "Skill(\"sparc:devops\")",
-      "description": "DevOps and deployment — CI/CD, Docker, infrastructure, pipelines",
-      "keywords": [
-        "deploy",
-        "ci",
-        "cd",
-        "docker",
-        "pipeline",
-        "infrastructure",
-        "kubernetes",
-        "build",
-        "release"
-      ],
-      "category": "devops",
-      "primaryAgent": "devops"
-    },
-    {
-      "skill": "sparc:documenter",
-      "invoke": "Skill(\"sparc:documenter\")",
-      "description": "Documentation generation — READMEs, API docs, architecture docs, inline comments",
-      "keywords": [
-        "document",
-        "docs",
-        "readme",
-        "api docs",
-        "explain",
-        "write documentation",
-        "comment"
-      ],
-      "category": "documentation",
-      "primaryAgent": "researcher"
-    },
-    {
-      "skill": "sparc:researcher",
-      "invoke": "Skill(\"sparc:researcher\")",
-      "description": "Research and analysis — investigate, explore, gather information, summarize",
-      "keywords": [
-        "research",
-        "find",
-        "search",
-        "investigate",
-        "explore",
-        "analyse",
-        "understand",
-        "how does",
-        "what kind",
-        "what is",
-        "list",
-        "show me",
-        "available",
-        "skills",
-        "agents",
-        "capabilities"
-      ],
-      "category": "research",
-      "primaryAgent": "researcher"
-    },
-    {
-      "skill": "sparc:spec-pseudocode",
-      "invoke": "Skill(\"sparc:spec-pseudocode\")",
-      "description": "Specification and pseudocode — clarify requirements, write specs, plan logic",
-      "keywords": [
-        "spec",
-        "specification",
-        "requirements",
-        "pseudocode",
-        "plan",
-        "design logic",
-        "clarify"
-      ],
-      "category": "planning",
-      "primaryAgent": "architect"
-    },
-    {
-      "skill": "sparc:refactor",
-      "invoke": "Skill(\"sparc:coder\")",
-      "description": "Refactoring — clean up code, extract functions, improve structure without changing behavior",
-      "keywords": [
-        "refactor",
-        "clean up",
-        "restructure",
-        "extract",
-        "simplify",
-        "technical debt",
-        "improve code"
-      ],
-      "category": "implementation",
-      "primaryAgent": "coder"
     },
     {
       "skill": "github:code-review",
@@ -771,20 +596,6 @@
       ],
       "category": "core",
       "primaryAgent": "coder"
-    },
-    {
-      "skill": "sparc-methodology",
-      "invoke": "Skill(\"sparc-methodology\")",
-      "description": "SPARC development methodology — Specification, Pseudocode, Architecture, Refinement, Completion",
-      "keywords": [
-        "sparc",
-        "methodology",
-        "architecture",
-        "specification",
-        "development"
-      ],
-      "category": "core",
-      "primaryAgent": "architect"
     },
     {
       "skill": "specialagent",

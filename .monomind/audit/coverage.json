@@ -1,77 +1,71 @@
 {
   "areas": {
-    "memory-consolidation": {
-      "status": "needs-review",
-      "last_audited": "2026-07-11T10:00:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 3,
-      "value_delivered": 9,
-      "note": "Consolidated: neural-tools.ts (766→562 lines) now delegates all pattern storage to intelligence.ts instead of maintaining its own models.json store. Removed loadNeuralStore/saveNeuralStore/NeuralStore/NeuralModel, removed loadMcpPatterns one-way bridge from intelligence.ts. All 6 MCP tools kept (API compat), handlers rewritten to use initializeIntelligence/getReasoningBank/findSimilarPatterns/getAllPatterns/compactPatterns. One canonical pattern store (patterns.json via LocalReasoningBank). 881 tests pass."
-    },
-    "hooks-architecture-unify": {
-      "status": "needs-review",
-      "last_audited": "2026-07-11T01:00:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
+    "hooks-workers-evidence": {
+      "status": "done",
+      "verdict": "INSTRUMENTED",
       "iterations": 1,
-      "value_delivered": 9,
-      "note": "Deleted 8 orphaned subsystems (~5,792 lines): planning, subgraph, optimization, confidence, messaging, nested-swarm, daemons, reasoningbank. Zero external importers confirmed. Kept: registry, executor, mcp, observability/interrupt, synthesis, workers. Fixed 3 internal refs (swarm/index.ts, cli/guidance-cli.ts, mcp/index.ts). Deleted 6 orphaned test files. All 38 hook tests pass (608 tests)."
+      "value_delivered": 2,
+      "note": "INSTRUMENTED: ddd worker now runs fire-and-forget at session start (live-tested; statusline reads real ddd-progress.json). SIDE-FINDING: import('@monomind/hooks') never resolves from .claude/helpers (pnpm link only under CLI pkg) \u2014 the whole GAP-001 bridge was a silent no-op; ddd wire uses dist-path fallback. FLAG: 10 workers remain with no consumer + a bridge that doesn't resolve \u2014 @monomind/hooks package is deletion-review material for phase 5."
     },
-    "agent-definitions-trim": {
-      "status": "needs-review",
-      "last_audited": "2026-07-11T01:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2,
-      "value_delivered": 9,
-      "note": "Trimmed from 127 to 43 agent .md files (36 in run 1, 7 macOS forks regrew). All 13 router TASK_AGENTS slugs covered. No further trimming needed — remaining agents serve live routing paths."
-    },
-    "guidance-right-size": {
-      "status": "needs-review",
-      "last_audited": "2026-07-11T22:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2,
-      "value_delivered": 9,
-      "note": "Run 2: package DELETED entirely. Call-site audit proved it dead at runtime — session-restore-handler's guard (createGates && createRetriever && createLedger) silently no-oped after the run-1 trim, so active-gates.json was never written and gates-handler.cjs always used its own table. Live enforcement is fully self-contained in gates-handler.cjs. guidance.ts CLI slimmed to setup-only (490→180 lines). Also: vote-signer.ts deleted — signVote/verifyVote HMAC moved into audit-writer.ts as private tamper-detection helpers (their only real caller); weightedTally moved to consensus/tally.ts; hive-mind consensus strategies documented honestly as vote-count thresholds, not distributed consensus. 864 tests pass."
-    },
-    "hive-mind-right-size": {
-      "status": "needs-review",
-      "last_audited": "2026-07-11T00:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
+    "daemon-workers-evidence": {
+      "status": "done",
+      "verdict": "INSTRUMENTED",
       "iterations": 1,
-      "value_delivered": 9,
-      "note": "Deleted 5 CLI command files (1,135 lines). MCP tools version retained. Build clean."
+      "value_delivered": 3,
+      "note": "INSTRUMENTED: headless AI worker results now persist to metrics/<worker>.json (schema-matched to readers incl. derived riskLevel); doctor warns on stalled daemon (state >24h with live pid). FLAG: no daemon has ever run in this repo \u2014 default-on question is a product call."
     },
-    "security-monofence-merge": {
-      "status": "needs-review",
-      "last_audited": "2026-07-11T01:00:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
+    "memory-learning-evidence": {
+      "status": "done",
+      "verdict": "INSTRUMENTED",
       "iterations": 1,
-      "value_delivered": 9,
-      "note": "Inlined @monomind/security (272 lines, 2 functions) into packages/@monomind/cli/src/utils/input-guards.ts. Updated 2 consumers (mcp-server.ts, memory-tools.ts). Deleted entire packages/@monomind/security/ directory. Removed from CLI optionalDependencies, tsconfig references, packages workspace. All 45 security tests pass. monofence-ai kept as-is (distinct DDD responsibility, 2,217 lines)."
+      "value_delivered": 2,
+      "note": "INSTRUMENTED: recall wire closed (init() before getContext \u2014 first non-null recall confirmed live); consolidate() now stores prompt+commit summaries with evidence-based confidence (0.5+0.2 commits+0.1 tests), filters build noise, dedupes; episodic injection dedupes + word-boundary truncation. FLAG: TS ReasoningBank (.monomind/neural) has still never written a byte here \u2014 only fires via MCP tools."
     },
-    "prompt-engineering-audit": {
-      "status": "needs-review",
-      "last_audited": "2026-07-11T01:30:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
-      "iterations": 2,
-      "value_delivered": 9,
-      "note": "Run 2: deleted 21 dead skill dirs (~6MB). Run 3: deleted 17 dead command dirs (122 files, ~13MB). .claude/ reduced from 91MB to 56MB. Remaining: mastermind commands (61 files, 8MB), sparc (32 files, 4.2MB) — both actively invoked. 5 live skill dirs remain. Updated CLAUDE.md to reflect inlined security package."
-    },
-    "routing-confidence-verify": {
-      "status": "needs-review",
-      "last_audited": "2026-07-11T00:15:00.000Z",
-      "verdict": "CONVERGED-COMMIT",
+    "routing-outcome-evidence": {
+      "status": "done",
+      "verdict": "INSTRUMENTED",
       "iterations": 1,
-      "value_delivered": 9,
-      "note": "Verified with 6 diverse prompts: scores range 0.86-0.939, all distinct. Formula works correctly."
+      "value_delivered": 4,
+      "note": "INSTRUMENTED: sessionSuccess now defaults null (evidence-only booleans), labels slug-normalized, 'AI selecting' placeholder skipped, doctor falls back to routing-feedback.jsonl with honest degenerate-flag warning. Readers skip non-boolean records."
+    },
+    "sparc-usage-evidence": {
+      "status": "done",
+      "verdict": "TRIMMED",
+      "iterations": 1,
+      "value_delivered": 0,
+      "note": "DEAD confirmed and DELETED: 78 files (9,122 lines) + 40 reference files cleaned (~675 lines). Zero sparc matches remain in src/tests/scripts/.claude/CLAUDE.md."
+    },
+    "cli-tail-trim": {
+      "status": "done",
+      "verdict": "TRIMMED",
+      "iterations": 1,
+      "value_delivered": 3,
+      "note": "TRIMMED 10,656 lines: deleted workflow cmd+MCP tools (fabricated 'running' status), enrich (+pipeline), claims, issues (+claim-service 1213 ln), analyze boundaries/modules/dependencies/circular (admitted 'never shipped'), transfer-store top-level mount + fake genesis registry (invented 1000 downloads/5.0 rating) replaced with honest empty. CLI now 35 commands. Merge candidates deferred to phase 5: replay->session, neural->hooks, scan+search."
+    },
+    "monograph-tool-tail": {
+      "status": "done",
+      "verdict": "TRIMMED",
+      "iterations": 1,
+      "value_delivered": 8,
+      "note": "TRIMMED: 51 -> 19 default + 27 advanced (MONOGRAPH_MCP_ADVANCED=1) + 5 deleted (embed no-op, suggest_auto folded into suggest as checkStaleness, 3 redundant rerank variants). allMonographTools export keeps graphify shims safe. CLAUDE.md updated honestly."
+    },
+    "npm-package-weight": {
+      "status": "done",
+      "verdict": "TRIMMED",
+      "iterations": 1,
+      "value_delivered": 6,
+      "note": "TRIMMED: tarball 13.8MB/1806 files -> 10.7MB/1359. Removed dead root .claude copy + stale globs (.claude-plugin, bundled-graph) + runtime junk. FIXED BUGS: mastermind-skills added to SKILLS_MAP (installed commands referenced a skill users never got); sync-claude-assets.sh footgun guarded AND removed from prepublishOnly (was one drift away from wiping 21 skill dirs on publish)."
     }
   },
   "total_areas": 8,
-  "audited_count": 7,
-  "last_updated": "2026-07-11T01:30:00.000Z",
-  "org_version": "phase3-honest-cleanup",
+  "audited_count": 8,
+  "last_updated": "2026-07-12T00:00:00.000Z",
+  "org_version": "phase4-prove-it",
   "prior_phases": {
-    "phase1": "22 areas converged — deleted 27k lines of stubs, commit 31961cd5",
-    "phase2": "14 areas converged — wired D-grade layers to consumers, commit 6b890570",
-    "phase3_trigger": "Unbiased external feedback identified: 3 great things (monograph, init, audit itself), OK middle (memory, hooks, monobrowse, routing), honest problems (prompt bloat, hive-mind fiction, guidance over-engineering, security masquerading)"
-  }
+    "phase1": "22 areas converged \u2014 deleted 27k lines of stubs, commit 31961cd5",
+    "phase2": "14 areas converged \u2014 wired D-grade layers to consumers, commit 6b890570",
+    "phase3": "8 areas converged \u2014 trimmed guidance/security/hive-mind/skills/commands, consolidated memory, ~46k more lines deleted; final commit 9eb148c5",
+    "phase4_trigger": "Post-cleanup honest review: remaining risk is UNMEASURED features (workers, memory learning, routing outcomes, sparc, CLI tail, monograph tail, npm weight). Each must show evidence of user-visible effect or get trimmed/flagged."
+  },
+  "phase4_summary": "8/8 areas evidenced and actioned in one run: 2 TRIMMED-large (sparc ~9.8k lines, cli-tail ~10.7k lines), 2 TRIMMED-surface (monograph tools, npm files), 4 INSTRUMENTED (routing signal, memory recall, daemon persistence, ddd statusline wire). Recurring root cause: consumers built, producers never ran. Flags for human: (1) @monomind/hooks package \u2014 bridge never resolves, 10/11 workers unconsumed; (2) daemon default-off with zero organic adoption; (3) CLI merge candidates (replay/neural/scan/search)."
 }

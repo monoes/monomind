@@ -45,7 +45,7 @@
 
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
-| `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (41 commands)          |
+| `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (35 commands)          |
 | `@monomind/hooks`    | `packages/@monomind/hooks/`    | 26 hook subcommands + 11 workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress) |
 | `@monomind/memory`   | `packages/@monomind/memory/`   | LanceDB + HNSW search                  |
 | `@monomind/security` | `packages/@monomind/cli/src/utils/` | Input validation, path security (inlined into CLI) |
@@ -118,13 +118,13 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 **Why:** The knowledge graph encodes full dependency relationships, import chains, and architectural topology. It lets you understand the blast radius of a change and find all affected files without grepping the entire codebase.
 
-**Available monograph tools (44 total):**
+**Available monograph tools: 19 default tools; 27 advanced via `MONOGRAPH_MCP_ADVANCED=1`.**
 
 ### Core Navigation (use these first)
 
 | Tool | Use when |
 |---|---|
-| `monograph_suggest` | **Start every task** — returns ambiguous edges, bridge nodes, isolated nodes ranked by task relevance |
+| `monograph_suggest` | **Start every task** — returns ambiguous edges, bridge nodes, isolated nodes ranked by task relevance. Pass `checkStaleness: true` to auto-trigger a background rebuild when the index is behind HEAD |
 | `monograph_query` | **Primary lookup** — BM25 keyword search; returns file + line number. PPR graph reranking is on by default; pass `rerank: false` to disable |
 | `monograph_god_nodes` | Finding high-centrality internal files (external/test filtered) |
 | `monograph_augment` | Graph-RAG: retrieve relevant code context for a natural-language query |
@@ -139,25 +139,8 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `monograph_api_impact` | Blast radius of an HTTP route — finds handler, BFS through CALLS edges, risk score |
 | `monograph_context` | 360° view of a file: importers, imports, parent, community siblings |
 | `monograph_detect_changes` | Map current git diff to affected graph nodes + dependents |
-| `monograph_shortest_path` | Understanding how two modules are connected |
-| `monograph_shape_check` | Validate API route response shapes — handler return keys vs consumer property accesses |
 | `monograph_route_map` | List all HTTP routes with handler info; filter by URL prefix or method |
-
-### Dead Code & Stale Artifacts
-
-| Tool | Use when |
-|---|---|
 | `monograph_dead_code` | **Stale hunt** — finds dead exported functions, orphan files with no importers, and stale dist build artifacts. Categories: `dead-functions`, `orphan-files`, `stale-dist`. Verifies candidates against source before reporting. |
-
-### Graph Exploration
-
-| Tool | Use when |
-|---|---|
-| `monograph_community` | Understanding which files form a cohesive module cluster |
-| `monograph_cypher` | Ad-hoc read-only Cypher MATCH queries against the graph |
-| `monograph_surprises` | Unexpected cross-community or low-confidence edges |
-| `monograph_rename` | Dry-run multi-file rename — finds all graph + text occurrences |
-| `monograph_tool_map` | List MCP/RPC tool definitions with handler associations |
 
 ### Index Lifecycle
 
@@ -170,39 +153,18 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `monograph_watch` | Start incremental file watcher — rebuilds on change (3s debounce) |
 | `monograph_watch_stop` | Stop the file watcher |
 | `monograph_doctor` | Platform diagnostics — Node version, SQLite health, node count, disk space |
-| `monograph_embed` | Embed all symbol nodes (384D, requires `@huggingface/transformers`) — enables hybrid BM25+vector search |
 
-### Snapshots & Export
+### Advanced Tools (hidden by default — set `MONOGRAPH_MCP_ADVANCED=1` to expose)
 
-| Tool | Use when |
-|---|---|
-| `monograph_snapshot` | Save current graph state to a named JSON snapshot for before/after diffing |
-| `monograph_diff` | Compare two named snapshots (or live graph vs snapshot) |
-| `monograph_report` | Generate GRAPH_REPORT.md with top nodes |
-| `monograph_export` | Export: json, svg, graphml, cypher, obsidian, canvas |
-| `monograph_visualize` | Render interactive HTML graph (Sigma.js), SVG, or JSON |
-| `monograph_serve` | Start web UI server for interactive graph visualization |
+27 additional tools, gated to keep the default MCP surface small:
 
-### Wiki & AI Docs
+- **Graph exploration:** `cypher`, `shortest_path`, `community`, `surprises`, `shape_check`, `rename`, `tool_map`
+- **Visualization & export:** `serve`, `visualize`, `snapshot`, `diff`, `report`, `export`
+- **Wiki & AI docs:** `wiki`, `wiki_build`, `skill_gen`, `install_skills`, `inject_context`
+- **Multi-repo/group:** `group_list`, `group_query`, `group_sync`, `group_contracts`, `group_status`, `list_repos`
+- **Agent memory:** `agent_history`, `agent_patterns`, `agent_record`
 
-| Tool | Use when |
-|---|---|
-| `monograph_wiki` | Retrieve LLM-generated wiki pages for code communities |
-| `monograph_wiki_build` | Generate wiki pages for communities using Anthropic API |
-| `monograph_skill_gen` | Generate per-community skill files for AI navigation |
-| `monograph_inject_context` | Inject monograph capabilities into AGENTS.md / CLAUDE.md |
-| `monograph_install_skills` | Install skill files for IDE/platform (claude, cursor, vscode, zed) |
-
-### Multi-Repo / Group
-
-| Tool | Use when |
-|---|---|
-| `monograph_list_repos` | List all repos tracked in the global monograph registry |
-| `monograph_group_list` | List repos in a group.yaml with index metadata |
-| `monograph_group_query` | BM25 search merged across all repos in a group (RRF-ranked) |
-| `monograph_group_contracts` | List public API contracts (exported symbols/interfaces/types) for a group |
-| `monograph_group_status` | Health status for all groups: indexed, has contracts, recently synced |
-| `monograph_group_sync` | Scan and rebuild all repos in a group |
+(All prefixed `monograph_`. Removed entirely: `monograph_embed`, `monograph_suggest_auto` — use `monograph_suggest` with `checkStaleness: true` — `monograph_rank_with_graph`, `monograph_ppr_rerank`, `monograph_community_summaries`.)
 
 **Skip monograph for:** single-file edits, doc/config changes, quick fixes where you already know the file.
 
@@ -218,7 +180,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 ---
 
-## CLI Commands (40 Commands)
+## CLI Commands (35 Commands)
 
 | Command          | Sub | Description                                          |
 | ---------------- | --- | ---------------------------------------------------- |
@@ -240,8 +202,6 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `guidance`       | 1   | Wire enforcement gates into Claude Code hooks (setup) |
 | `monograph`      | -   | Knowledge graph CLI (delegates to @monoes/monograph) |
 | `browse`         | -   | Browser automation via CDP (@monoes/monobrowse)      |
-| `workflow`       | 5   | Workflow execution and template management           |
-| `claims`         | 6   | Claims-based authorization                           |
 | `doctor`         | 1   | System diagnostics                                   |
 | `cleanup`        | -   | Project cleanup utilities                            |
 | `autopilot`      | -   | Autonomous task execution                            |
@@ -252,13 +212,10 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `scan`           | -   | Security/code scanning                               |
 | `doc`            | -   | Documentation generation                             |
 | `design`         | -   | Design detection and routing                         |
-| `enrich`         | -   | Context enrichment                                   |
 | `tokens`         | -   | Token counting                                       |
 | `platforms`      | -   | Platform management                                  |
-| `issues`         | -   | Issue tracking                                       |
 | `completions`    | 4   | Shell completions (bash, zsh, fish, powershell)      |
 | `replay`         | -   | Session replay                                       |
-| `transfer-store` | -   | Pattern transfer between projects                    |
 | `update`         | -   | Self-update check                                    |
 | `report-crash`   | -   | Report a crash                                       |
 | `crash-reporting` | -  | Configure crash reporting                            |
@@ -286,7 +243,6 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 - **Consensus:** byzantine-coordinator, raft-manager, gossip-coordinator, crdt-synchronizer, quorum-manager
 - **Performance:** perf-analyzer, performance-benchmarker
 - **GitHub:** github-modes, pr-manager, code-review-swarm, issue-tracker, release-manager, repo-architect
-- **SPARC:** sparc-coord, sparc-coder, specification, pseudocode, architecture, refinement
 - **Specialized:** backend-dev, mobile-dev, ml-developer, system-architect
 
 Note: Input validation (path traversal prevention, command injection protection) is inlined in `packages/@monomind/cli/src/utils/input-guards.ts`, not a standalone package.
