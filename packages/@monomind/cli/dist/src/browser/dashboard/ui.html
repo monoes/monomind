@@ -72,7 +72,7 @@
 
 <div class="panels">
   <div class="panel">
-    <h2>Daemon Metrics</h2>
+    <h2>Worker Metrics</h2>
     <div id="panel-daemon" class="empty">loading...</div>
   </div>
   <div class="panel">
@@ -121,7 +121,7 @@ function renderDashboard(data) {
     daemonEl.innerHTML = data.daemon_workers.map(w => `<span class="worker-chip">${escapeHtml(w)}</span>`).join('');
   } else {
     daemonEl.className = 'empty';
-    daemonEl.textContent = 'No daemon metrics yet. Run: monomind daemon start';
+    daemonEl.textContent = 'No worker metrics yet. Workers run at session start (or: monomind hooks worker run map)';
   }
 
   const swarmEl = document.getElementById('panel-swarm');

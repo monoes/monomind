@@ -257,23 +257,48 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.High,
     timeout: 10_000,
   },
+  // Workers folded in from the deleted CLI worker-daemon — they write the
+  // .monomind/metrics/*.json files read by route-handler.cjs, statusline,
+  // and doctor. Names/output schemas are unchanged from the daemon era.
+  'map': {
+    name: 'map',
+    description: 'Codebase mapping — writes .monomind/metrics/codebase-map.json',
+    interval: 21_600_000,  // 6 hours
+    enabled: true,
+    priority: WorkerPriority.Normal,
+    timeout: 30_000,
+  },
+  'audit': {
+    name: 'audit',
+    description: 'Security audit — writes .monomind/metrics/security-audit.json',
+    interval: 21_600_000,  // 6 hours
+    enabled: true,
+    priority: WorkerPriority.High,
+    timeout: 30_000,
+  },
+  'optimize': {
+    name: 'optimize',
+    description: 'Performance snapshot — writes .monomind/metrics/performance.json',
+    interval: 21_600_000,  // 6 hours
+    enabled: true,
+    priority: WorkerPriority.Normal,
+    timeout: 30_000,
+  },
+  'consolidate': {
+    name: 'consolidate',
+    description: 'RAPTOR memory consolidation — writes .monomind/metrics/consolidation.json',
+    interval: 21_600_000,  // 6 hours
+    enabled: true,
+    priority: WorkerPriority.Low,
+    timeout: 30_000,
+  },
 };
 
-// Worker alias map (CLAUDE.md documented alias → canonical internal name)
-export const WORKER_ALIAS_MAP: Record<string, string> = {
-  ultralearn:  'learning',
-  optimize:    'performance',
-  consolidate: 'patterns',
-  audit:       'security',
-  map:         'ddd',
-  preload:     'cache',
-  deepdive:    'swarm',
-  document:    'adr',
-  refactor:    'git',
-  benchmark:   'performance',
-  predict:     'progress',
-  testgaps:    'health',
-};
+// Worker alias map (legacy daemon-era alias → canonical internal name).
+// map/audit/optimize/consolidate are real workers now, and the remaining
+// daemon-only worker names (predict, document, refactor, preload, ultralearn,
+// deepdive, benchmark, testgaps) were deleted with the daemon.
+export const WORKER_ALIAS_MAP: Record<string, string> = {};
 
 // ============================================================================
 // Internal Utilities

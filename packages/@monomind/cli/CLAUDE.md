@@ -167,19 +167,17 @@ Bash("npx monomind@latest hooks post-edit --file '[main-file]' --train-neural tr
 Bash("npx monomind@latest hooks post-task --task-id '[id]' --success true --store-results true")
 
 # 4. Trigger optimization worker if performance-related
-Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
+Bash("npx monomind@latest hooks worker run optimize")
 ```
 
 ### Continuous Improvement Triggers
 
-| Trigger                | Worker     | When to Use                |
-| ---------------------- | ---------- | -------------------------- |
-| After major refactor   | `optimize` | Performance optimization   |
-| After adding features  | `testgaps` | Find missing test coverage |
-| After security changes | `audit`    | Security analysis          |
-| After API changes      | `document` | Update documentation       |
-| Every 5+ file changes  | `map`      | Update codebase map        |
-| Complex debugging      | `deepdive` | Deep code analysis         |
+| Trigger                | Worker        | When to Use              |
+| ---------------------- | ------------- | ------------------------ |
+| After major refactor   | `optimize`    | Performance snapshot     |
+| After security changes | `audit`       | Security analysis        |
+| Every 5+ file changes  | `map`         | Update codebase map      |
+| After heavy sessions   | `consolidate` | Memory consolidation     |
 
 ### Memory-Enhanced Development
 
@@ -282,7 +280,7 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 | `memory`    | 12          | LanceDB memory with pure-JS HNSW vector search                           | Working         |
 | `mcp`       | 9           | MCP server management and tool execution                                 | Working         |
 | `task`      | 5           | Task creation, assignment, and lifecycle                                 | Working         |
-| `session`   | 5           | Session state management and persistence                                 | Working         |
+| `session`   | 6           | Session state management, persistence, and replay (`session replay`)     | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `hooks`     | 26          | Self-learning hooks + 11 background workers                              | Working         |
@@ -295,8 +293,6 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 
 | Command       | Subcommands | Description                                                                   | Status           |
 | ------------- | ----------- | ----------------------------------------------------------------------------- | ---------------- |
-| `daemon`      | 6           | Background worker daemon (start, stop, status, trigger, enable)               | Background       |
-| `neural`      | 8           | Pattern storage (train, status, patterns, predict, optimize)                  | Pattern storage  |
 | `security`    | 6           | Security scanning (scan, audit, cve, threats, validate, report)               | Working          |
 | `performance` | 4           | Performance profiling (benchmark, profile, metrics, bottleneck) — real measurements | Working     |
 | `providers`   | 4           | AI providers (list, configure, remove, test)                                  | Working          |
@@ -311,9 +307,6 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 ```bash
 # Initialize project
 npx monomind@latest init --wizard
-
-# Start daemon with background workers
-npx monomind@latest daemon start
 
 # Spawn an agent
 npx monomind@latest agent spawn -t coder --name my-coder
@@ -376,7 +369,7 @@ CVE remediation, input validation, path security (utility functions, not standal
 
 `tdd-london-swarm`, `production-validator`
 
-## 🪝 Hooks System (26 Hook Subcommands + 12 Daemon Workers + 11 Hooks Workers)
+## 🪝 Hooks System (26 Hook Subcommands + 15 Background Workers)
 
 ### All Available Hooks
 
@@ -400,7 +393,7 @@ CVE remediation, input validation, path security (utility functions, not standal
 | `transfer`         | Transfer patterns via IPFS registry      | `store`, `from-project`                     |
 | `list`             | List all registered hooks                | `--format`                                  |
 | `intelligence`     | JS pattern/trajectory logging              | `trajectory-*`, `pattern-*`, `stats`        |
-| `worker`           | Background worker management             | `list`, `dispatch`, `status`, `detect`      |
+| `worker`           | Background worker management             | `list`, `run`                               |
 | `progress`         | Check V1 implementation progress         | `--detailed`, `--format`                    |
 | `statusline`       | Generate dynamic statusline              | `--json`, `--compact`, `--no-color`         |
 | `coverage-route`   | Route based on test coverage gaps        | `--task`, `--path`                          |
@@ -409,22 +402,29 @@ CVE remediation, input validation, path security (utility functions, not standal
 | `pre-bash`         | (v2 compat) Alias for pre-command        | Same as pre-command                         |
 | `post-bash`        | (v2 compat) Alias for post-command       | Same as post-command                        |
 
-### 12 Background Workers
+### 15 Background Workers (@monomind/hooks, run in-process)
 
-| Worker        | Priority | Description                |
-| ------------- | -------- | -------------------------- |
-| `ultralearn`  | normal   | Deep knowledge acquisition |
-| `optimize`    | high     | Performance optimization   |
-| `consolidate` | low      | Memory consolidation       |
-| `predict`     | normal   | Predictive preloading      |
-| `audit`       | critical | Security analysis          |
-| `map`         | normal   | Codebase mapping           |
-| `preload`     | low      | Resource preloading        |
-| `deepdive`    | normal   | Deep code analysis         |
-| `document`    | normal   | Auto-documentation         |
-| `refactor`    | normal   | Refactoring suggestions    |
-| `benchmark`   | normal   | Performance benchmarking   |
-| `testgaps`    | normal   | Test coverage analysis     |
+| Worker        | Priority   | Description                                          |
+| ------------- | ---------- | ---------------------------------------------------- |
+| `performance` | normal     | Benchmark search, memory, startup performance        |
+| `health`      | high       | Monitor disk, memory, CPU, processes                 |
+| `swarm`       | high       | Monitor swarm activity, agent coordination           |
+| `git`         | normal     | Track uncommitted changes, branch status             |
+| `learning`    | normal     | Optimize learning, SONA adaptation                   |
+| `adr`         | low        | Check ADR compliance across codebase                 |
+| `ddd`         | low        | Track DDD progress → metrics/ddd-progress.json       |
+| `security`    | high       | Scan for secrets, vulnerabilities, CVEs              |
+| `patterns`    | normal     | Consolidate, dedupe, optimize learned patterns       |
+| `cache`       | background | Clean temp files, old logs, stale cache              |
+| `progress`    | normal     | Track implementation progress                        |
+| `map`         | normal     | Codebase mapping → metrics/codebase-map.json         |
+| `audit`       | high       | Security audit → metrics/security-audit.json         |
+| `optimize`    | normal     | Performance snapshot → metrics/performance.json      |
+| `consolidate` | low        | RAPTOR memory consolidation → metrics/consolidation.json |
+
+The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh
+automatically at session start when their output file is missing or older than
+6 hours. Run any worker on demand with `hooks worker run <name>`.
 
 ### Essential Hook Commands
 
@@ -449,8 +449,7 @@ npx monomind@latest hooks build-agents --agent-types coder,tester
 
 # Background workers
 npx monomind@latest hooks worker list
-npx monomind@latest hooks worker dispatch --trigger audit
-npx monomind@latest hooks worker status
+npx monomind@latest hooks worker run audit
 
 # Coverage-aware routing
 npx monomind@latest hooks coverage-gaps --format table
@@ -554,10 +553,10 @@ Bash("npx monomind@latest hooks session-end --generate-summary true --persist-st
 
 ```bash
 # Look up stored patterns relevant to a task (keyword match, not ML prediction)
-Bash("npx monomind@latest neural predict --input '[task description]'")
+Bash("npx monomind@latest hooks intelligence predict --input '[task description]'")
 
 # View stored patterns
-Bash("npx monomind@latest neural patterns --list")
+Bash("npx monomind@latest hooks intelligence patterns --action list")
 ```
 
 ## 🔧 Environment Variables
@@ -590,22 +589,18 @@ Run `npx monomind@latest doctor` to check:
 - npm version (9+)
 - Git installation
 - Config file validity
-- Daemon status
 - Memory database
 - API keys
 - MCP servers
 - Disk space
 - TypeScript installation
+- Worker metrics freshness
 
 ## 🚀 Quick Setup
 
 ```bash
 # Add MCP servers (requires explicit `mcp start` subcommand)
 claude mcp add monomind -- npx -y monomind@latest mcp start
-
-
-# Start daemon
-npx monomind@latest daemon start
 
 # Run doctor
 npx monomind@latest doctor --fix
@@ -687,8 +682,8 @@ For a comprehensive overview of all Monomind features, agents, commands, and int
 This includes:
 
 - All 60+ agent type definitions (routing targets) with recommendations
-- All 35 CLI commands
-- All 26 hook subcommands + 11 background workers (hooks) + 12 daemon workers
+- All 32 CLI commands
+- All 26 hook subcommands + 15 background workers (@monomind/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, lancedb,agentic-jujutsu)

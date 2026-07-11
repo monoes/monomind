@@ -1,6 +1,6 @@
 /**
  * Display formatting helpers for hooks commands.
- * Extracted from hooks.ts (ARCH-1) — formatIntelligenceStatus and formatWorkerStatus.
+ * Extracted from hooks.ts (ARCH-1) — formatIntelligenceStatus.
  */
 
 import { output } from '../output.js';
@@ -20,24 +20,6 @@ export function formatIntelligenceStatus(status: string): string {
     case 'disabled':
     case 'error':
       return output.error(status);
-    default:
-      return status;
-  }
-}
-
-/**
- * Format a background worker status string with colour coding.
- */
-export function formatWorkerStatus(status: string): string {
-  switch (status) {
-    case 'running':
-      return output.highlight(status);
-    case 'completed':
-      return output.success(status);
-    case 'failed':
-      return output.error(status);
-    case 'pending':
-      return output.dim(status);
     default:
       return status;
   }

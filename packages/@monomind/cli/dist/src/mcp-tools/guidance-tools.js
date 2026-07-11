@@ -145,9 +145,9 @@ const CAPABILITY_CATALOG = {
     },
     'session-workflow': {
         name: 'Session & Tasks',
-        description: 'Session state management, task lifecycle, and daemon scheduling.',
+        description: 'Session state management and task lifecycle.',
         tools: ['session_start', 'session_end', 'session_restore', 'session_list', 'task_create', 'task_assign', 'task_status'],
-        commands: ['session start', 'session end', 'session restore', 'task create', 'daemon start', 'daemon stop'],
+        commands: ['session start', 'session end', 'session restore', 'task create'],
         agents: [],
         skills: [],
         whenToUse: 'When managing long-running sessions or scheduling tasks.',
@@ -192,7 +192,7 @@ const TASK_ROUTES = [
     { pattern: /\b(release|deploy|publish|version|changelog)\b/i, areas: ['github-integration', 'session-workflow'], workflow: 'release' },
     { pattern: /\b(swarm|multi.agent|coordin|hive|consensus)\b/i, areas: ['swarm-orchestration', 'hive-mind'], workflow: 'swarm' },
     { pattern: /\b(learn|train|neural|pattern|sona|lora)\b/i, areas: ['intelligence-learning'], workflow: 'learning' },
-    { pattern: /\b(hook|pre.task|post.task|worker|daemon)\b/i, areas: ['hooks-automation', 'session-workflow'], workflow: 'automation' },
+    { pattern: /\b(hook|pre.task|post.task|worker)\b/i, areas: ['hooks-automation', 'session-workflow'], workflow: 'automation' },
     { pattern: /\b(config|setup|init|provider|doctor)\b/i, areas: ['config-system'], workflow: 'setup' },
 ];
 const WORKFLOW_TEMPLATES = {
@@ -257,7 +257,7 @@ const WORKFLOW_TEMPLATES = {
         topology: 'hierarchical',
     },
     setup: {
-        steps: ['Run doctor diagnostics', 'Configure providers', 'Initialize memory', 'Start daemon'],
+        steps: ['Run doctor diagnostics', 'Configure providers', 'Initialize memory'],
         agents: [],
         topology: 'hierarchical',
     },
@@ -561,7 +561,6 @@ const guidanceQuickRef = {
                 commands: [
                     { cmd: 'npx monomind@latest init --wizard', desc: 'Initialize project with interactive setup' },
                     { cmd: 'npx monomind@latest doctor --fix', desc: 'Run diagnostics and auto-fix issues' },
-                    { cmd: 'npx monomind@latest daemon start', desc: 'Start background workers' },
                     { cmd: 'npx monomind@latest status', desc: 'Check system status' },
                 ],
             },

@@ -11,8 +11,8 @@ export const statusCommand = {
         { name: 'verbose', short: 'v', type: 'boolean', description: 'Show detailed metrics' },
     ],
     examples: [
-        { command: 'monomind neural status', description: 'Show pattern-learning status' },
-        { command: 'monomind neural status -v', description: 'Show detailed metrics' },
+        { command: 'monomind hooks intelligence status', description: 'Show pattern-learning status' },
+        { command: 'monomind hooks intelligence status -v', description: 'Show detailed metrics' },
     ],
     action: async (ctx) => {
         const verbose = ctx.flags.verbose === true;
@@ -104,8 +104,8 @@ export const patternsCommand = {
         { name: 'limit', short: 'l', type: 'number', description: 'Max patterns to return', default: '10' },
     ],
     examples: [
-        { command: 'monomind neural patterns --action list', description: 'List all patterns' },
-        { command: 'monomind neural patterns -a analyze -q "error handling"', description: 'Analyze patterns' },
+        { command: 'monomind hooks intelligence patterns --action list', description: 'List all patterns' },
+        { command: 'monomind hooks intelligence patterns -a analyze -q "error handling"', description: 'Analyze patterns' },
     ],
     action: async (ctx) => {
         const action = ctx.flags.action || 'list';
@@ -123,7 +123,7 @@ export const patternsCommand = {
                 const allPatterns = await getAllPatterns();
                 const patterns = query ? await findSimilarPatterns(query, { k: limit }) : allPatterns.slice(0, limit);
                 if (patterns.length === 0) {
-                    output.writeln(output.dim('No patterns found. Train some patterns first with: neural train'));
+                    output.writeln(output.dim('No patterns found. Train some patterns first with: hooks intelligence train'));
                     output.writeln();
                     output.printBox([
                         `Total Patterns: ${stats.patternsLearned}`,
@@ -184,7 +184,7 @@ export const patternsCommand = {
         }
         catch {
             output.writeln(output.dim('Intelligence system not initialized.'));
-            output.writeln(output.dim('Run: monomind neural train --pattern-type general'));
+            output.writeln(output.dim('Run: monomind hooks intelligence train --pattern-type general'));
             return { success: false };
         }
     },
@@ -198,8 +198,8 @@ export const trainCommand = {
         { name: 'verbose', short: 'v', type: 'boolean', description: 'Show each ingested pattern' },
     ],
     examples: [
-        { command: 'monomind neural train', description: 'Ingest outcomes and edits into pattern store' },
-        { command: 'monomind neural train -t security -v', description: 'Ingest with type label, verbose' },
+        { command: 'monomind hooks intelligence train', description: 'Ingest outcomes and edits into pattern store' },
+        { command: 'monomind hooks intelligence train -t security -v', description: 'Ingest with type label, verbose' },
     ],
     action: async (ctx) => {
         const patternType = ctx.flags['pattern-type'] || 'general';
@@ -337,8 +337,8 @@ export const predictCommand = {
         { name: 'format', short: 'f', type: 'string', description: 'Output format: json, table', default: 'table' },
     ],
     examples: [
-        { command: 'monomind neural predict -i "implement authentication"', description: 'Predict routing for task' },
-        { command: 'monomind neural predict -i "fix bug in login" -k 3', description: 'Get top 3 predictions' },
+        { command: 'monomind hooks intelligence predict -i "implement authentication"', description: 'Predict routing for task' },
+        { command: 'monomind hooks intelligence predict -i "fix bug in login" -k 3', description: 'Get top 3 predictions' },
     ],
     action: async (ctx) => {
         const inputText = ctx.flags.input;
@@ -362,7 +362,7 @@ export const predictCommand = {
             spinner.succeed(`Prediction complete (search: ${searchTime.toFixed(1)}ms)`);
             output.writeln();
             if (matches.length === 0) {
-                output.writeln(output.warning('No similar patterns found. Try training first: monomind neural train'));
+                output.writeln(output.warning('No similar patterns found. Try training first: monomind hooks intelligence train'));
                 return { success: true, data: { matches: [] } };
             }
             if (format === 'json') {

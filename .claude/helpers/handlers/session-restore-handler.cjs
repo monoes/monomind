@@ -150,30 +150,61 @@ module.exports = {
       }
     } catch (e) { /* @monomind/hooks not compiled yet — skip */ }
 
-    // Refresh DDD metrics once per session start — the statusline
-    // (.claude/helpers/statusline.cjs) reads .monomind/metrics/ddd-progress.json and
-    // silently falls back to a heuristic when the file is missing; the @monomind/hooks
-    // workers are never otherwise scheduled on the live hook path.
+    // Refresh worker metrics once per session start — the statusline
+    // (.claude/helpers/statusline.cjs) reads .monomind/metrics/ddd-progress.json,
+    // route-handler.cjs and doctor read codebase-map/security-audit/performance/
+    // consolidation.json; the @monomind/hooks workers are never otherwise
+    // scheduled on the live hook path (the worker daemon that used to produce
+    // these files was deleted).
+    //
+    // Staleness gating keeps session start fast: the metrics-producing workers
+    // only run when their output file is missing or older than 6 hours (ddd is
+    // refreshed every session, as before). Each run is capped by runWithTimeout
+    // (1.5s) — on timeout the awaiting stops but the worker keeps running and
+    // flushes atomically via tmp+rename, so a slow worker never blocks session
+    // start and never leaves a partial file.
     try {
-      var _createDDD = (hooksModule && typeof hooksModule.createDDDWorker === 'function')
-        ? hooksModule.createDDDWorker : null;
-      if (!_createDDD) {
-        // Dev-repo fallback: bare '@monomind/hooks' does not resolve from .claude/helpers
-        // in the monorepo (pnpm workspace link lives under packages/@monomind/cli), so
-        // import the compiled worker directly by path.
-        var _dddDist = path.join(CWD, 'packages', '@monomind', 'hooks', 'dist', 'workers', 'worker-ddd.js');
-        if (fs.existsSync(_dddDist)) {
-          var _dddMod = await import('file://' + _dddDist);
-          if (_dddMod && typeof _dddMod.createDDDWorker === 'function') _createDDD = _dddMod.createDDDWorker;
-        }
+      var _metricsDir = path.join(CWD, '.monomind', 'metrics');
+      fs.mkdirSync(_metricsDir, { recursive: true });
+      var STALE_MS = 6 * 60 * 60 * 1000; // 6 hours
+      var _isStale = function(outFile) {
+        try {
+          var st = fs.statSync(path.join(_metricsDir, outFile));
+          return (Date.now() - st.mtimeMs) > STALE_MS;
+        } catch (e) { return true; } // missing → run
+      };
+      var _hooksWorkers = [
+        { factory: 'createDDDWorker',         file: 'worker-ddd.js',         out: 'ddd-progress.json',    always: true },
+        { factory: 'createMapWorker',         file: 'worker-map.js',         out: 'codebase-map.json' },
+        { factory: 'createAuditWorker',       file: 'worker-audit.js',       out: 'security-audit.json' },
+        { factory: 'createOptimizeWorker',    file: 'worker-optimize.js',    out: 'performance.json' },
+        { factory: 'createConsolidateWorker', file: 'worker-consolidate.js', out: 'consolidation.json' },
+      ];
+      var _hooksDistDir = path.join(CWD, 'packages', '@monomind', 'hooks', 'dist', 'workers');
+      for (var wi = 0; wi < _hooksWorkers.length; wi++) {
+        var _w = _hooksWorkers[wi];
+        if (!_w.always && !_isStale(_w.out)) continue;
+        try {
+          var _create = (hooksModule && typeof hooksModule[_w.factory] === 'function')
+            ? hooksModule[_w.factory] : null;
+          if (!_create) {
+            // Dev-repo fallback: bare '@monomind/hooks' does not resolve from .claude/helpers
+            // in the monorepo (pnpm workspace link lives under packages/@monomind/cli), so
+            // import the compiled worker directly by path.
+            var _wDist = path.join(_hooksDistDir, _w.file);
+            if (fs.existsSync(_wDist)) {
+              var _wMod = await import('file://' + _wDist);
+              if (_wMod && typeof _wMod[_w.factory] === 'function') _create = _wMod[_w.factory];
+            }
+          }
+          if (_create) {
+            var _wRun = _create(CWD);
+            // runWithTimeout caps each at 1.5s so a slow worker can never block session start.
+            await runWithTimeout(function() { return _wRun(); }, '@monomind/hooks.' + _w.factory);
+          }
+        } catch (e) { /* non-fatal — worker unavailable */ }
       }
-      if (_createDDD) {
-        fs.mkdirSync(path.join(CWD, '.monomind', 'metrics'), { recursive: true });
-        var _dddRun = _createDDD(CWD);
-        // runWithTimeout caps this at 1.5s so a slow worker can never block session start.
-        await runWithTimeout(function() { return _dddRun(); }, '@monomind/hooks.dddWorker');
-      }
-    } catch (e) { /* non-fatal — ddd worker unavailable */ }
+    } catch (e) { /* non-fatal — hooks workers unavailable */ }
 
     // Context Persistence Auto-Restore
     try {
@@ -319,46 +350,6 @@ module.exports = {
           }
         }
       } catch (e) {}
-    } catch (e) { /* non-fatal */ }
-
-    // Daemon Auto-Start Check.
-    try {
-      var daemonPid = path.join(CWD, '.monomind', 'daemon.pid');
-      var daemonRunning = false;
-      if (fs.existsSync(daemonPid)) {
-        try {
-          var MAX_PID = 32; // 32 bytes — enough for any pid
-          if (fs.statSync(daemonPid).size <= MAX_PID) {
-            var pid = parseInt(fs.readFileSync(daemonPid, 'utf-8').trim(), 10);
-            if (Number.isInteger(pid) && pid > 0 && pid < 4194304) {
-              process.kill(pid, 0);
-              daemonRunning = true;
-            }
-          }
-        } catch (e) { /* pid stale */ }
-      }
-      if (!daemonRunning) {
-        var daemonCfg = {};
-        try {
-          var cfgPath = path.join(CWD, 'monomind.config.json');
-          var MAX_CFG = 256 * 1024; // 256 KiB
-          if (fs.existsSync(cfgPath) && fs.statSync(cfgPath).size <= MAX_CFG) daemonCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8')).daemon || {};
-        } catch (e) {}
-        if (daemonCfg.autoStart) {
-          var spawn = require('child_process').spawn;
-          var daemonChild = spawn('npx', ['monomind', 'daemon', 'start'], {
-            cwd: CWD, detached: true, stdio: 'ignore'
-          });
-          daemonChild.on('error', function() {});
-          daemonChild.unref();
-          console.log('[DAEMON_AUTOSTART] Background daemon started (pid ' + daemonChild.pid + ')');
-        }
-        // Daemon not running + no autoStart: emit only if this project has a config
-        // (i.e. daemon was intentionally set up). Avoids noisy output in daemon-less projects.
-        else if (fs.existsSync(path.join(CWD, 'monomind.config.json'))) {
-          console.log('[DAEMON_STOPPED] Run `npx monomind daemon start` to enable background workers');
-        }
-      }
     } catch (e) { /* non-fatal */ }
 
     // Token Usage — inject daily/monthly cost summary.

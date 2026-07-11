@@ -57,8 +57,8 @@ npx monomind monograph search -q "authentication"
 npx monomind monograph stats
 
 # Pattern logging
-npx monomind neural patterns --action list
-npx monomind neural status --verbose
+npx monomind hooks intelligence patterns --action list
+npx monomind hooks intelligence status --verbose
 
 # Hooks
 npx monomind hooks pre-task --description "task description"

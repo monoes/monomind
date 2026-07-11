@@ -1053,13 +1053,6 @@ describe('MCP Tools Deep Test Suite', () => {
       const result: any = await tool.handler({});
       expect(result).toBeDefined();
     });
-
-    it('hooks_worker-list returns workers', async () => {
-      const tool = hooksTools.find(t => t.name === 'hooks_worker-list')!;
-      expect(tool).toBeDefined();
-      const result: any = await tool.handler({});
-      expect(result.workers).toBeDefined();
-    });
   });
 
   // --------------------------------------------------------------------------

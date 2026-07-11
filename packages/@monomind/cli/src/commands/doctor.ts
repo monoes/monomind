@@ -15,10 +15,10 @@ import {
 } from './doctor-env-checks.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import {
-  checkConfigFile, checkDaemonStatus, checkMemoryDatabase, checkApiKeys,
+  checkConfigFile, checkMemoryDatabase, checkApiKeys,
   checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory,
   checkHelpersFresh, fixStaleHelpers, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
-  checkAgentRegistry, checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings, checkTestGaps,
+  checkAgentRegistry, checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
 } from './doctor-project-checks.js';
 import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
 
@@ -37,7 +37,7 @@ export const doctorCommand: Command = {
     { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
     {
       name: 'component', short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, monoes-tools, metrics-freshness, security-audit, test-gaps)',
+      description: 'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, monoes-tools, metrics-freshness, security-audit)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -79,8 +79,8 @@ export const doctorCommand: Command = {
       checkVersionFreshness, checkNodeVersion, checkNpmVersion, checkClaudeCode,
       checkConfigFile, checkMemoryDatabase, checkDiskSpace,
       checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
-      checkGuidanceGates, checkAgentRegistry, checkGit, checkDaemonStatus, checkApiKeys,
-      checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings, checkTestGaps,
+      checkGuidanceGates, checkAgentRegistry, checkGit, checkApiKeys,
+      checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
     ];
     const codeOnlyChecks: (() => Promise<HealthCheck>)[] = [
       checkGitRepo, checkMcpServers,
@@ -94,7 +94,7 @@ export const doctorCommand: Command = {
     const componentMap: Record<string, () => Promise<HealthCheck>> = {
       version: checkVersionFreshness, freshness: checkVersionFreshness,
       node: checkNodeVersion, npm: checkNpmVersion, claude: checkClaudeCode,
-      config: checkConfigFile, daemon: checkDaemonStatus, memory: checkMemoryDatabase,
+      config: checkConfigFile, memory: checkMemoryDatabase,
       api: checkApiKeys, git: checkGit, mcp: checkMcpServers, disk: checkDiskSpace,
       typescript: checkBuildTools, monograph: checkMonograph,
       'graph-freshness': checkMonographFreshness, 'memory-pkg': checkMonoesMemory,
@@ -103,7 +103,6 @@ export const doctorCommand: Command = {
       registry: checkAgentRegistry, 'memory-proficiency': checkMemoryProficiency,
       'monoes-tools': checkMonoesTools,
       'metrics-freshness': checkMetricsFreshness, 'security-audit': checkSecurityAuditFindings,
-      'test-gaps': checkTestGaps,
     };
 
     const checksToRun = (component && componentMap[component]) ? [componentMap[component]] : allChecks;

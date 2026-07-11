@@ -132,8 +132,6 @@ export const COMMON_TYPOS = {
     'provider': 'providers',
     'embed': 'embeddings',
     'embeding': 'embeddings',
-    'daemon': 'daemon',
-    'deamon': 'daemon',
     'doc': 'doctor',
     'docter': 'doctor',
     'complete': 'completions',

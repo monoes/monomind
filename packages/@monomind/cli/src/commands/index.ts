@@ -21,7 +21,6 @@ import { swarmCommand } from './swarm.js';
 import { memoryCommand } from './memory.js';
 import { mcpCommand } from './mcp.js';
 import { hooksCommand } from './hooks.js';
-import { daemonCommand } from './daemon.js';
 import { doctorCommand } from './doctor.js';
 import { performanceCommand } from './performance.js';
 import { securityCommand } from './security.js';
@@ -36,16 +35,13 @@ import { guidanceCommand } from './guidance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
 import { monographCommand } from './monograph.js';
-import replayCommand from './replay.js';
 import tokensCommand from './tokens.js';
 import { platformsCommand } from './platforms.js';
 import { designCommand } from './design-detect.js';
 import { searchUniversalCommand } from './search-universal.js';
-import { scanCommand } from './scan.js';
 import { reportCrashCommand } from './report-crash.js';
 import { crashReportingCommand } from './crash-reporting.js';
 import { docCommand } from './doc.js';
-import { neuralCommand } from './neural.js';
 
 // Populate command cache
 loadedCommands.set('init', initCommand);
@@ -58,7 +54,6 @@ loadedCommands.set('swarm', swarmCommand);
 loadedCommands.set('memory', memoryCommand);
 loadedCommands.set('mcp', mcpCommand);
 loadedCommands.set('hooks', hooksCommand);
-loadedCommands.set('daemon', daemonCommand);
 loadedCommands.set('doctor', doctorCommand);
 loadedCommands.set('performance', performanceCommand);
 loadedCommands.set('security', securityCommand);
@@ -66,7 +61,6 @@ loadedCommands.set('guidance', guidanceCommand);
 loadedCommands.set('cleanup', cleanupCommand);
 loadedCommands.set('autopilot', autopilotCommand);
 loadedCommands.set('monograph', monographCommand);
-loadedCommands.set('replay', replayCommand);
 loadedCommands.set('tokens', tokensCommand);
 loadedCommands.set('platforms', platformsCommand);
 loadedCommands.set('browse', browseCommand);
@@ -78,11 +72,9 @@ loadedCommands.set('providers', providersCommand);
 loadedCommands.set('update', updateCommand);
 loadedCommands.set('design', designCommand);
 loadedCommands.set('search', searchUniversalCommand);
-loadedCommands.set('scan', scanCommand);
 loadedCommands.set('report-crash', reportCrashCommand);
 loadedCommands.set('crash-reporting', crashReportingCommand);
 loadedCommands.set('doc', docCommand);
-loadedCommands.set('neural', neuralCommand);
 
 // =============================================================================
 // Exports
@@ -97,7 +89,6 @@ export { swarmCommand } from './swarm.js';
 export { memoryCommand } from './memory.js';
 export { mcpCommand } from './mcp.js';
 export { hooksCommand } from './hooks.js';
-export { daemonCommand } from './daemon.js';
 export { doctorCommand } from './doctor.js';
 export { performanceCommand } from './performance.js';
 export { securityCommand } from './security.js';
@@ -108,11 +99,9 @@ export { monographCommand } from './monograph.js';
 export { platformsCommand } from './platforms.js';
 export { designCommand } from './design-detect.js';
 export { searchUniversalCommand } from './search-universal.js';
-export { scanCommand } from './scan.js';
 export { reportCrashCommand } from './report-crash.js';
 export { crashReportingCommand } from './crash-reporting.js';
 export { docCommand } from './doc.js';
-export { neuralCommand } from './neural.js';
 
 /**
  * All registered commands
@@ -128,7 +117,6 @@ export const commands: Command[] = [
   memoryCommand,
   mcpCommand,
   hooksCommand,
-  daemonCommand,
   doctorCommand,
   performanceCommand,
   securityCommand,
@@ -139,7 +127,6 @@ export const commands: Command[] = [
   platformsCommand,
   designCommand,
   searchUniversalCommand,
-  scanCommand,
   docCommand,
   crashReportingCommand,
   browseCommand,
@@ -149,10 +136,8 @@ export const commands: Command[] = [
   routeCommand,
   providersCommand,
   updateCommand,
-  replayCommand,
   tokensCommand,
   reportCrashCommand,
-  neuralCommand,
 ];
 
 /**
@@ -177,22 +162,18 @@ export const commandsByCategory = {
     performanceCommand,
     guidanceCommand,
     autopilotCommand,
-    neuralCommand,
   ],
   utility: [
     configCommand,
     doctorCommand,
-    daemonCommand,
-    completionsCommand,
+      completionsCommand,
   ],
   analysis: [
     analyzeCommand,
     routeCommand,
     monographCommand,
-    replayCommand,
     tokensCommand,
     searchUniversalCommand,
-    scanCommand,
   ],
   management: [
     providersCommand,

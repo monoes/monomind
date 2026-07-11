@@ -79,6 +79,10 @@ export { createSecurityWorker } from './worker-security.js';
 export { createPatternsWorker } from './worker-patterns.js';
 export { createCacheWorker } from './worker-cache.js';
 export { createProgressWorker } from './worker-progress.js';
+export { createMapWorker } from './worker-map.js';
+export { createAuditWorker } from './worker-audit.js';
+export { createOptimizeWorker } from './worker-optimize.js';
+export { createConsolidateWorker } from './worker-consolidate.js';
 
 // ============================================================================
 // Factory
@@ -95,6 +99,10 @@ import { createSecurityWorker } from './worker-security.js';
 import { createPatternsWorker } from './worker-patterns.js';
 import { createCacheWorker } from './worker-cache.js';
 import { createProgressWorker } from './worker-progress.js';
+import { createMapWorker } from './worker-map.js';
+import { createAuditWorker } from './worker-audit.js';
+import { createOptimizeWorker } from './worker-optimize.js';
+import { createConsolidateWorker } from './worker-consolidate.js';
 
 export function createWorkerManager(projectRoot?: string): WorkerManager {
   const root = projectRoot || process.cwd();
@@ -111,18 +119,13 @@ export function createWorkerManager(projectRoot?: string): WorkerManager {
   manager.register('patterns', createPatternsWorker(root));
   manager.register('cache', createCacheWorker(root));
   manager.register('progress', createProgressWorker(root));
+  manager.register('map', createMapWorker(root));
+  manager.register('audit', createAuditWorker(root));
+  manager.register('optimize', createOptimizeWorker(root));
+  manager.register('consolidate', createConsolidateWorker(root));
 
   return manager;
 }
 
 // Default instance
 export const workerManager = createWorkerManager();
-
-// Entity memory workers (Task 10)
-export { EntityExtractorWorker, buildExtractionPrompt, parseEntityFacts } from './entity-extractor.js';
-export type { EntityExtractorConfig } from './entity-extractor.js';
-export { EntityCleanupWorker } from './entity-cleanup.js';
-export type { EntityCleanupConfig } from './entity-cleanup.js';
-
-// Episode binner worker (Task 11)
-export { EpisodeBinnerWorker } from './episode-binner.js';

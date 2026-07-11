@@ -413,16 +413,11 @@ export class CLI {
     }
     /**
      * Initialize optional subsystems at startup (non-blocking, all failures are silent).
-     * Wires TierManager, ObservabilityBus + TraceCollector, and SwarmCheckpointer
-     * so that packages/@monomind/* actually contribute to the live runtime.
+     * Starts the @monomind/hooks WorkerManager, wires SwarmCheckpointer, and builds
+     * the unified agent registry so that packages/@monomind/* actually contribute
+     * to the live runtime.
      */
     async initSubsystems() {
-        // GAP-004/005/006: Register background workers (EntityExtractor, EpisodeBinner, TraceCollector)
-        try {
-            const { initDefaultWorkers } = await import('@monomind/hooks');
-            await initDefaultWorkers();
-        }
-        catch { /* optional */ }
         // Start the @monomind/hooks WorkerManager (performance/health/swarm/git/learning/
         // adr/ddd/security/patterns/cache/progress) — previously implemented but never invoked
         try {

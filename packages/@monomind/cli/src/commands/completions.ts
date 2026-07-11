@@ -11,7 +11,7 @@ import { output } from '../output.js';
 // Get all top-level commands for completions
 const TOP_LEVEL_COMMANDS = [
   'swarm', 'agent', 'task', 'session', 'config', 'memory',
-  'hive-mind', 'hooks', 'daemon', 'security', 'performance',
+  'hive-mind', 'hooks', 'security', 'performance',
   'providers', 'embeddings',
   'doctor', 'completions', 'help', 'version'
 ];
@@ -95,10 +95,6 @@ _monomind_completions() {
             COMPREPLY=( $(compgen -W "generate search compare collections index providers" -- "\${cur}") )
             return 0
             ;;
-        daemon)
-            COMPREPLY=( $(compgen -W "start stop status trigger enable" -- "\${cur}") )
-            return 0
-            ;;
         providers)
             COMPREPLY=( $(compgen -W "list configure test models usage" -- "\${cur}") )
             return 0
@@ -141,7 +137,6 @@ _monomind() {
         'workflow:Workflow automation'
         'hive-mind:Queen-led consensus coordination'
         'hooks:Self-learning automation hooks'
-        'daemon:Background service management'
         'security:Security scanning and CVE detection'
         'performance:Performance profiling'
         'providers:AI provider management'
@@ -273,15 +268,6 @@ _monomind() {
                         'providers:Embedding providers'
                     )
                     ;;
-                daemon)
-                    subcommands=(
-                        'start:Start daemon'
-                        'stop:Stop daemon'
-                        'status:Daemon status'
-                        'trigger:Trigger event'
-                        'enable:Enable feature'
-                    )
-                    ;;
                 providers)
                     subcommands=(
                         'list:List providers'
@@ -343,9 +329,6 @@ complete -c monomind -n "__fish_seen_subcommand_from claims" -a "list check gran
 # Embeddings subcommands
 complete -c monomind -n "__fish_seen_subcommand_from embeddings" -a "generate search compare collections index providers"
 
-# Daemon subcommands
-complete -c monomind -n "__fish_seen_subcommand_from daemon" -a "start stop status trigger enable"
-
 # Providers subcommands
 complete -c monomind -n "__fish_seen_subcommand_from providers" -a "list configure test models usage"
 `;
@@ -372,7 +355,6 @@ $script:SubCommands = @{
     'security' = @('scan', 'cve', 'audit', 'secrets')
     'performance' = @('benchmark', 'profile', 'metrics', 'bottleneck')
     'embeddings' = @('generate', 'search', 'compare', 'collections', 'index', 'providers')
-    'daemon' = @('start', 'stop', 'status', 'trigger', 'enable')
     'providers' = @('list', 'configure', 'test', 'models', 'usage')
 }
 

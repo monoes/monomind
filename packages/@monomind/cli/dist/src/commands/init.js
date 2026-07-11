@@ -167,11 +167,10 @@ const initAction = async (ctx) => {
         }
         const noStartAll = ctx.flags['no-start-all'] || ctx.flags.noStartAll;
         const startAll = noStartAll ? false : (ctx.flags['start-all'] ?? ctx.flags.startAll ?? true);
-        const startDaemon = ctx.flags['start-daemon'] || ctx.flags.startDaemon || startAll;
-        if (startDaemon || startAll) {
+        if (startAll) {
             output.writeln();
             output.printInfo('Starting services...');
-            const { execSync, spawn: spawnChild } = await import('child_process');
+            const { execSync } = await import('child_process');
             if (startAll) {
                 try {
                     output.writeln(output.dim('  Initializing memory database...'));
@@ -184,17 +183,6 @@ const initAction = async (ctx) => {
                 }
                 catch {
                     output.writeln(output.dim('  Memory database already exists'));
-                }
-            }
-            if (startDaemon) {
-                try {
-                    output.writeln(output.dim('  Starting daemon...'));
-                    const daemonProc = spawnChild(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['@monomind/cli@latest', 'daemon', 'start'], { stdio: 'ignore', detached: true, cwd: ctx.cwd });
-                    daemonProc.unref();
-                    output.writeln(output.success('  ✓ Daemon started'));
-                }
-                catch {
-                    output.writeln(output.warning('  Daemon may already be running'));
                 }
             }
             if (startAll) {
@@ -240,10 +228,9 @@ const initAction = async (ctx) => {
                 output.writeln(output.warning('  Embedding initialization skipped (run manually)'));
             }
         }
-        if (!startDaemon && !startAll) {
+        if (!startAll) {
             output.writeln(output.bold('Next steps:'));
             output.printList([
-                `Run ${output.highlight('monomind daemon start')} to start background workers`,
                 `Run ${output.highlight('monomind memory init')} to initialize memory database`,
                 `Run ${output.highlight('monomind swarm init')} to initialize a swarm`,
                 `Services auto-start by default; use ${output.highlight('--no-start-all')} to skip`,
@@ -318,15 +305,9 @@ export const initCommand = {
         },
         {
             name: 'start-all',
-            description: 'Auto-start daemon, memory, and swarm after init (default: true)',
+            description: 'Auto-start memory and swarm after init (default: true)',
             type: 'boolean',
             default: true,
-        },
-        {
-            name: 'start-daemon',
-            description: 'Auto-start daemon after init',
-            type: 'boolean',
-            default: false,
         },
         {
             name: 'no-watch',
@@ -351,7 +332,6 @@ export const initCommand = {
     examples: [
         { command: 'monomind init', description: 'Initialize with default configuration' },
         { command: 'monomind init --no-start-all', description: 'Initialize without auto-starting services' },
-        { command: 'monomind init --start-daemon', description: 'Initialize and start daemon only' },
         { command: 'monomind init --minimal', description: 'Initialize with minimal configuration' },
         { command: 'monomind init --full', description: 'Initialize with all components' },
         { command: 'monomind init --force', description: 'Reinitialize and overwrite existing config' },

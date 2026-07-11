@@ -11,8 +11,8 @@ export const optimizeCommand = {
         { name: 'verbose', short: 'v', type: 'boolean', description: 'Show detailed metrics' },
     ],
     examples: [
-        { command: 'monomind neural optimize --method quantize', description: 'Quantize patterns to Int8' },
-        { command: 'monomind neural optimize --method analyze -v', description: 'Analyze memory usage' },
+        { command: 'monomind hooks intelligence optimize --method quantize', description: 'Quantize patterns to Int8' },
+        { command: 'monomind hooks intelligence optimize --method analyze -v', description: 'Analyze memory usage' },
     ],
     action: async (ctx) => {
         const method = ctx.flags.method || 'quantize';
@@ -147,8 +147,8 @@ export const exportCommand = {
         { name: 'name', short: 'n', type: 'string', description: 'Custom name for exported model' },
     ],
     examples: [
-        { command: 'monomind neural export -m security-patterns --ipfs', description: 'Export and pin to IPFS' },
-        { command: 'monomind neural export -m code-review -o ./export.json', description: 'Export to file' },
+        { command: 'monomind hooks intelligence export -m security-patterns --ipfs', description: 'Export and pin to IPFS' },
+        { command: 'monomind hooks intelligence export -m code-review -o ./export.json', description: 'Export to file' },
     ],
     action: async (ctx) => {
         const modelId = ctx.flags.model || 'all';
@@ -312,7 +312,7 @@ export const exportCommand = {
                 });
                 output.writeln();
                 output.writeln(output.success('Share this CID for others to import your trained patterns'));
-                output.writeln(output.dim(`Import command: monomind neural import --cid ${result.IpfsHash}`));
+                output.writeln(output.dim(`Import command: monomind hooks intelligence import --cid ${result.IpfsHash}`));
             }
             if (!outputFile && !pinToIpfs) {
                 spinner.succeed('Export prepared');

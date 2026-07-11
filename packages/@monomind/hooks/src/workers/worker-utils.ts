@@ -19,10 +19,8 @@ export const ALLOWED_WORKERS = new Set([
   // Canonical internal names
   'performance', 'health', 'security', 'adr', 'ddd',
   'patterns', 'learning', 'cache', 'git', 'swarm', 'progress',
-  // Documented aliases (CLAUDE.md worker names)
-  'ultralearn', 'optimize', 'consolidate', 'audit', 'map',
-  'preload', 'deepdive', 'document', 'refactor', 'benchmark',
-  'predict', 'testgaps',
+  // Workers folded in from the deleted CLI worker-daemon
+  'map', 'audit', 'optimize', 'consolidate',
 ]);
 
 // ============================================================================

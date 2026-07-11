@@ -148,9 +148,9 @@ async function main() {
     forwardToDashboard(entry);
   }
 
-  // Detect route changes and daemon metric updates by mtime and forward them too.
+  // Detect route changes and worker metric updates by mtime and forward them too.
   // These aren't Claude Code hook events — they're file writes from route-handler.cjs
-  // and worker-daemon.ts respectively — so we poll cheaply on every hook invocation.
+  // and the @monomind/hooks workers respectively — so we poll cheaply on every hook invocation.
   forwardFileChanges(monoDir, CWD);
 
   clearTimeout(safety);
@@ -177,7 +177,7 @@ function forwardFileChanges(monoDir, workDir) {
       }
     } catch {}
 
-    // Daemon-complete: newest mtime among .monomind/metrics/*.json (written by worker-daemon.ts)
+    // Worker-complete: newest mtime among .monomind/metrics/*.json (written by @monomind/hooks workers)
     const metricsDir = path.join(workDir, '.monomind', 'metrics');
     try {
       const files = fs.readdirSync(metricsDir).filter(f => f.endsWith('.json') && !f.startsWith('.'));

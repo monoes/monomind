@@ -222,7 +222,6 @@ describe('getTypoCorrection', () => {
   it('should handle exact matches (identity typos)', () => {
     expect(getTypoCorrection('init')).toBe('init');
     expect(getTypoCorrection('task')).toBe('task');
-    expect(getTypoCorrection('daemon')).toBe('daemon');
   });
 });
 
@@ -256,7 +255,7 @@ describe('suggestCommand', () => {
   const commands = [
     'init', 'agent', 'swarm', 'memory', 'mcp', 'task', 'session',
     'config', 'status', 'start', 'hooks', 'hive-mind',
-    'daemon', 'neural', 'security', 'performance', 'providers',
+    'security', 'performance', 'providers',
     'deployment', 'embeddings', 'migrate',
     'doctor', 'completions',
   ];

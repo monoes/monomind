@@ -13,7 +13,6 @@ export { swarmCommand } from './swarm.js';
 export { memoryCommand } from './memory.js';
 export { mcpCommand } from './mcp.js';
 export { hooksCommand } from './hooks.js';
-export { daemonCommand } from './daemon.js';
 export { doctorCommand } from './doctor.js';
 export { performanceCommand } from './performance.js';
 export { securityCommand } from './security.js';
@@ -24,11 +23,9 @@ export { monographCommand } from './monograph.js';
 export { platformsCommand } from './platforms.js';
 export { designCommand } from './design-detect.js';
 export { searchUniversalCommand } from './search-universal.js';
-export { scanCommand } from './scan.js';
 export { reportCrashCommand } from './report-crash.js';
 export { crashReportingCommand } from './crash-reporting.js';
 export { docCommand } from './doc.js';
-export { neuralCommand } from './neural.js';
 /**
  * All registered commands
  */

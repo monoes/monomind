@@ -202,10 +202,7 @@ monomind init
 # 3. Wire into Claude Code as an MCP server
 claude mcp add monomind npx monomind mcp start
 
-# 4. Start the background daemon
-monomind daemon start
-
-# 5. Health check
+# 4. Health check
 monomind doctor --fix
 ```
 
@@ -353,7 +350,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 graph TD
     CC["Claude Code"]
     MCP["MCP Server\nmonomind mcp start"]
-    D["Background Daemon\n12 workers"]
+    D["Background Workers\n(@monomind/hooks, in-process)"]
 
     CC <-->|"23 tools: monograph, memory, swarm"| MCP
     MCP <--> D
