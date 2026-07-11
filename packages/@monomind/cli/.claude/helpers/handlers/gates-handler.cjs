@@ -2,14 +2,8 @@
  * Enforcement Gates Handler
  *
  * Inline gate logic for PreToolUse hooks — no ESM/package dependency.
- *
- * Patterns are an INTENTIONAL SUPERSET of @monomind/guidance/src/gates.ts defaults:
- *   - All categories from DEFAULT_GATE_CONFIG are covered here
- *   - Many patterns are enhanced (e.g. --force-with-lease, -fr reversed flags, broader kubectl)
- *   - Key thresholds MUST stay aligned: password/secret min length = 8 chars (both files)
- *
- * When updating patterns in gates.ts, check whether the corresponding pattern here
- * also needs updating — and vice versa.
+ * This regex table is the canonical (and only) gate definition; the former
+ * @monomind/guidance package it mirrored has been removed.
  *
  * Gates enforced at runtime:
  *   pre-bash  → destructive-ops  (require-confirmation → block)

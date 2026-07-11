@@ -1,6 +1,6 @@
 /**
- * Tests for the hive-mind consensus system:
- *   - vote-signer.ts: HMAC signing/verification, weighted tally
+ * Tests for the hive-mind voting helpers:
+ *   - tally.ts: confidence-weighted vote tally
  *   - audit-writer.ts: JSONL audit log, tamper detection, path traversal guard
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -8,13 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-import {
-  deriveSigningKey,
-  signVote,
-  verifyVote,
-  weightedTally,
-} from '../../packages/@monomind/cli/src/consensus/vote-signer.js';
-
+import { weightedTally } from '../../packages/@monomind/cli/src/consensus/tally.js';
 import { AuditWriter } from '../../packages/@monomind/cli/src/consensus/audit-writer.js';
 
 // Use a helper so the literal 'sessionSecret' key + test value are never on
@@ -23,117 +17,6 @@ const SESSION_KEY = ['session', 'Secret'].join('');
 function withSession(obj, val) {
   return { ...obj, [SESSION_KEY]: val };
 }
-
-// ---------------------------------------------------------------------------
-// vote-signer.ts
-// ---------------------------------------------------------------------------
-
-describe('deriveSigningKey', () => {
-  it('returns a Buffer', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    expect(Buffer.isBuffer(key)).toBe(true);
-  });
-
-  it('returns a 32-byte key (SHA-256 digest)', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    expect(key.length).toBe(32);
-  });
-
-  it('produces different keys for different swarmIds', () => {
-    const k1 = deriveSigningKey('swarm-a', 'sess-alpha');
-    const k2 = deriveSigningKey('swarm-b', 'sess-alpha');
-    expect(k1.equals(k2)).toBe(false);
-  });
-
-  it('produces different keys for different session values', () => {
-    const k1 = deriveSigningKey('swarm-1', 'sess-alpha');
-    const k2 = deriveSigningKey('swarm-1', 'sess-beta');
-    expect(k1.equals(k2)).toBe(false);
-  });
-});
-
-describe('signVote', () => {
-  it('produces a hex string', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const sig = signVote('agent-1', true, 'decision-1', key);
-    expect(sig).toMatch(/^[0-9a-f]{64}$/);
-  });
-
-  it('produces a deterministic signature for the same inputs', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const sig1 = signVote('agent-1', true, 'decision-1', key);
-    const sig2 = signVote('agent-1', true, 'decision-1', key);
-    expect(sig1).toBe(sig2);
-  });
-
-  it('produces different signatures for different votes', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const sigTrue = signVote('agent-1', true, 'decision-1', key);
-    const sigFalse = signVote('agent-1', false, 'decision-1', key);
-    expect(sigTrue).not.toBe(sigFalse);
-  });
-
-  it('handles object votes via canonicalize', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const sig = signVote('agent-1', { action: 'approve', score: 0.9 }, 'decision-1', key);
-    expect(sig).toMatch(/^[0-9a-f]{64}$/);
-  });
-});
-
-describe('verifyVote', () => {
-  it('returns true for a valid signature', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const sig = signVote('agent-1', true, 'decision-1', key);
-    expect(verifyVote('agent-1', true, 'decision-1', sig, key)).toBe(true);
-  });
-
-  it('returns false for a wrong signature (different agent)', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const sig = signVote('agent-1', true, 'decision-1', key);
-    expect(verifyVote('agent-2', true, 'decision-1', sig, key)).toBe(false);
-  });
-
-  it('returns false for a tampered vote value', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const sig = signVote('agent-1', true, 'decision-1', key);
-    expect(verifyVote('agent-1', false, 'decision-1', sig, key)).toBe(false);
-  });
-
-  it('returns false for a different decision id', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const sig = signVote('agent-1', true, 'decision-1', key);
-    expect(verifyVote('agent-1', true, 'decision-2', sig, key)).toBe(false);
-  });
-
-  it('returns false for a different key', () => {
-    const key1 = deriveSigningKey('swarm-1', 'sess-alpha');
-    const key2 = deriveSigningKey('swarm-1', 'sess-beta');
-    const sig = signVote('agent-1', true, 'decision-1', key1);
-    expect(verifyVote('agent-1', true, 'decision-1', sig, key2)).toBe(false);
-  });
-
-  it('returns false for invalid hex format (too short)', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    expect(verifyVote('agent-1', true, 'decision-1', 'deadbeef', key)).toBe(false);
-  });
-
-  it('returns false for invalid hex format (non-hex chars)', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const badSig = 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz';
-    expect(verifyVote('agent-1', true, 'decision-1', badSig, key)).toBe(false);
-  });
-
-  it('returns false for empty string signature', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    expect(verifyVote('agent-1', true, 'decision-1', '', key)).toBe(false);
-  });
-
-  it('returns false for odd-length hex signature', () => {
-    const key = deriveSigningKey('swarm-1', 'sess-alpha');
-    const oddHex = 'a'.repeat(63);
-    expect(verifyVote('agent-1', true, 'decision-1', oddHex, key)).toBe(false);
-  });
-});
 
 describe('weightedTally', () => {
   it('counts votes correctly', () => {

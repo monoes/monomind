@@ -381,48 +381,12 @@ class LocalReasoningBank {
                     this.patternList.push(stored);
                 }
             }
-            // Also load MCP-trained patterns from models.json (neural-tools store).
-            // Previously neural-tools mirrored these to patterns.json, creating a
-            // write conflict. Now intelligence.ts reads from models.json directly.
-            this.loadMcpPatterns();
+            // MCP-trained patterns (neural-tools) now write directly to this
+            // ReasoningBank via intelligence.ts's public API, so no separate
+            // models.json bridge is needed.
         }
         catch {
             // Ignore load errors, start fresh
-        }
-    }
-    /**
-     * Load MCP-trained patterns from neural-tools' models.json store.
-     * Avoids the previous mirror-to-patterns.json approach that caused
-     * a write conflict (two writers to the same file).
-     */
-    loadMcpPatterns() {
-        try {
-            const modelsPath = join(getDataDir(), 'models.json');
-            const store = readJsonFileSync(modelsPath, {});
-            if (!store.patterns || typeof store.patterns !== 'object')
-                return;
-            const entries = Object.values(store.patterns);
-            for (const p of entries.slice(0, 500)) {
-                if (!p.id || typeof p.id !== 'string' || p.id.length > 256)
-                    continue;
-                if (this.patterns.has(p.id))
-                    continue; // already loaded from patterns.json
-                const pattern = {
-                    id: p.id,
-                    type: p.type || 'mcp-trained',
-                    content: p.name || '',
-                    confidence: 0.8,
-                    usageCount: p.usageCount || 0,
-                    embedding: Array.isArray(p.embedding) ? p.embedding : [],
-                    createdAt: p.createdAt ? new Date(p.createdAt).getTime() : Date.now(),
-                    lastUsedAt: Date.now(),
-                };
-                this.patterns.set(p.id, pattern);
-                this.patternList.push(pattern);
-            }
-        }
-        catch {
-            // Best-effort: MCP patterns are supplementary
         }
     }
     /**

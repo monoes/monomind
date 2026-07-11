@@ -1,312 +1,14 @@
 /**
  * CLI Guidance Command
- * Guidance Control Plane - compile, retrieve, enforce, optimize
+ *
+ * Wires the enforcement gates (destructive-ops + secrets) into Claude Code hooks.
+ * The gates themselves live in .claude/helpers/handlers/gates-handler.cjs — a
+ * self-contained regex table that runs on every PreToolUse. This command only
+ * registers the hook entries in .claude/settings.json.
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-
-// compile subcommand
-const compileCommand: Command = {
-  name: 'compile',
-  description: 'Compile CLAUDE.md into a policy bundle (constitution + shards + manifest)',
-  options: [
-    { name: 'root', short: 'r', type: 'string', description: 'Root guidance file path', default: './CLAUDE.md' },
-    { name: 'local', short: 'l', type: 'string', description: 'Local guidance overlay file path' },
-    { name: 'output', short: 'o', type: 'string', description: 'Output directory for compiled bundle' },
-    { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
-  ],
-  examples: [
-    { command: 'monomind guidance compile', description: 'Compile default CLAUDE.md' },
-    { command: 'monomind guidance compile -r ./CLAUDE.md -l ./CLAUDE.local.md', description: 'Compile with local overlay' },
-    { command: 'monomind guidance compile --json', description: 'Output compiled bundle as JSON' },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const rootPath = ctx.flags.root as string || './CLAUDE.md';
-    const localPath = ctx.flags.local as string | undefined;
-    const jsonOutput = ctx.flags.json === true;
-
-    output.writeln();
-    output.writeln(output.bold('Guidance Compiler'));
-    output.writeln(output.dim('─'.repeat(50)));
-
-    try {
-      const { readFile } = await import('node:fs/promises');
-      const { existsSync } = await import('node:fs');
-
-      if (!existsSync(rootPath)) {
-        output.writeln(output.error(`Root guidance file not found: ${rootPath}`));
-        return { success: false, message: `File not found: ${rootPath}` };
-      }
-
-      const rootContent = await readFile(rootPath, 'utf-8');
-      let localContent: string | undefined;
-      if (localPath && existsSync(localPath)) {
-        localContent = await readFile(localPath, 'utf-8');
-      }
-
-      output.writeln(output.warning('The compile subcommand has been removed. The guidance package now only provides enforcement gates.'));
-      output.writeln(output.dim('Use "monomind guidance gates" to evaluate commands and content.'));
-      return { success: false, message: 'Subcommand removed — guidance package trimmed to gates only' };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      output.writeln(output.error(`Compilation failed: ${msg}`));
-      return { success: false, message: msg };
-    }
-  },
-};
-
-// retrieve subcommand
-const retrieveCommand: Command = {
-  name: 'retrieve',
-  description: 'Retrieve task-relevant guidance shards for a given task description',
-  options: [
-    { name: 'task', short: 't', type: 'string', description: 'Task description', required: true },
-    { name: 'root', short: 'r', type: 'string', description: 'Root guidance file path', default: './CLAUDE.md' },
-    { name: 'local', short: 'l', type: 'string', description: 'Local overlay file path' },
-    { name: 'max-shards', short: 'n', type: 'number', description: 'Maximum number of shards to retrieve', default: '5' },
-    { name: 'intent', short: 'i', type: 'string', description: 'Override detected intent' },
-    { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
-  ],
-  examples: [
-    { command: 'monomind guidance retrieve -t "Fix SQL injection in user search"', description: 'Retrieve guidance for a security task' },
-    { command: 'monomind guidance retrieve -t "Add unit tests" -n 3', description: 'Retrieve top 3 shards for testing' },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const task = ctx.flags.task as string;
-    const rootPath = ctx.flags.root as string || './CLAUDE.md';
-    const localPath = ctx.flags.local as string | undefined;
-    const maxShards = parseInt(ctx.flags['max-shards'] as string || '5', 10);
-    const intentOverride = ctx.flags.intent as string | undefined;
-    const jsonOutput = ctx.flags.json === true;
-
-    if (!task) {
-      output.writeln(output.error('Task description is required (-t "...")'));
-      return { success: false, message: 'Missing task description' };
-    }
-
-    output.writeln();
-    output.writeln(output.bold('Guidance Retriever'));
-    output.writeln(output.dim('─'.repeat(50)));
-
-    output.writeln(output.warning('The retrieve subcommand has been removed. The guidance package now only provides enforcement gates.'));
-    output.writeln(output.dim('Use "monomind guidance gates" to evaluate commands and content.'));
-    return { success: false, message: 'Subcommand removed — guidance package trimmed to gates only' };
-  },
-};
-
-// gates subcommand
-const gatesCommand: Command = {
-  name: 'gates',
-  description: 'Evaluate enforcement gates against a command or content',
-  options: [
-    { name: 'command', short: 'c', type: 'string', description: 'Command to evaluate' },
-    { name: 'content', type: 'string', description: 'Content to check for secrets' },
-    { name: 'tool', short: 't', type: 'string', description: 'Tool name to check against allowlist' },
-    { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
-  ],
-  examples: [
-    { command: 'monomind guidance gates -c "rm -rf /tmp"', description: 'Check if a command is destructive' },
-    { command: 'monomind guidance gates --content "api_key=sk-abc123..."', description: 'Check content for secrets' },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const command = ctx.flags.command as string | undefined;
-    const content = ctx.flags.content as string | undefined;
-    const tool = ctx.flags.tool as string | undefined;
-    const jsonOutput = ctx.flags.json === true;
-
-    output.writeln();
-    output.writeln(output.bold('Enforcement Gates'));
-    output.writeln(output.dim('─'.repeat(50)));
-
-    try {
-      const { EnforcementGates } = await import('@monomind/guidance/gates');
-      const gates = new EnforcementGates();
-
-      const results: Array<{ type: string; result: any }> = [];
-
-      if (command) {
-        const gateResults = gates.evaluateCommand(command);
-        results.push({ type: 'command', result: gateResults });
-      }
-
-      if (content) {
-        const secretResult = gates.evaluateSecrets(content);
-        results.push({ type: 'secrets', result: secretResult });
-      }
-
-      if (tool) {
-        const toolResult = gates.evaluateToolAllowlist(tool);
-        // evaluateToolAllowlist returns null when allowedTools is empty (no allowlist configured)
-        if (toolResult === null) {
-          output.writeln(output.warning(`  tool-allowlist: no tools configured — all tools pass by default. Use a GuidanceControlPlane with allowedTools to restrict.`));
-        }
-        results.push({ type: 'tool-allowlist', result: toolResult });
-      }
-
-      if (results.length === 0) {
-        output.writeln(output.warning('No input provided. Use -c, --content, or -t to evaluate.'));
-        return { success: false, message: 'No input' };
-      }
-
-      if (jsonOutput) {
-        output.writeln(JSON.stringify(results, null, 2));
-      } else {
-        for (const { type, result } of results) {
-          output.writeln(`  ${output.bold(type)}:`);
-          if (result === null) {
-            output.writeln(`    ${output.success('ALLOW')} - No gate triggered`);
-          } else if (Array.isArray(result)) {
-            if (result.length === 0) {
-              output.writeln(`    ${output.success('ALLOW')} - All gates passed`);
-            } else {
-              for (const r of result) {
-                const color = r.decision === 'block' ? output.error.bind(output) :
-                  r.decision === 'require-confirmation' ? output.warning.bind(output) :
-                    output.dim.bind(output);
-                output.writeln(`    ${color(r.decision.toUpperCase())} [${r.gateName}] ${r.reason}`);
-                if (r.remediation) {
-                  output.writeln(`      Remediation: ${output.dim(r.remediation)}`);
-                }
-              }
-            }
-          } else {
-            const color = result.decision === 'block' ? output.error.bind(output) :
-              result.decision === 'require-confirmation' ? output.warning.bind(output) :
-                output.dim.bind(output);
-            output.writeln(`    ${color(result.decision.toUpperCase())} [${result.gateName}] ${result.reason}`);
-            if (result.remediation) {
-              output.writeln(`      Remediation: ${output.dim(result.remediation)}`);
-            }
-          }
-        }
-      }
-
-      return { success: true, data: results };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      output.writeln(output.error(`Gate evaluation failed: ${msg}`));
-      return { success: false, message: msg };
-    }
-  },
-};
-
-// status subcommand
-const statusCommand: Command = {
-  name: 'status',
-  description: 'Show guidance control plane status and metrics',
-  options: [
-    { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const jsonOutput = ctx.flags.json === true;
-
-    output.writeln();
-    output.writeln(output.bold('Guidance Control Plane Status'));
-    output.writeln(output.dim('─'.repeat(50)));
-
-    try {
-      const { existsSync } = await import('node:fs');
-      const { EnforcementGates } = await import('@monomind/guidance/gates');
-
-      const rootExists = existsSync('./CLAUDE.md');
-      const localExists = existsSync('./CLAUDE.local.md');
-      const gates = new EnforcementGates();
-
-      const statusData = {
-        rootGuidance: rootExists ? 'found' : 'not found',
-        localOverlay: localExists ? 'found' : 'not configured',
-        activeGates: gates.getActiveGateCount(),
-      };
-
-      if (jsonOutput) {
-        output.writeln(JSON.stringify(statusData, null, 2));
-      } else {
-        output.writeln(`  Root guidance:  ${rootExists ? output.success('CLAUDE.md found') : output.warning('CLAUDE.md not found')}`);
-        output.writeln(`  Local overlay:  ${localExists ? output.success('CLAUDE.local.md found') : output.dim('not configured')}`);
-        output.writeln(`  Active gates:   ${output.bold(String(statusData.activeGates))}`);
-      }
-
-      return { success: true, data: statusData };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      output.writeln(output.error(`Status check failed: ${msg}`));
-      return { success: false, message: msg };
-    }
-  },
-};
-
-// optimize subcommand
-const optimizeCommand: Command = {
-  name: 'optimize',
-  description: 'Analyze and optimize a CLAUDE.md file for structure, coverage, and enforceability',
-  options: [
-    { name: 'root', short: 'r', type: 'string', description: 'Root guidance file path', default: './CLAUDE.md' },
-    { name: 'local', short: 'l', type: 'string', description: 'Local overlay file path' },
-    { name: 'apply', short: 'a', type: 'boolean', description: 'Apply optimizations to the file', default: 'false' },
-    { name: 'context-size', short: 's', type: 'string', description: 'Target context size: compact, standard, full', default: 'standard' },
-    { name: 'target-score', type: 'number', description: 'Target composite score (0-100)', default: '90' },
-    { name: 'max-iterations', type: 'number', description: 'Maximum optimization iterations', default: '5' },
-    { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
-  ],
-  examples: [
-    { command: 'monomind guidance optimize', description: 'Analyze current CLAUDE.md and show suggestions' },
-    { command: 'monomind guidance optimize --apply', description: 'Apply optimizations to CLAUDE.md' },
-    { command: 'monomind guidance optimize -s compact --apply', description: 'Optimize for compact context window' },
-    { command: 'monomind guidance optimize --target-score 95', description: 'Optimize until score reaches 95' },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const rootPath = ctx.flags.root as string || './CLAUDE.md';
-    const localPath = ctx.flags.local as string | undefined;
-    const applyChanges = ctx.flags.apply === true;
-    const contextSize = (ctx.flags['context-size'] as string || 'standard') as 'compact' | 'standard' | 'full';
-    const targetScore = parseInt(ctx.flags['target-score'] as string || '90', 10);
-    const maxIterations = parseInt(ctx.flags['max-iterations'] as string || '5', 10);
-    const jsonOutput = ctx.flags.json === true;
-
-    output.writeln();
-    output.writeln(output.bold('Guidance Optimizer'));
-    output.writeln(output.dim('─'.repeat(50)));
-
-    output.writeln(output.warning('The optimize subcommand has been removed. The guidance package now only provides enforcement gates.'));
-    output.writeln(output.dim('Use "monomind guidance gates" to evaluate commands and content.'));
-    return { success: false, message: 'Subcommand removed — guidance package trimmed to gates only' };
-  },
-};
-
-// ab-test subcommand
-const abTestCommand: Command = {
-  name: 'ab-test',
-  description: 'Run A/B behavioral comparison between two CLAUDE.md versions',
-  options: [
-    { name: 'config-a', short: 'a', type: 'string', description: 'Path to Config A (baseline CLAUDE.md). Defaults to no guidance.' },
-    { name: 'config-b', short: 'b', type: 'string', description: 'Path to Config B (candidate CLAUDE.md)', default: './CLAUDE.md' },
-    { name: 'tasks', short: 't', type: 'string', description: 'Path to custom task JSON file (array of ABTask objects)' },
-    { name: 'work-dir', short: 'w', type: 'string', description: 'Working directory for test execution' },
-    { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
-  ],
-  examples: [
-    { command: 'monomind guidance ab-test', description: 'Run default A/B test (no guidance vs ./CLAUDE.md)' },
-    { command: 'monomind guidance ab-test -a old.md -b new.md', description: 'Compare two CLAUDE.md versions' },
-    { command: 'monomind guidance ab-test --tasks custom-tasks.json', description: 'Run with custom test tasks' },
-    { command: 'monomind guidance ab-test --json', description: 'Output full report as JSON' },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const configAPath = ctx.flags['config-a'] as string | undefined;
-    const configBPath = ctx.flags['config-b'] as string || './CLAUDE.md';
-    const tasksPath = ctx.flags.tasks as string | undefined;
-    const workDir = ctx.flags['work-dir'] as string | undefined;
-    const jsonOutput = ctx.flags.json === true;
-
-    output.writeln();
-    output.writeln(output.bold('A/B Behavioral Benchmark'));
-    output.writeln(output.dim('─'.repeat(50)));
-
-    output.writeln(output.warning('The ab-test subcommand has been removed. The guidance package now only provides enforcement gates.'));
-    output.writeln(output.dim('Use "monomind guidance gates" to evaluate commands and content.'));
-    return { success: false, message: 'Subcommand removed — guidance package trimmed to gates only' };
-  },
-};
 
 // setup subcommand
 const setupCommand: Command = {
@@ -445,42 +147,24 @@ const setupCommand: Command = {
 // Main guidance command
 export const guidanceCommand: Command = {
   name: 'guidance',
-  description: 'Guidance Control Plane - compile, retrieve, enforce, and optimize guidance rules',
+  description: 'Wire enforcement gates (destructive-ops + secrets) into Claude Code hooks',
   aliases: ['guide', 'policy'],
-  subcommands: [
-    compileCommand,
-    retrieveCommand,
-    gatesCommand,
-    statusCommand,
-    optimizeCommand,
-    abTestCommand,
-    setupCommand,
-  ],
+  subcommands: [setupCommand],
   options: [],
   examples: [
-    { command: 'monomind guidance compile', description: 'Compile CLAUDE.md into policy bundle' },
-    { command: 'monomind guidance retrieve -t "Fix auth bug"', description: 'Retrieve relevant guidance' },
-    { command: 'monomind guidance gates -c "rm -rf /"', description: 'Check enforcement gates' },
-    { command: 'monomind guidance status', description: 'Show control plane status' },
-    { command: 'monomind guidance optimize', description: 'Analyze and optimize CLAUDE.md' },
-    { command: 'monomind guidance ab-test', description: 'Run A/B behavioral comparison' },
     { command: 'monomind guidance setup', description: 'Wire enforcement gates into Claude Code hooks' },
+    { command: 'monomind guidance setup --dry-run', description: 'Preview changes without writing' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('Guidance Control Plane'));
+    output.writeln(output.bold('Guidance Gates'));
     output.writeln(output.dim('─'.repeat(50)));
     output.writeln();
     output.writeln('Available subcommands:');
-    output.writeln(`  ${output.bold('compile')}   Compile CLAUDE.md into policy bundle`);
-    output.writeln(`  ${output.bold('retrieve')}  Retrieve task-relevant guidance shards`);
-    output.writeln(`  ${output.bold('gates')}     Evaluate enforcement gates`);
-    output.writeln(`  ${output.bold('status')}    Show control plane status`);
-    output.writeln(`  ${output.bold('optimize')}  Analyze and optimize CLAUDE.md`);
-    output.writeln(`  ${output.bold('ab-test')}   Run A/B behavioral comparison`);
     output.writeln(`  ${output.bold('setup')}     Wire enforcement gates into Claude Code hooks`);
     output.writeln();
-    output.writeln(output.dim('Use monomind guidance <subcommand> --help for details'));
+    output.writeln(output.dim('Gate enforcement runs in .claude/helpers/handlers/gates-handler.cjs on every PreToolUse.'));
+    output.writeln(output.dim('Use monomind guidance setup --help for details'));
 
     return { success: true };
   },

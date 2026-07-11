@@ -130,59 +130,9 @@ module.exports = {
         hCtx._hooksModule = hooksModule;
         console.log('[INFO] @monomind/hooks workers initialized');
 
-        // Wire GuidanceHookProvider — activates shard retrieval (PreTask),
-        // run ledger tracking (PostTask), and diff-size gate (PreEdit).
-        try {
-          var guidanceMod = await import('@monomind/guidance');
-          if (guidanceMod && guidanceMod.createGates && guidanceMod.createRetriever && guidanceMod.createLedger) {
-            var gates = guidanceMod.createGates();
-            var retriever = guidanceMod.createRetriever();
-            var ledger = guidanceMod.createLedger();
-
-            // Persist the compiled gate config to disk. Gates are normally registered
-            // onto an in-memory HookRegistry that does NOT survive Claude Code's
-            // per-hook subprocess boundaries (each hook event is a fresh short-lived
-            // node process), so the in-memory registration below is effectively wasted
-            // for later PreToolUse invocations. Writing the compiled patterns to a file
-            // lets .claude/helpers/handlers/gates-handler.cjs — which DOES run on every
-            // PreToolUse — read the canonical, single-source-of-truth gate config
-            // instead of maintaining its own hand-copied regex table.
-            try {
-              if (gates.exportConfig) {
-                var guidanceDir = path.join(CWD, '.monomind', 'guidance');
-                fs.mkdirSync(guidanceDir, { recursive: true });
-                fs.writeFileSync(
-                  path.join(guidanceDir, 'active-gates.json'),
-                  JSON.stringify(gates.exportConfig(), null, 2),
-                  'utf-8'
-                );
-              }
-            } catch (gateWriteErr) { /* non-fatal — gates-handler.cjs falls back to its own defaults */ }
-            // Try to compile CLAUDE.md so the retriever has shards to serve
-            try {
-              var claudeMdPath = path.join(CWD, 'CLAUDE.md');
-              if (fs.existsSync(claudeMdPath)) {
-                var compiler = guidanceMod.createCompiler();
-                var rootContent = fs.readFileSync(claudeMdPath, 'utf-8');
-                var localPath = path.join(CWD, 'CLAUDE.local.md');
-                var localContent = fs.existsSync(localPath) ? fs.readFileSync(localPath, 'utf-8') : undefined;
-                var bundle = compiler.compile(rootContent, localContent);
-                await retriever.loadBundle(bundle);
-                var allRules = [].concat(
-                  bundle.constitution.rules || [],
-                  (bundle.shards || []).map(function(s) { return s.rule; })
-                );
-                gates.setActiveRules(allRules);
-                console.log('[GUIDANCE] Compiled CLAUDE.md: ' + (bundle.shards || []).length + ' shards, ' + gates.getActiveGateCount() + ' gates');
-              }
-            } catch (compileErr) { /* non-fatal — gates still work without shards */ }
-            // Register on the global hook registry
-            if (guidanceMod.createGuidanceHooks && hooksModule.defaultRegistry) {
-              var result = guidanceMod.createGuidanceHooks(gates, retriever, ledger, hooksModule.defaultRegistry);
-              console.log('[GUIDANCE] Registered ' + result.hookIds.length + ' hooks on registry');
-            }
-          }
-        } catch (guidanceErr) { /* @monomind/guidance not available — skip */ }
+        // Gate enforcement lives entirely in gates-handler.cjs (its own regex
+        // table, run on every PreToolUse). The @monomind/guidance package that
+        // used to compile gate configs here was removed.
 
         // Fire SessionStart event so observability bus and other SessionStart hooks activate
         if (hooksModule.executeHooks && hooksModule.HookEvent) {

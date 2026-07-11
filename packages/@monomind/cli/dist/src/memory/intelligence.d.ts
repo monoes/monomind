@@ -159,12 +159,6 @@ declare class LocalReasoningBank {
      */
     private loadFromDisk;
     /**
-     * Load MCP-trained patterns from neural-tools' models.json store.
-     * Avoids the previous mirror-to-patterns.json approach that caused
-     * a write conflict (two writers to the same file).
-     */
-    private loadMcpPatterns;
-    /**
      * Save patterns to disk (debounced)
      */
     private saveToDisk;

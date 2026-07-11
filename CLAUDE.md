@@ -46,7 +46,6 @@
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (41 commands)          |
-| `@monomind/guidance` | `packages/@monomind/guidance/` | Experimental — governance control plane |
 | `@monomind/hooks`    | `packages/@monomind/hooks/`    | 26 hook subcommands + 11 workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress) |
 | `@monomind/memory`   | `packages/@monomind/memory/`   | LanceDB + HNSW search                  |
 | `@monomind/security` | `packages/@monomind/cli/src/utils/` | Input validation, path security (inlined into CLI) |
@@ -238,7 +237,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `neural`         | 8   | Pattern storage and similarity search                |
 | `security`       | 6   | Security scanning                                    |
 | `performance`    | 4   | Performance profiling — real benchmark measurements  |
-| `guidance`       | 8   | Governance control plane (compile, gates, optimize)  |
+| `guidance`       | 1   | Wire enforcement gates into Claude Code hooks (setup) |
 | `monograph`      | -   | Knowledge graph CLI (delegates to @monoes/monograph) |
 | `browse`         | -   | Browser automation via CDP (@monoes/monobrowse)      |
 | `workflow`       | 5   | Workflow execution and template management           |

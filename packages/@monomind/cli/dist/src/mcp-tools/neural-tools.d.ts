@@ -6,6 +6,9 @@
  * The "train" tool embeds and stores; the "predict" tool finds similar stored
  * patterns. Embeddings come from the shared memory/embedding-operations.ts
  * pipeline (LanceDB bridge -> ONNX -> deterministic hash fallback).
+ *
+ * All pattern storage is delegated to intelligence.ts's LocalReasoningBank
+ * (single source of truth for patterns.json). No separate models.json store.
  */
 import { type MCPTool } from './types.js';
 export declare const neuralTools: MCPTool[];

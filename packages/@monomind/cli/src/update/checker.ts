@@ -72,7 +72,6 @@ const MONOMIND_PACKAGES = [
   '@monoes/monograph',
   '@monoes/memory',
   '@monoes/monodesign',
-  '@monomind/guidance',
   '@monomind/hooks',
   '@monomind/mcp',
   '@monomind/routing',
