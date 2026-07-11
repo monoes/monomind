@@ -312,12 +312,13 @@ export async function bridgeSearchEntries(options: {
       } catch { /* fall through to keyword search */ }
     }
 
-    // Keyword fallback
+    // Keyword fallback — scan all entries in namespace (not just first 100)
+    // to avoid missing documents that were ingested later in the batch.
     if (results.length === 0) {
       const entries = await backend.query({
         type: 'exact',
         namespace: namespace ?? 'default',
-        limit: Math.max(limit * 10, 100),
+        limit: 50000,
       });
       const queryLower = queryStr.toLowerCase();
       results = entries

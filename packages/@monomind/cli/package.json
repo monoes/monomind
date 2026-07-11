@@ -99,7 +99,6 @@
   "optionalDependencies": {
     "@huggingface/transformers": "^3.8.1",
     "@monoes/memory": "^1.0.5",
-    "@monomind/guidance": "*",
     "@monomind/hooks": "*",
     "@monomind/mcp": "*",
     "@monomind/routing": "*",

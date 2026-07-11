@@ -7,7 +7,53 @@ import { appendFileSync, readFileSync, existsSync, mkdirSync, statSync } from 'f
 import { createHmac, timingSafeEqual } from 'crypto';
 import { dirname, join, resolve, relative } from 'path';
 import { parseJsonl } from '../utils/parse-jsonl.js';
-import { deriveSigningKey, signVote, verifyVote } from './vote-signer.js';
+
+// ─── HMAC tamper-detection helpers (private) ─────────────────────────────────
+// These sign each vote entry in the audit log so verifyIntegrity() can detect
+// after-the-fact edits to the JSONL file. They are log tamper-detection, not an
+// inter-agent trust mechanism — all signing happens inside this one process.
+
+/** Max depth for canonicalize() to prevent stack overflow on deeply nested objects. */
+const MAX_CANONICALIZE_DEPTH = 32;
+
+/** Cap string inputs to prevent OOM when hashing very long strings. */
+const MAX_INPUT_LEN = 1024;
+
+/** Derive a signing key from a swarmId and session secret using HMAC-SHA256. */
+function deriveSigningKey(swarmId: string, sessionSecret: string): Buffer {
+  return createHmac('sha256', sessionSecret.slice(0, MAX_INPUT_LEN)).update(swarmId.slice(0, MAX_INPUT_LEN)).digest();
+}
+
+function canonicalize(val: unknown, depth = 0): string {
+  // Guard against deeply-nested objects that would overflow the call stack.
+  if (depth > MAX_CANONICALIZE_DEPTH) return '"[MaxDepth]"';
+  if (val === null || typeof val !== 'object') return JSON.stringify(val);
+  if (Array.isArray(val)) return '[' + val.map(item => canonicalize(item, depth + 1)).join(',') + ']';
+  const sorted = Object.keys(val as object).sort().map(
+    k => JSON.stringify(k) + ':' + canonicalize((val as Record<string, unknown>)[k], depth + 1)
+  );
+  return '{' + sorted.join(',') + '}';
+}
+
+/** Sign a vote entry, producing a hex-encoded HMAC-SHA256 signature. */
+function signVote(agentId: string, vote: unknown, decisionId: string, key: Buffer): string {
+  // Cap string fields to prevent OOM when hashing attacker-supplied inputs.
+  const safeAgentId = agentId.slice(0, MAX_INPUT_LEN);
+  const safeDecisionId = decisionId.slice(0, MAX_INPUT_LEN);
+  const payload = JSON.stringify({ agentId: safeAgentId, vote: canonicalize(vote), decisionId: safeDecisionId });
+  return createHmac('sha256', key).update(payload).digest('hex');
+}
+
+/** Verify a vote entry signature using constant-time comparison. */
+function verifyVote(agentId: string, vote: unknown, decisionId: string, signature: string, key: Buffer): boolean {
+  // Guard: odd-length or non-hex signature string causes Buffer.from to throw.
+  if (!/^[0-9a-fA-F]{64}$/.test(signature)) return false;
+  const expected = signVote(agentId, vote, decisionId, key);
+  const sigBuf = Buffer.from(signature, 'hex');
+  const expBuf = Buffer.from(expected, 'hex');
+  if (sigBuf.length !== expBuf.length) return false;
+  return timingSafeEqual(sigBuf, expBuf);
+}
 
 /** Supported consensus protocols. */
 export type ConsensusProtocol = 'byzantine' | 'raft' | 'gossip' | 'crdt' | 'quorum';
