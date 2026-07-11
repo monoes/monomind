@@ -6,107 +6,29 @@
  * The "train" tool embeds and stores; the "predict" tool finds similar stored
  * patterns. Embeddings come from the shared memory/embedding-operations.ts
  * pipeline (LanceDB bridge -> ONNX -> deterministic hash fallback).
+ *
+ * All pattern storage is delegated to intelligence.ts's LocalReasoningBank
+ * (single source of truth for patterns.json). No separate models.json store.
  */
 
-import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import { cosineSimilarity } from '../utils/cosine-similarity.js';
-import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
+import { type MCPTool } from './types.js';
 
-const MAX_NEURAL_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
-const NEURAL_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const MAX_MODEL_ID_LEN = 256;
+const MAX_PATTERNS = 10000;
+const MAX_TRAINING_ENTRIES = 1000;
+const MAX_TEXT_LENGTH = 64 * 1024;
+const MAX_SEARCH_QUERY_LENGTH = 16 * 1024;
 
-// Embeddings: delegate to the shared embedding pipeline (LanceDB bridge → ONNX →
-// deterministic hash fallback) in memory/embedding-operations.ts. This is the same
-// path CLI `neural` commands use via intelligence.ts — previously neural-tools.ts
-// had its own separate ONNX/hash implementation, which meant MCP-trained patterns
-// and CLI-trained patterns were embedded with different, incompatible vectors.
+// Embeddings: delegate to the shared embedding pipeline (LanceDB bridge -> ONNX ->
+// deterministic hash fallback) in memory/embedding-operations.ts.
 let lastEmbeddingModel = 'unknown';
 
-// Storage paths
-const STORAGE_DIR = '.monomind';
-const NEURAL_DIR = 'neural';
-const MODELS_FILE = 'models.json';
-const PATTERNS_FILE = 'patterns.json';
-
-interface NeuralModel {
-  id: string;
-  name: string;
-  type: 'pattern' | 'embedding';
-  status: 'empty' | 'indexing' | 'ready' | 'error';
-  patternsStored: number;
-  trainedAt?: string;
-  epochs: number;
-  config: Record<string, unknown>;
-}
-
-interface Pattern {
-  id: string;
-  name: string;
-  type: string;
-  embedding: number[];
-  metadata: Record<string, unknown>;
-  createdAt: string;
-  usageCount: number;
-}
-
-interface NeuralStore {
-  models: Record<string, NeuralModel>;
-  patterns: Record<string, Pattern>;
-  version: string;
-}
-
-function getNeuralDir(): string {
-  return join(getProjectCwd(), STORAGE_DIR, NEURAL_DIR);
-}
-
-function getNeuralPath(): string {
-  return join(getNeuralDir(), MODELS_FILE);
-}
-
-function ensureNeuralDir(): void {
-  const dir = getNeuralDir();
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-}
-
-function loadNeuralStore(): NeuralStore {
-  try {
-    const raw = readJsonFileSync<NeuralStore>(
-      getNeuralPath(),
-      { models: {}, patterns: {}, version: '3.0.0' },
-      MAX_NEURAL_STORE_BYTES,
-    );
-    // Strip proto-polluting keys from top-level containers
-    const models: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(raw.models ?? {})) {
-      if (!NEURAL_RESERVED_KEYS.has(k)) models[k] = v;
-    }
-    const patterns: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(raw.patterns ?? {})) {
-      if (!NEURAL_RESERVED_KEYS.has(k)) patterns[k] = v;
-    }
-    return {
-      models: models as NeuralStore['models'],
-      patterns: patterns as NeuralStore['patterns'],
-      version: typeof raw.version === 'string' ? raw.version : '3.0.0',
-    };
-  } catch {
-    // Return empty store
-  }
-  return { models: {}, patterns: {}, version: '3.0.0' };
-}
-
-function saveNeuralStore(store: NeuralStore): void {
-  ensureNeuralDir();
-  writeJsonFileAtomic(getNeuralPath(), store);
-}
-
-// Generate embedding via the shared pipeline (LanceDB bridge → ONNX → deterministic
-// hash), same one used by CLI `neural` commands and memory search. Falls back to a
-// local deterministic hash only if the shared module fails to load entirely.
+/**
+ * Generate embedding via the shared pipeline (LanceDB bridge -> ONNX -> deterministic
+ * hash), same one used by CLI `neural` commands and memory search. Falls back to a
+ * local deterministic hash only if the shared module fails to load entirely.
+ */
 async function generateEmbedding(text?: string, dims: number = 384): Promise<number[]> {
   if (!text) return new Array(dims).fill(0);
 
@@ -129,6 +51,14 @@ async function generateEmbedding(text?: string, dims: number = 384): Promise<num
   }
 }
 
+/** Truncate and validate a modelId string */
+function sanitizeModelId(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const id = raw.length > MAX_MODEL_ID_LEN ? raw.slice(0, MAX_MODEL_ID_LEN) : raw;
+  if (RESERVED_KEYS.has(id)) return null;
+  return id;
+}
+
 export const neuralTools: MCPTool[] = [
   {
     name: 'neural_train',
@@ -146,27 +76,10 @@ export const neuralTools: MCPTool[] = [
       required: ['modelType'],
     },
     handler: async (input) => {
-      const store = loadNeuralStore();
-      // Cap modelId to prevent DoS via oversized object keys written to the neural store JSON.
-      const MAX_MODEL_ID_LEN = 256;
       const rawModelId = (input.modelId as string) || `model-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const modelId = typeof rawModelId === 'string' && rawModelId.length > MAX_MODEL_ID_LEN
-        ? rawModelId.slice(0, MAX_MODEL_ID_LEN)
-        : rawModelId;
-
-      const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-      if (RESERVED_KEYS.has(modelId)) {
+      const modelId = sanitizeModelId(rawModelId);
+      if (modelId === null) {
         return { success: false, error: 'Invalid modelId' };
-      }
-
-      const MAX_PATTERNS = 10000;
-      if (Object.keys(store.patterns ?? {}).length >= MAX_PATTERNS) {
-        return { success: false, error: `Pattern store full (max ${MAX_PATTERNS}). Run neural_compress first.` };
-      }
-
-      const MAX_MODELS = 100;
-      if (Object.keys(store.models ?? {}).length >= MAX_MODELS) {
-        return { success: false, error: `Model store full (max ${MAX_MODELS}). Delete old models first.` };
       }
 
       const VALID_MODEL_TYPES = new Set<string>(['pattern', 'embedding']);
@@ -174,28 +87,26 @@ export const neuralTools: MCPTool[] = [
       if (!rawModelType || !VALID_MODEL_TYPES.has(rawModelType)) {
         return { success: false, error: `Invalid modelType "${rawModelType}". Must be one of: pattern, embedding` };
       }
-      const modelType = rawModelType as NeuralModel['type'];
-      const epochs = 1;
+      const modelType = rawModelType;
 
-      const model: NeuralModel = {
-        id: modelId,
-        name: `${modelType}-store`,
-        type: modelType,
-        status: 'indexing',
-        patternsStored: 0,
-        epochs,
-        config: {},
-      };
+      // Initialize intelligence system (single source of truth)
+      const { initializeIntelligence, getReasoningBank, getAllPatterns, flushPatterns } =
+        await import('../memory/intelligence.js');
+      const init = await initializeIntelligence();
+      if (!init.success) {
+        return { success: false, error: 'Failed to initialize intelligence system' };
+      }
+      const bank = getReasoningBank();
+      if (!bank) {
+        return { success: false, error: 'ReasoningBank not available' };
+      }
 
-      store.models[modelId] = model;
-      saveNeuralStore(store);
+      // Check pattern capacity
+      const existingPatterns = await getAllPatterns();
+      if (existingPatterns.length >= MAX_PATTERNS) {
+        return { success: false, error: `Pattern store full (max ${MAX_PATTERNS}). Run neural_compress first.` };
+      }
 
-      // Real training: embed training data and store as searchable patterns.
-      // Cap input array length and re-check the pattern cap inside the loop —
-      // the pre-loop check at line 199 alone allowed an attacker to bypass
-      // MAX_PATTERNS by passing a 100k-entry array.
-      const MAX_TRAINING_ENTRIES = 1000;
-      const MAX_TEXT_LENGTH = 64 * 1024;
       const trainingData = input.data as Record<string, unknown> | Array<unknown> | undefined;
       let patternsStored = 0;
 
@@ -203,7 +114,10 @@ export const neuralTools: MCPTool[] = [
         const rawEntries = Array.isArray(trainingData) ? trainingData : [trainingData];
         const entries = rawEntries.slice(0, MAX_TRAINING_ENTRIES);
         for (let i = 0; i < entries.length; i++) {
-          if (Object.keys(store.patterns ?? {}).length >= MAX_PATTERNS) break;
+          // Re-check capacity inside loop to prevent bypass via large arrays
+          const currentPatterns = await getAllPatterns();
+          if (currentPatterns.length >= MAX_PATTERNS) break;
+
           const entry = entries[i];
           let text = typeof entry === 'string' ? entry
             : (entry as Record<string, unknown>)?.text as string
@@ -215,40 +129,35 @@ export const neuralTools: MCPTool[] = [
 
           const embedding = await generateEmbedding(text, 384);
           const patternId = `${modelId}-train-${i}`;
-          store.patterns[patternId] = {
+
+          bank.store({
             id: patternId,
-            name: typeof entry === 'object' && entry !== null && 'label' in entry
-              ? String((entry as Record<string, unknown>).label) : text.slice(0, 100),
             type: modelType,
             embedding,
-            metadata: { modelId, epoch: epochs, index: i, raw: entry },
-            createdAt: new Date().toISOString(),
-            usageCount: 0,
-          };
+            content: typeof entry === 'object' && entry !== null && 'label' in entry
+              ? String((entry as Record<string, unknown>).label) : text.slice(0, 100),
+            confidence: 0.8,
+            metadata: { modelId, index: i, raw: entry },
+          });
           patternsStored++;
         }
       }
 
-      model.status = 'ready';
-      model.patternsStored = patternsStored;
-      model.trainedAt = new Date().toISOString();
-      saveNeuralStore(store);
+      // Flush immediately to persist
+      flushPatterns();
 
-      // MCP-trained patterns stay in models.json. intelligence.ts reads
-      // from models.json directly at init time (loadMcpPatterns), eliminating
-      // the previous mirror-to-patterns.json approach that caused a write
-      // conflict (two subsystems writing the same file).
+      const totalPatterns = (await getAllPatterns()).length;
 
       return {
         success: true,
         _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
         modelId,
         type: modelType,
-        status: model.status,
+        status: 'ready',
         patternsStored,
-        totalPatterns: Object.keys(store.patterns).length,
-        epochs,
-        trainedAt: model.trainedAt,
+        totalPatterns,
+        epochs: 1,
+        trainedAt: new Date().toISOString(),
       };
     },
   },
@@ -266,87 +175,45 @@ export const neuralTools: MCPTool[] = [
       required: ['input'],
     },
     handler: async (input) => {
-      const store = loadNeuralStore();
-      // Cap modelId to prevent O(n) hash/compare cost on absurdly long keys.
-      const MAX_MODEL_ID_LEN_PRED = 256;
       const rawModelIdPred = input.modelId as string;
-      const modelId = typeof rawModelIdPred === 'string' && rawModelIdPred.length > MAX_MODEL_ID_LEN_PRED
-        ? rawModelIdPred.slice(0, MAX_MODEL_ID_LEN_PRED)
-        : rawModelIdPred;
-      const inputText = typeof input.input === 'string' ? input.input.slice(0, 16 * 1024) : '';
+      if (rawModelIdPred) {
+        const modelId = sanitizeModelId(rawModelIdPred);
+        if (modelId === null) {
+          return { success: false, error: 'Invalid modelId' };
+        }
+      }
+
+      const inputText = typeof input.input === 'string' ? input.input.slice(0, MAX_SEARCH_QUERY_LENGTH) : '';
       const topK = Math.max(1, Math.min((input.topK as number) || 3, 50));
 
-      const RESERVED_KEYS_PRED = new Set(['__proto__', 'constructor', 'prototype']);
-      if (modelId && (RESERVED_KEYS_PRED.has(modelId) || typeof modelId !== 'string')) {
-        return { success: false, error: 'Invalid modelId' };
-      }
+      const { initializeIntelligence, findSimilarPatterns } =
+        await import('../memory/intelligence.js');
+      await initializeIntelligence();
 
-      // Find model or use default
-      const model = modelId
-        ? (Object.hasOwn(store.models, modelId) ? store.models[modelId] : undefined)
-        : Object.values(store.models).find(m => m.status === 'ready');
-
-      if (model && model.status !== 'ready') {
-        return { success: false, error: 'Model not ready' };
-      }
-
-      // Generate real embedding for the input
       const startTime = performance.now();
       const embedding = await generateEmbedding(inputText, 384);
+
+      // Use intelligence.ts findSimilarPatterns which handles embedding + search
+      const results = await findSimilarPatterns(inputText, {
+        k: topK,
+        threshold: 0.1,
+      });
       const latency = Math.round(performance.now() - startTime);
 
-      // Search stored patterns via cosine similarity.
-      // Merge MCP models.json patterns with CLI patterns.json (owned by intelligence.ts).
-      const MAX_SCAN = 10000;
-      const EARLY_EXIT_THRESHOLD = 0.1;
-      const mcpPatterns = Object.values(store.patterns);
-      const cliPatternsRaw: Array<{ id?: string; type?: string; content?: string; name?: string; embedding?: number[] }> = [];
-      try {
-        const cliPath = join(getNeuralDir(), PATTERNS_FILE);
-        const raw = readJsonFileSync<unknown[]>(cliPath, [], MAX_NEURAL_STORE_BYTES);
-        if (Array.isArray(raw)) {
-          const mcpIds = new Set(mcpPatterns.map(p => p.id));
-          for (const p of raw as Array<{ id?: string; type?: string; content?: string; name?: string; embedding?: number[] }>) {
-            if (p?.id && !mcpIds.has(p.id) && Array.isArray(p.embedding)) {
-              cliPatternsRaw.push(p);
-            }
-          }
-        }
-      } catch { /* best-effort */ }
-      const cliMapped: Pattern[] = cliPatternsRaw.map(p => ({
-        id: p.id ?? '',
-        name: p.content ?? p.name ?? p.type ?? '',
-        type: p.type ?? 'general',
-        embedding: p.embedding ?? [],
-        metadata: {},
-        createdAt: new Date().toISOString(),
-        usageCount: 0,
+      const predictions = results.map(r => ({
+        label: r.content || r.type || r.id,
+        confidence: r.similarity ?? r.confidence,
+        patternId: r.id,
       }));
-      const storedPatterns = [...mcpPatterns, ...cliMapped].slice(0, MAX_SCAN);
-      let predictions;
-
-      if (storedPatterns.length > 0) {
-        const scored: { label: string; confidence: number; patternId: string }[] = [];
-        for (const p of storedPatterns) {
-          if (!Array.isArray(p.embedding) || p.embedding.length !== embedding.length) continue;
-          const conf = Math.max(0, cosineSimilarity(embedding, p.embedding));
-          if (conf < EARLY_EXIT_THRESHOLD) continue;
-          scored.push({ label: p.name || p.type || p.id, confidence: conf, patternId: p.id });
-        }
-        predictions = scored.sort((a, b) => b.confidence - a.confidence).slice(0, topK);
-      } else {
-        // No patterns stored — no predictions possible
-        predictions = [];
-      }
 
       return {
         success: true,
         _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
-        _hasStoredPatterns: storedPatterns.length > 0,
-        modelId: model?.id || 'default',
+        _hasStoredPatterns: results.length > 0,
+        modelId: rawModelIdPred || 'default',
         input: inputText,
         predictions,
-        embedding: embedding.slice(0, 8), // Preview of embedding
+        embedding: embedding.slice(0, 8),
         embeddingDims: embedding.length,
         latency,
       };
@@ -368,106 +235,109 @@ export const neuralTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const store = loadNeuralStore();
       const action = (input.action as string) || 'list';
 
+      const { initializeIntelligence, getAllPatterns, getPatternsByType, getReasoningBank, findSimilarPatterns, deletePattern, flushPatterns } =
+        await import('../memory/intelligence.js');
+      await initializeIntelligence();
+
       if (action === 'list') {
-        const patterns = Object.values(store.patterns);
         const typeFilter = input.type as string;
-        const filtered = typeFilter ? patterns.filter(p => p.type === typeFilter) : patterns;
+        const patterns = typeFilter
+          ? await getPatternsByType(typeFilter)
+          : await getAllPatterns();
 
         return {
-          patterns: filtered.map(p => ({
+          patterns: patterns.map(p => ({
             id: p.id,
-            name: p.name,
+            name: p.content,
             type: p.type,
             usageCount: p.usageCount,
-            createdAt: p.createdAt,
+            createdAt: typeof p.createdAt === 'number' ? new Date(p.createdAt).toISOString() : p.createdAt,
           })),
-          total: filtered.length,
+          total: patterns.length,
         };
       }
 
       if (action === 'get') {
         const patternId = input.patternId as string;
-        if (!patternId || NEURAL_RESERVED_KEYS.has(patternId)) {
+        if (!patternId || RESERVED_KEYS.has(patternId)) {
           return { success: false, error: 'Invalid patternId' };
         }
-        const pattern = Object.hasOwn(store.patterns, patternId) ? store.patterns[patternId] : undefined;
+        const bank = getReasoningBank();
+        if (!bank) {
+          return { success: false, error: 'ReasoningBank not available' };
+        }
+        const pattern = bank.get(patternId);
         if (!pattern) {
           return { success: false, error: 'Pattern not found' };
         }
-        return { success: true, pattern };
+        return {
+          success: true,
+          pattern: {
+            id: pattern.id,
+            name: pattern.content,
+            type: pattern.type,
+            embedding: pattern.embedding,
+            metadata: pattern.metadata ?? {},
+            createdAt: new Date(pattern.createdAt).toISOString(),
+            usageCount: pattern.usageCount,
+          },
+        };
       }
 
       if (action === 'store') {
-        const MAX_PATTERNS = 10000;
-        if (Object.keys(store.patterns ?? {}).length >= MAX_PATTERNS) {
+        const allPatterns = await getAllPatterns();
+        if (allPatterns.length >= MAX_PATTERNS) {
           return { success: false, error: `Pattern store full (max ${MAX_PATTERNS}). Run neural_compress first.` };
         }
 
-        const patternId = `pattern-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        // Cap name length to prevent DoS in generateEmbedding (hash path is O(n))
-        const MAX_PATTERN_NAME_LENGTH = 16 * 1024; // 16 KB
+        const MAX_PATTERN_NAME_LENGTH = 16 * 1024;
         const rawPatternName = (input.name as string) || 'Unnamed pattern';
         const patternName = typeof rawPatternName === 'string' && rawPatternName.length > MAX_PATTERN_NAME_LENGTH
           ? rawPatternName.slice(0, MAX_PATTERN_NAME_LENGTH)
           : rawPatternName;
 
-        // Generate embedding from pattern name/content
         const embedding = await generateEmbedding(patternName, 384);
+        const patternId = `pattern-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const patternType = (input.type as string) || 'general';
 
-        const pattern: Pattern = {
+        const bank = getReasoningBank();
+        if (!bank) {
+          return { success: false, error: 'ReasoningBank not available' };
+        }
+
+        bank.store({
           id: patternId,
-          name: patternName,
-          type: (input.type as string) || 'general',
+          type: patternType,
           embedding,
+          content: patternName,
+          confidence: 0.8,
           metadata: (input.data as Record<string, unknown>) || {},
-          createdAt: new Date().toISOString(),
-          usageCount: 0,
-        };
-
-        store.patterns[patternId] = pattern;
-        saveNeuralStore(store);
+        });
+        flushPatterns();
 
         return {
           success: true,
           _realEmbedding: lastEmbeddingModel !== 'hash-fallback',
           patternId,
-          name: pattern.name,
-          type: pattern.type,
+          name: patternName,
+          type: patternType,
           embeddingDims: embedding.length,
-          createdAt: pattern.createdAt,
+          createdAt: new Date().toISOString(),
         };
       }
 
       if (action === 'search') {
-        // Cap query length to prevent DoS in generateEmbedding (hash path is O(n))
-        const MAX_SEARCH_QUERY_LENGTH = 16 * 1024; // 16 KB — matches neural_predict cap
         const rawQuery = input.query as string;
         const query = typeof rawQuery === 'string' && rawQuery.length > MAX_SEARCH_QUERY_LENGTH
           ? rawQuery.slice(0, MAX_SEARCH_QUERY_LENGTH)
           : rawQuery;
 
-        // Generate query embedding for real similarity search
-        const queryEmbedding = await generateEmbedding(query, 384);
-
-        // Calculate REAL cosine similarity against stored patterns
-        const results = Object.values(store.patterns)
-          .map(p => ({
-            ...p,
-            similarity: cosineSimilarity(queryEmbedding, p.embedding),
-          }))
-          .sort((a, b) => b.similarity - a.similarity)
-          .slice(0, 10);
-
-        // Increment usageCount so prune can track retrieval frequency
-        for (const r of results) {
-          if (Object.hasOwn(store.patterns, r.id)) {
-            store.patterns[r.id].usageCount = (store.patterns[r.id].usageCount || 0) + 1;
-          }
-        }
-        saveNeuralStore(store);
+        const results = await findSimilarPatterns(query || '', {
+          k: 10,
+          threshold: 0.1,
+        });
 
         return {
           _realSimilarity: true,
@@ -475,9 +345,9 @@ export const neuralTools: MCPTool[] = [
           query,
           results: results.map(r => ({
             id: r.id,
-            name: r.name,
+            name: r.content,
             type: r.type,
-            similarity: r.similarity,
+            similarity: r.similarity ?? r.confidence,
           })),
           total: results.length,
         };
@@ -485,14 +355,13 @@ export const neuralTools: MCPTool[] = [
 
       if (action === 'delete') {
         const patternId = input.patternId as string;
-        if (!patternId || NEURAL_RESERVED_KEYS.has(patternId)) {
+        if (!patternId || RESERVED_KEYS.has(patternId)) {
           return { success: false, error: 'Invalid patternId' };
         }
-        if (!Object.hasOwn(store.patterns, patternId)) {
+        const deleted = await deletePattern(patternId);
+        if (!deleted) {
           return { success: false, error: 'Pattern not found' };
         }
-        delete store.patterns[patternId];
-        saveNeuralStore(store);
         return { success: true, deleted: patternId };
       }
 
@@ -512,97 +381,45 @@ export const neuralTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const store = loadNeuralStore();
       const method = (input.method as string) || 'quantize';
-      const targetReduction = (input.targetSize as number) || 0.5;
-      const patterns = Object.values(store.patterns);
 
+      const { initializeIntelligence, compactPatterns, getAllPatterns } =
+        await import('../memory/intelligence.js');
+      await initializeIntelligence();
+
+      const patterns = await getAllPatterns();
       if (patterns.length === 0) {
         return { success: false, error: 'No patterns to compress. Train patterns first with neural_train.' };
       }
 
       const beforeCount = patterns.length;
-      const beforeSize = patterns.reduce((s, p) => s + (p.embedding?.length || 0) * 4, 0); // Float32 = 4 bytes
 
-      if (method === 'quantize') {
-        try {
-          const { quantizeInt8, getQuantizationStats } = await import('../memory/memory-initializer.js');
-          let totalCompressed = 0;
-          for (const pattern of patterns) {
-            if (pattern.embedding && pattern.embedding.length > 0) {
-              const stats = getQuantizationStats(pattern.embedding);
-              const quantized = quantizeInt8(pattern.embedding);
-              // Store quantized metadata (keep original embedding for search)
-              (pattern as any)._quantized = {
-                scale: quantized.scale,
-                zeroPoint: quantized.zeroPoint,
-                compressionRatio: stats.compressionRatio,
-              };
-              totalCompressed++;
-            }
-          }
-          saveNeuralStore(store);
-          return {
-            success: true, _real: true, method,
-            patternsCompressed: totalCompressed,
-            note: 'Quantization metadata stored; original embeddings retained for search accuracy.',
-          };
-        } catch {
-          return { success: false, error: 'Quantization requires memory-initializer. Run `memory init` first.' };
-        }
-      }
-
-      if (method === 'prune') {
-        // Prune the least-used fraction of patterns. targetReduction (0-1) is a percentile:
-        // 0.5 removes the bottom 50% by usageCount, 0.8 removes the bottom 80%, etc.
-        const counts = Object.values(store.patterns)
-          .map(p => p.usageCount || 0)
-          .sort((a, b) => a - b);
-        const cutoffIdx = Math.floor(targetReduction * counts.length);
-        const threshold = counts[cutoffIdx] ?? 0;
-        const toRemove: string[] = [];
-        for (const [id, pattern] of Object.entries(store.patterns)) {
-          if ((pattern.usageCount || 0) < threshold) toRemove.push(id);
-        }
-        for (const id of toRemove) delete store.patterns[id];
-        saveNeuralStore(store);
+      if (method === 'quantize' || method === 'distill') {
+        // Both quantize and distill map to compactPatterns (dedup by cosine similarity)
+        const threshold = method === 'quantize' ? 0.99 : 0.95;
+        const result = await compactPatterns(threshold);
         return {
           success: true, _real: true, method,
-          threshold,
-          patternsRemoved: toRemove.length,
-          patternsBefore: beforeCount,
-          patternsAfter: Object.keys(store.patterns).length,
+          patternsBefore: result.before,
+          patternsAfter: result.after,
+          patternsRemoved: result.removed,
+          note: method === 'quantize'
+            ? 'Near-duplicate patterns removed (cosine > 0.99).'
+            : `Similar patterns merged (cosine > ${threshold}).`,
         };
       }
 
-      if (method === 'distill') {
-        // Merge similar patterns by cosine similarity > 0.95
-        const patternList = Object.entries(store.patterns);
-        const merged: string[] = [];
-        for (let i = 0; i < patternList.length; i++) {
-          const [idA, a] = patternList[i];
-          if (merged.includes(idA)) continue;
-          for (let j = i + 1; j < patternList.length; j++) {
-            const [idB, b] = patternList[j];
-            if (!a.embedding || !b.embedding || merged.includes(idB)) continue;
-            const sim = cosineSimilarity(a.embedding, b.embedding);
-            if (sim > 0.95) {
-              // Merge: average embeddings, keep higher usage count
-              for (let k = 0; k < a.embedding.length; k++) {
-                a.embedding[k] = (a.embedding[k] + (b.embedding[k] || 0)) / 2;
-              }
-              a.usageCount = Math.max(a.usageCount || 0, b.usageCount || 0);
-              delete store.patterns[idB];
-              merged.push(idB);
-            }
-          }
-        }
-        saveNeuralStore(store);
+      if (method === 'prune') {
+        // Prune maps to compactPatterns with a looser threshold
+        const targetReduction = (input.targetSize as number) || 0.5;
+        // Use a threshold proportional to target reduction (lower = more aggressive)
+        const threshold = 0.7 + (1 - targetReduction) * 0.25;
+        const result = await compactPatterns(threshold);
         return {
           success: true, _real: true, method,
-          patternsMerged: merged.length,
-          patternsBefore: beforeCount,
-          patternsAfter: Object.keys(store.patterns).length,
+          patternsBefore: result.before,
+          patternsAfter: result.after,
+          patternsRemoved: result.removed,
         };
       }
 
@@ -621,41 +438,55 @@ export const neuralTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const store = loadNeuralStore();
+      const { initializeIntelligence, getIntelligenceStats, getAllPatterns } =
+        await import('../memory/intelligence.js');
+      await initializeIntelligence();
+
+      const stats = getIntelligenceStats();
+      const patterns = await getAllPatterns();
 
       if (input.modelId) {
-        const MAX_MODEL_ID_LEN_STATUS = 256;
-        const rawModelIdStatus = input.modelId as string;
-        const modelId = typeof rawModelIdStatus === 'string' && rawModelIdStatus.length > MAX_MODEL_ID_LEN_STATUS
-          ? rawModelIdStatus.slice(0, MAX_MODEL_ID_LEN_STATUS)
-          : rawModelIdStatus;
-        if (NEURAL_RESERVED_KEYS.has(modelId)) {
+        const modelId = sanitizeModelId(input.modelId as string);
+        if (modelId === null) {
           return { success: false, error: 'Invalid modelId' };
         }
-        const model = Object.hasOwn(store.models, modelId) ? store.models[modelId] : undefined;
-        if (!model) {
-          return { success: false, error: 'Model not found' };
-        }
-        return { success: true, model };
+        // Filter patterns belonging to this model (by metadata or id prefix)
+        const modelPatterns = patterns.filter(p =>
+          p.id.startsWith(modelId) ||
+          ((p as unknown as { metadata?: { modelId?: string } }).metadata?.modelId === modelId)
+        );
+        return {
+          success: true,
+          model: {
+            id: modelId,
+            patternsStored: modelPatterns.length,
+            status: modelPatterns.length > 0 ? 'ready' : 'empty',
+          },
+        };
       }
 
-      const models = Object.values(store.models);
-      const patterns = Object.values(store.patterns);
+      const byType: Record<string, number> = {};
+      for (const p of patterns) {
+        byType[p.type] = (byType[p.type] || 0) + 1;
+      }
 
       return {
         embeddingProvider: lastEmbeddingModel === 'unknown' ? 'not yet used' : lastEmbeddingModel,
+        sonaEnabled: stats.sonaEnabled,
         models: {
-          total: models.length,
-          ready: models.filter(m => m.status === 'ready').length,
-          indexing: models.filter(m => m.status === 'indexing').length,
+          total: 0, // models concept removed; patterns are stored directly
+          ready: 0,
+          indexing: 0,
         },
         patterns: {
           total: patterns.length,
-          byType: patterns.reduce((acc, p) => {
-            acc[p.type] = (acc[p.type] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>),
-          embeddingDims: patterns.length > 0 ? patterns[0].embedding.length : 384,
+          byType,
+          embeddingDims: patterns.length > 0 && patterns[0].embedding ? patterns[0].embedding.length : 384,
+        },
+        intelligence: {
+          reasoningBankSize: stats.reasoningBankSize,
+          patternsLearned: stats.patternsLearned,
+          trajectoriesRecorded: stats.trajectoriesRecorded,
         },
       };
     },
@@ -672,10 +503,13 @@ export const neuralTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const store = loadNeuralStore();
       const target = (input.target as string) || 'balanced';
-      const patterns = Object.values(store.patterns);
 
+      const { initializeIntelligence, compactPatterns, getAllPatterns } =
+        await import('../memory/intelligence.js');
+      await initializeIntelligence();
+
+      const patterns = await getAllPatterns();
       if (patterns.length === 0) {
         return { success: false, error: 'No patterns to optimize. Train patterns first with neural_train.' };
       }
@@ -684,80 +518,42 @@ export const neuralTools: MCPTool[] = [
       const actions: string[] = [];
       const beforeCount = patterns.length;
       const dims = patterns[0]?.embedding?.length || 0;
-      let patternsRemoved = 0;
-      let patternsQuantized = 0;
-      let duplicatesRemoved = 0;
 
-      // speed / balanced: deduplicate identical or near-identical patterns
-      if (target === 'speed' || target === 'balanced') {
-        const seen = new Map<string, string>(); // hash -> id
-        for (const [id, p] of Object.entries(store.patterns)) {
-          if (!p.embedding || p.embedding.length === 0) continue;
-          // Quick hash: first 8 dims rounded
-          const hash = p.embedding.slice(0, 8).map(v => v.toFixed(4)).join(',');
-          if (seen.has(hash)) {
-            // Verify with full cosine similarity
-            const existingId = seen.get(hash)!;
-            const existing = store.patterns[existingId];
-            if (existing && cosineSimilarity(p.embedding, existing.embedding) > 0.99) {
-              existing.usageCount = Math.max(existing.usageCount || 0, p.usageCount || 0);
-              delete store.patterns[id];
-              duplicatesRemoved++;
-            }
-          } else {
-            seen.set(hash, id);
-          }
-        }
-        if (duplicatesRemoved > 0) actions.push(`Removed ${duplicatesRemoved} near-duplicate patterns`);
+      // All optimization targets delegate to compactPatterns with varying thresholds
+      let threshold: number;
+      switch (target) {
+        case 'speed':
+          threshold = 0.99; // only near-exact duplicates
+          break;
+        case 'memory':
+          threshold = 0.90; // aggressive dedup
+          break;
+        case 'accuracy':
+          threshold = 0.98; // conservative
+          break;
+        case 'balanced':
+        default:
+          threshold = 0.95;
+          break;
       }
 
-      // memory / balanced: quantize large embeddings
-      if (target === 'memory' || target === 'balanced') {
-        try {
-          const { quantizeInt8, getQuantizationStats } = await import('../memory/memory-initializer.js');
-          for (const p of Object.values(store.patterns)) {
-            if (p.embedding && p.embedding.length > 0 && !(p as any)._quantized) {
-              const stats = getQuantizationStats(p.embedding);
-              const q = quantizeInt8(p.embedding);
-              (p as any)._quantized = { scale: q.scale, zeroPoint: q.zeroPoint, compressionRatio: stats.compressionRatio };
-              patternsQuantized++;
-            }
-          }
-          if (patternsQuantized > 0) actions.push(`Quantized ${patternsQuantized} pattern embeddings (Int8, ~3.92x)`);
-        } catch {
-          actions.push('Quantization skipped (memory-initializer not available)');
-        }
+      const result = await compactPatterns(threshold);
+      if (result.removed > 0) {
+        actions.push(`Removed ${result.removed} similar patterns (cosine > ${threshold})`);
+      } else {
+        actions.push('No duplicate patterns found');
       }
 
-      // accuracy / balanced: prune low-usage, zero-embedding patterns
-      if (target === 'accuracy' || target === 'balanced') {
-        for (const [id, p] of Object.entries(store.patterns)) {
-          if (!p.embedding || p.embedding.length === 0) {
-            delete store.patterns[id];
-            patternsRemoved++;
-            continue;
-          }
-          // Remove patterns with all-zero embeddings (no useful signal)
-          const norm = p.embedding.reduce((s, v) => s + v * v, 0);
-          if (norm < 1e-10) {
-            delete store.patterns[id];
-            patternsRemoved++;
-          }
-        }
-        if (patternsRemoved > 0) actions.push(`Pruned ${patternsRemoved} empty/zero-signal patterns`);
-      }
-
-      saveNeuralStore(store);
       const elapsed = Math.round(performance.now() - startTime);
 
       return {
         success: true, _real: true, target,
         actions,
-        patternsBefore: beforeCount,
-        patternsAfter: Object.keys(store.patterns).length,
-        duplicatesRemoved,
-        patternsQuantized,
-        patternsRemoved,
+        patternsBefore: result.before,
+        patternsAfter: result.after,
+        duplicatesRemoved: result.removed,
+        patternsQuantized: 0,
+        patternsRemoved: result.removed,
         embeddingDims: dims,
         elapsedMs: elapsed,
       };
