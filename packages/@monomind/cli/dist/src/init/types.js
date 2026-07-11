@@ -87,7 +87,6 @@ export const DEFAULT_INIT_OPTIONS = {
         hooks: true,
         monitoring: true,
         optimization: true,
-        sparc: true,
         all: true,
     },
     agents: {
@@ -95,7 +94,6 @@ export const DEFAULT_INIT_OPTIONS = {
         consensus: true,
         github: true,
         hiveMind: true,
-        sparc: true,
         swarm: true,
         optimization: true,
         testing: true,
@@ -173,7 +171,6 @@ export const MINIMAL_INIT_OPTIONS = {
         consensus: false,
         github: false,
         hiveMind: false,
-        sparc: false,
         swarm: false,
         optimization: false,
         testing: false,

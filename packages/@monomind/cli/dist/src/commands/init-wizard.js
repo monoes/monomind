@@ -59,7 +59,7 @@ export const wizardCommand = {
                     const skillSets = await multiSelect({
                         message: 'Select skill sets:',
                         options: [
-                            { value: 'core', label: 'Core', hint: 'Swarm, memory, SPARC skills', selected: true },
+                            { value: 'core', label: 'Core', hint: 'Swarm, memory skills', selected: true },
                             { value: 'memory', label: 'Memory (LanceDB)', hint: 'Vector database skills', selected: true },
                             { value: 'github', label: 'GitHub', hint: 'GitHub integration skills', selected: true },
                         ],

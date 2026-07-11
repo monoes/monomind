@@ -58,7 +58,6 @@ const SKILLS_MAP: Record<string, string[]> = {
   core: [
     'swarm-orchestration',
     'swarm-advanced',
-    'sparc-methodology',
     'hooks-automation',
     'pair-programming',
     'verification-quality',
@@ -72,6 +71,10 @@ const SKILLS_MAP: Record<string, string[]> = {
     'monolean-debt',
     'monolean-help',
     'hive-mind-advanced',
+    // The mastermind command files installed by init invoke
+    // Skill("mastermind-skills:*") at runtime — this directory must ship
+    // with core or those references break in user projects.
+    'mastermind-skills',
   ],
   browser: ['agent-browser-testing'],
   // NOTE: memory-toolkit and github-toolkit are single consolidated skills
@@ -92,7 +95,7 @@ const SKILLS_MAP: Record<string, string[]> = {
  */
 const COMMANDS_MAP: Record<string, string[]> = {
   core: [
-    'mastermind.md', 'tokens.md', 'monobrowse.md', 'sparc.md', 'ts.md',
+    'mastermind.md', 'tokens.md', 'monobrowse.md', 'ts.md',
   ],
   agents: ['agents'],
   analysis: ['analysis'],
@@ -108,7 +111,6 @@ const COMMANDS_MAP: Record<string, string[]> = {
   monomind: ['mastermind'],
   optimization: ['optimization'],
   pair: ['pair'],
-  sparc: ['sparc'],
   streamChain: ['stream-chain'],
   swarm: ['swarm'],
   training: ['training'],
@@ -147,7 +149,6 @@ const AGENTS_MAP: Record<string, string[]> = {
   sales: ['sales'],
   schemas: ['schemas'],
   sona: ['sona'],
-  sparc: ['sparc'],
   spatialComputing: ['spatial-computing'],
   specialists: ['specialists'],
   specialized: ['specialized'],
@@ -1140,7 +1141,6 @@ async function copyCommands(
     if (commandsConfig.monomind) commandsToCopy.push(...(COMMANDS_MAP.monomind || []));
     if (commandsConfig.optimization) commandsToCopy.push(...COMMANDS_MAP.optimization);
     if (commandsConfig.pair) commandsToCopy.push(...(COMMANDS_MAP.pair || []));
-    if (commandsConfig.sparc) commandsToCopy.push(...COMMANDS_MAP.sparc);
     if (commandsConfig.streamChain) commandsToCopy.push(...(COMMANDS_MAP.streamChain || []));
     if (commandsConfig.swarm) commandsToCopy.push(...(COMMANDS_MAP.swarm || []));
     if (commandsConfig.training) commandsToCopy.push(...(COMMANDS_MAP.training || []));
@@ -1209,7 +1209,6 @@ async function copyAgents(
     if (agentsConfig.consensus) agentsToCopy.push(...AGENTS_MAP.consensus);
     if (agentsConfig.github) agentsToCopy.push(...AGENTS_MAP.github);
     if (agentsConfig.hiveMind) agentsToCopy.push(...AGENTS_MAP.hiveMind);
-    if (agentsConfig.sparc) agentsToCopy.push(...AGENTS_MAP.sparc);
     if (agentsConfig.swarm) agentsToCopy.push(...AGENTS_MAP.swarm);
     if (agentsConfig.optimization) agentsToCopy.push(...(AGENTS_MAP.optimization || []));
     if (agentsConfig.testing) agentsToCopy.push(...(AGENTS_MAP.testing || []));
@@ -1823,9 +1822,6 @@ npx monomind@latest swarm monitor
 
 ### GitHub & Repository (9)
 \`github-modes\`, \`pr-manager\`, \`code-review-swarm\`, \`issue-tracker\`, \`release-manager\`, \`workflow-automation\`, \`project-board-sync\`, \`repo-architect\`, \`multi-repo-swarm\`
-
-### SPARC Methodology (6)
-\`sparc-coord\`, \`sparc-coder\`, \`specification\`, \`pseudocode\`, \`architecture\`, \`refinement\`
 
 ### Specialized Development (8)
 \`backend-dev\`, \`mobile-dev\`, \`ml-developer\`, \`cicd-engineer\`, \`api-docs\`, \`system-architect\`, \`code-analyzer\`, \`base-template-generator\`

@@ -164,7 +164,6 @@ export const COMMON_TYPOS: Record<string, string> = {
   'performace': 'performance',
   'provider': 'providers',
 
-  'claim': 'claims',
   'embed': 'embeddings',
   'embeding': 'embeddings',
   'daemon': 'daemon',
@@ -178,10 +177,7 @@ export const COMMON_TYPOS: Record<string, string> = {
   'taks': 'task',
   'sessio': 'session',
   'sess': 'session',
-  'sesssion': 'session',
-  'workflow': 'workflow',
-  'wf': 'workflow',
-  'wokflow': 'workflow'
+  'sesssion': 'session'
 };
 
 /**

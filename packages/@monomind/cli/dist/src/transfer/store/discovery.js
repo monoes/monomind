@@ -325,83 +325,35 @@ export class PatternDiscovery {
         catch {
             // GCS not available
         }
-        // Return fallback genesis registry if all else fails
-        console.log(`[Discovery] Using built-in genesis registry`);
-        return this.getGenesisRegistry(cid);
+        // No registry could be reached. Previously this fell back to a built-in
+        // "genesis registry" that invented a pattern with fabricated stats
+        // (1,000 downloads, 5.0 rating, 42 reviews). Return an honest empty
+        // registry instead.
+        console.log(`[Discovery] No registry reachable — transfer store requires a configured registry`);
+        return this.getEmptyRegistry();
     }
     /**
-     * Get built-in genesis registry (always available offline)
+     * Honest empty registry returned when no registry is reachable.
+     * Contains no patterns and no fabricated stats.
      */
-    getGenesisRegistry(cid) {
+    getEmptyRegistry() {
         return {
             version: '1.0.0',
             updatedAt: new Date().toISOString(),
-            ipnsName: 'k51qzi5uqu5dj0w8q1xvqn8ql2g4p7x8qpk9vz3xm1y2n3o4p5q6r7s8t9u0v',
+            ipnsName: '',
             previousCid: undefined,
-            patterns: [
-                {
-                    id: 'seraphine-genesis-v1',
-                    name: 'seraphine-genesis',
-                    displayName: 'Seraphine Genesis',
-                    description: 'The foundational Monomind pattern model. Contains core routing patterns, complexity heuristics, and coordination trajectories for multi-agent swarms.',
-                    version: '1.0.0',
-                    cid: 'bafybeibqsa442vty2cvhku4ujlrkupyl75536ene7ybqsa442v',
-                    size: 8808,
-                    checksum: '8df766b89d044815c84796e7f33ba30d7806bff7eb2a75e2a0b7d26b64c45231',
-                    author: {
-                        id: 'monomind-team',
-                        displayName: 'Monomind Team',
-                        verified: true,
-                        patterns: 1,
-                        totalDownloads: 1000,
-                    },
-                    license: 'MIT',
-                    categories: ['routing', 'coordination'],
-                    tags: ['genesis', 'foundational', 'routing', 'swarm', 'coordination', 'multi-agent', 'hello-world'],
-                    language: 'typescript',
-                    framework: 'monomind',
-                    downloads: 1000,
-                    rating: 5.0,
-                    ratingCount: 42,
-                    lastUpdated: new Date().toISOString(),
-                    createdAt: '2026-01-08T18:42:31.126Z',
-                    minMonomindVersion: '3.0.0',
-                    verified: true,
-                    trustLevel: 'verified',
-                    signature: 'ed25519:genesis-pattern-signature',
-                    publicKey: 'ed25519:monomind-team-key',
-                },
-            ],
-            categories: [
-                { id: 'routing', name: 'Task Routing', description: 'Task routing patterns', patternCount: 1, icon: '🔀' },
-                { id: 'coordination', name: 'Swarm Coordination', description: 'Multi-agent coordination', patternCount: 1, icon: '🐝' },
-                { id: 'security', name: 'Security', description: 'Security patterns', patternCount: 0, icon: '🔒' },
-                { id: 'performance', name: 'Performance', description: 'Performance patterns', patternCount: 0, icon: '⚡' },
-                { id: 'testing', name: 'Testing', description: 'Testing patterns', patternCount: 0, icon: '🧪' },
-            ],
-            authors: [
-                {
-                    id: 'monomind-team',
-                    displayName: 'Monomind Team',
-                    publicKey: 'ed25519:monomind-team-key',
-                    verified: true,
-                    patterns: 1,
-                    totalDownloads: 1000,
-                },
-            ],
-            totalPatterns: 1,
-            totalDownloads: 1000,
-            totalAuthors: 1,
-            featured: ['seraphine-genesis-v1'],
-            trending: ['seraphine-genesis-v1'],
-            newest: ['seraphine-genesis-v1'],
-            // No signature on the genesis fallback. Previously this slot used
-            // `crypto.randomBytes(32)` which is meaningless by construction — every
-            // call would produce a different "valid" signature that no real key
-            // signed. Trusted-registry callers must reject this fallback (the
-            // verification path requires `registrySignature` to be present and
-            // verified against a pinned public key).
-            registryPublicKey: 'ed25519:monomind-registry-key',
+            patterns: [],
+            categories: [],
+            authors: [],
+            totalPatterns: 0,
+            totalDownloads: 0,
+            totalAuthors: 0,
+            featured: [],
+            trending: [],
+            newest: [],
+            // No signature — trusted-registry callers must reject this fallback
+            // (the verification path requires `registrySignature` to be present
+            // and verified against a pinned public key).
         };
     }
     /**

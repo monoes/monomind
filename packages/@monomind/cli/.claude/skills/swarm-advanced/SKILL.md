@@ -917,7 +917,6 @@ mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 4 })
 
 ## Related Skills
 
-- `sparc-methodology` - Systematic development workflow
 - `github-integration` - Repository management and automation
 - `neural-patterns` - AI-powered coordination optimization
 - `memory-management` - Cross-session state persistence

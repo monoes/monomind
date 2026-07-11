@@ -64,7 +64,7 @@ export interface HooksConfig {
  * Skills configuration
  */
 export interface SkillsConfig {
-    /** Include core skills (swarm, sparc, mastermind, monodesign, monomotion) */
+    /** Include core skills (swarm, mastermind, monodesign, monomotion) */
     core: boolean;
     /** Include memory/LanceDB skills */
     memory: boolean;
@@ -81,7 +81,7 @@ export interface SkillsConfig {
  * Commands configuration
  */
 export interface CommandsConfig {
-    /** Include core commands (mastermind.md, tokens.md, browse.md, sparc.md, ts.md) */
+    /** Include core commands (mastermind.md, tokens.md, browse.md, ts.md) */
     core: boolean;
     /** Include agents commands */
     agents?: boolean;
@@ -111,8 +111,6 @@ export interface CommandsConfig {
     optimization: boolean;
     /** Include pair commands */
     pair?: boolean;
-    /** Include SPARC commands */
-    sparc: boolean;
     /** Include stream-chain commands */
     streamChain?: boolean;
     /** Include swarm commands */
@@ -140,8 +138,6 @@ export interface AgentsConfig {
     github: boolean;
     /** Include hive-mind agents */
     hiveMind: boolean;
-    /** Include SPARC agents */
-    sparc: boolean;
     /** Include swarm coordinators */
     swarm: boolean;
     /** Include optimization agents */

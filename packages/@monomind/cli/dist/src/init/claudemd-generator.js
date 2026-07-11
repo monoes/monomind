@@ -194,10 +194,7 @@ function agentTypes() {
 \`hierarchical-coordinator\`, \`mesh-coordinator\`, \`adaptive-coordinator\`
 
 ### GitHub & Repository
-\`pr-manager\`, \`code-review-swarm\`, \`issue-tracker\`, \`release-manager\`
-
-### SPARC Methodology
-\`sparc-coord\`, \`sparc-coder\`, \`specification\`, \`pseudocode\`, \`architecture\``;
+\`pr-manager\`, \`code-review-swarm\`, \`issue-tracker\`, \`release-manager\``;
 }
 function hooksSystem() {
     return `## Hooks System (27 Hooks + 12 Workers)

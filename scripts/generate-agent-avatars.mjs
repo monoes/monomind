@@ -27,7 +27,6 @@ const CAT_COLORS = {
   consensus:  { bg:'#EEF9FF', body:'#2196A8', accent:'#16707A' },
   perf:       { bg:'#FFF6EE', body:'#F4A261', accent:'#D4824A' },
   github:     { bg:'#F0F2F5', body:'#2D3748', accent:'#1a212e' },
-  sparc:      { bg:'#E8FAF5', body:'#2A9D8F', accent:'#1A7D72' },
   devops:     { bg:'#F0FFF4', body:'#38A169', accent:'#2D8656' },
   legal:      { bg:'#FFFBEC', body:'#8B6914', accent:'#6B4F10' },
   content:    { bg:'#FFF0F9', body:'#D63584', accent:'#A8266A' },
@@ -208,13 +207,6 @@ const AGENTS = [
   { id:'release-manager',      label:'Release Manager',       cat:'github',     icon:'🚀', acc:'none' },
   { id:'repo-architect',       label:'Repo Architect',        cat:'github',     icon:'🏗️', acc:'none' },
   { id:'workflow-automation',  label:'Workflow Automation',   cat:'github',     icon:'⚡', acc:'none' },
-  // ── SPARC ─────────────────────────────────────────────────────────────────
-  { id:'sparc-coord',          label:'SPARC Coordinator',     cat:'sparc',      icon:'⚡', acc:'crown' },
-  { id:'sparc-coder',          label:'SPARC Coder',           cat:'sparc',      icon:'💡', acc:'glasses' },
-  { id:'specification',        label:'Specification',         cat:'sparc',      icon:'📝', acc:'none' },
-  { id:'pseudocode',           label:'Pseudocode',            cat:'sparc',      icon:'🔤', acc:'none' },
-  { id:'architecture',         label:'Architecture',          cat:'sparc',      icon:'📐', acc:'none' },
-  { id:'refinement',           label:'Refinement',            cat:'sparc',      icon:'✨', acc:'none' },
   // ── Specialized Dev ───────────────────────────────────────────────────────
   { id:'backend-dev',          label:'Backend Dev',           cat:'core',       icon:'🗄️', acc:'none' },
   { id:'frontend-developer',   label:'Frontend Developer',    cat:'frontend',   icon:'🎨', acc:'none' },

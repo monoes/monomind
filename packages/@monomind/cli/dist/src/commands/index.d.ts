@@ -23,7 +23,6 @@ export { autopilotCommand } from './autopilot.js';
 export { monographCommand } from './monograph.js';
 export { platformsCommand } from './platforms.js';
 export { designCommand } from './design-detect.js';
-export { enrichCommand } from './enrich.js';
 export { searchUniversalCommand } from './search-universal.js';
 export { scanCommand } from './scan.js';
 export { reportCrashCommand } from './report-crash.js';

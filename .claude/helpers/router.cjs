@@ -171,9 +171,6 @@ var SKILLS = [
   { skill: 'graphify', invoke: '/graphify', description: 'Input to knowledge graph',
     keywords: /\b(graph|knowledge|monograph|node|edge|visualize)\b/ig,
     _terms: ['graph','knowledge','monograph','node','edge','visualize'] },
-  { skill: 'sparc', invoke: '/sparc', description: 'SPARC methodology',
-    keywords: /\b(sparc|specification|pseudocode|refinement|methodology)\b/ig,
-    _terms: ['sparc','specification','pseudocode','refinement','methodology'] },
   { skill: 'monobrowse', invoke: '/monobrowse', description: 'Browser automation via CDP',
     keywords: /\b(browse|browser|webpage|screenshot|navigate|selenium|puppeteer|cdp)\b/ig,
     _terms: ['browse','browser','webpage','screenshot','navigate','selenium','puppeteer','cdp'] },
@@ -224,6 +221,8 @@ function loadFeedbackWeights() {
         var entry = JSON.parse(recent[i]);
         var agent = entry.suggestedAgent;
         if (!agent) continue;
+        // Skip no-evidence records (sessionSuccess null/missing) — they carry no signal
+        if (typeof entry.intelligenceFeedback !== 'boolean') continue;
         if (!agentStats[agent]) agentStats[agent] = { total: 0, successes: 0 };
         agentStats[agent].total++;
         if (entry.intelligenceFeedback === true) agentStats[agent].successes++;

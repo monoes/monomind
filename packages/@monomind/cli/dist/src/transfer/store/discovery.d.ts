@@ -49,9 +49,10 @@ export declare class PatternDiscovery {
      */
     fetchRegistry(cid: string, gateway: string): Promise<PatternRegistry | null>;
     /**
-     * Get built-in genesis registry (always available offline)
+     * Honest empty registry returned when no registry is reachable.
+     * Contains no patterns and no fabricated stats.
      */
-    private getGenesisRegistry;
+    private getEmptyRegistry;
     /**
      * Verify registry signature.
      *

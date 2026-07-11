@@ -1,23 +1,19 @@
 #!/usr/bin/env bash
-# Syncs distributable .claude assets (skills, commands, agents, helpers) from
-# the monorepo root into this package so they're included in the npm tarball.
+# DISABLED — do not run.
+#
+# This script used to rsync root .claude/ -> packages/@monomind/cli/.claude/
+# (with rm -rf delete semantics) so the package tarball would include the
+# assets. That direction is now DESTRUCTIVE: the canonical, complete copy of
+# the shipped .claude assets lives in packages/@monomind/cli/.claude, and the
+# monorepo root .claude contains only a small subset (4 of 25 skill dirs).
+# Running the old sync would wipe most of the shippable skills/agents/commands.
+#
+# Decision (2026-07): guard with a hard error instead of reversing direction —
+# nothing should be mirroring these trees anymore. If you need to change the
+# shipped assets, edit packages/@monomind/cli/.claude directly.
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PKG_DIR="$SCRIPT_DIR/.."
-ROOT_DIR="$PKG_DIR/../../.."
-SRC="$ROOT_DIR/.claude"
-DEST="$PKG_DIR/.claude"
-
-mkdir -p "$DEST"
-
-for dir in skills commands agents helpers; do
-  if [ -d "$SRC/$dir" ]; then
-    rm -rf "$DEST/$dir"
-    # Copy while excluding runtime .monomind subdirectories
-    rsync -a --exclude='.monomind/' "$SRC/$dir/" "$DEST/$dir/"
-    echo "  synced .claude/$dir"
-  fi
-done
-
-echo "sync-claude-assets: done"
+echo "ERROR: sync-claude-assets.sh is disabled." >&2
+echo "The canonical .claude assets live in packages/@monomind/cli/.claude." >&2
+echo "The old root->CLI rsync would delete most shipped skills. Edit the CLI copy directly." >&2
+exit 1

@@ -145,8 +145,6 @@ mcp__monomind__memory_store {
 - `/github issue-tracker` - For project coordination
 - `/github branch-manager` - For branch strategy
 - `/github ci-orchestrator` - For CI/CD integration
-- `/sparc reviewer` - For detailed code analysis
-- `/sparc tester` - For comprehensive testing
 
 ## Error Handling
 

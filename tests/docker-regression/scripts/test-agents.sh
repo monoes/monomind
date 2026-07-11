@@ -125,19 +125,6 @@ test_agent "repo-architect"
 test_agent "multi-repo-swarm"
 
 # ============================================================================
-# 7. SPARC METHODOLOGY AGENTS
-# ============================================================================
-echo ""
-echo "── SPARC Methodology Agents ──"
-
-test_agent "sparc-coord"
-test_agent "sparc-coder"
-test_agent "specification"
-test_agent "pseudocode"
-test_agent "architecture"
-test_agent "refinement"
-
-# ============================================================================
 # 8. SPECIALIZED DEVELOPMENT AGENTS
 # ============================================================================
 echo ""

@@ -78,7 +78,7 @@ npx monomind performance benchmark --suite all
 
 ## Built-in Workflow Templates
 
-`development`, `research`, `testing`, `security-audit`, `code-review`, `refactoring`, `sparc`, `custom`
+`development`, `research`, `testing`, `security-audit`, `code-review`, `refactoring`, `custom`
 
 ## Swarm Topologies
 

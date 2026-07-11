@@ -45,6 +45,15 @@ export async function checkDaemonStatus(): Promise<HealthCheck> {
       const pid = readFileSync(pidFile, 'utf8').trim();
       try {
         process.kill(parseInt(pid, 10), 0);
+        // Stall detection: process alive but state file hasn't updated in >24h
+        const stateFile = '.monomind/daemon-state.json';
+        if (existsSync(stateFile)) {
+          const ageMs = Date.now() - statSync(stateFile).mtimeMs;
+          if (ageMs > 24 * 60 * 60 * 1000) {
+            const ageH = Math.floor(ageMs / 3600000);
+            return { name: 'Daemon Status', status: 'warn', message: `Running (PID: ${pid}) but daemon appears stalled (state not updated in ${ageH}h)`, fix: 'monomind daemon stop && monomind daemon start' };
+          }
+        }
         return { name: 'Daemon Status', status: 'pass', message: `Running (PID: ${pid})` };
       } catch {
         return { name: 'Daemon Status', status: 'warn', message: 'Stale PID file', fix: 'rm .monomind/daemon.pid && monomind daemon start' };
@@ -301,9 +310,41 @@ async function routingAccuracyLine(): Promise<string> {
   }
 }
 
+/** Fallback when route-outcomes.jsonl has no data: summarize .monomind/routing-feedback.jsonl honestly. */
+function routingFeedbackFallback(): { message: string; degenerate: boolean } | null {
+  try {
+    const p = join(process.cwd(), '.monomind', 'routing-feedback.jsonl');
+    if (!existsSync(p) || statSync(p).size > 512 * 1024) return null;
+    const records = readFileSync(p, 'utf-8').trim().split('\n').filter(Boolean).map(l => {
+      try { return JSON.parse(l) as Record<string, unknown>; } catch { return null; }
+    }).filter((r): r is Record<string, unknown> => r !== null);
+    if (records.length === 0) return null;
+    const sessions = new Set(records.map(r => r.sessionId).filter(Boolean));
+    const byAgent = new Map<string, number>();
+    for (const r of records) {
+      const a = typeof r.suggestedAgent === 'string' ? r.suggestedAgent : 'unknown';
+      byAgent.set(a, (byAgent.get(a) ?? 0) + 1);
+    }
+    const top = [...byAgent.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([a, n]) => `${a}=${n}`).join(', ');
+    const flags = records.map(r => r.intelligenceFeedback).filter((v): v is boolean => typeof v === 'boolean');
+    const trueCount = flags.filter(Boolean).length;
+    const base = `routing feedback (fallback): ${records.length} decisions across ${sessions.size} sessions; top agents: ${top}`;
+    if (flags.length > 0 && trueCount === flags.length) {
+      return { message: `${base}; success flag is degenerate (100% true — sessionSuccess heuristic never records failure)`, degenerate: true };
+    }
+    if (flags.length === 0) return { message: `${base}; no evidence-based success flags yet`, degenerate: true };
+    return { message: `${base}; success rate ${Math.round((trueCount / flags.length) * 100)}% (n=${flags.length})`, degenerate: false };
+  } catch { return null; }
+}
+
 export async function checkMonoesIntegration(): Promise<HealthCheck> {
   try {
-    return { name: 'Routing Learning', status: 'pass', message: await routingAccuracyLine() };
+    const line = await routingAccuracyLine();
+    if (line.startsWith('routing accuracy (last 100): no outcome data yet')) {
+      const fb = routingFeedbackFallback();
+      if (fb) return { name: 'Routing Learning', status: fb.degenerate ? 'warn' : 'pass', message: fb.message };
+    }
+    return { name: 'Routing Learning', status: 'pass', message: line };
   } catch (err) {
     return { name: 'Routing Learning', status: 'warn', message: `Could not compute routing accuracy: ${err instanceof Error ? err.message : String(err)}` };
   }

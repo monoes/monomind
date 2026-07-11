@@ -396,7 +396,7 @@ SUCCESS CRITERIA:
 - [ ] [Concrete checkable item 1]
 - [ ] [Concrete checkable item 2]
 
-AGENT: [agent slug, e.g. backend-dev | sparc-coder | frontend-dev]
+AGENT: [agent slug, e.g. backend-dev | frontend-dev]
 SWARM: [topology agent-count consensus, e.g. \"hierarchical 4 raft\"]
 
 DEPENDENCIES: [task IDs, or \"none\"]

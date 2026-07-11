@@ -51,7 +51,6 @@ npx monomind workflow template create --name "my-workflow"
 | `security-audit` | Threat Model → Static → Dynamic → Report | security-architect, auditor |
 | `code-review` | Initial → Security → Quality → Feedback | reviewer, auditor, analyst |
 | `refactoring` | Analysis → Planning → Refactor → Validation | architect, coder, reviewer |
-| `sparc` | Spec → Pseudocode → Architecture → Refinement → Completion | architect, coder, tester, reviewer |
 | `custom` | Define your own stages | configurable |
 
 ## MCP Tools

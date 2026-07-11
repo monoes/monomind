@@ -23,7 +23,6 @@ npx monomind workflow template list
 
 # Show details for a specific template (stages, agents, estimated duration)
 npx monomind workflow template show development
-npx monomind workflow template show sparc
 npx monomind workflow template show security-audit
 
 # Validate a custom workflow file
@@ -45,7 +44,6 @@ npx monomind workflow list --status all
 | `security-audit` | Threat Model → Static → Dynamic → Report | 20-40 min |
 | `code-review` | Initial → Security → Quality → Feedback | 10-25 min |
 | `refactoring` | Analysis → Planning → Refactor → Validation | 15-35 min |
-| `sparc` | Spec → Pseudocode → Architecture → Refinement → Completion | 25-45 min |
 | `custom` | Define your own stages | varies |
 
 ## MCP Tools

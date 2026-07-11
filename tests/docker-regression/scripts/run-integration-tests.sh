@@ -173,18 +173,6 @@ run_test "MCP results to CLI" "echo 'mcp results to cli' && echo 'ok'"
 run_test "Bidirectional communication" "echo 'bidirectional comm' && echo 'ok'"
 
 # ============================================================================
-# 13. FULL SPARC WORKFLOW
-# ============================================================================
-echo ""
-echo "── Full SPARC Workflow ──"
-
-run_test "Specification phase" "echo 'specification phase' && echo 'ok'"
-run_test "Pseudocode phase" "echo 'pseudocode phase' && echo 'ok'"
-run_test "Architecture phase" "echo 'architecture phase' && echo 'ok'"
-run_test "Refinement phase" "echo 'refinement phase' && echo 'ok'"
-run_test "Completion phase" "echo 'completion phase' && echo 'ok'"
-
-# ============================================================================
 # SUMMARY
 # ============================================================================
 echo ""

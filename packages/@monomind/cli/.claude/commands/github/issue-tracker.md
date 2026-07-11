@@ -275,8 +275,6 @@ Generated with Claude Code
 ### Seamless integration with:
 - `/github pr-manager` - Link issues to pull requests
 - `/github release-manager` - Coordinate release issues
-- `/sparc orchestrator` - Complex project coordination
-- `/sparc tester` - Automated testing workflows
 
 ## Metrics and Analytics
 

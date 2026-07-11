@@ -29,7 +29,6 @@ npx monomind workflow template list
 
 # Show a specific template's stages and agents
 npx monomind workflow template show development
-npx monomind workflow template show sparc
 ```
 
 ## Template Create Flags

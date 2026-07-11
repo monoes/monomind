@@ -62,7 +62,7 @@ The available domains and their agent counts are:
 Once the domain is selected, use only the agent names for that domain:
 
 ### development
-sparc-coder, coder, backend-dev, Frontend Developer, mobile-dev, ml-developer, Rapid Prototyper, base-template-generator, LSP/Index Engineer, macOS Spatial/Metal Engineer, Terminal Integration Specialist, Embedded Firmware Engineer, Solidity Smart Contract Engineer, WeChat Mini Program Developer, Feishu Integration Developer, Roblox Systems Scripter, Godot Gameplay Scripter, Unity Architect, Unreal Systems Engineer, visionOS Spatial Engineer
+coder, backend-dev, Frontend Developer, mobile-dev, ml-developer, Rapid Prototyper, base-template-generator, LSP/Index Engineer, macOS Spatial/Metal Engineer, Terminal Integration Specialist, Embedded Firmware Engineer, Solidity Smart Contract Engineer, WeChat Mini Program Developer, Feishu Integration Developer, Roblox Systems Scripter, Godot Gameplay Scripter, Unity Architect, Unreal Systems Engineer, visionOS Spatial Engineer
 
 ### testing
 tdd-london-swarm, API Tester, production-validator, Evidence Collector, agent-browser-testing, Accessibility Auditor, Reality Checker, Code Reviewer, code-analyzer, feature-dev:code-reviewer
@@ -80,7 +80,7 @@ Data Engineer, AI Engineer, Database Optimizer, AI Data Remediation Engineer, Mo
 system-architect, Software Architect, Backend Architect, Plan, UX Architect, Workflow Architect
 
 ### research
-sparc:researcher, Explore, Trend Researcher, Technical Writer, api-docs
+Explore, Trend Researcher, Technical Writer, api-docs
 
 ### marketing
 AI Citation Strategist, App Store Optimizer, Baidu SEO Specialist, Bilibili Content Strategist, Carousel Growth Engine, China E-Commerce Operator, Content Creator, Cross-Border E-Commerce Specialist, Developer Advocate, Douyin Strategist, Growth Hacker, Healthcare Marketing Compliance Specialist, Instagram Curator, Kuaishou Strategist, LinkedIn Content Creator, Podcast Strategist, Reddit Community Builder, SEO Specialist, Short-Video Editing Coach, Social Media Strategist, TikTok Strategist, Twitter Engager, WeChat Official Account Manager, Weibo Strategist, Xiaohongshu Specialist, Zhihu Strategist, Livestream Commerce Coach
@@ -125,7 +125,6 @@ Analytics Reporter, Executive Summary Generator, Finance Tracker, Support Respon
 Use this to convert the chosen agent name to a callable slug:
 
 ```
-sparc-coder → sparc-coder
 coder → coder
 backend-dev → backend-dev
 Frontend Developer → Frontend Developer
@@ -158,7 +157,6 @@ Software Architect → Software Architect
 Backend Architect → Backend Architect
 Plan → Plan
 UX Architect → UX Architect
-sparc:researcher → sparc:researcher
 Explore → Explore
 Trend Researcher → Trend Researcher
 Technical Writer → Technical Writer
