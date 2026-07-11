@@ -1,6 +1,6 @@
 ---
 name: workflows:workflow-execute
-description: Run multi-agent workflows using built-in templates (development, research, testing, sparc, security-audit, etc.) via real npx monomind workflow run CLI
+description: Run multi-agent workflows using built-in templates (development, research, testing, security-audit, etc.) via real npx monomind workflow run CLI
 ---
 
 # Workflow Execute
@@ -23,7 +23,6 @@ npx monomind workflow run -t development --task "Build REST API with auth"
 npx monomind workflow run -t research --task "Analyze performance bottlenecks"
 npx monomind workflow run -t testing
 npx monomind workflow run -t security-audit
-npx monomind workflow run -t sparc --task "New payment module"
 
 # Run from a workflow file
 npx monomind workflow run -f ./workflow.yaml
@@ -55,7 +54,6 @@ npx monomind workflow run -t development --dry-run
 | `security-audit` | Threat Model → Static → Dynamic → Report | security-architect, auditor |
 | `code-review` | Initial → Security → Quality → Feedback | reviewer, auditor, analyst |
 | `refactoring` | Analysis → Planning → Refactor → Validation | architect, coder, reviewer |
-| `sparc` | Spec → Pseudocode → Architecture → Refinement → Completion | architect, coder, tester, reviewer |
 | `custom` | Define your own | configurable |
 
 ## MCP Tools

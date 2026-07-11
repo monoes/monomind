@@ -156,6 +156,36 @@ function consolidate() {
   // Clear recent-edits after consolidation (session boundary)
   try { fs.writeFileSync(RECENT_EDITS_FILE, '', 'utf-8'); } catch (_) {}
 
+  // Load session episodes (written by session-handler.cjs into the same
+  // .monomind dir) so patterns can carry real semantic content — the user's
+  // prompt snippet and commit subjects — instead of just file basenames.
+  var episodes = [];
+  var episodeLines = safeReadLines(path.join(CWD, '.monomind', 'episodic', 'episodes.jsonl'));
+  for (var epi = 0; epi < episodeLines.length; epi++) {
+    try { episodes.push(JSON.parse(episodeLines[epi])); } catch (_) {}
+  }
+
+  // Build-noise artifacts that say nothing about what the task actually was.
+  function isNoisePath(p) {
+    var base = path.basename(p);
+    if (base === 'tsconfig.tsbuildinfo' || base === 'coverage.json') return true;
+    if (/\.map$/.test(base)) return true;
+    if (/(^|\/)dist\//.test(p)) return true;
+    return false;
+  }
+
+  // Nearest episode whose end time is within 30 minutes of the outcome.
+  function findEpisodeNear(ts) {
+    var best = null;
+    var bestDelta = 30 * 60 * 1000;
+    for (var ki = 0; ki < episodes.length; ki++) {
+      var cand = episodes[ki];
+      var delta = Math.abs((cand.endedAt || 0) - ts);
+      if (delta <= bestDelta) { bestDelta = delta; best = cand; }
+    }
+    return best;
+  }
+
   // Synthesize successful patterns from outcomes into auto-memory-store.json
   var outcomeLines = safeReadLines(OUTCOMES_FILE);
   var newStoreEntries = [];
@@ -174,19 +204,69 @@ function consolidate() {
         // Use e.path if it's a non-empty string; skip objects without a valid path
         return (e && typeof e.path === 'string' && e.path.length > 0) ? e.path : null;
       }).filter(function(p) { return p !== null; });
-      // Deduplicate paths
+      // Deduplicate paths, dropping build-noise artifacts (tsbuildinfo,
+      // sourcemaps, coverage output, dist/ bundles) so the pattern describes
+      // real source work.
       var uniquePaths = [];
       var pathSeen = {};
       for (var pi = 0; pi < editPaths.length; pi++) {
         var p = String(editPaths[pi]);
+        if (isNoisePath(p)) continue;
         if (!pathSeen[p]) { pathSeen[p] = true; uniquePaths.push(p); }
       }
+      if (uniquePaths.length === 0) continue;
+      var baseNames = uniquePaths.slice(0, 5).map(function(bp) { return path.basename(bp); });
+
+      // Prefer real semantic content for the summary: outcome.context (rare —
+      // only set when getContext matched in the same process), else the
+      // matching episode's prompt snippet + first commit subject.
+      var summary = outcome.context || null;
+      var hasCommits = false;
+      var ep = findEpisodeNear(outcome.ts || Date.now());
+      if (ep && ep.summary) {
+        // Episode summaries are newline-joined parts written by
+        // session-handler: prompt snippet, "Commits: ...", "Modified: ...",
+        // "Outcome: ...".
+        var epParts = String(ep.summary).split('\n');
+        var promptSnippet = '';
+        var commitSubject = '';
+        for (var si = 0; si < epParts.length; si++) {
+          var part = epParts[si].trim();
+          if (!part) continue;
+          if (part.indexOf('Commits: ') === 0) {
+            if (!commitSubject) commitSubject = part.slice(9).split(';')[0].trim();
+          } else if (part.indexOf('Modified: ') !== 0 && part.indexOf('Outcome: ') !== 0 && !promptSnippet) {
+            promptSnippet = part.slice(0, 160);
+          }
+        }
+        hasCommits = commitSubject.length > 0;
+        if (!summary) {
+          var bits = [];
+          if (promptSnippet) bits.push(promptSnippet);
+          if (commitSubject) bits.push('commit: ' + commitSubject);
+          if (bits.length > 0) summary = bits.join(' — ') + ' (files: ' + baseNames.join(', ') + ')';
+        }
+      }
+      if (!summary) summary = 'Successful task editing ' + uniquePaths.length + ' files: ' + baseNames.join(', ');
+
+      // Confidence from evidence rather than a hardcoded constant:
+      //   0.5 base for any successful outcome
+      //   +0.2 when commits back the session (strongest success signal)
+      //   +0.1 when test files were part of the edit set
+      var confidence = 0.5;
+      if (hasCommits) confidence += 0.2;
+      var touchedTests = uniquePaths.some(function(tp) {
+        return /(^|\/)(tests?|__tests__)\//.test(tp) || /\.(test|spec)\.[cm]?[jt]sx?$/.test(tp);
+      });
+      if (touchedTests) confidence += 0.1;
+      confidence = Math.round(confidence * 100) / 100; // avoid FP artifacts like 0.7999…
+
       newStoreEntries.push({
         id: 'auto-' + (outcome.ts || Date.now()) + '-' + i,
         type: 'pattern',
-        content: 'Successful edit pattern: ' + uniquePaths.map(function(p) { return path.basename(p); }).join(', '),
-        summary: outcome.context || 'Successful task editing ' + uniquePaths.length + ' files: ' + uniquePaths.slice(0, 5).map(function(p) { return path.basename(p); }).join(', '),
-        confidence: 0.6,
+        content: 'Successful edit pattern: ' + uniquePaths.map(function(cp) { return path.basename(cp); }).join(', '),
+        summary: summary,
+        confidence: confidence,
         files: uniquePaths,
         ts: outcome.ts || Date.now(),
       });
@@ -198,10 +278,21 @@ function consolidate() {
     var existing = safeReadJson(STORE_FILE);
     var store = Array.isArray(existing) ? existing : [];
     var existingIds = new Set(store.map(function(e) { return e && e.id; }));
+    // Skip near-identical patterns: same summary text or same file set as an
+    // entry already in the store (or one added earlier in this batch).
+    var fileSetKey = function(e) { return (e.files || []).slice().sort().join('|'); };
+    var seenSummaries = new Set(store.map(function(e) { return e && e.summary; }));
+    var seenFileSets = new Set(store.filter(function(e) { return e && Array.isArray(e.files) && e.files.length > 0; }).map(fileSetKey));
+    var addedCount = 0;
     for (var j = 0; j < newStoreEntries.length; j++) {
-      if (!existingIds.has(newStoreEntries[j].id)) {
-        store.push(newStoreEntries[j]);
-      }
+      var ne = newStoreEntries[j];
+      if (existingIds.has(ne.id)) continue;
+      if (seenSummaries.has(ne.summary)) continue;
+      if (ne.files && ne.files.length > 0 && seenFileSets.has(fileSetKey(ne))) continue;
+      store.push(ne);
+      seenSummaries.add(ne.summary);
+      if (ne.files && ne.files.length > 0) seenFileSets.add(fileSetKey(ne));
+      addedCount++;
     }
     // Cap store at 200 entries to prevent unbounded growth
     if (store.length > 200) {
@@ -211,7 +302,7 @@ function consolidate() {
     try {
       fs.writeFileSync(STORE_FILE, JSON.stringify(store, null, 2), 'utf-8');
     } catch (_) {}
-    count += newStoreEntries.length;
+    count += addedCount;
   }
 
   // Rotate outcomes: keep last 500 lines to prevent unbounded growth
@@ -221,7 +312,7 @@ function consolidate() {
     } catch (_) {}
   }
 
-  return { entries: count, edges: 0, newEntries: newStoreEntries.length };
+  return { entries: count, edges: 0, newEntries: addedCount || 0 };
 }
 
 // ── feedback ──────────────────────────────────────────────────────────────────

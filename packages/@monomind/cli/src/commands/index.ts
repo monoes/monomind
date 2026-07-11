@@ -28,23 +28,18 @@ import { securityCommand } from './security.js';
 import browseCommand from './browse.js';
 import { configCommand } from './config.js';
 import { completionsCommand } from './completions.js';
-import { workflowCommand } from './workflow.js';
 import { analyzeCommand } from './analyze.js';
 import { routeCommand } from './route.js';
 import { providersCommand } from './providers.js';
-import { claimsCommand } from './claims.js';
-import { issuesCommand } from './issues.js';
 import updateCommand from './update.js';
 import { guidanceCommand } from './guidance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
 import { monographCommand } from './monograph.js';
 import replayCommand from './replay.js';
-import storeCommand from './transfer-store.js';
 import tokensCommand from './tokens.js';
 import { platformsCommand } from './platforms.js';
 import { designCommand } from './design-detect.js';
-import { enrichCommand } from './enrich.js';
 import { searchUniversalCommand } from './search-universal.js';
 import { scanCommand } from './scan.js';
 import { reportCrashCommand } from './report-crash.js';
@@ -72,21 +67,16 @@ loadedCommands.set('cleanup', cleanupCommand);
 loadedCommands.set('autopilot', autopilotCommand);
 loadedCommands.set('monograph', monographCommand);
 loadedCommands.set('replay', replayCommand);
-loadedCommands.set('transfer-store', storeCommand);
 loadedCommands.set('tokens', tokensCommand);
 loadedCommands.set('platforms', platformsCommand);
 loadedCommands.set('browse', browseCommand);
 loadedCommands.set('config', configCommand);
 loadedCommands.set('completions', completionsCommand);
-loadedCommands.set('workflow', workflowCommand);
 loadedCommands.set('analyze', analyzeCommand);
 loadedCommands.set('route', routeCommand);
 loadedCommands.set('providers', providersCommand);
-loadedCommands.set('claims', claimsCommand);
-loadedCommands.set('issues', issuesCommand);
 loadedCommands.set('update', updateCommand);
 loadedCommands.set('design', designCommand);
-loadedCommands.set('enrich', enrichCommand);
 loadedCommands.set('search', searchUniversalCommand);
 loadedCommands.set('scan', scanCommand);
 loadedCommands.set('report-crash', reportCrashCommand);
@@ -117,7 +107,6 @@ export { autopilotCommand } from './autopilot.js';
 export { monographCommand } from './monograph.js';
 export { platformsCommand } from './platforms.js';
 export { designCommand } from './design-detect.js';
-export { enrichCommand } from './enrich.js';
 export { searchUniversalCommand } from './search-universal.js';
 export { scanCommand } from './scan.js';
 export { reportCrashCommand } from './report-crash.js';
@@ -149,7 +138,6 @@ export const commands: Command[] = [
   monographCommand,
   platformsCommand,
   designCommand,
-  enrichCommand,
   searchUniversalCommand,
   scanCommand,
   docCommand,
@@ -157,15 +145,11 @@ export const commands: Command[] = [
   browseCommand,
   configCommand,
   completionsCommand,
-  workflowCommand,
   analyzeCommand,
   routeCommand,
   providersCommand,
-  claimsCommand,
-  issuesCommand,
   updateCommand,
   replayCommand,
-  storeCommand,
   tokensCommand,
   reportCrashCommand,
   neuralCommand,
@@ -200,7 +184,6 @@ export const commandsByCategory = {
     doctorCommand,
     daemonCommand,
     completionsCommand,
-    workflowCommand,
   ],
   analysis: [
     analyzeCommand,
@@ -208,16 +191,12 @@ export const commandsByCategory = {
     monographCommand,
     replayCommand,
     tokensCommand,
-    enrichCommand,
     searchUniversalCommand,
     scanCommand,
   ],
   management: [
     providersCommand,
-    claimsCommand,
-    issuesCommand,
     updateCommand,
-    storeCommand,
     cleanupCommand,
     platformsCommand,
     browseCommand,

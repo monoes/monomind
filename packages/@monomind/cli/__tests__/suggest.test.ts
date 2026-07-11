@@ -217,7 +217,6 @@ describe('getTypoCorrection', () => {
     expect(getTypoCorrection('perf')).toBe('performance');
     expect(getTypoCorrection('sec')).toBe('security');
     expect(getTypoCorrection('doc')).toBe('doctor');
-    expect(getTypoCorrection('wf')).toBe('workflow');
   });
 
   it('should handle exact matches (identity typos)', () => {
@@ -256,9 +255,9 @@ describe('COMMON_TYPOS', () => {
 describe('suggestCommand', () => {
   const commands = [
     'init', 'agent', 'swarm', 'memory', 'mcp', 'task', 'session',
-    'config', 'status', 'start', 'workflow', 'hooks', 'hive-mind',
+    'config', 'status', 'start', 'hooks', 'hive-mind',
     'daemon', 'neural', 'security', 'performance', 'providers',
-    'deployment', 'embeddings', 'claims', 'migrate',
+    'deployment', 'embeddings', 'migrate',
     'doctor', 'completions',
   ];
 

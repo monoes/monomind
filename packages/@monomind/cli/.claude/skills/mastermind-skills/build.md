@@ -106,7 +106,7 @@ SCOPE: [exact file paths in scope]
 CONSTRAINTS: [must-not-break items, existing APIs to preserve]
 SUCCESS CRITERIA:
 - [ ] [checkable item]
-AGENT: [backend-dev | frontend-dev | tester | reviewer | sparc-coder]
+AGENT: [backend-dev | frontend-dev | tester | reviewer]
 SWARM: hierarchical 4 raft
 DEPENDENCIES: [task IDs or \"none\"]
 OUTPUT FORMAT: unified output schema"
@@ -118,7 +118,6 @@ Spawn one Task agent per task (all in parallel where dependencies allow):
 - Frontend tasks: subagent_type "frontend-dev"
 - Testing tasks: subagent_type "tester"
 - Code review: subagent_type "reviewer"
-- TDD/SPARC work: subagent_type "sparc-coder"
 
 Also run /mastermind:do --board <board_id> to track execution.
 

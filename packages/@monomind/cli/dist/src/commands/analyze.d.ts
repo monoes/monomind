@@ -7,16 +7,12 @@
  * - Symbol extraction (functions, classes, variables, types)
  * - Cyclomatic complexity scoring
  * - Diff classification and risk assessment
- * - Graph boundaries using MinCut algorithm
- * - Module communities using Louvain algorithm
- * - Circular dependency detection
  *
  * github.com/monoes/monomind
  */
 import type { Command } from '../types.js';
 type AnalyzerModule = any;
 export declare function getASTAnalyzer(): Promise<AnalyzerModule | null>;
-export declare function getGraphAnalyzer(): Promise<AnalyzerModule | null>;
 /**
  * Write analysis output to a file, constraining the path to the current working
  * directory to prevent path traversal attacks via --output /etc/cron.d/x or

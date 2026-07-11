@@ -78,8 +78,8 @@ mcp__github__push_files {
       content: "[GitHub modes template]"
     },
     {
-      path: ".claude/commands/sparc/sparc-modes.md",
-      content: "[SPARC modes template]"
+      path: ".claude/commands/mastermind/help.md",
+      content: "[Mastermind commands template]"
     },
     {
       path: ".claude/config.json",
@@ -121,14 +121,13 @@ mcp__github__push_files {
 
 ## Quick Start
 \`\`\`bash
-npx monomind init --sparc
+npx monomind init
 npm install
 npx monomind start --ui
 \`\`\`
 
 ## Features
 - Monomind swarm integration
-- SPARC development modes
 - GitHub workflow automation
 - Advanced coordination capabilities
 
@@ -280,10 +279,6 @@ monomind/
 │   │   ├── pr-manager.md
 │   │   ├── issue-tracker.md
 │   │   └── sync-coordinator.md
-│   ├── sparc/
-│   │   ├── sparc-modes.md
-│   │   ├── coder.md
-│   │   └── tester.md
 │   └── swarm/
 │       ├── coordination.md
 │       └── orchestration.md
@@ -368,8 +363,6 @@ const integrationPattern = {
 
 - `/github sync-coordinator` - For cross-repo synchronization
 - `/github release-manager` - For coordinated releases
-- `/sparc architect` - For detailed architecture design
-- `/sparc optimizer` - For performance optimization
 
 ### Workflow Enhancement:
 

@@ -854,6 +854,12 @@ export class WorkerDaemon extends EventEmitter {
       try {
         this.log('info', `Running ${workerConfig.type} in headless mode (Claude Code AI)`);
         const result = await this.headlessExecutor.execute(workerConfig.type as HeadlessWorkerType);
+        if (result.success) {
+          // Persist to .monomind/metrics/<worker>.json so consumers
+          // (route-handler.cjs, statusline, doctor) can see headless output —
+          // otherwise results only live in .monomind/logs/headless/*.log.
+          this.persistHeadlessResult(workerConfig.type, result);
+        }
         return {
           mode: 'headless',
           ...result,
@@ -897,6 +903,70 @@ export class WorkerDaemon extends EventEmitter {
         return { mode: 'local', note: 'Install Claude Code CLI for AI-powered analysis — no local implementation exists for this worker' };
       default:
         return { status: 'unknown worker type', mode: 'local' };
+    }
+  }
+
+  /**
+   * Metrics file each headless worker's result is persisted to. Names match
+   * what the local workers write and what the readers (route-handler.cjs,
+   * statusline-generator.ts, doctor-project-checks.ts) parse.
+   */
+  private static readonly HEADLESS_METRICS_FILES: Partial<Record<WorkerType, string>> = {
+    audit: 'security-audit.json',
+    optimize: 'performance.json',
+    ultralearn: 'ultralearn.json',
+    deepdive: 'deepdive.json',
+    testgaps: 'testgaps.json',
+    document: 'document.json',
+    refactor: 'refactor.json',
+    predict: 'predict.json',
+  };
+
+  /**
+   * Persist a successful headless execution result to
+   * .monomind/metrics/<worker>.json using the same tmp-then-rename pattern the
+   * local workers use. Persistence failure never fails the worker run.
+   */
+  private persistHeadlessResult(workerType: WorkerType, result: HeadlessExecutionResult): void {
+    try {
+      const fileName = WorkerDaemon.HEADLESS_METRICS_FILES[workerType] ?? `${workerType}.json`;
+      const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
+      if (!existsSync(metricsDir)) {
+        mkdirSync(metricsDir, { recursive: true });
+      }
+      const parsed =
+        result.parsedOutput && typeof result.parsedOutput === 'object' && !Array.isArray(result.parsedOutput)
+          ? (result.parsedOutput as Record<string, unknown>)
+          : {};
+      const now = new Date().toISOString();
+      const payload: Record<string, unknown> = {
+        ...parsed,
+        timestamp: now,
+        generatedAt: now,
+        source: 'headless',
+        worker: workerType,
+      };
+      // Derive top-level keys the readers look for when the headless output
+      // doesn't carry them directly.
+      if (workerType === 'audit' && payload.riskLevel === undefined && typeof parsed.riskScore === 'number') {
+        const score = parsed.riskScore as number;
+        payload.riskLevel = score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
+      }
+      if (workerType === 'testgaps' && parsed.gaps === undefined && parsed.uncoveredCount === undefined) {
+        // Markdown output ({ sections, codeBlocks }) — doctor's checkTestGaps
+        // surfaces `note` when no structured gap data is present.
+        const sectionCount = Array.isArray(parsed.sections) ? parsed.sections.length : 0;
+        payload.note = `Headless AI analysis completed (${sectionCount} section(s)) — full output in .monomind/logs/headless/`;
+      }
+      const metricsFile = join(metricsDir, fileName);
+      const tmp = metricsFile + '.tmp';
+      writeFileSync(tmp, JSON.stringify(payload, null, 2));
+      renameSync(tmp, metricsFile);
+    } catch (error) {
+      this.log(
+        'warn',
+        `Failed to persist headless ${workerType} result to metrics: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 

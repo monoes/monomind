@@ -483,12 +483,24 @@ const monographSuggestTool = {
         properties: {
             task: { type: 'string', description: 'Optional task description for task-relevance scoring' },
             limit: { type: 'number', description: 'Max questions (default 10)' },
+            checkStaleness: { type: 'boolean', description: 'Check index staleness first and trigger a background rebuild when the index is behind HEAD. Appends a _staleness annotation to the result. (default false)' },
         },
     },
     handler: async (input) => {
+        // Health-aware mode (formerly monograph_suggest_auto): check staleness and
+        // trigger a background rebuild if the index is behind HEAD.
+        let stalenessAnnotation = '';
+        if (input.checkStaleness === true) {
+            const repoPath = getProjectCwd();
+            const stalenessResult = await computeCommitsBehind(repoPath);
+            const commitsBehind = stalenessResult?.commitsBehind ?? 0;
+            const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, STALENESS_THRESHOLD + 1);
+            const status = triggered ? 'building' : commitsBehind === 0 ? 'fresh' : 'stale';
+            stalenessAnnotation = `\n_staleness: ${JSON.stringify({ commitsBehind, status, triggered })}`;
+        }
         const dbPath = getDbPath();
         if (!_isValidDb(dbPath))
-            return text('Monograph index not built yet. Run monograph_build first.');
+            return text('Monograph index not built yet. Run monograph_build first.' + stalenessAnnotation);
         const { openDb, closeDb } = await import('@monoes/monograph');
         const { hybridQuery } = await import('@monoes/monograph');
         const db = openDb(dbPath);
@@ -519,7 +531,7 @@ const monographSuggestTool = {
                 const hits = await hybridQuery(db, task, { limit: 20 });
                 const hitIds = new Set(hits.map(h => h.id));
                 if (hitIds.size === 0) {
-                    return text('No suggestions for this task. Run monograph_build first or try a different query.');
+                    return text('No suggestions for this task. Run monograph_build first or try a different query.' + stalenessAnnotation);
                 }
                 const rows = db.prepare(`
           SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt,
@@ -534,7 +546,7 @@ const monographSuggestTool = {
           LIMIT 100
         `).all(...[...hitIds], ...[...hitIds]);
                 const questions = rows.map(formatSuggestion);
-                return text(questions.slice(0, limit).join('\n') || 'No suggestions for this task. Run monograph_build first.');
+                return text((questions.slice(0, limit).join('\n') || 'No suggestions for this task. Run monograph_build first.') + stalenessAnnotation);
             }
             const rows = db.prepare(`
         SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt,
@@ -552,7 +564,7 @@ const monographSuggestTool = {
             }));
             if (task)
                 scored = scored.sort((a, b) => b.relevance - a.relevance);
-            return text(scored.slice(0, limit).map(s => s.q).join('\n') || 'No suggestions. Run monograph_build first.');
+            return text((scored.slice(0, limit).map(s => s.q).join('\n') || 'No suggestions. Run monograph_build first.') + stalenessAnnotation);
         }
         finally {
             closeDb(db);
@@ -734,14 +746,14 @@ async function computeCommitsBehind(repoPath) {
     }
 }
 /**
- * Shared staleness threshold: both monograph_staleness and monograph_suggest_auto
+ * Shared staleness threshold: both monograph_staleness and monograph_suggest (checkStaleness)
  * trigger a background rebuild only when the index is more than this many commits behind HEAD.
  * Using a shared constant prevents conflicting rebuild pressure during active dev sessions.
  */
 const STALENESS_THRESHOLD = 10;
 /**
  * Fire-and-forget background rebuild. Uses a module-level guard so concurrent
- * MCP tool calls (e.g. repeated monograph_suggest_auto) don't pile up builds.
+ * MCP tool calls (e.g. repeated monograph_suggest checkStaleness) don't pile up builds.
  * threshold: minimum commitsBehind to trigger (default STALENESS_THRESHOLD + 1).
  */
 function triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, threshold = STALENESS_THRESHOLD + 1) {
@@ -1301,21 +1313,6 @@ const monographApiImpactTool = {
         finally {
             closeDb(db);
         }
-    },
-};
-// ── monograph_embed ───────────────────────────────────────────────────────────
-const monographEmbedTool = {
-    name: 'monograph_embed',
-    description: 'DEPRECATED — embeddings are disabled; monograph uses BM25 (FTS5) search. This tool is a no-op kept for backward compatibility.',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            codeOnly: { type: 'boolean', description: 'Ignored (embeddings are disabled)' },
-            force: { type: 'boolean', description: 'Ignored (embeddings are disabled)' },
-        },
-    },
-    handler: async () => {
-        return text('Embeddings are disabled — monograph uses BM25 (FTS5) search; this tool is deprecated and does nothing. Use monograph_query instead.');
     },
 };
 // ── monograph_cypher ──────────────────────────────────────────────────────────
@@ -1937,39 +1934,6 @@ const monographNeighborsTool = {
         }
     },
 };
-// ── monograph_suggest_auto ────────────────────────────────────────────────────
-const monographSuggestAutoTool = {
-    name: 'monograph_suggest_auto',
-    description: 'Like monograph_suggest but health-aware: checks staleness first and triggers a background rebuild when the index is behind HEAD before returning suggestions. Result includes a _staleness annotation.',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            task: { type: 'string', description: 'Optional task description for task-relevance scoring' },
-            limit: { type: 'number', description: 'Max questions (default 10)' },
-        },
-    },
-    handler: async (input) => {
-        const repoPath = getProjectCwd();
-        // Check staleness and trigger rebuild if needed (threshold: STALENESS_THRESHOLD commits).
-        const stalenessResult = await computeCommitsBehind(repoPath);
-        const commitsBehind = stalenessResult?.commitsBehind ?? 0;
-        const triggered = triggerBackgroundBuildIfNeeded(repoPath, commitsBehind, STALENESS_THRESHOLD + 1);
-        const stalenessStatus = triggered ? 'building' : commitsBehind === 0 ? 'fresh' : 'stale';
-        // Delegate to the base suggest tool — no logic duplication.
-        const baseResult = await monographSuggestTool.handler(input);
-        // Append staleness annotation to the text content.
-        const stalenessAnnotation = `\n_staleness: ${JSON.stringify({ commitsBehind, status: stalenessStatus, triggered })}`;
-        if (baseResult && Array.isArray(baseResult.content)) {
-            const content = baseResult.content;
-            if (content.length > 0 && content[0].type === 'text') {
-                content[0].text += stalenessAnnotation;
-            }
-            return baseResult;
-        }
-        return baseResult;
-    },
-};
-// ── Export all tools ──────────────────────────────────────────────────────────
 // ── monograph_dead_code ──────────────────────────────────────────────────────
 const monographDeadCodeTool = {
     name: 'monograph_dead_code',
@@ -2345,190 +2309,65 @@ const monographAgentRecordTool = {
         }
     },
 };
-// ── monograph_rank_with_graph (ported from MemoryGraph) ──────────────────────
-const monographRankWithGraphTool = {
-    name: 'monograph_rank_with_graph',
-    description: 'Blend BM25/vector search scores with PageRank for graph-aware ranking. Ported from MemoryGraph.rankWithGraph (HippoRAG-inspired).',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            query: { type: 'string', description: 'Search query to run through monograph_query first' },
-            alpha: { type: 'number', description: 'Weight for search score vs PageRank (0-1, default 0.7 = 70% search, 30% PageRank)' },
-            limit: { type: 'number', description: 'Max results (default 20)' },
-        },
-        required: ['query'],
-    },
-    handler: async (input) => {
-        const { openDb, closeDb, pageRank } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
-        try {
-            const alpha = input.alpha ?? 0.7;
-            const limit = input.limit ?? 20;
-            const query = input.query;
-            const searchResults = db.prepare(`
-        SELECT n.id, n.name, n.label, n.file_path, n.start_line, n.community_id,
-               bm25(nodes_fts) AS score
-        FROM nodes_fts
-        JOIN nodes n ON n.id = nodes_fts.rowid
-        WHERE nodes_fts MATCH @query
-        ORDER BY bm25(nodes_fts)
-        LIMIT @limit
-      `).all({ query, limit: limit * 2 });
-            if (searchResults.length === 0)
-                return text('No results found.');
-            const ranks = pageRank(db);
-            const N = ranks.size || 1;
-            const ranked = searchResults.map(r => {
-                const pr = ranks.get(r.id) ?? 0;
-                return {
-                    ...r,
-                    pageRank: pr,
-                    combinedScore: alpha * Math.abs(r.score) + (1 - alpha) * (pr * N),
-                };
-            }).sort((a, b) => b.combinedScore - a.combinedScore).slice(0, limit);
-            return text(JSON.stringify(ranked, null, 2));
-        }
-        finally {
-            closeDb(db);
-        }
-    },
-};
-// ── monograph_community_summaries (ported from MemoryGraph) ──────────────────
-const monographCommunitySummariesTool = {
-    name: 'monograph_community_summaries',
-    description: 'GraphRAG-style community summaries: top-K communities by average PageRank with member counts and top nodes. Ported from MemoryGraph.getCommunitySummaries.',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            top_k: { type: 'number', description: 'Number of top communities to return (default 5)' },
-        },
-    },
-    handler: async (input) => {
-        const { openDb, closeDb, pageRank } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
-        try {
-            const topK = input.top_k ?? 5;
-            const ranks = pageRank(db);
-            const rows = db.prepare(`SELECT id, community_id FROM nodes WHERE community_id IS NOT NULL`).all();
-            const communityMap = new Map();
-            for (const row of rows) {
-                const rank = ranks.get(row.id) ?? 0;
-                const entry = communityMap.get(row.community_id) ?? { nodeIds: [], rankSum: 0 };
-                entry.nodeIds.push(row.id);
-                entry.rankSum += rank;
-                communityMap.set(row.community_id, entry);
-            }
-            const summaries = [...communityMap.entries()]
-                .map(([communityId, { nodeIds, rankSum }]) => ({
-                communityId,
-                nodeCount: nodeIds.length,
-                topNodeIds: nodeIds.slice(0, 3),
-                avgPageRank: nodeIds.length > 0 ? rankSum / nodeIds.length : 0,
-            }))
-                .sort((a, b) => b.avgPageRank - a.avgPageRank)
-                .slice(0, topK);
-            return text(JSON.stringify(summaries, null, 2));
-        }
-        finally {
-            closeDb(db);
-        }
-    },
-};
-// ── monograph_ppr_rerank (ported from MemoryGraph) ───────────────────────────
-const monographPprRerankTool = {
-    name: 'monograph_ppr_rerank',
-    description: 'HippoRAG-style PPR re-ranking: search, then expand one hop through edges and boost neighbor scores. Ported from MemoryGraph.pprRerank (arXiv:2405.14831).',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            query: { type: 'string', description: 'Search query' },
-            damping: { type: 'number', description: 'Score propagation damping factor (default 0.5)' },
-            limit: { type: 'number', description: 'Max results (default 20)' },
-        },
-        required: ['query'],
-    },
-    handler: async (input) => {
-        const { openDb, closeDb } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
-        try {
-            const damping = input.damping ?? 0.5;
-            const limit = input.limit ?? 20;
-            const query = input.query;
-            const searchResults = db.prepare(`
-        SELECT n.id, n.name, n.label, n.file_path, n.start_line,
-               bm25(nodes_fts) AS score
-        FROM nodes_fts
-        JOIN nodes n ON n.id = nodes_fts.rowid
-        WHERE nodes_fts MATCH @query
-        ORDER BY bm25(nodes_fts)
-        LIMIT @limit
-      `).all({ query, limit: limit * 2 });
-            if (searchResults.length === 0)
-                return text('No results found.');
-            const seeds = searchResults.map(r => ({
-                id: r.id, name: r.name, label: r.label,
-                filePath: r.file_path, startLine: r.start_line ?? null,
-                score: Math.abs(r.score),
-            }));
-            const reranked = applyPprRerank(db, seeds, damping, limit);
-            return text(JSON.stringify(reranked, null, 2));
-        }
-        finally {
-            closeDb(db);
-        }
-    },
-};
-export const monographTools = [
+// Advanced tools are only exposed over MCP when MONOGRAPH_MCP_ADVANCED=1.
+const ADVANCED = process.env['MONOGRAPH_MCP_ADVANCED'] === '1';
+/** Default-exposed core tools (19). */
+const coreMonographTools = [
     monographBuildTool,
     monographQueryTool,
+    monographSuggestTool,
+    monographImpactTool,
+    monographContextTool,
+    monographNeighborsTool,
+    monographDeadCodeTool,
     monographStatsTool,
     monographHealthTool,
+    monographAugmentTool,
     monographGodNodesTool,
+    monographDetectChangesTool,
     monographGetNodeTool,
+    monographApiImpactTool,
+    monographRouteMapTool,
+    monographStalenessTool,
+    monographWatchTool,
+    monographWatchStopTool,
+    monographDoctorTool,
+];
+/** Advanced tools — gated behind MONOGRAPH_MCP_ADVANCED=1. */
+const advancedMonographTools = [
+    monographCypherTool,
     monographShortestPathTool,
     monographCommunityTool,
     monographSurprisesTool,
-    monographSuggestTool,
-    monographSuggestAutoTool,
+    monographShapeCheckTool,
+    monographRenameTool,
+    monographToolMapTool,
+    monographServeTool,
     monographVisualizeTool,
-    monographWatchTool,
-    monographWatchStopTool,
-    monographReportTool,
-    monographStalenessTool,
     monographSnapshotTool,
     monographDiffTool,
-    monographNeighborsTool,
+    monographReportTool,
     monographExportTool,
-    monographContextTool,
-    monographImpactTool,
-    monographDetectChangesTool,
-    monographRenameTool,
-    monographRouteMapTool,
-    monographApiImpactTool,
-    monographCypherTool,
-    monographEmbedTool,
-    monographGroupListTool,
-    monographGroupQueryTool,
     monographWikiTool,
     monographWikiBuildTool,
-    monographServeTool,
-    monographToolMapTool,
-    monographShapeCheckTool,
-    monographGroupSyncTool,
-    monographAugmentTool,
-    monographInjectContextTool,
     monographSkillGenTool,
     monographInstallSkillsTool,
-    monographDoctorTool,
-    monographListReposTool,
+    monographInjectContextTool,
+    monographGroupListTool,
+    monographGroupQueryTool,
+    monographGroupSyncTool,
     monographGroupContractsTool,
     monographGroupStatusTool,
-    monographDeadCodeTool,
+    monographListReposTool,
     monographAgentHistoryTool,
     monographAgentPatternsTool,
     monographAgentRecordTool,
-    monographRankWithGraphTool,
-    monographCommunitySummariesTool,
-    monographPprRerankTool,
 ];
+/**
+ * Full tool list regardless of gating — used by the graphify compat shims,
+ * which must resolve targets (e.g. monograph_community) even when the
+ * advanced set is not exposed over MCP.
+ */
+export const allMonographTools = [...coreMonographTools, ...advancedMonographTools];
+export const monographTools = ADVANCED ? allMonographTools : coreMonographTools;
 //# sourceMappingURL=monograph-tools.js.map

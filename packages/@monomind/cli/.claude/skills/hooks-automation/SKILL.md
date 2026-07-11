@@ -1185,7 +1185,6 @@ npx monomind hook validate-config
 ### Integration with Other Skills
 
 This skill works seamlessly with:
-- **SPARC Methodology** - Hooks enhance SPARC workflows
 - **Pair Programming** - Automated quality in pairing sessions
 - **Verification Quality** - Truth-score validation in hooks
 - **GitHub Workflows** - Git integration for commits/PRs

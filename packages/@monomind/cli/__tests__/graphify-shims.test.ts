@@ -2,8 +2,8 @@ import { vi } from 'vitest';
 
 const createMockHandler = (name: string) => vi.fn().mockResolvedValue({ content: [{ type: 'text', text: `Mock result for ${name}` }] });
 
-vi.mock('../src/mcp-tools/monograph-tools.js', () => ({
-  monographTools: [
+vi.mock('../src/mcp-tools/monograph-tools.js', () => {
+  const tools = [
     { name: 'monograph_build', inputSchema: {}, description: 'mock build', handler: createMockHandler('build') },
     { name: 'monograph_query', inputSchema: {}, description: 'mock query', handler: createMockHandler('query') },
     { name: 'monograph_god_nodes', inputSchema: {}, description: 'mock god_nodes', handler: createMockHandler('god_nodes') },
@@ -18,8 +18,10 @@ vi.mock('../src/mcp-tools/monograph-tools.js', () => ({
     { name: 'monograph_watch_stop', inputSchema: {}, description: 'mock watch_stop', handler: createMockHandler('watch_stop') },
     { name: 'monograph_report', inputSchema: {}, description: 'mock report', handler: createMockHandler('report') },
     { name: 'monograph_health', inputSchema: {}, description: 'mock health', handler: createMockHandler('health') },
-  ],
-}));
+  ];
+  // graphify-tools resolves shims against allMonographTools (ungated superset)
+  return { monographTools: tools, allMonographTools: tools };
+});
 
 describe('graphify shim — monograph_health bug fix', () => {
   it('does not throw ReferenceError for files.length', async () => {

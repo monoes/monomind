@@ -153,7 +153,31 @@ describe('session-handler routing feedback', () => {
     expect(line).toHaveProperty('timestamp');
     expect(line).toHaveProperty('suggestedAgent');
     expect(line.suggestedAgent).toBe('backend-dev');
-    expect(line).toHaveProperty('intelligenceFeedback');
+    // No evidence (no commits, no outcomes) → success flag is omitted, not defaulted to true
+    expect(line.intelligenceFeedback).toBeUndefined();
+  });
+
+  it('normalizes agent labels to lowercase slugs', async () => {
+    const sh = loadSH();
+    const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
+    fs.writeFileSync(routeFile, JSON.stringify({ agent: 'Backend Dev', confidence: 0.8 }), 'utf-8');
+    const hCtx = makeHCtx({ intelligence: { feedback: vi.fn() } });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    await sh.handleEnd(hCtx);
+    const feedbackFile = path.join(tmpDir, '.monomind', 'routing-feedback.jsonl');
+    const line = JSON.parse(fs.readFileSync(feedbackFile, 'utf-8').trim());
+    expect(line.suggestedAgent).toBe('backend-dev');
+  });
+
+  it('skips the record when the agent is a non-agent placeholder', async () => {
+    const sh = loadSH();
+    const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
+    fs.writeFileSync(routeFile, JSON.stringify({ agent: 'AI selecting', confidence: 0.8 }), 'utf-8');
+    const hCtx = makeHCtx({ intelligence: { feedback: vi.fn() } });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    await sh.handleEnd(hCtx);
+    const feedbackFile = path.join(tmpDir, '.monomind', 'routing-feedback.jsonl');
+    expect(fs.existsSync(feedbackFile)).toBe(false);
   });
 
   it('skips feedback when no last-route.json', async () => {

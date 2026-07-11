@@ -130,7 +130,6 @@ export const COMMON_TYPOS = {
     'perf': 'performance',
     'performace': 'performance',
     'provider': 'providers',
-    'claim': 'claims',
     'embed': 'embeddings',
     'embeding': 'embeddings',
     'daemon': 'daemon',
@@ -144,10 +143,7 @@ export const COMMON_TYPOS = {
     'taks': 'task',
     'sessio': 'session',
     'sess': 'session',
-    'sesssion': 'session',
-    'workflow': 'workflow',
-    'wf': 'workflow',
-    'wokflow': 'workflow'
+    'sesssion': 'session'
 };
 /**
  * Get corrected command if it's a common typo

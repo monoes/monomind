@@ -285,7 +285,6 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 | `session`   | 5           | Session state management and persistence                                 | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
-| `workflow`  | 5           | Workflow execution and template management                               | Working         |
 | `hooks`     | 26          | Self-learning hooks + 11 background workers                              | Working         |
 
 ### Advanced Commands
@@ -301,7 +300,6 @@ Bash("npx monomind@latest hooks worker dispatch --trigger optimize")
 | `security`    | 6           | Security scanning (scan, audit, cve, threats, validate, report)               | Working          |
 | `performance` | 4           | Performance profiling (benchmark, profile, metrics, bottleneck) — real measurements | Working     |
 | `providers`   | 4           | AI providers (list, configure, remove, test)                                  | Working          |
-| `claims`      | 6           | Claims-based authorization (list, check, grant, revoke, roles, policies)       | Working          |
 | `guidance`    | 8           | Governance control plane (compile, gates, optimize)                           | Working          |
 | `monograph`   | -           | Knowledge graph CLI (delegates to @monoes/monograph)                          | Working          |
 | `browse`      | -           | Browser automation via CDP (@monoes/monobrowse)                               | Working          |
@@ -369,10 +367,6 @@ CVE remediation, input validation, path security (utility functions, not standal
 ### GitHub & Repository
 
 `github-modes`, `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`, `workflow-automation`, `project-board-sync`, `repo-architect`, `multi-repo-swarm`
-
-### SPARC Methodology
-
-`sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, `architecture`, `refinement`
 
 ### Specialized Development
 
@@ -693,7 +687,7 @@ For a comprehensive overview of all Monomind features, agents, commands, and int
 This includes:
 
 - All 60+ agent type definitions (routing targets) with recommendations
-- All 41 CLI commands
+- All 35 CLI commands
 - All 26 hook subcommands + 11 background workers (hooks) + 12 daemon workers
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms

@@ -234,20 +234,6 @@ Task("Database Architect", "Design PostgreSQL schema...", "code-analyzer")
 Task("Test Engineer", "Create Jest test suite...", "tester")
 ```
 
-### With SPARC Methodology
-
-```bash
-# Use hive mind for SPARC workflow
-npx monomind sparc tdd "User authentication" --hive-mind
-
-# Spawns:
-# - Specification agent
-# - Architecture agent
-# - Coder agents
-# - Tester agents
-# - Reviewer agents
-```
-
 ### With GitHub Integration
 
 ```bash
@@ -691,7 +677,6 @@ npx monomind hive-mind spawn "Review PR #456" \
 - `swarm-orchestration`: Basic swarm coordination
 - `consensus-mechanisms`: Distributed decision making
 - `memory-systems`: Advanced memory management
-- `sparc-methodology`: Structured development workflow
 - `github-integration`: Repository coordination
 
 ## References

@@ -150,6 +150,31 @@ module.exports = {
       }
     } catch (e) { /* @monomind/hooks not compiled yet — skip */ }
 
+    // Refresh DDD metrics once per session start — the statusline
+    // (.claude/helpers/statusline.cjs) reads .monomind/metrics/ddd-progress.json and
+    // silently falls back to a heuristic when the file is missing; the @monomind/hooks
+    // workers are never otherwise scheduled on the live hook path.
+    try {
+      var _createDDD = (hooksModule && typeof hooksModule.createDDDWorker === 'function')
+        ? hooksModule.createDDDWorker : null;
+      if (!_createDDD) {
+        // Dev-repo fallback: bare '@monomind/hooks' does not resolve from .claude/helpers
+        // in the monorepo (pnpm workspace link lives under packages/@monomind/cli), so
+        // import the compiled worker directly by path.
+        var _dddDist = path.join(CWD, 'packages', '@monomind', 'hooks', 'dist', 'workers', 'worker-ddd.js');
+        if (fs.existsSync(_dddDist)) {
+          var _dddMod = await import('file://' + _dddDist);
+          if (_dddMod && typeof _dddMod.createDDDWorker === 'function') _createDDD = _dddMod.createDDDWorker;
+        }
+      }
+      if (_createDDD) {
+        fs.mkdirSync(path.join(CWD, '.monomind', 'metrics'), { recursive: true });
+        var _dddRun = _createDDD(CWD);
+        // runWithTimeout caps this at 1.5s so a slow worker can never block session start.
+        await runWithTimeout(function() { return _dddRun(); }, '@monomind/hooks.dddWorker');
+      }
+    } catch (e) { /* non-fatal — ddd worker unavailable */ }
+
     // Context Persistence Auto-Restore
     try {
       var cpHook = await import('file://' + path.join(helpersDir, 'context-persistence-hook.mjs'));

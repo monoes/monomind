@@ -22,12 +22,6 @@ const initCommand: Command = {
       default: false
     },
     {
-      name: 'sparc',
-      description: 'Initialize with SPARC methodology',
-      type: 'boolean',
-      default: false
-    },
-    {
       name: 'v1',
       description: 'Initialize v1 configuration',
       type: 'boolean',
