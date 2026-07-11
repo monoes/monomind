@@ -26,11 +26,11 @@
     },
     "guidance-right-size": {
       "status": "needs-review",
-      "last_audited": "2026-07-11T00:30:00.000Z",
+      "last_audited": "2026-07-11T22:30:00.000Z",
       "verdict": "CONVERGED-COMMIT",
-      "iterations": 1,
+      "iterations": 2,
       "value_delivered": 9,
-      "note": "Trimmed from 8,383 to 851 lines (90% reduction). Kept: gates.ts (392), types.ts (435), index.ts (24). Build clean."
+      "note": "Run 2: package DELETED entirely. Call-site audit proved it dead at runtime — session-restore-handler's guard (createGates && createRetriever && createLedger) silently no-oped after the run-1 trim, so active-gates.json was never written and gates-handler.cjs always used its own table. Live enforcement is fully self-contained in gates-handler.cjs. guidance.ts CLI slimmed to setup-only (490→180 lines). Also: vote-signer.ts deleted — signVote/verifyVote HMAC moved into audit-writer.ts as private tamper-detection helpers (their only real caller); weightedTally moved to consensus/tally.ts; hive-mind consensus strategies documented honestly as vote-count thresholds, not distributed consensus. 864 tests pass."
     },
     "hive-mind-right-size": {
       "status": "needs-review",

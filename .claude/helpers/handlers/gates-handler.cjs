@@ -1,23 +1,13 @@
 /**
  * Enforcement Gates Handler
  *
- * Runs on every PreToolUse — must stay fast (file read, not a package import).
+ * Runs on every PreToolUse — must stay fast (no package import).
  *
- * Gate patterns are compiled ONCE by @monomind/guidance
- * (packages/@monomind/guidance/src/gates.ts, see EnforcementGates#exportConfig)
- * and written to disk by .claude/helpers/handlers/session-restore-handler.cjs at
- * `${CWD}/.monomind/guidance/active-gates.json`. This file reads that JSON as the
- * single source of truth instead of maintaining its own copy of the regex table.
- *
- * Why a file and not an in-memory registry: every Claude Code hook event (including
- * this one) runs as a fresh, short-lived node subprocess. Anything registered onto an
- * in-memory HookRegistry during session-restore is gone by the time the next
- * PreToolUse subprocess starts. A file on disk is the only state that survives that
- * boundary.
- *
- * If the compiled file is missing (e.g. guidance package not built, or session-restore
- * hasn't run yet this session), a small built-in fallback table is used so gates still
- * work.
+ * The regex tables below are the canonical (and only) gate definition; the
+ * @monomind/guidance package that used to compile them was removed. An optional
+ * project override can still be supplied at `.monomind/guidance/active-gates.json`
+ * ({destructivePatterns, secretPatterns} as {source, flags} pairs) — if present
+ * and valid it replaces the built-in tables.
  *
  * Gates enforced at runtime:
  *   pre-bash  → destructive-ops  (require-confirmation → block)
@@ -147,9 +137,6 @@ function monofenceWorstThreat(result) {
 }
 
 // ─── Fallback patterns (used only if the compiled config file is missing/unreadable) ──
-// Kept intentionally minimal — the canonical, actively-maintained source is
-// packages/@monomind/guidance/src/gates.ts (DEFAULT_GATE_CONFIG).
-
 const FALLBACK_DESTRUCTIVE_PATTERNS = [
   /\brm\s+(?:-[a-z]*f[a-z]*r|-[a-z]*r[a-z]*f|--recursive.*--force|--force.*--recursive|-rf?)\b/i,
   /\bdrop\s+(database|table|schema|index)\b/i,
@@ -189,11 +176,10 @@ function toRegExp(serialized) {
 }
 
 /**
- * Load the compiled gate config written by session-restore-handler.cjs.
- * Returns { destructivePatterns, secretPatterns } — falls back to the
- * built-in minimal table when the file is missing, oversized, or malformed.
- * Not cached across invocations: each PreToolUse hook is its own subprocess,
- * so there is nothing to cache against — just read the (small) file directly.
+ * Load an optional project-level gate override from
+ * .monomind/guidance/active-gates.json. Returns the built-in tables when the
+ * file is absent (the normal case), oversized, or malformed.
+ * Not cached across invocations: each PreToolUse hook is its own subprocess.
  */
 function loadCompiledConfig(cwd) {
   try {

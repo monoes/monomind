@@ -1,13 +1,20 @@
 /**
  * Hive-Mind MCP Tools for CLI
  *
- * Tool definitions for collective intelligence and swarm coordination.
+ * Tool definitions for multi-agent coordination and voting.
+ *
+ * Honest scope note: the "consensus strategies" here are vote-count thresholds
+ * applied to a single in-process tally — NOT distributed consensus protocols.
+ * There is no log replication, leader election, network partitioning, or
+ * adversarial fault model. 'bft' = require 2f+1 votes, 'raft' = require
+ * majority, 'quorum' = configurable preset (majority/supermajority/unanimous).
+ * The names are kept for CLI/API compatibility.
  */
 import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { getProjectCwd } from './types.js';
-import { weightedTally } from '../consensus/vote-signer.js';
+import { weightedTally } from '../consensus/tally.js';
 // Storage paths
 const STORAGE_DIR = '.monomind';
 const HIVE_DIR = 'hive-mind';

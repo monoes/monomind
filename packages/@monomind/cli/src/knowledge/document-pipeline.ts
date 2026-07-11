@@ -219,7 +219,7 @@ export async function ingestDocument(
 
     if (bridge) {
       try {
-        await bridge.bridgeStoreEntry({
+        const storeResult = await bridge.bridgeStoreEntry({
           key,
           value: chunk.text,
           namespace: namespace(scope),
@@ -227,12 +227,10 @@ export async function ingestDocument(
           tags: ['document', ext, `src:${resolved}`],
           upsert: true,
         });
-        indexed++;
+        if (storeResult?.success) indexed++;
       } catch {
-        indexed++;
+        // chunk not stored — don't count as indexed
       }
-    } else {
-      indexed++;
     }
   }
 
