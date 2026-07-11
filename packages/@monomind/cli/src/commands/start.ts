@@ -11,7 +11,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // Default configuration
-const DEFAULT_PORT = 3000;
 const DEFAULT_TOPOLOGY = 'hierarchical-mesh';
 const DEFAULT_MAX_AGENTS = 15;
 
@@ -90,9 +89,7 @@ function loadConfig(cwd: string): Record<string, unknown> | null {
 // Main start action
 const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const daemon = ctx.flags.daemon as boolean;
-  const port = ctx.flags.port as number | undefined;
   const topology = ctx.flags.topology as string | undefined;
-  const skipMcp = ctx.flags['skip-mcp'] as boolean;
   const cwd = ctx.cwd;
 
   // Check initialization
@@ -412,32 +409,17 @@ export const startCommand: Command = {
       default: false
     },
     {
-      name: 'port',
-      short: 'p',
-      description: 'MCP server port',
-      type: 'number',
-      default: DEFAULT_PORT
-    },
-    {
       name: 'topology',
       short: 't',
       description: 'Swarm topology (hierarchical-mesh, mesh, hierarchical, ring, star)',
       type: 'string',
       choices: ['hierarchical-mesh', 'mesh', 'hierarchical', 'ring', 'star']
-    },
-    {
-      name: 'skip-mcp',
-      description: 'Skip starting MCP server',
-      type: 'boolean',
-      default: false
     }
   ],
   examples: [
     { command: 'monomind start', description: 'Start with configuration defaults' },
     { command: 'monomind start --daemon', description: 'Start as background daemon' },
-    { command: 'monomind start --port 3001', description: 'Start MCP on custom port' },
     { command: 'monomind start --topology mesh', description: 'Start with mesh topology' },
-    { command: 'monomind start --skip-mcp', description: 'Start without MCP server' },
     { command: 'monomind start quick', description: 'Quick start with defaults' },
     { command: 'monomind start stop', description: 'Stop the running system' }
   ],

@@ -807,9 +807,13 @@ if (command && handlers[command]) {
   }
 }
 
-main().catch(function(e) {
-  console.log('[WARN] Hook handler error: ' + e.message);
-}).finally(function() {
-  // Use process.exitCode if a gate set it (exit 2 = block), otherwise clean exit
-  process.exit(process.exitCode || 0);
-});
+// Only run when executed directly (every real hook event spawns this file as a
+// process). A require() — e.g. from tests verifying it loads — must not exit.
+if (require.main === module) {
+  main().catch(function(e) {
+    console.log('[WARN] Hook handler error: ' + e.message);
+  }).finally(function() {
+    // Use process.exitCode if a gate set it (exit 2 = block), otherwise clean exit
+    process.exit(process.exitCode || 0);
+  });
+}
