@@ -21,18 +21,15 @@ docker-compose up --build security-tests
 |----------|-------|-------------|
 | CLI Commands | 30+ | All CLI commands and options |
 | MCP Server | 35+ | MCP tools and protocol |
-| Agents (54+) | 60+ | All agent types and spawn |
+| Agents | 60+ | Agent types and spawn |
 | Swarm | 45+ | Topologies and coordination |
 | Hooks | 50+ | Self-learning and routing |
-| Plugins | 70+ | IPFS/Pinata plugin registry |
 | Security | 55+ | Security features and CVE |
-| Memory | 50+ | LanceDB and HNSW |
-| Workers | 60+ | Background workers |
+| Memory | 50+ | Pattern store and episodic recall |
+| Workers | 60+ | Background workers (@monomind/hooks) |
 | Performance | 45+ | Benchmarks and targets |
-| Unit Tests | 424+ | V1 package tests |
+| Unit Tests | 400+ | Package tests |
 | Integration | 65+ | E2E workflows |
-
-**Total: 1000+ test cases**
 
 ## Directory Structure
 
@@ -48,7 +45,6 @@ tests/docker-regression/
 │   ├── test-agents.sh
 │   ├── test-swarm.sh
 │   ├── test-hooks.sh
-│   ├── test-plugins.sh
 │   ├── test-security.sh
 │   ├── test-memory.sh
 │   ├── test-workers.sh
@@ -99,7 +95,7 @@ docker-compose run --rm benchmark-tests
 ### Without Docker
 
 ```bash
-# Run locally (requires Node.js 18+)
+# Run locally (requires Node.js 20+)
 cd tests/docker-regression
 bash scripts/run-all-tests.sh
 ```
@@ -163,23 +159,17 @@ regression-tests:
 
 ### Packages
 
-| Package | Tests | Pass Rate |
-|---------|-------|-----------|
-| @monomind/hooks | 112 | 100% |
-| @monomind/plugins | 142 | 100% |
-| @monomind/security | 47 | 100% |
-| @monomind/swarm | 89 | 100% |
-| @monomind/cli | 34 | 100% |
+Covers the current workspace packages: `@monomind/cli`, `@monomind/hooks`, `@monoes/memory`, `@monomind/mcp`, `@monomind/routing`, `@monoes/monograph`, `@monoes/monobrowse`, `monofence-ai`.
 
 ### Feature Coverage
 
-- ✅ All 54+ agents
-- ✅ All 7 swarm topologies
-- ✅ All MCP tools (27+)
+- ✅ Agent definitions and spawn
+- ✅ Swarm topologies (hierarchical, mesh, hierarchical-mesh, adaptive)
+- ✅ MCP tools
 - ✅ All hooks commands
 - ✅ All security features
 - ✅ All memory operations
-- ✅ All background workers (10)
+- ✅ All background workers (15, @monomind/hooks)
 - ✅ All performance targets
 
 ## Troubleshooting

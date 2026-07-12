@@ -1,6 +1,6 @@
 # Memory Systems
 
-> Monomind has three memory layers that work together: Memory Palace (BM25 verbatim search), LanceDB (vector semantic search with HNSW), and Monograph (code knowledge graph). Each serves a different retrieval pattern.
+> Monomind has three memory layers that work together: Memory Palace (BM25 verbatim search), a JSON pattern store with episodic recall (the hot path — no vector database involved), and Monograph (code knowledge graph). Each serves a different retrieval pattern.
 
 ---
 
@@ -15,12 +15,11 @@
 │  identity.md                 drawers.jsonl                           │
 │         ↓ injected at session start                                 │
 │                                                                      │
-│  LanceDB (semantic)          Monograph (code graph)                 │
-│  .monomind/*.db              .monomind/monograph.db                 │
-│  HNSW vector index           SQLite + dependency graph              │
-│                                                                      │
-│  Hybrid mode (default): SQLite + LanceDB                            │
-│  Solo mode: LanceDB only (no SQLite)                                │
+│  Pattern store + episodic    Monograph (code graph)                 │
+│  patterns.json,              .monomind/monograph.db                 │
+│  auto-memory-store.json,     SQLite + dependency graph              │
+│  episodic/episodes.jsonl                                             │
+│         ↓ recall injected at prompt time                            │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -87,197 +86,27 @@ Triples with `valid_from`/`valid_to` for bi-temporal queries:
 ```
 
 ---
+## 2. Pattern Store & Episodic Recall (the hot path)
 
-## 2. LanceDB (`@monomind/memory`)
+**Files:** `.monomind/data/auto-memory-store.json`, `patterns.json`, `.monomind/episodic/episodes.jsonl`  
+**Honest framing:** the memory that actually runs on every prompt is plain JSON with keyword matching. There is no vector database or HNSW index in the hot path.
 
-**Package:** `packages/@monomind/memory/`  
-**Default backend:** HybridBackend (SQLite + LanceDB per ADR-009)
+### How It Works
 
-LanceDB is a first-class backend option. It uses LanceDB's columnar format, native IVF-PQ ANN search, SQL predicate push-down, and optional full-text search — all in one embedded Rust engine with no server process.
+- **Pattern store** — `intelligence.init()` loads patterns from `patterns.json` / `auto-memory-store.json` at session start and deduplicates them. Patterns are synthesized from command and route outcomes during consolidation.
+- **Prompt-time recall** — on every `UserPromptSubmit`, the route hook scores stored entries against the prompt (Jaccard/keyword matching) and injects the top matches as an `[INTELLIGENCE]` context panel.
+- **Episodic recall** — recent episodes from `.monomind/episodic/episodes.jsonl` are keyword-matched against the prompt (last ~200 episodes) and injected at prompt time, with per-conversation deduplication.
+- **Consolidation** — at session end, `intelligence.consolidate()` dedupes, detects contradictions, and prunes old patterns.
 
-**Peer dependencies (optional):**
+### Optional Vector Backends (`@monomind/memory`)
 
-```bash
-npm install @lancedb/lancedb apache-arrow
-```
-
-### Architecture
-
-```
-UnifiedMemoryService
-  └── TierManager
-        ├── Tier 1: ShortTermMemory (in-memory LRU, capacity 500, current run only)
-        ├── Tier 2: SQLiteBackend (ACID, structured queries, exact matches) [hybrid mode only]
-        ├── Tier 3: LanceDBBackend (semantic/vector via HNSW)
-        └── Tier 4: DiskAnnBackend (optional, large-scale ANN)
-```
-
-### Operation Modes
-
-#### Hybrid Mode (Default)
-
-The default mode runs SQLite alongside LanceDB. Structured queries (exact matches, prefix, tag filters) route to SQLite; semantic and vector queries route to LanceDB. Dual-write keeps both backends in sync.
-
-```
-HybridBackend
-  ├── SQLiteBackend  ← structured queries (exact/prefix/tag), ACID transactions
-  └── LanceDBBackend ← semantic/vector search (HNSW + IVF-PQ)
-```
-
-#### Solo LanceDB Mode (SQLite-free)
-
-When `semanticBackend` is set to `'lancedb'`, SQLiteBackend is never instantiated. Both the structured routing path and the semantic routing path point to the same `LanceDBBackend` instance. Dual-write is automatically disabled to prevent double-writes.
-
-This mode is useful when you want a single-file columnar store with no SQLite dependency, or when deploying to environments where SQLite is unavailable.
-
-```
-HybridBackend (solo mode)
-  └── LanceDBBackend ← all queries: structured + semantic + vector
-```
-
-**All routing paths (exact, prefix, tag, semantic, hybrid) transparently use LanceDB in solo mode.**
-
-### Configuration
-
-#### Environment variable
-
-```bash
-MONOMIND_MEMORY_BACKEND=lancedb
-```
-
-#### `monomind.config.json`
-
-```json
-{
-  "memory": {
-    "semanticBackend": "lancedb",
-    "lancedb": {
-      "dbPath": "./.monomind/lancedb"
-    }
-  }
-}
-```
-
-#### Programmatic API
-
-```typescript
-// Solo LanceDB mode — no SQLite
-const backend = new HybridBackend({
-  semanticBackend: 'lancedb',
-  lancedb: { dbPath: './.monomind/lancedb' },
-});
-
-// Hybrid mode (default) — SQLite + LanceDB
-const backend = new HybridBackend({
-  sqlite: { dbPath: './.monomind/memory.db' },
-  lancedb: { dbPath: './.monomind/lancedb' },
-  dualWrite: true,
-});
-```
-
-### HNSW Index
-
-Pure-TypeScript Hierarchical Navigable Small World implementation:
-
-- **Complexity:** O(log n) query vs O(n) brute force
-- **Optimizations:** BinaryMinHeap/BinaryMaxHeap for O(log n) priority queue, pre-normalized vectors for O(1) cosine, bounded max-heap for top-k
-- **Distance metrics:** `cosine` (default), `euclidean`, `dot`, `manhattan`
-
-### Backends
-
-| Backend | Use case | Mode |
-|---|---|---|
-| `SQLiteBackend` | ACID, exact matches, metadata filters | Hybrid only |
-| `LanceDBBackend` | Semantic vector search via HNSW + IVF-PQ; wraps `@lancedb/lancedb` | Both modes |
-| `HybridBackend` | Default: routes semantic → LanceDB, structured → SQLite; or solo LanceDB when `semanticBackend='lancedb'` | Configurable |
-| `SqljsBackend` | sql.js WASM fallback (browser/edge) | — |
-| `PartitionedHNSW` | Timestamp-partitioned HNSW for temporally-local search | — |
-| `DiskAnnBackend` | Disk-resident ANN graph for large corpora (Tier 4) | — |
-
-### LanceDB Backend Configuration
-
-```typescript
-interface LanceDBBackendConfig {
-  /** Directory for the Lance database files (default: ~/.monomind/lancedb) */
-  dbPath?: string;
-
-  /** Default namespace — also used as the table name (default: 'default') */
-  namespace?: string;
-
-  /** Vector dimension. Must match your embedding generator (default: 1536). */
-  vectorDimension?: number;
-
-  /** Embedding generator function */
-  embeddingGenerator?: EmbeddingGenerator;
-
-  /**
-   * Build a full-text search index on content + key columns.
-   * Requires at least one record in the table.
-   */
-  enableFts?: boolean;
-
-  /**
-   * IVF-PQ search probes (default: 20).
-   * Higher = better recall, slower. Only applies after IVF-PQ index is built
-   * (auto-triggered at 50k rows).
-   */
-  nProbes?: number;
-}
-```
-
-### LanceDB Implementation Notes
-
-The following behaviors are enforced in the current implementation:
-
-- **Phantom table prevention:** Read paths (`get`, `getByKey`, `query`, `search`) use `openExistingTable()`, which checks `db.tableNames()` before opening. A namespace table is never created as a side effect of a read.
-- **nProbes applied:** The `nProbes` config option is passed directly to `table.search().nprobes()` on every vector query, giving you control over recall vs. latency without code changes.
-- **Zero-embedding prevention on `update()`:** `update()` performs a read-then-write round-trip via `get()` + `store()`. The existing `embedding` field is preserved from the stored record through `fromRecord()`, so calling `update()` with a partial payload never zeroes out an entry's vector.
-- **Arrow upper bound fix:** Table creation uses a schema-inference placeholder row that is deleted immediately after the table is established, avoiding Arrow type inference issues with empty arrays.
-
-### Memory Entry Schema
-
-```typescript
-interface MemoryEntry {
-  id: string;
-  key: string;
-  content: string;
-  embedding: Float32Array;
-  type: 'episodic' | 'semantic' | 'procedural' | 'working' | 'cache';
-  namespace: string;
-  tags: string[];
-  metadata: Record<string, unknown>;
-  ownerId?: string;
-  accessLevel: 'private' | 'team' | 'swarm' | 'public' | 'system';
-  createdAt: number;
-  updatedAt: number;
-  expiresAt?: number;
-  eventAt?: number;          // bi-temporal model
-  version: number;
-  importanceScore: number;   // forgetting-curve replay weight
-}
-```
-
-### Query API
-
-```typescript
-// Semantic search
-await memory.semanticSearch("JWT authentication", 5);
-
-// Fluent builder
-await memory.query()
-  .semantic()
-  .inNamespace("auth")
-  .withTags(["security"])
-  .threshold(0.7)
-  .limit(10)
-  .build();
-```
+The `@monomind/memory` package still ships optional backends — `LanceDBBackend` (wraps `@lancedb/lancedb`), a pure-TypeScript HNSW index, and a SQLite backend — for programmatic use. They require optional peer dependencies (`@lancedb/lancedb`, `apache-arrow`) and are **not** used by the prompt-time recall path. If you need semantic vector search, wire them up explicitly; the default experience does not depend on them.
 
 ### MCP Tools (use inside Claude Code sessions)
 
 ```
 mcp__monomind__memory_store      — store a memory entry
-mcp__monomind__memory_search     — semantic + BM25 hybrid search
+mcp__monomind__memory_search     — keyword/BM25 search
 mcp__monomind__memory_retrieve   — get by id or key
 mcp__monomind__memory_delete     — delete entry
 mcp__monomind__memory_list       — list with filters
@@ -286,12 +115,13 @@ mcp__monomind__memory_list       — list with filters
 ### CLI Commands
 
 ```bash
-monomind memory init             # initialize memory backend
-monomind memory store            # store entry (--content, --namespace, --tags)
-monomind memory search "query"   # search (--mode semantic|bm25|hybrid, --threshold)
-monomind memory list             # list entries (--namespace, --type, --limit)
+monomind memory init             # initialize memory store
+monomind memory store            # store entry (--key, --value, --namespace, --tags)
+monomind memory search "query"   # search stored entries
+monomind memory retrieve         # get entry by key (--key, --namespace)
+monomind memory list             # list entries (--namespace, --limit)
 monomind memory stats            # usage statistics
-monomind memory cleanup          # prune expired/low-importance entries
+monomind memory delete           # delete an entry
 monomind memory export           # export to JSON
 monomind memory import           # import from JSON
 ```
@@ -300,9 +130,9 @@ monomind memory import           # import from JSON
 
 ## 3. Monograph (Code Knowledge Graph)
 
-**Package:** `packages/@monomind/monograph/`  
+**Package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`)  
 **Database:** `.monomind/monograph.db` (SQLite)  
-**Tools:** 43 MCP tools (`mcp__monomind__monograph_*`)
+**Tools:** 19 MCP tools by default (`mcp__monomind__monograph_*`); 27 more advanced tools are exposed when `MONOGRAPH_MCP_ADVANCED=1` is set
 
 ### What It Is
 
@@ -330,19 +160,14 @@ monomind monograph watch
 | `monograph_god_nodes` | Find high-centrality internal files (architectural hotspots) |
 | `monograph_impact` | **Before changing anything** — blast radius: all upstream/downstream dependents |
 | `monograph_context` | 360° view of a file: who imports it, what it imports |
-| `monograph_shortest_path` | How two modules are connected |
-| `monograph_community` | Which files form a cohesive module cluster |
-| `monograph_rename` | Dry-run multi-file rename — all graph + text occurrences |
-| `monograph_neighbors` | N-hop BFS neighborhood of a node |
-| `monograph_bridge` | Cross-community connectors (architectural coupling points) |
-| `monograph_cohesion` | Community quality: internal-to-max-possible edge ratio |
-| `monograph_diff` | Compare two graph snapshots — added/removed nodes and edges |
-| `monograph_snapshot` | Save graph state for before/after diffing |
-| `monograph_cypher` | Ad-hoc graph queries: `MATCH (n)-[:IMPORTS]->(b) RETURN n.name` |
+| `monograph_neighbors` | Direct inbound/outbound edges of a node |
+| `monograph_dead_code` | Dead exported functions, orphan files, stale dist artifacts |
 | `monograph_detect_changes` | Map current git diff to affected graph nodes + dependents |
 | `monograph_health` | Index staleness: commits behind HEAD |
 | `monograph_stats` | Node/edge counts |
 | `monograph_build` | Trigger graph build |
+
+**Advanced tools** (set `MONOGRAPH_MCP_ADVANCED=1` to expose over MCP): `monograph_cypher`, `monograph_shortest_path`, `monograph_community`, `monograph_surprises`, `monograph_shape_check`, `monograph_rename`, `monograph_tool_map`, `monograph_serve`, `monograph_visualize`, `monograph_snapshot`, `monograph_diff`, `monograph_report`, `monograph_export`, wiki/skill generation, and the multi-repo group tools.
 
 ### Additional Capabilities
 
@@ -380,7 +205,8 @@ All memory persists across sessions in `.monomind/`:
 │   ├── auto-memory-store.json  ← intelligence patterns
 │   ├── ranked-context.json     ← pre-computed context rankings
 │   └── pending-insights.jsonl  ← unsaved edit events (cleared on consolidate)
-├── lancedb/                 ← LanceDB columnar files (solo or hybrid mode)
+├── episodic/
+│   └── episodes.jsonl       ← episodic memories, keyword-matched at prompt time
 └── monograph.db             ← code knowledge graph
 ```
 
@@ -394,10 +220,6 @@ During `session-end` and `consolidate`:
 - **Trajectory + outcome logging** — steps and trajectories are recorded (`intelligence.ts`); command and route outcomes are tracked (`command-outcomes.ts`, `route-outcomes.ts`)
 - **Consolidation** — dedup, detect contradictions, prune old patterns from `patterns.json`
 
-Optional extensions:
-- **EMBED** — ONNX document indexing
-- **HYPERBOLIC** — Poincaré ball projection for hierarchy-preserving embeddings
-
-These are backed by specialized workers (`ERLWorker`, `TextGradWorker`, `MARWorker`, `RaptorWorker`, `ForgettingCurveWorker`) running on a 30-minute interval in the background.
+Consolidation runs via the `learning` and `patterns` background workers in `@monomind/hooks` (30-minute and 15-minute intervals) and at session end.
 
 > The neural judge/distill loop (LLM-as-judge, strategy distillation, EWC++ consolidation) lives on the `monoes-full-loop` branch.

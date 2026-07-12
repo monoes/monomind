@@ -35,8 +35,8 @@ Runs 8 sequential phases at the start of every session:
 | Phase | Operation | Output |
 |---|---|---|
 | 1 | `session.restore()` | Restores `current.json` |
-| 2 | `intelligence.init()` | Loads patterns, deduplicates |
-| 3 | Init 10+ background workers | Workers start their intervals |
+| 2 | `intelligence.init()` | Loads patterns from `patterns.json`, deduplicates |
+| 3 | Init 15 background workers | Metrics workers refresh if output is missing or older than 6 hours |
 | 4 | Knowledge base preload | CLAUDE.md + docs chunked → `[KNOWLEDGE_PRELOADED]` |
 | 5 | Shared instructions | `.agents/shared_instructions.md` → `[SHARED_INSTRUCTIONS]` |
 | 6 | Memory Palace wakeUp | identity.md + top-5 drawers → `[MEMORY_PALACE_L0/L1]` |
@@ -116,53 +116,36 @@ Defined in `packages/@monomind/hooks/src/types.ts`:
 
 ---
 
-## Background Workers (10 core + specialized)
+## Background Workers (15)
 
-Workers run on fixed intervals during sessions:
-
-### Core Workers (`WORKER_CONFIGS`)
+There is no separate background daemon. All 15 workers live in `@monomind/hooks` (`WorkerManager`), run in-process, and are initialized at session start. The metrics-producing workers (`map`, `audit`, `optimize`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `doctor` reports worker-metrics freshness.
 
 | Worker | Interval | Priority | Purpose |
 |---|---|---|---|
 | `performance` | 5 min | Normal | Benchmark search, memory, startup; measures heap, CPU, codebase lines |
 | `health` | 5 min | High | Monitor disk, memory, CPU, uptime, load average |
 | `patterns` | 15 min | Normal | Consolidate, deduplicate, optimize learned patterns |
-| `ddd` | 10 min | Low | Track DDD domain implementation progress across @monomind packages |
+| `ddd` | 10 min | Low | Track DDD domain implementation progress → `.monomind/metrics/ddd-progress.json` |
 | `adr` | 15 min | Low | Check ADR compliance (ADR-001 through ADR-012) |
-| `security` | 30 min | High | Scan for secrets, vulnerabilities, insecure patterns (7 CVEs tracked) |
-| `learning` | 30 min | Normal | Outcome/trajectory logging and pattern consolidation; runs ERL, TextGrad, RAPTOR, forgetting-curve sub-tasks |
+| `security` | 30 min | High | Scan for secrets, vulnerabilities, insecure patterns |
+| `learning` | 30 min | Normal | Outcome/trajectory logging and pattern consolidation |
 | `cache` | 1 hour | Background | Clean `.monomind/cache` and `.monomind/temp`, files older than 7 days |
 | `git` | 5 min | Normal | Track uncommitted changes, branch, staged/modified counts |
 | `swarm` | 1 min | High | Monitor swarm activity and queue pending agent messages |
+| `progress` | — | Normal | Track implementation progress |
+| `map` | 6 hours | Normal | Codebase mapping → `.monomind/metrics/codebase-map.json` |
+| `audit` | 6 hours | High | Security audit → `.monomind/metrics/security-audit.json` |
+| `optimize` | 6 hours | Normal | Performance snapshot → `.monomind/metrics/performance.json` |
+| `consolidate` | 6 hours | Low | Memory consolidation → `.monomind/metrics/consolidation.json` |
 
-### Specialized Workers
-
-| Worker | Purpose |
-|---|---|
-| `EntityExtractorWorker` | Extracts named-entity KV facts from memory |
-| `EntityCleanupWorker` | Prunes stale entity facts |
-| `EpisodeBinnerWorker` | Bins episodic memories into time buckets |
-| `ERLWorker` | Experiential Reflective Learning (arXiv:2603.24639) |
-| `TextGradWorker` | Backward pass via textual gradients (arXiv:2406.07496) |
-| `MARWorker` | Multi-Agent Reflexion (arXiv:2512.20845) |
-| `RaptorWorker` | Recursive Abstractive Tree Indexing (arXiv:2401.18059) |
-| `ForgettingCurveWorker` | Ebbinghaus decay scheduling for pattern replay |
-| `SynthesisWorker` | Dynamic agent synthesis |
-| `PromptOptimizationWorker` | Few-shot prompt optimization |
-| `MapReduceWorker` | Parallel task aggregation |
-| `KnowledgeWorker` | Knowledge graph integration |
-| `CheckpointWorker` | Interrupt/human-in-the-loop checkpointing |
-
-### Daemons (3)
-
-Initialized by `initializeHooks()`:
-- `MetricsDaemon` — collects hook execution metrics to SQLite
-- `SwarmMonitorDaemon` — monitors swarm activity
-- `HooksLearningDaemon` — triggers pattern learning cycles
+```bash
+monomind hooks worker list        # list all workers and status
+monomind hooks worker run <name>  # run a worker on demand
+```
 
 ---
 
-## CLI Subcommands (27)
+## CLI Subcommands
 
 ### Lifecycle hooks (8)
 ```bash
@@ -214,54 +197,16 @@ monomind hooks transfer         # Transfer patterns via IPFS
 Use these inside Claude Code sessions:
 
 ```
-mcp__monomind__hooks_pre_task      — register task start, get routing
-mcp__monomind__hooks_post_task     — record completion
-mcp__monomind__hooks_route         — route a task description
-mcp__monomind__hooks_intelligence  — get intelligence context
-mcp__monomind__hooks_metrics       — hook execution metrics
-mcp__monomind__statusline          — generate statusline
-mcp__monomind__model_outcome       — record model outcome
+mcp__monomind__hooks_route                 — route a task description
+mcp__monomind__hooks_route_semantic        — semantic routing
+mcp__monomind__hooks_explain               — explain a routing decision
+mcp__monomind__hooks_intelligence          — get intelligence context
+mcp__monomind__hooks_intelligence_stats    — intelligence statistics
+mcp__monomind__hooks_metrics               — hook execution metrics
+mcp__monomind__hooks_list                  — list registered hooks
+mcp__monomind__hooks_pretrain              — bootstrap intelligence from repo
+mcp__monomind__hooks_transfer              — transfer patterns
 ```
-
----
-
-## Advanced Features
-
-### InterruptCheckpointer (Human-in-the-Loop)
-
-Allows background agents to pause and request human decisions:
-
-```
-mcp__monomind__list_pending_checkpoints  — see what needs review
-mcp__monomind__approve_checkpoint        — approve and continue
-mcp__monomind__reject_checkpoint         — reject and abort
-mcp__monomind__get_checkpoint            — get checkpoint details
-```
-
-### Distributed Tracing
-
-`TraceStore` + `TraceCollector` track agent spans with `spanId`/`traceId` correlation:
-
-```bash
-monomind hooks metrics --traces    # list execution traces
-```
-
-### Observability Bus
-
-`ObservabilityBus` with three sinks:
-- `CLISink` — terminal output
-- `LanceDBSink` — persists to memory
-- `OTelSink` — OpenTelemetry export
-
-### Cost Tracking
-
-`CostTracker` + `CostReporter` with `MODEL_PRICING` table:
-
-| Model | in | out | cacheWrite | cacheRead | fastMult |
-|---|---|---|---|---|---|
-| Opus 4.6 | $5e-6/tok | $25e-6/tok | $6.25e-6/tok | $0.5e-6/tok | 6× |
-| Sonnet 4.6 | $3e-6/tok | $15e-6/tok | $3.75e-6/tok | $0.3e-6/tok | 1× |
-| Haiku 4.5 | $1e-6/tok | $5e-6/tok | $1.25e-6/tok | $0.1e-6/tok | 1× |
 
 ---
 

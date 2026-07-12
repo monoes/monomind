@@ -66,7 +66,7 @@ flowchart TD
     R["Reviewer"]
     M["Growth Marketer"]
     BOARD[("Shared\nTask Board")]
-    MEM[("LanceDB\nMemory")]
+    MEM[("Persistent\nMemory")]
 
     U --> CO --> RO --> BOSS
     BOSS -->|spawns| W
@@ -126,7 +126,7 @@ Type "go" to save, or describe changes.
 | **Boss agent** | Coordinator type, no supervisor — owns the goal |
 | **Role agents** | Spawned on demand, specialized by task type |
 | **Task board** | Todo → Doing → Done, shared across all agents |
-| **Memory** | All output stored in org-scoped LanceDB namespace |
+| **Memory** | All output stored in an org-scoped memory namespace |
 | **Checkpoint** | State saved every 30 min — survives crashes and restarts |
 | **Governance** | `auto` (free), `board` (approve sensitive), `strict` (approve all external actions) |
 
@@ -202,10 +202,7 @@ monomind init
 # 3. Wire into Claude Code as an MCP server
 claude mcp add monomind npx monomind mcp start
 
-# 4. Start the background daemon
-monomind daemon start
-
-# 5. Health check
+# 4. Health check
 monomind doctor --fix
 ```
 
@@ -221,26 +218,11 @@ Open Claude Code. You now have 80+ slash commands available:
 
 ## 🧠 Memory That Persists
 
-Every session, every agent, every org writes to **LanceDB** — a hybrid SQLite + HNSW vector store that survives across sessions. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
-
-```mermaid
-graph TD
-    L0["L0 - In-flight\nCurrent session drawers\nephemeral"]
-    L1["L1 - Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
-    L2["L2 - Long-term\nLanceDB + HNSW index\nSemantic search"]
-    L3["L3 - Shared\nCross-agent namespace\nFederated swarm reads"]
-
-    L0 -->|promoted| L1 --> L2 --> L3
-
-    style L0 fill:#00D2AA11,stroke:#00D2AA
-    style L1 fill:#F59E0B11,stroke:#F59E0B
-    style L2 fill:#8B5CF611,stroke:#8B5CF6
-    style L3 fill:#EF444411,stroke:#EF4444
-```
+Every session, every agent, every org writes to persistent memory that survives across sessions — a JSON pattern store plus episodic recall on the hot path, with an optional vector backend (`@lancedb/lancedb`) for semantic search. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
 
 ```bash
-monomind memory store "key insight" --namespace my-project
-monomind memory search "auth implementation"     # BM25 + semantic hybrid
+monomind memory store --key "insight" --value "key insight" --namespace my-project
+monomind memory search --query "auth implementation"
 ```
 
 ---
@@ -259,13 +241,13 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-23 MCP tools. Impact analysis. Shortest-path queries. Community detection. Zero grep.
+19 MCP tools by default (27 with `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Shortest-path queries. Community detection. Zero grep.
 
 ---
 
 ## 🎣 Hooks & Workers
 
-Monomind wires 22 hook events into Claude Code. Every edit, task, command, and session fires hooks that log patterns, route agents, and train the intelligence system.
+Monomind wires 20 hook events into Claude Code. Every edit, task, command, and session fires hooks that log patterns, route agents, and feed the intelligence system.
 
 ```mermaid
 flowchart LR
@@ -279,7 +261,7 @@ flowchart LR
     DB -->|next session| CE
 ```
 
-**12 background workers** run continuously: `security` · `health` · `swarm` · `learning` · `patterns` · `git` · `performance` and more.
+**15 background workers** refresh project metrics (with 6-hour staleness gating at session start): `security` · `health` · `swarm` · `learning` · `patterns` · `git` · `performance` · `map` · `audit` and more.
 
 ---
 
@@ -341,7 +323,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | Package | npm | Purpose |
 |---|---|---|
 | `monomind` | [![npm](https://img.shields.io/npm/v/monomind?style=flat-square&color=00D2AA)](https://www.npmjs.com/package/monomind) | Umbrella — **install this one** |
-| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (41 commands) |
+| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (31 commands) |
 | `monofence-ai` | [![npm](https://img.shields.io/npm/v/monofence-ai?style=flat-square&color=EF4444)](https://www.npmjs.com/package/monofence-ai) | AI manipulation defence |
 | `@monoes/monograph` | [![npm](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square&color=F59E0B)](https://www.npmjs.com/package/@monoes/monograph) | Code knowledge graph |
 
@@ -353,15 +335,15 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 graph TD
     CC["Claude Code"]
     MCP["MCP Server\nmonomind mcp start"]
-    D["Background Daemon\n12 workers"]
+    D["Background Workers\n(@monomind/hooks, in-process)"]
 
-    CC <-->|"23 tools: monograph, memory, swarm"| MCP
+    CC <-->|"MCP tools: monograph, memory, swarm"| MCP
     MCP <--> D
 
-    D --> ADB[("LanceDB\nSQLite + HNSW")]
+    D --> ADB[("Persistent Memory\nJSON + SQLite")]
     D --> MG[("Monograph\ncode graph")]
-    D --> HK["Hooks\n22 event types"]
-    D --> SW["Swarm\n6 topologies\n5 consensus algos"]
+    D --> HK["Hooks\n20 event types"]
+    D --> SW["Swarm\n6 topologies\n3 consensus strategies"]
 
     CC -->|"Task tool - spawns agents"| AG["Agent Swarm\narchitect, coder\ntester, reviewer\nsecurity, perf"]
     AG <-->|reads and writes| ADB
@@ -383,7 +365,7 @@ graph TD
 - 📋 [All Slash Commands](https://monoes.github.io/monomind/#slash)
 - 🐛 [Issues](https://github.com/monoes/monomind/issues)
 - 💬 [Discussions](https://github.com/monoes/monomind/discussions)
-- 📦 [Changelog v1.11](https://github.com/monoes/monomind/blob/main/CHANGELOG-v1.11.md)
+- 📦 [Releases](https://github.com/monoes/monomind/releases)
 
 ---
 

@@ -241,7 +241,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <img src="assets/logo.svg" alt="Monomind logo" width="32" height="32" style="border-radius:6px;flex-shrink:0">
     <div>
       <div class="logo-text">Monomind</div>
-      <div class="logo-ver">v1.18.13</div>
+      <div class="logo-ver">v2.0.0</div>
     </div>
   </div>
   <div class="nav-section">
@@ -321,12 +321,12 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
   <div class="page-content" style="padding-top:0">
     <div class="section-title reveal">Why Monomind?</div>
     <div class="card-grid">
-      <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, HNSW vector indexing, and LanceDB backends. Context survives across sessions.</div></div>
-      <div class="card reveal"><div class="card-icon">🐝</div><div class="card-title">Swarm Topologies</div><div class="card-desc">Hierarchical, mesh, adaptive, and hybrid multi-agent swarms with Raft, Byzantine, and CRDT consensus. 15-agent domain hierarchy.</div></div>
-      <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 44 MCP tools across 8 categories for impact analysis, dead code detection, path finding, community detection, and multi-repo queries.</div></div>
+      <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, plus a JSON pattern store with episodic recall injected at prompt time. Context survives across sessions.</div></div>
+      <div class="card reveal"><div class="card-icon">🐝</div><div class="card-title">Swarm Topologies</div><div class="card-desc">Experimental in-process multi-agent coordination — hierarchical, mesh, adaptive, and hybrid topologies with vote-count consensus thresholds (bft, raft, quorum).</div></div>
+      <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 19 MCP tools by default (27 more via MONOGRAPH_MCP_ADVANCED=1) for impact analysis, dead code detection, path finding, and multi-repo queries.</div></div>
       <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Outcome-Measured Routing</div><div class="card-desc">Deterministic keyword routing with route-outcome correlation. Every hook event is logged so routing accuracy and adherence can be measured by <code>doctor</code>.</div></div>
       <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:autodev --tillend researches, builds, reviews, and loops while you sleep.</div></div>
-      <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">17 hook events, 12 background workers. Pre/post-edit, pre/post-task, session, learning, and agent-team hooks with zero-overhead dispatch.</div></div>
+      <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">17 hook events, 15 background workers. Pre/post-edit, pre/post-task, session, learning, and agent-team hooks with zero-overhead dispatch.</div></div>
     </div>
     <div class="section-title reveal">Quick Install</div>
     <div class="code-block reveal">
@@ -370,11 +370,11 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
 <span class="cmd">npx monomind init</span>
 <span class="comment"># Interactive wizard: topology, memory backend, hooks</span>
 
-<span class="cmd">npx monomind daemon start</span>
-<span class="comment"># Starts background workers (security, health, learning...)</span>
+<span class="cmd">npx monomind hooks worker list</span>
+<span class="comment"># Background workers (security, health, learning...) run at session start</span>
 
 <span class="cmd">npx monomind doctor --fix</span>
-<span class="comment"># Checks: Node 20+, git, config, daemon, DB, MCP, disk</span></div>
+<span class="comment"># Checks: Node 20+, git, config, worker metrics, DB, MCP, disk</span></div>
     <div class="section-title reveal">4. First Session</div>
     <div class="terminal reveal">
       <div class="terminal-header">
@@ -400,9 +400,9 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <tbody>
         <tr><td class="mono">npx monomind init</td><td>Initialize project with wizard</td></tr>
         <tr><td class="mono">npx monomind doctor</td><td>Health diagnostics; auto-fix with --fix</td></tr>
-        <tr><td class="mono">npx monomind daemon start</td><td>Start background worker daemon</td></tr>
+        <tr><td class="mono">npx monomind hooks worker run &lt;name&gt;</td><td>Run a background worker on demand</td></tr>
         <tr><td class="mono">npx monomind memory store</td><td>Store a memory with optional namespace</td></tr>
-        <tr><td class="mono">npx monomind memory search</td><td>BM25 + semantic hybrid search</td></tr>
+        <tr><td class="mono">npx monomind memory search</td><td>Keyword/BM25 search over stored memories</td></tr>
         <tr><td class="mono">npx monomind swarm init</td><td>Initialize a multi-agent swarm</td></tr>
         <tr><td class="mono">npx monomind hooks list</td><td>Show all registered hooks</td></tr>
         <tr><td class="mono">/mastermind:autodev</td><td>Autonomous build loop inside Claude Code</td></tr>
@@ -437,27 +437,27 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <rect class="arch-box" x="140" y="310" width="220" height="60" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
         <rect class="arch-box" x="400" y="310" width="220" height="60" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
         <text class="arch-label" x="120" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/cli</text>
-        <text class="arch-sub" x="120" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">41 commands</text>
+        <text class="arch-sub" x="120" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">31 commands</text>
         <text class="arch-sub" x="120" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Entry point</text>
         <text class="arch-label" x="380" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/hooks</text>
-        <text class="arch-sub" x="380" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">17 hook types · 12 workers</text>
+        <text class="arch-sub" x="380" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">17 hook types · 15 workers</text>
         <text class="arch-sub" x="380" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Intelligence pipeline</text>
         <text class="arch-label" x="640" y="62" text-anchor="middle" fill="oklch(70% 0.18 60)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/memory</text>
-        <text class="arch-sub" x="640" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">LanceDB + HNSW</text>
+        <text class="arch-sub" x="640" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">Pattern store + episodic recall</text>
         <text class="arch-sub" x="640" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Memory Palace L0–L3</text>
-        <text class="arch-label" x="120" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/swarm</text>
-        <text class="arch-sub" x="120" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">6 topologies</text>
-        <text class="arch-sub" x="120" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">5 consensus algorithms</text>
+        <text class="arch-label" x="120" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">Swarm (experimental)</text>
+        <text class="arch-sub" x="120" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">7 topologies</text>
+        <text class="arch-sub" x="120" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">vote-count consensus</text>
         <text class="arch-label" x="380" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/routing</text>
         <text class="arch-sub" x="380" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">keyword routing</text>
         <text class="arch-sub" x="380" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">route-outcome measurement</text>
-        <text class="arch-label" x="640" y="212" text-anchor="middle" fill="oklch(78% 0.14 210)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/security</text>
-        <text class="arch-sub" x="640" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">CVE remediation</text>
+        <text class="arch-label" x="640" y="212" text-anchor="middle" fill="oklch(78% 0.14 210)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">monofence-ai</text>
+        <text class="arch-sub" x="640" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">Prompt-injection defense</text>
         <text class="arch-sub" x="640" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Input validation</text>
         <text class="arch-label" x="250" y="347" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">Monograph</text>
-        <text class="arch-sub" x="250" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">44 MCP tools · Code knowledge graph</text>
-        <text class="arch-label" x="510" y="347" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/guidance</text>
-        <text class="arch-sub" x="510" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Governance control plane</text>
+        <text class="arch-sub" x="250" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">19 + 27 MCP tools · Code knowledge graph</text>
+        <text class="arch-label" x="510" y="347" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monoes/monobrowse</text>
+        <text class="arch-sub" x="510" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Browser automation via CDP</text>
         <line class="arch-arrow" x1="230" y1="65" x2="265" y2="65" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
         <line class="arch-arrow" x1="490" y1="65" x2="525" y2="65" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
         <line class="arch-arrow" x1="230" y1="215" x2="265" y2="215" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
@@ -474,15 +474,14 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <table class="doc-table">
       <thead><tr><th>Package</th><th>Path</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 41 commands</td></tr>
-        <tr><td class="mono">@monomind/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>17 hooks + 12 background workers</td></tr>
-        <tr><td class="mono">@monomind/memory</td><td class="mono">packages/@monomind/memory/</td><td>LanceDB + HNSW vector search</td></tr>
-        <tr><td class="mono">@monomind/security</td><td class="mono">packages/@monomind/security/</td><td>Input validation, CVE remediation</td></tr>
-        <tr><td class="mono">@monomind/guidance</td><td class="mono">packages/@monomind/guidance/</td><td>Governance control plane</td></tr>
-        <tr><td class="mono">@monomind/swarm</td><td class="mono">packages/@monomind/swarm/</td><td>Multi-agent swarm coordination</td></tr>
+        <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 31 commands (includes swarm coordination and input validation)</td></tr>
+        <tr><td class="mono">@monomind/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>17 hooks + 15 background workers</td></tr>
+        <tr><td class="mono">@monomind/memory</td><td class="mono">packages/@monomind/memory/</td><td>Memory backends — episodic store, optional LanceDB/HNSW</td></tr>
+        <tr><td class="mono">@monomind/mcp</td><td class="mono">packages/@monomind/mcp/</td><td>MCP server framework</td></tr>
         <tr><td class="mono">@monomind/routing</td><td class="mono">packages/@monomind/routing/</td><td>Keyword routing, route-outcome measurement</td></tr>
         <tr><td class="mono">monofence-ai</td><td class="mono">packages/monofence-ai/</td><td>AI manipulation defense — prompt injection, jailbreak, evasion detection</td></tr>
-        <tr><td class="mono">monograph</td><td class="mono">packages/monograph/</td><td>Code knowledge graph, 44 MCP tools — also published standalone as <code>@monoes/monograph</code></td></tr>
+        <tr><td class="mono">monograph</td><td class="mono">packages/@monomind/monograph/</td><td>Code knowledge graph — 19 default MCP tools, 27 advanced via <code>MONOGRAPH_MCP_ADVANCED=1</code> — published standalone as <code>@monoes/monograph</code></td></tr>
+        <tr><td class="mono">@monoes/monobrowse</td><td class="mono">packages/@monoes/monobrowse/</td><td>Browser automation via CDP</td></tr>
         <tr><td class="mono">monomind</td><td class="mono">/ (root)</td><td>Umbrella package published to npm</td></tr>
       </tbody>
     </table>
@@ -507,7 +506,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Memory &amp; Knowledge</h1>
-      <p class="page-desc">Four-tier memory palace, HNSW vector indexing, BM25 search, and Monograph — the code knowledge graph with 44 MCP tools across 8 categories.</p>
+      <p class="page-desc">Four-tier memory palace, BM25 search, a JSON pattern store with episodic recall, and Monograph — the code knowledge graph with 19 default MCP tools (27 more via MONOGRAPH_MCP_ADVANCED=1).</p>
     </div>
     <div class="section-title reveal">Memory Palace — Four Tiers</div>
     <div class="reveal" style="margin-bottom:24px;display:flex;gap:12px;flex-wrap:wrap">
@@ -517,24 +516,23 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="tier-stack reveal">
       <div class="tier-row tier-l0"><div class="tier-label">L0<br>In-flight</div><div class="tier-content"><strong>Current session context.</strong> Stored in <code>drawers.jsonl</code>. Each drawer has a key, value, tags array, timestamp, and score. Ephemeral — not persisted across sessions unless promoted.</div></div>
       <div class="tier-row tier-l1"><div class="tier-label">L1<br>Working</div><div class="tier-content"><strong>Cross-session working memory.</strong> Closets store aggregated entries from multiple drawers. Closet boost adds +0.5 per matching search term. BM25 parameters: K1=1.5, B=0.75.</div></div>
-      <div class="tier-row tier-l2"><div class="tier-label">L2<br>Long-term</div><div class="tier-content"><strong>Persisted embeddings.</strong> LanceDB with HNSW indexing. Hybrid backend combines SQLite for exact lookups with LanceDB for semantic search. Pure-JS HNSW gives O(log n) approximate nearest neighbor vs O(n) brute-force.</div></div>
-      <div class="tier-row tier-l3"><div class="tier-label">L3<br>Shared</div><div class="tier-content"><strong>Cross-agent namespace.</strong> PartitionedHNSW shards by agent domain. Federation allows swarm agents to read each other's L3 without owning writes. Knowledge graph edges land here.</div></div>
+      <div class="tier-row tier-l2"><div class="tier-label">L2<br>Long-term</div><div class="tier-content"><strong>Pattern store + episodic recall.</strong> Patterns live in plain JSON (<code>patterns.json</code>, <code>auto-memory-store.json</code>) loaded by <code>intelligence.init()</code> at session start; episodic memories (<code>episodic/episodes.jsonl</code>) are keyword-matched and injected at prompt time. No vector database in the hot path.</div></div>
+      <div class="tier-row tier-l3"><div class="tier-label">L3<br>Deep search</div><div class="tier-content"><strong>BM25 over all drawers.</strong> Full-corpus search across <code>drawers.jsonl</code> with closet-term boosting — the most comprehensive retrieval layer, used on explicit search calls.</div></div>
     </div>
-    <div class="section-title reveal">Storage Backends</div>
+    <div class="section-title reveal">Storage</div>
     <div class="table-wrap reveal">
     <table class="doc-table">
-      <thead><tr><th>Backend</th><th>Use Case</th><th>Notes</th></tr></thead>
+      <thead><tr><th>Store</th><th>Use Case</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td class="mono">SQLiteBackend</td><td>Small projects, single-agent</td><td>Default. No external deps.</td></tr>
-        <tr><td class="mono">LanceDBBackend</td><td>Vector semantic search</td><td>Pure-TypeScript HNSW index.</td></tr>
-        <tr><td class="mono">HybridBackend</td><td>Production (recommended)</td><td>SQLite + LanceDB per ADR-009. Auto-routes by query type.</td></tr>
-        <tr><td class="mono">PartitionedHNSW</td><td>Multi-agent L3</td><td>Domain-sharded; agent-scoped writes.</td></tr>
-        <tr><td class="mono">DiskAnnBackend</td><td>Very large datasets</td><td>Disk-resident ANN index.</td></tr>
+        <tr><td class="mono">patterns.json / auto-memory-store.json</td><td>Learned patterns, prompt-time recall</td><td>Default hot path. Plain JSON, keyword matching.</td></tr>
+        <tr><td class="mono">episodic/episodes.jsonl</td><td>Episodic recall</td><td>Keyword-matched against the prompt; injected as context.</td></tr>
+        <tr><td class="mono">palace/drawers.jsonl</td><td>Verbatim BM25 search</td><td>800-char chunks, scored on retrieval.</td></tr>
+        <tr><td class="mono">LanceDBBackend / HNSW (optional)</td><td>Programmatic vector search</td><td>Ships in @monomind/memory; requires optional peer deps; not used by the default recall path.</td></tr>
       </tbody>
     </table>
     </div>
     <div class="section-title reveal">Monograph — Code Knowledge Graph</div>
-    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Monograph builds a SQLite-backed graph of your codebase — nodes are files/classes/functions, edges are imports/calls/dependencies. 44 MCP tools across 8 categories: Core Navigation, Change Impact, Dead Code &amp; Stale Artifacts, Graph Exploration, Index Lifecycle, Snapshots &amp; Export, Wiki &amp; AI Docs, and Multi-Repo/Group. Use it before touching 3+ files. Also available standalone as <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">@monoes/monograph</code>.</p>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Monograph builds a SQLite-backed graph of your codebase — nodes are files/classes/functions, edges are imports/calls/dependencies. 19 MCP tools are exposed by default (navigation, impact analysis, dead code, index lifecycle); 27 advanced tools (Cypher queries, snapshots, export, wiki, multi-repo groups) are enabled with <code>MONOGRAPH_MCP_ADVANCED=1</code>. Use it before touching 3+ files. Also available standalone as <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">@monoes/monograph</code>.</p>
     <div class="table-wrap reveal">
     <table class="doc-table">
       <thead><tr><th>Tool</th><th>When to use</th></tr></thead>
@@ -554,12 +552,12 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     </table>
     </div>
     <div class="section-title reveal">Second Brain — Document Knowledge Base</div>
-    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Second Brain indexes your project's documents (PDF, DOCX, Markdown, TXT, RTF, and more) into a searchable knowledge base. During <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">monomind init</code>, the directory scanner detects document files and auto-ingests them — chunked, hashed for dedup, and stored in LanceDB for semantic retrieval. Agents can then query business docs, compliance policies, or design specs without leaving Claude Code.</p>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Second Brain indexes your project's documents (PDF, DOCX, Markdown, TXT, RTF, and more) into a searchable knowledge base. During <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">monomind init</code>, the directory scanner detects document files and auto-ingests them — chunked, hashed for dedup, and stored in the knowledge base for retrieval. Agents can then query business docs, compliance policies, or design specs without leaving Claude Code.</p>
     <div class="phase-flow reveal">
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">SCAN</div><div class="phase-desc">Directory scanner classifies files by extension (<code>.pdf</code>, <code>.docx</code>, <code>.md</code>, <code>.txt</code>, <code>.rtf</code>, <code>.pages</code>, <code>.odt</code>, <code>.rst</code>, <code>.tex</code>, <code>.epub</code>). If enough match, the "documents" capability activates.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 2</div><div class="phase-name">EXTRACT</div><div class="phase-desc">Text extraction via <code>pdf-parse</code> (PDF), <code>mammoth</code> (DOCX), or direct read (plain text). Each document is chunked into 3200-char segments with 400-char overlap, respecting paragraph boundaries.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 3</div><div class="phase-name">INDEX</div><div class="phase-desc">SHA-256 content hashing for deduplication. Chunks are stored in LanceDB under <code>knowledge:&lt;scope&gt;</code> namespace. Metadata logged to <code>.monomind/knowledge/doc-metadata.jsonl</code>.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">QUERY</div><div class="phase-desc">Semantic search via <code>knowledge_search</code> MCP tool or <code>monomind doc search</code> CLI. Returns ranked excerpts with similarity scores.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 3</div><div class="phase-name">INDEX</div><div class="phase-desc">SHA-256 content hashing for deduplication. Chunks are stored under the <code>knowledge:&lt;scope&gt;</code> namespace. Metadata logged to <code>.monomind/knowledge/doc-metadata.jsonl</code>.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">QUERY</div><div class="phase-desc">Search via <code>knowledge_search</code> MCP tool or <code>monomind doc search</code> CLI. Returns ranked excerpts with relevance scores.</div></div></div>
     </div>
     <div class="section-title reveal" style="margin-top:32px">CLI — <code style="font-family:var(--ff-m);font-size:13px">monomind doc</code></div>
     <div class="table-wrap reveal">
@@ -567,7 +565,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <thead><tr><th>Command</th><th>Description</th></tr></thead>
       <tbody>
         <tr><td class="mono">doc ingest &lt;path&gt;</td><td>Index documents from a file or directory into the knowledge base</td></tr>
-        <tr><td class="mono">doc search -q "query"</td><td>Semantic search over indexed documents (supports <code>--limit</code>, <code>--scope</code>, <code>--min-score</code>)</td></tr>
+        <tr><td class="mono">doc search -q "query"</td><td>Search over indexed documents (supports <code>--limit</code>, <code>--scope</code>, <code>--min-score</code>)</td></tr>
         <tr><td class="mono">doc list</td><td>List all indexed documents with chunk counts and sizes</td></tr>
         <tr><td class="mono">doc export</td><td>Export knowledge base as OKF bundle (Markdown + YAML frontmatter)</td></tr>
       </tbody>
@@ -598,7 +596,7 @@ monomind doc ingest ./their-knowledge -s shared
 
     <div class="section-title reveal">Learning Pipeline</div>
     <div class="phase-flow reveal">
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">RETRIEVE</div><div class="phase-desc">Pure-JS HNSW ANN search across L2/L3 tiers. Returns top-K neighbors by cosine similarity.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">RETRIEVE</div><div class="phase-desc">Keyword/Jaccard scoring of stored patterns and episodes against the prompt. Top matches are injected as context.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 2</div><div class="phase-name">LOG</div><div class="phase-desc">Trajectories, steps, and command/route outcomes are recorded (<code>intelligence.ts</code>, <code>command-outcomes.ts</code>, <code>route-outcomes.ts</code>).</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 3</div><div class="phase-name">MEASURE</div><div class="phase-desc">Recommended routes are correlated with actual outcomes; <code>doctor</code> reports routing accuracy and adherence.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">CONSOLIDATE</div><div class="phase-desc">Dedup, detect contradictions, and prune old patterns from <code>patterns.json</code>. The neural judge/distill loop lives on the <code>monoes-full-loop</code> branch.</div></div></div>
@@ -612,7 +610,7 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Hooks &amp; Workers</h1>
-      <p class="page-desc">17 hook events, 12 background workers, and an intelligence pipeline that learns from every edit, task, and session.</p>
+      <p class="page-desc">17 hook events, 15 background workers, and an intelligence pipeline that learns from every edit, task, and session. Workers run in-process at session start — there is no separate daemon.</p>
     </div>
     <div class="section-title reveal">Hook Events</div>
     <div class="table-wrap reveal">
@@ -644,21 +642,25 @@ monomind doc ingest ./their-knowledge -s shared
     <table class="doc-table">
       <thead><tr><th>Worker</th><th>Priority</th><th>Function</th></tr></thead>
       <tbody>
-        <tr><td class="mono">audit</td><td><span class="tag tag-red">critical</span></td><td>Continuous security scanning and CVE alerting</td></tr>
-        <tr><td class="mono">ultralearn</td><td><span class="tag tag-amber">normal</span></td><td>Deep knowledge acquisition from trajectories</td></tr>
-        <tr><td class="mono">optimize</td><td><span class="tag tag-amber">normal</span></td><td>Performance tuning and token cost tracking</td></tr>
-        <tr><td class="mono">consolidate</td><td><span class="tag tag-amber">normal</span></td><td>Memory dedup, contradiction detection, pruning</td></tr>
-        <tr><td class="mono">predict</td><td><span class="tag tag-amber">normal</span></td><td>Predictive preloading from patterns</td></tr>
-        <tr><td class="mono">map</td><td><span class="tag tag-amber">normal</span></td><td>Codebase architecture mapping</td></tr>
-        <tr><td class="mono">deepdive</td><td><span class="tag tag-amber">normal</span></td><td>Deep code analysis</td></tr>
-        <tr><td class="mono">document</td><td><span class="tag tag-muted">low</span></td><td>Auto-documentation generation</td></tr>
-        <tr><td class="mono">refactor</td><td><span class="tag tag-muted">low</span></td><td>Refactoring suggestions</td></tr>
-        <tr><td class="mono">benchmark</td><td><span class="tag tag-muted">low</span></td><td>Performance benchmarking</td></tr>
-        <tr><td class="mono">testgaps</td><td><span class="tag tag-muted">low</span></td><td>Test coverage gap analysis</td></tr>
-        <tr><td class="mono">preload</td><td><span class="tag tag-muted">bg</span></td><td>Context preloading and cache warming</td></tr>
+        <tr><td class="mono">health</td><td><span class="tag tag-red">high</span></td><td>Monitor disk, memory, CPU, processes</td></tr>
+        <tr><td class="mono">security</td><td><span class="tag tag-red">high</span></td><td>Scan for secrets, vulnerabilities, CVEs</td></tr>
+        <tr><td class="mono">audit</td><td><span class="tag tag-red">high</span></td><td>Security audit → metrics/security-audit.json</td></tr>
+        <tr><td class="mono">swarm</td><td><span class="tag tag-red">high</span></td><td>Monitor swarm activity and agent coordination</td></tr>
+        <tr><td class="mono">performance</td><td><span class="tag tag-amber">normal</span></td><td>Benchmark search, memory, startup performance</td></tr>
+        <tr><td class="mono">patterns</td><td><span class="tag tag-amber">normal</span></td><td>Consolidate, dedupe, optimize learned patterns</td></tr>
+        <tr><td class="mono">learning</td><td><span class="tag tag-amber">normal</span></td><td>Outcome/trajectory logging and pattern consolidation</td></tr>
+        <tr><td class="mono">git</td><td><span class="tag tag-amber">normal</span></td><td>Track uncommitted changes and branch status</td></tr>
+        <tr><td class="mono">progress</td><td><span class="tag tag-amber">normal</span></td><td>Track implementation progress</td></tr>
+        <tr><td class="mono">map</td><td><span class="tag tag-amber">normal</span></td><td>Codebase mapping → metrics/codebase-map.json</td></tr>
+        <tr><td class="mono">optimize</td><td><span class="tag tag-amber">normal</span></td><td>Performance snapshot → metrics/performance.json</td></tr>
+        <tr><td class="mono">ddd</td><td><span class="tag tag-muted">low</span></td><td>Track DDD progress → metrics/ddd-progress.json</td></tr>
+        <tr><td class="mono">adr</td><td><span class="tag tag-muted">low</span></td><td>Check ADR compliance across codebase</td></tr>
+        <tr><td class="mono">consolidate</td><td><span class="tag tag-muted">low</span></td><td>Memory dedup, contradiction detection, pruning</td></tr>
+        <tr><td class="mono">cache</td><td><span class="tag tag-muted">bg</span></td><td>Clean temp files, old logs, stale cache</td></tr>
       </tbody>
     </table>
     </div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Workers live in <code>@monomind/hooks</code> and start with the session. Metrics-producing workers (map, audit, optimize, consolidate, ddd) refresh when their <code>.monomind/metrics/*.json</code> output is missing or older than 6 hours; <code>doctor</code> reports metrics freshness. Run any worker on demand with <code>monomind hooks worker run &lt;name&gt;</code>.</p>
     <div class="section-title reveal">Hook Configuration</div>
     <div class="code-block reveal">
 <span class="comment">// .claude/settings.json</span>
@@ -683,7 +685,7 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Swarm Coordination</h1>
-      <p class="page-desc">Six topologies, five consensus algorithms, and a 15-agent domain hierarchy — from a single coordinator to a Byzantine fault-tolerant hive.</p>
+      <p class="page-desc">Experimental in-process multi-agent coordination — seven topologies and vote-count consensus thresholds, all running inside a single Node process.</p>
     </div>
     <div class="reveal" style="margin-bottom:24px">
       <img src="assets/swarm-illustration.svg" alt="Swarm topology diagram" style="width:100%;max-width:600px;border-radius:10px;display:block">
@@ -697,19 +699,18 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="topo-card"><div class="topo-name">Centralized</div><div class="topo-desc">Single coordinator, fan-out workers. Fastest for homogeneous parallel tasks.</div></div>
       <div class="topo-card"><div class="topo-name">Star</div><div class="topo-desc">Hub-and-spoke. Testing swarms — one orchestrator, N independent runners.</div></div>
     </div>
-    <div class="section-title reveal">Consensus Algorithms</div>
+    <div class="section-title reveal">Consensus Strategies (Vote-Count Thresholds)</div>
     <div class="table-wrap reveal">
     <table class="doc-table">
-      <thead><tr><th>Algorithm</th><th>Fault Tolerance</th><th>Best For</th></tr></thead>
+      <thead><tr><th>Strategy</th><th>Threshold</th><th>Best For</th></tr></thead>
       <tbody>
-        <tr><td class="mono">Raft</td><td>f &lt; n/2</td><td>Default. Strong consistency, single leader. Production code changes.</td></tr>
-        <tr><td class="mono">Byzantine</td><td>f &lt; n/3</td><td>Untrusted agent environments, security-critical decisions.</td></tr>
-        <tr><td class="mono">Gossip</td><td>Eventual</td><td>Large swarms where propagation latency is acceptable.</td></tr>
-        <tr><td class="mono">CRDT</td><td>Partition-tolerant</td><td>Concurrent state merges without coordination (offline agents).</td></tr>
-        <tr><td class="mono">Quorum</td><td>Majority</td><td>Read-heavy workloads with strict majority agreement.</td></tr>
+        <tr><td class="mono">raft</td><td>Simple majority</td><td>Default. Majority vote counting — no leader election or log replication.</td></tr>
+        <tr><td class="mono">bft</td><td>2f+1 votes</td><td>Byzantine-style threshold for an adversarial fault model.</td></tr>
+        <tr><td class="mono">quorum</td><td>Preset: majority / supermajority / unanimous</td><td>Custom agreement thresholds.</td></tr>
       </tbody>
     </table>
     </div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">These are vote-count thresholds applied inside a single process — not distributed consensus protocols. Gossip and CRDT strategies are not implemented.</p>
     <div class="section-title reveal">15-Agent Domain Hierarchy</div>
     <div class="table-wrap reveal">
     <table class="doc-table">
@@ -733,10 +734,8 @@ monomind doc ingest ./their-knowledge -s shared
   --max-agents 8 \
   --strategy specialized</span>
 
-<span class="comment"># Hive-mind with Byzantine consensus</span>
-<span class="cmd">npx monomind hive-mind init \
-  --topology hierarchical-mesh \
-  --consensus byzantine</span>
+<span class="comment"># Hive-mind (MCP tools only — no CLI command)</span>
+<span class="comment"># mcp__monomind__hive-mind_init with topology + consensus strategy</span>
 
 <span class="comment"># Interactive topology picker in Claude Code</span>
 <span class="keyword">/mastermind</span></div>
@@ -785,7 +784,7 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Reference</span>
       <h1 class="page-title">CLI Commands</h1>
-      <p class="page-desc">All 53+ commands across 19 categories. Run <code>npx monomind &lt;command&gt; --help</code> for full flag reference.</p>
+      <p class="page-desc">31 top-level commands. Run <code>npx monomind &lt;command&gt; --help</code> for full flag reference.</p>
     </div>
     <div class="search-bar reveal"><span class="search-icon">⌕</span><input type="text" id="cli-search" placeholder="Search commands..." aria-label="Search CLI commands"></div>
     <div class="cmd-grid" id="cli-grid">
@@ -802,7 +801,7 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="swarm monitor watch telemetry"><div class="cmd-name">swarm monitor</div><div class="cmd-desc">Live swarm telemetry stream</div></div>
       <div class="cmd-item" data-search="swarm stop shutdown terminate"><div class="cmd-name">swarm stop</div><div class="cmd-desc">Gracefully shutdown all swarm agents</div></div>
       <div class="cmd-item" data-search="memory store save write"><div class="cmd-name">memory store</div><div class="cmd-desc">Store a memory entry with optional namespace</div></div>
-      <div class="cmd-item" data-search="memory search query find bm25 semantic"><div class="cmd-name">memory search</div><div class="cmd-desc">BM25 + semantic hybrid search</div></div>
+      <div class="cmd-item" data-search="memory search query find bm25 keyword"><div class="cmd-name">memory search</div><div class="cmd-desc">Keyword/BM25 search over stored memories</div></div>
       <div class="cmd-item" data-search="memory list show namespace"><div class="cmd-name">memory list</div><div class="cmd-desc">List memories by namespace or tag</div></div>
       <div class="cmd-item" data-search="memory delete remove purge"><div class="cmd-name">memory delete &lt;key&gt;</div><div class="cmd-desc">Remove a memory entry</div></div>
       <div class="cmd-item" data-search="memory export backup json"><div class="cmd-name">memory export</div><div class="cmd-desc">Export memories to JSON</div></div>
@@ -823,24 +822,18 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="hooks session end finish persist"><div class="cmd-name">hooks session-end</div><div class="cmd-desc">Persist state; flush working memory</div></div>
       <div class="cmd-item" data-search="hooks route model tier routing"><div class="cmd-name">hooks route</div><div class="cmd-desc">3-tier model routing decision</div></div>
       <div class="cmd-item" data-search="hooks worker list background"><div class="cmd-name">hooks worker list</div><div class="cmd-desc">List active background workers</div></div>
-      <div class="cmd-item" data-search="hive mind init consensus topology"><div class="cmd-name">hive-mind init</div><div class="cmd-desc">Initialize hive with topology + consensus</div></div>
-      <div class="cmd-item" data-search="hive mind spawn worker queen claude"><div class="cmd-name">hive-mind spawn</div><div class="cmd-desc">Spawn workers; --claude launches Claude as Queen</div></div>
-      <div class="cmd-item" data-search="hive mind status health workers"><div class="cmd-name">hive-mind status</div><div class="cmd-desc">Active workers, metrics, consensus state</div></div>
-      <div class="cmd-item" data-search="daemon start background service"><div class="cmd-name">daemon start</div><div class="cmd-desc">Start the background worker daemon</div></div>
-      <div class="cmd-item" data-search="daemon stop shutdown kill"><div class="cmd-name">daemon stop</div><div class="cmd-desc">Gracefully stop all daemon processes</div></div>
-      <div class="cmd-item" data-search="daemon status pid uptime health"><div class="cmd-name">daemon status</div><div class="cmd-desc">PID, uptime, worker health report</div></div>
-      <div class="cmd-item" data-search="neural patterns list logged"><div class="cmd-name">neural patterns</div><div class="cmd-desc">List logged patterns</div></div>
-      <div class="cmd-item" data-search="neural predict route input"><div class="cmd-name">neural predict</div><div class="cmd-desc">Predict routing for a task from logged patterns</div></div>
-      <div class="cmd-item" data-search="neural optimize quantize compact analyze"><div class="cmd-name">neural optimize</div><div class="cmd-desc">Optimize pattern store: quantize, analyze, compact</div></div>
-      <div class="cmd-item" data-search="neural status patterns count"><div class="cmd-name">neural status</div><div class="cmd-desc">Pattern store status</div></div>
+      <div class="cmd-item" data-search="hooks worker run background on demand"><div class="cmd-name">hooks worker run &lt;name&gt;</div><div class="cmd-desc">Run a background worker on demand</div></div>
+      <div class="cmd-item" data-search="hooks intelligence patterns list logged"><div class="cmd-name">hooks intelligence patterns</div><div class="cmd-desc">List logged patterns</div></div>
+      <div class="cmd-item" data-search="hooks intelligence predict route input"><div class="cmd-name">hooks intelligence predict</div><div class="cmd-desc">Predict routing for a task from logged patterns</div></div>
+      <div class="cmd-item" data-search="hooks intelligence stats patterns count"><div class="cmd-name">hooks intelligence stats</div><div class="cmd-desc">Pattern store status</div></div>
       <div class="cmd-item" data-search="security scan audit cve vulnerability"><div class="cmd-name">security scan</div><div class="cmd-desc">Run CVE and vulnerability scan</div></div>
       <div class="cmd-item" data-search="security validate input sanitize"><div class="cmd-name">security validate</div><div class="cmd-desc">Input validation and sanitization check</div></div>
       <div class="cmd-item" data-search="performance profile benchmark latency token"><div class="cmd-name">performance profile</div><div class="cmd-desc">Record latency and token cost profiles</div></div>
       <div class="cmd-item" data-search="performance report metrics time series"><div class="cmd-name">performance report</div><div class="cmd-desc">Time-series performance metrics</div></div>
       <div class="cmd-item" data-search="doctor health check diagnose fix repair"><div class="cmd-name">doctor</div><div class="cmd-desc">System diagnostics — all components</div></div>
-      <div class="cmd-item" data-search="doctor fix auto repair node db daemon"><div class="cmd-name">doctor --fix</div><div class="cmd-desc">Auto-fix: Node version, DB init, daemon start</div></div>
+      <div class="cmd-item" data-search="doctor fix auto repair node db workers"><div class="cmd-name">doctor --fix</div><div class="cmd-desc">Auto-fix: Node version, DB init, stale worker metrics</div></div>
       <div class="cmd-item" data-search="doc ingest index documents pdf docx knowledge second brain"><div class="cmd-name">doc ingest &lt;path&gt;</div><div class="cmd-desc">Index documents into the Second Brain knowledge base</div></div>
-      <div class="cmd-item" data-search="doc search query semantic knowledge second brain"><div class="cmd-name">doc search -q "query"</div><div class="cmd-desc">Semantic search over indexed documents</div></div>
+      <div class="cmd-item" data-search="doc search query knowledge second brain"><div class="cmd-name">doc search -q "query"</div><div class="cmd-desc">Search over indexed documents</div></div>
       <div class="cmd-item" data-search="doc list indexed documents knowledge chunks"><div class="cmd-name">doc list</div><div class="cmd-desc">List all indexed documents with chunk counts</div></div>
       <div class="cmd-item" data-search="doc export okf knowledge bundle markdown portable"><div class="cmd-name">doc export</div><div class="cmd-desc">Export knowledge base as OKF bundle</div></div>
       <div class="cmd-item" data-search="monograph build graph code knowledge"><div class="cmd-name">monograph build</div><div class="cmd-desc">Build the code knowledge graph</div></div>
@@ -873,7 +866,6 @@ monomind doc ingest ./their-knowledge -s shared
       <!-- Core / Root -->
       <div class="cmd-item" data-search="mastermind swarm topology picker hive mind"><div class="cmd-name">/mastermind</div><div class="cmd-desc">Swarm topology picker — all 11 modes, one recommendation</div></div>
       <div class="cmd-item" data-search="monobrowse browse browser testing automation cdp"><div class="cmd-name">/monobrowse</div><div class="cmd-desc">UI testing via monomind browse CDP client</div></div>
-      <div class="cmd-item" data-search="sparc methodology workflow orchestrate"><div class="cmd-name">/sparc</div><div class="cmd-desc">Execute SPARC methodology workflows</div></div>
       <div class="cmd-item" data-search="tokens usage cost dashboard spend"><div class="cmd-name">/tokens</div><div class="cmd-desc">Token usage dashboard: today/week/30days/month</div></div>
       <div class="cmd-item" data-search="ts statusline toggle compact full panel"><div class="cmd-name">/ts</div><div class="cmd-desc">Toggle statusline between full and compact mode</div></div>
       <!-- mastermind: — dev commands -->
@@ -914,7 +906,7 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="mastermind okf export knowledge bundle second brain portable markdown"><div class="cmd-name">/mastermind:okf-export</div><div class="cmd-desc">Export Second Brain as OKF bundle</div></div>
       <div class="cmd-item" data-search="mastermind okf import knowledge bundle second brain ingest"><div class="cmd-name">/mastermind:okf-import</div><div class="cmd-desc">Import an OKF bundle into Second Brain</div></div>
       <div class="cmd-item" data-search="mastermind brain context memory inspect compact refresh"><div class="cmd-name">/mastermind:brain</div><div class="cmd-desc">Inspect and manage mastermind brain context</div></div>
-      <div class="cmd-item" data-search="mastermind memory lancedb store search retrieve list delete"><div class="cmd-name">/mastermind:memory</div><div class="cmd-desc">LanceDB memory: store, search, retrieve, list, delete</div></div>
+      <div class="cmd-item" data-search="mastermind memory store search retrieve list delete"><div class="cmd-name">/mastermind:memory</div><div class="cmd-desc">Memory store: store, search, retrieve, list, delete</div></div>
       <div class="cmd-item" data-search="mastermind budget tokens cost limits autotune today month"><div class="cmd-name">/mastermind:budget</div><div class="cmd-desc">Budget status: today, month, limits, autotune</div></div>
       <div class="cmd-item" data-search="mastermind graph status nodes edges freshness usage"><div class="cmd-name">/mastermind:graph-status</div><div class="cmd-desc">Single-line graph stats: nodes, edges, freshness</div></div>
       <div class="cmd-item" data-search="mastermind loops active running tillend repeat command"><div class="cmd-name">/mastermind:loops</div><div class="cmd-desc">List active --tillend/--repeat loops</div></div>
@@ -936,16 +928,8 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="swarm analysis mesh distributed codebase perf security adaptive"><div class="cmd-name">/swarm:analysis</div><div class="cmd-desc">Mesh + adaptive for codebase analysis</div></div>
       <div class="cmd-item" data-search="swarm testing star parallel unit integration e2e all types"><div class="cmd-name">/swarm:testing</div><div class="cmd-desc">Star + parallel for all test types</div></div>
       <div class="cmd-item" data-search="swarm optimization profiling bottleneck performance detect"><div class="cmd-name">/swarm:optimization</div><div class="cmd-desc">Profiling, bottleneck detection, optimization</div></div>
-      <div class="cmd-item" data-search="swarm modes topologies overview all selection"><div class="cmd-name">/swarm:swarm-modes</div><div class="cmd-desc">Overview of all swarm topologies</div></div>
-      <div class="cmd-item" data-search="swarm strategies selection decision matrix guide"><div class="cmd-name">/swarm:swarm-strategies</div><div class="cmd-desc">Decision matrix for swarm strategy selection</div></div>
-      <!-- sparc: -->
-      <div class="cmd-item" data-search="sparc architect design system architecture"><div class="cmd-name">/sparc:architect</div><div class="cmd-desc">System architecture and design</div></div>
-      <div class="cmd-item" data-search="sparc code implement auto-coder feature"><div class="cmd-name">/sparc:code</div><div class="cmd-desc">Auto-coder implementation mode</div></div>
-      <div class="cmd-item" data-search="sparc tdd test driven development red green"><div class="cmd-name">/sparc:tdd</div><div class="cmd-desc">Test-driven development</div></div>
-      <div class="cmd-item" data-search="sparc debugger debug fix trace error systematic"><div class="cmd-name">/sparc:debugger</div><div class="cmd-desc">Debug mode — trace and fix</div></div>
-      <div class="cmd-item" data-search="sparc reviewer code review audit quality"><div class="cmd-name">/sparc:reviewer</div><div class="cmd-desc">Code review mode</div></div>
-      <div class="cmd-item" data-search="sparc security audit hardening review vulnerability"><div class="cmd-name">/sparc:security-review</div><div class="cmd-desc">Security audit and hardening</div></div>
-      <div class="cmd-item" data-search="sparc documenter docs api markdown generation"><div class="cmd-name">/sparc:documenter</div><div class="cmd-desc">Documentation generation</div></div>
+      <div class="cmd-item" data-search="swarm research mesh exploration knowledge sharing"><div class="cmd-name">/swarm:research</div><div class="cmd-desc">Mesh swarm for research and exploration</div></div>
+      <div class="cmd-item" data-search="swarm maintenance dependency updates security audits"><div class="cmd-name">/swarm:maintenance</div><div class="cmd-desc">Dependency updates and security audits</div></div>
       <!-- github: -->
       <div class="cmd-item" data-search="github pr pull request manager lifecycle swarm"><div class="cmd-name">/github:pr-manager</div><div class="cmd-desc">Full PR lifecycle with swarm coordination</div></div>
       <div class="cmd-item" data-search="github issue tracker milestone creation progress"><div class="cmd-name">/github:issue-tracker</div><div class="cmd-desc">Issue creation and progress tracking</div></div>
@@ -964,7 +948,7 @@ monomind doc ingest ./their-knowledge -s shared
       <!-- hooks: / memory: -->
       <div class="cmd-item" data-search="hooks setup configure settings json claude code"><div class="cmd-name">/hooks:setup</div><div class="cmd-desc">Configure hooks in settings.json</div></div>
       <div class="cmd-item" data-search="hooks overview system wire claude code how"><div class="cmd-name">/hooks:overview</div><div class="cmd-desc">How hooks wire into Claude Code</div></div>
-      <div class="cmd-item" data-search="memory readme reference cli subcommands mcp lancedb"><div class="cmd-name">/memory:README</div><div class="cmd-desc">Full memory CLI reference: all 14 subcommands</div></div>
+      <div class="cmd-item" data-search="memory readme reference cli subcommands mcp"><div class="cmd-name">/memory:README</div><div class="cmd-desc">Full memory CLI reference</div></div>
     </div>
   </div>
 </div>
@@ -980,7 +964,7 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="section-title reveal">autodev — The Autonomous Build Loop</div>
     <div class="phase-flow reveal">
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 1</div><div class="phase-name">Research</div><div class="phase-desc">Parallel: git log, file scan, package.json, README, TODO/FIXME grep, monograph god nodes, memory search for already-built items. Returns ranked list of 3–5 improvement candidates.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 2</div><div class="phase-name">Selection</div><div class="phase-desc">Picks best candidate by feasibility × blast-radius × focus alignment. Stores selection to LanceDB memory. Focus flags: <code>--focus security</code>, <code>--focus dx</code>, <code>--focus performance</code>.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 2</div><div class="phase-name">Selection</div><div class="phase-desc">Picks best candidate by feasibility × blast-radius × focus alignment. Stores selection to the memory store. Focus flags: <code>--focus security</code>, <code>--focus dx</code>, <code>--focus performance</code>.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 3</div><div class="phase-name">Build</div><div class="phase-desc">Invokes <code>mastermind:build</code> with concrete spec, acceptance criteria, and blast radius guard. Spawns architect → coder → tester → reviewer agent chain.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 4</div><div class="phase-name">Review Loop</div><div class="phase-desc">Invokes <code>mastermind:review</code> inline. Runs Code Reviewer + Security Engineer + Reality Checker in parallel. Repeats up to 5 iterations until zero findings.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 5</div><div class="phase-name">Log</div><div class="phase-desc">Records completion to memory. If count &gt; 1, continues to next improvement. If <code>--tillend</code>, schedules next session via ScheduleWakeup.</div></div></div>
@@ -1056,7 +1040,7 @@ Session N: empty round (zero findings AND zero actions)
         <tr><td class="mono">/mastermind:approve</td><td>Review and action pending approval requests from running orgs</td></tr>
         <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Utilities —</td></tr>
         <tr><td class="mono">/mastermind:brain</td><td>Inspect and manage mastermind brain context</td></tr>
-        <tr><td class="mono">/mastermind:memory</td><td>LanceDB memory: store, search, retrieve, list, delete</td></tr>
+        <tr><td class="mono">/mastermind:memory</td><td>Memory store: store, search, retrieve, list, delete</td></tr>
         <tr><td class="mono">/mastermind:budget</td><td>Budget status: today, month, limits, autotune</td></tr>
         <tr><td class="mono">/mastermind:graph-status</td><td>Single-line graph stats: nodes, edges, freshness</td></tr>
         <tr><td class="mono">/mastermind:loops</td><td>List active --tillend/--repeat loops</td></tr>
@@ -1078,14 +1062,14 @@ Session N: empty round (zero findings AND zero actions)
     <div class="section-title reveal">Brain Protocol</div>
     <div class="code-block reveal">
 <span class="comment">// Brain Load (session start)</span>
-1. Search LanceDB namespace <span class="string">"mastermind:{domain}"</span>
+1. Search memory-store namespace <span class="string">"mastermind:{domain}"</span>
 2. Three tiers: raw records (last 7 days)
                 → weekly summaries
                 → long-term principles
 3. Inject combined BRAIN CONTEXT block into skill
 
 <span class="comment">// Brain Write (session end)</span>
-1. Store key decisions + findings to LanceDB
+1. Store key decisions + findings to the memory store
 2. Update weekly summaries and principles</div>
   </div>
 </div>
@@ -1123,9 +1107,8 @@ Session N: empty round (zero findings AND zero actions)
       <table class="doc-table">
         <thead><tr><th>Chip</th><th>Meaning</th></tr></thead>
         <tbody>
-          <tr><td>HNSW ON / OFF</td><td>Whether the HNSW vector index is loaded and searchable</td></tr>
-          <tr><td>PATTERNS N</td><td>Number of learned routing patterns in LanceDB</td></tr>
-          <tr><td>CHUNKS N</td><td>Number of indexed text chunks available for semantic search</td></tr>
+          <tr><td>PATTERNS N</td><td>Number of learned routing patterns in the pattern store</td></tr>
+          <tr><td>CHUNKS N</td><td>Number of indexed text chunks available for search</td></tr>
           <tr><td>SWARM topology</td><td>Active swarm topology name (hierarchical, mesh, adaptive…)</td></tr>
           <tr><td>LAST ROUTE</td><td>Agent name that the routing hook most recently selected</td></tr>
         </tbody>
@@ -1359,8 +1342,7 @@ Session N: empty round (zero findings AND zero actions)
     <div class="code-block reveal"><span class="comment"># From the dashboard: click "⊕ Build Docs" in the Chunks tab</span>
 
 <span class="comment"># From Claude Code:</span>
-<span class="cmd">/mastermind:understand</span>    <span class="comment"># semantic enrichment — indexes all .md/.txt files</span>
-<span class="cmd">monomind daemon start</span>   <span class="comment"># background daemon also indexes incrementally</span></div>
+<span class="cmd">/mastermind:understand</span>    <span class="comment"># semantic enrichment — indexes all .md/.txt files</span></div>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;"><strong>Agent Graph tab:</strong> The Agent Graph is populated automatically by sessions that spawn sub-agents. Spawn agents by running complex tasks via <code>/mastermind:build</code>, <code>/mastermind:autodev</code>, or any orchestration command.</p>
 
     <!-- ORGS -->
@@ -1512,7 +1494,7 @@ Session N: empty round (zero findings AND zero actions)
         <tbody>
           <tr><td>GET</td><td><code>/api/git-user</code></td><td>Git username and email</td></tr>
           <tr><td>GET</td><td><code>/api/projects</code></td><td>All registered projects</td></tr>
-          <tr><td>GET</td><td><code>/api/status</code></td><td>System health: HNSW, memory</td></tr>
+          <tr><td>GET</td><td><code>/api/status</code></td><td>System health: memory, patterns</td></tr>
         </tbody>
       </table>
     </div>
@@ -1538,7 +1520,7 @@ Session N: empty round (zero findings AND zero actions)
         <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td>GET</td><td><code>/api/section</code></td><td>Named data sections (e.g. tokens)</td></tr>
-          <tr><td>GET</td><td><code>/api/memory/stats</code></td><td>LanceDB stats</td></tr>
+          <tr><td>GET</td><td><code>/api/memory/stats</code></td><td>Memory store stats</td></tr>
           <tr><td>GET</td><td><code>/api/memory-files</code></td><td>.md file list</td></tr>
           <tr><td>PUT / DELETE</td><td><code>/api/memory-file</code></td><td>Create or delete memory file</td></tr>
           <tr><td>GET</td><td><code>/api/token-usage</code></td><td>Token usage, accepts <code>period</code> param</td></tr>
@@ -2325,11 +2307,11 @@ function runTypewriter() {
     {t:'cmd',text:'npx monomind init'},
     {t:'out',text:'✓ Project configuration initialized',cls:'accent'},
     {t:'out',text:'✓ MCP server registered',cls:'accent'},
-    {t:'out',text:'✓ Background daemon started',cls:'accent'},
+    {t:'out',text:'✓ Background workers registered (15)',cls:'accent'},
     {t:'cmd',text:'npx monomind doctor'},
     {t:'out',text:'Node 22.0.0          ✓'},
-    {t:'out',text:'Memory backend       ✓  hybrid (SQLite + LanceDB)'},
-    {t:'out',text:'MCP tools            ✓  44 monograph + 14 monomind'},
+    {t:'out',text:'Memory store         ✓  patterns.json + episodic'},
+    {t:'out',text:'MCP tools            ✓  19 monograph + core monomind'},
     {t:'cmd',text:'/mastermind:autodev --tillend --focus security'},
     {t:'out',text:'[autodev] Research phase starting...',cls:'amber'},
     {t:'out',text:'[autodev] 4 candidates found. Selected: CVE-1 remediation',cls:'amber'},

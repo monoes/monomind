@@ -26,7 +26,7 @@ It has two modes you can toggle with `/ts`:
 | `↓N`                 | Commits behind remote (need pull)                                | Same command, right count                                                     |
 | `Sonnet 4.6`         | Active Claude model                                              | Session JSONL → `.claude.json` → `settings.json` → env → `Sonnet 4.6` default |
 | `→ Level Designer`   | Currently routed agent (→ = auto-routed, ● = manually activated) | `.monomind/last-route.json` (written by route hook)                          |
-| `💡 3%`              | Neural intelligence score — pattern cache fill rate              | `.monomind/metrics/learning.json` → `intelligence.score`                     |
+| `💡 3%`              | Intelligence score — pattern cache fill rate                     | `.monomind/metrics/learning.json` → `intelligence.score`                     |
 | `📚 190k`            | Knowledge base chunks indexed (Task 28)                          | Line count of `.monomind/knowledge/chunks.jsonl`                             |
 | `🎯 3t`              | Active microagent trigger rules (Task 32)                        | Key count in `.monomind/trigger-index.json`                                  |
 | `⚡ 14h`             | Hooks active                                                     | Hook entries in `.claude/settings.json`                                       |
@@ -40,7 +40,7 @@ Items only appear when they have data — `📚`, `🎯`, `🐝` are hidden when
 Toggled with `/ts`. Six rows separated by dividers.
 
 ```
-▊ Monomind v1.0.0  ○ IDLE  nokhodian  │  ⎇ main  +1  ~9921 mod  ?38  ↑5  │  🤖 Sonnet 4.6
+▊ Monomind v2.0.0  ○ IDLE  nokhodian  │  ⎇ main  +1  ~9921 mod  ?38  ↑5  │  🤖 Sonnet 4.6
 ──────────────────────────────────────────────────────
 💡  INTEL    ▱▱▱▱▱▱ 3%   │   📚 190 chunks   │   76 patterns
 ──────────────────────────────────────────────────────
@@ -58,12 +58,12 @@ Toggled with `/ts`. Six rows separated by dividers.
 ### Header Row
 
 ```
-▊ Monomind v1.0.0  ○ IDLE  nokhodian  │  ⎇ main  +1  ~9921 mod  ?38  ↑5  │  🤖 Sonnet 4.6
+▊ Monomind v2.0.0  ○ IDLE  nokhodian  │  ⎇ main  +1  ~9921 mod  ?38  ↑5  │  🤖 Sonnet 4.6
 ```
 
 | Element              | Meaning                                        | Source                                                                                                                                               |
 | -------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `▊ Monomind v1.0.0` | Brand mark and package version                 | Reads nearest `package.json` → `version` field                                                                                                       |
+| `▊ Monomind v2.0.0` | Brand mark and package version                 | Reads nearest `package.json` → `version` field                                                                                                       |
 | `● LIVE` / `○ IDLE`  | Whether a swarm coordination session is active | `.monomind/swarm/swarm-state.json` — **LIVE** if file is < 5 min old                                                                                |
 | `nokhodian`          | Your git identity                              | `git config user.name`                                                                                                                               |
 | `⎇ main`             | Active branch                                  | `git branch --show-current`                                                                                                                          |
@@ -86,10 +86,10 @@ Intelligence and learning subsystem status.
 
 | Element         | Meaning                                                        | Source                                                                                                                                                                                   |
 | --------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `▱▱▱▱▱▱ 3%`     | Neural intelligence fill — how saturated the pattern cache is  | `.monomind/metrics/learning.json` → `intelligence.score`. Falls back to vector count heuristic: 2,000 vectors = 100%. Color: slate (0%) → orange (1–39%) → gold (40–74%) → green (75%+) |
+| `▱▱▱▱▱▱ 3%`     | Intelligence fill — how saturated the pattern cache is         | `.monomind/metrics/learning.json` → `intelligence.score`. Falls back to entry-count heuristic: 2,000 entries = 100%. Color: slate (0%) → orange (1–39%) → gold (40–74%) → green (75%+) |
 | `📚 190 chunks` | Knowledge base entries indexed by Task 28 (AgentKnowledgeBase) | Line count of `.monomind/knowledge/chunks.jsonl`. Chunks are created by splitting CLAUDE.md, todo.md, and last-route.json at session-restore. Grows as sessions accumulate              |
 | `✦ N skills`    | Learned procedural skills (Task 45 — ProceduralMemory)         | Line count of `.monomind/skills.jsonl`. Only shown when > 0                                                                                                                             |
-| `76 patterns`   | Neural patterns learned across sessions                        | `.monomind/metrics/ddd-progress.json` → `patternsLearned`. Populated by intelligence consolidation at session-end                                                                       |
+| `76 patterns`   | Patterns learned across sessions                               | `.monomind/metrics/ddd-progress.json` → `patternsLearned`. Populated by intelligence consolidation at session-end                                                                       |
 
 **How chunks grow:** Each `session-restore` hook call runs `_autoIndexKnowledge()` which reads project files, splits them into ~200-token chunks, hashes each chunk, and appends new ones to `chunks.jsonl`. Already-indexed chunks are skipped. The 190 shown here represent accumulated knowledge from all sessions so far.
 
@@ -127,7 +127,7 @@ Architectural compliance and security posture.
 | Element                             | Meaning                                            | Source                                                                                                                                                                                    |
 | ----------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `82/82 ADRs`                        | Architecture Decision Records: implemented / total | Scans `packages/implementation/adrs/`, `docs/adrs/`, `.monomind/adrs/` for `.md` files starting with `ADR-`. Green = all implemented; gold = some pending                                |
-| `DDD ▰▰▱▱▱ 40%`                     | Domain-Driven Design alignment percentage          | `.monomind/metrics/ddd-progress.json` → `progress` (0–100). Represents how much of the domain model is implemented across the five DDD layers                                            |
+| `DDD ▰▰▱▱▱ 40%`                     | Domain-Driven Design alignment percentage          | `.monomind/metrics/ddd-progress.json` → `progress` (0–100), written by the `ddd` worker from a real scan of the domain model                                                             |
 | `🛡️ ✔ CLEAN` / `✖ NONE`             | Security scan status badge                         | `.monomind/security/audit-status.json` → `status`. Values: `✔ CLEAN` (scanned, no issues), `✔ SCANNED` (completed), `⟳ STALE` (> 7 days old), `⏸ PENDING` (queued), `✖ NONE` (never run) |
 | `CVE not scanned` / `CVE N/M fixed` | Vulnerability count and fix progress               | Same file → `totalCves`, `cvesFixed`. Green = zero CVEs; coral = unfixed CVEs remain                                                                                                      |
 
@@ -138,21 +138,21 @@ Architectural compliance and security posture.
 ### Row 4 — 🗄️ MEMORY
 
 ```
-🗄️  MEMORY   0 vectors   │   2.0 MB   │   🧪 66 test files   │   MCP 1/1  DB ✔
+🗄️  MEMORY   0 entries   │   2.0 MB   │   🧪 66 test files   │   MCP 1/1  DB ✔
 ```
 
-Vector memory state and integrations.
+Memory store state and integrations.
 
 | Element            | Meaning                                 | Source                                                                                                                                                                                                       |
 | ------------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `0 vectors`        | Embeddings stored in LanceDB            | Counts entries in `.monomind/data/auto-memory-store.json`. Also checks `ranked-context.json → entries.length`. Green when > 0. `⚡ HNSW` tag appears only when both `hnsw.index` exists **and** vectors > 0 |
+| `0 entries`        | Memory entries stored                   | Counts entries in `.monomind/data/auto-memory-store.json`. Also checks `ranked-context.json → entries.length`. Green when > 0                                                                               |
 | `2.0 MB`           | Total on-disk size of all memory stores | Sums sizes of `auto-memory-store.json`, `ranked-context.json`, `memory.db`, `memory.graph`                                                                                                                   |
 | `🧪 66 test files` | Number of test files across the project | Counts files matching `*.test.*` / `*.spec.*` in `tests/`, `src/`, `v1/` — no file reads, stat only                                                                                                          |
 | `MCP 1/1`          | MCP servers: enabled / configured       | `.claude/settings.json` → `mcpServers`. Green = all enabled; gold = partial; coral = none enabled                                                                                                            |
-| `DB ✔`             | SQLite vector database present          | Presence of `memory.db` in any of: `.swarm/`, `.monomind/`, `data/`                                                                                                                                         |
+| `DB ✔`             | Memory database present                 | Presence of `memory.db` in any of: `.swarm/`, `.monomind/`, `data/`                                                                                                                                         |
 | `API ✔`            | AI API key configured                   | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` set in environment                                                                                                                                                   |
 
-**When do vectors populate?** The `auto-memory-store.json` is written by the `AutoMemoryBridge` from `@monomind/memory`. It imports entries from `MEMORY.md` at session-start and syncs back at session-end. Vectors also accumulate via `npx monomind@latest memory store` or through intelligence graph consolidation when the 💡 score rises above ~20%.
+**When do entries populate?** The `auto-memory-store.json` is written by the `AutoMemoryBridge` from `@monomind/memory`. It imports entries from `MEMORY.md` at session-start and syncs back at session-end. Entries also accumulate via `npx monomind@latest memory store` or through intelligence consolidation.
 
 ---
 
@@ -200,12 +200,12 @@ Token budget health and session resource usage.
 | `.monomind/skills.jsonl`                | Task 45 (SkillRegistry)                    | INTEL               |
 | `.monomind/trigger-index.json`          | Task 32 (MicroagentTriggers, 1h TTL)       | SWARM               |
 | `.monomind/metrics/learning.json`       | Intelligence consolidation at session-end  | INTEL               |
-| `.monomind/metrics/ddd-progress.json`   | DDD tracker / domain scans                 | INTEL, CONTEXT      |
+| `.monomind/metrics/ddd-progress.json`   | `ddd` worker (@monomind/hooks)             | INTEL, CONTEXT      |
 | `.monomind/data/auto-memory-store.json` | AutoMemoryBridge on session-end            | MEMORY              |
 | `.monomind/data/ranked-context.json`    | PageRank consolidation at session-end      | MEMORY              |
 | `.monomind/security/audit-status.json`  | `monomind security scan`                  | ARCH                |
 | `.monomind/swarm/swarm-state.json`      | Swarm init / coordinator                   | Header, SWARM       |
-| `.agents/shared_instructions.md`         | Hand-edited — monitored daily by SI daemon | CONTEXT             |
+| `.agents/shared_instructions.md`         | Hand-edited — size checked at session start | CONTEXT             |
 | `~/.claude/projects/…/*.jsonl`           | Claude Code session writer                 | Header (model name) |
 | `.claude/settings.json`                  | Project configuration                      | SWARM (hooks, MCP)  |
 
@@ -229,14 +229,11 @@ Current mode is persisted in `.monomind/statusline-mode.txt`.
 
 ---
 
-## Background Monitors
+## Background Workers
 
-The statusline is backed by several background daemons that keep its data fresh:
+There is no separate background daemon. The statusline reads `.monomind/metrics/*.json` files written by the 15 background workers in `@monomind/hooks` (`ddd`, `map`, `audit`, `optimize`, `consolidate`, and others). Workers are initialized at session start; the metrics-producing ones refresh automatically when their output file is missing or older than 6 hours. `monomind doctor` reports worker-metrics freshness, and you can refresh any metric on demand:
 
-| Daemon                        | Interval | What it does                                                                                           |
-| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `shared-instructions-monitor` | 24 h     | Checks `.agents/shared_instructions.md` size; warns at 80% of the 1500-char limit; logs `[SI_MONITOR]` |
-| `regression-benchmarks`       | 7 days   | Runs benchmark definitions from `.monomind/benchmarks/*.json`; logs `[BENCHMARK_RUNNER]`              |
-| `prompt-optimization`         | 7 days   | Runs BootstrapFewShot optimization on core agent prompts; logs improvements                            |
-
-Daemons start automatically when `initDefaultWorkers()` is called (hooks package startup).
+```bash
+monomind hooks worker list        # list workers and their status
+monomind hooks worker run ddd     # refresh .monomind/metrics/ddd-progress.json now
+```

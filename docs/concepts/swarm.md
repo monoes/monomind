@@ -1,22 +1,14 @@
 # Swarm & Hive-Mind
 
-> Monomind coordinates multi-agent swarms using the `UnifiedSwarmCoordinator` — a single system that consolidates hierarchical, mesh, and adaptive topologies with Raft, Byzantine, and Gossip consensus.
+> **Status: experimental.** Monomind's swarm and hive-mind systems provide in-process multi-agent coordination — topology bookkeeping, agent lifecycle, task orchestration, and vote-count "consensus" — inside a single Node process. They are not distributed systems: there is no networking between separate machines, and the consensus strategies are vote-count thresholds, not distributed consensus protocols.
 
 ---
 
-## Architecture
+## What It Actually Is
 
-```
-UnifiedSwarmCoordinator (ADR-003)
-  ├── TopologyManager     — graph of nodes and edges; handles rebalancing
-  ├── MessageBus          — inter-agent queue; maxQueueSize 10,000; batchSize 100
-  ├── AgentPool           — lifecycle management; idleTimeout 300s; min 1 / max 15
-  ├── ConsensusEngine     — factory: Raft | Byzantine | Gossip
-  ├── AgentRegistry       — tracks registrations and capabilities
-  └── TaskOrchestrator    — routes tasks to domains; manages parallel execution
-```
-
-Performance targets: agent coordination <100ms for 15 agents; consensus <100ms; message throughput 1000+ msgs/sec.
+- **In-process coordination** — swarm state (topology, agents, tasks) lives in one process and is persisted to `.monomind/swarm/`.
+- **Real work happens via Claude Code's Task tool** — the swarm layer coordinates; spawned agents do the actual execution.
+- **"Consensus" = vote counting** — proposals collect votes from registered agents in the same process and pass when a threshold is met (see below).
 
 ---
 
@@ -26,9 +18,10 @@ Performance targets: agent coordination <100ms for 15 agents; consensus <100ms; 
 |---|---|
 | `hierarchical` | Default — feature dev, clear task decomposition, one team lead |
 | `mesh` | Research, exploration, peer-to-peer knowledge sharing |
-| `centralized` | Simple parallel tasks with a single coordinator |
-| `hybrid` | Complex work requiring both hierarchy and peer communication |
 | `hierarchical-mesh` | Recommended for 10+ agents |
+| `hybrid` | Complex work requiring both hierarchy and peer communication |
+| `ring` | Circular communication pattern |
+| `star` | Central coordinator with spokes |
 | `adaptive` | Self-organizing — reconfigures based on task load |
 
 ### Default Config
@@ -37,21 +30,8 @@ Performance targets: agent coordination <100ms for 15 agents; consensus <100ms; 
 monomind swarm init \
   --topology hierarchical \
   --strategy specialized \
-  --max-agents 8 \
-  --consensus raft
+  --max-agents 8
 ```
-
-### 15-Agent Hierarchy
-
-The v1 default hierarchy for large swarms:
-
-| Domain | Agents | Roles |
-|---|---|---|
-| queen | 1 | Top-level coordinator |
-| security | 2–4 | security-architect, security-auditor, test-architect |
-| core | 5–9 | core-architect, type-modernization, memory-specialist, swarm-specialist, mcp-optimizer |
-| integration | 10–12 | integration-architect, cli-modernizer, neural-integrator |
-| support | 13–15 | test-architect, performance-engineer, deployment-engineer |
 
 ---
 
@@ -67,27 +47,17 @@ The v1 default hierarchy for large swarms:
 
 ---
 
-## Consensus Algorithms
+## Consensus Strategies (Vote-Count Thresholds)
 
-| Algorithm | Fault tolerance | When to use |
+These are **not** distributed consensus protocols. Each strategy is a threshold applied to votes collected in a single process:
+
+| Strategy | Threshold | Notes |
 |---|---|---|
-| `raft` | f < n/2 (crash faults) | Default — strong consistency, small/medium scale, low latency |
-| `byzantine` | f < n/3 (malicious agents) | When agent trust cannot be assumed |
-| `gossip` | Eventual consistency | Large scale, high throughput, relaxed consistency acceptable |
-| `crdt` | Conflict-free, no coordination | Replicated state, offline-first |
-| `quorum` | Configurable quorum | Custom fault tolerance requirements |
+| `bft` | Requires 2f+1 votes | Byzantine-style threshold for an adversarial fault model |
+| `raft` | Simple majority | Named after Raft, but it is majority vote counting — no leader election or log replication |
+| `quorum` | Configurable preset | `majority`, `supermajority`, or `unanimous` |
 
-### Selecting Consensus
-
-```typescript
-selectOptimalAlgorithm({
-  faultTolerance: 'byzantine',  // or 'crash'
-  consistency: 'strong',        // or 'eventual'
-  networkScale: 15,
-  latencyPriority: false
-})
-// → 'raft' or 'byzantine' based on requirements
-```
+Gossip and CRDT strategies are not implemented.
 
 ---
 
@@ -114,26 +84,9 @@ type AgentType =
 
 ---
 
-## Advanced Components
-
-### QueenCoordinator
-
-Top-level hive-mind orchestrator:
-- Analyzes incoming tasks
-- Builds `DelegationPlan` (routes subtasks to specialist domains)
-- Monitors domain health
-- Runs consensus on major decisions
-
-### FederationHub
-
-Coordinates multiple swarms as a federation:
-- Spawns ephemeral cross-swarm agents
-- Manages cross-swarm consensus proposals
-- Maintains federation membership
-
----
-
 ## CLI Commands
+
+The `swarm` and `agent` commands run in-process — no separate MCP server is required.
 
 ```bash
 # Initialize
@@ -155,73 +108,48 @@ monomind swarm coordinate "implement JWT authentication"
 monomind swarm stop
 ```
 
-## Slash Commands
+## Slash Command
 
 ```
-/mastermind:swarm       — full swarm reference
-/swarm:development    — hierarchical swarm for feature dev
-/swarm:research       — mesh swarm for research
-/swarm:testing        — star swarm for parallel testing
-/swarm:analysis       — mesh + adaptive for distributed analysis
-/swarm:optimization   — bottleneck detection and optimization
-/swarm:maintenance    — dependency updates, security audits
+/mastermind          — topology picker: lists all swarm/hive-mind modes and
+                       gives one concrete recommendation for the current task
+/mastermind:swarm    — full swarm coordination reference
 ```
 
 ---
 
-## Hive-Mind (Byzantine Fault-Tolerant)
+## Hive-Mind (MCP Tools Only)
 
-The `hive-mind` command group is a higher-level abstraction over the swarm system, adding Byzantine fault tolerance and a Claude-as-Queen mode.
-
-### CLI
-
-```bash
-# Initialize with Byzantine consensus
-monomind hive-mind init --topology hierarchical-mesh --consensus byzantine
-
-# Spawn workers (--claude launches Claude Code as Queen)
-monomind hive-mind spawn --workers 5 --claude
-
-# Status
-monomind hive-mind status
-
-# Consensus proposal
-monomind hive-mind consensus propose "use PostgreSQL for user data"
-
-# Access shared memory
-monomind hive-mind memory search "architecture decisions"
-
-# Graceful shutdown
-monomind hive-mind shutdown
-```
-
-### Slash Commands
+Hive-mind is a higher-level abstraction over the swarm system with vote-count consensus and shared memory. It is available **only as MCP tools** (`hive-mind-tools.ts`) — there is no `monomind hive-mind` CLI command.
 
 ```
-/hive-mind:hive-mind-init      — initialize with topology + consensus
-/hive-mind:hive-mind-spawn     — spawn workers
-/hive-mind:hive-mind-status    — check status
-/hive-mind:hive-mind-consensus — manage consensus proposals
-/hive-mind:hive-mind-memory    — shared memory access
-/hive-mind:hive-mind-stop      — graceful shutdown
+mcp__monomind__hive-mind_init          — initialize with topology + consensus strategy
+mcp__monomind__hive-mind_spawn         — spawn workers
+mcp__monomind__hive-mind_status        — status, workers, consensus state
+mcp__monomind__hive-mind_consensus     — create/vote on proposals (bft | raft | quorum)
+mcp__monomind__hive-mind_memory        — shared memory access
+mcp__monomind__hive-mind_broadcast     — broadcast a message to workers
+mcp__monomind__hive-mind_join / leave  — membership management
+mcp__monomind__hive-mind_audit_list    — list audit entries
+mcp__monomind__hive-mind_audit_verify  — verify the audit chain
+mcp__monomind__hive-mind_shutdown      — graceful shutdown
 ```
 
 ---
 
-## MCP Tools
+## Swarm MCP Tools
 
 ```
 mcp__monomind__swarm_init         — initialize swarm
 mcp__monomind__swarm_status       — get swarm status
+mcp__monomind__swarm_scale        — scale agent count
+mcp__monomind__swarm_health       — health check
+mcp__monomind__swarm_shutdown     — shut down the swarm
 mcp__monomind__agent_spawn        — spawn an agent
-mcp__monomind__task_orchestrate   — orchestrate tasks across agents
-mcp__monomind__coordination_sync  — sync coordination state
-mcp__monomind__load_balance       — balance workload
-mcp__monomind__parallel_execute   — execute tasks in parallel
+mcp__monomind__agent_list         — list agents
+mcp__monomind__agent_status       — agent status
+mcp__monomind__agent_terminate    — terminate an agent
+mcp__monomind__task_create        — create a task
+mcp__monomind__task_assign        — assign a task to an agent
+mcp__monomind__task_status        — task status
 ```
-
----
-
-## SwarmHub (Compatibility Wrapper)
-
-`SwarmHub` is maintained as a deprecated compatibility wrapper around `UnifiedSwarmCoordinator`. All new code should use `UnifiedSwarmCoordinator` directly.

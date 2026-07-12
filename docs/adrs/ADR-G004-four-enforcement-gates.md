@@ -3,6 +3,8 @@
 ## Status
 Accepted
 
+> **Status: partially superseded in v2.0.0** — The `@monomind/guidance` package was deleted (a call-site audit proved it dead at runtime). The enforcement-gate decision survives, self-contained in `.claude/helpers/handlers/gates-handler.cjs` (wired into PreToolUse by `monomind guidance setup`): the **destructive-ops** gate runs on pre-bash (require-confirmation → block) and the **secrets** gate runs on pre-write (block), with an optional project override at `.monomind/guidance/active-gates.json`. The **tool-allowlist** and **diff-size** gates were removed along with the package. The `EnforcementGates` class, `GateConfig`, aggregation logic, and entry points described below no longer exist; the pattern tables in the handler are now the canonical gate definition.
+
 ## Date
 2026-02-01
 
@@ -123,7 +125,7 @@ Assign a risk score and let the model decide whether to proceed. Rejected becaus
 
 ## References
 
-- `packages/@monomind/guidance/src/gates.ts` -- `EnforcementGates` class, `GateConfig`, default patterns
-- `packages/@monomind/guidance/src/types.ts` -- `GateDecision`, `GateResult`, `GateConfig`
-- `packages/@monomind/guidance/src/index.ts` -- `GuidanceControlPlane.evaluateCommand()`, `evaluateToolUse()`, `evaluateEdit()`
-- ADR-G001 -- Why enforcement lives outside the model
+- `.claude/helpers/handlers/gates-handler.cjs` -- canonical gate definition (destructive-ops + secrets pattern tables, PreToolUse dispatch)
+- `packages/@monomind/cli/src/commands/guidance.ts` -- `monomind guidance setup` wires the handler into hooks
+- `.monomind/guidance/active-gates.json` -- optional per-project pattern override
+- Historical: `packages/@monomind/guidance/src/gates.ts` (`EnforcementGates`) and ADR-G001 (guidance control plane), both removed in v2.0.0 -- see git history

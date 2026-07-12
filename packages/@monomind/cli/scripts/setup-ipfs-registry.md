@@ -311,23 +311,22 @@ gcloud scheduler jobs create http publish-registry-daily \
 
 ## Step 6: Update Monomind CLI
 
-Update `DEFAULT_PLUGIN_STORE_CONFIG` in `discovery.ts`:
+Update `BOOTSTRAP_REGISTRIES` / `DEFAULT_STORE_CONFIG` in
+`src/transfer/store/registry.ts`:
 
 ```typescript
-export const DEFAULT_PLUGIN_STORE_CONFIG: PluginStoreConfig = {
-  registries: [
-    {
-      name: 'monomind-official',
-      description: 'Official Monomind plugin registry',
-      // Use the CID from your first publish
-      ipnsName: 'YOUR_IPNS_KEY_OR_CID',
-      gateway: 'https://gateway.pinata.cloud',
-      // Use your public key from the signing step
-      publicKey: 'ed25519:YOUR_PUBLIC_KEY',
-      trusted: true,
-      official: true,
-    },
-  ],
+const BOOTSTRAP_REGISTRIES: PatternRegistry[] = [
+  {
+    name: 'monomind-official',
+    // Use the IPNS key or CID from your first publish
+    ipnsName: 'YOUR_IPNS_KEY_OR_CID',
+    gateway: 'https://gateway.pinata.cloud',
+  },
+];
+
+export const DEFAULT_STORE_CONFIG: StoreConfig = {
+  registries: BOOTSTRAP_REGISTRIES,
+  gateway: 'https://gateway.pinata.cloud',
   // ... rest of config
 };
 ```

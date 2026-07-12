@@ -1,7 +1,6 @@
-# Claude Code Configuration - Monomind v1.5
+# Claude Code Configuration - Monomind v2
 
-> **Monomind v1.0.0** (2026-01-20) — First releases of Monomind project extracting main skeleton from Claude Flow project
-> Packages: `@monomind/cli@1.0.0`, `monomind@1.0.0`
+> **Monomind v2.0.0** — Packages: `monomind@2.0.0` (umbrella), `@monoes/monomindcli@2.0.0` (CLI), `@monoes/monograph@1.4.0` (knowledge graph)
 
 ## Behavioral Rules (Always Enforced)
 
@@ -45,15 +44,17 @@
 
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
-| `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (35 commands)          |
+| `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (31 commands)          |
 | `@monomind/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 15 background workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress/map/audit/optimize/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server |
-| `@monomind/memory`   | `packages/@monomind/memory/`   | LanceDB + HNSW search                  |
-| `@monomind/security` | `packages/@monomind/cli/src/utils/` | Input validation, path security (inlined into CLI) |
+| `@monoes/memory`     | `packages/@monomind/memory/`   | Memory backends — JSON pattern store + episodic recall on the hot path (LanceDB/HNSW code exists but is not used at runtime) |
 | `@monomind/mcp`      | `packages/@monomind/mcp/`      | MCP server framework (HTTP/WS transport) |
 | `@monomind/routing`  | `packages/@monomind/routing/`  | Semantic routing (embedding + keyword cascade) |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
-| `@monoes/monograph`  | `packages/@monoes/monograph/`  | Knowledge graph (tree-sitter + SQLite) |
+| `@monoes/monodesign` | `packages/@monoes/monodesign/` | Frontend design intelligence (tokens, antipattern detection, monodesign skill) |
+| `@monoes/monograph`  | `packages/@monomind/monograph/` | Knowledge graph (tree-sitter + SQLite) |
 | `monofence-ai`       | `packages/monofence-ai/`       | Security guardrails middleware         |
+
+(The former `@monomind/security` package was deleted — input validation is inlined at `packages/@monomind/cli/src/utils/input-guards.ts`.)
 
 ## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
 
@@ -189,12 +190,12 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `status`         | 3   | System status monitoring with watch mode             |
 | `agent`          | 7   | Agent lifecycle (spawn, list, status, stop, metrics, pool, health). Runs in-process — no separate MCP server required |
 | `swarm`          | 6   | Multi-agent swarm coordination. Runs in-process — no separate MCP server required |
-| `memory`         | 12  | LanceDB with vector search (HNSW)                    |
+| `memory`         | 12  | Memory store — JSON pattern store + episodic recall  |
 | `mcp`            | 9   | MCP server management                                |
 | `task`           | 5   | Task creation and lifecycle                          |
 | `session`        | 6   | Session state management (incl. `replay` show/list)  |
 | `config`         | 7   | Configuration management                             |
-| `hooks`          | 26  | Self-learning hooks + 15 background workers (@monomind/hooks WorkerManager) |
+| `hooks`          | 29  | Self-learning hooks + 15 background workers (@monomind/hooks WorkerManager) |
 | `security`       | 6   | Security scanning                                    |
 | `performance`    | 4   | Performance profiling — real benchmark measurements  |
 | `guidance`       | 1   | Wire enforcement gates into Claude Code hooks (setup) |
@@ -231,17 +232,15 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 
 **Hooks:** `TeammateIdle` (auto-assign tasks), `TaskCompleted` (train patterns, notify lead).
 
-## Available Agents (13 Core Types, 60+ Routing Target Definitions)
+## Available Agents (30 definitions in `.claude/agents/`)
 
-- **Core:** coder, reviewer, tester, planner, researcher
-- **Security:** security-architect, security-auditor
-- **Swarm:** hierarchical-coordinator, mesh-coordinator, adaptive-coordinator, collective-intelligence-coordinator
-- **Consensus:** byzantine-coordinator, raft-manager, gossip-coordinator, crdt-synchronizer, quorum-manager
-- **Performance:** perf-analyzer, performance-benchmarker
+- **Core:** coder, coordinator, planner, researcher, reviewer, tester
+- **Engineering:** ai-engineer, backend-architect, code-reviewer, devops-automator, frontend-developer, security-engineer, software-architect, technical-writer
 - **GitHub:** github-modes, pr-manager, code-review-swarm, issue-tracker, release-manager, repo-architect
-- **Specialized:** backend-dev, mobile-dev, ml-developer, system-architect
-
-Note: Input validation (path traversal prevention, command injection protection) is inlined in `packages/@monomind/cli/src/utils/input-guards.ts`, not a standalone package.
+- **Swarm / Hive-Mind:** mesh-coordinator, collective-intelligence-coordinator, queen-coordinator
+- **Consensus:** quorum-manager
+- **Specialized:** mcp-builder, mobile (spec-mobile-react-native), integration-architect, goal-planner, tdd-london-swarm
+- **Design:** monodesign (the only design agent)
 
 ## Hooks System
 
@@ -264,7 +263,7 @@ Note: Input validation (path traversal prevention, command injection protection)
 
 ## Project Configuration (Anti-Drift Defaults)
 
-Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: hybrid (SQLite + LanceDB) | HNSW: pure-JS via LanceDB.
+Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: JSON pattern store + episodic recall.
 
 ## Quick Setup
 

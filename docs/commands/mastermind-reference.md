@@ -8,10 +8,10 @@
 
 Mastermind is a command namespace for high-level autonomous operations. Each command follows a common pattern:
 
-1. **Brain Load** — loads context from LanceDB (`mastermind:*` namespace) via the _protocol.md Brain Load Procedure
+1. **Brain Load** — loads context from the monomind memory store (`mastermind:*` namespace) via the _protocol.md Brain Load Procedure
 2. **Intake** — optional 5-question intake if the prompt is vague
 3. **Skill execution** — delegates to the corresponding skill file
-4. **Brain Write** — saves results and context back to LanceDB
+4. **Brain Write** — saves results and context back to the memory store
 5. **Repeat Postamble** — handles `--tillend`/`--repeat` loop scheduling
 
 ### Universal Flags
@@ -282,7 +282,7 @@ Switches from improvement mode to a full end-to-end feature delivery pipeline. I
 **Purpose:** Manage a software release.
 
 ```
-/mastermind:release prepare v1.11.0 release
+/mastermind:release prepare v2.0.0 release
 /mastermind:release changelog from last 20 commits
 ```
 
@@ -325,14 +325,14 @@ touch .monomind/loops/{loop-id}.stop
 
 ## Second Brain & OKF
 
-The Second Brain is Monomind's document knowledge base. During `monomind init`, the directory scanner auto-detects document files and ingests them — chunking, deduplicating, and storing in LanceDB for semantic retrieval.
+The Second Brain is Monomind's document knowledge base. During `monomind init`, the directory scanner auto-detects document files and ingests them — chunking, deduplicating, and storing them in the memory store for retrieval.
 
 ### CLI — `monomind doc`
 
 | Command | Description |
 |---|---|
 | `doc ingest <path>` | Index a file or directory into the knowledge base |
-| `doc search -q "query"` | Semantic search over indexed documents (`--limit`, `--scope`, `--min-score`) |
+| `doc search -q "query"` | Search over indexed documents (`--limit`, `--scope`, `--min-score`) |
 | `doc list` | List indexed documents with chunk counts and sizes |
 | `doc export -o <dir>` | Export as OKF bundle (Markdown + YAML frontmatter) |
 
@@ -393,12 +393,12 @@ An `index.md` links all exported documents. Use OKF to move knowledge between pr
 Each mastermind command loads/saves brain context:
 
 **Brain Load** (at session start):
-- Searches LanceDB namespace `mastermind:{domain}` for recent context
+- Searches the memory store namespace `mastermind:{domain}` for recent context
 - Three memory tiers: raw records (last 7 days) → weekly summaries → principles
 - Combines into a `BRAIN CONTEXT` block injected into the skill
 
 **Brain Write** (at session end):
-- Stores key decisions, findings, and outcomes to LanceDB
+- Stores key decisions, findings, and outcomes to the memory store
 - Updates weekly summaries and principles over time
 
 ---

@@ -53,9 +53,13 @@ const fence = createMonoDefence({
 |--------|---------|-------------|
 | `fence.detect(input)` | `Promise<DetectionResult>` | Full async scan with threats, risk score, timing |
 | `fence.quickScan(input)` | `{ threat, confidence }` | Synchronous sub-millisecond check |
-| `fence.isSafe(input)` | `boolean` | Fastest boolean check |
 | `fence.hasPII(input)` | `boolean` | Check for emails, SSNs, API keys, passwords |
-| `fence.getStats()` | `Stats` | Detection statistics |
+| `fence.scanOutput(output, prompt?)` | `Promise<OutputScanResult>` | Scan LLM output for leakage/echo/policy violations |
+| `fence.isAllowed(input)` / `fence.addAllowlistRule(rule)` | — | Allowlist bypass for known-safe inputs |
+| `fence.getStats()` | `Promise<Stats>` | Detection + learning statistics |
+
+Module-level helpers: `isSafe(input)` (fastest boolean check against a shared
+singleton), `checkThreats(input)`, `getMonoDefence()`, `resetMonoDefence()`.
 
 ### Detection result
 
@@ -69,13 +73,14 @@ const fence = createMonoDefence({
 }
 ```
 
-### Hooks integration
+### Learning (opt-in)
 
 ```typescript
-import { createMonoDefence, registerHooks } from 'monofence-ai';
+const fence = createMonoDefence({ enableLearning: true });
 
-const fence = createMonoDefence({ enableContextTracking: true });
-registerHooks(fence);  // wires into Monomind hook events
+await fence.learnFromDetection(input, result, { wasAccurate: true });
+const similar = await fence.searchSimilarThreats(suspiciousInput);
+const strategy = await fence.getBestMitigation('prompt_injection');
 ```
 
 ## What it detects

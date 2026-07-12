@@ -1,4 +1,4 @@
-> **Note:** memory-palace.cjs was removed in Round 3 cleanup. See docs/tododeleted.md.
+> **Note:** memory-palace.cjs is live at .claude/helpers/memory-palace.cjs.
 
 # Memory Palace Integration
 

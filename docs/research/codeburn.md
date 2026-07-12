@@ -1,4 +1,4 @@
-> **Note:** token-tracker.cjs was removed in Round 3 cleanup. See docs/tododeleted.md.
+> **Note:** token-tracker.cjs is live at .claude/helpers/token-tracker.cjs.
 
 # Codeburn — AI Token Usage Tracker
 

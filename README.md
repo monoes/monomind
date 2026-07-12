@@ -66,7 +66,7 @@ flowchart TD
     R["Reviewer"]
     M["Growth Marketer"]
     BOARD[("Shared\nTask Board")]
-    MEM[("LanceDB\nMemory")]
+    MEM[("Persistent\nMemory")]
 
     U --> CO --> RO --> BOSS
     BOSS -->|spawns| W
@@ -126,7 +126,7 @@ Type "go" to save, or describe changes.
 | **Boss agent** | Coordinator type, no supervisor — owns the goal |
 | **Role agents** | Spawned on demand, specialized by task type |
 | **Task board** | Todo → Doing → Done, shared across all agents |
-| **Memory** | All output stored in org-scoped LanceDB namespace |
+| **Memory** | All output stored in an org-scoped memory namespace |
 | **Checkpoint** | State saved every 30 min — survives crashes and restarts |
 | **Governance** | `auto` (free), `board` (approve sensitive), `strict` (approve all external actions) |
 
@@ -218,13 +218,13 @@ Open Claude Code. You now have 80+ slash commands available:
 
 ## 🧠 Memory That Persists
 
-Every session, every agent, every org writes to **LanceDB** — a hybrid SQLite + HNSW vector store that survives across sessions. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
+Every session, every agent, every org writes to a persistent memory store — a JSON pattern store with episodic recall that survives across sessions. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
 
 ```mermaid
 graph TD
     L0["L0 - In-flight\nCurrent session drawers\nephemeral"]
     L1["L1 - Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
-    L2["L2 - Long-term\nLanceDB + HNSW index\nSemantic search"]
+    L2["L2 - Long-term\nEpisodic store\nSemantic recall"]
     L3["L3 - Shared\nCross-agent namespace\nFederated swarm reads"]
 
     L0 -->|promoted| L1 --> L2 --> L3
@@ -256,7 +256,7 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-23 MCP tools. Impact analysis. Shortest-path queries. Community detection. Zero grep.
+19 default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
 ---
 
@@ -272,11 +272,11 @@ flowchart LR
     H --> I["route\nlearn\nbuild-agents"]
     H --> T["teammate-idle\ntask-completed"]
 
-    I --> DB[("LanceDB\npatterns.json")]
+    I --> DB[("patterns.json\nmemory store")]
     DB -->|next session| CE
 ```
 
-**12 background workers** run continuously: `security` · `health` · `swarm` · `learning` · `patterns` · `git` · `performance` and more.
+**15 background workers** run at session start (staleness-gated, refreshed when older than 6 hours): `security` · `health` · `swarm` · `learning` · `patterns` · `git` · `performance` and more.
 
 ---
 
@@ -338,7 +338,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | Package | npm | Purpose |
 |---|---|---|
 | `monomind` | [![npm](https://img.shields.io/npm/v/monomind?style=flat-square&color=00D2AA)](https://www.npmjs.com/package/monomind) | Umbrella — **install this one** |
-| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (41 commands) |
+| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (31 commands) |
 | `monofence-ai` | [![npm](https://img.shields.io/npm/v/monofence-ai?style=flat-square&color=EF4444)](https://www.npmjs.com/package/monofence-ai) | AI manipulation defence |
 | `@monoes/monograph` | [![npm](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square&color=F59E0B)](https://www.npmjs.com/package/@monoes/monograph) | Code knowledge graph |
 
@@ -352,13 +352,13 @@ graph TD
     MCP["MCP Server\nmonomind mcp start"]
     D["Background Workers\n(@monomind/hooks, in-process)"]
 
-    CC <-->|"23 tools: monograph, memory, swarm"| MCP
+    CC <-->|"MCP tools: monograph, memory, swarm"| MCP
     MCP <--> D
 
-    D --> ADB[("LanceDB\nSQLite + HNSW")]
+    D --> ADB[("Memory store\npatterns + episodes")]
     D --> MG[("Monograph\ncode graph")]
     D --> HK["Hooks\n22 event types"]
-    D --> SW["Swarm\n6 topologies\n5 consensus algos"]
+    D --> SW["Swarm\n4 topologies\n3 consensus strategies"]
 
     CC -->|"Task tool - spawns agents"| AG["Agent Swarm\narchitect, coder\ntester, reviewer\nsecurity, perf"]
     AG <-->|reads and writes| ADB
@@ -380,7 +380,6 @@ graph TD
 - 📋 [All Slash Commands](https://monoes.github.io/monomind/#slash)
 - 🐛 [Issues](https://github.com/monoes/monomind/issues)
 - 💬 [Discussions](https://github.com/monoes/monomind/discussions)
-- 📦 [Changelog v1.11](https://github.com/monoes/monomind/blob/main/CHANGELOG-v1.11.md)
 
 ---
 

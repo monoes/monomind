@@ -4,7 +4,7 @@
 [![license](https://img.shields.io/npm/l/@monomind/hooks.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-blue?style=flat-square)](https://nodejs.org)
 
-**A library, not a runtime dispatcher.** Provides hook type definitions, an in-memory `HookRegistry`/`HookExecutor` for defining handlers, background `WorkerManager` workers, MCP tool schemas, and ReasoningBank pattern learning for Monomind.
+**A library, not a runtime dispatcher.** Provides hook type definitions, an in-memory `HookRegistry`/`HookExecutor` for defining handlers, and a `WorkerManager` with 15 background workers for Monomind.
 
 > Part of the [Monomind](https://github.com/monoes/monomind) ecosystem.
 
@@ -16,13 +16,13 @@ run through the plain CJS handlers in `.claude/helpers/` (see
 the authoritative, "live" dispatch system.
 
 This package is bridged in as **optional enrichment** at a handful of
-lifecycle events — `SessionStart`, `PreTask`, `PostTask`, `PostEdit`,
-`SessionEnd`, `AgentSpawn` — when it's installed and built. `HookRegistry`
+lifecycle events (`SessionStart`, `PreTask`, `PostTask`, `PostEdit`,
+`SessionEnd`, `AgentSpawn`) when it's installed and built. `HookRegistry`
 lets you define handlers the CJS layer *can* call into, but since each hook
 event runs in a fresh subprocess, in-memory registrations don't survive
-across events. Only the `WorkerManager`'s daemon-managed workers persist
-state to disk and carry it across invocations; they run as background
-daemon tasks, not as live interceptors sitting on the hook path.
+across events. What persists is the workers' output: they write JSON
+metrics files under `.monomind/metrics/` that the statusline, router, and
+`doctor` read back.
 
 ## Install
 
@@ -57,13 +57,15 @@ const result = await executor.preEdit('src/app.ts', 'modify');
 
 | Event | When it fires |
 |-------|---------------|
+| `PreToolUse` / `PostToolUse` | Before/after any tool call |
 | `PreEdit` / `PostEdit` | Before/after file modification |
+| `PreRead` / `PostRead` | Before/after file reads |
 | `PreCommand` / `PostCommand` | Before/after shell commands |
-| `PreTask` / `PostTask` | Before/after task execution |
-| `SessionStart` / `SessionEnd` | Session lifecycle |
+| `PreTask` / `PostTask` / `TaskProgress` | Task lifecycle |
+| `SessionStart` / `SessionEnd` / `SessionRestore` | Session lifecycle |
 | `AgentSpawn` / `AgentTerminate` | Agent lifecycle |
 | `PreRoute` / `PostRoute` | Task routing decisions |
-| `PatternLearned` | When a new pattern is stored |
+| `PatternLearned` / `PatternConsolidated` | Pattern learning |
 
 ## Priorities
 
@@ -77,35 +79,49 @@ const result = await executor.preEdit('src/app.ts', 'modify');
 
 ## Background workers
 
-12 specialized workers for continuous analysis and automation:
+15 workers, each a factory function (`createHealthWorker(projectRoot)` → handler)
+managed by `WorkerManager`:
 
 | Worker | Purpose |
 |--------|---------|
-| `ultralearn` | Deep knowledge acquisition |
-| `optimize` | Performance tuning |
-| `audit` | Security scanning |
-| `map` | Codebase architecture mapping |
-| `deepdive` | Deep code analysis |
-| `testgaps` | Test coverage analysis |
-| `document` | Auto-documentation |
-| `refactor` | Refactoring suggestions |
-| `benchmark` | Performance benchmarking |
-| `consolidate` | Memory consolidation |
-| `predict` | Predictive preloading |
-| `preload` | Cache warming |
+| `performance` | Benchmark search, memory, startup performance |
+| `health` | Monitor disk, memory, CPU, processes |
+| `swarm` | Monitor swarm activity and agent coordination |
+| `git` | Track uncommitted changes, branch status |
+| `learning` | Learning/pattern optimization |
+| `adr` | ADR compliance checks |
+| `ddd` | DDD progress → `.monomind/metrics/ddd-progress.json` |
+| `security` | Scan for secrets and vulnerabilities |
+| `patterns` | Consolidate, dedupe learned patterns |
+| `cache` | Clean temp files, old logs, stale cache |
+| `progress` | Track implementation progress |
+| `map` | Codebase map → `.monomind/metrics/codebase-map.json` |
+| `audit` | Security audit → `.monomind/metrics/security-audit.json` |
+| `optimize` | Performance snapshot → `.monomind/metrics/performance.json` |
+| `consolidate` | Memory consolidation → `.monomind/metrics/consolidation.json` |
 
-## MCP tools
+The metrics-producing workers run at session start (via the CJS session
+handler) and are staleness-gated: each only runs when its output file is
+missing or older than 6 hours, with a hard per-worker timeout so session
+start is never blocked. `WorkerManager` can also schedule them on intervals,
+persist run state to `.monomind/metrics/workers-state.json`, raise threshold
+alerts, and export statusline data.
 
-This package exports MCP tool *schemas* (name, description, input schema, handler) that the CLI's MCP server wires up — it does not run an MCP server itself. `hooksMCPTools` (in `src/mcp/index.ts`) currently exports 10 tools:
+```typescript
+import { WorkerManager, createHealthWorker } from '@monomind/hooks';
 
-- `hooks/route-advanced` — AFLOW/DAGLearner/LATS-augmented routing (opt-in; the CLI's `hooks_route` is the primary routing tool)
-- `hooks/statusline` — statusline data for display
-- `hooks/evo-agentx` — EvoAgentX prompt optimisation (GEPA + SubGraphRegistry)
-- `hooks/rlvr-outcome` — record a verifiable agent outcome for RLVR reward learning
-- trace tools (`listTracesTool`, `getTraceTool`) — observability trace inspection
-- checkpoint tools (`listPendingCheckpointsTool`, `approveCheckpointTool`, `rejectCheckpointTool`, `getCheckpointTool`) — human-in-the-loop interrupt checkpoints
+const manager = new WorkerManager(process.cwd());
+manager.register('health', createHealthWorker(process.cwd()));
+const result = await manager.runWorker('health');
+```
 
-Note: earlier stub duplicates of the CLI's real `hooks_pre-edit`, `hooks_post-edit`, `hooks_metrics`, `hooks_pre-command`, `hooks_post-command` tools were removed from this package — they returned hardcoded/fake data and were never wired into any running MCP server. Those names should not appear as tools from this package going forward; the CLI (`packages/@monomind/cli/src/mcp-tools/`) owns the real, wired versions.
+## What this package does NOT do
+
+Earlier versions carried MCP tool schemas, agent synthesis, observability
+traces, interrupt checkpoints, statusline generation, and swarm messaging
+subsystems. None of it was wired into a running server, so it was deleted.
+The CLI (`packages/@monomind/cli/src/mcp-tools/`) owns the real MCP tools;
+this package is just types + registry/executor + workers.
 
 ## Links
 

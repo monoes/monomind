@@ -2,67 +2,34 @@
 
 ## Overview
 
-The CLI module now supports loading configuration from multiple sources with proper validation and type conversion.
+The CLI loads an optional JSON configuration file at startup. Config loading
+never fails the CLI — a missing or invalid file falls back to defaults (with a
+warning in `DEBUG=1` mode).
 
-## Implementation
+## Where config is loaded from
 
-### Files Added/Modified
+Resolution order (see `src/services/config-file-manager.ts`):
 
-1. **`src/config-adapter.ts`** (NEW)
-   - Converts between `SystemConfig` (from `@monomind/shared`) and `v1Config` (CLI-specific format)
-   - Provides bidirectional conversion functions:
-     - `systemConfigTov1Config()` - Convert SystemConfig to v1Config
-     - `v1ConfigToSystemConfig()` - Convert v1Config to SystemConfig
+1. **`MONOMIND_CONFIG`** environment variable — explicit path
+2. **`--config <path>`** flag on any command
+3. **Auto-discovery**, walking up from the current directory:
+   - `monomind.config.json`
+   - `.monomind/config.json`
 
-2. **`src/index.ts`** (MODIFIED)
-   - Implemented `loadConfig()` method (previously TODO)
-   - Loads configuration from file or default search paths
-   - Handles errors gracefully (config loading is optional)
-   - Displays warnings when config validation fails
+## Key files
 
-3. **`__tests__/config-adapter.test.ts`** (NEW)
-   - Unit tests for config conversion functions
-   - Tests minimal configs, missing fields, and round-trip conversion
-   - Verifies different coordination strategies
+- **`src/services/config-file-manager.ts`** — `configManager.load(cwd)`: finds,
+  parses, and caches the config file
+- **`src/config-adapter.ts`** — converts between the loose `SystemConfig` shape
+  and the CLI's typed `MonomindConfig` (`systemConfigToMonomindConfig()` and the
+  reverse)
+- **`src/index.ts`** — `loadConfig()` wires the manager into the CLI context;
+  failures are silent unless `DEBUG=1`
 
-4. **`__tests__/config-loading.test.ts`** (NEW)
-   - Integration tests for config loading
-   - Tests file loading, missing files, and invalid JSON
-
-## Configuration Sources
-
-The CLI loads configuration in the following priority order:
-
-1. **Explicit file path** - When `--config` flag is provided
-2. **Auto-discovery** - Searches for config files in:
-   - Current working directory
-   - Parent directory
-   - `~/.monomind/`
-
-### Supported Config Files
-
-- `monomind.config.json`
-- `monomind.config.js`
-- `monomind.json`
-- `.monomind.json`
-
-## Environment Variables
-
-Configuration can also be overridden via environment variables:
-
-- `MONOMIND_MAX_AGENTS` - Maximum concurrent agents
-- `MONOMIND_DATA_DIR` - Data directory path
-- `MONOMIND_MEMORY_TYPE` - Memory backend type
-- `MONOMIND_MCP_TRANSPORT` - MCP transport type
-- `MONOMIND_MCP_PORT` - MCP server port
-- `MONOMIND_SWARM_TOPOLOGY` - Swarm topology type
-
-## Configuration Schema
-
-### v1Config (CLI Format)
+## Configuration schema (`MonomindConfig`, `src/types.ts`)
 
 ```typescript
-interface v1Config {
+interface MonomindConfig {
   version: string;
   projectRoot: string;
 
@@ -114,123 +81,28 @@ interface v1Config {
 }
 ```
 
-## Usage Examples
-
-### Command Line
+## Usage examples
 
 ```bash
 # Use default config search paths
 monomind agent spawn -t coder
 
-# Use specific config file
+# Use a specific config file
 monomind agent spawn -t coder --config ./custom-config.json
 
-# Override with environment variables
-MONOMIND_MAX_AGENTS=20 monomind swarm init
+# Point at a config via env var
+MONOMIND_CONFIG=./configs/ci.json monomind swarm init
 ```
 
-### Example Config File
+## Error handling
 
-```json
-{
-  "orchestrator": {
-    "lifecycle": {
-      "autoStart": true,
-      "maxConcurrentAgents": 15,
-      "shutdownTimeoutMs": 30000,
-      "cleanupOrphanedAgents": true
-    },
-    "session": {
-      "dataDir": "./data",
-      "persistState": true,
-      "stateFile": "session.json"
-    },
-    "monitoring": {
-      "enabled": true,
-      "metricsIntervalMs": 5000,
-      "healthCheckIntervalMs": 10000
-    }
-  },
-  "swarm": {
-    "topology": "hierarchical-mesh",
-    "maxAgents": 15
-  },
-  "memory": {
-    "type": "hybrid",
-    "lancedb": {
-      "dimensions": 1536,
-      "indexType": "hnsw"
-    }
-  },
-  "mcp": {
-    "enabled": true,
-    "transport": {
-      "type": "stdio",
-      "host": "localhost",
-      "port": 3000
-    },
-    "enabledTools": ["agent/*", "swarm/*", "memory/*"]
-  },
-  "logging": {
-    "level": "info",
-    "pretty": true,
-    "destination": "console",
-    "format": "text"
-  },
-  "hooks": {
-    "enabled": true,
-    "autoExecute": false,
-    "definitions": []
-  }
-}
-```
+1. **File not found** — falls back to default configuration
+2. **Invalid JSON** — logs a warning (under `DEBUG=1`) and uses defaults
+3. **Missing fields** — merged with default values
 
-## Error Handling
+## Architecture decisions
 
-The config loading implementation handles errors gracefully:
-
-1. **File not found** - Falls back to default configuration
-2. **Invalid JSON** - Logs warning and uses defaults
-3. **Validation errors** - Displays warnings for invalid fields
-4. **Missing required fields** - Merges with default values
-
-Debug mode (`DEBUG=1`) provides additional error details.
-
-## Testing
-
-All tests pass successfully:
-
-```bash
-# Run config adapter unit tests
-npx vitest run __tests__/config-adapter.test.ts
-
-# Run config loading integration tests
-npx vitest run __tests__/config-loading.test.ts
-```
-
-### Test Coverage
-
-- ✅ SystemConfig to v1Config conversion
-- ✅ v1Config to SystemConfig conversion
-- ✅ Round-trip conversion preserves values
-- ✅ Handles missing optional fields
-- ✅ Different coordination strategies
-- ✅ File loading
-- ✅ Missing file handling
-- ✅ Invalid JSON handling
-
-## Architecture Decisions
-
-1. **Adapter Pattern** - Separates SystemConfig (shared) from v1Config (CLI-specific)
-2. **Optional Loading** - Config files are optional, failures don't crash CLI
-3. **Validation** - Uses existing Zod schemas from `@monomind/shared`
-4. **Merge Strategy** - Merges loaded config with defaults
-5. **Environment Priority** - Environment variables override file config
-
-## Future Enhancements
-
-- [ ] TypeScript config support (`.ts` files)
-- [ ] Config validation command (`monomind config validate`)
-- [ ] Config migration tool (v2 → v1)
-- [ ] Interactive config setup wizard
-- [ ] Schema documentation generation
+1. **Adapter pattern** — `config-adapter.ts` separates the on-disk shape from
+   the CLI's typed `MonomindConfig`
+2. **Optional loading** — config files are optional; failures never crash the CLI
+3. **Merge strategy** — loaded config is merged over defaults
