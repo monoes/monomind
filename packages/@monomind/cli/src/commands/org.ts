@@ -69,7 +69,32 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const daemon = new OrgDaemon(ctx.cwd);
   const srv = await startOrgServer(daemon, Number(ctx.flags['port'] ?? 4243));
   log(output.info(`org daemon serving on http://localhost:${srv.port} — Ctrl-C to stop`));
+
+  // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
+  const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
+  const sched = new OrgScheduler(async name => {
+    await daemon.startOrg(name);
+    // scheduled iterations are bounded: wait for all sessions to end, then stop
+    const org = daemon.getOrg(name);
+    if (org) await Promise.allSettled([...org.agents.values()].map(a => a.done));
+    await daemon.stopOrg(name);
+  });
+  const orgDir = join(ctx.cwd, ORG_DIR);
+  if (existsSync(orgDir)) {
+    for (const f of readdirSync(orgDir).filter(f => f.endsWith('.json'))) {
+      try {
+        const def = JSON.parse(readFileSync(join(orgDir, f), 'utf8'));
+        const ms = parseSchedule(def.schedule);
+        if (ms) {
+          sched.add(def.name, ms);
+          log(output.info(`scheduled org ${def.name} every ${Math.round(ms / 60_000)}m`));
+        }
+      } catch { /* skip unparseable org file */ }
+    }
+  }
+
   await new Promise<void>(r => { process.once('SIGINT', () => r()); process.once('SIGTERM', () => r()); });
+  sched.stop();
   await daemon.stopAll();
   srv.close();
   return { success: true };
