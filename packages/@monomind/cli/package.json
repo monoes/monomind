@@ -80,7 +80,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc --noEmitOnError false || true && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html",
+    "build": "tsc --noEmitOnError false || true && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html && mkdir -p dist/src/orgrt && cp src/orgrt/live.html dist/src/orgrt/",
     "test": "vitest run",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
     "prepublishOnly": "cp ../../../README.md ./README.md",

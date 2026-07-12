@@ -42,6 +42,7 @@ import { searchUniversalCommand } from './search-universal.js';
 import { reportCrashCommand } from './report-crash.js';
 import { crashReportingCommand } from './crash-reporting.js';
 import { docCommand } from './doc.js';
+import { orgCommand } from './org.js';
 
 // Populate command cache
 loadedCommands.set('init', initCommand);
@@ -75,6 +76,7 @@ loadedCommands.set('search', searchUniversalCommand);
 loadedCommands.set('report-crash', reportCrashCommand);
 loadedCommands.set('crash-reporting', crashReportingCommand);
 loadedCommands.set('doc', docCommand);
+loadedCommands.set('org', orgCommand);
 
 // =============================================================================
 // Exports
