@@ -10,19 +10,20 @@ export function parseSchedule(s: string | number | null | undefined): number | n
   return m[2] === 's' ? n * 1000 : m[2] === 'm' ? n * 60_000 : n * 3_600_000;
 }
 
-/** Fires runFn(name) every intervalMs per org. Real timer loop — no ScheduleWakeup, no prompts. */
+/** Fires runFn(name, intervalMs) every intervalMs per org. Real timer loop — no ScheduleWakeup, no prompts. */
 export class OrgScheduler {
   private timers = new Map<string, ReturnType<typeof setInterval>>();
   private running = new Set<string>();
 
-  constructor(private runFn: (name: string) => Promise<void>) {}
+  constructor(private runFn: (name: string, intervalMs: number) => Promise<void>) {}
 
   add(name: string, intervalMs: number): void {
     this.remove(name);
     this.timers.set(name, setInterval(async () => {
       if (this.running.has(name)) return; // skip if previous iteration still running
       this.running.add(name);
-      try { await this.runFn(name); } catch { /* logged by daemon */ }
+      try { await this.runFn(name, intervalMs); }
+      catch (err) { console.error(`[org-scheduler] ${name}: scheduled run failed:`, err); }
       finally { this.running.delete(name); }
     }, intervalMs));
   }
