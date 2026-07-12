@@ -231,11 +231,24 @@ const PY_RESOLVE_EXTS = ['.py'];
 const GO_RESOLVE_EXTS = ['.go'];
 const JAVA_RESOLVE_EXTS = ['.java'];
 const RUST_RESOLVE_EXTS = ['.rs'];
+const workspacePackageMapCache = new Map();
+/** Invalidate the cached workspace package map for a repo — call at the start
+ * of each build so long-lived processes (watch mode) pick up package.json
+ * additions/removals instead of serving a stale map from a prior build. */
+export function clearWorkspacePackageMapCache(repoPath) {
+    workspacePackageMapCache.delete(repoPath);
+}
 /**
  * Build package-name → directory map from workspace package.json files.
  * Scans packages/ for package.json and maps npm name to its relative src path.
+ * Cached per repoPath — multiple pipeline phases (cross-file, scope-resolution,
+ * the latter's own re-export loop) call this per-file/per-edge within the same
+ * build, and the workspace's package.json set doesn't change mid-build.
  */
 export function buildWorkspacePackageMap(repoPath) {
+    const cached = workspacePackageMapCache.get(repoPath);
+    if (cached)
+        return cached;
     const result = new Map();
     const packagesDir = join(repoPath, 'packages');
     try {
@@ -269,6 +282,7 @@ export function buildWorkspacePackageMap(repoPath) {
         scanDirs(packagesDir, 0);
     }
     catch { /* no packages dir */ }
+    workspacePackageMapCache.set(repoPath, result);
     return result;
 }
 export function resolveModuleSpecifier(importerPath, specifier, repoPath, knownFiles, workspaceMap) {

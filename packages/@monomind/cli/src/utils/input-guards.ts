@@ -83,7 +83,7 @@ function validateNumber(value: unknown, opts: ValidateInputOpts): ValidationResu
  * ancestor, realpath *that* (resolving any symlink components in it), and
  * re-append the non-existent tail. Falls back to the lexical path only when
  * no ancestor at all can be resolved. */
-function realOrResolved(p: string): string {
+export function realOrResolved(p: string): string {
   let cur = p;
   const tail: string[] = [];
   // eslint-disable-next-line no-constant-condition

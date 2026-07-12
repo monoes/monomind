@@ -993,7 +993,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       if (!_suppliedAuth) {
         try { _suppliedAuth = new URL(req.url, 'http://localhost').searchParams.get('token') || ''; } catch (_) {}
       }
-      if (!_suppliedAuth || _suppliedAuth !== dashboardAuthValue) {
+      const _suppliedAuthBuf = Buffer.from(String(_suppliedAuth));
+      const _expectedAuthBuf = Buffer.from(dashboardAuthValue);
+      const _authMatches = _suppliedAuthBuf.length === _expectedAuthBuf.length
+        && crypto.timingSafeEqual(_suppliedAuthBuf, _expectedAuthBuf);
+      if (!_suppliedAuth || !_authMatches) {
         res.writeHead(401, {
           'Content-Type': 'application/json',
           ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),

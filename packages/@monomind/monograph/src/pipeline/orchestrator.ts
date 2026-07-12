@@ -11,7 +11,7 @@ import { routesPhase } from './phases/routes.js';
 import { toolsPhase } from './phases/tools.js';
 import { ormPhase } from './phases/orm.js';
 import { crossFilePhase } from './phases/cross-file.js';
-import { scopeResolutionPhase } from './phases/scope-resolution.js';
+import { scopeResolutionPhase, clearWorkspacePackageMapCache } from './phases/scope-resolution.js';
 import { mroPhase } from './phases/mro.js';
 import { communitiesPhase } from './phases/communities.js';
 import { processesPhase } from './phases/processes.js';
@@ -75,6 +75,7 @@ async function acquireBuildLock(dbPath: string): Promise<(() => void) | null> {
 export async function buildAsync(repoPath: string, options: BuildOptions = {}): Promise<void> {
   const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
   const fullOptions: PipelineOptions = { ...DEFAULT_OPTIONS, ...options };
+  clearWorkspacePackageMapCache(repoPath);
 
   const releaseLock = await acquireBuildLock(dbPath);
   if (!releaseLock) {

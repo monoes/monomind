@@ -125,7 +125,7 @@ export class CommandParser {
      * array on its second occurrence rather than silently dropping the first
      * value.
      */
-    mergeParsedFlags(into, from, arrayFlags) {
+    mergeParsedFlags(into, from, arrayFlags, booleanFlags) {
         for (const key of Object.keys(from)) {
             if (key === '_') {
                 into._.push(...from._);
@@ -136,6 +136,14 @@ export class CommandParser {
             const incoming = from[key];
             if (Array.isArray(into[key])) {
                 into[key].push(...[].concat(incoming).map(String));
+            }
+            else if (into[key] !== undefined && booleanFlags?.has(key)) {
+                // Declared boolean flag repeated (e.g. `--dry-run --dry-run`) — last
+                // value wins instead of promoting to an array. Callers throughout the
+                // codebase check booleans with `flags['x'] === true`; an array value
+                // would silently fail that check (e.g. guidance.ts's --dry-run,
+                // which guards a destructive write).
+                into[key] = incoming;
             }
             else if (into[key] !== undefined) {
                 // Repeated flag not previously an array — promote to array so the
@@ -195,7 +203,7 @@ export class CommandParser {
                 // (e.g. browse-action.ts's --params/-p, swarm.ts) are meant to
                 // collect every occurrence, and even a flag NOT declared array
                 // shouldn't silently lose data on repetition.
-                this.mergeParsedFlags(result.flags, parseResult.flags, arrayFlags);
+                this.mergeParsedFlags(result.flags, parseResult.flags, arrayFlags, booleanFlags);
                 i = parseResult.nextIndex;
                 continue;
             }

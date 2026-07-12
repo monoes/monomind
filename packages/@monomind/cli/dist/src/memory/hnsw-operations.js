@@ -73,8 +73,10 @@ async function loadEntriesFromDb(dbPath, dimensions) {
  */
 export async function getHNSWIndex(options) {
     const dimensions = options?.dimensions ?? 384;
-    // Return existing index if already initialized
-    if (hnswIndex?.initialized && !options?.forceRebuild) {
+    // Return existing index if already initialized for the same dimensionality.
+    // A cached index built for a different embedding size must be rebuilt —
+    // otherwise addPoint()/search() silently fail (or corrupt) on the mismatch.
+    if (hnswIndex?.initialized && hnswIndex.dimensions === dimensions && !options?.forceRebuild) {
         return hnswIndex;
     }
     // Prevent concurrent initialization
