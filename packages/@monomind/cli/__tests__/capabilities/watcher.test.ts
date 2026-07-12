@@ -4,6 +4,23 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+/** Poll until the events array is non-empty (fs events are slow under
+ *  parallel test load, especially on exFAT) instead of a fixed sleep. */
+async function waitForEvents(events: string[], timeoutMs = 5000, retrigger?: () => void): Promise<void> {
+  const start = Date.now();
+  let lastTrigger = start;
+  while (events.length === 0 && Date.now() - start < timeoutMs) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    // Under parallel test load the initial write can race watcher setup —
+    // re-fire the trigger periodically so a missed first event can't hang us.
+    if (retrigger && Date.now() - lastTrigger > 700) {
+      retrigger();
+      lastTrigger = Date.now();
+    }
+  }
+}
+
+
 describe('FileWatcher', () => {
   let tmpDir: string;
   let watcher: FileWatcher;
@@ -26,7 +43,7 @@ describe('FileWatcher', () => {
     fs.writeFileSync(path.join(tmpDir, 'new.txt'), 'hello');
 
     // Wait for fs event (debounced)
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await waitForEvents(events, 5000, () => fs.writeFileSync(path.join(tmpDir, `new-${Date.now()}.txt`), 'hello'));
 
     expect(events.length).toBeGreaterThanOrEqual(1);
     expect(events.some(e => e.endsWith('new.txt'))).toBe(true);
@@ -44,7 +61,7 @@ describe('FileWatcher', () => {
     await watcher.start(tmpDir, { useGit: false });
 
     fs.writeFileSync(testFile, 'modified');
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await waitForEvents(events, 5000, () => fs.writeFileSync(testFile, `modified-${Date.now()}`));
 
     expect(events.length).toBeGreaterThanOrEqual(1);
   });

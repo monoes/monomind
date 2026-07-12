@@ -221,7 +221,7 @@ git commit -m "feat(orgrt): org definition schema (v1-compatible) and bus event 
 - Create: `packages/@monomind/cli/src/orgrt/bus.ts`
 - Test: `packages/@monomind/cli/__tests__/orgrt/bus.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/bus.test.ts
@@ -260,12 +260,12 @@ describe('OrgBus', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/bus.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/bus.ts
@@ -325,12 +325,12 @@ export class OrgBus {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run __tests__/orgrt/bus.test.ts`
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** *(done: 67097ca — reviewed APPROVE; tests 2/2)*
 
 ```bash
 git add src/orgrt/bus.ts __tests__/orgrt/bus.test.ts
@@ -347,7 +347,7 @@ git commit -m "feat(orgrt): OrgBus append-only JSONL event bus with subscriber f
 
 The existing dashboard (`dist/src/ui/dashboard.html` / `orgs.html`) consumes SSE fed by `POST /api/mastermind/event`. The forwarder makes every bus event reach it deterministically — this permanently replaces model-volunteered `curl`s.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/forwarder.test.ts
@@ -402,12 +402,12 @@ describe('attachForwarder', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/forwarder.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/forwarder.ts
@@ -448,12 +448,12 @@ export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/contro
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run __tests__/orgrt/forwarder.test.ts`
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** *(done: 6f129db — reviewed APPROVE; orgrt suite 7/7)*
 
 ```bash
 git add src/orgrt/forwarder.ts __tests__/orgrt/forwarder.test.ts
@@ -468,7 +468,7 @@ git commit -m "feat(orgrt): forward bus events to existing control-server dashbo
 - Create: `packages/@monomind/cli/src/orgrt/policy.ts`
 - Test: `packages/@monomind/cli/__tests__/orgrt/policy.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/policy.test.ts
@@ -521,12 +521,12 @@ describe('PolicyEngine', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/policy.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/policy.ts
@@ -618,12 +618,12 @@ function summarize(input: Record<string, unknown>): Record<string, unknown> {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run __tests__/orgrt/policy.test.ts`
 Expected: PASS (5 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** *(done: 114e5c4 + security fix dc4df59 — review BLOCKed relative-path `..` traversal, fixed, re-review APPROVE; 15/15 orgrt tests)*
 
 ```bash
 git add src/orgrt/policy.ts __tests__/orgrt/policy.test.ts
@@ -638,7 +638,7 @@ git commit -m "feat(orgrt): PolicyEngine — tool/file/web/budget gates with ful
 - Create: `packages/@monomind/cli/src/orgrt/provider.ts`
 - Test: `packages/@monomind/cli/__tests__/orgrt/provider.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/provider.test.ts
@@ -686,12 +686,12 @@ describe('resolveProviderEnv', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/provider.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/provider.ts
@@ -743,12 +743,12 @@ export function resolveProviderEnv(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run __tests__/orgrt/provider.test.ts`
 Expected: PASS (5 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** *(done: fbe600d — reviewed APPROVE; 20/20 orgrt tests; follow-up queued for Task 8: strip ANTHROPIC_AUTH_TOKEN in subscription/bedrock/vertex branches)*
 
 ```bash
 git add src/orgrt/provider.ts __tests__/orgrt/provider.test.ts
@@ -763,7 +763,7 @@ git commit -m "feat(orgrt): per-agent provider env — subscription default, api
 - Create: `packages/@monomind/cli/src/orgrt/mailbox.ts`
 - Test: `packages/@monomind/cli/__tests__/orgrt/mailbox.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/mailbox.test.ts
@@ -796,12 +796,12 @@ describe('Mailbox', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/mailbox.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/mailbox.ts
@@ -854,12 +854,12 @@ export class Mailbox {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run __tests__/orgrt/mailbox.test.ts`
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** *(done: 16bfb04 — reviewed APPROVE; 22/22 orgrt tests; note: stream() is single-consumer by design)*
 
 ```bash
 git add src/orgrt/mailbox.ts __tests__/orgrt/mailbox.test.ts
@@ -876,7 +876,7 @@ git commit -m "feat(orgrt): Mailbox async input stream for persistent SDK sessio
 
 The runner is SDK-agnostic via an injectable `queryFn` — unit tests use a fake; production uses `query` from the SDK. `org_send` is defined with the SDK's `tool()` + `createSdkMcpServer()` helpers so it runs **in-process in the daemon** (not in the agent).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/session.test.ts
@@ -933,12 +933,12 @@ describe('runAgentSession', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/session.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/session.ts
@@ -1049,17 +1049,17 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run __tests__/orgrt/session.test.ts`
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Verify real SDK types compile**
+- [x] **Step 5: Verify real SDK types compile** *(SDK 0.3.207 types match plan verbatim; tsc --noEmit clean)*
 
 Run: `cd packages/@monomind/cli && npx tsc --noEmit`
 Expected: no errors in `src/orgrt/*` (if the installed SDK's option names differ from what's written here, or the `canUseTool` result shape differs — fix `session.ts` to match the installed version's `.d.ts` and keep the tests green; the SDK's types are the source of truth).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit** *(done: 632ea51 + fae3d0c AUTH_TOKEN strip follow-up — reviewed APPROVE; 25/25 orgrt tests)*
 
 ```bash
 git add src/orgrt/session.ts __tests__/orgrt/session.test.ts
@@ -1076,7 +1076,7 @@ git commit -m "feat(orgrt): SDK session runner — org_send MCP tool, policy-gat
 
 One daemon process hosts N orgs. Inter-org messaging = routing between org mailboxes inside the same daemon (`to: "other-org:role"`), emitted as `xorg` events on BOTH orgs' buses. `// monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/daemon.test.ts
@@ -1144,12 +1144,12 @@ describe('OrgDaemon', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/daemon.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/daemon.ts
@@ -1280,12 +1280,12 @@ export class OrgDaemon {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run __tests__/orgrt/daemon.test.ts`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** *(done: 44c0046 + f9aa258 api-key AUTH_TOKEN strip — reviewed APPROVE; orgrt 29/29; milestone full suite 715/716, only known watcher flake)*
 
 ```bash
 git add src/orgrt/daemon.ts __tests__/orgrt/daemon.test.ts

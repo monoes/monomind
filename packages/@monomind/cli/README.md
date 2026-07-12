@@ -218,11 +218,26 @@ Open Claude Code. You now have 80+ slash commands available:
 
 ## 🧠 Memory That Persists
 
-Every session, every agent, every org writes to persistent memory that survives across sessions — a JSON pattern store plus episodic recall on the hot path, with an optional vector backend (`@lancedb/lancedb`) for semantic search. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
+Every session, every agent, every org writes to a persistent memory store — a JSON pattern store with episodic recall that survives across sessions. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
+
+```mermaid
+graph TD
+    L0["L0 - In-flight\nCurrent session drawers\nephemeral"]
+    L1["L1 - Working\nCross-session memory\nBM25 K1=1.5, B=0.75"]
+    L2["L2 - Long-term\nEpisodic store\nSemantic recall"]
+    L3["L3 - Shared\nCross-agent namespace\nFederated swarm reads"]
+
+    L0 -->|promoted| L1 --> L2 --> L3
+
+    style L0 fill:#00D2AA11,stroke:#00D2AA
+    style L1 fill:#F59E0B11,stroke:#F59E0B
+    style L2 fill:#8B5CF611,stroke:#8B5CF6
+    style L3 fill:#EF444411,stroke:#EF4444
+```
 
 ```bash
-monomind memory store --key "insight" --value "key insight" --namespace my-project
-monomind memory search --query "auth implementation"
+monomind memory store "key insight" --namespace my-project
+monomind memory search "auth implementation"     # BM25 + semantic hybrid
 ```
 
 ---
@@ -241,13 +256,13 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 # → "find all callers of validateToken()"
 ```
 
-19 MCP tools by default (27 with `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Shortest-path queries. Community detection. Zero grep.
+19 default MCP tools (+27 advanced via `MONOGRAPH_MCP_ADVANCED=1`). Impact analysis. Community detection. Zero grep.
 
 ---
 
 ## 🎣 Hooks & Workers
 
-Monomind wires 20 hook events into Claude Code. Every edit, task, command, and session fires hooks that log patterns, route agents, and feed the intelligence system.
+Monomind wires 22 hook events into Claude Code. Every edit, task, command, and session fires hooks that log patterns, route agents, and train the intelligence system.
 
 ```mermaid
 flowchart LR
@@ -257,11 +272,11 @@ flowchart LR
     H --> I["route\nlearn\nbuild-agents"]
     H --> T["teammate-idle\ntask-completed"]
 
-    I --> DB[("LanceDB\npatterns.json")]
+    I --> DB[("patterns.json\nmemory store")]
     DB -->|next session| CE
 ```
 
-**15 background workers** refresh project metrics (with 6-hour staleness gating at session start): `security` · `health` · `swarm` · `learning` · `patterns` · `git` · `performance` · `map` · `audit` and more.
+**15 background workers** run at session start (staleness-gated, refreshed when older than 6 hours): `security` · `health` · `swarm` · `learning` · `patterns` · `git` · `performance` and more.
 
 ---
 
@@ -340,10 +355,10 @@ graph TD
     CC <-->|"MCP tools: monograph, memory, swarm"| MCP
     MCP <--> D
 
-    D --> ADB[("Persistent Memory\nJSON + SQLite")]
+    D --> ADB[("Memory store\npatterns + episodes")]
     D --> MG[("Monograph\ncode graph")]
-    D --> HK["Hooks\n20 event types"]
-    D --> SW["Swarm\n6 topologies\n3 consensus strategies"]
+    D --> HK["Hooks\n22 event types"]
+    D --> SW["Swarm\n4 topologies\n3 consensus strategies"]
 
     CC -->|"Task tool - spawns agents"| AG["Agent Swarm\narchitect, coder\ntester, reviewer\nsecurity, perf"]
     AG <-->|reads and writes| ADB
@@ -365,7 +380,6 @@ graph TD
 - 📋 [All Slash Commands](https://monoes.github.io/monomind/#slash)
 - 🐛 [Issues](https://github.com/monoes/monomind/issues)
 - 💬 [Discussions](https://github.com/monoes/monomind/discussions)
-- 📦 [Releases](https://github.com/monoes/monomind/releases)
 
 ---
 
