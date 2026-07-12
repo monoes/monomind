@@ -40,6 +40,13 @@ describe('resolveProviderEnv', () => {
     expect(resolveProviderEnv({ kind: 'vertex' }, base).CLAUDE_CODE_USE_VERTEX).toBe('1');
   });
 
+  it('api-key: strips leftover ANTHROPIC_AUTH_TOKEN so it cannot override the key', () => {
+    const parent = { ...base, MY_ROLE_CRED: PLACEHOLDER, ANTHROPIC_AUTH_TOKEN: PLACEHOLDER };
+    const env = resolveProviderEnv({ kind: 'api-key', apiKeyEnv: 'MY_ROLE_CRED' }, parent);
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(env[ANTHROPIC_KEY_VAR]).toBe(PLACEHOLDER);
+  });
+
   it('subscription/bedrock/vertex: strips leftover ANTHROPIC_AUTH_TOKEN from parent env', () => {
     const parent = { ...base, ANTHROPIC_AUTH_TOKEN: PLACEHOLDER };
     expect(resolveProviderEnv(undefined, parent).ANTHROPIC_AUTH_TOKEN).toBeUndefined();
