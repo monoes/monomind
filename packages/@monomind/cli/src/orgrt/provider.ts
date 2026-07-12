@@ -27,6 +27,7 @@ export function resolveProviderEnv(
       const key = parentEnv[name];
       if (!key) throw new Error(`provider api-key: env var ${name} is not set`);
       env[KEY_VAR] = key;
+      delete env.ANTHROPIC_AUTH_TOKEN; // leftover parent token would override the key in the engine
       break;
     }
     case 'base-url': {
