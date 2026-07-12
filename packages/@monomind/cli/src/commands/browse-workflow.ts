@@ -40,7 +40,7 @@ const runSubcommand: Command = {
   description: 'Execute a workflow JSON file',
   options: [
     { name: 'no-dashboard', type: 'boolean', description: 'Skip opening web dashboard', default: false },
-    { name: 'port', type: 'number', description: 'Dashboard port', default: 4242 },
+    { name: 'port', type: 'number', description: 'Dashboard port', default: 4243 },
     { name: 'items', short: 'i', type: 'string', description: 'JSON file of input items array' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -55,7 +55,7 @@ const runSubcommand: Command = {
     const wf = await readWorkflow(filePath).catch(e => { output.printError(e.message); return null; });
     if (!wf) return { success: false, exitCode: 1 };
 
-    const port = ctx.flags.port as number ?? 4242;
+    const port = ctx.flags.port as number ?? 4243;
     const dashboard = getDashboardServer(port);
     if (!ctx.flags['no-dashboard']) {
       output.printInfo(`Dashboard: http://localhost:${dashboard.port}`);

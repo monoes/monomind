@@ -841,6 +841,15 @@ html, body {
                 <div class="meta-cell-value" id="meta-created" style="font-size:10px;color:var(--muted)">—</div>
               </div>
             </div>
+
+            <!-- Audit Coverage card (populated from /api/org-coverage; hidden when no coverage.json) -->
+            <div id="audit-coverage-card" style="display:none; background:var(--bg-panel); border:1px solid var(--border); border-radius:3px; padding:10px 14px;">
+              <div class="meta-cell-label" style="display:flex; align-items:center; gap:8px;">
+                AUDIT COVERAGE
+                <span id="acov-summary" style="letter-spacing:1px; color:var(--muted)"></span>
+              </div>
+              <div id="acov-areas" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;"></div>
+            </div>
             <div id="chart-svg-wrap">
               <svg id="org-chart-svg" viewBox="0 0 720 320">
                 <defs>
@@ -1203,6 +1212,51 @@ async function selectOrg(name) {
   }
 
   renderTab(currentTab);
+  loadAuditCoverage(listOrg);
+}
+
+// ── Audit Coverage card (reads .monomind/audit/coverage.json via /api/org-coverage) ──
+async function loadAuditCoverage(listOrg) {
+  const card = document.getElementById('audit-coverage-card');
+  card.style.display = 'none';
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  try {
+    const dir = listOrg.projectDir || window._orgDir;
+    const url = '/api/org-coverage' + (dir ? `?dir=${encodeURIComponent(dir)}` : '');
+    const r = await fetch(url);
+    if (!r.ok) return; // 404 = no coverage.json — keep card hidden
+    const cov = await r.json();
+    const areas = cov.areas && typeof cov.areas === 'object' ? cov.areas : {};
+    const names = Object.keys(areas);
+    if (!names.length) return;
+
+    const summ = [];
+    if (cov.areas_converged != null && cov.areas_total != null) summ.push(`${cov.areas_converged}/${cov.areas_total} CONVERGED`);
+    if (cov.current_area) summ.push(`NOW: ${String(cov.current_area).toUpperCase()}`);
+    document.getElementById('acov-summary').textContent = summ.join(' · ');
+
+    const verdictColor = v => {
+      const s = String(v || '').toUpperCase();
+      if (s.includes('CONVERGE') || s.includes('KEEP') || s.includes('PASS') || s.includes('DONE')) return 'var(--green, oklch(68% 0.2 150))';
+      if (s.includes('ITERATE') || s.includes('WARN')) return 'oklch(78% 0.18 80)';
+      if (s.includes('FAIL') || s.includes('REJECT')) return 'var(--red, oklch(62% 0.22 25))';
+      return 'var(--muted, oklch(55% 0.02 186))';
+    };
+    document.getElementById('acov-areas').innerHTML = names.map(name => {
+      const a = areas[name] || {};
+      const verdict = a.verdict || a.status || '—';
+      const value = a.value_delivered || a.valueDelivered || null;
+      const c = verdictColor(verdict);
+      return `<span style="display:inline-flex; align-items:center; gap:5px; font-size:9px; font-family:var(--mono);
+        border:1px solid var(--border); border-radius:3px; padding:2px 7px; color:var(--text);"
+        title="${esc(value || verdict)}">
+        ${esc(name)}
+        <span style="color:${c}; letter-spacing:1px;">${esc(String(verdict).toUpperCase())}</span>
+        ${value ? `<span style="color:var(--dim); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(value)}</span>` : ''}
+      </span>`;
+    }).join('');
+    card.style.display = '';
+  } catch (_) { /* keep hidden */ }
 }
 
 function updateHeader(listOrg, data) {

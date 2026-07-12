@@ -277,12 +277,17 @@ function collectAgents(projectDir) {
 // Single source-of-truth for all model pricing (canonical list from src/pricing/model-pricing.ts).
 // server.mjs imports _tokPrice and _tokCost from here instead of duplicating this table.
 const _TOK_PRICES = {
+  // Frontier (Fable/Mythos)
+  'claude-fable-5':    { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6     },
+  'claude-mythos-5':   { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6     },
   // Opus
   'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
+  'claude-opus-4-7':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4':     { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6   },
   // Sonnet
+  'claude-sonnet-5':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
   'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
   'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
   'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
@@ -489,6 +494,15 @@ function collectMetrics(projectDir) {
   const avgConf = routingConfCount > 0 ? Math.round((routingConfSum / routingConfCount) * 100) : null;
   const topAgent = Object.entries(agentCounts).sort((a, b) => b[1] - a[1])[0];
 
+  // Worker freshness: stat the live worker output files so the frontend can
+  // render freshness pills. Shape: workers: [{name, exists, ageMs}]
+  const workerFiles = ['codebase-map', 'security-audit', 'performance', 'consolidation', 'ddd-progress'];
+  const now = Date.now();
+  const workers = workerFiles.map(name => {
+    const s = fileStat(path.join(base, 'metrics', name + '.json'));
+    return { name, exists: !!s, ageMs: s ? Math.max(0, now - s.mtimeMs) : null };
+  });
+
   return {
     routing: {
       total: routingTotal,
@@ -507,7 +521,9 @@ function collectMetrics(projectDir) {
       monthCost: tokenSummary.monthCost,
       monthCalls: tokenSummary.monthCalls,
     },
-    security: readJSON(path.join(base, 'security', 'audit-status.json')) || {}
+    // Live worker output (audit worker) — fields include riskLevel, recommendations
+    security: readJSON(path.join(base, 'metrics', 'security-audit.json')) || {},
+    workers,
   };
 }
 
@@ -554,43 +570,56 @@ function collectMemory(projectDir) {
   const d = path.resolve(projectDir);
   const monomindDir = path.join(d, '.monomind');
 
-  // AgentDB — check all known locations across different init styles
-  const dbCandidates = [
-    path.join(d, 'data', 'memory.db'),         // custom --path ./data/memory.db
-    path.join(d, '.swarm', 'memory.db'),        // default init path
-    path.join(monomindDir, 'memory.db'),        // legacy .monomind path
-    path.join(d, '.claude', 'memory.db'),       // .claude dir (some setups)
-  ];
-  const dbHit = probeFile(...dbCandidates);
-  const dbSize = dbHit ? dbHit.size : 0;
-  const dbPath = dbHit ? dbHit.path : null;
+  // Auto-memory pattern store — array of pattern entries written by hooks
+  let patternCount = 0;
+  let patternsUpdated = null;
+  const storePath = path.join(monomindDir, 'data', 'auto-memory-store.json');
+  const store = readJSON(storePath);
+  if (Array.isArray(store)) {
+    patternCount = store.length;
+    for (const e of store) {
+      if (e && typeof e.ts === 'number' && (!patternsUpdated || e.ts > patternsUpdated)) patternsUpdated = e.ts;
+    }
+  }
+  if (!patternsUpdated) {
+    const s = fileStat(storePath);
+    if (s) patternsUpdated = s.mtimeMs;
+  }
 
-  // HNSW — lives alongside the DB or at the .swarm default
-  const hnswCandidates = dbPath ? [
-    path.join(path.dirname(dbPath), 'memory.graph'),  // alongside DB (hybrid backend)
-    path.join(path.dirname(dbPath), 'hnsw.index'),    // default init name
-  ] : [
-    path.join(d, 'data', 'memory.graph'),
-    path.join(d, '.swarm', 'hnsw.index'),
-  ];
-  const hnswHit = probeFile(...hnswCandidates);
-  const hnsw = !!hnswHit;
+  // Episodic memory — one JSON line per episode
+  let episodeCount = 0;
+  let lastEpisode = null;
+  try {
+    const raw = fs.readFileSync(path.join(monomindDir, 'episodic', 'episodes.jsonl'), 'utf8');
+    const lines = raw.split('\n').filter(Boolean);
+    episodeCount = lines.length;
+    if (lines.length) {
+      try {
+        const last = JSON.parse(lines[lines.length - 1]);
+        lastEpisode = last.ts || last.timestamp || null;
+      } catch {}
+    }
+  } catch {}
 
-  // MonoVector DB
-  const monovectorHit = probeFile(
-    path.join(monomindDir, 'data', 'monovector.db'),
-    path.join(d, 'data', 'monovector.db'),
-  );
-  const monovectorSize = monovectorHit ? monovectorHit.size : 0;
-  const monovectorExists = !!monovectorHit;
-
-  let monovectorPatterns = 0;
-  const ranked = readJSON(path.join(monomindDir, 'data', 'ranked-context.json'));
-  if (ranked && ranked.entries) monovectorPatterns = ranked.entries.length;
+  // Last consolidation run (consolidate worker output)
+  let lastConsolidated = null;
+  const consolidation = readJSON(path.join(monomindDir, 'metrics', 'consolidation.json'));
+  if (consolidation && consolidation.timestamp) lastConsolidated = consolidation.timestamp;
 
   const files = collectMemoryFiles(projectDir);
 
-  return { dbSize, dbPath, hnsw, monovectorSize, monovectorExists, monovectorPatterns, files, count: files.length };
+  return {
+    patternCount,
+    patternsUpdated,
+    episodeCount,
+    lastEpisode,
+    lastConsolidated,
+    files,
+    count: files.length,
+    // Legacy keys kept for frontend backward-safety (v1 backends no longer written in v2)
+    dbSize: 0, dbPath: null, hnsw: false,
+    monovectorSize: 0, monovectorExists: false, monovectorPatterns: 0,
+  };
 }
 
 function collectSystem() {
@@ -771,7 +800,10 @@ export function getWatchPaths(projectDir) {
     path.join(m, 'metrics', 'token-summary.json'),
     path.join(m, 'metrics', 'token-sessions.json'),
     path.join(m, 'metrics', 'ddd-progress.json'),
-    path.join(m, 'metrics', 'learning.json'),
+    path.join(m, 'metrics', 'codebase-map.json'),
+    path.join(m, 'metrics', 'security-audit.json'),
+    path.join(m, 'metrics', 'performance.json'),
+    path.join(m, 'metrics', 'consolidation.json'),
     // Agents
     path.join(m, 'registry.json'),
     path.join(m, 'agents', 'registrations'),
@@ -782,17 +814,10 @@ export function getWatchPaths(projectDir) {
     // Knowledge
     path.join(m, 'knowledge', 'chunks.jsonl'),
     path.join(m, 'skills.jsonl'),
-    // Security
-    path.join(m, 'security', 'audit-status.json'),
-    // Triggers & memory — watch all candidate locations
+    // Triggers & memory — live v2 sources
     path.join(m, 'trigger-index.json'),
-    path.join(resolvedDir, 'data', 'memory.db'),
-    path.join(resolvedDir, 'data', 'memory.graph'),
-    path.join(resolvedDir, '.swarm', 'memory.db'),
-    path.join(resolvedDir, '.swarm', 'hnsw.index'),
-    path.join(m, 'memory.db'),
-    path.join(m, 'data', 'monovector.db'),
-    path.join(m, 'data', 'ranked-context.json'),
+    path.join(m, 'data', 'auto-memory-store.json'),
+    path.join(m, 'episodic', 'episodes.jsonl'),
     // Sessions
     path.join(c, 'sessions')
   ];

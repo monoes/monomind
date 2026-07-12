@@ -171,11 +171,12 @@ function pathToSections(filename) {
   if (f.includes('registry') || f.includes('registrations')) return ['agents'];
   if (f.includes('route') || f.includes('worker-dispatch'))  return ['hooks'];
   if (f.includes('chunk') || f.includes('skills')) return ['knowledge'];
-  if (f.includes('memory.db') || f.includes('memory.graph') || f.includes('hnsw.index') ||
-      f.includes('monovector.db') || f.includes('ranked-context') ||
+  if (f.includes('auto-memory-store') || f.includes('episodes.jsonl') ||
       (f.includes('/memory/') && f.endsWith('.md'))) return ['memory', 'sessions'];
   if (f.includes('palace') || f.includes('drawers') || f.includes('identity')) return ['memory', 'sessions'];
-  if (f.includes('ddd') || f.includes('learning') || f.includes('audit')) return ['metrics'];
+  if (f.includes('consolidation')) return ['metrics', 'memory'];
+  if (f.includes('ddd') || f.includes('audit') || f.includes('codebase-map') ||
+      f.includes('security-audit') || f.includes('performance')) return ['metrics'];
   if (f.endsWith('.jsonl') || f.includes('sessions')) return ['sessions'];
   return ['sessions', 'swarm', 'agents', 'tokens', 'hooks'];
 }
@@ -1403,7 +1404,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const adrs = [];
         for (const { path: adrDir, group } of adrDirs) {
           if (!fs.existsSync(adrDir)) continue;
-          const files = fs.readdirSync(adrDir).filter(f => f.endsWith('.md') && f !== 'README.md' && f !== 'v3-adrs.md' && f !== 'SECURITY-REVIEW-SUMMARY.md');
+          // Skip AppleDouble junk ('._*') — exFAT volumes litter these and they aren't real ADRs
+          const files = fs.readdirSync(adrDir).filter(f => f.endsWith('.md') && !f.startsWith('._') && f !== 'README.md' && f !== 'v3-adrs.md' && f !== 'SECURITY-REVIEW-SUMMARY.md');
           for (const fname of files.sort()) {
             const resolvedGroup = /^ADR-G/i.test(fname) ? 'guidance' : 'implementation';
             try {
@@ -1621,10 +1623,26 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           });
         }
 
-        // Check for AgentDB / HNSW / RVF backends
-        const dbPath     = path.join(d, '.monomind', 'agentdb.db');
-        const hnswPath   = path.join(d, '.monomind', 'hnsw.index');
-        const rvfPath    = path.join(d, '.monomind', 'memory.rvf');
+        // Real v2 memory sources: auto-memory pattern store + episodic log
+        let patterns = 0, patternsUpdated = null;
+        try {
+          const store = JSON.parse(fs.readFileSync(path.join(d, '.monomind', 'data', 'auto-memory-store.json'), 'utf8'));
+          if (Array.isArray(store)) {
+            patterns = store.length;
+            for (const e of store) {
+              if (e && typeof e.ts === 'number' && (!patternsUpdated || e.ts > patternsUpdated)) patternsUpdated = e.ts;
+            }
+          }
+        } catch {}
+
+        let episodes = 0, lastEpisode = null;
+        try {
+          const lines = fs.readFileSync(path.join(d, '.monomind', 'episodic', 'episodes.jsonl'), 'utf8').split('\n').filter(Boolean);
+          episodes = lines.length;
+          if (lines.length) {
+            try { const last = JSON.parse(lines[lines.length - 1]); lastEpisode = last.ts || last.timestamp || null; } catch {}
+          }
+        } catch {}
 
         const stats = {
           total,
@@ -1633,9 +1651,15 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           ns: Object.keys(byType).length,
           size,
           byType,
-          hnsw: fs.existsSync(hnswPath),
-          agentdb: fs.existsSync(dbPath),
-          rvf: fs.existsSync(rvfPath),
+          patterns,
+          patternsUpdated,
+          episodes,
+          lastEpisode,
+          memoryFiles: total,
+          // Legacy keys (v1 backends removed in v2) — kept false for frontend backward-safety
+          hnsw: false,
+          agentdb: false,
+          rvf: false,
           lastWrite,
           memDir,
         };
@@ -3476,7 +3500,9 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
     if (req.method === 'GET' && url.startsWith('/api/token-usage')) {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const period = ['today','week','30days','month'].includes(qs.get('period')) ? qs.get('period') : 'today';
+        // Frontend sends ?range=..., older callers use ?period=... — accept both
+        const _periodRaw = qs.get('period') || qs.get('range');
+        const period = ['today','week','30days','month'].includes(_periodRaw) ? _periodRaw : 'today';
         const dir = path.resolve(qs.get('dir') || projectDir || process.cwd());
         const trackerPath = path.join(dir, '.claude', 'helpers', 'token-tracker.cjs');
         const fallback = () => {
@@ -5625,6 +5651,33 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       return;
     }
 
+    // ------------------------------------------------- GET /api/playbooks
+    // List playbook definitions from <dir>/.monomind/playbooks/*.json.
+    // (Previously only POST was registered, so GET /api/playbooks?dir=... fell
+    // through to the 404 handler.)
+    if (req.method === 'GET' && url === '/api/playbooks') {
+      try {
+        const qp = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qp.get('dir') || projectDir || process.cwd();
+        const playbookDir = path.join(path.resolve(dir), '.monomind', 'playbooks');
+        const result = [];
+        if (fs.existsSync(playbookDir)) {
+          const files = fs.readdirSync(playbookDir).filter(f => f.endsWith('.json') && !f.startsWith('._'));
+          for (const file of files) {
+            try {
+              const fpath = path.join(playbookDir, file);
+              const def = JSON.parse(fs.readFileSync(fpath, 'utf8'));
+              const stat = fs.statSync(fpath);
+              result.push({ ...def, id: def.id || file.replace('.json', ''), file, modifiedAt: stat.mtimeMs });
+            } catch (_) {}
+          }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify(result));
+      } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: e.message })); }
+      return;
+    }
+
     // ------------------------------------------------- POST /api/playbooks
     // Save a playbook definition to .monomind/playbooks/<id>.json
     if (req.method === 'POST' && url === '/api/playbooks') {
@@ -5682,6 +5735,28 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+      return;
+    }
+
+    // ------------------------------------------------- GET /api/org-coverage
+    // Audit coverage report written by the audit loop to .monomind/audit/coverage.json
+    if (req.method === 'GET' && url === '/api/org-coverage') {
+      try {
+        const qp = new URL(req.url, 'http://localhost').searchParams;
+        const dir = path.resolve(qp.get('dir') || projectDir || process.cwd());
+        const covPath = path.join(dir, '.monomind', 'audit', 'coverage.json');
+        if (!fs.existsSync(covPath)) {
+          res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end('{}');
+          return;
+        }
+        const coverage = JSON.parse(fs.readFileSync(covPath, 'utf8'));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify(coverage));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
       return;
     }
 
