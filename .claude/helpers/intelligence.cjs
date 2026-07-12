@@ -13,6 +13,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { claimLock, releaseLock } = require('./utils/fs-helpers.cjs');
 
 // Resolve base dir at require-time so tests can inject CLAUDE_PROJECT_DIR
 // per fresh require() call.
@@ -50,44 +51,18 @@ function ensureDataDir() {
 const STORE_LOCK_FILE = STORE_FILE + '.lock';
 const STORE_LOCK_STALE_MS = 10 * 1000; // single JSON write — 10s is generous
 
-// Mirrors the stale-lock-breaking pattern in .claude/helpers/control-start.cjs
-// (claimSpawnLock/releaseSpawnLock): wx-flag write to claim, break the lock
-// if its holder is dead or the lock is older than the stale threshold, retry
-// once, then give up and proceed unlocked (best-effort — a missed lock still
-// merges via the re-read, it just narrows a tiny TOCTOU window further).
-function isPidAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return !!(e && e.code === 'EPERM');
-  }
-}
-
+// Uses fs-helpers.cjs's claimLock/releaseLock: unlike an unlink-then-recreate
+// stale-break, it reclaims via an atomic rename, so two processes that both
+// decide the lock is stale can't both end up believing they hold it (a real
+// TOCTOU race a previous unlink-then-create version of this had — best-effort
+// either way, since a missed lock still merges via mergeAndWriteStore's
+// re-read, this just narrows the window further).
 function claimStoreLock() {
-  try { fs.mkdirSync(path.dirname(STORE_LOCK_FILE), { recursive: true }); } catch (_) {}
-  try {
-    fs.writeFileSync(STORE_LOCK_FILE, String(process.pid), { flag: 'wx' });
-    return true;
-  } catch (_) {
-    try {
-      var stat = fs.statSync(STORE_LOCK_FILE);
-      var holder = Number(fs.readFileSync(STORE_LOCK_FILE, 'utf-8'));
-      if (Date.now() - stat.mtimeMs < STORE_LOCK_STALE_MS && isPidAlive(holder)) return false;
-      fs.unlinkSync(STORE_LOCK_FILE);
-      fs.writeFileSync(STORE_LOCK_FILE, String(process.pid), { flag: 'wx' });
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
+  return claimLock(STORE_LOCK_FILE, STORE_LOCK_STALE_MS);
 }
 
 function releaseStoreLock() {
-  try {
-    if (Number(fs.readFileSync(STORE_LOCK_FILE, 'utf-8')) === process.pid) fs.unlinkSync(STORE_LOCK_FILE);
-  } catch (_) { /* ignore */ }
+  releaseLock(STORE_LOCK_FILE);
 }
 
 /**

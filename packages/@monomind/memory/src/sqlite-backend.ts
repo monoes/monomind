@@ -840,7 +840,8 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     if (!embeddingToStore) {
       const existingEmb = this.stmtGetEmbedding!.get(entry.id) as any;
       if (existingEmb?.embedding) {
-        embeddingToStore = new Float32Array(Buffer.from(existingEmb.embedding).buffer);
+        const buf = Buffer.from(existingEmb.embedding);
+        embeddingToStore = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
       }
     }
     this.stmtInsertEntry!.run(

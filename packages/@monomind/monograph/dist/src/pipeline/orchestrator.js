@@ -11,7 +11,7 @@ import { routesPhase } from './phases/routes.js';
 import { toolsPhase } from './phases/tools.js';
 import { ormPhase } from './phases/orm.js';
 import { crossFilePhase } from './phases/cross-file.js';
-import { scopeResolutionPhase } from './phases/scope-resolution.js';
+import { scopeResolutionPhase, clearWorkspacePackageMapCache } from './phases/scope-resolution.js';
 import { mroPhase } from './phases/mro.js';
 import { communitiesPhase } from './phases/communities.js';
 import { processesPhase } from './phases/processes.js';
@@ -86,6 +86,7 @@ async function acquireBuildLock(dbPath) {
 export async function buildAsync(repoPath, options = {}) {
     const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
     const fullOptions = { ...DEFAULT_OPTIONS, ...options };
+    clearWorkspacePackageMapCache(repoPath);
     const releaseLock = await acquireBuildLock(dbPath);
     if (!releaseLock) {
         options.onProgress?.({ phase: 'skip', message: 'Another build is in progress — skipping' });

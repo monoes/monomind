@@ -12,14 +12,18 @@ import type { MonomindConfig } from './types.js';
 // 8 vs a separately-hardcoded 15, hooks.enabled true vs false).
 import { DEFAULT_CONFIG } from './services/config-file-manager.js';
 
+// structuredClone so nested arrays/objects (e.g. hooks.hooks) returned by
+// systemConfigToMonomindConfig() below are never the live DEFAULT_CONFIG
+// reference — matches config-file-manager.ts's own cloneDefaultConfig() fix,
+// which this file's direct DEFAULT_CONFIG import would otherwise bypass.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const AGENTS_DEFAULTS = DEFAULT_CONFIG.agents as any;
+const AGENTS_DEFAULTS = structuredClone(DEFAULT_CONFIG.agents) as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const SWARM_DEFAULTS = DEFAULT_CONFIG.swarm as any;
+const SWARM_DEFAULTS = structuredClone(DEFAULT_CONFIG.swarm) as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CLI_DEFAULTS = DEFAULT_CONFIG.cli as any;
+const CLI_DEFAULTS = structuredClone(DEFAULT_CONFIG.cli) as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const HOOKS_DEFAULTS = DEFAULT_CONFIG.hooks as any;
+const HOOKS_DEFAULTS = structuredClone(DEFAULT_CONFIG.hooks) as any;
 
 /**
  * Convert SystemConfig to MonomindConfig (CLI-specific format)

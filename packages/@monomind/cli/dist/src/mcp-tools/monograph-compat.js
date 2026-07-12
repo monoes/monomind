@@ -10,6 +10,7 @@ import { existsSync, statSync } from 'fs';
 import { execSync } from 'child_process';
 import { openDb, closeDb, countNodes, parseGroupConfig } from '@monoes/monograph';
 import { getProjectCwd } from './types.js';
+import { realOrResolved } from '../utils/input-guards.js';
 // ── Group config reader ───────────────────────────────────────────────────────
 const MAX_GROUP_CONFIG_BYTES = 1 * 1024 * 1024; // 1 MB
 /**
@@ -28,8 +29,14 @@ function readGroupConfig(configPath) {
     // /etc/passwd etc. Uses getProjectCwd() (honors MONOMIND_CWD) rather than
     // process.cwd(), which is trivially bypassed when the MCP server runs with
     // cwd "/".
-    const projectCwd = getProjectCwd();
-    const resolved = resolve(configPath);
+    // realOrResolved resolves symlinks (walking up to the longest existing
+    // ancestor) so a link that's lexically inside projectCwd but physically
+    // points outside it can't bypass this containment check — same guard
+    // input-guards.ts's validatePath uses, applied here against getProjectCwd()
+    // instead of process.cwd() since that's the whole reason this check isn't
+    // just a direct call to validateInput({type:'path'}).
+    const projectCwd = realOrResolved(getProjectCwd());
+    const resolved = realOrResolved(resolve(configPath));
     const rel = relative(projectCwd, resolved);
     if (rel.startsWith('..') || resolve(rel) === resolve('/')) {
         throw new Error(`Rejected group config path outside project directory: ${resolved} (project cwd: ${projectCwd})`);

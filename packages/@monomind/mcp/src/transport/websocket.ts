@@ -72,8 +72,10 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
       throw new Error('WebSocket transport already running');
     }
 
+    const bindHost = this.resolveBindHost();
+
     this.logger.info('Starting WebSocket transport', {
-      host: this.config.host,
+      host: bindHost,
       port: this.config.port,
       path: this.config.path || '/ws',
     });
@@ -94,7 +96,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
     this.startHeartbeat();
 
     await new Promise<void>((resolve, reject) => {
-      this.server!.listen(this.config.port, this.config.host, () => {
+      this.server!.listen(this.config.port, bindHost, () => {
         resolve();
       });
       this.server!.on('error', reject);
@@ -102,8 +104,49 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
 
     this.running = true;
     this.logger.info('WebSocket transport started', {
-      url: `ws://${this.config.host}:${this.config.port}${this.config.path || '/ws'}`,
+      url: `ws://${bindHost}:${this.config.port}${this.config.path || '/ws'}`,
     });
+  }
+
+  /**
+   * SECURITY: Refuse to bind unauthenticated servers to a non-loopback
+   * interface. Without `auth` configured, every connecting client is marked
+   * `isAuthenticated: true` (see setupWebSocketHandlers) — that is only
+   * acceptable on loopback. Mirrors http.ts's resolveBindHost().
+   */
+  private resolveBindHost(): string {
+    const configuredHost = this.config.host;
+
+    if (this.config.auth) {
+      return configuredHost;
+    }
+
+    const isLoopback =
+      configuredHost === 'localhost' ||
+      configuredHost === '127.0.0.1' ||
+      configuredHost === '::1' ||
+      configuredHost === '::ffff:127.0.0.1';
+
+    if (isLoopback) {
+      return configuredHost;
+    }
+
+    if (process.env.MONOMIND_MCP_ALLOW_REMOTE === '1') {
+      this.logger.warn(
+        `SECURITY WARNING: WebSocket transport is binding to non-loopback host "${configuredHost}" ` +
+          'with NO authentication configured. MONOMIND_MCP_ALLOW_REMOTE=1 opt-in detected — ' +
+          'every client will be treated as authenticated. This exposes every registered tool ' +
+          'to anyone who can reach this host/port.'
+      );
+      return configuredHost;
+    }
+
+    this.logger.warn(
+      `SECURITY: refusing to bind WebSocket transport to non-loopback host "${configuredHost}" with ` +
+        'no "auth" configured. Falling back to 127.0.0.1. Set MONOMIND_MCP_ALLOW_REMOTE=1 to ' +
+        'override (unsafe) or configure "auth" with tokens.'
+    );
+    return '127.0.0.1';
   }
 
   async stop(): Promise<void> {
