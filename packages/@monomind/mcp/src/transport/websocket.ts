@@ -7,6 +7,7 @@
 import { EventEmitter } from 'events';
 import { WebSocketServer, WebSocket, RawData } from 'ws';
 import { createServer, Server } from 'http';
+import { timingSafeEqual } from 'crypto';
 import type {
   ITransport,
   TransportType,
@@ -282,14 +283,23 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
       const message = this.parseMessage(data);
 
       if (!client.isAuthenticated && this.config.auth?.enabled) {
-        if (message.method !== 'authenticate') {
-          client.ws.send(this.serializeMessage({
-            jsonrpc: '2.0',
-            id: message.id || null,
-            error: { code: -32001, message: 'Authentication required' },
-          } as MCPResponse));
+        if (message.method === 'authenticate') {
+          // SECURITY: this is the ONLY path that may set isAuthenticated.
+          // The previous version accepted this branch and fell through to
+          // dispatch the 'authenticate' message itself to the request
+          // handler without ever validating the token or flipping the flag —
+          // a permanent lockout for legit clients plus an auth-check bypass
+          // for the message that was supposed to perform the check.
+          this.handleAuthenticate(client, message);
           return;
         }
+
+        client.ws.send(this.serializeMessage({
+          jsonrpc: '2.0',
+          id: message.id || null,
+          error: { code: -32001, message: 'Authentication required' },
+        } as MCPResponse));
+        return;
       }
 
       if (message.jsonrpc !== '2.0') {
@@ -342,6 +352,66 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
         // Ignore send errors
       }
     }
+  }
+
+  /**
+   * SECURITY: Real `authenticate` handler. Validates the client-supplied
+   * credential against `config.auth.tokens` with a timing-safe comparison
+   * and only sets `client.isAuthenticated = true` on success. The
+   * `authenticate` message itself is never forwarded to `requestHandler` —
+   * a response is sent directly here regardless of outcome.
+   */
+  private handleAuthenticate(client: ClientConnection, message: any): void {
+    const supplied: unknown = message?.params?.token;
+    const configured = this.config.auth?.tokens;
+
+    const success = this.checkCredential(supplied, configured);
+
+    if (success) {
+      client.isAuthenticated = true;
+      this.logger.info('WebSocket client authenticated', { clientId: client.id });
+      client.ws.send(this.serializeMessage({
+        jsonrpc: '2.0',
+        id: message?.id ?? null,
+        result: { authenticated: true },
+      } as MCPResponse));
+    } else {
+      this.logger.warn('WebSocket authenticate failed', { clientId: client.id });
+      client.ws.send(this.serializeMessage({
+        jsonrpc: '2.0',
+        id: message?.id ?? null,
+        error: { code: -32001, message: 'Authentication failed' },
+      } as MCPResponse));
+    }
+  }
+
+  private checkCredential(supplied: unknown, configured: string[] | undefined): boolean {
+    if (typeof supplied !== 'string' || !configured || configured.length === 0) {
+      return false;
+    }
+    for (const entry of configured) {
+      if (this.timingSafeCompare(supplied, entry)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * SECURITY: Timing-safe comparison to prevent timing attacks. Mismatched
+   * lengths still run a constant-time compare (against itself) before
+   * returning false, so length differences aren't observable via timing.
+   */
+  private timingSafeCompare(a: string, b: string): boolean {
+    const bufA = Buffer.from(a, 'utf-8');
+    const bufB = Buffer.from(b, 'utf-8');
+
+    if (bufA.length !== bufB.length) {
+      timingSafeEqual(bufA, bufA);
+      return false;
+    }
+
+    return timingSafeEqual(bufA, bufB);
   }
 
   private parseMessage(data: RawData): any {

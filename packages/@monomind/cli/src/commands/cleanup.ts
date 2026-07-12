@@ -7,8 +7,8 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { existsSync, lstatSync, rmSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { existsSync, lstatSync, rmSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 
 /**
  * Artifact directories and files that monomind/monomind may create
@@ -207,12 +207,29 @@ export const cleanupCommand: Command = {
         // Actually delete
         try {
           const fullPath = join(cwd, item.path);
-          if (item.type === 'dir') {
+          // Special-case: `.claude/` is scanned and removed as a single unit,
+          // but KEEP_CONFIG_PATHS promises `.claude/settings.json` survives
+          // --keep-config. Back the file up, wipe the directory, then
+          // restore just that one file — the rest of `.claude/` is still
+          // removed as normal.
+          const settingsPath = join(cwd, '.claude', 'settings.json');
+          const isClaudeDirWithPreservedSettings =
+            item.type === 'dir' && item.path === '.claude' && keepConfig && existsSync(settingsPath);
+
+          if (isClaudeDirWithPreservedSettings) {
+            const settingsBackup = readFileSync(settingsPath);
             rmSync(fullPath, { recursive: true, force: true });
+            mkdirSync(dirname(settingsPath), { recursive: true });
+            writeFileSync(settingsPath, settingsBackup);
+            output.writeln(output.success(`  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
+            output.writeln(output.dim(`  [kept]    file  .claude/settings.json - preserved (--keep-config)`));
+          } else if (item.type === 'dir') {
+            rmSync(fullPath, { recursive: true, force: true });
+            output.writeln(output.success(`  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
           } else {
             rmSync(fullPath, { force: true });
+            output.writeln(output.success(`  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
           }
-          output.writeln(output.success(`  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
           removedCount++;
           removedSize += item.size;
         } catch (err) {

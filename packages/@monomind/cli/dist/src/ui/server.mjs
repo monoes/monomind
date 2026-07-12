@@ -2,6 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
@@ -466,7 +467,7 @@ function bindServer(server, port) {
     let attempt = 0;
 
     function tryPort(p) {
-      server.listen(p, () => resolve(p));
+      server.listen(p, '127.0.0.1', () => resolve(p));
       server.once('error', (err) => {
         if (err.code === 'EADDRINUSE' && attempt < maxTries) {
           attempt += 1;
@@ -534,6 +535,18 @@ function resolveSlugToPath(slug, projDir) {
 }
 
 export async function startServer({ port = 4242, projectDir, openBrowser = true } = {}) {
+  // ── Security: per-process auth credential for mutating (non-GET) requests ─
+  // Generated once per server start and written to a well-known location so
+  // trusted local callers (CLI, control-start.cjs) can read it and pass it
+  // back via an auth header or query param on non-GET requests.
+  const authBytes = crypto.randomBytes(24);
+  const dashboardAuthValue = authBytes.toString('hex');
+  try {
+    const authFileDir = path.join(projectDir || process.cwd(), '.monomind');
+    fs.mkdirSync(authFileDir, { recursive: true });
+    fs.writeFileSync(path.join(authFileDir, 'dashboard-token'), dashboardAuthValue, { mode: 0o600 });
+  } catch (_) {}
+
   // Parse a .claude/agents/*.md definition into { name, description, capability{}, document }.
   // Tolerant line-based parse of the YAML frontmatter (expertise / task_types as lists).
   function parseAgentDef(raw) {
@@ -845,12 +858,41 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         }
       }
     }
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
     res.end('{"ok":true}');
   }
 
   const server = http.createServer(async (req, res) => {
     const url = req.url.split('?')[0];
+
+    // ── Security: strict CORS allow-list ────────────────────────────────────
+    // Only reflect Origin when it is this dashboard's own loopback origin.
+    // Otherwise the header is omitted entirely, so cross-origin reads fail
+    // closed rather than defaulting to '*'.
+    const _reqOrigin = req.headers.origin || '';
+    const _boundPortForCors = currentPort || boundPort || port;
+    const _allowedOrigins = new Set([
+      `http://localhost:${_boundPortForCors}`,
+      `http://127.0.0.1:${_boundPortForCors}`,
+    ]);
+    const corsOrigin = _allowedOrigins.has(_reqOrigin) ? _reqOrigin : undefined;
+
+    // ── Security: require a matching auth credential on all non-GET routes ──
+    // GET requests remain open (read-only loopback dashboard viewing).
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
+      let _suppliedAuth = req.headers['x-monomind-token'] || '';
+      if (!_suppliedAuth) {
+        try { _suppliedAuth = new URL(req.url, 'http://localhost').searchParams.get('token') || ''; } catch (_) {}
+      }
+      if (!_suppliedAuth || _suppliedAuth !== dashboardAuthValue) {
+        res.writeHead(401, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        });
+        res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
+        return;
+      }
+    }
 
     // ------------------------------------------------------------------ GET /
     if (req.method === 'GET' && url === '/') {
@@ -905,11 +947,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         }
         let branch = '';
         try { branch = gitExec('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf8' }).trim(); } catch {}
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ name, email, cwd, remoteUrl, branch }));
       } catch (_) {
         const cwd2 = projectDir || process.cwd();
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ name: '', email: '', cwd: cwd2, remoteUrl: '', branch: '' }));
       }
       return;
@@ -923,7 +965,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const snapshot = await collectAll(dir);
         res.writeHead(200, {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
           'Cache-Control': 'no-cache',
         });
         res.end(JSON.stringify(snapshot));
@@ -967,7 +1009,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const events = parseSessionLines(lines);
         res.writeHead(200, {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
           'Cache-Control': 'no-cache',
         });
         res.end(JSON.stringify({ events, total: allLines.length, shown: lines.length }));
@@ -1062,7 +1104,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const summary = summaries.length ? summaries[summaries.length - 1].text : null;
           sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, summary, compactCount, errorCount, totalDurationMs, totalMessages, totalCost, toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ sessions }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1077,7 +1119,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       const dir = qs.get('dir') || '';
       const q = (qs.get('q') || '').toLowerCase().trim();
       if (!q || q.length < 2) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ results: [] }));
         return;
       }
@@ -1118,7 +1160,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           } catch {}
           if (matches.length) results.push({ id, file: fp, lastPrompt, mtime, matches });
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ results, q }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1181,7 +1223,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           return tb - ta;
         });
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ events: events.slice(0, limit) }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1233,7 +1275,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const errors = Object.entries(errorCounts)
           .map(([tool, count]) => ({ tool, count, total: totalCounts[tool] || count }))
           .sort((a,b) => b.count - a.count);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ errors }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1284,7 +1326,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const tools = Object.entries(toolCounts)
           .map(([tool, count]) => ({ tool, count, errors: errorCounts[tool] || 0 }))
           .sort((a,b) => b.count - a.count);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ tools }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1319,7 +1361,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           if (totalCost > 0) projectCosts.push({ path: projPath, cost: totalCost, sessions: sessionFiles.length });
         }
         projectCosts.sort((a, b) => b.cost - a.cost);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ projects: projectCosts }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1352,7 +1394,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           } catch {}
           return { slug, path: projPath, name, sessionCount, memoryCount, lastActivity: lastActivity || null };
         }).filter(p => p.sessionCount > 0 || fs.existsSync(path.join(p.path, '.monomind'))).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ projects }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1381,7 +1423,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let kg = [];
         try { const raw = fs.readFileSync(path.join(palaceDir, 'kg.json'), 'utf8'); kg = JSON.parse(raw); } catch {}
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ drawers, identity, kg }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1432,7 +1474,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ adrs }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1501,7 +1543,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
         } catch {}
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ memories: memories.concat(backend), memDir }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1534,7 +1576,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
           fs.mkdirSync(memDir, { recursive: true });
           fs.writeFileSync(fp, content || '', 'utf8');
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ ok: true }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1567,7 +1609,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             return;
           }
           fs.unlinkSync(fp);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ ok: true }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1588,7 +1630,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const raw = fs.readFileSync(feedbackPath, 'utf-8');
           rows = raw.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(rows));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1663,7 +1705,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           lastWrite,
           memDir,
         };
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ stats }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1792,7 +1834,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         if (hasRepeatLoops) loops = loops.filter(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
 
         loops.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ loops }));
       } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
       return;
@@ -1811,7 +1853,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const loopsDir = path.join(_stopDir, '.monomind', 'loops');
           fs.mkdirSync(loopsDir, { recursive: true });
           fs.writeFileSync(path.join(loopsDir, `${id}.stop`), `stop-requested-${Date.now()}`);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ ok: true }));
         } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
       });
@@ -1843,7 +1885,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const nowMs = Date.now();
           const loop = { id, type: 'repeat', name: name || prompt.slice(0, 40), prompt, interval: interval || '1h', maxReps, status: 'active', currentRep: 0, startedAt: nowMs, lastRunAt: null };
           fs.writeFileSync(path.join(loopsDir, `${id}.json`), JSON.stringify(loop, null, 2));
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ ok: true, id }));
         } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
       });
@@ -1894,7 +1936,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             }
           } catch {}
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ errors: errors.slice(0, 50) }));
       } catch (err) { res.writeHead(500); res.end(JSON.stringify({ errors: [], error: err.message })); }
       return;
@@ -1910,7 +1952,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
       });
       const send = (ev, data) => { try { res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`); } catch {} };
       send('connected', { ts: Date.now() });
@@ -1954,7 +1996,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             return;
           }
           fs.writeFileSync(chunksFile, filtered.map(e => JSON.stringify(e)).join('\n') + (filtered.length ? '\n' : ''), 'utf8');
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ ok: true, removed: before - filtered.length }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1993,7 +2035,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           }
           entries[idx] = { ...entries[idx], text };
           fs.writeFileSync(chunksFile, entries.map(e => JSON.stringify(e)).join('\n') + '\n', 'utf8');
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ ok: true }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2037,9 +2079,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             } finally { closeDb(db); }
           } catch {
             // Fallback: sqlite3 CLI + inline Sigma.js graph
-            const { execSync } = await import('child_process');
+            const { execFileSync } = await import('child_process');
             const runSql = (sql) => {
-              try { return JSON.parse(execSync(`sqlite3 -json "${dbPath}"`, { encoding: 'utf-8', timeout: 15000, maxBuffer: 50*1024*1024, input: sql + ';' }) || '[]'); } catch { return []; }
+              try { return JSON.parse(execFileSync('sqlite3', ['-json', dbPath], { encoding: 'utf-8', timeout: 15000, maxBuffer: 50*1024*1024, input: sql + ';' }) || '[]'); } catch { return []; }
             };
             const rawNodes = runSql('SELECT id, name, label, file_path, community_id FROM nodes LIMIT 2000');
             const rawEdges = runSql('SELECT source_id, target_id, relation FROM edges');
@@ -2070,7 +2112,7 @@ ${edgesJson}.forEach(e=>{try{g.addEdge(e.source,e.target,{size:0.5,color:'#333'}
 new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{color:'#ccc'},labelSize:10});
 <\/script></body></html>`;
           }
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
           res.end(html);
           return;
         }
@@ -2078,7 +2120,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         // Fallback: try legacy graph.html on disk
         const htmlPath = path.join(d, '.monomind', 'graph', 'graph.html');
         const html = fs.readFileSync(htmlPath, 'utf-8');
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(html);
       } catch (err) {
         res.writeHead(404, { 'Content-Type': 'text/html' });
@@ -2122,7 +2164,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             ].join('\n');
           } finally { closeDb(db); }
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ exists, report, stats }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2140,10 +2182,10 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         let nodes = [], edges = [];
         if (fs.existsSync(dbPath)) {
-          const { execSync } = await import('child_process');
+          const { execFileSync } = await import('child_process');
           const runSql = (sql, timeout = 10000) => {
             try {
-              return JSON.parse(execSync(`sqlite3 -json "${dbPath}"`,
+              return JSON.parse(execFileSync('sqlite3', ['-json', dbPath],
                 { encoding: 'utf-8', timeout, maxBuffer: 50 * 1024 * 1024, input: sql + ';' }) || '[]');
             } catch { return []; }
           };
@@ -2166,7 +2208,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           nodes = topNodes.map(n => ({ id: n.id, label: n.name || n.id, type: n.label || 'unknown', degree: degree.get(n.id) || 0 }));
           edges = rawEdges.filter(e => topIds.has(e.source_id) && topIds.has(e.target_id)).slice(0, 2000).map(e => ({ source: e.source_id, target: e.target_id, relation: e.relation || 'REF' }));
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ nodes, edges }));
       } catch (err) {
         res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
@@ -2195,7 +2237,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const importScript = path.join(process.cwd(), 'scripts', 'ua-import.mjs');
         const enrichScript = path.join(process.cwd(), 'scripts', 'ua-enrich.mjs');
 
-        res.writeHead(202, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(202, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
 
         if (uaGraph && fs.existsSync(importScript)) {
           res.end(JSON.stringify({ status: 'importing', source: uaGraph }));
@@ -2224,7 +2266,19 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
 
-        res.writeHead(202, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        // Security: this route spawns `node --eval` with `cwd: d`, which lets
+        // Node resolve '@monoes/monograph' against d's node_modules. Only ever
+        // allow this for the server's own project root — never an
+        // attacker-controlled `?dir=` — since a planted node_modules there
+        // would achieve RCE. (See P0-6.)
+        const _serverRoot = path.resolve(projectDir || process.cwd());
+        if (d !== _serverRoot) {
+          res.writeHead(400, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.end(JSON.stringify({ error: 'monograph-build only supports the server project root' }));
+          return;
+        }
+
+        res.writeHead(202, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ status: 'building', dir: d }));
 
         // Build via monograph in background
@@ -2245,7 +2299,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       const qs2 = new URL(req.url, 'http://localhost').searchParams;
       const d2 = path.resolve(qs2.get('dir') || projectDir || process.cwd());
       const state = buildDocsState.get(d2) || { status: 'idle' };
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
       res.end(JSON.stringify(state));
       return;
     }
@@ -2258,7 +2312,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!fs.existsSync(dbPath)) {
-          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(400, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ error: 'monograph.db not found — run BUILD GRAPH first' }));
           return;
         }
@@ -2266,14 +2320,14 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         // Reject if already running
         const existing = buildDocsState.get(d);
         if (existing && existing.status === 'pending') {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ status: 'pending', message: 'Build already in progress' }));
           return;
         }
 
         const startedAt = Date.now();
         buildDocsState.set(d, { status: 'pending', sections: 0, files: 0, error: null, startedAt });
-        res.writeHead(202, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(202, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ status: 'pending', dir: d }));
 
         // Run doc parsing in background
@@ -2472,7 +2526,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             } catch {}
           }
         } finally { closeDb(db); }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ content, filePath, startLine, endLine, language, name, type }));
       } catch (err) {
         res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
@@ -2492,7 +2546,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!q) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?q=' })); return; }
-        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ nodes: [] })); return; }
+        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) }); res.end(JSON.stringify({ nodes: [] })); return; }
         const { openDb, closeDb } = await import(new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href);
           const { ftsSearch } = await import(new URL('../../../../monograph/dist/src/storage/fts-store.js', import.meta.url).href);
         const db = openDb(dbPath);
@@ -2505,7 +2559,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             return { id: h.id, label: h.name, type: h.label, degree: 0, filePath: h.filePath || h.file_path, startLine: h.startLine || h.start_line, snippet };
           });
         } finally { closeDb(db); }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ nodes }));
       } catch (err) {
         res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
@@ -2524,7 +2578,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const maxDepth = Math.min(4, parseInt(qs.get('depth') || '3', 10));
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
-        if (!id || !fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ related: [] })); return; }
+        if (!id || !fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) }); res.end(JSON.stringify({ related: [] })); return; }
         const { openDb, closeDb } = await import(new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href);
         const db = openDb(dbPath);
         const related = [];
@@ -2548,7 +2602,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             frontier = next;
           }
         } finally { closeDb(db); }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ related }));
       } catch (err) {
         res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
@@ -2608,7 +2662,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           }
           result.markdown = lines2.join('\n');
         } finally { closeDb(db); }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(result));
       } catch (err) {
         res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
@@ -2625,7 +2679,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!q) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?q= parameter' })); return; }
-        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, result: 'Graph not built yet. Run: monomind monograph build' })); return; }
+        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) }); res.end(JSON.stringify({ success: false, result: 'Graph not built yet. Run: monomind monograph build' })); return; }
         const { openDb, closeDb } = await import(new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href);
           const { ftsSearch } = await import(new URL('../../../../monograph/dist/src/storage/fts-store.js', import.meta.url).href);
         const db = openDb(dbPath);
@@ -2644,7 +2698,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             }
           }
         } finally { closeDb(db); }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ success: true, query: q, result }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2662,7 +2716,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!nodeQ) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?node= parameter' })); return; }
-        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, explanation: 'Graph not built yet. Run: monomind monograph build' })); return; }
+        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) }); res.end(JSON.stringify({ success: false, explanation: 'Graph not built yet. Run: monomind monograph build' })); return; }
         const { openDb, closeDb } = await import(new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href);
           const { ftsSearch } = await import(new URL('../../../../monograph/dist/src/storage/fts-store.js', import.meta.url).href);
         const db = openDb(dbPath);
@@ -2686,7 +2740,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             ].filter(Boolean).join('\n');
           }
         } finally { closeDb(db); }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ success: true, node: nodeQ, explanation }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2705,7 +2759,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!from || !to) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?from= and ?to= parameters' })); return; }
-        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, path: 'Graph not built yet.' })); return; }
+        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) }); res.end(JSON.stringify({ success: false, path: 'Graph not built yet.' })); return; }
         // Import only graphology-free storage modules to avoid broken graphology dep
         const { openDb, closeDb } = await import(new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href);
         const { ftsSearch } = await import(new URL('../../../../monograph/dist/src/storage/fts-store.js', import.meta.url).href);
@@ -2752,7 +2806,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             pathResult = names.join(' → ') + `  (${p.length - 1} hop${p.length !== 2 ? 's' : ''})`;
           }
         } finally { closeDb(db); }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ success: true, from, to, path: pathResult }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2774,7 +2828,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           process.kill(pid, 0);
           running = true;
         } catch {}
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ running, pid }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2800,7 +2854,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         } catch {}
 
         if (wasRunning) {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ running: false, action: 'stopped' }));
         } else {
           const { spawn: sp } = await import('child_process');
@@ -2808,7 +2862,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           child.unref();
           try { fs.mkdirSync(path.join(d, '.monomind'), { recursive: true }); } catch {}
           try { fs.writeFileSync(pidPath, String(child.pid)); } catch {}
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ running: true, pid: child.pid, action: 'started' }));
         }
       } catch (err) {
@@ -2823,7 +2877,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       let body = '';
       req.on('data', c => { body += c; if (body.length > 2097152) { req.destroy(); return; } });
       req.on('end', async () => {
-        const json = res => { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); };
+        const json = res => { res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) }); };
         const ok = (data) => { json(res); res.end(JSON.stringify({ content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] })); };
         const err = (msg) => { json(res); res.end(JSON.stringify({ error: msg })); };
         try {
@@ -3272,14 +3326,14 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const gp = fs.existsSync(graphPath) ? graphPath : (fs.existsSync(legacyPath) ? legacyPath : null);
 
         if (!gp) {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ available: false }));
           return;
         }
 
         const { execSync: ex } = await import('child_process');
         const out = ex(`graphify benchmark ${gp}`, { encoding: 'utf8', cwd: d, timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] });
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ available: true, result: out }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -3417,7 +3471,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           }
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ nodes, edges }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -3434,7 +3488,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const entries = collectSwarmHistory(path.resolve(dir));
         res.writeHead(200, {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
           'Cache-Control': 'no-cache',
         });
         res.end(JSON.stringify({ entries }));
@@ -3459,7 +3513,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const agentId = typeof _rawAgentId === 'string' ? _rawAgentId.slice(0, 256) : undefined;
         const last = qs.get('last') ? parseInt(qs.get('last')) : undefined;
         const events = collectSwarmEvents(path.resolve(dir), { swarmId, agentId, last });
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ events, count: events.length }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -3473,7 +3527,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       try {
         const dir = new URL(req.url, 'http://localhost').searchParams.get('dir') || projectDir || process.cwd();
         const size = getSwarmDataSize(path.resolve(dir));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(size));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -3487,7 +3541,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       try {
         const dir = new URL(req.url, 'http://localhost').searchParams.get('dir') || projectDir || process.cwd();
         const result = cleanSwarmData(path.resolve(dir));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ success: true, ...result }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -3507,7 +3561,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const trackerPath = path.join(dir, '.claude', 'helpers', 'token-tracker.cjs');
         const fallback = () => {
           const summary = (() => { try { return JSON.parse(fs.readFileSync(path.join(dir, '.monomind', 'metrics', 'token-summary.json'), 'utf8')); } catch { return {}; } })();
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
           const fbSum = { todayCost: summary.todayCost || 0, cost: summary.todayCost || 0, todayCalls: summary.todayCalls || 0, calls: summary.todayCalls || 0, totalTokens: 0, totalTokensIn: 0, totalTokensOut: 0, cacheTokens: 0, modelCount: 0 };
           res.end(JSON.stringify({ summary: fbSum, totalCost: summary.todayCost || 0, totalCalls: summary.todayCalls || 0, totalIn: 0, totalOut: 0, totalCR: 0, totalCW: 0, rows: [], models: [], categories: [], tools: [], mcpServers: [], projects: [], modelBreakdown: {}, categoryBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, periodLabel: period }));
         };
@@ -3564,7 +3618,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           rows.sort((a, b) => b.cost - a.cost);
           // Summary object matching client expectations
           const summary = { todayCost: totalCost, cost: totalCost, todayCalls: totalCalls, calls: totalCalls, totalTokens: totalIn + totalOut, totalTokensIn: totalIn, totalTokensOut: totalOut, cacheTokens: totalCR, modelCount: models.length };
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
           res.end(JSON.stringify({ summary, totalCost, totalCalls, totalIn, totalOut, totalCR, totalCW, rows, models, categories, tools, mcpServers, projects: projectRows, modelBreakdown, categoryBreakdown, toolBreakdown, mcpBreakdown, periodLabel: period }));
         } catch (e) { fallback(); }
       } catch (err) {
@@ -3594,7 +3648,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         }
         res.writeHead(200, {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
           'Cache-Control': 'no-cache',
         });
         res.end(JSON.stringify(partial));
@@ -3611,7 +3665,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
         'X-Accel-Buffering': 'no',
       });
 
@@ -3660,11 +3714,11 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           res.end(JSON.stringify({ exists: false }));
           return;
         }
-        const { execSync } = await import('child_process');
+        const { execFileSync } = await import('child_process');
         // Pipe SQL via stdin to avoid shell quoting issues with single-quoted SQL strings.
         const runSql = (sql, timeout = 5000) => {
           try {
-            return execSync(`sqlite3 -json "${dbPath}"`,
+            return execFileSync('sqlite3', ['-json', dbPath],
               { encoding: 'utf-8', timeout: timeout, input: sql + ';' });
           } catch (e) { return '[]'; }
         };
@@ -3750,7 +3804,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             } catch(_) {}
           }
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(orgs));
       } catch(_) { res.writeHead(500); res.end('[]'); }
       return;
@@ -3772,7 +3826,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           fs.mkdirSync(orgsDir, { recursive: true });
           const destFile = path.join(orgsDir, `${orgName}.json`);
           fs.writeFileSync(destFile, JSON.stringify({ ...cfg, name: orgName }, null, 2), 'utf8');
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ ok: true, name: orgName, file: destFile }));
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -3798,7 +3852,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           const destFile = path.join(orgsDir, `${name}.json`);
           const cleanCfg = Object.fromEntries(Object.entries({ ...cfg, name }).filter(([k]) => !k.startsWith('_')));
           fs.writeFileSync(destFile, JSON.stringify(cleanCfg, null, 2), 'utf8');
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ ok: true, name, file: destFile }));
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -3818,7 +3872,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const _orgsOneProjDir = _resolveOrgProjectDir(orgName, _orgsOneRoot) || _orgsOneRoot;
         const f = path.join(_orgsOneProjDir, '.monomind', 'orgs', `${orgName}.json`);
         if (!fs.existsSync(f)) { res.writeHead(404); res.end('{"error":"not found"}'); return; }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(fs.readFileSync(f, 'utf8'));
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -3904,7 +3958,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           lastEventAt: _runstateData?.lastEventAt || null,
           agentStates: _runstateData?.agentStates || {} };
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(result));
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -3955,7 +4009,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         }
 
         const out = events.filter(e => e && e.ts).sort((a, b) => b.ts - a.ts).slice(0, 100);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(out));
       } catch(_) { res.writeHead(500); res.end('[]'); }
       return;
@@ -3970,9 +4024,9 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const _projsQs = new URL(req.url, 'http://localhost').searchParams;
         const d = path.resolve(_projsQs.get('dir') || projectDir || process.cwd());
         const projFile = path.join(d, '.monomind', 'orgs', `${orgName}-projects.json`);
-        if (!fs.existsSync(projFile)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end('[]'); return; }
+        if (!fs.existsSync(projFile)) { res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) }); res.end('[]'); return; }
         const data = JSON.parse(fs.readFileSync(projFile, 'utf8'));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(data.projects || []));
       } catch(_) { res.writeHead(500); res.end('[]'); }
       return;
@@ -3988,12 +4042,12 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const d = path.resolve(_membersQs.get('dir') || projectDir || process.cwd());
         const membersFile = path.join(d, '.monomind', 'orgs', `${orgName}-members.json`);
         if (!fs.existsSync(membersFile)) {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end('{"members":[],"join_requests":[]}');
           return;
         }
         const data = JSON.parse(fs.readFileSync(membersFile, 'utf8'));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(data));
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -4014,7 +4068,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
           let defaultAdapter = 'claude-sonnet-4-6';
           try { defaultAdapter = JSON.parse(fs.readFileSync(orgFile, 'utf8'))?.run_config?.ceo_adapter || defaultAdapter; } catch(_) {}
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ default_adapter: defaultAdapter, adapters: [
             { type: 'claude-local', label: 'Claude (local CLI)', source: 'built-in', disabled: false, modelsCount: 3 },
             { type: 'gemini-local', label: 'Gemini (local)', source: 'built-in', disabled: false, modelsCount: 1 },
@@ -4023,7 +4077,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           return;
         }
         const data = JSON.parse(fs.readFileSync(adaptersFile, 'utf8'));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(data));
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -4078,7 +4132,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           } catch(_) {}
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ skills, role_skill_map: roleSkillMap }));
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -4134,7 +4188,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           }
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ role, definition }));
       } catch (_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -4147,7 +4201,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const orgName = decodeURIComponent(urlObj.pathname.split('/')[3]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
         const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
-        if (!q || q.length < 2) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end('{"hits":[]}'); return; }
+        if (!q || q.length < 2) { res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) }); res.end('{"hits":[]}'); return; }
 
         const d = path.resolve(urlObj.searchParams.get('dir') || projectDir || process.cwd());
         const orgsDir = path.join(d, '.monomind', 'orgs');
@@ -4219,7 +4273,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           }
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ q, hits: hits.slice(0, 50) }));
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -4505,7 +4559,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             skills: r.skills || [],
           };
         });
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ agents }));
       } catch(_) { res.writeHead(500); res.end('{"agents":[]}'); }
       return;
@@ -4542,7 +4596,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             ts: a.ts || null,
           }));
         const pending = approvals.filter(a => a.status === 'pending' || a.status === 'revision_requested').length;
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ approvals, pending }));
       } catch(_) { res.writeHead(500); res.end('{"approvals":[],"pending":0}'); }
       return;
@@ -4585,7 +4639,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const event = { type: 'org:approval:resolved', org: orgName, approval_id: approvalId, status, ts: Date.now() };
         appendToFile(path.join(path.resolve(_postApprovalsQs.get('dir') || projectDir || process.cwd()), 'data', 'mastermind-events.jsonl'), JSON.stringify(event) + '\n').catch(() => {});
         broadcastMm(event);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ ok: true, status }));
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -4613,7 +4667,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           lastUsedAt: s.lastUsedAt || null,
           usageCount: s.usageCount || 0,
         }));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ secrets }));
       } catch(_) { res.writeHead(500); res.end('{"secrets":[]}'); }
       return;
@@ -4770,7 +4824,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const goalsFile = path.join(_goalsProjDir, '.monomind', 'orgs', `${orgName}-goals.json`);
         let data = { goals: [] };
         try { data = JSON.parse(fs.readFileSync(goalsFile, 'utf8')); } catch(_) {}
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ goals: data.goals || [] }));
       } catch(_) { res.writeHead(500); res.end('{"goals":[]}'); }
       return;
@@ -4819,7 +4873,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             }
           } catch(_) {}
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ routines: data.routines || [] }));
       } catch(_) { res.writeHead(500); res.end('{"routines":[]}'); }
       return;
@@ -4841,7 +4895,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const payload = { org: orgName, updated_at: new Date().toISOString(), goals: parsed.goals };
         fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf-8');
         fs.renameSync(tmp, goalsFile);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ ok: true, count: parsed.goals.length }));
       } catch(_) { res.writeHead(500); res.end('{"error":"' + String(_).replace(/"/g, '\\"') + '"}'); }
       return;
@@ -4863,7 +4917,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const payload = { org: orgName, updated_at: new Date().toISOString(), routines: parsed.routines };
         fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf-8');
         fs.renameSync(tmp, routinesFile);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ ok: true, count: parsed.routines.length }));
       } catch(_) { res.writeHead(500); res.end('{"error":"' + String(_).replace(/"/g, '\\"') + '"}'); }
       return;
@@ -4917,7 +4971,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           if (fs.existsSync(agentsDir)) walkAgents(agentsDir);
         }
         files.sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify(files));
       } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
       return;
@@ -4941,7 +4995,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         if (!stat.isFile()) { res.writeHead(400); res.end('Not a file'); return; }
         if (stat.size > 524288) { res.writeHead(413); res.end('File too large'); return; }
         const content = fs.readFileSync(resolved, 'utf8');
-        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(content);
       } catch(_) { res.writeHead(500); res.end('Internal error'); }
       return;
@@ -4984,7 +5038,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const deleteEvent = { type: 'org:delete', org: orgName, ts: Date.now() };
         appendToFile(path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl'), JSON.stringify(deleteEvent) + '\n').catch(() => {});
         broadcastMm(deleteEvent);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end('{"ok":true}');
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -5008,7 +5062,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
         } catch(_) {}
         broadcastMm(stopEvent);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end('{"ok":true}');
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -5034,7 +5088,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         try { fs.mkdirSync(destOrgsDir, { recursive: true }); } catch(_) {}
         const destFile = path.join(destOrgsDir, `${orgName}.json`);
         fs.copyFileSync(srcFile, destFile);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ ok: true, destFile }));
       } catch(e) { res.writeHead(500); res.end(JSON.stringify({ error: String(e.message || e) })); }
       return;
@@ -5121,7 +5175,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             break;
           }
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify(runs));
       } catch (_) { res.writeHead(500); res.end('[]'); }
       return;
@@ -5147,7 +5201,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             if (!fs.existsSync(_tf)) continue;
             const _tLines = fs.readFileSync(_tf, 'utf8').split('\n').filter(Boolean);
             const _tEvs = _tLines.map(l => { try { const e = JSON.parse(l); return { type: 'org:comms', from: e.role || e.from || 'agent', to: e.to || 'all', msg: e.message || e.msg || '', ts: e.ts ? (typeof e.ts === 'number' ? e.ts : new Date(e.ts).getTime()) : Date.now(), org: _rvOrgName, runId: _rvRunId }; } catch { return null; } }).filter(Boolean);
-            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
             res.end(JSON.stringify(_tEvs));
             return;
           }
@@ -5187,7 +5241,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         // For in-progress runs (no .warm.jsonl), org:comms also go to .convs.jsonl (stripped form).
         // They're already in .jsonl as full events, so .convs.jsonl would duplicate — skip it.
         events.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify(events));
       } catch (_) { res.writeHead(500); res.end('[]'); }
       return;
@@ -5210,12 +5264,12 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         // Reject files >2MB to avoid blocking the event loop
         if (_size > 2 * 1024 * 1024) { res.writeHead(413); res.end(JSON.stringify({ error: 'file too large', size: _size })); return; }
         if (!_mime.startsWith('text/') && _mime !== 'application/json') {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({ binary: true, mimeType: _mime, size: _size }));
           return;
         }
         const _content = fs.readFileSync(_filePath, 'utf8');
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ content: _content, mimeType: _mime, size: _size }));
       } catch (_e) { res.writeHead(500); res.end(JSON.stringify({ error: 'read failed' })); }
       return;
@@ -5233,7 +5287,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
       });
       res.write(': connected\n\n');
       addMmClient(res);
@@ -5300,7 +5354,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           }
         }
         allSessions.sort((a,b) => (b.ts||b.startedAt||0)-(a.ts||a.startedAt||0));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(allSessions.slice(0, limitParam)));
       } catch (_) { res.writeHead(200); res.end('[]'); }
       return;
@@ -5332,7 +5386,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           else if (ev.type === 'session:complete') lines.push(`\`${t}\` **SESSION COMPLETE** — status: ${ev.status}, domains: ${(ev.domains || []).join(', ')}`);
           else lines.push(`\`${t}\` ${ev.type} ${JSON.stringify(ev)}`);
         }
-        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(lines.join('\n'));
       } catch (_) { res.writeHead(500); res.end('Error'); }
       return;
@@ -5345,14 +5399,14 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         // Check individual session file first
         const sessFile = path.join(projectDir || process.cwd(), 'data', 'sessions', `${sid}.json`);
         if (fs.existsSync(sessFile)) {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(fs.readFileSync(sessFile, 'utf8'));
           return;
         }
         const f = path.join(projectDir || process.cwd(), 'data', 'mastermind-sessions.json');
         const sessions = JSON.parse(fs.readFileSync(f, 'utf8'));
         const s = sessions.find(x => x.id === sid);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify(s || null));
       } catch (_) { res.writeHead(200); res.end('null'); }
       return;
@@ -5419,7 +5473,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           const lines = fs.readFileSync(evPath, 'utf8').split('\n').filter(l => l.trim()).slice(-10);
           recentEvents = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
         } catch(_) {}
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({
           ts: Date.now(),
           pid: process.pid,
@@ -5469,7 +5523,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const detectedRunId = path.basename(runFile, '.jsonl');
         const lines = fs.readFileSync(runFile, 'utf8').split('\n').filter(l => l.trim()).slice(-100);
         const events = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ runId: detectedRunId, events, active: activeOrgRuns.has(orgName) }));
       } catch(err) {
         res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
@@ -5672,7 +5726,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             } catch (_) {}
           }
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify(result));
       } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: e.message })); }
       return;
@@ -5746,12 +5800,12 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const dir = path.resolve(qp.get('dir') || projectDir || process.cwd());
         const covPath = path.join(dir, '.monomind', 'audit', 'coverage.json');
         if (!fs.existsSync(covPath)) {
-          res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(404, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end('{}');
           return;
         }
         const coverage = JSON.parse(fs.readFileSync(covPath, 'utf8'));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify(coverage));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -5819,7 +5873,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           const _mcLine = `data: ${JSON.stringify(_mcEvent)}\n\n`;
           for (const _cl of _mcFwdClients) { try { _cl.write(_mcLine); } catch (_) { _mcFwdClients.delete(_cl); } }
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ ok: true, runId: _mcRunId }));
       } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: e.message })); }
       return;
@@ -5837,7 +5891,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
         'X-Accel-Buffering': 'no',
       });
       res.write(': connected\n\n');
@@ -5934,7 +5988,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           const _chLine = `data: ${JSON.stringify(_chEvent)}\n\n`;
           for (const _cl of _chFwdClients) { try { _cl.write(_chLine); } catch(_) { _chFwdClients.delete(_cl); } }
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ ok: true }));
       } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: e.message })); }
       return;

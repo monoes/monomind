@@ -42,28 +42,28 @@ RUN npm install --legacy-peer-deps
 
 # Build v1 packages
 WORKDIR /app/v1/@monomind/shared
-RUN npm install --legacy-peer-deps && npm run build || true
+RUN npm install --legacy-peer-deps && npm run build
 
 WORKDIR /app/v1/@monomind/hooks
-RUN npm install --legacy-peer-deps && npm run build || true
+RUN npm install --legacy-peer-deps && npm run build
 
 WORKDIR /app/v1/@monomind/plugins
-RUN npm install --legacy-peer-deps && npm run build || true
+RUN npm install --legacy-peer-deps && npm run build
 
 WORKDIR /app/v1/@monomind/security
-RUN npm install --legacy-peer-deps && npm run build || true
+RUN npm install --legacy-peer-deps && npm run build
 
 WORKDIR /app/v1/@monomind/swarm
-RUN npm install --legacy-peer-deps && npm run build || true
+RUN npm install --legacy-peer-deps && npm run build
 
 WORKDIR /app/v1/@monomind/cli
-RUN npm install --legacy-peer-deps && npm run build || true
+RUN npm install --legacy-peer-deps && npm run build
 
 WORKDIR /app/v1/@monomind/memory
-RUN npm install --legacy-peer-deps && npm run build || true
+RUN npm install --legacy-peer-deps && npm run build
 
 WORKDIR /app/v1/@monomind/mcp
-RUN npm install --legacy-peer-deps && npm run build || true
+RUN npm install --legacy-peer-deps && npm run build
 
 # Return to app root
 WORKDIR /app

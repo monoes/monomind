@@ -156,8 +156,14 @@ const FALLBACK_SECRET_PATTERNS = [
   /(?:api[_-]?key|apikey)\s*[:=]\s*['"][^'"]{8,}['"]/gi,
   /(?:secret|password|passwd|pwd)\s*[:=]\s*['"][^'"]{8,}['"]/gi,
   /(?:token|bearer)\s*[:=]\s*['"][^'"]{10,}['"]/gi,
+  // Unquoted variants — env-style `KEY=value` / `key: value` with no quotes,
+  // e.g. `ANTHROPIC_API_KEY=sk-ant-...` in a .env file or shell export. The
+  // quoted patterns above never match these, which was the single most
+  // common real leak pattern (P1-25).
+  /(?:api[_-]?key|apikey|token|secret|password|passwd|pwd)\s*[:=]\s*[^\s'"]{8,}/gi,
   /-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----/g,
-  /sk-[a-zA-Z0-9]{20,}/g,
+  /sk-ant-[a-zA-Z0-9_-]{20,}/g,
+  /sk-[a-zA-Z0-9_-]{20,}/g,
   /ghp_[a-zA-Z0-9]{36}/g,
   /npm_[a-zA-Z0-9]{36}/g,
   /AKIA[0-9A-Z]{16}/g,
