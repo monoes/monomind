@@ -22,6 +22,21 @@ describe('PolicyEngine', () => {
     expect((await p.decide('Edit', { file_path: '/etc/passwd' })).behavior).toBe('deny');
   });
 
+  it('denies relative paths that escape the workdir via ..', async () => {
+    const p = new PolicyEngine('coder', { fileWrite: ['src/**'] }, mkBus(), '/work');
+    expect((await p.decide('Write', { file_path: 'src/../../etc/passwd' })).behavior).toBe('deny');
+  });
+
+  it('denies Grep relative path inputs that escape the workdir', async () => {
+    const p = new PolicyEngine('coder', { fileRead: ['src/**'] }, mkBus(), '/work');
+    expect((await p.decide('Grep', { path: 'src/../../../etc' })).behavior).toBe('deny');
+  });
+
+  it('allows relative paths within scope', async () => {
+    const p = new PolicyEngine('coder', { fileWrite: ['src/**'] }, mkBus(), '/work');
+    expect((await p.decide('Write', { file_path: 'src/a.ts' })).behavior).toBe('allow');
+  });
+
   it('enforces web research domain allowlist', async () => {
     const p = new PolicyEngine('researcher', { webAllow: ['docs.claude.com'] }, mkBus(), '/work');
     expect((await p.decide('WebFetch', { url: 'https://docs.claude.com/x' })).behavior).toBe('allow');

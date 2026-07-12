@@ -1,5 +1,5 @@
 // packages/@monomind/cli/src/orgrt/policy.ts
-import { isAbsolute, relative, resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import type { OrgBus } from './bus.js';
 import type { RolePolicy } from './types.js';
 
@@ -48,7 +48,7 @@ export class PolicyEngine {
 
     if (this.overBudget) return deny(`token budget exhausted (${this.used}/${this.policy.maxTokens})`);
     if (this.policy.denyTools?.includes(tool)) return deny(`tool ${tool} is denied for role ${this.role}`);
-    if (this.policy.allowTools && !this.policy.allowTools.includes(tool) && !tool.startsWith('mcp__org'))
+    if (this.policy.allowTools && !this.policy.allowTools.includes(tool) && !tool.startsWith('mcp__org__'))
       return deny(`tool ${tool} not in allowlist for role ${this.role}`);
 
     if (WRITE_TOOLS.has(tool) || READ_TOOLS.has(tool)) {
@@ -56,7 +56,7 @@ export class PolicyEngine {
       const p = typeof input.file_path === 'string' ? input.file_path
         : typeof input.path === 'string' ? input.path : null;
       if (p !== null) {
-        const rel = isAbsolute(p) ? relative(this.cwd, resolve(p)) : p;
+        const rel = relative(this.cwd, resolve(this.cwd, p));
         if (rel.startsWith('..')) return deny(`path escapes org workdir: ${p}`);
         if (!globs.some(g => globToRegExp(g).test(rel))) return deny(`path ${rel} outside ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope`);
       }
