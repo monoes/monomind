@@ -1,5 +1,9 @@
 <!-- Start a saved org as a persistent autonomous agent organization. The boss agent coordinates all roles; agents pick up tasks from a shared board and run until stopped. -->
 
+> **DEPRECATED (2026-07): superseded by `monomind org run <name>` (SDK org runtime v2).**
+> This prompt-orchestrated path has no delivery guarantees and no ground-truth event stream.
+> It remains only for orgs not yet migrated. New orgs MUST use the daemon.
+
 **If $ARGUMENTS is empty:** List saved orgs and display the following.
 
 ---

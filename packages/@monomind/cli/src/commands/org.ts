@@ -72,12 +72,30 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
   const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
-  const sched = new OrgScheduler(async name => {
-    await daemon.startOrg(name);
-    // scheduled iterations are bounded: wait for all sessions to end, then stop
-    const org = daemon.getOrg(name);
-    if (org) await Promise.allSettled([...org.agents.values()].map(a => a.done));
-    await daemon.stopOrg(name);
+  const sched = new OrgScheduler(async (name, intervalMs) => {
+    try {
+      await daemon.startOrg(name);
+      // Scheduled iterations are time-bounded: agents' `done` promises only
+      // resolve after stopOrg closes the mailboxes, so waiting on them alone
+      // deadlocks. Race against a max-run timeout, then ALWAYS stopOrg
+      // (idempotent — it resolves `done` and flushes).
+      const org = daemon.getOrg(name);
+      const allDone = org
+        ? Promise.allSettled([...org.agents.values()].map(a => a.done))
+        : Promise.resolve([]);
+      const maxRun = (org?.def as { run_config?: { max_run?: string | number } } | undefined)?.run_config?.max_run;
+      const maxMs = parseSchedule(maxRun) ?? Math.min(intervalMs, 600_000); // cap: schedule interval or 10 min
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([allDone, new Promise<void>(r => {
+        timer = setTimeout(r, maxMs);
+        timer.unref?.();
+      })]);
+      if (timer) clearTimeout(timer);
+    } catch (err) {
+      console.error(`org ${name}: scheduled run failed:`, err);
+    } finally {
+      await daemon.stopOrg(name).catch(err => console.error(`org ${name}: stop failed:`, err));
+    }
   });
   const orgDir = join(ctx.cwd, ORG_DIR);
   if (existsSync(orgDir)) {
@@ -86,8 +104,11 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
         const def = JSON.parse(readFileSync(join(orgDir, f), 'utf8'));
         const ms = parseSchedule(def.schedule);
         if (ms) {
-          sched.add(def.name, ms);
-          log(output.info(`scheduled org ${def.name} every ${Math.round(ms / 60_000)}m`));
+          // register by filename stem — that's what startOrg loads
+          const stem = f.replace(/\.json$/, '');
+          if (def.name && def.name !== stem) log(output.warning(`org file ${f}: def.name "${def.name}" differs from filename — scheduling as "${stem}"`));
+          sched.add(stem, ms);
+          log(output.info(`scheduled org ${stem} every ${Math.round(ms / 60_000)}m`));
         }
       } catch { /* skip unparseable org file */ }
     }
