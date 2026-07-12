@@ -9,26 +9,36 @@ import { ORG_DIR } from '../orgrt/types.js';
 
 const log = (text: string): void => { console.log(text); };
 
+/** Remove a lingering stopfile so a fresh `org run` doesn't self-terminate. */
+export const clearStopfile = (cwd: string, name: string): void => {
+  rmSync(join(cwd, ORG_DIR, name, 'stop'), { force: true });
+};
+
 const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const name = ctx.args[0];
   if (!name) return { success: false, message: 'org name required: monomind org run <name> [--task "..."] [--serve] [--port N]' };
   const daemon = new OrgDaemon(ctx.cwd);
+  let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
   if (ctx.flags['serve'] !== false) {
     const port = Number(ctx.flags['port'] ?? 4243);
-    const srv = await startOrgServer(daemon, port);
+    srv = await startOrgServer(daemon, port);
     log(output.info(`org live view: http://localhost:${srv.port}`));
   }
   const running = await daemon.startOrg(name, ctx.flags['task'] as string | undefined);
   log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
 
-  // stopfile poll lets `org stop` work from another terminal
+  // stopfile poll lets `org stop` work from another terminal;
+  // clear any stale stopfile from a previous run before polling
+  clearStopfile(ctx.cwd, name);
   const stopfile = join(ctx.cwd, ORG_DIR, name, 'stop');
   await new Promise<void>(resolvePromise => {
     const iv = setInterval(() => { if (existsSync(stopfile)) { clearInterval(iv); resolvePromise(); } }, 2000);
     process.once('SIGINT', () => { clearInterval(iv); resolvePromise(); });
     process.once('SIGTERM', () => { clearInterval(iv); resolvePromise(); });
   });
+  clearStopfile(ctx.cwd, name);
   await daemon.stopAll();
+  srv?.close();
   return { success: true, message: `org ${name} stopped` };
 };
 

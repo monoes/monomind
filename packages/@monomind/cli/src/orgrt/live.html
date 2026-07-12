@@ -29,21 +29,22 @@ const add = (listId, html, cap = 500) => {
   const list = $(listId); list.prepend(el);
   while (list.children.length > cap) list.lastChild.remove();
 };
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const decisionClass = d => (d === 'allow' || d === 'deny') ? d : 'unknown';
 function render(e) {
   const t = `<span class="ts">${fmt(e.ts)}</span>`;
-  if (e.type === 'chat') add('chat-list', `${t}<span class="from">${e.org}/${e.from}</span>: ${esc(e.msg)}`);
-  else if (e.type === 'message') add('chat-list', `${t}<span class="from">${e.from}</span> → <span class="to">${e.to}</span> [${esc(e.subject||'')}] ${esc(e.msg)}`);
-  else if (e.type === 'xorg') add('chat-list', `${t}<span class="xorg">⇄ ${e.from} → ${e.to}</span> [${esc(e.subject||'')}] ${esc(e.msg)}`);
-  else if (e.type === 'tool') add('tools-list', `${t}<span class="from">${e.from}</span> ${e.tool} <span class="${e.decision}">${e.decision}</span>${e.reason ? ' — ' + esc(e.reason) : ''}`);
-  else if (e.type === 'asset') add('tools-list', `${t}<span class="from">${e.from}</span> 📄 <b>${esc(e.path)}</b>`);
-  else if (e.type === 'status' || e.type === 'usage') add('tools-list', `${t}<i>${e.org}/${e.from ?? 'org'}: ${esc(e.msg ?? JSON.stringify(e.data))}</i>`);
+  if (e.type === 'chat') add('chat-list', `${t}<span class="from">${esc(e.org)}/${esc(e.from)}</span>: ${esc(e.msg)}`);
+  else if (e.type === 'message') add('chat-list', `${t}<span class="from">${esc(e.from)}</span> → <span class="to">${esc(e.to)}</span> [${esc(e.subject||'')}] ${esc(e.msg)}`);
+  else if (e.type === 'xorg') add('chat-list', `${t}<span class="xorg">⇄ ${esc(e.from)} → ${esc(e.to)}</span> [${esc(e.subject||'')}] ${esc(e.msg)}`);
+  else if (e.type === 'tool') add('tools-list', `${t}<span class="from">${esc(e.from)}</span> ${esc(e.tool)} <span class="${decisionClass(e.decision)}">${esc(e.decision)}</span>${e.reason ? ' — ' + esc(e.reason) : ''}`);
+  else if (e.type === 'asset') add('tools-list', `${t}<span class="from">${esc(e.from)}</span> 📄 <b>${esc(e.path)}</b>`);
+  else if (e.type === 'status' || e.type === 'usage') add('tools-list', `${t}<i>${esc(e.org)}/${esc(e.from ?? 'org')}: ${esc(e.msg ?? JSON.stringify(e.data))}</i>`);
 }
-const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function refreshAgents() {
   const orgs = await fetch('/api/orgs').then(r => r.json()).catch(() => []);
   $('agents-list').innerHTML = orgs.map(o =>
-    `<div class="agent"><b>${o.name}</b><small>${o.run}</small>` +
-    o.agents.map(a => `<div>${a.closed ? '⚫' : '🟢'} ${a.id} <small>${a.usage} tok</small></div>`).join('') +
+    `<div class="agent"><b>${esc(o.name)}</b><small>${esc(o.run)}</small>` +
+    o.agents.map(a => `<div>${a.closed ? '⚫' : '🟢'} ${esc(a.id)} <small>${esc(a.usage)} tok</small></div>`).join('') +
     `</div>`).join('') || '<i>no running orgs</i>';
 }
 const ws = new WebSocket(`ws://${location.host}/ws`);
