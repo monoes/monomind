@@ -1,0 +1,55 @@
+<!-- packages/@monomind/cli/src/orgrt/live.html -->
+<!doctype html>
+<html><head><meta charset="utf-8"><title>org live</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font:13px/1.5 ui-monospace,monospace; background:#0d1117; color:#e6edf3;
+         display:grid; grid-template-columns:220px 1fr 1fr; grid-template-rows:auto 1fr 1fr; gap:1px; height:100vh; }
+  header { grid-column:1/4; padding:8px 14px; background:#161b22; font-weight:700; }
+  section { background:#161b22; overflow:auto; padding:10px; }
+  h2 { font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:#7d8590; margin:0 0 8px; }
+  #agents { grid-row:2/4; }
+  .agent { padding:6px 8px; border-left:3px solid #2f81f7; margin-bottom:6px; background:#0d1117; }
+  .agent small { color:#7d8590; display:block; }
+  .row { padding:4px 6px; border-bottom:1px solid #21262d; word-break:break-word; }
+  .from { color:#2f81f7; font-weight:700; } .to { color:#a371f7; }
+  .deny { color:#f85149; } .allow { color:#3fb950; } .xorg { color:#d29922; font-weight:700; }
+  .ts { color:#484f58; font-size:11px; margin-right:6px; }
+</style></head>
+<body>
+<header>org live — <span id="conn">connecting…</span></header>
+<section id="agents"><h2>Agents</h2><div id="agents-list"></div></section>
+<section id="chat"><h2>Chats &amp; Messages</h2><div id="chat-list"></div></section>
+<section id="tools"><h2>Tool Activity &amp; Assets</h2><div id="tools-list"></div></section>
+<script>
+const $ = id => document.getElementById(id);
+const fmt = ts => new Date(ts).toLocaleTimeString();
+const add = (listId, html, cap = 500) => {
+  const el = document.createElement('div'); el.className = 'row'; el.innerHTML = html;
+  const list = $(listId); list.prepend(el);
+  while (list.children.length > cap) list.lastChild.remove();
+};
+function render(e) {
+  const t = `<span class="ts">${fmt(e.ts)}</span>`;
+  if (e.type === 'chat') add('chat-list', `${t}<span class="from">${e.org}/${e.from}</span>: ${esc(e.msg)}`);
+  else if (e.type === 'message') add('chat-list', `${t}<span class="from">${e.from}</span> → <span class="to">${e.to}</span> [${esc(e.subject||'')}] ${esc(e.msg)}`);
+  else if (e.type === 'xorg') add('chat-list', `${t}<span class="xorg">⇄ ${e.from} → ${e.to}</span> [${esc(e.subject||'')}] ${esc(e.msg)}`);
+  else if (e.type === 'tool') add('tools-list', `${t}<span class="from">${e.from}</span> ${e.tool} <span class="${e.decision}">${e.decision}</span>${e.reason ? ' — ' + esc(e.reason) : ''}`);
+  else if (e.type === 'asset') add('tools-list', `${t}<span class="from">${e.from}</span> 📄 <b>${esc(e.path)}</b>`);
+  else if (e.type === 'status' || e.type === 'usage') add('tools-list', `${t}<i>${e.org}/${e.from ?? 'org'}: ${esc(e.msg ?? JSON.stringify(e.data))}</i>`);
+}
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+async function refreshAgents() {
+  const orgs = await fetch('/api/orgs').then(r => r.json()).catch(() => []);
+  $('agents-list').innerHTML = orgs.map(o =>
+    `<div class="agent"><b>${o.name}</b><small>${o.run}</small>` +
+    o.agents.map(a => `<div>${a.closed ? '⚫' : '🟢'} ${a.id} <small>${a.usage} tok</small></div>`).join('') +
+    `</div>`).join('') || '<i>no running orgs</i>';
+}
+const ws = new WebSocket(`ws://${location.host}/ws`);
+ws.onopen = () => { $('conn').textContent = 'live'; refreshAgents(); };
+ws.onclose = () => { $('conn').textContent = 'disconnected'; };
+ws.onmessage = ev => { render(JSON.parse(ev.data)); };
+setInterval(refreshAgents, 5000);
+</script>
+</body></html>
