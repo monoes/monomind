@@ -73,7 +73,7 @@
 <div class="panels">
   <div class="panel">
     <h2>Worker Metrics</h2>
-    <div id="panel-daemon" class="empty">loading...</div>
+    <div id="panel-workers" class="empty">loading...</div>
   </div>
   <div class="panel">
     <h2>Swarm Status</h2>
@@ -115,10 +115,10 @@ async function refreshDashboard() {
 }
 
 function renderDashboard(data) {
-  const daemonEl = document.getElementById('panel-daemon');
-  if (data.daemon_workers?.length) {
+  const daemonEl = document.getElementById('panel-workers');
+  if (data.worker_metrics?.length) {
     daemonEl.className = '';
-    daemonEl.innerHTML = data.daemon_workers.map(w => `<span class="worker-chip">${escapeHtml(w)}</span>`).join('');
+    daemonEl.innerHTML = data.worker_metrics.map(w => `<span class="worker-chip">${escapeHtml(w)}</span>`).join('');
   } else {
     daemonEl.className = 'empty';
     daemonEl.textContent = 'No worker metrics yet. Workers run at session start (or: monomind hooks worker run map)';
