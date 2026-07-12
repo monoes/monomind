@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgBus } from '../../src/orgrt/bus.js';
-import { attachForwarder, translate } from '../../src/orgrt/forwarder.js';
+import { attachForwarder, translate, companionEvents } from '../../src/orgrt/forwarder.js';
 import type { BusEvent } from '../../src/orgrt/types.js';
 
 describe('attachForwarder', () => {
@@ -66,6 +66,45 @@ describe('attachForwarder', () => {
       .toMatchObject({ type: 'org:tool', decision: 'deny', runId: 'r' });
     expect(translate(mk({ type: 'usage', from: 'boss', data: { tokens: 5 } })))
       .toMatchObject({ type: 'org:usage' });
+  });
+
+  it('emits session:start BEFORE org:start so the dashboard session record exists first', async () => {
+    // dist/src/ui/orgs.html only adds a run to chatSessions on session:start;
+    // every later event (including org:start itself) is dropped client-side
+    // if that record doesn't exist yet — order is load-bearing, not cosmetic.
+    const received: any[] = [];
+    const server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => (body += c));
+      req.on('end', () => { received.push(JSON.parse(body)); res.end('{}'); });
+    });
+    await new Promise<void>(r => server.listen(0, r));
+    const port = (server.address() as any).port;
+    const root = mkdtempSync(join(tmpdir(), 'fwd3-'));
+    writeFileSync(join(root, 'control.json'), JSON.stringify({ pid: 1, port, url: `http://127.0.0.1:${port}` }));
+
+    const bus = new OrgBus('fwd-org', 'run-1', root);
+    const done = attachForwarder(bus, join(root, 'control.json'));
+    bus.emit({ type: 'status', msg: 'org started (1 agents)', data: { goal: 'ship it' } });
+    await done.settle();
+    server.close();
+
+    expect(received.map(r => r.type)).toEqual(['session:start', 'org:start']);
+    expect(received[0]).toMatchObject({ session: 'fwd-org__run-1', org: 'fwd-org', prompt: 'ship it' });
+  });
+
+  it('companionEvents: only status "org started"/"org stopped" produce session events; everything else is empty', () => {
+    const mk = (p: Partial<BusEvent>): BusEvent =>
+      ({ id: '1', ts: 5, org: 'o', run: 'r', type: 'status', ...p } as BusEvent);
+
+    expect(companionEvents(mk({ msg: 'org started (2 agents)', data: { goal: 'g' } })))
+      .toEqual([{ session: 'o__r', org: 'o', ts: 5, type: 'session:start', prompt: 'g' }]);
+    expect(companionEvents(mk({ msg: 'org started (2 agents)' })))
+      .toMatchObject([{ type: 'session:start', prompt: 'o' }]); // falls back to org name if goal missing
+    expect(companionEvents(mk({ msg: 'org stopped' })))
+      .toEqual([{ session: 'o__r', org: 'o', ts: 5, type: 'session:complete', status: 'complete', domains: ['ops'] }]);
+    expect(companionEvents(mk({ msg: 'session starting' }))).toEqual([]);
+    expect(companionEvents(mk({ type: 'chat', msg: 'hi' }))).toEqual([]);
   });
 
   it('is silent (no throw) when control server is down', async () => {

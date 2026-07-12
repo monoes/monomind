@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/forwarder.ts
 import { readFileSync, existsSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, extname } from 'node:path';
 import type { OrgBus } from './bus.js';
 import type { BusEvent } from './types.js';
 
@@ -15,7 +15,25 @@ import type { BusEvent } from './types.js';
  * them; every payload carries org + runId so the server routes it to the
  * run file. Event kinds without a native rendering (tool/usage/audit) are
  * forwarded as raw org:<type> — they still land in the run file and SSE.
+ *
+ * companionEvents() additionally emits session:start/session:complete: the
+ * dashboard's client-side Chat tab only lists a run in its session dropdown
+ * once it has seen a session:start for that session id — org:start alone is
+ * NOT enough (verified against dist/src/ui/orgs.html's handleMmEvent, which
+ * creates the chatSessions entry solely on session:start). Companions are
+ * sent before the primary translate() payload for the same bus event so the
+ * client-side session record exists before anything tries to append to it.
+ *
+ * sessionId() below joins org/run with "__", not ":" — server.mjs's
+ * per-session persistence (data/sessions/<id>.jsonl + _index.json, the store
+ * GET /api/mastermind/sessions reads on page load) validates the session id
+ * against /^(?!.*\.\.)[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/, which rejects colons. A
+ * colon-joined id silently fails that check — the event still lands in the
+ * raw mastermind-events.jsonl log, but the run never persists to the session
+ * index, so a fresh dashboard load never lists it (only a client that was
+ * already connected via SSE when session:start fired would show it).
  */
+function sessionId(org: string, run: string): string { return `${org}__${run}`; }
 export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/control.json') {
   let chain: Promise<void> = Promise.resolve();
   const baseUrl = (): string | null => {
@@ -26,21 +44,52 @@ export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/contro
     } catch { return null; }
   };
 
+  const post = async (url: string, payload: Record<string, unknown>): Promise<void> => {
+    await fetch(`${url}/api/mastermind/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(3000),
+    }).then(r => { r.body?.cancel(); }).catch(() => {});
+  };
+
   const unsubscribe = bus.subscribe((e: BusEvent) => {
     chain = chain.then(async () => {
       const url = baseUrl();
       if (!url) return;
-      const payload = translate(e);
-      await fetch(`${url}/api/mastermind/event`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(3000),
-      }).then(r => { r.body?.cancel(); }).catch(() => {});
+      for (const payload of companionEvents(e)) await post(url, payload);
+      await post(url, translate(e));
     }).catch(() => {});
   });
 
   return { settle: () => chain, unsubscribe };
+}
+
+const TEXTUAL_EXT = new Set(['.md', '.txt', '.json', '.ts', '.tsx', '.js', '.jsx', '.mjs',
+  '.py', '.sh', '.yaml', '.yml', '.html', '.css', '.xml', '.log', '.csv']);
+function guessMimeType(path: string | undefined): string {
+  if (!path) return 'application/octet-stream';
+  return TEXTUAL_EXT.has(extname(path).toLowerCase()) ? 'text/plain' : 'application/octet-stream';
+}
+
+/**
+ * Companion dashboard events a single bus event needs beyond its primary
+ * translate() mapping. Currently: org-started -> session:start (registers
+ * the run in the client's session list) and org-stopped -> session:complete.
+ * Exported for tests.
+ */
+export function companionEvents(e: BusEvent): Record<string, unknown>[] {
+  if (e.type !== 'status') return [];
+  const base = { session: sessionId(e.org, e.run), org: e.org, ts: e.ts };
+  const msg = e.msg ?? '';
+  if (msg.startsWith('org started')) {
+    const goal = (e.data as { goal?: string } | undefined)?.goal;
+    return [{ ...base, type: 'session:start', prompt: goal && goal.length ? goal : e.org }];
+  }
+  if (msg === 'org stopped') {
+    return [{ ...base, type: 'session:complete', status: 'complete', domains: ['ops'] }];
+  }
+  return [];
 }
 
 /** BusEvent → dashboard-native mastermind event. Exported for tests. */
@@ -48,7 +97,7 @@ export function translate(e: BusEvent): Record<string, unknown> {
   const base = {
     org: e.org,
     runId: e.run,
-    session: `${e.org}:${e.run}`,
+    session: sessionId(e.org, e.run),
     domain: 'ops',
     ts: e.ts,
   };
@@ -64,7 +113,7 @@ export function translate(e: BusEvent): Record<string, unknown> {
     case 'asset':
       return {
         ...base, type: 'org:artifact', from: e.from,
-        artifact: { label: basename(e.path ?? 'asset'), type: 'file', path: e.path, mimeType: 'text/plain' },
+        artifact: { label: basename(e.path ?? 'asset'), type: 'file', path: e.path, mimeType: guessMimeType(e.path) },
       };
     case 'status': {
       const msg = e.msg ?? '';

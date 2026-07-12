@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import http from 'node:http';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 
 function fixture(root: string, name: string) {
@@ -25,6 +26,40 @@ const echoQuery = ({ prompt }: any) => (async function* () {
 })();
 
 describe('OrgDaemon', () => {
+  it('stopOrg waits for the forwarder\'s final POST (org:complete/session:complete) before returning', async () => {
+    // Regression: stopOrg used to resolve as soon as bus.flush() (local disk write)
+    // finished, without waiting for the forwarder's in-flight HTTP POST triggered by
+    // the "org stopped" bus event. A caller that exits the process right after
+    // stopOrg() (exactly what `monomind org run` does) could kill that POST mid-flight,
+    // leaving the dashboard's session permanently stuck showing "running".
+    const root = mkdtempSync(join(tmpdir(), 'daemon-fwd-'));
+    fixture(root, 'alpha');
+    const received: any[] = [];
+    let delayNextResponse = false;
+    const server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => (body += c));
+      req.on('end', () => {
+        const payload = JSON.parse(body);
+        received.push(payload);
+        const respond = () => res.end('{}');
+        if (delayNextResponse) setTimeout(respond, 100); else respond();
+      });
+    });
+    await new Promise<void>(r => server.listen(0, r));
+    const port = (server.address() as any).port;
+    writeFileSync(join(root, 'control.json'), JSON.stringify({ pid: 1, port, url: `http://127.0.0.1:${port}` }));
+
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, controlJson: join(root, 'control.json') });
+    await d.startOrg('alpha');
+    delayNextResponse = true; // simulate a slow dashboard — the race stopOrg must survive
+    await d.stopOrg('alpha');
+    server.close();
+
+    expect(received.map(r => r.type)).toContain('session:complete');
+    expect(received.map(r => r.type)).toContain('org:complete');
+  });
+
   it('starts an org, seeds the boss with the goal, routes intra-org messages', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon-'));
     fixture(root, 'alpha');
