@@ -3,6 +3,7 @@
  */
 
 import type { MCPTool, MCPToolResult } from './types.js';
+import { validateInput } from '../utils/input-guards.js';
 
 const knowledgeIngest: MCPTool = {
   name: 'knowledge_ingest',
@@ -18,11 +19,19 @@ const knowledgeIngest: MCPTool = {
     required: ['path'],
   },
   handler: async (input): Promise<MCPToolResult> => {
+    const pathCheck = validateInput(input.path, { type: 'path' });
+    if (!pathCheck.valid) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ success: false, error: pathCheck.error }) }],
+        isError: true,
+      };
+    }
+
     const { ingestDocument, ingestDirectory } = await import('../knowledge/document-pipeline.js');
     const fs = await import('node:fs');
     const pathMod = await import('node:path');
 
-    const target = pathMod.resolve(String(input.path));
+    const target = pathMod.resolve(pathCheck.sanitized!);
     const scope = String(input.scope || 'shared');
 
     try {
