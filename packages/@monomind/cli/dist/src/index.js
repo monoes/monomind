@@ -418,13 +418,14 @@ export class CLI {
      * to the live runtime.
      */
     async initSubsystems() {
-        // Start the @monomind/hooks WorkerManager (performance/health/swarm/git/learning/
-        // adr/ddd/security/patterns/cache/progress) — previously implemented but never invoked
-        try {
-            const { workerManager } = await import('@monomind/hooks');
-            await workerManager.start();
-        }
-        catch { /* optional */ }
+        // NOTE: the @monomind/hooks WorkerManager is intentionally NOT started
+        // here. Workers run from the session-restore hook (6h staleness gate) and
+        // on demand via `monomind hooks worker run <name>`. Starting it on every
+        // CLI invocation scheduled staggered 1-10s timers that usually died with
+        // the process — but long-lived commands (browse: Chrome launch + CDP work)
+        // outlived the stagger, so the consolidate worker fired mid-command,
+        // loaded the onnxruntime embedding model, and its thread pool crashed the
+        // process at exit ("mutex lock failed: Invalid argument" from libc++).
         // GAP-007: SwarmCheckpointer — write checkpoint files so crashed swarms can resume
         try {
             const { SwarmCheckpointer } = await import('@monoes/memory');
