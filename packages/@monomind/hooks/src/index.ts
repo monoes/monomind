@@ -4,7 +4,7 @@
  * A LIBRARY package, not a runtime hook dispatcher. It provides hook type
  * definitions (HookEvent, HookHandler, HookPriority), an in-memory
  * HookRegistry/HookExecutor for defining handlers, and a WorkerManager with
- * 11 background workers (performance, health, swarm, git, learning, adr,
+ * 15 background workers (performance, health, swarm, git, learning, adr,
  * ddd, security, patterns, cache, progress).
  *
  * NOT the authoritative hook dispatch path. The actual Claude Code hooks

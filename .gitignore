@@ -266,3 +266,9 @@ GRAPH_REPORT.md
 # LanceDB runtime database files
 *.rvf
 *.rvf.lock
+
+# local build caches and generated runtime artifacts
+.monograph/
+.claude/agents/generated/
+*.db-shm
+*.db-wal

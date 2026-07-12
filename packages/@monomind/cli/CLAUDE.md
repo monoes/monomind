@@ -1,4 +1,4 @@
-# Claude Code Configuration - Monomind v1.5
+# Claude Code Configuration - Monomind v2.0
 
 ## Skill Auto-Invocation Rules
 
@@ -264,8 +264,7 @@ Bash("npx monomind@latest hooks worker run optimize")
 - **Max Agents**: 8 (smaller = less drift)
 - **Strategy**: specialized (clear roles)
 - **Consensus**: raft
-- **Memory**: hybrid
-- **HNSW**: Pure-JS via LanceDB
+- **Memory**: hybrid (JSON patterns + SQLite; optional vector search)
 - **Routing**: keyword + route-outcomes
 
 ## CLI Commands
@@ -277,13 +276,13 @@ Bash("npx monomind@latest hooks worker run optimize")
 | `init`      | 5           | Project initialization with wizard, presets, skills, hooks               | Working         |
 | `agent`     | 7           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health)       | Working — runs in-process, no MCP server needed |
 | `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         | Working — runs in-process, no MCP server needed |
-| `memory`    | 12          | LanceDB memory with pure-JS HNSW vector search                           | Working         |
+| `memory`    | 12          | Memory store (SQLite/JSON; optional vector search)                        | Working         |
 | `mcp`       | 9           | MCP server management and tool execution                                 | Working         |
 | `task`      | 5           | Task creation, assignment, and lifecycle                                 | Working         |
 | `session`   | 6           | Session state management, persistence, and replay (`session replay`)     | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
-| `hooks`     | 26          | Self-learning hooks + 11 background workers                              | Working         |
+| `hooks`     | 29          | Self-learning hooks + 15 background workers                              | Working         |
 
 ### Advanced Commands
 
@@ -296,7 +295,7 @@ Bash("npx monomind@latest hooks worker run optimize")
 | `security`    | 6           | Security scanning (scan, audit, cve, threats, validate, report)               | Working          |
 | `performance` | 4           | Performance profiling (benchmark, profile, metrics, bottleneck) — real measurements | Working     |
 | `providers`   | 4           | AI providers (list, configure, remove, test)                                  | Working          |
-| `guidance`    | 8           | Governance control plane (compile, gates, optimize)                           | Working          |
+| `guidance`    | 1           | Governance gate setup (`guidance setup`)                                      | Working          |
 | `monograph`   | -           | Knowledge graph CLI (delegates to @monoes/monograph)                          | Working          |
 | `browse`      | -           | Browser automation via CDP (@monoes/monobrowse)                               | Working          |
 | `doctor`      | 1           | System diagnostics with health checks                                         | Working          |
@@ -337,9 +336,9 @@ npx monomind@latest performance benchmark --suite all
 
 `security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
 
-### @monomind/security
+### Input Guards (inlined into `src/utils/input-guards.ts`)
 
-CVE remediation, input validation, path security (utility functions, not standalone agent classes):
+CVE remediation, input validation, path security (utility functions inlined into the CLI — the former `@monomind/security` package was deleted):
 
 - Input validation via Zod schemas
 - Path traversal prevention utilities
@@ -369,7 +368,7 @@ CVE remediation, input validation, path security (utility functions, not standal
 
 `tdd-london-swarm`, `production-validator`
 
-## 🪝 Hooks System (26 Hook Subcommands + 15 Background Workers)
+## 🪝 Hooks System (29 Hook Subcommands + 15 Background Workers)
 
 ### All Available Hooks
 
@@ -393,7 +392,11 @@ CVE remediation, input validation, path security (utility functions, not standal
 | `transfer`         | Transfer patterns via IPFS registry      | `store`, `from-project`                     |
 | `list`             | List all registered hooks                | `--format`                                  |
 | `intelligence`     | JS pattern/trajectory logging              | `trajectory-*`, `pattern-*`, `stats`        |
+| `notify`           | Send/record a notification event         | `--message`                                 |
 | `worker`           | Background worker management             | `list`, `run`                               |
+| `model-route`      | Route to optimal model (haiku/sonnet/opus) | `--task`                                  |
+| `model-outcome`    | Record model routing outcome             | `--task-id`, `--success`                    |
+| `model-stats`      | View model routing statistics            | `--format`                                  |
 | `progress`         | Check V1 implementation progress         | `--detailed`, `--format`                    |
 | `statusline`       | Generate dynamic statusline              | `--json`, `--compact`, `--no-color`         |
 | `coverage-route`   | Route based on test coverage gaps        | `--task`, `--path`                          |
@@ -460,22 +463,6 @@ npx monomind@latest hooks statusline
 npx monomind@latest hooks statusline --json
 ```
 
-## 🔄 Migration (V2 to V1)
-
-```bash
-# Check migration status
-npx monomind@latest migrate status
-
-# Run migration with backup
-npx monomind@latest migrate run --backup
-
-# Rollback if needed
-npx monomind@latest migrate rollback
-
-# Validate migration
-npx monomind@latest migrate validate
-```
-
 ## 🧠 Intelligence System
 
 The lean build records what happens and measures whether routing helped — no neural training:
@@ -484,11 +471,11 @@ The lean build records what happens and measures whether routing helped — no n
 - **Route-outcome measurement**: correlates recommended routes with actual outcomes; accuracy/adherence surfaced by `doctor`
 - **Trajectory + outcome logging**: `intelligence.ts` records steps/trajectories; `command-outcomes.ts` tracks command results
 - **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
-- **HNSW**: pure-JS approximate nearest-neighbor via LanceDB / `@monomind/memory`
+- **HNSW**: pure-JS approximate nearest-neighbor via `@monoes/memory` (optional, not on the routing hot path)
 
 > The full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA) lives on the `monoes-full-loop` branch.
 
-## Embeddings Package (V1.0.0-alpha.12)
+## Embeddings (MCP tools + @monoes/memory)
 
 Features:
 
@@ -510,11 +497,11 @@ Features:
 
 These implement vote-counting logic in a single process (not distributed networking):
 
-- `byzantine` - BFT vote counting (tolerates f < n/3 faulty)
-- `raft` - Leader-based vote counting (tolerates f < n/2)
-- `gossip` - Epidemic for eventual consistency
-- `crdt` - Conflict-free replicated data types
-- `quorum` - Configurable quorum-based
+- `byzantine` / `bft` - BFT vote counting (requires 2f+1 votes, tolerates f < n/3 faulty)
+- `raft` - Majority vote counting (tolerates f < n/2)
+- `quorum` - Configurable preset (majority/supermajority/unanimous)
+
+`gossip` and `crdt` are planned but not implemented — `hive-mind_init` rejects them.
 
 ## Performance Targets
 
@@ -682,8 +669,8 @@ For a comprehensive overview of all Monomind features, agents, commands, and int
 This includes:
 
 - All 60+ agent type definitions (routing targets) with recommendations
-- All 32 CLI commands
-- All 26 hook subcommands + 15 background workers (@monomind/hooks)
+- All 31 CLI commands
+- All 29 hook subcommands + 15 background workers (@monomind/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, lancedb,agentic-jujutsu)

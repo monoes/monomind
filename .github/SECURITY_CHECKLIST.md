@@ -4,7 +4,7 @@ Before merging any PR that touches server routes, auth, input handling, SSE/WebS
 file system operations, or the MonoFence AI allowlist:
 
 ## Input Validation
-- [ ] All user-controlled inputs validated via `validateInput()` from `@monomind/security`
+- [ ] All user-controlled inputs validated via `validateInput()` from `packages/@monomind/cli/src/utils/input-guards.ts`
 - [ ] No raw `req.query` or `req.body` values passed directly to file operations
 - [ ] Path traversal check: no `..` in file paths derived from user input
 
