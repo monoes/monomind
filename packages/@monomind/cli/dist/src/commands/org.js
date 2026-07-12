@@ -37,12 +37,15 @@ const runAction = async (ctx) => {
     if (!validated.ok)
         return validated.result;
     const name = validated.name;
-    const daemon = new OrgDaemon(ctx.cwd);
+    const crossProcess = ctx.flags['crossProcess'] !== false;
+    const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
     let srv;
     if (ctx.flags['serve'] !== false) {
         const port = Number(ctx.flags['port'] ?? 4243);
         srv = await startOrgServer(daemon, port);
         log(output.info(`org live view: http://localhost:${srv.port}`));
+        if (crossProcess)
+            daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
     }
     const running = await daemon.startOrg(name, ctx.flags['task']);
     log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
@@ -96,9 +99,12 @@ const statusAction = async (ctx) => {
     return { success: true };
 };
 const serveAction = async (ctx) => {
-    const daemon = new OrgDaemon(ctx.cwd);
+    const crossProcess = ctx.flags['crossProcess'] !== false;
+    const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
     const srv = await startOrgServer(daemon, Number(ctx.flags['port'] ?? 4243));
     log(output.info(`org daemon serving on http://localhost:${srv.port} — Ctrl-C to stop`));
+    if (crossProcess)
+        daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
     // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
     const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
     const sched = new OrgScheduler(async (name, intervalMs) => {
@@ -280,6 +286,7 @@ export const orgCommand = {
                 { name: 'task', description: 'Override the org goal for this run', type: 'string' },
                 { name: 'serve', description: 'Serve the live dashboard (default true)', type: 'boolean', default: true },
                 { name: 'port', description: 'Live dashboard port', type: 'number', default: 4243 },
+                { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
             ],
             examples: [{ command: 'monomind org run growth --task "weekly report"', description: 'Run the growth org once with a task' }],
             action: runAction,
@@ -288,7 +295,10 @@ export const orgCommand = {
         { name: 'status', description: 'Show runtime state of orgs', action: statusAction },
         {
             name: 'serve', description: 'Start the daemon server only (hosts scheduled orgs)',
-            options: [{ name: 'port', description: 'Port', type: 'number', default: 4243 }],
+            options: [
+                { name: 'port', description: 'Port', type: 'number', default: 4243 },
+                { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
+            ],
             action: serveAction,
         },
         {
