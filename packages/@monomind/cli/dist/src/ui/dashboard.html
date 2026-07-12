@@ -2663,6 +2663,7 @@ function switchProject(path) {
   // Reset Monograph cache so it reloads for the new project
   _mgLoaded = false;
   _mgGraph = null;
+  window._mgRealTotals = null;
   document.getElementById('sb-proj').textContent = path.split('/').filter(Boolean).pop() || '—';
   document.getElementById('sb-path').textContent = path;
   _showNavProjectCtx(path);
@@ -3174,9 +3175,10 @@ async function loadStatusStrip() {
   const strip = document.getElementById('status-strip');
   if (!strip || !DIR) return;
   try {
-    const [statusRes, memRes] = await Promise.allSettled([
+    const [statusRes, memRes, metricsRes] = await Promise.allSettled([
       apiFetch('/api/status?dir=' + enc(DIR)),
       apiFetch('/api/memory/stats?dir=' + enc(DIR)),
+      apiFetch('/api/section?name=metrics&dir=' + enc(DIR)),
     ]);
     const checks = statusRes.status === 'fulfilled'
       ? (Array.isArray(statusRes.value) ? statusRes.value : (statusRes.value?.checks || []))
@@ -3193,14 +3195,26 @@ async function loadStatusStrip() {
       pills.push(`<span class="ss-pill ${cls}">${esc(c.name || c.label || c.key || '?')}</span>`);
     });
 
-    // HNSW status
-    const hnswOn = mem.hnsw === true || mem.hnswEnabled === true || mem.hnsw_enabled === true;
-    pills.push(`<span class="ss-pill ${hnswOn ? 'on' : ''}">HNSW ${hnswOn ? 'ON' : 'OFF'}</span>`);
-
     // Patterns count
     if (mem.patterns != null) {
       pills.push(`<span class="ss-pill">PATTERNS ${Number(mem.patterns).toLocaleString()}</span>`);
     }
+
+    // Worker freshness (metrics.workers = [{name, exists, ageMs}])
+    const metricsSec = metricsRes.status === 'fulfilled'
+      ? (metricsRes.value?.metrics || metricsRes.value || {})
+      : {};
+    const workers = Array.isArray(metricsSec.workers) ? metricsSec.workers : [];
+    const fmtAge = ms => ms < 3600e3 ? Math.round(ms / 60e3) + 'm'
+      : ms < 86400e3 ? Math.round(ms / 3600e3) + 'h'
+      : Math.round(ms / 86400e3) + 'd';
+    workers.forEach(w => {
+      if (!w || !w.name) return;
+      const fresh = w.exists && typeof w.ageMs === 'number' && w.ageMs < 12 * 3600e3;
+      const cls = !w.exists ? '' : (fresh ? 'on' : 'warn');
+      const ageTxt = !w.exists ? 'missing' : (typeof w.ageMs === 'number' ? fmtAge(w.ageMs) : '?');
+      pills.push(`<span class="ss-pill ${cls}" title="worker ${esc(w.name)}: ${esc(ageTxt)}">⚙ ${esc(w.name)}</span>`);
+    });
 
     // Chunks count
     if (mem.chunks != null) {
@@ -3506,8 +3520,20 @@ async function loadMemUsagePeriod(btn, period) {
     }
 
     const totalCost = typeof s.todayCost === 'number' ? s.todayCost : (typeof s.cost === 'number' ? s.cost : null);
-    const cacheEff = s.cacheTokens && s.totalTokensIn
-      ? Math.round(s.cacheTokens / s.totalTokensIn * 100) : null;
+    // Cache efficiency = cacheRead / (cacheRead + input), capped at 100%.
+    // (The old cacheTokens/totalTokensIn math exceeded 100% because cache
+    // reads are not included in the input-token total.)
+    const cacheEff = s.cacheTokens
+      ? Math.min(100, Math.round(s.cacheTokens / (s.cacheTokens + (Number(s.totalTokensIn) || 0)) * 100))
+      : null;
+
+    // Projects rows sometimes arrive without a usable name — fall back to
+    // the directory basename, then 'unknown'.
+    const projRows = projects.map(p => {
+      const raw = (p.project && p.project !== '?') ? p.project : (p.name && p.name !== '?' ? p.name : '');
+      const base = String(p.dir || p.path || '').split('/').filter(Boolean).pop() || '';
+      return Object.assign({}, p, { project: raw || base || 'unknown' });
+    });
 
     content.innerHTML = `
       <!-- Overview stats -->
@@ -3536,8 +3562,8 @@ async function loadMemUsagePeriod(btn, period) {
       <div style="margin-bottom:14px">${barChart(mcps, 'count', 'server', 'oklch(70% 0.18 60)', 8)}</div>` : ''}
 
       <!-- Projects -->
-      ${projects.length ? `<div class="m-group-title" style="margin-bottom:6px">Projects</div>
-      <div style="margin-bottom:14px">${barChart(projects, 'cost', 'project', 'oklch(65% 0.15 150)', 5)}</div>` : ''}
+      ${projRows.length ? `<div class="m-group-title" style="margin-bottom:6px">Projects</div>
+      <div style="margin-bottom:14px">${barChart(projRows, 'cost', 'project', 'oklch(65% 0.15 150)', 5)}</div>` : ''}
 
       <!-- Fallback: session breakdown table if no breakdown data -->
       ${!models.length && !tools.length && rows.length ? `
@@ -6274,7 +6300,6 @@ const _v2AvatarKnown = new Set([
   'quorum-manager','consensus-coordinator','perf-analyzer','benchmarker',
   'task-orchestrator','memory-coordinator','load-balancer','resource-allocator',
   'pr-manager','code-review-swarm','issue-tracker','release-manager','repo-architect',
-  'workflow-automation','sparc-coord','sparc-coder','specification','pseudocode',
   'architecture','refinement','backend-dev','frontend-developer','mobile-dev',
   'ml-developer','cicd-engineer','system-architect','ai-engineer','model-qa',
   'data-engineer','analytics-reporter','experiment-tracker','data-consolidator',
@@ -8227,7 +8252,7 @@ function v2RenderOrgConfig() {
   const rc = d.run_config || {};
   const gov = (d.governance && typeof d.governance === 'object') ? d.governance : { policy: d.governance || 'auto' };
   const topos = ['hierarchical','hierarchical-mesh','mesh','star','ring','adaptive','hybrid'];
-  const modes = ['daemon','once','scheduled'];
+  const modes = [{ v: 'daemon', l: 'persistent (daemon)' }, { v: 'once', l: 'once' }, { v: 'scheduled', l: 'scheduled' }];
   const statuses = ['active','paused','archived'];
   const govPolicies = ['auto','board','strict'];
   const inp = (id,val,type,extra) => '<input class="filter-input" id="'+id+'" type="'+(type||'text')+'" value="'+esc(String(val??''))+'" '+(extra||'')+' style="width:100%;box-sizing:border-box">';
@@ -8239,7 +8264,7 @@ function v2RenderOrgConfig() {
       fld('Name', inp('oc-name', d.name||'','text','readonly style="opacity:0.5"'))
       +fld('Status', sel('oc-status', statuses, d.status||'active'))
       +'<div style="grid-column:1/-1">'+fld('Goal', '<textarea id="oc-goal" class="filter-input" rows="3" style="width:100%;box-sizing:border-box;resize:vertical;line-height:1.5">'+esc(d.goal||'')+'</textarea>')+'</div>'
-      +fld('Mode', sel('oc-mode', modes, d.mode||'daemon'))
+      +fld('Mode', '<select class="filter-input" id="oc-mode" style="width:100%;box-sizing:border-box;cursor:pointer">'+modes.map(o=>'<option value="'+esc(o.v)+'"'+((d.mode||'daemon')===o.v?' selected':'')+'>'+esc(o.l)+'</option>').join('')+'</select>')
       +fld('Topology', sel('oc-topology', topos, d.topology||'hierarchical'))
       +'<div style="grid-column:1/-1">'+fld('Schedule', inp('oc-schedule', d.schedule||''))+'</div>'
     )
@@ -9144,7 +9169,6 @@ const _MASTERMIND_SKILLS = [
   '/monomind:repeat','monomind:review','monomind:understand','monomind:adr',
   '/monomind:budget','monomind:graph-status','monomind:loops','monomind:swarm',
   '/swarm:development','swarm:analysis','swarm:testing','swarm:optimization',
-  '/sparc:architect','sparc:code','sparc:tdd','sparc:reviewer','sparc:security-review',
   '/github:pr-manager','github:issue-tracker','github:release-manager',
 ];
 window._allSkills = _MASTERMIND_SKILLS;
@@ -11871,8 +11895,16 @@ function renderMgOverview() {
   const E = g.edges.length;
   const avgDeg = N > 0 ? ((2 * E) / N).toFixed(1) : '0';
   const typeSet = new Set(g.nodes.map(n => n.type || n.kind || 'unknown'));
-  document.getElementById('mg-stat-nodes').textContent = N;
-  document.getElementById('mg-stat-edges').textContent = E;
+  // The graph fetch is capped at 2000 nodes — prefer real totals from the
+  // monograph report (set by mgLoadReport) and relabel honestly when capped.
+  const _capped = N >= 2000 || E >= 2000;
+  const _rt = window._mgRealTotals || null;
+  const _nEl = document.getElementById('mg-stat-nodes');
+  const _eEl = document.getElementById('mg-stat-edges');
+  _nEl.textContent = (_rt && _rt.nodes) ? Number(_rt.nodes).toLocaleString() : N;
+  _eEl.textContent = (_rt && _rt.edges) ? Number(_rt.edges).toLocaleString() : E;
+  if (_nEl.previousElementSibling) _nEl.previousElementSibling.textContent = ((_rt && _rt.nodes) || !_capped) ? 'Nodes' : 'Nodes (top 2000)';
+  if (_eEl.previousElementSibling) _eEl.previousElementSibling.textContent = ((_rt && _rt.edges) || !_capped) ? 'Edges' : 'Edges (top 2000)';
   document.getElementById('mg-stat-avgdeg').textContent = avgDeg;
   document.getElementById('mg-stat-types').textContent = typeSet.size;
 
@@ -11918,7 +11950,14 @@ function renderMgOverview() {
   else {
     const show = dead.slice(0, 12);
     deadEl.innerHTML = `<table class="mg-table"><thead><tr><th>Name</th><th>Type</th></tr></thead><tbody>` +
-      show.map(n => `<tr><td title="${esc(n.id||n.name||n.label)}">${esc(mgShortLabel(n.label||n.name||n.id||''))}</td><td>${esc(n.type||n.kind||'')}</td></tr>`).join('') +
+      show.map(n => {
+        // Prefer a real name; if the label is just a generic type word
+        // (e.g. "function"), fall back to the qualified id/path instead.
+        const raw = n.label || n.name || '';
+        const generic = !raw || /^(function|method|class|node|unknown|anonymous)$/i.test(String(raw).trim());
+        const display = generic ? (n.id || n.name || raw || '') : raw;
+        return `<tr><td title="${esc(n.id||n.name||n.label)}">${esc(mgShortLabel(display))}</td><td>${esc(n.type||n.kind||'')}</td></tr>`;
+      }).join('') +
       (dead.length > 12 ? `<tr><td colspan="2" style="color:var(--text-xs);font-size:11px">…and ${dead.length-12} more</td></tr>` : '') +
       `</tbody></table>`;
   }
@@ -12820,6 +12859,18 @@ async function mgLoadReport() {
     // Extract markdown from JSON envelope {exists, report, stats}
     const markdown = (data && data.report) ? data.report : (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
     const stats = (data && data.stats) || {};
+    // Real graph totals — the overview cards otherwise show the capped fetch size
+    const _mdN = (String(markdown).match(/\*\*Nodes\*\*:\s*([\d,]+)/i) || [])[1];
+    const _mdE = (String(markdown).match(/\*\*Edges\*\*:\s*([\d,]+)/i) || [])[1];
+    const _totN = stats.nodes || (_mdN ? Number(_mdN.replace(/,/g, '')) : null);
+    const _totE = stats.edges || (_mdE ? Number(_mdE.replace(/,/g, '')) : null);
+    if (_totN || _totE) {
+      window._mgRealTotals = { nodes: _totN, edges: _totE };
+      const nEl = document.getElementById('mg-stat-nodes');
+      const eEl = document.getElementById('mg-stat-edges');
+      if (_totN && nEl) { nEl.textContent = Number(_totN).toLocaleString(); if (nEl.previousElementSibling) nEl.previousElementSibling.textContent = 'Nodes'; }
+      if (_totE && eEl) { eEl.textContent = Number(_totE).toLocaleString(); if (eEl.previousElementSibling) eEl.previousElementSibling.textContent = 'Edges'; }
+    }
     mgRenderReport(markdown, el, stats);
   } catch (err) {
     el.innerHTML = `<div style="color:var(--red);font-size:12px">Error: ${esc(String(err))}</div>`;
@@ -13156,7 +13207,7 @@ function mgWikiFindRelated(nodeId) {
 }
 
 function mgWikiRefresh() {
-  _mgLoaded = false; _mgGraph = null;
+  _mgLoaded = false; _mgGraph = null; window._mgRealTotals = null;
   document.getElementById('mg-wiki-list').innerHTML = '<div class="loading-txt">Loading…</div>';
   loadMonograph();
 }
@@ -13383,7 +13434,7 @@ async function selectSwarmRun(idx) {
   detail.innerHTML =
     '<div style="margin-bottom:10px">' +
       '<div style="font-size:13px;font-weight:600;color:var(--text-hi)">' + esc((run.swarmId || run.id || '—').toString().slice(0, 14)) + '</div>' +
-      '<div style="font-size:11px;color:var(--text-lo);margin-top:3px">' + esc(run.topology || '—') + ' · ' + esc(run.consensus || '—') + ' · ' + (run.agentCount || 0) + ' agents</div>' +
+      '<div style="font-size:11px;color:var(--text-lo);margin-top:3px">' + esc(run.topology || '—') + ' · ' + (run.consensus ? esc(run.consensus) + ' vote-threshold' : '—') + ' · ' + (run.agentCount || 0) + ' agents</div>' +
     '</div>' +
     '<canvas id="swarm-topo-canvas" style="width:100%;max-width:380px;height:190px;display:block;border:1px solid var(--border);border-radius:6px;margin-bottom:12px"></canvas>' +
     '<div id="swarm-agent-list" style="margin-bottom:10px"></div>' +
@@ -13545,23 +13596,38 @@ function _renderChunks(list) {
     grid.innerHTML = '<div class="empty">No chunks indexed.<br><span style="font-size:11px;color:var(--text-xs)">Run /monomind:understand to build the index.</span></div>';
     return;
   }
-  grid.innerHTML = list.slice(0, 200).map(c => {
+  // Keep the rendered slice around so button handlers can look chunks up by
+  // index — interpolating chunk content into onclick attributes broke (and
+  // leaked markup) whenever the text contained quotes.
+  const shown = list.slice(0, 200);
+  window._chunksShown = shown;
+  grid.innerHTML = shown.map((c, i) => {
     const src = (c.source || c.file || '').split('/').slice(-2).join('/');
     const excerpt = (c.content || c.text || c.body || '').slice(0, 220);
     const ns = c.namespace || c.type || '';
-    const chunkId = JSON.stringify(c.id || c.path || c.source || '');
-    const chunkContent = JSON.stringify(c.content || c.text || c.body || '');
-    const chunkSrc = JSON.stringify(src);
     return '<div class="chunk-card" data-search="' + esc((src + ' ' + excerpt + ' ' + ns).toLowerCase()) + '">' +
       '<div class="chunk-src">' + esc(src || '—') + '</div>' +
       '<div class="chunk-excerpt">' + esc(excerpt) + '</div>' +
       '<div class="chunk-footer">' +
         (ns ? '<span class="chunk-ns">' + esc(ns) + '</span>' : '') +
-        '<button class="btn" style="margin-left:auto;font-size:10px;padding:1px 7px" onclick="openChunkEdit(' + chunkId + ',' + chunkContent + ',' + chunkSrc + ')">✎ Edit</button>' +
-        '<button class="btn" style="font-size:10px;padding:1px 7px;color:var(--red);border-color:var(--red)" onclick="deleteChunk(' + chunkId + ')">✕</button>' +
+        '<button class="btn" style="margin-left:auto;font-size:10px;padding:1px 7px" onclick="openChunkEditAt(' + i + ')">✎ Edit</button>' +
+        '<button class="btn" style="font-size:10px;padding:1px 7px;color:var(--red);border-color:var(--red)" onclick="deleteChunkAt(' + i + ')">✕</button>' +
       '</div>' +
     '</div>';
   }).join('');
+}
+
+function openChunkEditAt(i) {
+  const c = (window._chunksShown || [])[i];
+  if (!c) return;
+  const src = (c.source || c.file || '').split('/').slice(-2).join('/');
+  openChunkEdit(c.id || c.path || c.source || '', c.content || c.text || c.body || '', src);
+}
+
+function deleteChunkAt(i) {
+  const c = (window._chunksShown || [])[i];
+  if (!c) return;
+  deleteChunk(c.id || c.path || c.source || '');
 }
 
 function openChunkEdit(id, content, srcLabel) {
@@ -13665,7 +13731,28 @@ async function loadAgentGraphTab() {
   if (bar) bar.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
     const data = await apiFetch('/api/graph?dir=' + enc(DIR));
-    _agData = data;
+    // /api/graph returns {nodes, edges} — session nodes + agenttype nodes.
+    // Transform into the summary/sessions shape this tab renders.
+    const nodes = Array.isArray(data && data.nodes) ? data.nodes : [];
+    const sessNodes = nodes.filter(n => n.type === 'session').sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+    const agNodes = nodes.filter(n => n.type === 'agenttype');
+    const sessions = sessNodes.map(n => ({
+      id: n.id,
+      turns: n.turns || 0,
+      spawnCount: Object.values(n.agentSpawns || {}).reduce((a, b) => a + b, 0),
+      toolCount: n.totalTools || 0,
+      tools: n.toolCounts || {},
+      agentTypes: n.agentSpawns || {},
+      cost: n.cost,
+    }));
+    _agData = {
+      sessions,
+      sessionCount: sessions.length,
+      agentTypes: agNodes.length,
+      totalSpawns: agNodes.reduce((a, n) => a + (n.totalSpawns || 0), 0),
+      totalToolCalls: sessions.reduce((a, s) => a + (s.toolCount || 0), 0),
+      totalCost: sessions.reduce((a, s) => a + (Number(s.cost) || 0), 0),
+    };
     _renderAgSummary();
     _renderAgSessList();
   } catch (e) {
