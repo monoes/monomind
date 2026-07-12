@@ -23,7 +23,7 @@ export const doctorCommand = {
         { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
         {
             name: 'component', short: 'c',
-            description: 'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, monoes-tools, metrics-freshness, security-audit)',
+            description: 'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, metrics-freshness, security-audit)',
             type: 'string',
         },
         { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -86,7 +86,12 @@ export const doctorCommand = {
             'monoes-tools': checkMonoesTools,
             'metrics-freshness': checkMetricsFreshness, 'security-audit': checkSecurityAuditFindings,
         };
-        const checksToRun = (component && componentMap[component]) ? [componentMap[component]] : allChecks;
+        if (component && !componentMap[component]) {
+            output.writeln(output.error(`Unknown component: "${component}"`));
+            output.writeln(`Valid components: ${Object.keys(componentMap).sort().join(', ')}`);
+            return { success: false, exitCode: 1, data: { passed: 0, warnings: 0, failed: 1, results: [] } };
+        }
+        const checksToRun = component ? [componentMap[component]] : allChecks;
         const results = [];
         const fixes = [];
         const spinner = output.createSpinner({ text: 'Running health checks in parallel...', spinner: 'dots' });

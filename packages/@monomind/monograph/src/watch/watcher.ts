@@ -34,8 +34,17 @@ export async function watchAsync(
       do {
         rerun = false;
         opts.onProgress?.({ phase: 'watch', message: `Changed: ${files.slice(0, 3).join(', ')}` });
-        await buildAsync(repoPath, { onProgress: opts.onProgress, force: opts.force, codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0 });
-        opts.onProgress?.({ phase: 'watch', message: 'Graph rebuilt.' });
+        try {
+          await buildAsync(repoPath, { onProgress: opts.onProgress, force: opts.force, codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0 });
+          opts.onProgress?.({ phase: 'watch', message: 'Graph rebuilt.' });
+        } catch (err) {
+          // A rebuild failure (locked DB past busy_timeout, disk full, transient
+          // I/O error) must not crash the watch process — log it, notify listeners,
+          // and keep watching for the next change instead of letting an unhandled
+          // rejection escape this listener.
+          watcher.emit('monograph:error', err);
+          opts.onProgress?.({ phase: 'watch', message: `Rebuild failed: ${err instanceof Error ? err.message : String(err)}` });
+        }
       } while (rerun);
     } finally {
       building = false;

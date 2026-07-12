@@ -4448,9 +4448,9 @@ function appendChatViewEvent(ev, animate) {
   const atBottom = !animate || (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80);
   const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
   if (ev.type === 'run:start') {
-    el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + esc(ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + esc(ev.bossRole) : ''), ts);
+    el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + (ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + (ev.bossRole) : ''), ts);
   } else if (ev.type === 'run:cycle:complete') {
-    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + esc(String(ev.pending)) + ' tasks pending' : ''), ts);
+    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + (String(ev.pending)) + ' tasks pending' : ''), ts);
   } else if (ev.type === 'intercom') {
     el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
   } else if (ev.type === 'org:comms') {
@@ -4459,15 +4459,15 @@ function appendChatViewEvent(ev, animate) {
     if (ev.to && ev.to !== 'all') el = mkCVIntercom(_cvCommsFrom, ev.to, ev.msg || '', ts);
     else el = mkCVAgent(_cvCommsFrom, ev.msg || '', ts, 'org:comms');
   } else if (ev.type === 'org:agent:online') {
-    el = mkCVSys('[' + esc(ev.org || '') + '] ' + esc(ev.role || ev.title || '?') + ' online' + (ev.title && ev.role && ev.title !== ev.role ? ' (' + esc(ev.title) + ')' : ''), ts);
+    el = mkCVSys('[' + (ev.org || '') + '] ' + (ev.role || ev.title || '?') + ' online' + (ev.title && ev.role && ev.title !== ev.role ? ' (' + (ev.title) + ')' : ''), ts);
   } else if (ev.type === 'org:checkpoint') {
-    el = mkCVSys('[checkpoint] ' + esc(ev.summary || ev.progress || ev.msg || ''), ts);
+    el = mkCVSys('[checkpoint] ' + (ev.summary || ev.progress || ev.msg || ''), ts);
   } else if (ev.type === 'org:start') {
-    el = mkCVSys('[org:start] ' + esc(ev.org || ''), ts);
+    el = mkCVSys('[org:start] ' + (ev.org || ''), ts);
   } else if (ev.type === 'run:complete') {
-    el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+    el = mkCVSys('■ Run complete' + (ev.status ? ' [' + (ev.status) + ']' : ''), ts);
   } else if (ev.type === 'org:complete') {
-    el = mkCVSys('■ Org complete' + (ev.org ? ' — ' + esc(ev.org) : ''), ts);
+    el = mkCVSys('■ Org complete' + (ev.org ? ' — ' + (ev.org) : ''), ts);
   } else if (ev.type === 'agent:result') {
     el = mkCVResult(ev.agent || ev.from || '?', ev.result || ev.msg || ev.message || ev.summary || '', ts);
   } else if (ev.type === 'agent:spawn') {
@@ -4487,36 +4487,36 @@ function appendChatViewEvent(ev, animate) {
     const _auAgent = ev.role || ev.agentType || '?';
     const _auCost = ev.cost_usd != null ? '$' + Number(ev.cost_usd).toFixed(4) : '';
     const _auTok = (ev.tokens_in || ev.tokens_out) ? ((ev.tokens_in||0)).toLocaleString() + '↑ ' + ((ev.tokens_out||0)).toLocaleString() + '↓' : '';
-    el = mkCVSys('◈ ' + esc(_auAgent) + (_auTok ? ' · ' + _auTok : '') + (_auCost ? ' · ' + _auCost : ''), ts);
+    el = mkCVSys('◈ ' + (_auAgent) + (_auTok ? ' · ' + _auTok : '') + (_auCost ? ' · ' + _auCost : ''), ts);
   } else if (ev.type === 'agent:message') {
     el = mkCVAgent(ev.agent || ev.name || ev.role || '?', ev.msg || ev.message || ev.content || '', ts, ev.type);
   } else if (ev.type === 'session:start') {
-    el = mkCVSys('Session started' + (ev.prompt ? ': ' + esc(ev.prompt.slice(0,80)) : ''), ts);
+    el = mkCVSys('Session started' + (ev.prompt ? ': ' + (ev.prompt.slice(0,80)) : ''), ts);
   } else if (ev.type === 'session:complete') {
-    el = mkCVSys('Session complete' + (ev.status ? ' — ' + esc(ev.status) : ''), ts);
+    el = mkCVSys('Session complete' + (ev.status ? ' — ' + (ev.status) : ''), ts);
   } else if (ev.type === 'domain:dispatch') {
-    el = mkCVSys('→ ' + esc(ev.domain || '') + (ev.cmd ? ': ' + esc(ev.cmd.slice(0,80)) : ''), ts);
+    el = mkCVSys('→ ' + (ev.domain || '') + (ev.cmd ? ': ' + (ev.cmd.slice(0,80)) : ''), ts);
   } else if (ev.type === 'domain:complete') {
-    el = mkCVSys('✓ ' + esc(ev.domain || '') + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+    el = mkCVSys('✓ ' + (ev.domain || '') + (ev.status ? ' [' + (ev.status) + ']' : ''), ts);
   } else if (ev.type === 'loop:start') {
-    el = mkCVSys('◎ Loop: ' + esc(ev.command || '') + (ev.repeat ? ' ×' + esc(String(ev.repeat)) : ''), ts);
+    el = mkCVSys('◎ Loop: ' + (ev.command || '') + (ev.repeat ? ' ×' + (String(ev.repeat)) : ''), ts);
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'loop:complete') {
-    el = mkCVSys('■ Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + esc(String(ev.ranReps)) + ' runs)' : ''), ts);
+    el = mkCVSys('■ Loop done: ' + (ev.command || '') + (ev.ranReps ? ' (' + (String(ev.ranReps)) + ' runs)' : ''), ts);
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'loop:tick') {
     const _tickLbl = ev.rep != null
-      ? 'rep ' + esc(String(ev.rep)) + ' done' + (ev.wait != null ? ' → next in ' + esc(String(ev.wait)) + 's' : '')
-      : esc(ev.command || ev.loopId || ev.id || '');
+      ? 'rep ' + (String(ev.rep)) + ' done' + (ev.wait != null ? ' → next in ' + (String(ev.wait)) + 's' : '')
+      : (ev.command || ev.loopId || ev.id || '');
     el = mkCVSys('◷ ' + _tickLbl, ts);
     el.dataset.evType = 'loop:tick';
     if (feed.lastElementChild?.dataset?.evType === 'loop:tick') feed.lastElementChild.remove();
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'loop:hil' || ev.type === 'loop:hil:waiting') {
-    el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.loopId || ev.id || ''), ts);
+    el = mkCVSys('⚠ Loop HIL: ' + (ev.command || ev.loopId || ev.id || ''), ts);
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'loop:hil:resolved') {
-    el = mkCVSys('✓ Loop HIL resolved: ' + esc(ev.loopId || ev.command || ''), ts);
+    el = mkCVSys('✓ Loop HIL resolved: ' + (ev.loopId || ev.command || ''), ts);
     if (currentView === 'loops') renderLoops();
   } else if (ev.type === 'file:write') {
     el = mkCVFileCard(ev.name || ev.path || '?', ev.path || '', ev.size || 0, ts);
@@ -4527,12 +4527,12 @@ function appendChatViewEvent(ev, animate) {
   } else if (ev.type === 'agent:browse') {
     el = mkCVTool('BROWSE', ev.payload || ev.url || '', '', 'oklch(65% 0.15 190)', ts);
   } else if (ev.type === 'org:agent:offline') {
-    el = mkCVSys('◌ ' + esc(ev.title || ev.role || '?') + ' offline' + (ev.org ? ' [' + esc(ev.org) + ']' : ''), ts);
+    el = mkCVSys('◌ ' + (ev.title || ev.role || '?') + ' offline' + (ev.org ? ' [' + (ev.org) + ']' : ''), ts);
   } else if (ev.type === 'org:error') {
-    el = mkCVSys('⚠ Error: ' + esc(ev.msg || ev.error || ev.message || ''), ts);
+    el = mkCVSys('⚠ Error: ' + (ev.msg || ev.error || ev.message || ''), ts);
     el.classList.add('cv-err');
   } else {
-    el = mkCVSys(esc(ev.type || 'event'), ts);
+    el = mkCVSys((ev.type || 'event'), ts);
   }
   if (animate) el.classList.add('cv-new');
   feed.appendChild(el);
@@ -4671,10 +4671,10 @@ function mkCVTool(tag, cmd, output, color, ts) {
   return d;
 }
 
-function mkCVSys(html, ts) {
+function mkCVSys(text, ts) {
   const d = document.createElement('div');
   d.className = 'cv-msg cv-sys';
-  d.innerHTML = `<div class="cv-bub"><span class="cv-etype">SYS</span><span class="cv-text">${html}</span><span class="cv-ts">${ts}</span></div>`;
+  d.innerHTML = `<div class="cv-bub"><span class="cv-etype">SYS</span><span class="cv-text">${esc(text)}</span><span class="cv-ts">${ts}</span></div>`;
   return d;
 }
 
@@ -8014,18 +8014,18 @@ function _odtAppendEvent(ev, animate) {
   const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
   let el;
   if (ev.type === 'run:start') {
-    el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + esc(ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + esc(ev.bossRole) : ''), ts);
+    el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + (ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + (ev.bossRole) : ''), ts);
   } else if (ev.type === 'run:cycle:complete') {
-    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + esc(String(ev.pending)) + ' tasks pending' : ''), ts);
+    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + (String(ev.pending)) + ' tasks pending' : ''), ts);
   } else if (ev.type === 'run:complete') {
-    el = mkCVSys('■ Run complete' + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+    el = mkCVSys('■ Run complete' + (ev.status ? ' [' + (ev.status) + ']' : ''), ts);
   } else if (ev.type === 'org:comms') {
     // Some older runs use ev.role instead of ev.from — normalise before rendering
     const _commsFrom = ev.from || ev.role || 'boss';
     if (ev.to && ev.to !== 'all') el = mkCVIntercom(_commsFrom, ev.to, ev.msg || '', ts);
     else el = mkCVAgent(_commsFrom, ev.msg || '', ts, 'org:comms');
   } else if (ev.type === 'org:agent:online') {
-    el = mkCVSys('◉ ' + esc(ev.title || ev.role || '?') + ' online', ts);
+    el = mkCVSys('◉ ' + (ev.title || ev.role || '?') + ' online', ts);
   } else if (ev.type === 'org:checkpoint') {
     el = mkCVAgent('boss', ev.summary || ev.progress || ev.msg || '', ts, 'org:checkpoint');
   } else if (ev.type === 'org:start' || ev.type === 'org:complete') {
@@ -8041,32 +8041,32 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'agent:message') {
     el = mkCVAgent(ev.agent || ev.name || ev.role || '?', ev.msg || ev.message || ev.content || '', ts, ev.type);
   } else if (ev.type === 'session:start') {
-    el = mkCVSys('▶ ' + esc((ev.prompt || '').replace(/^running org:\s*/i,'').slice(0,80) || 'Session started'), ts);
+    el = mkCVSys('▶ ' + ((ev.prompt || '').replace(/^running org:\s*/i,'').slice(0,80) || 'Session started'), ts);
   } else if (ev.type === 'session:complete') {
-    el = mkCVSys('■ Complete' + (ev.status ? ' — ' + esc(ev.status) : ''), ts);
+    el = mkCVSys('■ Complete' + (ev.status ? ' — ' + (ev.status) : ''), ts);
   } else if (ev.type === 'domain:dispatch') {
-    el = mkCVSys('→ ' + esc(ev.domain || '') + (ev.cmd ? ': ' + esc(ev.cmd.slice(0,80)) : ''), ts);
+    el = mkCVSys('→ ' + (ev.domain || '') + (ev.cmd ? ': ' + (ev.cmd.slice(0,80)) : ''), ts);
   } else if (ev.type === 'domain:complete') {
-    el = mkCVSys('✓ ' + esc(ev.domain || '') + (ev.status ? ' [' + esc(ev.status) + ']' : ''), ts);
+    el = mkCVSys('✓ ' + (ev.domain || '') + (ev.status ? ' [' + (ev.status) + ']' : ''), ts);
   } else if (ev.type === 'loop:start') {
-    el = mkCVSys('Loop: ' + esc(ev.command || ''), ts);
+    el = mkCVSys('Loop: ' + (ev.command || ''), ts);
   } else if (ev.type === 'loop:complete') {
-    el = mkCVSys('Loop done: ' + esc(ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
+    el = mkCVSys('Loop done: ' + (ev.command || '') + (ev.ranReps ? ' (' + ev.ranReps + ' runs)' : ''), ts);
   } else if (ev.type === 'loop:tick') {
     const _trep = ev.rep ?? ev.fromRep;
     const _tnext = ev.nextRep ?? ev.toRep;
     const tickLabel = _trep != null
-      ? 'rep ' + esc(String(_trep)) + ' done' + (_tnext != null ? ' → rep ' + esc(String(_tnext)) + (ev.wait != null ? ' in ' + esc(String(ev.wait)) + 's' : '') : '')
-      : esc(ev.command || ev.loopId || '');
+      ? 'rep ' + (String(_trep)) + ' done' + (_tnext != null ? ' → rep ' + (String(_tnext)) + (ev.wait != null ? ' in ' + (String(ev.wait)) + 's' : '') : '')
+      : (ev.command || ev.loopId || '');
     el = mkCVSys('◷ ' + tickLabel, ts);
     el.dataset.evType = 'loop:tick';
     // Collapse: replace the previous loop:tick if it's the last element — prevents the
     // feed from flooding with one entry per rep in long-running loops (e.g. --repeat 9999).
     if (feed.lastElementChild?.dataset?.evType === 'loop:tick') feed.lastElementChild.remove();
   } else if (ev.type === 'loop:hil' || ev.type === 'loop:hil:waiting') {
-    el = mkCVSys('⚠ Loop HIL: ' + esc(ev.command || ev.loopId || ''), ts);
+    el = mkCVSys('⚠ Loop HIL: ' + (ev.command || ev.loopId || ''), ts);
   } else if (ev.type === 'loop:hil:resolved') {
-    el = mkCVSys('✓ Loop HIL resolved: ' + esc(ev.loopId || ''), ts);
+    el = mkCVSys('✓ Loop HIL resolved: ' + (ev.loopId || ''), ts);
   } else if (ev.type === 'agent:edit' || ev.type === 'agent:write') {
     el = mkCVTool('EDIT', ev.payload || ev.file || ev.path || '', '', 'oklch(65% 0.20 270)', ts);
   } else if (ev.type === 'agent:bash') {
@@ -8074,15 +8074,15 @@ function _odtAppendEvent(ev, animate) {
   } else if (ev.type === 'agent:browse') {
     el = mkCVTool('BROWSE', ev.payload || ev.url || '', '', 'oklch(65% 0.15 190)', ts);
   } else if (ev.type === 'org:error') {
-    el = mkCVSys('⚠ Error: ' + esc(ev.msg || ev.error || ev.message || ''), ts);
+    el = mkCVSys('⚠ Error: ' + (ev.msg || ev.error || ev.message || ''), ts);
     el.classList.add('cv-err');
   } else if (ev.type === 'org:agent:offline') {
-    el = mkCVSys('◌ ' + esc(ev.title || ev.role || '?') + ' offline', ts);
+    el = mkCVSys('◌ ' + (ev.title || ev.role || '?') + ' offline', ts);
   } else if (ev.type === 'user:message') {
     el = mkCVAgent('you', ev.text || ev.msg || ev.message || '', ts, 'user:message');
     el.classList.add('cv-user-msg');
   } else {
-    el = mkCVSys(esc(ev.type || 'event'), ts);
+    el = mkCVSys((ev.type || 'event'), ts);
   }
   if (animate) el.classList.add('cv-new');
   feed.appendChild(el);

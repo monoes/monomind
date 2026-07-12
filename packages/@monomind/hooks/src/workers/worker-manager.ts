@@ -484,6 +484,12 @@ export class WorkerManager extends EventEmitter {
       } else if (threshold.comparison === 'lt') {
         if (value <= threshold.critical) severity = AlertSeverity.Critical;
         else if (value <= threshold.warning) severity = AlertSeverity.Warning;
+      } else if (threshold.comparison === 'eq') {
+        // Metrics compared here (pct/rate/count values) can be floating-point,
+        // so use a small epsilon tolerance instead of strict === equality.
+        const EPSILON = 1e-9;
+        if (Math.abs(value - threshold.critical) <= EPSILON) severity = AlertSeverity.Critical;
+        else if (Math.abs(value - threshold.warning) <= EPSILON) severity = AlertSeverity.Warning;
       }
 
       if (severity) {

@@ -151,7 +151,7 @@ export async function fetchTargets(port: number): Promise<CdpTarget[]> {
 
 export async function fetchNewTarget(port: number, url: string): Promise<CdpTarget> {
   // Chrome v92+ requires PUT for /json/new; GET returns 405. URL must be encoded.
-  const res = await fetch(`http://127.0.0.1:${port}/json/new?${url}`, { method: 'PUT' });
+  const res = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' });
   if (!res.ok) throw new Error(`Failed to create target: ${res.statusText}`);
   return readCdpJson(res) as Promise<CdpTarget>;
 }

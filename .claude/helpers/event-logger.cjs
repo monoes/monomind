@@ -22,15 +22,36 @@ safety.unref();
 
 const MAX_STDIN = 1024 * 1024; // 1 MiB
 
+// P3-16: mirrors hook-handler.cjs's readStdin — byte-counted, discard-whole-
+// payload-on-overflow. The old version did `if (data.length < MAX_STDIN)
+// data += c`, which silently DROPPED characters once the cap was hit instead
+// of aborting the read, so an oversized payload produced truncated, invalid
+// JSON that then failed JSON.parse downstream with the whole event (and its
+// toolName/sessionId attribution) discarded anyway — just with extra steps
+// and no signal as to why. Discarding the entire payload up front (with a
+// logged, flagged event) is equivalent in outcome but honest about it.
 function readStdin() {
   if (process.stdin.isTTY) return Promise.resolve('');
   return new Promise((resolve) => {
     let data = '';
-    const t = setTimeout(() => { process.stdin.pause(); resolve(data); }, 800);
+    let byteCount = 0;
+    let truncated = false;
+    const t = setTimeout(() => { process.stdin.pause(); resolve({ data, truncated }); }, 800);
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', c => { if (data.length < MAX_STDIN) data += c; });
-    process.stdin.on('end', () => { clearTimeout(t); resolve(data); });
-    process.stdin.on('error', () => { clearTimeout(t); resolve(data); });
+    process.stdin.on('data', c => {
+      if (truncated) return;
+      byteCount += Buffer.byteLength(c, 'utf8');
+      if (byteCount > MAX_STDIN) {
+        truncated = true;
+        process.stdin.pause();
+        clearTimeout(t);
+        resolve({ data: '', truncated: true }); // discard oversized input, same as hook-handler.cjs
+        return;
+      }
+      data += c;
+    });
+    process.stdin.on('end', () => { clearTimeout(t); resolve({ data, truncated }); });
+    process.stdin.on('error', () => { clearTimeout(t); resolve({ data, truncated }); });
     process.stdin.resume();
   });
 }
@@ -60,7 +81,14 @@ function forwardToDashboard(entry) {
 }
 
 async function main() {
-  const raw = await readStdin();
+  const stdinResult = await readStdin();
+  const raw = stdinResult.data;
+  const stdinTruncated = stdinResult.truncated;
+  if (stdinTruncated) {
+    // Oversized payload was discarded whole (see readStdin) — log it so the
+    // drop is visible instead of silently vanishing as a JSON.parse failure.
+    console.error('[event-logger] stdin payload exceeded ' + MAX_STDIN + ' bytes; discarded (event=' + eventType + ')');
+  }
   let payload = {};
   try { payload = JSON.parse(raw); } catch {}
 
@@ -80,6 +108,7 @@ async function main() {
     toolResult: payload.toolResult || payload.tool_result || undefined,
     message: payload.message || payload.notification || payload.prompt || undefined,
     raw: (raw.length < 4096) ? payload : undefined,
+    truncated: stdinTruncated || undefined,
   };
 
   // Remove undefined keys

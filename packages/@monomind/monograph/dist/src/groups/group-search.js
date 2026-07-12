@@ -6,6 +6,7 @@
 import { join } from 'path';
 import { existsSync } from 'fs';
 import Database from 'better-sqlite3';
+import { ftsSearch } from '../storage/fts-store.js';
 /**
  * Determine the monograph DB path for a given repo root.
  * Mirrors the convention used in monograph-tools.ts: <repoPath>/.monomind/monograph.db
@@ -25,28 +26,18 @@ function searchRepo(dbPath, repoName, query, perRepoLimit) {
     let db = null;
     try {
         db = new Database(dbPath, { readonly: true });
-        // Sanitize and build prefix query
-        const safeQuery = query.replace(/['"*]/g, ' ').trim();
-        if (!safeQuery)
-            return [];
-        const ftsPrefixQuery = safeQuery
-            .split(/\s+/)
-            .map((t) => t + '*')
-            .join(' ');
-        const sql = `
-      SELECT n.id, n.name, n.label, n.file_path
-      FROM nodes_fts
-      JOIN nodes n ON n.rowid = nodes_fts.rowid
-      WHERE nodes_fts MATCH ?
-      ORDER BY nodes_fts.rank
-      LIMIT ?
-    `;
-        const rows = db.prepare(sql).all(ftsPrefixQuery, perRepoLimit);
+        // Reuse the SAME ftsSearch() the single-repo `monograph_query` tool uses —
+        // its trigram-aware sanitization and MATCH/LIKE fallback (P2-15) — instead of
+        // a divergent inline query that appended `*` as if this were a prefix-match
+        // tokenizer. The trigram index needs no prefix wildcard and errors on terms
+        // shorter than 3 chars when one is appended, which silently produced empty
+        // results here before.
+        const rows = ftsSearch(db, query, perRepoLimit);
         return rows.map((r, idx) => ({
             id: `${repoName}::${r.id}`,
             name: r.name,
             label: r.label,
-            filePath: r.file_path ?? null,
+            filePath: r.filePath,
             repo: repoName,
             // Use rank position as initial score so RRF can compute correctly
             score: 1 / (60 + idx + 1),

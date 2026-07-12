@@ -191,10 +191,13 @@ describe('ConfigAdapter deep edge cases', () => {
       expect(v1.mcp.serverHost).toBe('localhost');
     });
 
-    it('should use default maxAgents of 15 when swarm.maxAgents is missing', () => {
+    it('should use the shared anti-drift default maxAgents of 8 when swarm.maxAgents is missing', () => {
+      // The adapter now falls back to config-file-manager.ts's own
+      // DEFAULT_CONFIG.swarm.maxAgents (the documented anti-drift default of
+      // 8) instead of a separately-hardcoded 15, so both code paths agree.
       const cfg = minimalSystemConfig({ swarm: { topology: 'mesh' } });
       const v1 = systemConfigToMonomindConfig(cfg);
-      expect(v1.swarm.maxAgents).toBe(15);
+      expect(v1.swarm.maxAgents).toBe(8);
     });
 
     it('should use default cacheSize when memory.maxSize is missing', () => {

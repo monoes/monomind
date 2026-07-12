@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import * as path from 'path';
 
 export class ChangedFilesError extends Error {
@@ -8,9 +8,18 @@ export class ChangedFilesError extends Error {
   }
 }
 
+// Leading '-' is rejected explicitly (not just by the character class) so a
+// value like "--output=/tmp/pwned" can't be passed through and interpreted
+// by git as a command-line option instead of a ref (git option injection).
 const VALID_REF_RE = /^[a-zA-Z0-9\-_./@~^]+$/;
 
 export function validateGitRef(ref: string): string {
+  if (ref.startsWith('-')) {
+    throw new ChangedFilesError(
+      `Invalid git ref: "${ref}". Refs must not start with '-' (would be interpreted as a git option)`,
+      'invalid_ref',
+    );
+  }
   if (VALID_REF_RE.test(ref)) {
     return ref;
   }
@@ -25,7 +34,10 @@ export async function getChangedFiles(root: string, sinceRef: string): Promise<S
 
   let output: string;
   try {
-    output = execSync(`git diff --name-only -z ${sinceRef} HEAD`, {
+    // execFileSync with array argv — no shell involved, so a `root` (cwd)
+    // containing '"' or '$(...)' cannot break out and execute arbitrary
+    // commands.
+    output = execFileSync('git', ['diff', '--name-only', '-z', sinceRef, 'HEAD'], {
       cwd: root,
       encoding: 'utf8',
     });

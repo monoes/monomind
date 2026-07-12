@@ -24,8 +24,17 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     const { fileNodes } = deps.get('structure') as StructureOutput;
     const symbolNodes: MonographNode[] = [];
     const allEdges: MonographEdge[] = [];
-    const freshNodes: MonographNode[] = [];
-    const freshEdges: MonographEdge[] = [];
+    // freshNodes/freshEdges (the cache-miss-only subset) are NOT accumulated in a
+    // parallel array during the loop — that duplicated every fresh node/edge object
+    // in memory for the entire pipeline run. Instead we record the [start, end)
+    // slice of symbolNodes/allEdges that each cache-miss file contributed, and
+    // materialize the fresh subset via a single slice pass at the end, only when
+    // it's actually needed (cacheHits > 0). On a cold build (cacheHits === 0) the
+    // fresh subset is never materialized at all, since nodesToInsert falls back to
+    // symbolNodes/allEdges directly in that case — eliminating the redundant
+    // allocation entirely for the memory-heaviest scenario.
+    const freshNodeRanges: Array<[number, number]> = [];
+    const freshEdgeRanges: Array<[number, number]> = [];
     const staleFilePaths: string[] = [];
     const parseErrors: string[] = [];
     const fileContents = new Map<string, string>();
@@ -57,7 +66,12 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
             continue;
           }
           source = readFileSync(absPath, 'utf-8');
-        } catch { continue; }
+        } catch (err) {
+          const code = (err as NodeJS.ErrnoException)?.code;
+          const detail = code || (err instanceof Error ? err.message : String(err));
+          parseErrors.push(`${fileNode.filePath}: unreadable (${detail})`);
+          continue;
+        }
         fileContents.set(fileNode.filePath ?? absPath, source);
         const result = await parseFile(absPath, source, fileNode.filePath ?? '');
         const fileSymbols: MonographNode[] = [...result.nodes];
@@ -101,10 +115,12 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
           const fileHash = cache.hashContent(source);
           cache.setDeferred(absPath, fileHash, fileSymbols, fileEdges);
         } catch { /* non-fatal */ }
+        const nodeStart = symbolNodes.length;
+        const edgeStart = allEdges.length;
         symbolNodes.push(...fileSymbols);
         allEdges.push(...fileEdges);
-        freshNodes.push(...fileSymbols);
-        freshEdges.push(...fileEdges);
+        freshNodeRanges.push([nodeStart, symbolNodes.length]);
+        freshEdgeRanges.push([edgeStart, allEdges.length]);
         // This file was re-parsed (cache miss) — its OLD node/edge set (from the
         // previous build) must be deleted before the fresh rows are inserted below,
         // otherwise a renamed/removed symbol's old row survives forever (ghost rows).
@@ -124,12 +140,17 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       const db = ctx.db;
       // Only insert freshly-parsed nodes — cached nodes are already in the DB
       // from the previous build (node IDs are deterministic from file_path + symbol).
-      // On first build (no cache hits), freshNodes === symbolNodes.
-      const nodesToInsert = cacheHits > 0 ? freshNodes : symbolNodes;
+      // On first build (no cache hits), freshNodes === symbolNodes, so the fresh
+      // subset is never materialized — symbolNodes/allEdges are used directly.
+      const freshNodes = cacheHits > 0
+        ? freshNodeRanges.flatMap(([s, e]) => symbolNodes.slice(s, e))
+        : symbolNodes;
+      const freshEdges = cacheHits > 0
+        ? freshEdgeRanges.flatMap(([s, e]) => allEdges.slice(s, e))
+        : allEdges;
+      const nodesToInsert = freshNodes;
       const knownIds = new Set(symbolNodes.map(n => n.id));
-      const edgesToInsert = cacheHits > 0
-        ? freshEdges.filter(e => knownIds.has(e.targetId))
-        : allEdges.filter(e => knownIds.has(e.targetId));
+      const edgesToInsert = freshEdges.filter(e => knownIds.has(e.targetId));
 
       // For every cache-miss file, purge its OLD node/edge set BEFORE inserting the
       // fresh parse results, inside the same transaction — otherwise a renamed or
@@ -152,8 +173,9 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     }
 
     if (cacheHits > 0) {
+      const freshNodeCount = freshNodeRanges.reduce((sum, [s, e]) => sum + (e - s), 0);
       ctx.onProgress?.({ phase: 'parse', filesProcessed: processed, totalFiles: fileNodes.length,
-        message: `cache: ${cacheHits} hits, ${cacheMisses} misses (${freshNodes.length} nodes inserted)` } as any);
+        message: `cache: ${cacheHits} hits, ${cacheMisses} misses (${freshNodeCount} nodes inserted)` } as any);
     }
 
     return { symbolNodes, allEdges, parseErrors, fileContents, cacheStats: { hits: cacheHits, misses: cacheMisses } };

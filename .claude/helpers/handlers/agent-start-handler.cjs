@@ -20,8 +20,17 @@ module.exports = {
       fs.mkdirSync(regDir, { recursive: true });
       const id = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
       const regFile = path.join(regDir, 'agent-' + id + '.json');
+      // P3-15: also stamp the agent's type/slug so handlePostTask (task-handler.cjs)
+      // can correlate a completion event back to THIS registration instead of
+      // blindly popping the oldest file — the registration previously carried no
+      // identity beyond a random id, so post-task had nothing to match against.
+      // Same field precedence as the last-dispatch.json write below, computed
+      // early so both writers agree on the agent's identity.
+      const MAX_TYPE_LEN = 128;
+      const agentType = String(hookInput.subagent_type || hookInput.agentType || hookInput.agent_type || hookInput.agentSlug || 'unknown').slice(0, MAX_TYPE_LEN);
       fs.writeFileSync(regFile, JSON.stringify({
         agentId: id,
+        agentType: agentType,
         startedAt: new Date().toISOString(),
         pid: process.pid,
       }));
@@ -69,9 +78,7 @@ module.exports = {
 
       // Write last-dispatch.json so the route handler can suppress redundant
       // suggestions on the next turn when the same agent type is recommended.
-      const MAX_TYPE_LEN = 128;
       const MAX_DESC_LEN = 500;
-      const agentType = String(hookInput.subagent_type || hookInput.agentType || hookInput.agent_type || hookInput.agentSlug || 'unknown').slice(0, MAX_TYPE_LEN);
       const agentDesc = String(hookInput.description || hookInput.prompt_description || '').slice(0, MAX_DESC_LEN);
       fs.writeFileSync(
         path.join(CWD, '.monomind', 'last-dispatch.json'),

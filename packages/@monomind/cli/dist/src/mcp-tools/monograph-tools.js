@@ -59,13 +59,6 @@ function getDbPath(repoPathOverride) {
 function text(t) {
     return { content: [{ type: 'text', text: t }] };
 }
-function ensureDbExists() {
-    const p = getDbPath();
-    if (!_isValidDb(p)) {
-        throw new Error(`Monograph index not built yet. Run monograph_build first (path: ${p}).`);
-    }
-    return p;
-}
 // ── Active watcher registry ──────────────────────────────────────────────────
 const _activeWatchers = new Map();
 function applyPprRerank(db, seedNodes, damping, maxResults) {
@@ -722,7 +715,8 @@ const monographReportTool = {
                     return `${i + 1}. **${n.name}** (${n.label}) — degree ${n.degree}${loc ? `  \`${loc}\`` : ''}`;
                 }),
             ].join('\n');
-            const outPath = resolve(input.path ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md'));
+            const rawOutPath = input.path ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md');
+            const outPath = resolve(getProjectCwd(), rawOutPath);
             const allowedRoot = resolve(getProjectCwd());
             if (outPath !== allowedRoot && !outPath.startsWith(allowedRoot + sep)) {
                 return text(`Error: path must be within the project directory (${allowedRoot})`);
@@ -960,7 +954,7 @@ const monographExportTool = {
             const edges = db.prepare('SELECT * FROM edges').all();
             const fmt = input.format;
             const requestedOut = input.outputPath ?? join(getProjectCwd(), '.monomind', 'export');
-            const outDir = resolve(requestedOut);
+            const outDir = resolve(getProjectCwd(), requestedOut);
             const allowedRoot = resolve(getProjectCwd());
             if (outDir !== allowedRoot && !outDir.startsWith(allowedRoot + sep)) {
                 return text(`Error: outputPath must be within the project directory (${allowedRoot})`);
@@ -1099,8 +1093,10 @@ const monographImpactTool = {
             const impactPath = typeof rawImpactPath === 'string' && rawImpactPath.length > MAX_IMPACT_PATH_LEN
                 ? rawImpactPath.slice(0, MAX_IMPACT_PATH_LEN) : rawImpactPath;
             const rawDepth = input.depth;
-            const depth = typeof rawDepth === 'number' && Number.isFinite(rawDepth) && rawDepth > 0
-                ? Math.min(Math.floor(rawDepth), 6) : rawDepth;
+            const depth = rawDepth === undefined
+                ? undefined
+                : (typeof rawDepth === 'number' && Number.isFinite(rawDepth) && rawDepth > 0
+                    ? Math.min(Math.floor(rawDepth), 6) : 3);
             const result = getMonographImpact(db, {
                 name: impactName,
                 filePath: impactPath,

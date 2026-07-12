@@ -1834,21 +1834,21 @@ function appendChatEvent(ev, animate) {
   } else if (ev.type === 'agent:spawn') {
     const col = dc(ev.domain);
     const name = ev.agentType || ev.from || ev.agent || 'agent';
-    el = mkAgent(name, `spawned: ${esc(ev.task||'task')}`, ts, col, 'spawn');
+    el = mkAgent(name, `spawned: ${ev.task||'task'}`, ts, col, 'spawn');
   } else if (ev.type === 'agent:complete') {
     const name = ev.agentType || ev.role || ev.from || 'agent';
     const result = (ev.result || '').slice(0, 300);
     const cost = ev.cost_usd ? ` · $${parseFloat(ev.cost_usd).toFixed(4)}` : '';
     const tools = ev.toolCalls?.length ? ` · ${ev.toolCalls.slice(0,4).join(', ')}` : '';
-    el = mkAgent(name, `${esc(result) || 'done'}${esc(tools)}${esc(cost)}`, ts, dc(ev.domain), 'complete');
+    el = mkAgent(name, `${result || 'done'}${tools}${cost}`, ts, dc(ev.domain), 'complete');
   } else if (ev.type === 'org:comms') {
-    el = mkIntercom(ev.from || 'boss', ev.to || 'agent', esc(ev.msg || ev.message || ''), ts);
+    el = mkIntercom(ev.from || 'boss', ev.to || 'agent', ev.msg || ev.message || '', ts);
   } else if (ev.type === 'agent:message') {
-    el = mkAgent(ev.agent||'agent', esc(ev.text||''), ts, dc(ev.domain), null);
+    el = mkAgent(ev.agent||'agent', ev.text||'', ts, dc(ev.domain), null);
   } else if (ev.type === 'intercom') {
-    el = mkIntercom(ev.from, ev.to, esc(ev.msg||''), ts);
+    el = mkIntercom(ev.from, ev.to, ev.msg||'', ts);
   } else if (ev.type === 'user:message') {
-    el = mkUser(esc(ev.text||ev.msg||''), ts);
+    el = mkUser(ev.text||ev.msg||'', ts);
   } else if (ev.type === 'loop:start') {
     el = mkSys(`🔁 Loop: ${esc(ev.command||'')} (${ev.repeat||'?'} runs)`, ts);
   } else if (ev.type === 'loop:complete') {
@@ -1876,13 +1876,13 @@ function mkAgent(name, text, ts, color, typeTag) {
   el.className = 'cmsg cagent';
   const tagStyle = color ? `style="border-color:${color}44;color:${color}"` : '';
   const ttag = typeTag ? `<span class="cevtype">${esc(typeTag)}</span>` : '';
-  el.innerHTML = `<div class="cmsg-meta"><span class="ctag" ${tagStyle}>${esc(name)}</span>${ttag}<span class="cts">${ts}</span></div><div class="cbubble">${text}</div>`;
+  el.innerHTML = `<div class="cmsg-meta"><span class="ctag" ${tagStyle}>${esc(name)}</span>${ttag}<span class="cts">${ts}</span></div><div class="cbubble">${esc(text)}</div>`;
   return el;
 }
 function mkIntercom(from, to, text, ts) {
   const el = document.createElement('div');
   el.className = 'cmsg cic';
-  el.innerHTML = `<div class="cmsg-meta"><span class="ctag sender">${esc(from||'?')}</span><span class="cic-arrow">→</span><span class="ctag receiver">${esc(to||'?')}</span><span class="cevtype">intercom</span><span class="cts">${ts}</span></div><div class="cbubble">${text}</div>`;
+  el.innerHTML = `<div class="cmsg-meta"><span class="ctag sender">${esc(from||'?')}</span><span class="cic-arrow">→</span><span class="ctag receiver">${esc(to||'?')}</span><span class="cevtype">intercom</span><span class="cts">${ts}</span></div><div class="cbubble">${esc(text)}</div>`;
   return el;
 }
 function mkArtifact(art, ts) {
@@ -1901,7 +1901,7 @@ function mkArtifact(art, ts) {
 function mkUser(text, ts) {
   const el = document.createElement('div');
   el.className = 'cmsg cuser';
-  el.innerHTML = `<div class="cmsg-meta" style="justify-content:flex-end"><span class="cts">${ts}</span><span class="ctag" style="border-color:oklch(68% 0.18 250 / 0.35);color:oklch(68% 0.14 250)">you</span></div><div class="cbubble">${text}</div>`;
+  el.innerHTML = `<div class="cmsg-meta" style="justify-content:flex-end"><span class="cts">${ts}</span><span class="ctag" style="border-color:oklch(68% 0.18 250 / 0.35);color:oklch(68% 0.14 250)">you</span></div><div class="cbubble">${esc(text)}</div>`;
   return el;
 }
 

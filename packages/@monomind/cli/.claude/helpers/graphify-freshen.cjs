@@ -112,18 +112,21 @@ const dbPathStr = JSON.stringify(path.join(projectDir, '.monomind', 'monograph.d
 const script = `
 import { buildAsync } from ${JSON.stringify(pathToFileURL(entryPoint).href)};
 import { unlinkSync, statSync } from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 try {
   await buildAsync(${JSON.stringify(projectDir)});
   // Vacuum if bloat ratio is high — keeps openDb fast over time.
   try {
     const dbPath = ${dbPathStr};
     const fileMB = statSync(dbPath).size / 1024 / 1024;
+    // execFileSync with array argv — no shell involved, so a project
+    // directory name containing '"' or '$(...)' cannot break out and
+    // execute arbitrary commands (P3-8).
     const liveMB = parseInt(
-      execSync('sqlite3 "' + dbPath + '" "SELECT SUM(pgsize)/1024/1024 FROM dbstat;"',
+      execFileSync('sqlite3', [dbPath, 'SELECT SUM(pgsize)/1024/1024 FROM dbstat;'],
         { encoding: 'utf-8', timeout: 30000 }).trim(), 10);
     if (fileMB > 100 && liveMB / fileMB < 0.5) {
-      execSync('sqlite3 "' + dbPath + '" "VACUUM;"', { timeout: 120000 });
+      execFileSync('sqlite3', [dbPath, 'VACUUM;'], { timeout: 120000 });
     }
   } catch (_) {}
 } finally {

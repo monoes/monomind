@@ -32,27 +32,40 @@ export class HookExecutor {
   private eventEmitter?: {
     emit: (event: string, data: unknown) => void;
   };
+  // P3-20: tracks the in-flight (or settled) security-hook registration so
+  // execute() can await it before dispatching any hook — closes the race
+  // window where a call made in the same tick as construction would run
+  // without monofence guardrails. A settled promise is safe to re-await with
+  // no extra cost, so no "already awaited" guard is needed.
+  private _securityHooksReady: Promise<void>;
 
   constructor(registry?: HookRegistry) {
     this.registry = registry ?? defaultRegistry;
-    this._initSecurityHooks();
+    this._securityHooksReady = this._initSecurityHooks();
   }
 
   /**
    * Lazily wire MonoFence security hooks if the package is installed.
-   * Runs once per executor instance; failures are silently swallowed so that
-   * the hooks system works even without monofence-ai present.
+   * Runs once per executor instance. Failures are caught (not thrown) so the
+   * hooks system still works without monofence-ai present, but they are now
+   * logged so a broken/missing integration is discoverable instead of
+   * silently disabling security hooks.
    */
-  private _initSecurityHooks(): void {
-    // Fire-and-forget: do not await so the constructor stays synchronous.
-    // @ts-ignore — monofence-ai is an optional peer dep; may not be installed.
-    import('monofence-ai/hooks')
-      .then(({ registerSecurityHooks }) => {
-        registerSecurityHooks(this.registry);
-      })
-      .catch(() => {
-        // monofence-ai not installed or hooks subpath unavailable — skip.
-      });
+  private async _initSecurityHooks(): Promise<void> {
+    try {
+      // @ts-ignore — monofence-ai is an optional peer dep; may not be installed.
+      const { registerSecurityHooks } = await import('monofence-ai/hooks');
+      registerSecurityHooks(this.registry);
+    } catch (error) {
+      // monofence-ai not installed, hooks subpath unavailable, or
+      // registration failed — security hooks are inactive. Log so this is
+      // discoverable rather than perfectly silent.
+      console.warn(
+        '[HookExecutor] Failed to register monofence-ai security hooks; ' +
+          'proceeding without them:',
+        error instanceof Error ? error.message : error
+      );
+    }
   }
 
   /**
@@ -70,6 +83,11 @@ export class HookExecutor {
     context: Partial<HookContext<T>>,
     options?: HookExecutionOptions
   ): Promise<HookExecutionResult> {
+    // P3-20: ensure monofence security hooks are registered before any hook
+    // dispatch, closing the race window where execute() could run in the
+    // same tick as construction, before the async import resolved.
+    await this._securityHooksReady;
+
     const opts = { ...DEFAULT_OPTIONS, ...options };
     const startTime = Date.now();
 

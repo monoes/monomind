@@ -135,11 +135,6 @@ export { SwarmCheckpointer } from './checkpointer.js';
 export type { AgentState, SwarmCheckpoint, CheckpointMeta } from './types/checkpoint.js';
 
 
-// ===== Episodic Memory (Task 11) =====
-export { EpisodicStore } from './episodic-store.js';
-export type { Episode, EpisodicStoreConfig } from './types.js';
-
-
 // ===== Per-Agent Knowledge Base (Task 28) =====
 export { chunkDocument, KnowledgeStore, KnowledgeRetriever } from './knowledge/index.js';
 export type {
