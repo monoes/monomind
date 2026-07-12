@@ -33,6 +33,31 @@ export async function startOrgServer(daemon: OrgDaemon, port: number): Promise<O
       const org = daemon.getOrg(name);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(org ? org.busEvents() : []));
+    } else if (req.method === 'POST' && url === '/api/xdeliver') {
+      // inbound cross-process delivery — see OrgDaemon.deliverRemote() on the sending side
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        try {
+          const payload = JSON.parse(body || '{}') as {
+            toOrg?: string; toRole?: string; fromOrg?: string; fromRole?: string; subject?: string; body?: string;
+          };
+          if (!payload.toOrg || !payload.toRole || !payload.fromOrg || !payload.fromRole) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'toOrg, toRole, fromOrg, fromRole are required' }));
+            return;
+          }
+          const result = daemon.receiveRemote(
+            payload.toOrg, payload.toRole, `${payload.fromOrg}:${payload.fromRole}`,
+            payload.subject ?? '', payload.body ?? '',
+          );
+          res.writeHead(result.ok ? 200 : 404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'bad request' }));
+        }
+      });
     } else {
       res.writeHead(404); res.end('not found');
     }
