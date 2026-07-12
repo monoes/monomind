@@ -12,6 +12,14 @@ import { setupDialogAutoHandling } from './dialog.js';
 const DEFAULT_PORT = 9222;
 const LAUNCH_TIMEOUT = 10_000;
 const POLL_INTERVAL = 200;
+const BROWSER_CLOSE_TIMEOUT_MS = 3000;
+
+// Tracks the PID of Chrome instances *we* spawned, keyed by CDP port, so
+// closeBrowser() has a kill fallback when the graceful `Browser.close` CDP
+// command fails or times out (e.g. a hung renderer). Ports we merely attached
+// to (already-running browser) are never recorded here — we only ever kill
+// processes we launched ourselves.
+const launchedPids = new Map<number, number>();
 
 function findChrome(executablePath?: string): string {
   if (executablePath) {
@@ -131,6 +139,7 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
     stdio: 'ignore',
   });
   child.unref();
+  if (child.pid) launchedPids.set(port, child.pid);
 
   const deadline = Date.now() + LAUNCH_TIMEOUT;
   while (Date.now() < deadline) {
@@ -196,6 +205,52 @@ export async function connectToTarget(port: number, targetId?: string): Promise<
 
   await enableSessionDomains(client, sessionId);
   return { client, target, sessionId };
+}
+
+/**
+ * Cleanly terminate a Chrome/Chromium instance we launched on `port`.
+ * Sends the `Browser.close` CDP command (the correct graceful shutdown —
+ * closes all tabs and exits the process cleanly) over `client`'s connection.
+ * If that command fails, times out, or the connection is already gone,
+ * falls back to killing the tracked PID directly so a headed/interactive
+ * browser window (e.g. one spawned for a login/CAPTCHA flow) never lingers
+ * as a visible, authenticated, still-debuggable orphan process.
+ */
+export async function closeBrowser(client: CdpClient, port: number): Promise<void> {
+  let gracefullyClosed = false;
+  try {
+    await Promise.race([
+      client.send('Browser.close', {}),
+      new Promise<never>((_, reject) => {
+        const t = setTimeout(() => reject(new Error('Browser.close timed out')), BROWSER_CLOSE_TIMEOUT_MS);
+        t.unref?.();
+      }),
+    ]);
+    gracefullyClosed = true;
+  } catch {
+    // fall through to PID-kill fallback below
+  }
+
+  const pid = launchedPids.get(port);
+  if (pid === undefined) return; // not a process we launched — nothing to kill
+  launchedPids.delete(port);
+
+  if (!gracefullyClosed) {
+    try { process.kill(pid, 'SIGKILL'); } catch { /* already exited */ }
+    return;
+  }
+
+  // Browser.close was acknowledged — give the process a moment to exit on
+  // its own, then verify and force-kill as a safety net in case it hung.
+  const t = setTimeout(() => {
+    try {
+      process.kill(pid, 0); // throws if the process is already gone
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      /* already exited — expected path */
+    }
+  }, 1000);
+  t.unref?.();
 }
 
 export async function openUrl(client: CdpClient, sessionId: string, url: string): Promise<void> {

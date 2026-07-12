@@ -6,14 +6,37 @@ import { OrgDaemon } from '../orgrt/daemon.js';
 import { startOrgServer } from '../orgrt/server.js';
 import { ORG_DIR } from '../orgrt/types.js';
 const log = (text) => { console.log(text); };
+/** Org names are used to build filesystem paths under .monomind/orgs — reject
+ * anything that isn't a plain identifier to prevent path traversal (e.g.
+ * `monomind org stop '../../../../tmp/x'`). */
+const ORG_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/i;
+function validateOrgName(name) {
+    if (!name)
+        return { ok: false, result: { success: false, message: 'org name required' } };
+    if (!ORG_NAME_RE.test(name)) {
+        log(output.error(`Invalid org name: ${name}`));
+        return { ok: false, result: { success: false, message: 'invalid org name' } };
+    }
+    return { ok: true, name };
+}
+/** Config filenames for real orgs under orgsDir — excludes org-internal
+ * artifact files (state/goals/threads/etc) that share the .json extension. */
+const ORG_ARTIFACT_SUFFIXES = ['-state', '-goals', '-threads', '-activity', '-approvals', '-members', '-secrets', '-budgets'];
+function listOrgConfigFiles(orgsDir) {
+    return readdirSync(orgsDir)
+        .filter(f => f.endsWith('.json') && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
+}
 /** Remove a lingering stopfile so a fresh `org run` doesn't self-terminate. */
 export const clearStopfile = (cwd, name) => {
     rmSync(join(cwd, ORG_DIR, name, 'stop'), { force: true });
 };
 const runAction = async (ctx) => {
-    const name = ctx.args[0];
-    if (!name)
+    if (!ctx.args[0])
         return { success: false, message: 'org name required: monomind org run <name> [--task "..."] [--serve] [--port N]' };
+    const validated = validateOrgName(ctx.args[0]);
+    if (!validated.ok)
+        return validated.result;
+    const name = validated.name;
     const daemon = new OrgDaemon(ctx.cwd);
     let srv;
     if (ctx.flags['serve'] !== false) {
@@ -41,9 +64,10 @@ const runAction = async (ctx) => {
     return { success: true, message: `org ${name} stopped` };
 };
 const stopAction = async (ctx) => {
-    const name = ctx.args[0];
-    if (!name)
-        return { success: false, message: 'org name required' };
+    const validated = validateOrgName(ctx.args[0]);
+    if (!validated.ok)
+        return validated.result;
+    const name = validated.name;
     const { writeFileSync, mkdirSync } = await import('node:fs');
     mkdirSync(join(ctx.cwd, ORG_DIR, name), { recursive: true });
     writeFileSync(join(ctx.cwd, ORG_DIR, name, 'stop'), new Date().toISOString());
@@ -53,11 +77,20 @@ const statusAction = async (ctx) => {
     const name = ctx.args[0];
     const orgDir = join(ctx.cwd, ORG_DIR);
     const targets = name ? [name] : (existsSync(orgDir)
-        ? readdirSync(orgDir).filter(f => f.endsWith('.json')).map(f => f.replace(/\.json$/, ''))
+        ? listOrgConfigFiles(orgDir).map(f => f.replace(/\.json$/, ''))
         : []);
     for (const t of targets) {
         const rt = join(orgDir, t, 'runtime.json');
-        const state = existsSync(rt) ? JSON.parse(readFileSync(rt, 'utf8')) : { status: 'never run' };
+        let state = { status: 'never run' };
+        if (existsSync(rt)) {
+            try {
+                state = JSON.parse(readFileSync(rt, 'utf8'));
+            }
+            catch (err) {
+                log(output.warning(`${t}: could not read runtime.json (${err instanceof Error ? err.message : 'corrupt/truncated file'})`));
+                continue;
+            }
+        }
         log(output.info(`${t}: ${state.status}${state.run ? ` (run ${state.run}, pid ${state.pid})` : ''}`));
     }
     return { success: true };
@@ -136,10 +169,7 @@ const listAction = async (ctx) => {
         log(output.info('No orgs directory found. Create an org first with /mastermind:createorg'));
         return { success: true };
     }
-    const configs = readdirSync(orgsDir)
-        .filter(f => f.endsWith('.json') && !f.includes('-state') && !f.includes('-goals')
-        && !f.includes('-threads') && !f.includes('-activity') && !f.includes('-approvals')
-        && !f.includes('-members') && !f.includes('-secrets') && !f.includes('-budgets'));
+    const configs = listOrgConfigFiles(orgsDir);
     if (!configs.length) {
         log(output.info('No orgs found.'));
         return { success: true };

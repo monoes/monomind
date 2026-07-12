@@ -10,8 +10,20 @@ interface HNSWEntry {
     namespace: string;
     content: string;
 }
+/** Minimal shape of the real @monoes/memory HNSWIndex class relied on here. */
+interface RealHNSWIndex {
+    addPoint(id: string, vector: Float32Array): Promise<void>;
+    search(query: Float32Array, k: number, ef?: number): Promise<Array<{
+        id: string;
+        distance: number;
+    }>>;
+    rebuild(entries: Array<{
+        id: string;
+        vector: Float32Array;
+    }>): Promise<void>;
+}
 interface HNSWIndex {
-    db: any;
+    instance: RealHNSWIndex;
     entries: Map<string, HNSWEntry>;
     dimensions: number;
     initialized: boolean;

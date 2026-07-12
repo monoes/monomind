@@ -36,6 +36,21 @@ export class SwarmCheckpointer {
     this.dbPath = config.dbPath;
     this.swarmId = config.swarmId;
     this.sessionId = config.sessionId;
+    // Continue the step sequence across process restarts: a fresh instance
+    // must not restart step numbering from 0 while older, higher-step
+    // checkpoints already exist on disk, or latest() would keep returning
+    // the stale pre-restart checkpoint forever.
+    this.stepCounter = this.readMaxStep();
+  }
+
+  /** Read the maximum `step` value among existing checkpoints (0 if none). */
+  private readMaxStep(): number {
+    const all = this.readAll();
+    let max = 0;
+    for (const c of all) {
+      if (c.step > max) max = c.step;
+    }
+    return max;
   }
 
   // ---------------------------------------------------------------------------

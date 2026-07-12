@@ -26,7 +26,10 @@ function ensureAgentDir() {
     }
 }
 const MAX_AGENT_STORE_BYTES = 50 * 1024 * 1024;
-function loadAgentStore() {
+// Exported so other tool modules reading the same physical store file
+// (e.g. hive-mind-tools.ts) can reuse this hardened loader instead of
+// maintaining their own weaker copy (missing the size cap / __proto__ guard).
+export function loadAgentStore() {
     try {
         const path = getAgentPath();
         migrateLegacyStoreFile(path, join(AGENT_DIR, AGENT_FILE));

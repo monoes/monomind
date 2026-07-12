@@ -101,7 +101,7 @@ const PROMPT_INJECTION_PATTERNS: ThreatPattern[] = [
     type: 'jailbreak',
     severity: 'critical',
     description: 'Explicit jailbreak mention',
-    baseConfidence: 0.95,
+    baseConfidence: 0.55,
   },
   {
     pattern: /bypass\s+(your\s+)?(restrictions|limitations|rules|filters)/i,
@@ -138,7 +138,7 @@ const PROMPT_INJECTION_PATTERNS: ThreatPattern[] = [
     type: 'context_manipulation',
     severity: 'high',
     description: 'System prompt reference',
-    baseConfidence: 0.88,
+    baseConfidence: 0.55,
   },
   {
     pattern: /reveal\s+(your\s+)?(system\s+)?prompt/i,
@@ -200,7 +200,7 @@ const PROMPT_INJECTION_PATTERNS: ThreatPattern[] = [
     type: 'jailbreak',
     severity: 'high',
     description: 'Attempt to enable developer mode',
-    baseConfidence: 0.85,
+    baseConfidence: 0.55,
   },
   {
     pattern: /enable\s+(hidden|secret|special)\s+(features|mode|commands)/i,

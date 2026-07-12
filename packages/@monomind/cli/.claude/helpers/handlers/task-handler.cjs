@@ -6,6 +6,7 @@
 const path = require('path');
 const fs = require('fs');
 const { purgeStaleRegistrations } = require('../utils/agent-registrations.cjs');
+const { atomicWriteFileSync, withLock } = require('../utils/fs-helpers.cjs');
 
 module.exports = {
   handlePreTask: async function(hCtx) {
@@ -65,18 +66,24 @@ module.exports = {
         }
         // Also purge any stragglers older than 30 min (shared with agent-start-handler.cjs)
         const remaining = purgeStaleRegistrations(regDir) || 0;
+        // P2-21: shares a lock with agent-start-handler.cjs's swarm-activity.json
+        // writer (same path + '.lock') so the read-prevLastActive-then-write
+        // cycle can't race with that handler's concurrent write and silently
+        // drop whichever one wrote last — see that file for full rationale.
         const _actPath = path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json');
-        let _prevLastActive = 0;
-        try { var _actSt = fs.statSync(_actPath); if (_actSt.size < 65536) { _prevLastActive = (JSON.parse(fs.readFileSync(_actPath, 'utf-8'))?.swarm?.lastActive) || 0; } } catch { /* ignore */ }
-        fs.writeFileSync(_actPath, JSON.stringify({
-          timestamp: new Date().toISOString(),
-          swarm: {
-            active: remaining > 0,
-            agent_count: remaining,
-            coordination_active: remaining > 0,
-            lastActive: Math.max(remaining, _prevLastActive), // preserve peak across completion
-          },
-        }));
+        withLock(_actPath + '.lock', function() {
+          let _prevLastActive = 0;
+          try { var _actSt = fs.statSync(_actPath); if (_actSt.size < 65536) { _prevLastActive = (JSON.parse(fs.readFileSync(_actPath, 'utf-8'))?.swarm?.lastActive) || 0; } } catch { /* ignore */ }
+          atomicWriteFileSync(_actPath, JSON.stringify({
+            timestamp: new Date().toISOString(),
+            swarm: {
+              active: remaining > 0,
+              agent_count: remaining,
+              coordination_active: remaining > 0,
+              lastActive: Math.max(remaining, _prevLastActive), // preserve peak across completion
+            },
+          }));
+        }, 5000);
       }
     } catch (e) { /* non-fatal */ }
 

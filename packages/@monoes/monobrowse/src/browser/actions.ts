@@ -496,12 +496,22 @@ export async function removeInitScript(client: CdpClient, sessionId: string, ide
   await client.send('Page.removeScriptToEvaluateOnNewDocument', { identifier }, sessionId);
 }
 
+// Default cap on how long an evaluateJs() call waits for Runtime.evaluate to
+// resolve. Because this always passes `awaitPromise: true`, an expression
+// like `new Promise(() => {})` never settles — the underlying CdpClient.send()
+// has no timeout of its own (the CDP_RESPONSE_SIZE_LIMIT in cdp.ts only guards
+// the HTTP /json/* endpoints, not WebSocket command responses), so without
+// this the caller (e.g. the `eval` CLI command) would hang forever with
+// nothing to kill it.
+const DEFAULT_EVAL_TIMEOUT_MS = 30_000;
+
 export async function evaluateJs(
   client: CdpClient,
   sessionId: string,
-  expression: string
+  expression: string,
+  timeoutMs: number = DEFAULT_EVAL_TIMEOUT_MS
 ): Promise<unknown> {
-  const result = await client.send<{
+  const evalPromise = client.send<{
     result: { value?: unknown; type: string; description?: string };
     exceptionDetails?: { text: string; exception?: { description?: string } };
   }>('Runtime.evaluate', {
@@ -509,6 +519,16 @@ export async function evaluateJs(
     returnByValue: true,
     awaitPromise: true,
   }, sessionId);
+
+  const result = await (timeoutMs > 0
+    ? Promise.race([
+        evalPromise,
+        new Promise<never>((_, reject) => {
+          const t = setTimeout(() => reject(new Error(`JS evaluation timed out after ${timeoutMs}ms`)), timeoutMs);
+          t.unref?.();
+        }),
+      ])
+    : evalPromise);
 
   if (result.exceptionDetails) {
     throw new Error(`JS evaluation error: ${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}`);

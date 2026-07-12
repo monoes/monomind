@@ -590,9 +590,13 @@ function taskRelevance(task, nodeText) {
     return taskTerms.filter(t => txt.includes(t)).length / taskTerms.length;
 }
 // ── monograph_visualize ───────────────────────────────────────────────────────
+// Columns needed to render/export the graph — deliberately excludes `embedding`,
+// which can be several KB per node (384D vectors) and would otherwise bloat
+// tool-result payloads and written files by many MB.
+const NODE_RENDER_COLUMNS = 'id, label, name, norm_label, file_path, start_line, end_line, community_id, is_exported, language, properties';
 const monographVisualizeTool = {
     name: 'monograph_visualize',
-    description: 'Render the knowledge graph as HTML (default), SVG, or JSON.',
+    description: 'Render the knowledge graph as HTML (default), SVG, or JSON. Writes output to a file under .monomind/visualize/ and returns the file path (output can be multi-MB at the max node count, too large to return inline).',
     inputSchema: {
         type: 'object',
         properties: {
@@ -602,6 +606,7 @@ const monographVisualizeTool = {
     },
     handler: async (input) => {
         const { openDb, closeDb, toJson, toHtml, toSvg } = await import('@monoes/monograph');
+        const { writeFileSync, mkdirSync } = await import('fs');
         const db = openDb(getDbPath());
         try {
             // Cap maxNodes: passed to SQL LIMIT clause for both nodes (n) and edges
@@ -611,7 +616,7 @@ const monographVisualizeTool = {
             const limit = Number.isFinite(rawMaxNodes) && rawMaxNodes > 0
                 ? Math.min(Math.floor(rawMaxNodes), MAX_EXPORT_NODES)
                 : 500;
-            const nodes = db.prepare('SELECT * FROM nodes LIMIT ?').all(limit);
+            const nodes = db.prepare(`SELECT ${NODE_RENDER_COLUMNS} FROM nodes LIMIT ?`).all(limit);
             // Only include edges where both endpoints are in the visible node set
             const edges = db.prepare(`
         SELECT e.* FROM edges e
@@ -620,11 +625,15 @@ const monographVisualizeTool = {
         LIMIT ?
       `).all(limit, limit, limit * 3);
             const fmt = input.format ?? 'html';
-            if (fmt === 'json')
-                return text(toJson(nodes, edges));
-            if (fmt === 'svg')
-                return text(toSvg(nodes, edges));
-            return text(toHtml(nodes, edges));
+            const rendered = fmt === 'json' ? toJson(nodes, edges)
+                : fmt === 'svg' ? toSvg(nodes, edges)
+                    : toHtml(nodes, edges);
+            const ext = fmt === 'json' ? 'json' : fmt === 'svg' ? 'svg' : 'html';
+            const outDir = resolve(join(getProjectCwd(), '.monomind', 'visualize'));
+            mkdirSync(outDir, { recursive: true });
+            const outPath = join(outDir, `graph-${Date.now()}.${ext}`);
+            writeFileSync(outPath, rendered);
+            return text(`Visualization written to ${outPath} (${nodes.length} nodes, ${edges.length} edges)${ext === 'html' ? '\nNote: HTML uses the vis-network CDN script and requires network access to render.' : ''}`);
         }
         finally {
             closeDb(db);
@@ -945,7 +954,9 @@ const monographExportTool = {
         const { writeFileSync, mkdirSync } = await import('fs');
         const db = openDb(getDbPath());
         try {
-            const nodes = db.prepare('SELECT * FROM nodes').all();
+            // Exclude `embedding` — a several-KB-per-node vector column that would
+            // otherwise bloat exported files by many MB for no rendering benefit.
+            const nodes = db.prepare(`SELECT ${NODE_RENDER_COLUMNS} FROM nodes`).all();
             const edges = db.prepare('SELECT * FROM edges').all();
             const fmt = input.format;
             const requestedOut = input.outputPath ?? join(getProjectCwd(), '.monomind', 'export');
@@ -1862,21 +1873,19 @@ const monographListReposTool = {
 // ── monograph_group_contracts ─────────────────────────────────────────────────
 const monographGroupContractsTool = {
     name: 'monograph_group_contracts',
-    description: 'List public API contracts (exported symbols, interfaces, and types) for all groups defined in .monograph/groups.json.',
+    description: 'List public API contracts (exported symbols, interfaces, and types) for all groups defined in group.yaml.',
     inputSchema: {
         type: 'object',
         properties: {
-            repoPath: { type: 'string', description: 'Absolute path to the repository (defaults to cwd).' },
+            configPath: { type: 'string', description: 'Path to group.yaml (defaults to group.yaml in project cwd)' },
         },
     },
     handler: async (input) => {
         const { getGroupContracts } = await import('./monograph-compat.js');
-        const { join } = await import('path');
-        const repoPath = input.repoPath ?? getProjectCwd();
-        const configPath = join(repoPath, '.monograph', 'groups.json');
+        const configPath = input.configPath ?? join(getProjectCwd(), 'group.yaml');
         const contracts = await getGroupContracts(configPath);
         if (contracts.length === 0)
-            return text('No contracts found. Ensure groups are defined in .monograph/groups.json.');
+            return text(`No contracts found. Ensure groups are defined in ${configPath}.`);
         const lines = contracts.map(c => `[${c.groupName}] ${c.symbol} — ${c.filePath}:${c.line}`);
         return text(lines.join('\n'));
     },
@@ -1888,14 +1897,12 @@ const monographGroupStatusTool = {
     inputSchema: {
         type: 'object',
         properties: {
-            repoPath: { type: 'string', description: 'Absolute path to the repository (defaults to cwd).' },
+            configPath: { type: 'string', description: 'Path to group.yaml (defaults to group.yaml in project cwd)' },
         },
     },
     handler: async (input) => {
         const { getGroupStatus } = await import('./monograph-compat.js');
-        const { join } = await import('path');
-        const repoPath = input.repoPath ?? getProjectCwd();
-        const configPath = join(repoPath, '.monograph', 'groups.json');
+        const configPath = input.configPath ?? join(getProjectCwd(), 'group.yaml');
         const status = await getGroupStatus(configPath);
         const lines = [`Groups: ${status.totalGroups} (${status.indexedGroups} indexed, ${status.stalledGroups} stalled)`];
         for (const g of status.groups) {
@@ -2013,9 +2020,12 @@ const monographDeadCodeTool = {
           FROM nodes n
           WHERE n.label = 'File'
             AND (SELECT COUNT(*) FROM edges e WHERE e.target_id = n.id AND e.relation = 'IMPORTS') = 0
-            AND n.file_path NOT LIKE '%test%'
+            AND n.file_path NOT LIKE '%/test/%'
+            AND n.file_path NOT LIKE '%/tests/%'
+            AND n.file_path NOT LIKE '%.test.%'
             AND n.file_path NOT LIKE '%__tests__%'
-            AND n.file_path NOT LIKE '%spec%'
+            AND n.file_path NOT LIKE '%/spec/%'
+            AND n.file_path NOT LIKE '%.spec.%'
             AND n.file_path NOT LIKE '%/index.%'
             AND n.file_path NOT LIKE 'bin/%'
             AND n.file_path NOT LIKE 'scripts/%'

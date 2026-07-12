@@ -172,19 +172,6 @@ module.exports = {
 
     // Memory Palace tombstone writes removed — redundant with raw session JSONL
 
-    // ── Context Persistence Auto-Archive ─────────────────────────────────
-    // Archive conversation context so it survives compaction and new sessions
-    try {
-      var cpHook = await import('file://' + path.join(__dirname, '..', 'context-persistence-hook.mjs'));
-      if (cpHook && cpHook.archive) {
-        await hCtx.runWithTimeout(function() { return cpHook.archive(); }, 'context-persistence.archive()');
-        console.log('[CONTEXT_PERSIST] Session transcript archived');
-      } else if (cpHook && cpHook.default && cpHook.default.archive) {
-        await hCtx.runWithTimeout(function() { return cpHook.default.archive(); }, 'context-persistence.archive()');
-        console.log('[CONTEXT_PERSIST] Session transcript archived');
-      }
-    } catch (e) { /* non-fatal — context-persistence may not export archive() */ }
-
     // ── Auto-populate: write session episode for every session ─────
     // Even solo sessions (no subagents) produce an episode so the
     // route handler can surface relevant past sessions.

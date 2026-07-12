@@ -9,6 +9,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { atomicWriteFileSync } = require('./utils/fs-helpers.cjs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
@@ -54,7 +55,11 @@ function readCurrent() {
 function writeCurrent(data) {
   ensureDir();
   try {
-    fs.writeFileSync(CURRENT_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    // P2-21: tmp+rename — current.json is read+written by metric()/update()
+    // from multiple concurrent hook processes (pre-task, post-edit, etc. can
+    // all fire in one batched tool-call message); a plain writeFileSync lets
+    // a concurrent reader observe a partially-written file.
+    atomicWriteFileSync(CURRENT_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (_) {}
 }
 

@@ -6,7 +6,15 @@
  */
 
 import type { MCPTool } from './types.js';
-import { allMonographTools } from './monograph-tools.js';
+import { allMonographTools, monographTools } from './monograph-tools.js';
+
+// Advanced monograph tools are gated behind MONOGRAPH_MCP_ADVANCED=1 (see
+// monograph-tools.ts). Shims that target an advanced-tier tool must be gated
+// the same way, otherwise they re-expose advanced tools under a different
+// name regardless of the flag. `monographTools` is the already-gated export
+// (core-only unless MONOGRAPH_MCP_ADVANCED=1); a target is "advanced" if it's
+// present in allMonographTools but absent from monographTools.
+const exposedMonographNames = new Set(monographTools.map(t => t.name));
 
 function findMonographTool(name: string): MCPTool {
   const tool = allMonographTools.find(t => t.name === name);
@@ -14,7 +22,8 @@ function findMonographTool(name: string): MCPTool {
   return tool;
 }
 
-function shimTool(graphifyName: string, monographName: string, paramMap?: (input: Record<string, unknown>) => Record<string, unknown>): MCPTool {
+function shimTool(graphifyName: string, monographName: string, paramMap?: (input: Record<string, unknown>) => Record<string, unknown>): MCPTool | null {
+  if (!exposedMonographNames.has(monographName)) return null;
   const target = findMonographTool(monographName);
   return {
     name: graphifyName,
@@ -48,6 +57,6 @@ export const graphifyTools: MCPTool[] = [
   shimTool('graphify_report', 'monograph_report'),
   // Bug fix: graphify_health previously referenced `files.length` (ReferenceError) — now delegates cleanly
   shimTool('graphify_health', 'monograph_health'),
-];
+].filter((t): t is MCPTool => t !== null);
 
 export default graphifyTools;

@@ -16,6 +16,7 @@ import type { ElementRef } from './types.js';
 
 const CACHE_DIR = join(process.cwd(), '.monomind', 'monobrowse');
 const CACHE_FILE = join(CACHE_DIR, 'ax-snapshot.json');
+const PORT_FILE = join(CACHE_DIR, 'active-port.json');
 
 /** Snapshot older than this is flagged as possibly stale (page may have changed). */
 export const REF_CACHE_STALE_MS = 30_000;
@@ -86,5 +87,36 @@ export async function clearRefCache(): Promise<void> {
     await rm(CACHE_FILE, { force: true });
   } catch {
     // Nothing to clear, or not writable — non-fatal.
+  }
+}
+
+/**
+ * Persist the "active" CDP port so a later CLI invocation (each command is a
+ * fresh process — see module header) can find the browser a prior `open
+ * --port N` attached to, instead of every subsequent command silently
+ * falling back to the hardcoded default port and launching/attaching to a
+ * second, unrelated Chrome instance.
+ */
+export async function saveActivePort(port: number): Promise<void> {
+  try {
+    await mkdir(CACHE_DIR, { recursive: true });
+    await writeFile(PORT_FILE, JSON.stringify({ port, savedAt: Date.now() }));
+  } catch {
+    // Best-effort — persistence failure just means the next process falls
+    // back to the hardcoded default port, matching prior behavior.
+  }
+}
+
+/** Load the persisted active port, or null if none was ever saved / it's unreadable. */
+export async function loadActivePort(): Promise<number | null> {
+  try {
+    const raw = await readFile(PORT_FILE, 'utf8');
+    const data = JSON.parse(raw) as { port?: unknown };
+    if (typeof data.port === 'number' && Number.isInteger(data.port) && data.port >= 1024 && data.port <= 65535) {
+      return data.port;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }

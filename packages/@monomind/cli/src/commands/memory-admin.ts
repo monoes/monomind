@@ -185,19 +185,29 @@ export const statsCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Compute stats directly from the memory bridge (there is no memory_stats MCP tool)
     try {
-      const { bridgeListEntries } = await import('../memory/memory-bridge.js');
+      const { bridgeListEntries, bridgeGetBackendStats, bridgeGetDbPath } = await import('../memory/memory-bridge.js');
       const listed = await bridgeListEntries({ limit: 10000 });
       if (!listed || !listed.success) throw new Error('memory backend unavailable');
       const entries = listed.entries;
       const totalBytes = entries.reduce((s: number, e: any) => s + (e.content || '').length, 0);
       const times = entries.map((e: any) => e.updatedAt || e.createdAt).filter(Boolean).sort();
+
+      // Real configured backend (falls back to the config default when unset).
+      const memoryConfig = configManager.get(ctx.cwd, 'memory') as { backend?: string } | undefined;
+      const configuredBackend = memoryConfig?.backend || 'hybrid';
+      // The actual storage engine currently in use for reads/writes is always
+      // LanceDB (memory-bridge.ts) — report the real on-disk path, not the
+      // configured (but not-yet-wired) backend's path.
+      const backendStats = await bridgeGetBackendStats();
+      const realLocation = bridgeGetDbPath();
+
       const statsResult = {
         totalEntries: entries.length,
         totalSize: totalBytes >= 1048576 ? `${(totalBytes / 1048576).toFixed(1)} MB`
           : totalBytes >= 1024 ? `${(totalBytes / 1024).toFixed(1)} KB` : `${totalBytes} B`,
         version: 'lancedb',
-        backend: 'LanceDB',
-        location: '~/.monomind/projects/<project>/lancedb',
+        backend: `LanceDB (configured: ${configuredBackend})`,
+        location: realLocation,
         oldestEntry: times[0] ? new Date(times[0]).toISOString() : null,
         newestEntry: times.length ? new Date(times[times.length - 1]).toISOString() : null,
       };
@@ -206,7 +216,7 @@ export const statsCommand: Command = {
         backend: statsResult.backend,
         entries: {
           total: statsResult.totalEntries,
-          vectors: 0, // Would need vector backend support
+          vectors: backendStats?.totalEntries ?? statsResult.totalEntries,
           text: statsResult.totalEntries
         },
         storage: {
@@ -254,9 +264,6 @@ export const statsCommand: Command = {
           { metric: 'Newest Entry', value: stats.newestEntry || 'N/A' }
         ]
       });
-
-      output.writeln();
-      output.printInfo('v1 Performance: O(log n) pure-JS HNSW vector search');
 
       return { success: true, data: stats };
     } catch (error) {

@@ -206,18 +206,6 @@ module.exports = {
       }
     } catch (e) { /* non-fatal — hooks workers unavailable */ }
 
-    // Context Persistence Auto-Restore
-    try {
-      var cpHook = await import('file://' + path.join(helpersDir, 'context-persistence-hook.mjs'));
-      var restoreFn = (cpHook && cpHook.restore) || (cpHook && cpHook.default && cpHook.default.restore);
-      if (restoreFn) {
-        var restored = await runWithTimeout(function() { return restoreFn(); }, 'context-persistence.restore()');
-        if (restored && restored.turns > 0) {
-          console.log('[CONTEXT_RESTORED] ' + restored.turns + ' turns from previous session');
-        }
-      }
-    } catch (e) { /* non-fatal */ }
-
     // AgentKnowledgeBase — preload shared knowledge context on session restore.
     try {
       var knowledgeDir = path.join(CWD, '.monomind', 'knowledge');

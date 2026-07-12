@@ -24,6 +24,49 @@ async function getBridge() {
 }
 let hnswIndex = null;
 let hnswInitializing = false;
+/** Lazily import the pure-JS HNSWIndex class from the optional @monoes/memory package. */
+async function loadHNSWIndexClass() {
+    try {
+        const mod = await import('@monoes/memory');
+        return mod?.HNSWIndex ?? null;
+    }
+    catch {
+        return null;
+    }
+}
+/** Read entries with parseable embeddings of the expected dimension from the sql.js DB. */
+async function loadEntriesFromDb(dbPath, dimensions) {
+    if (!fs.existsSync(dbPath))
+        return [];
+    const initSqlJs = (await import('sql.js')).default;
+    const SQL = await initSqlJs();
+    const fileBuffer = fs.readFileSync(dbPath);
+    const db = new SQL.Database(fileBuffer);
+    try {
+        const { safeParseEmbedding } = await import('./memory-bridge.js');
+        const stmt = db.prepare(`SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' AND embedding IS NOT NULL LIMIT 50000`);
+        const rows = [];
+        while (stmt.step())
+            rows.push(stmt.get());
+        stmt.free();
+        const results = [];
+        for (const row of rows) {
+            const [id, key, namespace, content, embeddingJson] = row;
+            const parsed = safeParseEmbedding(embeddingJson);
+            if (!parsed || parsed.length !== dimensions)
+                continue;
+            results.push({
+                id,
+                vector: new Float32Array(parsed),
+                entry: { id, key: key || id, namespace: namespace || 'default', content: content || '' },
+            });
+        }
+        return results;
+    }
+    finally {
+        db.close();
+    }
+}
 /**
  * Get or create the HNSW index singleton
  * Lazily initializes from SQLite data on first use
@@ -50,13 +93,23 @@ export async function getHNSWIndex(options) {
     }
     hnswInitializing = true;
     try {
-        // Native @monoes/core HNSW (WASM VectorDb) was removed in the lean teardown.
-        // This function is kept for callers that check its return value — all callers
-        // already handle null by falling back to the pure-JS / brute-force path.
-        // The memory bridge (memory-bridge.ts) provides ANN search via LanceDB.
-        // Native backend removed — return null so callers use the pure-JS fallback.
+        const HNSWIndexClass = await loadHNSWIndexClass();
+        if (!HNSWIndexClass) {
+            // @monoes/memory isn't installed — no pure-JS fallback available;
+            // callers fall through to brute-force search.
+            hnswInitializing = false;
+            return null;
+        }
+        const dbPath = options?.dbPath ?? path.join(process.cwd(), '.swarm', 'memory.db');
+        const loaded = await loadEntriesFromDb(dbPath, dimensions);
+        const instance = new HNSWIndexClass({ dimensions });
+        await instance.rebuild(loaded.map((l) => ({ id: l.id, vector: l.vector })));
+        const entries = new Map();
+        for (const l of loaded)
+            entries.set(l.id, l.entry);
+        hnswIndex = { instance, entries, dimensions, initialized: true };
         hnswInitializing = false;
-        return null;
+        return hnswIndex;
     }
     catch {
         hnswInitializing = false;
@@ -90,10 +143,7 @@ export async function addToHNSWIndex(id, embedding, entry) {
         return false;
     try {
         const vector = new Float32Array(embedding);
-        await index.db.insert({
-            id,
-            vector
-        });
+        await index.instance.addPoint(id, vector);
         index.entries.set(id, entry);
         // Save metadata for persistence (debounced would be better for high-volume)
         saveHNSWMetadata();
@@ -115,7 +165,7 @@ export async function searchHNSWIndex(queryEmbedding, options) {
         const vector = new Float32Array(queryEmbedding);
         const k = options?.k ?? 10;
         // HNSW search returns results with cosine distance (lower = more similar)
-        const results = await index.db.search({ vector, k: k * 2 }); // Get extra for filtering
+        const results = await index.instance.search(vector, k * 2); // Get extra for filtering
         const filtered = [];
         for (const result of results) {
             const entry = index.entries.get(result.id);
@@ -127,7 +177,7 @@ export async function searchHNSWIndex(queryEmbedding, options) {
             }
             // Convert cosine distance to similarity score (1 - distance)
             // Cosine distance convention: 0 = identical, 2 = opposite
-            const score = 1 - (result.score / 2);
+            const score = 1 - (result.distance / 2);
             filtered.push({
                 id: entry.id.substring(0, 12),
                 key: entry.key || entry.id.substring(0, 15),

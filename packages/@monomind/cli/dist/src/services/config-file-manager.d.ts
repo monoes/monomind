@@ -7,6 +7,14 @@ export declare class ConfigFileManager {
     private config;
     /** Find config file in search paths starting from cwd */
     findConfig(cwd: string): string | null;
+    /**
+     * Load config from an EXACT file path (used by `--config <file>` / `-c`).
+     * Unlike load()/findConfig(), this never falls back to directory search —
+     * an explicitly-named config file that doesn't exist or fails to parse is
+     * an error, not a silent fallback to defaults or an unrelated file in the
+     * same directory.
+     */
+    loadExact(filePath: string): Record<string, unknown>;
     /** Load config from file, returns null if not found */
     load(cwd: string): Record<string, unknown> | null;
     /** Get the current config, loading if needed */

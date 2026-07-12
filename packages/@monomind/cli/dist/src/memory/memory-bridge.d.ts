@@ -7,6 +7,8 @@
  * @module v1/cli/memory-bridge
  */
 export declare function safeParseEmbedding(raw: string | null | undefined): number[] | null;
+/** Resolve the real on-disk LanceDB path for a given custom path (or the default). */
+export declare function bridgeGetDbPath(customPath?: string): string;
 export declare function bridgeStoreEntry(options: {
     key: string;
     value: string;
@@ -112,6 +114,11 @@ export declare function bridgeLoadEmbeddingModel(dbPath?: string): Promise<{
     dimensions: number;
     modelName: string;
     loadTime?: number;
+} | null>;
+export declare function bridgeGetBackendStats(dbPath?: string): Promise<{
+    totalEntries: number;
+    entriesByNamespace: Record<string, number>;
+    memoryUsage: number;
 } | null>;
 export declare function bridgeGetHNSWStatus(dbPath?: string): Promise<{
     built: boolean;

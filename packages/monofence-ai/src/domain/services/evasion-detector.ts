@@ -4,12 +4,13 @@ const HOMOGLYPHS: Record<string, string> = {
   // Cyrillic lookalikes (lowercase)
   'а': 'a', 'е': 'e', 'і': 'i', 'о': 'o',
   'р': 'r', 'с': 'c', 'х': 'x', 'у': 'y',
+  'ѕ': 's', 'ԁ': 'd', 'һ': 'h',
   // Cyrillic lookalikes (uppercase)
   'А': 'A', 'Е': 'E', 'І': 'I', 'О': 'O',
   'Р': 'R', 'С': 'C', 'Х': 'X', 'У': 'U',
   // Greek lookalikes
   'ο': 'o', 'α': 'a', 'ε': 'e', 'ι': 'i',
-  'ν': 'n', 'ρ': 'r', 'τ': 't',
+  'ν': 'n', 'ρ': 'r', 'τ': 't', 'Ι': 'I',
   // IPA small caps
   'ɪ': 'i', 'ɢ': 'g', 'ɴ': 'n', 'ʀ': 'r', 'ɑ': 'a',
   // Fullwidth ASCII
@@ -61,6 +62,11 @@ export class EvasionDetector {
     let result = afterNFKC;
 
     result = this.replaceHomoglyphs(result);
+    // Punctuation-separated obfuscation ("ignore-previous-instructions",
+    // "ignore.previous.instructions", "ignore_previous_instructions") must run
+    // before pattern matching since the injection regexes join words with
+    // \s+ only and never match punctuation-joined variants.
+    result = this.normalizePunctuationSeparators(result);
     result = this.collapseSpacedChars(result);
     // Leet expansion runs after space collapsing so that spaced-leet combos like
     // "i g n 0 r e" collapse to "ign0re" first, then "0" → "o" → "ignore".
@@ -102,6 +108,20 @@ export class EvasionDetector {
     });
   }
 
+  private normalizePunctuationSeparators(input: string): string {
+    // Convert runs of '.', '-', '_' between word characters into a single
+    // space, e.g. "ignore-previous-instructions" → "ignore previous
+    // instructions". Skips tokens immediately preceded by '@' so email/domain
+    // parts like "alice@example.com" are left intact.
+    return input.replace(
+      /[a-zA-Z0-9]+(?:[._-]+[a-zA-Z0-9]+)+/g,
+      (token, offset: number, full: string) => {
+        if (full[offset - 1] === '@') return token;
+        return token.replace(/[._-]+/g, ' ');
+      }
+    );
+  }
+
   private collapseSpacedChars(input: string): string {
     // "i g n o r e" → "ignore": collapse runs of space-separated single chars
     return input.replace(/(?<!\w)(\w)( \w){2,}(?!\w)/g, (match) => match.replace(/ /g, ''));
@@ -111,19 +131,38 @@ export class EvasionDetector {
     return input.replace(/[​-‏﻿⁠᠎]/g, '');
   }
 
+  /**
+   * Decode `candidate` as base64 and return the decoded text only if it looks
+   * like a genuine base64-encoded payload rather than an incidental long
+   * alphanumeric run (git SHA, JWT segment, session id, ...):
+   *   - length must be divisible by 4 (real padded base64 always satisfies this)
+   *   - the decoded bytes must be mostly printable text (>70%), not binary noise
+   */
+  private decodeIfLikelyBase64(candidate: string): string | null {
+    if (candidate.length % 4 !== 0) return null;
+    try {
+      const dec = Buffer.from(candidate, 'base64').toString('utf8');
+      if (dec.length === 0 || dec.includes('\x00')) return null;
+      let printable = 0;
+      for (let i = 0; i < dec.length; i++) {
+        const code = dec.charCodeAt(i);
+        if ((code >= 0x20 && code <= 0x7e) || code === 0x09 || code === 0x0a || code === 0x0d) {
+          printable++;
+        }
+      }
+      return printable / dec.length > 0.7 ? dec : null;
+    } catch {
+      return null;
+    }
+  }
+
   private appendDecodedBase64(original: string, current: string): string {
     const decoded: string[] = [];
     let match: RegExpExecArray | null;
     BASE64_BLOB_REGEX.lastIndex = 0;
     while ((match = BASE64_BLOB_REGEX.exec(original)) !== null) {
-      try {
-        const dec = Buffer.from(match[0], 'base64').toString('utf8');
-        if (/[\x20-\x7E]{5,}/.test(dec) && !dec.includes('\x00')) {
-          decoded.push(dec);
-        }
-      } catch {
-        // ignore invalid base64
-      }
+      const dec = this.decodeIfLikelyBase64(match[0]);
+      if (dec !== null) decoded.push(dec);
     }
     return decoded.length > 0 ? `${current} ${decoded.join(' ')}` : current;
   }
@@ -136,7 +175,10 @@ export class EvasionDetector {
     if (MIXED_LEET_TOKEN_RE.test(original)) return 'leetspeak';
     if (/(?<!\w)(\w)( \w){2,}(?!\w)/.test(original)) return 'spacing';
     BASE64_BLOB_REGEX.lastIndex = 0;
-    if (BASE64_BLOB_REGEX.test(original)) return 'base64';
+    let base64Match: RegExpExecArray | null;
+    while ((base64Match = BASE64_BLOB_REGEX.exec(original)) !== null) {
+      if (this.decodeIfLikelyBase64(base64Match[0]) !== null) return 'base64';
+    }
     return undefined;
   }
 }

@@ -190,9 +190,15 @@ export class MCPServerManager extends EventEmitter {
         if (!pid) {
             // No PID file found. Detect if we are running in stdio mode
             // (e.g., launched by Claude Code via `claude mcp add`).
-            const isStdio = !process.stdin.isTTY;
+            //
+            // SECURITY/CORRECTNESS: this must NOT fall back to a TTY heuristic
+            // (`!process.stdin.isTTY`) — that is true for ANY non-interactive
+            // invocation (piped, in CI, in a script), so it falsely reported
+            // "running" even when no server was actually started. Only trust
+            // real state: the explicit stdio-transport env var, or the
+            // `_stdioServerStarted` flag that tracks an actually-started server.
             const envTransport = process.env.MONOMIND_MCP_TRANSPORT;
-            if (isStdio || envTransport === 'stdio' || this._stdioServerStarted) {
+            if (envTransport === 'stdio' || this._stdioServerStarted) {
                 return {
                     running: true,
                     pid: process.pid,

@@ -80,6 +80,11 @@ export class HttpTransport extends EventEmitter implements ITransport {
     this.wss = new WebSocketServer({
       server: this.server,
       path: '/ws',
+      // SECURITY: mirror websocket.ts's standalone server — without an
+      // explicit maxPayload, `ws` defaults to 100MiB, which is 10x larger
+      // than the HTTP side's maxRequestSize and lets a WS client force
+      // memory allocations the HTTP body-size limit was meant to prevent.
+      maxPayload: this.parseMaxRequestSizeBytes(),
     });
 
     this.setupWebSocketHandlers();
@@ -140,6 +145,32 @@ export class HttpTransport extends EventEmitter implements ITransport {
         'override (unsafe) or configure "auth" with tokens.'
     );
     return '127.0.0.1';
+  }
+
+  /**
+   * SECURITY: Parses the same `maxRequestSize` string used for the HTTP
+   * body-size limit (e.g. "10mb") into a byte count for the embedded
+   * WebSocketServer's `maxPayload` option, so both sides of this transport
+   * enforce the same ceiling.
+   */
+  private parseMaxRequestSizeBytes(): number {
+    const raw = this.config.maxRequestSize || '10mb';
+    if (typeof raw === 'number') {
+      return raw;
+    }
+    const match = /^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?$/i.exec(raw.trim());
+    if (!match) {
+      return 10 * 1024 * 1024;
+    }
+    const value = parseFloat(match[1]);
+    const unit = (match[2] || 'b').toLowerCase();
+    const multipliers: Record<string, number> = {
+      b: 1,
+      kb: 1024,
+      mb: 1024 * 1024,
+      gb: 1024 * 1024 * 1024,
+    };
+    return Math.round(value * (multipliers[unit] ?? 1));
   }
 
   async stop(): Promise<void> {
@@ -334,10 +365,17 @@ export class HttpTransport extends EventEmitter implements ITransport {
     this.wss.on('connection', (ws, req) => {
       // Validate authentication if enabled
       if (this.config.auth?.enabled) {
+        // SECURITY: prefer the Authorization header sent during the WS
+        // upgrade handshake over a query-string credential — URLs land in
+        // access logs and intermediate proxy logs. Only fall back to the
+        // query param for clients that cannot set upgrade headers.
+        const authHeader = req.headers.authorization;
+        const fromHeader = authHeader ? authHeader.replace(/^Bearer\s+/i, '') : undefined;
         const url = new URL(req.url || '', `http://${req.headers.host}`);
-        const token = url.searchParams.get('token') || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+        const fromQuery = url.searchParams.get('token');
+        const credential = fromHeader || fromQuery || undefined;
 
-        if (!token) {
+        if (!credential) {
           this.logger.warn('WebSocket connection rejected: no authentication token');
           ws.close(4001, 'Authentication required');
           return;
@@ -347,7 +385,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
         let valid = false;
         if (this.config.auth.tokens?.length) {
           for (const validToken of this.config.auth.tokens) {
-            if (this.timingSafeCompare(token, validToken)) {
+            if (this.timingSafeCompare(credential, validToken)) {
               valid = true;
               break;
             }
@@ -418,50 +456,88 @@ export class HttpTransport extends EventEmitter implements ITransport {
       );
     }
 
-    const message = req.body;
+    try {
+      const message = req.body;
 
-    if (message.jsonrpc !== '2.0') {
-      res.status(400).json({
-        jsonrpc: '2.0',
-        id: message.id || null,
-        error: { code: -32600, message: 'Invalid JSON-RPC version' },
-      });
-      return;
-    }
-
-    if (!message.method) {
-      res.status(400).json({
-        jsonrpc: '2.0',
-        id: message.id || null,
-        error: { code: -32600, message: 'Missing method' },
-      });
-      return;
-    }
-
-    if (message.id === undefined) {
-      if (this.notificationHandler) {
-        await this.notificationHandler(message as MCPNotification);
-      }
-      res.status(204).end();
-    } else {
-      if (!this.requestHandler) {
-        res.status(500).json({
+      // SECURITY: express.json() only populates req.body when the request's
+      // Content-Type matches its configured type (application/json). Any
+      // other content type (or a missing body) leaves req.body undefined,
+      // which previously crashed this handler on `message.jsonrpc` — an
+      // uncaught TypeError inside an async Express route that Express 4
+      // does not catch, producing an unhandled rejection that can bring
+      // down the whole process. Guard explicitly before touching it.
+      if (!message || typeof message !== 'object') {
+        res.status(400).json({
           jsonrpc: '2.0',
-          id: message.id,
-          error: { code: -32603, message: 'No request handler' },
+          id: null,
+          error: {
+            code: -32600,
+            message: 'Invalid request: expected a JSON object body with Content-Type: application/json',
+          },
         });
         return;
       }
 
-      try {
-        const response = await this.requestHandler(message as MCPRequest);
-        res.json(response);
-        this.messagesSent++;
-      } catch (error) {
-        this.errors++;
+      if (message.jsonrpc !== '2.0') {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          id: message.id || null,
+          error: { code: -32600, message: 'Invalid JSON-RPC version' },
+        });
+        return;
+      }
+
+      if (!message.method) {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          id: message.id || null,
+          error: { code: -32600, message: 'Missing method' },
+        });
+        return;
+      }
+
+      if (message.id === undefined) {
+        if (this.notificationHandler) {
+          await this.notificationHandler(message as MCPNotification);
+        }
+        res.status(204).end();
+      } else {
+        if (!this.requestHandler) {
+          res.status(500).json({
+            jsonrpc: '2.0',
+            id: message.id,
+            error: { code: -32603, message: 'No request handler' },
+          });
+          return;
+        }
+
+        try {
+          const response = await this.requestHandler(message as MCPRequest);
+          res.json(response);
+          this.messagesSent++;
+        } catch (error) {
+          this.errors++;
+          res.status(500).json({
+            jsonrpc: '2.0',
+            id: message.id,
+            error: {
+              code: -32603,
+              message: error instanceof Error ? error.message : 'Internal error',
+            },
+          });
+        }
+      }
+    } catch (error) {
+      // SECURITY: catch-all so ANY unexpected exception in this handler
+      // (malformed body, unexpected shape, etc.) produces a JSON-RPC error
+      // response instead of an unhandled promise rejection that can crash
+      // the process under Node's default --unhandled-rejections=throw.
+      this.errors++;
+      this.logger.error('Unexpected error handling HTTP request', { error });
+      if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: '2.0',
-          id: message.id,
+          id: null,
           error: {
             code: -32603,
             message: error instanceof Error ? error.message : 'Internal error',

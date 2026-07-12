@@ -5,6 +5,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { claimLock } = require('../utils/fs-helpers.cjs');
 
 module.exports = {
   handle: async function(hCtx) {
@@ -84,12 +85,17 @@ module.exports = {
       var codeExts = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|cs|cpp|c|rb|swift|php)$/i;
       if (editedFile2 && codeExts.test(editedFile2)) {
         var lockFile = path.join(CWD, '.monomind', 'graph', '.rebuild-lock');
-        var now = Date.now();
-        var lastBuild = 0;
-        try { var _lkSt = fs.statSync(lockFile); if (_lkSt.size <= 32) { lastBuild = parseInt(fs.readFileSync(lockFile, 'utf-8').trim(), 10) || 0; } } catch (e) {}
         var COOLDOWN_MS = 5000; // 5-second debounce
-        if (now - lastBuild > COOLDOWN_MS) {
-          fs.writeFileSync(lockFile, String(now), 'utf-8');
+        // P2-22: claim the cooldown lock atomically (wx-create) instead of
+        // statSync-then-writeFileSync — under real Claude Code concurrency a
+        // multi-file Edit in one message fires several PostToolUse hook
+        // processes near-simultaneously, and a plain read-check-write lets
+        // ALL of them read the same stale lastBuild timestamp before any of
+        // them writes a fresh one, so every one of them passes the cooldown
+        // check and spawns its own rebuild + ua-enrich child (see the
+        // 896-orphan-process incident fixed in control-start.cjs). claimLock
+        // mirrors that same TOCTOU-safe stale-lock-breaking pattern.
+        if (claimLock(lockFile, COOLDOWN_MS)) {
           var { spawn: spawnRebuild } = require('child_process');
           var rebuildScript = "import { buildAsync } from '@monoes/monograph'; await buildAsync(" + JSON.stringify(CWD) + ");";
           var graphDir = path.join(CWD, '.monomind', 'graph');

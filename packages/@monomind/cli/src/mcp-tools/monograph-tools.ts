@@ -598,9 +598,15 @@ function taskRelevance(task: string, nodeText: string): number {
 
 // ── monograph_visualize ───────────────────────────────────────────────────────
 
+// Columns needed to render/export the graph — deliberately excludes `embedding`,
+// which can be several KB per node (384D vectors) and would otherwise bloat
+// tool-result payloads and written files by many MB.
+const NODE_RENDER_COLUMNS =
+  'id, label, name, norm_label, file_path, start_line, end_line, community_id, is_exported, language, properties';
+
 const monographVisualizeTool: MCPTool = {
   name: 'monograph_visualize',
-  description: 'Render the knowledge graph as HTML (default), SVG, or JSON.',
+  description: 'Render the knowledge graph as HTML (default), SVG, or JSON. Writes output to a file under .monomind/visualize/ and returns the file path (output can be multi-MB at the max node count, too large to return inline).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -610,6 +616,7 @@ const monographVisualizeTool: MCPTool = {
   },
   handler: async (input) => {
     const { openDb, closeDb, toJson, toHtml, toSvg } = await import('@monoes/monograph');
+    const { writeFileSync, mkdirSync } = await import('fs');
     const db = openDb(getDbPath());
     try {
       // Cap maxNodes: passed to SQL LIMIT clause for both nodes (n) and edges
@@ -619,7 +626,7 @@ const monographVisualizeTool: MCPTool = {
       const limit = Number.isFinite(rawMaxNodes) && rawMaxNodes > 0
         ? Math.min(Math.floor(rawMaxNodes), MAX_EXPORT_NODES)
         : 500;
-      const nodes = db.prepare('SELECT * FROM nodes LIMIT ?').all(limit) as any[];
+      const nodes = db.prepare(`SELECT ${NODE_RENDER_COLUMNS} FROM nodes LIMIT ?`).all(limit) as any[];
       // Only include edges where both endpoints are in the visible node set
       const edges = db.prepare(`
         SELECT e.* FROM edges e
@@ -628,9 +635,15 @@ const monographVisualizeTool: MCPTool = {
         LIMIT ?
       `).all(limit, limit, limit * 3) as any[];
       const fmt = (input.format as string | undefined) ?? 'html';
-      if (fmt === 'json') return text(toJson(nodes as any, edges as any));
-      if (fmt === 'svg') return text(toSvg(nodes as any, edges as any));
-      return text(toHtml(nodes as any, edges as any));
+      const rendered = fmt === 'json' ? toJson(nodes as any, edges as any)
+        : fmt === 'svg' ? toSvg(nodes as any, edges as any)
+        : toHtml(nodes as any, edges as any);
+      const ext = fmt === 'json' ? 'json' : fmt === 'svg' ? 'svg' : 'html';
+      const outDir = resolve(join(getProjectCwd(), '.monomind', 'visualize'));
+      mkdirSync(outDir, { recursive: true });
+      const outPath = join(outDir, `graph-${Date.now()}.${ext}`);
+      writeFileSync(outPath, rendered);
+      return text(`Visualization written to ${outPath} (${nodes.length} nodes, ${edges.length} edges)${ext === 'html' ? '\nNote: HTML uses the vis-network CDN script and requires network access to render.' : ''}`);
     } finally { closeDb(db); }
   },
 };
@@ -953,7 +966,9 @@ const monographExportTool: MCPTool = {
     const { writeFileSync, mkdirSync } = await import('fs');
     const db = openDb(getDbPath());
     try {
-      const nodes = db.prepare('SELECT * FROM nodes').all() as any[];
+      // Exclude `embedding` — a several-KB-per-node vector column that would
+      // otherwise bloat exported files by many MB for no rendering benefit.
+      const nodes = db.prepare(`SELECT ${NODE_RENDER_COLUMNS} FROM nodes`).all() as any[];
       const edges = db.prepare('SELECT * FROM edges').all() as any[];
       const fmt = input.format as string;
       const requestedOut = (input.outputPath as string | undefined) ?? join(getProjectCwd(), '.monomind', 'export');
@@ -1875,20 +1890,18 @@ const monographListReposTool: MCPTool = {
 
 const monographGroupContractsTool: MCPTool = {
   name: 'monograph_group_contracts',
-  description: 'List public API contracts (exported symbols, interfaces, and types) for all groups defined in .monograph/groups.json.',
+  description: 'List public API contracts (exported symbols, interfaces, and types) for all groups defined in group.yaml.',
   inputSchema: {
     type: 'object',
     properties: {
-      repoPath: { type: 'string', description: 'Absolute path to the repository (defaults to cwd).' },
+      configPath: { type: 'string', description: 'Path to group.yaml (defaults to group.yaml in project cwd)' },
     },
   },
   handler: async (input) => {
     const { getGroupContracts } = await import('./monograph-compat.js');
-    const { join } = await import('path');
-    const repoPath = (input as { repoPath?: string }).repoPath ?? getProjectCwd();
-    const configPath = join(repoPath, '.monograph', 'groups.json');
+    const configPath = (input.configPath as string | undefined) ?? join(getProjectCwd(), 'group.yaml');
     const contracts = await getGroupContracts(configPath);
-    if (contracts.length === 0) return text('No contracts found. Ensure groups are defined in .monograph/groups.json.');
+    if (contracts.length === 0) return text(`No contracts found. Ensure groups are defined in ${configPath}.`);
     const lines = contracts.map(c => `[${c.groupName}] ${c.symbol} — ${c.filePath}:${c.line}`);
     return text(lines.join('\n'));
   },
@@ -1902,14 +1915,12 @@ const monographGroupStatusTool: MCPTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      repoPath: { type: 'string', description: 'Absolute path to the repository (defaults to cwd).' },
+      configPath: { type: 'string', description: 'Path to group.yaml (defaults to group.yaml in project cwd)' },
     },
   },
   handler: async (input) => {
     const { getGroupStatus } = await import('./monograph-compat.js');
-    const { join } = await import('path');
-    const repoPath = (input as { repoPath?: string }).repoPath ?? getProjectCwd();
-    const configPath = join(repoPath, '.monograph', 'groups.json');
+    const configPath = (input.configPath as string | undefined) ?? join(getProjectCwd(), 'group.yaml');
     const status = await getGroupStatus(configPath);
     const lines = [`Groups: ${status.totalGroups} (${status.indexedGroups} indexed, ${status.stalledGroups} stalled)`];
     for (const g of status.groups) {
@@ -2025,9 +2036,12 @@ const monographDeadCodeTool: MCPTool = {
           FROM nodes n
           WHERE n.label = 'File'
             AND (SELECT COUNT(*) FROM edges e WHERE e.target_id = n.id AND e.relation = 'IMPORTS') = 0
-            AND n.file_path NOT LIKE '%test%'
+            AND n.file_path NOT LIKE '%/test/%'
+            AND n.file_path NOT LIKE '%/tests/%'
+            AND n.file_path NOT LIKE '%.test.%'
             AND n.file_path NOT LIKE '%__tests__%'
-            AND n.file_path NOT LIKE '%spec%'
+            AND n.file_path NOT LIKE '%/spec/%'
+            AND n.file_path NOT LIKE '%.spec.%'
             AND n.file_path NOT LIKE '%/index.%'
             AND n.file_path NOT LIKE 'bin/%'
             AND n.file_path NOT LIKE 'scripts/%'

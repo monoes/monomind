@@ -290,7 +290,7 @@ const RUST_RESOLVE_EXTS = ['.rs'];
  * Build package-name → directory map from workspace package.json files.
  * Scans packages/ for package.json and maps npm name to its relative src path.
  */
-function buildWorkspacePackageMap(repoPath: string): Map<string, string> {
+export function buildWorkspacePackageMap(repoPath: string): Map<string, string> {
   const result = new Map<string, string>();
   const packagesDir = join(repoPath, 'packages');
   try {
@@ -318,7 +318,7 @@ function buildWorkspacePackageMap(repoPath: string): Map<string, string> {
   return result;
 }
 
-function resolveModuleSpecifier(
+export function resolveModuleSpecifier(
   importerPath: string,
   specifier: string,
   repoPath: string,

@@ -99,22 +99,43 @@ export interface VectorStore {
  * Simple in-memory vector store for standalone usage
  * Replace with LanceDB in production
  */
+interface StoredEntry {
+  value: unknown;
+  embedding?: number[];
+  expiresAt?: number;
+}
+
 export class InMemoryVectorStore implements VectorStore {
-  private storage = new Map<string, Map<string, { value: unknown; embedding?: number[] }>>();
+  private storage = new Map<string, Map<string, StoredEntry>>();
 
   async store(params: {
     namespace: string;
     key: string;
     value: unknown;
     embedding?: number[];
+    ttl?: number;
   }): Promise<void> {
     if (!this.storage.has(params.namespace)) {
       this.storage.set(params.namespace, new Map());
     }
-    this.storage.get(params.namespace)!.set(params.key, {
+    const ns = this.storage.get(params.namespace)!;
+    // Lazy TTL eviction: opportunistically prune expired entries in this
+    // namespace on every write, rather than running a background timer.
+    this.pruneExpired(ns);
+    ns.set(params.key, {
       value: params.value,
       embedding: params.embedding,
+      expiresAt: params.ttl !== undefined ? Date.now() + params.ttl : undefined,
     });
+  }
+
+  private pruneExpired(ns: Map<string, StoredEntry>): void {
+    const now = Date.now();
+    for (const [key, entry] of ns) {
+      if (entry.expiresAt !== undefined && entry.expiresAt <= now) {
+        ns.delete(key);
+      }
+    }
   }
 
   async search(params: {
@@ -184,14 +205,47 @@ export class InMemoryVectorStore implements VectorStore {
 /**
  * Threat Learning Service
  */
+// Cap retained steps per trajectory — keeps only the most recent N so a
+// long-running or crash-looping session can't grow a trajectory's full-input
+// history without bound. Mirrors the 500-line rotation cap used for
+// outcomes.jsonl in .claude/helpers/intelligence.cjs.
+const MAX_STEPS_PER_TRAJECTORY = 500;
+
+// A trajectory that has seen no recordStep()/endTrajectory() activity for
+// longer than this is treated as abandoned (e.g. the owning session crashed
+// mid-trajectory) and is dropped on the next opportunistic sweep, so the
+// in-memory trajectories Map can't leak forever.
+const ORPHAN_TRAJECTORY_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
+
+interface TrackedTrajectory {
+  trajectory: LearningTrajectory;
+  lastActivityAt: number;
+}
+
 export class ThreatLearningService {
   private readonly vectorStore: VectorStore;
   private readonly namespace = 'security_threats';
   private readonly mitigationNamespace = 'security_mitigations';
-  private trajectories = new Map<string, LearningTrajectory>();
+  private trajectories = new Map<string, TrackedTrajectory>();
 
   constructor(vectorStore?: VectorStore) {
     this.vectorStore = vectorStore ?? new InMemoryVectorStore();
+  }
+
+  /**
+   * Drop trajectories that have had no activity in over
+   * ORPHAN_TRAJECTORY_MAX_AGE_MS — a lazy sweep run opportunistically from
+   * startTrajectory()/recordStep() so an abandoned trajectory (e.g. the
+   * owning session crashed before calling endTrajectory()) doesn't stay in
+   * memory forever.
+   */
+  private sweepOrphanedTrajectories(): void {
+    const now = Date.now();
+    for (const [sessionId, tracked] of this.trajectories) {
+      if (now - tracked.lastActivityAt > ORPHAN_TRAJECTORY_MAX_AGE_MS) {
+        this.trajectories.delete(sessionId);
+      }
+    }
   }
 
   /**
@@ -332,12 +386,16 @@ export class ThreatLearningService {
    * Start a learning trajectory (for ReasoningBank integration)
    */
   startTrajectory(sessionId: string, task: string): void {
+    this.sweepOrphanedTrajectories();
     this.trajectories.set(sessionId, {
-      sessionId,
-      task,
-      steps: [],
-      verdict: 'partial',
-      totalReward: 0,
+      trajectory: {
+        sessionId,
+        task,
+        steps: [],
+        verdict: 'partial',
+        totalReward: 0,
+      },
+      lastActivityAt: Date.now(),
     });
   }
 
@@ -350,16 +408,23 @@ export class ThreatLearningService {
     output: ThreatDetectionResult,
     reward: number
   ): void {
-    const trajectory = this.trajectories.get(sessionId);
-    if (!trajectory) return;
+    this.sweepOrphanedTrajectories();
+    const tracked = this.trajectories.get(sessionId);
+    if (!tracked) return;
 
-    trajectory.steps.push({
+    tracked.trajectory.steps.push({
       input,
       output,
       reward,
       timestamp: new Date(),
     });
-    trajectory.totalReward += reward;
+    // Cap retained steps — drop the oldest once over the limit so a long or
+    // crash-looping trajectory can't grow the full-input history unbounded.
+    if (tracked.trajectory.steps.length > MAX_STEPS_PER_TRAJECTORY) {
+      tracked.trajectory.steps.splice(0, tracked.trajectory.steps.length - MAX_STEPS_PER_TRAJECTORY);
+    }
+    tracked.trajectory.totalReward += reward;
+    tracked.lastActivityAt = Date.now();
   }
 
   /**
@@ -369,16 +434,16 @@ export class ThreatLearningService {
     sessionId: string,
     verdict: 'success' | 'failure' | 'partial'
   ): Promise<void> {
-    const trajectory = this.trajectories.get(sessionId);
-    if (!trajectory) return;
+    const tracked = this.trajectories.get(sessionId);
+    if (!tracked) return;
 
-    trajectory.verdict = verdict;
+    tracked.trajectory.verdict = verdict;
 
     // Store trajectory for pattern learning
     await this.vectorStore.store({
       namespace: 'security_trajectories',
       key: sessionId,
-      value: trajectory,
+      value: tracked.trajectory,
     });
 
     // Clean up

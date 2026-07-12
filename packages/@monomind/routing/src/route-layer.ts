@@ -95,7 +95,7 @@ export class RouteLayer {
       routeName: route.name,
       agentSlug: route.agentSlug,
       score: cosineSimilarity(taskVector, centroid),
-      threshold: this.config.globalThreshold ?? route.threshold ?? 0.5,
+      threshold: route.threshold ?? this.config.globalThreshold ?? 0.5,
       fallbackToLLM: route.fallbackToLLM,
     }));
 

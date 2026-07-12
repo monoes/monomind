@@ -88,6 +88,10 @@ function getDbPath(customPath) {
         return resolved;
     return defaultDir;
 }
+/** Resolve the real on-disk LanceDB path for a given custom path (or the default). */
+export function bridgeGetDbPath(customPath) {
+    return getDbPath(customPath);
+}
 function getAutomemConfig() {
     const defaults = { dedupThreshold: 0.85, staleDays: 7 };
     try {
@@ -433,6 +437,22 @@ export async function bridgeLoadEmbeddingModel(dbPath) {
             dimensions: test.length,
             modelName: BRIDGE_EMBEDDING_MODEL,
             loadTime: Date.now() - startTime,
+        };
+    }
+    catch {
+        return null;
+    }
+}
+export async function bridgeGetBackendStats(dbPath) {
+    const backend = await getBackend(dbPath);
+    if (!backend)
+        return null;
+    try {
+        const stats = await backend.getStats();
+        return {
+            totalEntries: stats?.totalEntries ?? 0,
+            entriesByNamespace: stats?.entriesByNamespace ?? {},
+            memoryUsage: stats?.memoryUsage ?? 0,
         };
     }
     catch {

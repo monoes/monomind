@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 
 const { _openMonographDb } = require('./monograph.cjs');
-const { cleanEntries } = require('./fs-helpers.cjs');
+const { cleanEntries, atomicWriteFileSync } = require('./fs-helpers.cjs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
@@ -136,8 +136,11 @@ function scanMicroAgentTriggers(prompt) {
   if (!cacheLoaded) {
     patterns = _triggerBuildIndex(agentDir);
     try {
-      fs.mkdirSync(path.join(CWD, '.monomind'), { recursive: true });
-      fs.writeFileSync(indexPath, JSON.stringify({ patterns: patterns, builtAt: new Date().toISOString(), totalAgentsScanned: patterns.length }));
+      // P2-21: tmp+rename — multiple concurrent hook processes (route-handler
+      // invocations fire per prompt/subagent) can all miss the cache at once
+      // and rebuild+write trigger-index.json simultaneously; atomic write
+      // prevents a concurrent reader from parsing a half-written file.
+      atomicWriteFileSync(indexPath, JSON.stringify({ patterns: patterns, builtAt: new Date().toISOString(), totalAgentsScanned: patterns.length }));
     } catch (e) {}
   }
 
@@ -335,9 +338,9 @@ function _autoIndexKnowledge(knowledgeDir) {
   } catch (e) { /* graph not available yet */ }
 
   try {
-    fs.mkdirSync(knowledgeDir, { recursive: true });
-    fs.writeFileSync(chunksFile, newLines.length > 0 ? newLines.join('\n') + '\n' : '', 'utf-8');
-    fs.writeFileSync(hashFile, contentHash, 'utf-8');
+    // Same torn-read hazard as trigger-index.json above — atomic write.
+    atomicWriteFileSync(chunksFile, newLines.length > 0 ? newLines.join('\n') + '\n' : '', 'utf-8');
+    atomicWriteFileSync(hashFile, contentHash, 'utf-8');
   } catch (e) {}
   return newLines.length;
 }

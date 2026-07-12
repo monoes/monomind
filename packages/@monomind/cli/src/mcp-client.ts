@@ -9,6 +9,8 @@
  */
 
 import type { MCPTool } from './mcp-tools/types.js';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // Import MCP tool handlers from local package
 import { agentTools } from './mcp-tools/agent-tools.js';
@@ -103,6 +105,30 @@ registerTools([
 ]);
 
 /**
+ * Disabled-tools registry (`mcp toggle`)
+ *
+ * Read fresh on every check (the file is tiny and toggles are infrequent) so a
+ * `mcp toggle` run in another process/session takes effect without restarting
+ * this one. Filters both direct invocation (callMCPTool) and MCP server
+ * registration (getAllMCPTools) so a disabled tool is actually excluded, not
+ * just cosmetically hidden.
+ */
+function loadDisabledTools(cwd: string = process.cwd()): Set<string> {
+  const stateFile = join(cwd, '.monomind', 'mcp-disabled-tools.json');
+  if (!existsSync(stateFile)) return new Set();
+  try {
+    const parsed = JSON.parse(readFileSync(stateFile, 'utf8'));
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function isToolDisabled(toolName: string, cwd?: string): boolean {
+  return loadDisabledTools(cwd).has(toolName);
+}
+
+/**
  * MCP Client Error
  */
 export class MCPClientError extends Error {
@@ -155,6 +181,13 @@ export async function callMCPTool<T = unknown>(
     );
   }
 
+  if (isToolDisabled(toolName)) {
+    throw new MCPClientError(
+      `MCP tool '${toolName}' is disabled. Re-enable with: mcp toggle --enable ${toolName}`,
+      toolName
+    );
+  }
+
   try {
     // Call the tool handler
     const result = await tool.handler(input, context);
@@ -201,8 +234,9 @@ export function getToolMetadata(toolName: string): Omit<MCPTool, 'handler'> | un
  * @param category - Optional category filter
  * @returns Array of tool metadata
  */
-export function listMCPTools(category?: string): Array<Omit<MCPTool, 'handler'>> {
+export function listMCPTools(category?: string): Array<Omit<MCPTool, 'handler'> & { enabled: boolean }> {
   const tools = Array.from(TOOL_REGISTRY.values());
+  const disabled = loadDisabledTools();
 
   const filtered = category
     ? tools.filter(t => t.category === category)
@@ -217,15 +251,19 @@ export function listMCPTools(category?: string): Array<Omit<MCPTool, 'handler'>>
     version: tool.version,
     cacheable: tool.cacheable,
     cacheTTL: tool.cacheTTL,
+    enabled: !disabled.has(tool.name),
   }));
 }
 
 /**
- * Return all registered tools including their handler functions.
- * Used by startHttpServer() to register tools with the HTTP/WS MCP server.
+ * Return all registered tools including their handler functions, excluding
+ * any disabled via `mcp toggle`. Used by startHttpServer() to register tools
+ * with the HTTP/WS MCP server, so a disabled tool is never exposed to
+ * external MCP clients after the next server start.
  */
 export function getAllMCPTools(): MCPTool[] {
-  return Array.from(TOOL_REGISTRY.values());
+  const disabled = loadDisabledTools();
+  return Array.from(TOOL_REGISTRY.values()).filter(t => !disabled.has(t.name));
 }
 
 /**
