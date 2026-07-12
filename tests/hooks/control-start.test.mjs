@@ -18,7 +18,11 @@ function run({ cwd, env } = {}) {
     cwd: cwd || os.tmpdir(),
     encoding: 'utf-8',
     timeout: 8000,
-    env: { ...process.env, CLAUDE_PROJECT_DIR: cwd || os.tmpdir(), ...env },
+    // MONOMIND_CONTROL_NO_SPAWN: exercise the full flow (status read, adoption
+    // probe, lock, control.json write, log lines) WITHOUT spawning a real
+    // detached server — real spawns from this suite leaked ~900 orphan server
+    // processes on isolated ports and exhausted the machine's process table.
+    env: { ...process.env, CLAUDE_PROJECT_DIR: cwd || os.tmpdir(), MONOMIND_CONTROL_NO_SPAWN: '1', ...env },
   });
 }
 

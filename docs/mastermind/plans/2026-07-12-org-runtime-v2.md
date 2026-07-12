@@ -1301,7 +1301,7 @@ git commit -m "feat(orgrt): OrgDaemon — multi-org host, intra/inter-org routin
 - Modify: `packages/@monomind/cli/src/commands/index.ts` (import + `loadedCommands.set('org', orgCommand)` next to the other sets around line 49)
 - Test: `packages/@monomind/cli/__tests__/orgrt/org-command.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/org-command.test.ts
@@ -1322,12 +1322,12 @@ describe('org command', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/org-command.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/commands/org.ts
@@ -1430,7 +1430,7 @@ export const orgCommand: Command = {
 };
 ```
 
-- [ ] **Step 4: Register the command**
+- [x] **Step 4: Register the command**
 
 In `src/commands/index.ts`, add with the other static imports:
 ```ts
@@ -1441,12 +1441,12 @@ and with the other registrations (near line 49):
 loadedCommands.set('org', orgCommand);
 ```
 
-- [ ] **Step 5: Run test (server.ts doesn't exist yet)**
+- [x] **Step 5: Run test (server.ts doesn't exist yet)**
 
 Run: `npx vitest run __tests__/orgrt/org-command.test.ts`
 Expected: FAIL with `Cannot find module '../orgrt/server.js'` — Task 11 creates it; re-run there. (Alternative: create an empty `server.ts` stub now and fill it in Task 11.)
 
-- [ ] **Step 6: Commit (after Task 11 makes it green)**
+- [x] **Step 6: Commit (after Task 11 makes it green)** *(done: 9b1d67a + sweep 9987367 + lifecycle fix 697a3e3)*
 
 ```bash
 git add src/commands/org.ts src/commands/index.ts __tests__/orgrt/org-command.test.ts
@@ -1463,7 +1463,7 @@ git commit -m "feat(orgrt): monomind org CLI — run/stop/status/serve/test-loop
 - Modify: `packages/@monomind/cli/package.json` build script — add `cp src/orgrt/live.html dist/src/orgrt/` alongside the existing `cp src/browser/dashboard/ui.html dist/...`
 - Test: `packages/@monomind/cli/__tests__/orgrt/server.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/server.test.ts
@@ -1517,12 +1517,12 @@ describe('org live server', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/server.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the server**
+- [x] **Step 3: Write the server**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/server.ts
@@ -1574,7 +1574,7 @@ export async function startOrgServer(daemon: OrgDaemon, port: number): Promise<O
 }
 ```
 
-- [ ] **Step 4: Write the live view page**
+- [x] **Step 4: Write the live view page**
 
 ```html
 <!-- packages/@monomind/cli/src/orgrt/live.html -->
@@ -1634,19 +1634,19 @@ setInterval(refreshAgents, 5000);
 </body></html>
 ```
 
-- [ ] **Step 5: Add the copy step to the build script**
+- [x] **Step 5: Add the copy step to the build script**
 
 In `packages/@monomind/cli/package.json`, extend the `build` script where `ui.html` is copied:
 ```
 && mkdir -p dist/src/orgrt && cp src/orgrt/live.html dist/src/orgrt/
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `npx vitest run __tests__/orgrt/server.test.ts __tests__/orgrt/org-command.test.ts`
 Expected: PASS (server test + both org-command tests now that `server.js` exists — `test-loop.js` is dynamically imported, so the command test doesn't need it yet)
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit** *(done — re-review APPROVE after 697a3e3; full suite 721/721; dashboard verification PASS on all 3 legs: bus.jsonl, WS /ws, control-server SSE)*
 
 ```bash
 git add src/orgrt/server.ts src/orgrt/live.html package.json __tests__/orgrt/server.test.ts src/commands/org.ts src/commands/index.ts __tests__/orgrt/org-command.test.ts
@@ -1662,7 +1662,7 @@ git commit -m "feat(orgrt): live WebSocket dashboard — agents, chats, tool act
 - Test: `packages/@monomind/cli/__tests__/orgrt/scheduler.test.ts`
 - Modify: `.claude/commands/mastermind/runorg.md` (add deprecation banner at top)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/scheduler.test.ts
@@ -1692,12 +1692,12 @@ describe('OrgScheduler', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/scheduler.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/scheduler.ts
@@ -1739,7 +1739,7 @@ export class OrgScheduler {
 }
 ```
 
-- [ ] **Step 4: Wire into the daemon `serve` path** — in `src/commands/org.ts` `serve` action, after constructing the daemon and server:
+- [x] **Step 4: Wire into the daemon `serve` path** *(NOTE: plan's snippet deadlocked — fixed in bdb2774 with bounded runs: race done vs timeout, stopOrg in finally, runFn(name, intervalMs))* — in `src/commands/org.ts` `serve` action, after constructing the daemon and server:
 
 ```ts
 const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
@@ -1764,7 +1764,7 @@ if (fs.existsSync(orgDir)) {
 // after the SIGINT/SIGTERM await resolves, before daemon.stopAll(): sched.stop();
 ```
 
-- [ ] **Step 5: Deprecate the legacy path** — prepend to `.claude/commands/mastermind/runorg.md`:
+- [x] **Step 5: Deprecate the legacy path** *(root + package-template runorg.md both bannered)* — prepend to `.claude/commands/mastermind/runorg.md`:
 
 ```markdown
 > **DEPRECATED (2026-07): superseded by `monomind org run <name>` (SDK org runtime v2).**
@@ -1772,7 +1772,7 @@ if (fs.existsSync(orgDir)) {
 > It remains only for orgs not yet migrated. New orgs MUST use the daemon.
 ```
 
-- [ ] **Step 6: Run tests, commit**
+- [x] **Step 6: Run tests, commit** *(done: caa80fe + fix bdb2774 — re-review APPROVE; 39/39 orgrt tests)*
 
 Run: `npx vitest run __tests__/orgrt/scheduler.test.ts`
 Expected: PASS

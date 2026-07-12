@@ -105,6 +105,39 @@ function probeStatus(p) {
   });
 }
 
+const LOCK_FILE = path.join(CWD, '.monomind', 'control.lock');
+
+/**
+ * Atomically claim the spawn lock. Concurrent hook events (a busy session can
+ * fire dozens of control-starts at once) must not each spawn a server — the
+ * loser processes exit and let the winner's server come up. A stale lock
+ * (dead pid or older than 30s) is broken and re-claimed.
+ */
+function claimSpawnLock() {
+  try { fs.mkdirSync(path.dirname(LOCK_FILE), { recursive: true }); } catch { /* ignore */ }
+  try {
+    fs.writeFileSync(LOCK_FILE, String(process.pid), { flag: 'wx' });
+    return true;
+  } catch {
+    try {
+      const stat = fs.statSync(LOCK_FILE);
+      const holder = Number(fs.readFileSync(LOCK_FILE, 'utf-8'));
+      if (Date.now() - stat.mtimeMs < 30_000 && isPidAlive(holder)) return false;
+      fs.unlinkSync(LOCK_FILE);
+      fs.writeFileSync(LOCK_FILE, String(process.pid), { flag: 'wx' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+function releaseSpawnLock() {
+  try {
+    if (Number(fs.readFileSync(LOCK_FILE, 'utf-8')) === process.pid) fs.unlinkSync(LOCK_FILE);
+  } catch { /* ignore */ }
+}
+
 async function main() {
   // If already running, do nothing
   const status = readStatus();
@@ -123,6 +156,21 @@ async function main() {
       process.stdout.write(`[control] adopted running server on port ${p} (pid ${live.pid || 'unknown'})\n`);
       process.exit(0);
     }
+  }
+
+  if (!claimSpawnLock()) {
+    process.stdout.write('[control] another control-start is already spawning the server — skipping\n');
+    process.exit(0);
+  }
+
+  // Test hook: exercise the full flow without leaving a real detached server
+  // behind (the test suite spawns this script dozens of times per run — real
+  // spawns leaked hundreds of orphan servers on isolated ports).
+  if (process.env.MONOMIND_CONTROL_NO_SPAWN === '1') {
+    writeStatus(process.pid, DEFAULT_PORT);
+    process.stdout.write(`[control] started Neural Control Room on port ${DEFAULT_PORT} (pid ${process.pid}) [no-spawn]\n`);
+    releaseSpawnLock();
+    process.exit(0);
   }
 
   const { cmd, args, usePort } = findCliPath();
@@ -159,9 +207,9 @@ async function main() {
     });
   }
 
-  // Give the server up to ~3 s to start, then confirm the actual port.
+  // Give the server up to ~10 s to start, then confirm the actual port.
   async function confirmPort() {
-    for (let attempt = 0; attempt < 6; attempt++) {
+    for (let attempt = 0; attempt < 20; attempt++) {
       await new Promise(r => setTimeout(r, 500));
       for (let delta = 0; delta <= 10; delta++) {
         const p = DEFAULT_PORT + delta;
@@ -174,11 +222,15 @@ async function main() {
         }
       }
     }
-    // Server didn't respond in time — leave control.json as-is (best-effort)
-    process.stdout.write('[control] server did not respond within 3 s — control.json may have wrong port\n');
+    // Server never became reachable on any expected port — kill the child
+    // rather than leave an orphan bound to some port nothing will ever read.
+    // The next session-start simply retries.
+    try { process.kill(child.pid, 'SIGTERM'); } catch { /* already gone */ }
+    try { fs.unlinkSync(STATUS_FILE); } catch { /* ignore */ }
+    process.stdout.write('[control] server did not respond within 10 s — killed orphan, will retry next session\n');
   }
 
-  confirmPort().catch(() => {}).finally(() => process.exit(0));
+  confirmPort().catch(() => {}).finally(() => { releaseSpawnLock(); process.exit(0); });
 }
 
 main().catch(() => process.exit(0));
