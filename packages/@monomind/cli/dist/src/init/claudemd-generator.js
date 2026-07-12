@@ -6,6 +6,32 @@
  * Templates: minimal | standard | full | security | performance | solo
  * All templates use bullet-format rules with imperative keywords for enforceability.
  */
+import { createRequire } from 'module';
+let _availabilityCache = null;
+function detectOptionalPackages() {
+    if (_availabilityCache)
+        return _availabilityCache;
+    const req = createRequire(import.meta.url);
+    const resolvable = (pkg) => {
+        try {
+            req.resolve(pkg);
+            return true;
+        }
+        catch {
+            return false;
+        }
+    };
+    _availabilityCache = {
+        hooks: resolvable('@monomind/hooks'),
+        mcp: resolvable('@monomind/mcp'),
+        routing: resolvable('@monomind/routing'),
+        monofence: resolvable('monofence-ai'),
+    };
+    return _availabilityCache;
+}
+function unavailNote(available) {
+    return available ? '' : ' _(unavailable in this install)_';
+}
 // --- Section Generators (each returns enforceable markdown) ---
 function behavioralRules() {
     return `## Behavioral Rules (Always Enforced)
@@ -156,20 +182,25 @@ function executionRules() {
 - When agent results arrive, review ALL results before proceeding`;
 }
 function cliCommandsTable() {
-    return `## V1 CLI Commands
+    const avail = detectOptionalPackages();
+    return `## CLI Commands
 
 ### Core Commands
 
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| \`init\` | 4 | Project initialization |
-| \`agent\` | 8 | Agent lifecycle management |
+| \`init\` | 5 | Project initialization |
+| \`agent\` | 7 | Agent lifecycle management |
 | \`swarm\` | 6 | Multi-agent swarm coordination |
-| \`memory\` | 11 | LanceDB memory with ANN search |
-| \`task\` | 6 | Task creation and lifecycle |
-| \`session\` | 7 | Session state management |
-| \`hooks\` | 17 | Self-learning hooks + 12 workers |
-| \`hive-mind\` | 6 | Byzantine fault-tolerant consensus |
+| \`memory\` | 12 | LanceDB memory with ANN search |
+| \`task\` | 5 | Task creation and lifecycle |
+| \`session\` | 6 | Session state management |
+| \`hooks\` | 29 | Self-learning hooks + 15 background workers${unavailNote(avail.hooks)} |
+
+> Note: there is no \`hive-mind\` or \`neural\` CLI command. Hive-mind
+> consensus (byzantine/raft/quorum) is available exclusively via MCP tools
+> (\`hive-mind_*\`), not the CLI. Neural pattern learning was merged into
+> \`hooks intelligence\`.
 
 ### Quick CLI Examples
 
@@ -197,7 +228,8 @@ function agentTypes() {
 \`pr-manager\`, \`code-review-swarm\`, \`issue-tracker\`, \`release-manager\``;
 }
 function hooksSystem() {
-    return `## Hooks System (27 Hooks + 12 Workers)
+    const avail = detectOptionalPackages();
+    return `## Hooks System (29 Hook Subcommands + 15 Background Workers)
 
 ### Essential Hooks
 
@@ -210,7 +242,7 @@ function hooksSystem() {
 | \`intelligence\` | Pattern-learning intelligence system |
 | \`worker\` | Background worker management |
 
-### Background Workers (@monomind/hooks, run in-process)
+### Background Workers (@monomind/hooks, run in-process)${unavailNote(avail.hooks)}
 
 | Worker | Priority | Description |
 |--------|----------|-------------|
@@ -220,9 +252,10 @@ function hooksSystem() {
 | \`consolidate\` | low | Memory consolidation |
 | \`ddd\` | low | DDD progress tracking |
 | \`security\` | high | Secret/vulnerability scan |
+| \`performance\`, \`health\`, \`swarm\`, \`git\`, \`learning\`, \`adr\`, \`patterns\`, \`cache\`, \`progress\` | various | See \`hooks worker list\` for the full 15 |
 
 Metrics-producing workers refresh at session start when output is >6h old.
-
+${avail.hooks ? '' : '\n> \\@monomind/hooks is not resolvable in this install — background workers will fail to load (see `hooks worker list`). This is an install/publish gap, not a project misconfiguration.\n'}
 \`\`\`bash
 npx monomind@latest hooks pre-task --description "[task]"
 npx monomind@latest hooks post-task --task-id "[id]" --success true

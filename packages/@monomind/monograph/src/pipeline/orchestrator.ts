@@ -27,6 +27,7 @@ import { DEFAULT_OPTIONS } from './types.js';
 import type { PipelineProgress, SuggestedQuestion } from '../types.js';
 import { generateGraphReport } from '../reporting/graph-report.js';
 import { analyzeChurn } from '../analysis/churn.js';
+import { ExtractionCache } from '../cache/extraction-cache.js';
 
 function getCurrentCommitHash(repoPath: string): string | null {
   try {
@@ -113,6 +114,20 @@ async function buildAsyncLocked(
     }
   }
 
+  // Parse-cache eviction — runs once at the start of a full (non-incremental)
+  // build. The cache only ever grows via writes (parse.ts's ExtractionCache);
+  // nothing else prunes entries for files that were deleted/renamed or
+  // haven't been touched in a long time, so it accumulates forever otherwise.
+  if (!options.incremental) {
+    try {
+      const parseCache = new ExtractionCache(resolve(join(repoPath, '.monomind', 'parse-cache')));
+      const removed = parseCache.prune();
+      if (removed > 0) {
+        options.onProgress?.({ phase: 'prune', message: `Parse cache: pruned ${removed} stale entries` });
+      }
+    } catch { /* non-fatal — cache pruning must never block a build */ }
+  }
+
   const db = openDb(dbPath);
 
   try {
@@ -133,33 +148,39 @@ async function buildAsyncLocked(
 
     const outputs = await runner.run(ctx);
 
-    // Skip post-pipeline work when all files were cached (nothing changed)
-    if (!ctx.allFilesCached) {
-      // Sweep orphaned rows for files that were renamed/deleted since the last build.
-      const scanOut = outputs.get('scan') as { filePaths: string[] } | undefined;
-      if (scanOut) {
-        const liveFiles = new Set(scanOut.filePaths.map((f) => resolve(f)));
-        const staleFiles = (
-          db.prepare('SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL').all() as { file_path: string }[]
-        )
-          .map((r) => r.file_path)
-          .filter((f) => !liveFiles.has(resolve(ctx.repoPath, f)));
-        if (staleFiles.length > 0) {
-          const deleteStale = db.transaction((files: string[]) => {
-            const deleteEdges = db.prepare(`
-              DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE file_path = ?)
-                 OR target_id IN (SELECT id FROM nodes WHERE file_path = ?)
-            `);
-            const deleteNodesStmt = db.prepare('DELETE FROM nodes WHERE file_path = ?');
-            for (const f of files) {
-              deleteEdges.run(f, f);
-              deleteNodesStmt.run(f);
-            }
-          });
-          deleteStale(staleFiles);
-        }
+    // Sweep orphaned rows for files that were renamed/deleted since the last build.
+    // This MUST run unconditionally — even when every remaining file cache-hit
+    // (ctx.allFilesCached === true), a file may have been deleted from disk between
+    // builds, which produces zero cache misses but still leaves ghost rows in the DB
+    // unless we compare the DB's known file set against the current on-disk set.
+    const scanOut = outputs.get('scan') as { filePaths: string[] } | undefined;
+    if (scanOut) {
+      const liveFiles = new Set(scanOut.filePaths.map((f) => resolve(f)));
+      const staleFiles = (
+        db.prepare('SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL').all() as { file_path: string }[]
+      )
+        .map((r) => r.file_path)
+        .filter((f) => !liveFiles.has(resolve(ctx.repoPath, f)));
+      if (staleFiles.length > 0) {
+        const deleteStale = db.transaction((files: string[]) => {
+          const deleteEdges = db.prepare(`
+            DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE file_path = ?)
+               OR target_id IN (SELECT id FROM nodes WHERE file_path = ?)
+          `);
+          const deleteNodesStmt = db.prepare('DELETE FROM nodes WHERE file_path = ?');
+          for (const f of files) {
+            deleteEdges.run(f, f);
+            deleteNodesStmt.run(f);
+          }
+        });
+        deleteStale(staleFiles);
       }
+    }
 
+    // Skip expensive report regeneration when all files were cached (nothing changed) —
+    // this is purely a performance optimization, not correctness-critical, so it stays
+    // gated behind allFilesCached.
+    if (!ctx.allFilesCached) {
       const suggestOut = outputs.get('suggest') as { questions: SuggestedQuestion[] } | undefined;
       const questions = suggestOut?.questions ?? [];
       await generateGraphReport(resolve(repoPath), undefined, dbPath, questions);

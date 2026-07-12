@@ -8,7 +8,7 @@
  * - process.cpuUsage() for real CPU stats
  * - os module for system information
  */
-import { getProjectCwd } from './types.js';
+import { getProjectCwd, getMonomindDataRoot } from './types.js';
 import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -184,7 +184,7 @@ export const systemTools = [
             // Fallback: JSON store files (backward compatibility)
             if (_metricsSource === 'none') {
                 try {
-                    const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
+                    const agentStorePath = join(getMonomindDataRoot(), 'agents', 'store.json');
                     if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_SYSTEM_STORE_BYTES) {
                         const agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
                         const agents = Object.values(agentStore.agents || {});
@@ -197,7 +197,7 @@ export const systemTools = [
                 }
                 catch { /* agent store not available */ }
                 try {
-                    const taskStorePath = join(getProjectCwd(), STORAGE_DIR, 'tasks', 'store.json');
+                    const taskStorePath = join(getMonomindDataRoot(), 'tasks', 'store.json');
                     if (existsSync(taskStorePath) && statSync(taskStorePath).size <= MAX_SYSTEM_STORE_BYTES) {
                         const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
                         const tasks = Object.values(taskStore.tasks || {});
@@ -534,7 +534,7 @@ export const systemTools = [
         },
         handler: async () => {
             // Read from the task store file
-            const storePath = join(getProjectCwd(), '.monomind', 'tasks', 'store.json');
+            const storePath = join(getMonomindDataRoot(), 'tasks', 'store.json');
             let tasks = [];
             try {
                 if (existsSync(storePath) && statSync(storePath).size <= MAX_SYSTEM_STORE_BYTES) {

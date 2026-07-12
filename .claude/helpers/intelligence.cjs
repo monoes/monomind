@@ -35,6 +35,102 @@ function ensureDataDir() {
   try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (_) {}
 }
 
+// ── multi-process-safe store flush (P1-14) ──────────────────────────────────
+// STORE_FILE (auto-memory-store.json) is read once into `_entries` at init()
+// and can be written by more than one code path — consolidate() and
+// bootstrapFromDb() — each of which may be running in a *different* process
+// (e.g. the long-lived MCP server process and a short-lived CJS hook
+// subprocess launched concurrently). Without a lock + re-read-before-write,
+// whichever process flushes last silently erases whatever the other process
+// added since its own load. mergeAndWriteStore() re-reads the current
+// on-disk file immediately before writing, merges the caller's updates in by
+// `id` (keeping whichever record has the newer `ts`), and writes atomically
+// via tmp+rename, guarded by a short advisory lock.
+
+const STORE_LOCK_FILE = STORE_FILE + '.lock';
+const STORE_LOCK_STALE_MS = 10 * 1000; // single JSON write — 10s is generous
+
+// Mirrors the stale-lock-breaking pattern in .claude/helpers/control-start.cjs
+// (claimSpawnLock/releaseSpawnLock): wx-flag write to claim, break the lock
+// if its holder is dead or the lock is older than the stale threshold, retry
+// once, then give up and proceed unlocked (best-effort — a missed lock still
+// merges via the re-read, it just narrows a tiny TOCTOU window further).
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return !!(e && e.code === 'EPERM');
+  }
+}
+
+function claimStoreLock() {
+  try { fs.mkdirSync(path.dirname(STORE_LOCK_FILE), { recursive: true }); } catch (_) {}
+  try {
+    fs.writeFileSync(STORE_LOCK_FILE, String(process.pid), { flag: 'wx' });
+    return true;
+  } catch (_) {
+    try {
+      var stat = fs.statSync(STORE_LOCK_FILE);
+      var holder = Number(fs.readFileSync(STORE_LOCK_FILE, 'utf-8'));
+      if (Date.now() - stat.mtimeMs < STORE_LOCK_STALE_MS && isPidAlive(holder)) return false;
+      fs.unlinkSync(STORE_LOCK_FILE);
+      fs.writeFileSync(STORE_LOCK_FILE, String(process.pid), { flag: 'wx' });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+function releaseStoreLock() {
+  try {
+    if (Number(fs.readFileSync(STORE_LOCK_FILE, 'utf-8')) === process.pid) fs.unlinkSync(STORE_LOCK_FILE);
+  } catch (_) { /* ignore */ }
+}
+
+/**
+ * Merge `updates` (new or changed entries) into the on-disk store and write
+ * the result atomically. Re-reads STORE_FILE immediately before writing so a
+ * concurrent flush from another process is merged, not clobbered. When both
+ * sides have an entry with the same `id`, the one with the newer `ts` wins.
+ */
+function mergeAndWriteStore(updates, capTo) {
+  var acquired = claimStoreLock();
+  if (!acquired) acquired = claimStoreLock(); // one retry — lock is short-lived
+
+  try {
+    var diskRaw = safeReadJson(STORE_FILE);
+    var diskEntries = Array.isArray(diskRaw) ? diskRaw : [];
+    var merged = new Map();
+    for (var i = 0; i < diskEntries.length; i++) {
+      var d = diskEntries[i];
+      if (d && d.id) merged.set(String(d.id), d);
+    }
+    for (var j = 0; j < (updates || []).length; j++) {
+      var u = updates[j];
+      if (!u || !u.id) continue;
+      var key = String(u.id);
+      var existing = merged.get(key);
+      if (!existing || (u.ts || 0) >= (existing.ts || 0)) {
+        merged.set(key, u);
+      }
+    }
+    var result = Array.from(merged.values());
+    if (capTo && result.length > capTo) {
+      result.sort(function(a, b) { return (b.ts || 0) - (a.ts || 0); });
+      result = result.slice(0, capTo);
+    }
+    var tmpPath = STORE_FILE + '.' + process.pid + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(result, null, 2), 'utf-8');
+    fs.renameSync(tmpPath, STORE_FILE);
+    return result;
+  } finally {
+    if (acquired) releaseStoreLock();
+  }
+}
+
 function safeReadJson(filePath) {
   try {
     if (!fs.existsSync(filePath)) return null;
@@ -274,7 +370,11 @@ function consolidate() {
   }
 
   if (newStoreEntries.length > 0) {
-    // Merge with existing store entries
+    // Decide which of newStoreEntries are worth adding, based on a read of
+    // the store as of "now". The actual write below re-reads immediately
+    // before flushing (mergeAndWriteStore), so a concurrent process's writes
+    // in between are merged rather than clobbered — this initial read is
+    // only used for the near-duplicate decision, not as the write's base.
     var existing = safeReadJson(STORE_FILE);
     var store = Array.isArray(existing) ? existing : [];
     var existingIds = new Set(store.map(function(e) { return e && e.id; }));
@@ -283,25 +383,23 @@ function consolidate() {
     var fileSetKey = function(e) { return (e.files || []).slice().sort().join('|'); };
     var seenSummaries = new Set(store.map(function(e) { return e && e.summary; }));
     var seenFileSets = new Set(store.filter(function(e) { return e && Array.isArray(e.files) && e.files.length > 0; }).map(fileSetKey));
+    var toAdd = [];
     var addedCount = 0;
     for (var j = 0; j < newStoreEntries.length; j++) {
       var ne = newStoreEntries[j];
       if (existingIds.has(ne.id)) continue;
       if (seenSummaries.has(ne.summary)) continue;
       if (ne.files && ne.files.length > 0 && seenFileSets.has(fileSetKey(ne))) continue;
-      store.push(ne);
+      toAdd.push(ne);
       seenSummaries.add(ne.summary);
       if (ne.files && ne.files.length > 0) seenFileSets.add(fileSetKey(ne));
       addedCount++;
     }
-    // Cap store at 200 entries to prevent unbounded growth
-    if (store.length > 200) {
-      store.sort(function(a, b) { return (b.ts || 0) - (a.ts || 0); });
-      store = store.slice(0, 200);
+    if (toAdd.length > 0) {
+      try {
+        mergeAndWriteStore(toAdd, 200);
+      } catch (_) {}
     }
-    try {
-      fs.writeFileSync(STORE_FILE, JSON.stringify(store, null, 2), 'utf-8');
-    } catch (_) {}
     count += addedCount;
   }
 
@@ -395,19 +493,20 @@ function bootstrapFromDb(db) {
   if (!db || _entries.length >= 5) return 0;
   try {
     var hubs = db.prepare(
-      "SELECT n.name, n.label, n.file, COUNT(e.id) AS deg " +
-      "FROM nodes n JOIN edges e ON (e.source = n.id OR e.target = n.id) " +
-      "WHERE n.label IN ('File','Function','Class') AND n.file NOT LIKE '%node_modules%' AND n.file NOT LIKE '%dist/%' " +
+      "SELECT n.name, n.label, n.file_path AS file, COUNT(e.id) AS deg " +
+      "FROM nodes n JOIN edges e ON (e.source_id = n.id OR e.target_id = n.id) " +
+      "WHERE n.label IN ('File','Function','Class') AND n.file_path NOT LIKE '%node_modules%' AND n.file_path NOT LIKE '%dist/%' " +
       "GROUP BY n.id ORDER BY deg DESC LIMIT 10"
     ).all();
     if (hubs.length === 0) return 0;
     var existingIds = new Set(_entries.map(function(e) { return e.id; }));
+    var newHubEntries = [];
     var added = 0;
     for (var hi = 0; hi < hubs.length; hi++) {
       var h = hubs[hi];
       var bId = 'bootstrap-hub-' + hi;
       if (existingIds.has(bId)) continue;
-      _entries.push({
+      var hubEntry = {
         id: bId,
         type: 'hub',
         content: h.name + ' (' + h.label + ') — ' + (h.file || '').replace(CWD + '/', '') + ' (' + h.deg + ' connections)',
@@ -415,12 +514,17 @@ function bootstrapFromDb(db) {
         confidence: 0.4,
         files: h.file ? [h.file] : [],
         ts: Date.now(),
-      });
+      };
+      _entries.push(hubEntry);
+      newHubEntries.push(hubEntry);
       added++;
     }
     if (added > 0) {
       ensureDataDir();
-      try { fs.writeFileSync(STORE_FILE, JSON.stringify(_entries, null, 2), 'utf-8'); } catch (_) {}
+      // mergeAndWriteStore re-reads STORE_FILE immediately before writing, so
+      // this only ever adds these hub entries into whatever is currently on
+      // disk — it never overwrites entries a concurrent process added.
+      try { mergeAndWriteStore(newHubEntries, 200); } catch (_) {}
     }
     return added;
   } catch (_) { return 0; }

@@ -32,7 +32,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@monoes/memory": "workspace:*",
+    "@monoes/memory": "^1.0.5",
     "zod": "^3.23.0"
   },
   "devDependencies": {

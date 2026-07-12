@@ -3,7 +3,10 @@ import { mkdirSync, existsSync, renameSync, unlinkSync } from 'fs';
 import { dirname } from 'path';
 import { CREATE_NODES, CREATE_EDGES, CREATE_COMMUNITIES, CREATE_INDEX_META, CREATE_NODES_FTS, CREATE_INDEXES, FTS_SYNC_TRIGGERS, CREATE_EMBEDDINGS, CREATE_WIKI_PAGES, CREATE_AGENT_INTERACTIONS, CREATE_AGENT_INTERACTIONS_IDX, CREATE_AGENT_INTERACTIONS_ORG_IDX, CREATE_AGENT_INTERACTIONS_TYPE_IDX, CREATE_AGENT_INTERACTIONS_TS_IDX, } from './schema.js';
 import { MonographError } from '../types.js';
-export function openDb(dbPath) {
+export function openDb(dbPath, options = {}) {
+    if (options.fileMustExist && !existsSync(dbPath)) {
+        throw new MonographError(`Monograph database does not exist at ${dbPath}. Run monograph build first.`);
+    }
     try {
         mkdirSync(dirname(dbPath), { recursive: true });
         const db = new Database(dbPath);

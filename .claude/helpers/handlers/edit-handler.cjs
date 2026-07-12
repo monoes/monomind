@@ -148,10 +148,16 @@ module.exports = {
       try {
         var editFileBridge = hookInput.file_path || toolInput.file_path
           || process.env.TOOL_INPUT_file_path || args[0] || '';
-        _hooksModule.executeHooks(_hooksModule.HookEvent.PostEdit, {
-          file: { path: editFileBridge, operation: 'modify' },
-          duration: 0,
-        }, { continueOnError: true, timeout: 1500 }).catch(function() {});
+        // Must be awaited (bounded by runWithTimeout, 1500ms) — hook-handler.cjs's
+        // main().finally(() => process.exit(...)) reaps any unawaited fire-and-forget
+        // promise before it does real I/O. See session-restore-handler.cjs's
+        // SessionStart bridge for the reference pattern this mirrors.
+        await hCtx.runWithTimeout(function() {
+          return _hooksModule.executeHooks(_hooksModule.HookEvent.PostEdit, {
+            file: { path: editFileBridge, operation: 'modify' },
+            duration: 0,
+          }, { continueOnError: true, timeout: 1500 });
+        }, '@monomind/hooks.PostEdit');
       } catch (e) { /* non-fatal */ }
     }
 

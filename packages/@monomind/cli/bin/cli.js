@@ -241,8 +241,17 @@ if (isMCPMode) {
 
   const { CLI } = await import('../dist/src/index.js');
   const cli = new CLI();
+  // A detached daemon child (`start --daemon --foreground-worker-internal`,
+  // see src/commands/start.ts) intentionally keeps a ref'd setInterval alive
+  // after its action resolves — that's what holds the process open as a real
+  // daemon. Unconditionally calling process.exit() here would kill it the
+  // instant the action's promise resolves, defeating the whole point.
+  const isDaemonChild = cliArgs.includes('--foreground-worker-internal');
   cli.run().then(() => {
-    process.exit(process.exitCode ?? 0);
+    if (!isDaemonChild) {
+      process.exit(process.exitCode ?? 0);
+    }
+    // Daemon child: let the event loop stay alive on its own ref'd interval.
   }).catch((error) => {
     console.error('Fatal error:', safeMsg(error && error.message));
     process.exit(1);

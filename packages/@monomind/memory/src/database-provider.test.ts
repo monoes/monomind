@@ -8,13 +8,18 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createDatabase, getPlatformInfo, getAvailableProviders } from './database-provider.js';
 import { generateMemoryId, createDefaultEntry } from './types.js';
 import { unlinkSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 describe('DatabaseProvider', () => {
-  const testDbPath = './test-database-provider.db';
+  const testDbPath = join(tmpdir(), `test-database-provider-${process.pid}.db`);
 
   function cleanupDb() {
-    if (existsSync(testDbPath)) {
-      try { unlinkSync(testDbPath); } catch { /* ignore */ }
+    for (const suffix of ['', '-wal', '-shm']) {
+      const p = testDbPath + suffix;
+      if (existsSync(p)) {
+        try { unlinkSync(p); } catch { /* ignore */ }
+      }
     }
   }
 

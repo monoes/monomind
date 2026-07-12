@@ -7,7 +7,39 @@
  * All templates use bullet-format rules with imperative keywords for enforceability.
  */
 
+import { createRequire } from 'module';
 import type { InitOptions, ClaudeMdTemplate } from './types.js';
+
+// --- Optional package availability (P1-23) ---
+// The docs below advertise features backed by optionalDependencies (npm may
+// silently skip installing these). Probe with require.resolve — same
+// resolution strategy findSourceHelpersDir() uses in executor.ts — so the
+// generated CLAUDE.md can say "(unavailable in this install)" instead of
+// presenting an unresolvable package's features as unconditionally working.
+interface OptionalPackageAvailability {
+  hooks: boolean;
+  mcp: boolean;
+  routing: boolean;
+  monofence: boolean;
+}
+let _availabilityCache: OptionalPackageAvailability | null = null;
+function detectOptionalPackages(): OptionalPackageAvailability {
+  if (_availabilityCache) return _availabilityCache;
+  const req = createRequire(import.meta.url);
+  const resolvable = (pkg: string): boolean => {
+    try { req.resolve(pkg); return true; } catch { return false; }
+  };
+  _availabilityCache = {
+    hooks: resolvable('@monomind/hooks'),
+    mcp: resolvable('@monomind/mcp'),
+    routing: resolvable('@monomind/routing'),
+    monofence: resolvable('monofence-ai'),
+  };
+  return _availabilityCache;
+}
+function unavailNote(available: boolean): string {
+  return available ? '' : ' _(unavailable in this install)_';
+}
 
 // --- Section Generators (each returns enforceable markdown) ---
 
@@ -169,20 +201,25 @@ function executionRules(): string {
 }
 
 function cliCommandsTable(): string {
-  return `## V1 CLI Commands
+  const avail = detectOptionalPackages();
+  return `## CLI Commands
 
 ### Core Commands
 
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| \`init\` | 4 | Project initialization |
-| \`agent\` | 8 | Agent lifecycle management |
+| \`init\` | 5 | Project initialization |
+| \`agent\` | 7 | Agent lifecycle management |
 | \`swarm\` | 6 | Multi-agent swarm coordination |
-| \`memory\` | 11 | LanceDB memory with ANN search |
-| \`task\` | 6 | Task creation and lifecycle |
-| \`session\` | 7 | Session state management |
-| \`hooks\` | 17 | Self-learning hooks + 12 workers |
-| \`hive-mind\` | 6 | Byzantine fault-tolerant consensus |
+| \`memory\` | 12 | LanceDB memory with ANN search |
+| \`task\` | 5 | Task creation and lifecycle |
+| \`session\` | 6 | Session state management |
+| \`hooks\` | 29 | Self-learning hooks + 15 background workers${unavailNote(avail.hooks)} |
+
+> Note: there is no \`hive-mind\` or \`neural\` CLI command. Hive-mind
+> consensus (byzantine/raft/quorum) is available exclusively via MCP tools
+> (\`hive-mind_*\`), not the CLI. Neural pattern learning was merged into
+> \`hooks intelligence\`.
 
 ### Quick CLI Examples
 
@@ -212,7 +249,8 @@ function agentTypes(): string {
 }
 
 function hooksSystem(): string {
-  return `## Hooks System (27 Hooks + 12 Workers)
+  const avail = detectOptionalPackages();
+  return `## Hooks System (29 Hook Subcommands + 15 Background Workers)
 
 ### Essential Hooks
 
@@ -225,7 +263,7 @@ function hooksSystem(): string {
 | \`intelligence\` | Pattern-learning intelligence system |
 | \`worker\` | Background worker management |
 
-### Background Workers (@monomind/hooks, run in-process)
+### Background Workers (@monomind/hooks, run in-process)${unavailNote(avail.hooks)}
 
 | Worker | Priority | Description |
 |--------|----------|-------------|
@@ -235,9 +273,10 @@ function hooksSystem(): string {
 | \`consolidate\` | low | Memory consolidation |
 | \`ddd\` | low | DDD progress tracking |
 | \`security\` | high | Secret/vulnerability scan |
+| \`performance\`, \`health\`, \`swarm\`, \`git\`, \`learning\`, \`adr\`, \`patterns\`, \`cache\`, \`progress\` | various | See \`hooks worker list\` for the full 15 |
 
 Metrics-producing workers refresh at session start when output is >6h old.
-
+${avail.hooks ? '' : '\n> \\@monomind/hooks is not resolvable in this install — background workers will fail to load (see `hooks worker list`). This is an install/publish gap, not a project misconfiguration.\n'}
 \`\`\`bash
 npx monomind@latest hooks pre-task --description "[task]"
 npx monomind@latest hooks post-task --task-id "[id]" --success true

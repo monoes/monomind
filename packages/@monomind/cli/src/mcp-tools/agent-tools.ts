@@ -8,10 +8,11 @@
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { type MCPTool, getProjectCwd } from './types.js';
+import { type MCPTool, getMonomindDataRoot, migrateLegacyStoreFile } from './types.js';
 
-// Storage paths
-const STORAGE_DIR = '.monomind';
+// Storage paths — relative to the git-safe data root (see getMonomindDataRoot()).
+// Canonical location matches task-tools.ts/session-tools.ts/hive-mind-tools.ts/
+// swarm-tools.ts so the agent store is a single physical file across all tools.
 const AGENT_DIR = 'agents';
 const AGENT_FILE = 'store.json';
 
@@ -38,7 +39,7 @@ interface AgentStore {
 }
 
 function getAgentDir(): string {
-  return join(getProjectCwd(), STORAGE_DIR, AGENT_DIR);
+  return join(getMonomindDataRoot(), AGENT_DIR);
 }
 
 function getAgentPath(): string {
@@ -57,6 +58,7 @@ const MAX_AGENT_STORE_BYTES = 50 * 1024 * 1024;
 function loadAgentStore(): AgentStore {
   try {
     const path = getAgentPath();
+    migrateLegacyStoreFile(path, join(AGENT_DIR, AGENT_FILE));
     if (existsSync(path)) {
       if (statSync(path).size > MAX_AGENT_STORE_BYTES) return { agents: {}, version: '3.0.0' };
       const data = readFileSync(path, 'utf-8');

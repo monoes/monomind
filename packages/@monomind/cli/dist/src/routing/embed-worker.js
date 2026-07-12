@@ -50,7 +50,19 @@ async function main() {
     const result = await layer.route(task);
     // Emit on its own line, prefixed, so the parent can unambiguously locate the
     // result even if the model loader wrote stray bytes to stdout earlier.
-    process.stdout.write(`\n__ROUTE_RESULT__${JSON.stringify(result)}\n`);
+    //
+    // Fix (P1-3): onnxruntime's native thread pool keeps the event loop alive
+    // even after this function returns, so the process never exits on its own
+    // and the parent's `close` listener waits until it force-kills us at the
+    // timeout — discarding the result we already wrote. Force-exit once the
+    // write is flushed (same onnx-teardown class as memory.ts's #1428 fix).
+    const wroteSynchronously = process.stdout.write(`\n__ROUTE_RESULT__${JSON.stringify(result)}\n`);
+    if (wroteSynchronously) {
+        process.exit(0);
+    }
+    else {
+        process.stdout.once('drain', () => process.exit(0));
+    }
 }
 main().catch((err) => {
     process.stderr.write(`embed-worker: ${err instanceof Error ? err.message : String(err)}\n`);

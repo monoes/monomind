@@ -193,7 +193,8 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       if (!embeddingToStore) {
         const existingEmb = this.stmtGetEmbedding!.get(e.id) as any;
         if (existingEmb?.embedding) {
-          embeddingToStore = new Float32Array(Buffer.from(existingEmb.embedding).buffer);
+          const buf: Buffer = existingEmb.embedding;
+          embeddingToStore = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
         }
       }
       this.stmtInsertEntry!.run(
@@ -799,8 +800,12 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     let embedding: Float32Array | undefined;
     const embeddingRow = this.stmtGetEmbedding!.get(row.id) as any;
     if (embeddingRow && embeddingRow.embedding) {
-      // Buffer.from() forces a non-pooled copy so .buffer spans only this embedding
-      embedding = new Float32Array(Buffer.from(embeddingRow.embedding).buffer);
+      // Slice only the intended byte range — Buffer.from(existingBuffer) for copies
+      // under Node's 8KB pool threshold returns a view into the SHARED pool
+      // ArrayBuffer at a nonzero offset, so `.buffer` alone spans unrelated pool
+      // memory (silent data corruption). byteOffset/byteLength scope it correctly.
+      const buf: Buffer = embeddingRow.embedding;
+      embedding = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
     }
 
     return {

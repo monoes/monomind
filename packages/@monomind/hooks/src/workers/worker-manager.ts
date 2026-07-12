@@ -340,6 +340,14 @@ export class WorkerManager extends EventEmitter {
   private workers: Map<string, WorkerHandler> = new Map();
   private metrics: Map<string, WorkerMetrics> = new Map();
   private timers: Map<string, NodeJS.Timeout> = new Map();
+  // P2-54: WORKER_CONFIGS is a shared module-level constant. register() used
+  // to mutate it directly, which leaked dynamically-registered worker
+  // configs into every OTHER WorkerManager instance (including unrelated
+  // test files and the CLI's `hooks worker list`). Each instance now owns
+  // its own config store, seeded from the shared static defaults at
+  // construction time; register() writes here instead of to the module
+  // constant, and every other read in this class goes through this store.
+  private workerConfigs: Map<string, WorkerConfig> = new Map(Object.entries(WORKER_CONFIGS));
   private running = false;
   private startTime?: Date;
   private projectRoot: string;
@@ -365,7 +373,7 @@ export class WorkerManager extends EventEmitter {
   }
 
   private initializeMetrics(): void {
-    for (const [name, config] of Object.entries(WORKER_CONFIGS)) {
+    for (const [name, config] of this.workerConfigs) {
       this.metrics.set(name, {
         name,
         status: config.enabled ? 'idle' : 'disabled',
@@ -689,16 +697,18 @@ export class WorkerManager extends EventEmitter {
   register(name: string, handler: WorkerHandler, config?: Partial<WorkerConfig>): void {
     this.workers.set(name, handler);
 
-    // Create config if not in WORKER_CONFIGS (for dynamic/test workers)
-    if (!WORKER_CONFIGS[name]) {
-      (WORKER_CONFIGS as Record<string, WorkerConfig>)[name] = {
+    // Create config if not already known (for dynamic/test workers). Written
+    // to this instance's own store — NOT the shared WORKER_CONFIGS constant —
+    // so it never leaks into other WorkerManager instances (P2-54).
+    if (!this.workerConfigs.has(name)) {
+      this.workerConfigs.set(name, {
         name,
         description: config?.description ?? `Dynamic worker: ${name}`,
         interval: config?.interval ?? 60_000,
         enabled: config?.enabled ?? true,
         priority: config?.priority ?? WorkerPriority.Normal,
         timeout: config?.timeout ?? 30_000,
-      };
+      });
     }
 
     // Initialize metrics if not already present
@@ -742,7 +752,7 @@ export class WorkerManager extends EventEmitter {
     this.startTime = new Date();
 
     // Schedule all workers
-    for (const [name, config] of Object.entries(WORKER_CONFIGS)) {
+    for (const [name, config] of this.workerConfigs) {
       if (!config.enabled) continue;
       if (config.platforms && !config.platforms.includes(os.platform() as any)) continue;
 
@@ -803,7 +813,7 @@ export class WorkerManager extends EventEmitter {
   async runWorker(name: string): Promise<WorkerResult> {
     const resolvedName = WORKER_ALIAS_MAP[name] ?? name;
     const handler = this.workers.get(resolvedName);
-    const config = WORKER_CONFIGS[resolvedName];
+    const config = this.workerConfigs.get(resolvedName);
     const metrics = this.metrics.get(resolvedName);
 
     if (!handler || !config || !metrics) {
@@ -819,13 +829,22 @@ export class WorkerManager extends EventEmitter {
     metrics.status = 'running';
     const startTime = Date.now();
 
+    // P1-24: the losing side of Promise.race is never cancelled, so when the
+    // handler wins (the normal case) this timer was left running for up to
+    // `config.timeout` (2 min for the security worker), keeping the event
+    // loop alive well after the worker actually finished — a one-shot
+    // `hooks worker run <name>` CLI invocation would hang open that whole
+    // time. Capture the handle and clear it once the race settles (same
+    // onnx-teardown class of bug as embed-worker.ts's missing process.exit).
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     try {
       const result = await Promise.race([
         handler(),
-        new Promise<WorkerResult>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), config.timeout)
-        ),
+        new Promise<WorkerResult>((_, reject) => {
+          timeoutHandle = setTimeout(() => reject(new Error('Timeout')), config.timeout);
+        }),
       ]);
+      clearTimeout(timeoutHandle);
 
       const duration = Date.now() - startTime;
 
@@ -845,6 +864,7 @@ export class WorkerManager extends EventEmitter {
 
       return result;
     } catch (error) {
+      clearTimeout(timeoutHandle);
       const duration = Date.now() - startTime;
 
       metrics.status = 'error';

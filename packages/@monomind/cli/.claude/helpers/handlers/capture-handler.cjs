@@ -46,7 +46,7 @@ function snapshotJSONLFiles() {
   if (!fs.existsSync(claudeDir)) return [];
   try {
     return fs.readdirSync(claudeDir)
-      .filter(f => f.endsWith('.jsonl'))
+      .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
       .map(f => {
         try { return { name: f, size: fs.statSync(path.join(claudeDir, f)).size }; }
         catch { return { name: f, size: 0 }; }
@@ -238,7 +238,7 @@ async function handleSubagentStop(hookInput) {
 
   // Pop oldest snapshot (FIFO — matches the agent that just finished)
   const snapFiles = fs.readdirSync(CAPTURE_DIR)
-    .filter(f => f.startsWith('snap-') && f.endsWith('.json'))
+    .filter(f => f.startsWith('snap-') && f.endsWith('.json') && !f.startsWith('._'))
     .sort(); // lexicographic = timestamp order
 
   if (snapFiles.length === 0) {

@@ -2,6 +2,7 @@ import { spawn, execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { connect } from 'net';
 import { CdpClient, fetchTargets, fetchNewTarget } from './cdp.js';
 import type { BrowserConfig, CdpTarget } from './types.js';
 import { CHROME_EXECUTABLES } from './types.js';
@@ -42,6 +43,38 @@ export async function isPortOpen(port: number): Promise<boolean> {
   }
 }
 
+/**
+ * Confirm the CDP endpoint on `port` actually identifies as Chrome/Chromium
+ * via `/json/version`'s `Browser` field, rather than assuming any CDP-speaking
+ * responder is "ours". Reduces (does not eliminate) the risk of silently
+ * attaching to an unrelated real browser that happens to be listening there.
+ */
+async function isChromeIdentity(port: number): Promise<boolean> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/json/version`);
+    if (!res.ok) return false;
+    const info = (await res.json()) as { Browser?: string };
+    return typeof info.Browser === 'string' && /chrom(e|ium)/i.test(info.Browser);
+  } catch {
+    return false;
+  }
+}
+
+/** Raw TCP connect probe — distinguishes "nothing listening" from "something listening that isn't CDP". */
+function isTcpPortOpen(port: number, timeoutMs = 1000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect({ host: '127.0.0.1', port, timeout: timeoutMs });
+    const done = (result: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(result);
+    };
+    socket.once('connect', () => done(true));
+    socket.once('timeout', () => done(false));
+    socket.once('error', () => done(false));
+  });
+}
+
 export async function launchBrowser(config: BrowserConfig = {}): Promise<number> {
   const rawPort = config.port ?? DEFAULT_PORT;
   // Validate port is in a safe range for localhost CDP debugging
@@ -51,7 +84,16 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
   const port = rawPort;
 
   if (await isPortOpen(port)) {
-    return port;
+    // Something CDP-speaking is already there — verify it's actually Chrome/Chromium
+    // before attaching, so we don't silently take over an unrelated real browser
+    // (e.g. the user's own personal Chrome) that happens to be on this port.
+    if (await isChromeIdentity(port)) {
+      return port;
+    }
+    throw new Error(
+      `Port ${port} is occupied by a CDP-speaking process that does not identify as Chrome/Chromium. ` +
+      `Refusing to attach — pass a different port or free port ${port}.`
+    );
   }
 
   const chromePath = findChrome(config.executablePath);
@@ -93,7 +135,23 @@ export async function launchBrowser(config: BrowserConfig = {}): Promise<number>
   const deadline = Date.now() + LAUNCH_TIMEOUT;
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL);
-    if (await isPortOpen(port)) return port;
+    if (await isPortOpen(port)) {
+      if (await isChromeIdentity(port)) return port;
+      throw new Error(
+        `Port ${port} is occupied by a CDP-speaking process that does not identify as Chrome/Chromium. ` +
+        `Refusing to attach — pass a different port or free port ${port}.`
+      );
+    }
+  }
+
+  // Timed out waiting for our Chrome to come up on the port. Distinguish
+  // "nothing is listening" (real launch failure) from "something non-CDP is
+  // squatting the port" (confusing generic timeout otherwise) via a raw TCP probe.
+  if (await isTcpPortOpen(port)) {
+    throw new Error(
+      `Port ${port} is occupied by a non-Chrome process (TCP connection succeeds but no CDP response within ${LAUNCH_TIMEOUT}ms). ` +
+      `Free the port or pass a different one.`
+    );
   }
 
   throw new Error(`Chrome failed to start on port ${port} within ${LAUNCH_TIMEOUT}ms`);

@@ -31,7 +31,7 @@ interface RepoInfo {
 
 interface GitHubStore {
   repos: Record<string, RepoInfo>;
-  prs: Record<string, { id: string; title: string; status: string; branch: string; createdAt: string }>;
+  prs: Record<string, { id: string; number: number; title: string; status: string; branch: string; createdAt: string }>;
   issues: Record<string, { id: string; title: string; status: string; labels: string[]; createdAt: string }>;
   version: string;
 }
@@ -85,6 +85,21 @@ function runSafe(cmd: string, args: string[], cwd?: string): string | null {
     return execFileSync(cmd, args, { encoding: 'utf-8', timeout: 15000, cwd: cwd || getProjectCwd(), stdio: ['pipe', 'pipe', 'pipe'] }).trim();
   } catch {
     return null;
+  }
+}
+
+/** Result of a gh CLI invocation that preserves whether it actually ran and failed. */
+type GhResult = { ok: true; stdout: string } | { ok: false; error: string };
+
+/** Run a `gh` command and preserve the real failure reason instead of collapsing to null. */
+function runSafeResult(cmd: string, args: string[], cwd?: string): GhResult {
+  try {
+    const stdout = execFileSync(cmd, args, { encoding: 'utf-8', timeout: 15000, cwd: cwd || getProjectCwd(), stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    return { ok: true, stdout };
+  } catch (err) {
+    const e = err as { stderr?: string | Buffer; message?: string };
+    const stderr = e.stderr ? String(e.stderr).trim() : '';
+    return { ok: false, error: stderr || e.message || 'gh command failed' };
   }
 }
 
@@ -248,7 +263,11 @@ export const githubTools: MCPTool[] = [
         }
         // Fallback: local store
         const prId = `pr-${Date.now()}`;
-        const pr = { id: prId, title, status: 'open', branch: headBranch, baseBranch, createdAt: new Date().toISOString() };
+        // Locally-assigned PR number, independent of the timestamp-based key —
+        // monotonic within this store so lookups by number are unambiguous.
+        const existingNumbers = Object.values(store.prs).map(p => p.number || 0);
+        const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+        const pr = { id: prId, number: nextNumber, title, status: 'open', branch: headBranch, baseBranch, createdAt: new Date().toISOString() };
         store.prs[prId] = pr;
         saveGitHubStore(store);
         return { success: true, source: 'local-store', action: 'created', pullRequest: pr };
@@ -272,13 +291,17 @@ export const githubTools: MCPTool[] = [
         const prNumber = safeGitHubNumber(input.prNumber);
         if (!prNumber) return { success: false, error: 'prNumber is required and must be a positive integer for merge.' };
         if (gh) {
-          const result = runSafe('gh', ['pr', 'merge', String(prNumber), '--merge']);
-          if (result !== null) {
+          // gh CLI is actually installed — trust its real exit status. A genuine
+          // failure (branch protection, conflicts, auth) must be reported as a
+          // failure, not silently swallowed into the local-store simulation.
+          const result = runSafeResult('gh', ['pr', 'merge', String(prNumber), '--merge']);
+          if (result.ok) {
             return { success: true, _real: true, action: 'merged', prNumber, mergedAt: new Date().toISOString() };
           }
+          return { success: false, error: result.error };
         }
-        // Fallback: local store
-        const prKey = Object.keys(store.prs).find(k => k.includes(String(prNumber)));
+        // Fallback: local store (only reached when gh CLI is not installed at all)
+        const prKey = Object.keys(store.prs).find(k => store.prs[k].number === prNumber);
         if (prKey && store.prs[prKey]) { store.prs[prKey].status = 'merged'; saveGitHubStore(store); }
         return { success: true, source: 'local-store', action: 'merged', prNumber, mergedAt: new Date().toISOString() };
       }
@@ -287,12 +310,14 @@ export const githubTools: MCPTool[] = [
         const prNumber = safeGitHubNumber(input.prNumber);
         if (!prNumber) return { success: false, error: 'prNumber is required and must be a positive integer for close.' };
         if (gh) {
-          const result = runSafe('gh', ['pr', 'close', String(prNumber)]);
-          if (result !== null) {
+          const result = runSafeResult('gh', ['pr', 'close', String(prNumber)]);
+          if (result.ok) {
             return { success: true, _real: true, action: 'closed', prNumber, closedAt: new Date().toISOString() };
           }
+          return { success: false, error: result.error };
         }
-        const prKey = Object.keys(store.prs).find(k => k.includes(String(prNumber)));
+        // Fallback: local store (only reached when gh CLI is not installed at all)
+        const prKey = Object.keys(store.prs).find(k => store.prs[k].number === prNumber);
         if (prKey && store.prs[prKey]) { store.prs[prKey].status = 'closed'; saveGitHubStore(store); }
         return { success: true, source: 'local-store', action: 'closed', prNumber, closedAt: new Date().toISOString() };
       }

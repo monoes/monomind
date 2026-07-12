@@ -351,7 +351,7 @@ function parseSessionFile(filePath, project, seenMsgIds, dateStart, dateEnd) {
 function collectJsonlFiles(dirPath) {
   var files = [];
   var entries;
-  try { entries = fs.readdirSync(dirPath); } catch (e) { return files; }
+  try { entries = fs.readdirSync(dirPath).filter(function(f) { return !f.startsWith('._'); }); } catch (e) { return files; }
   for (var i = 0; i < entries.length; i++) {
     var e = entries[i];
     if (e.endsWith('.jsonl')) {
@@ -360,7 +360,7 @@ function collectJsonlFiles(dirPath) {
       // Check subagents
       var subDir = path.join(dirPath, e, 'subagents');
       var subFiles;
-      try { subFiles = fs.readdirSync(subDir); } catch (_) { continue; }
+      try { subFiles = fs.readdirSync(subDir).filter(function(f) { return !f.startsWith('._'); }); } catch (_) { continue; }
       for (var j = 0; j < subFiles.length; j++) {
         if (subFiles[j].endsWith('.jsonl')) {
           files.push(path.join(subDir, subFiles[j]));
@@ -389,7 +389,7 @@ function unsanitize(name) {
 function parseAllSessions(dateStart, dateEnd) {
   var projectsDir = getClaudeProjectsDir();
   var projectDirs;
-  try { projectDirs = fs.readdirSync(projectsDir); } catch (e) { return []; }
+  try { projectDirs = fs.readdirSync(projectsDir).filter(function(f) { return !f.startsWith('._'); }); } catch (e) { return []; }
 
   var seenMsgIds = new Set();
   var projectMap = {};

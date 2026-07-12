@@ -5,6 +5,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { purgeStaleRegistrations } = require('../utils/agent-registrations.cjs');
 
 module.exports = {
   handlePreTask: async function(hCtx) {
@@ -62,12 +63,8 @@ module.exports = {
             .sort((a, b) => a.mtime - b.mtime);
           try { fs.unlinkSync(path.join(regDir, sorted[0].f)); } catch { /* ignore */ }
         }
-        // Also purge any stragglers older than 30 min
-        const now = Date.now();
-        for (const f of fs.readdirSync(regDir).filter(f => f.endsWith('.json'))) {
-          try { if (now - fs.statSync(path.join(regDir, f)).mtimeMs > 30 * 60 * 1000) fs.unlinkSync(path.join(regDir, f)); } catch { /* ignore */ }
-        }
-        const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length;
+        // Also purge any stragglers older than 30 min (shared with agent-start-handler.cjs)
+        const remaining = purgeStaleRegistrations(regDir) || 0;
         const _actPath = path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json');
         let _prevLastActive = 0;
         try { var _actSt = fs.statSync(_actPath); if (_actSt.size < 65536) { _prevLastActive = (JSON.parse(fs.readFileSync(_actPath, 'utf-8'))?.swarm?.lastActive) || 0; } } catch { /* ignore */ }

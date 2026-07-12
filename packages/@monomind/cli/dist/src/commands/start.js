@@ -7,6 +7,19 @@ import { confirm } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { spawn } from 'child_process';
+/** Check liveness of a pid via a zero-signal, matching the pattern used elsewhere (e.g. .claude/helpers/control-start.cjs). */
+function isPidAlive(pid) {
+    if (!Number.isInteger(pid) || pid <= 0)
+        return false;
+    try {
+        process.kill(pid, 0);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
 // Default configuration
 const DEFAULT_TOPOLOGY = 'hierarchical-mesh';
 const DEFAULT_MAX_AGENTS = 15;
@@ -92,6 +105,60 @@ const startAction = async (ctx) => {
         output.printInfo('Run "monomind init" first to initialize');
         return { success: false, exitCode: 1 };
     }
+    // Daemon mode, parent side: a Node process cannot truly self-daemonize —
+    // every handle (streams, intervals) would need to be unref'd, which leaves
+    // nothing keeping the event loop alive and the process exits almost
+    // immediately. Instead, spawn a genuine DETACHED CHILD process that
+    // re-invokes this same command with an internal marker flag; the parent's
+    // only job is to confirm the child came up and then exit. The child (see
+    // the `--foreground-worker-internal` branch below) is the one that actually
+    // stays running, with a real ref'd keep-alive.
+    const isDaemonChild = Boolean(ctx.flags['foreground-worker-internal']);
+    if (daemon && !isDaemonChild) {
+        output.writeln();
+        output.writeln(output.bold('Starting Monomind (daemon)'));
+        output.writeln();
+        const daemonPidPath = path.join(cwd, '.monomind', 'daemon.pid');
+        if (fs.existsSync(daemonPidPath)) {
+            const stalePid = Number(fs.readFileSync(daemonPidPath, 'utf-8').trim());
+            if (isPidAlive(stalePid)) {
+                output.printError(`Daemon already running (pid ${stalePid}). Run "monomind stop" first.`);
+                return { success: false, exitCode: 1 };
+            }
+            // Stale pid file — the prior daemon is dead, safe to remove.
+            fs.unlinkSync(daemonPidPath);
+        }
+        // Reconstruct the child's argv explicitly rather than reusing process.argv —
+        // startAction can be reached via `start`, `start quick`, or `restart`
+        // (which calls startAction directly in-process), so process.argv may not
+        // even contain the `start` subcommand. Building the args from ctx.flags
+        // guarantees the respawned child always dispatches to a valid daemon start.
+        const entry = process.argv[1];
+        const childArgs = ['start', '--daemon', '--foreground-worker-internal'];
+        if (topology)
+            childArgs.push('--topology', topology);
+        const child = spawn(process.execPath, [entry, ...childArgs], {
+            detached: true,
+            stdio: 'ignore',
+            cwd,
+        });
+        child.unref();
+        // Give the child a moment to actually start before trusting its pid.
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        if (!child.pid || !isPidAlive(child.pid)) {
+            output.printError('Daemon child process failed to start');
+            return { success: false, exitCode: 1 };
+        }
+        fs.mkdirSync(path.dirname(daemonPidPath), { recursive: true });
+        fs.writeFileSync(daemonPidPath, String(child.pid), { mode: 0o600 });
+        output.printSuccess(`Monomind daemon started (pid ${child.pid})`);
+        output.printInfo('Use "monomind stop" to stop it.');
+        const daemonStartResult = { daemon: true, pid: child.pid, startedAt: new Date().toISOString() };
+        if (ctx.flags.format === 'json') {
+            output.printJson(daemonStartResult);
+        }
+        return { success: true, data: daemonStartResult };
+    }
     // Load configuration
     const config = loadConfig(cwd);
     const swarmConfig = config?.swarm || {};
@@ -147,48 +214,28 @@ const startAction = async (ctx) => {
             `${output.highlight('monomind swarm status')} - View swarm details`,
             `${output.highlight('monomind stop')} - Stop the system`
         ]);
-        // Daemon mode
-        if (daemon) {
+        // Daemon mode: this branch only runs inside the detached child spawned by
+        // the parent-side block above (isDaemonChild === true — the parent never
+        // reaches here, it already returned after confirming the child is alive).
+        // The pid file was already written by the parent with the CHILD's pid, so
+        // just confirm it's in place and start the real, ref'd keep-alive that
+        // actually holds the event loop open.
+        if (daemon && isDaemonChild) {
             output.writeln();
             output.printInfo('Running in daemon mode. Use "monomind stop" to stop.');
-            // Store PID for daemon management.
-            // wx flag refuses to follow a pre-staged symlink at the path; mode 0o600
-            // keeps the file from being world-readable on multi-user systems.
             const daemonPidPath = path.join(cwd, '.monomind', 'daemon.pid');
-            try {
-                fs.writeFileSync(daemonPidPath, String(process.pid), { flag: 'wx', mode: 0o600 });
-            }
-            catch (e) {
-                if (e.code === 'EEXIST') {
-                    // Stale PID file — caller should have verified the prior daemon is dead
-                    fs.unlinkSync(daemonPidPath);
-                    fs.writeFileSync(daemonPidPath, String(process.pid), { flag: 'wx', mode: 0o600 });
-                }
-                else {
-                    throw e;
-                }
-            }
-            // Detach from parent process for true daemon behavior
-            if (process.platform !== 'win32') {
-                // Unix-like systems: create new session
-                try {
-                    process.stdin.unref?.();
-                    process.stdout.unref?.();
-                    process.stderr.unref?.();
-                }
-                catch {
-                    // Ignore errors if streams can't be unref'd
-                }
-            }
-            // Keep process alive in daemon mode
+            // Keep the process alive with a REAL (ref'd) interval — this is what
+            // actually keeps Node's event loop from exiting, since stdio was
+            // already set to 'ignore' by the parent's spawn() call.
             const keepAlive = setInterval(() => {
-                // Heartbeat - check if we should still be running
+                // Heartbeat - exit if our pid file has been removed (e.g. by `stop`)
                 if (!fs.existsSync(daemonPidPath)) {
                     clearInterval(keepAlive);
                     process.exit(0);
                 }
             }, 5000);
-            keepAlive.unref(); // Don't prevent process from exiting if no other work
+            // Deliberately NOT unref'd — this is the one handle that must keep the
+            // daemon child's event loop alive indefinitely.
         }
         const result = {
             swarmId: swarmResult.swarmId,
@@ -267,16 +314,74 @@ const stopCommand = {
             catch {
                 spinner.fail('Swarm was not running');
             }
-            // Clean up daemon PID
+            // Stop the daemon process itself: read its real pid, verify liveness,
+            // send a real termination signal, then wait and confirm it's actually
+            // dead before reporting success — rather than unconditionally deleting
+            // the pid file and claiming success regardless of reality.
             const daemonPidPath = path.join(ctx.cwd, '.monomind', 'daemon.pid');
+            let daemonWasRunning = false;
+            let daemonStopped = true;
+            let daemonPid = null;
             if (fs.existsSync(daemonPidPath)) {
-                fs.unlinkSync(daemonPidPath);
+                const pidStr = fs.readFileSync(daemonPidPath, 'utf-8').trim();
+                const pid = Number(pidStr);
+                daemonPid = Number.isInteger(pid) && pid > 0 ? pid : null;
+                if (daemonPid && isPidAlive(daemonPid)) {
+                    daemonWasRunning = true;
+                    spinner.setText(`Stopping daemon (pid ${daemonPid})...`);
+                    spinner.start();
+                    try {
+                        process.kill(daemonPid, force ? 'SIGKILL' : 'SIGTERM');
+                    }
+                    catch {
+                        // Process may have exited between the liveness check and the signal
+                    }
+                    // Wait and confirm the process actually exited before claiming success.
+                    const waitMs = Math.min(timeout, 10) * 1000;
+                    const deadline = Date.now() + waitMs;
+                    while (Date.now() < deadline && isPidAlive(daemonPid)) {
+                        await new Promise((resolve) => setTimeout(resolve, 200));
+                    }
+                    if (isPidAlive(daemonPid) && force) {
+                        try {
+                            process.kill(daemonPid, 'SIGKILL');
+                        }
+                        catch { /* already gone */ }
+                        await new Promise((resolve) => setTimeout(resolve, 300));
+                    }
+                    daemonStopped = !isPidAlive(daemonPid);
+                    if (daemonStopped) {
+                        spinner.succeed(`Daemon stopped (pid ${daemonPid})`);
+                    }
+                    else {
+                        spinner.fail(`Daemon (pid ${daemonPid}) did not stop within ${waitMs}ms`);
+                    }
+                }
+                // Only clean up the pid file once we've confirmed the process is gone
+                // (or it was already stale) — never delete it while a live daemon
+                // still owns it.
+                if (daemonStopped) {
+                    fs.unlinkSync(daemonPidPath);
+                }
             }
             output.writeln();
-            output.printSuccess('MonoMind stopped successfully');
+            if (!daemonWasRunning) {
+                output.printInfo('No daemon was running.');
+            }
+            else if (daemonStopped) {
+                output.printSuccess(`MonoMind daemon stopped successfully (pid ${daemonPid})`);
+            }
+            else {
+                output.printError(`Failed to stop daemon (pid ${daemonPid}) — it did not exit in time`);
+                return {
+                    success: false,
+                    exitCode: 1,
+                    data: { stopped: false, force, pid: daemonPid }
+                };
+            }
             return {
                 success: true,
-                data: { stopped: true, force, stoppedAt: new Date().toISOString() }
+                data: { stopped: daemonWasRunning ? daemonStopped : null, force, pid: daemonPid, stoppedAt: new Date().toISOString() }
             };
         }
         catch (error) {

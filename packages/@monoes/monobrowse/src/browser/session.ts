@@ -3,7 +3,13 @@ import { join, dirname } from 'path';
 import { homedir } from 'os';
 import type { SessionState, CdpCookie } from './types.js';
 import type { CdpClient } from './cdp.js';
-import { getCookies, setCookies, getLocalStorage, setLocalStorage, getSessionStorage, setSessionStorage } from './network.js';
+import { getCookiesForUrls, setCookies, getLocalStorage, setLocalStorage, getSessionStorage, setSessionStorage } from './network.js';
+
+// Session state files contain cookies/localStorage — treat as secrets:
+// owner-only read/write on the file (0600) and owner-only access on the
+// containing directory (0700) so other local users can't read session tokens.
+const SESSION_FILE_MODE = 0o600;
+const SESSION_DIR_MODE = 0o700;
 
 const SESSION_DIR = join(homedir(), '.monomind', 'browser-sessions');
 
@@ -31,15 +37,15 @@ export async function saveSession(
   title: string
 ): Promise<string> {
   validateSessionName(name);
-  await mkdir(SESSION_DIR, { recursive: true });
+  await mkdir(SESSION_DIR, { recursive: true, mode: SESSION_DIR_MODE });
 
-  const cookies = await getCookies(client, sessionId);
+  const cookies = await getCookiesForUrls(client, sessionId, [url]);
   const localStorage = await getLocalStorage(client, sessionId);
   const sessionStorage = await getSessionStorage(client, sessionId);
 
   const state: SessionState = { targetId, sessionId, url, title, cookies, localStorage, sessionStorage };
   const filePath = join(SESSION_DIR, `${name}.json`);
-  await writeFile(filePath, JSON.stringify(state, null, 2));
+  await writeFile(filePath, JSON.stringify(state, null, 2), { mode: SESSION_FILE_MODE });
   return filePath;
 }
 
@@ -79,12 +85,12 @@ export async function saveStateFile(
   title: string
 ): Promise<void> {
   validateFilePath(filePath);
-  await mkdir(dirname(filePath), { recursive: true });
-  const cookies = await getCookies(client, sessionId);
+  await mkdir(dirname(filePath), { recursive: true, mode: SESSION_DIR_MODE });
+  const cookies = await getCookiesForUrls(client, sessionId, [url]);
   const localStorage = await getLocalStorage(client, sessionId);
   const sessionStorage = await getSessionStorage(client, sessionId);
   const state: SessionState = { targetId, sessionId, url, title, cookies, localStorage, sessionStorage };
-  await writeFile(filePath, JSON.stringify(state, null, 2));
+  await writeFile(filePath, JSON.stringify(state, null, 2), { mode: SESSION_FILE_MODE });
 }
 
 export async function loadStateFile(

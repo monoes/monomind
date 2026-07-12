@@ -27,7 +27,13 @@ export function computeRiskLevel(riskScore) {
 function reverseBfs(startNodeId, db, maxDepth, options = {}) {
     const visited = new Map([[startNodeId, 0]]);
     const queue = [{ id: startNodeId, depth: 0 }];
-    const relations = options.relationTypes ?? ['CALLS'];
+    // Default to a broad set of relation types, not just CALLS — a class extended
+    // in 20 files, or a function only ever referenced via import/re-export (never
+    // directly called), should still show up in the blast radius. A narrow default
+    // reports "0 symbols affected, risk LOW" for changes that are anything but low
+    // risk. Callers that need the old narrow/fast behavior can still pass
+    // relationTypes: ['CALLS'] explicitly.
+    const relations = options.relationTypes ?? ['CALLS', 'IMPORTS', 'REFERENCES', 'EXTENDS', 'RE_EXPORTS'];
     const placeholders = relations.map(() => '?').join(',');
     const baseQuery = `SELECT source_id FROM edges WHERE target_id = ? AND relation IN (${placeholders})`;
     const query = options.minConfidenceScore !== undefined

@@ -4,7 +4,7 @@
  * Local type definitions to avoid external imports outside package boundary.
  */
 
-import { statSync, readFileSync } from 'node:fs';
+import { statSync, readFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 
 export interface MCPToolInputSchema {
@@ -73,6 +73,38 @@ export function getMonomindDataRoot(cwd?: string): string {
   }
   _dataRootCache.set(workDir, result);
   return result;
+}
+
+/**
+ * One-time migration for the agent/task/hive/swarm stores that historically lived
+ * under `<projectCwd>/.monomind/<subpath>` (via getProjectCwd()) before being
+ * consolidated onto the canonical getMonomindDataRoot() location (typically
+ * `<repo>/.git/monomind/<subpath>`). Several MCP tool files (agent-tools.ts,
+ * hive-mind-tools.ts, swarm-tools.ts, system-tools.ts) used to read/write the
+ * legacy path directly, causing the same logical store to physically split from
+ * task-tools.ts/session-tools.ts, which always used getMonomindDataRoot().
+ *
+ * If the canonical file is missing but the legacy file exists, copy (never move,
+ * for safety) the legacy file into place so pre-existing data isn't silently
+ * orphaned. Best-effort and idempotent — never throws, and it's a no-op once the
+ * canonical file exists or when the two paths already coincide (e.g. no .git).
+ *
+ * @param canonicalPath Absolute path under getMonomindDataRoot() the tool now reads from.
+ * @param legacySubpath Path relative to `.monomind/` that the tool used to read from
+ *   (e.g. `join('agents', 'store.json')`).
+ * @param cwd Optional project cwd override (defaults to getProjectCwd()).
+ */
+export function migrateLegacyStoreFile(canonicalPath: string, legacySubpath: string, cwd?: string): void {
+  try {
+    if (existsSync(canonicalPath)) return;
+    const legacyPath = join(cwd || getProjectCwd(), '.monomind', legacySubpath);
+    if (legacyPath === canonicalPath) return;
+    if (!existsSync(legacyPath)) return;
+    mkdirSync(dirname(canonicalPath), { recursive: true });
+    copyFileSync(legacyPath, canonicalPath);
+  } catch {
+    // Best-effort; leave both stores as-is on any failure.
+  }
 }
 
 export interface MCPTool {

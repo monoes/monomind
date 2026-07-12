@@ -113,6 +113,13 @@ async function main() {
     fs.appendFileSync(allLog, JSON.stringify(entry) + '\n');
   } catch {}
 
+  // Rotation — event logs (daily + per-session) accumulate forever with no
+  // cleanup otherwise. Cheap: single readdir + stat pass, only on session-start
+  // (once per session, not per-event) so normal hook latency is unaffected.
+  if (eventType === 'session-start') {
+    rotateEventLogs(eventsDir);
+  }
+
   // Write to per-session log
   if (sessionId !== 'unknown') {
     try {
@@ -152,4 +159,25 @@ async function main() {
   process.exit(0);
 }
 
-main().catch(() => process.exit(0));
+// Delete any daily or per-session event log whose mtime is older than
+// maxAgeMs (default 14 days). Single readdir + stat pass — no recursion.
+function rotateEventLogs(eventsDir, maxAgeMs) {
+  maxAgeMs = maxAgeMs || 14 * 24 * 60 * 60 * 1000;
+  try {
+    const cutoff = Date.now() - maxAgeMs;
+    const entries = fs.readdirSync(eventsDir).filter(f => !f.startsWith('._'));
+    for (const f of entries) {
+      if (!f.endsWith('.jsonl')) continue;
+      const full = path.join(eventsDir, f);
+      try {
+        if (fs.statSync(full).mtimeMs < cutoff) fs.unlinkSync(full);
+      } catch {}
+    }
+  } catch {}
+}
+
+module.exports = { rotateEventLogs };
+
+if (require.main === module) {
+  main().catch(() => process.exit(0));
+}

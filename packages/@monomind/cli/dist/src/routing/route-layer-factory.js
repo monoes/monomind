@@ -56,6 +56,35 @@ function runWorker(task) {
             reject(new Error('embed worker timed out'));
         }, WORKER_TIMEOUT_MS);
         timer.unref?.();
+        // Resolve as soon as the result marker is *seen*, rather than waiting for
+        // the child's `close` event. This is a robustness net: onnxruntime's
+        // native thread pool can keep the child's event loop alive after it has
+        // already written its result, so `close` may never fire (or only fires
+        // after a slow OS-level teardown). embed-worker.ts explicitly
+        // process.exit()s right after writing the marker, but resolving here too
+        // means a future regression in that exit call degrades to "resolves
+        // immediately, child lingers" instead of "silently discards a correct
+        // result after a 90s timeout".
+        const tryResolveFromMarker = () => {
+            if (settled)
+                return;
+            const markedLine = stdout
+                .split('\n')
+                .reverse()
+                .find((l) => l.startsWith(RESULT_MARKER));
+            if (!markedLine)
+                return;
+            try {
+                const parsed = JSON.parse(markedLine.slice(RESULT_MARKER.length));
+                settled = true;
+                clearTimeout(timer);
+                resolve(parsed);
+            }
+            catch {
+                // Marker line present but not yet valid JSON (unlikely — it's written
+                // in one shot) — fall through and let `close`/timeout handle it.
+            }
+        };
         child.stdout?.on('data', (d) => {
             stdout += d.toString();
             if (stdout.length > MAX_WORKER_OUTPUT) {
@@ -68,7 +97,9 @@ function runWorker(task) {
                 }
                 catch { /* already dead */ }
                 reject(new Error('embed worker produced excessive output'));
+                return;
             }
+            tryResolveFromMarker();
         });
         child.stderr?.on('data', (d) => { if (stderr.length < MAX_WORKER_OUTPUT)
             stderr += d.toString(); });

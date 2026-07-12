@@ -24,6 +24,24 @@ vi.mock('fs', () => ({
   renameSync: vi.fn()
 }));
 
+// Partially mock child_process's `spawn` — 'start --daemon' spawns a real
+// detached child process (see src/commands/start.ts) that re-invokes the CLI
+// with an internal marker flag; tests must never actually spawn a process.
+// The parent checks isPidAlive(child.pid) via process.kill(pid, 0), so the
+// mocked pid must be this test process's own real pid (guaranteed alive)
+// rather than a fake one. Other child_process exports (exec, etc. — used by
+// unrelated commands like doctor) pass through untouched via importActual.
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return {
+    ...actual,
+    spawn: vi.fn(() => ({
+      pid: process.pid,
+      unref: vi.fn(),
+    })),
+  };
+});
+
 // Mock MCP client
 vi.mock('../src/mcp-client.js', () => ({
   callMCPTool: vi.fn(async (toolName: string, input: Record<string, unknown>) => {
@@ -488,21 +506,21 @@ describe('Start Command', () => {
     });
 
     it('should start in daemon mode', async () => {
-      // Daemon mode arms a 5s heartbeat interval that calls process.exit()
-      // when the PID file disappears. Fake timers keep it from ever actually
-      // firing (we never advance the clock), and it's already unref()'d in
-      // production code so it can't hang the test process either way.
-      vi.useFakeTimers();
-      try {
-        ctx.flags = { daemon: true, _: [] };
+      // Daemon mode (parent side) spawns a real detached child process (see
+      // src/commands/start.ts) and waits ~500ms to confirm the child's pid is
+      // alive before returning. child_process is mocked above to return this
+      // test process's own real pid (so isPidAlive's process.kill(pid, 0)
+      // check succeeds) without ever spawning anything. Real timers are used
+      // for the 500ms confirmation wait — fake timers would need the clock
+      // advanced past an await boundary inside production code we don't
+      // control the exact timing of.
+      ctx.flags = { daemon: true, _: [] };
 
-        const result = await startCommand.action!(ctx);
+      const result = await startCommand.action!(ctx);
 
-        expect(result.success).toBe(true);
-        expect(result.data).toHaveProperty('daemon', true);
-      } finally {
-        vi.useRealTimers();
-      }
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveProperty('daemon', true);
+      expect(result.data).toHaveProperty('pid', process.pid);
     });
 
     it('should fail if not initialized', async () => {
@@ -515,14 +533,53 @@ describe('Start Command', () => {
   });
 
   describe('start stop', () => {
-    it('should stop system', async () => {
+    it('reports honestly when no daemon is running', async () => {
+      // fs.existsSync only matches 'config.yaml' in this suite's beforeEach,
+      // so daemon.pid never exists — stop() must report `stopped: null`
+      // (nothing to stop) rather than fabricating `stopped: true`.
       ctx.flags = { force: true, _: [] };
 
       const stopCmd = startCommand.subcommands?.find(c => c.name === 'stop');
       const result = await stopCmd!.action!(ctx);
 
       expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('stopped', true);
+      expect(result.data).toHaveProperty('stopped', null);
+    });
+
+    it('actually verifies liveness and stops a real running daemon', async () => {
+      // Simulate a live daemon: pid file exists and holds this test
+      // process's own real pid (so isPidAlive's process.kill(pid, 0) probe
+      // succeeds without needing a real second process).
+      vi.mocked(fs.existsSync).mockImplementation((p: fs.PathLike) => {
+        const pathStr = String(p);
+        return pathStr.includes('config.yaml') || pathStr.includes('daemon.pid');
+      });
+      vi.mocked(fs.readFileSync).mockImplementation((p: fs.PathLike | number) => {
+        const pathStr = String(p);
+        if (pathStr.includes('daemon.pid')) return String(process.pid);
+        return 'version: 3.0.0\nswarm:\n  topology: mesh';
+      });
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation((pid: number, signal?: string | number) => {
+        // Signal 0 is the liveness probe (isPidAlive) — let it succeed once
+        // (process is "alive"), then fail on the real term/kill signal and on
+        // every subsequent liveness probe so the stop-confirmation loop exits
+        // immediately, matching "process exited" rather than timing out.
+        if (signal === 0 && killSpy.mock.calls.filter(c => c[1] === 0).length <= 1) return true;
+        throw new Error('ESRCH');
+      });
+
+      try {
+        ctx.flags = { force: true, _: [] };
+        const stopCmd = startCommand.subcommands?.find(c => c.name === 'stop');
+        const result = await stopCmd!.action!(ctx);
+
+        expect(result.success).toBe(true);
+        expect(result.data).toHaveProperty('stopped', true);
+        expect(result.data).toHaveProperty('pid', process.pid);
+        expect(fs.unlinkSync).toHaveBeenCalled();
+      } finally {
+        killSpy.mockRestore();
+      }
     });
   });
 

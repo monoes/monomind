@@ -15,22 +15,78 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
+import { createRequire } from 'module';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 
 /**
+ * Walk upward from `startDir` looking for a package.json whose "name" is
+ * `@monoes/monomindcli`, returning that package's root directory. Used to
+ * find the CLI when this worker is itself running from inside the CLI's own
+ * process (the normal case for a globally-installed or npx-invoked CLI,
+ * where there is no monorepo/node_modules layout to guess a relative path
+ * for).
+ */
+function findCliRootFrom(startDir: string): string | null {
+  let dir = startDir;
+  for (let i = 0; i < 8; i++) {
+    const pkgPath = path.join(dir, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+        if (pkg.name === '@monoes/monomindcli') return dir;
+      } catch { /* keep walking */ }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+/**
  * Resolve the CLI memory bridge (bridgeSearchEntries/bridgeStoreEntry).
- * The bridge lives in @monomind/cli, which this package must not depend on —
- * try the compiled dist inside the project (dev repo / installed CLI layout)
- * and give up quietly otherwise. Consolidation then reports zeros, honestly.
+ * The bridge lives in @monomind/cli, which this package must not depend on.
+ * There is no existing cross-package "where is the CLI installed" convention
+ * in this monorepo (no env var, no shared registry) — so this tries, in
+ * order:
+ *   1. Dev monorepo layout relative to projectRoot.
+ *   2. projectRoot/node_modules/@monoes/monomindcli (CLI installed as a
+ *      dependency of the target project).
+ *   3. require.resolve('@monoes/monomindcli/package.json') from this
+ *      module's own location — resolves via normal Node module resolution,
+ *      which finds the CLI package wherever npm/npx actually placed it
+ *      (works for local, global, and npx-cache installs) as long as hooks
+ *      and cli end up as siblings/deps in the same resolution chain.
+ *   4. Walk up from process.argv[1] (the actual running entry script) to
+ *      find the CLI's own package.json — this is the case that matters most
+ *      in practice: a globally-installed or npx-invoked CLI is *itself* the
+ *      running process, so its own script location is the ground truth for
+ *      where its dist/ lives, regardless of projectRoot.
+ * Any candidate that doesn't resolve is skipped silently; if all fail,
+ * consolidation reports zeros, honestly.
  */
 async function loadMemoryBridge(projectRoot: string): Promise<{
   bridgeSearchEntries: (o: Record<string, unknown>) => Promise<{ results?: Array<{ key: string }> } | null>;
   bridgeStoreEntry: (o: Record<string, unknown>) => Promise<unknown>;
 } | null> {
-  const candidates = [
+  const candidates: string[] = [
     path.join(projectRoot, 'packages', '@monomind', 'cli', 'dist', 'src', 'memory', 'memory-bridge.js'),
     path.join(projectRoot, 'node_modules', '@monoes', 'monomindcli', 'dist', 'src', 'memory', 'memory-bridge.js'),
   ];
+
+  try {
+    const require = createRequire(import.meta.url);
+    const cliPkgPath = require.resolve('@monoes/monomindcli/package.json');
+    candidates.push(path.join(path.dirname(cliPkgPath), 'dist', 'src', 'memory', 'memory-bridge.js'));
+  } catch { /* @monoes/monomindcli not resolvable from here — try next strategy */ }
+
+  if (process.argv[1]) {
+    const cliRoot = findCliRootFrom(path.dirname(process.argv[1]));
+    if (cliRoot) {
+      candidates.push(path.join(cliRoot, 'dist', 'src', 'memory', 'memory-bridge.js'));
+    }
+  }
+
   for (const candidate of candidates) {
     if (!fs.existsSync(candidate)) continue;
     try {
@@ -63,11 +119,16 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
       fs.renameSync(tmp, consolidateFile);
     };
 
-    // Write the baseline result up-front: the memory bridge loads an embedding
-    // model, which can outlive the caller's timeout budget (session-start hooks
-    // abandon after 1.5s and the hook process force-exits at 5s). Writing first
-    // guarantees the output file exists for freshness gating/doctor even when
-    // clustering doesn't finish; it is atomically rewritten below when it does.
+    // P2-52(b): a "the process might die mid-run" placeholder is genuinely
+    // useful here — the memory bridge loads an embedding model, which can
+    // outlive the caller's timeout budget (session-start hooks abandon after
+    // 1.5s and the hook process force-exits at 5s) — but it must never
+    // clobber the last-known-good consolidation.json with zeros. Write the
+    // placeholder to a SEPARATE in-progress file only; the real output path
+    // is only ever touched by the final tmp+rename write below, so a killed
+    // run leaves whatever real data existed from the previous successful run
+    // untouched.
+    const inProgressFile = consolidateFile + '.inprogress';
     const baseline = {
       timestamp: new Date().toISOString(),
       patternsConsolidated: 0,
@@ -75,8 +136,9 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
       memoryCleaned: 0,
       duplicatesRemoved: 0,
       mode: 'raptor',
+      status: 'in-progress',
     };
-    try { writeMetrics(baseline); } catch { /* fs failure — surfaced below */ }
+    try { fs.writeFileSync(inProgressFile, JSON.stringify(baseline, null, 2)); } catch { /* non-critical */ }
 
     try {
       const bridge = await loadMemoryBridge(projectRoot);
@@ -125,6 +187,7 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
     };
 
     writeMetrics(result);
+    try { fs.unlinkSync(inProgressFile); } catch { /* already gone or never written */ }
 
     return {
       worker: 'consolidate',

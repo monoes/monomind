@@ -19,23 +19,36 @@ function _isValidDb(p) {
         return false;
     }
 }
-function getDbPath() {
-    const cwd = getProjectCwd();
+/**
+ * Resolve the monograph DB path for a given repo root (defaults to project cwd).
+ * Falls back to searching up to the git root when the DB isn't directly under
+ * `<cwd>/.monomind` — e.g. when called from a subdirectory of the repo. Only
+ * the no-arg (project cwd) form is cached; explicit `repoPath` overrides are
+ * cheap one-off lookups (staleness checks with a user-supplied path) so caching
+ * them isn't worth the invalidation complexity.
+ */
+function getDbPath(repoPathOverride) {
+    const cwd = repoPathOverride ?? getProjectCwd();
+    const useCache = repoPathOverride === undefined;
     // Invalidate cache when project root changes (e.g. MONOMIND_CWD set after initialize)
-    if (_cachedDbPath && _cachedCwd === cwd)
+    if (useCache && _cachedDbPath && _cachedCwd === cwd)
         return _cachedDbPath;
-    _cachedCwd = cwd;
-    _cachedDbPath = undefined;
+    if (useCache) {
+        _cachedCwd = cwd;
+        _cachedDbPath = undefined;
+    }
     const direct = join(cwd, '.monomind', 'monograph.db');
     if (_isValidDb(direct)) {
-        _cachedDbPath = direct;
+        if (useCache)
+            _cachedDbPath = direct;
         return direct;
     }
     try {
         const root = execSync('git rev-parse --show-toplevel', { cwd, encoding: 'utf8' }).trim();
         const candidate = join(root, '.monomind', 'monograph.db');
         if (_isValidDb(candidate)) {
-            _cachedDbPath = candidate;
+            if (useCache)
+                _cachedDbPath = candidate;
             return candidate;
         }
     }
@@ -725,7 +738,10 @@ let _buildInProgress = false;
 async function computeCommitsBehind(repoPath) {
     const { openDb, closeDb } = await import('@monoes/monograph');
     const { execSync } = await import('child_process');
-    const db = openDb(join(repoPath, '.monomind', 'monograph.db'));
+    const dbPath = getDbPath(repoPath);
+    if (!_isValidDb(dbPath))
+        return null;
+    const db = openDb(dbPath, { fileMustExist: true });
     try {
         const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get() ?? db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get();
         const lastCommit = meta?.value ?? null;
@@ -1737,10 +1753,10 @@ const monographInstallSkillsTool = {
             return text(`Invalid platform "${platform}". Must be one of: ${validPlatforms.join(', ')}`);
         }
         // Load community data from graph
-        const dbPath = join(repoPath, '.monomind', 'monograph.db');
+        const dbPath = getDbPath(repoPath);
         let db;
         try {
-            db = openDb(dbPath);
+            db = openDb(dbPath, { fileMustExist: true });
         }
         catch {
             return text('Graph not built yet. Run monograph_build first.');
@@ -1954,10 +1970,10 @@ const monographDeadCodeTool = {
         const repoPath = input.path ?? getProjectCwd();
         const cats = input.categories ?? ['dead-functions', 'orphan-files', 'stale-dist'];
         const result = {};
-        const dbPath = join(repoPath, '.monomind', 'monograph.db');
+        const dbPath = getDbPath(repoPath);
         let db = null;
         try {
-            db = openDb(dbPath);
+            db = openDb(dbPath, { fileMustExist: true });
         }
         catch {
             return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));

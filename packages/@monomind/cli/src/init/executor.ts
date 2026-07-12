@@ -16,6 +16,22 @@ const __dirname = dirname(__filename);
 const MAX_EXEC_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 /**
+ * Probe whether an optionalDependency actually resolved in this install
+ * (npm silently skips optionalDependencies it can't satisfy — see
+ * docs/AUDIT-BACKLOG.md P1-1/P1-23). Used to caveat generated docs instead
+ * of presenting these features as unconditionally working.
+ */
+function _isOptionalPackageResolvable(pkg: string): boolean {
+  try {
+    const req = createRequire(import.meta.url);
+    req.resolve(pkg);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Atomic write helper — writes to a sibling .tmp file then renames into place.
  * SIGINT or crash during a partial write would otherwise corrupt user-critical
  * files (.claude/settings.json, .mcp.json, helper scripts that Claude Code
@@ -1698,6 +1714,8 @@ async function writeCapabilitiesDoc(
     return;
   }
 
+  const hooksAvailable = _isOptionalPackageResolvable('@monomind/hooks');
+
   const capabilities = `# Monomind - Complete Capabilities Reference
 > Generated: ${new Date().toISOString()}
 > Full documentation: https://github.com/monoes/monomind
@@ -1707,8 +1725,8 @@ async function writeCapabilitiesDoc(
 1. [Overview](#overview)
 2. [Swarm Orchestration](#swarm-orchestration)
 3. [Available Agents (60+)](#available-agents)
-4. [CLI Commands (26 Commands, 140+ Subcommands)](#cli-commands)
-5. [Hooks System (27 Hooks + 12 Workers)](#hooks-system)
+4. [CLI Commands](#cli-commands)
+5. [Hooks System (29 Hook Subcommands + 15 Background Workers)](#hooks-system)
 6. [Memory & Intelligence](#memory--intelligence)
 7. [Hive-Mind Consensus](#hive-mind-consensus)
 8. [Performance Targets](#performance-targets)
@@ -1810,33 +1828,31 @@ npx monomind@latest swarm monitor
 
 ## CLI Commands
 
-### Core Commands (12)
+### Core Commands
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| \`init\` | 4 | Project initialization |
-| \`agent\` | 8 | Agent lifecycle management |
+| \`init\` | 5 | Project initialization |
+| \`agent\` | 7 | Agent lifecycle management |
 | \`swarm\` | 6 | Multi-agent coordination |
-| \`memory\` | 11 | LanceDB with ANN vector search |
+| \`memory\` | 12 | LanceDB with ANN vector search |
 | \`mcp\` | 9 | MCP server management |
-| \`task\` | 6 | Task assignment |
-| \`session\` | 7 | Session persistence |
+| \`task\` | 5 | Task assignment |
+| \`session\` | 6 | Session persistence |
 | \`config\` | 7 | Configuration |
 | \`status\` | 3 | System monitoring |
-| \`workflow\` | 6 | Workflow templates |
-| \`hooks\` | 17 | Self-learning hooks |
-| \`hive-mind\` | 6 | Consensus coordination |
+| \`hooks\` | 29 | Self-learning hooks + 15 background workers${hooksAvailable ? '' : ' (background workers unavailable in this install)'} |
 
-### Advanced Commands (14)
+> Note: there is no \`hive-mind\`, \`workflow\`, \`neural\`, \`embeddings\`, \`claims\`, \`migrate\`, or \`process\` CLI command.
+> Hive-Mind consensus (byzantine/raft/quorum) is available exclusively via MCP tools, not the CLI.
+> Neural pattern learning was merged into \`hooks intelligence\`.
+
+### Advanced Commands
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| \`neural\` | 5 | Pattern training |
 | \`security\` | 6 | Security scanning |
-| \`performance\` | 5 | Profiling & benchmarks |
-| \`providers\` | 5 | AI provider config |
-| \`embeddings\` | 4 | Vector embeddings |
-| \`claims\` | 4 | Authorization |
-| \`migrate\` | 5 | V2→V1 migration |
-| \`process\` | 4 | Process management |
+| \`performance\` | 4 | Profiling & benchmarks |
+| \`providers\` | 4 | AI provider config |
+| \`guidance\` | 1 | Governance gate setup |
 | \`doctor\` | 1 | Health diagnostics |
 | \`completions\` | 4 | Shell completions |
 
@@ -1860,7 +1876,7 @@ npx monomind@latest doctor --fix
 
 ## Hooks System
 
-### 27 Available Hooks
+### 29 Available Hook Subcommands${hooksAvailable ? '' : ' — background workers unavailable in this install (@monomind/hooks did not resolve)'}
 
 #### Core Hooks (6)
 | Hook | Description |
@@ -1967,6 +1983,11 @@ npx monomind@latest memory init --force
 
 ## Hive-Mind Consensus
 
+> **Experimental, MCP-only.** There is no \`hive-mind\` CLI command — this is
+> single-process vote counting exposed exclusively via MCP tools
+> (\`hive-mind-tools.ts\`), not distributed networking. Reach it through the
+> MCP server (\`npx monomind@latest mcp start\`) once connected to an MCP client.
+
 ### Queen Types
 | Type | Role |
 |------|------|
@@ -1978,28 +1999,13 @@ npx monomind@latest memory init --force
 \`researcher\`, \`coder\`, \`analyst\`, \`tester\`, \`architect\`, \`reviewer\`, \`optimizer\`, \`documenter\`
 
 ### Consensus Mechanisms
-| Mechanism | Fault Tolerance | Use Case |
-|-----------|-----------------|----------|
-| \`byzantine\` | f < n/3 faulty | Adversarial |
-| \`raft\` | f < n/2 failed | Leader-based |
-| \`gossip\` | Eventually consistent | Large scale |
-| \`crdt\` | Conflict-free | Distributed |
-| \`quorum\` | Configurable | Flexible |
-
-### Hive-Mind Commands
-\`\`\`bash
-# Initialize
-npx monomind@latest hive-mind init --queen-type strategic
-
-# Status
-npx monomind@latest hive-mind status
-
-# Spawn workers
-npx monomind@latest hive-mind spawn --count 5 --type worker
-
-# Consensus
-npx monomind@latest hive-mind consensus --propose "task"
-\`\`\`
+| Mechanism | Fault Tolerance | Status |
+|-----------|-----------------|--------|
+| \`byzantine\` / \`bft\` | f < n/3 faulty | Implemented (vote counting) |
+| \`raft\` | f < n/2 failed | Implemented (vote counting) |
+| \`quorum\` | Configurable | Implemented |
+| \`gossip\` | Eventually consistent | Planned — not implemented, rejected by \`hive_mind_init\` |
+| \`crdt\` | Conflict-free | Planned — not implemented, rejected by \`hive_mind_init\` |
 
 ---
 
