@@ -116,6 +116,7 @@ export const commands: Command[] = [
   sessionCommand,
   agentCommand,
   swarmCommand,
+  orgCommand,
   memoryCommand,
   mcpCommand,
   hooksCommand,

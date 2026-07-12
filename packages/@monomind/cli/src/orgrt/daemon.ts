@@ -49,7 +49,9 @@ export class OrgDaemon {
     if (this.orgs.has(name)) throw new Error(`org ${name} already running`);
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
-    const run = `run-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}`;
+    // random suffix: second-precision stamps collide across processes (two CLI
+    // invocations in the same second would share a run dir and its bus.jsonl)
+    const run = `run-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
     const dir = join(this.root, ORG_DIR, name, run);
     mkdirSync(dir, { recursive: true });
     const cwd = join(this.root, ORG_DIR, name, 'workspace');
