@@ -20,6 +20,7 @@ export function resolveProviderEnv(
     case 'subscription':
       delete env[KEY_VAR];
       delete env.ANTHROPIC_BASE_URL;
+      delete env.ANTHROPIC_AUTH_TOKEN;
       break;
     case 'api-key': {
       const name = cfg?.apiKeyEnv ?? KEY_VAR;
@@ -39,8 +40,8 @@ export function resolveProviderEnv(
       }
       break;
     }
-    case 'bedrock': env.CLAUDE_CODE_USE_BEDROCK = '1'; delete env[KEY_VAR]; break;
-    case 'vertex': env.CLAUDE_CODE_USE_VERTEX = '1'; delete env[KEY_VAR]; break;
+    case 'bedrock': env.CLAUDE_CODE_USE_BEDROCK = '1'; delete env[KEY_VAR]; delete env.ANTHROPIC_AUTH_TOKEN; break;
+    case 'vertex': env.CLAUDE_CODE_USE_VERTEX = '1'; delete env[KEY_VAR]; delete env.ANTHROPIC_AUTH_TOKEN; break;
   }
   return env;
 }

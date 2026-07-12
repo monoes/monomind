@@ -39,4 +39,12 @@ describe('resolveProviderEnv', () => {
     expect(resolveProviderEnv({ kind: 'bedrock' }, base).CLAUDE_CODE_USE_BEDROCK).toBe('1');
     expect(resolveProviderEnv({ kind: 'vertex' }, base).CLAUDE_CODE_USE_VERTEX).toBe('1');
   });
+
+  it('subscription/bedrock/vertex: strips leftover ANTHROPIC_AUTH_TOKEN from parent env', () => {
+    const parent = { ...base, ANTHROPIC_AUTH_TOKEN: PLACEHOLDER };
+    expect(resolveProviderEnv(undefined, parent).ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(resolveProviderEnv({ kind: 'subscription' }, parent).ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(resolveProviderEnv({ kind: 'bedrock' }, parent).ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(resolveProviderEnv({ kind: 'vertex' }, parent).ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+  });
 });
