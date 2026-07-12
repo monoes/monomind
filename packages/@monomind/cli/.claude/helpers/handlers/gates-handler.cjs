@@ -97,11 +97,14 @@ function handlePreBash(hCtx) {
 
   var result = checkDestructive(cmd);
   if (result.triggered) {
-    // Output block decision and set exit code 2 — both required by Claude Code PreToolUse protocol
-    console.log(JSON.stringify({
+    // Set exit code 2 to block, and write the reason to STDERR — per Claude
+    // Code's PreToolUse hook protocol, stdout JSON is only parsed when exit
+    // code is 0; at exit code 2 the caller reads the block reason from
+    // stderr instead, so putting it on stdout here would make it invisible.
+    process.stderr.write(JSON.stringify({
       decision: 'block',
       reason: '[gates] ' + result.reason,
-    }));
+    }) + '\n');
     process.exitCode = 2;
   }
 }
@@ -125,11 +128,12 @@ function handlePreWrite(hCtx) {
 
   var result = checkSecrets(content);
   if (result.triggered) {
-    // Output block decision and set exit code 2 — both required by Claude Code PreToolUse protocol
-    console.log(JSON.stringify({
+    // Set exit code 2 to block, and write the reason to STDERR — see the
+    // matching comment in handlePreBash for why stdout is the wrong stream.
+    process.stderr.write(JSON.stringify({
       decision: 'block',
       reason: '[gates] ' + result.reason,
-    }));
+    }) + '\n');
     process.exitCode = 2;
   }
 }

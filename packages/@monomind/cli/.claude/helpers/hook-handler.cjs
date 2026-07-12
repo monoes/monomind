@@ -136,7 +136,47 @@ async function _ensureHooksModule() {
       _hooksModule = null; // not built — bridge stays a fail-soft no-op
     }
   }
+  if (!_hooksModule) _warnHooksBridgeUnavailable();
   return _hooksModule;
+}
+
+// ── Visible one-time warning when the @monomind/hooks bridge fully fails ───
+// Both load paths above (bare specifier + dev-repo file:// fallback) failed:
+// the 15 background workers (metrics, security scan, DDD tracking, etc.) are
+// unavailable for the rest of this session. This is almost always because
+// @monomind/hooks was never resolvable from npm (it ships with
+// optionalDependencies:"*", which npm silently skips) — NOT a problem with
+// the user's own project setup. Historically this failed completely
+// silently (see docs/AUDIT-BACKLOG.md P1-1), burning debugging time on the
+// wrong target. Warned once per session (file-marker keyed by session id,
+// same pattern as the once-per-day update check below) since every hook
+// event is its own fresh `node` process and would otherwise spam this on
+// every single tool call.
+function _warnHooksBridgeUnavailable() {
+  try {
+    var sessId = String((hookInput && (hookInput.sessionId || hookInput.session_id)) || '');
+    var flagFile = path.join(CWD, '.monomind', 'hooks-bridge-warned.json');
+    var alreadyWarned = false;
+    if (sessId && fs.existsSync(flagFile)) {
+      try {
+        var flagData = JSON.parse(fs.readFileSync(flagFile, 'utf-8'));
+        if (flagData && flagData.sessionId === sessId) alreadyWarned = true;
+      } catch (e) { /* corrupt/unreadable flag file — warn again to be safe */ }
+    }
+    if (alreadyWarned) return;
+    process.stderr.write(
+      '[WARN] @monomind/hooks could not be loaded (bare specifier and dev-repo fallback both failed) — ' +
+      'background workers (metrics, security scan, DDD tracking, etc.) are unavailable this session. ' +
+      'This is not a problem with your project configuration — the package is not resolvable via npm ' +
+      'from this install. See docs/AUDIT-BACKLOG.md P1-1 or https://github.com/monoes/monomind/issues.\n'
+    );
+    if (sessId) {
+      try {
+        fs.mkdirSync(path.join(CWD, '.monomind'), { recursive: true });
+        fs.writeFileSync(flagFile, JSON.stringify({ sessionId: sessId, warnedAt: new Date().toISOString() }), 'utf-8');
+      } catch (e) { /* non-fatal — worst case we warn again next event */ }
+    }
+  } catch (e) { /* never let the warning itself break a hook event */ }
 }
 
 // ── Intelligence timeout protection (fixes #1530, #1531) ───────────────────

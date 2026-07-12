@@ -479,6 +479,13 @@ const workerRunCommand = {
                 return { success: false, exitCode: 1 };
             }
             const manager = hooks.createWorkerManager(process.cwd());
+            // `run` invokes a single worker standalone, outside the normal
+            // session-start path — runWorker() itself does not create
+            // .monomind/metrics/, so on a fresh project with no prior
+            // session-start hook run, workers that write metrics files fail with
+            // ENOENT. ensureMetricsDir() is the minimal piece of the manager's
+            // initialize() step this command actually needs (no state load/timers).
+            await manager.ensureMetricsDir();
             const result = await manager.runWorker(name);
             if (!result.success) {
                 spinner.fail(`Worker ${name} failed: ${result.error || 'unknown error'}`);

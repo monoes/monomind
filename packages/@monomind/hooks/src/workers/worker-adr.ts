@@ -84,6 +84,7 @@ export function createADRWorker(projectRoot: string): WorkerHandler {
 
     try {
       const outputPath = path.join(projectRoot, '.monomind', 'metrics', 'adr-compliance.json');
+      await fs.mkdir(path.dirname(outputPath), { recursive: true });
       await fs.writeFile(outputPath, JSON.stringify({
         timestamp: new Date().toISOString(),
         compliance: Math.round((compliantCount / totalCount) * 100),

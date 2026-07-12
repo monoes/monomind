@@ -4,6 +4,8 @@
 
 const path = require('path');
 const fs = require('fs');
+const { purgeStaleRegistrations } = require('../utils/agent-registrations.cjs');
+const { cleanEntries } = require('../utils/fs-helpers.cjs');
 
 module.exports = {
   handle: async function(hCtx) {
@@ -23,12 +25,19 @@ module.exports = {
         startedAt: new Date().toISOString(),
         pid: process.pid,
       }));
+      // Purge stragglers older than 30 min on every agent-start too — not just
+      // on TeammateIdle/TaskCompleted (task-handler.cjs) — since sessions that
+      // never emit those events would otherwise leak registrations forever.
+      const activeAfterPurge = purgeStaleRegistrations(regDir);
       // Refresh swarm-activity.json within the 5-min staleness window.
       const activityDir = path.join(CWD, '.monomind', 'metrics');
       fs.mkdirSync(activityDir, { recursive: true });
       const activityPath = path.join(activityDir, 'swarm-activity.json');
       const MAX_AGENTS = 1000;
-      const active = Math.min(fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length, MAX_AGENTS);
+      const active = Math.min(
+        activeAfterPurge != null ? activeAfterPurge : cleanEntries(regDir, f => f.endsWith('.json')).length,
+        MAX_AGENTS
+      );
       // Preserve lastActive (peak) so statusline shows non-zero after completion.
       let prevLastActive = 0;
       try {
@@ -87,13 +96,19 @@ module.exports = {
       if (_hooksModule && _hooksModule.executeHooks && _hooksModule.HookEvent) {
         var agentTypeBridge = String(hookInput.subagent_type || hookInput.agentType || hookInput.agent_type || hookInput.agentSlug || 'unknown');
         var agentDescBridge = String(hookInput.description || hookInput.prompt_description || '');
-        _hooksModule.executeHooks(_hooksModule.HookEvent.AgentSpawn, {
-          agent: {
-            id: hookInput.agentId || hookInput.agent_id || (agentTypeBridge + '-' + Date.now()),
-            type: agentTypeBridge,
-            description: agentDescBridge.slice(0, 500),
-          },
-        }, { continueOnError: true, timeout: 1500 }).catch(function() {});
+        // Must be awaited (bounded by runWithTimeout, 1500ms) — hook-handler.cjs's
+        // main().finally(() => process.exit(...)) reaps any unawaited fire-and-forget
+        // promise before it does real I/O. See session-restore-handler.cjs's
+        // SessionStart bridge for the reference pattern this mirrors.
+        await hCtx.runWithTimeout(function() {
+          return _hooksModule.executeHooks(_hooksModule.HookEvent.AgentSpawn, {
+            agent: {
+              id: hookInput.agentId || hookInput.agent_id || (agentTypeBridge + '-' + Date.now()),
+              type: agentTypeBridge,
+              description: agentDescBridge.slice(0, 500),
+            },
+          }, { continueOnError: true, timeout: 1500 });
+        }, '@monomind/hooks.AgentSpawn');
       }
     } catch (e) { /* non-fatal */ }
   },

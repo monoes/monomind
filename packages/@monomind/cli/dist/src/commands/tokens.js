@@ -6,14 +6,32 @@ import { output } from '../output.js';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 function getTrackerPath() {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    // From dist/src/commands/ -> back to project root -> .claude/helpers/
-    return join(__dirname, '..', '..', '..', '..', '..', '..', '.claude', 'helpers', 'token-tracker.cjs');
+    // The CLI package ships its own copy of token-tracker.cjs at the package
+    // root: from dist/src/commands/tokens.js, that's 3 levels up
+    // (dist/src/commands -> dist/src -> dist -> package root), then
+    // .claude/helpers/token-tracker.cjs. Verified empirically — do not "fix"
+    // this by guessing a different depth without re-checking the build output.
+    const bundled = join(__dirname, '..', '..', '..', '.claude', 'helpers', 'token-tracker.cjs');
+    if (existsSync(bundled))
+        return bundled;
+    // Fall back to a copy in the user's own project (e.g. a stripped install
+    // that dropped .claude/helpers, or a monorepo checkout like this one where
+    // the user's cwd has its own tracker copy).
+    const cwdCopy = join(process.cwd(), '.claude', 'helpers', 'token-tracker.cjs');
+    if (existsSync(cwdCopy))
+        return cwdCopy;
+    return null;
 }
 function loadTracker() {
+    const trackerPath = getTrackerPath();
+    if (!trackerPath) {
+        throw new Error('token-tracker.cjs not found (checked bundled package copy and cwd/.claude/helpers)');
+    }
     const require = createRequire(import.meta.url);
-    return require(getTrackerPath());
+    return require(trackerPath);
 }
 const VALID_PERIODS = new Set(['today', 'week', '30days', 'month']);
 function validatePeriod(raw) {

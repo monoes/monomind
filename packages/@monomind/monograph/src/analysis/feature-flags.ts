@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, lstatSync } from 'fs';
 import { join, extname } from 'path';
 
 export type FlagKind = 'EnvironmentVariable' | 'SdkCall' | 'ConfigObject';
@@ -170,13 +170,18 @@ export function crossReferenceWithDeadCode(
 }
 
 function walkDir(dir: string, fn: (filePath: string) => void): void {
-  let entries: string[];
-  try { entries = readdirSync(dir); } catch { return; }
-  for (const entry of entries) {
+  let dirents: import('fs').Dirent[];
+  try { dirents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const dirent of dirents) {
+    const entry = dirent.name;
     if (entry === 'node_modules' || entry === '.git' || entry === 'dist' || entry === 'build') continue;
+    // Never follow symlinks — avoids infinite recursion on a symlink pointing to
+    // an ancestor directory, and avoids indexing a symlinked external tree as if
+    // it were part of the repo. Matches scan.ts's walk().
+    if (dirent.isSymbolicLink()) continue;
     const full = join(dir, entry);
     let st;
-    try { st = statSync(full); } catch { continue; }
+    try { st = lstatSync(full); } catch { continue; }
     if (st.isDirectory()) walkDir(full, fn);
     else if (st.isFile()) fn(full);
   }

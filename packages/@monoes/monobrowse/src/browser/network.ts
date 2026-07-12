@@ -6,6 +6,17 @@ export async function getCookies(client: CdpClient, sessionId: string): Promise<
   return result.cookies ?? [];
 }
 
+/**
+ * Get cookies scoped to specific page URLs via `Network.getCookies`, instead of
+ * `Network.getAllCookies` which returns cookies for every origin in the browser
+ * profile. Used for session save/export so we don't leak session tokens for
+ * unrelated domains the user happens to be logged into.
+ */
+export async function getCookiesForUrls(client: CdpClient, sessionId: string, urls: string[]): Promise<CdpCookie[]> {
+  const result = await client.send<{ cookies: CdpCookie[] }>('Network.getCookies', { urls }, sessionId);
+  return result.cookies ?? [];
+}
+
 export async function setCookies(client: CdpClient, sessionId: string, cookies: CdpCookie[]): Promise<void> {
   await client.send('Network.setCookies', { cookies }, sessionId);
 }

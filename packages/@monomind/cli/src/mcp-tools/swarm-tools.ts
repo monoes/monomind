@@ -8,11 +8,12 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { type MCPTool, getProjectCwd } from './types.js';
+import { type MCPTool, getMonomindDataRoot, migrateLegacyStoreFile } from './types.js';
 import { agentTools } from './agent-tools.js';
 
-// Swarm state persistence
-const SWARM_DIR = '.monomind/swarm';
+// Swarm state persistence — relative to the git-safe data root (see
+// getMonomindDataRoot()), matching agent/task/hive-mind stores.
+const SWARM_DIR = 'swarm';
 const SWARM_STATE_FILE = 'swarm-state.json';
 
 interface SwarmState {
@@ -33,7 +34,7 @@ interface SwarmStore {
 }
 
 function getSwarmDir(): string {
-  return join(getProjectCwd(), SWARM_DIR);
+  return join(getMonomindDataRoot(), SWARM_DIR);
 }
 
 function getSwarmStatePath(): string {
@@ -52,6 +53,7 @@ const MAX_SWARM_STORE_BYTES = 10 * 1024 * 1024;
 function loadSwarmStore(): SwarmStore {
   try {
     const path = getSwarmStatePath();
+    migrateLegacyStoreFile(path, join(SWARM_DIR, SWARM_STATE_FILE));
     if (existsSync(path)) {
       if (statSync(path).size > MAX_SWARM_STORE_BYTES) return { swarms: {}, version: '3.0.0' };
       return JSON.parse(readFileSync(path, 'utf-8'));

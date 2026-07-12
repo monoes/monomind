@@ -274,11 +274,14 @@ async function handlePreBash(hCtx) {
   var config = loadCompiledConfig(hCtx.CWD);
   var result = checkDestructive(cmd, config.destructivePatterns);
   if (result.triggered) {
-    // Output block decision and set exit code 2 — both required by Claude Code PreToolUse protocol
-    console.log(JSON.stringify({
+    // Set exit code 2 to block, and write the reason to STDERR — per Claude
+    // Code's PreToolUse hook protocol, stdout JSON is only parsed when exit
+    // code is 0; at exit code 2 the caller reads the block reason from
+    // stderr instead, so putting it on stdout here would make it invisible.
+    process.stderr.write(JSON.stringify({
       decision: 'block',
       reason: '[gates] ' + result.reason,
-    }));
+    }) + '\n');
     process.exitCode = 2;
     return;
   }
@@ -288,11 +291,11 @@ async function handlePreBash(hCtx) {
   var mf = await monofenceScan(cmd);
   var worst = monofenceWorstThreat(mf);
   if (worst) {
-    console.log(JSON.stringify({
+    process.stderr.write(JSON.stringify({
       decision: 'block',
       reason: '[monofence] Threat detected in command — ' + worst.type +
         ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description,
-    }));
+    }) + '\n');
     process.exitCode = 2;
   }
 }
@@ -318,11 +321,12 @@ async function handlePreWrite(hCtx) {
   var config = loadCompiledConfig(hCtx.CWD);
   var result = checkSecrets(content, config.secretPatterns);
   if (result.triggered) {
-    // Output block decision and set exit code 2 — both required by Claude Code PreToolUse protocol
-    console.log(JSON.stringify({
+    // Set exit code 2 to block, and write the reason to STDERR — see the
+    // matching comment in handlePreBash for why stdout is the wrong stream.
+    process.stderr.write(JSON.stringify({
       decision: 'block',
       reason: '[gates] ' + result.reason,
-    }));
+    }) + '\n');
     process.exitCode = 2;
     return;
   }
@@ -332,11 +336,11 @@ async function handlePreWrite(hCtx) {
   var mf = await monofenceScan(content);
   var worst = monofenceWorstThreat(mf);
   if (worst) {
-    console.log(JSON.stringify({
+    process.stderr.write(JSON.stringify({
       decision: 'block',
       reason: '[monofence] Threat detected in written content — ' + worst.type +
         ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description,
-    }));
+    }) + '\n');
     process.exitCode = 2;
   }
 }

@@ -10,7 +10,7 @@ module.exports = {
     var loopsDir = path.join(CWD, '.monomind', 'loops');
     if (!fs.existsSync(loopsDir)) { console.log('No loops directory.'); return; }
     var files = fs.readdirSync(loopsDir).filter(function(f) {
-      return f.endsWith('.json') && !f.includes('-hil') && !f.endsWith('.stop');
+      return f.endsWith('.json') && !f.includes('-hil') && !f.endsWith('.stop') && !f.startsWith('._');
     }).slice(0, 200); // cap to prevent DoS via many files
     var STALE_MS = 6 * 60 * 60 * 1000;
     var now = Date.now();

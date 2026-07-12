@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 
 const { _openMonographDb } = require('./monograph.cjs');
+const { cleanEntries } = require('./fs-helpers.cjs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
@@ -82,7 +83,7 @@ function _triggerCollectMdFiles(dir, _depth) {
   if (depth > 5) return []; // cap recursion depth to prevent stack overflow DoS
   var results = [];
   try {
-    var entries = fs.readdirSync(dir);
+    var entries = cleanEntries(dir);
     for (var i = 0; i < entries.length; i++) {
       if (results.length >= 200) break; // cap total file count to prevent DoS
       var full = path.join(dir, entries[i]);

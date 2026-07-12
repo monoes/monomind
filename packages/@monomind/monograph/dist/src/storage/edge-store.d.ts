@@ -6,6 +6,12 @@ export declare function insertEdges(db: Database.Database, edges: MonographEdge[
 export declare function getEdgesForSources(db: Database.Database, sourceIds: string[]): MonographEdge[];
 export declare function getEdgesForSource(db: Database.Database, sourceId: string): MonographEdge[];
 export declare function getEdgesForTarget(db: Database.Database, targetId: string): MonographEdge[];
+/**
+ * Delete every edge that touches a node belonging to `filePath`, on either end.
+ * Must be called BEFORE the corresponding nodes are deleted (the subselects need
+ * the file's nodes to still exist to identify which edges to remove) — e.g.
+ * `deleteEdgesForFile` then `deleteNodesForFile`, never the reverse.
+ */
 export declare function deleteEdgesForFile(db: Database.Database, filePath: string): void;
 export declare function countEdges(db: Database.Database): number;
 //# sourceMappingURL=edge-store.d.ts.map

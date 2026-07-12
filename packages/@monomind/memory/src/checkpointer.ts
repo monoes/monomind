@@ -7,8 +7,9 @@
  */
 
 import { randomUUID, createHash } from 'node:crypto';
-import { existsSync, readFileSync, appendFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, appendFileSync } from 'node:fs';
 import type { AgentState, SwarmCheckpoint, CheckpointMeta } from './types/checkpoint.js';
+import { writeFileAtomicSync } from './atomic-file.js';
 
 export type { AgentState, SwarmCheckpoint, CheckpointMeta };
 
@@ -55,7 +56,7 @@ export class SwarmCheckpointer {
   /** Overwrite the file with the given checkpoints. */
   private writeAll(checkpoints: SwarmCheckpoint[]): void {
     const data = checkpoints.map((c) => JSON.stringify(c)).join('\n') + (checkpoints.length ? '\n' : '');
-    writeFileSync(this.dbPath, data, 'utf-8');
+    writeFileAtomicSync(this.dbPath, data, 'utf-8');
   }
 
   /** Compute a deterministic SHA-256 hash of the serialisable state. */

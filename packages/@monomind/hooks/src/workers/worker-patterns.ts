@@ -49,6 +49,7 @@ export function createPatternsWorker(projectRoot: string): WorkerHandler {
       };
 
       const metricsPath = path.join(projectRoot, '.monomind', 'metrics', 'patterns.json');
+      await fs.mkdir(path.dirname(metricsPath), { recursive: true });
       await fs.writeFile(metricsPath, JSON.stringify({
         timestamp: new Date().toISOString(),
         ...patternsData,

@@ -13,7 +13,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { getProjectCwd } from './types.js';
+import { getProjectCwd, getMonomindDataRoot, migrateLegacyStoreFile } from './types.js';
 import { weightedTally } from '../consensus/tally.js';
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -92,7 +92,7 @@ function tryResolveProposal(proposal, totalNodes) {
     return null;
 }
 function getHiveDir() {
-    return join(getProjectCwd(), STORAGE_DIR, HIVE_DIR);
+    return join(getMonomindDataRoot(), HIVE_DIR);
 }
 function getHivePath() {
     return join(getHiveDir(), HIVE_FILE);
@@ -107,6 +107,7 @@ const MAX_HIVE_STATE_BYTES = 10 * 1024 * 1024; // 10 MB
 function loadHiveState() {
     try {
         const path = getHivePath();
+        migrateLegacyStoreFile(path, join(HIVE_DIR, HIVE_FILE));
         if (existsSync(path) && statSync(path).size <= MAX_HIVE_STATE_BYTES) {
             const data = readFileSync(path, 'utf-8');
             return JSON.parse(data);
@@ -177,9 +178,10 @@ function getOrCreateSessionSecret() {
 }
 // Import agent store helpers for spawn functionality
 import { existsSync as agentStoreExists, readFileSync as readAgentStore, writeFileSync as writeAgentStore, mkdirSync as mkdirAgentStore } from 'node:fs';
-// Canonical agent store path matches agent-tools.ts: .monomind/agents/store.json
+// Canonical agent store path matches agent-tools.ts/task-tools.ts: getMonomindDataRoot()/agents/store.json
 function loadAgentStore() {
-    const storePath = join(getProjectCwd(), '.monomind', 'agents', 'store.json');
+    const storePath = join(getMonomindDataRoot(), 'agents', 'store.json');
+    migrateLegacyStoreFile(storePath, join('agents', 'store.json'));
     try {
         if (agentStoreExists(storePath)) {
             return JSON.parse(readAgentStore(storePath, 'utf-8'));
@@ -190,7 +192,7 @@ function loadAgentStore() {
 }
 const HIVE_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 function saveAgentStore(store) {
-    const storeDir = join(getProjectCwd(), '.monomind', 'agents');
+    const storeDir = join(getMonomindDataRoot(), 'agents');
     if (!agentStoreExists(storeDir)) {
         mkdirAgentStore(storeDir, { recursive: true });
     }
@@ -357,7 +359,8 @@ export const hiveMindTools = [
             // Load agent store once for all workers
             const agentStore = loadAgentStore();
             // Compute real task metrics from task store
-            const taskStorePath = join(getProjectCwd(), '.monomind', 'tasks', 'store.json');
+            const taskStorePath = join(getMonomindDataRoot(), 'tasks', 'store.json');
+            migrateLegacyStoreFile(taskStorePath, join('tasks', 'store.json'));
             let pendingTaskCount = 0;
             let activeTaskCount = 0;
             let completedTaskCount = 0;

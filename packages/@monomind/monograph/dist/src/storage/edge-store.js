@@ -49,10 +49,17 @@ export function getEdgesForTarget(db, targetId) {
         .all(targetId);
     return rows.map(rowToEdge);
 }
+/**
+ * Delete every edge that touches a node belonging to `filePath`, on either end.
+ * Must be called BEFORE the corresponding nodes are deleted (the subselects need
+ * the file's nodes to still exist to identify which edges to remove) — e.g.
+ * `deleteEdgesForFile` then `deleteNodesForFile`, never the reverse.
+ */
 export function deleteEdgesForFile(db, filePath) {
     db.prepare(`
     DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE file_path = ?)
-  `).run(filePath);
+       OR target_id IN (SELECT id FROM nodes WHERE file_path = ?)
+  `).run(filePath, filePath);
 }
 export function countEdges(db) {
     const row = db.prepare('SELECT COUNT(*) as n FROM edges').get();

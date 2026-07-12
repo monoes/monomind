@@ -3,8 +3,8 @@ import { extname, join } from 'path';
 import type { PipelinePhase, PipelineContext } from '../types.js';
 import type { MonographNode, MonographEdge } from '../../types.js';
 import { parseFile } from '../../parsers/loader.js';
-import { insertNodes } from '../../storage/node-store.js';
-import { insertEdges } from '../../storage/edge-store.js';
+import { insertNodes, deleteNodesForFile } from '../../storage/node-store.js';
+import { insertEdges, deleteEdgesForFile } from '../../storage/edge-store.js';
 import type { StructureOutput } from './structure.js';
 import { extractVariables, variableToNode } from './variables.js';
 import { ExtractionCache } from '../../cache/extraction-cache.js';
@@ -26,6 +26,7 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     const allEdges: MonographEdge[] = [];
     const freshNodes: MonographNode[] = [];
     const freshEdges: MonographEdge[] = [];
+    const staleFilePaths: string[] = [];
     const parseErrors: string[] = [];
     const fileContents = new Map<string, string>();
     let processed = 0;
@@ -39,8 +40,10 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       const ext = extname(absPath).toLowerCase();
       if (ext === '.md' || ext === '.markdown') { processed++; continue; }
 
-      // Fast path: mtime+size check avoids reading file content entirely
-      const cached = cache.getWithStat(absPath);
+      // Fast path: mtime+size check avoids reading file content entirely.
+      // Skipped entirely under --force so a force rebuild is a genuine from-scratch
+      // parse, not a replay of whatever extraction the cache happens to hold.
+      const cached = ctx.options.force ? null : cache.getWithStat(absPath);
       if (cached) {
         symbolNodes.push(...cached.nodes);
         allEdges.push(...cached.edges);
@@ -102,6 +105,10 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
         allEdges.push(...fileEdges);
         freshNodes.push(...fileSymbols);
         freshEdges.push(...fileEdges);
+        // This file was re-parsed (cache miss) — its OLD node/edge set (from the
+        // previous build) must be deleted before the fresh rows are inserted below,
+        // otherwise a renamed/removed symbol's old row survives forever (ghost rows).
+        if (fileNode.filePath) staleFilePaths.push(fileNode.filePath);
         cacheMisses++;
       }
       processed++;
@@ -114,16 +121,30 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     cache.flush();
 
     if (ctx.db) {
+      const db = ctx.db;
       // Only insert freshly-parsed nodes — cached nodes are already in the DB
       // from the previous build (node IDs are deterministic from file_path + symbol).
       // On first build (no cache hits), freshNodes === symbolNodes.
       const nodesToInsert = cacheHits > 0 ? freshNodes : symbolNodes;
-      insertNodes(ctx.db, nodesToInsert);
       const knownIds = new Set(symbolNodes.map(n => n.id));
       const edgesToInsert = cacheHits > 0
         ? freshEdges.filter(e => knownIds.has(e.targetId))
         : allEdges.filter(e => knownIds.has(e.targetId));
-      insertEdges(ctx.db, edgesToInsert);
+
+      // For every cache-miss file, purge its OLD node/edge set BEFORE inserting the
+      // fresh parse results, inside the same transaction — otherwise a renamed or
+      // removed symbol's old row would survive forever (INSERT OR REPLACE only
+      // overwrites rows whose id still matches; it never deletes rows whose id
+      // disappeared because the symbol was renamed).
+      const writeAll = db.transaction(() => {
+        for (const filePath of staleFilePaths) {
+          deleteEdgesForFile(db, filePath);
+          deleteNodesForFile(db, filePath);
+        }
+        insertNodes(db, nodesToInsert);
+        insertEdges(db, edgesToInsert);
+      });
+      writeAll();
     }
 
     if (cacheHits > 0 && cacheMisses === 0) {

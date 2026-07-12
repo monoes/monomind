@@ -22,16 +22,58 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
       fs.mkdirSync(metricsDir, { recursive: true });
     }
 
+    type Finding = { id: string; severity: 'high' | 'medium' | 'low'; message: string; source: string };
+    const findings: Finding[] = [];
+    const recommendations: string[] = [];
+
+    const envFileExists = fs.existsSync(path.join(projectRoot, '.env.local'));
+    const gitIgnoreExists = fs.existsSync(path.join(projectRoot, '.gitignore'));
+
+    const checks = {
+      envFilesProtected: !envFileExists,
+      gitIgnoreExists,
+      noHardcodedSecrets: null as boolean | null, // Not checked in local mode — requires AI-powered scan
+    };
+
+    if (envFileExists) {
+      // A tracked/present .env.local without a .gitignore entry is a real risk
+      // of committing secrets; with a .gitignore present it's still worth a
+      // recommendation but not a hard finding.
+      if (!gitIgnoreExists) {
+        findings.push({
+          id: 'env-file-no-gitignore',
+          severity: 'high',
+          message: '.env.local exists and there is no .gitignore to protect it from being committed',
+          source: 'checks.envFilesProtected',
+        });
+        recommendations.push('Add a .gitignore that excludes .env.local before committing');
+      } else {
+        findings.push({
+          id: 'env-file-present',
+          severity: 'low',
+          message: '.env.local exists — verify it is listed in .gitignore and never committed',
+          source: 'checks.envFilesProtected',
+        });
+      }
+    }
+
+    if (!gitIgnoreExists) {
+      findings.push({
+        id: 'no-gitignore',
+        severity: 'medium',
+        message: 'No .gitignore file found — build artifacts, secrets, or local config may be committed accidentally',
+        source: 'checks.gitIgnoreExists',
+      });
+      recommendations.push('Add a .gitignore file');
+    }
+
     const audit: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       mode: 'local',
-      checks: {
-        envFilesProtected: !fs.existsSync(path.join(projectRoot, '.env.local')),
-        gitIgnoreExists: fs.existsSync(path.join(projectRoot, '.gitignore')),
-        noHardcodedSecrets: null, // Not checked in local mode — requires AI-powered scan
-      },
+      checks,
       riskLevel: 'low',
-      recommendations: [] as string[],
+      recommendations,
+      findings,
       note: 'Install Claude Code CLI for AI-powered security analysis',
     };
 
@@ -98,12 +140,34 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
               confidenceScore: r.confidence_score,
               reason: 'cross-community edge: may indicate hidden dependency or attack surface',
             }));
+            // Low-confidence cross-community coupling is informational, not a
+            // hard vulnerability — surface as low-severity findings so the
+            // route-handler.cjs reader and riskLevel computation see them.
+            for (const r of surpriseRows) {
+              findings.push({
+                id: 'unexpected-coupling',
+                severity: 'low',
+                message: `Cross-community edge ${r.src_name} --${r.relation}--> ${r.tgt_name} may indicate hidden coupling`,
+                source: 'unexpectedCoupling',
+              });
+            }
           }
         } finally {
           closeDb(db);
         }
       }
     } catch { /* monograph unavailable — skip graph enrichment */ }
+
+    // Compute a real riskLevel from what was actually found, rather than a
+    // hardcoded constant: any high-severity finding escalates the whole
+    // audit, medium if none but some medium findings exist, else low.
+    const riskLevel: 'high' | 'medium' | 'low' = findings.some(f => f.severity === 'high')
+      ? 'high'
+      : findings.some(f => f.severity === 'medium')
+        ? 'medium'
+        : 'low';
+    audit['riskLevel'] = riskLevel;
+    audit['findings'] = findings;
 
     // Atomic write: tmp + rename, so readers never see a partial file.
     const tmp = auditFile + '.tmp';

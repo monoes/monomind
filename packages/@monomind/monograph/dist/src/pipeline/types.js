@@ -5,5 +5,6 @@ export const DEFAULT_OPTIONS = {
     workerChunkBudgetBytes: 20971520,
     ignore: [],
     llmMaxSections: 0,
+    force: false,
 };
 //# sourceMappingURL=types.js.map

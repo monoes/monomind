@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync, spawnSync } = require('child_process');
 const os = require('os');
+const { cleanEntries } = require('./utils/fs-helpers.cjs');
 
 // Configuration
 const CONFIG = {
@@ -197,8 +198,7 @@ function getModelFromSessionJSONL() {
     if (!fs.existsSync(projectsDir)) return null;
 
     // Most recently modified JSONL = current (or latest) session
-    const files = fs.readdirSync(projectsDir)
-      .filter(f => f.endsWith('.jsonl'))
+    const files = cleanEntries(projectsDir, f => f.endsWith('.jsonl'))
       .map(f => ({ f, mt: (() => { try { return fs.statSync(path.join(projectsDir, f)).mtimeMs; } catch { return 0; } })() }))
       .sort((a, b) => b.mt - a.mt);
     if (files.length === 0) return null;
@@ -303,7 +303,7 @@ function getLearningStats() {
   try {
     const sessDir = path.join(CWD, '.claude', 'sessions');
     if (fs.existsSync(sessDir)) {
-      sessions = fs.readdirSync(sessDir).filter(f => f.endsWith('.json')).length;
+      sessions = cleanEntries(sessDir, f => f.endsWith('.json')).length;
     }
   } catch { /* ignore */ }
 
@@ -357,7 +357,7 @@ function getSecurityStatus() {
   try {
     const scanDir = path.join(CWD, '.claude', 'security-scans');
     if (fs.existsSync(scanDir)) {
-      scanCount = fs.readdirSync(scanDir).filter(f => f.endsWith('.json')).length;
+      scanCount = cleanEntries(scanDir, f => f.endsWith('.json')).length;
     }
   } catch { /* ignore */ }
 
@@ -379,7 +379,7 @@ function getSwarmStatus() {
   const regDir = path.join(CWD, '.monomind', 'agents', 'registrations');
   if (fs.existsSync(regDir)) {
     try {
-      const files = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
+      const files = cleanEntries(regDir, f => f.endsWith('.json'));
       const liveCount = files.filter(f => {
         try {
           return (now - fs.statSync(path.join(regDir, f)).mtimeMs) < agentRegTtlMs;
@@ -488,7 +488,7 @@ function getADRStatus() {
   for (const adrPath of adrPaths) {
     try {
       if (fs.existsSync(adrPath)) {
-        const files = fs.readdirSync(adrPath).filter(f =>
+        const files = cleanEntries(adrPath, f =>
           f.endsWith('.md') && (f.startsWith('ADR-') || f.startsWith('adr-') || /^\d{4}-/.test(f))
         );
         // Report actual count — don't guess compliance without reading files
@@ -523,7 +523,7 @@ function getHooksStatus() {
   try {
     const hooksDir = path.join(CWD, '.claude', 'hooks');
     if (fs.existsSync(hooksDir)) {
-      const hookFiles = fs.readdirSync(hooksDir).filter(f => f.endsWith('.js') || f.endsWith('.sh')).length;
+      const hookFiles = cleanEntries(hooksDir, f => f.endsWith('.js') || f.endsWith('.sh')).length;
       total = Math.max(total, hookFiles);
       enabled = Math.max(enabled, hookFiles);
     }
@@ -870,7 +870,7 @@ function getLoopStatus() {
   const now = Date.now();
   const loops = [];
   try {
-    const files = fs.readdirSync(loopsDir).filter(f =>
+    const files = cleanEntries(loopsDir, f =>
       f.endsWith('.json') && !f.includes('-hil') && !f.endsWith('.stop'));
     for (const f of files) {
       const d = readJSON(path.join(loopsDir, f));
@@ -895,7 +895,7 @@ function getHILPending() {
   if (!fs.existsSync(loopsDir)) return { pending: 0 };
   let pending = 0;
   try {
-    const files = fs.readdirSync(loopsDir).filter(f => f.endsWith('-hil.md'));
+    const files = cleanEntries(loopsDir, f => f.endsWith('-hil.md'));
     for (const f of files) {
       try {
         const txt = fs.readFileSync(path.join(loopsDir, f), 'utf-8');
@@ -932,7 +932,7 @@ function getActiveOrgs() {
       const runsDir = path.join(orgsDir, orgName, 'runs');
       if (!fs.existsSync(runsDir)) continue;
       try {
-        const files = fs.readdirSync(runsDir).filter(f => f.endsWith('.jsonl'));
+        const files = cleanEntries(runsDir, f => f.endsWith('.jsonl'));
         if (!files.length) continue;
         files.sort();
         const latest = files[files.length - 1];

@@ -1,4 +1,4 @@
-import { readdirSync, statSync, existsSync, readFileSync } from 'fs';
+import { readdirSync, statSync, lstatSync, existsSync, readFileSync } from 'fs';
 import { join, extname } from 'path';
 import micromatch from 'micromatch';
 import type { PipelinePhase, PipelineContext } from '../types.js';
@@ -50,16 +50,22 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
     }
 
     function walk(dir: string) {
-      let entries: string[];
-      try { entries = readdirSync(dir); } catch { return; }
+      let dirents: import('fs').Dirent[];
+      try { dirents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
 
-      for (const entry of entries) {
+      for (const dirent of dirents) {
+        const entry = dirent.name;
         if (ignoreDirs.has(entry)) continue;
         // Skip macOS AppleDouble resource fork files (._*) — common on ExFAT/network volumes
         if (entry.startsWith('._')) continue;
+        // Never follow symlinks — a symlink to an ancestor directory causes infinite
+        // recursion (stack overflow), and a symlink to a large external tree would
+        // get fully indexed as if it were part of the repo. Matches how most
+        // code-indexing tools behave by default.
+        if (dirent.isSymbolicLink()) continue;
         const fullPath = join(dir, entry);
         let stat: ReturnType<typeof statSync>;
-        try { stat = statSync(fullPath); } catch { continue; }
+        try { stat = lstatSync(fullPath); } catch { continue; }
 
         if (stat.isDirectory()) {
           // Always traverse directories — negation patterns may rescue files inside ignored dirs

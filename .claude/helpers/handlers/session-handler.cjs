@@ -89,17 +89,48 @@ module.exports = {
           // Only write the success flag when derived from actual evidence (commits, outcomes)
           if (typeof sessionSuccess === 'boolean') feedbackEntry.intelligenceFeedback = sessionSuccess;
           fs.appendFileSync(feedbackPath, JSON.stringify(feedbackEntry) + '\n', 'utf-8');
-          // Rotate: keep last 1000 lines to prevent unbounded growth
+          // Rotate: keep last 1000 lines to prevent unbounded growth.
           try {
             var MAX_FEEDBACK = 512 * 1024; // 512 KiB
-            if (fs.existsSync(feedbackPath) && fs.statSync(feedbackPath).size > MAX_FEEDBACK) {
-              // File too large — emergency trim without full read
-              throw new Error('skip-rotation');
-            }
-            var raw = fs.readFileSync(feedbackPath, 'utf-8');
-            var lines = raw.split('\n').filter(Boolean);
-            if (lines.length > 1000) {
-              fs.writeFileSync(feedbackPath, lines.slice(-1000).join('\n') + '\n', 'utf-8');
+            var feedbackStat = fs.existsSync(feedbackPath) ? fs.statSync(feedbackPath) : null;
+            if (feedbackStat && feedbackStat.size > MAX_FEEDBACK) {
+              // Emergency tail-trim: the file is too large to comfortably read+split
+              // in full, so seek to a byte offset near the end, read only that tail,
+              // drop the first (possibly partial) line, and keep the rest — instead
+              // of the previous behavior which threw here and skipped trimming
+              // entirely, leaving the file to grow forever and permanently disabling
+              // consumers (router.cjs, route-handler.cjs) that bail out on oversized
+              // files.
+              var TAIL_BYTES = 256 * 1024; // ~256 KiB of tail content
+              var fd = fs.openSync(feedbackPath, 'r');
+              try {
+                var readSize = Math.min(TAIL_BYTES, feedbackStat.size);
+                var startOffset = feedbackStat.size - readSize;
+                var buf = Buffer.alloc(readSize);
+                fs.readSync(fd, buf, 0, readSize, startOffset);
+                var tailRaw = buf.toString('utf-8');
+                var tailLines = tailRaw.split('\n');
+                // Drop the first line if we didn't start at byte 0 — it's likely partial.
+                if (startOffset > 0) tailLines.shift();
+                var validTailLines = tailLines.filter(function(l) {
+                  if (!l) return false;
+                  try { JSON.parse(l); return true; } catch (eParse) { return false; }
+                });
+                var trimmedTail = validTailLines.slice(-1000);
+                var tmpFeedbackPath = feedbackPath + '.' + process.pid + '.tmp';
+                fs.writeFileSync(tmpFeedbackPath, trimmedTail.join('\n') + (trimmedTail.length > 0 ? '\n' : ''), 'utf-8');
+                fs.renameSync(tmpFeedbackPath, feedbackPath);
+              } finally {
+                fs.closeSync(fd);
+              }
+            } else {
+              var raw = fs.readFileSync(feedbackPath, 'utf-8');
+              var lines = raw.split('\n').filter(Boolean);
+              if (lines.length > 1000) {
+                var tmpFeedbackPath2 = feedbackPath + '.' + process.pid + '.tmp';
+                fs.writeFileSync(tmpFeedbackPath2, lines.slice(-1000).join('\n') + '\n', 'utf-8');
+                fs.renameSync(tmpFeedbackPath2, feedbackPath);
+              }
             }
           } catch (e2) { /* rotation is best-effort */ }
         }

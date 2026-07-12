@@ -8,8 +8,9 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
+import { writeFileAtomicSync } from './atomic-file.js';
 import { cosineSimilarity } from './math-utils.js';
 import {
   IMemoryBackend,
@@ -700,7 +701,7 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
     const data = this.db.export();
     const buffer = Buffer.from(data);
 
-    writeFileSync(this.config.databasePath, buffer);
+    writeFileAtomicSync(this.config.databasePath, buffer);
 
     if (this.config.verbose) {
       console.log(`[SqlJsBackend] Persisted ${buffer.length} bytes to ${this.config.databasePath}`);

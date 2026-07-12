@@ -1,4 +1,4 @@
-import { readdirSync, statSync, existsSync, readFileSync } from 'fs';
+import { readdirSync, lstatSync, existsSync, readFileSync } from 'fs';
 import { join, extname } from 'path';
 import micromatch from 'micromatch';
 import { isSupportedExtension } from '../../parsers/loader.js';
@@ -40,23 +40,30 @@ export const scanPhase = {
             }
         }
         function walk(dir) {
-            let entries;
+            let dirents;
             try {
-                entries = readdirSync(dir);
+                dirents = readdirSync(dir, { withFileTypes: true });
             }
             catch {
                 return;
             }
-            for (const entry of entries) {
+            for (const dirent of dirents) {
+                const entry = dirent.name;
                 if (ignoreDirs.has(entry))
                     continue;
                 // Skip macOS AppleDouble resource fork files (._*) — common on ExFAT/network volumes
                 if (entry.startsWith('._'))
                     continue;
+                // Never follow symlinks — a symlink to an ancestor directory causes infinite
+                // recursion (stack overflow), and a symlink to a large external tree would
+                // get fully indexed as if it were part of the repo. Matches how most
+                // code-indexing tools behave by default.
+                if (dirent.isSymbolicLink())
+                    continue;
                 const fullPath = join(dir, entry);
                 let stat;
                 try {
-                    stat = statSync(fullPath);
+                    stat = lstatSync(fullPath);
                 }
                 catch {
                     continue;

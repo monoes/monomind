@@ -18,6 +18,8 @@ export interface PipelineOptions {
     ignore: string[];
     /** Max Section nodes to submit to LLM extraction (0 = disabled). Default 0. */
     llmMaxSections: number;
+    /** When true, bypass the on-disk extraction cache entirely and re-parse every file from scratch. Default false. */
+    force?: boolean;
 }
 export declare const DEFAULT_OPTIONS: PipelineOptions;
 export interface PipelinePhase<TOutput> {

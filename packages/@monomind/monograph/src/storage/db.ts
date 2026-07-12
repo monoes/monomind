@@ -13,7 +13,23 @@ import { MonographError } from '../types.js';
 
 export type MonographDb = Database.Database;
 
-export function openDb(dbPath: string): MonographDb {
+export interface OpenDbOptions {
+  /**
+   * When true, throw a clear error instead of silently creating a fresh,
+   * empty-but-migrated database if `dbPath` doesn't exist yet. Defaults to
+   * false to preserve legacy build-time behavior (the `monograph build`
+   * codepath legitimately creates new DBs). Read-only analysis tools should
+   * pass `true` so pointing them at a repo whose real index lives elsewhere
+   * (e.g. running from a subdirectory) fails loudly instead of reporting
+   * fake-successful-looking empty results.
+   */
+  fileMustExist?: boolean;
+}
+
+export function openDb(dbPath: string, options: OpenDbOptions = {}): MonographDb {
+  if (options.fileMustExist && !existsSync(dbPath)) {
+    throw new MonographError(`Monograph database does not exist at ${dbPath}. Run monograph build first.`);
+  }
   try {
     mkdirSync(dirname(dbPath), { recursive: true });
     const db = new Database(dbPath);

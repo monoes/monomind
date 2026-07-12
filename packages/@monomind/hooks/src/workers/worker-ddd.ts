@@ -65,6 +65,7 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
 
     try {
       const outputPath = path.join(projectRoot, '.monomind', 'metrics', 'ddd-progress.json');
+      await fs.mkdir(path.dirname(outputPath), { recursive: true });
       await fs.writeFile(outputPath, JSON.stringify({
         timestamp: new Date().toISOString(),
         progress: progressPct,

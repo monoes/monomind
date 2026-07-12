@@ -171,33 +171,66 @@ export class MemoryMigrator extends EventEmitter {
   }
 
   private async loadFromSQLite(): Promise<LegacyEntry[]> {
-    const entries: LegacyEntry[] = [];
     const dbPath = this.config.sourcePath;
 
-    try {
-      // Dynamic import for better-sqlite3 or similar
-      // In production, would use actual SQLite library
-      const fileContent = await fs.readFile(dbPath);
+    // A .json-suffixed "sqlite" source is actually an exported JSON dump —
+    // route it through the real JSON loader instead of opening it as a DB.
+    if (dbPath.endsWith('.json')) {
+      return this.loadFromJSON();
+    }
 
-      // Parse SQLite format (simplified - actual implementation would use SQLite library)
-      // For now, we'll try to read it as a JSON export format
-      if (dbPath.endsWith('.json')) {
-        const data = JSON.parse(fileContent.toString());
-        if (Array.isArray(data)) {
-          return data;
-        } else if (data.entries) {
-          return data.entries;
-        }
+    let Database: new (path: string, opts?: Record<string, unknown>) => {
+      prepare: (sql: string) => { all: (...params: unknown[]) => unknown[] };
+      close: () => void;
+    };
+    try {
+      const mod = await import('better-sqlite3');
+      Database = (mod as { default: typeof Database }).default;
+    } catch (error) {
+      throw new Error(
+        `Cannot read SQLite source "${dbPath}": better-sqlite3 is not available (${(error as Error).message})`
+      );
+    }
+
+    let db: InstanceType<typeof Database> | undefined;
+    try {
+      db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    } catch (error) {
+      throw new Error(`Failed to open SQLite database "${dbPath}": ${(error as Error).message}`);
+    }
+
+    try {
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='memory_entries'")
+        .all() as Array<{ name: string }>;
+      if (tables.length === 0) {
+        throw new Error(
+          `SQLite source "${dbPath}" has no "memory_entries" table — not a recognized memory backend database`
+        );
       }
 
-      // SQLite parsing would go here using better-sqlite3 or sql.js
-      this.emit('migration:warning', {
-        message: 'Direct SQLite parsing requires additional setup. Using export format.',
-      });
+      const rows = db.prepare('SELECT * FROM memory_entries').all() as Array<Record<string, unknown>>;
+      return rows.map((row): LegacyEntry => ({
+        id: row.id as string,
+        key: row.key as string,
+        value: row.content,
+        namespace: row.namespace as string | undefined,
+        tags: this.safeJsonParse(row.tags as string, []),
+        metadata: this.safeJsonParse(row.metadata as string, {}),
+        createdAt: row.created_at as number,
+        updatedAt: row.updated_at as number,
+      }));
+    } finally {
+      db.close();
+    }
+  }
 
-      return entries;
-    } catch (error) {
-      throw new Error(`Failed to load SQLite: ${(error as Error).message}`);
+  private safeJsonParse<T>(value: string | undefined, fallback: T): T {
+    if (!value) return fallback;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
     }
   }
 

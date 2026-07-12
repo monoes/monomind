@@ -10,9 +10,9 @@
  *
  * @module v1/cli/intelligence
  */
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { cosineSimilarity as sharedCosineSimilarity } from '../utils/cosine-similarity.js';
 import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
 // ============================================================================
@@ -48,6 +48,75 @@ function ensureDataDir() {
  */
 function getPatternsPath() {
     return join(getDataDir(), 'patterns.json');
+}
+// ── multi-process-safe patterns.json flush (P1-14) ─────────────────────────
+// patterns.json can be flushed by more than one process at once — e.g. the
+// long-lived MCP server process and a short-lived CJS hook subprocess each
+// load their own in-memory copy, then flush independently. Without a lock +
+// re-read-before-write, whichever flush lands last silently erases whatever
+// the other process added since its own load. flushToDisk() below re-reads
+// the current on-disk file immediately before writing and merges this
+// process's in-memory patterns in by `id` (keeping whichever record has the
+// newer `lastUsedAt`), guarded by a short advisory lock.
+function getPatternsLockPath() {
+    return `${getPatternsPath()}.lock`;
+}
+const PATTERNS_LOCK_STALE_MS = 10_000; // single JSON write — 10s is generous
+function isPidAlive(pid) {
+    if (!Number.isInteger(pid) || pid <= 0)
+        return false;
+    try {
+        process.kill(pid, 0);
+        return true;
+    }
+    catch (e) {
+        return e?.code === 'EPERM';
+    }
+}
+/**
+ * Mirrors the stale-lock-breaking pattern in
+ * .claude/helpers/control-start.cjs (claimSpawnLock/releaseSpawnLock):
+ * wx-flag write to claim, break the lock if its holder is dead or the lock
+ * is older than the stale threshold, retry once, then give up and proceed
+ * unlocked (best-effort — a missed lock still merges via the re-read, it
+ * just narrows a tiny TOCTOU window further).
+ */
+function claimPatternsLock() {
+    const lockPath = getPatternsLockPath();
+    try {
+        mkdirSync(dirname(lockPath), { recursive: true });
+    }
+    catch {
+        /* ignore */
+    }
+    try {
+        writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
+        return true;
+    }
+    catch {
+        try {
+            const stat = statSync(lockPath);
+            const holder = Number(readFileSync(lockPath, 'utf-8'));
+            if (Date.now() - stat.mtimeMs < PATTERNS_LOCK_STALE_MS && isPidAlive(holder))
+                return false;
+            unlinkSync(lockPath);
+            writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
+            return true;
+        }
+        catch {
+            return false;
+        }
+    }
+}
+function releasePatternsLock() {
+    const lockPath = getPatternsLockPath();
+    try {
+        if (Number(readFileSync(lockPath, 'utf-8')) === process.pid)
+            unlinkSync(lockPath);
+    }
+    catch {
+        /* ignore */
+    }
 }
 /**
  * Get the stats file path
@@ -412,7 +481,34 @@ class LocalReasoningBank {
             return;
         try {
             ensureDataDir();
-            writeJsonFileAtomic(getPatternsPath(), this.patternList);
+            let acquired = claimPatternsLock();
+            if (!acquired)
+                acquired = claimPatternsLock(); // one retry — lock is short-lived
+            try {
+                // Re-read the current on-disk patterns and merge this process's
+                // in-memory changes in by id (newer lastUsedAt wins) instead of
+                // blindly overwriting the whole file with this.patternList — see
+                // the P1-14 comment above claimPatternsLock() for why.
+                const diskPatterns = readJsonFileSync(getPatternsPath(), []);
+                const merged = new Map();
+                if (Array.isArray(diskPatterns)) {
+                    for (const p of diskPatterns) {
+                        if (p && typeof p.id === 'string')
+                            merged.set(p.id, p);
+                    }
+                }
+                for (const p of this.patternList) {
+                    const existing = merged.get(p.id);
+                    if (!existing || (p.lastUsedAt ?? 0) >= (existing.lastUsedAt ?? 0)) {
+                        merged.set(p.id, p);
+                    }
+                }
+                writeJsonFileAtomic(getPatternsPath(), Array.from(merged.values()));
+            }
+            finally {
+                if (acquired)
+                    releasePatternsLock();
+            }
             this.dirty = false;
         }
         catch {

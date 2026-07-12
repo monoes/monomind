@@ -111,6 +111,31 @@ describe('WorkerManager', () => {
 
       expect(registered).toHaveBeenCalledWith({ name: 'another' });
     });
+
+    it('should not leak a dynamically registered worker into other WorkerManager instances (P2-54)', async () => {
+      const handler = vi.fn().mockResolvedValue({
+        worker: 'isolated',
+        success: true,
+        duration: 10,
+        timestamp: new Date(),
+      });
+
+      // Register only on `manager` (created in beforeEach).
+      manager.register('isolated', handler);
+      expect(manager.getStatus().workers.some(w => w.name === 'isolated')).toBe(true);
+
+      // A second, independently-constructed manager must not see it.
+      const other = new WorkerManager(TEST_PROJECT_ROOT);
+      expect(other.getStatus().workers.some(w => w.name === 'isolated')).toBe(false);
+      const result = await other.runWorker('isolated');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+
+      // The shared module-level registry must also stay clean.
+      expect((WORKER_CONFIGS as any)['isolated']).toBeUndefined();
+
+      await other.stop().catch(() => {});
+    });
   });
 
   describe('worker execution', () => {
@@ -123,25 +148,21 @@ describe('WorkerManager', () => {
         timestamp: new Date(),
       };
 
-      manager.register('test', vi.fn().mockResolvedValue(mockResult));
-
-      // Add to WORKER_CONFIGS temporarily
-      (WORKER_CONFIGS as any)['test'] = {
-        name: 'test',
+      // P2-54: config is passed directly to register() (per-instance store)
+      // rather than mutated onto the shared WORKER_CONFIGS constant — the
+      // manager no longer reads that constant at runWorker() time.
+      manager.register('test', vi.fn().mockResolvedValue(mockResult), {
         description: 'Test worker',
         interval: 60000,
         enabled: true,
         priority: WorkerPriority.Normal,
         timeout: 5000,
-      };
+      });
 
       const result = await manager.runWorker('test');
 
       expect(result.success).toBe(true);
       expect(result.data?.value).toBe(42);
-
-      // Cleanup
-      delete (WORKER_CONFIGS as any)['test'];
     });
 
     it('should handle worker timeout', async () => {
@@ -153,45 +174,35 @@ describe('WorkerManager', () => {
           duration: 10000,
           timestamp: new Date(),
         };
-      });
-
-      (WORKER_CONFIGS as any)['slow'] = {
-        name: 'slow',
+      }, {
         description: 'Slow worker',
         interval: 60000,
         enabled: true,
         priority: WorkerPriority.Normal,
         timeout: 100, // Very short timeout
-      };
+      });
 
       const result = await manager.runWorker('slow');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Timeout');
-
-      delete (WORKER_CONFIGS as any)['slow'];
     });
 
     it('should handle worker errors gracefully', async () => {
       manager.register('failing', async () => {
         throw new Error('Worker crashed');
-      });
-
-      (WORKER_CONFIGS as any)['failing'] = {
-        name: 'failing',
+      }, {
         description: 'Failing worker',
         interval: 60000,
         enabled: true,
         priority: WorkerPriority.Normal,
         timeout: 5000,
-      };
+      });
 
       const result = await manager.runWorker('failing');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Worker crashed');
-
-      delete (WORKER_CONFIGS as any)['failing'];
     });
 
     it('should return error for unknown worker', async () => {
@@ -239,25 +250,18 @@ describe('WorkerManager', () => {
 
       // Register multiple workers
       for (let i = 0; i < 6; i++) {
-        manager.register(`worker${i}`, handler);
-        (WORKER_CONFIGS as any)[`worker${i}`] = {
-          name: `worker${i}`,
+        manager.register(`worker${i}`, handler, {
           description: 'Test',
           interval: 60000,
           enabled: true,
           priority: WorkerPriority.Normal,
           timeout: 5000,
-        };
+        });
       }
 
       await manager.runAll(2); // Concurrency of 2
 
       expect(maxConcurrent).toBeLessThanOrEqual(2);
-
-      // Cleanup
-      for (let i = 0; i < 6; i++) {
-        delete (WORKER_CONFIGS as any)[`worker${i}`];
-      }
     });
   });
 });
@@ -291,15 +295,13 @@ describe('Alert System', () => {
       timestamp: new Date(),
     });
 
-    manager.register('test', handler);
-    (WORKER_CONFIGS as any)['test'] = {
-      name: 'test',
+    manager.register('test', handler, {
       description: 'Test',
       interval: 60000,
       enabled: true,
       priority: WorkerPriority.Normal,
       timeout: 5000,
-    };
+    });
 
     const result = await manager.runWorker('test');
 
@@ -307,8 +309,6 @@ describe('Alert System', () => {
     expect(result.alerts!.length).toBe(1);
     expect(result.alerts![0].severity).toBe(AlertSeverity.Warning);
     expect(result.alerts![0].value).toBe(75);
-
-    delete (WORKER_CONFIGS as any)['test'];
   });
 
   it('should generate critical alerts for critical threshold', async () => {
@@ -324,21 +324,17 @@ describe('Alert System', () => {
       timestamp: new Date(),
     });
 
-    manager.register('test', handler);
-    (WORKER_CONFIGS as any)['test'] = {
-      name: 'test',
+    manager.register('test', handler, {
       description: 'Test',
       interval: 60000,
       enabled: true,
       priority: WorkerPriority.Normal,
       timeout: 5000,
-    };
+    });
 
     const result = await manager.runWorker('test');
 
     expect(result.alerts![0].severity).toBe(AlertSeverity.Critical);
-
-    delete (WORKER_CONFIGS as any)['test'];
   });
 
   it('should handle nested metric paths', async () => {
@@ -354,22 +350,18 @@ describe('Alert System', () => {
       timestamp: new Date(),
     });
 
-    manager.register('test', handler);
-    (WORKER_CONFIGS as any)['test'] = {
-      name: 'test',
+    manager.register('test', handler, {
       description: 'Test',
       interval: 60000,
       enabled: true,
       priority: WorkerPriority.Normal,
       timeout: 5000,
-    };
+    });
 
     const result = await manager.runWorker('test');
 
     expect(result.alerts!.length).toBe(1);
     expect(result.alerts![0].metric).toBe('nested.deep.value');
-
-    delete (WORKER_CONFIGS as any)['test'];
   });
 
   it('should get recent alerts', async () => {
@@ -409,15 +401,13 @@ describe('Historical Metrics', () => {
       timestamp: new Date(),
     });
 
-    manager.register('test', handler);
-    (WORKER_CONFIGS as any)['test'] = {
-      name: 'test',
+    manager.register('test', handler, {
       description: 'Test',
       interval: 60000,
       enabled: true,
       priority: WorkerPriority.Normal,
       timeout: 5000,
-    };
+    });
 
     await manager.runWorker('test');
 
@@ -425,8 +415,6 @@ describe('Historical Metrics', () => {
     expect(history.length).toBe(1);
     expect(history[0].metrics.metric1).toBe(100);
     expect(history[0].metrics.metric2).toBe(200);
-
-    delete (WORKER_CONFIGS as any)['test'];
   });
 
   it('should filter history by worker', async () => {

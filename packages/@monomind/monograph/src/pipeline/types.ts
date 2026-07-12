@@ -20,6 +20,8 @@ export interface PipelineOptions {
   ignore: string[];
   /** Max Section nodes to submit to LLM extraction (0 = disabled). Default 0. */
   llmMaxSections: number;
+  /** When true, bypass the on-disk extraction cache entirely and re-parse every file from scratch. Default false. */
+  force?: boolean;
 }
 
 export const DEFAULT_OPTIONS: PipelineOptions = {
@@ -29,6 +31,7 @@ export const DEFAULT_OPTIONS: PipelineOptions = {
   workerChunkBudgetBytes: 20971520,
   ignore: [],
   llmMaxSections: 0,
+  force: false,
 };
 
 export interface PipelinePhase<TOutput> {
