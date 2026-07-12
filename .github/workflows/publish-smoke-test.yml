@@ -1,0 +1,184 @@
+name: Publish Smoke Test
+
+# Catches the exact regression class behind P0-1: a package that installs
+# "successfully" from npm's perspective but crashes on every command because
+# its dependency tree isn't actually complete (e.g. deps only present in the
+# monorepo root, not mirrored into the published package.json).
+#
+# Two entry points:
+#   - pack-smoke-test: runs on every PR touching CLI/root packaging surface.
+#     Builds locally, `npm pack`s both packages, installs the tarballs into a
+#     throwaway project (no monorepo node_modules / hoisting to hide behind),
+#     and runs real commands against them. This is the pre-publish gate.
+#   - registry-smoke-test: runs after a `v*` tag is pushed (i.e. once a
+#     release has actually been published to npm), or on manual dispatch.
+#     Installs the *published* tarballs from the registry itself, so it
+#     verifies what real `npm install monomind` users get.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    paths:
+      - 'packages/@monomind/cli/**'
+      - 'package.json'
+      - '.github/workflows/publish-smoke-test.yml'
+
+concurrency:
+  group: publish-smoke-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pack-smoke-test:
+    name: Pack smoke test (${{ matrix.package.name }})
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: monomind
+            dir: .
+            bin: node_modules/monomind/bin/cli.js
+          - name: '@monoes/monomindcli'
+            dir: packages/@monomind/cli
+            bin: node_modules/@monoes/monomindcli/bin/cli.js
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Install CLI package dependencies
+        working-directory: packages/@monomind/cli
+        run: npm install
+
+      - name: Build CLI package
+        working-directory: packages/@monomind/cli
+        run: npm run build
+
+      - name: npm pack (${{ matrix.package.name }})
+        id: pack
+        working-directory: ${{ matrix.package.dir }}
+        run: |
+          set -euo pipefail
+          TARBALL="$(npm pack --silent)"
+          echo "tarball_path=$(pwd)/${TARBALL}" >> "$GITHUB_OUTPUT"
+          echo "Packed: ${TARBALL}"
+
+      - name: Install tarball into a fresh empty project
+        run: |
+          set -euo pipefail
+          INSTALL_DIR="$(mktemp -d)"
+          echo "install_dir=${INSTALL_DIR}" >> "$GITHUB_ENV"
+          cd "${INSTALL_DIR}"
+          npm init -y >/dev/null
+          npm install "${{ steps.pack.outputs.tarball_path }}"
+
+      - name: Run --version against the installed tarball
+        working-directory: ${{ env.install_dir }}
+        run: |
+          set -uo pipefail
+          echo "== node ${{ matrix.package.bin }} --version =="
+          OUTPUT="$(node "${{ matrix.package.bin }}" --version 2>&1)" && STATUS=0 || STATUS=$?
+          echo "${OUTPUT}"
+          if [ $STATUS -ne 0 ]; then
+            echo "::error::${{ matrix.package.name }} --version exited with status ${STATUS}"
+            exit 1
+          fi
+          if echo "${OUTPUT}" | grep -qiE "cannot find (package|module)|MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND"; then
+            echo "::error::${{ matrix.package.name }} --version failed with a missing-module error — the published package is likely missing a dependency (P0-1 class regression)"
+            exit 1
+          fi
+
+      - name: Run init --help against the installed tarball
+        working-directory: ${{ env.install_dir }}
+        run: |
+          set -uo pipefail
+          echo "== node node_modules/.bin/monomind init --help =="
+          OUTPUT="$(node node_modules/.bin/monomind init --help 2>&1)" && STATUS=0 || STATUS=$?
+          echo "${OUTPUT}"
+          if [ $STATUS -ne 0 ]; then
+            echo "::error::${{ matrix.package.name }} 'init --help' exited with status ${STATUS}"
+            exit 1
+          fi
+          if echo "${OUTPUT}" | grep -qiE "cannot find (package|module)|MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND"; then
+            echo "::error::${{ matrix.package.name }} 'init --help' failed with a missing-module error — the published package is likely missing a dependency (P0-1 class regression)"
+            exit 1
+          fi
+
+      - name: Clean up temp install dir
+        if: always()
+        run: rm -rf "${{ env.install_dir }}"
+
+  registry-smoke-test:
+    name: Registry smoke test (${{ matrix.package.spec }})
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - spec: monomind
+            bin: node_modules/monomind/bin/cli.js
+          - spec: '@monoes/monomindcli'
+            bin: node_modules/@monoes/monomindcli/bin/cli.js
+
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install the published package from npm
+        run: |
+          set -euo pipefail
+          INSTALL_DIR="$(mktemp -d)"
+          echo "install_dir=${INSTALL_DIR}" >> "$GITHUB_ENV"
+          cd "${INSTALL_DIR}"
+          npm init -y >/dev/null
+          npm install "${{ matrix.package.spec }}@latest"
+
+      - name: Run --version against the published package
+        working-directory: ${{ env.install_dir }}
+        run: |
+          set -uo pipefail
+          OUTPUT="$(node "${{ matrix.package.bin }}" --version 2>&1)" && STATUS=0 || STATUS=$?
+          echo "${OUTPUT}"
+          if [ $STATUS -ne 0 ]; then
+            echo "::error::${{ matrix.package.spec }}@latest --version exited with status ${STATUS}"
+            exit 1
+          fi
+          if echo "${OUTPUT}" | grep -qiE "cannot find (package|module)|MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND"; then
+            echo "::error::${{ matrix.package.spec }}@latest --version failed with a missing-module error — the published package on npm is broken (P0-1 class regression)"
+            exit 1
+          fi
+
+      - name: Run init --help against the published package
+        working-directory: ${{ env.install_dir }}
+        run: |
+          set -uo pipefail
+          OUTPUT="$(node node_modules/.bin/monomind init --help 2>&1)" && STATUS=0 || STATUS=$?
+          echo "${OUTPUT}"
+          if [ $STATUS -ne 0 ]; then
+            echo "::error::${{ matrix.package.spec }}@latest 'init --help' exited with status ${STATUS}"
+            exit 1
+          fi
+          if echo "${OUTPUT}" | grep -qiE "cannot find (package|module)|MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND"; then
+            echo "::error::${{ matrix.package.spec }}@latest 'init --help' failed with a missing-module error — the published package on npm is broken (P0-1 class regression)"
+            exit 1
+          fi
+
+      - name: Clean up temp install dir
+        if: always()
+        run: rm -rf "${{ env.install_dir }}"

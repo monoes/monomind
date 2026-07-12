@@ -239,7 +239,47 @@ export class CommandParser {
     // image format, not the global text|json|table output format).
     this.applyDefaults(result.flags, resolvedCmd);
 
+    // Dual-write flag keys: every flag ends up stored under BOTH its
+    // camelCase form (`keepConfig`) and its original kebab-case form
+    // (`keep-config`). Historically only the camelCase key was ever set,
+    // but dozens of command action functions across the codebase read
+    // `ctx.flags['kebab-case']` directly — which was always `undefined`,
+    // silently disabling those flags (see AUDIT-BACKLOG P0-10). Running
+    // this as a single pass over the fully-merged flags object (long
+    // flags, `--no-x` negation, short-flag aliases, and defaults are all
+    // merged into `result.flags` by this point) covers every entry point
+    // in one place instead of touching each call site individually.
+    this.mirrorFlagKeys(result.flags);
+
     return result;
+  }
+
+  /**
+   * Convert a camelCase key to kebab-case (inverse of normalizeKey).
+   */
+  private camelToKebab(key: string): string {
+    return key.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
+  }
+
+  /**
+   * Ensure every flag is reachable under both its camelCase and
+   * kebab-case spelling. Runs once, after all flags (including
+   * defaults) have been merged into the result.
+   */
+  private mirrorFlagKeys(flags: ParsedFlags): void {
+    for (const key of Object.keys(flags)) {
+      if (key === '_' || CommandParser.RESERVED_FLAG_KEYS.has(key)) continue;
+
+      const camelKey = this.normalizeKey(key);
+      if (camelKey !== key && flags[camelKey] === undefined && !CommandParser.RESERVED_FLAG_KEYS.has(camelKey)) {
+        flags[camelKey] = flags[key];
+      }
+
+      const kebabKey = this.camelToKebab(key);
+      if (kebabKey !== key && flags[kebabKey] === undefined && !CommandParser.RESERVED_FLAG_KEYS.has(kebabKey)) {
+        flags[kebabKey] = flags[key];
+      }
+    }
   }
 
   private parseFlag(
@@ -535,7 +575,15 @@ export class CommandParser {
 
     // Check for unknown flags if not allowed
     if (!this.options.allowUnknownFlags) {
-      const knownFlags = new Set(allOptions.map(opt => this.normalizeKey(opt.name)));
+      // Include both the camelCase and original (kebab-case) spelling of
+      // each option name — parse() now mirrors flags under both forms, so
+      // validation must recognize both or the mirrored key would be
+      // flagged as an unknown option.
+      const knownFlags = new Set<string>();
+      for (const opt of allOptions) {
+        knownFlags.add(this.normalizeKey(opt.name));
+        knownFlags.add(opt.name);
+      }
       knownFlags.add('_'); // Positional args
 
       for (const key of Object.keys(flags)) {

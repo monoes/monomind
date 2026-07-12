@@ -32,8 +32,13 @@ const SECRET_PATTERNS = [
   /(?:api[_-]?key|apikey)\s*[:=]\s*['"][^'"]{8,}['"]/gi,
   /(?:secret|password|passwd|pwd)\s*[:=]\s*['"][^'"]{8,}['"]/gi,
   /(?:token|bearer)\s*[:=]\s*['"][^'"]{10,}['"]/gi,
+  // Unquoted variants — env-style KEY equals value with no surrounding
+  // quotes (the single most common real leak pattern; the quoted patterns
+  // above never match a bare assignment in a shell export or .env file).
+  /(?:api[_-]?key|apikey|token|secret|password|passwd|pwd)\s*[:=]\s*[^\s'"]{8,}/gi,
   /-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----/g,
-  /sk-[a-zA-Z0-9]{20,}/g,
+  /sk-ant-[a-zA-Z0-9_-]{20,}/g,
+  /sk-[a-zA-Z0-9_-]{20,}/g,
   /ghp_[a-zA-Z0-9]{36}/g,
   /npm_[a-zA-Z0-9]{36}/g,
   /AKIA[0-9A-Z]{16}/g,

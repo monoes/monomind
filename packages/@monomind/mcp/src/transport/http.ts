@@ -68,8 +68,10 @@ export class HttpTransport extends EventEmitter implements ITransport {
       throw new Error('HTTP transport already running');
     }
 
+    const bindHost = this.resolveBindHost();
+
     this.logger.info('Starting HTTP transport', {
-      host: this.config.host,
+      host: bindHost,
       port: this.config.port,
     });
 
@@ -83,7 +85,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
     this.setupWebSocketHandlers();
 
     await new Promise<void>((resolve, reject) => {
-      this.server!.listen(this.config.port, this.config.host, () => {
+      this.server!.listen(this.config.port, bindHost, () => {
         resolve();
       });
       this.server!.on('error', reject);
@@ -91,8 +93,53 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
     this.running = true;
     this.logger.info('HTTP transport started', {
-      url: `http://${this.config.host}:${this.config.port}`,
+      url: `http://${bindHost}:${this.config.port}`,
     });
+  }
+
+  /**
+   * SECURITY: Refuse to bind unauthenticated servers to a non-loopback
+   * interface. Without `auth` configured, `handleHttpRequest` processes
+   * every request without validating credentials — that is only acceptable
+   * on loopback. If the operator asked for a non-loopback host with no auth,
+   * fall back to 127.0.0.1 unless they explicitly opt in via
+   * MONOMIND_MCP_ALLOW_REMOTE=1 (matching the CLI's own remote-bind gate).
+   */
+  private resolveBindHost(): string {
+    const configuredHost = this.config.host;
+
+    if (this.config.auth) {
+      // Auth is explicitly configured — respect the requested host. Binding
+      // safety in this case is the operator's informed decision.
+      return configuredHost;
+    }
+
+    const isLoopback =
+      configuredHost === 'localhost' ||
+      configuredHost === '127.0.0.1' ||
+      configuredHost === '::1' ||
+      configuredHost === '::ffff:127.0.0.1';
+
+    if (isLoopback) {
+      return configuredHost;
+    }
+
+    if (process.env.MONOMIND_MCP_ALLOW_REMOTE === '1') {
+      this.logger.warn(
+        `SECURITY WARNING: HTTP transport is binding to non-loopback host "${configuredHost}" ` +
+          'with NO authentication configured. MONOMIND_MCP_ALLOW_REMOTE=1 opt-in detected — ' +
+          'every request will be processed unauthenticated. This exposes every registered tool ' +
+          'to anyone who can reach this host/port.'
+      );
+      return configuredHost;
+    }
+
+    this.logger.warn(
+      `SECURITY: refusing to bind HTTP transport to non-loopback host "${configuredHost}" with ` +
+        'no "auth" configured. Falling back to 127.0.0.1. Set MONOMIND_MCP_ALLOW_REMOTE=1 to ' +
+        'override (unsafe) or configure "auth" with tokens.'
+    );
+    return '127.0.0.1';
   }
 
   async stop(): Promise<void> {
@@ -361,7 +408,14 @@ export class HttpTransport extends EventEmitter implements ITransport {
         return;
       }
     } else if (requiresAuth && !this.config.auth) {
-      this.logger.warn('No authentication configured - running in development mode');
+      // SECURITY: loud warning on every request, not an info-level note —
+      // credentials are not being validated on this transport at all.
+      // resolveBindHost() keeps this safe by default (loopback bind only).
+      this.logger.warn(
+        'SECURITY WARNING: MCP HTTP transport has no auth policy configured; ' +
+          'this request is being processed without checking any credentials. ' +
+          'Set an auth policy with tokens to require authentication.'
+      );
     }
 
     const message = req.body;
@@ -506,18 +560,25 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
     const token = tokenMatch[1];
 
-    if (this.config.auth?.tokens?.length) {
+    // SECURITY: an empty/missing token list with auth.enabled=true must
+    // reject every request (reject-all). The previous `if (tokens?.length)`
+    // guard skipped validation entirely when the list was empty, which
+    // accepted ANY bearer value as valid (accept-all).
+    const configuredTokens = this.config.auth?.tokens;
+    if (!configuredTokens || configuredTokens.length === 0) {
+      return { valid: false, error: 'No tokens configured for authentication' };
+    }
+
+    let valid = false;
+    for (const validToken of configuredTokens) {
       // SECURITY: Use timing-safe comparison to prevent timing attacks
-      let valid = false;
-      for (const validToken of this.config.auth.tokens) {
-        if (this.timingSafeCompare(token, validToken)) {
-          valid = true;
-          break;
-        }
+      if (this.timingSafeCompare(token, validToken)) {
+        valid = true;
+        break;
       }
-      if (!valid) {
-        return { valid: false, error: 'Invalid token' };
-      }
+    }
+    if (!valid) {
+      return { valid: false, error: 'Invalid token' };
     }
 
     return { valid: true };

@@ -36,6 +36,16 @@ export declare class CommandParser {
     private static readonly RESERVED_FLAG_KEYS;
     private setFlagSafe;
     parse(args: string[]): ParseResult;
+    /**
+     * Convert a camelCase key to kebab-case (inverse of normalizeKey).
+     */
+    private camelToKebab;
+    /**
+     * Ensure every flag is reachable under both its camelCase and
+     * kebab-case spelling. Runs once, after all flags (including
+     * defaults) have been merged into the result.
+     */
+    private mirrorFlagKeys;
     private parseFlag;
     private parseValue;
     private normalizeKey;

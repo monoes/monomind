@@ -60,15 +60,20 @@
     "v1:security": "npm run security:audit && npm run security:test"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.207",
     "@monoes/monobrowse": "^1.0.3",
     "@monoes/monograph": "^1.4.0",
+    "@noble/ed25519": "^2.1.0",
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
-    "semver": "^7.6.0"
+    "semver": "^7.6.0",
+    "ws": "^8.21.0",
+    "yaml": "^2.8.0",
+    "zod": "^3.25.0"
   },
   "overrides": {
     "hono": ">=4.12.21",
-    "ws": ">=8.20.1",
+    "ws": "$ws",
     "axios": ">=1.16.0",
     "qs": ">=6.15.2",
     "esbuild": ">=0.28.1",
@@ -137,8 +142,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
     "vite": ">=8.0.16",
-    "vitest": "^4.1.4",
-    "zod": "^4.3.6"
+    "vitest": "^4.1.4"
   },
   "engines": {
     "node": ">=20.0.0"
