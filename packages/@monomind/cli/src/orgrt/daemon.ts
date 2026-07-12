@@ -49,6 +49,7 @@ export class OrgDaemon {
   private orgs = new Map<string, RunningOrg>();
   private globalSubscribers = new Set<(e: BusEvent) => void>();
   private leases = new Map<string, BrokerLease>();
+  private forwarders = new Map<string, ReturnType<typeof attachForwarder>>();
 
   constructor(private root: string, private opts: DaemonOpts = {}) {}
 
@@ -80,7 +81,7 @@ export class OrgDaemon {
     const collected: BusEvent[] = [];
     bus.subscribe(e => { collected.push(e); for (const fn of this.globalSubscribers) fn(e); });
     if (this.opts.forward !== false)
-      attachForwarder(bus, this.opts.controlJson ?? join(this.root, '.monomind/control.json'));
+      this.forwarders.set(name, attachForwarder(bus, this.opts.controlJson ?? join(this.root, '.monomind/control.json')));
 
     const running: RunningOrg = { def, run, bus, agents: new Map(), busEvents: () => [...collected] };
     this.orgs.set(name, running);
@@ -206,6 +207,12 @@ export class OrgDaemon {
     await Promise.allSettled([...org.agents.values()].map(a => a.done));
     org.bus.emit({ type: 'status', msg: 'org stopped' });
     await org.bus.flush();
+    // the "org stopped" event above triggers the forwarder's final org:complete /
+    // session:complete POST — without waiting for it here, the CLI process can exit
+    // (and kill the in-flight fetch) before that last event reaches the dashboard,
+    // leaving the run stuck showing "running" forever.
+    const forwarder = this.forwarders.get(name);
+    if (forwarder) { await forwarder.settle(); forwarder.unsubscribe(); this.forwarders.delete(name); }
     this.persistState(name, 'stopped', org.run);
     this.orgs.delete(name);
   }

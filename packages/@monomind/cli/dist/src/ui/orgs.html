@@ -383,6 +383,37 @@ html, body {
   content: '—'; color: oklch(36% 0.008 186 / 0.5); flex-shrink: 0; margin-top: 1px;
 }
 
+/* ── Files tab ──────────────────────────────────────────────────── */
+#files-pane { padding: 20px; }
+.files-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.file-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 10px 12px;
+  display: flex; align-items: center; gap: 10px;
+  transition: border-color 0.12s;
+}
+.file-card:hover { border-color: var(--teal-dim); }
+.fc-icon { font-size: 18px; flex-shrink: 0; }
+.fc-body { flex: 1; min-width: 0; }
+.fc-name {
+  font-size: 12px; color: var(--text); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fc-meta {
+  font-size: 9px; color: var(--dim); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fc-view {
+  flex-shrink: 0; background: #1a3a5a; color: #5d9fd9; border: 1px solid #2980b944;
+  border-radius: 4px; padding: 4px 10px; font-size: 10px; font-weight: 700; cursor: pointer;
+}
+.fc-view:hover { background: #204a70; }
+.fc-binary { flex-shrink: 0; font-size: 9px; color: var(--dim); }
+
 /* ── Activity / event log ───────────────────────────────────────── */
 #activity-pane { padding: 20px; }
 #activity-log { display: flex; flex-direction: column; gap: 0; }
@@ -819,6 +850,7 @@ html, body {
         <button class="tab-btn" onclick="switchTab('roles')">ROLES</button>
         <button class="tab-btn" onclick="switchTab('activity')">ACTIVITY</button>
         <button class="tab-btn" onclick="switchTab('health')">HEALTH</button>
+        <button class="tab-btn" onclick="switchTab('files')">FILES</button>
         <button class="tab-btn" onclick="switchTab('chat')">CHAT</button>
       </div>
 
@@ -934,6 +966,14 @@ html, body {
           <div id="health-pane">
             <div id="health-grid" class="health-grid"></div>
             <div id="health-detail"></div>
+          </div>
+        </div>
+
+        <!-- Files tab: every asset any agent in this org has produced, across all runs -->
+        <div class="tab-pane" id="tab-files">
+          <div id="files-pane">
+            <div id="files-empty" class="act-empty" style="display:none">No files produced yet.</div>
+            <div id="files-grid" class="files-grid"></div>
           </div>
         </div>
 
@@ -1081,8 +1121,60 @@ window.switchTab = function(tab) {
   const mainBody = document.getElementById('main-body');
   if (mainBody) mainBody.classList.toggle('chat-active', tab === 'chat');
   if (tab === 'chat') renderChatTab();
+  else if (tab === 'files') renderFilesTab();
   else if (orgDetailData) renderTab(tab);
 };
+
+// ── Files tab: every asset produced by this org, deduped by path, latest first ──
+function collectOrgArtifacts() {
+  const bySessions = chatSessions.filter(orgSessionMatch);
+  const seen = new Map(); // path -> { art, ts, from }
+  bySessions.forEach(s => (s.events || []).forEach(ev => {
+    if (ev.type !== 'org:artifact') return;
+    const art = ev.artifact || (ev.path ? { path: ev.path, label: ev.label, mimeType: ev.mimeType } : null);
+    if (!art || !art.path) return;
+    const prev = seen.get(art.path);
+    if (!prev || (ev.ts || 0) >= prev.ts) seen.set(art.path, { art, ts: ev.ts || 0, from: ev.from || '' });
+  }));
+  return Array.from(seen.values()).sort((a, b) => b.ts - a.ts);
+}
+
+function mkFileCard(entry) {
+  const { art, ts, from } = entry;
+  const el = document.createElement('div');
+  el.className = 'file-card';
+  const isText = (art.mimeType || '').startsWith('text/') || (art.mimeType || '') === 'application/json';
+  const labelRaw = art.label || (art.path || 'file').split('/').pop();
+  const timeStr = ts ? new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const meta = [from, art.path ? art.path.split('/').slice(-3).join('/') : null, timeStr].filter(Boolean).join(' · ');
+  el.innerHTML = `
+    <div class="fc-icon">📄</div>
+    <div class="fc-body">
+      <div class="fc-name">${esc(labelRaw)}</div>
+      <div class="fc-meta">${esc(meta)}</div>
+    </div>
+    ${isText && art.path
+      ? `<button class="fc-view" onclick="viewArtifact(${JSON.stringify(art.path)},${JSON.stringify(labelRaw)})">View</button>`
+      : `<span class="fc-binary">Binary</span>`}
+  `;
+  return el;
+}
+
+function paintFilesGrid() {
+  const grid = document.getElementById('files-grid');
+  const empty = document.getElementById('files-empty');
+  if (!grid) return;
+  const files = collectOrgArtifacts();
+  grid.innerHTML = '';
+  if (!files.length) { if (empty) empty.style.display = 'block'; return; }
+  if (empty) empty.style.display = 'none';
+  files.forEach(entry => grid.appendChild(mkFileCard(entry)));
+}
+
+function renderFilesTab() {
+  paintFilesGrid(); // paint immediately with whatever's cached
+  loadChatSessions().then(() => { if (currentTab === 'files') paintFilesGrid(); });
+}
 
 // ── Render all orgs in sidebar ────────────────────────────────────
 function renderSidebar() {
@@ -1689,8 +1781,13 @@ function orgSessionMatch(s) {
   const orgLc = selectedOrg.toLowerCase();
   const prompt = (s.prompt || '').toLowerCase();
   if (prompt.includes('running org: ' + orgLc) || prompt.includes('org: ' + orgLc)) return true;
-  // Also check events for an org field
-  return (s.events || []).some(ev => (ev.org || '').toLowerCase() === orgLc);
+  // Only genuine org-run events (org:comms, org:artifact, org:start, ...) count.
+  // agent:bash / agent:edit / etc. also carry an `org` field (ambient "which
+  // org was active while this Claude Code session ran" tagging) — matching on
+  // those too would pull an unrelated dev session's entire tool-call history
+  // into this org's Chat/Files tabs whenever that org happened to be running
+  // at the same time.
+  return (s.events || []).some(ev => (ev.type || '').startsWith('org:') && (ev.org || '').toLowerCase() === orgLc);
 }
 
 function populateChatSelect() {
@@ -2042,6 +2139,8 @@ function handleMmEvent(ev) {
       appendChatEvent(ev, true);
       chatScrollFeed();
     }
+    // Live-update the Files tab when a new asset lands while it's open
+    if (ev.type === 'org:artifact' && currentTab === 'files') paintFilesGrid();
   }
 }
 

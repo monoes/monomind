@@ -36,7 +36,7 @@ export function unregisterOrg(name: string, dir = defaultRegistryDir()): void {
 export function lookupOrg(name: string, dir = defaultRegistryDir(), staleMs = DEFAULT_STALE_MS): BrokerEntry | null {
   try {
     const entry = JSON.parse(readFileSync(entryPath(name, dir), 'utf8')) as BrokerEntry;
-    if (Date.now() - entry.updatedAt > staleMs) return null;
+    if (Date.now() - entry.updatedAt >= staleMs) return null;
     return entry;
   } catch {
     return null;
