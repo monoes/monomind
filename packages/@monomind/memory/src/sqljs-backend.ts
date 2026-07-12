@@ -192,6 +192,7 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         expires_at INTEGER,
+        event_at INTEGER,
         version INTEGER NOT NULL DEFAULT 1,
         "references" TEXT NOT NULL,
         access_count INTEGER NOT NULL DEFAULT 0,
@@ -224,9 +225,9 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
     const stmt = `
       INSERT OR REPLACE INTO memory_entries (
         id, key, content, embedding, type, namespace, tags, metadata,
-        owner_id, access_level, created_at, updated_at, expires_at,
+        owner_id, access_level, created_at, updated_at, expires_at, event_at,
         version, "references", access_count, last_accessed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const embeddingBuffer = entry.embedding
@@ -247,6 +248,7 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
       entry.createdAt,
       entry.updatedAt,
       entry.expiresAt || null,
+      entry.eventAt ?? null,
       entry.version,
       JSON.stringify(entry.references),
       entry.accessCount,
@@ -422,6 +424,16 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
     if (query.updatedBefore) {
       sql += ' AND updated_at <= ?';
       params.push(query.updatedBefore);
+    }
+
+    // Event-time range filters (bi-temporal)
+    if (query.eventAfter) {
+      sql += ' AND event_at >= ?';
+      params.push(query.eventAfter);
+    }
+    if (query.eventBefore) {
+      sql += ' AND event_at <= ?';
+      params.push(query.eventBefore);
     }
 
     // Expiration filter
@@ -735,6 +747,7 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
       createdAt: row.created_at as number,
       updatedAt: row.updated_at as number,
       expiresAt: row.expires_at as number | undefined,
+      eventAt: (row.event_at as number | undefined) ?? undefined,
       version: row.version as number,
       references: JSON.parse(row.references as string),
       accessCount: row.access_count as number,
@@ -756,8 +769,20 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
   private estimateMemoryUsage(): number {
     if (!this.db) return 0;
 
-    // Export to get size
-    const data = this.db.export();
-    return data.length;
+    // Cheap on-disk-size estimate via PRAGMA — avoids export()-ing the whole
+    // database (which would transiently double WASM heap memory) just to
+    // measure its size.
+    const pageCount = this.pragmaValue('page_count');
+    const pageSize = this.pragmaValue('page_size');
+    return pageCount * pageSize;
+  }
+
+  private pragmaValue(pragma: string): number {
+    if (!this.db) return 0;
+    const stmt = this.db.prepare(`PRAGMA ${pragma}`);
+    stmt.step();
+    const row = stmt.getAsObject();
+    stmt.free();
+    return (row[pragma] as number) || 0;
   }
 }

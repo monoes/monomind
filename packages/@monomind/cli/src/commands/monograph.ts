@@ -102,10 +102,10 @@ const buildCommand: Command = {
 
     try {
       const { buildAsync } = await import('@monoes/monograph');
-      // llmMaxSections is a UI variable only; not a valid BuildOptions key in @monoes/monograph@1.1.0
       await buildAsync(root, {
         codeOnly,
         force,
+        llmMaxSections,
         onProgress: (p: { phase: string; message?: string }) => {
           const msg = `[${p.phase}] ${p.message ?? ''}`;
           progressLines.push(msg);
@@ -209,10 +209,10 @@ const wikiCommand: Command = {
 
     try {
       const { buildAsync } = await import('@monoes/monograph');
-      // llmMaxSections is a UI variable only; not a valid BuildOptions key in @monoes/monograph@1.1.0
       await buildAsync(root, {
         codeOnly: false,
         force,
+        llmMaxSections,
         onProgress: (p: { phase: string; message?: string }) => {
           const msg = `[${p.phase}] ${p.message ?? ''}`;
           progressLines.push(msg);
@@ -441,7 +441,7 @@ const watchCommand: Command = {
       const watcher = new MonographWatcher(root);
       watcher.on('monograph:updated', () => {
         output.writeln(output.dim('  [watch] File change detected, rebuilding…'));
-        buildAsync(root, { codeOnly: false }).catch((err: Error) => {
+        buildAsync(root, { codeOnly: false, llmMaxSections }).catch((err: Error) => {
           output.writeln(output.dim(`  [watch] Rebuild error: ${err.message}`));
         });
       });

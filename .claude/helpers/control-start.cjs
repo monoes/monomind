@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { claimLock, releaseLock } = require('./utils/fs-helpers.cjs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const STATUS_FILE = path.join(CWD, '.monomind', 'control.json');
@@ -111,31 +112,23 @@ const LOCK_FILE = path.join(CWD, '.monomind', 'control.lock');
  * Atomically claim the spawn lock. Concurrent hook events (a busy session can
  * fire dozens of control-starts at once) must not each spawn a server — the
  * loser processes exit and let the winner's server come up. A stale lock
- * (dead pid or older than 30s) is broken and re-claimed.
+ * (older than 30s) is broken and re-claimed.
+ *
+ * P2-25: previously this broke a stale lock via unlink-then-writeFileSync(wx),
+ * which is a TOCTOU race — a second process that also decided the lock was
+ * stale could unlink the FIRST process's freshly-claimed (non-stale) lock
+ * between that process's unlink and its own write, letting a third process
+ * then also claim it. `claimLock` (utils/fs-helpers.cjs) fixes this by
+ * breaking stale locks with an atomic rename-to-claim instead: only one
+ * racing process can win the rename, and a loser retries from the top
+ * rather than proceeding as if it owns the lock.
  */
 function claimSpawnLock() {
-  try { fs.mkdirSync(path.dirname(LOCK_FILE), { recursive: true }); } catch { /* ignore */ }
-  try {
-    fs.writeFileSync(LOCK_FILE, String(process.pid), { flag: 'wx' });
-    return true;
-  } catch {
-    try {
-      const stat = fs.statSync(LOCK_FILE);
-      const holder = Number(fs.readFileSync(LOCK_FILE, 'utf-8'));
-      if (Date.now() - stat.mtimeMs < 30_000 && isPidAlive(holder)) return false;
-      fs.unlinkSync(LOCK_FILE);
-      fs.writeFileSync(LOCK_FILE, String(process.pid), { flag: 'wx' });
-      return true;
-    } catch {
-      return false;
-    }
-  }
+  return claimLock(LOCK_FILE, 30_000);
 }
 
 function releaseSpawnLock() {
-  try {
-    if (Number(fs.readFileSync(LOCK_FILE, 'utf-8')) === process.pid) fs.unlinkSync(LOCK_FILE);
-  } catch { /* ignore */ }
+  releaseLock(LOCK_FILE);
 }
 
 async function main() {

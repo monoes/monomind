@@ -16,6 +16,10 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd, getMonomindDataRoot, migrateLegacyStoreFile } from './types.js';
 import { weightedTally } from '../consensus/tally.js';
+// Reuse agent-tools.ts's hardened store loader (50MB size cap + __proto__
+// rejection) instead of maintaining a second, weaker copy that reads the
+// same physical file — see loadAgentStore export note there.
+import { loadAgentStore } from './agent-tools.js';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -269,19 +273,7 @@ function getOrCreateSessionSecret(): string {
 }
 
 // Import agent store helpers for spawn functionality
-import { existsSync as agentStoreExists, readFileSync as readAgentStore, writeFileSync as writeAgentStore, mkdirSync as mkdirAgentStore } from 'node:fs';
-
-// Canonical agent store path matches agent-tools.ts/task-tools.ts: getMonomindDataRoot()/agents/store.json
-function loadAgentStore(): { agents: Record<string, unknown> } {
-  const storePath = join(getMonomindDataRoot(), 'agents', 'store.json');
-  migrateLegacyStoreFile(storePath, join('agents', 'store.json'));
-  try {
-    if (agentStoreExists(storePath)) {
-      return JSON.parse(readAgentStore(storePath, 'utf-8'));
-    }
-  } catch { /* ignore */ }
-  return { agents: {} };
-}
+import { existsSync as agentStoreExists, writeFileSync as writeAgentStore, mkdirSync as mkdirAgentStore } from 'node:fs';
 
 const HIVE_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -389,6 +381,10 @@ export const hiveMindTools: MCPTool[] = [
       properties: {
         topology: { type: 'string', enum: ['mesh', 'hierarchical', 'ring', 'star'], description: 'Network topology' },
         queenId: { type: 'string', description: 'Initial queen agent ID' },
+        consensus: { type: 'string', enum: ['byzantine', 'bft', 'raft', 'quorum'], description: 'Consensus strategy to govern hive-mind_consensus propose/vote (gossip/crdt are planned but not implemented and fall back to byzantine). Default: byzantine.' },
+        maxAgents: { type: 'number', description: 'Maximum number of agents in the hive. Default: 15.' },
+        persist: { type: 'boolean', description: 'Whether to persist hive state to disk. Default: true.' },
+        memoryBackend: { type: 'string', description: 'Shared memory backend for the hive. Default: hybrid.' },
       },
     },
     handler: async (input) => {
@@ -399,20 +395,6 @@ export const hiveMindTools: MCPTool[] = [
       const queenId = typeof rawQueenId === 'string' && rawQueenId.length > MAX_QUEEN_ID_LEN
         ? rawQueenId.slice(0, MAX_QUEEN_ID_LEN) : rawQueenId;
       const now = new Date().toISOString();
-
-      const state: HiveState = {
-        initialized: true,
-        hiveId,
-        topology: (input.topology as HiveState['topology']) || 'mesh',
-        queen: { agentId: queenId, electedAt: now, term: 1 },
-        workers: [],
-        consensus: { pending: [], history: [] },
-        sharedMemory: {},
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      saveHiveState(state);
 
       // Validate consensus strategy: gossip and crdt are planned but not implemented
       const SUPPORTED_CONSENSUS = ['byzantine', 'bft', 'raft', 'quorum'];
@@ -425,10 +407,25 @@ export const hiveMindTools: MCPTool[] = [
         ? 'byzantine'
         : (SUPPORTED_CONSENSUS.includes(requestedConsensus) ? requestedConsensus : 'byzantine');
 
-      // Persist the chosen strategy on the hive state so hive-mind_consensus
-      // propose/vote default to it instead of silently using 'raft'.
-      // 'byzantine' is the CLI-facing name; the internal ConsensusStrategy type uses 'bft'.
-      state.consensusStrategy = (effectiveConsensus === 'byzantine' ? 'bft' : effectiveConsensus) as ConsensusStrategy;
+      const state: HiveState = {
+        initialized: true,
+        hiveId,
+        topology: (input.topology as HiveState['topology']) || 'mesh',
+        queen: { agentId: queenId, electedAt: now, term: 1 },
+        workers: [],
+        // Persist the chosen strategy on the hive state so hive-mind_consensus
+        // propose/vote default to it instead of silently using 'raft'.
+        // 'byzantine' is the CLI-facing name; the internal ConsensusStrategy type uses 'bft'.
+        consensusStrategy: (effectiveConsensus === 'byzantine' ? 'bft' : effectiveConsensus) as ConsensusStrategy,
+        consensus: { pending: [], history: [] },
+        sharedMemory: {},
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      // Single write — a prior version of this handler saved state twice
+      // (once before setting consensusStrategy, once after), which was
+      // redundant.
       saveHiveState(state);
 
       return {
@@ -494,7 +491,14 @@ export const hiveMindTools: MCPTool[] = [
         hiveId: state.hiveId ?? `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
         status: state.initialized ? 'active' : 'offline',
         topology: state.topology,
-        consensus: 'byzantine', // Default consensus type
+        // Reflect the strategy actually chosen at hive-mind_init (persisted
+        // as state.consensusStrategy so it "actually governs voting" — see
+        // the field's doc comment) instead of hardcoding a default that
+        // ignored what was configured. 'bft' is the internal name for the
+        // CLI-facing 'byzantine' strategy.
+        consensus: state.consensusStrategy
+          ? (state.consensusStrategy === 'bft' ? 'byzantine' : state.consensusStrategy)
+          : 'byzantine',
         queen: state.queen ? {
           id: state.queen.agentId,
           agentId: state.queen.agentId,
@@ -505,7 +509,7 @@ export const hiveMindTools: MCPTool[] = [
           term: state.queen.term,
         } : { id: 'N/A', status: 'offline', load: 0, tasksQueued: 0 },
         workers: state.workers.map(w => {
-          const agent = agentStore.agents[w] as Record<string, unknown> | undefined;
+          const agent = agentStore.agents[w] as unknown as Record<string, unknown> | undefined;
           return {
             id: w,
             type: (agent?.agentType as string) || 'worker',
@@ -880,9 +884,18 @@ export const hiveMindTools: MCPTool[] = [
         }));
         const cpwbftTally = weightedTally(weightedVotes);
 
-        // O-Information gate: defer resolution if we haven't seen enough divergent rounds
+        // O-Information gate: defer resolution if we haven't seen enough divergent rounds.
+        // BUT: if every expected voter has already cast a vote (electorate
+        // exhausted), no more votes can ever arrive to produce a divergent
+        // round — a unanimous first-round vote would otherwise deadlock the
+        // proposal permanently since divergenceRoundsSeen only increments on
+        // disagreement. Treat electorate exhaustion as a terminal condition
+        // that opens the gate regardless of divergence.
+        const totalVotesCast = Object.keys(proposal.votes).length;
+        const electorateExhausted = totalNodes > 0 && totalVotesCast >= totalNodes;
         const divergenceGateOpen = !proposal.minDivergenceRounds
-          || (proposal.divergenceRoundsSeen ?? 0) >= proposal.minDivergenceRounds;
+          || (proposal.divergenceRoundsSeen ?? 0) >= proposal.minDivergenceRounds
+          || electorateExhausted;
 
         // Try to resolve
         const resolution = divergenceGateOpen ? tryResolveProposal(proposal, totalNodes) : null;

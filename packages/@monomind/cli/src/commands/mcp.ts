@@ -294,11 +294,15 @@ const statusCommand: Command = {
     try {
       let status = await getMCPServerStatus();
 
-      // If PID-based check says not running, detect stdio mode
+      // If PID-based check says not running, detect stdio mode.
+      // SECURITY/CORRECTNESS: must NOT use a TTY heuristic here — any
+      // non-interactive invocation (piped, CI, scripted) has
+      // `!process.stdin.isTTY === true`, which previously reported
+      // "running" even when nothing was actually running. Only the
+      // explicit stdio-transport env var counts as a real signal.
       if (!status.running) {
-        const isStdio = !process.stdin.isTTY;
         const envTransport = process.env.MONOMIND_MCP_TRANSPORT;
-        if (isStdio || envTransport === 'stdio') {
+        if (envTransport === 'stdio') {
           status = {
             running: true,
             pid: process.pid,
@@ -419,7 +423,7 @@ const toolsCommand: Command = {
         name: tool.name,
         category: tool.category || 'uncategorized',
         description: tool.description,
-        enabled: true
+        enabled: tool.enabled
       }));
     } else {
       // Fallback to static tool list
@@ -522,7 +526,7 @@ const toggleCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const stateFile = path.join('.monomind', 'mcp-disabled-tools.json');
+    const stateFile = path.join(ctx.cwd, '.monomind', 'mcp-disabled-tools.json');
 
     let disabled: string[] = [];
     try { disabled = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { /* fresh */ }
@@ -552,7 +556,8 @@ const toggleCommand: Command = {
     fs.mkdirSync(path.dirname(stateFile), { recursive: true });
     fs.writeFileSync(stateFile, JSON.stringify(disabled, null, 2) + '\n');
     output.writeln(output.dim(`State saved to ${stateFile}. ${disabled.length} tool(s) disabled.`));
-    output.writeln(output.dim('Note: MCP server restart required for changes to take effect.'));
+    output.writeln(output.dim('Disabled tools are rejected immediately by direct CLI invocation.'));
+    output.writeln(output.dim('An external MCP server (mcp start) must be restarted to stop exposing disabled tools to MCP clients.'));
 
     return { success: true };
   }

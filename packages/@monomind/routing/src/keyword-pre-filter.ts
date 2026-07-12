@@ -31,7 +31,7 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   { pattern: /\bterraform\b/i, agentSlug: 'engineering-devops-automator', routeName: 'terraform', description: 'Terraform infrastructure' },
   { pattern: /\bgithub\s*actions?\b/i, agentSlug: 'engineering-devops-automator', routeName: 'github-actions', description: 'GitHub Actions workflow' },
   { pattern: /\b\.github\/workflows\b/i, agentSlug: 'engineering-devops-automator', routeName: 'github-workflows', description: 'GitHub workflow file' },
-  { pattern: /\bkubernetes\b|\bk8s\b|\bhelm\b/i, agentSlug: 'engineering-devops-automator', routeName: 'kubernetes', description: 'Kubernetes / Helm' },
+  { pattern: /\bkubernetes\b|\bk8s\b|\bhelm\b(?=[\s\S]{0,60}\b(?:kubernetes|k8s|chart|deploy|helmfile)\b)|\b(?:kubernetes|k8s|chart|deploy|helmfile)\b(?=[\s\S]{0,60}\bhelm\b)/i, agentSlug: 'engineering-devops-automator', routeName: 'kubernetes', description: 'Kubernetes / Helm (bare "helm" requires nearby Kubernetes context — "take the helm" is not Kubernetes)' },
 
   // Git operations
   { pattern: /\bgit\s+(rebase|blame|bisect|cherry-pick|stash|reflog)\b/i, agentSlug: 'engineering-git-workflow-master', routeName: 'git-operations', description: 'Advanced git operation' },
@@ -51,21 +51,32 @@ export const DEFAULT_KEYWORD_ROUTES: KeywordRule[] = [
   { pattern: /\breact[-\s]?native\b/i, agentSlug: 'engineering-react-native-developer', routeName: 'react-native', description: 'React Native development' },
 
   // iOS / Swift
-  { pattern: /\bswift\b|\bswiftui\b|\bxcode\b|\bios\s+app\b/i, agentSlug: 'engineering-ios-swift-developer', routeName: 'ios-swift', description: 'iOS / Swift development' },
+  // Bare "swift" is a common English word ("a swift fix") — only match it when
+  // iOS/Xcode/Apple context appears nearby (either word order). swiftui/xcode/
+  // "ios app" are already unambiguous domain qualifiers.
+  { pattern: /\bswiftui\b|\bxcode\b|\bios\s+app\b|\bswift\b(?=[\s\S]{0,60}\b(?:ios|xcode|apple|app)\b)|\b(?:ios|xcode|apple|app)\b(?=[\s\S]{0,60}\bswift\b)/i, agentSlug: 'engineering-ios-swift-developer', routeName: 'ios-swift', description: 'iOS / Swift development' },
 
   // Android / Kotlin
   { pattern: /\bkotlin\b|\bandroid\s+(app|dev)/i, agentSlug: 'engineering-android-kotlin-developer', routeName: 'android-kotlin', description: 'Android / Kotlin development' },
 
   // Embedded / Firmware
-  { pattern: /\bfirmware\b|\bembedded\b|\brtos\b|\bmicrocontroller\b/i, agentSlug: 'engineering-embedded-firmware-engineer', routeName: 'embedded-firmware', description: 'Embedded / firmware development' },
+  // Bare "embedded" is a common English word ("the config embedded in the file")
+  // — only match it near hardware/firmware context (either word order).
+  { pattern: /\bfirmware\b|\brtos\b|\bmicrocontroller\b|\bembedded\b(?=[\s\S]{0,60}\b(?:firmware|hardware|mcu|rtos|chip|microcontroller|device|system)\b)|\b(?:firmware|hardware|mcu|rtos|chip|microcontroller|device|system)\b(?=[\s\S]{0,60}\bembedded\b)/i, agentSlug: 'engineering-embedded-firmware-engineer', routeName: 'embedded-firmware', description: 'Embedded / firmware development' },
 
   // Salesforce
-  { pattern: /\bsalesforce\b|\bapex\b|\bsoql\b/i, agentSlug: 'specialized-salesforce-developer', routeName: 'salesforce', description: 'Salesforce / Apex / SOQL' },
+  // Bare "apex" is a common English word ("the apex of the call graph") —
+  // only match it near Salesforce context (either word order).
+  { pattern: /\bsalesforce\b|\bsoql\b|\bapex\b(?=[\s\S]{0,60}\b(?:salesforce|soql|trigger|lwc|visualforce)\b)|\b(?:salesforce|soql|trigger|lwc|visualforce)\b(?=[\s\S]{0,60}\bapex\b)/i, agentSlug: 'specialized-salesforce-developer', routeName: 'salesforce', description: 'Salesforce / Apex / SOQL' },
 
   // Game engines
-  { pattern: /\bblender\b/i, agentSlug: 'specialized-blender-3d-artist', routeName: 'blender', description: 'Blender 3D modeling' },
+  // Bare "blender" is a common English word (kitchen appliance) — only match
+  // it near 3D/render context (either word order).
+  { pattern: /\bblender\b(?=[\s\S]{0,60}\b(?:3d|model|render|animation|mesh|scene|texture)\b)|\b(?:3d|model|render|animation|mesh|scene|texture)\b(?=[\s\S]{0,60}\bblender\b)/i, agentSlug: 'specialized-blender-3d-artist', routeName: 'blender', description: 'Blender 3D modeling' },
   { pattern: /\bunreal\s*engine\b|\bUE[45]\b/i, agentSlug: 'specialized-unreal-engine-developer', routeName: 'unreal-engine', description: 'Unreal Engine development' },
-  { pattern: /\bunity\b|\bC#\s*game\b/i, agentSlug: 'specialized-unity-developer', routeName: 'unity', description: 'Unity game development' },
+  // Bare "unity" is a common English word ("ensure unity between modules") —
+  // only match it near game/engine context (either word order).
+  { pattern: /\bC#\s*game\b|\bunity3d\b|\bunity\b(?=[\s\S]{0,60}\b(?:game|engine|3d|prefab|asset|c#)\b)|\b(?:game|engine|3d|prefab|asset|c#)\b(?=[\s\S]{0,60}\bunity\b)/i, agentSlug: 'specialized-unity-developer', routeName: 'unity', description: 'Unity game development' },
   { pattern: /\bgodot\b|\bgdscript\b/i, agentSlug: 'specialized-godot-developer', routeName: 'godot', description: 'Godot game development' },
 
   // SEO

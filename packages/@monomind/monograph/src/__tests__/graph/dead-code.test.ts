@@ -34,6 +34,11 @@ function insertCallEdge(db: Database.Database, src: string, tgt: string) {
     .run(`${src}_${tgt}_calls`, src, tgt);
 }
 
+function insertReExportEdge(db: Database.Database, srcFileId: string, tgtFileId: string) {
+  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'RE_EXPORTS', 'INFERRED', 0.8)`)
+    .run(`${srcFileId}_${tgtFileId}_reexports`, srcFileId, tgtFileId);
+}
+
 describe('detectDeadCode', () => {
   it('returns empty array for empty graph', () => {
     const db = makeTempDb();
@@ -93,24 +98,39 @@ describe('detectDeadCode', () => {
     db.close();
   });
 
-  it('skips functions with same-name node in another file', () => {
+  it('does NOT suppress on a same-name coincidence alone (no real edge)', () => {
+    // Regression test for P2-18(a): the old suppression matched on NAME EQUALITY
+    // anywhere in the codebase, so a genuinely-dead `shared()` in a.ts was hidden
+    // just because an unrelated `shared` also existed in b.ts. With no actual
+    // RE_EXPORTS/IMPORTS edge between them, the candidate must still be flagged.
     const db = makeTempDb();
     insertFileNode(db, 'src/a.ts');
     insertFileNode(db, 'src/b.ts');
-    insertFunction(db, 'shared', 'src/a.ts', { exported: true });
-    // Same name in another file (import binding)
+    const id = insertFunction(db, 'shared', 'src/a.ts', { exported: true });
     insertFunction(db, 'shared', 'src/b.ts', { exported: false });
-    expect(detectDeadCode(db)).toEqual([]);
+    expect(detectDeadCode(db)).toContain(id);
     db.close();
   });
 
-  it('skips functions re-exported through barrel index', () => {
+  it('does NOT suppress on same-name-in-index.ts alone (no real RE_EXPORTS edge)', () => {
+    // Regression test for P2-18(a): a function sharing a name with something
+    // index.ts happens to also define is not the same as being re-exported by it.
     const db = makeTempDb();
     insertFileNode(db, 'src/utils.ts');
     insertFileNode(db, 'src/index.ts');
-    insertFunction(db, 'helper', 'src/utils.ts', { exported: true });
-    // Same name in index.ts (barrel re-export)
+    const id = insertFunction(db, 'helper', 'src/utils.ts', { exported: true });
     insertFunction(db, 'helper', 'src/index.ts', { exported: true });
+    expect(detectDeadCode(db)).toContain(id);
+    db.close();
+  });
+
+  it('skips functions re-exported through a REAL RE_EXPORTS edge from a barrel', () => {
+    const db = makeTempDb();
+    const utilsFileId = insertFileNode(db, 'src/utils.ts');
+    const indexFileId = insertFileNode(db, 'src/index.ts');
+    insertFunction(db, 'helper', 'src/utils.ts', { exported: true });
+    // Actual barrel edge: src/index.ts RE_EXPORTS src/utils.ts's File node.
+    insertReExportEdge(db, indexFileId, utilsFileId);
     expect(detectDeadCode(db)).toEqual([]);
     db.close();
   });

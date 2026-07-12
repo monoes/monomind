@@ -35,6 +35,15 @@ export declare class CommandParser {
      */
     private static readonly RESERVED_FLAG_KEYS;
     private setFlagSafe;
+    /**
+     * Merge a single parsed flag (or set of `_` positionals) into the
+     * accumulated result flags, collecting repeats into an array instead of
+     * overwriting. Declared `type: 'array'` options always end up as an array
+     * (even a single occurrence); any other repeated flag also becomes an
+     * array on its second occurrence rather than silently dropping the first
+     * value.
+     */
+    private mergeParsedFlags;
     parse(args: string[]): ParseResult;
     /**
      * Convert a camelCase key to kebab-case (inverse of normalizeKey).
@@ -60,6 +69,10 @@ export declare class CommandParser {
      * Get boolean flags scoped to a specific command/subcommand.
      */
     private getScopedBooleanFlags;
+    /**
+     * Get flags declared `type: 'array'`, scoped to a specific command/subcommand.
+     */
+    private getScopedArrayFlags;
     private getBooleanFlags;
     private applyDefaults;
     validateFlags(flags: ParsedFlags, command?: Command): string[];

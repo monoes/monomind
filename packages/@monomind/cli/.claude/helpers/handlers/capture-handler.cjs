@@ -21,9 +21,39 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const os = require('os');
+const crypto = require('crypto');
+const { appendJsonlWithRotation } = require('../utils/fs-helpers.cjs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const CAPTURE_DIR = path.join(CWD, '.monomind', 'capture');
+const SNAP_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour — orphaned snapshots are cleaned up this old
+
+// P2-23: derive a stable key for a subagent invocation from whatever
+// identifying info Claude Code actually gives us in the hook payload.
+// `transcript_path` is the one field that's both present on SubagentStart
+// and SubagentStop AND unique per-subagent (each subagent gets its own
+// transcript file, distinct from the parent session's) — session_id alone
+// is shared by every concurrently-running subagent in the same team, so it
+// can't disambiguate which stop event belongs to which start.
+function subagentKey(hookInput) {
+  var raw = hookInput && (hookInput.transcript_path || hookInput.transcriptPath);
+  if (!raw) return null;
+  return crypto.createHash('md5').update(String(raw)).digest('hex').slice(0, 16);
+}
+
+// Delete snap-*.json files older than SNAP_MAX_AGE_MS — orphaned when a
+// SubagentStop never arrived (crash, forced-stop) or was matched to a
+// different snapshot before keyed matching existed.
+function cleanupStaleSnaps() {
+  try {
+    var files = fs.readdirSync(CAPTURE_DIR).filter(f => f.startsWith('snap-') && f.endsWith('.json') && !f.startsWith('._'));
+    var now = Date.now();
+    for (var i = 0; i < files.length; i++) {
+      var p = path.join(CAPTURE_DIR, files[i]);
+      try { if (now - fs.statSync(p).mtimeMs > SNAP_MAX_AGE_MS) fs.unlinkSync(p); } catch { /* ignore */ }
+    }
+  } catch { /* CAPTURE_DIR may not exist yet */ }
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -170,6 +200,7 @@ function emitEvent(event) {
 
 async function handleSubagentStart(hookInput) {
   fs.mkdirSync(CAPTURE_DIR, { recursive: true });
+  cleanupStaleSnaps();
 
   const snapshot = snapshotJSONLFiles();
   const agentType = String(
@@ -190,10 +221,19 @@ async function handleSubagentStart(hookInput) {
   }
   const activeSess = getActiveSession(activeRun);
 
-  // Write snapshot to FIFO queue — subagent-stop pops the oldest
+  // P2-23: key the snapshot filename by transcript_path when available so
+  // SubagentStop can look up the EXACT matching snapshot instead of
+  // FIFO-popping the lexicographically-oldest one — under real concurrency
+  // (multiple subagents stopping in close succession) FIFO pop can match a
+  // stop event to the wrong subagent's snapshot. Falls back to the old
+  // timestamp+random naming when transcript_path isn't present in the
+  // payload, so SubagentStop's FIFO fallback path still has something to
+  // match against.
+  const subKey = subagentKey(hookInput);
   const snapFile = path.join(
     CAPTURE_DIR,
-    'snap-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.json'
+    subKey ? 'snap-' + subKey + '.json'
+           : 'snap-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.json'
   );
   const leanModePath = path.join(process.env.CLAUDE_PROJECT_DIR || process.cwd(), '.monomind/state/monolean-mode');
   let leanMode = null;
@@ -235,18 +275,31 @@ async function handleSubagentStart(hookInput) {
 
 async function handleSubagentStop(hookInput) {
   fs.mkdirSync(CAPTURE_DIR, { recursive: true });
+  cleanupStaleSnaps();
 
-  // Pop oldest snapshot (FIFO — matches the agent that just finished)
-  const snapFiles = fs.readdirSync(CAPTURE_DIR)
-    .filter(f => f.startsWith('snap-') && f.endsWith('.json') && !f.startsWith('._'))
-    .sort(); // lexicographic = timestamp order
-
-  if (snapFiles.length === 0) {
-    console.log('[CAPTURE:stop] No snapshot to diff — skipping');
-    return;
+  // P2-23: prefer the exact keyed snapshot (see subagentKey/handleSubagentStart)
+  // over FIFO-popping the oldest snap-*.json — FIFO misattributes the stop
+  // event to the wrong subagent whenever multiple subagents stop in close
+  // succession. Fall back to FIFO only when this event's payload carries no
+  // transcript_path (older Claude Code versions / unexpected payload shape).
+  const subKey = subagentKey(hookInput);
+  let snapPath = null;
+  if (subKey) {
+    const keyedPath = path.join(CAPTURE_DIR, 'snap-' + subKey + '.json');
+    if (fs.existsSync(keyedPath)) snapPath = keyedPath;
+  }
+  if (!snapPath) {
+    const snapFiles = fs.readdirSync(CAPTURE_DIR)
+      .filter(f => f.startsWith('snap-') && f.endsWith('.json') && !f.startsWith('._'))
+      .sort(); // lexicographic = timestamp order (FIFO fallback)
+    if (snapFiles.length === 0) {
+      console.log('[CAPTURE:stop] No snapshot to diff — skipping');
+      return;
+    }
+    snapPath = path.join(CAPTURE_DIR, snapFiles[0]);
+    console.log('[CAPTURE:stop] no transcript_path/keyed snapshot — falling back to FIFO match');
   }
 
-  const snapPath = path.join(CAPTURE_DIR, snapFiles[0]);
   let snap;
   try { snap = JSON.parse(fs.readFileSync(snapPath, 'utf8')); } catch {
     try { fs.unlinkSync(snapPath); } catch {}
@@ -294,11 +347,13 @@ async function handleSubagentStop(hookInput) {
 
   if (!org && !session) {
     // No active org or session — log to general capture file only
+    // P2-26: rotate — was a pure appendFileSync with no cap, unlike
+    // intelligence-outcomes.jsonl (500-line cap).
     const genLog = path.join(CAPTURE_DIR, 'unattributed.jsonl');
-    fs.appendFileSync(genLog, JSON.stringify({
+    appendJsonlWithRotation(genLog, JSON.stringify({
       ts: Date.now(), agentType, tokens_in: totalTin, tokens_out: totalTout,
       cost_usd: costUsd, capturedFiles, summary: summary.slice(0, 200),
-    }) + '\n');
+    }), 500);
     return;
   }
 
@@ -355,9 +410,11 @@ async function handleSubagentStop(hookInput) {
   // ── Persist transcript reference to run directory ─────────────────────────
   if (capturedFiles.length > 0 && org && runId) {
     const runDir = path.join(CWD, '.monomind', 'orgs', org, 'runs');
-    fs.mkdirSync(runDir, { recursive: true });
     const capLog = path.join(runDir, runId + '-captures.jsonl');
-    fs.appendFileSync(capLog, JSON.stringify({
+    // P2-26: rotate — was a pure appendFileSync with no cap. A long-running
+    // org loop can spawn far more than 500 agents over its lifetime, so
+    // this uses the same 500-line cap convention as the other JSONL logs.
+    appendJsonlWithRotation(capLog, JSON.stringify({
       type: 'agent:capture',
       org, runId, session,
       agentType,
@@ -368,7 +425,7 @@ async function handleSubagentStop(hookInput) {
       capturedFiles,
       claudeProjectDir: claudeDir,
       ts: Date.now(),
-    }) + '\n');
+    }), 500);
   }
 
   // ── Wire captured interaction into EpisodicStore ────

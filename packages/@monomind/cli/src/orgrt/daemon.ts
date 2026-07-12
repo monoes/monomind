@@ -14,6 +14,9 @@ interface AgentRuntime {
   mailbox: Mailbox;
   policy: PolicyEngine;
   done: Promise<void>;
+  /** 'running' until the session promise settles; 'crashed' if it rejected (see error). */
+  status: 'running' | 'ended' | 'crashed';
+  error?: string;
 }
 
 export interface RunningOrg {
@@ -71,13 +74,29 @@ export class OrgDaemon {
       const mailbox = new Mailbox();
       const policy = new PolicyEngine(role.id,
         { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, cwd);
-      const done = runAgentSession({
+      const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve() };
+      runtime.done = runAgentSession({
         org: name, role, bus, policy, mailbox, cwd, def,
         maxTurns: def.run_config.max_turns_per_message,
         deliver: (from, to, subject, body) => this.deliver(name, from, to, subject, body),
         queryFn: this.opts.queryFn,
-      }).catch(() => {});
-      running.agents.set(role.id, { mailbox, policy, done });
+      }).then(() => { runtime.status = 'ended'; })
+        .catch((err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          runtime.status = 'crashed';
+          runtime.error = message;
+          // runAgentSession already emits a 'status' event for the raw error; emit an
+          // 'audit' event too so dashboards/alerts that filter on actionable failures
+          // (not routine status chatter) can surface a dead agent instead of a run that
+          // silently never progresses.
+          bus.emit({
+            type: 'audit', from: role.id,
+            msg: `agent "${role.id}" crashed: ${message}`,
+            reason: 'agent-session-crash',
+            data: { agentId: role.id, error: message },
+          });
+        });
+      running.agents.set(role.id, runtime);
     }
 
     const boss = def.roles.find(r => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];

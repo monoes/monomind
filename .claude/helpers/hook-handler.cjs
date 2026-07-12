@@ -392,6 +392,20 @@ const handlers = {
   },
 
   'pre-bash': async () => {
+    // SECURITY GATE FIRST — destructive-ops + secrets enforcement must never
+    // be starved by the slower enrichment work below (monograph hint lookups,
+    // monofence-ai scan). Previously this ran LAST, after up to 10 monograph
+    // SQLite strategies and a 1.5s monofence budget; under load/slow disk the
+    // global 5s safety timer (see main()'s `process.exit(0)`) could fire
+    // before the gate ever printed its block decision — i.e. the gate could
+    // fail OPEN under time pressure. Computing it first guarantees the
+    // block/allow decision (process.exitCode) is set before any enrichment
+    // work even starts; enrichment output is still attached afterward if
+    // there's time left in the process's lifetime.
+    var gates = require('./handlers/gates-handler.cjs');
+    await gates.handlePreBash(hCtx);
+    if (process.exitCode === 2) return; // blocked — skip enrichment entirely
+
     var cmd = (hCtx.toolInput && (hCtx.toolInput.command || hCtx.toolInput.cmd)) || '';
     var isGrep = /\b(?:grep|rg|ag)\b/.test(cmd);
     var isFind = /\b(?:find|fd)\b/.test(cmd) && !isGrep;
@@ -636,9 +650,6 @@ const handlers = {
       else if (isGrep) _recordGraphTelemetry('bash_grep_call');
       else _recordGraphTelemetry('bash_find_call');
     }
-    // Enforcement gate: destructive operations + monofence-ai threat scan
-    var gates = require('./handlers/gates-handler.cjs');
-    await gates.handlePreBash(hCtx);
   },
 
   'pre-write': async () => {

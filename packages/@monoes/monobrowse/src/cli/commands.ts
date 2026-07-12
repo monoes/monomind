@@ -10,14 +10,27 @@ import { createPlatformCommand } from './platform.js';
 import type { CdpClient, ElementRef, NetworkRoute, FindAction } from '../index.js';
 
 // Runtime state (single session per CLI process)
+const DEFAULT_PORT = 9222;
 let _client: CdpClient | null = null;
 let _sessionId = '';
 let _targetId = '';
-let _port = 9222;
+let _port = DEFAULT_PORT;
 let _refs: Map<string, ElementRef> = new Map();
 
 async function getBrowser() {
   return import('../index.js');
+}
+
+// Each CLI invocation is a fresh process, so this module's `_port` variable
+// is always freshly initialized to DEFAULT_PORT — a `--port 9333` passed to
+// an earlier `open` command has no effect on this process's own default.
+// Resolve the persisted "active port" (written by `open --port N`, read via
+// ref-cache.ts's saveActivePort/loadActivePort) so subsequent commands
+// attach to the browser the user actually opened instead of silently
+// launching/attaching to a second, unrelated Chrome instance on 9222.
+async function resolveDefaultPort(browser: Awaited<ReturnType<typeof getBrowser>>): Promise<number> {
+  const persisted = await browser.loadActivePort();
+  return persisted ?? DEFAULT_PORT;
 }
 
 async function ensureConnected(port: number, targetId?: string) {
@@ -30,13 +43,14 @@ async function ensureConnected(port: number, targetId?: string) {
       browser.teardownConsoleCapture(_sessionId);
       _client.close();
     }
-    _port = await browser.launchBrowser({ port, headless: true });
+    const effectivePort = port === DEFAULT_PORT ? await resolveDefaultPort(browser) : port;
+    _port = await browser.launchBrowser({ port: effectivePort, headless: true });
     const conn = await browser.connectToTarget(_port, targetId);
     _client = conn.client;
     _sessionId = conn.sessionId;
     _targetId = conn.target.id;
     _refs = new Map();
-    await hydrateRefsFromCache(browser, _targetId);
+    await hydrateRefsFromCache(browser, _targetId, conn.target.url);
   }
   return { client: _client!, sessionId: _sessionId, targetId: _targetId };
 }
@@ -46,9 +60,29 @@ async function ensureConnected(port: number, targetId?: string) {
 // command runs. Rehydrate it from the on-disk ref cache (written by
 // captureSnapshot call sites below) so refs resolved by a previous process
 // remain usable. Falls back silently to an empty Map if no cache exists.
-async function hydrateRefsFromCache(browser: Awaited<ReturnType<typeof getBrowser>>, targetId: string): Promise<void> {
+//
+// The cached `url` field (captured at snapshot time) is compared against the
+// browser's CURRENT url (`currentUrl`, from the just-fetched target info).
+// A stale `backendDOMNodeId` can still successfully resolve via
+// DOM.getBoxModel even after a same-tab SPA navigation or DOM mutation
+// changed what's actually at those coordinates — so a mismatch here means
+// EVERY ref in the cache is potentially pointing at the wrong element. We
+// hard-invalidate (skip hydration entirely, so any @eN lookup fails loudly
+// via resolveRef's "not found" error) rather than the weaker 30s time-based
+// staleness check below, which only warns.
+async function hydrateRefsFromCache(
+  browser: Awaited<ReturnType<typeof getBrowser>>,
+  targetId: string,
+  currentUrl: string
+): Promise<void> {
   const cached = await browser.loadRefCache(targetId);
   if (!cached) return;
+  if (currentUrl && cached.url && currentUrl !== cached.url) {
+    output.printError(
+      `Stale references — page has navigated (cache: ${cached.url} → current: ${currentUrl}). Re-run snapshot before using @eN refs.`
+    );
+    return; // leave _refs empty — do not attempt to resolve refs against a different page
+  }
   _refs = cached.refs;
   if (cached.stale) {
     output.printWarning(
@@ -145,11 +179,14 @@ async function switchToHeaded(url: string, port: number): Promise<void> {
   const authCookies = await browser.getCookies(_client, _sessionId).catch(() => [] as unknown[]);
   const authLocalStorage = await browser.getLocalStorage(_client, _sessionId).catch(() => ({}) as Record<string, string>);
 
-  // Close headed session
+  // Close headed session — actually terminate the underlying Chrome process
+  // (Browser.close CDP command, PID-kill fallback), not just our CDP client
+  // connection, so the visible authenticated window doesn't linger forever.
   browser.teardownRouteInterception(_sessionId);
   browser.stopRequestCapture(_sessionId);
   browser.teardownDialogHandling(_sessionId);
   browser.teardownConsoleCapture(_sessionId);
+  await browser.closeBrowser(_client, headedPort);
   _client.close();
   _client = null;
   _sessionId = '';
@@ -232,11 +269,18 @@ const openCommand: Command = {
     }
 
     _port = await browser.launchBrowser({ port, headless: !forceHeaded });
+    // Persist the active port so subsequent CLI invocations (each a fresh
+    // process) default to attaching here instead of hardcoded 9222.
+    await browser.saveActivePort(_port);
     const conn = await browser.connectToTarget(_port);
     _client = conn.client;
     _sessionId = conn.sessionId;
     _targetId = conn.target.id;
     _refs = new Map();
+    // A snapshot taken before this navigation is no longer valid for the new
+    // page — drop the persisted ref cache so a stale process's weak
+    // time-based check can't resurrect it before the next explicit snapshot.
+    await browser.clearRefCache();
 
     if (ctx.flags.state && ctx.flags.session) {
       output.printWarning('Both --state and --session provided; --state takes precedence');
@@ -298,11 +342,8 @@ const snapshotCommand: Command = {
     await browser.saveRefCache(_targetId, result.url, _refs);
 
     const applyOutputLimits = (text: string): string => {
-      let out = text;
       const maxOutput = ctx.flags['max-output'] as number | undefined;
-      if (maxOutput && out.length > maxOutput) {
-        out = out.slice(0, maxOutput) + `\n[... truncated at ${maxOutput} chars]`;
-      }
+      let out = maxOutput ? truncateForOutput(text, maxOutput) : text;
       if (ctx.flags['content-boundaries']) {
         const nonce = Math.random().toString(36).slice(2, 10);
         out = `MONOMIND_PAGE_CONTENT nonce=${nonce} origin=${result.url}\n${out}\nEND_MONOMIND_PAGE_CONTENT nonce=${nonce}`;
@@ -802,6 +843,10 @@ const navigateCommand: Command = {
       throw new Error(`Unknown direction: ${direction}. Use: back|forward|reload`);
     }
 
+    // Refs captured before this navigation may now point at different content.
+    _refs = new Map();
+    await browser.clearRefCache();
+
     output.printSuccess(`Navigated: ${direction}`);
     return { success: true };
   },
@@ -1107,12 +1152,26 @@ const networkCommand: Command = {
   },
 };
 
+// Default output cap for eval when --max-output isn't passed explicitly —
+// print(String(result)) had NO limit at all (unlike snapshot's --max-output),
+// so e.g. `eval "document.documentElement.outerHTML"` could dump megabytes
+// straight into an agent's context. An explicit --max-output still overrides
+// this default.
+const DEFAULT_EVAL_MAX_OUTPUT = 50_000;
+
+function truncateForOutput(text: string, maxOutput: number): string {
+  if (!(maxOutput > 0) || text.length <= maxOutput) return text;
+  return text.slice(0, maxOutput) + `\n[... truncated at ${maxOutput} chars]`;
+}
+
 const evalCommand: Command = {
   name: 'eval',
   description: 'Evaluate JavaScript in page context. Usage: monomind browse eval "document.title"',
   options: [
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
     { name: 'stdin', type: 'boolean', description: 'Read JS expression from stdin (heredoc-friendly for multiline scripts)', default: false },
+    { name: 'max-output', type: 'number', description: `Truncate printed output to N characters (default ${DEFAULT_EVAL_MAX_OUTPUT}; 0 disables truncation)` },
+    { name: 'timeout', type: 'number', description: 'Max ms to wait for evaluation to settle (default 30000)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { client, sessionId } = await ensureConnected(_port);
@@ -1126,12 +1185,14 @@ const evalCommand: Command = {
     }
     if (!expr) throw new Error('Usage: monomind browse eval "<expression>" (or pipe with --stdin)');
 
-    const result = await browser.evaluateJs(client, sessionId, expr);
+    const timeoutMs = ctx.flags.timeout as number | undefined;
+    const result = await browser.evaluateJs(client, sessionId, expr, timeoutMs);
 
+    const maxOutput = (ctx.flags['max-output'] as number | undefined) ?? DEFAULT_EVAL_MAX_OUTPUT;
     if (ctx.flags.json) {
-      print(JSON.stringify({ data: result }));
+      print(truncateForOutput(JSON.stringify({ data: result }), maxOutput));
     } else {
-      print(String(result ?? ''));
+      print(truncateForOutput(String(result ?? ''), maxOutput));
     }
 
     return { success: true, data: { result } };
@@ -2297,6 +2358,10 @@ const pushstateCommand: Command = {
     const url = ctx.args[0] as string;
     if (!url) throw new Error('Usage: monomind browse pushstate <url>');
     await browser.pushState(client, sessionId, url);
+    // SPA navigation changes what's on the page without a full page load —
+    // refs captured before this pushState call may now resolve to different content.
+    _refs = new Map();
+    await browser.clearRefCache();
     output.printSuccess(`pushState: ${url}`);
     return { success: true };
   },
@@ -2542,7 +2607,7 @@ const recordCommand: Command = {
       case 'restart': {
         const prevStatus = browser.getRecordingStatus(sessionId);
         let prevPath: string | undefined;
-        if (prevStatus.recording) {
+        if (prevStatus.recording || prevStatus.autoStopped) {
           prevPath = await browser.stopRecording(client, sessionId, ctx.args[1] as string);
           output.printInfo(`Previous recording saved: ${prevPath}`);
         }
@@ -2556,7 +2621,7 @@ const recordCommand: Command = {
       case 'status': {
         const status = browser.getRecordingStatus(sessionId);
         if (ctx.flags.json) print(JSON.stringify({ data: status }));
-        else print(`Recording: ${status.recording} | Frames: ${status.frames}`);
+        else print(`Recording: ${status.recording} | Frames: ${status.frames}${status.autoStopped ? ' (auto-stopped: buffer limit reached — run "record stop" to save)' : ''}`);
         return { success: true, data: status };
       }
       default:

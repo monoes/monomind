@@ -4,6 +4,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { atomicWriteFileSync, withLock, appendJsonlWithRotation } = require('./fs-helpers.cjs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
@@ -19,7 +20,11 @@ function _recordRecentEdit(filePath) {
     d.edits = d.edits.filter(function(e) { return e.file !== storedPath; });
     d.edits.unshift({ file: storedPath, editedAt: Date.now() });
     if (d.edits.length > 10) d.edits = d.edits.slice(0, 10);
-    fs.writeFileSync(f, JSON.stringify(d));
+    // P2-21: tmp+rename so a concurrent reader of recent-edits.json (fired by
+    // another PostToolUse hook process in the same batched Edit) never sees a
+    // partially-written file. Last-writer-wins on the merge itself is
+    // acceptable here — losing one recent-edit entry is low-stakes.
+    atomicWriteFileSync(f, JSON.stringify(d));
   } catch (e) { /* non-fatal */ }
 }
 
@@ -45,7 +50,8 @@ function _recordToolCall(signature) {
       d = { startedAt: Date.now(), calls: {} };
     }
     d.calls[signature] = (d.calls[signature] || 0) + 1;
-    fs.writeFileSync(f, JSON.stringify(d));
+    // P2-21: atomic write — see _recordRecentEdit above for rationale.
+    atomicWriteFileSync(f, JSON.stringify(d));
     return d.calls[signature];
   } catch (e) { return 0; }
 }
@@ -77,8 +83,8 @@ function _getBudgetStatus() {
         monthlyLimit = Math.max(monthlyLimit || 0, Math.ceil(dailyAvg * 1.5 * 30));
         autoTuned = true;
         try {
-          fs.mkdirSync(path.dirname(budgetFile), { recursive: true });
-          fs.writeFileSync(budgetFile, JSON.stringify({
+          // P2-21: atomic write — see _recordRecentEdit above for rationale.
+          atomicWriteFileSync(budgetFile, JSON.stringify({
             dailyLimit: dailyLimit, monthlyLimit: monthlyLimit,
             autoTuned: true, tunedAt: now.toISOString(),
             basis: 'rolling avg $' + dailyAvg.toFixed(2) + '/day × 1.5',
@@ -106,20 +112,28 @@ function _getBudgetStatus() {
 }
 
 function _recordHookLatency(handlerName, durationMs) {
+  var f = path.join(CWD, '.monomind', 'metrics', 'hook-latency.json');
+  // P2-21: hook-latency.json's per-handler count/total/max are aggregated
+  // counters written by every hook invocation — a plain read-modify-write
+  // silently drops whichever concurrent process wrote last (lost update),
+  // not just torn reads. Wrap the whole cycle in a lock (see
+  // utils/fs-helpers.cjs claimLock/withLock, same TOCTOU-safe pattern used
+  // for the rebuild/spawn locks) so the read and the write happen as one
+  // critical section instead of racing.
   try {
-    var f = path.join(CWD, '.monomind', 'metrics', 'hook-latency.json');
-    fs.mkdirSync(path.dirname(f), { recursive: true });
-    var d = {};
-    try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (_) {}
-    if (typeof d !== 'object' || d === null) d = {};
-    var entry = d[handlerName] || { count: 0, total: 0, max: 0 };
-    entry.count++;
-    entry.total += durationMs;
-    entry.max = Math.max(entry.max, durationMs);
-    entry.mean = Math.round(entry.total / entry.count);
-    d[handlerName] = entry;
-    d.lastUpdated = Date.now();
-    fs.writeFileSync(f, JSON.stringify(d));
+    withLock(f + '.lock', function() {
+      var d = {};
+      try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (_) {}
+      if (typeof d !== 'object' || d === null) d = {};
+      var entry = d[handlerName] || { count: 0, total: 0, max: 0 };
+      entry.count++;
+      entry.total += durationMs;
+      entry.max = Math.max(entry.max, durationMs);
+      entry.mean = Math.round(entry.total / entry.count);
+      d[handlerName] = entry;
+      d.lastUpdated = Date.now();
+      atomicWriteFileSync(f, JSON.stringify(d));
+    }, 5000);
   } catch (e) {}
 }
 
@@ -130,9 +144,11 @@ function _recordDecisionMarkers(promptText) {
   if (!matches || matches.length === 0) return;
   try {
     var f = path.join(CWD, '.monomind', 'decisions.jsonl');
-    fs.mkdirSync(path.dirname(f), { recursive: true });
     var entry = JSON.stringify({ ts: Date.now(), excerpts: matches.slice(0, 3), prompt: promptText.slice(0, 400) });
-    fs.appendFileSync(f, entry + '\n');
+    // P2-26: decisions.jsonl was a pure appendFileSync with no rotation —
+    // unlike intelligence-outcomes.jsonl (capped at 500 lines). Cap it the
+    // same way so it can't grow unbounded across a long project history.
+    appendJsonlWithRotation(f, entry, 500);
   } catch (e) {}
 }
 

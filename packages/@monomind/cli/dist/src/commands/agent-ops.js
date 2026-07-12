@@ -8,11 +8,7 @@ import { formatStatus } from './agent-lifecycle.js';
 export const metricsCommand = {
     name: 'metrics',
     description: 'Show agent performance metrics',
-    options: [
-        { name: 'period', short: 'p', description: 'Time period (1h, 24h, 7d, 30d)', type: 'string', default: '24h' },
-    ],
     action: async (ctx) => {
-        const period = ctx.flags.period;
         const { existsSync, readFileSync, readdirSync, statSync } = await import('fs');
         const { join } = await import('path');
         let totalAgents = 0;
@@ -61,13 +57,12 @@ export const metricsCommand = {
             catch { /* ignore */ }
         }
         let vectorCount = 0;
-        const dbPath = join(swarmDir, 'memory.db');
-        if (existsSync(dbPath)) {
-            try {
-                vectorCount = Math.floor(statSync(dbPath).size / 2048);
-            }
-            catch { /* ignore */ }
+        try {
+            const { bridgeGetBackendStats } = await import('../memory/memory-bridge.js');
+            const backendStats = await bridgeGetBackendStats();
+            vectorCount = backendStats?.totalEntries ?? 0;
         }
+        catch { /* backend unavailable */ }
         const byType = Object.entries(typeCounts).map(([type, data]) => ({
             type, count: data.count, tasks: data.tasks,
             successRate: data.tasks > 0 ? `${Math.round((data.success / data.tasks) * 100)}%` : 'N/A',
@@ -76,20 +71,19 @@ export const metricsCommand = {
             ? `${Math.round(Object.values(typeCounts).reduce((a, d) => a + d.success, 0) / tasksCompleted * 100)}%`
             : 'N/A';
         const metrics = {
-            period,
             summary: {
                 totalAgents, activeAgents, tasksCompleted, avgSuccessRate, vectorCount,
                 note: totalAgents === 0 ? 'No agents spawned yet. Use: agent spawn -t coder' : undefined,
             },
             byType,
-            performance: { memoryVectors: `${vectorCount} vectors`, searchBackend: vectorCount > 0 ? 'HNSW-indexed' : 'none' },
+            performance: { memoryEntries: `${vectorCount} entries`, searchBackend: vectorCount > 0 ? 'LanceDB' : 'none' },
         };
         if (ctx.flags.format === 'json') {
             output.printJson(metrics);
             return { success: true, data: metrics };
         }
         output.writeln();
-        output.writeln(output.bold(`Agent Metrics (${period})`));
+        output.writeln(output.bold('Agent Metrics'));
         output.writeln();
         output.printTable({
             columns: [
@@ -101,7 +95,7 @@ export const metricsCommand = {
                 { metric: 'Active Agents', value: metrics.summary.activeAgents },
                 { metric: 'Tasks Completed', value: metrics.summary.tasksCompleted },
                 { metric: 'Success Rate', value: metrics.summary.avgSuccessRate },
-                { metric: 'Memory Vectors', value: metrics.summary.vectorCount },
+                { metric: 'Memory Entries', value: metrics.summary.vectorCount },
             ],
         });
         output.writeln();
@@ -122,7 +116,7 @@ export const metricsCommand = {
         output.writeln();
         output.writeln(output.bold('Memory'));
         output.printList([
-            `Vectors: ${output.success(metrics.performance.memoryVectors)}`,
+            `Entries: ${output.success(metrics.performance.memoryEntries)}`,
             `Backend: ${output.success(metrics.performance.searchBackend)}`,
         ]);
         return { success: true, data: metrics };

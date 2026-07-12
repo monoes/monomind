@@ -104,9 +104,6 @@ export class CLI {
         this.checkForUpdatesOnStartup().catch(() => {/* silent */});
       }
 
-      // Initialize optional subsystems (non-blocking — never delay CLI startup)
-      this.initSubsystems().catch(() => {/* silent */});
-
       // Handle lazy-loaded commands that weren't recognized by the parser
       // If commandPath is empty but positional has a command name, check if it's lazy-loadable
       if (commandPath.length === 0 && positional.length > 0 && !positional[0].startsWith('-')) {
@@ -121,8 +118,11 @@ export class CLI {
       // No command - show help or suggest correction
       if (commandPath.length === 0 || flags.help || flags.h) {
         if (commandPath.length > 0) {
-          // Show command-specific help
-          await this.showCommandHelp(commandPath[0]);
+          // Show help for the fully-resolved (sub)command — walking the same
+          // path the dispatcher below resolves — not just the top-level
+          // parent's subcommand list. `monomind memory store --help` should
+          // show `store`'s own options, not memory's list of subcommands.
+          await this.showCommandHelp(commandPath);
         } else if (positional.length > 0 && !positional[0].startsWith('-')) {
           // First positional looks like an attempted command - suggest correction
           const attemptedCommand = positional[0];
@@ -156,6 +156,14 @@ export class CLI {
         this.output.writeln(this.output.dim(`  ${message}`));
         process.exit(1);
       }
+
+      // Initialize optional subsystems (non-blocking — never delay CLI
+      // startup). Deliberately placed AFTER the --help/--version/unknown-
+      // command short-circuits above: those paths don't touch project state,
+      // so running this here means `monomind --help` (or any invocation in a
+      // directory that's never been a monomind project) no longer creates
+      // .monomind/registry.json as a side effect of just asking for help.
+      this.initSubsystems().catch(() => {/* silent */});
 
       // Handle subcommand (supports nested subcommands)
       let targetCommand = command;
@@ -247,8 +255,8 @@ export class CLI {
           process.exit(result.exitCode || 1);
         }
       } else {
-        // No action - show command help
-        await this.showCommandHelp(commandName);
+        // No action - show help for the resolved (sub)command path
+        await this.showCommandHelp(commandPath.length > 0 ? commandPath : [commandName]);
       }
     } catch (error) {
       // Don't re-handle if this is a process.exit error (from mocked tests)
@@ -353,27 +361,44 @@ export class CLI {
   /**
    * Show command-specific help
    */
-  private async showCommandHelp(commandName: string): Promise<void> {
+  private async showCommandHelp(commandPath: string | string[]): Promise<void> {
+    const path = Array.isArray(commandPath) ? commandPath : [commandPath];
+    const topName = path[0];
+
     // Try sync first, then lazy load
-    let command = getCommand(commandName);
-    if (!command && hasCommand(commandName)) {
-      command = await getCommandAsync(commandName);
+    let command = getCommand(topName);
+    if (!command && hasCommand(topName)) {
+      command = await getCommandAsync(topName);
     }
 
     if (!command) {
-      this.output.printError(`Unknown command: ${commandName}`);
+      this.output.printError(`Unknown command: ${topName}`);
       return;
     }
 
+    // Walk the remaining path segments through subcommands/nested
+    // subcommands — mirrors the resolution the dispatcher uses in run() —
+    // so `monomind <command> <subcommand> --help` shows the actual target
+    // (sub)command's own options and examples, not just the parent's list
+    // of subcommands.
+    let target: Command = command;
+    const resolvedNames = [command.name];
+    for (const segment of path.slice(1)) {
+      const next = target.subcommands?.find(sc => sc.name === segment || sc.aliases?.includes(segment));
+      if (!next) break;
+      target = next;
+      resolvedNames.push(next.name);
+    }
+
     this.output.writeln();
-    this.output.writeln(this.output.bold(`${this.name} ${command.name}`));
-    this.output.writeln(command.description);
+    this.output.writeln(this.output.bold(`${this.name} ${resolvedNames.join(' ')}`));
+    this.output.writeln(target.description);
     this.output.writeln();
 
     // Subcommands
-    if (command.subcommands && command.subcommands.length > 0) {
+    if (target.subcommands && target.subcommands.length > 0) {
       this.output.writeln(this.output.bold('SUBCOMMANDS:'));
-      for (const sub of command.subcommands) {
+      for (const sub of target.subcommands) {
         if (sub.hidden) continue;
         const name = sub.name.padEnd(15);
         const aliases = sub.aliases ? this.output.dim(` (${sub.aliases.join(', ')})`) : '';
@@ -383,9 +408,9 @@ export class CLI {
     }
 
     // Options
-    if (command.options && command.options.length > 0) {
+    if (target.options && target.options.length > 0) {
       this.output.writeln(this.output.bold('OPTIONS:'));
-      for (const opt of command.options) {
+      for (const opt of target.options) {
         const flags = opt.short ? `-${opt.short}, --${opt.name}` : `    --${opt.name}`;
         const required = opt.required ? this.output.error(' (required)') : '';
         const defaultVal = opt.default !== undefined ? this.output.dim(` [default: ${opt.default}]`) : '';
@@ -395,9 +420,9 @@ export class CLI {
     }
 
     // Examples
-    if (command.examples && command.examples.length > 0) {
+    if (target.examples && target.examples.length > 0) {
       this.output.writeln(this.output.bold('EXAMPLES:'));
-      for (const example of command.examples) {
+      for (const example of target.examples) {
         this.output.writeln(`  ${this.output.dim('$')} ${example.command}`);
         this.output.writeln(`    ${this.output.dim(example.description)}`);
       }
@@ -451,15 +476,23 @@ export class CLI {
    * Load configuration file
    */
   private async loadConfig(configPath?: string): Promise<MonomindConfig | undefined> {
+    const { configManager } = await import('./services/config-file-manager.js');
+
+    // An explicit --config/-c path names an EXACT file — load it directly
+    // instead of directory-searching from its dirname (which previously
+    // discarded the filename the user gave and either loaded an unrelated
+    // monomind.config.json from that directory or found nothing). Failure
+    // to find/parse an explicitly-named config file is a loud error, not a
+    // silent fallback to defaults.
+    if (configPath) {
+      const raw = configManager.loadExact(configPath);
+      return raw as unknown as MonomindConfig;
+    }
+
     try {
-      const { configManager } = await import('./services/config-file-manager.js');
-      const cwd = configPath
-        ? (await import('path')).dirname(configPath)
-        : process.cwd();
-      const raw = configManager.load(cwd);
+      const raw = configManager.load(process.cwd());
       if (!raw) return undefined;
-      const config = raw as unknown as MonomindConfig;
-      return config;
+      return raw as unknown as MonomindConfig;
     } catch (error) {
       // Config loading is optional - don't fail if it doesn't exist
       if (process.env.DEBUG) {

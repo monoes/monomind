@@ -8,6 +8,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import Database from 'better-sqlite3';
 import { type RankedResult } from '../search/rrf.js';
+import { ftsSearch } from '../storage/fts-store.js';
 import type { GroupConfig } from './group-config.js';
 
 export interface GroupResult {
@@ -17,13 +18,6 @@ export interface GroupResult {
   filePath: string | null;
   repo: string;
   score: number;
-}
-
-interface RawFtsRow {
-  id: string;
-  name: string;
-  label: string;
-  file_path: string | null;
 }
 
 /**
@@ -53,31 +47,19 @@ function searchRepo(
   try {
     db = new Database(dbPath, { readonly: true });
 
-    // Sanitize and build prefix query
-    const safeQuery = query.replace(/['"*]/g, ' ').trim();
-    if (!safeQuery) return [];
-
-    const ftsPrefixQuery = safeQuery
-      .split(/\s+/)
-      .map((t) => t + '*')
-      .join(' ');
-
-    const sql = `
-      SELECT n.id, n.name, n.label, n.file_path
-      FROM nodes_fts
-      JOIN nodes n ON n.rowid = nodes_fts.rowid
-      WHERE nodes_fts MATCH ?
-      ORDER BY nodes_fts.rank
-      LIMIT ?
-    `;
-
-    const rows = db.prepare(sql).all(ftsPrefixQuery, perRepoLimit) as RawFtsRow[];
+    // Reuse the SAME ftsSearch() the single-repo `monograph_query` tool uses —
+    // its trigram-aware sanitization and MATCH/LIKE fallback (P2-15) — instead of
+    // a divergent inline query that appended `*` as if this were a prefix-match
+    // tokenizer. The trigram index needs no prefix wildcard and errors on terms
+    // shorter than 3 chars when one is appended, which silently produced empty
+    // results here before.
+    const rows = ftsSearch(db, query, perRepoLimit);
 
     return rows.map((r, idx) => ({
       id: `${repoName}::${r.id}`,
       name: r.name,
       label: r.label,
-      filePath: r.file_path ?? null,
+      filePath: r.filePath,
       repo: repoName,
       // Use rank position as initial score so RRF can compute correctly
       score: 1 / (60 + idx + 1),

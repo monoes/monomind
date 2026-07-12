@@ -83,6 +83,36 @@ export class ConfigFileManager {
         }
         return null;
     }
+    /**
+     * Load config from an EXACT file path (used by `--config <file>` / `-c`).
+     * Unlike load()/findConfig(), this never falls back to directory search —
+     * an explicitly-named config file that doesn't exist or fails to parse is
+     * an error, not a silent fallback to defaults or an unrelated file in the
+     * same directory.
+     */
+    loadExact(filePath) {
+        const resolved = path.resolve(filePath);
+        if (!fs.existsSync(resolved)) {
+            throw new Error(`Config file not found: ${resolved}`);
+        }
+        let content;
+        try {
+            content = fs.readFileSync(resolved, 'utf-8');
+        }
+        catch (err) {
+            throw new Error(`Failed to read config file ${resolved}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        let parsed;
+        try {
+            parsed = JSON.parse(content);
+        }
+        catch (err) {
+            throw new Error(`Failed to parse config file ${resolved}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        this.configPath = resolved;
+        this.config = sanitizeConfigObject(parsed);
+        return this.config;
+    }
     /** Load config from file, returns null if not found */
     load(cwd) {
         this.configPath = this.findConfig(cwd);

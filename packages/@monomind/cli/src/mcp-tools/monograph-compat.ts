@@ -7,29 +7,68 @@
  */
 
 import { join, resolve, relative } from 'path';
-import { existsSync, readFileSync, statSync } from 'fs';
-import { openDb, closeDb, countNodes } from '@monoes/monograph';
+import { existsSync, statSync } from 'fs';
+import { execSync } from 'child_process';
+import { openDb, closeDb, countNodes, parseGroupConfig, type GroupRepo } from '@monoes/monograph';
+import { getProjectCwd } from './types.js';
 
 type Db = ReturnType<typeof openDb>;
 
 // ── Group config reader ───────────────────────────────────────────────────────
 
-interface GroupRepoEntry { name?: string; path?: string }
-
 const MAX_GROUP_CONFIG_BYTES = 1 * 1024 * 1024; // 1 MB
 
-function readGroupConfig(configPath: string): GroupRepoEntry[] {
+/**
+ * Read repos from a group.yaml config (the real group config format used by
+ * monograph_group_query / monograph_group_sync / monograph_group_list — see
+ * @monoes/monograph's groups/group-config.ts).
+ *
+ * Throws on an out-of-bounds or oversized path instead of silently returning
+ * an empty list, so callers can distinguish "no groups configured" from
+ * "your repoPath was rejected".
+ */
+function readGroupConfig(configPath: string): GroupRepo[] {
   if (!existsSync(configPath)) return [];
+  // Guard: only allow paths within the project cwd to prevent traversal to
+  // /etc/passwd etc. Uses getProjectCwd() (honors MONOMIND_CWD) rather than
+  // process.cwd(), which is trivially bypassed when the MCP server runs with
+  // cwd "/".
+  const projectCwd = getProjectCwd();
+  const resolved = resolve(configPath);
+  const rel = relative(projectCwd, resolved);
+  if (rel.startsWith('..') || resolve(rel) === resolve('/')) {
+    throw new Error(
+      `Rejected group config path outside project directory: ${resolved} (project cwd: ${projectCwd})`,
+    );
+  }
+  // OOM guard: skip files larger than 1 MB
+  if (statSync(configPath).size > MAX_GROUP_CONFIG_BYTES) {
+    throw new Error(`Group config file too large (> ${MAX_GROUP_CONFIG_BYTES} bytes): ${configPath}`);
+  }
+  return parseGroupConfig(configPath).repos;
+}
+
+/**
+ * Compute whether a repo's monograph index is stale relative to HEAD, the
+ * same way monograph_staleness does: compare the last indexed commit hash
+ * against `git rev-list --count <lastCommit>..HEAD`. Mirrors the threshold
+ * used by monograph-tools.ts (STALENESS_THRESHOLD = 10).
+ */
+function isRepoStale(db: Db, repoPath: string): boolean {
   try {
-    // Guard: only allow paths within cwd to prevent traversal to /etc/passwd etc.
-    const resolved = resolve(configPath);
-    const rel = relative(process.cwd(), resolved);
-    if (rel.startsWith('..') || resolve(rel) === resolve('/')) return [];
-    // OOM guard: skip files larger than 1 MB
-    if (statSync(configPath).size > MAX_GROUP_CONFIG_BYTES) return [];
-    const raw = readFileSync(configPath, 'utf-8');
-    return JSON.parse(raw) as GroupRepoEntry[];
-  } catch { return []; }
+    const meta = (
+      (db as any).prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get()
+      ?? (db as any).prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get()
+    ) as { value: string } | undefined;
+    const lastCommit = meta?.value;
+    if (!lastCommit || !/^[0-9a-f]{7,40}$/i.test(lastCommit)) return false;
+    const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
+      cwd: repoPath, encoding: 'utf-8',
+    }).trim();
+    return parseInt(out, 10) > 10;
+  } catch {
+    return false;
+  }
 }
 
 // ── getGroupContracts ─────────────────────────────────────────────────────────
@@ -92,11 +131,12 @@ export async function getGroupStatus(configPath: string): Promise<{
       const nc = countNodes(db);
       const contracts = (db as any).prepare("SELECT COUNT(*) as n FROM nodes WHERE label = 'Route'").get() as any;
       const meta = (db as any).prepare("SELECT value FROM index_meta WHERE key IN ('ua_last_commit','lastCommit') LIMIT 1").get() as any;
+      const stale = isRepoStale(db, repoPath);
       closeDb(db);
       groups.push({
         name,
         indexed: nc > 0,
-        stale: false,
+        stale,
         contractCount: (contracts?.n as number) ?? 0,
         ...(meta?.value ? { lastSync: meta.value as string } : {}),
       });

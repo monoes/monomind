@@ -8,6 +8,7 @@
  * containing hardcoded business logic. All business logic lives in MCP tool handlers.
  */
 import type { MCPTool } from './mcp-tools/types.js';
+export declare function isToolDisabled(toolName: string, cwd?: string): boolean;
 /**
  * MCP Client Error
  */
@@ -54,10 +55,14 @@ export declare function getToolMetadata(toolName: string): Omit<MCPTool, 'handle
  * @param category - Optional category filter
  * @returns Array of tool metadata
  */
-export declare function listMCPTools(category?: string): Array<Omit<MCPTool, 'handler'>>;
+export declare function listMCPTools(category?: string): Array<Omit<MCPTool, 'handler'> & {
+    enabled: boolean;
+}>;
 /**
- * Return all registered tools including their handler functions.
- * Used by startHttpServer() to register tools with the HTTP/WS MCP server.
+ * Return all registered tools including their handler functions, excluding
+ * any disabled via `mcp toggle`. Used by startHttpServer() to register tools
+ * with the HTTP/WS MCP server, so a disabled tool is never exposed to
+ * external MCP clients after the next server start.
  */
 export declare function getAllMCPTools(): MCPTool[];
 /**

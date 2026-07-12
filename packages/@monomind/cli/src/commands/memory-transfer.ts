@@ -21,32 +21,25 @@ export const exportCommand: Command = {
     {
       name: 'format',
       short: 'f',
-      description: 'Export format (json, csv, binary, okf)',
+      description: 'Export format (only okf is currently implemented)',
       type: 'string',
-      choices: ['json', 'csv', 'binary', 'okf'],
-      default: 'json'
+      choices: ['okf'],
+      default: 'okf'
     },
     {
       name: 'namespace',
       short: 'n',
       description: 'Export specific namespace',
       type: 'string'
-    },
-    {
-      name: 'include-vectors',
-      description: 'Include vector embeddings',
-      type: 'boolean',
-      default: true
     }
   ],
   examples: [
-    { command: 'monomind memory export -o ./backup.json', description: 'Export all to JSON' },
-    { command: 'monomind memory export -o ./data.csv -f csv', description: 'Export to CSV' },
+    { command: 'monomind memory export -o ./backup', description: 'Export all as OKF bundle (directory of .md files)' },
     { command: 'monomind memory export -o ./knowledge -f okf', description: 'Export as OKF bundle (directory of .md files)' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const outputPath = ctx.flags.output as string;
-    const format = ctx.flags.format as string || 'json';
+    const format = ctx.flags.format as string || 'okf';
 
     if (!outputPath) {
       output.printError('Output path is required. Use --output or -o');
@@ -95,7 +88,7 @@ export const exportCommand: Command = {
       }
     }
 
-    output.printError(`Unsupported export format: ${format}. Use --format okf for file-based export.`);
+    output.printError(`Format '${format}' is not yet implemented. Use --format okf (the only supported format).`);
     return { success: false, exitCode: 1 };
   }
 };

@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { pathToFileURL } = require('url');
+const { claimLock } = require('./utils/fs-helpers.cjs');
 
 const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const graphDir = path.join(projectDir, '.monomind', 'graph');
@@ -91,20 +92,18 @@ if (fs.existsSync(dbPath)) {
 }
 
 // Skip if another build is already in progress (avoids SQLite BUSY on concurrent init + session-start)
+// P2-24: claim atomically (wx-create) instead of statSync-then-writeFileSync
+// — two concurrent freshen triggers can both cross the same write-count
+// threshold from parallel hook events, and a plain read-check-write lets
+// both pass the check and both spawn a detached rebuild child. claimLock
+// uses the same TOCTOU-safe stale-lock-break (atomic rename-to-claim) as
+// control-start.cjs's spawn lock (see P2-25) — a lock older than 5 minutes
+// is treated as abandoned and safely reclaimed.
 const lockPath = path.join(graphDir, 'build.lock');
-const now = Date.now();
-try {
-  const stat = fs.statSync(lockPath);
-  // Stale lock older than 5 minutes — remove it and proceed
-  if (now - stat.mtimeMs < 5 * 60 * 1000) {
-    console.log('[graph] build already in progress — skipping');
-    process.exit(0);
-  }
-  fs.unlinkSync(lockPath);
-} catch { /* lock does not exist — proceed */ }
-
-// Write lock file; the build process removes it on completion
-try { fs.writeFileSync(lockPath, String(process.pid)); } catch { /* non-fatal */ }
+if (!claimLock(lockPath, 5 * 60 * 1000)) {
+  console.log('[graph] build already in progress — skipping');
+  process.exit(0);
+}
 
 // Spawn a detached node process to run buildAsync from @monoes/monograph (ESM).
 // After the build, VACUUM the DB if it has >50% bloat (reclaim space from
@@ -122,7 +121,7 @@ try {
     const fileMB = statSync(dbPath).size / 1024 / 1024;
     const liveMB = parseInt(
       execSync('sqlite3 "' + dbPath + '" "SELECT SUM(pgsize)/1024/1024 FROM dbstat;"',
-        { encoding: 'utf-8' }).trim(), 10);
+        { encoding: 'utf-8', timeout: 30000 }).trim(), 10);
     if (fileMB > 100 && liveMB / fileMB < 0.5) {
       execSync('sqlite3 "' + dbPath + '" "VACUUM;"', { timeout: 120000 });
     }

@@ -73,4 +73,31 @@ describe('OrgDaemon', () => {
     expect(receipt).toMatch(/unknown recipient/);
     await d.stopAll();
   });
+
+  it('marks an agent crashed and emits an audit event when its session rejects (P2-50)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon5-'));
+    fixture(root, 'alpha');
+    // fake SDK: the "coder" role throws immediately (simulates bad API key / provider outage);
+    // "boss" behaves normally so we can prove only the crashed agent is affected.
+    const crashingQuery = ({ prompt }: any) => (async function* () {
+      for await (const _m of prompt) {
+        throw new Error('simulated provider outage: 401 invalid api key');
+      }
+    })();
+    const d = new OrgDaemon(root, { queryFn: crashingQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+    // nudge the coder's mailbox so its session actually runs and throws
+    await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
+    await d.stopOrg('alpha');
+
+    const coder = running.agents.get('coder')!;
+    expect(coder.status).toBe('crashed');
+    expect(coder.error).toMatch(/simulated provider outage/);
+
+    const audit = running.busEvents().find(
+      e => e.type === 'audit' && e.reason === 'agent-session-crash' && e.from === 'coder',
+    );
+    expect(audit).toBeDefined();
+    expect(audit!.msg).toMatch(/simulated provider outage/);
+  });
 });

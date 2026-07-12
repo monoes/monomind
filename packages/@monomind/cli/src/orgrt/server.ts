@@ -23,7 +23,10 @@ export async function startOrgServer(daemon: OrgDaemon, port: number): Promise<O
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(daemon.listOrgs().map(o => ({
         name: o.def.name, run: o.run, goal: o.def.goal,
-        agents: [...o.agents.entries()].map(([id, a]) => ({ id, usage: a.policy.usage, closed: a.mailbox.isClosed })),
+        agents: [...o.agents.entries()].map(([id, a]) => ({
+          id, usage: a.policy.usage, closed: a.mailbox.isClosed,
+          status: a.status, error: a.error,
+        })),
       }))));
     } else if (req.method === 'GET' && url.startsWith('/api/history/')) {
       const name = decodeURIComponent(url.slice('/api/history/'.length));

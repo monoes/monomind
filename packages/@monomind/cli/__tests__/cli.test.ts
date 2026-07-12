@@ -6,6 +6,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CLI, VERSION } from '../src/index.js';
 import type { Command } from '../src/types.js';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe('CLI', () => {
   let cli: CLI;
@@ -366,21 +369,50 @@ describe('CLI', () => {
       expect(flagsPassed).toBe(true);
     });
 
-    it('should handle --config flag', async () => {
+    it('should handle --config flag (loads the exact named file)', async () => {
+      // --config/-c now loads the exact file named, not a directory search
+      // from its dirname (P2-40) — an explicit path that doesn't exist is a
+      // loud error, so this test writes a real config file to exercise the
+      // success path.
+      const dir = mkdtempSync(join(tmpdir(), 'monomind-cli-config-test-'));
+      const configPath = join(dir, 'custom-config.json');
+      writeFileSync(configPath, JSON.stringify({ version: '3.5' }));
+
       let flagsPassed = false;
+      let configLoaded = false;
       const mockCommand: Command = {
         name: 'testconfig',
         description: 'Test command',
         action: async (ctx) => {
-          expect(ctx.flags.config).toBe('./custom-config.json');
+          expect(ctx.flags.config).toBe(configPath);
           flagsPassed = true;
+          configLoaded = ctx.config !== undefined;
           return { success: true };
         }
       };
 
+      try {
+        cli['parser'].registerCommand(mockCommand);
+        await cli.run(['testconfig', '--config', configPath]);
+        expect(flagsPassed).toBe(true);
+        expect(configLoaded).toBe(true);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('should error loudly when --config names a file that does not exist', async () => {
+      const mockCommand: Command = {
+        name: 'testconfig2',
+        description: 'Test command',
+        action: async () => ({ success: true })
+      };
       cli['parser'].registerCommand(mockCommand);
-      await cli.run(['testconfig', '--config', './custom-config.json']);
-      expect(flagsPassed).toBe(true);
+
+      await expect(
+        cli.run(['testconfig2', '--config', '/nonexistent/path/to/config.json'])
+      ).rejects.toThrow('process.exit: 1');
+      expect(consoleErrorOutput.join('')).toContain('Config file not found');
     });
 
     it('should disable color with --no-color', async () => {

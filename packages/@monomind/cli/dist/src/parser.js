@@ -111,6 +111,40 @@ export class CommandParser {
             return;
         flags[key] = value;
     }
+    /**
+     * Merge a single parsed flag (or set of `_` positionals) into the
+     * accumulated result flags, collecting repeats into an array instead of
+     * overwriting. Declared `type: 'array'` options always end up as an array
+     * (even a single occurrence); any other repeated flag also becomes an
+     * array on its second occurrence rather than silently dropping the first
+     * value.
+     */
+    mergeParsedFlags(into, from, arrayFlags) {
+        for (const key of Object.keys(from)) {
+            if (key === '_') {
+                into._.push(...from._);
+                continue;
+            }
+            if (CommandParser.RESERVED_FLAG_KEYS.has(key))
+                continue;
+            const incoming = from[key];
+            if (Array.isArray(into[key])) {
+                into[key].push(...[].concat(incoming).map(String));
+            }
+            else if (into[key] !== undefined) {
+                // Repeated flag not previously an array — promote to array so the
+                // earlier value isn't lost.
+                into[key] = [String(into[key]), String(incoming)];
+            }
+            else if (arrayFlags.has(key)) {
+                // First occurrence of a declared array flag — still wrap in an array.
+                into[key] = [String(incoming)];
+            }
+            else {
+                into[key] = incoming;
+            }
+        }
+    }
     parse(args) {
         const result = {
             command: [],
@@ -135,6 +169,7 @@ export class CommandParser {
         // Subcommand-specific aliases take priority over global ones
         const aliases = this.buildScopedAliases(resolvedSub || resolvedCmd);
         const booleanFlags = this.getScopedBooleanFlags(resolvedSub || resolvedCmd);
+        const arrayFlags = this.getScopedArrayFlags(resolvedSub || resolvedCmd);
         let i = 0;
         let parsingFlags = true;
         while (i < args.length) {
@@ -148,8 +183,13 @@ export class CommandParser {
             // Handle flags
             if (parsingFlags && arg.startsWith('-')) {
                 const parseResult = this.parseFlag(args, i, aliases, booleanFlags);
-                // Apply to result flags
-                Object.assign(result.flags, parseResult.flags);
+                // Merge into result flags. A plain Object.assign here would silently
+                // drop earlier values whenever the same flag is passed more than once
+                // (`-p a=1 -p b=2` kept only `b=2`) — options declared `type: 'array'`
+                // (e.g. browse-action.ts's --params/-p, swarm.ts) are meant to
+                // collect every occurrence, and even a flag NOT declared array
+                // shouldn't silently lose data on repetition.
+                this.mergeParsedFlags(result.flags, parseResult.flags, arrayFlags);
                 i = parseResult.nextIndex;
                 continue;
             }
@@ -398,6 +438,20 @@ export class CommandParser {
         if (resolvedCmd?.options) {
             for (const opt of resolvedCmd.options) {
                 if (opt.type === 'boolean') {
+                    flags.add(this.normalizeKey(opt.name));
+                }
+            }
+        }
+        return flags;
+    }
+    /**
+     * Get flags declared `type: 'array'`, scoped to a specific command/subcommand.
+     */
+    getScopedArrayFlags(resolvedCmd) {
+        const flags = new Set();
+        if (resolvedCmd?.options) {
+            for (const opt of resolvedCmd.options) {
+                if (opt.type === 'array') {
                     flags.add(this.normalizeKey(opt.name));
                 }
             }
