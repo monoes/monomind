@@ -52,6 +52,18 @@ describe('OrgDaemon', () => {
     expect(b.busEvents().some(e => e.type === 'xorg' && e.from === 'alpha:boss')).toBe(true);
   });
 
+  it('treats "own-org:role" addressing as intra-org message, not xorg', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon4-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const a = await d.startOrg('alpha');
+    const receipt = await d.deliver('alpha', 'boss', 'alpha:coder', 's', 'b');
+    expect(receipt).toMatch(/delivered/);
+    await d.stopAll();
+    expect(a.busEvents().some(e => e.type === 'message' && e.to === 'coder')).toBe(true);
+    expect(a.busEvents().some(e => e.type === 'xorg')).toBe(false);
+  });
+
   it('rejects delivery to unknown role with a useful receipt', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon3-'));
     fixture(root, 'alpha');
