@@ -193,11 +193,13 @@ export class CommandParser {
 
         // Check for subcommand (level 1)
         const cmd = this.commands.get(arg);
+        resolvedCmd = cmd;
         if (cmd?.subcommands && i + 1 < args.length) {
           const nextArg = args[i + 1];
           const subCmd = cmd.subcommands.find(sc => sc.name === nextArg || sc.aliases?.includes(nextArg));
           if (subCmd) {
             result.command.push(nextArg);
+            resolvedCmd = subCmd;
             i++;
 
             // Check for nested subcommand (level 2)
@@ -206,6 +208,7 @@ export class CommandParser {
               const nestedCmd = subCmd.subcommands.find(sc => sc.name === nestedArg || sc.aliases?.includes(nestedArg));
               if (nestedCmd) {
                 result.command.push(nestedArg);
+                resolvedCmd = nestedCmd;
                 i++;
 
                 // Check for deeply nested subcommand (level 3)
@@ -214,6 +217,7 @@ export class CommandParser {
                   const deepCmd = nestedCmd.subcommands.find(sc => sc.name === deepArg || sc.aliases?.includes(deepArg));
                   if (deepCmd) {
                     result.command.push(deepArg);
+                    resolvedCmd = deepCmd;
                     i++;
                   }
                 }
@@ -230,8 +234,10 @@ export class CommandParser {
       i++;
     }
 
-    // Apply defaults
-    this.applyDefaults(result.flags);
+    // Apply defaults — the resolved (sub)command's own option definitions
+    // shadow same-name global options (e.g. `browse screenshot --format` is an
+    // image format, not the global text|json|table output format).
+    this.applyDefaults(result.flags, resolvedCmd);
 
     return result;
   }
@@ -457,10 +463,24 @@ export class CommandParser {
     return flags;
   }
 
-  private applyDefaults(flags: ParsedFlags): void {
+  private applyDefaults(flags: ParsedFlags, resolvedCmd?: Command): void {
+    // The resolved command's own options shadow same-name globals: apply the
+    // command's defaults and suppress the global default for those names.
+    const shadowed = new Set<string>();
+    if (resolvedCmd?.options) {
+      for (const opt of resolvedCmd.options) {
+        const key = this.normalizeKey(opt.name);
+        shadowed.add(key);
+        if (flags[key] === undefined && opt.default !== undefined) {
+          flags[key] = opt.default as string | boolean | number | string[];
+        }
+      }
+    }
+
     // Apply global option defaults
     for (const opt of this.globalOptions) {
       const key = this.normalizeKey(opt.name);
+      if (shadowed.has(key)) continue;
       if (flags[key] === undefined && opt.default !== undefined) {
         flags[key] = opt.default as string | boolean | number | string[];
       }
@@ -479,11 +499,14 @@ export class CommandParser {
 
   validateFlags(flags: ParsedFlags, command?: Command): string[] {
     const errors: string[] = [];
-    const allOptions = [...this.globalOptions];
-
+    // Command options shadow same-name globals — validate against the
+    // command's definition (its choices/validators), not the global's.
+    const byName = new Map<string, CommandOption>();
+    for (const opt of this.globalOptions) byName.set(opt.name, opt);
     if (command?.options) {
-      allOptions.push(...command.options);
+      for (const opt of command.options) byName.set(opt.name, opt);
     }
+    const allOptions = [...byName.values()];
 
     // Check required flags
     for (const opt of allOptions) {

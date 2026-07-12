@@ -183,13 +183,13 @@ export declare const AgentStateSchema: z.ZodObject<{
     vote: z.ZodOptional<z.ZodString>;
     metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
 }, "strip", z.ZodTypeAny, {
-    embedding: number[];
     agentId: string;
+    embedding: number[];
     metadata?: Record<string, unknown> | undefined;
     vote?: string | undefined;
 }, {
-    embedding: number[];
     agentId: string;
+    embedding: number[];
     metadata?: Record<string, unknown> | undefined;
     vote?: string | undefined;
 }>;
@@ -201,13 +201,13 @@ export declare const ConsensusInputSchema: z.ZodObject<{
         vote: z.ZodOptional<z.ZodString>;
         metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
     }, "strip", z.ZodTypeAny, {
-        embedding: number[];
         agentId: string;
+        embedding: number[];
         metadata?: Record<string, unknown> | undefined;
         vote?: string | undefined;
     }, {
-        embedding: number[];
         agentId: string;
+        embedding: number[];
         metadata?: Record<string, unknown> | undefined;
         vote?: string | undefined;
     }>, "many">;
@@ -215,15 +215,15 @@ export declare const ConsensusInputSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     threshold: number;
     agentStates: {
-        embedding: number[];
         agentId: string;
+        embedding: number[];
         metadata?: Record<string, unknown> | undefined;
         vote?: string | undefined;
     }[];
 }, {
     agentStates: {
-        embedding: number[];
         agentId: string;
+        embedding: number[];
         metadata?: Record<string, unknown> | undefined;
         vote?: string | undefined;
     }[];
@@ -247,11 +247,11 @@ export declare const SimplexSchema: z.ZodObject<{
     vertices: z.ZodArray<z.ZodNumber, "many">;
     dimension: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
-    vertices: number[];
     dimension: number;
+    vertices: number[];
 }, {
-    vertices: number[];
     dimension: number;
+    vertices: number[];
 }>;
 export type Simplex = z.infer<typeof SimplexSchema>;
 export declare const SimplicialComplexSchema: z.ZodObject<{
@@ -260,25 +260,25 @@ export declare const SimplicialComplexSchema: z.ZodObject<{
         vertices: z.ZodArray<z.ZodNumber, "many">;
         dimension: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
-        vertices: number[];
         dimension: number;
+        vertices: number[];
     }, {
-        vertices: number[];
         dimension: number;
+        vertices: number[];
     }>, "many">>;
     maxDimension: z.ZodDefault<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     vertices: number[][];
     maxDimension: number;
     simplices?: {
-        vertices: number[];
         dimension: number;
+        vertices: number[];
     }[] | undefined;
 }, {
     vertices: number[][];
     simplices?: {
-        vertices: number[];
         dimension: number;
+        vertices: number[];
     }[] | undefined;
     maxDimension?: number | undefined;
 }>;
@@ -290,25 +290,25 @@ export declare const TopologyInputSchema: z.ZodObject<{
             vertices: z.ZodArray<z.ZodNumber, "many">;
             dimension: z.ZodNumber;
         }, "strip", z.ZodTypeAny, {
-            vertices: number[];
             dimension: number;
+            vertices: number[];
         }, {
-            vertices: number[];
             dimension: number;
+            vertices: number[];
         }>, "many">>;
         maxDimension: z.ZodDefault<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         vertices: number[][];
         maxDimension: number;
         simplices?: {
-            vertices: number[];
             dimension: number;
+            vertices: number[];
         }[] | undefined;
     }, {
         vertices: number[][];
         simplices?: {
-            vertices: number[];
             dimension: number;
+            vertices: number[];
         }[] | undefined;
         maxDimension?: number | undefined;
     }>;
@@ -317,16 +317,16 @@ export declare const TopologyInputSchema: z.ZodObject<{
         vertices: number[][];
         maxDimension: number;
         simplices?: {
-            vertices: number[];
             dimension: number;
+            vertices: number[];
         }[] | undefined;
     };
 }, {
     complex: {
         vertices: number[][];
         simplices?: {
-            vertices: number[];
             dimension: number;
+            vertices: number[];
         }[] | undefined;
         maxDimension?: number | undefined;
     };

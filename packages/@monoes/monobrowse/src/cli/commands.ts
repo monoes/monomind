@@ -171,6 +171,18 @@ async function switchToHeaded(url: string, port: number): Promise<void> {
   }
 }
 
+/**
+ * Sanitize an image-format flag. The host CLI (monomind) defines a GLOBAL
+ * --format flag for output shaping (text|json|table, default 'text') that
+ * leaks into subcommand flags — so ctx.flags.format arrives as 'text' even
+ * when the user never passed it, and Chrome rejects it with
+ * "CDP error -32602: Invalid image format". Only trust values that are real
+ * image formats; otherwise fall back to the subcommand's own default.
+ */
+function imageFormat<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
 function print(msg: string) {
   process.stdout.write(msg + '\n');
 }
@@ -563,7 +575,7 @@ const screenshotCommand: Command = {
       result = await browser.captureScreenshot(client, sessionId, {
         path: ctx.args[0] as string,
         fullPage: ctx.flags.full as boolean,
-        format: ctx.flags.format as 'png' | 'jpeg' | 'webp',
+        format: imageFormat(ctx.flags.format, ['png', 'jpeg', 'webp'] as const, 'png'),
         quality: ctx.flags.quality as number,
         annotate,
         refs: annotate ? _refs : undefined,
@@ -2516,7 +2528,7 @@ const recordCommand: Command = {
     switch (action) {
       case 'start':
         await browser.startRecording(client, sessionId, {
-          format: ctx.flags.format as 'jpeg' | 'png',
+          format: imageFormat(ctx.flags.format, ['jpeg', 'png'] as const, 'jpeg'),
           quality: ctx.flags.quality as number,
         });
         output.printSuccess('Recording started');
@@ -2535,7 +2547,7 @@ const recordCommand: Command = {
           output.printInfo(`Previous recording saved: ${prevPath}`);
         }
         await browser.startRecording(client, sessionId, {
-          format: ctx.flags.format as 'jpeg' | 'png',
+          format: imageFormat(ctx.flags.format, ['jpeg', 'png'] as const, 'jpeg'),
           quality: ctx.flags.quality as number,
         });
         output.printSuccess('Recording restarted');

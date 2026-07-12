@@ -38,7 +38,7 @@
 - Modify: `packages/@monomind/cli/package.json` (dependencies)
 - Create: `packages/@monomind/cli/src/orgrt/` (directory)
 
-- [ ] **Step 1: Add the dependency**
+- [x] **Step 1: Add the dependency**
 
 ```bash
 cd packages/@monomind/cli
@@ -47,7 +47,7 @@ npm install @anthropic-ai/claude-agent-sdk@latest
 
 Expected: `package.json` gains `"@anthropic-ai/claude-agent-sdk": "^0.x"` under `dependencies`. Run `node -e "import('@anthropic-ai/claude-agent-sdk').then(m => console.log(Object.keys(m).join(',')))"` — expected output includes `query,tool,createSdkMcpServer`.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit** *(done: b5b48d3f — pnpm workspace, so root pnpm-lock.yaml committed instead of package-lock.json; SDK 0.3.207)*
 
 ```bash
 git add package.json package-lock.json
@@ -62,7 +62,7 @@ git commit -m "feat(orgrt): add @anthropic-ai/claude-agent-sdk dependency"
 - Create: `packages/@monomind/cli/src/orgrt/types.ts`
 - Test: `packages/@monomind/cli/__tests__/orgrt/types.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/types.test.ts
@@ -113,12 +113,12 @@ describe('OrgDefSchema', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd packages/@monomind/cli && npx vitest run __tests__/orgrt/types.test.ts`
 Expected: FAIL — `Cannot find module '../../src/orgrt/types.js'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```ts
 // packages/@monomind/cli/src/orgrt/types.ts
@@ -201,12 +201,12 @@ export interface BusEvent {
 export const ORG_DIR = '.monomind/orgs';
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run __tests__/orgrt/types.test.ts`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** *(done: 4218088 — reviewed APPROVE; tests 3/3)*
 
 ```bash
 git add src/orgrt/types.ts __tests__/orgrt/types.test.ts

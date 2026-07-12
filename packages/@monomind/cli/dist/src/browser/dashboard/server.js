@@ -1,10 +1,27 @@
 import { createServer } from 'http';
-import { readFile, readdir } from 'fs/promises';
+import { readFile, readdir, writeFile, rename, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
+import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PORT = 4242;
+// 4243: the main monomind dashboard owns 4242 — keep this server off that port
+const DEFAULT_PORT = 4243;
+const RUNS_FILE = join(homedir(), '.monomind', 'browse-runs.json');
+const MAX_PERSISTED_RUNS = 50;
+// Persist recent runs so the main dashboard's /api/workflow-runs endpoint stays live.
+// Atomic: write to a temp file, then rename over the target.
+async function persistRuns(runs) {
+    try {
+        await mkdir(dirname(RUNS_FILE), { recursive: true });
+        const tmp = RUNS_FILE + '.tmp';
+        await writeFile(tmp, JSON.stringify(runs.slice(0, MAX_PERSISTED_RUNS), null, 2), 'utf8');
+        await rename(tmp, RUNS_FILE);
+    }
+    catch {
+        // best-effort — dashboard persistence must never break a workflow run
+    }
+}
 async function readJsonSafe(path) {
     try {
         return JSON.parse(await readFile(path, 'utf8'));
@@ -25,19 +42,18 @@ async function readMetricsDir(root) {
         }));
     }
     catch {
-        // metrics dir may not exist yet — daemon hasn't run
+        // metrics dir may not exist yet — workers write it at session start (or: hooks worker run <name>)
     }
     return out;
 }
 async function collectDashboardState(root) {
-    const [daemonMetrics, swarmState, hiveMindState, lastRoute, autoMemory] = await Promise.all([
+    const [workerMetrics, swarmState, lastRoute, autoMemory] = await Promise.all([
         readMetricsDir(root),
         readJsonSafe(join(root, '.monomind', 'swarm', 'swarm-state.json')),
-        readJsonSafe(join(root, '.monomind', 'hive-mind', 'state.json')),
         readJsonSafe(join(root, '.monomind', 'last-route.json')),
         readJsonSafe(join(root, '.monomind', 'data', 'auto-memory-store.json')),
     ]);
-    return { daemonMetrics, swarmState, hiveMindState, lastRoute, autoMemory };
+    return { workerMetrics, swarmState, lastRoute, autoMemory };
 }
 let instance = null;
 export function getDashboardServer(port = DEFAULT_PORT) {
@@ -66,9 +82,9 @@ export function getDashboardServer(port = DEFAULT_PORT) {
         }
         if (req.method === 'GET' && req.url === '/api/metrics') {
             try {
-                const { daemonMetrics, swarmState, hiveMindState, lastRoute } = await collectDashboardState(process.cwd());
+                const { workerMetrics, swarmState, lastRoute } = await collectDashboardState(process.cwd());
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ daemonMetrics, swarmState, hiveMindState, lastRoute, ts: Date.now() }));
+                res.end(JSON.stringify({ workerMetrics, swarmState, lastRoute, ts: Date.now() }));
             }
             catch {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -78,12 +94,11 @@ export function getDashboardServer(port = DEFAULT_PORT) {
         }
         if (req.method === 'GET' && req.url === '/api/dashboard') {
             try {
-                const { daemonMetrics, swarmState, hiveMindState, lastRoute, autoMemory } = await collectDashboardState(process.cwd());
-                const daemon_workers = Object.keys(daemonMetrics).filter((k) => daemonMetrics[k] != null);
+                const { workerMetrics, swarmState, lastRoute, autoMemory } = await collectDashboardState(process.cwd());
+                const worker_metrics = Object.keys(workerMetrics).filter((k) => workerMetrics[k] != null);
                 const summary = {
-                    daemon_workers,
+                    worker_metrics,
                     swarm_status: swarmState ?? null,
-                    hive_mind_decisions: hiveMindState?.decisions ?? hiveMindState ?? null,
                     last_route: lastRoute ?? null,
                     pattern_count: Array.isArray(autoMemory) ? autoMemory.length : 0,
                     memory_health: autoMemory ? 'ok' : 'unknown',
@@ -128,9 +143,53 @@ export function getDashboardServer(port = DEFAULT_PORT) {
         ws.on('error', () => clients.delete(ws));
     });
     httpServer.listen(port);
+    // Maintain RunRecords from step events and persist run transitions to
+    // ~/.monomind/browse-runs.json so /api/workflow-runs on the main dashboard is live.
+    function trackRun(event) {
+        let run = recentRuns.find((r) => r.id === event.runId);
+        if (!run) {
+            run = {
+                id: event.runId,
+                workflowId: event.workflowId,
+                workflowName: event.workflowName,
+                status: 'running',
+                startedAt: event.timestamp,
+                itemsProcessed: 0,
+                itemsTotal: event.itemTotal ?? 0,
+            };
+            recentRuns.unshift(run);
+            if (recentRuns.length > MAX_PERSISTED_RUNS)
+                recentRuns.length = MAX_PERSISTED_RUNS;
+        }
+        if (event.itemTotal != null)
+            run.itemsTotal = event.itemTotal;
+        if (event.eventType === 'step_completed' && event.itemIndex != null) {
+            run.itemsProcessed = Math.max(run.itemsProcessed, event.itemIndex + 1);
+        }
+        if (event.eventType === 'run_completed') {
+            run.status = 'completed';
+            run.completedAt = event.timestamp;
+        }
+        else if (event.eventType === 'run_stopped') {
+            run.status = 'stopped';
+            run.completedAt = event.timestamp;
+        }
+        else if (event.eventType === 'step_failed') {
+            run.status = 'failed';
+            run.completedAt = event.timestamp;
+            if (event.error)
+                run.error = event.error;
+        }
+        // Persist on run lifecycle transitions (start/complete/stop/fail)
+        if (event.eventType === 'run_started' || event.eventType === 'run_completed' ||
+            event.eventType === 'run_stopped' || event.eventType === 'step_failed') {
+            void persistRuns(recentRuns);
+        }
+    }
     instance = {
         port,
         broadcast(event) {
+            trackRun(event);
             const msg = JSON.stringify(event);
             for (const client of clients) {
                 if (client.readyState === client.OPEN)
