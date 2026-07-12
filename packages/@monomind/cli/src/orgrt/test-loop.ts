@@ -73,14 +73,6 @@ export async function runTestLoop(root: string, times: number): Promise<LoopRepo
   const iterations: IterationResult[] = [];
 
   for (let i = 0; i < times; i++) {
-    // run ids are second-precision (run-YYYYMMDDHHMMSS); two iterations in the
-    // same second would share alpha's run dir and bus.jsonl would accumulate
-    // both runs, breaking the persisted check. Wait for the second to roll over.
-    if (i > 0) {
-      const stamp = () => new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
-      const prev = stamp();
-      while (stamp() === prev) await new Promise(r => setTimeout(r, 100));
-    }
     const queryFn = (args: any) => {
       const roleId = /You are agent "([^"]+)"/.exec(args.options.systemPrompt)?.[1] ?? 'unknown';
       return scriptedQuery(roleId)(args);

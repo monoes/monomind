@@ -126,7 +126,7 @@ const testLoopAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const testLoopModule = '../orgrt/test-loop.js';
   const { runTestLoop } = await import(testLoopModule) as
     { runTestLoop: (cwd: string, times: number) => Promise<{ summary: string; failed: number }> };
-  const n = Number(ctx.flags['times'] ?? 5);
+  const n = Number(ctx.flags['times'] ?? ctx.flags['n'] ?? 5);
   const report = await runTestLoop(ctx.cwd, n);
   log(output.info(report.summary));
   return { success: report.failed === 0, message: report.summary };

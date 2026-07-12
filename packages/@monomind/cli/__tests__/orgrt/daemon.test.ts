@@ -30,7 +30,7 @@ describe('OrgDaemon', () => {
     fixture(root, 'alpha');
     const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
     const running = await d.startOrg('alpha');
-    expect(running.run).toMatch(/^run-\d{14}$/); // no trailing dot from ms separator
+    expect(running.run).toMatch(/^run-\d{14}-[a-z0-9]{4}$/); // stamp + anti-collision suffix, no trailing dot
     const receipt = await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
     expect(receipt).toMatch(/delivered/);
     await d.stopOrg('alpha');
