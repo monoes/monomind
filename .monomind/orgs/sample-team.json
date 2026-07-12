@@ -1,0 +1,18 @@
+{
+  "name": "sample-team",
+  "goal": "Produce one short haiku about autonomous agent teamwork. Boss: send the task to 'writer' via org_send, wait for the reply, then end your turn. Writer: write the haiku to the file out/haiku.md using the Write tool, then org_send the haiku text back to 'boss' and end your turn.",
+  "run_config": { "budget_tokens": 60000, "max_turns_per_message": 8 },
+  "roles": [
+    { "id": "boss", "title": "Team Lead", "type": "boss", "reports_to": null,
+      "responsibilities": ["Delegate the haiku task to writer via org_send", "Acknowledge the result and end your turn"],
+      "adapter_config": { "model": "claude-haiku-4-5-20251001" } },
+    { "id": "writer", "title": "Haiku Writer", "type": "specialist", "reports_to": "boss",
+      "responsibilities": ["Write a 3-line haiku about agent teamwork to out/haiku.md", "Report the haiku back to boss via org_send"],
+      "policy": { "denyTools": ["Bash", "WebFetch", "WebSearch"], "fileWrite": ["out/**"] },
+      "adapter_config": { "model": "claude-haiku-4-5-20251001" } }
+  ],
+  "communication": [
+    { "from": "boss", "to": "writer", "type": "command", "protocol": "direct" },
+    { "from": "writer", "to": "boss", "type": "report", "protocol": "direct" }
+  ]
+}

@@ -91,8 +91,10 @@ export class OrgDaemon {
 
   /** Route a message. to = "role" (same org) or "org:role" (cross-org). Returns a receipt string. */
   async deliver(fromOrg: string, fromRole: string, to: string, subject: string, body: string): Promise<string> {
-    const cross = to.includes(':');
-    const [targetOrgName, targetRole] = cross ? to.split(':', 2) : [fromOrg, to];
+    let cross = to.includes(':');
+    let [targetOrgName, targetRole] = cross ? to.split(':', 2) : [fromOrg, to];
+    // "own-org:role" is intra-org — agents often self-prefix; don't tag it xorg
+    if (cross && targetOrgName === fromOrg) { cross = false; to = targetRole; }
     const targetOrg = this.orgs.get(targetOrgName);
     const src = this.orgs.get(fromOrg);
     if (!targetOrg || !targetOrg.agents.has(targetRole)) {
