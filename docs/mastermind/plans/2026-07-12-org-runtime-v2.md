@@ -1792,7 +1792,7 @@ git commit -m "feat(orgrt): real interval scheduler; deprecate prompt-orchestrat
 
 This is the user-facing guarantee: **every run proves chats, comms, assets, and inter-org messages all reach the bus AND the WebSocket dashboard stream.** The scripted fake SDK exercises the full production path (daemon → sessions → deliver → policy → bus → ws) deterministically via the `_orgTest` seam added in Task 8.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/e2e.test.ts
@@ -1821,12 +1821,12 @@ describe('org e2e verification', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run __tests__/orgrt/e2e.test.ts`
 Expected: FAIL — module not found
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation** *(2 root-caused deviations: boss trigger `startsWith('Org "')` to break xorg livelock; inter-iteration second-rollover wait for unique run ids — both validated in review)*
 
 ```ts
 // packages/@monomind/cli/src/orgrt/test-loop.ts
@@ -1941,17 +1941,17 @@ export async function runTestLoop(root: string, times: number): Promise<LoopRepo
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run __tests__/orgrt/e2e.test.ts`
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Run the WHOLE suite**
+- [x] **Step 5: Run the WHOLE suite** *(728/728 by builder; verifier: 727/728 with only the known watcher flake, clean in isolation; CLI `org test-loop -n 5` → "org e2e: 5/5 passed" exit 0)*
 
 Run: `cd packages/@monomind/cli && npm test`
 Expected: all existing tests still green + the new orgrt suites.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit** *(done: 0e4cde7 — reviewed APPROVE; dashboard verification PASS: all 8 event classes in bus.jsonl + WS + SSE probe)*
 
 ```bash
 git add src/orgrt/test-loop.ts src/orgrt/session.ts __tests__/orgrt/e2e.test.ts
@@ -1966,7 +1966,7 @@ git commit -m "feat(orgrt): e2e verification loop — chats/comms/tools/assets/i
 - Create: `packages/@monomind/cli/__tests__/orgrt/real-smoke.test.ts`
 - Modify: `CLAUDE.md` (org section: document `monomind org` as the org runtime; mark skill path legacy)
 
-- [ ] **Step 1: Write the gated smoke test**
+- [x] **Step 1: Write the gated smoke test** *(done 2026-07-12: skip-mode verified, then real run PASSED on subscription auth — PONG chat + usage events on bus)*
 
 ```ts
 // packages/@monomind/cli/__tests__/orgrt/real-smoke.test.ts
@@ -2007,12 +2007,12 @@ describe.skipIf(!enabled)('real SDK smoke (subscription auth)', () => {
 });
 ```
 
-- [ ] **Step 2: Run it once for real**
+- [x] **Step 2: Run it once for real**
 
 Run: `MONOMIND_ORG_E2E=1 npx vitest run __tests__/orgrt/real-smoke.test.ts`
 Expected: PASS in under ~2 min, `usage` event shows real token counts, and **no API key env var needed** (subscription login). If it fails with an auth error, run `claude login` first. This is the moment the whole architecture is proven end-to-end.
 
-- [ ] **Step 3: Update CLAUDE.md org documentation** — in the CLI Commands table add:
+- [x] **Step 3: Update CLAUDE.md org documentation** — in the CLI Commands table add:
 
 ```markdown
 | `org`            | 5   | SDK org runtime v2 — daemon-controlled agent orgs (run, stop, status, serve, test-loop) |
@@ -2020,7 +2020,7 @@ Expected: PASS in under ~2 min, `usage` event shows real token counts, and **no 
 
 and under Swarm Orchestration add one line: `Org runtime v2: use \`monomind org run <name>\` — the /mastermind:runorg prompt path is deprecated.`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add __tests__/orgrt/real-smoke.test.ts ../../CLAUDE.md
