@@ -80,8 +80,10 @@ describe('ConfigAdapter', () => {
       expect(config.mcp.autoStart).toBe(false); // Default is false for safety
       expect(config.cli.colorOutput).toBe(true);
       expect(config.cli.verbosity).toBe('normal'); // Default verbosity level
-      expect(config.hooks.enabled).toBe(false); // Default is false
-      expect(config.hooks.autoExecute).toBe(false); // Default is false
+      // hooks.enabled/autoExecute now map from the input SystemConfig.hooks
+      // instead of being hardcoded, so the true values set above round-trip.
+      expect(config.hooks.enabled).toBe(true);
+      expect(config.hooks.autoExecute).toBe(true);
     });
 
     it('should handle missing optional fields', () => {

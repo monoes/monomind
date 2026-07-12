@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 export function parseSince(s) {
     const dMatch = s.match(/^(\d+)d$/);
@@ -29,7 +29,12 @@ export function parseSince(s) {
 export function computeRecencyWeight(ageDays) {
     return Math.exp(-Math.LN2 * ageDays / 90);
 }
-export function classifyChurnTrend(recentWeighted, olderWeighted) {
+export function classifyChurnTrend(recentWeighted, olderWeighted, commitCount = 2) {
+    // A file with 0-1 commits in the window has no "older" phase to compare against —
+    // classifying it as 'cooling' (declining activity) is nonsensical for something
+    // that was just created or touched once.
+    if (commitCount <= 1)
+        return 'stable';
     if (olderWeighted === 0) {
         return recentWeighted > 0 ? 'accelerating' : 'stable';
     }
@@ -40,14 +45,54 @@ export function classifyChurnTrend(recentWeighted, olderWeighted) {
         return 'cooling';
     return 'stable';
 }
+/** Coarse day-granularity bucket for the current moment, e.g. "2026-07-08". */
+function todayBucket() {
+    return new Date().toISOString().slice(0, 10);
+}
+/**
+ * Delete churn cache files whose date bucket is older than `maxAgeDays` — the
+ * weighted-commit numbers decay with time even at a fixed HEAD, and without this
+ * a repo idle for weeks would keep serving stale cache, while cache files from
+ * every past HEAD/day combination would accumulate forever.
+ */
+function pruneChurnCache(cacheDir, maxAgeDays = 3) {
+    let entries;
+    try {
+        entries = readdirSync(cacheDir);
+    }
+    catch {
+        return;
+    }
+    const now = Date.now();
+    for (const entry of entries) {
+        const m = entry.match(/^churn-.+-(\d{4}-\d{2}-\d{2})\.json$/);
+        if (!m)
+            continue;
+        const bucketMs = Date.parse(m[1]);
+        if (isNaN(bucketMs))
+            continue;
+        if ((now - bucketMs) / 86400000 > maxAgeDays) {
+            try {
+                unlinkSync(join(cacheDir, entry));
+            }
+            catch {
+                // non-fatal — best-effort prune
+            }
+        }
+    }
+}
 export async function analyzeChurn(root, since) {
     const sinceDuration = typeof since === 'string' ? parseSince(since) : since;
-    // Cache lookup
+    // Cache lookup — keyed by HEAD SHA + window size + a coarse day bucket, so
+    // entries naturally invalidate as time passes even at the same HEAD (the
+    // recency weighting is time-dependent, not just HEAD-dependent).
     const cacheDir = join(root, '.monograph', 'cache');
+    const dateBucket = todayBucket();
+    pruneChurnCache(cacheDir);
     let treeHash = '';
     try {
         treeHash = execSync('git rev-parse HEAD', { cwd: root }).toString().trim();
-        const cacheFile = join(cacheDir, `churn-${treeHash}-${sinceDuration.days}.json`);
+        const cacheFile = join(cacheDir, `churn-${treeHash}-${sinceDuration.days}-${dateBucket}.json`);
         if (existsSync(cacheFile)) {
             try {
                 const cached = JSON.parse(readFileSync(cacheFile, 'utf8'));
@@ -111,8 +156,10 @@ export async function analyzeChurn(root, since) {
         // Compute weighted commits per author and trend
         const authorWeights = new Map();
         let totalWeighted = 0;
-        // Split into two halves for trend analysis
-        const midpoint = Math.floor(sortedCommits.length / 2);
+        // Split by TIME (midpoint of the `since` window), not by commit-array index —
+        // otherwise 10 commits all from the last week still get split 5-old/5-recent,
+        // misrepresenting genuinely-recent-only activity as having an "older" phase.
+        const windowMidpoint = now - (sinceDuration.days * 86400000) / 2;
         let recentWeighted = 0;
         let olderWeighted = 0;
         for (let i = 0; i < sortedCommits.length; i++) {
@@ -129,15 +176,14 @@ export async function analyzeChurn(root, since) {
             const existing = authorWeights.get(authorIdx) ?? 0;
             authorWeights.set(authorIdx, existing + weight);
             totalWeighted += weight;
-            // recent = first half (newest), older = second half
-            if (i < midpoint) {
+            if (commitDate >= windowMidpoint) {
                 recentWeighted += weight;
             }
             else {
                 olderWeighted += weight;
             }
         }
-        const trend = classifyChurnTrend(recentWeighted, olderWeighted);
+        const trend = classifyChurnTrend(recentWeighted, olderWeighted, sortedCommits.length);
         const authors = Array.from(authorWeights.entries()).map(([authorIdx, weightedCommits]) => ({ authorIdx, weightedCommits }));
         files.push({
             path,
@@ -152,7 +198,7 @@ export async function analyzeChurn(root, since) {
     if (treeHash) {
         try {
             mkdirSync(cacheDir, { recursive: true });
-            const cacheFile = join(cacheDir, `churn-${treeHash}-${sinceDuration.days}.json`);
+            const cacheFile = join(cacheDir, `churn-${treeHash}-${sinceDuration.days}-${dateBucket}.json`);
             writeFileSync(cacheFile, JSON.stringify(result), 'utf8');
         }
         catch {

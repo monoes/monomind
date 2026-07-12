@@ -9,6 +9,7 @@
 
 import { EventEmitter } from 'node:events';
 import { readFileSync, existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import { writeFileAtomicSync } from './atomic-file.js';
 import { cosineSimilarity } from './math-utils.js';
@@ -59,6 +60,24 @@ export interface SqlJsBackendConfig {
 }
 
 /**
+ * Resolve the sql.js WASM binary shipped inside node_modules/sql.js/dist.
+ * Avoids a runtime fetch to the sql.js CDN — which is unnecessary after a
+ * normal npm install and undesirable in offline/air-gapped environments
+ * (the same environments most likely to need this WASM fallback in the
+ * first place, since it only kicks in when native better-sqlite3 fails).
+ * Returns null if local resolution fails, so the caller can fall back to
+ * the CDN as a last resort.
+ */
+function resolveLocalWasmPath(): string | null {
+  try {
+    const require = createRequire(import.meta.url);
+    return require.resolve('sql.js/dist/sql-wasm.wasm');
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Default configuration values
  */
 const DEFAULT_CONFIG: SqlJsBackendConfig = {
@@ -106,10 +125,14 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    // Load sql.js WASM
+    // Load sql.js WASM — prefer an explicit wasmPath, then the copy shipped
+    // in node_modules/sql.js/dist, and only fall back to the sql.js CDN if
+    // local resolution genuinely fails (e.g. a deployment that strips
+    // node_modules and relies on CDN delivery).
+    const localWasmPath = this.config.wasmPath ?? resolveLocalWasmPath() ?? undefined;
     this.SQL = await initSqlJs({
-      locateFile: this.config.wasmPath
-        ? () => this.config.wasmPath!
+      locateFile: localWasmPath
+        ? () => localWasmPath
         : (file) => `https://sql.js.org/dist/${file}`,
     });
 

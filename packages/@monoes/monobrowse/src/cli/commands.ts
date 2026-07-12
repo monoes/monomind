@@ -541,16 +541,29 @@ const waitCommand: Command = {
       const rawTimeout = Math.min((ctx.flags.timeout as number) ?? 30000, MAX_DOWNLOAD_TIMEOUT);
       const finalPath = await new Promise<string>((resolve, reject) => {
         let guid = '';
+        let settled = false;
         // C2: capture off() functions to avoid listener leaks
         const offBegin = client.on('Browser.downloadWillBegin', (params: Record<string, unknown>) => { guid = params.guid as string; });
         let offProgress: (() => void) | undefined;
         // cleanup defined before setTimeout so the timeout callback can call it
         let tid: ReturnType<typeof setTimeout>;
-        const cleanup = () => { clearTimeout(tid); offBegin?.(); offProgress?.(); };
-        tid = setTimeout(() => { cleanup(); reject(new Error('Download timed out')); }, rawTimeout);
+        let pollTid: ReturnType<typeof setInterval> | undefined;
+        const cleanup = () => { clearTimeout(tid); clearInterval(pollTid); offBegin?.(); offProgress?.(); };
+        const finish = (path: string) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(path);
+        };
+        const fail = (err: Error) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(err);
+        };
+        tid = setTimeout(() => fail(new Error('Download timed out')), rawTimeout);
         offProgress = client.on('Browser.downloadProgress', async (params: Record<string, unknown>) => {
           if (params.guid === guid && params.state === 'completed') {
-            cleanup();
             const { readdir, rename, rmdir } = await import('fs/promises');
             const files = await readdir(downloadDir);
             if (files.length > 0) {
@@ -558,16 +571,40 @@ const waitCommand: Command = {
               await mkdir(dirname(savePath), { recursive: true });
               await rename(src, savePath);
               await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
-              resolve(savePath);
+              finish(savePath);
             } else {
               await rmdir(downloadDir).catch(() => {}); // I1: cleanup temp dir
-              reject(new Error('Download completed but no file found'));
+              fail(new Error('Download completed but no file found'));
             }
           } else if (params.guid === guid && params.state === 'canceled') {
-            cleanup();
-            reject(new Error('Download was canceled'));
+            fail(new Error('Download was canceled'));
           }
         });
+
+        // Fallback for the empty-guid race: this process's listener attaches
+        // AFTER a separate `click` process may have already started (and even
+        // finished) the download — so downloadWillBegin/downloadProgress for it
+        // were never observed here. While guid is still empty, poll the expected
+        // output path directly: if it already exists with a stable, non-zero
+        // size across two consecutive checks, treat the download as complete.
+        let lastSize = -1;
+        let stableReads = 0;
+        pollTid = setInterval(async () => {
+          if (settled || guid) return; // a real CDP event has taken over
+          try {
+            const { stat } = await import('fs/promises');
+            const st = await stat(savePath);
+            if (st.isFile() && st.size > 0 && st.size === lastSize) {
+              stableReads++;
+              if (stableReads >= 2) finish(savePath);
+            } else {
+              stableReads = 0;
+            }
+            lastSize = st.size;
+          } catch {
+            // savePath not present yet — keep polling until timeout
+          }
+        }, 300);
       });
       output.printSuccess(`Download saved: ${finalPath}`);
       return { success: true, data: { path: finalPath } };

@@ -21,6 +21,6 @@ export interface ChurnResult {
 }
 export declare function parseSince(s: string): SinceDuration;
 export declare function computeRecencyWeight(ageDays: number): number;
-export declare function classifyChurnTrend(recentWeighted: number, olderWeighted: number): ChurnTrend;
+export declare function classifyChurnTrend(recentWeighted: number, olderWeighted: number, commitCount?: number): ChurnTrend;
 export declare function analyzeChurn(root: string, since: SinceDuration | string): Promise<ChurnResult>;
 //# sourceMappingURL=churn.d.ts.map

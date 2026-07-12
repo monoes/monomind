@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join, relative, resolve } from 'path';
 
@@ -48,15 +48,24 @@ export function getChangedWorkspaces(
   sinceRef: string,
   workspaceRoots?: string[],
 ): WorkspacePackage[] {
-  // Validate git ref (same allowlist as changed-files.ts)
+  // Validate git ref (same allowlist as changed-files.ts). Leading '-' is
+  // rejected explicitly so a value like "--output=/tmp/pwned" can't be
+  // interpreted by git as a command-line option (git option injection).
+  if (sinceRef.startsWith('-')) {
+    throw new Error(`Invalid git ref: "${sinceRef}". Refs must not start with '-' (would be interpreted as a git option)`);
+  }
   if (!/^[a-zA-Z0-9\-_./@~^]+$/.test(sinceRef)) {
     throw new Error(`Invalid git ref: "${sinceRef}"`);
   }
 
   let changedFiles: Set<string>;
   try {
-    const raw = execSync(
-      `git -C "${projectRoot}" diff --name-only "${sinceRef}"...HEAD`,
+    // execFileSync with array argv — no shell involved, so a `projectRoot`
+    // containing '"' or '$(...)' cannot break out and execute arbitrary
+    // commands.
+    const raw = execFileSync(
+      'git',
+      ['-C', projectRoot, 'diff', '--name-only', `${sinceRef}...HEAD`],
       { encoding: 'utf8' }
     );
     changedFiles = new Set(raw.split('\n').map(l => l.trim()).filter(Boolean));

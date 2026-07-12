@@ -400,15 +400,15 @@ module.exports = {
             }
           }
         }
-        // Performance metrics (daemon optimize worker)
+        // Performance metrics (optimize worker — a one-shot process, not a daemon)
         var perfFile = path.join(metricsDir, 'performance.json');
         if (fs.existsSync(perfFile) && fs.statSync(perfFile).size < 32768) {
           var perfData = JSON.parse(fs.readFileSync(perfFile, 'utf-8'));
-          if (perfData && perfData.memoryUsage) {
-            var rssBytes = perfData.memoryUsage.rss || 0;
+          if (perfData && perfData.workerProcessMemoryUsage) {
+            var rssBytes = perfData.workerProcessMemoryUsage.rss || 0;
             var rssMB = Math.round(rssBytes / (1024 * 1024));
             if (rssMB > 512) {
-              console.log('[PERF] Daemon RSS ' + rssMB + 'MB (>512MB threshold). Consider restarting daemon or reducing worker concurrency');
+              console.log('[PERF] optimize worker RSS ' + rssMB + 'MB (>512MB threshold) at last run — reflects that one-shot process, not a persistent daemon');
             }
           }
         }

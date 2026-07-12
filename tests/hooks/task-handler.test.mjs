@@ -99,19 +99,58 @@ describe('task-handler.handlePostTask completion', () => {
 // ── handlePostTask — agent registration cleanup ────────────────────────────────
 
 describe('task-handler.handlePostTask agent registration', () => {
-  it('removes oldest registration file from regDir', async () => {
+  it('removes oldest registration file matching the completing agent type when no exact type match exists', async () => {
     const th = loadTH();
     const regDir = path.join(tmpDir, '.monomind', 'agents', 'registrations');
     fs.mkdirSync(regDir, { recursive: true });
     fs.writeFileSync(path.join(regDir, 'agent-001.json'), '{}', 'utf-8');
     fs.writeFileSync(path.join(regDir, 'agent-002.json'), '{}', 'utf-8');
 
-    const hCtx = makeHCtx({ prompt: 'task done' });
+    // P3-15: post-task only touches registrations when the event carries an
+    // agent-identifying field (subagent_type/agentSlug/etc) — a real
+    // subagent completion always carries one (mirrors what agent-start-handler
+    // stamps into the registration). These legacy '{}' registrations have no
+    // stored agentType, so no exact match is possible — falls back to oldest.
+    const hCtx = makeHCtx({ prompt: 'task done', hookInput: { agentSlug: 'coder' } });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePostTask(hCtx);
 
     const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
-    expect(remaining.length).toBe(1); // one removed (oldest)
+    expect(remaining.length).toBe(1); // one removed (oldest, no type match found)
+  });
+
+  it('removes the registration matching the completing agent type, not just the oldest', async () => {
+    const th = loadTH();
+    const regDir = path.join(tmpDir, '.monomind', 'agents', 'registrations');
+    fs.mkdirSync(regDir, { recursive: true });
+    // Oldest registration is a 'researcher' — should survive since the
+    // completing agent is a 'coder' and a type-matching registration exists.
+    fs.writeFileSync(path.join(regDir, 'agent-001.json'), JSON.stringify({ agentType: 'researcher' }), 'utf-8');
+    fs.writeFileSync(path.join(regDir, 'agent-002.json'), JSON.stringify({ agentType: 'coder' }), 'utf-8');
+
+    const hCtx = makeHCtx({ prompt: 'task done', hookInput: { agentSlug: 'coder' } });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    await th.handlePostTask(hCtx);
+
+    const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
+    expect(remaining).toEqual(['agent-001.json']); // the matching 'coder' registration was removed, not the oldest
+  });
+
+  it('does not touch registrations when the event carries no agent-identifying field (main-session task)', async () => {
+    const th = loadTH();
+    const regDir = path.join(tmpDir, '.monomind', 'agents', 'registrations');
+    fs.mkdirSync(regDir, { recursive: true });
+    fs.writeFileSync(path.join(regDir, 'agent-001.json'), JSON.stringify({ agentType: 'researcher' }), 'utf-8');
+    fs.writeFileSync(path.join(regDir, 'agent-002.json'), JSON.stringify({ agentType: 'coder' }), 'utf-8');
+
+    // hookInput has no subagent_type/agentSlug/etc — this simulates the lead's
+    // own TaskCompleted/TeammateIdle event, which never registered an agent.
+    const hCtx = makeHCtx({ prompt: 'task done', hookInput: {} });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    await th.handlePostTask(hCtx);
+
+    const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
+    expect(remaining.length).toBe(2); // untouched — no correlating identity on this event
   });
 
   it('does not throw when regDir does not exist', async () => {

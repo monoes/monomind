@@ -1196,13 +1196,15 @@ function findSourceHelpersDir(sourceBaseDir) {
         possiblePaths.push(helpersPath);
         currentDir = parentDir;
     }
-    // Strategy 4: Check cwd-relative paths (for local dev)
-    const cwdBased = [
-        path.join(process.cwd(), '.claude', 'helpers'),
-        path.join(process.cwd(), '..', '.claude', 'helpers'),
-        path.join(process.cwd(), '..', '..', '.claude', 'helpers'),
-    ];
-    possiblePaths.push(...cwdBased);
+    // NOTE: deliberately no cwd-ancestor-search fallback here (removed — see
+    // docs/AUDIT-BACKLOG.md P3-25). Searching process.cwd() and its parents for
+    // ".claude/helpers" could pick up an unrelated project's own helper scripts
+    // (stale, customized, or untrusted) when `monomind init` is run from a
+    // nested subdirectory of some other checkout. Helper source resolution is
+    // restricted to the package's own bundled location(s) above; if none of
+    // those are found, callers should treat it as a corrupt install rather than
+    // silently falling back to scanning ancestor directories for someone else's
+    // files.
     // Return first path that exists AND contains ALL sentinel files
     for (const p of possiblePaths) {
         if (fs.existsSync(p) && SENTINEL_FILES.every(f => fs.existsSync(path.join(p, f)))) {
@@ -1224,6 +1226,9 @@ async function writeHelpers(targetDir, options, result) {
         const copyRecursive = (srcDir, destDir, relBase) => {
             fs.mkdirSync(destDir, { recursive: true });
             for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+                // Skip exFAT/macOS AppleDouble junk files (e.g. "._foo.cjs").
+                if (entry.name.startsWith('._'))
+                    continue;
                 const srcPath = path.join(srcDir, entry.name);
                 const destPath = path.join(destDir, entry.name);
                 const relPath = relBase ? `${relBase}/${entry.name}` : entry.name;
@@ -2079,6 +2084,10 @@ function copyDirRecursive(src, dest) {
     fs.mkdirSync(dest, { recursive: true });
     const entries = fs.readdirSync(src, { withFileTypes: true });
     for (const entry of entries) {
+        // Skip exFAT/macOS AppleDouble junk files (e.g. "._foo.js") so they don't
+        // get perpetuated into every newly-initialized project.
+        if (entry.name.startsWith('._'))
+            continue;
         const srcPath = path.join(src, entry.name);
         const destPath = path.join(dest, entry.name);
         if (entry.isDirectory()) {

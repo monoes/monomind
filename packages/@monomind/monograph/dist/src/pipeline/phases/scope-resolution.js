@@ -235,7 +235,7 @@ const RUST_RESOLVE_EXTS = ['.rs'];
  * Build package-name → directory map from workspace package.json files.
  * Scans packages/ for package.json and maps npm name to its relative src path.
  */
-function buildWorkspacePackageMap(repoPath) {
+export function buildWorkspacePackageMap(repoPath) {
     const result = new Map();
     const packagesDir = join(repoPath, 'packages');
     try {
@@ -271,7 +271,7 @@ function buildWorkspacePackageMap(repoPath) {
     catch { /* no packages dir */ }
     return result;
 }
-function resolveModuleSpecifier(importerPath, specifier, repoPath, knownFiles, workspaceMap) {
+export function resolveModuleSpecifier(importerPath, specifier, repoPath, knownFiles, workspaceMap) {
     if (specifier.startsWith('.')) {
         const dir = dirname(importerPath);
         const raw = resolvePath('/', dir, specifier).slice(1);

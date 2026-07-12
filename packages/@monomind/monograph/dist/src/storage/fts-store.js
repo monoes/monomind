@@ -1,11 +1,30 @@
+/**
+ * Quote a single FTS5 search term as a string literal when it contains characters
+ * that would otherwise be parsed as FTS5 syntax (quotes, parens, boolean keywords
+ * like AND/OR/NOT, colons, hyphens, etc). Wrapping in double-quotes forces FTS5 to
+ * treat the term as a literal string; any literal `"` inside the term is escaped by
+ * doubling it, per FTS5's own string-literal quoting rules.
+ */
+function quoteFtsTerm(term) {
+    // Bare alphanumeric/underscore terms need no quoting and are the common case.
+    if (/^[A-Za-z0-9_]+$/.test(term))
+        return term;
+    const escaped = term.replace(/"/g, '""');
+    return `"${escaped}"`;
+}
 export function ftsSearch(db, query, limit, label) {
     // Sanitize: strip only characters that break FTS5 MATCH syntax (* still stripped,
     // trigram handles substring natively; " is now preserved since trigram doesn't need it removed)
     const safeQuery = query.replace(/[*]/g, ' ').trim();
     if (!safeQuery)
         return [];
-    // Trigram handles substring matching natively — no need to append * to each term
-    const ftsQuery = safeQuery.split(/\s+/).join(' ');
+    // Trigram handles substring matching natively — no need to append * to each term.
+    // Quote each term individually so characters like `"`, `(`, `)`, or bare boolean
+    // keywords (AND/OR/NOT) don't get parsed as FTS5 query syntax.
+    const ftsQuery = safeQuery
+        .split(/\s+/)
+        .map(quoteFtsTerm)
+        .join(' ');
     let matchSql = `
     SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
            n.start_line, n.end_line, nodes_fts.rank
@@ -27,16 +46,19 @@ export function ftsSearch(db, query, limit, label) {
     catch {
         // FTS MATCH can throw on malformed queries; fall through to LIKE path
     }
-    // For short queries (≤2 chars) trigram requires at least 3 characters to fire, so
-    // supplement with a LIKE fallback to catch single/double-character matches.
-    if (safeQuery.length <= 2) {
-        const escapedQuery = safeQuery.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    // Run the LIKE fallback whenever MATCH threw (malformed/boolean-keyword query) or
+    // returned zero rows — not just for short (≤2 char) queries. Short queries need it
+    // because trigram requires ≥3 characters to fire; longer queries need it whenever
+    // MATCH couldn't handle the syntax, so a query-syntax failure doesn't silently read
+    // as "no results".
+    if (safeQuery.length <= 2 || matchRows.length === 0) {
+        const escapedQuery = safeQuery.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
         const likePattern = `%${escapedQuery}%`;
         let likeSql = `
       SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
              n.start_line, n.end_line, 0 AS rank
       FROM nodes n
-      WHERE (n.name LIKE ? OR n.norm_label LIKE ? OR n.file_path LIKE ?)
+      WHERE (n.name LIKE ? ESCAPE '\\' OR n.norm_label LIKE ? ESCAPE '\\' OR n.file_path LIKE ? ESCAPE '\\')
     `;
         const likeParams = [likePattern, likePattern, likePattern];
         if (label) {
@@ -140,13 +162,13 @@ export function hybridSearch(db, query, limit, label) {
     // ── Strategy 2: LIKE fallback ──────────────────────────────────────────────
     // Always run for short queries (≤3 chars) or when FTS returned nothing.
     if (safeQuery.length <= 3 || ftsRows.length === 0) {
-        const escapedSafeQuery = safeQuery.replace(/%/g, '\\%').replace(/_/g, '\\_');
+        const escapedSafeQuery = safeQuery.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
         const likePattern = `%${escapedSafeQuery}%`;
         let likeSql = `
       SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
              n.start_line, n.end_line
       FROM nodes n
-      WHERE (n.name LIKE ? OR n.norm_label LIKE ?)
+      WHERE (n.name LIKE ? ESCAPE '\\' OR n.norm_label LIKE ? ESCAPE '\\')
     `;
         const likeParams = [likePattern, likePattern];
         if (label) {

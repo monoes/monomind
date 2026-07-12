@@ -95,6 +95,12 @@ export class CommandParser {
         description: 'Enable interactive mode',
         type: 'boolean',
         default: true
+      },
+      {
+        name: 'update',
+        description: 'Check for updates on startup (use --no-update to disable)',
+        type: 'boolean',
+        default: true
       }
     ];
   }
@@ -320,6 +326,18 @@ export class CommandParser {
     }
   }
 
+  /**
+   * True when `value` looks like a space-separated negative number
+   * (`-0.5`, `-42`) rather than a new flag. Scoped narrowly to "leading `-`
+   * immediately followed by a digit" — a legitimate flag name never starts
+   * with a digit, so this can't misfire on a genuine following flag while
+   * still letting `--threshold -0.5` consume `-0.5` as the value instead of
+   * being misparsed as a new (bogus) flag.
+   */
+  private looksLikeNegativeNumber(value: string): boolean {
+    return /^-\d/.test(value);
+  }
+
   private parseFlag(
     args: string[],
     index: number,
@@ -360,7 +378,10 @@ export class CommandParser {
 
         if (booleanFlags.has(normalizedKey)) {
           this.setFlagSafe(flags, normalizedKey, true);
-        } else if (nextIndex < args.length && !args[nextIndex].startsWith('-')) {
+        } else if (
+          nextIndex < args.length &&
+          (!args[nextIndex].startsWith('-') || this.looksLikeNegativeNumber(args[nextIndex]))
+        ) {
           this.setFlagSafe(flags, normalizedKey, this.parseValue(args[nextIndex]));
           nextIndex++;
         } else {
@@ -378,7 +399,10 @@ export class CommandParser {
 
         if (booleanFlags.has(normalizedKey)) {
           this.setFlagSafe(flags, normalizedKey, true);
-        } else if (nextIndex < args.length && !args[nextIndex].startsWith('-')) {
+        } else if (
+          nextIndex < args.length &&
+          (!args[nextIndex].startsWith('-') || this.looksLikeNegativeNumber(args[nextIndex]))
+        ) {
           this.setFlagSafe(flags, normalizedKey, this.parseValue(args[nextIndex]));
           nextIndex++;
         } else {

@@ -90,6 +90,16 @@ export function atomicRebuild(dbPath: string, buildFn: (db: MonographDb) => void
     buildFn(db);
     db.close();
     renameSync(tmpPath, dbPath);
+    // The old db's WAL-mode sidecar files belong to the file we just replaced —
+    // if left behind, the next process to open dbPath pairs the NEW db file with
+    // a STALE -wal/-shm whose salt/checkpoint state doesn't match, which can
+    // surface as "file is not a database" or subtle corruption.
+    for (const suffix of ['-wal', '-shm']) {
+      const sidecar = dbPath + suffix;
+      if (existsSync(sidecar)) {
+        try { unlinkSync(sidecar); } catch { /* best-effort cleanup */ }
+      }
+    }
   } catch (err) {
     db.close();
     if (existsSync(tmpPath)) {

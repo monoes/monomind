@@ -52,17 +52,44 @@ module.exports = {
         intelligence.feedback(taskSuccess);
       } catch (e) { /* non-fatal */ }
     }
-    // Each TeammateIdle/TaskCompleted = one agent done → remove oldest registration (FIFO)
+    // Each TeammateIdle/TaskCompleted = one agent done → remove its registration.
     const regDir = path.join(CWD, '.monomind', 'agents', 'registrations');
     try {
       if (fs.existsSync(regDir)) {
         const files = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
-        if (files.length > 0) {
-          // Sort by mtime ascending (oldest first) and remove the oldest one
+        // P3-15: post-task (TeammateIdle/TaskCompleted) also fires for the MAIN
+        // session's own tasks — e.g. the team lead completing a self-assigned
+        // TaskList item — which never wrote an agent-start registration in the
+        // first place. Blindly popping the oldest registration on EVERY
+        // post-task event therefore deregistered an unrelated, still-running
+        // agent whenever the lead (not a subagent) finished a task, silently
+        // drifting the count negative-equivalent (undercounting active agents).
+        //
+        // Registrations now carry an `agentType` (agent-start-handler.cjs), and
+        // this hook's payload may carry the same identifying field under one of
+        // several possible names — mirroring the precedence agent-start-handler
+        // already uses to derive it. If this event carries NO such field at
+        // all, there's no evidence it corresponds to a real agent completion
+        // (as opposed to the main session's own task), so we skip touching
+        // registrations entirely rather than guessing via FIFO. When the field
+        // IS present, prefer removing the registration recorded with the SAME
+        // type; fall back to oldest-of-all only if no type match is found
+        // (e.g. a legacy registration written before this fix, with no
+        // agentType stored).
+        const completingType = hookInput.subagent_type || hookInput.agentType || hookInput.agent_type
+          || hookInput.agentSlug || hookInput.agent_slug || '';
+        if (files.length > 0 && completingType) {
           const sorted = files
-            .map(f => ({ f, mtime: (() => { try { return fs.statSync(path.join(regDir, f)).mtimeMs; } catch { return 0; } })() }))
+            .map(f => {
+              let mtime = 0, agentType = null;
+              try { mtime = fs.statSync(path.join(regDir, f)).mtimeMs; } catch { /* ignore */ }
+              try { agentType = JSON.parse(fs.readFileSync(path.join(regDir, f), 'utf-8')).agentType || null; } catch { /* ignore */ }
+              return { f, mtime, agentType };
+            })
             .sort((a, b) => a.mtime - b.mtime);
-          try { fs.unlinkSync(path.join(regDir, sorted[0].f)); } catch { /* ignore */ }
+          const typeMatch = sorted.find(r => r.agentType === completingType);
+          const toRemove = typeMatch || sorted[0];
+          try { fs.unlinkSync(path.join(regDir, toRemove.f)); } catch { /* ignore */ }
         }
         // Also purge any stragglers older than 30 min (shared with agent-start-handler.cjs)
         const remaining = purgeStaleRegistrations(regDir) || 0;

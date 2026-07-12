@@ -6,6 +6,20 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SystemConfig = any;
 import type { MonomindConfig } from './types.js';
+// Share fallback values with config-file-manager.ts's own DEFAULT_CONFIG so
+// a config that round-trips through this adapter doesn't silently diverge
+// from what `monomind config create`/`reset` would produce (e.g. maxAgents
+// 8 vs a separately-hardcoded 15, hooks.enabled true vs false).
+import { DEFAULT_CONFIG } from './services/config-file-manager.js';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const AGENTS_DEFAULTS = DEFAULT_CONFIG.agents as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SWARM_DEFAULTS = DEFAULT_CONFIG.swarm as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CLI_DEFAULTS = DEFAULT_CONFIG.cli as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const HOOKS_DEFAULTS = DEFAULT_CONFIG.hooks as any;
 
 /**
  * Convert SystemConfig to MonomindConfig (CLI-specific format)
@@ -17,20 +31,20 @@ export function systemConfigToMonomindConfig(systemConfig: SystemConfig): Monomi
 
     // Agent configuration
     agents: {
-      defaultType: 'coder',
-      autoSpawn: false, // Not in SystemConfig
-      maxConcurrent: systemConfig.orchestrator?.lifecycle?.maxConcurrentAgents ?? 15,
-      timeout: systemConfig.orchestrator?.lifecycle?.spawnTimeout ?? 300000,
+      defaultType: systemConfig.agents?.defaultType ?? AGENTS_DEFAULTS.defaultType,
+      autoSpawn: systemConfig.agents?.autoSpawn ?? AGENTS_DEFAULTS.autoSpawn,
+      maxConcurrent: systemConfig.orchestrator?.lifecycle?.maxConcurrentAgents ?? AGENTS_DEFAULTS.maxConcurrent,
+      timeout: systemConfig.orchestrator?.lifecycle?.spawnTimeout ?? AGENTS_DEFAULTS.timeout,
       providers: [],
     },
 
     // Swarm configuration
     swarm: {
       topology: normalizeTopology(systemConfig.swarm?.topology),
-      maxAgents: systemConfig.swarm?.maxAgents ?? 15,
-      autoScale: systemConfig.swarm?.autoScale?.enabled ?? false,
+      maxAgents: systemConfig.swarm?.maxAgents ?? SWARM_DEFAULTS.maxAgents,
+      autoScale: systemConfig.swarm?.autoScale?.enabled ?? SWARM_DEFAULTS.autoScale,
       coordinationStrategy: systemConfig.swarm?.coordination?.consensusRequired ? 'consensus' : 'leader',
-      healthCheckInterval: systemConfig.swarm?.coordination?.timeoutMs ?? 10000,
+      healthCheckInterval: systemConfig.swarm?.coordination?.timeoutMs ?? SWARM_DEFAULTS.healthCheckInterval,
     },
 
     // Memory configuration
@@ -51,20 +65,23 @@ export function systemConfigToMonomindConfig(systemConfig: SystemConfig): Monomi
       tools: [], // Not in SystemConfig
     },
 
-    // CLI preferences
+    // CLI preferences — read from SystemConfig.cli when present, falling
+    // back to the shared DEFAULT_CONFIG.cli values (not separately
+    // hardcoded numbers that could silently drop user-configured values).
     cli: {
-      colorOutput: true,
-      interactive: true,
-      verbosity: 'normal',
-      outputFormat: 'text',
-      progressStyle: 'spinner',
+      colorOutput: systemConfig.cli?.colorOutput ?? CLI_DEFAULTS.colorOutput,
+      interactive: systemConfig.cli?.interactive ?? CLI_DEFAULTS.interactive,
+      verbosity: systemConfig.cli?.verbosity ?? CLI_DEFAULTS.verbosity,
+      outputFormat: systemConfig.cli?.outputFormat ?? CLI_DEFAULTS.outputFormat,
+      progressStyle: systemConfig.cli?.progressStyle ?? CLI_DEFAULTS.progressStyle,
     },
 
-    // Hooks configuration
+    // Hooks configuration — likewise read from SystemConfig.hooks when
+    // present, falling back to the shared DEFAULT_CONFIG.hooks values.
     hooks: {
-      enabled: false,
-      autoExecute: false,
-      hooks: [],
+      enabled: systemConfig.hooks?.enabled ?? HOOKS_DEFAULTS.enabled,
+      autoExecute: systemConfig.hooks?.autoExecute ?? HOOKS_DEFAULTS.autoExecute,
+      hooks: systemConfig.hooks?.hooks ?? HOOKS_DEFAULTS.hooks,
     },
 
     // Neural pattern-learning configuration

@@ -243,12 +243,77 @@ async function _initRunDb(monoHome) {
   }
 }
 
+// Single-writer guard for the run-events.db snapshot persist: bindServer() can start a
+// SECOND dashboard instance on port+1 when 4242 is already taken (two projects' dashboards
+// running simultaneously, or a stale-but-still-bound old instance). Each instance holds an
+// independent in-memory sql.js copy; without a lock, each instance's periodic full-snapshot
+// overwrite silently clobbers the other's accumulated events (last writer wins, no error).
+// Claiming this lock before every snapshot write ensures only ONE live instance actually
+// persists at a time — the other still runs, just skips its write until it can claim the
+// lock (e.g. after the current holder exits and its lock goes stale). This doesn't merge
+// both instances' events into one file, but it stops them from destructively overwriting
+// each other. Pattern mirrors .claude/helpers/utils/fs-helpers.cjs's claimLock/releaseLock
+// (wx-create, rename-to-reclaim-stale) — replicated inline here since this file ships
+// standalone in the published package and can't depend on repo-local dev tooling.
+function _runDbLockPath() {
+  return _runDbPath ? `${_runDbPath}.lock` : null;
+}
+
+function _claimRunDbLock(staleMs) {
+  const lockPath = _runDbLockPath();
+  if (!lockPath) return false;
+  staleMs = staleMs || 5000;
+  const tryCreate = () => {
+    try {
+      fs.writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+  if (tryCreate()) return true;
+  try {
+    const stat = fs.statSync(lockPath);
+    if (Date.now() - stat.mtimeMs < staleMs) return false; // held by a live/fresh owner
+    // Stale lock — reclaim via atomic rename so only one racing process wins it.
+    const claimed = `${lockPath}.${process.pid}.${Date.now()}.stale`;
+    try {
+      fs.renameSync(lockPath, claimed);
+    } catch (_) {
+      return false; // another process already reclaimed it
+    }
+    try { fs.unlinkSync(claimed); } catch (_) {}
+    return tryCreate();
+  } catch (_) {
+    // Lock vanished between our failed create and this stat — retry once.
+    return tryCreate();
+  }
+}
+
+function _releaseRunDbLock() {
+  const lockPath = _runDbLockPath();
+  if (!lockPath) return;
+  try {
+    if (Number(fs.readFileSync(lockPath, 'utf8')) === process.pid) fs.unlinkSync(lockPath);
+  } catch (_) {}
+}
+
+function _writeRunDbSnapshot() {
+  if (!_runDb || !_runDbPath) return;
+  if (!_claimRunDbLock()) return; // another live instance owns the write right now
+  try {
+    fs.writeFileSync(_runDbPath, Buffer.from(_runDb.export()));
+  } catch (_) {
+    // best-effort — matches prior swallow-on-error behavior
+  } finally {
+    _releaseRunDbLock();
+  }
+}
+
 function _persistRunDb() {
   if (!_runDb || !_runDbPath) return;
   clearTimeout(_runDbPersistTimer);
-  _runDbPersistTimer = setTimeout(() => {
-    try { fs.writeFileSync(_runDbPath, Buffer.from(_runDb.export())); } catch (_) {}
-  }, 1000);
+  _runDbPersistTimer = setTimeout(_writeRunDbSnapshot, 1000);
 }
 
 function _insertRunEvent(ev, source) {
@@ -264,6 +329,50 @@ function _insertRunEvent(ev, source) {
     // reset() is never called). Reset it so subsequent inserts aren't permanently broken.
     try { _runDbInsertStmt.reset(); } catch (_2) {}
   }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Bounded file reads for session JSONL (P3-6b) ────────────────────────────
+// /api/session already caps memory correctly by tailing; /api/session-journal and
+// /api/session-errors used to fs.readFileSync() whole session files regardless of
+// size, so one request against a multi-hundred-MB session log (a real scenario for
+// long-running org sessions) buffers the entire file. These helpers cap the read to
+// a fixed byte window via openSync/readSync (mirrors the byte-offset tail-read the
+// /api/loops handler already uses for ScheduleWakeup lookups) instead of loading the
+// whole file.
+function _readTailLines(filePath, maxBytes) {
+  maxBytes = maxBytes || 4 * 1024 * 1024; // 4MB — generous for the most recent activity
+  const stat = fs.statSync(filePath);
+  const start = Math.max(0, stat.size - maxBytes);
+  const len = stat.size - start;
+  const buf = Buffer.alloc(len);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    fs.readSync(fd, buf, 0, len, start);
+  } finally {
+    fs.closeSync(fd);
+  }
+  let text = buf.toString('utf8');
+  if (start > 0) {
+    // We started mid-file — the first line is very likely a partial line, drop it.
+    const nl = text.indexOf('\n');
+    text = nl === -1 ? '' : text.slice(nl + 1);
+  }
+  return text.split('\n').filter(Boolean);
+}
+
+function _readHeadText(filePath, maxBytes) {
+  maxBytes = maxBytes || 8192; // enough for the JSONL header line(s) we need to inspect
+  const stat = fs.statSync(filePath);
+  const len = Math.min(maxBytes, stat.size);
+  const buf = Buffer.alloc(len);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    fs.readSync(fd, buf, 0, len, 0);
+  } finally {
+    fs.closeSync(fd);
+  }
+  return buf.toString('utf8');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -992,7 +1101,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         // system files to any process that can reach localhost:4242.
         const _resolvedFile = path.resolve(file);
         const _homeDir = os.homedir();
-        if (!_resolvedFile.startsWith(_homeDir + path.sep) && !_resolvedFile.startsWith(_homeDir)) {
+        // Bare-prefix check (no path.sep) is bypassable: with home "/Users/bob", a path
+        // like "/Users/bobsecrets/x.jsonl" starts with the literal string "/Users/bob"
+        // even though it's a sibling directory, not a subdirectory of home. Require the
+        // separator (or exact equality to the home dir itself) so only true descendants pass.
+        if (_resolvedFile !== _homeDir && !_resolvedFile.startsWith(_homeDir + path.sep)) {
           res.writeHead(403, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Access denied: file must be within the home directory' }));
           return;
@@ -1047,7 +1160,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const modelBreakdown = {};
           const filesTouchedSet = new Set();
           try {
-            const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
+            const lines = _readTailLines(fp);
             let pendingCompact = false;
             for (const line of lines) {
               let e; try { e = JSON.parse(line); } catch { continue; }
@@ -1910,18 +2023,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           if (f.includes(sessionId) || sessionId === f.replace('.jsonl', '')) { fp = path.join(projectClaudeDir, f); break; }
         }
         if (!fp) {
-          // fallback: find by scanning
+          // fallback: find by scanning — the sessionId lives in the first JSONL line, so a
+          // small head-read is enough; no need to load the whole (potentially huge) file.
           for (const f of files) {
-            const raw = fs.readFileSync(path.join(projectClaudeDir, f), 'utf8');
-            const lines = raw.trim().split('\n').filter(Boolean);
-            if (lines.length > 0) {
-              try { const first = JSON.parse(lines[0]); if (first.sessionId === sessionId) { fp = path.join(projectClaudeDir, f); break; } } catch {}
+            const head = _readHeadText(path.join(projectClaudeDir, f));
+            const firstLine = head.split('\n', 1)[0];
+            if (firstLine) {
+              try { const first = JSON.parse(firstLine); if (first.sessionId === sessionId) { fp = path.join(projectClaudeDir, f); break; } } catch {}
             }
           }
         }
         if (!fp) { res.writeHead(404); res.end(JSON.stringify({ errors: [] })); return; }
-        const raw = fs.readFileSync(fp, 'utf8');
-        const lines = raw.trim().split('\n').filter(Boolean);
+        // Only the most recent portion of the file matters for a dashboard error feed —
+        // tail-cap the read so a multi-hundred-MB session log doesn't get buffered whole.
+        const lines = _readTailLines(fp);
         const errors = [];
         for (const line of lines) {
           try {
@@ -6392,9 +6507,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
     clearInterval(_heartbeatTimer);
     // Flush SQLite run-event index to disk before exit (bypasses 1000ms debounce timer)
     clearTimeout(_runDbPersistTimer);
-    if (_runDb && _runDbPath) {
-      try { fs.writeFileSync(_runDbPath, Buffer.from(_runDb.export())); } catch (_) {}
-    }
+    _writeRunDbSnapshot();
     for (const w of activeWatchers) {
       try {
         w.close();

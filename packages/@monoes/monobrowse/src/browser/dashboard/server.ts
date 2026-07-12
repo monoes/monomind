@@ -1,10 +1,11 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
+import { randomBytes } from 'node:crypto';
 
 export interface StepEvent {
   type: string;
@@ -57,6 +58,21 @@ let instance: DashboardServer | null = null;
 export function startDashboard(port = DEFAULT_PORT): DashboardServer {
   if (instance) return instance;
 
+  // ── Security: per-process auth credential for mutating (non-GET) requests ──
+  // Generated once per server start and written to a well-known location so
+  // trusted local callers (CLI) can read it and pass it back via an auth
+  // header or query param on non-GET routes. Mirrors the pattern used by the
+  // main CLI dashboard (packages/@monomind/cli/src/ui/server.ts).
+  const dashboardAuthValue = randomBytes(24).toString('hex');
+  try {
+    const authFileDir = join(homedir(), '.monomind');
+    mkdirSync(authFileDir, { recursive: true });
+    writeFileSync(join(authFileDir, 'monobrowse-dashboard-token'), dashboardAuthValue, { mode: 0o600 });
+  } catch {
+    // best-effort: if we can't persist the token, mutating routes still
+    // enforce it in-memory — trusted callers just won't be able to read it.
+  }
+
   const runHistory: RunRecord[] = [];
   const stopRequests = new Set<string>();
   /** Map from client (WebSocket or SSE response) to the subscribed project dir,
@@ -79,6 +95,13 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
   } catch {
     uiHtml = `<!DOCTYPE html><html><head><title>monobrowse dashboard</title></head><body style="background:#0f0f1a;color:#ccc;font-family:system-ui;padding:20px"><h1>monobrowse dashboard</h1><p>Dashboard UI not found. Run the build to include ui.html.</p><script>let _retryDelay=1000;function connectSSE(){const es=new EventSource('/events');es.onmessage=e=>{console.log(JSON.parse(e.data));_retryDelay=1000;};es.onerror=()=>{es.close();setTimeout(connectSSE,Math.min(_retryDelay*=2,30000));};};connectSSE();</script></body></html>`;
   }
+  // Hand the per-process auth token to the served page so its own JS (e.g. the
+  // stop button) can pass it back on mutating requests. Injected once at
+  // startup — the loopback-only page is the sole reader.
+  const tokenScript = `<script>window.__MONOBROWSE_TOKEN__=${JSON.stringify(dashboardAuthValue)};</script>`;
+  uiHtml = uiHtml.includes('</head>')
+    ? uiHtml.replace('</head>', `${tokenScript}</head>`)
+    : tokenScript + uiHtml;
 
   const server = createServer(async (req, res) => {
     const url = req.url ?? '/';
@@ -100,8 +123,20 @@ export function startDashboard(port = DEFAULT_PORT): DashboardServer {
       return;
     }
 
+    // ── Security: require a matching auth token on all mutating routes ──────
+    // Binding to loopback only stops remote attackers, not a malicious page
+    // open in the user's own browser (DNS rebinding / same-origin fetch to
+    // 127.0.0.1). Require the per-process token via header or query param on
+    // every non-GET/HEAD route; GET/SSE reads stay open on the loopback baseline.
     if (url.startsWith('/stop/') && req.method === 'POST') {
-      const runId = url.slice(6);
+      const parsedAuth = new URL(url, 'http://localhost');
+      const suppliedAuth = req.headers['x-monobrowse-token'] || parsedAuth.searchParams.get('token') || '';
+      if (suppliedAuth !== dashboardAuthValue) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
+        return;
+      }
+      const runId = url.slice(6).split('?')[0];
       stopRequests.add(runId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, runId }));

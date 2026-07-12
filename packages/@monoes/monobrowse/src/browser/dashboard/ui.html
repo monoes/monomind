@@ -678,7 +678,7 @@ function renderCards() {
     '</div>';
   }).join('');
 }
-function stopRun(id) { fetch('/stop/' + id, { method: 'POST' }).catch(function() {}); }
+function stopRun(id) { fetch('/stop/' + id, { method: 'POST', headers: { 'x-monobrowse-token': (window.__MONOBROWSE_TOKEN__ || '') } }).catch(function() {}); }
 
 // ═══════════════════════════════════════════════════════════════════
 // NODE PALETTE DEFINITIONS

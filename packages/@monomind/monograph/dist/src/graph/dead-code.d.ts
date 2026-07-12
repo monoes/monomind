@@ -10,8 +10,13 @@ import type { MonographDb } from '../storage/db.js';
  * - Only exported — private locals are internal by design
  * - Skips entry-point, test, dist, and node_modules paths
  * - Requires zero inbound CALLS, IMPORTS, REFERENCES, and RE_EXPORTS edges
- * - No same-name node in another file (catches import bindings)
- * - Not re-exported through any index.ts barrel file
+ * - Not re-exported through any index.ts barrel file, via an actual RE_EXPORTS
+ *   edge from that barrel's File node (not merely sharing a name with something
+ *   an index.ts happens to also define)
+ *
+ * Known gap: files consumed only via a dynamic `import()` call won't have a static
+ * edge in the graph, so they can still surface as false positives here — this
+ * detector only tracks statically-resolved edges.
  */
 export declare function detectDeadCode(db: MonographDb): string[];
 export interface DeadCodeNode {

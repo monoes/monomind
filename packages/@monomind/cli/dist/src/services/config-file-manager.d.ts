@@ -2,6 +2,19 @@
  * Config File Manager
  * Shared JSON config file persistence with atomic writes and Zod validation
  */
+/**
+ * Default config values.
+ *
+ * IMPORTANT: never hand this object (or a shallow `{ ...DEFAULT_CONFIG }`
+ * copy) out directly — its nested sections (`agents`, `swarm`, `memory`, ...)
+ * would be shared-by-reference with every caller, so one caller mutating
+ * `config.swarm.maxAgents` would silently corrupt this module-level constant
+ * for the rest of the process. Always hand out `cloneDefaultConfig()`.
+ */
+declare const DEFAULT_CONFIG: Record<string, unknown>;
+/** Exposed read-only for callers (e.g. config-adapter.ts) that need to
+ * agree with this module's defaults instead of hardcoding their own. */
+export { DEFAULT_CONFIG };
 export declare class ConfigFileManager {
     private configPath;
     private config;

@@ -13,7 +13,15 @@ const CONFIG_FILENAMES = [
   '.monomind/config.json',
 ];
 
-/** Default config values */
+/**
+ * Default config values.
+ *
+ * IMPORTANT: never hand this object (or a shallow `{ ...DEFAULT_CONFIG }`
+ * copy) out directly — its nested sections (`agents`, `swarm`, `memory`, ...)
+ * would be shared-by-reference with every caller, so one caller mutating
+ * `config.swarm.maxAgents` would silently corrupt this module-level constant
+ * for the rest of the process. Always hand out `cloneDefaultConfig()`.
+ */
 const DEFAULT_CONFIG: Record<string, unknown> = {
   version: '3.5',
   agents: {
@@ -64,6 +72,22 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
     },
   },
 };
+
+/**
+ * Deep-clone the default config so every caller gets its own independent
+ * object graph. `{ ...DEFAULT_CONFIG }` is only a shallow copy — its nested
+ * sub-configs (`agents`, `swarm`, `memory`, ...) would remain the SAME
+ * object references as the module-level constant, so mutating a nested
+ * field on one caller's copy would corrupt the shared default for every
+ * subsequent caller in the process.
+ */
+function cloneDefaultConfig(): Record<string, unknown> {
+  return structuredClone(DEFAULT_CONFIG);
+}
+
+/** Exposed read-only for callers (e.g. config-adapter.ts) that need to
+ * agree with this module's defaults instead of hardcoding their own. */
+export { DEFAULT_CONFIG };
 
 export class ConfigFileManager {
   private configPath: string | null = null;
@@ -141,7 +165,7 @@ export class ConfigFileManager {
     if (this.config === null) {
       this.load(cwd);
     }
-    return this.config ?? { ...DEFAULT_CONFIG };
+    return this.config ?? cloneDefaultConfig();
   }
 
   /** Get a nested config value by dot-separated key */
@@ -174,7 +198,7 @@ export class ConfigFileManager {
     // cross-process atomic without an OS-level flock, but combined with the
     // O_EXCL atomic rename it prevents the most common credential-clobber
     // window where two CLIs interleave their getConfig→set→write cycles.
-    let onDisk: Record<string, unknown> = { ...DEFAULT_CONFIG };
+    let onDisk: Record<string, unknown> = cloneDefaultConfig();
     if (fs.existsSync(targetPath)) {
       try {
         const parsed = JSON.parse(fs.readFileSync(targetPath, 'utf-8'));
@@ -193,7 +217,7 @@ export class ConfigFileManager {
     if (fs.existsSync(targetPath) && !force) {
       throw new Error(`Config file already exists: ${targetPath}. Use --force to overwrite.`);
     }
-    const config = { ...DEFAULT_CONFIG, ...(overrides ? sanitizeConfigObject(overrides) as Record<string, unknown> : {}) };
+    const config = { ...cloneDefaultConfig(), ...(overrides ? sanitizeConfigObject(overrides) as Record<string, unknown> : {}) };
     this.writeAtomic(targetPath, config);
     this.config = config;
     this.configPath = targetPath;
@@ -203,8 +227,9 @@ export class ConfigFileManager {
   /** Reset config to defaults */
   reset(cwd: string): string {
     const targetPath = this.configPath ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
-    this.writeAtomic(targetPath, DEFAULT_CONFIG);
-    this.config = { ...DEFAULT_CONFIG };
+    const fresh = cloneDefaultConfig();
+    this.writeAtomic(targetPath, fresh);
+    this.config = fresh;
     this.configPath = targetPath;
     return targetPath;
   }
@@ -270,7 +295,7 @@ export class ConfigFileManager {
 
   /** Get default config */
   getDefaults(): Record<string, unknown> {
-    return { ...DEFAULT_CONFIG };
+    return cloneDefaultConfig();
   }
 
   /** Atomic write with restrictive 0o600 mode.

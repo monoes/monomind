@@ -9,8 +9,9 @@
  * @module @monomind/cli/utils/input-guards
  */
 
-import { resolve, isAbsolute } from 'node:path';
+import { resolve, isAbsolute, relative, dirname, basename } from 'node:path';
 import { cwd } from 'node:process';
+import { realpathSync } from 'node:fs';
 
 export interface ValidationResult {
   valid: boolean;
@@ -74,6 +75,32 @@ function validateNumber(value: unknown, opts: ValidateInputOpts): ValidationResu
   return { valid: true, sanitized: String(parsed) };
 }
 
+/** Resolve symlinks so the containment check below can't be bypassed by a
+ * link that lexically resolves inside cwd but physically points outside it
+ * (e.g. `./link -> /etc`). `realpathSync` requires the full path to exist,
+ * which a not-yet-created file (or a symlinked *directory* holding a
+ * not-yet-created file) would fail — so walk up to the longest existing
+ * ancestor, realpath *that* (resolving any symlink components in it), and
+ * re-append the non-existent tail. Falls back to the lexical path only when
+ * no ancestor at all can be resolved. */
+function realOrResolved(p: string): string {
+  let cur = p;
+  const tail: string[] = [];
+  // eslint-disable-next-line no-constant-condition
+  for (let i = 0; i < 64; i++) {
+    try {
+      const real = realpathSync(cur);
+      return tail.length ? resolve(real, ...tail.reverse()) : real;
+    } catch {
+      const parent = dirname(cur);
+      if (parent === cur) return p; // reached filesystem root, nothing resolvable
+      tail.push(basename(cur));
+      cur = parent;
+    }
+  }
+  return p;
+}
+
 function validatePath(value: unknown, opts: ValidateInputOpts): ValidationResult {
   if (typeof value !== 'string') {
     return { valid: false, error: 'Path must be a string' };
@@ -85,11 +112,17 @@ function validatePath(value: unknown, opts: ValidateInputOpts): ValidationResult
   if (/(^|[\\/])\.\.($|[\\/])/.test(value)) {
     return { valid: false, error: 'Path must not contain directory traversal (..)' };
   }
-  // Reject absolute paths that escape cwd
+  // Reject absolute paths that escape cwd. Uses path.relative (platform-correct
+  // separator handling — the previous `startsWith(cwd + '/')` hardcoded POSIX
+  // '/' and rejected every legitimate path on Windows) plus realpathSync on
+  // both sides so a symlink that's lexically inside cwd but physically points
+  // outside it is caught too. Mirrors the pattern in
+  // src/memory/memory-bridge.ts's getDbPath().
   if (isAbsolute(value)) {
-    const cwdPath = cwd();
-    const resolved = resolve(value);
-    if (!resolved.startsWith(cwdPath + '/') && resolved !== cwdPath) {
+    const cwdPath = realOrResolved(cwd());
+    const resolved = realOrResolved(resolve(value));
+    const rel = relative(cwdPath, resolved);
+    if (rel.startsWith('..') || isAbsolute(rel)) {
       return { valid: false, error: 'Absolute path must not escape the current working directory' };
     }
   }

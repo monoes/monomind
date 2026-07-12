@@ -82,8 +82,14 @@ export class CLI {
                 this.output.printDebug(`Flags: ${JSON.stringify(Object.fromEntries(Object.entries(flags).filter(([k]) => k !== '_')))}`);
                 this.output.printDebug(`CWD: ${process.cwd()}`);
             }
-            // Run startup update check (non-blocking, silent on skip)
-            if (!flags.noUpdate && commandPath[0] !== 'update') {
+            // Run startup update check (non-blocking, silent on skip).
+            // `update` is now a properly-declared global boolean option (default
+            // true) — `--no-update` negates it via the parser's standard boolean
+            // negation path rather than relying on the generic --no-X fallback
+            // (which checked the flag name against the GLOBAL pool of every
+            // command's boolean options, so an unrelated command declaring its
+            // own `update` boolean flag could hijack `--no-update`'s meaning).
+            if (flags.update !== false && commandPath[0] !== 'update') {
                 this.checkForUpdatesOnStartup().catch(() => { });
             }
             // Handle lazy-loaded commands that weren't recognized by the parser

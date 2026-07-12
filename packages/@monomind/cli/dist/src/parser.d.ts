@@ -55,6 +55,15 @@ export declare class CommandParser {
      * defaults) have been merged into the result.
      */
     private mirrorFlagKeys;
+    /**
+     * True when `value` looks like a space-separated negative number
+     * (`-0.5`, `-42`) rather than a new flag. Scoped narrowly to "leading `-`
+     * immediately followed by a digit" — a legitimate flag name never starts
+     * with a digit, so this can't misfire on a genuine following flag while
+     * still letting `--threshold -0.5` consume `-0.5` as the value instead of
+     * being misparsed as a new (bogus) flag.
+     */
+    private looksLikeNegativeNumber;
     private parseFlag;
     private parseValue;
     private normalizeKey;

@@ -9,8 +9,13 @@
  * - Only exported — private locals are internal by design
  * - Skips entry-point, test, dist, and node_modules paths
  * - Requires zero inbound CALLS, IMPORTS, REFERENCES, and RE_EXPORTS edges
- * - No same-name node in another file (catches import bindings)
- * - Not re-exported through any index.ts barrel file
+ * - Not re-exported through any index.ts barrel file, via an actual RE_EXPORTS
+ *   edge from that barrel's File node (not merely sharing a name with something
+ *   an index.ts happens to also define)
+ *
+ * Known gap: files consumed only via a dynamic `import()` call won't have a static
+ * edge in the graph, so they can still surface as false positives here — this
+ * detector only tracks statically-resolved edges.
  */
 export function detectDeadCode(db) {
     return detectDeadCodeNodes(db).map(n => n.id);
@@ -44,21 +49,19 @@ export function detectDeadCodeNodes(db) {
            WHERE e.target_id = n.id
              AND e.relation IN ('CALLS', 'IMPORTS', 'REFERENCES', 'RE_EXPORTS')
          )
-         -- no same-name node in another file (import bindings, .cjs callers, etc.)
+         -- not re-exported through a barrel (index.ts/index.js) — checked via an
+         -- ACTUAL RE_EXPORTS edge from the barrel's File node to this candidate's
+         -- File node, not a same-NAME coincidence with an unrelated symbol that
+         -- happens to also live in some index.ts elsewhere in the repo.
          AND NOT EXISTS (
-           SELECT 1 FROM nodes o
-           WHERE o.name = n.name AND o.file_path != n.file_path
-             AND o.file_path IS NOT NULL
-             AND o.file_path NOT LIKE '%/dist/%'
-             AND o.file_path NOT LIKE '%node_modules%'
-         )
-         -- not re-exported through a barrel (index.ts/index.js)
-         AND NOT EXISTS (
-           SELECT 1 FROM nodes b
-           WHERE b.name = n.name
-             AND b.file_path LIKE '%/index.%'
-             AND b.file_path NOT LIKE '%/dist/%'
-             AND b.file_path NOT LIKE '%node_modules%'
+           SELECT 1 FROM edges e
+           JOIN nodes fn ON fn.id = e.target_id AND fn.label = 'File'
+           JOIN nodes bn ON bn.id = e.source_id AND bn.label = 'File'
+           WHERE e.relation = 'RE_EXPORTS'
+             AND fn.file_path = n.file_path
+             AND bn.file_path LIKE '%/index.%'
+             AND bn.file_path NOT LIKE '%/dist/%'
+             AND bn.file_path NOT LIKE '%node_modules%'
          )
        ORDER BY n.file_path, n.start_line`)
         .all();

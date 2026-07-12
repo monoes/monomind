@@ -96,8 +96,12 @@ export class OutputFormatter {
     // Check for NO_COLOR environment variable
     if (process.env.NO_COLOR !== undefined) return false;
 
-    // Check for FORCE_COLOR environment variable
-    if (process.env.FORCE_COLOR !== undefined) return true;
+    // Check for FORCE_COLOR environment variable.
+    // Per the supports-color convention, FORCE_COLOR=0 (or "false") forces
+    // color OFF; any other defined, non-empty value forces color ON.
+    if (process.env.FORCE_COLOR !== undefined) {
+      return process.env.FORCE_COLOR !== '0' && process.env.FORCE_COLOR !== 'false';
+    }
 
     // Check if stdout is a TTY
     return process.stdout.isTTY ?? false;
@@ -185,14 +189,18 @@ export class OutputFormatter {
     // Warnings suppressed in quiet mode
     if (this.verbosity === 'quiet') return;
     const icon = this.color('[WARN]', 'yellow', 'bold');
-    this.writeln(`${icon} ${message}`);
+    // Write to stderr (not stdout) so it never interleaves with structured
+    // stdout output (e.g. --format json | jq .)
+    this.writeErrorln(`${icon} ${message}`);
   }
 
   printInfo(message: string): void {
     // Info suppressed in quiet mode
     if (this.verbosity === 'quiet') return;
     const icon = this.color('[INFO]', 'blue', 'bold');
-    this.writeln(`${icon} ${message}`);
+    // Write to stderr (not stdout) so it never interleaves with structured
+    // stdout output (e.g. --format json | jq .)
+    this.writeErrorln(`${icon} ${message}`);
   }
 
   printDebug(message: string): void {

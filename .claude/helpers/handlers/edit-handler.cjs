@@ -86,6 +86,12 @@ module.exports = {
       if (editedFile2 && codeExts.test(editedFile2)) {
         var lockFile = path.join(CWD, '.monomind', 'graph', '.rebuild-lock');
         var COOLDOWN_MS = 5000; // 5-second debounce
+        // P3-17: on a fresh project (no full `monograph build` has ever run),
+        // .monomind/graph/ doesn't exist yet, and claimLock's writeFileSync
+        // below throws ENOENT — caught by this try/catch and silently
+        // swallowed, so the incremental rebuild (and blast-radius display)
+        // never fires until some other code path happens to create the dir.
+        try { fs.mkdirSync(path.dirname(lockFile), { recursive: true }); } catch (e) { /* non-fatal */ }
         // P2-22: claim the cooldown lock atomically (wx-create) instead of
         // statSync-then-writeFileSync — under real Claude Code concurrency a
         // multi-file Edit in one message fires several PostToolUse hook
