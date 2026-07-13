@@ -9,6 +9,25 @@ const { _getRecentEdits } = require('./telemetry.cjs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
+// @monoes/monograph is "type":"module" with an exports map that has no
+// "require" condition — a bare `require('@monoes/monograph')` (or
+// require() of its package directory) always throws "No exports main
+// defined", regardless of whether the package is actually installed.
+// require()-ing the package's *resolved entry file* directly bypasses the
+// exports-map restriction and works via Node's require(esm) support (this
+// codebase targets Node 20+, which has it). Reads the entry path from the
+// package's own package.json instead of hardcoding "dist/src/index.js" so
+// this survives a future monograph dist-layout change.
+function _resolvePkgEntryFile(pkgDir) {
+  try {
+    var pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf-8'));
+    var entry = (pkg.exports && pkg.exports['.'] && (pkg.exports['.'].import || pkg.exports['.'].default)) || pkg.main;
+    if (!entry) return null;
+    var full = path.join(pkgDir, entry);
+    return fs.existsSync(full) ? full : null;
+  } catch (e) { return null; }
+}
+
 function _requireMonograph() {
   var candidates = [
     path.join(CWD, 'node_modules/.pnpm/node_modules/@monoes/monograph'),
@@ -16,9 +35,21 @@ function _requireMonograph() {
     path.join(CWD, 'node_modules/@monoes/monograph'),
   ];
   for (var i = 0; i < candidates.length; i++) {
-    try { if (fs.existsSync(candidates[i])) return require(candidates[i]); } catch(e) {}
+    var entry = fs.existsSync(candidates[i]) ? _resolvePkgEntryFile(candidates[i]) : null;
+    if (entry) { try { return require(entry); } catch (e) {} }
   }
-  try { return require('@monoes/monograph'); } catch(e) {}
+  // Ancestor-directory search — the equivalent of bare `require('@monoes/
+  // monograph')`'s own node_modules walk, needed since that call form can
+  // never succeed against this package's exports map.
+  var dir = CWD;
+  for (;;) {
+    var pkgDir = path.join(dir, 'node_modules', '@monoes', 'monograph');
+    var entry = fs.existsSync(pkgDir) ? _resolvePkgEntryFile(pkgDir) : null;
+    if (entry) { try { return require(entry); } catch (e) {} break; }
+    var parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
   return null;
 }
 
