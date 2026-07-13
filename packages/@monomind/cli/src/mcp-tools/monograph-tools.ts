@@ -757,7 +757,10 @@ async function computeCommitsBehind(repoPath: string): Promise<{ commitsBehind: 
   const { execSync } = await import('child_process');
   const dbPath = getDbPath(repoPath);
   if (!_isValidDb(dbPath)) return null;
-  const db = openDb(dbPath, { fileMustExist: true });
+  // openDb's fileMustExist option isn't in the currently-published
+  // @monoes/monograph release this CLI depends on — _isValidDb above is the
+  // real guard against openDb silently creating an empty DB at a missing path.
+  const db = openDb(dbPath);
   try {
     const meta = (
       db.prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get() as { value: string } | undefined
@@ -1769,9 +1772,15 @@ const monographInstallSkillsTool: MCPTool = {
 
     // Load community data from graph
     const dbPath = getDbPath(repoPath);
+    // openDb's fileMustExist option isn't in the currently-published
+    // @monoes/monograph release this CLI depends on — check validity
+    // ourselves so a missing DB doesn't get silently auto-created empty.
+    if (!_isValidDb(dbPath)) {
+      return text('Graph not built yet. Run monograph_build first.');
+    }
     let db: ReturnType<typeof openDb>;
     try {
-      db = openDb(dbPath, { fileMustExist: true });
+      db = openDb(dbPath);
     } catch {
       return text('Graph not built yet. Run monograph_build first.');
     }
@@ -1992,9 +2001,15 @@ const monographDeadCodeTool: MCPTool = {
     const result: Record<string, unknown> = {};
 
     const dbPath = getDbPath(repoPath);
+    // openDb's fileMustExist option isn't in the currently-published
+    // @monoes/monograph release this CLI depends on — check validity
+    // ourselves so a missing DB doesn't get silently auto-created empty.
+    if (!_isValidDb(dbPath)) {
+      return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));
+    }
     let db: ReturnType<typeof openDb> | null = null;
     try {
-      db = openDb(dbPath, { fileMustExist: true });
+      db = openDb(dbPath);
     } catch {
       return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));
     }

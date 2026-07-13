@@ -11,7 +11,7 @@ export declare const listReposTool: {
     name: string;
     description: string;
     inputSchema: {
-        type: "object";
+        type: 'object';
         properties: {};
         required: string[];
     };

@@ -13,14 +13,14 @@ export declare const PrioritizeGapsInputSchema: z.ZodObject<{
         startLine: z.ZodNumber;
         endLine: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
-        type: "function" | "line" | "branch";
         id: string;
+        type: "branch" | "function" | "line";
         file: string;
         startLine: number;
         endLine: number;
     }, {
-        type: "function" | "line" | "branch";
         id: string;
+        type: "branch" | "function" | "line";
         file: string;
         startLine: number;
         endLine: number;
@@ -52,9 +52,15 @@ export declare const PrioritizeGapsInputSchema: z.ZodObject<{
     limit: z.ZodDefault<z.ZodNumber>;
     groupBy: z.ZodDefault<z.ZodEnum<["risk", "file", "type", "none"]>>;
 }, "strip", z.ZodTypeAny, {
-    limit: number;
-    factors: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[];
-    groupBy: "type" | "none" | "file" | "risk";
+    gaps?: {
+        id: string;
+        type: "branch" | "function" | "line";
+        file: string;
+        startLine: number;
+        endLine: number;
+    }[] | undefined;
+    targetPath?: string | undefined;
+    factors: ("business-critical" | "change-frequency" | "complexity" | "defect-history" | "dependency-count" | "test-difficulty")[];
     weights?: {
         complexity: number;
         changeFrequency: number;
@@ -63,16 +69,18 @@ export declare const PrioritizeGapsInputSchema: z.ZodObject<{
         dependencyCount: number;
         testDifficulty: number;
     } | undefined;
+    limit: number;
+    groupBy: "file" | "none" | "risk" | "type";
+}, {
     gaps?: {
-        type: "function" | "line" | "branch";
         id: string;
+        type: "branch" | "function" | "line";
         file: string;
         startLine: number;
         endLine: number;
     }[] | undefined;
     targetPath?: string | undefined;
-}, {
-    limit?: number | undefined;
+    factors?: ("business-critical" | "change-frequency" | "complexity" | "defect-history" | "dependency-count" | "test-difficulty")[] | undefined;
     weights?: {
         complexity?: number | undefined;
         changeFrequency?: number | undefined;
@@ -81,16 +89,8 @@ export declare const PrioritizeGapsInputSchema: z.ZodObject<{
         dependencyCount?: number | undefined;
         testDifficulty?: number | undefined;
     } | undefined;
-    gaps?: {
-        type: "function" | "line" | "branch";
-        id: string;
-        file: string;
-        startLine: number;
-        endLine: number;
-    }[] | undefined;
-    targetPath?: string | undefined;
-    factors?: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[] | undefined;
-    groupBy?: "type" | "none" | "file" | "risk" | undefined;
+    limit?: number | undefined;
+    groupBy?: "file" | "none" | "risk" | "type" | undefined;
 }>;
 export type PrioritizeGapsInput = z.infer<typeof PrioritizeGapsInputSchema>;
 export interface PrioritizeGapsOutput {
@@ -176,14 +176,14 @@ export declare const toolDefinition: {
             startLine: z.ZodNumber;
             endLine: z.ZodNumber;
         }, "strip", z.ZodTypeAny, {
-            type: "function" | "line" | "branch";
             id: string;
+            type: "branch" | "function" | "line";
             file: string;
             startLine: number;
             endLine: number;
         }, {
-            type: "function" | "line" | "branch";
             id: string;
+            type: "branch" | "function" | "line";
             file: string;
             startLine: number;
             endLine: number;
@@ -215,9 +215,15 @@ export declare const toolDefinition: {
         limit: z.ZodDefault<z.ZodNumber>;
         groupBy: z.ZodDefault<z.ZodEnum<["risk", "file", "type", "none"]>>;
     }, "strip", z.ZodTypeAny, {
-        limit: number;
-        factors: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[];
-        groupBy: "type" | "none" | "file" | "risk";
+        gaps?: {
+            id: string;
+            type: "branch" | "function" | "line";
+            file: string;
+            startLine: number;
+            endLine: number;
+        }[] | undefined;
+        targetPath?: string | undefined;
+        factors: ("business-critical" | "change-frequency" | "complexity" | "defect-history" | "dependency-count" | "test-difficulty")[];
         weights?: {
             complexity: number;
             changeFrequency: number;
@@ -226,16 +232,18 @@ export declare const toolDefinition: {
             dependencyCount: number;
             testDifficulty: number;
         } | undefined;
+        limit: number;
+        groupBy: "file" | "none" | "risk" | "type";
+    }, {
         gaps?: {
-            type: "function" | "line" | "branch";
             id: string;
+            type: "branch" | "function" | "line";
             file: string;
             startLine: number;
             endLine: number;
         }[] | undefined;
         targetPath?: string | undefined;
-    }, {
-        limit?: number | undefined;
+        factors?: ("business-critical" | "change-frequency" | "complexity" | "defect-history" | "dependency-count" | "test-difficulty")[] | undefined;
         weights?: {
             complexity?: number | undefined;
             changeFrequency?: number | undefined;
@@ -244,16 +252,8 @@ export declare const toolDefinition: {
             dependencyCount?: number | undefined;
             testDifficulty?: number | undefined;
         } | undefined;
-        gaps?: {
-            type: "function" | "line" | "branch";
-            id: string;
-            file: string;
-            startLine: number;
-            endLine: number;
-        }[] | undefined;
-        targetPath?: string | undefined;
-        factors?: ("complexity" | "change-frequency" | "defect-history" | "business-critical" | "dependency-count" | "test-difficulty")[] | undefined;
-        groupBy?: "type" | "none" | "file" | "risk" | undefined;
+        limit?: number | undefined;
+        groupBy?: "file" | "none" | "risk" | "type" | undefined;
     }>;
     handler: typeof handler;
 };

@@ -74,9 +74,9 @@ export interface ResolveContext {
     activePlugins: string[];
     extraConditions: string[];
 }
-export declare const OUTPUT_DIRS: readonly ["dist", "build", "out", "esm", "cjs", ".next", ".nuxt", ".svelte-kit"];
-export declare const SOURCE_EXTS: readonly ["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"];
-export declare const RN_PLATFORM_PREFIXES: readonly [".web", ".ios", ".android", ".native"];
+export declare const OUTPUT_DIRS: readonly ['dist', 'build', 'out', 'esm', 'cjs', '.next', '.nuxt', '.svelte-kit'];
+export declare const SOURCE_EXTS: readonly ['ts', 'tsx', 'mts', 'cts', 'js', 'jsx', 'mjs', 'cjs'];
+export declare const RN_PLATFORM_PREFIXES: readonly ['.web', '.ios', '.android', '.native'];
 export declare function getOrBuildCanonicalMap(fallback: CanonicalFallback): Map<string, FileId>;
 export declare function makeResolvedModule(fileId: FileId, path: string): ResolvedModule;
 //# sourceMappingURL=types.d.ts.map

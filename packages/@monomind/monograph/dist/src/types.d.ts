@@ -117,7 +117,7 @@ export interface PipelineProgress {
     message?: string;
 }
 export declare class MonographError extends Error {
-    readonly cause?: unknown | undefined;
-    constructor(message: string, cause?: unknown | undefined);
+    readonly cause?: unknown;
+    constructor(message: string, cause?: unknown);
 }
 //# sourceMappingURL=types.d.ts.map

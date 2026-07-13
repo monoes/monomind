@@ -1,5 +1,4 @@
 declare const browseCommand: {
-    subcommands: import("../types.js").Command[];
     name: string;
     description: string;
     aliases?: string[];
@@ -7,6 +6,7 @@ declare const browseCommand: {
     examples?: import("@monoes/monobrowse/cli/types").CommandExample[];
     action?: import("@monoes/monobrowse/cli/types").CommandAction;
     hidden?: boolean;
+    subcommands: import("../types.js").Command[];
 };
 export default browseCommand;
 //# sourceMappingURL=browse.d.ts.map

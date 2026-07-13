@@ -47,12 +47,12 @@ export declare function resetInstallAttempts(): void;
  */
 export declare const OPTIONAL_PACKAGES: {
     readonly 'monofence-ai': {
-        readonly description: "AI manipulation defense (prompt injection, PII detection)";
-        readonly tools: readonly ["aidefence_scan", "aidefence_analyze", "aidefence_stats", "aidefence_learn"];
+        readonly description: 'AI manipulation defense (prompt injection, PII detection)';
+        readonly tools: readonly ['aidefence_scan', 'aidefence_analyze', 'aidefence_stats', 'aidefence_learn'];
     };
     readonly 'onnxruntime-node': {
-        readonly description: "ONNX runtime for neural network inference";
-        readonly tools: readonly ["neural_*"];
+        readonly description: 'ONNX runtime for neural network inference';
+        readonly tools: readonly ['neural_*'];
     };
 };
 declare const _default: {
@@ -62,12 +62,12 @@ declare const _default: {
     resetInstallAttempts: typeof resetInstallAttempts;
     OPTIONAL_PACKAGES: {
         readonly 'monofence-ai': {
-            readonly description: "AI manipulation defense (prompt injection, PII detection)";
-            readonly tools: readonly ["aidefence_scan", "aidefence_analyze", "aidefence_stats", "aidefence_learn"];
+            readonly description: 'AI manipulation defense (prompt injection, PII detection)';
+            readonly tools: readonly ['aidefence_scan', 'aidefence_analyze', 'aidefence_stats', 'aidefence_learn'];
         };
         readonly 'onnxruntime-node': {
-            readonly description: "ONNX runtime for neural network inference";
-            readonly tools: readonly ["neural_*"];
+            readonly description: 'ONNX runtime for neural network inference';
+            readonly tools: readonly ['neural_*'];
         };
     };
 };

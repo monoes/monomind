@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": ".",
-    "composite": true
+    "composite": true,
+    "types": ["node", "better-sqlite3", "express", "micromatch"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "__tests__", "src/**/__tests__/**", "src/**/*.test.ts", "src/**/*.spec.ts"]
