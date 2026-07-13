@@ -509,13 +509,17 @@ export const hiveMindTools: MCPTool[] = [
           term: state.queen.term,
         } : { id: 'N/A', status: 'offline', load: 0, tasksQueued: 0 },
         workers: state.workers.map(w => {
-          const agent = agentStore.agents[w] as unknown as Record<string, unknown> | undefined;
+          const agent = agentStore.agents[w];
           return {
             id: w,
-            type: (agent?.agentType as string) || 'worker',
-            status: (agent?.status as string) || 'unknown',
-            currentTask: (agent?.currentTask as string) || null,
-            tasksCompleted: (agent?.taskCount as number) || 0,
+            type: agent?.agentType || 'worker',
+            status: agent?.status || 'unknown',
+            // AgentRecord has no currentTask field — always null. Kept in the
+            // response shape for API stability; was already dead before this
+            // (the previous `as unknown as Record<string, unknown>` cast hid
+            // that `agent?.currentTask` never matched a real field).
+            currentTask: null,
+            tasksCompleted: agent?.taskCount || 0,
           };
         }),
         metrics: {

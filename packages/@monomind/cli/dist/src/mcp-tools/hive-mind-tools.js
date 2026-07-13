@@ -406,7 +406,11 @@ export const hiveMindTools = [
                         id: w,
                         type: agent?.agentType || 'worker',
                         status: agent?.status || 'unknown',
-                        currentTask: agent?.currentTask || null,
+                        // AgentRecord has no currentTask field — always null. Kept in the
+                        // response shape for API stability; was already dead before this
+                        // (the previous `as unknown as Record<string, unknown>` cast hid
+                        // that `agent?.currentTask` never matched a real field).
+                        currentTask: null,
                         tasksCompleted: agent?.taskCount || 0,
                     };
                 }),
