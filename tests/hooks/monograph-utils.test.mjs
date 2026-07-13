@@ -14,10 +14,13 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
-// Optional: @monoes/monograph for DB-fixture tests
+// Optional: @monoes/monograph for DB-fixture tests. It's a pure-ESM package
+// ("type":"module", no "require" export condition), so plain require()
+// always throws "No exports main defined" regardless of whether the package
+// is actually installed — must use dynamic import() instead. Top-level await
+// is fine here since this is an .mjs test file evaluated by Vitest.
 let _mgLib = null;
-try { _mgLib = require('/opt/homebrew/lib/node_modules/@monoes/monograph'); } catch (_) {}
-try { if (!_mgLib) _mgLib = require('@monoes/monograph'); } catch (_) {}
+try { _mgLib = await import('@monoes/monograph'); } catch (_) {}
 const DB_SKIP = !_mgLib;
 
 const TELE_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/telemetry.cjs');
@@ -209,6 +212,9 @@ describe('monograph.injectGodNodesContext', () => {
 
 // Find the monograph package root so we can symlink it into tmpDir/node_modules
 // This lets _requireMonograph() inside monograph.cjs resolve the module when CWD=tmpDir.
+// require.resolve() can't be used here (same exports-map restriction that
+// motivated switching _mgLib itself to dynamic import above) — import.meta.resolve
+// is the ESM-native equivalent and isn't subject to the same "require" condition gate.
 const MONOGRAPH_PKG_DIR = (() => {
   const candidates = [
     '/opt/homebrew/lib/node_modules/@monoes/monograph',
@@ -218,7 +224,7 @@ const MONOGRAPH_PKG_DIR = (() => {
     if (fs.existsSync(path.join(c, 'package.json'))) return c;
   }
   try {
-    let d = path.dirname(require.resolve('@monoes/monograph'));
+    let d = path.dirname(fileURLToPath(import.meta.resolve('@monoes/monograph')));
     while (d !== path.dirname(d)) {
       if (fs.existsSync(path.join(d, 'package.json'))) return d;
       d = path.dirname(d);
