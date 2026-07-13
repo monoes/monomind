@@ -2010,6 +2010,16 @@ const monographDeadCodeTool: MCPTool = {
     let db: ReturnType<typeof openDb> | null = null;
     try {
       db = openDb(dbPath);
+      // _isValidDb's size check can't distinguish a real index from an
+      // empty-but-schema-migrated DB (better-sqlite3 auto-creates + migrates
+      // on open, and other unguarded openDb() call sites in this file can
+      // create exactly that as a side effect of an unrelated tool call before
+      // monograph_build ever runs). Verify actual content post-open so this
+      // reports "never built" instead of a misleading "0 dead functions found".
+      const { count } = db.prepare('SELECT COUNT(*) as count FROM nodes').get() as { count: number };
+      if (count === 0) {
+        return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));
+      }
     } catch {
       return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));
     }
