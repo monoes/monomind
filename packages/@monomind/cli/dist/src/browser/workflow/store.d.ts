@@ -1,7 +1,7 @@
 import type { WorkflowDef, RunRecord } from './types.js';
 export declare class WorkflowStoreError extends Error {
-    readonly cause?: unknown | undefined;
-    constructor(message: string, cause?: unknown | undefined);
+    readonly cause?: unknown;
+    constructor(message: string, cause?: unknown);
 }
 export declare function readWorkflow(filePath: string): Promise<WorkflowDef>;
 export declare function writeRunRecord(record: RunRecord): Promise<void>;

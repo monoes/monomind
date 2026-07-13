@@ -127,6 +127,12 @@ export declare class EWCConsolidator {
     private globalFisher;
     private consolidationHistory;
     private initialized;
+    /** Dirty flag: true when in-memory state diverges from disk */
+    private dirty;
+    /** Pending debounced write timer */
+    private saveTimer;
+    /** Debounce window for disk writes (ms) */
+    private static readonly SAVE_DEBOUNCE_MS;
     constructor(config?: Partial<EWCConfig>);
     /**
      * Initialize the consolidator by loading persisted state
@@ -237,6 +243,12 @@ export declare class EWCConsolidator {
      * Prune old, low-importance patterns to stay within limit
      */
     private pruneOldPatterns;
+    /**
+     * Schedule a debounced disk flush.
+     * Multiple calls within SAVE_DEBOUNCE_MS coalesce into one write,
+     * preventing blocking I/O on every consolidation or gradient event.
+     */
+    private scheduleSave;
     /**
      * Save state to disk
      */

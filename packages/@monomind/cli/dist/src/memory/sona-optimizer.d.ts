@@ -94,6 +94,12 @@ export declare class SONAOptimizer {
     private failedRoutings;
     private lastUpdate;
     private persistencePath;
+    /** Set when in-memory state diverges from disk — triggers next debounced write */
+    private dirty;
+    /** NodeJS timeout handle for debounced disk flush */
+    private saveTimer;
+    /** Debounce window for disk writes (ms) — batches rapid trajectory bursts */
+    private static readonly SAVE_DEBOUNCE_MS;
     constructor(options?: {
         persistencePath?: string;
     });
@@ -182,6 +188,12 @@ export declare class SONAOptimizer {
      * Load patterns from disk
      */
     private loadFromDisk;
+    /**
+     * Schedule a debounced disk flush.
+     * Multiple calls within SAVE_DEBOUNCE_MS coalesce into a single write,
+     * preventing blocking I/O on every trajectory event during swarm bursts.
+     */
+    private scheduleSave;
     /**
      * Save patterns to disk
      */

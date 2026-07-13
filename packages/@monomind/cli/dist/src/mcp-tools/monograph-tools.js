@@ -744,7 +744,10 @@ async function computeCommitsBehind(repoPath) {
     const dbPath = getDbPath(repoPath);
     if (!_isValidDb(dbPath))
         return null;
-    const db = openDb(dbPath, { fileMustExist: true });
+    // openDb's fileMustExist option isn't in the currently-published
+    // @monoes/monograph release this CLI depends on — _isValidDb above is the
+    // real guard against openDb silently creating an empty DB at a missing path.
+    const db = openDb(dbPath);
     try {
         const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get() ?? db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get();
         const lastCommit = meta?.value ?? null;
@@ -1761,9 +1764,15 @@ const monographInstallSkillsTool = {
         }
         // Load community data from graph
         const dbPath = getDbPath(repoPath);
+        // openDb's fileMustExist option isn't in the currently-published
+        // @monoes/monograph release this CLI depends on — check validity
+        // ourselves so a missing DB doesn't get silently auto-created empty.
+        if (!_isValidDb(dbPath)) {
+            return text('Graph not built yet. Run monograph_build first.');
+        }
         let db;
         try {
-            db = openDb(dbPath, { fileMustExist: true });
+            db = openDb(dbPath);
         }
         catch {
             return text('Graph not built yet. Run monograph_build first.');
@@ -1974,9 +1983,15 @@ const monographDeadCodeTool = {
         const cats = input.categories ?? ['dead-functions', 'orphan-files', 'stale-dist'];
         const result = {};
         const dbPath = getDbPath(repoPath);
+        // openDb's fileMustExist option isn't in the currently-published
+        // @monoes/monograph release this CLI depends on — check validity
+        // ourselves so a missing DB doesn't get silently auto-created empty.
+        if (!_isValidDb(dbPath)) {
+            return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));
+        }
         let db = null;
         try {
-            db = openDb(dbPath, { fileMustExist: true });
+            db = openDb(dbPath);
         }
         catch {
             return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));

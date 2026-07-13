@@ -6,7 +6,8 @@
     "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "noEmitOnError": false
+    "noEmitOnError": false,
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "src/swarm/flow-visualizer.ts"],

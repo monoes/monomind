@@ -19,7 +19,7 @@ export declare const monographQueryTool: {
     name: string;
     description: string;
     inputSchema: {
-        type: "object";
+        type: 'object';
         properties: {
             query: {
                 type: string;

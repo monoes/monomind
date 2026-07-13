@@ -20,10 +20,10 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": false,
+    "types": ["node"],
     "paths": {
       "@monobrain/*": ["./packages/*"]
-    },
-    "baseUrl": "."
+    }
   },
   "include": [
     "packages/**/*.ts"

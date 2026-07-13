@@ -184,7 +184,7 @@ export interface MultiSelectPromptOptions<T = string> {
 export declare class CLIError extends Error {
     code: string;
     exitCode: number;
-    details?: unknown | undefined;
-    constructor(message: string, code: string, exitCode?: number, details?: unknown | undefined);
+    details?: unknown;
+    constructor(message: string, code: string, exitCode?: number, details?: unknown);
 }
 //# sourceMappingURL=types.d.ts.map

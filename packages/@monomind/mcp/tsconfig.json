@@ -14,7 +14,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "types": ["node", "cors", "express", "ws"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "__tests__"]
