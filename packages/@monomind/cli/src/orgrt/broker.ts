@@ -2,7 +2,7 @@
 // monolean: file-based local broker for cross-process org discovery (different
 // `monomind org` processes / project directories, same machine). Upgrade path:
 // a real network registry when cross-machine discovery is needed.
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, unlinkSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -20,11 +20,16 @@ function entryPath(name: string, dir: string): string {
   return join(dir, `${name}.json`);
 }
 
-/** Publish that this process hosts org `name`, reachable via `url`. Call again periodically (heartbeat) — see BrokerLease. */
+/** Publish that this process hosts org `name`, reachable via `url`. Call again periodically (heartbeat) — see BrokerLease.
+ *  Writes via tmp+rename (same-directory rename is atomic on POSIX/NTFS) so a concurrent lookupOrg() never observes a
+ *  partially-written entry — this file is rewritten every heartbeat (default 20s) while other processes may read it. */
 export function registerOrg(name: string, url: string, dir = defaultRegistryDir()): void {
   mkdirSync(dir, { recursive: true });
   const entry: BrokerEntry = { url, pid: process.pid, updatedAt: Date.now() };
-  writeFileSync(entryPath(name, dir), JSON.stringify(entry));
+  const dest = entryPath(name, dir);
+  const tmp = `${dest}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(entry));
+  renameSync(tmp, dest);
 }
 
 /** Remove this process's registration for `name` (best effort). */

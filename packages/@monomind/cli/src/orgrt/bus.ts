@@ -42,7 +42,11 @@ export class OrgBus {
     return e;
   }
 
-  /** await all queued disk writes (tests, shutdown) */
+  /** Await all queued disk writes (tests, shutdown). Listeners registered via subscribe() run
+   *  synchronously inside emit() — flush() has no visibility into any async work they schedule
+   *  off of that (e.g. the forwarder's HTTP POSTs). A caller that needs an async subscriber's
+   *  work to have settled too must await that subscriber's own completion signal separately
+   *  (see daemon.ts stopOrg(), which awaits forwarder.settle() alongside bus.flush()). */
   flush(): Promise<void> { return this.pending; }
 
   static readHistory(dir: string): BusEvent[] {
