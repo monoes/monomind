@@ -110,11 +110,19 @@ export function translate(e: BusEvent): Record<string, unknown> {
         ...base, type: 'org:comms', from: e.from, to: e.to,
         msg: e.subject ? `[${e.subject}] ${e.msg ?? ''}` : e.msg,
       };
-    case 'asset':
+    case 'asset': {
+      // content (when PolicyEngine captured a Write snapshot) rides along so the
+      // dashboard can diff this exact version later instead of only ever seeing
+      // whatever is currently on disk at `path`.
+      const content = (e.data as { content?: string } | undefined)?.content;
       return {
         ...base, type: 'org:artifact', from: e.from,
-        artifact: { label: basename(e.path ?? 'asset'), type: 'file', path: e.path, mimeType: guessMimeType(e.path) },
+        artifact: {
+          label: basename(e.path ?? 'asset'), type: 'file', path: e.path, mimeType: guessMimeType(e.path),
+          ...(content !== undefined ? { content } : {}),
+        },
       };
+    }
     case 'status': {
       const msg = e.msg ?? '';
       if (msg.startsWith('org started'))
