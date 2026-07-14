@@ -1345,9 +1345,8 @@ Session N: empty round (zero findings AND zero actions)
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;margin-bottom:4px;"><strong>Routing tab:</strong> Routing data is collected automatically whenever Claude Code routes a task to an agent. No setup required. Use <code>/hooks:overview</code> to understand the routing hook.</p>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>ADRs tab:</strong> ADRs are created via the slash command or discovered automatically from existing ADR files:</p>
     <div class="code-block reveal"><span class="cmd">/mastermind:adr</span>    <span class="comment"># draft an ADR from accumulated decision markers in the codebase</span></div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Swarm tab:</strong> Swarm history is created when you run agent organizations:</p>
-    <div class="code-block reveal"><span class="cmd">/mastermind:createorg</span>    <span class="comment"># create an org with roles and topology</span>
-<span class="cmd">/mastermind:runorg</span>       <span class="comment"># start the org — agents run and swarm data is recorded</span></div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Swarm tab:</strong> reflects in-session <code>swarm</code> coordination state (bookkeeping written by Task-tool-driven work, not org-runtime-v2 activity). For a running <code>monomind org run</code> org, watch its own live dashboard instead:</p>
+    <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># live view at http://localhost:4243</span></div>
     <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Chunks tab:</strong> Chunks are built by indexing your project's documentation and skill files:</p>
     <div class="code-block reveal"><span class="comment"># From the dashboard: click "⊕ Build Docs" in the Chunks tab</span>
 
@@ -1448,7 +1447,7 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>Orgs</td><td>List of all orgs — click to switch the dashboard's active org context</td></tr>
           <tr><td>Skills</td><td>Searchable catalog of all 35+ slash-command skills. Click any skill to copy the <code>/skill-name</code> command to clipboard</td></tr>
           <tr><td>Loops</td><td>Running loops with live countdown timers and Stop buttons — mirrors the Loops view in a compact panel. Create loops with <code>/mastermind:autodev --tillend</code> or the +New Loop button in the Loops view.</td></tr>
-          <tr><td>Create Org</td><td>Form that generates and copies the equivalent <code>/mastermind:createorg</code> CLI command when submitted</td></tr>
+          <tr><td>Create Org</td><td>Form that generates and copies the equivalent <code>/mastermind:createorg</code> CLI command (legacy path — see the <a href="#orgs">Organizations</a> page for the current <code>monomind org run</code> flow)</td></tr>
           <tr><td>Metrics</td><td>Summary cards for current cost, API calls, routing confidence distribution, and active swarm topology</td></tr>
           <tr><td>Graph</td><td>Node and edge counts for the Monograph index, list of top god nodes, and an Open Monograph button</td></tr>
         </tbody>
@@ -1829,144 +1828,96 @@ Session N: empty round (zero findings AND zero actions)
 <!-- How it works -->
 <div class="orgs-section alt">
   <div class="osec-label">Full lifecycle</div>
-  <h2 class="osec-title">From goal to running organization</h2>
-  <p class="osec-sub">createorg designs and persists the structure. runorg loads it and starts the boss agent. Stop, delete, copy, or import/export orgs from the CLI or the dashboard — full lifecycle management in every environment.</p>
+  <h2 class="osec-title">From org.json to running organization</h2>
+  <p class="osec-sub">Author the org once as JSON — goal, roles, who reports to whom, per-role policy. `org run` loads it and starts a real Claude Agent SDK session per role. Stop, list, or delete orgs from the CLI at any time.</p>
   <div class="how-row">
     <div class="how-cell">
       <div class="hc-num">01</div>
-      <div class="hc-cmd">/mastermind:createorg</div>
-      <div class="hc-title">Design the org</div>
-      <p class="hc-desc">Describe a goal. Monomind derives roles, maps agent types, builds the communication topology, and saves a config to <code style="font-family:var(--ff-m);font-size:10px;color:var(--accent)">.monomind/orgs/</code>.</p>
+      <div class="hc-cmd">.monomind/orgs/&lt;name&gt;.json</div>
+      <div class="hc-title">Define the org</div>
+      <p class="hc-desc">Hand-author (or copy <code style="font-family:var(--ff-m);font-size:10px;color:var(--accent)">sample-team.json</code> from a fresh <code style="font-family:var(--ff-m);font-size:10px;color:var(--accent)">monomind init</code>) — goal, roles, <code style="font-family:var(--ff-m);font-size:10px;color:var(--accent)">reports_to</code>, and a per-role <code style="font-family:var(--ff-m);font-size:10px;color:var(--accent)">policy</code> block gating tools/files/web/budget.</p>
     </div>
     <div class="how-cell">
       <div class="hc-num">02</div>
-      <div class="hc-cmd">Org config saved</div>
-      <div class="hc-title">Roles and topology</div>
-      <p class="hc-desc">JSON definition with role IDs, agent type slugs, communication edges (command, report, feedback, handoff), governance policy, and a monotask board.</p>
+      <div class="hc-cmd">monomind org run &lt;name&gt;</div>
+      <div class="hc-title">Start the daemon</div>
+      <p class="hc-desc">OrgDaemon loads the definition, starts a real Agent SDK session per role, and serves a live WebSocket dashboard. Every tool call is checked against that role's PolicyEngine gates.</p>
     </div>
     <div class="how-cell">
       <div class="hc-num">03</div>
-      <div class="hc-cmd">/mastermind:runorg</div>
-      <div class="hc-title">Start the daemon</div>
-      <p class="hc-desc">Spawns the boss agent in the background. Boss coordinates all roles, claims tasks from the board, checkpoints every 30 minutes, and loops until stopped.</p>
+      <div class="hc-cmd">http://localhost:4243</div>
+      <div class="hc-title">Watch it run</div>
+      <p class="hc-desc">Live feed of agent chat, inter-agent messages, tool calls with allow/deny decisions, and files written — streamed over WebSocket, no polling.</p>
     </div>
   </div>
 </div>
 
-<!-- createorg -->
+<!-- org.json -->
 <div class="orgs-section">
-  <div class="osec-label">/mastermind:createorg</div>
-  <h2 class="osec-title">Design your organization</h2>
-  <p class="osec-sub">One prompt. Monomind infers roles, maps each to a specialized agent type, derives the optimal communication topology, and saves a persistent JSON config ready to run.</p>
+  <div class="osec-label">.monomind/orgs/&lt;name&gt;.json</div>
+  <h2 class="osec-title">Define your organization</h2>
+  <p class="osec-sub">A plain JSON file: goal, roles, hierarchy via <code style="font-family:var(--ff-m);font-size:12px">reports_to</code>, and a policy block per role. No wizard step — you author it directly, or start from the shipped sample.</p>
   <div class="co-split">
     <div class="oterm">
       <div class="oterm-hd">
         <span class="od od-r"></span><span class="od od-y"></span><span class="od od-g"></span>
-        <span class="oterm-ttl">mastermind:createorg</span>
+        <span class="oterm-ttl">.monomind/orgs/content-team.json</span>
       </div>
       <div class="oterm-bd">
-        <span class="tl"><span class="t-p">/ </span><span class="t-c">mastermind:createorg</span> <span class="t-a">content-team</span></span>
-        <span class="tl t-m">&nbsp;&nbsp;"Build and publish 3 blog posts per week"</span>
+        <span class="tl">{</span>
+        <span class="tl ti">&nbsp;&nbsp;<span class="t-k">"name"</span>: <span class="t-v">"content-team"</span>,</span>
+        <span class="tl ti">&nbsp;&nbsp;<span class="t-k">"goal"</span>: <span class="t-v">"Build and publish 3 blog posts per week"</span>,</span>
+        <span class="tl ti">&nbsp;&nbsp;<span class="t-k">"roles"</span>: [</span>
+        <span class="tl ti">&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-k">"id"</span>: <span class="t-v">"boss"</span>, <span class="t-k">"type"</span>: <span class="t-v">"boss"</span>, <span class="t-k">"reports_to"</span>: <span class="t-v">null</span> },</span>
+        <span class="tl ti">&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-k">"id"</span>: <span class="t-v">"writer"</span>, <span class="t-k">"reports_to"</span>: <span class="t-v">"boss"</span>,</span>
+        <span class="tl ti">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-k">"policy"</span>: { <span class="t-k">"denyTools"</span>: [<span class="t-v">"bash"</span>] } },</span>
+        <span class="tl ti">&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-k">"id"</span>: <span class="t-v">"seo"</span>, <span class="t-k">"reports_to"</span>: <span class="t-v">"boss"</span> }</span>
+        <span class="tl ti">&nbsp;&nbsp;]</span>
+        <span class="tl">}</span>
         <span class="tl">&nbsp;</span>
-        <span class="tl t-o">Deriving roles from goal...</span>
-        <span class="tl">&nbsp;</span>
-        <span class="tl"><span style="color:var(--accent)">╔</span> ORG: content-team</span>
-        <span class="tl"><span style="color:var(--accent)">║</span> TOPOLOGY: star (5 roles)</span>
-        <span class="tl">&nbsp;</span>
-        <span class="tl ti"><span class="t-k">boss</span> <span class="t-o">→</span> <span class="t-v">coordinator</span></span>
-        <span class="tl ti"><span class="t-k">writer</span> <span class="t-o">→</span> <span class="t-v">Content Creator</span></span>
-        <span class="tl ti"><span class="t-k">reviewer</span> <span class="t-o">→</span> <span class="t-v">reviewer</span></span>
-        <span class="tl ti"><span class="t-k">marketer</span> <span class="t-o">→</span> <span class="t-v">Growth Hacker</span></span>
-        <span class="tl ti"><span class="t-k">seo</span> <span class="t-o">→</span> <span class="t-v">SEO Specialist</span></span>
-        <span class="tl">&nbsp;</span>
-        <span class="tl t-o">Type "go" to save, or describe changes.</span>
-        <span class="tl"><span class="t-p">→ </span><span class="t-c">go</span></span>
-        <span class="tl">&nbsp;</span>
-        <span class="tl"><span class="t-s">✓</span> Saved .monomind/orgs/content-team.json</span>
-        <span class="tl t-o">&nbsp;&nbsp;→ Run: /mastermind:runorg --org content-team</span>
+        <span class="tl t-m"># then:</span>
+        <span class="tl"><span class="t-p">$ </span><span class="t-c">monomind org run</span> <span class="t-a">content-team</span></span>
         <span class="tl">&nbsp;</span><span class="tcur"></span>
       </div>
     </div>
     <div class="ofeat-list">
-      <div class="ofeat"><div class="ofi ofi-a">🎯</div><div><div class="ofl">Goal-derived roles</div><div class="ofd">Describe what the org should achieve. Monomind infers which roles are needed and maps each to the right specialist agent type from 60+ available.</div></div></div>
-      <div class="ofeat"><div class="ofi ofi-b">🔀</div><div><div class="ofl">Auto topology</div><div class="ofd">1-3 roles get mesh (direct), 4-6 get star, 7+ get hierarchical with middle managers. Communication edges are derived automatically.</div></div></div>
-      <div class="ofeat"><div class="ofi ofi-c">💾</div><div><div class="ofl">Persistent config</div><div class="ofd">The org definition is saved to JSON with board IDs, column IDs, governance policy, token budget, and memory namespace. Ready to run any time.</div></div></div>
-      <div class="ofeat"><div class="ofi ofi-a">🛡️</div><div><div class="ofl">Governance modes</div><div class="ofd"><code style="font-family:var(--ff-m);font-size:10px">auto</code>: agents act freely. <code style="font-family:var(--ff-m);font-size:10px">board</code>: sensitive actions require approval. <code style="font-family:var(--ff-m);font-size:10px">strict</code>: every external action gates on human review.</div></div></div>
+      <div class="ofeat"><div class="ofi ofi-a">🌳</div><div><div class="ofl">Hierarchy via reports_to</div><div class="ofd">No separate topology field — the boss role has <code style="font-family:var(--ff-m);font-size:10px">reports_to: null</code>, everyone else points at who they report to. Flat or deep, your call.</div></div></div>
+      <div class="ofeat"><div class="ofi ofi-b">🛡️</div><div><div class="ofl">Per-role policy, enforced</div><div class="ofd">Each role's <code style="font-family:var(--ff-m);font-size:10px">policy</code> block gates tool access, file read/write scope, web access, and token budget — checked on every tool call, with a full audit trail.</div></div></div>
+      <div class="ofeat"><div class="ofi ofi-c">🤖</div><div><div class="ofl">Real SDK sessions</div><div class="ofd">Each role is a real Claude Agent SDK session — not a simulated Task-tool subagent inside your current conversation. It runs independently, in the background.</div></div></div>
+      <div class="ofeat"><div class="ofi ofi-a">🔌</div><div><div class="ofl">Cross-process discovery</div><div class="ofd"><code style="font-family:var(--ff-m);font-size:10px">--cross-process</code> (default on) lets orgs running in different <code style="font-family:var(--ff-m);font-size:10px">monomind</code> processes — even different projects — discover and message each other.</div></div></div>
     </div>
   </div>
 </div>
 
-<!-- runorg -->
+<!-- live dashboard -->
 <div class="orgs-section alt">
-  <div class="osec-label">/mastermind:runorg</div>
-  <h2 class="osec-title">Start the autonomous loop</h2>
-  <p class="osec-sub">The boss agent spawns in the background. It coordinates all roles, assigns tasks from a shared board, collects results into memory, and loops on a checkpoint interval. It runs until you stop it.</p>
+  <div class="osec-label">Live dashboard — :4243</div>
+  <h2 class="osec-title">Watch the org run, live</h2>
+  <p class="osec-sub">A real WebSocket feed, not a polling API: agent status, chat and inter-agent messages, and every tool call's policy decision, streamed as they happen.</p>
   <div class="run-split">
     <div>
-      <div style="font-family:var(--ff-d);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;">Active agents</div>
+      <div style="font-family:var(--ff-d);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;">Agents</div>
       <div class="oagent-list">
-        <div class="oagent running"><div class="oas"></div><div class="oai"><div class="oat">CEO / Boss</div><div class="oay">coordinator · reports_to: none</div></div><span class="oatag trun">running</span></div>
-        <div class="oagent running"><div class="oas"></div><div class="oai"><div class="oat">Content Writer</div><div class="oay">Content Creator · reports_to: boss</div></div><span class="oatag trun">running</span></div>
-        <div class="oagent spawning"><div class="oas"></div><div class="oai"><div class="oat">SEO Specialist</div><div class="oay">SEO Specialist · reports_to: boss</div></div><span class="oatag tspawn">spawning</span></div>
-        <div class="oagent" style="opacity:.5"><div class="oas"></div><div class="oai"><div class="oat">Content Reviewer</div><div class="oay">reviewer · reports_to: boss</div></div><span class="oatag tidle">waiting</span></div>
-        <div class="oagent" style="opacity:.5"><div class="oas"></div><div class="oai"><div class="oat">Growth Marketer</div><div class="oay">Growth Hacker · reports_to: boss</div></div><span class="oatag tidle">waiting</span></div>
+        <div class="oagent running"><div class="oas"></div><div class="oai"><div class="oat">boss</div><div class="oay">reports_to: none · 4.2k tok</div></div><span class="oatag trun">🟢 running</span></div>
+        <div class="oagent running"><div class="oas"></div><div class="oai"><div class="oat">writer</div><div class="oay">reports_to: boss · 2.8k tok</div></div><span class="oatag trun">🟢 running</span></div>
+        <div class="oagent" style="opacity:.5"><div class="oas"></div><div class="oai"><div class="oat">seo</div><div class="oay">reports_to: boss · closed</div></div><span class="oatag tidle">⚫ closed</span></div>
       </div>
       <div style="margin-top:14px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;">
         <div style="font-size:10px;color:var(--muted);font-family:var(--ff-m);margin-bottom:5px;">Stop running org:</div>
-        <code style="font-family:var(--ff-m);font-size:11px;color:var(--text2)">curl -X POST http://localhost:4242/api/orgs/content-team/stop</code>
+        <code style="font-family:var(--ff-m);font-size:11px;color:var(--text2)">monomind org stop content-team</code>
       </div>
     </div>
     <div>
-      <div style="font-family:var(--ff-d);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;">Task board</div>
-      <div class="oboard">
-        <div class="obhd"><div class="obcol-hd">Todo</div><div class="obcol-hd">Doing</div><div class="obcol-hd">Done</div></div>
-        <div class="obody">
-          <div class="obcol">
-            <div class="otask"><div class="otask-t">Write: HNSW vs brute-force</div><div class="otask-r">role: writer</div></div>
-            <div class="otask"><div class="otask-t">Keyword research: MCP tooling</div><div class="otask-r">role: seo</div></div>
-          </div>
-          <div class="obcol">
-            <div class="otask doing"><div class="otask-t">Draft: Claude Code vs Cursor</div><div class="otask-r">role: writer · claimed</div></div>
-            <div class="otask" style="border-color:oklch(72% 0.18 65 / 0.4)"><div class="otask-t">SEO audit: recent posts</div><div class="otask-r">role: seo · spawning</div></div>
-          </div>
-          <div class="obcol">
-            <div class="otask done"><div class="otask-t">Monomind v1 walkthrough</div><div class="otask-r">role: writer</div></div>
-            <div class="otask done"><div class="otask-t">Edit and approve: intro post</div><div class="otask-r">role: reviewer</div></div>
-            <div class="otask done"><div class="otask-t">Social distribution, week 1</div><div class="otask-r">role: marketer</div></div>
-          </div>
+      <div style="font-family:var(--ff-d);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;">Chats &amp; Tool Activity</div>
+      <div class="oterm" style="height:auto">
+        <div class="oterm-bd" style="min-height:0;padding:12px 14px">
+          <span class="tl"><span class="t-k">boss</span>/<span class="t-v">boss</span>: assigning "Draft: Claude Code vs Cursor" to writer</span>
+          <span class="tl"><span class="t-k">writer</span> <span class="t-v">write_file</span> <span style="color:var(--accent)">allow</span></span>
+          <span class="tl"><span class="t-k">writer</span> 📄 <b>drafts/claude-vs-cursor.md</b></span>
+          <span class="tl"><span class="t-k">seo</span> <span class="t-v">bash</span> <span style="color:#f85149">deny</span> — denyTools: bash</span>
+          <span class="tl">⇄ <span class="t-k">content-team/boss</span> → <span class="t-v">growth-org/lead</span> [handoff] draft ready for review</span>
         </div>
       </div>
-      <div style="margin-top:10px;display:flex;gap:12px;font-size:11px;color:var(--muted)">
-        <span><span style="color:var(--accent)">●</span> checkpoint every 30 min</span>
-        <span><span style="color:var(--violet)">●</span> memory: org:content-team</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Topology -->
-<div class="orgs-section">
-  <div class="osec-label">Communication topology</div>
-  <h2 class="osec-title">Three structures, auto-selected</h2>
-  <p class="osec-sub">createorg picks the topology from team size. Every topology uses the same edge types: command, report, feedback, handoff.</p>
-  <div class="topo-row">
-    <div class="tcard">
-      <div class="tcname">topology: mesh</div>
-      <div class="tctitle">Mesh</div>
-      <div class="tcdesc">All agents communicate directly. Best for small, tight collaborations where everyone coordinates with everyone else.</div>
-      <div class="tcwhen">Best for 1–3 roles. Quick iteration, no bottleneck coordinator.</div>
-    </div>
-    <div class="tcard">
-      <div class="tcname">topology: star</div>
-      <div class="tctitle">Star</div>
-      <div class="tcdesc">Boss at center. All roles report directly. Optimal for 4–6 agents, with central coordination and no middle management overhead.</div>
-      <div class="tcwhen">Best for 4–6 roles. Direct reporting, fast feedback loops.</div>
-    </div>
-    <div class="tcard">
-      <div class="tcname">topology: hierarchical</div>
-      <div class="tctitle">Hierarchical</div>
-      <div class="tcdesc">Boss at top, middle manager(s) in between, executors at leaf level. Scales to large orgs with many concurrent roles.</div>
-      <div class="tcwhen">Best for 7+ roles. Scales coordination without overloading the boss.</div>
     </div>
   </div>
 </div>
@@ -1975,7 +1926,7 @@ Session N: empty round (zero findings AND zero actions)
 <div class="orgs-section alt">
   <div class="osec-label">Use cases</div>
   <h2 class="osec-title">Sample teams you can launch. The sky is the limit.</h2>
-  <p class="osec-sub">Every org is just a JSON definition and two commands. Here are five starting points. Copy the createorg prompt and run.</p>
+  <p class="osec-sub">Every org is just a JSON definition and one command. Here are five starting points — copy the shape, edit the goal and roles, run.</p>
   <div class="cases-row" id="ocases-row">
     <div class="ocase active" data-ocase="0" style="--oc-color:var(--accent);--oc-glow:oklch(72% 0.22 168 / 0.06)"><div class="oci">✍️</div><div class="oct">Content Marketing</div><div class="ocs">Weekly blog posts, SEO-optimized, reviewed and distributed autonomously</div></div>
     <div class="ocase" data-ocase="1" style="--oc-color:var(--amber);--oc-glow:oklch(72% 0.18 65 / 0.06)"><div class="oci">⚙️</div><div class="oct">Software Dev</div><div class="ocs">Architect, coders, tester building features end-to-end</div></div>
@@ -2419,7 +2370,7 @@ function renderOCase(idx) {
   if (!rolesEl) return;
   rolesEl.innerHTML = c.roles.map(r => `<div class="ocd-role"><div class="ocdr-d" style="background:${c.color}"></div><div><div class="ocdr-n">${r.t}</div><div class="ocdr-t">${r.y}</div></div></div>`).join('');
   termTtl.textContent = c.org;
-  termBd.innerHTML = `<span class="tl"><span class="t-p">/ </span><span class="t-c">mastermind:createorg</span> <span class="t-a">${c.org}</span></span><span class="tl t-m">&nbsp;&nbsp;"${c.goal}"</span><span class="tl">&nbsp;</span><span class="tl"><span class="t-s">✓</span> Saved .monomind/orgs/${c.org}.json</span><span class="tl">&nbsp;</span><span class="tl"><span class="t-p">/ </span><span class="t-c">mastermind:runorg</span> <span class="t-a">--org ${c.org}</span></span><span class="tl">&nbsp;</span><span class="tl"><span class="t-s">✓</span> Boss agent spawned in background</span><span class="tl t-o">&nbsp;&nbsp;Board: ${c.org}/org-tasks</span><span class="tl t-o">&nbsp;&nbsp;Memory: org:${c.org}</span><span class="tl">&nbsp;</span><span class="tcur"></span>`;
+  termBd.innerHTML = `<span class="tl"><span class="t-p">$ </span><span class="t-c">monomind org run</span> <span class="t-a">${c.org}</span> <span class="t-m">--task "${c.goal}"</span></span><span class="tl">&nbsp;</span><span class="tl"><span class="t-s">✓</span> Loaded .monomind/orgs/${c.org}.json</span><span class="tl"><span class="t-s">✓</span> Live dashboard: http://localhost:4243</span><span class="tl">&nbsp;</span><span class="tl ti"><span class="t-k">boss</span> <span class="t-o">session started</span></span>${c.roles.slice(1).map(r => `<span class="tl ti"><span class="t-k">${r.y}</span> <span class="t-o">session started</span></span>`).join('')}<span class="tl">&nbsp;</span><span class="tl t-o">&nbsp;&nbsp;memory: org:${c.org}</span><span class="tl">&nbsp;</span><span class="tcur"></span>`;
 }
 
 document.querySelectorAll('[data-ocase]').forEach(card => {

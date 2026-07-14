@@ -649,28 +649,28 @@ body {
 
 <!-- ═══════════════════════ HOW IT WORKS ═══════════════════════ -->
 <section id="how" class="section">
-  <div class="section-label reveal">Two commands. One autonomous team.</div>
-  <h2 class="section-title reveal">From goal to running organization</h2>
-  <p class="section-sub reveal">createorg designs and persists the org structure. runorg loads it and starts the boss agent, which coordinates all roles autonomously from a shared task board.</p>
+  <div class="section-label reveal">One JSON file. One command.</div>
+  <h2 class="section-title reveal">From org.json to running organization</h2>
+  <p class="section-sub reveal">Author the org once — goal, roles, who reports to whom, per-role policy. `org run` loads it and starts a real Claude Agent SDK session per role.</p>
 
   <div class="how-steps">
     <div class="how-step reveal">
       <div class="step-num">01</div>
-      <div class="step-cmd">/mastermind:createorg</div>
-      <div class="step-title">Design the org</div>
-      <p class="step-desc">Describe a goal. Monomind derives roles, maps agent types, builds the communication topology, and saves a config to <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">.monomind/orgs/</code>.</p>
+      <div class="step-cmd">.monomind/orgs/&lt;name&gt;.json</div>
+      <div class="step-title">Define the org</div>
+      <p class="step-desc">Hand-author (or copy <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">sample-team.json</code> from a fresh <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">monomind init</code>) — goal, roles, <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">reports_to</code>, and a per-role policy block gating tools/files/web/budget.</p>
     </div>
     <div class="how-step reveal">
       <div class="step-num">02</div>
-      <div class="step-cmd">Org config saved</div>
-      <div class="step-title">Roles + topology</div>
-      <p class="step-desc">JSON definition with role IDs, agent type slugs, communication edges (command, report, feedback, handoff), governance policy, and a monotask board.</p>
+      <div class="step-cmd">monomind org run &lt;name&gt;</div>
+      <div class="step-title">Start the daemon</div>
+      <p class="step-desc">OrgDaemon loads the definition and starts a real Agent SDK session per role. Every tool call is checked against that role's PolicyEngine gates.</p>
     </div>
     <div class="how-step reveal">
       <div class="step-num">03</div>
-      <div class="step-cmd">/mastermind:runorg</div>
-      <div class="step-title">Start the daemon</div>
-      <p class="step-desc">Spawns the boss agent in the background. Boss coordinates all roles, claims and dispatches tasks from the board, checkpoints every 30 minutes, and loops until stopped.</p>
+      <div class="step-cmd">http://localhost:4243</div>
+      <div class="step-title">Watch it run</div>
+      <p class="step-desc">Live WebSocket feed of agent chat, inter-agent messages, tool calls with allow/deny decisions, and files written.</p>
     </div>
   </div>
 </section>
@@ -679,9 +679,9 @@ body {
 
 <!-- ═══════════════════════ CREATEORG ═══════════════════════ -->
 <section class="section">
-  <div class="section-label reveal">/mastermind:createorg</div>
-  <h2 class="section-title reveal">Design your organization</h2>
-  <p class="section-sub reveal">One prompt. Monomind infers roles, maps each to a specialized agent type, derives the optimal communication topology for the team size, and saves a persistent JSON config ready to run.</p>
+  <div class="section-label reveal">.monomind/orgs/&lt;name&gt;.json</div>
+  <h2 class="section-title reveal">Define your organization</h2>
+  <p class="section-sub reveal">A plain JSON file: goal, roles, hierarchy via <code style="font-family:var(--ff-m);font-size:12px">reports_to</code>, and a policy block per role. No wizard step — author it directly, or start from the shipped sample.</p>
 
   <div id="createorg-section" style="margin-top:56px;">
     <div class="terminal-block reveal">
@@ -689,31 +689,22 @@ body {
         <span class="term-dot term-dot-r"></span>
         <span class="term-dot term-dot-y"></span>
         <span class="term-dot term-dot-g"></span>
-        <span class="terminal-title">mastermind:createorg — content-team</span>
+        <span class="terminal-title">.monomind/orgs/content-team.json</span>
       </div>
       <div class="terminal-body">
-        <span class="t-line"><span class="t-prompt">/ </span><span class="t-cmd">mastermind:createorg</span> <span class="t-arg">content-team</span></span>
-        <span class="t-line t-comment">  "Build and publish 3 blog posts per week on AI dev tools"</span>
+        <span class="t-line">{</span>
+        <span class="t-line t-indent"><span class="t-key">"name"</span>: <span class="t-val">"content-team"</span>,</span>
+        <span class="t-line t-indent"><span class="t-key">"goal"</span>: <span class="t-val">"Build and publish 3 blog posts per week"</span>,</span>
+        <span class="t-line t-indent"><span class="t-key">"roles"</span>: [</span>
+        <span class="t-line t-indent">&nbsp;&nbsp;{ <span class="t-key">"id"</span>: <span class="t-val">"boss"</span>, <span class="t-key">"type"</span>: <span class="t-val">"boss"</span>, <span class="t-key">"reports_to"</span>: <span class="t-val">null</span> },</span>
+        <span class="t-line t-indent">&nbsp;&nbsp;{ <span class="t-key">"id"</span>: <span class="t-val">"writer"</span>, <span class="t-key">"reports_to"</span>: <span class="t-val">"boss"</span>,</span>
+        <span class="t-line t-indent">&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"policy"</span>: { <span class="t-key">"denyTools"</span>: [<span class="t-val">"bash"</span>] } },</span>
+        <span class="t-line t-indent">&nbsp;&nbsp;{ <span class="t-key">"id"</span>: <span class="t-val">"seo"</span>, <span class="t-key">"reports_to"</span>: <span class="t-val">"boss"</span> }</span>
+        <span class="t-line t-indent">]</span>
+        <span class="t-line">}</span>
         <span class="t-line">&nbsp;</span>
-        <span class="t-line t-out">Deriving roles from goal...</span>
-        <span class="t-line">&nbsp;</span>
-        <span class="t-line"><span style="color:var(--accent)">╔</span> ORG: content-team</span>
-        <span class="t-line"><span style="color:var(--accent)">║</span> GOAL: 3 blog posts/week on AI dev tools</span>
-        <span class="t-line"><span style="color:var(--accent)">╚</span> TOPOLOGY: star (5 roles)</span>
-        <span class="t-line">&nbsp;</span>
-        <span class="t-line"><span class="t-out">ROLES</span></span>
-        <span class="t-line t-indent"><span class="t-key">boss</span> <span class="t-out">→</span> <span class="t-val">coordinator</span> <span class="t-comment"># strategic oversight</span></span>
-        <span class="t-line t-indent"><span class="t-key">writer</span> <span class="t-out">→</span> <span class="t-val">Content Creator</span> <span class="t-comment"># drafts posts</span></span>
-        <span class="t-line t-indent"><span class="t-key">reviewer</span> <span class="t-out">→</span> <span class="t-val">reviewer</span> <span class="t-comment"># edits + approves</span></span>
-        <span class="t-line t-indent"><span class="t-key">marketer</span> <span class="t-out">→</span> <span class="t-val">Growth Hacker</span> <span class="t-comment"># distribution</span></span>
-        <span class="t-line t-indent"><span class="t-key">seo</span> <span class="t-out">→</span> <span class="t-val">SEO Specialist</span> <span class="t-comment"># keyword + meta</span></span>
-        <span class="t-line">&nbsp;</span>
-        <span class="t-line t-out">Type "go" to save, or describe changes.</span>
-        <span class="t-line">&nbsp;</span>
-        <span class="t-line"><span class="t-prompt">→ </span><span class="t-cmd">go</span></span>
-        <span class="t-line">&nbsp;</span>
-        <span class="t-line"><span class="t-success">✓</span> Saved to .monomind/orgs/content-team.json</span>
-        <span class="t-line t-out">  → Run: /mastermind:runorg --org content-team</span>
+        <span class="t-line t-comment"># then:</span>
+        <span class="t-line"><span class="t-prompt">$ </span><span class="t-cmd">monomind org run</span> <span class="t-arg">content-team</span></span>
         <span class="t-line">&nbsp;</span>
         <span class="t-cursor"></span>
       </div>
@@ -727,8 +718,8 @@ body {
           </svg>
         </div>
         <div>
-          <div class="feature-label">Goal-derived roles</div>
-          <div class="feature-desc">Describe what the org should achieve. Monomind infers which roles are needed and maps each to the right specialist agent type from 60+ available.</div>
+          <div class="feature-label">Hierarchy via reports_to</div>
+          <div class="feature-desc">No separate topology field — the boss role has <code style="font-family:var(--ff-m);font-size:11px">reports_to: null</code>, everyone else points at who they report to. Flat or deep, your call.</div>
         </div>
       </div>
       <div class="feature-item">
@@ -738,8 +729,8 @@ body {
           </svg>
         </div>
         <div>
-          <div class="feature-label">Auto topology</div>
-          <div class="feature-desc">1–3 roles get mesh (direct), 4–6 get star, 7+ get hierarchical with middle managers. Communication edges (command, report, handoff) are derived automatically.</div>
+          <div class="feature-label">Per-role policy, enforced</div>
+          <div class="feature-desc">Each role's <code style="font-family:var(--ff-m);font-size:11px">policy</code> block gates tool access, file read/write scope, web access, and token budget — checked on every tool call, with a full audit trail.</div>
         </div>
       </div>
       <div class="feature-item">
@@ -750,8 +741,8 @@ body {
           </svg>
         </div>
         <div>
-          <div class="feature-label">Persistent config</div>
-          <div class="feature-desc">The org definition is saved to JSON with board IDs, column IDs, governance policy, token budget, and memory namespace. Ready to run any time.</div>
+          <div class="feature-label">Real SDK sessions</div>
+          <div class="feature-desc">Each role is a real Claude Agent SDK session — not a simulated Task-tool subagent inside your current conversation. It runs independently, in the background.</div>
         </div>
       </div>
       <div class="feature-item">
@@ -761,8 +752,8 @@ body {
           </svg>
         </div>
         <div>
-          <div class="feature-label">Governance modes</div>
-          <div class="feature-desc"><code style="font-family:var(--ff-m);font-size:11px">auto</code>: agents act freely. <code style="font-family:var(--ff-m);font-size:11px">board</code>: sensitive actions require approval. <code style="font-family:var(--ff-m);font-size:11px">strict</code>: every external action gates on human review.</div>
+          <div class="feature-label">Cross-process discovery</div>
+          <div class="feature-desc"><code style="font-family:var(--ff-m);font-size:11px">--cross-process</code> (default on) lets orgs running in different <code style="font-family:var(--ff-m);font-size:11px">monomind</code> processes — even different projects — discover and message each other.</div>
         </div>
       </div>
     </div>
@@ -773,53 +764,37 @@ body {
 
 <!-- ═══════════════════════ RUNORG ═══════════════════════ -->
 <section id="runorg-section" class="section">
-  <div class="section-label reveal">/mastermind:runorg</div>
-  <h2 class="section-title reveal">Start the autonomous loop</h2>
-  <p class="section-sub reveal">The boss agent spawns in the background. It coordinates all roles, assigns tasks from a shared board, collects results into memory, and loops on a checkpoint interval. It runs until you stop it.</p>
+  <div class="section-label reveal">Live dashboard — :4243</div>
+  <h2 class="section-title reveal">Watch the org run, live</h2>
+  <p class="section-sub reveal">A real WebSocket feed, not a polling API: agent status, chat and inter-agent messages, and every tool call's policy decision, streamed as they happen.</p>
 
   <div class="runorg-inner">
     <div class="reveal">
-      <h3 style="font-family:var(--ff-d);font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:20px;">Active agents</h3>
+      <h3 style="font-family:var(--ff-d);font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:20px;">Agents</h3>
       <div class="agent-list" id="agent-list-demo">
         <div class="agent-card running">
           <div class="agent-status-dot"></div>
           <div class="agent-info">
-            <div class="agent-title">CEO / Boss</div>
-            <div class="agent-type">coordinator · reports_to: none</div>
+            <div class="agent-title">boss</div>
+            <div class="agent-type">reports_to: none · 4.2k tok</div>
           </div>
-          <span class="agent-tag tag-running">running</span>
+          <span class="agent-tag tag-running">🟢 running</span>
         </div>
         <div class="agent-card running">
           <div class="agent-status-dot"></div>
           <div class="agent-info">
-            <div class="agent-title">Content Writer</div>
-            <div class="agent-type">Content Creator · reports_to: boss</div>
+            <div class="agent-title">writer</div>
+            <div class="agent-type">reports_to: boss · 2.8k tok</div>
           </div>
-          <span class="agent-tag tag-running">running</span>
-        </div>
-        <div class="agent-card spawning">
-          <div class="agent-status-dot"></div>
-          <div class="agent-info">
-            <div class="agent-title">SEO Specialist</div>
-            <div class="agent-type">SEO Specialist · reports_to: boss</div>
-          </div>
-          <span class="agent-tag tag-spawning">spawning</span>
+          <span class="agent-tag tag-running">🟢 running</span>
         </div>
         <div class="agent-card" style="opacity:0.55">
           <div class="agent-status-dot"></div>
           <div class="agent-info">
-            <div class="agent-title">Content Reviewer</div>
-            <div class="agent-type">reviewer · reports_to: boss</div>
+            <div class="agent-title">seo</div>
+            <div class="agent-type">reports_to: boss · closed</div>
           </div>
-          <span class="agent-tag tag-idle">waiting</span>
-        </div>
-        <div class="agent-card" style="opacity:0.55">
-          <div class="agent-status-dot"></div>
-          <div class="agent-info">
-            <div class="agent-title">Growth Marketer</div>
-            <div class="agent-type">Growth Hacker · reports_to: boss</div>
-          </div>
-          <span class="agent-tag tag-idle">waiting</span>
+          <span class="agent-tag tag-idle">⚫ closed</span>
         </div>
       </div>
 
@@ -830,54 +805,19 @@ body {
     </div>
 
     <div class="reveal">
-      <h3 style="font-family:var(--ff-d);font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:20px;">Task board — content-team/org-tasks</h3>
-      <div class="task-board">
-        <div class="board-header">
-          <div class="board-col-header">Todo</div>
-          <div class="board-col-header">Doing</div>
-          <div class="board-col-header">Done</div>
-        </div>
-        <div class="board-body">
-          <div class="board-col">
-            <div class="task-card">
-              <div class="task-card-title">Write post: "HNSW vs brute-force"</div>
-              <div class="task-card-role">role: writer</div>
-            </div>
-            <div class="task-card">
-              <div class="task-card-title">Keyword research: MCP tooling</div>
-              <div class="task-card-role">role: seo</div>
-            </div>
-          </div>
-          <div class="board-col">
-            <div class="task-card doing">
-              <div class="task-card-title">Draft: "Claude Code vs Cursor"</div>
-              <div class="task-card-role">role: writer · claimed</div>
-            </div>
-            <div class="task-card doing" style="border-color:oklch(72% 0.18 65 / 0.4)">
-              <div class="task-card-title">SEO audit: recent posts</div>
-              <div class="task-card-role">role: seo · spawning</div>
-            </div>
-          </div>
-          <div class="board-col">
-            <div class="task-card done">
-              <div class="task-card-title">Post: "Monomind v1 walkthrough"</div>
-              <div class="task-card-role">role: writer</div>
-            </div>
-            <div class="task-card done">
-              <div class="task-card-title">Edit and approve: intro post</div>
-              <div class="task-card-role">role: reviewer</div>
-            </div>
-            <div class="task-card done">
-              <div class="task-card-title">Social distribution, week 1</div>
-              <div class="task-card-role">role: marketer</div>
-            </div>
-          </div>
+      <h3 style="font-family:var(--ff-d);font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:20px;">Chats &amp; Tool Activity</h3>
+      <div class="terminal-block">
+        <div class="terminal-body" style="min-height:0;">
+          <span class="t-line"><span class="t-key">boss</span>/<span class="t-val">boss</span>: assigning "Draft: Claude Code vs Cursor" to writer</span>
+          <span class="t-line"><span class="t-key">writer</span> <span class="t-val">write_file</span> <span style="color:var(--accent)">allow</span></span>
+          <span class="t-line"><span class="t-key">writer</span> 📄 <b>drafts/claude-vs-cursor.md</b></span>
+          <span class="t-line"><span class="t-key">seo</span> <span class="t-val">bash</span> <span style="color:#f85149">deny</span> — denyTools: bash</span>
+          <span class="t-line">⇄ <span class="t-key">content-team/boss</span> → <span class="t-val">growth-org/lead</span> [handoff] draft ready for review</span>
         </div>
       </div>
-
       <div style="margin-top:12px;display:flex;gap:10px;font-size:12px;color:var(--muted)">
-        <span><span style="color:var(--accent)">●</span> checkpoint every 30 min</span>
         <span><span style="color:var(--violet)">●</span> memory: org:content-team</span>
+        <span><span style="color:var(--accent)">●</span> cross-process: on</span>
       </div>
     </div>
   </div>
@@ -885,13 +825,13 @@ body {
 
 <!-- ═══════════════════════ TOPOLOGY ═══════════════════════ -->
 <section id="topology">
-  <div class="section-label reveal">Communication topology</div>
-  <h2 class="section-title reveal">Three structures, auto-selected</h2>
-  <p class="section-sub reveal">createorg picks the topology from team size. You can override it. Every topology uses the same edge types: command, report, feedback, handoff.</p>
+  <div class="section-label reveal">Communication patterns</div>
+  <h2 class="section-title reveal">Any shape, via reports_to</h2>
+  <p class="section-sub reveal">There's no separate topology field — hierarchy is just each role's <code style="font-family:var(--ff-m);font-size:12px">reports_to</code> value. Here's what a few common shapes look like.</p>
 
   <div class="topo-grid">
     <div class="topo-card reveal">
-      <div class="topo-name">topology: mesh</div>
+      <div class="topo-name">pattern: mesh</div>
       <div class="topo-title">Mesh</div>
       <div class="topo-desc">All agents communicate directly. Best for small, tight collaborations where everyone coordinates with everyone else.</div>
       <svg class="topo-svg" viewBox="0 0 240 180" aria-hidden="true">
@@ -913,7 +853,7 @@ body {
     </div>
 
     <div class="topo-card reveal">
-      <div class="topo-name">topology: star</div>
+      <div class="topo-name">pattern: star</div>
       <div class="topo-title">Star</div>
       <div class="topo-desc">Boss at center. All roles report directly. Optimal for 4–6 agents, with central coordination and no middle management overhead.</div>
       <svg class="topo-svg" viewBox="0 0 240 180" aria-hidden="true">
@@ -935,7 +875,7 @@ body {
     </div>
 
     <div class="topo-card reveal">
-      <div class="topo-name">topology: hierarchical</div>
+      <div class="topo-name">pattern: hierarchical</div>
       <div class="topo-title">Hierarchical</div>
       <div class="topo-desc">Boss at top, middle manager(s) in between, executors at leaf level. Scales to large orgs with many concurrent roles and clear chains of command.</div>
       <svg class="topo-svg" viewBox="0 0 240 180" aria-hidden="true">
@@ -965,7 +905,7 @@ body {
 <section id="usecases">
   <div class="section-label reveal">Use cases</div>
   <h2 class="section-title reveal">Sample teams you can launch. The sky is the limit.</h2>
-  <p class="section-sub reveal">Every org is just a JSON definition and two commands. Here are five starting points. Copy the createorg prompt and run.</p>
+  <p class="section-sub reveal">Every org is just a JSON definition and one command. Here are five starting points — copy the shape, edit the goal and roles, run.</p>
 
   <div class="cases-grid">
     <div class="case-card active" data-case="0" style="--case-color:oklch(72% 0.22 168);--case-glow:oklch(72% 0.22 168 / 0.06)">
@@ -1049,7 +989,7 @@ body {
 
 <!-- ═══════════════════════ FOOTER ═══════════════════════ -->
 <footer class="page-footer">
-  <div class="footer-left">Monomind · Organizations · /mastermind:createorg &amp; /mastermind:runorg</div>
+  <div class="footer-left">Monomind · Organizations · monomind org run</div>
   <div class="footer-links">
     <a href="commands/mastermind-reference.html#createorg">Command reference</a>
     <a href="getting-started.html">Getting started</a>
@@ -1146,18 +1086,17 @@ function renderCase(idx) {
   `).join('');
 
   termTitle.textContent = c.orgName;
+  const roleLines = c.roles.slice(1).map(r => `<span class="t-line t-indent"><span class="t-key">${r.type}</span> <span class="t-out">session started</span></span>`).join('\n    ');
   termBody.innerHTML = `
-    <span class="t-line"><span class="t-prompt">/ </span><span class="t-cmd">mastermind:createorg</span> <span class="t-arg">${c.orgName}</span></span>
-    <span class="t-line t-comment">&nbsp;&nbsp;"${c.goal}"</span>
+    <span class="t-line"><span class="t-prompt">$ </span><span class="t-cmd">monomind org run</span> <span class="t-arg">${c.orgName}</span> <span class="t-comment">--task "${c.goal}"</span></span>
     <span class="t-line">&nbsp;</span>
-    <span class="t-line t-success">✓ Saved .monomind/orgs/${c.orgName}.json</span>
+    <span class="t-line t-success">✓ Loaded .monomind/orgs/${c.orgName}.json</span>
+    <span class="t-line t-success">✓ Live dashboard: http://localhost:4243</span>
     <span class="t-line">&nbsp;</span>
-    <span class="t-line"><span class="t-prompt">/ </span><span class="t-cmd">mastermind:runorg</span> <span class="t-arg">--org ${c.orgName}</span></span>
+    <span class="t-line t-indent"><span class="t-key">boss</span> <span class="t-out">session started</span></span>
+    ${roleLines}
     <span class="t-line">&nbsp;</span>
-    <span class="t-line t-success">✓ Boss agent spawned in background</span>
-    <span class="t-line t-out">&nbsp;&nbsp;Board: ${c.orgName}/org-tasks</span>
-    <span class="t-line t-out">&nbsp;&nbsp;Memory: org:${c.orgName}</span>
-    <span class="t-line t-out">&nbsp;&nbsp;Checkpoint: every 30 min</span>
+    <span class="t-line t-out">&nbsp;&nbsp;memory: org:${c.orgName}</span>
     <span class="t-line">&nbsp;</span>
     <span class="t-cursor"></span>
   `;
