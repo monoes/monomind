@@ -41,34 +41,46 @@ module.exports = {
       if (fs.existsSync(lastRoutePath) && (function() { try { return fs.statSync(lastRoutePath).size <= MAX_ROUTE; } catch(_) { return false; } }())) {
         var lastRoute = JSON.parse(fs.readFileSync(lastRoutePath, 'utf-8'));
 
-        // Derive sessionSuccess from git commits (strongest signal: user committed = success)
+        // Derive sessionSuccess. A commit alone is not proof of success — a
+        // session can commit a partial fix and then hit repeated failures —
+        // so recent intelligence-outcomes are checked FIRST and can veto a
+        // commit-based "true" when they show a majority of failures.
         try {
           var execSync = require('child_process').execSync;
-          var recentCommits = execSync('git log --oneline --since="30 minutes ago" 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8' }).trim();
-          if (recentCommits.length > 0) {
-            sessionSuccess = true;
-          } else {
-            // No commits — check if files were modified (work in progress, not failure)
-            var gitStatus = execSync('git diff --name-only 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8' }).trim();
-            // Modified files = probably still working; no changes at all = exploration or failure
-            if (gitStatus.length === 0) {
-              // Fall back to intelligence-outcomes as a weak signal
-              var outcomesPath = path.join(CWD, '.monomind', 'data', 'intelligence-outcomes.jsonl');
-              var MAX_OUTCOMES = 512 * 1024;
-              if (fs.existsSync(outcomesPath) && (function() { try { return fs.statSync(outcomesPath).size <= MAX_OUTCOMES; } catch(_) { return false; } }())) {
-                var windowMs = 30 * 60 * 1000;
-                var cutoff = Date.now() - windowMs;
-                var outcomeLines = fs.readFileSync(outcomesPath, 'utf-8').trim().split('\n').filter(Boolean);
-                var recent = outcomeLines.map(function(l) {
-                  try { return JSON.parse(l); } catch { return null; }
-                }).filter(function(e) { return e && e.ts && e.ts >= cutoff; });
-                if (recent.length > 0) {
-                  var failures = recent.filter(function(e) { return e.success === false; }).length;
-                  sessionSuccess = failures / recent.length < 0.5;
-                }
-              }
+
+          var outcomesSignal = null; // majority success/failure from intelligence-outcomes, if any
+          var outcomesPath = path.join(CWD, '.monomind', 'data', 'intelligence-outcomes.jsonl');
+          var MAX_OUTCOMES = 512 * 1024;
+          if (fs.existsSync(outcomesPath) && (function() { try { return fs.statSync(outcomesPath).size <= MAX_OUTCOMES; } catch(_) { return false; } }())) {
+            var windowMs = 30 * 60 * 1000;
+            var cutoff = Date.now() - windowMs;
+            var outcomeLines = fs.readFileSync(outcomesPath, 'utf-8').trim().split('\n').filter(Boolean);
+            var recent = outcomeLines.map(function(l) {
+              try { return JSON.parse(l); } catch { return null; }
+            }).filter(function(e) { return e && e.ts && e.ts >= cutoff; });
+            if (recent.length > 0) {
+              var failures = recent.filter(function(e) { return e.success === false; }).length;
+              outcomesSignal = failures / recent.length < 0.5;
             }
-            // else: modified files exist — work in progress, not evidence either way (leave null)
+          }
+
+          if (outcomesSignal === false) {
+            // Recent tool/command outcomes were majority failures — this
+            // overrides a commit, since committing doesn't undo those failures.
+            sessionSuccess = false;
+          } else {
+            var recentCommits = execSync('git log --oneline --since="30 minutes ago" 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8' }).trim();
+            if (recentCommits.length > 0) {
+              sessionSuccess = true;
+            } else {
+              // No commits — check if files were modified (work in progress, not failure)
+              var gitStatus = execSync('git diff --name-only 2>/dev/null || true', { cwd: CWD, timeout: 3000, encoding: 'utf-8' }).trim();
+              // Modified files = probably still working; no changes at all = exploration or failure
+              if (gitStatus.length === 0 && outcomesSignal !== null) {
+                sessionSuccess = outcomesSignal;
+              }
+              // else: modified files exist, or no evidence either way (leave null)
+            }
           }
         } catch (e) { /* non-critical — leave null (no evidence) */ }
 
