@@ -484,6 +484,14 @@ export class Spinner {
     start() {
         if (this.interval)
             return;
+        // `\r`-based in-place redraw only works on a real TTY. Without one
+        // (piped output, CI logs, non-interactive terminals) each animation
+        // frame prints as its own line instead of overwriting the last —
+        // so print the text once and skip the animation entirely.
+        if (!process.stdout.isTTY) {
+            process.stdout.write(`${this.text}\n`);
+            return;
+        }
         this.interval = setInterval(() => {
             this.render();
             this.frameIndex = (this.frameIndex + 1) % this.frames.length;
@@ -495,9 +503,9 @@ export class Spinner {
         if (this.interval) {
             clearInterval(this.interval);
             this.interval = null;
+            // Clear the line (only meaningful when the animation actually ran on a TTY)
+            process.stdout.write('\r' + ' '.repeat(this.text.length + 10) + '\r');
         }
-        // Clear the line
-        process.stdout.write('\r' + ' '.repeat(this.text.length + 10) + '\r');
         if (message) {
             this.formatter.writeln(message);
         }

@@ -10,7 +10,7 @@
  * and valid it replaces the built-in tables.
  *
  * Gates enforced at runtime:
- *   pre-bash  → destructive-ops  (require-confirmation → block)
+ *   pre-bash  → destructive-ops  (hard block; no confirm-and-proceed path exists)
  *   pre-write → secrets          (block)
  */
 
@@ -234,7 +234,7 @@ function checkDestructive(command, patterns) {
       return {
         triggered: true,
         matched: match[0],
-        reason: `Destructive operation detected: "${match[0]}". Confirm this is intentional and document a rollback plan before proceeding.`,
+        reason: `Destructive operation blocked: "${match[0]}". This hook always blocks (Claude Code's PreToolUse protocol has no confirm-and-proceed path) — there is no way to run this exact command after confirming. If it's genuinely intended, use a non-destructive equivalent instead (e.g. move the target aside, or scope the operation more narrowly).`,
       };
     }
   }

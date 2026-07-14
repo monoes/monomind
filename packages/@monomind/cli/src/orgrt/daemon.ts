@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { OrgBus } from './bus.js';
 import { PolicyEngine } from './policy.js';
@@ -8,6 +8,7 @@ import { Mailbox } from './mailbox.js';
 import { runAgentSession } from './session.js';
 import { attachForwarder } from './forwarder.js';
 import { BrokerLease, lookupOrg } from './broker.js';
+import { queueMessage, drainInbox } from './inbox.js';
 import { OrgDefSchema, type OrgDef, type BusEvent, ORG_DIR } from './types.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
 
@@ -49,6 +50,7 @@ export interface DaemonOpts {
 
 export class OrgDaemon {
   private orgs = new Map<string, RunningOrg>();
+  private waking = new Set<string>();
   private globalSubscribers = new Set<(e: BusEvent) => void>();
   private leases = new Map<string, BrokerLease>();
   private forwarders = new Map<string, ReturnType<typeof attachForwarder>>();
@@ -139,6 +141,18 @@ export class OrgDaemon {
       lease.start();
       this.leases.set(name, lease);
     }
+
+    // Drain any messages that arrived while the org was offline
+    const queued = drainInbox(this.root, name);
+    for (const msg of queued) {
+      const agent = running.agents.get(msg.toRole);
+      if (agent && !agent.mailbox.isClosed) {
+        bus.emit({ type: 'xorg', from: msg.fromQualified, to: `${name}:${msg.toRole}`, subject: msg.subject, msg: msg.body });
+        agent.mailbox.push(`[message from ${msg.fromQualified}] subject: ${msg.subject}\n\n${msg.body}`);
+      }
+    }
+    if (queued.length) bus.emit({ type: 'status', msg: `drained ${queued.length} queued message(s) from inbox` });
+
     return running;
   }
 
@@ -164,6 +178,13 @@ export class OrgDaemon {
     const src = this.orgs.get(fromOrg);
     if (!targetOrg || !targetOrg.agents.has(targetRole)) {
       if (cross && this.opts.crossProcess) return this.deliverRemote(fromOrg, fromRole, targetOrgName, targetRole, toQualified, subject, body, src);
+      // Queue + auto-wake: if the org definition exists locally but isn't running, spool the message and start it
+      if (cross && this.hasOrgDef(targetOrgName)) {
+        queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
+        src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to: toQualified, subject, msg: body, data: { queued: true } });
+        this.autoWake(targetOrgName);
+        return `queued for ${toQualified} (org starting)`;
+      }
       src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'unknown recipient' });
       return `ERROR: unknown recipient "${toQualified}" (known: ${[...(targetOrg?.agents.keys() ?? this.orgs.keys())].join(', ')})`;
     }
@@ -190,6 +211,13 @@ export class OrgDaemon {
   ): Promise<string> {
     const remote = lookupOrg(targetOrgName, this.opts.brokerDir);
     if (!remote) {
+      // No remote host either — queue + auto-wake if the org def exists locally
+      if (this.hasOrgDef(targetOrgName)) {
+        queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
+        src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to, subject, msg: body, data: { queued: true } });
+        this.autoWake(targetOrgName);
+        return `queued for ${to} (org starting)`;
+      }
       src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `undeliverable: ${subject}`, reason: 'unknown recipient' });
       return `ERROR: unknown recipient "${to}" (no local org, and no process on this machine has org "${targetOrgName}" registered)`;
     }
@@ -221,13 +249,35 @@ export class OrgDaemon {
     toOrg: string, toRole: string, fromQualified: string, subject: string, body: string,
   ): { ok: true; receipt: string } | { ok: false; error: string } {
     const org = this.orgs.get(toOrg);
-    if (!org) return { ok: false, error: `org "${toOrg}" not hosted here` };
+    if (!org) {
+      // Org not running — queue the message and auto-wake if the def exists
+      if (this.hasOrgDef(toOrg)) {
+        queueMessage(this.root, toOrg, { fromQualified, toRole, subject, body, ts: Date.now() });
+        this.autoWake(toOrg);
+        return { ok: true, receipt: `queued for ${toOrg}:${toRole} (org waking)` };
+      }
+      return { ok: false, error: `org "${toOrg}" not hosted here` };
+    }
     const agent = org.agents.get(toRole);
     if (!agent) return { ok: false, error: `role "${toRole}" not found in org "${toOrg}"` };
     if (agent.mailbox.isClosed) return { ok: false, error: `role "${toRole}" in org "${toOrg}" is shutting down` };
     org.bus.emit({ type: 'xorg', from: fromQualified, to: `${toOrg}:${toRole}`, subject, msg: body });
     agent.mailbox.push(`[message from ${fromQualified}] subject: ${subject}\n\n${body}`);
     return { ok: true, receipt: `delivered to ${toOrg}:${toRole} (remote)` };
+  }
+
+  private hasOrgDef(name: string): boolean {
+    return existsSync(join(this.root, ORG_DIR, `${name}.json`));
+  }
+
+  /** Start an offline org in the background so queued messages get drained.
+   *  Fire-and-forget — errors are logged but don't propagate to the sender. */
+  private autoWake(name: string): void {
+    if (this.orgs.has(name) || this.waking.has(name)) return;
+    this.waking.add(name);
+    this.startOrg(name)
+      .catch(err => { console.error(`auto-wake org "${name}" failed:`, err instanceof Error ? err.message : err); })
+      .finally(() => { this.waking.delete(name); });
   }
 
   async stopOrg(name: string): Promise<void> {
