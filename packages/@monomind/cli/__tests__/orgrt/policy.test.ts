@@ -60,4 +60,37 @@ describe('PolicyEngine', () => {
     await p.decide('Bash', { command: 'ls' });
     expect(seen).toEqual(['Read:allow', 'Bash:deny']);
   });
+
+  it('captures the full content on an allowed Write as an asset snapshot (for diffing)', async () => {
+    const bus = mkBus();
+    const assets: any[] = [];
+    bus.subscribe(e => { if (e.type === 'asset') assets.push(e); });
+    const p = new PolicyEngine('coder', {}, bus, '/work');
+    await p.decide('Write', { file_path: '/work/report.md', content: '# v1\nhello' });
+    await p.decide('Write', { file_path: '/work/report.md', content: '# v1\nhello world' });
+    expect(assets).toHaveLength(2);
+    expect(assets[0].data?.content).toBe('# v1\nhello');
+    expect(assets[1].data?.content).toBe('# v1\nhello world');
+  });
+
+  it('does not snapshot Edit content (no full post-edit content is available at decide time)', async () => {
+    const bus = mkBus();
+    const assets: any[] = [];
+    bus.subscribe(e => { if (e.type === 'asset') assets.push(e); });
+    const p = new PolicyEngine('coder', {}, bus, '/work');
+    await p.decide('Edit', { file_path: '/work/report.md', old_string: 'a', new_string: 'b' });
+    expect(assets).toHaveLength(1);
+    expect(assets[0].data).toBeUndefined();
+  });
+
+  it('skips the content snapshot for writes over the size cap, still emits the asset event', async () => {
+    const bus = mkBus();
+    const assets: any[] = [];
+    bus.subscribe(e => { if (e.type === 'asset') assets.push(e); });
+    const p = new PolicyEngine('coder', {}, bus, '/work');
+    const huge = 'x'.repeat(200_001);
+    await p.decide('Write', { file_path: '/work/big.txt', content: huge });
+    expect(assets).toHaveLength(1);
+    expect(assets[0].data).toBeUndefined();
+  });
 });

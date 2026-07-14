@@ -412,6 +412,15 @@ html, body {
   border-radius: 4px; padding: 4px 10px; font-size: 10px; font-weight: 700; cursor: pointer;
 }
 .fc-view:hover { background: #204a70; }
+.fc-diff {
+  flex-shrink: 0; background: #2a1a3a; color: #b98dd9; border: 1px solid #8e44ad44;
+  border-radius: 4px; padding: 4px 10px; font-size: 10px; font-weight: 700; cursor: pointer;
+}
+.fc-diff:hover { background: #3a2050; }
+.fc-vbadge {
+  font-size: 8px; font-weight: 700; color: var(--dim); border: 1px solid var(--border);
+  border-radius: 2px; padding: 1px 5px; margin-left: 4px; letter-spacing: 0.5px;
+}
 .fc-binary { flex-shrink: 0; font-size: 9px; color: var(--dim); }
 
 /* ── Activity / event log ───────────────────────────────────────── */
@@ -1125,34 +1134,47 @@ window.switchTab = function(tab) {
   else if (orgDetailData) renderTab(tab);
 };
 
-// ── Files tab: every asset produced by this org, deduped by path, latest first ──
+// ── Files tab: every asset produced by this org, grouped by path with full
+// version history (not deduped) so successive writes to the same file can be
+// diffed against each other, latest-touched file first ──
+let filesGroups = [];
+
 function collectOrgArtifacts() {
   const bySessions = chatSessions.filter(orgSessionMatch);
-  const seen = new Map(); // path -> { art, ts, from }
+  const byPath = new Map(); // path -> [{ art, ts, from }]
   bySessions.forEach(s => (s.events || []).forEach(ev => {
     if (ev.type !== 'org:artifact') return;
     const art = ev.artifact || (ev.path ? { path: ev.path, label: ev.label, mimeType: ev.mimeType } : null);
     if (!art || !art.path) return;
-    const prev = seen.get(art.path);
-    if (!prev || (ev.ts || 0) >= prev.ts) seen.set(art.path, { art, ts: ev.ts || 0, from: ev.from || '' });
+    if (!byPath.has(art.path)) byPath.set(art.path, []);
+    byPath.get(art.path).push({ art, ts: ev.ts || 0, from: ev.from || '' });
   }));
-  return Array.from(seen.values()).sort((a, b) => b.ts - a.ts);
+  const groups = [];
+  byPath.forEach((versions, path) => {
+    versions.sort((a, b) => a.ts - b.ts);
+    groups.push({ path, versions, latest: versions[versions.length - 1] });
+  });
+  groups.sort((a, b) => b.latest.ts - a.latest.ts);
+  return groups;
 }
 
-function mkFileCard(entry) {
-  const { art, ts, from } = entry;
+function mkFileCard(group) {
+  const { art, ts, from } = group.latest;
   const el = document.createElement('div');
   el.className = 'file-card';
   const isText = (art.mimeType || '').startsWith('text/') || (art.mimeType || '') === 'application/json';
   const labelRaw = art.label || (art.path || 'file').split('/').pop();
   const timeStr = ts ? new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
   const meta = [from, art.path ? art.path.split('/').slice(-3).join('/') : null, timeStr].filter(Boolean).join(' · ');
+  const vBadge = group.versions.length > 1 ? `<span class="fc-vbadge">${group.versions.length}v</span>` : '';
+  const diffable = group.versions.filter(v => typeof v.art.content === 'string').length >= 2;
   el.innerHTML = `
     <div class="fc-icon">📄</div>
     <div class="fc-body">
-      <div class="fc-name">${esc(labelRaw)}</div>
+      <div class="fc-name">${esc(labelRaw)} ${vBadge}</div>
       <div class="fc-meta">${esc(meta)}</div>
     </div>
+    ${diffable ? `<button class="fc-diff" onclick="openDiffPanel(${JSON.stringify(art.path)})">Diff</button>` : ''}
     ${isText && art.path
       ? `<button class="fc-view" onclick="viewArtifact(${JSON.stringify(art.path)},${JSON.stringify(labelRaw)})">View</button>`
       : `<span class="fc-binary">Binary</span>`}
@@ -1164,16 +1186,105 @@ function paintFilesGrid() {
   const grid = document.getElementById('files-grid');
   const empty = document.getElementById('files-empty');
   if (!grid) return;
-  const files = collectOrgArtifacts();
+  filesGroups = collectOrgArtifacts();
   grid.innerHTML = '';
-  if (!files.length) { if (empty) empty.style.display = 'block'; return; }
+  if (!filesGroups.length) { if (empty) empty.style.display = 'block'; return; }
   if (empty) empty.style.display = 'none';
-  files.forEach(entry => grid.appendChild(mkFileCard(entry)));
+  filesGroups.forEach(group => grid.appendChild(mkFileCard(group)));
 }
 
 function renderFilesTab() {
   paintFilesGrid(); // paint immediately with whatever's cached
   loadChatSessions().then(() => { if (currentTab === 'files') paintFilesGrid(); });
+}
+
+// ── Diff view: compare two captured versions of the same file ──
+window.openDiffPanel = function(path) {
+  const group = filesGroups.find(g => g.path === path);
+  if (!group) return;
+  const versions = group.versions.filter(v => typeof v.art.content === 'string');
+  if (versions.length < 2) return;
+  const label = group.latest.art.label || path.split('/').pop();
+  renderDiffPanel(label, versions);
+};
+
+function renderDiffPanel(label, versions) {
+  let panel = document.getElementById('artifact-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'artifact-panel';
+    panel.style.cssText = 'position:fixed;top:0;right:0;width:640px;height:100vh;background:#0a0a14;border-left:1px solid #333;z-index:1000;display:flex;flex-direction:column;overflow:hidden';
+    document.body.appendChild(panel);
+  }
+  const optLabel = v => `${new Date(v.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · ${esc(v.from || '?')}`;
+  const opts = versions.map((v, i) => `<option value="${i}">${optLabel(v)}</option>`).join('');
+  panel.innerHTML = `
+    <div style="padding:12px 14px;border-bottom:1px solid #1a1a2a;display:flex;align-items:center;gap:10px">
+      <span style="font-size:13px;font-weight:700;color:#ccc;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)} — diff</span>
+      <button onclick="document.getElementById('artifact-panel').remove()" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:8px 14px;border-bottom:1px solid #1a1a2a;display:flex;gap:8px;align-items:center;font-size:10px;color:#888">
+      <select id="diff-from" style="background:#151520;color:#ccc;border:1px solid #333;border-radius:3px;padding:2px 6px;font-size:10px">${opts}</select>
+      <span>→</span>
+      <select id="diff-to" style="background:#151520;color:#ccc;border:1px solid #333;border-radius:3px;padding:2px 6px;font-size:10px">${opts}</select>
+    </div>
+    <div id="diff-body" style="flex:1;overflow:auto;font-size:11px;line-height:1.6;font-family:var(--mono,ui-monospace,monospace)"></div>
+  `;
+  panel.style.display = 'flex';
+  const fromSel = document.getElementById('diff-from');
+  const toSel = document.getElementById('diff-to');
+  fromSel.value = String(versions.length - 2);
+  toSel.value = String(versions.length - 1);
+  const recompute = () => renderDiffBody(versions[Number(fromSel.value)].art.content, versions[Number(toSel.value)].art.content);
+  fromSel.onchange = recompute;
+  toSel.onchange = recompute;
+  recompute();
+}
+
+function renderDiffBody(oldText, newText) {
+  const body = document.getElementById('diff-body');
+  if (!body) return;
+  if (oldText === newText) {
+    body.innerHTML = '<div style="padding:14px;color:#666">No differences between these two versions.</div>';
+    return;
+  }
+  const rows = diffLines(oldText, newText);
+  if (!rows) {
+    body.innerHTML = '<div style="padding:14px;color:#666">File too large to diff line-by-line.</div>';
+    return;
+  }
+  body.innerHTML = rows.map(r => {
+    const style = r.type === 'add' ? 'background:#0d2818;color:#7ee787'
+      : r.type === 'del' ? 'background:#2d0d10;color:#ffa198' : 'color:#8b949e';
+    const prefix = r.type === 'add' ? '+' : r.type === 'del' ? '-' : ' ';
+    return `<div style="${style};padding:1px 12px;white-space:pre-wrap;word-break:break-word">${esc(prefix + ' ' + r.text)}</div>`;
+  }).join('');
+}
+
+/** Line-level LCS diff. Returns null (caller shows a fallback message) rather
+ *  than hanging the tab if both files are unexpectedly huge — the O(n*m) DP
+ *  table would otherwise blow past what's reasonable to allocate client-side. */
+function diffLines(a, b) {
+  const A = a.split('\n'), B = b.split('\n');
+  const n = A.length, m = B.length;
+  if (n * m > 4000000) return null;
+  const dp = new Array(n + 1);
+  for (let i = 0; i <= n; i++) dp[i] = new Int32Array(m + 1);
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const out = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (A[i] === B[j]) { out.push({ type: 'ctx', text: A[i] }); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ type: 'del', text: A[i] }); i++; }
+    else { out.push({ type: 'add', text: B[j] }); j++; }
+  }
+  while (i < n) { out.push({ type: 'del', text: A[i] }); i++; }
+  while (j < m) { out.push({ type: 'add', text: B[j] }); j++; }
+  return out;
 }
 
 // ── Render all orgs in sidebar ────────────────────────────────────
