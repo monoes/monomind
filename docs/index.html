@@ -241,7 +241,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <img src="assets/logo.svg" alt="Monomind logo" width="32" height="32" style="border-radius:6px;flex-shrink:0">
     <div>
       <div class="logo-text">Monomind</div>
-      <div class="logo-ver">v2.0.0</div>
+      <div class="logo-ver">v2.1.0</div>
     </div>
   </div>
   <div class="nav-section">
@@ -403,7 +403,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">npx monomind hooks worker run &lt;name&gt;</td><td>Run a background worker on demand</td></tr>
         <tr><td class="mono">npx monomind memory store</td><td>Store a memory with optional namespace</td></tr>
         <tr><td class="mono">npx monomind memory search</td><td>Keyword/BM25 search over stored memories</td></tr>
-        <tr><td class="mono">npx monomind swarm init</td><td>Initialize a multi-agent swarm</td></tr>
+        <tr><td class="mono">npx monomind org run &lt;name&gt;</td><td>Start a persistent SDK-backed agent org</td></tr>
         <tr><td class="mono">npx monomind hooks list</td><td>Show all registered hooks</td></tr>
         <tr><td class="mono">/mastermind:autodev</td><td>Autonomous build loop inside Claude Code</td></tr>
       </tbody>
@@ -418,7 +418,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="page-header">
       <span class="page-tag">Architecture</span>
       <h1 class="page-title">How Monomind is built</h1>
-      <p class="page-desc">A TypeScript monorepo with 17+ packages, each owning a bounded context. Claude Code handles all execution; MCP tools coordinate.</p>
+      <p class="page-desc">A TypeScript monorepo with 9 packages, each owning a bounded context, plus an SDK-backed org runtime for persistent background agents. Claude Code's Task tool handles in-session execution; MCP tools coordinate; the org runtime drives its own real Agent SDK sessions.</p>
     </div>
     <div class="section-title reveal">System Diagram</div>
     <div class="arch-diagram reveal">
@@ -474,14 +474,15 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <table class="doc-table">
       <thead><tr><th>Package</th><th>Path</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 31 commands (includes swarm coordination and input validation)</td></tr>
-        <tr><td class="mono">@monomind/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>17 hooks + 15 background workers</td></tr>
+        <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 31 commands, including <code>org</code> (org runtime v2, see <code>src/orgrt/</code>) and <code>swarm</code> (in-session coordination bookkeeping)</td></tr>
+        <tr><td class="mono">@monomind/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>17 hook events + 15 background workers</td></tr>
         <tr><td class="mono">@monomind/memory</td><td class="mono">packages/@monomind/memory/</td><td>Memory backends — episodic store, optional LanceDB/HNSW</td></tr>
         <tr><td class="mono">@monomind/mcp</td><td class="mono">packages/@monomind/mcp/</td><td>MCP server framework</td></tr>
         <tr><td class="mono">@monomind/routing</td><td class="mono">packages/@monomind/routing/</td><td>Keyword routing, route-outcome measurement</td></tr>
         <tr><td class="mono">monofence-ai</td><td class="mono">packages/monofence-ai/</td><td>AI manipulation defense — prompt injection, jailbreak, evasion detection</td></tr>
         <tr><td class="mono">monograph</td><td class="mono">packages/@monomind/monograph/</td><td>Code knowledge graph — 19 default MCP tools, 27 advanced via <code>MONOGRAPH_MCP_ADVANCED=1</code> — published standalone as <code>@monoes/monograph</code></td></tr>
         <tr><td class="mono">@monoes/monobrowse</td><td class="mono">packages/@monoes/monobrowse/</td><td>Browser automation via CDP</td></tr>
+        <tr><td class="mono">@monoes/monodesign</td><td class="mono">packages/@monoes/monodesign/</td><td>Frontend design intelligence — tokens, antipattern detection</td></tr>
         <tr><td class="mono">monomind</td><td class="mono">/ (root)</td><td>Umbrella package published to npm</td></tr>
       </tbody>
     </table>
@@ -795,11 +796,16 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="agent status info"><div class="cmd-name">agent status &lt;id&gt;</div><div class="cmd-desc">Detailed agent info and metrics</div></div>
       <div class="cmd-item" data-search="agent stop kill terminate"><div class="cmd-name">agent stop &lt;id&gt;</div><div class="cmd-desc">Gracefully terminate an agent</div></div>
       <div class="cmd-item" data-search="agent metrics performance"><div class="cmd-name">agent metrics</div><div class="cmd-desc">Performance metrics by agent type</div></div>
-      <div class="cmd-item" data-search="swarm init topology start"><div class="cmd-name">swarm init</div><div class="cmd-desc">Initialize a multi-agent swarm</div></div>
-      <div class="cmd-item" data-search="swarm status health report"><div class="cmd-name">swarm status</div><div class="cmd-desc">Health report: agents, tasks, memory</div></div>
-      <div class="cmd-item" data-search="swarm spawn add agent"><div class="cmd-name">swarm spawn</div><div class="cmd-desc">Add an agent to a running swarm</div></div>
-      <div class="cmd-item" data-search="swarm monitor watch telemetry"><div class="cmd-name">swarm monitor</div><div class="cmd-desc">Live swarm telemetry stream</div></div>
-      <div class="cmd-item" data-search="swarm stop shutdown terminate"><div class="cmd-name">swarm stop</div><div class="cmd-desc">Gracefully shutdown all swarm agents</div></div>
+      <div class="cmd-item" data-search="org run daemon sdk agent runtime v2"><div class="cmd-name">org run &lt;name&gt;</div><div class="cmd-desc">Start an org as a real SDK-backed daemon — the primary multi-agent runtime</div></div>
+      <div class="cmd-item" data-search="org status runtime state"><div class="cmd-name">org status [name]</div><div class="cmd-desc">Runtime state for one or all orgs</div></div>
+      <div class="cmd-item" data-search="org stop graceful shutdown"><div class="cmd-name">org stop &lt;name&gt;</div><div class="cmd-desc">Request a graceful stop</div></div>
+      <div class="cmd-item" data-search="org list all status"><div class="cmd-name">org list</div><div class="cmd-desc">List every org + status</div></div>
+      <div class="cmd-item" data-search="org serve host scheduled"><div class="cmd-name">org serve</div><div class="cmd-desc">Host-only mode — runs orgs with a schedule field</div></div>
+      <div class="cmd-item" data-search="org delete remove"><div class="cmd-name">org delete &lt;name&gt;</div><div class="cmd-desc">Remove an org</div></div>
+      <div class="cmd-item" data-search="swarm init topology start bookkeeping in-session"><div class="cmd-name">swarm init</div><div class="cmd-desc">Write in-session swarm coordination state (bookkeeping only — real work happens via Claude Code's Task tool)</div></div>
+      <div class="cmd-item" data-search="swarm status health report"><div class="cmd-name">swarm status</div><div class="cmd-desc">Read back swarm state: registered agents, tasks, topology</div></div>
+      <div class="cmd-item" data-search="swarm scale add remove agent"><div class="cmd-name">swarm scale</div><div class="cmd-desc">Register/deregister agents in swarm state</div></div>
+      <div class="cmd-item" data-search="swarm stop shutdown terminate"><div class="cmd-name">swarm stop</div><div class="cmd-desc">Mark swarm state terminated</div></div>
       <div class="cmd-item" data-search="memory store save write"><div class="cmd-name">memory store</div><div class="cmd-desc">Store a memory entry with optional namespace</div></div>
       <div class="cmd-item" data-search="memory search query find bm25 keyword"><div class="cmd-name">memory search</div><div class="cmd-desc">Keyword/BM25 search over stored memories</div></div>
       <div class="cmd-item" data-search="memory list show namespace"><div class="cmd-name">memory list</div><div class="cmd-desc">List memories by namespace or tag</div></div>
@@ -896,11 +902,12 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="mastermind release version publish changelog deployment"><div class="cmd-name">/mastermind:release</div><div class="cmd-desc">Release management: versioning, changelog, deployment</div></div>
       <div class="cmd-item" data-search="mastermind adr architecture decision record draft document"><div class="cmd-name">/mastermind:adr</div><div class="cmd-desc">Draft Architecture Decision Record</div></div>
       <!-- mastermind: — autonomous orgs -->
-      <div class="cmd-item" data-search="mastermind createorg define save autonomous agent organization roles hierarchy"><div class="cmd-name">/mastermind:createorg</div><div class="cmd-desc">Define and save an autonomous agent organization</div></div>
-      <div class="cmd-item" data-search="mastermind runorg start persistent autonomous agent loop scheduled"><div class="cmd-name">/mastermind:runorg</div><div class="cmd-desc">Start a saved org as a persistent autonomous agent loop</div></div>
-      <div class="cmd-item" data-search="mastermind stoporg stop scheduled org loop status stopped"><div class="cmd-name">/mastermind:stoporg</div><div class="cmd-desc">Stop a running scheduled org loop</div></div>
-      <div class="cmd-item" data-search="mastermind orgs list saved status schedule interval"><div class="cmd-name">/mastermind:orgs</div><div class="cmd-desc">List all saved orgs with status and schedule</div></div>
-      <div class="cmd-item" data-search="mastermind orgstatus detailed status lifecycle single org"><div class="cmd-name">/mastermind:orgstatus</div><div class="cmd-desc">Detailed status for a single org</div></div>
+      <div class="cmd-item" data-search="org run daemon sdk agent runtime v2 primary"><div class="cmd-name">monomind org run &lt;name&gt;</div><div class="cmd-desc">Start an org as a real SDK-backed daemon (the current, recommended path)</div></div>
+      <div class="cmd-item" data-search="mastermind createorg define save autonomous agent organization roles hierarchy legacy"><div class="cmd-name">/mastermind:createorg</div><div class="cmd-desc">Legacy: define an org for the deprecated prompt-orchestrated runner below</div></div>
+      <div class="cmd-item" data-search="mastermind runorg start persistent autonomous agent loop scheduled deprecated"><div class="cmd-name">/mastermind:runorg</div><div class="cmd-desc">Deprecated (2026-07) — superseded by <code>monomind org run</code>; no delivery guarantees</div></div>
+      <div class="cmd-item" data-search="mastermind stoporg stop scheduled org loop status stopped legacy"><div class="cmd-name">/mastermind:stoporg</div><div class="cmd-desc">Legacy — use <code>monomind org stop</code> for v2 orgs</div></div>
+      <div class="cmd-item" data-search="mastermind orgs list saved status schedule interval legacy"><div class="cmd-name">/mastermind:orgs</div><div class="cmd-desc">Legacy — use <code>monomind org list</code> for v2 orgs</div></div>
+      <div class="cmd-item" data-search="mastermind orgstatus detailed status lifecycle single org legacy"><div class="cmd-name">/mastermind:orgstatus</div><div class="cmd-desc">Legacy — use <code>monomind org status</code> for v2 orgs</div></div>
       <div class="cmd-item" data-search="mastermind approve review pending approval agents running"><div class="cmd-name">/mastermind:approve</div><div class="cmd-desc">Review and action pending approval requests from running orgs</div></div>
       <!-- mastermind: — utilities -->
       <div class="cmd-item" data-search="mastermind okf export knowledge bundle second brain portable markdown"><div class="cmd-name">/mastermind:okf-export</div><div class="cmd-desc">Export Second Brain as OKF bundle</div></div>
@@ -959,7 +966,7 @@ monomind doc ingest ./their-knowledge -s shared
     <div class="page-header">
       <span class="page-tag">Reference</span>
       <h1 class="page-title">Mastermind</h1>
-      <p class="page-desc">18 autonomous operation commands with Brain Load/Write protocol, --tillend loop mechanics, and the autodev research-build-review cycle.</p>
+      <p class="page-desc">40+ autonomous operation commands with Brain Load/Write protocol, --tillend loop mechanics, and the autodev research-build-review cycle.</p>
     </div>
     <div class="section-title reveal">autodev — The Autonomous Build Loop</div>
     <div class="phase-flow reveal">
@@ -1032,11 +1039,14 @@ Session N: empty round (zero findings AND zero actions)
         <tr><td class="mono">/mastermind:do</td><td>Execute tasks from task file (docs/tasks/)</td></tr>
         <tr><td class="mono">/mastermind:createtask</td><td>Decompose prompt into tasks (saved to docs/tasks/ by default; add --monotask for board)</td></tr>
         <tr><td class="mono">/mastermind:master</td><td>Top-level orchestrator — routes any business prompt</td></tr>
-        <tr><td class="mono">/mastermind:createorg</td><td>Define and save an autonomous agent organization</td></tr>
-        <tr><td class="mono">/mastermind:runorg</td><td>Start a saved org as a persistent autonomous agent loop</td></tr>
-        <tr><td class="mono">/mastermind:stoporg</td><td>Stop a running scheduled org loop</td></tr>
-        <tr><td class="mono">/mastermind:orgs</td><td>List all saved orgs with status and schedule</td></tr>
-        <tr><td class="mono">/mastermind:orgstatus</td><td>Detailed status for a single org</td></tr>
+        <tr><td class="mono">monomind org run &lt;name&gt;</td><td>Start an org as a real SDK-backed daemon — the current, recommended path</td></tr>
+        <tr><td class="mono">monomind org status / list / stop</td><td>Runtime state, listing, and graceful stop for v2 orgs</td></tr>
+        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Legacy (deprecated 2026-07, no delivery guarantees) —</td></tr>
+        <tr><td class="mono">/mastermind:createorg</td><td>Define an org for the deprecated prompt-orchestrated runner below</td></tr>
+        <tr><td class="mono">/mastermind:runorg</td><td>Deprecated — superseded by <code>monomind org run</code></td></tr>
+        <tr><td class="mono">/mastermind:stoporg</td><td>Legacy — use <code>monomind org stop</code> for v2 orgs</td></tr>
+        <tr><td class="mono">/mastermind:orgs</td><td>Legacy — use <code>monomind org list</code> for v2 orgs</td></tr>
+        <tr><td class="mono">/mastermind:orgstatus</td><td>Legacy — use <code>monomind org status</code> for v2 orgs</td></tr>
         <tr><td class="mono">/mastermind:approve</td><td>Review and action pending approval requests from running orgs</td></tr>
         <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Utilities —</td></tr>
         <tr><td class="mono">/mastermind:brain</td><td>Inspect and manage mastermind brain context</td></tr>
@@ -1347,11 +1357,13 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- ORGS -->
     <div class="section-title reveal">Orgs</div>
-    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Create and manage agent organizations:</p>
-    <div class="code-block reveal"><span class="cmd">/mastermind:createorg</span>    <span class="comment"># define a new org: roles, hierarchy, goal, topology</span>
-<span class="cmd">/mastermind:runorg</span>       <span class="comment"># start a saved org</span>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Run agent organizations via the real org-runtime-v2 daemon (live dashboard on :4243, separate from this :4242 dashboard):</p>
+    <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># start an org — real Claude Agent SDK sessions per role</span>
+<span class="cmd">monomind org status / list / stop</span>    <span class="comment"># check, list, or stop</span>
 
-<span class="comment"># Or use the "⬡ Mastermind" button → Create Org tab for a form-based workflow</span></div>
+<span class="comment"># Legacy prompt-orchestrated path (deprecated 2026-07):</span>
+<span class="cmd">/mastermind:createorg</span>    <span class="comment"># define a new org for the legacy runner</span>
+<span class="cmd">/mastermind:runorg</span>       <span class="comment"># start a saved org via the deprecated flow</span></div>
     <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">Organizations are multi-agent structures with roles, goals, routines, and approval workflows. Each org card shows: a running dot (live indicator), name, goal description, topology/role chips, and an avatar stack of active agents.</p>
     <p class="reveal" style="margin-bottom:0.5rem">Each org has 29 tabs:</p>
     <div class="table-wrap reveal">
@@ -1798,19 +1810,20 @@ Session N: empty round (zero findings AND zero actions)
   <div class="orgs-hero-grid"></div>
   <div class="orgs-eyebrow">Autonomous Organizations</div>
   <h1 class="orgs-title">Assemble an AI team.<br>Let it <em>run itself.</em></h1>
-  <p class="orgs-sub">Design a multi-agent organization in one command. Define roles, hierarchy, and communication topology. Start it as a persistent daemon that coordinates agents, manages tasks, and delivers output while you focus elsewhere.</p>
+  <p class="orgs-sub">Define an org as a JSON file — roles, hierarchy, per-role policy — then start it as a real SDK-backed daemon. Live WebSocket dashboard, cross-process discovery, persistent memory, and policy-gated tool access, all real and running today.</p>
   <div class="orgs-hero-cmds">
-    <div class="orgs-cmd"><span class="oc-prompt">/</span><span class="oc-name">mastermind:createorg</span>&nbsp;<span class="oc-arg">content-team</span>&nbsp;<span class="oc-cmt"># design the org</span></div>
-    <div class="orgs-cmd"><span class="oc-prompt">/</span><span class="oc-name">mastermind:runorg</span>&nbsp;<span class="oc-arg">--org content-team</span>&nbsp;<span class="oc-cmt"># start it</span></div>
+    <div class="orgs-cmd"><span class="oc-prompt">$</span>&nbsp;<span class="oc-name">monomind org run</span>&nbsp;<span class="oc-arg">content-team --task "..."</span>&nbsp;<span class="oc-cmt"># start it</span></div>
+    <div class="orgs-cmd"><span class="oc-prompt">$</span>&nbsp;<span class="oc-name">monomind org status</span>&nbsp;<span class="oc-arg">content-team</span>&nbsp;<span class="oc-cmt"># check it</span></div>
   </div>
   <div class="orgs-badges">
-    <span class="obadge ob-a">Persistent daemon</span>
-    <span class="obadge ob-b">Shared task board</span>
+    <span class="obadge ob-a">Real SDK sessions</span>
+    <span class="obadge ob-b">Live dashboard :4243</span>
     <span class="obadge ob-c">Memory-backed</span>
-    <span class="obadge ob-a">Auto-topology</span>
-    <span class="obadge ob-b">Full lifecycle</span>
-    <span class="obadge ob-c">Import / Export</span>
+    <span class="obadge ob-a">Policy-gated</span>
+    <span class="obadge ob-b">Cross-process</span>
+    <span class="obadge ob-c">Full lifecycle</span>
   </div>
+  <p style="margin-top:20px;font-size:12px;color:var(--muted)">The walkthrough below (<code>/mastermind:createorg</code> + <code>/mastermind:runorg</code>) documents the older prompt-orchestrated path, deprecated 2026-07 in favor of <code>monomind org run</code> shown above. It still runs for orgs not yet migrated.</p>
 </div>
 
 <!-- How it works -->
@@ -2277,7 +2290,7 @@ function setupReveals(container) {
 
 // ── HERO COUNTERS (RAF-based, no GSAP dependency) ────────────────────
 function animateHero() {
-  const DATA = [['stat-agents',60,'+'  ],['stat-commands',53,'+'],['stat-hooks',17,''],['stat-packages',17,'+']];
+  const DATA = [['stat-agents',60,'+'  ],['stat-commands',31,''],['stat-hooks',17,''],['stat-packages',9,'']];
   if (!motionOK) {
     DATA.forEach(([id,t,s]) => { const el=document.getElementById(id); if(el) el.textContent=t+s; });
     return;
