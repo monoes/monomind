@@ -9,15 +9,6 @@ import { ORG_DIR } from '../orgrt/types.js';
 
 const log = (text: string): void => { console.log(text); };
 
-/** The parser accepts negative-number-looking tokens as a flag's value (e.g.
- * `--port -5`) by design, for options that legitimately take one — ports
- * aren't one of those, so validate the constraint here rather than loosening
- * that shared parsing behavior. */
-const validatePort = (value: unknown): boolean | string => {
-  const n = Number(value);
-  return (Number.isInteger(n) && n > 0 && n < 65536) || 'port must be an integer between 1 and 65535';
-};
-
 /** Org names are used to build filesystem paths under .monomind/orgs — reject
  * anything that isn't a plain identifier to prevent path traversal (e.g.
  * `monomind org stop '../../../../tmp/x'`). */
@@ -32,11 +23,17 @@ function validateOrgName(name: string | undefined): { ok: true; name: string } |
   return { ok: true, name };
 }
 
-/** Config filenames for real orgs under orgsDir — excludes org-internal
- * artifact files (state/goals/threads/etc) that share the .json extension,
- * and macOS/exFAT AppleDouble shadow files (._name.json), which otherwise
- * pair with every real org file and fail JSON.parse as binary junk. */
-const ORG_ARTIFACT_SUFFIXES = ['-state', '-goals', '-threads', '-activity', '-approvals', '-members', '-secrets', '-budgets'];
+/** Suffixes of org-internal artifact files (state/goals/threads/etc) that
+ * share the `<org>.json`/`.jsonl` naming pattern with the org's own config
+ * file. Single source of truth for both listOrgConfigFiles() (which must
+ * exclude them when discovering real org configs) and deleteAction (which
+ * must remove all of them when deleting an org). */
+const ORG_ARTIFACT_SUFFIXES = [
+  '-state', '-goals', '-threads', '-activity', '-approvals', '-members', '-secrets', '-budgets',
+  '-routines', '-issues', '-projects', '-workspaces', '-worktrees', '-environments',
+  '-plugins', '-adapters', '-join-requests', '-bootstrap', '-project-workspaces',
+  '-approval-comments', '-skills',
+];
 function listOrgConfigFiles(orgsDir: string): string[] {
   return readdirSync(orgsDir)
     .filter(f => f.endsWith('.json') && !f.startsWith('._') && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
@@ -48,7 +45,7 @@ export const clearStopfile = (cwd: string, name: string): void => {
 };
 
 const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!ctx.args[0]) return { success: false, message: 'org name required: monomind org run <name> [--task "..."] [--serve] [--port N]' };
+  if (!ctx.args[0]) return { success: false, message: 'org name required: monomind org run <name> [--task "..."]' };
   const validated = validateOrgName(ctx.args[0]);
   if (!validated.ok) return validated.result;
   const name = validated.name;
@@ -56,17 +53,15 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // documented behavior elsewhere — repeats never silently drop a value); a
   // plain `as string` cast would let that array flow straight into the org's
   // goal and get stringified as "a,b" with no warning. Checked before any
-  // side effects (starting the dashboard server) run.
+  // side effects (starting the xdeliver listener) run.
   const taskFlag = ctx.flags['task'];
   if (Array.isArray(taskFlag)) return { success: false, message: '--task was passed more than once — pass it exactly once' };
   const crossProcess = ctx.flags['crossProcess'] !== false;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
-  if (ctx.flags['serve'] !== false) {
-    const port = Number(ctx.flags['port'] ?? 4243);
-    srv = await startOrgServer(daemon, port);
-    log(output.info(`org live view: http://localhost:${srv.port}`));
-    if (crossProcess) daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
+  if (crossProcess) {
+    srv = await startOrgServer(daemon, 0);
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
   }
   const running = await daemon.startOrg(name, taskFlag as string | undefined);
   log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
@@ -121,9 +116,12 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
 const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const crossProcess = ctx.flags['crossProcess'] !== false;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
-  const srv = await startOrgServer(daemon, Number(ctx.flags['port'] ?? 4243));
-  log(output.info(`org daemon serving on http://localhost:${srv.port} — Ctrl-C to stop`));
-  if (crossProcess) daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
+  let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
+  if (crossProcess) {
+    srv = await startOrgServer(daemon, 0);
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
+  }
+  log(output.info('org daemon serving — Ctrl-C to stop'));
 
   // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
   const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
@@ -174,7 +172,7 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   await new Promise<void>(r => { process.once('SIGINT', () => r()); process.once('SIGTERM', () => r()); });
   sched.stop();
   await daemon.stopAll();
-  srv.close();
+  srv?.close();
   return { success: true };
 };
 
@@ -213,7 +211,7 @@ const deleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
     log(output.error('Usage: monomind org delete <name>'));
     return { success: false, message: 'org name required' };
   }
-  if (!/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+  if (!ORG_NAME_RE.test(orgName)) {
     log(output.error(`Invalid org name: ${orgName}`));
     return { success: false, message: 'invalid org name' };
   }
@@ -230,12 +228,8 @@ const deleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
     log(output.error(`Org not found: ${orgName}`));
     return { success: false, message: 'org not found' };
   }
-  const suffixes = ['', '-state', '-goals', '-routines', '-approvals', '-activity',
-    '-issues', '-members', '-projects', '-workspaces', '-worktrees', '-environments',
-    '-plugins', '-adapters', '-budgets', '-threads', '-secrets', '-join-requests',
-    '-bootstrap', '-project-workspaces', '-approval-comments', '-skills'];
   let removed = 0;
-  for (const suf of suffixes) {
+  for (const suf of ['', ...ORG_ARTIFACT_SUFFIXES]) {
     for (const ext of ['.json', '.jsonl']) {
       const f = join(orgsDir, `${orgName}${suf}${ext}`);
       try { if (existsSync(f)) { unlinkSync(f); removed++; } } catch { /* ignore */ }
@@ -252,7 +246,7 @@ const deleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
 const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const orgName = ctx.args[0];
-  if (!orgName || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+  if (!orgName || !ORG_NAME_RE.test(orgName)) {
     log(output.error('Usage: monomind org mark-complete <name>'));
     return { success: false, message: 'valid org name required' };
   }
@@ -286,8 +280,6 @@ export const orgCommand: Command = {
       name: 'run', description: 'Start an org (foreground daemon)',
       options: [
         { name: 'task', description: 'Override the org goal for this run', type: 'string' },
-        { name: 'serve', description: 'Serve the live dashboard (default true)', type: 'boolean', default: true },
-        { name: 'port', description: 'Live dashboard port', type: 'number', default: 4243, validate: validatePort },
         { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
       ],
       examples: [{ command: 'monomind org run growth --task "weekly report"', description: 'Run the growth org once with a task' }],
@@ -298,7 +290,6 @@ export const orgCommand: Command = {
     {
       name: 'serve', description: 'Start the daemon server only (hosts scheduled orgs)',
       options: [
-        { name: 'port', description: 'Port', type: 'number', default: 4243, validate: validatePort },
         { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
       ],
       action: serveAction,

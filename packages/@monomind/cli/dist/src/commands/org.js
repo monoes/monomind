@@ -19,12 +19,20 @@ function validateOrgName(name) {
     }
     return { ok: true, name };
 }
-/** Config filenames for real orgs under orgsDir — excludes org-internal
- * artifact files (state/goals/threads/etc) that share the .json extension. */
-const ORG_ARTIFACT_SUFFIXES = ['-state', '-goals', '-threads', '-activity', '-approvals', '-members', '-secrets', '-budgets'];
+/** Suffixes of org-internal artifact files (state/goals/threads/etc) that
+ * share the `<org>.json`/`.jsonl` naming pattern with the org's own config
+ * file. Single source of truth for both listOrgConfigFiles() (which must
+ * exclude them when discovering real org configs) and deleteAction (which
+ * must remove all of them when deleting an org). */
+const ORG_ARTIFACT_SUFFIXES = [
+    '-state', '-goals', '-threads', '-activity', '-approvals', '-members', '-secrets', '-budgets',
+    '-routines', '-issues', '-projects', '-workspaces', '-worktrees', '-environments',
+    '-plugins', '-adapters', '-join-requests', '-bootstrap', '-project-workspaces',
+    '-approval-comments', '-skills',
+];
 function listOrgConfigFiles(orgsDir) {
     return readdirSync(orgsDir)
-        .filter(f => f.endsWith('.json') && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
+        .filter(f => f.endsWith('.json') && !f.startsWith('._') && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
 }
 /** Remove a lingering stopfile so a fresh `org run` doesn't self-terminate. */
 export const clearStopfile = (cwd, name) => {
@@ -32,22 +40,27 @@ export const clearStopfile = (cwd, name) => {
 };
 const runAction = async (ctx) => {
     if (!ctx.args[0])
-        return { success: false, message: 'org name required: monomind org run <name> [--task "..."] [--serve] [--port N]' };
+        return { success: false, message: 'org name required: monomind org run <name> [--task "..."]' };
     const validated = validateOrgName(ctx.args[0]);
     if (!validated.ok)
         return validated.result;
     const name = validated.name;
+    // A repeated --task flag is promoted to an array by the parser (deliberate,
+    // documented behavior elsewhere — repeats never silently drop a value); a
+    // plain `as string` cast would let that array flow straight into the org's
+    // goal and get stringified as "a,b" with no warning. Checked before any
+    // side effects (starting the xdeliver listener) run.
+    const taskFlag = ctx.flags['task'];
+    if (Array.isArray(taskFlag))
+        return { success: false, message: '--task was passed more than once — pass it exactly once' };
     const crossProcess = ctx.flags['crossProcess'] !== false;
     const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
     let srv;
-    if (ctx.flags['serve'] !== false) {
-        const port = Number(ctx.flags['port'] ?? 4243);
-        srv = await startOrgServer(daemon, port);
-        log(output.info(`org live view: http://localhost:${srv.port}`));
-        if (crossProcess)
-            daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
+    if (crossProcess) {
+        srv = await startOrgServer(daemon, 0);
+        daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
     }
-    const running = await daemon.startOrg(name, ctx.flags['task']);
+    const running = await daemon.startOrg(name, taskFlag);
     log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
     // stopfile poll lets `org stop` work from another terminal;
     // clear any stale stopfile from a previous run before polling
@@ -101,10 +114,12 @@ const statusAction = async (ctx) => {
 const serveAction = async (ctx) => {
     const crossProcess = ctx.flags['crossProcess'] !== false;
     const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
-    const srv = await startOrgServer(daemon, Number(ctx.flags['port'] ?? 4243));
-    log(output.info(`org daemon serving on http://localhost:${srv.port} — Ctrl-C to stop`));
-    if (crossProcess)
+    let srv;
+    if (crossProcess) {
+        srv = await startOrgServer(daemon, 0);
         daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
+    }
+    log(output.info('org daemon serving — Ctrl-C to stop'));
     // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
     const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
     const sched = new OrgScheduler(async (name, intervalMs) => {
@@ -137,7 +152,7 @@ const serveAction = async (ctx) => {
     });
     const orgDir = join(ctx.cwd, ORG_DIR);
     if (existsSync(orgDir)) {
-        for (const f of readdirSync(orgDir).filter(f => f.endsWith('.json'))) {
+        for (const f of listOrgConfigFiles(orgDir)) {
             try {
                 const def = JSON.parse(readFileSync(join(orgDir, f), 'utf8'));
                 const ms = parseSchedule(def.schedule);
@@ -150,13 +165,15 @@ const serveAction = async (ctx) => {
                     log(output.info(`scheduled org ${stem} every ${Math.round(ms / 60_000)}m`));
                 }
             }
-            catch { /* skip unparseable org file */ }
+            catch (err) {
+                log(output.warning(`org file ${f}: could not parse — skipping (${err instanceof Error ? err.message : 'invalid JSON'})`));
+            }
         }
     }
     await new Promise(r => { process.once('SIGINT', () => r()); process.once('SIGTERM', () => r()); });
     sched.stop();
     await daemon.stopAll();
-    srv.close();
+    srv?.close();
     return { success: true };
 };
 const testLoopAction = async (ctx) => {
@@ -191,7 +208,7 @@ const deleteAction = async (ctx) => {
         log(output.error('Usage: monomind org delete <name>'));
         return { success: false, message: 'org name required' };
     }
-    if (!/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+    if (!ORG_NAME_RE.test(orgName)) {
         log(output.error(`Invalid org name: ${orgName}`));
         return { success: false, message: 'invalid org name' };
     }
@@ -208,12 +225,8 @@ const deleteAction = async (ctx) => {
         log(output.error(`Org not found: ${orgName}`));
         return { success: false, message: 'org not found' };
     }
-    const suffixes = ['', '-state', '-goals', '-routines', '-approvals', '-activity',
-        '-issues', '-members', '-projects', '-workspaces', '-worktrees', '-environments',
-        '-plugins', '-adapters', '-budgets', '-threads', '-secrets', '-join-requests',
-        '-bootstrap', '-project-workspaces', '-approval-comments', '-skills'];
     let removed = 0;
-    for (const suf of suffixes) {
+    for (const suf of ['', ...ORG_ARTIFACT_SUFFIXES]) {
         for (const ext of ['.json', '.jsonl']) {
             const f = join(orgsDir, `${orgName}${suf}${ext}`);
             try {
@@ -248,7 +261,7 @@ const deleteAction = async (ctx) => {
 };
 const markCompleteAction = async (ctx) => {
     const orgName = ctx.args[0];
-    if (!orgName || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+    if (!orgName || !ORG_NAME_RE.test(orgName)) {
         log(output.error('Usage: monomind org mark-complete <name>'));
         return { success: false, message: 'valid org name required' };
     }
@@ -284,8 +297,6 @@ export const orgCommand = {
             name: 'run', description: 'Start an org (foreground daemon)',
             options: [
                 { name: 'task', description: 'Override the org goal for this run', type: 'string' },
-                { name: 'serve', description: 'Serve the live dashboard (default true)', type: 'boolean', default: true },
-                { name: 'port', description: 'Live dashboard port', type: 'number', default: 4243 },
                 { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
             ],
             examples: [{ command: 'monomind org run growth --task "weekly report"', description: 'Run the growth org once with a task' }],
@@ -296,7 +307,6 @@ export const orgCommand = {
         {
             name: 'serve', description: 'Start the daemon server only (hosts scheduled orgs)',
             options: [
-                { name: 'port', description: 'Port', type: 'number', default: 4243 },
                 { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
             ],
             action: serveAction,
@@ -315,7 +325,14 @@ export const orgCommand = {
         { name: 'mark-complete', description: 'Manually close a stale/crashed run', action: markCompleteAction },
     ],
     examples: [{ command: 'monomind org run my-org', description: 'Run an org under full daemon control' }],
-    action: async () => ({ success: false, message: 'usage: monomind org <run|stop|status|serve|test-loop|list|delete|mark-complete>' }),
+    action: async () => {
+        // index.ts's dispatcher never prints result.message on a failed action —
+        // it only exits with result.exitCode — so this must log itself or bare
+        // `monomind org` exits silently with code 1 and zero output.
+        const message = 'usage: monomind org <run|stop|status|serve|test-loop|list|delete|mark-complete>';
+        log(output.error(message));
+        return { success: false, message };
+    },
 };
 export default orgCommand;
 //# sourceMappingURL=org.js.map

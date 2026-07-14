@@ -142,35 +142,48 @@ export class OrgDaemon {
     return running;
   }
 
+  /**
+   * Resolves an org_send `to` address ("role" for same-org, "org:role" for
+   * cross-org) into its parts. Centralizes the one addressing rule that
+   * matters (an "own-org:role" self-prefix is intra-org, not cross-org) so
+   * deliver()/deliverRemote() don't each re-derive it — the qualified `to`
+   * string returned is always the canonical display form for that address.
+   */
+  private resolveAddress(fromOrg: string, to: string): { cross: boolean; orgName: string; role: string; qualified: string } {
+    const cross = to.includes(':');
+    if (!cross) return { cross: false, orgName: fromOrg, role: to, qualified: to };
+    const [orgName, role] = to.split(':', 2);
+    if (orgName === fromOrg) return { cross: false, orgName, role, qualified: role }; // self-prefixed — still intra-org
+    return { cross: true, orgName, role, qualified: to };
+  }
+
   /** Route a message. to = "role" (same org) or "org:role" (cross-org). Returns a receipt string. */
   async deliver(fromOrg: string, fromRole: string, to: string, subject: string, body: string): Promise<string> {
-    let cross = to.includes(':');
-    let [targetOrgName, targetRole] = cross ? to.split(':', 2) : [fromOrg, to];
-    // "own-org:role" is intra-org — agents often self-prefix; don't tag it xorg
-    if (cross && targetOrgName === fromOrg) { cross = false; to = targetRole; }
+    const { cross, orgName: targetOrgName, role: targetRole, qualified: toQualified } = this.resolveAddress(fromOrg, to);
     const targetOrg = this.orgs.get(targetOrgName);
     const src = this.orgs.get(fromOrg);
     if (!targetOrg || !targetOrg.agents.has(targetRole)) {
-      if (cross && this.opts.crossProcess) return this.deliverRemote(fromOrg, fromRole, targetOrgName, targetRole, to, subject, body, src);
-      src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `undeliverable: ${subject}`, reason: 'unknown recipient' });
-      return `ERROR: unknown recipient "${to}" (known: ${[...(targetOrg?.agents.keys() ?? this.orgs.keys())].join(', ')})`;
+      if (cross && this.opts.crossProcess) return this.deliverRemote(fromOrg, fromRole, targetOrgName, targetRole, toQualified, subject, body, src);
+      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'unknown recipient' });
+      return `ERROR: unknown recipient "${toQualified}" (known: ${[...(targetOrg?.agents.keys() ?? this.orgs.keys())].join(', ')})`;
     }
     const targetAgent = targetOrg.agents.get(targetRole)!;
     if (targetAgent.mailbox.isClosed) {
       // The org is mid-shutdown: mailboxes close before the org is removed
       // from `this.orgs`, so a message can arrive in that window. push() would
       // silently no-op — report the real outcome instead of a false "delivered".
-      src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
-      return `ERROR: recipient "${to}" is shutting down — message not delivered`;
+      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
+      return `ERROR: recipient "${toQualified}" is shutting down — message not delivered`;
     }
-    const evt = { from: cross ? `${fromOrg}:${fromRole}` : fromRole, to: cross ? to : targetRole, subject, msg: body };
+    const evt = { from: cross ? `${fromOrg}:${fromRole}` : fromRole, to: toQualified, subject, msg: body };
     src?.bus.emit({ type: cross ? 'xorg' : 'message', ...evt });
     if (cross && targetOrg !== src) targetOrg.bus.emit({ type: 'xorg', ...evt });
     targetAgent.mailbox.push(`[message from ${evt.from}] subject: ${subject}\n\n${body}`);
-    return `delivered to ${to}`;
+    return `delivered to ${toQualified}`;
   }
 
-  /** Cross-process leg of deliver(): ask the machine-local broker who hosts targetOrgName, then POST over HTTP. */
+  /** Cross-process leg of deliver(): ask the machine-local broker who hosts targetOrgName, then POST over HTTP.
+   *  `to` here is always the fully-qualified "org:role" display form (resolveAddress already normalized it). */
   private async deliverRemote(
     fromOrg: string, fromRole: string, targetOrgName: string, targetRole: string,
     to: string, subject: string, body: string, src: RunningOrg | undefined,

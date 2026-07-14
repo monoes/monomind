@@ -34,6 +34,14 @@ import type { BusEvent } from './types.js';
  * already connected via SSE when session:start fired would show it).
  */
 function sessionId(org: string, run: string): string { return `${org}__${run}`; }
+
+/** Classifies a 'status' bus event's free-text msg — shared by companionEvents() and translate() so the two don't drift on what counts as start/stop. */
+type StatusKind = 'started' | 'stopped' | 'other';
+function classifyStatus(msg: string): StatusKind {
+  if (msg.startsWith('org started')) return 'started';
+  if (msg === 'org stopped') return 'stopped';
+  return 'other';
+}
 export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/control.json') {
   let chain: Promise<void> = Promise.resolve();
   const baseUrl = (): string | null => {
@@ -82,11 +90,12 @@ export function companionEvents(e: BusEvent): Record<string, unknown>[] {
   if (e.type !== 'status') return [];
   const base = { session: sessionId(e.org, e.run), org: e.org, ts: e.ts };
   const msg = e.msg ?? '';
-  if (msg.startsWith('org started')) {
+  const kind = classifyStatus(msg);
+  if (kind === 'started') {
     const goal = (e.data as { goal?: string } | undefined)?.goal;
     return [{ ...base, type: 'session:start', prompt: goal && goal.length ? goal : e.org }];
   }
-  if (msg === 'org stopped') {
+  if (kind === 'stopped') {
     return [{ ...base, type: 'session:complete', status: 'complete', domains: ['ops'] }];
   }
   return [];
@@ -125,9 +134,10 @@ export function translate(e: BusEvent): Record<string, unknown> {
     }
     case 'status': {
       const msg = e.msg ?? '';
-      if (msg.startsWith('org started'))
+      const kind = classifyStatus(msg);
+      if (kind === 'started')
         return { ...base, type: 'org:start', goal: (e.data as { goal?: string } | undefined)?.goal ?? '' };
-      if (msg === 'org stopped')
+      if (kind === 'stopped')
         return { ...base, type: 'org:complete' };
       if (msg === 'session starting')
         return { ...base, type: 'org:agent:online', role: e.from, title: e.from, agent_type: e.from };
