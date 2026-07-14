@@ -2468,7 +2468,7 @@ function switchView(v, { updateHash = true } = {}) {
   const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', monoagent:'MonoAgent', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', monoagent: 'MonoAgent', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', chat: 'Global Agent Chat' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
@@ -7940,17 +7940,28 @@ window.odtChatSelectAgent = function(name) {
   });
   const feed = document.getElementById('odt-chat-feed');
   const emptyEl = document.getElementById('odt-chat-empty');
-  const sess = _odtChatSessions.find(s => s.id === _odtChatCurrentId);
   feed.querySelectorAll('.cv-msg').forEach(e => e.remove());
-  if (!sess) { if (emptyEl) emptyEl.style.display = 'block'; return; }
-  const visible = (sess.events || []).filter(ev => _odtChatAgentMatches(ev));
+  const id = _odtChatCurrentId;
+  let events = null;
+  let sess = null;
+  if (id && id.startsWith('rgrp:') && _odtRunGroups[id]) {
+    events = _odtGetMergedRunGroupEvents(_odtRunGroups[id]);
+  } else if (id && id.startsWith('grp:') && _odtSessionGroups[id]) {
+    events = _odtGetMergedGroupEvents(_odtSessionGroups[id]);
+  } else {
+    sess = _odtChatSessions.find(s => s.id === id);
+    events = sess ? (sess.events || []) : null;
+  }
+  if (events === null) { if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'Select a session to see agent communications.'; } return; }
+  const visible = events.filter(ev => _odtChatAgentMatches(ev));
   if (!visible.length) {
     if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = name === 'all' ? 'No events.' : `${name} was online in this run but sent no messages.`; }
   } else {
     if (emptyEl) emptyEl.style.display = 'none';
     visible.forEach(ev => _odtAppendEvent(ev, false));
+    if (!feed.querySelector('.cv-msg') && emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = 'No displayable events.'; }
   }
-  if (!sess._isOrgRun) {
+  if (sess && !sess._isOrgRun) {
     const _linkedRunId = 'run-' + (sess.id || '').replace(/^mm-/, '');
     const _linkedRun = _odtChatSessions.find(s => s._isOrgRun && s.id === _linkedRunId);
     if (_linkedRun) {
@@ -7976,17 +7987,25 @@ window.odtChatSelectAgent = function(name) {
 // Chat tab render mode (Summary/Detailed/Raw) — persists to localStorage
 let _odtChatMode = localStorage.getItem('odt-chat-mode') || 'detailed';
 
-function setOdtChatMode(mode) {
-  _odtChatMode = mode;
-  localStorage.setItem('odt-chat-mode', mode);
+function _odtApplyChatModeUI(mode) {
   document.querySelectorAll('.odt-mode-btn').forEach(b => b.classList.remove('active'));
   const btn = document.getElementById('odt-mode-' + mode);
   if (btn) btn.classList.add('active');
 }
 
+function setOdtChatMode(mode) {
+  _odtChatMode = mode;
+  localStorage.setItem('odt-chat-mode', mode);
+  _odtApplyChatModeUI(mode);
+  // Re-render the current selection so the mode change is reflected immediately —
+  // previously this only affected events appended after the switch.
+  if (_odtChatCurrentId) window.odtChatSelectAgent(_odtChatCurrentAgent);
+}
+
 function initOdtChatMode() {
   const saved = localStorage.getItem('odt-chat-mode') || 'detailed';
-  setOdtChatMode(saved);
+  _odtChatMode = saved;
+  _odtApplyChatModeUI(saved);
 }
 
 function _odtAppendEvent(ev, animate) {

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { OrgDaemon } from './daemon.js';
 import { startOrgServer } from './server.js';
 import { OrgBus } from './bus.js';
+import { queueMessage } from './inbox.js';
 import { ORG_DIR, type BusEvent } from './types.js';
 
 /**
@@ -81,15 +82,18 @@ export async function runTestLoop(root: string, times: number): Promise<LoopRepo
     const srv = await startOrgServer(daemon, 0);
     daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
 
+    // Queue a message for partner:boss BEFORE starting it — verifies inbox drain on startup
+    queueMessage(root, 'partner', { fromQualified: 'external:system', toRole: 'boss', subject: 'pre-start', body: 'queued while offline', ts: Date.now() });
+
     const alpha = await daemon.startOrg('alpha');
-    await daemon.startOrg('partner');
+    const partner = await daemon.startOrg('partner');
     await waitFor(() => alpha.busEvents().some(e => e.type === 'message' && e.from === 'coder' && e.to === 'boss'));
     await daemon.stopAll();
     srv.close();
-
     const evs = alpha.busEvents();
     const has = (pred: (e: BusEvent) => boolean) => evs.some(pred);
     const persistedCount = OrgBus.readHistory(join(root, ORG_DIR, 'alpha', alpha.run)).length;
+    const partnerEvs = partner.busEvents();
     const checks: Record<string, boolean> = {
       chat: has(e => e.type === 'chat'),
       message: has(e => e.type === 'message' && e.from === 'boss' && e.to === 'coder'),
@@ -99,6 +103,7 @@ export async function runTestLoop(root: string, times: number): Promise<LoopRepo
       xorg: has(e => e.type === 'xorg' && e.to === 'partner:boss'),
       usage: has(e => e.type === 'usage'),
       persisted: persistedCount === evs.length,
+      inboxDrain: partnerEvs.some(e => e.type === 'xorg' && e.from === 'external:system' && e.subject === 'pre-start'),
     };
     iterations.push({ checks, events: evs.length });
   }
