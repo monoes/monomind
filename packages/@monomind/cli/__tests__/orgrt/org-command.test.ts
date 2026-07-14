@@ -18,6 +18,36 @@ describe('org command', () => {
     expect(res?.message).toMatch(/org name/i);
   });
 
+  it('run rejects a --task that the parser promoted to an array (passed more than once) instead of stringifying it into the goal', async () => {
+    const run = orgCommand.subcommands!.find(c => c.name === 'run')!;
+    const cwd = mkdtempSync(join(tmpdir(), 'org-task-'));
+    try {
+      const res = await run.action!({ args: ['myorg'], flags: { task: ['A', 'B'] }, cwd, interactive: false } as any);
+      expect(res?.success).toBe(false);
+      expect(res?.message).toMatch(/--task/);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('bare `org` (no subcommand) prints and returns a usage message instead of exiting silently', async () => {
+    const res = await orgCommand.action!({ args: [], flags: {}, cwd: process.cwd(), interactive: false } as any);
+    expect(res?.success).toBe(false);
+    expect(res?.message).toMatch(/usage: monomind org/);
+  });
+
+  it('run/serve --port options validate the range (rejects non-positive or out-of-range ports)', () => {
+    for (const subName of ['run', 'serve']) {
+      const sub = orgCommand.subcommands!.find(c => c.name === subName)!;
+      const portOpt = sub.options!.find(o => o.name === 'port')!;
+      expect(portOpt.validate).toBeDefined();
+      expect(portOpt.validate!(-5)).not.toBe(true);
+      expect(portOpt.validate!(0)).not.toBe(true);
+      expect(portOpt.validate!(70000)).not.toBe(true);
+      expect(portOpt.validate!(4243)).toBe(true);
+    }
+  });
+
   describe('stopfile lifecycle', () => {
     it('clearStopfile removes a stopfile written by stopAction', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'org-stopfile-'));

@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgBus } from '../../src/orgrt/bus.js';
-import { PolicyEngine } from '../../src/orgrt/policy.js';
+import { PolicyEngine, globToRegExp } from '../../src/orgrt/policy.js';
 
 const mkBus = () => new OrgBus('o', 'r', mkdtempSync(join(tmpdir(), 'pol-')));
 
@@ -92,5 +92,25 @@ describe('PolicyEngine', () => {
     await p.decide('Write', { file_path: '/work/big.txt', content: huge });
     expect(assets).toHaveLength(1);
     expect(assets[0].data).toBeUndefined();
+  });
+
+  it('globToRegExp: a leading **/ matches zero directories too, not just one-or-more', () => {
+    const re = globToRegExp('**/*.md');
+    expect(re.test('README.md')).toBe(true);   // root-level — was incorrectly denied before the fix
+    expect(re.test('docs/README.md')).toBe(true);
+    expect(re.test('a/b/README.md')).toBe(true);
+    expect(re.test('README.txt')).toBe(false);
+  });
+
+  it('denies a path-less Grep/Glob call when the role has a restricted read scope (was a full-scope bypass)', async () => {
+    const p = new PolicyEngine('coder', { fileRead: ['src/**'] }, mkBus(), '/work');
+    const d = await p.decide('Grep', { pattern: 'password' }); // no path/file_path at all
+    expect(d.behavior).toBe('deny');
+  });
+
+  it('still allows a path-less Grep/Glob call when the role has no read restriction', async () => {
+    const p = new PolicyEngine('coder', {}, mkBus(), '/work');
+    const d = await p.decide('Grep', { pattern: 'password' });
+    expect(d.behavior).toBe('allow');
   });
 });

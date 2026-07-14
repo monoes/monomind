@@ -37,8 +37,31 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
   ].filter(Boolean).join('\n\n');
 }
 
-/** Runs one persistent agent session; resolves when the mailbox closes and the SDK stream ends. */
+/**
+ * Runs a role for the life of the org, transparently restarting the
+ * underlying SDK session whenever it ends on its own (`maxTurns` reached)
+ * while the mailbox is still open. `maxTurns` bounds a single SDK query()
+ * call's TOTAL turns, not "turns per incoming message" — since one query()
+ * call stays open across every mailbox message for as long as the mailbox
+ * itself stays open, without a restart the role would go permanently silent
+ * (no crash, no alert) once its lifetime turn count crossed the limit, while
+ * deliver() kept queuing new messages into a mailbox nobody was reading.
+ */
 export async function runAgentSession(opts: SessionOpts): Promise<void> {
+  const { mailbox } = opts;
+  // Always run at least once: a mailbox can be closed with queued items still
+  // pending (stream() drains the queue before honoring `closed`), which is a
+  // normal, valid starting state — checking isClosed before the first run
+  // would skip that drain entirely.
+  while (true) {
+    await runOneSession(opts);
+    if (mailbox.isClosed) return;
+    opts.bus.emit({ type: 'status', from: opts.role.id, msg: 'session restarting (turn limit reached, mailbox still open)' });
+  }
+}
+
+/** One bounded SDK session for a role; resolves when the SDK stream ends (mailbox closed or maxTurns reached). */
+async function runOneSession(opts: SessionOpts): Promise<void> {
   const { org, role, bus, policy, mailbox, cwd, deliver } = opts;
   const queryFn = opts.queryFn ?? query;
 
