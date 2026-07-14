@@ -111,6 +111,20 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'agents'))).toBe(true);
   });
 
+  it('should always write auto-memory-hook.mjs even when it is absent from the source helpers dir', async () => {
+    // Regression test: writeHelpers() used to return early as soon as it copied
+    // *any* file from the source .claude/helpers dir, skipping the fallback
+    // generator for files missing from that source dir specifically. Since the
+    // packaged source helpers dir has never actually shipped auto-memory-hook.mjs,
+    // every real init wired SessionStart/SessionEnd/Stop hooks to a file that
+    // was never written, crashing with MODULE_NOT_FOUND on every session end.
+    const result = await initCommand.action!(ctx);
+
+    expect(result.success).toBe(true);
+    const hookPath = path.join(tmpDir, '.claude', 'helpers', 'auto-memory-hook.mjs');
+    expect(fs.existsSync(hookPath)).toBe(true);
+  });
+
   it('should reinitialize with force flag', async () => {
     // First init
     const first = await initCommand.action!(ctx);

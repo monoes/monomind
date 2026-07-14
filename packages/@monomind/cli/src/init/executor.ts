@@ -1320,8 +1320,6 @@ async function writeHelpers(
 
   // Try to copy existing helpers from source first (recursive — includes utils/ and handlers/)
   if (sourceHelpersDir && fs.existsSync(sourceHelpersDir)) {
-    let copiedCount = 0;
-
     const copyRecursive = (srcDir: string, destDir: string, relBase: string) => {
       fs.mkdirSync(destDir, { recursive: true });
       for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
@@ -1341,7 +1339,6 @@ async function writeHelpers(
               fs.chmodSync(destPath, '755');
             }
             result.created.files.push(`.claude/helpers/${relPath}`);
-            copiedCount++;
           } else {
             result.skipped.push(`.claude/helpers/${relPath}`);
           }
@@ -1350,13 +1347,13 @@ async function writeHelpers(
     };
 
     copyRecursive(sourceHelpersDir, helpersDir, '');
-
-    if (copiedCount > 0) {
-      return; // Skip generating if we copied from source
-    }
   }
 
-  // Fall back to generating helpers if source not available
+  // Always run the fallback generator too — it only fills in files still missing
+  // after the source copy above (it no-ops on anything the copy already wrote).
+  // Without this, a source dir that's present but incomplete (e.g. missing
+  // auto-memory-hook.mjs) silently ships a project wired to hooks that reference
+  // a file that was never installed.
   const helpers: Record<string, string> = {
     'pre-commit': generatePreCommitHook(),
     'post-commit': generatePostCommitHook(),
