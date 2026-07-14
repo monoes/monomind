@@ -635,6 +635,13 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
       const destHelpersDir = path.join(targetDir, '.claude', 'helpers');
       // Copy top-level critical files atomically
       const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'graphify-freshen.cjs'];
+      // Generated fallback for any critical helper missing from the source dir itself
+      // (e.g. the published npm template lacking auto-memory-hook.mjs).
+      const criticalGenerators: Record<string, () => string> = {
+        'hook-handler.cjs': generateHookHandler,
+        'intelligence.cjs': generateIntelligenceStub,
+        'auto-memory-hook.mjs': generateAutoMemoryHook,
+      };
       for (const helperName of criticalHelpers) {
         const targetPath = path.join(destHelpersDir, helperName);
         const sourcePath = path.join(sourceHelpersForUpgrade, helperName);
@@ -649,6 +656,13 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
           fs.copyFileSync(sourcePath, tmp);
           try { fs.chmodSync(tmp, 0o755); } catch {}
           fs.renameSync(tmp, targetPath);
+        } else if (!fs.existsSync(targetPath) && criticalGenerators[helperName]) {
+          const content = criticalGenerators[helperName]();
+          const tmp = `${targetPath}.${process.pid}.tmp`;
+          fs.writeFileSync(tmp, content, 'utf-8');
+          try { fs.chmodSync(tmp, 0o755); } catch {}
+          fs.renameSync(tmp, targetPath);
+          result.created.push(`.claude/helpers/${helperName}`);
         }
       }
       // Always recursively sync subdirectories (utils/, handlers/) — required by hook-handler.cjs.
@@ -1320,8 +1334,6 @@ async function writeHelpers(
 
   // Try to copy existing helpers from source first (recursive — includes utils/ and handlers/)
   if (sourceHelpersDir && fs.existsSync(sourceHelpersDir)) {
-    let copiedCount = 0;
-
     const copyRecursive = (srcDir: string, destDir: string, relBase: string) => {
       fs.mkdirSync(destDir, { recursive: true });
       for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
@@ -1341,7 +1353,6 @@ async function writeHelpers(
               fs.chmodSync(destPath, '755');
             }
             result.created.files.push(`.claude/helpers/${relPath}`);
-            copiedCount++;
           } else {
             result.skipped.push(`.claude/helpers/${relPath}`);
           }
@@ -1350,13 +1361,13 @@ async function writeHelpers(
     };
 
     copyRecursive(sourceHelpersDir, helpersDir, '');
-
-    if (copiedCount > 0) {
-      return; // Skip generating if we copied from source
-    }
   }
 
-  // Fall back to generating helpers if source not available
+  // Always run the fallback generator too — it only fills in files still missing
+  // after the source copy above (it no-ops on anything the copy already wrote).
+  // Without this, a source dir that's present but incomplete (e.g. missing
+  // auto-memory-hook.mjs) silently ships a project wired to hooks that reference
+  // a file that was never installed.
   const helpers: Record<string, string> = {
     'pre-commit': generatePreCommitHook(),
     'post-commit': generatePostCommitHook(),
