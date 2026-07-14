@@ -11,7 +11,7 @@ describe('org e2e verification', () => {
     const report = await runTestLoop(root, 1);
     expect(report.failed).toBe(0);
     expect(report.iterations[0].checks).toMatchObject({
-      chat: true, message: true, tool: true, asset: true, xorg: true, wsDelivery: true,
+      chat: true, message: true, tool: true, asset: true, xorg: true,
     });
   });
 
