@@ -14,11 +14,25 @@ const WEB_TOOLS = new Set(['WebFetch', 'WebSearch']);
  *  bus.jsonl / the dashboard's per-session event log from bloating on large writes. */
 const SNAPSHOT_MAX_CHARS = 200_000;
 
-/** tiny glob→RegExp: supports ** (any depth) and * (single segment). */
+const REGEX_METACHARS = new Set('.+^${}()|[]\\'.split(''));
+
+/**
+ * tiny glob→RegExp: `**\/` matches zero-or-more leading directories (so
+ * `**\/*.md` matches both `README.md` and `docs/README.md`, standard glob
+ * semantics), bare `**` matches any depth, `*` matches one path segment.
+ */
 export function globToRegExp(glob: string): RegExp {
-  const esc = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*\*/g, ' ').replace(/\*/g, '[^/]*').replace(/ /g, '.*');
-  return new RegExp(`^${esc}$`);
+  let out = '';
+  let i = 0;
+  while (i < glob.length) {
+    if (glob.startsWith('**/', i)) { out += '(?:.*/)?'; i += 3; continue; }
+    if (glob.startsWith('**', i)) { out += '.*'; i += 2; continue; }
+    const c = glob[i];
+    if (c === '*') { out += '[^/]*'; i++; continue; }
+    if (REGEX_METACHARS.has(c)) { out += '\\' + c; i++; continue; }
+    out += c; i++;
+  }
+  return new RegExp(`^${out}$`);
 }
 
 export class PolicyEngine {
@@ -68,8 +82,16 @@ export class PolicyEngine {
 
     if (WRITE_TOOLS.has(tool) || READ_TOOLS.has(tool)) {
       const globs = WRITE_TOOLS.has(tool) ? (this.policy.fileWrite ?? ['**']) : (this.policy.fileRead ?? ['**']);
+      const unrestricted = globs.length === 1 && globs[0] === '**';
       const p = typeof input.file_path === 'string' ? input.file_path
         : typeof input.path === 'string' ? input.path : null;
+      if (p === null && !unrestricted) {
+        // Grep/Glob's `path` argument is optional in the SDK (defaults to cwd,
+        // i.e. searches everything) — without this check, a path-less call
+        // sailed straight through to allow() and bypassed fileRead/fileWrite
+        // scoping entirely. Deny rather than guess which files it would touch.
+        return deny(`${tool} has no path argument, but role ${this.role}'s ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope is restricted — refusing an unscoped call`);
+      }
       if (p !== null) {
         const rel = relative(this.cwd, resolve(this.cwd, p));
         if (rel.startsWith('..')) return deny(`path escapes org workdir: ${p}`);

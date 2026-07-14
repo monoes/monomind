@@ -9,6 +9,15 @@ import { ORG_DIR } from '../orgrt/types.js';
 
 const log = (text: string): void => { console.log(text); };
 
+/** The parser accepts negative-number-looking tokens as a flag's value (e.g.
+ * `--port -5`) by design, for options that legitimately take one — ports
+ * aren't one of those, so validate the constraint here rather than loosening
+ * that shared parsing behavior. */
+const validatePort = (value: unknown): boolean | string => {
+  const n = Number(value);
+  return (Number.isInteger(n) && n > 0 && n < 65536) || 'port must be an integer between 1 and 65535';
+};
+
 /** Org names are used to build filesystem paths under .monomind/orgs — reject
  * anything that isn't a plain identifier to prevent path traversal (e.g.
  * `monomind org stop '../../../../tmp/x'`). */
@@ -24,11 +33,13 @@ function validateOrgName(name: string | undefined): { ok: true; name: string } |
 }
 
 /** Config filenames for real orgs under orgsDir — excludes org-internal
- * artifact files (state/goals/threads/etc) that share the .json extension. */
+ * artifact files (state/goals/threads/etc) that share the .json extension,
+ * and macOS/exFAT AppleDouble shadow files (._name.json), which otherwise
+ * pair with every real org file and fail JSON.parse as binary junk. */
 const ORG_ARTIFACT_SUFFIXES = ['-state', '-goals', '-threads', '-activity', '-approvals', '-members', '-secrets', '-budgets'];
 function listOrgConfigFiles(orgsDir: string): string[] {
   return readdirSync(orgsDir)
-    .filter(f => f.endsWith('.json') && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
+    .filter(f => f.endsWith('.json') && !f.startsWith('._') && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
 }
 
 /** Remove a lingering stopfile so a fresh `org run` doesn't self-terminate. */
@@ -41,6 +52,13 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const validated = validateOrgName(ctx.args[0]);
   if (!validated.ok) return validated.result;
   const name = validated.name;
+  // A repeated --task flag is promoted to an array by the parser (deliberate,
+  // documented behavior elsewhere — repeats never silently drop a value); a
+  // plain `as string` cast would let that array flow straight into the org's
+  // goal and get stringified as "a,b" with no warning. Checked before any
+  // side effects (starting the dashboard server) run.
+  const taskFlag = ctx.flags['task'];
+  if (Array.isArray(taskFlag)) return { success: false, message: '--task was passed more than once — pass it exactly once' };
   const crossProcess = ctx.flags['crossProcess'] !== false;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
@@ -50,7 +68,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     log(output.info(`org live view: http://localhost:${srv.port}`));
     if (crossProcess) daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
   }
-  const running = await daemon.startOrg(name, ctx.flags['task'] as string | undefined);
+  const running = await daemon.startOrg(name, taskFlag as string | undefined);
   log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
 
   // stopfile poll lets `org stop` work from another terminal;
@@ -136,7 +154,7 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   });
   const orgDir = join(ctx.cwd, ORG_DIR);
   if (existsSync(orgDir)) {
-    for (const f of readdirSync(orgDir).filter(f => f.endsWith('.json'))) {
+    for (const f of listOrgConfigFiles(orgDir)) {
       try {
         const def = JSON.parse(readFileSync(join(orgDir, f), 'utf8'));
         const ms = parseSchedule(def.schedule);
@@ -147,7 +165,9 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
           sched.add(stem, ms);
           log(output.info(`scheduled org ${stem} every ${Math.round(ms / 60_000)}m`));
         }
-      } catch { /* skip unparseable org file */ }
+      } catch (err) {
+        log(output.warning(`org file ${f}: could not parse — skipping (${err instanceof Error ? err.message : 'invalid JSON'})`));
+      }
     }
   }
 
@@ -267,7 +287,7 @@ export const orgCommand: Command = {
       options: [
         { name: 'task', description: 'Override the org goal for this run', type: 'string' },
         { name: 'serve', description: 'Serve the live dashboard (default true)', type: 'boolean', default: true },
-        { name: 'port', description: 'Live dashboard port', type: 'number', default: 4243 },
+        { name: 'port', description: 'Live dashboard port', type: 'number', default: 4243, validate: validatePort },
         { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
       ],
       examples: [{ command: 'monomind org run growth --task "weekly report"', description: 'Run the growth org once with a task' }],
@@ -278,7 +298,7 @@ export const orgCommand: Command = {
     {
       name: 'serve', description: 'Start the daemon server only (hosts scheduled orgs)',
       options: [
-        { name: 'port', description: 'Port', type: 'number', default: 4243 },
+        { name: 'port', description: 'Port', type: 'number', default: 4243, validate: validatePort },
         { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
       ],
       action: serveAction,
@@ -297,7 +317,14 @@ export const orgCommand: Command = {
     { name: 'mark-complete', description: 'Manually close a stale/crashed run', action: markCompleteAction },
   ],
   examples: [{ command: 'monomind org run my-org', description: 'Run an org under full daemon control' }],
-  action: async (): Promise<CommandResult> => ({ success: false, message: 'usage: monomind org <run|stop|status|serve|test-loop|list|delete|mark-complete>' }),
+  action: async (): Promise<CommandResult> => {
+    // index.ts's dispatcher never prints result.message on a failed action —
+    // it only exits with result.exitCode — so this must log itself or bare
+    // `monomind org` exits silently with code 1 and zero output.
+    const message = 'usage: monomind org <run|stop|status|serve|test-loop|list|delete|mark-complete>';
+    log(output.error(message));
+    return { success: false, message };
+  },
 };
 
 export default orgCommand;

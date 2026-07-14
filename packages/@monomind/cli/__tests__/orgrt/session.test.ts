@@ -38,6 +38,54 @@ describe('runAgentSession', () => {
     expect(policy.usage).toBe(15);
   });
 
+  it('restarts the SDK session when it ends on its own (maxTurns) while the mailbox is still open, instead of deadlocking', async () => {
+    // Regression: maxTurns bounds ONE query() call's total turns, and that one
+    // call stays open across every mailbox message for the role's whole life —
+    // so hitting the limit used to end the session for good (status 'ended',
+    // no crash, no alert) while deliver() kept queuing into a mailbox nobody
+    // was reading anymore. Simulate that by having the fake SDK consume
+    // exactly one message per invocation and then end, as if maxTurns had cut
+    // it off after a single turn — a real fix must call queryFn again.
+    const bus = new OrgBus('o', 'r', dir());
+    const chats: string[] = [];
+    const statuses: string[] = [];
+    bus.subscribe(e => {
+      if (e.type === 'chat') chats.push(e.msg ?? '');
+      if (e.type === 'status') statuses.push(e.msg ?? '');
+    });
+    const mailbox = new Mailbox();
+    mailbox.push('m1');
+
+    let callCount = 0;
+    const fakeQuery = ({ prompt }: any) => (async function* () {
+      callCount++;
+      const it = prompt[Symbol.asyncIterator]();
+      const { value } = await it.next(); // consume exactly one message, like a maxTurns-truncated session
+      yield { type: 'assistant', message: { content: [{ type: 'text', text: `reply-${callCount}: ${value.message.content}` }] } };
+      yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+      // generator ends here without draining further input — session "ended" on its own
+    })();
+
+    const policy = new PolicyEngine('coder', {}, bus, '/work');
+    const donePromise = runAgentSession({
+      org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      bus, policy, mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+      queryFn: fakeQuery as any,
+    });
+
+    // let the first (truncated) session run to completion and the restart fire
+    await new Promise(r => setTimeout(r, 20));
+    expect(mailbox.isClosed).toBe(false); // still open — deliver() would still be accepted
+    mailbox.push('m2');
+    mailbox.close();
+    await donePromise;
+
+    expect(callCount).toBe(2); // queryFn was invoked twice — proves an actual restart, not a stall
+    expect(chats).toEqual(['reply-1: m1', 'reply-2: m2']);
+    expect(statuses).toContain('session restarting (turn limit reached, mailbox still open)');
+  });
+
   it('buildRolePrompt names the role, goal, and org_send protocol', () => {
     const p = buildRolePrompt(
       { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: ['write code'] } as any,
