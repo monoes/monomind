@@ -5,8 +5,8 @@
 <h1 align="center">Monomind</h1>
 
 <p align="center">
-  <strong>Hire an AI team. Set a goal. Walk away.</strong><br/>
-  Autonomous Claude Code orchestration with persistent memory, self-coordinating agent orgs, and a codebase knowledge graph.
+  <strong>An open-source MCP server that extends Claude Code with a codebase knowledge graph, persistent memory, and multi-agent coordination.</strong><br/>
+  MIT licensed &middot; Fully local &middot; No data leaves your machine
 </p>
 
 <p align="center">
@@ -30,125 +30,104 @@
 
 ## What is Monomind?
 
-Claude Code is already powerful. Monomind makes it **run itself**.
+Monomind is an **open-source CLI and MCP server** that plugs into Claude Code via the standard [Model Context Protocol](https://modelcontextprotocol.io/). It adds capabilities that Claude Code doesn't ship with out of the box:
 
-Install once. Wire it into Claude Code. Then instead of prompting Claude to do individual tasks, you tell Monomind what outcome you want — and it assembles a team, coordinates the work, and delivers.
+- **Codebase knowledge graph** — tree-sitter parses your code into a SQLite-backed graph of files, functions, classes, and their relationships. Query imports, callers, and blast radius before making changes.
+- **Persistent memory** — a JSON pattern store with episodic recall that survives across sessions. Agents and orgs share context without re-prompting.
+- **Multi-agent coordination** — in-session, spawn ad-hoc agent teams via Claude Code's Task tool; for persistent background work, `monomind org run` starts a real SDK-backed daemon with policy-gated role agents and a live dashboard.
+- **Reusable slash commands** — 30+ development workflows (build, review, debug, TDD, architecture) available as `/mastermind:*` commands inside Claude Code.
 
 ```bash
-# Assemble an AI content team and let it run
-/mastermind:createorg content-team "publish 3 SEO-optimized posts per week"
-/mastermind:runorg --org content-team
-
-# Or run the autonomous code improvement loop
-/mastermind:autodev --tillend --focus security
+npm install -g monomind        # MIT licensed, 0 external API calls
+cd your-project && monomind init
+claude mcp add monomind npx monomind mcp start
 ```
 
-That's it. Come back later.
+### Trust & Security
+
+| Concern | Answer |
+|---|---|
+| **License** | [MIT](LICENSE) — use it however you want |
+| **Data privacy** | Everything runs locally. No telemetry, no phone-home, no external API calls from Monomind itself. Your code stays on your machine. |
+| **Dependencies** | Standard npm packages (tree-sitter, sql.js, zod). No native binaries. No post-install scripts that download code. |
+| **Permissions** | Registers as an MCP server — Claude Code controls what tools are available and prompts you before executing anything sensitive. |
+| **Source** | Fully open. Read every line at [github.com/monoes/monomind](https://github.com/monoes/monomind). |
+| **Maintenance** | Active development, regular releases on npm. |
 
 ---
 
 ## 🏢 Autonomous Organizations
 
-> **This is the headline feature.** Build a persistent AI organization — roles, hierarchy, shared task board — and start it as a background daemon that runs without you.
+> **This is the headline feature.** `monomind org run` starts a persistent, SDK-backed daemon that runs an autonomous agent organization — roles, hierarchy, policy-gated tool access, a live dashboard — until you stop it.
 
 ### The idea
 
-Every business function needs a team. Monomind lets you design that team in one command, then run it forever. The org persists across sessions. It checkpoints, recovers from failures, and coordinates its agents through a shared task board — all automatically.
+Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, serves a live WebSocket dashboard, and can discover and message other Monomind orgs running on the same machine.
 
 ```mermaid
 flowchart TD
     U(["You"])
-    CO["/mastermind:createorg\nDefine goal + roles"]
-    RO["/mastermind:runorg\nStart daemon"]
-    BOSS["Boss Agent\ncoordinator"]
-    W["Writer\nContent Creator"]
+    DEF["org.json\nGoal + roles + policy"]
+    RUN["monomind org run\nStart SDK daemon"]
+    BOSS["Boss Agent\nAgent SDK session"]
+    W["Writer"]
     S["SEO Specialist"]
     R["Reviewer"]
-    M["Growth Marketer"]
-    BOARD[("Shared\nTask Board")]
-    MEM[("Persistent\nMemory")]
+    DASH[("Live Dashboard\n:4243")]
+    XORG[("Other orgs\ncross-process")]
 
-    U --> CO --> RO --> BOSS
+    U --> DEF --> RUN --> BOSS
     BOSS -->|spawns| W
     BOSS -->|spawns| S
     BOSS -->|spawns| R
-    BOSS -->|spawns| M
-    BOSS <-->|claims + reports| BOARD
-    W <-->|stores output| MEM
-    S <-->|reads context| MEM
+    RUN <-->|serves| DASH
+    RUN <-.->|--cross-process| XORG
 
     style BOSS fill:#00D2AA22,stroke:#00D2AA
-    style BOARD fill:#F59E0B22,stroke:#F59E0B
-    style MEM fill:#8B5CF622,stroke:#8B5CF6
+    style DASH fill:#F59E0B22,stroke:#F59E0B
+    style XORG fill:#8B5CF622,stroke:#8B5CF6
 ```
 
-### Two commands to a running org
-
-**Step 1 — Design it:**
-
-```
-/ mastermind:createorg content-team
-  "Build and publish 3 blog posts per week on AI dev tools"
-
-Deriving roles from goal...
-
-╔ ORG: content-team
-║ TOPOLOGY: star (5 roles)
-
-  boss      → coordinator
-  writer    → Content Creator
-  reviewer  → reviewer
-  marketer  → Growth Hacker
-  seo       → SEO Specialist
-
-Type "go" to save, or describe changes.
-→ go
-
-✓ Saved .monomind/orgs/content-team.json
-  → Run: /mastermind:runorg --org content-team
-```
-
-**Step 2 — Start it:**
+### Run one
 
 ```bash
-/mastermind:runorg --org content-team
+# .monomind/orgs/<name>.json defines the org: goal, roles, policy.
+# See .monomind/orgs/sample-team.json in a fresh `monomind init` for a working example.
 
-# Boss agent spawns in background
-# Coordinates all roles via shared task board
-# Checkpoints every 30 minutes
-# Loops until you stop it
+monomind org run content-team --task "Build and publish 3 blog posts per week"
+
+# ✓ Live dashboard: http://localhost:4243
+# ✓ Boss agent (Claude Agent SDK session) spawns, reads the org goal,
+#   assigns work to role agents, coordinates until the task completes
+#   or you stop it.
+
+monomind org status content-team    # runtime state
+monomind org stop content-team      # request a graceful stop
+monomind org list                   # every org + status
 ```
 
 ### What runs under the hood
 
 | What | How |
 |---|---|
-| **Boss agent** | Coordinator type, no supervisor — owns the goal |
-| **Role agents** | Spawned on demand, specialized by task type |
-| **Task board** | Todo → Doing → Done, shared across all agents |
-| **Memory** | All output stored in an org-scoped memory namespace |
-| **Checkpoint** | State saved every 30 min — survives crashes and restarts |
-| **Governance** | `auto` (free), `board` (approve sensitive), `strict` (approve all external actions) |
-
-### Topology is auto-derived
-
-```mermaid
-graph LR
-    A["1-3 roles"] -->|mesh| B["All-to-all\ndirect comms"]
-    C["4-6 roles"] -->|star| D["Boss to workers\nfan-out"]
-    E["7+ roles"] -->|hierarchical| F["Boss to leads to workers\nmiddle management"]
-```
+| **OrgDaemon** | Hosts one or more orgs in a single process; real Claude Agent SDK sessions per role, not simulated |
+| **PolicyEngine** | Per-role gates on tool access, file read/write scope, web access, token budget — enforced, with a full audit trail |
+| **Live dashboard** | WebSocket-served at `:4243` by default (`--port` to change, `--serve=false` to disable) |
+| **Cross-process comms** | `--cross-process` (default on) lets orgs on different `monomind` processes/projects discover and message each other |
+| **Scheduling** | `monomind org serve` hosts orgs whose definition has a `schedule` field, running them on interval |
 
 ### Org management commands
 
 ```bash
-/mastermind:createorg <name> "<goal>"   # design org from a goal
-/mastermind:runorg --org <name>         # start as background daemon
-/mastermind:orgs                        # list all orgs + status
-/mastermind:orgstatus --org <name>      # detailed status for one org
-/mastermind:stoporg --org <name>        # stop a running org
-/mastermind:approve                     # review pending approval requests
+monomind org run <name> [--task "..."] [--port N] [--cross-process]  # start a daemon
+monomind org stop <name>            # request a running org to stop
+monomind org status [name]          # runtime state for one or all orgs
+monomind org list                   # list every org + status
+monomind org serve [--port N]       # host-only mode, runs scheduled orgs
+monomind org delete <name>          # remove an org
 ```
+
+> **Note:** the older `/mastermind:createorg` + `/mastermind:runorg` prompt-orchestrated flow is deprecated — it has no delivery guarantees or ground-truth event stream. It still runs for orgs not yet migrated, but new orgs should use `monomind org run` directly against a hand-authored `.monomind/orgs/<name>.json`.
 
 ---
 
@@ -206,11 +185,11 @@ claude mcp add monomind npx monomind mcp start
 monomind doctor --fix
 ```
 
-Open Claude Code. You now have 80+ slash commands available:
+Open Claude Code. You now have 60+ slash commands available:
 
 ```bash
 /mastermind:autodev --tillend     # start autonomous code loop
-/mastermind:createorg my-team     # create your first AI org
+monomind org run my-team          # run your first AI org (see .monomind/orgs/sample-team.json)
 /mastermind:help                  # show all commands
 ```
 
@@ -262,7 +241,7 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 
 ## 🎣 Hooks & Workers
 
-Monomind wires 22 hook events into Claude Code. Every edit, task, command, and session fires hooks that log patterns, route agents, and train the intelligence system.
+Monomind wires 29 hook subcommands into Claude Code across edit, task, command, and session lifecycle events — logging patterns, routing agents, and feeding the intelligence system.
 
 ```mermaid
 flowchart LR
@@ -296,7 +275,7 @@ const result = await fence.detect(userInput);
 
 ---
 
-## 📋 80+ Slash Commands
+## 📋 60+ Slash Commands
 
 Everything runs from inside Claude Code via slash commands. Here's the highlight reel:
 
@@ -315,9 +294,9 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 ### Organizations
 | Command | What it does |
 |---|---|
-| `/mastermind:createorg` | Design an autonomous agent org |
-| `/mastermind:runorg` | Start it as a background daemon |
-| `/mastermind:orgs` | List all orgs + status |
+| `monomind org run <name>` | Start an org as a real SDK-backed daemon |
+| `monomind org status` / `list` | Runtime state for one or all orgs |
+| `monomind org stop <name>` | Request a graceful stop |
 | `/mastermind:approve` | Action pending approval requests |
 
 ### Business Domains
@@ -329,7 +308,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `/mastermind:finance` | Budgets, invoicing, modeling |
 | `/mastermind:ops` | Operations and workflow automation |
 
-**[→ Full reference (80+ commands)](https://monoes.github.io/monomind/#slash)**
+**[→ Full reference (60+ commands)](https://monoes.github.io/monomind/#slash)**
 
 ---
 
@@ -351,24 +330,27 @@ graph TD
     CC["Claude Code"]
     MCP["MCP Server\nmonomind mcp start"]
     D["Background Workers\n(@monomind/hooks, in-process)"]
+    ORG["OrgDaemon\nmonomind org run\nreal SDK sessions"]
 
-    CC <-->|"MCP tools: monograph, memory, swarm"| MCP
+    CC <-->|"MCP tools: monograph, memory"| MCP
     MCP <--> D
 
     D --> ADB[("Memory store\npatterns + episodes")]
     D --> MG[("Monograph\ncode graph")]
-    D --> HK["Hooks\n22 event types"]
-    D --> SW["Swarm\n4 topologies\n3 consensus strategies"]
+    D --> HK["Hooks\n29 subcommands"]
 
-    CC -->|"Task tool - spawns agents"| AG["Agent Swarm\narchitect, coder\ntester, reviewer\nsecurity, perf"]
+    CC -->|"Task tool - spawns agents"| AG["In-session agents\narchitect, coder\ntester, reviewer\nsecurity, perf"]
     AG <-->|reads and writes| ADB
+    ORG -->|"spawns, policy-gated"| RA["Role agents"]
+    ORG <-->|reads and writes| ADB
 
     style CC fill:#00D2AA22,stroke:#00D2AA
     style AG fill:#8B5CF622,stroke:#8B5CF6
     style ADB fill:#F59E0B22,stroke:#F59E0B
+    style ORG fill:#F59E0B22,stroke:#F59E0B
 ```
 
-**Claude Code handles all execution.** MCP tools only coordinate. Your data never leaves your machine.
+**Claude Code's Task tool drives in-session multi-agent work; `monomind org run` drives persistent background orgs.** Your data never leaves your machine.
 
 ---
 
