@@ -53,6 +53,8 @@ describe('attachForwarder', () => {
       .toMatchObject({ type: 'org:comms', to: 'p:boss', msg: '[fyi] x' });
     expect(translate(mk({ type: 'asset', from: 'coder', path: '/w/out/report.md' })))
       .toMatchObject({ type: 'org:artifact', artifact: { label: 'report.md', path: '/w/out/report.md' } });
+    expect(translate(mk({ type: 'asset', from: 'coder', path: '/w/out/report.md', data: { content: '# v2' } })))
+      .toMatchObject({ type: 'org:artifact', artifact: { label: 'report.md', content: '# v2' } });
     expect(translate(mk({ msg: 'org started (2 agents)', data: { goal: 'g' } })))
       .toMatchObject({ type: 'org:start', goal: 'g' });
     expect(translate(mk({ msg: 'org stopped' }))).toMatchObject({ type: 'org:complete' });
