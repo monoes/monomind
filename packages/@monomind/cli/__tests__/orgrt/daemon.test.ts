@@ -135,4 +135,50 @@ describe('OrgDaemon', () => {
     expect(audit).toBeDefined();
     expect(audit!.msg).toMatch(/simulated provider outage/);
   });
+
+  it('deliver() reports a real error (not a false "delivered") when the target mailbox is already closed', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon6-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', policy: { maxTokens: 1 } },
+      ],
+    }));
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    await d.startOrg('alpha');
+    // first message exhausts coder's 1-token budget, closing its mailbox (session.ts's overBudget check)
+    await d.deliver('alpha', 'boss', 'coder', 'first', 'go');
+    await new Promise(r => setTimeout(r, 100)); // let the async session process it and close its mailbox
+    const receipt = await d.deliver('alpha', 'boss', 'coder', 'second', 'still there?');
+    expect(receipt).toMatch(/shutting down|not delivered/);
+    await d.stopAll();
+  });
+
+  it('stopOrg is reentrant-safe: a concurrent second call no-ops instead of double-emitting completion', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon7-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+    await Promise.all([d.stopOrg('alpha'), d.stopOrg('alpha')]);
+    const stoppedCount = running.busEvents().filter(e => e.type === 'status' && e.msg === 'org stopped').length;
+    expect(stoppedCount).toBe(1);
+  });
+
+  it('stopOrg does not hang forever on a truly wedged agent session (bounded stop wait)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon8-'));
+    fixture(root, 'alpha');
+    // ignores mailbox input entirely and never resolves — simulates a session stuck mid-tool-call
+    const hangingQuery = () => (async function* () {
+      yield { type: 'assistant', message: { content: [{ type: 'text', text: 'stuck' }] } };
+      await new Promise(() => {});
+    })();
+    const d = new OrgDaemon(root, { queryFn: hangingQuery as any, forward: false, stopWaitMs: 200 });
+    const running = await d.startOrg('alpha');
+    const start = Date.now();
+    await d.stopOrg('alpha');
+    expect(Date.now() - start).toBeLessThan(2000);
+    expect(running.busEvents().some(e => e.type === 'audit' && e.reason === 'stop-timeout')).toBe(true);
+  });
 });
