@@ -532,30 +532,31 @@ body {
       Let it <em>run itself.</em>
     </h1>
     <p class="hero-sub">
-      Design a multi-agent organization in one command. Define roles, hierarchy, and communication topology. Start it as a persistent daemon that coordinates agents, manages tasks, and delivers output while you focus elsewhere.
+      Define an org as a JSON file — roles, hierarchy, per-role policy — then start it as a real SDK-backed daemon. Live WebSocket dashboard, cross-process discovery, persistent memory, and policy-gated tool access, all real and running today.
     </p>
 
     <div class="hero-commands">
       <div class="hero-cmd">
-        <span class="cmd-prompt">/</span>
-        <span class="cmd-name">mastermind:createorg</span>
-        <span class="cmd-arg">content-team</span>
-        <span class="cmd-comment">&nbsp;# design the org</span>
+        <span class="cmd-prompt">$</span>
+        <span class="cmd-name">monomind org run</span>
+        <span class="cmd-arg">content-team --task "..."</span>
+        <span class="cmd-comment">&nbsp;# start it</span>
       </div>
       <div class="hero-cmd">
-        <span class="cmd-prompt">/</span>
-        <span class="cmd-name">mastermind:runorg</span>
-        <span class="cmd-arg">--org content-team</span>
-        <span class="cmd-comment">&nbsp;# start it</span>
+        <span class="cmd-prompt">$</span>
+        <span class="cmd-name">monomind org status</span>
+        <span class="cmd-arg">content-team</span>
+        <span class="cmd-comment">&nbsp;# check it</span>
       </div>
     </div>
 
     <div class="hero-badges">
-      <span class="badge badge-accent">Persistent daemon</span>
-      <span class="badge badge-amber">Shared task board</span>
+      <span class="badge badge-accent">Real SDK sessions</span>
+      <span class="badge badge-amber">Live dashboard :4243</span>
       <span class="badge badge-violet">Memory-backed</span>
-      <span class="badge badge-accent">Auto-topology</span>
+      <span class="badge badge-accent">Policy-gated</span>
     </div>
+    <p style="margin-top:16px;font-size:12px;color:var(--muted, #8a8a8a)">The walkthrough below (<code>/mastermind:createorg</code> + <code>/mastermind:runorg</code>) documents the older prompt-orchestrated path, deprecated 2026-07 in favor of <code>monomind org run</code> shown above. It still runs for orgs not yet migrated.</p>
   </div>
 
   <div class="hero-right" aria-hidden="true">
@@ -824,7 +825,7 @@ body {
 
       <div style="margin-top:20px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
         <div style="font-size:11px;color:var(--muted);font-family:var(--ff-m);margin-bottom:6px;">Stop running org:</div>
-        <code style="font-family:var(--ff-m);font-size:12px;color:var(--text2)">curl -X POST http://localhost:4242/api/orgs/content-team/stop</code>
+        <code style="font-family:var(--ff-m);font-size:12px;color:var(--text2)">monomind org stop content-team</code>
       </div>
     </div>
 
