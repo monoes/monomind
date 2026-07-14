@@ -43,6 +43,8 @@ export interface DaemonOpts {
   inboxUrl?: string;
   /** Override the broker's file registry directory (tests only). */
   brokerDir?: string;
+  /** Override how long stopOrg() waits for agent sessions before proceeding anyway (tests only; default 15000ms). */
+  stopWaitMs?: number;
 }
 
 export class OrgDaemon {
@@ -78,8 +80,17 @@ export class OrgDaemon {
     mkdirSync(cwd, { recursive: true });
 
     const bus = new OrgBus(name, run, dir);
+    // Bounded in-memory tail: bus.jsonl on disk is the full durable record;
+    // this buffer only backs busEvents() (test-loop, /api/history) and would
+    // otherwise grow without limit for a long-running scheduled org — each
+    // Write's captured content snapshot alone can be up to 200KB (policy.ts).
+    const MAX_COLLECTED = 5000;
     const collected: BusEvent[] = [];
-    bus.subscribe(e => { collected.push(e); for (const fn of this.globalSubscribers) fn(e); });
+    bus.subscribe(e => {
+      collected.push(e);
+      if (collected.length > MAX_COLLECTED) collected.splice(0, collected.length - MAX_COLLECTED);
+      for (const fn of this.globalSubscribers) fn(e);
+    });
     if (this.opts.forward !== false)
       this.forwarders.set(name, attachForwarder(bus, this.opts.controlJson ?? join(this.root, '.monomind/control.json')));
 
@@ -144,11 +155,18 @@ export class OrgDaemon {
       src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `undeliverable: ${subject}`, reason: 'unknown recipient' });
       return `ERROR: unknown recipient "${to}" (known: ${[...(targetOrg?.agents.keys() ?? this.orgs.keys())].join(', ')})`;
     }
+    const targetAgent = targetOrg.agents.get(targetRole)!;
+    if (targetAgent.mailbox.isClosed) {
+      // The org is mid-shutdown: mailboxes close before the org is removed
+      // from `this.orgs`, so a message can arrive in that window. push() would
+      // silently no-op — report the real outcome instead of a false "delivered".
+      src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
+      return `ERROR: recipient "${to}" is shutting down — message not delivered`;
+    }
     const evt = { from: cross ? `${fromOrg}:${fromRole}` : fromRole, to: cross ? to : targetRole, subject, msg: body };
     src?.bus.emit({ type: cross ? 'xorg' : 'message', ...evt });
     if (cross && targetOrg !== src) targetOrg.bus.emit({ type: 'xorg', ...evt });
-    targetOrg.agents.get(targetRole)!.mailbox.push(
-      `[message from ${evt.from}] subject: ${subject}\n\n${body}`);
+    targetAgent.mailbox.push(`[message from ${evt.from}] subject: ${subject}\n\n${body}`);
     return `delivered to ${to}`;
   }
 
@@ -193,6 +211,7 @@ export class OrgDaemon {
     if (!org) return { ok: false, error: `org "${toOrg}" not hosted here` };
     const agent = org.agents.get(toRole);
     if (!agent) return { ok: false, error: `role "${toRole}" not found in org "${toOrg}"` };
+    if (agent.mailbox.isClosed) return { ok: false, error: `role "${toRole}" in org "${toOrg}" is shutting down` };
     org.bus.emit({ type: 'xorg', from: fromQualified, to: `${toOrg}:${toRole}`, subject, msg: body });
     agent.mailbox.push(`[message from ${fromQualified}] subject: ${subject}\n\n${body}`);
     return { ok: true, receipt: `delivered to ${toOrg}:${toRole} (remote)` };
@@ -200,11 +219,28 @@ export class OrgDaemon {
 
   async stopOrg(name: string): Promise<void> {
     const org = this.orgs.get(name);
-    if (!org) return;
+    if (!org) return; // already stopped, or another concurrent stopOrg() call is handling it
+    // Remove immediately (not at the end) so a concurrent stopOrg(name) call —
+    // e.g. stopAll() racing a scheduler-triggered stop on SIGINT — sees the org
+    // is already gone and no-ops instead of re-running the whole shutdown and
+    // double-emitting 'org stopped' (duplicate org:complete/session:complete).
+    this.orgs.delete(name);
     this.leases.get(name)?.stop();
     this.leases.delete(name);
     for (const a of org.agents.values()) a.mailbox.close();
-    await Promise.allSettled([...org.agents.values()].map(a => a.done));
+    // Bounded: a genuinely hung agent session (stuck mid-tool-call, not just
+    // idle) must not make stopOrg() hang forever — callers like the scheduler
+    // already race their own timeout around a run, and this wait re-blocking
+    // unboundedly on the same never-resolving promises defeated that bound.
+    const stopWaitMs = this.opts.stopWaitMs ?? 15_000;
+    const allDone = Promise.allSettled([...org.agents.values()].map(a => a.done)).then(() => false);
+    const timedOut = await Promise.race([allDone, new Promise<boolean>(r => setTimeout(() => r(true), stopWaitMs))]);
+    if (timedOut) {
+      org.bus.emit({
+        type: 'audit', msg: `org stop timed out after ${stopWaitMs}ms waiting for agent sessions to finish — proceeding anyway`,
+        reason: 'stop-timeout',
+      });
+    }
     org.bus.emit({ type: 'status', msg: 'org stopped' });
     await org.bus.flush();
     // the "org stopped" event above triggers the forwarder's final org:complete /
@@ -214,7 +250,6 @@ export class OrgDaemon {
     const forwarder = this.forwarders.get(name);
     if (forwarder) { await forwarder.settle(); forwarder.unsubscribe(); this.forwarders.delete(name); }
     this.persistState(name, 'stopped', org.run);
-    this.orgs.delete(name);
   }
 
   async stopAll(): Promise<void> {
