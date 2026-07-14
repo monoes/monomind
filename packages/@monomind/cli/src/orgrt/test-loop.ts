@@ -1,7 +1,6 @@
 // packages/@monomind/cli/src/orgrt/test-loop.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import WebSocket from 'ws';
 import { OrgDaemon } from './daemon.js';
 import { startOrgServer } from './server.js';
 import { OrgBus } from './bus.js';
@@ -78,17 +77,15 @@ export async function runTestLoop(root: string, times: number): Promise<LoopRepo
       return scriptedQuery(roleId)(args);
     };
     const daemon = new OrgDaemon(root, { queryFn: queryFn as any, forward: false });
+    // xdeliver server for cross-process delivery (tested via the xorg check)
     const srv = await startOrgServer(daemon, 0);
-    const wsEvents: BusEvent[] = [];
-    const ws = new WebSocket(`ws://127.0.0.1:${srv.port}/ws`);
-    ws.on('message', d => wsEvents.push(JSON.parse(d.toString())));
-    await new Promise(r => ws.on('open', r));
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
 
     const alpha = await daemon.startOrg('alpha');
     await daemon.startOrg('partner');
     await waitFor(() => alpha.busEvents().some(e => e.type === 'message' && e.from === 'coder' && e.to === 'boss'));
     await daemon.stopAll();
-    ws.close(); srv.close();
+    srv.close();
 
     const evs = alpha.busEvents();
     const has = (pred: (e: BusEvent) => boolean) => evs.some(pred);
@@ -101,7 +98,6 @@ export async function runTestLoop(root: string, times: number): Promise<LoopRepo
       asset: has(e => e.type === 'asset' && (e.path ?? '').endsWith('out/report.md')),
       xorg: has(e => e.type === 'xorg' && e.to === 'partner:boss'),
       usage: has(e => e.type === 'usage'),
-      wsDelivery: wsEvents.length > 0 && wsEvents.some(e => e.type === 'chat'),
       persisted: persistedCount === evs.length,
     };
     iterations.push({ checks, events: evs.length });

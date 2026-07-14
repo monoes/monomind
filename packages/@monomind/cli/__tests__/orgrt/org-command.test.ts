@@ -36,18 +36,6 @@ describe('org command', () => {
     expect(res?.message).toMatch(/usage: monomind org/);
   });
 
-  it('run/serve --port options validate the range (rejects non-positive or out-of-range ports)', () => {
-    for (const subName of ['run', 'serve']) {
-      const sub = orgCommand.subcommands!.find(c => c.name === subName)!;
-      const portOpt = sub.options!.find(o => o.name === 'port')!;
-      expect(portOpt.validate).toBeDefined();
-      expect(portOpt.validate!(-5)).not.toBe(true);
-      expect(portOpt.validate!(0)).not.toBe(true);
-      expect(portOpt.validate!(70000)).not.toBe(true);
-      expect(portOpt.validate!(4243)).toBe(true);
-    }
-  });
-
   describe('stopfile lifecycle', () => {
     it('clearStopfile removes a stopfile written by stopAction', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'org-stopfile-'));

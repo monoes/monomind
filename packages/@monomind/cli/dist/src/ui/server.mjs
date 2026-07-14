@@ -9,6 +9,9 @@ import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwar
 import { addSseClient, removeSseClient, broadcast, getSseClientCount, closeSseClients, addMmClient, removeMmClient, broadcastMm, getMmClientCount } from './sse-manager.mjs';
 
 const JSONL_SIZE_CAP = 10 * 1024 * 1024; // 10 MB — skip files larger than this in /api/graph
+// Session id format for data/sessions/<id>.jsonl persistence — no path traversal (".."), starts
+// with a word char, rest is word chars/dot/dash. Shared by every session-id-accepting endpoint.
+const SESSION_ID_RE = /^(?!.*\.\.)[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/;
 const buildDocsState = new Map();
 
 // Pricing per token (mirrors token-tracker.cjs FALLBACK_PRICING)
@@ -608,10 +611,26 @@ function bindServer(server, port) {
  * uses a greedy BFS over the real filesystem to find the correct path.
  * Falls back to cwd in session files, then to direct slug replacement.
  */
+const _slugPathCache = new Map();
+
 function resolveSlugToPath(slug, projDir) {
-  // 1. Try filesystem BFS (most reliable)
+  if (_slugPathCache.has(slug)) return _slugPathCache.get(slug);
+  const resolved = _resolveSlugToPathUncached(slug, projDir);
+  _slugPathCache.set(slug, resolved);
+  return resolved;
+}
+
+function _resolveSlugToPathUncached(slug, projDir) {
+  // 1. Try filesystem BFS (most reliable). Branching is O(2^hyphens) in the
+  // worst case (a slug with N hyphens can require exploring both "new path
+  // segment" and "hyphen is part of this segment's name" at each of the N
+  // positions) — bound total exploration so a slug with many hyphens (e.g.
+  // a UUID-embedded temp/scratchpad dir) can't hang the event loop.
   const parts = slug.replace(/^-/, '').split('-');
+  const MAX_CALLS = 20000;
+  let calls = 0;
   function tryPaths(idx, current) {
+    if (++calls > MAX_CALLS) return null;
     if (idx === parts.length) return fs.existsSync(current) ? current : null;
     // Option A: next part is a new path component
     const asDir = path.join(current, parts[idx]);
@@ -887,7 +906,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // Format: data/sessions/<sessionId>.jsonl  +  data/sessions/_index.json
     try {
       const _sid = String(event.session || '').trim();
-      if (_sid.length > 0 && _sid.length <= 128 && /^(?!.*\.\.)[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(_sid)) {
+      if (_sid.length > 0 && _sid.length <= 128 && SESSION_ID_RE.test(_sid)) {
         const sessDir = path.join(dataDir, 'sessions');
         fs.mkdirSync(sessDir, { recursive: true });
         // Append event to per-session JSONL (O(1), no read)
@@ -5449,7 +5468,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
               const top = idx.slice(0, limitParam);
               for (const entry of top) {
                 const _sid = String(entry.id || '').trim();
-                if (!_sid || !/^(?!.*\.\.)[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(_sid)) continue;
+                if (!_sid || !SESSION_ID_RE.test(_sid)) continue;
                 let events = [];
                 try {
                   const jl = fs.readFileSync(path.join(sessDir, `${_sid}.jsonl`), 'utf8');
@@ -5553,6 +5572,23 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       } catch (err) {
         res.writeHead(404);
         res.end(`orgs.html not found: ${err.message}`);
+      }
+      return;
+    }
+
+    // ------------------------------------------------ GET /orgs-files.js
+    // Files-tab + diff-view script, split out of orgs.html (see orgs.html's
+    // script-src comment). Not a generic static handler — this UI serves each
+    // sibling asset via its own hardcoded route, same as GET /orgs above.
+    if (req.method === 'GET' && url === '/orgs-files.js') {
+      try {
+        const jsPath = path.join(__dirname, 'orgs-files.js');
+        const js = fs.readFileSync(jsPath, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+        res.end(js);
+      } catch (err) {
+        res.writeHead(404);
+        res.end(`orgs-files.js not found: ${err.message}`);
       }
       return;
     }
@@ -6193,7 +6229,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const _migIndex = [];
         for (const sess of (_migOld || [])) {
           const _msid = String(sess.id || '').trim();
-          if (!_msid || !/^(?!.*\.\.)[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(_msid)) continue;
+          if (!_msid || !SESSION_ID_RE.test(_msid)) continue;
           // Write per-session JSONL
           const _mEvts = (sess.events || []);
           const _mLines = _mEvts.map(e => JSON.stringify(e)).join('\n');
