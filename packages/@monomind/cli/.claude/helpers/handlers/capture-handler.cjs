@@ -41,6 +41,18 @@ function subagentKey(hookInput) {
   return crypto.createHash('md5').update(String(raw)).digest('hex').slice(0, 16);
 }
 
+// Determine subagent success from its result summary — errors/failures/
+// exceptions indicate failure. Shared by the Monograph `success` column and
+// the intelligence.feedback() call below, so both use one definition.
+function deriveSubagentSuccess(summary) {
+  if (!summary) return true;
+  var sumLower = summary.toLowerCase();
+  if (sumLower.includes('error') || sumLower.includes('failed') || sumLower.includes('exception') || sumLower.includes('fatal')) {
+    return false;
+  }
+  return true;
+}
+
 // Delete snap-*.json files older than SNAP_MAX_AGE_MS — orphaned when a
 // SubagentStop never arrived (crash, forced-stop) or was matched to a
 // different snapshot before keyed matching existed.
@@ -345,6 +357,17 @@ async function handleSubagentStop(hookInput) {
     + (session ? ' · sess=' + session : '')
     + (org ? ' · ' + org + '/' + runId : ''));
 
+  // Feed the real per-subagent success/failure signal into the same
+  // intelligence-outcomes.jsonl that session-handler.cjs's SessionEnd
+  // heuristic reads (via outcomesSignal) to veto a commit-based "success".
+  // Without this, that veto path never fires — SubagentStop is the only
+  // remaining event that carries a genuine failure signal, since post-task
+  // (TeammateIdle/TaskCompleted) is dead code (those aren't valid Claude
+  // Code hook events and are stripped from settings.json on init).
+  try {
+    require('../intelligence.cjs').feedback(deriveSubagentSuccess(summary));
+  } catch (e) { /* non-fatal — feedback recording must never block subagent-stop */ }
+
   if (!org && !session) {
     // No active org or session — log to general capture file only
     // P2-26: rotate — was a pure appendFileSync with no cap, unlike
@@ -486,16 +509,7 @@ async function handleSubagentStop(hookInput) {
             tokens_in: totalTin || 0,
             tokens_out: totalTout || 0,
             cost_usd: costUsd || 0,
-            success: (function() {
-              // Determine success from result summary — errors/failures/exceptions indicate failure
-              if (summary) {
-                var sumLower = summary.toLowerCase();
-                if (sumLower.includes('error') || sumLower.includes('failed') || sumLower.includes('exception') || sumLower.includes('fatal')) {
-                  return 0;
-                }
-              }
-              return 1;
-            })(),
+            success: deriveSubagentSuccess(summary) ? 1 : 0,
             duration_ms: snap.ts ? (Date.now() - snap.ts) : 0,
             timestamp: Date.now(),
           });
