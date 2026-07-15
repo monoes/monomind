@@ -5786,6 +5786,7 @@ let _v2SelOrg = null;
 let _v2OrgData = null;
 let _v2OrgTab = 'chart';
 const _v2OrgEventLog = {};
+let _v2ChartLayout = { pos: {}, edgeIdByPair: new Map() };
 
 async function renderOrgs() {
   try {
@@ -6262,8 +6263,54 @@ function v2RenderOrgChart() {
       el.style.opacity = '0';
     });
   }
+
+  const edgeIdByPair = new Map();
+  comms.forEach((edge, ei) => {
+    if (edge.from === edge.to) return;
+    edgeIdByPair.set(edge.from + '->' + edge.to, 'v2ep' + ei);
+  });
+  _v2ChartLayout = { pos, edgeIdByPair };
+  v2OrgActivityReset();
 }
 
+function _v2RoleName(id, roles) {
+  const r = (roles || []).find(x => x.id === id);
+  return r ? (r.name || r.title || r.id) : id;
+}
+
+function v2DeriveActivityText(ev, roles) {
+  if (!ev || !ev.from) return null;
+  const type = ev.type || '';
+  if (type === 'org:tool') return ev.tool ? ('running ' + ev.tool) : 'active';
+  if (type === 'org:checkpoint') {
+    const p = ev.progress || '';
+    return p ? (p.length > 40 ? p.slice(0, 39) + '...' : p) : 'active';
+  }
+  if (type === 'org:comms') {
+    if (!ev.to || ev.to === 'all') return 'broadcasting';
+    return 'messaging ' + _v2RoleName(ev.to, roles);
+  }
+  if (type === 'org:artifact') {
+    const label = ev.artifact && ev.artifact.label;
+    return label ? ('writing ' + label) : 'active';
+  }
+  return 'active';
+}
+
+function v2DeriveLetterTarget(ev, roles) {
+  if (!ev || !ev.from) return null;
+  const type = ev.type || '';
+  if (type === 'org:comms') {
+    if (!ev.to || ev.to === 'all') return null;
+    return { from: ev.from, to: ev.to };
+  }
+  if (type === 'org:checkpoint' || type === 'org:artifact') {
+    const leader = (roles || []).find(_v2OrgIsLeader);
+    if (!leader || leader.id === ev.from) return null;
+    return { from: ev.from, to: leader.id };
+  }
+  return null;
+}
 
 // ── in-place running dot updater (avoids full re-render + GSAP flicker on SSE events) ──
 function v2UpdateChartRunningDots() {
