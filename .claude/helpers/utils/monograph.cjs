@@ -288,6 +288,44 @@ function _recordGraphTelemetry(event) {
   } catch (e) { /* non-fatal */ }
 }
 
+// ─── Graph gate ─────────────────────────────────────────────────────────────
+// The pre-search/pre-bash heuristic assist above silently resolves Grep/Bash
+// patterns against the graph and counts that as a "graph win" even when the
+// agent never actually called monograph_query — so the graph-usage % can look
+// healthy while zero real monograph_call events ever fire. This gate forces
+// at least one real monograph_query/monograph_suggest call per session before
+// Grep/Glob/bash grep|find are allowed, by hard-blocking (exitCode 2) the
+// first such call each session. Capped at ONE block per session (never a
+// second) so a subagent with no monograph MCP tool access can't deadlock.
+function _graphGateStateFile() {
+  return path.join(CWD, '.monomind', 'graph-gate-state.json');
+}
+
+function _graphGateMarkQueried(sessionId) {
+  if (!sessionId) return;
+  try {
+    fs.mkdirSync(path.join(CWD, '.monomind'), { recursive: true });
+    fs.writeFileSync(_graphGateStateFile(), JSON.stringify({ sessionId: sessionId, queried: true }));
+  } catch (e) { /* non-fatal */ }
+}
+
+function _graphGateShouldBlock(sessionId) {
+  if (!sessionId || !_isGraphFresh()) return false;
+  var f = _graphGateStateFile();
+  var d = {};
+  try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (e) {}
+  if (typeof d !== 'object' || d === null || d.sessionId !== sessionId) {
+    d = { sessionId: sessionId, queried: false, blockedOnce: false };
+  }
+  if (d.queried || d.blockedOnce) return false;
+  d.blockedOnce = true;
+  try {
+    fs.mkdirSync(path.join(CWD, '.monomind'), { recursive: true });
+    fs.writeFileSync(f, JSON.stringify(d));
+  } catch (e) { return false; }
+  return true;
+}
+
 function _injectCompactGraphMap() {
   try {
     var db = _openMonographDb();
@@ -507,5 +545,7 @@ module.exports = {
   _injectCompactGraphMap,
   _findAffectedTests,
   _maybeRebuildMonograph,
+  _graphGateShouldBlock,
+  _graphGateMarkQueried,
   injectGodNodesContext,
 };

@@ -55,6 +55,7 @@ const {
   getMonographSuggestions, getMonographNeighbors,
   _recordGraphTelemetry, _injectCompactGraphMap,
   _findAffectedTests, _maybeRebuildMonograph,
+  _graphGateShouldBlock, _graphGateMarkQueried,
 } = monograph;
 
 const {
@@ -410,6 +411,15 @@ const handlers = {
     var isGrep = /\b(?:grep|rg|ag)\b/.test(cmd);
     var isFind = /\b(?:find|fd)\b/.test(cmd) && !isGrep;
     if (isGrep || isFind) {
+      var sessIdGate = String((hCtx.hookInput && (hCtx.hookInput.sessionId || hCtx.hookInput.session_id)) || '');
+      if (_graphGateShouldBlock(sessIdGate)) {
+        process.stderr.write(JSON.stringify({
+          decision: 'block',
+          reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before grep/rg/find for code exploration (CLAUDE.md). This blocks once per session — after your first monograph call (or this one warning), Bash grep/find work normally for the rest of the session.',
+        }) + '\n');
+        process.exitCode = 2;
+        return;
+      }
       var graphAssisted = false;
       if (_isGraphFresh()) {
         try {
@@ -661,6 +671,15 @@ const handlers = {
 
   'pre-search': () => {
     var tool = hCtx.toolName || '';
+    var sessIdGate = String((hCtx.hookInput && (hCtx.hookInput.sessionId || hCtx.hookInput.session_id)) || '');
+    if (_graphGateShouldBlock(sessIdGate)) {
+      process.stderr.write(JSON.stringify({
+        decision: 'block',
+        reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before ' + (tool || 'Grep/Glob') + ' for code exploration (CLAUDE.md). This blocks once per session — after your first monograph call (or this one warning), search tools work normally for the rest of the session.',
+      }) + '\n');
+      process.exitCode = 2;
+      return;
+    }
     var graphResolved = false;
     try {
       var grepPattern = (typeof toolInput === 'object' && toolInput !== null)
@@ -819,6 +838,8 @@ const handlers = {
   'post-graph-tool': () => {
     // Record monograph MCP tool calls as graph wins
     _recordGraphTelemetry('monograph_call');
+    var sessIdGate = String((hCtx.hookInput && (hCtx.hookInput.sessionId || hCtx.hookInput.session_id)) || '');
+    _graphGateMarkQueried(sessIdGate);
   },
 
   'graph-status': () => {
