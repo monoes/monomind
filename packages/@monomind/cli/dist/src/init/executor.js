@@ -1285,6 +1285,13 @@ async function writeHelpers(targetDir, options, result) {
     };
     for (const [name, content] of Object.entries(helpers)) {
         const filePath = path.join(helpersDir, name);
+        // If the source dir has this file, copyRecursive above already applied
+        // the correct (force-aware) copy — never let this generated fallback
+        // clobber it with a bare-bones stub. Only step in when source truly
+        // doesn't have the file, regardless of `force`.
+        const inSource = !!(sourceHelpersDir && fs.existsSync(path.join(sourceHelpersDir, name)));
+        if (inSource)
+            continue;
         if (!fs.existsSync(filePath) || options.force) {
             atomicWriteFile(filePath, content);
             // Make shell scripts executable
