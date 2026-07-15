@@ -94,6 +94,11 @@ export async function checkDiskSpace(): Promise<HealthCheck> {
 }
 
 export async function checkBuildTools(): Promise<HealthCheck> {
+  // Only meaningful for Node/TS projects — a Go, Python, or Rust repo has no
+  // reason to install TypeScript, and warning about it there is just noise.
+  if (!existsSync(join(process.cwd(), 'package.json'))) {
+    return { name: 'TypeScript', status: 'pass', message: 'N/A — no package.json (not a Node.js project)' };
+  }
   try {
     const tscVersion = await runCommand('npx tsc --version', 10000);
     if (!tscVersion || tscVersion.includes('not found')) {
