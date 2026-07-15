@@ -8263,6 +8263,12 @@ function _odtHandleLiveEvent(ev) {
     const _arr = [..._odtChatSeenKeys];
     _odtChatSeenKeys = new Set(_arr.slice(1000));
   }
+  // Wire activity bubble for org chart visualization
+  if (ev && ev.org === _v2SelOrg) {
+    const roles = Array.isArray(_v2OrgData && _v2OrgData.roles) ? _v2OrgData.roles : [];
+    const text = v2DeriveActivityText(ev, roles);
+    if (text && ev.from) v2ShowActivityBubble(ev.from, text);
+  }
   // Route org run events (have runId + org) to the active run session
   if (ev?.org && ev?.runId && ev.org === _v2SelOrg) {
     let runSess = _odtChatSessions.find(s => s.id === ev.runId);
