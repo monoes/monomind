@@ -428,6 +428,18 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 /* SVG org chart */
 .org-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 12px; }
 .org-chart-svg { width: 100%; display: block; }
+.v2-bubble-inner {
+  background: oklch(18% 0.01 55 / 0.95);
+  border: 1px solid oklch(72% 0.18 75 / 0.4);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font: 500 9.5px 'Inter', system-ui, sans-serif;
+  color: oklch(88% 0.01 75);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .org-chart-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 2px; }
 .ocl-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-lo); }
 
@@ -6205,6 +6217,9 @@ function v2RenderOrgChart() {
       <image href="${avatarSrc}" x="${-avR}" y="${-R + 2}" width="${avR * 2}" height="${avR * 2}" clip-path="url(#${nodeClipIds[i]})" preserveAspectRatio="xMidYMid meet" onerror="this.setAttribute('href','data/avatars/coder.svg')"/>
       <text text-anchor="middle" y="${nameY}" font-size="9" font-weight="${leader?'600':'500'}" font-family="'Inter',system-ui,sans-serif" fill="${color}">${esc(nameText)}</text>
       ${subTypeText ? `<text text-anchor="middle" y="${+nameY + 11}" font-size="7.5" font-family="'Inter',system-ui,sans-serif" fill="oklch(48% 0.005 75)">${esc(subTypeText)}</text>` : ''}
+      <foreignObject class="v2-activity-bubble" data-bubble-for="${esc(role.id)}" x="-70" y="${-R - 46}" width="140" height="34" style="overflow:visible;pointer-events:none;visibility:hidden;opacity:0">
+        <div class="v2-bubble-inner" xmlns="http://www.w3.org/1999/xhtml"></div>
+      </foreignObject>
     </g>`;
   });
 
@@ -6310,6 +6325,42 @@ function v2DeriveLetterTarget(ev, roles) {
     return { from: ev.from, to: leader.id };
   }
   return null;
+}
+
+let _v2BubbleTimers = new Map();
+
+function v2OrgActivityReset() {
+  _v2BubbleTimers.forEach(t => clearTimeout(t));
+  _v2BubbleTimers = new Map();
+}
+
+function v2ShowActivityBubble(roleId, text) {
+  const fo = document.querySelector('.v2-activity-bubble[data-bubble-for="' + CSS.escape(roleId) + '"]');
+  if (!fo) return;
+  const inner = fo.querySelector('.v2-bubble-inner');
+  inner.textContent = text;
+  if (typeof gsap !== 'undefined') {
+    gsap.killTweensOf(fo);
+    fo.style.visibility = 'visible';
+    gsap.fromTo(fo, { scale: 0.8, autoAlpha: 0 }, {
+      scale: 1, autoAlpha: 1, duration: 0.3, ease: 'back.out(1.7)',
+      transformOrigin: '50% 100%',
+    });
+  } else {
+    fo.style.visibility = 'visible';
+    fo.style.opacity = '1';
+  }
+  const existing = _v2BubbleTimers.get(roleId);
+  if (existing) clearTimeout(existing);
+  _v2BubbleTimers.set(roleId, setTimeout(function() {
+    if (typeof gsap !== 'undefined') {
+      gsap.to(fo, { autoAlpha: 0, duration: 0.4, ease: 'power2.in', onComplete: function() { fo.style.visibility = 'hidden'; } });
+    } else {
+      fo.style.opacity = '0';
+      fo.style.visibility = 'hidden';
+    }
+    _v2BubbleTimers.delete(roleId);
+  }, 5000));
 }
 
 // ── in-place running dot updater (avoids full re-render + GSAP flicker on SSE events) ──
