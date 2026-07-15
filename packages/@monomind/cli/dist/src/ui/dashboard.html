@@ -6246,6 +6246,7 @@ function v2RenderOrgChart() {
         <g id="v2oc-edges">${edgesHTML}</g>
         <g id="v2oc-nodes">${nodesHTML}</g>
         <g id="v2oc-particles" opacity="${isRunning ? 1 : 0}">${particlesHTML}</g>
+        <g id="v2oc-letters"></g>
       </svg>
     </div>
     <div class="org-chart-legend" style="margin-top:10px">
@@ -6325,6 +6326,74 @@ function v2DeriveLetterTarget(ev, roles) {
     return { from: ev.from, to: leader.id };
   }
   return null;
+}
+
+let _v2LetterBurst = { lastTs: 0, count: 0 };
+
+function v2SpawnLetter(fromId, toId) {
+  const layout = _v2ChartLayout;
+  const fp = layout.pos[fromId], tp = layout.pos[toId];
+  if (!fp || !tp) return;
+  const group = document.getElementById('v2oc-letters');
+  if (!group) return;
+
+  const now = Date.now();
+  if (now - _v2LetterBurst.lastTs < 150) _v2LetterBurst.count++;
+  else _v2LetterBurst.count = 0;
+  _v2LetterBurst.lastTs = now;
+  const delay = (_v2LetterBurst.count * 0.08).toFixed(2);
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  let pathId = layout.edgeIdByPair.get(fromId + '->' + toId);
+  let synthesizedPath = null;
+  if (!pathId) {
+    pathId = 'v2lp' + Math.random().toString(36).slice(2, 9);
+    synthesizedPath = document.createElementNS(svgNS, 'path');
+    synthesizedPath.setAttribute('id', pathId);
+    synthesizedPath.setAttribute('d', 'M' + fp.x + ',' + fp.y + ' L' + tp.x + ',' + tp.y);
+    synthesizedPath.setAttribute('fill', 'none');
+    synthesizedPath.setAttribute('stroke', 'none');
+    document.getElementById('v2oc-edges').appendChild(synthesizedPath);
+  }
+
+  const letter = document.createElementNS(svgNS, 'g');
+  const circ = document.createElementNS(svgNS, 'circle');
+  circ.setAttribute('r', '6');
+  circ.setAttribute('fill', 'oklch(85% 0.16 85)');
+  circ.setAttribute('stroke', 'oklch(30% 0.02 55)');
+  circ.setAttribute('stroke-width', '1');
+  letter.appendChild(circ);
+  const flap = document.createElementNS(svgNS, 'path');
+  flap.setAttribute('d', 'M-3.5,-2 L0,1 L3.5,-2');
+  flap.setAttribute('stroke', 'oklch(30% 0.02 55)');
+  flap.setAttribute('stroke-width', '1');
+  flap.setAttribute('fill', 'none');
+  letter.appendChild(flap);
+
+  const anim = document.createElementNS(svgNS, 'animateMotion');
+  anim.setAttribute('dur', '0.8s');
+  anim.setAttribute('begin', delay + 's');
+  anim.setAttribute('fill', 'freeze');
+  const mpath = document.createElementNS(svgNS, 'mpath');
+  mpath.setAttributeNS('http://www.w3.org/1999/xlink', 'href', '#' + pathId);
+  anim.appendChild(mpath);
+  letter.appendChild(anim);
+  group.appendChild(letter);
+
+  if (typeof gsap !== 'undefined') {
+    gsap.fromTo(letter, { scale: 0, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.15, delay: Number(delay), ease: 'back.out(1.7)' });
+  }
+
+  const totalMs = (Number(delay) + 0.8) * 1000;
+  setTimeout(function() {
+    function cleanup() {
+      letter.remove();
+      if (synthesizedPath) synthesizedPath.remove();
+    }
+    if (typeof gsap !== 'undefined') {
+      gsap.to(letter, { autoAlpha: 0, duration: 0.15, onComplete: cleanup });
+    } else cleanup();
+  }, totalMs);
 }
 
 let _v2BubbleTimers = new Map();
@@ -8268,6 +8337,8 @@ function _odtHandleLiveEvent(ev) {
     const roles = Array.isArray(_v2OrgData && _v2OrgData.roles) ? _v2OrgData.roles : [];
     const text = v2DeriveActivityText(ev, roles);
     if (text && ev.from) v2ShowActivityBubble(ev.from, text);
+    const letterTarget = v2DeriveLetterTarget(ev, roles);
+    if (letterTarget) v2SpawnLetter(letterTarget.from, letterTarget.to);
   }
   // Route org run events (have runId + org) to the active run session
   if (ev?.org && ev?.runId && ev.org === _v2SelOrg) {
