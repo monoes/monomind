@@ -109,6 +109,34 @@ describe('attachForwarder', () => {
     expect(companionEvents(mk({ type: 'chat', msg: 'hi' }))).toEqual([]);
   });
 
+  it('attaches the dashboard auth token from the sibling dashboard-token file', async () => {
+    const received: any[] = [];
+    server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => (body += c));
+      req.on('end', () => {
+        received.push({ authHeader: req.headers['x-monomind-token'], body: JSON.parse(body) });
+        res.end('{}');
+      });
+    });
+    await new Promise<void>(r => server.listen(0, r));
+    const port = (server.address() as any).port;
+
+    const root = mkdtempSync(join(tmpdir(), 'fwd-auth-'));
+    writeFileSync(join(root, 'control.json'),
+      JSON.stringify({ pid: 1, port, url: `http://127.0.0.1:${port}` }));
+    const fixtureAuthValue = 'fixture-value-for-forwarder-header-test';
+    writeFileSync(join(root, 'dashboard-token'), fixtureAuthValue);
+
+    const bus = new OrgBus('auth-org', 'run-1', root);
+    const done = attachForwarder(bus, join(root, 'control.json'));
+    bus.emit({ type: 'chat', from: 'boss', msg: 'hi' });
+    await done.settle();
+
+    expect(received).toHaveLength(1);
+    expect(received[0].authHeader).toBe(fixtureAuthValue);
+  });
+
   it('is silent (no throw) when control server is down', async () => {
     const root = mkdtempSync(join(tmpdir(), 'fwd2-'));
     writeFileSync(join(root, 'control.json'),

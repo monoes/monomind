@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/forwarder.ts
 import { readFileSync, existsSync } from 'node:fs';
-import { basename, extname } from 'node:path';
+import { basename, extname, dirname, join } from 'node:path';
 import type { OrgBus } from './bus.js';
 import type { BusEvent } from './types.js';
 
@@ -52,10 +52,24 @@ export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/contro
     } catch { return null; }
   };
 
+  // dist/src/ui/server.mjs's startServer() writes a per-process auth credential
+  // to 'dashboard-token' next to control.json (same .monomind dir) and requires
+  // it via a header on every non-GET request. Read fresh each POST since the
+  // credential rotates whenever the server restarts.
+  const readAuthCredential = (): string | null => {
+    try {
+      return readFileSync(join(dirname(controlJsonPath), 'dashboard-token'), 'utf8').trim();
+    } catch { return null; }
+  };
+
   const post = async (url: string, payload: Record<string, unknown>): Promise<void> => {
+    const credential = readAuthCredential();
     await fetch(`${url}/api/mastermind/event`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(credential ? { 'x-monomind-token': credential } : {}),
+      },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(3000),
     }).then(r => { r.body?.cancel(); }).catch(() => {});
