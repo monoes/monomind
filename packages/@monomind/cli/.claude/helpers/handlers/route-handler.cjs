@@ -299,6 +299,35 @@ module.exports = {
             console.log('[CODEBASE] Graph index ' + mapData.graphStaleness.commitsBehind + ' commits behind HEAD — run monograph build');
           }
         }
+        // Graph gate connectivity nudge — the pre-search/pre-bash gate
+        // (utils/monograph.cjs _graphGateShouldBlock) hard-blocks the first
+        // Grep/Glob/bash-grep-or-find call each session until a real
+        // monograph_query/monograph_suggest call fires. If that block was
+        // never followed by a real graph call, the monomind MCP server is
+        // most likely not connected this session (config present but
+        // unapproved/not started) — surface it once so the user can fix the
+        // actual cause instead of the gate silently degrading to a no-op.
+        var graphGateFile = path.join(CWD, '.monomind', 'graph-gate-state.json');
+        var mcpWarnFile = path.join(CWD, '.monomind', 'mcp-not-connected-warned.json');
+        if (fs.existsSync(graphGateFile) && fs.statSync(graphGateFile).size < 4096) {
+          var gateState = JSON.parse(fs.readFileSync(graphGateFile, 'utf-8'));
+          var gateSessId = String((hCtx.hookInput && (hCtx.hookInput.sessionId || hCtx.hookInput.session_id)) || '');
+          if (gateState && gateState.sessionId === gateSessId && gateState.blockedOnce && !gateState.queried) {
+            var alreadyWarnedMcp = false;
+            if (fs.existsSync(mcpWarnFile)) {
+              try {
+                var mcpWarnData = JSON.parse(fs.readFileSync(mcpWarnFile, 'utf-8'));
+                if (mcpWarnData && mcpWarnData.sessionId === gateSessId) alreadyWarnedMcp = true;
+              } catch (e) { /* corrupt — warn again to be safe */ }
+            }
+            if (!alreadyWarnedMcp) {
+              console.log('[MCP] The graph gate blocked a search but no monograph_query/monograph_suggest call followed — the monomind MCP server is likely not connected this session. Run `claude mcp add monomind -- npx monomind@latest mcp start` (then restart), or approve the .mcp.json trust prompt if one is pending.');
+              try {
+                fs.writeFileSync(mcpWarnFile, JSON.stringify({ sessionId: gateSessId, warnedAt: new Date().toISOString() }));
+              } catch (e) { /* non-fatal */ }
+            }
+          }
+        }
         // Deep dive findings (god nodes, high-degree files from background analysis)
         var deepdiveFile = path.join(metricsDir, 'deepdive.json');
         if (fs.existsSync(deepdiveFile) && fs.statSync(deepdiveFile).size < 32768) {
