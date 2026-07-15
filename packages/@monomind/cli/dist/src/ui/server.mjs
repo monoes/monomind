@@ -709,7 +709,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
   // Extracted from the request dispatcher to reduce cyclomatic complexity.
   // Handles POST /api/mastermind/event: parses body, enriches with runId/session,
   // persists to JSONL files, broadcasts to SSE clients, returns {ok:true}.
-  async function handleMastermindEvent(req, res) {
+  async function handleMastermindEvent(req, res, corsOrigin) {
     let body = '';
     for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
     let event = {};
@@ -5416,7 +5416,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
     // ------------------------------------------------- Mastermind event system
     // POST /api/mastermind/event — ingest event from mastermind skill
     if (req.method === 'POST' && url === '/api/mastermind/event') {
-      return handleMastermindEvent(req, res);
+      return handleMastermindEvent(req, res, corsOrigin);
     }
 
     // GET /api/mastermind-stream — SSE for real-time events
