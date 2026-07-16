@@ -2424,6 +2424,54 @@ function tokenizeBatchCommand(input: string): string[] {
   return tokens;
 }
 
+/**
+ * Splits one line of a `batch` command string into a subcommand name, its
+ * args, and any recognized leading flags.
+ *
+ * `eval` is special-cased: its sole argument is a raw JS expression, which
+ * legitimately contains its own string-literal quotes (e.g.
+ * `eval document.querySelector('a')`). tokenizeBatchCommand's shell-style
+ * word-splitting treats `'...'`/`"..."` as grouping delimiters and discards
+ * them — correct for a value like `fill @e1 "some text"`, but for `eval` it
+ * silently deletes the expression's own quotes, turning a string literal
+ * into a bare (undefined) identifier reference and producing a
+ * ReferenceError instead of evaluating the intended expression. For `eval`,
+ * only its own known --flags are consumed from the front; everything after
+ * them is taken verbatim as one argument, untouched by tokenization.
+ *
+ * Exported for direct unit testing — not part of the CLI's public API.
+ */
+export function parseBatchCommandLine(cmdStr: string): { subName: string; subArgs: string[]; flags: Record<string, unknown> } {
+  const trimmed = cmdStr.trim();
+  const evalMatch = trimmed.match(/^eval\b\s*/);
+  if (!evalMatch) {
+    const parts = tokenizeBatchCommand(trimmed);
+    return { subName: parts[0], subArgs: parts.slice(1), flags: {} };
+  }
+
+  let rest = trimmed.slice(evalMatch[0].length);
+  const flags: Record<string, unknown> = {};
+  let consumedAnother = true;
+  while (consumedAnother) {
+    consumedAnother = false;
+    const withValue = rest.match(/^--(max-output|timeout)\s+(-?\d+)\s*/);
+    if (withValue) {
+      flags[withValue[1]] = Number(withValue[2]);
+      rest = rest.slice(withValue[0].length);
+      consumedAnother = true;
+      continue;
+    }
+    const boolFlag = rest.match(/^--(json|stdin)\b\s*/);
+    if (boolFlag) {
+      flags[boolFlag[1]] = true;
+      rest = rest.slice(boolFlag[0].length);
+      consumedAnother = true;
+      continue;
+    }
+  }
+  return { subName: 'eval', subArgs: [rest], flags };
+}
+
 const batchCommand: Command = {
   name: 'batch',
   description: 'Execute multiple commands. Usage: monomind browse batch "open url" "snapshot -i" "click @e1"',
@@ -2437,9 +2485,7 @@ const batchCommand: Command = {
 
     const results: Array<{ command: string; success: boolean; error?: string }> = [];
     for (const cmdStr of commands) {
-      const parts = tokenizeBatchCommand(cmdStr);
-      const subName = parts[0];
-      const subArgs = parts.slice(1);
+      const { subName, subArgs, flags: preParsedFlags } = parseBatchCommandLine(cmdStr);
 
       const subCmd = browseCommand.subcommands?.find((s) => s.name === subName);
       if (!subCmd?.action) {
@@ -2450,7 +2496,7 @@ const batchCommand: Command = {
       }
 
       try {
-        const parsedFlags: CommandContext['flags'] = { _: [] };
+        const parsedFlags: CommandContext['flags'] = { _: [], ...preParsedFlags };
         const consumedIndices = new Set<number>();
         // Parse --flags from subArgs, tracking which indices are flag names/values
         for (let i = 0; i < subArgs.length; i++) {
