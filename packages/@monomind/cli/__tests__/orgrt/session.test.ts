@@ -96,5 +96,6 @@ describe('runAgentSession', () => {
     expect(p).toContain('ship v2');
     expect(p).toContain('org_send');
     expect(p).toContain('boss, coder, tester');
+    expect(p).toContain('ask_human');
   });
 });
