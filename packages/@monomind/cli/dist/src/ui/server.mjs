@@ -4779,6 +4779,11 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           res.end(JSON.stringify({ ok: false, error: 'org, role, questionId, answer are required' }));
           return;
         }
+        if (String(org).length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(String(org))) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'Invalid org name' }));
+          return;
+        }
         const brokerDir = path.join(os.homedir(), '.monomind', 'orgrt-broker');
         const entryPath = path.join(brokerDir, `${org}.json`);
         let hostUrl = null;
