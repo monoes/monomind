@@ -63,7 +63,7 @@ export interface BusEvent {
   ts: number;
   org: string;
   run: string;
-  type: 'message' | 'xorg' | 'tool' | 'asset' | 'chat' | 'status' | 'audit' | 'usage';
+  type: 'message' | 'xorg' | 'tool' | 'asset' | 'chat' | 'status' | 'audit' | 'usage' | 'question';
   from?: string;
   to?: string;
   subject?: string;

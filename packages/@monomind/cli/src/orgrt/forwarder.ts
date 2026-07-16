@@ -146,6 +146,10 @@ export function translate(e: BusEvent): Record<string, unknown> {
         },
       };
     }
+    case 'question': {
+      const q = (e.data as { questionId?: string; question?: string } | undefined) ?? {};
+      return { ...base, type: 'org:question', from: e.from, questionId: q.questionId, question: q.question };
+    }
     case 'status': {
       const msg = e.msg ?? '';
       const kind = classifyStatus(msg);
