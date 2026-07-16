@@ -1,4 +1,4 @@
-// packages/@monomind/cli/dist/src/ui/orgs-files.js
+// packages/@monomind/cli/src/ui/orgs-files.js
 // Files tab + diff-view feature, split out of orgs.html to keep that file under
 // the CLAUDE.md 500-line guideline. Loaded as a classic <script> right where this
 // code used to live inline — shares the same global scope as orgs.html's main
