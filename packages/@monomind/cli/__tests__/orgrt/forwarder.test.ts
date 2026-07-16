@@ -68,6 +68,8 @@ describe('attachForwarder', () => {
       .toMatchObject({ type: 'org:tool', decision: 'deny', runId: 'r' });
     expect(translate(mk({ type: 'usage', from: 'boss', data: { tokens: 5 } })))
       .toMatchObject({ type: 'org:usage' });
+    expect(translate(mk({ type: 'question', from: 'coder', data: { questionId: 'q1', question: 'proceed with X or Y?' } })))
+      .toMatchObject({ type: 'org:question', from: 'coder', questionId: 'q1', question: 'proceed with X or Y?' });
   });
 
   it('emits session:start BEFORE org:start so the dashboard session record exists first', async () => {
