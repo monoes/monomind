@@ -1431,67 +1431,6 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 @keyframes pb-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-/* ── systems grid ──────────────────────────────────────────── */
-#wf-systems-grid { display: block; }
-/* ── monoagent connections tile grid ─────────────────────────── */
-.ma-cat-hdr { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-.ma-cat-label { font-family:var(--mono); font-size:10px; font-weight:700; color:var(--text-lo); text-transform:uppercase; letter-spacing:2px; white-space:nowrap; }
-.ma-cat-line { flex:1; height:1px; background:var(--border); }
-.ma-cat-count { font-family:var(--mono); font-size:9.5px; color:var(--text-xs); }
-.ma-tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:8px; margin-bottom:24px; }
-.ma-tile { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 8px 12px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; transition:border-color 0.15s,box-shadow 0.15s; user-select:none; }
-.ma-tile:hover { border-color:var(--border-hi); }
-.ma-tile.connected { border-color:oklch(65% 0.15 150 / 0.5); box-shadow:0 0 10px oklch(65% 0.15 150 / 0.12); }
-.ma-tile-icon { font-size:22px; line-height:1; }
-.ma-tile-name { font-family:var(--mono); font-size:10px; font-weight:600; color:var(--text-mid); text-align:center; line-height:1.3; }
-.ma-tile-dot { width:6px; height:6px; border-radius:50%; background:var(--border); }
-.ma-tile.connected .ma-tile-dot { background:var(--green); box-shadow:0 0 5px oklch(65% 0.15 150 / 0.7); }
-.ma-tile.expired .ma-tile-dot { background:#fbbf24; box-shadow:0 0 5px rgba(251,191,36,0.5); }
-.ma-tile-acct { font-family:var(--mono); font-size:9px; color:var(--text-xs); max-width:84px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-/* modal */
-.ma-modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1200; display:flex; align-items:center; justify-content:center; padding:24px; }
-.ma-modal { width:100%; max-width:440px; background:var(--surface); border:1px solid var(--border-hi); border-radius:14px; box-shadow:0 8px 40px rgba(0,0,0,0.5); overflow:hidden; }
-.ma-modal-hdr { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 12px; border-bottom:1px solid var(--border); }
-.ma-modal-hdr-left { display:flex; align-items:center; gap:10px; }
-.ma-modal-title { font-family:var(--mono); font-size:13px; font-weight:700; color:var(--text-hi); }
-.ma-modal-status { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:1px; }
-.ma-modal-body { padding:16px 20px 20px; display:flex; flex-direction:column; gap:14px; }
-.ma-modal-info { background:var(--surface-hi); border:1px solid var(--border); border-radius:8px; padding:10px 14px; display:flex; flex-direction:column; gap:8px; }
-.ma-modal-row { display:flex; justify-content:space-between; align-items:center; }
-.ma-modal-lbl { font-family:var(--mono); font-size:9.5px; color:var(--text-xs); text-transform:uppercase; letter-spacing:1px; }
-.ma-modal-val { font-family:var(--mono); font-size:11px; color:var(--text-mid); }
-.ma-modal-val.ok { color:var(--green); }
-.ma-modal-val.warn { color:#fbbf24; }
-.ma-field-label { font-family:var(--mono); font-size:9.5px; color:var(--text-xs); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:4px; }
-.ma-field-input { width:100%; padding:7px 10px; border:1px solid var(--border-hi); border-radius:6px; background:var(--surface-hi); color:var(--text-hi); font-family:var(--mono); font-size:11px; box-sizing:border-box; outline:none; }
-.ma-field-input:focus { border-color:var(--accent); }
-.ma-steps { background:var(--surface-hi); border:1px solid var(--border); border-radius:8px; padding:8px 10px; max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:5px; }
-.ma-step { display:flex; align-items:center; gap:8px; }
-.ma-step-dot { width:5px; height:5px; border-radius:50%; background:var(--text-xs); flex-shrink:0; }
-.ma-step-dot.ok { background:var(--green); }
-.ma-step-dot.err { background:oklch(60% 0.18 25); }
-.ma-step-txt { font-family:var(--mono); font-size:10px; color:var(--text-lo); }
-.ma-step-txt.ok { color:var(--green); }
-.ma-step-txt.err { color:oklch(60% 0.18 25); }
-.ma-btns { display:flex; gap:8px; flex-wrap:wrap; }
-.ma-btn { padding:6px 14px; border-radius:6px; border:none; font-family:var(--mono); font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:5px; transition:opacity 0.15s; }
-.ma-btn:disabled { opacity:0.45; cursor:default; }
-.ma-btn-primary { background:var(--accent); color:#fff; }
-.ma-btn-primary:hover:not(:disabled) { opacity:0.85; }
-.ma-btn-secondary { background:var(--surface-hi); color:var(--text-mid); border:1px solid var(--border-hi); }
-.ma-btn-secondary:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
-.ma-btn-danger { background:oklch(17% 0.015 25); color:oklch(60% 0.18 25); border:1px solid oklch(60% 0.18 25 / 0.3); }
-.ma-btn-danger:hover:not(:disabled) { opacity:0.85; }
-.ma-btn-ghost { background:none; color:var(--text-lo); border:1px solid var(--border); }
-.ma-btn-ghost:hover:not(:disabled) { color:var(--text-mid); }
-.ma-msg { font-family:var(--mono); font-size:11px; padding:7px 12px; border-radius:6px; }
-.ma-msg.ok { background:oklch(65% 0.15 150 / 0.08); border:1px solid oklch(65% 0.15 150 / 0.25); color:var(--green); }
-.ma-msg.err { background:oklch(60% 0.18 25 / 0.08); border:1px solid oklch(60% 0.18 25 / 0.25); color:oklch(60% 0.18 25); }
-.ma-method-tabs { display:flex; gap:6px; flex-wrap:wrap; }
-.ma-method-tab { font-family:var(--mono); font-size:10px; padding:3px 10px; border-radius:4px; background:var(--surface-hi); border:1px solid var(--border); color:var(--text-lo); cursor:pointer; }
-.ma-method-tab.active { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); }
-.ma-browser-hint { font-size:11px; color:var(--text-lo); line-height:1.5; }
-
 /* ── playbook runs view ────────────────────────────────────── */
 .wf-run-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
 .wf-run-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -1595,10 +1534,6 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
     </div>
     <div class="nav-no-proj" id="nav-no-proj-hint">Select a project above</div>
     <div class="nav-sect" style="margin-top:auto;padding-top:8px;">
-      <div class="nav-item" data-view="monoagent">
-        <span class="ico">🤖</span><span class="lbl">MonoAgent</span>
-        <span class="bdg" id="bdg-monoagent">—</span>
-      </div>
       <div class="nav-item" data-view="global">
         <span class="ico">⊕</span><span class="lbl">Global Feed</span>
       </div>
@@ -2271,30 +2206,6 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       </div>
     </div>
 
-    <!-- MONOAGENT -->
-    <div class="view" id="view-monoagent">
-      <div class="vscroll">
-        <div class="pg-title">MonoAgent</div>
-        <div class="pg-sub">Social media automation workflows &amp; run history</div>
-        <div class="mg-tab-bar" style="margin-top:14px">
-          <button class="odt-btn active" data-matab="workflows" onclick="maSwitchTab('workflows')">Workflows</button>
-          <button class="odt-btn" data-matab="history" onclick="maSwitchTab('history')">Action History</button>
-        </div>
-        <div class="wf-pane active" id="ma-tab-workflows">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:4px">
-            <button class="btn" onclick="loadMonoagentData()">↺ Refresh</button>
-          </div>
-          <div id="ma-workflows-list"><div class="loading-txt">Loading…</div></div>
-        </div>
-        <div class="wf-pane" id="ma-tab-history">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:4px">
-            <button class="btn" onclick="loadMonoagentData()">↺ Refresh</button>
-          </div>
-          <div id="ma-history-list"><div class="loading-txt">Loading…</div></div>
-        </div>
-      </div>
-    </div>
-
     <!-- GLOBAL FEED -->
     <div class="view" id="view-global">
       <div class="vscroll">
@@ -2518,10 +2429,10 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', monoagent:'MonoAgent', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat', humaninput:'Human Input' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat', humaninput:'Human Input' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', monoagent: 'MonoAgent', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', chat: 'Global Agent Chat', humaninput: 'Human Input' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', chat: 'Global Agent Chat', humaninput: 'Human Input' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
@@ -2581,7 +2492,6 @@ function renderView(v) {
   if (v === 'memory') renderMemory();
   if (v === 'orgs') renderOrgs();
   if (v === 'monograph') loadMonograph();
-  if (v === 'monoagent') { loadMonoagentData(); }
   if (v === 'global') renderGlobalFeed();
   if (v === 'global-loops') renderGlobalLoops();
   if (v === 'global-tokens') renderGlobalTokens();
@@ -10904,19 +10814,12 @@ let _mgWikiMode = 'all';
 let _mgWikiSearchTimer = null;
 
 /* ── Playbook View ─────────────────────────────────────────── */
-// monoagent connections state
-let _maPlatforms = [];   // full registry from monoes
-let _maConns = [];       // active API/OAuth connections
-let _maSessions = [];    // browser sessions
-let _maSelected = null;  // currently open modal platform def
-let _maLoginPoll = null; // active login poll interval (cleared on modal close)
 
 function wfSwitchTab(tab) {
   document.querySelectorAll('.wf-pane, #wf-tab-builder').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('[data-wftab]').forEach(b => b.classList.remove('active'));
   document.getElementById('wf-tab-' + tab).classList.add('active');
   document.querySelector('[data-wftab="' + tab + '"]').classList.add('active');
-  if (tab === 'systems') loadPlatformSessions();
   if (tab === 'library') loadWorkflowDefs();
   if (tab === 'runs') loadWorkflowRuns();
   if (tab === 'builder') pbInit();
@@ -10957,24 +10860,6 @@ async function loadWorkflowDefs() {
   }).join('');
 }
 
-async function loadPlatformSessions() {
-  const grid = document.getElementById('wf-systems-grid');
-  if (!grid) return;
-  grid.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const [plats, conns] = await Promise.all([
-      fetch('/api/monoagent/platforms').then(r => r.json()).catch(() => []),
-      fetch('/api/monoagent/connections').then(r => r.json()).catch(() => ({ connections: [], sessions: [] })),
-    ]);
-    _maPlatforms = Array.isArray(plats) ? plats : [];
-    _maConns = Array.isArray(conns.connections) ? conns.connections : [];
-    _maSessions = Array.isArray(conns.sessions) ? conns.sessions : [];
-    renderSystems();
-  } catch (e) {
-    grid.innerHTML = '<div class="loading-txt">Failed to load systems.</div>';
-  }
-}
-
 function relativeTime(ts) {
   if (!ts) return '—';
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -10982,291 +10867,6 @@ function relativeTime(ts) {
   if (s < 3600) return Math.floor(s / 60) + 'm ago';
   if (s < 86400) return Math.floor(s / 3600) + 'h ago';
   return Math.floor(s / 86400) + 'd ago';
-}
-
-const MA_CATEGORY_ORDER = ['social', 'service', 'communication', 'database'];
-const MA_CATEGORY_LABELS = { social: 'Social', service: 'Services & APIs', communication: 'Communication', database: 'Databases' };
-const BROWSER_PLATFORMS = new Set(['instagram', 'linkedin', 'x', 'tiktok', 'gemini']);
-
-function maResolveConn(pid) {
-  pid = pid.toLowerCase();
-  if (BROWSER_PLATFORMS.has(pid)) {
-    const now = Date.now();
-    const s = _maSessions.find(x => (x.Platform || '').toLowerCase() === pid);
-    if (!s) return null;
-    const expiry = new Date(s.Expiry).getTime();
-    return { _type: 'session', id: String(s.ID), account: s.Username || '—', method: 'browser', status: expiry > now ? 'active' : 'expired' };
-  }
-  const c = _maConns.find(x => (x.platform || '').toLowerCase() === pid);
-  if (!c) return null;
-  return { _type: 'connection', id: c.id, account: c.account_id || c.label || '—', method: c.method || '—', status: c.status || 'active', lastTested: c.last_tested };
-}
-
-function renderSystems() {
-  const grid = document.getElementById('wf-systems-grid');
-  if (!grid) return;
-
-  if (!_maPlatforms.length) {
-    grid.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-xs);font-size:12px">
-      <div style="font-size:28px;margin-bottom:8px">🔌</div>
-      <div style="font-weight:600;color:var(--text-lo);margin-bottom:4px">monoagent not found</div>
-      <div style="font-size:11px">Install monoes: <code style="color:var(--accent)">go install github.com/monoes/mono-agent/cmd/monoes@latest</code></div>
-    </div>`;
-    return;
-  }
-
-  const groups = {};
-  for (const p of _maPlatforms) {
-    const cat = (p.Category || p.category || 'service').toLowerCase();
-    if (!groups[cat]) groups[cat] = [];
-    groups[cat].push(p);
-  }
-
-  const cats = [...MA_CATEGORY_ORDER, ...Object.keys(groups).filter(c => !MA_CATEGORY_ORDER.includes(c))].filter(c => groups[c]);
-  const totalConn = _maPlatforms.filter(p => maResolveConn(p.ID || p.id)).length;
-
-  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <span style="font-size:11px;color:var(--text-xs)">${totalConn} / ${_maPlatforms.length} connected</span>
-    <button class="ma-btn ma-btn-ghost" style="font-size:10px;padding:3px 10px" onclick="loadPlatformSessions()">↺ Refresh</button>
-  </div>`;
-
-  for (const cat of cats) {
-    const list = groups[cat];
-    const catConn = list.filter(p => maResolveConn(p.ID || p.id)).length;
-    html += `<div class="ma-cat-hdr">
-      <span class="ma-cat-label">${MA_CATEGORY_LABELS[cat] || cat}</span>
-      <div class="ma-cat-line"></div>
-      <span class="ma-cat-count">${catConn}/${list.length}</span>
-    </div><div class="ma-tiles">`;
-    for (const p of list) {
-      const pid = p.ID || p.id;
-      const conn = maResolveConn(pid);
-      const connected = conn && conn.status === 'active';
-      const expired = conn && conn.status !== 'active';
-      const cls = connected ? 'connected' : expired ? 'expired' : '';
-      html += `<div class="ma-tile ${cls}" data-pid="${esc(pid)}" onclick="maOpenModal(this.dataset.pid)">
-        <span class="ma-tile-icon">${esc(p.IconEmoji || p.iconEmoji || '🔌')}</span>
-        <span class="ma-tile-name">${esc(p.Name || p.name || pid)}</span>
-        <div style="display:flex;align-items:center;gap:4px">
-          <span class="ma-tile-dot"></span>
-          ${conn ? `<span class="ma-tile-acct">${esc(conn.account)}</span>` : ''}
-        </div>
-      </div>`;
-    }
-    html += `</div>`;
-  }
-
-  grid.innerHTML = html;
-}
-
-function maOpenModal(pid) {
-  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
-  if (!p) return;
-  _maSelected = p;
-  maRenderModal(p, maResolveConn(pid), []);
-}
-
-function maRenderModal(p, conn, steps, selMethod, fields, state) {
-  const pid = p.ID || p.id;
-  const name = p.Name || p.name || pid;
-  const emoji = p.IconEmoji || p.iconEmoji || '🔌';
-  const methods = (p.Methods || p.methods || []);
-  const method = selMethod || methods[0] || '';
-  const isBrowser = method === 'browser';
-  const connected = conn && conn.status === 'active';
-  const expired = conn && conn.status !== 'active' && conn;
-  state = state || {};
-
-  const existing = document.getElementById('ma-modal-overlay');
-  if (existing) existing.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'ma-modal-overlay';
-  overlay.className = 'ma-modal-bg';
-  overlay.addEventListener('click', e => { if (e.target === overlay) maCloseModal(); });
-
-  let bodyHtml = '';
-
-  if (conn) {
-    // Connected state
-    const statusColor = connected ? 'var(--green)' : '#fbbf24';
-    bodyHtml = `
-      <div class="ma-modal-info">
-        ${[['Account', conn.account], ['Method', conn.method], ['Status', conn.status]].map(([l,v]) =>
-          `<div class="ma-modal-row"><span class="ma-modal-lbl">${l}</span><span class="ma-modal-val ${v==='active'?'ok':v==='expired'?'warn':''}">${esc(v)}</span></div>`
-        ).join('')}
-        ${conn.lastTested ? `<div class="ma-modal-row"><span class="ma-modal-lbl">Last tested</span><span class="ma-modal-val">${esc(relativeTime(new Date(conn.lastTested).getTime()))}</span></div>` : ''}
-      </div>
-      ${state.testMsg ? `<div class="ma-msg ${state.testOk ? 'ok' : 'err'}">${esc(state.testMsg)}</div>` : ''}
-      ${state.err ? `<div class="ma-msg err">${esc(state.err)}</div>` : ''}
-      ${steps.length ? `<div class="ma-steps">${steps.map(s=>`<div class="ma-step"><span class="ma-step-dot ${s.kind}"></span><span class="ma-step-txt ${s.kind}">${esc(s.msg)}</span></div>`).join('')}</div>` : ''}
-      <div class="ma-btns">
-        <button class="ma-btn ma-btn-secondary" id="ma-test-btn" onclick="maTest('${pid}','${conn.id}')">Test</button>
-        ${expired ? `<button class="ma-btn ma-btn-primary" onclick="maStartLogin('${pid}')">Log in again</button>` : ''}
-        ${state.confirmDisc ? `
-          <button class="ma-btn ma-btn-danger" onclick="maDisconnect('${pid}','${conn.id}','${conn._type}')">Yes, disconnect</button>
-          <button class="ma-btn ma-btn-ghost" data-pid="${esc(pid)}" onclick="maOpenModal(this.dataset.pid)">Cancel</button>
-        ` : `
-          <button class="ma-btn ma-btn-danger" onclick="maConfirmDisconnect('${pid}')">Disconnect</button>
-          <button class="ma-btn ma-btn-ghost" onclick="maCloseModal()">Close</button>
-        `}
-      </div>`;
-  } else {
-    // Not connected — show method tabs + connect form
-    const methodTabsHtml = methods.length > 1 ? `<div class="ma-method-tabs">${methods.map(m =>
-      `<button class="ma-method-tab ${m===method?'active':''}" data-pid="${esc(p.ID||p.id)}" data-method="${esc(m)}" onclick="maRenderModal(_maPlatforms.find(x=>(x.ID||x.id)===this.dataset.pid),null,[],this.dataset.method,{},{})">${esc(m)}</button>`
-    ).join('')}</div>` : '';
-
-    let formHtml = '';
-    if (isBrowser) {
-      formHtml = `<div class="ma-browser-hint">A browser window will open. Log in to ${esc(name)} and the session will be saved automatically.</div>
-        ${steps.length ? `<div class="ma-steps">${steps.map(s=>`<div class="ma-step"><span class="ma-step-dot ${s.kind}"></span><span class="ma-step-txt ${s.kind}">${esc(s.msg)}</span></div>`).join('')}</div>` : ''}
-        ${state.running ? `<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-xs)"><span class="spinner" style="width:10px;height:10px;border-width:2px"></span>Waiting for login…</div>` : ''}
-        ${state.err ? `<div class="ma-msg err">${esc(state.err)}</div>` : ''}`;
-    } else {
-      const fieldDefs = (p.Fields || p.fields || {})[method] || [];
-      formHtml = fieldDefs.map(f => {
-        const key = f.Key || f.key;
-        const label = f.Label || f.label || key;
-        const secret = f.Secret || f.secret;
-        const req = f.Required || f.required;
-        const val = (fields || {})[key] || '';
-        return `<div>
-          <div class="ma-field-label">${esc(label)}${req ? ' <span style="color:oklch(60% 0.18 25)">*</span>' : ''}</div>
-          <input class="ma-field-input" type="${secret ? 'password' : 'text'}" data-key="${esc(key)}" value="${esc(val)}" autocomplete="${secret ? 'new-password' : 'off'}" placeholder="${esc(label)}">
-          ${f.HelpURL || f.helpURL ? `<a href="#" style="font-size:9.5px;color:var(--accent);text-decoration:none" onclick="event.preventDefault()">How to get this ↗</a>` : ''}
-        </div>`;
-      }).join('') || `<div class="ma-browser-hint">No configuration required.</div>`;
-      formHtml += `${state.err ? `<div class="ma-msg err">${esc(state.err)}</div>` : ''}
-        ${state.ok ? `<div class="ma-msg ok">Connected!</div>` : ''}`;
-    }
-
-    const connectBtn = isBrowser
-      ? `<button class="ma-btn ma-btn-primary" id="ma-conn-btn" onclick="maStartLogin('${pid}')">Connect ${esc(name)}</button>`
-      : `<button class="ma-btn ma-btn-primary" id="ma-conn-btn" data-pid="${esc(pid)}" data-method="${esc(method)}" onclick="maConnectApiKey(this.dataset.pid,this.dataset.method)">Connect</button>`;
-
-    bodyHtml = `
-      ${methodTabsHtml}
-      ${formHtml}
-      <div class="ma-btns">
-        ${state.ok ? '' : connectBtn}
-        <button class="ma-btn ma-btn-ghost" onclick="loadPlatformSessions();maCloseModal()">Refresh</button>
-        <button class="ma-btn ma-btn-ghost" onclick="maCloseModal()">Close</button>
-      </div>`;
-  }
-
-  overlay.innerHTML = `<div class="ma-modal">
-    <div class="ma-modal-hdr">
-      <div class="ma-modal-hdr-left">
-        <span style="font-size:26px">${esc(emoji)}</span>
-        <div>
-          <div class="ma-modal-title">${esc(name)}</div>
-          <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
-            <span style="width:6px;height:6px;border-radius:50%;background:${connected?'var(--green)':expired?'#fbbf24':'var(--border)'}"></span>
-            <span class="ma-modal-status" style="color:${connected?'var(--green)':expired?'#fbbf24':'var(--text-xs)'}">${connected?'Connected':expired?'Session expired':'Not connected'}</span>
-          </div>
-        </div>
-      </div>
-      <button class="ma-btn ma-btn-ghost" style="padding:4px 8px" onclick="maCloseModal()">✕</button>
-    </div>
-    <div class="ma-modal-body">${bodyHtml}</div>
-  </div>`;
-
-  document.body.appendChild(overlay);
-}
-
-function maCloseModal() {
-  if (_maLoginPoll) { clearInterval(_maLoginPoll); _maLoginPoll = null; }
-  const el = document.getElementById('ma-modal-overlay');
-  if (el) el.remove();
-  _maSelected = null;
-}
-
-function maConfirmDisconnect(pid) {
-  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
-  const conn = maResolveConn(pid);
-  if (p && conn) maRenderModal(p, conn, [], null, {}, { confirmDisc: true });
-}
-
-async function maStartLogin(pid) {
-  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
-  if (!p) return;
-  const steps = [{ msg: 'Opening browser…', kind: '' }];
-  maRenderModal(p, null, steps, 'browser', {}, { running: true });
-  try {
-    const r = await fetch('/api/monoagent/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pid }) });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    steps.push({ msg: 'Browser open — log in then come back', kind: 'ok' });
-    maRenderModal(p, null, steps, 'browser', {}, { running: false });
-    showToast('Browser opened', 'Log in to ' + (p.Name || pid) + ' and hit Refresh', 'ok');
-    // Poll for completion
-    let polls = 0;
-    if (_maLoginPoll) clearInterval(_maLoginPoll);
-    _maLoginPoll = setInterval(async () => {
-      polls++;
-      const d = await fetch('/api/monoagent/connections').then(r => r.json()).catch(() => null);
-      if (d) { _maConns = d.connections || []; _maSessions = d.sessions || []; }
-      const conn = maResolveConn(pid);
-      if (conn || polls >= 18) {
-        clearInterval(_maLoginPoll); _maLoginPoll = null;
-        if (conn) { renderSystems(); maOpenModal(pid); showToast('Connected', (p.Name||pid) + ' session saved', 'ok'); }
-        else { maRenderModal(p, null, [], 'browser', {}, { err: 'Login timed out. Close the browser tab and try again.' }); }
-      }
-    }, 5000);
-  } catch (e) {
-    maRenderModal(p, null, [], 'browser', {}, { err: e.message });
-  }
-}
-
-async function maConnectApiKey(pid, method) {
-  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
-  if (!p) return;
-  const modal = document.getElementById('ma-modal-overlay');
-  const inputs = modal ? modal.querySelectorAll('.ma-field-input') : [];
-  const fields = {};
-  inputs.forEach(inp => { fields[inp.dataset.key] = inp.value.trim(); });
-  const btn = document.getElementById('ma-conn-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
-  try {
-    const r = await fetch('/api/monoagent/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pid, method, fields }) });
-    const d = await r.json();
-    if (d.ok) {
-      await loadPlatformSessions();
-      maRenderModal(p, maResolveConn(pid), [], method, fields, { ok: true });
-      showToast('Connected', (p.Name || pid) + ' connected', 'ok');
-    } else {
-      maRenderModal(p, null, [], method, fields, { err: d.stderr || d.error || 'Connection failed' });
-    }
-  } catch (e) {
-    maRenderModal(p, null, [], method, fields, { err: e.message });
-  }
-}
-
-async function maTest(pid, connId) {
-  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
-  const conn = maResolveConn(pid);
-  if (!p || !conn) return;
-  const btn = document.getElementById('ma-test-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
-  try {
-    const d = await fetch('/api/monoagent/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: connId }) }).then(r => r.json());
-    maRenderModal(p, conn, [], null, {}, { testOk: d.ok, testMsg: d.ok ? '✓ Connection OK' : ('✗ ' + (d.error || 'Test failed')) });
-  } catch (e) {
-    maRenderModal(p, conn, [], null, {}, { testMsg: '✗ ' + e.message, testOk: false });
-  }
-}
-
-async function maDisconnect(pid, connId, type) {
-  const p = _maPlatforms.find(x => (x.ID || x.id) === pid);
-  if (!p) return;
-  try {
-    await fetch('/api/monoagent/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: connId, type }) });
-    await loadPlatformSessions();
-    maCloseModal();
-    showToast('Disconnected', (p.Name || pid) + ' removed', 'ok');
-  } catch (e) {
-    showToast('Error', e.message, 'err');
-  }
 }
 
 let _wfRuns = [];
@@ -14476,64 +14076,6 @@ async function mmRenderGraph(body) {
   } catch (e) { body.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   MONOAGENT TAB
-   ═══════════════════════════════════════════════════════════════ */
-const MA_STATE_COLOR = { completed:'#22c55e', failed:'#ef4444', running:'#3b82f6', pending:'#a3a3a3' };
-let _maWorkflows = [], _maActions = [];
-
-function maSwitchTab(tab) {
-  document.querySelectorAll('[data-matab]').forEach(b => b.classList.toggle('active', b.dataset.matab === tab));
-  document.querySelectorAll('#view-monoagent .wf-pane').forEach(p => p.classList.toggle('active', p.id === 'ma-tab-' + tab));
-}
-
-async function loadMonoagentData() {
-  document.getElementById('ma-workflows-list').innerHTML = '<div class="loading-txt">Loading…</div>';
-  document.getElementById('ma-history-list').innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const data = await apiFetch('/api/monoagent/data');
-    _maWorkflows = Array.isArray(data.workflows) ? data.workflows : [];
-    _maActions = Array.isArray(data.actions) ? data.actions : [];
-  } catch (e) {
-    _maWorkflows = []; _maActions = [];
-  }
-  const bdg = document.getElementById('bdg-monoagent');
-  if (bdg) bdg.textContent = _maWorkflows.length || '—';
-  renderMonoagentWorkflows();
-  renderMonoagentHistory();
-}
-
-function renderMonoagentWorkflows() {
-  const el = document.getElementById('ma-workflows-list');
-  if (!el) return;
-  if (!_maWorkflows.length) { el.innerHTML = '<div class="empty">No monoagent workflows found. Create one with: <code>monoagent workflow create</code></div>'; return; }
-  el.innerHTML = _maWorkflows.map(w => `<div class="m-card" style="margin-bottom:10px;padding:12px 14px">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <span style="font-weight:600;color:var(--text-hi);font-family:var(--mono);font-size:13px">${esc(w.name||w.id||'—')}</span>
-      <span style="font-size:11px;color:var(--text-lo)">${esc(w.id||'')}</span>
-    </div>
-    ${w.description ? `<div style="font-size:12px;color:var(--text-lo);margin-top:4px">${esc(w.description)}</div>` : ''}
-    <div style="font-size:11px;color:var(--text-xs);margin-top:6px">${(w.nodes||[]).length} nodes · trigger: ${esc(w.trigger||'manual')}</div>
-  </div>`).join('');
-}
-
-function renderMonoagentHistory() {
-  const el = document.getElementById('ma-history-list');
-  if (!el) return;
-  if (!_maActions.length) { el.innerHTML = '<div class="empty">No action history yet.</div>'; return; }
-  el.innerHTML = _maActions.map(a => {
-    const color = MA_STATE_COLOR[a.status] || MA_STATE_COLOR.pending;
-    const ts = a.createdAt ? new Date(a.createdAt).toLocaleString() : '—';
-    return `<div class="m-card" style="margin-bottom:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <span style="font-weight:600;color:var(--text-hi);font-size:12px;font-family:var(--mono)">${esc(a.type||a.action||'—')}</span>
-        <span style="font-size:11px;color:var(--text-lo);margin-left:8px">${esc(a.platform||'')}</span>
-        <div style="font-size:11px;color:var(--text-xs);margin-top:2px">${ts}</div>
-      </div>
-      <span style="font-size:11px;font-weight:600;color:${color}">${esc(a.status||'—')}</span>
-    </div>`;
-  }).join('');
-}
 </script>
 </body>
 </html>
