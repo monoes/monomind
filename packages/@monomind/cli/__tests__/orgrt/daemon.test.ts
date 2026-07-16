@@ -166,6 +166,7 @@ describe('OrgDaemon', () => {
     const restarted = d.getOrg('alpha');
     expect(restarted).toBeDefined();
     expect(restarted!.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('blue'))).toBe(true);
+    expect(restarted!.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('red or blue?'))).toBe(true);
     await d.stopAll();
   });
 
