@@ -17,6 +17,7 @@ export interface SessionOpts {
   mailbox: Mailbox;
   cwd: string;
   deliver: DeliverFn;
+  askHuman?: (role: string, question: string) => Promise<string>;
   def?: OrgDef;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
@@ -32,6 +33,7 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
     `## Communication protocol`,
     `The ONLY way to communicate with other agents is the org_send tool.`,
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
+    `If you need a human decision, call ask_human with your question, then end your turn — you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
     `When your current work is complete and no reply is needed, end your turn without further tool calls.`,
   ].filter(Boolean).join('\n\n');
@@ -75,6 +77,18 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
         { to: z.string(), subject: z.string(), message: z.string() },
         async (args) => {
           const receipt = await deliver(role.id, args.to, args.subject, args.message);
+          return { content: [{ type: 'text' as const, text: receipt }] };
+        },
+      ),
+      tool(
+        'ask_human',
+        'Ask a human a free-form question and pause for their answer. Use only when you genuinely need human judgment.',
+        { question: z.string() },
+        async (args) => {
+          if (!opts.askHuman) {
+            return { content: [{ type: 'text' as const, text: 'ask_human is not available in this session' }] };
+          }
+          const receipt = await opts.askHuman(role.id, args.question);
           return { content: [{ type: 'text' as const, text: receipt }] };
         },
       ),
