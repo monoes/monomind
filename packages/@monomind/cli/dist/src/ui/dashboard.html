@@ -1607,6 +1607,10 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       <div class="nav-item" data-view="chat" title="All agent sessions across projects">
         <span class="ico">⌘</span><span class="lbl">Global Agent Chat</span>
       </div>
+      <div class="nav-item" data-view="humaninput" title="Pending questions from agents across all orgs">
+        <span class="ico">❓</span><span class="lbl">Human Input</span>
+        <span class="bdg" id="bdg-humaninput">—</span>
+      </div>
     </div>
   </div>
   <div id="sb-footer">
@@ -2339,6 +2343,17 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       </div>
     </div>
 
+    <!-- HUMAN INPUT (global, cross-org) -->
+    <div class="view" id="view-humaninput">
+      <div class="vscroll">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+          <div class="pg-title" style="margin-bottom:0">Human Input</div>
+          <span class="pg-sub" id="hi-sub" style="margin-bottom:0">Pending questions across all projects</span>
+        </div>
+        <div id="hi-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
+      </div>
+    </div>
+
   </div><!-- /view-wrap -->
 </div><!-- /main -->
 <div id="app-ambient-hint">Press A to exit ambient mode</div>
@@ -2477,10 +2492,10 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', monoagent:'MonoAgent', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', monoagent:'MonoAgent', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat', humaninput:'Human Input' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', monoagent: 'MonoAgent', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', chat: 'Global Agent Chat' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', monoagent: 'MonoAgent', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', chat: 'Global Agent Chat', humaninput: 'Human Input' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
@@ -2544,6 +2559,7 @@ function renderView(v) {
   if (v === 'global') renderGlobalFeed();
   if (v === 'global-loops') renderGlobalLoops();
   if (v === 'global-tokens') renderGlobalTokens();
+  if (v === 'humaninput') renderHumanInputView();
 }
 
 function refreshCurrent() {
@@ -4194,6 +4210,73 @@ async function renderGlobalFeed() {
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
   }
+}
+
+async function renderHumanInputView() {
+  const el = document.getElementById('hi-content');
+  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  try {
+    const data = await apiFetch('/api/projects');
+    const projects = (data?.projects || []).slice(0, 8);
+    if (!projects.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">❓</div><div>No projects found</div></div>';
+      updateHumanInputBadge(0);
+      return;
+    }
+    const results = await Promise.allSettled(
+      projects.map(p => apiFetch('/api/questions?dir=' + enc(p.path)).then(d => ({ project: p, questions: d.questions || [] })))
+    );
+    const entries = [];
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      const { project, questions } = r.value;
+      for (const q of questions) entries.push({ project, q });
+    }
+    entries.sort((a, b) => (b.q.ts || 0) - (a.q.ts || 0));
+    updateHumanInputBadge(entries.length);
+    document.getElementById('hi-sub').textContent = entries.length
+      ? `${entries.length} pending question(s) across ${projects.length} projects`
+      : `No pending questions across ${projects.length} projects`;
+    if (!entries.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">❓</div><div>No pending questions</div></div>';
+      return;
+    }
+    el.innerHTML = '<div class="sess-list">' + entries.map(({ project, q }) => `
+      <div class="sess-row" data-question-id="${esc(q.questionId)}" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+          <div><b>${esc(q.org)}</b> · ${esc(q.role)} <span style="color:var(--text-xs)">(${esc(project.name || project.path)})</span></div>
+          <div style="color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(q.ts)}</div>
+        </div>
+        <div style="color:var(--text-hi)">${esc(q.question)}</div>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="hi-answer-input" placeholder="Your answer…" style="flex:1;padding:4px 8px;font-size:12px" />
+          <button class="btn" style="font-size:11px" onclick="submitHumanAnswer('${esc(project.path)}','${esc(q.org)}','${esc(q.role)}','${esc(q.questionId)}',this)">Answer</button>
+        </div>
+      </div>
+    `).join('') + '</div>';
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+function updateHumanInputBadge(count) {
+  const b = document.getElementById('bdg-humaninput');
+  if (b) b.textContent = String(count);
+}
+
+async function submitHumanAnswer(dir, org, role, questionId, btnEl) {
+  const row = btnEl.closest('[data-question-id]');
+  const input = row.querySelector('.hi-answer-input');
+  const answer = input.value.trim();
+  if (!answer) return;
+  btnEl.disabled = true;
+  try {
+    const res = await fetch('/api/questions/answer', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dir, org, role, questionId, answer }),
+    });
+    const data = await res.json();
+    if (data.ok) { showToast('Answered', `${org}:${role}`, 'ok'); row.remove(); }
+    else { showToast('Error', data.error || 'failed', 'err'); btnEl.disabled = false; }
+  } catch (e) { showToast('Error', e.message, 'err'); btnEl.disabled = false; }
 }
 
 // ── agent chat view ────────────────────────────────────────
