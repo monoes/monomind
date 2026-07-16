@@ -130,6 +130,45 @@ describe('OrgDaemon', () => {
     expect(saved.questions[0]).toMatchObject({ questionId, role: 'boss', question: 'ship it now or wait?', answer: null, answeredAt: null });
   });
 
+  it('answerQuestion delivers into a running role\'s live mailbox and marks the question answered', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-answer-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+    await d.askHuman('alpha', 'coder', 'red or blue?');
+    const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
+    const questionId = saved.questions[0].questionId;
+
+    const result = await d.answerQuestion('alpha', 'coder', questionId, 'blue');
+    expect(result.ok).toBe(true);
+    await new Promise(r => setTimeout(r, 50)); // let the echo session process the pushed mailbox message
+    await d.stopAll();
+
+    expect(running.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('blue'))).toBe(true);
+    const savedAfter = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
+    expect(savedAfter.questions[0].answer).toBe('blue');
+    expect(savedAfter.questions[0].answeredAt).toBeTypeOf('number');
+  });
+
+  it('answerQuestion queues the answer and auto-wakes an offline org', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-answer-offline-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+    await d.askHuman('alpha', 'coder', 'red or blue?');
+    const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
+    const questionId = saved.questions[0].questionId;
+    await d.stopOrg('alpha'); // org now offline
+
+    const result = await d.answerQuestion('alpha', 'coder', questionId, 'blue');
+    expect(result.ok).toBe(true);
+    await new Promise(r => setTimeout(r, 100)); // let autoWake's startOrg + drainInbox + echo session settle
+    const restarted = d.getOrg('alpha');
+    expect(restarted).toBeDefined();
+    expect(restarted!.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('blue'))).toBe(true);
+    await d.stopAll();
+  });
+
   it('marks an agent crashed and emits an audit event when its session rejects (P2-50)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon5-'));
     fixture(root, 'alpha');
