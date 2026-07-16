@@ -8462,12 +8462,12 @@ function _odtHandleLiveEvent(ev) {
     _odtChatSeenKeys = new Set(_arr.slice(1000));
   }
   if (ev?.type === 'org:question' && ev.from) {
-    v2ShowQuestionBubble(ev.from, ev.question || '');
+    if (ev.org === _v2SelOrg) v2ShowQuestionBubble(ev.from, ev.question || '');
     if (viewRendered['humaninput']) renderHumanInputView();
     else updateHumanInputBadge((parseInt(document.getElementById('bdg-humaninput')?.textContent, 10) || 0) + 1);
   }
   if (ev?.type === 'org:question-answered' && ev.role) {
-    v2ClearQuestionBubble(ev.role);
+    if (ev.org === _v2SelOrg) v2ClearQuestionBubble(ev.role);
   }
   // Wire activity bubble for org chart visualization
   if (ev && ev.org === _v2SelOrg) {
