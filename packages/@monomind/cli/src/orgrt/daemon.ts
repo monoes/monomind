@@ -300,6 +300,45 @@ export class OrgDaemon {
     return `Question recorded (id ${questionId}) — a human will answer it; you'll receive the answer as a new message.`;
   }
 
+  /** Delivers a human's answer to a pending ask_human question. If the org is still
+   *  running, pushes straight into the role's live mailbox (picked up on its very next
+   *  generator tick — see Mailbox.stream()). If the org has since stopped, queues the
+   *  answer via the same offline fallback deliver()/receiveRemote() already use
+   *  (inbox.ts + autoWake) and it's delivered when the org next starts. */
+  async answerQuestion(org: string, role: string, questionId: string, answer: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    const data = this.readQuestions(org);
+    const idx = data.questions.findIndex(q => q.questionId === questionId);
+    if (idx === -1) return { ok: false, error: `question "${questionId}" not found for org "${org}"` };
+    if (data.questions[idx].answer !== null) return { ok: false, error: `question "${questionId}" already answered` };
+    data.questions[idx] = { ...data.questions[idx], answer, answeredAt: Date.now() };
+    this.writeQuestions(org, data);
+
+    const running = this.orgs.get(org);
+    if (running) {
+      // Org IS running — deliver or report a real error, but never fall through to the
+      // offline queue+autoWake path below: autoWake() no-ops when this.orgs already has
+      // the org (see its own guard), so a role-specific delivery failure here (mailbox
+      // closed, role unknown) would otherwise queue the answer forever with no real error
+      // and no delivery. Mirrors deliver()'s existing "shutting down" error for the same
+      // mid-shutdown-mailbox-closed race.
+      const agent = running.agents.get(role);
+      if (!agent) return { ok: false, error: `role "${role}" not found in org "${org}"` };
+      if (agent.mailbox.isClosed) return { ok: false, error: `role "${role}" in org "${org}" is shutting down — answer not delivered` };
+      running.bus.emit({ type: 'status', from: role, msg: 'question answered', data: { questionId } });
+      agent.mailbox.push(`[answer from human] question: ${data.questions[idx].question}\n\nanswer: ${answer}`);
+      return { ok: true };
+    }
+    // Org not running at all — queue for delivery on next start, matching deliver()'s
+    // existing offline fallback exactly (inbox.ts + autoWake).
+    if (!this.hasOrgDef(org)) return { ok: false, error: `org "${org}" not found (no saved definition)` };
+    queueMessage(this.root, org, {
+      fromQualified: 'human', toRole: role,
+      subject: `answer:${questionId}`, body: answer, ts: Date.now(),
+    });
+    this.autoWake(org);
+    return { ok: true };
+  }
+
   /** Start an offline org in the background so queued messages get drained.
    *  Fire-and-forget — errors are logged but don't propagate to the sender. */
   private autoWake(name: string): void {
