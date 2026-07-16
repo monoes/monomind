@@ -8552,23 +8552,65 @@ async function v2RenderOrgFiles() {
         '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
         '<thead><tr style="color:var(--text-xs);font-size:9px;text-align:left"><th style="padding:4px 8px">File</th><th>Type</th><th>Size</th><th>Modified</th><th></th></tr></thead>'+
         '<tbody>'+g.items.map(f => {
+          const isImg = OF_IMG_RE.test(f.name);
           return '<tr style="border-top:1px solid var(--border)" data-fp="'+esc(f.path)+'" data-fn="'+esc(f.name)+'">'+
             '<td style="padding:6px 8px"><span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);cursor:pointer" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">'+esc(f.name)+'</span></td>'+
             '<td style="padding:6px 8px">'+badge(f.type)+'</td>'+
             '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo);font-family:var(--mono)">'+fmtSize(f.size||0)+'</td>'+
             '<td style="padding:6px 8px;font-size:10px;color:var(--text-lo)">'+fmtTime(f.mtime)+'</td>'+
-            '<td style="padding:6px 8px"><button class="btn" style="font-size:9px;padding:2px 7px" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">View</button></td></tr>';
+            '<td style="padding:6px 8px;white-space:nowrap">'+
+              '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="v2ViewOrgFile(this.closest(\'tr\').dataset.fp,this.closest(\'tr\').dataset.fn)">View</button> '+
+              '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofCopyPath(this.closest(\'tr\').dataset.fp)">Copy Path</button>'+
+              (isImg ? '' : ' <button class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofCopyContent(this.closest(\'tr\').dataset.fp)">Copy</button>') +
+            '</td></tr>';
         }).join('')+'</tbody></table></div>';
     }).join('')+'</div>';
   } catch(e) { el.innerHTML = '<div style="padding:20px;color:oklch(60% 0.22 25)">Error: '+e.message+'</div>'; }
 }
 
+function _ofCopyPath(filePath) {
+  if (!filePath) return;
+  navigator.clipboard.writeText(filePath).then(() => {
+    if (typeof showToast === 'function') showToast('Path copied', '', 'ok');
+  });
+}
+
+async function _ofCopyContent(filePath) {
+  if (!filePath) return;
+  try {
+    const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
+    const r = await fetch('/api/file-content?path='+encodeURIComponent(filePath)+dirParam);
+    if (!r.ok) { if (typeof showToast === 'function') showToast('Copy failed', 'Error '+r.status, 'error'); return; }
+    const text = await r.text();
+    await navigator.clipboard.writeText(text);
+    if (typeof showToast === 'function') showToast('Content copied', '', 'ok');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('Copy failed', e.message, 'error');
+  }
+}
+
 let _ofModal = null;
 let _ofRawText = '';
+
+const OF_IMG_RE = /\.(png|jpe?g|gif|svg|webp)$/i;
+
+function _ofMdTableRow(row) {
+  var cells = row.trim().replace(/^\||\|$/g,'').split('|').map(function(c){ return c.trim(); });
+  return cells;
+}
 
 function _ofMdToHtml(md) {
   return md
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^(\|.+\|)[ \t]*\n\|[ \t]*:?-{2,}:?[ \t]*(?:\|[ \t]*:?-{2,}:?[ \t]*)*\|?[ \t]*\n((?:\|.*\|[ \t]*\n?)*)/gm, function(_m, headerRow, bodyRows) {
+      var head = _ofMdTableRow(headerRow);
+      var thead = '<tr>' + head.map(function(c){ return '<th style="padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text-hi)">'+c+'</th>'; }).join('') + '</tr>';
+      var tbody = bodyRows.split('\n').filter(function(r){ return r.trim(); }).map(function(r){
+        var cells = _ofMdTableRow(r);
+        return '<tr>' + cells.map(function(c){ return '<td style="padding:6px 10px;border-bottom:1px solid var(--border)">'+c+'</td>'; }).join('') + '</tr>';
+      }).join('');
+      return '<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:11px">'+thead+tbody+'</table>';
+    })
     .replace(/^#{6}\s+(.+)$/gm,'<h6 style="font-size:11px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h6>')
     .replace(/^#{5}\s+(.+)$/gm,'<h5 style="font-size:12px;font-weight:700;color:var(--text-hi);margin:10px 0 4px">$1</h5>')
     .replace(/^#{4}\s+(.+)$/gm,'<h4 style="font-size:13px;font-weight:700;color:var(--text-hi);margin:12px 0 5px">$1</h4>')
@@ -8583,6 +8625,9 @@ function _ofMdToHtml(md) {
     .replace(/^\s*[-*]\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
     .replace(/(<li.*<\/li>\n?)+/g,'<ul style="padding-left:18px;margin:6px 0">$&</ul>')
     .replace(/^\d+\.\s+(.+)$/gm,'<li style="margin:2px 0;padding-left:4px">$1</li>')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(_m, alt, url) {
+      return '<img src="'+String(url).replace(/"/g,'&quot;')+'" alt="'+String(alt).replace(/"/g,'&quot;')+'" loading="lazy" style="max-width:100%;border-radius:4px;margin:8px 0;display:block">';
+    })
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" style="color:var(--accent);text-decoration:underline" target="_blank" rel="noopener">$1</a>')
     .replace(/\n\n+/g,'</p><p style="margin:0 0 8px">')
     .replace(/^(?!<[hupoli]|<pre|<hr)(.+)$/gm, '$1')
@@ -8593,6 +8638,7 @@ async function v2ViewOrgFile(filePath, fileName) {
   if (_ofModal) { _ofModal.remove(); _ofModal = null; }
   const isMd = /\.(md|markdown)$/i.test(fileName);
   const isJson = /\.json$/i.test(fileName);
+  const isImage = OF_IMG_RE.test(fileName);
   _ofRawText = '';
   _ofModal = document.createElement('div');
   _ofModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
@@ -8602,8 +8648,9 @@ async function v2ViewOrgFile(filePath, fileName) {
       '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0">' +
         '<span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(filePath)+'">'+esc(fileName)+'</span>' +
         (isMd ? '<button id="of-toggle" class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofToggleRender()">Raw</button>' : '') +
-        '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="navigator.clipboard.writeText(_ofRawText).then(()=>{ if(typeof showToast===\'function\') showToast(\'Copied\',\'\',\'ok\'); })">Copy</button>' +
-        '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveFile(\''+esc(fileName)+'\')">Save</button>' +
+        (isImage ? '' : '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="navigator.clipboard.writeText(_ofRawText).then(()=>{ if(typeof showToast===\'function\') showToast(\'Copied\',\'\',\'ok\'); })">Copy</button>') +
+        (isImage ? '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveImage(\''+esc(fileName)+'\')">Save</button>'
+                 : '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveFile(\''+esc(fileName)+'\')">Save</button>') +
         '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofModal&&(_ofModal.remove(),_ofModal=null)">✕</button>' +
       '</div>' +
       '<div id="of-content" style="flex:1;overflow-y:auto;padding:16px 18px;font-size:12px;line-height:1.7;color:var(--text-mid);scrollbar-width:thin;scrollbar-color:var(--border) transparent">' +
@@ -8611,9 +8658,18 @@ async function v2ViewOrgFile(filePath, fileName) {
       '</div>' +
     '</div>';
   document.body.appendChild(_ofModal);
+  const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
+  const fileUrl = '/api/file-content?path='+encodeURIComponent(filePath)+dirParam;
+  if (isImage) {
+    const el = document.getElementById('of-content');
+    if (el) {
+      _ofRawText = fileUrl;
+      el.innerHTML = '<img src="'+esc(fileUrl)+'" alt="'+esc(fileName)+'" style="max-width:100%;display:block;margin:0 auto" onerror="this.replaceWith(document.createTextNode(\'Failed to load image\'))">';
+    }
+    return;
+  }
   try {
-    const dirParam = (typeof DIR !== 'undefined' && DIR) ? '&dir='+encodeURIComponent(DIR) : '';
-    const r = await fetch('/api/file-content?path='+encodeURIComponent(filePath)+dirParam);
+    const r = await fetch(fileUrl);
     const el = document.getElementById('of-content');
     if (!el) return;
     if (!r.ok) { el.textContent = 'Error '+r.status+': '+r.statusText; return; }
@@ -8658,6 +8714,14 @@ function _ofSaveFile(defaultName) {
   a.download = defaultName || 'file.txt';
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function _ofSaveImage(defaultName) {
+  if (!_ofRawText) return;
+  const a = document.createElement('a');
+  a.href = _ofRawText;
+  a.download = defaultName || 'image';
+  a.click();
 }
 
 // ── WORKSPACES ─────────────────────────────────────────────
