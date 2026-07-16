@@ -34,6 +34,30 @@ export async function startOrgServer(daemon: OrgDaemon, port = 0): Promise<OrgSe
           res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'bad request' }));
         }
       });
+    } else if (req.method === 'POST' && req.url === '/api/answer-question') {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        (async () => {
+          try {
+            const payload = JSON.parse(body || '{}') as {
+              org?: string; role?: string; questionId?: string; answer?: string;
+            };
+            if (!payload.org || !payload.role || !payload.questionId || payload.answer === undefined) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: false, error: 'org, role, questionId, answer are required' }));
+              return;
+            }
+            const result = await daemon.answerQuestion(payload.org, payload.role, payload.questionId, payload.answer);
+            res.writeHead(result.ok ? 200 : 404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(result));
+          } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'bad request' }));
+          }
+        })();
+      });
+      return;
     } else {
       res.writeHead(404); res.end('not found');
     }

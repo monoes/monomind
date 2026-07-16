@@ -440,6 +440,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.v2-bubble-inner.v2-bubble-question {
+  background: oklch(28% 0.04 75 / 0.95);
+  border-color: oklch(78% 0.16 75 / 0.7);
+  color: oklch(92% 0.03 75);
+}
 .org-chart-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 2px; }
 .ocl-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-lo); }
 
@@ -1607,6 +1612,10 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       <div class="nav-item" data-view="chat" title="All agent sessions across projects">
         <span class="ico">⌘</span><span class="lbl">Global Agent Chat</span>
       </div>
+      <div class="nav-item" data-view="humaninput" title="Pending questions from agents across all orgs">
+        <span class="ico">❓</span><span class="lbl">Human Input</span>
+        <span class="bdg" id="bdg-humaninput">—</span>
+      </div>
     </div>
   </div>
   <div id="sb-footer">
@@ -2339,6 +2348,17 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       </div>
     </div>
 
+    <!-- HUMAN INPUT (global, cross-org) -->
+    <div class="view" id="view-humaninput">
+      <div class="vscroll">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+          <div class="pg-title" style="margin-bottom:0">Human Input</div>
+          <span class="pg-sub" id="hi-sub" style="margin-bottom:0">Pending questions across all projects</span>
+        </div>
+        <div id="hi-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
+      </div>
+    </div>
+
   </div><!-- /view-wrap -->
 </div><!-- /main -->
 <div id="app-ambient-hint">Press A to exit ambient mode</div>
@@ -2477,10 +2497,10 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', monoagent:'MonoAgent', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', monoagent:'MonoAgent', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat', humaninput:'Human Input' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', monoagent: 'MonoAgent', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', chat: 'Global Agent Chat' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', monoagent: 'MonoAgent', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', chat: 'Global Agent Chat', humaninput: 'Human Input' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
@@ -2544,6 +2564,7 @@ function renderView(v) {
   if (v === 'global') renderGlobalFeed();
   if (v === 'global-loops') renderGlobalLoops();
   if (v === 'global-tokens') renderGlobalTokens();
+  if (v === 'humaninput') renderHumanInputView();
 }
 
 function refreshCurrent() {
@@ -4194,6 +4215,73 @@ async function renderGlobalFeed() {
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
   }
+}
+
+async function renderHumanInputView() {
+  const el = document.getElementById('hi-content');
+  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  try {
+    const data = await apiFetch('/api/projects');
+    const projects = (data?.projects || []).slice(0, 8);
+    if (!projects.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">❓</div><div>No projects found</div></div>';
+      updateHumanInputBadge(0);
+      return;
+    }
+    const results = await Promise.allSettled(
+      projects.map(p => apiFetch('/api/questions?dir=' + enc(p.path)).then(d => ({ project: p, questions: d.questions || [] })))
+    );
+    const entries = [];
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      const { project, questions } = r.value;
+      for (const q of questions) entries.push({ project, q });
+    }
+    entries.sort((a, b) => (b.q.ts || 0) - (a.q.ts || 0));
+    updateHumanInputBadge(entries.length);
+    document.getElementById('hi-sub').textContent = entries.length
+      ? `${entries.length} pending question(s) across ${projects.length} projects`
+      : `No pending questions across ${projects.length} projects`;
+    if (!entries.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">❓</div><div>No pending questions</div></div>';
+      return;
+    }
+    el.innerHTML = '<div class="sess-list">' + entries.map(({ project, q }) => `
+      <div class="sess-row" data-question-id="${esc(q.questionId)}" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+          <div><b>${esc(q.org)}</b> · ${esc(q.role)} <span style="color:var(--text-xs)">(${esc(project.name || project.path)})</span></div>
+          <div style="color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(q.ts)}</div>
+        </div>
+        <div style="color:var(--text-hi)">${esc(q.question)}</div>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="hi-answer-input" placeholder="Your answer…" style="flex:1;padding:4px 8px;font-size:12px" />
+          <button class="btn" style="font-size:11px" onclick="submitHumanAnswer('${esc(project.path)}','${esc(q.org)}','${esc(q.role)}','${esc(q.questionId)}',this)">Answer</button>
+        </div>
+      </div>
+    `).join('') + '</div>';
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+function updateHumanInputBadge(count) {
+  const b = document.getElementById('bdg-humaninput');
+  if (b) b.textContent = String(count);
+}
+
+async function submitHumanAnswer(dir, org, role, questionId, btnEl) {
+  const row = btnEl.closest('[data-question-id]');
+  const input = row.querySelector('.hi-answer-input');
+  const answer = input.value.trim();
+  if (!answer) return;
+  btnEl.disabled = true;
+  try {
+    const res = await fetch('/api/questions/answer', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dir, org, role, questionId, answer }),
+    });
+    const data = await res.json();
+    if (data.ok) { showToast('Answered', `${org}:${role}`, 'ok'); row.remove(); }
+    else { showToast('Error', data.error || 'failed', 'err'); btnEl.disabled = false; }
+  } catch (e) { showToast('Error', e.message, 'err'); btnEl.disabled = false; }
 }
 
 // ── agent chat view ────────────────────────────────────────
@@ -6287,6 +6375,14 @@ function v2RenderOrgChart() {
   });
   _v2ChartLayout = { pos, edgeIdByPair };
   v2OrgActivityReset();
+  // The org-chart's live bubbles (activity + pending-question) and flying letters are ALL
+  // driven by _odtHandleLiveEvent, which only receives events while the odt SSE connections
+  // are open. Those were previously established only from v2RenderOrgChat (the Chat tab), so a
+  // user who opens the Chart tab without first visiting Chat got NO live chart updates — the
+  // question bubble never lit. Establish them here too so the Chart tab is self-sufficient.
+  // Both connect helpers are idempotent (guarded) and null-safe on their live-dot elements.
+  _odtConnectChatSSE();
+  if (_v2SelOrg) _odtConnectOrgTail(_v2SelOrg);
 }
 
 function _v2RoleName(id, roles) {
@@ -6403,9 +6499,19 @@ function v2OrgActivityReset() {
   _v2BubbleTimers = new Map();
 }
 
+function _v2FadeOutBubble(fo) {
+  if (typeof gsap !== 'undefined') {
+    gsap.to(fo, { autoAlpha: 0, duration: 0.4, ease: 'power2.in', onComplete: function() { fo.style.visibility = 'hidden'; } });
+  } else {
+    fo.style.opacity = '0';
+    fo.style.visibility = 'hidden';
+  }
+}
+
 function v2ShowActivityBubble(roleId, text) {
   const fo = document.querySelector('.v2-activity-bubble[data-bubble-for="' + CSS.escape(roleId) + '"]');
   if (!fo) return;
+  if (fo.dataset.questionPending === '1') return; // a pending question owns this bubble until answered
   const inner = fo.querySelector('.v2-bubble-inner');
   inner.textContent = text;
   if (typeof gsap !== 'undefined') {
@@ -6422,14 +6528,37 @@ function v2ShowActivityBubble(roleId, text) {
   const existing = _v2BubbleTimers.get(roleId);
   if (existing) clearTimeout(existing);
   _v2BubbleTimers.set(roleId, setTimeout(function() {
-    if (typeof gsap !== 'undefined') {
-      gsap.to(fo, { autoAlpha: 0, duration: 0.4, ease: 'power2.in', onComplete: function() { fo.style.visibility = 'hidden'; } });
-    } else {
-      fo.style.opacity = '0';
-      fo.style.visibility = 'hidden';
-    }
+    _v2FadeOutBubble(fo);
     _v2BubbleTimers.delete(roleId);
   }, 5000));
+}
+
+function v2ShowQuestionBubble(roleId, questionText) {
+  const fo = document.querySelector('.v2-activity-bubble[data-bubble-for="' + CSS.escape(roleId) + '"]');
+  if (!fo) return;
+  const existing = _v2BubbleTimers.get(roleId);
+  if (existing) { clearTimeout(existing); _v2BubbleTimers.delete(roleId); }
+  fo.dataset.questionPending = '1';
+  const inner = fo.querySelector('.v2-bubble-inner');
+  inner.textContent = '❓ ' + (questionText.length > 40 ? questionText.slice(0, 39) + '…' : questionText);
+  inner.classList.add('v2-bubble-question');
+  if (typeof gsap !== 'undefined') {
+    gsap.killTweensOf(fo);
+    fo.style.visibility = 'visible';
+    gsap.fromTo(fo, { scale: 0.8, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.3, ease: 'back.out(1.7)', transformOrigin: '50% 100%' });
+  } else {
+    fo.style.visibility = 'visible';
+    fo.style.opacity = '1';
+  }
+}
+
+function v2ClearQuestionBubble(roleId) {
+  const fo = document.querySelector('.v2-activity-bubble[data-bubble-for="' + CSS.escape(roleId) + '"]');
+  if (!fo) return;
+  delete fo.dataset.questionPending;
+  const inner = fo.querySelector('.v2-bubble-inner');
+  if (inner) inner.classList.remove('v2-bubble-question');
+  _v2FadeOutBubble(fo);
 }
 
 // ── in-place running dot updater (avoids full re-render + GSAP flicker on SSE events) ──
@@ -8331,6 +8460,14 @@ function _odtHandleLiveEvent(ev) {
   if (_odtChatSeenKeys.size > 2000) {
     const _arr = [..._odtChatSeenKeys];
     _odtChatSeenKeys = new Set(_arr.slice(1000));
+  }
+  if (ev?.type === 'org:question' && ev.from) {
+    if (ev.org === _v2SelOrg) v2ShowQuestionBubble(ev.from, ev.question || '');
+    if (viewRendered['humaninput']) renderHumanInputView();
+    else updateHumanInputBadge((parseInt(document.getElementById('bdg-humaninput')?.textContent, 10) || 0) + 1);
+  }
+  if (ev?.type === 'org:question-answered' && ev.role) {
+    if (ev.org === _v2SelOrg) v2ClearQuestionBubble(ev.role);
   }
   // Wire activity bubble for org chart visualization
   if (ev && ev.org === _v2SelOrg) {
