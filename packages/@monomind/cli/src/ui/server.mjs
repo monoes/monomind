@@ -481,7 +481,9 @@ function _detectMimeType(filePath) {
     '.json': 'application/json', '.md': 'text/markdown', '.txt': 'text/plain',
     '.html': 'text/html', '.css': 'text/css', '.py': 'text/x-python',
     '.sh': 'text/x-shellscript', '.yaml': 'text/yaml', '.yml': 'text/yaml',
-    '.toml': 'text/plain', '.env': 'text/plain', '.xml': 'text/xml' };
+    '.toml': 'text/plain', '.env': 'text/plain', '.xml': 'text/xml',
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
   return map[ext] || 'application/octet-stream';
 }
 
@@ -5132,6 +5134,12 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const stat = fs.statSync(resolved);
         if (!stat.isFile()) { res.writeHead(400); res.end('Not a file'); return; }
         if (stat.size > 524288) { res.writeHead(413); res.end('File too large'); return; }
+        const _fcMime = _detectMimeType(resolved);
+        if (_fcMime.startsWith('image/')) {
+          res.writeHead(200, { 'Content-Type': _fcMime, ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.end(fs.readFileSync(resolved));
+          return;
+        }
         const content = fs.readFileSync(resolved, 'utf8');
         res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(content);

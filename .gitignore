@@ -160,11 +160,14 @@ coordination/subtasks/*
 coverage/
 dist-cjs/
 dist/
-!packages/@monomind/cli/dist/src/ui/server.mjs
-!packages/@monomind/cli/dist/src/ui/sse-manager.mjs
-!packages/@monomind/cli/dist/src/ui/MODULARIZATION_PLAN.md
-!packages/@monomind/cli/dist/src/ui/dashboard.html
-packages/@monomind/cli/dist/src/ui/data/
+# runtime droppings from running the dashboard server with cwd inside src/ui/
+# (server.mjs resolves its data dir from cwd/projectDir, not __dirname) —
+# only agent-avatars.*/avatars/ under src/ui/data/ are real static source
+packages/@monomind/cli/src/ui/data/known-projects.json
+packages/@monomind/cli/src/ui/data/mastermind-events.jsonl
+packages/@monomind/cli/src/ui/data/mastermind-sessions.json
+packages/@monomind/cli/src/ui/data/unknown-events.jsonl
+packages/@monomind/cli/src/ui/data/sessions/
 hive-mind-prompt-*.txt
 init-output.log
 lerna-debug.log*

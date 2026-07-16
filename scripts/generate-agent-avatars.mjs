@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Generates 120 unique SVG agent avatar files + a sprite-sheet HTML.
- * Output: packages/@monomind/cli/dist/src/ui/data/avatars/
+ * Output: packages/@monomind/cli/src/ui/data/avatars/
  * Run: node scripts/generate-agent-avatars.mjs
  */
 
@@ -10,7 +10,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = path.resolve(__dirname, '../packages/@monomind/cli/dist/src/ui/data/avatars');
+const OUT_DIR = path.resolve(__dirname, '../packages/@monomind/cli/src/ui/data/avatars');
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
 // ─── Palettes ────────────────────────────────────────────────────────────────
@@ -489,4 +489,4 @@ const spritePath = path.join(OUT_DIR, '../agent-avatars.html');
 fs.writeFileSync(spritePath, spriteHtml, 'utf8');
 console.log(`✅ Sprite-sheet viewer: data/agent-avatars.html`);
 console.log(`\n🎉 Done! ${AGENTS120.length} avatars ready.`);
-console.log(`   Open: packages/@monomind/cli/dist/src/ui/data/agent-avatars.html`);
+console.log(`   Open: packages/@monomind/cli/src/ui/data/agent-avatars.html`);
