@@ -1032,7 +1032,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/') {
       const htmlPath = path.join(__dirname, 'dashboard.html');
       try {
-        const html = fs.readFileSync(htmlPath, 'utf8');
+        let html = fs.readFileSync(htmlPath, 'utf8');
+        // Inject this process's auth credential so the page's own fetch() calls can
+        // attach it (see the fetch-wrapper near the top of dashboard.html's <script>
+        // block) — every non-GET route above requires it, but the served HTML was
+        // previously never given a way to know it, so every write action 401'd from
+        // the actual browser UI.
+        html = html.replace('<head>', `<head>\n<meta name="mm-token" content="${dashboardAuthValue}">`);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html);
       } catch (err) {
