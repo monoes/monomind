@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Monomind" width="600" />
+  <img src="https://raw.githubusercontent.com/monoes/monomind/main/assets/banner.png" alt="Monomind" width="600" />
 </p>
 
 <h1 align="center">Monomind</h1>
@@ -38,9 +38,9 @@ Monomind is an **open-source CLI and MCP server** that plugs into Claude Code vi
 - **Reusable slash commands** — 30+ development workflows (build, review, debug, TDD, architecture) available as `/mastermind:*` commands inside Claude Code.
 
 ```bash
-npm install -g monomind        # MIT licensed, 0 external API calls
+npm install -g monomind        # MIT licensed, runs entirely on your machine
 cd your-project && monomind init
-claude mcp add monomind npx monomind mcp start
+claude mcp add monomind -- npx -y monomind@latest mcp start
 ```
 
 ### Trust & Security
@@ -48,8 +48,8 @@ claude mcp add monomind npx monomind mcp start
 | Concern | Answer |
 |---|---|
 | **License** | [MIT](LICENSE) — use it however you want |
-| **Data privacy** | Everything runs locally. No telemetry, no phone-home, no external API calls from Monomind itself. Your code stays on your machine. |
-| **Dependencies** | Standard npm packages (tree-sitter, sql.js, zod). No native binaries. No post-install scripts that download code. |
+| **Data privacy** | Everything runs locally — your code and memory store never leave your machine. The one exception: crash reporting is on by default (`monomind crash-reporting disable` to opt out) — a hard crash in monomind/mono-agent/monotask/mono-clip files a GitHub issue on that tool's own repo via the GitHub API. That's the only network call Monomind itself makes; it never phones a monoes-controlled server. |
+| **Dependencies** | Standard npm packages (tree-sitter, better-sqlite3, sql.js, zod). tree-sitter and better-sqlite3 are native (prebuilt) Node addons, not pure JS/WASM — sql.js is WASM. No post-install scripts that download code. |
 | **Permissions** | Registers as an MCP server — Claude Code controls what tools are available and prompts you before executing anything sensitive. |
 | **Source** | Fully open. Read every line at [github.com/monoes/monomind](https://github.com/monoes/monomind). |
 | **Maintenance** | Active development, regular releases on npm. |
@@ -62,7 +62,7 @@ claude mcp add monomind npx monomind mcp start
 
 ### The idea
 
-Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, serves a live WebSocket dashboard, and can discover and message other Monomind orgs running on the same machine.
+Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the same dashboard `monomind start` serves, and can discover and message other Monomind orgs running on the same machine.
 
 ```mermaid
 flowchart TD
@@ -73,14 +73,14 @@ flowchart TD
     W["Writer"]
     S["SEO Specialist"]
     R["Reviewer"]
-    DASH[("Live Dashboard\n:4243")]
+    DASH[("Dashboard\n:4242\nmonomind start")]
     XORG[("Other orgs\ncross-process")]
 
     U --> DEF --> RUN --> BOSS
     BOSS -->|spawns| W
     BOSS -->|spawns| S
     BOSS -->|spawns| R
-    RUN <-->|serves| DASH
+    RUN -->|forwards events| DASH
     RUN <-.->|--cross-process| XORG
 
     style BOSS fill:#00D2AA22,stroke:#00D2AA
@@ -94,12 +94,12 @@ flowchart TD
 # .monomind/orgs/<name>.json defines the org: goal, roles, policy.
 # See .monomind/orgs/sample-team.json in a fresh `monomind init` for a working example.
 
+monomind start                      # dashboard at http://localhost:4242 (if not already running)
 monomind org run content-team --task "Build and publish 3 blog posts per week"
 
-# ✓ Live dashboard: http://localhost:4243
 # ✓ Boss agent (Claude Agent SDK session) spawns, reads the org goal,
 #   assigns work to role agents, coordinates until the task completes
-#   or you stop it.
+#   or you stop it. Every event streams into the dashboard above.
 
 monomind org status content-team    # runtime state
 monomind org stop content-team      # request a graceful stop
@@ -112,18 +112,18 @@ monomind org list                   # every org + status
 |---|---|
 | **OrgDaemon** | Hosts one or more orgs in a single process; real Claude Agent SDK sessions per role, not simulated |
 | **PolicyEngine** | Per-role gates on tool access, file read/write scope, web access, token budget — enforced, with a full audit trail |
-| **Live dashboard** | WebSocket-served at `:4243` by default (`--port` to change, `--serve=false` to disable) |
+| **Dashboard** | `org run` forwards every event to the `monomind start` control server on `:4242` (found via `.monomind/control.json`) — there's no separate per-org dashboard process |
 | **Cross-process comms** | `--cross-process` (default on) lets orgs on different `monomind` processes/projects discover and message each other |
 | **Scheduling** | `monomind org serve` hosts orgs whose definition has a `schedule` field, running them on interval |
 
 ### Org management commands
 
 ```bash
-monomind org run <name> [--task "..."] [--port N] [--cross-process]  # start a daemon
+monomind org run <name> [--task "..."] [--cross-process]  # start a daemon
 monomind org stop <name>            # request a running org to stop
 monomind org status [name]          # runtime state for one or all orgs
 monomind org list                   # list every org + status
-monomind org serve [--port N]       # host-only mode, runs scheduled orgs
+monomind org serve [--cross-process]  # host-only mode, runs scheduled orgs
 monomind org delete <name>          # remove an org
 ```
 
@@ -179,13 +179,13 @@ cd your-project
 monomind init
 
 # 3. Wire into Claude Code as an MCP server
-claude mcp add monomind npx monomind mcp start
+claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # 4. Health check
 monomind doctor --fix
 ```
 
-Open Claude Code. You now have 60+ slash commands available:
+Open Claude Code. You now have 49 `/mastermind:*` workflows available:
 
 ```bash
 /mastermind:autodev --tillend     # start autonomous code loop
@@ -275,7 +275,7 @@ const result = await fence.detect(userInput);
 
 ---
 
-## 📋 60+ Slash Commands
+## 📋 49 Mastermind Commands
 
 Everything runs from inside Claude Code via slash commands. Here's the highlight reel:
 
@@ -308,7 +308,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `/mastermind:finance` | Budgets, invoicing, modeling |
 | `/mastermind:ops` | Operations and workflow automation |
 
-**[→ Full reference (60+ commands)](https://monoes.github.io/monomind/#slash)**
+**[→ Full reference (49 commands)](https://monoes.github.io/monomind/#slash)**
 
 ---
 
