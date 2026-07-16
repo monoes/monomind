@@ -1,6 +1,6 @@
 ---
 name: mastermind-org-settings
-description: Mastermind org-settings — edit org configuration (name, goal, topology, governance, budget), export org as portable JSON, and import an org from a previously exported file.
+description: Mastermind org-settings — edit Org Runtime v2 configuration (name, goal, schedule, budget_tokens, memory_namespace, max_turns_per_message), export org as portable JSON, and import an org from a previously exported file.
 type: domain-skill
 default_mode: confirm
 ---
@@ -9,6 +9,8 @@ default_mode: confirm
 
 This skill is invoked by `mastermind:org-settings` or directly via `/mastermind:org-settings`.
 
+It edits `.monomind/orgs/<org_name>.json` in place, and only ever touches fields that `OrgDefSchema` (`packages/@monomind/cli/src/orgrt/types.ts`) actually defines — every field listed below is read by the daemon (`org.ts`/`daemon.ts`/`session.ts`) at `monomind org run`/`serve` time. There is no `topology`, `governance`, `alert_threshold`, or `ceo_adapter` in Org Runtime v2 — those were v1 board/prompt-orchestration fields with no runtime effect and have been removed from this skill.
+
 ---
 
 ## Inputs
@@ -16,7 +18,7 @@ This skill is invoked by `mastermind:org-settings` or directly via `/mastermind:
 - `brain_context`: BRAIN CONTEXT block (injected by command, or loaded below if standalone)
 - `org_name`: org to configure (required)
 - `action`: show | edit | export | import
-- `field`: field to edit (name, goal, topology, governance, budget_tokens, alert_threshold, ceo_adapter)
+- `field`: field to edit (name, goal, schedule, budget_tokens, memory_namespace, max_turns_per_message)
 - `value`: new value for the field
 - `export_path`: path to write exported JSON (default: `.monomind/exports/<org_name>-<timestamp>.json`)
 - `import_path`: path to JSON file to import from
@@ -49,19 +51,18 @@ Display current org config in a readable format:
 echo "ORG SETTINGS — ${org_name}"
 echo "──────────────────────────────────────────"
 jq -r '
-  "  Name:         \(.name // .org_name // "-")",
-  "  Goal:         \(.goal // "-")",
-  "  Topology:     \(.topology // "hierarchical")",
-  "  Max Agents:   \(.max_agents // 8)",
-  "  Governance:   \(.governance.policy // "auto")",
-  "  Budget:       \(.run_config.budget_tokens // 0) tokens",
-  "  Alert at:     \((.run_config.alert_threshold // 0.8) * 100 | floor)%",
-  "  CEO Adapter:  \(.run_config.ceo_adapter // "claude-sonnet-4-6")",
-  "  Roles:        \(.roles | length) agents"
+  "  Name:              \(.name // "-")",
+  "  Goal:              \(.goal // "-")",
+  "  Status:            \(.status // "stopped")",
+  "  Schedule:          \(.schedule // "manual (no auto-schedule)")",
+  "  Budget:            \(.run_config.budget_tokens // 1000000) tokens",
+  "  Memory namespace:  \(.run_config.memory_namespace // ("org:" + (.name // "-")))",
+  "  Max turns/message: \(.run_config.max_turns_per_message // 30)",
+  "  Roles:             \(.roles | length) agents"
 ' "$orgFile"
 echo ""
 echo "  Run /mastermind:org-settings --org ${org_name} --action edit --field <field> --value <value>"
-echo "  Fields: name | goal | topology | governance | budget_tokens | alert_threshold | ceo_adapter"
+echo "  Fields: name | goal | schedule | budget_tokens | memory_namespace | max_turns_per_message"
 ```
 
 ### edit
@@ -79,23 +80,30 @@ case "$field" in
     echo "$value" | grep -qE '^[a-z0-9][a-z0-9-]{0,63}$' || { echo "ERROR: name must match ^[a-z0-9][a-z0-9-]{0,63}$"; exit 1; }
     newOrgFile=".monomind/orgs/${value}.json"
     [ -f "$newOrgFile" ] && { echo "ERROR: An org named '${value}' already exists."; exit 1; }
+    # Refuse to rename while the daemon has this org running — it holds the old
+    # name's paths (defPath, cwd, runtime.json) in memory; a rename mid-run would
+    # orphan that live state instead of moving it.
+    runtime_status=$(jq -r '.status // "stopped"' ".monomind/orgs/${org_name}/runtime.json" 2>/dev/null || echo "stopped")
+    [ "$runtime_status" = "running" ] && { echo "ERROR: org '${org_name}' is running — stop it first: monomind org stop ${org_name}"; exit 1; }
     # Update the name field inside the JSON
     jq --arg v "$value" '.name = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
     # Rename the main config file
     mv "$orgFile" "$newOrgFile"
-    # Rename all side-car data files
-    for suffix in -state -goals -routines -approvals -activity -issues -members -projects -workspaces -worktrees -environments -plugins -adapters -threads -budgets -project-workspaces -approval-comments -bootstrap -secrets; do
+    # Rename all side-car artifact files — same suffix list as ORG_ARTIFACT_SUFFIXES
+    # in packages/@monomind/cli/src/commands/org.ts (single source of truth for what
+    # counts as an org-internal artifact vs. the org's own config file).
+    for suffix in -state -goals -threads -activity -approvals -members -secrets -budgets \
+                  -routines -issues -projects -workspaces -worktrees -environments \
+                  -plugins -adapters -join-requests -bootstrap -project-workspaces \
+                  -approval-comments -skills; do
       old_file=".monomind/orgs/${org_name}${suffix}.json"
       [ -f "$old_file" ] && mv "$old_file" ".monomind/orgs/${value}${suffix}.json" || true
       old_jsonl=".monomind/orgs/${org_name}${suffix}.jsonl"
       [ -f "$old_jsonl" ] && mv "$old_jsonl" ".monomind/orgs/${value}${suffix}.jsonl" || true
     done
-    # Rename loop prompt file if present (scheduled orgs)
-    old_loop=".monomind/loops/${org_name}.md"
-    [ -f "$old_loop" ] && mv "$old_loop" ".monomind/loops/${value}.md" || true
-    # Rename stop file if present
-    old_stop=".monomind/orgs/.stops/${org_name}.stop"
-    [ -f "$old_stop" ] && mv "$old_stop" ".monomind/orgs/.stops/${value}.stop" || true
+    # Rename the org's runtime subdirectory (runs/, workspace/, stop file) if present
+    old_dir=".monomind/orgs/${org_name}"
+    [ -d "$old_dir" ] && mv "$old_dir" ".monomind/orgs/${value}" || true
     echo "Renamed org '${org_name}' → '${value}'"
     org_name="$value"
     orgFile="$newOrgFile"
@@ -104,42 +112,33 @@ case "$field" in
     jq --arg v "$value" '.goal = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
     echo "Updated: goal → $value"
     ;;
-  topology)
-    case "$value" in hierarchical|mesh|hierarchical-mesh|adaptive|star|ring) : ;; *)
-      echo "ERROR: topology must be one of: hierarchical, mesh, hierarchical-mesh, adaptive, star, ring"; exit 1 ;;
-    esac
-    jq --arg v "$value" '.topology = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
-    echo "Updated: topology → $value"
-    ;;
-  governance)
-    case "$value" in auto|board|strict) : ;; *)
-      echo "ERROR: governance must be one of: auto, board, strict"; exit 1 ;;
-    esac
-    jq --arg v "$value" '.governance.policy = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
-    echo "Updated: governance → $value"
+  schedule)
+    # daemon format (parseSchedule in orgrt/scheduler.ts): "<N>s" | "<N>m" | "<N>h", or "none"/"" to clear
+    if [ "$value" = "none" ] || [ -z "$value" ]; then
+      jq '.schedule = null' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
+      echo "Updated: schedule → none (manual — run with monomind org run ${org_name})"
+    else
+      echo "$value" | grep -qE '^[0-9]+(s|m|h)$' || { echo "ERROR: schedule must match ^[0-9]+(s|m|h)$ (e.g. 30m, 2h) or 'none'"; exit 1; }
+      jq --arg v "$value" '.schedule = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
+      echo "Updated: schedule → $value (pick up with: monomind org serve)"
+    fi
     ;;
   budget_tokens)
     [[ "$value" =~ ^[0-9]+$ ]] || { echo "ERROR: budget_tokens must be a positive integer"; exit 1; }
     jq --argjson v "$value" '.run_config.budget_tokens = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
     echo "Updated: budget_tokens → $value"
     ;;
-  alert_threshold)
-    # accept 0.0–1.0 or 0–100
-    if [[ "$value" =~ ^[0-9]+$ ]] && [ "$value" -gt 1 ]; then
-      value=$(awk "BEGIN{printf \"%.2f\",$value/100}")
-    fi
-    jq --argjson v "$value" '.run_config.alert_threshold = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
-    echo "Updated: alert_threshold → $value"
+  memory_namespace)
+    jq --arg v "$value" '.run_config.memory_namespace = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
+    echo "Updated: memory_namespace → $value"
     ;;
-  ceo_adapter)
-    case "$value" in claude-sonnet-4-6|claude-opus-4-7|claude-haiku-4-5) : ;; *)
-      echo "ERROR: ceo_adapter must be one of: claude-sonnet-4-6, claude-opus-4-7, claude-haiku-4-5"; exit 1 ;;
-    esac
-    jq --arg v "$value" '.run_config.ceo_adapter = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
-    echo "Updated: ceo_adapter → $value"
+  max_turns_per_message)
+    [[ "$value" =~ ^[0-9]+$ ]] || { echo "ERROR: max_turns_per_message must be a positive integer"; exit 1; }
+    jq --argjson v "$value" '.run_config.max_turns_per_message = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
+    echo "Updated: max_turns_per_message → $value"
     ;;
   *)
-    echo "ERROR: Unknown field '$field'. Valid fields: name, goal, topology, governance, budget_tokens, alert_threshold, ceo_adapter"
+    echo "ERROR: Unknown field '$field'. Valid fields: name, goal, schedule, budget_tokens, memory_namespace, max_turns_per_message"
     exit 1
     ;;
 esac

@@ -1,11 +1,14 @@
 ---
 name: mastermind-runorg
-description: Mastermind runorg — load a saved org definition and start it as a persistent autonomous agent organization. The boss agent coordinates all roles, agents pick up tasks from a shared board, and the org runs until stopped.
+description: "DEPRECATED (2026-07): superseded by `monomind org run <name>` (SDK Org Runtime v2). Mastermind runorg — load a saved org definition and start it as a persistent, prompt-orchestrated agent organization. The boss agent coordinates all roles, agents pick up tasks from a shared board, and the org runs until stopped."
 type: domain-skill
 default_mode: auto
 ---
 
 # Mastermind Run Org
+
+> **DEPRECATED (2026-07): superseded by `monomind org run <name>` (SDK Org Runtime v2).**
+> This prompt-orchestrated path (Task-tool-spawned boss, monotask board, `ORG_VARS`/`runcontext.json`-style variable threading, manual dashboard-event curl calls) has no delivery guarantees and no ground-truth event stream — the v2 daemon spawns every role as its own live SDK session, routes messages directly via the `org_send` tool, and forwards dashboard events itself. It remains only for orgs not yet migrated off the v1 `topology`/`communication`/`board_id` config shape. New orgs created with `/mastermind:createorg` are already v2-shaped and MUST be started with `monomind org run <name>` — do not route them through this skill.
 
 This skill is invoked by `mastermind:runorg` or directly via `/mastermind:runorg`.
 
@@ -39,6 +42,14 @@ else
 fi
 ```
 Return `status: blocked` with message: "Org '<org_name>' not found. Run /mastermind:createorg to define it."
+
+**v2 config guard — check this before anything else.** `/mastermind:createorg` now writes v2-shaped configs with no `topology`/`board_id`/`communication` field at all:
+```bash
+is_v2=$(jq -r 'if has("topology") or has("board_id") then "no" else "yes" end' ".monomind/orgs/${org_name}.json")
+```
+If `is_v2 == "yes"`, **stop and return `status: blocked`** with message: "Org '<org_name>' is a v2 config (Org Runtime v2) — this skill only understands the deprecated v1 board/topology shape. Start it with: `monomind org run <org_name>` (or `monomind org serve` if it has a `schedule`)." Do not attempt to derive a topology, spawn a boss via Task tool, or touch a monotask board for a v2 config — every field this skill reads from Step 2 onward (`topology`, `board_id`, `todo_col_id`, `communication`) is simply absent there.
+
+Only proceed past this guard for a genuine legacy v1 config (has `topology` and/or `board_id`).
 
 Validate the config has at minimum: `name`, `goal`, `roles` (non-empty array). The `communication` field is optional; fall back to `edges` if absent (both have the same schema: `from`, `to`, `type`).
 
