@@ -1,6 +1,6 @@
 // packages/@monomind/cli/__tests__/orgrt/daemon.test.ts
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import http from 'node:http';
@@ -106,6 +106,67 @@ describe('OrgDaemon', () => {
     await d.startOrg('alpha');
     const receipt = await d.deliver('alpha', 'boss', 'nobody', 's', 'b');
     expect(receipt).toMatch(/unknown recipient/);
+    await d.stopAll();
+  });
+
+  it('askHuman persists the question to questions.json and emits a question event', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-ask-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+    const receipt = await d.askHuman('alpha', 'boss', 'ship it now or wait?');
+    expect(receipt).toMatch(/question submitted|recorded/i);
+    await d.stopAll();
+
+    const questionEvents = running.busEvents().filter(e => e.type === 'question');
+    expect(questionEvents).toHaveLength(1);
+    expect(questionEvents[0].from).toBe('boss');
+    expect((questionEvents[0].data as any).question).toBe('ship it now or wait?');
+    const questionId = (questionEvents[0].data as any).questionId as string;
+    expect(questionId).toBeTruthy();
+
+    const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
+    expect(saved.questions).toHaveLength(1);
+    expect(saved.questions[0]).toMatchObject({ questionId, role: 'boss', question: 'ship it now or wait?', answer: null, answeredAt: null });
+  });
+
+  it('answerQuestion delivers into a running role\'s live mailbox and marks the question answered', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-answer-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+    await d.askHuman('alpha', 'coder', 'red or blue?');
+    const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
+    const questionId = saved.questions[0].questionId;
+
+    const result = await d.answerQuestion('alpha', 'coder', questionId, 'blue');
+    expect(result.ok).toBe(true);
+    await new Promise(r => setTimeout(r, 50)); // let the echo session process the pushed mailbox message
+    await d.stopAll();
+
+    expect(running.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('blue'))).toBe(true);
+    const savedAfter = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
+    expect(savedAfter.questions[0].answer).toBe('blue');
+    expect(savedAfter.questions[0].answeredAt).toBeTypeOf('number');
+  });
+
+  it('answerQuestion queues the answer and auto-wakes an offline org', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-answer-offline-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+    await d.askHuman('alpha', 'coder', 'red or blue?');
+    const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
+    const questionId = saved.questions[0].questionId;
+    await d.stopOrg('alpha'); // org now offline
+
+    const result = await d.answerQuestion('alpha', 'coder', questionId, 'blue');
+    expect(result.ok).toBe(true);
+    await new Promise(r => setTimeout(r, 100)); // let autoWake's startOrg + drainInbox + echo session settle
+    const restarted = d.getOrg('alpha');
+    expect(restarted).toBeDefined();
+    expect(restarted!.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('blue'))).toBe(true);
+    expect(restarted!.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('red or blue?'))).toBe(true);
     await d.stopAll();
   });
 

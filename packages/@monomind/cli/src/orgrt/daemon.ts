@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
-import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { OrgBus } from './bus.js';
 import { PolicyEngine } from './policy.js';
@@ -109,6 +109,7 @@ export class OrgDaemon {
         org: name, role, bus, policy, mailbox, cwd, def,
         maxTurns: def.run_config.max_turns_per_message,
         deliver: (from, to, subject, body) => this.deliver(name, from, to, subject, body),
+        askHuman: (role, question) => this.askHuman(name, role, question),
         queryFn: this.opts.queryFn,
       }).then(() => { runtime.status = 'ended'; })
         .catch((err) => {
@@ -268,6 +269,76 @@ export class OrgDaemon {
 
   private hasOrgDef(name: string): boolean {
     return existsSync(join(this.root, ORG_DIR, `${name}.json`));
+  }
+
+  private questionsPath(org: string): string {
+    return join(this.root, ORG_DIR, org, 'questions.json');
+  }
+
+  private readQuestions(org: string): { questions: Array<{ questionId: string; role: string; question: string; ts: number; answer: string | null; answeredAt: number | null }> } {
+    try { return JSON.parse(readFileSync(this.questionsPath(org), 'utf8')); } catch { return { questions: [] }; }
+  }
+
+  private writeQuestions(org: string, data: ReturnType<OrgDaemon['readQuestions']>): void {
+    const dest = this.questionsPath(org);
+    mkdirSync(join(this.root, ORG_DIR, org), { recursive: true });
+    const tmp = `${dest}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(data, null, 2));
+    renameSync(tmp, dest);
+  }
+
+  /** Agent-initiated human question (ask_human tool). Persists to questions.json (survives
+   *  process/dashboard restarts) and emits a 'question' BusEvent so the dashboard's SSE
+   *  stream and global inbox pick it up in real time. Returns a receipt string for the tool call. */
+  async askHuman(org: string, role: string, question: string): Promise<string> {
+    const running = this.orgs.get(org);
+    const questionId = `q-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const data = this.readQuestions(org);
+    data.questions.push({ questionId, role, question, ts: Date.now(), answer: null, answeredAt: null });
+    this.writeQuestions(org, data);
+    running?.bus.emit({ type: 'question', from: role, data: { questionId, question } });
+    return `Question recorded (id ${questionId}) — a human will answer it; you'll receive the answer as a new message.`;
+  }
+
+  /** Delivers a human's answer to a pending ask_human question. If the org is still
+   *  running, pushes straight into the role's live mailbox (picked up on its very next
+   *  generator tick — see Mailbox.stream()). If the org has since stopped, queues the
+   *  answer via the same offline fallback deliver()/receiveRemote() already use
+   *  (inbox.ts + autoWake) and it's delivered when the org next starts. */
+  async answerQuestion(org: string, role: string, questionId: string, answer: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    const data = this.readQuestions(org);
+    const idx = data.questions.findIndex(q => q.questionId === questionId);
+    if (idx === -1) return { ok: false, error: `question "${questionId}" not found for org "${org}"` };
+    if (data.questions[idx].answer !== null) return { ok: false, error: `question "${questionId}" already answered` };
+    data.questions[idx] = { ...data.questions[idx], answer, answeredAt: Date.now() };
+    this.writeQuestions(org, data);
+
+    const running = this.orgs.get(org);
+    if (running) {
+      // Org IS running — deliver or report a real error, but never fall through to the
+      // offline queue+autoWake path below: autoWake() no-ops when this.orgs already has
+      // the org (see its own guard), so a role-specific delivery failure here (mailbox
+      // closed, role unknown) would otherwise queue the answer forever with no real error
+      // and no delivery. Mirrors deliver()'s existing "shutting down" error for the same
+      // mid-shutdown-mailbox-closed race.
+      const agent = running.agents.get(role);
+      if (!agent) return { ok: false, error: `role "${role}" not found in org "${org}"` };
+      if (agent.mailbox.isClosed) return { ok: false, error: `role "${role}" in org "${org}" is shutting down — answer not delivered` };
+      running.bus.emit({ type: 'status', from: role, msg: 'question answered', data: { questionId } });
+      agent.mailbox.push(`[answer from human] question: ${data.questions[idx].question}\n\nanswer: ${answer}`);
+      return { ok: true };
+    }
+    // Org not running at all — queue for delivery on next start, matching deliver()'s
+    // existing offline fallback exactly (inbox.ts + autoWake).
+    if (!this.hasOrgDef(org)) return { ok: false, error: `org "${org}" not found (no saved definition)` };
+    queueMessage(this.root, org, {
+      fromQualified: 'human', toRole: role,
+      subject: `answer:${questionId}`,
+      body: `question: ${data.questions[idx].question}\n\nanswer: ${answer}`,
+      ts: Date.now(),
+    });
+    this.autoWake(org);
+    return { ok: true };
   }
 
   /** Start an offline org in the background so queued messages get drained.
