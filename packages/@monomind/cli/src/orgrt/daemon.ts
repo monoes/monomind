@@ -333,7 +333,9 @@ export class OrgDaemon {
     if (!this.hasOrgDef(org)) return { ok: false, error: `org "${org}" not found (no saved definition)` };
     queueMessage(this.root, org, {
       fromQualified: 'human', toRole: role,
-      subject: `answer:${questionId}`, body: answer, ts: Date.now(),
+      subject: `answer:${questionId}`,
+      body: `question: ${data.questions[idx].question}\n\nanswer: ${answer}`,
+      ts: Date.now(),
     });
     this.autoWake(org);
     return { ok: true };
