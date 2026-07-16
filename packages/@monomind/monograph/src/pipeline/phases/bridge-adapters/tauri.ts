@@ -37,8 +37,18 @@ function safeReadSource(absPath: string, maxBytes: number): string | undefined {
 export const tauriAdapter: BridgeAdapter = {
   name: 'tauri',
 
-  detect(_ctx, filePaths) {
-    return filePaths.some((p) => RUST_EXT.has(extname(p)));
+  // A bare .rs file isn't a Tauri signal by itself (a repo can have unrelated
+  // Rust code alongside a JS/TS frontend) — require an actual
+  // #[tauri::command] annotation before this adapter runs at all.
+  detect(ctx, filePaths) {
+    for (const relPath of filePaths) {
+      if (!RUST_EXT.has(extname(relPath))) continue;
+      const source = safeReadSource(join(ctx.repoPath, relPath), ctx.options.maxFileSizeBytes);
+      if (!source) continue;
+      TAURI_COMMAND_RE.lastIndex = 0;
+      if (TAURI_COMMAND_RE.test(source)) return true;
+    }
+    return false;
   },
 
   findDefinitions(ctx, filePaths) {

@@ -57,6 +57,7 @@ export const bridgeResolverPhase: PipelinePhase<BridgeResolverOutput> = {
         if (target.nodeId === callSite.nodeId) continue; // same node on both sides — nothing to link
 
         const id = makeId('bridge', adapter.name, callSite.nodeId, target.nodeId);
+        const languagePair = `${callSite.language} -> ${target.language}`;
         edges.push({
           id,
           sourceId: callSite.nodeId,
@@ -64,8 +65,8 @@ export const bridgeResolverPhase: PipelinePhase<BridgeResolverOutput> = {
           relation: 'CALLS',
           confidence: 'INFERRED',
           confidenceScore: CONFIDENCE_SCORE.INFERRED,
-          reason: `${adapter.name} bridge: "${callSite.key}"`,
-          evidence: [{ kind: 'bridge', weight: CONFIDENCE_SCORE.INFERRED, note: adapter.name }],
+          reason: `${adapter.name} bridge (${languagePair}): "${callSite.key}"`,
+          evidence: [{ kind: 'bridge', weight: CONFIDENCE_SCORE.INFERRED, note: `${adapter.name}: ${languagePair}` }],
         });
       }
     }

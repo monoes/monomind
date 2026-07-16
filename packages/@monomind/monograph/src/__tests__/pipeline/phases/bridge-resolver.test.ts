@@ -20,9 +20,9 @@ function edgeRows(dbPath: string): { source_id: string; target_id: string; relat
   }
 }
 
-/** Bridge edges are tagged with a reason of the form "<adapter> bridge: ...". */
+/** Bridge edges are tagged with a reason of the form "<adapter> bridge (<lang> -> <lang>): ...". */
 function isBridgeEdge(e: { reason: string | null }): boolean {
-  return !!e.reason && / bridge: /.test(e.reason);
+  return !!e.reason && / bridge \(.+ -> .+\): /.test(e.reason);
 }
 
 describe('bridge-resolver (full pipeline)', () => {

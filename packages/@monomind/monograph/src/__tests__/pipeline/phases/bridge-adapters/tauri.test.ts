@@ -54,7 +54,13 @@ describe('tauriAdapter', () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('detects a repo with any Rust file', () => {
+  it('detects a repo with a #[tauri::command]-annotated Rust file', () => {
+    writeFile(tmpDir, 'src-tauri/src/main.rs', `
+#[tauri::command]
+fn greet(name: String) -> String {
+    format!("Hello, {}!", name)
+}
+`);
     const ctx = makeCtx(tmpDir, db);
     expect(tauriAdapter.detect(ctx, ['src-tauri/src/main.rs'])).toBe(true);
   });
@@ -62,6 +68,14 @@ describe('tauriAdapter', () => {
   it('does not detect a repo with no Rust files', () => {
     const ctx = makeCtx(tmpDir, db);
     expect(tauriAdapter.detect(ctx, ['src/App.tsx'])).toBe(false);
+  });
+
+  it('does not detect a Rust file with no #[tauri::command] annotation', () => {
+    writeFile(tmpDir, 'src-tauri/src/main.rs', `
+fn internal_helper() -> i32 { 42 }
+`);
+    const ctx = makeCtx(tmpDir, db);
+    expect(tauriAdapter.detect(ctx, ['src-tauri/src/main.rs'])).toBe(false);
   });
 
   it('finds a #[tauri::command] fn matched to its existing Function node', () => {
