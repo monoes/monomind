@@ -4740,6 +4740,116 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       return;
     }
 
+    // GET /api/questions?dir=<projectDir> — list unanswered ask_human questions for
+    // every org in one project. Mirrors the existing -approvals.json sidecar convention,
+    // but reads this feature's .monomind/orgs/<org>/questions.json files (one per org dir).
+    if (req.method === 'GET' && url === '/api/questions') {
+      try {
+        const _qDir = new URL(req.url, 'http://localhost').searchParams.get('dir') || projectDir || process.cwd();
+        const base = path.join(path.resolve(_qDir), '.monomind', 'orgs');
+        const out = [];
+        if (fs.existsSync(base)) {
+          for (const orgName of fs.readdirSync(base)) {
+            const qFile = path.join(base, orgName, 'questions.json');
+            if (!fs.existsSync(qFile)) continue;
+            let data = { questions: [] };
+            try { data = JSON.parse(fs.readFileSync(qFile, 'utf8')); } catch (_) {}
+            for (const q of (data.questions || [])) {
+              if (q.answer === null || q.answer === undefined) out.push({ org: orgName, ...q });
+            }
+          }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.end(JSON.stringify({ questions: out }));
+      } catch (_e) { res.writeHead(500); res.end('{"questions":[]}'); }
+      return;
+    }
+
+    // POST /api/questions/answer — forward a human's answer to the org's live process
+    // (looked up via the same file-based broker registry orgrt's cross-process delivery
+    // already uses), or fail with a clear error if no process anywhere hosts it.
+    if (req.method === 'POST' && url === '/api/questions/answer') {
+      let body = '';
+      for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
+      try {
+        const parsed = JSON.parse(body);
+        const { dir, org, role, questionId, answer } = parsed;
+        if (!org || !role || !questionId || answer === undefined) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'org, role, questionId, answer are required' }));
+          return;
+        }
+        const brokerDir = path.join(os.homedir(), '.monomind', 'orgrt-broker');
+        const entryPath = path.join(brokerDir, `${org}.json`);
+        let hostUrl = null;
+        try {
+          const entry = JSON.parse(fs.readFileSync(entryPath, 'utf8'));
+          if (Date.now() - entry.updatedAt < 90000) hostUrl = entry.url;
+        } catch (_) {}
+        if (!hostUrl) {
+          // No live process to forward to — the control server has no daemon instance of
+          // its own to call autoWake() on. If the org's definition still exists on disk,
+          // queue the answer the same way inbox.ts's queueMessage()/drainInbox() already
+          // do for offline cross-org messages, so it's delivered whenever the org next
+          // starts (manually or via its own schedule) — matching the offline-delivery goal
+          // for the dashboard path, not just the direct-daemon path Task 4 already covers.
+          const projDir = path.resolve(dir || projectDir || process.cwd());
+          const orgDefFile = path.join(projDir, '.monomind', 'orgs', `${org}.json`);
+          if (!fs.existsSync(orgDefFile)) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: `org "${org}" not found — no running process and no saved definition` }));
+            return;
+          }
+          const qFile = path.join(projDir, '.monomind', 'orgs', org, 'questions.json');
+          let qData = { questions: [] };
+          try { qData = JSON.parse(fs.readFileSync(qFile, 'utf8')); } catch (_) {}
+          const qIdx = (qData.questions || []).findIndex(q => q.questionId === questionId);
+          if (qIdx === -1) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: `question "${questionId}" not found for org "${org}"` }));
+            return;
+          }
+          if (qData.questions[qIdx].answer !== null && qData.questions[qIdx].answer !== undefined) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, alreadyAnswered: true }));
+            return;
+          }
+          qData.questions[qIdx] = { ...qData.questions[qIdx], answer, answeredAt: Date.now() };
+          const qTmp = `${qFile}.tmp`;
+          fs.writeFileSync(qTmp, JSON.stringify(qData, null, 2));
+          fs.renameSync(qTmp, qFile);
+          const inboxDir = path.join(projDir, '.monomind', 'orgs', org);
+          fs.mkdirSync(inboxDir, { recursive: true });
+          fs.appendFileSync(path.join(inboxDir, 'inbox.jsonl'), JSON.stringify({
+            fromQualified: 'human', toRole: role, subject: `answer:${questionId}`, body: answer, ts: Date.now(),
+          }) + '\n');
+          const queuedEvent = { type: 'org:question-answered', org, role, questionId, ts: Date.now(), queued: true };
+          appendToFile(path.join(projDir, 'data', 'mastermind-events.jsonl'), JSON.stringify(queuedEvent) + '\n').catch(() => {});
+          broadcastMm(queuedEvent);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, queued: true }));
+          return;
+        }
+        const fwd = await fetch(`${hostUrl}/api/answer-question`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ org, role, questionId, answer }),
+          signal: AbortSignal.timeout(5000),
+        });
+        const fwdData = await fwd.json().catch(() => ({}));
+        if (fwd.ok && fwdData.ok) {
+          const event = { type: 'org:question-answered', org, role, questionId, ts: Date.now() };
+          appendToFile(path.join(path.resolve(dir || projectDir || process.cwd()), 'data', 'mastermind-events.jsonl'), JSON.stringify(event) + '\n').catch(() => {});
+          broadcastMm(event);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } else {
+          res.writeHead(fwd.status || 500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: fwdData.error || 'answer delivery failed' }));
+        }
+      } catch (_e) { res.writeHead(500); res.end('{"ok":false}'); }
+      return;
+    }
+
     // POST /api/org/:name/approvals/:id — approve or reject a pending approval request
     // Body: { action: "approve" | "reject" | "revision_requested" }
     if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/approvals\/[^/]+$/i)) {
