@@ -393,15 +393,16 @@ const handlers = {
   },
 
   'pre-bash': async () => {
-    // SECURITY GATE FIRST — destructive-ops enforcement must never be
-    // starved by the slower enrichment work below (monograph hint lookups).
-    // Previously this ran LAST, after up to 10 monograph SQLite strategies,
-    // AND was fired without awaiting its promise — meaning the block
-    // decision (process.exitCode) could still be unset when the process
-    // exited under the global 5s safety timer (see main()'s
-    // `process.exit(0)`), i.e. the gate could fail OPEN under time
-    // pressure. Awaiting it first guarantees the block/allow decision is
-    // computed and set before any enrichment work even starts.
+    // SECURITY GATE FIRST — destructive-ops + secrets enforcement must never
+    // be starved by the slower enrichment work below (monograph hint lookups,
+    // monofence-ai scan). Previously this ran LAST, after up to 10 monograph
+    // SQLite strategies and a 1.5s monofence budget; under load/slow disk the
+    // global 5s safety timer (see main()'s `process.exit(0)`) could fire
+    // before the gate ever printed its block decision — i.e. the gate could
+    // fail OPEN under time pressure. Computing it first guarantees the
+    // block/allow decision (process.exitCode) is set before any enrichment
+    // work even starts; enrichment output is still attached afterward if
+    // there's time left in the process's lifetime.
     var gates = require('./handlers/gates-handler.cjs');
     await gates.handlePreBash(hCtx);
     if (process.exitCode === 2) return; // blocked — skip enrichment entirely
@@ -661,10 +662,11 @@ const handlers = {
     }
   },
 
-  'pre-write': () => {
-    // Enforcement gate: secrets detection before Write/Edit/MultiEdit lands on disk
+  'pre-write': async () => {
+    // Enforcement gate: secrets detection + monofence-ai threat scan before
+    // Write/Edit/MultiEdit content lands on disk
     var gates = require('./handlers/gates-handler.cjs');
-    gates.handlePreWrite(hCtx);
+    await gates.handlePreWrite(hCtx);
   },
 
   'pre-search': () => {
