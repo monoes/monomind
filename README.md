@@ -62,7 +62,7 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 
 ### The idea
 
-Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the same dashboard `monomind start` serves, and can discover and message other Monomind orgs running on the same machine.
+Every business function needs a team. Define the org once as a JSON file — goal, roles, who reports to whom, per-role tool/file/budget policy — then run it as a real background daemon backed by the Claude Agent SDK. It persists across sessions, streams live into the dashboard Claude Code auto-starts for the project, and can discover and message other Monomind orgs running on the same machine.
 
 ```mermaid
 flowchart TD
@@ -73,7 +73,7 @@ flowchart TD
     W["Writer"]
     S["SEO Specialist"]
     R["Reviewer"]
-    DASH[("Dashboard\n:4242\nmonomind start")]
+    DASH[("Dashboard\n:4242\nauto-started by\nClaude Code hook")]
     XORG[("Other orgs\ncross-process")]
 
     U --> DEF --> RUN --> BOSS
@@ -93,8 +93,9 @@ flowchart TD
 ```bash
 # .monomind/orgs/<name>.json defines the org: goal, roles, policy.
 # See .monomind/orgs/sample-team.json in a fresh `monomind init` for a working example.
+# Open the project in Claude Code first — a SessionStart hook auto-launches
+# the dashboard at http://localhost:4242 if it isn't already running.
 
-monomind start                      # dashboard at http://localhost:4242 (if not already running)
 monomind org run content-team --task "Build and publish 3 blog posts per week"
 
 # ✓ Boss agent (Claude Agent SDK session) spawns, reads the org goal,
@@ -112,7 +113,7 @@ monomind org list                   # every org + status
 |---|---|
 | **OrgDaemon** | Hosts one or more orgs in a single process; real Claude Agent SDK sessions per role, not simulated |
 | **PolicyEngine** | Per-role gates on tool access, file read/write scope, web access, token budget — enforced, with a full audit trail |
-| **Dashboard** | `org run` forwards every event to the `monomind start` control server on `:4242` (found via `.monomind/control.json`) — there's no separate per-org dashboard process |
+| **Dashboard** | `org run` forwards every event to the control server on `:4242` (found via `.monomind/control.json`) — that server is auto-launched by a Claude Code SessionStart hook, not by any CLI command; there's no separate per-org dashboard process |
 | **Cross-process comms** | `--cross-process` (default on) lets orgs on different `monomind` processes/projects discover and message each other |
 | **Scheduling** | `monomind org serve` hosts orgs whose definition has a `schedule` field, running them on interval |
 
