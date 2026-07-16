@@ -1,6 +1,6 @@
 // packages/@monomind/cli/__tests__/orgrt/daemon.test.ts
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import http from 'node:http';
@@ -107,6 +107,27 @@ describe('OrgDaemon', () => {
     const receipt = await d.deliver('alpha', 'boss', 'nobody', 's', 'b');
     expect(receipt).toMatch(/unknown recipient/);
     await d.stopAll();
+  });
+
+  it('askHuman persists the question to questions.json and emits a question event', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-ask-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+    const receipt = await d.askHuman('alpha', 'boss', 'ship it now or wait?');
+    expect(receipt).toMatch(/question submitted|recorded/i);
+    await d.stopAll();
+
+    const questionEvents = running.busEvents().filter(e => e.type === 'question');
+    expect(questionEvents).toHaveLength(1);
+    expect(questionEvents[0].from).toBe('boss');
+    expect((questionEvents[0].data as any).question).toBe('ship it now or wait?');
+    const questionId = (questionEvents[0].data as any).questionId as string;
+    expect(questionId).toBeTruthy();
+
+    const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
+    expect(saved.questions).toHaveLength(1);
+    expect(saved.questions[0]).toMatchObject({ questionId, role: 'boss', question: 'ship it now or wait?', answer: null, answeredAt: null });
   });
 
   it('marks an agent crashed and emits an audit event when its session rejects (P2-50)', async () => {
