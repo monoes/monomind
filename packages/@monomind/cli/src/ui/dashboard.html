@@ -3712,7 +3712,7 @@ function renderProjectGrid(projects, query) {
     const isCurrent = p.path === DIR;
     const score = computeHealthScore(p);
     const hCls = healthClass(score);
-    return `<div class="proj-card${isCurrent ? ' current' : ''}" onclick="switchProject('${esc(p.path || '')}')">
+    return `<div class="proj-card${isCurrent ? ' current' : ''}" onclick="switchProject('${esc(String(p.path || '').replace(/['\\]/g,'\\$&'))}')">
       ${isCurrent ? '<div class="proj-card-badge">active</div>' : ''}
       <div class="proj-health ${hCls}" title="Health score: ${score}">${score}</div>
       <div class="proj-card-name">${esc(p.name || p.slug)}</div>
@@ -4276,7 +4276,7 @@ async function renderHumanInputView() {
         <div style="color:var(--text-hi)">${esc(q.question)}</div>
         <div style="display:flex;gap:6px">
           <input type="text" class="hi-answer-input" placeholder="Your answer…" style="flex:1;padding:4px 8px;font-size:12px" />
-          <button class="btn" style="font-size:11px" onclick="submitHumanAnswer('${esc(project.path)}','${esc(q.org)}','${esc(q.role)}','${esc(q.questionId)}',this)">Answer</button>
+          <button class="btn" style="font-size:11px" onclick="submitHumanAnswer('${esc(String(project.path).replace(/['\\]/g,'\\$&'))}','${esc(String(q.org).replace(/['\\]/g,'\\$&'))}','${esc(String(q.role).replace(/['\\]/g,'\\$&'))}','${esc(String(q.questionId).replace(/['\\]/g,'\\$&'))}',this)">Answer</button>
         </div>
       </div>
     `).join('') + '</div>';
@@ -5196,7 +5196,7 @@ function renderLeaderboard() {
     const cost = '$' + s.totalCost.toFixed(2);
     const dur = s.totalDurationMs ? fmtDur(s.totalDurationMs) : '—';
     const prompt = s.lastPrompt || s.id;
-    return `<tr onclick="jumpToSession('${esc(s.id)}')" title="${esc(prompt)}">
+    return `<tr onclick="jumpToSession('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}')" title="${esc(prompt)}">
       <td class="lb-rank">${i + 1}</td>
       <td class="lb-prompt">${esc(prompt.slice(0, 60))}</td>
       <td class="lb-cost">${cost}</td>
@@ -5446,7 +5446,7 @@ function buildSwimlane() {
     const color = `oklch(65% 0.14 ${hue})`;
     const name = (s.lastPrompt || s.id).slice(0, 16);
     return `<div class="sw-row">
-      <div class="sw-lbl" onclick="jumpToSession('${esc(s.id)}')" title="${esc(s.lastPrompt || s.id)}">${esc(name)}</div>
+      <div class="sw-lbl" onclick="jumpToSession('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}')" title="${esc(s.lastPrompt || s.id)}">${esc(name)}</div>
       <div class="sw-track">
         <div class="sw-bar" style="left:${leftPct}%;width:${widthPct}%;background:${color}" title="${esc(name)} · ${fmtDur(dur)}"></div>
       </div>
@@ -9123,7 +9123,7 @@ window.v2ShowCopyOrgDialog = async function() {
         const label = p.name || p.slug || p.path?.split('/').pop() || p.path;
         const shortP = (p.path || '').replace(/\/Users\/[^/]+\//, '~/');
         const isCurrent = p.path === (window._orgDir || '');
-        return `<div class="ocp-row${isCurrent ? ' ocp-sel' : ''}" title="${esc(p.path)}" onclick="document.querySelectorAll('.ocp-row').forEach(r=>r.classList.remove('ocp-sel'));this.classList.add('ocp-sel');document.getElementById('org-copy-dest').value='${esc(p.path).replace(/'/g,"\\'")}'" style="padding:7px 10px;font-size:12px;font-family:var(--mono);cursor:pointer;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:baseline">
+        return `<div class="ocp-row${isCurrent ? ' ocp-sel' : ''}" title="${esc(p.path)}" onclick="document.querySelectorAll('.ocp-row').forEach(r=>r.classList.remove('ocp-sel'));this.classList.add('ocp-sel');document.getElementById('org-copy-dest').value='${esc(String(p.path).replace(/['\\]/g,'\\$&'))}'" style="padding:7px 10px;font-size:12px;font-family:var(--mono);cursor:pointer;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:baseline">
           <span style="color:var(--text-hi)">${esc(label)}</span>
           <span style="color:var(--text-lo);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(shortP)}</span>
         </div>`;
@@ -10331,7 +10331,7 @@ async function loadProjCosts() {
     const rows = data.projects.slice(0, 10).map((p, i) => {
       const barW = maxCost > 0 ? Math.round((p.cost / maxCost) * 100) : 0;
       const name = p.path.split('/').filter(Boolean).pop() || p.path;
-      return `<tr onclick="switchProject('${esc(p.path)}')" style="cursor:pointer" title="${esc(p.path)}">
+      return `<tr onclick="switchProject('${esc(String(p.path).replace(/['\\]/g,'\\$&'))}')" style="cursor:pointer" title="${esc(p.path)}">
         <td class="lb-rank">${i + 1}</td>
         <td style="font-size:12px;color:var(--text-mid);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</td>
         <td class="lb-cost">$${p.cost.toFixed(2)}</td>
@@ -10403,7 +10403,7 @@ function buildGanttTimeline() {
       const opacity = 0.3 + costRatio * 0.7;
       const color = DONUT_COLORS[i % DONUT_COLORS.length];
       const tip = `${s.lastPrompt ? s.lastPrompt.slice(0,60) : s.id} | $${(s.totalCost||0).toFixed(3)} | ${fmtDur(s.totalDurationMs||0)}`;
-      track += `<div class="tl-bar" style="left:${startPct}%;width:${durPct}%;background:${color};opacity:${opacity}" title="${esc(tip)}" onclick="jumpToSession('${esc(s.id)}')"></div>`;
+      track += `<div class="tl-bar" style="left:${startPct}%;width:${durPct}%;background:${color};opacity:${opacity}" title="${esc(tip)}" onclick="jumpToSession('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}')"></div>`;
     }
     html += `<div class="tl-day-row"><div class="tl-day-lbl">${lbl}</div><div class="tl-track">${track}</div></div>`;
   }
@@ -10720,7 +10720,7 @@ function showCustomTagInput(sessId, event) {
   iw.className = 'ctag-input-wrap';
   iw.onclick = e => e.stopPropagation();
   iw.innerHTML = `<input class="ctag-input" type="text" placeholder="tag name…" maxlength="20" autofocus>
-    <button class="ctag-ok" onclick="(()=>{const inp=this.closest('.ctag-input-wrap').querySelector('input');addCustomTag('${esc(sessId)}',inp.value,event);inp.value='';})()">Add</button>`;
+    <button class="ctag-ok" onclick="(()=>{const inp=this.closest('.ctag-input-wrap').querySelector('input');addCustomTag('${esc(String(sessId).replace(/['\\]/g,'\\$&'))}',inp.value,event);inp.value='';})()">Add</button>`;
   wrap.appendChild(iw);
   const inp = iw.querySelector('input');
   inp.focus();
@@ -10736,7 +10736,7 @@ function renderCustomTagsInline(sessId, tags) {
   ).join('');
   return `<div class="sr-custom-tags" data-sess="${esc(sessId)}" onclick="event.stopPropagation()">
     ${tagHtml}
-    <button class="ctag-add-btn" onclick="showCustomTagInput('${esc(sessId)}',event)" title="Add tag">+ tag</button>
+    <button class="ctag-add-btn" onclick="showCustomTagInput('${esc(String(sessId).replace(/['\\]/g,'\\$&'))}',event)" title="Add tag">+ tag</button>
   </div>`;
 }
 
@@ -10751,14 +10751,14 @@ async function toggleErrDrawer(sessId, event) {
   try {
     const data = await apiFetch('/api/session-errors?dir=' + enc(DIR) + '&id=' + enc(sessId));
     if (!data.errors?.length) {
-      drawer.innerHTML = `<div class="err-drawer-head"><span>No error details found</span><button class="err-close" onclick="closeErrDrawer('${esc(sessId)}')">✕</button></div>`;
+      drawer.innerHTML = `<div class="err-drawer-head"><span>No error details found</span><button class="err-close" onclick="closeErrDrawer('${esc(String(sessId).replace(/['\\]/g,'\\$&'))}')">✕</button></div>`;
       return;
     }
     const items = data.errors.map(e => `<div class="err-item">${esc(e.text)}</div>`).join('');
-    drawer.innerHTML = `<div class="err-drawer-head"><span>${data.errors.length} error${data.errors.length !== 1 ? 's' : ''}</span><button class="err-close" onclick="closeErrDrawer('${esc(sessId)}')">✕</button></div>
+    drawer.innerHTML = `<div class="err-drawer-head"><span>${data.errors.length} error${data.errors.length !== 1 ? 's' : ''}</span><button class="err-close" onclick="closeErrDrawer('${esc(String(sessId).replace(/['\\]/g,'\\$&'))}')">✕</button></div>
       <div class="err-drawer-body">${items}</div>`;
   } catch (err) {
-    drawer.innerHTML = `<div class="err-drawer-head"><span>Could not load: ${esc(err.message)}</span><button class="err-close" onclick="closeErrDrawer('${esc(sessId)}')">✕</button></div>`;
+    drawer.innerHTML = `<div class="err-drawer-head"><span>Could not load: ${esc(err.message)}</span><button class="err-close" onclick="closeErrDrawer('${esc(String(sessId).replace(/['\\]/g,'\\$&'))}')">✕</button></div>`;
   }
 }
 
@@ -10943,7 +10943,7 @@ async function loadWorkflowDefs() {
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-        <button class="wf-def-run-btn" title="Copy run command" onclick="navigator.clipboard?.writeText('npx monomind browse playbook run .monomind/playbooks/${esc(d.file)}').then(()=>this.textContent='Copied!').catch(()=>{});setTimeout(()=>this.textContent='▶ Run',1500)">▶ Run</button>
+        <button class="wf-def-run-btn" title="Copy run command" onclick="navigator.clipboard?.writeText('npx monomind browse playbook run .monomind/playbooks/${esc(String(d.file).replace(/['\\]/g,'\\$&'))}').then(()=>this.textContent='Copied!').catch(()=>{});setTimeout(()=>this.textContent='▶ Run',1500)">▶ Run</button>
         <button class="wf-def-run-btn" style="font-size:10px" title="Open in Builder" onclick="pbLoadDef(${JSON.stringify(d.id)});wfSwitchTab('builder')">✎ Edit</button>
       </div>
     </div>`;
@@ -11763,7 +11763,7 @@ function pbRenderPalette() {
         <span class="pb-cat-arrow">▸</span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor};margin-right:5px;vertical-align:middle;flex-shrink:0"></span>${cat}
       </div>
       <div class="pb-cat-body ${cat === cats[0] ? '' : 'collapsed'}">
-        ${nodes.map((n,i) => `<button class="pb-node-btn" onclick="pbAddNode('${esc(n.type)}',PB_NODE_DEFS.filter(d=>d.cat==='${cat}')[${i}])" title="${esc(n.type)}${n.defaultConfig ? ' (op: '+n.defaultConfig.operation+')' : ''}">
+        ${nodes.map((n,i) => `<button class="pb-node-btn" onclick="pbAddNode('${esc(String(n.type).replace(/['\\]/g,'\\$&'))}',PB_NODE_DEFS.filter(d=>d.cat==='${cat}')[${i}])" title="${esc(n.type)}${n.defaultConfig ? ' (op: '+n.defaultConfig.operation+')' : ''}">
           <span class="pb-node-icon">${n.icon}</span>${esc(n.label)}
         </button>`).join('')}
       </div>
@@ -11840,13 +11840,13 @@ function pbRenderCanvas() {
       <div class="pb-node-hdr">
         <span class="pb-node-type-icon">${def.icon}</span>
         <span class="pb-node-title" title="${esc(node.type)}">${esc(node.name || node.type)}</span>
-        <button class="pb-node-del" onclick="pbDeleteNode('${esc(node.id)}')" title="Remove">✕</button>
+        <button class="pb-node-del" onclick="pbDeleteNode('${esc(String(node.id).replace(/['\\]/g,'\\$&'))}')" title="Remove">✕</button>
       </div>
       <div class="pb-node-body">
         ${st ? `<div class="pb-node-status"><div class="pb-ns-dot ${st}"></div><span style="color:${st==='running'?'var(--accent)':st==='completed'?'var(--green)':'var(--red)'}">${st}</span></div>` : ''}
         <div style="font-size:10px;color:var(--text-xs)">${esc(node.type)}</div>
       </div>
-      <button class="pb-node-conn-btn" title="Connect to another node" onclick="pbStartConnect('${esc(node.id)}',event)">→</button>
+      <button class="pb-node-conn-btn" title="Connect to another node" onclick="pbStartConnect('${esc(String(node.id).replace(/['\\]/g,'\\$&'))}',event)">→</button>
     `;
     card.addEventListener('mousedown', (e) => pbDragStart(node.id, e));
     card.addEventListener('click', (e) => { if (!e.defaultPrevented) pbSelectNode(node.id); });
@@ -12490,12 +12490,12 @@ function mgRenderAnalyzeButtons() {
   const cEl = document.getElementById('mg-client-btns');
   const sEl = document.getElementById('mg-server-btns');
   cEl.innerHTML = MG_CLIENT_ANALYSES.map(a => `
-    <div class="mg-analyze-btn" id="mg-abtn-${esc(a.id)}" onclick="mgRunClient('${esc(a.id)}')">
+    <div class="mg-analyze-btn" id="mg-abtn-${esc(a.id)}" onclick="mgRunClient('${esc(String(a.id).replace(/['\\]/g,'\\$&'))}')">
       <div class="mab-name">${esc(a.label)}</div>
       <div class="mab-desc">${esc(a.desc)}</div>
     </div>`).join('');
   sEl.innerHTML = MG_SERVER_ANALYSES.map(a => `
-    <div class="mg-analyze-btn mg-server" id="mg-abtn-${esc(a.id)}" onclick="mgRunServer('${esc(a.id)}')">
+    <div class="mg-analyze-btn mg-server" id="mg-abtn-${esc(a.id)}" onclick="mgRunServer('${esc(String(a.id).replace(/['\\]/g,'\\$&'))}')">
       <div class="mab-name mg">${esc(a.label)}</div>
       <div class="mab-desc">${esc(a.desc)}</div>
     </div>`).join('');
@@ -13186,7 +13186,7 @@ function mgRenderExport() {
     <div class="mg-export-card">
       <div class="mec-name">${esc(x.name)}</div>
       <div class="mec-desc">${esc(x.desc)}</div>
-      <button class="btn" onclick="mgExport('${esc(x.id)}')" style="margin-top:auto">EXPORT</button>
+      <button class="btn" onclick="mgExport('${esc(String(x.id).replace(/['\\]/g,'\\$&'))}')" style="margin-top:auto">EXPORT</button>
     </div>`).join('');
 }
 
@@ -13463,7 +13463,7 @@ function mgRenderWiki() {
   const types = [...new Set(nodes.map(n => n.type || n.kind || 'unknown'))].sort();
   const pillsEl = document.getElementById('mg-wiki-pills');
   pillsEl.innerHTML = `<span class="mg-pill active" data-type="all" onclick="mgWikiFilterType('all')">All</span>` +
-    types.map(t => `<span class="mg-pill" data-type="${esc(t)}" onclick="mgWikiFilterType('${esc(t)}')">${esc(t)}</span>`).join('');
+    types.map(t => `<span class="mg-pill" data-type="${esc(t)}" onclick="mgWikiFilterType('${esc(String(t).replace(/['\\]/g,'\\$&'))}')">${esc(t)}</span>`).join('');
 
   mgRenderWikiList('');
 }
