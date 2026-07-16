@@ -1,6 +1,6 @@
 ---
 name: mastermind-createorg
-description: Mastermind createorg — design, configure, and persist an autonomous agent organization with named roles, hierarchy, and communication topology. Supports optional --schedule flag for self-scheduling loop orgs.
+description: Mastermind createorg — design and persist an autonomous agent organization (Org Runtime v2) as a `.monomind/orgs/<name>.json` config that `monomind org run/serve` loads directly. Supports optional --schedule flag for daemon-scheduled orgs.
 type: domain-skill
 default_mode: confirm
 ---
@@ -9,6 +9,8 @@ default_mode: confirm
 
 This skill is invoked by `mastermind:createorg` or directly via `/mastermind:createorg`.
 
+Org Runtime v2 (`packages/@monomind/cli/src/orgrt/`) is a Node daemon, not a Task-tool-spawned boss agent. Every role in the config becomes a live SDK agent session (`@anthropic-ai/claude-agent-sdk` `query()`) the moment the org starts — there is no task board, no per-role generated `.claude/agents/*.md` file, and no communication-topology array. Roles address each other directly with the `org_send` tool using their `id` (or `<org>:<id>` cross-org). This skill's only job is to produce a config that validates against `OrgDefSchema` (`packages/@monomind/cli/src/orgrt/types.ts`).
+
 ---
 
 ## Inputs
@@ -16,32 +18,12 @@ This skill is invoked by `mastermind:createorg` or directly via `/mastermind:cre
 - `brain_context`: BRAIN CONTEXT block (injected by command, or loaded below if standalone)
 - `prompt`: goal and/or role description for this org
 - `org_name`: desired name for the org (slug, e.g. `content-team`); constrained to `[a-z0-9-]`
-- `roles_desc`: optional explicit role list from user (e.g. "boss, content writer, reviewer, marketer, designer, middle manager")
-- `schedule`: optional schedule string, e.g. `"every 30 minutes"`, `"every hour"`, `"every 2 hours"`, `"daily"`. When provided, generates a self-scheduling loop org.
+- `roles_desc`: optional explicit role list from user (e.g. "boss, content writer, reviewer, marketer, designer")
+- `schedule`: optional schedule string in daemon format — `"<N>s"`, `"<N>m"`, or `"<N>h"` (e.g. `"30m"`, `"2h"`). When provided, the org is picked up by `monomind org serve` on its own interval; omit for a one-shot `monomind org run`.
+- `budget_tokens`: optional total token budget for the org run (default 1,000,000 — split evenly across roles by the daemon)
 - `mode`: auto | confirm
 - `session_id`: session ID passed by command wrapper (snake_case input)
 - `caller`: command | master
-
-### Schedule parsing (when `--schedule` is present)
-
-Convert the schedule string to `poll_interval_minutes`:
-
-| Schedule string | Minutes |
-|---|---|
-| `every N minutes` | N |
-| `every minute` | 1 |
-| `every hour` | 60 |
-| `every N hours` | N × 60 |
-| `daily` / `every day` | 1440 |
-| `every N days` | N × 1440 |
-
-```bash
-# Example: "every 30 minutes" → poll_interval_minutes=30
-# "every 2 hours" → poll_interval_minutes=120
-# "daily" → poll_interval_minutes=1440
-```
-
-Store the parsed value as `poll_interval_minutes` for use in Steps 4 and 6.7.
 
 ---
 
@@ -59,7 +41,7 @@ Run intake from `_intake.md` if `prompt` is vague (stop at Q3, domain is `ops`).
 
 If `org_name` is not provided, extract the most prominent product/team noun from `prompt`, slugify it (lowercase, spaces → hyphens, strip non-`[a-z0-9-]` chars), and confirm with the user. Fallback: `org-<YYYYMMDD>`.
 
-Reject any `org_name` that does not match `^[a-z0-9][a-z0-9-]{0,63}$`.
+Reject any `org_name` that does not match `^[a-z0-9][a-z0-9-]{0,63}$` (the CLI's own `ORG_NAME_RE` in `org.ts` is slightly looser — `^[a-z0-9][a-z0-9_-]*$/i` — but this skill's stricter slug is always a valid subset).
 
 ---
 
@@ -67,330 +49,77 @@ Reject any `org_name` that does not match `^[a-z0-9][a-z0-9-]{0,63}$`.
 
 Parse `roles_desc` (if provided) into a list of role titles. If not provided, derive a set of roles from `prompt` by identifying the human functions needed to achieve the goal.
 
-**Required roles to include when deriving roles from the prompt** (**skip this rule for persona-based orgs** where the characters themselves define the structure; do not inject a generic coordinator into a celebrity panel):
-- A coordinator/boss role that owns the goal and makes final decisions
+**Required roles to include when deriving roles from the prompt** (**skip this rule for persona-based orgs**, see below, where the characters themselves define the structure):
+- A coordinator/boss role that owns the goal — exactly one role with `reports_to: null`
 - At least one executor role that does the primary work
-- A reviewer or QA role if quality output is implied
-- A communication layer (middle manager) if team size ≥ 4
+- A reviewer role if quality output is implied
 
-**If the user provided an explicit `roles_desc`, their list is authoritative — never silently inject roles into it.** If a structural role above is missing (e.g. no coordinator, or ≥4 roles with no middle manager), in confirm mode note the gap in the Step 5 plan as a one-line suggestion ("Suggestion: add a coordinator — none in your list; reply 'add it' or 'go' to keep as-is"); in auto mode, create exactly the roles listed.
+**If the user provided an explicit `roles_desc`, their list is authoritative — never silently inject roles into it.** If a structural role above is missing (e.g. no coordinator), in confirm mode note the gap in the Step 4 plan as a one-line suggestion; in auto mode, create exactly the roles listed and let the first one default to boss (Step 2.2).
 
-**Step 2.2 — Detect the org's domain.** From the goal/prompt, classify the org's domain in one or two words (e.g. `software-engineering`, `content-marketing`, `sports-analytics`, `legal`, `medical`, `finance`). This drives agent-type resolution below.
+**Step 2.1 — Assign `id`, `title`, `type`, `reports_to`.**
 
-> ⚠ **Check Step 2.3 (Persona / Character Detection) BEFORE resolving agent types.** If the org is persona-based (roles are named real people, celebrities, or fictional characters), skip the roster below for those roles and follow Step 2.3 instead.
+- `id`: slug derived from title (`Content Writer` → `content-writer`)
+- `title`: display title, as given
+- `type`: `"boss"` for the single root role (the daemon looks for `type === 'boss' || reports_to === null`, falling back to `roles[0]` if neither matches), `"specialist"` for everyone else — or a domain-fit synonym like `"reviewer"` / `"researcher"` purely for readability; the runtime treats `type` as free text except for the `"boss"` match
+- `reports_to`: the boss's `id` for direct reports, `null` only for the boss; for larger teams a middle layer can report to another non-boss role — the runtime does not enforce a shape beyond "each role's `reports_to` must be another role's `id` or null"
 
-**Step 2.4 — Resolve each role's `agent_type` (domain-fit first).**
+Exactly one role must have `reports_to: null`. If the user's role list has none, promote the first/most senior-sounding role. If it has more than one, ask which is the root (confirm mode) or promote the first one listed (auto mode).
 
-The premade roster below is a set of **candidates, not defaults**. Every premade agent is domain-scoped — `reviewer` reviews *code*, `tester` tests *software*, `Content Creator` writes *marketing content*. A keyword match alone is never enough to use one; the agent's domain must also match the role's actual job in this org.
+**Step 2.2 — Persona / Character Detection.**
 
-| Premade agent slug | Its domain | Candidate for role keywords |
-|---|---|---|
-| `coordinator` | any (domain-neutral orchestration) | boss / ceo / director / lead / chief |
-| `Project Shepherd` | any (domain-neutral coordination) | middle manager / manager |
-| `researcher` | general research | researcher (broad research roles only) |
-| `coder` | software | engineer / developer / coder / dev |
-| `reviewer` | software — code review | code reviewer |
-| `tester` | software — QA/testing | qa / tester (of software) |
-| `Content Creator` | content/marketing | content writer / copywriter |
-| `Growth Hacker` | marketing | marketer / growth |
-| `SEO Specialist` | search marketing | seo / search |
-| `Social Media Strategist` | social marketing | social media / social |
-| `Product Manager` | product/software | product / product manager |
-| `Monodesign` | design/UI/brand | designer / ui / ux / visual |
+A role is **persona-based** if its title is a named real person, a well-known fictional character, or a celebrity/historical figure referred to by name. An org is persona-based if ≥50% of its roles are character names, or the goal/prompt contains `panel`, `debate`, `simulation`, `roleplay`, `celebrity`, `character`, `virtual [name]`, `impersonate`, `as [name]`.
 
-**Resolution procedure — apply to each role in order:**
-
-1. **Persona role** (Step 2.3) → coin the character slug; skip the roster.
-2. Find a roster candidate by role keyword.
-3. **Domain-fit gate:** accept the candidate ONLY if its domain column matches what this role actually does in *this org's* domain (Step 2.2). A "reviewer" in a football-analysis org reviews match analyses, not code — `reviewer` fails the gate. An "analyst" there analyzes matches, not general research — `researcher` fails too. When in doubt, the gate fails.
-4. **Gate passed, generic role** → reuse the premade slug as-is.
-5. **Gate passed, use-case-specific role** (e.g. a content writer for a niche audience) → still reuse the premade slug; put the specialization into the role's `responsibilities` and the org goal (runorg passes both to the agent). Do not fork the definition for mere topical focus.
-6. **No candidate, or gate failed** → coin a role-specific slug from the role title (`Football Analyst` → `football-analyst`, `Court Reporter` → `court-reporter`, `Churn Analyst` → `churn-analyst`, devbot `Orchestrator` → `devbot-orchestrator`) and fully generate its definition in Step 2.5 — skills, instructions, and I/O contracts all authored for this role in this org's domain. If a rejected candidate was structurally close, its definition may seed the *shape* of the generated one, but every line must be rewritten for the actual domain.
-7. `general-purpose` is a last resort, only when no sensible slug applies. Never map an editor/content-reviewer role to `reviewer` — that agent is code review; coin `content-editor` (or similar) and generate.
-
-**A coined slug + generated definition always beats a premade agent whose system prompt describes a different job.** runorg and the dashboard load whatever definition matches `agent_type` — a football org whose analyst is `researcher` or whose reviewer is `reviewer` gets the wrong instructions at run time. That is a bug, not a fallback.
+Persona roles work the same as any other role in v2 — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (the only field `buildRolePrompt` — `orgrt/session.ts:27-39` — actually feeds into the agent's role briefing): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
 
 ---
 
-## Step 2.3 — Persona / Character Detection (run BEFORE the Step 2.4 resolution above)
+## Step 2.3 — Optional Per-Role Settings
 
-**Before resolving agent types via Step 2.4, detect whether this org is persona-based:**
+For any role that needs non-default behavior, set (all optional — omit to inherit defaults):
 
-A role is **persona-based** if its title is:
-- A named real person (e.g. "Donald Trump", "Elon Musk", "Steve Jobs")
-- A well-known fictional character (e.g. "Sherlock Holmes", "Tony Stark")
-- A celebrity, historical figure, or public persona referred to by name
+- `adapter_config.model`: a model id (e.g. `"claude-opus-4-7"`) — default is `"claude-sonnet-4-5"` (`orgrt/types.ts:33`)
+- `provider`: `{ kind: "subscription" | "api-key" | "base-url" | "bedrock" | "vertex", apiKeyEnv?, baseUrl?, authTokenEnv? }` — default `subscription` (local Claude Code login); only set this if the role needs a different provider/credential
+- `policy`: `{ allowTools?, denyTools?, fileWrite?, fileRead?, webAllow?, maxTokens? }` — glob-based tool/file/web restrictions for that role; leave unset unless the user asked for sandboxing
 
-An org is **persona-based** if ≥ 50% of its roles are character names, OR the goal/prompt contains keywords like: `panel`, `debate`, `simulation`, `roleplay`, `celebrity`, `character`, `virtual [name]`, `impersonate`, `as [name]`.
-
-**If persona-based:**
-
-1. **Ignore the premade roster entirely for these roles.** Do NOT map "Donald Trump" → `coder`, "Elon Musk" → `researcher`, etc.
-
-2. **Coin a character-specific `agent_type` slug** from the character's name:
-   - `Donald Trump` → `donald-trump`
-   - `Sherlock Holmes` → `sherlock-holmes`
-   - `Steve Jobs` → `steve-jobs`
-
-3. **Derive skills and expertise from what is publicly known about that person**, not from generic software roles. Use your knowledge of the person's career, public persona, communication style, known positions, and characteristic behaviors. For example:
-   - Donald Trump: negotiation, real-estate dealmaking, brand promotion, confrontational rhetoric, media manipulation, self-promotion, political populism
-   - Elon Musk: first-principles engineering, disruptive product vision, risk-taking, rapid iteration, social media provocation, space/EV technology
-   - A fictional detective: deductive reasoning, observation, criminal psychology, pattern recognition
-
-4. **The generated agent definition** (written in Step 2.5) must read as that character — their voice, stance, known views, communication style. It is a character simulation, not a generic role.
-
-5. **Non-character roles in the same org** (e.g. "Moderator", "Audience") go through the normal Step 2.4 resolution (roster + domain-fit gate, or a role-coined slug).
-
-**If NOT persona-based:** proceed normally with Step 2.4.
+Do not invent values for these — only populate a field the user actually specified or clearly implied (e.g. "the researcher should use Opus" → that role's `adapter_config.model`).
 
 ---
 
-## Step 2.5 — Complete Every Agent's Specification (generate what's missing)
+## Step 3 — Build Org Config
 
-**This is the step that makes each created agent actually work.** A role is only usable if it has: skills, an instruction document (system prompt), an input contract, and an output contract. Most of these are missing from a bare role description — **generate them, tailored to the specific agent, rather than leaving them blank.**
-
-**For persona/character roles** (identified in Step 2.3): the generated definition must embody the character. The system prompt should open with "You are [Character Name]" and describe their personality, known views, communication style, and behavioral quirks drawn from public knowledge. Skills must reflect their real-world expertise and traits, not generic software capabilities. If the character is a living public figure, base the portrayal on documented public behavior and statements — do not invent positions they haven't taken.
-
-For **each** role, do the following:
-
-**1. Check whether a usable agent definition already exists.**
-```bash
-# Match by frontmatter `name:` first, then by filename slug, anywhere under .claude/agents
-at="<agent_type>"
-existing=$(grep -rils "^name:[[:space:]]*${at}\$" .claude/agents 2>/dev/null | head -1)
-[ -z "$existing" ] && existing=$(find .claude/agents -iname "${at}.md" 2>/dev/null | head -1)
-```
-A definition is **usable** only if it exists AND it passed the Step 2.4 domain-fit gate (its instructions describe this role's actual job in this org's domain). A curated def about a different domain (e.g. `reviewer.md` = code review, applied to a "Court Reporter" or "Match Reviewer") does **not** count as usable — treat it as missing, coin a role-specific `agent_type` per Step 2.4 rule 6, and generate.
-
-**2. If no usable definition exists, generate one** at `.claude/agents/generated/<agent_type>.md`. Author it specifically for this role and this org's goal — never a generic stub. Use this shape:
-
-```markdown
----
-name: <agent_type>
-description: <one line — who this agent is and what it does>
-capability:
-  role: <agent_type>
-  goal: <one sentence: the agent's standing objective in this org>
-  version: "1.0.0"
-  expertise:            # 4–6 concrete SKILLS this role needs to do its job well
-    - <skill>
-    - <skill>
-  task_types:           # 3–5 kinds of work it performs
-    - <task-type>
-  input_type: <what this agent consumes — who/what it receives, derived from its inbound communication edges + responsibilities>
-  output_type: <what this agent produces — the artifact it hands off or reports, derived from its outbound edges + responsibilities>
-  model_preference: sonnet
-  termination: <the condition under which this agent's job is done>
----
-
-# <Role Title>
-
-<1–2 sentences: the agent's identity and stance.>
-
-## Core Responsibilities
-<the role's responsibilities, expanded into numbered, actionable duties>
-
-## Operating Guidelines
-<3–6 concrete rules that keep this agent doing the right thing for its domain — what to always do, what never to do, how to handle missing inputs>
-
-## Communication
-- **Receives (input)**: <sources + what, from the inbound edges in Step 3>
-- **Sends (output)**: <targets + what, from the outbound edges in Step 3>
-- **Protocol**: <direct / via manager; who it reports to>
-
-## Quality Bar
-<one sentence defining "good output" for this role, so the agent can self-check>
-```
-
-Generate this content with real domain reasoning — the `expertise`, `input_type`, `output_type`, and instruction body must be specific to *this* agent (a prosecutor's skills are not a judge's). Reuse a generated def across roles of the same `agent_type` (don't regenerate if you just created it this run).
-
-**3. Populate the org role.** Set the role's `skills` array to the def's `expertise` list (so the org config is self-describing), and keep `agent_type` pointing at the (possibly newly coined) type. Never leave `skills: []` when expertise was generated.
-
-**4. Note generated files** for the Step 8 artifacts list.
-
-The dashboard agent drawer and `runorg` both read these definitions (matched by `agent_type`), so generating them here is what makes the Roles/Skills/instructions show up *and* what gives each spawned agent its real instructions at run time.
-
----
-
-## Step 2.6 — COMPLETENESS GATE (BLOCKING — do not proceed to Step 3 until all checks pass)
-
-This gate prevents saving an org where the dashboard will show "No instruction document" or blank skills. **Run these checks now — one Bash call per role:**
-
-**Check 0 — domain fit (judgment, per role using a premade slug):** for every role whose `agent_type` comes from the Step 2.4 roster, re-confirm the gate: the premade agent's definition describes this role's actual job in *this org's* domain. If not, go back to Step 2.4 rule 6 — coin a slug and generate. An org outside the roster's domains (sports, legal, medical, etc.) should have **zero domain-scoped** roster slugs (`coder`, `reviewer`, `tester`, `researcher`, etc.); domain-neutral slugs (`coordinator`, `Project Shepherd`) and roles whose *function itself* matches a premade (e.g. a content writer publishing that org's output → `Content Creator`, per rule 5) remain valid reuses.
-
-For each role in the org:
-
-```bash
-# Check 1 — agent_type is set
-role_id="<role_id>"
-agent_type="<agent_type>"
-[ -z "$agent_type" ] && echo "FAIL: role '$role_id' has no agent_type" && exit 1
-
-# Check 2 — definition file exists on disk
-def_file=".claude/agents/generated/${agent_type}.md"
-# Also check non-generated paths
-fallback=$(find .claude/agents -iname "${agent_type}.md" 2>/dev/null | head -1)
-if [ ! -f "$def_file" ] && [ -z "$fallback" ]; then
-  echo "FAIL: no agent definition file for '$agent_type' — generate it now before continuing"
-  exit 1
-fi
-echo "OK: $role_id → $agent_type ✓"
-```
-
-If any check fails: go back to Step 2.5 and generate the missing file before proceeding. Do not skip this check.
-
-**Also verify the `skills` array for each role is non-empty (≥3 items).** If `skills: []` for any role, pull the expertise from the generated definition file and populate it now.
-
----
-
-## Step 3 — Suggest Communication Topology
-
-Determine topology from team size:
-- 1–3 roles → `mesh` (all communicate directly)
-- 4–6 roles → `star` (boss at center, all report to boss)
-- 7+ roles → `hierarchical` (boss → middle manager(s) → executors)
-
-Build directed communication edges:
-
-**Communication edge types:**
-- `command`: top-down direction of work
-- `report`: bottom-up status / output delivery
-- `feedback`: peer review or critique
-- `handoff`: one role passes output directly to next role in sequence
-
-**Default edges for a 6-role org (boss, content writer, content reviewer, marketer, designer, middle manager):**
-```
-boss → middle_manager (command)
-middle_manager → content_writer (command)
-middle_manager → designer (command)
-middle_manager → marketer (command)
-content_writer → content_reviewer (handoff)
-content_reviewer → middle_manager (report)
-designer → middle_manager (report)
-marketer → middle_manager (report)
-middle_manager → boss (report)
-boss → middle_manager (feedback)
-```
-
-Adjust for the actual roles in this run. Assign `reports_to` on each role using the derived topology.
-
-**Completeness rules (every role must be properly wired — no orphans):**
-- Every executor role has **≥1 inbound edge** (how work reaches it — usually a `command`) and **≥1 outbound edge** (how its output leaves — usually a `report` or `handoff`).
-- Where one role's output is another's input, connect them with a `handoff` in that direction (e.g. clerk → counsel; writer → editor). Make sequential producer→consumer chains explicit.
-- The coordinator/boss has an inbound `report` from each role it commands, so results flow back up.
-- Peer roles that critique each other get `feedback` edges; adversarial pairs (e.g. prosecutor ↔ defender) get reciprocal `handoff` edges.
-- After building edges, **derive each role's input/output contract from them**: a role's `input_type` summarizes who/what its inbound edges deliver; its `output_type` summarizes what its outbound edges carry. Feed these into the generated definition from Step 2.5 so the spec and the topology agree.
-
-A role that ends up with no inbound or no outbound edge is a bug — re-examine the topology before saving.
-
----
-
-## Step 3.5 — TOPOLOGY VALIDATION GATE (BLOCKING — do not proceed to Step 4 until all checks pass)
-
-Build the communication array now, then validate it with these checks:
-
-```bash
-# Check 1 — at least one edge exists
-edges='<communication_json_array>'
-edge_count=$(echo "$edges" | jq 'length')
-[ "$edge_count" -eq 0 ] && echo "FAIL: communication array is empty — define edges now" && exit 1
-
-# Check 2 — every role has at least one inbound OR outbound edge
-role_ids=("<id1>" "<id2>" ... )  # all role IDs
-for rid in "${role_ids[@]}"; do
-  has_edge=$(echo "$edges" | jq --arg r "$rid" '[.[] | select(.from==$r or .to==$r)] | length')
-  [ "$has_edge" -eq 0 ] && echo "FAIL: role '$rid' has no communication edges — it is an orphan" && exit 1
-done
-
-# Check 3 — every non-boss executor role has at least one inbound edge (receives work)
-# and at least one outbound edge (delivers output)
-echo "OK: topology validated — $edge_count edges, all roles wired"
-```
-
-If any check fails: go back to Step 3 and add the missing edges. **The `communication` array must be non-empty in the saved JSON** — the dashboard Chart tab draws its arrows from this array; an empty array means a blank chart with isolated nodes and no connection lines.
-
----
-
-## Step 4 — Build Org Config
-
-Produce an org config object using the resolved topology (not hardcoded to `hierarchical`).
-
-Ask the user (or infer from prompt) for the optional Paperclip-style fields:
-- **Budget**: max token budget for this org run (e.g. 500000 tokens). Use `unlimited` if not specified.
-- **Governance**: approval policy — `auto` (agents act freely) | `board` (sensitive actions require `/mastermind:approve`) | `strict` (all external actions need approval)
-- **Adapter**: which AI model/adapter the CEO agent should use (e.g. `claude-sonnet-4-6`, `claude-opus-4-7`). Default: `claude-sonnet-4-6`.
+Produce an org config object matching `OrgDefSchema` exactly:
 
 ```json
 {
   "name": "<org_name>",
   "goal": "<the goal the org exists to achieve>",
-  "created_at": "<ISO8601>",
-  "mode": "daemon",
-  "topology": "<mesh | star | hierarchical — from Step 3>",
-  "status": "<'stopped' if --schedule provided; 'active' otherwise>",
+  "status": "stopped",
+  "schedule": "<'<N>m' | '<N>h' | '<N>s' from Step 0 input, or null for a one-shot org>",
+  "run_config": {
+    "max_concurrent_agents": 4,
+    "budget_tokens": "<budget_tokens input, or 1000000 default>",
+    "memory_namespace": "org:<org_name>",
+    "max_turns_per_message": 30
+  },
   "roles": [
     {
       "id": "<slug>",
       "title": "<display title>",
-      "agent_type": "<subagent_type slug — from Step 2.3 character slug for persona roles, or from the Step 2.4 resolution (reused premade or coined+generated) for functional roles>",
-      "responsibilities": ["<1-3 bullet responsibilities>"],
-      "reports_to": "<role id or null>",
-      "skills": ["<populated from the generated def's expertise in Step 2.5 — never left empty>"],
-      "adapter_config": {
-        "model": "<claude model id>",
-        "max_tokens": 8192
-      }
+      "type": "boss | specialist | <domain synonym>",
+      "reports_to": "<role id, or null for the single boss>",
+      "responsibilities": ["<3-6 specific duties — this text becomes part of the agent's role briefing>"]
     }
-  ],
-  "communication": [
-    {
-      "from": "<role_id>",
-      "to": "<role_id>",
-      "type": "command | report | feedback | handoff",
-      "protocol": "direct"
-    }
-  ],
-  "governance": {
-    "policy": "auto | board | strict",
-    "approvals_file": ".monomind/orgs/<org_name>-approvals.json"
-  },
-  "board_id": "<uuid — filled in Step 6 after board creation>",
-  "todo_col_id": "<uuid — filled in Step 6>",
-  "doing_col_id": "<uuid — filled in Step 6>",
-  "done_col_id": "<uuid — filled in Step 6>",
-  "board_space": "<org_name>",
-  "board_name": "org-tasks",
-  "run_config": {
-    "checkpoint_interval_min": 30,
-    "max_concurrent_agents": 6,
-    "memory_namespace": "org:<org_name>",
-    "budget_tokens": "<number or 0 for unlimited>",
-    "alert_threshold": 0.8,
-    "ceo_adapter": "<model id>"
-  },
-  "loop": "<only included when --schedule was provided; see below>"
+  ]
 }
 ```
 
-**If `--schedule` was provided**, include these two additional top-level fields in the org config:
+`status` starts `"stopped"` regardless of whether `schedule` is set — the org does not run until `monomind org run <name>` (one-shot) or `monomind org serve` (picks up any org whose `schedule` is set) is invoked.
 
-```json
-{
-  "status": "stopped",
-  "loop": {
-    "poll_interval_minutes": "<parsed from schedule string>",
-    "last_run": null,
-    "next_run": null,
-    "run_prompt_file": ".monomind/loops/<org_name>.md"
-  }
-}
-```
-
-`status` starts as `"stopped"`. The org does not run until `/mastermind:runorg --org <org_name>` is called (which transitions it to `"active"`).
+Only include `adapter_config`, `provider`, or `policy` on a role when Step 2.3 populated them for it — leave them out entirely rather than writing empty objects.
 
 ---
 
-## Step 5 — Show Plan and Confirm (confirm mode)
+## Step 4 — Show Plan and Confirm (confirm mode)
 
 Render the org plan in a clear human-readable format:
 
@@ -400,40 +129,21 @@ Render the org plan in a clear human-readable format:
 ║  GOAL: <goal>                                    ║
 ╚══════════════════════════════════════════════════╝
 
-ROLES  (N roles — all must have agent_type + skills before "go")
+ROLES  (N roles — exactly one boss, every reports_to resolves to a real role id)
 ─────
-• [boss] CEO / Boss
-    Agent type:      coordinator
-    Skills:          strategic oversight, decision-making, org management
-    Reports to:      (none — top of hierarchy)
-    Responsibilities: Strategic oversight, final approval
-    Definition file: .claude/agents/coordinator.md ✓
+• [boss] CEO / Boss  (type: boss, reports_to: none)
+    Responsibilities: Strategic oversight, final decisions, coordinates the team via org_send
 
-• [middle_manager] Middle Manager
-    Agent type:      project-shepherd
-    Skills:          sprint planning, cross-team coordination, status tracking
-    Reports to:      boss
-    Responsibilities: Sprint planning, cross-team coordination
-    Definition file: .claude/agents/generated/project-shepherd.md ✓
+• [content_writer] Content Writer  (type: specialist, reports_to: boss)
+    Responsibilities: Draft posts per the content calendar, hand off to content_reviewer
 
-  ... (all roles — each showing agent_type, skills, and definition file status)
-
-COMMUNICATION TOPOLOGY  (N edges — must be non-zero)
-──────────────────────
-boss → middle_manager           (command)
-middle_manager → content_writer (command)
-content_writer → content_reviewer (handoff)
-content_reviewer → middle_manager (report)
-middle_manager → boss           (report)
-  ... (all edges — every role must appear here at least once)
+  ... (all roles)
 
 SETTINGS
 ────────
-Topology: <derived>  |  Mode: persistent daemon
-Memory: org:<org_name>  |  Board: <org_name>/org-tasks
-Checkpoint every: 30 min  |  Max agents: 6
-Schedule: <"every <poll_interval_minutes> minutes" if --schedule; otherwise "manual (no auto-schedule)">
-Status: <"stopped (run /mastermind:runorg --org <org_name> to activate)" if --schedule; otherwise "—">
+Budget: <run_config.budget_tokens> tokens (split evenly across N roles)
+Memory namespace: org:<org_name>
+Schedule: <"every <N> <unit>" if schedule set; otherwise "manual — run with `monomind org run <org_name>`">
 
 Type "go" to save this org, or describe changes.
 ```
@@ -444,13 +154,10 @@ If the user requests changes, apply them and re-render. Repeat until confirmed.
 
 ---
 
-## Step 6 — Save Org Config
-
-Set shell variables from the resolved inputs (use the actual `org_name` value from Step 1 and `session_id` input):
+## Step 5 — Save Org Config
 
 ```bash
-org_name="<resolved org name from Step 1>"   # e.g. "content-team"
-session_id="<session_id input>"               # passed by command wrapper
+org_name="<resolved org name from Step 1>"
 orgJson=".monomind/orgs/${org_name}.json"
 mkdir -p .monomind/orgs
 ```
@@ -458,355 +165,53 @@ mkdir -p .monomind/orgs
 Write the confirmed org config as JSON using `jq` to guarantee valid encoding:
 
 ```bash
-# Build the config JSON from the confirmed org plan and write atomically.
 # Set shell variables from the confirmed plan before running this block:
-#   governance_policy     — "auto" | "board" | "strict"  (from Step 4)
-#   budget_tokens_val     — integer or 0 for unlimited     (from Step 4)
-#   ceo_adapter           — model id string                (from Step 4)
-#   poll_interval_minutes — integer (from --schedule), or "" if no schedule
+#   goal, schedule_val ("" if none), budget_tokens_val, roles_json (JSON array matching the role shape above)
 jq -n \
   --arg name "$org_name" \
   --arg goal "$goal" \
-  --arg topology "$topology" \
+  --arg schedule "${schedule_val:-}" \
+  --argjson budget_tokens "${budget_tokens_val:-1000000}" \
   --argjson roles "$roles_json" \
-  --argjson communication "$communication_json" \
-  --arg gov_policy "${governance_policy:-auto}" \
-  --argjson budget_tokens "${budget_tokens_val:-0}" \
-  --arg ceo_adapter "${ceo_adapter:-claude-sonnet-4-6}" \
-  '{name:$name,goal:$goal,mode:"daemon",topology:$topology,status:"active",
-    created_at:(now|todate),roles:$roles,communication:$communication,
-    governance:{policy:$gov_policy,approvals_file:(".monomind/orgs/"+$name+"-approvals.json")},
-    board_space:$name,board_name:"org-tasks",
-    run_config:{
-      checkpoint_interval_min:30,
-      max_concurrent_agents:6,
-      memory_namespace:("org:"+$name),
-      budget_tokens:$budget_tokens,
-      alert_threshold:0.8,
-      ceo_adapter:$ceo_adapter
-    }}' \
+  '{name:$name,goal:$goal,status:"stopped",
+    schedule:(if $schedule=="" then null else $schedule end),
+    run_config:{max_concurrent_agents:4,budget_tokens:$budget_tokens,
+                memory_namespace:("org:"+$name),max_turns_per_message:30},
+    roles:$roles}' \
   > "${orgJson}.tmp" && mv "${orgJson}.tmp" "$orgJson"
 ```
 
-**If `--schedule` was provided**, patch the saved config with `status` and `loop`:
+**POST-SAVE VALIDATION (run immediately after saving — abort if any check fails):**
 
 ```bash
-# Only run this block when poll_interval_minutes is set (i.e. --schedule was used)
-tmp="${orgJson}.tmp"
-jq \
-  --argjson interval "$poll_interval_minutes" \
-  --arg run_prompt_file ".monomind/loops/${org_name}.md" \
-  '. + {
-    status: "stopped",
-    loop: {
-      poll_interval_minutes: $interval,
-      last_run: null,
-      next_run: null,
-      run_prompt_file: $run_prompt_file
-    }
-  }' \
-  "$orgJson" > "$tmp" && mv "$tmp" "$orgJson"
-```
-
-Create the monotask space, board, and default columns (space is required — abort before creating board if space fails):
-```bash
-# Step 1 — Space (required first)
-space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$org_name" '$2==n{print $1}' | head -1)
-[ -z "$space_id" ] && space_id=$(monotask space create "$org_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
-[ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$org_name' — verify monotask is installed (run: monotask --version)"; exit 1; }
-
-# Step 2 — Board (created only after space is confirmed)
-board_id=$(monotask board create "org-tasks" --json | jq -r '.id // empty')
-[ -z "$board_id" ] && { echo "ERROR: Failed to create monotask board"; exit 1; }
-
-# Step 3 — Link board to space immediately
-monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
-
-# Step 4 — Columns
-todo_col_id=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id // empty')
-doing_col_id=$(monotask column create "$board_id" "Doing" --json | jq -r '.id // empty')
-done_col_id=$(monotask column create "$board_id" "Done"  --json | jq -r '.id // empty')
-[ -z "$todo_col_id" ]  && { echo "ERROR: Failed to create 'Todo' column on board $board_id"; exit 1; }
-[ -z "$doing_col_id" ] && { echo "ERROR: Failed to create 'Doing' column on board $board_id"; exit 1; }
-[ -z "$done_col_id" ]  && { echo "ERROR: Failed to create 'Done' column on board $board_id"; exit 1; }
-```
-
-Patch the saved org config with the board and column IDs:
-```bash
-tmp="${orgJson}.tmp"
-jq --arg board_id "$board_id" \
-   --arg todo_col_id "$todo_col_id" \
-   --arg doing_col_id "$doing_col_id" \
-   --arg done_col_id "$done_col_id" \
-   '. + {board_id:$board_id,todo_col_id:$todo_col_id,doing_col_id:$doing_col_id,done_col_id:$done_col_id}' \
-   "$orgJson" > "$tmp" && mv "$tmp" "$orgJson"
-```
-
-**POST-SAVE VALIDATION (run immediately after saving — abort if either check fails):**
-
-```bash
-# Check 1 — communication array is non-empty (dashboard Chart tab requires this for arrows)
-comm_count=$(jq '.communication | length' "$orgJson" 2>/dev/null || echo 0)
-if [ "$comm_count" -eq 0 ]; then
-  echo "ERROR: Saved org has empty communication array — dashboard Chart will show isolated nodes with no arrows."
-  echo "Fix: go back to Step 3 and Step 3.5, define edges, then re-save."
+# Check 1 — exactly one root role (reports_to null)
+root_count=$(jq '[.roles[] | select(.reports_to == null)] | length' "$orgJson")
+if [ "$root_count" -ne 1 ]; then
+  echo "ERROR: expected exactly one role with reports_to: null, found $root_count — fix the roles array and re-save."
   exit 1
 fi
-echo "✓ Communication: $comm_count edges saved"
+echo "✓ Exactly one root role"
 
-# Check 2 — every role has agent_type set
-bad_roles=$(jq -r '.roles[] | select((.agent_type // "") == "") | .id' "$orgJson" 2>/dev/null)
-if [ -n "$bad_roles" ]; then
-  echo "ERROR: These roles have no agent_type — dashboard will show '?' for each:"
-  echo "$bad_roles"
-  echo "Fix: go back to Step 2 / Step 2.5 and set agent_type for each role, then re-save."
+# Check 2 — every non-root role's reports_to resolves to a real role id
+bad_reports=$(jq -r '
+  ([.roles[].id]) as $ids |
+  [.roles[] | select(.reports_to != null and (.reports_to as $r | $ids | index($r) | not)) | .id]
+  | join(", ")' "$orgJson")
+if [ -n "$bad_reports" ]; then
+  echo "ERROR: these roles have a reports_to that doesn't match any role id: $bad_reports"
   exit 1
 fi
-echo "✓ All roles have agent_type set"
+echo "✓ All reports_to values resolve"
 
-# Check 3 — every role has skills (non-empty array)
-empty_skills=$(jq -r '.roles[] | select((.skills // []) | length == 0) | .id' "$orgJson" 2>/dev/null)
-if [ -n "$empty_skills" ]; then
-  echo "WARNING: These roles have empty skills arrays — dashboard Skills tab will show nothing:"
-  echo "$empty_skills"
-  echo "Fix: populate skills from each role's generated agent definition."
-fi
+# Check 3 — schema sanity check via the CLI itself (parses with OrgDefSchema, same code path org run/serve use)
+npx monomind@latest org list >/dev/null 2>&1 || echo "WARNING: could not verify via CLI — check .monomind/orgs manually"
 
-echo "✓ Org config validated — org is ready to run"
+echo "✓ Org config validated — ready for: monomind org run ${org_name}"
 ```
 
 ---
 
-## Step 6.7 — Generate Loop Prompt File (scheduled orgs only)
-
-**Skip this step if `--schedule` was NOT provided.**
-
-If `poll_interval_minutes` is set, generate the self-scheduling loop prompt at `.monomind/loops/<org_name>.md`.
-
-This file is the single source of truth for one scheduled iteration. It is passed verbatim as the `prompt` argument to `ScheduleWakeup` at the end of every iteration — the loop is self-perpetuating as long as `status == "active"`.
-
-**Loop prompt structure:**
-
-The file must follow this exact template (substitute actual values for all `<placeholders>`):
-
-````markdown
-# <org_name> — Loop Prompt
-
-**Controlled by:** `.monomind/orgs/<org_name>.json` → `status` field
-**Start:** `/mastermind:runorg --org <org_name>` (sets `status: "active"` and runs first iteration)
-**Stop:** `/mastermind:stoporg --org <org_name>` (sets `status: "stopped"` — next wakeup exits without rescheduling)
-**Pause (HIL):** set `status: "paused"` in `.monomind/orgs/<org_name>.json` — loop keeps waking up but skips work until status returns to `"active"`
-
----
-
-## Step 0 — Status Gate (REQUIRED FIRST — do not skip)
-
-```bash
-ORG_FILE=".monomind/orgs/<org_name>.json"
-LOOP_STATUS=$(jq -r '.status // "stopped"' "$ORG_FILE" 2>/dev/null || echo "stopped")
-```
-
-- If `LOOP_STATUS == "active"` → continue to Step 1.
-- If `LOOP_STATUS == "paused"` → print "Org '<org_name>' is paused — skipping iteration. Jump directly to Schedule Next." Do NOT run Steps 1–N.
-- If anything else (including `"stopped"`) → print "Org '<org_name>' status is '$LOOP_STATUS' — exiting loop. **Do NOT call ScheduleWakeup.**" and stop.
-
----
-
-## Step 1 — Record Iteration Start
-
-```bash
-ORG_FILE=".monomind/orgs/<org_name>.json"
-tmp="${ORG_FILE}.tmp"
-jq '.loop.last_run = (now|todate)' "$ORG_FILE" > "$tmp" && mv "$tmp" "$ORG_FILE"
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-# Unique run ID — used to thread all events in the Chat tab under one session
-RUN_ID="run-$(date -u +%Y%m%dT%H%M%S)"
-# Capture Claude project dir for per-agent token tracking
-CLAUDE_PROJECT_DIR="$HOME/.claude/projects/$(echo "$REPO_ROOT" | tr '/' '-' | sed 's/^-//')"
-
-# Comm helper — emits org:comms so Chat tab shows agent-to-agent messages
-_comm() {
-  local _from="$1" _to="$2" _msg="$3"
-  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
-    -H "Content-Type: application/json" \
-    -d "$(jq -cn \
-      --arg org "<org_name>" \
-      --arg runId "$RUN_ID" \
-      --arg from "$_from" \
-      --arg to "$_to" \
-      --arg msg "$_msg" \
-      '{type:"org:comms",org:$org,runId:$runId,from:$from,to:$to,msg:$msg,ts:(now*1000|floor)}')" || true
-}
-
-# Register this run with the server — creates run file and enables Chat tab dropdown
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -cn \
-    --arg org "<org_name>" \
-    --arg runId "$RUN_ID" \
-    --arg goal "<goal>" \
-    '{type:"run:start",org:$org,runId:$runId,goal:$goal,ts:(now*1000|floor)}')" || true
-```
-
----
-
-## [Org-specific iteration steps]
-
-<IMPORTANT: Generate the actual work steps here from the org's goal and roles. These are NOT generic placeholders — write real, actionable steps derived from the org's goal, roles, and communication topology.>
-
-<For a GitHub issue-resolver org, these would be: find next issue, claim it, implement, test, deploy, report.>
-<For a content org, these would be: check content calendar, assign writers, review drafts, publish.>
-<Derive from orgConfig.goal and orgConfig.roles[].responsibilities — be specific.>
-
-**REQUIRED — include these patterns at every agent handoff:**
-
-1. **Before spawning each agent**, snapshot the Claude project JSONL files and emit a `_comm` from the dispatching role to the receiving role describing the task:
-   ```bash
-   JSONL_SNAP_<N>=$(ls -t "$CLAUDE_PROJECT_DIR"/*.jsonl 2>/dev/null | head -20 | sort)
-   _comm "<dispatcher-role-id>" "<agent-role-id>" "Task: <what the agent is being asked to do>"
-   ```
-
-2. **After the agent returns**, emit a `_comm` from that agent back to its caller with the result summary, then emit its token usage:
-   ```bash
-   JSONL_SNAP_<N+1>=$(ls -t "$CLAUDE_PROJECT_DIR"/*.jsonl 2>/dev/null | head -20 | sort)
-   NEW_JSONL=$(comm -13 <(echo "$JSONL_SNAP_<N>") <(echo "$JSONL_SNAP_<N+1>") | head -1)
-   _comm "<agent-role-id>" "<dispatcher-role-id>" "Result: <one-sentence summary of what the agent returned>"
-   if [ -n "$NEW_JSONL" ] && [ -f "$NEW_JSONL" ]; then
-     USAGE=$(python3 -c "
-   import json, sys
-   tin=tout=0
-   for l in open(sys.argv[1]):
-     try:
-       d=json.loads(l)
-       u=d.get('message',{}).get('usage',{})
-       tin+=u.get('input_tokens',0); tout+=u.get('output_tokens',0)
-     except: pass
-   cost=tin*3e-6+tout*15e-6
-   print(json.dumps({'tokens_in':tin,'tokens_out':tout,'cost_usd':round(cost,6)}))
-   " "$NEW_JSONL" 2>/dev/null || echo '{"tokens_in":0,"tokens_out":0,"cost_usd":0}')
-     curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
-       -H "Content-Type: application/json" \
-       -d "$(echo "$USAGE" | jq \
-         --arg org "<org_name>" \
-         --arg role "<agent-role-id>" \
-         --arg runId "$RUN_ID" \
-         '. + {type:"agent:usage",org:$org,role:$role,runId:$runId,ts:(now*1000|floor|tostring|tonumber)}')" || true
-   fi
-   ```
-
-3. Use the actual content from the agent's return value in the `_comm` `msg` field — not a generic placeholder. The Chat tab shows this text verbatim.
-
-4. At cycle end (before Schedule Next), emit the completion comms and event:
-   ```bash
-   _comm "<boss-role-id>" "sys" "Cycle complete: <one-line summary of what was accomplished>"
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
-     -H "Content-Type: application/json" \
-     -d "$(jq -cn \
-       --arg org "<org_name>" \
-       --arg runId "$RUN_ID" \
-       '{type:"org:cycle:complete",org:$org,runId:$runId,ts:(now*1000|floor)}')" || true
-   ```
-
----
-
-## Schedule Next (ONLY if status is active or paused)
-
-Re-check org status before rescheduling:
-
-```bash
-ORG_FILE=".monomind/orgs/<org_name>.json"
-LOOP_STATUS=$(jq -r '.status // "stopped"' "$ORG_FILE" 2>/dev/null || echo "stopped")
-```
-
-If `LOOP_STATUS == "active"` or `LOOP_STATUS == "paused"`:
-
-1. Read this loop prompt file verbatim:
-   ```bash
-   LOOP_PROMPT=$(cat .monomind/loops/<org_name>.md)
-   ```
-
-2. Call `ScheduleWakeup` with:
-   - `delaySeconds`: `<poll_interval_minutes * 60>`
-   - `reason`: `"<org_name>: next scheduled poll (every <poll_interval_minutes> min)"`
-   - `prompt`: the full contents of `$LOOP_PROMPT`
-
-3. Update `next_run` in the org JSON:
-   ```bash
-   ORG_FILE=".monomind/orgs/<org_name>.json"
-   tmp="${ORG_FILE}.tmp"
-   next_ts=$(( $(date +%s) + <poll_interval_minutes * 60> ))
-   next_iso=$(date -u -r "$next_ts" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
-     || date -u -d "@$next_ts" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
-     || python3 -c "import datetime; print(datetime.datetime.utcfromtimestamp($next_ts).strftime('%Y-%m-%dT%H:%M:%SZ'))")
-   jq --arg next "$next_iso" '.loop.next_run = $next' "$ORG_FILE" > "$tmp" && mv "$tmp" "$ORG_FILE"
-   ```
-
-4. Emit `org:loop:scheduled` event:
-   ```bash
-   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
-     -H "Content-Type: application/json" \
-     -d "$(jq -cn --arg org "<org_name>" --arg next "$next_iso" --arg proj "$REPO_ROOT" \
-       '{type:"org:loop:scheduled",org:$org,next_run:$next,project:$proj,ts:(now*1000|floor)}')" || true
-   ```
-
-If `LOOP_STATUS` is anything else (e.g. `"stopped"`) → print "Org '<org_name>' loop ended — not rescheduling." and exit.
-````
-
-**Before writing: substitute ALL `<org_name>` tokens with the actual resolved org name string (the value from Step 1, e.g. `research-pod`), and all `<poll_interval_minutes>` tokens with the numeric value. These are template placeholders — the written file must contain no angle-bracket tokens. Every `ORG_FILE=".monomind/orgs/<org_name>.json"` becomes `ORG_FILE=".monomind/orgs/research-pod.json"`, every `cat .monomind/loops/<org_name>.md` becomes `cat .monomind/loops/research-pod.md`, etc. Leaving any `<...>` token unexpanded will cause shell failures at loop execution time.**
-
-**Write this file to disk:**
-
-```bash
-mkdir -p .monomind/loops
-# Write the generated loop prompt (with all placeholders substituted)
-# to .monomind/loops/<org_name>.md  (← substitute this path too)
-```
-
-Use the Write tool (not Bash echo/cat) to write the file so the content is verbatim.
-
-The org-specific iteration steps (the block between Step 1 and "Schedule Next") must be **generated from the actual org** — goal, roles, responsibilities — not left as generic placeholders.
-
----
-
-## Step 7 — Emit Dashboard Events
-
-Read values from the saved JSON file and emit two events: `domain:complete` (for the session stream) and `org:create` (so the dashboard Orgs panel registers the new org immediately):
-
-```bash
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-orgName=$(jq -r '.name' "$orgJson")
-goal_val=$(jq -r '.goal' "$orgJson")
-rolesCount=$(jq '.roles | length // 0' "$orgJson")
-
-# domain:complete — for session correlation
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -cn \
-    --arg session "$session_id" \
-    --arg orgName "$orgName" \
-    --arg goal "$goal_val" \
-    --argjson rolesCount "$rolesCount" \
-    '{type:"domain:complete",session:$session,domain:"ops",status:"complete",
-      org:$orgName,goal:$goal,roles_count:$rolesCount,ts:(now*1000|floor)}')" || true
-
-# org:create — so handleOrgEvent routes it to the Orgs panel event log and SSE triggers list refresh
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -cn \
-    --arg session "$session_id" \
-    --arg org "$orgName" \
-    --arg goal "$goal_val" \
-    --arg proj "$(pwd)" \
-    '{type:"org:create",session:$session,org:$org,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
-```
-
----
-
-## Step 8 — Return Output
+## Step 6 — Return Output
 
 ```yaml
 domain: ops
@@ -814,12 +219,6 @@ status: complete
 artifacts:
   - path: .monomind/orgs/<org_name>.json
     type: config
-  - path: .claude/agents/generated/<agent_type>.md
-    type: agent-definition
-    note: "one per role whose agent_type lacked a usable definition (skills, instructions, input/output)"
-  - path: .monomind/loops/<org_name>.md
-    type: loop-prompt
-    note: "only present when --schedule was used; omit otherwise"
 decisions:
   - what: "Org <org_name> created with N roles"
     why: "Role mapping derived from goal and user description"
@@ -829,34 +228,25 @@ lessons:
   - what_worked: "Auto-suggested roles matched user intent"
   - what_didnt: ""
 next_actions:
-  - "Run /mastermind:runorg --org <org_name> to start the organization"
-  - "Edit .monomind/orgs/<org_name>.json to customize roles or communication"
-  - "[scheduled orgs only] Run /mastermind:stoporg --org <org_name> to stop the loop"
-  - "[scheduled orgs only] Run /mastermind:orgs to see all org statuses"
-board_url: "monotask://<org_name>/org-tasks"
-run_id: "<current UTC datetime as ISO8601, e.g. via $(date -u +%Y-%m-%dT%H:%M:%SZ)>"
+  - "Run `monomind org run <org_name>` to start the organization in the foreground"
+  - "Or `monomind org serve` to host it (and any other scheduled orgs) as a background daemon"
+  - "Edit .monomind/orgs/<org_name>.json directly, or use /mastermind:org-settings, to change goal/budget/roles"
+  - "`monomind org status <org_name>` to check runtime state; `monomind org stop <org_name>` to stop a running org"
 ```
 
 Print confirmation:
 ```
 ✓ Org "<org_name>" saved to .monomind/orgs/<org_name>.json
-  → Run: /mastermind:runorg --org <org_name>
+  → Run: monomind org run <org_name>
 ```
 
-If `--schedule` was provided, also print:
+If `schedule` was set, also print:
 ```
-✓ Loop prompt saved to .monomind/loops/<org_name>.md
-  Schedule: every <poll_interval_minutes> minutes
-  Status: stopped (org will not run until /mastermind:runorg --org <org_name>)
-
-  Lifecycle:
-    Start: /mastermind:runorg --org <org_name>
-    Stop:  /mastermind:stoporg --org <org_name>
-    List:  /mastermind:orgs
+  Schedule: every <N> <unit> — pick it up with: monomind org serve
 ```
 
 ---
 
-## Step 9 — Brain Write (standalone only)
+## Step 7 — Brain Write (standalone only)
 
 If `caller` is not "command", follow _protocol.md Brain Write Procedure for domain `ops`.

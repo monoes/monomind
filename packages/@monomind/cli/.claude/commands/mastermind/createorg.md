@@ -1,4 +1,4 @@
-<!-- Define and save an autonomous agent organization — roles, hierarchy, and communication topology. Suggest or confirm roles, then persist the org for use with runorg. -->
+<!-- Define and save an autonomous agent organization (Org Runtime v2) — roles and hierarchy. Suggest or confirm roles, then persist the org config for `monomind org run`/`serve`. -->
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 
@@ -6,7 +6,7 @@
 
 **MASTERMIND: CREATE ORG**
 
-An org is a named, persistent agent team — not a one-shot Mastermind run. Once created, the org runs autonomously across sessions: a boss agent coordinates specialists who pick up tasks from a shared board, execute them, and loop until stopped.
+An org is a named, persistent agent team, run by the Org Runtime v2 daemon — not a one-shot Mastermind run and not a Task-tool-spawned boss. Once created, every role in the config starts as its own live agent session the moment you run the org; roles message each other directly (no shared task board) and the org keeps running until stopped.
 
 Use orgs when the work is ongoing, not single-shot. A content team that ships 10 posts a month. A research squad that runs competitive scans weekly. A dev team with a permanent backlog.
 
@@ -25,16 +25,15 @@ Use orgs when the work is ongoing, not single-shot. A content team that ships 10
 ```
 
 **Options:**
-`--name <slug>` — org identifier used with `/mastermind:runorg` (derived from goal if omitted)
+`--name <slug>` — org identifier used with `monomind org run <name>` (derived from goal if omitted)
 `--roles <list>` — explicit role list (e.g. "boss, writer, reviewer, marketer")
-`--schedule <interval>` — make this a self-scheduling loop org (e.g. `"every 30 minutes"`, `"every hour"`, `"daily"`)
+`--schedule <interval>` — daemon schedule for `monomind org serve` to pick up, e.g. `"30m"`, `"2h"`, `"1440m"` for daily (omit for a manual, one-shot org)
 `--auto` — skip confirmation, create immediately
 `--confirm` — always ask before saving (default)
-`--delete <name>` — delete a saved org and all associated data files
-`--list` — list all saved orgs with their status
+`--delete <name>` — delete a saved org and all associated data files (`monomind org delete <name> --yes`)
+`--list` — list all saved orgs with their status (`monomind org list`)
 
-Once created, start the org with `/mastermind:runorg --org <name>`.
-For scheduled orgs: `runorg` activates the loop; `stoporg` stops it; `orgs` lists all.
+Once created, start the org with `monomind org run <name>` (foreground, one-shot) or let `monomind org serve` pick it up if `--schedule` was set. Check status with `monomind org status <name>`; stop with `monomind org stop <name>`.
 
 ---
 
@@ -47,7 +46,7 @@ Parse `$ARGUMENTS` for:
 - `--confirm` flag → mode = confirm
 - `--name <name>` → org_name = <name> (must match `^[a-z0-9][a-z0-9-]{0,63}$`; if omitted, derived from goal)
 - `--roles <desc>` → roles_desc = <desc> (explicit role list, e.g. "boss, writer, reviewer, marketer")
-- `--schedule <interval>` → schedule = <interval> (e.g. `"every 30 minutes"`, `"every hour"`, `"daily"`; triggers loop org generation)
+- `--schedule <interval>` → schedule = <interval>, daemon format only: `"<N>s"`, `"<N>m"`, or `"<N>h"` (e.g. `"30m"`, `"2h"`) — this is passed straight into `parseSchedule()` in `orgrt/scheduler.ts`, whose regex `^(\d+)\s*(s|m|h)$` rejects anything else (e.g. `"every 30 minutes"`, `"daily"`) and silently leaves the org unscheduled
 - `--delete <name>` → delete_mode = true, delete_name = <name>
 - `--list` flag → list_mode = true
 - Remaining text = prompt (goal description)
