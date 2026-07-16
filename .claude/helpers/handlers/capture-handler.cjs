@@ -41,10 +41,14 @@ function subagentKey(hookInput) {
   return crypto.createHash('md5').update(String(raw)).digest('hex').slice(0, 16);
 }
 
-// Determine subagent success from its result summary — errors/failures/
-// exceptions indicate failure. Shared by the Monograph `success` column and
-// the intelligence.feedback() call below, so both use one definition.
-function deriveSubagentSuccess(summary) {
+// Determine subagent success. `lastToolError` (was the transcript's final
+// tool_result an is_error block — a real signal parsed straight off the
+// transcript, not text sniffing) is authoritative when present; the summary
+// keyword check is a fallback for failures narrated without a tool error
+// (e.g. "I couldn't find X" with no failing tool call). Shared by the
+// Monograph `success` column and the intelligence.feedback() call below.
+function deriveSubagentSuccess(summary, lastToolError) {
+  if (lastToolError) return false;
   if (!summary) return true;
   var sumLower = summary.toLowerCase();
   if (sumLower.includes('error') || sumLower.includes('failed') || sumLower.includes('exception') || sumLower.includes('fatal')) {
@@ -100,6 +104,7 @@ function parseJSONLForData(filePath) {
   let tin = 0, tout = 0;
   let allMsgs = [];
   let toolCalls = [];
+  let lastToolError = false; // tracks the most recent tool_result seen, in file order
   try {
     const lines = fs.readFileSync(filePath, 'utf8').split('\n').filter(Boolean);
     for (const line of lines) {
@@ -119,6 +124,12 @@ function parseJSONLForData(filePath) {
           } else if (typeof content === 'string' && content) {
             allMsgs.push(content);
           }
+        } else if (d?.message?.role === 'user') {
+          const content = d?.message?.content;
+          if (Array.isArray(content)) {
+            const results = content.filter(b => b.type === 'tool_result');
+            if (results.length > 0) lastToolError = results.some(b => b.is_error === true);
+          }
         }
       } catch { /* skip malformed lines */ }
     }
@@ -129,7 +140,7 @@ function parseJSONLForData(filePath) {
   const summary = allMsgs.length > 1
     ? (firstMsg.slice(0, 300) + (allMsgs.length > 2 ? `\n…[${allMsgs.length - 2} more msgs]…\n` : '\n') + lastMsg.slice(0, 700))
     : lastMsg.slice(0, 1000);
-  return { tokens_in: tin, tokens_out: tout, summary, last_msg: lastMsg, toolCalls: [...new Set(toolCalls)] };
+  return { tokens_in: tin, tokens_out: tout, summary, last_msg: lastMsg, toolCalls: [...new Set(toolCalls)], lastToolError };
 }
 
 function getActiveRun() {
@@ -335,6 +346,7 @@ async function handleSubagentStop(hookInput) {
   let totalTin = 0, totalTout = 0;
   let summary = '';
   let toolCalls = [];
+  let lastToolError = false;
   const capturedFiles = [];
 
   for (const f of currentFiles) {
@@ -344,6 +356,7 @@ async function handleSubagentStop(hookInput) {
       totalTout += parsed.tokens_out;
       if (parsed.summary) summary = parsed.summary;
       toolCalls.push(...parsed.toolCalls);
+      lastToolError = parsed.lastToolError; // last new file wins, mirroring `summary`'s last-wins semantics
       capturedFiles.push(f.name);
     }
   }
@@ -365,7 +378,7 @@ async function handleSubagentStop(hookInput) {
   // (TeammateIdle/TaskCompleted) is dead code (those aren't valid Claude
   // Code hook events and are stripped from settings.json on init).
   try {
-    require('../intelligence.cjs').feedback(deriveSubagentSuccess(summary));
+    require('../intelligence.cjs').feedback(deriveSubagentSuccess(summary, lastToolError));
   } catch (e) { /* non-fatal — feedback recording must never block subagent-stop */ }
 
   if (!org && !session) {
@@ -509,7 +522,7 @@ async function handleSubagentStop(hookInput) {
             tokens_in: totalTin || 0,
             tokens_out: totalTout || 0,
             cost_usd: costUsd || 0,
-            success: deriveSubagentSuccess(summary) ? 1 : 0,
+            success: deriveSubagentSuccess(summary, lastToolError) ? 1 : 0,
             duration_ms: snap.ts ? (Date.now() - snap.ts) : 0,
             timestamp: Date.now(),
           });
@@ -643,12 +656,16 @@ async function handlePostTool(hookInput) {
 
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
 
-const eventType = process.argv[2]; // 'subagent-start' | 'subagent-stop' | 'pretool' | 'posttool'
+if (require.main === module) {
+  const eventType = process.argv[2]; // 'subagent-start' | 'subagent-stop' | 'pretool' | 'posttool'
 
-readStdin().then(hookInput => {
-  if (eventType === 'subagent-start') return handleSubagentStart(hookInput);
-  if (eventType === 'subagent-stop')  return handleSubagentStop(hookInput);
-  if (eventType === 'pretool')        return handlePreTool(hookInput);
-  if (eventType === 'posttool')       return handlePostTool(hookInput);
-  console.log('[CAPTURE] unknown event type: ' + eventType);
-}).catch(() => process.exit(0));
+  readStdin().then(hookInput => {
+    if (eventType === 'subagent-start') return handleSubagentStart(hookInput);
+    if (eventType === 'subagent-stop')  return handleSubagentStop(hookInput);
+    if (eventType === 'pretool')        return handlePreTool(hookInput);
+    if (eventType === 'posttool')       return handlePostTool(hookInput);
+    console.log('[CAPTURE] unknown event type: ' + eventType);
+  }).catch(() => process.exit(0));
+}
+
+module.exports = { deriveSubagentSuccess, parseJSONLForData };
