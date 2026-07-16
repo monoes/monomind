@@ -4821,14 +4821,15 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             res.end(JSON.stringify({ ok: true, alreadyAnswered: true }));
             return;
           }
-          qData.questions[qIdx] = { ...qData.questions[qIdx], answer, answeredAt: Date.now() };
+          const answeredQuestion = qData.questions[qIdx];
+          qData.questions[qIdx] = { ...answeredQuestion, answer, answeredAt: Date.now() };
           const qTmp = `${qFile}.tmp`;
           fs.writeFileSync(qTmp, JSON.stringify(qData, null, 2));
           fs.renameSync(qTmp, qFile);
           const inboxDir = path.join(projDir, '.monomind', 'orgs', org);
           fs.mkdirSync(inboxDir, { recursive: true });
           fs.appendFileSync(path.join(inboxDir, 'inbox.jsonl'), JSON.stringify({
-            fromQualified: 'human', toRole: role, subject: `answer:${questionId}`, body: answer, ts: Date.now(),
+            fromQualified: 'human', toRole: role, subject: `answer:${questionId}`, body: `question: ${answeredQuestion.question}\n\nanswer: ${answer}`, ts: Date.now(),
           }) + '\n');
           const queuedEvent = { type: 'org:question-answered', org, role, questionId, ts: Date.now(), queued: true };
           appendToFile(path.join(projDir, 'data', 'mastermind-events.jsonl'), JSON.stringify(queuedEvent) + '\n').catch(() => {});
