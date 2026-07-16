@@ -440,6 +440,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.v2-bubble-inner.v2-bubble-question {
+  background: oklch(28% 0.04 75 / 0.95);
+  border-color: oklch(78% 0.16 75 / 0.7);
+  color: oklch(92% 0.03 75);
+}
 .org-chart-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 2px; }
 .ocl-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-lo); }
 
@@ -6486,9 +6491,19 @@ function v2OrgActivityReset() {
   _v2BubbleTimers = new Map();
 }
 
+function _v2FadeOutBubble(fo) {
+  if (typeof gsap !== 'undefined') {
+    gsap.to(fo, { autoAlpha: 0, duration: 0.4, ease: 'power2.in', onComplete: function() { fo.style.visibility = 'hidden'; } });
+  } else {
+    fo.style.opacity = '0';
+    fo.style.visibility = 'hidden';
+  }
+}
+
 function v2ShowActivityBubble(roleId, text) {
   const fo = document.querySelector('.v2-activity-bubble[data-bubble-for="' + CSS.escape(roleId) + '"]');
   if (!fo) return;
+  if (fo.dataset.questionPending === '1') return; // a pending question owns this bubble until answered
   const inner = fo.querySelector('.v2-bubble-inner');
   inner.textContent = text;
   if (typeof gsap !== 'undefined') {
@@ -6505,14 +6520,37 @@ function v2ShowActivityBubble(roleId, text) {
   const existing = _v2BubbleTimers.get(roleId);
   if (existing) clearTimeout(existing);
   _v2BubbleTimers.set(roleId, setTimeout(function() {
-    if (typeof gsap !== 'undefined') {
-      gsap.to(fo, { autoAlpha: 0, duration: 0.4, ease: 'power2.in', onComplete: function() { fo.style.visibility = 'hidden'; } });
-    } else {
-      fo.style.opacity = '0';
-      fo.style.visibility = 'hidden';
-    }
+    _v2FadeOutBubble(fo);
     _v2BubbleTimers.delete(roleId);
   }, 5000));
+}
+
+function v2ShowQuestionBubble(roleId, questionText) {
+  const fo = document.querySelector('.v2-activity-bubble[data-bubble-for="' + CSS.escape(roleId) + '"]');
+  if (!fo) return;
+  const existing = _v2BubbleTimers.get(roleId);
+  if (existing) { clearTimeout(existing); _v2BubbleTimers.delete(roleId); }
+  fo.dataset.questionPending = '1';
+  const inner = fo.querySelector('.v2-bubble-inner');
+  inner.textContent = '❓ ' + (questionText.length > 40 ? questionText.slice(0, 39) + '…' : questionText);
+  inner.classList.add('v2-bubble-question');
+  if (typeof gsap !== 'undefined') {
+    gsap.killTweensOf(fo);
+    fo.style.visibility = 'visible';
+    gsap.fromTo(fo, { scale: 0.8, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.3, ease: 'back.out(1.7)', transformOrigin: '50% 100%' });
+  } else {
+    fo.style.visibility = 'visible';
+    fo.style.opacity = '1';
+  }
+}
+
+function v2ClearQuestionBubble(roleId) {
+  const fo = document.querySelector('.v2-activity-bubble[data-bubble-for="' + CSS.escape(roleId) + '"]');
+  if (!fo) return;
+  delete fo.dataset.questionPending;
+  const inner = fo.querySelector('.v2-bubble-inner');
+  if (inner) inner.classList.remove('v2-bubble-question');
+  _v2FadeOutBubble(fo);
 }
 
 // ── in-place running dot updater (avoids full re-render + GSAP flicker on SSE events) ──
@@ -8414,6 +8452,14 @@ function _odtHandleLiveEvent(ev) {
   if (_odtChatSeenKeys.size > 2000) {
     const _arr = [..._odtChatSeenKeys];
     _odtChatSeenKeys = new Set(_arr.slice(1000));
+  }
+  if (ev?.type === 'org:question' && ev.from) {
+    v2ShowQuestionBubble(ev.from, ev.question || '');
+    if (viewRendered['humaninput']) renderHumanInputView();
+    else updateHumanInputBadge((parseInt(document.getElementById('bdg-humaninput')?.textContent, 10) || 0) + 1);
+  }
+  if (ev?.type === 'org:question-answered' && ev.role) {
+    v2ClearQuestionBubble(ev.role);
   }
   // Wire activity bubble for org chart visualization
   if (ev && ev.org === _v2SelOrg) {
