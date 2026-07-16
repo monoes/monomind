@@ -22,6 +22,7 @@ import { variablesPhase } from './phases/variables-phase.js';
 import { wildcardSynthesisPhase } from './phases/wildcard-phase.js';
 import { frameworkDetectPhase } from './phases/framework-detect.js';
 import { importResolverPhase } from './phases/import-resolver.js';
+import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import type { PipelineOptions, PipelineContext } from './types.js';
 import { DEFAULT_OPTIONS } from './types.js';
 import type { PipelineProgress, SuggestedQuestion } from '../types.js';
@@ -144,6 +145,7 @@ async function buildAsyncLocked(
       scanPhase, frameworkDetectPhase, structurePhase, parsePhase, variablesPhase,
       markdownPhase, routesPhase, toolsPhase, ormPhase,
       crossFilePhase, wildcardSynthesisPhase, importResolverPhase, scopeResolutionPhase,
+      bridgeResolverPhase,
       mroPhase, communitiesPhase, processesPhase, godNodesPhase, surprisesPhase, suggestPhase,
     ]);
 
