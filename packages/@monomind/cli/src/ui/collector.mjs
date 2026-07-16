@@ -640,15 +640,30 @@ function slugToPath(slug) {
 }
 
 // Reconstruct the real filesystem path from a Claude project slug.
-// Slugs encode the path with every '/' replaced by '-', which is lossy when
-// directory names contain literal hyphens (e.g. /Desktop/agent-f/accounting).
-// Strategy: naive replace first; if not found, greedy DFS through the filesystem
-// trying longest-possible segment (with embedded hyphens) at each level.
+// Slugs encode the path with every '/' AND '.' replaced by '-' (so a hidden
+// directory like '.claude' shows up as a bare '--claude', i.e. an empty split
+// token immediately before 'claude' — e.g. the real path
+// '/monomind/.claude/worktrees/foo' slugs to '-monomind--claude-worktrees-foo').
+// Also lossy when directory names contain literal hyphens (e.g.
+// /Desktop/agent-f/accounting). Strategy: naive replace first; if not found,
+// greedy DFS through the filesystem trying longest-possible segment (with
+// embedded hyphens) at each level.
 function resolveSlugPath(slug) {
   const naive = '/' + slug.replace(/^-/, '').replace(/-/g, '/');
   try { if (fs.existsSync(naive)) return naive; } catch {}
 
-  const tokens = slug.replace(/^-/, '').split('-').filter(Boolean);
+  // An empty token between two hyphens marks a collapsed '.' — reattach it to
+  // the following token instead of dropping it, so hidden directories survive
+  // reconstruction (dropping it silently turns '.claude' into 'claude', which
+  // never exists on disk, sending the walk down the wrong path entirely).
+  const rawTokens = slug.replace(/^-/, '').split('-');
+  const tokens = [];
+  let pendingDot = false;
+  for (const part of rawTokens) {
+    if (part === '') { pendingDot = true; continue; }
+    tokens.push(pendingDot ? '.' + part : part);
+    pendingDot = false;
+  }
 
   function walk(idx, dir) {
     if (idx === tokens.length) return dir;
