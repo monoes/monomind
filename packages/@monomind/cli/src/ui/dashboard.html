@@ -2459,6 +2459,27 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 </div>
 
 <script>
+// ── auth: attach this session's dashboard credential to every non-GET fetch ──
+// server.mjs requires an x-monomind-token header on all non-GET routes and
+// injects the current value via a <meta name="mm-token"> tag on page load.
+// Wrapping fetch() once here (rather than editing every individual POST/
+// DELETE call site across this file) means every existing and future write
+// action is covered automatically.
+(function () {
+  const _mmAuthTag = document.querySelector('meta[name="mm-token"]');
+  const _mmAuthValue = _mmAuthTag ? _mmAuthTag.content : '';
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    const method = (init && init.method ? init.method : 'GET').toUpperCase();
+    if (_mmAuthValue && method !== 'GET' && method !== 'HEAD') {
+      init = init ? { ...init } : {};
+      init.headers = new Headers(init.headers || {});
+      if (!init.headers.has('x-monomind-token')) init.headers.set('x-monomind-token', _mmAuthValue);
+    }
+    return _origFetch(input, init);
+  };
+})();
+
 // ── state ──────────────────────────────────────────────────
 let DIR = '';
 let ORIGINAL_DIR = '';
@@ -3768,7 +3789,7 @@ async function renderSessions() {
       let anomBadge = '';
       if (medianCost > 0.05 && sCost > medianCost * 3 && sCost > 0.5) {
         // f60: anomaly badge is clickable for explainer
-        anomBadge = `<span class="sess-anomaly anom-cost clickable" style="cursor:pointer" onclick="showCostExplainer('${esc(s.id)}',event)" title="Cost ${((sCost/medianCost).toFixed(1))}× above median — click for details">! costly</span>`;
+        anomBadge = `<span class="sess-anomaly anom-cost clickable" style="cursor:pointer" onclick="showCostExplainer('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}',event)" title="Cost ${((sCost/medianCost).toFixed(1))}× above median — click for details">! costly</span>`;
       } else if (s.toolCalls > 0 && (s.errorCount || 0) / s.toolCalls > 0.3) {
         anomBadge = `<span class="sess-anomaly anom-err" title="${s.errorCount} tool errors">! errors</span>`;
       }
@@ -3796,7 +3817,7 @@ async function renderSessions() {
       </div>` : '';
       // f51: error badge — clickable if errors exist
       const errBadge = (s.errorCount > 0 && s.toolCalls > 0 && (s.errorCount / s.toolCalls) > 0.3)
-        ? `<span class="sess-anomaly anom-err clickable" onclick="toggleErrDrawer('${esc(s.id)}',event)" title="Click to see ${s.errorCount} tool errors">${s.errorCount} err</span>`
+        ? `<span class="sess-anomaly anom-err clickable" onclick="toggleErrDrawer('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}',event)" title="Click to see ${s.errorCount} tool errors">${s.errorCount} err</span>`
         : anomBadge;
       // f50: custom tags
       const ctags = getCustomTags(s.id);
@@ -3807,12 +3828,12 @@ async function renderSessions() {
       const summaryHtml = s.summary
         ? `<div class="sr-summary">${esc(s.summary.slice(0, 180))}</div>`
         : '';
-      return `<div class="sess-row" data-sess-idx="${idx}" data-sess-id="${esc(s.id)}" onclick="handleSessRowClick(event,this,'${esc(s.id)}')" data-sess-data='${sData}'>
+      return `<div class="sess-row" data-sess-idx="${idx}" data-sess-id="${esc(s.id)}" onclick="handleSessRowClick(event,this,'${esc(String(s.id).replace(/['\\]/g,'\\$&'))}')" data-sess-data='${sData}'>
         <div class="sr-top">
           <div class="sr-prompt">${esc(s.lastPrompt || s.id?.slice(0,8) || '—')}</div>
           <div class="sr-time">${relTime(s.lastTs || s.mtime)}</div>${compactBadge}
           <button class="sr-copy-btn" data-prompt="${esc(s.lastPrompt || s.id)}" onclick="copyPrompt(this.dataset.prompt,event)" title="Copy prompt to clipboard">⎘</button>
-          <button class="sess-star${isStarred ? ' on' : ''}" data-sid="${esc(s.id)}" onclick="toggleBookmark('${esc(s.id)}',event)" title="${isStarred ? 'Remove bookmark' : 'Bookmark session'}">${isStarred ? '★' : '☆'}</button>
+          <button class="sess-star${isStarred ? ' on' : ''}" data-sid="${esc(s.id)}" onclick="toggleBookmark('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}',event)" title="${isStarred ? 'Remove bookmark' : 'Bookmark session'}">${isStarred ? '★' : '☆'}</button>
           <span class="sr-view">→ view</span>
         </div>
         ${summaryHtml}
@@ -3824,7 +3845,7 @@ async function renderSessions() {
         ${ctxGauge}
         <div class="err-drawer" id="err-drawer-${esc(s.id)}"></div>
         <div class="sess-notes-wrap" onclick="event.stopPropagation()">
-          <button class="sess-notes-toggle${hasNote ? ' has-note' : ''}" onclick="toggleSessNote('${esc(s.id)}',this)">✎ ${hasNote ? 'Note' : 'Add note'}</button>
+          <button class="sess-notes-toggle${hasNote ? ' has-note' : ''}" onclick="toggleSessNote('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}',this)">✎ ${hasNote ? 'Note' : 'Add note'}</button>
           <div class="sess-notes-area" id="snote-${esc(s.id)}">
             <textarea class="sess-note-input" rows="2" placeholder="Session note…" oninput="saveSessNote('${esc(s.id)}',this.value,this.closest('.sess-notes-wrap').querySelector('.sess-notes-toggle'),this.closest('.sess-row').querySelector('.sess-note-saved'))">${esc(note)}</textarea>
             <div class="sess-note-saved"></div>
@@ -3951,7 +3972,7 @@ function buildTagFilterBar(sessions) {
   if (!allTags.common.size) return '';
   const sorted = [...allTags.common].sort();
   const chips = sorted.map(t =>
-    `<button class="tag-chip${activeTagFilter === t ? ' active' : ''}" onclick="setTagFilter('${esc(t)}')">${esc(t)}</button>`
+    `<button class="tag-chip${activeTagFilter === t ? ' active' : ''}" onclick="setTagFilter('${esc(String(t).replace(/['\\]/g,'\\$&'))}')">${esc(t)}</button>`
   ).join('');
   return `<div class="tag-filter-bar">${chips}</div>`;
 }
@@ -4202,7 +4223,7 @@ async function renderGlobalFeed() {
       const gfSummaryHtml = s.summary
         ? `<div class="sr-summary">${esc(s.summary.slice(0, 180))}</div>`
         : '';
-      return `<div class="sess-row" onclick="switchProject('${esc(project.path)}');setTimeout(()=>jumpToSession('${esc(s.id)}'),150)">
+      return `<div class="sess-row" onclick="switchProject('${esc(String(project.path).replace(/['\\]/g,'\\$&'))}');setTimeout(()=>jumpToSession('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}'),150)">
         <div class="sr-top">
           <div class="sr-prompt">${esc(s.lastPrompt || s.id?.slice(0,8) || '—')}</div>
           <div class="sr-time">${relTime(s.lastTs || s.mtime)}</div>${gfCompactBadge}
@@ -8786,8 +8807,8 @@ async function v2ViewOrgFile(filePath, fileName) {
         '<span style="font-family:var(--mono);font-size:11px;color:var(--text-hi);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(filePath)+'">'+esc(fileName)+'</span>' +
         (isMd ? '<button id="of-toggle" class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofToggleRender()">Raw</button>' : '') +
         (isImage ? '' : '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="navigator.clipboard.writeText(_ofRawText).then(()=>{ if(typeof showToast===\'function\') showToast(\'Copied\',\'\',\'ok\'); })">Copy</button>') +
-        (isImage ? '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveImage(\''+esc(fileName)+'\')">Save</button>'
-                 : '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveFile(\''+esc(fileName)+'\')">Save</button>') +
+        (isImage ? '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveImage(\''+esc(String(fileName).replace(/['\\]/g,'\\$&'))+'\')">Save</button>'
+                 : '<button class="btn" style="font-size:9px;padding:2px 7px;border-color:oklch(68% 0.20 150);color:oklch(68% 0.20 150)" onclick="_ofSaveFile(\''+esc(String(fileName).replace(/['\\]/g,'\\$&'))+'\')">Save</button>') +
         '<button class="btn" style="font-size:9px;padding:2px 7px" onclick="_ofModal&&(_ofModal.remove(),_ofModal=null)">✕</button>' +
       '</div>' +
       '<div id="of-content" style="flex:1;overflow-y:auto;padding:16px 18px;font-size:12px;line-height:1.7;color:var(--text-mid);scrollbar-width:thin;scrollbar-color:var(--border) transparent">' +
@@ -10711,7 +10732,7 @@ function showCustomTagInput(sessId, event) {
 
 function renderCustomTagsInline(sessId, tags) {
   const tagHtml = tags.map(t =>
-    `<span class="sr-ctag">${esc(t)}<span class="ctag-del" onclick="removeCustomTag('${esc(sessId)}','${esc(t)}',event)" title="Remove tag">✕</span></span>`
+    `<span class="sr-ctag">${esc(t)}<span class="ctag-del" onclick="removeCustomTag('${esc(String(sessId).replace(/['\\]/g,'\\$&'))}','${esc(String(t).replace(/['\\]/g,'\\$&'))}',event)" title="Remove tag">✕</span></span>`
   ).join('');
   return `<div class="sr-custom-tags" data-sess="${esc(sessId)}" onclick="event.stopPropagation()">
     ${tagHtml}
