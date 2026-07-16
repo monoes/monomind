@@ -6537,7 +6537,6 @@ function v2ShowActivityBubble(roleId, text) {
   inner.textContent = text;
   if (typeof gsap !== 'undefined') {
     gsap.killTweensOf(fo);
-    fo.style.visibility = 'visible';
     gsap.fromTo(fo, { scale: 0.8, autoAlpha: 0 }, {
       scale: 1, autoAlpha: 1, duration: 0.3, ease: 'back.out(1.7)',
       transformOrigin: '50% 100%',
@@ -6554,6 +6553,15 @@ function v2ShowActivityBubble(roleId, text) {
   }, 5000));
 }
 
+// Truncates by Unicode code point (via the string iterator), not UTF-16 code
+// unit — a plain .slice() can bisect a surrogate pair (e.g. an emoji in the
+// question text) and render a broken glyph.
+function _v2TruncateText(text, maxLen) {
+  const chars = [...text];
+  if (chars.length <= maxLen) return text;
+  return chars.slice(0, maxLen - 1).join('') + '…';
+}
+
 function v2ShowQuestionBubble(roleId, questionText) {
   const fo = document.querySelector('.v2-activity-bubble[data-bubble-for="' + CSS.escape(roleId) + '"]');
   if (!fo) return;
@@ -6561,11 +6569,10 @@ function v2ShowQuestionBubble(roleId, questionText) {
   if (existing) { clearTimeout(existing); _v2BubbleTimers.delete(roleId); }
   fo.dataset.questionPending = '1';
   const inner = fo.querySelector('.v2-bubble-inner');
-  inner.textContent = '❓ ' + (questionText.length > 40 ? questionText.slice(0, 39) + '…' : questionText);
+  inner.textContent = '❓ ' + _v2TruncateText(questionText, 40);
   inner.classList.add('v2-bubble-question');
   if (typeof gsap !== 'undefined') {
     gsap.killTweensOf(fo);
-    fo.style.visibility = 'visible';
     gsap.fromTo(fo, { scale: 0.8, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.3, ease: 'back.out(1.7)', transformOrigin: '50% 100%' });
   } else {
     fo.style.visibility = 'visible';
