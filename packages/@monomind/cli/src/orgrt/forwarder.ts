@@ -6,7 +6,7 @@ import type { BusEvent } from './types.js';
 
 /**
  * Forwards every bus event to the running mastermind control server
- * (dist/src/ui/server.mjs, POST /api/mastermind/event) so the existing
+ * (src/ui/server.mjs, POST /api/mastermind/event) so the existing
  * dashboard shows org activity. Best-effort: failures are dropped.
  *
  * Events are translated into the dashboard's native vocabulary
@@ -19,7 +19,7 @@ import type { BusEvent } from './types.js';
  * companionEvents() additionally emits session:start/session:complete: the
  * dashboard's client-side Chat tab only lists a run in its session dropdown
  * once it has seen a session:start for that session id — org:start alone is
- * NOT enough (verified against dist/src/ui/orgs.html's handleMmEvent, which
+ * NOT enough (verified against src/ui/orgs.html's handleMmEvent, which
  * creates the chatSessions entry solely on session:start). Companions are
  * sent before the primary translate() payload for the same bus event so the
  * client-side session record exists before anything tries to append to it.
@@ -52,7 +52,7 @@ export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/contro
     } catch { return null; }
   };
 
-  // dist/src/ui/server.mjs's startServer() writes a per-process auth credential
+  // src/ui/server.mjs's startServer() writes a per-process auth credential
   // to 'dashboard-token' next to control.json (same .monomind dir) and requires
   // it via a header on every non-GET request. Read fresh each POST since the
   // credential rotates whenever the server restarts.

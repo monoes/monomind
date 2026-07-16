@@ -9,6 +9,12 @@ CLI_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$CLI_DIR"
 
+# dist/src/ui/* (dashboard, server, etc.) is hand-authored source under src/ui/
+# copied into dist/ by the build step — it is no longer committed to git, so a
+# stale or missing dist/ here would silently ship a broken/absent dashboard.
+echo "=== Building ==="
+npm run build
+
 # Get current version
 VERSION=$(node -p "require('./package.json').version")
 echo "Publishing version: $VERSION"

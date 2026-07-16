@@ -7,7 +7,7 @@
  *   cw  — cache-write tokens
  *   cr  — cache-read tokens
  *
- * Consumers: dist/src/ui/collector.mjs and dist/src/ui/server.mjs both
+ * Consumers: src/ui/collector.mjs and src/ui/server.mjs both
  * derive their inline pricing tables from this canonical list.
  */
 export interface ModelPrice {
