@@ -6375,6 +6375,14 @@ function v2RenderOrgChart() {
   });
   _v2ChartLayout = { pos, edgeIdByPair };
   v2OrgActivityReset();
+  // The org-chart's live bubbles (activity + pending-question) and flying letters are ALL
+  // driven by _odtHandleLiveEvent, which only receives events while the odt SSE connections
+  // are open. Those were previously established only from v2RenderOrgChat (the Chat tab), so a
+  // user who opens the Chart tab without first visiting Chat got NO live chart updates — the
+  // question bubble never lit. Establish them here too so the Chart tab is self-sufficient.
+  // Both connect helpers are idempotent (guarded) and null-safe on their live-dot elements.
+  _odtConnectChatSSE();
+  if (_v2SelOrg) _odtConnectOrgTail(_v2SelOrg);
 }
 
 function _v2RoleName(id, roles) {
