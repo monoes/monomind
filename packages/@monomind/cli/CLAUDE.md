@@ -283,6 +283,7 @@ Bash("npx monomind@latest hooks worker run optimize")
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `hooks`     | 29          | Self-learning hooks + 14 background workers                              | Working         |
+| `org`       | 9           | SDK org runtime v2 (run, stop, status, serve, test-loop, validate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
 
