@@ -59,18 +59,30 @@ const MAX_AGENT_STORE_BYTES = 50 * 1024 * 1024;
 // (e.g. hive-mind-tools.ts) can reuse this hardened loader instead of
 // maintaining their own weaker copy (missing the size cap / __proto__ guard).
 export function loadAgentStore(): AgentStore {
+  return loadAgentStoreOrNull() ?? { agents: {}, version: '3.0.0' };
+}
+
+// Like loadAgentStore(), but distinguishes "file doesn't exist yet" (returns
+// the empty default store — safe to build on and save) from "file exists but
+// failed to read/parse, or is corrupt/oversized" (returns null). Handlers
+// that are about to mutate-and-save MUST use this instead of loadAgentStore()
+// and bail out on null, or a transient read failure silently wipes every
+// previously-spawned agent on the next save (the exact bug found and fixed
+// in task-tools.ts's task_assign earlier this session — same pattern here).
+function loadAgentStoreOrNull(): AgentStore | null {
   try {
     const path = getAgentPath();
     migrateLegacyStoreFile(path, join(AGENT_DIR, AGENT_FILE));
     if (existsSync(path)) {
-      if (statSync(path).size > MAX_AGENT_STORE_BYTES) return { agents: {}, version: '3.0.0' };
+      if (statSync(path).size > MAX_AGENT_STORE_BYTES) return null;
       const data = readFileSync(path, 'utf-8');
       const parsed = JSON.parse(data) as AgentStore;
-      if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return { agents: {}, version: '3.0.0' };
+      if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return null;
       return parsed;
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadAgentStore] failed to read/parse agent store:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadAgentStore] failed to read/parse agent store — refusing to proceed to avoid overwriting it with an empty one:', e);
+    return null;
   }
   return { agents: {}, version: '3.0.0' };
 }
@@ -169,7 +181,10 @@ export const agentTools: MCPTool[] = [
       required: ['agentType'],
     },
     handler: async (input) => {
-      const store = loadAgentStore();
+      const store = loadAgentStoreOrNull();
+      if (!store) {
+        return { success: false, error: 'Agent store is unreadable/corrupt — refusing to spawn to avoid overwriting real agent data. Retry, or check the store file if this persists.' };
+      }
       // Cap agentId: used as the JSON object key in store.agents[agentId].
       // An oversized key inflates the on-disk store for every spawned agent.
       // Cap agentType/domain: persisted as AgentRecord field values.
@@ -271,7 +286,10 @@ export const agentTools: MCPTool[] = [
       if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
         return { success: false, agentId, error: 'Invalid agent ID' };
       }
-      const store = loadAgentStore();
+      const store = loadAgentStoreOrNull();
+      if (!store) {
+        return { success: false, agentId, error: 'Agent store is unreadable/corrupt — refusing to terminate to avoid overwriting real agent data.' };
+      }
 
       if (Object.hasOwn(store.agents, agentId)) {
         store.agents[agentId].status = 'terminated';
@@ -392,9 +410,15 @@ export const agentTools: MCPTool[] = [
       required: ['action'],
     },
     handler: async (input) => {
-      const store = loadAgentStore();
-      const agents = Object.values(store.agents).filter(a => a.status !== 'terminated');
       const action = (input.action as string) || 'status';  // Default to status
+      const store = loadAgentStoreOrNull();
+      if (!store) {
+        // 'scale'/'drain' would otherwise build on an empty store and save it,
+        // wiping every real agent; 'status' reporting all-zeros on a corrupt
+        // store would also be misleading, so all three branches bail here.
+        return { action, error: 'Agent store is unreadable/corrupt — refusing to proceed to avoid overwriting real agent data.' };
+      }
+      const agents = Object.values(store.agents).filter(a => a.status !== 'terminated');
 
       if (action === 'status') {
         const byType: Record<string, number> = {};
@@ -592,7 +616,10 @@ export const agentTools: MCPTool[] = [
       if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
         return { success: false, agentId, error: 'Invalid agent ID' };
       }
-      const store = loadAgentStore();
+      const store = loadAgentStoreOrNull();
+      if (!store) {
+        return { success: false, agentId, error: 'Agent store is unreadable/corrupt — refusing to update to avoid overwriting real agent data.' };
+      }
       const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
 
       if (agent) {

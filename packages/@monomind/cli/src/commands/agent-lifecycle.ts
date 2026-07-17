@@ -139,6 +139,7 @@ export const spawnCommand: Command = {
 
     try {
       const result = await callMCPTool<{
+        success?: boolean; error?: string;
         agentId: string; agentType: string; status: string; createdAt: string;
       }>('agent_spawn', {
         agentType, id: agentName,
@@ -152,6 +153,17 @@ export const spawnCommand: Command = {
         priority: 'normal',
         metadata: { name: agentName, capabilities: getAgentCapabilities(agentType) },
       });
+
+      // agent_spawn resolves (doesn't throw) on a tool-level failure like
+      // "agent store is unreadable" or "agent already exists" — callMCPTool
+      // only throws for registry/infra errors (tool not found/disabled), not
+      // for a handler's own {success:false} response. Without this check the
+      // CLI silently rendered a "spawned successfully" table full of
+      // undefined fields for a spawn that never actually happened.
+      if (result.success === false) {
+        output.printError(`Failed to spawn agent: ${result.error || 'unknown error'}`);
+        return { success: false, exitCode: 1 };
+      }
 
       output.writeln();
       output.printTable({
@@ -264,10 +276,20 @@ export const statusCommand: Command = {
 
     try {
       const status = await callMCPTool<{
-        id: string; agentType: string; status: 'active' | 'idle' | 'terminated';
+        id: string; agentType: string; status: 'active' | 'idle' | 'terminated' | 'not_found';
+        error?: string;
         createdAt: string; lastActivityAt?: string; config?: Record<string, unknown>;
         metrics?: { tasksCompleted: number; tasksInProgress: number; tasksFailed: number; averageExecutionTime: number; uptime: number };
       }>('agent_status', { agentId, includeMetrics: true, includeHistory: false });
+
+      // agent_status resolves (doesn't throw) with {status:'not_found', error}
+      // for a nonexistent agent — callMCPTool only throws for registry/infra
+      // errors, not a handler's own not-found response. Without this check
+      // the CLI reported success:true for an agent that was never found.
+      if (status.error) {
+        output.printError(`Failed to get agent status: ${status.error}`);
+        return { success: false, exitCode: 1 };
+      }
 
       if (ctx.flags.format === 'json') { output.printJson(status); return { success: true, data: status }; }
 
@@ -335,9 +357,21 @@ export const stopCommand: Command = {
     output.printInfo(`Stopping agent ${agentId}...`);
 
     try {
-      const result = await callMCPTool<{ agentId: string; terminated: boolean; terminatedAt: string }>('agent_terminate', {
+      const result = await callMCPTool<{
+        success?: boolean; error?: string;
+        agentId: string; terminated: boolean; terminatedAt: string;
+      }>('agent_terminate', {
         agentId, graceful: !force, reason: 'Stopped by user via CLI',
       });
+
+      // agent_terminate resolves (doesn't throw) with {success:false, error}
+      // for a nonexistent agent or an unreadable store — callMCPTool only
+      // throws for registry/infra errors. Without this check the CLI printed
+      // "stopped successfully" for an agent that was never actually stopped.
+      if (result.success === false) {
+        output.printError(`Failed to stop agent: ${result.error || 'unknown error'}`);
+        return { success: false, exitCode: 1 };
+      }
 
       if (!force) {
         output.writeln(output.dim('  Completing current task...'));
