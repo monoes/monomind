@@ -484,20 +484,22 @@ const monographSurprisesTool: MCPTool = {
 
 const monographSuggestTool: MCPTool = {
   name: 'monograph_suggest',
-  description: 'Get graph-topology-derived questions to explore the codebase. Pass task= to score by task relevance. When MONOGRAPH_EMBEDDINGS=true uses semantic search for task relevance.',
+  description: 'Get graph-topology-derived questions to explore the codebase. Pass task= to score by task relevance via BM25/FTS5.',
   inputSchema: {
     type: 'object',
     properties: {
       task: { type: 'string', description: 'Optional task description for task-relevance scoring' },
       limit: { type: 'number', description: 'Max questions (default 10)' },
-      checkStaleness: { type: 'boolean', description: 'Check index staleness first and trigger a background rebuild when the index is behind HEAD. Appends a _staleness annotation to the result. (default false)' },
+      checkStaleness: { type: 'boolean', description: 'Check index staleness first and trigger a background rebuild when the index is behind HEAD. Appends a _staleness annotation to the result. (default true — pass false to skip the git check)' },
     },
   },
   handler: async (input) => {
     // Health-aware mode (formerly monograph_suggest_auto): check staleness and
-    // trigger a background rebuild if the index is behind HEAD.
+    // trigger a background rebuild if the index is behind HEAD. Defaults on
+    // (opt-out, not opt-in) — a caller that never checked was exactly how a
+    // stale graph kept serving results silently.
     let stalenessAnnotation = '';
-    if (input.checkStaleness === true) {
+    if (input.checkStaleness !== false) {
       const repoPath = getProjectCwd();
       const stalenessResult = await computeCommitsBehind(repoPath);
       const commitsBehind = stalenessResult?.commitsBehind ?? 0;
@@ -534,31 +536,24 @@ const monographSuggestTool: MCPTool = {
         return `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})${locHint}`;
       };
 
-      // When a task is provided and embeddings are enabled, use semantic search
-      // to find relevant nodes and surface edge-level questions about them.
-      if (task && process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
+      // When a task is provided, use BM25/FTS5 (via hybridQuery) to find
+      // relevant nodes and restrict the edge-level questions to them. This
+      // used to be gated behind MONOGRAPH_EMBEDDINGS=true, but hybridQuery
+      // is BM25-only now (the embeddings table stayed empty in practice —
+      // see hybrid-query.ts) so the env var gated nothing and just left this
+      // better-ranked path off unless a caller happened to know about it.
+      let hitIds: string[] = [];
+      if (task) {
         const hits = await hybridQuery(db, task, { limit: 20 });
-        const hitIds = new Set(hits.map(h => h.id));
-        if (hitIds.size === 0) {
+        hitIds = [...new Set(hits.map(h => h.id))];
+        if (hitIds.length === 0) {
           return text('No suggestions for this task. Run monograph_build first or try a different query.' + stalenessAnnotation);
         }
-        const rows = db.prepare(`
-          SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt,
-                 n1.file_path as src_file, n1.start_line as src_line,
-                 n2.file_path as tgt_file, n2.start_line as tgt_line
-          FROM edges e
-          JOIN nodes n1 ON n1.id = e.source_id
-          JOIN nodes n2 ON n2.id = e.target_id
-          WHERE (e.source_id IN (${[...hitIds].map(() => '?').join(',')})
-                 OR e.target_id IN (${[...hitIds].map(() => '?').join(',')}))
-          AND e.confidence IN ('AMBIGUOUS', 'INFERRED')
-          LIMIT 100
-        `).all(...[...hitIds], ...[...hitIds]) as any[];
-
-        const questions = rows.map(formatSuggestion);
-        return text((questions.slice(0, limit).join('\n') || 'No suggestions for this task. Run monograph_build first.') + stalenessAnnotation);
       }
 
+      const taskFilter = hitIds.length
+        ? `AND (e.source_id IN (${hitIds.map(() => '?').join(',')}) OR e.target_id IN (${hitIds.map(() => '?').join(',')}))`
+        : '';
       const rows = db.prepare(`
         SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt,
                n1.file_path as src_file, n1.start_line as src_line,
@@ -567,26 +562,16 @@ const monographSuggestTool: MCPTool = {
         JOIN nodes n1 ON n1.id = e.source_id
         JOIN nodes n2 ON n2.id = e.target_id
         WHERE e.confidence IN ('AMBIGUOUS', 'INFERRED')
+        ${taskFilter}
         LIMIT 100
-      `).all() as any[];
+      `).all(...hitIds, ...hitIds) as any[];
 
-      let scored = rows.map(r => ({
-        q: formatSuggestion(r),
-        relevance: task ? taskRelevance(task, r.src + ' ' + r.tgt + ' ' + (r.src_file ?? '')) : 0,
-      }));
-
-      if (task) scored = scored.sort((a, b) => b.relevance - a.relevance);
-
-      return text((scored.slice(0, limit).map(s => s.q).join('\n') || 'No suggestions. Run monograph_build first.') + stalenessAnnotation);
+      const questions = rows.map(formatSuggestion);
+      const fallback = task ? 'No suggestions for this task. Run monograph_build first.' : 'No suggestions. Run monograph_build first.';
+      return text((questions.slice(0, limit).join('\n') || fallback) + stalenessAnnotation);
     } finally { closeDb(db); }
   },
 };
-
-function taskRelevance(task: string, nodeText: string): number {
-  const taskTerms = task.toLowerCase().split(/\s+/);
-  const txt = nodeText.toLowerCase();
-  return taskTerms.filter(t => txt.includes(t)).length / taskTerms.length;
-}
 
 // ── monograph_visualize ───────────────────────────────────────────────────────
 
@@ -782,8 +767,10 @@ async function computeCommitsBehind(repoPath: string): Promise<{ commitsBehind: 
  * Shared staleness threshold: both monograph_staleness and monograph_suggest (checkStaleness)
  * trigger a background rebuild only when the index is more than this many commits behind HEAD.
  * Using a shared constant prevents conflicting rebuild pressure during active dev sessions.
+ * Was 10 (11-commit trigger) — loose enough that a "2 commits behind" graph (the common
+ * case session banners actually report) never rebuilt and silently served stale results.
  */
-const STALENESS_THRESHOLD = 10;
+const STALENESS_THRESHOLD = 3;
 
 /**
  * Fire-and-forget background rebuild. Uses a module-level guard so concurrent
@@ -805,7 +792,7 @@ function triggerBackgroundBuildIfNeeded(repoPath: string, commitsBehind: number,
 
 const monographStalenessTool: MCPTool = {
   name: 'monograph_staleness',
-  description: 'Git staleness detection: compares the commit hash at last index build against current HEAD. When the index is more than 10 commits behind HEAD it automatically triggers a background rebuild. Returns { commitsBehind, status, triggered }.',
+  description: 'Git staleness detection: compares the commit hash at last index build against current HEAD. When the index is more than 3 commits behind HEAD it automatically triggers a background rebuild. Returns { commitsBehind, status, triggered }.',
   inputSchema: {
     type: 'object',
     properties: {
