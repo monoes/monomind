@@ -1,5 +1,5 @@
 // packages/@monomind/cli/__tests__/orgrt/org-command.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -196,6 +196,24 @@ describe('org command', () => {
         expect(res?.success).toBe(true);
       } finally { rmSync(cwd, { recursive: true, force: true }); }
     });
+  });
+
+  it('status flags a crashed org (running status, dead pid) instead of reporting it running', async () => {
+    const status = orgCommand.subcommands!.find(c => c.name === 'status')!;
+    const cwd = mkdtempSync(join(tmpdir(), 'org-status-'));
+    const warnings: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { warnings.push(a.join(' ')); });
+    try {
+      mkdirSync(join(cwd, ORG_DIR, 'dead'), { recursive: true });
+      writeFileSync(join(cwd, ORG_DIR, 'dead.json'), JSON.stringify({ name: 'dead', roles: [{ id: 'boss' }] }));
+      writeFileSync(join(cwd, ORG_DIR, 'dead', 'runtime.json'), JSON.stringify({ status: 'running', run: 'run-x', pid: 999999999 }));
+      const res = await status.action!({ args: ['dead'], flags: {}, cwd, interactive: false } as any);
+      expect(res?.success).toBe(true);
+      expect(warnings.join('\n')).toMatch(/crashed/);
+    } finally {
+      spy.mockRestore();
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 
   it('status rejects a path-traversal org name', async () => {
