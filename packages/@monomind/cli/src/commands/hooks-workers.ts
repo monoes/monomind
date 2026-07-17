@@ -160,7 +160,9 @@ export const intelligenceCommand: Command = {
             const pData = JSON.parse(readFileSync(persistence.patternsFile, 'utf-8'));
             if (Array.isArray(pData)) patternsFileEntries = pData.length;
           }
-        } catch { /* ignore */ }
+        } catch (e) {
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] patterns.json read/parse failed:', e);
+        }
       }
 
       // Read stats.json for trajectory data
@@ -174,7 +176,9 @@ export const intelligenceCommand: Command = {
             trajectoriesFromDisk = sData?.trajectoriesRecorded ?? 0;
             lastAdaptationFromDisk = sData?.lastAdaptation ?? null;
           }
-        } catch { /* ignore */ }
+        } catch (e) {
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] stats.json read/parse failed:', e);
+        }
       }
 
       // Merge local stats with any we can get from MCP

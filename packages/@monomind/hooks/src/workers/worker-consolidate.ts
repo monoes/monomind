@@ -175,7 +175,11 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
           }
         }
       }
-    } catch { /* non-critical — bridge may be unavailable */ }
+    } catch (e) {
+      // non-critical — bridge may be unavailable, but a mid-run failure here
+      // silently under-reports patternsConsolidated/clustersCreated.
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-consolidate] RAPTOR clustering failed:', e);
+    }
 
     const result = {
       timestamp: new Date().toISOString(),

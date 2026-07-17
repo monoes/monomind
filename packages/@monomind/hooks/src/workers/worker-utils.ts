@@ -166,7 +166,8 @@ export async function validateProjectRoot(root: string): Promise<string> {
       throw new Error('Project root must be a directory');
     }
     return resolved;
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-utils] invalid project root, falling back to cwd:', e);
     return process.cwd();
   }
 }
@@ -262,8 +263,9 @@ export async function searchDDDPatterns(srcPath: string): Promise<Record<string,
         if (DDD_PATTERNS.domainEvent.test(content)) patterns.domainEvents++;
       }
     }
-  } catch {
+  } catch (e) {
     // Ignore errors
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-utils] searchDDDPatterns failed:', e);
   }
 
   return patterns;
@@ -302,8 +304,9 @@ export async function scanDirectoryForPatterns(
         }
       }
     }
-  } catch {
+  } catch (e) {
     // Ignore errors
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-utils] scanDirectoryForPatterns failed:', e);
   }
 
   return { secrets, vulnerabilities };

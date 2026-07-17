@@ -69,8 +69,8 @@ function loadMetrics(): SystemMetrics {
     if (existsSync(path) && statSync(path).size <= MAX_SYSTEM_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
-  } catch {
-    // Return default metrics
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadMetrics] failed to read/parse metrics.json, using defaults:', e);
   }
   return {
     startTime: new Date().toISOString(),
@@ -581,8 +581,8 @@ export const systemTools: MCPTool[] = [
           const store = JSON.parse(data);
           tasks = Object.values(store.tasks || {});
         }
-      } catch {
-        // empty store
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[task_summary] failed to read/parse task store:', e);
       }
 
       return {

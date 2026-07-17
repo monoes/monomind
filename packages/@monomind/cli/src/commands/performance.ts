@@ -599,7 +599,7 @@ const bottleneckCommand: Command = {
 
     const configPath = 'monomind.config.json';
     let config: Record<string, unknown> = {};
-    try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch { /* no config */ }
+    try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[performance-bottleneck] failed to parse monomind.config.json:', e); }
     const perf = (config.performance ?? {}) as Record<string, unknown>;
     const hnsw = (perf.hnsw ?? {}) as Record<string, unknown>;
     if (!hnsw.quantization) {

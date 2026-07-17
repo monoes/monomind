@@ -357,8 +357,8 @@ const initCommand: Command = {
           updatedAt: new Date().toISOString()
         };
         writeJsonFileAtomic(stateFile, store);
-      } catch {
-        // Ignore errors writing state file
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[swarm-init] failed to persist swarm state file:', e);
       }
 
       if (ctx.flags.format === 'json') {
