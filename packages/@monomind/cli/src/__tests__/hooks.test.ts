@@ -138,7 +138,13 @@ describe('hooksCommand alias wiring (v2 backward compatibility)', () => {
     const restoreData = restoreResult?.data as { restoredState?: { tasksRestored: number; agentsRestored: number; memoryBridgeInitialized: boolean } };
     expect(restoreData?.restoredState).toBeDefined();
     expect(typeof restoreData?.restoredState?.agentsRestored).toBe('number');
-    expect(typeof restoreData?.restoredState?.memoryBridgeInitialized).toBe('boolean');
+    // Pins the value, not just its type — a regression that hardcodes
+    // memoryBridgeInitialized to a fixed boolean regardless of the real
+    // bridge outcome (the exact "fabricated metric" bug class this field
+    // replaced) would still pass a bare typeof check. The real @monoes/memory
+    // LanceDB backend used here (not mocked in this file) initializes
+    // successfully in this test environment, so the real outcome is `true`.
+    expect(restoreData?.restoredState?.memoryBridgeInitialized).toBe(true);
   });
 });
 
