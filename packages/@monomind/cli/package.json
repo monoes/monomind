@@ -73,14 +73,15 @@
     "!.claude/**/.monomind/**",
     "!.claude/**/*.lock",
     "!dist/**/.monomind/**",
+    "!dist/**/._*",
     "!.claude/agents/generated/**",
     "!.claude/agents/reengineer-squad/**",
     "scripts",
     "README.md"
   ],
   "scripts": {
-    "build": "tsc && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html && mkdir -p dist/src/ui && cp src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs dist/src/ui/ && rm -rf dist/src/ui/data && cp -r src/ui/data dist/src/ui/data",
-    "build:loose": "tsc --noEmitOnError false || true && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html && mkdir -p dist/src/ui && cp src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs dist/src/ui/ && rm -rf dist/src/ui/data && cp -r src/ui/data dist/src/ui/data",
+    "build": "tsc && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html && mkdir -p dist/src/ui && cp src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/mastermind-diagram-fallback.html dist/src/ui/ && rm -rf dist/src/ui/data && cp -r src/ui/data dist/src/ui/data",
+    "build:loose": "tsc --noEmitOnError false || true && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html && mkdir -p dist/src/ui && cp src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/mastermind-diagram-fallback.html dist/src/ui/ && rm -rf dist/src/ui/data && cp -r src/ui/data dist/src/ui/data",
     "test": "vitest run",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
     "prepublishOnly": "cp ../../../README.md ./README.md",
