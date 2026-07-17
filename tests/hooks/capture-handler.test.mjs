@@ -170,3 +170,77 @@ describe('handleSubagentStop cross-subagent scoping', () => {
     expect(outcomes[0].success).toBe(true);
   });
 });
+
+describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-independent)', () => {
+  let projectDir, fakeHome, claudeDir;
+
+  beforeEach(() => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ch-rf-proj-'));
+    fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ch-rf-home-'));
+    const encoded = projectDir.replace(/\//g, '-');
+    claudeDir = path.join(fakeHome, '.claude', 'projects', encoded);
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.mkdirSync(path.join(projectDir, '.monomind'), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, '.monomind', 'last-route.json'), JSON.stringify({ agent: 'coder', confidence: 0.85, prompt: 'test' }));
+  });
+
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+    fs.rmSync(fakeHome, { recursive: true, force: true });
+  });
+
+  function runHook(eventType, hookInput) {
+    return execFileSync('node', [CH_PATH, eventType], {
+      input: JSON.stringify(hookInput),
+      env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir, HOME: fakeHome, USERPROFILE: fakeHome },
+      encoding: 'utf-8',
+    });
+  }
+
+  function readFeedback() {
+    const p = path.join(projectDir, '.monomind', 'routing-feedback.jsonl');
+    if (!fs.existsSync(p)) return [];
+    return fs.readFileSync(p, 'utf-8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
+  }
+
+  function stopOneSubagent(name, isError) {
+    const transcript = path.join(claudeDir, `${name}.jsonl`);
+    runHook('subagent-start', { transcript_path: transcript, agentType: 'coder', agentDesc: name });
+    fs.writeFileSync(transcript, [
+      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+      { message: { role: 'user', content: [{ type: 'tool_result', is_error: isError, content: isError ? 'failed' : 'ok' }] } },
+      { message: { role: 'assistant', content: [{ type: 'text', text: `${name} done.` }] } },
+    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+    runHook('subagent-stop', { transcript_path: transcript });
+  }
+
+  it('grows routing-feedback.jsonl from SubagentStop alone — never depends on SessionEnd firing', () => {
+    // 3 full start+stop subprocess round-trips (~6s each observed elsewhere
+    // in this file) exceed vitest's 10s default; give it more headroom.
+    // Reproduces a real production scenario: a `monomind org run` daemon session
+    // that stays open for days without ever triggering SessionEnd. Previously
+    // routing-feedback.jsonl (fed only by SessionEnd) would never grow no matter
+    // how much real subagent activity happened — session-end is never invoked here.
+    stopOneSubagent('agent-1', false);
+    stopOneSubagent('agent-2', true);
+    stopOneSubagent('agent-3', false);
+
+    const entries = readFeedback();
+    expect(entries).toHaveLength(3);
+    expect(entries.map(e => e.intelligenceFeedback)).toEqual([true, false, true]);
+    expect(entries.every(e => e.suggestedAgent === 'coder')).toBe(true);
+  }, 30000);
+
+  it('skips writing when the agent slug is a non-agent placeholder', () => {
+    const transcript = path.join(claudeDir, 'unknown-agent.jsonl');
+    runHook('subagent-start', { transcript_path: transcript }); // no agentType -> 'unknown'
+    fs.writeFileSync(transcript, [
+      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+      { message: { role: 'user', content: [{ type: 'tool_result', is_error: false, content: 'ok' }] } },
+      { message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } },
+    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+    runHook('subagent-stop', { transcript_path: transcript });
+
+    expect(readFeedback()).toHaveLength(0);
+  });
+});

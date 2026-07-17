@@ -393,8 +393,49 @@ async function handleSubagentStop(hookInput) {
   // remaining event that carries a genuine failure signal, since post-task
   // (TeammateIdle/TaskCompleted) is dead code (those aren't valid Claude
   // Code hook events and are stripped from settings.json on init).
+  const _subagentSuccess = deriveSubagentSuccess(summary, lastToolError);
   try {
-    require('../intelligence.cjs').feedback(deriveSubagentSuccess(summary, lastToolError));
+    require('../intelligence.cjs').feedback(_subagentSuccess);
+  } catch (e) { /* non-fatal — feedback recording must never block subagent-stop */ }
+
+  // ── Routing Feedback Loop (per-subagent) ──────────────────────────────
+  // session-handler.cjs's SessionEnd writes one routing-feedback.jsonl entry
+  // per SESSION — but a session that never ends (e.g. a long-running
+  // `monomind org run` daemon session, observed running 2+ days without a
+  // SessionEnd in production) never contributes any entry at all, even
+  // though real subagent activity (and real success/failure signal) is
+  // happening continuously inside it. SubagentStop fires independently of
+  // session boundaries, so writing a routing-feedback entry HERE — one per
+  // actual routing decision (this subagent spawn), not one per session —
+  // keeps the "Routing Learning" signal live regardless of session length,
+  // instead of it going silently stale for anyone running persistent orgs.
+  try {
+    var _agentSlug = String(agentType || '').trim().toLowerCase().replace(/\s+/g, '-');
+    if (_agentSlug && _agentSlug !== 'ai-selecting' && _agentSlug !== 'unknown') {
+      var _rfEntry = {
+        timestamp: new Date().toISOString(),
+        suggestedAgent: _agentSlug,
+        sessionId: String(session || snap.session || hookInput.sessionId || hookInput.session_id || '').slice(0, 128),
+        intelligenceFeedback: _subagentSuccess,
+      };
+      // Best-effort confidence from the routing decision that led to this
+      // spawn — may not correspond exactly to THIS subagent if another
+      // routing decision overwrote last-route.json in between (same
+      // imprecision session-handler.cjs's session-level entries already had).
+      try {
+        var _lastRoutePath = path.join(CWD, '.monomind', 'last-route.json');
+        var _MAX_ROUTE = 64 * 1024;
+        if (fs.existsSync(_lastRoutePath) && fs.statSync(_lastRoutePath).size <= _MAX_ROUTE) {
+          var _lastRoute = JSON.parse(fs.readFileSync(_lastRoutePath, 'utf-8'));
+          if (typeof _lastRoute.confidence === 'number') _rfEntry.confidence = _lastRoute.confidence;
+        }
+      } catch (_) {}
+      appendJsonlWithRotation(
+        path.join(CWD, '.monomind', 'routing-feedback.jsonl'),
+        JSON.stringify(_rfEntry),
+        1000
+      );
+    }
   } catch (e) { /* non-fatal — feedback recording must never block subagent-stop */ }
 
   if (!org && !session) {
