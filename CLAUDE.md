@@ -1,6 +1,6 @@
 # Claude Code Configuration - Monomind v2
 
-> **Monomind v2.0.0** — Packages: `monomind@2.0.0` (umbrella), `@monoes/monomindcli@2.0.0` (CLI), `@monoes/monograph@1.4.0` (knowledge graph)
+> **Monomind v2.1.7** — Packages: `monomind@2.1.7` (umbrella), `@monoes/monomindcli@2.1.7` (CLI), `@monoes/monograph@1.4.0` (knowledge graph)
 
 ## Behavioral Rules (Always Enforced)
 
@@ -33,20 +33,18 @@
 
 ## Project Architecture
 
-- Follow Domain-Driven Design with bounded contexts
 - Keep files under 500 lines
 - Use typed interfaces for all public APIs
 - Prefer TDD London School (mock-first) for new code
-- Use event sourcing for state changes
 - Ensure input validation at system boundaries
 
 ### Key Packages
 
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
-| `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (31 commands)          |
+| `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (32 commands)          |
 | `@monomind/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 15 background workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress/map/audit/optimize/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server |
-| `@monoes/memory`     | `packages/@monomind/memory/`   | Memory backends — JSON pattern store + episodic recall on the hot path (LanceDB/HNSW code exists but is not used at runtime) |
+| `@monoes/memory`     | `packages/@monomind/memory/`   | Memory backends — three parallel paths coexist: JSON pattern store (hooks/intelligence trajectory logging), LanceDB + HF-embeddings (`memory-bridge.ts`, backs CLI `memory store/search` and the MCP memory tools), and a standalone pure-JS HNSW index (`hnsw-operations.ts`) |
 | `@monomind/mcp`      | `packages/@monomind/mcp/`      | MCP server framework (HTTP/WS transport) |
 | `@monomind/routing`  | `packages/@monomind/routing/`  | Semantic routing (embedding + keyword cascade) |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
@@ -183,7 +181,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 ---
 
-## CLI Commands (31 Commands)
+## CLI Commands (32 Commands)
 
 | Command          | Sub | Description                                          |
 | ---------------- | --- | ---------------------------------------------------- |
@@ -192,7 +190,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `status`         | 3   | System status monitoring with watch mode             |
 | `agent`          | 7   | Agent lifecycle (spawn, list, status, stop, metrics, pool, health). Runs in-process — no separate MCP server required |
 | `swarm`          | 6   | Multi-agent swarm coordination. Runs in-process — no separate MCP server required |
-| `memory`         | 12  | Memory store — JSON pattern store + episodic recall  |
+| `memory`         | 12  | Memory store — JSON patterns, LanceDB+embeddings, and standalone HNSW backends |
 | `mcp`            | 9   | MCP server management                                |
 | `task`           | 5   | Task creation and lifecycle                          |
 | `session`        | 6   | Session state management (incl. `replay` show/list)  |
@@ -209,7 +207,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `autopilot`      | -   | Autonomous task execution                            |
 | `analyze`        | -   | Codebase analysis                                    |
 | `route`          | -   | Task routing                                         |
-| `providers`      | 2   | AI provider management (configure, test)             |
+| `providers`      | 4   | AI provider management (configure, test, list, remove) |
 | `search`         | 1   | Universal search (`search scan` refreshes fingerprint) |
 | `doc`            | -   | Documentation generation                             |
 | `design`         | -   | Design detection and routing                         |
@@ -235,7 +233,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 
 **Hooks:** `TeammateIdle` (auto-assign tasks), `TaskCompleted` (train patterns, notify lead).
 
-## Available Agents (30 definitions in `.claude/agents/`)
+## Available Agents (32 definitions in `.claude/agents/`: 30 curated below + 2 non-roster — `templates/coordinator-swarm-init.md` and `generated/dashboard-verifier.md`)
 
 - **Core:** coder, coordinator, planner, researcher, reviewer, tester
 - **Engineering:** ai-engineer, backend-architect, code-reviewer, devops-automator, frontend-developer, security-engineer, software-architect, technical-writer
@@ -266,14 +264,14 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 
 ## Project Configuration (Anti-Drift Defaults)
 
-Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: JSON pattern store + episodic recall.
+Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: JSON patterns + LanceDB/embeddings + standalone HNSW (see Key Packages table).
 
 ## Quick Setup
 
 ```bash
 # MCP mode requires explicit `mcp start` subcommand (auto-detect disabled by default)
 # Set MONOMIND_MCP_AUTODETECT=1 to restore legacy piped-stdin auto-detect behavior
-claude mcp add monomind npx monomind@latest mcp start
+claude mcp add monomind -- npx -y monomind@latest mcp start
 npx monomind@latest doctor --fix
 ```
 
