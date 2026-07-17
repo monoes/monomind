@@ -69,7 +69,9 @@ export function loadAgentStore(): AgentStore {
 // and bail out on null, or a transient read failure silently wipes every
 // previously-spawned agent on the next save (the exact bug found and fixed
 // in task-tools.ts's task_assign earlier this session — same pattern here).
-function loadAgentStoreOrNull(): AgentStore | null {
+// Exported for other tool modules with their own mutate-and-save paths
+// against the same agent store file — see hive-mind-tools.ts.
+export function loadAgentStoreOrNull(): AgentStore | null {
   try {
     const path = getAgentPath();
     migrateLegacyStoreFile(path, join(AGENT_DIR, AGENT_FILE));
@@ -507,13 +509,16 @@ export const agentTools: MCPTool[] = [
 
       if (action === 'drain') {
         const agentType = input.agentType as string;
+        // Scope "remaining" to the same population drain operated over — when
+        // filtered by agentType, agents.length (all non-terminated agents,
+        // any type) minus drained (only that type's count) mixed two
+        // different populations and produced a meaningless total.
+        const scoped = agentType ? agents.filter(a => a.agentType === agentType) : agents;
         let drained = 0;
-        for (const agent of agents) {
-          if (!agentType || agent.agentType === agentType) {
-            if (agent.status === 'idle') {
-              store.agents[agent.agentId].status = 'terminated';
-              drained++;
-            }
+        for (const agent of scoped) {
+          if (agent.status === 'idle') {
+            store.agents[agent.agentId].status = 'terminated';
+            drained++;
           }
         }
         saveAgentStore(store);
@@ -521,7 +526,7 @@ export const agentTools: MCPTool[] = [
           action,
           agentType: agentType || 'all',
           drained,
-          remaining: agents.length - drained,
+          remaining: scoped.length - drained,
         };
       }
 
