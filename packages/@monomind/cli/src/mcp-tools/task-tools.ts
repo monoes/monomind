@@ -50,7 +50,7 @@ function ensureTaskDir(): void {
 
 const MAX_TASK_STORE_BYTES = 50 * 1024 * 1024;
 
-function loadTaskStore(): TaskStore {
+export function loadTaskStore(): TaskStore {
   try {
     const path = getTaskPath();
     if (existsSync(path)) {
