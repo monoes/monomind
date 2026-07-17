@@ -269,11 +269,40 @@ describe('memory-crud commands (sql.js fallback path)', () => {
     });
 
     it('reports (not throws) when deleting a key that does not exist', async () => {
-      const del = await run(deleteCommand, 
+      const del = await run(deleteCommand,
         ctx({ flags: { _: [], key: 'never-existed', namespace: 'default', force: true } }),
       );
       expect(del.success).toBe(false);
       expect((del.data as any).deleted).toBe(false);
     });
+
+    it(
+      'an --upsert store after a delete does not resurrect the soft-deleted row: ' +
+        'delete only sets status=\'deleted\' (the row stays in the table), so the upsert\'s ' +
+        'id lookup must exclude it — otherwise the upsert would match the deleted row\'s id, ' +
+        'flip its status back to active via INSERT OR REPLACE, and silently undo the delete',
+      async () => {
+        await run(storeCommand,
+          ctx({ flags: { _: [], key: 'resurrect-key', value: 'original', namespace: 'resurrect-ns' } }),
+        );
+        const del = await run(deleteCommand,
+          ctx({ flags: { _: [], key: 'resurrect-key', namespace: 'resurrect-ns', force: true } }),
+        );
+        expect(del.success).toBe(true);
+
+        const upserted = await run(storeCommand,
+          ctx({ flags: { _: [], key: 'resurrect-key', value: 'new value', namespace: 'resurrect-ns', upsert: true } }),
+        );
+        expect(upserted.success).toBe(true);
+
+        // Retrieve should now find the fresh row the upsert created — the
+        // deleted one must not have come back in its place.
+        const got = await run(retrieveCommand,
+          ctx({ flags: { _: [], key: 'resurrect-key', namespace: 'resurrect-ns' } }),
+        );
+        expect(got.success).toBe(true);
+        expect((got.data as any).content).toBe('new value');
+      },
+    );
   });
 });
