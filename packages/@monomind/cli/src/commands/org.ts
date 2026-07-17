@@ -100,10 +100,27 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   return { success: true, message: `org ${name} stopped` };
 };
 
+/** True when runtime.json records a running org whose recorded pid is still alive. */
+const isOrgRunning = (cwd: string, name: string): boolean => {
+  try {
+    const rt = JSON.parse(readFileSync(join(cwd, ORG_DIR, name, 'runtime.json'), 'utf8')) as
+      { status?: string; pid?: number };
+    if (rt.status !== 'running' || !rt.pid) return false;
+    process.kill(rt.pid, 0); // throws if the pid is gone (crashed daemon left a stale file)
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const stopAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const validated = validateOrgName(ctx.args[0]);
   if (!validated.ok) return validated.result;
   const name = validated.name;
+  if (!existsSync(join(ctx.cwd, ORG_DIR, `${name}.json`))) {
+    log(output.error(`Org not found: ${name}`));
+    return { success: false, message: 'org not found' };
+  }
   const { writeFileSync, mkdirSync } = await import('node:fs');
   mkdirSync(join(ctx.cwd, ORG_DIR, name), { recursive: true });
   writeFileSync(join(ctx.cwd, ORG_DIR, name, 'stop'), new Date().toISOString());
@@ -328,6 +345,10 @@ const deleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
     log(output.error(`Org not found: ${orgName}`));
     return { success: false, message: 'org not found' };
   }
+  if (isOrgRunning(cwd, orgName) && ctx.flags['force'] !== true) {
+    log(output.error(`Org "${orgName}" is currently running — stop it first (monomind org stop ${orgName}) or pass --force.`));
+    return { success: false, message: 'org is running' };
+  }
   let removed = 0;
   for (const suf of ['', ...ORG_ARTIFACT_SUFFIXES]) {
     for (const ext of ['.json', '.jsonl']) {
@@ -410,7 +431,10 @@ export const orgCommand: Command = {
     { name: 'list', description: 'List all orgs in the current project', action: listAction },
     {
       name: 'delete', description: 'Delete an org and all its data',
-      options: [{ name: 'yes', short: 'y', description: 'Skip confirmation', type: 'boolean' }],
+      options: [
+        { name: 'yes', short: 'y', description: 'Skip confirmation', type: 'boolean' },
+        { name: 'force', description: 'Delete even if the org appears to be running', type: 'boolean' },
+      ],
       action: deleteAction,
     },
     { name: 'mark-complete', description: 'Manually close a stale/crashed run', action: markCompleteAction },
