@@ -150,6 +150,23 @@ describe('terminal write handlers do not wipe a corrupt terminal store', () => {
     expect(readFileSync(path, 'utf-8')).toBe(content);
   });
 
+  it('terminal_create refuses to write when the store JSON has a __proto__ own key, leaving it untouched', async () => {
+    const terminalsDir = join(dir, '.monomind', 'terminals');
+    mkdirSync(terminalsDir, { recursive: true });
+    const path = join(terminalsDir, 'store.json');
+    // JSON.parse (unlike an object literal) creates "__proto__" as a real
+    // own data property rather than setting the prototype -- a tampered
+    // store.json could use this to smuggle a prototype-polluting payload
+    // into the parsed store object.
+    const content = '{"sessions": {}, "version": "3.0.0", "__proto__": {"polluted": true}}';
+    writeFileSync(path, content, 'utf-8');
+
+    const create = terminalTools.find((t) => t.name === 'terminal_create')!;
+    const result = (await create.handler({}, {} as never)) as { success: boolean; error?: string };
+    expect(result.success).toBe(false);
+    expect(readFileSync(path, 'utf-8')).toBe(content);
+  });
+
   it('terminal_create writes normally when the store is absent or valid', async () => {
     const create = terminalTools.find((t) => t.name === 'terminal_create')!;
     const result = (await create.handler({}, {} as never)) as { success: boolean; sessionId?: string };
