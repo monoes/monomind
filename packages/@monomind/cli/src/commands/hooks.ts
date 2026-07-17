@@ -381,7 +381,7 @@ const sessionRestoreCommand: Command = {
         restoredState: {
           tasksRestored: number;
           agentsRestored: number;
-          memoryRestored: number;
+          memoryBridgeInitialized: boolean;
         };
         warnings?: string[];
       }>('hooks_session-restore', {
@@ -410,7 +410,7 @@ const sessionRestoreCommand: Command = {
         data: [
           { item: 'Tasks', count: result.restoredState.tasksRestored },
           { item: 'Agents', count: result.restoredState.agentsRestored },
-          { item: 'Memory Entries', count: result.restoredState.memoryRestored }
+          { item: 'Memory Bridge', count: result.restoredState.memoryBridgeInitialized ? 'ready' : 'unavailable' }
         ]
       });
 
