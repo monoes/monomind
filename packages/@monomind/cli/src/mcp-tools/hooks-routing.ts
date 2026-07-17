@@ -1446,14 +1446,22 @@ export const hooksSessionRestore: MCPTool = {
       }
     }
 
-    let memoryRestored = 0;
+    // bridgeSessionStart only stores a new "session active" marker entry —
+    // it has no pattern-restoration data to count, so there is no real
+    // "memoryRestored" number to report. Track whether the bridge itself
+    // came up instead of faking a count.
+    let memoryBridgeInitialized = false;
     try {
       const bridge = await import('../memory/memory-bridge.js');
       const result = await bridge.bridgeSessionStart({
         sessionId: newSessionId,
         metadata: { context: 'restore previous session patterns' },
       });
-      if (!result) warnings.push('Memory bridge unavailable — pattern restoration skipped');
+      if (result) {
+        memoryBridgeInitialized = result.success;
+      } else {
+        warnings.push('Memory bridge unavailable — pattern restoration skipped');
+      }
     } catch (e) {
       warnings.push('Memory bridge failed to initialize');
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-restore] memory bridge failed:', e);
@@ -1462,7 +1470,7 @@ export const hooksSessionRestore: MCPTool = {
     return {
       sessionId: newSessionId,
       originalSessionId,
-      restoredState: { tasksRestored, agentsRestored, memoryRestored },
+      restoredState: { tasksRestored, agentsRestored, memoryBridgeInitialized },
       warnings: warnings.length > 0 ? warnings : undefined,
     };
   },
