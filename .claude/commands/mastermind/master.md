@@ -178,7 +178,7 @@ These thoughts mean **STOP** — you are rationalizing. Check for a skill first.
 
 These sequences are non-negotiable in all modes:
 
-- **Before building**: Load brain → `mastermind:design` if approach is unclear → `mastermind:plan` for complex work → then build
+- **Before building**: Load brain → `mastermind:design` (questions → approaches → approved spec) → `mastermind:plan` (complete plan + execution handoff) → then build
 - **When fixing bugs**: `mastermind:debug` first (root cause) → write failing test via `mastermind:tdd` → fix → `mastermind:verify`
 - **After building**: `mastermind:review` — at minimum one pass before reporting complete
 - **Consuming a review**: `mastermind:receive-review` — verify before implementing, clarify unclear items first
@@ -186,7 +186,7 @@ These sequences are non-negotiable in all modes:
 - **Before releasing**: `mastermind:review --tillend --auto` → `mastermind:verify` → `mastermind:finish`
 - **Isolated work**: `mastermind:worktree` before making changes to avoid contaminating main
 - **Before claiming complete**: Run `mastermind:verify` — never claim completion based on agent reports, linter passes, or partial checks
-- **When writing a plan**: Map file structure first → write tasks with exact paths + complete code (no placeholders) → self-review (spec coverage, placeholder scan, type consistency) → offer execution mode choice (subagent-driven vs inline)
+- **When writing a plan**: Map file structure first → copy spec-wide Global Constraints into the plan header → right-size tasks (smallest unit with its own test cycle) with exact paths, complete code, and Interfaces (Consumes/Produces) blocks — no placeholders → self-review (spec coverage, placeholder scan, type consistency) → offer execution mode choice (subagent-driven vs inline)
 - **When executing with subagents**: Provide full task text to each implementer (never make them read the plan file) → spec compliance review FIRST → code quality review SECOND → re-review until both ✅ → dispatch final reviewer after all tasks complete → then `mastermind:finish`
 - **When blocked during execution**: Stop immediately — do not guess or force through. Diagnose, provide context, re-dispatch with more capable model, or escalate to user
 
@@ -359,6 +359,22 @@ If `domains_needed` contains ONLY non-build domains (marketing, sales, research,
 Rationale: without a design gate, master spawns agents before the user has confirmed what to build. The design gate replicates the superpowers workflow: questions → approaches → spec approval → plan → execute.
 </HARD-GATE>
 
+### Step 3.6 — Plan Gate
+
+<HARD-GATE>
+If the Design Gate ran (build work), do NOT skip planning. After `mastermind:design` returns with an approved spec:
+
+1. Invoke `Skill("mastermind-skills:plan")` NOW — pass `build_spec`, the brain context, and mode
+2. The plan skill produces `docs/mastermind/plans/YYYY-MM-DD-<feature>.md` with the complete header (Goal, Architecture, Tech Stack, Global Constraints), right-sized tasks with Interfaces (Consumes/Produces) blocks, bite-sized TDD steps, and no placeholders — then runs its self-review (spec coverage, placeholder scan, type consistency)
+3. The plan skill's Execution Handoff resolves the execution mode. Record it: `build_exec_mode` = `taskdev` (subagent-driven) or `execute` (inline), and save the plan path as `build_plan` in `current.json`
+4. Step 5 MUST NOT re-ask the execution-mode question when this gate already resolved `build_exec_mode`
+5. Only then continue to Step 4
+
+If `domains_needed` contains ONLY non-build domains: skip this gate (same rule as Step 3.5).
+
+Rationale: superpowers' pipeline is brainstorm → spec approval → writing-plans → execution handoff. Without a plan gate, master hands an un-planned spec straight to domain managers and the plan discipline (exact paths, complete code, interface contracts between tasks) is lost.
+</HARD-GATE>
+
 ### Step 4 — Decompose
 
 For each domain in `domains_needed`, assess complexity:
@@ -435,14 +451,14 @@ If mode = confirm: show plan and wait for user response. Valid responses:
 - Any modification (e.g. "add sales domain", "remove marketing") — apply the change, re-show the plan, wait again
 - "cancel" or "stop" — emit `session:complete` with `status: blocked`, reason "cancelled by user", then STOP
 
-After the user says "go" (and `build` is in `domains_needed`), ask once:
+If the Step 3.6 Plan Gate already resolved `build_exec_mode`, skip the question below and use that value. Otherwise, after the user says "go" (and `build` is in `domains_needed`), ask once:
 > "For the build work: **subagents** (recommended — fresh agent per task with 2-stage review, like mastermind:taskdev) or **inline** (direct execution, mastermind:execute)?"
 
 - "subagents" → `build_exec_mode = "taskdev"`
 - "inline" → `build_exec_mode = "execute"`
 - No answer / skipped → `build_exec_mode = "taskdev"` (default)
 
-If mode = auto: `build_exec_mode = "taskdev"` (default).
+If mode = auto and Step 3.6 did not set it: `build_exec_mode = "taskdev"` (default).
 
 **Persist `build_exec_mode` to `current.json`** (required — Phase C reads it from there):
 
@@ -745,7 +761,7 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - Instruction to create monotask cards directly using `monotask card create $BOARD_ID $COL_TODO_ID "<title>" --json` for all sub-tasks
 - Instruction to use `Skill("mastermind-skills:do")` to execute tasks (Task agents have Skill tool access — do NOT use slash command syntax)
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
-- **For the `build` domain only:** include `build_exec_mode` (value: `"taskdev"` or `"execute"`) and instruct the manager: "Use `Skill("mastermind-skills:taskdev")` if build_exec_mode is `taskdev`, or `Skill("mastermind-skills:execute")` if `execute`. This was chosen by the user in Step 5."
+- **For the `build` domain only:** include `build_exec_mode` (value: `"taskdev"` or `"execute"`) and instruct the manager: "Use `Skill("mastermind-skills:taskdev")` if build_exec_mode is `taskdev`, or `Skill("mastermind-skills:execute")` if `execute`. This was resolved in the Step 3.6 Plan Gate (or Step 5)." If `build_plan` is set in `current.json`, include the plan path and instruct the manager to execute THAT plan task-by-task rather than re-deriving tasks from the goal.
 - Instruction to return the unified output schema when done
 
 Example Task call for Development Manager. Substitute all **pre-known** `<…>` placeholders (project_name, SESSION_ID, board/col IDs, goals, manager name) before calling Task. Placeholders like `<status>`, `<path1>`, `<action1>` are filled at runtime by the spawned agent — do not attempt to substitute them. `subagent_type` is the **string value** of `$domain_manager_build` (e.g. `"Backend Architect"`), not a variable reference.
