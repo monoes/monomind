@@ -30,7 +30,10 @@ export function drainInbox(root: string, orgName: string): QueuedMessage[] {
   // reading, the .draining file survives for manual recovery. A plain
   // read-then-truncate would lose messages on a mid-drain crash.
   const draining = `${path}.draining`;
-  try { renameSync(path, draining); } catch { return []; }
+  try { renameSync(path, draining); } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[inbox] drainInbox rename failed:', e);
+    return [];
+  }
   const raw = readFileSync(draining, 'utf8').trim();
   if (!raw) { writeFileSync(draining, ''); renameSync(draining, path); return []; }
   // Clear the draining file — messages are now the caller's responsibility

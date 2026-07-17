@@ -136,7 +136,9 @@ async function getBackend(dbPath?: string): Promise<any | null> {
             return new Float32Array(output.data);
           };
           _embedder = embeddingGenerator;
-        } catch { /* embeddings unavailable — store and search without vectors */ }
+        } catch (e) {
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] embedding model failed to load — store and search without vectors:', e);
+        }
 
         const backend = new LanceDBBackend({
           // Always route through getDbPath's traversal guard — dbPath here can
@@ -222,7 +224,9 @@ export async function bridgeStoreEntry(options: {
       try {
         embedding = await _embedder(value);
         embeddingInfo = { dimensions: embedding.length, model: BRIDGE_EMBEDDING_MODEL };
-      } catch { /* store without embedding */ }
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] embedding generation failed — storing entry without embedding:', e);
+      }
     }
 
     const mod = await import('@monoes/memory' as string);
@@ -242,7 +246,9 @@ export async function bridgeStoreEntry(options: {
       try {
         const existing = await backend.getByKey(namespace, key);
         if (existing) await backend.delete(existing.id);
-      } catch { /* non-fatal */ }
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] upsert failed to delete existing entry — may create a duplicate:', e);
+      }
     }
 
     // Dedup gate: skip if a near-duplicate already exists
@@ -819,7 +825,9 @@ export async function bridgeSessionEnd(options: {
     const existing = await backend.getByKey('sessions', `session_${options.sessionId}`);
     if (existing) {
       let data: any = {};
-      try { data = JSON.parse(existing.content); } catch { /* use empty */ }
+      try { data = JSON.parse(existing.content); } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] session content failed to parse — ending session with empty prior state:', e);
+      }
       await backend.update(existing.id, {
         content: JSON.stringify({
           ...data,

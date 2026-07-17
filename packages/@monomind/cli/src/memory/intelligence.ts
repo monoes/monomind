@@ -572,8 +572,9 @@ class LocalReasoningBank {
       // MCP-trained patterns (neural-tools) now write directly to this
       // ReasoningBank via intelligence.ts's public API, so no separate
       // models.json bridge is needed.
-    } catch {
+    } catch (e) {
       // Ignore load errors, start fresh
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to load patterns.json, starting fresh:', e);
     }
   }
 
@@ -821,8 +822,9 @@ function loadPersistedStats(): void {
         globalStats.lastAdaptation = data.lastAdaptation ?? null;
       }
     }
-  } catch {
+  } catch (e) {
     // Ignore load errors, start fresh
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to load stats.json, starting fresh:', e);
   }
 }
 
@@ -834,8 +836,9 @@ function savePersistedStats(): void {
     ensureDataDir();
     const path = getStatsPath();
     writeFileSync(path, JSON.stringify(globalStats, null, 2), 'utf-8');
-  } catch {
+  } catch (e) {
     // Ignore save errors
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to save stats.json:', e);
   }
 }
 
@@ -908,7 +911,10 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
             } catch { /* skip invalid entries */ }
           }
         }
-      } catch { /* neural patterns file unreadable — skip */ }
+      } catch (e) {
+        /* neural patterns file unreadable — skip */
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to seed patterns.json into ReasoningBank:', e);
+      }
     }
 
     // Seed SONA routing patterns into the ReasoningBank so keyword-based
@@ -1048,7 +1054,8 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
 
     globalStats.trajectoriesRecorded++;
     return true;
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] recordStep failed:', e);
     return false;
   }
 }
@@ -1087,7 +1094,8 @@ export async function recordTrajectory(
     savePersistedStats();
 
     return true;
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] recordTrajectory failed:', e);
     return false;
   }
 }
@@ -1157,7 +1165,8 @@ export async function findSimilarPatterns(
       lastUsedAt: r.lastUsedAt,
       similarity: (r as unknown as { similarity?: number }).similarity ?? r.confidence ?? 0.5
     }));
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] findSimilarPatterns failed:', e);
     return [];
   }
 }
@@ -1213,7 +1222,8 @@ export async function endTrajectoryWithVerdict(
     globalStats.lastAdaptation = Date.now();
     savePersistedStats();
     return result;
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] endTrajectoryWithVerdict failed:', e);
     return null;
   }
 }
@@ -1238,7 +1248,8 @@ export async function distillLearning(): Promise<{
     globalStats.lastAdaptation = Date.now();
     savePersistedStats();
     return result;
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] distillLearning failed:', e);
     return null;
   }
 }
@@ -1383,7 +1394,8 @@ function loadSonaRoutingPatterns(): Pattern[] {
     }
 
     return results;
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to load .swarm/sona-patterns.json:', e);
     return [];
   }
 }

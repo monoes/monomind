@@ -131,7 +131,9 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
           for (const client of clients) {
             if (client.readyState === client.OPEN) client.send(body);
           }
-        } catch {}
+        } catch (e) {
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[dashboard] /api/mastermind/event received invalid JSON, not broadcast:', e);
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"ok":true}');
       });

@@ -289,9 +289,10 @@ export const hooksTrajectoryEnd: MCPTool = {
             agent: trajectory.agent,
           },
         });
-      } catch {
+      } catch (e) {
         // Non-fatal: intelligence bridge unavailable, trajectory is still
         // persisted via the legacy store above.
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] intelligence bridge recordStep failed:', e);
       }
     }
 
@@ -325,8 +326,9 @@ export const hooksTrajectoryEnd: MCPTool = {
             patternKey: result.patternKey,
             confidence: result.confidence,
           };
-        } catch {
+        } catch (e) {
           // SONA learning failed, continue without it
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] SONA processTrajectoryOutcome failed:', e);
         }
       }
 
@@ -346,8 +348,9 @@ export const hooksTrajectoryEnd: MCPTool = {
               consolidated: true,
               penalty: stats.avgPenalty,
             };
-          } catch {
+          } catch (e) {
             // EWC consolidation failed, continue without it
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] EWC consolidation failed:', e);
           }
         }
       }

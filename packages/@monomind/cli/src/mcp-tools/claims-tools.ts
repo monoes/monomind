@@ -67,8 +67,9 @@ function loadClaims(): ClaimsStore {
     if (existsSync(path) && statSync(path).size <= MAX_CLAIMS_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
-  } catch {
+  } catch (e) {
     // Return empty store on error
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[claims-tools] failed to load claims.json, starting fresh:', e);
   }
   return { claims: {}, stealable: {}, contests: {} };
 }

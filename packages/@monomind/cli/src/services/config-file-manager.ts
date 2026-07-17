@@ -203,7 +203,9 @@ export class ConfigFileManager {
       try {
         const parsed = JSON.parse(fs.readFileSync(targetPath, 'utf-8'));
         onDisk = sanitizeConfigObject(parsed) as Record<string, unknown>;
-      } catch { /* fall through to defaults */ }
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[config-file-manager] failed to parse existing config file — this write will overwrite it with defaults plus the new key:', e);
+      }
     }
     setNestedValue(onDisk, key, sanitisedValue);
     this.writeAtomic(targetPath, onDisk);

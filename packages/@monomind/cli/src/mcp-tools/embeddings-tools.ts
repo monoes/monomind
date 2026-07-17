@@ -90,8 +90,9 @@ function loadConfig(): EmbeddingsConfig | null {
     if (existsSync(path) && statSync(path).size <= MAX_EMBEDDINGS_CONFIG_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
-  } catch {
+  } catch (e) {
     // Return null on error
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[embeddings-tools] config read/parse failed:', e);
   }
   return null;
 }
@@ -520,8 +521,9 @@ export const embeddingsTools: MCPTool[] = [
             resultCount: searchResult.results.length
           },
         };
-      } catch {
+      } catch (e) {
         // Database not available - return empty but truthful
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[embeddings-tools] search failed:', e);
         const searchTime = (performance.now() - startTime).toFixed(2);
         return {
           success: true,

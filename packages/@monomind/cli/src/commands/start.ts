@@ -93,7 +93,9 @@ function loadConfig(cwd: string): Record<string, unknown> | null {
   try {
     const content = fs.readFileSync(configPath, 'utf-8');
     return parseSimpleYaml(content);
-  } catch {
+  } catch (e) {
+    // Caller falls back to hardcoded defaults (topology/maxAgents) as if no config existed
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadConfig] failed to read/parse .monomind/config.yaml, falling back to defaults:', e);
     return null;
   }
 }

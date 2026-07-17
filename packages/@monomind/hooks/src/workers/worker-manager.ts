@@ -964,8 +964,8 @@ export class WorkerManager extends EventEmitter {
   async ensureMetricsDir(): Promise<void> {
     try {
       await fs.mkdir(this.metricsDir, { recursive: true });
-    } catch {
-      // Directory may already exist
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[ensureMetricsDir] failed to create metrics dir:', e);
     }
   }
 }

@@ -80,8 +80,9 @@ export function loadState(): RateLimitState {
 
       return state;
     }
-  } catch {
+  } catch (e) {
     // Corrupted file, reset
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[rate-limiter] update-state.json read/parse failed:', e);
   }
   return getDefaultState();
 }

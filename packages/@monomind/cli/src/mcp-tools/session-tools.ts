@@ -57,8 +57,8 @@ function loadSession(sessionId: string): SessionRecord | null {
       const data = readFileSync(path, 'utf-8');
       return JSON.parse(data);
     }
-  } catch {
-    // Return null on error
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[session-tools] loadSession failed:', e);
   }
   return null;
 }
@@ -115,7 +115,9 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
       if (existsSync(memoryPath) && statSync(memoryPath).size <= MAX_SESSION_BYTES) {
         data.memory = JSON.parse(readFileSync(memoryPath, 'utf-8'));
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[session-tools] failed to load memory store:', e);
+    }
   }
 
   if (options.includeTasks) {
@@ -124,7 +126,9 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
       if (existsSync(taskPath) && statSync(taskPath).size <= MAX_SESSION_BYTES) {
         data.tasks = JSON.parse(readFileSync(taskPath, 'utf-8'));
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[session-tools] failed to load task store:', e);
+    }
   }
 
   if (options.includeAgents) {
@@ -133,7 +137,9 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
       if (existsSync(agentPath) && statSync(agentPath).size <= MAX_SESSION_BYTES) {
         data.agents = JSON.parse(readFileSync(agentPath, 'utf-8'));
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[session-tools] failed to load agent store:', e);
+    }
   }
 
   return data;

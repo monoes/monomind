@@ -228,8 +228,8 @@ export async function ingestDocument(
           upsert: true,
         });
         if (storeResult?.success) indexed++;
-      } catch {
-        // chunk not stored — don't count as indexed
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[ingestDocument] failed to store chunk ${chunk.chunkIndex} of ${resolved}:`, e);
       }
     }
   }

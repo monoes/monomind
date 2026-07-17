@@ -401,7 +401,8 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
       this.readCache.set(cacheKey, entry);
       this.readCache.set(entry.id, entry);
       return entry;
-    } catch {
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[lancedb-backend] getByKey failed:', e);
       return null;
     }
   }
@@ -437,7 +438,8 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
       this.invalidateCache(existing);
       this.emit('entry:deleted', { id, namespace: existing.namespace });
       return true;
-    } catch {
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[lancedb-backend] delete failed:', e);
       return false;
     }
   }
@@ -458,7 +460,8 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
       this.queryCount++;
       this.queryTotalMs += Date.now() - t0;
       return rows.map(fromRecord);
-    } catch {
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[lancedb-backend] query failed:', e);
       return [];
     }
   }
@@ -496,7 +499,8 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
       this.searchCount++;
       this.searchTotalMs += Date.now() - t0;
       return results;
-    } catch {
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[lancedb-backend] search failed:', e);
       return [];
     }
   }
@@ -552,7 +556,8 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
         .select(['id'])
         .toArray();
       return rows.length;
-    } catch {
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[lancedb-backend] count failed:', e);
       return 0;
     }
   }
@@ -560,7 +565,8 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
   async listNamespaces(): Promise<string[]> {
     try {
       return await this.db.tableNames();
-    } catch {
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[lancedb-backend] listNamespaces failed:', e);
       return [];
     }
   }
@@ -576,7 +582,8 @@ export class LanceDBBackend extends EventEmitter implements IMemoryBackend {
       // per-namespace id membership just for this rare admin operation.
       this.readCache.clear();
       return n;
-    } catch {
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[lancedb-backend] clearNamespace failed:', e);
       return 0;
     }
   }

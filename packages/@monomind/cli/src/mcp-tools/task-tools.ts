@@ -60,8 +60,8 @@ function loadTaskStore(): TaskStore {
       if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return { tasks: {}, version: '3.0.0' };
       return parsed;
     }
-  } catch {
-    // Return empty store on error
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadTaskStore] failed to read/parse task store:', e);
   }
   return { tasks: {}, version: '3.0.0' };
 }
@@ -312,8 +312,8 @@ export const taskTools: MCPTool[] = [
             const tmpAgent1 = `${agentStorePath}.${process.pid}.${Date.now()}.tmp`;
             writeFileSync(tmpAgent1, JSON.stringify(agentStore, null, 2), 'utf-8');
             renameSync(tmpAgent1, agentStorePath);
-          } catch {
-            // Best-effort agent sync
+          } catch (e) {
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[task_complete] agent store sync failed:', e);
           }
         }
 
@@ -426,7 +426,9 @@ export const taskTools: MCPTool[] = [
         if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
           agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
         }
-      } catch { /* ignore */ }
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[task_assign] failed to read agent store (will overwrite with empty on save):', e);
+      }
 
       // Reject IDs that would mutate Object.prototype when used as a key in
       // the JSON-loaded plain object `agentStore.agents`.

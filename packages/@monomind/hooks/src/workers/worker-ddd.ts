@@ -73,8 +73,8 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
         maxScore,
         modules: dddMetrics,
       }, null, 2));
-    } catch {
-      // Ignore write errors
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-ddd] failed to write ddd-progress.json:', e);
     }
 
     return {

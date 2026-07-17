@@ -194,8 +194,8 @@ async function activateControllerRegistry(
     if (verbose && activated.length > 0) {
       console.log(`ControllerRegistry: ${activated.length} controllers activated`);
     }
-  } catch {
-    // ControllerRegistry activation is best-effort
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[activateControllers] ControllerRegistry activation failed:', e);
   }
 
   return { activated, failed, initTimeMs: performance.now() - startTime };

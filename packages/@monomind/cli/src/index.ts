@@ -26,7 +26,8 @@ function getPackageVersion(): string {
     if (statSync(pkgPath).size > 1024 * 1024) return '3.0.0';
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
     return pkg.version || '3.0.0';
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[index] getPackageVersion failed, using fallback:', e);
     return '3.0.0';
   }
 }
@@ -535,7 +536,10 @@ export class CLI {
         sessionId: `session-${Date.now()}`,
       });
       void _swarmCheckpointer;
-    } catch { /* optional — monomind/memory may not be installed */ }
+    } catch (e) {
+      // optional — monomind/memory may not be installed
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[index] SwarmCheckpointer init failed:', e);
+    }
 
     // Task 30: Build unified agent registry — extras (canonical) first, dev copies second.
     // Deduplication is slug-based; agency-agents wins on conflict.
@@ -550,7 +554,10 @@ export class CLI {
       const outDir = join(process.cwd(), '.monomind');
       mkdirSync(outDir, { recursive: true });
       buildUnifiedRegistry(roots, join(outDir, 'registry.json'));
-    } catch { /* optional — registry build failures must never block startup */ }
+    } catch (e) {
+      // optional — registry build failures must never block startup
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[index] agent registry build failed:', e);
+    }
 
     // Task 04: CapabilityMetadata validation moved to `monomind doctor -c registry`
     // (see doctor-project-checks.ts:checkAgentRegistry). Printing this from a

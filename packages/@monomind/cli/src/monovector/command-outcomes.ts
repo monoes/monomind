@@ -46,7 +46,9 @@ export async function recordCommand(baseDir: string, cmd: { command: string; exi
     if (lines.length > MAX_COMMAND_RECORDS) {
       await fs.writeFile(path, lines.slice(-MAX_COMMAND_RECORDS).join('\n') + '\n', 'utf8');
     }
-  } catch { /* non-fatal */ }
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[recordCommand] failed to record command outcome:', e);
+  }
 }
 
 /**
