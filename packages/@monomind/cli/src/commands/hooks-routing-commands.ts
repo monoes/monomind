@@ -575,6 +575,7 @@ export const metricsCommand: Command = {
       // string explaining what would populate them.
       const result = await callMCPTool<{
         period: string;
+        _note?: string;
         patterns: Partial<{
           total: number;
           successful: number;
@@ -611,6 +612,11 @@ export const metricsCommand: Command = {
       }
 
       const pct = (v: number | null | undefined) => typeof v === 'number' ? `${(v * 100).toFixed(1)}%` : 'N/A';
+
+      if (result._note) {
+        output.writeln(output.dim(result._note));
+        output.writeln();
+      }
 
       // Patterns section
       output.writeln(output.bold('📊 Pattern Learning'));
