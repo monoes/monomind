@@ -3,7 +3,7 @@
  * Config, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore, worker metrics
  */
 
-import { existsSync, readFileSync, statSync, mkdirSync, copyFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, copyFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -215,17 +215,37 @@ function _resolveBundledHelper(relativePath: string): string | null {
   } catch { return null; }
 }
 
+// Top-level critical helpers, plus every file bundled under handlers/ and utils/
+// (capture-handler.cjs, gates-handler.cjs, route-handler.cjs, session-handler.cjs,
+// etc. — where most actual hook-behavior fixes live). Subdir membership is
+// discovered from the bundled package itself, not hardcoded, so a helper added
+// upstream is picked up automatically instead of silently never syncing.
+function _allTrackedHelperNames(): string[] {
+  const names = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'graphify-freshen.cjs'];
+  for (const sub of ['handlers', 'utils']) {
+    const bundledSubDir = _resolveBundledHelper(join('.claude', 'helpers', sub));
+    if (!bundledSubDir) continue;
+    try {
+      for (const f of readdirSync(bundledSubDir)) {
+        if (f.startsWith('._')) continue;
+        if (statSync(join(bundledSubDir, f)).isDirectory()) continue;
+        names.push(join(sub, f));
+      }
+    } catch { /* skip */ }
+  }
+  return names;
+}
+
 async function _detectStaleHelpers(): Promise<{ stale: string[]; missing: string[] }> {
   const stale: string[] = [];
   const missing: string[] = [];
-  const helpers = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'graphify-freshen.cjs'];
   const crypto = await import('node:crypto');
-  for (const name of helpers) {
-    const local = join(process.cwd(), '.claude', 'helpers', name);
-    if (!existsSync(local) || statSync(local).size > MAX_DOCTOR_HELPER_BYTES) continue;
+  for (const name of _allTrackedHelperNames()) {
     const bundled = _resolveBundledHelper(join('.claude', 'helpers', name));
-    if (!bundled) { missing.push(name); continue; }
-    if (statSync(bundled).size > MAX_DOCTOR_HELPER_BYTES) continue;
+    if (!bundled || statSync(bundled).size > MAX_DOCTOR_HELPER_BYTES) { if (!bundled) missing.push(name); continue; }
+    const local = join(process.cwd(), '.claude', 'helpers', name);
+    if (!existsSync(local)) { stale.push(name); continue; } // bundled has it, project doesn't — needs creating
+    if (statSync(local).size > MAX_DOCTOR_HELPER_BYTES) continue;
     try {
       const hashLocal = crypto.createHash('sha256').update(readFileSync(local)).digest('hex');
       const hashBundled = crypto.createHash('sha256').update(readFileSync(bundled)).digest('hex');
@@ -242,7 +262,11 @@ export async function fixStaleHelpers(): Promise<boolean> {
     const local = join(process.cwd(), '.claude', 'helpers', name);
     const bundled = _resolveBundledHelper(join('.claude', 'helpers', name));
     if (bundled) {
-      try { copyFileSync(bundled, local); fixed++; } catch { /* skip */ }
+      try {
+        mkdirSync(dirname(local), { recursive: true });
+        copyFileSync(bundled, local);
+        fixed++;
+      } catch { /* skip */ }
     }
   }
   return fixed > 0;
