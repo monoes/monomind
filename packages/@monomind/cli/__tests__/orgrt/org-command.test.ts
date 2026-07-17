@@ -109,6 +109,34 @@ describe('org command', () => {
     });
   });
 
+  it('run fails fast with a friendly error when the org does not exist', async () => {
+    const run = orgCommand.subcommands!.find(c => c.name === 'run')!;
+    const cwd = mkdtempSync(join(tmpdir(), 'org-run-'));
+    try {
+      mkdirSync(join(cwd, ORG_DIR), { recursive: true });
+      writeFileSync(join(cwd, ORG_DIR, 'other.json'), JSON.stringify({ name: 'other', roles: [{ id: 'boss' }] }));
+      const res = await run.action!({ args: ['ghost'], flags: {}, cwd, interactive: false } as any);
+      expect(res?.success).toBe(false);
+      expect(res?.message).toMatch(/not found/);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('run reports a schema-invalid org as a clean failure instead of an unhandled throw', async () => {
+    const run = orgCommand.subcommands!.find(c => c.name === 'run')!;
+    const cwd = mkdtempSync(join(tmpdir(), 'org-run-'));
+    try {
+      mkdirSync(join(cwd, ORG_DIR), { recursive: true });
+      writeFileSync(join(cwd, ORG_DIR, 'bad.json'), JSON.stringify({ name: 'bad', roles: [] }));
+      const res = await run.action!({ args: ['bad'], flags: { crossProcess: false }, cwd, interactive: false } as any);
+      expect(res?.success).toBe(false);
+      expect(res?.message).toMatch(/start failed/);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   it('status rejects a path-traversal org name', async () => {
     const status = orgCommand.subcommands!.find(c => c.name === 'status')!;
     const res = await status.action!({ args: ['../../x'], flags: {}, cwd: process.cwd(), interactive: false } as any);
