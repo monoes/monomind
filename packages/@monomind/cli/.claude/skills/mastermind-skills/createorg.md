@@ -181,32 +181,25 @@ jq -n \
   > "${orgJson}.tmp" && mv "${orgJson}.tmp" "$orgJson"
 ```
 
-**POST-SAVE VALIDATION (run immediately after saving — abort if any check fails):**
+**POST-SAVE VALIDATION (run immediately after saving — abort if it fails):**
 
 ```bash
-# Check 1 — exactly one root role (reports_to null)
-root_count=$(jq '[.roles[] | select(.reports_to == null)] | length' "$orgJson")
-if [ "$root_count" -ne 1 ]; then
-  echo "ERROR: expected exactly one role with reports_to: null, found $root_count — fix the roles array and re-save."
-  exit 1
+# Parses with OrgDefSchema (the exact code path org run/serve use) and checks the
+# structural invariants: exactly one root role, every reports_to resolves, unique
+# role ids, parseable schedule, name/filename agreement.
+if npx -y monomind@latest org validate "$org_name"; then
+  echo "✓ Org config validated — ready for: monomind org run ${org_name}"
+else
+  # CLI < 2.1.8 has no `org validate` — fall back to the two structural checks:
+  root_count=$(jq '[.roles[] | select(.reports_to == null)] | length' "$orgJson")
+  bad_reports=$(jq -r '([.roles[].id]) as $ids |
+    [.roles[] | select(.reports_to != null and (.reports_to as $r | $ids | index($r) | not)) | .id] | join(", ")' "$orgJson")
+  if [ "$root_count" -ne 1 ] || [ -n "$bad_reports" ]; then
+    echo "ERROR: org config invalid (roots: $root_count, unresolved reports_to: ${bad_reports:-none}) — fix the roles array and re-save."
+    exit 1
+  fi
+  echo "✓ Structural checks passed (upgrade monomind for full schema validation)"
 fi
-echo "✓ Exactly one root role"
-
-# Check 2 — every non-root role's reports_to resolves to a real role id
-bad_reports=$(jq -r '
-  ([.roles[].id]) as $ids |
-  [.roles[] | select(.reports_to != null and (.reports_to as $r | $ids | index($r) | not)) | .id]
-  | join(", ")' "$orgJson")
-if [ -n "$bad_reports" ]; then
-  echo "ERROR: these roles have a reports_to that doesn't match any role id: $bad_reports"
-  exit 1
-fi
-echo "✓ All reports_to values resolve"
-
-# Check 3 — schema sanity check via the CLI itself (parses with OrgDefSchema, same code path org run/serve use)
-npx monomind@latest org list >/dev/null 2>&1 || echo "WARNING: could not verify via CLI — check .monomind/orgs manually"
-
-echo "✓ Org config validated — ready for: monomind org run ${org_name}"
 ```
 
 ---
@@ -229,6 +222,7 @@ lessons:
   - what_didnt: ""
 next_actions:
   - "Run `monomind org run <org_name>` to start the organization in the foreground"
+  - "After hand-editing the config, re-check it with `monomind org validate <org_name>`"
   - "Or `monomind org serve` to host it (and any other scheduled orgs) as a background daemon"
   - "Edit .monomind/orgs/<org_name>.json directly, or use /mastermind:org-settings, to change goal/budget/roles"
   - "`monomind org status <org_name>` to check runtime state; `monomind org stop <org_name>` to stop a running org"
