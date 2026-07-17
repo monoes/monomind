@@ -66,8 +66,8 @@ function loadConfigStore(): ConfigStore {
         updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
       };
     }
-  } catch {
-    // Return default store on error
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[config-tools] failed to load config store, using defaults:', e);
   }
   return {
     values: { ...DEFAULT_CONFIG },

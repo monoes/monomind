@@ -57,8 +57,8 @@ function loadGitHubStore(): GitHubStore {
     if (existsSync(path)) {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
-  } catch {
-    // Return empty store
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse store.json, using empty store:', e);
   }
   return { repos: {}, prs: {}, issues: {}, version: '3.0.0' };
 }
@@ -233,7 +233,7 @@ export const githubTools: MCPTool[] = [
             try {
               const prs = JSON.parse(raw);
               return { success: true, _real: true, source: 'gh-cli', pullRequests: prs, total: prs.length };
-            } catch { /* fall through */ }
+            } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh pr list output:', e); }
           }
         }
         const prs = Object.values(store.prs);
@@ -281,7 +281,7 @@ export const githubTools: MCPTool[] = [
           if (raw) {
             try {
               return { success: true, _real: true, action: 'review', pullRequest: JSON.parse(raw) };
-            } catch { /* fall through */ }
+            } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh pr view output:', e); }
           }
         }
         return { success: false, error: 'gh CLI not available or PR not found. Install gh: https://cli.github.com' };
@@ -354,7 +354,7 @@ export const githubTools: MCPTool[] = [
             try {
               const issues = JSON.parse(raw);
               return { success: true, _real: true, source: 'gh-cli', issues, total: issues.length };
-            } catch { /* fall through */ }
+            } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh issue list output:', e); }
           }
         }
         const issues = Object.values(store.issues);
@@ -463,13 +463,13 @@ export const githubTools: MCPTool[] = [
         if (raw) {
           try {
             return { success: true, _real: true, runs: JSON.parse(raw) };
-          } catch { /* fall through */ }
+          } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh run list output:', e); }
         }
         const workflows = run('gh workflow list --json id,name,state');
         if (workflows) {
           try {
             return { success: true, _real: true, workflows: JSON.parse(workflows) };
-          } catch { /* fall through */ }
+          } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh workflow list output:', e); }
         }
       }
 
@@ -478,13 +478,13 @@ export const githubTools: MCPTool[] = [
         if (workflowId) {
           const raw = runSafe('gh', ['run', 'view', workflowId, '--json', 'databaseId,displayTitle,status,conclusion,jobs']);
           if (raw) {
-            try { return { success: true, _real: true, run: JSON.parse(raw) }; } catch { /* fall through */ }
+            try { return { success: true, _real: true, run: JSON.parse(raw) }; } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh run view output:', e); }
           }
         }
         // List recent runs as fallback
         const recent = run('gh run list --limit 5 --json databaseId,displayTitle,status,conclusion');
         if (recent) {
-          try { return { success: true, _real: true, recentRuns: JSON.parse(recent) }; } catch { /* fall through */ }
+          try { return { success: true, _real: true, recentRuns: JSON.parse(recent) }; } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh run list (recent) output:', e); }
         }
       }
 
@@ -563,7 +563,7 @@ export const githubTools: MCPTool[] = [
         if (hasGhCli()) {
           const raw = run('gh release list --limit 10 --json tagName,name,publishedAt,isPrerelease');
           if (raw) {
-            try { result.releases = JSON.parse(raw); } catch { /* skip */ }
+            try { result.releases = JSON.parse(raw); } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh release list output:', e); }
           }
         }
         if (!result.releases) {

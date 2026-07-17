@@ -52,8 +52,9 @@ export class CapabilityManager {
       const tmpPath = capsPath + '.tmp';
       fs.writeFileSync(tmpPath, JSON.stringify({ active: [...this.active.keys()] }, null, 2));
       fs.renameSync(tmpPath, capsPath);
-    } catch {
+    } catch (e) {
       // best-effort persistence; activation state still holds in-memory
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[capabilities] failed to persist capabilities.json:', e);
     }
   }
 

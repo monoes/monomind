@@ -126,8 +126,9 @@ export const hooksPostEdit: MCPTool = {
         outcome: success ? 'success' : 'failure',
         confidence: success ? 0.85 : 0.3,
       });
-    } catch {
+    } catch (e) {
       // Bridge not available — continue with basic response
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-post-edit] memory bridge feedback failed:', e);
     }
 
     return {
@@ -801,8 +802,9 @@ export const hooksPostTask: MCPTool = {
         confidence: quality,
         metadata: { taskId, duration: (params.duration as number) || undefined, patterns: (params.patterns as string[]) || undefined },
       });
-    } catch {
+    } catch (e) {
       // Bridge not available — continue with basic response
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-post-task] memory bridge feedback failed:', e);
     }
 
     // Phase 3: Record causal edge (task → outcome)
@@ -814,8 +816,9 @@ export const hooksPostTask: MCPTool = {
         relation: success ? 'succeeded' : 'failed',
         strength: quality,
       });
-    } catch {
+    } catch (e) {
       // Non-fatal
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-post-task] causal edge record failed:', e);
     }
 
     // Persist routing outcome for runtime learning (file-based, always reliable).
@@ -1006,8 +1009,9 @@ export const hooksExplain: MCPTool = {
           historicalNote = `Calculated from ${outcomes.length} recorded outcomes`;
         }
       }
-    } catch {
-      // File unreadable; leave as null
+    } catch (e) {
+      // File unreadable or corrupt; leave as null
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-explain] routing outcomes file read/parse failed:', e);
     }
 
     return {
@@ -1123,7 +1127,10 @@ export const hooksPretrain: MCPTool = {
         tags: ['pretrain', depth],
       });
       patternsStored = patterns.length;
-    } catch { /* memory backend unavailable */ }
+    } catch (e) {
+      /* memory backend unavailable */
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-pretrain] pattern store failed:', e);
+    }
 
     // Feed extracted import patterns into the neural training system so
     // pretrain actually trains, not just scans.
@@ -1141,7 +1148,10 @@ export const hooksPretrain: MCPTool = {
         await intel.recordTrajectory(steps, 'success');
         intel.flushPatterns();
         neuralPatternsLearned = steps.length;
-      } catch { /* intelligence not available */ }
+      } catch (e) {
+        /* intelligence not available */
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-pretrain] intelligence training failed:', e);
+      }
     }
 
     return {
@@ -1290,8 +1300,9 @@ export const hooksTransfer: MCPTool = {
       if (existsSync(sourceMemoryPath) && statSync(sourceMemoryPath).size <= MAX_SOURCE_STORE_BYTES) {
         sourceStore = JSON.parse(readFileSync(sourceMemoryPath, 'utf-8'));
       }
-    } catch {
+    } catch (e) {
       // Fall back to empty store
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-transfer] source memory store read/parse failed:', e);
     }
 
     const sourceEntries = Object.values(sourceStore.entries);
@@ -1363,8 +1374,9 @@ export const hooksSessionStart: MCPTool = {
           restoredPatterns: 0,
         };
       }
-    } catch {
+    } catch (e) {
       // Bridge not available
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-start] memory bridge failed:', e);
     }
 
     return {
@@ -1440,8 +1452,9 @@ export const hooksSessionEnd: MCPTool = {
           persisted: result.success,
         };
       }
-    } catch {
+    } catch (e) {
       // Bridge not available
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-end] memory bridge failed:', e);
     }
 
     return {

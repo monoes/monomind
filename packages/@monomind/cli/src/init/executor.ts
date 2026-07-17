@@ -1001,8 +1001,9 @@ async function writeSettings(
       } else {
         result.skipped.push('.claude/settings.json');
       }
-    } catch {
+    } catch (e) {
       // Existing file is corrupt — overwrite
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[writeSettings] existing settings.json unparseable, overwriting with generated defaults:', e);
       atomicWriteFile(settingsPath, JSON.stringify(generated, null, 2));
       result.created.files.push('.claude/settings.json');
     }
@@ -2150,8 +2151,9 @@ async function writeClaudeMd(
         atomicWriteFile(globalClaudeMd, monomindBlock.trimStart());
         result.created.files.push('~/.claude/CLAUDE.md');
       }
-    } catch {
+    } catch (e) {
       // Non-critical — global CLAUDE.md is best-effort
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[writeClaudeMd] failed to write/append ~/.claude/CLAUDE.md:', e);
     }
 
     // Also inject the token-display hook into ~/.claude/settings.json
@@ -2164,7 +2166,10 @@ async function writeClaudeMd(
       if (fs.existsSync(globalSettingsPath) && fs.statSync(globalSettingsPath).size <= MAX_EXEC_FILE_BYTES) {
         try {
           globalSettings = JSON.parse(fs.readFileSync(globalSettingsPath, 'utf-8'));
-        } catch { /* malformed JSON — start fresh */ }
+        } catch (e) {
+          // malformed JSON — start fresh
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[writeClaudeMd] ~/.claude/settings.json unparseable, starting fresh:', e);
+        }
       }
 
       // Inject SessionStart token hook if not already present
@@ -2184,8 +2189,9 @@ async function writeClaudeMd(
         atomicWriteFile(globalSettingsPath, JSON.stringify(globalSettings, null, 2));
         result.created.files.push('~/.claude/settings.json (added token hook)');
       }
-    } catch {
+    } catch (e) {
       // Non-critical — global settings hook is best-effort
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[writeClaudeMd] failed to inject token hook into ~/.claude/settings.json:', e);
     }
   }
 }
@@ -2331,7 +2337,10 @@ function _registerMonomindProject(dir: string): void {
     const os = esmReq('os') as typeof import('os');
     const registryPath = path.join(os.homedir(), '.monomind-projects.json');
     let reg: { projects: string[] } = { projects: [] };
-    try { if (fs.existsSync(registryPath) && fs.statSync(registryPath).size <= MAX_EXEC_FILE_BYTES) { reg = JSON.parse(fs.readFileSync(registryPath, 'utf-8')); } } catch {}
+    try { if (fs.existsSync(registryPath) && fs.statSync(registryPath).size <= MAX_EXEC_FILE_BYTES) { reg = JSON.parse(fs.readFileSync(registryPath, 'utf-8')); } } catch (e) {
+      // Unparseable registry — proceeding with an empty list will overwrite it below, losing previously registered projects
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[_registerMonomindProject] ~/.monomind-projects.json unparseable, resetting:', e);
+    }
     if (!Array.isArray(reg.projects)) reg.projects = [];
     const abs = path.resolve(dir);
     if (!reg.projects.includes(abs)) {

@@ -644,7 +644,9 @@ const monographWatchTool: MCPTool = {
     }
     const watcher = new MonographWatcher(repoPath);
     watcher.on('monograph:updated', (_paths: string[]) => {
-      import('@monoes/monograph').then(({ buildAsync }) => buildAsync(repoPath)).catch(() => {});
+      import('@monoes/monograph').then(({ buildAsync }) => buildAsync(repoPath)).catch((e) => {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[monograph_watch] background rebuild failed:', e);
+      });
     });
     await watcher.start();
     _activeWatchers.set(repoPath, watcher);
@@ -783,7 +785,9 @@ function triggerBackgroundBuildIfNeeded(repoPath: string, commitsBehind: number,
   _buildInProgress = true;
   void import('@monoes/monograph')
     .then(({ buildAsync }) => buildAsync(repoPath, { codeOnly: true }))
-    .catch(() => {})
+    .catch((e) => {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[triggerBackgroundBuildIfNeeded] staleness-triggered rebuild failed:', e);
+    })
     .finally(() => { _buildInProgress = false; });
   return true;
 }

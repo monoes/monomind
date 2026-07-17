@@ -72,6 +72,7 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
           modified = true;
         } catch (e) {
           // Column might already exist or other error - continue
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[ensureSchemaColumns] failed to add column '${col.name}':`, e);
         }
       }
     }
