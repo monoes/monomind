@@ -64,6 +64,10 @@ describe('agent_pool drain — remaining count scoped by agentType filter', () =
     expect(result.remaining).toBe(1);
   });
 
+  // Note: unlike the filtered case above, this doesn't distinguish the fix
+  // from the old behavior (scoped === agents when there's no filter, so
+  // `agents.length - drained` and `scoped.length - drained` agree) — it's a
+  // sanity check on the unfiltered path, not a regression guard for the bug.
   it('reports remaining across all types when no agentType filter is supplied', async () => {
     seedAgentStore(dir, [
       { agentId: 'w1', agentType: 'worker', status: 'idle' },
