@@ -137,18 +137,39 @@ describe('listCommand', () => {
     expect(allData.agents.map((a) => a.agentType).sort()).toEqual(['coder', 'coder', 'tester']);
   });
 
-  it('--type is a no-op filter: agent_list only supports status/domain filtering, not agentType', async () => {
-    // listCommand (agent-lifecycle.ts L202) passes `agentType: ctx.flags.type`
-    // to the agent_list MCP tool, but agent_list's handler (agent-tools.ts
-    // L346-360) only ever reads `input.status` and `input.domain` — it never
-    // looks at `agentType`. So `agent list --type tester` silently returns
-    // every agent regardless of type. Documented as current behavior.
+  it('--type filters by agent type', async () => {
+    // Regression test: listCommand (agent-lifecycle.ts) passes
+    // `agentType: ctx.flags.type` to the agent_list MCP tool, but
+    // agent_list's handler used to only ever read `input.status` and
+    // `input.domain` — it never looked at `agentType`, so `agent list
+    // --type tester` silently returned every agent regardless of type.
+    // Fixed by adding the agentType filter to agent_list's handler.
     (await spawnCommand.action!(makeCtx({ flags: { type: 'coder', name: 'c1', _: [] } })) as CommandResult);
     (await spawnCommand.action!(makeCtx({ flags: { type: 'tester', name: 't1', _: [] } })) as CommandResult);
 
     const filtered = (await listCommand.action!(makeCtx({ flags: { type: 'tester', _: [] } })) as CommandResult);
     const filteredData = filtered.data as { agents: Array<{ agentType: string }>; total: number };
-    expect(filteredData.total).toBe(2); // not 1 — the --type filter is ignored
+    expect(filteredData.total).toBe(1);
+    expect(filteredData.agents[0].agentType).toBe('tester');
+  });
+
+  it('--all includes terminated agents instead of silently returning zero agents', async () => {
+    // Regression test: listCommand sends `status: 'all'` for --all, but
+    // agent_list's handler used to treat any truthy `input.status` as a
+    // literal value to filter on — `a.status === 'all'` never matches any
+    // real agent, so --all silently returned zero agents. Fixed by treating
+    // the 'all' sentinel as "no status filter" instead.
+    const spawned = (await spawnCommand.action!(
+      makeCtx({ flags: { type: 'coder', name: 'to-terminate', _: [] } })) as CommandResult
+    );
+    const agentId = (spawned.data as { agentId: string }).agentId;
+    await stopCommand.action!(makeCtx({ args: [agentId], flags: { force: true, _: [] } }));
+
+    const withoutAll = (await listCommand.action!(makeCtx()) as CommandResult);
+    expect((withoutAll.data as { total: number }).total).toBe(0);
+
+    const withAll = (await listCommand.action!(makeCtx({ flags: { all: true, _: [] } })) as CommandResult);
+    expect((withAll.data as { total: number }).total).toBe(1);
   });
 
   // --- Corrupt-store behavior -------------------------------------------------
