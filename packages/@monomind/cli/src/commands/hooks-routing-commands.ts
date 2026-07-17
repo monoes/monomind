@@ -58,14 +58,16 @@ export const routeCommand: Command = {
           method: string;
           backend?: string;
         };
-        recommendations: Array<{
-          agent: string;
+        primaryAgent: {
+          type: string;
           confidence: number;
           reason: string;
-          estimatedTime?: string;
+        };
+        alternativeAgents: Array<{
+          type: string;
+          confidence: number;
+          reason: string;
         }>;
-        topAgent: string;
-        confidence: number;
       }>('hooks_route', {
         task,
         topK,
@@ -82,24 +84,24 @@ export const routeCommand: Command = {
       output.printBox(
         [
           `Task: ${result.task}`,
-          `Top Agent: ${output.highlight(result.topAgent)}`,
-          `Confidence: ${(result.confidence * 100).toFixed(1)}%`,
+          `Top Agent: ${output.highlight(result.primaryAgent.type)}`,
+          `Confidence: ${(result.primaryAgent.confidence * 100).toFixed(1)}%`,
           `Method: ${result.routing?.method ?? 'keyword'}`
         ].join('\n'),
         'Routing Decision'
       );
 
-      if (result.recommendations.length > 0) {
+      const recommendations = [result.primaryAgent, ...(result.alternativeAgents || [])];
+      if (recommendations.length > 0) {
         output.writeln();
         output.writeln(output.bold('Agent Recommendations'));
         output.printTable({
           columns: [
-            { key: 'agent', header: 'Agent', width: 20 },
+            { key: 'type', header: 'Agent', width: 20 },
             { key: 'confidence', header: 'Confidence', width: 12, align: 'right', format: (v) => `${(Number(v) * 100).toFixed(1)}%` },
-            { key: 'reason', header: 'Reason', width: 35 },
-            { key: 'estimatedTime', header: 'Est. Time', width: 12, format: (v) => v ? String(v) : 'N/A' }
+            { key: 'reason', header: 'Reason', width: 35 }
           ],
-          data: result.recommendations.slice(0, topK)
+          data: recommendations.slice(0, topK)
         });
       }
 
@@ -565,26 +567,34 @@ export const metricsCommand: Command = {
     output.writeln();
 
     try {
-      // Call MCP tool for metrics
+      // Call MCP tool for metrics. The real handler (hooks-routing.ts) only
+      // returns a subset of these fields depending on whether any memory
+      // entries exist yet — patterns/agents/commands/performance are all
+      // Partial, not fully populated objects. Fields that aren't tracked yet
+      // are genuinely absent (not present as null), each with a `_note`
+      // string explaining what would populate them.
       const result = await callMCPTool<{
         period: string;
-        patterns: {
+        patterns: Partial<{
           total: number;
           successful: number;
           failed: number;
-          avgConfidence: number;
-        };
-        agents: {
-          routingAccuracy: number;
+          avgConfidence: number | null;
+          _note: string;
+        }>;
+        agents: Partial<{
+          routingAccuracy: number | null;
           totalRoutes: number;
-          topAgent: string;
-        };
-        commands: {
+          topAgent: string | null;
+          _note: string;
+        }>;
+        commands: Partial<{
           totalExecuted: number;
-          successRate: number;
-          avgRiskScore: number;
-        };
-        performance: {
+          successRate: number | null;
+          avgRiskScore: number | null;
+          _note: string;
+        }>;
+        performance?: {
           memoryReduction: string;
           searchImprovement: string;
           tokenReduction: string;
@@ -600,6 +610,8 @@ export const metricsCommand: Command = {
         return { success: true, data: result };
       }
 
+      const pct = (v: number | null | undefined) => typeof v === 'number' ? `${(v * 100).toFixed(1)}%` : 'N/A';
+
       // Patterns section
       output.writeln(output.bold('📊 Pattern Learning'));
       output.printTable({
@@ -608,12 +620,13 @@ export const metricsCommand: Command = {
           { key: 'value', header: 'Value', width: 20, align: 'right' }
         ],
         data: [
-          { metric: 'Total Patterns', value: result.patterns.total },
-          { metric: 'Successful', value: output.success(String(result.patterns.successful)) },
-          { metric: 'Failed', value: output.error(String(result.patterns.failed)) },
-          { metric: 'Avg Confidence', value: `${(result.patterns.avgConfidence * 100).toFixed(1)}%` }
+          { metric: 'Total Patterns', value: result.patterns.total ?? 0 },
+          { metric: 'Successful', value: typeof result.patterns.successful === 'number' ? output.success(String(result.patterns.successful)) : 'N/A' },
+          { metric: 'Failed', value: typeof result.patterns.failed === 'number' ? output.error(String(result.patterns.failed)) : 'N/A' },
+          { metric: 'Avg Confidence', value: pct(result.patterns.avgConfidence) }
         ]
       });
+      if (result.patterns._note) output.writeln(output.dim(`  ${result.patterns._note}`));
 
       output.writeln();
 
@@ -625,11 +638,12 @@ export const metricsCommand: Command = {
           { key: 'value', header: 'Value', width: 20, align: 'right' }
         ],
         data: [
-          { metric: 'Routing Accuracy', value: `${(result.agents.routingAccuracy * 100).toFixed(1)}%` },
-          { metric: 'Total Routes', value: result.agents.totalRoutes },
-          { metric: 'Top Agent', value: output.highlight(result.agents.topAgent) }
+          { metric: 'Routing Accuracy', value: pct(result.agents.routingAccuracy) },
+          { metric: 'Total Routes', value: result.agents.totalRoutes ?? 0 },
+          { metric: 'Top Agent', value: result.agents.topAgent ? output.highlight(result.agents.topAgent) : 'N/A' }
         ]
       });
+      if (result.agents._note) output.writeln(output.dim(`  ${result.agents._note}`));
 
       output.writeln();
 
@@ -641,11 +655,12 @@ export const metricsCommand: Command = {
           { key: 'value', header: 'Value', width: 20, align: 'right' }
         ],
         data: [
-          { metric: 'Total Executed', value: result.commands.totalExecuted },
-          { metric: 'Success Rate', value: `${(result.commands.successRate * 100).toFixed(1)}%` },
-          { metric: 'Avg Risk Score', value: result.commands.avgRiskScore.toFixed(2) }
+          { metric: 'Total Executed', value: result.commands.totalExecuted ?? 0 },
+          { metric: 'Success Rate', value: pct(result.commands.successRate) },
+          { metric: 'Avg Risk Score', value: typeof result.commands.avgRiskScore === 'number' ? result.commands.avgRiskScore.toFixed(2) : 'N/A' }
         ]
       });
+      if (result.commands._note) output.writeln(output.dim(`  ${result.commands._note}`));
 
       if (v1Dashboard && result.performance) {
         const p = result.performance;
