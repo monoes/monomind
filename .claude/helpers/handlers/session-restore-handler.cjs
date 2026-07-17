@@ -45,9 +45,13 @@ module.exports = {
       }
     } catch (e) { /* @monomind/hooks not available or not built — skip */ }
 
-    // Stale helper detection — warn when project helpers drift from the bundled npm copy.
-    // Skip when running inside the monomind dev repo itself: local helpers ARE the
-    // source of truth there, so any diff vs. the npm global install is expected.
+    // Stale helper self-heal — silently refresh project helpers that drift from
+    // the bundled npm copy, so a `npm i -g monomind@latest` (or npx picking up a
+    // new version) takes effect on the very next session instead of requiring a
+    // manual `doctor --fix` / `init upgrade`. Skip when running inside the
+    // monomind dev repo itself: local helpers ARE the source of truth there, so
+    // any diff vs. the npm global install is expected (and would self-clobber
+    // in-progress edits).
     try {
       var _isDevRepo = fs.existsSync(path.join(CWD, 'packages', '@monomind', 'cli', 'package.json'));
       if (!_isDevRepo) {
@@ -76,24 +80,60 @@ module.exports = {
           return null;
         }
 
+        function _hashFile(p) {
+          try { return crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex'); }
+          catch (_) { return null; }
+        }
+
+        // Copy `bundledF` -> `localF` iff their contents differ (or local is missing).
+        // Atomic copy-via-rename so a partial write can never leave a broken hook.
+        function _healIfStale(localF, bundledF) {
+          if (!fs.existsSync(bundledF)) return null;
+          var hashB = _hashFile(bundledF);
+          var hashL = fs.existsSync(localF) ? _hashFile(localF) : null;
+          if (hashL === hashB) return null;
+          try {
+            var tmp = localF + '.' + process.pid + '.tmp';
+            fs.mkdirSync(path.dirname(localF), { recursive: true });
+            fs.copyFileSync(bundledF, tmp);
+            try { fs.chmodSync(tmp, 0o755); } catch (_) {}
+            fs.renameSync(tmp, localF);
+            return path.relative(path.join(CWD, '.claude', 'helpers'), localF);
+          } catch (_) { return null; }
+        }
+
         var bundledDir = _findBundledHelpers();
         if (bundledDir) {
-          var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs'];
-          var stale = [];
+          var healed = [];
+          // Top-level critical files — mirrors executor.ts's `criticalHelpers` list.
+          var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'graphify-freshen.cjs', 'intelligence.cjs', 'auto-memory-hook.mjs'];
           for (var hi = 0; hi < helpersToCheck.length; hi++) {
             var hName = helpersToCheck[hi];
-            var localF   = path.join(CWD, '.claude', 'helpers', hName);
-            var bundledF = path.join(bundledDir, hName);
-            if (!fs.existsSync(localF) || !fs.existsSync(bundledF)) continue;
-            try {
-              var hashL = crypto.createHash('sha256').update(fs.readFileSync(localF)).digest('hex');
-              var hashB = crypto.createHash('sha256').update(fs.readFileSync(bundledF)).digest('hex');
-              if (hashL !== hashB) stale.push(hName);
-            } catch (_) {}
+            var healedName = _healIfStale(
+              path.join(CWD, '.claude', 'helpers', hName),
+              path.join(bundledDir, hName)
+            );
+            if (healedName) healed.push(healedName);
           }
-          if (stale.length > 0) {
-            console.log('[STALE_HELPERS] Project helpers differ from bundled version: ' + stale.join(', '));
-            console.log('  Run `npx monomind@latest init upgrade` to refresh and pick up the latest features.');
+          // handlers/ and utils/ subdirectories — where most real hook-behavior
+          // fixes actually live (capture-handler.cjs, gates-handler.cjs, etc.).
+          var subdirs = ['handlers', 'utils'];
+          for (var si = 0; si < subdirs.length; si++) {
+            var bundledSub = path.join(bundledDir, subdirs[si]);
+            if (!fs.existsSync(bundledSub)) continue;
+            var files;
+            try { files = fs.readdirSync(bundledSub).filter(function(f) { return !f.startsWith('._') && !fs.statSync(path.join(bundledSub, f)).isDirectory(); }); }
+            catch (_) { files = []; }
+            for (var fi = 0; fi < files.length; fi++) {
+              var healedName2 = _healIfStale(
+                path.join(CWD, '.claude', 'helpers', subdirs[si], files[fi]),
+                path.join(bundledSub, files[fi])
+              );
+              if (healedName2) healed.push(healedName2);
+            }
+          }
+          if (healed.length > 0) {
+            console.log('[STALE_HELPERS] Refreshed ' + healed.length + ' helper(s) from bundled version: ' + healed.join(', '));
           }
         }
       }
