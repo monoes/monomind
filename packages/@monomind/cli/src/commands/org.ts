@@ -56,6 +56,13 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // side effects (starting the xdeliver listener) run.
   const taskFlag = ctx.flags['task'];
   if (Array.isArray(taskFlag)) return { success: false, message: '--task was passed more than once — pass it exactly once' };
+  // Fail before any side effects (inbox server) when the org doesn't exist.
+  const orgsDir = join(ctx.cwd, ORG_DIR);
+  if (!existsSync(join(orgsDir, `${name}.json`))) {
+    const known = existsSync(orgsDir) ? listOrgConfigFiles(orgsDir).map(f => f.replace(/\.json$/, '')) : [];
+    log(output.error(`Org not found: ${name}${known.length ? ` — available: ${known.join(', ')}` : ' — create one with /mastermind:createorg'}`));
+    return { success: false, message: 'org not found' };
+  }
   const crossProcess = ctx.flags['crossProcess'] !== false;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
@@ -63,7 +70,19 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     srv = await startOrgServer(daemon, 0);
     daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
   }
-  const running = await daemon.startOrg(name, taskFlag as string | undefined);
+  let running: Awaited<ReturnType<typeof daemon.startOrg>>;
+  try {
+    running = await daemon.startOrg(name, taskFlag as string | undefined);
+  } catch (err) {
+    // Don't leave the inbox server holding the event loop open on a failed start.
+    srv?.close();
+    await daemon.stopAll().catch(() => { /* nothing started */ });
+    const detail = err instanceof Error ? err.message : String(err);
+    const hint = err instanceof Error && err.name === 'ZodError'
+      ? ` — run "monomind org validate ${name}" for details` : '';
+    log(output.error(`Could not start org ${name}: ${detail}${hint}`));
+    return { success: false, message: 'org start failed' };
+  }
   log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
 
   // stopfile poll lets `org stop` work from another terminal;
