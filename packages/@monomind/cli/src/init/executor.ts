@@ -634,7 +634,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
     if (sourceHelpersForUpgrade) {
       const destHelpersDir = path.join(targetDir, '.claude', 'helpers');
       // Copy top-level critical files atomically
-      const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'graphify-freshen.cjs'];
+      const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'graphify-freshen.cjs', 'router.cjs'];
       // Generated fallback for any critical helper missing from the source dir itself
       // (e.g. the published npm template lacking auto-memory-hook.mjs).
       const criticalGenerators: Record<string, () => string> = {
@@ -681,6 +681,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         'hook-handler.cjs': generateHookHandler(),
         'intelligence.cjs': generateIntelligenceStub(),
         'auto-memory-hook.mjs': generateAutoMemoryHook(),
+        'router.cjs': generateAgentRouter(),
       };
       for (const [helperName, content] of Object.entries(generatedCritical)) {
         const targetPath = path.join(targetDir, '.claude', 'helpers', helperName);
