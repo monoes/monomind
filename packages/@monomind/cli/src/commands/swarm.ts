@@ -551,8 +551,8 @@ const statusCommand: Command = {
       output.writeln(output.warning('No active swarm'));
       output.writeln();
       output.writeln(output.dim('Start a swarm with:'));
-      output.writeln(output.dim('  npx @monomind/cli@latest swarm init'));
-      output.writeln(output.dim('  npx @monomind/cli@latest swarm start'));
+      output.writeln(output.dim('  npx monomind@latest swarm init'));
+      output.writeln(output.dim('  npx monomind@latest swarm start'));
       output.writeln();
       return { success: true, data: status };
     }
