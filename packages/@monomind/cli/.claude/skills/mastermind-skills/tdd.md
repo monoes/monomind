@@ -376,6 +376,36 @@ Can't check all boxes? You skipped TDD. Start over.
 
 ---
 
+## Testing Anti-Patterns
+
+Tests must verify real behavior, not mock behavior. Mocks are a means to isolate, not the thing being tested. **Test what the code does, not what the mocks do.**
+
+**The Iron Laws of mocking:**
+
+```
+1. NEVER test mock behavior
+2. NEVER add test-only methods to production classes
+3. NEVER mock without understanding dependencies
+```
+
+| Anti-pattern | The violation | The fix |
+|---|---|---|
+| **Testing mock behavior** | Asserting a `*-mock` element or mocked return exists — the test verifies the mock works, not the component | Test the real component, or don't assert on the mock at all |
+| **Test-only methods in production** | A method (e.g. `destroy()`) that only tests call, living on a production class | Move it to test utilities; production classes carry only production API |
+| **Mocking without understanding** | Mocking a method whose side effect the test depends on ("I'll mock this to be safe") — the test passes for the wrong reason or fails mysteriously | Run the test against the real implementation FIRST, observe what it needs, then mock minimally at the lowest slow/external level |
+| **Incomplete mocks** | Mocking only the fields your immediate test uses — downstream code reads omitted fields and fails silently in integration | Mirror the COMPLETE real data structure; if uncertain, include all documented fields |
+| **Tests as afterthought** | "Implementation complete, ready for testing" | Testing is part of implementation — TDD, tests first |
+
+**Gate before any mock:** What side effects does the real method have? Does this test depend on any of them? Do I fully understand what this test needs? If unsure — run against the real implementation first.
+
+**When mocks become too complex** (setup longer than test logic, mock missing methods real components have, test breaks when mock changes): ask "do we need a mock here at all?" — integration tests with real components are often simpler than complex mocks.
+
+**Red flags:** assertions on `*-mock` IDs · methods only called from test files · mock setup >50% of the test · test fails when you remove the mock · can't explain why the mock is needed · mocking "just to be safe".
+
+If TDD reveals you're testing mock behavior, you added mocks without watching the test fail against real code first — test real behavior or question why you're mocking at all.
+
+---
+
 ## Debugging Integration
 
 Bug found? Write failing test reproducing it. Follow TDD cycle. Test proves fix and prevents regression.
