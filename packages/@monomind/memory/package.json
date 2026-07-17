@@ -2,7 +2,7 @@
   "name": "@monoes/memory",
   "version": "1.0.5",
   "type": "module",
-  "description": "Memory module - LanceDB backend, ANN indexing, vector search, hybrid SQLite+LanceDB backend (ADR-009)",
+  "description": "Memory module - JSON pattern store, LanceDB + embeddings backend, and a standalone pure-JS HNSW index; three coexisting paths, not a single unified backend",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

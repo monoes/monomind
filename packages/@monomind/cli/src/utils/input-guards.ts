@@ -249,6 +249,12 @@ const DIRECTIVE_WORDS = /\b(MUST|SHALL|ALWAYS|NEVER|IMPORTANT|OVERRIDE|IMMEDIATE
  * patterns. This is a structural / regex-based guard — it does not
  * call any LLM.
  *
+ * This is defense-in-depth, not a security boundary: a rephrased or
+ * non-English injection attempt can trivially evade a fixed pattern list.
+ * Do not rely on this as the sole safeguard for content that then gets
+ * treated as trusted/authoritative — pair it with least-privilege handling
+ * of whatever downstream action the content can influence.
+ *
  * @param content - The untrusted string to inspect.
  * @param source  - Optional label describing where the content came
  *                  from (used only in log-friendly diagnostics, not
