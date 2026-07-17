@@ -19,7 +19,7 @@ import { weightedTally } from '../consensus/tally.js';
 // Reuse agent-tools.ts's hardened store loader (50MB size cap + __proto__
 // rejection) instead of maintaining a second, weaker copy that reads the
 // same physical file — see loadAgentStore export note there.
-import { loadAgentStore } from './agent-tools.js';
+import { loadAgentStore, loadAgentStoreOrNull } from './agent-tools.js';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -323,7 +323,13 @@ export const hiveMindTools: MCPTool[] = [
       const rawPrefix = (input.prefix as string) || 'hive-worker';
       const prefix = typeof rawPrefix === 'string' && rawPrefix.length > MAX_HIVE_PREFIX_LEN
         ? rawPrefix.slice(0, MAX_HIVE_PREFIX_LEN) : rawPrefix;
-      const agentStore = loadAgentStore();
+      // Must use the null-aware loader here (this handler mutates and saves)
+      // — loadAgentStore() on a corrupt/oversized store.json now returns the
+      // empty default, and saving that back would wipe every real agent.
+      const agentStore = loadAgentStoreOrNull();
+      if (!agentStore) {
+        return { success: false, error: 'Agent store is unreadable/corrupt — refusing to spawn hive workers to avoid overwriting real agent data.' };
+      }
 
       const spawnedWorkers: Array<{ agentId: string; role: string; joinedAt: string }> = [];
 
@@ -1179,8 +1185,15 @@ export const hiveMindTools: MCPTool[] = [
         };
       }
 
-      // Clear workers from agent store
-      const agentStore = loadAgentStore();
+      // Clear workers from agent store. Must use the null-aware loader here
+      // (this handler mutates and saves) — loadAgentStore() on a corrupt/
+      // oversized store.json now returns the empty default, and deleting
+      // from + saving that back would wipe every real agent, not just the
+      // hive workers being shut down.
+      const agentStore = loadAgentStoreOrNull();
+      if (!agentStore) {
+        return { success: false, error: 'Agent store is unreadable/corrupt — refusing to shut down to avoid overwriting real agent data.', pendingConsensus, workerCount };
+      }
       for (const workerId of state.workers) {
         if (agentStore.agents[workerId]) {
           delete agentStore.agents[workerId];
