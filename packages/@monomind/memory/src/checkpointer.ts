@@ -7,7 +7,7 @@
  */
 
 import { randomUUID, createHash } from 'node:crypto';
-import { existsSync, readFileSync, appendFileSync } from 'node:fs';
+import { existsSync, readFileSync, appendFileSync, statSync } from 'node:fs';
 import type { AgentState, SwarmCheckpoint, CheckpointMeta } from './types/checkpoint.js';
 import { writeFileAtomicSync } from './atomic-file.js';
 
@@ -31,6 +31,20 @@ export class SwarmCheckpointer {
   private readonly dbPath: string;
   private readonly swarmId: string;
   private readonly sessionId: string;
+  // Cache of the newest checkpoint this instance knows about. saveIncremental()
+  // used to call latest() -> readAll(), which reads and JSON.parses every
+  // checkpoint line in the file on every single incremental save — O(n) per
+  // save on a file that only ever grows. Caching the last-written/last-read
+  // checkpoint in memory makes latest() (and therefore saveIncremental) O(1)
+  // in the common case. This class is a crash-recovery mechanism ("resume
+  // after crash" implies a *new* process reading what a *previous* process
+  // wrote — see index.ts's GAP-007 SwarmCheckpointer wiring), so a second
+  // writer touching the same dbPath from another process is an expected
+  // scenario, not an edge case — the cache is therefore invalidated via a
+  // cheap mtime check (statSync, not a full read+parse) rather than trusted
+  // unconditionally.
+  private lastCheckpoint: SwarmCheckpoint | null = null;
+  private lastKnownMtimeMs = -1;
 
   constructor(config: CheckpointerConfig) {
     this.dbPath = config.dbPath;
@@ -40,17 +54,30 @@ export class SwarmCheckpointer {
     // must not restart step numbering from 0 while older, higher-step
     // checkpoints already exist on disk, or latest() would keep returning
     // the stale pre-restart checkpoint forever.
-    this.stepCounter = this.readMaxStep();
+    this.refreshFromDisk();
   }
 
-  /** Read the maximum `step` value among existing checkpoints (0 if none). */
-  private readMaxStep(): number {
+  /** Cheap check: has the file changed since we last read/wrote it? */
+  private currentMtimeMs(): number {
+    try { return statSync(this.dbPath).mtimeMs; } catch { return -1; }
+  }
+
+  /** Re-read the file and recompute stepCounter/lastCheckpoint/lastKnownMtimeMs from it. */
+  private refreshFromDisk(): void {
     const all = this.readAll();
     let max = 0;
+    let newest: SwarmCheckpoint | null = null;
     for (const c of all) {
-      if (c.step > max) max = c.step;
+      if (c.step >= max) { max = c.step; newest = c; }
     }
-    return max;
+    this.stepCounter = max;
+    this.lastCheckpoint = newest;
+    this.lastKnownMtimeMs = this.currentMtimeMs();
+  }
+
+  /** Refresh the cache from disk only if another writer has touched the file since. */
+  private refreshCacheIfStale(): void {
+    if (this.currentMtimeMs() !== this.lastKnownMtimeMs) this.refreshFromDisk();
   }
 
   // ---------------------------------------------------------------------------
@@ -100,6 +127,12 @@ export class SwarmCheckpointer {
     trigger: SwarmCheckpoint['trigger'],
     parentCheckpointId?: string,
   ): string {
+    // Pick up any checkpoints another process/instance wrote to this dbPath
+    // since we last synced, so stepCounter doesn't collide with a step that
+    // writer already used (see the lastCheckpoint field comment: this is a
+    // crash-recovery class, so a second writer on the same file is expected).
+    this.refreshCacheIfStale();
+
     const checkpointId = randomUUID();
     this.stepCounter += 1;
 
@@ -118,6 +151,8 @@ export class SwarmCheckpointer {
     };
 
     appendFileSync(this.dbPath, JSON.stringify(checkpoint) + '\n', 'utf-8');
+    this.lastCheckpoint = checkpoint;
+    this.lastKnownMtimeMs = this.currentMtimeMs();
     return checkpointId;
   }
 
@@ -177,11 +212,15 @@ export class SwarmCheckpointer {
 
   /**
    * Return the most recent checkpoint, or `null` if none exist.
+   *
+   * Served from the in-memory cache when this instance is already caught up
+   * with the file on disk (cheap mtime check, not a full read+parse); falls
+   * back to a real read when another writer has touched the file — see the
+   * `lastCheckpoint` field comment.
    */
   latest(): SwarmCheckpoint | null {
-    const all = this.readAll();
-    if (all.length === 0) return null;
-    return all.reduce((best, c) => (c.step > best.step ? c : best), all[0]);
+    this.refreshCacheIfStale();
+    return this.lastCheckpoint;
   }
 
   /**
@@ -229,6 +268,10 @@ export class SwarmCheckpointer {
     const kept = all.filter((c) => new Date(c.createdAt).getTime() > cutoff);
     const removed = all.length - kept.length;
     this.writeAll(kept);
+    this.lastCheckpoint = kept.length
+      ? kept.reduce((best, c) => (c.step >= best.step ? c : best), kept[0])
+      : null;
+    this.lastKnownMtimeMs = this.currentMtimeMs();
     return removed;
   }
 }
