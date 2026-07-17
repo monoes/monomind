@@ -3,10 +3,15 @@
  * Covers deriveSubagentSuccess and parseJSONLForData's lastToolError signal —
  * the fix for the routing-feedback success flag being permanently 100% true
  * (deriveSubagentSuccess previously only matched literal keywords in the
- * subagent's final text message, which real failures rarely use).
+ * subagent's final text message, which real failures rarely use) — plus
+ * handleSubagentStop's cross-subagent scoping fix (a sibling subagent's
+ * transcript created concurrently used to get folded into this subagent's
+ * own success/failure record under the project's default multi-agent
+ * swarm topology).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createRequire } from 'module';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -85,5 +90,83 @@ describe('parseJSONLForData lastToolError', () => {
       { message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } },
     ]);
     expect(parseJSONLForData(p).lastToolError).toBe(false);
+  });
+});
+
+describe('handleSubagentStop cross-subagent scoping', () => {
+  let projectDir, fakeHome, claudeDir;
+
+  beforeEach(() => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ch-proj-'));
+    fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ch-home-'));
+    const encoded = projectDir.replace(/\//g, '-');
+    claudeDir = path.join(fakeHome, '.claude', 'projects', encoded);
+    fs.mkdirSync(claudeDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+    fs.rmSync(fakeHome, { recursive: true, force: true });
+  });
+
+  function runHook(eventType, hookInput) {
+    return execFileSync('node', [CH_PATH, eventType], {
+      input: JSON.stringify(hookInput),
+      env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir, HOME: fakeHome, USERPROFILE: fakeHome },
+      encoding: 'utf-8',
+    });
+  }
+
+  function readOutcomes() {
+    const p = path.join(projectDir, '.monomind', 'data', 'intelligence-outcomes.jsonl');
+    if (!fs.existsSync(p)) return [];
+    return fs.readFileSync(p, 'utf-8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
+  }
+
+  it('does not let a concurrent sibling subagent\'s failure contaminate this subagent\'s success record', () => {
+    const transcriptA = path.join(claudeDir, 'agent-A.jsonl');
+    const transcriptB = path.join(claudeDir, 'agent-B.jsonl');
+
+    // A starts — snapshot taken before either transcript file exists.
+    runHook('subagent-start', { transcript_path: transcriptA, agentType: 'coder', agentDesc: 'task A' });
+
+    // Sibling B's transcript appears (created after A's snapshot) — B FAILS.
+    fs.writeFileSync(transcriptB, [
+      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+      { message: { role: 'user', content: [{ type: 'tool_result', is_error: true, content: 'B failed' }] } },
+      { message: { role: 'assistant', content: [{ type: 'text', text: 'B is done.' }] } },
+    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+
+    // A's own transcript appears too — A SUCCEEDS.
+    fs.writeFileSync(transcriptA, [
+      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+      { message: { role: 'user', content: [{ type: 'tool_result', is_error: false, content: 'A succeeded' }] } },
+      { message: { role: 'assistant', content: [{ type: 'text', text: 'A finished successfully.' }] } },
+    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+
+    // A stops. Both files are "new" relative to A's start-snapshot — this must
+    // only attribute A's own transcript, not sibling B's, to A's record.
+    runHook('subagent-stop', { transcript_path: transcriptA });
+
+    const outcomes = readOutcomes();
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0].success).toBe(true);
+  });
+
+  it('falls back to the directory-wide new-files diff when transcript_path is absent', () => {
+    // Older Claude Code payload shape (no transcript_path) — single-subagent
+    // case should still work via the fallback path.
+    runHook('subagent-start', {});
+    const transcript = path.join(claudeDir, 'solo-agent.jsonl');
+    fs.writeFileSync(transcript, [
+      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+      { message: { role: 'user', content: [{ type: 'tool_result', is_error: false, content: 'ok' }] } },
+      { message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } },
+    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+    runHook('subagent-stop', {});
+
+    const outcomes = readOutcomes();
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0].success).toBe(true);
   });
 });
