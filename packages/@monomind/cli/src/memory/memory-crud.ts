@@ -311,15 +311,25 @@ export async function storeEntry(options: {
     // existing row's real id first and reuse it so the replace actually
     // collides; only mint a new id when no existing row is found.
     let id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    let existingCreatedAt: number | null = null;
     if (upsert) {
+      // Only match active rows — a soft-deleted row's key+namespace should
+      // not be resurrected by an unrelated upsert; that would both restore
+      // history a delete intentionally cleared and mask the deletion.
       const existingIdResult = db.exec(
-        'SELECT id FROM memory_entries WHERE key = ? AND namespace = ? LIMIT 1',
+        "SELECT id, created_at FROM memory_entries WHERE key = ? AND namespace = ? AND status = 'active' LIMIT 1",
         [key, namespace]
       );
-      const existingId = existingIdResult[0]?.values?.[0]?.[0];
-      if (typeof existingId === 'string') id = existingId;
+      const existingRow = existingIdResult[0]?.values?.[0];
+      const existingId = existingRow?.[0];
+      if (typeof existingId === 'string') {
+        id = existingId;
+        const createdAt = existingRow?.[1];
+        if (typeof createdAt === 'number') existingCreatedAt = createdAt;
+      }
     }
     const now = Date.now();
+    const createdAt = existingCreatedAt ?? now;
 
     let embeddingJson: string | null = null;
     let embeddingDimensions: number | null = null;
@@ -354,7 +364,7 @@ export async function storeEntry(options: {
       embeddingModel,
       tags.length > 0 ? JSON.stringify(tags) : null,
       '{}',
-      now,
+      createdAt,
       now,
       ttl ? now + (ttl * 1000) : null
     ]);
