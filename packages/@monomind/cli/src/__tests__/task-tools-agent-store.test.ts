@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { taskTools } from '../mcp-tools/task-tools.js';
@@ -21,6 +21,7 @@ describe('task_assign does not wipe a corrupt/oversized agent store on read fail
 
   afterEach(() => {
     delete process.env.MONOMIND_CWD;
+    rmSync(dir, { recursive: true, force: true });
   });
 
   function taskCreate() {
