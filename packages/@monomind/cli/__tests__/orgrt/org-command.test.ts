@@ -36,6 +36,85 @@ describe('org command', () => {
     expect(res?.message).toMatch(/usage: monomind org/);
   });
 
+  describe('validate', () => {
+    const writeOrg = (cwd: string, name: string, def: unknown): void => {
+      mkdirSync(join(cwd, ORG_DIR), { recursive: true });
+      writeFileSync(join(cwd, ORG_DIR, `${name}.json`), JSON.stringify(def));
+    };
+    const validate = (cwd: string, ...args: string[]) =>
+      orgCommand.subcommands!.find(c => c.name === 'validate')!
+        .action!({ args, flags: {}, cwd, interactive: false } as any);
+
+    it('accepts a well-formed org config', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-validate-'));
+      try {
+        writeOrg(cwd, 'good', {
+          name: 'good', goal: 'test', roles: [
+            { id: 'boss', type: 'boss', reports_to: null },
+            { id: 'worker', reports_to: 'boss' },
+          ],
+        });
+        const res = await validate(cwd, 'good');
+        expect(res?.success).toBe(true);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('rejects multiple roots, unresolved reports_to, duplicate ids, and bad schedules', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-validate-'));
+      try {
+        writeOrg(cwd, 'bad', {
+          name: 'bad', schedule: 'whenever', roles: [
+            { id: 'a', reports_to: null },
+            { id: 'b', reports_to: null },
+            { id: 'b', reports_to: 'ghost' },
+          ],
+        });
+        const res = await validate(cwd, 'bad');
+        expect(res?.success).toBe(false);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('rejects schema violations (empty roles array)', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-validate-'));
+      try {
+        writeOrg(cwd, 'empty', { name: 'empty', roles: [] });
+        const res = await validate(cwd, 'empty');
+        expect(res?.success).toBe(false);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('validates all orgs when no name is given and fails on the broken one', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-validate-'));
+      try {
+        writeOrg(cwd, 'ok', { name: 'ok', roles: [{ id: 'boss', reports_to: null }] });
+        writeFileSync(join(cwd, ORG_DIR, 'broken.json'), '{not json');
+        const res = await validate(cwd);
+        expect(res?.success).toBe(false);
+        expect(res?.message).toMatch(/1 of 2/);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('rejects a path-traversal org name', async () => {
+      const res = await validate(process.cwd(), '../../etc/passwd');
+      expect(res?.success).toBe(false);
+    });
+
+    it('reports a missing org as a failure', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-validate-'));
+      try {
+        mkdirSync(join(cwd, ORG_DIR), { recursive: true });
+        const res = await validate(cwd, 'nonexistent');
+        expect(res?.success).toBe(false);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+  });
+
+  it('status rejects a path-traversal org name', async () => {
+    const status = orgCommand.subcommands!.find(c => c.name === 'status')!;
+    const res = await status.action!({ args: ['../../x'], flags: {}, cwd: process.cwd(), interactive: false } as any);
+    expect(res?.success).toBe(false);
+  });
+
   describe('stopfile lifecycle', () => {
     it('clearStopfile removes a stopfile written by stopAction', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'org-stopfile-'));
