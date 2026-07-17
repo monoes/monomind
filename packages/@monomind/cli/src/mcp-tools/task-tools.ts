@@ -419,15 +419,26 @@ export const taskTools: MCPTool[] = [
 
       const previouslyAssigned = [...task.assignedTo];
 
-      // Load agent store to sync worker state
+      // Load agent store to sync worker state. Distinguish "file doesn't
+      // exist yet" (safe to proceed with an empty store) from "file exists
+      // but failed to read/parse" (a real store that's momentarily corrupt
+      // or oversized) — the latter must NOT fall through to the unconditional
+      // write-back below, or a transient read failure silently wipes out
+      // every agent's real on-disk state.
       const agentStorePath = join(getMonomindDataRoot(), 'agents', 'store.json');
       let agentStore: { agents: Record<string, Record<string, unknown>> } = { agents: {} };
+      let agentStoreReadFailed = false;
       try {
-        if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
-          agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
+        if (existsSync(agentStorePath)) {
+          if (statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
+            agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
+          } else {
+            agentStoreReadFailed = true;
+          }
         }
       } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[task_assign] failed to read agent store (will overwrite with empty on save):', e);
+        agentStoreReadFailed = true;
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[task_assign] failed to read agent store — skipping agent-store sync to avoid overwriting it with an empty one:', e);
       }
 
       // Reject IDs that would mutate Object.prototype when used as a key in
@@ -473,20 +484,25 @@ export const taskTools: MCPTool[] = [
       }
 
       saveTaskStore(store);
-      // Save agent store
-      const agentDir = join(getMonomindDataRoot(), 'agents');
-      if (!existsSync(agentDir)) {
-        mkdirSync(agentDir, { recursive: true });
+      // Save agent store — skipped when the read above failed, so a
+      // transient corrupt/oversized store.json is left alone instead of
+      // being overwritten with an empty one.
+      if (!agentStoreReadFailed) {
+        const agentDir = join(getMonomindDataRoot(), 'agents');
+        if (!existsSync(agentDir)) {
+          mkdirSync(agentDir, { recursive: true });
+        }
+        const tmpAgent2 = `${agentStorePath}.${process.pid}.${Date.now()}.tmp`;
+        writeFileSync(tmpAgent2, JSON.stringify(agentStore, null, 2), 'utf-8');
+        renameSync(tmpAgent2, agentStorePath);
       }
-      const tmpAgent2 = `${agentStorePath}.${process.pid}.${Date.now()}.tmp`;
-      writeFileSync(tmpAgent2, JSON.stringify(agentStore, null, 2), 'utf-8');
-      renameSync(tmpAgent2, agentStorePath);
 
       return {
         taskId: task.taskId,
         assignedTo: task.assignedTo,
         previouslyAssigned,
         status: task.status,
+        ...(agentStoreReadFailed ? { agentStoreSyncSkipped: true } : {}),
       };
     },
   },
