@@ -22,7 +22,7 @@ import {
   preCommandCommand,
   postCommandCommand,
 } from '../commands/hooks-core-commands.js';
-import { routeCommand } from '../commands/hooks-routing-commands.js';
+import { routeCommand, metricsCommand } from '../commands/hooks-routing-commands.js';
 
 // The full set of subcommand names actually wired into hooksCommand.subcommands
 // (source of truth is the registration array in hooks.ts, cross-checked
@@ -344,4 +344,59 @@ describe('hooks pre-edit / post-edit smoke dispatch', () => {
     expect(result).toBeDefined();
     expect(typeof result?.success).toBe('boolean');
   });
+});
+
+describe('hooks metrics dispatch (real hooks_metrics handler)', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'hooks-metrics-test-'));
+    process.env.MONOMIND_CWD = dir;
+  });
+
+  afterEach(() => {
+    delete process.env.MONOMIND_CWD;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does not throw with an empty memory store', async () => {
+    const ctx = makeCtx([], { format: 'json' }, dir);
+    const result = await metricsCommand.action!(ctx);
+    expect(result?.success).toBe(true);
+  });
+
+  it(
+    'does not throw once memory entries exist — regression test for a real crash: ' +
+      'the CLI display used to call result.commands.avgRiskScore.toFixed(2) unconditionally, ' +
+      'but hooks_metrics only returns totalExecuted (no successRate/avgRiskScore) once any ' +
+      'memory entries are present, so avgRiskScore was undefined and .toFixed() threw a ' +
+      'TypeError — the common case (any real usage), not the rare one.',
+    async () => {
+      const { mkdirSync, writeFileSync } = await import('node:fs');
+      const memoryDir = join(dir, '.monomind', 'memory');
+      mkdirSync(memoryDir, { recursive: true });
+      writeFileSync(
+        join(memoryDir, 'store.json'),
+        JSON.stringify({
+          entries: {
+            e1: { key: 'pattern-1', value: 'x', storedAt: new Date().toISOString(), accessCount: 0, lastAccessed: new Date().toISOString() },
+          },
+          version: '3.0.0',
+        }),
+        'utf-8',
+      );
+
+      const ctx = makeCtx([], { format: 'json' }, dir);
+      const result = await metricsCommand.action!(ctx);
+      expect(result?.success).toBe(true);
+      const data = result?.data as { patterns: { total: number } };
+      expect(data.patterns.total).toBe(1);
+
+      // Also drive the non-JSON display path (the one that used to crash) —
+      // if this throws, the test fails.
+      const displayCtx = makeCtx([], {}, dir);
+      const displayResult = await metricsCommand.action!(displayCtx);
+      expect(displayResult?.success).toBe(true);
+    },
+  );
 });
