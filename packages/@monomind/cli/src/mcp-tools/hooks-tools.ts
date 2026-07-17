@@ -22,6 +22,7 @@ import {
   hooksBuildAgents,
   hooksTransfer,
   hooksSessionStart,
+  hooksSessionRestore,
   hooksSessionEnd,
   hooksIntelligence,
 } from './hooks-routing.js';
@@ -59,6 +60,7 @@ export const hooksTools: MCPTool[] = [
   hooksBuildAgents,
   hooksTransfer,
   hooksSessionStart,
+  hooksSessionRestore,
   hooksSessionEnd,
   hooksIntelligence,
   hooksIntelligenceReset,
