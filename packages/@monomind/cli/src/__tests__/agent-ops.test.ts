@@ -4,7 +4,26 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { metricsCommand, poolCommand, healthCommand } from '../commands/agent-ops.js';
 import { spawnCommand } from '../commands/agent-lifecycle.js';
+import { getMonomindDataRoot } from '../mcp-tools/types.js';
 import type { CommandContext, CommandResult } from '../types.js';
+
+function seedAgentStore(dir: string, agents: Array<{ agentId: string; agentType: string; status: string; taskCount?: number }>) {
+  const agentsDir = join(getMonomindDataRoot(dir), 'agents');
+  mkdirSync(agentsDir, { recursive: true });
+  const store = {
+    agents: Object.fromEntries(agents.map((a) => [a.agentId, {
+      agentId: a.agentId,
+      agentType: a.agentType,
+      status: a.status,
+      health: 1.0,
+      taskCount: a.taskCount ?? 0,
+      config: {},
+      createdAt: new Date().toISOString(),
+    }])),
+    version: '3.0.0',
+  };
+  writeFileSync(join(agentsDir, 'store.json'), JSON.stringify(store, null, 2), 'utf-8');
+}
 
 function makeCtx(overrides: Partial<CommandContext> = {}): CommandContext {
   return {
@@ -46,23 +65,16 @@ describe('metricsCommand', () => {
     expect(data.summary.note).toMatch(/No agents spawned yet/);
   });
 
-  it('aggregates realistic seeded .swarm/agents/*.json fixtures by type, task count, and success rate', async () => {
-    const agentsDir = join(dir, '.swarm', 'agents');
-    mkdirSync(agentsDir, { recursive: true });
-    writeFileSync(
-      join(agentsDir, 'a1.json'),
-      JSON.stringify({ type: 'coder', status: 'active', tasksCompleted: 10, successCount: 8 })
-    );
-    writeFileSync(
-      join(agentsDir, 'a2.json'),
-      JSON.stringify({ type: 'coder', status: 'idle', tasksCompleted: 4, successCount: 4 })
-    );
-    writeFileSync(
-      join(agentsDir, 'a3.json'),
-      JSON.stringify({ type: 'tester', status: 'active', tasksCompleted: 2, successCount: 1 })
-    );
-    // Malformed sibling file must be skipped, not abort the whole aggregation.
-    writeFileSync(join(agentsDir, 'broken.json'), '{ not json');
+  it('aggregates realistic seeded real agent-store fixtures by type and task count', async () => {
+    // Regression test: this used to seed .swarm/agents/*.json, a directory
+    // nothing in the codebase ever wrote to — metricsCommand now reads the
+    // real store at getMonomindDataRoot()/agents/store.json instead.
+    seedAgentStore(dir, [
+      { agentId: 'a1', agentType: 'coder', status: 'idle', taskCount: 10 },
+      { agentId: 'a2', agentType: 'coder', status: 'busy', taskCount: 4 },
+      { agentId: 'a3', agentType: 'tester', status: 'idle', taskCount: 2 },
+      { agentId: 'a4', agentType: 'tester', status: 'terminated', taskCount: 1 },
+    ]);
 
     const result = (await metricsCommand.action!(makeCtx()) as CommandResult);
     const data = result.data as {
@@ -70,66 +82,35 @@ describe('metricsCommand', () => {
       byType: Array<{ type: string; count: number; tasks: number; successRate: string }>;
     };
 
-    expect(data.summary.totalAgents).toBe(3);
-    expect(data.summary.activeAgents).toBe(2);
-    expect(data.summary.tasksCompleted).toBe(16);
+    expect(data.summary.totalAgents).toBe(4);
+    // activeAgents = non-terminated (a4 is terminated, excluded).
+    expect(data.summary.activeAgents).toBe(3);
+    expect(data.summary.tasksCompleted).toBe(17);
+    // Success/failure breakdown isn't tracked in the current agent store
+    // schema (AgentRecord has only a single taskCount, no completed/failed
+    // split) — reported honestly as N/A rather than fabricated.
+    expect(data.summary.avgSuccessRate).toBe('N/A');
 
     const coder = data.byType.find((t) => t.type === 'coder')!;
     expect(coder.count).toBe(2);
     expect(coder.tasks).toBe(14);
-    expect(coder.successRate).toBe('86%'); // 12/14 rounded
+    expect(coder.successRate).toBe('N/A');
 
     const tester = data.byType.find((t) => t.type === 'tester')!;
-    expect(tester.count).toBe(1);
-    expect(tester.tasks).toBe(2);
-    expect(tester.successRate).toBe('50%');
+    expect(tester.count).toBe(2);
+    expect(tester.tasks).toBe(3);
   });
 
-  it('skips oversized agent fixture files (>512KB) instead of loading them', async () => {
-    const agentsDir = join(dir, '.swarm', 'agents');
-    mkdirSync(agentsDir, { recursive: true });
-    const huge = JSON.stringify({ type: 'coder', status: 'active', tasksCompleted: 1, successCount: 1 })
-      + ' '.repeat(600 * 1024);
-    writeFileSync(join(agentsDir, 'huge.json'), huge);
+  it('reflects agents spawned via the real agent_spawn flow', async () => {
+    // Regression test: metricsCommand used to read from .swarm/agents/*.json,
+    // which agent_spawn never wrote to, so it always reported zero agents
+    // regardless of what was actually spawned. Fixed to read the real store.
+    (await spawnCommand.action!(makeCtx({ flags: { type: 'coder', name: 'real-agent', _: [] } })) as CommandResult);
 
     const result = (await metricsCommand.action!(makeCtx()) as CommandResult);
-    const data = result.data as { summary: { totalAgents: number } };
-    expect(data.summary.totalAgents).toBe(0);
-  });
-
-  it(
-    'DOES NOT see agents spawned via the real agent_spawn/store.json flow — its data source is a ' +
-      'different, unpopulated directory',
-    async () => {
-      // This is the second flagged mismatch (see report): agent-lifecycle.ts's
-      // spawnCommand persists to getMonomindDataRoot()/agents/store.json
-      // (src/mcp-tools/agent-tools.ts) and writes swarm activity to
-      // <cwd>/.monomind/metrics/swarm-activity.json (agent-lifecycle.ts
-      // updateSwarmActivityMetrics, L15-43). metricsCommand (this file, L24-56)
-      // instead reads from <cwd>/.swarm/agents/*.json and
-      // <cwd>/.swarm/swarm-activity.json. Nothing in the codebase writes to
-      // .swarm/agents/*.json, so `agent metrics` is structurally incapable of
-      // reflecting agents spawned via `agent spawn`.
-      (await spawnCommand.action!(makeCtx({ flags: { type: 'coder', name: 'real-agent', _: [] } })) as CommandResult);
-
-      const result = (await metricsCommand.action!(makeCtx()) as CommandResult);
-      const data = result.data as { summary: { totalAgents: number; note?: string } };
-      expect(data.summary.totalAgents).toBe(0);
-      expect(data.summary.note).toMatch(/No agents spawned yet/);
-    }
-  );
-
-  it('falls back to swarm-activity.json totals only when no per-agent fixture files exist', async () => {
-    mkdirSync(join(dir, '.swarm'), { recursive: true });
-    writeFileSync(
-      join(dir, '.swarm', 'swarm-activity.json'),
-      JSON.stringify({ totalAgents: 7, activeAgents: 3 })
-    );
-
-    const result = (await metricsCommand.action!(makeCtx()) as CommandResult);
-    const data = result.data as { summary: { totalAgents: number; activeAgents: number } };
-    expect(data.summary.totalAgents).toBe(7);
-    expect(data.summary.activeAgents).toBe(3);
+    const data = result.data as { summary: { totalAgents: number; note?: string } };
+    expect(data.summary.totalAgents).toBe(1);
+    expect(data.summary.note).toBeUndefined();
   });
 });
 

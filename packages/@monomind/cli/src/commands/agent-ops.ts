@@ -13,46 +13,36 @@ export const metricsCommand: Command = {
   name: 'metrics',
   description: 'Show agent performance metrics',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const { existsSync, readFileSync, readdirSync, statSync } = await import('fs');
-    const { join } = await import('path');
+    // Previously read from .swarm/agents/*.json (one file per agent) — a
+    // directory nothing in the codebase has ever written to. agent_spawn
+    // (agent-tools.ts) persists to a single store.json at
+    // getMonomindDataRoot()/agents/store.json, keyed by agentId. This
+    // command was structurally incapable of reflecting a single real
+    // spawned agent; always reported zero regardless of activity. Read the
+    // real store instead.
+    const { loadAgentStore } = await import('../mcp-tools/agent-tools.js');
+    const store = loadAgentStore();
+    const agents = Object.values(store.agents);
 
     let totalAgents = 0;
     let activeAgents = 0;
     let tasksCompleted = 0;
-    const typeCounts: Record<string, { count: number; tasks: number; success: number }> = {};
+    const typeCounts: Record<string, { count: number; tasks: number }> = {};
 
-    const swarmDir = join(process.cwd(), '.swarm');
-    const agentsDir = join(swarmDir, 'agents');
-    if (existsSync(agentsDir)) {
-      try {
-        const files = readdirSync(agentsDir).filter(f => f.endsWith('.json'));
-        for (const file of files) {
-          try {
-            const agentFilePath = join(agentsDir, file);
-            if (statSync(agentFilePath).size > 512 * 1024) continue;
-            const data = JSON.parse(readFileSync(agentFilePath, 'utf-8'));
-            totalAgents++;
-            const agType = data.type || 'unknown';
-            if (!typeCounts[agType]) typeCounts[agType] = { count: 0, tasks: 0, success: 0 };
-            typeCounts[agType].count++;
-            if (data.status === 'active' || data.status === 'running') activeAgents++;
-            if (data.tasksCompleted) {
-              typeCounts[agType].tasks += data.tasksCompleted;
-              tasksCompleted += data.tasksCompleted;
-            }
-            if (data.successCount) typeCounts[agType].success += data.successCount;
-          } catch { /* skip malformed */ }
-        }
-      } catch { /* no agents dir */ }
-    }
-
-    const activityFile = join(swarmDir, 'swarm-activity.json');
-    if (existsSync(activityFile) && statSync(activityFile).size <= 10 * 1024 * 1024) {
-      try {
-        const activity = JSON.parse(readFileSync(activityFile, 'utf-8'));
-        if (activity.totalAgents && totalAgents === 0) totalAgents = activity.totalAgents;
-        if (activity.activeAgents && activeAgents === 0) activeAgents = activity.activeAgents;
-      } catch { /* ignore */ }
+    for (const agent of agents) {
+      totalAgents++;
+      const agType = agent.agentType || 'unknown';
+      if (!typeCounts[agType]) typeCounts[agType] = { count: 0, tasks: 0 };
+      typeCounts[agType].count++;
+      if (agent.status !== 'terminated') activeAgents++;
+      // AgentRecord tracks a single taskCount, not a completed/failed
+      // breakdown — this is the best available proxy for "task activity",
+      // not literally "completed" tasks. Success-rate data doesn't exist
+      // anywhere in the current agent store schema, so it's reported as
+      // N/A below rather than fabricated.
+      const taskCount = agent.taskCount || 0;
+      typeCounts[agType].tasks += taskCount;
+      tasksCompleted += taskCount;
     }
 
     let vectorCount = 0;
@@ -64,12 +54,10 @@ export const metricsCommand: Command = {
 
     const byType = Object.entries(typeCounts).map(([type, data]) => ({
       type, count: data.count, tasks: data.tasks,
-      successRate: data.tasks > 0 ? `${Math.round((data.success / data.tasks) * 100)}%` : 'N/A',
+      successRate: 'N/A', // not tracked in the current agent store schema
     }));
 
-    const avgSuccessRate = tasksCompleted > 0
-      ? `${Math.round(Object.values(typeCounts).reduce((a, d) => a + d.success, 0) / tasksCompleted * 100)}%`
-      : 'N/A';
+    const avgSuccessRate = 'N/A'; // not tracked in the current agent store schema
 
     const metrics = {
       summary: {
