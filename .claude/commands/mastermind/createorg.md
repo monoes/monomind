@@ -53,17 +53,21 @@ Parse `$ARGUMENTS` for:
 
 **If `--list` flag is set:**
 ```bash
-orgs_dir=".monomind/orgs"
-if [ ! -d "$orgs_dir" ] || [ -z "$(ls "$orgs_dir"/*.json 2>/dev/null)" ]; then
-  echo "No saved orgs. Run /mastermind:createorg <goal> to create one."
-else
-  echo "Saved orgs:"
-  for f in "$orgs_dir"/*.json; do
-    name=$(jq -r '.name // empty' "$f" 2>/dev/null)
-    goal=$(jq -r '.goal // ""' "$f" 2>/dev/null | cut -c1-60)
-    [ -n "$name" ] && echo "  • ${name} — ${goal}"
-  done
-fi
+# org list knows how to skip artifact side-car files (-state/-goals/…) and
+# shows role count, schedule, and runtime status per org
+npx -y monomind@latest org list || {
+  # fallback for environments without the CLI: config files only
+  orgs_dir=".monomind/orgs"
+  if [ ! -d "$orgs_dir" ] || [ -z "$(ls "$orgs_dir"/*.json 2>/dev/null)" ]; then
+    echo "No saved orgs. Run /mastermind:createorg <goal> to create one."
+  else
+    echo "Saved orgs:"
+    ls "$orgs_dir"/*.json | grep -vE -- '-(state|goals|threads|activity|approvals|members|secrets|budgets|routines|issues|projects|workspaces|worktrees|environments|plugins|adapters|join-requests|bootstrap|project-workspaces|approval-comments|skills)\.json$' \
+      | while IFS= read -r f; do
+          echo "  • $(basename "$f" .json) — $(jq -r '.goal // ""' "$f" 2>/dev/null | cut -c1-60)"
+        done
+  fi
+}
 ```
 Stop after listing. Do not proceed to skill invocation.
 
@@ -74,12 +78,16 @@ Stop after listing. Do not proceed to skill invocation.
    ```
 2. In confirm mode (default): ask "Delete org '${delete_name}' and all its data? This cannot be undone. Type 'yes' to confirm."
    In auto mode: proceed without asking.
-3. Call the server DELETE endpoint:
+3. Delete via the CLI (it refuses to delete a running org unless --force, and
+   removes every artifact side-car file); fall back to the dashboard server's
+   DELETE endpoint only if the CLI is unavailable:
    ```bash
-   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-   result=$(curl -s -X DELETE "${CTRL_URL}/api/orgs/${delete_name}")
-   echo "$result" | jq -r 'if .ok then "Org '\'''"${delete_name}"'''\'' deleted." else "Error: " + (.error // "unknown") end'
+   npx -y monomind@latest org delete "${delete_name}" --yes || {
+     REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+     CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+     result=$(curl -s -X DELETE "${CTRL_URL}/api/orgs/${delete_name}")
+     echo "$result" | jq -r 'if .ok then "Org '\'''"${delete_name}"'''\'' deleted." else "Error: " + (.error // "unknown") end'
+   }
    ```
 4. Stop after deleting. Do not proceed to skill invocation.
 
