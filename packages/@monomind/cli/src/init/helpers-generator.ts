@@ -1272,10 +1272,9 @@ export const DOCTOR_TRACKED_HELPERS: string[] = Object.keys(HELPER_FILES).filter
 // lacked a router.cjs fallback that the "source not found" path had, so a
 // corrupted/incomplete source copy could silently ship without router.cjs.
 export const FORCE_SYNC_GENERATORS: Record<string, () => string> = Object.fromEntries(
-  FORCE_SYNC_HELPERS.filter((name) => HELPER_FILES[name].generate).map((name) => [
-    name,
-    HELPER_FILES[name].generate as () => string,
-  ]),
+  Object.entries(HELPER_FILES)
+    .filter(([, spec]) => spec.forceSync && spec.generate)
+    .map(([name, spec]) => [name, spec.generate as () => string]),
 );
 
 // Broader fallback-if-missing-after-copy step (used during a fresh `init`,
