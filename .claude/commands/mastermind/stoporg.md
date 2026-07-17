@@ -29,11 +29,14 @@ active   →  (HIL)      →  paused    (set manually in .monomind/orgs/<name>.j
 paused   →  (set active) →  active  (resume by setting status back to "active" in the JSON)
 ```
 
-Your scheduled orgs:
+**Note:** v2 orgs (the default) are stopped via `monomind org stop <name>` — this
+command handles both: it routes v2 orgs to the CLI and legacy `.loop` orgs
+through the v1 status-flip path.
+
+Your orgs (with live runtime status):
 
 ```bash
-ls .monomind/orgs/*.json 2>/dev/null | grep -v -- '-approvals\|-state\|-activity' | \
-  xargs -I{} sh -c 'name=$(jq -r ".name" "{}"); status=$(jq -r ".status // \"no-loop\"" "{}"); interval=$(jq -r "if .loop.poll_interval_minutes then \"\(.loop.poll_interval_minutes)m\" else \"—\" end" "{}"); echo "  $name  ($status, $interval)"' 2>/dev/null || echo "(none)"
+npx -y monomind@latest org list 2>/dev/null || echo "(none — run /mastermind:createorg to define one)"
 ```
 
 ---

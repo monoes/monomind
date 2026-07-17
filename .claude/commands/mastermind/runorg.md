@@ -19,7 +19,9 @@ Running an org starts an autonomous agent organization. There are two modes:
 **Your saved orgs:**
 
 ```bash
-ls .monomind/orgs/*.json 2>/dev/null | xargs -I{} basename {} .json 2>/dev/null || echo "(none — run /mastermind:createorg to define one)"
+npx -y monomind@latest org list 2>/dev/null \
+  || ls .monomind/orgs/*.json 2>/dev/null | grep -vE -- '-(state|goals|threads|activity|approvals|members|secrets|budgets|routines|issues|projects|workspaces|worktrees|environments|plugins|adapters|join-requests|bootstrap|project-workspaces|approval-comments|skills)\.json$' | xargs -I{} basename {} .json 2>/dev/null \
+  || echo "(none — run /mastermind:createorg to define one)"
 ```
 
 **Usage:**
