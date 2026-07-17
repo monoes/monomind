@@ -210,6 +210,7 @@ Conversation memory does not survive compaction. Controllers that lost their pla
 - `./implementer-prompt.md` - Dispatch implementer subagent
 - `./spec-reviewer-prompt.md` - Dispatch spec compliance reviewer subagent
 - `./code-quality-reviewer-prompt.md` - Dispatch code quality reviewer subagent
+- `./final-reviewer-prompt.md` - Dispatch the final whole-branch reviewer (most capable model, diff as a file)
 
 ---
 
