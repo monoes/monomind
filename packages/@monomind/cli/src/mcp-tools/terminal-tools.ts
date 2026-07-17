@@ -93,17 +93,24 @@ function ensureTerminalDir(): void {
 
 const MAX_TERMINAL_STORE_BYTES = 10 * 1024 * 1024; // 10 MB
 
-function loadTerminalStore(): TerminalStore {
+// Same hardened-loader convention as agent-tools.ts's loadAgentStoreOrNull:
+// handlers that mutate and save must use the null-aware variant, since
+// treating a corrupt/oversized store as empty and then saving that back
+// would silently wipe every real session.
+function loadTerminalStoreOrNull(): TerminalStore | null {
   try {
     const path = getTerminalPath();
-    if (existsSync(path) && statSync(path).size <= MAX_TERMINAL_STORE_BYTES) {
-      return JSON.parse(readFileSync(path, 'utf-8')) as TerminalStore;
-    }
+    if (!existsSync(path)) return { sessions: {}, version: '3.0.0' };
+    if (statSync(path).size > MAX_TERMINAL_STORE_BYTES) return null;
+    return JSON.parse(readFileSync(path, 'utf-8')) as TerminalStore;
   } catch (e) {
-    // Return empty store — a subsequent save overwrites the corrupt file, discarding all prior sessions
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadTerminalStore] terminal store unreadable/corrupt, starting empty:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadTerminalStore] terminal store unreadable/corrupt:', e);
+    return null;
   }
-  return { sessions: {}, version: '3.0.0' };
+}
+
+function loadTerminalStore(): TerminalStore {
+  return loadTerminalStoreOrNull() ?? { sessions: {}, version: '3.0.0' };
 }
 
 function saveTerminalStore(store: TerminalStore): void {
@@ -129,7 +136,10 @@ export const terminalTools: MCPTool[] = [
       },
     },
     handler: async (input: Record<string, unknown>) => {
-      const store = loadTerminalStore();
+      const store = loadTerminalStoreOrNull();
+      if (!store) {
+        return { success: false, error: 'Terminal store is unreadable/corrupt — refusing to create a session to avoid overwriting real session data.' };
+      }
       const MAX_SESSIONS = 1000;
       if (Object.keys(store.sessions).length >= MAX_SESSIONS) {
         return { success: false, error: 'Session limit reached' };
@@ -213,7 +223,10 @@ export const terminalTools: MCPTool[] = [
       required: ['command'],
     },
     handler: async (input: Record<string, unknown>) => {
-      const store = loadTerminalStore();
+      const store = loadTerminalStoreOrNull();
+      if (!store) {
+        return { success: false, error: 'Terminal store is unreadable/corrupt — refusing to execute to avoid overwriting real session data.' };
+      }
       const sessionId = input.sessionId as string | undefined;
       // Cap command: the metacharacter regex check at line 220 is O(n), and the
       // raw command is stored verbatim in session history (up to 200 entries).
@@ -362,7 +375,10 @@ export const terminalTools: MCPTool[] = [
       required: ['sessionId'],
     },
     handler: async (input: Record<string, unknown>) => {
-      const store = loadTerminalStore();
+      const store = loadTerminalStoreOrNull();
+      if (!store) {
+        return { success: false, error: 'Terminal store is unreadable/corrupt — refusing to close a session to avoid overwriting real session data.' };
+      }
       const sessionId = input.sessionId as string | undefined;
       const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
       if (!sessionId || FORBIDDEN_KEYS.has(sessionId)) {
