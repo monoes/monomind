@@ -187,7 +187,7 @@ These sequences are non-negotiable in all modes:
 - **Isolated work**: `mastermind:worktree` before making changes to avoid contaminating main
 - **Before claiming complete**: Run `mastermind:verify` — never claim completion based on agent reports, linter passes, or partial checks
 - **When writing a plan**: Map file structure first → copy spec-wide Global Constraints into the plan header → right-size tasks (smallest unit with its own test cycle) with exact paths, complete code, and Interfaces (Consumes/Produces) blocks — no placeholders → self-review (spec coverage, placeholder scan, type consistency) → offer execution mode choice (subagent-driven vs inline)
-- **When executing with subagents**: Provide full task text to each implementer (never make them read the plan file) → spec compliance review FIRST → code quality review SECOND → re-review until both ✅ → dispatch final reviewer after all tasks complete → then `mastermind:finish`
+- **When executing with subagents**: Hand each implementer its task as a brief file (never make them read the plan file) → spec compliance review FIRST → code quality review SECOND → re-review until both ✅ → record each completed task in the durable progress ledger (`.monomind/taskdev/progress.md`) → dispatch final whole-branch reviewer (most capable model, diff handed over as a file) after all tasks complete → then `mastermind:finish`
 - **When blocked during execution**: Stop immediately — do not guess or force through. Diagnose, provide context, re-dispatch with more capable model, or escalate to user
 
 ### Iron Laws
