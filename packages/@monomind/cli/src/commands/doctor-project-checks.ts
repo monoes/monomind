@@ -15,6 +15,7 @@ import {
   MAX_DOCTOR_GITIGNORE_BYTES,
   MAX_DOCTOR_HELPER_BYTES,
 } from './doctor-env-checks.js';
+import { DOCTOR_TRACKED_HELPERS } from '../init/helpers-generator.js';
 
 export type { HealthCheck };
 
@@ -221,7 +222,7 @@ function _resolveBundledHelper(relativePath: string): string | null {
 // discovered from the bundled package itself, not hardcoded, so a helper added
 // upstream is picked up automatically instead of silently never syncing.
 function _allTrackedHelperNames(): string[] {
-  const names = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'graphify-freshen.cjs'];
+  const names = [...DOCTOR_TRACKED_HELPERS];
   for (const sub of ['handlers', 'utils']) {
     const bundledSubDir = _resolveBundledHelper(join('.claude', 'helpers', sub));
     if (!bundledSubDir) continue;
@@ -242,7 +243,11 @@ async function _detectStaleHelpers(): Promise<{ stale: string[]; missing: string
   const crypto = await import('node:crypto');
   for (const name of _allTrackedHelperNames()) {
     const bundled = _resolveBundledHelper(join('.claude', 'helpers', name));
-    if (!bundled || statSync(bundled).size > MAX_DOCTOR_HELPER_BYTES) { if (!bundled) missing.push(name); continue; }
+    // Oversized-bundled is reported the same as missing-bundled: doctor can't
+    // verify freshness either way, and silently excluding it from both `stale`
+    // and `missing` would let checkHelpersFresh() report "pass" without ever
+    // having actually compared this file.
+    if (!bundled || statSync(bundled).size > MAX_DOCTOR_HELPER_BYTES) { missing.push(name); continue; }
     const local = join(process.cwd(), '.claude', 'helpers', name);
     if (!existsSync(local)) { stale.push(name); continue; } // bundled has it, project doesn't — needs creating
     if (statSync(local).size > MAX_DOCTOR_HELPER_BYTES) continue;
