@@ -42,16 +42,18 @@ current_status=$(jq -r '.status // "no-schedule"' "$orgFile")
 has_schedule=$(jq -r 'if .loop.poll_interval_minutes then "yes" else "no" end' "$orgFile")
 ```
 
-If `has_schedule == "no"`:
+If `has_schedule == "no"` — this is a **v2 org** (Org Runtime v2 has `schedule`,
+never `.loop`). Its daemon polls `.monomind/orgs/<name>/stop` every 2s, which is
+exactly what `monomind org stop` writes — use the CLI, not the v1 `.stops/` path:
+
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-# Write stop file so any running boss agent detects it at next loop iteration
-mkdir -p ".monomind/orgs/.stops"
-touch ".monomind/orgs/.stops/${org_name}.stop"
+npx -y monomind@latest org stop "${org_name}" \
+  || { mkdir -p ".monomind/orgs/${org_name}"; date -u +%Y-%m-%dT%H:%M:%SZ > ".monomind/orgs/${org_name}/stop"; }
 # Also POST to the control server in case a dashboard-started instance is running
 curl -s -X POST "${CTRL_URL}/api/orgs/${org_name}/stop" >/dev/null 2>&1 || true
-echo "Stop signal sent to org '${org_name}' (non-scheduled). The boss agent will exit at the next loop checkpoint."
+echo "Stop requested for org '${org_name}' (v2 daemon exits within 2s)."
 ```
 - Exit.
 
