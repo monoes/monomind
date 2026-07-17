@@ -282,7 +282,7 @@ Bash("npx monomind@latest hooks worker run optimize")
 | `session`   | 6           | Session state management, persistence, and replay (`session replay`)     | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
-| `hooks`     | 29          | Self-learning hooks + 15 background workers                              | Working         |
+| `hooks`     | 29          | Self-learning hooks + 14 background workers                              | Working         |
 
 ### Advanced Commands
 
@@ -368,7 +368,7 @@ CVE remediation, input validation, path security (utility functions inlined into
 
 `tdd-london-swarm`, `production-validator`
 
-## 🪝 Hooks System (29 Hook Subcommands + 15 Background Workers)
+## 🪝 Hooks System (29 Hook Subcommands + 14 Background Workers)
 
 ### All Available Hooks
 
@@ -397,7 +397,6 @@ CVE remediation, input validation, path security (utility functions inlined into
 | `model-route`      | Route to optimal model (haiku/sonnet/opus) | `--task`                                  |
 | `model-outcome`    | Record model routing outcome             | `--task-id`, `--success`                    |
 | `model-stats`      | View model routing statistics            | `--format`                                  |
-| `progress`         | Check V1 implementation progress         | `--detailed`, `--format`                    |
 | `statusline`       | Generate dynamic statusline              | `--json`, `--compact`, `--no-color`         |
 | `coverage-route`   | Route based on test coverage gaps        | `--task`, `--path`                          |
 | `coverage-suggest` | Suggest coverage improvements            | `--path`                                    |
@@ -405,7 +404,7 @@ CVE remediation, input validation, path security (utility functions inlined into
 | `pre-bash`         | (v2 compat) Alias for pre-command        | Same as pre-command                         |
 | `post-bash`        | (v2 compat) Alias for post-command       | Same as post-command                        |
 
-### 15 Background Workers (@monomind/hooks, run in-process)
+### 14 Background Workers (@monomind/hooks, run in-process)
 
 | Worker        | Priority   | Description                                          |
 | ------------- | ---------- | ---------------------------------------------------- |
@@ -419,7 +418,6 @@ CVE remediation, input validation, path security (utility functions inlined into
 | `security`    | high       | Scan for secrets, vulnerabilities, CVEs              |
 | `patterns`    | normal     | Consolidate, dedupe, optimize learned patterns       |
 | `cache`       | background | Clean temp files, old logs, stale cache              |
-| `progress`    | normal     | Track implementation progress                        |
 | `map`         | normal     | Codebase mapping → metrics/codebase-map.json         |
 | `audit`       | high       | Security audit → metrics/security-audit.json         |
 | `optimize`    | normal     | Performance snapshot → metrics/performance.json      |
@@ -669,8 +667,8 @@ For a comprehensive overview of all Monomind features, agents, commands, and int
 This includes:
 
 - All 60+ agent type definitions (routing targets) with recommendations
-- All 31 CLI commands
-- All 29 hook subcommands + 15 background workers (@monomind/hooks)
+- All 32 CLI commands
+- All 29 hook subcommands + 14 background workers (@monomind/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, lancedb,agentic-jujutsu)
