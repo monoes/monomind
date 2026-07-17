@@ -185,26 +185,30 @@ describe('listCommand', () => {
     expect((result.data as { total: number }).total).toBe(0);
   });
 
-  it('spawning after the store is corrupted silently discards every previously-persisted agent', async () => {
+  it('spawning after the store is corrupted refuses to save, leaving the real data untouched', async () => {
+    // Regression test: this used to silently discard every previously-
+    // persisted agent (loadAgentStore() fell back to an empty store on any
+    // read failure, and the handler unconditionally saved that empty-based
+    // result back). Fixed by having write handlers use loadAgentStoreOrNull()
+    // and bail out instead of proceeding — same pattern as task-tools.ts's
+    // task_assign fix earlier this session.
     const first = (await spawnCommand.action!(
       makeCtx({ flags: { type: 'coder', name: 'agent-a', _: [] } })) as CommandResult
     );
     const firstId = (first.data as { agentId: string }).agentId;
     expect(readStore().agents[firstId]).toBeDefined();
 
-    writeFileSync(storePath(), '{ not valid json !!', 'utf-8');
+    const corrupt = '{ not valid json !!';
+    writeFileSync(storePath(), corrupt, 'utf-8');
 
     const second = (await spawnCommand.action!(
       makeCtx({ flags: { type: 'coder', name: 'agent-b', _: [] } })) as CommandResult
     );
-    expect(second.success).toBe(true);
-    const secondId = (second.data as { agentId: string }).agentId;
+    expect(second.success).toBe(false);
 
-    const storeAfter = readStore();
-    // Data-loss: agent-a is gone. The on-disk store now contains only the
-    // agent that happened to be spawned after the corruption was introduced.
-    expect(Object.keys(storeAfter.agents)).toEqual([secondId]);
-    expect(storeAfter.agents[firstId]).toBeUndefined();
+    // The corrupt file must be exactly what it was — not overwritten with a
+    // fresh store containing only agent-b (which would silently drop agent-a).
+    expect(readFileSync(storePath(), 'utf-8')).toBe(corrupt);
   });
 });
 
@@ -228,14 +232,14 @@ describe('statusCommand', () => {
     expect(result).toEqual({ success: false, exitCode: 1 });
   });
 
-  it('does not throw for an unknown agent ID, but note: it still reports success even though the agent was not found', async () => {
-    // agent_status (agent-tools.ts) resolves with { status: 'not_found', error: ... }
-    // rather than throwing, so statusCommand's try/catch never trips and the
-    // command returns success:true with a "not found" payload embedded in data.
-    // Documented as current behavior, not asserted as desirable.
+  it('reports failure (not success) for an unknown agent ID', async () => {
+    // Regression test: agent_status (agent-tools.ts) resolves with
+    // { status: 'not_found', error: ... } rather than throwing; statusCommand
+    // now explicitly checks status.error instead of relying on a thrown
+    // exception, so this correctly surfaces as a failure.
     const result = (await statusCommand.action!(makeCtx({ args: ['does-not-exist'] })) as CommandResult);
-    expect(result.success).toBe(true);
-    expect((result.data as { status: string }).status).toBe('not_found');
+    expect(result.success).toBe(false);
+    expect(result.exitCode).toBe(1);
   });
 });
 
@@ -264,18 +268,16 @@ describe('stopCommand', () => {
     expect(result).toEqual({ success: false, exitCode: 1 });
   });
 
-  it('does not surface failure for an agent that does not exist (agent_terminate resolves instead of throwing)', async () => {
-    // Mirrors the statusCommand "not_found" case above: agent_terminate
-    // (agent-tools.ts L269-293) resolves with { success:false, error:'Agent
-    // not found' } rather than throwing, and stopCommand's action (L337-355)
-    // only branches on thrown exceptions, so it reports success regardless.
-    // Documented as current behavior, not asserted as desirable.
+  it('reports failure (not success) for an agent that does not exist', async () => {
+    // Regression test: agent_terminate (agent-tools.ts) resolves with
+    // { success:false, error:'Agent not found' } rather than throwing;
+    // stopCommand now explicitly checks result.success instead of relying on
+    // a thrown exception, so this correctly surfaces as a failure.
     const result = (await stopCommand.action!(
       makeCtx({ args: ['ghost-agent'], flags: { force: true, _: [] } })) as CommandResult
     );
-    expect(result.success).toBe(true);
-    expect((result.data as { success: boolean; error?: string }).success).toBe(false);
-    expect((result.data as { error?: string }).error).toBe('Agent not found');
+    expect(result.success).toBe(false);
+    expect(result.exitCode).toBe(1);
   });
 });
 
