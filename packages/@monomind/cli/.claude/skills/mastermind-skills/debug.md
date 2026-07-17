@@ -101,6 +101,14 @@ You MUST complete each phase before proceeding to the next.
    echo "=== Final state: ==="
    ```
 
+5. **Trace Data Flow**
+
+   **WHEN the error is deep in a call stack:**
+   - Where does the bad value originate?
+   - What called this with the bad value?
+   - Keep tracing up until you find the source
+   - Fix at the source, not at the symptom — a `null` crashing in layer 4 usually entered in layer 1
+
 ---
 
 ### Phase 2: Pattern Analysis
@@ -112,10 +120,20 @@ Once you understand WHERE the break is, find existing working examples:
    - Check git history for when this worked
    - Find the canonical implementation to compare against
 
-2. **Compare broken vs. working**
+2. **Compare against references**
+   - If implementing a pattern, read the reference implementation COMPLETELY
+   - Don't skim — read every line
+   - Understand the pattern fully before applying it
+
+3. **Compare broken vs. working**
    - What's different?
-   - List every difference, not just the obvious one
+   - List every difference, not just the obvious one — don't assume "that can't matter"
    - Environment, config, data, timing
+
+4. **Understand dependencies**
+   - What other components does this need?
+   - What settings, config, environment?
+   - What assumptions does it make?
 
 ---
 
@@ -131,13 +149,15 @@ Once you understand WHERE the break is, find existing working examples:
 
 3. **If hypothesis is wrong:** Do NOT add more fixes. Return to Phase 1 with the new information.
 
+4. **When you don't know:** Say "I don't understand X". Don't pretend to know. Research more or ask the user — a stated unknown beats a confident guess.
+
 ---
 
 ### Phase 4: Implementation
 
 1. **Write a failing test first** (before touching production code)
-   - Automated test where possible
-   - Use `Skill("mastermind-skills:build")` with a test-only prompt if needed
+   - Automated test where possible; a one-off test script if no framework
+   - Use `Skill("mastermind-skills:tdd")` for writing proper failing tests
    - The test MUST fail before the fix proves it
 
 2. **Implement a single fix**
@@ -186,6 +206,9 @@ If you catch yourself thinking or doing any of these:
 | "Quick fix for now, investigate later" | You're skipping root cause. Return to Phase 1. |
 | "Just try changing X and see if it works" | Guessing. Return to Phase 1. |
 | "Add multiple changes, run tests" | Can't isolate what worked. Return to Phase 1. |
+| "Skip the test, I'll manually verify" | Untested fixes don't stick. Write the failing test. |
+| "Pattern says X but I'll adapt it differently" | Partial understanding guarantees bugs. Read the reference completely. |
+| "Here are the main problems: …" (listing fixes without investigation) | Solutions before evidence. Return to Phase 1. |
 | "It's probably X, let me fix that" | Assumed root cause. Verify it first. Return to Phase 1. |
 | "I don't fully understand but this might work" | You don't have a hypothesis. Return to Phase 1. |
 | Proposing solutions before tracing data flow | No root cause. Return to Phase 1. |
@@ -212,6 +235,7 @@ Watch for these redirections from the user:
 | "Just try this first, then investigate" | First fix sets the pattern. Do it right from the start. |
 | "I'll write the test after confirming the fix works" | Untested fixes don't stick. Test first proves it. |
 | "Multiple fixes at once saves time" | Can't isolate what worked. Creates new bugs. |
+| "Reference too long, I'll adapt the pattern" | Partial understanding guarantees bugs. Read it completely. |
 | "I can see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause. |
 | "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem. Question the pattern. |
 
@@ -223,6 +247,27 @@ Watch for these redirections from the user:
 | **2. Pattern** | Find working examples, compare | Identified differences |
 | **3. Hypothesis** | Form theory, test minimally | Confirmed or new hypothesis |
 | **4. Implementation** | Write failing test, fix, verify | Bug resolved, tests pass |
+
+## When the Process Reveals "No Root Cause"
+
+If systematic investigation reveals the issue is truly environmental, timing-dependent, or external:
+
+1. You've completed the process
+2. Document what you investigated
+3. Implement appropriate handling (retry, timeout, clear error message)
+4. Add monitoring/logging for future investigation
+
+**But:** 95% of "no root cause" cases are incomplete investigation.
+
+## Supporting Techniques
+
+- **Root-cause tracing:** when a bad value crashes deep in the stack, trace it backward caller by caller until you find where it was created; fix there. Adding a guard at the crash site only hides the origin.
+- **Defense in depth:** AFTER fixing the root cause, add validation at the layers the bad value passed through unchecked — so the next bad value fails loudly at its first boundary, not silently at its fourth.
+- **Condition-based waiting:** replace arbitrary sleeps/timeouts in flaky tests and scripts with polling for the actual condition ("wait until the file exists / the port answers"), with a hard cap. Timing guesses are bugs waiting for a slower machine.
+
+**Related skills:**
+- `Skill("mastermind-skills:tdd")` — for creating the failing test case (Phase 4, Step 1)
+- `Skill("mastermind-skills:verify")` — verify the fix worked before claiming success
 
 ## Impact
 
