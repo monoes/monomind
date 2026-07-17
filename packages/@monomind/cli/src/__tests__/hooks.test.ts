@@ -122,21 +122,22 @@ describe('hooksCommand alias wiring (v2 backward compatibility)', () => {
   });
 
   it('session-start delegates to session-restore\'s handler (same underlying MCP call)', async () => {
+    // Regression test: both used to fail identically because
+    // sessionRestoreCommand calls the MCP tool 'hooks_session-restore',
+    // which was never registered in TOOL_REGISTRY (only
+    // 'hooks_session-start' / 'hooks_session-end' existed). Fixed by adding
+    // a real hooksSessionRestore tool to hooks-routing.ts / hooks-tools.ts.
     const sessionStart = hooksCommand.subcommands!.find((c) => c.name === 'session-start')!;
     const sessionRestore = hooksCommand.subcommands!.find((c) => c.name === 'session-restore')!;
-    // Both currently fail identically: sessionRestoreCommand calls the MCP
-    // tool 'hooks_session-restore', which is not registered in TOOL_REGISTRY
-    // (only 'hooks_session-start' / 'hooks_session-end' exist — see
-    // src/mcp-tools/hooks-routing.ts). This documents that real (broken)
-    // behavior rather than asserting an idealized success path.
     const [startResult, restoreResult] = await Promise.all([
       sessionStart.action!(makeCtx([])),
       sessionRestore.action!(makeCtx([])),
     ]);
-    expect(startResult?.success).toBe(false);
-    expect(restoreResult?.success).toBe(false);
-    expect(startResult?.exitCode).toBe(1);
-    expect(restoreResult?.exitCode).toBe(1);
+    expect(startResult?.success).toBe(true);
+    expect(restoreResult?.success).toBe(true);
+    const restoreData = restoreResult?.data as { restoredState?: { tasksRestored: number; agentsRestored: number; memoryRestored: number } };
+    expect(restoreData?.restoredState).toBeDefined();
+    expect(typeof restoreData?.restoredState?.agentsRestored).toBe('number');
   });
 });
 
