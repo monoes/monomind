@@ -271,7 +271,9 @@ export async function fixStaleHelpers(): Promise<boolean> {
         mkdirSync(dirname(local), { recursive: true });
         copyFileSync(bundled, local);
         fixed++;
-      } catch { /* skip */ }
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[fixStaleHelpers] failed to copy ${name}:`, e);
+      }
     }
   }
   return fixed > 0;
@@ -306,7 +308,8 @@ async function routingAccuracyLine(): Promise<string> {
     if (acc.accuracy === null) return `routing accuracy (last 100): no outcome data yet${adhStr}`;
     const trend = acc.recentVsPrior === null ? '' : ` trend ${acc.recentVsPrior >= 0 ? '+' : ''}${Math.round(acc.recentVsPrior * 100)}%`;
     return `routing accuracy (last ${acc.window}): ${fmtPct(acc.accuracy)} [native ${fmtPct(acc.byMode.native)} / js ${fmtPct(acc.byMode.js)}]${trend}${adhStr}`;
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[routingAccuracyLine] compute failed:', e);
     return 'routing accuracy (last 100): no outcome data yet';
   }
 }
@@ -335,7 +338,10 @@ function routingFeedbackFallback(): { message: string; degenerate: boolean } | n
     }
     if (flags.length === 0) return { message: `${base}; no evidence-based success flags yet`, degenerate: true };
     return { message: `${base}; success rate ${Math.round((trueCount / flags.length) * 100)}% (n=${flags.length})`, degenerate: false };
-  } catch { return null; }
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[routingFeedbackFallback] parse failed:', e);
+    return null;
+  }
 }
 
 export async function checkMonoesIntegration(): Promise<HealthCheck> {
@@ -466,7 +472,8 @@ function readMetricsJSON(name: string): unknown | null {
     const p = join(process.cwd(), '.monomind', 'metrics', name);
     if (!existsSync(p) || statSync(p).size > MAX_DOCTOR_METRICS_BYTES) return null;
     return JSON.parse(readFileSync(p, 'utf-8'));
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[readMetricsJSON] failed to read ${name}:`, e);
     return null;
   }
 }

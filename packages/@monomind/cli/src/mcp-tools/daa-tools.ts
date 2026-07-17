@@ -103,8 +103,8 @@ function loadDAAStore(): DAAStore {
       }
       return JSON.parse(readFileSync(path, 'utf-8')) as DAAStore;
     }
-  } catch {
-    // Return empty store
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[daa-tools] failed to load DAA store, using empty store:', e);
   }
   return { agents: {}, workflows: {}, knowledge: {}, version: '3.0.0' };
 }

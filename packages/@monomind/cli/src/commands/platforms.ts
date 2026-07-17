@@ -246,7 +246,7 @@ function setupCursor(activateScriptPath: string, repoPath: string): string[] {
 
   let settings: Record<string, unknown> = {};
   if (existsSync(settingsPath)) {
-    try { settings = JSON.parse(readFileSync(settingsPath, 'utf8')); } catch { /* keep empty */ }
+    try { settings = JSON.parse(readFileSync(settingsPath, 'utf8')); } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[setupCursor] failed to parse existing .cursor/settings.json, overwriting with empty:', e); }
   }
 
   const hooks = (settings['hooks'] as Record<string, unknown[]> | undefined) ?? {};

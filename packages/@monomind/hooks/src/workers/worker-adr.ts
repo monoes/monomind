@@ -90,8 +90,8 @@ export function createADRWorker(projectRoot: string): WorkerHandler {
         compliance: Math.round((compliantCount / totalCount) * 100),
         checks: adrChecks,
       }, null, 2));
-    } catch {
-      // Ignore write errors
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-adr] failed to write adr-compliance.json:', e);
     }
 
     return {

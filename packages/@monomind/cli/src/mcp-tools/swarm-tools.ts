@@ -58,7 +58,9 @@ function loadSwarmStore(): SwarmStore {
       if (statSync(path).size > MAX_SWARM_STORE_BYTES) return { swarms: {}, version: '3.0.0' };
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
-  } catch { /* return default */ }
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[swarm-tools] failed to parse swarm-state.json — resetting to empty store:', e);
+  }
   return { swarms: {}, version: '3.0.0' };
 }
 

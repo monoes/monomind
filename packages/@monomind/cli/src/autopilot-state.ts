@@ -153,8 +153,8 @@ export function loadState(): AutopilotState {
       }
       return merged;
     }
-  } catch {
-    // Corrupted state file — return defaults
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[autopilot-state] failed to load state file, using defaults:', e);
   }
   return defaults;
 }
@@ -250,8 +250,8 @@ export function loadLog(): AutopilotLogEntry[] {
       }
       return out;
     }
-  } catch {
-    // Corrupted log — return empty
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[autopilot-state] failed to load log file, returning empty:', e);
   }
   return [];
 }

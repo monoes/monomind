@@ -529,7 +529,7 @@ const toggleCommand: Command = {
     const stateFile = path.join(ctx.cwd, '.monomind', 'mcp-disabled-tools.json');
 
     let disabled: string[] = [];
-    try { disabled = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { /* fresh */ }
+    try { disabled = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[mcp] failed to load mcp-disabled-tools.json, treating as fresh:', e); }
 
     const enableArg = ctx.flags.enable as string | undefined;
     const disableArg = ctx.flags.disable as string | undefined;

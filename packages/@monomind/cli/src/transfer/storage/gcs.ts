@@ -314,7 +314,8 @@ export async function listGCSObjects(
       size: obj.size || 0,
       updated: obj.updated || new Date().toISOString(),
     }));
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[GCS] listGCSObjects failed:', e);
     return [];
   }
 }
@@ -335,7 +336,8 @@ export async function deleteFromGCS(
     if (cfg?.projectId) rmArgs.push(`--project=${cfg.projectId}`);
     execFileSync('gcloud', rmArgs, { encoding: 'utf-8', stdio: 'pipe' });
     return true;
-  } catch {
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[GCS] deleteFromGCS failed:', e);
     return false;
   }
 }

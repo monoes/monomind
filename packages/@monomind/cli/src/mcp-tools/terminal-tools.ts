@@ -99,8 +99,9 @@ function loadTerminalStore(): TerminalStore {
     if (existsSync(path) && statSync(path).size <= MAX_TERMINAL_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8')) as TerminalStore;
     }
-  } catch {
-    // Return empty store
+  } catch (e) {
+    // Return empty store — a subsequent save overwrites the corrupt file, discarding all prior sessions
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadTerminalStore] terminal store unreadable/corrupt, starting empty:', e);
   }
   return { sessions: {}, version: '3.0.0' };
 }

@@ -193,7 +193,10 @@ export function loadRoutingOutcomes(): RoutingOutcome[] {
       const data = JSON.parse(readFileSync(getRoutingOutcomesPath(), 'utf-8'));
       return data.outcomes || [];
     }
-  } catch { /* corrupt file, start fresh */ }
+  } catch (e) {
+    /* corrupt file, start fresh */
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-embedding] routing-outcomes.json read/parse failed:', e);
+  }
   return [];
 }
 
@@ -206,7 +209,10 @@ export function saveRoutingOutcomes(outcomes: RoutingOutcome[]): void {
     const tmp = getRoutingOutcomesPath() + '.tmp';
     writeFileSync(tmp, JSON.stringify({ outcomes: capped }, null, 2));
     renameSync(tmp, getRoutingOutcomesPath());
-  } catch { /* non-critical */ }
+  } catch (e) {
+    /* non-critical */
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-embedding] routing-outcomes.json write failed:', e);
+  }
 }
 
 /**
@@ -355,8 +361,9 @@ export function loadMemoryStore(): MemoryStore {
       const data = readFileSync(path, 'utf-8');
       return JSON.parse(data);
     }
-  } catch {
+  } catch (e) {
     // Return empty store on error
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-embedding] memory store.json read/parse failed:', e);
   }
   return { entries: {}, version: '3.0.0' };
 }

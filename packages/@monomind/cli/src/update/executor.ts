@@ -90,8 +90,9 @@ export function loadHistory(): UpdateHistoryEntry[] {
         return true;
       });
     }
-  } catch {
+  } catch (e) {
     // Corrupted file
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[update-executor] loadHistory failed:', e);
   }
   return [];
 }

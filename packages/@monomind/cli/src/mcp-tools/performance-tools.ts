@@ -74,8 +74,8 @@ function loadPerfStore(): PerfStore {
     if (existsSync(path) && statSync(path).size <= MAX_PERF_STORE_BYTES) {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
-  } catch {
-    // Return empty store
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[performance-tools] failed to load perf store, using empty store:', e);
   }
   return { metrics: [], benchmarks: {}, version: '3.0.0' };
 }

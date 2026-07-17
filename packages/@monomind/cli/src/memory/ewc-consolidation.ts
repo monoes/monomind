@@ -190,8 +190,9 @@ export class EWCConsolidator {
       await this.loadFromDisk();
       this.initialized = true;
       return true;
-    } catch {
+    } catch (e) {
       // Start fresh if no persisted state
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[ewc-consolidation] failed to load persisted state, starting fresh:', e);
       this.initialized = true;
       return true;
     }
@@ -738,8 +739,9 @@ export class EWCConsolidator {
       const tmp = this.config.storagePath + '.tmp';
       fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
       fs.renameSync(tmp, this.config.storagePath);
-    } catch {
+    } catch (e) {
       // Silently fail - persistence is best-effort
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[ewc-consolidation] failed to persist state:', e);
     }
   }
 

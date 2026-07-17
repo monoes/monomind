@@ -37,7 +37,9 @@ export class OrgBus {
     this.pending = this.pending.then(async () => {
       await mkdir(this.dir, { recursive: true });
       await appendFile(this.file, JSON.stringify(e) + '\n', 'utf8');
-    }).catch(() => {});
+    }).catch((err) => {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[org-bus] event write failed:', err);
+    });
     for (const fn of this.listeners) { try { fn(e); } catch { /* listener errors never break the bus */ } }
     return e;
   }

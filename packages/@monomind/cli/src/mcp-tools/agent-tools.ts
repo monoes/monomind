@@ -69,8 +69,8 @@ export function loadAgentStore(): AgentStore {
       if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return { agents: {}, version: '3.0.0' };
       return parsed;
     }
-  } catch {
-    // Return empty store on error
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadAgentStore] failed to read/parse agent store:', e);
   }
   return { agents: {}, version: '3.0.0' };
 }

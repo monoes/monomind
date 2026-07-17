@@ -67,8 +67,8 @@ export function createSecurityWorker(projectRoot: string): WorkerHandler {
           remediated: 7,
         },
       }, null, 2));
-    } catch {
-      // Ignore write errors
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-security] failed to write scan-results.json:', e);
     }
 
     return {

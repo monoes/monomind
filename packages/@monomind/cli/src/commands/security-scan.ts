@@ -145,9 +145,9 @@ export const scanCommand: Command = {
                   });
                 }
               }
-            } catch { /* JSON parse failed */ }
+            } catch (e) { /* JSON parse failed */ if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[security-scan] failed to parse npm audit output:', e); }
           }
-        } catch { /* npm audit failed */ }
+        } catch (e) { /* npm audit failed */ if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[security-scan] dependency check failed:', e); }
       }
 
       if (scanType === 'all' || scanType === 'code') {

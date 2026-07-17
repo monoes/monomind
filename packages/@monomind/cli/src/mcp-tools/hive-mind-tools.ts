@@ -207,8 +207,8 @@ function loadHiveState(): HiveState {
       const data = readFileSync(path, 'utf-8');
       return JSON.parse(data);
     }
-  } catch {
-    // Return default state on error
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hive-mind-tools] failed to parse hive state.json — resetting to default state:', e);
   }
   return {
     initialized: false,
@@ -481,7 +481,9 @@ export const hiveMindTools: MCPTool[] = [
             else if (task.status === 'completed') completedTaskCount++;
           }
         }
-      } catch { /* ignore */ }
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hive-mind-tools] failed to parse task store — task counts default to 0:', e);
+      }
 
       const workerCount = Math.max(1, state.workers.length);
       const realLoad = activeTaskCount / workerCount;
