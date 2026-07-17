@@ -343,22 +343,38 @@ async function handleSubagentStop(hookInput) {
   const currentFiles = snapshotJSONLFiles();
   const prevNames = new Set((snap.files || []).map(f => f.name));
 
+  // Prefer reading THIS subagent's own transcript directly when known —
+  // transcript_path is unique per-subagent (see subagentKey() above). The
+  // "every file that's new in the directory since snapshot" fallback below
+  // is not actually scoped to this subagent: under real concurrency (this
+  // project's default hierarchical-swarm topology spawns several subagents
+  // together), a sibling subagent's transcript file created between THIS
+  // subagent's start-snapshot and its own stop event also looks "new" and
+  // would get folded into this subagent's totals/summary/lastToolError —
+  // misattributing a sibling's success/failure to this one. Falls back to
+  // the directory-wide diff only when transcript_path is unavailable
+  // (older Claude Code payload shape), matching this file's existing
+  // fallback philosophy for snapshot matching above.
+  const _ownTranscriptRaw = hookInput && (hookInput.transcript_path || hookInput.transcriptPath);
+  const _ownTranscriptName = _ownTranscriptRaw ? path.basename(String(_ownTranscriptRaw)) : null;
+  const filesToProcess = _ownTranscriptName
+    ? currentFiles.filter(f => f.name === _ownTranscriptName)
+    : currentFiles.filter(f => !prevNames.has(f.name));
+
   let totalTin = 0, totalTout = 0;
   let summary = '';
   let toolCalls = [];
   let lastToolError = false;
   const capturedFiles = [];
 
-  for (const f of currentFiles) {
-    if (!prevNames.has(f.name)) {
-      const parsed = parseJSONLForData(path.join(claudeDir, f.name));
-      totalTin  += parsed.tokens_in;
-      totalTout += parsed.tokens_out;
-      if (parsed.summary) summary = parsed.summary;
-      toolCalls.push(...parsed.toolCalls);
-      lastToolError = parsed.lastToolError; // last new file wins, mirroring `summary`'s last-wins semantics
-      capturedFiles.push(f.name);
-    }
+  for (const f of filesToProcess) {
+    const parsed = parseJSONLForData(path.join(claudeDir, f.name));
+    totalTin  += parsed.tokens_in;
+    totalTout += parsed.tokens_out;
+    if (parsed.summary) summary = parsed.summary;
+    toolCalls.push(...parsed.toolCalls);
+    lastToolError = parsed.lastToolError; // last (only, when scoped) file wins
+    capturedFiles.push(f.name);
   }
 
   const costUsd = parseFloat((totalTin * 3e-6 + totalTout * 15e-6).toFixed(6));
