@@ -149,6 +149,16 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
         continue;
       }
     }
+    // A "running" record whose pid is gone means the daemon died without its
+    // stopOrg cleanup — surface that instead of reporting it as still running.
+    if (state.status === 'running' && state.pid) {
+      try {
+        process.kill(state.pid, 0);
+      } catch {
+        log(output.warning(`${t}: crashed (runtime.json says running but pid ${state.pid} is gone)${state.run ? ` — run ${state.run}` : ''} — close it out with "monomind org mark-complete ${t}"`));
+        continue;
+      }
+    }
     log(output.info(`${t}: ${state.status}${state.run ? ` (run ${state.run}, pid ${state.pid})` : ''}`));
   }
   return { success: true };
