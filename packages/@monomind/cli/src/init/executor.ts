@@ -56,14 +56,9 @@ import { generateSettingsJson, generateSettings } from './settings-generator.js'
 import { generateMCPJson } from './mcp-generator.js';
 import { generateStatuslineScript, generateStatuslineHook } from './statusline-generator.js';
 import {
-  generatePreCommitHook,
-  generatePostCommitHook,
-  generateSessionManager,
-  generateAgentRouter,
-  generateMemoryHelper,
-  generateHookHandler,
-  generateIntelligenceStub,
-  generateAutoMemoryHook,
+  FORCE_SYNC_HELPERS,
+  FORCE_SYNC_GENERATORS,
+  INIT_FALLBACK_HELPERS,
 } from './helpers-generator.js';
 import { generateClaudeMd } from './claudemd-generator.js';
 
@@ -633,15 +628,13 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
     const sourceHelpersForUpgrade = findSourceHelpersDir();
     if (sourceHelpersForUpgrade) {
       const destHelpersDir = path.join(targetDir, '.claude', 'helpers');
-      // Copy top-level critical files atomically
-      const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'graphify-freshen.cjs', 'router.cjs'];
+      // Copy top-level critical files atomically. Membership and fallback
+      // generators come from the shared HELPER_FILES registry (helpers-generator.ts)
+      // rather than a hardcoded list here — see that file's comment for why.
+      const criticalHelpers = FORCE_SYNC_HELPERS;
       // Generated fallback for any critical helper missing from the source dir itself
       // (e.g. the published npm template lacking auto-memory-hook.mjs).
-      const criticalGenerators: Record<string, () => string> = {
-        'hook-handler.cjs': generateHookHandler,
-        'intelligence.cjs': generateIntelligenceStub,
-        'auto-memory-hook.mjs': generateAutoMemoryHook,
-      };
+      const criticalGenerators: Record<string, () => string> = FORCE_SYNC_GENERATORS;
       for (const helperName of criticalHelpers) {
         const targetPath = path.join(destHelpersDir, helperName);
         const sourcePath = path.join(sourceHelpersForUpgrade, helperName);
@@ -677,12 +670,10 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
       }
     } else {
       // Source not found (npx with broken paths) — use generated fallbacks
-      const generatedCritical: Record<string, string> = {
-        'hook-handler.cjs': generateHookHandler(),
-        'intelligence.cjs': generateIntelligenceStub(),
-        'auto-memory-hook.mjs': generateAutoMemoryHook(),
-        'router.cjs': generateAgentRouter(),
-      };
+      // for every force-synced helper that has one (see HELPER_FILES registry).
+      const generatedCritical: Record<string, string> = Object.fromEntries(
+        Object.entries(FORCE_SYNC_GENERATORS).map(([name, generate]) => [name, generate()]),
+      );
       for (const [helperName, content] of Object.entries(generatedCritical)) {
         const targetPath = path.join(targetDir, '.claude', 'helpers', helperName);
         if (fs.existsSync(targetPath)) {
@@ -1369,16 +1360,9 @@ async function writeHelpers(
   // Without this, a source dir that's present but incomplete (e.g. missing
   // auto-memory-hook.mjs) silently ships a project wired to hooks that reference
   // a file that was never installed.
-  const helpers: Record<string, string> = {
-    'pre-commit': generatePreCommitHook(),
-    'post-commit': generatePostCommitHook(),
-    'session.cjs': generateSessionManager(),
-    'router.cjs': generateAgentRouter(),
-    'memory.cjs': generateMemoryHelper(),
-    'hook-handler.cjs': generateHookHandler(),
-    'intelligence.cjs': generateIntelligenceStub(),
-    'auto-memory-hook.mjs': generateAutoMemoryHook(),
-  };
+  const helpers: Record<string, string> = Object.fromEntries(
+    Object.entries(INIT_FALLBACK_HELPERS).map(([name, generate]) => [name, generate()]),
+  );
 
   for (const [name, content] of Object.entries(helpers)) {
     const filePath = path.join(helpersDir, name);
