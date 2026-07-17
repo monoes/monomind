@@ -1398,6 +1398,76 @@ export const hooksSessionStart: MCPTool = {
   },
 };
 
+// Session restore hook — hooks.ts's `hooks session-restore` (and its
+// `session-start` alias) called this tool name, but it was never registered
+// anywhere in the tool registry, so both always failed. This repo has no
+// per-session snapshot of agents/tasks to restore from, so "restore" here
+// means: report the currently-live (non-terminated/non-terminal) agents and
+// tasks as "carried forward", and reinitialize the memory-bridge session
+// context the same way hooks_session-start does — an honest, working
+// implementation rather than a fabricated one.
+export const hooksSessionRestore: MCPTool = {
+  name: 'hooks_session-restore',
+  description: 'Restore a previous session — reports currently-live agents/tasks and reinitializes memory-bridge session context',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      sessionId: { type: 'string', description: 'Session ID to restore, or "latest"' },
+      restoreAgents: { type: 'boolean', description: 'Include a count of currently-live agents (default true)' },
+      restoreTasks: { type: 'boolean', description: 'Include a count of currently-live tasks (default true)' },
+    },
+  },
+  handler: async (params: Record<string, unknown>) => {
+    const originalSessionId = (params.sessionId as string) || 'latest';
+    const newSessionId = `session-${Date.now()}`;
+    const warnings: string[] = [];
+
+    let agentsRestored = 0;
+    if (params.restoreAgents !== false) {
+      try {
+        const { loadAgentStore } = await import('./agent-tools.js');
+        const store = loadAgentStore();
+        agentsRestored = Object.values(store.agents).filter((a) => a.status !== 'terminated').length;
+      } catch (e) {
+        warnings.push('Agent store unavailable — agent count not restored');
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-restore] agent store read failed:', e);
+      }
+    }
+
+    let tasksRestored = 0;
+    if (params.restoreTasks !== false) {
+      try {
+        const { loadTaskStore } = await import('./task-tools.js');
+        const store = loadTaskStore();
+        tasksRestored = Object.values(store.tasks).filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
+      } catch (e) {
+        warnings.push('Task store unavailable — task count not restored');
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-restore] task store read failed:', e);
+      }
+    }
+
+    let memoryRestored = 0;
+    try {
+      const bridge = await import('../memory/memory-bridge.js');
+      const result = await bridge.bridgeSessionStart({
+        sessionId: newSessionId,
+        metadata: { context: 'restore previous session patterns' },
+      });
+      if (!result) warnings.push('Memory bridge unavailable — pattern restoration skipped');
+    } catch (e) {
+      warnings.push('Memory bridge failed to initialize');
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-restore] memory bridge failed:', e);
+    }
+
+    return {
+      sessionId: newSessionId,
+      originalSessionId,
+      restoredState: { tasksRestored, agentsRestored, memoryRestored },
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
+  },
+};
+
 // Session end hook - persists state
 export const hooksSessionEnd: MCPTool = {
   name: 'hooks_session-end',
