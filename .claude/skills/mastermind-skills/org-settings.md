@@ -82,9 +82,14 @@ case "$field" in
     [ -f "$newOrgFile" ] && { echo "ERROR: An org named '${value}' already exists."; exit 1; }
     # Refuse to rename while the daemon has this org running — it holds the old
     # name's paths (defPath, cwd, runtime.json) in memory; a rename mid-run would
-    # orphan that live state instead of moving it.
+    # orphan that live state instead of moving it. A runtime.json left by a
+    # crashed daemon (dead pid) does NOT count as running — same semantics as
+    # isOrgRunning in packages/@monomind/cli/src/commands/org.ts.
     runtime_status=$(jq -r '.status // "stopped"' ".monomind/orgs/${org_name}/runtime.json" 2>/dev/null || echo "stopped")
-    [ "$runtime_status" = "running" ] && { echo "ERROR: org '${org_name}' is running — stop it first: monomind org stop ${org_name}"; exit 1; }
+    runtime_pid=$(jq -r '.pid // 0' ".monomind/orgs/${org_name}/runtime.json" 2>/dev/null || echo 0)
+    if [ "$runtime_status" = "running" ] && [ "$runtime_pid" -gt 0 ] && kill -0 "$runtime_pid" 2>/dev/null; then
+      echo "ERROR: org '${org_name}' is running (pid ${runtime_pid}) — stop it first: monomind org stop ${org_name}"; exit 1
+    fi
     # Update the name field inside the JSON
     jq --arg v "$value" '.name = $v' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
     # Rename the main config file
@@ -142,6 +147,13 @@ case "$field" in
     exit 1
     ;;
 esac
+```
+
+After any edit, re-validate the config the same way createorg does (non-fatal — the file is already written; this tells the user immediately if the org can no longer start):
+
+```bash
+npx -y monomind@latest org validate "$org_name" \
+  || echo "WARNING: '${org_name}' no longer passes validation — fix it before 'monomind org run ${org_name}'"
 ```
 
 Emit `org:settings:updated` event:
@@ -231,6 +243,12 @@ fi
 
 echo "Imported org '${targetOrg}' from ${import_path}"
 echo "Agents: $(jq '.config.roles | length' "$import_path")"
+
+# An imported bundle is untrusted input — validate before declaring success
+# (schema + single root role + resolvable reports_to + parseable schedule).
+npx -y monomind@latest org validate "$targetOrg" \
+  || { echo "ERROR: imported org failed validation — fix .monomind/orgs/${targetOrg}.json before running it."; exit 1; }
+
 echo "Run /mastermind:env --org ${targetOrg} --action validate to check provider keys."
 ```
 
