@@ -356,8 +356,9 @@ export const agentTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        status: { type: 'string', description: 'Filter by status' },
+        status: { type: 'string', description: 'Filter by status (pass "all" or omit to include every status)' },
         domain: { type: 'string', description: 'Filter by domain' },
+        agentType: { type: 'string', description: 'Filter by agent type' },
         includeTerminated: { type: 'boolean', description: 'Include terminated agents' },
       },
     },
@@ -365,16 +366,26 @@ export const agentTools: MCPTool[] = [
       const store = loadAgentStore();
       let agents = Object.values(store.agents);
 
-      // Filter by status
-      if (input.status) {
+      // Filter by status. 'all' (the CLI's `--all` flag sends this literal
+      // string) means "no status filter" — it used to be treated as a real
+      // status value to match against, which no agent ever has, so `--all`
+      // silently returned zero agents instead of every agent.
+      if (input.status && input.status !== 'all') {
         agents = agents.filter(a => a.status === input.status);
-      } else if (!input.includeTerminated) {
+      } else if (input.status !== 'all' && !input.includeTerminated) {
         agents = agents.filter(a => a.status !== 'terminated');
       }
 
       // Filter by domain
       if (input.domain) {
         agents = agents.filter(a => a.domain === input.domain);
+      }
+
+      // Filter by agent type — the CLI's `--type` flag has sent this since
+      // it was added, but this handler never read it, so `--type` was a
+      // silent no-op that returned every agent regardless of the filter.
+      if (input.agentType) {
+        agents = agents.filter(a => a.agentType === input.agentType);
       }
 
       return {
@@ -391,6 +402,7 @@ export const agentTools: MCPTool[] = [
         filters: {
           status: input.status,
           domain: input.domain,
+          agentType: input.agentType,
           includeTerminated: input.includeTerminated,
         },
       };
