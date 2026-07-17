@@ -137,6 +137,67 @@ describe('org command', () => {
     }
   });
 
+  it('stop reports a nonexistent org instead of writing a stray stopfile', async () => {
+    const stop = orgCommand.subcommands!.find(c => c.name === 'stop')!;
+    const cwd = mkdtempSync(join(tmpdir(), 'org-stop-'));
+    try {
+      const res = await stop.action!({ args: ['ghost'], flags: {}, cwd, interactive: false } as any);
+      expect(res?.success).toBe(false);
+      expect(existsSync(join(cwd, ORG_DIR, 'ghost'))).toBe(false);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  describe('delete running-org guard', () => {
+    const setup = (status: string, pid: number): string => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-del-'));
+      mkdirSync(join(cwd, ORG_DIR, 'live'), { recursive: true });
+      writeFileSync(join(cwd, ORG_DIR, 'live.json'), JSON.stringify({ name: 'live', roles: [{ id: 'boss' }] }));
+      writeFileSync(join(cwd, ORG_DIR, 'live', 'runtime.json'), JSON.stringify({ status, run: 'run-x', pid }));
+      return cwd;
+    };
+    const del = (cwd: string, flags: Record<string, unknown> = {}) =>
+      orgCommand.subcommands!.find(c => c.name === 'delete')!
+        .action!({ args: ['live'], flags: { yes: true, ...flags }, cwd, interactive: false } as any);
+
+    it('refuses to delete an org whose daemon pid is alive', async () => {
+      const cwd = setup('running', process.pid);
+      try {
+        const res = await del(cwd);
+        expect(res?.success).toBe(false);
+        expect(res?.message).toMatch(/running/);
+        expect(existsSync(join(cwd, ORG_DIR, 'live.json'))).toBe(true);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('deletes with --force even while running', async () => {
+      const cwd = setup('running', process.pid);
+      try {
+        const res = await del(cwd, { force: true });
+        expect(res?.success).toBe(true);
+        expect(existsSync(join(cwd, ORG_DIR, 'live.json'))).toBe(false);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('treats a stale runtime.json (dead pid) as not running', async () => {
+      const cwd = setup('running', 999999999);
+      try {
+        const res = await del(cwd);
+        expect(res?.success).toBe(true);
+        expect(existsSync(join(cwd, ORG_DIR, 'live.json'))).toBe(false);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('deletes a stopped org normally', async () => {
+      const cwd = setup('stopped', process.pid);
+      try {
+        const res = await del(cwd);
+        expect(res?.success).toBe(true);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+  });
+
   it('status rejects a path-traversal org name', async () => {
     const status = orgCommand.subcommands!.find(c => c.name === 'status')!;
     const res = await status.action!({ args: ['../../x'], flags: {}, cwd: process.cwd(), interactive: false } as any);
@@ -147,6 +208,8 @@ describe('org command', () => {
     it('clearStopfile removes a stopfile written by stopAction', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'org-stopfile-'));
       try {
+        mkdirSync(join(cwd, ORG_DIR), { recursive: true });
+        writeFileSync(join(cwd, ORG_DIR, 'myorg.json'), JSON.stringify({ name: 'myorg', roles: [{ id: 'boss' }] }));
         const stop = orgCommand.subcommands!.find(c => c.name === 'stop')!;
         const res = await stop.action!({ args: ['myorg'], flags: {}, cwd, interactive: false } as any);
         expect(res?.success).toBe(true);
