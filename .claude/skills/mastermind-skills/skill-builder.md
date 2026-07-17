@@ -161,6 +161,12 @@ description: Use when implementation is complete and you need to decide how to i
 description: Use when receiving code review feedback before implementing suggestions
 ```
 
+### Descriptive Naming
+
+**Use active voice, verb-first:**
+- ✅ `creating-skills` not `skill-creation`
+- ✅ `condition-based-waiting` not `async-test-helpers`
+
 ### Keyword Coverage
 
 Use words Claude would search for:
