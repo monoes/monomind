@@ -33,7 +33,7 @@ export const doctorCommand: Command = {
   name: 'doctor',
   description: 'System diagnostics and health checks',
   options: [
-    { name: 'fix', short: 'f', description: 'Show fix commands for issues', type: 'boolean', default: false },
+    { name: 'fix', short: 'f', description: 'Apply local fixes (helper files, monoes tool shims) and show fix commands for the rest', type: 'boolean', default: false },
     { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
     {
       name: 'component', short: 'c',
@@ -141,9 +141,16 @@ export const doctorCommand: Command = {
       output.writeln(output.error('Failed to run health checks'));
     }
 
-    if (autoInstall) {
+    // `--fix` applies the lightweight, local, no-network fixes (helper files,
+    // monoes CLI tool shims) — its description says "show fix commands" but
+    // silently doing nothing for these two beyond printing a hint is a worse
+    // outcome than just fixing them, and copying a bundled file locally is
+    // nothing like installing a package. `--install` additionally covers the
+    // Claude Code CLI, which is a real install (network fetch + binary setup)
+    // — kept opt-in separately so `--fix` alone never triggers that.
+    if (autoInstall || showFix) {
       const claudeResult = results.find(r => r.name === 'Claude Code CLI');
-      if (claudeResult && claudeResult.status !== 'pass') {
+      if (autoInstall && claudeResult && claudeResult.status !== 'pass') {
         if (await installClaudeCode()) {
           const newCheck = await checkClaudeCode();
           const idx = results.findIndex(r => r.name === 'Claude Code CLI');

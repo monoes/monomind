@@ -136,6 +136,39 @@ module.exports = {
             console.log('[STALE_HELPERS] Refreshed ' + healed.length + ' helper(s) from bundled version: ' + healed.join(', '));
           }
         }
+
+        // Fallback for pure `npx monomind@latest ...` usage — the local scan above
+        // only finds a bundled copy via node_modules or a global npm install, but a
+        // per-invocation `npx` run leaves no reliably-discoverable copy there (each
+        // invocation caches under a hashed, non-predictable ~/.npm/_npx/<hash>/ dir
+        // that this process has no correct way to pick the newest of without risking
+        // healing "backward" to some older cached version). `npx monomind@latest`
+        // itself already resolves this correctly (it always fetches/uses latest),
+        // and `doctor --fix` reuses the exact same bundled-package resolution that
+        // `init upgrade` uses — so shell out to it instead of re-solving the same
+        // problem here. Rate-limited to once per 6h (mirrors the metrics-worker
+        // staleness gate below) and fully non-blocking: spawned detached+unref with
+        // stdio ignored, session start never waits on it, and a fresh session or
+        // hook a few seconds later just picks up whatever it left behind.
+        try {
+          var _healCheckPath = path.join(CWD, '.monomind', 'helpers-heal-check.json');
+          var _lastHealCheck = 0;
+          try { _lastHealCheck = JSON.parse(fs.readFileSync(_healCheckPath, 'utf-8')).ts || 0; } catch (_) {}
+          var HEAL_CHECK_STALE_MS = 6 * 60 * 60 * 1000; // 6 hours
+          if (Date.now() - _lastHealCheck > HEAL_CHECK_STALE_MS) {
+            fs.mkdirSync(path.dirname(_healCheckPath), { recursive: true });
+            try { fs.writeFileSync(_healCheckPath, JSON.stringify({ ts: Date.now() }), 'utf-8'); } catch (_) {}
+            var _spawn = require('child_process').spawn;
+            var _child = _spawn('npx', ['-y', 'monomind@latest', 'doctor', '--fix', '--component', 'helpers'], {
+              cwd: CWD,
+              detached: true,
+              stdio: 'ignore',
+              env: process.env,
+            });
+            _child.on('error', function() {}); // offline / npx unavailable — silently skip
+            _child.unref();
+          }
+        } catch (e) { /* non-fatal — background self-heal is best-effort */ }
       }
     } catch (e) { /* non-fatal */ }
 
