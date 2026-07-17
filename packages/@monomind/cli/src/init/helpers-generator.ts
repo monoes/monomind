@@ -1227,6 +1227,66 @@ module.exports = commands;
 `;
 }
 
+// ── Canonical helper-file registry ──────────────────────────────────────────
+// Single source of truth for which top-level .claude/helpers/ files are
+// critical, what generates each one as a fallback, and which of the
+// previously-independent call sites (doctor's staleness check, init
+// upgrade's force-sync step, init upgrade's broader fallback-if-missing
+// step) need to know about it. These 3 lists used to be hardcoded
+// separately in doctor-project-checks.ts and executor.ts and drifted
+// (router.cjs was missing from one of them for 3 releases) — see
+// docs/mastermind/plans/2026-07-17-app-audit-plan.md.
+export interface HelperFileSpec {
+  /** Force-overwritten from source (or regenerated as fallback) on every `init upgrade` run. */
+  forceSync?: boolean;
+  /** Checked for staleness/existence by `doctor` (in addition to everything under handlers/ and utils/, discovered dynamically). */
+  doctorTracked?: boolean;
+  /** Fallback content generator, used when the file can't be copied from source. */
+  generate?: () => string;
+}
+
+export const HELPER_FILES: Record<string, HelperFileSpec> = {
+  'hook-handler.cjs': { forceSync: true, doctorTracked: true, generate: generateHookHandler },
+  'intelligence.cjs': { forceSync: true, generate: generateIntelligenceStub },
+  'auto-memory-hook.mjs': { forceSync: true, generate: generateAutoMemoryHook },
+  'statusline.cjs': { forceSync: true, doctorTracked: true },
+  'graphify-freshen.cjs': { forceSync: true, doctorTracked: true },
+  'router.cjs': { forceSync: true, doctorTracked: true, generate: generateAgentRouter },
+  'memory.cjs': { generate: generateMemoryHelper },
+  'session.cjs': { generate: generateSessionManager },
+  'pre-commit': { generate: generatePreCommitHook },
+  'post-commit': { generate: generatePostCommitHook },
+};
+
+export const FORCE_SYNC_HELPERS: string[] = Object.keys(HELPER_FILES).filter(
+  (name) => HELPER_FILES[name].forceSync,
+);
+
+export const DOCTOR_TRACKED_HELPERS: string[] = Object.keys(HELPER_FILES).filter(
+  (name) => HELPER_FILES[name].doctorTracked,
+);
+
+// Fallback generators for force-synced helpers (used when source is missing
+// the file entirely). Previously duplicated by hand as two separate maps
+// that disagreed on membership — the "source found but file missing" path
+// lacked a router.cjs fallback that the "source not found" path had, so a
+// corrupted/incomplete source copy could silently ship without router.cjs.
+export const FORCE_SYNC_GENERATORS: Record<string, () => string> = Object.fromEntries(
+  FORCE_SYNC_HELPERS.filter((name) => HELPER_FILES[name].generate).map((name) => [
+    name,
+    HELPER_FILES[name].generate as () => string,
+  ]),
+);
+
+// Broader fallback-if-missing-after-copy step (used during a fresh `init`,
+// not `init upgrade`) — includes non-force-synced scaffold files too
+// (pre-commit/post-commit/session/memory).
+export const INIT_FALLBACK_HELPERS: Record<string, () => string> = Object.fromEntries(
+  Object.entries(HELPER_FILES)
+    .filter(([, spec]) => spec.generate)
+    .map(([name, spec]) => [name, spec.generate as () => string]),
+);
+
 /**
  * Generate all helper files
  */
