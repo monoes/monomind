@@ -53,7 +53,26 @@ module.exports = {
     // any diff vs. the npm global install is expected (and would self-clobber
     // in-progress edits).
     try {
-      var _isDevRepo = fs.existsSync(path.join(CWD, 'packages', '@monomind', 'cli', 'package.json'));
+      // Walk up from CWD, not just check CWD directly — Claude Code can be opened
+      // with CWD set to any subdirectory of the monorepo (e.g. packages/@monomind/cli
+      // itself, or a nested package), where a bare CWD-only check would miss the
+      // monorepo root and wrongly treat the dev repo as a regular consumer project,
+      // letting the heal logic below silently overwrite the actual dev-repo SOURCE
+      // helpers (packages/@monomind/cli/.claude/helpers/*) with a stale published
+      // version pulled from node_modules/global npm.
+      var _isDevRepo = (function() {
+        var dir = CWD;
+        for (var _d = 0; _d < 6; _d++) {
+          if (fs.existsSync(path.join(dir, 'packages', '@monomind', 'cli', 'package.json')) &&
+              fs.existsSync(path.join(dir, 'packages', '@monomind', 'cli', '.claude', 'helpers'))) {
+            return true;
+          }
+          var _parent = path.dirname(dir);
+          if (_parent === dir) break;
+          dir = _parent;
+        }
+        return false;
+      })();
       if (!_isDevRepo) {
         var crypto = require('crypto');
         function _findBundledHelpers() {
@@ -156,17 +175,32 @@ module.exports = {
           try { _lastHealCheck = JSON.parse(fs.readFileSync(_healCheckPath, 'utf-8')).ts || 0; } catch (_) {}
           var HEAL_CHECK_STALE_MS = 6 * 60 * 60 * 1000; // 6 hours
           if (Date.now() - _lastHealCheck > HEAL_CHECK_STALE_MS) {
-            fs.mkdirSync(path.dirname(_healCheckPath), { recursive: true });
-            try { fs.writeFileSync(_healCheckPath, JSON.stringify({ ts: Date.now() }), 'utf-8'); } catch (_) {}
-            var _spawn = require('child_process').spawn;
-            var _child = _spawn('npx', ['-y', 'monomind@latest', 'doctor', '--fix', '--component', 'helpers'], {
-              cwd: CWD,
-              detached: true,
-              stdio: 'ignore',
-              env: process.env,
-            });
-            _child.on('error', function() {}); // offline / npx unavailable — silently skip
-            _child.unref();
+            // Write the rate-limit marker BEFORE spawning, and only spawn if the
+            // write actually succeeded (fail closed) — otherwise a persistently
+            // unwritable marker (disk quota, permissions) would make this branch
+            // re-fire on every single session-restore instead of once per 6h,
+            // since `Date.now() - 0 > HEAL_CHECK_STALE_MS` stays true forever.
+            var _markerWritten = false;
+            try {
+              fs.mkdirSync(path.dirname(_healCheckPath), { recursive: true });
+              fs.writeFileSync(_healCheckPath, JSON.stringify({ ts: Date.now() }), 'utf-8');
+              _markerWritten = true;
+            } catch (_) {}
+            if (_markerWritten) {
+              var _spawn = require('child_process').spawn;
+              // shell:true is required on Windows to invoke npx.cmd via spawn()
+              // without an explicit .cmd extension; harmless on macOS/Linux.
+              var _child = _spawn('npx', ['-y', 'monomind@latest', 'doctor', '--fix', '--component', 'helpers'], {
+                cwd: CWD,
+                detached: true,
+                stdio: 'ignore',
+                env: process.env,
+                shell: process.platform === 'win32',
+                windowsHide: true,
+              });
+              _child.on('error', function() {}); // offline / npx unavailable — silently skip
+              _child.unref();
+            }
           }
         } catch (e) { /* non-fatal — background self-heal is best-effort */ }
       }
