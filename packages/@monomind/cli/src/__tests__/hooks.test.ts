@@ -10,7 +10,7 @@
  * in terminal-tools.test.ts and task-tools-agent-store.test.ts.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -135,9 +135,10 @@ describe('hooksCommand alias wiring (v2 backward compatibility)', () => {
     ]);
     expect(startResult?.success).toBe(true);
     expect(restoreResult?.success).toBe(true);
-    const restoreData = restoreResult?.data as { restoredState?: { tasksRestored: number; agentsRestored: number; memoryRestored: number } };
+    const restoreData = restoreResult?.data as { restoredState?: { tasksRestored: number; agentsRestored: number; memoryBridgeInitialized: boolean } };
     expect(restoreData?.restoredState).toBeDefined();
     expect(typeof restoreData?.restoredState?.agentsRestored).toBe('number');
+    expect(typeof restoreData?.restoredState?.memoryBridgeInitialized).toBe('boolean');
   });
 });
 
@@ -397,6 +398,27 @@ describe('hooks metrics dispatch (real hooks_metrics handler)', () => {
       const displayCtx = makeCtx([], {}, dir);
       const displayResult = await metricsCommand.action!(displayCtx);
       expect(displayResult?.success).toBe(true);
+    },
+  );
+
+  it(
+    'surfaces the top-level "no metrics data yet" note in the non-JSON display path — ' +
+      'regression test: hooks_metrics returns _note as a sibling of patterns/agents/commands ' +
+      'when the store is empty, but the CLI display code only checked _note nested inside ' +
+      'those sub-objects (which only exist once data exists), so the note was silently dropped',
+    async () => {
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      try {
+        const ctx = makeCtx([], {}, dir);
+        const result = await metricsCommand.action!(ctx);
+        expect(result?.success).toBe(true);
+        const data = result?.data as { _note?: string };
+        expect(data._note).toBeDefined();
+        const written = writeSpy.mock.calls.map((c) => String(c[0])).join('');
+        expect(written).toContain(data._note as string);
+      } finally {
+        writeSpy.mockRestore();
+      }
     },
   );
 });
