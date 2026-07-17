@@ -251,8 +251,15 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
         matcher: 'Write|Edit|MultiEdit',
         hooks: [
           {
+            // Was 'pre-edit' — not a registered hook-handler.cjs dispatch
+            // command (only 'pre-write' is), so this silently no-op'd on
+            // every default init: hook-handler.cjs's dispatcher falls through
+            // to `else if (command) { console.log('[OK] Hook: ' + command); }`
+            // for any unrecognized subcommand, meaning the secrets-detection
+            // gate (gates-handler.cjs's handlePreWrite) never actually ran
+            // for any project set up via a default `monomind init`.
             type: 'command',
-            command: hookHandlerCmd('pre-edit'),
+            command: hookHandlerCmd('pre-write'),
             timeout: config.timeout,
           },
         ],

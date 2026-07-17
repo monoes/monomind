@@ -208,7 +208,7 @@ export const wizardCommand: Command = {
 
         const { execFileSync } = await import('child_process');
         try {
-          execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['@monomind/cli@latest', 'embeddings', 'init', '--model', embeddingModel, '--no-download', '--force'], {
+          execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['monomind@latest', 'embeddings', 'init', '--model', embeddingModel, '--no-download', '--force'], {
             stdio: 'pipe',
             cwd: ctx.cwd,
             timeout: 30000
@@ -231,7 +231,7 @@ export const wizardCommand: Command = {
           const { execFileSync } = await import('child_process');
           execFileSync(
             process.platform === 'win32' ? 'npx.cmd' : 'npx',
-            ['@monomind/cli@latest', 'guidance', 'setup', '--project-dir', ctx.cwd],
+            ['monomind@latest', 'guidance', 'setup', '--project-dir', ctx.cwd],
             { stdio: 'pipe', cwd: ctx.cwd, timeout: 10000 }
           );
           gatesEnabled = true;
