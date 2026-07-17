@@ -190,6 +190,33 @@ Use words Claude would search for:
 See mastermind/worktree.md
 ```
 
+**Why no @ links:** `@` syntax force-loads files immediately, consuming context before it's needed. Name the skill; let the reader invoke it.
+
+## Flowchart Usage
+
+**Use flowcharts ONLY for:**
+- Non-obvious decision points
+- Process loops where you might stop too early
+- "When to use A vs B" decisions
+
+**Never use flowcharts for:**
+- Reference material → tables, lists
+- Code examples → markdown blocks
+- Linear instructions → numbered lists
+- Labels without semantic meaning (step1, helper2)
+
+## Code Examples
+
+**One excellent example beats many mediocre ones.** Choose the most relevant language for the domain.
+
+**Good example:** complete and runnable, well-commented explaining WHY, from a real scenario, ready to adapt.
+
+**Don't:** implement in 5+ languages, create fill-in-the-blank templates, write contrived examples.
+
+## File Organization
+
+Mastermind skills are single files in a flat namespace. Keep everything inline. If a skill genuinely needs heavy reference material (500+ lines of API docs), condense it to what agents actually retrieve — a skill nobody can afford to load teaches nothing. Reusable prompt templates (like taskdev's implementer/reviewer prompts) live as sibling `*-prompt.md` files in the skills directory.
+
 ## The Iron Law (Same as TDD)
 
 ```
