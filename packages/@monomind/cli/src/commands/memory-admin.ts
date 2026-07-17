@@ -349,7 +349,12 @@ export const configureCommand: Command = {
     });
 
     output.writeln();
-    configManager.set(ctx.cwd, 'memory', config);
+    try {
+      configManager.set(ctx.cwd, 'memory', config);
+    } catch (error) {
+      output.printError(error instanceof Error ? error.message : String(error));
+      return { success: false, exitCode: 1 };
+    }
     output.printSuccess('Memory configuration updated');
 
     return { success: true, data: config };

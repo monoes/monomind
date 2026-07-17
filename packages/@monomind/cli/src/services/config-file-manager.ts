@@ -204,7 +204,13 @@ export class ConfigFileManager {
         const parsed = JSON.parse(fs.readFileSync(targetPath, 'utf-8'));
         onDisk = sanitizeConfigObject(parsed) as Record<string, unknown>;
       } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[config-file-manager] failed to parse existing config file — this write will overwrite it with defaults plus the new key:', e);
+        // The file exists but failed to parse — do NOT fall through to
+        // cloneDefaultConfig() and write that back. This config can hold
+        // provider API keys (see this method's doc comment above); silently
+        // "recovering" a momentarily-corrupt file by overwriting it with
+        // defaults-plus-the-new-key discards every real credential in it.
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[config-file-manager] failed to parse existing config file:', e);
+        throw new Error(`Config file exists but is unreadable/corrupt: ${targetPath}. Refusing to overwrite it — fix or remove the file manually, then retry.`);
       }
     }
     setNestedValue(onDisk, key, sanitisedValue);
