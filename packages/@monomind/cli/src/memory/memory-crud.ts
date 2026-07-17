@@ -302,7 +302,23 @@ export async function storeEntry(options: {
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);
 
-    const id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    // memory_entries has no UNIQUE constraint on (key, namespace) — only
+    // `id TEXT PRIMARY KEY`. `INSERT OR REPLACE` only replaces a row when
+    // its PRIMARY KEY collides, so generating a fresh id on every call (as
+    // this used to do unconditionally) meant upsert never actually matched
+    // the existing row for a given key+namespace — it silently inserted a
+    // duplicate instead of replacing it. When upserting, look up the
+    // existing row's real id first and reuse it so the replace actually
+    // collides; only mint a new id when no existing row is found.
+    let id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    if (upsert) {
+      const existingIdResult = db.exec(
+        'SELECT id FROM memory_entries WHERE key = ? AND namespace = ? LIMIT 1',
+        [key, namespace]
+      );
+      const existingId = existingIdResult[0]?.values?.[0]?.[0];
+      if (typeof existingId === 'string') id = existingId;
+    }
     const now = Date.now();
 
     let embeddingJson: string | null = null;

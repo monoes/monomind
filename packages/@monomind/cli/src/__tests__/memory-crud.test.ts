@@ -155,30 +155,26 @@ describe('memory-crud commands (sql.js fallback path)', () => {
     });
 
     it(
-      'KNOWN GAP (see report): --upsert does not actually replace the value on the sql.js ' +
-        'fallback path. bridgeStoreEntry (LanceDB path) deletes the existing key+namespace row ' +
-        "first, but memory-crud.ts's raw-sql.js fallback runs " +
-        '`INSERT OR REPLACE INTO memory_entries (id, ...)` keyed on a freshly-generated `id` ' +
-        'per call — since the new id never matches the old row\'s id, "OR REPLACE" never fires ' +
-        'and a second, independent row is inserted instead. retrieve (`... LIMIT 1`, no ORDER BY) ' +
-        'then returns whichever row the query planner picks first, which in practice is the ' +
-        'original row, not the update.',
+      'FIXED (was a KNOWN GAP): --upsert now actually replaces the value on the sql.js ' +
+        'fallback path. The fallback\'s `INSERT OR REPLACE INTO memory_entries (id, ...)` is ' +
+        'keyed on the PRIMARY KEY id, which used to be freshly generated on every call — the ' +
+        'replace never fired since the new id never matched the old row\'s id, so a second, ' +
+        'independent row was inserted instead of a true replace. storeEntry now looks up the ' +
+        'existing row\'s real id by key+namespace first when upserting, and reuses it.',
       async () => {
-        await run(storeCommand, 
+        await run(storeCommand,
           ctx({ flags: { _: [], key: 'up-key', value: 'original', namespace: 'up-ns' } }),
         );
-        const updated = await run(storeCommand, 
+        const updated = await run(storeCommand,
           ctx({ flags: { _: [], key: 'up-key', value: 'updated', namespace: 'up-ns', upsert: true } }),
         );
         expect(updated.success).toBe(true);
 
-        const got = await run(retrieveCommand, 
+        const got = await run(retrieveCommand,
           ctx({ flags: { _: [], key: 'up-key', namespace: 'up-ns' } }),
         );
         expect(got.success).toBe(true);
-        // Documents actual (buggy) behavior — the "updated" value is not
-        // reliably visible after an upsert on this fallback path.
-        expect((got.data as any).content).toBe('original');
+        expect((got.data as any).content).toBe('updated');
       },
     );
   });

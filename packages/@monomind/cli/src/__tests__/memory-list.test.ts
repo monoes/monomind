@@ -110,13 +110,13 @@ describe('memory-list commands', () => {
   });
 
   describe('editCommand', () => {
-    // Note: the sql.js fallback's storeEntry always mints a fresh row id, even
-    // with upsert:true (INSERT OR REPLACE only replaces on an id collision).
-    // So editCommand's write succeeds but leaves a second row behind for the
-    // same key/namespace rather than truly replacing the original — this test
-    // documents that actual behavior rather than asserting the (unmet) "single
-    // updated row" semantics the command name implies.
-    it('performs a real write for a lancedb-backed edit (sql.js fallback appends rather than replacing in place)', async () => {
+    // Regression test: storeEntry's sql.js fallback used to always mint a
+    // fresh row id, even with upsert:true (INSERT OR REPLACE only replaces
+    // on an id collision) — editCommand's write succeeded but left a second
+    // row behind for the same key/namespace instead of truly replacing the
+    // original. Fixed by having storeEntry look up the existing row's real
+    // id by key+namespace first when upserting.
+    it('performs a real write for a lancedb-backed edit, replacing the row in place (not appending)', async () => {
       await seed('edit-me', 'original value', 'default');
       const before = await run(listCommand, makeCtx({ namespace: 'default', limit: 20 }));
       expect((before.data as unknown[]).length).toBe(1);
@@ -125,7 +125,10 @@ describe('memory-list commands', () => {
       expect(result.success).toBe(true);
 
       const after = await run(listCommand, makeCtx({ namespace: 'default', limit: 20 }));
-      expect((after.data as unknown[]).length).toBe(2);
+      expect((after.data as unknown[]).length).toBe(1);
+      // listEntries only returns a `size` (content length), not the content
+      // itself — 'updated value' (14 chars) vs. the seeded 'original value' (15).
+      expect((after.data as Array<{ size?: number }>)[0].size).toBe('updated value'.length);
     });
 
     it('errors when key is missing for the lancedb source', async () => {
