@@ -46,7 +46,10 @@ describe('FileWatcher', () => {
     await waitForEvents(events, 5000, () => fs.writeFileSync(path.join(tmpDir, `new-${Date.now()}.txt`), 'hello'));
 
     expect(events.length).toBeGreaterThanOrEqual(1);
-    expect(events.some(e => e.endsWith('new.txt'))).toBe(true);
+    // The retrigger safety valve writes new-<ts>.txt files; if the watcher's
+    // snapshot raced the original write, only those retriggered adds arrive —
+    // any of them proves "detects a new file".
+    expect(events.some(e => /new(-\d+)?\.txt$/.test(e))).toBe(true);
   });
 
   it('detects a file change', async () => {
