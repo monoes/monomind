@@ -49,6 +49,33 @@ interface ExecError {
   status?: number | null;
 }
 
+// ── Secret-shaped env var filtering for terminal_execute ────────────────────
+// terminal_execute runs arbitrary (metacharacter-denylisted) shell commands
+// via execSync with `env: { ...process.env, ...session.env }` — the host
+// process's real environment, which commonly holds provider API keys
+// (ANTHROPIC_API_KEY, OPENAI_API_KEY, ...), CI/VCS tokens, and cloud
+// credentials. A single unpiped command (the metacharacter denylist blocks
+// piping/chaining, but not e.g. `curl` or `aws` invoked directly) can still
+// read and exfiltrate whatever env vars it inherits. Stripping variables
+// whose *names* match common secret conventions is defense-in-depth: it
+// doesn't change legitimate terminal usage (PATH/HOME/etc. stay intact) but
+// meaningfully shrinks what a malicious or hijacked command can read by
+// default. Callers that genuinely need a specific secret can pass it via
+// terminal_create's `env` option, which flows through untouched (session.env
+// is layered on *after* the filtered process.env below).
+const SECRET_ENV_NAME_PATTERN = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|_AUTH$|^AUTH_|PRIVATE_KEY|ACCESS_KEY)/i;
+
+/** Returns a copy of `env` with secret-shaped variable names removed. */
+export function filterSecretEnvVars(env: NodeJS.ProcessEnv): Record<string, string> {
+  const filtered: Record<string, string> = {};
+  for (const [k, v] of Object.entries(env)) {
+    if (v === undefined) continue;
+    if (SECRET_ENV_NAME_PATTERN.test(k)) continue;
+    filtered[k] = v;
+  }
+  return filtered;
+}
+
 function getTerminalDir(): string {
   return join(getProjectCwd(), STORAGE_DIR, TERMINAL_DIR);
 }
@@ -248,7 +275,7 @@ export const terminalTools: MCPTool[] = [
           timeout,
           maxBuffer: 5 * 1024 * 1024,
           stdio: ['pipe', 'pipe', 'pipe'],
-          env: { ...process.env, ...session.env },
+          env: { ...filterSecretEnvVars(process.env), ...session.env },
         });
         exitCode = 0;
       } catch (err) {
