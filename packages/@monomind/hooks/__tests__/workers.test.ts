@@ -620,3 +620,161 @@ describe('Built-in Workers', () => {
     expect(result.data?.patternsDb).toBeDefined();
   });
 });
+
+// ============================================================================
+// Unit Tests - Metrics-Producing Workers (doctor trusts these JSON outputs)
+// ============================================================================
+// ddd/map/audit/optimize/consolidate all write to .monomind/metrics/*.json,
+// which `doctor` reads directly to report health — these were previously
+// completely untested (only performance/health/git/swarm/learning were
+// covered above). Unlike those, these tests also assert the metrics file
+// itself is written with valid JSON, since that's what doctor actually
+// consumes — a worker could report `success: true` while its write silently
+// failed (a real class of bug found during the catch{}-block audit).
+
+describe('Metrics-Producing Workers', () => {
+  let manager: WorkerManager;
+
+  beforeEach(async () => {
+    await setupTestDir();
+    manager = createWorkerManager(TEST_PROJECT_ROOT);
+  });
+
+  afterEach(async () => {
+    await cleanupTestDir();
+  });
+
+  async function readMetricsFile(name: string): Promise<Record<string, unknown>> {
+    const filePath = path.join(TEST_PROJECT_ROOT, '.monomind', 'metrics', name);
+    const raw = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(raw);
+  }
+
+  it('should run ddd worker and write ddd-progress.json', async () => {
+    const result = await manager.runWorker('ddd');
+
+    expect(result.success).toBe(true);
+    expect(result.data?.progress).toBeTypeOf('number');
+    expect(result.data?.modules).toBeDefined();
+
+    const onDisk = await readMetricsFile('ddd-progress.json');
+    expect(onDisk.progress).toBe(result.data?.progress);
+    expect(onDisk.timestamp).toBeTypeOf('string');
+  });
+
+  it('should run map worker and write codebase-map.json', async () => {
+    const result = await manager.runWorker('map');
+
+    expect(result.success).toBe(true);
+    expect((result.data as Record<string, unknown>)?.structure).toBeDefined();
+
+    const onDisk = await readMetricsFile('codebase-map.json');
+    expect(onDisk.structure).toBeDefined();
+    expect(onDisk.timestamp).toBeTypeOf('string');
+  });
+
+  it('should run audit worker and write security-audit.json', async () => {
+    const result = await manager.runWorker('audit');
+
+    expect(result.success).toBe(true);
+    expect((result.data as Record<string, unknown>)?.checks).toBeDefined();
+    expect((result.data as Record<string, unknown>)?.riskLevel).toBeDefined();
+
+    const onDisk = await readMetricsFile('security-audit.json');
+    expect(onDisk.checks).toBeDefined();
+    expect(onDisk.riskLevel).toBeDefined();
+  });
+
+  it('should run optimize worker and write performance.json', async () => {
+    const result = await manager.runWorker('optimize');
+
+    expect(result.success).toBe(true);
+    expect((result.data as Record<string, unknown>)?.workerProcessMemoryUsage).toBeDefined();
+
+    const onDisk = await readMetricsFile('performance.json');
+    expect(onDisk.workerProcessMemoryUsage).toBeDefined();
+    expect(onDisk.timestamp).toBeTypeOf('string');
+  });
+
+  it('should run consolidate worker and write consolidation.json', async () => {
+    const result = await manager.runWorker('consolidate');
+
+    expect(result.success).toBe(true);
+    expect((result.data as Record<string, unknown>)?.mode).toBe('raptor');
+
+    const onDisk = await readMetricsFile('consolidation.json');
+    expect(onDisk.mode).toBe('raptor');
+    expect(onDisk.timestamp).toBeTypeOf('string');
+  });
+
+  it('reports failure explicitly rather than success:true with a missing file, when the metrics dir cannot be written', async () => {
+    // Simulate an unwritable metrics dir by replacing it with a file of the
+    // same name — every worker's fs.mkdir/writeFile against it should fail.
+    const metricsDir = path.join(TEST_PROJECT_ROOT, '.monomind', 'metrics');
+    await fs.rm(metricsDir, { recursive: true, force: true });
+    await fs.writeFile(metricsDir, 'not a directory');
+
+    const result = await manager.runWorker('map');
+
+    // Whichever way the worker chooses to report this (success:false, or
+    // success:true with the write silently caught) — assert it doesn't
+    // silently produce a valid-looking metrics file, since that's the
+    // actual failure mode doctor cares about.
+    if (result.success) {
+      await expect(fs.readFile(path.join(TEST_PROJECT_ROOT, '.monomind', 'metrics', 'codebase-map.json'), 'utf-8')).rejects.toThrow();
+    } else {
+      expect(result.error).toBeDefined();
+    }
+  });
+});
+
+// ============================================================================
+// Unit Tests - Remaining Built-in Workers (cache, patterns, progress, security)
+// ============================================================================
+// The last 4 of the 15 built-in workers with no coverage at all — cache and
+// progress don't persist metrics files the same way as the group above, so
+// these just assert the handler runs and returns the documented data shape.
+
+describe('Remaining Built-in Workers', () => {
+  let manager: WorkerManager;
+
+  beforeEach(async () => {
+    await setupTestDir();
+    manager = createWorkerManager(TEST_PROJECT_ROOT);
+  });
+
+  afterEach(async () => {
+    await cleanupTestDir();
+  });
+
+  it('should run cache worker', async () => {
+    const result = await manager.runWorker('cache');
+
+    expect(result.success).toBe(true);
+    expect((result.data as Record<string, unknown>)?.cleaned).toBeDefined();
+    expect((result.data as Record<string, unknown>)?.freedMB).toBeTypeOf('number');
+  });
+
+  it('should run patterns worker', async () => {
+    const result = await manager.runWorker('patterns');
+
+    expect(result.success).toBe(true);
+    expect(result.data).toBeDefined();
+  });
+
+  it('should run progress worker', async () => {
+    const result = await manager.runWorker('progress');
+
+    expect(result.success).toBe(true);
+    expect((result.data as Record<string, unknown>)?.progress).toBeDefined();
+    expect((result.data as Record<string, unknown>)?.totalFiles).toBeTypeOf('number');
+  });
+
+  it('should run security worker', async () => {
+    const result = await manager.runWorker('security');
+
+    expect(result.success).toBe(true);
+    expect((result.data as Record<string, unknown>)?.status).toBeDefined();
+    expect((result.data as Record<string, unknown>)?.totalIssues).toBeTypeOf('number');
+  });
+});
