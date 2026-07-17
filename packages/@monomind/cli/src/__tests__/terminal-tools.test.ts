@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { filterSecretEnvVars, terminalTools } from '../mcp-tools/terminal-tools.js';
@@ -96,5 +96,68 @@ describe('terminal_execute does not leak secret-shaped env vars to the spawned c
     expect(result.output).not.toContain(secretVarName);
     expect(result.output).not.toContain('placeholder-should-not-leak');
     expect(result.output).toContain(`${ordinaryVarName}=placeholder-should-be-visible`);
+  });
+});
+
+// Regression test: terminal_create/terminal_execute/terminal_close all used
+// to call the old loadTerminalStore(), which silently returned an empty
+// store on any read failure — a subsequent save would then overwrite a
+// corrupt/oversized store.json with that empty object, wiping every real
+// session. Migrated to the same loadXOrNull() convention as agent-tools.ts.
+describe('terminal write handlers do not wipe a corrupt terminal store', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'terminal-tools-corrupt-test-'));
+    process.env.MONOMIND_CWD = dir;
+  });
+
+  afterEach(() => {
+    delete process.env.MONOMIND_CWD;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function corruptTerminalStore(): { path: string; content: string } {
+    const terminalsDir = join(dir, '.monomind', 'terminals');
+    mkdirSync(terminalsDir, { recursive: true });
+    const path = join(terminalsDir, 'store.json');
+    const content = '{ not valid json !!!';
+    writeFileSync(path, content, 'utf-8');
+    return { path, content };
+  }
+
+  it('terminal_create refuses to write into a corrupt store, leaving it untouched', async () => {
+    const { path, content } = corruptTerminalStore();
+    const create = terminalTools.find((t) => t.name === 'terminal_create')!;
+    const result = (await create.handler({}, {} as never)) as { success: boolean; error?: string };
+    expect(result.success).toBe(false);
+    expect(readFileSync(path, 'utf-8')).toBe(content);
+  });
+
+  it('terminal_execute refuses to run against a corrupt store, leaving it untouched', async () => {
+    const { path, content } = corruptTerminalStore();
+    const execute = terminalTools.find((t) => t.name === 'terminal_execute')!;
+    const result = (await execute.handler({ command: 'env' }, {} as never)) as { success: boolean; error?: string };
+    expect(result.success).toBe(false);
+    expect(readFileSync(path, 'utf-8')).toBe(content);
+  });
+
+  it('terminal_close refuses to close a session in a corrupt store, leaving it untouched', async () => {
+    const { path, content } = corruptTerminalStore();
+    const close = terminalTools.find((t) => t.name === 'terminal_close')!;
+    const result = (await close.handler({ sessionId: 'anything' }, {} as never)) as { success: boolean; error?: string };
+    expect(result.success).toBe(false);
+    expect(readFileSync(path, 'utf-8')).toBe(content);
+  });
+
+  it('terminal_create writes normally when the store is absent or valid', async () => {
+    const create = terminalTools.find((t) => t.name === 'terminal_create')!;
+    const result = (await create.handler({}, {} as never)) as { success: boolean; sessionId?: string };
+    expect(result.success).toBe(true);
+    expect(result.sessionId).toBeDefined();
+
+    const storePath = join(dir, '.monomind', 'terminals', 'store.json');
+    const store = JSON.parse(readFileSync(storePath, 'utf-8'));
+    expect(Object.keys(store.sessions)).toHaveLength(1);
   });
 });
