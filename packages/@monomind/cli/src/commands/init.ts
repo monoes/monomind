@@ -18,6 +18,7 @@ import {
 import { wizardCommand } from './init-wizard.js';
 import { upgradeCommand } from './init-upgrade.js';
 import { checkCommand, skillsCommand, hooksCommand } from './init-subcommands.js';
+import { initializeMemoryDatabase } from '../memory/memory-initializer.js';
 
 function isInitialized(cwd: string): { claude: boolean; monomind: boolean } {
   const claudePath = path.join(cwd, '.claude', 'settings.json');
@@ -204,23 +205,29 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       const { execSync } = await import('child_process');
 
       if (startAll) {
+        // In-process, not a subprocess: `npx @monomind/cli@latest memory init`
+        // (the previous approach) shelled out to a package name that has
+        // never been published — every fresh init silently 404'd here and
+        // fell into the catch block's "already exists" message even when no
+        // database existed at all. initializeMemoryDatabase() is the same
+        // function `monomind memory init` itself calls, run directly.
         try {
           output.writeln(output.dim('  Initializing memory database...'));
-          execSync('npx @monomind/cli@latest memory init', {
-            stdio: 'pipe',
-            cwd: ctx.cwd,
-            timeout: 30000
-          });
-          output.writeln(output.success('  ✓ Memory initialized'));
-        } catch {
-          output.writeln(output.dim('  Memory database already exists'));
+          const memResult = await initializeMemoryDatabase({ dbPath: path.join(ctx.cwd, '.swarm', 'memory.db') });
+          if (memResult.success) {
+            output.writeln(output.success('  ✓ Memory initialized'));
+          } else {
+            output.writeln(output.dim(`  Memory database init skipped (${memResult.error || 'unknown reason'})`));
+          }
+        } catch (e) {
+          output.writeln(output.dim(`  Memory database init skipped (${e instanceof Error ? e.message : String(e)})`));
         }
       }
 
       if (startAll) {
         try {
           output.writeln(output.dim('  Initializing swarm...'));
-          execSync('npx @monomind/cli@latest swarm init --topology hierarchical', {
+          execSync('npx monomind@latest swarm init --topology hierarchical', {
             stdio: 'pipe',
             cwd: ctx.cwd,
             timeout: 30000
@@ -228,6 +235,38 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
           output.writeln(output.success('  ✓ Swarm initialized'));
         } catch {
           output.writeln(output.dim('  Swarm initialization skipped'));
+        }
+      }
+
+      if (startAll) {
+        // Seed .monomind/metrics/ immediately instead of waiting for the
+        // first Claude Code session-restore hook to run these workers —
+        // running `monomind doctor` right after `init` (before ever opening
+        // Claude Code) otherwise always shows "Worker Metrics"/"Security
+        // Audit" as unconfigured, even though nothing is actually broken.
+        try {
+          output.writeln(output.dim('  Seeding worker metrics...'));
+          const hooksMod = await import('@monomind/hooks').catch(() => null);
+          if (hooksMod && hooksMod.createWorkerManager) {
+            const manager = hooksMod.createWorkerManager(ctx.cwd);
+            await manager.ensureMetricsDir();
+            const seeded: string[] = [];
+            for (const workerName of ['map', 'audit']) {
+              try {
+                const r = await manager.runWorker(workerName);
+                if (r.success) seeded.push(workerName);
+              } catch { /* best-effort — doctor will report if this stays missing */ }
+            }
+            if (seeded.length > 0) {
+              output.writeln(output.success(`  ✓ Worker metrics seeded (${seeded.join(', ')})`));
+            } else {
+              output.writeln(output.dim('  Worker metrics seeding skipped'));
+            }
+          } else {
+            output.writeln(output.dim('  Worker metrics seeding skipped (@monomind/hooks unavailable)'));
+          }
+        } catch (e) {
+          output.writeln(output.dim(`  Worker metrics seeding skipped (${e instanceof Error ? e.message : String(e)})`));
         }
       }
 
@@ -253,7 +292,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       try {
         output.writeln(output.dim(`  Model: ${embeddingModel}`));
         output.writeln(output.dim('  Hyperbolic: Enabled (Poincaré ball)'));
-        execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['@monomind/cli@latest', 'embeddings', 'init', '--model', embeddingModel, '--no-download', '--force'], {
+        execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['monomind@latest', 'embeddings', 'init', '--model', embeddingModel, '--no-download', '--force'], {
           stdio: 'pipe',
           cwd: ctx.cwd,
           timeout: 30000
