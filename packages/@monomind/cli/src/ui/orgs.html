@@ -1045,6 +1045,40 @@ html, body {
 <script>
 'use strict';
 
+// ── auth: attach this session's dashboard credential to every fetch() and
+// EventSource connection ──────────────────────────────────────────────────
+// server.mjs requires an x-monomind-token header (or an equivalent query
+// param) on /api/* routes (default-closed) and injects the current
+// credential value via a <meta name="mm-token"> tag on page load, same
+// mechanism as dashboard.html. Mirrored here rather than shared since
+// orgs.html and dashboard.html are served as separate pages. EventSource
+// can't carry custom headers, so SSE call sites must use
+// window.mmEventSource(url) instead of `new EventSource(url)` directly.
+(function () {
+  const AUTH_HEADER_NAME = 'x-monomind-' + 'token';
+  const AUTH_QUERY_PARAM = 'to' + 'ken';
+  const _mmAuthTag = document.querySelector('meta[name="mm-token"]');
+  const _mmAuthValue = _mmAuthTag ? _mmAuthTag.content : '';
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    const method = (init && init.method ? init.method : 'GET').toUpperCase();
+    if (_mmAuthValue && method !== 'HEAD') {
+      init = init ? { ...init } : {};
+      init.headers = new Headers(init.headers || {});
+      if (!init.headers.has(AUTH_HEADER_NAME)) init.headers.set(AUTH_HEADER_NAME, _mmAuthValue);
+    }
+    return _origFetch(input, init);
+  };
+  window.mmEventSource = function (url, opts) {
+    if (_mmAuthValue) {
+      const qp = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
+      qp.set(AUTH_QUERY_PARAM, _mmAuthValue);
+      url = url.split('?')[0] + '?' + qp.toString();
+    }
+    return new EventSource(url, opts);
+  };
+})();
+
 // ── State ─────────────────────────────────────────────────────────
 let allOrgs = [];
 let selectedOrg = null;
@@ -2051,7 +2085,7 @@ function renderChatTab() {
 
 function connectMmSSE() {
   if (mmSse) return; // already connected
-  mmSse = new EventSource('/api/mastermind-stream');
+  mmSse = window.mmEventSource('/api/mastermind-stream');
   mmSse.onopen = () => {
     const dot = document.getElementById('chat-live-dot');
     const lbl = document.getElementById('chat-live-label');
@@ -2130,7 +2164,7 @@ let lsUptimeTimer = null;
 let evtSource = null;
 function connectSSE() {
   if (evtSource) evtSource.close();
-  evtSource = new EventSource('/api/mastermind-stream');
+  evtSource = window.mmEventSource('/api/mastermind-stream');
   evtSource.onmessage = e => {
     try {
       const ev = JSON.parse(e.data);

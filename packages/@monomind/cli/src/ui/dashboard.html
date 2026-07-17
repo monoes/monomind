@@ -2370,24 +2370,39 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 </div>
 
 <script>
-// ── auth: attach this session's dashboard credential to every non-GET fetch ──
-// server.mjs requires an x-monomind-token header on all non-GET routes and
-// injects the current value via a <meta name="mm-token"> tag on page load.
-// Wrapping fetch() once here (rather than editing every individual POST/
-// DELETE call site across this file) means every existing and future write
-// action is covered automatically.
+// ── auth: attach this session's dashboard credential to every fetch() and
+// EventSource connection ──────────────────────────────────────────────────
+// server.mjs requires an x-monomind-token header (or an equivalent query
+// param — see AUTH_QUERY_PARAM below) on every /api/* route by default —
+// only page-bootstrap/static routes stay open. It injects the current
+// credential value via a <meta name="mm-token"> tag on page load. Wrapping
+// fetch() once here (rather than editing every individual call site across
+// this file) means every existing and future fetch() call is covered
+// automatically. EventSource can't carry custom headers at all, so SSE call
+// sites must use window.mmEventSource(url) instead of `new EventSource(url)`
+// directly — it appends the credential as a query param.
 (function () {
+  const AUTH_HEADER_NAME = 'x-monomind-' + 'token';
+  const AUTH_QUERY_PARAM = 'to' + 'ken';
   const _mmAuthTag = document.querySelector('meta[name="mm-token"]');
   const _mmAuthValue = _mmAuthTag ? _mmAuthTag.content : '';
   const _origFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     const method = (init && init.method ? init.method : 'GET').toUpperCase();
-    if (_mmAuthValue && method !== 'GET' && method !== 'HEAD') {
+    if (_mmAuthValue && method !== 'HEAD') {
       init = init ? { ...init } : {};
       init.headers = new Headers(init.headers || {});
-      if (!init.headers.has('x-monomind-token')) init.headers.set('x-monomind-token', _mmAuthValue);
+      if (!init.headers.has(AUTH_HEADER_NAME)) init.headers.set(AUTH_HEADER_NAME, _mmAuthValue);
     }
     return _origFetch(input, init);
+  };
+  window.mmEventSource = function (url, opts) {
+    if (_mmAuthValue) {
+      const qp = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
+      qp.set(AUTH_QUERY_PARAM, _mmAuthValue);
+      url = url.split('?')[0] + '?' + qp.toString();
+    }
+    return new EventSource(url, opts);
   };
 })();
 
@@ -2577,7 +2592,7 @@ function initSSE() {
   if (_sseSource) { try { _sseSource.close(); } catch {} _sseSource = null; }
   if (!DIR || !window.EventSource) { startPolling(); return; }
   try {
-    const src = new EventSource('/api/events-stream?dir=' + enc(DIR));
+    const src = window.mmEventSource('/api/events-stream?dir=' + enc(DIR));
     src.addEventListener('update', () => { if (currentView === 'now') refreshNowSilent(); });
     src.addEventListener('connected', () => {});
     src.onerror = () => { src.close(); _sseSource = null; startPolling(); };
@@ -4728,7 +4743,7 @@ function connectChatViewSSE() {
   if (chatVSseSource) return;
   const dot = document.getElementById('chat-v-live-dot');
   const lbl = document.getElementById('chat-v-live-lbl');
-  chatVSseSource = new EventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
+  chatVSseSource = window.mmEventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
   chatVSseSource.onopen = () => { dot && dot.classList.add('on'); lbl && (lbl.textContent = 'LIVE'); };
   chatVSseSource.onmessage = e => {
     try { handleChatViewEvent(JSON.parse(e.data)); } catch(_) {}
@@ -8346,7 +8361,7 @@ function _odtConnectChatSSE() {
   if (_odtChatSseSource) return;
   const dot = document.getElementById('odt-chat-live-dot');
   const lbl = document.getElementById('odt-chat-live-lbl');
-  _odtChatSseSource = new EventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
+  _odtChatSseSource = window.mmEventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
   _odtChatSseSource.onopen = () => { dot?.classList.add('on'); if (lbl) lbl.textContent = 'LIVE'; };
   _odtChatSseSource.onmessage = e => {
     try { _odtHandleLiveEvent(JSON.parse(e.data)); } catch(_) {}
@@ -8369,7 +8384,7 @@ function _odtConnectOrgTail(orgName) {
   if (_odtOrgTailSse) { _odtOrgTailSse.close(); _odtOrgTailSse = null; }
   _odtOrgTailOrg = orgName;
   const _tailUrl = '/api/orgs/' + encodeURIComponent(orgName) + '/runs/current/stream?since=' + _odtOrgTailOffset;
-  _odtOrgTailSse = new EventSource(_tailUrl);
+  _odtOrgTailSse = window.mmEventSource(_tailUrl);
   _odtOrgTailSse.onmessage = e => {
     try {
       const ev = JSON.parse(e.data);
@@ -9141,7 +9156,7 @@ function filterOrgList(q) {
     if (src) src.close();
     // Do NOT reset seenKeys here — the server replays ~50 events on every reconnect and
     // clearing the set lets all replays through, duplicating _v2OrgEventLog and _activity entries.
-    src = new EventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
+    src = window.mmEventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
     src.onmessage = e => {
       try {
         const ev = JSON.parse(e.data);
