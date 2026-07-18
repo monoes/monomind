@@ -103,7 +103,7 @@ session_id="${session_id:-mm-$(date -u +%Y%m%dT%H%M%S)}"
 
 Emit `session:start` to dashboard:
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
@@ -114,7 +114,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 
 Emit `domain:dispatch`:
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
@@ -127,7 +127,7 @@ Invoke `Skill("mastermind-skills:runorg")` passing: brain_context, org_name: `$o
 
 After the skill spawns the boss agent and returns: note the status. Emit `session:complete`:
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \

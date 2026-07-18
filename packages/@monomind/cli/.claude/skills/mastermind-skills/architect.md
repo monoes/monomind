@@ -67,7 +67,7 @@ If this skill is invoked directly (not by master):
    ```bash
    REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
    CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
      -H "Content-Type: application/json" \
      -d '{"type":"session:start","session":"<sessionId>","domain":"architect","ts":'"$(date +%s)"'000}' || true
    ```
@@ -104,7 +104,7 @@ If this skill is invoked directly (not by master):
    ```bash
    REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
    CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
      -H "Content-Type: application/json" \
      -d '{"type":"session:complete","session":"<sessionId>","domain":"architect","ts":'"$(date +%s)"'000}' || true
    ```
@@ -294,7 +294,7 @@ Then emit `agent:spawn` for the manager and spawn it. Before executing the curl 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d '{"type":"agent:spawn","session":"<sessionId>","domain":"architect","agent":"<manager_agent_type lowercased and hyphenated, e.g. software-architect>","task":"coordinate architecture analysis","ts":'"$(date +%s)"'000}'
 ```
@@ -444,7 +444,7 @@ BEFORE spawning each agent, emit agent:spawn to the live dashboard. Before each 
 \`\`\`bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d '{"type":"agent:spawn","session":"<sessionId>","domain":"architect","agent":"<subagent_type lowercased and hyphenated, e.g. software-architect>","task":"<stream-description>","ts":'"$(date +%s)"'000}'
 \`\`\`
@@ -453,7 +453,7 @@ If handing off artifacts to another domain (e.g. build for refactoring implement
 \`\`\`bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d '{"type":"intercom","session":"<sessionId>","from":"architect","to":"<domain>","msg":"<msg>","ts":'"$(date +%s)"'000}'
 \`\`\`
@@ -464,7 +464,7 @@ BEFORE returning, emit domain:complete to the live dashboard:
 \`\`\`bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d '{"type":"domain:complete","session":"<sessionId>","domain":"architect","status":"<choose: complete | partial | blocked>","artifacts":[],"decisions":[],"ts":'"$(date +%s)"'000}'
 \`\`\`
@@ -552,7 +552,7 @@ Before executing the curl blocks below and when constructing the Task() descript
    ```bash
    REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
    CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
      -H "Content-Type: application/json" \
      -d '{"type":"agent:spawn","session":"<sessionId>","domain":"architect","agent":"<resolved agent slug, e.g. software-architect>","task":"<prompt>","ts":'"$(date +%s)"'000}'
    ```
@@ -568,7 +568,7 @@ Before executing the curl blocks below and when constructing the Task() descript
    ```bash
    REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
    CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
      -H "Content-Type: application/json" \
      -d '{"type":"domain:complete","session":"<sessionId>","domain":"architect","status":"complete","artifacts":[],"decisions":[],"ts":'"$(date +%s)"'000}'
    ```

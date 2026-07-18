@@ -126,7 +126,7 @@ Then emit `org:agent:hired` event to dashboard:
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn --arg org "$org_name" --arg role "$agent_id" --arg title "$title" \
     '{type:"org:agent:hired",org:$org,role:$role,title:$title,ts:(now*1000|floor)}')" || true

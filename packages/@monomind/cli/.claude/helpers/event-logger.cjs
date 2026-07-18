@@ -66,12 +66,20 @@ function forwardToDashboard(entry) {
     const rawPort = Number(ctrl.port);
     const port = (Number.isInteger(rawPort) && rawPort >= 1024 && rawPort <= 65535) ? rawPort : 4242;
     const body = JSON.stringify({ ...entry, hookCaptured: true });
+    // Ingest is default-deny: attach the dashboard credential (written by
+    // server.mjs next to control.json) or the POST is silently rejected.
+    let authHdr = '';
+    try { authHdr = fs.readFileSync(path.join(CWD, '.monomind', 'dashboard-token'), 'utf8').trim(); } catch {}
     const req = http.request({
       method: 'POST',
       hostname: 'localhost',
       port,
       path: '/api/mastermind/event',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        ...(authHdr ? { 'x-monomind-token': authHdr } : {}),
+      },
       timeout: 400,
     });
     req.on('error', () => {});

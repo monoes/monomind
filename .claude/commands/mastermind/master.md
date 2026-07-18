@@ -338,7 +338,7 @@ jq -n --arg sid "$SESSION_ID" --arg proj "$project_name" --arg prompt "$resolved
   && mv "$MONO_DIR/sessions/current.json.tmp" \
         "$MONO_DIR/sessions/current.json"
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn --arg sid "$SESSION_ID" --arg prompt "$resolved_prompt" --arg mode "$mode" --arg proj "$REPO_ROOT" \
     '{type:"session:start",session:$sid,prompt:$prompt,mode:$mode,project:$proj,ts:(now*1000|floor)}')" || true
@@ -715,7 +715,7 @@ domains_needed=$(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | grep -v 
 for domain in $domains_needed; do
   goal=$(jq -r --arg d "$domain" '.domain_goals[$d] // empty' "$SESSION_STATE")
   [ -z "$goal" ] && goal=$(jq -r '.prompt // ""' "$SESSION_STATE")
-  curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
+  curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
     -H "Content-Type: application/json" \
     -d "$(jq -cn --arg sid "$SESSION_ID" --arg d "$domain" --arg cmd "$goal" \
       '{type:"domain:dispatch",session:$sid,domain:$d,cmd:$cmd,ts:(now*1000|floor)}')" || true
@@ -889,7 +889,7 @@ echo "overall_status=$overall_status completed_domains=${completed_domains[*]}"
 
 completed_domains_json=$(jq -n '$ARGS.positional' --args "${completed_domains[@]}")
 
-curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg sid "$SESSION_ID" \

@@ -384,7 +384,7 @@ jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '.last_tick = $ts' "$cfg" > "$tmp" 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 SESSION_ID="monitor-${name}-$(date -u +%Y%m%dT%H%M%S)"
-curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn --arg sid "$SESSION_ID" --arg name "$name" \
     '{type:"monitor:tick",session:$sid,monitor:$name,ts:(now*1000|floor)}')" || true
@@ -959,7 +959,7 @@ jq '.stats.done += 1' "$cfg" > "$tmp" && mv "$tmp" "$cfg"
 
 **Emit dashboard event:**
 ```bash
-curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn --arg sid "$SESSION_ID" --arg name "$name" --arg title "$task_title" \
     '{type:"monitor:task:done",session:$sid,monitor:$name,task:$title,ts:(now*1000|floor)}')" || true

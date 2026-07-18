@@ -101,7 +101,7 @@ EOF
 echo "LOOP_ID=${LOOP_ID}"
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "{\"type\":\"loop:start\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/mastermind:repeat\",\"mode\":\"${LOOP_TYPE}\",\"maxReps\":${LOOP_MAXREPS},\"interval\":<INTERVAL>,\"ts\":$(date +%s)000}" || true
 ```
@@ -165,7 +165,7 @@ If `TILLEND_EMPTY=true`:
   rm -f ".monomind/loops/<LOOP_ID>.json" ".monomind/loops/<LOOP_ID>.stop"
   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
     -H "Content-Type: application/json" \
     -d "{\"type\":\"loop:complete\",\"loopId\":\"<LOOP_ID>\",\"command\":\"/mastermind:repeat\",\"mode\":\"tillend\",\"ranReps\":<PREV_REP>,\"reason\":\"empty-round\",\"ts\":$(date +%s)000}" || true
   ```
@@ -178,7 +178,7 @@ If `--tillend` is active AND `CURRENT_REP > MAXRUNS` (safety cap reached):
   rm -f ".monomind/loops/<LOOP_ID>.json" ".monomind/loops/<LOOP_ID>.stop"
   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
     -H "Content-Type: application/json" \
     -d "{\"type\":\"loop:complete\",\"loopId\":\"<LOOP_ID>\",\"command\":\"/mastermind:repeat\",\"mode\":\"tillend\",\"ranReps\":<PREV_REP>,\"reason\":\"safety-cap\",\"ts\":$(date +%s)000}" || true
   ```
@@ -193,7 +193,7 @@ Remove the state file and emit loop:complete:
 rm -f ".monomind/loops/<LOOP_ID>.json" ".monomind/loops/<LOOP_ID>.stop"
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "{\"type\":\"loop:complete\",\"loopId\":\"<LOOP_ID>\",\"command\":\"/mastermind:repeat\",\"ranReps\":<MAX_REPS>,\"ts\":$(date +%s)000}" || true
 ```
@@ -229,7 +229,7 @@ cat > ".monomind/loops/<LOOP_ID>.json" << EOF
 EOF
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "{\"type\":\"loop:tick\",\"loopId\":\"<LOOP_ID>\",\"command\":\"/mastermind:repeat\",\"mode\":\"${LOOP_TYPE}\",\"completedRep\":<PREV_REP>,\"nextRep\":<CURRENT_REP>,\"nextAt\":${NEXT_AT},\"ts\":$(date +%s)000}" || true
 ```
