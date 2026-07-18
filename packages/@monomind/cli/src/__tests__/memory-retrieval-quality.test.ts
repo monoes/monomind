@@ -55,6 +55,66 @@ const GOLDEN: Array<{ key: string; note: string; paraphrase: string; keywordQuer
     paraphrase: 'what supplement to take during the dark months',
     keywordQuery: 'vitamin d winter',
   },
+  {
+    key: 'sourdough-hydration',
+    note: 'Sourdough starter doubles fastest at 78F with 100% hydration; feed 1:1:1 every 12 hours.',
+    paraphrase: 'how to keep the bread culture alive and active',
+    keywordQuery: 'sourdough starter feed',
+  },
+  {
+    key: 'landlord-deposit-law',
+    note: 'The landlord must return the security deposit within 21 days of move-out or itemize deductions in writing.',
+    paraphrase: 'when do I get my rental money back after leaving the apartment',
+    keywordQuery: 'security deposit 21 days',
+  },
+  {
+    key: 'espresso-dial-in',
+    note: 'Dial in espresso at 1:2 ratio in 25-30 seconds; sour means grind finer, bitter means grind coarser.',
+    paraphrase: 'my coffee shots taste off, how do I adjust the machine',
+    keywordQuery: 'espresso grind ratio',
+  },
+  {
+    key: 'toddler-sleep-regression',
+    note: 'The 18-month sleep regression usually lasts 2-6 weeks; keep the bedtime routine identical and avoid new sleep crutches.',
+    paraphrase: 'why has the baby suddenly stopped sleeping through the night',
+    keywordQuery: 'sleep regression 18 month',
+  },
+  {
+    key: 'kubernetes-oomkill',
+    note: 'Pods OOMKilled with exit code 137: raise memory limits or fix the leak; requests too low cause node overcommit.',
+    paraphrase: 'containers keep getting killed and restarting with code 137',
+    keywordQuery: 'oomkilled 137 memory',
+  },
+  {
+    key: 'tax-quarterly-estimates',
+    note: 'Freelancers must pay quarterly estimated taxes by Apr 15, Jun 15, Sep 15, Jan 15 — safe harbor is 110% of last year.',
+    paraphrase: 'as a self-employed person when do I have to send money to the IRS',
+    keywordQuery: 'quarterly estimated taxes',
+  },
+  {
+    key: 'strength-progressive-overload',
+    note: 'Progressive overload: add 2.5kg or one rep each session; deload every 6-8 weeks when stalling.',
+    paraphrase: 'how to keep getting stronger at the gym without plateauing',
+    keywordQuery: 'progressive overload deload',
+  },
+  {
+    key: 'car-timing-belt',
+    note: 'Replace the timing belt at 100k km; on interference engines a snapped belt destroys the valves.',
+    paraphrase: 'which engine part must be swapped before it wrecks everything',
+    keywordQuery: 'timing belt interference',
+  },
+  {
+    key: 'dns-ttl-migration',
+    note: 'Before a server migration, lower DNS TTL to 300 seconds at least 48 hours in advance so the cutover propagates fast.',
+    paraphrase: 'preparing name records ahead of moving to a new host',
+    keywordQuery: 'dns ttl migration',
+  },
+  {
+    key: 'visa-schengen-90-180',
+    note: 'The Schengen rule allows 90 days in any rolling 180-day window; overstays are counted at exit and can trigger bans.',
+    paraphrase: 'how long can I stay in Europe as a tourist without residency',
+    keywordQuery: 'schengen 90 180',
+  },
 ];
 
 const NS = 'knowledge:golden';
@@ -117,7 +177,39 @@ describe('memory retrieval quality (Second Brain golden set)', () => {
       if (keys.includes(g.key)) hits++;
       expect(res?.searchMethod, `paraphrase "${g.paraphrase}" must use the vector path`).toBe('semantic');
     }
-    // Recall@3 ≥ 4/5 on paraphrases — the bar that keyword search cannot meet.
-    expect(hits, `paraphrase recall@3 was ${hits}/${GOLDEN.length}`).toBeGreaterThanOrEqual(4);
-  }, 300_000);
+    // Recall@3 ≥ 80% on paraphrases — the bar that keyword search cannot meet.
+    const bar = Math.floor(GOLDEN.length * 0.8);
+    expect(hits, `paraphrase recall@3 was ${hits}/${GOLDEN.length} (bar: ${bar})`).toBeGreaterThanOrEqual(bar);
+  }, 600_000);
+
+  it('multi-chunk documents: a paraphrase targeting a deep section retrieves the right chunk', async (ctx) => {
+    if (!semanticAvailable) { ctx.skip(); return; }
+    const { chunkDocument } = await import('@monoes/memory');
+    const doc = [
+      '# Company handbook',
+      '## Expense policy',
+      'Meals under 50 euro need no receipt. Flights must be booked through the travel portal at least 14 days ahead. '.repeat(30),
+      '## Parental leave',
+      'Primary caregivers receive 16 weeks fully paid; secondary caregivers receive 6 weeks. Leave can be split into two blocks within the first year. '.repeat(30),
+      '## Equipment refresh',
+      'Laptops are replaced every 36 months; damaged screens are repaired within one week via the IT desk. '.repeat(30),
+    ].join('\n\n');
+    const chunks = chunkDocument('handbook', doc, 3200, 400);
+    expect(chunks.length).toBeGreaterThan(3);
+    const NS_DOC = 'knowledge:handbook';
+    for (const c of chunks) {
+      const res = await bridgeStoreEntry({ key: c.chunkId, value: c.text, namespace: NS_DOC, dbPath: FIXTURE_DIR, upsert: true });
+      expect(res?.success).toBe(true);
+    }
+    const cases = [
+      { query: 'how much time off do new parents get', mustContain: 'Parental leave' },
+      { query: 'when can I get a new work laptop', mustContain: 'Equipment refresh' },
+      { query: 'do I need to keep receipts for small business lunches', mustContain: 'Expense policy' },
+    ];
+    for (const c of cases) {
+      const res = await bridgeSearchEntries({ query: c.query, namespace: NS_DOC, dbPath: FIXTURE_DIR, limit: 2, threshold: 0.15 });
+      const texts = (res?.results ?? []).map(r => r.content).join('\n---\n');
+      expect(texts, `"${c.query}" should surface the ${c.mustContain} section`).toContain(c.mustContain);
+    }
+  }, 600_000);
 });

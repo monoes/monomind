@@ -26,6 +26,20 @@ const DEFAULT_OVERLAP = 400;
 // Inline fallback identical to @monoes/memory's knowledge/document-chunker.ts —
 // used only if the dynamic import below fails (package not installed/built).
 // Keep in sync if the shared chunker's boundary-snapping logic changes.
+const HEADING_LINE_RE = /^#{1,6} /;
+function lastHeadingBefore(text: string, pos: number): string | null {
+  let i = text.lastIndexOf('\n#', pos - 1);
+  while (i !== -1) {
+    const eol = text.indexOf('\n', i + 1);
+    const line = text.slice(i + 1, eol === -1 ? undefined : eol);
+    if (HEADING_LINE_RE.test(line)) return line.replace(/^#+ /, '').trim();
+    i = text.lastIndexOf('\n#', i - 1);
+  }
+  const firstEol = text.indexOf('\n');
+  const firstLine = firstEol === -1 ? text : text.slice(0, firstEol);
+  return HEADING_LINE_RE.test(firstLine) && firstEol !== -1 && firstEol < pos
+    ? firstLine.replace(/^#+ /, '').trim() : null;
+}
 function chunkDocumentInline(docId: string, text: string): TextChunk[] {
   if (text.length === 0) return [];
   const chunks: TextChunk[] = [];
@@ -34,16 +48,32 @@ function chunkDocumentInline(docId: string, text: string): TextChunk[] {
 
   while (startChar < text.length) {
     let endChar = Math.min(startChar + DEFAULT_CHUNK_SIZE, text.length);
+    let brokeAtHeading = false;
     if (endChar < text.length) {
       const windowStart = Math.max(startChar, endChar - Math.floor(DEFAULT_CHUNK_SIZE * 0.2));
       const window = text.slice(windowStart, endChar);
-      const lastParagraph = window.lastIndexOf('\n\n');
-      if (lastParagraph !== -1) endChar = windowStart + lastParagraph + 2;
+      let h = window.lastIndexOf('\n#');
+      while (h !== -1) {
+        const eol = window.indexOf('\n', h + 1);
+        const line = window.slice(h + 1, eol === -1 ? undefined : eol);
+        if (HEADING_LINE_RE.test(line) && windowStart + h > startChar) break;
+        h = window.lastIndexOf('\n#', h - 1);
+      }
+      if (h !== -1 && windowStart + h > startChar) {
+        endChar = windowStart + h + 1;
+        brokeAtHeading = true;
+      } else {
+        const lastParagraph = window.lastIndexOf('\n\n');
+        if (lastParagraph !== -1) endChar = windowStart + lastParagraph + 2;
+      }
     }
-    chunks.push({ chunkId: `${docId}:${chunkIndex}`, docId, text: text.slice(startChar, endChar), startChar, endChar, chunkIndex });
+    let chunkText = text.slice(startChar, endChar);
+    const heading = lastHeadingBefore(text, startChar + 1);
+    if (heading && !HEADING_LINE_RE.test(chunkText.trimStart())) chunkText = `§ ${heading}\n${chunkText}`;
+    chunks.push({ chunkId: `${docId}:${chunkIndex}`, docId, text: chunkText, startChar, endChar, chunkIndex });
     chunkIndex++;
     if (endChar >= text.length) break;
-    startChar += Math.max(1, endChar - startChar - DEFAULT_OVERLAP);
+    startChar += brokeAtHeading ? Math.max(1, endChar - startChar) : Math.max(1, endChar - startChar - DEFAULT_OVERLAP);
   }
   return chunks;
 }
