@@ -261,6 +261,36 @@ async function main() {
       process.stdout.write(`[control] port ${DEFAULT_PORT} is served by another project's control server — reusing it (killed redundant child)\n`);
       const foreignPid = await probePort(DEFAULT_PORT);
       writeStatus(typeof foreignPid === 'number' ? foreignPid : 0, DEFAULT_PORT);
+      // Pair with the foreign server: resolve its project dir from its pid,
+      // copy its dashboard-token beside OUR control.json (ingest is
+      // default-deny — without this every event from this project 401s
+      // silently), and self-register in its known-projects so future token
+      // rotations propagate back here on server restart.
+      try {
+        if (typeof foreignPid === 'number' && foreignPid > 0) {
+          const { execFileSync } = require('child_process');
+          const out = execFileSync('lsof', ['-a', '-p', String(foreignPid), '-d', 'cwd', '-Fn'], { encoding: 'utf8', timeout: 3000 });
+          const nLine = out.split('\n').find((l) => l.startsWith('n'));
+          const serverHome = nLine ? nLine.slice(1) : null;
+          if (serverHome) {
+            const srcTok = path.join(serverHome, '.monomind', 'dashboard-token');
+            const dstTok = path.join(CWD, '.monomind', 'dashboard-token');
+            if (fs.existsSync(srcTok)) {
+              fs.copyFileSync(srcTok, dstTok);
+              fs.chmodSync(dstTok, 0o600);
+            }
+            const kpFile = path.join(serverHome, 'data', 'known-projects.json');
+            try {
+              const kp = fs.existsSync(kpFile) ? JSON.parse(fs.readFileSync(kpFile, 'utf8')) : [];
+              if (Array.isArray(kp) && !kp.includes(CWD)) {
+                kp.push(CWD);
+                fs.writeFileSync(kpFile, JSON.stringify(kp));
+              }
+            } catch { /* registry unreadable — token copy alone still unblocks events */ }
+            process.stdout.write('[control] paired dashboard token and registered this project with the shared server\n');
+          }
+        }
+      } catch { /* pairing is best-effort; propagation-on-restart is the fallback */ }
       return;
     }
     // Server never became reachable on any expected port — kill the child
