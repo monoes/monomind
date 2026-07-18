@@ -18,10 +18,10 @@ Task tool (general-purpose):
 
     ## Diff to Review
 
-    BASE_SHA: [commit before task]
-    HEAD_SHA: [current commit after task]
+    Read this file — it contains the commit list, stat summary, and full
+    diff from [BASE_SHA] to [HEAD_SHA]:
 
-    Review the changes introduced between these commits.
+    [DIFF_FILE_PATH — e.g. .monomind/taskdev/task-N-review.diff]
 
     ## What to Check
 

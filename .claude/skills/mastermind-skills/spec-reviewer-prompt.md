@@ -14,11 +14,28 @@ Task tool (general-purpose):
 
     ## What Was Requested
 
-    [FULL TEXT of task requirements — paste from plan]
+    Read this file first — it is the task's requirements, with the exact
+    values that bind the implementation:
+
+    [TASK_BRIEF_PATH — e.g. .monomind/taskdev/task-N-brief.md]
+
+    ## Global Constraints
+
+    [Copied verbatim from the plan's Global Constraints section — exact
+    values, formats, and cross-component relationships that bind this task]
 
     ## What Implementer Claims They Built
 
-    [From implementer's report]
+    Read the implementer's report file:
+
+    [REPORT_FILE_PATH — e.g. .monomind/taskdev/task-N-report.md]
+
+    ## Diff to Review
+
+    Read this file — it contains the commit list, stat summary, and full
+    diff for the task:
+
+    [DIFF_FILE_PATH — e.g. .monomind/taskdev/task-N-review.diff]
 
     ## CRITICAL: Do Not Trust the Report
 

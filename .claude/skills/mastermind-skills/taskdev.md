@@ -77,12 +77,12 @@ digraph process {
         "Mark task complete in TodoWrite" [shape=box];
     }
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
+    "Read plan, note context and global constraints, create TodoWrite" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Dispatch final code reviewer subagent for entire implementation" [shape=box];
     "Use mastermind:finish" [shape=box style=filled fillcolor=lightgreen];
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+    "Read plan, note context and global constraints, create TodoWrite" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
     "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
     "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
@@ -143,7 +143,7 @@ Use the least powerful model that can handle each role to conserve cost and incr
 
 Implementer subagents report one of four statuses. Handle each appropriately:
 
-**DONE:** Proceed to spec compliance review.
+**DONE:** Generate the task's diff file from the BASE you recorded before dispatching the implementer (never `HEAD~1` — it silently drops all but the last commit of a multi-commit task), then proceed to spec compliance review with the brief, report, and diff file paths.
 
 **DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
 
@@ -220,13 +220,13 @@ Conversation memory does not survive compaction. Controllers that lost their pla
 You: I'm using mastermind:taskdev to execute this plan.
 
 [Read plan file once: docs/mastermind/plans/feature-plan.md]
-[Extract all 5 tasks with full text and context]
+[Check ledger .monomind/taskdev/progress.md — empty, starting fresh]
 [Create TodoWrite with all tasks]
 
 Task 1: Hook installation script
 
-[Get Task 1 text and context (already extracted)]
-[Dispatch implementation subagent with full task text + context]
+[Extract Task 1 brief to .monomind/taskdev/task-1-brief.md; record BASE]
+[Dispatch implementer with brief + report paths + scene-setting context]
 
 Implementer: "Before I begin - should the hook be installed at user or system level?"
 
@@ -239,18 +239,18 @@ Implementer: "Got it. Implementing now..."
   - Self-review: Found I missed --force flag, added it
   - Committed
 
-[Dispatch spec compliance reviewer]
+[Generate diff file from recorded BASE, dispatch spec compliance reviewer]
 Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
 
-[Get git SHAs, dispatch code quality reviewer]
+[Dispatch code quality reviewer with the same diff file]
 Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
 
 [Mark Task 1 complete]
 
 Task 2: Recovery modes
 
-[Get Task 2 text and context (already extracted)]
-[Dispatch implementation subagent with full task text + context]
+[Extract Task 2 brief to .monomind/taskdev/task-2-brief.md; record BASE]
+[Dispatch implementer with brief + report paths + Task 1 interfaces]
 
 Implementer: [No questions, proceeds]
 Implementer:
@@ -306,8 +306,7 @@ Done!
 - Review checkpoints automatic
 
 **Efficiency gains:**
-- No file reading overhead (controller provides full text)
-- Controller curates exactly what context is needed
+- Controller curates exactly what context is needed; bulk artifacts move as files (briefs, reports, diffs), not pasted text
 - Subagent gets complete information upfront
 - Questions surfaced before work begins (not after)
 
@@ -333,7 +332,7 @@ Done!
 - Skip reviews (spec compliance OR code quality)
 - Proceed with unfixed issues
 - Dispatch multiple implementation subagents in parallel (conflicts)
-- Make subagent read plan file (provide full text instead)
+- Make a subagent read the whole plan file (hand it its task-brief file instead)
 - Skip scene-setting context (subagent needs to understand where task fits)
 - Ignore subagent questions (answer before letting them proceed)
 - Accept "close enough" on spec compliance (spec reviewer found issues = not done)
