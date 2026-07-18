@@ -6180,11 +6180,16 @@ function v2RenderOrgChart() {
   // Expanded: width scales with head-count so nodes never overlap (inline
   // keeps the compact 720 viewBox that fits the tab column).
   let W = _v2ChartExpanded ? Math.max(1100, roles.length * 130) : 720;
-  // Expanded: smaller rings + more air, so topology reads instead of a wall
-  // of overlapping circles. Top padding reserves room for activity bubbles
-  // (34px box floating 46px above the ring) so message pop-ups never clip.
-  const R = _v2ChartExpanded ? 34 : 42;
-  const PAD_X = R + 20, PAD_Y = _v2ChartExpanded ? R + 96 : R + 24;
+  // Crowded orgs (8+ roles) get smaller rings + serpentine re-flow in BOTH
+  // views, so topology reads instead of a wall of overlapping circles. Top
+  // padding reserves room for activity bubbles (34px box floating 46px above
+  // the ring) so message pop-ups never clip.
+  const _crowded = roles.length > 7;
+  const R = (_v2ChartExpanded || _crowded) ? 34 : 42;
+  // Side padding must cover the 140px-wide activity bubble (70 each side of
+  // a node center) or edge-column bubbles clip against the chart border.
+  const PAD_X = (_v2ChartExpanded || _crowded) ? Math.max(R + 20, 78) : R + 20;
+  const PAD_Y = (_v2ChartExpanded || _crowded) ? R + 96 : R + 24;
   const roleIds = new Set(roles.map(r => r.id));
   // all leaders at depth 0 (supports co-lead orgs)
   const leaders = roles.filter(_v2OrgIsLeader);
@@ -6281,12 +6286,13 @@ function v2RenderOrgChart() {
     _hubAndSpoke();
   }
 
-  // ── expanded re-flow: break single-row walls into a serpentine grid ──
+  // ── crowded re-flow: break single-row walls into a serpentine grid ──
   // A 12-role chain or hub laid out on one line says nothing about who talks
-  // to whom. When the expanded layout degenerates to <=2 distinct rows with
-  // a crowded row, re-flow in reading order into rows of ~6, reversing every
-  // other row so consecutive nodes stay physically adjacent across wraps.
-  if (_v2ChartExpanded && roles.length > 7) {
+  // to whom. When the layout degenerates to <=2 distinct rows with a crowded
+  // row, re-flow in reading order into rows of ~6, reversing every other row
+  // so consecutive nodes stay physically adjacent across wraps. Applies in
+  // both views for 8+ roles (the inline chart scales the viewBox down).
+  if (_crowded) {
     const _rowsSeen = new Set(Object.values(pos).map(p => Math.round(p.y)));
     const _widest = Math.max(..._rowsSeen.size ? [..._rowsSeen].map(y => Object.values(pos).filter(p => Math.round(p.y) === y).length) : [0]);
     if (_rowsSeen.size <= 2 && _widest > 7) {
@@ -6340,7 +6346,19 @@ function v2RenderOrgChart() {
     } else {
       stroke='oklch(65% 0.15 150)'; dash=''; marker='v2ah'; opacity=0.6; sw=1.5;
     }
-    edgesHTML += `<path id="${pid}" class="v2oc-edge" d="M${x1},${y1} L${x2},${y2}" stroke="${stroke}" stroke-opacity="${opacity}" stroke-width="${sw}" ${dash?`stroke-dasharray="${dash}"`:''}  fill="none" marker-end="url(#${marker})"/>`;
+    // Long spans (the boss fan-out crossing rows) bow outward as quadratic
+    // curves so crossings separate; short neighbor links stay straight.
+    const _spanLen = len - (trimS + trimE);
+    let dAttr;
+    if (_spanLen > 260) {
+      const sag = Math.min(56, _spanLen * 0.14) * edgeSide * canonDir;
+      const mx = ((+x1 + +x2) / 2 + px * sag).toFixed(1);
+      const my = ((+y1 + +y2) / 2 + py * sag).toFixed(1);
+      dAttr = `M${x1},${y1} Q${mx},${my} ${x2},${y2}`;
+    } else {
+      dAttr = `M${x1},${y1} L${x2},${y2}`;
+    }
+    edgesHTML += `<path id="${pid}" class="v2oc-edge" d="${dAttr}" stroke="${stroke}" stroke-opacity="${opacity}" stroke-width="${sw}" ${dash?`stroke-dasharray="${dash}"`:''}  fill="none" marker-end="url(#${marker})"/>`;
 
     // Animated flow particle on command edges
     if (edge.type === 'command') {
