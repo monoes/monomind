@@ -244,6 +244,66 @@ describe('OrgDaemon', () => {
   });
 });
 
+describe('OrgDaemon — completion & idle watchdog', () => {
+  it('self-stops the org after an org-complete event (run does not sit "running" forever)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-selfstop-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+    running.bus.emit({ type: 'status', from: 'boss', reason: 'org-complete', msg: 'run outcome: achieved', data: { outcome: 'achieved', summary: 'done' } });
+    // self-stop is deferred ~1s so the boss's final turn can land — poll for it
+    const deadline = Date.now() + 5000;
+    while (d.getOrg('alpha') && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
+    expect(d.getOrg('alpha')).toBeUndefined();
+    // mirrors `org run`: stopAll() must JOIN the detached in-flight self-stop,
+    // not no-op, so the process can't exit before history/runtime.json land
+    await d.stopAll();
+    expect(running.busEvents().some(e => e.type === 'status' && e.msg === 'org stopped')).toBe(true);
+    const rt = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/runtime.json'), 'utf8'));
+    expect(rt.status).toBe('stopped');
+  }, 10_000);
+
+  it('idle watchdog nudges the boss, then stops the org when the nudge produces no activity (hung agent)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-idle-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { idle_minutes: 0.005 }, // 300ms idle window for the test
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss' },
+      ],
+    }));
+    // sessions that never process their mailbox — simulates every agent wedged on a hung tool call
+    const hangingQuery = () => (async function* () { await new Promise(() => {}); })();
+    const d = new OrgDaemon(root, { queryFn: hangingQuery as any, forward: false, stopWaitMs: 200 });
+    const running = await d.startOrg('alpha');
+    const deadline = Date.now() + 8000;
+    while (d.getOrg('alpha') && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
+    const events = running.busEvents();
+    expect(events.some(e => e.type === 'audit' && e.reason === 'idle-nudge')).toBe(true);
+    expect(events.some(e => e.type === 'audit' && e.reason === 'idle-stop')).toBe(true);
+    expect(d.getOrg('alpha')).toBeUndefined();
+  }, 15_000);
+
+  it('idle watchdog stays quiet while there is bus activity, and idle_minutes: 0 disables it', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-idle-off-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { idle_minutes: 0 },
+      roles: [{ id: 'boss', title: 'Boss', type: 'boss', reports_to: null }],
+    }));
+    const hangingQuery = () => (async function* () { await new Promise(() => {}); })();
+    const d = new OrgDaemon(root, { queryFn: hangingQuery as any, forward: false, stopWaitMs: 200 });
+    const running = await d.startOrg('alpha');
+    await new Promise(r => setTimeout(r, 1200)); // several would-be idle windows
+    expect(d.getOrg('alpha')).toBeDefined(); // still running — watchdog disabled
+    await d.stopOrg('alpha');
+    expect(running.busEvents().some(e => e.reason === 'idle-nudge' || e.reason === 'idle-stop')).toBe(false);
+  }, 10_000);
+});
+
 describe('OrgDaemon — run history & cross-run memory', () => {
   it('appends a run summary to history.jsonl at stopOrg and briefs the next run\'s boss on it', async () => {
     const { existsSync } = await import('node:fs');
