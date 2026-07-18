@@ -172,7 +172,7 @@ These thoughts mean **STOP** — you are rationalizing. Check for a skill first.
 | "Should I continue?" (in auto mode) | Never ask. Auto mode means execute continuously until blocked or all tasks complete. |
 | "TBD / TODO / implement later" (in a plan) | Placeholder = plan failure. Every step needs exact paths, complete code, runnable commands. |
 | "Code quality review first, then spec" | Wrong order every time. Spec compliance FIRST, code quality SECOND. Never reversed. |
-| "The subagent can read the plan file itself" | Controller provides full task text to each implementer. Subagents never read plan files. |
+| "The subagent can read the plan file itself" | Controller extracts each task into a brief file and hands over that path. Subagents never read whole plan files. |
 
 ### Mandatory Patterns
 
