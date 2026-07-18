@@ -155,6 +155,13 @@ async function getBackend(dbPath?: string): Promise<any | null> {
         // file lives inside that directory.
         const dir = getDbPath(dbPath);
         fs.mkdirSync(dir, { recursive: true });
+        // Origin marker: records which project this data dir belongs to, so
+        // `monomind cleanup --data` can verifiably prune dirs whose project
+        // no longer exists (the dir-name hash is one-way). Best-effort.
+        try {
+          const originFile = path.join(projectDataDir(), 'origin.json');
+          fs.writeFileSync(originFile, JSON.stringify({ path: path.resolve(process.cwd()), updatedAt: new Date().toISOString() }) + '\n', 'utf-8');
+        } catch { /* non-fatal */ }
         const cfg = {
           databasePath: path.join(dir, 'memory.db'),
           walMode: true,
