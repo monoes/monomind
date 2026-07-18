@@ -63,3 +63,39 @@ describe('Mailbox', () => {
     expect(second.value.message.content).toBe('interrupt-attempt');
   });
 });
+
+describe('restart-window message safety (swarm finding #2)', () => {
+  it('a push after detach() is preserved for the NEXT stream, not swallowed by the stale generator', async () => {
+    const mb = new Mailbox();
+    // Session 1: generator parks on wake inside an abandoned next()
+    const gen1 = mb.stream('s1');
+    const pending = gen1.next(); // no messages yet — parks on wake
+    await new Promise(r => setTimeout(r, 5));
+    // Session 1 dies; runtime detaches before the replacement starts
+    mb.detach();
+    // Message arrives during the inter-session window
+    mb.push('task-during-restart');
+    // Stale generator must NOT have consumed it
+    const gen2 = mb.stream('s2');
+    const got = await gen2.next();
+    expect(got.done).toBe(false);
+    expect(got.value.message.content).toBe('task-during-restart');
+    // The abandoned next() never resolves with the message either way; the
+    // stale generator exits if it is ever resumed.
+    mb.close();
+    void pending;
+  });
+
+  it('a value consumed by a session that ends without return() counts as delivered (no redelivery livelock)', async () => {
+    const mb = new Mailbox();
+    mb.push('m1');
+    const gen1 = mb.stream('s1');
+    const first = await gen1.next(); // consume m1, then abandon the generator (like a maxTurns-truncated SDK session)
+    expect(first.value.message.content).toBe('m1');
+    mb.detach();
+    const gen2 = mb.stream('s2');
+    mb.close();
+    const next = await gen2.next(); // must NOT redeliver m1
+    expect(next.done).toBe(true);
+  });
+});

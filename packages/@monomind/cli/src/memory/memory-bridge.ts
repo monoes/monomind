@@ -267,21 +267,26 @@ export async function bridgeStoreEntry(options: {
     entry.id = id;
     if (embedding) entry.embedding = embedding;
 
-    // Upsert: delete existing entry with same key+namespace first
+    // Upsert: find any existing entry with the same key+namespace — deleted
+    // only AFTER the new entry stores successfully, so a failed store() can't
+    // destroy the existing data (old order was delete-then-store).
+    let upsertVictim: { id: string } | null = null;
     if (options.upsert) {
       try {
-        const existing = await backend.getByKey(namespace, key);
-        if (existing) await backend.delete(existing.id);
-      } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] upsert failed to delete existing entry — may create a duplicate:', e);
-      }
+        upsertVictim = await backend.getByKey(namespace, key);
+      } catch { /* treat as no existing entry */ }
     }
 
-    // Dedup gate: skip if a near-duplicate already exists
+    // Dedup gate: skip if a near-duplicate already exists IN THIS NAMESPACE —
+    // an unscoped search let a similar entry in some other namespace swallow
+    // the store entirely (returned duplicate:true, nothing written where asked).
     const automemCfg = getAutomemConfig();
     if (embedding && !options.upsert) {
       try {
-        const similar = await backend.search(embedding, { k: 1, threshold: automemCfg.dedupThreshold });
+        const similar = await backend.search(embedding, {
+          k: 1, threshold: automemCfg.dedupThreshold,
+          filters: { type: 'exact', namespace },
+        });
         if (similar.length > 0 && similar[0].score >= automemCfg.dedupThreshold) {
           return { success: true, id: similar[0].entry.id, duplicate: true };
         }
@@ -289,6 +294,12 @@ export async function bridgeStoreEntry(options: {
     }
 
     await backend.store(entry);
+    if (upsertVictim && upsertVictim.id !== id) {
+      try { await backend.delete(upsertVictim.id); }
+      catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] upsert stored new entry but failed to delete the old one — duplicate may remain:', e);
+      }
+    }
     await flushBackend(backend);
 
     return { success: true, id, embedding: embeddingInfo };
@@ -353,9 +364,11 @@ export async function bridgeSearchEntries(options: {
     // Keyword fallback — scan all entries in namespace (not just first 100)
     // to avoid missing documents that were ingested later in the batch.
     if (results.length === 0) {
+      // No namespace filter means ALL namespaces — collapsing to 'default'
+      // made "search everything" silently miss every non-default entry.
       const entries = await backend.query({
         type: 'exact',
-        namespace: namespace ?? 'default',
+        ...(namespace ? { namespace } : {}),
         limit: 50000,
       });
       // Token-based matching, not whole-phrase substring: "semantic test" must
@@ -388,11 +401,17 @@ export async function bridgeSearchEntries(options: {
 
     // Filter stale entries based on automem config — skip for knowledge
     // namespaces (documents should remain searchable indefinitely)
+    // Stale filtering is per-RESULT namespace (documents stay searchable
+    // forever) — keying it on the query's namespace filter meant an
+    // all-namespace search silently dropped knowledge:* results past the
+    // stale cutoff.
     const isKnowledgeNs = namespace?.startsWith('knowledge:');
     if (!isKnowledgeNs) {
       const { staleDays } = getAutomemConfig();
       const staleCutoff = Date.now() - staleDays * 86400000;
-      results = results.filter((r: any) => !r._createdAt || r._createdAt > staleCutoff);
+      results = results.filter((r: any) =>
+        String(r.namespace ?? '').startsWith('knowledge:')
+        || !r._createdAt || r._createdAt > staleCutoff);
     }
     results.forEach((r: any) => delete r._createdAt);
 

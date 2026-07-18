@@ -136,10 +136,18 @@ export class OrgDaemon {
             runtime.status = 'ended';
             return;
           } catch (err) {
+            // Drop the crashed session's stale waker immediately: a push()
+            // during the backoff window must queue for the NEXT session, not
+            // wake the dead generator to swallow it.
+            mailbox.detach();
             const message = err instanceof Error ? err.message : String(err);
             const crash = (): void => {
               runtime.status = 'crashed';
               runtime.error = message;
+              // Close the mailbox so deliver()/receiveRemote() report a real
+              // error instead of pushing into a queue no session will read
+              // (and returning a false "delivered" receipt to the sender).
+              mailbox.close();
               bus.emit({
                 type: 'audit', from: role.id,
                 msg: `agent "${role.id}" crashed: ${message}`,
@@ -230,6 +238,10 @@ export class OrgDaemon {
       return `ERROR: unknown recipient "${toQualified}" (known: ${[...(targetOrg?.agents.keys() ?? this.orgs.keys())].join(', ')})`;
     }
     const targetAgent = targetOrg.agents.get(targetRole)!;
+    if (targetAgent.status === 'crashed') {
+      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'recipient crashed (retry budget exhausted)' });
+      return `ERROR: recipient "${toQualified}" crashed and will not recover this run — message not delivered (${targetAgent.error ?? 'unknown error'})`;
+    }
     if (targetAgent.mailbox.isClosed) {
       // The org is mid-shutdown: mailboxes close before the org is removed
       // from `this.orgs`, so a message can arrive in that window. push() would
@@ -301,6 +313,7 @@ export class OrgDaemon {
     }
     const agent = org.agents.get(toRole);
     if (!agent) return { ok: false, error: `role "${toRole}" not found in org "${toOrg}"` };
+    if (agent.status === 'crashed') return { ok: false, error: `role "${toRole}" in org "${toOrg}" crashed and will not recover this run` };
     if (agent.mailbox.isClosed) return { ok: false, error: `role "${toRole}" in org "${toOrg}" is shutting down` };
     org.bus.emit({ type: 'xorg', from: fromQualified, to: `${toOrg}:${toRole}`, subject, msg: body });
     agent.mailbox.push(`[message from ${fromQualified}] subject: ${subject}\n\n${body}`);
@@ -399,6 +412,11 @@ export class OrgDaemon {
     // is already gone and no-ops instead of re-running the whole shutdown and
     // double-emitting 'org stopped' (duplicate org:complete/session:complete).
     this.orgs.delete(name);
+    // Capture THIS run's forwarder now: an autoWake-restart of the same org
+    // during the long tail below (agent wait, flush, history write) would
+    // register a NEW forwarder under the same name — settling/unsubscribing
+    // that one would sever the new run's dashboard stream.
+    const forwarder = this.forwarders.get(name);
     this.leases.get(name)?.stop();
     this.leases.delete(name);
     for (const a of org.agents.values()) a.mailbox.close();
@@ -435,10 +453,21 @@ export class OrgDaemon {
     // the "org stopped" event above triggers the forwarder's final org:complete /
     // session:complete POST — without waiting for it here, the CLI process can exit
     // (and kill the in-flight fetch) before that last event reaches the dashboard,
-    // leaving the run stuck showing "running" forever.
-    const forwarder = this.forwarders.get(name);
-    if (forwarder) { await forwarder.settle(); forwarder.unsubscribe(); this.forwarders.delete(name); }
-    this.persistState(name, 'stopped', org.run);
+    // leaving the run stuck showing "running" forever. Bounded: a stalled
+    // dashboard must not hang org shutdown indefinitely.
+    if (forwarder) {
+      await Promise.race([
+        forwarder.settle(),
+        new Promise<void>(r => { const t = setTimeout(r, 5_000); (t as { unref?: () => void }).unref?.(); }),
+      ]);
+      forwarder.unsubscribe();
+      // Only remove from the map if it's still OURS — an autoWake-restart may
+      // have registered the new run's forwarder under this name meanwhile.
+      if (this.forwarders.get(name) === forwarder) this.forwarders.delete(name);
+    }
+    // Same guard for runtime.json: if a new run started during shutdown, its
+    // 'running' record must not be overwritten with this old run's 'stopped'.
+    if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run);
   }
 
   async stopAll(): Promise<void> {

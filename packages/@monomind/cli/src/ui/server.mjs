@@ -5920,8 +5920,19 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
     // when this endpoint is cold/absent. Fully local — model + store on disk.
     if (req.method === 'POST' && url === '/api/knowledge/search') {
       let body = '';
-      req.on('data', c => { body += c; });
+      let overLimit = false;
+      req.on('data', c => {
+        if (overLimit) return;
+        body += c;
+        if (body.length > 64 * 1024) { // queries are prompts, not documents
+          overLimit = true;
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end('{"error":"request body too large"}');
+          req.destroy();
+        }
+      });
       req.on('end', async () => {
+        if (overLimit) return;
         try {
           const payload = JSON.parse(body || '{}');
           const query = String(payload.query || '').slice(0, 2000);
