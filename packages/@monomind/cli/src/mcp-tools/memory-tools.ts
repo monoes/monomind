@@ -1,9 +1,9 @@
 /**
  * Memory MCP Tools — Phase 6 of ADR-053
  *
- * Exposes Memory backend operations as MCP tools.
- * Provides direct access to ReasoningBank, CausalGraph, SkillLibrary,
- * AttestationLog, and bridge health through the MCP protocol.
+ * Exposes Memory backend operations as MCP tools: pattern store/search,
+ * usage-weighted feedback (EWMA), the conversation knowledge graph
+ * (memory_kg_*), session records, weight-aware GC, and bridge health.
  *
  * Security: All handlers validate input types, enforce length bounds,
  * and sanitize error messages before returning to MCP callers.
@@ -113,7 +113,7 @@ export const memoryControllers: MCPTool = {
 
 export const memoryPatternStore: MCPTool = {
   name: 'memory_pattern-store',
-  description: 'Store a pattern directly via ReasoningBank controller',
+  description: 'Store a reusable pattern (embedded, semantically searchable) in the patterns namespace',
   inputSchema: {
     type: 'object',
     properties: {
@@ -157,7 +157,7 @@ export const memoryPatternStore: MCPTool = {
 
 export const memoryPatternSearch: MCPTool = {
   name: 'memory_pattern-search',
-  description: 'Search patterns via ReasoningBank controller with BM25+semantic hybrid',
+  description: 'Search stored patterns — semantic when the local embedding model is available, keyword otherwise',
   inputSchema: {
     type: 'object',
     properties: {
@@ -252,14 +252,15 @@ export const memoryFeedback: MCPTool = {
 
 export const memoryCausalEdge: MCPTool = {
   name: 'memory_causal-edge',
-  description: 'Record a causal edge between two memory entries via CausalMemoryGraph',
+  description: 'Record a causal relationship between two named things as a real knowledge-graph edge (traversable via memory_kg_search)',
   inputSchema: {
     type: 'object',
     properties: {
-      sourceId: { type: 'string', description: 'Source entry ID' },
-      targetId: { type: 'string', description: 'Target entry ID' },
-      relation: { type: 'string', description: 'Relationship type (e.g., caused, preceded, succeeded)' },
+      sourceId: { type: 'string', description: 'Source entity name (or entry ID)' },
+      targetId: { type: 'string', description: 'Target entity name (or entry ID)' },
+      relation: { type: 'string', description: 'Relationship type (e.g., causes, preceded, fixed_by)' },
       weight: { type: 'number', description: 'Edge weight (0-1)' },
+      description: { type: 'string', description: 'One-sentence concrete fact for this edge' },
     },
     required: ['sourceId', 'targetId', 'relation'],
   },
@@ -271,14 +272,126 @@ export const memoryCausalEdge: MCPTool = {
       if (!sourceId) return { success: false, error: 'sourceId is required (non-empty string)' };
       if (!targetId) return { success: false, error: 'targetId is required (non-empty string)' };
       if (!relation) return { success: false, error: 'relation is required (non-empty string)' };
-      const bridge = await getBridge();
-      const result = await bridge.bridgeRecordCausalEdge({
-        sourceId,
-        targetId,
-        relation,
-        strength: typeof params.weight === 'number' ? validateScore(params.weight, 0.5) : undefined,
+      const kg = await import('../memory/memory-kg.js');
+      const result = await kg.kgIngest({
+        nodes: [{ name: sourceId }, { name: targetId }],
+        edges: [{ source: sourceId, target: targetId, relation, description: validateString(params.description, 'description', 2000) ?? undefined }],
+        originRef: 'causal-edge-tool',
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      return result;
+    } catch (error) {
+      return { success: false, error: sanitizeError(error) };
+    }
+  },
+};
+
+// ===== memory_kg_* — Conversation/org knowledge graph =====
+
+export const memoryKgIngest: MCPTool = {
+  name: 'memory_kg_ingest',
+  description: 'Merge extracted entities/relations (and optionally distilled rules) into the persistent knowledge graph. Same-name entities merge idempotently. Call with LLM-extracted nodes/edges — basic types ("Person", "Tool"), coreference-resolved fullest names, snake_case relations, one-sentence edge facts. Pass rawText instead to use the lower-trust regex extractor.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      nodes: { type: 'array', items: { type: 'object' }, description: 'Entities: [{name, type?, description?, nodeSet?}]' },
+      edges: { type: 'array', items: { type: 'object' }, description: 'Relations: [{source, target, relation, description?}]' },
+      rules: { type: 'array', items: { type: 'object' }, description: 'Distilled durable rules: [{rule, context?}] — deduped semantically against existing rules' },
+      rawText: { type: 'string', description: 'Fallback: raw text for regex-based extraction (no LLM)' },
+      originRef: { type: 'string', description: 'Provenance ref (session/run/doc id) — enables memory_kg_rollback' },
+    },
+    required: ['originRef'],
+  },
+  handler: async (params: Record<string, unknown>) => {
+    try {
+      const originRef = validateString(params.originRef, 'originRef', 500);
+      if (!originRef) return { success: false, error: 'originRef is required' };
+      const kg = await import('../memory/memory-kg.js');
+
+      let nodes = Array.isArray(params.nodes) ? params.nodes as any[] : [];
+      let edges = Array.isArray(params.edges) ? params.edges as any[] : [];
+      if (!nodes.length && !edges.length && typeof params.rawText === 'string' && params.rawText.trim()) {
+        const extracted = kg.heuristicExtract(params.rawText, { sourceName: originRef });
+        nodes = extracted.nodes; edges = extracted.edges;
+      }
+
+      const graph = (nodes.length || edges.length)
+        ? await kg.kgIngest({ nodes, edges, originRef })
+        : { success: true, nodesAdded: 0, nodesMerged: 0, edgesAdded: 0, edgesMerged: 0 };
+      const rules = Array.isArray(params.rules) && (params.rules as any[]).length
+        ? await kg.kgIngestRules({ rules: params.rules as any[], originRef })
+        : null;
+      return { ...graph, rules };
+    } catch (error) {
+      return { success: false, error: sanitizeError(error) };
+    }
+  },
+};
+
+export const memoryKgSearch: MCPTool = {
+  name: 'memory_kg_search',
+  description: 'Search the knowledge graph: vector-seeded entities expanded to ranked relationship triplets. Returns rendered context lines plus seed entry ids (rate them via memory_feedback).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Natural-language query' },
+      limit: { type: 'number', description: 'Max triplets (default 8)' },
+      nodeSet: { type: 'string', description: "Filter to a node set (e.g. 'rules')" },
+    },
+    required: ['query'],
+  },
+  handler: async (params: Record<string, unknown>) => {
+    try {
+      const query = validateString(params.query, 'query', 2000);
+      if (!query) return { success: false, error: 'query is required' };
+      const kg = await import('../memory/memory-kg.js');
+      return await kg.kgSearch({
+        query,
+        limit: validatePositiveInt(params.limit, 8, 50),
+        nodeSet: validateString(params.nodeSet, 'nodeSet', 100) ?? undefined,
+      });
+    } catch (error) {
+      return { success: false, error: sanitizeError(error) };
+    }
+  },
+};
+
+export const memoryKgRollback: MCPTool = {
+  name: 'memory_kg_rollback',
+  description: 'Delete all knowledge-graph nodes/edges/rules whose only provenance is the given originRef (bad-ingest recovery). Elements shared with other origins are retained.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      originRef: { type: 'string', description: 'The provenance ref to roll back (session/run/doc id)' },
+    },
+    required: ['originRef'],
+  },
+  handler: async (params: Record<string, unknown>) => {
+    try {
+      const originRef = validateString(params.originRef, 'originRef', 500);
+      if (!originRef) return { success: false, error: 'originRef is required' };
+      const kg = await import('../memory/memory-kg.js');
+      return await kg.kgRollback({ originRef });
+    } catch (error) {
+      return { success: false, error: sanitizeError(error) };
+    }
+  },
+};
+
+export const memoryKgStats: MCPTool = {
+  name: 'memory_kg_stats',
+  description: 'Knowledge graph size: node, edge, and rule counts (plus the entity glossary for extraction prompts)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      glossary: { type: 'boolean', description: 'Include top entity names (default false)' },
+    },
+  },
+  handler: async (params: Record<string, unknown>) => {
+    try {
+      const kg = await import('../memory/memory-kg.js');
+      const stats = await kg.kgStats();
+      const glossary = params.glossary === true ? await kg.kgGlossary() : undefined;
+      return { success: true, ...stats, ...(glossary ? { glossary } : {}) };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -289,7 +402,7 @@ export const memoryCausalEdge: MCPTool = {
 
 export const memoryRoute: MCPTool = {
   name: 'memory_route',
-  description: 'Route a task via SemanticRouter or LearningSystem recommendAlgorithm',
+  description: 'Suggest agent routing for a task by searching past routing patterns',
   inputSchema: {
     type: 'object',
     properties: {
@@ -315,7 +428,7 @@ export const memoryRoute: MCPTool = {
 
 export const memorySessionStart: MCPTool = {
   name: 'memory_session-start',
-  description: 'Start a session with ReflexionMemory episodic replay',
+  description: 'Record a session start in the sessions namespace',
   inputSchema: {
     type: 'object',
     properties: {
@@ -344,7 +457,7 @@ export const memorySessionStart: MCPTool = {
 
 export const memorySessionEnd: MCPTool = {
   name: 'memory_session-end',
-  description: 'End session, persist to ReflexionMemory, trigger NightlyLearner consolidation',
+  description: 'Record session end with summary and metrics in the sessions namespace',
   inputSchema: {
     type: 'object',
     properties: {
@@ -375,7 +488,7 @@ export const memorySessionEnd: MCPTool = {
 
 export const memoryHierarchicalStore: MCPTool = {
   name: 'memory_hierarchical-store',
-  description: 'Store to hierarchical memory with tier (working, episodic, semantic)',
+  description: 'Store into a tier-labeled namespace (tier_working/episodic/semantic). Note: tiers are labels, not automatic promotion',
   inputSchema: {
     type: 'object',
     properties: {
@@ -413,7 +526,7 @@ export const memoryHierarchicalStore: MCPTool = {
 
 export const memoryHierarchicalRecall: MCPTool = {
   name: 'memory_hierarchical-recall',
-  description: 'Recall from hierarchical memory with optional tier filter',
+  description: 'Search tier-labeled namespaces (tier_working/episodic/semantic), or all when no tier given',
   inputSchema: {
     type: 'object',
     properties: {
@@ -559,7 +672,7 @@ export const memoryBatch: MCPTool = {
 
 export const memoryContextSynthesize: MCPTool = {
   name: 'memory_context-synthesize',
-  description: 'Synthesize context from stored memories for a given query',
+  description: 'Concatenate top matching memories into a context block for a query (no summarization)',
   inputSchema: {
     type: 'object',
     properties: {
@@ -629,6 +742,10 @@ export const memoryTools: MCPTool[] = [
   memoryPatternSearch,
   memoryFeedback,
   memoryCausalEdge,
+  memoryKgIngest,
+  memoryKgSearch,
+  memoryKgRollback,
+  memoryKgStats,
   memoryRoute,
   memorySessionStart,
   memorySessionEnd,
