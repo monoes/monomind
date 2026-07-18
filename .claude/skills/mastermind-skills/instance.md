@@ -84,6 +84,7 @@ echo "  Active orgs: $orgs"
 
 ### heartbeats
 
+<!-- LEGACY-ORG-V1: role-level heartbeat scheduling is a v1 org concept — v2 orgs run on `schedule` via the daemon instead. -->
 List all agents across all orgs that have scheduled heartbeats:
 
 ```bash
@@ -121,6 +122,7 @@ done
 
 ### toggle-heartbeat
 
+<!-- LEGACY-ORG-V1: role-level heartbeat scheduling is a v1 org concept. -->
 Enable or disable the scheduler heartbeat for a specific agent:
 
 ```bash
