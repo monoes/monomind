@@ -114,6 +114,11 @@ export class OrgDaemon {
         onComplete: (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
           bus.emit({ type: 'status', from: r, reason: 'org-complete', msg: `run outcome: ${outcome}`, data: { outcome, summary } });
         },
+        recall: async (r: string, q: string) => {
+          const answer = await this.recallOrgMemory(name, def, q);
+          bus.emit({ type: 'status', from: r, reason: 'org-recall', msg: `recall: ${q.slice(0, 80)}`, data: { hits: answer.hits } });
+          return answer.text;
+        },
         queryFn: this.opts.queryFn,
       };
       // Supervised session: transient crashes (provider blips, network) restart
@@ -418,8 +423,11 @@ export class OrgDaemon {
     try {
       const events = readRunEvents(this.root, name, org.run);
       if (events.length) {
+        const summary = summarizeRun(events);
         const { appendFileSync } = await import('node:fs');
-        appendFileSync(historyFile(this.root, name), JSON.stringify(summarizeRun(events)) + '\n', 'utf8');
+        appendFileSync(historyFile(this.root, name), JSON.stringify(summary) + '\n', 'utf8');
+        // Cross-run memory: make this run's outcome recallable by meaning
+        await this.storeRunMemory(name, org.def, org.run, summary);
       }
     } catch (err) {
       console.error(`org ${name}: could not write run history:`, err instanceof Error ? err.message : err);
@@ -435,6 +443,78 @@ export class OrgDaemon {
 
   async stopAll(): Promise<void> {
     await Promise.all([...this.orgs.keys()].map(n => this.stopOrg(n)));
+  }
+
+  private orgMemoryNamespace(name: string, def: OrgDef): string {
+    return def.run_config.memory_namespace ?? `org:${name}`;
+  }
+
+  /** Store dir for org cross-run memory — inside the org root so the bridge's
+   *  path guard accepts it when the daemon runs from the project (the normal
+   *  case) and test roots stay isolated. */
+  private orgMemoryDbPath(): string {
+    return join(this.root, '.monomind', 'org-memory');
+  }
+
+  /** The memory bridge's traversal guard silently redirects out-of-tree paths
+   *  to the per-project default store. For an org rooted outside cwd (tests,
+   *  unusual daemon setups) that redirect would write into the WRONG project's
+   *  memory — verify the guard kept our path, and skip org memory otherwise. */
+  private async orgMemoryUsable(): Promise<boolean> {
+    try {
+      const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
+      const want = this.orgMemoryDbPath();
+      const got = bridgeGetDbPath(want);
+      const { realpathSync } = await import('node:fs');
+      const real = (p: string): string => { try { return realpathSync(p); } catch { return p; } };
+      return real(got) === real(want);
+    } catch { return false; }
+  }
+
+  /** org_recall implementation: search the org's memory namespace via the
+   *  memory bridge (semantic when the local model is available, tokenized
+   *  keyword otherwise). Failures return a message, never throw into the tool. */
+  private async recallOrgMemory(name: string, def: OrgDef, query: string): Promise<{ text: string; hits: number }> {
+    try {
+      if (!(await this.orgMemoryUsable())) return { text: 'org memory is not available in this environment.', hits: 0 };
+      const { bridgeSearchEntries } = await import('../memory/memory-bridge.js');
+      const res = await bridgeSearchEntries({
+        query, namespace: this.orgMemoryNamespace(name, def), limit: 5, dbPath: this.orgMemoryDbPath(),
+      });
+      const results = res?.results ?? [];
+      if (!results.length) return { text: 'No matching org memory found — this may be the first run covering this topic.', hits: 0 };
+      const text = results.map((r, i) => `${i + 1}. [${r.key}] ${r.content}`).join('\n\n');
+      return { text, hits: results.length };
+    } catch (err) {
+      return { text: `org memory unavailable (${err instanceof Error ? err.message : 'error'})`, hits: 0 };
+    }
+  }
+
+  /** Persist the run's outcome into cross-run org memory so org_recall (and
+   *  future runs) can find it by meaning, not just recency. Best-effort. */
+  private async storeRunMemory(name: string, def: OrgDef, run: string, summary: import('./reporting.js').RunSummary): Promise<void> {
+    try {
+      if (!(await this.orgMemoryUsable())) return;
+      const { bridgeStoreEntry } = await import('../memory/memory-bridge.js');
+      const when = summary.endedAt ? new Date(summary.endedAt).toISOString().slice(0, 10) : '';
+      const lines = [
+        `Org run ${run}${when ? ` (${when})` : ''} — goal: ${def.goal}`,
+        summary.outcome
+          ? `Outcome: ${summary.outcome.status} — ${summary.outcome.summary}`
+          : `Outcome: not recorded (${summary.messages} messages exchanged)`,
+        summary.assets.length ? `Assets produced: ${summary.assets.slice(0, 10).join(', ')}` : '',
+        summary.crashes.length ? `Crashed agents: ${summary.crashes.join(', ')}` : '',
+      ].filter(Boolean);
+      await bridgeStoreEntry({
+        key: `run-${run}`,
+        value: lines.join('\n'),
+        namespace: this.orgMemoryNamespace(name, def),
+        dbPath: this.orgMemoryDbPath(),
+        upsert: true,
+      });
+    } catch (err) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`org ${name}: run memory store failed:`, err instanceof Error ? err.message : err);
+    }
   }
 
   private persistState(name: string, status: string, run: string): void {
