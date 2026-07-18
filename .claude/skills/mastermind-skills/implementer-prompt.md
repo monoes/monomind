@@ -95,13 +95,18 @@ Task tool (general-purpose):
 
     ## Report Format
 
-    When done, report:
-    - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+    Write your full report to the report file named in this dispatch
+    ([REPORT_FILE_PATH]), covering:
     - What you implemented (or what you attempted, if blocked)
-    - What you tested and test results
+    - What you tested and test results (commands run + output summary)
     - Files changed
     - Self-review findings (if any)
-    - Any issues or concerns
+
+    Then return only:
+    - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+    - Commits created
+    - One-line test summary
+    - Any concerns
 
     Use DONE_WITH_CONCERNS if you completed the work but have doubts about correctness.
     Use BLOCKED if you cannot complete the task. Use NEEDS_CONTEXT if you need
