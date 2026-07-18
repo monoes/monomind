@@ -109,12 +109,17 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
   log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
 
-  // stopfile poll lets `org stop` work from another terminal;
-  // clear any stale stopfile from a previous run before polling
+  // stopfile poll lets `org stop` work from another terminal; the daemon can
+  // also stop the org itself (boss called org_complete, or the idle watchdog
+  // fired) — detect that via getOrg() so the CLI exits instead of polling a
+  // stopfile forever after a finished run. Clear any stale stopfile from a
+  // previous run before polling.
   clearStopfile(ctx.cwd, name);
   const stopfile = join(ctx.cwd, ORG_DIR, name, 'stop');
   await new Promise<void>(resolvePromise => {
-    const iv = setInterval(() => { if (existsSync(stopfile)) { clearInterval(iv); resolvePromise(); } }, 2000);
+    const iv = setInterval(() => {
+      if (existsSync(stopfile) || !daemon.getOrg(name)) { clearInterval(iv); resolvePromise(); }
+    }, 2000);
     process.once('SIGINT', () => { clearInterval(iv); resolvePromise(); });
     process.once('SIGTERM', () => { clearInterval(iv); resolvePromise(); });
   });
@@ -473,6 +478,61 @@ export const orgCommand: Command = {
         if (!v.ok) return v.result;
         const { reportAction } = await import('./org-observe.js');
         return reportAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'memory', description: 'Inspect an org\'s cross-run memory and knowledge graph (stats | search <query> | rules | rollback <run-ref>)',
+      examples: [
+        { command: 'monomind org memory growth stats', description: 'KG size and namespaces' },
+        { command: 'monomind org memory growth search "launch checklist"', description: 'Search org memory + KG' },
+        { command: 'monomind org memory growth rollback run:m4x2', description: 'Delete everything one run wrote to the KG' },
+      ],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const sub = String(ctx.args[1] ?? 'stats');
+        const { join } = await import('node:path');
+        const dbPath = join(process.cwd(), '.monomind', 'org-memory');
+        const kg = await import('../memory/memory-kg.js');
+        const bridge = await import('../memory/memory-bridge.js');
+        try {
+          if (sub === 'stats') {
+            const [stats, glossary, backend] = await Promise.all([
+              kg.kgStats({ dbPath }), kg.kgGlossary({ dbPath, limit: 15 }), bridge.bridgeGetBackendStats(dbPath),
+            ]);
+            log(output.info(`Knowledge graph: ${stats.nodes} entities, ${stats.edges} relations, ${stats.rules} rules`));
+            if (glossary.length) log(output.info(`Top entities: ${glossary.join(', ')}`));
+            const byNs = backend?.entriesByNamespace ?? {};
+            for (const [ns, count] of Object.entries(byNs)) log(output.info(`  ${ns}: ${count} entries`));
+            return { success: true, message: 'org memory stats', data: { ...stats, namespaces: byNs } };
+          }
+          if (sub === 'search') {
+            const q = ctx.args.slice(2).join(' ');
+            if (!q) return { success: false, message: 'usage: org memory <org> search <query>' };
+            const [mem, graph] = await Promise.all([
+              bridge.bridgeSearchEntries({ query: q, namespace: `org:${v.name}`, limit: 5, dbPath }),
+              kg.kgSearch({ query: q, dbPath, limit: 8 }),
+            ]);
+            for (const r of mem?.results ?? []) log(output.info(`[${r.score.toFixed(2)}] ${r.key}: ${r.content.slice(0, 160)}`));
+            if (graph.context) log(output.info(`\nKnowledge graph:\n${graph.context}`));
+            return { success: true, message: `${(mem?.results ?? []).length} memories, ${graph.triplets.length} triplets` };
+          }
+          if (sub === 'rules') {
+            const rules = await kg.kgListRules({ dbPath, limit: 50 });
+            for (const r of rules) log(output.info(`- ${r.rule.slice(0, 200)}`));
+            return { success: true, message: `${rules.length} rules`, data: { rules } };
+          }
+          if (sub === 'rollback') {
+            const ref = ctx.args[2];
+            if (!ref) return { success: false, message: 'usage: org memory <org> rollback <origin-ref> (e.g. run:m4x2)' };
+            const res = await kg.kgRollback({ originRef: ref, dbPath });
+            log(output.info(`Rolled back ${ref}: ${res.deleted} deleted, ${res.retained} retained (shared with other origins)`));
+            return { success: res.success, message: `rollback ${ref}`, data: res };
+          }
+          return { success: false, message: `unknown subcommand "${sub}" — use stats | search | rules | rollback` };
+        } finally {
+          await bridge.shutdownBridge().catch(() => { /* best effort */ });
+        }
       },
     },
     {
