@@ -358,6 +358,17 @@ module.exports = {
         var _kbLastCheck = 0;
         try { _kbLastCheck = JSON.parse(fs.readFileSync(_kbMarkerPath, 'utf-8')).ts || 0; } catch (_) {}
         if (Date.now() - _kbLastCheck > 30 * 60 * 1000) {
+          // Marker BEFORE the scan (not only when dirty): the 2000-stat walk
+          // itself is what needs rate-limiting — on a clean tree it used to
+          // re-run on every single session start. Fail-closed: skip when the
+          // marker can't be written, so an unwritable disk can't cause
+          // per-session scans either.
+          var _kbMarkerOk = false;
+          try {
+            fs.writeFileSync(_kbMarkerPath, JSON.stringify({ ts: Date.now() }), 'utf-8');
+            _kbMarkerOk = true;
+          } catch (_) {}
+          if (!_kbMarkerOk) throw new Error('reindex marker unwritable — skipping scan');
           // Cheap bounded scan: any document changed since the last ingest?
           var _DOC_EXT = { '.md': 1, '.txt': 1, '.pdf': 1, '.docx': 1 };
           var _kbDirty = false;
@@ -380,24 +391,20 @@ module.exports = {
           };
           _kbWalk(CWD, 0);
           if (_kbDirty) {
-            var _kbMarkerOk = false;
-            try {
-              fs.writeFileSync(_kbMarkerPath, JSON.stringify({ ts: Date.now() }), 'utf-8');
-              _kbMarkerOk = true;
-            } catch (_) {}
-            if (_kbMarkerOk) {
-              var _kbSpawn = require('child_process').spawn;
-              var _kbChild = _kbSpawn('npx', ['-y', 'monomind@latest', 'doc', 'ingest', '.'], {
-                cwd: CWD,
-                detached: true,
-                stdio: 'ignore',
-                env: process.env,
-                shell: process.platform === 'win32',
-                windowsHide: true,
-              });
-              _kbChild.unref();
-              console.log('[KNOWLEDGE_REINDEX] changed documents detected — re-ingesting in background');
-            }
+            var _kbSpawn = require('child_process').spawn;
+            var _kbChild = _kbSpawn('npx', ['-y', 'monomind@latest', 'doc', 'ingest', '.'], {
+              cwd: CWD,
+              detached: true,
+              stdio: 'ignore',
+              env: process.env,
+              shell: process.platform === 'win32',
+              windowsHide: true,
+            });
+            // Without an error listener, a missing npx binary emits an
+            // unhandled 'error' event and crashes the whole session-start hook.
+            _kbChild.on('error', function () { /* npx unavailable — reindex on a later session */ });
+            _kbChild.unref();
+            console.log('[KNOWLEDGE_REINDEX] changed documents detected — re-ingesting in background');
           }
         }
       }
