@@ -61,17 +61,28 @@ export async function checkSecondBrainModel(): Promise<HealthCheck> {
   if (!existsSync(join(process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl'))) {
     return { name, status: 'pass', message: 'No knowledge base in this project (nothing to check)' };
   }
-  let pkgDir: string;
+  let entryPath: string | null = null;
   try {
-    // exports map blocks package.json — resolve the entry file and walk up
-    const entry = await import.meta.resolve?.('@huggingface/transformers');
-    if (!entry) throw new Error('resolver unavailable');
-    pkgDir = fileURLToPath(entry).replace(/\/dist\/.*$/, '');
-  } catch {
-    return { name, status: 'warn', message: '@huggingface/transformers not installed — semantic search degraded to keyword matching', fix: 'reinstall monomind (the model dependency is optional and may have failed to build)' };
+    // exports map blocks package.json — resolve the entry file, then walk UP
+    // with path ops (no separator-sensitive regex: '/dist/'.replace broke on
+    // Windows paths, and any install layout without a dist segment).
+    // import.meta.resolve is missing on Node 20.0–20.5; fall back to CJS resolve.
+    const viaEsm = import.meta.resolve?.('@huggingface/transformers');
+    if (viaEsm) entryPath = fileURLToPath(await viaEsm);
+  } catch { /* try CJS below */ }
+  if (!entryPath) {
+    try {
+      const { createRequire } = await import('node:module');
+      entryPath = createRequire(import.meta.url).resolve('@huggingface/transformers');
+    } catch {
+      return { name, status: 'warn', message: '@huggingface/transformers not installed — semantic search degraded to keyword matching', fix: 'reinstall monomind (the model dependency is optional and may have failed to build)' };
+    }
   }
+  // Walk up from the entry file to the package root (the dir named 'transformers').
+  let pkgDir = dirname(entryPath);
+  while (pkgDir !== dirname(pkgDir) && !pkgDir.endsWith('transformers')) pkgDir = dirname(pkgDir);
   const modelCache = join(pkgDir, '.cache', 'Xenova');
-  if (existsSync(modelCache)) {
+  if (pkgDir.endsWith('transformers') && existsSync(modelCache)) {
     return { name, status: 'pass', message: 'Local embedding model cached — semantic search active' };
   }
   return { name, status: 'warn', message: 'Embedding model not downloaded yet — searches use keyword matching until it is', fix: 'run once while online: monomind doc search -q "warmup" (downloads ~90MB locally, one time)' };

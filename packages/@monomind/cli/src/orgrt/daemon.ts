@@ -101,6 +101,12 @@ export class OrgDaemon {
     this.orgs.set(name, running);
 
     const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+    // Single boss-selection rule for kickoff AND org_complete gating — the
+    // session layer previously keyed the tool on reports_to===null while the
+    // kickoff went to (type==='boss' || reports_to===null || roles[0]), so a
+    // fallback-selected boss could be told to call org_complete without having
+    // the tool.
+    const bossRole = def.roles.find(r => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
     for (const role of def.roles) {
       const mailbox = new Mailbox();
       const policy = new PolicyEngine(role.id,
@@ -111,9 +117,11 @@ export class OrgDaemon {
         maxTurns: def.run_config.max_turns_per_message,
         deliver: (from: string, to: string, subject: string, body: string) => this.deliver(name, from, to, subject, body),
         askHuman: (r: string, question: string) => this.askHuman(name, r, question),
-        onComplete: (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
-          bus.emit({ type: 'status', from: r, reason: 'org-complete', msg: `run outcome: ${outcome}`, data: { outcome, summary } });
-        },
+        onComplete: role.id === bossRole.id
+          ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
+              bus.emit({ type: 'status', from: r, reason: 'org-complete', msg: `run outcome: ${outcome}`, data: { outcome, summary } });
+            }
+          : undefined,
         recall: async (r: string, q: string) => {
           const answer = await this.recallOrgMemory(name, def, q);
           bus.emit({ type: 'status', from: r, reason: 'org-recall', msg: `recall: ${q.slice(0, 80)}`, data: { hits: answer.hits } });
@@ -168,7 +176,7 @@ export class OrgDaemon {
       running.agents.set(role.id, runtime);
     }
 
-    const boss = def.roles.find(r => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
+    const boss = bossRole;
     // Cross-run memory: brief the coordinator on the previous run so scheduled
     // orgs accumulate instead of starting cold every interval.
     const prev = readHistory(this.root, name).at(-1);

@@ -477,16 +477,20 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
   ): Promise<SearchResult[]> {
     this.ensureInitialized();
 
-    // Brute-force cosine over stored embeddings, namespace-scoped in SQL.
-    // At second-brain scale (10^3–10^5 vectors of 384 dims) this is a few
-    // tens of ms; swap in the HNSW index if a profiled workload outgrows it.
+    // Brute-force cosine over stored embeddings, namespace-scoped and
+    // TTL-filtered in SQL. iterate() streams rows one at a time instead of
+    // materializing the whole embedding table (.all() held every BLOB in
+    // memory at once). At second-brain scale (10^3–10^5 vectors of 384 dims)
+    // this is a few tens of ms; swap in the HNSW index if a profiled
+    // workload outgrows it.
     const ns = options.filters?.namespace;
     const rows = this.db!.prepare(`
       SELECT e.*, emb.embedding AS _emb
       FROM memory_entries e
       JOIN memory_embeddings emb ON emb.entry_id = e.id
-      ${ns ? 'WHERE e.namespace = ?' : ''}
-    `).all(...(ns ? [ns] : [])) as any[];
+      WHERE (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)
+      ${ns ? 'AND e.namespace = ?' : ''}
+    `).iterate(...(ns ? [Date.now(), ns] : [Date.now()])) as Iterable<any>;
 
     const results: SearchResult[] = [];
     for (const row of rows) {
@@ -769,7 +773,6 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
 
       CREATE INDEX IF NOT EXISTS idx_namespace ON memory_entries(namespace);
       CREATE INDEX IF NOT EXISTS idx_key ON memory_entries(key);
-      CREATE INDEX IF NOT EXISTS idx_namespace_key ON memory_entries(namespace, key);
       CREATE INDEX IF NOT EXISTS idx_type ON memory_entries(type);
       CREATE INDEX IF NOT EXISTS idx_owner_id ON memory_entries(owner_id);
       CREATE INDEX IF NOT EXISTS idx_created_at ON memory_entries(created_at);
@@ -781,6 +784,31 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
         embedding BLOB,
         FOREIGN KEY (entry_id) REFERENCES memory_entries(id) ON DELETE CASCADE
       );
+    `);
+
+    // UNIQUE(namespace,key): the sql.js schema has always enforced it; this
+    // backend only had a plain index, so repeated stores under the same key
+    // accumulated duplicates and getByKey returned an arbitrary one. Existing
+    // databases may already hold duplicates — dedupe (keep newest) before the
+    // unique index can be created, then upgrade the index.
+    try {
+      this.db.exec(`
+        DELETE FROM memory_entries WHERE id NOT IN (
+          SELECT id FROM (
+            SELECT id, ROW_NUMBER() OVER (PARTITION BY namespace, key ORDER BY updated_at DESC, id DESC) AS rn
+            FROM memory_entries
+          ) WHERE rn = 1
+        );
+        DROP INDEX IF EXISTS idx_namespace_key;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_namespace_key_unique ON memory_entries(namespace, key);
+      `);
+    } catch {
+      // Very old SQLite without window functions: keep the plain index rather
+      // than failing initialization — dup accumulation is the lesser evil.
+      this.db.exec('CREATE INDEX IF NOT EXISTS idx_namespace_key ON memory_entries(namespace, key);');
+    }
+
+    this.db.exec(`
 
       CREATE TABLE IF NOT EXISTS agent_reads (
         entry_id TEXT NOT NULL,

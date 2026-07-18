@@ -62,3 +62,32 @@ describe('chunkDocument', () => {
     expect(chunks[chunks.length - 1].endChar).toBe(doc.length);
   });
 });
+
+describe('chunkDocument — code fences and CRLF (swarm findings #20/#30)', () => {
+  it('never treats # lines inside code fences as headings (no bogus § prefix, no fence splits)', () => {
+    const fenced = '```sh\n# not a heading\n# also code\n```\n';
+    const doc = `## Real Section\n\n${('prose '.repeat(60) + '\n\n' + fenced).repeat(12)}`;
+    const chunks = chunkDocument('d', doc, 1500, 150);
+    for (const c of chunks) {
+      expect(c.text.startsWith('§ not a heading')).toBe(false);
+      // every chunk has balanced fences — no chunk starts or ends mid-block
+      const fences = (c.text.match(/^\s{0,3}```/gm) || []).length;
+      expect(fences % 2, `chunk ${c.chunkIndex} splits a code fence:\n${c.text.slice(0, 200)}`).toBe(0);
+    }
+    expect(chunks.some(c => c.text.includes('§ Real Section'))).toBe(true);
+  });
+
+  it('CRLF documents snap to paragraph/heading boundaries instead of hard-cutting mid-word', () => {
+    // paragraph spacing (~102 chars) < snap window (20% of 600 = 120), so a
+    // boundary is always available — any mid-word cut is then a real bug
+    const para = 'word '.repeat(20).trim();
+    const doc = `## Sect A\r\n\r\n${Array(8).fill(para).join('\r\n\r\n')}\r\n\r\n## Sect B\r\n\r\n${Array(12).fill(para).join('\r\n\r\n')}`;
+    const chunks = chunkDocument('d', doc, 600, 60);
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const c of chunks.slice(0, -1)) {
+      // no chunk ends mid-word: boundary chars are whitespace/newline
+      expect(/\s$/.test(c.text) || /^#{1,6} /.test(chunks[c.chunkIndex + 1]?.text?.trimStart() ?? '')).toBe(true);
+    }
+    expect(chunks.some(c => c.text.includes('§ Sect'))).toBe(true);
+  });
+});
