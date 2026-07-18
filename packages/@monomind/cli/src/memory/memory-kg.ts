@@ -414,6 +414,59 @@ export async function kgRollback(options: {
   }
 }
 
+// ── Consolidation candidates (cognee consolidate_entity_descriptions) ──
+
+export interface ConsolidationCandidate {
+  name: string;
+  type: string;
+  description: string;
+  edgeCount: number;
+  /** Neighborhood facts to merge into one canonical description. */
+  neighborhood: string[];
+}
+
+/** Entities whose descriptions are stale relative to their connectivity —
+ *  the LLM half runs in the LIVE agent: it rewrites each candidate's
+ *  description from the neighborhood facts and resubmits via memory_kg_ingest
+ *  (longer descriptions win on merge). No LLM here (fully local constraint). */
+export async function kgConsolidateCandidates(options?: {
+  dbPath?: string;
+  /** Minimum edges for a node to qualify (default 3). */
+  minEdges?: number;
+  limit?: number;
+}): Promise<ConsolidationCandidate[]> {
+  const minEdges = options?.minEdges ?? 3;
+  const [nodesRes, edgesRes] = await Promise.all([
+    bridgeListEntries({ namespace: KG_NODES_NS, limit: MAX_LIST, dbPath: options?.dbPath }),
+    bridgeListEntries({ namespace: KG_EDGES_NS, limit: MAX_LIST, dbPath: options?.dbPath }),
+  ]);
+  const edgesByNode = new Map<string, string[]>();
+  for (const e of edgesRes?.entries ?? []) {
+    const md = e.metadata as Record<string, unknown>;
+    for (const end of [String(md.src ?? ''), String(md.dst ?? '')]) {
+      if (!end) continue;
+      const list = edgesByNode.get(end) ?? [];
+      list.push(e.content);
+      edgesByNode.set(end, list);
+    }
+  }
+  return (nodesRes?.entries ?? [])
+    .map(n => {
+      const md = n.metadata as Record<string, unknown>;
+      const facts = edgesByNode.get(n.key) ?? [];
+      return {
+        name: String(md.name ?? n.key),
+        type: String(md.type ?? 'entity'),
+        description: String(md.description ?? ''),
+        edgeCount: facts.length,
+        neighborhood: facts.slice(0, 12),
+      };
+    })
+    .filter(c => c.edgeCount >= minEdges && c.description.length < 40 * c.edgeCount)
+    .sort((a, b) => b.edgeCount - a.edgeCount)
+    .slice(0, options?.limit ?? 10);
+}
+
 // ── Stats ───────────────────────────────────────────────────────────
 
 export async function kgStats(options?: { dbPath?: string }): Promise<{ nodes: number; edges: number; rules: number }> {

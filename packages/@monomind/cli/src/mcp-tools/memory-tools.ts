@@ -377,6 +377,30 @@ export const memoryKgRollback: MCPTool = {
   },
 };
 
+export const memoryKgConsolidate: MCPTool = {
+  name: 'memory_kg_consolidate',
+  description: 'List knowledge-graph entities whose descriptions lag their connectivity, with neighborhood facts. YOU do the consolidation: rewrite each candidate\'s description as one canonical paragraph merging the facts, then resubmit via memory_kg_ingest (richer descriptions win on merge).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      minEdges: { type: 'number', description: 'Minimum relations for a candidate (default 3)' },
+      limit: { type: 'number', description: 'Max candidates (default 10)' },
+    },
+  },
+  handler: async (params: Record<string, unknown>) => {
+    try {
+      const kg = await import('../memory/memory-kg.js');
+      const candidates = await kg.kgConsolidateCandidates({
+        minEdges: validatePositiveInt(params.minEdges, 3, 100),
+        limit: validatePositiveInt(params.limit, 10, 50),
+      });
+      return { success: true, candidates };
+    } catch (error) {
+      return { success: false, error: sanitizeError(error) };
+    }
+  },
+};
+
 export const memoryKgStats: MCPTool = {
   name: 'memory_kg_stats',
   description: 'Knowledge graph size: node, edge, and rule counts (plus the entity glossary for extraction prompts)',
@@ -745,6 +769,7 @@ export const memoryTools: MCPTool[] = [
   memoryKgIngest,
   memoryKgSearch,
   memoryKgRollback,
+  memoryKgConsolidate,
   memoryKgStats,
   memoryRoute,
   memorySessionStart,
