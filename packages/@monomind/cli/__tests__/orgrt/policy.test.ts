@@ -15,6 +15,16 @@ describe('PolicyEngine', () => {
     expect(d.behavior).toBe('deny');
   });
 
+  it('always denies harness messaging tools with a pointer to org_send', async () => {
+    // No denyTools config needed — SendMessage bypasses the org bus and its
+    // "no agent reachable" SDK error deadlocked a real run (agent concluded
+    // its teammate was down and gave up).
+    const p = new PolicyEngine('researcher', {}, mkBus(), '/work');
+    const d = await p.decide('SendMessage', { recipient: 'director', message: 'hi' });
+    expect(d.behavior).toBe('deny');
+    expect((d as { message: string }).message).toMatch(/org_send/);
+  });
+
   it('enforces file write scopes with globs', async () => {
     const p = new PolicyEngine('coder', { fileWrite: ['src/**', 'docs/**'] }, mkBus(), '/work');
     expect((await p.decide('Write', { file_path: '/work/src/a.ts' })).behavior).toBe('allow');
