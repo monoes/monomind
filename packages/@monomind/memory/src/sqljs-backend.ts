@@ -527,10 +527,13 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
   async search(embedding: Float32Array, options: SearchOptions): Promise<SearchResult[]> {
     this.ensureInitialized();
 
-    // Get all entries with embeddings
+    // Get all entries with embeddings — namespace-scoped when the caller
+    // filtered (previously ignored, so cross-namespace hits leaked in and the
+    // arbitrary 1000-row cap silently dropped later entries).
     const entries = await this.query({
       type: 'hybrid',
-      limit: options.filters?.limit || 1000,
+      namespace: options.filters?.namespace,
+      limit: options.filters?.limit || 50000,
     });
 
     // Calculate cosine similarity for each entry

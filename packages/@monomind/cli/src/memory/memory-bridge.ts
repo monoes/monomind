@@ -113,6 +113,13 @@ let _embedder: ((text: string) => Promise<Float32Array>) | null = null;
 const MAX_INIT_ATTEMPTS = 3;
 let initAttempts = 0;
 
+/** Flush after mutations: the sql.js fallback backend is in-memory WASM and
+ *  only reaches disk via persist(); the CLI process is short-lived, so waiting
+ *  for an auto-persist interval would lose writes. No-op on better-sqlite3. */
+async function flushBackend(backend: any): Promise<void> {
+  try { await backend?.persist?.(); } catch { /* best effort */ }
+}
+
 async function getBackend(dbPath?: string): Promise<any | null> {
   if (bridgeAvailable === false) return null;
   if (initAttempts >= MAX_INIT_ATTEMPTS) { bridgeAvailable = false; return null; }
@@ -122,7 +129,6 @@ async function getBackend(dbPath?: string): Promise<any | null> {
     backendPromise = (async () => {
       try {
         const mod = await import('@monoes/memory' as string);
-        const { LanceDBBackend } = mod;
 
         // Try to create embedding generator from HuggingFace transformers
         let embeddingGenerator: ((text: string) => Promise<Float32Array>) | undefined;
@@ -140,26 +146,37 @@ async function getBackend(dbPath?: string): Promise<any | null> {
           if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] embedding model failed to load — store and search without vectors:', e);
         }
 
-        const backend = new LanceDBBackend({
-          // Always route through getDbPath's traversal guard — dbPath here can
-          // originate from a caller/tool-supplied value, and getDbPath(undefined)
-          // already returns the correct default, so there's no case where
-          // calling it unconditionally changes behavior for the no-path case.
-          dbPath: getDbPath(dbPath),
-          vectorDimension: BRIDGE_EMBEDDING_DIMS,
+        // Local SQLite engine (LanceDB replaced 2026-07): better-sqlite3 when its
+        // native binding loads, sql.js (pure WASM) otherwise — both persist text
+        // AND embeddings, so vectors are always recomputable/derivable data.
+        // getDbPath keeps its traversal guard and directory semantics; the SQLite
+        // file lives inside that directory.
+        const dir = getDbPath(dbPath);
+        fs.mkdirSync(dir, { recursive: true });
+        const cfg = {
+          databasePath: path.join(dir, 'memory.db'),
+          walMode: true,
+          optimize: true,
+          defaultNamespace: 'default',
           embeddingGenerator,
-          enableFts: false,
-          nProbes: 20,
-        });
+        };
 
         const origLog = console.log;
         console.log = (...args: unknown[]) => {
           const msg = String(args[0] ?? '');
-          if (msg.includes('Transformers.js') || msg.includes('[LanceDB]') || msg.includes('Loading model')) return;
+          if (msg.includes('Transformers.js') || msg.includes('Loading model')) return;
           origLog.apply(console, args);
         };
+        let backend: any;
         try {
-          await backend.initialize();
+          try {
+            backend = new mod.SQLiteBackend(cfg);
+            await backend.initialize();
+          } catch (e) {
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] better-sqlite3 unavailable — using sql.js backend:', e);
+            backend = new mod.SqlJsBackend(cfg);
+            await backend.initialize();
+          }
         } finally {
           console.log = origLog;
         }
@@ -263,6 +280,7 @@ export async function bridgeStoreEntry(options: {
     }
 
     await backend.store(entry);
+    await flushBackend(backend);
 
     return { success: true, id, embedding: embeddingInfo };
   } catch (err: any) {
@@ -331,20 +349,31 @@ export async function bridgeSearchEntries(options: {
         namespace: namespace ?? 'default',
         limit: 50000,
       });
-      const queryLower = queryStr.toLowerCase();
-      results = entries
-        .filter((e: any) => (e.content || '').toLowerCase().includes(queryLower)
-          || (e.key || '').toLowerCase().includes(queryLower))
-        .slice(0, limit)
-        .map((e: any) => ({
-          id: e.id,
-          key: e.key,
-          content: e.content || '',
-          score: 0.5,
-          namespace: e.namespace,
-          provenance: 'keyword',
-          _createdAt: e.createdAt || 0,
-        }));
+      // Token-based matching, not whole-phrase substring: "semantic test" must
+      // match an entry keyed "semantic-test" (the old .includes(query) required
+      // the exact phrase — including its whitespace — to appear verbatim).
+      // Score = fraction of query tokens present in key+content.
+      const tokens = queryStr.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 1);
+      if (tokens.length) {
+        results = entries
+          .map((e: any) => {
+            const haystack = `${e.key || ''} ${e.content || ''}`.toLowerCase();
+            const hits = tokens.filter(t => haystack.includes(t)).length;
+            return { e, score: hits / tokens.length };
+          })
+          .filter((x: any) => x.score > 0)
+          .sort((a: any, b: any) => b.score - a.score)
+          .slice(0, limit)
+          .map(({ e, score }: any) => ({
+            id: e.id,
+            key: e.key,
+            content: e.content || '',
+            score: Math.min(0.9, 0.3 + score * 0.6),
+            namespace: e.namespace,
+            provenance: `keyword:${score.toFixed(2)}`,
+            _createdAt: e.createdAt || 0,
+          }));
+      }
       searchMethod = 'keyword';
     }
 
@@ -495,6 +524,7 @@ export async function bridgeDeleteEntry(options: {
       const entry = await backend.getByKey(namespace, options.key);
       if (entry) deleted = await backend.delete(entry.id);
     }
+    if (deleted) await flushBackend(backend);
 
     return { success: true, deleted };
   } catch {
@@ -838,6 +868,7 @@ export async function bridgeSessionEnd(options: {
         }),
         tags: ['session', 'ended'],
       });
+      await flushBackend(backend);
     }
     return { success: true };
   } catch {
@@ -960,6 +991,7 @@ export async function bridgeConsolidate(params: {
         deleted++;
       }
     }
+    if (deleted) await flushBackend(backend);
     return { success: true, consolidated: deleted };
   } catch {
     return { success: false, consolidated: 0 };
