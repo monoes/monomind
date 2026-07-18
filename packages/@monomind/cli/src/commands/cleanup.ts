@@ -47,6 +47,56 @@ interface StaleScratchItem {
   size: number;
 }
 
+/** Orphaned per-project data (--data): ~/.monomind/projects/<slug> dirs whose
+ * source project is gone, plus dead lancedb/ dirs left by the pre-2.3.1 engine. */
+const UNKNOWN_DIR_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Find prunable entries under the per-project data base (default
+ * ~/.monomind/projects). Exported for tests — `baseDir`/`now` injectable.
+ *
+ * Classification per dir:
+ * - `origin.json` present and its recorded path still exists → keep the dir,
+ *   but flag a leftover `lancedb/` subdir (dead since the SQLite engine swap).
+ * - `origin.json` present, recorded path gone → orphaned → prune.
+ * - no `origin.json` (pre-2.3.1 dirs can't prove their origin) → prune only
+ *   when untouched for {@link UNKNOWN_DIR_MAX_AGE_MS} — or immediately with
+ *   `--aggressive`, which treats unprovable dirs as junk (safe: every live
+ *   project rewrites origin.json on its next memory access).
+ */
+export function findOrphanedProjectData(baseDir: string, now: number, aggressive: boolean): StaleScratchItem[] {
+  const out: StaleScratchItem[] = [];
+  if (!existsSync(baseDir)) return out;
+  for (const name of readdirSync(baseDir)) {
+    if (name.startsWith('.')) continue;
+    const dir = join(baseDir, name);
+    let mtime = 0;
+    try {
+      const st = lstatSync(dir);
+      if (!st.isDirectory()) continue;
+      mtime = st.mtimeMs;
+    } catch { continue; }
+    const originFile = join(dir, 'origin.json');
+    let originPath: string | null = null;
+    let hasOrigin = false;
+    try {
+      originPath = String(JSON.parse(readFileSync(originFile, 'utf-8')).path ?? '');
+      hasOrigin = originPath.length > 0;
+    } catch { /* no/corrupt marker */ }
+    if (hasOrigin && originPath && existsSync(originPath)) {
+      const lance = join(dir, 'lancedb');
+      if (existsSync(lance)) out.push({ path: lance, description: `dead lancedb store (project: ${originPath})`, size: 0 });
+      continue;
+    }
+    if (hasOrigin) {
+      out.push({ path: dir, description: `orphaned project data (origin gone: ${originPath})`, size: 0 });
+    } else if (aggressive || now - mtime > UNKNOWN_DIR_MAX_AGE_MS) {
+      out.push({ path: dir, description: aggressive ? 'unverifiable project data (no origin marker)' : 'unverifiable project data (untouched >30d)', size: 0 });
+    }
+  }
+  return out;
+}
+
 /**
  * Find stale mastermind scratch under `.monomind/taskdev/` and `.monomind/loops/`.
  * Exported for tests. Never returns `progress.md` (the taskdev recovery ledger),
@@ -222,6 +272,19 @@ export const cleanupCommand: Command = {
       type: 'boolean',
       default: false,
     },
+    {
+      name: 'data',
+      short: 'd',
+      description: 'Prune orphaned per-project data in ~/.monomind/projects (gone projects, dead lancedb stores)',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'aggressive',
+      description: 'With --data: also prune dirs that cannot prove their origin (pre-2.3.1, no origin marker)',
+      type: 'boolean',
+      default: false,
+    },
   ],
   examples: [
     {
@@ -247,6 +310,32 @@ export const cleanupCommand: Command = {
     const cwd = ctx.cwd;
 
     const dryRun = !force;
+
+    if (ctx.flags.data === true) {
+      const { homedir } = await import('os');
+      const baseDir = join(homedir(), '.monomind', 'projects');
+      output.writeln();
+      output.writeln(output.bold(dryRun ? 'Monomind Project-Data Cleanup (dry run)' : 'Monomind Project-Data Cleanup'));
+      output.writeln();
+      const orphans = findOrphanedProjectData(baseDir, Date.now(), ctx.flags.aggressive === true);
+      if (orphans.length === 0) {
+        output.writeln(output.info('No orphaned project data found.'));
+        return { success: true, message: 'Nothing to clean' };
+      }
+      let removed = 0;
+      for (const o of orphans) {
+        output.writeln(`  ${dryRun ? 'would remove' : 'removing'}: ${o.path}  (${o.description})`);
+        if (!dryRun) {
+          try { rmSync(o.path, { recursive: true, force: true }); removed++; } catch { /* skip unremovable */ }
+        }
+      }
+      output.writeln();
+      if (dryRun) {
+        output.writeln(output.dim(`  ${orphans.length} item(s). This was a dry run. Use --force to delete.`));
+        return { success: true, message: `Dry run: ${orphans.length} orphaned item(s) found`, data: { found: orphans, dryRun } };
+      }
+      return { success: true, message: `Removed ${removed} orphaned item(s)`, data: { found: orphans, removedCount: removed, dryRun } };
+    }
 
     if (ctx.flags.scratch === true) {
       const now = Date.now();
