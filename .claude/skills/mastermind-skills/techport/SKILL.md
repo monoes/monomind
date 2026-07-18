@@ -1,5 +1,5 @@
 ---
-name: mastermind:techport
+name: techport
 description: Tech Port — deep-analyzes a foreign project, reviews the current monomind target to avoid conflicts and duplication, produces a scored port plan with mono-branded naming, and executes approved ports with full brand normalization.
 type: domain-skill
 default_mode: confirm
