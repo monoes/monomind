@@ -6260,6 +6260,16 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
   const boundPort = await bindServer(server, port);
   const url = `http://localhost:${boundPort}`;
 
+  // Self-report the ACTUAL bound port for the spawner (control-start.cjs).
+  // An HTTP probe cannot distinguish this server from another project's server
+  // already answering on the requested port — this file is identity-proof.
+  if (process.env.MONOMIND_BOUND_REPORT) {
+    try {
+      fs.mkdirSync(path.dirname(process.env.MONOMIND_BOUND_REPORT), { recursive: true });
+      fs.writeFileSync(process.env.MONOMIND_BOUND_REPORT, JSON.stringify({ pid: process.pid, port: boundPort, ts: Date.now() }));
+    } catch (_) { /* non-fatal — spawner falls back to pid-matched HTTP probe */ }
+  }
+
   // ── One-time migration: mastermind-sessions.json → per-session JSONL ─────
   // Runs once on startup. Existing sessions in the old monolithic format are
   // split into individual JSONL files + _index.json for O(1) event writes.
