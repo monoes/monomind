@@ -28,14 +28,14 @@ CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control
 
 Emit `session:start` before invoking the skill (use curl — WebFetch is blocked for localhost in Claude Code runtimes). Before executing the curl below, substitute the generated sessionId for `<sessionId>`:
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d '{"type":"session:start","session":"<sessionId>","domain":"architect","prompt":'"$(jq -Rn --arg p "$prompt" '$p')"',"ts":'"$(date +%s)"'000}' || true
 ```
 
 Emit `domain:dispatch` immediately after session:start. Before executing the curl below, substitute the generated sessionId for `<sessionId>`:
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d '{"type":"domain:dispatch","session":"<sessionId>","domain":"architect","ts":'"$(date +%s)"'000}' || true
 ```
@@ -44,7 +44,7 @@ Invoke `Skill("mastermind-skills:architect")` passing: brain_context, prompt, pr
 
 After skill returns: note the status from the skill's output (`complete`, `partial`, or `blocked`). Emit `session:complete` using that status, then follow _protocol.md Brain Write Procedure for domain `architect`. Before executing the curl below, substitute the generated sessionId for `<sessionId>` and the skill's actual status for `<status>`:
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d '{"type":"session:complete","session":"<sessionId>","domain":"architect","status":"<status>","domains":["architect"],"ts":'"$(date +%s)"'000}' || true
 ```

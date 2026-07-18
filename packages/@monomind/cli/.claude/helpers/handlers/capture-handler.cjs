@@ -201,12 +201,20 @@ function emitEvent(event) {
       }
       const u = new URL(baseUrl);
       const body = JSON.stringify(event);
+      // Ingest is default-deny: attach the dashboard credential (written by
+      // server.mjs next to control.json) or the POST is silently rejected.
+      let authHdr = '';
+      try { authHdr = fs.readFileSync(path.join(CWD, '.monomind', 'dashboard-token'), 'utf8').trim(); } catch {}
       const req = http.request({
         hostname: u.hostname,
         port: parseInt(u.port || '4242', 10),
         path: '/api/mastermind/event',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+          ...(authHdr ? { 'x-monomind-token': authHdr } : {}),
+        },
       }, () => {
         try { fs.unlinkSync(spoolFile); } catch {}
         resolve();
