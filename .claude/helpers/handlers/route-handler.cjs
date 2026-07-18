@@ -336,7 +336,9 @@ module.exports = {
           'lets', 'let', 'make', 'made', 'making', 'please', 'okay', 'yes', 'yeah', 'sure', 'thanks', 'thank',
           'ahead', 'continue', 'proceed', 'more', 'again', 'how', 'why', 'when', 'where', 'who', 'which',
           'with', 'about', 'from', 'into', 'onto', 'over', 'under', 'all', 'any', 'some', 'one', 'two', 'just',
-          'like', 'want', 'need', 'get', 'got', 'here', 'there', 'still', 'also', 'too', 'very', 'really']);
+          'like', 'want', 'need', 'get', 'got', 'here', 'there', 'still', 'also', 'too', 'very', 'really',
+          'them', 'they', 'their', 'theirs', 'its', 'our', 'ours', 'him', 'her', 'his', 'hers',
+          'order', 'done', 'doing', 'did', 'does', 'goes', 'going', 'went', 'come', 'came', 'good', 'great', 'nice', 'fine']);
         var _sbSubstantive = sbPrompt.toLowerCase().split(/[^a-z0-9]+/).filter(function(t) {
           return t.length >= 3 && !_SB_FILLER.has(t);
         });
@@ -379,6 +381,34 @@ module.exports = {
                 'second-brain-inject'
               );
             }
+            // Relevance floor: injecting weak matches pollutes every prompt's
+            // context — below 0.35 the excerpt is more likely noise than help.
+            if (sbHits) sbHits = sbHits.filter(function(h) { return (h.score || 0) >= 0.35; });
+
+            // Telemetry: append one JSONL line per evaluated prompt so the
+            // thresholds above can be tuned from real usage (and misses can
+            // seed the golden-set eval). Prompt text is NOT logged.
+            try {
+              var sbMetricsDir = path.join(CWD, '.monomind', 'metrics');
+              fs.mkdirSync(sbMetricsDir, { recursive: true });
+              var sbMetricsFile = path.join(sbMetricsDir, 'second-brain.jsonl');
+              try {
+                if (fs.existsSync(sbMetricsFile) && fs.statSync(sbMetricsFile).size > 512 * 1024) {
+                  var sbOld = fs.readFileSync(sbMetricsFile, 'utf-8').trim().split('\n');
+                  fs.writeFileSync(sbMetricsFile, sbOld.slice(-500).join('\n') + '\n', 'utf-8');
+                }
+              } catch (_) {}
+              fs.appendFileSync(sbMetricsFile, JSON.stringify({
+                ts: Date.now(),
+                method: sbMethod,
+                hits: sbHits ? sbHits.length : 0,
+                topScore: sbHits && sbHits[0] ? Number((sbHits[0].score || 0).toFixed(3)) : null,
+                promptLen: sbPrompt.length,
+                terms: _sbSubstantive.length,
+                injected: !!(sbHits && sbHits.length > 0),
+              }) + '\n', 'utf-8');
+            } catch (_) { /* telemetry never blocks */ }
+
             if (sbHits && sbHits.length > 0) {
               var sbLines = ['[SECOND_BRAIN] ' + sbHits.length + ' relevant excerpt(s) (' + sbMethod + ') from the project knowledge base:'];
               for (var sbI = 0; sbI < sbHits.length; sbI++) {
