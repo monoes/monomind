@@ -1,6 +1,6 @@
 {
   "name": "@monoes/memory",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "description": "Memory module - JSON pattern store, LanceDB + embeddings backend, and a standalone pure-JS HNSW index; three coexisting paths, not a single unified backend",
   "main": "dist/index.js",
@@ -20,9 +20,7 @@
     "sql.js": "^1.10.3"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^11.0.0",
-    "@lancedb/lancedb": "^0.30.0",
-    "apache-arrow": ">=15.0.0 <=18.1.0"
+    "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
