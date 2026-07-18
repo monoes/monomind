@@ -12,6 +12,16 @@ import * as path from 'path';
 import * as fs from 'fs';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 
+/**
+ * A barrel file (index.*) re-exporting modules is the intended public-API
+ * pattern, not hidden coupling — community detection routinely places a
+ * barrel in a different cluster than the modules it fronts, so these edges
+ * are pure noise in a security audit. Exported for tests.
+ */
+export function isBarrelReExport(r: { relation: string; src_file: string | null }): boolean {
+  return r.relation === 'RE_EXPORTS' && /(^|[/\\])index\.[cm]?[jt]sx?$/.test(r.src_file ?? '');
+}
+
 export function createAuditWorker(projectRoot: string): WorkerHandler {
   return async (): Promise<WorkerResult> => {
     const startTime = Date.now();
@@ -111,7 +121,7 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
 
           // Top 5 surprising cross-community edges — potential hidden coupling / attack surface
           type SurpriseRow = { src_name: string; tgt_name: string; relation: string; confidence_score: number; src_file: string | null; tgt_file: string | null };
-          const surpriseRows = db.prepare(`
+          const surpriseRows = (db.prepare(`
             SELECT n1.name as src_name, n2.name as tgt_name, e.relation, e.confidence_score,
                    n1.file_path as src_file, n2.file_path as tgt_file
             FROM edges e
@@ -122,8 +132,10 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
               AND n2.community_id IS NOT NULL
               AND n1.community_id != n2.community_id
             ORDER BY e.confidence_score ASC
-            LIMIT 5
-          `).all() as SurpriseRow[];
+            LIMIT 15
+          `).all() as SurpriseRow[])
+            .filter(r => !isBarrelReExport(r))
+            .slice(0, 5);
 
           if (godFileRows.length > 0) {
             audit['priorityScanTargets'] = godFileRows.map(r => ({
