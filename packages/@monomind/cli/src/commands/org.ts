@@ -291,7 +291,13 @@ const listAction = async (ctx: CommandContext): Promise<CommandResult> => {
       const sched = def.schedule ? `every ${def.schedule}` : 'manual';
       let status = 'never run';
       try {
-        status = (JSON.parse(readFileSync(join(orgsDir, stem, 'runtime.json'), 'utf8')) as { status?: string }).status ?? status;
+        const rt = JSON.parse(readFileSync(join(orgsDir, stem, 'runtime.json'), 'utf8')) as { status?: string; pid?: number };
+        status = rt.status ?? status;
+        // Same liveness rule as `org status`: a 'running' record with a dead
+        // pid is a crashed daemon, not a running org — list must not disagree.
+        if (status === 'running' && rt.pid) {
+          try { process.kill(rt.pid, 0); } catch { status = 'crashed'; }
+        }
       } catch { /* no runtime state yet */ }
       const goal = typeof def.goal === 'string' && def.goal
         ? ` — ${def.goal.length > 60 ? `${def.goal.slice(0, 57)}...` : def.goal}` : '';
@@ -360,7 +366,13 @@ const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> =
     if (ctl.url) ctrlUrl = ctl.url;
   } catch { /* default */ }
   try {
-    const res = await fetch(`${ctrlUrl}/api/orgs/${encodeURIComponent(orgName)}/mark-complete`, { method: 'POST' });
+    // All dashboard /api routes are auth-gated — attach the local session token.
+    let auth = '';
+    try { auth = readFileSync(join(cwd, '.monomind', 'dashboard-token'), 'utf8').trim(); } catch { /* server may be pre-auth */ }
+    const res = await fetch(`${ctrlUrl}/api/orgs/${encodeURIComponent(orgName)}/mark-complete`, {
+      method: 'POST',
+      headers: auth ? { 'x-monomind-token': auth } : {},
+    });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
       log(output.error(`mark-complete failed (${res.status}): ${(body as { error?: string }).error || 'unknown error'}`));
