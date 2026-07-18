@@ -6063,12 +6063,20 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           // scope: project | global | all (default all) — project results get a
           // small tie boost; global hits are flagged so callers can show origin.
           const scope = payload.scope === 'project' || payload.scope === 'global' ? payload.scope : 'all';
+          // Rule-based router (no LLM): only spend the rules query when the
+          // question looks rules/convention-shaped, or routing is unconfident.
+          let wantRules = true;
+          try {
+            const routerMod = await import('../memory/query-router.js');
+            const route = routerMod.routeQuery(query);
+            wantRules = !route.confident || route.surfaces.includes('rules');
+          } catch { /* router unavailable — keep rules on */ }
           const [proj, glob, rules] = await Promise.all([
             scope !== 'global' ? bridge.bridgeSearchEntries({ query, namespace, limit }).catch(() => null) : null,
             scope !== 'project' ? bridge.bridgeSearchEntries({ query, namespace: 'knowledge:global', limit, dbPath: '@global' }).catch(() => null) : null,
             // Distilled rules ("when X do Y") learned from sessions/runs —
             // small namespace, high injection value, threshold keeps it quiet.
-            scope !== 'global' ? bridge.bridgeSearchEntries({ query, namespace: 'rules', limit: 2, threshold: 0.45 }).catch(() => null) : null,
+            scope !== 'global' && wantRules ? bridge.bridgeSearchEntries({ query, namespace: 'rules', limit: 2, threshold: 0.45 }).catch(() => null) : null,
           ]);
           const merged = [
             ...(proj?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags })),
