@@ -288,7 +288,7 @@ For the deprecated prompt-orchestrated path, see `/mastermind:runorgv1` below.
 
 ### `/mastermind:runorgv1` (legacy, `LEGACY-ORG-V1`)
 
-**Purpose:** Start a saved org as a persistent, prompt-orchestrated agent organization — the pre-v2 path. Superseded by `/mastermind:runorg` (Org Runtime v2), which now delegates to it by default. Reachable only via this explicit `v1` name.
+**Purpose:** Start a saved org as a persistent, prompt-orchestrated agent organization — the pre-v2 path. Superseded by `/mastermind:runorg` (Org Runtime v2), which delegates to the v2 daemon by default. Reachable only via this explicit `v1` name.
 
 ```
 /mastermind:runorgv1 --org content-team
