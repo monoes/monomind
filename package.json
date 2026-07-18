@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Open-source CLI extension for Claude Code. Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. MIT licensed, runs locally, no data leaves your machine.",
   "main": "dist/index.js",
   "type": "module",
