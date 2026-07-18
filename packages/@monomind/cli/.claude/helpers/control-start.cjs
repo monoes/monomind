@@ -172,11 +172,16 @@ async function main() {
     ? [...args, String(DEFAULT_PORT)]
     : [...args, 'ui', '--no-open', '--port', String(DEFAULT_PORT)];
 
+  // The child writes its ACTUAL bound port here — the only identity-proof
+  // signal. An HTTP probe alone can be answered by another project's server
+  // already holding the port (which then leaves control.json lying about
+  // where THIS project's events should go).
+  const BOUND_REPORT = path.join(CWD, '.monomind', `.bound-report-${Date.now()}.json`);
   const child = spawn(cmd, allArgs, {
     detached: true,
     stdio: 'ignore',
     cwd: CWD,
-    env: { ...process.env, CLAUDE_PROJECT_DIR: CWD },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: CWD, MONOMIND_BOUND_REPORT: BOUND_REPORT },
   });
 
   child.unref();
@@ -189,11 +194,20 @@ async function main() {
   // If port 4242 was in use, server.mjs auto-increments (up to +10).
   // Poll a few ports to find where it actually bound and update control.json.
   const http = require('http');
+  // Resolves to the responder's pid (number), null for "answers but pid
+  // unreadable" (auth-walled or old server), or false for "no answer".
   function probePort(p) {
     return new Promise((resolve) => {
       const req = http.get({ hostname: 'localhost', port: p, path: '/api/status', timeout: 1000 }, (res) => {
-        res.resume();
-        resolve(res.statusCode < 500);
+        let body = '';
+        res.on('data', (c) => { if (body.length < 4096) body += c; });
+        res.on('end', () => {
+          if (res.statusCode >= 500) return resolve(false);
+          try {
+            const pid = JSON.parse(body).pid;
+            resolve(typeof pid === 'number' ? pid : null);
+          } catch { resolve(null); }
+        });
       });
       req.on('error', () => resolve(false));
       req.on('timeout', () => { req.destroy(); resolve(false); });
@@ -201,19 +215,53 @@ async function main() {
   }
 
   // Give the server up to ~10 s to start, then confirm the actual port.
+  // Identity-first: the child's bound-report file (written by server.mjs) is
+  // authoritative; the HTTP probe only confirms a port when the responder's
+  // pid matches our child. A foreign server answering on DEFAULT_PORT must
+  // NOT be mistaken for ours — that lie misroutes every event emitter in
+  // this project (root cause of orgs running invisibly).
   async function confirmPort() {
+    let sawForeignOnDefault = false;
     for (let attempt = 0; attempt < 20; attempt++) {
       await new Promise(r => setTimeout(r, 500));
+      // 1) Authoritative: child self-reported its bound port
+      try {
+        const rep = JSON.parse(fs.readFileSync(BOUND_REPORT, 'utf8'));
+        if (rep && rep.pid === child.pid && typeof rep.port === 'number') {
+          try { fs.unlinkSync(BOUND_REPORT); } catch { /* ignore */ }
+          if (rep.port !== DEFAULT_PORT) {
+            writeStatus(child.pid, rep.port);
+            process.stdout.write(`[control] server bound to port ${rep.port} (updated control.json)\n`);
+          }
+          return;
+        }
+      } catch { /* not written yet or old server — fall through to probe */ }
+      // 2) Fallback: pid-matched HTTP probe (old servers without report support)
       for (let delta = 0; delta <= 10; delta++) {
         const p = DEFAULT_PORT + delta;
-        if (await probePort(p)) {
+        const responderPid = await probePort(p);
+        if (responderPid === false) continue;
+        if (responderPid === child.pid) {
           if (p !== DEFAULT_PORT) {
             writeStatus(child.pid, p);
             process.stdout.write(`[control] server bound to port ${p} (updated control.json)\n`);
           }
           return;
         }
+        if (p === DEFAULT_PORT && typeof responderPid === 'number') sawForeignOnDefault = true;
+        // pid mismatch or unreadable — not provably ours, keep scanning
       }
+    }
+    try { fs.unlinkSync(BOUND_REPORT); } catch { /* ignore */ }
+    if (sawForeignOnDefault) {
+      // Another project's server owns DEFAULT_PORT and our child never proved
+      // its own port — point control.json at the live server instead of lying,
+      // and kill our redundant child.
+      try { process.kill(child.pid, 'SIGTERM'); } catch { /* already gone */ }
+      process.stdout.write(`[control] port ${DEFAULT_PORT} is served by another project's control server — reusing it (killed redundant child)\n`);
+      const foreignPid = await probePort(DEFAULT_PORT);
+      writeStatus(typeof foreignPid === 'number' ? foreignPid : 0, DEFAULT_PORT);
+      return;
     }
     // Server never became reachable on any expected port — kill the child
     // rather than leave an orphan bound to some port nothing will ever read.

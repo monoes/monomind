@@ -312,10 +312,12 @@ fi
 # Resolve git-safe monomind directory
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")
+GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || true)
+# Non-git project: never fabricate a .git/ dir — fall back to .monomind
+[ -z "$GIT_COMMON" ] && GIT_COMMON="__NOGIT__"
 if [[ "$GIT_COMMON" != /* ]]; then GIT_COMMON="$REPO_ROOT/$GIT_COMMON"; fi
 GIT_COMMON="${GIT_COMMON%/}"
-MONO_DIR="${GIT_COMMON}/monomind"
+if [ "$GIT_COMMON" = "__NOGIT__" ] || [ "${GIT_COMMON#*__NOGIT__}" != "$GIT_COMMON" ]; then MONO_DIR="$REPO_ROOT/.monomind"; else MONO_DIR="${GIT_COMMON}/monomind"; fi
 
 # Create run file and write run:start
 runDir="${MONO_DIR}/orgs/${orgName}/runs"
@@ -478,11 +480,13 @@ DASHBOARD EVENT HELPER — resolve once at startup, reuse in every step:
   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
   # Git-safe monomind dir — shared across all worktrees, survives branch switches:
-  GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")
+  GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || true)
+# Non-git project: never fabricate a .git/ dir — fall back to .monomind
+[ -z "$GIT_COMMON" ] && GIT_COMMON="__NOGIT__"
   # Resolve to absolute path (git returns relative ".git" for main checkout)
   if [[ "$GIT_COMMON" != /* ]]; then GIT_COMMON="$REPO_ROOT/$GIT_COMMON"; fi
   GIT_COMMON="${GIT_COMMON%/}"  # strip trailing slash if any
-  MONO_DIR="${GIT_COMMON}/monomind"
+  if [ "$GIT_COMMON" = "__NOGIT__" ] || [ "${GIT_COMMON#*__NOGIT__}" != "$GIT_COMMON" ]; then MONO_DIR="$REPO_ROOT/.monomind"; else MONO_DIR="${GIT_COMMON}/monomind"; fi
   runFile="${MONO_DIR}/orgs/${orgName}/runs/${runId}.jsonl"
 
 ⚠️  DASHBOARD EVENTS ARE MANDATORY — run every curl below exactly as written.
@@ -549,10 +553,12 @@ OPERATING LOOP:
         DASHBOARD EVENTS — emit these at the start and end of your work (REQUIRED):
           REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
           CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-          GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || echo ".git")
+          GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null || true)
+# Non-git project: never fabricate a .git/ dir — fall back to .monomind
+[ -z "$GIT_COMMON" ] && GIT_COMMON="__NOGIT__"
           if [[ "$GIT_COMMON" != /* ]]; then GIT_COMMON="$REPO_ROOT/$GIT_COMMON"; fi
           GIT_COMMON="${GIT_COMMON%/}"
-          MONO_DIR="${GIT_COMMON}/monomind"
+          if [ "$GIT_COMMON" = "__NOGIT__" ] || [ "${GIT_COMMON#*__NOGIT__}" != "$GIT_COMMON" ]; then MONO_DIR="$REPO_ROOT/.monomind"; else MONO_DIR="${GIT_COMMON}/monomind"; fi
           runFile="${MONO_DIR}/orgs/${orgName}/runs/${runId}.jsonl"
           # On start — announce you are working:
           curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
