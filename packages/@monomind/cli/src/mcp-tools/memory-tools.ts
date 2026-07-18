@@ -202,13 +202,14 @@ export const memoryPatternSearch: MCPTool = {
 
 export const memoryFeedback: MCPTool = {
   name: 'memory_feedback',
-  description: 'Record task feedback for learning via LearningSystem + ReasoningBank controllers',
+  description: 'Rate the usefulness of memory entries that produced an answer. Pass the entryIds returned by a prior search — their feedback_weight is EWMA-updated and blended into future ranking. Idempotent per taskId.',
   inputSchema: {
     type: 'object',
     properties: {
-      taskId: { type: 'string', description: 'Task identifier' },
+      taskId: { type: 'string', description: 'Task identifier (also the idempotency key — the same taskId never double-applies)' },
+      entryIds: { type: 'array', items: { type: 'string' }, description: 'Memory entry IDs (from search results) that were used for this task' },
       success: { type: 'boolean', description: 'Whether task succeeded' },
-      quality: { type: 'number', description: 'Quality score (0-1)' },
+      quality: { type: 'number', description: 'Quality score (0-1); defaults from success (0.9/0.2)' },
       agent: { type: 'string', description: 'Agent that performed the task' },
     },
     required: ['taskId'],
@@ -218,14 +219,29 @@ export const memoryFeedback: MCPTool = {
       const taskId = validateString(params.taskId, 'taskId', 500);
       if (!taskId) return { success: false, error: 'taskId is required (non-empty string, max 500 chars)' };
       const bridge = await getBridge();
+
+      // Closed loop: apply the rating to the entries that were actually used.
+      const entryIds = Array.isArray(params.entryIds)
+        ? (params.entryIds as unknown[]).filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= 500).slice(0, 100)
+        : [];
+      let weighting: unknown = null;
+      if (entryIds.length) {
+        const score = typeof params.quality === 'number' && Number.isFinite(params.quality)
+          ? Math.max(0, Math.min(1, params.quality))
+          : (params.success === true ? 0.9 : 0.2);
+        weighting = await bridge.bridgeApplyFeedback({ entryIds, score, ledgerKey: taskId });
+      }
+
+      // Keep the historical feedback-event record alongside the weighting.
       const result = await bridge.bridgeRecordFeedback({
         taskType: validateString(params.agent, 'agent', 200) ?? 'task',
         action: taskId,
         outcome: params.success === true ? 'success' : 'failure',
         confidence: validateScore(params.quality, 0.85),
-        metadata: { taskId },
+        metadata: { taskId, entryIds },
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      if (!result) return { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      return { ...result, weighting };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -432,12 +448,13 @@ export const memoryHierarchicalRecall: MCPTool = {
 
 export const memoryConsolidate: MCPTool = {
   name: 'memory_consolidate',
-  description: 'Run memory consolidation to promote entries across tiers and compress old data',
+  description: 'Garbage-collect stale, unused memory entries. Weight-aware: entries with high feedback_weight or repeated usage are never collected.',
   inputSchema: {
     type: 'object',
     properties: {
-      minAge: { type: 'number', description: 'Minimum age in hours since store (optional)' },
-      maxEntries: { type: 'number', description: 'Maximum entries to consolidate (optional)' },
+      minAge: { type: 'number', description: 'Minimum age in hours since last update (optional, default 168 = 7 days)' },
+      maxEntries: { type: 'number', description: 'Maximum entries to scan (optional)' },
+      namespace: { type: 'string', description: "Namespace to GC, or 'all' for every non-protected namespace (optional)" },
     },
   },
   handler: async (params: Record<string, unknown>) => {
@@ -446,14 +463,17 @@ export const memoryConsolidate: MCPTool = {
       // Reject NaN and Infinity. typeof === 'number' returns true for both.
       // NaN propagates through arithmetic and corrupts consolidation accounting;
       // Infinity makes `entry.age >= minAge` always false, silently no-op.
+      // The bridge expects MILLISECONDS; this param is documented in hours —
+      // convert here (previously passed through raw, so 720 hours became 720ms).
       const minAge = typeof params.minAge === 'number' && Number.isFinite(params.minAge)
-        ? Math.max(0, Math.min(params.minAge, 24 * 365 * 10))
+        ? Math.max(0, Math.min(params.minAge, 24 * 365 * 10)) * 3600 * 1000
         : undefined;
       const result = await bridge.bridgeConsolidate({
         minAge,
         maxEntries: params.maxEntries !== undefined
           ? validatePositiveInt(params.maxEntries, 1000, 10_000)
           : undefined,
+        namespace: validateString(params.namespace, 'namespace', 128) ?? undefined,
       });
       return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
     } catch (error) {

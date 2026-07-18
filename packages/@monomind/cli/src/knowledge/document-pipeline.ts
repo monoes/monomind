@@ -134,6 +134,8 @@ export interface BatchIngestResult {
 }
 
 export interface KnowledgeExcerpt {
+  /** Memory entry id — pass back to memory_feedback/bridgeApplyFeedback to rate usefulness. */
+  id: string;
   filePath: string;
   text: string;
   similarity: number;
@@ -460,6 +462,7 @@ export async function searchKnowledge(
       // content, and goes empty when a re-ingested file's hash changed.
       const srcTag = (r.tags ?? []).find((tag: string) => tag.startsWith('src:'));
       return {
+        id: r.id,
         filePath: srcTag ? srcTag.slice(4) : hashToFile.get(hash) ?? '',
         text: r.content,
         similarity: r.score + t.boost,
