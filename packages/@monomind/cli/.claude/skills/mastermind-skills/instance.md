@@ -116,7 +116,7 @@ for orgF in .monomind/orgs/*.json; do
   done
 done
 
-[ "$found" -eq 0 ] && echo "  No scheduled heartbeat agents found. Configure via /mastermind:heartbeat."
+[ "$found" -eq 0 ] && echo "  No scheduled heartbeat agents found. Configure via /mastermind:heartbeatv1."
 ```
 
 ### toggle-heartbeat

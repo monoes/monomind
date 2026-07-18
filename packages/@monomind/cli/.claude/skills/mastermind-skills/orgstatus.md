@@ -51,17 +51,19 @@ status=$(jq -r '.status // "no-schedule"' "$orgFile")
 role_count=$(jq '.roles | length' "$orgFile")
 created_at=$(jq -r '.created_at // "-"' "$orgFile")
 
-# v1 loop fields (legacy scheduled orgs only)
 has_schedule=$(jq -r 'if .loop.poll_interval_minutes then "yes" else "no" end' "$orgFile")
-poll_interval=$(jq -r '.loop.poll_interval_minutes // ""' "$orgFile")
-last_run=$(jq -r '.loop.last_run // "never"' "$orgFile")
-next_run=$(jq -r '.loop.next_run // "not scheduled"' "$orgFile")
-run_prompt_file=$(jq -r '.loop.run_prompt_file // ""' "$orgFile")
 
 # v2 fields
 is_v2=$([ "$has_schedule" = "no" ] && echo yes || echo no)
 v2_schedule=$(jq -r '.schedule // empty' "$orgFile")
 budget=$(jq -r '.run_config.budget_tokens // 1000000' "$orgFile")
+
+# LEGACY-ORG-V1: remove this block when v1 orgs are gone
+# v1 loop fields (legacy scheduled orgs only)
+poll_interval=$(jq -r '.loop.poll_interval_minutes // ""' "$orgFile")
+last_run=$(jq -r '.loop.last_run // "never"' "$orgFile")
+next_run=$(jq -r '.loop.next_run // "not scheduled"' "$orgFile")
+run_prompt_file=$(jq -r '.loop.run_prompt_file // ""' "$orgFile")
 rtFile=".monomind/orgs/${org_name}/runtime.json"
 rt_status=$(jq -r '.status // "never run"' "$rtFile" 2>/dev/null || echo "never run")
 rt_run=$(jq -r '.run // ""' "$rtFile" 2>/dev/null || echo "")
@@ -95,6 +97,7 @@ if [ "$is_v2" = "yes" ]; then
   echo ""
 fi
 
+# LEGACY-ORG-V1: remove this block when v1 orgs are gone
 if [ "$has_schedule" = "yes" ]; then
   echo "SCHEDULED LOOP"
   echo "──────────────"
@@ -127,6 +130,7 @@ if [ "$is_v2" = "yes" ]; then
     && echo "  Config:    ✓ valid (monomind org validate)" \
     || echo "  Config:    ✗ INVALID — run: monomind org validate $name"
 else
+  # LEGACY-ORG-V1: remove this branch when v1 orgs are gone
   # v1 health: board / column IDs
   board_id=$(jq -r '.board_id // ""' "$orgFile")
   todo_col=$(jq -r '.todo_col_id // ""' "$orgFile")
@@ -139,12 +143,13 @@ else
   fi
 fi
 
+# LEGACY-ORG-V1: remove this branch when v1 orgs are gone
 # Pending approvals
 approvalsFile=".monomind/orgs/${org_name}-approvals.json"
 if [ -f "$approvalsFile" ]; then
   pending=$(jq '(.approvals // []) | map(select(.status == "pending")) | length' "$approvalsFile")
   [ "$pending" -gt 0 ] \
-    && echo "  Approvals: ⚠ ${pending} pending — /mastermind:approve --org ${name} --action list" \
+    && echo "  Approvals: ⚠ ${pending} pending — /mastermind:approvev1 --org ${name} --action list" \
     || echo "  Approvals: ✓ none pending"
 else
   echo "  Approvals: ✓ no approvals file"
@@ -152,8 +157,10 @@ fi
 
 # Stop file (pending stop signal) — v2 daemons poll <org>/stop; v1 used .stops/
 [ -f ".monomind/orgs/${org_name}/stop" ] && echo "  Stop file: ⚠ PRESENT (v2) — daemon will exit within 2s of seeing it"
+# LEGACY-ORG-V1: remove this check when v1 orgs are gone
 [ -f ".monomind/orgs/.stops/${org_name}.stop" ] && echo "  Stop file: ⚠ PRESENT (v1 legacy path)"
 
+# LEGACY-ORG-V1: remove this block when v1 orgs are gone
 # Loop prompt file (scheduled orgs)
 if [ "$has_schedule" = "yes" ]; then
   if [ -n "$run_prompt_file" ] && [ -f "$run_prompt_file" ]; then
@@ -182,6 +189,7 @@ if [ "$is_v2" = "yes" ]; then
     echo ""
   fi
 else
+  # LEGACY-ORG-V1: remove this branch when v1 orgs are gone
   activityFile=".monomind/orgs/${org_name}-activity.jsonl"
   if [ -f "$activityFile" ]; then
     echo "RECENT ACTIVITY (last 5)"
@@ -214,6 +222,7 @@ if [ "$is_v2" = "yes" ]; then
   echo "  Report:       monomind org report $name   (add --all for run history)"
   echo "  Validate:     monomind org validate $name"
   echo "  Settings:     /mastermind:org-settings --org $name"
+# LEGACY-ORG-V1: remove the next two branches when v1 orgs are gone
 elif [ "$has_schedule" = "yes" ]; then
   case "$status" in
     active|paused) echo "  Stop loop:    /mastermind:stoporg --org $name" ;;
