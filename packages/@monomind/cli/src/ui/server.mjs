@@ -783,7 +783,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         eventProject = _norm;
       }
     }
-    const root = eventProject || projectDir || process.cwd();
+    // Forwarder events omit `project` on everything but org:start — resolve the
+    // org's home from known-projects so run-file writes land in the ORG's git
+    // dir, not the server's (the dashboard reads the org project's run files).
+    let _orgHome = null;
+    if (!eventProject && event.org) {
+      try { _orgHome = _resolveOrgProjectDir(String(event.org).trim(), projectDir || process.cwd()); } catch (_) {}
+    }
+    const root = eventProject || _orgHome || projectDir || process.cwd();
     const dataDir = path.join(root, 'data');
     try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
     // Track known project dirs for aggregated session listing
