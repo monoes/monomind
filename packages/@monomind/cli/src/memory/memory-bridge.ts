@@ -271,7 +271,9 @@ export async function bridgeStoreEntry(options: {
       ? options.value.slice(0, BRIDGE_MAX_VALUE_LEN) : options.value;
     const namespace = options.namespace ?? 'default';
     const tags = Array.isArray(options.tags)
-      ? options.tags.filter(t => typeof t === 'string' && t.length > 0 && t.length <= MAX_TAG_LEN).slice(0, MAX_TAGS)
+      // src: tags carry the ingest source path for excerpt provenance — paths
+      // routinely exceed the general 64-char tag cap, so they get 512.
+      ? options.tags.filter(t => typeof t === 'string' && t.length > 0 && t.length <= (t.startsWith('src:') ? 512 : MAX_TAG_LEN)).slice(0, MAX_TAGS)
       : [];
 
     const now = Date.now();
