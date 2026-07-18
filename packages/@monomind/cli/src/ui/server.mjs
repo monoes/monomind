@@ -691,6 +691,26 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     fs.mkdirSync(authFileDir, { recursive: true });
     fs.writeFileSync(path.join(authFileDir, 'dashboard-token'), dashboardAuthValue, { mode: 0o600 });
   } catch (_) {}
+  // Propagate the fresh token to every known project whose control.json points
+  // at this server — otherwise each restart silently orphans cross-project
+  // callers (their curls/CLI reads a stale token and 401s forever).
+  // Called after bind so the match uses the ACTUAL bound port.
+  function propagateDashboardToken(actualPort) {
+    try {
+      const _kpFile = path.join(projectDir || process.cwd(), 'data', 'known-projects.json');
+      if (!fs.existsSync(_kpFile)) return;
+      for (const _kp of JSON.parse(fs.readFileSync(_kpFile, 'utf8'))) {
+        try {
+          const _kpMono = path.join(_kp, '.monomind');
+          const _kpCtl = JSON.parse(fs.readFileSync(path.join(_kpMono, 'control.json'), 'utf8'));
+          // Only pair projects that direct their traffic to this server's port.
+          if (_kpCtl && String(_kpCtl.url || '').includes(`:${actualPort}`)) {
+            fs.writeFileSync(path.join(_kpMono, 'dashboard-token'), dashboardAuthValue, { mode: 0o600 });
+          }
+        } catch (_) { /* project missing/unreadable — skip */ }
+      }
+    } catch (_) {}
+  }
 
   // Parse a .claude/agents/*.md definition into { name, description, capability{}, document }.
   // Tolerant line-based parse of the YAML frontmatter (expertise / task_types as lists).
@@ -6438,6 +6458,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       fs.writeFileSync(process.env.MONOMIND_BOUND_REPORT, JSON.stringify({ pid: process.pid, port: boundPort, ts: Date.now() }));
     } catch (_) { /* non-fatal — spawner falls back to pid-matched HTTP probe */ }
   }
+  propagateDashboardToken(boundPort);
 
   // ── One-time migration: mastermind-sessions.json → per-session JSONL ─────
   // Runs once on startup. Existing sessions in the old monolithic format are
