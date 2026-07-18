@@ -5863,6 +5863,31 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       return;
     }
 
+    // GET /api/orgs/:name/history — per-run outcome summaries (history.jsonl, newest first)
+    if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/history$/.test(url)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        const _histQs = new URL(req.url, 'http://localhost').searchParams;
+        const root = path.resolve(_histQs.get('dir') || projectDir || process.cwd());
+        if (!orgName || orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+          res.writeHead(400); res.end('{"error":"invalid org name"}'); return;
+        }
+        const monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
+        const histFile = path.join(monoDir, 'orgs', orgName, 'history.jsonl');
+        let runs = [];
+        if (fs.existsSync(histFile)) {
+          runs = fs.readFileSync(histFile, 'utf8').split('\n').filter(l => l.trim())
+            .map(l => { try { return JSON.parse(l); } catch(_) { return null; } })
+            .filter(Boolean).reverse().slice(0, 50);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.end(JSON.stringify({ runs }));
+      } catch(err) {
+        res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     // GET /api/mastermind/metrics — aggregate system metrics from token-summary and swarm-activity
     if (req.method === 'GET' && url === '/api/mastermind/metrics') {
       try {

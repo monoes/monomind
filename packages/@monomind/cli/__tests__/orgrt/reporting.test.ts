@@ -179,3 +179,52 @@ describe('org command — observe surface', () => {
     } finally { rmSync(cwd, { recursive: true, force: true }); }
   });
 });
+
+describe('org command — questions/answer (HIL)', () => {
+  const sub = (n: string) => orgCommand.subcommands!.find(c => c.name === n)!;
+  const run = (n: string, cwd: string, args: string[], flags: Record<string, unknown> = {}) =>
+    sub(n).action!({ args, flags, cwd, interactive: false } as any);
+
+  const seedQuestions = (cwd: string, org: string): void => {
+    mkdirSync(join(cwd, ORG_DIR, org), { recursive: true });
+    writeFileSync(join(cwd, ORG_DIR, `${org}.json`), JSON.stringify({ name: org, roles: [{ id: 'boss' }] }));
+    writeFileSync(join(cwd, ORG_DIR, org, 'questions.json'), JSON.stringify({
+      questions: [
+        { questionId: 'q-1', role: 'boss', question: 'ship it?', ts: 1784500000000, answer: null, answeredAt: null },
+        { questionId: 'q-0', role: 'boss', question: 'old one', ts: 1784400000000, answer: 'done', answeredAt: 1784400001000 },
+      ],
+    }));
+  };
+
+  it('questions lists only pending by default', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-q-'));
+    try {
+      seedQuestions(cwd, 'alpha');
+      const res = await run('questions', cwd, ['alpha']);
+      expect(res?.success).toBe(true);
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  it('answer records an offline answer and queues delivery for the next run', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-a-'));
+    try {
+      seedQuestions(cwd, 'alpha');
+      const res = await run('answer', cwd, ['alpha', 'q-1', 'yes', 'ship', 'it']);
+      expect(res?.success).toBe(true);
+      const saved = JSON.parse(readFileSync(join(cwd, ORG_DIR, 'alpha', 'questions.json'), 'utf8'));
+      expect(saved.questions.find((q: any) => q.questionId === 'q-1').answer).toBe('yes ship it');
+      const inbox = readFileSync(join(cwd, ORG_DIR, 'alpha', 'inbox.jsonl'), 'utf8').trim();
+      expect(JSON.parse(inbox)).toMatchObject({ toRole: 'boss', subject: 'answer:q-1' });
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  it('answer rejects unknown ids, already-answered questions, and missing text', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-a-'));
+    try {
+      seedQuestions(cwd, 'alpha');
+      expect((await run('answer', cwd, ['alpha', 'q-9', 'x']))?.success).toBe(false);
+      expect((await run('answer', cwd, ['alpha', 'q-0', 'x']))?.success).toBe(false);
+      expect((await run('answer', cwd, ['alpha', 'q-1']))?.success).toBe(false);
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+});
