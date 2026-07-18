@@ -225,6 +225,8 @@ monomind doc export                # portable OKF bundle — move your brain bet
 
 Retrieval quality is a tested invariant, not a hope: a golden-set eval (paraphrase queries against notes written in different vocabulary) runs in CI with an 80% recall bar.
 
+> **Privacy note:** the embedding model (~90MB) is fetched once from HuggingFace's CDN when your first document is indexed, then cached locally forever. That download is the only outbound request the Second Brain ever makes — your documents and queries never leave your machine. Offline at first index? Search degrades gracefully to keyword matching and `monomind doctor` tells you how to warm up later.
+
 ---
 
 ## 🧠 Memory That Persists
