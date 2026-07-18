@@ -64,6 +64,8 @@ poll_interval=$(jq -r '.loop.poll_interval_minutes // ""' "$orgFile")
 last_run=$(jq -r '.loop.last_run // "never"' "$orgFile")
 next_run=$(jq -r '.loop.next_run // "not scheduled"' "$orgFile")
 run_prompt_file=$(jq -r '.loop.run_prompt_file // ""' "$orgFile")
+# end LEGACY-ORG-V1 loop-fields block
+
 rtFile=".monomind/orgs/${org_name}/runtime.json"
 rt_status=$(jq -r '.status // "never run"' "$rtFile" 2>/dev/null || echo "never run")
 rt_run=$(jq -r '.run // ""' "$rtFile" 2>/dev/null || echo "")

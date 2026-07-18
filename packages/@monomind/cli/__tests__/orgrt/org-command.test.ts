@@ -107,6 +107,27 @@ describe('org command', () => {
         expect(res?.success).toBe(false);
       } finally { rmSync(cwd, { recursive: true, force: true }); }
     });
+
+    // Regression guard for F1: a v1-shaped config with no structural violations
+    // passes `org validate` even though it is still v1 — the runorg skill's
+    // auto-migrate trigger must NOT rely on `org validate` failing to detect
+    // v1 configs. See .claude/skills/mastermind-skills/runorg.md step 2.
+    it('passes a canonical v1-shaped config — validate alone cannot detect v1-ness', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-validate-v1shape-'));
+      try {
+        writeOrg(cwd, 'v1shaped', {
+          name: 'v1shaped', goal: 'grow', version: 1, topology: 'hierarchical',
+          board_id: 'b-1', todo_col_id: 'c-1', doing_col_id: 'c-2', done_col_id: 'c-3',
+          loop: { poll_interval_minutes: 30 },
+          roles: [
+            { id: 'boss', reports_to: null, agent_type: 'coordinator' },
+            { id: 'dev', reports_to: 'boss', agent_type: 'coder' },
+          ],
+        });
+        const res = await validate(cwd, 'v1shaped');
+        expect(res?.success).toBe(true);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
   });
 
   it('run fails fast with a friendly error when the org does not exist', async () => {

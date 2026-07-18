@@ -54,17 +54,23 @@ for org in $orgs; do
   stateFile=".monomind/orgs/${org}-state.json"
   approvalsFile=".monomind/orgs/${org}-approvals.json"
 
+  # LEGACY-ORG-V1: approvals files only exist for the v1 prompt-orchestrated
+  # runner — see runorgv1 / approvev1.
   # 1. Pending approvals
   if [ -f "$approvalsFile" ]; then
     pending=$(jq '[(.approvals // [])[] | select(.status == "pending")] | length' "$approvalsFile" 2>/dev/null || echo 0)
     total_approvals=$((total_approvals + pending))
   fi
+  # end LEGACY-ORG-V1
 
+  # LEGACY-ORG-V1: state-file "heartbeats" are the v1 scheduler's running-agent
+  # tracking — v2 runs live under .monomind/orgs/<name>/run-*/bus.jsonl instead.
   # 2. Running agents (active heartbeats)
   if [ -f "$stateFile" ]; then
     running=$(jq '[.agents // {} | to_entries[] | select(.value.status == "running")] | length' "$stateFile" 2>/dev/null || echo 0)
     total_heartbeats=$((total_heartbeats + running))
   fi
+  # end LEGACY-ORG-V1
 
   # 3. Budget alerts
   budget=$(jq -r '.run_config.budget_tokens // 0' "$orgFile" 2>/dev/null || echo 0)
@@ -101,13 +107,16 @@ for org in $orgs; do
 
   has_items=0
 
+  # LEGACY-ORG-V1: approvals belong to the v1 prompt-orchestrated runner
   # Pending approvals
   if [ -f "$approvalsFile" ]; then
     pending_approvals=$(jq -r '(.approvals // [])[] | select(.status == "pending") | "  [APPROVAL] [\(.id)] \(.agent_id): \(.title)  risk=\(.risk_level // "low")"' \
       "$approvalsFile" 2>/dev/null)
     [ -n "$pending_approvals" ] && { has_items=1; echo "ORG: $org"; echo "$pending_approvals"; }
   fi
+  # end LEGACY-ORG-V1
 
+  # LEGACY-ORG-V1: state-file heartbeats are the v1 scheduler's tracking
   # Running agents
   if [ -f "$stateFile" ]; then
     running_agents=$(jq -r '
@@ -116,6 +125,7 @@ for org in $orgs; do
     ' "$stateFile" 2>/dev/null)
     [ -n "$running_agents" ] && { has_items=1; [ $has_items -eq 1 ] || echo "ORG: $org"; echo "$running_agents"; }
   fi
+  # end LEGACY-ORG-V1
 
   [ $has_items -eq 1 ] && echo ""
 done
@@ -127,6 +137,7 @@ fi
 
 ### filter: approvals only
 
+<!-- LEGACY-ORG-V1: approvals belong to the v1 prompt-orchestrated runner — see runorgv1 / approvev1. -->
 ```bash
 for org in $orgs; do
   approvalsFile=".monomind/orgs/${org}-approvals.json"
@@ -141,6 +152,7 @@ done
 
 ### filter: heartbeats only
 
+<!-- LEGACY-ORG-V1: state-file heartbeats are the v1 scheduler's running-agent tracking. -->
 Show currently running agent heartbeats across all orgs:
 
 ```bash
