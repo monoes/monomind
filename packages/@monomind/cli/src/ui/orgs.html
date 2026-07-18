@@ -975,6 +975,7 @@ html, body {
           <div id="health-pane">
             <div id="health-grid" class="health-grid"></div>
             <div id="health-detail"></div>
+            <div id="health-history"></div>
           </div>
         </div>
 
@@ -1759,6 +1760,37 @@ function renderHealth() {
         HEALTH DATA UNAVAILABLE
       </div>`;
   }
+
+  loadRunHistory();
+}
+
+// Run history (history.jsonl, written by the daemon at each stopOrg): outcome,
+// duration, tokens per completed run — rendered under the health grid.
+async function loadRunHistory() {
+  const el = document.getElementById('health-history');
+  if (!el || !selectedOrg) return;
+  try {
+    const listOrg = allOrgs.find(o => o.name === selectedOrg) || {};
+    const r = await fetch(`/api/orgs/${encodeURIComponent(selectedOrg)}/history?dir=${encodeURIComponent(listOrg.projectDir || '')}`);
+    if (!r.ok) { el.innerHTML = ''; return; }
+    const runs = (await r.json()).runs || [];
+    if (!runs.length) { el.innerHTML = ''; return; }
+    const outcomeColor = s => s === 'achieved' ? 'var(--teal)' : s === 'partial' ? 'var(--amber, #d90)' : 'var(--red)';
+    el.innerHTML = `
+      <div style="margin-top:16px">
+        <div style="font-size:8px;letter-spacing:2px;color:var(--dim);margin-bottom:8px">RUN HISTORY (${runs.length})</div>
+        ${runs.slice(0, 10).map(h => `
+          <div style="font-size:9px;padding:5px 0;border-bottom:1px solid oklch(50% 0 0 / 0.1);display:flex;gap:10px;align-items:baseline">
+            <span style="color:var(--dim);white-space:nowrap">${esc(h.run || '?')}</span>
+            <span style="color:var(--muted);white-space:nowrap">${h.durationMs != null ? Math.round(h.durationMs / 1000) + 's' : '—'} · ${h.totalTokens || 0} tok</span>
+            ${h.outcome
+              ? `<span style="color:${outcomeColor(h.outcome.status)}">${esc(h.outcome.status.toUpperCase())}</span>
+                 <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.outcome.summary || '')}</span>`
+              : `<span style="color:var(--dim)">NO OUTCOME</span>`}
+            ${h.crashes && h.crashes.length ? `<span style="color:var(--red)">✗ ${h.crashes.length} crash</span>` : ''}
+          </div>`).join('')}
+      </div>`;
+  } catch (_) { el.innerHTML = ''; }
 }
 
 // ── CHAT TAB ──────────────────────────────────────────────────────
