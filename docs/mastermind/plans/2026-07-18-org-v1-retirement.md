@@ -18,6 +18,8 @@
 - The portal/server.mjs KEEPS reading v1 fields (`cfg.loop`, `topology`) for historical runs — no server changes in this plan.
 - All new event emissions follow the tokenized curl pattern (`x-monomind-token` from `.monomind/dashboard-token`).
 - Files stay under 500 lines; org.ts is at ~460 — `migrate` lands in a new `src/orgrt/migrate.ts` with a thin subcommand wrapper.
+- **Deprecation marker (MANDATORY):** every v1 artifact — renamed skill files, command wrappers, v1-only branches inside dual-reader skills, the `.v1.json` backup convention doc line — carries the literal greppable marker `LEGACY-ORG-V1` in a comment or header line. Cleanup day is `grep -rl LEGACY-ORG-V1` and delete. No v1 artifact without the marker; no marker on anything that must survive v1 removal.
+- **v2 is the unqualified default:** every skill, doc, and reference that says "org" means v2. v1 appears only under explicitly-suffixed names (`runorgv1`, `approvev1`, `heartbeatv1`) or marker-tagged legacy branches.
 
 ## Current-State Inventory (evidence, 2026-07-18)
 
@@ -290,7 +292,7 @@ git commit -m "feat(cli): org migrate converts v1 org configs to the v2 daemon s
 ### Task 2: `runorg` becomes the v2 delegator; v1 path renamed `runorgv1`
 
 **Files:**
-- Rename: `.claude/skills/mastermind-skills/runorg.md` → `.claude/skills/mastermind-skills/runorgv1.md` (git mv; prepend a header: "LEGACY v1 — prompt-orchestrated path. Reach it only via /mastermind:runorgv1. For everything else use /mastermind:runorg (v2 delegator).")
+- Rename: `.claude/skills/mastermind-skills/runorg.md` → `.claude/skills/mastermind-skills/runorgv1.md` (git mv; prepend a header: "LEGACY-ORG-V1 — prompt-orchestrated path. Reach it only via /mastermind:runorgv1. For everything else use /mastermind:runorg (v2 delegator).")
 - Rename: `.claude/commands/mastermind/runorg.md` → `.claude/commands/mastermind/runorgv1.md` (update its Skill() call to `mastermind-skills:runorgv1`)
 - Create: `.claude/skills/mastermind-skills/runorg.md` (new v2 delegator, full content below)
 - Create: `.claude/commands/mastermind/runorg.md` (thin wrapper invoking the new skill)
@@ -350,17 +352,20 @@ no curl emissions, no delivery gaps.
 
 ---
 
-### Task 3: `approve` → `approvev1`, `heartbeat` → `heartbeatv1`
+### Task 3: `approve` → `approvev1`, `heartbeat` → `heartbeatv1`; tag every v1 branch
 
 **Files:**
-- Rename (git mv) both skill files + both command wrappers; update each command wrapper's `Skill()` target; prepend LEGACY headers pointing to the v2 equivalent (approve → dashboard Human Input tab / `question` bus events; heartbeat → send the role a chat message from the dashboard, or `monomind org logs <name>` to inspect).
+- Rename (git mv) both skill files + both command wrappers; update each command wrapper's `Skill()` target; prepend `LEGACY-ORG-V1` headers pointing to the v2 equivalent (approve → dashboard Human Input tab / `question` bus events; heartbeat → send the role a chat message from the dashboard, or `monomind org logs <name>` to inspect).
+- Modify: `orgs.md`, `orgstatus.md`, `stoporg.md`, `org-settings.md` — these stay dual-readers, but every v1-only branch/section (`.loop` handling, `topology` display, v1 field validation) gets a `<!-- LEGACY-ORG-V1: remove this branch when v1 orgs are gone -->` comment immediately above it, and their prose leads with v2 (v1 branches read as the fallback, not the default). `org-settings.md` (the update-org skill) must edit v2 fields (`schedule`, `run_config`, roles) as its primary flow.
 - Mirror into the package copy.
 - Update `master.md`'s routing table row "Review and action pending agent approval requests" → point at `approvev1` with the note "(v1 orgs only — v2 approvals arrive in the dashboard Human Input tab)".
 - Update `help.md` listing accordingly.
 
-- [ ] **Step 1: git mv + LEGACY headers + Skill() retargets**
-- [ ] **Step 2: master.md + help.md routing text updates**
-- [ ] **Step 3: Mirror, verify `diff -rq` clean, commit**
+- [ ] **Step 1: git mv + LEGACY-ORG-V1 headers + Skill() retargets**
+- [ ] **Step 2: Tag v1 branches in the four dual-reader skills; make v2 the leading flow in each**
+- [ ] **Step 3: master.md + help.md routing text updates**
+- [ ] **Step 4: Verify marker coverage: `grep -rl "LEGACY-ORG-V1" .claude | sort` lists exactly: runorgv1 (skill+command), approvev1 (skill+command), heartbeatv1 (skill+command), orgs.md, orgstatus.md, stoporg.md, org-settings.md**
+- [ ] **Step 5: Mirror, verify `diff -rq` clean, commit**
 
 ---
 
