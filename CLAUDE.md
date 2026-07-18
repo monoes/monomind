@@ -44,7 +44,7 @@
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (32 commands)          |
 | `@monomind/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 14 background workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/map/audit/optimize/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server |
-| `@monoes/memory`     | `packages/@monomind/memory/`   | Memory backends — three parallel paths coexist: JSON pattern store (hooks/intelligence trajectory logging), LanceDB + HF-embeddings (`memory-bridge.ts`, backs CLI `memory store/search` and the MCP memory tools), and a standalone pure-JS HNSW index (`hnsw-operations.ts`) |
+| `@monoes/memory`     | `packages/@monomind/memory/`   | Memory backends — JSON pattern store (hooks/intelligence trajectory logging) + local SQLite with embedded vectors (better-sqlite3, sql.js WASM fallback; local HF-embeddings via `memory-bridge.ts` — backs CLI `memory store/search`, the MCP memory tools, and the Second Brain). LanceDB was removed 2026-07 (≈600MB of native deps for no measured value); pure-JS HNSW (`hnsw-operations.ts`) stays dormant as the scale-up path |
 | `@monomind/mcp`      | `packages/@monomind/mcp/`      | MCP server framework (HTTP/WS transport) |
 | `@monomind/routing`  | `packages/@monomind/routing/`  | Semantic routing (embedding + keyword cascade) |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
@@ -190,7 +190,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `status`         | 3   | System status monitoring with watch mode             |
 | `agent`          | 7   | Agent lifecycle (spawn, list, status, stop, metrics, pool, health). Runs in-process — no separate MCP server required |
 | `swarm`          | 6   | Multi-agent swarm coordination. Runs in-process — no separate MCP server required |
-| `memory`         | 12  | Memory store — JSON patterns, LanceDB+embeddings, and standalone HNSW backends |
+| `memory`         | 12  | Memory store — local SQLite + local embeddings (semantic search, keyword fallback); JSON pattern store for hooks/intelligence |
 | `mcp`            | 9   | MCP server management                                |
 | `task`           | 5   | Task creation and lifecycle                          |
 | `session`        | 6   | Session state management (incl. `replay` show/list)  |
@@ -264,7 +264,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 
 ## Project Configuration (Anti-Drift Defaults)
 
-Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: JSON patterns + LanceDB/embeddings + standalone HNSW (see Key Packages table).
+Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: JSON patterns + local SQLite/embeddings (see Key Packages table).
 
 ## Quick Setup
 
