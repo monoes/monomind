@@ -326,8 +326,21 @@ module.exports = {
       // when the server is down or still warming.
       try {
         var sbPrompt = String(prompt || '');
-        // Skip slash commands and trivial prompts — injection would be noise.
-        if (sbPrompt.length >= 12 && sbPrompt.charAt(0) !== '/') {
+        // Skip slash commands and low-content prompts — injection would be
+        // noise. A prompt earns injection only when it carries at least two
+        // substantive terms ("what is next" / "ok go ahead" / "thanks" carry
+        // zero-to-one and must stay quiet; a real question about the project
+        // clears this easily).
+        var _SB_FILLER = new Set(['what', 'whats', 'is', 'are', 'was', 'were', 'the', 'this', 'that', 'these', 'those',
+          'next', 'now', 'then', 'and', 'but', 'for', 'not', 'you', 'your', 'can', 'could', 'should', 'would', 'will',
+          'lets', 'let', 'make', 'made', 'making', 'please', 'okay', 'yes', 'yeah', 'sure', 'thanks', 'thank',
+          'ahead', 'continue', 'proceed', 'more', 'again', 'how', 'why', 'when', 'where', 'who', 'which',
+          'with', 'about', 'from', 'into', 'onto', 'over', 'under', 'all', 'any', 'some', 'one', 'two', 'just',
+          'like', 'want', 'need', 'get', 'got', 'here', 'there', 'still', 'also', 'too', 'very', 'really']);
+        var _sbSubstantive = sbPrompt.toLowerCase().split(/[^a-z0-9]+/).filter(function(t) {
+          return t.length >= 3 && !_SB_FILLER.has(t);
+        });
+        if (_sbSubstantive.length >= 2 && sbPrompt.charAt(0) !== '/') {
           var sbKnowledgeDir = path.join(CWD, '.monomind', 'knowledge');
           if (fs.existsSync(path.join(sbKnowledgeDir, 'chunks.jsonl'))) {
             var sbHits = null;
