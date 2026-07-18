@@ -301,3 +301,48 @@ describe('OrgDaemon — run history & cross-run memory', () => {
     expect(running.agents.get('coder')!.status).not.toBe('running');
   }, 20_000);
 });
+
+describe('OrgDaemon — cross-run org memory (org_recall store side)', () => {
+  it('persists the run outcome into the org memory store when the root passes the bridge path guard', async () => {
+    // Root must be inside cwd — the memory bridge's traversal guard rejects
+    // out-of-tree paths (and the daemon must then skip org memory entirely).
+    const root = mkdtempSync(join(process.cwd(), '.tmp-orgmem-'));
+    try {
+      fixture(root, 'alpha');
+      const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+      const run1 = await d.startOrg('alpha');
+      run1.bus.emit({ type: 'status', from: 'boss', reason: 'org-complete', msg: 'run outcome: achieved', data: { outcome: 'achieved', summary: 'published the pricing report' } });
+      await d.stopOrg('alpha');
+
+      const { bridgeSearchEntries } = await import('../../src/memory/memory-bridge.js');
+      const res = await bridgeSearchEntries({
+        query: 'pricing report outcome',
+        namespace: 'org:alpha',
+        dbPath: join(root, '.monomind', 'org-memory'),
+        limit: 5,
+      });
+      const contents = (res?.results ?? []).map(r => r.content).join('\n');
+      expect(contents).toContain('published the pricing report');
+      expect(contents).toContain('achieved');
+    } finally {
+      const { rmSync } = await import('node:fs');
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 120_000);
+
+  it('skips org memory (no misrouted writes) when the org root is outside the guard-allowed trees', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-orgmem-'));
+    try {
+      fixture(root, 'alpha');
+      const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+      const run1 = await d.startOrg('alpha');
+      run1.bus.emit({ type: 'status', from: 'boss', reason: 'org-complete', msg: 'x', data: { outcome: 'achieved', summary: 'should not be stored' } });
+      await d.stopOrg('alpha');
+      const { existsSync } = await import('node:fs');
+      expect(existsSync(join(root, '.monomind', 'org-memory', 'memory.db'))).toBe(false);
+    } finally {
+      const { rmSync } = await import('node:fs');
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 60_000);
+});
