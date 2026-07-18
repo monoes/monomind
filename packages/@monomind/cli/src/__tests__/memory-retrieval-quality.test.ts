@@ -250,9 +250,29 @@ describe('global second brain (cross-project store)', () => {
       // provenance: the global hit points at the actual source file
       expect(gOnly[0].filePath).toBe(gDoc);
     } finally {
+      // The project-scope ingest stored into the CWD-keyed project store —
+      // delete it so repo-level injection never surfaces test espresso notes.
+      try {
+        const { createHash } = await import('node:crypto');
+        const { readFileSync } = await import('node:fs');
+        const { bridgeDeleteEntry } = await import('../memory/memory-bridge.js');
+        const h = createHash('sha256').update(readFileSync(join(projRoot, 'project-note.md'), 'utf8')).digest('hex');
+        await bridgeDeleteEntry({ key: `doc:${h}:0`, namespace: 'knowledge:shared' });
+      } catch { /* best effort */ }
       delete process.env.MONOMIND_GLOBAL_BRAIN_DIR;
       rmSync(globalDir, { recursive: true, force: true });
       rmSync(projRoot, { recursive: true, force: true });
     }
   }, 300_000);
+
+  it('org daemon knowledge_search reports cleanly when no documents match', async () => {
+    const { OrgDaemon } = await import('../orgrt/daemon.js');
+    const root = mkdtempSync(join(process.cwd(), '.tmp-orgkn-'));
+    try {
+      const d = new OrgDaemon(root, { forward: false });
+      const res = await d.searchProjectKnowledge('completely unmatchable zzqx query about nothing');
+      expect(res.hits).toBe(0);
+      expect(res.text).toMatch(/No matching documents/);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }, 60_000);
 });

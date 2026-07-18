@@ -1035,6 +1035,41 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           .catch(() => { /* warm-up is best-effort */ });
       }, 3000);
       if (_warmTimer.unref) _warmTimer.unref();
+
+      // ── Second Brain live ingestion ──────────────────────────────────
+      // This server is the one long-lived local process AND holds the warm
+      // embedding model — so it watches for document changes and ingests
+      // in-process within seconds, instead of waiting for the next session
+      // start. Best-effort: recursive fs.watch is unsupported on some
+      // platforms/volumes; the session-start reindex remains the backstop.
+      try {
+        const _sbDocExts = new Set(['.md', '.txt', '.pdf', '.docx']);
+        const _sbSkip = /(^|\/)(node_modules|\.git|dist|\.monomind|\.claude|\.next|__pycache__|\.venv|vendor)(\/|$)/;
+        const _sbPending = new Map(); // file -> debounce timer
+        const _sbRoot = path.resolve(projectDir || process.cwd());
+        const _sbWatcher = fs.watch(_sbRoot, { recursive: true }, (_evt, rel) => {
+          try {
+            if (!rel) return;
+            const relStr = String(rel);
+            if (_sbSkip.test(relStr) || relStr.startsWith('.')) return;
+            if (!_sbDocExts.has(path.extname(relStr).toLowerCase())) return;
+            const full = path.join(_sbRoot, relStr);
+            clearTimeout(_sbPending.get(full));
+            _sbPending.set(full, setTimeout(async () => {
+              _sbPending.delete(full);
+              try {
+                if (!fs.existsSync(full)) return; // deleted — session-start reindex handles removal
+                const pipeline = await import('../knowledge/document-pipeline.js');
+                const r = await pipeline.ingestDocument(full, 'shared', _sbRoot);
+                if (r.chunksIndexed > 0 && !r.skipped) {
+                  console.log(`[knowledge] live-ingested ${path.basename(full)} (${r.chunksIndexed} chunks)`);
+                }
+              } catch (_) { /* single-file ingest failure never matters here */ }
+            }, 5000));
+          } catch (_) { /* watcher callback must never throw */ }
+        });
+        activeWatchers.push(_sbWatcher);
+      } catch (_) { /* recursive watch unavailable — session-start reindex covers it */ }
     }
   } catch (_) { /* non-fatal */ }
 
