@@ -10,6 +10,7 @@
 
 import { EventEmitter } from 'node:events';
 import Database from 'better-sqlite3';
+import { cosineSimilarity } from './math-utils.js';
 import {
   IMemoryBackend,
   MemoryEntry,
@@ -474,12 +475,32 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     embedding: Float32Array,
     options: SearchOptions
   ): Promise<SearchResult[]> {
-    // SQLite is not optimized for vector search
-    // This method returns empty to encourage use of HybridBackend
-    console.warn(
-      'SQLiteBackend.search(): Vector search not optimized. Use HybridBackend for semantic search.'
-    );
-    return [];
+    this.ensureInitialized();
+
+    // Brute-force cosine over stored embeddings, namespace-scoped in SQL.
+    // At second-brain scale (10^3–10^5 vectors of 384 dims) this is a few
+    // tens of ms; swap in the HNSW index if a profiled workload outgrows it.
+    const ns = options.filters?.namespace;
+    const rows = this.db!.prepare(`
+      SELECT e.*, emb.embedding AS _emb
+      FROM memory_entries e
+      JOIN memory_embeddings emb ON emb.entry_id = e.id
+      ${ns ? 'WHERE e.namespace = ?' : ''}
+    `).all(...(ns ? [ns] : [])) as any[];
+
+    const results: SearchResult[] = [];
+    for (const row of rows) {
+      const buf: Buffer = row._emb;
+      if (!buf || buf.byteLength % 4 !== 0) continue;
+      const vec = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+      if (vec.length !== embedding.length) continue;
+      const similarity = cosineSimilarity(embedding, vec);
+      if (options.threshold !== undefined && similarity < options.threshold) continue;
+      delete row._emb;
+      results.push({ entry: this.rowToEntry(row), score: similarity, distance: 1 - similarity });
+    }
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, options.k);
   }
 
   /**
