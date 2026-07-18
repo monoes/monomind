@@ -1013,6 +1013,31 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
   // (not per-request inside the request handler below) since both only
   // close over per-server-start state (dashboardAuthValue) plus their
   // explicit req/res/corsOrigin params. ──────────────────────────────────
+  // ── Second Brain warm bridge: lazy singleton import of the compiled memory
+  // bridge (loads the local embedding model once for the server's lifetime).
+  // Boot-warmed below only when this project actually has a knowledge base.
+  let _knowledgeBridgePromise = null;
+  const _getKnowledgeBridge = () => {
+    if (!_knowledgeBridgePromise) {
+      _knowledgeBridgePromise = import('../memory/memory-bridge.js').catch((err) => {
+        _knowledgeBridgePromise = null; // allow retry on next request
+        if (process.env.MONOMIND_DEBUG) console.error('[knowledge] bridge import failed:', err.message);
+        return null;
+      });
+    }
+    return _knowledgeBridgePromise;
+  };
+  try {
+    if (fs.existsSync(path.join(projectDir || process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl'))) {
+      // Warm off the startup path: first hook request should hit a hot model.
+      const _warmTimer = setTimeout(() => {
+        _getKnowledgeBridge().then(b => b?.bridgeSearchEntries?.({ query: 'warmup', namespace: 'knowledge:shared', limit: 1 }))
+          .catch(() => { /* warm-up is best-effort */ });
+      }, 3000);
+      if (_warmTimer.unref) _warmTimer.unref();
+    }
+  } catch (_) { /* non-fatal */ }
+
   const _checkAuth = (req) => {
     let _suppliedAuth = req.headers['x-monomind-token'] || '';
     if (!_suppliedAuth) {
@@ -5885,6 +5910,46 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       } catch(err) {
         res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
       }
+      return;
+    }
+
+    // POST /api/knowledge/search — warm semantic knowledge search for hooks.
+    // The dashboard server is the one long-lived process on the machine, so it
+    // holds the local embedding model warm; per-prompt hook subprocesses (which
+    // cannot afford a model load) POST here and fall back to keyword scoring
+    // when this endpoint is cold/absent. Fully local — model + store on disk.
+    if (req.method === 'POST' && url === '/api/knowledge/search') {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', async () => {
+        try {
+          const payload = JSON.parse(body || '{}');
+          const query = String(payload.query || '').slice(0, 2000);
+          const limit = Math.min(Math.max(parseInt(payload.limit, 10) || 3, 1), 10);
+          const namespace = typeof payload.namespace === 'string' && /^[A-Za-z0-9:_-]{1,128}$/.test(payload.namespace)
+            ? payload.namespace : 'knowledge:shared';
+          if (!query) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end('{"error":"query required"}');
+            return;
+          }
+          const bridge = await _getKnowledgeBridge();
+          if (!bridge) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end('{"error":"knowledge bridge unavailable"}');
+            return;
+          }
+          const out = await bridge.bridgeSearchEntries({ query, namespace, limit });
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.end(JSON.stringify({
+            method: out?.searchMethod || 'none',
+            results: (out?.results || []).map(r => ({ key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score })),
+          }));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
       return;
     }
 
