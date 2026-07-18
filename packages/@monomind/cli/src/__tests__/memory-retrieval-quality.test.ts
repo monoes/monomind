@@ -213,3 +213,46 @@ describe('memory retrieval quality (Second Brain golden set)', () => {
     }
   }, 600_000);
 });
+
+describe('global second brain (cross-project store)', () => {
+  it('global-scope ingest routes to the global store; merged search finds it with [global] scope and project wins ties', async () => {
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    // Env-overridden global brain — never touches the user's real one.
+    const globalDir = join(process.cwd(), '.tmp-global-brain-' + process.pid);
+    process.env.MONOMIND_GLOBAL_BRAIN_DIR = globalDir;
+    const projRoot = mkdtempSync(join(process.cwd(), '.tmp-proj-root-'));
+    try {
+      const { ingestDocument, searchKnowledge } = await import('../knowledge/document-pipeline.js');
+      // one doc only in the global brain
+      const gDoc = join(projRoot, 'global-note.md');
+      writeFileSync(gDoc, '# Espresso dialing\n\nSour shots need a finer grind; bitter shots need a coarser grind. Aim for 1:2 in 27 seconds.');
+      const gRes = await ingestDocument(gDoc, 'global');
+      expect(gRes.chunksIndexed).toBeGreaterThan(0);
+      // an identical-topic doc in the project store
+      mkdirSync(join(projRoot, '.monomind'), { recursive: true });
+      const pDoc = join(projRoot, 'project-note.md');
+      writeFileSync(pDoc, '# Espresso dialing\n\nSour shots need a finer grind; bitter shots need a coarser grind. Aim for 1:2 in 27 seconds.');
+      const pRes = await ingestDocument(pDoc, 'shared', projRoot);
+      expect(pRes.chunksIndexed).toBeGreaterThan(0);
+
+      // merged search sees both; identical content → project must rank first (tie boost)
+      const all = await searchKnowledge('adjusting espresso grind for sour shots', { rootDir: projRoot, limit: 5, minScore: 0.1, store: 'all' });
+      expect(all.length).toBeGreaterThanOrEqual(2);
+      const scopes = all.map(e => e.scope);
+      expect(scopes).toContain('global');
+      expect(scopes).toContain('shared');
+      expect(all[0].scope).toBe('shared'); // project wins the tie
+
+      // global-only search excludes project results
+      const gOnly = await searchKnowledge('espresso grind', { rootDir: projRoot, limit: 5, minScore: 0.1, store: 'global' });
+      expect(gOnly.every(e => e.scope === 'global')).toBe(true);
+      expect(gOnly.length).toBeGreaterThan(0);
+      // provenance: the global hit points at the actual source file
+      expect(gOnly[0].filePath).toBe(gDoc);
+    } finally {
+      delete process.env.MONOMIND_GLOBAL_BRAIN_DIR;
+      rmSync(globalDir, { recursive: true, force: true });
+      rmSync(projRoot, { recursive: true, force: true });
+    }
+  }, 300_000);
+});
