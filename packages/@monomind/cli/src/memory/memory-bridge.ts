@@ -99,8 +99,8 @@ export function bridgeGetDbPath(customPath?: string): string {
   return getDbPath(customPath);
 }
 
-function getAutomemConfig(): { dedupThreshold: number; staleDays: number } {
-  const defaults = { dedupThreshold: 0.85, staleDays: 7 };
+function getAutomemConfig(): { dedupThreshold: number; staleDays: number; feedbackInfluence: number } {
+  const defaults = { dedupThreshold: 0.85, staleDays: 7, feedbackInfluence: 0.2 };
   try {
     const configPath = path.join(process.cwd(), '.monomind', 'automem-config.json');
     if (!fs.existsSync(configPath)) return defaults;
@@ -110,8 +110,42 @@ function getAutomemConfig(): { dedupThreshold: number; staleDays: number } {
     return {
       dedupThreshold: typeof config?.scaffold?.dedupThreshold === 'number' ? config.scaffold.dedupThreshold : defaults.dedupThreshold,
       staleDays: typeof config?.scaffold?.staleDays === 'number' ? config.scaffold.staleDays : defaults.staleDays,
+      feedbackInfluence: typeof config?.scaffold?.feedbackInfluence === 'number'
+        ? Math.max(0, Math.min(1, config.scaffold.feedbackInfluence)) : defaults.feedbackInfluence,
     };
   } catch { return defaults; }
+}
+
+// ===== Usage/feedback weights (cognee-style, stored in entry metadata) =====
+//
+// feedback_weight (0..1, default 0.5): EWMA of explicit/auto ratings applied to
+// the entries actually used to produce an answer. frequency_weight (>=0): how
+// often the entry was returned by a search. Both live in the entry's metadata
+// JSON — deliberately NOT backend schema columns, so no @monoes/memory publish
+// is needed and both backends work unchanged.
+
+const DEFAULT_FEEDBACK_WEIGHT = 0.5;
+const FEEDBACK_EWMA_ALPHA = 0.1;
+/** frequency_weight normalization ceiling: 10+ uses counts as fully reinforced. */
+const FREQUENCY_NORM_CAP = 10;
+
+function entryWeights(metadata: unknown): { feedback: number; frequency: number } {
+  const md = (metadata ?? {}) as Record<string, unknown>;
+  const fw = typeof md.feedback_weight === 'number' && Number.isFinite(md.feedback_weight)
+    ? Math.max(0, Math.min(1, md.feedback_weight)) : DEFAULT_FEEDBACK_WEIGHT;
+  const freq = typeof md.frequency_weight === 'number' && Number.isFinite(md.frequency_weight)
+    ? Math.max(0, md.frequency_weight) : 0;
+  return { feedback: fw, frequency: freq };
+}
+
+/** Blend learned usefulness into a GENUINE embedding-similarity score.
+ *  Cognee guard: never applied to keyword-fallback scores — those carry no
+ *  real relevance signal, and blending there lets a high-feedback stale entry
+ *  outrank relevant matches and self-reinforce (rich-get-richer). */
+function blendScore(cosineSim: number, weights: { feedback: number; frequency: number }, influence: number): number {
+  if (influence <= 0) return cosineSim;
+  const usefulness = 0.7 * weights.feedback + 0.3 * Math.min(1, weights.frequency / FREQUENCY_NORM_CAP);
+  return (1 - influence) * cosineSim + influence * usefulness;
 }
 
 function generateId(prefix: string): string {
@@ -325,6 +359,9 @@ export async function bridgeStoreEntry(options: {
           filters: { type: 'exact', namespace },
         });
         if (similar.length > 0 && similar[0].score >= automemCfg.dedupThreshold) {
+          // Re-storing near-identical content is a usage signal: the fact keeps
+          // being worth remembering. Reinforce the surviving entry.
+          await recordUsageOnBackend(backend, [similar[0].entry.id]).catch(() => { /* best effort */ });
           return { success: true, id: similar[0].entry.id, duplicate: true };
         }
       } catch { /* non-fatal — store anyway */ }
@@ -386,16 +423,22 @@ export async function bridgeSearchEntries(options: {
           threshold,
           filters: namespace ? { type: 'exact', namespace } : undefined,
         });
-        results = searchResults.map((r: any) => ({
-          id: r.entry.id,
-          key: r.entry.key,
-          content: r.entry.content || '',
-          score: r.score,
-          namespace: r.entry.namespace,
-          provenance: `semantic:${r.score.toFixed(3)}`,
-          tags: r.entry.tags ?? [],
-          _createdAt: r.entry.createdAt || 0,
-        }));
+        const { feedbackInfluence } = getAutomemConfig();
+        results = searchResults.map((r: any) => {
+          const weights = entryWeights(r.entry.metadata);
+          // Blend only here (semantic path): r.score is a genuine cosine similarity.
+          const blended = blendScore(r.score, weights, feedbackInfluence);
+          return {
+            id: r.entry.id,
+            key: r.entry.key,
+            content: r.entry.content || '',
+            score: blended,
+            namespace: r.entry.namespace,
+            provenance: `semantic:${r.score.toFixed(3)}${blended !== r.score ? `→${blended.toFixed(3)}` : ''}`,
+            tags: r.entry.tags ?? [],
+            _createdAt: r.entry.createdAt || 0,
+          };
+        }).sort((a: any, b: any) => b.score - a.score);
         searchMethod = 'semantic';
       } catch { /* fall through to keyword search */ }
     }
@@ -445,12 +488,15 @@ export async function bridgeSearchEntries(options: {
     // forever) — keying it on the query's namespace filter meant an
     // all-namespace search silently dropped knowledge:* results past the
     // stale cutoff.
-    const isKnowledgeNs = namespace?.startsWith('knowledge:');
+    // org:* (cross-run org memory) and rules are durable learned state like
+    // documents — the stale cliff silently erased org recall after a week.
+    const durableNs = (ns: string) => ns.startsWith('knowledge:') || ns.startsWith('org:') || ns === 'rules';
+    const isKnowledgeNs = namespace ? durableNs(namespace) : false;
     if (!isKnowledgeNs) {
       const { staleDays } = getAutomemConfig();
       const staleCutoff = Date.now() - staleDays * 86400000;
       results = results.filter((r: any) =>
-        String(r.namespace ?? '').startsWith('knowledge:')
+        durableNs(String(r.namespace ?? ''))
         || !r._createdAt || r._createdAt > staleCutoff);
     }
     results.forEach((r: any) => delete r._createdAt);
@@ -833,6 +879,97 @@ export async function bridgeSearchPatterns(options: {
   };
 }
 
+// ===== Usage capture & feedback weighting (closed loop) =====
+
+async function recordUsageOnBackend(backend: any, entryIds: string[]): Promise<number> {
+  let updated = 0;
+  for (const id of entryIds) {
+    if (typeof id !== 'string' || !id) continue;
+    try {
+      const entry = await backend.get(id);
+      if (!entry) continue;
+      const { frequency } = entryWeights(entry.metadata);
+      await backend.update(id, {
+        metadata: { frequency_weight: frequency + 1 },
+        lastAccessedAt: Date.now(),
+      });
+      updated++;
+    } catch { /* skip unreadable entries */ }
+  }
+  return updated;
+}
+
+/** Record that these entries were actually USED (returned to and consumed by a
+ *  caller) — increments frequency_weight, which feeds the ranking blend. */
+export async function bridgeRecordUsage(options: {
+  entryIds: string[];
+  dbPath?: string;
+}): Promise<{ success: boolean; updated: number } | null> {
+  const backend = await getBackend(options.dbPath);
+  if (!backend) return null;
+  try {
+    const updated = await recordUsageOnBackend(backend, (options.entryIds ?? []).slice(0, 100));
+    if (updated) await flushBackend(backend);
+    return { success: true, updated };
+  } catch {
+    return { success: false, updated: 0 };
+  }
+}
+
+/** Apply a usefulness rating to the entries that produced an answer:
+ *  EWMA feedback_weight' = w + alpha*(score - w), clipped [0,1] (cognee's
+ *  apply_feedback_weights). `ledgerKey` makes application idempotent — a
+ *  daemon retry or duplicate MCP call must never compound the update. */
+export async function bridgeApplyFeedback(options: {
+  entryIds: string[];
+  score: number; // 0..1 usefulness
+  ledgerKey?: string;
+  alpha?: number;
+  dbPath?: string;
+}): Promise<{ success: boolean; applied: number; alreadyApplied?: boolean; error?: string } | null> {
+  const backend = await getBackend(options.dbPath);
+  if (!backend) return null;
+
+  try {
+    const score = Math.max(0, Math.min(1, options.score));
+    const alpha = typeof options.alpha === 'number' ? Math.max(0, Math.min(1, options.alpha)) : FEEDBACK_EWMA_ALPHA;
+    const ledgerEntryKey = options.ledgerKey ? `applied_${options.ledgerKey.slice(0, 500)}` : null;
+
+    if (ledgerEntryKey) {
+      const existing = await backend.getByKey('feedback', ledgerEntryKey).catch(() => null);
+      if (existing) return { success: true, applied: 0, alreadyApplied: true };
+    }
+
+    let applied = 0;
+    for (const id of (options.entryIds ?? []).slice(0, 100)) {
+      if (typeof id !== 'string' || !id) continue;
+      try {
+        const entry = await backend.get(id);
+        if (!entry) continue;
+        const { feedback } = entryWeights(entry.metadata);
+        const next = Math.max(0, Math.min(1, feedback + alpha * (score - feedback)));
+        await backend.update(id, { metadata: { feedback_weight: next } });
+        applied++;
+      } catch { /* skip unreadable entries */ }
+    }
+
+    if (ledgerEntryKey) {
+      await bridgeStoreEntry({
+        key: ledgerEntryKey,
+        value: JSON.stringify({ score, entryIds: options.entryIds.slice(0, 100), appliedAt: Date.now(), applied }),
+        namespace: 'feedback',
+        generateEmbeddingFlag: false,
+        dbPath: options.dbPath,
+        upsert: true,
+      });
+    }
+    if (applied) await flushBackend(backend);
+    return { success: true, applied };
+  } catch (err: any) {
+    return { success: false, applied: 0, error: String(err?.message ?? err) };
+  }
+}
+
 // ===== Feedback =====
 
 export async function bridgeRecordFeedback(options: {
@@ -1037,30 +1174,46 @@ export async function bridgeHierarchicalRecall(params: {
 
 // ===== Consolidation =====
 
+/** Namespaces GC must never touch: durable knowledge/org/rule state, and the
+ *  feedback ledger (deleting it would un-idempotent past ratings). */
+const GC_PROTECTED_NS = /^(knowledge:|org:|rules$|feedback$)/;
+
 export async function bridgeConsolidate(params: {
+  /** Minimum age in MILLISECONDS since last update (default 7 days). */
   minAge?: number;
   maxEntries?: number;
+  /** Namespace to GC; 'all' scans every non-protected namespace (default 'default'). */
+  namespace?: string;
+  dbPath?: string;
 }): Promise<any> {
-  const backend = await getBackend();
+  const backend = await getBackend(params.dbPath);
   if (!backend) return { success: false, consolidated: 0 };
 
   try {
     const minAge = params.minAge ?? 7 * 24 * 3600 * 1000; // default: 7 days
     const cutoff = Date.now() - minAge;
+    const ns = params.namespace ?? 'default';
     const entries = await backend.query({
       type: 'exact' as any,
-      namespace: 'default',
+      ...(ns === 'all' ? {} : { namespace: ns }),
       limit: params.maxEntries ?? 1000,
     });
     let deleted = 0;
+    let kept = 0;
     for (const e of entries) {
-      if (e.updatedAt < cutoff && e.accessCount === 0) {
+      if (GC_PROTECTED_NS.test(String(e.namespace ?? ''))) continue;
+      if (e.updatedAt >= cutoff) continue;
+      const { feedback, frequency } = entryWeights(e.metadata);
+      // Weight-aware GC (first real consumer of the closed loop): entries the
+      // system learned are useful never age out; unused, unrated ones do.
+      if (feedback > 0.6 || frequency >= 3) { kept++; continue; }
+      if ((e.accessCount ?? 0) === 0) {
         await backend.delete(e.id).catch(() => { /* non-fatal */ });
         deleted++;
       }
     }
     if (deleted) await flushBackend(backend);
-    return { success: true, consolidated: deleted };
+    return { success: true, consolidated: deleted, preserved: kept };
   } catch {
     return { success: false, consolidated: 0 };
   }

@@ -55,6 +55,8 @@ export class OrgDaemon {
   private globalSubscribers = new Set<(e: BusEvent) => void>();
   private leases = new Map<string, BrokerLease>();
   private forwarders = new Map<string, ReturnType<typeof attachForwarder>>();
+  private watchdogs = new Map<string, ReturnType<typeof setInterval>>();
+  private stopping = new Map<string, Promise<void>>();
 
   constructor(private root: string, private opts: DaemonOpts = {}) {}
 
@@ -89,9 +91,24 @@ export class OrgDaemon {
     // Write's captured content snapshot alone can be up to 200KB (policy.ts).
     const MAX_COLLECTED = 5000;
     const collected: BusEvent[] = [];
+    let lastActivity = Date.now();
     bus.subscribe(e => {
       collected.push(e);
       if (collected.length > MAX_COLLECTED) collected.splice(0, collected.length - MAX_COLLECTED);
+      // The watchdog's own nudge event must not count as org activity, or a
+      // hung boss would never trip the "nudge produced no activity" stop.
+      if (e.reason !== 'idle-nudge') lastActivity = Date.now();
+      // org_complete IS the end of the run — self-stop instead of sitting
+      // "running" forever after a recorded outcome. Deferred (unref'd) so the
+      // tool call's receipt reaches the boss and its final turn text still
+      // lands on the bus before mailboxes close; stopOrg is reentrant-safe
+      // against a concurrent manual stop.
+      if (e.type === 'status' && e.reason === 'org-complete') {
+        const t = setTimeout(() => {
+          this.stopOrg(name).catch(err => console.error(`org ${name}: auto-stop after org_complete failed:`, err instanceof Error ? err.message : err));
+        }, 1000);
+        (t as { unref?: () => void }).unref?.();
+      }
       for (const fn of this.globalSubscribers) fn(e);
     });
     if (this.opts.forward !== false)
@@ -197,6 +214,47 @@ export class OrgDaemon {
       `Coordinate your team via org_send. When the goal is achieved (or clearly can't be), record it with org_complete, then end your turn.${prevBrief}`);
     bus.emit({ type: 'status', msg: `org started (${def.roles.length} agents)`, data: { goal: taskOverride ?? def.goal } });
     this.persistState(name, 'running', run);
+
+    // Idle watchdog: a hung tool call (or a run that quietly finished without
+    // org_complete) produces no bus events, and every agent just waits. After
+    // idle_minutes of silence, nudge the boss to complete or reassign; if the
+    // nudge itself produces no activity (boss hung/crashed), or the org keeps
+    // going idle after MAX_IDLE_NUDGES nudges, stop the run instead of letting
+    // it freeze forever. idle_minutes: 0 disables.
+    const idleMs = (def.run_config.idle_minutes ?? 10) * 60_000;
+    if (idleMs > 0) {
+      const MAX_IDLE_NUDGES = 3;
+      let nudgedAt = 0;
+      let nudges = 0;
+      const idleStop = (msg: string): void => {
+        bus.emit({ type: 'audit', reason: 'idle-stop', msg });
+        this.stopOrg(name).catch(err => console.error(`org ${name}: idle-stop failed:`, err instanceof Error ? err.message : err));
+      };
+      const wd = setInterval(() => {
+        const idleFor = Date.now() - lastActivity;
+        if (idleFor < idleMs) { nudgedAt = 0; return; }
+        if (nudgedAt === 0) {
+          if (nudges >= MAX_IDLE_NUDGES) {
+            idleStop(`org idle again after ${nudges} nudges — stopping run`);
+            return;
+          }
+          const bossRt = running.agents.get(bossRole.id);
+          if (!bossRt || bossRt.status !== 'running' || bossRt.mailbox.isClosed) {
+            idleStop(`org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is unreachable — stopping run`);
+            return;
+          }
+          nudges++; nudgedAt = Date.now();
+          bus.emit({ type: 'audit', from: bossRole.id, reason: 'idle-nudge', msg: `no org activity for ${Math.round(idleFor / 60_000)}m — nudging boss (${nudges}/${MAX_IDLE_NUDGES})` });
+          bossRt.mailbox.push(
+            `[watchdog] No activity in org "${name}" for ${Math.round(idleFor / 60_000)} minute(s). ` +
+            `If the goal is achieved (or clearly can't be), call org_complete now. Otherwise check on your team via org_send and reassign stalled work.`);
+        } else if (Date.now() - nudgedAt >= idleMs) {
+          idleStop(`nudge produced no activity for another ${Math.round(idleMs / 60_000)}m — boss appears hung, stopping run`);
+        }
+      }, Math.max(200, Math.min(idleMs / 2, 30_000)));
+      (wd as { unref?: () => void }).unref?.();
+      this.watchdogs.set(name, wd);
+    }
 
     if (this.opts.crossProcess && this.opts.inboxUrl) {
       const lease = new BrokerLease(name, this.opts.inboxUrl, this.opts.brokerDir);
@@ -418,18 +476,33 @@ export class OrgDaemon {
   }
 
   async stopOrg(name: string): Promise<void> {
+    // Join an in-flight stop instead of no-oping: the self-stop paths
+    // (org_complete, idle watchdog) run detached, and a caller like
+    // `org run`'s final stopAll() must not resolve — letting the process
+    // exit — while that stop is still flushing the bus and writing
+    // history/runtime.json.
+    const inflight = this.stopping.get(name);
+    if (inflight) return inflight;
     const org = this.orgs.get(name);
-    if (!org) return; // already stopped, or another concurrent stopOrg() call is handling it
+    if (!org) return; // already stopped
     // Remove immediately (not at the end) so a concurrent stopOrg(name) call —
-    // e.g. stopAll() racing a scheduler-triggered stop on SIGINT — sees the org
-    // is already gone and no-ops instead of re-running the whole shutdown and
+    // e.g. stopAll() racing a scheduler-triggered stop on SIGINT — joins this
+    // shutdown via `stopping` instead of re-running the whole sequence and
     // double-emitting 'org stopped' (duplicate org:complete/session:complete).
     this.orgs.delete(name);
+    const p = this.finishStop(name, org);
+    this.stopping.set(name, p);
+    try { await p; } finally { this.stopping.delete(name); }
+  }
+
+  private async finishStop(name: string, org: RunningOrg): Promise<void> {
     // Capture THIS run's forwarder now: an autoWake-restart of the same org
     // during the long tail below (agent wait, flush, history write) would
     // register a NEW forwarder under the same name — settling/unsubscribing
     // that one would sever the new run's dashboard stream.
     const forwarder = this.forwarders.get(name);
+    const wd = this.watchdogs.get(name);
+    if (wd) { clearInterval(wd); this.watchdogs.delete(name); }
     this.leases.get(name)?.stop();
     this.leases.delete(name);
     for (const a of org.agents.values()) a.mailbox.close();
@@ -484,7 +557,10 @@ export class OrgDaemon {
   }
 
   async stopAll(): Promise<void> {
-    await Promise.all([...this.orgs.keys()].map(n => this.stopOrg(n)));
+    await Promise.all([
+      ...[...this.orgs.keys()].map(n => this.stopOrg(n)),
+      ...this.stopping.values(), // detached self-stops still flushing
+    ]);
   }
 
   private orgMemoryNamespace(name: string, def: OrgDef): string {
@@ -513,18 +589,31 @@ export class OrgDaemon {
     } catch { return false; }
   }
 
+  /** Entry IDs served by org_recall during the current run, per org. This is
+   *  the usage record the run-outcome auto-rating consumes (cognee's
+   *  used_graph_element_ids pattern) — recall renders text to the agent, so
+   *  the IDs must be captured here or they're gone. */
+  private recallUsage = new Map<string, Set<string>>();
+
   /** org_recall implementation: search the org's memory namespace via the
    *  memory bridge (semantic when the local model is available, tokenized
    *  keyword otherwise). Failures return a message, never throw into the tool. */
   private async recallOrgMemory(name: string, def: OrgDef, query: string): Promise<{ text: string; hits: number }> {
     try {
       if (!(await this.orgMemoryUsable())) return { text: 'org memory is not available in this environment.', hits: 0 };
-      const { bridgeSearchEntries } = await import('../memory/memory-bridge.js');
-      const res = await bridgeSearchEntries({
+      const bridge = await import('../memory/memory-bridge.js');
+      const res = await bridge.bridgeSearchEntries({
         query, namespace: this.orgMemoryNamespace(name, def), limit: 5, dbPath: this.orgMemoryDbPath(),
       });
       const results = res?.results ?? [];
       if (!results.length) return { text: 'No matching org memory found — this may be the first run covering this topic.', hits: 0 };
+      const ids = results.map(r => r.id).filter(Boolean);
+      let used = this.recallUsage.get(name);
+      if (!used) { used = new Set(); this.recallUsage.set(name, used); }
+      for (const id of ids) used.add(id);
+      // Frequency reinforcement is immediate; the feedback rating waits for the
+      // run outcome (positive-only — see storeRunMemory).
+      bridge.bridgeRecordUsage({ entryIds: ids, dbPath: this.orgMemoryDbPath() }).catch(() => { /* best effort */ });
       const text = results.map((r, i) => `${i + 1}. [${r.key}] ${r.content}`).join('\n\n');
       return { text, hits: results.length };
     } catch (err) {
@@ -572,6 +661,22 @@ export class OrgDaemon {
         dbPath: this.orgMemoryDbPath(),
         upsert: true,
       });
+
+      // Auto-rate the memories this run recalled — POSITIVE-ONLY: a failed run
+      // proves nothing about the recalled memories (the failure may be entirely
+      // unrelated), so failure never rates them down. Idempotent per run via
+      // the feedback ledger, so a retried stopOrg can't double-apply.
+      const used = this.recallUsage.get(name);
+      this.recallUsage.delete(name);
+      if (used?.size && summary.outcome?.status === 'achieved') {
+        const { bridgeApplyFeedback } = await import('../memory/memory-bridge.js');
+        await bridgeApplyFeedback({
+          entryIds: [...used],
+          score: 0.9,
+          ledgerKey: `org-${name}-${run}`,
+          dbPath: this.orgMemoryDbPath(),
+        }).catch(() => { /* best effort */ });
+      }
     } catch (err) {
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`org ${name}: run memory store failed:`, err instanceof Error ? err.message : err);
     }

@@ -6068,9 +6068,17 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             scope !== 'project' ? bridge.bridgeSearchEntries({ query, namespace: 'knowledge:global', limit, dbPath: '@global' }).catch(() => null) : null,
           ]);
           const merged = [
-            ...(proj?.results || []).map(r => ({ key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags })),
-            ...(glob?.results || []).map(r => ({ key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: true, tags: r.tags })),
+            ...(proj?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags })),
+            ...(glob?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: true, tags: r.tags })),
           ].sort((a, b) => b.score - a.score).slice(0, limit);
+          // Served excerpts are (very likely) injected into the caller's prompt —
+          // that IS usage. Reinforce frequency_weight, per-store, fire-and-forget.
+          try {
+            const projIds = merged.filter(m => !m.global && m.id).map(m => m.id);
+            const globIds = merged.filter(m => m.global && m.id).map(m => m.id);
+            if (projIds.length) bridge.bridgeRecordUsage?.({ entryIds: projIds }).catch(() => {});
+            if (globIds.length) bridge.bridgeRecordUsage?.({ entryIds: globIds, dbPath: '@global' }).catch(() => {});
+          } catch { /* best effort */ }
           res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({
             method: proj?.searchMethod || glob?.searchMethod || 'none',
