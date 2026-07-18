@@ -19,6 +19,7 @@ import {
   checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory,
   checkHelpersFresh, fixStaleHelpers, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
   checkAgentRegistry, checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
+  checkSecondBrainModel,
 } from './doctor-project-checks.js';
 import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
 
@@ -81,6 +82,7 @@ export const doctorCommand: Command = {
       checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
       checkGuidanceGates, checkAgentRegistry, checkGit, checkApiKeys,
       checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
+      checkSecondBrainModel,
     ];
     const codeOnlyChecks: (() => Promise<HealthCheck>)[] = [
       checkGitRepo, checkMcpServers,
@@ -96,6 +98,7 @@ export const doctorCommand: Command = {
       node: checkNodeVersion, npm: checkNpmVersion, claude: checkClaudeCode,
       config: checkConfigFile, memory: checkMemoryDatabase,
       api: checkApiKeys, git: checkGit, mcp: checkMcpServers, disk: checkDiskSpace,
+      'second-brain': checkSecondBrainModel,
       typescript: checkBuildTools, monograph: checkMonograph,
       'graph-freshness': checkMonographFreshness, 'memory-pkg': checkMonoesMemory,
       helpers: checkHelpersFresh, monoes: checkMonoesIntegration,

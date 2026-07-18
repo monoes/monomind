@@ -98,9 +98,9 @@ describe('doctorCommand', () => {
     expect(typeof r.success).toBe('boolean');
     const data = resultData(result);
     expect(Array.isArray(data.results)).toBe(true);
-    // alwaysOnChecks (18) + codeOnlyChecks (5) — no fingerprint present, so
+    // alwaysOnChecks (19) + codeOnlyChecks (5) — no fingerprint present, so
     // isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(23);
+    expect(data.results.length).toBe(24);
     expect(data.passed + data.warnings + data.failed).toBe(data.results.length);
     for (const check of data.results) {
       expect(typeof check.name).toBe('string');
@@ -148,7 +148,7 @@ describe('doctorCommand', () => {
     expect(names).not.toContain('Gitignore Coverage');
     expect(names).toContain('Node.js Version');
     expect(names).toContain('Config File');
-    expect(data.results.length).toBe(18);
+    expect(data.results.length).toBe(19);
   }, 15000);
 
   it('--fix applies the real local Helper Files fix and re-checks it in place', async () => {
