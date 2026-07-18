@@ -14,7 +14,7 @@ const log = (text: string): void => { console.log(text); };
  * `monomind org stop '../../../../tmp/x'`). */
 const ORG_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/i;
 
-function validateOrgName(name: string | undefined): { ok: true; name: string } | { ok: false; result: CommandResult } {
+export function validateOrgName(name: string | undefined): { ok: true; name: string } | { ok: false; result: CommandResult } {
   if (!name) return { ok: false, result: { success: false, message: 'org name required' } };
   if (!ORG_NAME_RE.test(name)) {
     log(output.error(`Invalid org name: ${name}`));
@@ -34,7 +34,7 @@ const ORG_ARTIFACT_SUFFIXES = [
   '-plugins', '-adapters', '-join-requests', '-bootstrap', '-project-workspaces',
   '-approval-comments', '-skills',
 ];
-function listOrgConfigFiles(orgsDir: string): string[] {
+export function listOrgConfigFiles(orgsDir: string): string[] {
   return readdirSync(orgsDir)
     .filter(f => f.endsWith('.json') && !f.startsWith('._') && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
 }
@@ -62,6 +62,24 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     const known = existsSync(orgsDir) ? listOrgConfigFiles(orgsDir).map(f => f.replace(/\.json$/, '')) : [];
     log(output.error(`Org not found: ${name}${known.length ? ` — available: ${known.join(', ')}` : ' — create one with /mastermind:createorg'}`));
     return { success: false, message: 'org not found' };
+  }
+  if (ctx.flags['dryRun'] === true) {
+    // Validate + preview each role's actual briefing without spawning sessions.
+    try {
+      const def = OrgDefSchema.parse(JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')));
+      const { buildRolePrompt } = await import('../orgrt/session.js');
+      const roster = def.roles.map(r => r.id);
+      const perRole = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+      log(output.info(`DRY RUN — org ${name}: ${def.roles.length} roles, ${perRole} tokens each, goal: ${taskFlag ?? def.goal}`));
+      for (const role of def.roles) {
+        log(output.info(`\n─── ${role.id} (${role.title || role.type})${role.adapter_config?.model ? ` [${role.adapter_config.model}]` : ''} ───`));
+        log(buildRolePrompt(role, { name: def.name, goal: (taskFlag as string | undefined) ?? def.goal }, roster));
+      }
+      return { success: true, message: 'dry run complete — no sessions started' };
+    } catch (err) {
+      log(output.error(`Config invalid: ${err instanceof Error ? err.message : String(err)}`));
+      return { success: false, message: 'invalid org config' };
+    }
   }
   const crossProcess = ctx.flags['crossProcess'] !== false;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
@@ -238,63 +256,6 @@ const testLoopAction = async (ctx: CommandContext): Promise<CommandResult> => {
   return { success: report.failed === 0, message: report.summary };
 };
 
-/** Validate org config(s) against OrgDefSchema — the exact parse `org run`/`org serve`
- * perform — plus the structural invariants the runtime assumes but the schema can't
- * express (single root role, resolvable reports_to, unique ids, parseable schedule). */
-const validateAction = async (ctx: CommandContext): Promise<CommandResult> => {
-  const orgsDir = join(ctx.cwd || process.cwd(), ORG_DIR);
-  let files: string[];
-  if (ctx.args[0]) {
-    const validated = validateOrgName(ctx.args[0]);
-    if (!validated.ok) return validated.result;
-    files = [`${validated.name}.json`];
-  } else {
-    if (!existsSync(orgsDir)) return { success: false, message: 'no orgs directory — create an org first with /mastermind:createorg' };
-    files = listOrgConfigFiles(orgsDir);
-    if (!files.length) return { success: false, message: 'no org configs found' };
-  }
-  const { parseSchedule } = await import('../orgrt/scheduler.js');
-  let failed = 0;
-  for (const f of files) {
-    const stem = f.replace(/\.json$/, '');
-    const path = join(orgsDir, f);
-    const errors: string[] = [];
-    const warnings: string[] = [];
-    if (!existsSync(path)) {
-      log(output.error(`${stem}: not found (${path})`));
-      failed++;
-      continue;
-    }
-    try {
-      const def = OrgDefSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
-      const ids = def.roles.map(r => r.id);
-      const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
-      if (dupes.length) errors.push(`duplicate role id(s): ${[...new Set(dupes)].join(', ')}`);
-      const roots = def.roles.filter(r => r.reports_to === null);
-      if (roots.length === 0) errors.push('no root role — exactly one role must have reports_to: null');
-      if (roots.length > 1) errors.push(`multiple root roles (${roots.map(r => r.id).join(', ')}) — exactly one may have reports_to: null`);
-      for (const r of def.roles) {
-        if (r.reports_to !== null && !ids.includes(r.reports_to)) errors.push(`role "${r.id}": reports_to "${r.reports_to}" matches no role id`);
-        if (r.reports_to === r.id) errors.push(`role "${r.id}" reports to itself`);
-      }
-      if (def.schedule != null && parseSchedule(def.schedule) === null) errors.push(`schedule "${def.schedule}" is not parseable — use "<N>s", "<N>m", or "<N>h"`);
-      if (def.name !== stem) warnings.push(`def.name "${def.name}" differs from filename — the runtime addresses this org as "${stem}"`);
-    } catch (err) {
-      errors.push(err instanceof Error ? err.message : String(err));
-    }
-    for (const w of warnings) log(output.warning(`${stem}: ${w}`));
-    if (errors.length) {
-      failed++;
-      for (const e of errors) log(output.error(`${stem}: ${e}`));
-    } else {
-      log(output.success(`${stem}: valid${warnings.length ? ` (${warnings.length} warning(s))` : ''}`));
-    }
-  }
-  return failed
-    ? { success: false, message: `${failed} of ${files.length} org config(s) failed validation` }
-    : { success: true, message: `${files.length} org config(s) valid` };
-};
-
 // ---- legacy management subcommands (list / delete / mark-complete) ----
 
 const listAction = async (ctx: CommandContext): Promise<CommandResult> => {
@@ -412,6 +373,7 @@ export const orgCommand: Command = {
       options: [
         { name: 'task', description: 'Override the org goal for this run', type: 'string' },
         { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
+        { name: 'dry-run', description: 'Validate and print each role\'s briefing without starting any agent sessions', type: 'boolean' },
       ],
       examples: [{ command: 'monomind org run growth --task "weekly report"', description: 'Run the growth org once with a task' }],
       action: runAction,
@@ -431,12 +393,60 @@ export const orgCommand: Command = {
       action: testLoopAction,
     },
     {
+      name: 'logs', description: 'Show (or follow) the formatted event log of an org run',
+      options: [
+        { name: 'run', description: 'Run id (default: latest)', type: 'string' },
+        { name: 'role', description: 'Only events from/to this role', type: 'string' },
+        { name: 'follow', short: 'f', description: 'Keep tailing until Ctrl-C', type: 'boolean' },
+      ],
+      examples: [{ command: 'monomind org logs growth --follow', description: 'Live-tail the latest run' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { logsAction } = await import('./org-observe.js');
+        return logsAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'report', description: 'Summarize an org run: outcome, per-role activity, tokens, assets, crashes',
+      options: [
+        { name: 'run', description: 'Run id (default: latest)', type: 'string' },
+        { name: 'all', description: 'List all recorded runs from history', type: 'boolean' },
+      ],
+      examples: [{ command: 'monomind org report growth', description: 'Report on the latest run' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { reportAction } = await import('./org-observe.js');
+        return reportAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'create', description: 'Scaffold an org config from a starter template',
+      options: [
+        { name: 'template', description: 'content-team | dev-team | research-pod', type: 'string' },
+        { name: 'goal', description: 'Org goal (defaults to the template\'s placeholder)', type: 'string' },
+        { name: 'schedule', description: 'Daemon schedule, e.g. 30m or 2h', type: 'string' },
+        { name: 'force', description: 'Overwrite an existing org config', type: 'boolean' },
+      ],
+      examples: [{ command: 'monomind org create blog --template content-team --goal "3 posts/week"', description: 'Create a content org' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { createAction } = await import('./org-observe.js');
+        return createAction(ctx, v.name);
+      },
+    },
+    {
       name: 'validate', description: 'Validate org config(s) against the runtime schema and structural invariants',
       examples: [
         { command: 'monomind org validate growth', description: 'Validate one org config' },
         { command: 'monomind org validate', description: 'Validate every org config in the project' },
       ],
-      action: validateAction,
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const { validateAction } = await import('./org-observe.js');
+        return validateAction(ctx);
+      },
     },
     { name: 'list', description: 'List all orgs in the current project', action: listAction },
     {
@@ -454,7 +464,7 @@ export const orgCommand: Command = {
     // index.ts's dispatcher never prints result.message on a failed action —
     // it only exits with result.exitCode — so this must log itself or bare
     // `monomind org` exits silently with code 1 and zero output.
-    const message = 'usage: monomind org <run|stop|status|serve|test-loop|validate|list|delete|mark-complete>';
+    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|create|validate|list|delete|mark-complete>';
     log(output.error(message));
     return { success: false, message };
   },

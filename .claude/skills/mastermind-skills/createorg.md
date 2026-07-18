@@ -221,8 +221,9 @@ lessons:
   - what_worked: "Auto-suggested roles matched user intent"
   - what_didnt: ""
 next_actions:
-  - "Run `monomind org run <org_name>` to start the organization in the foreground"
+  - "Run `monomind org run <org_name>` to start the organization in the foreground (add --dry-run to preview each role's briefing first)"
   - "After hand-editing the config, re-check it with `monomind org validate <org_name>`"
+  - "While running: `monomind org logs <org_name> --follow`; afterwards: `monomind org report <org_name>` for outcome, per-role activity, and token usage"
   - "Or `monomind org serve` to host it (and any other scheduled orgs) as a background daemon"
   - "Edit .monomind/orgs/<org_name>.json directly, or use /mastermind:org-settings, to change goal/budget/roles"
   - "`monomind org status <org_name>` to check runtime state; `monomind org stop <org_name>` to stop a running org"
