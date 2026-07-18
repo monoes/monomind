@@ -210,6 +210,8 @@ if [ "$is_v2" = "yes" ]; then
     crashed*) echo "  Close out:    monomind org mark-complete $name" ;;
     *)        echo "  Run:          monomind org run $name${v2_schedule:+   (or host on schedule: monomind org serve)}" ;;
   esac
+  echo "  Logs:         monomind org logs $name --follow"
+  echo "  Report:       monomind org report $name   (add --all for run history)"
   echo "  Validate:     monomind org validate $name"
   echo "  Settings:     /mastermind:org-settings --org $name"
 elif [ "$has_schedule" = "yes" ]; then
