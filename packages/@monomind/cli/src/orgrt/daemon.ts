@@ -10,6 +10,7 @@ import { attachForwarder } from './forwarder.js';
 import { BrokerLease, lookupOrg } from './broker.js';
 import { queueMessage, drainInbox } from './inbox.js';
 import { OrgDefSchema, type OrgDef, type BusEvent, ORG_DIR } from './types.js';
+import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
 
 interface AgentRuntime {
@@ -105,35 +106,69 @@ export class OrgDaemon {
       const policy = new PolicyEngine(role.id,
         { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, cwd);
       const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve() };
-      runtime.done = runAgentSession({
+      const sessionOpts = {
         org: name, role, bus, policy, mailbox, cwd, def,
         maxTurns: def.run_config.max_turns_per_message,
-        deliver: (from, to, subject, body) => this.deliver(name, from, to, subject, body),
-        askHuman: (role, question) => this.askHuman(name, role, question),
+        deliver: (from: string, to: string, subject: string, body: string) => this.deliver(name, from, to, subject, body),
+        askHuman: (r: string, question: string) => this.askHuman(name, r, question),
+        onComplete: (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
+          bus.emit({ type: 'status', from: r, reason: 'org-complete', msg: `run outcome: ${outcome}`, data: { outcome, summary } });
+        },
         queryFn: this.opts.queryFn,
-      }).then(() => { runtime.status = 'ended'; })
-        .catch((err) => {
-          const message = err instanceof Error ? err.message : String(err);
-          runtime.status = 'crashed';
-          runtime.error = message;
-          // runAgentSession already emits a 'status' event for the raw error; emit an
-          // 'audit' event too so dashboards/alerts that filter on actionable failures
-          // (not routine status chatter) can surface a dead agent instead of a run that
-          // silently never progresses.
-          bus.emit({
-            type: 'audit', from: role.id,
-            msg: `agent "${role.id}" crashed: ${message}`,
-            reason: 'agent-session-crash',
-            data: { agentId: role.id, error: message },
-          });
-        });
+      };
+      // Supervised session: transient crashes (provider blips, network) restart
+      // with backoff; a crash with the mailbox already closed, or one that
+      // exhausts the retry budget, is terminal. runAgentSession already emits a
+      // 'status' event for the raw error; the terminal 'audit' event is for
+      // dashboards/alerts that filter on actionable failures (not routine
+      // status chatter) so a dead agent surfaces instead of a run that
+      // silently never progresses.
+      const BACKOFFS_MS = [1000, 5000, 15000];
+      runtime.done = (async () => {
+        for (let attempt = 0; ; attempt++) {
+          try {
+            await runAgentSession(sessionOpts);
+            runtime.status = 'ended';
+            return;
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            const crash = (): void => {
+              runtime.status = 'crashed';
+              runtime.error = message;
+              bus.emit({
+                type: 'audit', from: role.id,
+                msg: `agent "${role.id}" crashed: ${message}`,
+                reason: 'agent-session-crash',
+                data: { agentId: role.id, error: message, restarts: attempt },
+              });
+            };
+            if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) { crash(); return; }
+            bus.emit({
+              type: 'status', from: role.id, reason: 'agent-restart',
+              msg: `agent "${role.id}" crashed (${message}) — restarting in ${BACKOFFS_MS[attempt]}ms (attempt ${attempt + 1}/${BACKOFFS_MS.length})`,
+            });
+            await new Promise<void>(r => { const t = setTimeout(r, BACKOFFS_MS[attempt]); (t as { unref?: () => void }).unref?.(); });
+            if (mailbox.isClosed) { crash(); return; } // org stopped during backoff — never recovered
+          }
+        }
+      })();
       running.agents.set(role.id, runtime);
     }
 
     const boss = def.roles.find(r => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
+    // Cross-run memory: brief the coordinator on the previous run so scheduled
+    // orgs accumulate instead of starting cold every interval.
+    const prev = readHistory(this.root, name).at(-1);
+    const prevBrief = prev
+      ? `\n\nPrevious run (${prev.run}${prev.endedAt ? `, ${new Date(prev.endedAt).toISOString()}` : ''}): ` +
+        (prev.outcome
+          ? `outcome "${prev.outcome.status}" — ${prev.outcome.summary}`
+          : `no recorded outcome (${prev.messages} messages, ${prev.assets.length} assets${prev.crashes.length ? `, ${prev.crashes.length} crashed agent(s)` : ''})`) +
+        `\nBuild on that work — do not redo what is already done.`
+      : '';
     running.agents.get(boss.id)!.mailbox.push(
       `Org "${name}" started (run ${run}).\nGoal: ${taskOverride ?? def.goal}\n` +
-      `Coordinate your team via org_send. Report completion by ending your turn.`);
+      `Coordinate your team via org_send. When the goal is achieved (or clearly can't be), record it with org_complete, then end your turn.${prevBrief}`);
     bus.emit({ type: 'status', msg: `org started (${def.roles.length} agents)`, data: { goal: taskOverride ?? def.goal } });
     this.persistState(name, 'running', run);
 
@@ -377,6 +412,18 @@ export class OrgDaemon {
     }
     org.bus.emit({ type: 'status', msg: 'org stopped' });
     await org.bus.flush();
+    // Append this run's summary to <org>/history.jsonl — read back from the
+    // flushed bus.jsonl (the full durable record) rather than the bounded
+    // in-memory buffer, so long runs summarize completely.
+    try {
+      const events = readRunEvents(this.root, name, org.run);
+      if (events.length) {
+        const { appendFileSync } = await import('node:fs');
+        appendFileSync(historyFile(this.root, name), JSON.stringify(summarizeRun(events)) + '\n', 'utf8');
+      }
+    } catch (err) {
+      console.error(`org ${name}: could not write run history:`, err instanceof Error ? err.message : err);
+    }
     // the "org stopped" event above triggers the forwarder's final org:complete /
     // session:complete POST — without waiting for it here, the CLI process can exit
     // (and kill the in-flight fetch) before that last event reaches the dashboard,

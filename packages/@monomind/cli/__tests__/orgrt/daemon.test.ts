@@ -243,3 +243,61 @@ describe('OrgDaemon', () => {
     expect(running.busEvents().some(e => e.type === 'audit' && e.reason === 'stop-timeout')).toBe(true);
   });
 });
+
+describe('OrgDaemon — run history & cross-run memory', () => {
+  it('appends a run summary to history.jsonl at stopOrg and briefs the next run\'s boss on it', async () => {
+    const { existsSync } = await import('node:fs');
+    const root = mkdtempSync(join(tmpdir(), 'daemon-hist-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+
+    const run1 = await d.startOrg('alpha');
+    // record an outcome the way the org_complete tool handler does
+    run1.bus.emit({ type: 'status', from: 'boss', reason: 'org-complete', msg: 'run outcome: achieved', data: { outcome: 'achieved', summary: 'wrote the report' } });
+    await d.stopOrg('alpha');
+
+    const histFile = join(root, '.monomind/orgs/alpha/history.jsonl');
+    expect(existsSync(histFile)).toBe(true);
+    const hist = readFileSync(histFile, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+    expect(hist).toHaveLength(1);
+    expect(hist[0].outcome).toMatchObject({ status: 'achieved', summary: 'wrote the report' });
+
+    // second run: boss kickoff message must reference the previous outcome
+    const run2 = await d.startOrg('alpha');
+    await new Promise(r => setTimeout(r, 50)); // let the echo agent process the kickoff
+    await d.stopOrg('alpha');
+    const kickoffEcho = run2.busEvents().find(e => e.type === 'chat' && e.from === 'boss' && (e.msg ?? '').includes('Previous run'));
+    expect(kickoffEcho).toBeDefined();
+    expect(kickoffEcho!.msg).toContain('wrote the report');
+  });
+
+  it('restarts a transiently-crashing agent instead of leaving it dead (crash → restart → recover)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-restart-'));
+    fixture(root, 'alpha');
+    // fake SDK: coder's first session throws, later sessions echo normally
+    let coderAttempts = 0;
+    const flakyQuery = (opts: any) => {
+      const isCoder = String(opts?.options?.systemPrompt ?? '').includes('"coder"');
+      if (isCoder && coderAttempts++ === 0) {
+        return (async function* () {
+          for await (const _m of opts.prompt) throw new Error('transient blip');
+        })();
+      }
+      return echoQuery(opts);
+    };
+    const d = new OrgDaemon(root, { queryFn: flakyQuery as any, forward: false, stopWaitMs: 100 });
+    const running = await d.startOrg('alpha');
+    await d.deliver('alpha', 'boss', 'coder', 'task', 'first'); // triggers the crash
+    await new Promise(r => setTimeout(r, 1300)); // ride out the 1s backoff → restart
+    const receipt = await d.deliver('alpha', 'boss', 'coder', 'task', 'second');
+    expect(receipt).toMatch(/delivered/);
+    await new Promise(r => setTimeout(r, 100));
+    await d.stopOrg('alpha');
+
+    const events = running.busEvents();
+    expect(events.some(e => e.type === 'status' && e.reason === 'agent-restart' && e.from === 'coder')).toBe(true);
+    // recovered: the restarted session echoed the second message
+    expect(events.some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('second'))).toBe(true);
+    expect(running.agents.get('coder')!.status).not.toBe('running');
+  }, 20_000);
+});

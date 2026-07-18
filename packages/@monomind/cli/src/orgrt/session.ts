@@ -18,6 +18,8 @@ export interface SessionOpts {
   cwd: string;
   deliver: DeliverFn;
   askHuman?: (role: string, question: string) => Promise<string>;
+  /** Coordinator-only: records the run's outcome (daemon persists it to run history). */
+  onComplete?: (role: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => void;
   def?: OrgDef;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
@@ -25,17 +27,20 @@ export interface SessionOpts {
 
 /** Role briefing given to each agent session (SDK systemPrompt option). */
 export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'>, roster: string[]): string {
+  const isCoordinator = role.reports_to == null;
   return [
     `You are agent "${role.id}" (${role.title || role.type}) in the org "${def.name}".`,
     `Org goal: ${def.goal}`,
-    role.reports_to ? `You report to "${role.reports_to}".` : `You are the coordinator of this org.`,
+    isCoordinator ? `You are the coordinator of this org.` : `You report to "${role.reports_to}".`,
     role.responsibilities?.length ? `Your responsibilities:\n- ${role.responsibilities.join('\n- ')}` : '',
     `## Communication protocol`,
     `The ONLY way to communicate with other agents is the org_send tool.`,
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
     `If you need a human decision, call ask_human with your question, then end your turn — you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
-    `When your current work is complete and no reply is needed, end your turn without further tool calls.`,
+    isCoordinator
+      ? `When the org's goal for this run is achieved (or clearly can't be), call org_complete exactly once with the outcome and a concise summary of what was done — it is recorded in the org's run history and briefed to the next run. Then end your turn.`
+      : `When your current work is complete and no reply is needed, end your turn without further tool calls.`,
   ].filter(Boolean).join('\n\n');
 }
 
@@ -67,10 +72,20 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
   const { org, role, bus, policy, mailbox, cwd, deliver } = opts;
   const queryFn = opts.queryFn ?? query;
 
+  const isCoordinator = role.reports_to == null;
   const orgServer = createSdkMcpServer({
     name: 'org',
     version: '1.0.0',
     tools: [
+      ...(isCoordinator && opts.onComplete ? [tool(
+        'org_complete',
+        'Record the outcome of this run. Call exactly once, when the goal is achieved or clearly cannot be. The outcome and summary are persisted to the org run history and briefed to the next run.',
+        { outcome: z.enum(['achieved', 'partial', 'failed']), summary: z.string() },
+        async (args) => {
+          opts.onComplete!(role.id, args.outcome, args.summary);
+          return { content: [{ type: 'text' as const, text: `outcome "${args.outcome}" recorded` }] };
+        },
+      )] : []),
       tool(
         'org_send',
         'Send a message to another agent (role id) or another org ("org:role"). This is the only inter-agent channel.',
