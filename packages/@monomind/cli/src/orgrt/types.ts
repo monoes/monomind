@@ -47,6 +47,8 @@ export const OrgDefSchema = z.object({
     budget_tokens: z.number().int().positive().default(1_000_000),
     memory_namespace: z.string().optional(),
     max_turns_per_message: z.number().int().positive().default(30),
+    /** idle watchdog window in minutes (fractions allowed); 0 disables. Default 10. */
+    idle_minutes: z.number().nonnegative().optional(),
   }).partial().passthrough().default({})
     .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: 30, ...rc })),
   roles: z.array(RoleSchema).min(1),

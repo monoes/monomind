@@ -8,6 +8,11 @@ export type Decision =
   | { behavior: 'deny'; message: string };
 
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'NotebookEdit']);
+/** Harness messaging tools that bypass the org bus. Always denied: an agent
+ *  that picks one gets the SDK's misleading "no agent named X is reachable"
+ *  error, concludes its teammate is down, and deadlocks the run (observed in
+ *  the field). org_send is the only inter-agent channel. */
+const HARNESS_MESSAGING_TOOLS = new Set(['SendMessage']);
 const READ_TOOLS = new Set(['Read', 'Glob', 'Grep']);
 const WEB_TOOLS = new Set(['WebFetch', 'WebSearch']);
 /** Cap for inline content snapshots on 'asset' events (bytes, UTF-16 chars) — keeps
@@ -75,6 +80,8 @@ export class PolicyEngine {
       return { behavior: 'allow', updatedInput: input };
     };
 
+    if (HARNESS_MESSAGING_TOOLS.has(tool))
+      return deny(`${tool} does not reach org agents — inter-agent messaging goes through the org_send tool only; resend via org_send (to, subject, message)`);
     if (this.overBudget) return deny(`token budget exhausted (${this.used}/${this.policy.maxTokens})`);
     if (this.policy.denyTools?.includes(tool)) return deny(`tool ${tool} is denied for role ${this.role}`);
     if (this.policy.allowTools && !this.policy.allowTools.includes(tool) && !tool.startsWith('mcp__org__'))
