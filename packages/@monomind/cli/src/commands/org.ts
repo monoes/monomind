@@ -422,6 +422,27 @@ export const orgCommand: Command = {
       },
     },
     {
+      name: 'questions', description: 'List pending ask_human questions from an org\'s agents',
+      options: [{ name: 'all', description: 'Include answered questions', type: 'boolean' }],
+      examples: [{ command: 'monomind org questions growth', description: 'Show unanswered questions' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { questionsAction } = await import('./org-observe.js');
+        return questionsAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'answer', description: 'Answer a pending ask_human question (live if the org is running, queued otherwise)',
+      examples: [{ command: 'monomind org answer growth q-123-ab "yes, ship it"', description: 'Answer question q-123-ab' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { answerAction } = await import('./org-observe.js');
+        return answerAction(ctx, v.name);
+      },
+    },
+    {
       name: 'create', description: 'Scaffold an org config from a starter template',
       options: [
         { name: 'template', description: 'content-team | dev-team | research-pod', type: 'string' },
@@ -464,7 +485,7 @@ export const orgCommand: Command = {
     // index.ts's dispatcher never prints result.message on a failed action —
     // it only exits with result.exitCode — so this must log itself or bare
     // `monomind org` exits silently with code 1 and zero output.
-    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|create|validate|list|delete|mark-complete>';
+    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|questions|answer|create|validate|list|delete|mark-complete>';
     log(output.error(message));
     return { success: false, message };
   },

@@ -123,20 +123,118 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   const events = readRunEvents(ctx.cwd, name, run);
   if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
   const s = summarizeRun(events);
+  // Per-role budget ceiling: same split the daemon applies (budget ÷ role count),
+  // with any explicit policy.maxTokens override. Missing/unreadable config → no ceilings.
+  let perRoleBudget: number | null = null;
+  const roleCeiling = new Map<string, number>();
+  try {
+    const def = OrgDefSchema.parse(JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, `${name}.json`), 'utf8')));
+    perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+    for (const r of def.roles) {
+      const max = (r.policy as { maxTokens?: number } | undefined)?.maxTokens;
+      roleCeiling.set(r.id, max ?? perRoleBudget);
+    }
+  } catch { /* config gone or invalid — report without budget context */ }
+  const budgetNote = (id: string, tokens: number): string => {
+    const cap = roleCeiling.get(id);
+    if (!cap) return '';
+    const pct = Math.round((tokens / cap) * 100);
+    return ` (${pct}% of ${cap}${pct >= 100 ? ' — EXHAUSTED' : pct >= 80 ? ' — near limit' : ''})`;
+  };
   log(output.info(`ORG REPORT — ${name} / ${run}`));
   log(output.info(`  Duration: ${s.durationMs != null ? `${Math.round(s.durationMs / 1000)}s` : '?'}   Events: ${s.events}   Messages: ${s.messages}${s.xorgMessages ? ` (+${s.xorgMessages} cross-org)` : ''}`));
-  log(output.info(`  Tokens: ${s.totalTokens}${s.totalCostUsd ? `   Cost: $${s.totalCostUsd.toFixed(4)}` : ''}`));
+  log(output.info(`  Tokens: ${s.totalTokens}${perRoleBudget ? ` (budget: ${perRoleBudget}/role)` : ''}${s.totalCostUsd ? `   Cost: $${s.totalCostUsd.toFixed(4)}` : ''}`));
   if (s.outcome) log(output.success(`  Outcome: ${s.outcome.status} (by ${s.outcome.by}) — ${s.outcome.summary}`));
   else log(output.warning('  Outcome: not recorded (coordinator never called org_complete)'));
   log(output.info('  Roles:'));
   for (const [id, r] of Object.entries(s.roles)) {
-    log(output.info(`    ${r.crashed ? '✗' : '•'} ${id}: ${r.messagesSent} msgs, ${r.toolsAllowed} tools${r.toolsDenied ? ` (${r.toolsDenied} denied)` : ''}, ${r.tokens} tokens${r.crashed ? ' — CRASHED' : ''}`));
+    log(output.info(`    ${r.crashed ? '✗' : '•'} ${id}: ${r.messagesSent} msgs, ${r.toolsAllowed} tools${r.toolsDenied ? ` (${r.toolsDenied} denied)` : ''}, ${r.tokens} tokens${budgetNote(id, r.tokens)}${r.crashed ? ' — CRASHED' : ''}`));
   }
   if (s.assets.length) {
     log(output.info(`  Assets (${s.assets.length}):`));
     for (const a of s.assets.slice(0, 20)) log(output.info(`    📄 ${a}`));
     if (s.assets.length > 20) log(output.info(`    … and ${s.assets.length - 20} more`));
   }
+  return { success: true };
+};
+
+interface OrgQuestion { questionId: string; role: string; question: string; ts: number; answer: string | null; answeredAt: number | null }
+
+const readQuestions = (cwd: string, name: string): OrgQuestion[] => {
+  try {
+    return (JSON.parse(readFileSync(join(cwd, ORG_DIR, name, 'questions.json'), 'utf8')) as { questions?: OrgQuestion[] }).questions ?? [];
+  } catch { return []; }
+};
+
+/** `org questions <name> [--all]` — list pending (or all) ask_human questions. */
+export const questionsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const all = readQuestions(ctx.cwd, name);
+  const shown = ctx.flags['all'] === true ? all : all.filter(q => q.answer === null);
+  if (!shown.length) {
+    log(output.info(all.length ? `No pending questions for org ${name} (${all.length} answered — use --all).` : `No questions recorded for org ${name}.`));
+    return { success: true };
+  }
+  for (const q of shown) {
+    const when = new Date(q.ts).toISOString().replace('T', ' ').slice(0, 16);
+    log(output.info(`${q.answer === null ? '❓' : '✓'} [${q.questionId}] ${when}  ${q.role}: ${q.question}`));
+    if (q.answer !== null) log(output.info(`     ↳ ${q.answer}`));
+  }
+  if (shown.some(q => q.answer === null))
+    log(output.info(`\nAnswer with: monomind org answer ${name} <question-id> "your answer"`));
+  return { success: true };
+};
+
+/** `org answer <name> <question-id> <answer...>` — answer a pending ask_human question.
+ *  Delivers live via the hosting daemon's /api/answer-question when the org is running
+ *  (broker lookup); otherwise records the answer and queues it for the next run. */
+export const answerAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const questionId = ctx.args[1];
+  const answer = ctx.args.slice(2).join(' ').trim();
+  if (!questionId || !answer) return { success: false, message: `usage: monomind org answer ${name} <question-id> "answer text"` };
+  const questions = readQuestions(ctx.cwd, name);
+  const q = questions.find(x => x.questionId === questionId);
+  if (!q) {
+    log(output.error(`Question "${questionId}" not found for org ${name} — list with: monomind org questions ${name}`));
+    return { success: false, message: 'question not found' };
+  }
+  if (q.answer !== null) return { success: false, message: `question "${questionId}" was already answered` };
+
+  // Live path: the hosting daemon updates questions.json and pushes into the role's mailbox.
+  const { lookupOrg } = await import('../orgrt/broker.js');
+  const remote = lookupOrg(name);
+  if (remote) {
+    try {
+      const res = await fetch(`${remote.url}/api/answer-question`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org: name, role: q.role, questionId, answer }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      if (res.ok && data.ok) {
+        log(output.success(`Answer delivered to ${name}:${q.role} (live).`));
+        return { success: true };
+      }
+      log(output.warning(`Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`));
+    } catch (err) {
+      log(output.warning(`Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`));
+    }
+  }
+
+  // Offline path: mirror daemon.answerQuestion's org-not-running branch.
+  const updated = questions.map(x => x.questionId === questionId ? { ...x, answer, answeredAt: Date.now() } : x);
+  const dest = join(ctx.cwd, ORG_DIR, name, 'questions.json');
+  const tmp = `${dest}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify({ questions: updated }, null, 2));
+  const { renameSync } = await import('node:fs');
+  renameSync(tmp, dest);
+  const { queueMessage } = await import('../orgrt/inbox.js');
+  queueMessage(ctx.cwd, name, {
+    fromQualified: 'human', toRole: q.role,
+    subject: `answer:${questionId}`,
+    body: `question: ${q.question}\n\nanswer: ${answer}`,
+    ts: Date.now(),
+  });
+  log(output.success(`Answer recorded — ${name}:${q.role} receives it when the org next runs.`));
   return { success: true };
 };
 
