@@ -22,6 +22,8 @@ export interface SessionOpts {
   onComplete?: (role: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => void;
   /** Search the org's accumulated cross-run memory (memory_namespace). */
   recall?: (role: string, query: string) => Promise<string>;
+  /** Search the user's Second Brain (project documents + personal global brain). */
+  searchKnowledge?: (role: string, query: string) => Promise<string>;
   def?: OrgDef;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
@@ -40,6 +42,7 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
     `If you need a human decision, call ask_human with your question, then end your turn — you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
     `Before starting substantial work, call org_recall to check what previous runs already learned or delivered — do not redo finished work.`,
+    `The user's documents (notes, handbooks, specs) are searchable with knowledge_search — ground your work in them instead of guessing; results labeled [global] come from the user's personal cross-project brain.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
     isCoordinator
       ? `When the org's goal for this run is achieved (or clearly can't be), call org_complete exactly once with the outcome and a concise summary of what was done — it is recorded in the org's run history and briefed to the next run. Then end your turn.`
@@ -83,6 +86,15 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
     name: 'org',
     version: '1.0.0',
     tools: [
+      ...(opts.searchKnowledge ? [tool(
+        'knowledge_search',
+        'Semantic search over the user\'s Second Brain: this project\'s indexed documents plus their personal cross-project global brain. Use to ground work in the user\'s actual notes, handbooks, and documents.',
+        { query: z.string() },
+        async (args) => {
+          const text = await opts.searchKnowledge!(role.id, args.query);
+          return { content: [{ type: 'text' as const, text }] };
+        },
+      )] : []),
       ...(opts.recall ? [tool(
         'org_recall',
         'Search this org\'s accumulated memory from previous runs (outcomes, decisions, learnings). Use before starting work that may already have been done.',
