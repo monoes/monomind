@@ -259,6 +259,12 @@ export class CLI {
         }
 
         if (result && !result.success) {
+          // Always surface the failure reason: many actions return
+          // { success: false, message } without logging, and exiting 1 with
+          // zero output left users guessing (swarm finding #12). Actions that
+          // already printed a rich error produce one extra terse summary line
+          // — acceptable; silence is not.
+          if (result.message) this.output.printError(result.message);
           process.exit(result.exitCode || 1);
         }
       } else {
