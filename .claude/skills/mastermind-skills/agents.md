@@ -169,7 +169,7 @@ org: <org_name>
 agents_count: <N>
 ```
 
-Print summary and any suggested next actions (e.g. "Run /mastermind:heartbeat to trigger a manual heartbeat for this agent").
+Print summary and any suggested next actions (e.g. "Run /mastermind:heartbeatv1 to trigger a manual heartbeat for this agent").
 
 ---
 
