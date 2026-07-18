@@ -571,6 +571,21 @@ describe('Security', () => {
 // Integration Tests - Built-in Workers
 // ============================================================================
 
+describe('audit worker barrel filter', () => {
+  it('exempts index.* RE_EXPORTS edges (barrel pattern) but nothing else', async () => {
+    const { isBarrelReExport } = await import('../src/workers/worker-audit.js');
+    // barrels — the intended public-API pattern, never "hidden coupling"
+    expect(isBarrelReExport({ relation: 'RE_EXPORTS', src_file: 'packages/@monoes/monobrowse/src/index.ts' })).toBe(true);
+    expect(isBarrelReExport({ relation: 'RE_EXPORTS', src_file: 'src\\browser\\index.tsx' })).toBe(true);
+    expect(isBarrelReExport({ relation: 'RE_EXPORTS', src_file: 'index.mjs' })).toBe(true);
+    // still flagged: non-barrel re-exports, other relations, unknown files
+    expect(isBarrelReExport({ relation: 'RE_EXPORTS', src_file: 'src/utils/helpers.ts' })).toBe(false);
+    expect(isBarrelReExport({ relation: 'RE_EXPORTS', src_file: 'src/reindex.ts' })).toBe(false);
+    expect(isBarrelReExport({ relation: 'CALLS', src_file: 'src/index.ts' })).toBe(false);
+    expect(isBarrelReExport({ relation: 'RE_EXPORTS', src_file: null })).toBe(false);
+  });
+});
+
 describe('Built-in Workers', () => {
   let manager: WorkerManager;
 
