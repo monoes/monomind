@@ -134,5 +134,10 @@ export function formatEvent(e: BusEvent): string {
   }
 }
 
-const trim = (s: string | undefined, n = 120): string =>
-  !s ? '' : s.length > n ? `${s.slice(0, n - 1)}…` : s.replace(/\n/g, ' ');
+// Newlines stripped BEFORE truncation — the truncated branch previously kept
+// them, so long multi-line messages broke the one-line-per-event log format.
+const trim = (s: string | undefined, n = 120): string => {
+  if (!s) return '';
+  const oneLine = s.replace(/\s*\n\s*/g, ' ');
+  return oneLine.length > n ? `${oneLine.slice(0, n - 1)}…` : oneLine;
+};
