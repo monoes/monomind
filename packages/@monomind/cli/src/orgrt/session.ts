@@ -20,6 +20,8 @@ export interface SessionOpts {
   askHuman?: (role: string, question: string) => Promise<string>;
   /** Coordinator-only: records the run's outcome (daemon persists it to run history). */
   onComplete?: (role: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => void;
+  /** Search the org's accumulated cross-run memory (memory_namespace). */
+  recall?: (role: string, query: string) => Promise<string>;
   def?: OrgDef;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
@@ -37,6 +39,7 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
     `The ONLY way to communicate with other agents is the org_send tool.`,
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
     `If you need a human decision, call ask_human with your question, then end your turn — you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
+    `Before starting substantial work, call org_recall to check what previous runs already learned or delivered — do not redo finished work.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
     isCoordinator
       ? `When the org's goal for this run is achieved (or clearly can't be), call org_complete exactly once with the outcome and a concise summary of what was done — it is recorded in the org's run history and briefed to the next run. Then end your turn.`
@@ -77,6 +80,15 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
     name: 'org',
     version: '1.0.0',
     tools: [
+      ...(opts.recall ? [tool(
+        'org_recall',
+        'Search this org\'s accumulated memory from previous runs (outcomes, decisions, learnings). Use before starting work that may already have been done.',
+        { query: z.string() },
+        async (args) => {
+          const text = await opts.recall!(role.id, args.query);
+          return { content: [{ type: 'text' as const, text }] };
+        },
+      )] : []),
       ...(isCoordinator && opts.onComplete ? [tool(
         'org_complete',
         'Record the outcome of this run. Call exactly once, when the goal is achieved or clearly cannot be. The outcome and summary are persisted to the org run history and briefed to the next run.',
