@@ -111,3 +111,44 @@ describe('cleanup --scratch', () => {
     } finally { rmSync(cwd, { recursive: true, force: true }); }
   });
 });
+
+describe('findOrphanedProjectData (--data)', () => {
+  it('classifies dirs by origin marker: live kept, orphaned pruned, lancedb flagged, unknown age-gated', async () => {
+    const { findOrphanedProjectData } = await import('../commands/cleanup.js');
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const base = mkdtempSync(join(tmpdir(), 'proj-data-'));
+    const liveProject = mkdtempSync(join(tmpdir(), 'live-proj-'));
+    try {
+      // live: origin exists on disk + has a dead lancedb dir
+      mkdirSync(join(base, 'live-abc', 'lancedb'), { recursive: true });
+      writeFileSync(join(base, 'live-abc', 'origin.json'), JSON.stringify({ path: liveProject }));
+      // orphan: origin recorded but path gone
+      mkdirSync(join(base, 'gone-def'), { recursive: true });
+      writeFileSync(join(base, 'gone-def', 'origin.json'), JSON.stringify({ path: join(tmpdir(), 'no-such-project-xyz') }));
+      // unknown fresh: no marker, recent mtime
+      mkdirSync(join(base, 'fresh-ghi'), { recursive: true });
+      // unknown old: no marker, 60 days old
+      mkdirSync(join(base, 'old-jkl'), { recursive: true });
+      const old = (Date.now() - 60 * 24 * 3600 * 1000) / 1000;
+      utimesSync(join(base, 'old-jkl'), old, old);
+
+      const now = Date.now();
+      const normal = findOrphanedProjectData(base, now, false);
+      const paths = normal.map(o => o.path);
+      expect(paths).toContain(join(base, 'live-abc', 'lancedb'));   // dead engine leftovers
+      expect(paths).not.toContain(join(base, 'live-abc'));          // live project kept
+      expect(paths).toContain(join(base, 'gone-def'));              // provably orphaned
+      expect(paths).not.toContain(join(base, 'fresh-ghi'));         // unknown but recent
+      expect(paths).toContain(join(base, 'old-jkl'));               // unknown and stale
+
+      const aggressive = findOrphanedProjectData(base, now, true);
+      expect(aggressive.map(o => o.path)).toContain(join(base, 'fresh-ghi')); // aggressive prunes unprovable
+      expect(aggressive.map(o => o.path)).not.toContain(join(base, 'live-abc'));
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+      rmSync(liveProject, { recursive: true, force: true });
+    }
+  });
+});
