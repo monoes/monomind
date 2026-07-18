@@ -59,8 +59,12 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
     : { success: true, message: `${files.length} org config(s) valid` };
 };
 
+// Run ids are joined into filesystem paths — enforce the daemon's own id shape
+// so a crafted --run can't traverse out of the org directory (same reason the
+// org-name guard exists).
+const RUN_ID_RE = /^run-[A-Za-z0-9-]+$/;
 const resolveRun = (cwd: string, name: string, runFlag: unknown): string | null => {
-  if (typeof runFlag === 'string' && runFlag) return runFlag;
+  if (typeof runFlag === 'string' && runFlag) return RUN_ID_RE.test(runFlag) ? runFlag : null;
   return listRunDirs(cwd, name)[0] ?? null;
 };
 
@@ -79,9 +83,15 @@ export const logsAction = async (ctx: CommandContext, name: string): Promise<Com
   const drain = (): void => {
     if (!existsSync(file)) return;
     const lines = readFileSync(file, 'utf8').split('\n').filter(Boolean);
-    for (const l of lines.slice(seenLines)) {
-      try { show(JSON.parse(l) as BusEvent); seenLines++; }
-      catch { break; } // partial line mid-append — retry it next tick
+    for (let i = seenLines; i < lines.length; i++) {
+      try { show(JSON.parse(lines[i]) as BusEvent); seenLines = i + 1; }
+      catch {
+        // Only the FINAL line can be a partial mid-append write worth
+        // retrying; a corrupt interior line would otherwise stall the tail
+        // forever — skip it and keep going.
+        if (i === lines.length - 1) break;
+        seenLines = i + 1;
+      }
     }
   };
   drain();
@@ -211,10 +221,21 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
   }
 
   // Offline path: mirror daemon.answerQuestion's org-not-running branch.
-  const updated = questions.map(x => x.questionId === questionId ? { ...x, answer, answeredAt: Date.now() } : x);
+  // RE-READ and merge by questionId just before writing — the pre-fetch
+  // snapshot can be up to 10s stale (live-delivery timeout), and rewriting
+  // from it would delete questions the daemon appended meanwhile and revert
+  // answers it recorded (atomic rename prevents torn writes, not lost updates).
+  const fresh = readQuestions(ctx.cwd, name);
+  const freshQ = fresh.find(x => x.questionId === questionId);
+  if (freshQ && freshQ.answer !== null) {
+    return { success: false, message: `question "${questionId}" was answered while this command was running` };
+  }
+  const merged = fresh.some(x => x.questionId === questionId)
+    ? fresh.map(x => x.questionId === questionId ? { ...x, answer, answeredAt: Date.now() } : x)
+    : [...fresh, { ...q, answer, answeredAt: Date.now() }];
   const dest = join(ctx.cwd, ORG_DIR, name, 'questions.json');
   const tmp = `${dest}.${process.pid}.tmp`;
-  writeFileSync(tmp, JSON.stringify({ questions: updated }, null, 2));
+  writeFileSync(tmp, JSON.stringify({ questions: merged }, null, 2));
   const { renameSync } = await import('node:fs');
   renameSync(tmp, dest);
   const { queueMessage } = await import('../orgrt/inbox.js');

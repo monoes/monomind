@@ -79,7 +79,6 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
   const { org, role, bus, policy, mailbox, cwd, deliver } = opts;
   const queryFn = opts.queryFn ?? query;
 
-  const isCoordinator = role.reports_to == null;
   const orgServer = createSdkMcpServer({
     name: 'org',
     version: '1.0.0',
@@ -93,7 +92,10 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
           return { content: [{ type: 'text' as const, text }] };
         },
       )] : []),
-      ...(isCoordinator && opts.onComplete ? [tool(
+      // Gate purely on onComplete: the daemon passes it only to the role its
+      // boss-selection rule picked, so tool availability always matches the
+      // kickoff instruction (reports_to may be non-null for a fallback boss).
+      ...(opts.onComplete ? [tool(
         'org_complete',
         'Record the outcome of this run. Call exactly once, when the goal is achieved or clearly cannot be. The outcome and summary are persisted to the org run history and briefed to the next run.',
         { outcome: z.enum(['achieved', 'partial', 'failed']), summary: z.string() },

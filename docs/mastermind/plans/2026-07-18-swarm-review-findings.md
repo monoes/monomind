@@ -156,7 +156,7 @@ For dirs without origin.json, the non-aggressive path prunes when `now - mtime >
 ## 11. [MEDIUM] Boss selection ('type === boss' OR reports_to null, with roles[0] fallback) diverges from org_complete gating (reports_to == null only)
 
 - **File:** packages/@monomind/cli/src/orgrt/daemon.ts:163  (orgrt-runtime)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 startOrg picks the kickoff recipient as `def.roles.find(r => r.type === 'boss' || r.reports_to === null) ?? def.roles[0]` and its briefing instructs it to 'record it with org_complete'. But session.ts registers the org_complete tool only when `role.reports_to == null` (session.ts:78, 92), and buildRolePrompt's coordinator instructions use the same check. RoleSchema allows a role with type 'boss' and a non-null reports_to, and allows org defs where no role has reports_to null (the roles[0] fallback then picks an arbitrary subordinate).
 
@@ -186,7 +186,7 @@ index.ts:261-262 executes `if (result && !result.success) process.exit(result.ex
 ## 13. [MEDIUM] org answer offline fallback rewrites questions.json from a stale pre-fetch snapshot, losing concurrent daemon writes
 
 - **File:** packages/@monomind/cli/src/commands/org-observe.ts:224  (org-cli)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 answerAction reads questions.json once (line 194), then may spend up to 10s on the live-delivery fetch (line 207-211). When the org IS running but live delivery is rejected or times out (broker entry stale, daemon busy), it falls through to the offline path, which rewrites the entire questions.json from the pre-fetch `questions` array (lines 224-229). Any question the running daemon appended during that window is deleted from the file, and any answer the daemon recorded meanwhile is reverted to unanswered. The atomic tmp+rename only prevents torn writes, not this lost-update race; two concurrent `org answer` invocations for different questions likewise last-write-win, so the losing one's answer is erased from the file even though its inbox message was queued — leaving it listed as pending and answerable a second time (duplicate delivery next run).
 
@@ -231,7 +231,7 @@ When no namespace filter is given (namespace undefined, i.e. CLI 'all' sentinel 
 ## 16. [MEDIUM] UNIQUE(namespace,key) exists only in the sql.js schema — better-sqlite3 accumulates duplicate keys and retrieve returns a stale row
 
 - **File:** packages/@monomind/memory/src/sqlite-backend.ts:772  (memory-engine)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 sqljs-backend.ts:232-234 creates UNIQUE idx_namespace_key so INSERT OR REPLACE upserts by (namespace,key); sqlite-backend.ts:772 creates the same index non-UNIQUE, and its INSERT OR REPLACE conflicts only on the id primary key. bridgeStoreEntry always generates a fresh id (line 243/267), so on the better-sqlite3 path storing the same key twice without upsert creates two rows. getByKey (sqlite-backend.ts:288-292) has no ORDER BY and returns an arbitrary (in practice first-inserted, i.e. stale) row. The dedup gate does not protect the common failure mode: it is skipped entirely when the embedder is unavailable, and misses genuinely different values for the same key below 0.85 similarity.
 
@@ -246,7 +246,7 @@ sqljs-backend.ts:232-234 creates UNIQUE idx_namespace_key so INSERT OR REPLACE u
 ## 17. [MEDIUM] SQLiteBackend.search returns expired (TTL'd) entries — sql.js backend does not
 
 - **File:** packages/@monomind/memory/src/sqlite-backend.ts:484  (memory-engine)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 The brute-force search SQL (lines 484-489) joins memory_entries to memory_embeddings with only an optional namespace predicate — no `expires_at IS NULL OR expires_at > now` filter, unlike query() (lines 420-423). SqlJsBackend.search goes through query() and does exclude expired rows. So on the primary backend, entries stored with a TTL keep surfacing in semantic search (and in the dedup gate) after expiry.
 
@@ -276,7 +276,7 @@ isKnowledgeNs is derived from the request's namespace filter (`namespace?.starts
 ## 19. [MEDIUM] Every search — and every store via the dedup gate — materializes the entire embedding table in memory, with an N+1 re-fetch per hit
 
 - **File:** packages/@monomind/memory/src/sqlite-backend.ts:489  (memory-engine)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 SQLiteBackend.search does `.all()` over every entry+embedding in the namespace — or the whole table when no namespace filter is given, which is exactly what the dedup gate does on every single bridgeStoreEntry (memory-bridge.ts:284, no filters). Each row carries full content (up to 1MB per bridge cap) plus the embedding blob, all held in one JS array; then for every row above threshold, rowToEntry (line 500 -> 822) re-queries the embedding it just deleted from the row, an N+1 that also duplicates each vector. SqlJsBackend.search (sqljs-backend.ts:533-537) similarly loads up to 50,000 full entries into the WASM-adjacent JS heap per search. At the stated 10^5-entry scale with large contents this is hundreds of MB to multi-GB per store/search call.
 
@@ -291,7 +291,7 @@ SQLiteBackend.search does `.all()` over every entry+embedding in the namespace �
 ## 20. [MEDIUM] Heading-like lines inside code fences treated as real headings — wrong § section prefix and fence-splitting breaks
 
 - **File:** packages/@monomind/memory/src/knowledge/document-chunker.ts:20  (knowledge-pipeline)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 Neither the boundary-snap scan (lines 72-81) nor lastHeadingBefore (lines 23-35) tracks ``` fence state, so any line matching /^#{1,6} / inside a fenced code block (shell comments like `# install dependencies`, Python comments, YAML comments in examples) is treated as a markdown heading. Confirmed by running the shared chunker on a doc with `# Real Section` prose plus a bash fence containing `# install dependencies`: all chunks after the fence are prefixed `§ install dependencies` instead of `§ Real Section`, poisoning both keyword and semantic retrieval for the rest of the section. When such a line lands in the 20% boundary window, the chunker also breaks before it with brokeAtHeading=true, splitting the code block mid-fence AND suppressing the overlap (line 114-116), so fence context is lost across the cut. Identical defect in the inline copy at packages/@monomind/cli/src/knowledge/document-pipeline.ts:29-79 (the copies are otherwise verified in sync).
 
@@ -336,7 +336,7 @@ reindex-check.json is written only inside `if (_kbDirty)` (lines 382-387). In th
 ## 23. [MEDIUM] Concurrent ingest spawns corrupt doc-metadata.jsonl (check-then-write marker race + read-filter-rewrite metadata)
 
 - **File:** /Volumes/media/projects/monoes/monomind/.claude/helpers/handlers/session-restore-handler.cjs:359  (hooks)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 The 30-min gate is a non-atomic read (line 359) -> compare (360) -> write (385): two session-restore hook processes starting near-simultaneously (two Claude windows on the same project) both read the stale ts, both pass, both write the marker, and both spawn `doc ingest .`. There is also no liveness check, so a still-running ingest from >30 min ago overlaps a new one. Two concurrent ingest processes then race on doc-metadata.jsonl: removeMetadataEntry (document-pipeline.ts:158-163) does a full read-filter-rewrite while the other process appendFileSync's (line 155) — appends landing between the read and the truncating rewrite are silently discarded, losing metadata rows so those files get re-ingested (duplicate work, and stale duplicate rows the `meta.find` at line 217 then resolves nondeterministically).
 
@@ -381,7 +381,7 @@ forwarder.settle() returns the serialized promise chain in which every bus event
 ## 26. [LOW] formatEvent's trim() only strips newlines from messages that are NOT truncated — long multi-line messages break the one-line log format
 
 - **File:** packages/@monomind/cli/src/orgrt/reporting.ts:138  (orgrt-runtime)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 `trim` is `s.length > n ? s.slice(0, n - 1) + '…' : s.replace(/\n/g, ' ')` — the newline replacement sits on the short branch only, so any message longer than 120 chars is truncated but keeps its embedded newlines.
 
@@ -396,7 +396,7 @@ forwarder.settle() returns the serialized promise chain in which every bus event
 ## 27. [LOW] logs drain permanently stalls on a corrupt interior line; non-follow mode silently truncates with success
 
 - **File:** packages/@monomind/cli/src/commands/org-observe.ts:94  (org-cli)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 drain() treats every JSON.parse failure as a partial tail line (`catch { break }`). That is only correct for the final line mid-append. bus.ts:37-42 swallows appendFile errors (logged only under DEBUG), so a partial write (ENOSPC, crash mid-write) followed by later successful appends produces a permanently corrupt line with valid events after it. drain() breaks at that line on every 500ms tick: --follow prints nothing further forever, and non-follow prints a truncated log and returns success:true. readRunEvents (reporting.ts:101-103) skips bad lines, so `org report` counts events that `org logs` can never display. Additionally, if the file ever shrinks (run dir reused/rewritten), `lines.slice(seenLines)` is empty forever and follow goes silent with no warning.
 
@@ -411,7 +411,7 @@ drain() treats every JSON.parse failure as a partial tail line (`catch { break }
 ## 28. [LOW] --run flag is joined into filesystem paths unvalidated — path traversal the org-name guard explicitly exists to prevent
 
 - **File:** packages/@monomind/cli/src/commands/org-observe.ts:73  (org-cli)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 resolveRun returns any non-empty string from --run verbatim; logsAction (line 81) and readRunEvents via reportAction (line 123, reporting.ts:99) then compute join(cwd, ORG_DIR, name, run, 'bus.jsonl'). ORG_NAME_RE (org.ts:13-16) was added precisely to stop traversal through these path components, but the run id component reintroduces it: `--run '../../../../some/where'` escapes .monomind/orgs entirely and reads <anywhere>/bus.jsonl. Read-only, but scripts that interpolate untrusted run ids (e.g. from a dashboard request) inherit the hole, and it is inconsistent with the hardening one path segment earlier.
 
@@ -441,7 +441,7 @@ statusAction puts a user-supplied name straight into `targets` without checking 
 ## 30. [LOW] CRLF documents never hit the paragraph-boundary snap — chunks hard-cut mid-word
 
 - **File:** packages/@monomind/memory/src/knowledge/document-chunker.ts:83  (knowledge-pipeline)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 The paragraph boundary search is a literal window.lastIndexOf('\n\n'), which never matches CRLF paragraph breaks ('\r\n\r\n'). Confirmed empirically: the same multi-paragraph document chunked with LF snaps every chunk to a paragraph end ('d.\n\n'), while the CRLF version hard-cuts every chunk mid-word ('ord wo'). Heading detection still works for CRLF ('\n#' matches inside '\r\n#', and .trim() strips the trailing '\r' from the § heading text), so this only degrades the paragraph tier — but it silently disables the primary boundary heuristic for every Windows-authored or CRLF-extracted document. Same in the inline copy at document-pipeline.ts:66.
 
@@ -471,7 +471,7 @@ Search resolves filePath via a hash->file map built from doc-metadata.jsonl (lin
 ## 32. [LOW] checkSecondBrainModel model-cache path derivation breaks on Windows and on install paths containing /dist/ — permanent false 'model not downloaded' warning
 
 - **File:** packages/@monomind/cli/src/commands/doctor-project-checks.ts:69  (cleanup-doctor)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 pkgDir is computed as `fileURLToPath(entry).replace(/\/dist\/.*$/, '')`. Two failure modes: (1) On Windows, fileURLToPath returns backslash-separated paths (C:\...\node_modules\@huggingface\transformers\dist\transformers.js), so the forward-slash regex never matches and pkgDir stays the full entry FILE path; `join(pkgDir, '.cache', 'Xenova')` then points below a file and can never exist. (2) The regex matches the LEFTMOST '/dist/' in the path, so any install rooted under a directory named 'dist' (e.g. /srv/dist/app/node_modules/@huggingface/transformers/dist/x.mjs) truncates to /srv, again yielding a nonexistent cache path. Either way doctor perpetually reports 'Embedding model not downloaded yet' and tells the user to re-run a ~90MB warmup, even though the model is cached and semantic search works. The CLI clearly intends Windows support (windowsHide flags throughout this file).
 
@@ -486,7 +486,7 @@ pkgDir is computed as `fileURLToPath(entry).replace(/\/dist\/.*$/, '')`. Two fai
 ## 33. [LOW] checkSecondBrainModel reports '@huggingface/transformers not installed' on Node 20.0-20.5 where import.meta.resolve does not exist
 
 - **File:** packages/@monomind/cli/src/commands/doctor-project-checks.ts:67  (cleanup-doctor)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 2)
 
 `import.meta.resolve` became available without a flag only in Node 20.6.0; on Node 20.0-20.5 (which pass the doctor's own 'Node 20+' floor) the optional-chain yields undefined, the code throws 'resolver unavailable', and the catch reports the package as not installed with a 'reinstall monomind' fix — even when the dependency is present and embeddings work. The catch also conflates 'resolver unavailable' with 'package missing', so any future resolver quirk produces the same misdiagnosis.
 
