@@ -5950,11 +5950,21 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             res.end('{"error":"knowledge bridge unavailable"}');
             return;
           }
-          const out = await bridge.bridgeSearchEntries({ query, namespace, limit });
+          // scope: project | global | all (default all) — project results get a
+          // small tie boost; global hits are flagged so callers can show origin.
+          const scope = payload.scope === 'project' || payload.scope === 'global' ? payload.scope : 'all';
+          const [proj, glob] = await Promise.all([
+            scope !== 'global' ? bridge.bridgeSearchEntries({ query, namespace, limit }).catch(() => null) : null,
+            scope !== 'project' ? bridge.bridgeSearchEntries({ query, namespace: 'knowledge:global', limit, dbPath: '@global' }).catch(() => null) : null,
+          ]);
+          const merged = [
+            ...(proj?.results || []).map(r => ({ key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags })),
+            ...(glob?.results || []).map(r => ({ key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: true, tags: r.tags })),
+          ].sort((a, b) => b.score - a.score).slice(0, limit);
           res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({
-            method: out?.searchMethod || 'none',
-            results: (out?.results || []).map(r => ({ key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score })),
+            method: proj?.searchMethod || glob?.searchMethod || 'none',
+            results: merged,
           }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
