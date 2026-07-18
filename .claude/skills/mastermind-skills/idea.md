@@ -1089,7 +1089,7 @@ if [ -n "$SESSION_ID" ]; then
     --argjson next_actions '["<next_action_1>","<next_action_2>"]' \
     '{domain:$domain,status:$status,artifacts:$artifacts,next_actions:$next_actions}' \
     > "$MONO_DIR/sessions/${SESSION_ID}/idea.json"
-  curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
+  curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
     -H "Content-Type: application/json" \
     -d "$(jq -cn --arg sid "$SESSION_ID" --arg status "<status>" \
       '{type:"domain:complete",session:$sid,domain:"idea",status:$status,ts:(now*1000|floor)}')" || true
