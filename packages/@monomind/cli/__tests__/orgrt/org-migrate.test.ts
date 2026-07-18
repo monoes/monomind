@@ -220,3 +220,21 @@ describe('listOrgConfigFiles excludes v1 backups', () => {
     } finally { rmSync(cwd, { recursive: true, force: true }); }
   });
 });
+
+describe('legacy reports_to "undefined" artifact', () => {
+  it('treats the literal string "undefined" as unset', async () => {
+    const { migrateOrgConfig } = await import('../../src/orgrt/migrate.js');
+    const raw = {
+      name: 'legacy', roles: [
+        { id: 'boss', reports_to: null },
+        { id: 'dev', reports_to: 'undefined' },
+      ],
+    };
+    const { def, notes } = migrateOrgConfig(structuredClone(raw));
+    const roles = def.roles as Record<string, unknown>[];
+    // schema defaults the unset value to null is applied at parse-time consumers;
+    // the migrated def must simply no longer carry the poisonous string
+    expect(roles[1].reports_to).not.toBe('undefined');
+    expect(notes.some(n => n.includes('reports_to "undefined"'))).toBe(true);
+  });
+});
