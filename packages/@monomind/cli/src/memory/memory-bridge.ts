@@ -323,6 +323,7 @@ export async function bridgeSearchEntries(options: {
     score: number;
     namespace: string;
     provenance?: string;
+    tags?: string[];
   }[];
   searchTime: number;
   searchMethod?: string;
@@ -355,6 +356,7 @@ export async function bridgeSearchEntries(options: {
           score: r.score,
           namespace: r.entry.namespace,
           provenance: `semantic:${r.score.toFixed(3)}`,
+          tags: r.entry.tags ?? [],
           _createdAt: r.entry.createdAt || 0,
         }));
         searchMethod = 'semantic';
@@ -393,6 +395,7 @@ export async function bridgeSearchEntries(options: {
             score: Math.min(0.9, 0.3 + score * 0.6),
             namespace: e.namespace,
             provenance: `keyword:${score.toFixed(2)}`,
+            tags: e.tags ?? [],
             _createdAt: e.createdAt || 0,
           }));
       }
