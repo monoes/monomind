@@ -22,6 +22,15 @@ export interface SessionOpts {
   onComplete?: (role: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => void;
   /** Search the org's accumulated cross-run memory (memory_namespace). */
   recall?: (role: string, query: string) => Promise<string>;
+  /** Persist extracted entities/relations/rules into the org's knowledge graph. */
+  learn?: (role: string, payload: {
+    nodes?: { name: string; type?: string; description?: string }[];
+    edges?: { source: string; target: string; relation: string; description?: string }[];
+    rules?: { rule: string; context?: string }[];
+  }) => Promise<string>;
+  /** Top existing KG entity names — injected into the coordinator prompt so
+   *  extraction reuses canonical names instead of minting near-duplicates. */
+  glossary?: string[];
   /** Search the user's Second Brain (project documents + personal global brain). */
   searchKnowledge?: (role: string, query: string) => Promise<string>;
   def?: OrgDef;
@@ -30,7 +39,7 @@ export interface SessionOpts {
 }
 
 /** Role briefing given to each agent session (SDK systemPrompt option). */
-export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'>, roster: string[]): string {
+export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'>, roster: string[], glossary?: string[]): string {
   const isCoordinator = role.reports_to == null;
   return [
     `You are agent "${role.id}" (${role.title || role.type}) in the org "${def.name}".`,
@@ -45,8 +54,11 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
     `The user's documents (notes, handbooks, specs) are searchable with knowledge_search — ground your work in them instead of guessing; results labeled [global] come from the user's personal cross-project brain.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
     isCoordinator
-      ? `When the org's goal for this run is achieved (or clearly can't be), call org_complete exactly once with the outcome and a concise summary of what was done — it is recorded in the org's run history and briefed to the next run. Then end your turn.`
+      ? `When the org's goal for this run is achieved (or clearly can't be): first call org_learn ONCE with the durable knowledge this run produced — key entities (basic types, fullest names), their relationships (snake_case, one-sentence facts), and any reusable rules ("when X, do Y") worth keeping. Then call org_complete exactly once with the outcome and a concise summary. Then end your turn.`
       : `When your current work is complete and no reply is needed, end your turn without further tool calls.`,
+    isCoordinator && glossary?.length
+      ? `Known entities (reuse these EXACT names in org_learn instead of near-duplicates): ${glossary.slice(0, 40).join(', ')}`
+      : '',
   ].filter(Boolean).join('\n\n');
 }
 
@@ -104,6 +116,19 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
           return { content: [{ type: 'text' as const, text }] };
         },
       )] : []),
+      ...(opts.learn ? [tool(
+        'org_learn',
+        'Persist durable knowledge from this run into the org\'s knowledge graph: entities ({name, type?, description?}), relationships ({source, target, relation, description?}) and reusable rules ({rule, context?}). Entities merge by name across runs — reuse the exact names listed in your briefing. Call once, before org_complete.',
+        {
+          nodes: z.array(z.object({ name: z.string(), type: z.string().optional(), description: z.string().optional() })).optional(),
+          edges: z.array(z.object({ source: z.string(), target: z.string(), relation: z.string(), description: z.string().optional() })).optional(),
+          rules: z.array(z.object({ rule: z.string(), context: z.string().optional() })).optional(),
+        },
+        async (args) => {
+          const text = await opts.learn!(role.id, args);
+          return { content: [{ type: 'text' as const, text }] };
+        },
+      )] : []),
       // Gate purely on onComplete: the daemon passes it only to the role its
       // boss-selection rule picked, so tool availability always matches the
       // kickoff instruction (reports_to may be non-null for a fallback boss).
@@ -147,7 +172,7 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
       prompt: mailbox.stream(),
       options: {
         systemPrompt: buildRolePrompt(role, (opts.def ?? { name: org, goal: '' }) as OrgDef,
-          opts.def?.roles.map(r => r.id) ?? [role.id]),
+          opts.def?.roles.map(r => r.id) ?? [role.id], opts.glossary),
         model: role.adapter_config?.model,
         cwd,
         env: resolveProviderEnv(role.provider),

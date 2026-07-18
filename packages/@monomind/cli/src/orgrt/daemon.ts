@@ -124,6 +124,15 @@ export class OrgDaemon {
     // fallback-selected boss could be told to call org_complete without having
     // the tool.
     const bossRole = def.roles.find(r => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
+    // Canonical entity names from the org KG — injected into the coordinator
+    // prompt so org_learn extractions reuse them instead of minting duplicates.
+    const glossary = await (async () => {
+      try {
+        if (!(await this.orgMemoryUsable())) return [];
+        const kg = await import('../memory/memory-kg.js');
+        return await kg.kgGlossary({ dbPath: this.orgMemoryDbPath() });
+      } catch { return []; }
+    })();
     for (const role of def.roles) {
       const mailbox = new Mailbox();
       const policy = new PolicyEngine(role.id,
@@ -148,6 +157,15 @@ export class OrgDaemon {
           const answer = await this.searchProjectKnowledge(q);
           bus.emit({ type: 'status', from: r, reason: 'knowledge-search', msg: `knowledge: ${q.slice(0, 80)}`, data: { hits: answer.hits } });
           return answer.text;
+        },
+        glossary,
+        learn: async (r: string, payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] }) => {
+          const text = await this.learnOrgKnowledge(name, run, payload);
+          bus.emit({
+            type: 'status', from: r, reason: 'org-learn', msg: `learn: ${text.slice(0, 120)}`,
+            data: { nodes: payload.nodes?.length ?? 0, edges: payload.edges?.length ?? 0, rules: payload.rules?.length ?? 0 },
+          });
+          return text;
         },
         queryFn: this.opts.queryFn,
       };
@@ -614,7 +632,13 @@ export class OrgDaemon {
       // Frequency reinforcement is immediate; the feedback rating waits for the
       // run outcome (positive-only — see storeRunMemory).
       bridge.bridgeRecordUsage({ entryIds: ids, dbPath: this.orgMemoryDbPath() }).catch(() => { /* best effort */ });
-      const text = results.map((r, i) => `${i + 1}. [${r.key}] ${r.content}`).join('\n\n');
+      let text = results.map((r, i) => `${i + 1}. [${r.key}] ${r.content}`).join('\n\n');
+      // Structured knowledge: relationship triplets from the org KG, when any.
+      try {
+        const kg = await import('../memory/memory-kg.js');
+        const graph = await kg.kgSearch({ query, dbPath: this.orgMemoryDbPath(), limit: 5 });
+        if (graph.context) text += `\n\nKnowledge graph:\n${graph.context}`;
+      } catch { /* best effort */ }
       return { text, hits: results.length };
     } catch (err) {
       return { text: `org memory unavailable (${err instanceof Error ? err.message : 'error'})`, hits: 0 };
@@ -636,6 +660,36 @@ export class OrgDaemon {
       return { text, hits: excerpts.length };
     } catch (err) {
       return { text: `knowledge search unavailable (${err instanceof Error ? err.message : 'error'})`, hits: 0 };
+    }
+  }
+
+  /** org_learn implementation: merge coordinator-extracted entities/relations/
+   *  rules into the org's knowledge graph (LLM extraction happens inside the
+   *  agent's own subscription-auth SDK session — no separate LLM call here). */
+  private orgLearnedRuns = new Set<string>();
+  private async learnOrgKnowledge(name: string, run: string, payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] }): Promise<string> {
+    try {
+      if (!(await this.orgMemoryUsable())) return 'org memory is not available in this environment.';
+      const kg = await import('../memory/memory-kg.js');
+      const dbPath = this.orgMemoryDbPath();
+      const originRef = `run:${run}`;
+      const graph = await kg.kgIngest({
+        nodes: (payload.nodes ?? []) as import('../memory/memory-kg.js').KgNodeInput[],
+        edges: (payload.edges ?? []) as import('../memory/memory-kg.js').KgEdgeInput[],
+        originRef, dbPath,
+      });
+      const rules = Array.isArray(payload.rules) && payload.rules.length
+        ? await kg.kgIngestRules({ rules: payload.rules as { rule: string; context?: string }[], originRef, dbPath })
+        : null;
+      this.orgLearnedRuns.add(`${name}:${run}`);
+      const parts = [
+        `entities: +${graph.nodesAdded} new, ${graph.nodesMerged} merged`,
+        `relations: +${graph.edgesAdded} new, ${graph.edgesMerged} merged`,
+      ];
+      if (rules) parts.push(`rules: ${rules.accepted} accepted, ${rules.verdicts.filter(v => v.verdict === 'already_known').length} already known`);
+      return `Recorded in org knowledge graph — ${parts.join('; ')}. Rollback ref: ${originRef}.`;
+    } catch (err) {
+      return `org_learn failed (${err instanceof Error ? err.message : 'error'})`;
     }
   }
 
@@ -661,6 +715,20 @@ export class OrgDaemon {
         dbPath: this.orgMemoryDbPath(),
         upsert: true,
       });
+
+      // Heuristic KG fallback: if the coordinator never called org_learn this
+      // run, extract lower-trust entities from the outcome summary so the
+      // graph still accumulates something. LLM-quality extraction only comes
+      // from org_learn (the agent's own session).
+      if (!this.orgLearnedRuns.delete(`${name}:${run}`)) {
+        try {
+          const kg = await import('../memory/memory-kg.js');
+          const extracted = kg.heuristicExtract(lines.join('\n'), { sourceName: `run:${run}` });
+          if (extracted.nodes.length) {
+            await kg.kgIngest({ ...extracted, originRef: `run:${run}`, dbPath: this.orgMemoryDbPath() });
+          }
+        } catch { /* best effort */ }
+      }
 
       // Auto-rate the memories this run recalled — POSITIVE-ONLY: a failed run
       // proves nothing about the recalled memories (the failure may be entirely

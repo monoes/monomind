@@ -285,6 +285,8 @@ export async function bridgeStoreEntry(options: {
   ttl?: number;
   dbPath?: string;
   upsert?: boolean;
+  /** Structured metadata persisted on the entry (KG nodes/edges, weights, provenance). */
+  metadata?: Record<string, unknown>;
 }): Promise<{
   success: boolean;
   id: string;
@@ -332,6 +334,7 @@ export async function bridgeStoreEntry(options: {
       content: value,
       namespace,
       tags,
+      metadata: options.metadata,
       expiresAt: options.ttl ? now + options.ttl * 1000 : undefined,
     });
     // Override id and set embedding
@@ -490,7 +493,7 @@ export async function bridgeSearchEntries(options: {
     // stale cutoff.
     // org:* (cross-run org memory) and rules are durable learned state like
     // documents — the stale cliff silently erased org recall after a week.
-    const durableNs = (ns: string) => ns.startsWith('knowledge:') || ns.startsWith('org:') || ns === 'rules';
+    const durableNs = (ns: string) => ns.startsWith('knowledge:') || ns.startsWith('org:') || ns.startsWith('kg:') || ns === 'rules';
     const isKnowledgeNs = namespace ? durableNs(namespace) : false;
     if (!isKnowledgeNs) {
       const { staleDays } = getAutomemConfig();
@@ -529,6 +532,7 @@ export async function bridgeListEntries(options: {
     updatedAt: string;
     hasEmbedding: boolean;
     tags: string[];
+    metadata: Record<string, unknown>;
   }[];
   total: number;
   error?: string;
@@ -556,6 +560,7 @@ export async function bridgeListEntries(options: {
         updatedAt: new Date(e.updatedAt).toISOString(),
         hasEmbedding: !!(e.embedding && (e.embedding as any).length > 0),
         tags: e.tags ?? [],
+        metadata: e.metadata ?? {},
       })),
       total: entries.length,
     };
@@ -582,6 +587,7 @@ export async function bridgeGetEntry(options: {
     updatedAt: string;
     hasEmbedding: boolean;
     tags: string[];
+    metadata: Record<string, unknown>;
   };
   cacheHit?: boolean;
   error?: string;
@@ -608,6 +614,7 @@ export async function bridgeGetEntry(options: {
         updatedAt: new Date(entry.updatedAt).toISOString(),
         hasEmbedding: !!(entry.embedding && (entry.embedding as any).length > 0),
         tags: entry.tags ?? [],
+        metadata: entry.metadata ?? {},
       },
     };
   } catch {
@@ -1176,7 +1183,7 @@ export async function bridgeHierarchicalRecall(params: {
 
 /** Namespaces GC must never touch: durable knowledge/org/rule state, and the
  *  feedback ledger (deleting it would un-idempotent past ratings). */
-const GC_PROTECTED_NS = /^(knowledge:|org:|rules$|feedback$)/;
+const GC_PROTECTED_NS = /^(knowledge:|org:|kg:|rules$|feedback$)/;
 
 export async function bridgeConsolidate(params: {
   /** Minimum age in MILLISECONDS since last update (default 7 days). */
