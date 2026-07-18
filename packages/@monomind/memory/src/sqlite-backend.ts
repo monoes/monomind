@@ -730,13 +730,21 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
 
   // ===== Private Methods =====
 
-  private static readonly TAG_RE = /^[a-zA-Z0-9_\-.:]+$/;
+  // Every tag write below is parameterized — validation is shape sanity, not
+  // injection defense. `src:<absolute path>` provenance tags are first-class
+  // in the knowledge pipeline and paths legitimately contain @, #, spaces,
+  // unicode, parentheses… so src: tags only exclude control characters.
+  // (The sql.js backend has never validated tags at all; a strict charset
+  // here made store success silently depend on which backend loaded.)
+  private static readonly TAG_RE = /^[a-zA-Z0-9_\-.:/~ ]+$/;
+  private static readonly SRC_TAG_RE = /^src:[^\x00-\x1f\x7f]+$/;
+  private static readonly MAX_TAG_LEN = 512;
 
   private validateTags(tags: string[]): void {
     for (const tag of tags) {
-      if (typeof tag !== 'string' || !SQLiteBackend.TAG_RE.test(tag)) {
-        throw new Error(`Invalid tag format: "${tag}"`);
-      }
+      const ok = typeof tag === 'string' && tag.length <= SQLiteBackend.MAX_TAG_LEN
+        && (tag.startsWith('src:') ? SQLiteBackend.SRC_TAG_RE.test(tag) : SQLiteBackend.TAG_RE.test(tag));
+      if (!ok) throw new Error(`Invalid tag format: "${String(tag).slice(0, 80)}"`);
     }
   }
 
