@@ -127,6 +127,11 @@ export class OrgDaemon {
           bus.emit({ type: 'status', from: r, reason: 'org-recall', msg: `recall: ${q.slice(0, 80)}`, data: { hits: answer.hits } });
           return answer.text;
         },
+        searchKnowledge: async (r: string, q: string) => {
+          const answer = await this.searchProjectKnowledge(q);
+          bus.emit({ type: 'status', from: r, reason: 'knowledge-search', msg: `knowledge: ${q.slice(0, 80)}`, data: { hits: answer.hits } });
+          return answer.text;
+        },
         queryFn: this.opts.queryFn,
       };
       // Supervised session: transient crashes (provider blips, network) restart
@@ -524,6 +529,24 @@ export class OrgDaemon {
       return { text, hits: results.length };
     } catch (err) {
       return { text: `org memory unavailable (${err instanceof Error ? err.message : 'error'})`, hits: 0 };
+    }
+  }
+
+  /** knowledge_search implementation for org agents: the user's Second Brain
+   *  (this project's documents + the personal global brain), merged with the
+   *  same project-first ranking every other surface uses. Failures return a
+   *  message, never throw into the tool call. */
+  async searchProjectKnowledge(query: string): Promise<{ text: string; hits: number }> {
+    try {
+      const { searchKnowledge } = await import('../knowledge/document-pipeline.js');
+      const excerpts = await searchKnowledge(query, { rootDir: this.root, limit: 5, store: 'all' });
+      if (!excerpts.length) return { text: 'No matching documents in the Second Brain for that query.', hits: 0 };
+      const text = excerpts.map((e, i) =>
+        `${i + 1}. [${e.filePath || 'unknown'}${e.scope === 'global' ? ' · global' : ''}] (${e.similarity.toFixed(2)})\n${e.text.slice(0, 800)}`
+      ).join('\n\n');
+      return { text, hits: excerpts.length };
+    } catch (err) {
+      return { text: `knowledge search unavailable (${err instanceof Error ? err.message : 'error'})`, hits: 0 };
     }
   }
 

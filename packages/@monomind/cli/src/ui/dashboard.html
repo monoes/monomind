@@ -1917,6 +1917,11 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <div class="filter-bar" style="margin-bottom:6px">
             <input class="filter-input" id="sb-search-input" type="text" placeholder="Ask your Second Brain — semantic search by meaning…"
               onkeydown="if(event.key==='Enter')secondBrainSearch()">
+            <select id="sb-search-scope" class="btn" title="Which brain to search" style="padding:3px 6px">
+              <option value="all" selected>project + global</option>
+              <option value="project">project only</option>
+              <option value="global">global only</option>
+            </select>
             <button class="btn" onclick="secondBrainSearch()" title="Semantic search (warm local model)">⌕ Search</button>
           </div>
           <div id="sb-search-results" style="display:none;margin-bottom:12px"></div>
@@ -13609,10 +13614,11 @@ async function secondBrainSearch() {
   box.style.display = 'block';
   box.innerHTML = '<div class="loading-txt">Searching…</div>';
   try {
+    const scopeSel = document.getElementById('sb-search-scope');
     const r = await fetch('/api/knowledge/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: q, limit: 5 }),
+      body: JSON.stringify({ query: q, limit: 5, scope: scopeSel ? scopeSel.value : 'all' }),
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
@@ -13625,8 +13631,11 @@ async function secondBrainSearch() {
       '<div style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-xs);margin-bottom:6px">' +
         results.length + ' result(s) · ' + esc(data.method || '') + '</div>' +
       results.map(function (res) {
+        var srcTag = (res.tags || []).find(function (t) { return t.indexOf('src:') === 0; });
+        var label = srcTag ? srcTag.slice(4).split('/').slice(-2).join('/') : (res.key || '');
         return '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
-          '<div style="font-size:10px;color:var(--text-lo);margin-bottom:3px">' + esc(res.key || '') +
+          '<div style="font-size:10px;color:var(--text-lo);margin-bottom:3px">' + esc(label) +
+            (res.global ? ' <span style="color:var(--accent-dim,#888);border:1px solid var(--border);border-radius:4px;padding:0 4px">global</span>' : '') +
             ' <span style="color:var(--accent)">' + (typeof res.score === 'number' ? res.score.toFixed(2) : '') + '</span></div>' +
           '<div style="font-size:12px;white-space:pre-wrap;max-height:120px;overflow:hidden">' + esc(String(res.content || '').slice(0, 600)) + '</div>' +
         '</div>';
