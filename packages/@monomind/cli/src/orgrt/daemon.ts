@@ -149,7 +149,7 @@ export class OrgDaemon {
             }
           : undefined,
         recall: async (r: string, q: string) => {
-          const answer = await this.recallOrgMemory(name, def, q);
+          const answer = await this.recallOrgMemory(name, def, q, r);
           bus.emit({ type: 'status', from: r, reason: 'org-recall', msg: `recall: ${q.slice(0, 80)}`, data: { hits: answer.hits } });
           return answer.text;
         },
@@ -159,6 +159,11 @@ export class OrgDaemon {
           return answer.text;
         },
         glossary,
+        remember: async (r: string, content: string, scope: 'org' | 'agent') => {
+          const text = await this.rememberOrgMemory(name, def, r, content, scope, run);
+          bus.emit({ type: 'status', from: r, reason: 'org-remember', msg: `remember (${scope}): ${content.slice(0, 80)}`, data: { scope } });
+          return text;
+        },
         learn: async (r: string, payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] }) => {
           const text = await this.learnOrgKnowledge(name, run, payload);
           bus.emit({
@@ -607,6 +612,33 @@ export class OrgDaemon {
     } catch { return false; }
   }
 
+  /** Namespace for a role's PRIVATE memories, inside the org memory DB. */
+  private agentMemoryNamespace(name: string, def: OrgDef, role: string): string {
+    return `agent:${this.orgMemoryNamespace(name, def)}:${role}`;
+  }
+
+  /** org_remember implementation: a deliberate write to org-shared or
+   *  role-private memory (both in the org memory DB, split by namespace). */
+  private async rememberOrgMemory(name: string, def: OrgDef, role: string, content: string, scope: 'org' | 'agent', run: string): Promise<string> {
+    try {
+      if (!(await this.orgMemoryUsable())) return 'org memory is not available in this environment.';
+      const { bridgeStoreEntry } = await import('../memory/memory-bridge.js');
+      const namespace = scope === 'agent' ? this.agentMemoryNamespace(name, def, role) : this.orgMemoryNamespace(name, def);
+      const res = await bridgeStoreEntry({
+        key: `mem-${run}-${Date.now().toString(36)}`,
+        value: content.slice(0, 20_000),
+        namespace,
+        dbPath: this.orgMemoryDbPath(),
+        tags: [scope, role],
+        metadata: { origin_refs: [`run:${run}`], by: role },
+      });
+      if (res?.duplicate) return `Already remembered (near-duplicate exists) — reinforced instead.`;
+      return res?.success ? `Remembered (${scope} scope).` : `Could not store memory${res?.error ? `: ${res.error}` : ''}.`;
+    } catch (err) {
+      return `org_remember failed (${err instanceof Error ? err.message : 'error'})`;
+    }
+  }
+
   /** Entry IDs served by org_recall during the current run, per org. This is
    *  the usage record the run-outcome auto-rating consumes (cognee's
    *  used_graph_element_ids pattern) — recall renders text to the agent, so
@@ -616,14 +648,23 @@ export class OrgDaemon {
   /** org_recall implementation: search the org's memory namespace via the
    *  memory bridge (semantic when the local model is available, tokenized
    *  keyword otherwise). Failures return a message, never throw into the tool. */
-  private async recallOrgMemory(name: string, def: OrgDef, query: string): Promise<{ text: string; hits: number }> {
+  private async recallOrgMemory(name: string, def: OrgDef, query: string, role?: string): Promise<{ text: string; hits: number }> {
     try {
       if (!(await this.orgMemoryUsable())) return { text: 'org memory is not available in this environment.', hits: 0 };
       const bridge = await import('../memory/memory-bridge.js');
-      const res = await bridge.bridgeSearchEntries({
-        query, namespace: this.orgMemoryNamespace(name, def), limit: 5, dbPath: this.orgMemoryDbPath(),
-      });
-      const results = res?.results ?? [];
+      // Shared org memory plus the caller's private agent scope, merged by score.
+      const [shared, priv] = await Promise.all([
+        bridge.bridgeSearchEntries({
+          query, namespace: this.orgMemoryNamespace(name, def), limit: 5, dbPath: this.orgMemoryDbPath(),
+        }),
+        role ? bridge.bridgeSearchEntries({
+          query, namespace: this.agentMemoryNamespace(name, def, role), limit: 3, dbPath: this.orgMemoryDbPath(),
+        }) : null,
+      ]);
+      const results = [
+        ...(shared?.results ?? []),
+        ...(priv?.results ?? []).map(r => ({ ...r, key: `${r.key} (private)` })),
+      ].sort((a, b) => b.score - a.score).slice(0, 6);
       if (!results.length) return { text: 'No matching org memory found — this may be the first run covering this topic.', hits: 0 };
       const ids = results.map(r => r.id).filter(Boolean);
       let used = this.recallUsage.get(name);

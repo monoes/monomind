@@ -493,7 +493,7 @@ export async function bridgeSearchEntries(options: {
     // stale cutoff.
     // org:* (cross-run org memory) and rules are durable learned state like
     // documents — the stale cliff silently erased org recall after a week.
-    const durableNs = (ns: string) => ns.startsWith('knowledge:') || ns.startsWith('org:') || ns.startsWith('kg:') || ns === 'rules';
+    const durableNs = (ns: string) => ns.startsWith('knowledge:') || ns.startsWith('org:') || ns.startsWith('agent:') || ns.startsWith('kg:') || ns === 'rules';
     const isKnowledgeNs = namespace ? durableNs(namespace) : false;
     if (!isKnowledgeNs) {
       const { staleDays } = getAutomemConfig();
@@ -1183,7 +1183,7 @@ export async function bridgeHierarchicalRecall(params: {
 
 /** Namespaces GC must never touch: durable knowledge/org/rule state, and the
  *  feedback ledger (deleting it would un-idempotent past ratings). */
-const GC_PROTECTED_NS = /^(knowledge:|org:|kg:|rules$|feedback$)/;
+const GC_PROTECTED_NS = /^(knowledge:|org:|agent:|kg:|rules$|feedback$)/;
 
 export async function bridgeConsolidate(params: {
   /** Minimum age in MILLISECONDS since last update (default 7 days). */
