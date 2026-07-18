@@ -6,6 +6,7 @@ import { output } from '../output.js';
 import { OrgDaemon } from '../orgrt/daemon.js';
 import { startOrgServer } from '../orgrt/server.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
+import { migrateOrgFile } from '../orgrt/migrate.js';
 
 const log = (text: string): void => { console.log(text); };
 
@@ -36,7 +37,8 @@ const ORG_ARTIFACT_SUFFIXES = [
 ];
 export function listOrgConfigFiles(orgsDir: string): string[] {
   return readdirSync(orgsDir)
-    .filter(f => f.endsWith('.json') && !f.startsWith('._') && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
+    .filter(f => f.endsWith('.json') && !f.startsWith('._') && !f.endsWith('.v1.json')
+      && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
 }
 
 /** Remove a lingering stopfile so a fresh `org run` doesn't self-terminate. */
@@ -364,6 +366,37 @@ const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> =
   }
 };
 
+const migrateAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  const validated = validateOrgName(ctx.args[0]);
+  if (!validated.ok) return validated.result;
+  const name = validated.name;
+  const cwd = ctx.cwd;
+  const cfgPath = join(cwd, ORG_DIR, `${name}.json`);
+  if (!existsSync(cfgPath)) {
+    log(output.error(`Org not found: ${name}`));
+    return { success: false, message: 'org not found' };
+  }
+  if (isOrgRunning(cwd, name)) {
+    log(output.error(`Org "${name}" is currently running — stop it first, then migrate.`));
+    return { success: false, message: 'org is running' };
+  }
+  try {
+    const outcome = migrateOrgFile(cfgPath, join(cwd, ORG_DIR, `${name}.v1.json`));
+    if (outcome.status === 'already-v2') {
+      log(output.info(`${name}: already v2 — nothing to migrate.`));
+      return { success: true, message: 'already v2' };
+    }
+    log(output.success(`${name}: migrated to v2 (backup: ${name}.v1.json)`));
+    for (const d of outcome.dropped) log(output.info(`  dropped v1 field: ${d}`));
+    for (const n of outcome.notes) log(output.info(`  ${n}`));
+    log(output.info(`  run it with: monomind org run ${name}`));
+    return { success: true, message: `migrated ${name}` };
+  } catch (err) {
+    log(output.error(`Cannot migrate ${name}: ${err instanceof Error ? err.message : String(err)}`));
+    return { success: false, message: 'migration produced an invalid config' };
+  }
+};
+
 export const orgCommand: Command = {
   name: 'org',
   description: 'SDK-based org runtime — run agent organizations as a controlled daemon',
@@ -469,6 +502,11 @@ export const orgCommand: Command = {
         return validateAction(ctx);
       },
     },
+    {
+      name: 'migrate', description: 'Convert a v1 org config (topology/board/loop) to the v2 daemon shape',
+      examples: [{ command: 'monomind org migrate growth', description: 'Migrate one org; original saved as growth.v1.json' }],
+      action: migrateAction,
+    },
     { name: 'list', description: 'List all orgs in the current project', action: listAction },
     {
       name: 'delete', description: 'Delete an org and all its data',
@@ -485,7 +523,7 @@ export const orgCommand: Command = {
     // index.ts's dispatcher never prints result.message on a failed action —
     // it only exits with result.exitCode — so this must log itself or bare
     // `monomind org` exits silently with code 1 and zero output.
-    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|questions|answer|create|validate|list|delete|mark-complete>';
+    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|questions|answer|create|validate|migrate|list|delete|mark-complete>';
     log(output.error(message));
     return { success: false, message };
   },
