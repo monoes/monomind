@@ -319,32 +319,105 @@ module.exports = {
       // ── Second Brain: per-request knowledge injection ──────────────────
       // When the project has an indexed knowledge base, surface the most
       // relevant excerpts for THIS prompt so Claude has them without having
-      // to decide to call knowledge_search. Keyword-scored over chunks.jsonl
-      // (a hook subprocess can't afford a 1-3s embedding-model load per
-      // prompt; full semantic search stays behind the knowledge_search MCP
-      // tool / `monomind doc search`).
-      // monolean: [keyword-only injection] — upgrade path: warm control-server
-      // endpoint holding the embedding model for semantic per-prompt retrieval.
+      // to decide to call knowledge_search. Semantic-first via the dashboard
+      // server's warm /api/knowledge/search (it holds the local embedding
+      // model hot — a hook subprocess can't afford a 1-3s model load per
+      // prompt); tokenized keyword scoring over chunks.jsonl as the fallback
+      // when the server is down or still warming.
       try {
         var sbPrompt = String(prompt || '');
-        // Skip slash commands and trivial prompts — injection would be noise.
-        if (sbPrompt.length >= 12 && sbPrompt.charAt(0) !== '/') {
+        // Skip slash commands and low-content prompts — injection would be
+        // noise. A prompt earns injection only when it carries at least two
+        // substantive terms ("what is next" / "ok go ahead" / "thanks" carry
+        // zero-to-one and must stay quiet; a real question about the project
+        // clears this easily).
+        var _SB_FILLER = new Set(['what', 'whats', 'is', 'are', 'was', 'were', 'the', 'this', 'that', 'these', 'those',
+          'next', 'now', 'then', 'and', 'but', 'for', 'not', 'you', 'your', 'can', 'could', 'should', 'would', 'will',
+          'lets', 'let', 'make', 'made', 'making', 'please', 'okay', 'yes', 'yeah', 'sure', 'thanks', 'thank',
+          'ahead', 'continue', 'proceed', 'more', 'again', 'how', 'why', 'when', 'where', 'who', 'which',
+          'with', 'about', 'from', 'into', 'onto', 'over', 'under', 'all', 'any', 'some', 'one', 'two', 'just',
+          'like', 'want', 'need', 'get', 'got', 'here', 'there', 'still', 'also', 'too', 'very', 'really',
+          'them', 'they', 'their', 'theirs', 'its', 'our', 'ours', 'him', 'her', 'his', 'hers',
+          'order', 'done', 'doing', 'did', 'does', 'goes', 'going', 'went', 'come', 'came', 'good', 'great', 'nice', 'fine']);
+        var _sbSubstantive = sbPrompt.toLowerCase().split(/[^a-z0-9]+/).filter(function(t) {
+          return t.length >= 3 && !_SB_FILLER.has(t);
+        });
+        if (_sbSubstantive.length >= 2 && sbPrompt.charAt(0) !== '/') {
           var sbKnowledgeDir = path.join(CWD, '.monomind', 'knowledge');
           if (fs.existsSync(path.join(sbKnowledgeDir, 'chunks.jsonl'))) {
-            var sbSearch = hCtx._buildKnowledgeSearchFn(sbKnowledgeDir);
-            var sbHits = await hCtx.runWithTimeout(
-              function() { return sbSearch(sbPrompt, { namespace: 'knowledge:shared', limit: 3, minScore: 0.45 }); },
-              'second-brain-inject'
-            );
+            var sbHits = null;
+            var sbMethod = 'keyword';
+
+            // Semantic path: warm control-server endpoint (strictly local traffic;
+            // sbAuth is the local dashboard session value from .monomind, same one
+            // every other hook event POST attaches — not a checked-in secret).
+            try {
+              var sbCtrlUrl = 'http://localhost:4242';
+              try {
+                var sbCtl = JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'control.json'), 'utf-8'));
+                if (sbCtl.url) sbCtrlUrl = sbCtl.url;
+              } catch (_) {}
+              var sbAuth = '';
+              try { sbAuth = fs.readFileSync(path.join(CWD, '.monomind', 'dashboard-token'), 'utf-8').trim(); } catch (_) {}
+              var sbResp = await fetch(sbCtrlUrl + '/api/knowledge/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-monomind-token': sbAuth },
+                body: JSON.stringify({ query: sbPrompt, namespace: 'knowledge:shared', limit: 3 }),
+                signal: AbortSignal.timeout(900),
+              });
+              if (sbResp.ok) {
+                var sbData = await sbResp.json();
+                if (sbData && Array.isArray(sbData.results) && sbData.results.length > 0) {
+                  sbHits = sbData.results.map(function(r) { return { key: r.key, value: r.content, score: r.score, metadata: {} }; });
+                  sbMethod = sbData.method === 'semantic' ? 'semantic' : 'keyword';
+                }
+              }
+            } catch (_) { /* server down or warming — fall back below */ }
+
+            if (!sbHits) {
+              var sbSearch = hCtx._buildKnowledgeSearchFn(sbKnowledgeDir);
+              sbHits = await hCtx.runWithTimeout(
+                function() { return sbSearch(sbPrompt, { namespace: 'knowledge:shared', limit: 3, minScore: 0.45 }); },
+                'second-brain-inject'
+              );
+            }
+            // Relevance floor: injecting weak matches pollutes every prompt's
+            // context — below 0.35 the excerpt is more likely noise than help.
+            if (sbHits) sbHits = sbHits.filter(function(h) { return (h.score || 0) >= 0.35; });
+
+            // Telemetry: append one JSONL line per evaluated prompt so the
+            // thresholds above can be tuned from real usage (and misses can
+            // seed the golden-set eval). Prompt text is NOT logged.
+            try {
+              var sbMetricsDir = path.join(CWD, '.monomind', 'metrics');
+              fs.mkdirSync(sbMetricsDir, { recursive: true });
+              var sbMetricsFile = path.join(sbMetricsDir, 'second-brain.jsonl');
+              try {
+                if (fs.existsSync(sbMetricsFile) && fs.statSync(sbMetricsFile).size > 512 * 1024) {
+                  var sbOld = fs.readFileSync(sbMetricsFile, 'utf-8').trim().split('\n');
+                  fs.writeFileSync(sbMetricsFile, sbOld.slice(-500).join('\n') + '\n', 'utf-8');
+                }
+              } catch (_) {}
+              fs.appendFileSync(sbMetricsFile, JSON.stringify({
+                ts: Date.now(),
+                method: sbMethod,
+                hits: sbHits ? sbHits.length : 0,
+                topScore: sbHits && sbHits[0] ? Number((sbHits[0].score || 0).toFixed(3)) : null,
+                promptLen: sbPrompt.length,
+                terms: _sbSubstantive.length,
+                injected: !!(sbHits && sbHits.length > 0),
+              }) + '\n', 'utf-8');
+            } catch (_) { /* telemetry never blocks */ }
+
             if (sbHits && sbHits.length > 0) {
-              var sbLines = ['[SECOND_BRAIN] ' + sbHits.length + ' relevant excerpt(s) from the project knowledge base:'];
+              var sbLines = ['[SECOND_BRAIN] ' + sbHits.length + ' relevant excerpt(s) (' + sbMethod + ') from the project knowledge base:'];
               for (var sbI = 0; sbI < sbHits.length; sbI++) {
                 var sbH = sbHits[sbI];
                 var sbSrc = (sbH.metadata && sbH.metadata.filePath) ? String(sbH.metadata.filePath).split('/').slice(-2).join('/') : sbH.key;
                 var sbText = String(sbH.value || '').replace(/\s+/g, ' ').slice(0, 240);
                 sbLines.push('  • [' + sbSrc + '] ' + sbText);
               }
-              sbLines.push('  (deeper/semantic lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
+              sbLines.push('  (deeper lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
               console.log(sbLines.join('\n'));
             }
           }
