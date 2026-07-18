@@ -136,7 +136,9 @@ async function getBackend(dbPath?: string): Promise<any | null> {
           const hf = await import('@huggingface/transformers' as string);
           // revision must be a git ref — 'main' is the HF default; 'default' 404s and
           // silently killed embeddings (every search degraded to keyword matching)
-          const extractor = await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { revision: 'main' });
+          // dtype pinned explicitly: transformers.js logs a "dtype not specified"
+          // warning to the console on every load otherwise (leaks into CLI output).
+          const extractor = await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { revision: 'main', dtype: 'fp32' });
           embeddingGenerator = async (text: string) => {
             const output = await extractor(text, { pooling: 'mean', normalize: true });
             return new Float32Array(output.data);
