@@ -102,10 +102,24 @@ monomind org run content-team --task "Build and publish 3 blog posts per week"
 #   assigns work to role agents, coordinates until the task completes
 #   or you stop it. Every event streams into the dashboard above.
 
-monomind org status content-team    # runtime state
+monomind org status content-team    # runtime state (detects crashed daemons)
 monomind org stop content-team      # request a graceful stop
-monomind org list                   # every org + status
+monomind org list                   # every org + roles, schedule, status
 ```
+
+### Observe, steer, and let it learn
+
+```bash
+monomind org logs content-team --follow      # live event stream in the terminal
+monomind org report content-team             # outcome, per-role tokens vs budget, assets
+monomind org questions content-team          # what agents asked via ask_human
+monomind org answer content-team q-123 "yes" # answer live or queued — no dashboard needed
+monomind org create blog --template content-team --goal "3 posts/week"   # scaffold from a template
+monomind org validate blog                   # schema + structural checks before running
+monomind org run blog --dry-run              # preview each role's exact briefing
+```
+
+Orgs are self-improving: the coordinator records every run's outcome (`org_complete`), the next run is briefed on it, and all agents can query accumulated cross-run memory with `org_recall` — a scheduled org gets smarter every cycle instead of starting cold. Crashed agent sessions restart automatically with backoff.
 
 ### What runs under the hood
 
@@ -196,9 +210,28 @@ monomind org run my-team          # run your first AI org (see .monomind/orgs/sa
 
 ---
 
+## 📚 Second Brain — Your Documents, Retrieved by Meaning
+
+Drop documents (Markdown, TXT, PDF, DOCX) anywhere in your project and run `monomind init` — the Second Brain activates itself. No flags, no configuration, no accounts. Everything runs on your machine: a local embedding model (MiniLM via transformers.js) and a local SQLite vector store. **Your notes never leave your computer.**
+
+From then on, every substantive prompt you type in Claude Code is automatically answered *with your own knowledge in context* — a hook retrieves the most relevant excerpts semantically (the always-on dashboard keeps the model warm, ~60ms per lookup) and injects them before Claude starts thinking. Ask "when do new parents get time off" and the parental-leave section of your handbook is already on the table, even though you never used the word "leave".
+
+```bash
+monomind doc ingest ./notes        # index documents (init + session-start do this automatically)
+monomind doc search -q "pricing psychology in checkout"   # semantic search, by meaning not keywords
+monomind doc list                  # what's indexed
+monomind doc export                # portable OKF bundle — move your brain between machines
+```
+
+Retrieval quality is a tested invariant, not a hope: a golden-set eval (paraphrase queries against notes written in different vocabulary) runs in CI with an 80% recall bar.
+
+> **Privacy note:** the embedding model (~90MB) is fetched once from HuggingFace's CDN when your first document is indexed, then cached locally forever. That download is the only outbound request the Second Brain ever makes — your documents and queries never leave your machine. Offline at first index? Search degrades gracefully to keyword matching and `monomind doctor` tells you how to warm up later.
+
+---
+
 ## 🧠 Memory That Persists
 
-Every session, every agent, every org writes to a persistent memory store — a JSON pattern store with episodic recall that survives across sessions. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
+Every session, every agent, every org writes to a persistent memory store that survives across sessions — text plus embedding vectors in local SQLite (better-sqlite3, pure-WASM fallback), embedded by a local model. No cloud vector database, no API keys, no data transmission. The next time you run anything, Monomind already knows what was built, what failed, and which patterns work.
 
 ```mermaid
 graph TD
@@ -217,7 +250,7 @@ graph TD
 
 ```bash
 monomind memory store "key insight" --namespace my-project
-monomind memory search "auth implementation"     # BM25 + semantic hybrid
+monomind memory search "auth implementation"     # semantic (local embeddings) with keyword fallback
 ```
 
 ---
