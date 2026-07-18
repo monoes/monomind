@@ -199,7 +199,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `security`       | 6   | Security scanning                                    |
 | `performance`    | 4   | Performance profiling — real benchmark measurements  |
 | `guidance`       | 1   | Wire enforcement gates into Claude Code hooks (setup) |
-| `org`            | 12  | SDK org runtime v2 — daemon-controlled agent orgs (run [--dry-run], stop, status, serve, test-loop, logs, report, create, validate, list, delete, mark-complete) |
+| `org`            | 14  | SDK org runtime v2 — daemon-controlled agent orgs (run [--dry-run], stop, status, serve, test-loop, logs, report, questions, answer, create, validate, list, delete, mark-complete) |
 | `monograph`      | -   | Knowledge graph CLI (delegates to @monoes/monograph) |
 | `browse`         | -   | Browser automation via CDP (@monoes/monobrowse)      |
 | `doctor`         | 1   | System diagnostics                                   |
