@@ -36,6 +36,7 @@ const KEEP_CONFIG_PATHS = [
 ];
 
 /** Scratch pruning (--scratch): taskdev handoff files and loop state. */
+// monolean: manual flag only — upgrade path: invoke from the `cache` background worker so crashed-run scratch is pruned without anyone remembering the flag
 const SCRATCH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;  // taskdev scratch older than this is stale
 const LOOP_STALE_GRACE_MS = 24 * 60 * 60 * 1000;      // a live loop reschedules every <=1h; overdue by a day = abandoned
 

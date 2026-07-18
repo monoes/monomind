@@ -358,7 +358,12 @@ module.exports = {
         if (fs.existsSync(secAuditFile) && fs.statSync(secAuditFile).size < 32768) {
           var secData = JSON.parse(fs.readFileSync(secAuditFile, 'utf-8'));
           if (secData && secData.findings && secData.findings.length > 0) {
-            console.log('[SECURITY] ' + secData.findings.length + ' findings from background scan. Review .monomind/metrics/security-audit.json');
+            var serious = secData.findings.filter(function (f) { return f && (f.severity === 'high' || f.severity === 'medium'); });
+            if (serious.length > 0) {
+              console.log('[SECURITY] ' + serious.length + ' finding(s) from background scan. Review .monomind/metrics/security-audit.json');
+            } else {
+              console.log('[AUDIT] ' + secData.findings.length + ' low-severity note(s) (architecture heuristics, not vulnerabilities) — .monomind/metrics/security-audit.json');
+            }
           }
         }
         // Codebase map top files (high-centrality god nodes from monograph)
