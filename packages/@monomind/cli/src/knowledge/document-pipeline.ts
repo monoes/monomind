@@ -8,6 +8,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
+import * as os from 'node:os';
 import { DOC_EXTENSIONS, extractText } from '../capabilities/cap-documents.js';
 import type { FileEntry } from '../capabilities/types.js';
 
@@ -153,6 +154,15 @@ export interface DocumentMeta {
 
 const KNOWLEDGE_NS_PREFIX = 'knowledge:';
 const METADATA_FILE = 'doc-metadata.jsonl';
+// Global brain constants — canonical definitions live in memory-bridge.ts
+// (GLOBAL_BRAIN / GLOBAL_BRAIN_DIR); duplicated here because the bridge is
+// imported lazily and these are needed synchronously.
+const GLOBAL_BRAIN_SENTINEL = '@global';
+const globalBrainRoot = (): string => process.env.MONOMIND_GLOBAL_BRAIN_DIR || path.join(os.homedir(), '.monomind', 'global-brain');
+/** scope 'global' routes to the personal cross-project store. */
+const isGlobalScope = (scope: string): boolean => scope === 'global';
+const effectiveRoot = (scope: string, rootDir: string): string => isGlobalScope(scope) ? globalBrainRoot() : rootDir;
+const storeDbPath = (scope: string): string | undefined => isGlobalScope(scope) ? GLOBAL_BRAIN_SENTINEL : undefined;
 const IGNORE_DIRS = new Set(['node_modules', '.git', 'dist', '.monomind', '.claude', '.next', '__pycache__', '.venv', 'vendor']);
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -268,6 +278,7 @@ export async function ingestDocument(
     return { filePath: resolved, chunksIndexed: 0, scope, skipped: true, error: 'file too large (>50MB)' };
   }
 
+  rootDir = effectiveRoot(scope, rootDir);
   const meta = _metadataCache ?? readMetadata(rootDir);
   const existing = meta.find(m => m.filePath === resolved && m.scope === scope);
   let fullContent: string;
@@ -311,6 +322,7 @@ export async function ingestDocument(
           generateEmbeddingFlag: true,
           tags: ['document', ext, `src:${resolved}`],
           upsert: true,
+          dbPath: storeDbPath(scope),
         });
         if (storeResult?.success) indexed++;
       } catch (e) {
@@ -403,9 +415,17 @@ export async function ingestDirectory(
 
 // ── Search ─────────────────────────────────────────────────────────
 
+/** Small additive boost so project knowledge wins ties against the global
+ *  brain — local context is more likely to be what the user means. */
+const PROJECT_SCOPE_BOOST = 0.05;
+
 export async function searchKnowledge(
   query: string,
-  opts?: { scope?: string; limit?: number; minScore?: number; rootDir?: string },
+  opts?: {
+    scope?: string; limit?: number; minScore?: number; rootDir?: string;
+    /** which store(s): project-only, global-only, or both (default). */
+    store?: 'project' | 'global' | 'all';
+  },
 ): Promise<KnowledgeExcerpt[]> {
   const bridge = await getBridge();
   if (!bridge) return [];
@@ -413,38 +433,45 @@ export async function searchKnowledge(
   const scope = opts?.scope ?? 'shared';
   const limit = opts?.limit ?? 10;
   const minScore = opts?.minScore ?? 0.3;
+  const store = opts?.store ?? 'all';
 
-  const result = await bridge.bridgeSearchEntries({
-    query,
-    namespace: namespace(scope),
-    limit,
-    threshold: minScore,
-  });
-
-  if (!result?.success || !result.results.length) return [];
-
-  const meta = readMetadata(opts?.rootDir ?? process.cwd());
-  const hashToFile = new Map<string, string>();
-  for (const m of meta) {
-    hashToFile.set(m.contentHash, m.filePath);
+  const targets: Array<{ ns: string; dbPath?: string; root: string; label: string; boost: number }> = [];
+  if (store !== 'global') {
+    targets.push({ ns: namespace(scope), root: opts?.rootDir ?? process.cwd(), label: scope, boost: PROJECT_SCOPE_BOOST });
+  }
+  if (store !== 'project') {
+    targets.push({ ns: namespace('global'), dbPath: GLOBAL_BRAIN_SENTINEL, root: globalBrainRoot(), label: 'global', boost: 0 });
   }
 
-  return result.results.map(r => {
-    const parts = r.key.startsWith('doc:') ? r.key.split(':') : [];
-    const hash = parts[1] ?? '';
-    const idx = parseInt(parts[2] ?? '0', 10);
-    // The src: tag stored at ingest is the chunk's OWN provenance — the
-    // hash→file map can misattribute when two documents share identical
-    // content, and goes empty when a re-ingested file's hash changed.
-    const srcTag = (r.tags ?? []).find(t => t.startsWith('src:'));
-    return {
-      filePath: srcTag ? srcTag.slice(4) : hashToFile.get(hash) ?? '',
-      text: r.content,
-      similarity: r.score,
-      chunkIndex: isNaN(idx) ? 0 : idx,
-      scope,
-    };
-  });
+  const perTarget = await Promise.all(targets.map(async t => {
+    const result = await bridge.bridgeSearchEntries({
+      query, namespace: t.ns, limit, threshold: minScore, dbPath: t.dbPath,
+    }).catch(() => null);
+    if (!result?.success || !result.results.length) return [];
+    const meta = readMetadata(t.root);
+    const hashToFile = new Map<string, string>();
+    for (const m of meta) hashToFile.set(m.contentHash, m.filePath);
+    return result.results.map((r: any) => {
+      const parts = r.key.startsWith('doc:') ? r.key.split(':') : [];
+      const hash = parts[1] ?? '';
+      const idx = parseInt(parts[2] ?? '0', 10);
+      // The src: tag stored at ingest is the chunk's OWN provenance — the
+      // hash→file map can misattribute when two documents share identical
+      // content, and goes empty when a re-ingested file's hash changed.
+      const srcTag = (r.tags ?? []).find((tag: string) => tag.startsWith('src:'));
+      return {
+        filePath: srcTag ? srcTag.slice(4) : hashToFile.get(hash) ?? '',
+        text: r.content,
+        similarity: r.score + t.boost,
+        chunkIndex: isNaN(idx) ? 0 : idx,
+        scope: t.label,
+      };
+    });
+  }));
+
+  return perTarget.flat()
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit);
 }
 
 // ── List / Remove ──────────────────────────────────────────────────

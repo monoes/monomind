@@ -368,7 +368,10 @@ module.exports = {
               if (sbResp.ok) {
                 var sbData = await sbResp.json();
                 if (sbData && Array.isArray(sbData.results) && sbData.results.length > 0) {
-                  sbHits = sbData.results.map(function(r) { return { key: r.key, value: r.content, score: r.score, metadata: {} }; });
+                  sbHits = sbData.results.map(function(r) {
+                    var src = (r.tags || []).find(function(t) { return t.indexOf('src:') === 0; });
+                    return { key: r.key, value: r.content, score: r.score, global: !!r.global, metadata: src ? { filePath: src.slice(4) } : {} };
+                  });
                   sbMethod = sbData.method === 'semantic' ? 'semantic' : 'keyword';
                 }
               }
@@ -415,7 +418,7 @@ module.exports = {
                 var sbH = sbHits[sbI];
                 var sbSrc = (sbH.metadata && sbH.metadata.filePath) ? String(sbH.metadata.filePath).split('/').slice(-2).join('/') : sbH.key;
                 var sbText = String(sbH.value || '').replace(/\s+/g, ' ').slice(0, 240);
-                sbLines.push('  • [' + sbSrc + '] ' + sbText);
+                sbLines.push('  • [' + sbSrc + (sbH.global ? ' · global' : '') + '] ' + sbText);
               }
               sbLines.push('  (deeper lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
               console.log(sbLines.join('\n'));
