@@ -1,13 +1,16 @@
 ---
-name: mastermind-approve
-description: Mastermind approve — review and action pending approval requests from agents in a running org. Agents can request human approval before proceeding with sensitive actions.
+name: mastermind-approvev1
+description: "LEGACY-ORG-V1 (2026-07): v2 approvals arrive as question events in the dashboard Human Input tab — no skill needed. Mastermind approvev1 — review and action pending approval requests from agents in a running v1 (prompt-orchestrated) org. Agents can request human approval before proceeding with sensitive actions. Reach it only via `/mastermind:approvev1`."
 type: domain-skill
 default_mode: confirm
 ---
 
-# Mastermind Approve
+# Mastermind Approve (v1, legacy)
 
-This skill is invoked by `mastermind:approve` or directly via `/mastermind:approve`.
+> **LEGACY-ORG-V1 — file-based approval queue for prompt-orchestrated v1 orgs. Reach it only via `/mastermind:approvev1`.**
+> v2 approvals arrive as `question` events in the dashboard Human Input tab — there is no v2 approve skill, the dashboard UI is the approval surface. This skill remains only for orgs not yet migrated off the v1 `board_id`/`topology` config shape.
+
+This skill is invoked by `mastermind:approvev1` or directly via `/mastermind:approvev1`.
 
 ---
 
@@ -150,7 +153,7 @@ jq --arg id "$approval_id" \
 
 2. Emit `org:approval:requested` event to dashboard (so the human is notified).
 
-3. Poll for the approval decision — check the approvals file first (authoritative, updated by both the dashboard UI and `/mastermind:approve`), then fall back to memory:
+3. Poll for the approval decision — check the approvals file first (authoritative, updated by both the dashboard UI and `/mastermind:approvev1`), then fall back to memory:
 ```bash
 approvalsFile=".monomind/orgs/${orgName}-approvals.json"
 while true; do

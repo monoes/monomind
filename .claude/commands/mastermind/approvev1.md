@@ -1,20 +1,23 @@
-<!-- Review and action pending approval requests from agents in a running org. -->
+<!-- LEGACY-ORG-V1 — Review and action pending approval requests from agents in a running v1 (prompt-orchestrated) org. Reach it only via /mastermind:approvev1. -->
+
+> **LEGACY-ORG-V1 (2026-07): v2 approvals arrive as question events in the dashboard Human Input tab — no command needed.**
+> This file-based approval queue applies only to v1 orgs not yet migrated off the `board_id`/`topology` config shape. Reach this legacy path only via `/mastermind:approvev1`.
 
 **If $ARGUMENTS is empty:** Output the following and wait.
 
 ---
 
-**MASTERMIND: APPROVE**
+**MASTERMIND: APPROVE (v1, legacy)**
 
-Review and action pending approval requests from agents running inside an autonomous org. Agents request human approval before executing sensitive actions (publishing content, sending emails, making purchases, modifying infrastructure).
+Review and action pending approval requests from agents running inside a v1 (prompt-orchestrated) autonomous org. Agents request human approval before executing sensitive actions (publishing content, sending emails, making purchases, modifying infrastructure). v2 orgs surface approvals directly in the dashboard Human Input tab — no command needed.
 
 **Usage:**
 
 ```
-/mastermind:approve --org <name>                   List all pending approvals
-/mastermind:approve --org <name> --action approve --id <id>
-/mastermind:approve --org <name> --action reject  --id <id> --reason "Too risky"
-/mastermind:approve --org <name> --action inspect --id <id>
+/mastermind:approvev1 --org <name>                   List all pending approvals
+/mastermind:approvev1 --org <name> --action approve --id <id>
+/mastermind:approvev1 --org <name> --action reject  --id <id> --reason "Too risky"
+/mastermind:approvev1 --org <name> --action inspect --id <id>
 ```
 
 **Options:**
@@ -23,7 +26,7 @@ Review and action pending approval requests from agents running inside an autono
 `--id <approval_id>` — specific approval to approve/reject/inspect
 `--reason <text>` — reason for rejection (optional)
 
-No running orgs yet? Run `/mastermind:createorg` then `/mastermind:runorg`.
+No running orgs yet? Run `/mastermind:createorg` then `/mastermind:runorgv1` (v1 orgs only — v2 orgs use `/mastermind:runorg`).
 
 ---
 
@@ -74,7 +77,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
     '{type:"session:start",session:$session,domain:"ops",prompt:("Approve requests for org: "+$org),mode:"confirm",project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
-Invoke `Skill("mastermind-skills:approve")` passing: brain_context, org_name, action, approval_id, reason, caller: "command".
+Invoke `Skill("mastermind-skills:approvev1")` passing: brain_context, org_name, action, approval_id, reason, caller: "command".
 
 After skill returns: note the status. Emit `session:complete`:
 ```bash

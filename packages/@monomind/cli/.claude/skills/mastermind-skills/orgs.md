@@ -58,18 +58,8 @@ for f in $orgFiles; do
   schedule=$(jq -r '.schedule // empty' "$f" 2>/dev/null)
   loop_interval=$(jq -r '.loop.poll_interval_minutes // empty' "$f" 2>/dev/null)
 
-  if [ -n "$loop_interval" ]; then
-    # legacy v1 scheduled org — state lives in the config's status field
-    interval="${loop_interval}m (v1)"
-    status=$(jq -r '.status // "—"' "$f" 2>/dev/null)
-    case "$status" in
-      active)  indicator="● active" ;;
-      paused)  indicator="⏸ paused" ;;
-      *)       indicator="○ stopped" ;;
-    esac
-    last_run=$(jq -r '.loop.last_run // "—"' "$f" 2>/dev/null | sed 's/T/ /;s/Z//')
-  else
-    # v2 org — live state is in runtime.json (crashed = running record, dead pid)
+  if [ -z "$loop_interval" ]; then
+    # v2 org (default) — live state is in runtime.json (crashed = running record, dead pid)
     interval="${schedule:-manual}"
     rt=".monomind/orgs/${name}/runtime.json"
     rt_status=$(jq -r '.status // "never run"' "$rt" 2>/dev/null || echo "never run")
@@ -84,6 +74,17 @@ for f in $orgFiles; do
       indicator="○ ${rt_status}"
     fi
     last_run=$(jq -r '.updated // "—"' "$rt" 2>/dev/null | sed 's/T/ /;s/\..*Z//' || echo "—")
+  else
+    # LEGACY-ORG-V1: remove this branch when v1 orgs are gone
+    # legacy v1 scheduled org — state lives in the config's status field
+    interval="${loop_interval}m (v1)"
+    status=$(jq -r '.status // "—"' "$f" 2>/dev/null)
+    case "$status" in
+      active)  indicator="● active" ;;
+      paused)  indicator="⏸ paused" ;;
+      *)       indicator="○ stopped" ;;
+    esac
+    last_run=$(jq -r '.loop.last_run // "—"' "$f" 2>/dev/null | sed 's/T/ /;s/Z//')
   fi
 
   printf "%-28s %-14s %-12s %-22s\n" "$name" "$indicator" "$interval" "$last_run"
