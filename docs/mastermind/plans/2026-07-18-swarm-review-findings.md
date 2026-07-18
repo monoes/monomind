@@ -171,7 +171,7 @@ startOrg picks the kickoff recipient as `def.roles.find(r => r.type === 'boss' |
 ## 12. [MEDIUM] Many failure paths return success:false without logging — dispatcher exits 1 with zero output
 
 - **File:** packages/@monomind/cli/src/commands/org.ts:19  (org-cli)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 3)
 
 index.ts:261-262 executes `if (result && !result.success) process.exit(result.exitCode || 1)` and never prints result.message — org.ts:522-527 documents this exact trap for the bare `org` action. Yet many of the new subcommand paths return a failure message without calling log(): validateOrgName's missing-name branch (org.ts:19), runAction's missing-name (org.ts:50) and repeated --task (org.ts:60), logsAction's 'no runs found' (org-observe.ts:80), reportAction's 'no run history' / 'no runs found' / 'no recorded events' (org-observe.ts:112, 122, 124), answerAction's usage and 'already answered' (org-observe.ts:193, 200), and validateAction's 'no orgs directory' / 'no org configs found' (org-observe.ts:27, 29).
 
@@ -456,7 +456,7 @@ The paragraph boundary search is a literal window.lastIndexOf('\n\n'), which nev
 ## 31. [LOW] searchKnowledge attributes stale/duplicate-content chunks to the wrong or empty filePath
 
 - **File:** packages/@monomind/cli/src/knowledge/document-pipeline.ts:362  (knowledge-pipeline)
-- **Status:** [ ] open
+- **Status:** [x] fixed in-session (2026-07-18, round 3)
 
 Search resolves filePath via a hash->file map built from doc-metadata.jsonl (lines 362-365). Two consequences: (1) after a file's content changes and it is re-ingested under a new hash, the old `doc:<oldHash>:<i>` LanceDB entries (acknowledged as orphaned at line 394-395) still match queries and are returned with filePath '' and stale text — the user sees outdated excerpts with no source attribution and no way to distinguish them from live ones; (2) if two different files with identical content are ingested into the same scope, both produce identical `doc:<hash>:<i>` keys, so the second upserts over the first's chunks, and the Map (last-writer-wins at line 364) attributes all results to whichever file appears later in metadata — removeDocument of that file then leaves the other file's metadata pointing at chunks tagged src: the removed file.
 
