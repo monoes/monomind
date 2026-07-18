@@ -1914,6 +1914,12 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
             <button class="btn chunk-build-btn" id="btn-build-docs" onclick="buildKnowledgeDocs()" title="Index .md/.mdx/.txt/.rst files">⊕ Build Docs</button>
             <span class="chunk-build-status" id="chunk-build-status"></span>
           </div>
+          <div class="filter-bar" style="margin-bottom:6px">
+            <input class="filter-input" id="sb-search-input" type="text" placeholder="Ask your Second Brain — semantic search by meaning…"
+              onkeydown="if(event.key==='Enter')secondBrainSearch()">
+            <button class="btn" onclick="secondBrainSearch()" title="Semantic search (warm local model)">⌕ Search</button>
+          </div>
+          <div id="sb-search-results" style="display:none;margin-bottom:12px"></div>
           <div class="filter-bar">
             <input class="filter-input" type="text" placeholder="Filter chunks…" oninput="filterChunks(this.value)">
             <button class="btn" onclick="_chunksLoaded=false;loadChunksTab()" title="Refresh">↺</button>
@@ -13591,6 +13597,44 @@ async function cleanSwarmData() {
 
 // ── chunks memory tab ──────────────────────────────────────
 let _chunks = [], _chunksLoaded = false, _editChunkId = null;
+
+// Second Brain semantic search — hits the warm /api/knowledge/search endpoint
+// (the server holds the local embedding model hot; ~60ms per query).
+async function secondBrainSearch() {
+  const input = document.getElementById('sb-search-input');
+  const box = document.getElementById('sb-search-results');
+  if (!input || !box) return;
+  const q = input.value.trim();
+  if (!q) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div class="loading-txt">Searching…</div>';
+  try {
+    const r = await fetch('/api/knowledge/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, limit: 5 }),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const results = data.results || [];
+    if (!results.length) {
+      box.innerHTML = '<div class="empty" style="padding:10px">No matches (' + esc(data.method || '?') + '). Ingest documents with: <code>monomind doc ingest ./path</code></div>';
+      return;
+    }
+    box.innerHTML =
+      '<div style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-xs);margin-bottom:6px">' +
+        results.length + ' result(s) · ' + esc(data.method || '') + '</div>' +
+      results.map(function (res) {
+        return '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
+          '<div style="font-size:10px;color:var(--text-lo);margin-bottom:3px">' + esc(res.key || '') +
+            ' <span style="color:var(--accent)">' + (typeof res.score === 'number' ? res.score.toFixed(2) : '') + '</span></div>' +
+          '<div style="font-size:12px;white-space:pre-wrap;max-height:120px;overflow:hidden">' + esc(String(res.content || '').slice(0, 600)) + '</div>' +
+        '</div>';
+      }).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="empty" style="padding:10px">Search failed: ' + esc(e.message) + '</div>';
+  }
+}
 
 async function loadChunksTab() {
   if (_chunksLoaded) return;
