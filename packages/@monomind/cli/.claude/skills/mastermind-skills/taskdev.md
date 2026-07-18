@@ -157,6 +157,8 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 **Never** ignore an escalation or force the same model to retry without changes. If the implementer said it's stuck, something needs to change.
 
+**Async dispatches:** reviewer and implementer subagents may complete asynchronously even when dispatched synchronously. Wait for each result before acting on it — never proceed to the next gate, and never touch the files a dispatched subagent is working on, while its result is pending.
+
 ---
 
 ## Handling Reviewer ⚠️ Items
