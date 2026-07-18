@@ -903,12 +903,12 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="cmd-item" data-search="mastermind adr architecture decision record draft document"><div class="cmd-name">/mastermind:adr</div><div class="cmd-desc">Draft Architecture Decision Record</div></div>
       <!-- mastermind: — autonomous orgs -->
       <div class="cmd-item" data-search="org run daemon sdk agent runtime v2 primary"><div class="cmd-name">monomind org run &lt;name&gt;</div><div class="cmd-desc">Start an org as a real SDK-backed daemon (the current, recommended path)</div></div>
-      <div class="cmd-item" data-search="mastermind createorg define save autonomous agent organization roles hierarchy legacy"><div class="cmd-name">/mastermind:createorg</div><div class="cmd-desc">Legacy: define an org for the deprecated prompt-orchestrated runner below</div></div>
-      <div class="cmd-item" data-search="mastermind runorg start persistent autonomous agent loop scheduled deprecated"><div class="cmd-name">/mastermind:runorg</div><div class="cmd-desc">Deprecated (2026-07) — superseded by <code>monomind org run</code>; no delivery guarantees</div></div>
+      <div class="cmd-item" data-search="mastermind createorg define save autonomous agent organization roles hierarchy legacy"><div class="cmd-name">/mastermind:createorg</div><div class="cmd-desc">Define and save a v2 org config (roles, hierarchy, schedule) — run it with <code>/mastermind:runorg</code> or <code>monomind org run</code></div></div>
+      <div class="cmd-item" data-search="mastermind runorg start persistent autonomous agent loop scheduled delegator validator"><div class="cmd-name">/mastermind:runorg</div><div class="cmd-desc">Org Runtime v2 delegator: validates org configs, auto-migrates v1 definitions, starts via <code>monomind org run/serve</code>; deprecated prompt path is <code>/mastermind:runorgv1</code></div></div>
       <div class="cmd-item" data-search="mastermind stoporg stop scheduled org loop status stopped legacy"><div class="cmd-name">/mastermind:stoporg</div><div class="cmd-desc">Legacy — use <code>monomind org stop</code> for v2 orgs</div></div>
       <div class="cmd-item" data-search="mastermind orgs list saved status schedule interval legacy"><div class="cmd-name">/mastermind:orgs</div><div class="cmd-desc">Legacy — use <code>monomind org list</code> for v2 orgs</div></div>
       <div class="cmd-item" data-search="mastermind orgstatus detailed status lifecycle single org legacy"><div class="cmd-name">/mastermind:orgstatus</div><div class="cmd-desc">Legacy — use <code>monomind org status</code> for v2 orgs</div></div>
-      <div class="cmd-item" data-search="mastermind approve review pending approval agents running"><div class="cmd-name">/mastermind:approve</div><div class="cmd-desc">Review and action pending approval requests from running orgs</div></div>
+      <div class="cmd-item" data-search="mastermind approve review pending approval agents running v1 legacy"><div class="cmd-name">/mastermind:approvev1</div><div class="cmd-desc">Legacy approval for v1 prompt-orchestrated orgs; v2 approvals arrive in the dashboard's Human Input tab</div></div>
       <!-- mastermind: — utilities -->
       <div class="cmd-item" data-search="mastermind okf export knowledge bundle second brain portable markdown"><div class="cmd-name">/mastermind:okf-export</div><div class="cmd-desc">Export Second Brain as OKF bundle</div></div>
       <div class="cmd-item" data-search="mastermind okf import knowledge bundle second brain ingest"><div class="cmd-name">/mastermind:okf-import</div><div class="cmd-desc">Import an OKF bundle into Second Brain</div></div>
@@ -1041,13 +1041,13 @@ Session N: empty round (zero findings AND zero actions)
         <tr><td class="mono">/mastermind:master</td><td>Top-level orchestrator — routes any business prompt</td></tr>
         <tr><td class="mono">monomind org run &lt;name&gt;</td><td>Start an org as a real SDK-backed daemon — the current, recommended path</td></tr>
         <tr><td class="mono">monomind org status / list / stop</td><td>Runtime state, listing, and graceful stop for v2 orgs</td></tr>
-        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Legacy (deprecated 2026-07, no delivery guarantees) —</td></tr>
-        <tr><td class="mono">/mastermind:createorg</td><td>Define an org for the deprecated prompt-orchestrated runner below</td></tr>
-        <tr><td class="mono">/mastermind:runorg</td><td>Deprecated — superseded by <code>monomind org run</code></td></tr>
+        <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Mastermind org commands (v2 default; legacy v1 names carry the v1 suffix) —</td></tr>
+        <tr><td class="mono">/mastermind:createorg</td><td>Define and save a v2 org config (roles, hierarchy, schedule)</td></tr>
+        <tr><td class="mono">/mastermind:runorg</td><td>Org v2 delegator: validates configs, auto-migrates v1 → v2, starts via <code>monomind org run/serve</code></td></tr>
         <tr><td class="mono">/mastermind:stoporg</td><td>Legacy — use <code>monomind org stop</code> for v2 orgs</td></tr>
         <tr><td class="mono">/mastermind:orgs</td><td>Legacy — use <code>monomind org list</code> for v2 orgs</td></tr>
         <tr><td class="mono">/mastermind:orgstatus</td><td>Legacy — use <code>monomind org status</code> for v2 orgs</td></tr>
-        <tr><td class="mono">/mastermind:approve</td><td>Review and action pending approval requests from running orgs</td></tr>
+        <tr><td class="mono">/mastermind:approvev1</td><td>Legacy approvals for v1 orgs; v2 approvals appear in dashboard Human Input tab</td></tr>
         <tr><td class="mono" colspan="2" style="color:var(--muted);font-size:11px;padding:6px 12px">— Utilities —</td></tr>
         <tr><td class="mono">/mastermind:brain</td><td>Inspect and manage mastermind brain context</td></tr>
         <tr><td class="mono">/mastermind:memory</td><td>Memory store: store, search, retrieve, list, delete</td></tr>
@@ -1360,9 +1360,9 @@ Session N: empty round (zero findings AND zero actions)
     <div class="code-block reveal"><span class="cmd">monomind org run &lt;name&gt;</span>    <span class="comment"># start an org — real Claude Agent SDK sessions per role</span>
 <span class="cmd">monomind org status / list / stop</span>    <span class="comment"># check, list, or stop</span>
 
-<span class="comment"># Legacy prompt-orchestrated path (deprecated 2026-07):</span>
-<span class="cmd">/mastermind:createorg</span>    <span class="comment"># define a new org for the legacy runner</span>
-<span class="cmd">/mastermind:runorg</span>       <span class="comment"># start a saved org via the deprecated flow</span></div>
+<span class="comment"># Legacy v1 prompt-orchestrated runner (deprecated 2026-07 — config creation itself is v2):</span>
+<span class="cmd">/mastermind:createorg</span>    <span class="comment"># define a new v2 org config</span>
+<span class="cmd">/mastermind:runorgv1</span>      <span class="comment"># (v1 legacy) start a saved org via prompt-orchestrated flow</span></div>
     <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">Organizations are multi-agent structures with roles, goals, routines, and approval workflows. Each org card shows: a running dot (live indicator), name, goal description, topology/role chips, and an avatar stack of active agents.</p>
     <p class="reveal" style="margin-bottom:0.5rem">Each org has 29 tabs:</p>
     <div class="table-wrap reveal">
@@ -1822,7 +1822,7 @@ Session N: empty round (zero findings AND zero actions)
     <span class="obadge ob-b">Cross-process</span>
     <span class="obadge ob-c">Full lifecycle</span>
   </div>
-  <p style="margin-top:20px;font-size:12px;color:var(--muted)">The walkthrough below (<code>/mastermind:createorg</code> + <code>/mastermind:runorg</code>) documents the older prompt-orchestrated path, deprecated 2026-07 in favor of <code>monomind org run</code> shown above. It still runs for orgs not yet migrated.</p>
+  <p style="margin-top:20px;font-size:12px;color:var(--muted)">The walkthrough below documents v1 prompt-orchestrated orgs via <code>/mastermind:createorg</code> + <code>/mastermind:runorgv1</code>. <code>/mastermind:runorg</code> is the v2 delegator (validates, auto-migrates configs, starts via <code>monomind org run</code> shown above). New orgs use v2; legacy v1 orgs still run via runorgv1.</p>
 </div>
 
 <!-- How it works -->

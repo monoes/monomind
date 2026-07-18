@@ -234,7 +234,7 @@ Switches from improvement mode to a full end-to-end feature delivery pipeline. I
 
 ### `/mastermind:createorg`
 
-**Purpose:** Create and configure an organization structure.
+**Purpose:** Define and save an autonomous agent organization for the Org Runtime v2 daemon. Configs written by this command are always v2-shaped (no `topology`/`board_id`/`communication` fields) and are started with `/mastermind:runorg`.
 
 ```
 /mastermind:createorg
@@ -269,11 +269,58 @@ Switches from improvement mode to a full end-to-end feature delivery pipeline. I
 
 ### `/mastermind:runorg`
 
-**Purpose:** Run organization-level tasks and workflows.
+**Purpose:** Start a saved org through the Org Runtime v2 daemon (`monomind org run`/`serve`). This is the default, unqualified path — every role runs as a live SDK session, and the daemon forwards dashboard events itself (no boss agent, no monotask board, no manual curl emissions).
 
 ```
-/mastermind:runorg weekly stand-up synthesis
+/mastermind:runorg --org content-team
+/mastermind:runorg --org content-team --task "Publish the Q2 product roundup post by Friday"
 ```
+
+**What it does:**
+1. Resolves and validates the named org (`monomind org validate <name>`)
+2. If validation fails on v1-shape symptoms (`topology`, `board_id`, `loop`), auto-migrates it first via `monomind org migrate <name>` — the original config is preserved as `<name>.v1.json`
+3. Starts it: `monomind org run <name>` (one-shot) or ensures `monomind org serve` is up (scheduled orgs)
+4. Confirms liveness (`monomind org status <name>`) and surfaces the dashboard link and `monomind org logs <name> --follow`
+
+For the deprecated prompt-orchestrated path, see `/mastermind:runorgv1` below.
+
+---
+
+### `/mastermind:runorgv1` (legacy, `LEGACY-ORG-V1`)
+
+**Purpose:** Start a saved org as a persistent, prompt-orchestrated agent organization — the pre-v2 path. Superseded by `/mastermind:runorg` (Org Runtime v2), which now delegates to it by default. Reachable only via this explicit `v1` name.
+
+```
+/mastermind:runorgv1 --org content-team
+```
+
+Spawns a Task-tool boss agent that coordinates roles over a monotask board, with dashboard events emitted via manual curl calls — no delivery guarantees, no ground-truth event stream. Refuses to run against v2-shaped configs (guides you to `/mastermind:runorg` instead). Kept reachable only for orgs not yet migrated off the v1 `topology`/`board_id`/`communication` config shape; will be deleted once nothing depends on it (search `LEGACY-ORG-V1`).
+
+---
+
+### `/mastermind:approvev1` (legacy, `LEGACY-ORG-V1`)
+
+**Purpose:** Review and action pending approval requests from agents in a running v1 (prompt-orchestrated) org.
+
+```
+/mastermind:approvev1 --org content-team
+/mastermind:approvev1 --org content-team approve req-001
+/mastermind:approvev1 --org content-team reject req-002 "too risky"
+```
+
+v2 orgs have no equivalent skill — approvals arrive as `question` events in the dashboard's Human Input tab, and are actioned there directly. This command remains only for v1 orgs whose approval requests are still tracked in `.monomind/orgs/<name>-approvals.json`.
+
+---
+
+### `/mastermind:heartbeatv1` (legacy, `LEGACY-ORG-V1`)
+
+**Purpose:** Trigger a manual heartbeat for a specific agent in a running v1 (prompt-orchestrated) org — the agent wakes, checks its task queue, executes pending work, and reports back.
+
+```
+/mastermind:heartbeatv1 --org content-team --agent content-writer
+```
+
+v2 roles run as live SDK sessions with no poll/wake cycle to trigger — send the role a chat message from the dashboard instead, or inspect activity with `monomind org logs <name>`. This command remains only for orgs not yet migrated off the v1 config shape.
 
 ---
 
