@@ -53,6 +53,30 @@ export async function checkMemoryDatabase(): Promise<HealthCheck> {
   return { name: 'Memory Database', status: 'warn', message: 'Not initialized', fix: 'monomind memory configure --backend hybrid' };
 }
 
+/** Second Brain: when this project has an indexed knowledge base, semantic
+ * search needs the local embedding model. Its absence is silent (search
+ * degrades to keyword matching) — surface it here instead. */
+export async function checkSecondBrainModel(): Promise<HealthCheck> {
+  const name = 'Second Brain Model';
+  if (!existsSync(join(process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl'))) {
+    return { name, status: 'pass', message: 'No knowledge base in this project (nothing to check)' };
+  }
+  let pkgDir: string;
+  try {
+    // exports map blocks package.json — resolve the entry file and walk up
+    const entry = await import.meta.resolve?.('@huggingface/transformers');
+    if (!entry) throw new Error('resolver unavailable');
+    pkgDir = fileURLToPath(entry).replace(/\/dist\/.*$/, '');
+  } catch {
+    return { name, status: 'warn', message: '@huggingface/transformers not installed — semantic search degraded to keyword matching', fix: 'reinstall monomind (the model dependency is optional and may have failed to build)' };
+  }
+  const modelCache = join(pkgDir, '.cache', 'Xenova');
+  if (existsSync(modelCache)) {
+    return { name, status: 'pass', message: 'Local embedding model cached — semantic search active' };
+  }
+  return { name, status: 'warn', message: 'Embedding model not downloaded yet — searches use keyword matching until it is', fix: 'run once while online: monomind doc search -q "warmup" (downloads ~90MB locally, one time)' };
+}
+
 export async function checkApiKeys(): Promise<HealthCheck> {
   const keys = ['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY', 'OPENAI_API_KEY'];
   const found = keys.filter(k => process.env[k]);
