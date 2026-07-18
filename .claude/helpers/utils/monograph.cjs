@@ -301,27 +301,55 @@ function _graphGateStateFile() {
   return path.join(CWD, '.monomind', 'graph-gate-state.json');
 }
 
+// State is a per-session MAP ({ sessions: { [id]: {queried, blockedOnce, ts} } }).
+// It used to be a single {sessionId,...} record — with two Claude sessions open
+// on the same project, each session's grep clobbered the other's latch, so the
+// "once per session" cap ping-ponged into blocking every call in both sessions.
+// Legacy single-record files are migrated on read; entries are pruned to the
+// 20 most recent so the file can't grow unbounded.
+function _graphGateReadSessions() {
+  var d = {};
+  try { d = JSON.parse(fs.readFileSync(_graphGateStateFile(), 'utf-8')); } catch (e) {}
+  if (typeof d !== 'object' || d === null) d = {};
+  var sessions = (typeof d.sessions === 'object' && d.sessions !== null) ? d.sessions : {};
+  if (d.sessionId) { // legacy single-record shape — fold it in
+    sessions[d.sessionId] = { queried: !!d.queried, blockedOnce: !!d.blockedOnce, ts: Date.now() };
+  }
+  return sessions;
+}
+
+function _graphGateWriteSessions(sessions) {
+  var ids = Object.keys(sessions);
+  if (ids.length > 20) {
+    ids.sort(function (a, b) { return (sessions[a].ts || 0) - (sessions[b].ts || 0); });
+    for (var i = 0; i < ids.length - 20; i++) delete sessions[ids[i]];
+  }
+  fs.mkdirSync(path.join(CWD, '.monomind'), { recursive: true });
+  fs.writeFileSync(_graphGateStateFile(), JSON.stringify({ sessions: sessions }));
+}
+
 function _graphGateMarkQueried(sessionId) {
   if (!sessionId) return;
   try {
-    fs.mkdirSync(path.join(CWD, '.monomind'), { recursive: true });
-    fs.writeFileSync(_graphGateStateFile(), JSON.stringify({ sessionId: sessionId, queried: true }));
+    var sessions = _graphGateReadSessions();
+    var s = sessions[sessionId] || { blockedOnce: false };
+    s.queried = true;
+    s.ts = Date.now();
+    sessions[sessionId] = s;
+    _graphGateWriteSessions(sessions);
   } catch (e) { /* non-fatal */ }
 }
 
 function _graphGateShouldBlock(sessionId) {
   if (!sessionId || !_isGraphFresh()) return false;
-  var f = _graphGateStateFile();
-  var d = {};
-  try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (e) {}
-  if (typeof d !== 'object' || d === null || d.sessionId !== sessionId) {
-    d = { sessionId: sessionId, queried: false, blockedOnce: false };
-  }
-  if (d.queried || d.blockedOnce) return false;
-  d.blockedOnce = true;
+  var sessions = _graphGateReadSessions();
+  var s = sessions[sessionId] || { queried: false, blockedOnce: false };
+  if (s.queried || s.blockedOnce) return false;
+  s.blockedOnce = true;
+  s.ts = Date.now();
+  sessions[sessionId] = s;
   try {
-    fs.mkdirSync(path.join(CWD, '.monomind'), { recursive: true });
-    fs.writeFileSync(f, JSON.stringify(d));
+    _graphGateWriteSessions(sessions);
   } catch (e) { return false; }
   return true;
 }
