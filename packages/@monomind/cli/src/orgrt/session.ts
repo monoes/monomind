@@ -22,6 +22,8 @@ export interface SessionOpts {
   onComplete?: (role: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => void;
   /** Search the org's accumulated cross-run memory (memory_namespace). */
   recall?: (role: string, query: string) => Promise<string>;
+  /** Write a memory deliberately: scope 'org' (shared, default) or 'agent' (private to this role). */
+  remember?: (role: string, content: string, scope: 'org' | 'agent') => Promise<string>;
   /** Persist extracted entities/relations/rules into the org's knowledge graph. */
   learn?: (role: string, payload: {
     nodes?: { name: string; type?: string; description?: string }[];
@@ -113,6 +115,15 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
         { query: z.string() },
         async (args) => {
           const text = await opts.recall!(role.id, args.query);
+          return { content: [{ type: 'text' as const, text }] };
+        },
+      )] : []),
+      ...(opts.remember ? [tool(
+        'org_remember',
+        'Save a memory for future runs. scope "org" (default) shares it with the whole org; scope "agent" keeps it private to your role. Use for decisions, findings, and state worth recalling later — org_recall searches both.',
+        { content: z.string(), scope: z.enum(['org', 'agent']).optional() },
+        async (args) => {
+          const text = await opts.remember!(role.id, args.content, args.scope ?? 'org');
           return { content: [{ type: 'text' as const, text }] };
         },
       )] : []),
