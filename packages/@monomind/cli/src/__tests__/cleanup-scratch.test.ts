@@ -121,31 +121,47 @@ describe('findOrphanedProjectData (--data)', () => {
     const base = mkdtempSync(join(tmpdir(), 'proj-data-'));
     const liveProject = mkdtempSync(join(tmpdir(), 'live-proj-'));
     try {
-      // live: origin exists on disk + has a dead lancedb dir
+      // live with ACTIVE store: the dir is named lancedb but holds the current
+      // engine's memory.db — must NEVER be flagged (the critical data-loss case)
       mkdirSync(join(base, 'live-abc', 'lancedb'), { recursive: true });
+      writeFileSync(join(base, 'live-abc', 'lancedb', 'memory.db'), 'sqlite');
       writeFileSync(join(base, 'live-abc', 'origin.json'), JSON.stringify({ path: liveProject }));
-      // orphan: origin recorded but path gone
+      // live with genuine dead LanceDB leftovers (*.lance, no memory.db)
+      mkdirSync(join(base, 'live-old', 'lancedb', 'default.lance'), { recursive: true });
+      writeFileSync(join(base, 'live-old', 'origin.json'), JSON.stringify({ path: liveProject }));
+      // orphan: origin recorded, path gone, but parent volume IS mounted
       mkdirSync(join(base, 'gone-def'), { recursive: true });
       writeFileSync(join(base, 'gone-def', 'origin.json'), JSON.stringify({ path: join(tmpdir(), 'no-such-project-xyz') }));
+      // origin unreachable because the whole volume is absent — must be kept
+      mkdirSync(join(base, 'unmounted-vol'), { recursive: true });
+      writeFileSync(join(base, 'unmounted-vol', 'origin.json'), JSON.stringify({ path: '/Volumes/no-such-volume-zz/project' }));
       // unknown fresh: no marker, recent mtime
       mkdirSync(join(base, 'fresh-ghi'), { recursive: true });
       // unknown old: no marker, 60 days old
       mkdirSync(join(base, 'old-jkl'), { recursive: true });
       const old = (Date.now() - 60 * 24 * 3600 * 1000) / 1000;
       utimesSync(join(base, 'old-jkl'), old, old);
+      // unknown old dir whose memory.db was written recently — active, keep
+      mkdirSync(join(base, 'old-active', 'lancedb'), { recursive: true });
+      writeFileSync(join(base, 'old-active', 'lancedb', 'memory.db'), 'sqlite');
+      utimesSync(join(base, 'old-active'), old, old);
 
       const now = Date.now();
       const normal = findOrphanedProjectData(base, now, false);
       const paths = normal.map(o => o.path);
-      expect(paths).toContain(join(base, 'live-abc', 'lancedb'));   // dead engine leftovers
-      expect(paths).not.toContain(join(base, 'live-abc'));          // live project kept
-      expect(paths).toContain(join(base, 'gone-def'));              // provably orphaned
-      expect(paths).not.toContain(join(base, 'fresh-ghi'));         // unknown but recent
-      expect(paths).toContain(join(base, 'old-jkl'));               // unknown and stale
+      expect(paths).not.toContain(join(base, 'live-abc', 'lancedb')); // LIVE store — never prunable
+      expect(paths).not.toContain(join(base, 'live-abc'));
+      expect(paths).toContain(join(base, 'live-old', 'lancedb'));     // genuine LanceDB leftovers
+      expect(paths).toContain(join(base, 'gone-def'));                // provably orphaned
+      expect(paths).not.toContain(join(base, 'unmounted-vol'));       // volume absent ≠ project deleted
+      expect(paths).not.toContain(join(base, 'fresh-ghi'));           // unknown but recent
+      expect(paths).toContain(join(base, 'old-jkl'));                 // unknown and stale
+      expect(paths).not.toContain(join(base, 'old-active'));          // recent memory.db write = active
 
       const aggressive = findOrphanedProjectData(base, now, true);
       expect(aggressive.map(o => o.path)).toContain(join(base, 'fresh-ghi')); // aggressive prunes unprovable
       expect(aggressive.map(o => o.path)).not.toContain(join(base, 'live-abc'));
+      expect(aggressive.map(o => o.path)).not.toContain(join(base, 'live-abc', 'lancedb'));
     } finally {
       rmSync(base, { recursive: true, force: true });
       rmSync(liveProject, { recursive: true, force: true });

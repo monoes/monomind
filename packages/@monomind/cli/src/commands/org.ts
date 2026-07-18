@@ -36,9 +36,13 @@ const ORG_ARTIFACT_SUFFIXES = [
   '-approval-comments', '-skills',
 ];
 export function listOrgConfigFiles(orgsDir: string): string[] {
+  // endsWith, not includes: substring matching hid legitimate orgs whose NAME
+  // merely contains an artifact suffix anywhere (e.g. "state-machine.json",
+  // "issues-triage.json") — and anything hidden here is also invisible to
+  // run/list/serve while `org delete <sibling>` would still remove its files.
   return readdirSync(orgsDir)
     .filter(f => f.endsWith('.json') && !f.startsWith('._') && !f.endsWith('.v1.json')
-      && !ORG_ARTIFACT_SUFFIXES.some(suf => f.includes(suf)));
+      && !ORG_ARTIFACT_SUFFIXES.some(suf => f.endsWith(`${suf}.json`)));
 }
 
 /** Remove a lingering stopfile so a fresh `org run` doesn't self-terminate. */
@@ -153,6 +157,11 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
     const validated = validateOrgName(ctx.args[0]);
     if (!validated.ok) return validated.result;
     name = validated.name;
+    // A named org that doesn't exist must error, not report "never run" with exit 0.
+    if (!existsSync(join(ctx.cwd, ORG_DIR, `${name}.json`))) {
+      log(output.error(`Org not found: ${name}`));
+      return { success: false, message: 'org not found' };
+    }
   }
   const orgDir = join(ctx.cwd, ORG_DIR);
   const targets = name ? [name] : (existsSync(orgDir)

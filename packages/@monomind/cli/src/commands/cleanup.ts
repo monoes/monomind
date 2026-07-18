@@ -70,12 +70,15 @@ export function findOrphanedProjectData(baseDir: string, now: number, aggressive
   for (const name of readdirSync(baseDir)) {
     if (name.startsWith('.')) continue;
     const dir = join(baseDir, name);
-    let mtime = 0;
     try {
-      const st = lstatSync(dir);
-      if (!st.isDirectory()) continue;
-      mtime = st.mtimeMs;
+      if (!lstatSync(dir).isDirectory()) continue;
     } catch { continue; }
+    // Staleness must consider the files writes actually touch: appends to
+    // lancedb/memory.db and origin.json refreshes do NOT bump the slug dir's
+    // own mtime, so an actively-used project would otherwise look 30d stale.
+    const mtimeOf = (p: string): number => { try { return lstatSync(p).mtimeMs; } catch { return 0; } };
+    const mtime = Math.max(mtimeOf(dir), mtimeOf(join(dir, 'origin.json')),
+      mtimeOf(join(dir, 'lancedb', 'memory.db')), mtimeOf(join(dir, 'memory.db')));
     const originFile = join(dir, 'origin.json');
     let originPath: string | null = null;
     let hasOrigin = false;
@@ -84,12 +87,24 @@ export function findOrphanedProjectData(baseDir: string, now: number, aggressive
       hasOrigin = originPath.length > 0;
     } catch { /* no/corrupt marker */ }
     if (hasOrigin && originPath && existsSync(originPath)) {
+      // NOTE: the directory is *named* lancedb for historical reasons, but the
+      // current SQLite engine keeps its LIVE memory.db inside it. Only genuine
+      // LanceDB leftovers (*.lance datasets, no memory.db) are dead weight.
       const lance = join(dir, 'lancedb');
-      if (existsSync(lance)) out.push({ path: lance, description: `dead lancedb store (project: ${originPath})`, size: 0 });
+      if (existsSync(lance) && !existsSync(join(lance, 'memory.db'))) {
+        let hasLanceData = false;
+        try { hasLanceData = readdirSync(lance).some(f => f.endsWith('.lance') || f === '__manifest'); } catch { /* unreadable — leave it */ }
+        if (hasLanceData) out.push({ path: lance, description: `dead lancedb store (project: ${originPath})`, size: 0 });
+      }
       continue;
     }
-    if (hasOrigin) {
-      out.push({ path: dir, description: `orphaned project data (origin gone: ${originPath})`, size: 0 });
+    if (hasOrigin && originPath) {
+      // Only classify as orphaned when the origin's PARENT exists — an
+      // unmounted volume / disconnected network share makes the whole subtree
+      // vanish temporarily, and that must never count as "project deleted".
+      if (existsSync(dirname(originPath))) {
+        out.push({ path: dir, description: `orphaned project data (origin gone: ${originPath})`, size: 0 });
+      }
     } else if (aggressive || now - mtime > UNKNOWN_DIR_MAX_AGE_MS) {
       out.push({ path: dir, description: aggressive ? 'unverifiable project data (no origin marker)' : 'unverifiable project data (untouched >30d)', size: 0 });
     }

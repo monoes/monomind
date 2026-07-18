@@ -264,17 +264,27 @@ export async function ingestDocument(
     }
   }
 
-  // Persist metadata
-  appendMetadata(rootDir, {
-    filePath: resolved,
-    contentHash: hash,
-    chunkCount: chunks.length,
-    indexedAt: new Date().toISOString(),
-    scope,
-    size: stat.size,
-  });
+  // Persist metadata — but ONLY when something was actually stored (or the
+  // document legitimately produced zero chunks). Recording the content hash
+  // after a total store failure (bridge unavailable, every store rejected)
+  // made the hash check skip the file on every future ingest: a permanent,
+  // silent search miss.
+  if (indexed > 0 || chunks.length === 0) {
+    appendMetadata(rootDir, {
+      filePath: resolved,
+      contentHash: hash,
+      chunkCount: indexed,
+      indexedAt: new Date().toISOString(),
+      scope,
+      size: stat.size,
+    });
+  }
 
-  return { filePath: resolved, chunksIndexed: indexed, scope, skipped: false };
+  const storeFailed = chunks.length > 0 && indexed === 0;
+  return {
+    filePath: resolved, chunksIndexed: indexed, scope, skipped: false,
+    ...(storeFailed ? { error: bridge ? 'all chunk stores failed' : 'memory bridge unavailable — nothing indexed' } : {}),
+  };
 }
 
 export async function ingestDirectory(

@@ -65,6 +65,10 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
   // would skip that drain entirely.
   while (true) {
     await runOneSession(opts);
+    // The dead session's generator may still hold the waker — drop it so a
+    // push() before the next stream() starts only queues instead of being
+    // consumed by the abandoned generator (silent message loss).
+    mailbox.detach();
     if (mailbox.isClosed) return;
     opts.bus.emit({ type: 'status', from: opts.role.id, msg: 'session restarting (turn limit reached, mailbox still open)' });
   }
