@@ -58,6 +58,13 @@ export function migrateOrgConfig(raw: Record<string, unknown>): {
     const roleKeysDropped = new Set<string>();
     def['roles'] = (def['roles'] as Record<string, unknown>[]).map(role => {
       const r = { ...role };
+      // Legacy serialization artifact: some v1 writers stringified a missing
+      // manager as the literal "undefined". Treat it as unset (schema
+      // defaults to null); structural validation still enforces one root.
+      if (r['reports_to'] === 'undefined') {
+        delete r['reports_to'];
+        notes.push(`role ${String(r['id'])}: reports_to "undefined" → unset`);
+      }
       if (typeof r['agent_type'] === 'string') {
         if (r['type'] == null || r['type'] === 'specialist') { r['type'] = r['agent_type']; notes.push(`role ${String(r['id'])}: agent_type → type`); }
       }
