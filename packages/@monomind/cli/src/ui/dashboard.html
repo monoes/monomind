@@ -426,8 +426,53 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .oms-val { font-size: 12px; color: var(--text-hi); word-break: break-word; line-height: 1.4; }
 
 /* SVG org chart */
-.org-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 12px; }
+.org-chart-wrap { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 12px; }
 .org-chart-svg { width: 100%; display: block; }
+.v2-chart-expand {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  width: 28px; height: 28px; padding: 0;
+  display: grid; place-items: center;
+  font-size: 14px; line-height: 1; cursor: pointer;
+  color: oklch(60% 0.01 75); background: oklch(16% 0.01 55 / 0.85);
+  border: 1px solid var(--border); border-radius: 6px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.v2-chart-expand:hover { color: oklch(80% 0.12 75); border-color: oklch(72% 0.18 75 / 0.5); }
+#v2-chart-modal {
+  position: fixed; inset: 0; z-index: 1200;
+  display: flex; flex-direction: column;
+  background: oklch(9% 0.008 55 / 0.985);
+  opacity: 0; transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#v2-chart-modal.open { opacity: 1; }
+#v2-chart-modal .v2cm-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--border); flex: 0 0 auto;
+}
+#v2-chart-modal .v2cm-title {
+  font-size: 14px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-hi, oklch(88% 0.005 75));
+}
+#v2-chart-modal .v2cm-close {
+  width: 32px; height: 32px; padding: 0; display: grid; place-items: center;
+  font-size: 15px; cursor: pointer; color: oklch(60% 0.01 75);
+  background: oklch(16% 0.01 55); border: 1px solid var(--border); border-radius: 7px;
+  transition: color 0.15s, border-color 0.15s;
+}
+#v2-chart-modal .v2cm-close:hover { color: oklch(85% 0.01 75); border-color: oklch(50% 0.01 75); }
+#v2-chart-modal .v2cm-body {
+  flex: 1 1 auto; min-height: 0; overflow: auto; padding: 18px 24px 24px;
+  transform: scale(0.985); transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#v2-chart-modal.open .v2cm-body { transform: scale(1); }
+#v2-chart-modal .org-chart-wrap { border: none; background: transparent; }
+#v2-chart-modal .org-chart-svg { min-height: calc(100vh - 260px) !important; max-height: none; }
+.v2cm-placeholder {
+  padding: 40px 16px; text-align: center;
+  color: oklch(48% 0.005 75); font-size: 12px; letter-spacing: 0.02em;
+}
+@media (prefers-reduced-motion: reduce) {
+  #v2-chart-modal, #v2-chart-modal .v2cm-body { transition: none; transform: none; }
+}
 .v2-bubble-inner {
   background: oklch(18% 0.01 55 / 0.95);
   border: 1px solid oklch(72% 0.18 75 / 0.4);
@@ -6050,6 +6095,43 @@ function _v2OrgIsLeader(r) {
     || r.agent_type === 'coordinator' || r.agent_type === 'devbot-orchestrator';
 }
 
+// ── Full-page chart modal ──────────────────────────────────────────────
+// While open, v2RenderOrgChart() renders into the modal body (wider viewBox)
+// and the inline pane holds a placeholder. Close restores the inline chart.
+let _v2ChartExpanded = false;
+function _v2ChartEsc(e) { if (e.key === 'Escape') v2ToggleChartExpand(false); }
+function v2ToggleChartExpand(open) {
+  _v2ChartExpanded = !!open;
+  let m = document.getElementById('v2-chart-modal');
+  if (open) {
+    if (!m) {
+      m = document.createElement('div');
+      m.id = 'v2-chart-modal';
+      m.setAttribute('role', 'dialog');
+      m.setAttribute('aria-modal', 'true');
+      m.setAttribute('aria-label', 'Org chart, expanded view');
+      m.innerHTML = `
+        <div class="v2cm-head">
+          <div class="v2cm-title"></div>
+          <button class="v2cm-close" onclick="v2ToggleChartExpand(false)" aria-label="Close expanded chart">✕</button>
+        </div>
+        <div id="v2-chart-modal-body" class="v2cm-body"></div>`;
+      document.body.appendChild(m);
+    }
+    m.querySelector('.v2cm-title').textContent = _v2SelOrg || 'Org chart';
+    const inlinePane = document.getElementById('odt-chart');
+    if (inlinePane) inlinePane.innerHTML = '<div class="v2cm-placeholder">Chart is expanded to full page · press Esc or ✕ to bring it back</div>';
+    document.addEventListener('keydown', _v2ChartEsc);
+    requestAnimationFrame(() => m.classList.add('open'));
+    v2RenderOrgChart();
+    m.querySelector('.v2cm-close').focus();
+  } else {
+    document.removeEventListener('keydown', _v2ChartEsc);
+    if (m) m.remove();
+    v2RenderOrgChart();
+  }
+}
+
 function v2RenderOrgChart() {
   if (!_v2SelOrg) return;
   const d = _v2OrgData;
@@ -6060,7 +6142,17 @@ function v2RenderOrgChart() {
   const goalText = d.goal || '—';
   const topo = (d.topology || 'hierarchical').toLowerCase();
   const created = d.created_at ? new Date(d.created_at).toLocaleDateString('en', {month:'short',day:'numeric',year:'numeric'}) : '—';
-  const pane = document.getElementById('odt-chart');
+  // Expanded mode renders into the full-page modal instead of the inline pane.
+  // Exactly ONE chart instance exists at a time — the bubble/letter/particle
+  // animation code queries singleton ids (v2-org-svg, v2oc-letters, …).
+  const pane = _v2ChartExpanded
+    ? document.getElementById('v2-chart-modal-body')
+    : document.getElementById('odt-chart');
+  if (!pane) return;
+  if (_v2ChartExpanded) {
+    const _t = document.querySelector('#v2-chart-modal .v2cm-title');
+    if (_t) _t.textContent = _v2SelOrg;
+  }
 
   // ── color palette ─────────────────────────────────────
   const COLORS = [
@@ -6085,7 +6177,12 @@ function v2RenderOrgChart() {
   }
 
   // ── layout positions ──────────────────────────────────
-  const W = 720, R = 42, PAD_X = R + 20, PAD_Y = R + 24;
+  // Expanded: width scales with head-count so nodes never overlap (inline
+  // keeps the compact 720 viewBox that fits the tab column).
+  const W = _v2ChartExpanded ? Math.max(1100, roles.length * 130) : 720;
+  // Expanded top padding reserves room for the activity bubbles (34px box
+  // floating 46px above the node ring) so message pop-ups never clip.
+  const R = 42, PAD_X = R + 20, PAD_Y = _v2ChartExpanded ? R + 92 : R + 24;
   const roleIds = new Set(roles.map(r => r.id));
   // all leaders at depth 0 (supports co-lead orgs)
   const leaders = roles.filter(_v2OrgIsLeader);
@@ -6269,13 +6366,15 @@ function v2RenderOrgChart() {
   });
 
   // ── assemble HTML ─────────────────────────────────────
+  // Expanded view: the chart owns the space — meta cards stay in the tab.
   pane.innerHTML = `
-    <div class="org-meta-strip">
+    ${_v2ChartExpanded ? '' : `<div class="org-meta-strip">
       <div class="oms-cell"><div class="oms-lbl">Goal</div><div class="oms-val" style="color:var(--text-mid);font-size:11px;line-height:1.4">${esc(goalText)}</div></div>
       <div class="oms-cell"><div class="oms-lbl">Topology</div><div class="oms-val">${esc(topo)}</div></div>
       <div class="oms-cell"><div class="oms-lbl">Created</div><div class="oms-val" style="color:var(--text-mid)">${esc(created)}</div></div>
-    </div>
+    </div>`}
     <div class="org-chart-wrap">
+      ${_v2ChartExpanded ? '' : `<button class="v2-chart-expand" onclick="v2ToggleChartExpand(true)" title="Expand chart to full page" aria-label="Expand chart to full page">⛶</button>`}
       <svg class="org-chart-svg" id="v2-org-svg" viewBox="0 0 ${W} ${H}" style="min-height:${Math.round(H * 0.5)}px">
         <defs>
           <marker id="v2ac" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0.5 L0,6.5 L6,3.5 z" fill="oklch(72% 0.18 75 / 0.8)"/></marker>
