@@ -117,7 +117,7 @@ CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control
 ### 1.6.3 — Emit org:start event
 
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$sessionId" \
@@ -161,7 +161,7 @@ If `LOOP_STATUS == "active"` or `LOOP_STATUS == "paused"`:
 
 2. Emit `org:stop` to signal this iteration is pausing:
    ```bash
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
      -H "Content-Type: application/json" \
      -d "$(jq -cn \
        --arg org "$orgName" \
@@ -182,7 +182,7 @@ If `LOOP_STATUS == "active"` or `LOOP_STATUS == "paused"`:
      || python3 -c "import datetime; print(datetime.datetime.utcfromtimestamp($next_ts).strftime('%Y-%m-%dT%H:%M:%SZ'))")
    tmp="${orgFile}.tmp"
    jq --arg next "$next_iso" '.loop.next_run = $next' "$orgFile" > "$tmp" && mv "$tmp" "$orgFile"
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
      -H "Content-Type: application/json" \
      -d "$(jq -cn --arg org "$orgName" --arg next "$next_iso" --arg proj "$REPO_ROOT" \
        '{type:"org:loop:scheduled",org:$org,next_run:$next,project:$proj,ts:(now*1000|floor)}')" || true
@@ -331,7 +331,7 @@ jq -cn \
 
 # Emit session:start first — creates the chat tab session record and writes active-session.json
 # so capture-handler can tag all subsequent agent:spawn / agent:complete events with this session
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$sessionId" \
@@ -340,7 +340,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     '{type:"session:start",session:$session,org:$org,prompt:$prompt,ts:(now*1000|floor)}')" || true
 
 # Emit org:start — must run here while CTRL_URL/runId/orgName are in scope
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$sessionId" \
@@ -459,7 +459,7 @@ APPROVAL GATE (when governance.policy is "board" or "strict"):
      '.approvals += [{"id":$id,"agent_id":$agent,"title":$title,"action":$action,"risk_level":$risk,"status":"pending","requested_at":(now|todate)}]' \
      "$approvalsFile" > "${approvalsFile}.tmp" && mv "${approvalsFile}.tmp" "$approvalsFile"
   # Emit approval request event so human sees it in dashboard
-  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
     -d "$(jq -cn --arg org "${orgName}" --arg id "$approval_id" --arg title "<title>" \
       '{type:"org:approval:requested",org:$org,approval_id:$id,title:$title,ts:(now*1000|floor)}')" || true
   # Poll until approved or rejected (max 30 min).
@@ -501,7 +501,7 @@ If the file exists: write run:complete to run file, emit org:complete via curl, 
   jq -cn --arg runId "${runId}" --arg org "${orgName}" \
     '{type:"run:complete",runId:$runId,org:$org,status:"stopped",ts:(now*1000|floor)}' >> "${runFile}" || true
   # REQUIRED — emit org:complete via curl (includes runId so it also gets appended):
-  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
     -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
       '{type:"org:complete",session:$s,org:$o,runId:$rid,project:$p,ts:(now*1000|floor)}')" || true
 
@@ -515,7 +515,7 @@ OPERATING LOOP:
      if [ "$(echo "$_pending" | jq 'length')" -gt 0 ]; then
        echo "$_pending" | jq -r '.[] | .text // .msg // ""'
        jq '[.[] | if .status == "pending" then .status = "processed" else . end]' "$_threads" > "${_threads}.tmp" && mv "${_threads}.tmp" "$_threads" || true
-       curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+       curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
          -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
            --arg msg "Received user message — adjusting plan if needed" \
            '{type:"org:comms",session:$s,org:$o,runId:$rid,from:"boss",to:"user",msg:$msg,ts:(now*1000|floor)}')" || true
@@ -533,12 +533,12 @@ OPERATING LOOP:
       monotask card move ${board_id} $CARD_ID ${doing_col}
       monotask card label add ${board_id} $CARD_ID "claimed"
    b) REQUIRED — emit org:comms to dashboard (include runId):
-      curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+      curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
         -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
           --arg role "<role_id>" --arg task "<card title>" \
           '{type:"org:comms",session:$s,org:$o,runId:$rid,from:"boss",to:$role,msg:("Assigning: "+$task),project:$p,ts:(now*1000|floor)}')" || true
    c) REQUIRED — emit org:agent:online before spawning (include runId):
-      curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+      curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
         -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
           --arg role "<role_id>" --arg title "<role title>" --arg at "<agent_type>" \
           '{type:"org:agent:online",session:$s,org:$o,runId:$rid,role:$role,title:$title,agent_type:$at,project:$p,ts:(now*1000|floor)}')" || true
@@ -561,17 +561,17 @@ OPERATING LOOP:
           if [ "$GIT_COMMON" = "__NOGIT__" ] || [ "${GIT_COMMON#*__NOGIT__}" != "$GIT_COMMON" ]; then MONO_DIR="$REPO_ROOT/.monomind"; else MONO_DIR="${GIT_COMMON}/monomind"; fi
           runFile="${MONO_DIR}/orgs/${orgName}/runs/${runId}.jsonl"
           # On start — announce you are working:
-          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
               --arg from "<role_id>" --arg msg "Starting: <card title>" \
               '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
           # On completion — report back:
-          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
               --arg from "<role_id>" --arg msg "Completed: <one-sentence summary of output>" \
               '{type:"org:comms",session:$s,org:$o,runId:$rid,from:$from,to:"boss",msg:$msg,ts:(now*1000|floor)}')" || true
           # When your task is fully complete — signal offline:
-          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+          curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
             -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" \
               --arg from "<role_id>" \
               '{type:"org:agent:offline",session:$s,org:$o,runId:$rid,from:$from,ts:(now*1000|floor)}')" || true
@@ -594,7 +594,7 @@ OPERATING LOOP:
 
 6. Synthesize reports, make decisions, create new cards in Todo column based on progress toward goal.
    REQUIRED — after each decision, emit org:comms (include runId):
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
      -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
        --arg msg "<one-sentence summary of decision or finding>" \
        '{type:"org:comms",session:$s,org:$o,runId:$rid,from:"boss",to:"all",msg:$msg,project:$p,ts:(now*1000|floor)}')" || true
@@ -607,7 +607,7 @@ OPERATING LOOP:
    echo "{\"type\":\"run:cycle:complete\",\"org\":\"${orgName}\",\"runId\":\"${runId}\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pending\":${pending_count:-0}}" >> "$activityFile" 2>/dev/null || true
 
 8. REQUIRED — emit org:checkpoint with a one-sentence progress summary (include runId):
-   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" -H "Content-Type: application/json" \
      -d "$(jq -cn --arg s "${sessionId}" --arg o "${orgName}" --arg rid "${runId}" --arg p "$REPO_ROOT" \
        --arg prog "<one sentence: what was done this cycle and what is next>" \
        --argjson pend "${pending_count:-0}" \
@@ -711,7 +711,7 @@ If `caller` is not "command", follow _protocol.md Brain Write Procedure for doma
 When you create or modify a file that represents output of this org run, emit:
 
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg s "${sessionId}" \

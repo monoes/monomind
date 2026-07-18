@@ -52,7 +52,7 @@ CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control
 npx -y monomind@latest org stop "${org_name}" \
   || { mkdir -p ".monomind/orgs/${org_name}"; date -u +%Y-%m-%dT%H:%M:%SZ > ".monomind/orgs/${org_name}/stop"; }
 # Also POST to the control server in case a dashboard-started instance is running
-curl -s -X POST "${CTRL_URL}/api/orgs/${org_name}/stop" >/dev/null 2>&1 || true
+curl -s -X POST -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" "${CTRL_URL}/api/orgs/${org_name}/stop" >/dev/null 2>&1 || true
 echo "Stop requested for org '${org_name}' (v2 daemon exits within 2s)."
 ```
 - Exit.
@@ -92,7 +92,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 
 # org:stop — signals dashboard to update status to stopped
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "${session_id:-manual}" \

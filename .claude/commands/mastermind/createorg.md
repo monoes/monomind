@@ -85,7 +85,7 @@ Stop after listing. Do not proceed to skill invocation.
    npx -y monomind@latest org delete "${delete_name}" --yes || {
      REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
      CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-     result=$(curl -s -X DELETE "${CTRL_URL}/api/orgs/${delete_name}")
+     result=$(curl -s -X DELETE -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" "${CTRL_URL}/api/orgs/${delete_name}")
      echo "$result" | jq -r 'if .ok then "Org '\'''"${delete_name}"'''\'' deleted." else "Error: " + (.error // "unknown") end'
    }
    ```
@@ -106,7 +106,7 @@ CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control
 
 Emit `session:start` to dashboard:
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
@@ -118,7 +118,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 
 Emit `domain:dispatch`:
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
@@ -129,7 +129,7 @@ Invoke `Skill("mastermind-skills:createorg")` passing: brain_context, prompt, or
 
 After skill returns: note the status (`complete`, `partial`, or `blocked`). Emit `session:complete`:
 ```bash
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
