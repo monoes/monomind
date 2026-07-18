@@ -18,6 +18,24 @@ Quick reference for all Mastermind skills and CLI commands available in this pro
 | `mastermind:swarm` | Swarm coordination reference — topologies, strategies, init patterns |
 | `mastermind:memory` | Memory CLI quick reference |
 
+## Org Runtime (v2 default)
+
+| Command | Description |
+|-------|-------------|
+| `/mastermind:createorg` | Define and save an org (always v2-shaped) |
+| `/mastermind:runorg` | Start a saved org via the Org Runtime v2 daemon (`monomind org run`/`serve`) — auto-migrates v1-shaped configs first |
+| `/mastermind:stoporg` | Stop a running scheduled org loop |
+| `/mastermind:orgstatus` | Detailed status for a single org |
+| `/mastermind:orgs` | List all saved orgs |
+
+### Legacy v1 (marker `LEGACY-ORG-V1` — reachable only under these explicit names)
+
+| Command | Description |
+|-------|-------------|
+| `/mastermind:runorgv1` | Legacy prompt-orchestrated org runner — superseded by `/mastermind:runorg` |
+| `/mastermind:approvev1` | Legacy approval queue for v1 orgs — v2 approvals arrive as dashboard question events instead |
+| `/mastermind:heartbeatv1` | Legacy manual agent wake-up for v1 orgs — v2 roles are live SDK sessions with no wake cycle |
+
 ## Core CLI Commands
 
 ```bash
