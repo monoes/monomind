@@ -8,7 +8,7 @@ import { output } from '../output.js';
 import { ORG_DIR, OrgDefSchema, type BusEvent } from '../orgrt/types.js';
 import { formatEvent, listRunDirs, readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
 import { ORG_TEMPLATES, buildFromTemplate } from '../orgrt/templates.js';
-import { parseSchedule } from '../orgrt/scheduler.js';
+import { checkOrgStructure } from '../orgrt/migrate.js';
 import { listOrgConfigFiles, validateOrgName } from './org.js';
 
 const log = (text: string): void => { console.log(text); };
@@ -41,17 +41,7 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
     }
     try {
       const def = OrgDefSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
-      const ids = def.roles.map(r => r.id);
-      const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
-      if (dupes.length) errors.push(`duplicate role id(s): ${[...new Set(dupes)].join(', ')}`);
-      const roots = def.roles.filter(r => r.reports_to === null);
-      if (roots.length === 0) errors.push('no root role — exactly one role must have reports_to: null');
-      if (roots.length > 1) errors.push(`multiple root roles (${roots.map(r => r.id).join(', ')}) — exactly one may have reports_to: null`);
-      for (const r of def.roles) {
-        if (r.reports_to !== null && !ids.includes(r.reports_to)) errors.push(`role "${r.id}": reports_to "${r.reports_to}" matches no role id`);
-        if (r.reports_to === r.id) errors.push(`role "${r.id}" reports to itself`);
-      }
-      if (def.schedule != null && parseSchedule(def.schedule) === null) errors.push(`schedule "${def.schedule}" is not parseable — use "<N>s", "<N>m", or "<N>h"`);
+      errors.push(...checkOrgStructure(def));
       if (def.name !== stem) warnings.push(`def.name "${def.name}" differs from filename — the runtime addresses this org as "${stem}"`);
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err));

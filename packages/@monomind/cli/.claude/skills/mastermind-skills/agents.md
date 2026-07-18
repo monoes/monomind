@@ -51,12 +51,15 @@ stateFile=".monomind/orgs/${org_name}-state.json"
 
 jq -r '(.roles // [])[] | "• [\(.id)] \(.title)  agent=\(.agent_type)  reports_to=\(.reports_to // "none")"' "$orgFile"
 
+# LEGACY-ORG-V1: the state file's per-agent heartbeat tracking is a v1 concept —
+# v2 orgs report live status via `monomind org status`/`org report` instead.
 # Overlay runtime status from state file if present
 if [ -f "$stateFile" ]; then
   echo ""
   echo "RUNTIME STATUS:"
   jq -r '.agents // {} | to_entries[] | "  \(.key): \(.value.status // "unknown")  last_beat=\(.value.last_heartbeat // "never")"' "$stateFile" 2>/dev/null || true
 fi
+# end LEGACY-ORG-V1
 ```
 
 Render as table:
@@ -134,6 +137,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
 
 ### pause / resume
 
+<!-- LEGACY-ORG-V1: the agent state/heartbeat file this pauses is a v1 concept. -->
 Update state file:
 
 ```bash

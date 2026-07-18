@@ -35,13 +35,16 @@ If `caller` is not "command", load brain context following _protocol.md Brain Lo
 ## Step 1 — Load Org Config
 
 ```bash
+# LEGACY-ORG-V1: this whole board/column lookup is the pre-v2 board-backed
+# task model — boards belong to the legacy v1 runner, see runorgv1.
 orgFile=".monomind/orgs/${org_name}.json"
 board_id=$(jq -r '.board_id // empty' "$orgFile")
 todo_col=$(jq -r '.todo_col_id // empty' "$orgFile")
 doing_col=$(jq -r '.doing_col_id // empty' "$orgFile")
 done_col=$(jq -r '.done_col_id // empty' "$orgFile")
 
-[ -z "$board_id" ] && { echo "ERROR: org config missing board_id — run /mastermind:createorg to rebuild."; exit 1; }
+[ -z "$board_id" ] && { echo "ERROR: org config missing board_id — boards belong to the legacy v1 runner, see runorgv1."; exit 1; }
+# end LEGACY-ORG-V1
 ```
 
 ---

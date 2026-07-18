@@ -112,6 +112,8 @@ Show project summary with linked tasks from the board:
 project=$(jq --arg id "$project_id" '(.projects // [])[] | select(.id == $id)' "$projectsFile")
 echo "$project" | jq .
 
+# LEGACY-ORG-V1: board_id/*_col_id only exist on the pre-v2 board-backed org
+# shape — see runorgv1.
 # If board exists, count tasks tagged with this project
 orgFile=".monomind/orgs/${org_name}.json"
 board_id=$(jq -r '.board_id // empty' "$orgFile")
@@ -125,6 +127,7 @@ if [ -n "$board_id" ]; then
       jq -r --arg p "project:$project_id" '[.[] | select((.labels // []) | index($p))] | length' 2>/dev/null
   done
 fi
+# end LEGACY-ORG-V1
 ```
 
 ---
