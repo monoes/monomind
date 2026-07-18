@@ -106,7 +106,7 @@ COMMANDS
   monomind org validate [name]           Check config against the runtime schema
   /mastermind:orgstatus --org <name>     Detailed status, last runs, activity
   /mastermind:createorg <goal>           Create a new org
-  /mastermind:runorg --org <name>        (legacy v1 orgs only — deprecated)
+  /mastermind:runorg --org <name>        v2 delegator (auto-migrates v1 configs, then runs via the daemon)
 ```
 
 ---

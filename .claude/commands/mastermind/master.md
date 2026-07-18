@@ -253,7 +253,7 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 
 **Persistent agent orgs** — named teams that coordinate across sessions
 `/mastermind:createorg` — define an org: roles, hierarchy, goal
-`/mastermind:runorg` — start a saved org; boss agent assigns work to all roles
+`/mastermind:runorg` — start a saved org via the Org Runtime v2 daemon (auto-migrates v1 configs); legacy prompt-orchestrated path: `/mastermind:runorgv1`
 `/mastermind:approve` — review and action pending approval requests from running org agents
 
 **Autonomous & advanced**

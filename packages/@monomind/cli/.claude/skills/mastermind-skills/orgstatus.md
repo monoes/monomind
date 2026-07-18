@@ -217,11 +217,11 @@ if [ "$is_v2" = "yes" ]; then
 elif [ "$has_schedule" = "yes" ]; then
   case "$status" in
     active|paused) echo "  Stop loop:    /mastermind:stoporg --org $name" ;;
-    stopped)       echo "  Start loop:   /mastermind:runorg --org $name  (legacy v1)" ;;
+    stopped)       echo "  Start loop:   /mastermind:runorg --org $name  (v1 config — will auto-migrate)" ;;
   esac
   echo "  Edit prompt:  \$EDITOR $run_prompt_file"
 else
-  echo "  Run org:      /mastermind:runorg --org $name  (legacy v1)"
+  echo "  Run org:      /mastermind:runorg --org $name  (v1 config — will auto-migrate)"
 fi
 echo "  All orgs:     /mastermind:orgs"
 echo ""
