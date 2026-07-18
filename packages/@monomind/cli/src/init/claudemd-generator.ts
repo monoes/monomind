@@ -429,11 +429,14 @@ If the \`documents\` capability is active (check \`.monomind/capabilities.json\`
 
 **CLI access:**
 \`\`\`bash
-monomind doc search -q "your query"    # Semantic search
-monomind doc list                       # List indexed docs
-monomind doc ingest ./path              # Ingest new documents
-monomind doc export                     # Export as OKF bundle
+monomind doc search -q "your query"    # Semantic search (project + global brain merged)
+monomind doc search -q "..." --store global   # Personal global brain only
+monomind doc list                       # List indexed docs (--global for the global brain)
+monomind doc ingest ./path              # Ingest new documents (paths outside the project auto-route to the global brain)
+monomind doc export                     # Export as OKF bundle (--global to move your brain between machines)
 \`\`\`
+
+**Global brain:** the user has a personal cross-project knowledge store at \`~/.monomind/global-brain\`. All searches (knowledge_search, doc search, per-prompt injection) automatically merge it with project knowledge — project results win ties, global hits are labeled \`[global]\`. Cite the label so the user knows which brain answered.
 
 **Re-indexing** happens automatically on session start (unchanged files are skipped via content hash).`;
 }
