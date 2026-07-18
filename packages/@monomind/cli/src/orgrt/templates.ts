@@ -4,7 +4,13 @@
 // (or supplies via --goal).
 import { OrgDefSchema, type OrgDef } from './types.js';
 
-interface TemplateRole { id: string; title: string; type: string; reports_to: string | null; responsibilities: string[] }
+// Per-role model hints keep scheduled-org economics sane: coordinators keep
+// the default (strongest) model since they synthesize and decide; verification
+// and mechanical roles run on Haiku — the dogfooded release-desk run showed
+// review/QA roles spend a third of the tokens for checklist-shaped work.
+const FAST_MODEL = 'claude-haiku-4-5-20251001';
+
+interface TemplateRole { id: string; title: string; type: string; reports_to: string | null; responsibilities: string[]; model?: string }
 interface Template { goal: string; roles: TemplateRole[] }
 
 export const ORG_TEMPLATES: Record<string, Template> = {
@@ -15,7 +21,7 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         responsibilities: ['Own the content calendar and quality bar', 'Assign pieces to the writer and route drafts to review', 'Approve final drafts for publishing'] },
       { id: 'writer', title: 'Staff Writer', type: 'specialist', reports_to: 'editor-in-chief',
         responsibilities: ['Draft articles from assigned briefs', 'Incorporate review feedback', 'Hand finished drafts to the reviewer'] },
-      { id: 'reviewer', title: 'Content Reviewer', type: 'reviewer', reports_to: 'editor-in-chief',
+      { id: 'reviewer', title: 'Content Reviewer', type: 'reviewer', reports_to: 'editor-in-chief', model: FAST_MODEL,
         responsibilities: ['Review drafts for accuracy, clarity, and tone', 'Return actionable feedback to the writer', 'Flag anything needing human judgment via ask_human'] },
     ],
   },
@@ -28,7 +34,7 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         responsibilities: ['Implement assigned tasks with tests', 'Keep changes small and focused', 'Send diffs to the reviewer before reporting done'] },
       { id: 'code-reviewer', title: 'Code Reviewer', type: 'reviewer', reports_to: 'tech-lead',
         responsibilities: ['Review diffs for correctness and maintainability', 'Verify claimed test results', 'Reject unverified work'] },
-      { id: 'qa', title: 'QA Engineer', type: 'specialist', reports_to: 'tech-lead',
+      { id: 'qa', title: 'QA Engineer', type: 'specialist', reports_to: 'tech-lead', model: FAST_MODEL,
         responsibilities: ['Exercise delivered features end-to-end', 'File precise reproduction steps for defects'] },
     ],
   },
@@ -39,7 +45,7 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         responsibilities: ['Define research questions for each cycle', 'Synthesize findings into the final brief', 'Decide what merits deeper follow-up'] },
       { id: 'researcher', title: 'Researcher', type: 'researcher', reports_to: 'lead-analyst',
         responsibilities: ['Gather primary sources on assigned questions', 'Separate observed facts from inference', 'Deliver structured findings with citations'] },
-      { id: 'fact-checker', title: 'Fact Checker', type: 'reviewer', reports_to: 'lead-analyst',
+      { id: 'fact-checker', title: 'Fact Checker', type: 'reviewer', reports_to: 'lead-analyst', model: FAST_MODEL,
         responsibilities: ['Verify claims in draft briefs against sources', 'Flag unverifiable claims for removal or hedging'] },
     ],
   },
@@ -55,6 +61,6 @@ export function buildFromTemplate(templateName: string, orgName: string, goal?: 
     status: 'stopped',
     schedule: null,
     run_config: { max_concurrent_agents: 4, budget_tokens: 1_000_000, memory_namespace: `org:${orgName}`, max_turns_per_message: 30 },
-    roles: t.roles,
+    roles: t.roles.map(({ model, ...r }) => model ? { ...r, adapter_config: { model } } : r),
   });
 }
