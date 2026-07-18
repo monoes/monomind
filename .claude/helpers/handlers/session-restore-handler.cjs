@@ -344,6 +344,65 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
+    // Second Brain continuous ingestion — the generated CLAUDE.md promises
+    // "re-indexing happens automatically on session start"; make that true for
+    // user documents, not just the 3 fixed files above. Gated on (a) an active
+    // knowledge base, (b) at least one document newer than the last ingest,
+    // (c) a 30-min rate limit. Detached+unref spawn (same pattern as the
+    // helper-heal block below) — session start never waits on model loading.
+    try {
+      var _kbMetaPath = path.join(CWD, '.monomind', 'knowledge', 'doc-metadata.jsonl');
+      if (fs.existsSync(_kbMetaPath)) {
+        var _kbMetaMtime = fs.statSync(_kbMetaPath).mtimeMs;
+        var _kbMarkerPath = path.join(CWD, '.monomind', 'knowledge', 'reindex-check.json');
+        var _kbLastCheck = 0;
+        try { _kbLastCheck = JSON.parse(fs.readFileSync(_kbMarkerPath, 'utf-8')).ts || 0; } catch (_) {}
+        if (Date.now() - _kbLastCheck > 30 * 60 * 1000) {
+          // Cheap bounded scan: any document changed since the last ingest?
+          var _DOC_EXT = { '.md': 1, '.txt': 1, '.pdf': 1, '.docx': 1 };
+          var _kbDirty = false;
+          var _kbScanned = 0;
+          var _kbWalk = function(dir, depth) {
+            if (_kbDirty || depth > 3 || _kbScanned > 2000) return;
+            var names;
+            try { names = fs.readdirSync(dir); } catch (_) { return; }
+            for (var ni = 0; ni < names.length && !_kbDirty; ni++) {
+              var n = names[ni];
+              if (n.charAt(0) === '.' || n === 'node_modules' || n === 'dist') continue;
+              var p = path.join(dir, n);
+              var st;
+              try { st = fs.statSync(p); } catch (_) { continue; }
+              _kbScanned++;
+              if (st.isDirectory()) { _kbWalk(p, depth + 1); continue; }
+              var ext = path.extname(n).toLowerCase();
+              if (_DOC_EXT[ext] && st.mtimeMs > _kbMetaMtime) _kbDirty = true;
+            }
+          };
+          _kbWalk(CWD, 0);
+          if (_kbDirty) {
+            var _kbMarkerOk = false;
+            try {
+              fs.writeFileSync(_kbMarkerPath, JSON.stringify({ ts: Date.now() }), 'utf-8');
+              _kbMarkerOk = true;
+            } catch (_) {}
+            if (_kbMarkerOk) {
+              var _kbSpawn = require('child_process').spawn;
+              var _kbChild = _kbSpawn('npx', ['-y', 'monomind@latest', 'doc', 'ingest', '.'], {
+                cwd: CWD,
+                detached: true,
+                stdio: 'ignore',
+                env: process.env,
+                shell: process.platform === 'win32',
+                windowsHide: true,
+              });
+              _kbChild.unref();
+              console.log('[KNOWLEDGE_REINDEX] changed documents detected — re-ingesting in background');
+            }
+          }
+        }
+      }
+    } catch (e) { /* non-fatal — reindex must never block session start */ }
+
     // Monograph Context Injection — delegates to shared helper in utils/monograph.cjs.
     injectGodNodesContext(CWD);
 
