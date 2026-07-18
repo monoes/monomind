@@ -118,7 +118,7 @@ digraph mastermind_routing {
 | Inspect or manage brain memory | `Skill("mastermind-skills:brain")` |
 | Technical portfolio, project state assessment | `Skill("mastermind-skills:techport")` |
 | Define/run an agent organization | `Skill("mastermind-skills:createorg")` / `Skill("mastermind-skills:runorg")` |
-| Review and action pending agent approval requests | `Skill("mastermind-skills:approve")` |
+| Review and action pending agent approval requests | `Skill("mastermind-skills:approvev1")` (v1 orgs only — v2 approvals arrive in the dashboard Human Input tab) |
 | Autonomous build + review until clean | `Skill("mastermind-skills:autodev")` |
 | Isolate work in a git worktree | `Skill("mastermind-skills:worktree")` |
 | Write or improve a mastermind skill | `Skill("mastermind-skills:skill-builder")` |
@@ -254,7 +254,7 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 **Persistent agent orgs** — named teams that coordinate across sessions
 `/mastermind:createorg` — define an org: roles, hierarchy, goal
 `/mastermind:runorg` — start a saved org via the Org Runtime v2 daemon (auto-migrates v1 configs); legacy prompt-orchestrated path: `/mastermind:runorgv1`
-`/mastermind:approve` — review and action pending approval requests from running org agents
+`/mastermind:approvev1` — review and action pending approval requests from running org agents (v1 orgs only — v2 approvals arrive in the dashboard Human Input tab)
 
 **Autonomous & advanced**
 `/mastermind:autodev` — research → build → review loop until clean (`--tillend` supported)

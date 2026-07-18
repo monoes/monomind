@@ -1,13 +1,16 @@
 ---
-name: mastermind-heartbeat
-description: Mastermind heartbeat — trigger a manual heartbeat for a specific agent in a running org. The agent wakes, checks its task queue, executes pending work, and reports back.
+name: mastermind-heartbeatv1
+description: "LEGACY-ORG-V1 (2026-07): v2: send the role a chat message from the dashboard, or inspect with `monomind org logs <name>` — no skill needed. Mastermind heartbeatv1 — trigger a manual heartbeat for a specific agent in a running v1 (prompt-orchestrated) org. The agent wakes, checks its task queue, executes pending work, and reports back. Reach it only via `/mastermind:heartbeatv1`."
 type: domain-skill
 default_mode: auto
 ---
 
-# Mastermind Heartbeat
+# Mastermind Heartbeat (v1, legacy)
 
-This skill is invoked by `mastermind:heartbeat` or directly via `/mastermind:heartbeat`.
+> **LEGACY-ORG-V1 — manual task-board wake-up for prompt-orchestrated v1 orgs. Reach it only via `/mastermind:heartbeatv1`.**
+> v2 roles run as live SDK sessions with no poll/wake cycle to trigger — send the role a chat message from the dashboard, or inspect activity with `monomind org logs <name>`. This skill remains only for orgs not yet migrated off the v1 `board_id`/`topology` config shape.
+
+This skill is invoked by `mastermind:heartbeatv1` or directly via `/mastermind:heartbeatv1`.
 
 ---
 

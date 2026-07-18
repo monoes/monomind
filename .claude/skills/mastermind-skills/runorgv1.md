@@ -463,7 +463,7 @@ APPROVAL GATE (when governance.policy is "board" or "strict"):
     -d "$(jq -cn --arg org "${orgName}" --arg id "$approval_id" --arg title "<title>" \
       '{type:"org:approval:requested",org:$org,approval_id:$id,title:$title,ts:(now*1000|floor)}')" || true
   # Poll until approved or rejected (max 30 min).
-  # Check the approvals file first (updated by both dashboard UI and /mastermind:approve command),
+  # Check the approvals file first (updated by both dashboard UI and /mastermind:approvev1 command),
   # then fall back to memory in case an external notifier wrote there.
   for i in $(seq 1 60); do
     status=$(jq -r --arg id "$approval_id" '(.approvals // [])[] | select(.id == $id) | .status // ""' "$approvalsFile" 2>/dev/null || echo "")

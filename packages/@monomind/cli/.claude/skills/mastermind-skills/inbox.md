@@ -133,7 +133,7 @@ for org in $orgs; do
   [ -f "$approvalsFile" ] || continue
   echo "=== $org ==="
   jq -r '(.approvals // [])[] | select(.status == "pending") |
-    "[\(.id)] \(.agent_id): \(.title)\n  Action: \(.action)\n  Risk: \(.risk_level // "low")\n  → /mastermind:approve --org '"$org"' --action approve --approval-id \(.id)"
+    "[\(.id)] \(.agent_id): \(.title)\n  Action: \(.action)\n  Risk: \(.risk_level // "low")\n  → /mastermind:approvev1 --org '"$org"' --action approve --approval-id \(.id)"
   ' "$approvalsFile" 2>/dev/null || echo "  No pending approvals."
   echo ""
 done
@@ -181,7 +181,7 @@ From the inbox, the user can directly:
 
 ```bash
 # Approve a pending request:
-/mastermind:approve --org <org> --action approve --approval-id <id>
+/mastermind:approvev1 --org <org> --action approve --approval-id <id>
 
 # Stop a running agent:
 /mastermind:agents --org <org> --action pause --agent-id <id>

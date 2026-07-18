@@ -57,13 +57,17 @@ echo "Stop requested for org '${org_name}' (v2 daemon exits within 2s)."
 ```
 - Exit.
 
+<!-- LEGACY-ORG-V1: remove this branch when v1 orgs are gone -->
+Everything below this point only runs for v1 orgs — v2 orgs already exited above.
+
 If `current_status == "stopped"`:
 - Print: "Org '<org_name>' is already stopped."
 - Exit.
 
 ---
 
-## Step 2 — Set Status to Stopped and Clear next_run
+<!-- LEGACY-ORG-V1: remove this step when v1 orgs are gone -->
+## Step 2 — Set Status to Stopped and Clear next_run (v1 only)
 
 ```bash
 orgFile=".monomind/orgs/${org_name}.json"
@@ -74,7 +78,8 @@ jq '.status = "stopped" | if .loop then .loop.next_run = null else . end' "$orgF
 
 ---
 
-## Step 3 — Write Stop File (for any running boss agents)
+<!-- LEGACY-ORG-V1: remove this step when v1 orgs are gone -->
+## Step 3 — Write Stop File (for any running boss agents, v1 only)
 
 Any persistent boss agent checks for this file at the start of each loop iteration:
 
@@ -85,6 +90,7 @@ touch ".monomind/orgs/.stops/${org_name}.stop"
 
 ---
 
+<!-- LEGACY-ORG-V1: remove this step when v1 orgs are gone -->
 ## Step 4 — Emit Dashboard Events
 
 ```bash
@@ -103,7 +109,8 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
 
 ---
 
-## Step 5 — Report to User
+<!-- LEGACY-ORG-V1: remove this step when v1 orgs are gone -->
+## Step 5 — Report to User (v1 only)
 
 ```
 ✓ Org "<org_name>" stopped.
