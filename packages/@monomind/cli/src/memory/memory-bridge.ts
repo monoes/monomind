@@ -65,18 +65,32 @@ function realOrResolved(p: string): string {
   try { return fs.realpathSync(p); } catch { return p; }
 }
 
+/** The personal, cross-project knowledge store. Deliberately a SIBLING of
+ *  ~/.monomind/projects (never inside it) so per-project pruning heuristics
+ *  (`cleanup --data`) can never touch it. Env-overridable for tests and for
+ *  users who keep their brain on a synced/external location. Resolved lazily
+ *  so the override works regardless of import order. */
+export function getGlobalBrainDir(): string {
+  return process.env.MONOMIND_GLOBAL_BRAIN_DIR || path.join(os.homedir(), '.monomind', 'global-brain');
+}
+/** Sentinel callers pass as dbPath to address the global brain. */
+export const GLOBAL_BRAIN = '@global';
+
 function getDbPath(customPath?: string): string {
   const defaultDir = path.join(projectDataDir(), 'lancedb');
   if (!customPath || customPath === ':memory:') return defaultDir;
+  if (customPath === GLOBAL_BRAIN) return getGlobalBrainDir();
   // Treat legacy .db paths (and the legacy .swarm dir) as a signal to use the default
   if (customPath.endsWith('.db')) return defaultDir;
   const resolved = realOrResolved(path.resolve(customPath));
   // Guard against path traversal from MCP inputs: only allow paths inside the
-  // project or inside the per-project home data dir.
+  // project, the per-project home data dir, or the global brain.
   const relCwd = path.relative(realOrResolved(process.cwd()), resolved);
   const relHome = path.relative(realOrResolved(projectDataDir()), resolved);
+  const relGlobal = path.relative(realOrResolved(getGlobalBrainDir()), resolved);
   if (!relCwd.startsWith('..') && !path.isAbsolute(relCwd)) return resolved;
   if (!relHome.startsWith('..') && !path.isAbsolute(relHome)) return resolved;
+  if (!relGlobal.startsWith('..') && !path.isAbsolute(relGlobal)) return resolved;
   return defaultDir;
 }
 
@@ -104,14 +118,25 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
 }
 
-// ===== Lazy singleton LanceDB backend =====
+// ===== Lazy per-path backend cache =====
+//
+// One backend PER resolved store directory (project store, global brain, test
+// fixtures) — the old module-level singleton bound the whole process to the
+// FIRST dbPath it saw and silently served every later caller from that store,
+// which both blocked the global brain and could misroute org memory.
+// The embedding model stays process-wide: it's the expensive part and is
+// store-independent.
 
-let backendPromise: Promise<any> | null = null;
-let backendInstance: any = null;
-let bridgeAvailable: boolean | null = null;
+interface BackendSlot {
+  promise: Promise<any> | null;
+  instance: any | null;
+  available: boolean | null;
+  attempts: number;
+}
+const backendSlots = new Map<string, BackendSlot>();
 let _embedder: ((text: string) => Promise<Float32Array>) | null = null;
+let _embedderPromise: Promise<void> | null = null;
 const MAX_INIT_ATTEMPTS = 3;
-let initAttempts = 0;
 
 /** Flush after mutations: the sql.js fallback backend is in-memory WASM and
  *  only reaches disk via persist(); the CLI process is short-lived, so waiting
@@ -120,54 +145,64 @@ async function flushBackend(backend: any): Promise<void> {
   try { await backend?.persist?.(); } catch { /* best effort */ }
 }
 
-async function getBackend(dbPath?: string): Promise<any | null> {
-  if (bridgeAvailable === false) return null;
-  if (initAttempts >= MAX_INIT_ATTEMPTS) { bridgeAvailable = false; return null; }
-  if (backendInstance) return backendInstance;
+async function loadEmbedder(): Promise<void> {
+  if (_embedder) return;
+  if (!_embedderPromise) {
+    _embedderPromise = (async () => {
+      try {
+        const hf = await import('@huggingface/transformers' as string);
+        // revision must be a git ref — 'main' is the HF default; 'default' 404s and
+        // silently killed embeddings (every search degraded to keyword matching)
+        // dtype pinned explicitly: transformers.js logs a "dtype not specified"
+        // warning to the console on every load otherwise (leaks into CLI output).
+        const extractor = await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { revision: 'main', dtype: 'fp32' });
+        _embedder = async (text: string) => {
+          const output = await extractor(text, { pooling: 'mean', normalize: true });
+          return new Float32Array(output.data);
+        };
+      } catch (e) {
+        _embedderPromise = null; // allow retry (e.g. first call offline)
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] embedding model failed to load — store and search without vectors:', e);
+      }
+    })();
+  }
+  await _embedderPromise;
+}
 
-  if (!backendPromise) {
-    backendPromise = (async () => {
+async function getBackend(dbPath?: string): Promise<any | null> {
+  const dir = getDbPath(dbPath);
+  let slot = backendSlots.get(dir);
+  if (!slot) { slot = { promise: null, instance: null, available: null, attempts: 0 }; backendSlots.set(dir, slot); }
+  if (slot.available === false) return null;
+  if (slot.attempts >= MAX_INIT_ATTEMPTS) { slot.available = false; return null; }
+  if (slot.instance) return slot.instance;
+
+  if (!slot.promise) {
+    slot.promise = (async () => {
       try {
         const mod = await import('@monoes/memory' as string);
-
-        // Try to create embedding generator from HuggingFace transformers
-        let embeddingGenerator: ((text: string) => Promise<Float32Array>) | undefined;
-        try {
-          const hf = await import('@huggingface/transformers' as string);
-          // revision must be a git ref — 'main' is the HF default; 'default' 404s and
-          // silently killed embeddings (every search degraded to keyword matching)
-          // dtype pinned explicitly: transformers.js logs a "dtype not specified"
-          // warning to the console on every load otherwise (leaks into CLI output).
-          const extractor = await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { revision: 'main', dtype: 'fp32' });
-          embeddingGenerator = async (text: string) => {
-            const output = await extractor(text, { pooling: 'mean', normalize: true });
-            return new Float32Array(output.data);
-          };
-          _embedder = embeddingGenerator;
-        } catch (e) {
-          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] embedding model failed to load — store and search without vectors:', e);
-        }
+        await loadEmbedder();
 
         // Local SQLite engine (LanceDB replaced 2026-07): better-sqlite3 when its
         // native binding loads, sql.js (pure WASM) otherwise — both persist text
         // AND embeddings, so vectors are always recomputable/derivable data.
-        // getDbPath keeps its traversal guard and directory semantics; the SQLite
-        // file lives inside that directory.
-        const dir = getDbPath(dbPath);
         fs.mkdirSync(dir, { recursive: true });
         // Origin marker: records which project this data dir belongs to, so
         // `monomind cleanup --data` can verifiably prune dirs whose project
-        // no longer exists (the dir-name hash is one-way). Best-effort.
-        try {
-          const originFile = path.join(projectDataDir(), 'origin.json');
-          fs.writeFileSync(originFile, JSON.stringify({ path: path.resolve(process.cwd()), updatedAt: new Date().toISOString() }) + '\n', 'utf-8');
-        } catch { /* non-fatal */ }
+        // no longer exists (the dir-name hash is one-way). Best-effort; never
+        // written for the global brain (it has no single origin project).
+        if (dir !== getGlobalBrainDir()) {
+          try {
+            const originFile = path.join(projectDataDir(), 'origin.json');
+            fs.writeFileSync(originFile, JSON.stringify({ path: path.resolve(process.cwd()), updatedAt: new Date().toISOString() }) + '\n', 'utf-8');
+          } catch { /* non-fatal */ }
+        }
         const cfg = {
           databasePath: path.join(dir, 'memory.db'),
           walMode: true,
           optimize: true,
           defaultNamespace: 'default',
-          embeddingGenerator,
+          embeddingGenerator: _embedder ?? undefined,
         };
 
         const origLog = console.log;
@@ -190,19 +225,19 @@ async function getBackend(dbPath?: string): Promise<any | null> {
           console.log = origLog;
         }
 
-        backendInstance = backend;
-        bridgeAvailable = true;
+        slot.instance = backend;
+        slot.available = true;
         return backend;
       } catch {
-        initAttempts++;
-        backendPromise = null;
-        if (initAttempts >= MAX_INIT_ATTEMPTS) bridgeAvailable = false;
+        slot.attempts++;
+        slot.promise = null;
+        if (slot.attempts >= MAX_INIT_ATTEMPTS) slot.available = false;
         return null;
       }
     })();
   }
 
-  return backendPromise;
+  return slot.promise;
 }
 
 // ===== Core CRUD =====
@@ -728,14 +763,14 @@ export async function getControllerRegistry(dbPath?: string): Promise<any | null
 }
 
 export async function shutdownBridge(): Promise<void> {
-  if (backendInstance) {
-    try { await backendInstance.shutdown(); } catch { /* ignore */ }
+  for (const slot of backendSlots.values()) {
+    if (slot.instance) {
+      try { await slot.instance.shutdown(); } catch { /* ignore */ }
+    }
   }
-  backendInstance = null;
-  backendPromise = null;
-  bridgeAvailable = null;
+  backendSlots.clear();
   _embedder = null;
-  initAttempts = 0;
+  _embedderPromise = null;
 }
 
 // ===== Pattern store =====

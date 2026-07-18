@@ -5,24 +5,43 @@
 import * as path from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import { getGlobalBrainDir } from '../memory/memory-bridge.js';
 
 const ingestCommand: Command = {
   name: 'ingest',
   description: 'Ingest documents into the knowledge base',
   options: [
-    { name: 'scope', short: 's', description: 'Knowledge scope (default: shared)', type: 'string', default: 'shared' },
+    // No `default` on scope: the auto-global routing below must be able to
+    // tell "user typed --scope shared" apart from "user typed nothing" — a
+    // parser-injected default makes them indistinguishable.
+    { name: 'scope', short: 's', description: 'Knowledge scope (default: shared; auto-routes to global for paths outside the project)', type: 'string' },
+    { name: 'global', short: 'g', description: 'Ingest into the personal cross-project global brain (~/.monomind/global-brain)', type: 'boolean' },
   ],
   examples: [
     { command: 'monomind doc ingest ./docs', description: 'Ingest all docs in a directory' },
+    { command: 'monomind doc ingest ~/notes --global', description: 'Ingest into the global brain (auto-detected for paths outside the project)' },
     { command: 'monomind doc ingest report.pdf', description: 'Ingest a single file' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.args[0] || '.';
-    const scope = String(ctx.flags.scope || 'shared');
 
     const { ingestDocument, ingestDirectory } = await import('../knowledge/document-pipeline.js');
     const fs = await import('node:fs');
     const resolved = path.resolve(target);
+
+    // Zero-decision routing: an explicit --global wins; otherwise paths OUTSIDE
+    // the current project belong to the personal brain (a project store keyed
+    // to this cwd would never see them again from another project).
+    let scope = String(ctx.flags.scope || 'shared');
+    if (ctx.flags.global === true) {
+      scope = 'global';
+    } else if (!ctx.flags.scope) {
+      const relToCwd = path.relative(process.cwd(), resolved);
+      if (relToCwd.startsWith('..') || path.isAbsolute(relToCwd)) {
+        scope = 'global';
+        output.writeln(output.dim(`  ${target} is outside this project — ingesting into the global brain (use --scope shared to force project scope)`));
+      }
+    }
 
     const spinner = output.createSpinner({ text: 'Indexing documents...' });
     spinner.start();
@@ -72,9 +91,11 @@ const searchDocCommand: Command = {
     { name: 'limit', short: 'l', description: 'Max results (default: 10)', type: 'number', default: 10 },
     { name: 'scope', short: 's', description: 'Knowledge scope (default: shared)', type: 'string', default: 'shared' },
     { name: 'min-score', description: 'Minimum similarity (default: 0.3)', type: 'number', default: 0.3 },
+    { name: 'store', description: 'Which store(s): project | global | all (default: all — project results win ties)', type: 'string', default: 'all' },
   ],
   examples: [
-    { command: 'monomind doc search -q "authentication flow"', description: 'Search for auth docs' },
+    { command: 'monomind doc search -q "authentication flow"', description: 'Search project + global brain' },
+    { command: 'monomind doc search -q "pricing notes" --store global', description: 'Search only the personal global brain' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = String(ctx.flags.query || ctx.args[0] || '');
@@ -84,10 +105,12 @@ const searchDocCommand: Command = {
     }
 
     const { searchKnowledge } = await import('../knowledge/document-pipeline.js');
+    const storeFlag = String(ctx.flags.store || 'all');
     const excerpts = await searchKnowledge(query, {
       scope: String(ctx.flags.scope || 'shared'),
       limit: Number(ctx.flags.limit || 10),
       minScore: Number(ctx.flags['min-score'] || 0.3),
+      store: storeFlag === 'project' || storeFlag === 'global' ? storeFlag : 'all',
     });
 
     if (!excerpts.length) {
@@ -100,7 +123,8 @@ const searchDocCommand: Command = {
 
     for (let i = 0; i < excerpts.length; i++) {
       const ex = excerpts[i];
-      output.writeln(`${output.highlight(`${i + 1}.`)} ${output.dim(`(${ex.similarity.toFixed(3)})`)} ${ex.filePath || 'unknown'}`);
+      const origin = ex.scope === 'global' ? ` ${output.dim('[global]')}` : '';
+      output.writeln(`${output.highlight(`${i + 1}.`)} ${output.dim(`(${ex.similarity.toFixed(3)})`)} ${ex.filePath || 'unknown'}${origin}`);
       const preview = ex.text.length > 200 ? ex.text.slice(0, 200) + '...' : ex.text;
       output.writeln(`   ${output.dim(preview)}`);
       output.writeln();
@@ -115,11 +139,13 @@ const listDocCommand: Command = {
   description: 'List indexed documents',
   options: [
     { name: 'scope', short: 's', description: 'Knowledge scope', type: 'string' },
+    { name: 'global', short: 'g', description: 'List the personal cross-project global brain', type: 'boolean' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { listDocuments } = await import('../knowledge/document-pipeline.js');
-    const scope = ctx.flags.scope ? String(ctx.flags.scope) : undefined;
-    const docs = listDocuments(process.cwd(), scope);
+    const isGlobal = ctx.flags.global === true;
+    const scope = isGlobal ? 'global' : ctx.flags.scope ? String(ctx.flags.scope) : undefined;
+    const docs = listDocuments(isGlobal ? getGlobalBrainDir() : process.cwd(), scope);
 
     if (!docs.length) {
       output.writeln(output.dim('No documents indexed. Run: monomind doc ingest <path>'));
@@ -148,17 +174,19 @@ const exportDocCommand: Command = {
   options: [
     { name: 'output', short: 'o', description: 'Output directory', type: 'string', default: '.monomind/knowledge-export' },
     { name: 'scope', short: 's', description: 'Knowledge scope (default: shared)', type: 'string', default: 'shared' },
+    { name: 'global', short: 'g', description: 'Export the personal cross-project global brain (portable between machines)', type: 'boolean' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { exportToOKF } = await import('../knowledge/document-pipeline.js');
     const outDir = path.resolve(String(ctx.flags.output || '.monomind/knowledge-export'));
-    const scope = String(ctx.flags.scope || 'shared');
+    const isGlobal = ctx.flags.global === true;
+    const scope = isGlobal ? 'global' : String(ctx.flags.scope || 'shared');
 
     const spinner = output.createSpinner({ text: 'Exporting to OKF...' });
     spinner.start();
 
     try {
-      const result = await exportToOKF(outDir, process.cwd(), scope);
+      const result = await exportToOKF(outDir, isGlobal ? getGlobalBrainDir() : process.cwd(), scope);
       spinner.succeed(`Exported ${result.exported} documents to ${result.outputDir}`);
       return { success: true, data: result };
     } catch (err) {
