@@ -83,9 +83,11 @@ const SKILLS_MAP: Record<string, string[]> = {
     'monolean-help',
     'hive-mind-advanced',
     // The mastermind command files installed by init invoke
-    // Skill("mastermind-skills:*") at runtime — this directory must ship
-    // with core or those references break in user projects.
-    'mastermind-skills',
+    // Skill("mastermind-<name>") at runtime — one top-level
+    // mastermind-<name>/SKILL.md directory per skill. The glob expands in
+    // copySkills against the source tree, so newly added mastermind skills
+    // ship automatically; without them those references break in user projects.
+    'mastermind-*',
   ],
   browser: ['agent-browser-testing'],
   // NOTE: memory-toolkit and github-toolkit are single consolidated skills
@@ -1064,6 +1066,20 @@ async function copySkills(
   if (!sourceSkillsDir) {
     result.errors.push('Could not find source skills directory');
     return;
+  }
+
+  // Expand glob-style entries ('mastermind-*') against the source tree.
+  // Only directories that actually contain a SKILL.md count — this also
+  // filters exFAT AppleDouble junk (._mastermind-…).
+  for (const entry of skillsToCopy.filter(e => e.endsWith('*'))) {
+    const prefix = entry.slice(0, -1);
+    skillsToCopy.splice(skillsToCopy.indexOf(entry), 1);
+    skillsToCopy.push(
+      ...fs.readdirSync(sourceSkillsDir).filter(n =>
+        n.startsWith(prefix) &&
+        fs.existsSync(path.join(sourceSkillsDir, n, 'SKILL.md'))
+      )
+    );
   }
 
   // Remove stale skill directories no longer in the current version's map

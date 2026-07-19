@@ -13,6 +13,6 @@ Lists all saved orgs.
 Parse `$ARGUMENTS` for:
 - No flags expected — this command takes no arguments.
 
-Execute `Skill("mastermind-skills:orgs")` passing: caller: "command".
+Execute `Skill("mastermind-orgs")` passing: caller: "command".
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

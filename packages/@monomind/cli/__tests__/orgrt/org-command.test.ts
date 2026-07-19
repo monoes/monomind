@@ -111,7 +111,7 @@ describe('org command', () => {
     // Regression guard for F1: a v1-shaped config with no structural violations
     // passes `org validate` even though it is still v1 — the runorg skill's
     // auto-migrate trigger must NOT rely on `org validate` failing to detect
-    // v1 configs. See .claude/skills/mastermind-skills/runorg.md step 2.
+    // v1 configs. See .claude/skills/mastermind-runorg/SKILL.md step 2.
     it('passes a canonical v1-shaped config — validate alone cannot detect v1-ness', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'org-validate-v1shape-'));
       try {

@@ -1,6 +1,6 @@
 # Org Runtime v1 Retirement — v2 Everywhere Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind-skills:taskdev")` (recommended) or `Skill("mastermind-skills:execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind-taskdev")` (recommended) or `Skill("mastermind-execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Retire the v1 prompt-orchestrated org path everywhere: `/mastermind:runorg` delegates to the v2 CLI daemon, v1-only skills carry an explicit `v1` suffix, all on-disk v1 configs are migrated, and a new `monomind org migrate` command automates the conversion.
 

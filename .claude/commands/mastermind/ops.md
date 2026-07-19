@@ -1,6 +1,6 @@
 <!-- Mastermind ops domain — workflow automation, reporting, process optimization. Default mode: auto. -->
 
-**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 
 Parse `$ARGUMENTS` for:
 - `--auto` flag → mode = auto
@@ -10,14 +10,14 @@ Parse `$ARGUMENTS` for:
 
 If prompt is empty: ask "What operations task would you like to automate or optimize?"
 
-Load brain context for the `ops` domain (follow _protocol.md Brain Load Procedure).
+Load brain context for the `ops` domain (follow mastermind-protocol/SKILL.md Brain Load Procedure).
 
-Run intake if prompt is vague (follow _intake.md — stop at Q3, domain is already known as `ops`).
+Run intake if prompt is vague (follow mastermind-intake/SKILL.md — stop at Q3, domain is already known as `ops`).
 
 Default mode for this command: **auto** (unless `--confirm` flag present or intake Q4 says confirm).
 
-Invoke `Skill("mastermind-skills:ops")` passing: brain_context, prompt, project_name, board_id (create if needed), mode.
+Invoke `Skill("mastermind-ops")` passing: brain_context, prompt, project_name, board_id (create if needed), mode.
 
-After skill returns: follow _protocol.md Brain Write Procedure for domain `ops`.
+After skill returns: follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `ops`.
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

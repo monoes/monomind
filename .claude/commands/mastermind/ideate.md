@@ -1,6 +1,6 @@
 <!-- "Mastermind — Research ideas from a prompt, evaluate them with a PM lens, elaborate, and decompose into subtasks saved to docs/ideas/ (default) or monotask boards (--monotask flag)" -->
 
-**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
 
 If `$ARGUMENTS` is empty, output this and STOP:
 
@@ -103,7 +103,7 @@ After all agents complete:
 2. Deduplicate by title similarity (fuzzy match — drop ideas whose titles are >80% similar to an already-kept idea).
 3. Persist each unique idea:
 
-**File mode:** Append to `IDEA_FILE` using the idea section format from `_taskfile.md`:
+**File mode:** Append to `IDEA_FILE` using the idea section format from `mastermind-taskfile/SKILL.md`:
 ```markdown
 ### <Idea Title>
 > status: new
@@ -245,14 +245,14 @@ If there are todo tasks:
 
 *File mode:*
 ```
-Skill("mastermind-skills:do", "--file <TASK_FILE> --mode <parallel|minimal|sequential>")
+Skill("mastermind-do", "--file <TASK_FILE> --mode <parallel|minimal|sequential>")
 ```
 
 *Monotask mode:*
 ```
-Skill("mastermind-skills:do", "--monotask --space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
+Skill("mastermind-do", "--monotask --space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
 ```
 
 To repeat this command on a schedule, wrap it with `/mastermind:repeat` or use `--repeat N` / `--tillend` directly.
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

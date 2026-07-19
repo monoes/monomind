@@ -45,7 +45,7 @@ If `--org` is not provided, list saved orgs and ask which to run:
 npx -y monomind@latest org list 2>/dev/null || echo "(none — run /mastermind:createorg to define one)"
 ```
 
-Load brain context for the `ops` domain (follow _protocol.md Brain Load Procedure, namespace: `ops`).
+Load brain context for the `ops` domain (follow mastermind-protocol/SKILL.md Brain Load Procedure, namespace: `ops`).
 
 Generate a session ID:
 ```bash
@@ -54,7 +54,7 @@ session_id="mm-$(date -u +%Y%m%dT%H%M%S)"
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 ```
 
-Invoke `Skill("mastermind-skills:runorg")` passing: org_name: `$org_name`, task: task_override, session_id: `$session_id`, caller: "command".
+Invoke `Skill("mastermind-runorg")` passing: org_name: `$org_name`, task: task_override, session_id: `$session_id`, caller: "command".
 
 After skill returns: emit `session:complete`:
 ```bash
@@ -66,6 +66,6 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
     '{type:"session:complete",session:$session,domain:"ops",status:$status,domains:["ops"],ts:(now*1000|floor)}')" || true
 ```
 
-Follow _protocol.md Brain Write Procedure for domain `ops`.
+Follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `ops`.
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

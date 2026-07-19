@@ -1,6 +1,6 @@
 <!-- Mastermind review domain — code review, security audit, content and strategy review. Default mode: auto. -->
 
-**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 
 Parse `$ARGUMENTS` for:
 - `--auto` flag → mode = auto
@@ -10,13 +10,13 @@ Parse `$ARGUMENTS` for:
 
 If prompt is empty: ask "What would you like reviewed?"
 
-Load brain context for the `review` domain (follow _protocol.md Brain Load Procedure).
+Load brain context for the `review` domain (follow mastermind-protocol/SKILL.md Brain Load Procedure).
 
-Run intake if prompt is vague (follow _intake.md — stop at Q3, domain is already known as `review`).
+Run intake if prompt is vague (follow mastermind-intake/SKILL.md — stop at Q3, domain is already known as `review`).
 
 Default mode for this command: **auto** (unless `--confirm` flag present or intake Q4 says confirm).
 
-Invoke `Skill("mastermind-skills:review")` passing: brain_context, prompt, project_name, board_id (create if needed), mode.
+Invoke `Skill("mastermind-review")` passing: brain_context, prompt, project_name, board_id (create if needed), mode.
 
 **After review findings are collected — AUTO-FIX STEP (mode = auto only):**
 
@@ -29,6 +29,6 @@ When `mode = confirm`: present findings and ask the user which to fix. This is t
 
 **When `--tillend` is active:** auto-fix is especially critical. Without it, the loop finds the same unfixed issues every round and either loops forever or the AI falsely declares an empty round. The tillend contract is: find → fix → verify (next round) → stop when clean.
 
-After skill returns: follow _protocol.md Brain Write Procedure for domain `review`.
+After skill returns: follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `review`.
 
-**MANDATORY — invoke `Skill("mastermind-skills:_repeat")` now.** This is required regardless of how the skill above completed, regardless of whether you think the work is done, regardless of whether you plan to end your response. For `--repeat N`: the count is non-negotiable — all N runs must happen. For `--tillend`: only a verified empty round (confirmed by git diff) stops the loop. Do not end your response without invoking this skill.
+**MANDATORY — invoke `Skill("mastermind-repeat")` now.** This is required regardless of how the skill above completed, regardless of whether you think the work is done, regardless of whether you plan to end your response. For `--repeat N`: the count is non-negotiable — all N runs must happen. For `--tillend`: only a verified empty round (confirmed by git diff) stops the loop. Do not end your response without invoking this skill.

@@ -1,6 +1,6 @@
 <!-- Mastermind architect domain — architecture review, file structure deduplication, coupling analysis, design pattern audit, DDD mapping, and system design. Default mode: confirm. -->
 
-**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 
 Parse `$ARGUMENTS` for:
 - `--auto` flag → mode = auto
@@ -13,9 +13,9 @@ Parse `$ARGUMENTS` for:
 
 If prompt is empty: ask "What would you like the architect to do? (e.g. 'review the codebase structure', 'deduplicate files', 'design the API layer', 'map bounded contexts')"
 
-Load brain context for the `architect` domain (follow _protocol.md Brain Load Procedure).
+Load brain context for the `architect` domain (follow mastermind-protocol/SKILL.md Brain Load Procedure).
 
-Run intake if prompt is vague (follow _intake.md — stop at Q3, domain is already known as `architect`).
+Run intake if prompt is vague (follow mastermind-intake/SKILL.md — stop at Q3, domain is already known as `architect`).
 
 Default mode for this command: **confirm** (show architecture plan before executing, unless `--auto` flag present).
 
@@ -40,13 +40,13 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
   -d '{"type":"domain:dispatch","session":"<sessionId>","domain":"architect","ts":'"$(date +%s)"'000}' || true
 ```
 
-Invoke `Skill("mastermind-skills:architect")` passing: brain_context, prompt, project_name, board_id (create board named "architect" inside the project_name monotask space if not already present), mode, scope, stack, sessionId, iterate, caller: "command".
+Invoke `Skill("mastermind-architect")` passing: brain_context, prompt, project_name, board_id (create board named "architect" inside the project_name monotask space if not already present), mode, scope, stack, sessionId, iterate, caller: "command".
 
-After skill returns: note the status from the skill's output (`complete`, `partial`, or `blocked`). Emit `session:complete` using that status, then follow _protocol.md Brain Write Procedure for domain `architect`. Before executing the curl below, substitute the generated sessionId for `<sessionId>` and the skill's actual status for `<status>`:
+After skill returns: note the status from the skill's output (`complete`, `partial`, or `blocked`). Emit `session:complete` using that status, then follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `architect`. Before executing the curl below, substitute the generated sessionId for `<sessionId>` and the skill's actual status for `<status>`:
 ```bash
 curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
   -H "Content-Type: application/json" \
   -d '{"type":"session:complete","session":"<sessionId>","domain":"architect","status":"<status>","domains":["architect"],"ts":'"$(date +%s)"'000}' || true
 ```
 
-**MANDATORY — invoke `Skill("mastermind-skills:_repeat")` now.** This is required regardless of how the skill above completed, regardless of whether you think the work is done, regardless of whether you plan to end your response. For `--repeat N`: the count is non-negotiable — all N runs must happen. For `--tillend`: only a verified empty round (confirmed by git diff) stops the loop. Do not end your response without invoking this skill.
+**MANDATORY — invoke `Skill("mastermind-repeat")` now.** This is required regardless of how the skill above completed, regardless of whether you think the work is done, regardless of whether you plan to end your response. For `--repeat N`: the count is non-negotiable — all N runs must happen. For `--tillend`: only a verified empty round (confirmed by git diff) stops the loop. Do not end your response without invoking this skill.

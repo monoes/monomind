@@ -57,7 +57,7 @@ Validate the org file exists:
 [ -f ".monomind/orgs/${org_name}.json" ] || { echo "Org '${org_name}' not found."; exit 1; }
 ```
 
-Load brain context for the `ops` domain (follow _protocol.md Brain Load Procedure, namespace: `ops`).
+Load brain context for the `ops` domain (follow mastermind-protocol/SKILL.md Brain Load Procedure, namespace: `ops`).
 
 Generate a session ID:
 ```bash
@@ -77,7 +77,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
     '{type:"session:start",session:$session,domain:"ops",prompt:("Approve requests for org: "+$org),mode:"confirm",project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
-Invoke `Skill("mastermind-skills:approvev1")` passing: brain_context, org_name, action, approval_id, reason, caller: "command".
+Invoke `Skill("mastermind-approvev1")` passing: brain_context, org_name, action, approval_id, reason, caller: "command".
 
 After skill returns: note the status. Emit `session:complete`:
 ```bash
@@ -89,6 +89,6 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
     '{type:"session:complete",session:$session,domain:"ops",status:$status,domains:["ops"],ts:(now*1000|floor)}')" || true
 ```
 
-Follow _protocol.md Brain Write Procedure for domain `ops`.
+Follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `ops`.
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
