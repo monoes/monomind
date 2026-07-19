@@ -1,6 +1,6 @@
 <!-- Mastermind brain management — inspect, compact, refresh, and control the three-tier business memory (LanceDB + Monograph) -->
 
-**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing.
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing.
 
 Parse `$ARGUMENTS` to determine the sub-command and flags.
 
@@ -96,4 +96,4 @@ If `--confirm` is present:
 If `--confirm` is missing:
 > "This will permanently delete all brain memory for domain '<name>'. To confirm, run: `/mastermind:brain reset --domain <name> --confirm`"
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

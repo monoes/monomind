@@ -1,6 +1,6 @@
 <!-- Mastermind marketing domain — campaigns, copy, SEO, social media. Default mode: confirm. -->
 
-**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
 
 Parse `$ARGUMENTS` for:
 - `--auto` flag → mode = auto
@@ -10,14 +10,14 @@ Parse `$ARGUMENTS` for:
 
 If prompt is empty: ask "What marketing task would you like to tackle?"
 
-Load brain context for the `marketing` domain (follow _protocol.md Brain Load Procedure).
+Load brain context for the `marketing` domain (follow mastermind-protocol/SKILL.md Brain Load Procedure).
 
-Run intake if prompt is vague (follow _intake.md — stop at Q3, domain is already known as `marketing`).
+Run intake if prompt is vague (follow mastermind-intake/SKILL.md — stop at Q3, domain is already known as `marketing`).
 
 Default mode for this command: **confirm** (unless `--auto` flag present or intake Q4 says auto).
 
-Invoke `Skill("mastermind-skills:marketing")` passing: brain_context, prompt, project_name, board_id (create if needed), mode.
+Invoke `Skill("mastermind-marketing")` passing: brain_context, prompt, project_name, board_id (create if needed), mode.
 
-After skill returns: follow _protocol.md Brain Write Procedure for domain `marketing`.
+After skill returns: follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `marketing`.
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

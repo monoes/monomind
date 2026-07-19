@@ -95,7 +95,7 @@ If neither `--auto` nor `--confirm` was provided, default: **mode = confirm**.
 
 If prompt is empty (and not list/delete mode): ask "Describe your org's goal and optionally list the roles you want (e.g. 'a content team with a boss, writer, reviewer, and marketer to produce 10 blog posts per month')."
 
-Load brain context for the `ops` domain (follow _protocol.md Brain Load Procedure, namespace: `ops`).
+Load brain context for the `ops` domain (follow mastermind-protocol/SKILL.md Brain Load Procedure, namespace: `ops`).
 
 Generate a session ID as a real shell variable:
 ```bash
@@ -125,7 +125,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
     '{type:"domain:dispatch",session:$session,domain:"ops",cmd:"Designing and saving org definition",ts:(now*1000|floor)}')" || true
 ```
 
-Invoke `Skill("mastermind-skills:createorg")` passing: brain_context, prompt, org_name, roles_desc, schedule, mode, session_id: `$session_id`, caller: "command".
+Invoke `Skill("mastermind-createorg")` passing: brain_context, prompt, org_name, roles_desc, schedule, mode, session_id: `$session_id`, caller: "command".
 
 After skill returns: note the status (`complete`, `partial`, or `blocked`). Emit `session:complete`:
 ```bash
@@ -137,7 +137,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
     '{type:"session:complete",session:$session,domain:"ops",status:$status,domains:["ops"],ts:(now*1000|floor)}')" || true
 ```
 
-Follow _protocol.md Brain Write Procedure for domain `ops`.
+Follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `ops`.
 
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

@@ -62,7 +62,7 @@ session_id="mm-$(date -u +%Y%m%dT%H%M%S)"
 CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 ```
 
-Invoke `Skill("mastermind-skills:stoporg")` passing: org_name: `$org_name`, session_id: `$session_id`, caller: "command".
+Invoke `Skill("mastermind-stoporg")` passing: org_name: `$org_name`, session_id: `$session_id`, caller: "command".
 
 After skill returns: emit `session:complete`:
 ```bash
@@ -73,6 +73,6 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
     '{type:"session:complete",session:$session,domain:"ops",status:"complete",domains:["ops"],ts:(now*1000|floor)}')" || true
 ```
 
-Follow _protocol.md Brain Write Procedure for domain `ops`.
+Follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `ops`.
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
