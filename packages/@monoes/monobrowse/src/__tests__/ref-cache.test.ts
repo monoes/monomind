@@ -132,3 +132,44 @@ describe('ref-cache', () => {
     expect(loaded).toBeNull();
   });
 });
+
+describe('active-port persistence', () => {
+  it('round-trip: save then load returns the port; launched defaults true', async () => {
+    const mod = await importRefCache();
+    await mod.saveActivePort(9333);
+    expect(await mod.loadActivePort()).toBe(9333);
+    expect(await mod.loadActivePortInfo()).toEqual({ port: 9333, launched: true });
+  });
+
+  it('connect provenance: launched:false survives the round-trip', async () => {
+    const mod = await importRefCache();
+    await mod.saveActivePort(9229, { launched: false });
+    expect(await mod.loadActivePortInfo()).toEqual({ port: 9229, launched: false });
+  });
+
+  it('clear removes the file; load returns null afterwards', async () => {
+    const mod = await importRefCache();
+    await mod.saveActivePort(9333);
+    await mod.clearActivePort();
+    expect(await mod.loadActivePort()).toBeNull();
+    expect(await mod.loadActivePortInfo()).toBeNull();
+  });
+
+  it('clear with no file resolves without throwing', async () => {
+    const mod = await importRefCache();
+    await mod.clearActivePort();
+    await expect(mod.clearActivePort()).resolves.toBeUndefined();
+  });
+
+  it('rejects out-of-range or non-integer persisted ports', async () => {
+    const mod = await importRefCache();
+    const { writeFile, mkdir } = await import('fs/promises');
+    const dir = join(process.cwd(), '.monomind', 'monobrowse');
+    await mkdir(dir, { recursive: true });
+    for (const bad of [80, 70000, 1.5, '9222', null]) {
+      await writeFile(join(dir, 'active-port.json'), JSON.stringify({ port: bad }));
+      expect(await mod.loadActivePort()).toBeNull();
+      expect(await mod.loadActivePortInfo()).toBeNull();
+    }
+  });
+});
