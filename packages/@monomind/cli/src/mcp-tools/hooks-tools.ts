@@ -76,7 +76,7 @@ export const hooksTools: MCPTool[] = [
   hooksModelRoute,
   hooksModelOutcome,
   hooksModelStats,
-  // NOTE: the "advanced" tools formerly re-exported from @monomind/hooks/mcp
+  // NOTE: the "advanced" tools formerly re-exported from @monoes/hooks/mcp
   // (hooks/route-advanced, hooks/evo-agentx, hooks/rlvr-outcome, hooks/statusline,
   // trace + HIL checkpoint tools) and the hooks_synthesis-* tools were removed.
   // Their backing modules (AFLOW/LATS/GEPA/ReasoningBank) had already been

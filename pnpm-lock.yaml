@@ -177,9 +177,18 @@ importers:
       '@huggingface/transformers':
         specifier: ^3.8.1
         version: 3.8.1
+      '@monoes/hooks':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@monoes/mcp':
+        specifier: ^1.0.0
+        version: 1.0.0
       '@monoes/memory':
         specifier: ^1.0.10
         version: 1.0.10
+      '@monoes/routing':
+        specifier: ^1.0.0
+        version: 1.0.0
       monofence-ai:
         specifier: '*'
         version: 1.0.0(@lancedb/lancedb@0.30.0(apache-arrow@18.1.0))
@@ -852,6 +861,13 @@ packages:
       '@cfworker/json-schema':
         optional: true
 
+  '@monoes/hooks@1.0.0':
+    resolution: {integrity: sha512-kn6+y8O05IvlnwdQpkfc7x8Em8pL4Mbjog4SoqGzLv6dgVV8XnU40Axck6e6f1mvyyUanOirEUpZlRT3/Uqf0Q==}
+    engines: {node: '>=20.0.0'}
+
+  '@monoes/mcp@1.0.0':
+    resolution: {integrity: sha512-8MY3JZBMdSX05gotRSEY1lXjG08AvXDntXWZsO3a/iiZxNcIJy08ukLjmi2sZCufDv8sR0UAi9iAetj7IOATyg==}
+
   '@monoes/memory@1.0.10':
     resolution: {integrity: sha512-guqhAgpqWto6VOFRMlx3l1VRo7StFX8xSrClBr6m+GFGqOBpaBX9bA1Z+Bi4a/j9aItBJKCcBS9P8htdXtaL0w==}
     cpu: [x64, arm64]
@@ -873,6 +889,9 @@ packages:
 
   '@monoes/monograph@1.4.0':
     resolution: {integrity: sha512-8j82OfWgrX2v5QwyY3ZezOhE3kX8/FVzan+MjbckCAS7rMTZcXDGA4Qc6SQcoTLtu8XmjenczorDEnx5wSF1zg==}
+
+  '@monoes/routing@1.0.0':
+    resolution: {integrity: sha512-MpoOnh6ffg8eeR0fYgGhYtxSzWh/xcc3/nFYXm1ByV7N55335uUbUg8sBgHJf47S79JFqUZpFW+Q3okbpWWexA==}
 
   '@napi-rs/canvas-android-arm64@0.1.80':
     resolution: {integrity: sha512-sk7xhN/MoXeuExlggf91pNziBxLPVUqF2CAVnB57KLG/pz7+U5TKG8eXdc3pm0d7Od0WreB6ZKLj37sX9muGOQ==}
@@ -3246,6 +3265,24 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@monoes/hooks@1.0.0':
+    dependencies:
+      '@monoes/memory': 1.0.10
+      zod: 3.25.76
+    optional: true
+
+  '@monoes/mcp@1.0.0':
+    dependencies:
+      cors: 2.8.6
+      express: 4.22.1
+      helmet: 7.2.0
+      ws: 8.21.0
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+    optional: true
+
   '@monoes/memory@1.0.10':
     dependencies:
       sql.js: 1.14.1
@@ -3316,6 +3353,11 @@ snapshots:
       - graphology-types
       - supports-color
       - tree_sitter
+
+  '@monoes/routing@1.0.0':
+    dependencies:
+      zod: 3.25.76
+    optional: true
 
   '@napi-rs/canvas-android-arm64@0.1.80':
     optional: true

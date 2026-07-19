@@ -143,7 +143,7 @@ See CLAUDE.md for complete integration instructions.`
 
 ```javascript
 // Synchronize structure across related repositories
-const repositories = ["@monomind/cli", "@monomind/hooks", "@monomind/memory"];
+const repositories = ["@monomind/cli", "@monoes/hooks", "@monomind/memory"];
 
 // Update common files across repositories
 repositories.forEach((repo) => {
@@ -248,7 +248,7 @@ monomind/
 │   │   ├── src/
 │   │   ├── .claude/
 │   │   └── package.json
-│   ├── @monomind/hooks/
+│   ├── @monoes/hooks/
 │   │   ├── src/
 │   │   └── package.json
 │   └── shared/
@@ -296,10 +296,10 @@ const integrationPattern = {
   packages: {
     "@monomind/cli": {
       role: "orchestration_layer",
-      dependencies: ["@monomind/hooks", "@monomind/memory"],
+      dependencies: ["@monoes/hooks", "@monomind/memory"],
       provides: ["CLI", "workflows", "commands"],
     },
-    "@monomind/hooks": {
+    "@monoes/hooks": {
       role: "coordination_engine",
       dependencies: [],
       provides: ["MCP_tools", "neural_networks", "memory"],

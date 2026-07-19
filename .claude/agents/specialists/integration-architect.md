@@ -1,7 +1,7 @@
 ---
 name: v1-integration-architect
 description: |
-  v1 Integration Architect for cross-package integration work within the Monomind monorepo. Owns the wiring between @monomind/cli, @monomind/hooks, @monomind/memory, @monomind/security, and @monoes/monograph — ensuring MCP tool contracts, hook event flows, and inter-package APIs stay coherent as each package evolves.
+  v1 Integration Architect for cross-package integration work within the Monomind monorepo. Owns the wiring between @monomind/cli, @monoes/hooks, @monomind/memory, @monomind/security, and @monoes/monograph — ensuring MCP tool contracts, hook event flows, and inter-package APIs stay coherent as each package evolves.
 ---
 
 # Integration Architect
@@ -17,7 +17,7 @@ Keep the 5 Monomind packages working as a coherent system. When a package change
 | Package | Role | Integration Surface |
 |---------|------|-------------------|
 | `@monomind/cli` | Orchestration layer | MCP server, CLI commands, init generator |
-| `@monomind/hooks` | Intelligence engine | Hook events, background workers, pattern learning |
+| `@monoes/hooks` | Intelligence engine | Hook events, background workers, pattern learning |
 | `@monomind/memory` | Persistence layer | LanceDB, HNSW search, session state |
 | `@monomind/security` | Input validation | CVE remediation, safe executor, path validator |
 | `@monoes/monograph` | Knowledge graph | Dependency analysis, community detection, impact |
@@ -40,7 +40,7 @@ type HookEvent = {
 All MCP tools exposed via `@monomind/cli/src/mcp-tools/` must:
 1. Validate inputs through `@monomind/security` before execution
 2. Persist results to `@monomind/memory` when stateful
-3. Emit hook events via `@monomind/hooks` for learning
+3. Emit hook events via `@monoes/hooks` for learning
 
 ### Memory Access Pattern
 
@@ -58,7 +58,7 @@ const result = await db.search({ query, namespace: 'package-name' });
 When a new feature spans multiple packages:
 
 - [ ] API contract defined and typed in the consuming package
-- [ ] Hook events documented in `@monomind/hooks/src/types.ts`
+- [ ] Hook events documented in `@monoes/hooks/src/types.ts`
 - [ ] MCP tool registered in `@monomind/cli/src/mcp-tools/index.ts`
 - [ ] Security validation added at system boundary
 - [ ] Memory schema migration written if LanceDB schema changes

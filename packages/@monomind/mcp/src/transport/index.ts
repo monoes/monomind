@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Transport Factory
+ * @monoes/mcp - Transport Factory
  *
  * Central factory for creating transport instances
  */

@@ -225,7 +225,7 @@ const docSyncPattern = {
   ],
   customSections: {
     "@monomind/cli": "GitHub Commands Integration",
-    "@monomind/hooks": "MCP Tools Reference"
+    "@monoes/hooks": "MCP Tools Reference"
   }
 }
 ```
@@ -234,7 +234,7 @@ const docSyncPattern = {
 ```javascript
 // Comprehensive testing across synchronized packages
 const testMatrix = {
-  packages: ["@monomind/cli", "@monomind/hooks"],
+  packages: ["@monomind/cli", "@monoes/hooks"],
   tests: [
     "unit_tests",
     "integration_tests", 

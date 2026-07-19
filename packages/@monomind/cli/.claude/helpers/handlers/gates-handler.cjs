@@ -23,7 +23,7 @@ const path = require('path');
 //
 // monofence-ai (packages/monofence-ai) has real prompt-injection / evasion
 // detection but is never wired into the live Claude Code PreToolUse path —
-// it only registers hooks on @monomind/hooks' internal HookRegistry, which
+// it only registers hooks on @monoes/hooks' internal HookRegistry, which
 // this CJS dispatch path does not use. This loads it lazily (so a missing
 // or unbuilt package never breaks the existing regex gates), bounds it with
 // a hard timeout, and fails open on any error.

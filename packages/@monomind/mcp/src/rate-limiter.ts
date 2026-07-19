@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Rate Limiter
+ * @monoes/mcp - Rate Limiter
  *
  * Token bucket rate limiting for DoS protection
  */

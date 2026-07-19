@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - WebSocket Transport
+ * @monoes/mcp - WebSocket Transport
  *
  * Standalone WebSocket transport with heartbeat
  */

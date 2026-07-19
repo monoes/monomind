@@ -166,7 +166,7 @@ module.exports = {
       }
     } catch (e) { console.log('[WARN] Session end failed: ' + e.message); }
 
-    // Bridge to @monomind/hooks registry — fires SessionEnd hooks (episode-binner closeEpisode, observability bus).
+    // Bridge to @monoes/hooks registry — fires SessionEnd hooks (episode-binner closeEpisode, observability bus).
     // Each hook event runs in a fresh process, so hCtx._hooksModule set by session-restore in an
     // earlier invocation is never visible here — must (re)load lazily via _ensureHooksModule().
     var _hooksModule = hCtx._hooksModule || (hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : null);

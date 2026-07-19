@@ -1,5 +1,5 @@
 /**
- * @monomind/hooks - Hooks & Workers Library
+ * @monoes/hooks - Hooks & Workers Library
  *
  * A LIBRARY package, not a runtime hook dispatcher. It provides hook type
  * definitions (HookEvent, HookHandler, HookPriority), an in-memory

@@ -226,7 +226,7 @@ describe('route-handler routing path', () => {
     await expect(rh.handle(hCtx)).resolves.not.toThrow();
   });
 
-  it('enriches coder catch-all with @monomind/routing keyword rules when available', async () => {
+  it('enriches coder catch-all with @monoes/routing keyword rules when available', async () => {
     const rh = loadRH();
     // Set up a routing dist directory with keyword rules
     const routingDist = path.join(tmpDir, 'packages', '@monomind', 'routing', 'dist');

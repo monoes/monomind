@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - MCP Server
+ * @monoes/mcp - MCP Server
  *
  * High-performance MCP server implementation
  */

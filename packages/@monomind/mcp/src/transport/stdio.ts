@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Stdio Transport
+ * @monoes/mcp - Stdio Transport
  *
  * Standard I/O transport for MCP communication
  */

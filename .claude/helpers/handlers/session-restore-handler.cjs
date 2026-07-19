@@ -30,20 +30,20 @@ module.exports = {
       }
     } catch (e) { console.log('[WARN] Session restore failed: ' + e.message); }
 
-    // ── Non-blocking security scan via @monomind/hooks worker ─────────────
+    // ── Non-blocking security scan via @monoes/hooks worker ─────────────
     // The hooks package ships a security worker (worker-security.ts) that scans
     // for hardcoded secrets and vulnerability patterns. We run it at session
     // start as a fire-and-forget check — failures are silently ignored since
     // the package may not be installed or built.
     try {
-      var hooksWorkersMod = require('@monomind/hooks/dist/workers/worker-security.js');
+      var hooksWorkersMod = require('@monoes/hooks/dist/workers/worker-security.js');
       var _createSecurityWorker = hooksWorkersMod.createSecurityWorker;
       if (typeof _createSecurityWorker === 'function') {
         var _securityScan = _createSecurityWorker(CWD);
         // Fire-and-forget: do not await — must not delay session restore
         Promise.resolve(_securityScan()).catch(function() {});
       }
-    } catch (e) { /* @monomind/hooks not available or not built — skip */ }
+    } catch (e) { /* @monoes/hooks not available or not built — skip */ }
 
     // Stale helper self-heal — silently refresh project helpers that drift from
     // the bundled npm copy, so a `npm i -g monomind@latest` (or npx picking up a
@@ -226,16 +226,16 @@ module.exports = {
       }
     }
 
-    // Bridge to @monomind/hooks compiled workers (GAP-001).
+    // Bridge to @monoes/hooks compiled workers (GAP-001).
     // Uses the shared hCtx._ensureHooksModule() (defined in hook-handler.cjs) so worker
     // registration happens exactly once per process instead of being duplicated here —
     // every other bridging handler (agent-start, pre-task, post-task, post-edit,
     // session-end) calls the same lazy loader since each hook event is its own process.
     try {
-      var hooksModule = hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : await import('@monomind/hooks');
+      var hooksModule = hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : await import('@monoes/hooks');
       if (hooksModule) {
         hCtx._hooksModule = hooksModule;
-        console.log('[INFO] @monomind/hooks workers initialized');
+        console.log('[INFO] @monoes/hooks workers initialized');
 
         // Gate enforcement lives entirely in gates-handler.cjs (its own regex
         // table, run on every PreToolUse). The @monomind/guidance package that
@@ -251,16 +251,16 @@ module.exports = {
                   startedAt: new Date(),
                 },
               }, { continueOnError: true, timeout: 1500 });
-            }, '@monomind/hooks.SessionStart');
+            }, '@monoes/hooks.SessionStart');
           } catch (e2) { /* non-fatal */ }
         }
       }
-    } catch (e) { /* @monomind/hooks not compiled yet — skip */ }
+    } catch (e) { /* @monoes/hooks not compiled yet — skip */ }
 
     // Refresh worker metrics once per session start — the statusline
     // (.claude/helpers/statusline.cjs) reads .monomind/metrics/ddd-progress.json,
     // route-handler.cjs and doctor read codebase-map/security-audit/performance/
-    // consolidation.json; the @monomind/hooks workers are never otherwise
+    // consolidation.json; the @monoes/hooks workers are never otherwise
     // scheduled on the live hook path (the worker daemon that used to produce
     // these files was deleted).
     //
@@ -295,7 +295,7 @@ module.exports = {
           var _create = (hooksModule && typeof hooksModule[_w.factory] === 'function')
             ? hooksModule[_w.factory] : null;
           if (!_create) {
-            // Dev-repo fallback: bare '@monomind/hooks' does not resolve from .claude/helpers
+            // Dev-repo fallback: bare '@monoes/hooks' does not resolve from .claude/helpers
             // in the monorepo (pnpm workspace link lives under packages/@monomind/cli), so
             // import the compiled worker directly by path.
             var _wDist = path.join(_hooksDistDir, _w.file);
@@ -307,7 +307,7 @@ module.exports = {
           if (_create) {
             var _wRun = _create(CWD);
             // runWithTimeout caps each at 1.5s so a slow worker can never block session start.
-            await runWithTimeout(function() { return _wRun(); }, '@monomind/hooks.' + _w.factory);
+            await runWithTimeout(function() { return _wRun(); }, '@monoes/hooks.' + _w.factory);
           }
         } catch (e) { /* non-fatal — worker unavailable */ }
       }

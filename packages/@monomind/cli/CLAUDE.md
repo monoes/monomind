@@ -411,7 +411,7 @@ CVE remediation, input validation, path security (utility functions inlined into
 | `pre-bash`         | (v2 compat) Alias for pre-command        | Same as pre-command                         |
 | `post-bash`        | (v2 compat) Alias for post-command       | Same as post-command                        |
 
-### 14 Background Workers (@monomind/hooks, run in-process)
+### 14 Background Workers (@monoes/hooks, run in-process)
 
 | Worker        | Priority   | Description                                          |
 | ------------- | ---------- | ---------------------------------------------------- |
@@ -675,7 +675,7 @@ This includes:
 
 - All 60+ agent type definitions (routing targets) with recommendations
 - All 32 CLI commands
-- All 29 hook subcommands + 14 background workers (@monomind/hooks)
+- All 29 hook subcommands + 14 background workers (@monoes/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, lancedb,agentic-jujutsu)

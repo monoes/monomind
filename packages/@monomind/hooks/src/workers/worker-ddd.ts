@@ -18,8 +18,8 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
     let maxScore = 0;
 
     const modules = [
-      '@monomind/hooks',
-      '@monomind/mcp',
+      '@monoes/hooks',
+      '@monoes/mcp',
       '@monomind/memory',
     ];
 

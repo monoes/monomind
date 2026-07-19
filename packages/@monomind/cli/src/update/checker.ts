@@ -72,9 +72,9 @@ const MONOMIND_PACKAGES = [
   '@monoes/monograph',
   '@monoes/memory',
   '@monoes/monodesign',
-  '@monomind/hooks',
-  '@monomind/mcp',
-  '@monomind/routing',
+  '@monoes/hooks',
+  '@monoes/mcp',
+  '@monoes/routing',
 ];
 
 // npm package name regex — covers plain names and @scope/name forms.

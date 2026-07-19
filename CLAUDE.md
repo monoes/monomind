@@ -50,10 +50,10 @@
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (32 commands)          |
-| `@monomind/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 14 background workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/map/audit/optimize/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server |
+| `@monoes/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 14 background workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/map/audit/optimize/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server |
 | `@monoes/memory`     | `packages/@monomind/memory/`   | Memory backends — JSON pattern store (hooks/intelligence trajectory logging) + local SQLite with embedded vectors (better-sqlite3, sql.js WASM fallback; local HF-embeddings via `memory-bridge.ts` — backs CLI `memory store/search`, the MCP memory tools, and the Second Brain). LanceDB was removed 2026-07 (≈600MB of native deps for no measured value); pure-JS HNSW (`hnsw-operations.ts`) stays dormant as the scale-up path |
-| `@monomind/mcp`      | `packages/@monomind/mcp/`      | MCP server framework (HTTP/WS transport) |
-| `@monomind/routing`  | `packages/@monomind/routing/`  | Semantic routing (embedding + keyword cascade) |
+| `@monoes/mcp`      | `packages/@monomind/mcp/`      | MCP server framework (HTTP/WS transport) |
+| `@monoes/routing`  | `packages/@monomind/routing/`  | Semantic routing (embedding + keyword cascade) |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
 | `@monoes/monodesign` | `packages/@monoes/monodesign/` | Frontend design intelligence (tokens, antipattern detection, monodesign skill) |
 | `@monoes/monograph`  | `packages/@monomind/monograph/` | Knowledge graph (tree-sitter + SQLite) |
@@ -202,7 +202,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `task`           | 5   | Task creation and lifecycle                          |
 | `session`        | 6   | Session state management (incl. `replay` show/list)  |
 | `config`         | 7   | Configuration management                             |
-| `hooks`          | 29  | Self-learning hooks + 14 background workers (@monomind/hooks WorkerManager) |
+| `hooks`          | 29  | Self-learning hooks + 14 background workers (@monoes/hooks WorkerManager) |
 | `security`       | 6   | Security scanning                                    |
 | `performance`    | 4   | Performance profiling — real benchmark measurements  |
 | `guidance`       | 1   | Wire enforcement gates into Claude Code hooks (setup) |
@@ -260,7 +260,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 | **Learning**     | intelligence (trajectory-start/step/end, pattern-store/search, stats, attention)|
 | **Agent Teams**  | teammate-idle, task-completed (Claude Code hook events, not CLI subcommands)    |
 
-**Hooks — 14 Workers** (`@monomind/hooks` WorkerManager): performance, health, swarm, git, learning, adr, ddd, security, patterns, cache, map, audit, optimize, consolidate. The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh automatically at session start when their `.monomind/metrics/*.json` output is missing or older than 6 hours; run any worker on demand with `monomind hooks worker run <name>`. (The former standalone worker daemon and its headless-only workers were deleted.)
+**Hooks — 14 Workers** (`@monoes/hooks` WorkerManager): performance, health, swarm, git, learning, adr, ddd, security, patterns, cache, map, audit, optimize, consolidate. The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh automatically at session start when their `.monomind/metrics/*.json` output is missing or older than 6 hours; run any worker on demand with `monomind hooks worker run <name>`. (The former standalone worker daemon and its headless-only workers were deleted.)
 
 ## Hive-Mind Consensus
 

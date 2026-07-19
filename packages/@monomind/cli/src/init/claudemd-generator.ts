@@ -30,9 +30,9 @@ function detectOptionalPackages(): OptionalPackageAvailability {
     try { req.resolve(pkg); return true; } catch { return false; }
   };
   _availabilityCache = {
-    hooks: resolvable('@monomind/hooks'),
-    mcp: resolvable('@monomind/mcp'),
-    routing: resolvable('@monomind/routing'),
+    hooks: resolvable('@monoes/hooks'),
+    mcp: resolvable('@monoes/mcp'),
+    routing: resolvable('@monoes/routing'),
     monofence: resolvable('monofence-ai'),
   };
   return _availabilityCache;
@@ -263,7 +263,7 @@ function hooksSystem(): string {
 | \`intelligence\` | Pattern-learning intelligence system |
 | \`worker\` | Background worker management |
 
-### Background Workers (@monomind/hooks, run in-process)${unavailNote(avail.hooks)}
+### Background Workers (@monoes/hooks, run in-process)${unavailNote(avail.hooks)}
 
 | Worker | Priority | Description |
 |--------|----------|-------------|
@@ -276,7 +276,7 @@ function hooksSystem(): string {
 | \`performance\`, \`health\`, \`swarm\`, \`git\`, \`learning\`, \`adr\`, \`patterns\`, \`cache\`, \`progress\` | various | See \`hooks worker list\` for the full 15 |
 
 Metrics-producing workers refresh at session start when output is >6h old.
-${avail.hooks ? '' : '\n> \\@monomind/hooks is not resolvable in this install — background workers will fail to load (see `hooks worker list`). This is an install/publish gap, not a project misconfiguration.\n'}
+${avail.hooks ? '' : '\n> \\@monoes/hooks is not resolvable in this install — background workers will fail to load (see `hooks worker list`). This is an install/publish gap, not a project misconfiguration.\n'}
 \`\`\`bash
 npx monomind@latest hooks pre-task --description "[task]"
 npx monomind@latest hooks post-task --task-id "[id]" --success true

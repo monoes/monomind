@@ -10,6 +10,9 @@
     ".": "./dist/index.js",
     "./*": "./dist/*.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "vitest run",
     "build": "tsc"

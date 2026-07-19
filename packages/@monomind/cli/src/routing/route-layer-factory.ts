@@ -135,7 +135,7 @@ export async function createConfiguredRouteLayer(
   opts: { debug?: boolean } = {},
 ): Promise<ConfiguredRouteLayer> {
   const { RouteLayer, KeywordPreFilter, LLMFallbackRouter, ALL_ROUTES } =
-    await import('@monomind/routing' as string);
+    await import('@monoes/routing' as string);
   const { createClaudeLLMCaller } = await import('./llm-caller.js');
 
   const llmCaller = createClaudeLLMCaller({ model: 'haiku' });

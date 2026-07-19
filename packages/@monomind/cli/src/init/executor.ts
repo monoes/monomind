@@ -1739,7 +1739,7 @@ async function writeCapabilitiesDoc(
     return;
   }
 
-  const hooksAvailable = _isOptionalPackageResolvable('@monomind/hooks');
+  const hooksAvailable = _isOptionalPackageResolvable('@monoes/hooks');
 
   const capabilities = `# Monomind - Complete Capabilities Reference
 > Generated: ${new Date().toISOString()}
@@ -1901,7 +1901,7 @@ npx monomind@latest doctor --fix
 
 ## Hooks System
 
-### 29 Available Hook Subcommands${hooksAvailable ? '' : ' — background workers unavailable in this install (@monomind/hooks did not resolve)'}
+### 29 Available Hook Subcommands${hooksAvailable ? '' : ' — background workers unavailable in this install (@monoes/hooks did not resolve)'}
 
 #### Core Hooks (6)
 | Hook | Description |
@@ -1937,7 +1937,7 @@ npx monomind@latest doctor --fix
 | \`coverage-suggest\` | Improvement suggestions |
 | \`coverage-gaps\` | Gap analysis |
 
-### 15 Background Workers (@monomind/hooks, run in-process)
+### 15 Background Workers (@monoes/hooks, run in-process)
 | Worker | Priority | Purpose |
 |--------|----------|---------|
 | \`performance\` | normal | Benchmark performance |

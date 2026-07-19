@@ -152,7 +152,7 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
-    // Bridge to @monomind/hooks registry — fires PostEdit hooks (observability bus, guidance provider).
+    // Bridge to @monoes/hooks registry — fires PostEdit hooks (observability bus, guidance provider).
     // Each hook event runs in a fresh process, so hCtx._hooksModule set by session-restore in an
     // earlier invocation is never visible here — must (re)load lazily via _ensureHooksModule().
     var _hooksModule = hCtx._hooksModule || (hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : null);
@@ -169,7 +169,7 @@ module.exports = {
             file: { path: editFileBridge, operation: 'modify' },
             duration: 0,
           }, { continueOnError: true, timeout: 1500 });
-        }, '@monomind/hooks.PostEdit');
+        }, '@monoes/hooks.PostEdit');
       } catch (e) { /* non-fatal */ }
     }
 

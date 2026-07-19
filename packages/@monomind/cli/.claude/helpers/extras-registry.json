@@ -3686,7 +3686,7 @@
     {
       "slug": "v1-integration-architect",
       "name": "v1-integration-architect",
-      "description": "v1 Integration Architect for cross-package integration work within the Monomind monorepo. Owns the wiring between @monomind/cli, @monomind/hooks, @monomind/memory, @monomind/security, and @monoes/monograph \u2014 ensuring MCP tool contracts, hook event flows, and inter-package APIs stay coherent as each package evolves.",
+      "description": "v1 Integration Architect for cross-package integration work within the Monomind monorepo. Owns the wiring between @monomind/cli, @monoes/hooks, @monomind/memory, @monomind/security, and @monoes/monograph \u2014 ensuring MCP tool contracts, hook event flows, and inter-package APIs stay coherent as each package evolves.",
       "category": "specialists",
       "filePath": "../agents/specialists/integration-architect.md",
       "keywords": [

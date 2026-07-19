@@ -7,7 +7,7 @@
  * No API key required: the host's existing Claude Code auth is reused.
  *
  * The returned function matches `LLMFallbackConfig.llmCaller` from
- * `@monomind/routing` — `(prompt: string) => Promise<string>`. When the
+ * `@monoes/routing` — `(prompt: string) => Promise<string>`. When the
  * `claude` CLI is unavailable it throws, which the routing layer already
  * catches and degrades to the best semantic match.
  */

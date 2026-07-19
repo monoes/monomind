@@ -26,7 +26,7 @@ docker-compose up --build security-tests
 | Hooks | 50+ | Self-learning and routing |
 | Security | 55+ | Security features and CVE |
 | Memory | 50+ | Pattern store and episodic recall |
-| Workers | 60+ | Background workers (@monomind/hooks) |
+| Workers | 60+ | Background workers (@monoes/hooks) |
 | Performance | 45+ | Benchmarks and targets |
 | Unit Tests | 400+ | Package tests |
 | Integration | 65+ | E2E workflows |
@@ -159,7 +159,7 @@ regression-tests:
 
 ### Packages
 
-Covers the current workspace packages: `@monomind/cli`, `@monomind/hooks`, `@monoes/memory`, `@monomind/mcp`, `@monomind/routing`, `@monoes/monograph`, `@monoes/monobrowse`, `monofence-ai`.
+Covers the current workspace packages: `@monomind/cli`, `@monoes/hooks`, `@monoes/memory`, `@monoes/mcp`, `@monoes/routing`, `@monoes/monograph`, `@monoes/monobrowse`, `monofence-ai`.
 
 ### Feature Coverage
 
@@ -169,7 +169,7 @@ Covers the current workspace packages: `@monomind/cli`, `@monomind/hooks`, `@mon
 - ✅ All hooks commands
 - ✅ All security features
 - ✅ All memory operations
-- ✅ All background workers (15, @monomind/hooks)
+- ✅ All background workers (15, @monoes/hooks)
 - ✅ All performance targets
 
 ## Troubleshooting
