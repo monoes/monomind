@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GPT provider-tell fixture (gated --gpt)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; color: #1a1a1a; background: #fff; }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px; }
+    .col { padding: 16px; }
+    .card { padding: 24px; margin: 0 0 24px; border-radius: 12px; }
+    .stripes { height: 80px; margin: 0 0 24px; border-radius: 12px; }
+    .grid { height: 80px; margin: 0 0 24px; border-radius: 12px; }
+  </style>
+</head>
+<body>
+  <div class="cols">
+    <!-- FLAG column: GPT idioms (only surfaced under --gpt) -->
+    <section class="col flag">
+      <div class="card flag-thin-border-wide-shadow" style="border: 1px solid #e5e7eb; box-shadow: 0 0 24px rgba(0,0,0,0.18)">
+        Thin hairline border paired with a wide diffuse shadow.
+      </div>
+      <div class="stripes flag-repeating-stripes" style="background: repeating-linear-gradient(45deg, #eee, #eee 10px, #fafafa 10px, #fafafa 20px)"></div>
+      <div class="grid flag-codex-grid" style="background: linear-gradient(90deg, oklch(96% 0.012 82 / 0.055) 1px, transparent 1px), linear-gradient(180deg, oklch(96% 0.012 82 / 0.05) 1px, transparent 1px); background-size: 78px 78px, 78px 78px;"></div>
+      <p class="flag-theater">We retired the growth theater and shipped something that actually works.</p>
+    </section>
+
+    <!-- PASS column: the legitimate, non-tell versions -->
+    <section class="col pass">
+      <div class="card pass-tight-shadow" style="border: 1px solid #e5e7eb; box-shadow: 0 1px 4px rgba(0,0,0,0.08)">
+        Hairline border with a tight, purposeful shadow.
+      </div>
+      <div class="card pass-soft-border-wide-shadow" style="border: 1px solid rgba(148, 163, 184, 0.16); box-shadow: 0 18px 48px -16px rgba(15, 23, 42, 0.18)">
+        A quiet low-contrast hairline with a broad but restrained ambient shadow.
+      </div>
+      <div class="card pass-oklch-soft-shadow" style="border: 1px solid oklch(78% 0 0 / 0.16); box-shadow: 0 16px 36px -12px oklch(2% 0.004 95 / 0.18)">
+        OKLCH shadow hue values should not be mistaken for shadow blur.
+      </div>
+      <div class="stripes pass-plain-gradient" style="background: linear-gradient(180deg, #f3f4f6, #ffffff)"></div>
+      <div class="grid pass-single-axis-rule" style="background: linear-gradient(180deg, rgba(15, 23, 42, 0.06) 1px, transparent 1px); background-size: 100% 32px"></div>
+      <div class="grid pass-two-color-blend" style="background: linear-gradient(90deg, #f3f4f6, #e5e7eb), linear-gradient(180deg, #eef2ff, #ffffff)"></div>
+      <div class="grid pass-crosshair-no-tiling" style="background: linear-gradient(90deg, rgba(15, 23, 42, 0.06) 1px, transparent 1px), linear-gradient(180deg, rgba(15, 23, 42, 0.06) 1px, transparent 1px)"></div>
+      <div class="grid pass-bg-plus-mask-hairline" style="background: linear-gradient(90deg, rgba(15, 23, 42, 0.06) 1px, transparent 1px); background-size: 32px 32px; mask-image: linear-gradient(180deg, #000 1px, transparent 1px)"></div>
+      <p class="pass-no-theater">We measured real outcomes for the people who use this every day.</p>
+    </section>
+  </div>
+</body>
+</html>

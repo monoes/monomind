@@ -1,0 +1,30 @@
+# Monodesign-owned project files are split: generated sidecars/config may be
+# tracked, but runtime recovery state and local assets should stay local.
+# (Adapted from upstream impeccable's .gitignore.)
+.monodesign/live/server.json
+**/.monodesign/hook.cache.json
+.monodesign/live/sessions/
+.monodesign/live/previews/
+.monodesign/live/annotations/
+.monodesign/live/cache/
+.monodesign/live/manual-edit-apply-transaction.json
+.monodesign/live/manual-edit-events.jsonl
+.monodesign/live/manual-edit-evidence/
+.monodesign/live/pending-manual-edits.json
+.monodesign/live/deferred-svelte-component-accepts.json
+.monodesign/history/
+.monodesign/config.local.json
+**/.monodesign/hook.pending.json
+.monodesign/provider-smoke/
+# Per-run critique snapshots are local artifacts. ignore.md (also under
+# this dir) carries deferrals the user may want to share, so it's
+# explicitly re-included below.
+.monodesign/critique/
+!.monodesign/critique/ignore.md
+
+# Legacy live mode session file + annotation screenshots
+.monodesign-live.json
+.monodesign-live/
+
+# scratch dirs some tests create
+test-tmp/

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Body text viewport edge — Should Flag vs Should Pass</title>
+  <style>
+    /* Fixture for the body-text-viewport-edge rule. The rule fires
+       when a <p> or <li> with substantial text content has rect.left
+       within 16px of the viewport edge (or rect.right within 16px
+       of viewport.width) AND the element has no own background-color
+       AND is not inside <nav>/<header> AND is in normal flow. */
+    body { font: 14px/1.5 system-ui, sans-serif; margin: 0; color: #111; background: #fff; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .col h2 { font: 600 14px/1 system-ui; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 16px; color: #475569; }
+    .case-label { display: block; font-size: 12px; color: #64748b; margin: 16px 0 4px; font-style: italic; }
+    .container-good { max-width: 720px; margin: 0 auto; padding: 16px 32px; }
+    .container-tight { padding: 16px 32px; }
+    .full-bleed-section { background: #fef3c7; padding: 24px 16px; }
+    nav.site-nav { padding: 12px 24px; background: #f5f5f5; }
+    header.banner { padding: 12px 24px; background: #e5e7eb; }
+
+    /* Override the grid container's own padding so we can demonstrate
+       a paragraph that genuinely bleeds to the viewport edge inside
+       the flag column — the col itself shouldn't reset its padding. */
+    .flag-fullwidth-p { /* no container; placed directly in body via .escape */ }
+    .escape { position: relative; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw; width: 100vw; padding: 0; }
+    .edge-list { margin: 0; padding: 0; list-style-position: inside; }
+    .edge-list li { margin: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════════════════════════
+       FLAG CASES — body text bleeds to viewport edge.
+       These paragraphs are placed OUTSIDE the .grid container so
+       their bounding rect actually touches the viewport edges.
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="escape">
+    <p>Lucia opened this place in 1978. She cooked every night for fifty years, making the same dishes: spaghetti carbonara, eggplant parmigiana, veal saltimbocca, fresh lasagna. She did not change a single recipe in all that time. Her grandson Anthony runs the kitchen now, using the same recipes with the same care.</p>
+  </div>
+  <div class="escape">
+    <p>This second flush-to-edge paragraph confirms the rule fires on every body paragraph that touches the viewport, not just one. The rendered width should be the full viewport, with text starting essentially at x=0.</p>
+  </div>
+  <div class="escape">
+    <ul class="edge-list">
+      <li>This is a list item whose text content is substantially long enough to qualify as body content. It also runs flush against the viewport edge with no left padding.</li>
+    </ul>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       PASS CASES — body text with adequate container padding.
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="grid">
+    <div class="col" data-col="pass">
+      <h2>Should pass</h2>
+
+      <span class="case-label">paragraph in centered container with 32px padding</span>
+      <div class="container-good">
+        <p>This paragraph sits inside a max-width container that's centered and has 32px horizontal padding. It does not touch the viewport edges and should not trigger the rule.</p>
+      </div>
+
+      <span class="case-label">paragraph inside &lt;nav&gt; (excluded — nav can bleed)</span>
+      <nav class="site-nav">
+        <p>This nav legitimately bleeds to the edges as a full-width header strip; the rule excludes elements inside &lt;nav&gt; or &lt;header&gt; so this does not flag.</p>
+      </nav>
+
+      <span class="case-label">paragraph inside &lt;header&gt; (excluded — header can bleed)</span>
+      <header class="banner">
+        <p>Banner headers commonly bleed to viewport edges with their own internal layout. The rule excludes &lt;header&gt; descendants.</p>
+      </header>
+
+      <span class="case-label">paragraph inside full-bleed section with own background</span>
+      <section class="full-bleed-section">
+        <p>This paragraph sits in a full-bleed section that has its own background-color set (intentional design move). The rule excludes paragraphs whose element has its own background-color.</p>
+      </section>
+
+      <span class="case-label">short label / button-ish text (excluded — &lt; 40 chars)</span>
+      <p class="container-tight">Short label.</p>
+    </div>
+
+    <div class="col" data-col="flag-notes">
+      <h2>Notes</h2>
+      <p>The flag cases above (rendered outside this grid) demonstrate the failure. The pass cases here show acceptable patterns. The rule gates aggressively to avoid false positives: it only flags &lt;p&gt; and &lt;li&gt; with &gt;40 chars whose width spans more than 50% of the viewport AND whose rect.left or rect.right is within 16px of a viewport edge AND which are not inside nav/header AND which have no own background-color AND which are in normal flow (not position:fixed/absolute).</p>
+    </div>
+  </div>
+
+  <script src="/js/detect-antipatterns-browser.js"></script>
+</body>
+</html>

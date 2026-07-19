@@ -3,7 +3,7 @@
  *
  * Provides:
  *   - Design tokens (OKLCH color system, spacing, motion, shadows)
- *   - Antipattern detection (wraps impeccable CLI)
+ *   - Antipattern detection (bundled engine at cli/engine/)
  *   - Design rule constants
  *   - Skill invocation helpers
  */
