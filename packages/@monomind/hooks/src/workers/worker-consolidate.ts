@@ -99,6 +99,57 @@ async function loadMemoryBridge(projectRoot: string): Promise<{
   return null;
 }
 
+/** Resolve the CLI knowledge-graph module (kgConsolidateCandidates/kgIngest)
+ *  — sibling of memory-bridge.js, same resolution strategy. */
+async function loadMemoryKg(projectRoot: string): Promise<{
+  kgConsolidateCandidates: (o?: Record<string, unknown>) => Promise<Array<{ name: string; type: string; description: string; neighborhood: string[] }>>;
+  kgIngest: (o: Record<string, unknown>) => Promise<{ success: boolean }>;
+} | null> {
+  const candidates: string[] = [
+    path.join(projectRoot, 'packages', '@monomind', 'cli', 'dist', 'src', 'memory', 'memory-kg.js'),
+    path.join(projectRoot, 'node_modules', '@monoes', 'monomindcli', 'dist', 'src', 'memory', 'memory-kg.js'),
+  ];
+  try {
+    const require = createRequire(import.meta.url);
+    const cliPkgPath = require.resolve('@monoes/monomindcli/package.json');
+    candidates.push(path.join(path.dirname(cliPkgPath), 'dist', 'src', 'memory', 'memory-kg.js'));
+  } catch { /* not resolvable from here */ }
+  if (process.argv[1]) {
+    const cliRoot = findCliRootFrom(path.dirname(process.argv[1]));
+    if (cliRoot) candidates.push(path.join(cliRoot, 'dist', 'src', 'memory', 'memory-kg.js'));
+  }
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) continue;
+    try {
+      const mod = await import(pathToFileURL(candidate).href);
+      if (typeof mod.kgConsolidateCandidates === 'function' && typeof mod.kgIngest === 'function') return mod;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+/** cognee consolidate_entity_descriptions, LLM-less half: fold distinct
+ *  neighborhood facts into a stale entity's description. The LLM half (a live
+ *  agent rewriting prose) still happens via memory_kg_ingest during sessions;
+ *  this keeps descriptions from lagging connectivity in between. Longer
+ *  descriptions win on merge, so re-running is idempotent-ish; note an LLM
+ *  rewrite only supersedes this digest when it is LONGER (kgIngest keeps the
+ *  longer description) — a concise rewrite must carry the facts to win. */
+const KG_MAX_DESC = 2000; // mirrors memory-kg.ts MAX_DESC_LEN
+function foldNeighborhood(description: string, neighborhood: string[]): string | null {
+  const base = String(description || '').trim();
+  const fresh = neighborhood
+    .map(f => String(f || '').replace(/\s+/g, ' ').trim())
+    .filter(f => f.length > 3 && !base.toLowerCase().includes(f.toLowerCase().slice(0, 60)));
+  if (!fresh.length) return null;
+  // Extend an existing trailing Facts block instead of stacking headers.
+  const digest = (/Facts: [^]*$/.test(base)
+    ? `${base}; ${fresh.join('; ')}`
+    : `${base ? base + ' ' : ''}Facts: ${fresh.join('; ')}`
+  ).slice(0, KG_MAX_DESC);
+  return digest.length > base.length ? digest : null; // merge keeps longer — don't resubmit no-ops
+}
+
 export function createConsolidateWorker(projectRoot: string): WorkerHandler {
   return async (): Promise<WorkerResult> => {
     const startTime = Date.now();
@@ -181,12 +232,37 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-consolidate] RAPTOR clustering failed:', e);
     }
 
+    // KG entity-description consolidation (cognee port, mechanical half).
+    let kgCandidates = 0;
+    let kgDescriptionsExtended = 0;
+    try {
+      const kg = await loadMemoryKg(projectRoot);
+      if (kg) {
+        const cands = await kg.kgConsolidateCandidates({ minEdges: 3, limit: 10 });
+        kgCandidates = cands.length;
+        const nodes = cands
+          .map(c => {
+            const folded = foldNeighborhood(c.description, c.neighborhood);
+            return folded ? { name: c.name, type: c.type, description: folded } : null;
+          })
+          .filter((n): n is { name: string; type: string; description: string } => !!n);
+        if (nodes.length) {
+          const r = await kg.kgIngest({ nodes, edges: [], originRef: `consolidate-worker:${new Date().toISOString().slice(0, 10)}` });
+          if (r?.success) kgDescriptionsExtended = nodes.length;
+        }
+      }
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-consolidate] KG consolidation failed:', e);
+    }
+
     const result = {
       timestamp: new Date().toISOString(),
       patternsConsolidated,
       clustersCreated,
       memoryCleaned: 0,
       duplicatesRemoved: 0,
+      kgCandidates,
+      kgDescriptionsExtended,
       mode: 'raptor',
     };
 

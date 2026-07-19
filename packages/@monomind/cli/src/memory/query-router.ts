@@ -14,6 +14,9 @@
  * @module v1/cli/memory/query-router
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 export type RetrievalSurface = 'chunks' | 'kg' | 'rules' | 'memory';
 
 interface RouteRule {
@@ -50,6 +53,21 @@ export interface RouteDecision {
 
 const overrideCounts: Record<string, number> = {};
 
+/** Overrides persist across processes (the CLI is one-shot — an in-memory
+ *  counter alone evaporates before doctor/debugging can read it). Best-effort
+ *  read-merge-write of a tiny JSON file; never throws into the caller. */
+const OVERRIDES_FILE = ['.monomind', 'metrics', 'route-overrides.json'];
+function persistOverride(key: string): void {
+  try {
+    const file = path.join(process.cwd(), ...OVERRIDES_FILE);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    let disk: Record<string, number> = {};
+    try { disk = JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, number>; } catch { /* fresh file */ }
+    disk[key] = (typeof disk[key] === 'number' ? disk[key] : 0) + 1;
+    fs.writeFileSync(file, JSON.stringify(disk, null, 2));
+  } catch { /* telemetry must never block or throw */ }
+}
+
 export function routeQuery(query: string): RouteDecision {
   const q = String(query ?? '').slice(0, 2000);
   const scores: Record<RetrievalSurface, number> = { chunks: 0.5, kg: 0, rules: 0, memory: 0 }; // chunks = weak prior
@@ -78,9 +96,18 @@ export function routeQuery(query: string): RouteDecision {
 export function recordRouteOverride(from: RetrievalSurface, to: RetrievalSurface): void {
   const key = `${from}->${to}`;
   overrideCounts[key] = (overrideCounts[key] ?? 0) + 1;
+  persistOverride(key);
 }
-export function getRouteOverrides(): Record<string, number> {
-  return { ...overrideCounts };
+/** In-memory counts from this process only; pass merged=true to include the
+ *  persisted cross-process counts from .monomind/metrics/route-overrides.json. */
+export function getRouteOverrides(merged = false): Record<string, number> {
+  if (!merged) return { ...overrideCounts };
+  try {
+    const disk = JSON.parse(fs.readFileSync(path.join(process.cwd(), ...OVERRIDES_FILE), 'utf-8')) as Record<string, number>;
+    return { ...disk }; // disk already includes this process's persisted increments
+  } catch {
+    return { ...overrideCounts };
+  }
 }
 
 // ── Reciprocal Rank Fusion ──────────────────────────────────────────
