@@ -92,6 +92,7 @@ const searchDocCommand: Command = {
     { name: 'scope', short: 's', description: 'Knowledge scope (default: shared)', type: 'string', default: 'shared' },
     { name: 'min-score', description: 'Minimum similarity (default: 0.3)', type: 'number', default: 0.3 },
     { name: 'store', description: 'Which store(s): project | global | all (default: all — project results win ties)', type: 'string', default: 'all' },
+    { name: 'surfaces', description: "Override routing: comma list of chunks,kg,rules,memory (default: rule-based router picks)", type: 'string' },
   ],
   examples: [
     { command: 'monomind doc search -q "authentication flow"', description: 'Search project + global brain' },
@@ -105,32 +106,90 @@ const searchDocCommand: Command = {
     }
 
     const { searchKnowledge } = await import('../knowledge/document-pipeline.js');
+    const { routeQuery, rrfFuse, recordRouteOverride } = await import('../memory/query-router.js');
     const storeFlag = String(ctx.flags.store || 'all');
-    const excerpts = await searchKnowledge(query, {
-      scope: String(ctx.flags.scope || 'shared'),
-      limit: Number(ctx.flags.limit || 10),
-      minScore: Number(ctx.flags['min-score'] || 0.3),
-      store: storeFlag === 'project' || storeFlag === 'global' ? storeFlag : 'all',
-    });
+    const limit = Number(ctx.flags.limit || 10);
 
-    if (!excerpts.length) {
+    // Same surface routing as the MCP knowledge_search tool and the warm
+    // /api/knowledge/search endpoint: the rule-based router picks which
+    // retrieval surfaces to spend queries on; --surfaces overrides it.
+    const route = routeQuery(query);
+    const VALID_SURFACES = ['chunks', 'kg', 'rules', 'memory'];
+    const rawSurfaces = String(ctx.flags.surfaces || '').split(',').map(s => s.trim()).filter(Boolean);
+    const requested = rawSurfaces.filter(s => VALID_SURFACES.includes(s));
+    const invalidSurfaces = rawSurfaces.filter(s => !VALID_SURFACES.includes(s));
+    if (invalidSurfaces.length) {
+      output.writeln(output.dim(`ignoring unknown surface(s): ${invalidSurfaces.join(',')} (valid: ${VALID_SURFACES.join(',')})`));
+    }
+    const surfaces = requested.length
+      ? requested
+      : (route.confident ? route.surfaces : ['chunks', ...route.surfaces.filter(s => s !== 'chunks')]);
+
+    const bridge = await import('../memory/memory-bridge.js');
+    const kg = await import('../memory/memory-kg.js');
+    const [excerpts, graph, rules, memories] = await Promise.all([
+      surfaces.includes('chunks')
+        ? searchKnowledge(query, {
+            scope: String(ctx.flags.scope || 'shared'),
+            limit,
+            minScore: Number(ctx.flags['min-score'] || 0.3),
+            store: storeFlag === 'project' || storeFlag === 'global' ? storeFlag : 'all',
+          })
+        : [],
+      surfaces.includes('kg') ? kg.kgSearch({ query, limit: 6 }).catch(() => null) : null,
+      surfaces.includes('rules') ? bridge.bridgeSearchEntries({ query, namespace: 'rules', limit: 3, threshold: 0.35 }).catch(() => null) : null,
+      surfaces.includes('memory') ? bridge.bridgeSearchEntries({ query, namespace: 'patterns', limit: 3 }).catch(() => null) : null,
+    ]);
+
+    // Confident non-chunk routing against an empty surface (e.g. a project
+    // with no KG yet) must not read as "no knowledge" — fall back to chunks.
+    let fellBack = false;
+    let chunkExcerpts = excerpts;
+    if (!requested.length && !chunkExcerpts.length && !(graph?.triplets?.length) && !(rules?.results?.length) && !(memories?.results?.length) && !surfaces.includes('chunks')) {
+      fellBack = true;
+      recordRouteOverride(surfaces[0] as 'chunks' | 'kg' | 'rules' | 'memory', 'chunks');
+      chunkExcerpts = await searchKnowledge(query, {
+        scope: String(ctx.flags.scope || 'shared'),
+        limit,
+        minScore: Number(ctx.flags['min-score'] || 0.3),
+        store: storeFlag === 'project' || storeFlag === 'global' ? storeFlag : 'all',
+      });
+    }
+
+    const fused = rrfFuse([
+      chunkExcerpts.map(e => ({ id: e.id || `${e.filePath}#${e.chunkIndex}`, kind: 'excerpt' as const, ...e })),
+      (graph?.triplets ?? []).map((t, i) => ({ id: `kg:${i}:${t.source}|${t.relation}|${t.target}`, kind: 'triplet' as const, ...t })),
+      (rules?.results ?? []).map(r => ({ id: r.id, kind: 'rule' as const, key: r.key, text: r.content, score: r.score, importance: 0.7 })),
+      (memories?.results ?? []).map(r => ({ id: r.id, kind: 'memory' as const, key: r.key, text: r.content, score: r.score })),
+    ], limit);
+
+    if (!fused.length) {
       output.writeln(output.dim('No results found.'));
       return { success: true, data: [] };
     }
 
-    output.writeln(output.bold(`${excerpts.length} results:`));
+    output.writeln(output.bold(`${fused.length} results ${output.dim(`(surfaces: ${fellBack ? surfaces.join(',') + ' → chunks fallback' : surfaces.join(',')})`)}:`));
     output.writeln();
 
-    for (let i = 0; i < excerpts.length; i++) {
-      const ex = excerpts[i];
-      const origin = ex.scope === 'global' ? ` ${output.dim('[global]')}` : '';
-      output.writeln(`${output.highlight(`${i + 1}.`)} ${output.dim(`(${ex.similarity.toFixed(3)})`)} ${ex.filePath || 'unknown'}${origin}`);
-      const preview = ex.text.length > 200 ? ex.text.slice(0, 200) + '...' : ex.text;
-      output.writeln(`   ${output.dim(preview)}`);
+    for (let i = 0; i < fused.length; i++) {
+      const r = fused[i] as Record<string, unknown>;
+      const n = output.highlight(`${i + 1}.`);
+      if (r.kind === 'triplet') {
+        const fact = r.fact && r.fact !== `${r.source} ${r.relation} ${r.target}` ? ` ${output.dim(`(${String(r.fact).slice(0, 160)})`)}` : '';
+        output.writeln(`${n} ${output.dim('[kg]')} ${r.source} —${r.relation}→ ${r.target}${fact}`);
+      } else if (r.kind === 'rule' || r.kind === 'memory') {
+        output.writeln(`${n} ${output.dim(`[${r.kind}]`)} ${String(r.text || '').replace(/\s+/g, ' ').slice(0, 200)}`);
+      } else {
+        const origin = r.scope === 'global' ? ` ${output.dim('[global]')}` : '';
+        const sim = typeof r.similarity === 'number' ? `(${r.similarity.toFixed(3)}) ` : '';
+        output.writeln(`${n} ${output.dim(sim)}${r.filePath || 'unknown'}${origin}`);
+        const text = String(r.text || '');
+        output.writeln(`   ${output.dim(text.length > 200 ? text.slice(0, 200) + '...' : text)}`);
+      }
       output.writeln();
     }
 
-    return { success: true, data: excerpts };
+    return { success: true, data: fused };
   },
 };
 
