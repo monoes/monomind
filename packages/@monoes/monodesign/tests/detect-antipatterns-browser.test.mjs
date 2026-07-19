@@ -1,14 +1,15 @@
 /**
- * Puppeteer-backed fixture tests for browser-only detection rules.
+ * Real-browser fixture tests for browser-only detection rules.
  *
  * Some detection rules (cramped-padding, line-length, body-text-viewport-edge)
  * need real browser layout — they read getBoundingClientRect and real
  * getComputedStyle results that the static HTML/CSS engine intentionally
  * does not invent.
  *
- * This file uses detectUrl() (Puppeteer) to load fixtures in headless Chrome
- * via a temporary static HTTP server, so the fixtures can use absolute
- * <script src="/js/..."> paths just like in development.
+ * This file uses detectUrl() (monobrowse CDP driver, puppeteer fallback) to
+ * load fixtures in headless Chrome via a temporary static HTTP server, so the
+ * fixtures can use absolute <script src="/js/..."> paths just like in
+ * development.
  *
  * Run via Node's built-in test runner:
  *   node --test tests/detect-antipatterns-browser.test.mjs
@@ -74,18 +75,38 @@ after(async () => {
   if (server?.listening) await new Promise((resolve) => server.close(resolve));
 });
 
-// Puppeteer is an optional dependency and its Chrome download is a separate
-// postinstall step — skip cleanly (instead of failing) when either is absent.
-let browserAvailable = false;
+// detectUrl() now runs through a driver seam: @monoes/monobrowse (native CDP,
+// drives a locally installed Chrome/Edge/Chromium) preferred, puppeteer as
+// fallback. Skip cleanly (instead of failing) only when NO driver can reach a
+// real browser. Tests that talk to puppeteer directly (raw page/browser API
+// tests) additionally require puppeteer's own Chrome download.
+let puppeteerAvailable = false;
 try {
   const puppeteer = (await import('puppeteer')).default;
-  const exe = puppeteer.executablePath();
-  browserAvailable = Boolean(exe) && fs.existsSync(exe);
+  let exe = puppeteer.executablePath();
+  if (exe && typeof exe.then === 'function') exe = await exe; // async in some puppeteer versions
+  puppeteerAvailable = Boolean(exe) && fs.existsSync(exe);
 } catch {
-  browserAvailable = false;
+  puppeteerAvailable = false;
 }
 
-describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false : 'puppeteer browser not installed' }, () => {
+let monobrowseAvailable = false;
+try {
+  const mb = await import('@monoes/monobrowse');
+  monobrowseAvailable = (mb.CHROME_EXECUTABLES || []).some(candidate => fs.existsSync(candidate));
+} catch {
+  monobrowseAvailable = false;
+}
+
+const forcedDriver = (process.env.MONODESIGN_BROWSER_DRIVER || '').trim().toLowerCase();
+const browserAvailable = forcedDriver === 'puppeteer'
+  ? puppeteerAvailable
+  : forcedDriver === 'monobrowse'
+    ? monobrowseAvailable
+    : (monobrowseAvailable || puppeteerAvailable);
+const puppeteerOnly = { skip: puppeteerAvailable ? false : 'puppeteer browser not installed' };
+
+describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false : 'no browser driver available (need Chrome/Edge/Chromium for monobrowse, or puppeteer)' }, () => {
   // Only two rules genuinely need real browser layout (getBoundingClientRect):
   //   line-length    → reads rect.width to compute chars-per-line
   //   cramped-padding → reads rect.width/height to filter small badges
@@ -214,7 +235,7 @@ describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false
     );
   });
 
-  it('typography side-by-side: element-level flag cases get regular overlays', async () => {
+  it('typography side-by-side: element-level flag cases get regular overlays', puppeteerOnly, async () => {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.default.launch({
       headless: true,
@@ -367,7 +388,7 @@ describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false
     );
   });
 
-  it('browser API: visual contrast fallback resolves readable image backgrounds without overlays', async () => {
+  it('browser API: visual contrast fallback resolves readable image backgrounds without overlays', puppeteerOnly, async () => {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.default.launch({
       headless: true,
@@ -405,7 +426,7 @@ describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false
     }
   });
 
-  it('browser API: visual contrast scan decorates visible findings without scrolling by default', async () => {
+  it('browser API: visual contrast scan decorates visible findings without scrolling by default', puppeteerOnly, async () => {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.default.launch({
       headless: true,
@@ -586,7 +607,7 @@ describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false
     }
   });
 
-  it('extension mode remove cancels pending lazy visual contrast work', async () => {
+  it('extension mode remove cancels pending lazy visual contrast work', puppeteerOnly, async () => {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.default.launch({
       headless: true,
@@ -649,7 +670,7 @@ describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false
     }
   });
 
-  it('extension mode reports async visual contrast errors to the panel', async () => {
+  it('extension mode reports async visual contrast errors to the panel', puppeteerOnly, async () => {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.default.launch({
       headless: true,
@@ -713,7 +734,7 @@ describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false
     }
   });
 
-  it('extension mode echoes scan ids on result messages', async () => {
+  it('extension mode echoes scan ids on result messages', puppeteerOnly, async () => {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.default.launch({
       headless: true,
@@ -768,7 +789,7 @@ describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false
     }
   });
 
-  it('browser API: monodesignDetect is pure, monodesignScan decorates', async () => {
+  it('browser API: monodesignDetect is pure, monodesignScan decorates', puppeteerOnly, async () => {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.default.launch({
       headless: true,
@@ -804,7 +825,7 @@ describe('detectUrl — browser-only fixtures', { skip: browserAvailable ? false
     }
   });
 
-  it('browser API: async scan and detect reject instead of throwing synchronously', async () => {
+  it('browser API: async scan and detect reject instead of throwing synchronously', puppeteerOnly, async () => {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.default.launch({
       headless: true,
