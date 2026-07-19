@@ -107,8 +107,13 @@ function _withTimeout(promise, ms) {
 /**
  * Scan `input` with monofence-ai's threat detector, bounded by a timeout.
  * Returns null (never throws) when monofence is unavailable, times out, or errors.
+ * MONOMIND_MONOFENCE_GATE=off disables this scan entirely (mirrors
+ * MONOMIND_GRAPH_GATE=off) — e.g. when its heuristics misfire on ordinary
+ * markdown headings (observed a false-positive high-confidence block on
+ * plain release-note prose during v2.5.3).
  */
 async function monofenceScan(input) {
+  if (String(process.env.MONOMIND_MONOFENCE_GATE || '').toLowerCase() === 'off') return null;
   if (!input || typeof input !== 'string') return null;
   var mod = await _withTimeout(_loadMonofence(), MONOFENCE_TIMEOUT_MS);
   if (!mod || typeof mod.getMonoDefence !== 'function') return null;
