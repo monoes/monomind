@@ -10,10 +10,11 @@
  * feedback/frequency weighting for free — KG node ranking improves with use
  * automatically.
  *
- * Identity is deterministic (cognee's DataPoint.id_for): the entry KEY is
- * `n:<type>:<normalized-name>`, so the same entity extracted from any session
- * merges idempotently via upsert. Every write carries `origin_refs` so a bad
- * ingest can be rolled back per run/session.
+ * Identity is deterministic and NAME-ONLY (cognee's Entity.identity_fields):
+ * the entry KEY is `n:<normalized-name>`, so the same entity extracted from
+ * any session merges idempotently via upsert regardless of assigned type.
+ * Every write carries `origin_refs` so a bad ingest can be rolled back per
+ * run/session.
  *
  * // monolean: graph traversal is in-process over a full kg:edges list —
  * // fine to ~10k edges; upgrade path is a real SQLite edges table with
