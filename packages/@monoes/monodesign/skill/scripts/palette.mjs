@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Brand-seed picker. Returns one OKLCH seed color + the mood it most
  * naturally evokes, and teaches the model how to compose a full palette

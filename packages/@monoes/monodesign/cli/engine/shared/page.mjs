@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /** Check if content looks like a full page (not a component/partial) */
 function isFullPage(content) {
   const stripped = content.replace(/<!--[\s\S]*?-->/g, '');

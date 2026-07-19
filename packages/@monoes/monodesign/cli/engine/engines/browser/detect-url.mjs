@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

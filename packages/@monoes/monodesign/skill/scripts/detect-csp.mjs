@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Scan a project tree for Content-Security-Policy signals and classify the
  * shape so the agent knows which patch template to propose.

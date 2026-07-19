@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Pure helpers for live-mode insert UI (browser + tests).
  * Kept separate from live-browser.js so insert logic is unit-testable.

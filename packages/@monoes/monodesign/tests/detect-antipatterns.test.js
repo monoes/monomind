@@ -1242,7 +1242,7 @@ rounded:
 // Detector benchmark smoke test
 // ---------------------------------------------------------------------------
 
-// The benchmark harness was not ported from upstream impeccable; skip cleanly
+// The benchmark harness was not ported from the original engine; skip cleanly
 // when scripts/benchmark-detector.mjs is absent.
 describe('benchmark-detector', { skip: !fs.existsSync(BENCH_SCRIPT) }, () => {
   test('--quick --json emits timing schema', () => {

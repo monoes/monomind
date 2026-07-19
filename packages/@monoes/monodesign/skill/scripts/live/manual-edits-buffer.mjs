@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Shared helpers for the pending-manual-edits buffer on disk.
  *
