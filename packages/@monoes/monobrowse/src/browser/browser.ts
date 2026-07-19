@@ -59,7 +59,7 @@ export async function isPortOpen(port: number): Promise<boolean> {
  */
 async function isChromeIdentity(port: number): Promise<boolean> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/json/version`);
+    const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) });
     if (!res.ok) return false;
     const info = (await res.json()) as { Browser?: string };
     return typeof info.Browser === 'string' && /chrom(e|ium)/i.test(info.Browser);
@@ -83,27 +83,73 @@ function isTcpPortOpen(port: number, timeoutMs = 1000): Promise<boolean> {
   });
 }
 
+/** Ports scanned when the requested one is occupied by a non-Chrome process
+ *  (e.g. another local tool that happens to reuse Chrome's conventional CDP
+ *  default, 9222 — mirrors the auto-increment convention this monorepo's own
+ *  dashboard server uses in bindServer/server.mjs). Only occupied-by-a-
+ *  DIFFERENT-process is worked around; an already-attachable Chrome on the
+ *  requested port is still returned as-is (existing "attach, don't relaunch"
+ *  behavior). */
+const LAUNCH_PORT_SCAN_TRIES = 10;
+
 export async function launchBrowser(config: BrowserConfig = {}): Promise<number> {
   const rawPort = config.port ?? DEFAULT_PORT;
   // Validate port is in a safe range for localhost CDP debugging
   if (!Number.isInteger(rawPort) || rawPort < 1024 || rawPort > 65535) {
     throw new Error(`Invalid port: ${rawPort}. Must be an integer between 1024 and 65535.`);
   }
-  const port = rawPort;
 
-  if (await isPortOpen(port)) {
-    // Something CDP-speaking is already there — verify it's actually Chrome/Chromium
-    // before attaching, so we don't silently take over an unrelated real browser
-    // (e.g. the user's own personal Chrome) that happens to be on this port.
-    if (await isChromeIdentity(port)) {
-      return port;
+  // strictPort: fail fast on the exact requested port, matching the old
+  // behavior (Vite has the same escape hatch for the same reason) — for
+  // callers that treat the error as a signal ("this port is taken by
+  // something else, bail") rather than consuming the returned port.
+  if (config.strictPort) {
+    if (await isTcpPortOpen(rawPort)) {
+      if (await isChromeIdentity(rawPort)) return rawPort;
+      throw new Error(
+        `Port ${rawPort} is occupied by a process that does not identify as Chrome/Chromium. ` +
+        `Refusing to attach — pass a different port or free port ${rawPort}.`
+      );
     }
-    throw new Error(
-      `Port ${port} is occupied by a CDP-speaking process that does not identify as Chrome/Chromium. ` +
-      `Refusing to attach — pass a different port or free port ${port}.`
-    );
+    return launchOnFreePort(config, rawPort);
   }
 
+  const candidates: number[] = [];
+  for (let i = 0; i < LAUNCH_PORT_SCAN_TRIES && rawPort + i <= 65535; i++) candidates.push(rawPort + i);
+
+  // Attach-if-already-Chrome only applies to the EXACT requested port — the
+  // original, deliberate, single-port risk ("don't silently take over an
+  // unrelated real browser that happens to be on this port"). Scanning past
+  // an occupied default must not let that same shortcut attach to a
+  // DIFFERENT Chrome instance the caller never named; forward candidates are
+  // launch-only (skip if anything is there, Chrome or not).
+  if (await isTcpPortOpen(rawPort)) {
+    if (await isChromeIdentity(rawPort)) return rawPort;
+  } else {
+    return launchOnFreePort(config, rawPort);
+  }
+
+  for (const candidate of candidates.slice(1)) {
+    // TCP-level check for "is anything at all listening" — isPortOpen()
+    // does a full CDP /json fetch, which returns false BOTH for a genuinely
+    // free port and for one occupied by a non-CDP process (that ambiguity is
+    // exactly what the post-spawn isTcpPortOpen fallback below exists to
+    // resolve, the hard way, after a 10s launch timeout). Checking the raw
+    // socket first tells free and occupied apart up front, so the scan can
+    // skip an occupied candidate instead of trying to spawn Chrome on top of
+    // it and only discovering the conflict after a timeout.
+    if (!(await isTcpPortOpen(candidate))) return launchOnFreePort(config, candidate);
+    // Occupied (by anything — not just non-Chrome, per the note above) —
+    // try the next candidate instead of failing outright, same as a normal
+    // EADDRINUSE retry would.
+  }
+  throw new Error(
+    `Ports ${candidates[0]}-${candidates[candidates.length - 1]} are all occupied and port ${candidates[0]} ` +
+    `isn't a Chrome/Chromium instance to attach to. Pass a different --port.`
+  );
+}
+
+async function launchOnFreePort(config: BrowserConfig, port: number): Promise<number> {
   const chromePath = findChrome(config.executablePath);
   const userDataDir = config.userDataDir ?? join(tmpdir(), `monomind-browser-${port}`);
 

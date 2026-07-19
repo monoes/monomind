@@ -1,5 +1,10 @@
 export interface BrowserConfig {
   port?: number;
+  /** Fail fast if `port` is occupied by anything other than an attachable
+   *  Chrome, instead of scanning forward to the next free port. Default false
+   *  (scan) — set true for callers that treat the occupied-port error as a
+   *  signal rather than consuming launchBrowser's returned port. */
+  strictPort?: boolean;
   headless?: boolean;
   executablePath?: string;
   userDataDir?: string;
