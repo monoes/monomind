@@ -1,6 +1,6 @@
 # Org Runtime v2 (SDK Daemon) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind-skills:taskdev")` (recommended) or `Skill("mastermind-skills:execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind-taskdev")` (recommended) or `Skill("mastermind-execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the prompt-orchestrated org runtime (`runorg.md` + model-volunteered curls) with a daemon built on `@anthropic-ai/claude-agent-sdk` that owns every agent session, routes ALL inter-agent and inter-org messages through a monomind-owned bus, enforces per-agent policy (file scopes, research allowlists, token budgets) via `canUseTool`, and streams ground-truth events to the dashboard.
 

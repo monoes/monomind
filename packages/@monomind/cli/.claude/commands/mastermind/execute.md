@@ -1,17 +1,17 @@
 <!-- Execute a written implementation plan step by step with review checkpoints and finishing handoff. -->
 
-**First — extract repeat flags:** Follow REPEAT PREAMBLE from `_repeat.md`.
+**First — extract repeat flags:** Follow REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`.
 
 Parse `$ARGUMENTS` for `--auto`, `--confirm`, `--project <name>`, and remaining text (treated as plan path or goal).
 
-Load brain context (follow `_protocol.md` Brain Load Procedure).
+Load brain context (follow `mastermind-protocol/SKILL.md` Brain Load Procedure).
 
 Default mode: **auto**.
 
 ---
 
-Invoke `Skill("mastermind-skills:execute")` passing: brain_context, params, mode.
+Invoke `Skill("mastermind-execute")` passing: brain_context, params, mode.
 
-After skill returns: follow `_protocol.md` Brain Write Procedure.
+After skill returns: follow `mastermind-protocol/SKILL.md` Brain Write Procedure.
 
-Invoke `Skill("mastermind-skills:_repeat")` now. Required — do not skip.
+Invoke `Skill("mastermind-repeat")` now. Required — do not skip.

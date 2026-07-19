@@ -1,6 +1,6 @@
 # Cleanup --scratch Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind-skills:taskdev")` (recommended) or `Skill("mastermind-skills:execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `Skill("mastermind-taskdev")` (recommended) or `Skill("mastermind-execute")` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `monomind cleanup --scratch` prunes stale taskdev scratch and abandoned loop state, reusing cleanup's dry-run/`--force` semantics.
 
