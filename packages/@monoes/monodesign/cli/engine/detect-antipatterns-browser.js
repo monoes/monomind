@@ -490,6 +490,55 @@ const ANTIPATTERNS = [
     skillGuideline: 'font size outside the project design system',
   },
 
+  {
+    id: 'missing-focus-visible',
+    category: 'quality',
+    name: 'Suppressed focus outline with no replacement',
+    description:
+      'An interactive element (link, button, input) removes its focus outline (outline: none / 0) but the stylesheet never provides a :focus-visible or :focus replacement. Keyboard users lose all sense of where they are. Remove the suppression, or pair it with a visible :focus-visible ring (outline, box-shadow, or border).',
+    skillSection: 'Interaction',
+    skillGuideline: 'outline removed without a focus-visible replacement',
+  },
+  {
+    id: 'small-touch-target',
+    category: 'quality',
+    scopes: ['layout'],
+    name: 'Touch target below 44px',
+    description:
+      'A clickable control (button, link, input, [role=button]) renders smaller than 44×44px on one or both axes. Fingers miss small targets and mis-tap neighbors. Give standalone controls at least 44×44px of hit area via padding or min-width/height. Inline text links inside prose are exempt.',
+    skillSection: 'Layout & Space',
+    skillGuideline: 'touch target smaller than 44px',
+  },
+  {
+    id: 'hover-only-affordance',
+    category: 'quality',
+    name: 'Functionality gated behind hover only',
+    description:
+      'An element is hidden by default and revealed only on :hover, with no :focus, :focus-within, or :active equivalent. Keyboard and touch users can never reach it. Mirror every hover reveal with a focus-within (or active) rule so the affordance is reachable without a pointer.',
+    skillSection: 'Interaction',
+    skillGuideline: 'affordance revealed on hover with no focus equivalent',
+  },
+  {
+    id: 'image-missing-dimensions',
+    category: 'quality',
+    scopes: ['layout'],
+    name: 'Image without reserved dimensions',
+    description:
+      'An <img> ships without width and height attributes and without a CSS aspect-ratio or explicit height. The browser cannot reserve space before the image loads, so surrounding content jumps (cumulative layout shift). Set width and height attributes, or give the image a CSS aspect-ratio.',
+    skillSection: 'Imagery',
+    skillGuideline: 'image with no reserved dimensions',
+  },
+  {
+    id: 'dark-scheme-contrast-blindspot',
+    category: 'quality',
+    severity: 'advisory',
+    name: 'Dark-scheme contrast blindspot',
+    description:
+      'The page ships dark styling (a prefers-color-scheme: dark block or a .dark / [data-theme=dark] scope), but for some selector the dark override changes the background without changing the paired text color (or the reverse). The half-updated pair often collapses to unreadable contrast in dark mode. Override text and background together, or verify the inherited half still contrasts.',
+    skillSection: 'Color & Contrast',
+    skillGuideline: 'dark scheme overrides one of a color pair but not the other',
+  },
+
   // ── Provider tells: opt-in via --gpt / --gemini (gated off by default) ──
   {
     id: 'gpt-thin-border-wide-shadow',
@@ -3303,6 +3352,288 @@ function checkElementTextOverflowDOM(el) {
   return [];
 }
 
+// ─── Section 7: Stylesheet-level accessibility rules ─────────────────────────
+// These operate on raw CSS text (concatenated <style> blocks + linked sheets),
+// not per-element computed style — because :hover / :focus-visible / @media
+// conditions can't be read off a resting element. Shared by the regex, static
+// and browser engines (each hands over its own CSS text).
+
+// Parse flat CSS into { selector, body, dark } tuples, tracking one level of
+// dark-scheme context (a `@media (prefers-color-scheme: dark)` ancestor).
+// @supports / @layer / @container / @scope are transparently descended.
+// @font-face / @keyframes and other at-rules are skipped.
+function collectCssRules(css, dark = false, depth = 0) {
+  const out = [];
+  if (!css || depth > 6) return out;
+  const src = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  let i = 0;
+  while (i < src.length) {
+    const braceStart = src.indexOf('{', i);
+    if (braceStart === -1) break;
+    const prelude = src.slice(i, braceStart).trim();
+    let d = 1, j = braceStart + 1;
+    for (; j < src.length; j++) {
+      if (src[j] === '{') d++;
+      else if (src[j] === '}') { d--; if (d === 0) break; }
+    }
+    const body = src.slice(braceStart + 1, j);
+    i = j + 1;
+    if (!prelude) continue;
+    if (prelude.startsWith('@')) {
+      const atName = prelude.slice(1).split(/[\s(]/)[0].toLowerCase();
+      if (['media', 'supports', 'layer', 'container', 'scope'].includes(atName)) {
+        const isDarkMedia = atName === 'media' && /prefers-color-scheme\s*:\s*dark/i.test(prelude);
+        out.push(...collectCssRules(body, dark || isDarkMedia, depth + 1));
+      }
+      continue;
+    }
+    for (const sel of prelude.split(',').map(s => s.trim()).filter(Boolean)) {
+      out.push({ selector: sel, body, dark });
+    }
+  }
+  return out;
+}
+
+// --- missing-focus-visible ---
+function selectorTargetsInteractive(sel) {
+  return /(^|[\s>+~(,])(a|button|input|select|textarea|summary)(\b|[.:#[])/i.test(sel)
+    || /:focus\b/i.test(sel)
+    || /\[role\s*=\s*["']?button["']?\]/i.test(sel);
+}
+
+function checkFocusVisible(cssText) {
+  if (!cssText) return [];
+  const rules = collectCssRules(cssText);
+  let suppressor = null;
+  let hasFocusVisible = false;
+  let hasFocusReplacement = false;
+  for (const r of rules) {
+    const sel = r.selector.toLowerCase();
+    const body = r.body.toLowerCase();
+    if (/:focus-visible/.test(sel)) {
+      // Any :focus-visible styling counts as deliberate focus handling.
+      hasFocusVisible = true;
+    }
+    const suppresses = /outline\s*:\s*(none|0(?:px)?)\b/.test(body)
+      || /outline-style\s*:\s*none/.test(body)
+      || /outline-width\s*:\s*0(?:px)?\b/.test(body);
+    if (suppresses && selectorTargetsInteractive(sel) && !/:focus-visible/.test(sel)) {
+      suppressor = suppressor || r;
+    }
+    // A plain :focus rule that draws a visible affordance is a valid fallback.
+    if (/:focus\b/.test(sel) && !/:focus-visible/.test(sel)) {
+      const olVal = /outline\s*:\s*([^;}]+)/.exec(body);
+      const outlineReplaces = olVal && !/^\s*(none|0(?:px)?|inherit|initial|unset)\s*$/.test(olVal[1]);
+      if (/box-shadow\s*:/.test(body)
+        || outlineReplaces
+        || /outline-(?:color|width|style)\s*:\s*(?!none|0(?:px)?\b)/.test(body)
+        || /border(?:-\w+)?(?:-color)?\s*:/.test(body)) {
+        hasFocusReplacement = true;
+      }
+    }
+  }
+  if (suppressor && !hasFocusVisible && !hasFocusReplacement) {
+    return [{ id: 'missing-focus-visible', snippet: `"${suppressor.selector}" removes outline with no :focus-visible replacement` }];
+  }
+  return [];
+}
+
+// --- hover-only-affordance ---
+function lastCompound(sel) {
+  const parts = sel.split(/\s*[>+~]\s*|\s+/).filter(Boolean);
+  const last = parts[parts.length - 1] || sel;
+  return last.replace(/:{1,2}[a-z-]+(\([^)]*\))?/gi, '').trim().toLowerCase();
+}
+function bodyRevealsVisible(body) {
+  const b = body.toLowerCase();
+  if (/display\s*:\s*(block|flex|grid|inline(?:-\w+)?|table|list-item)/.test(b)) return true;
+  if (/visibility\s*:\s*visible/.test(b)) return true;
+  if (/opacity\s*:\s*(?:1(?:\.0+)?|0?\.[1-9]\d*|\.\d*[1-9])\b/.test(b)) return true;
+  return false;
+}
+function bodyHidesByDefault(body) {
+  const b = body.toLowerCase();
+  return /display\s*:\s*none/.test(b)
+    || /visibility\s*:\s*hidden/.test(b)
+    || /opacity\s*:\s*0(?:\.0+)?\b/.test(b);
+}
+function checkHoverOnlyAffordance(cssText) {
+  if (!cssText) return [];
+  const rules = collectCssRules(cssText);
+  const focusTargets = new Set();
+  const hiddenTargets = new Set();
+  for (const r of rules) {
+    const sel = r.selector;
+    if (/:(focus|focus-within|focus-visible|active)\b/i.test(sel) && bodyRevealsVisible(r.body)) {
+      focusTargets.add(lastCompound(sel));
+    }
+    if (!/:hover\b/i.test(sel) && bodyHidesByDefault(r.body)) {
+      hiddenTargets.add(lastCompound(sel));
+    }
+  }
+  const findings = [];
+  const seen = new Set();
+  for (const r of rules) {
+    const sel = r.selector;
+    if (!/:hover\b/i.test(sel)) continue;
+    if (!bodyRevealsVisible(r.body)) continue;
+    const parts = sel.split(/\s*[>+~]\s*|\s+/).filter(Boolean);
+    if (parts.length < 2) continue; // hover on the subject itself — can't hide+reveal
+    if (/:hover\b/i.test(parts[parts.length - 1])) continue; // :hover is on the revealed subject
+    const target = lastCompound(sel);
+    if (!target || !hiddenTargets.has(target)) continue;
+    if (focusTargets.has(target)) continue;
+    if (seen.has(target)) continue;
+    seen.add(target);
+    findings.push({ id: 'hover-only-affordance', snippet: `"${target}" is revealed on :hover with no focus/active equivalent` });
+  }
+  return findings;
+}
+
+// --- dark-scheme-contrast-blindspot ---
+const DARK_SCOPE_RE = /(?:^|[\s>+~(,])(?:html|:root|body)?(?:\.dark|\.theme-dark|\.dark-mode)\b|\[data-theme\s*[~|]?=\s*["']?dark["']?\]|\[data-mode\s*=\s*["']?dark["']?\]|\[data-color-scheme\s*=\s*["']?dark["']?\]/i;
+function stripDarkScope(sel) {
+  return sel
+    .replace(/(?:html|:root|body)?(?:\.dark|\.theme-dark|\.dark-mode)\b/gi, '')
+    .replace(/\[data-(?:theme|mode|color-scheme)\s*[~|]?=\s*["']?dark["']?\]/gi, '')
+    .replace(/\s*[>+~]\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function normalizeSelKey(sel) {
+  return sel.replace(/\s*[>+~]\s*/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function declHasColor(body) { return /(?:^|[;{\s])color\s*:/i.test(body); }
+function declHasBg(body) { return /(?:^|[;{\s])background(?:-color)?\s*:/i.test(body); }
+function checkDarkSchemeContrast(cssText) {
+  if (!cssText) return [];
+  const rules = collectCssRules(cssText);
+  const hasDarkMedia = /@media[^{]*prefers-color-scheme\s*:\s*dark/i.test(cssText);
+  const hasDarkSelectors = rules.some(r => DARK_SCOPE_RE.test(r.selector));
+  if (!hasDarkMedia && !hasDarkSelectors) return [];
+
+  const light = new Map(); // base selector → { color, bg }
+  const darkAgg = new Map();
+  for (const r of rules) {
+    const scopedDark = DARK_SCOPE_RE.test(r.selector);
+    const isDark = r.dark || scopedDark;
+    if (isDark) {
+      const base = normalizeSelKey(scopedDark ? stripDarkScope(r.selector) : r.selector);
+      if (!base) continue;
+      const e = darkAgg.get(base) || { color: false, bg: false };
+      if (declHasColor(r.body)) e.color = true;
+      if (declHasBg(r.body)) e.bg = true;
+      darkAgg.set(base, e);
+    } else {
+      const base = normalizeSelKey(r.selector);
+      if (!base) continue;
+      const e = light.get(base) || { color: false, bg: false };
+      if (declHasColor(r.body)) e.color = true;
+      if (declHasBg(r.body)) e.bg = true;
+      light.set(base, e);
+    }
+  }
+
+  const findings = [];
+  for (const [base, d] of darkAgg) {
+    if (d.color === d.bg) continue; // sets both or neither — not a split pair
+    const lp = light.get(base);
+    if (!lp || !(lp.color && lp.bg)) continue; // light scheme must pair both
+    const changed = d.bg ? 'background' : 'text color';
+    const missing = d.bg ? 'text color' : 'background';
+    findings.push({ id: 'dark-scheme-contrast-blindspot', snippet: `"${base}" overrides ${changed} in dark scheme but not ${missing}` });
+  }
+  return findings;
+}
+
+// --- image-missing-dimensions ---
+function checkImageDimensions({ hasWidthAttr, hasHeightAttr, style }) {
+  const s = String(style || '').toLowerCase();
+  if (hasWidthAttr && hasHeightAttr) return [];
+  if (/aspect-?ratio\s*:/.test(s)) return [];
+  const heightM = /(?:^|[;{\s])height\s*:\s*([^;]+)/.exec(s);
+  if (heightM && !/^\s*(auto|inherit|initial|unset|0(?:px)?)\s*$/.test(heightM[1])) return [];
+  return [{ id: 'image-missing-dimensions', snippet: '<img> without width/height attributes or CSS aspect-ratio (layout shift risk)' }];
+}
+
+function checkElementImageDimensions(el, style) {
+  const hasWidthAttr = (el.getAttribute?.('width') ?? el.attribs?.width) != null;
+  const hasHeightAttr = (el.getAttribute?.('height') ?? el.attribs?.height) != null;
+  const parts = [el.getAttribute?.('style') || el.attribs?.style || ''];
+  const ar = style && (style.aspectRatio || style['aspect-ratio']);
+  if (ar && ar !== 'auto') parts.push(`aspect-ratio:${ar}`);
+  const h = style && style.height;
+  if (h && h !== 'auto' && h !== '') parts.push(`height:${h}`);
+  return checkImageDimensions({ hasWidthAttr, hasHeightAttr, style: parts.join(';') });
+}
+
+function checkElementImageDimensionsDOM(el) {
+  const hasWidthAttr = el.getAttribute('width') != null;
+  const hasHeightAttr = el.getAttribute('height') != null;
+  // Browser computed `height` always resolves to a used px value after layout,
+  // so it can't tell a reserved height from a rendered one — only use inline
+  // style + the computed aspect-ratio (which stays 'auto' unless authored).
+  const parts = [el.getAttribute('style') || ''];
+  const style = getComputedStyle(el);
+  const ar = style.aspectRatio || '';
+  if (ar && ar !== 'auto') parts.push(`aspect-ratio:${ar}`);
+  return checkImageDimensions({ hasWidthAttr, hasHeightAttr, style: parts.join(';') });
+}
+
+// --- small-touch-target ---
+const CLICKABLE_INPUT_TYPES = new Set(['button', 'submit', 'reset', 'checkbox', 'radio', 'image']);
+const CLICKABLE_ROLES = new Set(['button', 'link', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'switch', 'checkbox', 'radio', 'option']);
+function isClickableControl(tag, role, href, inputType) {
+  if (tag === 'button' || tag === 'select' || tag === 'summary') return true;
+  if (tag === 'a') return href != null && href !== '';
+  if (tag === 'input') return CLICKABLE_INPUT_TYPES.has(String(inputType || '').toLowerCase());
+  if (role && CLICKABLE_ROLES.has(role)) return true;
+  return false;
+}
+function checkSmallTouchTarget({ tag, role, href, inputType, widthPx, heightPx, isInlineLinkInProse }) {
+  if (!isClickableControl(tag, role, href, inputType)) return [];
+  if (isInlineLinkInProse) return [];
+  if (!(widthPx > 0) || !(heightPx > 0)) return [];
+  if (widthPx >= 44 && heightPx >= 44) return [];
+  const roleLabel = role && !['button', 'a', 'input', 'select'].includes(tag) ? `[role=${role}]` : '';
+  return [{ id: 'small-touch-target', snippet: `<${tag}>${roleLabel} renders ${Math.round(widthPx)}x${Math.round(heightPx)}px (min 44x44)` }];
+}
+
+const PROSE_ANCESTOR_SELECTOR = 'p,li,blockquote,figcaption,dd,dt';
+function checkElementSmallTouchTarget(el, style, tag) {
+  // Static path: only provable when width AND height are explicit px lengths
+  // (jsdom performs no layout; rem/%/auto can't be resolved to a real box).
+  const wRaw = style.width || '';
+  const hRaw = style.height || '';
+  if (!/px\s*$/.test(wRaw) || !/px\s*$/.test(hRaw)) return [];
+  const widthPx = parseFloat(wRaw);
+  const heightPx = parseFloat(hRaw);
+  const href = el.getAttribute?.('href');
+  const role = (el.getAttribute?.('role') || '').toLowerCase();
+  const inputType = el.getAttribute?.('type') || '';
+  // An <a> is a prose text link unless it is explicitly laid out as a block
+  // (button-like). jsdom returns '' for the default inline display, so key
+  // off "not blockish" rather than "== inline".
+  const isBlockish = /^(block|flex|grid|inline-block|inline-flex|table)/.test(style.display || '');
+  const inProse = !!(el.closest && el.closest(PROSE_ANCESTOR_SELECTOR));
+  const isInlineLinkInProse = tag === 'a' && !isBlockish && inProse;
+  return checkSmallTouchTarget({ tag, role, href, inputType, widthPx, heightPx, isInlineLinkInProse });
+}
+
+function checkElementSmallTouchTargetDOM(el) {
+  const tag = el.tagName.toLowerCase();
+  const rect = el.getBoundingClientRect();
+  if (!(rect.width > 0) || !(rect.height > 0)) return [];
+  const href = el.getAttribute('href');
+  const role = (el.getAttribute('role') || '').toLowerCase();
+  const inputType = el.getAttribute('type') || '';
+  const style = getComputedStyle(el);
+  const isBlockish = /^(block|flex|grid|inline-block|inline-flex|table)/.test(style.display || '');
+  const inProse = !!(el.closest && el.closest(PROSE_ANCESTOR_SELECTOR));
+  const isInlineLinkInProse = tag === 'a' && !isBlockish && inProse;
+  return checkSmallTouchTarget({ tag, role, href, inputType, widthPx: rect.width, heightPx: rect.height, isInlineLinkInProse });
+}
+
 // --- cli/engine/browser/injected/index.mjs ---
 const IS_BROWSER = typeof window !== 'undefined';
 
@@ -4794,6 +5125,8 @@ if (IS_BROWSER) {
         ...checkElementClippedOverflowDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
         ...checkElementGptBorderShadowDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
         ...checkElementTextOverflowDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
+        ...checkElementImageDimensionsDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
+        ...checkElementSmallTouchTargetDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
         ...checkElementDesignSystemDOM(el, designSystem, designSeen),
       ].filter(f => _ruleOk(f.type));
 
@@ -4851,6 +5184,29 @@ if (IS_BROWSER) {
     if (creamFindings.length > 0) {
       pageLevelFindings.push(...creamFindings);
       addBrowserFindings(groupMap, document.body, creamFindings);
+    }
+
+    // Stylesheet-level accessibility rules (focus-visible, hover-only,
+    // dark-scheme). Serialize every same-origin stylesheet to CSS text and
+    // run the shared analyzers — cross-origin sheets throw on cssRules access
+    // and are skipped.
+    let stylesheetCssText = '';
+    for (const sheet of Array.from(document.styleSheets || [])) {
+      let rules;
+      try { rules = sheet.cssRules; } catch { continue; }
+      if (!rules) continue;
+      for (const rule of Array.from(rules)) {
+        try { stylesheetCssText += rule.cssText + '\n'; } catch { /* ignore */ }
+      }
+    }
+    const stylesheetFindings = [
+      ...checkFocusVisible(stylesheetCssText),
+      ...checkHoverOnlyAffordance(stylesheetCssText),
+      ...checkDarkSchemeContrast(stylesheetCssText),
+    ].map(f => ({ type: f.id, detail: f.snippet })).filter(f => _ruleOk(f.type));
+    if (stylesheetFindings.length > 0) {
+      pageLevelFindings.push(...stylesheetFindings);
+      addBrowserFindings(groupMap, document.body, stylesheetFindings);
     }
 
     // Regex-on-HTML checks (shared with Node)

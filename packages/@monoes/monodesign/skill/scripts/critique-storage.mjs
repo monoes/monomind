@@ -18,6 +18,13 @@
  *   node critique-storage.mjs write <slug> <snapshot-body-file>
  *   node critique-storage.mjs latest <slug>
  *   node critique-storage.mjs trend <slug> [limit]
+ *   node critique-storage.mjs recall <slug> [limit]
+ *
+ * `write` also best-effort mirrors a compact record of the snapshot into
+ * monomind's persistent memory (namespace `design-critique`) so design
+ * health survives across sessions. The mirror is fire-and-forget: if the
+ * monomind CLI is not installed it is skipped silently, and it can be
+ * disabled outright with MONODESIGN_NO_MEMORY=1.
  *
  * Note: there is intentionally no `ignore` subcommand. ignore.md is a plain
  * markdown file; the model reads it directly with its file-read tool. This
@@ -27,6 +34,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { getCritiqueDir } from './lib/monodesign-paths.mjs';
 
@@ -178,6 +186,164 @@ export function readTrend(slug, { limit = 5, cwd = process.cwd() } = {}) {
   return slice.map((file) => parseFrontmatter(fs.readFileSync(file, 'utf-8')));
 }
 
+// ---- Monomind memory mirror --------------------------------------------
+
+const asFiniteNumber = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Locate a locally installed monomind CLI bin by climbing from `cwd`.
+ * Returns null when none is installed — the caller then tries
+ * `npx --no-install`, which also fails fast (and silently) when absent.
+ */
+function resolveMonomindBin(cwd) {
+  const name = process.platform === 'win32' ? 'monomind.cmd' : 'monomind';
+  let dir = path.resolve(cwd);
+  for (;;) {
+    const bin = path.join(dir, 'node_modules', '.bin', name);
+    try {
+      fs.accessSync(bin, fs.constants.X_OK);
+      return bin;
+    } catch { /* keep climbing */ }
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+/**
+ * Best-effort mirror of a snapshot's structured metadata into monomind's
+ * persistent memory (namespace `design-critique`, key `<project>-<slug>`,
+ * upserted), so design health is queryable across sessions via
+ * `monomind memory search`. Never throws and never fails the critique flow:
+ * if the monomind CLI is unavailable the call is skipped silently.
+ * Kill-switch: MONODESIGN_NO_MEMORY=1.
+ */
+export function mirrorToMemory({ slug, meta = {}, filePath, cwd = process.cwd(), now = new Date(), env = process.env }) {
+  if (!slug) return { mirrored: false, reason: 'no-slug' };
+  if (env.MONODESIGN_NO_MEMORY === '1') return { mirrored: false, reason: 'disabled' };
+  try {
+    const record = {
+      score: asFiniteNumber(meta.total_score ?? meta.score),
+      p0: asFiniteNumber(meta.p0_count ?? meta.p0),
+      p1: asFiniteNumber(meta.p1_count ?? meta.p1),
+      date: now.toISOString(),
+      slug,
+      path: filePath ? path.relative(cwd, filePath) : null,
+    };
+    const project = kebab(path.basename(path.resolve(cwd))) || 'project';
+    const key = `${project}-${slug}`;
+    const argv = [
+      'memory', 'store',
+      '--key', key,
+      '--value', JSON.stringify(record),
+      '--namespace', 'design-critique',
+      '--upsert',
+    ];
+    const bin = resolveMonomindBin(cwd);
+    const opts = { cwd, env, stdio: 'ignore', timeout: 15000 };
+    const run = bin
+      ? spawnSync(bin, argv, opts)
+      : spawnSync('npx', ['--no-install', 'monomind', ...argv], { ...opts, shell: process.platform === 'win32' });
+    if (run.error || run.status !== 0) return { mirrored: false, reason: 'cli-unavailable' };
+    return { mirrored: true, key };
+  } catch {
+    return { mirrored: false, reason: 'error' };
+  }
+}
+
+// ---- Recall (latest + trend + open items, one compact block) -----------
+
+/**
+ * Extract open issue titles tagged [P0] / [P1] from a snapshot body.
+ * Matches the critique report's "**[P?] What**: ..." lines, but tolerates
+ * loose formatting: any line containing `[P0]`/`[P1]` counts, with the
+ * title taken from the text after the tag (markdown emphasis stripped).
+ */
+export function extractIssueLines(body, { max = 8 } = {}) {
+  const issues = { p0: [], p1: [] };
+  if (!body || typeof body !== 'string') return issues;
+  // Drop frontmatter so metadata lines never masquerade as issues.
+  const text = body.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/\[(P0|P1)\]\s*(.*)/i);
+    if (!m) continue;
+    let title = m[2];
+    // "**[P0] Title**: explanation" → keep just the title.
+    const boldColon = title.indexOf('**:');
+    if (boldColon !== -1) title = title.slice(0, boldColon);
+    title = title.replace(/\*+/g, '').replace(/^[-–—\s]+/, '').replace(/[:\s]+$/, '').trim();
+    if (!title) continue;
+    const bucket = m[1].toUpperCase() === 'P0' ? issues.p0 : issues.p1;
+    if (bucket.length < max && !bucket.includes(title)) bucket.push(title);
+  }
+  return issues;
+}
+
+/**
+ * Direction of the last (up to) 3 finite scores: improving | declining |
+ * flat, or null when fewer than 2 scores exist.
+ */
+export function trendDirection(scores) {
+  const s = (scores || []).map(asFiniteNumber).filter((n) => n !== null).slice(-3);
+  if (s.length < 2) return null;
+  if (s[s.length - 1] > s[0]) return 'improving';
+  if (s[s.length - 1] < s[0]) return 'declining';
+  return 'flat';
+}
+
+/**
+ * Combined latest + trend + open-issue view for `slug`, or null when no
+ * snapshot exists. This backs the `recall` subcommand that polish/critique
+ * consume instead of separate latest+trend calls.
+ */
+export function readRecall(slug, { limit = 5, cwd = process.cwd() } = {}) {
+  const latest = readLatestSnapshot(slug, { cwd });
+  if (!latest) return null;
+  const trend = readTrend(slug, { limit, cwd });
+  const scores = trend.map((t) => asFiniteNumber(t.total_score ?? t.score));
+  return {
+    slug,
+    latest,
+    trend,
+    scores,
+    direction: trendDirection(scores),
+    issues: extractIssueLines(latest.body),
+  };
+}
+
+/** Render a recall result as a compact markdown block. */
+export function formatRecall(recall, { cwd = process.cwd() } = {}) {
+  const { slug, latest, trend, scores, direction, issues } = recall;
+  const meta = latest.meta;
+  const score = asFiniteNumber(meta.total_score ?? meta.score);
+  const p0 = asFiniteNumber(meta.p0_count ?? meta.p0);
+  const p1 = asFiniteNumber(meta.p1_count ?? meta.p1);
+  const lines = [`## Design health: \`${slug}\``];
+  lines.push(
+    `- Latest score: ${score !== null ? `${score}/40` : 'n/a'}`
+    + ` (P0: ${p0 ?? '?'}, P1: ${p1 ?? '?'})`
+    + (meta.timestamp ? ` — ${meta.timestamp}` : ''),
+  );
+  const arrows = scores.map((n) => (n === null ? '?' : n)).join(' → ');
+  lines.push(`- Trend (last ${trend.length}): ${arrows}${direction ? ` (${direction})` : ''}`);
+  if (issues.p0.length) {
+    lines.push('- Open P0:');
+    for (const t of issues.p0) lines.push(`  - ${t}`);
+  }
+  if (issues.p1.length) {
+    lines.push('- Open P1:');
+    for (const t of issues.p1) lines.push(`  - ${t}`);
+  }
+  if (!issues.p0.length && !issues.p1.length) {
+    lines.push('- No open P0/P1 lines found in the latest snapshot.');
+  }
+  lines.push(`- Snapshot: ${path.relative(cwd, latest.path)}`);
+  return lines.join('\n');
+}
+
 // ---- CLI ---------------------------------------------------------------
 
 function main(argv) {
@@ -202,6 +368,8 @@ function main(argv) {
         try { meta = JSON.parse(metaArg); } catch { /* ignore */ }
       }
       const out = writeSnapshot({ slug, meta, body: raw });
+      // Best-effort cross-session mirror; must never break the critique flow.
+      mirrorToMemory({ slug, meta, filePath: out });
       process.stdout.write(`${out}\n`);
       return;
     }
@@ -216,8 +384,14 @@ function main(argv) {
       process.stdout.write(JSON.stringify(rows, null, 2) + '\n');
       return;
     }
+    case 'recall': {
+      const recall = readRecall(args[0], { limit: args[1] ? Number(args[1]) : 5 });
+      if (!recall) { process.exit(2); }
+      process.stdout.write(`${formatRecall(recall)}\n`);
+      return;
+    }
     default:
-      process.stderr.write('usage: critique-storage.mjs <slug|write|latest|trend> [args]\n');
+      process.stderr.write('usage: critique-storage.mjs <slug|write|latest|trend|recall> [args]\n');
       process.exit(1);
   }
 }

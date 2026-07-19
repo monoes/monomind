@@ -76,6 +76,28 @@ describe('gatherSignals', () => {
     assert.equal(s.critique.latest.slug, 'home');
   });
 
+  it('reports trend direction over the last 3 runs and open P0 titles', async () => {
+    write('.monodesign/critique/2026-05-01T10-00-00Z__home.md',
+      '---\nslug: home\nscore: 4\np0: 2\np1: 3\ntimestamp: 2026-05-01T10-00-00Z\n---\nbody\n');
+    write('.monodesign/critique/2026-05-02T10-00-00Z__home.md',
+      '---\nslug: home\nscore: 6\np0: 1\np1: 3\ntimestamp: 2026-05-02T10-00-00Z\n---\nbody\n');
+    write('.monodesign/critique/2026-05-03T10-00-00Z__home.md',
+      '---\nslug: home\nscore: 8\np0: 1\np1: 1\ntimestamp: 2026-05-03T10-00-00Z\n---\n'
+      + '- **[P0] Hero CTA hidden on mobile**: below the fold\n'
+      + '- **[P1] Jargon in nav**: rename\n');
+    const s = await gatherSignals(scratch);
+    assert.deepEqual(s.critique.latest.trend, { scores: [4, 6, 8], direction: 'improving' });
+    assert.deepEqual(s.critique.latest.openP0, ['Hero CTA hidden on mobile']);
+  });
+
+  it('keeps trend null and openP0 empty for a single run with no tagged lines', async () => {
+    write('.monodesign/critique/2026-05-01T10-00-00Z__home.md',
+      '---\nslug: home\nscore: 6\np0: 0\np1: 0\ntimestamp: 2026-05-01T10-00-00Z\n---\nbody\n');
+    const s = await gatherSignals(scratch);
+    assert.deepEqual(s.critique.latest.trend, { scores: [6], direction: null });
+    assert.deepEqual(s.critique.latest.openP0, []);
+  });
+
   it('handles a non-git dir without throwing', async () => {
     const s = await gatherSignals(scratch);
     assert.equal(s.git.isRepo, false);

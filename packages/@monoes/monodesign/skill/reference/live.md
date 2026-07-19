@@ -685,10 +685,6 @@ const __monodesignLiveDev =
 - **SvelteKit**: edit `svelte.config.js`, appending to `kit.csp.directives['script-src']` and `kit.csp.directives['connect-src']`.
 - **Nuxt + nuxt-security**: edit `nuxt.config.*`, appending to `security.headers.contentSecurityPolicy['script-src']` and `['connect-src']`.
 
-Reference outputs:
-- `tests/framework-fixtures/nextjs-turborepo/expected-after-patch.ts` (Next.js)
-- `tests/framework-fixtures/sveltekit-csp/expected-after-patch.js` (SvelteKit)
-
 Idempotency: if `__monodesignLiveDev` already exists in the file, the patch is already applied; skip asking and just mark `cspChecked: true`.
 
 #### append-string
@@ -710,10 +706,6 @@ Then in the CSP value string:
 Per-framework specifics:
 - **Next.js inline `headers()`**: edit `next.config.*`, splicing the variable into the CSP value.
 - **Nuxt `routeRules`**: edit `nuxt.config.*`, splicing into the CSP in `routeRules['/**'].headers['Content-Security-Policy']`.
-
-Reference outputs:
-- `tests/framework-fixtures/nextjs-inline-csp/expected-after-patch.js` (Next.js)
-- `tests/framework-fixtures/nuxt-csp/expected-after-patch.ts` (Nuxt)
 
 ### Troubleshooting
 

@@ -388,6 +388,55 @@ const ANTIPATTERNS = [
     skillGuideline: 'font size outside the project design system',
   },
 
+  {
+    id: 'missing-focus-visible',
+    category: 'quality',
+    name: 'Suppressed focus outline with no replacement',
+    description:
+      'An interactive element (link, button, input) removes its focus outline (outline: none / 0) but the stylesheet never provides a :focus-visible or :focus replacement. Keyboard users lose all sense of where they are. Remove the suppression, or pair it with a visible :focus-visible ring (outline, box-shadow, or border).',
+    skillSection: 'Interaction',
+    skillGuideline: 'outline removed without a focus-visible replacement',
+  },
+  {
+    id: 'small-touch-target',
+    category: 'quality',
+    scopes: ['layout'],
+    name: 'Touch target below 44px',
+    description:
+      'A clickable control (button, link, input, [role=button]) renders smaller than 44×44px on one or both axes. Fingers miss small targets and mis-tap neighbors. Give standalone controls at least 44×44px of hit area via padding or min-width/height. Inline text links inside prose are exempt.',
+    skillSection: 'Layout & Space',
+    skillGuideline: 'touch target smaller than 44px',
+  },
+  {
+    id: 'hover-only-affordance',
+    category: 'quality',
+    name: 'Functionality gated behind hover only',
+    description:
+      'An element is hidden by default and revealed only on :hover, with no :focus, :focus-within, or :active equivalent. Keyboard and touch users can never reach it. Mirror every hover reveal with a focus-within (or active) rule so the affordance is reachable without a pointer.',
+    skillSection: 'Interaction',
+    skillGuideline: 'affordance revealed on hover with no focus equivalent',
+  },
+  {
+    id: 'image-missing-dimensions',
+    category: 'quality',
+    scopes: ['layout'],
+    name: 'Image without reserved dimensions',
+    description:
+      'An <img> ships without width and height attributes and without a CSS aspect-ratio or explicit height. The browser cannot reserve space before the image loads, so surrounding content jumps (cumulative layout shift). Set width and height attributes, or give the image a CSS aspect-ratio.',
+    skillSection: 'Imagery',
+    skillGuideline: 'image with no reserved dimensions',
+  },
+  {
+    id: 'dark-scheme-contrast-blindspot',
+    category: 'quality',
+    severity: 'advisory',
+    name: 'Dark-scheme contrast blindspot',
+    description:
+      'The page ships dark styling (a prefers-color-scheme: dark block or a .dark / [data-theme=dark] scope), but for some selector the dark override changes the background without changing the paired text color (or the reverse). The half-updated pair often collapses to unreadable contrast in dark mode. Override text and background together, or verify the inherited half still contrasts.',
+    skillSection: 'Color & Contrast',
+    skillGuideline: 'dark scheme overrides one of a color pair but not the other',
+  },
+
   // ── Provider tells: opt-in via --gpt / --gemini (gated off by default) ──
   {
     id: 'gpt-thin-border-wide-shadow',

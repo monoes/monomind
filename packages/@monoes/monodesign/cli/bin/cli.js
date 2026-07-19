@@ -5,6 +5,7 @@
  *
  * Usage:
  *   monomind design detect [file-or-dir-or-url...]
+ *   monomind design fix <file-or-dir...> [--dry-run] [--json] [--rule <id,...>]
  *   monomind design ignores <list|add-file|add-value|remove-...>
  *   monomind design --help
  */
@@ -35,6 +36,7 @@ async function main() {
 
 Commands:
   detect [file-or-dir-or-url...]   Scan for UI anti-patterns and design quality issues
+  fix <file-or-dir...>             Auto-fix findings with safe codemods (--dry-run, --json, --rule)
   ignores                          Manage detector ignore rules, files, and values
 
 Options:
@@ -55,6 +57,9 @@ The monodesign skill itself ships with monomind (npx monomind init).`);
     process.argv = [process.argv[0], process.argv[1], ...args.slice(1)];
     const { detectCli } = await import('../engine/detect-antipatterns.mjs');
     await detectCli();
+  } else if (command === 'fix') {
+    const { runFixCli } = await import('../engine/fix/index.mjs');
+    await runFixCli(args.slice(1));
   } else if (command === 'ignores' || command === 'ignore') {
     const { run } = await import('./commands/ignores.mjs');
     await run(args.slice(1));

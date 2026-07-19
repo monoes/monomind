@@ -135,6 +135,70 @@ const detectSubcommand: Command = {
   },
 };
 
+// ─── fix subcommand ───────────────────────────────────────────────────────────
+
+const fixSubcommand: Command = {
+  name: 'fix',
+  description: 'Auto-fix design anti-patterns with a safe deterministic codemod, where one exists',
+  options: [
+    {
+      name: 'target',
+      short: 't',
+      type: 'string',
+      description: 'File or directory to fix',
+      default: '.',
+    },
+    {
+      name: 'dry-run',
+      type: 'boolean',
+      description: 'Print unified diffs of would-be changes; write nothing',
+    },
+    {
+      name: 'json',
+      type: 'boolean',
+      description: 'Output the fix report as JSON',
+    },
+    {
+      name: 'rule',
+      type: 'string',
+      description: 'Only fix the given rule ids (comma-separated)',
+    },
+  ],
+  examples: [
+    { command: 'monomind design fix', description: 'Auto-fix anti-patterns in the current directory' },
+    { command: 'monomind design fix -t ./src --dry-run', description: 'Preview fixes without writing' },
+    { command: 'monomind design fix --rule tight-leading,tiny-text', description: 'Fix only specific rules' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const target = ctx.flags.target as string || ctx.args[0] || '.';
+    const dryRun = ctx.flags['dry-run'] as boolean;
+    const jsonOutput = ctx.flags.json as boolean;
+    const rule = ctx.flags.rule as string | undefined;
+
+    output.writeln();
+    output.writeln(output.bold('Design Anti-Pattern Auto-Fix'));
+    output.writeln(output.dim('─'.repeat(50)));
+
+    const cliPath = resolveMonodesignCli();
+    if (!cliPath) {
+      printEngineMissing();
+      return { success: false, message: 'monodesign detection engine not found' };
+    }
+
+    output.writeln(output.dim(`Fixing: ${target}${dryRun ? ' (dry run)' : ''}`));
+    output.writeln();
+
+    const forwardArgs: string[] = ['fix', target];
+    if (dryRun) forwardArgs.push('--dry-run');
+    if (jsonOutput) forwardArgs.push('--json');
+    if (rule) forwardArgs.push('--rule', rule);
+
+    const exitCode = await runMonodesign(cliPath, forwardArgs);
+
+    return { success: exitCode === 0, exitCode };
+  },
+};
+
 // ─── ignores subcommand ───────────────────────────────────────────────────────
 
 const ignoresSubcommand: Command = {
@@ -163,10 +227,11 @@ const ignoresSubcommand: Command = {
 export const designCommand: Command = {
   name: 'design',
   description: 'Design tooling: anti-pattern detection, OKLCH palette seeding, and design quality checks',
-  subcommands: [detectSubcommand, ignoresSubcommand, paletteSubcommand],
+  subcommands: [detectSubcommand, fixSubcommand, ignoresSubcommand, paletteSubcommand],
   examples: [
     { command: 'monomind design detect', description: 'Detect design anti-patterns' },
     { command: 'monomind design detect -t ./src --json', description: 'JSON output for CI' },
+    { command: 'monomind design fix -t ./src --dry-run', description: 'Preview safe auto-fixes' },
     { command: 'monomind design ignores list', description: 'Manage detector ignore rules' },
     { command: 'monomind design palette', description: 'Pick an OKLCH brand seed color' },
     { command: 'monomind design palette --from "my-product"', description: 'Deterministic seed from product name' },
@@ -179,6 +244,7 @@ export const designCommand: Command = {
     output.writeln('Subcommands:');
     output.printList([
       'detect   - Detect design anti-patterns (bundled monodesign engine)',
+      'fix      - Auto-fix anti-patterns with a safe deterministic codemod, where one exists',
       'ignores  - Manage detector ignore rules, files, and values',
       'palette  - OKLCH brand seed — returns anchor color + mood + composition strategy',
     ]);

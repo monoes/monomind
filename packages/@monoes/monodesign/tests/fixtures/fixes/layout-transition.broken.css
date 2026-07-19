@@ -1,0 +1,15 @@
+.panel {
+  transition: width 0.3s ease, opacity 0.3s ease;
+}
+
+.card {
+  transition: height 0.2s;
+}
+
+.list {
+  transition-property: margin, transform;
+}
+
+.ok {
+  transition: transform 0.3s ease, opacity 0.2s;
+}

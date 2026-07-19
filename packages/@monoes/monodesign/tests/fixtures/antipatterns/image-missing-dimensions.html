@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Image missing dimensions</title>
+  <style>
+    body { font-family: Georgia, serif; color: #1a1a1a; background: #fff; }
+    h2 { font-family: "Palatino Linotype", Palatino, serif; }
+  </style>
+</head>
+<body>
+  <h2>Gallery</h2>
+
+  <!-- FLAG: no width/height attributes, no aspect-ratio, no explicit height. -->
+  <img src="/img/flag-none.jpg" alt="flag none">
+
+  <!-- FLAG: width attribute only — height still unreserved. -->
+  <img src="/img/flag-width-only.jpg" alt="flag width only" width="320">
+
+  <!-- PASS: both width and height attributes reserve space. -->
+  <img src="/img/pass-wh.jpg" alt="pass wh" width="320" height="180">
+
+  <!-- PASS: CSS aspect-ratio reserves the box. -->
+  <img src="/img/pass-aspect.jpg" alt="pass aspect" style="width: 100%; aspect-ratio: 16 / 9;">
+
+  <!-- PASS: explicit CSS height reserves vertical space. -->
+  <img src="/img/pass-height.jpg" alt="pass height" style="height: 200px;">
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Hover-only affordance</title>
+  <style>
+    body { font-family: Georgia, serif; color: #1a1a1a; background: #fff; }
+    h2 { font-family: "Palatino Linotype", Palatino, serif; }
+
+    /* FLAG: submenu hidden by default, revealed only on hover, no focus path. */
+    .menu .submenu { display: none; }
+    .menu:hover .submenu { display: block; }
+
+    /* FLAG: card actions revealed on hover via opacity only, no focus path. */
+    .card .actions { opacity: 0; }
+    .card:hover .actions { opacity: 1; }
+
+    /* PASS: tooltip bubble mirrors hover with focus-within. */
+    .tip .bubble { visibility: hidden; }
+    .tip:hover .bubble { visibility: visible; }
+    .tip:focus-within .bubble { visibility: visible; }
+
+    /* PASS: dropdown mirrors hover with focus-within. */
+    .dropdown .panel { display: none; }
+    .dropdown:hover .panel { display: flex; }
+    .dropdown:focus-within .panel { display: flex; }
+
+    /* PASS: hover only restyles the hovered element itself (nothing hidden). */
+    .btn { background: #eee; }
+    .btn:hover { background: #ddd; }
+  </style>
+</head>
+<body>
+  <nav class="menu"><span>Menu</span><ul class="submenu"><li>Item</li></ul></nav>
+  <article class="card"><h2>Card</h2><div class="actions"><button>Edit</button></div></article>
+  <span class="tip">Hint<span class="bubble">Bubble</span></span>
+  <div class="dropdown"><button>Open</button><div class="panel">Panel</div></div>
+  <button class="btn" type="button">Button</button>
+</body>
+</html>
