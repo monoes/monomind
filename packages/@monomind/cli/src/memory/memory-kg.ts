@@ -70,8 +70,11 @@ export function normalizeName(name: string): string {
   return String(name).trim().toLowerCase().replace(/['’]/g, '').replace(/\s+/g, '_').slice(0, MAX_NAME_LEN);
 }
 
-export function nodeKey(type: string, name: string): string {
-  return `n:${normalizeName(type || 'entity')}:${normalizeName(name)}`;
+/** Identity is NAME-ONLY (cognee's Entity.identity_fields = ["name"]) — type
+ *  lives in metadata. Including type in the key forked the same entity when
+ *  the LLM said "Module" and the heuristic said "entity". */
+export function nodeKey(_type: string, name: string): string {
+  return `n:${normalizeName(name)}`;
 }
 
 function edgeKey(srcKey: string, relation: string, dstKey: string): string {
@@ -110,16 +113,20 @@ export async function kgIngest(options: {
         // Prefer the richer description; never let a terse re-extraction erase detail.
         const prevDesc = typeof md.description === 'string' ? md.description : '';
         const bestDesc = desc.length > prevDesc.length ? desc : prevDesc;
+        // Keep the most specific type: a generic heuristic 'entity' never
+        // overwrites an LLM-assigned type.
+        const prevType = typeof md.type === 'string' ? md.type : 'entity';
+        const bestType = prevType.toLowerCase() !== 'entity' ? prevType : type;
         await bridgeStoreEntry({
           key,
-          value: `${n.name} — ${bestDesc || type}`,
+          value: `${n.name} — ${bestDesc || bestType}`,
           namespace: KG_NODES_NS,
           dbPath,
           upsert: true,
-          tags: ['kg', normalizeName(type), ...(n.nodeSet ? [normalizeName(n.nodeSet)] : [])],
+          tags: ['kg', normalizeName(bestType), ...(n.nodeSet ? [normalizeName(n.nodeSet)] : [])],
           metadata: {
             ...md,
-            kg: 'node', type, name: n.name, description: bestDesc,
+            kg: 'node', type: bestType, name: n.name, description: bestDesc,
             node_set: n.nodeSet ?? md.node_set ?? null,
             origin_refs: origins.slice(0, 100),
             version: (typeof md.version === 'number' ? md.version : 1) + 1,
@@ -366,10 +373,12 @@ export async function kgSearch(options: {
 export async function kgGlossary(options?: { dbPath?: string; limit?: number }): Promise<string[]> {
   const res = await bridgeListEntries({ namespace: KG_NODES_NS, limit: MAX_LIST, dbPath: options?.dbPath });
   const nodes = (res?.entries ?? [])
-    // Glossary is for ENTITY name reuse — rule nodes would drown it in prose.
+    // Glossary is for ENTITY name reuse — rule prose and extraction-source
+    // Session nodes would drown it.
     .filter(e => {
       const md = e.metadata as Record<string, unknown>;
-      return md?.node_set !== 'rules' && String(md?.type ?? '').toLowerCase() !== 'rule';
+      const t = String(md?.type ?? '').toLowerCase();
+      return md?.node_set !== 'rules' && t !== 'rule' && t !== 'session';
     })
     .map(e => {
       const md = e.metadata as Record<string, unknown>;
@@ -378,9 +387,17 @@ export async function kgGlossary(options?: { dbPath?: string; limit?: number }):
       const version = typeof md.version === 'number' ? md.version : 1;
       return { name: String(md.name ?? e.key), rank: version + freq + fw };
     })
-    .sort((a, b) => b.rank - a.rank)
-    .slice(0, options?.limit ?? 40);
-  return nodes.map(n => n.name);
+    .sort((a, b) => b.rank - a.rank);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const n of nodes) {
+    const norm = normalizeName(n.name);
+    if (seen.has(norm)) continue;
+    seen.add(norm);
+    out.push(n.name);
+    if (out.length >= (options?.limit ?? 40)) break;
+  }
+  return out;
 }
 
 // ── Rollback (per-origin bad-ingest recovery) ───────────────────────
@@ -491,7 +508,9 @@ export function heuristicExtract(text: string, opts?: { sourceName?: string }): 
   const src = String(text || '').slice(0, 50_000);
 
   const sentences = src.split(/(?<=[.!?])\s+|\n+/).slice(0, 400);
-  const STOPWORDS = new Set(['The', 'This', 'That', 'These', 'Those', 'It', 'A', 'An', 'If', 'When', 'While', 'But', 'And', 'Or', 'For', 'Then', 'Also', 'Not', 'No', 'Yes', 'I', 'We', 'You', 'They', 'He', 'She', 'Run', 'Outcome', 'Assets', 'Goal', 'Org']);
+  const STOPWORDS = new Set(['The', 'This', 'That', 'These', 'Those', 'It', 'A', 'An', 'If', 'When', 'While', 'But', 'And', 'Or', 'For', 'Then', 'Also', 'Not', 'No', 'Yes', 'I', 'We', 'You', 'They', 'He', 'She', 'Run', 'Outcome', 'Assets', 'Goal', 'Org',
+    'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December',
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
 
   for (const sentence of sentences) {
     const found: string[] = [];

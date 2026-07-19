@@ -21,6 +21,13 @@
 - When starting any task that touches 3+ files: call `mcp__monomind__monograph_suggest` first to get relevant nodes ranked by task relevance
 - **Crash reporting**: monomind, mono-agent, monotask, and mono-clip each auto-report uncaught crashes as GitHub issues on their own repo (on by default — `monomind crash-reporting disable` to opt out; see `packages/@monomind/cli/src/services/crash-reporter.ts`). This only covers hard crashes, not everyday friction — so when a user is stuck on something that ISN'T a crash (a confusing error message, a workflow that doesn't behave as documented, something in these four tools that seems broken or inconsistent), **suggest opening a GitHub issue** rather than filing one yourself. One line is enough: name the repo (`monoes/monomind`, `monoes/mono-agent`, `monoes/monotask`, or `monoes/mono-clip`, whichever is actually implicated) and ask if they'd like you to open it (via `gh issue create`) or if they'd rather do it themselves. Don't do this for run-of-the-mill usage questions you can just answer — only when something is genuinely unresolved, contradictory, or looks like a real bug in one of these four tools.
 
+## Memory Loop (Feedback + Knowledge Graph)
+
+- When memory/knowledge search results (`memory_*`, `knowledge_search`) materially help a task, close the loop: call `mcp__monomind__memory_feedback` with the task id and the result `entryIds` (+ `success`/`quality`) — this EWMA-trains ranking for future sessions. Idempotent per taskId.
+- At the end of a session that produced durable insight (entities, relationships, "when X do Y" rules), distill it once via `mcp__monomind__memory_kg_ingest` with an `originRef` of the session id. Reuse existing entity names (check `memory_kg_stats` with `glossary:true`) instead of minting near-duplicates.
+- Query structured memory with `mcp__monomind__memory_kg_search` (relationship/dependency questions) — `knowledge_search` routes there automatically for relationship-shaped queries.
+- Bad ingest? `memory_kg_rollback` with the originRef deletes everything that source wrote.
+
 ## File Organization
 
 - NEVER save to root folder — use the directories below

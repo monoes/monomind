@@ -53,6 +53,29 @@ export async function checkMemoryDatabase(): Promise<HealthCheck> {
   return { name: 'Memory Database', status: 'warn', message: 'Not initialized', fix: 'monomind memory configure --backend hybrid' };
 }
 
+/** Memory knowledge graph (cognee port): entities/relations/rules distilled
+ * from sessions and org runs. Informational — an empty graph on a fresh
+ * project is normal, so it never fails. */
+export async function checkMemoryKnowledgeGraph(): Promise<HealthCheck> {
+  const name = 'Memory Knowledge Graph';
+  try {
+    const kg = await import('../memory/memory-kg.js');
+    const bridge = await import('../memory/memory-bridge.js');
+    const project = await kg.kgStats();
+    const orgDb = join(process.cwd(), '.monomind', 'org-memory');
+    const org = existsSync(orgDb) ? await kg.kgStats({ dbPath: orgDb }) : null;
+    await bridge.shutdownBridge().catch(() => { /* best effort */ });
+    const total = project.nodes + (org?.nodes ?? 0);
+    const fmt = (s: { nodes: number; edges: number; rules: number }): string => `${s.nodes}n/${s.edges}e/${s.rules}r`;
+    if (total === 0) {
+      return { name, status: 'warn', message: 'Empty — sessions/org runs have not distilled knowledge yet', fix: 'org runs call org_learn automatically; sessions use memory_kg_ingest' };
+    }
+    return { name, status: 'pass', message: `project ${fmt(project)}${org ? ` · org ${fmt(org)}` : ''}` };
+  } catch (err) {
+    return { name, status: 'warn', message: `Check failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 /** Second Brain: when this project has an indexed knowledge base, semantic
  * search needs the local embedding model. Its absence is silent (search
  * degrades to keyword matching) — surface it here instead. */

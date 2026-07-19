@@ -139,6 +139,12 @@ They're working in parallel. I'll synthesize their results when they complete.
 - Wait for agent results to arrive
 - Synthesize results when they return
 
+## 🧠 Memory Loop (Feedback + Knowledge Graph)
+
+- When memory/knowledge search results helped, call `memory_feedback` with the task id and the result `entryIds` — EWMA-trains ranking (idempotent per taskId).
+- At session wrap-up, distill durable insight (entities/relations/rules) once via `memory_kg_ingest` with `originRef` = session id; reuse existing entity names (`memory_kg_stats` with `glossary:true`).
+- Relationship questions → `memory_kg_search`. Bad ingest → `memory_kg_rollback` with the originRef.
+
 ## 🧠 AUTO-LEARNING PROTOCOL
 
 ### Before Starting Any Task
