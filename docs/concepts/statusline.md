@@ -200,7 +200,7 @@ Token budget health and session resource usage.
 | `.monomind/skills.jsonl`                | Task 45 (SkillRegistry)                    | INTEL               |
 | `.monomind/trigger-index.json`          | Task 32 (MicroagentTriggers, 1h TTL)       | SWARM               |
 | `.monomind/metrics/learning.json`       | Intelligence consolidation at session-end  | INTEL               |
-| `.monomind/metrics/ddd-progress.json`   | `ddd` worker (@monomind/hooks)             | INTEL, CONTEXT      |
+| `.monomind/metrics/ddd-progress.json`   | `ddd` worker (@monoes/hooks)             | INTEL, CONTEXT      |
 | `.monomind/data/auto-memory-store.json` | AutoMemoryBridge on session-end            | MEMORY              |
 | `.monomind/data/ranked-context.json`    | PageRank consolidation at session-end      | MEMORY              |
 | `.monomind/security/audit-status.json`  | `monomind security scan`                  | ARCH                |
@@ -231,7 +231,7 @@ Current mode is persisted in `.monomind/statusline-mode.txt`.
 
 ## Background Workers
 
-There is no separate background daemon. The statusline reads `.monomind/metrics/*.json` files written by the 15 background workers in `@monomind/hooks` (`ddd`, `map`, `audit`, `optimize`, `consolidate`, and others). Workers are initialized at session start; the metrics-producing ones refresh automatically when their output file is missing or older than 6 hours. `monomind doctor` reports worker-metrics freshness, and you can refresh any metric on demand:
+There is no separate background daemon. The statusline reads `.monomind/metrics/*.json` files written by the 15 background workers in `@monoes/hooks` (`ddd`, `map`, `audit`, `optimize`, `consolidate`, and others). Workers are initialized at session start; the metrics-producing ones refresh automatically when their output file is missing or older than 6 hours. `monomind doctor` reports worker-metrics freshness, and you can refresh any metric on demand:
 
 ```bash
 monomind hooks worker list        # list workers and their status

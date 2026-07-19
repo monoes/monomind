@@ -361,8 +361,8 @@ export function resolveModuleSpecifier(
     return null;
   }
 
-  // Workspace package specifier: @monomind/hooks → packages/@monomind/hooks/src/index.ts
-  // Also handles subpath: @monomind/hooks/src/foo → packages/@monomind/hooks/src/foo.ts
+  // Workspace package specifier: @monoes/hooks → packages/@monomind/hooks/src/index.ts
+  // Also handles subpath: @monoes/hooks/src/foo → packages/@monomind/hooks/src/foo.ts
   for (const [pkgName, pkgDir] of workspaceMap) {
     if (specifier === pkgName) {
       // Bare import: resolve to package entry point (src/index.ts)

@@ -365,7 +365,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 graph TD
     CC["Claude Code"]
     MCP["MCP Server\nmonomind mcp start"]
-    D["Background Workers\n(@monomind/hooks, in-process)"]
+    D["Background Workers\n(@monoes/hooks, in-process)"]
     ORG["OrgDaemon\nmonomind org run\nreal SDK sessions"]
 
     CC <-->|"MCP tools: monograph, memory"| MCP

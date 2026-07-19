@@ -439,16 +439,16 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <text class="arch-label" x="120" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/cli</text>
         <text class="arch-sub" x="120" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">31 commands</text>
         <text class="arch-sub" x="120" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Entry point</text>
-        <text class="arch-label" x="380" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/hooks</text>
+        <text class="arch-label" x="380" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monoes/hooks</text>
         <text class="arch-sub" x="380" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">17 hook types · 15 workers</text>
         <text class="arch-sub" x="380" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Intelligence pipeline</text>
-        <text class="arch-label" x="640" y="62" text-anchor="middle" fill="oklch(70% 0.18 60)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/memory</text>
+        <text class="arch-label" x="640" y="62" text-anchor="middle" fill="oklch(70% 0.18 60)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monoes/memory</text>
         <text class="arch-sub" x="640" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">Pattern store + episodic recall</text>
         <text class="arch-sub" x="640" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Memory Palace L0–L3</text>
         <text class="arch-label" x="120" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">Swarm (experimental)</text>
         <text class="arch-sub" x="120" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">7 topologies</text>
         <text class="arch-sub" x="120" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">vote-count consensus</text>
-        <text class="arch-label" x="380" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/routing</text>
+        <text class="arch-label" x="380" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monoes/routing</text>
         <text class="arch-sub" x="380" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">keyword routing</text>
         <text class="arch-sub" x="380" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">route-outcome measurement</text>
         <text class="arch-label" x="640" y="212" text-anchor="middle" fill="oklch(78% 0.14 210)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">monofence-ai</text>
@@ -475,10 +475,10 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <thead><tr><th>Package</th><th>Path</th><th>Purpose</th></tr></thead>
       <tbody>
         <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 31 commands, including <code>org</code> (org runtime v2, see <code>src/orgrt/</code>) and <code>swarm</code> (in-session coordination bookkeeping)</td></tr>
-        <tr><td class="mono">@monomind/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>17 hook events + 15 background workers</td></tr>
-        <tr><td class="mono">@monomind/memory</td><td class="mono">packages/@monomind/memory/</td><td>Memory backends — episodic store, optional LanceDB/HNSW</td></tr>
-        <tr><td class="mono">@monomind/mcp</td><td class="mono">packages/@monomind/mcp/</td><td>MCP server framework</td></tr>
-        <tr><td class="mono">@monomind/routing</td><td class="mono">packages/@monomind/routing/</td><td>Keyword routing, route-outcome measurement</td></tr>
+        <tr><td class="mono">@monoes/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>17 hook events + 15 background workers</td></tr>
+        <tr><td class="mono">@monoes/memory</td><td class="mono">packages/@monomind/memory/</td><td>Memory backends — episodic store, optional LanceDB/HNSW</td></tr>
+        <tr><td class="mono">@monoes/mcp</td><td class="mono">packages/@monomind/mcp/</td><td>MCP server framework</td></tr>
+        <tr><td class="mono">@monoes/routing</td><td class="mono">packages/@monomind/routing/</td><td>Keyword routing, route-outcome measurement</td></tr>
         <tr><td class="mono">monofence-ai</td><td class="mono">packages/monofence-ai/</td><td>AI manipulation defense — prompt injection, jailbreak, evasion detection</td></tr>
         <tr><td class="mono">monograph</td><td class="mono">packages/@monomind/monograph/</td><td>Code knowledge graph — 19 default MCP tools, 27 advanced via <code>MONOGRAPH_MCP_ADVANCED=1</code> — published standalone as <code>@monoes/monograph</code></td></tr>
         <tr><td class="mono">@monoes/monobrowse</td><td class="mono">packages/@monoes/monobrowse/</td><td>Browser automation via CDP</td></tr>
@@ -528,7 +528,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">patterns.json / auto-memory-store.json</td><td>Learned patterns, prompt-time recall</td><td>Default hot path. Plain JSON, keyword matching.</td></tr>
         <tr><td class="mono">episodic/episodes.jsonl</td><td>Episodic recall</td><td>Keyword-matched against the prompt; injected as context.</td></tr>
         <tr><td class="mono">palace/drawers.jsonl</td><td>Verbatim BM25 search</td><td>800-char chunks, scored on retrieval.</td></tr>
-        <tr><td class="mono">LanceDBBackend / HNSW (optional)</td><td>Programmatic vector search</td><td>Ships in @monomind/memory; requires optional peer deps; not used by the default recall path.</td></tr>
+        <tr><td class="mono">LanceDBBackend / HNSW (optional)</td><td>Programmatic vector search</td><td>Ships in @monoes/memory; requires optional peer deps; not used by the default recall path.</td></tr>
       </tbody>
     </table>
     </div>
@@ -661,7 +661,7 @@ monomind doc ingest ./their-knowledge -s shared
       </tbody>
     </table>
     </div>
-    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Workers live in <code>@monomind/hooks</code> and start with the session. Metrics-producing workers (map, audit, optimize, consolidate, ddd) refresh when their <code>.monomind/metrics/*.json</code> output is missing or older than 6 hours; <code>doctor</code> reports metrics freshness. Run any worker on demand with <code>monomind hooks worker run &lt;name&gt;</code>.</p>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Workers live in <code>@monoes/hooks</code> and start with the session. Metrics-producing workers (map, audit, optimize, consolidate, ddd) refresh when their <code>.monomind/metrics/*.json</code> output is missing or older than 6 hours; <code>doctor</code> reports metrics freshness. Run any worker on demand with <code>monomind hooks worker run &lt;name&gt;</code>.</p>
     <div class="section-title reveal">Hook Configuration</div>
     <div class="code-block reveal">
 <span class="comment">// .claude/settings.json</span>

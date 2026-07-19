@@ -111,7 +111,7 @@ module.exports = {
       var result = await Promise.resolve(routeFn(prompt));
 
       // ── Enrichment: when router.cjs falls to the broad "coder" catch-all,
-      //    try @monomind/routing's richer keyword pre-filter (30+ specialized
+      //    try @monoes/routing's richer keyword pre-filter (30+ specialized
       //    rules for Solidity, game engines, DevOps, embedded, etc.) for a
       //    more specific agent match. This bridges the hooks layer (router.cjs)
       //    with the CLI routing package without requiring ESM imports. ─────────

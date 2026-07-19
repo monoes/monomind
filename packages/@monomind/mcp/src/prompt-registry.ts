@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Prompt Registry
+ * @monoes/mcp - Prompt Registry
  *
  * MCP 2025-11-25 compliant prompt management
  * Supports: list, get, arguments, templates, embedded resources

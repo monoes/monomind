@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Task Manager
+ * @monoes/mcp - Task Manager
  *
  * MCP 2025-11-25 compliant async task management
  * Supports: task tracking, progress reporting, cancellation

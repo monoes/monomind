@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Session Manager
+ * @monoes/mcp - Session Manager
  *
  * MCP session lifecycle management
  */

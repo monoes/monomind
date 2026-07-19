@@ -2,17 +2,21 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "paths": {
-      "@monomind/memory": ["./@monomind/memory/src"],
+      "@monoes/memory": ["./@monomind/memory/src"],
 
       "@monomind/cli": ["./@monomind/cli/src"],
-      "@monomind/hooks": ["./@monomind/hooks/src"]
+      "@monoes/hooks": ["./@monomind/hooks/src"],
+      "@monoes/mcp": ["./@monomind/mcp/src"],
+      "@monoes/routing": ["./@monomind/routing/src"]
     }
   },
   "references": [
     { "path": "./@monomind/memory" },
 
     { "path": "./@monomind/cli" },
-    { "path": "./@monomind/hooks" }
+    { "path": "./@monomind/hooks" },
+    { "path": "./@monomind/mcp" },
+    { "path": "./@monomind/routing" }
   ],
   "include": [],
   "exclude": ["node_modules", "dist"]

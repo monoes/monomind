@@ -1,7 +1,7 @@
-# @monomind/mcp
+# @monoes/mcp
 
-[![npm version](https://img.shields.io/npm/v/@monomind/mcp.svg?style=flat-square)](https://www.npmjs.com/package/@monomind/mcp)
-[![license](https://img.shields.io/npm/l/@monomind/mcp.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/@monoes/mcp.svg?style=flat-square)](https://www.npmjs.com/package/@monoes/mcp)
+[![license](https://img.shields.io/npm/l/@monoes/mcp.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-blue?style=flat-square)](https://nodejs.org)
 
 **Standalone MCP server** — stdio, HTTP, and WebSocket transports with tool registry, resources, prompts, sessions, and connection pooling. Zero `@monomind/*` dependencies.
@@ -11,13 +11,13 @@
 ## Install
 
 ```bash
-npm install @monomind/mcp
+npm install @monoes/mcp
 ```
 
 ## Quick start
 
 ```typescript
-import { quickStart, defineTool } from '@monomind/mcp';
+import { quickStart, defineTool } from '@monoes/mcp';
 
 const server = await quickStart({
   transport: 'stdio',
@@ -37,7 +37,7 @@ await server.start();
 ## Transports
 
 ```typescript
-import { createMCPServer } from '@monomind/mcp';
+import { createMCPServer } from '@monoes/mcp';
 
 // stdio (default — for Claude Code integration)
 const server = createMCPServer({ transport: 'stdio', name: 'My Server' }, logger);
@@ -63,7 +63,7 @@ const server = createMCPServer({
 ## Tool registry
 
 ```typescript
-import { createToolRegistry, defineTool } from '@monomind/mcp';
+import { createToolRegistry, defineTool } from '@monoes/mcp';
 
 const registry = createToolRegistry(logger);
 
@@ -80,7 +80,7 @@ const result = await registry.execute('calculate', { expression: '2 + 2' });
 ## Resources & prompts
 
 ```typescript
-import { createTextResource, definePrompt, textMessage } from '@monomind/mcp';
+import { createTextResource, definePrompt, textMessage } from '@monoes/mcp';
 
 // Resources
 const { resource, handler } = createTextResource('file://readme.txt', 'README', 'Hello!');

@@ -19,7 +19,7 @@ Claude Code event (JSON via stdin)
   ├── utils/monograph.cjs         ← Knowledge graph integration
   └── utils/micro-agents.cjs      ← MicroAgent trigger scanning
           ↓
-@monomind/hooks (TypeScript, ESM)  ← Full hook registry + workers
+@monoes/hooks (TypeScript, ESM)  ← Full hook registry + workers
 ```
 
 All async operations use a 1500ms timeout guard (`runWithTimeout`) to prevent blocking Claude.
@@ -118,7 +118,7 @@ Defined in `packages/@monomind/hooks/src/types.ts`:
 
 ## Background Workers (15)
 
-There is no separate background daemon. All 15 workers live in `@monomind/hooks` (`WorkerManager`), run in-process, and are initialized at session start. The metrics-producing workers (`map`, `audit`, `optimize`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `doctor` reports worker-metrics freshness.
+There is no separate background daemon. All 15 workers live in `@monoes/hooks` (`WorkerManager`), run in-process, and are initialized at session start. The metrics-producing workers (`map`, `audit`, `optimize`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `doctor` reports worker-metrics freshness.
 
 | Worker | Interval | Priority | Purpose |
 |---|---|---|---|

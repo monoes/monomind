@@ -26,7 +26,7 @@ module.exports = {
     // - PromptVersioning experiments (unused feature)
     // - Monograph blast radius (already shown by post-edit hook on actual changes)
 
-    // Bridge to @monomind/hooks registry — fires Tasks 26 (PromptAssembler) and any other PreTask hooks.
+    // Bridge to @monoes/hooks registry — fires Tasks 26 (PromptAssembler) and any other PreTask hooks.
     // Each hook event runs in a fresh process, so hCtx._hooksModule set by session-restore in an
     // earlier invocation is never visible here — must (re)load lazily via _ensureHooksModule().
     var _hooksModule = hCtx._hooksModule || (hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : null);
@@ -114,7 +114,7 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
-    // Bridge to @monomind/hooks registry — fires Tasks 39 (SpecializationScorer) and any other PostTask hooks.
+    // Bridge to @monoes/hooks registry — fires Tasks 39 (SpecializationScorer) and any other PostTask hooks.
     // Each hook event runs in a fresh process, so hCtx._hooksModule set by session-restore in an
     // earlier invocation is never visible here — must (re)load lazily via _ensureHooksModule().
     var _hooksModule = hCtx._hooksModule || (hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : null);

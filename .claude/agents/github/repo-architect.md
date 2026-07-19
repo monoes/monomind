@@ -220,7 +220,7 @@ jobs:
     key: "architecture/analysis/results",
     value: {
       timestamp: Date.now(),
-      repositories_analyzed: ["@monomind/cli", "@monomind/hooks"],
+      repositories_analyzed: ["@monomind/cli", "@monoes/hooks"],
       optimization_areas: ["structure", "workflows", "templates", "documentation"],
       recommendations: ["standardize_structure", "improve_workflows", "enhance_templates"],
       implementation_status: "in_progress"
@@ -284,10 +284,10 @@ const integrationPattern = {
   packages: {
     "@monomind/cli": {
       role: "orchestration_layer",
-      dependencies: ["@monomind/hooks", "@monomind/memory"],
+      dependencies: ["@monoes/hooks", "@monomind/memory"],
       provides: ["CLI", "workflows", "commands"],
     },
-    "@monomind/hooks": {
+    "@monoes/hooks": {
       role: "intelligence_engine",
       dependencies: ["@monomind/memory"],
       provides: ["hooks", "workers", "learning"],

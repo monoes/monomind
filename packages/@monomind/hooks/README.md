@@ -1,7 +1,7 @@
-# @monomind/hooks
+# @monoes/hooks
 
-[![npm version](https://img.shields.io/npm/v/@monomind/hooks.svg?style=flat-square)](https://www.npmjs.com/package/@monomind/hooks)
-[![license](https://img.shields.io/npm/l/@monomind/hooks.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/@monoes/hooks.svg?style=flat-square)](https://www.npmjs.com/package/@monoes/hooks)
+[![license](https://img.shields.io/npm/l/@monoes/hooks.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-blue?style=flat-square)](https://nodejs.org)
 
 **A library, not a runtime dispatcher.** Provides hook type definitions, an in-memory `HookRegistry`/`HookExecutor` for defining handlers, and a `WorkerManager` with 15 background workers for Monomind.
@@ -27,13 +27,13 @@ metrics files under `.monomind/metrics/` that the statusline, router, and
 ## Install
 
 ```bash
-npm install @monomind/hooks
+npm install @monoes/hooks
 ```
 
 ## Quick start
 
 ```typescript
-import { HookRegistry, HookExecutor, HookEvent, HookPriority } from '@monomind/hooks';
+import { HookRegistry, HookExecutor, HookEvent, HookPriority } from '@monoes/hooks';
 
 const registry = new HookRegistry();
 const executor = new HookExecutor(registry);
@@ -108,7 +108,7 @@ persist run state to `.monomind/metrics/workers-state.json`, raise threshold
 alerts, and export statusline data.
 
 ```typescript
-import { WorkerManager, createHealthWorker } from '@monomind/hooks';
+import { WorkerManager, createHealthWorker } from '@monoes/hooks';
 
 const manager = new WorkerManager(process.cwd());
 manager.register('health', createHealthWorker(process.cwd()));

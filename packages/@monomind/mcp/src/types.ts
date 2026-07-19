@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Standalone Types
+ * @monoes/mcp - Standalone Types
  *
  * Complete type definitions for MCP server implementation
  * Zero external @monomind dependencies
