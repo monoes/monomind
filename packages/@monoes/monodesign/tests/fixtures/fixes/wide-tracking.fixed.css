@@ -1,0 +1,17 @@
+.spread {
+  letter-spacing: 0.05em;
+}
+
+.px-spread {
+  font-size: 16px;
+  letter-spacing: 0.05em;
+}
+
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.ok {
+  letter-spacing: 0.03em;
+}

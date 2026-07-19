@@ -1,14 +1,14 @@
 <!-- Synced from the monodesign v3.2.1 registry. Source of truth: cli/engine/registry/antipatterns.mjs -->
 # Antipatterns Catalog
 
-All 46 known design antipatterns with detection rules and remediation. These are what `monomind design detect` checks. Run this on any HTML/CSS target before presenting work.
+All 51 known design antipatterns with detection rules and remediation. These are what `monomind design detect` checks. Run this on any HTML/CSS target before presenting work.
 
 ## Categories
 
 These are the two categories the `monomind design detect` engine uses:
 
 - **slop** — AI tells that signal lack of intentional design (27 patterns)
-- **quality** — Design principle violations including contrast, motion, readability, and semantic structure (19 patterns)
+- **quality** — Design principle violations including contrast, motion, readability, and semantic structure (24 patterns)
 
 ---
 
@@ -226,6 +226,14 @@ These are the two categories the `monomind design detect` engine uses:
 **Why it's wrong:** Cramped elements are hard to read, harder to click, and communicate low quality. 8px is the absolute minimum; 16px is the default.  
 **Fix:** Minimum 12px padding inside cards. Minimum 10px vertical + 16px horizontal on buttons. Minimum 44×44px touch targets.
 
+### `dark-scheme-contrast-blindspot` — Dark-scheme contrast blindspot
+
+**Detect** (advisory): The page ships dark styling (a `@media (prefers-color-scheme: dark)` block or a `.dark` / `[data-theme=dark]` scope), but for some selector the dark override changes the background without changing the paired text color — or the reverse — while the light scheme defined both.
+
+**Why it's wrong**: A half-updated color pair often collapses to unreadable contrast in dark mode (dark text left on a newly-dark background). It's the most common dark-mode regression and easy to miss because the light scheme looks fine.
+
+**Fix**: Override text and background together for the same selector, or verify the inherited half still contrasts against the changed half. Prefer semantic tokens (`--fg` / `--bg`) that flip as a pair.
+
 ### `design-system-color` — Color outside DESIGN.md
 
 **Detect**: A literal color value used in CSS that is not declared in the project's `DESIGN.md` palette or its tonal ramps.
@@ -263,6 +271,22 @@ These are the two categories the `monomind design detect` engine uses:
 **Why it's wrong:** Gray text on colored backgrounds almost always fails WCAG contrast requirements and looks muddy.  
 **Fix:** Use white or the appropriate neutral from the color ramp. Never use a generic gray on a tinted background.
 
+### `hover-only-affordance` — Functionality gated behind hover only
+
+**Detect**: An element is hidden by default (`display: none`, `visibility: hidden`, or `opacity: 0`) and revealed only via a `:hover` rule on an ancestor, with no matching `:focus`, `:focus-within`, or `:active` rule.
+
+**Why it's wrong**: Hover doesn't exist on touch devices and can't be reached by keyboard. Anything gated behind hover alone is invisible and unusable for a large share of users.
+
+**Fix**: Mirror every hover reveal with a `:focus-within` (or `:active`) rule targeting the same element, so the affordance is reachable without a pointer.
+
+### `image-missing-dimensions` — Image without reserved dimensions
+
+**Detect**: An `<img>` ships without both `width` and `height` attributes and without a CSS `aspect-ratio` or explicit height.
+
+**Why it's wrong**: The browser can't reserve space before the image loads, so surrounding content jumps when it arrives — cumulative layout shift (CLS), a Core Web Vitals failure and a jarring experience.
+
+**Fix**: Set `width` and `height` attributes (the browser derives the aspect ratio), or give the image a CSS `aspect-ratio`. Either reserves the box before load.
+
 ### `justified-text` — Justified text
 **Detect:** `text-align: justify` on paragraph elements.  
 **Why it's wrong:** CSS text justification creates uneven word spacing (rivers of white) because browsers don't hyphenate automatically. It reads as broken on web.  
@@ -283,10 +307,26 @@ These are the two categories the `monomind design detect` engine uses:
 **Why it's wrong:** Low contrast text fails WCAG AA requirements and creates genuine barriers for users with low vision, in bright ambient light, or on low-quality displays.  
 **Fix:** Increase the contrast between text and background. Use white or a high-lightness neutral on dark backgrounds; use Deep Graphite (`oklch(10% 0 0)`) or Soft Charcoal (`oklch(25% 0 0)`) on light ones. Tool: check with `monomind design detect` or the WebAIM contrast checker.
 
+### `missing-focus-visible` — Suppressed focus outline with no replacement
+
+**Detect**: An interactive element (link, button, input, `[role=button]`) removes its focus outline (`outline: none` / `0`), but the stylesheet never provides a `:focus-visible` or `:focus` replacement.
+
+**Why it's wrong**: Removing the outline with no substitute strands keyboard users — there's no visible indication of where focus is. It's one of the most common and most damaging accessibility regressions.
+
+**Fix**: Remove the suppression, or pair it with a visible `:focus-visible` ring — an `outline`, `box-shadow`, or `border` that clearly marks the focused control.
+
 ### `skipped-heading` — Skipped heading level
 **Detect:** An `h3` or deeper element that is not preceded by an `h2` in the same section, or an `h2` not preceded by an `h1`.  
 **Why it's wrong:** Skipped headings break screen reader navigation and document outline semantics.  
 **Fix:** Maintain sequential heading hierarchy. If you need the visual size of `h3` without the `h2` parent, use a `h2` with class-based styling.
+
+### `small-touch-target` — Touch target below 44px
+
+**Detect**: A clickable control (`button`, link, clickable `input`, `[role=button]`) renders smaller than 44×44px on one or both axes. Inline text links inside prose are exempt.
+
+**Why it's wrong**: Fingers are imprecise. Targets below ~44×44px (the WCAG 2.5.5 / platform HIG minimum) are missed and mis-tapped, especially on mobile and for users with motor impairments.
+
+**Fix**: Give standalone controls at least 44×44px of hit area via `padding` or `min-width` / `min-height`. Spacing between adjacent targets helps too.
 
 ### `text-overflow` — Content overflowing its container
 
@@ -349,16 +389,21 @@ These are the two categories the `monomind design detect` engine uses:
 | `broken-image` | quality | Real image or remove tag |
 | `clipped-overflow-container` | quality | Portal or visible overflow |
 | `cramped-padding` | quality | 16px minimum |
+| `dark-scheme-contrast-blindspot` | quality | Flip text + background as a pair |
 | `design-system-color` | quality | Use palette token or update DESIGN.md |
 | `design-system-font` | quality | Use type system or update DESIGN.md |
 | `design-system-font-size` | quality | Use type-ramp step or update DESIGN.md |
 | `design-system-radius` | quality | Use radius token or update DESIGN.md |
 | `gray-on-color` | quality | White or appropriate ramp tone |
+| `hover-only-affordance` | quality | Mirror hover with :focus-within |
+| `image-missing-dimensions` | quality | width/height attrs or aspect-ratio |
 | `justified-text` | quality | text-align: left |
 | `layout-transition` | quality | transform + opacity only |
 | `line-length` | quality | max-width: 65ch |
 | `low-contrast` | quality | 4.5:1 normal, 3:1 large text |
+| `missing-focus-visible` | quality | Add a :focus-visible ring |
 | `skipped-heading` | quality | Sequential h1→h2→h3 |
+| `small-touch-target` | quality | 44×44px minimum hit area |
 | `text-overflow` | quality | overflow-wrap + constrained widths |
 | `tight-leading` | quality | line-height: 1.6 |
 | `tiny-text` | quality | 16px minimum body |

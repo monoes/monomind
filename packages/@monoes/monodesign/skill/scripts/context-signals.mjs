@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { loadContext, extractRegister, extractPlatform } from './context.mjs';
 import { getCritiqueDir } from './lib/monodesign-paths.mjs';
+import { readTrend, extractIssueLines, trendDirection } from './critique-storage.mjs';
 
 /** Is there code here at all, or just context files / an empty repo? */
 function hasCode(cwd) {
@@ -36,7 +37,10 @@ function hasCode(cwd) {
 /**
  * The most recent critique snapshot across all targets. Filenames are
  * timestamp-prefixed (`<iso>__<slug>.md`), so a lexical sort is chronological.
- * Parses the small frontmatter for score + P0/P1 counts.
+ * Parses the small frontmatter for score + P0/P1 counts, plus two "design
+ * health" extras: the score trend for the same slug (last 3 runs, with a
+ * direction) and the open [P0] issue titles from the snapshot body — enough
+ * for a session to start design-health-aware without an LLM pass.
  */
 function latestCritique(cwd) {
   try {
@@ -55,13 +59,43 @@ function latestCritique(cwd) {
       const n = Number(v);
       return Number.isFinite(n) ? n : null;
     };
+    const slug = get('slug');
+    // Trend across the last 3 runs for the same slug. Frontmatter written by
+    // critique-storage carries `total_score`; older/hand-written snapshots may
+    // carry `score` — accept either. Best-effort: never let this probe throw.
+    let trend = null;
+    try {
+      if (slug) {
+        const rows = readTrend(slug, { limit: 3, cwd });
+        const scores = rows
+          .map((r) => num(r.total_score ?? r.score))
+          .filter((n) => n !== null);
+        if (scores.length) trend = { scores, direction: trendDirection(scores) };
+      }
+    } catch { /* trend stays null */ }
+    let openP0 = [];
+    try {
+      openP0 = extractIssueLines(text).p0;
+    } catch { /* openP0 stays empty */ }
+    // Frontmatter key fallbacks: context fixtures use score/p0/p1, the
+    // critique flow's MONODESIGN_CRITIQUE_META uses total_score/p0_count/
+    // p1_count. `get` returns null for missing keys; keep null (not 0).
+    const numKey = (...keys) => {
+      for (const k of keys) {
+        const v = get(k);
+        if (v !== null) return num(v);
+      }
+      return null;
+    };
     return {
-      slug: get('slug'),
-      score: num(get('score')),
-      p0: num(get('p0')),
-      p1: num(get('p1')),
+      slug,
+      score: numKey('score', 'total_score'),
+      p0: numKey('p0', 'p0_count'),
+      p1: numKey('p1', 'p1_count'),
       timestamp: get('timestamp'),
       file: path.relative(cwd, path.join(dir, newest)),
+      trend,
+      openP0,
     };
   } catch {
     return null;

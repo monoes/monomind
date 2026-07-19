@@ -1,0 +1,17 @@
+.prose {
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.tight-px {
+  font-size: 20px;
+  line-height: 22px;
+}
+
+.ok {
+  line-height: 1.6;
+}
+
+.percent {
+  line-height: 110%;
+}

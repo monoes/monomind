@@ -28,6 +28,11 @@ import {
   checkPageLayout,
   checkPageQualityFromDoc,
   checkRepeatedSectionKickersFromDoc,
+  checkElementImageDimensions,
+  checkElementSmallTouchTarget,
+  checkFocusVisible,
+  checkHoverOnlyAffordance,
+  checkDarkSchemeContrast,
   resolveBackground,
   resolveBorderRadiusPx,
 } from '../../rules/checks.mjs';
@@ -102,6 +107,8 @@ const STATIC_ELEMENT_RULES = [
   { id: 'oversized-h1', selector: 'h1', run: (el, tag, style, window) => checkElementOversizedH1(el, style, tag, window) },
   { id: 'clipped-overflow-container', selector: '*', run: (el, tag, style, window) => checkElementClippedOverflow(el, style, tag, window) },
   { id: 'gpt-thin-border-wide-shadow', selector: '*', run: (el, tag, style) => checkElementGptBorderShadow(el, style) },
+  { id: 'image-missing-dimensions', selector: 'img', run: (el, tag, style) => checkElementImageDimensions(el, style) },
+  { id: 'small-touch-target', selector: 'a,button,input,select,summary,[role=button],[role=link],[role=menuitem],[role=tab],[role=switch]', run: (el, tag, style) => checkElementSmallTouchTarget(el, style, tag) },
 ];
 
 async function detectHtml(filePath, options = {}) {
@@ -207,6 +214,18 @@ async function detectHtml(filePath, options = {}) {
       findings.push(finding(f.id, filePath, f.snippet));
     }
     for (const f of runPageCheck('skipped-heading', () => checkPageQualityFromDoc(document))) {
+      findings.push(finding(f.id, filePath, f.snippet));
+    }
+    // Stylesheet-level accessibility rules operate on the concatenated CSS
+    // text (<style> blocks + linked sheets) — :hover / :focus-visible /
+    // prefers-color-scheme conditions can't be read off a resting element.
+    for (const f of runPageCheck('missing-focus-visible', () => checkFocusVisible(cssText))) {
+      findings.push(finding(f.id, filePath, f.snippet));
+    }
+    for (const f of runPageCheck('hover-only-affordance', () => checkHoverOnlyAffordance(cssText))) {
+      findings.push(finding(f.id, filePath, f.snippet));
+    }
+    for (const f of runPageCheck('dark-scheme-contrast-blindspot', () => checkDarkSchemeContrast(cssText))) {
       findings.push(finding(f.id, filePath, f.snippet));
     }
     for (const f of runPageCheck('html-patterns', () => checkHtmlPatterns(html).filter(item =>

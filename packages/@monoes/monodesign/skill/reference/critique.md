@@ -215,7 +215,7 @@ Skip this step if the Setup slug was null (vague or root-level target).
    MONODESIGN_CRITIQUE_META='{"target":"<user phrasing>","total_score":<n>,"p0_count":<n>,"p1_count":<n>}' \
      node {{scripts_path}}/critique-storage.mjs write <slug> <body-file>
    ```
-   The helper prints the absolute path it wrote.
+   The helper prints the absolute path it wrote. As part of the write it also best-effort mirrors a compact record (score, P0/P1 counts, date, slug, path) into monomind's persistent memory under the `design-critique` namespace, so design health carries across sessions. This mirror is silent and never fails the critique: if the monomind CLI is unavailable it is skipped, and setting `MONODESIGN_NO_MEMORY=1` disables it entirely. Do not report mirror status unless the user asks.
 
 3. **Delete the temp body file** after the write attempt completes, whether the write succeeded or failed. If deletion fails, mention `temp-file cleanup failed: <reason>` briefly in the final output, but do not block the critique.
 

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Missing focus-visible — should pass</title>
+  <style>
+    body { font-family: Georgia, serif; color: #222; background: #fff; }
+    h1 { font-family: "Palatino Linotype", Palatino, serif; }
+    /* Outline is suppressed, but a visible :focus-visible ring replaces it. */
+    button:focus { outline: none; }
+    button:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+    a:focus { outline: none; }
+    a:focus-visible { box-shadow: 0 0 0 3px #1d4ed8; }
+  </style>
+</head>
+<body>
+  <p>Focus outlines are suppressed but replaced with a focus-visible ring.</p>
+  <button type="button">Save</button>
+  <a href="/next">Continue</a>
+</body>
+</html>

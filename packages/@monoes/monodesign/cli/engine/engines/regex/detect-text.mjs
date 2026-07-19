@@ -7,6 +7,11 @@ import { applyInlineIgnores } from '../../shared/inline-ignores.mjs';
 import { finding } from '../../findings.mjs';
 import { filterByProviders } from '../../registry/antipatterns.mjs';
 import { profileFindings, profileStep } from '../../profile/profiler.mjs';
+import {
+  checkFocusVisible,
+  checkHoverOnlyAffordance,
+  checkDarkSchemeContrast,
+} from '../../rules/checks.mjs';
 
 // ---------------------------------------------------------------------------
 // Regex fallback (non-HTML files: CSS, JSX, TSX, etc.)
@@ -164,6 +169,17 @@ const REGEX_MATCHERS = [
   // --- Broken image: <img> with no src attribute at all ---
   { id: 'broken-image', regex: /<img\b(?:(?!\bsrc\s*=)[^>])*>/gi,
     test: (m) => !/\bsrc\s*=/i.test(m[0]),
+    fmt: (m) => m[0].slice(0, 100) },
+  // --- Image missing dimensions (CLS): <img> without width+height and
+  //     without a CSS aspect-ratio or explicit height. Covers HTML (width="…")
+  //     and JSX (width={…}) attribute forms. ---
+  { id: 'image-missing-dimensions', regex: /<img\b[^>]*>/gi,
+    test: (m) => {
+      const tag = m[0];
+      const hasHeight = /(?:^|[\s{;"'])height\s*[=:]/i.test(tag);
+      const hasAspect = /aspect-?ratio/i.test(tag);
+      return !hasHeight && !hasAspect;
+    },
     fmt: (m) => m[0].slice(0, 100) },
 ];
 
@@ -464,6 +480,48 @@ function runTextContentAnalyzers(content, filePath, options = {}) {
   return findings;
 }
 
+// Extract raw CSS text from a source file for the stylesheet-level analyzers
+// (focus-visible, hover-only, dark-scheme). CSS-like files are CSS wholesale;
+// everything else contributes only its <style> block contents so tag markup
+// and inline styles don't confuse the flat CSS parser.
+const CSS_LIKE_EXTS = new Set(['.css', '.scss', '.sass', '.less']);
+function extractStylesheetText(content, ext) {
+  if (CSS_LIKE_EXTS.has(ext)) return content;
+  const blocks = [];
+  const re = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+  let m;
+  while ((m = re.exec(content)) !== null) blocks.push(m[1]);
+  return blocks.join('\n');
+}
+
+const STYLESHEET_ANALYZERS = [
+  { id: 'missing-focus-visible', run: checkFocusVisible },
+  { id: 'hover-only-affordance', run: checkHoverOnlyAffordance },
+  { id: 'dark-scheme-contrast-blindspot', run: checkDarkSchemeContrast },
+];
+
+// Run the stylesheet-level analyzers over a source file's CSS. Applies to
+// CSS-like sources and to full HTML pages (which carry <style> blocks).
+function runStylesheetAnalyzers(content, filePath, options = {}) {
+  const profile = options?.profile;
+  const ext = extFromFilePath(filePath);
+  const isCssLike = CSS_LIKE_EXTS.has(ext);
+  if (!isCssLike && !isFullPage(content)) return [];
+  const cssText = extractStylesheetText(content, ext);
+  if (!cssText.trim()) return [];
+  const findings = [];
+  for (const analyzer of STYLESHEET_ANALYZERS) {
+    const hits = profileFindings(profile, {
+      engine: 'regex',
+      phase: 'stylesheet',
+      ruleId: analyzer.id,
+      target: filePath,
+    }, () => analyzer.run(cssText));
+    for (const h of hits) findings.push(finding(h.id, filePath, h.snippet));
+  }
+  return findings;
+}
+
 function detectText(content, filePath, options = {}) {
   const profile = options?.profile;
   const findings = [];
@@ -555,6 +613,10 @@ function detectText(content, filePath, options = {}) {
     }
   }
 
+  // Stylesheet-level accessibility analyzers (focus-visible, hover-only,
+  // dark-scheme). Run on CSS-like sources and full HTML pages.
+  deduped.push(...runStylesheetAnalyzers(content, filePath, options));
+
   const byProvider = filterByProviders(deduped, options?.providers);
   // Inline `monodesign-disable*` waivers travel with the file; honor them unless
   // explicitly bypassed (`--no-config` / `--no-inline-ignores`).
@@ -569,5 +631,6 @@ export {
   extractCSSinJS,
   runRegexMatchers,
   runTextContentAnalyzers,
+  runStylesheetAnalyzers,
   detectText,
 };

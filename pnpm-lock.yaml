@@ -143,8 +143,8 @@ importers:
         specifier: ^1.0.3
         version: 1.0.3
       '@monoes/monodesign':
-        specifier: ^1.1.1
-        version: 1.1.1
+        specifier: ^1.2.0
+        version: 1.2.0
       '@monoes/monograph':
         specifier: ^1.4.0
         version: 1.4.0(graphology-types@0.24.8)
@@ -867,8 +867,8 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@monoes/monodesign@1.1.1':
-    resolution: {integrity: sha512-rrbFzT7AaCJTRU6j1hJa+vV1uPor+gGdyVfRclJAXZ3CJbwZUHk+f1duhyEo+vQnmwGDAzpHdNnJAQIuHP5gjw==}
+  '@monoes/monodesign@1.2.0':
+    resolution: {integrity: sha512-uEyTsbOLex0m1zKzbsClVcPznuAYoQB4VeUhwdHJ38QZ5yHBlCuklCYNKwkdbar6bsJDe8RYV3yC5+n9yzyS8A==}
     hasBin: true
 
   '@monoes/monograph@1.4.0':
@@ -3269,7 +3269,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@monoes/monodesign@1.1.1':
+  '@monoes/monodesign@1.2.0':
     dependencies:
       css-select: 7.0.0
       css-tree: 3.2.1

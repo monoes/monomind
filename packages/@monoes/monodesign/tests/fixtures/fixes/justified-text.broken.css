@@ -1,0 +1,14 @@
+.article {
+  text-align: justify;
+  color: #222222;
+}
+
+.already {
+  text-align: justify;
+  hyphens: auto;
+}
+
+.manual {
+  text-align: justify;
+  hyphens: manual;
+}
