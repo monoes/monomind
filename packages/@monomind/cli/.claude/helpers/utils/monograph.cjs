@@ -341,6 +341,10 @@ function _graphGateMarkQueried(sessionId) {
 }
 
 function _graphGateShouldBlock(sessionId) {
+  // MONOMIND_GRAPH_GATE=off disables the gate entirely — for headless/CI runs
+  // (claude -p, org agents, scripted probes) where each run is a fresh session
+  // that would otherwise eat one deliberate block on its first grep/find.
+  if (String(process.env.MONOMIND_GRAPH_GATE || '').toLowerCase() === 'off') return false;
   if (!sessionId || !_isGraphFresh()) return false;
   var sessions = _graphGateReadSessions();
   var s = sessions[sessionId] || { queried: false, blockedOnce: false };
