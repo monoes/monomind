@@ -1,6 +1,6 @@
 <!-- "Mastermind — Deeply analyze a component, research improvements online, and create improvement tasks saved to docs/improvements/ (default) or monotask boards (--monotask flag)" -->
 
-**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
 
 If `$ARGUMENTS` is empty, output this and STOP:
 
@@ -47,7 +47,7 @@ Collect ALL of the following in parallel (skip any that error):
 
 Bundle all gathered information into a single `PROJECT_CONTEXT` string for downstream agents.
 
-**DELEGATION RULE:** Every agent spawned in this command MUST include the `== AGENT DELEGATION CAPABILITY ==` block (from `mastermind/_delegation.md`) in its prompt, immediately before `YOUR GOAL:`. This lets each agent spawn its own sub-agents when needed — delegation is recursive.
+**DELEGATION RULE:** Every agent spawned in this command MUST include the `== AGENT DELEGATION CAPABILITY ==` block (from `mastermind/mastermind-delegation/SKILL.md`) in its prompt, immediately before `YOUR GOAL:`. This lets each agent spawn its own sub-agents when needed — delegation is recursive.
 
 ---
 
@@ -175,7 +175,7 @@ The agent must synthesize the code analysis and online research into concrete im
 
 Persist each improvement:
 
-**File mode:** Append to `IMPROVE_FILE` using the improvement section format from `_taskfile.md`:
+**File mode:** Append to `IMPROVE_FILE` using the improvement section format from `mastermind-taskfile/SKILL.md`:
 ```markdown
 ### <Improvement Title>
 > status: discovered
@@ -329,14 +329,14 @@ If there are todo tasks:
 
 *File mode:*
 ```
-Skill("mastermind-skills:do", "--file <TASK_FILE> --mode <parallel|minimal|sequential>")
+Skill("mastermind-do", "--file <TASK_FILE> --mode <parallel|minimal|sequential>")
 ```
 
 *Monotask mode:*
 ```
-Skill("mastermind-skills:do", "--monotask --space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
+Skill("mastermind-do", "--monotask --space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
 ```
 
 To repeat this command on a schedule, wrap it with `/mastermind:repeat` or use `--repeat N` / `--tillend` directly.
 
-**MANDATORY — invoke `Skill("mastermind-skills:_repeat")` now.** This is required regardless of how the skill above completed, regardless of whether you think the work is done, regardless of whether you plan to end your response. For `--repeat N`: the count is non-negotiable — all N runs must happen. For `--tillend`: only a verified empty round (confirmed by git diff) stops the loop. Do not end your response without invoking this skill.
+**MANDATORY — invoke `Skill("mastermind-repeat")` now.** This is required regardless of how the skill above completed, regardless of whether you think the work is done, regardless of whether you plan to end your response. For `--repeat N`: the count is non-negotiable — all N runs must happen. For `--tillend`: only a verified empty round (confirmed by git diff) stops the loop. Do not end your response without invoking this skill.

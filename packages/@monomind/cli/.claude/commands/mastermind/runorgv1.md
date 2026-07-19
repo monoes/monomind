@@ -60,7 +60,7 @@ Scan `$ARGUMENTS` for these flags and store their values. Remove them from the a
 | `--wait <N>` | `wait_seconds = N` | 60 |
 | `--repeat <N>` | `repeat_count = N` | 0 |
 
-⚠️ **CRITICAL — CONTINUATION RUNS DO NOT SKIP WORK.** When `--rep N` is present, this is a scheduled continuation triggered by ScheduleWakeup. The org's FULL work cycle MUST still execute every time: session variables → session:start event → Skill("mastermind-skills:runorgv1") → session:complete event. NEVER short-circuit or skip the org work because `--rep` is present. The `--rep` / `--loop` flags are only consumed by `Skill("mastermind-skills:_repeat")` at the end.
+⚠️ **CRITICAL — CONTINUATION RUNS DO NOT SKIP WORK.** When `--rep N` is present, this is a scheduled continuation triggered by ScheduleWakeup. The org's FULL work cycle MUST still execute every time: session variables → session:start event → Skill("mastermind-runorgv1") → session:complete event. NEVER short-circuit or skip the org work because `--rep` is present. The `--rep` / `--loop` flags are only consumed by `Skill("mastermind-repeat")` at the end.
 
 ---
 
@@ -88,7 +88,7 @@ Verify the org file exists before proceeding:
 ```
 If the file does not exist, stop and suggest running `/mastermind:createorg --name ${org_name}`.
 
-Load brain context for the `ops` domain (follow _protocol.md Brain Load Procedure, namespace: `ops`).
+Load brain context for the `ops` domain (follow mastermind-protocol/SKILL.md Brain Load Procedure, namespace: `ops`).
 
 Resolve session ID and project root:
 ```bash
@@ -123,7 +123,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
     '{type:"domain:dispatch",session:$session,domain:"ops",cmd:("Starting org "+$org+" as persistent daemon"),project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
-Invoke `Skill("mastermind-skills:runorgv1")` passing: brain_context, org_name: `$org_name`, session_id: `$session_id`, task: task_override, caller: "command".
+Invoke `Skill("mastermind-runorgv1")` passing: brain_context, org_name: `$org_name`, session_id: `$session_id`, task: task_override, caller: "command".
 
 After the skill spawns the boss agent and returns: note the status. Emit `session:complete`:
 ```bash
@@ -136,10 +136,10 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "
     '{type:"session:complete",session:$session,domain:"ops",status:$status,domains:["ops"],project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
-Follow _protocol.md Brain Write Procedure for domain `ops`.
+Follow mastermind-protocol/SKILL.md Brain Write Procedure for domain `ops`.
 
 
-**MANDATORY — invoke `Skill("mastermind-skills:_repeat")` now.** This is required regardless of how the skill above completed, regardless of whether you think the work is done, regardless of whether you plan to end your response. For `--repeat N`: the count is non-negotiable — all N runs must happen. For `--tillend`: only a verified empty round (confirmed by git diff) stops the loop. Do not end your response without invoking this skill.
+**MANDATORY — invoke `Skill("mastermind-repeat")` now.** This is required regardless of how the skill above completed, regardless of whether you think the work is done, regardless of whether you plan to end your response. For `--repeat N`: the count is non-negotiable — all N runs must happen. For `--tillend`: only a verified empty round (confirmed by git diff) stops the loop. Do not end your response without invoking this skill.
 
 After the REPEAT POSTAMBLE completes, if a loop was started or continued (LOOP_ID is set), write the org name into the loop state file so the dashboard can detect running status:
 ```bash

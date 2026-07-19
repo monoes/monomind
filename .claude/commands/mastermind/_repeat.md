@@ -1,4 +1,4 @@
-<!-- Shared inter-session repeat protocol. Referenced by mastermind and monomind commands via "Follow the Repeat Preamble/Postamble from _repeat.md". -->
+<!-- Shared inter-session repeat protocol. Referenced by mastermind and monomind commands via "Follow the Repeat Preamble/Postamble from mastermind-repeat/SKILL.md". -->
 
 ## Shared Repeat Protocol
 
@@ -152,7 +152,7 @@ If neither condition is true, skip to Section 4.
      "lastRunAt": ${NOW_MS},
      "nextRunAt": ${NOW_MS},
      "status": "running",
-     "source": "_repeat.md"
+     "source": "mastermind-repeat/SKILL.md"
    }
    EOF
    ```
@@ -174,7 +174,7 @@ If neither condition is true, skip to Section 4.
      "lastRunAt": ${NOW_MS},
      "nextRunAt": ${NOW_MS},
      "status": "running",
-     "source": "_repeat.md"
+     "source": "mastermind-repeat/SKILL.md"
    }
    EOF
    ```
@@ -443,7 +443,7 @@ cat > ".monomind/loops/${LOOP_ID}.json" << EOF
   "lastRunAt": ${NOW_MS},
   "nextRunAt": ${NEXT_AT},
   "status": "running",
-  "source": "_repeat.md"
+  "source": "mastermind-repeat/SKILL.md"
 }
 EOF
 ```

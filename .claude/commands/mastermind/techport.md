@@ -1,6 +1,6 @@
 <!-- Tech Port — deep-analyzes a foreign project folder and recommends porting valuable features, patterns, or infrastructure into the current monomind base project. -->
 
-**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check below.
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check below.
 
 Parse `$ARGUMENTS` for:
 - First path-like token (starts with `/`, `./`, `../`, or `~`) → source_path
@@ -11,7 +11,7 @@ Parse `$ARGUMENTS` for:
 
 If source_path is empty: ask "What is the path to the project you want to analyze?"
 
-Load brain context for the `techport` domain (follow `_protocol.md` Brain Load Procedure).
+Load brain context for the `techport` domain (follow `mastermind-protocol/SKILL.md` Brain Load Procedure).
 
 Default mode: **confirm** (show analysis + port plan, wait before executing anything).
 
@@ -20,8 +20,8 @@ Default mode: **confirm** (show analysis + port plan, wait before executing anyt
 > /mastermind:techport --tillend --auto /path/to/project
 > ```
 
-Invoke `Skill("mastermind-skills:techport")` passing: source_path, focus_hint, mode.
+Invoke `Skill("mastermind-techport")` passing: source_path, focus_hint, mode.
 
-After skill returns: follow `_protocol.md` Brain Write Procedure for domain `techport`.
+After skill returns: follow `mastermind-protocol/SKILL.md` Brain Write Procedure for domain `techport`.
 
-Invoke `Skill("mastermind-skills:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
+Invoke `Skill("mastermind-repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
