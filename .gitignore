@@ -278,3 +278,6 @@ GRAPH_REPORT.md
 
 # monodesign skill deploy trees are generated from packages/@monoes/monodesign (sync-skill.mjs)
 .claude/skills/monodesign/
+
+# monodesign hook state (per-machine)
+.monodesign/
