@@ -8,7 +8,7 @@ user-invocable: true
 
 # Monodesign: Critique
 
-Provide an expert design critique. Honest, specific, and prioritized. Read `reference/critique.md` from the monodesign skill directory for the full protocol.
+Provide an expert design critique. Honest, specific, and prioritized. Read `reference/critique.md` from the monodesign skill directory for the full protocol. Critiques are persisted via the bundled `critique-storage.mjs` helper (resolve a slug for the target, write the critique body, and query the trend across the last runs) so repeat critiques of the same target track progress over time — follow the reference's storage steps rather than emitting a one-off report.
 
 ## Voice
 

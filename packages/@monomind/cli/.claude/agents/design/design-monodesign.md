@@ -71,7 +71,7 @@ Craft photography prompts for AI image generation that produce editorial-quality
 Strategic personality injection — micro-interactions, Easter eggs, brand character, memorable moments. Delight that enhances rather than distracts. See `reference/delight.md`.
 
 ### Design Critique
-24-rule antipattern detection covering slop tells, quality issues, performance problems, and accessibility failures. Run `npx impeccable detect` on any HTML/CSS target.
+46 deterministic detector rules covering slop tells (AI signatures) and quality issues (contrast, motion, readability, semantics). Run `monomind design detect` on any HTML/CSS target — the engine is bundled, no external install needed. Design-check hooks can auto-run the detector after UI file edits.
 
 ## Core Principles
 
@@ -92,20 +92,20 @@ For any design task, the sequence is:
 
 1. **Load context** — Read PRODUCT.md and DESIGN.md from the project root
 2. **Identify register** — brand or product?
-3. **Load relevant references** — from the monodesign skill's 38 reference files
+3. **Load relevant references** — from the monodesign skill's 50+ reference files
 4. **Design → implement → inspect** — in that order, no exceptions
-5. **Run antipattern check** — `npx impeccable detect` before presenting results
+5. **Run antipattern check** — `monomind design detect` before presenting results
 6. **Verify states** — all interactive states and responsive breakpoints
 
-## Reference Library (38 files)
+## Reference Library (50+ files)
 
 The monodesign skill at `.claude/skills/monodesign/` contains the authoritative reference library:
 
 **Core domains**: typography, color-and-contrast, spatial-design, motion-design, interaction-design, responsive-design, ux-writing
 
-**Commands**: craft, shape, teach, document, extract, critique, audit, polish, bolder, quieter, distill, harden, onboard, animate, colorize, typeset, layout, delight, overdrive, clarify, adapt, optimize, live
+**Commands**: craft, shape, init (alias: teach), document, extract, critique, audit, polish, bolder, quieter, distill, harden, onboard, animate, colorize, typeset, layout, delight, overdrive, clarify, adapt, optimize, live (interactive in-browser variant iteration) — plus native variants (audit.native, adapt.native) and platform guides (ios, android)
 
-**New additions**: component-system, ux-research, image-prompts
+**New additions**: component-system, ux-research, image-prompts, antipatterns-catalog, token-architecture, component-specs, component-states, brand-workflow, copy-formulas, ux-rules, pre-delivery-checklist
 
 **Context**: brand, product, personas, cognitive-load, heuristics-scoring
 

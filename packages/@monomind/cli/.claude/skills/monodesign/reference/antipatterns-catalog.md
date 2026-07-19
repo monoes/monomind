@@ -1,11 +1,11 @@
-<!-- Synced from impeccable v3.1.0 registry. Source of truth: cli/engine/registry/antipatterns.mjs -->
+<!-- Synced from the monodesign v3.2.1 registry. Source of truth: cli/engine/registry/antipatterns.mjs -->
 # Antipatterns Catalog
 
-All 46 known design antipatterns with detection rules and remediation. These are what `npx impeccable detect` checks. Run this on any HTML/CSS target before presenting work.
+All 46 known design antipatterns with detection rules and remediation. These are what `monomind design detect` checks. Run this on any HTML/CSS target before presenting work.
 
 ## Categories
 
-These are the two categories the `impeccable detect` engine uses:
+These are the two categories the `monomind design detect` engine uses:
 
 - **slop** — AI tells that signal lack of intentional design (27 patterns)
 - **quality** — Design principle violations including contrast, motion, readability, and semantic structure (19 patterns)
@@ -37,6 +37,14 @@ These are the two categories the `impeccable detect` engine uses:
 **Why it's wrong:** Bounce easing is a 2013 trend that reads as playful-in-a-bad-way on professional interfaces. It also tends to cause layout shift.  
 **Fix:** Use expo-out (`cubic-bezier(0.16, 1, 0.3, 1)`) for snappy exits, quint-out for softer landings. No overshoot.
 
+### `codex-grid-background` — Decorative grid-line background
+
+**Detect**: A two-axis grid drawn with hairline `linear-gradient` layers (`1px, transparent 1px` on both axes) used as surface decoration. Opt-in via `--gpt` (gated off by default).
+
+**Why it's wrong**: A decorative hairline grid overlay is a recurring generated-UI signature. It adds visual noise without communicating structure.
+
+**Fix**: Reserve grid overlays for actual canvas, map, blueprint, or measurement surfaces; elsewhere use product structure or a plain surface.
+
 ### `cream-palette` — Cream / beige palette
 
 **Detect**: Warm cream or beige page background (`#fdf6e3`, `#faf8f5`, or equivalent warm off-white) with no other distinguishing palette element.
@@ -57,11 +65,6 @@ These are the two categories the `impeccable detect` engine uses:
 **Why it's wrong**: Frequent em-dashes are an AI cadence tell. Over-reliance on the em-dash signals generated prose rather than edited writing.
 
 **Fix**: Use commas, colons, periods, or parentheses instead. Reserve em-dashes for strong breaks where no other punctuation works.
-
-### `everything-centered` — Everything centered
-**Detect:** More than 3 consecutive sections all use `text-align: center` or centered flex/grid layout.  
-**Why it's wrong:** Center alignment works for short content (headings, CTAs) but becomes monotonous for long sections. It also reduces readability for multi-line copy.  
-**Fix:** Mix alignment. Left-align body copy. Center only headings and CTAs. Alternate center and left-aligned sections.
 
 ### `extreme-negative-tracking` — Crushed letter spacing
 
@@ -239,6 +242,14 @@ These are the two categories the `impeccable detect` engine uses:
 
 **Fix**: Use the documented type system or update `DESIGN.md` if this is an intentional brand addition. Never silently add a typeface without updating the system.
 
+### `design-system-font-size` — Font size outside DESIGN.md
+
+**Detect**: A literal `font-size` used in CSS that is off the type ramp documented in the project's `DESIGN.md` typography section.
+
+**Why it's wrong**: Off-ramp font sizes are type-system drift. Each undeclared size step erodes the typographic scale and makes the hierarchy inconsistent.
+
+**Fix**: Use a documented size step or update the design system if the new step is intentional.
+
 ### `design-system-radius` — Radius outside DESIGN.md
 
 **Detect**: A `border-radius` value used in CSS that is not in the project's `DESIGN.md` rounded-corner scale.
@@ -270,12 +281,7 @@ These are the two categories the `impeccable detect` engine uses:
 ### `low-contrast` — Low contrast text
 **Detect:** Text color does not achieve 4.5:1 contrast ratio against its background for normal text, or 3:1 for large text (18px+ regular or 14px+ bold), as measured by the WCAG relative luminance formula.  
 **Why it's wrong:** Low contrast text fails WCAG AA requirements and creates genuine barriers for users with low vision, in bright ambient light, or on low-quality displays.  
-**Fix:** Increase the contrast between text and background. Use white or a high-lightness neutral on dark backgrounds; use Deep Graphite (`oklch(10% 0 0)`) or Soft Charcoal (`oklch(25% 0 0)`) on light ones. Tool: check with `npx impeccable detect` or the WebAIM contrast checker.
-
-### `pure-black-white` — Pure black or white background
-**Detect:** `background: #000`, `background: #000000`, or `background: black` on any surface.  
-**Why it's wrong:** Pure black reads as low quality on most displays. Tinted dark (e.g., `oklch(8% 0.005 350)`) reads as intentional.  
-**Fix:** Tint every neutral toward the brand hue. Chroma 0.003–0.01 is enough to remove pure-black/pure-white.
+**Fix:** Increase the contrast between text and background. Use white or a high-lightness neutral on dark backgrounds; use Deep Graphite (`oklch(10% 0 0)`) or Soft Charcoal (`oklch(25% 0 0)`) on light ones. Tool: check with `monomind design detect` or the WebAIM contrast checker.
 
 ### `skipped-heading` — Skipped heading level
 **Detect:** An `h3` or deeper element that is not preceded by an `h2` in the same section, or an `h2` not preceded by an `h1`.  
@@ -317,8 +323,8 @@ These are the two categories the `impeccable detect` engine uses:
 | `bounce-easing` | slop | expo-out curve |
 | `cream-palette` | slop | Deliberate palette, not default warm off-white |
 | `dark-glow` | slop | Shadow lift + border |
+| `codex-grid-background` | slop | Grid overlays only on canvas/map surfaces |
 | `em-dash-overuse` | slop | Commas, colons, periods instead |
-| `everything-centered` | slop | Mix alignment |
 | `extreme-negative-tracking` | slop | No tighter than -0.03em |
 | `flat-type-hierarchy` | slop | 1.25× scale minimum |
 | `gpt-thin-border-wide-shadow` | slop | Border or shadow — not both |
@@ -345,13 +351,13 @@ These are the two categories the `impeccable detect` engine uses:
 | `cramped-padding` | quality | 16px minimum |
 | `design-system-color` | quality | Use palette token or update DESIGN.md |
 | `design-system-font` | quality | Use type system or update DESIGN.md |
+| `design-system-font-size` | quality | Use type-ramp step or update DESIGN.md |
 | `design-system-radius` | quality | Use radius token or update DESIGN.md |
 | `gray-on-color` | quality | White or appropriate ramp tone |
 | `justified-text` | quality | text-align: left |
 | `layout-transition` | quality | transform + opacity only |
 | `line-length` | quality | max-width: 65ch |
 | `low-contrast` | quality | 4.5:1 normal, 3:1 large text |
-| `pure-black-white` | quality | Tinted neutral (chroma 0.005) |
 | `skipped-heading` | quality | Sequential h1→h2→h3 |
 | `text-overflow` | quality | overflow-wrap + constrained widths |
 | `tight-leading` | quality | line-height: 1.6 |

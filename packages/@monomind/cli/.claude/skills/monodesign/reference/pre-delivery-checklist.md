@@ -85,7 +85,7 @@ For the full rule explanations behind each item, see `ux-rules.md`.
 
 ## Design Antipatterns (Quick Sweep)
 
-Run `npx impeccable detect` or manually check:
+Run `monomind design detect` or manually check:
 
 - [ ] No `border-left: Npx solid [color]` as a stripe on cards (`side-tab`)
 - [ ] No `background-clip: text` gradient text (`gradient-text`)

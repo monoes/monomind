@@ -8,7 +8,7 @@ user-invocable: true
 
 # Monodesign: Adapt
 
-Adapt an existing design to a new context. Read `reference/adapt.md` from the monodesign skill directory for the full protocol.
+Adapt an existing design to a new context. Read `reference/adapt.md` from the monodesign skill directory for the full protocol. When the source or target is a native platform (`ios` / `android` / `adaptive`), read `reference/adapt.native.md` instead — it adapts inside the platform conventions of `reference/ios.md` / `reference/android.md`.
 
 ## Adaptation Contexts
 
