@@ -1,59 +1,34 @@
 ---
 name: monodesign-live
-description: Iterate on the UI directly in the browser — screenshot, identify issues, apply targeted CSS fixes, verify, repeat — until the live result matches the design intent.
+description: Interactive live variant mode — select elements in the browser, pick a design action, and get AI-generated HTML+CSS variants hot-swapped via the dev server's HMR. Iterate until the live result matches the design intent.
 type: design-sub-command
-argument-hint: "[target URL or component]"
+argument-hint: "[target URL, route, or app path]"
 user-invocable: true
 ---
 
 # Monodesign: Live
 
-Iterate on the UI directly in the browser. Read `reference/live.md` from the monodesign skill directory for the full protocol.
+Interactive live variant mode. This is a fully functional, script-driven flow — not a manual screenshot loop. Read `reference/live.md` from the monodesign skill directory for the full protocol and follow its contract exactly (boot, poll, generate, steer, accept/discard, exit).
 
-## CLAUDE.md Requirement
+## Prerequisites
 
-This command requires browser automation. Before proceeding, verify that `npx monomind browse` is available (`Skill("agent-browser-testing")`). If not, the `/monodesign live` flow falls back to editing CSS files and asking the user to refresh.
+- A running dev server with hot module replacement (Vite, Next.js, Bun, etc.), OR a static HTML file open in the browser.
+- Node available on PATH (the flow runs the bundled live helper scripts).
+- If `.monodesign/live/config.json` exists (written by `/monodesign init`), live boots straight into variant mode with no first-time setup detour.
 
-## Live Iteration Loop
+## How it works (summary — the reference is authoritative)
 
-The loop runs until the user confirms the design is right or cancels.
-
-### 1. Screenshot
-Capture the current state of the target URL or component. No assumptions — look at what's actually rendered.
-
-### 2. Diagnose
-Look at the screenshot with fresh eyes. Identify the top 3 issues:
-- Visual hierarchy problems
-- Spacing inconsistencies
-- Color contrast issues
-- Typography rendering
-- Interaction state gaps
-- Alignment problems
-
-State the issues clearly before touching any code.
-
-### 3. Apply targeted fix
-Edit the CSS for the specific issue identified. Keep each fix surgical — change one thing at a time.
-
-```css
-/* Targeted fix: heading weight is too light — can't distinguish from body */
-.hero-heading {
-  font-weight: 800;
-  font-size: clamp(2.5rem, 5vw, 4rem);
-  letter-spacing: -0.03em;
-}
-```
-
-### 4. Screenshot again
-Verify the fix had the intended effect. Check for regressions on neighboring elements.
-
-### 5. Confirm or continue
-If the target issue is resolved, state what was fixed and move to the next. If the fix introduced a regression, roll back and try a different approach.
+1. **Boot**: run `live.mjs` (with `--target <path>` when the request names a specific file, route, or monorepo app). It starts the live helper server and injects the in-page toolbar.
+2. **Open the app URL** that serves the page (the app's own dev-server URL — never the helper's `serverPort`).
+3. **Poll loop**: long-poll with `live-poll.mjs` (default long timeout). The user selects elements in the browser and picks a design action from the toolbar.
+4. **On `generate`**: read the screenshot if present, load the action's reference file, plan three distinct directions, write all variants in one edit, reply done, poll again.
+5. **On `steer`**: handle the user's free-text instruction, reply, poll again.
+6. **On `accept` / `discard`**: the accepted variant is committed to source (carbonize accepts have a cleanup step via `live-complete.mjs`); discards roll back.
+7. **If interrupted**: run `live-status.mjs` or `live-resume.mjs` — the durable journal replays unacknowledged work.
+8. **On `exit`**: run the cleanup steps at the bottom of the reference.
 
 ## Guidelines
 
-- Fix the most visually impactful issue first
-- Don't batch multiple fixes — screenshot after each change
-- State what you're about to change and why before changing it
-- If the same area has been fixed 3+ times without convergence, step back and assess whether the problem is structural (wrong layout approach) vs. cosmetic
-- Deliver final CSS that can be committed, not just live browser overrides
+- Never pass a short poll timeout; restart the poll immediately after every event.
+- Variants are written as real source edits hot-swapped by HMR — deliver code that can be committed, not browser-only overrides.
+- Manual in-browser edits are captured and can be committed or discarded via `live-commit-manual-edits.mjs` / `live-discard-manual-edits.mjs`.

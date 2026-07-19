@@ -1,6 +1,6 @@
 ---
 name: monodesign-craft
-description: Build a feature with impeccable UX and UI quality — shape the design, land the visual direction, build real production code, inspect and improve in-browser until it meets a high-end studio bar.
+description: Build a feature with exceptional UX and UI quality — shape the design, land the visual direction, build real production code, inspect and improve in-browser until it meets a high-end studio bar.
 type: design-sub-command
 argument-hint: "[feature description]"
 user-invocable: true
@@ -8,7 +8,7 @@ user-invocable: true
 
 # Monodesign: Craft
 
-Build a feature with impeccable UX and UI quality. Real working code, committed design choices, exceptional craft.
+Build a feature with exceptional UX and UI quality. Real working code, committed design choices, exceptional craft.
 
 **Gates — do not compress.** Craft requires all setup gates to pass before writing code:
 1. PRODUCT.md and DESIGN.md loaded
