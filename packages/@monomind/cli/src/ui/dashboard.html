@@ -13776,8 +13776,13 @@ async function secondBrainSearch() {
       results.map(function (res) {
         var srcTag = (res.tags || []).find(function (t) { return t.indexOf('src:') === 0; });
         var label = srcTag ? srcTag.slice(4).split('/').slice(-2).join('/') : (res.key || '');
+        // Surface badge: the endpoint fuses chunks + KG triplets + rules +
+        // pattern memories (RRF); show non-chunk kinds so users see where a
+        // hit came from.
+        var kindBadge = res.triplet ? 'kg' : (res.rule ? 'rule' : (res.memory ? 'memory' : ''));
         return '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
           '<div style="font-size:10px;color:var(--text-lo);margin-bottom:3px">' + esc(label) +
+            (kindBadge ? ' <span style="color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 4px">' + kindBadge + '</span>' : '') +
             (res.global ? ' <span style="color:var(--accent-dim,#888);border:1px solid var(--border);border-radius:4px;padding:0 4px">global</span>' : '') +
             ' <span style="color:var(--accent)">' + (typeof res.score === 'number' ? res.score.toFixed(2) : '') + '</span></div>' +
           '<div style="font-size:12px;white-space:pre-wrap;max-height:120px;overflow:hidden">' + esc(String(res.content || '').slice(0, 600)) + '</div>' +
