@@ -1,5 +1,5 @@
 {
-  "name": "@monomind/hooks",
+  "name": "@monoes/hooks",
   "version": "1.0.0",
   "description": "Hook type definitions, an in-memory HookRegistry/HookExecutor, and a WorkerManager with 15 background workers (performance/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress/map/audit/optimize/consolidate). Not the runtime hook dispatcher \u2014 the live path is .claude/helpers/ (CJS handlers driven by settings.json), which bridges into this package's workers.",
   "type": "module",
@@ -61,7 +61,6 @@
     "directory": "packages/@monomind/hooks"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "alpha"
+    "access": "public"
   }
 }
