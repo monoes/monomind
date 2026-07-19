@@ -84,7 +84,7 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.monomind', 'config.yaml'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, 'CLAUDE.md'))).toBe(true);
-  });
+  }, 30000); // real-fs init under full-suite parallel load can exceed the 15s default (#33)
 
   it('should initialize with minimal configuration', async () => {
     ctx.flags = { minimal: true, _: [], 'no-watch': true };
@@ -99,7 +99,7 @@ describe('Init Command E2E (real fs)', () => {
     // contents are gated by the component flags.
     expect(fs.readdirSync(path.join(tmpDir, '.claude', 'commands'))).toHaveLength(0);
     expect(fs.readdirSync(path.join(tmpDir, '.claude', 'agents'))).toHaveLength(0);
-  });
+  }, 30000); // #33
 
   it('should initialize with full configuration', async () => {
     ctx.flags = { full: true, _: [], 'no-watch': true };
@@ -136,5 +136,5 @@ describe('Init Command E2E (real fs)', () => {
 
     expect(second.success).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(true);
-  });
+  }, 30000); // two real-fs init runs — #33
 });
