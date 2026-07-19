@@ -2,7 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getLegacyLiveSessionsDir, getLiveSessionsDir } from '../lib/monodesign-paths.mjs';
 
-const COMPLETED_PHASES = new Set(['completed', 'discarded']);
+// steer_done is terminal too: a steer session has no pending work after the
+// agent's reply, and leaving it "active" makes live-status suggest recovery
+// for finished steers forever (the browser's trailing steer checkpoint would
+// also re-stamp phase "steer"; terminal phases ignore late checkpoints).
+const COMPLETED_PHASES = new Set(['completed', 'discarded', 'steer_done']);
 
 export function createLiveSessionStore({ cwd = process.cwd(), sessionId } = {}) {
   const rootDir = getLiveSessionsDir(cwd);

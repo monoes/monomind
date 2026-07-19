@@ -753,6 +753,93 @@ describe('detectHtml — cream-palette', () => {
   });
 });
 
+describe('detectHtml — missing-focus-visible', () => {
+  it('missing-focus-visible: flags a sheet that suppresses outline with no replacement', async () => {
+    const f = await detectHtml(path.join(FIXTURES, 'missing-focus-visible.html'));
+    const hits = f.filter(r => r.antipattern === 'missing-focus-visible');
+    assert.equal(hits.length, 1, `expected one finding, got: ${hits.map(r => r.snippet).join('; ')}`);
+    assert.match(hits[0].snippet, /focus-visible/);
+  });
+
+  it('missing-focus-visible: passes when a :focus-visible replacement exists', async () => {
+    const f = await detectHtml(path.join(FIXTURES, 'missing-focus-visible-pass.html'));
+    assert.equal(f.some(r => r.antipattern === 'missing-focus-visible'), false);
+  });
+
+  it('missing-focus-visible: regex CSS variant flags outline suppression, passes with :focus-visible', () => {
+    const flag = detectText('button:focus { outline: none; } a:focus { outline: 0; }', path.join(FIXTURES, 'fv-flag.css'));
+    assert.equal(flag.filter(r => r.antipattern === 'missing-focus-visible').length, 1);
+    const pass = detectText('button:focus { outline: none; } button:focus-visible { outline: 2px solid blue; }', path.join(FIXTURES, 'fv-pass.css'));
+    assert.equal(pass.some(r => r.antipattern === 'missing-focus-visible'), false);
+  });
+});
+
+describe('detectHtml — hover-only-affordance', () => {
+  const SHOULD_FLAG = ['.submenu', '.actions'];
+  const SHOULD_PASS = ['.bubble', '.panel', '.btn'];
+
+  it('hover-only-affordance: flags hover-revealed targets with no focus equivalent', async () => {
+    const f = await detectHtml(path.join(FIXTURES, 'hover-only-affordance.html'));
+    const flagged = new Set();
+    for (const r of f) {
+      if (r.antipattern !== 'hover-only-affordance') continue;
+      const m = (r.snippet || '').match(/"([^"]+)"/);
+      if (m) flagged.add(m[1]);
+    }
+    for (const t of SHOULD_FLAG) assert.ok(flagged.has(t), `expected "${t}" flagged as hover-only-affordance`);
+    for (const t of SHOULD_PASS) assert.ok(!flagged.has(t), `"${t}" should NOT be flagged (has focus equivalent or nothing hidden)`);
+  });
+});
+
+describe('detectHtml — dark-scheme-contrast-blindspot', () => {
+  const SHOULD_FLAG = ['.card', '.badge'];
+  const SHOULD_PASS = ['.note', '.plain'];
+
+  it('dark-scheme-contrast-blindspot: flags half-updated color pairs (advisory)', async () => {
+    const f = await detectHtml(path.join(FIXTURES, 'dark-scheme-contrast-blindspot.html'));
+    const flagged = new Set();
+    for (const r of f) {
+      if (r.antipattern !== 'dark-scheme-contrast-blindspot') continue;
+      assert.equal(r.severity, 'advisory');
+      const m = (r.snippet || '').match(/"([^"]+)"/);
+      if (m) flagged.add(m[1]);
+    }
+    for (const t of SHOULD_FLAG) assert.ok(flagged.has(t), `expected "${t}" flagged as dark-scheme-contrast-blindspot`);
+    for (const t of SHOULD_PASS) assert.ok(!flagged.has(t), `"${t}" should NOT be flagged`);
+  });
+});
+
+describe('detectHtml — image-missing-dimensions', () => {
+  it('image-missing-dimensions: flags only imgs with no reserved dimensions', async () => {
+    const f = await detectHtml(path.join(FIXTURES, 'image-missing-dimensions.html'));
+    const hits = f.filter(r => r.antipattern === 'image-missing-dimensions');
+    assert.equal(
+      hits.length, 2,
+      `expected 2 image-missing-dimensions findings (flag-none + flag-width-only), got ${hits.length}`,
+    );
+  });
+
+  it('image-missing-dimensions: regex flags attribute-less imgs, passes width+height / aspect-ratio', () => {
+    const src = '<img src="a.jpg" />\n<img src="b.jpg" width={320} height={180} />\n<img src="c.jpg" style={{aspectRatio:"16/9"}} />';
+    const f = detectText(src, path.join(FIXTURES, 'imgs.jsx'));
+    const hits = f.filter(r => r.antipattern === 'image-missing-dimensions');
+    assert.equal(hits.length, 1, `expected only the attribute-less img to flag, got: ${hits.map(r => r.snippet).join('; ')}`);
+    assert.match(hits[0].snippet, /a\.jpg/);
+  });
+});
+
+describe('detectHtml — small-touch-target', () => {
+  it('small-touch-target: flags standalone controls below 44px, exempts prose links and non-controls', async () => {
+    const f = await detectHtml(path.join(FIXTURES, 'small-touch-target.html'));
+    const hits = f.filter(r => r.antipattern === 'small-touch-target');
+    const dims = hits.map(r => (r.snippet.match(/(\d+x\d+)px/) || [])[1]).sort();
+    assert.deepEqual(
+      dims, ['30x30', '40x30'],
+      `expected only the 30x30 button and 40x30 block link, got: ${hits.map(r => r.snippet).join('; ')}`,
+    );
+  });
+});
+
 describe('detectHtml — gated provider tells (--gpt / --gemini)', () => {
   const GPT_IDS = ['gpt-thin-border-wide-shadow', 'repeating-stripes-gradient', 'codex-grid-background', 'theater-slop-phrase'];
 

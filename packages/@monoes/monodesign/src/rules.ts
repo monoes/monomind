@@ -1,20 +1,58 @@
 /**
  * Shared design rules — the invariants every monodesign generation must satisfy.
  * These mirror the "Absolute bans" and "Shared design laws" in the skill.
+ *
+ * Where a ban has a corresponding mechanical detector rule in the engine
+ * registry (cli/engine/registry/antipatterns.mjs), its id and description are
+ * pulled from that registry at load time instead of being hand-copied here —
+ * one source of truth, no drift between "what generation avoids" and "what
+ * detection flags". Bans with no `engineRuleId` are composition/judgment
+ * calls the detector cannot mechanically check (holistic layout patterns);
+ * they exist here for generation-time guidance only.
  */
 
-export const ABSOLUTE_BANS = [
+// Typed as plain string so tsc emits a true dynamic import instead of trying
+// to type-resolve the untyped .mjs engine module (matches antipatterns.ts).
+const REGISTRY_SPECIFIER: string = '../cli/engine/registry/antipatterns.mjs';
+
+interface EngineRuleEntry {
+  id: string;
+  name: string;
+  description: string;
+}
+
+let registryPromise: Promise<EngineRuleEntry[] | null> | undefined;
+
+async function loadRegistry(): Promise<EngineRuleEntry[] | null> {
+  registryPromise ??= import(REGISTRY_SPECIFIER).then(
+    (mod) => (mod as { ANTIPATTERNS: EngineRuleEntry[] }).ANTIPATTERNS,
+    () => null,
+  );
+  return registryPromise;
+}
+
+export interface AbsoluteBan {
+  id: string;
+  rule: string;
+  description: string;
+  /** Engine registry rule id this ban is mechanically detected by, if any. */
+  engineRuleId?: string;
+}
+
+const ABSOLUTE_BANS_STATIC: AbsoluteBan[] = [
   {
-    id: 'side-stripe',
+    id: 'side-tab',
     rule: 'No side-stripe borders',
     description:
       'border-left or border-right > 1px as a colored accent on cards/list items/callouts is never intentional. Rewrite with full borders, background tints, leading numbers/icons, or nothing.',
+    engineRuleId: 'side-tab',
   },
   {
     id: 'gradient-text',
     rule: 'No gradient text',
     description:
       'background-clip:text with a gradient is decorative and never meaningful. Use a single solid color; emphasis via weight or size.',
+    engineRuleId: 'gradient-text',
   },
   {
     id: 'glassmorphism-default',
@@ -40,7 +78,26 @@ export const ABSOLUTE_BANS = [
     description:
       'Modals are usually laziness. Exhaust inline / progressive disclosure alternatives first.',
   },
-] as const;
+];
+
+/** Static ban list — id/rule/description as authored here (may drift from the engine registry's wording for bans that also have a detector rule). */
+export const ABSOLUTE_BANS = ABSOLUTE_BANS_STATIC;
+
+/**
+ * Same ban list, with descriptions for detector-backed bans (`engineRuleId`
+ * set) replaced by the live text from the engine registry. Falls back to the
+ * static description when the registry can't be loaded (e.g. package not
+ * fully installed) or the referenced rule id is missing.
+ */
+export async function getAbsoluteBans(): Promise<AbsoluteBan[]> {
+  const registry = await loadRegistry();
+  if (!registry) return ABSOLUTE_BANS_STATIC;
+  const byId = new Map(registry.map((r) => [r.id, r]));
+  return ABSOLUTE_BANS_STATIC.map((ban) => {
+    const engineRule = ban.engineRuleId ? byId.get(ban.engineRuleId) : undefined;
+    return engineRule ? { ...ban, description: engineRule.description } : ban;
+  });
+}
 
 export const COLOR_STRATEGIES = ['restrained', 'committed', 'full-palette', 'drenched'] as const;
 export type ColorStrategy = (typeof COLOR_STRATEGIES)[number];

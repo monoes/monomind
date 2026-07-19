@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Missing focus-visible — should flag</title>
+  <style>
+    body { font-family: Georgia, serif; color: #222; background: #fff; }
+    /* Suppresses the focus outline on interactive controls with no
+       :focus-visible (or :focus) replacement anywhere in the sheet. */
+    button:focus { outline: none; }
+    a:focus { outline: 0; }
+    input { outline: none; }
+  </style>
+</head>
+<body>
+  <p>A form with focus outlines stripped and never replaced.</p>
+  <button type="button">Save</button>
+  <a href="/next">Continue</a>
+  <input type="text" aria-label="Name">
+</body>
+</html>

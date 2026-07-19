@@ -171,7 +171,7 @@ If someone could look at this interface and say "AI made that" without doubt, it
 
 ## Antipattern detection
 
-Before finalizing any design, run the bundled detector. It checks 46 known design antipatterns across two categories (**slop** — AI tells; **quality** — design principle violations):
+Before finalizing any design, run the bundled detector. It checks 51 known design antipatterns across two categories (**slop** — AI tells; **quality** — design principle violations):
 
 ```bash
 monomind design detect <file-or-dir>          # human-readable report
