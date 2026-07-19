@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "2.5.3",
+  "version": "2.5.4",
   "type": "module",
   "description": "CLI engine for Monomind \u2014 an open-source MCP server that extends Claude Code with a codebase knowledge graph (tree-sitter + SQLite), persistent memory, multi-agent task coordination, and session hooks. MIT licensed, fully local.",
   "main": "dist/src/index.js",
