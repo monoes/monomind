@@ -1,4 +1,13 @@
 // Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
+//
+// Visual-contrast pixel fallback. `page` is the driver page abstraction from
+// ../browser/drivers.mjs (a raw puppeteer Page also satisfies it): it only
+// needs `evaluate(fn, arg)` roundtrips and `screenshot({ encoding: 'base64',
+// clip, captureBeyondViewport })` returning a base64 PNG string. The logic is
+// driver-agnostic: hide the glyphs via CSS, screenshot the clip twice, and
+// diff the pixels in-page on a canvas. Both the monobrowse (CDP
+// Page.captureScreenshot + Runtime.evaluate) and puppeteer drivers support
+// this fully.
 function sanitizeScreenshotClip(clip, viewport) {
   if (!clip) return null;
   const x = Math.max(0, Math.floor(clip.x || 0));

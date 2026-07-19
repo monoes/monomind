@@ -7,6 +7,7 @@ import { finding } from '../../findings.mjs';
 import { filterByProviders } from '../../registry/antipatterns.mjs';
 import { profileFindingsAsync, profileStep, profileStepAsync } from '../../profile/profiler.mjs';
 import { captureVisualContrastCandidate } from '../visual/screenshot-contrast.mjs';
+import { launchDetectionBrowser, normalizeBrowserHandle } from './drivers.mjs';
 
 function serializeDesignSystemForBrowser(designSystem) {
   if (!designSystem?.present) return null;
@@ -101,7 +102,8 @@ async function runVisualContrastFallback(page, serializedGroups, options, profil
 }
 
 // ---------------------------------------------------------------------------
-// Puppeteer detection (for URLs)
+// Browser detection (for URLs) — driver-based: monobrowse (native CDP,
+// preferred) with puppeteer as fallback. See ./drivers.mjs for the seam.
 // ---------------------------------------------------------------------------
 
 async function detectUrl(url, options = {}) {
@@ -109,20 +111,9 @@ async function detectUrl(url, options = {}) {
   const waitUntil = options?.waitUntil || 'networkidle0';
   const settleMs = Number.isFinite(options?.settleMs) ? options.settleMs : 0;
   const viewport = options?.viewport || { width: 1280, height: 800 };
-  const externalBrowser = options?.browser || null;
-  let puppeteer;
-  if (!externalBrowser) {
-    try {
-      puppeteer = await profileStepAsync(profile, {
-        engine: 'browser',
-        phase: 'setup',
-        ruleId: 'import-puppeteer',
-        target: url,
-      }, () => import('puppeteer'));
-    } catch {
-      throw new Error('puppeteer is required for URL scanning. Install: npm install puppeteer');
-    }
-  }
+  // options.browser accepts either a driver handle (from createBrowserDetector)
+  // or a raw puppeteer Browser (legacy callers).
+  const externalBrowser = options?.browser ? normalizeBrowserHandle(options.browser) : null;
 
   // Read the browser detection script — reuse it instead of reimplementing
   const browserScriptPath = path.resolve(
@@ -143,16 +134,12 @@ async function detectUrl(url, options = {}) {
     throw new Error(`Browser script not found at ${browserScriptPath}`);
   }
 
-  // CI runners (GitHub Actions Ubuntu) block unprivileged user namespaces, so
-  // Chrome can't initialize its sandbox there. Disable the sandbox only when
-  // running in CI; local users keep the default hardened launch.
-  const launchArgs = process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [];
   const browser = externalBrowser || await profileStepAsync(profile, {
     engine: 'browser',
     phase: 'load',
     ruleId: 'launch-browser',
     target: url,
-  }, () => puppeteer.default.launch({ headless: true, args: launchArgs }));
+  }, () => launchDetectionBrowser({ launchArgs: options?.launchArgs, headless: true }));
   const page = await profileStepAsync(profile, {
     engine: 'browser',
     phase: 'load',
@@ -243,17 +230,12 @@ async function detectUrl(url, options = {}) {
 }
 
 async function createBrowserDetector(options = {}) {
-  let puppeteer;
-  try {
-    puppeteer = await import('puppeteer');
-  } catch {
-    throw new Error('puppeteer is required for URL scanning. Install: npm install puppeteer');
-  }
-  const launchArgs = options.launchArgs || (process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : []);
-  const browser = options.browser || await puppeteer.default.launch({
-    headless: options.headless ?? true,
-    args: launchArgs,
-  });
+  // Pooled reuse for multiple URLs. `browser` is a driver handle (monobrowse
+  // or puppeteer); pass a raw puppeteer Browser via options.browser to reuse
+  // an externally managed instance.
+  const browser = options.browser
+    ? normalizeBrowserHandle(options.browser)
+    : await launchDetectionBrowser({ launchArgs: options.launchArgs, headless: options.headless ?? true });
   const ownsBrowser = !options.browser;
   const defaults = {
     waitUntil: options.waitUntil || 'load',
