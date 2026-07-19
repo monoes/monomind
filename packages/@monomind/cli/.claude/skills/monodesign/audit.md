@@ -10,7 +10,7 @@ user-invocable: true
 
 Run systematic **technical** quality checks and generate a comprehensive scored report. This is a code-level audit, not a design critique. Check what's measurable and verifiable in the implementation. **Does not fix issues** — documents them for other commands to address.
 
-Read `reference/audit.md` from the monodesign skill directory for the full scoring rubric.
+Read `reference/audit.md` from the monodesign skill directory for the full scoring rubric. For a native app (`ios` / `android` / `adaptive`), read `reference/audit.native.md` instead — it audits from SwiftUI/UIKit/Compose/React Native/Flutter source against `reference/ios.md` / `reference/android.md`, with no browser tooling or detector. For web targets, also run the bundled detector (`monomind design detect`) and fold its findings into the report.
 
 ## Diagnostic Scan — 5 Dimensions (score 0–4 each)
 
