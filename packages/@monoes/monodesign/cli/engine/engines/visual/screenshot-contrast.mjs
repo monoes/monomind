@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 //
 // Visual-contrast pixel fallback. `page` is the driver page abstraction from
 // ../browser/drivers.mjs (a raw puppeteer Page also satisfies it): it only

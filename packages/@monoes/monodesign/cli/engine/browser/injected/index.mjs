@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 const IS_BROWSER = typeof window !== 'undefined';
 
 // ─── Section 7: Browser UI (IS_BROWSER only) ────────────────────────────────

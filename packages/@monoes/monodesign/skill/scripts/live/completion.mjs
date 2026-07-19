@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 export function completionTypeForAcceptResult(eventType, acceptResult) {
   if (eventType === 'discard') return acceptResult?.handled === true ? 'discarded' : 'error';
   if (acceptResult?.handled === true && acceptResult?.carbonize === true) return 'agent_done';

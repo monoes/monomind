@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Context loader: prints PRODUCT.md (and DESIGN.md if present) as one
  * markdown block on stdout, or prints a `NO_PRODUCT_MD:` message when no

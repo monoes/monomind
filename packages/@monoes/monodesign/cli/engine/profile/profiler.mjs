@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 function profileNow() {
   return typeof performance !== 'undefined' && performance.now
     ? performance.now()

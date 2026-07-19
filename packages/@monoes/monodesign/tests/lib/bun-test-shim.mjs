@@ -1,5 +1,5 @@
 // Minimal bun:test compatibility shim over node:test + node:assert.
-// The ported impeccable suite ran some files under `bun test`; monodesign runs
+// The ported monodesign suite ran some files under `bun test`; monodesign runs
 // everything under `node --test`, so those files import this shim instead.
 import { describe, it, beforeEach, afterEach, before, after } from 'node:test';
 import assert from 'node:assert/strict';

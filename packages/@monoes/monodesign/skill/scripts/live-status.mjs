@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Print durable recovery status for Monodesign live sessions.
  */

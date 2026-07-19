@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * CLI helper: insert/remove the live variant mode script tag in the project's
  * main HTML entry point.

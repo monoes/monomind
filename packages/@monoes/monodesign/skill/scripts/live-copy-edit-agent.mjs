@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Applies staged live copy-edit batches by waking a local AI coding agent.
  *

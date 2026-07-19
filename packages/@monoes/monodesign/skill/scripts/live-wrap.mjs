@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * CLI helper: find an element in source and wrap it in a variant container.
  *

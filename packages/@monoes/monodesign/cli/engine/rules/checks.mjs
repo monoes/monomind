@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 import {
   BORDER_SAFE_TAGS,
   GENERIC_FONTS,

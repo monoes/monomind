@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * CLI entry point: prepare everything needed to enter the live variant poll loop.
  *

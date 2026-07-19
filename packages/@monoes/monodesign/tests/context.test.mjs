@@ -979,7 +979,7 @@ describe('context.mjs CLI', () => {
   });
 });
 
-// The upstream impeccable update check (npm-registry version poll +
+// The the original engine update check (npm-registry version poll +
 // UPDATE_AVAILABLE directive) is disabled in monomind — the skill ships with
 // the monomind package and follows monomind's own update flow. This guard
 // makes sure it stays off: even a cache that advertises a newer version must
