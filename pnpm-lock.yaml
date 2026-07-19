@@ -127,6 +127,9 @@ importers:
         specifier: ^18.0.0
         version: 18.0.6
     optionalDependencies:
+      '@monoes/monobrowse':
+        specifier: ^1.0.3
+        version: 1.0.3
       puppeteer:
         specifier: ^25.1.0
         version: 25.3.0(yauzl@2.10.0)
@@ -140,8 +143,8 @@ importers:
         specifier: ^1.0.3
         version: 1.0.3
       '@monoes/monodesign':
-        specifier: ^1.0.1
-        version: 1.0.1
+        specifier: ^1.1.0
+        version: 1.1.0
       '@monoes/monograph':
         specifier: ^1.4.0
         version: 1.4.0(graphology-types@0.24.8)
@@ -864,8 +867,8 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@monoes/monodesign@1.0.1':
-    resolution: {integrity: sha512-FEzQ0A1Hh3hHg/1d6z/UuSl8Sm3lysUnkWlgvPPADUmH09p+8tsZatMlbavu0Y8S+PZl2G7rmJHxsfTVUDtKrA==}
+  '@monoes/monodesign@1.1.0':
+    resolution: {integrity: sha512-eSZe2GKU4AO0cgUBZ4Cotu9dgknkiIdsZ7V5MHpD9CbFUM2t9ZkuZSjs0ok627iSXKx+K35qUTUc6BQUkPE8vA==}
     hasBin: true
 
   '@monoes/monograph@1.4.0':
@@ -3266,7 +3269,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@monoes/monodesign@1.0.1':
+  '@monoes/monodesign@1.1.0':
     dependencies:
       css-select: 7.0.0
       css-tree: 3.2.1
@@ -3275,6 +3278,7 @@ snapshots:
       htmlparser2: 12.0.0
       marked: 18.0.6
     optionalDependencies:
+      '@monoes/monobrowse': 1.0.3
       puppeteer: 25.3.0(yauzl@2.10.0)
     transitivePeerDependencies:
       - bufferutil
