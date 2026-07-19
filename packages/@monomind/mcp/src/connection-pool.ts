@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Connection Pool
+ * @monoes/mcp - Connection Pool
  *
  * High-performance connection pooling
  */

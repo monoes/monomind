@@ -519,12 +519,12 @@ export class CLI {
 
   /**
    * Initialize optional subsystems at startup (non-blocking, all failures are silent).
-   * Starts the @monomind/hooks WorkerManager, wires SwarmCheckpointer, and builds
+   * Starts the @monoes/hooks WorkerManager, wires SwarmCheckpointer, and builds
    * the unified agent registry so that packages/@monomind/* actually contribute
    * to the live runtime.
    */
   private async initSubsystems(): Promise<void> {
-    // NOTE: the @monomind/hooks WorkerManager is intentionally NOT started
+    // NOTE: the @monoes/hooks WorkerManager is intentionally NOT started
     // here. Workers run from the session-restore hook (6h staleness gate) and
     // on demand via `monomind hooks worker run <name>`. Starting it on every
     // CLI invocation scheduled staggered 1-10s timers that usually died with
@@ -572,7 +572,7 @@ export class CLI {
     // runs it synchronously within its own check pass instead, so it's always
     // visible and itemized when you actually look for it.
 
-    // NOTE: Semantic routing (@monomind/routing) is constructed on-demand by
+    // NOTE: Semantic routing (@monoes/routing) is constructed on-demand by
     // its consumers — `monomind route semantic` (commands/route.ts) and the
     // `hooks_route_semantic` MCP tool (mcp-tools/hooks-routing.ts), both via
     // routing/route-layer-factory.ts. `monomind agent` has no --task flag —

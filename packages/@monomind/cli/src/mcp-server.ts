@@ -794,8 +794,8 @@ export class MCPServerManager extends EventEmitter {
 
     // Dynamically import the MCP server package
     // FIX for issue #942: Use proper package import instead of broken relative path
-    // @ts-ignore — @monomind/mcp is an optional peer resolved at runtime
-    const { createMCPServer } = await import('@monomind/mcp');
+    // @ts-ignore — @monoes/mcp is an optional peer resolved at runtime
+    const { createMCPServer } = await import('@monoes/mcp');
 
     const logger = {
       debug: (msg: string, data?: unknown) => this.emit('log', { level: 'debug', msg, data }),

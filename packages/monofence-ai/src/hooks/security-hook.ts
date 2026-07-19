@@ -12,10 +12,10 @@
  *   registerSecurityHooks(defaultRegistry);
  *
  * The function accepts any object whose `register` signature is compatible
- * with HookRegistry — no hard compile-time dependency on @monomind/hooks.
+ * with HookRegistry — no hard compile-time dependency on @monoes/hooks.
  */
 
-/** Minimal hook context shape — mirrors HookContext from @monomind/hooks */
+/** Minimal hook context shape — mirrors HookContext from @monoes/hooks */
 interface MinimalHookContext {
   event: string;
   timestamp: Date;
@@ -24,7 +24,7 @@ interface MinimalHookContext {
   [key: string]: unknown;
 }
 
-/** Minimal hook result shape — mirrors HookResult from @monomind/hooks */
+/** Minimal hook result shape — mirrors HookResult from @monoes/hooks */
 interface MinimalHookResult {
   success: boolean;
   abort?: boolean;
@@ -49,7 +49,7 @@ interface MinimalRegistry {
 /** Confidence threshold above which a detected threat aborts execution. */
 const ABORT_THRESHOLD = 0.8;
 
-/** Mirrors HookPriority.Critical = 1000 from @monomind/hooks */
+/** Mirrors HookPriority.Critical = 1000 from @monoes/hooks */
 const PRIORITY_CRITICAL = 1000;
 
 // ── Lazy defence factory ─────────────────────────────────────────────────────

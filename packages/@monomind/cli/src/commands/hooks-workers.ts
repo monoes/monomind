@@ -1,6 +1,6 @@
 /**
  * Hooks Worker Commands
- * Background worker management (@monomind/hooks workers) + Intelligence command
+ * Background worker management (@monoes/hooks workers) + Intelligence command
  * Extracted from hooks.ts to reduce file size.
  */
 
@@ -448,22 +448,22 @@ export const intelligenceCommand: Command = {
 };
 
 // =============================================================================
-// Worker Commands (@monomind/hooks WorkerManager)
+// Worker Commands (@monoes/hooks WorkerManager)
 // =============================================================================
 // The old worker subcommands (dispatch/status/detect/cancel) dispatched to a
 // simulated in-memory tracker that fronted the deleted worker daemon. The
-// surviving commands run the real @monomind/hooks workers in-process.
+// surviving commands run the real @monoes/hooks workers in-process.
 
 const workerListCommand: Command = {
   name: 'list',
-  description: 'List all @monomind/hooks background workers',
+  description: 'List all @monoes/hooks background workers',
   options: [],
   examples: [
     { command: 'monomind hooks worker list', description: 'List all workers' },
   ],
   action: async (): Promise<CommandResult> => {
     try {
-      const hooks = await import('@monomind/hooks');
+      const hooks = await import('@monoes/hooks');
       const workers = Object.values(hooks.WORKER_CONFIGS).map(w => ({
         name: w.name,
         description: w.description,
@@ -518,7 +518,7 @@ const workerRunCommand: Command = {
     spinner.start();
 
     try {
-      const hooks = await import('@monomind/hooks');
+      const hooks = await import('@monoes/hooks');
       if (!hooks.WORKER_CONFIGS[name]) {
         spinner.fail(`Unknown worker: ${name}`);
         output.writeln(`Available workers: ${Object.keys(hooks.WORKER_CONFIGS).join(', ')}`);
@@ -559,7 +559,7 @@ const workerRunCommand: Command = {
 // Worker parent command
 export const workerCommand: Command = {
   name: 'worker',
-  description: 'Background worker management (@monomind/hooks workers, run in-process)',
+  description: 'Background worker management (@monoes/hooks workers, run in-process)',
   subcommands: [
     workerListCommand,
     workerRunCommand,
@@ -571,7 +571,7 @@ export const workerCommand: Command = {
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('Background Worker System (@monomind/hooks)'));
+    output.writeln(output.bold('Background Worker System (@monoes/hooks)'));
     output.writeln();
     output.writeln('Workers run in-process and write their results to .monomind/metrics/.');
     output.writeln('The metrics-producing workers (ddd, map, audit, optimize, consolidate)');

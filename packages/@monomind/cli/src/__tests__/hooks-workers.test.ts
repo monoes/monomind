@@ -1,7 +1,7 @@
 /**
  * Tests for src/commands/hooks-workers.ts: the CLI "hooks worker list" and
  * "hooks worker run <name>" subcommands, which wrap the real WorkerManager
- * exported by @monomind/hooks.
+ * exported by @monoes/hooks.
  *
  * The workers' own internal logic (all 15 built-in workers) is already
  * covered by packages/@monomind/hooks/__tests__/workers.test.ts. This file
@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { CommandContext } from '../types.js';
 import { workerCommand } from '../commands/hooks-workers.js';
-import { WORKER_CONFIGS, WorkerPriority } from '@monomind/hooks';
+import { WORKER_CONFIGS, WorkerPriority } from '@monoes/hooks';
 
 function makeCtx(args: string[], flags: Record<string, unknown> = {}, cwd?: string): CommandContext {
   return {
@@ -43,7 +43,7 @@ describe('hooks worker (parent command)', () => {
 });
 
 describe('hooks worker list', () => {
-  it('lists all registered @monomind/hooks workers with priority and enabled state', async () => {
+  it('lists all registered @monoes/hooks workers with priority and enabled state', async () => {
     const result = await workerListCommand.action!(makeCtx([]));
     expect(result?.success).toBe(true);
 

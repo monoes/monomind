@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   // Cap the task to prevent OOM when an oversized string is passed to the embedding model.
   const task = rawTask.length > MAX_TASK_LENGTH ? rawTask.slice(0, MAX_TASK_LENGTH) : rawTask;
 
-  const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing' as string);
+  const { RouteLayer, ALL_ROUTES } = await import('@monoes/routing' as string);
 
   const semantic = await createSemanticRouting(ALL_ROUTES);
   if (!semantic) {

@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Resource Registry
+ * @monoes/mcp - Resource Registry
  *
  * MCP 2025-11-25 compliant resource management
  * Supports: list, read, subscribe, templates, pagination
