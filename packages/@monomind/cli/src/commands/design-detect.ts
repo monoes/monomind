@@ -1,17 +1,18 @@
 /**
  * CLI Design Detect Command
- * Thin wrapper around impeccable's design anti-pattern detector
+ * Thin wrapper around the bundled @monoes/monodesign anti-pattern detector
  *
  * github.com/monoes/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { spawn, execFile } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
+import { createRequire } from 'module';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
 import { paletteSubcommand } from './design-palette.js';
-
-const execFileAsync = promisify(execFile);
 
 // ─── Result Types ────────────────────────────────────────────────────────────
 
@@ -30,30 +31,42 @@ export interface DesignDetectResult {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function isImpeccableAvailable(): Promise<boolean> {
+/**
+ * Resolve the bundled monodesign CLI entry (cli/bin/cli.js) from the
+ * @monoes/monodesign package. Falls back to the monorepo sibling layout when
+ * running from a source checkout without installed workspace links.
+ */
+export function resolveMonodesignCli(): string | null {
+  // 1. Normal resolution through the package's "./engine" export.
   try {
-    await execFileAsync('npx', ['--no-install', 'impeccable', '--version'], { timeout: 5000 });
-    return true;
+    const require = createRequire(import.meta.url);
+    const enginePath = require.resolve('@monoes/monodesign/engine');
+    const binPath = join(dirname(enginePath), '..', 'bin', 'cli.js');
+    if (existsSync(binPath)) return binPath;
   } catch {
-    // Try checking via which
-    try {
-      await execFileAsync('which', ['impeccable'], { timeout: 3000 });
-      return true;
-    } catch {
-      return false;
-    }
+    // fall through to monorepo-relative lookup
   }
+
+  // 2. Monorepo layout: packages/@monomind/cli/{src|dist/src}/commands/ → packages/@monoes/monodesign
+  const here = dirname(fileURLToPath(import.meta.url));
+  for (const toCliRoot of ['../..', '../../..']) {
+    // <cli root>/../../@monoes/monodesign = packages/@monoes/monodesign
+    const candidate = join(here, toCliRoot, '..', '..', '@monoes', 'monodesign', 'cli', 'bin', 'cli.js');
+    if (existsSync(candidate)) return candidate;
+  }
+
+  return null;
 }
 
-function runImpeccable(args: string[]): Promise<number> {
+function runMonodesign(cliPath: string, args: string[]): Promise<number> {
   return new Promise((resolve) => {
-    const child = spawn('npx', ['impeccable', 'detect', ...args], {
+    const child = spawn(process.execPath, [cliPath, ...args], {
       stdio: 'inherit',
       shell: false,
     });
 
     child.on('error', (err) => {
-      output.printError(`Failed to run impeccable: ${err.message}`);
+      output.printError(`Failed to run the monodesign detector: ${err.message}`);
       resolve(1);
     });
 
@@ -63,11 +76,20 @@ function runImpeccable(args: string[]): Promise<number> {
   });
 }
 
+function printEngineMissing(): void {
+  output.writeln();
+  output.writeln(output.warning('The bundled monodesign detection engine could not be found.'));
+  output.writeln();
+  output.writeln('The detector ships with @monoes/monodesign. Reinstall monomind to restore it:');
+  output.writeln(output.dim('  npm install -g monomind   # or: pnpm install (in a monomind checkout)'));
+  output.writeln();
+}
+
 // ─── detect subcommand ────────────────────────────────────────────────────────
 
 const detectSubcommand: Command = {
   name: 'detect',
-  description: 'Detect design anti-patterns in HTML/CSS files using impeccable',
+  description: 'Detect design anti-patterns in HTML/CSS files using the bundled monodesign engine',
   options: [
     {
       name: 'target',
@@ -95,32 +117,43 @@ const detectSubcommand: Command = {
     output.writeln(output.bold('Design Anti-Pattern Detection'));
     output.writeln(output.dim('─'.repeat(50)));
 
-    const available = await isImpeccableAvailable();
-
-    if (!available) {
-      output.writeln();
-      output.writeln(output.warning('impeccable is not installed.'));
-      output.writeln();
-      output.writeln('Install it to enable design anti-pattern detection:');
-      output.writeln(output.dim('  npm install -g impeccable'));
-      output.writeln();
-      output.writeln('Or run directly without installing:');
-      output.writeln(output.dim('  npx impeccable detect <file-or-dir>'));
-      output.writeln();
-      output.writeln(output.dim('impeccable checks for 46 known design anti-patterns across:'));
-      output.writeln(output.dim('  • slop  — AI tells: purple palettes, side-tabs, card grids, italic-serif heroes'));
-      output.writeln(output.dim('  • quality — spacing, hierarchy, readability, contrast, motion, typography'));
-      return { success: false, message: 'impeccable not installed' };
+    const cliPath = resolveMonodesignCli();
+    if (!cliPath) {
+      printEngineMissing();
+      return { success: false, message: 'monodesign detection engine not found' };
     }
 
     output.writeln(output.dim(`Scanning: ${target}`));
     output.writeln();
 
-    const forwardArgs: string[] = [target];
+    const forwardArgs: string[] = ['detect', target];
     if (jsonOutput) forwardArgs.push('--json');
 
-    const exitCode = await runImpeccable(forwardArgs);
+    const exitCode = await runMonodesign(cliPath, forwardArgs);
 
+    return { success: exitCode === 0, exitCode };
+  },
+};
+
+// ─── ignores subcommand ───────────────────────────────────────────────────────
+
+const ignoresSubcommand: Command = {
+  name: 'ignores',
+  description: 'Manage monodesign detector ignore rules, files, and values',
+  examples: [
+    { command: 'monomind design ignores list', description: 'Show current ignore configuration' },
+    { command: 'monomind design ignores add-rule <rule-id>', description: 'Ignore a detector rule project-wide' },
+    { command: 'monomind design ignores add-file <path>', description: 'Exclude a file from detection' },
+    { command: 'monomind design ignores remove-rule <rule-id>', description: 'Re-enable an ignored rule' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const cliPath = resolveMonodesignCli();
+    if (!cliPath) {
+      printEngineMissing();
+      return { success: false, message: 'monodesign detection engine not found' };
+    }
+
+    const exitCode = await runMonodesign(cliPath, ['ignores', ...ctx.args]);
     return { success: exitCode === 0, exitCode };
   },
 };
@@ -130,10 +163,11 @@ const detectSubcommand: Command = {
 export const designCommand: Command = {
   name: 'design',
   description: 'Design tooling: anti-pattern detection, OKLCH palette seeding, and design quality checks',
-  subcommands: [detectSubcommand, paletteSubcommand],
+  subcommands: [detectSubcommand, ignoresSubcommand, paletteSubcommand],
   examples: [
     { command: 'monomind design detect', description: 'Detect design anti-patterns' },
     { command: 'monomind design detect -t ./src --json', description: 'JSON output for CI' },
+    { command: 'monomind design ignores list', description: 'Manage detector ignore rules' },
     { command: 'monomind design palette', description: 'Pick an OKLCH brand seed color' },
     { command: 'monomind design palette --from "my-product"', description: 'Deterministic seed from product name' },
   ],
@@ -144,7 +178,8 @@ export const designCommand: Command = {
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
-      'detect   - Detect design anti-patterns using impeccable',
+      'detect   - Detect design anti-patterns (bundled monodesign engine)',
+      'ignores  - Manage detector ignore rules, files, and values',
       'palette  - OKLCH brand seed — returns anchor color + mood + composition strategy',
     ]);
     output.writeln();

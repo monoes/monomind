@@ -4,16 +4,14 @@ This file is loaded by `/monodesign craft` when the harness has native image gen
 
 Read this *before* generating any images. The order matters, and the per-step user pauses are what keep generated imagery from drifting away from the brief.
 
-### Six steps, four mandatory stops
+### Four stop points before code
 
-Steps A through F produce the visual direction and raster assets. Four of the six steps end with a mandatory user pause — do not advance past any of them on your own read of the situation.
+Steps A through D each end with the user. Do not advance past any of them on your own read of the situation.
 
 1. **STOP after Step A questions.** Wait for answers.
 2. **STOP after Step B palette generation.** Wait for "confirm palette."
 3. **STOP after Step C mocks.** Wait for direction approval or delegation.
-4. **Only after Step D approves a direction** do you continue into Step E and F.
-5. Step E (mock fidelity inventory) and Step F (asset slicing) complete the asset set.
-6. After Step F, return to craft.md Step 4 and write code.
+4. **Only after Step D approves a direction** do you return to craft.md Step 4 and write code.
 
 Prior shape approval does **not** satisfy any of these. Shape's "confirm or override" advances you into Step A; it is not a substitute for it.
 
@@ -84,7 +82,7 @@ Raster ingredients identified in Step E need clean production assets. Use the bu
 Spawn it as a scoped subagent. If you do not have explicit permission to use agents, stop and ask:
 
 ```text
-Asset production will work better as a scoped subagent job. Should I spawn the monodesign asset producer subagent for this step?
+Asset production will work better as a scoped subagent job. Should I spawn the Monodesign asset producer subagent for this step?
 ```
 
 Pass to the agent:

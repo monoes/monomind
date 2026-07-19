@@ -39,6 +39,7 @@
     "!packages/@monomind/cli/.claude/**/*.db",
     "!packages/@monomind/cli/.claude/**/.monomind/**",
     "!packages/@monomind/cli/.claude/**/*.lock",
+    "!packages/@monomind/cli/.claude/**/._*",
     "!packages/@monomind/cli/.claude/agents/generated/**",
     "!packages/@monomind/cli/.claude/agents/reengineer-squad/**",
     "README.md",

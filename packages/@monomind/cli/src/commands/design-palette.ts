@@ -1,7 +1,7 @@
 /**
  * CLI Design Palette Command
  * OKLCH brand-seed picker — returns one anchor seed color + mood + composition strategy.
- * Ported from impeccable's palette.mjs (129 hand-curated seeds).
+ * Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind (129 hand-curated seeds).
  *
  * github.com/monoes/monomind
  */
@@ -511,8 +511,8 @@ export const paletteSubcommand: Command = {
     const fromFlag = ctx.flags.from as string | undefined;
     const jsonFlag = ctx.flags.json as boolean | undefined;
 
-    // Respect IMPECCABLE_PALETTE_SEED env var as a fallback for --from
-    const fromKey = fromFlag || process.env['IMPECCABLE_PALETTE_SEED'];
+    // Respect MONODESIGN_PALETTE_SEED env var as a fallback for --from
+    const fromKey = fromFlag || process.env['MONODESIGN_PALETTE_SEED'];
 
     let seed: PaletteSeed;
 
