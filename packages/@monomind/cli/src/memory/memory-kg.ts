@@ -128,7 +128,7 @@ export async function kgIngest(options: {
             ...md,
             kg: 'node', type: bestType, name: n.name, description: bestDesc,
             node_set: n.nodeSet ?? md.node_set ?? null,
-            origin_refs: origins.slice(0, 100),
+            origin_refs: origins.slice(-100),
             version: (typeof md.version === 'number' ? md.version : 1) + 1,
             valid_from: md.valid_from ?? Date.now(),
             valid_to: null,
@@ -176,7 +176,7 @@ export async function kgIngest(options: {
           upsert: true,
           generateEmbeddingFlag: false,
           tags: ['kg', normalizeName(e.relation)],
-          metadata: { ...md, origin_refs: origins.slice(0, 100) },
+          metadata: { ...md, origin_refs: origins.slice(-100) },
         });
         edgesMerged++;
       } else {
@@ -479,7 +479,10 @@ export async function kgConsolidateCandidates(options?: {
         neighborhood: facts.slice(0, 12),
       };
     })
-    .filter(c => c.edgeCount >= minEdges && c.description.length < 40 * c.edgeCount)
+    // Cap the growth target at MAX_DESC_LEN — a very-high-degree node whose
+    // description is already at the cap can never "grow out" of candidacy and
+    // would otherwise permanently occupy a slot.
+    .filter(c => c.edgeCount >= minEdges && c.description.length < Math.min(40 * c.edgeCount, MAX_DESC_LEN))
     .sort((a, b) => b.edgeCount - a.edgeCount)
     .slice(0, options?.limit ?? 10);
 }
