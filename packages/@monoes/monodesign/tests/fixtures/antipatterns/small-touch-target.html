@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Small touch target</title>
+  <style>
+    body { font-family: Georgia, serif; color: #1a1a1a; background: #fff; }
+    h2 { font-family: "Palatino Linotype", Palatino, serif; }
+    p { max-width: 60ch; }
+  </style>
+</head>
+<body>
+  <h2>Controls</h2>
+
+  <!-- FLAG: 30x30 icon button, both axes below 44px. -->
+  <button type="button" style="width: 30px; height: 30px;">x</button>
+
+  <!-- FLAG: 40x30 block link, both axes below 44px. -->
+  <a href="/prev" style="display: block; width: 40px; height: 30px;">‹</a>
+
+  <!-- PASS: 48x48 button meets the minimum. -->
+  <button type="button" style="width: 48px; height: 48px;">OK</button>
+
+  <!-- PASS: 60x60 link meets the minimum. -->
+  <a href="/next" style="display: block; width: 60px; height: 60px;">next</a>
+
+  <!-- PASS: inline text link inside prose is exempt even when tiny. -->
+  <p>Read <a href="/more" style="width: 20px; height: 16px;">here</a> for context.</p>
+
+  <!-- PASS: non-interactive small box is not a touch target. -->
+  <span style="display: block; width: 20px; height: 20px; background: #ddd;"></span>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Dark-scheme contrast blindspot</title>
+  <style>
+    body { font-family: Georgia, serif; }
+    h2 { font-family: "Palatino Linotype", Palatino, serif; }
+
+    /* Light scheme pairs both color + background for each block. */
+    .card { color: #222222; background: #ffffff; }
+    .note { color: #222222; background: #ffffff; }
+    .badge { color: #333333; background: #eeeeee; }
+    .plain { background: #ffffff; }
+
+    /* FLAG: dark media overrides only the background of .card — the paired
+       text color is left at the light value and collapses to dark-on-dark. */
+    @media (prefers-color-scheme: dark) {
+      .card { background: #111111; }
+      /* PASS: .note overrides both halves of the pair. */
+      .note { color: #eeeeee; background: #111111; }
+      /* PASS: .plain never paired a text color in the light scheme. */
+      .plain { background: #111111; }
+    }
+
+    /* FLAG via class scope: dark theme overrides only .badge text color, not
+       its paired background — the inherited light background stays. */
+    [data-theme="dark"] .badge { color: #dddddd; }
+  </style>
+</head>
+<body>
+  <article class="card"><h2>Card</h2><p>Card body.</p></article>
+  <article class="note"><h2>Note</h2><p>Note body.</p></article>
+  <span class="badge">Badge</span>
+  <div class="plain">Plain block.</div>
+</body>
+</html>

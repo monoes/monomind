@@ -1488,6 +1488,8 @@ if (IS_BROWSER) {
         ...checkElementClippedOverflowDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
         ...checkElementGptBorderShadowDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
         ...checkElementTextOverflowDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
+        ...checkElementImageDimensionsDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
+        ...checkElementSmallTouchTargetDOM(el).map(f => ({ type: f.id, detail: f.snippet })),
         ...checkElementDesignSystemDOM(el, designSystem, designSeen),
       ].filter(f => _ruleOk(f.type));
 
@@ -1545,6 +1547,29 @@ if (IS_BROWSER) {
     if (creamFindings.length > 0) {
       pageLevelFindings.push(...creamFindings);
       addBrowserFindings(groupMap, document.body, creamFindings);
+    }
+
+    // Stylesheet-level accessibility rules (focus-visible, hover-only,
+    // dark-scheme). Serialize every same-origin stylesheet to CSS text and
+    // run the shared analyzers — cross-origin sheets throw on cssRules access
+    // and are skipped.
+    let stylesheetCssText = '';
+    for (const sheet of Array.from(document.styleSheets || [])) {
+      let rules;
+      try { rules = sheet.cssRules; } catch { continue; }
+      if (!rules) continue;
+      for (const rule of Array.from(rules)) {
+        try { stylesheetCssText += rule.cssText + '\n'; } catch { /* ignore */ }
+      }
+    }
+    const stylesheetFindings = [
+      ...checkFocusVisible(stylesheetCssText),
+      ...checkHoverOnlyAffordance(stylesheetCssText),
+      ...checkDarkSchemeContrast(stylesheetCssText),
+    ].map(f => ({ type: f.id, detail: f.snippet })).filter(f => _ruleOk(f.type));
+    if (stylesheetFindings.length > 0) {
+      pageLevelFindings.push(...stylesheetFindings);
+      addBrowserFindings(groupMap, document.body, stylesheetFindings);
     }
 
     // Regex-on-HTML checks (shared with Node)
