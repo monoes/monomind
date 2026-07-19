@@ -1,5 +1,5 @@
 {
-  "name": "@monomind/mcp",
+  "name": "@monoes/mcp",
   "version": "1.0.0",
   "type": "module",
   "description": "Standalone MCP (Model Context Protocol) server - stdio/http/websocket transports, connection pooling, tool registry",
@@ -37,7 +37,6 @@
     "tool-registry"
   ],
   "publishConfig": {
-    "access": "public",
-    "tag": "alpha"
+    "access": "public"
   }
 }
