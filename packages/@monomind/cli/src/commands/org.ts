@@ -76,10 +76,18 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       const { buildRolePrompt } = await import('../orgrt/session.js');
       const roster = def.roles.map(r => r.id);
       const perRole = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+      // Same KG entity glossary the live daemon injects — the preview must
+      // match what sessions actually receive.
+      const glossary = await (async () => {
+        try {
+          const kg = await import('../memory/memory-kg.js');
+          return await kg.kgGlossary({ dbPath: join(process.cwd(), '.monomind', 'org-memory') });
+        } catch { return []; }
+      })();
       log(output.info(`DRY RUN — org ${name}: ${def.roles.length} roles, ${perRole} tokens each, goal: ${taskFlag ?? def.goal}`));
       for (const role of def.roles) {
         log(output.info(`\n─── ${role.id} (${role.title || role.type})${role.adapter_config?.model ? ` [${role.adapter_config.model}]` : ''} ───`));
-        log(buildRolePrompt(role, { name: def.name, goal: (taskFlag as string | undefined) ?? def.goal }, roster));
+        log(buildRolePrompt(role, { name: def.name, goal: (taskFlag as string | undefined) ?? def.goal }, roster, glossary));
       }
       return { success: true, message: 'dry run complete — no sessions started' };
     } catch (err) {

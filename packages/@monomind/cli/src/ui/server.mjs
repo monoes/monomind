@@ -686,11 +686,52 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
   // back via an auth header or query param on non-GET requests.
   const authBytes = crypto.randomBytes(24);
   const dashboardAuthValue = authBytes.toString('hex');
-  try {
-    const authFileDir = path.join(projectDir || process.cwd(), '.monomind');
-    fs.mkdirSync(authFileDir, { recursive: true });
-    fs.writeFileSync(path.join(authFileDir, 'dashboard-token'), dashboardAuthValue, { mode: 0o600 });
-  } catch (_) {}
+  // A project has ONE primary token file (read by hooks, the CLI, and cross-
+  // project callers). Writing it eagerly here would let a SECONDARY instance
+  // (scratch port, tests, a second `serve`) clobber the live control server's
+  // token — after which every hook call to the primary 401s until it restarts,
+  // silently degrading per-prompt Second Brain injection to keyword fallback.
+  // So the write is deferred to bind time and gated: primary instances write
+  // `dashboard-token`; secondaries write `dashboard-token-<port>` instead.
+  async function writeDashboardToken(actualPort) {
+    try {
+      actualPort = Number(actualPort);
+      const authFileDir = path.join(projectDir || process.cwd(), '.monomind');
+      fs.mkdirSync(authFileDir, { recursive: true });
+      // Primary = control.json absent/invalid, or it names this port, or
+      // nothing answers on the port it names (stale record from a previous
+      // run). Liveness is an HTTP probe, not a pid check — control-start may
+      // record pid 0 for adopted servers, and dead pids get recycled; a probe
+      // is authoritative either way. Anything answering on the claimed port
+      // means "don't clobber" (conservative on ambiguity).
+      let primary = true;
+      try {
+        const ctl = JSON.parse(fs.readFileSync(path.join(authFileDir, 'control.json'), 'utf8'));
+        const ctlPort = Number(ctl.port || (String(ctl.url || '').match(/:(\d+)/) || [])[1]);
+        if (ctlPort && ctlPort !== actualPort && !(Number.isInteger(ctl.pid) && ctl.pid === process.pid)) {
+          try {
+            await fetch(`http://127.0.0.1:${ctlPort}/api/status`, { signal: AbortSignal.timeout(800) });
+            primary = false; // something answered — a live server owns the primary token
+          } catch (_) { primary = true; } // nothing answering — stale record
+        }
+      } catch (_) { /* no readable control.json — treat as primary */ }
+      fs.writeFileSync(
+        path.join(authFileDir, primary ? 'dashboard-token' : `dashboard-token-${actualPort}`),
+        dashboardAuthValue, { mode: 0o600 },
+      );
+      // Sweep stale secondary tokens (dead scratch/test instances) so they
+      // don't accumulate as orphaned credential files.
+      // monolean: age-based sweep only — no on-exit unlink plumbing.
+      try {
+        const weekMs = 7 * 24 * 3600 * 1000;
+        for (const f of fs.readdirSync(authFileDir)) {
+          if (!/^dashboard-token-\d+$/.test(f) || f === `dashboard-token-${actualPort}`) continue;
+          const fp = path.join(authFileDir, f);
+          if (Date.now() - fs.statSync(fp).mtimeMs > weekMs) fs.unlinkSync(fp);
+        }
+      } catch (_) {}
+    } catch (_) {}
+  }
   // Propagate the fresh token to every known project whose control.json points
   // at this server — otherwise each restart silently orphans cross-project
   // callers (their curls/CLI reads a stale token and 401s forever).
@@ -6023,6 +6064,34 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       return;
     }
 
+    // GET /api/orgs/:name/memory — org knowledge-graph stats + glossary + rules
+    if (req.method === 'GET' && /^\/api\/orgs\/[^/]+\/memory$/.test(url)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        const _memQs = new URL(req.url, 'http://localhost').searchParams;
+        const root = path.resolve(_memQs.get('dir') || projectDir || process.cwd());
+        if (!orgName || orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+          res.writeHead(400); res.end('{"error":"invalid org name"}'); return;
+        }
+        const monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
+        const dbPath = path.join(monoDir, 'org-memory');
+        if (!fs.existsSync(dbPath)) {
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.end(JSON.stringify({ nodes: 0, edges: 0, rules: 0, glossary: [], ruleTexts: [] }));
+          return;
+        }
+        const kg = await import('../memory/memory-kg.js');
+        const [stats, glossary, ruleList] = await Promise.all([
+          kg.kgStats({ dbPath }), kg.kgGlossary({ dbPath, limit: 12 }), kg.kgListRules({ dbPath, limit: 10 }),
+        ]);
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.end(JSON.stringify({ ...stats, glossary, ruleTexts: ruleList.map(r => r.rule.slice(0, 200)) }));
+      } catch(err) {
+        res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     // POST /api/knowledge/search — warm semantic knowledge search for hooks.
     // The dashboard server is the one long-lived process on the machine, so it
     // holds the local embedding model warm; per-prompt hook subprocesses (which
@@ -6063,37 +6132,69 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           // scope: project | global | all (default all) — project results get a
           // small tie boost; global hits are flagged so callers can show origin.
           const scope = payload.scope === 'project' || payload.scope === 'global' ? payload.scope : 'all';
-          // Rule-based router (no LLM): only spend the rules query when the
-          // question looks rules/convention-shaped, or routing is unconfident.
-          let wantRules = true;
+          // Rule-based router (no LLM): chunks always run (this endpoint's
+          // bread and butter); the auxiliary surfaces — distilled rules,
+          // knowledge-graph triplets, pattern memories — only spend a query
+          // when the router votes for them or routing is unconfident.
+          let wantRules = true, wantKg = true, wantMemory = true;
+          let rrfFuse = null;
           try {
             const routerMod = await import('../memory/query-router.js');
             const route = routerMod.routeQuery(query);
+            rrfFuse = routerMod.rrfFuse;
             wantRules = !route.confident || route.surfaces.includes('rules');
-          } catch { /* router unavailable — keep rules on */ }
-          const [proj, glob, rules] = await Promise.all([
+            wantKg = !route.confident || route.surfaces.includes('kg');
+            wantMemory = !route.confident || route.surfaces.includes('memory');
+          } catch { /* router unavailable — keep all surfaces on */ }
+          let kgSearch = null;
+          if (wantKg && scope !== 'global') {
+            try { kgSearch = (await import('../memory/memory-kg.js')).kgSearch; } catch { /* kg unavailable */ }
+          }
+          const [proj, glob, rules, graph, mems] = await Promise.all([
             scope !== 'global' ? bridge.bridgeSearchEntries({ query, namespace, limit }).catch(() => null) : null,
             scope !== 'project' ? bridge.bridgeSearchEntries({ query, namespace: 'knowledge:global', limit, dbPath: '@global' }).catch(() => null) : null,
             // Distilled rules ("when X do Y") learned from sessions/runs —
             // small namespace, high injection value, threshold keeps it quiet.
             scope !== 'global' && wantRules ? bridge.bridgeSearchEntries({ query, namespace: 'rules', limit: 2, threshold: 0.45 }).catch(() => null) : null,
+            // Knowledge-graph triplets: relationship-shaped queries surface
+            // facts no chunk contains. Triplet scores derive from seeded
+            // cosine matches (≥0.35), so they clear callers' relevance floors.
+            scope !== 'global' && kgSearch ? kgSearch({ query, limit: 4 }).catch(() => null) : null,
+            // Past patterns/decisions for "last time / previously" queries.
+            scope !== 'global' && wantMemory ? bridge.bridgeSearchEntries({ query, namespace: 'patterns', limit: 2, threshold: 0.4 }).catch(() => null) : null,
           ]);
-          const merged = [
-            ...(proj?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags })),
-            ...(glob?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: true, tags: r.tags })),
-            ...(rules?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, rule: true, tags: r.tags })),
-          ].sort((a, b) => b.score - a.score).slice(0, limit);
+          const lists = [
+            (proj?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags, importance: 0.6 })),
+            (glob?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: true, tags: r.tags })),
+            (rules?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, rule: true, tags: r.tags, importance: 0.7 })),
+            (graph?.triplets || []).map((t, i) => ({
+              id: 'kg:' + i + ':' + t.source + '|' + t.relation + '|' + t.target,
+              key: 'kg:' + t.source,
+              content: String(t.source + ' —' + t.relation + '→ ' + t.target + (t.fact && t.fact !== (t.source + ' ' + t.relation + ' ' + t.target) ? ' (' + String(t.fact).slice(0, 300) + ')' : '')).slice(0, 2000),
+              score: t.score, global: false, triplet: true,
+            })),
+            (mems?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: false, memory: true, tags: r.tags })),
+          ];
+          // Rank-fuse across surfaces (raw scores aren't comparable between
+          // cosine chunks and blended triplets); each item keeps its native
+          // score so downstream relevance floors still apply. Fallback: flat
+          // score sort when the router module failed to load.
+          const merged = (rrfFuse
+            ? rrfFuse(lists, limit)
+            : lists.flat().sort((a, b) => b.score - a.score).slice(0, limit)
+          ).map(({ importance, rrf, ...r }) => r);
           // Served excerpts are (very likely) injected into the caller's prompt —
           // that IS usage. Reinforce frequency_weight, per-store, fire-and-forget.
           try {
-            const projIds = merged.filter(m => !m.global && m.id).map(m => m.id);
+            const projIds = merged.filter(m => !m.global && !m.triplet && m.id).map(m => m.id);
             const globIds = merged.filter(m => m.global && m.id).map(m => m.id);
             if (projIds.length) bridge.bridgeRecordUsage?.({ entryIds: projIds }).catch(() => {});
             if (globIds.length) bridge.bridgeRecordUsage?.({ entryIds: globIds, dbPath: '@global' }).catch(() => {});
           } catch { /* best effort */ }
           res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({
-            method: proj?.searchMethod || glob?.searchMethod || 'none',
+            method: proj?.searchMethod || glob?.searchMethod || rules?.searchMethod || mems?.searchMethod
+              || (merged.length ? 'mixed' : 'none'),
             results: merged,
           }));
         } catch (err) {
@@ -6485,6 +6586,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       fs.writeFileSync(process.env.MONOMIND_BOUND_REPORT, JSON.stringify({ pid: process.pid, port: boundPort, ts: Date.now() }));
     } catch (_) { /* non-fatal — spawner falls back to pid-matched HTTP probe */ }
   }
+  await writeDashboardToken(boundPort);
   propagateDashboardToken(boundPort);
 
   // ── One-time migration: mastermind-sessions.json → per-session JSONL ─────

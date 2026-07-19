@@ -976,6 +976,7 @@ html, body {
             <div id="health-grid" class="health-grid"></div>
             <div id="health-detail"></div>
             <div id="health-history"></div>
+            <div id="health-memory"></div>
           </div>
         </div>
 
@@ -1762,6 +1763,7 @@ function renderHealth() {
   }
 
   loadRunHistory();
+  loadOrgMemory();
 }
 
 // Run history (history.jsonl, written by the daemon at each stopOrg): outcome,
@@ -1789,6 +1791,28 @@ async function loadRunHistory() {
               : `<span style="color:var(--dim)">NO OUTCOME</span>`}
             ${Array.isArray(h.crashes) && h.crashes.length ? `<span style="color:var(--red)">✗ ${Number(h.crashes.length)} crash</span>` : ''}
           </div>`).join('')}
+      </div>`;
+  } catch (_) { el.innerHTML = ''; }
+}
+
+// Org memory: knowledge-graph size, learned entities, and distilled rules
+// (accumulated across runs via org_learn / heuristic extraction).
+async function loadOrgMemory() {
+  const el = document.getElementById('health-memory');
+  if (!el || !selectedOrg) return;
+  try {
+    const listOrg = allOrgs.find(o => o.name === selectedOrg) || {};
+    const r = await fetch(`/api/orgs/${encodeURIComponent(selectedOrg)}/memory?dir=${encodeURIComponent(listOrg.projectDir || '')}`);
+    if (!r.ok) { el.innerHTML = ''; return; }
+    const m = await r.json();
+    if (!m.nodes && !m.rules) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+      <div style="margin-top:16px">
+        <div style="font-size:8px;letter-spacing:2px;color:var(--dim);margin-bottom:8px">ORG MEMORY — ${Number(m.nodes) || 0} ENTITIES · ${Number(m.edges) || 0} RELATIONS · ${Number(m.rules) || 0} RULES</div>
+        ${Array.isArray(m.glossary) && m.glossary.length ? `
+          <div style="font-size:9px;color:var(--muted);line-height:1.7">${m.glossary.map(g => `<span style="border:1px solid oklch(50% 0 0 / 0.25);border-radius:3px;padding:1px 5px;margin-right:4px;white-space:nowrap;display:inline-block;margin-bottom:3px">${esc(g)}</span>`).join('')}</div>` : ''}
+        ${Array.isArray(m.ruleTexts) && m.ruleTexts.length ? m.ruleTexts.map(t => `
+          <div style="font-size:9px;padding:4px 0;border-bottom:1px solid oklch(50% 0 0 / 0.1);color:var(--muted)">▸ ${esc(t)}</div>`).join('') : ''}
       </div>`;
   } catch (_) { el.innerHTML = ''; }
 }
