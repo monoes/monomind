@@ -373,7 +373,9 @@ export async function ingestDirectory(
     } catch { return; }
 
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name.startsWith('._')) continue;
+      // Skip dotfiles/dot-dirs (incl. exFAT `._*` junk) — except `.monodesign`,
+      // whose critique snapshots are markdown worth surfacing in the Second Brain.
+      if (entry.name.startsWith('.') && entry.name !== '.monodesign') continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (!IGNORE_DIRS.has(entry.name)) walk(full, depth + 1);
