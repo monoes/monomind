@@ -12,7 +12,7 @@
  *    configuration. They are plain CommonJS scripts invoked directly
  *    by Claude Code's hook runtime. This is the "live" system.
  *
- * 2. @monomind/hooks TypeScript package (packages/@monomind/hooks/)
+ * 2. @monoes/hooks TypeScript package (packages/@monomind/hooks/)
  *    A full TypeScript package with workers, learning services, and
  *    a WorkerManager. It compiles to dist/ but is only loaded
  *    optionally, bridged at six lifecycle events: SessionStart (restore),
@@ -23,7 +23,7 @@
  *
  *    IMPORTANT: each hook event is dispatched as its OWN fresh `node`
  *    process (Claude Code spawns one invocation per event — this file
- *    does not stay resident across events). So the @monomind/hooks
+ *    does not stay resident across events). So the @monoes/hooks
  *    module, and anything it registers (trace collector spans, episode
  *    binner, etc.), cannot be set up once and reused across events —
  *    every bridging handler must call hCtx._ensureHooksModule() itself,
@@ -102,7 +102,7 @@ const session = safeRequire(path.join(helpersDir, 'session.cjs'));
 const memory = safeRequire(path.join(helpersDir, 'memory.cjs'));
 const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
 
-// Module-level reference to @monomind/hooks — populated lazily via
+// Module-level reference to @monoes/hooks — populated lazily via
 // _ensureHooksModule(). NOTE: hook-handler.cjs runs as a fresh `node` process
 // per hook event (Claude Code spawns one invocation per event, it does not
 // keep the process alive across events), so a value set during one event
@@ -116,10 +116,10 @@ async function _ensureHooksModule() {
   if (_hooksModule) return _hooksModule;
   if (_hooksModuleLoadAttempted) return null; // already tried+failed this process
   _hooksModuleLoadAttempted = true;
-  // 1) Bare specifier — works when @monomind/hooks is installed/linked in a
+  // 1) Bare specifier — works when @monoes/hooks is installed/linked in a
   //    node_modules reachable from this file (e.g. an end-user install).
   try {
-    _hooksModule = await import('@monomind/hooks');
+    _hooksModule = await import('@monoes/hooks');
   } catch (e) {
     _hooksModule = null;
   }
@@ -141,11 +141,11 @@ async function _ensureHooksModule() {
   return _hooksModule;
 }
 
-// ── Visible one-time warning when the @monomind/hooks bridge fully fails ───
+// ── Visible one-time warning when the @monoes/hooks bridge fully fails ───
 // Both load paths above (bare specifier + dev-repo file:// fallback) failed:
 // the 15 background workers (metrics, security scan, DDD tracking, etc.) are
 // unavailable for the rest of this session. This is almost always because
-// @monomind/hooks was never resolvable from npm (it ships with
+// @monoes/hooks was never resolvable from npm (it ships with
 // optionalDependencies:"*", which npm silently skips) — NOT a problem with
 // the user's own project setup. Historically this failed completely
 // silently (see docs/AUDIT-BACKLOG.md P1-1), burning debugging time on the
@@ -166,7 +166,7 @@ function _warnHooksBridgeUnavailable() {
     }
     if (alreadyWarned) return;
     process.stderr.write(
-      '[WARN] @monomind/hooks could not be loaded (bare specifier and dev-repo fallback both failed) — ' +
+      '[WARN] @monoes/hooks could not be loaded (bare specifier and dev-repo fallback both failed) — ' +
       'background workers (metrics, security scan, DDD tracking, etc.) are unavailable this session. ' +
       'This is not a problem with your project configuration — the package is not resolvable via npm ' +
       'from this install. See docs/AUDIT-BACKLOG.md P1-1 or https://github.com/monoes/monomind/issues.\n'

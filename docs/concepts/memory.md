@@ -220,6 +220,6 @@ During `session-end` and `consolidate`:
 - **Trajectory + outcome logging** — steps and trajectories are recorded (`intelligence.ts`); command and route outcomes are tracked (`command-outcomes.ts`, `route-outcomes.ts`)
 - **Consolidation** — dedup, detect contradictions, prune old patterns from `patterns.json`
 
-Consolidation runs via the `learning` and `patterns` background workers in `@monomind/hooks` (30-minute and 15-minute intervals) and at session end.
+Consolidation runs via the `learning` and `patterns` background workers in `@monoes/hooks` (30-minute and 15-minute intervals) and at session end.
 
 > The neural judge/distill loop (LLM-as-judge, strategy distillation, EWC++ consolidation) lives on the `monoes-full-loop` branch.

@@ -106,7 +106,7 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
-    // Bridge to @monomind/hooks registry — fires AgentSpawn hooks (was previously never
+    // Bridge to @monoes/hooks registry — fires AgentSpawn hooks (was previously never
     // wired: HookEvent.AgentSpawn existed but no CJS handler ever fired it).
     try {
       var _hooksModule = hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : null;
@@ -125,7 +125,7 @@ module.exports = {
               description: agentDescBridge.slice(0, 500),
             },
           }, { continueOnError: true, timeout: 1500 });
-        }, '@monomind/hooks.AgentSpawn');
+        }, '@monoes/hooks.AgentSpawn');
       }
     } catch (e) { /* non-fatal */ }
   },

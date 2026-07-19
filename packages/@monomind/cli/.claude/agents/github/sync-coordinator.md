@@ -182,7 +182,7 @@ Bash(`gh pr create \
     key: "sync/complete/status",
     value: {
       timestamp: Date.now(),
-      packages_synced: ["@monomind/cli", "@monomind/hooks"],
+      packages_synced: ["@monomind/cli", "@monoes/hooks"],
       version_alignment: "completed",
       documentation_sync: "completed",
       github_integration: "completed",
@@ -225,7 +225,7 @@ const docSyncPattern = {
 ### 3. **Integration Testing Matrix**
 ```javascript
 const testMatrix = {
-  packages: ["@monomind/cli", "@monomind/hooks", "@monomind/memory"],
+  packages: ["@monomind/cli", "@monoes/hooks", "@monomind/memory"],
   tests: [
     "unit_tests",
     "integration_tests",

@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Integration Tests
+ * @monoes/mcp - Integration Tests
  *
  * End-to-end tests for MCP 2025-11-25 features
  */

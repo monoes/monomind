@@ -108,9 +108,9 @@
   "optionalDependencies": {
     "@huggingface/transformers": "^3.8.1",
     "@monoes/memory": "^1.0.10",
-    "@monoes/hooks": "*",
-    "@monoes/mcp": "*",
-    "@monoes/routing": "*",
+    "@monoes/hooks": "^1.0.0",
+    "@monoes/mcp": "^1.0.0",
+    "@monoes/routing": "^1.0.0",
     "monofence-ai": "*",
     "sql.js": "^1.14.1"
   },

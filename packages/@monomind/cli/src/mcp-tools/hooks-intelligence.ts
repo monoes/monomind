@@ -4,7 +4,7 @@
  * intelligence stats/learn/attention, and model routing.
  * Extracted from hooks-tools.ts.
  * The simulated worker dispatch/status/detect/cancel tools were deleted with
- * the worker daemon -- real workers live in @monomind/hooks (`hooks worker run`).
+ * the worker daemon -- real workers live in @monoes/hooks (`hooks worker run`).
  */
 
 import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, readdirSync, unlinkSync } from 'fs';

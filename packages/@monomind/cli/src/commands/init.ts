@@ -246,7 +246,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         // Audit" as unconfigured, even though nothing is actually broken.
         try {
           output.writeln(output.dim('  Seeding worker metrics...'));
-          const hooksMod = await import('@monomind/hooks').catch(() => null);
+          const hooksMod = await import('@monoes/hooks').catch(() => null);
           if (hooksMod && hooksMod.createWorkerManager) {
             const manager = hooksMod.createWorkerManager(ctx.cwd);
             await manager.ensureMetricsDir();
@@ -263,7 +263,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
               output.writeln(output.dim('  Worker metrics seeding skipped'));
             }
           } else {
-            output.writeln(output.dim('  Worker metrics seeding skipped (@monomind/hooks unavailable)'));
+            output.writeln(output.dim('  Worker metrics seeding skipped (@monoes/hooks unavailable)'));
           }
         } catch (e) {
           output.writeln(output.dim(`  Worker metrics seeding skipped (${e instanceof Error ? e.message : String(e)})`));

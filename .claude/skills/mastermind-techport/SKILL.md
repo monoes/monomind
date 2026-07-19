@@ -590,7 +590,7 @@ For each approved item, in recommended order.
 | Exported functions | camelCase, no prefix | `buildGraph()`, `resolveAgent()` |
 | Config keys | camelCase | `projectRoot`, `maxAgents` |
 | Env vars | `MONOMIND_*` uppercase | `MONOMIND_PORT`, `MONOMIND_LOG_LEVEL` |
-| npm packages | `@monomind/<name>` | `@monomind/hooks` |
+| npm packages | `@monomind/<name>` | `@monoes/hooks` |
 | CLI commands | `monomind <command>` | `monomind agent spawn` |
 | Error classes | extend monomind hierarchy | `class PortedError extends CLIError {}` |
 | Event names | `domain:action` kebab | `'hook:fired'`, `'agent:spawned'` |

@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Transport auth regression tests (P0-8)
+ * @monoes/mcp - Transport auth regression tests (P0-8)
  *
  * Covers:
  *  - HTTP: auth.enabled=true with an empty credential list rejects every

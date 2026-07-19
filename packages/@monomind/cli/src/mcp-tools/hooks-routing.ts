@@ -455,7 +455,7 @@ export const hooksRoute: MCPTool = {
 export const hooksRouteSemantic: MCPTool = {
   name: 'hooks_route_semantic',
   description:
-    'Route a task using the @monomind/routing package: keyword pre-filter, then real-embedding ' +
+    'Route a task using the @monoes/routing package: keyword pre-filter, then real-embedding ' +
     'cosine-similarity matching (isolated worker), with a headless Claude (Haiku) fallback below ' +
     'the confidence threshold. Slower and more precise than hooks_route — use for ambiguous or ' +
     'highly specialized tasks (e.g. Solidity, game engines, embedded, DevOps) where keyword matching ' +
@@ -689,7 +689,7 @@ export const hooksPreTask: MCPTool = {
     } catch { /* non-critical */ }
 
     // NOTE: a LATS planning pass used to be attempted here via
-    // `import('@monomind/hooks').buildLATSPlan` — that function never existed
+    // `import('@monoes/hooks').buildLATSPlan` — that function never existed
     // in the package (the planning module was removed), so the import failed
     // silently on every call. The dead block was removed.
     let plan: string | undefined;

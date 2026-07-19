@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - Standalone MCP Server
+ * @monoes/mcp - Standalone MCP Server
  *
  * Zero-dependency MCP (Model Context Protocol) implementation
  *
@@ -11,7 +11,7 @@
  * - Session management with timeout handling
  * - Comprehensive metrics and monitoring
  *
- * @module @monomind/mcp
+ * @module @monoes/mcp
  * @version 3.0.0
  */
 
@@ -209,7 +209,7 @@ import type { MCPServerConfig, ILogger } from './types.js';
  *
  * @example
  * ```typescript
- * import { quickStart } from '@monomind/mcp';
+ * import { quickStart } from '@monoes/mcp';
  *
  * const server = await quickStart({
  *   transport: 'stdio',
@@ -250,4 +250,4 @@ export const VERSION = '3.0.0';
 /**
  * Module name
  */
-export const MODULE_NAME = '@monomind/mcp';
+export const MODULE_NAME = '@monoes/mcp';

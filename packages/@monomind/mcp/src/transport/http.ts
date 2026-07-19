@@ -1,5 +1,5 @@
 /**
- * @monomind/mcp - HTTP Transport
+ * @monoes/mcp - HTTP Transport
  *
  * HTTP/REST transport with WebSocket support
  */

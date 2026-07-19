@@ -537,7 +537,7 @@ function readMetricsJSON(name: string): unknown | null {
 }
 
 /**
- * Worker metrics freshness — reports the age of the @monomind/hooks worker
+ * Worker metrics freshness — reports the age of the @monoes/hooks worker
  * output files (written at session start with a 6h staleness gate, or on
  * demand via `monomind hooks worker run <name>`), so missing/stale worker
  * output is visible without digging through .monomind/metrics.
