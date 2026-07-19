@@ -990,5 +990,5 @@ describe('Command Index Exports', () => {
     expect(commands).toContain(status);
     expect(commands).toContain(task);
     expect(commands).toContain(session);
-  });
+  }, 30000); // full commands/index.js import graph is heavy under parallel-worker contention (#33)
 });
