@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Context-signals gatherer for the bare Monodesign invocation
  * (no-argument) path. Collects cheap, deterministic signals about the current

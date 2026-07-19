@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 const ANTIPATTERNS = [
   // ── AI slop: tells that something was AI-generated ──
   {

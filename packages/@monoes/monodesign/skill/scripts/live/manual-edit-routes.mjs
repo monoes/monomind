@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 import { validateEvent } from './event-validation.mjs';
 import {
   countByPage as countPendingByPage,

@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-// Inlined from upstream impeccable's scripts/lib/utils.js (the provider build
+// Inlined from the original engine scripts/lib/utils.js (the provider build
 // machinery was not ported; scripts/sync-skill.mjs carries the same logic).
 const PROVIDER_BLOCK_TAGS = new Set([
   'agents', 'claude', 'claude-code', 'codex', 'cursor', 'gemini', 'github',
@@ -173,7 +173,7 @@ describe('live reference authoring contract', () => {
     );
   });
 
-  // The live-e2e harness was not ported from upstream impeccable; skip when absent.
+  // The live-e2e harness was not ported from the original engine; skip when absent.
   const llmAgentPath = join(ROOT, 'tests/live-e2e/agents/llm-agent.mjs');
   it('passes cssAuthoring into the LLM E2E agent instead of hard-coding scoped CSS', { skip: !existsSync(llmAgentPath) && 'live-e2e harness not ported' }, () => {
     const llmAgent = readFileSync(llmAgentPath, 'utf-8');

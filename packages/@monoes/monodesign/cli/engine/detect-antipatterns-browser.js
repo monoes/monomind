@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Anti-Pattern Browser Detector for Monodesign
  * Copyright (c) 2026 Paul Bakaus

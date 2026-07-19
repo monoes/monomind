@@ -56,7 +56,7 @@ allowed-tools:
   - Bash
   - WebSearch
   - WebFetch
-license: "Apache 2.0 — Pattern adapted from impeccable (Apache-2.0) and Anthropic's frontend-design skill; see NOTICE.md"
+license: Apache-2.0
 ---
 
 Designs and iterates production-grade frontend interfaces. Real working code, committed design choices, exceptional craft.

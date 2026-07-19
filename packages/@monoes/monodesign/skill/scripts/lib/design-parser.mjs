@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 // Parse a DESIGN.md (Stitch-spec format) into a structured JSON model that
 // the live-mode design-system panel can render. Deterministic, dependency-free.
 //
