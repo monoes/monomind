@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * sync-skill.mjs — build and deploy the monodesign skill from this package
  * (the source of truth) into the repo's .claude trees:
@@ -12,7 +11,7 @@
  *      - {{scripts_path}}   → .claude/skills/monodesign/scripts
  *      - {{command_prefix}} → "/"  (the source text appends "monodesign"
  *        itself, e.g. `{{command_prefix}}monodesign audit` → `/monodesign audit`,
- *        matching upstream impeccable semantics where the placeholder is the
+ *        matching the original engine semantics where the placeholder is the
  *        harness slash prefix, not the full command name)
  *      - {{command_hint}}   → command names from skill/scripts/command-metadata.json
  *      - {{model}} / {{config_file}} / {{ask_instruction}} / {{available_commands}}
@@ -60,7 +59,7 @@ const PLACEHOLDERS = {
   ask_instruction: 'STOP and call the AskUserQuestion tool to clarify.',
 };
 
-// Harness-conditional block tags recognized by upstream impeccable. Blocks for
+// Harness-conditional block tags recognized by the original engine. Blocks for
 // ACTIVE_TAGS keep their content (tags dropped); the rest are removed.
 const PROVIDER_BLOCK_TAGS = new Set([
   'agents', 'claude', 'claude-code', 'codex', 'cursor', 'gemini', 'github',

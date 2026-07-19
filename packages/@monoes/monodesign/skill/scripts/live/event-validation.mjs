@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Shared event validation for the live helper server.
  * Extracted for unit testing (insert mode rules).

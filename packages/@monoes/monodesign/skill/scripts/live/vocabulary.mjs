@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Canonical design-command vocabulary for Live Mode: each command's value, human
  * label, and SVG icon. Icons stack above the chip label; strokes use currentColor

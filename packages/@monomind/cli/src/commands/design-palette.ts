@@ -1,7 +1,6 @@
 /**
  * CLI Design Palette Command
  * OKLCH brand-seed picker — returns one anchor seed color + mood + composition strategy.
- * Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind (129 hand-curated seeds).
  *
  * github.com/monoes/monomind
  */

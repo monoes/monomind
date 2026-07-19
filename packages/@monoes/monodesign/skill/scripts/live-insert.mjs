@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * CLI helper: find an anchor element in source and splice an insert-variant
  * wrapper before or after it (no original variant — net-new content).

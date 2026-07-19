@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Inline, in-file ignore directives — eslint-disable-style waivers that live at
  * the point they apply and travel with the artifact instead of (or alongside)

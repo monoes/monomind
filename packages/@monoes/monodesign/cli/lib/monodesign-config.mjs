@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * CLI-side reader/writer for the unified `.monodesign` config.
  *

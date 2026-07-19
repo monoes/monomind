@@ -1,4 +1,3 @@
-// Pattern adapted from impeccable (Apache-2.0) — rebranded for monomind
 /**
  * Browser-side durable session helpers for Monodesign live mode.
  *
