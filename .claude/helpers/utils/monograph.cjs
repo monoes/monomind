@@ -9,6 +9,18 @@ const { _getRecentEdits } = require('./telemetry.cjs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
+// Node's require(esm) support (used below to load @monoes/monograph's ESM
+// entry file) unconditionally prints an ExperimentalWarning to stderr the
+// first time it fires per process. That warning can't be try/caught since
+// it's emitted via process.emitWarning, not thrown — and Claude Code's hook
+// runner surfaces any stderr output as a scary "hook error" even though the
+// hook itself succeeds. Filter out just that one warning; let others through.
+var _origEmitWarning = process.emitWarning;
+process.emitWarning = function (warning) {
+  if (typeof warning === 'string' && /CommonJS module .* is loading ES Module/.test(warning)) return;
+  return _origEmitWarning.apply(process, arguments);
+};
+
 // @monoes/monograph is "type":"module" with an exports map that has no
 // "require" condition — a bare `require('@monoes/monograph')` (or
 // require() of its package directory) always throws "No exports main
