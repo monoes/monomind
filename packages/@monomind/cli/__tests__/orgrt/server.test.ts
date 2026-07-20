@@ -103,4 +103,43 @@ describe('org xdeliver server', () => {
 
     await daemon.stopAll();
   });
+
+  it('accepts POST /api/human-message and delivers into the role\'s mailbox', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'srv-human-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      roles: [{ id: 'boss', title: 'B', type: 'boss', reports_to: null }],
+    }));
+    const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const srv = await startOrgServer(daemon, 0);
+    close = srv.close;
+    await daemon.startOrg('alpha');
+
+    // missing fields → 400
+    const bad = await fetch(`http://127.0.0.1:${srv.port}/api/human-message`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ org: 'alpha' }),
+    });
+    expect(bad.status).toBe(400);
+
+    // valid message → 200, delivered
+    const good = await fetch(`http://127.0.0.1:${srv.port}/api/human-message`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ org: 'alpha', role: 'boss', text: 'change of plans' }),
+    });
+    expect(good.status).toBe(200);
+    const data = await good.json() as { ok: boolean; receipt?: string };
+    expect(data.ok).toBe(true);
+    expect(data.receipt).toContain('delivered');
+
+    // unknown role → 404
+    const miss = await fetch(`http://127.0.0.1:${srv.port}/api/human-message`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ org: 'alpha', role: 'nope', text: 'hi' }),
+    });
+    expect(miss.status).toBe(404);
+
+    await daemon.stopAll();
+  });
 });

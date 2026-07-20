@@ -6481,7 +6481,9 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         try { _chPayload = JSON.parse(_chBody); } catch(_) {}
         const _chText = String(_chPayload.text || '').trim().slice(0, 4096);
         if (!_chText) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'text is required' })); return; }
-        const _chRoot = projectDir || process.cwd();
+        const _chQs = new URL(req.url, 'http://localhost').searchParams;
+        const _chServerRoot = path.resolve(_chQs.get('dir') || projectDir || process.cwd());
+        const _chRoot = _resolveOrgProjectDir(_chOrgName, _chServerRoot) || _chServerRoot;
         const _chMonoDir = _getGitMonomindDir(_chRoot) || path.join(_chRoot, '.monomind');
         const _chRunId = activeOrgRuns.get(_chOrgName) || _getActiveRunId(_chOrgName, _chRoot);
         const _chEvent = { type: 'user:message', org: _chOrgName, runId: _chRunId || null, text: _chText, ts: Date.now() };
@@ -6490,7 +6492,8 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           const _chRunFile = path.join(_chMonoDir, 'orgs', _chOrgName, 'runs', `${_chRunId}.jsonl`);
           if (fs.existsSync(_chRunFile)) await appendToFile(_chRunFile, JSON.stringify(_chEvent) + '\n');
         }
-        // Write to mailbox file so boss agent can pick up on next cycle
+        // Write to mailbox file so boss agent can pick up on next cycle (durable
+        // record + offline fallback — the live-delivery attempt below is best-effort)
         const _chMailbox = path.join(_chRoot, '.monomind', 'orgs', `${_chOrgName}-threads.json`);
         try {
           let _chThreads = { messages: [] };
@@ -6506,8 +6509,36 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           const _chLine = `data: ${JSON.stringify(_chEvent)}\n\n`;
           for (const _cl of _chFwdClients) { try { _cl.write(_chLine); } catch(_) { _chFwdClients.delete(_cl); } }
         }
+        // Forward to the org's live process (if any) so the message actually lands in a
+        // running role's mailbox — looked up via the same file-based broker registry
+        // orgrt's cross-process delivery already uses (mirrors POST /api/questions/answer).
+        let _chDelivered = false;
+        try {
+          const _chBrokerEntryPath = path.join(os.homedir(), '.monomind', 'orgrt-broker', `${_chOrgName}.json`);
+          const _chBrokerEntry = JSON.parse(fs.readFileSync(_chBrokerEntryPath, 'utf8'));
+          if (Date.now() - _chBrokerEntry.updatedAt < 90000 && _chBrokerEntry.url) {
+            let _chTargetRole = _chPayload.role;
+            if (!_chTargetRole) {
+              try {
+                const _chCfg = JSON.parse(fs.readFileSync(path.join(_chRoot, '.monomind', 'orgs', `${_chOrgName}.json`), 'utf8'));
+                const _chRoles = Array.isArray(_chCfg.roles) ? _chCfg.roles : [];
+                const _chBoss = _chRoles.find(r => r.type === 'boss' || r.reports_to === null) || _chRoles[0];
+                _chTargetRole = _chBoss?.id;
+              } catch(_) {}
+            }
+            if (_chTargetRole) {
+              const _chFwd = await fetch(`${_chBrokerEntry.url}/api/human-message`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ org: _chOrgName, role: _chTargetRole, text: _chText }),
+                signal: AbortSignal.timeout(5000),
+              });
+              const _chFwdData = await _chFwd.json().catch(() => ({}));
+              _chDelivered = !!(_chFwd.ok && _chFwdData.ok);
+            }
+          }
+        } catch(_) {}
         res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
-        res.end(JSON.stringify({ ok: true }));
+        res.end(JSON.stringify({ ok: true, delivered: _chDelivered }));
       } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: e.message })); }
       return;
     }

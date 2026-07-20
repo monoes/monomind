@@ -34,6 +34,29 @@ export async function startOrgServer(daemon: OrgDaemon, port = 0): Promise<OrgSe
           res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'bad request' }));
         }
       });
+    } else if (req.method === 'POST' && req.url === '/api/human-message') {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        (async () => {
+          try {
+            const payload = JSON.parse(body || '{}') as { org?: string; role?: string; text?: string };
+            if (!payload.org || !payload.role || !payload.text) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: false, error: 'org, role, text are required' }));
+              return;
+            }
+            const receipt = await daemon.deliver(payload.org, 'human', payload.role, 'message from human', payload.text);
+            const ok = !receipt.startsWith('ERROR:');
+            res.writeHead(ok ? 200 : 404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok, receipt }));
+          } catch (err) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'bad request' }));
+          }
+        })();
+      });
+      return;
     } else if (req.method === 'POST' && req.url === '/api/answer-question') {
       let body = '';
       req.on('data', c => { body += c; });
