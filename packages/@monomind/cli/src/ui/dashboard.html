@@ -53,6 +53,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .nav-proj-name { font-size: 12px; font-weight: 600; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-proj-items { padding-left: 12px; border-left: 1px solid oklch(72% 0.18 75 / 0.2); margin-left: 11px; }
 .nav-no-proj { display: flex; align-items: center; gap: 8px; padding: 8px 8px 6px 10px; font-size: 11px; color: var(--text-xs); font-style: italic; }
+/* collapsible global nav section */
+.nav-glob-hdr { display: flex; align-items: center; gap: 6px; padding: 8px 8px 4px; cursor: pointer; user-select: none; color: var(--text-xs); }
+.nav-glob-hdr:hover { color: var(--text-hi); }
+.nav-glob-arrow { font-size: 9px; width: 10px; text-align: center; flex-shrink: 0; transition: transform 0.12s; }
+.nav-glob-hdr.open .nav-glob-arrow { transform: rotate(90deg); }
+.nav-glob-lbl { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.nav-glob-items { display: none; flex-direction: column; }
+.nav-glob-items.open { display: flex; }
 #sb-footer { padding: 10px 14px; border-top: 1px solid var(--border); }
 #sb-user { font-size: 12px; font-weight: 500; color: var(--text-mid); }
 #sb-path { font-size: 10px; color: var(--text-lo); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
@@ -1582,22 +1590,32 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
     </div>
     <div class="nav-no-proj" id="nav-no-proj-hint">Select a project above</div>
     <div class="nav-sect" style="margin-top:auto;padding-top:8px;">
-      <div class="nav-item" data-view="global">
-        <span class="ico">⊕</span><span class="lbl">Global Feed</span>
+      <div class="nav-glob-hdr" id="nav-glob-hdr" onclick="toggleGlobalNav()">
+        <span class="nav-glob-arrow" id="nav-glob-arrow">▸</span>
+        <span class="nav-glob-lbl">Global</span>
       </div>
-      <div class="nav-item" data-view="global-loops" title="Loops across all projects">
-        <span class="ico">↺</span><span class="lbl">Global Loops</span>
-        <span class="bdg" id="bdg-global-loops">—</span>
-      </div>
-      <div class="nav-item" data-view="global-tokens" title="Token usage across all projects">
-        <span class="ico">$</span><span class="lbl">Global Tokens</span>
-      </div>
-      <div class="nav-item" data-view="chat" title="All agent sessions across projects">
-        <span class="ico">⌘</span><span class="lbl">Global Agent Chat</span>
-      </div>
-      <div class="nav-item" data-view="humaninput" title="Pending questions from agents across all orgs">
-        <span class="ico">❓</span><span class="lbl">Human Input</span>
-        <span class="bdg" id="bdg-humaninput">—</span>
+      <div class="nav-glob-items" id="nav-glob-items">
+        <div class="nav-item" data-view="global">
+          <span class="ico">⊕</span><span class="lbl">Global Feed</span>
+        </div>
+        <div class="nav-item" data-view="global-loops" title="Loops across all projects">
+          <span class="ico">↺</span><span class="lbl">Global Loops</span>
+          <span class="bdg" id="bdg-global-loops">—</span>
+        </div>
+        <div class="nav-item" data-view="global-tokens" title="Token usage across all projects">
+          <span class="ico">$</span><span class="lbl">Global Tokens</span>
+        </div>
+        <div class="nav-item" data-view="chat" title="All agent sessions across projects">
+          <span class="ico">⌘</span><span class="lbl">Global Agent Chat</span>
+        </div>
+        <div class="nav-item" data-view="humaninput" title="Pending questions from agents across all orgs">
+          <span class="ico">❓</span><span class="lbl">Human Input</span>
+          <span class="bdg" id="bdg-humaninput">—</span>
+        </div>
+        <div class="nav-item" data-view="global-orgs" title="All orgs across all projects">
+          <span class="ico">⬡</span><span class="lbl">All Orgs</span>
+          <span class="bdg" id="bdg-global-orgs">—</span>
+        </div>
       </div>
     </div>
   </div>
@@ -2298,6 +2316,17 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       </div>
     </div>
 
+    <!-- GLOBAL ORGS -->
+    <div class="view" id="view-global-orgs">
+      <div class="vscroll">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+          <div class="pg-title" style="margin-bottom:0">All Orgs</div>
+          <span class="pg-sub" id="go-sub" style="margin-bottom:0">Orgs across all projects</span>
+        </div>
+        <div id="go-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
+      </div>
+    </div>
+
     <div class="view" id="view-chat">
       <div class="vscroll">
         <div id="chat-v-bar">
@@ -2493,20 +2522,40 @@ document.querySelectorAll('.nav-item[data-view]').forEach(el => {
   el.addEventListener('click', () => switchView(el.dataset.view));
 });
 
+// ── collapsible global nav section ──────────────────────────
+const GLOBAL_VIEWS = ['global', 'global-loops', 'global-tokens', 'global-orgs', 'chat', 'humaninput'];
+function setGlobalNavOpen(open) {
+  const items = document.getElementById('nav-glob-items');
+  const hdr = document.getElementById('nav-glob-hdr');
+  const arrow = document.getElementById('nav-glob-arrow');
+  if (!items || !hdr) return;
+  items.classList.toggle('open', open);
+  hdr.classList.toggle('open', open);
+  if (arrow) arrow.textContent = open ? '▾' : '▸';
+}
+function toggleGlobalNav() {
+  const items = document.getElementById('nav-glob-items');
+  const open = !(items && items.classList.contains('open'));
+  setGlobalNavOpen(open);
+  try { localStorage.setItem('nav-global-open', open ? '1' : '0'); } catch(_) {}
+}
+try { setGlobalNavOpen(localStorage.getItem('nav-global-open') === '1'); } catch(_) { setGlobalNavOpen(false); }
+
 document.getElementById('feed-scroll').addEventListener('scroll', () => {
   userScrolled = document.getElementById('feed-scroll').scrollTop > 50;
 });
 
 function switchView(v, { updateHash = true } = {}) {
   currentView = v;
+  if (GLOBAL_VIEWS.includes(v)) setGlobalNavOpen(true);
   document.querySelectorAll('.nav-item[data-view]').forEach(el =>
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', chat:'Global Agent Chat', humaninput:'Human Input' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', chat:'Global Agent Chat', humaninput:'Human Input' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', chat: 'Global Agent Chat', humaninput: 'Human Input' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', chat: 'Global Agent Chat', humaninput: 'Human Input' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
@@ -2569,6 +2618,7 @@ function renderView(v) {
   if (v === 'global') renderGlobalFeed();
   if (v === 'global-loops') renderGlobalLoops();
   if (v === 'global-tokens') renderGlobalTokens();
+  if (v === 'global-orgs') renderGlobalOrgs();
   if (v === 'humaninput') renderHumanInputView();
 }
 
@@ -4079,6 +4129,62 @@ async function renderGlobalLoops() {
       return;
     }
     el.innerHTML = sections.join('');
+  } catch (err) {
+    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
+  }
+}
+
+// ── global orgs (multi-project) ──────────────────────────
+function openGlobalOrg(name, projectDir) {
+  switchProject(projectDir);
+  switchView('orgs');
+  const trySelect = (attempts) => {
+    if (typeof _v2Orgs !== 'undefined' && _v2Orgs && _v2Orgs.some(o => o.name === name)) {
+      v2SelectOrg(name);
+    } else if (attempts > 0) {
+      setTimeout(() => trySelect(attempts - 1), 200);
+    }
+  };
+  trySelect(20);
+}
+
+async function renderGlobalOrgs() {
+  const el = document.getElementById('go-content');
+  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
+  try {
+    const data = await apiFetch('/api/orgs');
+    const orgs = sortOrgList(Array.isArray(data) ? data : (data.orgs || []));
+    const running = orgs.filter(o => o.running).length;
+
+    document.getElementById('bdg-global-orgs').textContent = orgs.length || '—';
+    document.getElementById('go-sub').textContent = running > 0
+      ? `${orgs.length} org${orgs.length !== 1 ? 's' : ''} · ${running} running`
+      : `${orgs.length} org${orgs.length !== 1 ? 's' : ''} across all projects`;
+
+    if (!orgs.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico">⬡</div><div>No orgs found across projects</div></div>';
+      return;
+    }
+
+    el.innerHTML = orgs.map(o => {
+      const rolesArr = Array.isArray(o.roles) ? o.roles : [];
+      const rolesN = rolesArr.length || (typeof o.roles === 'number' ? o.roles : 0);
+      const goalSnip = (o.goal || '').slice(0, 60) + ((o.goal || '').length > 60 ? '…' : '');
+      const projName = o.projectDir ? (o.projectDir.split('/').filter(Boolean).pop() || o.projectDir) : '?';
+      return `<div class="org-item" data-org="${esc(o.name)}" data-projdir="${esc(o.projectDir || '')}" onclick="openGlobalOrg(this.dataset.org, this.dataset.projdir)">
+        <div class="oi-dot ${o.running ? 'running' : ''}"></div>
+        <div class="oi-body">
+          <div class="oi-name">${esc(o.name)}</div>
+          ${goalSnip ? `<div class="oi-goal">${esc(goalSnip)}</div>` : ''}
+          <div class="oi-chips">
+            ${o.running ? `<span class="oi-chip ${o.lastEventAt ? (Date.now()-o.lastEventAt<1800000?'live':'quiet') : 'quiet'}">${o.lastEventAt ? (Date.now()-o.lastEventAt<1800000?'🟢 LIVE':'🟡 QUIET') : '🟡 QUIET'}</span>` : ''}
+            <span class="oi-chip">${rolesN} roles</span>
+            <span class="oi-chip">${esc(o.topology || 'hierarchical')}</span>
+            <span class="gf-proj-tag" title="${esc(o.projectDir || '')}">${esc(projName)}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
   }
@@ -5893,11 +5999,23 @@ let _v2OrgTab = 'chart';
 const _v2OrgEventLog = {};
 let _v2ChartLayout = { pos: {}, edgeIdByPair: new Map() };
 
+function _orgActivityMs(o) {
+  const t = o.lastEventAt || (o.loop && o.loop.last_run) || o.created_at || 0;
+  return typeof t === 'number' ? t : (Number(t) || new Date(t).getTime() || 0);
+}
+// Running orgs first, then most-recently-active first
+function sortOrgList(orgs) {
+  return [...orgs].sort((a, b) => {
+    if (!!a.running !== !!b.running) return a.running ? -1 : 1;
+    return _orgActivityMs(b) - _orgActivityMs(a);
+  });
+}
+
 async function renderOrgs() {
   try {
     const q = DIR ? '?dir=' + encodeURIComponent(DIR) : '';
     const data = await apiFetch('/api/orgs' + q);
-    _v2Orgs = Array.isArray(data) ? data : (data.orgs || []);
+    _v2Orgs = sortOrgList(Array.isArray(data) ? data : (data.orgs || []));
   } catch (_) { _v2Orgs = []; }
   // Show current project name in sub-header
   const orgProjLabel = document.getElementById('orgs-proj-label');
@@ -8026,7 +8144,13 @@ window.odtSendChatMessage = async function() {
   inp.value = '';
   btn.disabled = true;
   try {
-    await fetch('/api/orgs/'+encodeURIComponent(_v2SelOrg)+'/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, runId: _odtChatCurrentId || null }) });
+    const _sendQ = DIR ? '?dir=' + encodeURIComponent(DIR) : '';
+    const res = await fetch('/api/orgs/'+encodeURIComponent(_v2SelOrg)+'/chat'+_sendQ, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, runId: _odtChatCurrentId || null }) });
+    const data = await res.json().catch(() => ({}));
+    if (!data.delivered) {
+      const lbl = document.getElementById('odt-chat-live-lbl');
+      if (lbl) { const prev = lbl.textContent; lbl.textContent = 'QUEUED (org offline)'; setTimeout(() => { lbl.textContent = prev; }, 4000); }
+    }
   } catch(e) {
     inp.value = text;
   } finally {
