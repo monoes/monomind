@@ -1,14 +1,14 @@
 # Claude Code Configuration - Monomind v2
 
-> **Monomind v2.4.0** — Packages: `monomind@2.4.0` (umbrella), `@monoes/monomindcli@2.4.0` (CLI), `@monoes/monograph@1.4.0` (knowledge graph)
+> **Monomind v2.5.4** — Packages: `monomind@2.5.4` (umbrella), `@monoes/monomindcli@2.5.4` (CLI), `@monoes/monograph@1.4.0` (knowledge graph)
 
 ## Behavioral Rules (Always Enforced)
 
 - For swarm/hive-mind mode selection, use `/mastermind` — it presents all topologies and gives a concrete recommendation. Do NOT auto-prompt for swarm mode.
 - For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions. Uses native `monomind browse` CDP client — no external binary needed.
-- NEVER use `mcp__claude-in-chrome__*`, `mcp__plugin_playwright__*`, `mcp__playwright__*`, Playwright, Puppeteer, Selenium, or any external browser tool for web browsing. ALWAYS use `npx monomind browse`. This rule has no exceptions — not even "just this once".
+- NEVER use `mcp__claude-in-chrome__*`, `mcp__plugin_playwright__*`, `mcp__playwright__*`, Playwright, Puppeteer, Selenium, or any external browser tool for web browsing. ALWAYS use `npx monomind browse`. This rule has no exceptions — not even "just this once" (this governs agent web-navigation; monodesign's own internal antipattern-detection driver has an optional Puppeteer fallback scoped to its own tooling — monobrowse preferred, Puppeteer only if monobrowse is unavailable — which is not a rule exception).
 - For ANY web animation, motion graphics, or animation request: ALWAYS invoke `Skill("monomotion")` FIRST — no exceptions. This includes: "animate this", "add animation", "create an animation", "motion graphics", "animated intro/outro", "text animation", "scroll animation", "GSAP".
-- For ANY frontend design, UI improvement, design critique, design system, brand identity, UX research, visual storytelling, image generation for design, component systems, or CSS architecture task: ALWAYS invoke `Skill("monodesign")` FIRST — no exceptions. This is the ONLY design agent — there are no separate UI Designer, UX Architect, UX Researcher, Brand Guardian, Visual Storyteller, Whimsy Injector, Image Prompt Engineer, or Inclusive Visuals agents anymore. All design intelligence is in monodesign. This includes: "design this", "redesign", "improve the UI", "add polish", "make it look better", "audit the design", "critique the UI", "fix the layout", "colorize", "typeset", "design system", "design tokens", "antipattern", "brand identity", "brand strategy", "ux research", "user research", "usability test", "persona", "component system", "css architecture", "theme toggle", "dark mode", "image prompt", "hero image", "generate image", "whimsy", "delight", "visual narrative", "inclusive design".
+- For ANY frontend design, UI improvement, design critique, design system, brand identity, UX research, visual storytelling, image generation for design, component systems, or CSS architecture task: ALWAYS invoke `Skill("monodesign")` FIRST — no exceptions. This is the ONLY design agent — there are no separate UI Designer, UX Architect, UX Researcher, Brand Guardian, Visual Storyteller, Whimsy Injector, Image Prompt Engineer, or Inclusive Visuals agents anymore. All design intelligence is in monodesign. Note: monodesign produces image *prompts* (text specs) only, not actual images — for image generation itself use the separate `monoagent-image` skill (no code sharing between the two). This includes: "design this", "redesign", "improve the UI", "add polish", "make it look better", "audit the design", "critique the UI", "fix the layout", "colorize", "typeset", "design system", "design tokens", "antipattern", "brand identity", "brand strategy", "ux research", "user research", "usability test", "persona", "component system", "css architecture", "theme toggle", "dark mode", "image prompt", "hero image", "generate image", "whimsy", "delight", "visual narrative", "inclusive design".
 - Do what has been asked; nothing more, nothing less
 - NEVER create files unless they're absolutely necessary for achieving your goal
 - ALWAYS prefer editing an existing file to creating a new one
@@ -50,14 +50,14 @@
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (32 commands)          |
-| `@monoes/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 14 background workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/map/audit/optimize/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server |
-| `@monoes/memory`     | `packages/@monomind/memory/`   | Memory backends — JSON pattern store (hooks/intelligence trajectory logging) + local SQLite with embedded vectors (better-sqlite3, sql.js WASM fallback; local HF-embeddings via `memory-bridge.ts` — backs CLI `memory store/search`, the MCP memory tools, and the Second Brain). LanceDB was removed 2026-07 (≈600MB of native deps for no measured value); pure-JS HNSW (`hnsw-operations.ts`) stays dormant as the scale-up path |
-| `@monoes/mcp`      | `packages/@monomind/mcp/`      | MCP server framework (HTTP/WS transport) |
-| `@monoes/routing`  | `packages/@monomind/routing/`  | Semantic routing (embedding + keyword cascade) |
+| `@monoes/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 15 background workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress/map/audit/optimize/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server |
+| `@monoes/memory`     | `packages/@monomind/memory/`   | Lower-level memory backend library (SQLite/JSON pattern-store implementations) dynamically imported by the CLI's bridge — the live bridge itself (`memory-bridge.ts`, `hnsw-operations.ts`) lives in `packages/@monomind/cli/src/memory/`, not here. Default engine: local SQLite with embedded vectors (better-sqlite3, sql.js WASM fallback; local HF-embeddings) — backs CLI `memory store/search`, the MCP memory tools, and the Second Brain. LanceDB was removed 2026-07 (≈600MB of native deps for no measured value); pure-JS HNSW stays off the default search path (reachable via `memory search --build-hnsw`) |
+| `@monoes/mcp`      | `packages/@monomind/mcp/`      | MCP server framework — powers `mcp start -t http`/`-t websocket` (and stdio/in-process transports) only; the *default* stdio transport that `claude mcp add monomind -- npx -y monomind@latest mcp start` wires up is a separate, hand-rolled JSON-RPC loop inside the CLI package itself (`mcp-server.ts`'s `startStdioServer()`), which never imports this package. Also provides session/connection/resource/prompt/task management, rate limiting, OAuth, and sampling; its own built-in tool registry is small (4 tools) — real usage hands it the CLI's actual tool roster |
+| `@monoes/routing`  | `packages/@monomind/routing/`  | Semantic routing (`RouteLayer`: keyword pre-filter → real embedding via an isolated worker process — kept out-of-process specifically because loading `onnxruntime` in-process causes SIGSEGVs — → cosine similarity → Haiku LLM fallback below threshold). **Opt-in only** — reached via `route semantic`, `agent --task`, or MCP `hooks_route_semantic`. Bare `monomind route "task"` does **not** use this package: it runs a lightweight keyword-only stub (`createKeywordRouter`, fixed 0.75 confidence, 8 hardcoded categories, no embeddings) in the CLI package itself — this is what the Anti-Drift Defaults "Routing: keyword + route-outcomes" line below describes |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
 | `@monoes/monodesign` | `packages/@monoes/monodesign/` | Frontend design intelligence (tokens, antipattern detection, monodesign skill) |
 | `@monoes/monograph`  | `packages/@monomind/monograph/` | Knowledge graph (tree-sitter + SQLite) |
-| `monofence-ai`       | `packages/monofence-ai/`       | Security guardrails middleware         |
+| `monofence-ai`       | `packages/monofence-ai/`       | Independent AI-manipulation-defense library (~1,544 lines: threat/evasion detection, multi-turn context tracking, output scanning, ReasoningBank-style learning) — wired into the live pre-bash/pre-write gate path via its own lazy-loaded integration in `.claude/helpers/handlers/gates-handler.cjs` (`MONOMIND_MONOFENCE_GATE=off` to disable), not via its `registerSecurityHooks()` API (that's consumed only by the in-process `@monoes/hooks` `HookExecutor`, a separate mechanism from the live CJS dispatch path) |
 
 (The former `@monomind/security` package was deleted — input validation is inlined at `packages/@monomind/cli/src/utils/input-guards.ts`.)
 
@@ -202,11 +202,11 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 | `task`           | 5   | Task creation and lifecycle                          |
 | `session`        | 6   | Session state management (incl. `replay` show/list)  |
 | `config`         | 7   | Configuration management                             |
-| `hooks`          | 29  | Self-learning hooks + 14 background workers (@monoes/hooks WorkerManager) |
-| `security`       | 6   | Security scanning                                    |
+| `hooks`          | 29  | Self-learning hooks + 15 background workers (14 configured + always-on progress) (@monoes/hooks WorkerManager) |
+| `security`       | 6   | Security scanning: scan, cve, audit, secrets, defend, redteam. `audit`'s `--action export/log/clear` are unimplemented (list-only); `redteam`'s live `--target` execution is unimplemented (`--dry-run` only) |
 | `performance`    | 4   | Performance profiling — real benchmark measurements  |
 | `guidance`       | 1   | Wire enforcement gates into Claude Code hooks (setup) |
-| `org`            | 15  | SDK org runtime v2 — daemon-controlled agent orgs (run [--dry-run], stop, status, serve, test-loop, logs, report, questions, answer, create, validate, migrate, list, delete, mark-complete) |
+| `org`            | 16  | SDK org runtime v2 — daemon-controlled agent orgs (run [--dry-run], stop, status, serve, test-loop, logs, report, memory [stats\|search\|rules\|rollback], questions, answer, create, validate, migrate, list, delete, mark-complete) |
 | `monograph`      | -   | Knowledge graph CLI (delegates to @monoes/monograph) |
 | `browse`         | -   | Browser automation via CDP (@monoes/monobrowse)      |
 | `doctor`         | 1   | System diagnostics                                   |
@@ -238,7 +238,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 4. Don't poll status -- wait for completion/messages
 5. Send `shutdown_request` before TeamDelete
 
-**Hooks:** `TeammateIdle` (auto-assign tasks), `TaskCompleted` (train patterns, notify lead).
+**Hooks:** `teammate-idle` (auto-assign tasks), `task-completed` (train patterns, notify lead).
 
 ## Available Agents (32 definitions in `.claude/agents/`: 30 curated below + 2 non-roster — `templates/coordinator-swarm-init.md` and `generated/dashboard-verifier.md`)
 
@@ -252,6 +252,8 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 
 ## Hooks System
 
+Note: rows below (except Agent Teams) are `monomind hooks <subcommand>` CLI names (part of the 29 `hooks` subcommands), not the 20 typed `HookEvent` registry/executor events (pre-edit, post-edit, session-start, etc. in `@monoes/hooks`'s `HookEvent` enum) — the two are different mechanisms.
+
 | Category         | Hooks                                                                           |
 | ---------------- | ------------------------------------------------------------------------------- |
 | **Core**         | pre-edit, post-edit, pre-command, post-command, pre-task, post-task             |
@@ -260,7 +262,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 | **Learning**     | intelligence (trajectory-start/step/end, pattern-store/search, stats, attention)|
 | **Agent Teams**  | teammate-idle, task-completed (Claude Code hook events, not CLI subcommands)    |
 
-**Hooks — 14 Workers** (`@monoes/hooks` WorkerManager): performance, health, swarm, git, learning, adr, ddd, security, patterns, cache, map, audit, optimize, consolidate. The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh automatically at session start when their `.monomind/metrics/*.json` output is missing or older than 6 hours; run any worker on demand with `monomind hooks worker run <name>`. (The former standalone worker daemon and its headless-only workers were deleted.)
+**Hooks — 15 Workers** (`@monoes/hooks` WorkerManager): performance, health, swarm, git, learning, adr, ddd, security, patterns, cache, progress, map, audit, optimize, consolidate — 14 come from the static worker config, plus the always-on `progress` worker. The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh automatically at session start when their `.monomind/metrics/*.json` output is missing or older than 6 hours; run any worker on demand with `monomind hooks worker run <name>`. (The former standalone worker daemon and its headless-only workers were deleted.)
 
 ## Hive-Mind Consensus
 

@@ -98,9 +98,15 @@ Triples with `valid_from`/`valid_to` for bi-temporal queries:
 - **Episodic recall** — recent episodes from `.monomind/episodic/episodes.jsonl` are keyword-matched against the prompt (last ~200 episodes) and injected at prompt time, with per-conversation deduplication.
 - **Consolidation** — at session end, `intelligence.consolidate()` dedupes, detects contradictions, and prunes old patterns.
 
-### Optional Vector Backends (`@monomind/memory`)
+### Vector Search Backend
 
-The `@monomind/memory` package still ships optional backends — `LanceDBBackend` (wraps `@lancedb/lancedb`), a pure-TypeScript HNSW index, and a SQLite backend — for programmatic use. They require optional peer dependencies (`@lancedb/lancedb`, `apache-arrow`) and are **not** used by the prompt-time recall path. If you need semantic vector search, wire them up explicitly; the default experience does not depend on them.
+**Path note:** the live bridge code — `memory-bridge.ts` and `hnsw-operations.ts` — lives in `packages/@monomind/cli/src/memory/`, inside the CLI package, **not** in `packages/@monomind/memory/` (`@monoes/memory`). `@monoes/memory` is a separate, lower-level backend library (SQLite/JSON pattern-store implementations) that the CLI's bridge dynamically imports at runtime; it isn't itself the dispatch path.
+
+The default and only supported vector engine is **local SQLite with embedded vectors** (`better-sqlite3`, with a `sql.js` WASM fallback) plus local HF embeddings — model `Xenova/all-MiniLM-L6-v2`, 384 dimensions, runs fully locally with no API calls. This backs CLI `memory store`/`memory search`, the MCP memory tools, and the Second Brain — it is **not** the same path as the prompt-time recall described above, which stays plain JSON/keyword.
+
+**LanceDB timeline:** LanceDB was the live engine until commit `b670e65c` (2026-07-18), which swapped the CLI bridge to local SQLite (released as v2.3.1). `@monoes/memory` (`packages/@monomind/memory/src/lancedb-backend.ts`) still ships a vestigial `LanceDBBackend` — never called by the live bridge path, peer deps (`@lancedb/lancedb`, `apache-arrow`, ~600MB) no longer installed. Don't rely on `LanceDBBackend` — it will not run out of the box.
+
+A pure-TypeScript HNSW index (`hnsw-operations.ts`, in the CLI package alongside `memory-bridge.ts`) is **not dead code** — it's reachable via `monomind memory search --build-hnsw` — but it is **not on the default search path**; plain `memory search` uses the SQLite backend directly. Treat HNSW as "not automatic," not "unused."
 
 ### MCP Tools (use inside Claude Code sessions)
 
@@ -130,7 +136,8 @@ monomind memory import           # import from JSON
 
 ## 3. Monograph (Code Knowledge Graph)
 
-**Package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`)  
+**Engine package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`, v1.4.0) — the lower-level parse/storage/query engine: tree-sitter across 14 grammars (15 recognized languages — the TypeScript grammar also parses JavaScript), `better-sqlite3` storage, `graphology` for graph algorithms.  
+**MCP tool layer:** registration and gating for all 19+27 tools actually lives in the CLI package at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`, **not** inside `packages/@monomind/monograph/` itself — the CLI wraps the engine and exposes it over MCP, same split pattern as the memory subsystem's `memory-bridge.ts`.  
 **Database:** `.monomind/monograph.db` (SQLite)  
 **Tools:** 19 MCP tools by default (`mcp__monomind__monograph_*`); 27 more advanced tools are exposed when `MONOGRAPH_MCP_ADVANCED=1` is set
 
@@ -167,6 +174,8 @@ monomind monograph watch
 | `monograph_stats` | Node/edge counts |
 | `monograph_build` | Trigger graph build |
 
+**Staleness mechanics:** `monograph_health`/`monograph_staleness` compare the index's recorded `index_meta.last_commit_hash` against HEAD via `git rev-list --count`; once the index is more than `STALENESS_THRESHOLD` (3) commits behind, `monograph_suggest --checkStaleness` auto-triggers a background rebuild. Useful for debugging "why is monograph returning stale results" — check `monograph_health` first before assuming a bug.
+
 **Advanced tools** (set `MONOGRAPH_MCP_ADVANCED=1` to expose over MCP): `monograph_cypher`, `monograph_shortest_path`, `monograph_community`, `monograph_surprises`, `monograph_shape_check`, `monograph_rename`, `monograph_tool_map`, `monograph_serve`, `monograph_visualize`, `monograph_snapshot`, `monograph_diff`, `monograph_report`, `monograph_export`, wiki/skill generation, and the multi-repo group tools.
 
 ### Additional Capabilities
@@ -182,15 +191,9 @@ monomind monograph watch
 
 ---
 
-## 4. Auto-Memory Bridge
+## 4. Cross-Session Persistence
 
-The `AutoMemoryBridge` (`packages/@monomind/memory/`) automatically captures memory from hooks:
-
-- `PostToolUse(Edit)` → records edit event → `pending-insights.jsonl`
-- `post-task` → chunks task description → `drawers.jsonl`
-- `session-end` → consolidates pending insights, archives session marker
-
-### Cross-Session Persistence
+Cross-session memory capture is handled by the mechanisms already described above — the pattern store / episodic recall in section 2, and the Memory Palace in section 1 — not by a separate `AutoMemoryBridge` class. That class has been removed from source entirely (no file, no export); the only remaining trace is two dead-stub log lines in `helpers-generator.ts` ("Auto memory import/sync skipped — AutoMemoryBridge removed"). Don't reference `AutoMemoryBridge` as a live component.
 
 All memory persists across sessions in `.monomind/`:
 

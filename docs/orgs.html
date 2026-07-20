@@ -658,7 +658,7 @@ body {
       <div class="step-num">01</div>
       <div class="step-cmd">.monomind/orgs/&lt;name&gt;.json</div>
       <div class="step-title">Define the org</div>
-      <p class="step-desc">Hand-author (or copy <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">sample-team.json</code> from a fresh <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">monomind init</code>) — goal, roles, <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">reports_to</code>, and a per-role policy block gating tools/files/web/budget.</p>
+      <p class="step-desc">Hand-author (or copy <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">sample-team.json</code> from a fresh <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">monomind init</code>) — goal, roles, <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">reports_to</code>, and a per-role policy block gating tools/files/web/budget. Run-level defaults: <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">budget_tokens</code> 1,000,000, <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">max_turns_per_message</code> 30, <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">max_concurrent_agents</code> 4 — all overridable per org.</p>
     </div>
     <div class="how-step reveal">
       <div class="step-num">02</div>
@@ -754,6 +754,28 @@ body {
         <div>
           <div class="feature-label">Cross-process discovery</div>
           <div class="feature-desc"><code style="font-family:var(--ff-m);font-size:11px">--cross-process</code> (default on) lets orgs running in different <code style="font-family:var(--ff-m);font-size:11px">monomind</code> processes — even different projects — discover and message each other.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon fi-accent">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="oklch(72% 0.22 168)" stroke-width="1.5">
+            <circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="feature-label">Cross-run memory</div>
+          <div class="feature-desc">Every role can call <code style="font-family:var(--ff-m);font-size:11px">org_recall</code> / <code style="font-family:var(--ff-m);font-size:11px">org_remember</code> / <code style="font-family:var(--ff-m);font-size:11px">org_learn</code> (a knowledge graph that persists across runs) plus <code style="font-family:var(--ff-m);font-size:11px">knowledge_search</code> (Second Brain) — an org gets smarter run over run instead of starting cold each time.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon fi-amber">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="oklch(72% 0.18 65)" stroke-width="1.5">
+            <path d="M10 3a7 7 0 100 14 7 7 0 000-14z"/><path d="M10 7v3l2 2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="feature-label">Human-in-the-loop</div>
+          <div class="feature-desc">Any role can call <code style="font-family:var(--ff-m);font-size:11px">ask_human</code> mid-task. Answer live from <code style="font-family:var(--ff-m);font-size:11px">org questions &lt;name&gt;</code> / <code style="font-family:var(--ff-m);font-size:11px">org answer &lt;name&gt; &lt;id&gt; "&lt;text&gt;"</code> while it's running, or offline — the answer queues and delivers on the org's next start.</div>
         </div>
       </div>
     </div>
