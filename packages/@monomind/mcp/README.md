@@ -36,6 +36,8 @@ await server.start();
 
 ## Transports
 
+> **Note:** monomind's own `mcp start` command uses stdio transport by default, but that path is a separate implementation in the CLI package (`mcp-server.ts`'s `startStdioServer()`) — it does not import this library. This package's stdio transport is used only when explicitly wired up as a standalone MCP server.
+
 ```typescript
 import { createMCPServer } from '@monoes/mcp';
 

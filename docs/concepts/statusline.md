@@ -108,7 +108,7 @@ Active agent coordination and routing state.
 | `0/15 agents`               | Active agents / configured maximum                             | `.monomind/swarm/swarm-state.json` → `agents.length`. Falls back to `.monomind/metrics/swarm-activity.json`. Green when > 0                                                                                     |
 | `⚡ 14/14 hooks`            | Hooks wired / total available                                  | Counts all hook entries in `.claude/settings.json` + `.js`/`.sh` files in `.claude/hooks/`. Mint green = at least one hook active                                                                                 |
 | `🎯 3 triggers · 24 agents` | MicroAgent trigger rules active (Task 32 — MicroagentTriggers) | Reads `.monomind/trigger-index.json`. 3 trigger keywords across 24 specialist agents are indexed and scanned on every route call. Agents with `triggers:` frontmatter in their `.md` definition get auto-matched |
-| `→ ROUTED` / `● ACTIVE`     | How the current agent was selected                             | `→ ROUTED` = selected automatically by the RouteLayer; `● ACTIVE` = manually loaded via `/use-agent` or `load-agent` command                                                                                      |
+| `→ ROUTED` / `● ACTIVE`     | How the current agent was selected                             | `→ ROUTED` = selected automatically by `.claude/helpers/router.cjs`'s keyword/regex matcher (`routeTask()`), which writes `.monomind/last-route.json` — **not** `@monoes/routing`'s `RouteLayer` (that's a separate, opt-in embedding-based router, only reached via `route semantic`/`agent --task`/`hooks_route_semantic`); `● ACTIVE` = manually loaded via `/use-agent` or `load-agent` command                                                                                      |
 | `👤 Coder`                  | Currently selected agent name                                  | `.monomind/last-route.json` → `agent` field. Updated on every route call. Stale after 30 minutes                                                                                                                 |
 | `81%`                       | Routing confidence score                                       | Same file → `confidence` field. Shown only for auto-routed agents                                                                                                                                                 |
 
@@ -152,7 +152,7 @@ Memory store state and integrations.
 | `DB ✔`             | Memory database present                 | Presence of `memory.db` in any of: `.swarm/`, `.monomind/`, `data/`                                                                                                                                         |
 | `API ✔`            | AI API key configured                   | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` set in environment                                                                                                                                                   |
 
-**When do entries populate?** The `auto-memory-store.json` is written by the `AutoMemoryBridge` from `@monomind/memory`. It imports entries from `MEMORY.md` at session-start and syncs back at session-end. Entries also accumulate via `npx monomind@latest memory store` or through intelligence consolidation.
+**When do entries populate?** The `auto-memory-store.json` is written by the `.claude/helpers/auto-memory-hook.mjs` helper (`import` at `SessionStart`, `sync` at `Stop`) and by intelligence pattern consolidation (`intelligence.init()`/`intelligence.consolidate()`) — not by an `AutoMemoryBridge` class, which has been removed from source entirely. Entries also accumulate via `npx monomind@latest memory store`.
 
 ---
 
@@ -201,7 +201,7 @@ Token budget health and session resource usage.
 | `.monomind/trigger-index.json`          | Task 32 (MicroagentTriggers, 1h TTL)       | SWARM               |
 | `.monomind/metrics/learning.json`       | Intelligence consolidation at session-end  | INTEL               |
 | `.monomind/metrics/ddd-progress.json`   | `ddd` worker (@monoes/hooks)             | INTEL, CONTEXT      |
-| `.monomind/data/auto-memory-store.json` | AutoMemoryBridge on session-end            | MEMORY              |
+| `.monomind/data/auto-memory-store.json` | `auto-memory-hook.mjs` (session-start import / Stop sync) + intelligence consolidation | MEMORY              |
 | `.monomind/data/ranked-context.json`    | PageRank consolidation at session-end      | MEMORY              |
 | `.monomind/security/audit-status.json`  | `monomind security scan`                  | ARCH                |
 | `.monomind/swarm/swarm-state.json`      | Swarm init / coordinator                   | Header, SWARM       |
