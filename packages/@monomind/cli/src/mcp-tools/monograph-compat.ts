@@ -59,7 +59,7 @@ function readGroupConfig(configPath: string): GroupRepo[] {
  * Compute whether a repo's monograph index is stale relative to HEAD, the
  * same way monograph_staleness does: compare the last indexed commit hash
  * against `git rev-list --count <lastCommit>..HEAD`. Mirrors the threshold
- * used by monograph-tools.ts (STALENESS_THRESHOLD = 10).
+ * used by monograph-tools.ts (STALENESS_THRESHOLD = 3).
  */
 function isRepoStale(db: Db, repoPath: string): boolean {
   try {
@@ -72,7 +72,7 @@ function isRepoStale(db: Db, repoPath: string): boolean {
     const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
       cwd: repoPath, encoding: 'utf-8',
     }).trim();
-    return parseInt(out, 10) > 10;
+    return parseInt(out, 10) > 3;
   } catch {
     return false;
   }

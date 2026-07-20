@@ -153,6 +153,7 @@ export const commandsByCategory = {
     statusCommand,
     agentCommand,
     swarmCommand,
+    orgCommand,
     memoryCommand,
     docCommand,
     taskCommand,
@@ -165,11 +166,14 @@ export const commandsByCategory = {
     performanceCommand,
     guidanceCommand,
     autopilotCommand,
+    designCommand,
   ],
   utility: [
     configCommand,
     doctorCommand,
       completionsCommand,
+    reportCrashCommand,
+    crashReportingCommand,
   ],
   analysis: [
     analyzeCommand,

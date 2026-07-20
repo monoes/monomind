@@ -1,8 +1,9 @@
 /**
  * Memory Migration Utility
  *
- * Migrates data from legacy memory systems (SQLite, Markdown, JSON, etc.)
- * to the unified LanceDB-backed memory system.
+ * Migrates data from legacy memory systems (LanceDB, Markdown, JSON, etc.)
+ * to the unified memory system (any IMemoryBackend — SQLite via
+ * better-sqlite3/sql.js as of 2026-07).
  *
  * @module v1/memory/migration
  */

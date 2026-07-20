@@ -72,7 +72,7 @@ export const wizardCommand: Command = {
             message: 'Select skill sets:',
             options: [
               { value: 'core', label: 'Core', hint: 'Swarm, memory skills', selected: true },
-              { value: 'memory', label: 'Memory (LanceDB)', hint: 'Vector database skills', selected: true },
+              { value: 'memory', label: 'Memory (SQLite)', hint: 'Vector database skills', selected: true },
               { value: 'github', label: 'GitHub', hint: 'GitHub integration skills', selected: true },
             ],
           });
@@ -129,8 +129,8 @@ export const wizardCommand: Command = {
       const memoryBackend = await select({
         message: 'Select memory backend:',
         options: [
-          { value: 'hybrid', label: 'Hybrid', hint: 'SQLite + LanceDB (recommended)' },
-          { value: 'lancedb', label: 'LanceDB', hint: '150x faster vector search' },
+          { value: 'hybrid', label: 'Hybrid', hint: 'SQLite with vector search (recommended)' },
+          { value: 'lancedb', label: 'LanceDB (legacy alias)', hint: 'Historical name — now backed by SQLite' },
           { value: 'sqlite', label: 'SQLite', hint: 'Standard SQL storage' },
           { value: 'memory', label: 'In-Memory', hint: 'Fast but non-persistent' },
         ],

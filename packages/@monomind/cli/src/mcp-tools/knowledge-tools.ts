@@ -7,7 +7,7 @@ import { validateInput } from '../utils/input-guards.js';
 
 const knowledgeIngest: MCPTool = {
   name: 'knowledge_ingest',
-  description: 'Ingest documents into the Second Brain knowledge base. Accepts a file or directory path. Extracts text, chunks, embeds, and stores in LanceDB for semantic search.',
+  description: 'Ingest documents into the Second Brain knowledge base. Accepts a file or directory path. Extracts text, chunks, embeds, and stores in SQLite for semantic search.',
   category: 'knowledge',
   tags: ['documents', 'ingest', 'second-brain'],
   inputSchema: {

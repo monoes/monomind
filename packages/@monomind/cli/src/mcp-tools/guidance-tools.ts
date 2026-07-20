@@ -96,7 +96,7 @@ const CAPABILITY_CATALOG: Record<string, CapabilityArea> = {
   },
   'memory-knowledge': {
     name: 'Memory & Knowledge',
-    description: 'Persistent memory with ANN vector search, LanceDB storage, and embeddings.',
+    description: 'Persistent memory with ANN vector search, SQLite storage, and embeddings.',
     tools: ['memory_store', 'memory_retrieve', 'memory_search', 'memory_list', 'memory_delete', 'memory_init', 'memory_export', 'memory_import', 'memory_stats', 'memory_compact', 'memory_namespace'],
     commands: ['memory store', 'memory retrieve', 'memory search', 'memory list', 'memory delete', 'memory init'],
     agents: ['swarm-memory-manager', 'v1-memory-specialist'],

@@ -462,7 +462,7 @@ export const hooksPatternStore: MCPTool = {
       controller,
       implementation: controller === 'lancedb' ? 'lancedb-controller' : (storeResult.success ? 'real-hnsw-indexed' : 'memory-only'),
       note: controller === 'lancedb'
-        ? 'Pattern stored via lancedb bridge with HNSW indexing'
+        ? 'Pattern stored via SQLite-backed memory bridge with HNSW indexing'
         : (storeResult.success ? 'Pattern stored with vector embedding for semantic search' : (storeResult.error || 'Store function unavailable')),
     };
   },
@@ -515,7 +515,7 @@ export const hooksPatternSearch: MCPTool = {
             })),
           searchTimeMs: 0,
           backend: 'lancedb',
-          note: 'Results from lancedb bridge',
+          note: 'Results from SQLite-backed memory bridge',
         };
       }
     } catch {

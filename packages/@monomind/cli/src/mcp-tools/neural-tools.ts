@@ -5,7 +5,7 @@
  * No ML training, gradient descent, or neural network inference occurs.
  * The "train" tool embeds and stores; the "predict" tool finds similar stored
  * patterns. Embeddings come from the shared memory/embedding-operations.ts
- * pipeline (LanceDB bridge -> ONNX -> deterministic hash fallback).
+ * pipeline (SQLite-backed memory bridge -> ONNX -> deterministic hash fallback).
  *
  * All pattern storage is delegated to intelligence.ts's LocalReasoningBank
  * (single source of truth for patterns.json). No separate models.json store.
@@ -20,12 +20,12 @@ const MAX_TRAINING_ENTRIES = 1000;
 const MAX_TEXT_LENGTH = 64 * 1024;
 const MAX_SEARCH_QUERY_LENGTH = 16 * 1024;
 
-// Embeddings: delegate to the shared embedding pipeline (LanceDB bridge -> ONNX ->
+// Embeddings: delegate to the shared embedding pipeline (SQLite-backed memory bridge -> ONNX ->
 // deterministic hash fallback) in memory/embedding-operations.ts.
 let lastEmbeddingModel = 'unknown';
 
 /**
- * Generate embedding via the shared pipeline (LanceDB bridge -> ONNX -> deterministic
+ * Generate embedding via the shared pipeline (SQLite-backed memory bridge -> ONNX -> deterministic
  * hash), same one used by CLI `neural` commands and memory search. Falls back to a
  * local deterministic hash only if the shared module fails to load entirely.
  */

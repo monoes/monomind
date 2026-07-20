@@ -1,8 +1,14 @@
 /**
  * @monomind/memory - V1 Unified Memory System
  *
- * Provides a unified memory interface backed by LanceDB with ANN indexing
- * for fast vector search.
+ * Provides a unified memory interface with ANN indexing for fast vector
+ * search — SQLite-backed (better-sqlite3, sql.js WASM fallback) as of
+ * 2026-07; LanceDB is kept only for reading/migrating legacy stores (see
+ * lancedb-backend.ts, migration.ts). UnifiedMemoryService below is backed by
+ * SQLiteBackend. It is still not the live CLI memory path — the CLI's
+ * memory-bridge.ts talks to SQLiteBackend/SqlJsBackend directly and does not
+ * go through this class — but external @monomind/memory consumers who
+ * instantiate it now get the current engine, not the legacy adapter.
  *
  * @module @monomind/memory
  *
@@ -164,7 +170,7 @@ import {
   MigrationResult,
   createDefaultEntry,
 } from './types.js';
-import { LanceDBBackend } from './lancedb-backend.js';
+import { SQLiteBackend } from './sqlite-backend.js';
 import { MemoryMigrator } from './migration.js';
 
 /**
@@ -180,7 +186,7 @@ export interface UnifiedMemoryServiceConfig {
   /** Embedding generator function */
   embeddingGenerator?: EmbeddingGenerator;
 
-  /** Persistence path (LanceDB directory) */
+  /** Persistence path (SQLite database file, or ':memory:' — see class-level note) */
   persistencePath?: string;
 
   /** Whether to enable persistence (false = use temp dir) */
@@ -196,11 +202,14 @@ export interface UnifiedMemoryServiceConfig {
 /**
  * Unified Memory Service
  *
- * High-level interface for the V1 memory system backed by LanceDB.
+ * High-level interface for the V1 memory system, backed by SQLiteBackend.
+ * NOT the live CLI memory path — the CLI's memory-bridge.ts talks to
+ * SQLiteBackend/SqlJsBackend directly and does not use this class. Kept for
+ * external @monomind/memory consumers.
  * Provides simple API for common operations with automatic embedding support.
  */
 export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend {
-  private adapter: LanceDBBackend;
+  private adapter: SQLiteBackend;
   private config: UnifiedMemoryServiceConfig;
   private initialized: boolean = false;
 
@@ -212,12 +221,10 @@ export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend
       ...config,
     };
 
-    this.adapter = new LanceDBBackend({
-      dbPath: this.config.persistencePath,
-      vectorDimension: this.config.dimensions,
-      namespace: this.config.defaultNamespace,
+    this.adapter = new SQLiteBackend({
+      databasePath: this.config.persistenceEnabled === false ? ':memory:' : (this.config.persistencePath ?? ':memory:'),
+      defaultNamespace: this.config.defaultNamespace ?? 'default',
       embeddingGenerator: this.config.embeddingGenerator,
-      nProbes: this.config.nProbes ?? 20,
     });
 
     // Forward adapter events
@@ -451,7 +458,7 @@ export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend
   /**
    * Get the underlying adapter for advanced operations
    */
-  getAdapter(): LanceDBBackend {
+  getAdapter(): SQLiteBackend {
     return this.adapter;
   }
 
@@ -490,7 +497,7 @@ export function createEmbeddingService(
 }
 
 /**
- * Create a LanceDB-backed memory service with persistence
+ * Create a SQLite-backed memory service with persistence
  */
 export function createHybridService(
   databasePath: string,

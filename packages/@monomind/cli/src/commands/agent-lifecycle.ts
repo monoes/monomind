@@ -53,7 +53,7 @@ export const AGENT_TYPES = [
   { value: 'optimizer', label: 'Optimizer', hint: 'Performance optimization and bottleneck analysis' },
   { value: 'security-architect', label: 'Security Architect', hint: 'Security architecture and threat modeling' },
   { value: 'security-auditor', label: 'Security Auditor', hint: 'CVE remediation and security testing' },
-  { value: 'memory-specialist', label: 'Memory Specialist', hint: 'LanceDB ANN search (150x-12,500x faster)' },
+  { value: 'memory-specialist', label: 'Memory Specialist', hint: 'SQLite-backed ANN search (150x-12,500x faster)' },
   { value: 'swarm-specialist', label: 'Swarm Specialist', hint: 'Unified coordination engine' },
   { value: 'performance-engineer', label: 'Performance Engineer', hint: '2.49x-7.47x optimization targets' },
   { value: 'core-architect', label: 'Core Architect', hint: 'Domain-driven design restructure' },

@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-// ADR-053: Lazy import of LanceDB memory bridge
+// ADR-053: Lazy import of SQLite-backed memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
   if (_bridge === null) return null;
@@ -26,11 +26,12 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
 // HNSW INDEX SINGLETON (150x faster vector search)
 //
 // Two-tier ANN fallback strategy:
-//   1. LanceDB bridge (memory-bridge.ts) — primary ANN search, requires the
-//      native @lancedb/lancedb binary.
+//   1. SQLite-backed memory bridge (memory-bridge.ts) — primary ANN search,
+//      using better-sqlite3 when its native binding loads, sql.js (pure WASM)
+//      otherwise. (Historically LanceDB, replaced 2026-07.)
 //   2. getHNSWIndex() below — pure-JS HNSWIndex from the optional
-//      @monoes/memory package. Works even when the LanceDB native binary
-//      fails to load, as long as @monoes/memory itself is installed.
+//      @monoes/memory package. Works even when the better-sqlite3 native
+//      binding fails to load, as long as @monoes/memory itself is installed.
 //   3. If @monoes/memory isn't installed either, this returns null and
 //      callers fall through to brute-force search.
 // ============================================================================
@@ -280,7 +281,7 @@ export function getHNSWStatus(): {
 } {
   // ADR-053: If bridge was previously loaded, report availability
   if (_bridge && _bridge !== null) {
-    // Bridge is loaded — HNSW-equivalent is available via LanceDB
+    // Bridge is loaded — HNSW-equivalent is available via the SQLite backend
     return {
       available: true,
       initialized: true,
