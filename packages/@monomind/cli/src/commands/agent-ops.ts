@@ -65,7 +65,7 @@ export const metricsCommand: Command = {
         note: totalAgents === 0 ? 'No agents spawned yet. Use: agent spawn -t coder' : undefined,
       },
       byType,
-      performance: { memoryEntries: `${vectorCount} entries`, searchBackend: vectorCount > 0 ? 'LanceDB' : 'none' },
+      performance: { memoryEntries: `${vectorCount} entries`, searchBackend: vectorCount > 0 ? 'SQLite' : 'none' },
     };
 
     if (ctx.flags.format === 'json') { output.printJson(metrics); return { success: true, data: metrics }; }

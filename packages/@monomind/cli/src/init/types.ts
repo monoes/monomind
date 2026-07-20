@@ -72,7 +72,7 @@ export interface HooksConfig {
 export interface SkillsConfig {
   /** Include core skills (swarm, mastermind, monodesign, monomotion) */
   core: boolean;
-  /** Include memory/LanceDB skills */
+  /** Include memory/SQLite skills */
   memory: boolean;
   /** Include GitHub integration skills */
   github: boolean;

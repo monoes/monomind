@@ -3,8 +3,8 @@
  * Properly initializes the memory database with sql.js (WASM SQLite)
  * Includes pattern tables, vector embeddings, migration state tracking
  *
- * ADR-053: Routes through ControllerRegistry → LanceDB when available,
- * falls back to raw sql.js for backwards compatibility.
+ * ADR-053: Routes through ControllerRegistry → SQLite-backed memory bridge
+ * when available, falls back to raw sql.js for backwards compatibility.
  *
  * @module v1/cli/memory-initializer
  */
@@ -15,7 +15,7 @@ import * as path from 'path';
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
 
-// ADR-053: Lazy import of LanceDB memory bridge
+// ADR-053: Lazy import of SQLite-backed memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
   if (_bridge === null) return null;
@@ -150,15 +150,15 @@ export interface MemoryInitResult {
 }
 
 /**
- * ADR-053: Activate ControllerRegistry so LanceDB controllers
+ * ADR-053: Activate ControllerRegistry so memory-backend controllers
  * (ReasoningBank, SkillLibrary, ExplainableRecall, etc.) are instantiated.
  *
  * Uses the memory-bridge's getControllerRegistry() which lazily creates
  * a singleton ControllerRegistry and initializes it with the given dbPath.
  * After this call, all enabled controllers are ready for immediate use.
  *
- * Failures are isolated: if @monomind/memory or LanceDB is not available,
- * this returns an empty result without throwing.
+ * Failures are isolated: if @monomind/memory or the SQLite backend is not
+ * available, this returns an empty result without throwing.
  */
 async function activateControllerRegistry(
   dbPath: string,

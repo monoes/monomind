@@ -20,7 +20,7 @@ import type { InitOptions } from './types.js';
  * 🏗️  DDD Domains    [●●○○○]  2/5    ⚡ HNSW 150x
  * 🤖 Swarm  ◉ [ 5/15]  👥 2    🪝 10/17    🟢 CVE 3/3    💾 4MB    🧠  63%
  * 🔧 Architecture    ADRs ●71%  │  DDD ● 13%  │  Security ●CLEAN
- * 📊 LanceDB    Vectors ●3104⚡  │  Size 216KB  │  Tests ●6 (~24 cases)  │  MCP ●1/1
+ * 📊 SQLite    Vectors ●3104⚡  │  Size 216KB  │  Tests ●6 (~24 cases)  │  MCP ●1/1
  */
 export function generateStatuslineScript(options: InitOptions): string {
   const maxAgents = options.runtime.maxAgents;
@@ -598,7 +598,7 @@ function getActiveAgent() {
   } catch { return null; }
 }
 
-// Memory (LanceDB) stats — count real entries
+// Memory (SQLite) stats — count real entries
 function getMemoryStats() {
   let vectorCount = 0;
   let dbSizeKB = 0;

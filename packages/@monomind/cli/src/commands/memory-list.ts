@@ -115,7 +115,7 @@ export const listCommand: Command = {
 // Edit command
 export const editCommand: Command = {
   name: 'edit',
-  description: 'Edit a memory entry (LanceDB, Memory Palace, or knowledge chunk)',
+  description: 'Edit a memory entry (SQLite-backed, Memory Palace, or knowledge chunk)',
   options: [
     { name: 'key', short: 'k', description: 'Storage key', type: 'string' },
     { name: 'namespace', short: 'n', description: 'Memory namespace', type: 'string', default: 'default' },
@@ -124,7 +124,7 @@ export const editCommand: Command = {
     { name: 'id', description: 'Entry ID (palace/knowledge)', type: 'string' }
   ],
   examples: [
-    { command: 'monomind memory edit -k "pattern/auth" --value "updated content"', description: 'Edit LanceDB entry' },
+    { command: 'monomind memory edit -k "pattern/auth" --value "updated content"', description: 'Edit SQLite-backed entry' },
     { command: 'monomind memory edit --source palace --id "abc123" --value "new content"', description: 'Edit Memory Palace drawer' },
     { command: 'monomind memory edit --source knowledge --id "chunk-42" --value "updated"', description: 'Edit knowledge chunk' }
   ],

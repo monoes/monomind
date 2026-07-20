@@ -1,5 +1,5 @@
 /**
- * Document Pipeline — wires text extraction, chunking, embedding, and LanceDB storage
+ * Document Pipeline — wires text extraction, chunking, embedding, and SQLite storage
  * into an end-to-end ingest/search/export pipeline for the Second Brain.
  *
  * @module v1/cli/knowledge/document-pipeline
@@ -492,8 +492,8 @@ export async function removeDocument(
   rootDir = process.cwd(),
 ): Promise<void> {
   removeMetadataEntry(rootDir, path.resolve(filePath), scope);
-  // LanceDB cleanup: bridge doesn't expose delete-by-key, so metadata removal is sufficient.
-  // Orphaned LanceDB entries get swept on next full re-index or TTL expiry.
+  // SQLite cleanup: bridge doesn't expose delete-by-key, so metadata removal is sufficient.
+  // Orphaned SQLite entries get swept on next full re-index or TTL expiry.
 }
 
 // ── OKF Export ─────────────────────────────────────────────────────

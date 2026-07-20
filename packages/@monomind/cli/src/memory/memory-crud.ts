@@ -262,7 +262,7 @@ export async function storeEntry(options: {
   embedding?: { dimensions: number; model: string };
   error?: string;
 }> {
-  // ADR-053: Try LanceDB memory bridge first
+  // ADR-053: Try SQLite-backed memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeStoreEntry(options);
@@ -419,7 +419,7 @@ export async function deleteEntry(options: {
   remainingEntries: number;
   error?: string;
 }> {
-  // ADR-053: Try LanceDB memory bridge first
+  // ADR-053: Try SQLite-backed memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeDeleteEntry(options);

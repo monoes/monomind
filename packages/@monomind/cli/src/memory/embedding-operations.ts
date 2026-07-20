@@ -61,7 +61,7 @@ export async function loadEmbeddingModel(options?: {
     };
   }
 
-  // ADR-053: Try LanceDB bridge first
+  // ADR-053: Try SQLite-backed memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeLoadEmbeddingModel();
@@ -183,7 +183,7 @@ export async function generateEmbedding(text: string): Promise<{
   if (typeof text !== 'string') text = String(text ?? '');
   if (text.length > 16 * 1024) text = text.slice(0, 16 * 1024);
 
-  // ADR-053: Try LanceDB bridge first
+  // ADR-053: Try SQLite-backed memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeGenerateEmbedding(text);

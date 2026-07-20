@@ -953,7 +953,7 @@ export const hiveMindTools: MCPTool[] = [
               namespace: 'hive-consensus',
               tags: [proposal.type, proposalStrategy || 'raft', proposal.status],
             });
-          } catch { /* LanceDB not available — JSON store is primary */ }
+          } catch { /* SQLite memory backend not available — JSON store is primary */ }
 
           // Persist consensus audit record — uses MONOMIND_SESSION_SECRET when
           // set, otherwise a per-project generated-and-persisted secret so the
@@ -1285,7 +1285,7 @@ export const hiveMindTools: MCPTool[] = [
             value: JSON.stringify(input.value),
             namespace: 'hive-memory',
           });
-        } catch { /* LanceDB not available */ }
+        } catch { /* SQLite memory backend not available */ }
 
         return {
           action,

@@ -168,7 +168,7 @@ export const systemTools: MCPTool[] = [
       let taskCounts = { pending: 0, completed: 0, failed: 0 };
       let _metricsSource: 'lancedb' | 'json-store' | 'none' = 'none';
 
-      // Primary: LanceDB bridge
+      // Primary: SQLite-backed memory bridge
       try {
         const bridge = await import('../memory/memory-bridge.js');
         const agentResults = await bridge.bridgeListEntries({ namespace: 'agents', limit: 10000 }) as { entries?: Array<{ metadata?: string; value?: string }> } | null;

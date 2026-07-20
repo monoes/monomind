@@ -1764,7 +1764,7 @@ async function writeCapabilitiesDoc(
 Monomind is a domain-driven design architecture for multi-agent AI coordination with:
 
 - **15-Agent Swarm Coordination** with hierarchical and mesh topologies
-- **ANN Vector Search** - indexed pattern retrieval via LanceDB
+- **ANN Vector Search** - indexed pattern retrieval via SQLite (better-sqlite3, sql.js WASM fallback)
 - **Keyword Routing** - deterministic task→agent routing with outcome measurement
 - **Byzantine Fault Tolerance** - Queen-led consensus mechanisms
 - **MCP Server Integration** - Model Context Protocol support
@@ -1859,7 +1859,7 @@ npx monomind@latest swarm monitor
 | \`init\` | 5 | Project initialization |
 | \`agent\` | 7 | Agent lifecycle management |
 | \`swarm\` | 6 | Multi-agent coordination |
-| \`memory\` | 12 | LanceDB with ANN vector search |
+| \`memory\` | 12 | SQLite with ANN vector search |
 | \`mcp\` | 9 | MCP server management |
 | \`task\` | 5 | Task assignment |
 | \`session\` | 6 | Session persistence |
@@ -1966,7 +1966,7 @@ session start when their output is >6h old; run on demand with
 
 ### Intelligence System
 - **Keyword routing**: Deterministic task→agent routing with outcome measurement
-- **ANN pattern search**: Indexed vector search via LanceDB
+- **ANN pattern search**: Indexed vector search via SQLite
 - **ReasoningBank**: Stores learned patterns and trajectories for retrieval
 - **Int8 Quantization**: ~4x memory reduction for stored embeddings
 
@@ -2038,7 +2038,7 @@ npx monomind@latest memory init --force
 
 | Metric | Target | Status |
 |--------|--------|--------|
-| ANN Search | Indexed vector search | ✅ Implemented (LanceDB) |
+| ANN Search | Indexed vector search | ✅ Implemented (SQLite) |
 | Memory Reduction | 50-75% | ✅ Implemented (~4x via Int8 quantization) |
 | Pattern Learning | Recorded + retrievable | ✅ Implemented (ReasoningBank) |
 | MCP Response | <100ms | ✅ Achieved |
@@ -2056,7 +2056,7 @@ npx monomind@latest memory init --force
 ### Integrated Packages
 | Package | Version | Purpose |
 |---------|---------|---------|
-| @lancedb/lancedb | latest | Vector database (ANN search) |
+| better-sqlite3 (sql.js WASM fallback) | latest | SQLite vector database (ANN search) |
 
 ### Optional Integrations
 | Package | Command |

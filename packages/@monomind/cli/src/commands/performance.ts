@@ -616,16 +616,15 @@ const bottleneckCommand: Command = {
       } catch { /* ok */ }
     }
 
-    const memoryDir = '.monomind/memory';
-    if (fs.existsSync(memoryDir)) {
-      try {
-        const stat = fs.statSync(path.join(memoryDir, 'lance.db')).size ?? 0;
-        const sizeMB = stat / 1024 / 1024;
-        if (sizeMB > 100) {
-          findings.push({ component: 'Memory DB', bottleneck: `LanceDB ${sizeMB.toFixed(0)}MB`, severity: output.warning('Medium'), solution: 'Run: monomind memory compact' });
-        }
-      } catch { /* no lance.db */ }
-    }
+    try {
+      const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
+      const dbFile = path.join(bridgeGetDbPath(), 'memory.db');
+      const stat = fs.statSync(dbFile).size ?? 0;
+      const sizeMB = stat / 1024 / 1024;
+      if (sizeMB > 100) {
+        findings.push({ component: 'Memory DB', bottleneck: `SQLite ${sizeMB.toFixed(0)}MB`, severity: output.warning('Medium'), solution: 'Run: monomind memory compact' });
+      }
+    } catch { /* no memory.db yet */ }
 
     const network = (perf.network ?? {}) as Record<string, unknown>;
     if (!network.batching) {

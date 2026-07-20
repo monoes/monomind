@@ -1,11 +1,13 @@
 /**
  * ControllerRegistry - Central controller lifecycle management for memory backend
  *
- * Wraps the LanceDB backend and adds CLI-specific controllers from @monomind/memory.
- * Manages initialization (level-based ordering), health checks, and graceful shutdown.
+ * Wraps the configured memory backend (SQLite via better-sqlite3/sql.js as of
+ * 2026-07; historically LanceDB) and adds CLI-specific controllers from
+ * @monomind/memory. Manages initialization (level-based ordering), health
+ * checks, and graceful shutdown.
  *
  * Per ADR-053: Replaces memory-initializer.js's raw sql.js usage with a unified
- * controller ecosystem routing all memory operations through LanceDB.
+ * controller ecosystem routing all memory operations through a single backend.
  *
  * @module @monomind/memory/controller-registry
  */
@@ -101,7 +103,7 @@ export interface RegistryHealthReport {
  * Runtime configuration for controller activation
  */
 export interface RuntimeConfig {
-  /** Database path for LanceDB */
+  /** Database path for the memory backend (SQLite as of 2026-07) */
   dbPath?: string;
 
   /** Vector dimension (default: 384 for MiniLM) */
@@ -414,7 +416,7 @@ export class ControllerRegistry extends EventEmitter {
       case 'hierarchicalMemory':
         return true;
 
-      // Security — enabled if LanceDB available
+      // Security — enabled if the memory backend is available
       case 'mutationGuard':
       case 'attestationLog':
       case 'vectorBackend':

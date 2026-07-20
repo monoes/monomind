@@ -10,9 +10,9 @@ import { configManager } from '../services/config-file-manager.js';
 
 // Memory backends (needed for configureCommand)
 const BACKENDS = [
-  { value: 'lancedb', label: 'LanceDB', hint: 'Vector database with ANN indexing' },
+  { value: 'lancedb', label: 'LanceDB (legacy alias)', hint: 'Historical name — now backed by SQLite' },
   { value: 'sqlite', label: 'SQLite', hint: 'Lightweight local storage' },
-  { value: 'hybrid', label: 'Hybrid', hint: 'SQLite + LanceDB (recommended)' },
+  { value: 'hybrid', label: 'Hybrid', hint: 'SQLite with vector search (recommended)' },
   { value: 'memory', label: 'In-Memory', hint: 'Fast but non-persistent' }
 ];
 
@@ -20,7 +20,7 @@ const BACKENDS = [
 export const deleteCommand: Command = {
   name: 'delete',
   aliases: ['rm'],
-  description: 'Delete a memory entry (LanceDB, Memory Palace, or knowledge chunk)',
+  description: 'Delete a memory entry (SQLite-backed, Memory Palace, or knowledge chunk)',
   options: [
     {
       name: 'key',
@@ -196,8 +196,9 @@ export const statsCommand: Command = {
       const memoryConfig = configManager.get(ctx.cwd, 'memory') as { backend?: string } | undefined;
       const configuredBackend = memoryConfig?.backend || 'hybrid';
       // The actual storage engine currently in use for reads/writes is always
-      // LanceDB (memory-bridge.ts) — report the real on-disk path, not the
-      // configured (but not-yet-wired) backend's path.
+      // SQLite (better-sqlite3, sql.js WASM fallback — see memory-bridge.ts) —
+      // report the real on-disk path, not the configured (but not-yet-wired)
+      // backend's path.
       const backendStats = await bridgeGetBackendStats();
       const realLocation = bridgeGetDbPath();
 
@@ -205,8 +206,8 @@ export const statsCommand: Command = {
         totalEntries: entries.length,
         totalSize: totalBytes >= 1048576 ? `${(totalBytes / 1048576).toFixed(1)} MB`
           : totalBytes >= 1024 ? `${(totalBytes / 1024).toFixed(1)} KB` : `${totalBytes} B`,
-        version: 'lancedb',
-        backend: `LanceDB (configured: ${configuredBackend})`,
+        version: 'sqlite',
+        backend: `SQLite (configured: ${configuredBackend})`,
         location: realLocation,
         oldestEntry: times[0] ? new Date(times[0]).toISOString() : null,
         newestEntry: times.length ? new Date(times[times.length - 1]).toISOString() : null,
