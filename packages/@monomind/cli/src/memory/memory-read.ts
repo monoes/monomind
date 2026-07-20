@@ -17,7 +17,7 @@ import { cosineSimilarity as cosineSim } from '../utils/cosine-similarity.js';
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
 
-// ADR-053: Lazy import of LanceDB memory bridge
+// ADR-053: Lazy import of SQLite-backed memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
   if (_bridge === null) return null;
@@ -53,7 +53,7 @@ export async function searchEntries(options: {
   searchTime: number;
   error?: string;
 }> {
-  // ADR-053: Try LanceDB memory bridge first
+  // ADR-053: Try SQLite-backed memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeSearchEntries(options);
@@ -207,7 +207,7 @@ export async function listEntries(options: {
   total: number;
   error?: string;
 }> {
-  // ADR-053: Try LanceDB memory bridge first
+  // ADR-053: Try SQLite-backed memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeListEntries(options);
@@ -352,7 +352,7 @@ export async function getEntry(options: {
   };
   error?: string;
 }> {
-  // ADR-053: Try LanceDB memory bridge first
+  // ADR-053: Try SQLite-backed memory bridge first
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeGetEntry(options);

@@ -1,6 +1,6 @@
 /**
  * CLI Memory Command
- * Memory operations for LanceDB integration
+ * Memory operations — SQLite-backed (better-sqlite3, sql.js WASM fallback)
  *
  * Split into sub-modules:
  *   memory-crud.ts     — store, retrieve, search
@@ -63,7 +63,7 @@ const initMemoryCommand: Command = {
   ],
   examples: [
     { command: 'monomind memory init', description: 'Initialize hybrid backend with all features' },
-    { command: 'monomind memory init -b lancedb', description: 'Initialize LanceDB backend' },
+    { command: 'monomind memory init -b lancedb', description: 'Initialize memory backend (legacy "lancedb" alias, now SQLite-backed)' },
     { command: 'monomind memory init -p ./data/memory.db --force', description: 'Reinitialize at custom path' },
     { command: 'monomind memory init --verbose --verify', description: 'Initialize with full verification' }
   ],
@@ -306,11 +306,11 @@ export const memoryCommand: Command = {
     output.printList([
       `${output.highlight('init')}        - Initialize memory database (sql.js)`,
       `${output.highlight('store')}       - Store data in memory`,
-      `${output.highlight('edit')}        - Edit an entry (LanceDB, palace, knowledge)`,
+      `${output.highlight('edit')}        - Edit an entry (SQLite-backed, palace, knowledge)`,
       `${output.highlight('retrieve')}    - Retrieve data from memory`,
       `${output.highlight('search')}      - Semantic/vector search`,
       `${output.highlight('list')}        - List memory entries`,
-      `${output.highlight('delete')}      - Delete an entry (LanceDB, palace, knowledge)`,
+      `${output.highlight('delete')}      - Delete an entry (SQLite-backed, palace, knowledge)`,
       `${output.highlight('templates')}   - Show best-practice entry templates`,
       `${output.highlight('stats')}       - Show statistics`,
       `${output.highlight('configure')}   - Configure backend`,

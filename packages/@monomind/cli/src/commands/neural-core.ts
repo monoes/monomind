@@ -62,7 +62,7 @@ export const statusCommand: Command = {
             component: 'Pattern Index',
             status: hnswStatus.available ? output.success('Ready') : output.dim('Empty'),
             details: hnswStatus.available
-              ? `${hnswStatus.entryCount} vectors, ${hnswStatus.dimensions}-dim (ANN via LanceDB)`
+              ? `${hnswStatus.entryCount} vectors, ${hnswStatus.dimensions}-dim (ANN via SQLite)`
               : 'No vectors indexed yet',
           },
           {

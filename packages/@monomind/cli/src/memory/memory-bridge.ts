@@ -1,7 +1,10 @@
 /**
- * Memory Bridge — Routes CLI memory operations through LanceDB
+ * Memory Bridge — Routes CLI memory operations through SQLite
  *
- * Uses LanceDBBackend from @monoes/memory.
+ * Uses SQLiteBackend (better-sqlite3, sql.js WASM fallback) from @monoes/memory.
+ * LanceDB was replaced by this SQLite engine 2026-07; the on-disk data
+ * directory is still named `lancedb` for legacy/back-compat path resolution
+ * (see getDbPath below) but no longer holds LanceDB data.
  * All exported function signatures are unchanged.
  *
  * @module v1/cli/memory-bridge
@@ -94,7 +97,8 @@ function getDbPath(customPath?: string): string {
   return defaultDir;
 }
 
-/** Resolve the real on-disk LanceDB path for a given custom path (or the default). */
+/** Resolve the real on-disk SQLite data-dir path for a given custom path (or the
+ *  default) — the dir is still named `lancedb` for legacy path back-compat. */
 export function bridgeGetDbPath(customPath?: string): string {
   return getDbPath(customPath);
 }
@@ -714,7 +718,7 @@ export async function bridgeGetBackendStats(
   }
 }
 
-// ===== HNSW (replaced by LanceDB ANN — stubs kept for API compat) =====
+// ===== HNSW (replaced by the SQLite backend's ANN search — stubs kept for API compat) =====
 
 export async function bridgeGetHNSWStatus(
   dbPath?: string,
@@ -748,7 +752,7 @@ export async function bridgeSearchHNSW(options: {
   indexSize?: number;
   error?: string;
 } | null> {
-  // Delegate to bridgeSearchEntries which uses LanceDB ANN
+  // Delegate to bridgeSearchEntries which uses the SQLite backend's ANN search
   const result = await bridgeSearchEntries({
     query: options.query,
     namespace: options.namespace,
@@ -770,7 +774,7 @@ export async function bridgeAddToHNSW(options: {
   namespace?: string;
   dbPath?: string;
 }): Promise<{ success: boolean; indexSize?: number; error?: string } | null> {
-  // LanceDB indexes entries automatically on store — this is a no-op
+  // The SQLite backend indexes entries automatically on store — this is a no-op
   const backend = await getBackend(options.dbPath);
   if (!backend) return null;
   try {
@@ -781,7 +785,7 @@ export async function bridgeAddToHNSW(options: {
   }
 }
 
-// ===== Controller stubs (LanceDB has no equivalent controllers) =====
+// ===== Controller stubs (the SQLite backend has no equivalent controllers) =====
 
 export async function bridgeGetController(
   controllerName: string,
@@ -1132,21 +1136,21 @@ export async function bridgeHealthCheck(
   error?: string;
 } | null> {
   const backend = await getBackend(dbPath);
-  if (!backend) return { healthy: false, backend: 'lancedb', error: 'unavailable' };
+  if (!backend) return { healthy: false, backend: 'sqlite', error: 'unavailable' };
 
   try {
     const health = await backend.healthCheck?.();
     const stats = await backend.getStats?.();
     return {
       healthy: health?.healthy ?? true,
-      backend: 'lancedb',
+      backend: 'sqlite',
       stats: stats ? {
         totalEntries: stats.totalEntries ?? 0,
         namespaces: Object.keys(stats.entriesByNamespace ?? {}),
       } : undefined,
     };
   } catch {
-    return { healthy: false, backend: 'lancedb' };
+    return { healthy: false, backend: 'sqlite' };
   }
 }
 

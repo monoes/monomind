@@ -419,7 +419,7 @@ export const statuslineCommand: Command = {
     const sizeDisplay = memoryStats.dbSizeKB >= 1024 ? `${(memoryStats.dbSizeKB / 1024).toFixed(1)}MB` : `${memoryStats.dbSizeKB}KB`;
     const hnswIndicator = memoryStats.hasHnsw ? `${c.brightGreen}⚡${c.reset}` : '';
 
-    const line4 = `${c.brightCyan}📊 LanceDB${c.reset}    ` +
+    const line4 = `${c.brightCyan}📊 SQLite${c.reset}    ` +
       `${c.cyan}Vectors${c.reset} ${vectorColor}●~${memoryStats.vectorCount}${hnswIndicator}${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Size${c.reset} ${c.brightWhite}${sizeDisplay}${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Tests${c.reset} ${testColor}●${testStats.testFiles}${c.reset} ${c.dim}(~${testStats.testCases} est.)${c.reset}  ${c.dim}│${c.reset}  ` +
