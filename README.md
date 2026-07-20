@@ -140,9 +140,12 @@ monomind org status [name]          # runtime state for one or all orgs
 monomind org list                   # list every org + status
 monomind org serve [--cross-process]  # host-only mode, runs scheduled orgs
 monomind org delete <name>          # remove an org
+monomind org memory <name>          # cross-run KG memory: stats (default) | search <q> | rules | rollback <run-ref>
 ```
 
-> **Note:** the older `/mastermind:createorg` + `/mastermind:runorg` prompt-orchestrated flow is deprecated — it has no delivery guarantees or ground-truth event stream. It still runs for orgs not yet migrated, but new orgs should use `monomind org run` directly against a hand-authored `.monomind/orgs/<name>.json`.
+`org` has 16 subcommands total (run, stop, status, serve, test-loop, logs, report, memory, questions, answer, create, validate, migrate, list, delete, mark-complete) — `org memory` is the newest addition.
+
+> **Note:** `/mastermind:runorg` now delegates directly to the Org Runtime v2 daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. The old prompt-orchestrated flow (Task-tool boss agent, monotask board, manual dashboard event posting) is retired to `/mastermind:runorgv1`, reachable only by that explicit legacy name, kept only for orgs not yet migrated off the v1 config shape. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.
 
 ---
 
@@ -223,7 +226,7 @@ monomind doc list                  # what's indexed
 monomind doc export                # portable OKF bundle — move your brain between machines
 ```
 
-**And it follows you across projects.** Ingest a path from *outside* the current project (`monomind doc ingest ~/notes`, or add `--global`) and it lands in your personal global brain at `~/.monomind/global-brain` — searchable from every project on the machine. All retrieval (CLI search, per-prompt injection, the dashboard) merges both stores automatically, with project knowledge winning ties and global hits labeled `[global]`. `doc export --global` moves your whole brain between machines as an OKF bundle — still no cloud, ever.
+**And it follows you across projects.** Ingest a path from *outside* the current project (`monomind doc ingest ~/notes`, or add `--global`) and it lands in your personal global brain at `~/.monomind/global-brain` (override with `MONOMIND_GLOBAL_BRAIN_DIR`) — kept as a sibling of `~/.monomind/projects` specifically so `monomind cleanup --data` can never prune it — searchable from every project on the machine. All retrieval (CLI search, per-prompt injection, the dashboard) merges both stores automatically, with project knowledge winning ties and global hits labeled `[global]`. `doc export --global` moves your whole brain between machines as an OKF bundle — still no cloud, ever.
 
 Retrieval quality is a tested invariant, not a hope: a golden-set eval (paraphrase queries against notes written in different vocabulary) runs in CI with an 80% recall bar.
 
@@ -309,6 +312,8 @@ const result = await fence.detect(userInput);
 // result.safe · result.threats · result.overallRisk
 ```
 
+In Claude Code, the live pre-bash/pre-write gate is wired up via its own lazy-loaded integration in `.claude/helpers/handlers/gates-handler.cjs` (`MONOMIND_MONOFENCE_GATE=off` to disable) — not via monofence-ai's `registerSecurityHooks()` API, which is a separate integration point consumed only by `@monoes/hooks`' in-process `HookExecutor`.
+
 ---
 
 ## 📋 49 Mastermind Commands
@@ -353,7 +358,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | Package | npm | Purpose |
 |---|---|---|
 | `monomind` | [![npm](https://img.shields.io/npm/v/monomind?style=flat-square&color=00D2AA)](https://www.npmjs.com/package/monomind) | Umbrella — **install this one** |
-| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (31 commands) |
+| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (32 commands) |
 | `monofence-ai` | [![npm](https://img.shields.io/npm/v/monofence-ai?style=flat-square&color=EF4444)](https://www.npmjs.com/package/monofence-ai) | AI manipulation defence |
 | `@monoes/monograph` | [![npm](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square&color=F59E0B)](https://www.npmjs.com/package/@monoes/monograph) | Code knowledge graph |
 
@@ -393,6 +398,8 @@ graph TD
 ## Resources
 
 - 📖 [Full Documentation](https://monoes.github.io/monomind/)
+- 🖥️ [CLI Command Reference](https://github.com/monoes/monomind/blob/main/docs/commands/cli-reference.md)
+- 🏢 [Org Runtime v2 Architecture](https://github.com/monoes/monomind/blob/main/docs/concepts/org-runtime.md)
 - 🏢 [Autonomous Orgs](https://monoes.github.io/monomind/#orgs)
 - ⚡ [Mastermind Reference](https://monoes.github.io/monomind/#mastermind)
 - 📋 [All Slash Commands](https://monoes.github.io/monomind/#slash)
