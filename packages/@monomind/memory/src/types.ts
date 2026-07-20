@@ -1,7 +1,9 @@
 /**
  * V1 Unified Memory Types
  *
- * Type definitions for the unified memory system based on LanceDB with ANN indexing.
+ * Type definitions for the unified memory system, backend-agnostic (SQLite via
+ * better-sqlite3/sql.js as of 2026-07; LanceDB kept only for legacy reads/migration)
+ * with ANN indexing.
  * Supports 150x-12,500x faster vector search compared to brute-force approaches.
  *
  * @module v1/memory/types

@@ -309,7 +309,7 @@ const initCommand: Command = {
       output.writeln(output.dim('  Setting up communication channels...'));
 
       if (v1Mode) {
-        output.writeln(output.dim('  Configuring LanceDB integration (ANN)....'));
+        output.writeln(output.dim('  Configuring SQLite-backed vector search (ANN)....'));
         output.writeln(output.dim('  Initializing keyword routing + outcome measurement...'));
       }
 

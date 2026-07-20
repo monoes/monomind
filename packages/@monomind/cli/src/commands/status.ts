@@ -138,7 +138,7 @@ async function getSystemStatus(): Promise<{
     const memoryStatus = {
       entries: 0,
       size: 0,
-      backend: 'lancedb',
+      backend: 'sqlite',
       performance: { avgSearchTime: 0, cacheHitRate: 0 },
     };
 
@@ -633,7 +633,7 @@ const memoryCommand: Command = {
       const totalBytes = entries.reduce((s: number, e: any) => s + (e.content || '').length, 0);
 
       const result = {
-        backend: 'LanceDB',
+        backend: 'SQLite',
         entries: entries.length,
         size: totalBytes,
       };

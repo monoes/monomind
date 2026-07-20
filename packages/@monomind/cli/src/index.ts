@@ -350,7 +350,7 @@ export class CLI {
     this.output.writeln(this.output.bold('V1 FEATURES:'));
     this.output.printList([
       '15-agent hierarchical mesh coordination',
-      'LanceDB with ANN vector indexing',
+      'SQLite-backed ANN vector indexing',
       'Keyword routing + route-outcome measurement',
       'Unified SwarmCoordinator engine',
       'Event-sourced state management',
