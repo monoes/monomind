@@ -357,6 +357,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #odt-chat-send-btn { font-size:8px; letter-spacing:1.5px; padding:4px 10px; border-radius:3px; border:1px solid oklch(62% 0.2 186 / 0.4); color:oklch(62% 0.2 186); background:transparent; cursor:pointer; font-family:inherit; flex-shrink:0; align-self:flex-end; }
 #odt-chat-send-btn:hover:not(:disabled) { background:oklch(62% 0.2 186 / 0.12); }
 #odt-chat-send-btn:disabled { opacity:0.3; cursor:default; }
+#odt-chat-role-sel { background:var(--surface); color:var(--text-mid); border:1px solid var(--border); border-radius:4px; font-size:10px; font-family:var(--mono); padding:4px 5px; align-self:flex-end; max-width:110px; flex-shrink:0; }
+#odt-chat-role-sel:focus { outline:none; border-color:var(--accent); }
 .cv-user-msg { align-self:flex-end; }
 .cv-user-msg .cv-bub { background:oklch(20% 0.06 220); border-left:none; border-right:2px solid oklch(62% 0.2 186); }
 .odt-mode-btn {
@@ -7752,6 +7754,7 @@ async function v2RenderOrgChat() {
         <div id="odt-chat-empty">Select a session to see agent communications.<br><span style="font-size:10px;opacity:0.5">Sessions appear after the first /mastermind:runorg</span></div>
       </div>
       <div id="odt-chat-compose">
+        <select id="odt-chat-role-sel" title="Send to"><option value="">boss (default)</option></select>
         <textarea id="odt-chat-input" rows="1" placeholder="Send a message to the org…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();odtSendChatMessage();}"></textarea>
         <button id="odt-chat-send-btn" onclick="odtSendChatMessage()" disabled>SEND</button>
       </div>`;
@@ -7759,6 +7762,7 @@ async function v2RenderOrgChat() {
 
   // Restore saved chat mode (runs on every tab open so buttons stay in sync)
   initOdtChatMode();
+  populateOdtChatRoleSelect();
 
   // Reset state only when org changes (not on every tab-switch)
   if (_odtChatForOrg !== _v2SelOrg) {
@@ -8135,17 +8139,29 @@ function _odtPopulateChatSel() {
   }
 }
 
+function populateOdtChatRoleSelect() {
+  const sel = document.getElementById('odt-chat-role-sel');
+  if (!sel) return;
+  const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">boss (default)</option>' +
+    roles.map(r => `<option value="${esc(r.id)}">${esc(r.title || r.id)}</option>`).join('');
+  if (roles.some(r => r.id === prev)) sel.value = prev;
+}
+
 window.odtSendChatMessage = async function() {
   const inp = document.getElementById('odt-chat-input');
   const btn = document.getElementById('odt-chat-send-btn');
+  const roleSel = document.getElementById('odt-chat-role-sel');
   if (!inp || !_v2SelOrg) return;
   const text = inp.value.trim();
   if (!text) return;
+  const role = roleSel ? roleSel.value : '';
   inp.value = '';
   btn.disabled = true;
   try {
     const _sendQ = DIR ? '?dir=' + encodeURIComponent(DIR) : '';
-    const res = await fetch('/api/orgs/'+encodeURIComponent(_v2SelOrg)+'/chat'+_sendQ, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, runId: _odtChatCurrentId || null }) });
+    const res = await fetch('/api/orgs/'+encodeURIComponent(_v2SelOrg)+'/chat'+_sendQ, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, role: role || undefined, runId: _odtChatCurrentId || null }) });
     const data = await res.json().catch(() => ({}));
     if (!data.delivered) {
       const lbl = document.getElementById('odt-chat-live-lbl');
