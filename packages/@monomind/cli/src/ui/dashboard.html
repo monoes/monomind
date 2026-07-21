@@ -8783,6 +8783,7 @@ window.v2DeleteOrg = async function() {
     if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'HTTP ' + r.status); }
     showToast('Deleted', `Org "${name}" deleted`, 'ok');
     _v2SelOrg = null;
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
     const inner = document.getElementById('org-detail-inner');
     if (inner) inner.style.display = 'none';
     const noSel = document.querySelector('.orgs-no-sel');
