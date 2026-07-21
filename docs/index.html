@@ -604,7 +604,7 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">RETRIEVE</div><div class="phase-desc">Keyword/Jaccard scoring of stored patterns and episodes against the prompt. Top matches are injected as context.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 2</div><div class="phase-name">LOG</div><div class="phase-desc">Trajectories, steps, and command/route outcomes are recorded (<code>intelligence.ts</code>, <code>command-outcomes.ts</code>, <code>route-outcomes.ts</code>).</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 3</div><div class="phase-name">MEASURE</div><div class="phase-desc">Recommended routes are correlated with actual outcomes; <code>doctor</code> reports routing accuracy and adherence.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">CONSOLIDATE</div><div class="phase-desc">Dedup, detect contradictions, and prune old patterns from <code>patterns.json</code>. The neural judge/distill loop lives on the <code>monoes-full-loop</code> branch.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">CONSOLIDATE</div><div class="phase-desc">Dedup, detect contradictions, and prune old patterns from <code>patterns.json</code>.</div></div></div>
     </div>
   </div>
 </div>
@@ -781,7 +781,6 @@ monomind doc ingest ./their-knowledge -s shared
 
 <span class="comment"># Routing accuracy / adherence</span>
 <span class="cmd">npx monomind doctor</span></div>
-    <p class="page-desc reveal" style="margin-top:20px">The full neural learning loop — SONA self-optimizing architecture, LoRA adapters, EWC++ memory preservation, Flash Attention, MoE routing, and the RL agent suite — lives on the <code>monoes-full-loop</code> branch and is not available in the lean build.</p>
   </div>
 </div>
 
