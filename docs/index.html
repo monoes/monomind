@@ -698,8 +698,9 @@ monomind doc ingest ./their-knowledge -s shared
       <div class="topo-card"><div class="topo-name">Mesh</div><div class="topo-desc">Peer-to-peer, all agents equal. Best for distributed analysis with no single authority.</div></div>
       <div class="topo-card"><div class="topo-name">Hierarchical-Mesh</div><div class="topo-desc">Queen manages peer clusters. Recommended for large swarms.</div></div>
       <div class="topo-card"><div class="topo-name">Adaptive</div><div class="topo-desc">Reconfigures topology dynamically. High overhead — use for long-running sessions.</div></div>
-      <div class="topo-card"><div class="topo-name">Centralized</div><div class="topo-desc">Single coordinator, fan-out workers. Fastest for homogeneous parallel tasks.</div></div>
+      <div class="topo-card"><div class="topo-name">Ring</div><div class="topo-desc">Circular communication pattern — each agent talks to its neighbors in a loop.</div></div>
       <div class="topo-card"><div class="topo-name">Star</div><div class="topo-desc">Hub-and-spoke. Testing swarms — one orchestrator, N independent runners.</div></div>
+      <div class="topo-card"><div class="topo-name">Hybrid</div><div class="topo-desc">Hierarchical mesh for maximum flexibility — combines hierarchy with peer links.</div></div>
     </div>
     <div class="section-title reveal">Consensus Strategies (Vote-Count Thresholds)</div>
     <div class="table-wrap reveal">
