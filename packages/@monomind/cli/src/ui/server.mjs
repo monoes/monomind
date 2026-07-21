@@ -5498,8 +5498,10 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const _delOrgQs = new URL(req.url, 'http://localhost').searchParams;
         const orgsDir = path.join(path.resolve(_delOrgQs.get('dir') || projectDir || process.cwd()), '.monomind', 'orgs');
         const configFile = path.join(orgsDir, `${orgName}.json`);
-        if (!fs.existsSync(configFile)) { res.writeHead(404); res.end('{"error":"org not found"}'); return; }
+        const v1ConfigFile = path.join(orgsDir, `${orgName}.v1.json`);
+        if (!fs.existsSync(configFile) && !fs.existsSync(v1ConfigFile)) { res.writeHead(404); res.end('{"error":"org not found"}'); return; }
         // Remove all org-associated files (config + state + data)
+        try { if (fs.existsSync(v1ConfigFile)) fs.unlinkSync(v1ConfigFile); } catch(_) {}
         const suffixes = ['', '-state', '-goals', '-routines', '-approvals', '-activity', '-issues', '-members', '-projects', '-workspaces', '-worktrees', '-environments', '-plugins', '-adapters', '-budgets', '-threads', '-secrets', '-join-requests', '-bootstrap', '-project-workspaces', '-approval-comments', '-skills'];
         for (const suf of suffixes) {
           const f = path.join(orgsDir, `${orgName}${suf}.json`);
